@@ -1,0 +1,283 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+uses prng;
+
+fn get_random(implicit p : prng_state) : (prng_state, int)
+[
+	var r : int;
+	r := prng_get_uint32();
+	var result := prng_get_int(r mod 144);
+	if (r and #80000000) <> 0 then
+		result := not result;
+	return result;
+]
+
+fn num_to_str(n : int) : bytes
+[
+	if is_exception n then
+		return "exception: " + ntos(exception_class n) + ", " + ntos(exception_type n) + ", " + ntos(exception_aux n);
+	else
+		return ntos_base(n, 16);
+]
+
+fn xlate_exception(n : int) : int
+[
+	if is_exception n then
+		return #12345678 + exception_class n + #10 * exception_type n + #100 * exception_aux n;
+	return n;
+]
+
+fn eval_number(implicit w : world, implicit h : handle, t : type, implicit c : class_integer_number(t), s : bytes, a : t, b : t) : (world, int)
+[
+	var p1 := a + b;
+	var p2 := a - b;
+	var p3 := a * b;
+	var p4 := a div b;
+	var p5 := a mod b;
+	var p6 := ipower(a, b and 7);
+	var p7 := a and b;
+	var p8 := a or b;
+	var p9 := a xor b;
+	var p10 := a shl (b and 255);
+	var p11 := a shr b;
+	var p12 := a bts (b and 255);
+	var p13 := a btr (b and 255);
+	var p14 := a btc (b and 255);
+	var p15 := select(a = b, 0, 1);
+	var p16 := select(a <> b, 0, 1);
+	var p17 := select(a < b, 0, 1);
+	var p18 := select(a <= b, 0, 1);
+	var p19 := select(a > b, 0, 1);
+	var p20 := select(a >= b, 0, 1);
+	var p21 := select(a bt b, 0, 1);
+	var p22 := not a;
+	var p23 := -a;
+	var p24 := bsf a;
+	var p25 := bsr a;
+	var p26 := popcnt a;
+	var p27 := a + 1;
+	var p28 := a - 1;
+
+	write(s + " plus: " + num_to_str(p1) + nl);
+	write(s + " minus: " + num_to_str(p2) + nl);
+	write(s + " multiply: " + num_to_str(p3) + nl);
+	write(s + " divide: " + num_to_str(p4) + nl);
+	write(s + " modulo: " + num_to_str(p5) + nl);
+	write(s + " power: " + num_to_str(p6) + nl);
+	write(s + " and: " + num_to_str(p7) + nl);
+	write(s + " or: " + num_to_str(p8) + nl);
+	write(s + " xor: " + num_to_str(p9) + nl);
+	write(s + " shl: " + num_to_str(p10) + nl);
+	write(s + " shr: " + num_to_str(p11) + nl);
+	write(s + " bts: " + num_to_str(p12) + nl);
+	write(s + " btr: " + num_to_str(p13) + nl);
+	write(s + " btc: " + num_to_str(p14) + nl);
+	write(s + " equal: " + num_to_str(p15) + nl);
+	write(s + " not_equal: " + num_to_str(p16) + nl);
+	write(s + " less: " + num_to_str(p17) + nl);
+	write(s + " less_equal: " + num_to_str(p18) + nl);
+	write(s + " greater: " + num_to_str(p19) + nl);
+	write(s + " greater_equal: " + num_to_str(p20) + nl);
+	write(s + " bt: " + num_to_str(p21) + nl);
+	write(s + " not: " + num_to_str(p22) + nl);
+	write(s + " neg: " + num_to_str(p23) + nl);
+	write(s + " bsf: " + num_to_str(p24) + nl);
+	write(s + " bsr: " + num_to_str(p25) + nl);
+	write(s + " popcnt: " + num_to_str(p26) + nl);
+	write(s + " inc: " + num_to_str(p27) + nl);
+	write(s + " dec: " + num_to_str(p28) + nl);
+
+	p1 := xlate_exception(p1);
+	p2 := xlate_exception(p2);
+	p3 := xlate_exception(p3);
+	p4 := xlate_exception(p4);
+	p5 := xlate_exception(p5);
+	p6 := xlate_exception(p6);
+	p7 := xlate_exception(p7);
+	p8 := xlate_exception(p8);
+	p9 := xlate_exception(p9);
+	p10 := xlate_exception(p10);
+	p11 := xlate_exception(p11);
+	p12 := xlate_exception(p12);
+	p13 := xlate_exception(p13);
+	p14 := xlate_exception(p14);
+	p15 := xlate_exception(p15);
+	p16 := xlate_exception(p16);
+	p17 := xlate_exception(p17);
+	p18 := xlate_exception(p18);
+	p19 := xlate_exception(p19);
+	p20 := xlate_exception(p20);
+	p21 := xlate_exception(p21);
+	p22 := xlate_exception(p22);
+	p23 := xlate_exception(p23);
+	p24 := xlate_exception(p24);
+	p25 := xlate_exception(p25);
+	p26 := xlate_exception(p26);
+	p27 := xlate_exception(p27);
+	p28 := xlate_exception(p28);
+
+	var p := p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 + p10 + p11 + p12 + p13 + p14 + p15 + p16 + p17 + p18 + p19 + p20 + p21 + p22 + p23 + p24 + p25 + p26 + p27 + p28;
+	if is_exception p then
+		eval internal("Integer operation generated an exception");
+	return p;
+]
+
+fn eval_fixed_number(implicit w : world, implicit h : handle, t : type, implicit c : class_fixed_integer_number(t), s : bytes, aa bb : int) : (world, int)
+[
+	//write("testing fixed: " + ntos(c.bits) + ", " + select(c.unsigned, "signed", "unsigned") + nl);
+
+	aa and= (1 shl c.bits) - 1;
+	bb and= (1 shl c.bits) - 1;
+
+	if not c.unsigned then [
+		if aa bt c.bits - 1 then
+			aa -= 1 shl c.bits;
+		if bb bt c.bits - 1 then
+			bb -= 1 shl c.bits;
+	]
+
+	var a : t := aa;
+	var b : t := bb;
+
+	var p1 := a + b;
+	var p2 := a - b;
+	var p3 := a * b;
+	var p4 := a div b;
+	var p5 := a mod b;
+	var p6 := ipower(a, b);
+	var p7 := a and b;
+	var p8 := a or b;
+	var p9 := a xor b;
+	var p10 := a shl b;
+	var p11 := a shr b;
+	var p12 := a rol b;
+	var p13 := a ror b;
+	var p14 := a bts b;
+	var p15 := a btr b;
+	var p16 := a btc b;
+	var p17 := select(a = b, 0, 1);
+	var p18 := select(a <> b, 0, 1);
+	var p19 := select(a < b, 0, 1);
+	var p20 := select(a <= b, 0, 1);
+	var p21 := select(a > b, 0, 1);
+	var p22 := select(a >= b, 0, 1);
+	var p23 := select(a bt b, 0, 1);
+	var p24 := not a;
+	var p25 := -a;
+	var p26 := bswap a;
+	var p27 := brev a;
+	var p28 := bsf a;
+	var p29 := bsr a;
+	var p30 := popcnt a;
+	var p31 := a + 1;
+	var p32 := a - 1;
+
+	write(s + " plus: " + ntos_base(p1, 16) + nl);
+	write(s + " minus: " + ntos_base(p2, 16) + nl);
+	write(s + " multiply: " + ntos_base(p3, 16) + nl);
+	write(s + " divide: " + ntos_base(p4, 16) + nl);
+	write(s + " modulo: " + ntos_base(p5, 16) + nl);
+	write(s + " power: " + ntos_base(p6, 16) + nl);
+	write(s + " and: " + ntos_base(p7, 16) + nl);
+	write(s + " or: " + ntos_base(p8, 16) + nl);
+	write(s + " xor: " + ntos_base(p9, 16) + nl);
+	write(s + " shl: " + ntos_base(p10, 16) + nl);
+	write(s + " shr: " + ntos_base(p11, 16) + nl);
+	write(s + " rol: " + ntos_base(p12, 16) + nl);
+	write(s + " ror: " + ntos_base(p13, 16) + nl);
+	write(s + " bts: " + ntos_base(p14, 16) + nl);
+	write(s + " btr: " + ntos_base(p15, 16) + nl);
+	write(s + " btc: " + ntos_base(p16, 16) + nl);
+	write(s + " equal: " + ntos_base(p17, 16) + nl);
+	write(s + " not_equal: " + ntos_base(p18, 16) + nl);
+	write(s + " less: " + ntos_base(p19, 16) + nl);
+	write(s + " less_equal: " + ntos_base(p20, 16) + nl);
+	write(s + " greater: " + ntos_base(p21, 16) + nl);
+	write(s + " greater_equal: " + ntos_base(p22, 16) + nl);
+	write(s + " bt: " + ntos_base(p23, 16) + nl);
+	write(s + " not: " + ntos_base(p24, 16) + nl);
+	write(s + " neg: " + ntos_base(p25, 16) + nl);
+	write(s + " bswap: " + ntos_base(p26, 16) + nl);
+	write(s + " brev: " + ntos_base(p27, 16) + nl);
+	write(s + " bsf: " + ntos_base(p28, 16) + nl);
+	write(s + " bsr: " + ntos_base(p29, 16) + nl);
+	write(s + " popcnt: " + ntos_base(p30, 16) + nl);
+	write(s + " inc: " + ntos_base(p31, 16) + nl);
+	write(s + " dec: " + ntos_base(p32, 16) + nl);
+
+	var p := p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 + p10 + p11 + p12 + p13 + p14 + p15 + p16 + p17 + p18 + p19 + p20 + p21 + p22 + p23 + p24 + p25 + p26 + p27 + p28 + p29 + p30 + p31 + p32;
+	if is_exception p then [
+		eval internal("Fixed operation generated an exception");
+	]
+	return p;
+]
+
+fn main(implicit w : world, d : dhandle, h : list(handle), args : list(bytes), env : treemap(bytes, bytes)) : world
+[
+	implicit var p := prng_init(0);
+	var limit := 1000000000000000000;
+	if len(args) > 0 then
+		limit := ston(args[0]);
+	for i := 0 to limit do [
+		write(h[1], "iteration: " + ntos(i) + nl);
+		var a := get_random();
+		var b := get_random();
+		write(h[1], "a = " + ntos_base(a, 16) + ", b = " + ntos_base(b, 16) + nl);
+		var i1 := eval_number~inline(h[1], int, instance_number_int, "int   ", a, b);
+		var i2 := eval_number~inline(h[1], int8, instance_number_int8, "int8  ", a, b);
+		var i3 := eval_number~inline(h[1], int16, instance_number_int16, "int16 ", a, b);
+		var i4 := eval_number~inline(h[1], int32, instance_number_int32, "int32 ", a, b);
+		var i5 := eval_number~inline(h[1], int64, instance_number_int64, "int64 ", a, b);
+		var i6 := eval_number~inline(h[1], int128, instance_number_int128, "int128", a, b);
+		if i1 <> i2 or i1 <> i3 or i1 <> i4 or i1 <> i5 or i1 <> i6 then [
+			abort internal("Mismatch between int operations");
+		]
+		var s1 := eval_fixed_number~inline(h[1], sint8, instance_fixed_integer_number_sint8, "sint8", a, b);
+		var s2 := eval_fixed_number~inline(h[1], sint16, instance_fixed_integer_number_sint16, "sint16", a, b);
+		var s3 := eval_fixed_number~inline(h[1], sint32, instance_fixed_integer_number_sint32, "sint32", a, b);
+		var s4 := eval_fixed_number~inline(h[1], sint64, instance_fixed_integer_number_sint64, "sint64", a, b);
+		var s5 := eval_fixed_number~inline(h[1], sint128, instance_fixed_integer_number_sint128, "sint128", a, b);
+		var u1 := eval_fixed_number~inline(h[1], uint8, instance_fixed_integer_number_uint8, "uint8", a, b);
+		var u2 := eval_fixed_number~inline(h[1], uint16, instance_fixed_integer_number_uint16, "uint16", a, b);
+		var u3 := eval_fixed_number~inline(h[1], uint32, instance_fixed_integer_number_uint32, "uint32", a, b);
+		var u4 := eval_fixed_number~inline(h[1], uint64, instance_fixed_integer_number_uint64, "uint64", a, b);
+		var u5 := eval_fixed_number~inline(h[1], uint128, instance_fixed_integer_number_uint128, "uint128", a, b);
+
+		var sx1 := eval_fixed_number(h[1], sint(8), instance_fixed_integer_number_sint(8), "si(8)", a, b);
+		var sx2 := eval_fixed_number(h[1], sint(16), instance_fixed_integer_number_sint(16), "si(16)", a, b);
+		var sx3 := eval_fixed_number(h[1], sint(32), instance_fixed_integer_number_sint(32), "si(32)", a, b);
+		var sx4 := eval_fixed_number(h[1], sint(64), instance_fixed_integer_number_sint(64), "si(64)", a, b);
+		var sx5 := eval_fixed_number(h[1], sint(128), instance_fixed_integer_number_sint(128), "si(128)", a, b);
+		var ux1 := eval_fixed_number(h[1], uint(8), instance_fixed_integer_number_uint(8), "ui(8)", a, b);
+		var ux2 := eval_fixed_number(h[1], uint(16), instance_fixed_integer_number_uint(16), "ui(16)", a, b);
+		var ux3 := eval_fixed_number(h[1], uint(32), instance_fixed_integer_number_uint(32), "ui(32)", a, b);
+		var ux4 := eval_fixed_number(h[1], uint(64), instance_fixed_integer_number_uint(64), "ui(64)", a, b);
+		var ux5 := eval_fixed_number(h[1], uint(128), instance_fixed_integer_number_uint(128), "ui(128)", a, b);
+
+		if s1 <> sx1 or s2 <> sx2 or s3 <> sx3 or s4 <> sx4 or s5 <> sx5 then [
+			abort internal("Mismatch between signed fixed operations");
+		]
+		if u1 <> ux1 or u2 <> ux2 or u3 <> ux3 or u4 <> ux4 or u5 <> ux5 then [
+			abort internal("Mismatch between unsigned fixed operations");
+		]
+
+		if is_exception w then
+			break;
+	]
+]

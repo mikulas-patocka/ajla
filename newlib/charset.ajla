@@ -1,0 +1,1084 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit charset;
+
+uses treemap;
+
+const u_nl : char;
+const error_char : char;
+const error_ascii : byte;
+
+const combining_shift : char := 21;
+const combining_mask : char := (1 shl combining_shift) - 1;
+const unicode_mask : char := #1FFFFF;
+fn n_combining_characters(code : char) : int;
+
+fn char_validate~inline(c : char) : bool;
+fn char_to_unicode~inline(c : char) : int;
+fn char_upcase(c : char) : char;
+fn char_locase(c : char) : char;
+fn string_upcase(s : string) : string;
+fn string_locase(s : string) : string;
+
+fn ascii_upcase~inline(ascii : byte) : byte;
+fn ascii_locase~inline(ascii : byte) : byte;
+fn ascii_to_string(ascii : bytes) : string;
+fn string_to_ascii(str : string) : bytes;
+
+fn utf8_validate(utf8 : bytes) : bool;
+fn utf8_get_char(utf8 : bytes) : (char, int);
+fn utf8_to_string(utf8 : bytes) : string;
+fn string_to_utf8(s : string) : bytes;
+
+const class_combining : int := -1;
+const class_zero : int := 0;
+const class_one : int := 1;
+const class_two : int := 2;
+fn classify_character(code : char) : int;
+fn char_length~inline(c : char) : int;
+fn string_length(s : string) : int;
+
+type locale;
+option locale_mode [
+	eightbit;
+	utf8;
+]
+record charset_desc [
+	label : string;
+	mime_name : bytes;
+	mode : locale_mode;
+]
+
+fn locale_get_charset~inline(loc : locale) : charset_desc;
+fn locale_validate_character~inline(loc : locale, code : char) : bool;
+fn locale_validate~inline(loc : locale, b : bytes) : bool;
+fn locale_get_char(loc : locale, b : bytes) : (char, int);
+fn locale_to_string~inline(loc : locale, b : bytes) : string;
+fn string_to_locale~inline(loc : locale, s : string) : bytes;
+fn charset_name_normalize(charset : bytes) : bytes;
+fn locale_get~cache(lc : bytes) : locale;
+fn locale_init(env : treemap(bytes, bytes)) : locale;
+fn locale_console_init(env : treemap(bytes, bytes)) : locale;
+
+fn charset_list~cache : list(charset_desc);
+
+implementation
+
+uses exception;
+uses pcode;
+uses uni_table;
+uses uni_fallback;
+uses uni_case;
+uses io;
+
+const u_nl : char := 10;
+const error_char : char := -1;
+const error_ascii : byte := '*';
+
+const lazy_buffer_size := 4096;
+
+record charset_8bit [
+	label : string;
+	mime_name : bytes;
+	chr_to_unicode : array(char, [128]);
+	unicode_to_chr : list(byte);
+]
+
+fn n_combining_characters(code : char) : int
+[
+	var b := bsr(code or 1);
+	return b div combining_shift;
+]
+
+fn validate_unicode~inline(c : char) : bool
+[
+	if c >= #110000 then
+		return false;
+	if c >= #D800, c < #E000 then
+		return false;
+	return true;
+]
+
+fn char_validate~inline(c : char) : bool
+[
+	if c < 0 then
+		return false;
+	if not validate_unicode(c and unicode_mask) then
+		return false;
+	for i := 0 to n_combining_characters(c) do [
+		var cc := (c shr (i + 1) * combining_shift);
+		if not validate_unicode(cc and unicode_mask) then
+			return false;
+	]
+	return true;
+]
+
+fn char_to_unicode~inline(c : char) : int
+[
+	return c and unicode_mask;
+]
+
+fn uplocase~inline(a : array(char, [#110000]), c : char) : char
+[
+	if not char_validate(c) then
+		return c;
+	var u := c and unicode_mask;
+	var v := a[u];
+	if v = 0 then
+		return c;
+	return c and not unicode_mask or v;
+]
+
+fn char_upcase(c : char) : char
+[
+	return uplocase(uni_upcase, c);
+]
+
+fn char_locase(c : char) : char
+[
+	return uplocase(uni_locase, c);
+]
+
+fn string_upcase(s : string) : string
+[
+	for i := 0 to len(s) do
+		s[i] := char_upcase~inline(s[i]);
+	return s;
+]
+
+fn string_locase(s : string) : string
+[
+	for i := 0 to len(s) do
+		s[i] := char_locase~inline(s[i]);
+	return s;
+]
+
+fn ascii_upcase~inline(ascii : byte) : byte
+[
+	if ascii >= 'a', ascii <= 'z' then
+		return ascii - 32;
+	return ascii;
+]
+
+fn ascii_locase~inline(ascii : byte) : byte
+[
+	if ascii >= 'A', ascii <= 'Z' then
+		return ascii + 32;
+	return ascii;
+]
+
+fn ascii_to_string(ascii : bytes) : string
+[
+	var s := empty(char);
+	for i := 0 to len(ascii) do [
+		var c := ascii[i];
+		if c < 128 then
+			s +<= c;
+		else
+			s +<= error_char;
+	]
+	return s;
+]
+
+fn string_to_ascii(str : string) : bytes
+[
+	var s := empty(byte);
+	for i := 0 to len(str) do [
+		var c := str[i];
+		if c >= 0, c < 128 then
+			s +<= c;
+		else
+			s +<= error_ascii;
+	]
+	return s;
+]
+
+fn utf8_validate(utf8 : bytes) : bool
+[
+	var i := 0;
+	while len_greater_than(utf8, i) do [
+		var st := i;
+		var code : char;
+		if utf8[i] < #80 then [
+			code := utf8[i];
+			i += 1;
+		] else if utf8[i] < #c0 then [
+			return false;
+		] else if utf8[i] < #e0, len_at_least(utf8, i + 2) then [
+			if utf8[i + 1] < #80 or utf8[i + 1] >= #c0 then
+				return false;
+			code := (#1f and utf8[i]) shl 6 or (#3f and utf8[i + 1]);
+			if code < #80 then
+				return false;
+			i += 2;
+		] else if utf8[i] < #f0, len_at_least(utf8, i + 3) then [
+			if utf8[i + 1] < #80 or utf8[i + 1] >= #c0 then
+				return false;
+			if utf8[i + 2] < #80 or utf8[i + 2] >= #c0 then
+				return false;
+			code := (#0f and utf8[i]) shl 12 or (#3f and utf8[i + 1]) shl 6 or (#3f and utf8[i + 2]);
+			if code < #800 then
+				return false;
+			i += 3;
+		] else if utf8[i] < #f8, len_at_least(utf8, i + 4) then [
+			if utf8[i + 1] < #80 or utf8[i + 1] >= #c0 then
+				return false;
+			if utf8[i + 2] < #80 or utf8[i + 2] >= #c0 then
+				return false;
+			if utf8[i + 3] < #80 or utf8[i + 3] >= #c0 then
+				return false;
+			code := (#07 and utf8[i]) shl 18 or (#3f and utf8[i + 1]) shl 12 or (#3f and utf8[i + 2]) shl 6 or (#3f and utf8[i + 3]);
+			if code < #10000 or code > #10ffff then
+				return false;
+			i += 4;
+		] else [
+			return false;
+		]
+		if not char_validate(code) then
+			return false;
+		if st = 0, classify_character(code) = class_combining then
+			return false;
+	]
+	return true;
+]
+
+fn utf8_get_char(utf8 : bytes) : (char, int)
+[
+	var i := 0;
+	var result : char := -1;
+	while len_greater_than(utf8, i) do [
+		var st := i;
+		var code : char;
+		if utf8[i] < #80 then [
+			code := utf8[i];
+			i += 1;
+		] else if utf8[i] < #c0 then [
+			goto abrt;
+		] else if utf8[i] < #e0 then [
+			if not len_at_least(utf8, i + 2) then
+				break;
+			if utf8[i + 1] < #80 or utf8[i + 1] >= #c0 then
+				goto abrt;
+			code := (#1f and utf8[i]) shl 6 or (#3f and utf8[i + 1]);
+			if code < #80 then
+				goto abrt;
+			i += 2;
+		] else if utf8[i] < #f0 then [
+			if not len_at_least(utf8, i + 3) then
+				break;
+			if utf8[i + 1] < #80 or utf8[i + 1] >= #c0 then
+				goto abrt;
+			if utf8[i + 2] < #80 or utf8[i + 2] >= #c0 then
+				goto abrt;
+			code := (#0f and utf8[i]) shl 12 or (#3f and utf8[i + 1]) shl 6 or (#3f and utf8[i + 2]);
+			if code < #800 then
+				goto abrt;
+			i += 3;
+		] else if utf8[i] < #f8 then [
+			if not len_at_least(utf8, i + 4) then
+				break;
+			if utf8[i + 1] < #80 or utf8[i + 1] >= #c0 then
+				goto abrt;
+			if utf8[i + 2] < #80 or utf8[i + 2] >= #c0 then
+				goto abrt;
+			if utf8[i + 3] < #80 or utf8[i + 3] >= #c0 then
+				goto abrt;
+			code := (#07 and utf8[i]) shl 18 or (#3f and utf8[i + 1]) shl 12 or (#3f and utf8[i + 2]) shl 6 or (#3f and utf8[i + 3]);
+			if code < #10000 then
+				goto abrt;
+			i += 4;
+		] else [
+abrt:
+			if result <> -1 then
+				return result, st;
+			return error_char, st + 1;
+		]
+		if not validate_unicode(code) then
+			goto abrt;
+		if classify_character(code) = class_combining then [
+			if result = -1 then
+				return error_char, i;
+			var n := n_combining_characters(result);
+			result or= code shl (n + 1) * combining_shift;
+		] else [
+			if result <> -1 then
+				return result, st;
+			result := code;
+		]
+	]
+	if result = -1 then
+		return error_char, select(len_greater_than(utf8, 0), 0, 1);
+	return result, i;
+]
+
+fn utf8_to_string(utf8 : bytes) : string
+[
+	var s := empty(char);
+	var processed := 0;
+	while len_greater_than(utf8, 0) do [
+		var c, i := utf8_get_char~inline(utf8);
+		utf8 := utf8[i .. ];
+		s +<= c;
+		processed += i;
+		if processed >= lazy_buffer_size then
+			return s + utf8_to_string~lazy(utf8);
+	]
+	return s;
+]
+
+fn char_to_utf8~inline(code : char) : bytes
+[
+	if code < 0 then
+		return bytes.[ error_ascii ];
+	else if code < #80 then
+		return bytes.[ code ];
+	else if code < #800 then
+		return bytes.[ code shr 6 or #c0, code and #3f or #80 ];
+	else if code < #10000 then
+		return bytes.[ code shr 12 or #e0, code shr 6 and #3f or #80, code and #3f or #80 ];
+	else if code < #110000 then
+		return bytes.[ code shr 18 or #f0, code shr 12 and #3f or #80, code shr 6 and #3f or #80, code and #3f or #80 ];
+	else
+		return bytes.[ error_ascii ];
+]
+
+fn string_to_utf8(s : string) : bytes
+[
+	var result := empty(byte);
+	for i in list_iterator(s) do [
+		if i >= lazy_buffer_size then
+			return result + string_to_utf8~lazy(s[i .. ]);
+		var code := s[i];
+again:
+		result += char_to_utf8(code and unicode_mask);
+		code shr= combining_shift;
+		if code <> 0 then
+			goto again;
+	]
+	return result;
+]
+
+fn ch8_validate_character(ch8 : charset_8bit, c : char) : bool
+[
+	if not char_validate(c) then
+		return false;
+	if n_combining_characters(c) > 0 then
+		return false;
+	c and= unicode_mask;
+	if c < #80 then
+		return true;
+	return ch8.unicode_to_chr[c] > 0;
+]
+
+fn ch8_validate(ch8 : charset_8bit, ch : bytes) : bool
+[
+	for i := 0 to len(ch) do [
+		var b := ch[i];
+		if b < #80 then [
+			continue;
+		] else [
+			var uni := ch8.chr_to_unicode[b - #80];
+			if uni = 0 then
+				return false;
+		]
+	]
+	return true;
+]
+
+fn ch8_get_char(ch8 : charset_8bit, ch : bytes) : (char, int)
+[
+	if not len_greater_than(ch, 0) then
+		return error_char, 0;
+	var b := ch[0];
+	if b < #80 then
+		return b, 1;
+	var uni := ch8.chr_to_unicode[b - #80];
+	if uni = 0 or classify_character(uni) = class_combining then
+		uni := error_char;
+	return uni, 1;
+]
+
+fn ch8_to_string(ch8 : charset_8bit, ch : bytes) : string
+[
+	var s := empty(char);
+	while len_greater_than(ch, 0) do [
+		var c, i := ch8_get_char~inline(ch8, ch);
+		s +<= c;
+		ch := ch[i .. ];
+		if len(s) >= lazy_buffer_size then
+			return s + ch8_to_string~lazy(ch8, ch);
+	]
+	return s;
+]
+
+fn string_to_ch8(ch8 : charset_8bit, s : string) : bytes
+[
+	var result := empty(byte);
+	for i in list_iterator(s) do [
+		if i >= lazy_buffer_size then
+			return result + string_to_ch8~lazy(ch8, s[i .. ]);
+		var uni := s[i];
+recheck:
+		if uni < 0 then [
+			result +<= error_ascii;
+		] else if uni < #80 then [
+			result +<= uni;
+		] else if uni < #110000 then [
+			var b := ch8.unicode_to_chr[uni];
+			if b > 0 then [
+				result +<= b;
+			] else [
+				var cls := classify_character(uni);
+				if cls = 1 then [
+					uni := uni_fallback[uni];
+					if uni <> 0 then
+						goto recheck;
+					result +<= error_ascii;
+				] else if cls = 2 then [
+					result += [ error_ascii, error_ascii ];
+				]
+			]
+		] else [
+			result +<= error_ascii;
+		]
+	]
+	return result;
+]
+
+fn classify_character(code : char) : int
+[
+	code and= unicode_mask;
+
+	if code >= #20, code < #7F then
+		return class_one;
+
+	var table := uni_table;
+	var start := 0;
+	var end := len(table) shr 1;
+
+	while start < end - 1 do [
+		var mid := start + end shr 1;
+		if table[mid shl 1] > code then [
+			end := mid;
+		] else [
+			start := mid;
+		]
+	]
+
+	return table[(start shl 1) + 1];
+]
+
+fn char_length~inline(c : char) : int
+[
+	if c >= #20, c < #7F then
+		return class_one;
+
+	var cls := classify_character(c);
+	if cls >= 0 then
+		return cls;
+	return 0;
+]
+
+fn string_length(s : string) : int
+[
+	var l := 0;
+	for i := 0 to len(s) do [
+		var cls := classify_character(s[i]);
+		if cls >= 1 then
+			l += cls;
+	]
+	return l;
+]
+
+
+record locale [
+	charset : charset_desc;
+	locale_validate_character : fn(char) : bool;
+	locale_validate : fn(bytes) : bool;
+	locale_get_char : fn(bytes) : (char, int);
+	locale_to_string : fn(bytes) : string;
+	string_to_locale : fn(string) : bytes;
+]
+
+record language [
+	loc_name : bytes;
+	default_charset : bytes;
+]
+
+const languages~cache : list(language) := [
+	language.[ loc_name : "C", default_charset : "us-ascii" ],
+	language.[ loc_name : "aa_DJ", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "aa_ER", default_charset : "UTF-8" ],
+	language.[ loc_name : "aa_ER@saaho", default_charset : "UTF-8" ],
+	language.[ loc_name : "aa_ET", default_charset : "UTF-8" ],
+	language.[ loc_name : "af_ZA", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "agr_PE", default_charset : "UTF-8" ],
+	language.[ loc_name : "ak_GH", default_charset : "UTF-8" ],
+	language.[ loc_name : "am_ET", default_charset : "UTF-8" ],
+	language.[ loc_name : "an_ES", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "anp_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "ar_AE", default_charset : "ISO-8859-6" ],
+	language.[ loc_name : "ar_BH", default_charset : "ISO-8859-6" ],
+	language.[ loc_name : "ar_DZ", default_charset : "ISO-8859-6" ],
+	language.[ loc_name : "ar_EG", default_charset : "ISO-8859-6" ],
+	language.[ loc_name : "ar_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "ar_IQ", default_charset : "ISO-8859-6" ],
+	language.[ loc_name : "ar_JO", default_charset : "ISO-8859-6" ],
+	language.[ loc_name : "ar_KW", default_charset : "ISO-8859-6" ],
+	language.[ loc_name : "ar_LB", default_charset : "ISO-8859-6" ],
+	language.[ loc_name : "ar_LY", default_charset : "ISO-8859-6" ],
+	language.[ loc_name : "ar_MA", default_charset : "ISO-8859-6" ],
+	language.[ loc_name : "ar_OM", default_charset : "ISO-8859-6" ],
+	language.[ loc_name : "ar_QA", default_charset : "ISO-8859-6" ],
+	language.[ loc_name : "ar_SA", default_charset : "ISO-8859-6" ],
+	language.[ loc_name : "ar_SD", default_charset : "ISO-8859-6" ],
+	language.[ loc_name : "ar_SS", default_charset : "UTF-8" ],
+	language.[ loc_name : "ar_SY", default_charset : "ISO-8859-6" ],
+	language.[ loc_name : "ar_TN", default_charset : "ISO-8859-6" ],
+	language.[ loc_name : "ar_YE", default_charset : "ISO-8859-6" ],
+	language.[ loc_name : "as_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "ast_ES", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "ayc_PE", default_charset : "UTF-8" ],
+	language.[ loc_name : "az_AZ", default_charset : "UTF-8" ],
+	language.[ loc_name : "az_IR", default_charset : "UTF-8" ],
+	language.[ loc_name : "be_BY", default_charset : "CP1251" ],
+	language.[ loc_name : "be_BY@latin", default_charset : "UTF-8" ],
+	language.[ loc_name : "bem_ZM", default_charset : "UTF-8" ],
+	language.[ loc_name : "ber_DZ", default_charset : "UTF-8" ],
+	language.[ loc_name : "ber_MA", default_charset : "UTF-8" ],
+	language.[ loc_name : "bg_BG", default_charset : "CP1251" ],
+	language.[ loc_name : "bhb_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "bho_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "bho_NP", default_charset : "UTF-8" ],
+	language.[ loc_name : "bi_VU", default_charset : "UTF-8" ],
+	language.[ loc_name : "bn_BD", default_charset : "UTF-8" ],
+	language.[ loc_name : "bn_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "bo_CN", default_charset : "UTF-8" ],
+	language.[ loc_name : "bo_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "br_FR", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "br_FR@euro", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "brx_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "bs_BA", default_charset : "ISO-8859-2" ],
+	language.[ loc_name : "byn_ER", default_charset : "UTF-8" ],
+	language.[ loc_name : "ca_AD", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "ca_ES", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "ca_ES@euro", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "ca_ES@valencia", default_charset : "UTF-8" ],
+	language.[ loc_name : "ca_FR", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "ca_IT", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "ce_RU", default_charset : "UTF-8" ],
+	language.[ loc_name : "chr_US", default_charset : "UTF-8" ],
+	language.[ loc_name : "cmn_TW", default_charset : "UTF-8" ],
+	language.[ loc_name : "crh_UA", default_charset : "UTF-8" ],
+	language.[ loc_name : "cs_CZ", default_charset : "ISO-8859-2" ],
+	language.[ loc_name : "csb_PL", default_charset : "UTF-8" ],
+	language.[ loc_name : "cv_RU", default_charset : "UTF-8" ],
+	language.[ loc_name : "cy_GB", default_charset : "ISO-8859-14" ],
+	language.[ loc_name : "da_DK", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "de_AT", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "de_AT@euro", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "de_BE", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "de_BE@euro", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "de_CH", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "de_DE", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "de_DE@euro", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "de_IT", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "de_LI", default_charset : "UTF-8" ],
+	language.[ loc_name : "de_LU", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "de_LU@euro", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "doi_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "dsb_DE", default_charset : "UTF-8" ],
+	language.[ loc_name : "dv_MV", default_charset : "UTF-8" ],
+	language.[ loc_name : "dz_BT", default_charset : "UTF-8" ],
+	language.[ loc_name : "el_CY", default_charset : "ISO-8859-7" ],
+	language.[ loc_name : "el_GR", default_charset : "ISO-8859-7" ],
+	language.[ loc_name : "el_GR@euro", default_charset : "ISO-8859-7" ],
+	language.[ loc_name : "en_AG", default_charset : "UTF-8" ],
+	language.[ loc_name : "en_AU", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "en_BW", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "en_CA", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "en_DK", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "en_GB", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "en_HK", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "en_IE", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "en_IE@euro", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "en_IL", default_charset : "UTF-8" ],
+	language.[ loc_name : "en_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "en_NG", default_charset : "UTF-8" ],
+	language.[ loc_name : "en_NZ", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "en_PH", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "en_SC", default_charset : "UTF-8" ],
+	language.[ loc_name : "en_SG", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "en_US", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "en_ZA", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "en_ZM", default_charset : "UTF-8" ],
+	language.[ loc_name : "en_ZW", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "eo", default_charset : "UTF-8" ],
+	language.[ loc_name : "es_AR", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "es_BO", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "es_CL", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "es_CO", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "es_CR", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "es_CU", default_charset : "UTF-8" ],
+	language.[ loc_name : "es_DO", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "es_EC", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "es_ES", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "es_ES@euro", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "es_GT", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "es_HN", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "es_MX", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "es_NI", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "es_PA", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "es_PE", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "es_PR", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "es_PY", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "es_SV", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "es_US", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "es_UY", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "es_VE", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "et_EE", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "eu_ES", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "eu_ES@euro", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "eu_FR", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "eu_FR@euro", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "fa_IR", default_charset : "UTF-8" ],
+	language.[ loc_name : "ff_SN", default_charset : "UTF-8" ],
+	language.[ loc_name : "fi_FI", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "fi_FI@euro", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "fil_PH", default_charset : "UTF-8" ],
+	language.[ loc_name : "fo_FO", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "fr_BE", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "fr_BE@euro", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "fr_CA", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "fr_CH", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "fr_FR", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "fr_FR@euro", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "fr_LU", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "fr_LU@euro", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "fur_IT", default_charset : "UTF-8" ],
+	language.[ loc_name : "fy_DE", default_charset : "UTF-8" ],
+	language.[ loc_name : "fy_NL", default_charset : "UTF-8" ],
+	language.[ loc_name : "ga_IE", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "ga_IE@euro", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "gd_GB", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "gez_ER", default_charset : "UTF-8" ],
+	language.[ loc_name : "gez_ER@abegede", default_charset : "UTF-8" ],
+	language.[ loc_name : "gez_ET", default_charset : "UTF-8" ],
+	language.[ loc_name : "gez_ET@abegede", default_charset : "UTF-8" ],
+	language.[ loc_name : "gl_ES", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "gl_ES@euro", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "gu_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "gv_GB", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "ha_NG", default_charset : "UTF-8" ],
+	language.[ loc_name : "hak_TW", default_charset : "UTF-8" ],
+	language.[ loc_name : "he_IL", default_charset : "ISO-8859-8" ],
+	language.[ loc_name : "hi_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "hif_FJ", default_charset : "UTF-8" ],
+	language.[ loc_name : "hne_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "hr_HR", default_charset : "ISO-8859-2" ],
+	language.[ loc_name : "hsb_DE", default_charset : "ISO-8859-2" ],
+	language.[ loc_name : "ht_HT", default_charset : "UTF-8" ],
+	language.[ loc_name : "hu_HU", default_charset : "ISO-8859-2" ],
+	language.[ loc_name : "hy_AM", default_charset : "UTF-8" ],
+	language.[ loc_name : "ia_FR", default_charset : "UTF-8" ],
+	language.[ loc_name : "id_ID", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "ig_NG", default_charset : "UTF-8" ],
+	language.[ loc_name : "ik_CA", default_charset : "UTF-8" ],
+	language.[ loc_name : "is_IS", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "it_CH", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "it_IT", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "it_IT@euro", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "iu_CA", default_charset : "UTF-8" ],
+	language.[ loc_name : "ja_JP", default_charset : "EUC-JP" ],
+	language.[ loc_name : "ka_GE", default_charset : "GEORGIAN-PS" ],
+	language.[ loc_name : "kab_DZ", default_charset : "UTF-8" ],
+	language.[ loc_name : "kk_KZ", default_charset : "PT154" ],
+	language.[ loc_name : "kl_GL", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "km_KH", default_charset : "UTF-8" ],
+	language.[ loc_name : "kn_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "ko_KR", default_charset : "EUC-KR" ],
+	language.[ loc_name : "kok_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "ks_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "ks_IN@devanagari", default_charset : "UTF-8" ],
+	language.[ loc_name : "ku_TR", default_charset : "ISO-8859-9" ],
+	language.[ loc_name : "kw_GB", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "ky_KG", default_charset : "UTF-8" ],
+	language.[ loc_name : "lb_LU", default_charset : "UTF-8" ],
+	language.[ loc_name : "lg_UG", default_charset : "ISO-8859-10" ],
+	language.[ loc_name : "li_BE", default_charset : "UTF-8" ],
+	language.[ loc_name : "li_NL", default_charset : "UTF-8" ],
+	language.[ loc_name : "lij_IT", default_charset : "UTF-8" ],
+	language.[ loc_name : "ln_CD", default_charset : "UTF-8" ],
+	language.[ loc_name : "lo_LA", default_charset : "UTF-8" ],
+	language.[ loc_name : "lt_LT", default_charset : "ISO-8859-13" ],
+	language.[ loc_name : "lv_LV", default_charset : "ISO-8859-13" ],
+	language.[ loc_name : "lzh_TW", default_charset : "UTF-8" ],
+	language.[ loc_name : "mag_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "mai_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "mai_NP", default_charset : "UTF-8" ],
+	language.[ loc_name : "mfe_MU", default_charset : "UTF-8" ],
+	language.[ loc_name : "mg_MG", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "mhr_RU", default_charset : "UTF-8" ],
+	language.[ loc_name : "mi_NZ", default_charset : "ISO-8859-13" ],
+	language.[ loc_name : "miq_NI", default_charset : "UTF-8" ],
+	language.[ loc_name : "mjw_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "mk_MK", default_charset : "ISO-8859-5" ],
+	language.[ loc_name : "ml_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "mn_MN", default_charset : "UTF-8" ],
+	language.[ loc_name : "mni_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "mnw_MM", default_charset : "UTF-8" ],
+	language.[ loc_name : "mr_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "ms_MY", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "mt_MT", default_charset : "ISO-8859-3" ],
+	language.[ loc_name : "my_MM", default_charset : "UTF-8" ],
+	language.[ loc_name : "nan_TW", default_charset : "UTF-8" ],
+	language.[ loc_name : "nan_TW@latin", default_charset : "UTF-8" ],
+	language.[ loc_name : "nb_NO", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "nds_DE", default_charset : "UTF-8" ],
+	language.[ loc_name : "nds_NL", default_charset : "UTF-8" ],
+	language.[ loc_name : "ne_NP", default_charset : "UTF-8" ],
+	language.[ loc_name : "nhn_MX", default_charset : "UTF-8" ],
+	language.[ loc_name : "niu_NU", default_charset : "UTF-8" ],
+	language.[ loc_name : "niu_NZ", default_charset : "UTF-8" ],
+	language.[ loc_name : "nl_AW", default_charset : "UTF-8" ],
+	language.[ loc_name : "nl_BE", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "nl_BE@euro", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "nl_NL", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "nl_NL@euro", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "nn_NO", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "nr_ZA", default_charset : "UTF-8" ],
+	language.[ loc_name : "nso_ZA", default_charset : "UTF-8" ],
+	language.[ loc_name : "oc_FR", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "om_ET", default_charset : "UTF-8" ],
+	language.[ loc_name : "om_KE", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "or_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "os_RU", default_charset : "UTF-8" ],
+	language.[ loc_name : "pa_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "pa_PK", default_charset : "UTF-8" ],
+	language.[ loc_name : "pap_AW", default_charset : "UTF-8" ],
+	language.[ loc_name : "pap_CW", default_charset : "UTF-8" ],
+	language.[ loc_name : "pl_PL", default_charset : "ISO-8859-2" ],
+	language.[ loc_name : "ps_AF", default_charset : "UTF-8" ],
+	language.[ loc_name : "pt_BR", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "pt_PT", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "pt_PT@euro", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "quz_PE", default_charset : "UTF-8" ],
+	language.[ loc_name : "raj_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "ro_RO", default_charset : "ISO-8859-2" ],
+	language.[ loc_name : "ru_RU", default_charset : "ISO-8859-5" ],
+	language.[ loc_name : "ru_UA", default_charset : "KOI8-U" ],
+	language.[ loc_name : "rw_RW", default_charset : "UTF-8" ],
+	language.[ loc_name : "sa_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "sah_RU", default_charset : "UTF-8" ],
+	language.[ loc_name : "sat_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "sc_IT", default_charset : "UTF-8" ],
+	language.[ loc_name : "sd_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "sd_IN@devanagari", default_charset : "UTF-8" ],
+	language.[ loc_name : "se_NO", default_charset : "UTF-8" ],
+	language.[ loc_name : "sgs_LT", default_charset : "UTF-8" ],
+	language.[ loc_name : "shn_MM", default_charset : "UTF-8" ],
+	language.[ loc_name : "shs_CA", default_charset : "UTF-8" ],
+	language.[ loc_name : "si_LK", default_charset : "UTF-8" ],
+	language.[ loc_name : "sid_ET", default_charset : "UTF-8" ],
+	language.[ loc_name : "sk_SK", default_charset : "ISO-8859-2" ],
+	language.[ loc_name : "sl_SI", default_charset : "ISO-8859-2" ],
+	language.[ loc_name : "sm_WS", default_charset : "UTF-8" ],
+	language.[ loc_name : "so_DJ", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "so_ET", default_charset : "UTF-8" ],
+	language.[ loc_name : "so_KE", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "so_SO", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "sq_AL", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "sq_MK", default_charset : "UTF-8" ],
+	language.[ loc_name : "sr_ME", default_charset : "UTF-8" ],
+	language.[ loc_name : "sr_RS", default_charset : "UTF-8" ],
+	language.[ loc_name : "sr_RS@latin", default_charset : "UTF-8" ],
+	language.[ loc_name : "ss_ZA", default_charset : "UTF-8" ],
+	language.[ loc_name : "st_ZA", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "sv_FI", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "sv_FI@euro", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "sv_SE", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "sw_KE", default_charset : "UTF-8" ],
+	language.[ loc_name : "sw_TZ", default_charset : "UTF-8" ],
+	language.[ loc_name : "szl_PL", default_charset : "UTF-8" ],
+	language.[ loc_name : "ta_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "ta_LK", default_charset : "UTF-8" ],
+	language.[ loc_name : "tcy_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "te_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "tg_TJ", default_charset : "KOI8-T" ],
+	language.[ loc_name : "th_TH", default_charset : "TIS-620" ],
+	language.[ loc_name : "the_NP", default_charset : "UTF-8" ],
+	language.[ loc_name : "ti_ER", default_charset : "UTF-8" ],
+	language.[ loc_name : "ti_ET", default_charset : "UTF-8" ],
+	language.[ loc_name : "tig_ER", default_charset : "UTF-8" ],
+	language.[ loc_name : "tk_TM", default_charset : "UTF-8" ],
+	language.[ loc_name : "tl_PH", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "tn_ZA", default_charset : "UTF-8" ],
+	language.[ loc_name : "to_TO", default_charset : "UTF-8" ],
+	language.[ loc_name : "tpi_PG", default_charset : "UTF-8" ],
+	language.[ loc_name : "tr_CY", default_charset : "ISO-8859-9" ],
+	language.[ loc_name : "tr_TR", default_charset : "ISO-8859-9" ],
+	language.[ loc_name : "ts_ZA", default_charset : "UTF-8" ],
+	language.[ loc_name : "tt_RU", default_charset : "UTF-8" ],
+	language.[ loc_name : "tt_RU@iqtelif", default_charset : "UTF-8" ],
+	language.[ loc_name : "ug_CN", default_charset : "UTF-8" ],
+	language.[ loc_name : "uk_UA", default_charset : "KOI8-U" ],
+	language.[ loc_name : "unm_US", default_charset : "UTF-8" ],
+	language.[ loc_name : "ur_IN", default_charset : "UTF-8" ],
+	language.[ loc_name : "ur_PK", default_charset : "UTF-8" ],
+	language.[ loc_name : "uz_UZ", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "uz_UZ@cyrillic", default_charset : "UTF-8" ],
+	language.[ loc_name : "ve_ZA", default_charset : "UTF-8" ],
+	language.[ loc_name : "vi_VN", default_charset : "UTF-8" ],
+	language.[ loc_name : "wa_BE", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "wa_BE@euro", default_charset : "ISO-8859-15" ],
+	language.[ loc_name : "wae_CH", default_charset : "UTF-8" ],
+	language.[ loc_name : "wal_ET", default_charset : "UTF-8" ],
+	language.[ loc_name : "wo_SN", default_charset : "UTF-8" ],
+	language.[ loc_name : "xh_ZA", default_charset : "ISO-8859-1" ],
+	language.[ loc_name : "yi_US", default_charset : "CP1255" ],
+	language.[ loc_name : "yo_NG", default_charset : "UTF-8" ],
+	language.[ loc_name : "yue_HK", default_charset : "UTF-8" ],
+	language.[ loc_name : "yuw_PG", default_charset : "UTF-8" ],
+	language.[ loc_name : "zh_CN", default_charset : "GB2312" ],
+	language.[ loc_name : "zh_HK", default_charset : "BIG5-HKSCS" ],
+	language.[ loc_name : "zh_SG", default_charset : "GB2312" ],
+	language.[ loc_name : "zh_TW", default_charset : "BIG5" ],
+	language.[ loc_name : "zu_ZA", default_charset : "ISO-8859-1" ],
+];
+
+fn find_language(loc_name : bytes) : language
+[
+	var lng := languages;
+	var start := 0;
+	var end := len(lng);
+	while start < end do [
+		var middle := (start + end) shr 1;
+		var l := lng[middle];
+		if l.loc_name = loc_name then
+			return l;
+		if l.loc_name < loc_name then
+			start := middle + 1;
+		else
+			end := middle;
+	]
+	abort exception_make_str(language, ec_sync, error_invalid_operation, 0, false, "Unknown language");
+]
+
+
+fn locale_get_charset~inline(loc : locale) : charset_desc
+[
+	return loc.charset;
+]
+
+fn locale_validate_character~inline(loc : locale, code : char) : bool
+[
+	return loc.locale_validate_character(code);
+]
+
+fn locale_validate~inline(loc : locale, b : bytes) : bool
+[
+	return loc.locale_validate(b);
+]
+
+fn locale_get_char(loc : locale, b : bytes) : (char, int)
+[
+	return loc.locale_get_char(b);
+]
+
+fn locale_to_string~inline(loc : locale, b : bytes) : string
+[
+	return loc.locale_to_string(b);
+]
+
+fn string_to_locale~inline(loc : locale, s : string) : bytes
+[
+	return loc.string_to_locale(s);
+]
+
+fn charset_name_normalize(charset : bytes) : bytes
+[
+	var r := "";
+	var was_letter := false;
+	for i := 0 to len(charset) do [
+		var c := charset[i];
+		if c >= '0', c <= '9' then [
+			r +<= c;
+		] else if c >= 'A', c <= 'Z' then [
+			r +<= c + #20;
+			was_letter := true;
+		] else if c >= 'a', c <= 'z' then [
+			r +<= c;
+			was_letter := true;
+		]
+	]
+	if not was_letter then
+		r := "iso" + r;
+	return r;
+]
+
+fn charset_8bit_find~cache(nname : bytes) : charset_8bit
+[
+	var file_name := nname;
+	if len(file_name) > 8 then
+		file_name := file_name[ .. 3] + "_" + file_name[len(file_name) - 4 .. ];
+	file_name += ".c8";
+	var b := read_lazy(ropen_lazy(dlib(unsafe_get_world), path_append("charsets", file_name), 0));
+	if is_exception b then
+		abort exception_make_str(charset_8bit, ec_sync, error_invalid_operation, 0, false, "Unknown charset");
+
+	var first_null := list_search(b, 0);
+	var second_null := first_null + 1 + list_search(b[first_null + 1 .. ], 0);
+
+	var res := charset_8bit.[
+		label : utf8_to_string(b[ .. first_null]),
+		mime_name : b[first_null + 1 .. second_null],
+		chr_to_unicode : array_fill(char, 0, [128]),
+		unicode_to_chr : sparse(byte, 0, #110000),
+	];
+
+	var normalized_name := charset_name_normalize(res.mime_name);
+	if normalized_name <> nname then
+		abort exception_make_str(charset_8bit, ec_sync, error_invalid_operation, 0, false, "Unknown charset");
+
+	b := b[second_null + 1 ..];
+
+	for i := 0 to 128 do [
+		var uni := #10000 * b[i * 3 + 2] + #100 * b[i * 3 + 1] + b[i * 3];
+		res.chr_to_unicode[i] := uni;
+		res.unicode_to_chr[uni] := i + 128;
+	]
+
+	return res;
+]
+
+fn locale_get~cache(lc : bytes) : locale
+[
+	var charset : bytes;
+	var dot := list_search(lc, '.');
+	if dot = -1 then [
+		var lng := find_language(lc);
+		if is_exception lng then
+			lng := find_language("C");
+		charset := lng.default_charset;
+	] else [
+		charset := lc[dot + 1 .. ];
+		var a := list_search(charset, '@');
+		if a >= 0 then
+			charset := charset[ .. a];
+	]
+	charset := charset_name_normalize(charset);
+	var loc := locale.[ ];
+	if charset = "utf8" then [
+		loc.charset := charset_desc.[
+			label : `UTF-8`,
+			mime_name : "utf-8",
+			mode : locale_mode.utf8,
+		];
+		loc.locale_validate_character := char_validate;
+		loc.locale_validate := utf8_validate;
+		loc.locale_get_char := utf8_get_char;
+		loc.locale_to_string := utf8_to_string;
+		loc.string_to_locale := string_to_utf8;
+	] else [
+		var ch8 := charset_8bit_find(charset);
+		xeval ch8;
+		loc.charset := charset_desc.[
+			label : ch8.label,
+			mime_name : ch8.mime_name,
+			mode : locale_mode.eightbit,
+		];
+		loc.locale_validate_character := ch8_validate_character(ch8,);
+		loc.locale_validate := ch8_validate(ch8,);
+		loc.locale_get_char := ch8_get_char(ch8,);
+		loc.locale_to_string := ch8_to_string(ch8,);
+		loc.string_to_locale := string_to_ch8(ch8,);
+	]
+	return loc;
+]
+
+fn charset_to_bytes(charset : int) : bytes
+[
+	var chstr : bytes;
+	if charset = 0 then
+		chstr := "utf8";
+	else if charset < 1250 then
+		chstr := "cp" + ntos(charset);
+	else
+		chstr := "windows-" + ntos(charset);
+	return chstr;
+]
+
+fn locale_init(env : treemap(bytes, bytes)) : locale
+[
+	var charset := sysprop(SystemProperty_Charset);
+	if charset >= 0 then [
+		var loc := locale_get("." + charset_to_bytes(charset));
+		if not is_exception loc then
+			return loc;
+	]
+	var lc := treemap_search(env, "LC_ALL");
+	if lc is n then
+		lc := treemap_search(env, "LC_CTYPE");
+	if lc is n then
+		lc := treemap_search(env, "LANG");
+	if lc is n then
+		lc := maybe(bytes).j.("C");
+	return locale_get(lc.j);
+]
+
+fn locale_console_init(env : treemap(bytes, bytes)) : locale
+[
+	var charset := sysprop(SystemProperty_Charset_Console);
+	if charset >= 0 then [
+		var loc := locale_get("." + charset_to_bytes(charset));
+		if not is_exception loc then
+			return loc;
+	]
+	return locale_init(env);
+]
+
+fn instance_ord_charset_desc := class_ord(charset_desc).[
+	equal : lambda(a b : charset_desc) [ return a.label = b.label; ],
+	less : lambda(a b : charset_desc) [ return a.label < b.label; ],
+];
+
+fn charset_list~cache : list(charset_desc)
+[
+	var result := [ charset_desc.[
+		label : `UTF-8`,
+		mime_name : "utf-8",
+		mode : locale_mode.utf8,
+	] ];
+	var d := dopen_lazy(dlib(unsafe_get_world), "charsets", 0);
+	var files := dread_lazy(d);
+	for f in files do [
+		if not list_ends_with(f, ".c8") then
+			continue;
+		var b := read_lazy(ropen_lazy(d, f, 0));
+		var first_null := list_search(b, 0);
+		var second_null := first_null + 1 + list_search(b[first_null + 1 .. ], 0);
+		result +<= charset_desc.[
+			label : utf8_to_string(b[ .. first_null]),
+			mime_name : b[first_null + 1 .. second_null],
+			mode : locale_mode.eightbit,
+		];
+	]
+	result := list_sort(instance_ord_charset_desc, result);
+	return result;
+]

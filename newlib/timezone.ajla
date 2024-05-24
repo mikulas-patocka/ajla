@@ -1,0 +1,86 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit timezone;
+
+uses io;
+
+type timezone;
+
+fn timezone_init(d : dhandle, env : treemap(bytes, bytes)) : timezone;
+fn timezone_gmt : timezone;
+
+record calendar [
+	year : int;
+	month : int;
+	day : int;
+	hour : int;
+	min : int;
+	sec : int;
+	usec : int;
+	yday : int;
+	wday : int;
+	is_dst : int;
+]
+
+fn time_to_calendar(tz : timezone, t : int64) : calendar;
+fn calendar_to_time(tz : timezone, c : calendar) : int64;
+
+implementation
+
+record timezone [
+	local : bool;
+]
+
+fn timezone_init(d : dhandle, env : treemap(bytes, bytes)) : timezone := timezone.[ local : true ];
+fn timezone_gmt : timezone := timezone.[ local : false ];
+
+fn time_to_calendar(tz : timezone, t : int64) : calendar
+[
+	var local := tz.local;
+	var year month day hour min sec usec yday wday is_dst : int;
+	pcode IO IO_TimeToCalendar 10 2 0 =year =month =day =hour =min =sec =usec =yday =wday =is_dst t local;
+	return calendar.[
+		year : year,
+		month : month,
+		day : day,
+		hour : hour,
+		min : min,
+		sec : sec,
+		usec : usec,
+		yday : yday,
+		wday : wday,
+		is_dst : is_dst,
+	];
+]
+
+fn calendar_to_time(tz : timezone, c : calendar) : int64
+[
+	var local := tz.local;
+	var year := c.year;
+	var month := c.month;
+	var day := c.day;
+	var hour := c.hour;
+	var min := c.min;
+	var sec := c.sec;
+	var usec := c.usec;
+	var is_dst := c.is_dst;
+	var r : int64;
+	pcode IO IO_CalendarToTime 1 9 0 =r year month day hour min sec usec is_dst local;
+	return r;
+]

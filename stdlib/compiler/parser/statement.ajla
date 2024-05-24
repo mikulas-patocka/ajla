@@ -1,0 +1,987 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit compiler.parser.statement;
+
+uses compiler.parser.dict;
+
+fn parse_statement(ctx : function_context, vd : variable_dictionary, top_level : bool, t : tokens) : (function_context, tokens, bool);
+
+implementation
+
+uses compiler.parser.alloc;
+uses compiler.parser.gen;
+uses compiler.parser.gen2;
+uses compiler.parser.expression;
+uses compiler.parser.function;
+uses compiler.parser.type;
+uses compiler.parser.local_type;
+uses compiler.parser.parser;
+uses exception;
+
+fn parse_statement_return(ctx : function_context, vd : variable_dictionary, t : tokens) : function_context;
+
+fn parse_statement_label(ctx : function_context, t : tokens) : function_context
+[
+	var name := t[0].t.identifier;
+	if ctx.defined_labels[name] then [
+		abort compiler_error("Label " + i_decode(name) + " already defined", t);
+	]
+	var l := ctx.used_labels[name];
+	if is_uninitialized(l) then [
+		ctx, l := alloc_local_label(ctx);
+		ctx.used_labels[name] := l;
+	]
+	ctx := generate_Label(ctx, l);
+	ctx.defined_labels[name] := true;
+	ctx.gvn_seq += 1;
+	return ctx;
+]
+
+record vardef [
+	name : istring;
+	idx : int;
+	impl_assign : bool;
+]
+
+fn parse_statement_var(ctx : function_context, vd : variable_dictionary, cnst mut impl : bool, t : tokens) : (function_context, variable_dictionary)
+[
+	var assign := token_find(t, token_opt.assign, false);
+	var vardecl : tokens;
+	if assign = -1 then
+		vardecl := t;
+	else
+		vardecl := t[ .. assign];
+
+	var variables := empty(vardef);
+
+	if len(vardecl) = 0 then
+		abort compiler_error("No declared variable", t);
+
+	while len(vardecl) > 0 do [
+		var groupdecl  : tokens;
+		groupdecl, vardecl := split_tokens(vardecl, token_opt.comma);
+		var colon := token_find_colon(groupdecl);
+		if colon = -1 then [
+			if len(groupdecl) <> 1 or assign = -1 then
+				abort compiler_error("Invalid variable declaration", t);
+			xeval token_assert(groupdecl, token_opt.identifier.(0));
+			var name := groupdecl[0].t.identifier;
+			variables +<= vardef.[ name : name, idx : -1, impl_assign : false ];
+		] else [
+			var expression := groupdecl[colon + 1 .. ];
+			var a : int;
+			ctx, a := parse_expression_type(ctx, vd, expression);
+			for i := 0 to colon do [
+				var name := groupdecl[i].t.identifier;
+				var l : int;
+				ctx, l := alloc_local_variable(ctx, a, cnst, mut);
+				ctx, vd := add_variable(ctx, vd, name, l, impl, groupdecl[i .. ]);
+				variables +<= vardef.[ name : name, idx : l, impl_assign : false ];
+			]
+		]
+	]
+
+	if assign >= 0 then [
+		var n := len(variables);
+		var al : list(int);
+		ctx, al := parse_expressions(ctx, vd, t[assign + 1 .. ], false);
+		if len(al) < n then
+			abort compiler_error("Not enough expressions", t);
+		if len(al) > n then [
+			var implicit_variables := get_implicit_variables(vd);
+			while len(al) > n do [
+				var al_idx := len(al) - n - 1;
+				for i := 0 to len(implicit_variables) do [
+					var cc1 := new_compare_context(ctx);
+					var typ1 := get_type_of_var(ctx, al[al_idx]);
+					var cc2 := new_compare_context(ctx);
+					var typ2 := get_type_of_var(ctx, implicit_variables[i]);
+					var match, inferred := verify_type_equality(ctx,
+						cc1, typ1, empty(compare_fn_stack),
+						cc2, typ2, empty(compare_fn_stack));
+					if not match then
+						continue;
+					var l : int;
+					ctx, l := alloc_local_variable(ctx, typ1, false, false);
+					ctx := generate_Copy(ctx, al[al_idx], l);
+					al[al_idx] := l;
+					var v := vardef.[ name : 0, idx : implicit_variables[i], impl_assign : true ];
+					variables := list(vardef).[ v ] + variables;
+					n += 1;
+					goto inferred;
+				]
+				abort compiler_error("Could not infer output variable", t);
+inferred:
+			]
+		]
+		for i := 0 to n do [
+			var v := variables[i];
+			if v.impl_assign then [
+				if ctx.variables[v.idx].defined_at <> defined_multiple then [
+					if not ctx.variables[v.idx].mut then [
+						abort compiler_error("Constant can't be assigned", t);
+					] else [
+						abort compiler_error("Mutable variables can't be assigned", t);
+					]
+				]
+			]
+			if v.idx = -1 then [
+				ctx, v.idx := alloc_local_variable(ctx, get_type_of_var(ctx, al[i]), cnst, mut);
+				ctx, vd := add_variable(ctx, vd, v.name, v.idx, impl, t);
+			] else [
+				var inferred : maybe_inferred;
+				ctx, al[i], inferred := convert_type(ctx, vd, al[i], new_compare_context(ctx), get_type_of_var(ctx, v.idx), 0, true, t);
+			]
+			if (cnst or mut) and not v.impl_assign then
+				ctx := set_defined_here(ctx, v.idx);
+			else
+				ctx.variables[v.idx].defined_at := defined_multiple;
+			ctx := generate_Copy(ctx, al[i], v.idx);
+		]
+	] else [
+		if cnst then
+			abort compiler_error("A constant must be assigned", t);
+		if mut then
+			abort compiler_error("A mutable variable must be assigned", t);
+	]
+
+	return ctx, vd;
+]
+
+fn parse_statement_function(ctx : function_context, vd : variable_dictionary, t : tokens) : (function_context, variable_dictionary)
+[
+	xeval token_assert(t[0 .. ], token_opt.identifier.(0));
+	var name := t[0].t.identifier;
+	if len(t) < 2 then
+		abort compiler_error("Invalid nested function declaration", t);
+	t := t[1 .. ];
+	var q : list(int);
+	ctx, q := parse_lambda_function(ctx, vd, t);
+	if len(q) <> 1 then
+		abort compiler_error("A nested function returns multiple values", t);
+	ctx, vd := add_variable(ctx, vd, name, q[0], false, t);
+	return ctx, vd;
+]
+
+fn parse_block(ctx : function_context, up_vd : variable_dictionary, top_level : bool, t : tokens) : (function_context, bool)
+[
+	var vd := new_variable_dictionary_chained(ctx, up_vd);
+	var term := false;
+
+	while len(t) > 0 do [
+		if len(t) >= 2, t[0].t is identifier, t[1].t is colon then [
+			ctx := parse_statement_label(ctx, t);
+			t := t[2 .. ];
+			term := false;
+			continue;
+		]
+		if t[0].t is k_var or t[0].t is k_mutable or t[0].t is k_const or t[0].t is k_implicit then [
+			var cnst, mut, impl := false, false, false;
+next_flag:
+			if len(t) <= 1 then
+				abort compiler_error("Invalid variable declaration", t);
+			if t[0].t is k_var then [
+				t := t[1 .. ];
+				goto next_flag;
+			]
+			if t[0].t is k_const then [
+				cnst := true;
+				t := t[1 .. ];
+				goto next_flag;
+			]
+			if t[0].t is k_mutable then [
+				mut := true;
+				t := t[1 .. ];
+				goto next_flag;
+			]
+			if t[0].t is k_implicit then [
+				impl := true;
+				t := t[1 .. ];
+				goto next_flag;
+			]
+			if cnst and mut then
+				abort compiler_error("Mutable and const can't be specified together", t);
+			ctx := generate_Line_Info(ctx, t[0].line);
+			var b := token_find(t, token_opt.semicolon, true);
+			ctx, vd := parse_statement_var(ctx, vd, cnst, mut, impl, t[ .. b]);
+			t := t[b + 1 .. ];
+			term := false;
+			continue;
+		]
+		if t[0].t is k_fn then [
+			t := t[1 .. ];
+			var t1 := t;
+			var f := token_find_3(t1, token_opt.assign, token_opt.semicolon, token_opt.right_bracket, true);
+			if t1[f].t is assign then [
+				f := token_find(t1, token_opt.semicolon, true);
+			]
+			t1 := t1[ .. f + 1];
+			ctx, vd := parse_statement_function(ctx, vd, t1);
+			t := t[f + 1 .. ];
+			continue;
+		]
+		ctx, t, term := parse_statement(ctx, vd, false, t);
+	]
+
+	if top_level and not term then [
+		var ctx2 := parse_statement_return(ctx, vd, empty(token));
+		if not is_exception ctx2 then [
+			ctx := ctx2;
+			term := true;
+		]
+	]
+
+	ctx := free_variable_dictionary_chained(ctx, vd);
+
+	return ctx, term;
+]
+
+record assign_variable [
+	v : int;
+	cc : compare_context;
+	typ : int;
+	deep_structured : bool;
+	instr : list(pcode_t);
+]
+
+fn parse_statement_assign(ctx : function_context, vd : variable_dictionary, can_infer : bool, vars expr : tokens) : function_context
+[
+	var dst_vars : int128 := 0;
+	var avs := empty(assign_variable);
+
+	while len(vars) > 0 do [
+		var lvalue : tokens;
+		lvalue, vars := split_tokens(vars, token_opt.comma);
+		xeval token_assert(lvalue, token_opt.identifier.(0));
+
+		var name := lvalue[0].t.identifier;
+		var v := search_variable_dictionary(vd, name);
+		if v = -1 then [
+			abort compiler_error("Unknown variable", lvalue);
+		]
+
+		var av := assign_variable.[
+			v : -1,
+			cc : exception_make(compare_context, ec_sync, error_record_field_not_initialized, 0, false),
+			typ : T_InvalidType,
+			deep_structured : false,
+			instr : start_Structured_Write(v),
+		];
+
+		lvalue := lvalue[1 .. ];
+		var cc := new_compare_context(ctx);
+		var typ := get_type_of_var(ctx, v);
+		while len(lvalue) > 0 do [
+			if lvalue[0].t is left_bracket then [
+				var skip := lvalue[0].bracket_skip;
+				var index_ex := lvalue[1 .. skip];
+				lvalue := lvalue[skip + 1 .. ];
+
+				var cc_base, typ_base := get_base_definition(ctx, cc, typ, false);
+				cc, typ := list_type(ctx, cc_base, typ_base, index_ex);
+
+				var ai : int;
+				ctx, ai := list_array_get_index(ctx, vd, cc_base, typ_base, index_ex, false);
+
+				var local_type : int;
+				if typ < 0 then
+					local_type := typ;
+				else
+					local_type := T_Undetermined;
+
+				av.instr := append_Structured_Array(av.instr, ai, local_type);
+			] else if len(lvalue) >= 2, lvalue[0].t is dot then [
+				xeval token_assert(lvalue[1 ..], token_opt.identifier.(0));
+				var field := lvalue[1].t.identifier;
+
+				var rec_cc, rec_typ := get_base_definition(ctx, cc, typ, true);
+				if rec_typ <> T_Record then
+					abort compiler_error("Record or option expected", lvalue);
+				var rec_def := rec_cc.ctx.record_def.j;
+				var idx := rec_def.dict[field];
+				if is_uninitialized(idx) then
+					abort compiler_error("Invalid field", lvalue);
+				if rec_def.entries[idx].cnst then
+					abort compiler_error("A constant field may not be modified", lvalue);
+				if rec_def.entries[idx].accessing_other, av.deep_structured then
+					abort compiler_error("Record field may not be modified here", lvalue);
+				if not rec_def.is_option then [
+					ctx, cc, typ := generate_record_entry_type(ctx, v, idx, rec_cc, lvalue);
+					var lt : int;
+					ctx, lt := get_record_local_type(ctx, rec_cc.ctx);
+					av.instr := append_Structured_Record(av.instr, idx, lt);
+				] else [
+					if rec_def.entries[idx].type_idx = T_EmptyOption then
+						abort compiler_error("Option field doesn't have a value", lvalue);
+					cc, typ := rec_cc, rec_def.entries[idx].type_idx;
+					av.instr := append_Structured_Option(av.instr, idx);
+				]
+
+				lvalue := lvalue[2 .. ];
+			] else [
+				abort compiler_error("invalid assigned variable", lvalue);
+			]
+			av.deep_structured := true;
+		]
+
+		av.v := v;
+		av.cc := cc;
+		av.typ := typ;
+		dst_vars bts= v;
+
+		avs +<= av;
+	]
+
+	var n := len(avs);
+
+	var al : list(int);
+	ctx, al := parse_expressions(ctx, vd, expr, false);
+
+	if len(al) < n then
+		abort compiler_error("Not enough expressions", expr);
+
+	if len(al) > n then [
+		if not can_infer then
+			abort compiler_error("Too many expressions", expr);
+		var implicit_variables := get_implicit_variables(vd);
+		while len(al) > n do [
+			var al_idx := len(al) - n - 1;
+			for i := 0 to len(implicit_variables) do [
+				//var cc1, typ1 := get_deep_type_of_var(ctx, al[al_idx]);
+				//var cc2, typ2 := get_deep_type_of_var(ctx, implicit_variables[i]);
+				var cc1 := new_compare_context(ctx);
+				var typ1 := get_type_of_var(ctx, al[al_idx]);
+				var cc2 := new_compare_context(ctx);
+				var typ2 := get_type_of_var(ctx, implicit_variables[i]);
+				var match, inferred := verify_type_equality(ctx,
+					cc1, typ1, empty(compare_fn_stack),
+					cc2, typ2, empty(compare_fn_stack));
+				if not match then
+					continue;
+				var av := assign_variable.[
+					v : implicit_variables[i],
+					cc : cc2,
+					typ : typ2,
+					deep_structured : false,
+					instr : exception_make(list(pcode_t), ec_sync, error_record_field_not_initialized, 0, false),
+				];
+				avs := list(assign_variable).[ av ] + avs;
+				n += 1;
+				dst_vars bts= av.v;
+				goto inferred;
+			]
+			abort compiler_error("Could not infer output variable", expr);
+inferred:
+		]
+	]
+
+	for i := 0 to n do [
+		var av := avs[i];
+		var v := av.v;
+		if ctx.variables[v].defined_at <> defined_multiple then [
+			if not ctx.variables[v].mut then [
+				abort compiler_error("Constant can't be assigned", expr);
+			] else [
+				if not av.deep_structured then
+					abort compiler_error("Mutable variables can't be assigned", expr);
+			]
+		]
+
+		if dst_vars bt al[i] then [
+			var l : int;
+			ctx, l := alloc_local_variable(ctx, get_type_of_var(ctx, al[i]), false, false);
+			ctx := generate_Copy(ctx, al[i], l);
+			al[i] := l;
+		]
+	]
+
+	for i := 0 to n do [
+		var av := avs[i];
+		var ax : int;
+		var inferred : maybe_inferred;
+		ctx, ax, inferred := convert_type(ctx, vd, al[i], av.cc, av.typ, 0, true, expr);
+		if not av.deep_structured then [
+			ctx := generate_Copy(ctx, ax, av.v);
+		] else [
+			ctx := generate_Structured_Write(ctx, av.instr, ax);
+		]
+	]
+
+	return ctx;
+]
+
+fn parse_statement_modify(ctx : function_context, vd : variable_dictionary, modify : token, vars expr : tokens) : function_context
+[
+	if token_find(vars, token_opt.comma, false) >= 0 then
+		abort compiler_error("Multiple variables not supported with modify operator", vars);
+	var op_string := i_decode(modify.t.oper);
+	if len(op_string) < 1 or op_string[len(op_string) - 1] <> '=' then
+		abort compiler_error("Invalid operator", tokens.[ modify ]);
+	if len(op_string) > 1 then [
+		modify.t.oper := i_encode(op_string[ .. len(op_string) - 1]);
+	] else [
+		if len(vars) < 2 or not vars[len(vars) - 1].t is identifier then
+			abort compiler_error("Invalid operator", tokens.[ modify ]);
+		modify.t.identifier := vars[len(vars) - 1].t.identifier;
+		vars := vars[ .. len(vars) - 1];
+	]
+	var lparen := new_token(modify, token_opt.left_paren);
+	lparen.bracket_skip := len(expr) + 1;
+	var rparen := new_token(modify, token_opt.right_paren);
+	rparen.bracket_skip := -lparen.bracket_skip;
+	expr := vars + tokens.[ modify, lparen ] + expr + tokens.[ rparen ];
+	return parse_statement_assign(ctx, vd, false, vars, expr);
+]
+
+fn evaluate_condition(ctx : function_context, vd : variable_dictionary, t : tokens, l_false l_exception : int) : (function_context, int)
+[
+	var bol : int;
+	ctx, bol := generate_Bool(ctx);
+	var cond : int;
+	ctx, cond := alloc_local_variable(ctx, bol, false, false);
+	while len(t) > 0 do [
+		var t1 : tokens;
+		t1, t := split_tokens(t, token_opt.comma);
+
+		var a : int;
+		ctx, a := parse_expression(ctx, vd, t1, false);
+
+		var typ := get_type_of_var(ctx, a);
+		if not verify_equality(ctx, typ, bol) then
+			abort compiler_error("boolean value expected", t1);
+
+		ctx := generate_Copy(ctx, a, cond);
+
+		ctx := generate_Jmp_False(ctx, cond, l_false, l_exception);
+	]
+
+	return ctx, cond;
+]
+
+fn generate_condition_exception(ctx : function_context, cond : int, l_exception : int) : function_context
+[
+	if l_exception >= 0 then
+		ctx := generate_Label(ctx, l_exception);
+	for i := 0 to ctx.n_return_values do [
+		var v := ctx.n_arguments + i;
+		ctx := generate_Copy_Type_Cast(ctx, cond, v);
+		ctx.variables[v].defined_at := defined_multiple;
+	]
+
+	ctx.n_returns += 1;
+
+	ctx := generate_Jmp(ctx, 0);
+
+	return ctx;
+]
+
+fn parse_statement_if(ctx : function_context, vd : variable_dictionary, t : tokens) : (function_context, tokens, bool)
+[
+	var thn := token_find(t, token_opt.k_then, true);
+
+	var l_else l_exception l_end : int;
+	ctx, l_else := alloc_local_label(ctx);
+	ctx, l_exception := alloc_local_label(ctx);
+	ctx, l_end := alloc_local_label(ctx);
+
+	var thn_vd := new_variable_dictionary_chained(ctx, vd);
+
+	var cond : int;
+	ctx, cond := evaluate_condition(ctx, thn_vd, t[ .. thn], l_else, l_exception);
+
+	var thn_term els_term : bool;
+	ctx, t, thn_term := parse_statement(ctx, thn_vd, false, t[thn + 1 .. ]);
+	ctx := generate_Jmp(ctx, l_end);
+
+	ctx := free_variable_dictionary_chained(ctx, thn_vd);
+
+	ctx := generate_condition_exception(ctx, cond, l_exception);
+
+	ctx := generate_Label(ctx, l_else);
+	if len(t) > 0, t[0].t is k_else then [
+		var els_vd := new_variable_dictionary_chained(ctx, vd);
+		ctx, t, els_term := parse_statement(ctx, els_vd, false, t[1 .. ]);
+		ctx := free_variable_dictionary_chained(ctx, els_vd);
+	] else [
+		els_term := false;
+	]
+
+	ctx := generate_Label(ctx, l_end);
+
+	return ctx, t, thn_term and els_term;
+]
+
+fn parse_statement_while(ctx : function_context, vd : variable_dictionary, t : tokens) : (function_context, tokens, bool)
+[
+	var d := token_find(t, token_opt.k_do, true);
+
+	var l_start l_end l_exception : int;
+	ctx, l_start := alloc_local_label(ctx);
+	ctx, l_end := alloc_local_label(ctx);
+	ctx, l_exception := alloc_local_label(ctx);
+
+	var do_vd := new_variable_dictionary_chained(ctx, vd);
+
+	ctx := generate_Label(ctx, l_start);
+	do_vd.break_label := l_end;
+	do_vd.continue_label := l_start;
+
+	var cond : int;
+	ctx, cond := evaluate_condition(ctx, do_vd, t[ .. d], l_end, l_exception);
+
+	var do_term : bool;
+	ctx, t, do_term := parse_statement(ctx, do_vd, false, t[d + 1 .. ]);
+
+	ctx := generate_Jmp(ctx, l_start);
+
+	ctx := free_variable_dictionary_chained(ctx, do_vd);
+
+	ctx := generate_condition_exception(ctx, cond, l_exception);
+
+	ctx := generate_Label(ctx, l_end);
+
+	return ctx, t, false;
+]
+
+fn parse_statement_for(ctx : function_context, vd : variable_dictionary, t : tokens) : (function_context, tokens, bool)
+[
+	if len(t) < 6 or
+	   not t[0].t is identifier or
+	   not (t[1].t is colon or t[1].t is assign) then
+		abort compiler_error("Invalid for statement", t);
+
+	var assign_idx := token_find(t, token_opt.assign, true);
+
+	var variable_decl := t[ .. assign_idx];
+	var variable := t[0];
+	var assign_op := t[assign_idx];
+	var less_op := new_token(assign_op, token_opt.oper.(i_encode("<")));
+	var plus_op := new_token(assign_op, token_opt.oper.(i_encode("+=")));
+	var one := new_token(assign_op, token_opt.number.("1"));
+	t := t[assign_idx + 1 .. ];
+
+	var lb_idx := token_find(t, token_opt.k_to, true);
+	var lower_bound := t[ .. lb_idx];
+	t := t[lb_idx + 1 .. ];
+
+	var ub_idx := token_find(t, token_opt.k_do, true);
+	var upper_bound := t[ .. ub_idx];
+	t := t[ub_idx + 1 .. ];
+
+	var upper_bound_var := variable;
+	upper_bound_var.t.identifier := i_encode("/bnd");
+
+	var l_test_again l_continue l_exception l_end : int;
+	ctx, l_test_again := alloc_local_label(ctx);
+	ctx, l_continue := alloc_local_label(ctx);
+	ctx, l_exception := alloc_local_label(ctx);
+	ctx, l_end := alloc_local_label(ctx);
+
+	var do_vd := new_variable_dictionary_chained(ctx, vd);
+	do_vd.break_label := l_end;
+	do_vd.continue_label := l_continue;
+
+	var toks := [ upper_bound_var, assign_op ] + upper_bound;
+	ctx, do_vd := parse_statement_var(ctx, do_vd, false, false, false, toks);
+
+	toks := variable_decl + [ assign_op ] + lower_bound;
+	ctx, do_vd := parse_statement_var(ctx, do_vd, false, false, false, toks);
+
+	ctx := generate_Label(ctx, l_test_again);
+
+	toks := [ variable, less_op, upper_bound_var ];
+	var a : int;
+	ctx, a := evaluate_condition(ctx, do_vd, toks, l_end, l_exception);
+
+	var term : bool;
+	ctx, t, term := parse_statement(ctx, do_vd, false, t);
+
+	ctx := generate_Label(ctx, l_continue);
+
+	ctx := parse_statement_modify(ctx, do_vd, plus_op, [ variable ], [ one ]);
+	ctx := generate_Jmp(ctx, l_test_again);
+
+	ctx := free_variable_dictionary_chained(ctx, do_vd);
+
+	ctx := generate_condition_exception(ctx, a, l_exception);
+
+	ctx := generate_Label(ctx, l_end);
+
+	return ctx, t, false;
+]
+
+fn parse_statement_for_in(ctx : function_context, vd : variable_dictionary, t : tokens) : (function_context, tokens, bool)
+[
+	if len(t) < 4 or
+	   not t[0].t is identifier or
+	   not (t[1].t is colon or t[1].t is k_in) then
+		abort compiler_error("Invalid for statement", t);
+
+	var in_idx := token_find(t, token_opt.k_in, true);
+
+	var variable_decl := t[ .. in_idx];
+	var in_op := t[in_idx];
+	t := t[in_idx + 1 .. ];
+
+	var iter_idx := token_find(t, token_opt.k_do, true);
+	var iter := t[ .. iter_idx];
+	t := t[iter_idx + 1 .. ];
+
+	var l_test_again l_continue l_exception l_end : int;
+	ctx, l_test_again := alloc_local_label(ctx);
+	ctx, l_continue := alloc_local_label(ctx);
+	ctx, l_exception := alloc_local_label(ctx);
+	ctx, l_end := alloc_local_label(ctx);
+
+	var do_vd := new_variable_dictionary_chained(ctx, vd);
+	do_vd.break_label := l_end;
+	do_vd.continue_label := l_continue;
+
+	var tok_it := new_token(in_op, token_opt.identifier.(i_encode("/it")));
+	var tok_colon := new_token(in_op, token_opt.colon);
+	var tok_class_iterator := new_token(in_op, token_opt.identifier.(i_encode("class_iterator")));
+	var tok_assign := new_token(in_op, token_opt.assign);
+	var toks := [ tok_it, tok_colon, tok_class_iterator, tok_assign ] + iter;
+	ctx, do_vd := parse_statement_var(ctx, do_vd, true, false, false, toks);
+
+	var tok_st := new_token(in_op, token_opt.identifier.(i_encode("/st")));
+	var tok_dot := new_token(in_op, token_opt.dot);
+	var tok_init := new_token(in_op, token_opt.identifier.(i_encode("init")));
+	toks := [ tok_st, tok_assign, tok_it, tok_dot, tok_init ];
+	ctx, do_vd := parse_statement_var(ctx, do_vd, false, false, false, toks);
+
+	ctx := generate_Label(ctx, l_test_again);
+
+	var tok_test := new_token(in_op, token_opt.identifier.(i_encode("test")));
+	var tok_lp := new_token(in_op, token_opt.left_paren);
+	tok_lp.bracket_skip := 2;
+	var tok_rp := new_token(in_op, token_opt.right_paren);
+	tok_rp.bracket_skip := -2;
+	toks := [ tok_it, tok_dot, tok_test, tok_lp, tok_st, tok_rp ];
+	var a : int;
+	ctx, a := evaluate_condition(ctx, do_vd, toks, l_end, l_exception);
+
+	var tok_get_element := new_token(in_op, token_opt.identifier.(i_encode("get_element")));
+	toks := variable_decl + [ tok_assign, tok_it, tok_dot, tok_get_element, tok_lp, tok_st, tok_rp ];
+	ctx, do_vd := parse_statement_var(ctx, do_vd, false, false, false, toks);
+
+	var term : bool;
+	ctx, t, term := parse_statement(ctx, do_vd, false, t);
+
+	ctx := generate_Label(ctx, l_continue);
+
+	var tok_increment := new_token(in_op, token_opt.identifier.(i_encode("increment")));
+	var tok_vars := [ tok_st ];
+	toks := [ tok_it, tok_dot, tok_increment, tok_lp, tok_st, tok_rp ];
+	ctx := parse_statement_assign(ctx, do_vd, false, tok_vars, toks);
+
+	ctx := generate_Jmp(ctx, l_test_again);
+
+	ctx := free_variable_dictionary_chained(ctx, do_vd);
+
+	ctx := generate_condition_exception(ctx, a, l_exception);
+
+	ctx := generate_Label(ctx, l_end);
+
+	return ctx, t, false;
+]
+
+fn parse_statement_return(ctx : function_context, vd : variable_dictionary, t : tokens) : function_context
+[
+	var a : list(int);
+	var nr := ctx.n_return_values;
+
+	if len(t) = 0 then
+		a := empty(int);
+	else
+		ctx, a := parse_expressions(ctx, vd, t, false);
+
+	if len(a) > nr then
+		abort compiler_error("Too many return values", t);
+	var inferred_args := nr - len(a);
+
+	a := fill(T_InvalidType, inferred_args) + a;
+
+	var ret1 := ctx.n_returns = 0;
+
+	var implicits := empty(function_definition);
+	var implicit_variables := empty(int);
+	var implicits_initialized := false;
+	for i := 0 to nr do [
+		var v := ctx.n_arguments + i;
+		var ax : int;
+		if a[i] = T_InvalidType then [
+			if not implicits_initialized then [
+				implicits := get_implicits(ctx, false);
+				implicit_variables := get_implicit_variables(vd);
+				implicits_initialized := true;
+			]
+			ctx, a[i] := infer_argument(ctx, implicits, implicit_variables, new_compare_context(ctx), get_type_of_var(ctx, v), t);
+			if a[i] = T_InvalidType then
+				abort compiler_error("Return value " + ntos(i + 1) + " was not inferred", t);
+			ax := a[i];
+		] else if ctx.inferred_return, get_type_of_var(ctx, v) = T_InvalidType then [
+			ctx.variables[v].type_idx := get_type_of_var(ctx, a[i]);
+			ax := a[i];
+		] else [
+			var inferred : maybe_inferred;
+			ctx, ax, inferred := convert_type(ctx, vd, a[i], new_compare_context(ctx), get_type_of_var(ctx, v), 0, true, t);
+		]
+		ctx := set_defined_here(ctx, v);
+		ctx := generate_Copy(ctx, ax, v);
+	]
+	if not ret1 then [
+		for i := 0 to nr do [
+			var v := ctx.n_arguments + i;
+			ctx.variables[v].defined_at := defined_multiple;
+		]
+	]
+
+	ctx.n_returns += 1;
+
+	ctx := generate_Jmp(ctx, 0);
+
+	return ctx;
+]
+
+fn parse_statement_break(ctx : function_context, vd : variable_dictionary, t : tokens) : function_context
+[
+	var l := search_break(vd);
+	if l < 0 then
+		abort compiler_error("Break outside loop", t);
+	ctx := generate_Jmp(ctx, l);
+	return ctx;
+]
+
+fn parse_statement_continue(ctx : function_context, vd : variable_dictionary, t : tokens) : function_context
+[
+	var l := search_continue(vd);
+	if l < 0 then
+		abort compiler_error("Break outside loop", t);
+	ctx := generate_Jmp(ctx, l);
+	return ctx;
+]
+
+fn parse_statement_goto(ctx : function_context, vd : variable_dictionary, t : tokens) : function_context
+[
+	var name := t[0].t.identifier;
+	var l := ctx.used_labels[name];
+	if is_uninitialized(l) then [
+		ctx, l := alloc_local_label(ctx);
+		ctx.used_labels[name] := l;
+		ctx.list_of_used_labels +<= name;
+	]
+	ctx := generate_Jmp(ctx, l);
+	return ctx;
+]
+
+fn parse_statement_xeval(ctx : function_context, a : int) : function_context
+[
+	var l_exception l_else ab l : int;
+	ctx, l_exception := alloc_local_label(ctx);
+	ctx, l_else := alloc_local_label(ctx);
+	ctx, ab := generate_Bool(ctx);
+
+	ctx, l := alloc_local_variable(ctx, ab, true, false);
+	ctx := generate_UnaryOp(ctx, Un_IsException, a, l);
+	ctx := generate_Jmp_False(ctx, l, l_else, l_exception);
+
+	ctx := generate_Copy_Type_Cast(ctx, a, l);
+	//ctx := generate_condition_exception(ctx, l, -1);
+	ctx := generate_condition_exception(ctx, l, l_exception);
+
+	ctx := generate_Label(ctx, l_else);
+
+	return ctx;
+]
+
+fn generate_abort(ctx : function_context) : function_context
+[
+	var ab l : int;
+	ctx, ab := generate_Bool(ctx);
+	ctx, l := alloc_local_variable(ctx, ab, true, false);
+	ctx := generate_IO_Exception_Make(ctx, ec_sync, error_abort, 0, l);
+	ctx := generate_condition_exception(ctx, l, -1);
+	return ctx;
+]
+
+fn parse_statement_eval(ctx : function_context, vd : variable_dictionary, t : tokens, x : token_opt) : function_context
+[
+	if x is k_abort and len(t) = 0 then
+		return generate_abort(ctx);
+
+	var al : list(int);
+	ctx, al := parse_expressions(ctx, vd, t, false);
+	for i := 0 to len(al) do [
+		var gt := get_type_of_var(ctx, al[i]);
+		if gt = T_Type or gt = T_TypeOfType then
+			continue;
+		if x is k_eval then [
+			ctx := generate_Eval(ctx, al[i]);
+		] else if x is k_keep then [
+			ctx := generate_Keep(ctx, al[i]);
+		] else [
+			ctx := parse_statement_xeval(ctx, al[i]);
+		]
+	]
+	if x is k_abort then
+		ctx := generate_abort(ctx);
+
+	return ctx;
+]
+
+fn parse_statement_pcode(ctx : function_context, vd : variable_dictionary, t : tokens) : function_context
+[
+	xeval token_assert(t, token_opt.identifier.(0));
+	var name := t[0].t.identifier;
+
+	var code : pcode_t := name_to_value[name];
+	if is_uninitialized(code) then
+		abort compiler_error("Invalid pcode", t);
+
+	var params := empty(pcode_t);
+	t := t[1 .. ];
+	while len(t) > 0 do [
+		var defined_var := false;
+		if len(t) >= 2, t[0].t is oper, t[0].t.oper = i_encode("=") then [
+			defined_var := true;
+			t := t[1 .. ];
+		]
+		var num : pcode_t;
+		if t[0].t is number then [
+			num := instance_number_int.from_bytes(t[0].t.number);
+			xeval num;
+		] else if t[0].t is identifier then [
+			var v := search_variable_dictionary(vd, t[0].t.identifier);
+			if v >= 0 then [
+				if defined_var then
+					ctx := set_defined_here(ctx, v);
+				num := v;
+			] else [
+				v := name_to_value[t[0].t.identifier];
+				if is_uninitialized(v) then
+					abort compiler_error("Unknown pcode parameter " + i_decode(t[0].t.identifier), t);
+				num := v;
+			]
+		] else [
+invalid_parameter:
+			abort compiler_error("Invalid parameter", t);
+		]
+		params +<= num;
+		t := t[1 ..];
+	]
+
+	ctx := generate_instruction(ctx, code, params);
+
+	return ctx;
+]
+
+fn parse_statement(ctx : function_context, vd : variable_dictionary, top_level : bool, t : tokens) : (function_context, tokens, bool)
+[
+	var term := false;
+
+	if len(t) = 0 then
+		abort compiler_error("Empty statement", t);
+
+	ctx := generate_Line_Info(ctx, t[0].line);
+
+	if t[0].t is semicolon then [
+		return ctx, t[1 .. ], false;
+	]
+
+	if t[0].t is left_bracket then [
+		var end := t[0].bracket_skip;
+		var term : bool;
+		ctx, term := parse_block(ctx, vd, top_level, t[1 .. end]);
+		return ctx, t[end + 1 .. ], term;
+	]
+
+	if t[0].t is k_if then
+		return parse_statement_if(ctx, vd, t[1 .. ]);
+
+	if t[0].t is k_while then
+		return parse_statement_while(ctx, vd, t[1 .. ]);
+
+	if t[0].t is k_for then [
+		var tt := t[1 .. ];
+		var d := token_find(tt, token_opt.k_do, true);
+		if token_find(tt[ .. d], token_opt.k_in, false) >= 0 then
+			return parse_statement_for_in(ctx, vd, tt);
+		else
+			return parse_statement_for(ctx, vd, tt);
+	]
+
+	var semicolon := token_find(t, token_opt.semicolon, true);
+	var s := t[ .. semicolon];
+
+	if s[0].t is k_return then [
+		ctx := parse_statement_return(ctx, vd, s[1 .. ]);
+		term := true;
+		goto ret;
+	]
+
+	if s[0].t is k_break, len(s) = 1 then [
+		ctx := parse_statement_break(ctx, vd, s);
+		term := true;
+		goto ret;
+	]
+
+	if s[0].t is k_continue, len(s) = 1 then [
+		ctx := parse_statement_continue(ctx, vd, s);
+		term := true;
+		goto ret;
+	]
+
+	if s[0].t is k_goto, len(s) = 2, s[1].t is identifier then [
+		ctx := parse_statement_goto(ctx, vd, s[1 .. ]);
+		term := true;
+		goto ret;
+	]
+
+	if s[0].t is k_eval or s[0].t is k_xeval or s[0].t is k_abort or s[0].t is k_keep then [
+		ctx := parse_statement_eval(ctx, vd, s[1 .. ], s[0].t);
+		term := s[0].t is k_abort;
+		goto ret;
+	]
+
+	if s[0].t is identifier, s[0].t.identifier = i_encode("pcode"), function_context_is_privileged(ctx) then [
+		ctx := parse_statement_pcode(ctx, vd, s[1 .. ]);
+		goto ret;
+	]
+
+	var assign := token_find(s, token_opt.assign, false);
+	if assign >= 1 then [
+		ctx := parse_statement_assign(ctx, vd, true, s[ .. assign], s[assign + 1 .. ]);
+		goto ret;
+	]
+
+	var modify := token_find(s, token_opt.oper.(0), false);
+	if modify >= 1 then [
+		ctx := parse_statement_modify(ctx, vd, s[modify], s[ .. modify], s[modify + 1 .. ]);
+		goto ret;
+	]
+
+	ctx := parse_statement_assign(ctx, vd, true, empty(token), s);
+	goto ret;
+
+	//abort compiler_error("Invalid statement", s);
+
+ret:
+	return ctx, t[semicolon + 1 .. ], term;
+]

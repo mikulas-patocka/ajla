@@ -1,0 +1,262 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit compiler.parser.gen;
+
+uses compiler.parser.dict;
+
+fn generate_instruction(ctx : function_context, pcode : pcode_t, args : list(pcode_t)) : function_context;
+
+fn generate_BinaryOp(ctx : function_context, op a1 a2 l : int) : function_context;
+fn pcode_BinaryOp_get_op(ins : instruction) : int;
+fn pcode_BinaryOp_get_result(ins : instruction) : int;
+fn pcode_BinaryOp_get_arg1(ins : instruction) : int;
+fn pcode_BinaryOp_get_arg2(ins : instruction) : int;
+fn generate_UnaryOp(ctx : function_context, op a l : int) : function_context;
+fn pcode_UnaryOp_get_op(ins : instruction) : int;
+fn pcode_UnaryOp_get_result(ins : instruction) : int;
+fn pcode_UnaryOp_get_arg(ins : instruction) : int;
+
+fn generate_Copy(ctx : function_context, src dst : int) : function_context;
+fn pcode_Copy_get_source(ins : instruction) : int;
+fn generate_Copy_Type_Cast(ctx : function_context, src dst : int) : function_context;
+
+fn generate_Eval(ctx : function_context, l : int) : function_context;
+fn generate_Keep(ctx : function_context, l : int) : function_context;
+
+fn generate_Fn(ctx : function_context, arguments return_values : list(int), result : int) : function_context;
+fn pcode_Fn_get_result(ins : instruction) : int;
+fn pcode_Fn_get_n_args(ins : instruction) : int;
+fn pcode_Fn_get_n_return_values(ins : instruction) : int;
+fn pcode_Fn_get_argument(ins : instruction, v : int) : int;
+fn pcode_Fn_get_return_value(ins : instruction, v : int) : int;
+fn generate_Load_Local_Type(ctx : function_context, f idx l : int) : function_context;
+fn pcode_Load_Local_Type_get_function(ins : instruction) : int;
+fn pcode_Load_Local_Type_get_index(ins : instruction) : int;
+
+fn generate_Jmp(ctx : function_context, lbl : int) : function_context;
+fn generate_Jmp_False(ctx : function_context, cond lbl_false lbl_exception : int) : function_context;
+fn generate_Label(ctx : function_context, lbl : int) : function_context;
+fn generate_Args(ctx : function_context) : function_context;
+fn generate_Return_Vars(ctx : function_context) : function_context;
+fn generate_Return(ctx : function_context) : function_context;
+
+fn generate_IO_Exception_Make(ctx : function_context, class typ num v : int) : function_context;
+
+implementation
+
+
+fn generate_instruction(ctx : function_context, pcode : pcode_t, args : list(pcode_t)) : function_context
+[
+	var ins := instruction.[ opcode : pcode, args : args ];
+	ctx.instructions +<= ins;
+	return ctx;
+]
+
+
+fn generate_BinaryOp(ctx : function_context, op a1 a2 l : int) : function_context
+[
+	return generate_instruction(ctx, P_BinaryOp, list(pcode_t).[ op, l, 0, a1, 0, a2 ]);
+]
+
+fn pcode_BinaryOp_get_op(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_BinaryOp, "pcode_BinaryOp_get_op: invalid instruction");
+	return ins.args[0];
+]
+
+fn pcode_BinaryOp_get_result(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_BinaryOp, "pcode_BinaryOp_get_result: invalid instruction");
+	return ins.args[1];
+]
+
+fn pcode_BinaryOp_get_arg1(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_BinaryOp, "pcode_BinaryOp_get_arg1: invalid instruction");
+	return ins.args[3];
+]
+
+fn pcode_BinaryOp_get_arg2(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_BinaryOp, "pcode_BinaryOp_get_arg2: invalid instruction");
+	return ins.args[5];
+]
+
+fn generate_UnaryOp(ctx : function_context, op a l : int) : function_context
+[
+	return generate_instruction(ctx, P_UnaryOp, list(pcode_t).[ op, l, 0, a ]);
+]
+
+fn pcode_UnaryOp_get_op(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_UnaryOp, "pcode_UnaryOp_get_op: invalid instruction");
+	return ins.args[0];
+]
+
+fn pcode_UnaryOp_get_result(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_UnaryOp, "pcode_UnaryOp_get_result: invalid instruction");
+	return ins.args[1];
+]
+
+fn pcode_UnaryOp_get_arg(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_UnaryOp, "pcode_UnaryOp_get_arg: invalid instruction");
+	return ins.args[3];
+]
+
+fn generate_Copy(ctx : function_context, src dst : int) : function_context
+[
+	return generate_instruction(ctx, P_Copy, list(pcode_t).[ dst, 0, src ]);
+]
+
+fn pcode_Copy_get_source(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Copy, "pcode_Copy_get_source: invalid instruction");
+	return ins.args[2];
+]
+
+fn generate_Copy_Type_Cast(ctx : function_context, src dst : int) : function_context
+[
+	return generate_instruction(ctx, P_Copy_Type_Cast, list(pcode_t).[ dst, 0, src ]);
+]
+
+
+fn generate_Eval(ctx : function_context, l : int) : function_context
+[
+	return generate_instruction(ctx, P_Eval, list(pcode_t).[ l ]);
+]
+
+fn generate_Keep(ctx : function_context, l : int) : function_context
+[
+	return generate_instruction(ctx, P_Keep, list(pcode_t).[ l ]);
+]
+
+
+fn generate_Fn(ctx : function_context, arguments return_values : list(int), result : int) : function_context
+[
+	var pcode_args := list(pcode_t).[ result, len(arguments), len(return_values) ];
+	for i := 0 to len(arguments) do [
+		pcode_args +<= arguments[i];
+	]
+	for i := 0 to len(return_values) do [
+		pcode_args +<= return_values[i];
+	]
+	return generate_instruction(ctx, P_Fn, pcode_args);
+]
+
+fn pcode_Fn_get_result(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Fn, "pcode_Fn_get_result: invalid instruction");
+	return ins.args[0];
+]
+
+fn pcode_Fn_get_n_args(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Fn, "pcode_Fn_get_n_args: invalid instruction");
+	return ins.args[1];
+]
+
+fn pcode_Fn_get_n_return_values(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Fn, "pcode_Fn_get_n_return_values: invalid instruction");
+	return ins.args[2];
+]
+
+fn pcode_Fn_get_argument(ins : instruction, v : int) : int
+[
+	xeval assert(ins.opcode = P_Fn, "pcode_Fn_get_argument: invalid instruction");
+	return ins.args[3 + v];
+]
+
+fn pcode_Fn_get_return_value(ins : instruction, v : int) : int
+[
+	xeval assert(ins.opcode = P_Fn, "pcode_Fn_get_return_value: invalid instruction");
+	return ins.args[3 + pcode_Fn_get_n_args(ins) + v];
+]
+
+fn generate_Load_Local_Type(ctx : function_context, f idx l : int) : function_context
+[
+	return generate_instruction(ctx, P_Load_Local_Type, list(pcode_t).[ l, f, idx ]);
+]
+
+fn pcode_Load_Local_Type_get_function(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Load_Local_Type, "pcode_Load_Local_Type_get_function: invalid instruction");
+	return ins.args[1];
+]
+
+fn pcode_Load_Local_Type_get_index(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Load_Local_Type, "pcode_Load_Local_Type_get_index: invalid instruction");
+	return ins.args[2];
+]
+
+
+fn generate_Jmp(ctx : function_context, lbl : int) : function_context
+[
+	return generate_instruction(ctx, P_Jmp, list(pcode_t).[ lbl ]);
+]
+
+fn generate_Jmp_False(ctx : function_context, cond lbl_false lbl_exception : int) : function_context
+[
+	return generate_instruction(ctx, P_Jmp_False, list(pcode_t).[ cond, lbl_false, lbl_exception ]);
+]
+
+fn generate_Label(ctx : function_context, lbl : int) : function_context
+[
+	return generate_instruction(ctx, P_Label, list(pcode_t).[ lbl ]);
+]
+
+fn generate_Args(ctx : function_context) : function_context
+[
+	var args := empty(pcode_t);
+	for i := 0 to ctx.n_arguments do [
+		args +<= i;
+	]
+	return generate_instruction(ctx, P_Args, args);
+]
+
+fn generate_Return_Vars(ctx : function_context) : function_context
+[
+	var args := empty(pcode_t);
+	for i := ctx.n_arguments to ctx.n_arguments + ctx.n_return_values do [
+		args +<= i;
+	]
+	return generate_instruction(ctx, P_Return_Vars, args);
+]
+
+fn generate_Return(ctx : function_context) : function_context
+[
+	var args := empty(pcode_t);
+	for i := 0 to ctx.n_return_values do [
+		var flags := 0;
+		if ctx.variables[ctx.n_arguments + i].type_idx = T_Type then
+			flags or= Flag_Return_Elided;
+		args +<= flags;
+		args +<= ctx.n_arguments + i;
+	]
+	return generate_instruction(ctx, P_Return, args);
+]
+
+fn generate_IO_Exception_Make(ctx : function_context, class typ num v : int) : function_context
+[
+	var pcode_args := list(pcode_t).[ IO_Exception_Make, 1, 0, 4, v, class, typ, num, 1 ];
+	return generate_instruction(ctx, P_IO, pcode_args);
+]

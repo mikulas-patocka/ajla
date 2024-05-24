@@ -1,0 +1,59 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit compiler.parser.alloc;
+
+uses compiler.parser.dict;
+
+fn alloc_local_label(ctx : function_context) : (function_context, int);
+fn alloc_local_variable(ctx : function_context, typ : int, cnst mut : bool) : (function_context, int);
+fn set_defined_here(ctx : function_context, v : int) : function_context;
+
+implementation
+
+
+fn alloc_local_label(ctx : function_context) : (function_context, int)
+[
+	var lbl := ctx.n_labels;
+	ctx.n_labels += 1;
+	return ctx, lbl;
+]
+
+fn alloc_local_variable(ctx : function_context, typ : int, cnst mut : bool) : (function_context, int)
+[
+	var n := len(ctx.variables);
+
+	var v : local_variable;
+	var defined : int;
+	if cnst or mut then
+		defined := len(ctx.instructions);
+	else
+		defined := defined_multiple;
+
+	ctx, v := new_variable(ctx, typ, defined, mut);
+
+	ctx.variables +<= v;
+
+	return ctx, n;
+]
+
+fn set_defined_here(ctx : function_context, v : int) : function_context
+[
+	ctx.variables[v].defined_at := len(ctx.instructions);
+	return ctx;
+]

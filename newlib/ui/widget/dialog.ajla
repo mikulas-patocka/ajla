@@ -1,0 +1,220 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit ui.widget.dialog;
+
+uses ui.widget.common;
+
+type dialog_state;
+
+record dialog_entry [
+	const cls : widget_class;
+	init : fn(world, appstate, wid) : (world, appstate, cls.t);
+	hotkeys : treeset(char);
+]
+
+fn dialog_no_event(w : world, app : appstate, com : widget_common, wev : wevent, ids : list(wid)) : (world, appstate, widget_common, bool);
+fn dialog_init(label : string, entries : list(dialog_entry), selected : int, process_event : fn(world, appstate, widget_common, wevent, list(wid)) : (world, appstate, widget_common, bool), layout : fn(appstate, list(wid), int, int, int, int, int) : (appstate, int, int), color_scheme : bytes, w : world, app : appstate, id : wid) : (world, appstate, dialog_state);
+fn dialog_redraw(app : appstate, curs : curses, com : widget_common, st : dialog_state) : curses;
+fn dialog_get_cursor(implicit app : appstate, implicit com : widget_common, implicit st : dialog_state) : (int, int);
+fn dialog_process_event(w : world, app : appstate, com : widget_common, st : dialog_state, wev : wevent) : (world, appstate, widget_common, dialog_state);
+
+const dialog_class~flat := widget_class.[
+	t : dialog_state,
+	name : "dialog",
+	is_selectable : true,
+	redraw : dialog_redraw,
+	get_cursor : dialog_get_cursor,
+	process_event : dialog_process_event,
+];
+
+implementation
+
+const horizontal_outer_border := 3;
+const horizontal_inner_border := 2;
+const vertical_outer_border := 1;
+const border_width := 2;
+
+record dialog_state [
+	label : string;
+	label_len : int;
+	color_scheme : bytes;
+	no_controls : bool;
+	entries : list(dialog_entry);
+	ids : list(wid);
+	process_event : fn(world, appstate, widget_common, wevent, list(wid)) : (world, appstate, widget_common, bool);
+	layout : fn(appstate, list(wid), int, int, int, int, int) : (appstate, int, int);
+]
+
+fn dialog_no_event(implicit w : world, implicit app : appstate, implicit com : widget_common, wev : wevent, ids : list(wid)) : (world, appstate, widget_common, bool)
+[
+	return false;
+]
+
+fn dialog_init(label : string, entries : list(dialog_entry), selected : int, process_event : fn(world, appstate, widget_common, wevent, list(wid)) : (world, appstate, widget_common, bool), layout : fn(appstate, list(wid), int, int, int, int, int) : (appstate, int, int), color_scheme : bytes, implicit w : world, implicit app : appstate, id : wid) : (world, appstate, dialog_state)
+[
+	var no_controls := false;
+	if selected = -1 then [
+		no_controls := true;
+		selected := 0;
+	]
+	var ids := fill(wid, wid_none, len(entries));
+	var i := selected - 1;
+	while i >= 0 do [
+		const entry := entries[i];
+		var sid := widget_new(id, entry.cls, entry.init, false);
+		ids[i] := sid;
+		i -= 1;
+	]
+	i := len(entries) - 1;
+	while i >= selected do [
+		const entry := entries[i];
+		var sid := widget_new(id, entry.cls, entry.init, false);
+		ids[i] := sid;
+		i -= 1;
+	]
+	label := ` ` + label + ` `;
+	var st := dialog_state.[
+		label : label,
+		label_len : string_length(label),
+		color_scheme : color_scheme,
+		no_controls : no_controls,
+		entries : entries,
+		ids : ids,
+		process_event : process_event,
+		layout : layout,
+	];
+	return st;
+]
+
+fn dialog_redraw(implicit app : appstate, implicit curs : curses, com : widget_common, st : dialog_state) : curses
+[
+	property_set_attrib(property_get_attrib(st.color_scheme + "dialog", #0000, #0000, #0000, #aaaa, #aaaa, #aaaa, 0, curses_invert));
+	curses_fill_rect(0, com.size_x, 0, com.size_y, ' ');
+	curses_box(horizontal_outer_border, com.size_x - horizontal_outer_border - 1, vertical_outer_border, com.size_y - vertical_outer_border - 1, border_width);
+	curses_set_pos((com.size_x - st.label_len) shr 1, vertical_outer_border);
+	property_set_attrib(property_get_attrib(st.color_scheme + "dialog-title", #aaaa, #aaaa, #aaaa, #0000, #0000, #0000, 0, 0));
+	curses_print(st.label);
+	curses_restrict_viewport(horizontal_outer_border + 1, com.size_x - horizontal_outer_border - 1, vertical_outer_border + 1, com.size_y - vertical_outer_border - 1, com.off_x, com.off_y);
+	widget_redraw_subwidgets(com);
+	curses_revert_viewport();
+]
+
+fn dialog_get_cursor(implicit app : appstate, implicit com : widget_common, implicit st : dialog_state) : (int, int)
+[
+	if len(com.sub_widgets) > 0 then [
+		var top := com.sub_widgets[len(com.sub_widgets) - 1];
+		var x, y := widget_get_cursor(app, top);
+		if x >= horizontal_outer_border + 1 - com.off_x, x < com.size_x - horizontal_outer_border - 1 - com.off_x, y >= vertical_outer_border + 1 - com.off_y, y < com.size_y - vertical_outer_border - 1 - com.off_y then
+			return x, y;
+	]
+	return -1, -1;
+]
+
+fn dialog_scroll(implicit app : appstate, implicit com : widget_common, implicit st : dialog_state) : (widget_common, dialog_state, bool)
+[
+	var ret := false;
+	if not st.no_controls, len(com.sub_widgets) > 0 then [
+		var top := widget_get_common(com.sub_widgets[len(com.sub_widgets) - 1]);
+		if com.off_y + top.y + top.size_y > com.size_y - vertical_outer_border - 1 then [
+			com.off_y := -(top.y + top.size_y - (com.size_y - vertical_outer_border - 1));
+			ret := true;
+		]
+		if com.off_y + top.y < vertical_outer_border + 1 then [
+			com.off_y := -(top.y - vertical_outer_border - 1);
+			ret := true;
+		]
+	]
+	return ret;
+]
+
+fn dialog_process_event(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : dialog_state, wev : wevent) : (world, appstate, widget_common, dialog_state)
+[
+	if wev is resize then [
+		var x_border := (horizontal_outer_border + 1 + horizontal_inner_border) * 2;
+		var pref_x := (wev.resize.x - x_border) * 9 div 10;
+		var xs, ys := st.layout(st.ids, x_border shr 1, vertical_outer_border + 1, string_length(st.label) - 2, pref_x, wev.resize.x - x_border);
+		com.size_x := xs + x_border;
+		com.size_y := ys + vertical_outer_border + 1;
+		com.size_y := min(com.size_y, wev.resize.y - 1);
+		com.x := (wev.resize.x - com.size_x) shr 1;
+		com.y := (wev.resize.y - com.size_y) shr 1;
+		com.off_y := 0;
+		var sc := dialog_scroll();
+		goto redraw;
+	]
+	if wev is change_focus then [
+		if widget_is_top(com.self) then [
+			property_set("fkeys", property.l.([
+				property.s.(``),
+				property.s.(``),
+				property.s.(``),
+				property.s.(``),
+				property.s.(``),
+				property.s.(``),
+				property.s.(``),
+				property.s.(``),
+				property.s.(``),
+				property.s.(`Cancel`),
+			]));
+		]
+		return;
+	]
+	var processed := st.process_event(wev, st.ids);
+	if processed then
+		goto activated;
+	if st.no_controls then [
+		if wev is keyboard, wev.keyboard.key = key_esc or wev.keyboard.key = key_enter or wev.keyboard.key = key_f10 or wev.keyboard.key = ' ' then [
+			widget_enqueue_event(com.self, wevent.close);
+			return;
+		]
+		if wev is mouse, (wev.mouse.buttons and not wev.mouse.prev_buttons) <> 0 then [
+			widget_enqueue_event(com.self, wevent.close);
+			return;
+		]
+	]
+	var forwarding := widget_should_forward(wev);
+	widget_forward(wev);
+	if not forwarding, wev is keyboard then [
+		for i in list_iterator_reverse(st.entries) do [
+			if not is_uninitialized_record(st.entries[i].hotkeys), treeset_test(st.entries[i].hotkeys, char_upcase(wev.keyboard.key)) then [
+				var id := st.ids[i];
+				widget_enqueue_event(id, wevent.keyboard.(event_keyboard.[
+					key : key_enter,
+					flags : 0,
+					rep : 1,
+				]));
+				widget_activate(id);
+				goto activated;
+			]
+		]
+	]
+activated:
+	var sc := dialog_scroll();
+	if sc then
+		goto redraw;
+	return;
+
+redraw:
+	widget_enqueue_event(com.self, wevent.redraw.(event_redraw.[
+		x1 : 0,
+		x2 : com.size_x,
+		y1 : 0,
+		y2 : com.size_y,
+	]));
+]

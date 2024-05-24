@@ -1,0 +1,1488 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit view;
+
+uses ui.widget;
+
+uses defs;
+uses common;
+
+type view_state;
+
+fn view_init(ro : acmd_ro, file_name : string, file : handle, w : world, app : appstate, id : wid) : (world, appstate, view_state);
+fn view_redraw(app : appstate, curs : curses, com : widget_common, st : view_state) : curses;
+fn view_get_cursor(app : appstate, com : widget_common, st : view_state) : (int, int);
+fn view_process_event(w : world, app : appstate, com : widget_common, st : view_state, wev : wevent) : (world, appstate, widget_common, view_state);
+
+const view_class ~flat := widget_class.[
+	t : view_state,
+	name : "acmd view",
+	is_selectable : true,
+	redraw : view_redraw,
+	get_cursor : view_get_cursor,
+	process_event : view_process_event,
+];
+
+implementation
+
+uses error;
+uses exception;
+
+const buffer_size := 65536;
+
+record line_cache_entry [
+	length : int;
+	line : string;
+	highlight_map : int;
+]
+
+option search_string [
+	b : bytes;
+	s : string;
+]
+
+record search_request [
+	str : search_string;
+	pos : int;
+	case_sensitive : bool;
+	backwards : bool;
+	whole_words : bool;
+]
+
+record view_async_state [
+	ro : acmd_ro;
+	loc : locale;
+	file : handle;
+
+	wrap : bool;
+	hex : bool;
+	size_x : int;
+	size_y : int;
+	hex_chars : int;
+
+	block_cache : bytes;
+	block_cache_pos : int;
+
+	line_cache : list(line_cache_entry);
+
+	file_pos_changed : bool;
+	file_pos : int;
+	end_pos : int;
+	b_size : int;
+	lines : list(string);
+	lines_hi : list(int);
+
+	lines_offset : int;
+	lines_offset_goto_line : bool;
+	x_offset : int;
+
+	srch : search_request;
+
+	highlight_pos : int;
+	highlight_len : int;
+
+	w : world;
+	async_event_fn : fn(w : world, wev : wevent) : world;
+	async_last_position_percent : int;
+]
+
+record view_state [
+	ro : acmd_ro;
+	loc : locale;
+	file_name : string;
+	file : handle;
+
+	async_seq : int;
+	async_active : bool;
+	async_search_active : bool;
+	async_position_percent : int;
+	async : view_async_state;
+
+	file_pos : int;
+	end_pos : int;
+	lines : list(string);
+	lines_hi : list(int);
+	x_offset : int;
+
+	whence : int;
+	lines_delta : int;
+	lines_delta_goto_line : bool;
+	x_delta : int;
+
+	srch : search_request;
+
+	highlight_pos : int;
+	highlight_len : int;
+
+	last_key : event_keyboard;
+]
+
+fn view_init_async_state(implicit st : view_state) : view_state
+[
+	st.async_active := false;
+	st.async_search_active := false;
+	st.async_position_percent := -1;
+	st.async := view_async_state.[
+		ro : st.ro,
+		loc : st.loc,
+		file : st.file,
+		block_cache : "",
+		block_cache_pos : 0,
+		line_cache : infinite_uninitialized(line_cache_entry),
+
+		file_pos_changed : true,
+
+		file_pos : 0,
+		end_pos : 0,
+		lines : empty(string),
+		lines_hi : empty(int),
+
+		lines_offset : 0,
+		lines_offset_goto_line : false,
+		x_offset : 0,
+
+		highlight_pos : st.highlight_pos,
+		highlight_len : st.highlight_len,
+
+		async_last_position_percent : -1,
+	];
+]
+
+fn view_set_charset(ro : acmd_ro, implicit app : appstate, implicit st : view_state) : view_state
+[
+	var b := property_get(app, "view-charset").b;
+	var loc := locale_get("." + b);
+	if is_exception loc then
+		loc := ro.loc;
+	st.loc := loc;
+]
+
+fn view_init(implicit ro : acmd_ro, file_name : string, file : handle, implicit w : world, implicit app : appstate, id : wid) : (world, appstate, view_state)
+[
+	property_observe(id, "view-charset");
+	implicit var st := view_state.[
+		ro : ro,
+		file_name : file_name,
+		file : file,
+		async_seq : 0,
+
+		file_pos : 0,
+		end_pos : 0,
+		lines : empty(string),
+		lines_hi : empty(int),
+		x_offset : 0,
+
+		whence : -1,
+		lines_delta : 0,
+		lines_delta_goto_line : false,
+		x_delta : 0,
+
+		highlight_pos : 0,
+		highlight_len : 0,
+
+		last_key : event_keyboard. [ key : 0, flags : 0, rep : 1 ],
+	];
+	view_set_charset();
+	view_init_async_state();
+]
+
+fn hex_chars_per_line(x : int) : int
+[
+	var res := 4;
+	while true do [
+		var n := res + 4;
+		var l := 8 + n * 3 + ((n shr 2) - 1) * 2 + 2 + n;
+		if l > x then
+			break;
+		res := n;
+	]
+	return res;
+]
+
+fn view_set_fkeys(implicit app : appstate, implicit com : widget_common) : appstate
+[
+	if widget_is_top(com.self) then [
+		var wrap := property_get("view-wrap").o;
+		var hex := property_get("view-hex").o;
+		property_set("fkeys", property.l.([
+			property.s.(``),
+			property.s.(select(hex, select(wrap, `Wrap`, `Unwrap`), ``)),
+			property.s.(`Quit`),
+			property.s.(select(hex, `Hex`, `Ascii`)),
+			property.s.(`Goto`),
+			property.s.(`Charset`),
+			property.s.(`Search`),
+			property.s.(``),
+			property.s.(``),
+			property.s.(`Quit`),
+		]));
+	]
+]
+
+fn view_report_position~inline(implicit as : view_async_state, pos : int) : view_async_state
+[
+	var percent := select(as.b_size <> 0, 100, pos * 100 div as.b_size);
+	if percent <> as.async_last_position_percent then [
+		xeval as.async_event_fn(as.w, wevent.set_property.(event_set_property.[ prop : "view-percent", val : property.i.(percent) ]));
+		as.async_last_position_percent := percent;
+	]
+]
+
+fn view_read_cached(implicit as : view_async_state, pos : int) : (view_async_state, bytes)
+[
+	view_report_position(pos);
+
+	if pos >= as.block_cache_pos, pos < as.block_cache_pos + len(as.block_cache) then [
+		var offset := pos - as.block_cache_pos;
+		return as.block_cache[offset .. ] + bread_lazy~lazy(as.file, as.block_cache_pos + len(as.block_cache));
+	]
+
+	var bc := bread_lazy(as.file, pos);
+	if is_exception len_at_least(bc, buffer_size) then
+		goto no_cache;
+	if not len_greater_than(bc, 0) then
+		return "";
+	if len_at_least(bc, buffer_size) then [
+		as.block_cache := bc[ .. buffer_size];
+		as.block_cache_pos := pos;
+		return as.block_cache + bread_lazy~lazy(as.file, pos + buffer_size);
+	] else [
+		as.block_cache := bc;
+		as.block_cache_pos := pos;
+		return as.block_cache;
+	]
+
+no_cache:
+	return bread_lazy(as.file, pos);
+]
+
+fn view_get_line_hex(implicit as : view_async_state, b : bytes, file_pos : int) : (view_async_state, string, int, bytes, int)
+[
+	var xpos := ntos_base(file_pos, 16);
+	if len(xpos) > 8 then
+		xpos := xpos[len(xpos) - 8 .. ];
+	var lline := ascii_to_string(list_left_pad(xpos, 8, '0'));
+	var rline := ``;
+	var i := 0;
+	var uni_pos := 0;
+	var skip_next_byte := false;
+	var highlight_map := 0;
+	var highlight_map_2 := 0;
+	var prev_hl := false;
+	while len_greater_than(b, i), i < as.hex_chars do [
+		var hl := file_pos + i >= as.highlight_pos and file_pos + i < as.highlight_pos + as.highlight_len;
+		if i > 0, (i and 3) = 0 then [
+			if prev_hl and hl then [
+				highlight_map bts= len(lline);
+				highlight_map bts= len(lline) + 1;
+			]
+			lline += string.[ ' ', #2502 ];
+		]
+		if prev_hl and hl then [
+			highlight_map bts= len(lline);
+		]
+		lline +<= ' ';
+		var hx := b[i];
+		if hl then [
+			highlight_map bts= len(lline);
+			highlight_map bts= len(lline) + 1;
+		]
+		lline +<= select(hx shr 4 >= 10, (hx shr 4) + '0', (hx shr 4) + ('A' - 10));
+		lline +<= select((hx and 15) >= 10, (hx and 15) + '0', (hx and 15) + ('A' - 10));
+		if not skip_next_byte then [
+			if hl then
+				highlight_map_2 bts= i;
+			if i < uni_pos then [
+				rline +<= ' ';
+			] else [
+				var c, cl := locale_get_char(as.loc, b[i .. ]);
+				if c = error_char then
+					c := error_ascii;
+				if char_to_unicode(c) < ' ' or char_to_unicode(c) = 127 then
+					c := '.';
+				uni_pos := i + cl;
+				var chl := char_length(c);
+				if chl = 0 then [
+					rline +<= ' ';
+				] else [
+					rline +<= c;
+					if chl = 2 then [
+					if hl then
+						highlight_map_2 bts= i + 1;
+						skip_next_byte := true;
+					]
+				]
+			]
+		] else [
+			skip_next_byte := false;
+		]
+		i += 1;
+		prev_hl := hl;
+	]
+	var j := i;
+	while j < as.hex_chars do [
+		if j > 0, (j and 3) = 0 then
+			lline += `  `;
+		lline += `   `;
+		j += 1;
+	]
+	var line := lline + `  `;
+	highlight_map_2 shl= len(line);
+	line += rline;
+	return line, highlight_map or highlight_map_2, b[i .. ], file_pos + i;
+]
+
+fn view_get_line(implicit as : view_async_state, b : bytes, file_pos : int, wrap : bool, report : bool) : (view_async_state, string, int, bytes, int)
+[
+	if as.hex then [
+		return view_get_line_hex(b, file_pos);
+	]
+	var tm := as.line_cache[file_pos];
+	if not is_uninitialized(tm) then [
+		return tm.line, tm.highlight_map, b[tm.length .. ], file_pos + tm.length;
+	]
+	var bytes_processed := 0;
+	var line_out := empty(char);
+	var line_pos := 0;
+	var highlight_map := 0;
+	while len_greater_than(b, 0) do [
+		var c, i := locale_get_char(as.loc, b);
+		if c = 9 then [
+			var n := 8 - (line_pos and 7);
+			if wrap, line_pos > 0, line_pos + n > as.size_x then
+				break;
+			line_out += list_repeat(` `, n);
+			line_pos += n;
+			goto next_ch;
+		]
+		if c = 10 then [
+			b := b[i .. ];
+			bytes_processed += i;
+			break;
+		]
+		if c = 13 then [
+			if len_greater_than(b, 1), b[1] = 10 then [
+				b := b[2 .. ];
+				bytes_processed += 2;
+				break;
+			]
+		]
+		if c = error_char then
+			c := error_ascii;
+		if char_to_unicode(c) < ' ' or char_to_unicode(c) = 127 then
+			c := '.';
+		var cl := char_length(c);
+		if cl = 0 then
+			goto next_ch;
+		if wrap, line_pos > 0, line_pos + cl > as.size_x then
+			break;
+		if as.highlight_len <> 0 then [
+			if file_pos + bytes_processed >= as.highlight_pos, file_pos + bytes_processed + i <= as.highlight_pos + as.highlight_len then
+				for x := 0 to cl do
+					highlight_map bts= line_pos + x;
+		]
+		line_out +<= c;
+		line_pos += cl;
+next_ch:
+		b := b[i .. ];
+		bytes_processed += i;
+		if report then
+			view_report_position(file_pos + bytes_processed);
+	]
+	as.line_cache[file_pos] := line_cache_entry.[ length : bytes_processed, line : line_out, highlight_map : highlight_map ];
+	return line_out, highlight_map, b, file_pos + bytes_processed;
+]
+
+fn is_word~inline(c : char) := c >= '0' and c <= '9' or c = '_';
+
+fn as_set_pos(implicit as : view_async_state, p : int, l : int) : view_async_state
+[
+	if as.srch.whole_words then [
+		var after := view_read_cached(p + l);
+		if len_greater_than(after, 0) then [
+			if as.srch.str is b then [
+				if is_word(after[0]) or
+				   after[0] >= 'A' and after[0] <= 'Z' or
+				   after[0] >= 'a' and after[0] <= 'z' then
+					return;
+			] else [
+				var c, l := locale_get_char(as.loc, after);
+				if is_word(char_to_unicode(c)) or char_upcase(c) <> c or char_locase(c) <> c then
+					return;
+			]
+		]
+		if p > 0 then [
+			if as.srch.str is b then [
+				var before := view_read_cached(p - 1);
+				if len_greater_than(before, 0) then [
+					if is_word(before[0]) or
+					   before[0] >= 'A' and before[0] <= 'Z' or
+					   before[0] >= 'a' and before[0] <= 'z' then
+						return;
+				]
+			] else [
+				var prev := 256;
+				prev := min(p, prev);
+				var before := view_read_cached(p - prev);
+				if len_greater_than(before, prev) then
+					before := before[ .. prev];
+				var s := locale_to_string(as.loc, before);
+				if len_greater_than(s, 1) then [
+					var c := s[len(s) - 1];
+					if is_word(char_to_unicode(c)) or char_upcase(c) <> c or char_locase(c) <> c then
+						return;
+				]
+			]
+		]
+	]
+	as.file_pos_changed := true;
+	as.file_pos := p;
+	as.highlight_pos := p;
+	as.highlight_len := l;
+]
+
+fn view_do_search_forward(implicit as : view_async_state) : view_async_state
+[
+	as.file_pos_changed := false;
+	var cs := as.srch.case_sensitive;
+	var stream := view_read_cached(as.srch.pos);
+	if as.srch.str is b then [
+		var offs := 0;
+		var b := as.srch.str.b;
+		var ln := len(b);
+		while len_at_least(stream, ln) do [
+			if cs then [
+				for i := 0 to ln do [
+					if stream[i] <> b[i] then
+						goto next_b;
+				]
+			] else [
+				for i := 0 to ln do [
+					if ascii_upcase(stream[i]) <> ascii_upcase(b[i]) then
+						goto next_b;
+				]
+			]
+			as_set_pos(as.srch.pos + offs, ln);
+			if as.file_pos_changed then
+				return;
+next_b:
+			offs += 1;
+			stream := stream[1 .. ];
+			view_report_position(as.srch.pos + offs);
+		]
+	] else if as.srch.str is s then [
+		var offs := 0;
+		var b := as.srch.str.s;
+		var ln := len(b);
+		var cc := empty(char);
+		var ll := empty(int);
+		while true do [
+			var c, l := locale_get_char(as.loc, stream);
+			if l = 0 then
+				break;
+			stream := stream[l .. ];
+			cc +<= c;
+			ll +<= l;
+			if len(cc) < ln then
+				continue;
+			if cs then [
+				for i := 0 to ln do [
+					if cc[i] <> b[i] then
+						goto next_c;
+					if cc[i] = error_char then
+						goto next_c;
+				]
+			] else [
+				for i := 0 to ln do [
+					if char_upcase(cc[i]) <> char_upcase(b[i]) then
+						goto next_c;
+					if cc[i] = error_char then
+						goto next_c;
+				]
+			]
+			as_set_pos(as.srch.pos + offs, list_fold_monoid(ll));
+			if as.file_pos_changed then
+				return;
+next_c:
+			offs += ll[0];
+			cc := cc[1 .. ];
+			ll := ll[1 .. ];
+			view_report_position(as.srch.pos + offs);
+		]
+	]
+]
+
+fn view_do_search_backward(implicit as : view_async_state) : view_async_state
+[
+	as.file_pos_changed := false;
+	var cs := as.srch.case_sensitive;
+	var pos := as.srch.pos;
+	if as.srch.str is b then [
+		var b := as.srch.str.b;
+		var ln := len(b);
+		while pos > 0 do [
+			var this_step := buffer_size;
+			this_step := max(this_step, ln);
+			this_step := min(this_step, pos);
+			if this_step < ln then
+				break;
+			var stream := view_read_cached(pos - this_step);
+			if not len_at_least(stream, this_step) then
+				break;
+			stream := stream[ .. this_step];
+			for offs := 0 to this_step - ln + 1 do [
+				if cs then [
+					for i := 0 to ln do [
+						if stream[offs + i] <> b[i] then
+							goto next_b;
+					]
+				] else [
+					for i := 0 to ln do [
+						if ascii_upcase(stream[offs + i]) <> ascii_upcase(b[i]) then
+							goto next_b;
+					]
+				]
+				as_set_pos(pos - this_step + offs, ln);
+next_b:
+			]
+			if as.file_pos_changed then
+				return;
+			pos -= this_step - ln + 1;
+		]
+	] else if as.srch.str is s then [
+		var b := as.srch.str.s;
+		var ln := len(b);
+		var bin_ln := len(string_to_locale(as.loc, b));
+		while pos > 0 do [
+			var this_step := buffer_size;
+			this_step := max(this_step, bin_ln);
+			this_step := min(this_step, pos);
+			var stream := view_read_cached(pos - this_step);
+			if not len_at_least(stream, this_step) then
+				break;
+			stream := stream[ .. this_step];
+			var cc := empty(char);
+			var ll := empty(int);
+			var offs := 0;
+			while true do [
+				var c, l := locale_get_char(as.loc, stream);
+				if l = 0 then
+					break;
+				stream := stream[l .. ];
+				cc +<= c;
+				ll +<= l;
+				if len(cc) < ln then
+					continue;
+				if cs then [
+					for i := 0 to ln do [
+						if cc[i] <> b[i] then
+							goto next_c;
+						if cc[i] = error_char then
+							goto next_c;
+					]
+				] else [
+					for i := 0 to ln do [
+						if char_upcase(cc[i]) <> char_upcase(b[i]) then
+							goto next_c;
+						if cc[i] = error_char then
+							goto next_c;
+					]
+				]
+				as_set_pos(pos - this_step + offs, list_fold_monoid(ll));
+next_c:
+				offs += ll[0];
+				cc := cc[1 .. ];
+				ll := ll[1 .. ];
+			]
+			if as.file_pos_changed then
+				return;
+			if this_step = bin_ln - 1 then
+				break;
+			pos -= this_step - bin_ln + 1;
+		]
+	]
+]
+
+fn view_file_pos_changed(implicit as : view_async_state) : view_async_state
+[
+	if as.hex then
+		return;
+	var pos := as.file_pos;
+	while pos > 0 do [
+		var bs := min(pos, buffer_size);
+		var str := view_read_cached(pos - bs);
+		str := str[ .. bs];
+		var i := bs - 1;
+		while i >= -1 do [
+			if (i = -1 and pos = bs) or (i >= 0 and str[i] = 10) then [
+				if as.wrap then [
+have_line:
+					var fpos := pos - bs + i + 1;
+					var new_pos := fpos;
+					var fstr := view_read_cached(fpos);
+					while fpos < as.file_pos do [
+						var line_out : string;
+						var highlight_map : int;
+						line_out, highlight_map, fstr, fpos := view_get_line(fstr, fpos, true, true);
+						if fpos <= as.file_pos then
+							new_pos := fpos;
+					]
+					as.file_pos := new_pos;
+					return;
+				] else [
+					as.file_pos := pos - bs + i + 1;
+					return;
+				]
+			] else if as.wrap, not is_uninitialized(as.line_cache[pos - bs + i + 1]) then [
+				goto have_line;
+			]
+			i -= 1;
+		]
+		pos -= bs;
+	]
+	as.file_pos := 0;
+]
+
+fn view_do_find_line(implicit as : view_async_state) : view_async_state
+[
+	var n_lines := as.lines_offset;
+	as.lines_offset := 0;
+	var pos := as.file_pos;
+	if as.hex, not as.lines_offset_goto_line then [
+		pos += n_lines * as.hex_chars;
+		pos += as.x_offset;
+		as.x_offset := 0;
+		if pos > as.b_size then
+			pos -= (pos - as.b_size) div as.hex_chars * as.hex_chars;
+		pos := max(pos, 0);
+		as.file_pos := pos;
+		return;
+	]
+	var wrap := as.wrap and not as.lines_offset_goto_line;
+	if n_lines > 0 then [
+		if wrap then [
+			var str := view_read_cached(pos);
+			while n_lines > 0 do [
+				var line_out : string;
+				var highlight_map : int;
+				line_out, highlight_map, str, pos := view_get_line(str, pos, true, true);
+				n_lines -= 1;
+			]
+			goto done;
+		]
+		var last_line := pos;
+		while true do [
+			var str := view_read_cached(pos);
+			var bs := buffer_size;
+			if not len_at_least(str, bs) then
+				bs := len(str);
+			if bs = 0 then [
+				pos := last_line;
+				goto done;
+			]
+			str := str[ .. bs];
+			for i := 0 to bs do [
+				if str[i] = 10 then [
+					last_line := pos + i + 1;
+					if n_lines = 1 then [
+						pos := last_line;
+						goto done;
+					]
+					n_lines -= 1;
+				]
+			]
+			pos += bs;
+		]
+	] else if n_lines < 0 then [
+		n_lines := -n_lines;
+		var last_pos := pos;
+		while pos > 0 do [
+			var bs := min(pos, buffer_size);
+			var str := view_read_cached(pos - bs);
+			str := str[ .. bs];
+			var i := bs - 1;
+			while i >= -1 do [
+				if (i = -1 and pos = bs) or (i >= 0 and str[i] = 10) then [
+					if wrap then [
+have_line:
+						var fpos := pos - bs + i + 1;
+						var fstr := view_read_cached(fpos);
+						var line_positions := empty(int);
+						while fpos < last_pos do [
+							var line_out : string;
+							var highlight_map : int;
+							line_positions +<= fpos;
+							line_out, highlight_map, fstr, fpos := view_get_line(fstr, fpos, true, false);
+						]
+						if len(line_positions) >= n_lines then [
+							pos := line_positions[len(line_positions) - n_lines];
+							goto done;
+						]
+						n_lines -= len(line_positions);
+						last_pos := pos - bs + i + 1;
+					] else [
+						if n_lines = 0 then [
+							pos := pos - bs + i + 1;
+							goto done;
+						]
+						n_lines -= 1;
+					]
+				] else if wrap, not is_uninitialized(as.line_cache[pos - bs + i + 1]) then [
+					goto have_line;
+				]
+				i -= 1;
+			]
+			pos -= bs;
+		]
+	]
+done:
+	as.file_pos := pos;
+]
+
+fn view_do_format(implicit as : view_async_state) : view_async_state
+[
+re_format:
+	var b := view_read_cached(as.file_pos);
+	var file_pos := as.file_pos;
+
+	var result := empty(string);
+	var result_hi := empty(int);
+
+	while len_greater_than(b, 0), len(result) < as.size_y - 1 do [
+		var line_out : string;
+		var highlight_map : int;
+		line_out, highlight_map, b, file_pos := view_get_line(b, file_pos, as.wrap, true);
+		result +<= line_out;
+		result_hi +<= highlight_map;
+	]
+
+	if len(result) < as.size_y - 1, as.file_pos > 0 then [
+		as.lines_offset := -(as.size_y - 1 - len(result));
+		view_do_find_line();
+		goto re_format;
+	]
+
+	as.end_pos := file_pos;
+	as.lines := result;
+	as.lines_hi := result_hi;
+
+	if not as.wrap, not as.hex, not is_uninitialized_record(as.srch) then [
+		for i := 0 to len(result_hi) do [
+			if result_hi[i] <> 0 then [
+				var st := bsf result_hi[i];
+				var en := st + popcnt result_hi[i];
+				var offs := 0;
+				if en > as.size_x then [
+					offs := en - as.size_x;
+					if offs > st then
+						offs := st;
+				]
+				as.x_offset += offs;
+				goto brk;
+			]
+		]
+brk:
+	]
+]
+
+fn view_format_async(implicit w : world, implicit app : appstate, implicit as : view_async_state, self : wid, seq : int) : view_async_state
+[
+	as.w := w;
+	as.async_event_fn := widget_get_async_event_function(self);
+	as.b_size := bsize_lazy(as.file);
+	if not is_uninitialized_record(as.srch) then [
+		as.line_cache := infinite_uninitialized(line_cache_entry);
+		if not as.srch.backwards then
+			view_do_search_forward();
+		else
+			view_do_search_backward();
+	]
+	if as.file_pos_changed then [
+		if not is_uninitialized_record(as.srch), as.hex then [
+			as.file_pos -= as.file_pos mod as.hex_chars;
+		]
+		view_file_pos_changed();
+		as.file_pos_changed := false;
+	]
+	view_do_find_line();
+	view_do_format();
+	eval len(as.lines);
+	eval len(as.lines_hi);
+	eval as.file_pos;
+	eval as.end_pos;
+	xeval as.async_event_fn(wevent.set_property.(event_set_property.[ prop : "view-async-finished", val : property.i.(seq) ]));
+	xeval len(as.lines);
+	xeval len(as.lines_hi);
+	xeval as.file_pos;
+	xeval as.end_pos;
+]
+
+fn view_format_finish(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : view_state) : (world, appstate, view_state)
+[
+	if is_exception st.async then [
+		if widget_is_top(com.self) then
+			acmd_error(`Error reading the file ` + st.file_name, locale_to_string(st.ro.loc, exception_string(st.async)));
+		view_init_async_state();
+	]
+	st.async_active := false;
+	st.async_search_active := false;
+	st.async_position_percent := -1;
+	st.lines := st.async.lines;
+	st.lines_hi := st.async.lines_hi;
+	st.file_pos := st.async.file_pos;
+	st.end_pos := st.async.end_pos;
+	st.x_offset += st.async.x_offset;
+	if st.x_offset < 0 then
+		st.x_offset := 0;
+	st.highlight_pos := st.async.highlight_pos;
+	st.highlight_len := st.async.highlight_len;
+]
+
+fn view_format(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : view_state) : (world, appstate, view_state)
+[
+	if st.async_active then
+		return;
+
+	var wrap := property_get("view-wrap").o;
+	var hex := property_get("view-hex").o;
+
+	st.async_seq += 1;
+
+	if st.whence <> -1 then [
+		st.async.file_pos := st.whence;
+		st.async.file_pos_changed := true;
+		st.whence := -1;
+	]
+	st.async.lines_offset := st.lines_delta;
+	st.lines_delta := 0;
+	st.async.lines_offset_goto_line := st.lines_delta_goto_line;
+	st.lines_delta_goto_line := false;
+	st.async.x_offset := st.x_delta;
+	st.x_delta := 0;
+	st.async.srch := st.srch;
+	st.srch := uninitialized_record(search_request);
+	st.async.wrap := wrap;
+	st.async.hex := hex;
+	st.async.size_x := com.size_x;
+	st.async.size_y := com.size_y;
+	st.async.hex_chars := hex_chars_per_line(com.size_x);
+
+	st.async.highlight_pos := st.highlight_pos;
+	st.async.highlight_len := st.highlight_len;
+
+	st.async := view_format_async~spark(st.async, com.self, st.async_seq);
+	var timer := sleep~lazy(unit_value, 20000);
+	if not any(st.async, timer) then [
+		view_format_finish();
+		return;
+	]
+	st.async_active := true;
+]
+
+fn view_redraw(implicit app : appstate, implicit curs : curses, com : widget_common, st : view_state) : curses
+[
+	var hex := property_get("view-hex").o;
+
+	property_set_attrib(property_get_attrib("acmd-viewer-caption", #0000, #0000, #0000, #0000, #aaaa, #aaaa, 0, curses_invert));
+	curses_fill_rect(0, com.size_x, 0, 1, ' ');
+	curses_set_pos(0, 0);
+	curses_print(st.file_name);
+
+	var b_size := bsize_lazy(st.file);
+
+	var fmt1 := `formatting`;
+	var fmt2 := `searching`;
+	var fmt_len := max(string_length(fmt1), string_length(fmt2));;
+	var cpos := ascii_to_string(ntos(st.end_pos)) + `/` + ascii_to_string(ntos(b_size)) + `  `;
+	var astr := ``;
+	if st.async_active then [
+		astr := select(st.async_search_active, fmt1, fmt2);
+	]
+	if string_length(astr) < fmt_len then [
+		astr += list_repeat(` `, fmt_len - string_length(astr));
+	]
+	cpos += astr;
+	cpos += `  `;
+	if st.async_active, st.async_position_percent <> -1 then
+		cpos += ascii_to_string(list_left_pad(ntos(st.async_position_percent), 3, ' '));
+	else
+		cpos += ascii_to_string(list_left_pad(ntos(select(b_size <> 0, 100, st.end_pos * 100 div b_size)), 3, ' '));
+	cpos += `%`;
+	curses_set_pos(com.size_x - string_length(cpos), 0);
+	curses_print(cpos);
+
+	property_set_attrib(property_get_attrib("acmd-viewer", #aaaa, #aaaa, #aaaa, #0000, #0000, #aaaa, 0, 0));
+	curses_fill_rect(0, com.size_x, 1, com.size_y, ' ');
+	for j := 0 to min(com.size_y - 1, len(st.lines)) do [
+		curses_set_pos(-st.x_offset, j + 1);
+		curses_print(st.lines[j]);
+		if hex then [
+			property_set_attrib(property_get_attrib("acmd-viewer-hexpos", #ffff, #ffff, #0000, #0000, #0000, #aaaa, 0, 0));
+			curses_recolor_rect(-st.x_offset, -st.x_offset + 8, j + 1, j + 2);
+			property_set_attrib(property_get_attrib("acmd-viewer", #aaaa, #aaaa, #aaaa, #0000, #0000, #aaaa, 0, 0));
+		]
+		var hi := st.lines_hi[j];
+		if hi <> 0 then [
+			property_set_attrib(property_get_attrib("acmd-viewer-found", #ffff, #ffff, #0000, #0000, #aaaa, #aaaa, 0, 0));
+			while hi <> 0 do [
+				var h := bsr hi;
+				hi btr= h;
+				curses_recolor_rect(h - st.x_offset, h - st.x_offset + 1, j + 1, j + 2);
+			]
+			property_set_attrib(property_get_attrib("acmd-viewer", #aaaa, #aaaa, #aaaa, #0000, #0000, #aaaa, 0, 0));
+		]
+	]
+]
+
+fn view_get_cursor(app : appstate, com : widget_common, st : view_state) : (int, int)
+[
+	return -1, -1;
+]
+
+fn view_do_goto(implicit w : world, implicit app : appstate, implicit st : view_state, text : string, mode : int) : (world, appstate, int, int)
+[
+	var bstr := string_to_locale(st.ro.loc, text);
+	var num := ston_base(bstr, select(mode = view_goto_mode_hexadecimal_offset, 10, 16));
+	if is_exception num or num < 0 then [
+invl:
+		acmd_error(`Invalid number`, ``);
+		return -1, -1;
+	]
+	if mode = view_goto_mode_line then [
+		if num = 0 then
+			goto invl;
+		return 0, num - 1;
+	] else if mode = view_goto_mode_percents then [
+		if num > 100 then
+			goto invl;
+		return bsize_lazy(st.file) * num div 100, 0;
+	] else [
+		return num, 0;
+	]
+]
+
+fn view_send_goto(implicit app : appstate, implicit com : widget_common) : appstate
+[
+	widget_enqueue_event(com.self, wevent.set_property.(event_set_property.[
+		prop : "view-goto",
+		val : property.n,
+	]));
+]
+
+fn view_goto_dialog_layout(srch : bool, implicit app : appstate, ids : list(wid), offs_x offs_y min_x pref_x max_x : int) : (appstate, int, int)
+[
+	var e := len(ids);
+	var xs := 0;
+
+	if srch then
+		xs := max(xs, widget_get_width(ids[0], pref_x));
+	for i := 1 to e - 2 do
+		xs := max(xs, widget_get_width(ids[i], pref_x));
+	xs := max(xs, widgets_get_width(ids[e - 2 .. ], 2, pref_x));
+
+	xs := min(xs, max_x);
+	xs := max(xs, min_x);
+
+	var yp := offs_y + 1;
+	yp := widget_place(ids[0], offs_x, xs, yp);
+	yp += 1;
+	for i := 1 to e - 2 do
+		yp := widget_place(ids[i], offs_x, xs, yp);
+	yp += 1;
+	yp := widgets_place(ids[e - 2 .. ], widget_align.center, 2, 1, offs_x, xs, yp);
+
+	return xs, yp;
+]
+
+fn view_goto(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : view_state) : (world, appstate, widget_common, view_state)
+[
+	var entries := [ dialog_entry.[
+			cls : input_class,
+			init : input_init("", "view-goto-text", true,,,),
+		], dialog_entry.[
+			cls : checkbox_class,
+			init : checkbox_init(`Line number`, "", "view-goto-mode", true, view_goto_mode_line,,,),
+		], dialog_entry.[
+			cls : checkbox_class,
+			init : checkbox_init(`Percents`, "", "view-goto-mode", true, view_goto_mode_percents,,,),
+		], dialog_entry.[
+			cls : checkbox_class,
+			init : checkbox_init(`Decimal offset`, "", "view-goto-mode", true, view_goto_mode_decimal_offset,,,),
+		], dialog_entry.[
+			cls : checkbox_class,
+			init : checkbox_init(`Hexadecimal offset`, "", "view-goto-mode", true, view_goto_mode_hexadecimal_offset,,,),
+		], dialog_entry.[
+			cls : button_class,
+			init : button_init(`OK`, true, "", button_no_action, lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ view_send_goto(); widget_destroy_onclick(id); ],,,),
+			hotkeys : treeset_from_list([ key_enter ]),
+		], dialog_entry.[
+			cls : button_class,
+			init : button_init(`Cancel`, true, "", button_no_action, lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ widget_destroy_onclick(id); ],,,),
+			hotkeys : treeset_from_list([ key_esc, key_f10 ]),
+		],
+	];
+	var winid := widget_new_window(dialog_class, dialog_init(`Go to`, entries, 0, dialog_no_event, view_goto_dialog_layout(false,,,,,,,), "",,,), false);
+]
+
+fn view_send_charset(chs : bytes, implicit app : appstate) : appstate
+[
+	property_set("view-charset", property.b.(chs));
+]
+
+fn view_charset_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y min_x pref_x max_x : int) : (appstate, int, int)
+[
+	var e := len(ids);
+	var xs := 0;
+
+	for i := 0 to e do
+		xs := max(xs, widget_get_width(ids[i], pref_x));
+
+	var yp := offs_y + 1;
+	for i := 0 to e do
+		yp := widget_place(ids[i], offs_x, xs, yp);
+
+	yp += 1;
+
+	return xs, yp;
+]
+
+fn view_charset_dialog_event(implicit w : world, implicit app : appstate, implicit com : widget_common, wev : wevent, ids : list(wid)) : (world, appstate, widget_common, bool)
+[
+	var idx : int;
+	if wev is keyboard then [
+		if wev.keyboard.key = key_home then [
+			idx := 0;
+			goto activate;
+		]
+		if wev.keyboard.key = key_end then [
+			idx := len(ids) - 1;
+			goto activate;
+		]
+		if wev.keyboard.key = key_left or
+		   wev.keyboard.key = key_right or
+		   wev.keyboard.key = key_tab then [
+			return true;
+		]
+		if wev.keyboard.key = key_up or
+		   wev.keyboard.key = key_down or
+		   wev.keyboard.key = key_page_up or
+		   wev.keyboard.key = key_page_down then [
+			idx := 0;
+			var top := com.sub_widgets[len(com.sub_widgets) - 1];
+			while true do [
+				if ids[idx] = top then
+					break;
+				idx += 1;
+			]
+			if wev.keyboard.key = key_up then
+				idx := max(idx - 1, 0);
+			if wev.keyboard.key = key_down then
+				idx := min(idx + 1, len(ids) - 1);
+			if wev.keyboard.key = key_page_up then
+				idx := max(idx - (com.size_y - 4), 0);
+			if wev.keyboard.key = key_page_down then
+				idx := min(idx + (com.size_y - 4), len(ids) - 1);
+			goto activate;
+		]
+	]
+	return false;
+
+activate:
+	widget_activate(ids[idx]);
+	return true;
+]
+
+fn view_charset(implicit w : world, app : appstate, st : view_state) : (world, appstate)
+[
+	var charsets := charset_list;
+	var m := 0;
+	for i := 0 to len(charsets) do [
+		m := max(m, string_length(charsets[i].label));
+	]
+	var init := 0;
+	var entries := empty(dialog_entry);
+	for i := 0 to len(charsets) do [
+		var padding := m - string_length(charsets[i].label);
+		var label := charsets[i].label + fill(char, ' ', padding);
+		var chs := charsets[i].mime_name;
+		if chs = locale_get_charset(st.ro.loc).mime_name then
+			chs := "";
+		var de := dialog_entry.[
+			cls : button_class,
+			init : button_init(label, false, "",
+				lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ if widget_is_top(id) then view_send_charset(chs); ],
+				//button_no_action,
+				lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ view_send_charset(chs); widget_destroy_onclick(id); ],,,),
+		];
+		if charsets[i].mime_name = locale_get_charset(st.loc).mime_name then [
+			de.hotkeys := treeset_from_list([ key_esc, key_f10 ]);
+			init := len(entries);
+		]
+		entries +<= de;
+	]
+	var winid : wid;
+	app, winid := widget_new_window(w, app, dialog_class, dialog_init(`Character set`, entries, init, view_charset_dialog_event, view_charset_dialog_layout, "",,,), false);
+	return app;
+]
+
+fn view_search_decode_hex(s : string) : bytes
+[
+	s := list_replace_substring(s, ` `, ``);
+	var a := string_to_ascii(s);
+	if len(a) bt 0 or list_search(a, '-') >= 0 then
+		abort;
+	var b := empty(byte);
+	while len(a) >= 2 do [
+		var c := ston_base(a[ .. 2], 16);
+		xeval c;
+		b +<= c;
+		a := a[2 .. ];
+	]
+	return b;
+]
+
+fn view_send_search(implicit app : appstate, implicit com : widget_common) : appstate
+[
+	widget_enqueue_event(com.self, wevent.set_property.(event_set_property.[
+		prop : "view-search",
+		val : property.n,
+	]));
+]
+
+fn view_search(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : view_state, key : char) : (world, appstate, widget_common, view_state)
+[
+	properties_backup([ "view-search-text", "view-search-mode", "view-search-flags" ]);
+	if key = '/' or key = '?' then [
+		var flags := property_get("view-search-flags").i;
+		if key = '/' then
+			flags btr= view_search_flag_backwards;
+		else
+			flags bts= view_search_flag_backwards;
+		property_set("view-search-flags", property.i.(flags));
+	]
+	var entries := [ dialog_entry.[
+			cls : input_class,
+			init : input_init("", "view-search-text", true,,,),
+		], dialog_entry.[
+			cls : checkbox_class,
+			init : checkbox_init(`String`, "", "view-search-mode", true, view_search_mode_string,,,),
+		], dialog_entry.[
+			cls : checkbox_class,
+			init : checkbox_init(`Hexadecimal`, "", "view-search-mode", true, view_search_mode_hexadecimal,,,),
+		], dialog_entry.[
+			cls : checkbox_class,
+			init : checkbox_init(`Case sensitive`, "", "view-search-flags", false, view_search_flag_case_sensitive,,,),
+		], dialog_entry.[
+			cls : checkbox_class,
+			init : checkbox_init(`Backwards`, "", "view-search-flags", false, view_search_flag_backwards,,,),
+		], dialog_entry.[
+			cls : checkbox_class,
+			init : checkbox_init(`Whole words`, "", "view-search-flags", false, view_search_flag_whole_words,,,),
+		], dialog_entry.[
+			cls : button_class,
+			init : button_init(`OK`, true, "", button_no_action, lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ view_send_search(); widget_destroy_onclick(id); ],,,),
+			hotkeys : treeset_from_list([ key_enter ]),
+		], dialog_entry.[
+			cls : button_class,
+			init : button_init(`Cancel`, true, "", button_no_action, lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ properties_revert([ "view-search-text", "view-search-mode", "view-search-flags" ]); widget_destroy_onclick(id); ],,,),
+			hotkeys : treeset_from_list([ key_esc, key_f10 ]),
+		],
+	];
+	var winid := widget_new_window(dialog_class, dialog_init(`Search`, entries, 0, dialog_no_event, view_goto_dialog_layout(true,,,,,,,), "",,,), false);
+]
+
+fn view_process_event(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : view_state, wev : wevent) : (world, appstate, widget_common, view_state)
+[
+	if wev is resize then [
+		com.x := 0;
+		com.y := 0;
+		com.size_x := wev.resize.x;
+		com.size_y := wev.resize.y - 1;
+		view_init_async_state();
+		st.whence := st.file_pos;
+		st.lines_delta := 0;
+		st.x_delta := 0;
+		st.x_offset := 0;
+		view_format();
+		goto redraw;
+	]
+	if wev is change_focus then [
+		view_set_fkeys();
+		return;
+	]
+	if wev is keyboard then [
+		var k := wev.keyboard;
+		if st.last_key.key = key_esc, k.key = key_esc then [
+			widget_enqueue_event(com.self, wevent.close);
+			return;
+		]
+		if st.last_key.key = key_esc, k.key >= '0', k.key <= '9', k.flags = 0 then [
+			var f := (k.key - '1' + 10) mod 10;
+			k.key := key_f1 - f;
+		]
+		if k.key >= '0', k.key <= '9', k.flags = key_flag_alt then [
+			var f := (k.key - '1' + 10) mod 10;
+			k.key := key_f1 - f;
+		]
+		st.last_key := k;
+		if k.key = key_f2 then [
+			var hex := property_get("view-hex").o;
+			if hex then
+				return;
+			var wrap := not property_get("view-wrap").o;
+			property_set("view-wrap", property.o.(wrap));
+			view_set_fkeys();
+			st.whence := st.file_pos;
+			st.lines_delta := 0;
+			st.x_delta := -st.x_offset;
+			view_init_async_state();
+			goto do_scroll;
+		]
+		if k.key = key_f3 or k.key = key_f10 then [
+			widget_enqueue_event(com.self, wevent.close);
+			return;
+		]
+		if k.key = key_f4 then [
+			var hex := not property_get("view-hex").o;
+			property_set("view-hex", property.o.(hex));
+			view_set_fkeys();
+			st.whence := st.file_pos;
+			st.lines_delta := 0;
+			st.x_delta := -st.x_offset;
+			view_init_async_state();
+			goto do_scroll;
+		]
+		if k.key = key_f5 then [
+			view_goto();
+			return;
+		]
+		if k.key = key_f6 then [
+			view_charset();
+			return;
+		]
+		if k.key = key_f7 or k.key = '/' or k.key = '?' then [
+			view_search(k.key);
+			return;
+		]
+		if k.key = key_left or k.key = key_right then [
+			if k.rep = 0 then
+				return;
+			if not property_get("view-wrap").o or property_get("view-hex").o then [
+				st.x_delta += select(k.key = key_left, 1, -1) * k.rep;
+				if st.async_active, st.async_search_active then [
+					view_init_async_state();
+					st.async.file_pos := st.file_pos;
+				]
+				goto do_scroll;
+			]
+			return;
+		]
+		if k.key = key_home or k.key = 'A' and k.flags = key_flag_ctrl then [
+			if k.rep = 0 then
+				return;
+			st.whence := 0;
+			st.lines_delta := 0;
+			st.x_delta := -st.x_offset;
+			if st.async_active then
+				view_init_async_state();
+			goto do_scroll;
+		]
+		if k.key = key_end or k.key = 'E' and k.flags = key_flag_ctrl then [
+			if k.rep = 0 then
+				return;
+			st.x_delta := -st.x_offset;
+			st.whence := bsize_lazy(st.file);
+			if property_get("view-hex").o then
+				st.whence -= st.whence mod hex_chars_per_line(com.size_x);
+			if st.async_active, st.async_search_active then
+				view_init_async_state();
+			goto do_scroll;
+		]
+		if k.key = key_up then [
+			if k.rep = 0 then
+				return;
+			st.lines_delta -= k.rep;
+			if st.async_active, st.async_search_active then [
+				view_init_async_state();
+				st.async.file_pos := st.file_pos;
+			]
+			goto do_scroll;
+		]
+		if k.key = key_down then [
+			if k.rep = 0 then
+				return;
+			st.lines_delta += k.rep;
+			if st.async_active, st.async_search_active then [
+				view_init_async_state();
+				st.async.file_pos := st.file_pos;
+			]
+			goto do_scroll;
+		]
+		if k.key = key_page_up or (k.key and not #20) = 'B' or k.key = 'B' and k.flags = key_flag_ctrl then [
+			if k.rep = 0 then
+				return;
+			st.lines_delta -= (com.size_y - 1) * k.rep;
+			if st.async_active, st.async_search_active then [
+				view_init_async_state();
+				st.async.file_pos := st.file_pos;
+			]
+			goto do_scroll;
+		]
+		if k.key = key_page_down or k.key = ' ' or k.key = 'F' and k.flags = key_flag_ctrl then [
+			if k.rep = 0 then
+				return;
+			st.lines_delta += (com.size_y - 1) * k.rep;
+			if st.async_active, st.async_search_active then [
+				view_init_async_state();
+				st.async.file_pos := st.file_pos;
+			]
+			goto do_scroll;
+		]
+		if k.key = 'n' or k.key = 'N' then [
+			goto do_search;
+		]
+		return;
+	]
+	if wev is mouse then [
+		if wev.mouse.wy <> 0 then [
+			st.lines_delta += wev.mouse.wy * 5;
+			if st.async_active, st.async_search_active then [
+				view_init_async_state();
+				st.async.file_pos := st.file_pos;
+			]
+			goto do_scroll;
+		]
+		return;
+	]
+	if wev is property_changed then [
+		view_set_charset(st.ro);
+		st.whence := st.file_pos;
+		st.lines_delta := 0;
+		st.x_delta := 0;
+		st.x_offset := 0;
+		view_init_async_state();
+		goto do_scroll;
+	]
+	if wev is set_property then [
+		if wev.set_property.prop = "view-goto" then [
+			var text := property_get("view-goto-text").s;
+			var mode := property_get("view-goto-mode").i;
+			var new_pos, lines_delta := view_do_goto(text, mode);
+			if new_pos < 0 then
+				return;
+			st.whence := new_pos;
+			st.lines_delta := lines_delta;
+			st.lines_delta_goto_line := lines_delta > 0;
+			st.x_delta := -st.x_offset;
+			if st.async_active then
+				view_init_async_state();
+			goto do_scroll;
+		]
+		if wev.set_property.prop = "view-search" then [
+do_search:
+			var text := property_get("view-search-text").s;
+			var mode := property_get("view-search-mode").i;
+			var flags := property_get("view-search-flags").i;
+			var srch := search_request.[
+				pos : st.file_pos,
+				case_sensitive : flags bt view_search_flag_case_sensitive,
+				backwards : flags bt view_search_flag_backwards,
+				whole_words : flags bt view_search_flag_whole_words,
+			];
+			if wev is keyboard then [
+				if wev.keyboard.key = 'N' then
+					srch.backwards := not srch.backwards;
+				if st.highlight_len > 0 then [
+					if srch.backwards then
+						srch.pos := st.highlight_pos;
+					else
+						srch.pos := st.highlight_pos + st.highlight_len;
+				]
+			] else [
+				st.highlight_pos := 0;
+				st.highlight_len := 0;
+			]
+			if mode = view_search_mode_string then [
+				srch.str := search_string.s.(text);
+				if len(text) = 0 then [
+empty_search_string:
+					acmd_error(`Empty search string`, ``);
+					return;
+				]
+			] else [
+				var hx := view_search_decode_hex(text);
+				if is_exception hx then [
+					acmd_error(`Invalid hex string`, ``);
+					return;
+				]
+				if len(hx) = 0 then
+					goto empty_search_string;
+				srch.str := search_string.b.(hx);
+			]
+			if st.async_active then [
+				view_init_async_state();
+				st.async.file_pos := st.file_pos;
+			]
+			st.whence := -1;
+			st.lines_delta := 0;
+			st.x_delta := -st.x_offset;
+			st.srch := srch;
+			st.async_search_active := true;
+			goto do_scroll;
+		]
+		if wev.set_property.prop = "view-async-finished", st.async_active then [
+			if wev.set_property.val.i = st.async_seq then [
+				view_format_finish();
+				if st.whence <> -1 or st.lines_delta <> 0 or st.x_delta <> 0 then
+					view_format();
+				goto redraw;
+			]
+		]
+		if wev.set_property.prop = "view-percent", st.async_active then [
+			var val := wev.set_property.val.i;
+			st.async_position_percent := val;
+			goto redraw_top;
+		]
+	]
+	return;
+
+do_scroll:
+	var was_async := st.async_active;
+	view_format();
+	if not st.async_active then
+		goto redraw;
+	if not was_async, st.async_active then [
+redraw_top:
+		widget_enqueue_event(com.self, wevent.redraw.(event_redraw.[
+			x1 : 0,
+			x2 : com.size_x,
+			y1 : 0,
+			y2 : 1,
+		]));
+	]
+	return;
+
+redraw:
+	widget_enqueue_event(com.self, wevent.redraw.(event_redraw.[
+		x1 : 0,
+		x2 : com.size_x,
+		y1 : 0,
+		y2 : com.size_y,
+	]));
+]

@@ -1,0 +1,54 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit exception;
+
+uses ex_codes;
+
+fn exception_make(dst_type : type, ex_class ex_type ex_code : int, stack_trace : bool) : dst_type;
+fn exception_make_str(dst_type : type, ex_class ex_type ex_code : int, stack_trace : bool, str : bytes) : dst_type;
+fn exception_copy(src_type : type, dst_type : type, s : src_type) : dst_type;
+
+implementation
+
+fn exception_make(dst_type : type, ex_class ex_type ex_code : int, stack_trace : bool) : dst_type
+[
+	var dest : dst_type;
+	pcode IO IO_Exception_Make 1 4 0 =dest ex_class ex_type ex_code stack_trace;
+	return dest;
+]
+
+fn exception_make_str(dst_type : type, ex_class ex_type ex_code : int, stack_trace : bool, str : bytes) : dst_type
+[
+	var dest : dst_type;
+	pcode IO IO_Exception_Make 1 5 0 =dest ex_class ex_type ex_code stack_trace str;
+	return dest;
+]
+
+fn exception_copy(src_type : type, dst_type : type, s : src_type) : dst_type
+[
+	var dest : dst_type;
+	if is_exception s then [
+		var d1 : dst_type;
+		pcode Copy_Type_Cast =d1 0 s;
+		dest := d1;
+	] else [
+		dest := exception_make(dst_type, ec_sync, error_invalid_operation, 0, true);
+	]
+	return dest;
+]

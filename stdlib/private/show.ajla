@@ -1,0 +1,370 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit private.show;
+
+fn integer_to_bytes_base(n : int, b : int) : bytes;
+fn integer_to_bytes(n : int) : bytes;
+fn bytes_to_integer_base(a : bytes, b : int) : int;
+fn bytes_to_integer(a : bytes) : int;
+
+fn real_to_bytes_base_precision(t : type, c : class_real_number(t), n : t, b : int, digits : int) : bytes;
+fn real_to_bytes(t : type, c : class_real_number(t), n : t) : bytes;
+fn bytes_to_real_base(t : type, implicit c : class_real_number(t), a : bytes, b : int) : t;
+fn bytes_to_real_hex(t : type, implicit c : class_real_number(t), a : bytes) : t;
+fn bytes_to_real(t : type, c : class_real_number(t), a : bytes) : t;
+
+fn real_to_rational(t : type, implicit c : class_real_number(t), n : t) : rational;
+fn rational_to_real(t : type, implicit c : class_real_number(t), a : rational) : t;
+
+implementation
+
+uses exception;
+
+fn byte_to_num(c : byte, b : int) : int
+[
+	var v : int;
+	if c >= #30 and c < #3a then
+		v := c - #30;
+	else if c >= #41 and c < #5b then
+		v := c - #41 + 10;
+	else if c >= #61 and c < #7b then
+		v := c - #61 + 10;
+	else [
+exc:
+		abort exception_make(int, ec_sync, error_invalid_operation, 0, true);
+	]
+	if v >= b then
+		goto exc;
+	return v;
+]
+
+fn integer_to_bytes_base(n : int, b : int) : bytes
+[
+	if b < 2 or b > 36 then
+		abort exception_make(bytes, ec_sync, error_invalid_operation, 0, true);
+
+	if n < 0 then
+		return "-" + integer_to_bytes_base(-n, b);
+
+	var result := empty(byte);
+
+	if (b and b - 1) = 0 then [
+		if n = 0 then
+			return "0";
+
+		var bb := bsf b;
+		var pos := bsr n;
+		if (bb and bb - 1) = 0 then
+			pos and= not bb - 1;
+		else
+			pos -= pos mod bb;
+
+		while pos >= 0 do [
+			var c := 0;
+			for i := 0 to bb do
+				if n bt pos + i then
+					c bts= i;
+			if c < 10 then
+				c += #30;
+			else
+				c += #41 - 10;
+			result +<= c;
+			pos -= bb;
+		]
+
+		return result;
+	]
+
+	var q := 1;
+	while q * b <= n do
+		q *= b;
+
+	while q > 0 do [
+		var c := n div q;
+		n mod= q;
+		q div= b;
+		if c < 10 then
+			c += #30;
+		else
+			c += #41 - 10;
+		result +<= c;
+	]
+
+	return result;
+]
+
+fn integer_to_bytes(n : int) : bytes
+[
+	return integer_to_bytes_base~inline(n, 10);
+]
+
+fn bytes_to_integer_base(a : bytes, b : int) : int
+[
+	if b < 2 or b > 36 then [
+exc:
+		abort exception_make(bytes, ec_sync, error_invalid_operation, 0, true);
+	]
+	var sign := 1;
+	if len_greater_than(a, 0) and a[0] = '-' then [
+		sign := -1;
+		a := a[1 .. ];
+	] else if len_greater_than(a, 0) and a[0] = '+' then [
+		a := a[1 .. ];
+	]
+	if not len_greater_than(a, 0) then
+		goto exc;
+	var result := 0;
+	for i := 0 to len(a) do [
+		var c := a[i];
+		var v := byte_to_num(c, b);
+		result := result * b + v;
+	]
+	return result * sign;
+]
+
+fn bytes_to_integer(a : bytes) : int
+[
+	return bytes_to_integer_base~inline(a, 10);
+]
+
+
+fn real_to_bytes_base_precision(t : type, implicit c : class_real_number(t), n : t, b : int, digits : int) : bytes
+[
+	if b < 2 or b > 36 or digits < 0 then
+		abort exception_make(bytes, ec_sync, error_invalid_operation, 0, true);
+	var result := "";
+	if is_negative n then [
+		result +<= '-';
+		n := -n;
+	]
+	if is_infinity n then [
+		result += "inf";
+		return result;
+	]
+	var inx : int := n;
+	n -= inx;
+	var frac := 0;
+	for i := 0 to digits do [
+		n *= b;
+		var inn : int := n;
+		frac := frac * b + inn;
+		n -= inn;
+	]
+	if n >= 0.5 then [
+		frac += 1;
+		var imul := ipower(b, digits);
+		if frac >= imul then [
+			frac -= imul;
+			inx += 1;
+		]
+	]
+	var fracstr : bytes;
+	if digits > 0 then
+		fracstr := integer_to_bytes_base(frac, b);
+	else
+		fracstr := "";
+	if len(fracstr) < digits then
+		fracstr := fill(byte, '0', digits - len(fracstr)) + fracstr;
+	result += integer_to_bytes_base(inx, b);
+	result +<= '.';
+	result += fracstr;
+	return result;
+]
+
+fn real_to_bytes(t : type, implicit c : class_real_number(t), n : t) : bytes
+[
+	return real_to_bytes_base_precision~inline(t, c, n, 10, 10);
+]
+
+fn bytes_to_real_base(t : type, implicit c : class_real_number(t), a : bytes, b : int) : t
+[
+	if b < 2 or b > 36 then
+		abort exception_make(bytes, ec_sync, error_invalid_operation, 0, true);
+	var r : t;
+	var negative := false;
+	if len_greater_than(a, 0), a[0] = '-' then [
+		a := a[1 .. ];
+		negative := true;
+	] else if len_greater_than(a, 0), a[0] = '+' then [
+		a := a[1 .. ];
+	]
+	if a = "inf" then [
+		r := 1. / 0.;
+		goto ret;
+	]
+
+	var ex := select(b > 10, 'E', 'P');
+	var ex_pos := list_search(a, ex);
+	if ex_pos = -1 then
+		ex_pos := list_search(a, ex + #20);
+	var e := 0;
+	if ex_pos <> -1 then [
+		e := bytes_to_integer(a[ex_pos + 1 .. ]);
+		a := a[ .. ex_pos];
+	]
+
+	var before_dot after_dot : bytes;
+	var dot := list_search(a, '.');
+	if dot = -1 then [
+		before_dot := a;
+		after_dot := "";
+	] else [
+		before_dot := a[ .. dot];
+		after_dot := a[dot + 1 .. ];
+	]
+
+	if e > 0 then [
+		if e > len(after_dot) then [
+			after_dot += fill(byte, '0', e - len(after_dot));
+		]
+		var t := after_dot[ .. e];
+		before_dot += t;
+		after_dot := after_dot[e .. ];
+	] else if e < 0 then [
+		e := -e;
+		if e > len(before_dot) then [
+			before_dot := fill(byte, '0', e - len(before_dot)) + before_dot;
+		]
+		var t := before_dot[len(before_dot) - e .. ];
+		after_dot := t + after_dot;
+		before_dot := before_dot[ .. len(before_dot) - e];
+	]
+
+	//eval debug("before_dot: '" + before_dot + "', after_dot: '" + after_dot + "'");
+	r := 0;
+	while len(before_dot) > 0 do [
+		var d : t := byte_to_num(before_dot[0], b);
+		r := r * b + d;
+		before_dot := before_dot[1 .. ];
+	]
+	var digits := c.one;
+	while len(after_dot) > 0 do [
+		var d : t := byte_to_num(after_dot[0], b);
+		r := r + d * digits / b;
+		digits /= b;
+		after_dot := after_dot[1 .. ];
+	]
+
+ret:
+	if negative then
+		r := -r;
+	return r;
+]
+
+fn bytes_to_real_hex(t : type, implicit c : class_real_number(t), a : bytes) : t
+[
+	var b := empty(byte);
+	for i := 0 to len(a) do [
+		if a[i] = 'p' or a[i] = 'P' then [
+			b +<= 'e';
+			b += a[i + 1 .. ];
+			break;
+		]
+		if a[i] = '.' then [
+			b +<= '.';
+			continue;
+		]
+		var str := [ a[i] ];
+		var bin := ntos_base(ston_base(str, 16), 2);
+		b += fill(byte, '0', 4 - len(bin));
+		b += bin;
+	]
+	//eval debug("bytes_to_real_hex: " + a + " -> " + b + ".");
+	return bytes_to_real_base(t, c, b, 2);
+]
+
+fn bytes_to_real(t : type, implicit c : class_real_number(t), a : bytes) : t
+[
+	return bytes_to_real_base(t, c, a, 10);
+]
+
+fn real_to_rational(t : type, implicit c : class_real_number(t), n : t) : rational
+[
+	if is_infinity n then [
+		if not is_negative n then [
+			return instance_real_number_rational.from_int(1) / instance_real_number_rational.from_int(0);
+		] else [
+			return instance_real_number_rational.from_int(-1) / instance_real_number_rational.from_int(0);
+		]
+	]
+	var den := 1;
+	if n = 0, is_negative n then
+		den := -1;
+
+	if fract(n) = 0 then
+		return instance_real_number_rational.from_int(n) / instance_real_number_rational.from_int(den);
+
+	var bit := 0;
+	var q := 1 shl bit;
+	while true do [
+		var nn := ldexp(n, q);
+		if fract(nn) = 0 then
+			break;
+		bit += 1;
+		q shl= 1;
+	]
+	while bit > 0 do [
+		bit -= 1;
+		var qq := q - (1 shl bit);
+		var nn := ldexp(n, qq);
+		if fract(nn) = 0 then
+			q := qq;
+	]
+	var num := ldexp(n, q);
+	den *= (1 shl q);
+	return instance_real_number_rational.from_int(num) / instance_real_number_rational.from_int(den);
+]
+
+fn int_to_real(t : type, implicit c : class_real_number(t), i : int) : (t, int)
+[
+	var num := c.from_int(i);
+	if not is_infinity num then
+		return num, 0;
+
+	var bit := 0;
+	var q := 1 shl bit;
+	while true do [
+		num := c.from_int(i shr q);
+		if not is_infinity num then
+			break;
+		bit += 1;
+		q shl= 1;
+	]
+	while bit > 0 do [
+		bit -= 1;
+		var qq := q - (1 shl bit);
+		num := c.from_int(i shr qq);
+		if not is_infinity num then
+			q := qq;
+	]
+
+	num := c.from_int(i shr q);
+	return num, q;
+]
+
+fn rational_to_real(t : type, implicit c : class_real_number(t), a : rational) : t
+[
+	var num := a.num;
+	var den := a.den;
+	var num_t, adj_p := int_to_real(t, c, num);
+	var den_t, adj_m := int_to_real(t, c, den);
+	var adj := adj_p - adj_m;
+	//return num_t / den_t * ldexp(c.one, adj);
+	return ldexp(num_t / den_t, adj);
+]

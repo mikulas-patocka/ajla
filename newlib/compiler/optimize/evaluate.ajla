@@ -1,0 +1,48 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit compiler.optimize.evaluate;
+
+uses pcode;
+
+fn evaluate_binary(srctype dsttype : pcode_t, op : pcode_t, arg1 arg2 : list(pcode_t)) : list(pcode_t);
+fn evaluate_unary(srctype dsttype : pcode_t, op : pcode_t, arg1 : list(pcode_t)) : list(pcode_t);
+fn load_optimized_pcode(path_idx : pcode_t, unit_name : bytes, program : bool, fn_idx : list(pcode_t)) : list(pcode_t);
+
+implementation
+
+fn evaluate_binary(srctype dsttype : pcode_t, op : pcode_t, arg1 arg2 : list(pcode_t)) : list(pcode_t)
+[
+	var result : list(pcode_t);
+	pcode IO IO_Evaluate 1 5 0 =result srctype dsttype op arg1 arg2;
+	return result;
+]
+
+fn evaluate_unary(srctype dsttype : pcode_t, op : pcode_t, arg1 : list(pcode_t)) : list(pcode_t)
+[
+	var result : list(pcode_t);
+	pcode IO IO_Evaluate 1 4 0 =result srctype dsttype op arg1;
+	return result;
+]
+
+fn load_optimized_pcode(path_idx : pcode_t, unit_name : bytes, program : bool, fn_idx : list(pcode_t)) : list(pcode_t)
+[
+	var result : list(pcode_t);
+	pcode IO IO_Load_Optimized_Pcode 1 4 0 =result path_idx unit_name program fn_idx;
+	return result;
+]

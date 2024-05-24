@@ -1,0 +1,130 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit prompt;
+
+uses common;
+
+fn shell_expand_prompt(w : world, ro : acmd_ro, p : bytes, d : bytes) : (world, string);
+
+implementation
+
+fn date_d(implicit w : world, implicit ro : acmd_ro) : (world, string)
+[
+	var time := get_real_time();
+	var c := time_to_calendar(ro.tz, time);
+	return weekdays[c.wday] + ` ` + months[c.month] + ` ` + locale_to_string(ro.loc, ntos(c.day + 1));
+]
+
+fn time_t(implicit w : world, implicit ro : acmd_ro, h24 sec : bool) : (world, string)
+[
+	var time := get_real_time();
+	var c := time_to_calendar(ro.tz, time);
+	var result := ``;
+	if h24 then
+		result += list_left_pad(locale_to_string(ro.loc, ntos(c.hour)), 2, '0');
+	else
+		result += list_left_pad(locale_to_string(ro.loc, ntos((c.hour + 11) mod 12 + 1)), 2, '0');
+	result += `:` + list_left_pad(locale_to_string(ro.loc, ntos(c.min)), 2, '0');
+	if sec then [
+		result += `:` + list_left_pad(locale_to_string(ro.loc, ntos(c.sec)), 2, '0');
+	]
+	return result;
+]
+
+fn shell_expand_prompt(implicit w : world, implicit ro : acmd_ro, p : bytes, d : bytes) : (world, string)
+[
+	var result := ``;
+	var ps := locale_to_string(ro.loc, p);
+	for i := 0 to len(ps) do [
+		if ps[i] = '\', i < len(ps) - 1 then [
+			var c := ps[i + 1];
+			if c = 'a' then [
+			] else if c = 'd' then [
+				var d := date_d();
+				result += d;
+			] else if c = 'e' then [
+			] else if c = 'h' or c = 'H' then [
+				var h := get_host_name();
+				if h = "" then [
+					var e := treemap_search(ro.env, "HOSTNAME");
+					if e is j then
+						h := e.j;
+				]
+				if c = 'h' then [
+					var l := list_search(h, '.');
+					if l >= 0 then
+						h := h[ .. l];
+				]
+				result += locale_to_string(ro.loc, h);
+			] else if c = 't' then [
+				var t := time_t(true, true);
+				result += t;
+			] else if c = 'T' then [
+				var t := time_t(false, true);
+				result += t;
+			] else if c = '@' then [
+				var t := time_t(false, false);
+				result += t;
+			] else if c = 'A' then [
+				var t := time_t(true, false);
+				result += t;
+			] else if c = 'u' then [
+				var e := treemap_search(ro.env, "HOSTNAME");
+				if e is j then [
+					result += locale_to_string(ro.loc, e.j);
+				]
+			] else if c = 'w' or c = 'W' then [
+				var w := path_shortcut_home(ro.home, d);
+				if c = 'W' then [
+					var p := list_search_backwards_fn(w, path_is_separator);
+					if p >= 0 then
+						w := w[p + 1 .. ];
+				]
+				result += locale_to_string(ro.loc, w);
+			] else if c = '$' then [
+				var uid_s := treemap_search(ro.env, "UID");
+				var uid := ston(uid_s.j);
+				if not is_exception uid, uid = 0 then
+					result +<= '#';
+				else
+					result +<= '$';
+			] else if c = '\' then [
+				result +<= '\';
+			] else if c = '[' then [
+				while i < len(ps) - 1, not(ps[i] = '\' and ps[i + 1] = ']') do
+					i += 1;
+			] else if c >= '0', c <= '7' then [
+				var oct := c - '0';
+				if i + 1 < len(ps), ps[i + 1] >= '0', ps[i + 1] <= '7' then [
+					oct := 8 * oct + (ps[i + 1] - '0');
+					i += 1;
+				]
+				if i + 1 < len(ps), ps[i + 1] >= '0', ps[i + 1] <= '7' then [
+					oct := 8 * oct + (ps[i + 1] - '0');
+					i += 1;
+				]
+				result +<= oct;
+			]
+			i += 1;
+			continue;
+		]
+		result +<= ps[i];
+	]
+	return result;
+]

@@ -1,0 +1,113 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit heap;
+
+type heap(key : type, cls : class_ord(key));
+
+fn heap_init(key : type, const cls : class_ord(key)) : heap(key, cls);
+fn heap_size(key : type, const cls : class_ord(key), h : heap(key, cls)) : int;
+fn heap_is_nonempty(key : type, const cls : class_ord(key), h : heap(key, cls)) : bool;
+fn heap_peek(key : type, const cls : class_ord(key), h : heap(key, cls)) : key;
+fn heap_extract(key : type, const cls : class_ord(key), h : heap(key, cls)) : (heap(key, cls), key);
+fn heap_insert(key : type, const cls : class_ord(key), h : heap(key, cls), k : key) : heap(key, cls);
+fn heap_from_list(key : type, const cls : class_ord(key), l : list(key)) : heap(key, cls);
+
+implementation
+
+type heap(key : type, cls : class_ord(key)) := list(key);
+
+fn heap_init(key : type, const cls : class_ord(key)) : heap(key, cls)
+[
+	return empty(key);
+]
+
+fn heap_size(key : type, const cls : class_ord(key), h : heap(key, cls)) : int
+[
+	return len(h);
+]
+
+fn heap_is_nonempty(key : type, const cls : class_ord(key), h : heap(key, cls)) : bool
+[
+	return len_greater_than(h, 0);
+]
+
+fn heap_peek(key : type, const cls : class_ord(key), h : heap(key, cls)) : key
+[
+	return h[0];
+]
+
+fn heap_left~inline(i : int) : int := i + i + 1;
+fn heap_right~inline(i : int) : int := i + i + 2;
+fn heap_parent~inline(i : int) : int := (i - 1) shr 1;
+
+fn heap_extract(key : type, const implicit cls : class_ord(key), h : heap(key, cls)) : (heap(key, cls), key)
+[
+	var val := h[0];
+	var ins := h[len(h) - 1];
+	h := h[ .. len(h) - 1];
+	if len(h) = 0 then
+		goto ret;
+	h[0] := ins;
+	var idx := 0;
+again:
+	var left := heap_left(idx);
+	var right := heap_right(idx);
+	if left >= len(h) then
+		goto ret;
+	if h[left] >= h[idx] then [
+		if right >= len(h) then
+			goto ret;
+		if h[right] >= h[idx] then
+			goto ret;
+go_right:
+		h[idx], h[right] := h[right], h[idx];
+		idx := right;
+		goto again;
+	] else [
+		if right < len(h), h[right] <= h[left] then
+			goto go_right;
+		h[idx], h[left] := h[left], h[idx];
+		idx := left;
+		goto again;
+	]
+ret:
+	return h, val;
+]
+
+fn heap_insert(key : type, const implicit cls : class_ord(key), h : heap(key, cls), k : key) : heap(key, cls)
+[
+	h +<= k;
+	var idx := len(h) - 1;
+	while idx > 0 do [
+		var parent := heap_parent(idx);
+		if h[parent] < h[idx] then
+			break;
+		h[idx], h[parent] := h[parent], h[idx];
+		idx := parent;
+	]
+	return h;
+]
+
+fn heap_from_list(key : type, const implicit cls : class_ord(key), l : list(key)) : heap(key, cls)
+[
+	var h := heap_init(key, cls);
+	for f in l do
+		h := heap_insert(h, f);
+	return h;
+]

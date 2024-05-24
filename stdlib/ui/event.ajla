@@ -1,0 +1,838 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit ui.event;
+
+uses io;
+uses msgqueue;
+uses treemap;
+uses charset;
+uses ui.termcap;
+
+const ev_tag_key : int := 1;
+const ev_tag_mouse_move : int := 2;
+const ev_tag_mouse_button : int := 3;
+const ev_tag_redraw : int := 4;
+const ev_tag_resize : int := 5;
+
+record event_keyboard [
+	key : char;
+	flags : int;
+	rep : int;
+]
+
+record event_resize [
+	x y : int;
+]
+
+record event_redraw [
+	x1 y1 x2 y2 : int;
+]
+
+record event_mouse [
+	x y prev_buttons buttons double_buttons wx wy : int;
+	soft_cursor : bool;
+]
+
+option event [
+	keyboard : event_keyboard;
+	resize : event_resize;
+	redraw : event_redraw;
+	mouse : event_mouse;
+	altmq;
+]
+
+// the f* keys must be contiguous
+const key_f1 : char := -1;
+const key_f2 : char := -2;
+const key_f3 : char := -3;
+const key_f4 : char := -4;
+const key_f5 : char := -5;
+const key_f6 : char := -6;
+const key_f7 : char := -7;
+const key_f8 : char := -8;
+const key_f9 : char := -9;
+const key_f10 : char := -10;
+const key_f11 : char := -11;
+const key_f12 : char := -12;
+const key_left : char := -13;
+const key_right : char := -14;
+const key_up : char := -15;
+const key_down : char := -16;
+const key_insert : char := -17;
+const key_delete : char := -18;
+const key_home : char := -19;
+const key_end : char := -20;
+const key_page_up : char := -21;
+const key_page_down : char := -22;
+const key_backspace : char := -23;
+const key_enter : char := -24;
+const key_num_5 : char := -25;
+const key_tab : char := -26;
+const key_esc : char := -27;
+
+const key_flag_shift : int := 1;
+const key_flag_ctrl : int := 2;
+const key_flag_alt : int := 4;
+
+const key_to_termcap : list(int) := [
+	0,
+	tc_s_key_f1,
+	tc_s_key_f2,
+	tc_s_key_f3,
+	tc_s_key_f4,
+	tc_s_key_f5,
+	tc_s_key_f6,
+	tc_s_key_f7,
+	tc_s_key_f8,
+	tc_s_key_f9,
+	tc_s_key_f10,
+	tc_s_key_f11,
+	tc_s_key_f12,
+	tc_s_key_left,
+	tc_s_key_right,
+	tc_s_key_up,
+	tc_s_key_down,
+	tc_s_key_ic,
+	tc_s_key_dc,
+	tc_s_key_home,
+	tc_s_key_end,
+	tc_s_key_ppage,
+	tc_s_key_npage,
+	tc_s_key_backspace,
+	tc_s_key_enter,
+	tc_s_key_b2,
+];
+
+fn event_get_keyboard~spark(w : world, h : handle, tc : termcap, loc : locale, q : msgqueue(event)) : bottom_type;
+fn event_get_resize~spark(w : world, h : handle, q : msgqueue(event)) : bottom_type;
+fn event_get_mouse~spark(w : world, h : handle, q : msgqueue(event)) : bottom_type;
+fn event_wait_for_any_key(w : world, h : handle) : world;
+fn event_reset_handle(w : world, h : handle) : world;
+
+implementation
+
+uses socket;
+uses pcode;
+uses exception;
+
+const terminal_read_timeout : int64 := 100000;
+
+fn os2_vkmap : list(char)
+[
+	var a := fill(char, 0, #100);
+	a[1] := key_esc;
+	a[14] := key_backspace;
+	a[15] := key_tab;
+	a[28] := key_enter;
+	a[59] := key_f1;
+	a[60] := key_f2;
+	a[61] := key_f3;
+	a[62] := key_f4;
+	a[63] := key_f5;
+	a[64] := key_f6;
+	a[65] := key_f7;
+	a[66] := key_f8;
+	a[67] := key_f9;
+	a[68] := key_f10;
+	a[71] := key_home;
+	a[72] := key_up;
+	a[73] := key_page_up;
+	a[75] := key_left;
+	a[76] := key_num_5;
+	a[77] := key_right;
+	a[79] := key_end;
+	a[80] := key_down;
+	a[81] := key_page_down;
+	a[82] := key_insert;
+	a[83] := key_delete;
+	a[84] := key_f1;
+	a[85] := key_f2;
+	a[86] := key_f3;
+	a[87] := key_f4;
+	a[88] := key_f5;
+	a[89] := key_f6;
+	a[90] := key_f7;
+	a[91] := key_f8;
+	a[92] := key_f9;
+	a[93] := key_f10;
+	a[94] := key_f1;
+	a[95] := key_f2;
+	a[96] := key_f3;
+	a[97] := key_f4;
+	a[98] := key_f5;
+	a[99] := key_f6;
+	a[100] := key_f7;
+	a[101] := key_f8;
+	a[102] := key_f9;
+	a[103] := key_f10;
+	a[104] := key_f1;
+	a[105] := key_f2;
+	a[106] := key_f3;
+	a[107] := key_f4;
+	a[108] := key_f5;
+	a[109] := key_f6;
+	a[110] := key_f7;
+	a[111] := key_f8;
+	a[112] := key_f9;
+	a[113] := key_f10;
+	a[115] := key_left;
+	a[116] := key_right;
+	a[117] := key_end;
+	a[118] := key_page_down;
+	a[119] := key_home;
+	a[132] := key_page_up;
+	a[133] := key_f11;
+	a[134] := key_f12;
+	a[135] := key_f11;
+	a[136] := key_f12;
+	a[137] := key_f11;
+	a[138] := key_f12;
+	a[139] := key_f11;
+	a[140] := key_f12;
+	a[141] := key_up;
+	a[143] := key_num_5;
+	a[145] := key_down;
+	a[146] := key_insert;
+	a[147] := key_delete;
+	a[151] := key_home;
+	a[152] := key_up;
+	a[153] := key_page_up;
+	a[155] := key_left;
+	a[157] := key_right;
+	a[159] := key_end;
+	a[160] := key_down;
+	a[161] := key_page_down;
+	a[162] := key_insert;
+	a[163] := key_delete;
+	return a;
+]
+
+fn os2_ctrlmap(p : list(int32)) : int
+[
+	var result := 0;
+	var p3 := p[3];
+	if p3 bt 0 or p3 bt 1 then
+		result or= key_flag_shift;
+	if p3 bt 2 then
+		result or= key_flag_ctrl;
+	if p3 bt 3 then
+		result or= key_flag_alt;
+	return result;
+]
+
+fn dos_vkmap : list(char)
+[
+	var a := os2_vkmap;
+	a[2] := ' ';
+	a[16] := 'Q';
+	a[17] := 'W';
+	a[18] := 'E';
+	a[19] := 'R';
+	a[20] := 'T';
+	a[21] := 'Y';
+	a[22] := 'U';
+	a[23] := 'I';
+	a[24] := 'O';
+	a[25] := 'P';
+	a[26] := '[';
+	a[27] := ']';
+	a[30] := 'A';
+	a[31] := 'S';
+	a[32] := 'D';
+	a[33] := 'F';
+	a[34] := 'G';
+	a[35] := 'H';
+	a[36] := 'J';
+	a[37] := 'K';
+	a[38] := 'L';
+	a[39] := ';';
+	a[40] := '''';
+	a[41] := '`';
+	a[43] := '\';
+	a[44] := 'Z';
+	a[45] := 'X';
+	a[46] := 'C';
+	a[47] := 'V';
+	a[48] := 'B';
+	a[49] := 'N';
+	a[50] := 'M';
+	a[51] := ',';
+	a[52] := '.';
+	a[53] := '/';
+	a[55] := '*';
+	a[57] := ' ';
+	a[74] := '-';
+	a[78] := '+';
+	a[120] := '1';
+	a[121] := '2';
+	a[122] := '3';
+	a[123] := '4';
+	a[124] := '5';
+	a[125] := '6';
+	a[126] := '7';
+	a[127] := '8';
+	a[128] := '9';
+	a[129] := '0';
+	a[130] := '-';
+	a[131] := '=';
+	return a;
+]
+
+fn dos_ctrlmap(p : list(int32)) : int
+[
+	var result := 0;
+	if p[2] = #00 or p[2] = #e0 then [
+		var p1 := p[1];
+		if p1 = #0f or
+		   p1 >= #54 and p1 <= #5d or
+		   p1 >= #87 and p1 <= #88 then
+			result or= key_flag_shift;
+		if p1 >= #5e and p1 <= #67 or
+		   p1 >= #73 and p1 <= #78 or
+		   p1 = #84 or
+		   p1 >= #89 and p1 <= #8a or
+		   p1 >= #8e and p1 <= #94 then
+			result or= key_flag_ctrl;
+		if p1 = #0e or
+		   p1 >= #10 and p1 <= #1c or
+		   p1 >= #1e and p1 <= #29 or
+		   p1 >= #2b and p1 <= #35 or
+		   p1 = #37 or
+		   p1 = #39 or
+		   p1 = #4a or
+		   p1 = #4e or
+		   p1 >= #68 and p1 <= #71 or
+		   p1 >= #78 and p1 <= #83 or
+		   p1 >= #8b and p1 <= #8c or
+		   p1 >= #97 and p1 <= #99 or
+		   p1 = #9b or
+		   p1 = #9d or
+		   p1 >= #9f and p1 <= #a3 or
+		   p1 >= #a5 and p1 <= #a6 then
+			result or= key_flag_alt;
+	]
+	return result;
+]
+
+fn win32_vkmap : list(char)
+[
+	var a := fill(char, 0, #80);
+	a[#08] := key_backspace;
+	a[#09] := key_tab;
+	a[#0c] := key_num_5;
+	a[#0d] := key_enter;
+	a[#1b] := key_esc;
+	a[#21] := key_page_up;
+	a[#22] := key_page_down;
+	a[#23] := key_end;
+	a[#24] := key_home;
+	a[#25] := key_left;
+	a[#26] := key_up;
+	a[#27] := key_right;
+	a[#28] := key_down;
+	a[#2d] := key_insert;
+	a[#2e] := key_delete;
+	a[#70] := key_f1;
+	a[#71] := key_f2;
+	a[#72] := key_f3;
+	a[#73] := key_f4;
+	a[#74] := key_f5;
+	a[#75] := key_f6;
+	a[#76] := key_f7;
+	a[#77] := key_f8;
+	a[#78] := key_f9;
+	a[#79] := key_f10;
+	a[#7a] := key_f11;
+	a[#7b] := key_f12;
+	return a;
+]
+
+fn win32_ctrlmap(p : list(int32)) : int
+[
+	var result := 0;
+	var p3 := p[3];
+	if p3 bt 0 or p3 bt 1 then
+		result or= key_flag_alt;
+	if p3 bt 2 or p3 bt 3 then
+		result or= key_flag_ctrl;
+	if p3 bt 4 then
+		result or= key_flag_shift;
+	return result;
+]
+
+type mouse_context := list(int64);
+
+fn new_mouse_context := infinite_uninitialized(int64);
+
+fn send_mouse_event(implicit w : world, implicit mouse : mouse_context, q : msgqueue(event), ev : event_mouse) : (world, mouse_context)
+[
+	var xtag, xev := msgqueue_receive_tag_nonblock(q, ev_tag_mouse_move);
+	if not is_exception xtag then [
+		ev.wx += xev.mouse.wx;
+		ev.wy += xev.mouse.wy;
+	]
+	ev.double_buttons := 0;
+	var button_down_mask := ev.buttons and not ev.prev_buttons;
+	if button_down_mask <> 0 then [
+		var time := get_monotonic_time();
+		while button_down_mask <> 0 do [
+			var b := bsr button_down_mask;
+			button_down_mask btr= b;
+			if not is_uninitialized(mouse[b]), time - mouse[b] <= 300000 then
+				ev.double_buttons bts= b;
+			mouse[b] := time;
+		]
+	]
+	msgqueue_send(q, select(ev.prev_buttons = ev.buttons, ev_tag_mouse_button, ev_tag_mouse_move), event.mouse.(ev));
+]
+
+record kbd_context [
+	q : msgqueue(event);
+	tc : termcap;
+	loc : locale;
+	key_map : treemap(bytes, event_keyboard);
+	partial_map : treeset(bytes);
+	has_mouse : bool;
+	last_mouse_buttons : int;
+	mouse : mouse_context;
+]
+
+fn kbd_is_partial_locale_character(ctx : kbd_context, b : bytes) : bool
+[
+	return not locale_validate(ctx.loc, b);
+]
+
+fn kbd_test_input(ctx : kbd_context, b : bytes) : int
+[
+	var i := 1;
+	while true do [
+		var test := treeset_test(ctx.partial_map, b[ .. i]) or kbd_is_partial_locale_character(ctx, b[ .. i]);
+		if i > 1 then [
+			var timer := sleep~lazy(unit_value, terminal_read_timeout);
+			if any(test, timer) then [
+				//eval debug("timeout " + ntos(i));
+				i -= 1;
+				break;
+			]
+		]
+		if test then
+			i += 1;
+		else
+			break;
+	]
+	return i;
+]
+
+fn event_get_xterm_mouse(implicit w : world, ctx : kbd_context, mb mx my mm : int) : (world, kbd_context)
+[
+	var xm := event_mouse.[
+		x : mx - 1,
+		y : my - 1,
+		prev_buttons : 0,
+		buttons : 0,
+		wx : 0,
+		wy : 0,
+		soft_cursor : false,
+	];
+	//eval debug("x: " + ntos(mx) + ", y: " + ntos(my) + ", b: " + ntos(mb));
+	mb btr= 5;
+	var buttons := 0;
+	if mb = 0 then buttons := 1;
+	if mb = 1 then buttons := 4;
+	if mb = 2 then buttons := 2;
+	if mb = 64 then xm.wy := -1;
+	if mb = 65 then xm.wy := 1;
+	if mb = 66 then xm.wx := -1;
+	if mb = 67 then xm.wx := 1;
+	if mb = 128 then buttons := 8;
+	if mb = 129 then buttons := 16;
+	if mb = 130 then buttons := 32;
+
+	if xm.wx <> 0 and mm = 0 then
+		return ctx;
+
+	if mm = -1 then
+		xm.buttons := buttons;
+	else if mm = 0 then
+		xm.buttons := ctx.last_mouse_buttons and not buttons;
+	else
+		xm.buttons := ctx.last_mouse_buttons or buttons;
+
+	xm.prev_buttons := ctx.last_mouse_buttons;
+
+	ctx.last_mouse_buttons := xm.buttons;
+
+	ctx.mouse := send_mouse_event(ctx.mouse, ctx.q, xm);
+
+	return ctx;
+]
+
+fn event_get_keyboard_loop(implicit w : world, ctx : kbd_context, b : bytes) : bottom_type
+[
+	while true do [
+		if not len_greater_than(b, 0) then
+			abort;
+		var i := kbd_test_input(ctx, b);
+		while i >= 1 do [
+			if ctx.has_mouse, i >= 3 then [
+				var xm : list(event);
+				var timer := sleep~lazy(unit_value, terminal_read_timeout);
+				if b[ .. 3] = bytes.[ 27, 91, 77 ] then [
+					var mb := b[3] - ' ';
+					var mx := b[4] - ' ';
+					var my := b[5] - ' ';
+					if any(my, timer) then [
+						b := b[3 .. ];
+						goto cont;
+					]
+					ctx := event_get_xterm_mouse(ctx, mb, mx, my, -1);
+					//return xm + event_get_keyboard_lazy(ctx, b[6 .. ]);
+					b := b[6 .. ];
+					goto cont;
+				]
+				if b[ .. 3] = bytes.[ 27, 91, 60 ] then [
+					fn mM(b : byte) : bool := b = 'm' or b = 'M';
+					var end := list_search_fn(b, mM);
+					if any(end, timer) then [
+						b := b[3 .. ];
+						goto cont;
+					]
+					//eval debug(b[3 .. end + 1]);
+					var mbs := list_break(b[3 .. end], ';');
+					var mb := ston(mbs[0]);
+					var mx := ston(mbs[1]);
+					var my := ston(mbs[2]);
+					if is_exception mb or is_exception mx or is_exception my then [
+						b := b[end + 1 .. ];
+						goto cont;
+					]
+					ctx := event_get_xterm_mouse(ctx, mb, mx, my, select(b[end] = 'M', 0, 1));
+					//return xm + event_get_keyboard_lazy(ctx, b[end + 1 .. ]);
+					b := b[end + 1 .. ];
+					goto cont;
+				]
+			]
+			var xk := treemap_search(ctx.key_map, b[ .. i]);
+			if xk is j then [
+				//return [ event.keyboard.(xk.j) ] + event_get_keyboard_lazy(ctx, b[i .. ]);
+				msgqueue_send(ctx.q, ev_tag_key, event.keyboard.(xk.j));
+				b := b[i .. ];
+				goto cont;
+			]
+			var start := select(b[0] = 27, 0, 1);
+			if start = 1, i = 2 then [
+				xk := treemap_search(ctx.key_map, b[start .. i]);
+				if xk is j then [
+					if xk.j.key <> key_esc then
+						xk.j.flags or= key_flag_alt;
+					//return [ event.keyboard.(xk.j) ] + event_get_keyboard_lazy(ctx, b[i .. ]);
+					msgqueue_send(ctx.q, ev_tag_key, event.keyboard.(xk.j));
+					b := b[i .. ];
+					goto cont;
+				]
+			]
+			if locale_validate(ctx.loc, b[start .. i]) then [
+				var uc := locale_to_string(ctx.loc, b[start .. i]);
+				if len_at_least(uc, 1) and classify_character(uc[0]) >= class_one then [
+					xk := maybe(event_keyboard).j.(event_keyboard.[ key : uc[0], flags : 0, rep : 1 ]);
+					if start = 1 then
+						xk.j.flags or= key_flag_alt;
+					msgqueue_send(ctx.q, ev_tag_key, event.keyboard.(xk.j));
+					b := b[i .. ];
+					goto cont;
+				]
+			]
+			if i = 1 then
+				b := b[i .. ];
+			i -= 1;
+		]
+cont:
+		xeval w;
+	]
+	abort;
+]
+
+fn kbd_add_mapping(ctx : kbd_context, str : bytes, ev : event_keyboard) : kbd_context
+[
+	if treemap_test(ctx.key_map, str) then
+		return ctx;
+	for i := 0 to len(str) do
+		ctx.partial_map := treeset_set(ctx.partial_map, str[ .. i]);
+	if not is_uninitialized(ev) then
+		ctx.key_map := treemap_insert(ctx.key_map, str, ev);
+	return ctx;
+]
+
+fn do_packet_console(implicit w : world, h : handle, q : msgqueue(event), os : int, vkmap : list(char), ctrlmap : fn (list(int32)) : int) : bottom_type
+[
+	var mouse := new_mouse_context;
+	var cached_cp := -1;
+	var cached_locale := exception_make(locale, ec_sync, error_invalid_operation, 0, false);
+	while true do [
+		var packet := read_console_packet(h);
+		//xeval debug("got packet: " + ntos(packet[0]) + ", " + ntos(packet[1]) + ", " + ntos(packet[2]) + ", " + ntos(packet[3]) + ", " + ntos(packet[4]));
+		if packet[0] = 1 then [
+			var key : char;
+			var flags : int := ctrlmap(packet);
+			if os = SystemProperty_OS_DOS or os = SystemProperty_OS_OS2 then [
+				if packet[1] = 224 and packet[2] = 13 then [
+					key := key_enter;
+					goto have_key;
+				]
+				if packet[2] >= 32 and packet[2] <> 224 then [
+					goto prefer_char;
+				]
+			]
+			if packet[1] >= 0, packet[1] < len(vkmap), vkmap[packet[1]] <> 0 then [
+				key := vkmap[packet[1]];
+				if key > 0 and flags = 0 then
+					goto prefer_char;
+			] else [
+prefer_char:
+				key := packet[2];
+				if key = 0 then
+					continue;
+				if key >= 1 and key < 32 then [
+					key += #40;
+					flags or= key_flag_ctrl;
+				]
+				flags and= not key_flag_shift;
+				if key >= #7f, packet[4] <> 0 then [
+					if packet[4] <> cached_cp then [
+						cached_cp := packet[4];
+						cached_locale := locale_get(".cp" + ntos(packet[4]));
+						//eval debug("cached locale: " + select(is_exception(cached_locale), "ex", "op"));
+					]
+					if is_exception cached_locale then
+						continue;
+					var str := locale_to_string(cached_locale, bytes.[ key ]);
+					if len(str) <> 1 then
+						continue;
+					key := str[0];
+				]
+			]
+			//eval debug("key=" + ntos(key) + ",flags=" + ntos(flags));
+have_key:
+			var ev := event.keyboard.(event_keyboard.[ key : key, flags : flags, rep : 1 ] );
+			msgqueue_send(q, ev_tag_key, ev);
+		] else if packet[0] = 2 then [
+			var ev := event_mouse.[ x : packet[1], y : packet[2], prev_buttons : packet[3], buttons : packet[4], wx : packet[5], wy : packet[6], soft_cursor : select(packet[7] <> 0, false, true) ];
+			mouse := send_mouse_event(mouse, q, ev);
+		]
+		xeval w;
+	]
+	abort;
+]
+
+fn event_get_keyboard_internal(implicit w : world, h : handle, tc : termcap, loc : locale, q : msgqueue(event)) : bottom_type
+[
+	var os := sysprop(SystemProperty_OS);
+	if os = SystemProperty_OS_DOS then [
+		var vkmap := dos_vkmap;
+		var ctrlmap := dos_ctrlmap;
+		return do_packet_console(h, q, os, vkmap, ctrlmap);
+	]
+	if os = SystemProperty_OS_OS2 then [
+		var vkmap := os2_vkmap;
+		var ctrlmap := os2_ctrlmap;
+		return do_packet_console(h, q, os, vkmap, ctrlmap);
+	]
+	if os = SystemProperty_OS_Windows then [
+		var vkmap := win32_vkmap;
+		var ctrlmap := win32_ctrlmap;
+		return do_packet_console(h, q, os, vkmap, ctrlmap);
+	]
+	stty(h, stty_flag_raw or stty_flag_noecho);
+	var ctx := kbd_context.[
+		q : q,
+		tc : tc,
+		loc : loc,
+		key_map : treemap_init(bytes, event_keyboard),
+		partial_map : treeset_init(bytes),
+		has_mouse : termcap_has_mouse(tc),
+		last_mouse_buttons : 0,
+		mouse : new_mouse_context,
+	];
+	for i := 1 to len(key_to_termcap) do [
+		var str := termcap_query_string(tc, key_to_termcap[i]);
+		if str = "" then
+			continue;
+		ctx := kbd_add_mapping(ctx, str, event_keyboard.[
+			key : -i,
+			flags : 0,
+			rep : 1,
+		]);
+	]
+	for i := tc_s_key_f13 to tc_s_key_f49 do [
+		var flags : int;
+		var str := termcap_query_string(tc, i);
+		if str = "" then
+			continue;
+		if i < tc_s_key_f25 then
+			flags := key_flag_shift;
+		else if i < tc_s_key_f37 then
+			flags := key_flag_ctrl;
+		else if i < tc_s_key_f49 then
+			flags := key_flag_shift or key_flag_ctrl;
+		else
+			flags := 0;
+		ctx := kbd_add_mapping(ctx, str, event_keyboard.[
+			key : key_f1 - (i - tc_s_key_f13) mod 12,
+			flags : flags,
+			rep : 1,
+		]);
+	]
+	ctx := kbd_add_mapping(ctx, bytes.[ 0 ], event_keyboard.[ key : ' ', flags : key_flag_ctrl, rep : 1 ]);
+	ctx := kbd_add_mapping(ctx, bytes.[ 9 ], event_keyboard.[ key : key_tab, flags : 0, rep : 1 ]);
+	ctx := kbd_add_mapping(ctx, bytes.[ 13 ], event_keyboard.[ key : key_enter, flags : 0, rep : 1 ]);
+	ctx := kbd_add_mapping(ctx, bytes.[ 27 ], event_keyboard.[ key : key_esc, flags : 0, rep : 1 ]);
+	for i := 1 to 32 do [
+		ctx := kbd_add_mapping(ctx, bytes.[ i ], event_keyboard.[
+			key : i + '@',
+			flags : key_flag_ctrl,
+			rep : 1,
+		]);
+	]
+	if ctx.has_mouse then [
+		ctx := kbd_add_mapping(ctx, bytes.[ 27, 91, 77 ], uninitialized(event_keyboard));
+		ctx := kbd_add_mapping(ctx, bytes.[ 27, 91, 60 ], uninitialized(event_keyboard));
+	]
+	var b := read_lazy(h);
+	return event_get_keyboard_loop(ctx, b);
+]
+
+fn event_get_keyboard~spark(implicit w : world, h : handle, tc : termcap, loc : locale, q : msgqueue(event)) : bottom_type
+[
+	var err := event_get_keyboard_internal(h, tc, loc, q);
+	eval err;
+	var err_event := exception_copy(event, err);
+	msgqueue_send(q, ev_tag_key, err_event);
+	xeval w;
+	return err;
+]
+
+fn event_get_resize~spark(implicit w : world, h : handle, q : msgqueue(event)) : bottom_type
+[
+	var x, y := -1, -1;
+	while true do [
+		x, y := tty_size(h, x, y);
+		var ev : event := event.resize.(event_resize.[ x : x, y : y ]);
+		var xev : event;
+		var xtag : int;
+		xtag, xev := msgqueue_receive_tag_nonblock(q, ev_tag_redraw);
+		xtag, xev := msgqueue_receive_tag_nonblock(q, ev_tag_resize);
+		msgqueue_send(q, ev_tag_resize, ev);
+		xeval w;
+	]
+	abort;
+]
+
+
+fn event_get_mouse~spark(implicit w : world, h : handle, q : msgqueue(event)) : bottom_type
+[
+	var mouse := new_mouse_context;
+
+	var s := socket(pf_unix, sock_stream, 0);
+	connect(s, bytes.[ pf_unix, 0 ] + "/dev/gpmctl");
+
+	xeval w;
+
+	//eval debug("connected");
+
+	var procname := readlink(dnone(), "/proc/self");
+	var ttylink := readlink(dnone(), "/proc/self/fd/1");
+
+	xeval w;
+
+	var cdata := empty(byte);
+	cdata += int_to_native(native.short, not 0);
+	cdata += int_to_native(native.short, 0);
+	cdata += int_to_native(native.short, 0);
+	cdata += int_to_native(native.short, 0);
+	cdata += int_to_native(native.integer, ston(procname));
+	var vc : int;
+	if list_begins_with(ttylink, "/dev/tty") then
+		vc := ston(ttylink[8 .. ]);
+	else if list_begins_with(ttylink, "/dev/vc/") then
+		vc := ston(ttylink[8 .. ]);
+	else
+		abort;
+	cdata += int_to_native(native.integer, vc);
+	write(s, cdata);
+
+	xeval w;
+
+	var b := read_lazy(s);
+
+	var button_state := 0;
+
+	while true do [
+		xeval b[ .. 28];
+		var x := native_to_int(native.short, b[8 .. 10]) - 1;
+		var y := native_to_int(native.short, b[10 .. 12]) - 1;
+		var etype := native_to_int(native.integer, b[12 .. 16]);
+		var buttons := 0;
+		var gpmb := b[0];
+		if gpmb bt 0 then buttons bts= 1;
+		if gpmb bt 1 then buttons bts= 2;
+		if gpmb bt 2 then buttons bts= 0;
+		if gpmb bt 3 then buttons bts= 3;
+		if gpmb bt 4 then buttons bts= 4;
+		var new_button_state := button_state;
+		if etype bt 2 then
+			new_button_state or= buttons;
+		if etype bt 3 then
+			new_button_state and= not buttons;
+		var wx := -native_to_int(native.short, b[24 .. 26]);
+		var wy := -native_to_int(native.short, b[26 .. 28]);
+		var ev := event_mouse.[ x : x, y : y, prev_buttons : button_state, buttons : new_button_state, wx : wx, wy : wy, soft_cursor : true ];
+
+		mouse := send_mouse_event(mouse, q, ev);
+		xeval w;
+
+		b := b[28 .. ];
+		button_state := new_button_state;
+	]
+
+	abort;
+]
+
+fn event_wait_for_any_key(implicit w : world, h : handle) : world
+[
+	var os := sysprop(SystemProperty_OS);
+	if os = SystemProperty_OS_DOS or
+	   os = SystemProperty_OS_OS2 or
+	   os = SystemProperty_OS_Windows then [
+read_another:
+		var k := read_console_packet(h);
+		if k[0] <> 1 then
+			goto read_another;
+		xeval k;
+	] else [
+		stty(h, stty_flag_raw or stty_flag_noecho);
+		var k := read_partial(h, 10);
+		xeval k;
+		event_reset_handle(h);
+	]
+]
+
+fn event_reset_handle(implicit w : world, h : handle) : world
+[
+	stty(h, 0);
+]

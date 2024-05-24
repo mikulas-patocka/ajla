@@ -1,0 +1,1168 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit compiler.parser.parser;
+
+uses compiler.parser.token;
+uses compiler.parser.dict;
+
+fn parse_lambda_function(ctx : function_context, parent_vd : variable_dictionary, t : tokens) : (function_context, list(int));
+fn parse_file~cache(w : world, d : list(bytes), name : bytes, program : bool, parse_interface : bool) : function_dictionary;
+
+implementation
+
+uses exception;
+uses pcode;
+uses compiler.parser.gen;
+uses compiler.parser.gen2;
+uses compiler.parser.expression;
+uses compiler.parser.alloc;
+uses compiler.parser.statement;
+uses compiler.parser.util;
+uses compiler.parser.local_type;
+uses compiler.parser.export;
+
+record promoted_variable [
+	v : int;
+	name : istring;
+	cnst : bool;
+	mut : bool;
+	impl : bool;
+	typ : int;
+]
+
+fn add_promoted_variable(ctx : function_context, cc : compare_context, vd : variable_dictionary, v : int, pv : promoted_variable) : (function_context, variable_dictionary)
+[
+	var typ : int;
+	ctx, typ := evaluate_type(ctx, cc, pv.typ, empty(compare_fn_stack), empty(token));
+
+	var defined : int;
+	if pv.cnst or pv.mut then
+		defined := defined_argument;
+	else
+		defined := defined_multiple;
+
+	var nv : local_variable;
+	ctx, nv := new_variable(ctx, typ, defined, pv.mut);
+	ctx.variables[v] := nv;
+
+	ctx, vd := add_variable(ctx, vd, pv.name, v, pv.impl, empty(token));
+
+	return ctx, vd;
+]
+
+fn parse_argument(ctx : function_context, vd : variable_dictionary, v n : int, t : tokens, cnst mut retval : bool) : function_context
+[
+	var a : int;
+	ctx, a := parse_expression_type(ctx, vd, t);
+
+	if a = T_Type then
+		cnst := true;
+
+	var defined : int;
+	if not retval then [
+		if cnst or mut then
+			defined := defined_argument;
+		else
+			defined := defined_multiple;
+	] else [
+		defined := defined_argument;
+	]
+
+	for i := 0 to n do [
+		var nv : local_variable;
+		ctx, nv := new_variable(ctx, a, defined, mut);
+		ctx.variables[v + i] := nv;
+	]
+
+	return ctx;
+]
+
+fn parse_arguments(ctx : function_context, vd : variable_dictionary, t : tokens, retval : bool, v : int, cnst : bool) : (function_context, variable_dictionary)
+[
+	if retval and ctx.inferred_return then [
+		for i := 0 to ctx.n_return_values do [
+			var nv : local_variable;
+			ctx, nv := new_variable(ctx, T_InvalidType, defined_argument, false);
+			ctx.variables[v + i] := nv;
+		]
+		return ctx, vd;
+	]
+	if len_at_least(t, 2), t[0].t is left_paren and t[0].bracket_skip = len(t) - 1 then [
+		t := t[1 .. len(t) - 1];
+	]
+
+	while len(t) > 0 do [
+		var decl : tokens;
+
+		decl, t := split_tokens(t, token_opt.comma);
+
+		var cnst := cnst;
+		var mut := false;
+		var impl := false;
+		if not retval then [
+next_flag:
+			if len(decl) > 0 then [
+				if decl[0].t is k_const then [
+					cnst := true;
+					decl := decl[1 .. ];
+					goto next_flag;
+				]
+				if decl[0].t is k_mutable then [
+					mut := true;
+					decl := decl[1 .. ];
+					goto next_flag;
+				]
+				if decl[0].t is k_implicit then [
+					impl := true;
+					decl := decl[1 .. ];
+					goto next_flag;
+				]
+			]
+		]
+		if cnst and mut then [
+			abort compiler_error("Mutable and const can't be specified together", t);
+		]
+
+		var colon := token_find_colon(decl);
+
+		if colon >= 0 then [
+			var expression := decl[colon + 1 .. ];
+			ctx := parse_argument(ctx, vd, v, colon, expression, cnst, mut, retval);
+			for i := 0 to colon do [
+				var name := decl[i].t.identifier;
+				ctx, vd := add_variable(ctx, vd, name, v, impl, decl);
+				v += 1;
+			]
+		] else [
+			ctx := parse_argument(ctx, vd, v, 1, decl, cnst, mut, retval);
+			v += 1;
+		]
+	]
+
+	return ctx, vd;
+]
+
+fn count_arguments(t : tokens, retval : bool) : int
+[
+	var count := 0;
+	var in_parens := false;
+
+	if len(t) >= 2, t[0].t is left_paren and t[0].bracket_skip = len(t) - 1 then [
+		t := t[1 .. len(t) - 1];
+		in_parens := true;
+	]
+
+	if retval and len(t) = 0 then
+		abort compiler_error("Function has no return value", t);
+
+	while len(t) > 0 do [
+		var decl : tokens;
+
+		decl, t := split_tokens(t, token_opt.comma);
+		if not in_parens and len(t) > 0 then
+			abort compiler_error("Multiple return values must be in parentheses", t);
+
+		if not retval then [
+next_flag:
+			if len(decl) > 0 then [
+				if decl[0].t is k_const then [
+					decl := decl[1 .. ];
+					goto next_flag;
+				]
+				if decl[0].t is k_mutable then [
+					decl := decl[1 .. ];
+					goto next_flag;
+				]
+				if decl[0].t is k_implicit then [
+					decl := decl[1 .. ];
+					goto next_flag;
+				]
+			]
+		]
+
+		var colon := token_find_colon(decl);
+
+		if colon >= 0 then [
+			count += colon;
+		] else [
+			count += 1;
+		]
+	]
+
+	return count;
+]
+
+fn parse_function_header(dict : function_dictionary, parent_function : maybe(function_context), parent_vd : maybe(variable_dictionary), promoted_variables : list(promoted_variable), decl_type : token_opt, t : tokens, name : istring, op_mode : op_option, op_priority : int, cnst : bool) : (function_context, variable_dictionary)
+[
+	var inferred_return := false;
+	var arguments : tokens;
+	var return_values : tokens;
+
+	if len(t) > 0, t[0].t is left_paren then [
+		var matching_paren := t[0].bracket_skip;
+		arguments := t[ .. matching_paren + 1];
+		t := t[matching_paren + 1 .. ];
+	] else [
+		arguments := empty(token);
+	]
+
+	if decl_type is k_fn or decl_type is k_const or decl_type is k_operator then [
+		if decl_type is k_const and len(arguments) > 0 then [
+			abort compiler_error("Constant can't have arguments", arguments);
+		]
+		if len(t) = 0 then [
+			inferred_return := true;
+			return_values := empty(token);
+		] else [
+			xeval token_assert(t, token_opt.colon);
+			return_values := t[1 .. ];
+		]
+	] else [
+		if len(t) > 0 then
+			abort compiler_error("Unexpected tokens", t);
+		return_values := tokenize("type", "_internal");
+	]
+
+	var n_arguments n_return_values : int;
+	n_arguments := count_arguments(arguments, false);
+	if not inferred_return then
+		n_return_values := count_arguments(return_values, true);
+	else
+		n_return_values := 1;
+
+	if (op_mode is prefix_op or op_mode is postfix_op) and n_arguments < 1 then
+		abort compiler_error("Insufficient arguments for an operator", t);
+	if op_mode is infix_op and n_arguments < 2 then
+		abort compiler_error("Insufficient arguments for an operator", t);
+
+	n_arguments += len(promoted_variables);
+
+	var ctx := new_function_context(dict, parent_function, n_arguments, n_return_values, name);
+	ctx.inferred_return := inferred_return;
+	ctx.op_mode := op_mode;
+	ctx.op_priority := op_priority;
+
+	ctx := generate_Args(ctx);
+
+	var vd := new_variable_dictionary(parent_vd);
+
+	if len(promoted_variables) > 0 then [
+		var cc := new_compare_context_from_function(ctx.parent_function.j);
+		cc.lambda_redirect := fill(-1, len(cc.ctx.variables));
+		for i := 0 to len(promoted_variables) do [
+			cc.lambda_redirect[promoted_variables[i].v] := i;
+		]
+		for i := 0 to len(promoted_variables) do [
+			ctx, vd := add_promoted_variable(ctx, cc, vd, i, promoted_variables[i]);
+		]
+	]
+
+	ctx, vd := parse_arguments(ctx, vd, arguments, false, len(promoted_variables), cnst);
+
+	ctx := generate_Return_Vars(ctx);
+
+	var vd2 := new_variable_dictionary_chained(ctx, vd);
+	ctx, vd2 := parse_arguments(ctx, vd2, return_values, true, n_arguments, false);
+
+	ctx.incomplete := false;
+
+	return ctx, vd;
+]
+
+fn parse_function_body(ctx : function_context, vd : variable_dictionary, t : tokens) : function_context
+[
+	var lbl : int;
+	ctx, lbl := alloc_local_label(ctx);
+	if lbl <> 0 then
+		abort internal("The first label should be zero");
+
+	if t[0].t is assign then [
+		var new_tokens := empty(token);
+		var skip := 2 + len(t[1 .. ]);
+		var nt := new_token(t[0], token_opt.left_bracket);
+		nt.bracket_skip := skip;
+		new_tokens +<= nt;
+		nt := new_token(t[0], token_opt.k_return);
+		new_tokens +<= nt;
+		new_tokens += t[1 .. ];
+		nt := new_token(t[0], token_opt.right_bracket);
+		nt.bracket_skip := -skip;
+		new_tokens +<= nt;
+		t := new_tokens;
+	]
+
+	var left : tokens;
+	var term : bool;
+	ctx, left, term := parse_statement(ctx, vd, true, t);
+	xeval ctx;
+	if len(left) > 0 then
+		abort compiler_error("Tokens after the end of the function", left);
+	if not term then
+		abort compiler_error("The function must end with terminating statement", t[len(t) - 1 .. ]);
+
+	ctx := generate_Label(ctx, lbl);
+
+	ctx := generate_Return(ctx);
+
+	for i := 0 to len(ctx.list_of_used_labels) do [
+		var name := ctx.list_of_used_labels[i];
+		if not ctx.defined_labels[name] then
+			abort compiler_error("Label " + i_decode(name) + " was not defined", t);
+	]
+
+	for i := 0 to ctx.n_return_values do [
+		var v := ctx.n_arguments + i;
+		if get_type_of_var(ctx, v) = T_InvalidType then
+			abort compiler_error("Return type was not inferred", t);
+	]
+
+	return ctx;
+]
+
+fn parse_record_definition(ctx : function_context, orig_vd : variable_dictionary, is_option : bool, t : tokens) : function_context
+[
+	var vd := orig_vd;
+	var def := new_record_definition(is_option);
+	var fields := empty(int);
+	t := t[1 .. len(t) - 1];
+	while len_greater_than(t, 0) do [
+		var semicolon := token_find(t, token_opt.semicolon, true);
+		var decl := t[ .. semicolon];
+		var cnst := false;
+
+next_flag:
+		if len_greater_than(decl, 0) then [
+			if not is_option, decl[0].t is k_const then [
+				cnst := true;
+				decl := decl[1 .. ];
+				goto next_flag;
+			]
+		]
+
+		var colon := token_find_colon(decl);
+		if not is_option and colon = -1 then
+			abort compiler_error("No declared variable", t);
+		t := t[semicolon + 1 .. ];
+
+		var a : int;
+		var accessing_other := false;
+
+		if colon >= 0 then [
+			var expr := decl[colon + 1 .. ];
+			var new_ctx : function_context;
+			new_ctx, a := parse_expression_type(ctx, orig_vd, expr);
+			if is_exception new_ctx, exception_type new_ctx = error_compiler_error then [
+				ctx, a := parse_expression_type(ctx, vd, expr);
+				accessing_other := true;
+			] else [
+				ctx := new_ctx;
+			]
+		] else [
+			colon := len(decl);
+			a := T_EmptyOption;
+			def.is_flat_option := true;
+		]
+
+		if a = T_Type then
+			cnst := true;
+
+		for i := 0 to colon do [
+			var idx := len(def.entries);
+			xeval token_assert(decl, token_opt.identifier.(0));
+			var name := decl[0].t.identifier;
+			decl := decl[1 .. ];
+			var found := def.dict[name];
+			if not is_uninitialized(found) then
+				abort compiler_error("Entry " + i_decode(name) + " already defined", t);
+			if not is_option then [
+				var l : int;
+				ctx, l := alloc_local_variable(ctx, a, cnst, false);
+				ctx := generate_Load_Local_Type(ctx, -1, idx, l);
+				ctx, vd := add_variable(ctx, vd, name, l, false, decl);
+			]
+			def.dict[name] := idx;
+			def.entries +<= record_entry.[ type_idx : a, cnst : cnst, accessing_other : accessing_other ];
+			fields +<= a;
+		]
+	]
+	if not is_option then
+		ctx := generate_Record_Type(ctx, fields, ctx.n_arguments);
+	else
+		ctx := generate_Option_Type(ctx, fields, ctx.n_arguments);
+	ctx := generate_Return(ctx);
+	ctx.record_def := maybe(record_definition).j.(def);
+	return ctx;
+]
+
+fn compare_function_signatures(c1 c2 : function_context) : bool
+[
+	if c1.inferred_return or c2.inferred_return then
+		return false;
+
+	if ord c1.op_mode <> ord c2.op_mode then
+		return false;
+	if c1.op_priority <> c2.op_priority then
+		return false;
+
+	if c1.n_arguments <> c2.n_arguments then
+		return false;
+	if c1.n_return_values <> c2.n_return_values then
+		return false;
+
+	if len(c1.variables) <> len(c2.variables) then
+		return false;
+	for i := 0 to len(c1.variables) do [
+		var v1 := c1.variables[i];
+		var v2 := c2.variables[i];
+		if v1.type_idx <> v2.type_idx then
+			return false;
+		if v1.mut <> v2.mut then
+			return false;
+		if v1.local_type <> v2.local_type then
+			return false;
+	]
+
+	if len(c1.instructions) <> len(c2.instructions) then
+		return false;
+	for i := 0 to len(c1.instructions) do [
+		var i1 := c1.instructions[i];
+		var i2 := c2.instructions[i];
+		if i1.opcode <> i2.opcode then
+			return false;
+		if len(i1.args) <> len(i2.args) then
+			return false;
+		for j := 0 to len(i1.args) do
+			if i1.args[j] <> i2.args[j] then
+				return false;
+	]
+
+	return true;
+]
+
+fn is_function_simple(ctx : function_context) : bool
+[
+	if ctx.n_labels > 1 then
+		return false;
+
+	for i := 0 to len(ctx.variables) do [
+		if ctx.variables[i].defined_at = defined_multiple or ctx.variables[i].mut then
+			return false;
+	]
+
+	return true;
+]
+
+fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_flag conversion_flag : bool) : function_dictionary
+[
+	var decl_type := t[0].t;
+	var name : istring;
+	var call_mode : int;
+	var op_mode : op_option;
+	var op_priority : int;
+	var post_hints : list(bytes);
+	if decl_type is k_operator then [
+		op_mode := op_option.infix_op;
+		t := t[1 .. ];
+		var name_sfx := op_name;
+		if len_at_least(t, 1), t[0].t is k_prefix then [
+			t := t[1 .. ];
+			op_mode := op_option.prefix_op;
+			name_sfx := op_prefix_name;
+		] else if len_at_least(t, 1), t[0].t is k_postfix then [
+			t := t[1 .. ];
+			op_mode := op_option.postfix_op;
+		]
+		if len_at_least(t, 2), t[0].t is oper then
+			name := t[0].t.oper;
+		else if len_at_least(t, 2), t[0].t is identifier then
+			name := t[0].t.identifier;
+		else
+			abort compiler_error("Operator expected", t);
+		name := i_append(name, name_sfx);
+		xeval token_assert(t[1 .. ], token_opt.number.(""));
+		//op_priority := ston(t[1].t.number);
+		op_priority := instance_number_int.from_bytes(t[1].t.number);
+		post_hints := t[1].post_hints;
+		t := t[2 .. ];
+	] else [
+		xeval token_assert(t[1 .. ], token_opt.identifier.(0));
+		name := t[1].t.identifier;
+		post_hints := t[1].post_hints;
+		op_mode := op_option.function;
+		op_priority := -1;
+		t := t[2 .. ];
+	]
+	call_mode := get_call_mode(post_hints, true);
+
+	var b : int;
+	var vd : variable_dictionary;
+	var ctx : function_context;
+	var cnst := decl_type is k_record or decl_type is k_option;
+
+	var def := search_function_dictionary(dict, name);
+
+	if t[len(t) - 1].t is right_bracket then [
+		b := token_find(t, token_opt.left_bracket, true);
+		if b = 0, not is_uninitialized(def) then [
+			ctx := def.signature;
+			vd := def.vd;
+			//eval debug("implicit args 1: " + i_decode(name));
+		] else [
+			ctx, vd := parse_function_header(dict, maybe(function_context).n, maybe(variable_dictionary).n, empty(promoted_variable), decl_type, t[ .. b], name, op_mode, op_priority, cnst);
+		]
+	] else [
+		b := token_find(t, token_opt.assign, false);
+		if b = 0, not is_uninitialized(def) then [
+			ctx := def.signature;
+			vd := def.vd;
+			//eval debug("implicit args 2: " + i_decode(name));
+		] else if b >= 0 then [
+			cnst := true;
+			ctx, vd := parse_function_header(dict, maybe(function_context).n, maybe(variable_dictionary).n, empty(promoted_variable), decl_type, t[ .. b], name, op_mode, op_priority, cnst);
+		] else [
+			ctx, vd := parse_function_header(dict, maybe(function_context).n, maybe(variable_dictionary).n, empty(promoted_variable), decl_type, t[ .. len(t) - 1], name, op_mode, op_priority, cnst);
+		]
+	]
+
+	if not is_uninitialized(def) then [
+		//eval debug(i_decode(name) + " exists");
+		if not compare_function_signatures(def.signature, ctx) then
+			abort compiler_error("Function type doesn't match previous definition", t);
+		if call_mode <> Call_Mode_Unspecified, call_mode <> def.call_mode then
+			abort compiler_error("Call mode doesn't match previous definition", t);
+
+		if private_flag then
+			dict.defs[dict.dict[name]].private_flag := true;
+
+		if implicit_flag then
+			dict.impl +<= def.signature.id.function_index[0];
+
+		if conversion_flag then
+			dict.conv +<= def.signature.id.function_index[0];
+
+		// propagate the "const" flags from ctx
+		dict.defs[dict.dict[name]].signature.variables := ctx.variables;
+		def.signature.variables := ctx.variables;
+	] else [
+		//eval debug(i_decode(name) + " doesn't exist");
+		var op_bypass := -1;
+		var op_bypass_reverse := false;
+		if decl_type is k_const and call_mode = Call_Mode_Unspecified then
+			call_mode := Call_Mode_Inline;
+		if (decl_type is k_type or decl_type is k_record or decl_type is k_option) and call_mode = Call_Mode_Unspecified then
+			call_mode := Call_Mode_Type;
+
+		if function_context_is_privileged(ctx) then [
+			for i := 0 to len(post_hints) do [
+				var h := post_hints[i];
+				if list_begins_with(h, "Bin_") or list_begins_with(h, "Un_") then [
+					if list_ends_with(h, "_") then [
+						op_bypass_reverse := true;
+						h := h[ .. len(h) - 1];
+					]
+					op_bypass := name_to_value[i_encode(h)];
+					//eval debug("bypass: " + i_decode(name) + ", " + ntos(op_bypass));
+				]
+			]
+		]
+
+		dict, def := add_function(dict, name, ctx, vd, call_mode, op_bypass, op_bypass_reverse, private_flag, implicit_flag, conversion_flag);
+	]
+
+	if b <> -1 then [
+		if def.body is j then
+			abort compiler_error("Function body was already defined", t);
+
+		ctx := def.signature;
+		ctx.incomplete := true;
+		ctx.dict := dict;
+
+		ctx := generate_Line_Info_Full(ctx, i_decode(dict.id.unit_string), i_decode(name), t[0].line);
+
+		if decl_type is k_fn or decl_type is k_type or decl_type is k_const or decl_type is k_operator then [
+			dict.defs[def.signature.id.function_index[0]].typ := Fn_Function;
+			ctx := parse_function_body(ctx, vd, t[b .. ]);
+			if def.call_mode = Call_Mode_Type or def.call_mode = Call_Mode_Flat then [
+				if not is_function_simple(ctx) then
+					abort compiler_error("Type function must be simple (no conditions and no non-const variables)", t);
+			]
+		] else if decl_type is k_record then [
+			dict.defs[def.signature.id.function_index[0]].typ := Fn_Record;
+			ctx := parse_record_definition(ctx, vd, false, t[b .. ]);
+		] else if decl_type is k_option then [
+			dict.defs[def.signature.id.function_index[0]].typ := Fn_Option;
+			ctx := parse_record_definition(ctx, vd, true, t[b .. ]);
+		] else [
+			abort internal("invalid decl_type " + ntos(ord decl_type));
+		]
+
+		ctx := generate_local_types(ctx);
+
+		ctx.incomplete := false;
+		ctx := function_context_clear_temp_values(ctx);
+
+		dict.defs[def.signature.id.function_index[0]].body.j := ctx;
+		if def.signature.inferred_return then
+			dict.defs[def.signature.id.function_index[0]].signature := ctx;
+	] else [
+		if def.signature.inferred_return then
+			abort compiler_error("Function with inferred return type was not defined", t);
+	]
+
+	// uncomment this to disable lazy evaluation of functions
+	//xeval ctx;
+
+	return dict;
+]
+
+fn parse_lambda_function(ctx : function_context, parent_vd : variable_dictionary, t : tokens) : (function_context, list(int))
+[
+	var promoted_variables := empty(promoted_variable);
+	var pv : promoted_variable;
+
+	var variable : istring;
+	var variable_idx : int;
+
+	var implicit_variables := get_implicit_variables(parent_vd);
+	implicit_variables := list_reverse(implicit_variables);
+
+	var prev_hints := t[0].prev_hints;
+	var call_mode := get_call_mode(prev_hints, true);
+
+	var b : int;
+	if t[len(t) - 1].t is right_bracket then [
+		b := token_find(t, token_opt.left_bracket, true);
+	] else [
+		b := token_find(t, token_opt.assign, true);
+	]
+
+	var fn_name := i_decode(ctx.name) + "/" + ntos(len(ctx.lambdas));
+
+	for i := 0 to len(implicit_variables) do [
+promote_again:
+		variable_idx := implicit_variables[i];
+		pv := promoted_variable.[
+			v : variable_idx,
+			name : 0,
+			cnst : ctx.variables[variable_idx].defined_at <> defined_multiple,
+			mut : ctx.variables[variable_idx].mut,
+			impl : list_search(implicit_variables, variable_idx) >= 0,
+			typ : ctx.variables[variable_idx].type_idx,
+		];
+		promoted_variables +<= pv;
+
+		var ctx_test := new_function_context(ctx.dict, maybe(function_context).j.(ctx), 0, 0, i_encode(fn_name));
+		var vd := new_variable_dictionary(maybe(variable_dictionary).j.(parent_vd));
+
+		if len(promoted_variables) > 0 then [
+			var cc := new_compare_context_from_function(ctx);
+			cc.lambda_redirect := fill(-1, len(cc.ctx.variables));
+			for i := 0 to len(promoted_variables) do [
+				cc.lambda_redirect[promoted_variables[i].v] := i;
+			]
+			for i := 0 to len(promoted_variables) do [
+				ctx_test, vd := add_promoted_variable(ctx, cc, vd, i, promoted_variables[i]);
+			]
+		]
+
+		ctx_test, vd := parse_arguments(ctx_test, vd, empty(token), false, len(promoted_variables), false);
+
+		if is_exception ctx_test, exception_type ctx_test = error_user3 then [
+			variable_idx := exception_aux ctx_test;
+			promoted_variables := promoted_variables[ .. len(promoted_variables) - 1];
+			pv := promoted_variable.[
+				v : variable_idx,
+				name : 0,
+				cnst : ctx.variables[variable_idx].defined_at <> defined_multiple,
+				mut : ctx.variables[variable_idx].mut,
+				impl : list_search(implicit_variables, variable_idx) >= 0,
+				typ : ctx.variables[variable_idx].type_idx,
+			];
+			promoted_variables +<= pv;
+			goto promote_again;
+		]
+	]
+
+again:
+	var ctx_head, vd := parse_function_header(ctx.dict, maybe(function_context).j.(ctx), maybe(variable_dictionary).j.(parent_vd), promoted_variables, token_opt.k_fn, t[ .. b], i_encode(fn_name), op_option.function, -1, false);
+	if is_exception ctx_head, exception_type ctx_head = error_user2 then [
+		variable := i_encode(exception_payload ctx_head);
+		goto add_variable;
+	]
+	if is_exception ctx_head, exception_type ctx_head = error_user3 then [
+		variable_idx := exception_aux ctx_head;
+		goto add_variable_2;
+	]
+
+	ctx_head.incomplete := false;
+	var ctx_body := ctx_head;
+	ctx_body.incomplete := true;
+	ctx_body := generate_Line_Info_Full(ctx_body, i_decode(ctx.dict.id.unit_string), fn_name, t[0].line);
+	ctx_body := parse_function_body(ctx_body, vd, t[b .. ]);
+	if is_exception ctx_body, exception_type ctx_body = error_user2 then [
+		variable := i_encode(exception_payload ctx_body);
+		goto add_variable;
+	]
+	if is_exception ctx_body, exception_type ctx_body = error_user3 then [
+		variable_idx := exception_aux ctx_body;
+		goto add_variable_2;
+	]
+
+	if call_mode = Call_Mode_Type or call_mode = Call_Mode_Flat then
+		if not is_function_simple(ctx_body) then
+			abort compiler_error("Type function must be simple (no conditions and no non-const variables)", t);
+
+	ctx_body := generate_local_types(ctx_body);
+	ctx_body.incomplete := false;
+
+	if ctx_head.inferred_return then
+		ctx_head := ctx_body;
+
+	var fd : function_definition;
+	ctx, fd := add_lambda(ctx, ctx_head, ctx_body, call_mode);
+
+	if fd.signature.n_arguments = 0 then [
+		var q : list(int);
+		ctx, q := generate_Call(ctx, call_mode, fd, empty(int), t);
+		if len(q) <> fd.signature.n_return_values then
+			abort internal("parse_lambda_function: invalid number of return values");
+		return ctx, q;
+	] else [
+		var l : int;
+		ctx, l := generate_Load_Fn(ctx, fd, t);
+		if len(promoted_variables) = 0 then
+			return ctx, [ l ];
+		var args := fill(T_InvalidType, len(promoted_variables));
+		for i := 0 to len(promoted_variables) do
+			args[i] := promoted_variables[i].v;
+		var cc, typ := get_deep_type_of_var(ctx, l);
+		cc := set_llt_main(cc, typ);
+		for i := 0 to len(promoted_variables) do
+			cc.llt_redirect +<= new_compare_argument(new_compare_context(ctx), args[i]);
+		ctx, l := generate_Curry(ctx, cc, typ, l, args, t);
+		if len(promoted_variables) = fd.signature.n_arguments then [
+			var q : list(int);
+			ctx, q := generate_Call_Indirect(ctx, call_mode, l, t);
+			if len(q) <> fd.signature.n_return_values then
+				abort internal("parse_lambda_function: invalid number of return values");
+			return ctx, q;
+		]
+		return ctx, [ l ];
+	]
+
+add_variable:
+	variable_idx := search_variable_dictionary(parent_vd, variable);
+	xeval variable_idx;
+	if variable_idx = -1 then
+		abort internal("Variable " + i_decode(variable) + " not found in parent function");
+	//if ctx.variables[variable_idx].type_idx >= 0 then
+	//	abort compiler_error("Variable " + i_decode(variable) + " doesn't have a simple type", t);
+
+	for i := 0 to len(promoted_variables) do [
+		if promoted_variables[i].v = variable_idx then [
+			promoted_variables[i].name := variable;
+			goto again;
+		]
+	]
+
+	pv := promoted_variable.[
+		v : variable_idx,
+		name : variable,
+		cnst : ctx.variables[variable_idx].defined_at <> defined_multiple,
+		mut : ctx.variables[variable_idx].mut,
+		impl : list_search(implicit_variables, variable_idx) >= 0,
+		typ : ctx.variables[variable_idx].type_idx,
+	];
+
+	promoted_variables +<= pv;
+	goto again;
+
+add_variable_2:
+	if len(promoted_variables) > 0 then
+		promoted_variables := promoted_variables[ .. len(promoted_variables) - 1];
+	pv := promoted_variable.[
+		v : variable_idx,
+		name : 0,
+		cnst : ctx.variables[variable_idx].defined_at <> defined_multiple,
+		mut : ctx.variables[variable_idx].mut,
+		impl : list_search(implicit_variables, variable_idx) >= 0,
+		typ : ctx.variables[variable_idx].type_idx,
+	];
+	promoted_variables +<= pv;
+	goto again;
+]
+
+fn parse_unit_name(unit_tokens : tokens) : bytes
+[
+	var file_name := "";
+
+	for i := 0 to len(unit_tokens) do [
+		var s := token_opt_to_string(unit_tokens[i].t, true);
+		file_name += s;
+	]
+
+	if len(file_name) = 0 then [
+invalid:
+		abort compiler_error("invalid unit name", unit_tokens);
+	]
+
+	for i := 0 to len(file_name) do [
+		if path_is_separator(file_name[i]) then
+			goto invalid;
+		if file_name[i] = '.' then [
+			if i = 0 or i = len(file_name) - 1 then
+				goto invalid;
+			if path_is_separator(file_name[i - 1]) then
+				goto invalid;
+			file_name[i] := '/';
+		]
+	]
+
+	return file_name;
+]
+
+fn merge_interfaces(dict new_dict : function_dictionary) : function_dictionary
+[
+	var m_id := encode_module_id(new_dict.id);
+	if not is_uninitialized(dict.modules_map[m_id]) then
+		return dict;
+	dict.modules_map[m_id] := len(dict.modules);
+	dict.modules +<= new_dict;
+	for i := 0 to len(new_dict.modules) do
+		dict := merge_interfaces(dict, new_dict.modules[i]);
+	return dict;
+]
+
+fn parse_uses(w : world, d : list(bytes), dict : function_dictionary, t : tokens) : function_dictionary
+[
+	var file := parse_unit_name(t);
+	var i := len(d) - 1;
+	while i >= 0 do [
+		var first := i = len(d) - 1;
+		var xfile := file;
+		if first then
+			xfile := dict.name_prefix + xfile;
+		var new_dict := parse_file(w, d[ .. i + 1], xfile, false, true);
+		if is_exception new_dict, exception_class new_dict = ec_syscall then [
+			i -= 1;
+			continue;
+		]
+		if new_dict.priv, not first, not is_privileged then [
+			i -= 1;
+			continue;
+		]
+		dict := merge_interfaces(dict, new_dict);
+		return dict;
+	]
+	abort compiler_error("Unit '" + file + "' not found", t);
+
+]
+
+fn parse_system_unit(w : world, d : list(bytes), dict : function_dictionary) : function_dictionary
+[
+	var new_dict := parse_file(w, d[ .. 1], "system", false, true);
+	dict := merge_interfaces(dict, new_dict);
+	return dict;
+]
+
+fn parse_define(dict : function_dictionary, t : tokens) : function_dictionary
+[
+	xeval token_assert(t[1 .. ], token_opt.identifier.(0));
+	var name := t[1].t.identifier;
+	var t2 := t[2 .. ];
+	if len_at_least(t2, 2), t2[0].t is left_bracket then
+		t2 := t2[1 .. len(t2) - 1];
+	else if len_at_least(t2, 1), t2[len(t2) - 1].t is semicolon then
+		t2 := t2[ .. len(t2) - 1];
+	else
+		abort compiler_error("Invalid define statement", t);
+	dict.macros[name] := t2;
+	return dict;
+]
+
+fn expand_macro(t : tokens, m : tokens) : tokens
+[
+	if not t[len(t) - 1].t is semicolon then
+		abort compiler_error("Invalid macro expansion", t);
+	var args := empty(tokens);
+	if len_greater_than(t, 1) then [
+		xeval token_assert(t[1 .. ], token_opt.left_paren);
+		var t1 := t[2 .. len(t) - 2];
+next_arg:
+		var comma := token_find(t1, token_opt.comma, false);
+		var arg : tokens;
+		if comma >= 0 then
+			arg := t1[ .. comma];
+		else
+			arg := t1;
+		args +<= arg;
+		if comma >= 0 then [
+			t1 := t1[comma + 1 .. ];
+			goto next_arg;
+		]
+	]
+	if len_greater_than(args, 9) then
+		abort compiler_error("Too many macro arguments", t);
+	var result := empty(token);
+	for i := 0 to len(m) do [
+		var n := m[i];
+		if n.t is macro_expansion then [
+			var toks : tokens;
+			var str := i_decode(n.t.macro_expansion);
+			if len(str) = 2, str[0] = '@', str[1] >= '1', str[1] <= '9' then [
+				var n_arg := str[1] - '1';
+				if n_arg >= len(args) then
+					abort compiler_error("Argument " + ntos(n_arg) + " not provided", t);
+				toks := args[n_arg];
+				goto paste_toks;
+			]
+			var result_str := empty(byte);
+			for j := 0 to len(str) do [
+				var c := str[j];
+				if c = '@', j < len(str) - 1, str[j + 1] >= '1', str[j + 1] <= '9' then [
+					var n_arg := str[j + 1] - '1';
+					if n_arg >= len(args) then
+						abort compiler_error("Argument " + ntos(n_arg) + " not provided", t);
+					var expanded : bytes;
+					if len(args[n_arg]) = 0 then [
+						expanded := "";
+					] else if len(args[n_arg]) > 1 then [
+						abort compiler_error("Argument " + ntos(n_arg) + " must have a single token", t);
+					] else [
+						expanded := token_opt_to_string(args[n_arg][0].t, true);
+					]
+					result_str += expanded;
+					j += 1;
+					continue;
+				]
+				result_str +<= c;
+			]
+			toks := tokenize_string(result_str, t);
+paste_toks:
+			if len_greater_than(toks, 0) then [
+				toks[0].prev_hints += n.prev_hints;
+				toks[len(toks) - 1].post_hints += n.post_hints;
+			]
+			result += toks;
+			continue;
+		]
+		result +<= n;
+	]
+	for i := 0 to len(result) do [
+		result[i].bracket_skip := 0;
+	]
+	var bracket_stack_pos := empty(int);
+	var bracket_stack_type := empty(token_opt);
+	for i := 0 to len(result) do [
+		if result[i].t is left_paren then [
+			bracket_stack_pos +<= i;
+			bracket_stack_type +<= token_opt.right_paren;
+		] else if result[i].t is left_bracket then [
+			bracket_stack_pos +<= i;
+			bracket_stack_type +<= token_opt.right_bracket;
+		] else if result[i].t is right_paren or result[i].t is right_bracket then [
+			var l := len(bracket_stack_type);
+			if l = 0 or ord bracket_stack_type[l - 1] <> ord result[i].t then
+				abort compiler_error("Imbalanced bracket in macro expansion", t);
+			var bracket_skip := i - bracket_stack_pos[l - 1];
+			result[bracket_stack_pos[l - 1]].bracket_skip := bracket_skip;
+			result[i].bracket_skip := -bracket_skip;
+			bracket_stack_type := bracket_stack_type[ .. l - 1];
+			bracket_stack_pos := bracket_stack_pos[ .. l - 1];
+		]
+	]
+	if len(bracket_stack_type) <> 0 then
+		abort compiler_error("Imbalanced bracket in macro expansion", t);
+	return result;
+]
+
+fn parse_clause(w : world, d : list(bytes), dict : function_dictionary, t1 : tokens) : (function_dictionary, tokens)
+[
+	var f := token_find_3(t1, token_opt.assign, token_opt.semicolon, token_opt.right_bracket, true);
+	if t1[f].t is assign then [
+		f := token_find(t1, token_opt.semicolon, true);
+	]
+	var t := t1[ .. f + 1];
+
+	var private_flag := false;
+	var implicit_flag := false;
+	var conversion_flag := false;
+next_flag:
+	if len(t) = 0 then [
+		abort compiler_error("Empty clause", empty(token));
+	]
+	if t[0].t is k_private then [
+		private_flag := true;
+		t := t[1 ..];
+		goto next_flag;
+	]
+	if t[0].t is k_implicit then [
+		implicit_flag := true;
+		t := t[1 ..];
+		goto next_flag;
+	]
+	if t[0].t is k_conversion then [
+		conversion_flag := true;
+		t := t[1 ..];
+		goto next_flag;
+	]
+	if t[0].t is k_uses then [
+		if private_flag or implicit_flag or conversion_flag or not t[len(t) - 1].t is semicolon then
+			abort compiler_error("Invalid uses clause", t);
+		t := t[1 .. len(t) - 1];
+		while len(t) > 0 do [
+			var decl : tokens;
+			decl, t := split_tokens(t, token_opt.comma);
+			dict := parse_uses(w, d, dict, decl);
+		]
+	] else if t[0].t is k_define then [
+		dict := parse_define(dict, t);
+	] else if t[0].t is k_fn or
+		  t[0].t is k_record or
+		  t[0].t is k_option or
+		  t[0].t is k_type or
+		  t[0].t is k_const or
+		  t[0].t is k_operator then [
+		dict := parse_function(dict, t, private_flag, implicit_flag, conversion_flag);
+	] else if t[0].t is identifier, not is_uninitialized(dict.macros[t[0].t.identifier]) then [
+		var m := dict.macros[t[0].t.identifier];
+		m := expand_macro(t, m);
+		while len_greater_than(m, 0) do [
+			dict, m := parse_clause(w, d, dict, m);
+		]
+	] else [
+		abort compiler_error("Expected 'fn' or 'record' or 'option' or 'type' or 'const' or 'operator' or 'private' or 'uses' or 'define'", t);
+	]
+	return dict, t1[f + 1 .. ];
+]
+
+fn parse_tokens(w : world, d : list(bytes), t : tokens, name : bytes, program : bool, parse_interface : bool) : function_dictionary
+[
+	var path_index := len(d) - 1;
+	var dict := new_function_dictionary(path_index, i_encode(name), program);
+
+next_unit_flag:
+	if len_greater_than(t, 0), t[0].t is k_private then [
+		dict.priv := true;
+		t := t[1 .. ];
+		goto next_unit_flag;
+	]
+	var a := token_assert(t, token_opt.k_unit);
+	if is_exception a then
+		return exception_make(function_dictionary, ec_syscall, error_system, system_error_enoent, true);
+
+	var sc := token_find(t, token_opt.semicolon, true);
+	var unit_tokens := t[1 .. sc];
+
+	var file_name := parse_unit_name(unit_tokens);
+
+{
+	if parse_interface then
+		eval debug("interface: " + file_name);
+	else
+		eval debug("file name: " + file_name);
+}
+
+	var name_pos := len(name) - len(file_name);
+	if name_pos < 0 then [
+		abort compiler_error("Unit name doesn't match file name", unit_tokens);
+	]
+	if name_pos > 0, not path_is_separator(name[name_pos - 1]) then [
+		abort compiler_error("Unit name doesn't match file name", unit_tokens);
+	]
+	if name[name_pos .. ] <> file_name then [
+		abort compiler_error("Unit name doesn't match file name", unit_tokens);
+	]
+	dict.name_prefix := name[ .. name_pos];
+	t := t[sc + 1 ..];
+
+	if path_index <> 0 or name <> "system" then [
+		dict := parse_system_unit(w, d, dict);
+	]
+
+	var was_implementation := false;
+
+	while len_greater_than(t, 0) do [
+		if t[0].t is k_implementation and not was_implementation then [
+			if parse_interface then [
+				return dict;
+			] else [
+				was_implementation := true;
+			]
+			t := t[1 ..];
+			continue;
+		]
+
+		dict, t := parse_clause(w, d, dict, t);
+	]
+
+	return dict;
+]
+
+fn unit_encode(un_name : bytes) : bytes
+[
+	var result := """";
+	for i := 0 to len(un_name) do [
+		if un_name[i] = '"' then
+			result += """""";
+		else if un_name[i] < ' ' then
+			abort compiler_error("invalid program file name", empty(token));
+		else
+			result +<= un_name[i];
+	]
+	result += """";
+	return result;
+]
+
+fn parse_file~cache(w : world, d : list(bytes), name : bytes, program : bool, parse_interface : bool) : function_dictionary
+[
+	var idx := len(d) - 1;
+	var dir := dopen_lazy(dnone(w), d[idx], 0);
+
+	if idx > 0 then
+		xeval register_dependence(w, dir, name + ".ajla");
+
+	var f := ropen_lazy(dir, name + ".ajla", 0);
+
+	if path_is_separator('\') then [
+		for i := 0 to len(name) do [
+			if name[i] = '\' then
+				name[i] := '/';
+		]
+	]
+
+	xeval f;
+
+	var h := "";
+	if program then [
+		var un_dir, un_name := path_to_dir_file(name);
+		h := "unit " + unit_encode(un_name) + "; uses io, treemap; fn main(implicit w : world, d : dhandle, h : list(handle), args : list(bytes), env : treemap(bytes, bytes)) : world; implementation ";
+	]
+	h += read_lazy(f);
+	var t := tokenize(h, name);
+	var dict := parse_tokens(w, d, t, name, program, parse_interface);
+	if not parse_interface then [
+		for i := 0 to len(dict.defs) do [
+			if dict.defs[i].body is n then
+				abort compiler_error("function '" + i_decode(dict.defs[i].signature.name) + "' was not defined", empty(token));
+			dict.defs[i].pcode := dump_function(dict.defs[i]);
+		]
+	]
+	return dict;
+]

@@ -1,0 +1,159 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit compiler.selfopt;
+
+uses io;
+
+fn self_optimize(w : world, dir : dhandle) : world;
+
+implementation
+
+uses compiler.parser.unit;
+uses compiler.parser.util;
+uses compiler.optimize.utils;
+uses compiler.optimize.evaluate;
+uses compiler.optimize.ssa;
+
+fn read_dir_recursive(d : dhandle) : list(bytes)
+[
+	var result := empty(bytes);
+	var l := dread_lazy(d);
+	for i := 0 to len(l) do [
+		var li := l[i];
+		var t := stat_lazy(d, li, stat_flag_type)[0];
+		if t = stat_type_file and list_ends_with(li, ".ajla") then [
+			var str := li[ .. len(li) - 5];
+			result +<= str;
+		]
+		if t = stat_type_directory then [
+			var nd := dopen_lazy(d, li, 0);
+			var dl := read_dir_recursive(nd);
+			for j := 0 to len(dl) do [
+				dl[j] := path_append(li, dl[j]);
+			]
+			result += dl;
+		]
+	]
+	result := list_sort(result);
+	return result;
+]
+
+record uni [
+	name : bytes;
+	functions : list(list(pcode_t));
+]
+
+fn name_to_ident(n : bytes) : bytes
+[
+	var r := empty(byte);
+	for i := 0 to len(n) do [
+		if path_is_separator(n[i]) then [
+			r += "__";
+		] else [
+			r +<= n[i];
+		]
+	]
+	return r;
+]
+
+fn get_inline(w : world, d : list(bytes), f : function) : list(pcode_t)
+[
+	var pc, modules := compile_module_2~save(w, d, f.un, f.program);
+	var pcode1 := pc[f.fn_idx[0]];
+	pcode1 := function_extract_nested(pcode1, f.fn_idx);
+	var pcode2 := process_pcode(pcode1, get_inline(w, d,));
+	return pcode2;
+]
+
+fn process_nested_functions(pcode1 : list(pcode_t), get_inline : fn(function) : list(pcode_t)) : list(pcode_t)
+[
+	var pcode2 := process_pcode(pcode1, get_inline);
+	var ptr := 9 + blob_length(pcode1[9 .. ]);
+	var pcode_to_insert := empty(pcode_t);
+	for i := 0 to pcode1[2] do [
+		var sub_pcode := pcode1[ptr + 1 .. ptr + 1 + pcode1[ptr]];
+		sub_pcode := process_nested_functions(sub_pcode, get_inline);
+		ptr += 1 + pcode1[ptr];
+		pcode_to_insert +<= len(sub_pcode);
+		pcode_to_insert += sub_pcode;
+	]
+	pcode2[2] := pcode1[2];
+	ptr := 9 + blob_length(pcode1[9 .. ]);
+	pcode2 := pcode2[ .. ptr] + pcode_to_insert + pcode2[ptr .. ];
+	return pcode2;
+]
+
+fn optimize_module(w : world, d : list(bytes), u : uni, pc : list(list(pcode_t))) : uni
+[
+	for idx := 0 to len(pc) do [
+		var pcode1 := pc[idx];
+		var pcode2 := process_nested_functions(pcode1, get_inline(w, d,));
+		u.functions +<= pcode2;
+	]
+	return u;
+]
+
+fn self_optimize(implicit w : world, dir : dhandle) : world
+[
+	var h : handle;
+	var units := empty(uni);
+	var dir_nl := dopen_lazy(dir, "newlib", 0);
+	var l := read_dir_recursive(dir_nl);
+	var d := list(bytes).[ dpath_lazy(dir_nl) ];
+	for i := 0 to len(l) do [
+		var nm := l[i];
+		for n := 0 to len(nm) do
+			if nm[n] = '\' then
+				nm[n] := '/';
+		var u : uni := uni.[ name : nm, functions : empty(list(pcode_t)) ];
+		var pc, modules := compile_module_2(d, u.name, false);
+		u := optimize_module(d, u, pc);
+		units +<= u;
+	]
+
+	var a := empty(byte);
+	var module_info := empty(byte);
+	for i := 0 to len(units) do [
+		var u := units[i];
+		var function_info := empty(byte);
+		for j := 0 to len(u.functions) do [
+			var function := u.functions[j];
+			function_info += int_to_native(native.n_int32, len(a));
+			function_info += int_to_native(native.n_int32, len(function));
+			var lf := len(function);
+			for k := 0 to lf do
+				a += int_to_native(native.n_int32, function[k]);
+		]
+		module_info += int_to_native(native.n_int32, len(a));
+		module_info += int_to_native(native.n_int32, len(u.functions));
+		a += function_info;
+		a += int_to_native(native.n_int32, len(u.name));
+		for i := 0 to len(u.name) do
+			a += int_to_native(native.n_int32, u.name[i]);
+	]
+	var file_info := empty(byte);
+	file_info += int_to_native(native.n_int32, len(a));
+	file_info += int_to_native(native.n_int32, len(units));
+	file_info += int_to_native(native.n_int32, #616C6A41);
+	a += module_info;
+	a += file_info;
+	h := wopen(dir, "builtin.tmp", open_flag_create, open_mode_default);
+	write(h, a);
+	rename(dir, "builtin.pcd", dir, "builtin.tmp");
+]

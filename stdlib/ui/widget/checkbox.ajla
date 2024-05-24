@@ -1,0 +1,150 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit ui.widget.checkbox;
+
+uses ui.widget.common;
+
+type checkbox_state;
+
+fn checkbox_init(label : string, color_scheme : bytes, prop : bytes, radio : bool, val : int, w : world, app : appstate, id : wid) : (world, appstate, checkbox_state);
+fn checkbox_get_width(app : appstate, com : widget_common, st : checkbox_state, x : int) : int;
+fn checkbox_get_height(app : appstate, com : widget_common, st : checkbox_state, x : int) : int;
+fn checkbox_reflow(app : appstate, com : widget_common, st : checkbox_state) : (appstate, widget_common, checkbox_state);
+fn checkbox_redraw(app : appstate, curs : curses, com : widget_common, st : checkbox_state) : curses;
+fn checkbox_get_cursor(app : appstate, com : widget_common, st : checkbox_state) : (int, int);
+fn checkbox_accepts_key(app : appstate, com : widget_common, st : checkbox_state, k : event_keyboard) : bool;
+fn checkbox_process_event(w : world, app : appstate, com : widget_common, st : checkbox_state, wev : wevent) : (world, appstate, widget_common, checkbox_state);
+
+const checkbox_class ~flat := widget_class.[
+	t : checkbox_state,
+	name : "checkbox",
+	is_selectable : true,
+	get_width : checkbox_get_width,
+	get_height : checkbox_get_height,
+	reflow : checkbox_reflow,
+	redraw : checkbox_redraw,
+	get_cursor : checkbox_get_cursor,
+	accepts_key : checkbox_accepts_key,
+	process_event : checkbox_process_event,
+];
+
+implementation
+
+uses ui.widget.text;
+
+record checkbox_state [
+	color_scheme : bytes;
+	prop : bytes;
+	radio : bool;
+	val : int;
+	text_id : wid;
+]
+
+fn checkbox_init(label : string, color_scheme : bytes, prop : bytes, radio : bool, val : int, implicit w : world, implicit app : appstate, id : wid) : (world, appstate, checkbox_state)
+[
+	property_observe(id, prop);
+	var text_id := widget_new(id, text_class, text_init(widget_align.left, label, color_scheme,,,), false);
+	return checkbox_state.[
+		color_scheme : color_scheme,
+		prop : prop,
+		radio : radio,
+		val : val,
+		text_id : text_id,
+	];
+]
+
+fn checkbox_get_width(implicit app : appstate, com : widget_common, st : checkbox_state, x : int) : int
+[
+	return widget_get_width(st.text_id, x - 4) + 4;
+]
+
+fn checkbox_get_height(implicit app : appstate, com : widget_common, st : checkbox_state, x : int) : int
+[
+	return widget_get_height(st.text_id, x - 4);
+]
+
+fn checkbox_reflow(implicit app : appstate, implicit com : widget_common, implicit st : checkbox_state) : (appstate, widget_common, checkbox_state)
+[
+	var x := checkbox_get_width(com.size_x);
+	com.size_x := min(x, com.size_x);
+	var y := checkbox_get_height(com.size_x);
+	widget_move(st.text_id, 4, 0, com.size_x - 4, y, 0, 0);
+]
+
+fn checkbox_is_checked(implicit app : appstate, st : checkbox_state) : bool
+[
+	var prop := property_get(st.prop);
+	if st.radio then
+		return prop.i = st.val;
+	else
+		return prop.i bt st.val;
+]
+
+fn checkbox_redraw(implicit app : appstate, implicit curs : curses, com : widget_common, implicit st : checkbox_state) : curses
+[
+	property_set_attrib(property_get_attrib(st.color_scheme + "checkbox", #0000, #0000, #0000, #aaaa, #aaaa, #aaaa, 0, curses_invert));
+	curses_fill_rect(0, com.size_x, 0, com.size_y, ' ');
+	curses_set_pos(0, 0);
+	curses_print(select(checkbox_is_checked(), `[ ]`, `[X]`));
+	widget_redraw_subwidgets(com);
+]
+
+fn checkbox_get_cursor(app : appstate, com : widget_common, st : checkbox_state) : (int, int)
+[
+	return 1, 0;
+]
+
+fn checkbox_accepts_key(app : appstate, com : widget_common, st : checkbox_state, k : event_keyboard) : bool
+[
+	return k.key = ' ';
+]
+
+fn checkbox_check(implicit app : appstate, st : checkbox_state) : appstate
+[
+	var new_val : int;
+	if st.radio then [
+		new_val := st.val;
+	] else [
+		new_val := property_get(st.prop).i btc st.val;
+	]
+	property_set(st.prop, property.i.(new_val));
+]
+
+fn checkbox_process_event(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : checkbox_state, wev : wevent) : (world, appstate, widget_common, checkbox_state)
+[
+	if wev is keyboard then [
+		checkbox_check();
+		return;
+	]
+	if wev is mouse, wev.mouse.prev_buttons = 1, wev.mouse.buttons = 0 then [
+		checkbox_check();
+		return;
+	]
+	if wev is property_changed then [
+		goto redraw;
+	]
+	return;
+redraw:
+	widget_enqueue_event(com.self, wevent.redraw.(event_redraw.[
+		x1 : 1,
+		x2 : 2,
+		y1 : 0,
+		y2 : 1,
+	]));
+]

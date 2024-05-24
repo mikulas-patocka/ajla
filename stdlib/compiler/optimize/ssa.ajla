@@ -1,0 +1,2288 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit compiler.optimize.ssa;
+
+uses compiler.optimize.defs;
+
+fn process_pcode(pc : list(pcode_t), get_inline : fn(function) : list(pcode_t)) : list(pcode_t);
+
+
+implementation
+
+uses exception;
+uses compiler.optimize.utils;
+uses compiler.optimize.evaluate;
+uses compiler.optimize.inline;
+uses compiler.common.gvn;
+
+fn mtos(x : var_set) : bytes
+[
+	var str := "(";
+	while x <> 0 do [
+		var v : int := bsr x;
+		x btr= v;
+		if len(str) > 1 then
+			str += ",";
+		str += ntos(v);
+	]
+	str += ")";
+	return str;
+]
+
+fn insert_instr(ctx : context, ins : instruction, pos : int) : context
+[
+	var id := len(ctx.instrs);
+	ctx.instrs +<= ins;
+	var block := ctx.blocks[ins.bb];
+	var new_list := block.instrs[.. pos] +< id + block.instrs[pos ..];
+	ctx.blocks[ins.bb].instrs := new_list;
+	return ctx;
+]
+
+fn deactivate_arrow(ctx : context, bgi : int, pidx : int) : context
+[
+	var p := ctx.blocks[bgi].post_list[pidx];
+	//eval debug("deleting arrow " + ntos(bgi) + "(" + ntos(pidx) + ") -> " + ntos(p));
+	if not ctx.blocks[bgi].active then
+		abort internal("deactivating an arrow from an invalid block");
+	if not ctx.blocks[p].active then
+		abort internal("deactivating an arrow to an invalid block");
+again:
+	for j := 0 to len(ctx.blocks[p].pred_list) do [
+		if ctx.blocks[p].pred_list[j] = bgi and ctx.blocks[p].pred_position[j] = pidx then [
+			ctx.blocks[p].pred_list := ctx.blocks[p].pred_list[ .. j] + ctx.blocks[p].pred_list[j + 1 ..];
+			ctx.blocks[p].pred_position := ctx.blocks[p].pred_position[ .. j] + ctx.blocks[p].pred_position[j + 1 ..];
+			for lidx := 0 to len(ctx.blocks[p].instrs) do [
+				var ins := ctx.instrs[ctx.blocks[p].instrs[lidx]];
+				if ins.opcode <> P_Phi then
+					break;
+				ins.params := ins.params[.. j + 1] + ins.params[j + 2 ..];
+				ins.read_set := ins.read_set shr 1 btc 0;
+				ctx.instrs[ctx.blocks[p].instrs[lidx]] := ins;
+			]
+			goto again;
+		]
+	]
+	ctx.blocks[bgi].post_list := ctx.blocks[bgi].post_list[ .. pidx] + ctx.blocks[bgi].post_list[pidx + 1 .. ];
+	for i := pidx to len(ctx.blocks[bgi].post_list) do [
+		var bgi_post := ctx.blocks[bgi].post_list[i];
+		var block_post := ctx.blocks[bgi_post];
+		for j := 0 to len(block_post.pred_list) do [
+			if block_post.pred_list[j] = bgi and block_post.pred_position[j] > pidx then [
+				ctx.blocks[bgi_post].pred_position[j] -= 1;
+			]
+		]
+	]
+	return ctx;
+]
+
+fn deactivate_node(ctx : context, bgi : int) : context
+[
+	while len(ctx.blocks[bgi].pred_list) <> 0 do [
+		var pred_bgi := ctx.blocks[bgi].pred_list[0];
+		var pred_idx := ctx.blocks[bgi].pred_position[0];
+		ctx := deactivate_arrow(ctx, pred_bgi, pred_idx);
+	]
+	while len(ctx.blocks[bgi].post_list) <> 0 do [
+		ctx := deactivate_arrow(ctx, bgi, 0);
+	]
+	ctx.blocks[bgi] := basic_block.[
+		active : false,
+		instrs : empty(int),
+		pred_list : empty(int),
+		pred_position : empty(int),
+		post_list : empty(int),
+		dom : -1,
+		dominates : -1,
+		idom : -1,
+		is_idom_of : -1,
+		df : -1,
+		uninitialized : -1,
+		live_top : -1,
+		live_bottom : -1,
+	];
+	return ctx;
+]
+
+fn find_dominators_1(ctx : context) : context
+[
+again:
+	var did_something := false;
+	for bgi := 1 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		var un_set : node_set := -1;
+		for p_idx := 0 to len(ctx.blocks[bgi].pred_list) do [
+			var pred := ctx.blocks[bgi].pred_list[p_idx];
+			un_set and= ctx.blocks[pred].dom;
+		]
+		un_set bts= bgi;
+		if un_set <> ctx.blocks[bgi].dom then [
+			ctx.blocks[bgi].dom := un_set;
+			did_something := true;
+		]
+	]
+	{
+	var bgi := len(ctx.blocks);
+	while bgi > 1 do [
+		bgi -= 1;
+		if not ctx.blocks[bgi].active then
+			continue;
+		var un_set : node_set := -1;
+		for p_idx := 0 to len(ctx.blocks[bgi].pred_list) do [
+			var pred := ctx.blocks[bgi].pred_list[p_idx];
+			un_set and= ctx.blocks[pred].dom;
+		]
+		un_set bts= bgi;
+		if un_set <> ctx.blocks[bgi].dom then [
+			ctx.blocks[bgi].dom := un_set;
+			did_something := true;
+		]
+	]
+	}
+	if did_something then
+		goto again;
+	return ctx;
+]
+
+fn find_dominators_2(ctx : context) : context
+[
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		var dom_set := ctx.blocks[bgi].dom;
+		while dom_set <> 0 do [
+			var dom : int := bsr dom_set;
+			dom_set btr= dom;
+			ctx.blocks[dom].dominates bts= bgi;
+		]
+		ctx.blocks[bgi].is_idom_of := 0;
+	]
+	return ctx;
+]
+
+fn find_dominators_3(ctx : context) : context
+[
+	for bgi := 1 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		ctx.blocks[bgi].idom := -1;
+		var dom_set := ctx.blocks[bgi].dom btc bgi;
+		while dom_set <> 0 do [
+			var dom : int := bsr dom_set;
+			dom_set btr= dom;
+			var dominates := ctx.blocks[dom].dominates btc dom;
+			if (dominates and ctx.blocks[bgi].dom btc bgi) = 0 then [
+				//eval debug("idom (" + ntos(bgi) + ") = " + ntos(dom));
+				if ctx.blocks[bgi].idom = -1 then
+					ctx.blocks[bgi].idom := dom;
+				else
+					abort internal("a block has multiple immediate dominators");
+			]
+		]
+		if ctx.blocks[bgi].idom = -1 then [
+			abort internal("a block doesn't have immediate dominator");
+		]
+		ctx.blocks[ctx.blocks[bgi].idom].is_idom_of bts= bgi;
+	]
+	return ctx;
+]
+
+fn find_dominators(ctx : context) : context
+[
+	var n_blocks := len(ctx.blocks);
+	ctx.blocks[0].dom := 0 bts 0;
+	ctx.blocks[0].dominates := 0;
+	for i := 1 to n_blocks do [
+		var zero : node_set := 0;
+		ctx.blocks[i].dom := (zero bts n_blocks) - 1;
+		ctx.blocks[i].dominates := 0;
+	]
+
+	ctx := find_dominators_1(ctx);
+	ctx := find_dominators_2(ctx);
+	ctx := find_dominators_3(ctx);
+
+	{for bgi := 0 to n_blocks do [
+		eval debug("dom(" + ntos(bgi) + ") = " + ntos_base(ctx.blocks[bgi].dom, 2) + ", idom = " + ntos(ctx.blocks[bgi].idom));
+	]}
+
+	return ctx;
+]
+
+fn prune_unreachable(ctx : context) : context
+[
+	var worklist : node_set := 0 bts 0;
+	var active : node_set := 0;
+
+	while worklist <> 0 do [
+		var w : int := bsr worklist;
+		worklist btr= w;
+
+		active bts= w;
+
+		for post_idx := 0 to len(ctx.blocks[w].post_list) do [
+			var p := ctx.blocks[w].post_list[post_idx];
+			if not active bt p then
+				worklist bts= p;
+		]
+	]
+
+	for bgi := 0 to len(ctx.blocks) do [
+		if not active bt bgi and ctx.blocks[bgi].active then [
+			//eval debug("deactivating node " + ntos(bgi));
+			ctx := deactivate_node(ctx, bgi);
+		]
+	]
+
+	return ctx;
+]
+
+fn join_adjacent(ctx : context) : context
+[
+	var n_blocks := len(ctx.blocks);
+	var did_something : bool;
+
+again:
+	did_something := false;
+	for bgi := 0 to n_blocks do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		if len(ctx.blocks[bgi].post_list) = 1 then [
+			var post := ctx.blocks[bgi].post_list[0];
+			if len(ctx.blocks[post].pred_list) = 1 then [
+				//eval debug("joining nodes " + ntos(bgi) + " -> " + ntos(post));
+				var lbl := -1;
+				var instrs1 := ctx.blocks[bgi].instrs;
+				var instrs2 := ctx.blocks[post].instrs;
+				for n := 0 to len(instrs2) do [
+					var in_idx := instrs2[n];
+					if ctx.instrs[in_idx].bb <> post then
+						abort internal("bb doesn't match: " + ntos(ctx.instrs[in_idx].bb) + " <> " + ntos(post) + " (opcode " + ntos(ctx.instrs[in_idx].opcode) + ")");
+					ctx.instrs[in_idx].bb := bgi;
+				]
+				if len_greater_than(int, instrs1, 0) then [
+					var last1 := ctx.instrs[instrs1[len(instrs1) - 1]].opcode;
+					if last1 = P_Jmp or last1 = P_Jmp_False then [
+						instrs1 := instrs1[ .. len(instrs1) - 1];
+					]
+				]
+				if len_greater_than(int, instrs2, 0) then [
+					var first2 := ctx.instrs[instrs2[0]].opcode;
+					if first2 = P_Label then [
+						lbl := ctx.instrs[instrs2[0]].params[0];
+						instrs2 := instrs2[1 .. ];
+					]
+				]
+				ctx.blocks[bgi].instrs := instrs1 + instrs2;
+				ctx.blocks[bgi].post_list := ctx.blocks[post].post_list;
+				for pl := 0 to len(ctx.blocks[bgi].post_list) do [
+					var p := ctx.blocks[bgi].post_list[pl];
+					for q := 0 to len(ctx.blocks[p].pred_list) do
+						if ctx.blocks[p].pred_list[q] = post then
+							ctx.blocks[p].pred_list[q] := bgi;
+				]
+				ctx.blocks[post].pred_list := empty(int);
+				ctx := deactivate_node(ctx, post);
+				if lbl >= 0 then [
+					if ctx.label_to_block[lbl] <> post then
+						abort internal("label doesn't match");
+					ctx.label_to_block[lbl] := -1;
+				]
+				did_something := true;
+			]
+		]
+	]
+
+	if did_something then
+		goto again;
+
+	return ctx;
+]
+
+fn propagate_types(ctx : context) : context
+[
+	var did_something : bool;
+again:
+	did_something := false;
+	var n_blocks := len(ctx.blocks);
+	for bgi := 0 to n_blocks do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		var n_instrs := len(ctx.blocks[bgi].instrs);
+		for ili := 0 to n_instrs do [
+			var ins := ctx.instrs[ ctx.blocks[bgi].instrs[ili] ];
+			if ins.opcode = P_Copy then [
+				var dest : int := ins.params[0];
+				var src : int := ins.params[2];
+				var dest_rt := ctx.variables[dest].runtime_type;
+				var src_rt := T_Type;
+				if src >= 0 then
+					src_rt := ctx.variables[src].runtime_type;
+				else if src = T_Type then
+					src_rt := T_TypeOfType;
+				if src_rt = dest_rt then
+					continue;
+				if src_rt = T_Undetermined then
+					ctx.variables[src].runtime_type := dest_rt;
+				else if dest_rt = T_Undetermined then
+					ctx.variables[dest].runtime_type := src_rt;
+				else [
+					if src_rt >= 0, dest_rt >= 0 then
+						continue;
+					abort internal("copying between variables '" + ctx.variables[src].name + "', '" + ctx.variables[dest].name + "' with types " + ntos(src_rt) + " and " + ntos(dest_rt));
+				]
+				did_something := true;
+			]
+		]
+	]
+	if did_something then
+		goto again;
+	return ctx;
+]
+
+fn set_to_mask(ins : instruction, s : param_set) : var_set
+[
+	var r : var_set := 0;
+	while s <> 0 do [
+		var q : int := bsr s;
+		s btr= q;
+		if ins.params[q] >= 0 then
+			r bts= ins.params[q];
+	]
+	return r;
+]
+
+fn test_uninitialized(ctx : context) : context
+[
+	var n_blocks := len(ctx.blocks);
+
+	var zero : var_set := 0;
+	ctx.blocks[0].uninitialized := (zero bts len(ctx.variables)) - 1;
+	for bgi := 1 to n_blocks do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		ctx.blocks[bgi].uninitialized := 0;
+	]
+
+	var worklist : node_set := 0 bts 0;
+
+	while worklist <> 0 do [
+		var w : int := bsr worklist;
+		worklist btr= w;
+
+		var uninit := ctx.blocks[w].uninitialized;
+
+		for ili := 0 to len(ctx.blocks[w].instrs) do [
+			var ins := ctx.instrs[ ctx.blocks[w].instrs[ili] ];
+			//eval debug("opcode " + ntos(ins.opcode) + " rd " + ntos_base(ins.read_set, 2) + " wr " + ntos_base(ins.write_set, 2) + " fr " + ntos_base(ins.free_set, 2));
+			var read_mask := set_to_mask(ins, ins.read_set);
+			var write_mask := set_to_mask(ins, ins.write_set);
+			//var free_mask := set_to_mask(ins, ins.free_set);
+			var uninit_mask := read_mask and uninit;
+			if uninit_mask <> 0 then [
+				{
+					eval dump_basic_blocks(ctx, true);
+					eval debug("read mask: " + ntos_base(read_mask, 2));
+					eval debug("write mask: " + ntos_base(write_mask, 2));
+					//eval debug("free mask: " + ntos_base(free_mask, 2));
+					for j := 0 to len(ins.params) do
+						eval debug("param: " + ntos(ins.params[j]));
+					abort internal("uninitialized variable " + ntos_base(uninit_mask, 2) + " at bb " + ntos(w) + " in " + ntos(ili) + " opc " + ntos(ins.opcode));
+				}
+				var str := "Uninitialized variable in " + ctx.name;
+				var v : int := bsf uninit_mask;
+				if len(ctx.variables[v].name) > 0 then
+					str += ": " + ctx.variables[v].name;
+				ctx := exception_make_str(context, ec_async, error_compiler_error, 0, true, str);
+				return ctx;
+			]
+			//uninit or= free_mask;
+			uninit and= not write_mask;
+		]
+
+		for post := 0 to len(ctx.blocks[w].post_list) do [
+			var p := ctx.blocks[w].post_list[post];
+			if (uninit and not ctx.blocks[p].uninitialized) <> 0 then [
+				ctx.blocks[p].uninitialized or= uninit;
+				worklist bts= p;
+			]
+		]
+	]
+
+	return ctx;
+]
+
+fn get_pred_set(b : basic_block) : node_set
+[
+	var pred_set : node_set := 0;
+	for j := 0 to len(b.pred_list) do
+		pred_set bts= b.pred_list[j];
+	return pred_set;
+]
+
+fn find_dominance_frontiers(ctx : context) : context
+[
+	var n_blocks := len(ctx.blocks);
+
+	for bgi := 0 to n_blocks do
+		ctx.blocks[bgi].df := 0;
+
+	for bgi := 0 to n_blocks do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		var pred_set := get_pred_set(ctx.blocks[bgi]);
+		if popcnt pred_set >= 2 then [
+			while pred_set <> 0 do [
+				var runner : int := bsr pred_set;
+				pred_set btr= runner;
+				while runner <> ctx.blocks[bgi].idom do [
+					ctx.blocks[runner].df bts= bgi;
+					runner := ctx.blocks[runner].idom;
+				]
+			]
+		]
+	]
+
+	{for bgi := 0 to n_blocks do [
+		eval debug("df(" + ntos(bgi) + ") = " + ntos_base(ctx.blocks[bgi].df, 2));
+	]}
+
+	return ctx;
+]
+
+fn process_variables(ctx : context) : context
+[
+	for vgi := 0 to len(ctx.variables) do [
+		ctx.variables[vgi].writing_instrs := 0;
+		ctx.variables[vgi].reaching_def := -1;
+	]
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
+			var igi := ctx.blocks[bgi].instrs[ili];
+			var ins := ctx.instrs[igi];
+		{
+			var rset := ins.read_set;
+			while rset <> 0 do [
+				var rd : int := bsr rset;
+				rset btr= rd;
+				var v := ins.params[rd];
+				if v >= 0 then [
+					//ctx.variables[v].reading_instrs bts= igi;
+					//ctx.variables[v].var_active := true;
+				]
+			]
+		}
+			var wset := ins.write_set;
+			while wset <> 0 do [
+				var wr : int := bsr wset;
+				wset btr= wr;
+				var v := ins.params[wr];
+				if v >= 0 then [
+					ctx.variables[v].writing_instrs bts= igi;
+				]
+			]
+		]
+	]
+	return ctx;
+]
+
+fn is_noclone_variable(ctx : context, vgi : int) : bool
+[
+	return popcnt(ctx.variables[vgi].writing_instrs) = 1;
+]
+
+fn insert_phi(ctx : context, vgi : int, bgi : int) : context
+[
+	var n : int := len(ctx.blocks[bgi].pred_list);
+	var instr := create_instr(P_Phi, fill(pcode_t, vgi, n + 1), bgi);
+	ctx := insert_instr(ctx, instr, 0);
+	return ctx;
+]
+
+fn find_phi_blocks(ctx : context) : context
+[
+	for vgi := 0 to len(ctx.variables) do [
+
+		if is_noclone_variable(ctx, vgi) then
+			continue;
+
+		var f : node_set := 0;
+		var w : node_set := 0;
+
+		var wset := ctx.variables[vgi].writing_instrs;
+		while wset <> 0 do [
+			var wr : int := bsr wset;
+			wset btr= wr;
+			if ctx.blocks[ ctx.instrs[wr].bb ].active then
+				w bts= ctx.instrs[wr].bb;
+		]
+		var defs_v := w;
+		while w <> 0 do [
+			var x : int := bsr w;
+			w btr= x;
+			var dfw := ctx.blocks[x].df;
+			//eval debug("dfs( " + ntos(x) + ") = " + ntos_base(dfw, 2));
+			while dfw <> 0 do [
+				var y : int := bsr dfw;
+				dfw btr= y;
+				if not f bt y then [
+					if not ctx.blocks[y].uninitialized bt vgi then [
+						//eval debug("insert phi for " + ntos(vgi) + " at " + ntos(y));
+						ctx := insert_phi(ctx, vgi, y);
+						f bts= y;
+						if not defs_v bt y then
+							w bts= y;
+					] else [
+						//eval debug("don't insert phi for " + ntos(vgi) + " at " + ntos(y));
+					]
+				]
+			]
+		]
+	]
+	return ctx;
+]
+
+
+fn clone_variable(ctx : context, vgi : int) : (variable, int)
+[
+	var v1_idx := len(ctx.variables);
+	var v1 := new_variable;
+
+	v1.type_index := ctx.variables[vgi].type_index;
+	v1.runtime_type := ctx.variables[vgi].runtime_type;
+	v1.local_type := ctx.variables[vgi].local_type;
+	v1.color := ctx.variables[vgi].color;
+	v1.name := ctx.variables[vgi].name;
+	v1.is_option_type := ctx.variables[vgi].is_option_type;
+
+	return v1, v1_idx;
+]
+
+fn update_reaching_def(ctx : context, vgi : int, bgi : int) : context
+[
+	var r := ctx.variables[vgi].reaching_def;
+	//var s := r;
+	while r <> -1, not ctx.blocks[ctx.variables[r].defining_block].dominates bt bgi do [
+		//eval debug("go up " + ntos(r) + " -> " + ntos(ctx.variables[r].reaching_def) + " dblock " + ntos(ctx.variables[r].defining_block));
+		r := ctx.variables[r].reaching_def;
+	]
+	ctx.variables[vgi].reaching_def := r;
+	//eval debug("update_reaching_def: bgi : " + ntos(bgi) + " vgi: " + ntos(vgi) + " : " + ntos(s) + " -> " + ntos(r));
+	return ctx;
+]
+
+fn rename_variables_recursive(ctx : context, bgi : int) : context
+[
+	//eval debug("walking block " + ntos(bgi) + " (" + ntos(len(ctx.blocks[bgi].instrs)) + ")");
+
+	for ili := 0 to len(ctx.blocks[bgi].instrs) do [
+		var igi := ctx.blocks[bgi].instrs[ili];
+		var instr := ctx.instrs[igi];
+		if instr.opcode <> P_Phi then [
+			var read_set := instr.read_set;
+			while read_set <> 0 do [
+				var rd_idx : int := bsr read_set;
+				read_set btr= rd_idx;
+				var v := instr.params[rd_idx];
+				if v < 0 then
+					continue;
+
+				if is_noclone_variable(ctx, v) then
+					continue;
+
+				//eval debug("prev reaching def " + ntos(ctx.variables[v].reaching_def));
+				ctx := update_reaching_def(ctx, v, bgi);
+				if ctx.variables[v].reaching_def = -1 then
+					abort internal("bad reaching def, bgi " + ntos(bgi) + " instr " + ntos(ili) + " v " + ntos(v) + " opcode " + ntos(instr.opcode));
+				ctx.instrs[ ctx.blocks[bgi].instrs[ili] ].params[rd_idx] := ctx.variables[v].reaching_def;
+				//eval debug("processing renamed, bgi " + ntos(bgi) + "  " + ntos(v) + " -> " + ntos(ctx.variables[v].reaching_def));
+			]
+		]
+		var write_set := instr.write_set;
+		while write_set <> 0 do [
+			var wr_idx : int := bsr write_set;
+			write_set btr= wr_idx;
+			var v := instr.params[wr_idx];
+			if v = -1 then
+				abort internal("negative v: " + ntos(v));
+
+			if is_noclone_variable(ctx, v) then [
+				ctx.variables[v].defining_block := bgi;
+				ctx.variables[v].defining_instr := igi;
+				continue;
+			]
+
+			ctx := update_reaching_def(ctx, v, bgi);
+
+			var v1, v1_idx := clone_variable(ctx, v);
+			v1.defining_block := bgi;
+			v1.defining_instr := igi;
+
+			ctx.instrs[ ctx.blocks[bgi].instrs[ili] ].params[wr_idx] := v1_idx;
+			v1.reaching_def := ctx.variables[v].reaching_def;
+			ctx.variables[v].reaching_def := v1_idx;
+
+			ctx.variables +<= v1;
+
+			//eval debug("renaming bgi " + ntos(bgi) + ", idx " + ntos(ili) + ", var " + ntos(v) + " -> " + ntos(v1_idx) + " opcode " + ntos(instr.opcode));
+		]
+	]
+
+	for p := 0 to len(ctx.blocks[bgi].post_list) do [
+		var bbb := ctx.blocks[bgi].post_list[p];
+		var post_block := ctx.blocks[bbb];
+		for idx := 0 to len(post_block.pred_list) do [
+			if post_block.pred_list[idx] = bgi then [
+				//eval debug("bgi: " + ntos(bgi) + " p:" + ntos(idx) + " bbb:" + ntos(bbb));
+				for ili := 0 to len(ctx.blocks[bbb].instrs) do [
+					var igi := ctx.blocks[bbb].instrs[ili];
+					var instr := ctx.instrs[igi];
+					if instr.opcode <> P_Phi then
+						break;
+
+					var v := instr.params[idx + 1];
+					ctx := update_reaching_def(ctx, v, bgi);
+					//eval debug("adjusting phi, bgi " + ntos(bgi) + " bbb " + ntos(bbb) + "  " + ntos(ctx.instrs[ igi ].params[idx + 1]) + " -> " + ntos(ctx.variables[v].reaching_def));
+					ctx.instrs[ igi ].params[idx + 1] := ctx.variables[v].reaching_def;
+					if ctx.variables[v].reaching_def = -1 then
+						abort internal("phi with uninitialized argument " + ntos(ctx.instrs[ ctx.blocks[bbb].instrs[ili]].params[0]) + ", bbb " + ntos(bbb) + ", instr " + ntos(ili) + " opcode " + ntos(instr.opcode) + " v " + ntos(v));
+				]
+			]
+		]
+	]
+
+	var is_idom_of := ctx.blocks[bgi].is_idom_of;
+	while is_idom_of <> 0 do [
+		var next : int := bsr is_idom_of;
+		is_idom_of btr= next;
+		ctx := rename_variables_recursive(ctx, next);
+	]
+	return ctx;
+]
+
+fn rename_variables(ctx : context) : context
+[
+	return rename_variables_recursive(ctx, 0);
+]
+
+fn verify_ssa(ctx : context) : context
+[
+	if not check then
+		return ctx;
+	var assign_mask : var_set := 0;
+	var n_blocks := len(ctx.blocks);
+	for bgi := 0 to n_blocks do [
+		var block := ctx.blocks[bgi];
+		if not block.active then
+			continue;
+		for ili := 0 to len(block.instrs) do [
+			var igi := block.instrs[ili];
+			var ins := ctx.instrs[igi];
+			var write_mask := set_to_mask(ins, ins.write_set);
+			if (assign_mask and write_mask) <> 0 then [
+				abort internal("verify_ssa: variables are assigned multiple times: " + mtos(assign_mask and write_mask));
+			]
+			assign_mask or= write_mask;
+		]
+	]
+	return ctx;
+]
+
+
+fn remap_instruction(ins : instruction, var_map : list(int), test_write : bool) : instruction
+[
+	var rs := ins.read_set;
+	while rs <> 0 do [
+		var idx : int := bsr rs;
+		rs btr= idx;
+		var param := ins.params[idx];
+		if param >= 0 then
+			ins.params[idx] := var_map[param];
+	]
+	if test_write then [
+		var ws := ins.write_set;
+		while ws <> 0 do [
+			var idx : int := bsr ws;
+			ws btr= idx;
+			var param := ins.params[idx];
+			if var_map[param] <> param then
+				abort internal("output variable was remapped");
+		]
+	]
+	return ins;
+]
+
+fn remap_variable(ctx : context, vgi : int) : context
+[
+	var v := ctx.variables[vgi].type_index;
+	if v >= 0 then [
+		var vm := ctx.var_map[v];
+		ctx.variables[vgi].type_index := vm;
+		if vm > T_Undetermined and vm < 0 then
+			ctx.variables[vgi].runtime_type := vm;
+		else if vm >= 0, ctx.variables[vm].is_option_type then
+			ctx.variables[vgi].runtime_type := T_FlatOption;
+	]
+	return ctx;
+]
+
+fn gvn_recursive(ctx : context, bgi : int, vals : list(int)) : context
+[
+	for i := 0 to len(ctx.blocks[bgi].instrs) do [
+		var igi := ctx.blocks[bgi].instrs[i];
+		var ins := ctx.instrs[igi];
+		ins := remap_instruction(ins, ctx.var_map, true);
+		ctx.instrs[igi] := ins;
+		if ins.opcode = P_Copy then [
+			var dest : int := ins.params[0];
+			var src : int := ins.params[2];
+			ctx.var_map[dest] := src;
+			continue;
+		]
+		if	ins.opcode = P_Free or
+			ins.opcode = P_Load_Local_Type or
+			ins.opcode = P_Eval or
+			ins.opcode = P_Keep or
+			ins.opcode = P_Jmp or
+			ins.opcode = P_Jmp_False or
+			ins.opcode = P_Label or
+			ins.opcode = P_IO or
+			ins.opcode = P_Args or
+			ins.opcode = P_Return_Vars or
+			ins.opcode = P_Return or
+			ins.opcode = P_Line_Info or
+			ins.opcode = P_Line_Info_Full
+				then continue;
+
+		var value_list := list(pcode_t).[ ins.opcode, len(ins.params) ];
+		for i := 0 to len(ins.params) do [
+			if ins.write_set bt i then
+				continue;
+			var v := ins.params[i];
+			if ins.free_set bt i + 1 then
+				v and= not Flag_Free_Argument;
+			value_list +<= v;
+		]
+
+		if ins.opcode = P_UnaryOp, ins.params[0] = Un_ConvertFromInt then [
+			value_list +<= ctx.variables[ins.params[1]].runtime_type;
+		]
+		if ins.opcode = P_Copy_Type_Cast then [
+			if ctx.variables[ins.params[0]].runtime_type = T_Undetermined then
+				continue;
+			if ctx.variables[ins.params[1]].runtime_type = T_Undetermined then
+				continue;
+			value_list +<= ctx.variables[ins.params[0]].runtime_type;
+		]
+		if ins.opcode = P_Load_Const then [
+			value_list +<= ctx.variables[ins.params[0]].runtime_type;
+		]
+
+		var value_number := gvn_encode(value_list);
+		if vals[value_number] = -1 then [
+			vals[value_number] := igi;
+			continue;
+		]
+		//eval debug("gvn found a case, opcode " + ntos(ins.opcode) + " vn " + ntos_base(value_number, 16));
+		var prev_ins := ctx.instrs[vals[value_number]];
+		if ins.write_set <> prev_ins.write_set then
+			abort internal("write set of the old and new instruction doesn't match");
+		var ws  := ins.write_set;
+		while ws <> 0 do [
+			var idx : int := bsr ws;
+			ws btr= idx;
+			var prev_result := prev_ins.params[idx];
+			var new_result := ins.params[idx];
+			if ctx.var_map[new_result] <> new_result then
+				abort internal("variable was already remapped");
+			ctx.var_map[new_result] := prev_result;
+		]
+	]
+
+	var is_idom_of := ctx.blocks[bgi].is_idom_of;
+	while is_idom_of <> 0 do [
+		var next : int := bsr is_idom_of;
+		is_idom_of btr= next;
+		ctx := gvn_recursive(ctx, next, vals);
+	]
+
+	return ctx;
+]
+
+fn gvn(ctx : context) : context
+[
+	var vals := infinite(-1);
+
+	ctx.var_map := fill(-1, len(ctx.variables));
+	for vgi := 0 to len(ctx.variables) do
+		ctx.var_map[vgi] := vgi;
+
+	ctx := gvn_recursive(ctx, 0, vals);
+
+	for vgi := 0 to len(ctx.variables) do
+		ctx := remap_variable(ctx, vgi);
+
+	return ctx;
+]
+
+fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
+[
+	if ins.opcode = P_Load_Local_Type then [
+		var params := list(pcode_t).[ IO_Exception_Make, 1, 0, 4, ins.params[0], ec_sync, error_optimizer_error, 0, 1 ];
+		return create_instr(P_IO, params, ins.bb), true;
+	]
+	if ins.opcode = P_Curry then [
+		var vgi := ins.params[3];
+		var v := ctx.variables[vgi];
+		var fn_ins := ctx.instrs[v.defining_instr];
+		if fn_ins.opcode = P_Load_Fn then [
+			fn_ins.params[0] := ins.params[0];
+			fn_ins.params[1] += ins.params[1];
+			fn_ins.params += ins.params[4 .. ];
+			return create_instr(P_Load_Fn, fn_ins.params, ins.bb), true;
+		]
+		if fn_ins.opcode = P_Curry then [
+			fn_ins.params[0] := ins.params[0];
+			fn_ins.params[1] += ins.params[1];
+			fn_ins.params += ins.params[4 .. ];
+			return create_instr(P_Curry, fn_ins.params, ins.bb), true;
+		]
+	]
+	if ins.opcode = P_Call_Indirect then [
+		var vgi := ins.params[4];
+		var v := ctx.variables[vgi];
+		var fn_ins := ctx.instrs[v.defining_instr];
+		if fn_ins.opcode = P_Load_Fn then [
+			var fn_spec_len := function_specifier_length(fn_ins.params[3 .. ]);
+			var fn_args := fn_ins.params[3 + fn_spec_len .. ];
+			var call_params := list(pcode_t).[ ins.params[0], ins.params[1], ins.params[2] + fn_ins.params[1]] + fn_ins.params[3 .. 3 + fn_spec_len] + fn_args + ins.params[5 .. ];
+			if fn_ins.params[2] = Call_Mode_Type or fn_ins.params[2] = Call_Mode_Flat then
+				call_params[0] := fn_ins.params[2];
+			else if call_params[0] = Call_Mode_Unspecified then
+				call_params[0] := fn_ins.params[2];
+			return create_instr(P_Call, call_params, ins.bb), true;
+		]
+		if fn_ins.opcode = P_Curry then [
+			ins.params[2] += fn_ins.params[1];
+			ins.params[4] := fn_ins.params[3];
+			var call_indirect_params := ins.params[0 .. 5] + fn_ins.params[4 .. ] + ins.params[5 .. ];
+			return create_instr(P_Call_Indirect, call_indirect_params, ins.bb), true;
+		]
+	]
+	if ins.opcode = P_BinaryOp then [
+		var vgi1 := ins.params[3];
+		var v1 := ctx.variables[vgi1];
+		var v1_ins := ctx.instrs[v1.defining_instr];
+		var vgi2 := ins.params[5];
+		var v2 := ctx.variables[vgi2];
+		var v2_ins := ctx.instrs[v2.defining_instr];
+		var vgir := ins.params[1];
+		var vr := ctx.variables[vgir];
+		//eval debug("test const vgi " + ntos(vgi1) + " " + ntos(vgi2));
+		//eval debug("test const " + ntos(v1_ins.opcode) + " " + ntos(v2_ins.opcode));
+		if v1_ins.opcode = P_Load_Const and v2_ins.opcode = P_Load_Const then [
+			//var str : bytes;
+			//str := "v1: (" + ntos(vgi1) + ")"; for i := 0 to len(v1_ins.params) do [ str += " " + ntos(v1_ins.params[i]); ]; eval debug(str);
+			//str := "v2: (" + ntos(vgi2) + ")"; for i := 0 to len(v2_ins.params) do [ str += " " + ntos(v2_ins.params[i]); ]; eval debug(str);
+			var c := evaluate_binary(v1.runtime_type, vr.runtime_type, ins.params[0], v1_ins.params[1 ..], v2_ins.params[1 ..]);
+			if is_exception c then
+				return ins, false;
+			var params := list(pcode_t).[ ins.params[1] ] + c;
+			//str := "vr:"; for i := 0 to len(params) do [ str += " " + ntos(params[i]); ]; eval debug(str);
+			return create_instr(P_Load_Const, params, ins.bb), true;
+		]
+		if vr.runtime_type <= T_SInt8, vr.runtime_type >= T_Integer128 then [
+			if ins.params[0] = Bin_Add, v2_ins.opcode = P_Load_Const, v2_ins.params[1] = 1, v2_ins.params[2] = 1 then [
+				return create_instr(P_UnaryOp, list(pcode_t).[ Un_Inc, ins.params[1], ins.params[2], ins.params[3] ], ins.bb), true;
+			]
+			if ins.params[0] = Bin_Subtract, v2_ins.opcode = P_Load_Const, v2_ins.params[1] = 1, v2_ins.params[2] = 1 then [
+				return create_instr(P_UnaryOp, list(pcode_t).[ Un_Dec, ins.params[1], ins.params[2], ins.params[3] ], ins.bb), true;
+			]
+		]
+		if v1_ins.opcode = P_IO, v1_ins.params[0] = IO_Exception_Make,
+		   v1.runtime_type <> T_FlatOption or (v2_ins.opcode = P_IO and v2_ins.params[0] = IO_Exception_Make) then [
+			var params := v1_ins.params;
+			params[4] := ins.params[1];
+			return create_instr(P_IO, params, ins.bb), true;
+		]
+		if v2_ins.opcode = P_IO, v2_ins.params[0] = IO_Exception_Make,
+		   v1.runtime_type <> T_FlatOption then [
+			var params := v2_ins.params;
+			params[4] := ins.params[1];
+			return create_instr(P_IO, params, ins.bb), true;
+		]
+	]
+	if ins.opcode = P_UnaryOp then [
+		var vgi1 := ins.params[3];
+		var v1 := ctx.variables[vgi1];
+		var v1_ins := ctx.instrs[v1.defining_instr];
+		var vgir := ins.params[1];
+		var vr := ctx.variables[vgir];
+		if v1_ins.opcode = P_Load_Const then [
+			//var str : bytes;
+			//str := "v1: (" + ntos(vgi1) + ")"; for i := 0 to len(v1_ins.params) do [ str += " " + ntos(v1_ins.params[i]); ]; eval debug(str);
+			var c := evaluate_unary(v1.runtime_type, vr.runtime_type, ins.params[0], v1_ins.params[1 ..]);
+			if is_exception c then
+				return ins, false;
+			var params := list(pcode_t).[ ins.params[1] ] + c;
+			//str := "vr:"; for i := 0 to len(params) do [ str += " " + ntos(params[i]); ]; eval debug(str);
+			return create_instr(P_Load_Const, params, ins.bb), true;
+		]
+		if v1_ins.opcode = P_IO, v1_ins.params[0] = IO_Exception_Make,
+		   ins.params[0] <> Un_IsException, ins.params[0] <> Un_ExceptionClass, ins.params[0] <> Un_ExceptionType, ins.params[0] <> Un_ExceptionAux then [
+			var params := v1_ins.params;
+			params[4] := ins.params[1];
+			return create_instr(P_IO, params, ins.bb), true;
+		]
+		if ins.params[0] = Un_Not, v1_ins.opcode = P_BinaryOp then [
+			if v1_ins.params[0] = Bin_Equal or v1_ins.params[0] = Bin_NotEqual then [
+				var params := v1_ins.params;
+				params[0] := select(v1_ins.params[0] = Bin_Equal, Bin_Equal, Bin_NotEqual);
+				params[1] := ins.params[1];
+				return create_instr(P_BinaryOp, params, ins.bb), true;
+			]
+			if v1_ins.params[0] = Bin_Less or v1_ins.params[0] = Bin_LessEqual then [
+				var params := v1_ins.params;
+				params[0] := select(v1_ins.params[0] = Bin_Less, Bin_Less, Bin_LessEqual);
+				params[1] := ins.params[1];
+				params[2] := v1_ins.params[4];
+				params[3] := v1_ins.params[5];
+				params[4] := v1_ins.params[2];
+				params[5] := v1_ins.params[3];
+				return create_instr(P_BinaryOp, params, ins.bb), true;
+			]
+		]
+	]
+	if ins.opcode = P_Option_Test then [
+		var idx := ins.params[2];
+		var vgis := ins.params[1];
+		var vs := ctx.variables[vgis];
+		var vs_ins := ctx.instrs[vs.defining_instr];
+		var is_idx := -1;
+		if vs_ins.opcode = P_Option_Create then [
+			is_idx := vs_ins.params[1];
+		] else if vs_ins.opcode = P_Load_Const then [
+			is_idx := blob_to_int(vs_ins.params[1 ..]);
+		]
+		if is_idx >= 0 then [
+			var res : int;
+			if idx = is_idx then
+				res := 1;
+			else
+				res := 0;
+			return create_instr(P_Load_Const, list(pcode_t).[ ins.params[0] ] + int_to_blob(res), ins.bb), true;
+		]
+	]
+	if ins.opcode = P_Array_Len then [
+		var vgis := ins.params[1];
+		var vs := ctx.variables[vgis];
+		var vs_ins := ctx.instrs[vs.defining_instr];
+		if vs_ins.opcode = P_Array_Create then [
+			return create_instr(P_Load_Const, list(pcode_t).[ ins.params[0] ] + int_to_blob(vs_ins.params[2]), ins.bb), true;
+		]
+	]
+	if ins.opcode = P_Array_Len_At_Least then [
+		var vgis := ins.params[1];
+		var vs := ctx.variables[vgis];
+		var vs_ins := ctx.instrs[vs.defining_instr];
+		var vgii := ins.params[2];
+		var vi := ctx.variables[vgii];
+		var vi_ins := ctx.instrs[vi.defining_instr];
+		if vs_ins.opcode = P_Array_Create and vi_ins.opcode = P_Load_Const then [
+			var l := blob_to_int(vi_ins.params[1 ..]);
+			if l >= 0 then [
+				var v : int;
+				if vs_ins.params[2] >= l then
+					v := 1;
+				else
+					v := 0;
+				return create_instr(P_Load_Const, list(pcode_t).[ ins.params[0] ] + int_to_blob(v), ins.bb), true;
+			]
+		]
+	]
+	if ins.opcode = P_Array_Append then [
+		var vgi2 := ins.params[4];
+		var vs2 := ctx.variables[vgi2];
+		var vs2_ins := ctx.instrs[vs2.defining_instr];
+		if vs2_ins.opcode = P_Array_Create, vs2_ins.params[2] = 1 then [
+			return create_instr(P_Array_Append_One, ins.params[ .. 4] +< vs2_ins.params[5], ins.bb), true;
+		]
+	]
+	if ins.borrow <> -1, (ins.params[ins.borrow - 1] and Flag_Borrow) = 0 then [
+		ins.params[ins.borrow - 1] or= Flag_Borrow;
+		return ins, true;
+	]
+	return ins, false;
+]
+
+fn substitute_variable(ctx : context, ins : instruction) : (int, int)
+[
+	if ins.opcode = P_Phi then [
+		var p := ins.params[1];
+		for i := 2 to len(ins.params) do
+			if ins.params[i] <> p then
+				goto nothing;
+		return ins.params[0], ins.params[1];
+	]
+
+	if ins.opcode = P_Record_Load then [
+		var idx := ins.params[3];
+		var vgis := ins.params[2];
+		var vs := ctx.variables[vgis];
+		var vs_ins := ctx.instrs[vs.defining_instr];
+		if vs_ins.opcode = P_Record_Create then [
+			return ins.params[0], vs_ins.params[3 + idx * 2];
+		]
+	]
+	if ins.opcode = P_Option_Load then [
+		var idx := ins.params[3];
+		var vgis := ins.params[2];
+		var vs := ctx.variables[vgis];
+		var vs_ins := ctx.instrs[vs.defining_instr];
+		if vs_ins.opcode = P_Option_Create then [
+			if vs_ins.params[1] = idx then [
+				return ins.params[0], vs_ins.params[3];
+			]
+		]
+	]
+	if ins.opcode = P_Array_Load then [
+		var vgii := ins.params[3];
+		var vi := ctx.variables[vgii];
+		var vi_ins := ctx.instrs[vi.defining_instr];
+		var vgis := ins.params[2];
+		var vs := ctx.variables[vgis];
+		var vs_ins := ctx.instrs[vs.defining_instr];
+		if vi_ins.opcode = P_Load_Const and vs_ins.opcode = P_Array_Create then [
+			var idx := blob_to_int(vi_ins.params[1 ..]);
+			if idx >= 0 and idx < vs_ins.params[2] then [
+				return ins.params[0], vs_ins.params[5 + idx * 2];
+			]
+		]
+		if vi_ins.opcode = P_Load_Const and vs_ins.opcode = P_Array_Fill then [
+			var vgll := vs_ins.params[4];
+			var vl := ctx.variables[vgll];
+			var vl_ins := ctx.instrs[vl.defining_instr];
+			if vl_ins.opcode = P_Load_Const then [
+				var idx := blob_to_int(vi_ins.params[1 ..]);
+				var length := blob_to_int(vl_ins.params[1 ..]);
+				if idx >= 0 and idx < length then [
+					return ins.params[0], vs_ins.params[3];
+				]
+			]
+		]
+	]
+
+nothing:
+	return -1, -1;
+]
+
+fn misc_opt(ctx : context) : context
+[
+	var n_blocks := len(ctx.blocks);
+
+again:
+	var again := false;
+	for bgi := 0 to n_blocks do [
+		var block := ctx.blocks[bgi];
+		if not block.active then
+			continue;
+		var l := len(block.instrs);
+		for ili := 0 to l do [
+			var igi := ctx.blocks[bgi].instrs[ili];
+			var ins := ctx.instrs[igi];
+			ins := remap_instruction(ins, ctx.var_map, false);
+			var did_something : bool;
+			//eval debug("simplify_instr: bb " + ntos(bgi) + ", idx " + ntos(ili));
+			ins, did_something := simplify_instr(ctx, ins);
+			if did_something then
+				again := true;
+			ctx.instrs[igi] := ins;
+
+			var src, dst := substitute_variable(ctx, ins);
+			if src >= 0, ctx.var_map[src] <> dst then [
+				ctx.var_map[src] := dst;
+				again := true;
+			]
+
+			if ins.opcode = P_Jmp_False then [
+				var vgi1 := ins.params[0];
+				var v1 := ctx.variables[vgi1];
+				var v1_ins := ctx.instrs[v1.defining_instr];
+				var vgir := ins.params[1];
+				var vr := ctx.variables[vgir];
+				if v1_ins.opcode = P_Load_Const then [
+					var const_int := blob_to_int(v1_ins.params[1 ..]);
+					ctx.blocks[bgi].instrs := ctx.blocks[bgi].instrs[ .. l - 1];
+					if const_int = 0 then [
+						ctx := deactivate_arrow(ctx, bgi, 2);
+						ctx := deactivate_arrow(ctx, bgi, 0);
+					] else if const_int = 1 then [
+						ctx := deactivate_arrow(ctx, bgi, 2);
+						ctx := deactivate_arrow(ctx, bgi, 1);
+					] else
+						abort internal("invalid constant in bool context: " + ntos(const_int));
+					ctx.should_retry := true;
+				] else if v1_ins.opcode = P_IO and v1_ins.params[0] = IO_Exception_Make then [
+					ctx.blocks[bgi].instrs := ctx.blocks[bgi].instrs[ .. l - 1];
+					ctx := deactivate_arrow(ctx, bgi, 0);
+					ctx := deactivate_arrow(ctx, bgi, 1);
+					ctx.should_retry := true;
+				]
+			]
+		]
+	]
+	if again then
+		goto again;
+
+	return ctx;
+]
+
+fn dce(ctx : context) : context
+[
+	for vgi := 0 to len(ctx.variables) do [
+		ctx.variables[vgi].color := -1;
+	]
+	var worklist : var_set := 0;
+	var n_blocks := len(ctx.blocks);
+	for bgi := 0 to n_blocks do [
+		var block := ctx.blocks[bgi];
+		if not block.active then
+			continue;
+		var l := len(block.instrs);
+		//eval debug("block: " + ntos(bgi));
+		if l > 0 then [
+			var igi_last := block.instrs[l - 1];
+			var ins := ctx.instrs[igi_last];
+			//eval debug("l: " + ntos(l) + "  opcode: " + ntos(ins.opcode));
+			if ins.opcode = P_Return or ins.opcode = P_Jmp_False then [
+				var read_mask := set_to_mask(ins, ins.read_set);
+				worklist or= read_mask;
+				//eval debug("read_mask: " + ntos_base(read_mask, 2));
+			]
+
+	// function arguments must not be elided, even if they are unused
+			var igi_first := block.instrs[0];
+			ins := ctx.instrs[igi_first];
+			if ins.opcode = P_Args then [
+				var write_mask := set_to_mask(ins, ins.write_set);
+				while write_mask <> 0 do [
+					var vgi : int := bsr write_mask;
+					write_mask btr= vgi;
+					if ctx.variables[vgi].type_index <> T_Type then [
+						ctx.variables[vgi].color := vgi;
+					]
+				]
+			]
+		]
+		for ili := 0 to l do [
+			var igi := block.instrs[ili];
+			var ins := ctx.instrs[igi];
+			if ins.opcode = P_Eval or ins.opcode = P_Keep then [
+				if ins.params[0] >= 0 then
+					worklist bts= ins.params[0];
+			]
+		]
+	]
+
+	var done : var_set := 0;
+	while worklist <> 0 do [
+		//eval debug("worklist: " + ntos_base(worklist, 2));
+		var vgi : int := bsr worklist;
+		worklist btr= vgi;
+		if ctx.variables[vgi].type_index <> T_Type then
+			ctx.variables[vgi].color := vgi;
+		done bts= vgi;
+		var igi := ctx.variables[vgi].defining_instr;
+		var ins := ctx.instrs[igi];
+		var var_mask := set_to_mask(ins, ins.read_set) or set_to_mask(ins, ins.write_set);
+		//eval debug("variable " + ntos(vgi) + " defined at " + ntos(igi) + " opcode " + ntos(ins.opcode) + " read_mask " + mtos(set_to_mask(ins, ins.read_set)) + " write_mask " + mtos(set_to_mask(ins, ins.write_set)));
+		worklist or= var_mask and not done;
+	]
+
+	return ctx;
+]
+
+fn dce2(ctx : context) : context
+[
+	for vgi := 0 to len(ctx.variables) do [
+		ctx.variables[vgi].needed := false;
+	]
+	var worklist : var_set := 0;
+	for vgi := 0 to len(ctx.variables) do [
+		ctx := remap_variable(ctx, vgi);
+		var v := ctx.variables[vgi].type_index;
+		if v >= 0 then
+			worklist bts= v;
+		if ctx.variables[vgi].color >= 0 then
+			worklist bts= vgi;
+	]
+
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		if len(ctx.blocks[bgi].instrs) > 0 then [
+			var ili := len(ctx.blocks[bgi].instrs) - 1;
+			var igi := ctx.blocks[bgi].instrs[ili];
+			var ins := ctx.instrs[igi];
+			if ins.write_set = 0 then [
+				var read_mask := set_to_mask(ins, ins.read_set);
+				worklist or= read_mask;
+			]
+		]
+	]
+
+	var done : var_set := 0;
+	while worklist <> 0 do [
+		//eval debug("worklist: " + ntos_base(worklist, 2));
+		var vgi : int := bsr worklist;
+		worklist btr= vgi;
+		ctx.variables[vgi].needed := true;
+		done bts= vgi;
+		var igi := ctx.variables[vgi].defining_instr;
+		if igi = -1 then
+			continue;
+		var ins := ctx.instrs[igi];
+		var var_mask := set_to_mask(ins, ins.read_set) or set_to_mask(ins, ins.write_set);
+		//eval debug("variable " + ntos(vgi) + " defined at " + ntos(igi) + " opcode " + ntos(ins.opcode) + " read_mask " + mtos(set_to_mask(ins, ins.read_set)) + " write_mask " + mtos(set_to_mask(ins, ins.write_set)));
+		worklist or= var_mask and not done;
+	]
+
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		var ili := 0;
+		while len_greater_than(int, ctx.blocks[bgi].instrs, ili) do [
+			var igi := ctx.blocks[bgi].instrs[ili];
+			var ins := ctx.instrs[igi];
+			if ins.opcode = P_Args then
+				goto cont;
+			var write_set := ins.write_set;
+			if write_set = 0 then
+				goto cont;
+			while write_set <> 0 do [
+				var p : int := bsr write_set;
+				write_set btr= p;
+				var v := ins.params[p];
+				if ctx.variables[v].needed then
+					goto cont;
+				if ctx.variables[v].color >= 0 then
+					goto cont;
+			]
+			ctx.blocks[bgi].instrs := ctx.blocks[bgi].instrs[ .. ili ] + ctx.blocks[bgi].instrs[ ili + 1 .. ];
+			if false then [
+cont:
+				ili += 1;
+			]
+		]
+	]
+
+	return ctx;
+]
+
+fn create_lt(ctx : context) : context
+[
+	var did_something need_retry : bool;
+retry:
+	did_something := false;
+	need_retry := false;
+
+	for vgi := 0 to len(ctx.variables) do [
+		var v := ctx.variables[vgi];
+		if v.local_type >= 0 then
+			continue;
+		if v.defining_instr < 0 then
+			continue;
+		var ins := ctx.instrs[v.defining_instr];
+		if ins.opcode = P_Record_Type then [
+			var ltfr := local_type_flat_record.[
+				non_flat_record : -1,
+				flat_types : empty(int),
+			];
+			for i := 0 to ins.params[1] do [
+				var l := ins.params[2 + i];
+				if l = T_Undetermined then [
+					goto skip;
+				]
+				if l < 0 then [
+					ltfr.flat_types +<= l;
+				] else if ctx.variables[l].local_type >= 0 then [
+					ltfr.flat_types +<= ctx.variables[l].local_type;
+				] else [
+					need_retry := true;
+					goto skip;
+				]
+			]
+
+			var n, f := function_load(ins.params[2 + ins.params[1] .. ]);
+			ltfr.non_flat_record := len(ctx.local_types);
+			ctx.local_types +<= local_type.rec.(f);
+
+			ctx.variables[vgi].local_type := len(ctx.local_types);
+			ctx.local_types +<= local_type.flat_rec.(ltfr);
+			did_something := true;
+		] else if ins.opcode = P_Array_Fixed then [
+			var ltfa := local_type_flat_array.[
+				flat_type : T_InvalidType,
+				number_of_elements : 1,
+			];
+			var shape := ins.params[2];
+			var vt2 := ctx.variables[shape];
+			if vt2.defining_instr < 0 then [
+				goto skip;
+			]
+			var in2 := ctx.instrs[vt2.defining_instr];
+			if in2.opcode <> P_Array_Create then [
+				goto skip;
+			]
+			for i := 0 to in2.params[2] do [
+				var d := in2.params[5 + 2 * i];
+				var vt3 := ctx.variables[d];
+				if vt3.defining_instr < 0 then [
+					goto skip;
+				]
+				var in3 := ctx.instrs[vt3.defining_instr];
+				if in3.opcode <> P_Load_Const then [
+					goto skip;
+				]
+				var n := blob_to_int(in3.params[1 .. ]);
+				if n <= 0 or n > #100 then [
+					goto skip;
+				]
+				ltfa.number_of_elements *= n;
+				if ltfa.number_of_elements > #100 then [
+					goto skip;
+				]
+			]
+			var l := ins.params[1];
+			if l = T_Undetermined then [
+				goto skip;
+			]
+			if l < 0 then [
+				ltfa.flat_type := l;
+			] else if ctx.variables[l].local_type >= 0 then [
+				ltfa.flat_type := ctx.variables[l].local_type;
+			] else [
+				need_retry := true;
+				goto skip;
+			]
+
+			ctx.variables[vgi].local_type := len(ctx.local_types);
+			ctx.local_types +<= local_type.flat_array.(ltfa);
+			did_something := true;
+		]
+skip:
+	]
+	if need_retry, did_something then
+		goto retry;
+
+	for vgi := 0 to len(ctx.variables) do [
+		var v := ctx.variables[vgi];
+		var typ := v.type_index;
+		if typ < 0 then
+			continue;
+		var vt := ctx.variables[typ];
+		if vt.local_type >= 0 then
+			ctx.variables[vgi].runtime_type := vt.local_type;
+	]
+
+	return ctx;
+]
+
+
+fn append_copy(ctx : context, dest : int, src : int, bgi : int) : context
+[
+	var instr := create_instr(P_Copy, list(pcode_t).[dest, 0, src], bgi);
+	var append_idx := len(ctx.blocks[bgi].instrs);
+	if append_idx <> 0, ctx.instrs[ctx.blocks[bgi].instrs[append_idx - 1]].opcode = P_Jmp_False then
+		append_idx -= 1;
+	ctx := insert_instr(ctx, instr, len(ctx.blocks[bgi].instrs));
+	return ctx;
+]
+
+fn remove_phis(ctx : context) : context
+[
+	for bgi := 0 to len(ctx.blocks) do [
+		var block := ctx.blocks[bgi];
+		if not block.active then
+			continue;
+		for ili := 0 to len(block.instrs) do [
+			var phi_instr := ctx.instrs[block.instrs[ili]];
+			if phi_instr.opcode <> P_Phi then
+				break;
+
+			var v := phi_instr.params[0];
+			var v1, v1_idx := clone_variable(ctx, v);
+			ctx.variables +<= v1;
+
+			var copy_instr := create_instr(P_Copy, list(pcode_t).[ v, 0, v1_idx ], bgi);
+			//eval debug("change phi to copy: " + ntos(v) + " <- " + ntos(v1_idx));
+			ctx.instrs[block.instrs[ili]] := copy_instr;
+
+			for prev_block_bli := 0 to len(ctx.blocks[bgi].pred_list) do [
+				var block := ctx.blocks[bgi];
+				var prev_bgi := block.pred_list[prev_block_bli];
+				var pred_pos := block.pred_position[prev_block_bli];
+				var src := phi_instr.params[prev_block_bli + 1];
+
+				var prev_block := ctx.blocks[prev_bgi];
+
+				if {false and} len(prev_block.post_list) = 1 then [
+					ctx := append_copy(ctx, v1_idx, src, prev_bgi);
+					//eval debug("append copy " + ntos(prev_bgi) + " " + ntos(src) + " -> " + ntos(v1_idx));
+				] else [
+					var nb := new_basic_block;
+					var nb_bgi := len(ctx.blocks);
+					//eval debug("injecting block " + ntos(nb_bgi) + " between " + ntos(prev_bgi) + " and " + ntos(bgi));
+					nb.pred_list := list(int).[ prev_bgi ];
+					nb.pred_position := list(int).[ pred_pos ];
+					nb.post_list := list(int).[ bgi ];
+					ctx.blocks[bgi].pred_list[prev_block_bli] := nb_bgi;
+					ctx.blocks[bgi].pred_position[prev_block_bli] := 0;
+
+					if prev_block.post_list[pred_pos] <> bgi then
+						abort internal("an arrow from previous block not found");
+
+					//prev_block.post_list[pred_pos] := nb_bgi;
+					ctx.blocks[prev_bgi].post_list[pred_pos] := nb_bgi;
+
+					ctx.blocks +<= nb;
+					ctx := append_copy(ctx, v1_idx, src, nb_bgi);
+				]
+			]
+		]
+	]
+
+	return ctx;
+]
+
+fn remap_variables(ctx : context, old_new : list(int)) : context
+[
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
+			var igi := ctx.blocks[bgi].instrs[ili];
+			var ins := ctx.instrs[igi];
+			var s := ins.read_set or ins.write_set;
+			while s <> 0 do [
+				var p : int := bsr s;
+				s btr= p;
+				var parm := ctx.instrs[igi].params[p];
+				if parm >= 0 then
+					ctx.instrs[igi].params[p] := old_new[parm];
+			]
+		]
+	]
+	return ctx;
+]
+
+fn dve(ctx : context) : context
+[
+	var old_new := fill(-1, len(ctx.variables));
+	var new_old := empty(int);
+	for vgi := 0 to len(ctx.variables) do [
+		ctx.variables[vgi].needed := false;
+	]
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
+			var igi := ctx.blocks[bgi].instrs[ili];
+			var ins := ctx.instrs[igi];
+			var s := ins.read_set or ins.write_set;
+			while s <> 0 do [
+				var p : int := bsr s;
+				s btr= p;
+				var typ := ins.params[p];
+				if typ >= 0, not ctx.variables[typ].needed then [
+					ctx.variables[typ].needed := true;
+					old_new[typ] := len(new_old);
+					new_old +<= typ;
+				]
+			]
+		]
+	]
+
+	//if ctx.name = "tokenize_recursive" then eval debug("n_variables: " + ntos(len(ctx.variables)) + " -> " + ntos(len(new_old)));
+
+	var new_variables := empty(variable);
+	for i := 0 to len(new_old) do [
+		var va := ctx.variables[new_old[i]];
+		if va.type_index >= 0 then
+			va.type_index := old_new[va.type_index];
+		new_variables +<= va;
+	]
+	ctx.variables := new_variables;
+
+	ctx := remap_variables(ctx, old_new);
+
+	return ctx;
+]
+
+fn encode_local_type(lt : local_type) : int
+[
+	var pc : list(pcode_t);
+	if lt is rec then [
+		pc := list(pcode_t).[ Local_Type_Record ] + function_store(lt.rec);
+	] else if lt is flat_rec then [
+		pc := list(pcode_t).[ Local_Type_Flat_Record, lt.flat_rec.non_flat_record, len(lt.flat_rec.flat_types) ];
+		for i := 0 to len(lt.flat_rec.flat_types) do [
+			pc +<= lt.flat_rec.flat_types[i];
+		]
+	] else if lt is flat_array then [
+		pc := list(pcode_t).[ Local_Type_Flat_Array, lt.flat_array.flat_type, lt.flat_array.number_of_elements ];
+	] else [
+		abort internal("invalid local type");
+	]
+	return gvn_encode(pc);
+]
+
+fn dlte(ctx : context) : context
+[
+	var needed := fill(false, len(ctx.local_types));
+	for vgi := 0 to len(ctx.variables) do [
+		if ctx.variables[vgi].runtime_type >= 0 then
+			needed[ctx.variables[vgi].runtime_type] := true;
+	]
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
+			var igi := ctx.blocks[bgi].instrs[ili];
+			var ins := ctx.instrs[igi];
+			var s := ins.lt_set;
+			while s <> 0 do [
+				var p : int := bsr s;
+				s btr= p;
+				needed[ins.params[p]] := true;
+			]
+		]
+	]
+
+	while true do [
+		var did_something := false;
+		for lti := 0 to len(ctx.local_types) do [
+			if needed[lti] then [
+				var lt := ctx.local_types[lti];
+				if lt is flat_rec then [
+					if not needed[lt.flat_rec.non_flat_record] then [
+						needed[lt.flat_rec.non_flat_record] := true;
+						did_something := true;
+					]
+					for i := 0 to len(lt.flat_rec.flat_types) do [
+						if lt.flat_rec.flat_types[i] >= 0 then [
+							if not needed[lt.flat_rec.flat_types[i]] then [
+								needed[lt.flat_rec.flat_types[i]] := true;
+								did_something := true;
+							]
+						]
+					]
+				] else if lt is flat_array then [
+					if lt.flat_array.flat_type >= 0 then [
+						if not needed[lt.flat_array.flat_type] then [
+							needed[lt.flat_array.flat_type] := true;
+							did_something := true;
+						]
+					]
+				]
+			]
+		]
+		if not did_something then
+			break;
+	]
+
+	while true do [
+		var use_map := infinite(-1);
+		var new_local_types := empty(local_type);
+		var old_new := fill(T_InvalidType, len(ctx.local_types));
+		for lti := 0 to len(ctx.local_types) do [
+			if not needed[lti] then
+				continue;
+			var m := encode_local_type(ctx.local_types[lti]);
+			if use_map[m] = -1 then [
+				use_map[m] := len(new_local_types);
+				old_new[lti] := len(new_local_types);
+				new_local_types +<= ctx.local_types[lti];
+			] else [
+				old_new[lti] := use_map[m];
+			]
+		]
+
+		if len(new_local_types) = len(ctx.local_types) then
+			break;
+
+		for ili := 0 to len(new_local_types) do [
+			if new_local_types[ili] is flat_rec then [
+				new_local_types[ili].flat_rec.non_flat_record := old_new[new_local_types[ili].flat_rec.non_flat_record];
+				for i := 0 to len(new_local_types[ili].flat_rec.flat_types) do
+					if new_local_types[ili].flat_rec.flat_types[i] >= 0 then
+						new_local_types[ili].flat_rec.flat_types[i] := old_new[new_local_types[ili].flat_rec.flat_types[i]];
+			] else if new_local_types[ili] is flat_array then [
+				if new_local_types[ili].flat_array.flat_type >= 0 then
+					new_local_types[ili].flat_array.flat_type := old_new[new_local_types[ili].flat_array.flat_type];
+			]
+		]
+		for vgi := 0 to len(ctx.variables) do [
+			if ctx.variables[vgi].runtime_type >= 0 then
+				ctx.variables[vgi].runtime_type := old_new[ctx.variables[vgi].runtime_type];
+		]
+		for bgi := 0 to len(ctx.blocks) do [
+			if not ctx.blocks[bgi].active then
+				continue;
+			for ili := 0 to len(ctx.blocks[bgi].instrs) do [
+				var igi := ctx.blocks[bgi].instrs[ili];
+				var ins := ctx.instrs[igi];
+				var s := ins.lt_set;
+				while s <> 0 do [
+					var p : int := bsr s;
+					s btr= p;
+					needed[ins.params[p]] := true;
+					ctx.instrs[igi].params[p] := old_new[ins.params[p]];
+				]
+			]
+		]
+
+		ctx.local_types := new_local_types;
+		needed := fill(true, len(ctx.local_types));
+	]
+
+	return ctx;
+]
+
+fn liveness(ctx : context) : context
+[
+	var worklist : node_set := 0;
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		ctx.blocks[bgi].live_top := 0;
+		ctx.blocks[bgi].live_bottom := 0;
+		worklist bts= bgi;
+	]
+
+	while worklist <> 0 do [
+		var bgi : int := bsr worklist;
+		worklist btr= bgi;
+
+		var live : var_set := ctx.blocks[bgi].live_bottom;
+
+		var block := ctx.blocks[bgi];
+		var ili := len(block.instrs) - 1;
+		while ili >= 0 do [
+			var instr := ctx.instrs[block.instrs[ili]];
+
+			if instr.opcode = P_Jmp_False, not live bt instr.params[0] then [
+				live bts= instr.params[0];
+				ctx.blocks[bgi].live_bottom := live;
+			]
+
+			var read_mask := set_to_mask(instr, instr.read_set);
+			var write_mask := set_to_mask(instr, instr.write_set);
+
+			live and= not write_mask;
+			live or= read_mask;
+
+			ili -= 1;
+		]
+		ctx.blocks[bgi].live_top := live;
+		block := ctx.blocks[bgi];
+
+		for i := 0 to len(block.pred_list) do [
+			var prev_bgi := block.pred_list[i];
+			var prev_block := ctx.blocks[prev_bgi];
+			if (live and not prev_block.live_bottom) <> 0 then [
+				ctx.blocks[prev_bgi].live_bottom or= live;
+				worklist bts= prev_bgi;
+			]
+		]
+	]
+
+	return ctx;
+]
+
+fn update_conflict_map(cm : conflict_map, live : var_set) : conflict_map
+[
+	var f := live;
+	while f <> 0 do [
+		var vgi : int := bsr f;
+		f btr= vgi;
+		cm[vgi] or= live;
+	]
+	return cm;
+]
+
+fn update_rw_conflict_map(cm : conflict_map, conflict_1 conflict_2 : var_set) : conflict_map
+[
+	var conflict_1_c := conflict_1;
+	while conflict_1_c <> 0 do [
+		var c1 : int := bsr conflict_1_c;
+		conflict_1_c btr= c1;
+		cm[c1] or= conflict_2;
+	]
+
+	var conflict_2_c := conflict_2;
+	while conflict_2_c <> 0 do [
+		var c2 : int := bsr conflict_2_c;
+		conflict_2_c btr= c2;
+		cm[c2] or= conflict_1;
+
+	]
+
+	return cm;
+]
+
+fn undo_borrow(ctx : context, to_free : int, prev_live : var_set) : context
+[
+	var v := ctx.variables[to_free];
+	if v.defining_instr < 0 then
+		return ctx;
+	var ins := ctx.instrs[v.defining_instr];
+	if ins.borrow >= 0, (ins.params[ins.borrow - 1] and Flag_Borrow) <> 0 then [
+		var v_borrow := ins.params[ins.borrow];
+again:
+		var v_v := ctx.variables[v_borrow];
+		var v_def := v_v.defining_instr;
+		if v_def >= 0 then [
+			var v_ins := ctx.instrs[v_def];
+			if v_ins.borrow >= 0 then [
+				v_borrow := v_ins.params[v_ins.borrow];
+				goto again;
+			]
+		]
+
+		if not prev_live bt v_borrow then [
+			ins.params[ins.borrow - 1] and= not Flag_Borrow;
+			ctx.instrs[v.defining_instr] := ins;
+		]
+	]
+	return ctx;
+]
+
+
+fn insert_free(ctx : context) : context
+[
+	var cm : conflict_map := fill(var_set, 0, len(ctx.variables));
+	//eval debug("1: insert_free: " + ctx.name + ", " + ntos(len(ctx.variables)));
+	for i := 0 to len(ctx.variables) do
+		cm[i] bts= i;
+
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
+
+		var live : var_set := ctx.blocks[bgi].live_bottom;
+		cm := update_conflict_map(cm, live);
+
+		var block := ctx.blocks[bgi];
+		var ili := len(block.instrs) - 1;
+		while ili >= 0 do [
+			var instr := ctx.instrs[block.instrs[ili]];
+
+			var read_mask := set_to_mask(instr, instr.read_set);
+			var write_mask := set_to_mask(instr, instr.write_set);
+
+			var prev_live := live;
+
+			live and= not write_mask;
+			live or= read_mask;
+
+			cm := update_conflict_map(cm, live);
+
+			var conflict_1 := set_to_mask(instr, instr.conflict_1);
+			var conflict_2 := set_to_mask(instr, instr.conflict_2);
+			cm := update_rw_conflict_map(cm, conflict_1, conflict_2);
+
+			var set_to_free := (read_mask or write_mask) and not prev_live;
+
+			while set_to_free <> 0 do [
+				var to_free : int := bsr set_to_free;
+				set_to_free btr= to_free;
+				ctx := undo_borrow(ctx, to_free, prev_live);
+			]
+
+			set_to_free := write_mask and not prev_live;
+			var freed := set_to_free;
+			while set_to_free <> 0 do [
+				var to_free : int := bsr set_to_free;
+				set_to_free btr= to_free;
+
+				var free_instr := create_instr(P_Free, list(pcode_t).[ to_free ], bgi);
+				ctx := insert_instr(ctx, free_instr, ili + 1);
+				//eval debug("2: inserting free at " + ntos(bgi) + ":" + ntos(ili + 1) + " -> " + ntos(to_free));
+			]
+
+			set_to_free := read_mask and not prev_live;
+			while set_to_free <> 0 do [
+				var to_free : int := bsr set_to_free;
+				set_to_free btr= to_free;
+
+				var free_set : param_set := instr.free_set;
+				while free_set <> 0 do [
+					var param : int := bsr free_set;
+					free_set btr= param;
+					var v := instr.params[param];
+					if v = to_free then [
+						//eval debug("3: setting Flag_Free_Argument at " + ntos(bgi) + ": " + pcode_name(instr.opcode) + " param " + ntos(param) + " n " + ntos(instr.params[param-1]));
+						if (ctx.instrs[block.instrs[ili]].params[param - 1] and Flag_Free_Argument) <> 0 then
+							abort internal("Flag_Free_Argument is already set");
+						ctx.instrs[block.instrs[ili]].params[param - 1] or= Flag_Free_Argument;
+						goto skip_free_instr;
+					]
+				]
+
+				if not ((write_mask and not prev_live) bt to_free) then [
+					var free_instr := create_instr(P_Free, list(pcode_t).[ to_free ], bgi);
+					ctx := insert_instr(ctx, free_instr, ili + 1);
+					freed bts= to_free;
+				]
+				//eval debug("inserting free at " + ntos(bgi) + ":" + ntos(ili + 1) + " -> " + ntos(to_free));
+skip_free_instr:
+			]
+			if freed <> 0 then
+				cm := update_conflict_map(cm, prev_live or freed);
+
+			ili -= 1;
+		]
+
+		for post_bli := 0 to len(block.post_list) do [
+			var post_bgi := block.post_list[post_bli];
+			//eval debug("testing cleanup: " + ntos(bgi) + " -> " + ntos(post_bli) + " -> " + ntos(post_bgi));
+			var post_block := ctx.blocks[post_bgi];
+			if post_block.live_top <> block.live_bottom then [
+				if (not block.live_bottom and post_block.live_top) <> 0 then
+					abort internal("the successor has more live variables than the predecessor");
+
+				var must_free_set : var_set := block.live_bottom and not post_block.live_top;
+				//cm := update_conflict_map(cm, post_block.live_top or must_free_set);
+				while must_free_set <> 0 do [
+					var to_free : int := bsr must_free_set;
+					must_free_set btr= to_free;
+
+					ctx := undo_borrow(ctx, to_free, post_block.live_top);
+
+					//eval debug("4: inserting free at " + ntos(bgi) + ":" + ntos(post_bgi) + " -> " + ntos(to_free));
+					var free_instr := create_instr(P_Free, list(pcode_t).[ to_free ], post_bgi);
+					ctx := insert_instr(ctx, free_instr, 0);
+				]
+			]
+		]
+	]
+
+	ctx.cm := cm;
+
+	return ctx;
+]
+
+fn compare_type_index~inline(ctx : context, v1 v2 : int) : int := ctx.variables[v1].type_index - ctx.variables[v2].type_index;
+fn type_index_equal(ctx : context, v1 v2 : int) : bool := compare_type_index(ctx, v1, v2) = 0;
+fn type_index_less(ctx : context, v1 v2 : int) : bool := compare_type_index(ctx, v1, v2) < 0;
+fn instance_ord_type_index(ctx : context) : class_ord(int) :=
+	class_ord(int).[
+		equal : type_index_equal(ctx,,),
+		less : type_index_less(ctx,,),
+	];
+
+fn allocate_variables(ctx : context) : context
+[
+	var non_elided := 0;
+	var type_to_var_set : list(var_set) := fill(var_set, 0, len(ctx.local_types) - T_Undetermined);
+	for vgi := 0 to len(ctx.variables) do [
+		var v := ctx.variables[vgi];
+		if v.color = -1 then
+			continue;
+		if v.runtime_type < T_Undetermined then
+			abort internal("allocate_variables: invalid runtime_type: " + ctx.name + ", " + ntos(vgi) + "(" + v.name + "): " + ntos(v.runtime_type));
+		type_to_var_set[v.runtime_type - T_Undetermined] bts= vgi;
+		if not (ctx.cm[vgi] bt vgi) then
+			abort internal("self-bit not set for variable " + ntos(vgi));
+		non_elided += 1;
+		ctx.variables[vgi].color := -1;
+	]
+	var color := 0;
+	for t := 0 to len(type_to_var_set) do [
+		var vs := type_to_var_set[t];
+		var vsl := vs;
+		while vsl <> 0 do [
+			var vgi : int := bsr vsl;
+			vsl btr= vgi;
+			ctx.variables[vgi].color := color;
+			var remaining := not ctx.cm[vgi] and vs;
+			//eval debug("color=" + ntos(color) + " type=" + ntos(t + T_Undetermined) + " vgi=" + ntos(vgi) {+ " remaining=" + ntos_base(remaining, 2)} );
+			while remaining <> 0 do [
+				var vgi2 := bsr remaining;
+				vsl btr= vgi2;
+				remaining btr= vgi2;
+				var old_color := ctx.variables[vgi2].color;
+				if old_color <> -1 then
+					continue;
+				remaining and= not ctx.cm[vgi2];
+				ctx.variables[vgi2].color := color;
+				//eval debug("color=" + ntos(color) + " type=" + ntos(t + T_Undetermined) + " vgi=" + ntos(vgi) + " vgi2=" + ntos(vgi2) + " old color=" + ntos(old_color) {+ " remaining=" + ntos_base(remaining, 2)} );
+			]
+			color += 1;
+		]
+	]
+
+	var vars_for_color := fill(empty(int), color);
+	for vgi := 0 to len(ctx.variables) do [
+		var v := ctx.variables[vgi];
+		if v.color = -1 then
+			continue;
+		vars_for_color[v.color] +<= vgi;
+	]
+	var new_idx := -1;
+	var old_new := fill(-1, len(ctx.variables));
+	for c := 0 to color do [
+		var l := vars_for_color[c];
+		l := list_sort(instance_ord_type_index(ctx), l);
+		//if ctx.name = "tokenize_recursive" then for i := 0 to len(l) do eval debug("color " + ntos(c) + ": " + ntos(ctx.variables[l[i]].type_index));
+		var last := T_InvalidType;
+		for i := 0 to len(l) do [
+			var v := ctx.variables[l[i]];
+			if v.type_index <> last then [
+				last := v.type_index;
+				new_idx += 1;
+			]
+			old_new[l[i]] := new_idx;
+		]
+	]
+	for vgi := 0 to len(ctx.variables) do [
+		if old_new[vgi] = -1 then [
+			new_idx += 1;
+			old_new[vgi] := new_idx;
+		]
+	]
+	new_idx += 1;
+
+	//if ctx.name = "tokenize_recursive" then eval debug("alloc: " + ntos(len(ctx.variables)) + " -> " + ntos(non_elided) + " -> " + ntos(new_idx) + " -> " + ntos(color) + "   (" + ctx.name + ")");
+
+	var new_variables := fill(uninitialized(variable), new_idx);
+	for vgi := 0 to len(ctx.variables) do [
+		var new := old_new[vgi];
+		if is_uninitialized(new_variables[new]) then [
+			new_variables[new] := ctx.variables[vgi];
+			if new_variables[new].type_index >= 0 then
+				new_variables[new].type_index := old_new[new_variables[new].type_index];
+			new_variables[new].name := "";
+		]
+	]
+	ctx.variables := new_variables;
+
+	ctx := remap_variables(ctx, old_new);
+
+	return ctx;
+]
+
+fn remove_redundant_frees(ctx : context) : context
+[
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		var freed_vars : var_set := 0;
+		var i := 0;
+		while i < len(ctx.blocks[bgi].instrs), ctx.instrs[ctx.blocks[bgi].instrs[i]].opcode = P_Free do [
+			var v := ctx.instrs[ctx.blocks[bgi].instrs[i]].params[0];
+			if freed_vars bt v then [
+				ctx.blocks[bgi].instrs := ctx.blocks[bgi].instrs[ .. i] + ctx.blocks[bgi].instrs[i + 1 .. ];
+				continue;
+			]
+			freed_vars bts= v;
+			i += 1;
+		]
+	]
+
+	return ctx;
+]
+
+fn check_consistency(ctx : context, msg : bytes, test_no_pred : bool) : context
+[
+	if not check then
+		return ctx;
+	//eval debug("check_consistency: " + msg);
+	for i := 0 to len(ctx.blocks) do [
+		var block := ctx.blocks[i];
+		if not block.active then
+			continue;
+		var len_pred := len(block.pred_list);
+		if len_pred <> len(block.pred_position) then
+			abort internal(msg + ": the length of pred_list and pred_position differ");
+		if test_no_pred and (len_pred = 0) <> (i = 0) then
+			abort internal(msg + ": unexpected block with no predecessors");
+		for j := 0 to len_pred do [
+			var pred_bgi := block.pred_list[j];
+			var pred_pos := block.pred_position[j];
+			var pred_block := ctx.blocks[pred_bgi];
+			if pred_block.post_list[pred_pos] <> i then
+				abort internal(msg + ": pred_set - post_set mismatch (" + ntos(pred_bgi) + ", " + ntos(i) + ")");
+		]
+		for j := 0 to len(block.post_list) do [
+			var post_bgi := block.post_list[j];
+			var post_block := ctx.blocks[post_bgi];
+			var match := 0;
+			for k := 0 to len(post_block.pred_list) do [
+				if post_block.pred_list[k] = i and post_block.pred_position[k] = j then
+					match += 1;
+			]
+			if match <> 1 then
+				abort internal(msg + ": post_set - pred_set mismatch (" + ntos(post_bgi) + ", " + ntos(i) + ", " + ntos(match) + ")");
+		]
+		if len(block.pred_list) <> len(block.pred_position) then
+			abort internal(msg + ": pred_list and pred_position mismatch: " + ntos(len(block.pred_list)) + " <> " + ntos(len(block.pred_position)));
+		for pred_i := 0 to len(block.pred_list) do [
+			var p := block.pred_list[pred_i];
+			var q := block.pred_position[pred_i];
+			var p_block := ctx.blocks[p];
+			if q >= len(p_block.post_list) then
+				abort internal(msg + ": block(" + ntos(i) + ").pred_position is too high: " + ntos(q) + " >= " + ntos(len(p_block.post_list)));
+			if p_block.post_list[q] <> i then
+				abort internal(msg + ": pred_position doesn't match (" + ntos(pred_i) + ", " + ntos(p) + ", " + ntos(q) + "): " + ntos(p_block.post_list[q]) + " <> " + ntos(i));
+		]
+		for j := 0 to len(block.instrs) do [
+			var ins := ctx.instrs[block.instrs[j]];
+			if ins.bb <> i then
+				abort internal(msg + ": basic block doesn't match");
+		]
+	]
+
+	return ctx;
+]
+
+fn process_pcode(pc : list(pcode_t), get_inline : fn(function) : list(pcode_t)) : list(pcode_t)
+[
+	{[
+		var src_type : pcode_t := T_FlatOption;
+		var dst_type : pcode_t := T_FlatOption;
+		var op : pcode_t := Bin_And;
+		var src := list(pcode_t).[ 1, 0 ];
+		var dst := list(pcode_t).[ 1, 1 ];
+		eval debug("start evaluate");
+		var res := evaluate(src_type, dst_type, op, src, dst);
+		eval debug("end evaluate");
+		var str := "result:";
+		for i := 0 to len(res) do [
+			str += " " + ntos_base(res[i], 16);
+		]
+		eval debug(str);
+	]}
+
+	//eval debug("process_pcode");
+
+	var ft := pc[0] and Fn_Mask;
+	if ft <> Fn_Function then [
+		if ft <> Fn_Record and ft <> Fn_Option then
+			abort internal("unsupported function type " + ntos(pc[0]));
+		{ no need to optimize it, it won't be executed }
+		return pc;
+	]
+
+	var ctx := load_function_context(pc);
+	//eval debug("optimizing: " + ctx.name);
+
+	var print_passes := false;
+
+{
+	if ctx.name[0] = 'Q' then [
+		eval debug("start waiting on " + ctx.name);
+		for i := 0 to 1000000000 do [
+		]
+		eval debug("end waiting on " + ctx.name);
+	]
+}
+
+	ctx := check_consistency(ctx, "start", false);
+
+	var num_retries := 0;
+retry_optimize:
+	ctx.should_retry := false;
+	ctx := check_consistency(ctx, "retry_optimize", false);
+
+	if print_passes then [ eval ctx; eval debug("prune_unreachable"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := prune_unreachable(ctx);
+	ctx := check_consistency(ctx, "prune_unreachable", true);
+
+	if print_passes then [ eval ctx; eval debug("join_adjacent"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := join_adjacent(ctx);
+	ctx := check_consistency(ctx, "join_adjacent", true);
+
+	if print_passes then [ eval ctx; eval debug("propagate_types"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := propagate_types(ctx);
+	ctx := check_consistency(ctx, "propagate_types", true);
+
+	if print_passes then [ eval ctx; eval debug("test_uninitialized"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := test_uninitialized(ctx);
+	ctx := check_consistency(ctx, "test_uninitialized", true);
+
+	if print_passes then [ eval ctx; eval debug("find_dominators"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := find_dominators(ctx);
+	ctx := check_consistency(ctx, "find_dominators", true);
+
+	if print_passes then [ eval ctx; eval debug("find_dominance_frontiers"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := find_dominance_frontiers(ctx);
+	ctx := check_consistency(ctx, "find_dominance_frontiers", true);
+
+	if print_passes then [ eval ctx; eval debug("process_variables"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := process_variables(ctx);
+	ctx := check_consistency(ctx, "process_variables", true);
+
+	if print_passes then [ eval ctx; eval debug("find_phi_blocks"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := find_phi_blocks(ctx);
+	ctx := check_consistency(ctx, "find_phi_blocks", true);
+
+	if print_passes then [ eval ctx; eval debug("rename_variables"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := rename_variables(ctx);
+	ctx := check_consistency(ctx, "rename_variables", true);
+
+	if print_passes then [ eval ctx; eval debug("verify_ssa"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := verify_ssa(ctx);
+	ctx := check_consistency(ctx, "verify_ssa", true);
+
+	if print_passes then [ eval ctx; eval debug("gvn"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := gvn(ctx);
+	ctx := check_consistency(ctx, "gvn", true);
+
+	if print_passes then [ eval ctx; eval debug("misc_opt"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := misc_opt(ctx);
+	ctx := check_consistency(ctx, "misc_opt", false);
+
+	if print_passes then [ eval ctx; eval debug("prune_unreachable"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := prune_unreachable(ctx);
+	ctx := check_consistency(ctx, "prune_unreachable", true);
+
+	if print_passes then [ eval ctx; eval debug("dce"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := dce(ctx);
+	ctx := check_consistency(ctx, "dce", true);
+
+	if print_passes then [ eval ctx; eval debug("dce2"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := dce2(ctx);
+	ctx := check_consistency(ctx, "dce2", true);
+
+	if print_passes then [ eval ctx; eval debug("create_lt"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := create_lt(ctx);
+	ctx := check_consistency(ctx, "create_lt", true);
+
+	if print_passes then [ eval ctx; eval debug("remove_phis"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := remove_phis(ctx);
+	ctx := check_consistency(ctx, "remove_phis", true);
+
+	if print_passes then [ eval ctx; eval debug("inline_functions"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := inline_functions(ctx, get_inline);
+	ctx := check_consistency(ctx, "inline_functions", false);
+
+	if print_passes then [ eval ctx; eval debug("dve"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := dve(ctx);
+	ctx := check_consistency(ctx, "dve", true);
+
+	if ctx.should_retry then [
+		//eval debug("retrying optimize");
+		num_retries += 1;
+		goto retry_optimize;
+	]
+
+	//eval debug("retries: " + ntos(num_retries));
+
+	if print_passes then [ eval ctx; eval debug("join_adjacent"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := join_adjacent(ctx);
+	ctx := check_consistency(ctx, "join_adjacent", true);
+
+	if print_passes then [ eval ctx; eval debug("dlte"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := dlte(ctx);
+	ctx := check_consistency(ctx, "dlte", true);
+
+	if print_passes then [ eval ctx; eval debug("liveness"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := liveness(ctx);
+	ctx := check_consistency(ctx, "liveness", true);
+
+	if print_passes then [ eval ctx; eval debug("insert_free"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := insert_free(ctx);
+	ctx := check_consistency(ctx, "inset_free", true);
+
+	if print_passes then [ eval ctx; eval debug("allocate_variables"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := allocate_variables(ctx);
+	ctx := check_consistency(ctx, "allocate_variables", true);
+
+	if print_passes then [ eval ctx; eval debug("remove_redundant_frees"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := remove_redundant_frees(ctx);
+	ctx := check_consistency(ctx, "remove_redundant_frees", true);
+
+	if print_passes then [ eval ctx; eval debug("check_consistency"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := check_consistency(ctx, "end", true);
+
+	var rpc := list(pcode_t).[
+		Fn_Function,
+		pc[1],
+		0,
+		len(ctx.local_types),
+		len(ctx.variables),
+		pc[5],
+		pc[6],
+		pc[7],
+		len(ctx.blocks) - 1
+	];
+	rpc += blob_store(ctx.name);
+	for i := 0 to len(ctx.local_types) do [
+		if ctx.local_types[i] is rec then [
+			rpc +<= Local_Type_Record;
+			rpc += function_store(ctx.local_types[i].rec);
+		] else if ctx.local_types[i] is flat_rec then [
+			rpc +<= Local_Type_Flat_Record;
+			rpc +<= ctx.local_types[i].flat_rec.non_flat_record;
+			rpc +<= len(ctx.local_types[i].flat_rec.flat_types);
+			for t := 0 to len(ctx.local_types[i].flat_rec.flat_types) do [
+				rpc +<= ctx.local_types[i].flat_rec.flat_types[t];
+			]
+		] else if ctx.local_types[i] is flat_array then [
+			rpc +<= Local_Type_Flat_Array;
+			rpc +<= ctx.local_types[i].flat_array.flat_type;
+			rpc +<= ctx.local_types[i].flat_array.number_of_elements;
+		] else [
+			abort internal("unknown local type");
+		]
+	]
+	for i := 0 to len(ctx.variables) do [
+		var v := ctx.variables[i];
+		rpc +<= v.type_index;
+		rpc +<= v.runtime_type;
+		rpc +<= v.color;
+		rpc += blob_store(v.name);
+	]
+
+	//eval stop("ssa");
+
+	rpc += dump_basic_blocks(ctx, false);
+
+	if is_exception ctx then [
+		pc := exception_copy(list(pcode_t), ctx);
+	] else if is_exception ctx.instrs then [
+		pc := exception_copy(list(pcode_t), ctx.instrs);
+	] else if is_exception ctx.blocks then [
+		pc := exception_copy(list(pcode_t), ctx.blocks);
+	] else if is_exception ctx.variables then [
+		pc := exception_copy(list(pcode_t), ctx.variables);
+	] else if is_exception rpc then [
+		pc := exception_copy(list(pcode_t), rpc);
+	]
+
+	//eval debug("optimized: " + ctx.name);
+
+	return rpc;
+	return pc;
+]

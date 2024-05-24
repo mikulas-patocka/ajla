@@ -1,0 +1,1440 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit io;
+
+uses treemap;
+
+{---------
+ - WORLD -
+ ---------}
+
+type world;
+
+private fn unsafe_get_world : world;
+fn recover_world(w old_w : world) : world;
+fn join(t : type, w1 w2 : t) : t;
+fn any~lazy(t1 t2 : type, w1 : t1, w2 : t2) : bool;
+fn any_list~lazy(t : type, wx : list(t)) : int;
+fn is_ready(t : type, v : t) : bool;
+fn never(t : type) : t;
+fn fork(t : type, w : t) : (t, t);
+fn atomic_enter~inline(w : world) : world;
+fn atomic_exit~inline(w : world) : world;
+fn exit(w : world, n : int) : world;
+fn exit_msg(w : world, n : int, m : bytes) : world;
+
+{--------
+ - ARGS -
+ --------}
+
+private fn get_args(w : world) : list(bytes);
+
+{-------
+ - I/O -
+ -------}
+
+type handle;
+type dhandle;
+
+const open_flag_read : int;
+const open_flag_write : int;
+const open_flag_append : int;
+const open_flag_create : int;
+const open_flag_must_create : int;
+const open_flag_no_follow : int;
+const open_mode_ro_current_user : int;
+const open_mode_ro_all_users : int;
+const open_mode_rw_current_user : int;
+const open_mode_read_all_users : int;
+const open_mode_default : int;
+
+fn ropen(w : world, d : dhandle, f : bytes, flags : int) : (world, handle);
+fn read(w : world, h : handle, size : int) : (world, bytes);
+fn read_partial(w : world, h : handle, size : int) : (world, bytes);
+fn wopen(w : world, d : dhandle, f : bytes, flags : int, mode : int) : (world, handle);
+fn write(w : world, h : handle, s : bytes) : world;
+fn wcontiguous(w : world, h : handle, size : int64) : world;
+
+fn ropen_lazy(d : dhandle, f : bytes, flags : int) : handle;
+fn read_lazy~lazy(r : handle) : bytes;
+
+private fn read_console_packet(w : world, h : handle) : (world, list(int32));
+private fn write_console_packet(w : world, h : handle, cp : list(int32)) : world;
+
+fn pipe(w : world) : (world, handle, handle);
+
+fn bopen(w : world, d : dhandle, f : bytes, flags : int, mode : int) : (world, handle);
+fn bread(w : world, h : handle, position : int64, size : int) : (world, bytes);
+fn bwrite(w : world, h : handle, position : int64, s : bytes) : world;
+fn bsize(w : world, h : handle) : (world, int64);
+fn bdata(w : world, h : handle, off : int64) : (world, int64);
+fn bhole(w : world, h : handle, off : int64) : (world, int64);
+fn bsetsize(w : world, h : handle, size : int64) : world;
+fn bcontiguous(w : world, h : handle, pos : int64, size : int64) : world;
+fn bclone(w : world, src_h : handle, src_pos : int64, dst_h : handle, dst_pos : int64, size : int64) : world;
+fn bopen_lazy(d : dhandle, f : bytes, flags : int) : handle;
+fn bread_lazy~lazy(h : handle, position : int64) : bytes;
+fn bsize_lazy(h : handle) : int64;
+fn bdata_lazy(h : handle, off : int64) : int64;
+fn bhole_lazy(h : handle, off : int64) : int64;
+
+fn fdatasync(w : world, h : handle) : world;
+fn fsync(w : world, h : handle) : world;
+fn ffssync(w : world, h : handle) : world;
+fn sync(w : world) : world;
+
+fn droot(w : world) : dhandle;
+private fn dcwd(w : world) : dhandle;
+private fn dlib(w : world) : dhandle;
+private fn dexe(w : world) : dhandle;
+fn dnone(w : world) : dhandle;
+private fn libpath : bytes;
+fn dopen(w : world, d : dhandle, f : bytes, flags : int) : (world, dhandle);
+fn dread(w : world, d : dhandle) : (world, list(bytes));
+fn dpath(w : world, d : dhandle) : (world, bytes);
+fn dopen_lazy(d : dhandle, f : bytes, flags : int) : dhandle;
+fn dread_lazy(d : dhandle) : list(bytes);
+fn dpath_lazy(d : dhandle) : bytes;
+fn dmonitor(w : world, d : dhandle) : (world, world);
+
+const stat_flag_devmajor : int;
+const stat_flag_devminor : int;
+const stat_flag_inode : int;
+const stat_flag_type : int;
+const stat_flag_mode : int;
+const stat_flag_nlink : int;
+const stat_flag_uid : int;
+const stat_flag_gid : int;
+const stat_flag_rdevmajor : int;
+const stat_flag_rdevminor : int;
+const stat_flag_size : int;
+const stat_flag_optimaliosize : int;
+const stat_flag_allocated : int;
+const stat_flag_atime : int;
+const stat_flag_mtime : int;
+const stat_flag_ctime : int;
+
+const stat_type_file : int;
+const stat_type_directory : int;
+const stat_type_link : int;
+const stat_type_fifo : int;
+const stat_type_chardev : int;
+const stat_type_blockdev : int;
+const stat_type_socket : int;
+
+fn stat(w : world, d : dhandle, f : bytes, flags : int) : (world, list(int64));
+fn lstat(w : world, d : dhandle, f : bytes, flags : int) : (world, list(int64));
+fn fstat(w : world, h : handle, flags : int) : (world, list(int64));
+
+fn stat_lazy(d : dhandle, f : bytes, flags : int) : list(int64);
+fn lstat_lazy(d : dhandle, f : bytes, flags : int) : list(int64);
+fn fstat_lazy(h : handle, flags : int) : list(int64);
+
+const statfs_flag_bsize : int;
+const statfs_flag_frsize : int;
+const statfs_flag_frtotal : int;
+const statfs_flag_frfree : int;
+const statfs_flag_fravail : int;
+const statfs_flag_intotal : int;
+const statfs_flag_infree : int;
+const statfs_flag_inavail : int;
+const statfs_flag_fsid : int;
+const statfs_flag_flags : int;
+const statfs_flag_namelen : int;
+
+const statfs_st_readonly : int;
+const statfs_st_nosuid : int;
+const statfs_st_nodev : int;
+const statfs_st_noexec : int;
+const statfs_st_synchronous : int;
+const statfs_st_mandlock : int;
+const statfs_st_noatime : int;
+const statfs_st_nodiratime : int;
+const statfs_st_relatime : int;
+
+fn fstatfs(w : world, h : handle, flags : int) : (world, list(int64));
+fn dstatfs(w : world, d : dhandle, flags : int) : (world, list(int64));
+
+fn readlink(w : world, d : dhandle, f : bytes) : (world, bytes);
+fn readlink_lazy(d : dhandle, f : bytes) : bytes;
+
+fn unlink(w : world, d : dhandle, f : bytes) : world;
+fn rmdir(w : world, d : dhandle, f : bytes) : world;
+fn mkdir(w : world, d : dhandle, f : bytes, mode : int) : world;
+fn mkpipe(w : world, d : dhandle, f : bytes, mode : int) : world;
+fn mksocket(w : world, d : dhandle, f : bytes, mode : int) : world;
+fn mkchardev(w : world, d : dhandle, f : bytes, mode major minor : int) : world;
+fn mkblockdev(w : world, d : dhandle, f : bytes, mode major minor : int) : world;
+fn mksymlink(w : world, d : dhandle, f t : bytes) : world;
+fn mklink(w : world, d : dhandle, f : bytes, e : dhandle, t : bytes) : world;
+fn rename(w : world, d : dhandle, f : bytes, e : dhandle, t : bytes) : world;
+fn chmod(w : world, d : dhandle, f : bytes, m : int) : world;
+fn chown(w : world, d : dhandle, f : bytes, uid gid : int) : world;
+fn lchown(w : world, d : dhandle, f : bytes, uid gid : int) : world;
+fn utime(w : world, d : dhandle, f : bytes, atime mtime : int64) : world;
+fn lutime(w : world, d : dhandle, f : bytes, atime mtime : int64) : world;
+
+const stty_flag_raw : int;
+const stty_flag_noecho : int;
+const stty_flag_nosignal : int;
+const stty_flag_nocrlf : int;
+
+fn stty(w : world, h : handle, flags : int) : world;
+fn tty_size(w : world, h : handle, x y : int) : (world, int, int);
+
+const uname_flag_ajla_version : int;
+const uname_flag_flavor : int;
+const uname_flag_system : int;
+const uname_flag_release : int;
+const uname_flag_version : int;
+const uname_flag_machine : int;
+
+fn uname(flags : int) : list(bytes);
+fn get_host_name(w : world) : (world, bytes);
+
+fn get_real_time(w : world) : (world, int64);
+fn get_monotonic_time(w : world) : (world, int64);
+fn sleep(t : type, w : t, tm : int64) : t;
+
+{--------
+ - PATH -
+ --------}
+
+const path_separator : byte;
+fn path_is_separator(b : byte) : bool;
+fn path_is_dir_separator(b : byte) : bool;
+fn path_compare(a b : bytes) : bool;
+fn path_is_absolute(p : bytes) : bool;
+fn path_is_root(p : bytes) : bool;
+fn path_to_dir_file(p : bytes) : (bytes, bytes);
+fn path_append(pd pf : bytes) : bytes;
+fn path_contract(p : bytes) : bytes;
+fn path_join(pd pf : bytes) : bytes;
+fn path_canonical(w : world, d : dhandle, p : bytes) : (world, bytes);
+fn path_get_cwd(implicit w : world, d : dhandle, env : treemap(bytes, bytes)) : (world, bytes);
+fn path_shortcut_home(home : maybe(bytes), p : bytes) : bytes;
+fn path_expand_home(home : maybe(bytes), p : bytes) : bytes;
+fn path_mkdir(w : world, d : dhandle, f : bytes, mode : int) : world;
+fn path_xdg(implicit w : world, env : treemap(bytes, bytes), xdg_env : bytes, deflt : bytes, appname : bytes) : (world, dhandle);
+fn path_config(w : world, env : treemap(bytes, bytes), appname : bytes) : (world, dhandle);
+fn path_write_atomic(w : world, d : dhandle, f : bytes, content : bytes) : world;
+
+{----------------
+ - DEPENDENCIES -
+ ----------------}
+
+fn register_dependence(w : world, d : dhandle, p : bytes) : world;
+
+
+implementation
+
+uses pcode;
+uses exception;
+
+{---------
+ - WORLD -
+ ---------}
+
+option world [
+	world;
+]
+
+fn unsafe_get_world : world
+[
+	return world.world;
+]
+
+fn recover_world(w old_w : world) : world
+[
+	if is_exception w then
+		return old_w;
+	return w;
+]
+
+fn join(t : type, w1 w2 : t) : t
+[
+	if is_exception w1 then [
+		eval w2;
+		return w1;
+	]
+	if is_exception w2 then
+		return w2;
+	return w1;
+]
+
+fn any~lazy(t1 t2 : type, w1 : t1, w2 : t2) : bool
+[
+	var b : bool;
+	pcode IO IO_Any 1 2 0 =b w1 w2;
+	return b;
+]
+
+fn any_list~lazy(t : type, wx : list(t)) : int
+[
+	if not len_greater_than(wx, 0) then
+		return never(int);
+	var n := any_list~lazy(wx[1 .. ]);
+	var b := any(wx[0], n);
+	return select(b, 0, n + 1);
+]
+
+fn is_ready(t : type, v : t) : bool
+[
+	return not any(v, unit_value);
+]
+
+fn never(t : type) : t
+[
+	var w : t;
+	pcode IO IO_Never 1 0 0 =w;
+	return w;
+]
+
+fn fork(t : type, w : t) : (t, t)
+[
+	var w1 w2 : t;
+	pcode IO IO_Fork 2 1 0 =w1 =w2 w;
+	return w1, w2;
+]
+
+fn atomic_enter~inline(w : world) : world
+[
+	var w2 : world;
+	pcode IO IO_Atomic_Enter 1 1 0 =w2 w;
+	return w2;
+]
+
+fn atomic_exit~inline(w : world) : world
+[
+	var w2 : world;
+	pcode IO IO_Atomic_Exit 1 1 0 =w2 w;
+	return w2;
+]
+
+fn exit(w : world, n : int) : world
+[
+	var exc := exception_make(world, ec_exit, error_exit, n, false);
+	return join(w, exc);
+]
+
+fn exit_msg(w : world, n : int, m : bytes) : world
+[
+	var exc := exception_make_str(world, ec_exit, error_exit, n, false, m);
+	return join(w, exc);
+]
+
+{--------
+ - ARGS -
+ --------}
+
+fn get_args(w : world) : list(bytes)
+[
+	var r : list(bytes);
+	pcode IO IO_Get_Args 1 1 0 =r w;
+	return r;
+]
+
+{-------
+ - I/O -
+ -------}
+
+type handle := internal_type;
+type dhandle := internal_type;
+
+const open_flag_read : int := IO_Open_Flag_Read;
+const open_flag_write : int := IO_Open_Flag_Write;
+const open_flag_append : int := IO_Open_Flag_Append;
+const open_flag_create : int := IO_Open_Flag_Create;
+const open_flag_must_create : int := IO_Open_Flag_Must_Create;
+const open_flag_no_follow : int := IO_Open_Flag_No_Follow;
+const open_mode_ro_current_user : int := #100;
+const open_mode_ro_all_users : int := #124;
+const open_mode_rw_current_user : int := #180;
+const open_mode_read_all_users : int := #1a4;
+const open_mode_default : int := #1b6;
+
+fn ropen(w : world, d : dhandle, f : bytes, flags : int) : (world, handle)
+[
+	var h : handle;
+	var w2 : world;
+	var mode := 0;
+	pcode IO IO_Stream_Open_Read 2 5 0 =w2 =h w d f flags mode;
+	return w2, h;
+]
+
+fn read(w : world, h : handle, size : int) : (world, bytes)
+[
+	var read_so_far := 0;
+	var s := bytes.[];
+	while read_so_far < size do [
+		var s1 : bytes;
+		var w2 : world;
+		w2, s1 := read_partial~strict(w, h, size - read_so_far);
+		w := w2;
+		var l1 := len(s1);
+		if l1 = 0 then
+			break;
+		read_so_far += l1;
+		s += s1;
+	]
+	return w, s;
+]
+
+fn read_partial(w : world, h : handle, size : int) : (world, bytes)
+[
+	var s : bytes;
+	var w2 : world;
+	pcode IO IO_Stream_Read_Partial 2 3 0 =w2 =s w h size;
+	return w2, s;
+]
+
+fn wopen(w : world, d : dhandle, f : bytes, flags : int, mode : int) : (world, handle)
+[
+	var h : handle;
+	var w2 : world;
+	pcode IO IO_Stream_Open_Write 2 5 0 =w2 =h w d f flags mode;
+	return w2, h;
+]
+
+fn write(w : world, h : handle, s : bytes) : world
+[
+	while len_greater_than(byte, s, 0) do [
+		var sz : int;
+		var w2 : world;
+		pcode IO IO_Stream_Write 2 3 0 =w2 =sz w h s;
+		w := w2;
+		s := s[sz .. ];
+	]
+	return w;
+]
+
+fn wcontiguous(implicit w : world, h : handle, size : int64) : world
+[
+	var offset := bsize(h);
+	bcontiguous(w, h, offset, size);
+]
+
+fn ropen_lazy(d : dhandle, f : bytes, flags : int) : handle
+[
+	var h : handle;
+	var w := unsafe_get_world;
+	w, h := ropen(w, d, f, flags);
+	return h;
+]
+
+fn read_lazy~lazy(r : handle) : bytes
+[
+	var b : bytes;
+	var w := unsafe_get_world;
+	w, b := read_partial~strict(w, r, 16384);
+	if len(b) = 0 then
+		return b;
+	return b + read_lazy(r);
+]
+
+fn read_console_packet(w : world, h : handle) : (world, list(int32))
+[
+	var cp : list(int32);
+	var w2 : world;
+	pcode IO IO_Read_Console_Packet 2 2 0 =w2 =cp w h;
+	return w2, cp;
+]
+
+fn write_console_packet(w : world, h : handle, cp : list(int32)) : world
+[
+	var w2 : world;
+	pcode IO IO_Write_Console_Packet 1 3 0 =w2 w h cp;
+	return w2;
+]
+
+fn pipe(w : world) : (world, handle, handle)
+[
+	var rh : handle, wh : handle;
+	var w2 : world;
+	pcode IO IO_Pipe 3 1 0 =w2 =rh =wh w;
+	return w2, rh, wh;
+]
+
+fn bopen(w : world, d : dhandle, f : bytes, flags : int, mode : int) : (world, handle)
+[
+	var h : handle;
+	var w2 : world;
+	pcode IO IO_Block_Open 2 5 0 =w2 =h w d f flags mode;
+	return w2, h;
+]
+
+fn bread(w : world, h : handle, position : int64, size : int) : (world, bytes)
+[
+	var s : bytes;
+	var w2 : world;
+	pcode IO IO_Block_Read 2 4 0 =w2 =s w h size position;
+	return w2, s;
+]
+
+fn bwrite(w : world, h : handle, position : int64, s : bytes) : world
+[
+	while len_greater_than(byte, s, 0) do [
+		var sz : int;
+		var w2 : world;
+		pcode IO IO_Block_Write 2 4 0 =w2 =sz w h s position;
+		s := s[sz .. ];
+		w := w2;
+		position += sz;
+	]
+	return w;
+]
+
+fn bsize(w : world, h : handle) : (world, int64)
+[
+	var sz : int64;
+	var w2 : world;
+	var off : int64 := 0;
+	pcode IO IO_LSeek 2 3 1 =w2 =sz w h off 2;
+	return w2, sz;
+]
+
+fn bdata(w : world, h : handle, off : int64) : (world, int64)
+[
+	var sz : int64;
+	var w2 : world;
+	pcode IO IO_LSeek 2 3 1 =w2 =sz w h off 3;
+	return w2, sz;
+]
+
+fn bhole(w : world, h : handle, off : int64) : (world, int64)
+[
+	var sz : int64;
+	var w2 : world;
+	pcode IO IO_LSeek 2 3 1 =w2 =sz w h off 4;
+	return w2, sz;
+]
+
+fn bsetsize(w : world, h : handle, size : int64) : world
+[
+	var w2 : world;
+	pcode IO IO_FTruncate 1 3 0 =w2 w h size;
+	return w2;
+]
+
+fn bcontiguous(w : world, h : handle, pos : int64, size : int64) : world
+[
+	var w2 : world;
+	pcode IO IO_FAllocate 1 4 0 =w2 w h pos size;
+	return w2;
+]
+
+fn bclone(w : world, src_h : handle, src_pos : int64, dst_h : handle, dst_pos : int64, size : int64) : world
+[
+	var w2 : world;
+	pcode IO IO_CloneRange 1 6 0 =w2 w src_h src_pos dst_h dst_pos size;
+	return w2;
+]
+
+fn bopen_lazy(d : dhandle, f : bytes, flags : int) : handle
+[
+	var h : handle;
+	if flags <> IO_Open_Flag_Read then [
+		h := exception_make(handle, ec_sync, error_invalid_operation, 0, true);
+		return h;
+	]
+	var w := unsafe_get_world;
+	w, h := bopen(w, d, f, flags, 0);
+	return h;
+]
+
+fn bread_lazy~lazy(h : handle, position : int64) : bytes
+[
+	var b : bytes;
+	var w := unsafe_get_world;
+	w, b := bread(w, h, position, 16384);
+	if len(b) < 16384 then
+		return b;
+	return b + bread_lazy(h, position + 16384);
+]
+
+fn bsize_lazy(h : handle) : int64
+[
+	var sz : int64;
+	var w := unsafe_get_world;
+	w, sz := bsize(w, h);
+	return sz;
+]
+
+fn bdata_lazy(h : handle, off : int64) : int64
+[
+	var sz : int64;
+	var w := unsafe_get_world;
+	w, sz := bdata(w, h, off);
+	return sz;
+]
+
+fn bhole_lazy(h : handle, off : int64) : int64
+[
+	var sz : int64;
+	var w := unsafe_get_world;
+	w, sz := bhole(w, h, off);
+	return sz;
+]
+
+fn fdatasync(w : world, h : handle) : world
+[
+	var w2 : world;
+	pcode IO IO_FSync 1 2 1 =w2 w h 0;
+	return w2;
+]
+
+fn fsync(w : world, h : handle) : world
+[
+	var w2 : world;
+	pcode IO IO_FSync 1 2 1 =w2 w h 1;
+	return w2;
+]
+
+fn ffssync(w : world, h : handle) : world
+[
+	var w2 : world;
+	pcode IO IO_FSync 1 2 1 =w2 w h 2;
+	return w2;
+]
+
+fn sync(w : world) : world
+[
+	var w2 : world;
+	pcode IO IO_Sync 1 1 0 =w2 w;
+	return w2;
+]
+
+fn droot(w : world) : dhandle
+[
+	var dh : dhandle;
+	pcode IO IO_Root_Dir 1 1 1 =dh w 1;
+	return dh;
+]
+
+fn dcwd(w : world) : dhandle
+[
+	var dh : dhandle;
+	pcode IO IO_Root_Dir 1 1 1 =dh w 2;
+	return dh;
+]
+
+fn dlib(w : world) : dhandle
+[
+	var dh : dhandle;
+	pcode IO IO_Root_Dir 1 1 1 =dh w 3;
+	return dh;
+]
+
+fn dexe(w : world) : dhandle
+[
+	var dh : dhandle;
+	pcode IO IO_Root_Dir 1 1 1 =dh w 4;
+	return dh;
+]
+
+fn dnone(w : world) : dhandle
+[
+	var dh : dhandle;
+	pcode IO IO_Root_Dir 1 1 1 =dh w 5;
+	return dh;
+]
+
+private fn libpath : bytes
+[
+	var lp : bytes;
+	pcode IO IO_Lib_Path 1 0 0 =lp;
+	return lp;
+]
+
+fn dopen(w : world, d : dhandle, f : bytes, flags : int) : (world, dhandle)
+[
+	var dh : dhandle;
+	var w2 : world;
+	pcode IO IO_Open_Dir 2 4 0 =w2 =dh w d f flags;
+	return w2, dh;
+]
+
+fn dread(w : world, d : dhandle) : (world, list(bytes))
+[
+	var res : list(bytes);
+	var w2 : world;
+	pcode IO IO_Read_Dir 2 2 0 =w2 =res w d;
+	return w2, res;
+]
+
+fn dpath(w : world, d : dhandle) : (world, bytes)
+[
+	var res : bytes;
+	var w2 : world;
+	pcode IO IO_Dir_Path 2 2 0 =w2 =res w d;
+	return w2, res;
+]
+
+fn dopen_lazy(d : dhandle, f : bytes, flags : int) : dhandle
+[
+	var res : dhandle;
+	var w := unsafe_get_world;
+	w, res := dopen(w, d, f, flags);
+	return res;
+]
+
+fn dread_lazy(d : dhandle) : list(bytes)
+[
+	var res : list(bytes);
+	var w := unsafe_get_world;
+	w, res := dread(w, d);
+	return res;
+]
+
+fn dpath_lazy(d : dhandle) : bytes
+[
+	var res : bytes;
+	var w := unsafe_get_world;
+	w, res := dpath(w, d);
+	return res;
+]
+
+type mhandle := internal_type;
+
+fn dmonitor_wait(w2 : world, h : mhandle) : world
+[
+	var w3 : world;
+	pcode IO IO_DMonitor_Wait 1 2 0 =w3 w2 h;
+	return w3;
+]
+
+fn dmonitor(w : world, d : dhandle) : (world, world)
+[
+	var h : mhandle;
+	var w2 w3 : world;
+	pcode IO IO_DMonitor_Prepare 2 2 0 =w2 =h w d;
+	w3 := dmonitor_wait~spark(w2, h);
+	return w2, w3;
+]
+
+const stat_flag_devmajor : int := IO_Stat_Flag_DevMajor;
+const stat_flag_devminor : int := IO_Stat_Flag_DevMinor;
+const stat_flag_inode : int := IO_Stat_Flag_Inode;
+const stat_flag_type : int := IO_Stat_Flag_Type;
+const stat_flag_mode : int := IO_Stat_Flag_Mode;
+const stat_flag_nlink : int := IO_Stat_Flag_NLink;
+const stat_flag_uid : int := IO_Stat_Flag_UID;
+const stat_flag_gid : int := IO_Stat_Flag_GID;
+const stat_flag_rdevmajor : int := IO_Stat_Flag_RDevMajor;
+const stat_flag_rdevminor : int := IO_Stat_Flag_RDevMinor;
+const stat_flag_size : int := IO_Stat_Flag_Size;
+const stat_flag_optimaliosize : int := IO_Stat_Flag_OptimalIOSize;
+const stat_flag_allocated : int := IO_Stat_Flag_Allocated;
+const stat_flag_atime : int := IO_Stat_Flag_ATime;
+const stat_flag_mtime : int := IO_Stat_Flag_MTime;
+const stat_flag_ctime : int := IO_Stat_Flag_CTime;
+
+const stat_type_file : int := IO_Stat_Type_File;
+const stat_type_directory : int := IO_Stat_Type_Directory;
+const stat_type_link : int := IO_Stat_Type_Link;
+const stat_type_fifo : int := IO_Stat_Type_Pipe;
+const stat_type_chardev : int := IO_Stat_Type_CharDev;
+const stat_type_blockdev : int := IO_Stat_Type_BlockDev;
+const stat_type_socket : int := IO_Stat_Type_Socket;
+
+fn stat(w : world, d : dhandle, f : bytes, flags : int) : (world, list(int64))
+[
+	var res : list(int64);
+	var w2 : world;
+	pcode IO IO_Stat 2 4 1 =w2 =res w d f flags 1;
+	return w2, res;
+]
+
+fn lstat(w : world, d : dhandle, f : bytes, flags : int) : (world, list(int64))
+[
+	var res : list(int64);
+	var w2 : world;
+	pcode IO IO_Stat 2 4 1 =w2 =res w d f flags 2;
+	return w2, res;
+]
+
+fn fstat(w : world, h : handle, flags : int) : (world, list(int64))
+[
+	var res : list(int64);
+	var w2 : world;
+	pcode IO IO_FStat 2 3 0 =w2 =res w h flags;
+	return w2, res;
+]
+
+fn stat_lazy(d : dhandle, f : bytes, flags : int) : list(int64)
+[
+	var res : list(int64);
+	var w := unsafe_get_world;
+	w, res := stat(w, d, f, flags);
+	return res;
+]
+
+fn lstat_lazy(d : dhandle, f : bytes, flags : int) : list(int64)
+[
+	var res : list(int64);
+	var w := unsafe_get_world;
+	w, res := lstat(w, d, f, flags);
+	return res;
+]
+
+fn fstat_lazy(h : handle, flags : int) : list(int64)
+[
+	var res : list(int64);
+	var w := unsafe_get_world;
+	w, res := fstat(w, h, flags);
+	return res;
+]
+
+const statfs_flag_bsize : int := IO_StatFS_Flag_BSize;
+const statfs_flag_frsize : int := IO_StatFS_Flag_FrSize;
+const statfs_flag_frtotal : int := IO_StatFS_Flag_FrTotal;
+const statfs_flag_frfree : int := IO_StatFS_Flag_FrFree;
+const statfs_flag_fravail : int := IO_StatFS_Flag_FrAvail;
+const statfs_flag_intotal : int := IO_StatFS_Flag_InTotal;
+const statfs_flag_infree : int := IO_StatFS_Flag_InFree;
+const statfs_flag_inavail : int := IO_StatFS_Flag_InAvail;
+const statfs_flag_fsid : int := IO_StatFS_Flag_FSId;
+const statfs_flag_flags : int := IO_StatFS_Flag_Flags;
+const statfs_flag_namelen : int := IO_StatFS_Flag_NameLen;
+
+const statfs_st_readonly : int := IO_StatFS_ST_ReadOnly;
+const statfs_st_nosuid : int := IO_StatFS_ST_NoSuid;
+const statfs_st_nodev : int := IO_StatFS_ST_NoDev;
+const statfs_st_noexec : int := IO_StatFS_ST_NoExec;
+const statfs_st_synchronous : int := IO_StatFS_ST_Synchronous;
+const statfs_st_mandlock : int := IO_StatFS_ST_MandLock;
+const statfs_st_noatime : int := IO_StatFS_ST_NoAtime;
+const statfs_st_nodiratime : int := IO_StatFS_ST_NoDirAtime;
+const statfs_st_relatime : int := IO_StatFS_ST_RelAtime;
+
+fn fstatfs(w : world, h : handle, flags : int) : (world, list(int64))
+[
+	var res : list(int64);
+	var w2 : world;
+	pcode IO IO_FStatFS 2 3 0 =w2 =res w h flags;
+	return w2, res;
+]
+
+fn dstatfs(w : world, d : dhandle, flags : int) : (world, list(int64))
+[
+	var res : list(int64);
+	var w2 : world;
+	pcode IO IO_DStatFS 2 3 0 =w2 =res w d flags;
+	return w2, res;
+]
+
+fn readlink(w : world, d : dhandle, f : bytes) : (world, bytes)
+[
+	var res : bytes;
+	var w2 : world;
+	pcode IO IO_ReadLink 2 3 0 =w2 =res w d f;
+	return w2, res;
+]
+
+fn readlink_lazy(d : dhandle, f : bytes) : bytes
+[
+	var res : bytes;
+	var w := unsafe_get_world;
+	w, res := readlink(w, d, f);
+	return res;
+]
+
+fn unlink(w : world, d : dhandle, f : bytes) : world
+[
+	var w2 : world;
+	pcode IO IO_Dir_Action 1 3 1 =w2 w d f IO_Action_Rm;
+	return w2;
+]
+
+fn rmdir(w : world, d : dhandle, f : bytes) : world
+[
+	var w2 : world;
+	pcode IO IO_Dir_Action 1 3 1 =w2 w d f IO_Action_Rm_Dir;
+	return w2;
+]
+
+fn mkdir(w : world, d : dhandle, f : bytes, mode : int) : world
+[
+	var w2 : world;
+	pcode IO IO_Dir_Action 1 4 1 =w2 w d f mode IO_Action_Mk_Dir;
+	return w2;
+]
+
+fn mkpipe(w : world, d : dhandle, f : bytes, mode : int) : world
+[
+	var w2 : world;
+	pcode IO IO_Dir_Action 1 4 1 =w2 w d f mode IO_Action_Mk_Pipe;
+	return w2;
+]
+
+fn mksocket(w : world, d : dhandle, f : bytes, mode : int) : world
+[
+	var w2 : world;
+	pcode IO IO_Dir_Action 1 4 1 =w2 w d f mode IO_Action_Mk_Socket;
+	return w2;
+]
+
+fn mkchardev(w : world, d : dhandle, f : bytes, mode major minor : int) : world
+[
+	var w2 : world;
+	pcode IO IO_Dir_Action 1 6 1 =w2 w d f mode major minor IO_Action_Mk_CharDev;
+	return w2;
+]
+
+fn mkblockdev(w : world, d : dhandle, f : bytes, mode major minor : int) : world
+[
+	var w2 : world;
+	pcode IO IO_Dir_Action 1 6 1 =w2 w d f mode major minor IO_Action_Mk_BlockDev;
+	return w2;
+]
+
+fn mksymlink(w : world, d : dhandle, f t : bytes) : world
+[
+	var w2 : world;
+	pcode IO IO_Dir_Action 1 4 1 =w2 w d f t IO_Action_Mk_SymLink;
+	return w2;
+]
+
+fn mklink(w : world, d : dhandle, f : bytes, e : dhandle, t : bytes) : world
+[
+	var w2 : world;
+	pcode IO IO_Dir2_Action 1 5 1 =w2 w d f e t IO_Action_Mk_Link;
+	return w2;
+]
+
+fn rename(w : world, d : dhandle, f : bytes, e : dhandle, t : bytes) : world
+[
+	var w2 : world;
+	pcode IO IO_Dir2_Action 1 5 1 =w2 w d f e t IO_Action_Rename;
+	return w2;
+]
+
+fn chmod(w : world, d : dhandle, f : bytes, m : int) : world
+[
+	var w2 : world;
+	pcode IO IO_Dir_Action 1 4 1 =w2 w d f m IO_Action_ChMod;
+	return w2;
+]
+
+fn chown(w : world, d : dhandle, f : bytes, uid gid : int) : world
+[
+	var w2 : world;
+	pcode IO IO_Dir_Action 1 5 1 =w2 w d f uid gid IO_Action_ChOwn;
+	return w2;
+]
+
+fn lchown(w : world, d : dhandle, f : bytes, uid gid : int) : world
+[
+	var w2 : world;
+	pcode IO IO_Dir_Action 1 5 1 =w2 w d f uid gid IO_Action_LChOwn;
+	return w2;
+]
+
+fn utime(w : world, d : dhandle, f : bytes, atime mtime : int64) : world
+[
+	var w2 : world;
+	pcode IO IO_Dir_Action 1 5 1 =w2 w d f mtime atime IO_Action_UTime;
+	return w2;
+]
+
+fn lutime(w : world, d : dhandle, f : bytes, atime mtime : int64) : world
+[
+	var w2 : world;
+	pcode IO IO_Dir_Action 1 5 1 =w2 w d f mtime atime IO_Action_LUTime;
+	return w2;
+]
+
+
+const stty_flag_raw : int := IO_Stty_Flag_Raw;
+const stty_flag_noecho : int := IO_Stty_Flag_Noecho;
+const stty_flag_nosignal : int := IO_Stty_Flag_Nosignal;
+const stty_flag_nocrlf : int := IO_Stty_Flag_NoCRLF;
+
+fn stty(w : world, h : handle, flags : int) : world
+[
+	var w2 : world;
+	pcode IO IO_Stty 1 3 0 =w2 w h flags;
+	return w2;
+]
+
+fn tty_size(w : world, h : handle, x y : int) : (world, int, int)
+[
+	var nx ny : int;
+	var w2 : world;
+	pcode IO IO_Tty_Size 3 4 0 =w2 =nx =ny w h x y;
+	return w2, nx, ny;
+]
+
+const uname_flag_ajla_version : int := IO_UName_Flag_Ajla_Version;
+const uname_flag_flavor : int := IO_UName_Flag_Flavor;
+const uname_flag_system : int := IO_UName_Flag_System;
+const uname_flag_release : int := IO_UName_Flag_Release;
+const uname_flag_version : int := IO_UName_Flag_Version;
+const uname_flag_machine : int := IO_UName_Flag_Machine;
+
+fn uname(flags : int) : list(bytes)
+[
+	var res : list(bytes);
+	pcode IO IO_UName 1 1 0 =res flags;
+	return res;
+]
+
+fn get_host_name(w : world) : (world, bytes)
+[
+	var res : bytes;
+	var w2 : world;
+	pcode IO IO_GetHostName 2 1 0 =w2 =res w;
+	return w2, res;
+]
+
+
+fn get_real_time(w : world) : (world, int64)
+[
+	var ret : int64;
+	var w2 : world;
+	pcode IO IO_GetTime 2 1 1 =w2 =ret w 1;
+	return w2, ret;
+]
+
+fn get_monotonic_time(w : world) : (world, int64)
+[
+	var ret : int64;
+	var w2 : world;
+	pcode IO IO_GetTime 2 1 1 =w2 =ret w 2;
+	return w2, ret;
+]
+
+fn sleep(t : type, w : t, tm : int64) : t
+[
+	xeval w;
+	var w2 : t;
+	var u : int64;
+	var w3 : world;
+	w3, u := get_monotonic_time(unsafe_get_world);
+	u += tm;
+	pcode IO IO_Sleep 1 2 0 =w2 w u;
+	return w2;
+]
+
+{--------
+ - PATH -
+ --------}
+
+const path_separator : byte
+[
+	var os := sysprop(SystemProperty_OS);
+	if os = SystemProperty_OS_DOS or
+	   os = SystemProperty_OS_OS2 or
+	   os = SystemProperty_OS_Windows then
+		return '\';
+	return '/';
+]
+
+fn path_is_separator(b : byte) : bool
+[
+	if b = '\' or b = ':' then [
+		var os := sysprop(SystemProperty_OS);
+		if os = SystemProperty_OS_DOS or
+		   os = SystemProperty_OS_OS2 or
+		   os = SystemProperty_OS_Cygwin or
+		   os = SystemProperty_OS_Windows then
+			return true;
+	]
+	return b = '/';
+]
+
+fn path_is_dir_separator(b : byte) : bool
+[
+	if b = '\' then [
+		var os := sysprop(SystemProperty_OS);
+		if os = SystemProperty_OS_DOS or
+		   os = SystemProperty_OS_OS2 or
+		   os = SystemProperty_OS_Cygwin or
+		   os = SystemProperty_OS_Windows then
+			return true;
+	]
+	return b = '/';
+]
+
+fn path_compare(a b : bytes) : bool
+[
+	var os := sysprop(SystemProperty_OS);
+	if os = SystemProperty_OS_DOS or
+	   os = SystemProperty_OS_OS2 or
+	   os = SystemProperty_OS_Windows then [
+		if len(a) <> len(b) then
+			return false;
+		for i := 0 to len(a) do [
+			var a1 := a[i];
+			var b1 := b[i];
+			if a1 >= 'a', a1 <= 'z' then
+				a1 -= #20;
+			if b1 >= 'a', b1 <= 'z' then
+				b1 -= #20;
+			if a1 <> b1 then
+				return false;
+		]
+		return true;
+	]
+	return a = b;
+]
+
+fn dos_path_is_absolute(p : bytes) : bool
+[
+	if len_at_least(p, 3), (p[0] and #DF) >= 'A', (p[0] and #DF) <= 'Z', p[1] = ':', path_is_dir_separator(p[2]) then
+		return true;
+	if len_at_least(p, 2), path_is_dir_separator(p[0]), path_is_dir_separator(p[1]) then
+		return true;
+	return false;
+]
+
+fn path_is_absolute(p : bytes) : bool
+[
+	var os := sysprop(SystemProperty_OS);
+	if os = SystemProperty_OS_DOS or
+	   os = SystemProperty_OS_OS2 or
+	   os = SystemProperty_OS_Windows then [
+		return dos_path_is_absolute(p);
+	]
+	if len_at_least(p, 1), path_is_dir_separator(p[0]) then
+		return true;
+	if os = SystemProperty_OS_Cygwin then
+		return dos_path_is_absolute(p);
+	return false;
+]
+
+fn path_is_root(p : bytes) : bool
+[
+	p := path_contract(p);
+	if len(p) = 1, path_is_dir_separator(p[0]) then
+		return true;
+	var os := sysprop(SystemProperty_OS);
+	if os = SystemProperty_OS_DOS or
+	   os = SystemProperty_OS_OS2 or
+	   os = SystemProperty_OS_Cygwin or
+	   os = SystemProperty_OS_Windows then [
+		if len(p) = 3, (p[0] and #DF) >= 'A', (p[0] and #DF) <= 'Z', p[1] = ':', path_is_dir_separator(p[2]) then
+			return true;
+	]
+	return false;
+]
+
+fn path_to_dir_file(p : bytes) : (bytes, bytes)
+[
+	var idx := list_search_backwards_fn(p, path_is_separator);
+	var dir := p[ .. idx + 1];
+	var file := p[idx + 1 .. ];
+	if file = "." or file = ".." then [
+		dir := p +< path_separator;
+		file := "";
+	]
+	if dir = "" then
+		dir := "." + bytes.[ path_separator ];
+	if len(dir) > 1 then
+		dir := dir[ .. len(dir) - 1];
+	return dir, file;
+]
+
+fn path_append(pd pf : bytes) : bytes
+[
+	if len(pd) > 0, not path_is_separator(pd[len(pd) - 1]) then
+		pd += bytes.[ path_separator ];
+	return pd + pf;
+]
+
+fn path_contract_unix(p : bytes, trim_dot : bool) : bytes
+[
+	for i := 0 to len(p) do [
+		if path_is_dir_separator(p[i]) then
+			p[i] := '/';
+	]
+	var leading_slash := false;
+	if len_at_least(p, 1), p[0] = '/' then [
+		p := p[1 .. ];
+		leading_slash := true;
+	]
+	var components := list_break(p, '/');
+	var result := empty(bytes);
+	for i := 0 to len(components) do [
+		if components[i] = "" then
+			continue;
+		if components[i] = ".", trim_dot then
+			continue;
+		if components[i] = ".." then [
+			if len(result) >= 1 then [
+				if result[len(result) - 1] = ".." then
+					goto add_to_result;
+				result := result[ .. len(result) - 1];
+				continue;
+			] else [
+				if leading_slash then
+					continue;
+			]
+		]
+add_to_result:
+		result +<= components[i];
+	]
+	var r := "";
+	if leading_slash then
+		r +<= path_separator;
+	for i := 0 to len(result) do [
+		if i > 0 then
+			r +<= path_separator;
+		r += result[i];
+	]
+	if r = "" then
+		r := ".";
+	return r;
+]
+
+fn path_contract(p : bytes) : bytes
+[
+	if path_is_separator(':') then [
+		if len_at_least(p, 2), (p[0] and #DF) >= 'A', (p[0] and #DF) <= 'Z', p[1] = ':' then
+			return p[ .. 2] + path_contract_unix(p[2 .. ], true);
+		if len_at_least(p, 2), path_is_dir_separator(p[0]), path_is_dir_separator(p[1]) then
+			return [ path_separator ] + path_contract_unix(p[1 .. ], false);
+	]
+	return path_contract_unix(p, true);
+]
+
+fn path_join(pd pf : bytes) : bytes
+[
+	if path_is_absolute(pf) then
+		return path_contract(pf);
+	if path_is_separator(':') then [
+		if len_at_least(pf, 1), path_is_separator(pf[0]) then [
+			if len_at_least(pd, 2), (pd[0] and #DF) >= 'A', (pd[0] and #DF) <= 'Z', pd[1] = ':' then [
+				return path_contract(pd[ .. 2] + pf);
+			]
+			if len_at_least(pd, 2), path_is_dir_separator(pd[0]), path_is_dir_separator(pd[1]) then [
+				return path_contract(pd[ .. 1] + pf);
+			]
+			return path_contract(pf);
+		]
+		if len_at_least(pf, 2), (pf[0] and #DF) >= 'A', (pf[0] and #DF) <= 'Z', pf[1] = ':' then [
+			if len_at_least(pd, 3), (pd[0] and #DF) = (pf[0] and #DF), pd[1] = ':', path_is_dir_separator(pd[2]) then [
+				pf := pf[2 .. ];
+			] else [
+				return path_contract(pf[ .. 2] + [ path_separator ] + pf[2 .. ]);
+			]
+		]
+	]
+	return path_contract(path_append(pd, pf));
+]
+
+fn path_canonical(implicit w : world, d : dhandle, p : bytes) : (world, bytes)
+[
+	var dir, file := path_to_dir_file(p);
+	var pd := dopen(d, dir, 0);
+	var pdp := dpath(pd);
+	var pj := path_append(pdp, file);
+	return pj;
+]
+
+fn path_get_cwd(implicit w : world, d : dhandle, env : treemap(bytes, bytes)) : (world, bytes)
+[
+	var p1 := dpath(d);
+	var t := treemap_search(env, "PWD");
+	if t is j, path_is_absolute(t.j) then [
+		var ctr := path_contract(t.j);
+		var old_w := w;
+		var pd2 := dopen(dnone(), ctr, 0);
+		if is_exception pd2 then [
+			recover_world(old_w);
+			return p1;
+		]
+		old_w := w;
+		var p2 := dpath(pd2);
+		if is_exception p2 then [
+			recover_world(old_w);
+			return p1;
+		]
+		if p1 = p2 then
+			return ctr;
+	]
+	return p1;
+]
+
+fn path_shortcut_home(home : maybe(bytes), p : bytes) : bytes
+[
+	if home is n then
+		return p;
+	if not path_is_absolute(home.j) then
+		return p;
+	var h := path_contract(home.j);
+	if h = p then
+		return "~";
+	if len(h) < len(p), path_compare(h, p[ .. len(h)]), path_is_dir_separator(p[len(h)]) then
+		return "~" + p[len(h) .. ];
+	return p;
+]
+
+fn path_expand_home(home : maybe(bytes), p : bytes) : bytes
+[
+	if home is n then
+		return p;
+	var h := home.j;
+	if not path_is_absolute(h) then
+		return p;
+	h := path_contract(h);
+	if p = "~" then
+		return h;
+	if len(p) >= 2, p[0] = '~', path_is_dir_separator(p[1]) then [
+		var i := 2;
+		while len(p) > i, path_is_dir_separator(p[i]) do
+			i += 1;
+		return path_append(h, p[i .. ]);
+	]
+	return p;
+]
+
+fn path_mkdir_step(implicit w : world, d : dhandle, f : bytes, mode : int) : world
+[
+	var w1 := w;
+	mkdir(d, f, mode);
+	if is_exception w then [
+		if exception_type w = error_system, exception_aux w = system_error_eexist then [
+			recover_world(w1);
+		]
+	]
+]
+
+fn path_mkdir(implicit w : world, d : dhandle, f : bytes, mode : int) : world
+[
+	var w1 := w;
+	path_mkdir_step(d, f, mode);
+	if not is_exception w then
+		return w;
+	recover_world(w1);
+
+	var i := 0;
+	while i < len(f), path_is_separator(f[i]) do
+		i += 1;
+	if i = 0, path_is_absolute(f) then [
+		while i < len(f), not path_is_separator(f[i]) do
+			i += 1;
+		while i < len(f), path_is_separator(f[i]) do
+			i += 1;
+	]
+
+	while i < len(f) do [
+		while i < len(f), not path_is_separator(f[i]) do
+			i += 1;
+		while i < len(f), path_is_separator(f[i]) do
+			i += 1;
+		path_mkdir_step(d, f[ .. i], mode);
+		xeval w;
+	]
+]
+
+fn path_xdg(implicit w : world, env : treemap(bytes, bytes), xdg_env : bytes, deflt : bytes, appname : bytes) : (world, dhandle)
+[
+	var w1 := w;
+again:
+	var d : bytes;
+	var x := treemap_search(env, xdg_env);
+	if x is j then [
+		if path_is_absolute(x.j) then [
+			d := x.j;
+			goto have_d;
+		]
+	]
+	if sysprop(SystemProperty_OS) = SystemProperty_OS_Windows then [
+		x := treemap_search(env, "APPDATA");
+		if x is j then
+			goto have_x;
+	]
+	x := treemap_search(env, "HOME");
+	if x is j then [
+have_x:
+		var a := path_append(x.j, deflt);
+		if path_is_absolute(a) then [
+			d := a;
+			goto have_d;
+		]
+	]
+	d := dpath(dexe());
+have_d:
+	d := path_append(d, appname);
+	path_mkdir(dnone(), d, #1c0);
+	if is_exception w then [
+		if len(deflt) > 0, deflt[0] = '.' then [
+			recover_world(w1);
+			deflt := deflt[1 .. ];
+			goto again;
+		]
+	]
+	return dopen(dnone(), d, 0);
+]
+
+fn path_config(implicit w : world, env : treemap(bytes, bytes), appname : bytes) : (world, dhandle)
+[
+	return path_xdg(env, "XDG_CONFIG_HOME", ".config", appname);
+]
+
+fn path_write_atomic(implicit w : world, d : dhandle, f : bytes, content : bytes) : world
+[
+	var w1 := w;
+	var tmp_file := f;
+	var i := len(tmp_file) - 1;
+	while i >= 0 do [
+		if path_is_separator(tmp_file[i]) then
+			break;
+		if tmp_file[i] = '.' then [
+			tmp_file := tmp_file[ .. i];
+			break;
+		]
+		i -= 1;
+	]
+	tmp_file +<= '.';
+	var num := 0;
+	atomic_enter();
+next_num:
+	var tmp_file_x := tmp_file + ntos(num);
+	var wf := wopen(d, tmp_file_x, open_flag_create or open_flag_must_create, #180);
+	if is_exception w, exception_aux w = system_error_eexist, not is_exception w1 then [
+		recover_world(w1);
+		num += 1;
+		goto next_num;
+	]
+	write(wf, content);
+	rename(d, f, d, tmp_file_x);
+	if is_exception w then [
+		var xw := w;
+		recover_world(w1);
+		unlink(d, tmp_file);
+		atomic_exit();
+		keep w;
+		return xw;
+	]
+	atomic_exit();
+]
+
+{----------------
+ - DEPENDENCIES -
+ ----------------}
+
+fn register_dependence(implicit w : world, d : dhandle, p : bytes) : world
+[
+	var cp := path_canonical(d, p);
+	var w2 : world;
+	pcode IO IO_Register_Dependence 1 2 0 =w2 w cp;
+	return w2;
+]

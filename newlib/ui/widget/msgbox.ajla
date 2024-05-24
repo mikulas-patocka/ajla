@@ -1,0 +1,72 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit ui.widget.msgbox;
+
+uses ui.widget.common;
+
+record msgbox_button [
+	label : string;
+	click : fn(world, appstate, wid) : (world, appstate);
+	hotkeys : treeset(char);
+]
+
+fn msgbox_new(w : world, app : appstate, caption : string, align : widget_align, text : string, color_scheme : bytes, buttons : list(msgbox_button)) : (world, appstate, wid);
+
+implementation
+
+uses ui.widget.text;
+uses ui.widget.button;
+uses ui.widget.dialog;
+
+fn msgbox_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y min_x pref_x max_x : int) : (appstate, int, int)
+[
+	var xs := 0;
+	xs := max(xs, widget_get_width(ids[0], pref_x));
+	xs := max(xs, widgets_get_width(ids[1 .. ], 2, pref_x));
+
+	xs := min(xs, max_x);
+	xs := max(xs, min_x);
+
+	var yp := offs_y + 1;
+
+	yp := widget_place(ids[0], offs_x, xs, yp);
+	yp += 1;
+	yp := widgets_place(ids[1 .. ], widget_align.center, 2, 1, offs_x, xs, yp);
+
+	return xs, yp;
+]
+
+fn msgbox_new(implicit w : world, implicit app : appstate, caption : string, align : widget_align, text : string, color_scheme : bytes, buttons : list(msgbox_button)) : (world, appstate, wid)
+[
+	var entries := [
+		dialog_entry.[
+			cls : text_class,
+			init : text_init(align, text, color_scheme,,,),
+		]
+	];
+	for i := 0 to len(buttons) do [
+		entries +<= dialog_entry.[
+			cls : button_class,
+			init : button_init(buttons[i].label, true, color_scheme, button_no_action, buttons[i].click,,,),
+			hotkeys : buttons[i].hotkeys,
+		];
+	]
+	var id := widget_new_window(dialog_class, dialog_init(caption, entries, select(len(buttons) > 0, -1, 1), dialog_no_event, msgbox_dialog_layout, color_scheme,,,), false);
+	return id;
+]

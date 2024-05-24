@@ -1,0 +1,56 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit compiler.common.gvn;
+
+uses pcode;
+
+fn gvn_encode(value_list : list(pcode_t)) : int
+[
+	var value_number : int := 0;
+	//var str := "";
+	var bit_pos := 0;
+	for i := 0 to len(value_list) do [
+		var up : pcode_t := value_list[i];
+		var up2 : int;
+		var bits : int;
+		if up >= -3 and up < 16 - 3 then [
+			up2 := up;
+			up2 and= #f;
+			up2 shl= 1;
+			bits := 5;
+		] else if up >= -32 and up < 512 - 32 then [
+			up2 := up;
+			up2 and= #1ff;
+			up2 shl= 2;
+			up2 or= 1;
+			bits := 11;
+		] else [
+			up2 := up;
+			up2 and= #ffffffff;
+			up2 shl= 2;
+			up2 or= 3;
+			bits := 34;
+		]
+		value_number or= up2 shl bit_pos;
+		bit_pos += bits;
+		//str += " " + ntos(up2);
+	]
+	//eval debug(str);
+	return value_number;
+]

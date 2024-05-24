@@ -1,0 +1,755 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit compiler.optimize.utils;
+
+uses compiler.optimize.defs;
+
+fn blob_length(blob : list(pcode_t)) : int;
+fn blob_load(blob : list(pcode_t)) : bytes;
+fn blob_store(blob : bytes) : list(pcode_t);
+fn function_name(params : list(pcode_t)) : bytes;
+fn function_extract_nested(pc : list(pcode_t), fn_idx : list(int)) : list(pcode_t);
+fn blob_to_int(c : list(pcode_t)) : int;
+fn int_to_blob(v : int) : list(pcode_t);
+fn function_specifier_length(params : list(pcode_t)) : int;
+fn function_load(params : list(pcode_t)) : (int, function);
+fn function_store(f : function) : list(pcode_t);
+
+fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instruction;
+fn load_function_context(pc : list(pcode_t)) : context;
+fn dump_basic_blocks(ctx : context, dump_it : bool) : list(pcode_t);
+
+implementation
+
+uses exception;
+uses compiler.optimize.evaluate;
+uses compiler.parser.util;
+
+fn blob_length(blob : list(pcode_t)) : int
+[
+	return 1 + (blob[0] + 3) div 4;
+]
+
+fn blob_load(blob : list(pcode_t)) : bytes
+[
+	var len := blob[0];
+	var idx := 1;
+	if len < 0 then
+		abort internal("negative blob length");
+	var val : pcode_t := 0;
+	var result := empty(byte);
+	for p := 0 to len do [
+		if (p and 3) = 0 then [
+			val := blob[idx];
+			idx += 1;
+		]
+		result +<= val and 255;
+		val shr= 8;
+	]
+
+	return result;
+]
+
+fn blob_store(blob : bytes) : list(pcode_t)
+[
+	var pc := list(pcode_t).[ len(blob) ];
+	var val : pcode_t := 0;
+	for i := 0 to len(blob) do [
+		var blob_i : pcode_t := blob[i];
+		val or= blob_i shl ((i and 3) * 8);
+		if (i and 3) = 3 then [
+			pc +<= val;
+			val := 0;
+		]
+	]
+	if (len(blob) and 3) <> 0 then
+		pc +<= val;
+	return pc;
+]
+
+fn blob_to_int(c : list(pcode_t)) : int
+[
+	var res := 0;
+	var blob := blob_load(c);
+	for i := 0 to len(blob) do [
+		var v : int;
+		v := blob[i];
+		if i >= len(blob) - 1 then [
+			if v >= 128 then
+				v -= 256;
+		]
+		res or= v shl i * 8;
+	]
+	return res;
+]
+
+fn int_to_blob(v : int) : list(pcode_t)
+[
+	var b := empty(byte);
+	var last : byte := 0;
+	while v <> 0 and v <> -1 do [
+		last := v and #ff;
+		b +<= last;
+		v shr= 8;
+	]
+	if v = 0 and last bt 7 then
+		b +<= 0;
+	if v = -1 and not last bt 7 then
+		b +<= #ff;
+	return blob_store(b);
+]
+
+fn function_specifier_length(params : list(pcode_t)) : int
+[
+	var bl := blob_length(params[1 .. ]);
+	return 1 + bl + 1 + params[1 + bl];
+]
+
+fn function_load(params : list(pcode_t)) : (int, function)
+[
+	var bl := blob_length(params[1 .. ]);
+	var r := function.[
+		path_idx : params[0] shr 1,
+		program : (params[0] and 1) <> 0,
+		un : blob_load(params[1 .. ]),
+		fn_idx : fill(0, params[1 + bl]),
+	];
+	for i := 0 to params[1 + bl] do
+		r.fn_idx[i] := params[1 + bl + 1 + i];
+	return function_specifier_length(params), r;
+]
+
+fn function_store(f : function) : list(pcode_t)
+[
+	var pc := list(pcode_t).[ (f.path_idx shl 1) + select(f.program, 0, 1) ];
+	pc += blob_store(f.un);
+	pc += list(pcode_t).[ len(f.fn_idx) ];
+	for i := 0 to len(f.fn_idx) do
+		pc +<= f.fn_idx[i];
+	return pc;
+]
+
+fn function_name(params : list(pcode_t)) : bytes
+[
+	var l, f := function_load(params);
+	var fi := list(pcode_t).[ len(f.fn_idx) ];
+	for i := 0 to len(f.fn_idx) do
+		fi +<= f.fn_idx[i];
+	var pc := load_optimized_pcode(f.path_idx, f.un, f.program, fi);
+	return blob_decode(pc[9 .. ]);
+]
+
+fn function_extract_nested(pc : list(pcode_t), fn_idx : list(int)) : list(pcode_t)
+[
+	fn_idx := fn_idx[1 .. ];
+	for idx in list_consumer(fn_idx) do [
+		if idx >= pc[2] then
+			abort internal("function_extract_nested: too high function index: " + ntos(idx) + " >= " + ntos(pc[2]));
+		var ptr := 9 + blob_length(pc[9 .. ]);
+		while idx > 0 do [
+			ptr += pc[ptr] + 1;
+			idx -= 1;
+		]
+		pc := pc[ptr + 1 .. ptr + 1 + pc[ptr]];
+	]
+	return pc;
+]
+
+
+fn decode_structured_params(offs : int, params : list(pcode_t)) : (int, param_set, param_set)
+[
+	var ps : param_set := 0;
+	var ls : param_set := 0;
+	for i := 0 to params[0] do [
+		var scode := params[offs];
+		if scode = Structured_Record then [
+			ls bts= offs + 1;
+			offs += 3;
+		] else if scode = Structured_Option then [
+			offs += 2;
+		] else if scode = Structured_Array then [
+			ps bts= offs + 1;
+			ls bts= offs + 2;
+			offs += 3;
+		] else [
+			abort internal("invalid structured type");
+		]
+	]
+	return offs, ps, ls;
+]
+
+fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instruction
+[
+	var xlen := -1;
+	var ins := instruction.[
+		opcode : opcode,
+		params : params,
+		read_set : 0,
+		write_set : 0,
+		free_set : 0,
+		lt_set : 0,
+		conflict_1 : 0,
+		conflict_2 : 0,
+		borrow : -1,
+		bb : bgi,
+	];
+	if opcode = P_BinaryOp then [
+		ins.read_set := 0 bts 3 bts 5;
+		ins.free_set := ins.read_set;
+		ins.write_set := 0 bts 1;
+		xlen := 6;
+	] else if opcode = P_UnaryOp then [
+		ins.read_set := 0 bts 3;
+		ins.free_set := ins.read_set;
+		ins.write_set := 0 bts 1;
+		xlen := 4;
+	] else if opcode = P_Copy then [
+		ins.read_set := 0 bts 2;
+		ins.free_set := ins.read_set;
+		ins.write_set := 0 bts 0;
+		xlen := 3;
+	] else if opcode = P_Copy_Type_Cast then [
+		ins.read_set := 0 bts 2;
+		ins.free_set := ins.read_set;
+		ins.write_set := 0 bts 0;
+		xlen := 3;
+	] else if opcode = P_Free then [
+		ins.read_set := 0 bts 0;
+		xlen := 1;
+	] else if opcode = P_Eval then [
+		ins.read_set := 0 bts 0;
+		xlen := 1;
+	] else if opcode = P_Keep then [
+		ins.read_set := 0 bts 0;
+		xlen := 1;
+	] else if opcode = P_Fn then [
+		ins.write_set := 0 bts 0;
+		xlen := 3 + params[1] + params[2];
+		for i := 3 to xlen do [
+			var p := params[i];
+			if p >= 0 then
+				ins.read_set bts= i;
+		]
+	] else if opcode = P_Load_Local_Type then [
+		ins.write_set := 0 bts 0;
+		xlen := 3;
+	] else if opcode = P_Load_Fn then [
+		var l := function_specifier_length(params[3 .. ]);
+		for i := 0 to params[1] do [
+			ins.read_set bts= 3 + l + i * 2 + 1;
+			ins.free_set bts= 3 + l + i * 2 + 1;
+		]
+		ins.write_set := 0 bts 0;
+		xlen := 3 + l + params[1] * 2;
+	] else if opcode = P_Curry then [
+		ins.read_set := 0 bts 3;
+		ins.free_set := 0 bts 3;
+		for i := 0 to params[1] do [
+			ins.read_set bts= 4 + i * 2 + 1;
+			ins.free_set bts= 4 + i * 2 + 1;
+		]
+		ins.write_set := 0 bts 0;
+		xlen := 4 + params[1] * 2;
+	] else if opcode = P_Call then [
+		var l := function_specifier_length(params[3 .. ] );
+		for i := 0 to params[2] do [
+			ins.read_set bts= 3 + l + i * 2 + 1;
+			ins.free_set bts= 3 + l + i * 2 + 1;
+		]
+		for i := 0 to params[1] do
+			ins.write_set bts= 3 + l + params[2] * 2 + i;
+		xlen := 3 + l + params[2] * 2 + params[1];
+	] else if opcode = P_Call_Indirect then [
+		ins.read_set := 0 bts 4;
+		ins.free_set := 0 bts 4;
+		for i := 0 to params[2] do [
+			ins.read_set bts= 5 + i * 2 + 1;
+			ins.free_set bts= 5 + i * 2 + 1;
+		]
+		for i := 0 to params[1] do
+			ins.write_set bts= 5 + params[2] * 2 + i;
+		xlen := 5 + params[2] * 2 + params[1];
+	] else if opcode = P_Load_Const then [
+		ins.write_set := 0 bts 0;
+		xlen := 1 + blob_length(params[1 .. ]);
+	] else if opcode = P_Structured_Write then [
+		ins.read_set := 0 bts 3 bts 5;
+		ins.free_set := 0 bts 3 bts 5;
+		ins.write_set := 0 bts 1;
+		var pmask lmask : param_set;
+		xlen, pmask, lmask := decode_structured_params(6, params);
+		ins.read_set or= pmask;
+		ins.lt_set := lmask;
+		ins.conflict_1 := 0 bts 5 or pmask;
+		ins.conflict_2 := 0 bts 1;
+	] else if opcode = P_Record_Type or opcode = P_Option_Type then [
+		for i := 0 to params[1] do
+			ins.read_set bts= 2 + i;
+		ins.write_set := 0 bts 0;
+		var l := function_specifier_length(params[2 + params[1] .. ]);
+		xlen := 2 + params[1] + l;
+	] else if opcode = P_Record_Create then [
+		ins.write_set := 0 bts 0;
+		for i := 0 to params[1] do [
+			ins.read_set bts= 2 + i * 2 + 1;
+			ins.free_set bts= 2 + i * 2 + 1;
+		]
+		xlen := 2 + params[1] * 2;
+	] else if opcode = P_Record_Load_Slot then [
+		ins.read_set := 0 bts 1;
+		ins.write_set := 0 bts 0;
+		xlen := 3;
+	] else if opcode = P_Record_Load then [
+		ins.read_set := 0 bts 2;
+		ins.write_set := 0 bts 0;
+		ins.borrow := 2;
+		xlen := 4;
+	] else if opcode = P_Option_Create then [
+		ins.read_set := 0 bts 3;
+		ins.free_set := 0 bts 3;
+		ins.write_set := 0 bts 0;
+		xlen := 4;
+	] else if opcode = P_Option_Load then [
+		ins.read_set := 0 bts 2;
+		ins.write_set := 0 bts 0;
+		ins.borrow := 2;
+		xlen := 4;
+	] else if opcode = P_Option_Test then [
+		ins.read_set := 0 bts 1;
+		ins.write_set := 0 bts 0;
+		xlen := 3;
+	] else if opcode = P_Option_Ord then [
+		ins.read_set := 0 bts 1;
+		ins.write_set := 0 bts 0;
+		xlen := 2;
+	] else if opcode = P_Array_Flexible then [
+		ins.read_set := 0 bts 1;
+		ins.write_set := 0 bts 0;
+		xlen := 2;
+	] else if opcode = P_Array_Fixed then [
+		ins.read_set := 0 bts 1 bts 2;
+		ins.write_set := 0 bts 0;
+		xlen := 3;
+	] else if opcode = P_Array_Create then [
+		ins.read_set := 0 bts 3;
+		ins.write_set := 0 bts 0;
+		for i := 0 to params[2] do [
+			ins.read_set bts= 4 + i * 2 + 1;
+			ins.free_set bts= 4 + i * 2 + 1;
+		]
+		ins.lt_set := 0 bts 1;
+		xlen := 4 + params[2] * 2;
+	] else if opcode = P_Array_Fill then [
+		ins.read_set := 0 bts 3 bts 4;
+		ins.free_set := 0 bts 3;
+		ins.write_set := 0 bts 0;
+		ins.lt_set := 0 bts 1;
+		xlen := 5;
+	] else if opcode = P_Array_String then [
+		ins.write_set := 0 bts 0;
+		xlen := 1 + blob_length(params[1 .. ]);
+	] else if opcode = P_Array_Unicode then [
+		ins.write_set := 0 bts 0;
+		xlen := len(params);
+	] else if opcode = P_Array_Load then [
+		ins.read_set := 0 bts 2 bts 3;
+		ins.write_set := 0 bts 0;
+		ins.borrow := 2;
+		xlen := 4;
+	] else if opcode = P_Array_Len then [
+		ins.read_set := 0 bts 1;
+		ins.write_set := 0 bts 0;
+		xlen := 3;
+	] else if opcode = P_Array_Len_At_Least then [
+		ins.read_set := 0 bts 1 bts 2;
+		ins.write_set := 0 bts 0;
+		xlen := 4;
+	] else if opcode = P_Array_Sub then [
+		ins.read_set := 0 bts 2 bts 3 bts 4;
+		ins.free_set := 0 bts 2;
+		ins.write_set := 0 bts 0;
+		xlen := 5;
+	] else if opcode = P_Array_Skip then [
+		ins.read_set := 0 bts 2 bts 3;
+		ins.free_set := 0 bts 2;
+		ins.write_set := 0 bts 0;
+		xlen := 4;
+	] else if opcode = P_Array_Append then [
+		ins.read_set := 0 bts 2 bts 4;
+		ins.free_set := 0 bts 2 bts 4;
+		ins.write_set := 0 bts 0;
+		xlen := 5;
+	] else if opcode = P_Array_Append_One then [
+		ins.read_set := 0 bts 2 bts 4;
+		ins.free_set := 0 bts 2 bts 4;
+		ins.write_set := 0 bts 0;
+		xlen := 5;
+	] else if opcode = P_Array_Flatten then [
+		ins.read_set := 0 bts 2;
+		ins.free_set := 0 bts 2;
+		ins.write_set := 0 bts 0;
+		xlen := 3;
+	] else if opcode = P_Jmp then [
+		xlen := 1;
+	] else if opcode = P_Jmp_False then [
+		ins.read_set := 0 bts 0;
+		xlen := 3;
+	] else if opcode = P_Label then [
+		xlen := 1;
+	] else if opcode = P_IO then [
+		for i := 0 to params[1] do [
+			ins.write_set bts= 4 + i;
+		]
+		for i := params[1] to params[1] + params[2] do [
+			ins.read_set bts= 4 + i;
+		]
+		ins.conflict_1 := ins.read_set;
+		ins.conflict_2 := ins.write_set;
+		xlen := 4 + params[1] + params[2] + params[3];
+	] else if opcode = P_Args then [
+		for i := 0 to len(params) do
+			ins.write_set bts= i;
+		xlen := len(params);
+	] else if opcode = P_Return_Vars then [
+		for i := 0 to len(params) do
+			ins.write_set bts= i;
+		xlen := len(params);
+	] else if opcode = P_Return then [
+		var i := 1;
+		while i < len(params) do [
+			ins.read_set bts= i;
+			ins.free_set bts= i;
+			i += 2;
+		]
+		xlen := len(params);
+	] else if opcode = P_Line_Info then [
+		if params[0] < 0 then
+			abort internal("P_Line_Info: negative line info");
+		xlen := 1;
+	] else if opcode = P_Line_Info_Full then [
+		var ptr := 1;
+		for i := 0 to params[0] do [
+			ptr += blob_length(params[ptr .. ]);
+			ptr += blob_length(params[ptr .. ]);
+			if params[ptr] < 0 then
+				abort internal("P_Line_Info_Full: negative line info");
+			ptr += 1;
+		]
+		xlen := ptr;
+	] else if opcode = P_Phi then [
+		ins.write_set := 0 bts 0;
+		for i := 1 to len(params) do
+			ins.read_set bts= i;
+		xlen := len(params);
+	] else [
+		abort internal("invalid opcode");
+	]
+
+	if xlen <> len(params) then
+		abort internal("length mismatch on opcode " + ntos(opcode) + ": " + ntos(xlen) + " <> " + ntos(len(params)));
+
+	var rs := ins.read_set;
+	while rs <> 0 do [
+		var s : int := bsr rs;
+		rs btr= s;
+		if ins.params[s] < 0 then [
+			ins.read_set btr= s;
+			ins.conflict_1 btr= s;
+			ins.conflict_2 btr= s;
+		]
+	]
+	var ls := ins.lt_set;
+	while ls <> 0 do [
+		var s : int := bsr ls;
+		ls btr= s;
+		if ins.params[s] < 0 then [
+			ins.lt_set btr= s;
+		]
+	]
+
+	return ins;
+]
+
+
+fn set_arrow(ctx : context, src : int, dst : int) : context
+[
+	{var sblk := ctx.blocks[src];
+	for i := 0 to len(sblk.instrs) do [
+		eval debug("pcode: " + ntos(sblk.instrs[i].opcode));
+	]}
+	ctx.blocks[dst].pred_position +<= len(ctx.blocks[src].post_list);
+	ctx.blocks[dst].pred_list +<= src;
+	ctx.blocks[src].post_list +<= dst;
+	//eval debug("arrow from " + ntos(src) + " to " + ntos(dst) + " total " + ntos(len(ctx.blocks)));
+	return ctx;
+]
+
+fn load_function_context(pc : list(pcode_t)) : context
+[
+	var ctx := context.[
+		local_types : empty(local_type),
+		instrs : empty(instruction),
+		blocks : empty(basic_block),
+
+		variables : exception_make(list(variable), ec_sync, error_record_field_not_initialized, 0, false),
+		label_to_block : exception_make(list(int), ec_sync, error_record_field_not_initialized, 0, false),
+		var_map : exception_make(list(int), ec_sync, error_record_field_not_initialized, 0, false),
+		cm : exception_make(conflict_map, ec_sync, error_record_field_not_initialized, 0, false),
+		should_retry : exception_make(bool, ec_sync, error_record_field_not_initialized, 0, false),
+
+		name : blob_load(pc[9 .. ]),
+	];
+
+	var ptr := 9 + blob_length(pc[9 .. ]);
+
+	for i := 0 to pc[2] do [
+		ptr += 1 + pc[ptr];
+	]
+
+	for i := 0 to pc[3] do [
+		var ft := pc[ptr];
+		ptr += 1;
+		var lt : local_type;
+		if ft = Local_Type_Record then [
+			var n, f := function_load(pc[ptr .. ]);
+			ptr += n;
+			lt := local_type.rec.(f);
+		] else if ft = Local_Type_Flat_Record then [
+			var non_flat_rec := pc[ptr];
+			var n_entries := pc[ptr + 1];
+			lt := local_type.flat_rec.(local_type_flat_record.[ non_flat_record : non_flat_rec, flat_types : empty(int) ]);
+			ptr += 2;
+			for j := 0 to n_entries do [
+				lt.flat_rec.flat_types +<= pc[ptr];
+				ptr += 1;
+			]
+		] else if ft = Local_Type_Flat_Array then [
+			lt := local_type.flat_array.(local_type_flat_array.[ flat_type : pc[ptr], number_of_elements : pc[ptr + 1] ]);
+			ptr += 2;
+		] else [
+			abort internal("unknown local type " + ntos(ft));
+		]
+		ctx.local_types +<= lt;
+	]
+
+	var n_variables := pc[4];
+	ctx.variables := fill(new_variable, n_variables);
+
+	ctx.label_to_block := fill(-1, pc[8]);
+
+	for i := 0 to n_variables do [
+		ctx.variables[i].type_index := pc[ptr];
+		ctx.variables[i].runtime_type := pc[ptr + 1];
+		ctx.variables[i].local_type := -1;
+		ctx.variables[i].color := pc[ptr + 2];
+		ctx.variables[i].is_option_type := false;
+		ptr += 3;
+		ctx.variables[i].name := blob_load(pc[ptr .. ]);
+		ptr += blob_length(pc[ptr .. ]);
+
+		if ctx.variables[i].runtime_type < T_Undetermined then
+			abort internal("load_function_context: invalid runtime type: " + ctx.name + ", " + ntos(i) + "(" + ctx.variables[i].name + "): " + ntos(ctx.variables[i].runtime_type));
+	]
+
+	var b := new_basic_block;
+
+	while ptr < len(pc) do [
+		var instr_len := pc[ptr + 1] + 2;
+		var ins := create_instr(pc[ptr], pc[ptr + 2 .. ptr + instr_len], len(ctx.blocks));
+
+		var free_set : param_set := ins.free_set;
+		while free_set <> 0 do [
+			var arg : int := bsr free_set;
+			free_set btr= arg;
+			ins.params[arg - 1] and= not Flag_Free_Argument;
+		]
+
+		if ins.opcode = P_Jmp or ins.opcode = P_Jmp_False or ins.opcode = P_Return then [
+			b.instrs +<= len(ctx.instrs);
+			ctx.instrs +<= ins;
+			ctx.blocks +<= b;
+			b := new_basic_block;
+		] else if ins.opcode = P_Label then [
+			if len_greater_than(int, b.instrs, 0) then [
+				ctx.blocks +<= b;
+				b := new_basic_block;
+				ins.bb += 1;
+			]
+			if ctx.label_to_block[ins.params[0]] >= 0 then
+				abort internal("load_function_context: label already defined");
+			ctx.label_to_block[ins.params[0]] := len(ctx.blocks);
+			b.instrs +<= len(ctx.instrs);
+			ctx.instrs +<= ins;
+		] else if ins.opcode = P_Free then [
+		] else [
+			b.instrs +<= len(ctx.instrs);
+			ctx.instrs +<= ins;
+		]
+
+		ptr += instr_len;
+	]
+	if ptr > len(pc) then
+		abort internal("load_function_context: " + ctx.name + ": pcode doesn't match");
+	if len(b.instrs) > 0 then
+		abort internal("load_function_context: " + ctx.name + ": the last basic block is not finished");
+
+	for i := 0 to len(ctx.blocks) do [
+again:
+		var block := ctx.blocks[i];
+		if len(block.instrs) = 0 then [
+			ctx := set_arrow(ctx, i, i + 1);
+			continue;
+		]
+		var first := ctx.instrs[ block.instrs[0] ];
+		if first.opcode = P_Label then [
+			ctx.blocks[i].instrs := block.instrs[1 .. ];
+			goto again;
+		]
+		var last := ctx.instrs[ block.instrs[ len(block.instrs) - 1 ] ];
+
+		if last.opcode = P_Jmp then [
+			var target := last.params[0];
+			ctx := set_arrow(ctx, i, ctx.label_to_block[target]);
+			ctx.blocks[i].instrs := block.instrs[ .. len(block.instrs) - 1];
+		] else if last.opcode = P_Jmp_False then [
+			var target1 := last.params[1];
+			var target2 := last.params[2];
+			ctx := set_arrow(ctx, i, i + 1);
+			ctx := set_arrow(ctx, i, ctx.label_to_block[target1]);
+			ctx := set_arrow(ctx, i, ctx.label_to_block[target2]);
+		] else if last.opcode <> P_Return then [
+			ctx := set_arrow(ctx, i, i + 1);
+		]
+	]
+
+	return ctx;
+]
+
+fn dump_basic_blocks(ctx : context, dump_it : bool) : list(pcode_t)
+[
+	if dump_it then [
+		eval debug("-----------------------------------------------------------------");
+		eval debug("dump_basic_blocks: " + ctx.name);
+	]
+	var rpc := empty(pcode_t);
+	var worklist : node_set := 1;
+	var done : node_set := 0;
+	while worklist <> 0 do [
+		var bgi : int := bsr worklist;
+
+		if dump_it then
+			eval debug("process block from worklist " + ntos(bgi));
+process_block:
+		worklist btr= bgi;
+		if bgi <> 0 then [
+			rpc +<= P_Label;
+			rpc +<= 1;
+			rpc +<= bgi - 1;
+			if dump_it then
+				eval debug("generate label " + ntos(bgi - 1));
+		]
+
+		var block := ctx.blocks[bgi];
+		for ili := 0 to len(block.instrs) do [
+			var ins := ctx.instrs[block.instrs[ili]];
+			rpc +<= ins.opcode;
+			rpc +<= len(ins.params);
+			rpc += ins.params;
+			if dump_it then [
+				var instr_name := (pcode_name(ins.opcode) + "                    ")[ .. 20];
+				var msg := "instr: " + instr_name + "   ";
+				if ins.opcode = P_Jmp_False then [
+					ins.params[1] := block.post_list[1] - 1;
+					ins.params[2] := block.post_list[2] - 1;
+				]
+				for i := 0 to len(ins.params) do
+					msg += " " + ntos(ins.params[i]);
+				msg += "       ";
+				var read_elided := true;
+				var write_elided := true;
+				var read_set := ins.read_set;
+				if ins.opcode = P_Free then [
+					read_set := 0 bts 0;
+				]
+				while read_set <> 0 do [
+					var x : int := bsf read_set;
+					read_set btr= x;
+					var v := ins.params[x];
+					var va := ctx.variables[v];
+					msg += " r(" + ntos(v) + "," + ntos(va.type_index) + "," + ntos(va.runtime_type) + ":" + ntos(va.color) + ")";
+					if v < 0 or ctx.variables[v].color = -1 then
+						msg += "el";
+					else
+						read_elided := false;
+				]
+				var write_set := ins.write_set;
+				var something_written := false;
+				while write_set <> 0 do [
+					var x : int := bsf write_set;
+					write_set btr= x;
+					var v := ins.params[x];
+					var va := ctx.variables[v];
+					msg += " w(" + ntos(v) + "," + ntos(va.type_index) + "," + ntos(va.runtime_type) + ":" + ntos(va.color) + ")";
+					if ctx.variables[v].color = -1 then
+						msg += "el";
+					else
+						write_elided := false;
+					something_written := true;
+				]
+				if ins.opcode = P_Call or ins.opcode = P_Load_Fn then [
+					msg += " " + function_name(ins.params[3 .. ]);
+				]
+				if read_elided and write_elided then
+					msg := bytes.[27] + "[31m" + msg +< 27 + "[0m";
+				else if write_elided and something_written then
+					msg := bytes.[27] + "[35m" + msg +< 27 + "[0m";
+				else
+					msg := bytes.[27] + "[32m" + msg +< 27 + "[0m";
+				eval debug(msg);
+			]
+		]
+
+		done bts= bgi;
+
+		if len(block.post_list) = 0 then
+			continue;
+		for i := 1 to len(block.post_list) do [
+			var post_idx := block.post_list[i];
+			if not done bt post_idx then
+				worklist bts= post_idx;
+			if rpc[len(rpc) - 5] <> P_Jmp_False then
+				abort internal("a block with multiple outputs doesn't end with P_Jmp_False");
+			rpc[len(rpc) - 3 + i] := post_idx - 1;
+		]
+		var next_bgi := block.post_list[0];
+		if done bt next_bgi then [
+			rpc +<= P_Jmp;
+			rpc +<= 1;
+			rpc +<= next_bgi - 1;
+			if dump_it then
+				eval debug("generating jump to label " + ntos(next_bgi - 1));
+			continue;
+		]
+		bgi := next_bgi;
+		if dump_it then
+			eval debug("process following block " + ntos(bgi));
+		goto process_block;
+	]
+	return rpc;
+]

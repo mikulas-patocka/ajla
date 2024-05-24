@@ -1,0 +1,101 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit ui.widget.progress;
+
+uses ui.widget.common;
+
+type progress_state;
+
+fn progress_init(progress_prop : bytes, color_scheme : bytes, w : world, app : appstate, id : wid) : (world, appstate, progress_state);
+fn progress_get_width(app : appstate, com : widget_common, st : progress_state, x : int) : int;
+fn progress_get_height(app : appstate, com : widget_common, st : progress_state, x : int) : int;
+fn progress_redraw(app : appstate, curs : curses, com : widget_common, st : progress_state) : curses;
+fn progress_process_event(w : world, app : appstate, com : widget_common, st : progress_state, wev : wevent) : (world, appstate, widget_common, progress_state);
+
+const progress_class~flat := widget_class.[
+	t : progress_state,
+	name : "progress",
+	is_selectable : false,
+	get_width : progress_get_width,
+	get_height : progress_get_height,
+	redraw : progress_redraw,
+	process_event : progress_process_event,
+];
+
+implementation
+
+record progress_state [
+	progress_prop : bytes;
+	color_scheme : bytes;
+]
+
+fn progress_init(progress_prop : bytes, color_scheme : bytes, implicit w : world, implicit app : appstate, id : wid) : (world, appstate, progress_state)
+[
+	property_observe(id, progress_prop);
+	return progress_state.[
+		progress_prop : progress_prop,
+		color_scheme : color_scheme,
+	];
+]
+
+fn progress_get_width(app : appstate, com : widget_common, st : progress_state, x : int) : int
+[
+	return max(x, 7);
+]
+
+fn progress_get_height(app : appstate, com : widget_common, st : progress_state, x : int) : int
+[
+	return 1;
+]
+
+fn progress_redraw(implicit app : appstate, implicit curs : curses, com : widget_common, st : progress_state) : curses
+[
+	var ratio := property_get(st.progress_prop).r;
+	if ratio.den = 0 then
+		ratio.den := 1;
+	if ratio < 0 then
+		ratio := 0;
+	if ratio > 1 then
+		ratio := 1;
+	var number : int := ratio * 100;
+	var num_str := list_left_pad(ntos(number) + "%", 4, ' ');
+	var space := max(com.size_x - 2 - len(num_str), 1);
+	var space_filled : int := ratio * space;
+	curses_set_pos(0, 0);
+	property_set_attrib(property_get_attrib(st.color_scheme + "progress", #0000, #0000, #0000, #aaaa, #aaaa, #aaaa, 0, curses_invert));
+	curses_print(`[`);
+	property_set_attrib(property_get_attrib(st.color_scheme + "progress-bar", #aaaa, #aaaa, #aaaa, #0000, #0000, #0000, 0, 0));
+	curses_print(list_repeat(` `, space_filled));
+	property_set_attrib(property_get_attrib(st.color_scheme + "progress", #0000, #0000, #0000, #aaaa, #aaaa, #aaaa, 0, curses_invert));
+	curses_print(list_repeat(` `, space - space_filled));
+	curses_print(`]`);
+	curses_print(ascii_to_string(num_str));
+]
+
+fn progress_process_event(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : progress_state, wev : wevent) : (world, appstate, widget_common, progress_state)
+[
+	if wev is property_changed then [
+		widget_enqueue_event(com.self, wevent.redraw.(event_redraw.[
+			x1 : 0,
+			x2 : com.size_x,
+			y1 : 0,
+			y2 : com.size_y,
+		]));
+	]
+]

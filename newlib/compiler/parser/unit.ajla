@@ -1,0 +1,45 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit compiler.parser.unit;
+
+uses io;
+uses compiler.parser.dict;
+
+private fn compile_module_2(w : world, d : list(bytes), file : bytes, program : bool) : (list(list(pcode_t)), list(module_unique_id));
+
+implementation
+
+uses compiler.parser.parser;
+uses compiler.parser.export;
+
+fn compile_module_2(w : world, d : list(bytes), file : bytes, program : bool) : (list(list(pcode_t)), list(module_unique_id))
+[
+	// TODO: move the following test elsewhere ?
+	if list_ends_with(file, ".ajla") then
+		file := file[ .. len(file) - 5];
+
+	var dict := parse_file(w, d, file, program, false);
+
+	var m := empty(module_unique_id);
+	for i := 0 to len(dict.modules) do [
+		m +<= dict.modules[i].id;
+	]
+
+	return generate_pcode(dict), m;
+]

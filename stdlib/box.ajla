@@ -1,0 +1,51 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit box;
+
+uses io;
+
+type box(t : type);
+
+fn box_new(w : world, t : type, v : t) : (world, box(t));
+fn box_set(w : world, t : type, b : box(t), v : t) : world;
+fn box_get(w : world, t : type, b : box(t)) : (world, t);
+
+implementation
+
+uses msgqueue;
+
+type box(t : type) := msgqueue(t);
+
+fn box_new(implicit w : world, t : type, v : t) : (world, box(t))
+[
+	var b := msgqueue_new(t);
+	box_set(b, v);
+	return b;
+]
+
+fn box_set(implicit w : world, t : type, b : box(t), v : t) : world
+[
+	msgqueue_replace(b, 0, v);
+]
+
+fn box_get(implicit w : world, t : type, b : box(t)) : (world, t)
+[
+	var tag, val := msgqueue_peek_nonblock(b);
+	return val;
+]

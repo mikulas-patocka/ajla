@@ -1,0 +1,97 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit compiler.parser.export;
+
+uses compiler.parser.dict;
+
+fn dump_function(def : function_definition) : list(pcode_t);
+fn generate_pcode(fd : function_dictionary) : list(list(pcode_t));
+
+implementation
+
+uses compiler.parser.util;
+
+fn dump_function(def : function_definition) : list(pcode_t)
+[
+	var ctx := def.body.j;
+	var n_real_return_values := 0;
+	for i := ctx.n_arguments to ctx.n_arguments + ctx.n_return_values do
+		if ctx.variables[i].type_idx <> T_Type then
+			n_real_return_values += 1;
+	var result := list(pcode_t).[
+		def.typ,
+		def.call_mode,
+		len(ctx.lambdas),
+		len(ctx.local_types),
+		len(ctx.variables),
+		ctx.n_arguments,
+		ctx.n_return_values,
+		n_real_return_values,
+		ctx.n_labels,
+	];
+	result += blob_generate(i_decode(ctx.name));
+
+	for i := 0 to len(ctx.lambdas) do [
+		var pc := dump_function(ctx.lambdas[i]);
+		result += list(pcode_t).[ len(pc) ];
+		result += pc;
+	]
+
+	for i := 0 to len(ctx.local_types) do [
+		var lt := ctx.local_types[i];
+		result +<= lt.mode;
+		for j := 0 to len(lt.args) do
+			result +<= lt.args[j];
+	]
+
+	for i := 0 to len(ctx.variables) do [
+		var v := ctx.variables[i];
+		var color := -1;
+		if (def.typ and Fn_Mask) = Fn_Record or (def.typ and Fn_Mask) = Fn_Option then
+			color := select(v.type_idx = T_Type, i, -1);
+		result += list(pcode_t).[
+			v.type_idx,
+			v.local_type,
+			color
+		];
+		result += blob_generate(i_decode(v.name));
+	]
+	for i := 0 to len(ctx.instructions) do [
+		var ins := ctx.instructions[i];
+		result += list(pcode_t).[
+			ins.opcode,
+			len(ins.args),
+		];
+		result += ins.args;
+	]
+
+	return result;
+]
+
+fn generate_pcode(fd : function_dictionary) : list(list(pcode_t))
+[
+	var fns := empty(list(pcode_t));
+	var defs := fd.defs;
+	while len_greater_than(defs, 0) do [
+		var f := defs[0].pcode;
+		fns +<= f;
+		defs := defs[1 .. ];
+	]
+	return fns;
+]

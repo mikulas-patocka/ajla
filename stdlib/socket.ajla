@@ -1,0 +1,288 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit socket;
+
+uses io;
+uses socket_consts;
+
+type address := bytes;
+
+fn address_family(a : address) : int;
+
+fn socket(w : world, p s pr : int) : (world, handle);
+fn connect(w : world, s : handle, addr : address) : world;
+fn bind(w : world, s : handle, addr : address) : world;
+fn listen(w : world, s : handle) : world;
+fn accept(w : world, s : handle) : (world, handle);
+fn getsockname(w : world, s : handle) : (world, address);
+fn getpeername(w : world, s : handle) : (world, address);
+fn recvfrom(w : world, s : handle, length : int, flags : int) : (world, bytes, address);
+fn sendto(w : world, s : handle, data : bytes, flags : int, addr : address) : (world, int);
+
+type sockopt;
+conversion fn sockopt_int(s : sockopt) : int;
+conversion fn int_sockopt(i : int) : sockopt;
+conversion fn sockopt_byte(s : sockopt) : byte;
+conversion fn byte_sockopt(i : byte) : sockopt;
+conversion fn sockopt_cstring(s : sockopt) : bytes;
+conversion fn cstring_sockopt(b : bytes) : sockopt;
+fn getsockopt(w : world, s : handle, l opt : int) : (world, sockopt);
+fn setsockopt(w : world, s : handle, l opt : int, data : sockopt) : world;
+
+fn getaddrinfo(w : world, name : bytes, port : int) : (world, list(address));
+fn getnameinfo(w : world, addr : address) : (world, bytes);
+
+fn connect_tcp(implicit w : world, host : bytes, port : int) : (world, handle);
+
+implementation
+
+uses exception;
+
+fn address_family(a : address) : int
+[
+	return a[0] + (a[1] shl 8);
+]
+
+fn socket(w : world, p s pr : int) : (world, handle)
+[
+	var w2 : world;
+	var h : handle;
+	pcode IO IO_Socket 2 4 0 =w2 =h w p s pr;
+	return w2, h;
+]
+
+fn connect(w : world, s : handle, addr : address) : world
+[
+	var w2 w3 : world;
+	pcode IO IO_Connect 1 3 0 =w2 w s addr;
+	pcode IO IO_Connect_Wait 1 2 0 =w3 w2 s;
+	return w3;
+]
+
+fn bind(w : world, s : handle, addr : address) : world
+[
+	var w2 : world;
+	pcode IO IO_Bind 1 3 0 =w2 w s addr;
+	return w2;
+]
+
+fn listen(w : world, s : handle) : world
+[
+	var w2 : world;
+	pcode IO IO_Listen 1 2 0 =w2 w s;
+	return w2;
+]
+
+fn accept(w : world, s : handle) : (world, handle)
+[
+	var h : handle;
+	var w2 : world;
+	pcode IO IO_Accept 2 2 0 =w2 =h w s;
+	return w2, h;
+]
+
+fn getsockname(w : world, s : handle) : (world, address)
+[
+	var w2 : world;
+	var addr : address;
+	pcode IO IO_Get_Sock_Name 2 2 0 =w2 =addr w s;
+	return w2, addr;
+]
+
+fn getpeername(w : world, s : handle) : (world, address)
+[
+	var w2 : world;
+	var addr : address;
+	pcode IO IO_Get_Peer_Name 2 2 0 =w2 =addr w s;
+	return w2, addr;
+]
+
+fn recvfrom(w : world, s : handle, length : int, flags : int) : (world, bytes, address)
+[
+	var w2 : world;
+	var data : bytes;
+	var addr : address;
+	pcode IO IO_Recv_From 3 4 0 =w2 =data =addr w s length flags;
+	return w2, data, addr;
+]
+
+fn sendto(w : world, s : handle, data : bytes, flags : int, addr : address) : (world, int)
+[
+	var w2 : world;
+	var length : int;
+	pcode IO IO_Send_To 2 5 0 =w2 =length w s data flags addr;
+	return w2, length;
+]
+
+type sockopt := bytes;
+
+conversion fn sockopt_int(s : sockopt) : int
+[
+	return native_to_int(native.integer, s);
+]
+
+conversion fn int_sockopt(i : int) : sockopt
+[
+	return int_to_native(native.integer, i);
+]
+
+conversion fn sockopt_byte(s : sockopt) : byte
+[
+	return s[0];
+]
+
+conversion fn byte_sockopt(i : byte) : sockopt
+[
+	return bytes.[ i ];
+]
+
+conversion fn sockopt_cstring(s : sockopt) : bytes
+[
+	if not list_ends_with(s, bytes.[ 0 ]) then
+		return exception_make_str(bytes, ec_sync, error_system_returned_invalid_data, 0, true, "the string returned by getsockopt is not 0-terminated");
+	return s[ .. len(s) - 1];
+]
+
+conversion fn cstring_sockopt(b : bytes) : sockopt
+[
+	return b + bytes.[ 0 ];
+]
+
+fn getsockopt(w : world, s : handle, l opt : int) : (world, sockopt)
+[
+	var w2 : world;
+	var data : sockopt;
+	pcode IO IO_Get_Sock_Opt 2 4 0 =w2 =data w s l opt;
+	return w2, data;
+]
+
+fn setsockopt(w : world, s : handle, l opt : int, data : sockopt) : world
+[
+	var w2 : world;
+	pcode IO IO_Set_Sock_Opt 1 5 0 =w2 w s l opt data;
+	return w2;
+]
+
+fn getaddrinfo(w : world, name : bytes, port : int) : (world, list(address))
+[
+	var h : handle;
+	var w2 : world;
+	pcode IO IO_Get_Addr_Info 2 3 0 =w2 =h w name port;
+	var w3 := w2;
+
+	var s := empty(byte);
+	while true do [
+		var b : bytes;
+		w3, b := read_partial~strict(w3, h, 1024);
+		if not len_greater_than(b, 0) then
+			break;
+		s += b;
+	]
+
+	if s[1] <> 0 then [
+		var error_class := #100 * s[3] + s[2];
+		var error_type := #100 * s[5] + s[4];
+		var error_aux := #1000000 * s[9] + #10000 * s[8] + #100 * s[7] + s[6];
+		abort exception_make_str(int, error_class, error_type, error_aux, false, "failed to lookup " + name + ", " + ntos(port));
+	]
+
+	s := s[2 .. ];
+	var a := empty(address);
+	while len_greater_than(s, 0) do [
+		var found_addrlen := #100 * s[1] + s[0];
+		var found_addr := s[2 .. 2 + found_addrlen];
+		s := s[2 + found_addrlen .. ];
+
+		a +<= found_addr;
+	]
+	return w3, a;
+]
+
+fn getnameinfo(w : world, addr : address) : (world, bytes)
+[
+	var h : handle;
+	var w2 : world;
+	pcode IO IO_Get_Name_Info 2 2 0 =w2 =h w addr;
+	var w3 := w2;
+
+	var s := empty(byte);
+	while true do [
+		var b : bytes;
+		w3, b := read_partial~strict(w3, h, 1024);
+		if not len_greater_than(b, 0) then
+			break;
+		s += b;
+	]
+
+	if s[1] <> 0 then [
+		var error_class := #100 * s[3] + s[2];
+		var error_type := #100 * s[5] + s[4];
+		var error_aux := #1000000 * s[9] + #10000 * s[8] + #100 * s[7] + s[6];
+		abort exception_make_str(int, error_class, error_type, error_aux, false, "failed to lookup address");
+	]
+
+	return w3, s[2 .. ];
+]
+
+fn connect_recursive(w : world, a : list(address)) : (world, handle)
+[
+	var w1 : world;
+	w, w1 := fork(w);
+	var s1 : handle;
+	w1, s1 := socket(w1, address_family(a[0]), sock_stream, 0);
+	w1 := connect(w1, s1, a[0]);
+
+	if not len_greater_than(a, 1) then
+		return w1, s1;
+
+	w := sleep(w, 1000000);
+
+	var b : bool;
+	b := any(w1, w);
+	w := select(b, w1, w);
+	if not b then [
+		if not is_exception w1 then
+			return w1, s1;
+	]
+
+	var w2 : world;
+	w, w2 := fork(w);
+	var s2 : handle;
+	w2, s2 := connect_recursive(w2, a[1 .. ]);
+
+	b := any(w1, w2);
+	w := select(b, w1, w2);
+	if not b then [
+		if not is_exception w1 then
+			return w1, s1;
+		return w2, s2;
+	] else [
+		if not is_exception w2 then
+			return w2, s2;
+		return w1, s1;
+	]
+]
+
+fn connect_tcp(implicit w : world, host : bytes, port : int) : (world, handle)
+[
+	var a := getaddrinfo(host, port);
+	if not len_greater_than(a, 0) then
+		abort exception_make(int, ec_syscall, error_system, system_error_enetunreach, false);
+	return connect_recursive(a);
+]

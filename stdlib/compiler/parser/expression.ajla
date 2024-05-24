@@ -1,0 +1,880 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit compiler.parser.expression;
+
+uses compiler.parser.dict;
+uses compiler.parser.type;
+
+fn list_array_get_index(ctx : function_context, vd : variable_dictionary, cc : compare_context, a : int, t2 : tokens, in_type : bool) : (function_context, int);
+
+fn parse_expression_type(ctx : function_context, vd : variable_dictionary, t : tokens) : (function_context, int);
+fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool) : (function_context, list(int));
+fn parse_n_expressions(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool, n : int) : (function_context, list(int));
+fn parse_expression(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool) : (function_context, int);
+
+implementation
+
+uses pcode;
+uses exception;
+uses charset;
+uses compiler.parser.alloc;
+uses compiler.parser.util;
+uses compiler.parser.gen;
+uses compiler.parser.gen2;
+uses compiler.parser.function;
+uses compiler.parser.local_type;
+uses compiler.parser.parser;
+
+fn find_operator(ctx : function_context, vd : variable_dictionary, t : tokens) : (int, op_option, istring)
+[
+	var best_split := -1;
+	var best_prio := -1;
+	var best_op_mode := op_option.function;
+	var best_string : istring := 0;
+
+	for i := 0 to len(t) do [
+		if t[i].bracket_skip > 0 then [
+			i += t[i].bracket_skip;
+			continue;
+		]
+		var name : istring;
+		if i >= 1, t[i - 1].t is dot or t[i - 1].t is k_is then
+			continue;
+		if t[i].t is identifier then
+			name := t[i].t.identifier;
+		else if t[i].t is oper then
+			name := t[i].t.oper;
+		else
+			continue;
+		if search_variable_dictionary(vd, name) >= 0 then
+			continue;
+		if i = 0 then
+			name := i_append(name, op_prefix_name);
+		else
+			name := i_append(name, op_name);
+		var fd := search_function(ctx, name, t[i .. ]);
+		if is_uninitialized(fd) then
+			continue;
+		if fd.signature.op_priority < 0 then
+			continue;
+		if fd.signature.op_mode is prefix_op and i > 0 then
+			continue;
+		if fd.signature.op_mode is postfix_op and i < len(t) - 1 then
+			continue;
+		if fd.signature.op_mode is infix_op and (i = 0 or i = len(t) - 1) then
+			continue;
+		if fd.signature.op_priority >= best_prio then [
+			best_split := i;
+			best_prio := fd.signature.op_priority;
+			best_op_mode := fd.signature.op_mode;
+			best_string := name;
+		]
+		if fd.signature.op_mode is infix_op or fd.signature.op_mode is prefix_op then [
+test_next:
+			if i + 1 < len(t) then [
+				if t[i + 1].t is identifier then
+					name := t[i + 1].t.identifier;
+				else if t[i + 1].t is oper then
+					name := t[i + 1].t.oper;
+				else
+					continue;
+				name := i_append(name, op_prefix_name);
+				fd := search_function(ctx, name, t[i + 1 .. ]);
+				if is_uninitialized(fd) then
+					continue;
+				if fd.signature.op_mode is prefix_op then [
+					i += 1;
+					goto test_next;
+				]
+			]
+		]
+	]
+
+	return best_split, best_op_mode, best_string;
+]
+
+fn parse_fn_arguments(ctx : function_context, vd : variable_dictionary, t : tokens, var_idx : int, offset : int, in_type : bool) : (function_context, variable_dictionary, list(int))
+[
+	if len_at_least(t, 2) then [
+		if t[0].t is left_paren and t[0].bracket_skip = len(t) - 1 then [
+			t := t[1 .. len(t) - 1];
+		]
+	]
+	var vars := empty(int);
+
+	while len_greater_than(t, 0) do [
+		var decl : tokens;
+		decl, t := split_tokens(t, token_opt.comma);
+		var colon := token_find_colon(decl);
+		if colon <> -1 then [
+			var expression := decl[colon + 1 .. ];
+			var a : int;
+			ctx, a := parse_expression_type(ctx, vd, expression);
+			for i := 0 to colon do [
+				var name := decl[i].t.identifier;
+				vars +<= a;
+				var l : int;
+				ctx, l := alloc_local_variable(ctx, a, true, false);
+				ctx := generate_Load_Local_Type(ctx, var_idx, offset + len(vars) - 1, l);
+				ctx, vd := add_variable(ctx, vd, name, l, false, decl);
+			]
+		] else [
+			var a : int;
+			ctx, a := parse_expression_type(ctx, vd, decl);
+			vars +<= a;
+		]
+	]
+
+	return ctx, vd, vars;
+]
+
+{=================
+ = FUNCTION TYPE =
+ =================}
+
+fn parse_function_type(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool) : (function_context, list(int))
+[
+	xeval token_assert(t, token_opt.left_paren);
+	var matching_paren := t[0].bracket_skip;
+	var argument_tokens := t[ .. matching_paren + 1];
+	var return_values_tokens := t[matching_paren + 1 .. ];
+	xeval token_assert(return_values_tokens, token_opt.colon);
+	return_values_tokens := return_values_tokens[1 .. ];
+	var l : int;
+	ctx, l := alloc_local_variable(ctx, T_Type, false, false);
+
+	var private_vd := new_variable_dictionary_chained(ctx, vd);
+
+	var arguments return_values : list(int);
+	ctx, private_vd, arguments := parse_fn_arguments(ctx, private_vd, argument_tokens, l, 0, in_type);
+	ctx, private_vd, return_values := parse_fn_arguments(ctx, private_vd, return_values_tokens, l, len(arguments), in_type);
+
+	if len(arguments) = 0 or len(return_values) = 0 then [
+		abort compiler_error("Function must have at least one argument and one return value", t);
+	]
+
+	ctx := set_defined_here(ctx, l);
+	ctx := generate_Fn(ctx, arguments, return_values, l);
+
+	return ctx, [ l ];
+]
+
+fn record_list_create(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool) : (function_context, list(int))
+[
+	var left_bracket := len(t) + t[len(t) - 1].bracket_skip - 1;
+	var at : int;
+	ctx, at := parse_expression_type(ctx, vd, t[ .. left_bracket - 1]);
+	var my_cc := new_compare_context(ctx);
+	var cc, typ := get_base_definition(ctx, my_cc, at, true);
+	if typ = T_Record then [
+
+		{===================
+		 = RECORD CREATION =
+		 ===================}
+
+		var rec_def := cc.ctx.record_def.j;
+		if rec_def.is_option then
+			abort compiler_error("Record expected", t);
+		var content := t[left_bracket + 1 .. len(t) - 1];
+		var decls := fill(tokens, uninitialized(tokens), len(rec_def.entries));
+		while len_greater_than(content, 0) do [
+			var decl : tokens;
+			decl, content := split_tokens(content, token_opt.comma);
+			xeval token_assert(decl, token_opt.identifier.(0));
+			var name := decl[0].t.identifier;
+			decl := decl[1 .. ];
+			xeval token_assert(decl, token_opt.colon);
+			decl := decl[1 .. ];
+			var idx := rec_def.dict[name];
+			if is_uninitialized(idx) then
+				abort compiler_error("Unknown record field " + i_decode(name), t);
+			if not is_uninitialized(decls[idx]) then
+				abort compiler_error("Record field " + i_decode(name) + " already initialized", t);
+			decls[idx] := decl;
+		]
+
+		var exception_var := -1;
+		cc := set_llt_main(cc, -1);
+		var fields := fill(T_InvalidType, len(rec_def.entries));
+		for idx := 0 to len(rec_def.entries) do [
+			var l : int;
+			if is_uninitialized(decls[idx]) then [
+				if rec_def.entries[idx].cnst then [
+					abort compiler_error("Constant field " + ntos(idx + 1) + " not initialized", t);
+				]
+				var xtyp : int;
+				ctx, xtyp := evaluate_type(ctx, cc, rec_def.entries[idx].type_idx, empty(compare_fn_stack), decls[idx]);
+				ctx, l := alloc_local_variable(ctx, xtyp, true, false);
+				if exception_var = -1 then [
+					exception_var := l;
+					ctx := generate_IO_Exception_Make(ctx, ec_sync, error_record_field_not_initialized, 0, l);
+				] else [
+					ctx := generate_Copy_Type_Cast(ctx, exception_var, l);
+				]
+			] else [
+				var l1 : int;
+				ctx, l1 := parse_expression(ctx, vd, decls[idx], in_type);
+				var m : maybe_inferred;
+				ctx, l, m := convert_type(ctx, vd, l1, cc, rec_def.entries[idx].type_idx, 0, true, decls[idx]);
+			]
+			fields[idx] := l;
+			cc.llt_redirect +<= new_compare_argument(my_cc, l);
+			// TODO: quadratic complexity
+			for j := 0 to idx + 1 do [
+				cc.llt_redirect[j].cc.ctx := ctx;
+			]
+		]
+
+		var l : int;
+		ctx, l := generate_Record_Create(ctx, at, fields);
+		return ctx, [ l ];
+	]
+
+	{=================
+	 = LIST CREATION =
+	 =================}
+
+	var type_cc, type_var := list_type(ctx, cc, typ, t);
+	var content_cc, content_typ := get_base_definition(ctx, type_cc, type_var, false);
+	var lt : int;
+	ctx, lt := get_local_type_cc(ctx, content_cc, content_typ);
+
+	var content := t[left_bracket + 1 .. len(t) - 1];
+	var fields := empty(int);
+	while len_greater_than(content, 0) do [
+		var decl : tokens;
+		decl, content := split_tokens(content, token_opt.comma);
+		var a : int;
+		ctx, a := parse_expression(ctx, vd, decl, in_type);
+		var m : maybe_inferred;
+		ctx, a, m := convert_type(ctx, vd, a, type_cc, type_var, 0, true, decl);
+		fields +<= a;
+	]
+	var l : int;
+	ctx, l := generate_Array_Create(ctx, lt, at, fields, t);
+	return ctx, [ l ];
+]
+
+{===========================
+ = SHORTENED LIST CREATION =
+ ===========================}
+
+fn shortened_list_create(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool) : (function_context, list(int))
+[
+	var type_cc := empty_compare_context;	// avoid uninitialized error
+	var type_var := -1;			// avoid uninitialized error
+
+	var content := t[1 .. len(t) - 1];
+	var fields := empty(int);
+
+	if not len_greater_than(content, 0) then
+		abort compiler_error("Empty list", t);
+
+	while len_greater_than(content, 0) do [
+		var decl : tokens;
+		decl, content := split_tokens(content, token_opt.comma);
+		var a : int;
+		ctx, a := parse_expression(ctx, vd, decl, in_type);
+		if len(fields) = 0 then [
+			type_cc := new_compare_context(ctx);
+			type_var := get_type_of_var(ctx, a);
+		] else [
+			var m : maybe_inferred;
+			ctx, a, m := convert_type(ctx, vd, a, type_cc, type_var, 0, true, decl);
+		]
+		fields +<= a;
+	]
+
+	var lt : int;
+	ctx, lt := get_local_type_cc(ctx, type_cc, type_var);
+
+	var id := get_list_id;
+	var fd := search_function_from_id(ctx, id);
+	var at : list(int);
+	ctx, at := generate_Call(ctx, Call_Mode_Unspecified, fd, list(int).[ type_var ], t);
+
+	var l : int;
+	ctx, l := generate_Array_Create(ctx, lt, at[0], fields, t);
+	return ctx, [ l ];
+]
+
+fn list_sub(ctx : function_context, vd : variable_dictionary, t t2 t3 : tokens, in_type : bool) : (function_context, list(int))
+[
+
+	{=================
+	 = LIST SUB/SKIP =
+	 =================}
+
+	var aa am an ax : int;
+	ctx, aa := parse_expression(ctx, vd, t, in_type);
+
+	ctx, ax := evaluate_list_type(ctx, aa, t);
+
+	ctx, am := parse_expression(ctx, vd, t2, in_type);
+	var m : maybe_inferred;
+	ctx, am, m := convert_type(ctx, vd, am, empty_compare_context, T_Integer, 0, true, t2);
+
+	var l : int;
+	if len(t3) > 0 then [
+		ctx, an := parse_expression(ctx, vd, t3, in_type);
+		ctx, an, m := convert_type(ctx, vd, an, empty_compare_context, T_Integer, 0, true, t3);
+		ctx, l := generate_Array_Sub(ctx, aa, am, an);
+	] else [
+		ctx, l := generate_Array_Skip(ctx, aa, am);
+	]
+
+	return ctx, [ l ];
+]
+
+fn list_array_get_index(ctx : function_context, vd : variable_dictionary, cc : compare_context, a : int, t2 : tokens, in_type : bool) : (function_context, int)
+[
+	var ai : int;
+
+	var is_array, shape_cc, shape := array_shape(ctx, cc, a, t2);
+	if is_array then [
+		var n_idxs := len(shape);
+		for i := 0 to n_idxs do
+			ctx, shape[i] := evaluate_type(ctx, shape_cc, shape[i], empty(compare_fn_stack), t2);
+		var idxs : list(int);
+		ctx, idxs := parse_n_expressions(ctx, vd, t2, in_type, n_idxs);
+		for i := 0 to n_idxs do [
+			var m : maybe_inferred;
+			ctx, idxs[i], m := convert_type(ctx, vd, idxs[i], empty_compare_context, T_Integer, 0, true, t2);
+		]
+		var index_expression := empty(token);
+		if n_idxs = 0 then [
+			ctx, ai := generate_Load_Const(ctx, T_Integer, integer_to_blob(0));
+		] else [
+			// [ a, b, c ] -> ((c) * ib + b) * ia + a
+			for ii := 0 to n_idxs do [
+				var i := n_idxs - 1 - ii;
+				if i < n_idxs - 1 then [
+					index_expression := [ new_token(t2[0], token_opt.left_paren) ] + index_expression + [ new_token(t2[0], token_opt.right_paren) ];
+					index_expression[0].bracket_skip := len(index_expression) - 1;
+					index_expression[len(index_expression) - 1].bracket_skip := -(len(index_expression) - 1);
+					index_expression +<= new_token(t2[0], token_opt.oper.(i_encode("*")));
+					index_expression +<= new_token(t2[0], token_opt.internal_variable.(shape[i]));
+					index_expression +<= new_token(t2[0], token_opt.oper.(i_encode("+")));
+				]
+				index_expression +<= new_token(t2[0], token_opt.internal_variable.(idxs[i]));
+			]
+			ctx, ai := parse_expression(ctx, vd, index_expression, in_type);
+		]
+	] else [
+		ctx, ai := parse_expression(ctx, vd, t2, in_type);
+		var m : maybe_inferred;
+		ctx, ai, m := convert_type(ctx, vd, ai, empty_compare_context, T_Integer, 0, true, t2);
+	]
+
+	return ctx, ai;
+]
+
+fn list_load(ctx : function_context, vd : variable_dictionary, t t2 : tokens, in_type : bool) : (function_context, list(int))
+[
+
+	{=============
+	 = LIST LOAD =
+	 =============}
+
+	var aa ai : int;
+	ctx, aa := parse_expression(ctx, vd, t, in_type);
+
+	var cc, a := get_deep_type_of_var(ctx, aa);
+	ctx, ai := list_array_get_index(ctx, vd, cc, a, t2, in_type);
+
+	var l : int;
+	ctx, l := generate_Array_Load(ctx, aa, ai, t);
+	return ctx, [ l ];
+]
+
+fn non_empty_option_create(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool) : (function_context, list(int))
+[
+
+	{=============================
+	 = NON-EMPTY OPTION CREATION =
+	 =============================}
+
+	var left_bracket := len(t) + t[len(t) - 1].bracket_skip - 1;
+	var arg_tokens := t[left_bracket + 1 .. len(t) - 1];
+
+	xeval token_assert(t[left_bracket - 3 .. ], token_opt.dot);
+	xeval token_assert(t[left_bracket - 2 .. ], token_opt.identifier.(0));
+	var field := t[left_bracket - 2].t.identifier;
+	var at : int;
+	ctx, at := parse_expression_type(ctx, vd, t[ .. left_bracket - 3]);
+	var my_cc := new_compare_context(ctx);
+	var cc, typ := get_base_definition(ctx, my_cc, at, true);
+	if typ <> T_Record then
+		abort compiler_error("Option expected", t);
+	var rec_def := cc.ctx.record_def.j;
+	if not rec_def.is_option then
+		abort compiler_error("Option expected", t);
+	var idx := rec_def.dict[field];
+	if is_uninitialized(idx) then
+		abort compiler_error("Unknown option field " + i_decode(field), t);
+	if rec_def.entries[idx].type_idx = T_EmptyOption then
+		abort compiler_error("Option field " + i_decode(field) + " doesn't have a value", t);
+	var ar : int;
+	ctx, ar := parse_expression(ctx, vd, arg_tokens, in_type);
+	var m : maybe_inferred;
+	ctx, ar, m := convert_type(ctx, vd, ar, cc, rec_def.entries[idx].type_idx, 0, true, t);
+	var l : int;
+	ctx, l := generate_Option_Create(ctx, at, idx, ar);
+	return ctx, [ l ];
+]
+
+fn option_test(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool) : (function_context, list(int))
+[
+
+	{===============
+	 = OPTION TEST =
+	 ===============}
+
+	xeval token_assert(t[len(t) - 1 .. ], token_opt.identifier.(0));
+	var field := t[len(t) - 1].t.identifier;
+	var ar : int;
+	ctx, ar := parse_expression(ctx, vd, t[ .. len(t) - 2], in_type);
+	var cc, typ := get_deep_type_of_var(ctx, ar);
+	if typ <> T_Record then
+		abort compiler_error("Option expected", t);
+	var rec_def := cc.ctx.record_def.j;
+	if not rec_def.is_option then
+		abort compiler_error("Option expected", t);
+	var idx := rec_def.dict[field];
+	if is_uninitialized(idx) then
+		abort compiler_error("Unknown option field " + i_decode(field), t);
+	var l : int;
+	ctx, l := generate_Option_Test(ctx, ar, idx);
+	return ctx, [ l ];
+]
+
+fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool) : (function_context, list(int))
+[
+	if not len_greater_than(t, 0) then
+		abort compiler_error("Empty expression in " + i_decode(ctx.name), t);
+
+	{=========
+	 = COMMA =
+	 =========}
+
+	var comma := token_find(t, token_opt.comma, false);
+	if comma >= 0 then [
+		var ret := empty(int);
+		while len(t) > 0 do [
+			var expr : tokens;
+			expr, t := split_tokens(t, token_opt.comma);
+			var x : list(int);
+			ctx, x := parse_expressions(ctx, vd, expr, in_type);
+			ret += x;
+		]
+		return ctx, ret;
+	]
+
+	{============
+	 = OPERATOR =
+	 ============}
+
+	if len_greater_than(t, 1) then [
+		var best_split, best_op_mode, best_string := find_operator(ctx, vd, t);
+		if best_split >= 0 then [
+			var x1 x2 : int;
+			var tk := t[best_split .. best_split + 1];
+			if tk[0].t is identifier then
+				tk[0].t.identifier := best_string;
+			else
+				tk[0].t.oper := best_string;
+			var call_mode := get_call_mode(t[best_split].post_hints, false);
+			if best_op_mode is infix_op then [
+				ctx, x1 := parse_expression(ctx, vd, t[ .. best_split], in_type);
+				ctx, x2 := parse_expression(ctx, vd, t[best_split + 1 .. ], in_type);
+				return parse_and_process_function(ctx, vd, tk, call_mode, 2, list(int).[ x1, x2 ], in_type);
+			]
+			if best_op_mode is prefix_op then [
+				ctx, x1 := parse_expression(ctx, vd, t[best_split + 1 .. ], in_type);
+				return parse_and_process_function(ctx, vd, tk, call_mode, 1, list(int).[ x1 ], in_type);
+			]
+			if best_op_mode is postfix_op then [
+				ctx, x1 := parse_expression(ctx, vd, t[ .. best_split], in_type);
+				return parse_and_process_function(ctx, vd, tk, call_mode, 1, list(int).[ x1 ], in_type);
+			]
+		]
+	]
+
+	{===============
+	 = PARENTHESES =
+	 ===============}
+
+	if t[0].t is left_paren and t[0].bracket_skip = len(t) - 1 then [
+		return parse_expressions(ctx, vd, t[1 .. len(t) - 1], in_type);
+	]
+
+	{==========
+	 = LAMBDA =
+	 ==========}
+
+	if t[0].t is k_lambda, token_find(t, token_opt.right_bracket, true) = len(t) - 1 then [
+		return parse_lambda_function(ctx, vd, t[1 .. ]);
+	]
+
+	{=================
+	 = FUNCTION TYPE =
+	 =================}
+
+	if t[0].t is k_fn then [
+		return parse_function_type(ctx, vd, t[1 .. ], in_type);
+	]
+
+	{=======
+	 = ORD =
+	 =======}
+
+	if t[0].t is k_ord then [
+		var ar l : int;
+		ctx, ar := parse_expression(ctx, vd, t[1 .. ], in_type);
+		var cc, typ := get_deep_type_of_var(ctx, ar);
+		if typ <> T_Record then
+			abort compiler_error("Option expected", t);
+		var rec_def := cc.ctx.record_def.j;
+		if not rec_def.is_option then
+			abort compiler_error("Option expected", t);
+		ctx, l := generate_Option_Ord(ctx, ar);
+
+		return ctx, [ l ];
+	]
+
+	if len_at_least(t, 2), t[len(t) - 1].t is right_bracket then [
+		var left_bracket := len(t) + t[len(t) - 1].bracket_skip - 1;
+		if left_bracket = 0 then [
+
+			{===========================
+			 = SHORTENED LIST CREATION =
+			 ===========================}
+
+			return shortened_list_create(ctx, vd, t, in_type);
+		] else if left_bracket >= 1, t[left_bracket - 1].t is dot then [
+
+			{==========================
+			 = RECORD / LIST CREATION =
+			 ==========================}
+
+			return record_list_create(ctx, vd, t, in_type);
+		] else [
+			var inner_tokens := t[left_bracket + 1 .. len(t) - 1];
+			var dotdot := token_find(inner_tokens, token_opt.range, false);
+			if dotdot >= 0 then [
+
+				{===================
+				 = LIST SUB / SKIP =
+				 ===================}
+
+				var left_tokens : tokens;
+				left_tokens := inner_tokens[ .. dotdot];
+				if dotdot = 0 then [
+					var lt := new_token(inner_tokens[dotdot], token_opt.number.("0"));
+					left_tokens := tokens.[ lt ];
+				]
+				return list_sub(ctx, vd, t[ .. left_bracket], left_tokens, inner_tokens[dotdot + 1 .. ], in_type);
+			] else [
+
+				{=============
+				 = LIST LOAD =
+				 =============}
+
+				return list_load(ctx, vd, t[ .. left_bracket], inner_tokens, in_type);
+			]
+		]
+	]
+
+	if len_at_least(t, 3), t[len(t) - 2].t is dot then [
+		xeval token_assert(t[len(t) - 1 .. ], token_opt.identifier.(0));
+		var field := t[len(t) - 1].t.identifier;
+		var a : int;
+		ctx, a := parse_expression(ctx, vd, t[ .. len(t) - 2], in_type);
+		var cc, typ := get_deep_type_of_var(ctx, a);
+		if typ = T_Type then [
+
+			{=========================
+			 = EMPTY OPTION CREATION =
+			 =========================}
+
+			var my_cc := new_compare_context(ctx);
+			var cc, typ := get_base_definition(ctx, my_cc, a, true);
+			if typ <> T_Record then
+				abort compiler_error("Option type expected", t);
+			var rec_def := cc.ctx.record_def.j;
+			if not rec_def.is_option then
+				abort compiler_error("Option type expected", t);
+			var idx := rec_def.dict[field];
+			if is_uninitialized(idx) then
+				abort compiler_error("Unknown option field " + i_decode(field), t);
+			if rec_def.entries[idx].type_idx <> T_EmptyOption then [
+				abort compiler_error("Option field " + i_decode(field) + " requires a value", t);
+			]
+			var l : int;
+			ctx, l := generate_Load_Const(ctx, a, integer_to_blob(idx));
+			return ctx, [ l ];
+		]
+
+		{======================
+		 = RECORD/OPTION LOAD =
+		 ======================}
+
+		if typ <> T_Record then [
+			abort compiler_error("Record or option expected", t);
+		]
+		var rec_def := cc.ctx.record_def.j;
+		var idx := rec_def.dict[field];
+		if is_uninitialized(idx) then
+			abort compiler_error("Unknown record field " + i_decode(field), t);
+
+		var need_copy := false;
+		if rec_def.entries[idx].accessing_other then [
+			if ctx.variables[a].defined_at = defined_multiple then [
+				need_copy := true;
+				//abort compiler_error("Can't take the field " + i_decode(field) + ", because the variable is not mutable or const", t);
+			]
+		]
+		if in_type then [
+			if ctx.variables[a].mut then [
+				if not rec_def.entries[idx].cnst then [
+					need_copy := true;
+					//abort compiler_error("Can't take the field " + i_decode(field) + ", because it is not const", t);
+				]
+			]
+		]
+
+		if need_copy then [
+			var aa : int;
+			ctx, aa := alloc_local_variable(ctx, ctx.variables[a].type_idx, true, false);
+			ctx := generate_Copy(ctx, a, aa);
+			a := aa;
+		]
+
+		var l : int;
+		if not rec_def.is_option then [
+			ctx, l := generate_Record_Load(ctx, a, idx, t);
+		] else [
+			ctx, l := generate_Option_Load(ctx, a, idx, t);
+		]
+
+		return ctx, [ l ];
+	]
+
+	if len_at_least(t, 3), t[len(t) - 2].t is k_is then [
+
+		{===============
+		 = OPTION TEST =
+		 ===============}
+
+		return option_test(ctx, vd, t, in_type);
+	]
+
+	if len(t) = 1 then [
+
+		{=====================
+		 = INTERNAL VARIABLE =
+		 =====================}
+
+		if t[0].t is internal_variable then [
+			return ctx, [ t[0].t.internal_variable ];
+		]
+
+		{=================
+		 = BUILTIN TYPES =
+		 =================}
+
+		var o := ord t[0].t;
+		if o >= ord token_opt.k_type, o <= ord token_opt.k_real128 then [
+			return ctx, [ T_Type - (o - ord token_opt.k_type) ];
+		]
+
+		if t[0].t is identifier or t[0].t is oper then [
+
+			if t[0].t is identifier, t[0].t.identifier = i_encode("internal_type"), function_context_is_privileged(ctx) then
+				return ctx, [ T_Undetermined ];
+
+			{============
+			 = VARIABLE =
+			 ============}
+
+			if t[0].t is identifier then [
+				var v := search_variable_dictionary(vd, t[0].t.identifier);
+				if v >= 0 then [
+					if in_type then
+						if ctx.variables[v].defined_at = defined_multiple then
+							abort compiler_error("Only constants may be used in type definitions", t);
+					return ctx, [ v ];
+				]
+			]
+
+			{===================================
+			 = FUNCTION CALL WITHOUT ARGUMENTS =
+			 ===================================}
+
+			var name : istring;
+			if t[0].t is identifier then
+				name := t[0].t.identifier;
+			else
+				name := t[0].t.oper;
+
+			var fd := search_function(ctx, name, t);
+			if is_uninitialized(fd) then
+				abort compiler_error("Unknown identifier", t);
+
+			var call_mode := get_call_mode(t[0].post_hints, false);
+			if fd.signature.n_arguments = 0 then [
+				var q : list(int);
+				ctx, q := generate_Call(ctx, call_mode, fd, empty(int), t);
+				if len(q) <> fd.signature.n_return_values then
+					abort internal("parse_expressions: invalid number of return values");
+				return ctx, q;
+			] else [
+				var l : int;
+				ctx, l := generate_Load_Fn(ctx, fd, t);
+				return ctx, [ l ];
+			]
+		]
+		if t[0].t is number then [
+
+			{==========
+			 = NUMBER =
+			 ==========}
+
+			var str := t[0].t.number;
+			var blob, typ := constant_to_blob(str);
+			var l : int;
+			ctx, l := generate_Load_Const(ctx, typ, blob);
+			return ctx, [ l ];
+		]
+		if t[0].t is character then [
+
+			{=============
+			 = CHARACTER =
+			 =============}
+
+			if len(t[0].t.character) <> 1 then
+				abort compiler_error("Invalid character constant", t);
+			var tok := t[0];
+			tok.t.number := ntos(t[0].t.character[0]);
+			return parse_expressions(ctx, vd, tokens.[ tok ], in_type);
+		]
+		if t[0].t is string then [
+
+			{==========
+			 = STRING =
+			 ==========}
+
+			var str := t[0].t.string;
+			var l : int;
+			ctx, l := generate_Array_String(ctx, blob_generate(str));
+			return ctx, [ l ];
+		]
+		if t[0].t is unicode then [
+
+			{===========
+			 = UNICODE =
+			 ===========}
+
+			if not utf8_validate(t[0].t.unicode) then
+				abort compiler_error("Invalid UTF-8 string", t);
+			var str := utf8_to_string(t[0].t.unicode);
+			var blob := empty(pcode_t);
+			for i := 0 to len(str) do [
+				if n_combining_characters(str[i]) <> 0 then
+					abort compiler_error("Combining characters in Unicode constants are not supported", t);
+				blob +<= str[i];
+			]
+			var l : int;
+			ctx, l := generate_Array_Unicode(ctx, blob);
+			return ctx, [ l ];
+		]
+	]
+
+	if t[len(t) - 1].t is right_paren then [
+		var left_bracket := len(t) + t[len(t) - 1].bracket_skip - 1;
+		var arg_tokens := t[left_bracket + 1 .. len(t) - 1];
+		if left_bracket >= 3 and t[left_bracket - 1].t is dot then [
+
+			{=============================
+			 = NON-EMPTY OPTION CREATION =
+			 =============================}
+
+			return non_empty_option_create(ctx, vd, t, in_type);
+		]
+
+		{=========================
+		 = FUNCTION CALL / CURRY =
+		 =========================}
+
+		var total_args := 0;
+		while len(arg_tokens) > 0, arg_tokens[len(arg_tokens) - 1].t is comma do [
+			arg_tokens := arg_tokens[ .. len(arg_tokens) - 1];
+			total_args += 1;
+		]
+
+		var p : list(int);
+		if len(arg_tokens) = 0 then [
+			//abort compiler_error("No curried argument", t);
+			p := empty(int);
+		] else [
+			ctx, p := parse_expressions(ctx, vd, arg_tokens, in_type);
+			total_args += len(p);
+		]
+
+		var call_mode := get_call_mode(t[left_bracket].prev_hints, false);
+		return parse_and_process_function(ctx, vd, t[ .. left_bracket], call_mode, total_args, p, in_type);
+	]
+
+	abort compiler_error("Invalid expression", t);
+]
+
+fn parse_n_expressions(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool, n : int) : (function_context, list(int))
+[
+	var result : list(int);
+
+	if n = 0 then [
+		if len_greater_than(t, 0) then
+			abort compiler_error("Invalid number of expressions", t);
+		return ctx, empty(int);
+	]
+
+	ctx, result := parse_expressions(ctx, vd, t, in_type);
+
+	if len(result) <> n then
+		abort compiler_error("Invalid number of expressions", t);
+
+	return ctx, result;
+]
+
+fn parse_expression(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool) : (function_context, int)
+[
+	var result := empty(int);
+	ctx, result := parse_n_expressions(ctx, vd, t, in_type, 1);
+	return ctx, result[0];
+]
+
+fn parse_expression_type(ctx : function_context, vd : variable_dictionary, t : tokens) : (function_context, int)
+[
+	var a : int;
+	ctx, a := parse_expression(ctx, vd, t, true);
+	var cc, typ := get_deep_type_of_var(ctx, a);
+	if typ <> T_Type and typ <> T_TypeOfType then
+		abort compiler_error("Type expected", t);
+	return ctx, a;
+]

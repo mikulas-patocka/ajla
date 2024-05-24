@@ -1,0 +1,278 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit ffi;
+
+uses io;
+
+type ffi_structure;
+
+option ffi_type [
+	t_void;
+	t_uint8;
+	t_sint8;
+	t_uint16;
+	t_sint16;
+	t_uint32;
+	t_sint32;
+	t_uint64;
+	t_sint64;
+	t_float;
+	t_double;
+	t_longdouble;
+	t_pointer;
+	t_uchar;
+	t_schar;
+	t_ushort;
+	t_sshort;
+	t_uint;
+	t_sint;
+	t_ulong;
+	t_slong;
+	t_usize;
+	t_ssize;
+	t_bool;
+	t_structure : ffi_structure;
+]
+
+option ffi_error [
+	e_none;
+	e_errno;
+	e_get_last_error;
+	e_get_last_socket_error;
+]
+
+type ffi_function;
+
+fn ffi_unsafe_get_world : world;
+
+fn ffi_get_size(ft : ffi_type) : int;
+fn ffi_get_alignment(ft : ffi_type) : int;
+
+fn ffi_create_structure(elements : list(ffi_type)) : (ffi_structure, list(int));
+fn ffi_get_structure_offset(str : ffi_structure, element : int) : int;
+
+fn ffi_poke(w : world, ptr : int, ft : ffi_type, val : int) : world;
+fn ffi_peek(w : world, ptr : int, ft : ffi_type) : (world, int);
+
+fn ffi_poke_array(t : type, w : world, ptr : int, a : list(t)) : world;
+fn ffi_peek_array(w : world, ptr : int, l : int, ft : ffi_type, t : type) : (world, list(t));
+
+fn ffi_handle_to_number(w : world, h : handle) : (world, int);
+fn ffi_number_to_handle(w : world, n : int, sckt : bool) : (world, handle);
+
+fn ffi_create_function(filename : bytes, funcname : bytes, err_type : ffi_error, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : ffi_function;
+fn ffi_call_function(w : world, func : ffi_function, args : list(int)) : (world, int, int);
+fn ffi_call_function_pure(func : ffi_function, args : list(int)) : (int, int);
+
+fn ffi_encode_float(f : real32) : int;
+fn ffi_encode_double(f : real64) : int;
+fn ffi_encode_longdouble(f : real80) : int;
+fn ffi_decode_float(i : int) : real32;
+fn ffi_decode_double(i : int) : real64;
+fn ffi_decode_longdouble(i : int) : real80;
+
+type ffi_destructor;
+
+fn ffi_destructor_new(w : world) : (world, ffi_destructor);
+fn ffi_destructor_allocate(w : world, fd : ffi_destructor, size align : int, zero : bool) : (world, int);
+fn ffi_destructor_free(w : world, fd : ffi_destructor, ptr : int) : world;
+fn ffi_destructor_call(w : world, fd : ffi_destructor, func : ffi_function, args : list(int)) : world;
+
+implementation
+
+type ffi_structure := internal_type;
+type ffi_function := internal_type;
+
+fn ffi_unsafe_get_world : world
+[
+	return unsafe_get_world;
+]
+
+fn ffi_get_size(ft : ffi_type) : int
+[
+	var r : int;
+	pcode IO IO_FFI_Get_Size_Alignment 1 1 1 =r ft 0;
+	return r;
+]
+
+fn ffi_get_alignment(ft : ffi_type) : int
+[
+	var r : int;
+	pcode IO IO_FFI_Get_Size_Alignment 1 1 1 =r ft 1;
+	return r;
+]
+
+fn ffi_create_structure(elements : list(ffi_type)) : (ffi_structure, list(int))
+[
+	var r : ffi_structure;
+	var offs : list(int);
+	pcode IO IO_FFI_Create_Structure 2 1 0 =r =offs elements;
+	return r, offs;
+]
+
+fn ffi_get_structure_offset(str : ffi_structure, element : int) : int
+[
+	var r : int;
+	pcode IO IO_FFI_Structure_Offset 1 2 0 =r str element;
+	return r;
+]
+
+fn ffi_poke(w : world, ptr : int, ft : ffi_type, val : int) : world
+[
+	var w2 : world;
+	pcode IO IO_FFI_Poke 1 4 0 =w2 w ptr ft val;
+	return w2;
+]
+
+fn ffi_peek(w : world, ptr : int, ft : ffi_type) : (world, int)
+[
+	var r : int;
+	var w2 : world;
+	pcode IO IO_FFI_Peek 2 3 0 =w2 =r w ptr ft;
+	return w2, r;
+]
+
+fn ffi_poke_array(t : type, w : world, ptr : int, a : list(t)) : world
+[
+	var w2 : world;
+	pcode IO IO_FFI_Poke_Array 1 3 0 =w2 w ptr a;
+	return w2;
+]
+
+fn ffi_peek_array(w : world, ptr : int, l : int, ft : ffi_type, t : type) : (world, list(t))
+[
+	var r : list(t);
+	var w2 : world;
+	pcode IO IO_FFI_Peek_Array 2 4 0 =w2 =r w ptr l ft;
+	return w2, r;
+]
+
+fn ffi_handle_to_number(w : world, h : handle) : (world, int)
+[
+	var n : int;
+	var w2 : world;
+	pcode IO IO_FFI_Handle_To_Number 2 2 0 =w2 =n w h;
+	return w2, n;
+]
+
+fn ffi_number_to_handle(w : world, n : int, sckt : bool) : (world, handle)
+[
+	var h : handle;
+	var w2 : world;
+	pcode IO IO_FFI_Number_To_Handle 2 3 0 =w2 =h w n sckt;
+	return w2, h;
+]
+
+fn ffi_create_function(filename : bytes, funcname : bytes, err_type : ffi_error, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : ffi_function
+[
+	var r : ffi_function;
+	pcode IO IO_FFI_Create_Function 1 6 0 =r filename funcname err_type nvarargs rtype args;
+	return r;
+]
+
+fn ffi_call_function(w : world, func : ffi_function, args : list(int)) : (world, int, int)
+[
+	var r e : int;
+	var w2 : world;
+	pcode IO IO_FFI_Call_Function 3 3 0 =w2 =r =e w func args;
+	return w2, r, e;
+]
+
+fn ffi_call_function_pure(func : ffi_function, args : list(int)) : (int, int)
+[
+	var r e : int;
+	var w := unsafe_get_world;
+	var w2 : world;
+	pcode IO IO_FFI_Call_Function 3 3 0 =w2 =r =e w func args;
+	return r, e;
+]
+
+fn ffi_encode_float(f : real32) : int
+[
+	var r : int;
+	pcode IO IO_FFI_Encode_Real 1 1 0 =r f;
+	return r;
+]
+
+fn ffi_encode_double(f : real64) : int
+[
+	var r : int;
+	pcode IO IO_FFI_Encode_Real 1 1 0 =r f;
+	return r;
+]
+
+fn ffi_encode_longdouble(f : real80) : int
+[
+	var r : int;
+	pcode IO IO_FFI_Encode_Real 1 1 0 =r f;
+	return r;
+]
+
+fn ffi_decode_float(i : int) : real32
+[
+	var r : real32;
+	pcode IO IO_FFI_Decode_Real 1 1 0 =r i;
+	return r;
+]
+
+fn ffi_decode_double(i : int) : real64
+[
+	var r : real64;
+	pcode IO IO_FFI_Decode_Real 1 1 0 =r i;
+	return r;
+]
+
+fn ffi_decode_longdouble(i : int) : real80
+[
+	var r : real80;
+	pcode IO IO_FFI_Decode_Real 1 1 0 =r i;
+	return r;
+]
+
+type ffi_destructor := internal_type;
+
+fn ffi_destructor_new(w : world) : (world, ffi_destructor)
+[
+	var r : ffi_destructor;
+	var w2 : world;
+	pcode IO IO_FFI_Destructor_New 2 1 0 =w2 =r w;
+	return w2, r;
+]
+
+fn ffi_destructor_allocate(w : world, fd : ffi_destructor, size align : int, zero : bool) : (world, int)
+[
+	var r : int;
+	var w2 : world;
+	pcode IO IO_FFI_Destructor_Allocate 2 5 0 =w2 =r w fd size align zero;
+	return w2, r;
+]
+
+fn ffi_destructor_free(w : world, fd : ffi_destructor, ptr : int) : world
+[
+	var w2 : world;
+	pcode IO IO_FFI_Destructor_Free 1 3 0 =w2 w fd ptr;
+	return w2;
+]
+
+fn ffi_destructor_call(w : world, fd : ffi_destructor, func : ffi_function, args : list(int)) : world
+[
+	var w2 : world;
+	pcode IO IO_FFI_Destructor_Call 1 4 0 =w2 w fd func args;
+	return w2;
+]

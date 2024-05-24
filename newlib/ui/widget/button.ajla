@@ -1,0 +1,121 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit ui.widget.button;
+
+uses ui.widget.common;
+
+type button_state;
+
+fn button_no_action(w : world, app : appstate, id : wid) : (world, appstate);
+fn button_init(label : string, braces : bool, color_scheme : bytes, change_focus : fn(world, appstate, wid) : (world, appstate), click : fn(world, appstate, wid) : (world, appstate), w : world, app : appstate, id : wid) : (world, appstate, button_state);
+fn button_get_width(app : appstate, com : widget_common, st : button_state, x : int) : int;
+fn button_redraw(app : appstate, curs : curses, com : widget_common, st : button_state) : curses;
+fn button_get_cursor(app : appstate, com : widget_common, st : button_state) : (int, int);
+fn button_accepts_key(app : appstate, com : widget_common, st : button_state, k : event_keyboard) : bool;
+fn button_process_event(w : world, app : appstate, com : widget_common, st : button_state, wev : wevent) : (world, appstate, widget_common, button_state);
+
+const button_class~flat := widget_class.[
+	t : button_state,
+	name : "button",
+	is_selectable : true,
+	get_width : button_get_width,
+	redraw : button_redraw,
+	get_cursor : button_get_cursor,
+	accepts_key : button_accepts_key,
+	process_event : button_process_event,
+];
+
+implementation
+
+record button_state [
+	label : string;
+	braces : bool;
+	color_scheme : bytes;
+	change_focus : fn(world, appstate, wid) : (world, appstate);
+	click : fn(world, appstate, wid) : (world, appstate);
+]
+
+fn button_no_action(implicit w : world, implicit app : appstate, id : wid) : (world, appstate)
+[
+]
+
+fn button_init(label : string, braces : bool, color_scheme : bytes, change_focus : fn(world, appstate, wid) : (world, appstate), click : fn(world, appstate, wid) : (world, appstate), implicit w : world, implicit app : appstate, id : wid) : (world, appstate, button_state)
+[
+	return button_state.[
+		label : label,
+		braces : braces,
+		color_scheme : color_scheme,
+		change_focus : change_focus,
+		click : click,
+	];
+]
+
+fn button_get_width(app : appstate, com : widget_common, st : button_state, x : int) : int
+[
+	if st.braces then
+		return string_length(`[ ` + st.label + ` ]`);
+	else
+		return string_length(st.label);
+]
+
+fn button_redraw(implicit app : appstate, implicit curs : curses, com : widget_common, st : button_state) : curses
+[
+	curses_set_pos(0, 0);
+	if widget_is_top(com.self) then [
+		property_set_attrib(property_get_attrib(st.color_scheme + "button-selected", #ffff, #ffff, #ffff, #0000, #0000, #0000, curses_bold, curses_bold));
+	] else [
+		property_set_attrib(property_get_attrib(st.color_scheme + "button", #0000, #0000, #0000, #aaaa, #aaaa, #aaaa, 0, curses_invert));
+	]
+	if st.braces then
+		curses_print(`[ ` + st.label + ` ]`);
+	else
+		curses_print(st.label);
+]
+
+fn button_get_cursor(implicit app : appstate, com : widget_common, st : button_state) : (int, int)
+[
+	return select(st.braces, 0, 2), 0;
+]
+
+fn button_accepts_key(app : appstate, com : widget_common, st : button_state, k : event_keyboard) : bool
+[
+	return k.key = key_enter or k.key = ' ';
+]
+
+fn button_process_event(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : button_state, wev : wevent) : (world, appstate, widget_common, button_state)
+[
+	if wev is keyboard then [
+		st.click(com.self);
+		return;
+	]
+	if wev is mouse, wev.mouse.prev_buttons = 1, wev.mouse.buttons = 0 then [
+		st.click(com.self);
+		return;
+	]
+	if wev is change_focus then [
+		st.change_focus(com.self);
+		widget_enqueue_event(com.self, wevent.redraw.(event_redraw.[
+			x1 : 0,
+			x2 : com.size_x,
+			y1 : 0,
+			y2 : com.size_y,
+		]));
+		return;
+	]
+]

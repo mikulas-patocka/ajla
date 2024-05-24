@@ -1,0 +1,285 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit compiler.optimize.inline;
+
+uses compiler.optimize.defs;
+
+fn inline_functions(ctx : context, get_inline : fn(function) : list(pcode_t)) : context;
+
+implementation
+
+uses compiler.optimize.utils;
+
+
+{fn dump_graph(ctx : context) : bool
+[
+	for i := 0 to len(ctx.blocks) do [
+		var str := empty(byte);
+		var block := ctx.blocks[i];
+		str += "******** block " + ntos(i);
+		if not block.active then [
+			str += " - inactive";
+			eval debug(str);
+			goto next;
+		]
+		str += nl;
+		str += "post_list:";
+		for j := 0 to len(block.post_list) do
+			str += " " + ntos(block.post_list[j]);
+		str += nl;
+		str += "pred_list:";
+		for j := 0 to len(block.pred_list) do
+			str += " " + ntos(block.pred_list[j]);
+		str += nl;
+		str += "pred_position:";
+		for j := 0 to len(block.pred_position) do
+			str += " " + ntos(block.pred_position[j]);
+		eval debug(str);
+next:
+	]
+	return true;
+]}
+
+
+fn do_inline(ctx : context, bgi : int, ili : int, call_mode : pcode_t, get_inline : fn(function) : list(pcode_t)) : (context, bool)
+[
+	//eval dump_graph(ctx);
+	var block := ctx.blocks[bgi];
+	var igi := block.instrs[ili];
+	var ins := ctx.instrs[igi];
+	var l, f := function_load(ins.params[3 .. ]);
+	l := 3 + l;
+	var call_params := ins.params[l .. l + ins.params[2] * 2];
+	var call_result := ins.params[	  l + ins.params[2] * 2 ..
+					  l + ins.params[2] * 2 + ins.params[1]];
+
+	//eval debug("considering inline " + ntos(f.path_idx) + " " + f.un + " " + ntos(f.fn_idx) + " in block " + ntos(bgi));
+	//var new_pc := load_optimized_pcode(f.path_idx, f.un, f.fn_idx);
+	var new_pc := get_inline~save(f);
+
+	var ft := new_pc[0] and Fn_Mask;
+
+	if ft <> Fn_Function and ft <> Fn_Record and ft <> Fn_Option then
+		abort internal("unsupported function type " + ntos(new_pc[0]));
+
+	if ft <> Fn_Function and call_mode <> Call_Mode_Flat then
+		return ctx, false;
+
+	if ft = Fn_Option then [
+		if ctx.variables[call_result[0]].is_option_type <> true then [
+			ctx.variables[call_result[0]].is_option_type := true;
+			return ctx, true;
+		]
+		return ctx, false;
+	]
+	//if ft <> Fn_Function then
+	//	return ctx, false;
+
+	var new_ctx := load_function_context(new_pc);
+
+	//eval debug("inlining " + new_ctx.name + " into " + ctx.name);
+
+	//eval dump_basic_blocks(new_ctx, true);
+
+	//eval dump_graph(new_ctx);
+
+	{
+	for i := 0 to ins.params[2] do [
+		var cp := call_params[i * 2 + 1];
+		var rt : int;
+		if cp >= 0 then rt := ctx.variables[cp].runtime_type; else rt := -1;
+		eval debug("caller arg " + ntos(i) + ": " + ntos(cp) + ", rt " + ntos(rt));
+		var instr_args := new_ctx.instrs[new_ctx.blocks[0].instrs[0]];
+		var arg := instr_args.params[i];
+		eval debug("callee arg " + ntos(i) + ": " + ntos(arg) + ", rt " + ntos(new_ctx.variables[arg].runtime_type));
+	]
+	}
+
+	var tail_block := new_basic_block;
+	var tail_block_bgi := len(ctx.blocks);
+	tail_block.post_list := block.post_list;
+	for i := 0 to len(tail_block.post_list) do [
+		var post_bgi := tail_block.post_list[i];
+		var post_block := ctx.blocks[post_bgi];
+		for j := 0 to len(post_block.pred_list) do [
+			if post_block.pred_list[j] = bgi then
+				ctx.blocks[post_bgi].pred_list[j] := tail_block_bgi;
+		]
+	]
+	tail_block.instrs := block.instrs[ ili + 1 .. ];
+	for i := 0 to len(tail_block.instrs) do [
+		var vgi := tail_block.instrs[i];
+		ctx.instrs[vgi].bb := tail_block_bgi;
+	]
+	ctx.blocks +<= tail_block;
+	ctx.blocks[bgi].instrs := ctx.blocks[bgi].instrs[ .. ili ];
+	ctx.blocks[bgi].post_list := list(int).[ len(ctx.blocks) ];
+
+	for i := 0 to len(new_ctx.local_types) do [
+		var lt := new_ctx.local_types[i];
+		if lt is flat_rec then [
+			lt.flat_rec.non_flat_record += len(ctx.local_types);
+			for j := 0 to len(lt.flat_rec.flat_types) do [
+				if lt.flat_rec.flat_types[j] >= 0 then
+					lt.flat_rec.flat_types[j] += len(ctx.local_types);
+			]
+			new_ctx.local_types[i] := lt;
+		] else if lt is flat_array then [
+			if lt.flat_array.flat_type >= 0 then
+				lt.flat_array.flat_type += len(ctx.local_types);
+			new_ctx.local_types[i] := lt;
+		]
+	]
+
+	for i := 0 to len(new_ctx.instrs) do [
+		var s := new_ctx.instrs[i].read_set or new_ctx.instrs[i].write_set;
+		while s <> 0 do [
+			var p : int := bsr s;
+			s btr= p;
+			new_ctx.instrs[i].params[p] += len(ctx.variables);
+		]
+		new_ctx.instrs[i].bb += len(ctx.blocks);
+
+		var ls := new_ctx.instrs[i].lt_set;
+		while ls <> 0 do [
+			var p := bsr ls;
+			ls btr= p;
+			new_ctx.instrs[i].params[p] += len(ctx.local_types);
+		]
+	]
+
+	for i := 0 to len(new_ctx.variables) do [
+		if new_ctx.variables[i].type_index >= 0 then
+			new_ctx.variables[i].type_index += len(ctx.variables);
+		if new_ctx.variables[i].runtime_type >= 0 then
+			new_ctx.variables[i].runtime_type += len(ctx.local_types);
+	]
+
+	for i := 0 to len(new_ctx.blocks) do [
+		var new_block := new_ctx.blocks[i];
+		if not new_block.active then
+			continue;
+
+		if i = 0 then [
+			var first_instr_igi := new_block.instrs[0];
+			var first_instr := new_ctx.instrs[first_instr_igi];
+			if first_instr.opcode <> P_Args then
+				abort internal("the first instruction is not Args");
+			new_ctx.blocks[i].instrs := new_ctx.blocks[i].instrs[1 .. ];
+			if len(first_instr.params) * 2 <> len(call_params) then
+				abort internal("call mismatch when inlining " + new_ctx.name + " into " + ctx.name);
+			for j := 0 to len(first_instr.params) do [
+				var cp := call_params[j * 2 + 1];
+				var arg := first_instr.params[j];
+				//eval debug("args types " + ntos(j) + ": " + ntos(cp_rt) + " " + ntos(arg_rt));
+
+				var copy_in := create_instr(P_Copy, list(pcode_t).[ arg, 0, cp ], bgi);
+				var copy_igi := len(ctx.instrs);
+				ctx.blocks[bgi].instrs +<= copy_igi;
+				ctx.instrs +<= copy_in;
+			]
+			new_ctx.blocks[i].pred_list := list(int).[ bgi ];
+			new_ctx.blocks[i].pred_position := list(int).[ 0 ];
+		] else [
+			for j := 0 to len(new_block.pred_list) do
+				new_ctx.blocks[i].pred_list[j] += len(ctx.blocks);
+		]
+
+		new_block := new_ctx.blocks[i];
+
+		if len_greater_than(int, new_block.instrs, 0) then [
+			var last_instr_igi := new_block.instrs[len(new_block.instrs) - 1];
+			var last_instr := new_ctx.instrs[last_instr_igi];
+			if last_instr.opcode = P_Return then [
+				new_ctx.blocks[i].instrs := new_ctx.blocks[i].instrs[ .. len(new_block.instrs) - 1];
+				for j := 0 to len(last_instr.params) shr 1 do [
+					var rp := last_instr.params[j * 2 + 1];
+					var cr := call_result[j];
+					//eval debug("ret types " + ntos(j) + ": " + ntos(rp_rt) + " " + ntos(cr_rt));
+
+					var copy_in := create_instr(P_Copy, list(pcode_t).[ call_result[j], 0, rp ], len(ctx.blocks) + i);
+					var copy_igi := len(new_ctx.instrs);
+					new_ctx.blocks[i].instrs +<= copy_igi;
+					new_ctx.instrs +<= copy_in;
+				]
+				new_ctx.blocks[i].post_list := list(int).[ tail_block_bgi ];
+				ctx.blocks[tail_block_bgi].pred_list +<= len(ctx.blocks) + i;
+				ctx.blocks[tail_block_bgi].pred_position +<= 0;
+				goto done_post_list;
+			]
+		]
+
+		for j := 0 to len(new_ctx.blocks[i].post_list) do
+			new_ctx.blocks[i].post_list[j] += len(ctx.blocks);
+done_post_list:
+
+		var instrs := empty(int);
+		for j := 0 to len(new_ctx.blocks[i].instrs) do [
+			var ins := new_ctx.instrs[new_ctx.blocks[i].instrs[j]];
+			if ins.opcode <> P_Line_Info and ins.opcode <> P_Line_Info_Full then [
+				instrs +<= new_ctx.blocks[i].instrs[j];
+			]
+		]
+		new_ctx.blocks[i].instrs := instrs;
+
+		for j := 0 to len(new_ctx.blocks[i].instrs) do
+			new_ctx.blocks[i].instrs[j] += len(ctx.instrs);
+	]
+
+	ctx.local_types += new_ctx.local_types;
+	ctx.instrs += new_ctx.instrs;
+	ctx.blocks += new_ctx.blocks;
+	ctx.variables += new_ctx.variables;
+
+	//eval dump_graph(ctx);
+
+	return ctx, true;
+]
+
+fn inline_functions(ctx : context, get_inline : fn(function) : list(pcode_t)) : context
+[
+again:
+	var did_something := false;
+	for bgi := 0 to len(ctx.blocks) do [
+		var block := ctx.blocks[bgi];
+		if not block.active then
+			continue;
+		var l := len(block.instrs);
+		for ili := 0 to l do [
+			var igi := ctx.blocks[bgi].instrs[ili];
+			var ins := ctx.instrs[igi];
+			if ins.opcode = P_Call then [
+				//xeval debug("considering inline of " + ctx.name + " -> " + function_name(ins.params[3 .. ]) + ": " + ntos(ins.params[0]));
+				var call_mode := ins.params[0];
+				if call_mode = Call_Mode_Inline or call_mode = Call_Mode_Type or call_mode = Call_Mode_Flat then [
+					var progress : bool;
+					ctx, progress := do_inline(ctx, bgi, ili, call_mode, get_inline);
+					if progress then [
+						did_something := true;
+						ctx.should_retry := true;
+						break;
+					]
+				]
+			]
+		]
+	]
+	if did_something then goto again;
+
+	return ctx;
+]

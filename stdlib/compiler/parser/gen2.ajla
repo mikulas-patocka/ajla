@@ -1,0 +1,1079 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit compiler.parser.gen2;
+
+uses compiler.parser.dict;
+uses compiler.parser.type;
+
+fn generate_function_id(id : function_unique_id) : list(pcode_t);
+
+fn generate_Load_Fn(ctx : function_context, fd : function_definition, t : tokens) : (function_context, int);
+fn pcode_Load_Fn_get_n_curried_args(ins : instruction) : int;
+fn pcode_Load_Fn_get_unique_id(ins : instruction) : function_unique_id;
+
+fn generate_Curry(ctx : function_context, cc : compare_context, typ : int, fnx : int, args : list(int), t : tokens) : (function_context, int);
+fn pcode_Curry_get_n_curried_args(ins : instruction) : int;
+fn pcode_Curry_get_fn_variable(ins : instruction) : int;
+fn pcode_Curry_get_arg(ins : instruction, i : int) : int;
+
+fn generate_Call_Indirect(ctx : function_context, call_mode : int, fnx : int, t : tokens) : (function_context, list(int));
+fn pcode_Call_Indirect_get_n_return_values(ins : instruction) : int;
+fn pcode_Call_Indirect_get_n_args(ins : instruction) : int;
+fn pcode_Call_Indirect_get_fn_variable(ins : instruction) : int;
+fn pcode_Call_Indirect_get_return_value(ins : instruction, i : int) : int;
+fn pcode_Call_Indirect_find_return_index(ins : instruction, ret_var : int) : int;
+
+fn generate_Call(ctx : function_context, call_mode : int, fd : function_definition, args : list(int), t : tokens) : (function_context, list(int));
+fn pcode_Call_get_n_return_values(ins : instruction) : int;
+fn pcode_Call_get_n_args(ins : instruction) : int;
+fn pcode_Call_get_unique_id(ins : instruction) : function_unique_id;
+fn pcode_Call_get_arg(ins : instruction, i : int) : int;
+fn pcode_Call_get_return_value(ins : instruction, i : int) : int;
+fn pcode_Call_find_return_index(ins : instruction, ret_var : int) : int;
+fn pcode_Call_quick_compare(in1 in2 : instruction) : bool;
+
+fn integer_to_blob(val : int) : list(pcode_t);
+fn constant_to_blob(str : bytes) : (list(pcode_t), int);
+fn generate_Load_Const(ctx : function_context, typ : int, blob : list(pcode_t)) : (function_context, int);
+fn pcode_Load_Const_get_blob(ins : instruction) : list(pcode_t);
+
+fn generate_Bool(ctx : function_context) : (function_context, int);
+fn generate_Byte(ctx : function_context) : (function_context, int);
+fn generate_Bytes(ctx : function_context) : (function_context, int);
+fn generate_String(ctx : function_context) : (function_context, int);
+
+fn start_Structured_Write(v : int) : list(pcode_t);
+fn append_Structured_Array(m : list(pcode_t), idx local_type : int) : list(pcode_t);
+fn append_Structured_Record(m : list(pcode_t), idx local_type : int) : list(pcode_t);
+fn append_Structured_Option(m : list(pcode_t), idx : int) : list(pcode_t);
+fn generate_Structured_Write(ctx : function_context, instr : list(pcode_t), scalar : int) : function_context;
+
+fn generate_Record_Type(ctx : function_context, fields : list(int), result : int) : function_context;
+fn generate_Option_Type(ctx : function_context, fields : list(int), result : int) : function_context;
+
+fn generate_Record_Create(ctx : function_context, at : int, fields : list(int)) : (function_context, int);
+fn pcode_Record_Create_get_n_args(ins : instruction) : int;
+fn pcode_Record_Create_get_arg(ins : instruction, arg : int) : int;
+fn generate_record_entry_type(ctx : function_context, ar idx : int, rec_cc : compare_context, t : tokens) : (function_context, compare_context, int);
+fn generate_Record_Load(ctx : function_context, a idx : int, t : tokens) : (function_context, int);
+fn pcode_Record_Load_get_record(ins : instruction) : int;
+fn pcode_Record_Load_get_index(ins : instruction) : int;
+
+fn generate_Option_Create(ctx : function_context, at idx ar : int) : (function_context, int);
+fn pcode_Option_Create_get_index(ins : instruction) : int;
+fn pcode_Option_Create_get_arg(ins : instruction) : int;
+fn generate_Option_Load(ctx : function_context, ar idx : int, t : tokens) : (function_context, int);
+fn pcode_Option_Load_get_option(ins : instruction) : int;
+fn pcode_Option_Load_get_index(ins : instruction) : int;
+fn generate_Option_Test(ctx : function_context, ar idx : int) : (function_context, int);
+fn pcode_Option_Test_get_option(ins : instruction) : int;
+fn pcode_Option_Test_get_index(ins : instruction) : int;
+fn generate_Option_Ord(ctx : function_context, ar : int) : (function_context, int);
+fn pcode_Option_Ord_get_option(ins : instruction) : int;
+
+fn generate_Array_Create(ctx : function_context, lt at : int, ae : list(int), t : tokens) : (function_context, int);
+fn pcode_Array_Create_get_length(ins : instruction) : int;
+fn pcode_Array_Create_get_arg(ins : instruction, arg : int) : int;
+fn generate_Array_String(ctx : function_context, blob : list(pcode_t)) : (function_context, int);
+fn pcode_Array_String_get_blob(ins : instruction) : list(pcode_t);
+fn generate_Array_Unicode(ctx : function_context, blob : list(pcode_t)) : (function_context, int);
+fn pcode_Array_Unicode_get_blob(ins : instruction) : list(pcode_t);
+fn generate_Array_Load(ctx : function_context, aa ai : int, t : tokens) : (function_context, int);
+fn pcode_Array_Load_get_array(ins : instruction) : int;
+fn pcode_Array_Load_get_index(ins : instruction) : int;
+fn generate_Array_Sub(ctx : function_context, aa am an : int) : (function_context, int);
+fn pcode_Array_Sub_get_array(ins : instruction) : int;
+fn pcode_Array_Sub_get_start(ins : instruction) : int;
+fn pcode_Array_Sub_get_end(ins : instruction) : int;
+fn generate_Array_Skip(ctx : function_context, aa am : int) : (function_context, int);
+fn pcode_Array_Skip_get_array(ins : instruction) : int;
+fn pcode_Array_Skip_get_start(ins : instruction) : int;
+
+fn generate_Line_Info(ctx : function_context, line : int) : function_context;
+fn generate_Line_Info_Full(ctx : function_context, un func : bytes, line : int) : function_context;
+
+implementation
+
+uses pcode;
+uses private.show;
+uses compiler.parser.type;
+uses compiler.parser.alloc;
+uses compiler.parser.gen;
+uses compiler.parser.util;
+uses compiler.common.gvn;
+
+fn variable_is_suitable_for_gvn(ctx : function_context, v : int) : bool
+[
+	if v < 0 then
+		return true;
+	if ctx.variables[v].defined_at = defined_multiple or
+	   ctx.variables[v].mut then
+		return false;
+	return true;
+]
+
+fn generate_function_id(id : function_unique_id) : list(pcode_t)
+[
+	var result := list(pcode_t).[ (id.path_index shl 1) + select(id.program, 0, 1) ];
+	result += blob_generate(i_decode(id.unit_string));
+	result +<= len(id.function_index);
+	for i := 0 to len(id.function_index) do
+		result +<= id.function_index[i];
+	return result;
+]
+
+fn decode_function_id(p : list(pcode_t)) : function_unique_id
+[
+	var fui := function_unique_id.[
+		path_index : p[0] shr 1,
+		program : (p[0] and 1) <> 0,
+		unit_string : i_encode(blob_decode(p[1 .. ])),
+		function_index : fill(0, p[1 + blob_get_length(p[1 .. ])]),
+	];
+	for i := 0 to len(fui.function_index) do
+		fui.function_index[i] := p[1 + blob_get_length(p[1 .. ]) + 1 + i];
+	return fui;
+]
+
+fn length_of_function_id(p : list(pcode_t)) : int
+[
+	var bl := blob_get_length(p[1 .. ]);
+	return 1 + bl + 1 + p[1 + bl];
+]
+
+fn generate_Load_Fn(ctx : function_context, fd : function_definition, t : tokens) : (function_context, int)
+[
+	var value := -1;	// avoid uninitialized error
+	var gvn_args := list(pcode_t).[ ctx.gvn_seq, P_Load_Fn, fd.call_mode ] + generate_function_id(fd.signature.id);
+	value := gvn_encode(gvn_args);
+	if ctx.gvn[value] <> -1 then [
+		return ctx, ctx.gvn[value];
+	]
+
+	var fn_def : int;
+	ctx, fn_def := alloc_local_variable(ctx, T_Type, false, false);
+
+	var cc := new_compare_context_from_function(fd.signature);
+
+	var args := fill(T_InvalidType, fd.signature.n_arguments + fd.signature.n_return_values);
+
+	for i := 0 to fd.signature.n_arguments + fd.signature.n_return_values do [
+		var typ : int;
+		ctx, typ := evaluate_type(ctx, cc, fd.signature.variables[i].type_idx, empty(compare_fn_stack), t);
+		args[i] := typ;
+
+		var l : int;
+		ctx, l := alloc_local_variable(ctx, typ, true, false);
+		cc.args +<= new_compare_argument(empty_compare_context, l);
+		ctx := generate_Load_Local_Type(ctx, fn_def, i, l);
+
+		// TODO: quadratic complexity
+		var my_cc := new_compare_context(ctx);
+		for j := 0 to i + 1 do
+			cc.args[j].cc := my_cc;
+	]
+
+	ctx := set_defined_here(ctx, fn_def);
+	ctx := generate_Fn(ctx, args[ .. fd.signature.n_arguments], args[fd.signature.n_arguments .. ], fn_def);
+
+	var fnx : int;
+	ctx, fnx := alloc_local_variable(ctx, fn_def, true, false);
+
+	var pcode_args := list(pcode_t).[ fnx, 0, fd.call_mode ];
+	pcode_args += generate_function_id(fd.signature.id);
+	ctx := generate_instruction(ctx, P_Load_Fn, pcode_args);
+
+	ctx.gvn[value] := fnx;
+
+	return ctx, fnx;
+]
+
+fn pcode_Load_Fn_get_n_curried_args(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Load_Fn, "pcode_Load_Fn_get_n_curried_args: invalid instruction");
+	return ins.args[1];
+]
+
+fn pcode_Load_Fn_get_unique_id(ins : instruction) : function_unique_id
+[
+	xeval assert(ins.opcode = P_Load_Fn, "pcode_Load_Fn_get_unique_id: invalid instruction");
+	return decode_function_id(ins.args[3 .. ]);
+]
+
+fn generate_Curry(ctx : function_context, cc : compare_context, typ : int, af : int, args : list(int), t : tokens) : (function_context, int)
+[
+	var use_gvn := variable_is_suitable_for_gvn(ctx, af);
+	var value := -1;	// avoid uninitialized error
+	if use_gvn then [
+		var gvn_args := list(pcode_t).[ ctx.gvn_seq, P_Curry, af ];
+		for i := 0 to len(args) do [
+			gvn_args +<= args[i];
+			use_gvn and= variable_is_suitable_for_gvn(ctx, args[i]);
+		]
+		if use_gvn then [
+			value := gvn_encode(gvn_args);
+			if ctx.gvn[value] <> -1 then [
+				return ctx, ctx.gvn[value];
+			]
+		]
+	]
+
+	var instr := get_defined(cc, typ);
+	var my_cc := new_compare_context(ctx);
+
+	var n_args := pcode_Fn_get_n_args(instr);
+	var n_return_values := pcode_Fn_get_n_return_values(instr);
+	var provided_args := len(args);
+
+	var fn_def : int;
+	ctx, fn_def := alloc_local_variable(ctx, T_Type, false, false);
+
+	var type_args := fill(T_InvalidType, n_args + n_return_values);
+
+	for i := provided_args to n_args + n_return_values do [
+		var type_arg_idx : int;
+		if i < n_args then [
+			type_arg_idx := pcode_Fn_get_argument(instr, i);
+		] else [
+			type_arg_idx := pcode_Fn_get_return_value(instr, i - n_args);
+		]
+		var tp : int;
+		ctx, tp := evaluate_type(ctx, cc, type_arg_idx, empty(compare_fn_stack), t);
+		type_args[i] := tp;
+
+		var l : int;
+		ctx, l := alloc_local_variable(ctx, tp, true, false);
+		ctx := generate_Load_Local_Type(ctx, fn_def, i - provided_args, l);
+		cc.llt_redirect +<= new_compare_argument(my_cc, l);
+		// TODO: quadratic complexity
+		for j := 0 to i + 1 do [
+			cc.llt_redirect[j].cc.ctx := ctx;
+		]
+	]
+
+	ctx := set_defined_here(ctx, fn_def);
+	ctx := generate_Fn(ctx, type_args[provided_args .. n_args], type_args[n_args .. ], fn_def);
+
+	var fnx : int;
+	ctx, fnx := alloc_local_variable(ctx, fn_def, true, false);
+
+	var pcode_args := list(pcode_t).[ fnx, provided_args, 0, af ];
+	for i := 0 to provided_args do [
+		pcode_args +<= 0;
+		pcode_args +<= args[i];
+	]
+
+	ctx := generate_instruction(ctx, P_Curry, pcode_args);
+
+	if use_gvn then [
+		ctx.gvn[value] := fnx;
+	]
+
+	return ctx, fnx;
+]
+
+fn pcode_Curry_get_n_curried_args(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Curry, "pcode_Curry_get_n_curried_args: invalid instruction");
+	return ins.args[1];
+]
+
+fn pcode_Curry_get_fn_variable(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Curry, "pcode_Curry_get_fn_variable: invalid instruction");
+	return ins.args[3];
+]
+
+fn pcode_Curry_get_arg(ins : instruction, i : int) : int
+[
+	xeval assert(ins.opcode = P_Curry, "pcode_Curry_get_arg: invalid instruction");
+	return ins.args[5 + i * 2];
+]
+
+fn generate_Call_Indirect(ctx : function_context, call_mode : int, fnx : int, t : tokens) : (function_context, list(int))
+[
+	var cc, typ := get_deep_type_of_var(ctx, fnx);
+
+	cc := set_llt_main(cc, typ);
+
+	var instr := get_defined(cc, typ);
+
+	var my_cc := new_compare_context(ctx);
+
+	var n_args := pcode_Fn_get_n_args(instr);
+	if n_args <> 0 then
+		abort internal("the number of arguments is " + ntos(n_args));
+
+	var n_return_values := pcode_Fn_get_n_return_values(instr);
+
+	var return_vector := empty(int);
+
+	var use_gvn := variable_is_suitable_for_gvn(ctx, fnx);
+	var value := -1;	// avoid uninitialized error
+	var gvn_args := list(pcode_t).[ ctx.gvn_seq, P_Call_Indirect, fnx, call_mode ];
+	if use_gvn then [
+		value := gvn_encode(gvn_args +< 0);
+		if ctx.gvn[value] <> -1 then [
+			for i := 0 to n_return_values do [
+				var v : int;
+				if i = 0 then
+					v := value;
+				else
+					v := gvn_encode(gvn_args +< i);
+				return_vector +<= ctx.gvn[v];
+			]
+			return ctx, return_vector;
+		]
+	]
+
+	var pcode_args := list(pcode_t).[ call_mode, n_return_values, n_args, 0, fnx ];
+
+	for i := 0 to n_return_values do [
+		var l : int;
+		ctx, l := alloc_local_variable(ctx, T_InvalidType, true, false);
+		pcode_args +<= l;
+		cc.llt_redirect +<= new_compare_argument(my_cc, l);
+		return_vector +<= l;
+		if use_gvn then [
+			var v : int;
+			if i = 0 then
+				v := value;
+			else
+				v := gvn_encode(gvn_args +< i);
+			ctx.gvn[v] := l;
+		]
+	]
+
+	ctx := generate_instruction(ctx, P_Call_Indirect, pcode_args);
+
+	for i := 0 to n_return_values do [
+		var typ : int;
+		ctx, typ := evaluate_type(ctx, cc, pcode_Fn_get_return_value(instr, i), empty(compare_fn_stack), t);
+		ctx := set_variable_type(ctx, return_vector[i], typ);
+		// TODO: quadratic complexity
+		for j := 0 to i + 1 do
+			cc.llt_redirect[j].cc.ctx := ctx;
+	]
+
+	return ctx, return_vector;
+]
+
+fn pcode_Call_Indirect_get_n_return_values(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Call_Indirect, "pcode_Call_Indirect_get_n_args: invalid instruction");
+	return ins.args[1];
+]
+
+fn pcode_Call_Indirect_get_n_args(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Call_Indirect, "pcode_Call_Indirect_get_n_args: invalid instruction");
+	return ins.args[2];
+]
+
+fn pcode_Call_Indirect_get_fn_variable(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Call_Indirect, "pcode_Call_Indirect_get_fn_variable: invalid instruction");
+	return ins.args[4];
+]
+
+fn pcode_Call_Indirect_get_return_value(ins : instruction, i : int) : int
+[
+	xeval assert(ins.opcode = P_Call_Indirect, "pcode_Call_Indirect_get_return_value: invalid instruction");
+	return ins.args[5 + pcode_Call_Indirect_get_n_args(ins) * 2 + i];
+]
+
+fn pcode_Call_Indirect_find_return_index(ins : instruction, ret_var : int) : int
+[
+	xeval assert(ins.opcode = P_Call_Indirect, "pcode_Call_Indirect_get_return_value: invalid instruction");
+	for i := 0 to pcode_Call_Indirect_get_n_return_values(ins) do [
+		if pcode_Call_Indirect_get_return_value(ins, i) = ret_var then
+			return i;
+	]
+	abort internal("Variable not found in return values");
+]
+
+fn generate_Call(ctx : function_context, call_mode : int, fd : function_definition, args : list(int), t : tokens) : (function_context, list(int))
+[
+	if fd.call_mode = Call_Mode_Type or fd.call_mode = Call_Mode_Flat then
+		call_mode := fd.call_mode;
+	else if call_mode = Call_Mode_Unspecified then
+		call_mode := fd.call_mode;
+	var n_arguments := len(args);
+	if n_arguments <> fd.signature.n_arguments then
+		abort internal("The number of arguments doesn't match");
+	var n_return_values := fd.signature.n_return_values;
+
+	var return_vector := empty(int);
+	var pcode_args := list(pcode_t).[ call_mode, n_return_values, n_arguments ];
+	pcode_args += generate_function_id(fd.signature.id);
+
+	var use_gvn := true;
+	var fn_cc := new_compare_context_from_function(fd.signature);
+	for i := 0 to n_arguments do [
+		pcode_args += list(pcode_t).[ 0, args[i] ];
+		fn_cc.args +<= new_compare_argument(new_compare_context(ctx), args[i]);
+		use_gvn and= variable_is_suitable_for_gvn(ctx, args[i]);
+	]
+
+	var value := -1;	// avoid uninitialized error
+	var gvn_args := list(pcode_t).[ ctx.gvn_seq, P_Call ] + pcode_args;
+	if use_gvn then [
+		value := gvn_encode(gvn_args +< 0);
+		if ctx.gvn[value] <> -1 then [
+			//eval debug("gvn hit");
+			for i := 0 to n_return_values do [
+				var v : int;
+				if i = 0 then
+					v := value;
+				else
+					v := gvn_encode(gvn_args +< i);
+				return_vector +<= ctx.gvn[v];
+			]
+			return ctx, return_vector;
+		]
+		//eval debug("gvn miss");
+	]
+
+	var my_cc := new_compare_context(ctx);
+
+	for i := 0 to n_return_values do [
+		var l : int;
+		ctx, l := alloc_local_variable(ctx, T_InvalidType, true, false);
+		pcode_args +<= l;
+		fn_cc.return_redirect +<= new_compare_argument(my_cc, l);
+		return_vector +<= l;
+
+		if use_gvn then [
+			var v : int;
+			if i = 0 then
+				v := value;
+			else
+				v := gvn_encode(gvn_args +< i);
+			ctx.gvn[v] := l;
+		]
+	]
+
+	ctx := generate_instruction(ctx, P_Call, pcode_args);
+
+	for i := 0 to n_return_values do [
+		var typ : int;
+		ctx, typ := evaluate_type(ctx, fn_cc, fd.signature.variables[n_arguments + i].type_idx, empty(compare_fn_stack), t);
+		ctx := set_variable_type(ctx, return_vector[i], typ);
+		// TODO: quadratic complexity
+		for j := 0 to i + 1 do
+			fn_cc.return_redirect[j].cc.ctx := ctx;
+	]
+
+	return ctx, return_vector;
+]
+
+fn pcode_Call_get_n_return_values(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Call, "pcode_Call_get_n_args: invalid instruction");
+	return ins.args[1];
+]
+
+fn pcode_Call_get_n_args(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Call, "pcode_Call_get_n_args: invalid instruction");
+	return ins.args[2];
+]
+
+fn pcode_Call_get_unique_id(ins : instruction) : function_unique_id
+[
+	xeval assert(ins.opcode = P_Call, "pcode_Call_get_unique_id: invalid instruction");
+	return decode_function_id(ins.args[3 .. ]);
+]
+
+fn pcode_Call_get_arg(ins : instruction, i : int) : int
+[
+	xeval assert(ins.opcode = P_Call, "pcode_Call_get_arg: invalid instruction");
+	return ins.args[3 + length_of_function_id(ins.args[3 .. ]) + 1 + i * 2];
+]
+
+fn pcode_Call_get_return_value(ins : instruction, i : int) : int
+[
+	xeval assert(ins.opcode = P_Call, "pcode_Call_get_return_value: invalid instruction");
+	return ins.args[3 + length_of_function_id(ins.args[3 .. ]) + pcode_Call_get_n_args(ins) * 2 + i];
+]
+
+fn pcode_Call_quick_compare(in1 in2 : instruction) : bool
+[
+	xeval assert(in1.opcode = P_Call, "pcode_Call_quick_compare: invalid instruction");
+	xeval assert(in2.opcode = P_Call, "pcode_Call_quick_compare: invalid instruction");
+	return in1.args[3] <> in2.args[3] or in1.args[4] <> in2.args[4];
+]
+
+fn pcode_Call_find_return_index(ins : instruction, ret_var : int) : int
+[
+	xeval assert(ins.opcode = P_Call, "pcode_Call_get_return_value: invalid instruction");
+	for i := 0 to pcode_Call_get_n_return_values(ins) do [
+		if pcode_Call_get_return_value(ins, i) = ret_var then
+			return i;
+	]
+	abort internal("Variable not found in return values");
+]
+
+fn integer_to_blob(val : int) : list(pcode_t)
+[
+	var buffer := empty(byte);
+	var by : byte := 0;
+
+	while val <> 0, val <> -1 do [
+		by := val and #ff;
+		val shr= 8;
+		buffer +<= by;
+	]
+
+	if val >= 0 then [
+		if (by and #80) <> 0 then
+			buffer +<= 0;
+	] else [
+		if (by and #80) <> #80 then
+			buffer +<= #ff;
+	]
+
+	return blob_generate(buffer);
+]
+
+fn bytes_to_float(t : type, implicit c : class_real_number(t), a : bytes) : t
+[
+	if a[0] = '#' then
+		return bytes_to_real_hex(t, c, a[1 .. ]);
+	else
+		return bytes_to_real_base(t, c, a, 10);
+]
+
+fn real_to_blob(str : bytes) : (list(pcode_t), int)
+[
+	var last := str[len(str) - 1] and #df;
+	var t : int;
+	var ex_bits sig_bits : int;
+
+	if last = 'H' then [
+		ex_bits := 5;
+		sig_bits := 11;
+		t := T_Real16;
+	] else if last = 'S' then [
+		ex_bits := 8;
+		sig_bits := 24;
+		t := T_Real32;
+	] else if last = 'L' then [
+		ex_bits := 15;
+		sig_bits := 64;
+		t := T_Real80;
+	] else if last = 'Q' then [
+		ex_bits := 15;
+		sig_bits := 113;
+		t := T_Real128;
+	] else [
+		ex_bits := 11;
+		sig_bits := 53;
+		t := T_Real64;
+	]
+
+	if t <> T_Real64 then
+		str := str[ .. len(str) - 1];
+
+	const eb := ex_bits;
+	const sb := sig_bits;
+	var f := bytes_to_float(floating(eb, sb), instance_real_number_floating(eb, sb), str);
+	var fb := floating_internal(eb, sb, f);
+	return integer_to_blob(fb), t;
+]
+
+fn constant_to_blob(str : bytes) : (list(pcode_t), int)
+[
+	var last := str[len(str) - 1] and #df;
+	if list_search(str, '.') >= 0 or
+	   str[0] <> '#' and (list_search(str, 'e') >= 0 or list_search(str, 'E') >= 0) or
+	   str[0] = '#' and (list_search(str, 'p') >= 0 or list_search(str, 'P') >= 0) or
+	   last = 'H' or last = 'S' or last = 'L' or last = 'Q' then [
+		return real_to_blob(str);
+	]
+
+	var base := 10;
+	if str[0] = '#' then [
+		base := 16;
+		str := str[1 .. ];
+	]
+	var val := 0;
+	for i := 0 to len(str) do [
+		var v : int;
+		var ch := str[i];
+		if ch >= '0' and ch <= '9' then
+			v := ch - '0';
+		else if (ch and #df) >= 'A' and (ch and #df) <= 'F' then
+			v := (ch and #df) - 'A' + 10;
+		else
+			abort internal("invalid number: '" + str + "'");
+		val := val * base + v;
+	]
+
+	return integer_to_blob(val), T_Integer;
+]
+
+fn generate_Load_Const(ctx : function_context, typ : int, blob : list(pcode_t)) : (function_context, int)
+[
+	var l : int;
+	ctx, l := alloc_local_variable(ctx, typ, true, false);
+
+	var pcode_args := list(pcode_t).[ l ];
+
+	pcode_args += blob;
+
+	ctx := generate_instruction(ctx, P_Load_Const, pcode_args);
+
+	return ctx, l;
+]
+
+fn pcode_Load_Const_get_blob(ins : instruction) : list(pcode_t)
+[
+	xeval assert(ins.opcode = P_Load_Const, "pcode_Load_Const_get_blob: invalid instruction");
+	return ins.args[1 .. ];
+]
+
+
+fn generate_std(ctx : function_context, index : int) : (function_context, int)
+[
+	var f_id := function_unique_id.[ path_index : 0, unit_string : i_encode("system"), program : false, function_index : [ index ] ];
+	var fd := search_function_from_id(ctx, f_id);
+
+	var q : list(int);
+	ctx, q := generate_Call(ctx, Call_Mode_Inline, fd, empty(int), empty(token));
+
+	if len(q) <> 1 then
+		abort compiler_error("bool returns multiple values", empty(token));
+
+	return ctx, q[0];
+]
+
+fn generate_Bool(ctx : function_context) : (function_context, int)
+[
+	return generate_std(ctx, predefined_bool);
+]
+
+fn generate_Byte(ctx : function_context) : (function_context, int)
+[
+	return generate_std(ctx, predefined_byte);
+]
+
+fn generate_Bytes(ctx : function_context) : (function_context, int)
+[
+	return generate_std(ctx, predefined_bytes);
+]
+
+fn generate_String(ctx : function_context) : (function_context, int)
+[
+	return generate_std(ctx, predefined_string);
+]
+
+
+fn start_Structured_Write(v : int) : list(pcode_t)
+[
+	return list(pcode_t).[ 0, v, 0, v, 0, -1 ];
+]
+
+fn append_Structured_Array(m : list(pcode_t), idx local_type : int) : list(pcode_t)
+[
+	m[0] += 1;
+	m += list(pcode_t).[ Structured_Array, idx, local_type ];
+	return m;
+]
+
+fn append_Structured_Record(m : list(pcode_t), idx local_type : int) : list(pcode_t)
+[
+	m[0] += 1;
+	m += list(pcode_t).[ Structured_Record, local_type, idx ];
+	return m;
+]
+
+fn append_Structured_Option(m : list(pcode_t), idx : int) : list(pcode_t)
+[
+	m[0] += 1;
+	m += list(pcode_t).[ Structured_Option, idx ];
+	return m;
+]
+
+fn generate_Structured_Write(ctx : function_context, pcode_args : list(pcode_t), scalar : int) : function_context
+[
+	pcode_args[5] := scalar;
+	ctx := generate_instruction(ctx, P_Structured_Write, pcode_args);
+	return ctx;
+]
+
+
+fn generate_Record_Option_Type(ctx : function_context, instr : pcode_t, fields : list(int), result : int) : function_context
+[
+	var pcode_args := list(pcode_t).[ result, len(fields) ];
+	for i := 0 to len(fields) do
+		pcode_args +<= fields[i];
+	pcode_args += generate_function_id(ctx.id);
+	ctx := generate_instruction(ctx, instr, pcode_args);
+	return ctx;
+]
+
+fn generate_Record_Type(ctx : function_context, fields : list(int), result : int) : function_context
+[
+	return generate_Record_Option_Type(ctx, P_Record_Type, fields, result);
+]
+
+fn generate_Option_Type(ctx : function_context, fields : list(int), result : int) : function_context
+[
+	return generate_Record_Option_Type(ctx, P_Option_Type, fields, result);
+]
+
+
+fn generate_Record_Create(ctx : function_context, at : int, fields : list(int)) : (function_context, int)
+[
+	var l : int;
+	ctx, l := alloc_local_variable(ctx, at, true, false);
+
+	var pcode_args := list(pcode_t).[ l, len(fields) ];
+	for i := 0 to len(fields) do [
+		pcode_args +<= 0;
+		pcode_args +<= fields[i];
+	]
+
+	ctx := generate_instruction(ctx, P_Record_Create, pcode_args);
+
+	return ctx, l;
+]
+
+fn pcode_Record_Create_get_n_args(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Record_Create, "pcode_Record_Create_get_n_args: invalid instruction");
+	return ins.args[1];
+]
+
+fn pcode_Record_Create_get_arg(ins : instruction, arg : int) : int
+[
+	xeval assert(ins.opcode = P_Record_Create, "pcode_Record_Create_get_arg: invalid instruction");
+	return ins.args[2 + arg * 2 + 1];
+]
+
+fn generate_record_option_load(ctx : function_context, pc : pcode_t, ae ar idx : int) : (function_context, int)
+[
+	var l : int;
+	ctx, l := alloc_local_variable(ctx, ae, true, false);
+	var pcode_args := list(pcode_t).[ l, 0, ar, idx ];
+	ctx := generate_instruction(ctx, pc, pcode_args);
+	return ctx, l;
+]
+
+fn generate_record_entry_type(ctx : function_context, ar idx : int, rec_cc : compare_context, t : tokens) : (function_context, compare_context, int)
+[
+	var my_cc := new_compare_context(ctx);
+
+	rec_cc := set_llt_main(rec_cc, -1);
+	var rec_def := rec_cc.ctx.record_def.j;
+
+	for i := 0 to idx do [
+		if rec_def.entries[i].cnst, rec_def.entries[idx].type_idx >= 0 then [
+			var ae : int;
+			ctx, ae := evaluate_type(ctx, rec_cc, rec_def.entries[i].type_idx, empty(compare_fn_stack), t);
+			var l : int;
+			ctx, l := generate_record_option_load(ctx, P_Record_Load, ae, ar, i);
+			rec_cc.llt_redirect +<= new_compare_argument(my_cc, l);
+		] else [
+			rec_cc.llt_redirect +<= new_compare_argument(empty_compare_context, T_InvalidType);
+		]
+		// TODO: quadratic complexity
+		for j := 0 to i + 1 do [
+			rec_cc.llt_redirect[j].cc.ctx := ctx;
+		]
+	]
+
+	return ctx, rec_cc, rec_def.entries[idx].type_idx;
+]
+
+fn generate_Record_Load(ctx : function_context, ar idx : int, t : tokens) : (function_context, int)
+[
+	var rec_cc, ign := get_deep_type_of_var(ctx, ar);
+
+	var cc : compare_context;
+	var typ : int;
+	ctx, cc, typ := generate_record_entry_type(ctx, ar, idx, rec_cc, t);
+
+	var at : int;
+	ctx, at := evaluate_type(ctx, cc, typ, empty(compare_fn_stack), t);
+
+	var l : int;
+	ctx, l := generate_record_option_load(ctx, P_Record_Load, at, ar, idx);
+
+	return ctx, l;
+]
+
+fn pcode_Record_Load_get_record(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Record_Load, "pcode_Record_Load_get_record: invalid instruction");
+	return ins.args[2];
+]
+
+fn pcode_Record_Load_get_index(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Record_Load, "pcode_Record_Load_get_index: invalid instruction");
+	return ins.args[3];
+]
+
+fn generate_Option_Create(ctx : function_context, at idx ar : int) : (function_context, int)
+[
+	var l : int;
+	ctx, l := alloc_local_variable(ctx, at, true, false);
+
+	var pcode_args := list(pcode_t).[ l, idx, 0, ar ];
+
+	ctx := generate_instruction(ctx, P_Option_Create, pcode_args);
+
+	return ctx, l;
+]
+
+fn pcode_Option_Create_get_index(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Option_Create, "pcode_Option_Create_get_index: invalid instruction");
+	return ins.args[1];
+]
+
+fn pcode_Option_Create_get_arg(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Option_Create, "pcode_Option_Create_get_arg: invalid instruction");
+	return ins.args[3];
+]
+
+fn generate_Option_Load(ctx : function_context, ar idx : int, t : tokens) : (function_context, int)
+[
+	var cc, ign := get_deep_type_of_var(ctx, ar);
+	var rec_def := cc.ctx.record_def.j;
+
+	var at : int;
+	ctx, at := evaluate_type(ctx, cc, rec_def.entries[idx].type_idx, empty(compare_fn_stack), t);
+
+	var l : int;
+	ctx, l := generate_record_option_load(ctx, P_Option_Load, at, ar, idx);
+
+	return ctx, l;
+]
+
+fn pcode_Option_Load_get_option(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Option_Load, "pcode_Option_Load_get_option: invalid instruction");
+	return ins.args[2];
+]
+
+fn pcode_Option_Load_get_index(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Option_Load, "pcode_Option_Load_get_index: invalid instruction");
+	return ins.args[3];
+]
+
+fn generate_Option_Test(ctx : function_context, ar idx : int) : (function_context, int)
+[
+	var ab l : int;
+	ctx, ab := generate_Bool(ctx);
+	ctx, l := alloc_local_variable(ctx, ab, true, false);
+	var pcode_args := list(pcode_t).[ l, ar, idx ];
+	ctx := generate_instruction(ctx, P_Option_Test, pcode_args);
+	return ctx, l;
+]
+
+fn pcode_Option_Test_get_option(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Option_Test, "pcode_Option_Test_option: invalid instruction");
+	return ins.args[1];
+]
+
+fn pcode_Option_Test_get_index(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Option_Test, "pcode_Option_Test_idx: invalid instruction");
+	return ins.args[2];
+]
+
+fn generate_Option_Ord(ctx : function_context, ar : int) : (function_context, int)
+[
+	var l : int;
+	ctx, l := alloc_local_variable(ctx, T_Integer, true, false);
+	var pcode_args := list(pcode_t).[ l, ar ];
+	ctx := generate_instruction(ctx, P_Option_Ord, pcode_args);
+	return ctx, l;
+]
+
+fn pcode_Option_Ord_get_option(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Option_Ord, "pcode_Option_Ord_get_option: invalid instruction");
+	return ins.args[1];
+]
+
+
+fn generate_Array_Create(ctx : function_context, lt at : int, fields : list(int), t : tokens) : (function_context, int)
+[
+	var array_length := len(fields);
+	var blob := integer_to_blob(array_length);
+	var c l : int;
+	ctx, c := generate_Load_Const(ctx, T_Integer, blob);
+	ctx, l := alloc_local_variable(ctx, at, true, false);
+
+	var pcode_args := list(pcode_t).[ l, lt, array_length, c ];
+
+	for i := 0 to array_length do [
+		pcode_args +<= 0;
+		pcode_args +<= fields[i];
+	]
+
+	ctx := generate_instruction(ctx, P_Array_Create, pcode_args);
+
+	return ctx, l;
+]
+
+fn pcode_Array_Create_get_length(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Array_Create, "pcode_Array_Create_get_length: invalid instruction");
+	return ins.args[2];
+]
+
+fn pcode_Array_Create_get_arg(ins : instruction, arg : int) : int
+[
+	xeval assert(ins.opcode = P_Array_Create, "pcode_Array_Create_get_arg: invalid instruction");
+	return ins.args[4 + arg * 2 + 1];
+]
+
+fn generate_Array_String(ctx : function_context, blob : list(pcode_t)) : (function_context, int)
+[
+	var lb l : int;
+	ctx, lb := generate_Bytes(ctx);
+	ctx, l := alloc_local_variable(ctx, lb, true, false);
+	var pcode_args := list(pcode_t).[ l ];
+	pcode_args += blob;
+	ctx := generate_instruction(ctx, P_Array_String, pcode_args);
+	return ctx, l;
+]
+
+fn pcode_Array_String_get_blob(ins : instruction) : list(pcode_t)
+[
+	xeval assert(ins.opcode = P_Array_String, "pcode_Array_String_get_blob: invalid instruction");
+	return ins.args[1 .. ];
+]
+
+fn generate_Array_Unicode(ctx : function_context, blob : list(pcode_t)) : (function_context, int)
+[
+	var lb l : int;
+	ctx, lb := generate_String(ctx);
+	ctx, l := alloc_local_variable(ctx, lb, true, false);
+	var pcode_args := list(pcode_t).[ l ];
+	pcode_args += blob;
+	ctx := generate_instruction(ctx, P_Array_Unicode, pcode_args);
+	return ctx, l;
+]
+
+fn pcode_Array_Unicode_get_blob(ins : instruction) : list(pcode_t)
+[
+	xeval assert(ins.opcode = P_Array_Unicode, "pcode_Array_Unicode_get_blob: invalid instruction");
+	return ins.args[1 .. ];
+]
+
+fn generate_Array_Load(ctx : function_context, aa ai : int, t : tokens) : (function_context, int)
+[
+	var at l : int;
+	ctx, at := evaluate_list_type(ctx, aa, t);
+	ctx, l := alloc_local_variable(ctx, at, true, false);
+	var pcode_args := list(pcode_t).[ l, 0, aa, ai ];
+	ctx := generate_instruction(ctx, P_Array_Load, pcode_args);
+	return ctx, l;
+]
+
+fn pcode_Array_Load_get_array(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Array_Load, "pcode_Array_Load_get_array: invalid instruction");
+	return ins.args[2];
+]
+
+fn pcode_Array_Load_get_index(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Array_Load, "pcode_Array_Load_get_index: invalid instruction");
+	return ins.args[3];
+]
+
+fn generate_Array_Sub(ctx : function_context, aa am an : int) : (function_context, int)
+[
+	var at l : int;
+	at := get_type_of_var(ctx, aa);
+	ctx, l := alloc_local_variable(ctx, at, true, false);
+	var pcode_args := list(pcode_t).[ l, 0, aa, am, an ];
+	ctx := generate_instruction(ctx, P_Array_Sub, pcode_args);
+	return ctx, l;
+]
+
+fn pcode_Array_Sub_get_array(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Array_Sub, "pcode_Array_Sub_get_array: invalid instruction");
+	return ins.args[2];
+]
+
+fn pcode_Array_Sub_get_start(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Array_Sub, "pcode_Array_Sub_get_start: invalid instruction");
+	return ins.args[3];
+]
+
+fn pcode_Array_Sub_get_end(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Array_Sub, "pcode_Array_Sub_get_end: invalid instruction");
+	return ins.args[3];
+]
+
+fn generate_Array_Skip(ctx : function_context, aa am : int) : (function_context, int)
+[
+	var at l : int;
+	at := get_type_of_var(ctx, aa);
+	ctx, l := alloc_local_variable(ctx, at, true, false);
+	var pcode_args := list(pcode_t).[ l, 0, aa, am ];
+	ctx := generate_instruction(ctx, P_Array_Skip, pcode_args);
+	return ctx, l;
+]
+
+fn pcode_Array_Skip_get_array(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Array_Skip, "pcode_Array_Skip_get_array: invalid instruction");
+	return ins.args[2];
+]
+
+fn pcode_Array_Skip_get_start(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Array_Skip, "pcode_Array_Skip_get_index: invalid instruction");
+	return ins.args[3];
+]
+
+fn generate_Line_Info(ctx : function_context, line : int) : function_context
+[
+	if line < 0 then
+		abort internal("generate_Line_Info: negative line " + ntos(line));
+	var args := list(pcode_t).[ line ];
+	return generate_instruction(ctx, P_Line_Info, args);
+]
+
+fn generate_Line_Info_Full(ctx : function_context, un func : bytes, line : int) : function_context
+[
+	if line < 0 then
+		abort internal("generate_Line_Info_Full: negative line " + ntos(line));
+	var args := empty(pcode_t);
+	args +<= 1;
+	args += blob_generate(un);
+	args += blob_generate(func);
+	args +<= line;
+	return generate_instruction(ctx, P_Line_Info_Full, args);
+]

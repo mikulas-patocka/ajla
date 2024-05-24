@@ -1,0 +1,149 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit compiler.optimize.defs;
+
+uses pcode;
+
+const check : bool := false;
+
+type node_set := int128;
+type var_set := int128;
+type instr_set := int128;
+type param_set := int;
+
+record instruction [
+	opcode : pcode_t;
+	params : list(pcode_t);
+	read_set : param_set;
+	write_set : param_set;
+	free_set : param_set;
+	lt_set : param_set;
+	conflict_1 : param_set;
+	conflict_2 : param_set;
+	borrow : int;
+	bb : int;
+]
+
+record basic_block [
+	active : bool;
+	instrs : list(int);
+	pred_list : list(int);
+	pred_position : list(int);
+	post_list : list(int);
+	dom : node_set;
+	dominates : node_set;
+	idom : int;
+	is_idom_of : node_set;
+	df : node_set;
+	uninitialized : var_set;
+	live_top : var_set;
+	live_bottom : var_set;
+]
+
+fn new_basic_block : basic_block
+[
+	return basic_block.[
+		active : true,
+		instrs : empty(int),
+		pred_list : empty(int),
+		pred_position : empty(int),
+		post_list : empty(int),
+
+		dom : -1,
+		dominates : -1,
+		idom : -1,
+		is_idom_of : -1,
+		df : -1,
+		uninitialized : -1,
+		live_top : -1,
+		live_bottom : -1,
+	];
+]
+
+record variable [
+	type_index : int;
+	runtime_type : int;
+	local_type : int;
+	name : bytes;
+
+	//reading_instrs : instr_set;
+	writing_instrs : instr_set;
+	reaching_def : int;
+	defining_block : int;
+	defining_instr : int;
+
+	color : int;
+	needed : bool;
+
+	is_option_type : bool;
+]
+
+fn new_variable : variable
+[
+	return variable.[
+		type_index : -1,
+		runtime_type : -1,
+		local_type : -1,
+		name : "",
+		writing_instrs : -1,
+		reaching_def : -1,
+		defining_block : -1,
+		defining_instr : -1,
+		color : -1,
+		needed : false,
+		is_option_type : false,
+	];
+]
+
+record function [
+	path_idx : int;
+	un : bytes;
+	program : bool;
+	fn_idx : list(int);
+]
+
+record local_type_flat_record [
+	non_flat_record : int;
+	flat_types : list(int);
+]
+
+record local_type_flat_array [
+	flat_type : int;
+	number_of_elements : int;
+]
+
+option local_type [
+	rec : function;
+	flat_rec : local_type_flat_record;
+	flat_array : local_type_flat_array;
+]
+
+type conflict_map := list(var_set);
+
+record context [
+	local_types : list(local_type);
+	instrs : list(instruction);
+	blocks : list(basic_block);
+	variables : list(variable);
+	label_to_block : list(int);
+	var_map : list(int);
+	cm : conflict_map;
+	should_retry : bool;
+	name : bytes;
+]

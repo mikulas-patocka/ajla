@@ -1,0 +1,204 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit start;
+
+uses io;
+
+fn start : world;
+
+implementation
+
+uses treemap;
+uses spawn;
+uses pcode;
+uses charset;
+uses compiler.compiler;
+
+fn std_handles(w : world) : (world, list(handle))
+[
+	var w2 : world;
+	var n : int;
+	pcode IO IO_N_Std_Handles 2 1 0 =w2 =n w;
+	w := w2;
+	var h := empty(handle);
+	for i := 0 to n do [
+		var w3 : world;
+		var hndl : handle;
+		pcode IO IO_Get_Std_Handle 2 2 0 =w3 =hndl w i;
+		w := w3;
+		h +<= hndl;
+	]
+	return w, h;
+]
+
+fn get_environment_string(w : world) : (world, bytes)
+[
+	var env : bytes;
+	var w2 : world;
+	pcode IO IO_Get_Environment 2 1 0 =w2 =env w;
+	return w2, env;
+]
+
+fn env_string_to_map(b : bytes) : treemap(bytes, bytes)
+[
+	implicit var m := treemap_init(bytes, bytes);
+	var e := list_break(b, 0);
+	for i := 0 to len(e) do [
+		var l := e[i];
+		var eq := list_search(l, '=');
+		if eq = -1 then
+			continue;
+		var name := l[ .. eq];
+		var value := l[eq + 1 .. ];
+		treemap_insert(name, value);
+	]
+]
+
+fn get_sub~spark(f : uint64) : list(uint64)
+[
+	var sub_f : list(uint64);
+	pcode IO IO_Get_SubFunctions 1 1 0 =sub_f f;
+	return sub_f;
+]
+
+fn extract_modules(path_idx : int, file : bytes, program : bool) : list(tuple2(int, istring))
+[
+	//eval debug("preparsing: " + file);
+	var opt := empty(list(pcode_t));
+	var pcl, modules := compile_module~save(libpath, path_idx, file, program);
+	pcode IO IO_Deep_Eval 1 1 0 =pcl pcl;
+	xeval pcl;
+	var r := empty(tuple2(int, istring));
+	for i := 0 to len(modules) do [
+		if modules[i].path_index > 0 then
+			r +<= mktuple2(modules[i].path_index, modules[i].unit_string);
+	]
+	return r;
+]
+
+fn preparse(w : world, file : bytes) : world
+[
+	if list_ends_with(file, ".ajla") then
+		file := file[ .. len(file) - 5];
+	var lp := libpath;
+	var idx := 0;
+	for i := 0 to len(lp) do
+		if lp[i] = 0 then
+			idx += 1;
+	var queue := [ extract_modules~spark(idx - 1, file, true) ];
+	var mod_visited := treeset_from_list([ mktuple2(1, i_encode(file)) ]);
+	while len_greater_than(queue, 0) do [
+		var idx := any_list(queue);
+		var m := queue[idx];
+		queue := queue[ .. idx] + queue[idx + 1 .. ];
+		for i := 0 to len(m) do [
+			var t := m[i];
+			if not treeset_test(mod_visited, t) then [
+				mod_visited := treeset_set(mod_visited, t);
+				var ml := extract_modules~spark(t.v1, i_decode(t.v2), false);
+				queue +<= ml;
+			]
+		]
+	]
+	return w;
+]
+
+fn precompile(w : world, main : main_function_type) : world
+[
+	var main_ptr : uint64;
+	pcode IO IO_Get_Function_Ptr 1 1 0 =main_ptr main;
+
+	var visited := treeset_from_list([ main_ptr ]);
+	var queue := [ get_sub(main_ptr) ];
+
+	while len_greater_than(queue, 0) do [
+		//eval debug("queue size: " + ntos(len(queue)));
+		var idx := any_list(queue);
+		var q := queue[idx];
+		queue := queue[ .. idx] + queue[idx + 1 .. ];
+		for i := 0 to len(q) do [
+			var p := q[i];
+			if not treeset_test(visited, p) then [
+				visited := treeset_set(visited, p);
+				queue +<= get_sub(p);
+			]
+		]
+	]
+
+	return w;
+]
+
+{fn lmbd(implicit w : world, h : list(handle)) : world
+[
+	var l := lambda(a : int, b : int) : int [ return a + b + lambda : int [ return 10; ]; ];
+	var m := lambda(a : int, b : int) : int [ return a + b + lambda : int [ return 10; ]; ];
+	write(h[1], ntos(l(2, 3) + m(1, 2)) + nl);
+]}
+
+fn start : world
+[
+	var w := unsafe_get_world;
+
+	var h : list(handle);
+	w, h := std_handles(w);
+
+	//w := lmbd(w, h);
+
+	var env_string : bytes;
+	w, env_string := get_environment_string(w);
+	var env := env_string_to_map~lazy(env_string);
+
+	var args := get_args(w);
+	if len(args) = 0 then [
+		var loc := locale_console_init(env);
+		w := write(w, h[1], "Ajla " + uname(uname_flag_ajla_version)[0] + nl);
+		w := write(w, h[1], string_to_locale(loc, `Copyright (C) 2024 Mikuláš Patočka`) + nl);
+		w := write(w, h[1], nl);
+		w := write(w, h[1], "Ajla is free software: you can redistribute it and/or modify it under the terms" + nl);
+		w := write(w, h[1], "of the GNU General Public License as published by the Free Software Foundation," + nl);
+		w := write(w, h[1], "either version 3 of the License, or (at your option) any later version." + nl);
+		w := write(w, h[1], nl);
+		w := write(w, h[1], "Ajla is distributed in the hope that it will be useful, but WITHOUT ANY" + nl);
+		w := write(w, h[1], "WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A" + nl);
+		w := write(w, h[1], "PARTICULAR PURPOSE. See the GNU General Public License for more details." + nl);
+		w := write(w, h[1], nl);
+		w := write(w, h[1], "You should have received a copy of the GNU General Public License along with" + nl);
+		w := write(w, h[1], "Ajla. If not, see <https://www.gnu.org/licenses/>." + nl);
+		w := write(w, h[1], nl);
+
+		abort exit_msg(w, 127, "No arguments");
+	]
+
+	var program := args[0];
+	w, program := path_canonical(w, dcwd(w), program);
+
+	var main : main_function_type;
+	w, main := load_program(w, program);
+
+	if sysprop(SystemProperty_Compile) <> 0 then [
+		var w1 := preparse~spark(w, program);
+		var w2 := precompile~spark(w, main);
+		w := join(w1, w2);
+		return w;
+	]
+
+	w := main(w, dcwd(w), h, args[1 .. ], env);
+
+	return w;
+]

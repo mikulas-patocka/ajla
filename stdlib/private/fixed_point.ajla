@@ -1,0 +1,401 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit private.fixed_point;
+
+type fp_type := int128;
+
+fn fixed_point_zero~inline(base digits : int) : fp_type;
+fn fixed_point_one~inline(base digits : int) : fp_type;
+fn fixed_point_neg~inline(base digits : int, i1 : fp_type) : fp_type;
+fn fixed_point_recip~inline(base digits : int, i1 : fp_type) : fp_type;
+fn fixed_point_add~inline(base digits : int, i1 i2 : fp_type) : fp_type;
+fn fixed_point_subtract~inline(base digits : int, i1 i2 : fp_type) : fp_type;
+fn fixed_point_multiply~inline(base digits : int, i1 i2 : fp_type) : fp_type;
+fn fixed_point_divide~inline(base digits : int, i1 i2 : fp_type) : fp_type;
+fn fixed_point_modulo~inline(const base digits : int, i1 i2 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_power~inline(const base digits : int, i1 i2 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_ldexp~inline(const base digits : int, i1 i2 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_atan2~inline(const base digits : int, i1 i2 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_pi~inline(const base digits : int) : fixed_point(base, digits);
+fn fixed_point_sqrt~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_cbrt~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_sin~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_cos~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_tan~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_asin~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_acos~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_atan~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_sinh~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_cosh~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_tanh~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_asinh~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_acosh~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_atanh~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_exp2~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_exp~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_exp10~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_log2~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_log~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_log10~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_round~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_ceil~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_floor~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_trunc~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_fract~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_mantissa~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_exponent~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_next_number~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_prev_number~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits);
+fn fixed_point_is_negative~inline(base digits : int, i1 : fp_type) : bool;
+fn fixed_point_is_infinity~inline(base digits : int, i1 : fp_type) : bool;
+fn fixed_point_equal~inline(base digits : int, i1 i2 : fp_type) : bool;
+fn fixed_point_not_equal~inline(base digits : int, i1 i2 : fp_type) : bool;
+fn fixed_point_less~inline(base digits : int, i1 i2 : fp_type) : bool;
+fn fixed_point_less_equal~inline(base digits : int, i1 i2 : fp_type) : bool;
+fn fixed_point_to_int~inline(base digits : int, i1 : fp_type) : int;
+fn fixed_point_from_int~inline(base digits : int, i1 : int) : fp_type;
+fn fixed_point_to_rational~inline(base digits : int, i1 : fp_type) : rational;
+fn fixed_point_from_rational~inline(base digits : int, i1 : rational) : fp_type;
+fn fixed_point_to_bytes(const base digits : int, i1 : fixed_point(base, digits)) : bytes;
+fn fixed_point_to_bytes_base_precision(const base digits : int, i1 : fixed_point(base, digits), b : int, d : int) : bytes;
+fn fixed_point_from_bytes(const base digits : int, a1 : bytes) : fixed_point(base, digits);
+fn fixed_point_from_bytes_base(const base digits : int, a1 : bytes, b : int) : fixed_point(base, digits);
+
+implementation
+
+uses exception;
+uses private.show;
+uses private.math;
+
+fn fixed_point_validate(base digits : int) : unit_type
+[
+	if base < 2 or digits < 0 then
+		abort exception_make(unit_type, ec_sync, error_invalid_operation, 0, true);
+	return unit_value;
+]
+
+fn fixed_point_zero~inline(base digits : int) : fp_type
+[
+	xeval fixed_point_validate(base, digits);
+	return 0;
+]
+
+fn fixed_point_one~inline(base digits : int) : fp_type
+[
+	xeval fixed_point_validate(base, digits);
+	return ipower(base, digits);
+]
+
+fn fixed_point_neg~inline(base digits : int, i1 : fp_type) : fp_type
+[
+	return -i1;
+]
+
+fn fixed_point_add~inline(base digits : int, i1 i2 : fp_type) : fp_type
+[
+	return i1 + i2;
+]
+
+fn fixed_point_subtract~inline(base digits : int, i1 i2 : fp_type) : fp_type
+[
+	return i1 - i2;
+]
+
+fn fixed_point_multiply~inline(base digits : int, i1 i2 : fp_type) : fp_type
+[
+	return i1 * i2 div ipower(base, digits);
+]
+
+fn fixed_point_recip~inline(base digits : int, i1 : fp_type) : fp_type
+[
+	if i1 = 0 then
+		return exception_make(fp_type, ec_sync, error_infinity, 0, true);
+	return ipower(base, digits * 2) div i1;
+]
+
+fn fixed_point_divide~inline(base digits : int, i1 i2 : fp_type) : fp_type
+[
+	if i2 = 0 then [
+		if i1 = 0 then
+			return exception_make(fp_type, ec_sync, error_nan, 0, true);
+		else
+			return exception_make(fp_type, ec_sync, error_infinity, 0, true);
+	]
+	return i1 * ipower(base, digits) div i2;
+]
+
+fn fixed_point_modulo~inline(const base digits : int, i1 i2 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	if i2 = 0 then
+		return exception_make(fp_type, ec_sync, error_nan, 0, true);
+	return math_modulo(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1, i2);
+]
+
+fn fixed_point_power~inline(const base digits : int, i1 i2 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_power(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1, i2);
+]
+
+fn fixed_point_ldexp~inline(const base digits : int, i1 i2 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_ldexp(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1, i2);
+]
+
+fn fixed_point_atan2~inline(const base digits : int, i1 i2 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_atan2(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1, i2);
+]
+
+fn fixed_point_pi~inline(const base digits : int) : fixed_point(base, digits)
+[
+	xeval fixed_point_validate(base, digits);
+	return math_pi(fixed_point(base, digits), instance_real_number_fixed_point(base, digits));
+]
+
+fn fixed_point_sqrt~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_sqrt(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_cbrt~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_cbrt(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_sin~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_sin(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_cos~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_cos(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_tan~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_tan(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_asin~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_asin(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_acos~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_acos(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_atan~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_atan(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_sinh~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_sinh(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_cosh~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_cosh(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_tanh~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_tanh(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_asinh~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_asinh(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_acosh~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_acosh(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_atanh~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_atanh(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_exp2~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_exp2(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_exp~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_exp(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_exp10~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_exp10(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_log2~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_log2(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_log~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_log(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_log10~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_log10(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_round~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_round(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_ceil~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_ceil(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_floor~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_floor(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_trunc~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_trunc(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_fract~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_fract(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_mantissa~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_mantissa(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_exponent~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return math_exponent(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1);
+]
+
+fn fixed_point_next_number~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return i1 + 1;
+]
+
+fn fixed_point_prev_number~inline(const base digits : int, i1 : fixed_point(base, digits)) : fixed_point(base, digits)
+[
+	return i1 - 1;
+]
+
+fn fixed_point_is_negative~inline(base digits : int, i1 : fp_type) : bool
+[
+	return i1 < 0;
+]
+
+fn fixed_point_is_infinity~inline(base digits : int, i1 : fp_type) : bool
+[
+	return false;
+]
+
+fn fixed_point_equal~inline(base digits : int, i1 i2 : fp_type) : bool
+[
+	return i1 = i2;
+]
+
+fn fixed_point_not_equal~inline(base digits : int, i1 i2 : fp_type) : bool
+[
+	return i1 <> i2;
+]
+
+fn fixed_point_less~inline(base digits : int, i1 i2 : fp_type) : bool
+[
+	return i1 < i2;
+]
+
+fn fixed_point_less_equal~inline(base digits : int, i1 i2 : fp_type) : bool
+[
+	return i1 <= i2;
+]
+
+fn fixed_point_to_int~inline(base digits : int, i1 : fp_type) : int
+[
+	return i1 div ipower(base, digits);
+]
+
+fn fixed_point_from_int~inline(base digits : int, i1 : int) : fp_type
+[
+	xeval fixed_point_validate(base, digits);
+	return i1 * ipower(base, digits);
+]
+
+fn fixed_point_to_rational~inline(base digits : int, i1 : fp_type) : rational
+[
+	var r1 : rational := i1;
+	var r2 : rational := ipower(base, digits);
+	return r1 / r2;
+]
+
+fn fixed_point_from_rational~inline(base digits : int, i1 : rational) : fp_type
+[
+	xeval fixed_point_validate(base, digits);
+	var r2 : rational := ipower(base, digits);
+	var r := i1 * r2;
+	if r.den = 0 then [
+		if r.num = 0 then
+			return exception_make(fp_type, ec_sync, error_nan, 0, true);
+		else
+			return exception_make(fp_type, ec_sync, error_infinity, 0, true);
+	]
+	if r.num >= 0 then
+		return (r.num + r.den div 2) div r.den;
+	else
+		return (r.num - r.den div 2) div r.den;
+]
+
+fn fixed_point_to_bytes(const base digits : int, i1 : fixed_point(base, digits)) : bytes
+[
+	return real_to_bytes_base_precision(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1, base, digits);
+]
+
+fn fixed_point_to_bytes_base_precision(const base digits : int, i1 : fixed_point(base, digits), b : int, d : int) : bytes
+[
+	return real_to_bytes_base_precision(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), i1, b, d);
+]
+
+fn fixed_point_from_bytes(const base digits : int, a1 : bytes) : fixed_point(base, digits)
+[
+	xeval fixed_point_validate(base, digits);
+	return bytes_to_real_base(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), a1, base);
+]
+
+fn fixed_point_from_bytes_base(const base digits : int, a1 : bytes, b : int) : fixed_point(base, digits)
+[
+	xeval fixed_point_validate(base, digits);
+	return bytes_to_real_base(fixed_point(base, digits), instance_real_number_fixed_point(base, digits), a1, b);
+]

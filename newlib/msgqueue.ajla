@@ -1,0 +1,136 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit msgqueue;
+
+uses io;
+
+type msgqueue(t : type);
+
+fn msgqueue_new(w : world, t : type) : (world, msgqueue(t));
+fn msgqueue_send(w : world, t : type, q : msgqueue(t), tag : int, v : t) : world;
+fn msgqueue_replace(w : world, t : type, q : msgqueue(t), tag : int, v : t) : world;
+fn msgqueue_receive(w : world, t : type, q : msgqueue(t)) : (world, int, t);
+fn msgqueue_receive_tag(w : world, t : type, q : msgqueue(t), tag : int) : (world, int, t);
+fn msgqueue_receive_nonblock(w : world, t : type, q : msgqueue(t)) : (world, int, t);
+fn msgqueue_receive_tag_nonblock(w : world, t : type, q : msgqueue(t), tag : int) : (world, int, t);
+fn msgqueue_peek_nonblock(w : world, t : type, q : msgqueue(t)) : (world, int, t);
+fn msgqueue_peek_tag_nonblock(w : world, t : type, q : msgqueue(t), tag : int) : (world, int, t);
+fn msgqueue_wait~lazy(w : world, t : type, q : msgqueue(t)) : unit_type;
+fn msgqueue_is_nonempty(w : world, t : type, q : msgqueue(t)) : bool;
+fn msgqueue_any~lazy(w : world, t1 t2 : type, q1 : msgqueue(t1), q2 : msgqueue(t2)) : bool;
+
+implementation
+
+type msgqueue(t : type) := internal_type;
+
+fn msgqueue_new(w : world, t : type) : (world, msgqueue(t))
+[
+	var w2 : world;
+	var q : msgqueue(t);
+	pcode IO IO_MsgQueue_New 2 1 0 =w2 =q w;
+	return w2, q;
+]
+
+fn msgqueue_send(w : world, t : type, q : msgqueue(t), tag : int, v : t) : world
+[
+	var w2 : world;
+	pcode IO IO_MsgQueue_Send 1 4 1 =w2 w q tag v 0;
+	return w2;
+]
+
+fn msgqueue_replace(w : world, t : type, q : msgqueue(t), tag : int, v : t) : world
+[
+	var w2 : world;
+	pcode IO IO_MsgQueue_Send 1 4 1 =w2 w q tag v 1;
+	return w2;
+]
+
+fn msgqueue_receive(w : world, t : type, q : msgqueue(t)) : (world, int, t)
+[
+	var w2 : world;
+	var tg : int;
+	var v : t;
+	pcode IO IO_MsgQueue_Receive 3 2 1 =w2 =tg =v w q 0;
+	return w2, tg, v;
+]
+
+fn msgqueue_receive_tag(w : world, t : type, q : msgqueue(t), tag : int) : (world, int, t)
+[
+	var w2 : world;
+	var tg : int;
+	var v : t;
+	pcode IO IO_MsgQueue_Receive 3 3 1 =w2 =tg =v w q tag 1;
+	return w2, tg, v;
+]
+
+fn msgqueue_receive_nonblock(w : world, t : type, q : msgqueue(t)) : (world, int, t)
+[
+	var w2 : world;
+	var tg : int;
+	var v : t;
+	pcode IO IO_MsgQueue_Receive 3 2 1 =w2 =tg =v w q 2;
+	return w2, tg, v;
+]
+
+fn msgqueue_receive_tag_nonblock(w : world, t : type, q : msgqueue(t), tag : int) : (world, int, t)
+[
+	var w2 : world;
+	var tg : int;
+	var v : t;
+	pcode IO IO_MsgQueue_Receive 3 3 1 =w2 =tg =v w q tag 3;
+	return w2, tg, v;
+]
+
+fn msgqueue_peek_nonblock(w : world, t : type, q : msgqueue(t)) : (world, int, t)
+[
+	var w2 : world;
+	var tg : int;
+	var v : t;
+	pcode IO IO_MsgQueue_Receive 3 2 1 =w2 =tg =v w q 6;
+	return w2, tg, v;
+]
+
+fn msgqueue_peek_tag_nonblock(w : world, t : type, q : msgqueue(t), tag : int) : (world, int, t)
+[
+	var w2 : world;
+	var tg : int;
+	var v : t;
+	pcode IO IO_MsgQueue_Receive 3 3 1 =w2 =tg =v w q tag 7;
+	return w2, tg, v;
+]
+
+fn msgqueue_wait~lazy(w : world, t : type, q : msgqueue(t)) : unit_type
+[
+	pcode IO IO_MsgQueue_Wait 0 2 0 w q;
+	return unit_value;
+]
+
+fn msgqueue_is_nonempty(w : world, t : type, q : msgqueue(t)) : bool
+[
+	var e : bool;
+	pcode IO IO_MsgQueue_Is_Nonempty 1 2 0 =e w q;
+	return e;
+]
+
+fn msgqueue_any~lazy(implicit w : world, t1 t2 : type, q1 : msgqueue(t1), q2 : msgqueue(t2)) : bool
+[
+	var wait1 := msgqueue_wait(t1, q1);
+	var wait2 := msgqueue_wait(t2, q2);
+	return any(wait1, wait2);
+]

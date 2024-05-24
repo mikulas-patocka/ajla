@@ -1,0 +1,77 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit prng;
+
+type prng_state;
+
+fn prng_init(seed : int) : prng_state;
+fn prng_get_uint32(state : prng_state) : (prng_state, uint32);
+fn prng_get_int(state : prng_state, bits : int) : (prng_state, int);
+
+implementation
+
+// https://arxiv.org/abs/1704.00358
+
+record prng_state [
+	x w : uint64;
+]
+
+const s : uint64 := #b5ad4eceda1ce2a9;
+
+fn prng_init(seed : int) : prng_state
+[
+	var x : uint64 := seed and #ffffffff;
+	var w : uint64 := seed shr 32 and #ffffffffffffffff;
+	x *= s;
+	w *= s;
+	return prng_state.[
+		x : x,
+		w : w,
+	];
+]
+
+fn prng_get_uint32(state : prng_state) : (prng_state, uint32)
+[
+	var x := state.x;
+	var w := state.w;
+	x *= x;
+	w += s;
+	x += w;
+	x := x shr 32 or x shl 32;
+	state.x := x;
+	state.w := w;
+	return state, x and #ffffffff;
+]
+
+fn prng_get_int(implicit state : prng_state, bits : int) : (prng_state, int)
+[
+	var r := 0;
+	var bit := 0;
+	while bit + 32 <= bits do [
+		var p : int := prng_get_uint32();
+		r or= p shl bit;
+		bit += 32;
+	]
+	if bit < bits then [
+		var p : int := prng_get_uint32();
+		p and= (1 shl bits - bit) - 1;
+		r or= p shl bit;
+	]
+	return r;
+]

@@ -1,0 +1,18 @@
+Mikuláš Patočka <mikulas@twibright.com>
+
+The files mini-gmp.c and mini-gmp.h are Copyright 1991-1997, 1999-2019 Free
+Software Foundation, Inc.
+
+widechar_width.h is Written in 2018 by ridiculous_fish
+To the extent possible under law, the author(s) have dedicated all copyright and
+related and neighboring rights to this software to the public domain worldwide.
+This software is distributed without any warranty.
+You should have received a copy of the CC0 Public Domain Dedication along with
+this software. If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+
+Unicode conversion tables are (C) Unicode Inc.
+https://www.unicode.org/copyright.html
+
+The terminfo file was written by multiple authors, see the comments in it.
+
+vim: textwidth=80

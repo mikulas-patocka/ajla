@@ -1,0 +1,3531 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit system;
+
+// types hardcoded in type.ajla
+type bool;
+type byte;
+type bytes;
+type char;
+type string;
+type list(t : type);
+private type xarray~inline(dim : list(int), t : type);
+
+type array(t : type, dim : list(int)) := xarray(dim, t);
+
+const false : bool;
+const true : bool;
+
+type unit_type;
+const unit_value~inline : unit_type;
+type bottom_type;
+
+private fn sysprop(p : int) : int;
+private fn is_privileged : bool;
+
+type sint(n : int);
+type uint(n : int);
+
+type real := real64;
+
+type floating(ex_bits sig_bits : int);
+private fn floating_internal(const ex_bits sig_bits : int, f : floating(ex_bits, sig_bits)) : int;
+
+record rational [
+	num den : int;
+]
+
+type fixed_point(base digits : int);
+type decimal(digits : int) := fixed_point(10, digits);
+
+type byte := uint8;
+type bytes := list(byte);
+
+type char := int32;
+type string := list(char);
+
+record class_eq(t : type) [
+	equal : fn(t, t) : bool;
+]
+
+record class_ord(t : type) [
+	equal : fn(t, t) : bool;
+	less : fn(t, t) : bool;
+]
+
+record class_logical(t : type) [
+	and : fn(t, t) : t;
+	or : fn(t, t) : t;
+	xor : fn(t, t) : t;
+	not : fn(t) : t;
+]
+
+record class_show(t : type) [
+	to_bytes : fn(t) : bytes;
+	from_bytes : fn(bytes) : t;
+]
+
+record class_magma(t : type) [
+	add : fn(t, t) : t;
+]
+
+record class_monoid(t : type) [
+	add : fn(t, t) : t;
+	zero : t;
+]
+
+record class_group(t : type) [
+	add : fn(t, t) : t;
+	zero : t;
+	neg : fn(t) : t;
+	subtract : fn(t, t) : t;
+]
+
+record class_unit_ring(t : type) [
+	add : fn(t, t) : t;
+	zero : t;
+	neg : fn(t) : t;
+	subtract : fn(t, t) : t;
+	multiply : fn(t, t) : t;
+	one : t;
+]
+
+record class_division_ring(t : type) [
+	add : fn(t, t) : t;
+	zero : t;
+	neg : fn(t) : t;
+	subtract : fn(t, t) : t;
+	multiply : fn(t, t) : t;
+	one : t;
+	recip : fn(t) : t;
+	divide : fn(t, t) : t;
+]
+
+record class_integer_number(t : type) [
+	add : fn(t, t) : t;
+	zero : t;
+	neg : fn(t) : t;
+	subtract : fn(t, t) : t;
+	multiply : fn(t, t) : t;
+	one : t;
+	div : fn(t, t) : t;
+	mod : fn(t, t) : t;
+	power : fn(t, t) : t;
+	and : fn(t, t) : t;
+	or : fn(t, t) : t;
+	xor : fn(t, t) : t;
+	shl : fn(t, t) : t;
+	shr : fn(t, t) : t;
+	bts : fn(t, t) : t;
+	btr : fn(t, t) : t;
+	btc : fn(t, t) : t;
+	equal : fn(t, t) : bool;
+	less : fn(t, t) : bool;
+	bt : fn(t, t) : bool;
+	not : fn(t) : t;
+	bsf : fn(t) : t;
+	bsr : fn(t) : t;
+	popcnt : fn(t) : t;
+	to_int : fn(t) : int;
+	from_int : fn(int) : t;
+	to_bytes : fn(t) : bytes;
+	to_bytes_base : fn(t, int) : bytes;
+	from_bytes : fn(bytes) : t;
+	from_bytes_base : fn(bytes, int) : t;
+]
+
+record class_fixed_integer_number(t : type) [
+	bits : int;
+	unsigned : bool;
+	add : fn(t, t) : t;
+	zero : t;
+	neg : fn(t) : t;
+	subtract : fn(t, t) : t;
+	multiply : fn(t, t) : t;
+	one : t;
+	div : fn(t, t) : t;
+	mod : fn(t, t) : t;
+	power : fn(t, t) : t;
+	and : fn(t, t) : t;
+	or : fn(t, t) : t;
+	xor : fn(t, t) : t;
+	shl : fn(t, t) : t;
+	shr : fn(t, t) : t;
+	bts : fn(t, t) : t;
+	btr : fn(t, t) : t;
+	btc : fn(t, t) : t;
+	equal : fn(t, t) : bool;
+	less : fn(t, t) : bool;
+	bt : fn(t, t) : bool;
+	not : fn(t) : t;
+	bsf : fn(t) : t;
+	bsr : fn(t) : t;
+	popcnt : fn(t) : t;
+	to_int : fn(t) : int;
+	from_int : fn(int) : t;
+	to_bytes : fn(t) : bytes;
+	to_bytes_base : fn(t, int) : bytes;
+	from_bytes : fn(bytes) : t;
+	from_bytes_base : fn(bytes, int) : t;
+	rol : fn(t, t) : t;
+	ror : fn(t, t) : t;
+	bswap : fn(t) : t;
+	brev : fn(t) : t;
+]
+
+record class_real_number(t : type) [
+	add : fn(t, t) : t;
+	zero : t;
+	neg : fn(t) : t;
+	subtract : fn(t, t) : t;
+	multiply : fn(t, t) : t;
+	one : t;
+	recip : fn(t) : t;
+	divide : fn(t, t) : t;
+	modulo : fn(t, t) : t;
+	power : fn(t, t) : t;
+	ldexp : fn(t, t) : t;
+	atan2 : fn(t, t) : t;
+	pi : t;
+	sqrt : fn(t) : t;
+	cbrt : fn(t) : t;
+	sin : fn(t) : t;
+	cos : fn(t) : t;
+	tan : fn(t) : t;
+	asin : fn(t) : t;
+	acos : fn(t) : t;
+	atan : fn(t) : t;
+	sinh : fn(t) : t;
+	cosh : fn(t) : t;
+	tanh : fn(t) : t;
+	asinh : fn(t) : t;
+	acosh : fn(t) : t;
+	atanh : fn(t) : t;
+	exp2 : fn(t) : t;
+	exp : fn(t) : t;
+	exp10 : fn(t) : t;
+	log2 : fn(t) : t;
+	log : fn(t) : t;
+	log10 : fn(t) : t;
+	round : fn(t) : t;
+	ceil : fn(t) : t;
+	floor : fn(t) : t;
+	trunc : fn(t) : t;
+	fract : fn(t) : t;
+	mantissa : fn(t) : t;
+	exponent : fn(t) : t;
+	next_number : fn(t) : t;
+	prev_number : fn(t) : t;
+	is_negative : fn(t) : bool;
+	is_infinity : fn(t) : bool;
+	equal : fn(t, t) : bool;
+	less : fn(t, t) : bool;
+	to_int : fn(t) : int;
+	from_int : fn(int) : t;
+	to_rational : fn(t) : rational;
+	from_rational : fn(rational) : t;
+	to_bytes : fn(t) : bytes;
+	to_bytes_base_precision : fn(t, int, int) : bytes;
+	from_bytes : fn(bytes) : t;
+	from_bytes_base : fn(bytes, int) : t;
+]
+
+record class_functor(f : fn(type) : type) [
+	map : fn (t u : type, l : f(t), m : fn(t) : u) : f(u);
+]
+fn map(t u : type, const f : fn(type) : type, c : class_functor(f), l : f(t), m : fn(t) : u) : f(u);
+
+implicit fn inherit_eq_ord~inline(t : type, c : class_ord(t)) : class_eq(t);
+implicit fn inherit_magma_monoid~inline(t : type, c : class_monoid(t)) : class_magma(t);
+implicit fn inherit_monoid_group~inline(t : type, c : class_group(t)) : class_monoid(t);
+implicit fn inherit_group_unit_ring~inline(t : type, c : class_unit_ring(t)) : class_group(t);
+implicit fn inherit_unit_ring_division_ring~inline(t : type, c : class_division_ring(t)) : class_unit_ring(t);
+implicit fn inherit_show_integer_number~inline(t : type, c : class_integer_number(t)) : class_show(t);
+implicit fn inherit_show_real_number~inline(t : type, c : class_real_number(t)) : class_show(t);
+implicit fn inherit_ord_integer_number~inline(t : type, c : class_integer_number(t)) : class_ord(t);
+implicit fn inherit_logical_integer_number~inline(t : type, c : class_integer_number(t)) : class_logical(t);
+implicit fn inherit_unit_ring_integer_number~inline(t : type, c : class_integer_number(t)) : class_unit_ring(t);
+implicit fn inherit_integer_number_fixed_integer_number~inline(t : type, c : class_fixed_integer_number(t)) : class_integer_number(t);
+implicit fn inherit_ord_real_number~inline(t : type, c : class_real_number(t)) : class_ord(t);
+implicit fn inherit_division_ring_real_number~inline(t : type, c : class_real_number(t)) : class_division_ring(t);
+
+implicit fn inherit_eq_list~inline(t : type, c : class_eq(t)) : class_eq(list(t));
+implicit fn inherit_ord_list~inline(t : type, c : class_ord(t)) : class_ord(list(t));
+implicit fn instance_monoid_list~inline(t : type) : class_monoid(list(t));
+implicit fn instance_functor_list~inline : class_functor(list);
+
+implicit fn inherit_eq_array~inline(t : type, c : class_eq(t), const dim : list(int)) : class_eq(array(t, dim));
+implicit fn inherit_ord_array~inline(t : type, c : class_ord(t), const dim : list(int)) : class_ord(array(t, dim));
+implicit fn instance_functor_array~inline(const dim : list(int)) : class_functor(xarray(dim,));
+
+implicit fn instance_logical_bool~inline : class_logical(bool);
+implicit fn instance_ord_bool~inline : class_ord(bool);
+implicit fn instance_number_int~inline : class_integer_number(int);
+
+operator prefix + 1000 ~inline (t : type, c : class_group(t), val : t) : t;
+operator prefix - 1000 ~inline ~Un_Neg (t : type, c : class_group(t), val : t) : t;
+operator * 2000 ~inline ~Bin_Multiply (t : type, c : class_unit_ring(t), val1 val2 : t) : t;
+operator / 2000 ~inline ~Bin_Divide_Real(t : type, c : class_division_ring(t), val1 val2 : t) : t;
+operator div 2000 ~inline ~Bin_Divide_Int (t : type, c : class_integer_number(t), val1 val2 : t) : t;
+operator mod 2000 ~inline ~Bin_Modulo (t : type, c : class_integer_number(t), val1 val2 : t) : t;
+operator + 3000 ~inline ~Bin_Add (t : type, c : class_magma(t), val1 val2 : t) : t;
+operator - 3000 ~inline ~Bin_Subtract (t : type, c : class_group(t), val1 val2 : t) : t;
+operator shl 4000 ~inline ~Bin_Shl (t : type, c : class_integer_number(t), val1 val2 : t) : t;
+operator shr 4000 ~inline ~Bin_Shr (t : type, c : class_integer_number(t), val1 val2 : t) : t;
+operator rol 4000 ~inline ~Bin_Rol (t : type, c : class_fixed_integer_number(t), val1 val2 : t) : t;
+operator ror 4000 ~inline ~Bin_Ror (t : type, c : class_fixed_integer_number(t), val1 val2 : t) : t;
+operator bts 4000 ~inline ~Bin_Bts (t : type, c : class_integer_number(t), val1 val2 : t) : t;
+operator btr 4000 ~inline ~Bin_Btr (t : type, c : class_integer_number(t), val1 val2 : t) : t;
+operator btc 4000 ~inline ~Bin_Btc (t : type, c : class_integer_number(t), val1 val2 : t) : t;
+operator bt 4000 ~inline ~Bin_Bt (t : type, c : class_integer_number(t), val1 val2 : t) : bool;
+operator prefix bswap 4000 ~inline ~Un_Bswap (t : type, c : class_fixed_integer_number(t), val : t) : t;
+operator prefix brev 4000 ~inline ~Un_Brev (t : type, c : class_fixed_integer_number(t), val : t) : t;
+operator prefix bsf 4000 ~inline ~Un_Bsf (t : type, c : class_integer_number(t), val : t) : t;
+operator prefix bsr 4000 ~inline ~Un_Bsr (t : type, c : class_integer_number(t), val : t) : t;
+operator prefix popcnt 4000 ~inline ~Un_Popcnt (t : type, c : class_integer_number(t), val : t) : t;
+
+operator prefix is_negative 5000 ~inline (t : type, c : class_real_number(t), val : t) : bool;
+operator prefix is_infinity 5000 ~inline (t : type, c : class_real_number(t), val : t) : bool;
+operator prefix is_exception 5000 ~inline (t : type, v : t) : bool;
+operator prefix exception_class 5000 ~inline (t : type, v : t) : int;
+operator prefix exception_type 5000 ~inline (t : type, v : t) : int;
+operator prefix exception_aux 5000 ~inline (t : type, v : t) : int;
+operator prefix exception_string 5000 ~inline (t : type, v : t) : bytes;
+operator prefix exception_payload 5000 ~inline (t : type, v : t) : bytes;
+operator prefix exception_stack 5000 ~inline (t : type, v : t) : bytes;
+
+operator = 6000 ~inline ~Bin_Equal (t : type, c : class_eq(t), val1 val2 : t) : bool;
+operator <> 6000 ~inline ~Bin_NotEqual (t : type, c : class_eq(t), val1 val2 : t) : bool;
+operator > 6000 ~inline ~Bin_Less_ (t : type, c : class_ord(t), val1 val2 : t) : bool;
+operator >= 6000 ~inline ~Bin_LessEqual_ (t : type, c : class_ord(t), val1 val2 : t) : bool;
+operator < 6000 ~inline ~Bin_Less (t : type, c : class_ord(t), val1 val2 : t) : bool;
+operator <= 6000 ~inline ~Bin_LessEqual (t : type, c : class_ord(t), val1 val2 : t) : bool;
+operator prefix not 7000 ~inline ~Un_Not (t : type, c : class_logical(t), val : t) : t;
+operator and 8000 ~inline ~Bin_And (t : type, c : class_logical(t), val1 val2 : t) : t;
+operator xor 9000 ~inline ~Bin_Xor (t : type, c : class_logical(t), val1 val2 : t) : t;
+operator or 10000 ~inline ~Bin_Or (t : type, c : class_logical(t), val1 val2 : t) : t;
+
+operator +< 3000 ~inline (t : type, x : list(t), y : t) : list(t) := x + list(t).[ y ];
+
+fn ipower~inline(t : type, c : class_integer_number(t), val1 val2 : t) : t;
+fn fmod~inline(t : type, c : class_real_number(t), val1 val2 : t) : t;
+fn power~inline(t : type, c : class_real_number(t), val1 val2 : t) : t;
+fn ldexp~inline(t : type, c : class_real_number(t), val1 val2 : t) : t;
+fn atan2~inline(t : type, c : class_real_number(t), val1 val2 : t) : t;
+fn sqrt~inline(t : type, c : class_real_number(t), val : t) : t;
+fn cbrt~inline(t : type, c : class_real_number(t), val : t) : t;
+fn sin~inline(t : type, c : class_real_number(t), val : t) : t;
+fn cos~inline(t : type, c : class_real_number(t), val : t) : t;
+fn tan~inline(t : type, c : class_real_number(t), val : t) : t;
+fn asin~inline(t : type, c : class_real_number(t), val : t) : t;
+fn acos~inline(t : type, c : class_real_number(t), val : t) : t;
+fn atan~inline(t : type, c : class_real_number(t), val : t) : t;
+fn sinh~inline(t : type, c : class_real_number(t), val : t) : t;
+fn cosh~inline(t : type, c : class_real_number(t), val : t) : t;
+fn tanh~inline(t : type, c : class_real_number(t), val : t) : t;
+fn asinh~inline(t : type, c : class_real_number(t), val : t) : t;
+fn acosh~inline(t : type, c : class_real_number(t), val : t) : t;
+fn atanh~inline(t : type, c : class_real_number(t), val : t) : t;
+fn exp2~inline(t : type, c : class_real_number(t), val : t) : t;
+fn exp~inline(t : type, c : class_real_number(t), val : t) : t;
+fn exp10~inline(t : type, c : class_real_number(t), val : t) : t;
+fn log2~inline(t : type, c : class_real_number(t), val : t) : t;
+fn log~inline(t : type, c : class_real_number(t), val : t) : t;
+fn log10~inline(t : type, c : class_real_number(t), val : t) : t;
+fn round~inline(t : type, c : class_real_number(t), val : t) : t;
+fn ceil~inline(t : type, c : class_real_number(t), val : t) : t;
+fn floor~inline(t : type, c : class_real_number(t), val : t) : t;
+fn trunc~inline(t : type, c : class_real_number(t), val : t) : t;
+fn fract~inline(t : type, c : class_real_number(t), val : t) : t;
+fn mantissa~inline(t : type, c : class_real_number(t), val : t) : t;
+fn exponent~inline(t : type, c : class_real_number(t), val : t) : t;
+fn next_number~inline(t : type, c : class_real_number(t), val : t) : t;
+fn prev_number~inline(t : type, c : class_real_number(t), val : t) : t;
+
+conversion fn integer_number_to_integer_number~inline(t1 : type, c1 : class_integer_number(t1), t2 : type, c2 : class_integer_number(t2), val : t1) : t2;
+conversion fn integer_number_to_real_number~inline(t1 : type, c1 : class_integer_number(t1), t2 : type, c2 : class_real_number(t2), val : t1) : t2;
+conversion fn real_number_to_integer_number~inline(t1 : type, c1 : class_real_number(t1), t2 : type, c2 : class_integer_number(t2), val : t1) : t2;
+conversion fn real_number_to_real_number~inline(t1 : type, c1 : class_real_number(t1), t2 : type, c2 : class_real_number(t2), val : t1) : t2;
+
+implicit fn instance_number_int8~inline : class_integer_number(int8);
+implicit fn instance_number_int16~inline : class_integer_number(int16);
+implicit fn instance_number_int32~inline : class_integer_number(int32);
+implicit fn instance_number_int64~inline : class_integer_number(int64);
+implicit fn instance_number_int128~inline : class_integer_number(int128);
+
+implicit fn instance_fixed_integer_number_sint8~inline : class_fixed_integer_number(sint8);
+implicit fn instance_fixed_integer_number_sint16~inline : class_fixed_integer_number(sint16);
+implicit fn instance_fixed_integer_number_sint32~inline : class_fixed_integer_number(sint32);
+implicit fn instance_fixed_integer_number_sint64~inline : class_fixed_integer_number(sint64);
+implicit fn instance_fixed_integer_number_sint128~inline : class_fixed_integer_number(sint128);
+
+implicit fn instance_fixed_integer_number_uint8~inline : class_fixed_integer_number(uint8);
+implicit fn instance_fixed_integer_number_uint16~inline : class_fixed_integer_number(uint16);
+implicit fn instance_fixed_integer_number_uint32~inline : class_fixed_integer_number(uint32);
+implicit fn instance_fixed_integer_number_uint64~inline : class_fixed_integer_number(uint64);
+implicit fn instance_fixed_integer_number_uint128~inline : class_fixed_integer_number(uint128);
+
+implicit fn instance_fixed_integer_number_sint~inline(const n : int) : class_fixed_integer_number(sint(n));
+implicit fn instance_fixed_integer_number_uint~inline(const n : int) : class_fixed_integer_number(uint(n));
+
+implicit fn instance_real_number_real16~inline : class_real_number(real16);
+implicit fn instance_real_number_real32~inline : class_real_number(real32);
+implicit fn instance_real_number_real64~inline : class_real_number(real64);
+implicit fn instance_real_number_real80~inline : class_real_number(real80);
+implicit fn instance_real_number_real128~inline : class_real_number(real128);
+
+implicit fn instance_real_number_floating~inline(const ex_bits sig_bits : int) : class_real_number(floating(ex_bits, sig_bits));
+
+implicit fn instance_real_number_rational~inline : class_real_number(rational);
+
+implicit fn instance_real_number_fixed_point~inline(const base digits : int) : class_real_number(fixed_point(base, digits));
+
+{---------
+ - DEBUG -
+ ---------}
+
+fn debug(m : bytes) : unit_type;
+fn internal(m : bytes) : unit_type;
+fn stop(m : bytes) : unit_type;
+fn report_memory_summary(m : bytes) : unit_type;
+fn report_memory_most(m : bytes) : unit_type;
+fn report_memory_largest(m : bytes) : unit_type;
+fn assert~inline(v : bool, b : bytes) : unit_type;
+fn stacktrace(t : type, v : t) : unit_type;
+fn trace_on : unit_type;
+fn trace_off : unit_type;
+
+{------------------
+ - LIST FUNCTIONS -
+ ------------------}
+
+fn len~inline(t : type, a : list(t)) : int;
+fn len_at_least~inline(t : type, a : list(t), l : int) : bool;
+fn len_greater_than~inline(t : type, a : list(t), l : int) : bool;
+fn empty~inline(t : type) : list(t);
+fn fill~inline(t : type, const x : t, const n : int) : list(t);
+fn sparse~inline(t : type, const x : t, const n : int) : list(t);
+
+fn infinite(t : type, x : t) : list(t);
+fn infinite_repeat(t : type, x : list(t)) : list(t);
+fn uninitialized(t : type) : t;
+fn uninitialized_record(t : type) : t;
+fn infinite_uninitialized(t : type) : list(t);
+fn is_uninitialized(t : type, v : t) : bool;
+fn is_uninitialized_record(t : type, v : t) : bool;
+
+fn identity~inline(t : type, v : t) : t;
+fn select~inline(t : type, b : bool, v1 v2 : t) : t;
+fn min~inline(t : type, c : class_ord(t), a b : t) : t;
+fn max~inline(t : type, c : class_ord(t), a b : t) : t;
+fn abs~inline(t : type, implicit cg : class_group(t), implicit co : class_ord(t), x : t) : t;
+fn sgn~inline(t : type, implicit cu : class_unit_ring(t), implicit co : class_ord(t), x : t) : t;
+
+fn list_search(t : type, c : class_eq(t), x : list(t), v : t) : int;
+fn list_search_fn(t : type, x : list(t), f : fn(t) : bool) : int;
+fn list_search_backwards(t : type, c : class_eq(t), x : list(t), v : t) : int;
+fn list_search_backwards_fn(t : type, x : list(t), f : fn(t) : bool) : int;
+fn list_search_substring(t : type, c : class_eq(t), x v : list(t)) : int;
+fn list_replace_substring(t : type, c : class_eq(t), x v r : list(t)) : list(t);
+fn list_left_pad(t : type, x : list(t), width : int, padding : t) : list(t);
+fn list_right_pad(t : type, x : list(t), width : int, padding : t) : list(t);
+fn list_repeat(t : type, x : list(t), num : int) : list(t);
+fn list_begins_with(t : type, c : class_eq(t), x y : list(t)) : bool;
+fn list_ends_with(t : type, c : class_eq(t), x y : list(t)) : bool;
+fn list_break(t : type, implicit c : class_eq(t), l : list(t), bnd : t) : list(list(t));
+fn list_break_to_lines(b : bytes) : list(bytes);
+fn list_string_break_to_lines(b : string) : list(string);
+fn list_break_whitespace(l : bytes) : list(bytes);
+fn list_join(t : type, lines : list(list(t)), bnd : list(t)) : list(t);
+fn list_join_lines(lines : list(bytes)) : bytes;
+fn list_filter(t : type, lst : list(t), test : fn(t) : bool) : list(t);
+fn list_filter_idx(t : type, lst : list(t), test : fn(int, t) : bool) : list(t);
+fn list_fold(t v : type, ini : t, lst : list(v), fold : fn(t, v) : t) : t;
+fn list_fold_monoid(t : type, c : class_monoid(t), lst : list(t)) : t;
+fn list_map_fold(t v : type, ini : v, lst : list(t), mp : fn(t) : v, re : fn(v, v) : v) : v;
+fn list_map_fold_monoid(t v : type, c : class_monoid(v), lst : list(t), mp : fn(t) : v) : v;
+fn list_reverse(t : type, l : list(t)) : list(t);
+fn list_sort(t : type, implicit c : class_ord(t), l : list(t)) : list(t);
+fn list_flatten~inline(t : type, a : list(t)) : list(t);
+
+const nl : bytes;
+
+{---------
+ - ARRAY -
+ ---------}
+
+fn list_to_array(t : type, const dim : list(int), v : list(t)) : array(t, dim);
+fn array_to_list(t : type, const dim : list(int), v : array(t, dim)) : list(t);
+fn array_fill~inline(t : type, const x : t, const dim : list(int)) : array(t, dim);
+fn array_sparse~inline(t : type, const x : t, const dim : list(int)) : array(t, dim);
+fn array_read(t : type, const dim : list(int), v : array(t, dim), idx : list(int)) : t;
+fn array_write(t : type, const dim : list(int), v : array(t, dim), idx : list(int), val : t) : array(t, dim);
+fn array_reverse(t : type, const ln : int, implicit c : class_ord(t), v : array(t, [ln])) : array(t, [ln]);
+fn array_sort(t : type, const ln : int, implicit c : class_ord(t), v : array(t, [ln])) : array(t, [ln]);
+fn array_flatten~inline(t : type, const dim : list(int), v : array(t, dim)) : array(t, dim);
+
+{---------
+ - TUPLE -
+ ---------}
+
+record tuple2(t1 : type, t2 : type) [ v1 : t1; v2 : t2; ]
+record tuple3(t1 : type, t2 : type, t3 : type) [ v1 : t1; v2 : t2; v3 : t3; ]
+record tuple4(t1 : type, t2 : type, t3 : type, t4 : type) [ v1 : t1; v2 : t2; v3 : t3; v4 : t4; ]
+record tuple5(t1 : type, t2 : type, t3 : type, t4 : type, t5 : type) [ v1 : t1; v2 : t2; v3 : t3; v4 : t4; v5 : t5; ]
+
+fn mktuple2(t1 t2 : type, v1 : t1, v2 : t2) : tuple2(t1, t2) := tuple2(t1, t2).[ v1 : v1, v2 : v2 ];
+fn mktuple3(t1 t2 t3 : type, v1 : t1, v2 : t2, v3 : t3) : tuple3(t1, t2, t3) := tuple3(t1, t2, t3).[ v1 : v1, v2 : v2, v3 : v3 ];
+fn mktuple4(t1 t2 t3 t4 : type, v1 : t1, v2 : t2, v3 : t3, v4 : t4) : tuple4(t1, t2, t3, t4) := tuple4(t1, t2, t3, t4).[ v1 : v1, v2 : v2, v3 : v3, v4 : v4 ];
+fn mktuple5(t1 t2 t3 t4 t5 : type, v1 : t1, v2 : t2, v3 : t3, v4 : t4, v5 : t5) : tuple5(t1, t2, t3, t4, t5) := tuple5(t1, t2, t3, t4, t5).[ v1 : v1, v2 : v2, v3 : v3, v4 : v4, v5 : v5 ];
+
+implicit fn inherit_eq_tuple2~inline(t1 t2 : type, c1 : class_eq(t1), c2 : class_eq(t2)) : class_eq(tuple2(t1, t2));
+implicit fn inherit_ord_tuple2~inline(t1 t2 : type, c1 : class_ord(t1), c2 : class_ord(t2)) : class_ord(tuple2(t1, t2));
+
+implicit fn inherit_eq_tuple3~inline(t1 t2 t3 : type, c1 : class_eq(t1), c2 : class_eq(t2), c3 : class_eq(t3)) : class_eq(tuple3(t1, t2, t3));
+implicit fn inherit_ord_tuple3~inline(t1 t2 t3 : type, c1 : class_ord(t1), c2 : class_ord(t2), c3 : class_ord(t3)) : class_ord(tuple3(t1, t2, t3));
+
+implicit fn inherit_eq_tuple4~inline(t1 t2 t3 t4 : type, c1 : class_eq(t1), c2 : class_eq(t2), c3 : class_eq(t3), c4 : class_eq(t4)) : class_eq(tuple4(t1, t2, t3, t4));
+implicit fn inherit_ord_tuple4~inline(t1 t2 t3 t4 : type, c1 : class_ord(t1), c2 : class_ord(t2), c3 : class_ord(t3), c4 : class_ord(t4)) : class_ord(tuple4(t1, t2, t3, t4));
+
+implicit fn inherit_eq_tuple5~inline(t1 t2 t3 t4 t5 : type, c1 : class_eq(t1), c2 : class_eq(t2), c3 : class_eq(t3), c4 : class_eq(t4), c5 : class_eq(t5)) : class_eq(tuple5(t1, t2, t3, t4, t5));
+implicit fn inherit_ord_tuple5~inline(t1 t2 t3 t4 t5 : type, c1 : class_ord(t1), c2 : class_ord(t2), c3 : class_ord(t3), c4 : class_ord(t4), c5 : class_ord(t5)) : class_ord(tuple5(t1, t2, t3, t4, t5));
+
+{---------
+ - MAYBE -
+ ---------}
+
+option maybe~flat(t : type) [
+	j : t;
+	n;
+]
+
+fn mkmaybe~inline(t : type, v : t) : maybe(t);
+
+{------------
+ - ITERATOR -
+ ------------}
+
+record class_iterator [
+	state : type;
+	element : type;
+	init : state;
+	test : fn(state) : bool;
+	get_element : fn(state) : element;
+	increment : fn(state) : state;
+]
+
+private fn range_test~inline(t : type, implicit co : class_ord(t), j x : t) : bool := x < j;
+private fn range_increment~inline(t : type, implicit cm : class_magma(t), step x : t) : t := x + step;
+fn range~type(t : type, implicit cm : class_magma(t), implicit co : class_ord(t), i j step : t) : class_iterator :=
+	class_iterator.[
+		state : t,
+		element : t,
+		init : i,
+		test : range_test(j,),
+		get_element : identity(t,),
+		increment : range_increment(step,),
+	];
+
+fn list_iterator~type(t : type, l : list(t)) : class_iterator :=
+	class_iterator.[
+		state : int,
+		element : int,
+		init : 0,
+		test : len_greater_than(l,),
+		get_element : identity(int,),
+		increment : instance_number_int.add(1,),
+	];
+
+fn list_iterator_reverse~type(t : type, l : list(t)) : class_iterator :=
+	class_iterator.[
+		state : int,
+		element : int,
+		init : len(l) - 1,
+		test : instance_number_int.less(-1,),
+		get_element : identity(int,),
+		increment : instance_number_int.add(-1,),
+	];
+
+private fn list_consumer_non_empty~inline(t : type, l : list(t)) : bool := len_greater_than(l, 0);
+private fn list_consumer_get_head~inline(t : type, l : list(t)) : t := l[0];
+private fn list_consumer_get_tail~inline(t : type, l : list(t)) : list(t) := l[1 .. ];
+conversion fn list_consumer~type(t : type, l : list(t)) : class_iterator :=
+	class_iterator.[
+		state : list(t),
+		element : t,
+		init : l,
+		test : list_consumer_non_empty(t,),
+		get_element : list_consumer_get_head(t,),
+		increment : list_consumer_get_tail(t,),
+	];
+
+{----------
+ - NUMBER -
+ ----------}
+
+fn ntos_base~inline(t : type, c : class_integer_number(t), n : t, base : int) : bytes;
+fn ntos_base_precision~inlnie(t : type, c : class_real_number(t), n : t, base digits : int) : bytes;
+fn ntos~inline(t : type, c : class_show(t), n : t) : bytes;
+fn ston_base~inline(b : bytes, base : int) : int;
+fn ston~inline(b : bytes) : int;
+fn format(t : type, implicit c : class_show(t), b : bytes, a : list(t)) : bytes;
+
+{----------------
+ - NATIVE TYPES -
+ ----------------}
+
+option native~flat [
+	short;
+	unsigned_short;
+	integer;
+	unsigned_integer;
+	long;
+	unsigned_long;
+	long_long;
+	unsigned_long_long;
+	n_int16;
+	n_uint16;
+	n_int32;
+	n_uint32;
+	n_int64;
+	n_uint64;
+]
+
+fn int_to_native~inline(n : native, i : int) : bytes;
+fn native_to_int~inline(n : native, b : bytes) : int;
+
+
+implementation
+
+uses exception;
+uses pcode;
+uses private.show;
+uses private.rational;
+uses private.fixed_point;
+uses private.math;
+
+option bool [
+	false;
+	true;
+]
+
+const false : bool := bool.false;
+const true : bool := bool.true;
+
+type unit_type := byte;
+const unit_value~inline : unit_type := 0;
+option bottom_type [ ]
+
+
+private fn sysprop(p : int) : int
+[
+	var r : int;
+	pcode UnaryOp Un_SystemProperty =r 0 p;
+	return r;
+]
+
+private fn is_privileged : bool
+[
+	return sysprop(SystemProperty_Privileged) <> 0;
+]
+
+
+implicit fn inherit_eq_ord(t : type, c : class_ord(t)) : class_eq(t) :=
+	class_eq(t).[
+		equal : c.equal,
+	];
+implicit fn inherit_magma_monoid(t : type, c : class_monoid(t)) : class_magma(t) :=
+	class_magma(t).[
+		add : c.add,
+	];
+implicit fn inherit_monoid_group(t : type, c : class_group(t)) : class_monoid(t) :=
+	class_monoid(t).[
+		add : c.add,
+		zero : c.zero,
+	];
+implicit fn inherit_group_unit_ring(t : type, c : class_unit_ring(t)) : class_group(t) :=
+	class_group(t).[
+		add : c.add,
+		zero : c.zero,
+		neg : c.neg,
+		subtract : c.subtract,
+	];
+implicit fn inherit_unit_ring_division_ring(t : type, c : class_division_ring(t)) : class_unit_ring(t) :=
+	class_unit_ring(t).[
+		add : c.add,
+		zero : c.zero,
+		neg : c.neg,
+		subtract : c.subtract,
+		multiply : c.multiply,
+		one : c.one,
+	];
+implicit fn inherit_show_integer_number~inline(t : type, c : class_integer_number(t)) : class_show(t) :=
+	class_show(t).[
+		to_bytes : c.to_bytes,
+		from_bytes : c.from_bytes,
+	];
+implicit fn inherit_show_real_number~inline(t : type, c : class_real_number(t)) : class_show(t) :=
+	class_show(t).[
+		to_bytes : c.to_bytes,
+		from_bytes : c.from_bytes,
+	];
+implicit fn inherit_ord_integer_number(t : type, c : class_integer_number(t)) : class_ord(t) :=
+	class_ord(t).[
+		equal : c.equal,
+		less : c.less,
+	];
+implicit fn inherit_logical_integer_number(t : type, c : class_integer_number(t)) : class_logical(t) :=
+	class_logical(t).[
+		and : c.and,
+		or : c.or,
+		xor : c.xor,
+		not : c.not,
+	];
+implicit fn inherit_unit_ring_integer_number(t : type, c : class_integer_number(t)) : class_unit_ring(t) :=
+	class_unit_ring(t).[
+		add : c.add,
+		zero : c.zero,
+		neg : c.neg,
+		subtract : c.subtract,
+		multiply : c.multiply,
+		one : c.one,
+	];
+implicit fn inherit_integer_number_fixed_integer_number(t : type, c : class_fixed_integer_number(t)) : class_integer_number(t) :=
+	class_integer_number(t).[
+		add : c.add,
+		zero : c.zero,
+		neg : c.neg,
+		subtract : c.subtract,
+		multiply : c.multiply,
+		one : c.one,
+		div : c.div,
+		mod : c.mod,
+		power : c.power,
+		and : c.and,
+		or : c.or,
+		xor : c.xor,
+		shl : c.shl,
+		shr : c.shr,
+		bts : c.bts,
+		btr : c.btr,
+		btc : c.btc,
+		equal : c.equal,
+		less : c.less,
+		bt : c.bt,
+		not : c.not,
+		bsf : c.bsf,
+		bsr : c.bsr,
+		popcnt : c.popcnt,
+		to_int : c.to_int,
+		from_int : c.from_int,
+		to_bytes : c.to_bytes,
+		to_bytes_base : c.to_bytes_base,
+		from_bytes : c.from_bytes,
+		from_bytes_base : c.from_bytes_base,
+	];
+implicit fn inherit_ord_real_number(t : type, c : class_real_number(t)) : class_ord(t) :=
+	class_ord(t).[
+		equal : c.equal,
+		less : c.less,
+	];
+implicit fn inherit_division_ring_real_number(t : type, c : class_real_number(t)) : class_division_ring(t) :=
+	class_division_ring(t).[
+		add : c.add,
+		zero : c.zero,
+		neg : c.neg,
+		subtract : c.subtract,
+		multiply : c.multiply,
+		one : c.one,
+		recip : c.recip,
+		divide : c.divide,
+	];
+
+fn list_equal~inline(t : type, implicit c : class_eq(t), l1 l2 : list(t)) : bool
+[
+	while len_greater_than(l1, 0) and len_greater_than(l2, 0) do [
+		if l1[0] <> l2[0] then
+			return false;
+		l1 := l1[1 .. ];
+		l2 := l2[1 .. ];
+	]
+	return len_greater_than(l1, 0) = len_greater_than(l2, 0);
+]
+fn list_less~inline(t : type, implicit c : class_ord(t), l1 l2 : list(t)) : bool
+[
+	while len_greater_than(l1, 0) and len_greater_than(l2, 0) do [
+		if l1[0] <> l2[0] then
+			return l1[0] < l2[0];
+		l1 := l1[1 .. ];
+		l2 := l2[1 .. ];
+	]
+	return len_greater_than(l1, 0) < len_greater_than(l2, 0);
+]
+implicit fn inherit_eq_list(t : type, c : class_eq(t)) : class_eq(list(t)) :=
+	class_eq(list(t)).[
+		equal : list_equal(t, c,,),
+	];
+implicit fn inherit_ord_list(t : type, c : class_ord(t)) : class_ord(list(t)) :=
+	class_ord(list(t)).[
+		equal : list_equal(t, inherit_eq_ord(c),,),
+		less : list_less(t, c,,),
+	];
+fn list_add~inline(t : type, l1 l2 : list(t)) : list(t)
+[
+	var r : list(t);
+	pcode Array_Append =r 0 l1 0 l2;
+	return r;
+]
+implicit fn instance_monoid_list~inline(t : type) : class_monoid(list(t)) :=
+	class_monoid(list(t)).[
+		add : list_add(t,,),
+		zero : empty(t),
+	];
+fn list_map(t u : type, l : list(t), m : fn(t) : u) : list(u)
+[
+	var steps := 64;
+	var v := empty(u);
+	if len_greater_than(l, steps) then [
+		for i := 0 to steps do
+			v +<= m(l[i]);
+		return v + list_map~lazy(l[steps .. ], m);
+	] else [
+		for i := 0 to len(l) do
+			v +<= m(l[i]);
+		return v;
+	]
+]
+implicit fn instance_functor_list~inline : class_functor(list) :=
+	class_functor(list).[
+		map : list_map,
+	];
+
+fn array_equal(t : type, implicit c : class_eq(t), const dim : list(int), a1 a2 : array(t, dim)) : bool
+[
+	var l1 := array_to_list(a1);
+	var l2 := array_to_list(a2);
+	for i := 0 to len(l1) do
+		if l1[i] <> l2[i] then
+			return false;
+	return true;
+]
+fn array_less(t : type, implicit c : class_ord(t), const dim : list(int), a1 a2 : array(t, dim)) : bool
+[
+	var l1 := array_to_list(a1);
+	var l2 := array_to_list(a2);
+	for i := 0 to len(l1) do
+		if l1[i] <> l2[i] then
+			return l1[i] < l2[i];
+	return false;
+]
+implicit fn inherit_eq_array~inline(t : type, c : class_eq(t), const dim : list(int)) : class_eq(array(t, dim)) :=
+	class_eq(array(t, dim)).[
+		equal : array_equal(t, c, dim,,),
+	];
+
+implicit fn inherit_ord_array~inline(t : type, c : class_ord(t), const dim : list(int)) : class_ord(array(t, dim)) :=
+	class_ord(array(t, dim)).[
+		equal : array_equal(t, inherit_eq_ord(c), dim,,),
+		less : array_less(t, c, dim,,),
+	];
+
+fn array_map(const dim : list(int), t u : type, a : array(t, dim), m : fn(t) : u) : array(u, dim)
+[
+	var tl := array_to_list(t, dim, a);
+	var ul := empty(u);
+	for i := 0 to len(tl) do
+		ul +<= m(tl[i]);
+	return list_to_array(u, dim, ul);
+]
+implicit fn instance_functor_array~inline(const dim : list(int)) : class_functor(xarray(dim,)) :=
+	class_functor(xarray(dim,)).[
+		map : array_map(dim,,,,),
+	];
+
+fn map(t u : type, const f : fn(type) : type, c : class_functor(f), l : f(t), m : fn(t) : u) : f(u)
+[
+	return c.map(l, m);
+]
+
+{------------------
+ - BOOL INSTANCES -
+ ------------------}
+
+fn bool_and~inline(b1 b2 : bool) : bool
+[
+	var r : bool;
+	pcode BinaryOp Bin_And =r 0 b1 0 b2;
+	return r;
+]
+fn bool_or~inline(b1 b2 : bool) : bool
+[
+	var r : bool;
+	pcode BinaryOp Bin_Or =r 0 b1 0 b2;
+	return r;
+]
+fn bool_not~inline(b1 : bool) : bool
+[
+	var r : bool;
+	pcode UnaryOp Un_Not =r 0 b1;
+	return r;
+]
+fn bool_equal~inline(b1 b2 : bool) : bool
+[
+	var r : bool;
+	pcode BinaryOp Bin_Equal =r 0 b1 0 b2;
+	return r;
+]
+fn bool_not_equal~inline(b1 b2 : bool) : bool
+[
+	var r : bool;
+	pcode BinaryOp Bin_NotEqual =r 0 b1 0 b2;
+	return r;
+]
+fn bool_less~inline(b1 b2 : bool) : bool
+[
+	var r : bool;
+	pcode BinaryOp Bin_Less =r 0 b1 0 b2;
+	return r;
+]
+implicit fn instance_logical_bool~inline : class_logical(bool) :=
+	class_logical(bool).[
+		and : bool_and,
+		or : bool_or,
+		xor : bool_not_equal,
+		not : bool_not,
+	];
+implicit fn instance_ord_bool~inline : class_ord(bool) :=
+	class_ord(bool).[
+		equal : bool_equal,
+		less : bool_less,
+	];
+
+{----------------
+ - INT INSTANCE -
+ ----------------}
+
+define int_instance [
+fn @1_add~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Add =r 0 i1 0 i2;
+	return r;
+]
+fn @1_zero~inline : @1
+[
+	var r : @1;
+	pcode Load_Const =r 0;
+	return r;
+]
+fn @1_neg~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Neg =r 0 i1;
+	return r;
+]
+fn @1_subtract~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Subtract =r 0 i1 0 i2;
+	return r;
+]
+fn @1_multiply~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Multiply =r 0 i1 0 i2;
+	return r;
+]
+fn @1_one~inline : @1
+[
+	var r : @1;
+	pcode Load_Const =r 1 1;
+	return r;
+]
+fn @1_div~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Divide_Int =r 0 i1 0 i2;
+	return r;
+]
+fn @1_mod~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Modulo =r 0 i1 0 i2;
+	return r;
+]
+fn @1_power~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Power =r 0 i1 0 i2;
+	return r;
+]
+fn @1_and~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_And =r 0 i1 0 i2;
+	return r;
+]
+fn @1_or~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Or =r 0 i1 0 i2;
+	return r;
+]
+fn @1_xor~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Xor =r 0 i1 0 i2;
+	return r;
+]
+fn @1_shl~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Shl =r 0 i1 0 i2;
+	return r;
+]
+fn @1_shr~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Shr =r 0 i1 0 i2;
+	return r;
+]
+fn @1_bts~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Bts =r 0 i1 0 i2;
+	return r;
+]
+fn @1_btr~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Btr =r 0 i1 0 i2;
+	return r;
+]
+fn @1_btc~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Btc =r 0 i1 0 i2;
+	return r;
+]
+fn @1_equal~inline(i1 i2 : @1) : bool
+[
+	var r : bool;
+	pcode BinaryOp Bin_Equal =r 0 i1 0 i2;
+	return r;
+]
+fn @1_less~inline(i1 i2 : @1) : bool
+[
+	var r : bool;
+	pcode BinaryOp Bin_Less =r 0 i1 0 i2;
+	return r;
+]
+fn @1_bt~inline(i1 i2 : @1) : bool
+[
+	var r : bool;
+	pcode BinaryOp Bin_Bt =r 0 i1 0 i2;
+	return r;
+]
+fn @1_not~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Not =r 0 i1;
+	return r;
+]
+fn @1_bsf~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Bsf =r 0 i1;
+	return r;
+]
+fn @1_bsr~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Bsr =r 0 i1;
+	return r;
+]
+fn @1_popcnt~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Popcnt =r 0 i1;
+	return r;
+]
+fn @1_to_int~inline(i1 : @1) : int
+[
+	var r : int;
+	pcode UnaryOp Un_ConvertToInt =r 0 i1;
+	return r;
+]
+fn @1_from_int~inline(i1 : int) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_ConvertFromInt =r 0 i1;
+	return r;
+]
+fn @1_to_bytes(i1 : @1) : bytes
+[
+	return integer_to_bytes(@1_to_int(i1));
+]
+fn @1_to_bytes_base(i1 : @1, base : int) : bytes
+[
+	return integer_to_bytes_base(@1_to_int(i1), base);
+]
+fn @1_from_bytes(i1 : bytes) : @1
+[
+	return @1_from_int(bytes_to_integer(i1));
+]
+fn @1_from_bytes_base(i1 : bytes, base : int) : @1
+[
+	return @1_from_int(bytes_to_integer_base(i1, base));
+]
+implicit fn instance_number_@1~inline : class_integer_number(@1) :=
+	class_integer_number(@1).[
+		add : @1_add,
+		zero : @1_zero,
+		neg : @1_neg,
+		subtract : @1_subtract,
+		multiply : @1_multiply,
+		one : @1_one,
+		div : @1_div,
+		mod : @1_mod,
+		power : @1_power,
+		and : @1_and,
+		or : @1_or,
+		xor : @1_xor,
+		shl : @1_shl,
+		shr : @1_shr,
+		bts : @1_bts,
+		btr : @1_btr,
+		btc : @1_btc,
+		equal : @1_equal,
+		less : @1_less,
+		bt : @1_bt,
+		not : @1_not,
+		bsf : @1_bsf,
+		bsr : @1_bsr,
+		popcnt : @1_popcnt,
+		to_int : @1_to_int,
+		from_int : @1_from_int,
+		to_bytes : @1_to_bytes,
+		to_bytes_base : @1_to_bytes_base,
+		from_bytes : @1_from_bytes,
+		from_bytes_base : @1_from_bytes_base,
+	];
+]
+
+int_instance(int);
+
+int_instance(int8);
+int_instance(int16);
+int_instance(int32);
+int_instance(int64);
+int_instance(int128);
+
+{------------------
+ - FIXED INSTANCE -
+ ------------------}
+
+define fixed_instance [
+fn @1_add~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Add =r 0 i1 0 i2;
+	return r;
+]
+fn @1_zero~inline : @1
+[
+	var r : @1;
+	pcode Load_Const =r 0;
+	return r;
+]
+fn @1_neg~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Neg =r 0 i1;
+	return r;
+]
+fn @1_subtract~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Subtract =r 0 i1 0 i2;
+	return r;
+]
+fn @1_multiply~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Multiply =r 0 i1 0 i2;
+	return r;
+]
+fn @1_one~inline : @1
+[
+	var r : @1;
+	pcode Load_Const =r 1 1;
+	return r;
+]
+fn @1_div~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Divide_Int =r 0 i1 0 i2;
+	return r;
+]
+fn @1_mod~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Modulo =r 0 i1 0 i2;
+	return r;
+]
+fn @1_power~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Power =r 0 i1 0 i2;
+	return r;
+]
+fn @1_and~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_And =r 0 i1 0 i2;
+	return r;
+]
+fn @1_or~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Or =r 0 i1 0 i2;
+	return r;
+]
+fn @1_xor~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Xor =r 0 i1 0 i2;
+	return r;
+]
+fn @1_shl~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Shl =r 0 i1 0 i2;
+	return r;
+]
+fn @1_shr~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Shr =r 0 i1 0 i2;
+	return r;
+]
+fn @1_bts~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Bts =r 0 i1 0 i2;
+	return r;
+]
+fn @1_btr~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Btr =r 0 i1 0 i2;
+	return r;
+]
+fn @1_btc~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Btc =r 0 i1 0 i2;
+	return r;
+]
+fn @1_equal~inline(i1 i2 : @1) : bool
+[
+	var r : bool;
+	pcode BinaryOp Bin_Equal =r 0 i1 0 i2;
+	return r;
+]
+fn @1_less~inline(i1 i2 : @1) : bool
+[
+	var r : bool;
+	pcode BinaryOp Bin_Less =r 0 i1 0 i2;
+	return r;
+]
+fn @1_bt~inline(i1 i2 : @1) : bool
+[
+	var r : bool;
+	pcode BinaryOp Bin_Bt =r 0 i1 0 i2;
+	return r;
+]
+fn @1_not~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Not =r 0 i1;
+	return r;
+]
+fn @1_bsf~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Bsf =r 0 i1;
+	return r;
+]
+fn @1_bsr~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Bsr =r 0 i1;
+	return r;
+]
+fn @1_popcnt~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Popcnt =r 0 i1;
+	return r;
+]
+fn @1_to_int~inline(i1 : @1) : int
+[
+	var r : int;
+	pcode UnaryOp Un_ConvertToInt =r 0 i1;
+	return r;
+]
+fn @1_from_int~inline(i1 : int) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_ConvertFromInt =r 0 i1;
+	return r;
+]
+fn @1_to_bytes(i1 : @1) : bytes
+[
+	return integer_to_bytes(@1_to_int(i1));
+]
+fn @1_to_bytes_base(i1 : @1, base : int) : bytes
+[
+	return integer_to_bytes_base(@1_to_int(i1), base);
+]
+fn @1_from_bytes(i1 : bytes) : @1
+[
+	return @1_from_int(bytes_to_integer(i1));
+]
+fn @1_from_bytes_base(i1 : bytes, base : int) : @1
+[
+	return @1_from_int(bytes_to_integer_base(i1, base));
+]
+fn @1_rol~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Rol =r 0 i1 0 i2;
+	return r;
+]
+fn @1_ror~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Ror =r 0 i1 0 i2;
+	return r;
+]
+fn @1_bswap~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Bswap =r 0 i1;
+	return r;
+]
+fn @1_brev~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Brev =r 0 i1;
+	return r;
+]
+implicit fn instance_fixed_integer_number_@1~inline : class_fixed_integer_number(@1) :=
+	class_fixed_integer_number(@1).[
+		bits : @2,
+		unsigned : @3,
+		add : @1_add,
+		zero : @1_zero,
+		neg : @1_neg,
+		subtract : @1_subtract,
+		multiply : @1_multiply,
+		one : @1_one,
+		div : @1_div,
+		mod : @1_mod,
+		power : @1_power,
+		and : @1_and,
+		or : @1_or,
+		xor : @1_xor,
+		shl : @1_shl,
+		shr : @1_shr,
+		bts : @1_bts,
+		btr : @1_btr,
+		btc : @1_btc,
+		equal : @1_equal,
+		less : @1_less,
+		bt : @1_bt,
+		not : @1_not,
+		bsf : @1_bsf,
+		bsr : @1_bsr,
+		popcnt : @1_popcnt,
+		to_int : @1_to_int,
+		from_int : @1_from_int,
+		to_bytes : @1_to_bytes,
+		to_bytes_base : @1_to_bytes_base,
+		from_bytes : @1_from_bytes,
+		from_bytes_base : @1_from_bytes_base,
+		rol : @1_rol,
+		ror : @1_ror,
+		bswap : @1_bswap,
+		brev : @1_brev,
+	];
+]
+
+fixed_instance(sint8, 8, false);
+fixed_instance(sint16, 16, false);
+fixed_instance(sint32, 32, false);
+fixed_instance(sint64, 64, false);
+fixed_instance(sint128, 128, false);
+fixed_instance(uint8, 8, true);
+fixed_instance(uint16, 16, true);
+fixed_instance(uint32, 32, true);
+fixed_instance(uint64, 64, true);
+fixed_instance(uint128, 128, true);
+
+type suint_base := int128;
+type sint(n : int) := suint_base;
+type uint(n : int) := suint_base;
+
+fn fx_wrap~inline(n : int, i : suint_base) : suint_base := i and ((1 shl n) - 1);
+fn fx_unwrap~inline(n : int, uns : bool, i : suint_base) : suint_base
+[
+	if uns or not i bt n - 1 then
+		return i;
+	return i - (1 shl n);
+]
+fn fx_mod_n~inline(n : int, i : suint_base) : suint_base
+[
+	var r := i mod n;
+	if r < 0 then
+		r += n;
+	return r;
+]
+
+fn fx_add~inline(n : int, i1 i2 : suint_base) : suint_base := fx_wrap(n, i1 + i2);
+fn fx_neg~inline(n : int, i1 : suint_base) : suint_base := fx_wrap(n, -i1);
+fn fx_subtract~inline(n : int, i1 i2 : suint_base) : suint_base := fx_wrap(n, i1 - i2);
+fn fx_multiply~inline(n : int, i1 i2 : suint_base) : suint_base := fx_wrap(n, i1 * i2);
+fn fx_div~inline(n : int, uns : bool, i1 i2 : suint_base) : suint_base
+[
+	i1 := fx_unwrap(n, uns, i1);
+	i2 := fx_unwrap(n, uns, i2);
+	if i2 = 0 then
+		return 0;
+	return fx_wrap(n, i1 div i2);
+]
+fn fx_mod~inline(n : int, uns : bool, i1 i2 : suint_base) : suint_base
+[
+	i1 := fx_unwrap(n, uns, i1);
+	i2 := fx_unwrap(n, uns, i2);
+	if i2 = 0 then
+		return i1;
+	return fx_wrap(n, i1 mod i2);
+]
+fn fx_power~inline(n : int, uns : bool, i1 i2 : suint_base) : suint_base
+[
+	var r := 1;
+	while i2 <> 0 do [
+		if i2 bt 0 then
+			r := fx_wrap(n, r * i1);
+		i1 := fx_wrap(n, i1 * i1);
+		i2 shr= 1;
+	]
+	return r;
+]
+fn fx_and~inline(i1 i2 : suint_base) : suint_base := i1 and i2;
+fn fx_or~inline(i1 i2 : suint_base) : suint_base := i1 or i2;
+fn fx_xor~inline(i1 i2 : suint_base) : suint_base := i1 xor i2;
+fn fx_shl~inline(n : int, i1 i2 : suint_base) : suint_base := fx_wrap(n, i1 shl fx_mod_n(n, i2));
+fn fx_shr~inline(n : int, uns : bool, i1 i2 : suint_base) : suint_base := fx_wrap(n, fx_unwrap(n, uns, i1) shr fx_mod_n(n, i2));
+fn fx_bts~inline(n : int, i1 i2 : suint_base) : suint_base := i1 bts fx_mod_n(n, i2);
+fn fx_btr~inline(n : int, i1 i2 : suint_base) : suint_base := i1 btr fx_mod_n(n, i2);
+fn fx_btc~inline(n : int, i1 i2 : suint_base) : suint_base := i1 btc fx_mod_n(n, i2);
+fn fx_equal~inline(i1 i2 : suint_base) : bool := i1 = i2;
+fn fx_less~inline(n : int, uns : bool, i1 i2 : suint_base) : bool := fx_unwrap(n, uns, i1) < fx_unwrap(n, uns, i2);
+fn fx_bt~inline(n : int, i1 i2 : suint_base) : bool := i1 bt fx_mod_n(n, i2);
+fn fx_not~inline(n : int, i1 : suint_base) : suint_base := fx_wrap(n, not i1);
+fn fx_bsf~inline(n : int, i1 : suint_base) : suint_base
+[
+	if i1 = 0 then
+		return (1 shl n) - 1;
+	return bsf i1;
+]
+fn fx_bsr~inline(n : int, i1 : suint_base) : suint_base
+[
+	if i1 = 0 then
+		return (1 shl n) - 1;
+	return bsr i1;
+]
+fn fx_popcnt~inline(i1 : suint_base) : suint_base := popcnt i1;
+fn fx_to_int~inline(n : int, uns : bool, i1 : suint_base) : int := fx_unwrap(n, uns, i1);
+fn fx_from_int~inline(n : int, uns : bool, i1 : int) : suint_base
+[
+	if uns then [
+		if i1 < 0 or i1 >= 1 shl n then
+			abort exception_make(suint_base, ec_sync, error_doesnt_fit, 0, true);
+		return i1;
+	] else [
+		if i1 < -(1 shl n - 1) or i1 >= 1 shl n - 1 then
+			abort exception_make(suint_base, ec_sync, error_doesnt_fit, 0, true);
+		return fx_wrap(n, i1);
+	]
+]
+fn fx_to_bytes~inline(n : int, uns : bool, i1 : suint_base) : bytes := int_to_bytes(fx_unwrap(n, uns, i1));
+fn fx_to_bytes_base~inline(n : int, uns : bool, i1 : suint_base, base : int) : bytes := int_to_bytes_base(fx_unwrap(n, uns, i1), base);
+fn fx_from_bytes~inline(n : int, uns : bool, a1 : bytes) : suint_base := fx_from_int(n, uns, int_from_bytes(a1));
+fn fx_from_bytes_base~inline(n : int, uns : bool, a1 : bytes, base : int) : suint_base := fx_from_int(n, uns, int_from_bytes_base(a1, base));
+fn fx_rol~inline(n : int, i1 i2 : suint_base) : suint_base := fx_wrap(n, i1 shl fx_mod_n(n, i2) or i1 shr fx_mod_n(n, n - i2));
+fn fx_ror~inline(n : int, i1 i2 : suint_base) : suint_base := fx_wrap(n, i1 shr fx_mod_n(n, i2) or i1 shl fx_mod_n(n, n - i2));
+fn fx_bswap~inline(n : int, i1 : suint_base) : suint_base
+[
+	n := n shr 3;
+	var result := 0;
+	for i := 0 to n do [
+		result or= (i1 shr (i * 8) and #ff) shl (n - 1 - i) * 8;
+	]
+	return result;
+]
+fn fx_brev~inline(n : int, i1 : suint_base) : suint_base
+[
+	var result := 0;
+	for i := 0 to n do [
+		result or= (i1 shr i and 1) shl (n - 1 - i);
+	]
+	return result;
+]
+
+fn instance_fixed_integer_number_int~inline(n : int, uns : bool) : class_fixed_integer_number(suint_base) :=
+	class_fixed_integer_number(suint_base).[
+		bits : n,
+		unsigned : uns,
+		add : fx_add(n,,),
+		zero : 0,
+		neg : fx_neg(n,),
+		subtract : fx_subtract(n,,),
+		multiply : fx_multiply(n,,),
+		one : 1,
+		div : fx_div(n, uns,,),
+		mod : fx_mod(n, uns,,),
+		power : fx_power(n, uns,,),
+		and : fx_and,
+		or : fx_or,
+		xor : fx_xor,
+		shl : fx_shl(n,,),
+		shr : fx_shr(n,uns,,),
+		bts : fx_bts(n,,),
+		btr : fx_btr(n,,),
+		btc : fx_btc(n,,),
+		equal : fx_equal,
+		less : fx_less(n, uns,,),
+		bt : fx_bt(n,,),
+		not : fx_not(n,),
+		bsf : fx_bsf(n,),
+		bsr : fx_bsr(n,),
+		popcnt : fx_popcnt,
+		to_int : fx_to_int(n, uns,),
+		from_int : fx_from_int(n, uns,),
+		to_bytes : fx_to_bytes(n, uns,),
+		to_bytes_base : fx_to_bytes_base(n, uns,,),
+		from_bytes : fx_from_bytes(n, uns,),
+		from_bytes_base : fx_from_bytes_base(n, uns,,),
+		rol : fx_rol(n,,),
+		ror : fx_ror(n,,),
+		bswap : fx_bswap(n,),
+		brev : fx_brev(n,),
+	];
+
+implicit fn instance_fixed_integer_number_sint~inline(const n : int) : class_fixed_integer_number(sint(n)) := instance_fixed_integer_number_int(n, false);
+implicit fn instance_fixed_integer_number_uint~inline(const n : int) : class_fixed_integer_number(uint(n)) := instance_fixed_integer_number_int(n, true);
+
+{-----------------
+ - REAL INSTANCE -
+ -----------------}
+
+define real_instance [
+fn @1_add~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Add =r 0 i1 0 i2;
+	return r;
+]
+fn @1_zero~inline : @1
+[
+	var r : @1;
+	var i : int := 0;
+	pcode UnaryOp Un_ConvertFromInt =r 0 i;
+	return r;
+]
+fn @1_neg~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Neg =r 0 i1;
+	return r;
+]
+fn @1_subtract~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Subtract =r 0 i1 0 i2;
+	return r;
+]
+fn @1_multiply~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Multiply =r 0 i1 0 i2;
+	return r;
+]
+fn @1_one~inline : @1
+[
+	var r : @1;
+	var i : int := 1;
+	pcode UnaryOp Un_ConvertFromInt =r 0 i;
+	return r;
+]
+fn @1_recip~inline(i1 : @1) : @1
+[
+	var r : @1;
+	var i0 := @1_one;
+	pcode BinaryOp Bin_Divide_Real =r 0 i0 0 i1;
+	return r;
+]
+fn @1_pi : @1
+[
+	return #1.921fb54442d18469898cc51701b8p+1;
+]
+fn @1_divide~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Divide_Real =r 0 i1 0 i2;
+	return r;
+]
+fn @1_modulo~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Modulo =r 0 i1 0 i2;
+	return r;
+]
+fn @1_power~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Power =r 0 i1 0 i2;
+	return r;
+]
+fn @1_ldexp~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Shl =r 0 i1 0 i2;
+	return r;
+]
+fn @1_atan2~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Atan2 =r 0 i1 0 i2;
+	return r;
+]
+fn @1_sqrt~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Sqrt =r 0 i1;
+	return r;
+]
+fn @1_cbrt~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Cbrt =r 0 i1;
+	return r;
+]
+fn @1_sin~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Sin =r 0 i1;
+	return r;
+]
+fn @1_cos~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Cos =r 0 i1;
+	return r;
+]
+fn @1_tan~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Tan =r 0 i1;
+	return r;
+]
+fn @1_asin~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Asin =r 0 i1;
+	return r;
+]
+fn @1_acos~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Acos =r 0 i1;
+	return r;
+]
+fn @1_atan~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Atan =r 0 i1;
+	return r;
+]
+fn @1_sinh~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Sinh =r 0 i1;
+	return r;
+]
+fn @1_cosh~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Cosh =r 0 i1;
+	return r;
+]
+fn @1_tanh~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Tanh =r 0 i1;
+	return r;
+]
+fn @1_asinh~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Asinh =r 0 i1;
+	return r;
+]
+fn @1_acosh~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Acosh =r 0 i1;
+	return r;
+]
+fn @1_atanh~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Atanh =r 0 i1;
+	return r;
+]
+fn @1_exp2~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Exp2 =r 0 i1;
+	return r;
+]
+fn @1_exp~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Exp =r 0 i1;
+	return r;
+]
+fn @1_exp10~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Exp10 =r 0 i1;
+	return r;
+]
+fn @1_log2~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Log2 =r 0 i1;
+	return r;
+]
+fn @1_log~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Log =r 0 i1;
+	return r;
+]
+fn @1_log10~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Log10 =r 0 i1;
+	return r;
+]
+fn @1_round~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Round =r 0 i1;
+	return r;
+]
+fn @1_ceil~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Ceil =r 0 i1;
+	return r;
+]
+fn @1_floor~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Floor =r 0 i1;
+	return r;
+]
+fn @1_trunc~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Trunc =r 0 i1;
+	return r;
+]
+fn @1_fract~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Fract =r 0 i1;
+	return r;
+]
+fn @1_mantissa~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Mantissa =r 0 i1;
+	return r;
+]
+fn @1_exponent~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_Exponent =r 0 i1;
+	return r;
+]
+fn @1_next_number~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_NextNumber =r 0 i1;
+	return r;
+]
+fn @1_prev_number~inline(i1 : @1) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_PrevNumber =r 0 i1;
+	return r;
+]
+fn @1_is_negative~inline(i1 : @1) : bool
+[
+	if i1 <> 0 then
+		return i1 < 0;
+	else
+		return @1_recip(i1) < 0;
+]
+fn @1_is_infinity~inline(i1 : @1) : bool
+[
+	return i1 <> 0 and i1 + i1 = i1;
+]
+fn @1_equal~inline(i1 i2 : @1) : bool
+[
+	var r : bool;
+	pcode BinaryOp Bin_Equal =r 0 i1 0 i2;
+	return r;
+]
+fn @1_less~inline(i1 i2 : @1) : bool
+[
+	var r : bool;
+	pcode BinaryOp Bin_Less =r 0 i1 0 i2;
+	return r;
+]
+fn @1_to_int~inline(i1 : @1) : int
+[
+	var r : int;
+	pcode UnaryOp Un_ConvertToInt =r 0 i1;
+	return r;
+]
+fn @1_from_int~inline(i1 : int) : @1
+[
+	var r : @1;
+	pcode UnaryOp Un_ConvertFromInt =r 0 i1;
+	return r;
+]
+fn @1_to_rational(i1 : @1) : rational
+[
+	return real_to_rational~inline(@1, instance_real_number_@1, i1);
+]
+fn @1_from_rational(i1 : rational) : @1
+[
+	return rational_to_real~inline(@1, instance_real_number_@1, i1);
+]
+fn @1_to_bytes(i1 : @1) : bytes
+[
+	return real_to_bytes~inline(@1, instance_real_number_@1, i1);
+]
+fn @1_to_bytes_base_precision(i1 : @1, b : int, digits : int) : bytes
+[
+	return real_to_bytes_base_precision~inline(@1, instance_real_number_@1, i1, b, digits);
+]
+fn @1_from_bytes(a1 : bytes) : @1
+[
+	return bytes_to_real~inline(@1, instance_real_number_@1, a1);
+]
+fn @1_from_bytes_base(a1 : bytes, b : int) : @1
+[
+	return bytes_to_real_base~inline(@1, instance_real_number_@1, a1, b);
+]
+implicit fn instance_real_number_@1~inline : class_real_number(@1) :=
+	class_real_number(@1).[
+		add : @1_add,
+		zero : @1_zero,
+		neg : @1_neg,
+		subtract : @1_subtract,
+		multiply : @1_multiply,
+		one : @1_one,
+		recip : @1_recip,
+		divide : @1_divide,
+		modulo : @1_modulo,
+		power : @1_power,
+		ldexp : @1_ldexp,
+		atan2 : @1_atan2,
+		pi : @1_pi~lazy,
+		sqrt : @1_sqrt,
+		cbrt : @1_cbrt,
+		sin : @1_sin,
+		cos : @1_cos,
+		tan : @1_tan,
+		asin : @1_asin,
+		acos : @1_acos,
+		atan : @1_atan,
+		sinh : @1_sinh,
+		cosh : @1_cosh,
+		tanh : @1_tanh,
+		asinh : @1_asinh,
+		acosh : @1_acosh,
+		atanh : @1_atanh,
+		exp2 : @1_exp2,
+		exp : @1_exp,
+		exp10 : @1_exp10,
+		log2 : @1_log2,
+		log : @1_log,
+		log10 : @1_log10,
+		round : @1_round,
+		ceil : @1_ceil,
+		floor : @1_floor,
+		trunc : @1_trunc,
+		fract : @1_fract,
+		mantissa : @1_mantissa,
+		exponent : @1_exponent,
+		next_number : @1_next_number,
+		prev_number : @1_prev_number,
+		is_negative : @1_is_negative,
+		is_infinity : @1_is_infinity,
+		equal : @1_equal,
+		less : @1_less,
+		to_int : @1_to_int,
+		from_int : @1_from_int,
+		to_rational : @1_to_rational,
+		from_rational : @1_from_rational,
+		to_bytes : @1_to_bytes,
+		to_bytes_base_precision : @1_to_bytes_base_precision,
+		from_bytes : @1_from_bytes,
+		from_bytes_base : @1_from_bytes_base,
+	];
+]
+
+real_instance(real16);
+real_instance(real32);
+real_instance(real64);
+real_instance(real80);
+real_instance(real128);
+
+{---------------------
+ - FLOATING INSTANCE -
+ ---------------------}
+
+fn floating_ex~inline(ex_bits : int) : int := ex_bits + 2;
+fn floating_sig~inline(sig_bits : int) : int := sig_bits + 8;
+
+fn floating_modulo(const ex_bits sig_bits : int, x1 x2 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_modulo(floating(ex_bits, sig_bits), instance_real_number_floating(ex_bits, sig_bits), x1, x2);
+]
+
+fn floating_power(const ex_bits sig_bits : int, x1 x2 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_power(floating(floating_ex(ex_bits), floating_sig(sig_bits)), instance_real_number_floating(floating_ex(ex_bits), floating_sig(sig_bits)), x1, x2);
+]
+
+// we must not call math_ldexp for integer arguments, otherwise there would be
+// infinite recursion; the reason is that we use ldexp in real_to_rational and
+// rational_to_real
+// warning: this logic is duplicated in math_ldexp
+fn floating_ldexp(const ex_bits sig_bits : int, x y : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	xeval x, y;
+	var yi : int := y;
+	if not is_exception yi, y = yi then [
+		if is_infinity x then
+			return x;
+		var q : floating(ex_bits, sig_bits) := 1 shl abs(yi);
+		if is_infinity q then [
+			var y1 := yi div 2;
+			var y2 := yi - y1;
+			x := floating_ldexp(x, y1);
+			x := floating_ldexp(x, y2);
+			return x;
+		]
+		if yi >= 0 then
+			x *= q;
+		else
+			x /= q;
+		return x;
+	]
+	return math_ldexp(floating(floating_ex(ex_bits), floating_sig(sig_bits)), instance_real_number_floating(floating_ex(ex_bits), floating_sig(sig_bits)), x, y);
+]
+
+fn floating_atan2(const ex_bits sig_bits : int, x1 x2 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_atan2(floating(floating_ex(ex_bits), floating_sig(sig_bits)), instance_real_number_floating(floating_ex(ex_bits), floating_sig(sig_bits)), x1, x2);
+]
+
+fn floating_pi(const ex_bits sig_bits : int) : floating(ex_bits, sig_bits)
+[
+	return math_pi(floating(floating_ex(ex_bits), floating_sig(sig_bits)), instance_real_number_floating(floating_ex(ex_bits), floating_sig(sig_bits)));
+]
+
+fn floating_sqrt(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_sqrt(floating(floating_ex(ex_bits), floating_sig(sig_bits)), instance_real_number_floating(floating_ex(ex_bits), floating_sig(sig_bits)), x1);
+]
+
+fn floating_cbrt(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_cbrt(floating(floating_ex(ex_bits), floating_sig(sig_bits)), instance_real_number_floating(floating_ex(ex_bits), floating_sig(sig_bits)), x1);
+]
+
+fn floating_sin(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_sin(floating(floating_ex(ex_bits), floating_sig(sig_bits)), instance_real_number_floating(floating_ex(ex_bits), floating_sig(sig_bits)), x1);
+]
+
+fn floating_cos(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_cos(floating(floating_ex(ex_bits), floating_sig(sig_bits)), instance_real_number_floating(floating_ex(ex_bits), floating_sig(sig_bits)), x1);
+]
+
+fn floating_tan(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_tan(floating(floating_ex(ex_bits), floating_sig(sig_bits)), instance_real_number_floating(floating_ex(ex_bits), floating_sig(sig_bits)), x1);
+]
+
+fn floating_asin(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_asin(floating(floating_ex(ex_bits), floating_sig(sig_bits)), instance_real_number_floating(floating_ex(ex_bits), floating_sig(sig_bits)), x1);
+]
+
+fn floating_acos(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_acos(floating(floating_ex(ex_bits), floating_sig(sig_bits)), instance_real_number_floating(floating_ex(ex_bits), floating_sig(sig_bits)), x1);
+]
+
+fn floating_atan(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_atan(floating(floating_ex(ex_bits), floating_sig(sig_bits)), instance_real_number_floating(floating_ex(ex_bits), floating_sig(sig_bits)), x1);
+]
+
+fn floating_sinh(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_sinh(floating(floating_ex(ex_bits), floating_sig(sig_bits)), instance_real_number_floating(floating_ex(ex_bits), floating_sig(sig_bits)), x1);
+]
+
+fn floating_cosh(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_cosh(floating(floating_ex(ex_bits), floating_sig(sig_bits)), instance_real_number_floating(floating_ex(ex_bits), floating_sig(sig_bits)), x1);
+]
+
+fn floating_tanh(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_tanh(floating(floating_ex(ex_bits), floating_sig(sig_bits)), instance_real_number_floating(floating_ex(ex_bits), floating_sig(sig_bits)), x1);
+]
+
+fn floating_asinh(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_asinh(floating(floating_ex(ex_bits), floating_sig(sig_bits)), instance_real_number_floating(floating_ex(ex_bits), floating_sig(sig_bits)), x1);
+]
+
+fn floating_acosh(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_acosh(floating(floating_ex(ex_bits), floating_sig(sig_bits)), instance_real_number_floating(floating_ex(ex_bits), floating_sig(sig_bits)), x1);
+]
+
+fn floating_atanh(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_atanh(floating(floating_ex(ex_bits), floating_sig(sig_bits)), instance_real_number_floating(floating_ex(ex_bits), floating_sig(sig_bits)), x1);
+]
+
+fn floating_exp2(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_exp2(floating(floating_ex(ex_bits), floating_sig(sig_bits)), instance_real_number_floating(floating_ex(ex_bits), floating_sig(sig_bits)), x1);
+]
+
+fn floating_exp(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_exp(floating(floating_ex(ex_bits), floating_sig(sig_bits)), instance_real_number_floating(floating_ex(ex_bits), floating_sig(sig_bits)), x1);
+]
+
+fn floating_exp10(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_exp10(floating(floating_ex(ex_bits), floating_sig(sig_bits)), instance_real_number_floating(floating_ex(ex_bits), floating_sig(sig_bits)), x1);
+]
+
+fn floating_log2(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_log2(floating(floating_ex(ex_bits), floating_sig(sig_bits)), instance_real_number_floating(floating_ex(ex_bits), floating_sig(sig_bits)), x1);
+]
+
+fn floating_log(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_log(floating(floating_ex(ex_bits), floating_sig(sig_bits)), instance_real_number_floating(floating_ex(ex_bits), floating_sig(sig_bits)), x1);
+]
+
+fn floating_log10(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_log10(floating(floating_ex(ex_bits), floating_sig(sig_bits)), instance_real_number_floating(floating_ex(ex_bits), floating_sig(sig_bits)), x1);
+]
+
+fn floating_round(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_round(floating(ex_bits, sig_bits), instance_real_number_floating(ex_bits, sig_bits), x1);
+]
+
+fn floating_ceil(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_ceil(floating(ex_bits, sig_bits), instance_real_number_floating(ex_bits, sig_bits), x1);
+]
+
+fn floating_floor(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_floor(floating(ex_bits, sig_bits), instance_real_number_floating(ex_bits, sig_bits), x1);
+]
+
+fn floating_trunc(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_trunc(floating(ex_bits, sig_bits), instance_real_number_floating(ex_bits, sig_bits), x1);
+]
+
+fn floating_fract(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_fract(floating(ex_bits, sig_bits), instance_real_number_floating(ex_bits, sig_bits), x1);
+]
+
+fn floating_mantissa(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_mantissa(floating(ex_bits, sig_bits), instance_real_number_floating(ex_bits, sig_bits), x1);
+]
+
+fn floating_exponent(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	return math_exponent(floating(ex_bits, sig_bits), instance_real_number_floating(ex_bits, sig_bits), x1);
+]
+
+type floating_base := int128;
+type sig_type := int128;
+
+type floating(ex_bits sig_bits : int) := floating_base;
+
+private fn floating_internal(const ex_bits sig_bits : int, f : floating(ex_bits, sig_bits)) : int
+[
+	var fb : floating_base := f;
+	return fb;
+]
+
+fn floating_divide(ex_bits sig_bits : int, x1 x2 : floating_base) : floating_base;
+fn floating_equal(ex_bits sig_bits : int, x1 x2 : floating_base) : bool;
+fn floating_less(ex_bits sig_bits : int, x1 x2 : floating_base) : bool;
+fn floating_to_int(ex_bits sig_bits : int, x1 : floating_base) : int;
+fn floating_from_int(ex_bits sig_bits : int, i1 : int) : floating_base;
+fn floating_to_bytes(const ex_bits sig_bits : int, x1 : floating_base) : bytes;
+
+fn min_exp(ex_bits sig_bits : int) : int
+[
+	if ex_bits > 19 then
+		ex_bits := 19;
+	return -(1 shl ex_bits - 1) - sig_bits + 3;
+]
+
+fn max_exp(ex_bits sig_bits : int) : int
+[
+	if ex_bits > 19 then
+		ex_bits := 19;
+	//return min_exp(ex_bits, sig_bits) + (1 shl ex_bits) - 1;
+	return (1 shl ex_bits - 1) - sig_bits + 1;
+]
+
+fn infinity_sig(ex_bits sig_bits : int) : floating_base
+[
+	var one : sig_type := 1;
+	return one shl sig_bits - 1;
+]
+
+fn pack(ex_bits sig_bits : int, neg : bool, e : int, s : sig_type) : floating_base
+[
+	//eval debug("pack: " + ntos_base(e, 16) + ", " + ntos_base(s, 16) + ", " + ntos(select(neg, 0, 1)));
+	var min_e := min_exp(ex_bits, sig_bits);
+	if s = 0 then [
+		e := min_e;
+	] else [
+		var sb : int := (bsr s) + 1;
+		if sb < sig_bits then [
+			s shl= sig_bits - sb;
+			e -= sig_bits - sb;
+			sb := sig_bits;
+		]
+		if e + sb - sig_bits < min_e then [
+			sb += min_e - (e + sb - sig_bits);
+		]
+		var one : sig_type := 1;
+		var rnd := s and (one shl sb - sig_bits) - 1;
+		var bnd := one shl sb - sig_bits shr 1;
+		s shr= sb - sig_bits;
+		e += sb - sig_bits;
+		if bnd <> 0, rnd > bnd or rnd = bnd and s bt 0 then [
+			s += 1;
+			var nsb : int := (bsr s) + 1;
+			if nsb > sig_bits then [
+				s shr= 1;
+				e += 1;
+			]
+		]
+		if e >= max_exp(ex_bits, sig_bits) then [
+			e := max_exp(ex_bits, sig_bits);
+			s := infinity_sig(ex_bits, sig_bits);
+		]
+	]
+	if neg then
+		s bts= sig_bits;
+	var ee : sig_type := e;
+	s or= ee shl sig_bits + 1;
+	//eval debug("result: " + ntos_base(s and #fffffffff, 16));
+	return s;
+]
+
+fn unpack(ex_bits sig_bits : int, f : floating_base) : (bool, int, sig_type)
+[
+	//eval debug("unpack: " + ntos_base(f and #fffffffff, 16));
+	var neg := f bt sig_bits;
+	var e : int := f shr sig_bits + 1;
+	var one : sig_type := 1;
+	var s : sig_type := f and (one shl sig_bits) - 1;
+	//eval debug("result: " + ntos_base(e, 16) + ", " + ntos_base(s, 16) + ", " + ntos(select(neg, 0, 1)));
+	return neg, e, s;
+]
+
+fn floating_zero(ex_bits sig_bits : int) : floating_base
+[
+	//eval debug("zero");
+	return pack(ex_bits, sig_bits, false, 0, 0);
+]
+
+fn floating_one(ex_bits sig_bits : int) : floating_base
+[
+	//eval debug("one");
+	return pack(ex_bits, sig_bits, false, 0, 1);
+]
+
+fn floating_neg(ex_bits sig_bits : int, x1 : floating_base) : floating_base
+[
+	return x1 btc sig_bits;
+]
+
+fn floating_add(ex_bits sig_bits : int, x1 x2 : floating_base) : floating_base
+[
+	var neg1, e1, s1 := unpack(ex_bits, sig_bits, x1);
+	var neg2, e2, s2 := unpack(ex_bits, sig_bits, x2);
+	if e1 > e2 or (e1 = e2 and s1 > s2) then [
+		neg1, neg2 := neg2, neg1;
+		e1, e2 := e2, e1;
+		s1, s2 := s2, s1;
+	]
+	if e2 = max_exp(ex_bits, sig_bits) then [
+		if e1 = max_exp(ex_bits, sig_bits), neg1 <> neg2 then
+			abort exception_make(floating_base, ec_sync, error_nan, 0, true);
+	] else if e2 - e1 <= sig_bits then [
+		s2 shl= e2 - e1;
+		e2 := e1;
+		if neg1 <> neg2 then [
+			s2 -= s1;
+		] else [
+			s2 += s1;
+		]
+	]
+	if s2 = 0 then
+		neg2 and= neg1;
+	return pack(ex_bits, sig_bits, neg2, e2, s2);
+]
+
+fn floating_subtract(ex_bits sig_bits : int, x1 x2 : floating_base) : floating_base
+[
+	return floating_add(ex_bits, sig_bits, x1, floating_neg(ex_bits, sig_bits, x2));
+]
+
+fn floating_multiply(ex_bits sig_bits : int, x1 x2 : floating_base) : floating_base
+[
+	var neg1, e1, s1 := unpack(ex_bits, sig_bits, x1);
+	var neg2, e2, s2 := unpack(ex_bits, sig_bits, x2);
+	if e1 = max_exp(ex_bits, sig_bits) then [
+		if s2 = 0 then
+			abort exception_make(floating_base, ec_sync, error_nan, 0, true);
+		return pack(ex_bits, sig_bits, neg1 xor neg2, e1, s1);
+	]
+	if e2 = max_exp(ex_bits, sig_bits) then [
+		if s1 = 0 then
+			abort exception_make(floating_base, ec_sync, error_nan, 0, true);
+		return pack(ex_bits, sig_bits, neg1 xor neg2, e2, s2);
+	]
+	e1 += e2;
+	s1 *= s2;
+	return pack(ex_bits, sig_bits, neg1 xor neg2, e1, s1);
+]
+
+fn floating_recip(ex_bits sig_bits : int, x1 : floating_base) : floating_base
+[
+	return floating_divide(ex_bits, sig_bits, floating_one(ex_bits, sig_bits), x1);
+]
+
+fn floating_divide(ex_bits sig_bits : int, x1 x2 : floating_base) : floating_base
+[
+	var neg1, e1, s1 := unpack(ex_bits, sig_bits, x1);
+	var neg2, e2, s2 := unpack(ex_bits, sig_bits, x2);
+	if e1 = max_exp(ex_bits, sig_bits) then [
+		if e2 = max_exp(ex_bits, sig_bits) then
+			abort exception_make(floating_base, ec_sync, error_nan, 0, true);
+		return pack(ex_bits, sig_bits, neg1 xor neg2, e1, s1);
+	]
+	if e2 = max_exp(ex_bits, sig_bits) then [
+		return pack(ex_bits, sig_bits, neg1 xor neg2, 0, 0);
+	]
+	if s2 = 0 then [
+		if s1 = 0 then
+			abort exception_make(floating_base, ec_sync, error_nan, 0, true);
+		return pack(ex_bits, sig_bits, neg1 xor neg2, max_exp(ex_bits, sig_bits), infinity_sig(ex_bits, sig_bits));
+	]
+	s1 shl= sig_bits * 3;
+	e1 -= sig_bits * 3;
+	e1 -= e2;
+	s1 div= s2;
+	return pack(ex_bits, sig_bits, neg1 xor neg2, e1, s1);
+]
+
+fn floating_next_number(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	var neg1, e1, s1 := unpack(ex_bits, sig_bits, x1);
+	if s1 = 0 then
+		return pack(ex_bits, sig_bits, false, e1, 1);
+	var s2 := s1 + select(neg1, 1, -1);
+	if s2 < s1 and s1 = infinity_sig(ex_bits, sig_bits) then [
+		s2 := s2 shl 1 or 1;
+		e1 -= 1;
+	]
+	return pack(ex_bits, sig_bits, neg1, e1, s2);
+]
+
+fn floating_prev_number(const ex_bits sig_bits : int, x1 : floating(ex_bits, sig_bits)) : floating(ex_bits, sig_bits)
+[
+	var neg1, e1, s1 := unpack(ex_bits, sig_bits, x1);
+	if s1 = 0 then
+		return pack(ex_bits, sig_bits, true, e1, 1);
+	var s2 := s1 + select(neg1, -1, 1);
+	if s2 < s1 and s1 = infinity_sig(ex_bits, sig_bits) then [
+		s2 := s2 shl 1 or 1;
+		e1 -= 1;
+	]
+	return pack(ex_bits, sig_bits, neg1, e1, s2);
+]
+
+fn floating_is_negative(ex_bits sig_bits : int, x1 : floating_base) : bool
+[
+	return x1 bt sig_bits;
+]
+
+fn floating_is_infinity(ex_bits sig_bits : int, x1 : floating_base) : bool
+[
+	var neg1, e1, s1 := unpack(ex_bits, sig_bits, x1);
+	return e1 = max_exp(ex_bits, sig_bits);
+]
+
+fn floating_equal(ex_bits sig_bits : int, x1 x2 : floating_base) : bool
+[
+	var neg1, e1, s1 := unpack(ex_bits, sig_bits, x1);
+	var neg2, e2, s2 := unpack(ex_bits, sig_bits, x2);
+	if s1 = 0, s2 = 0 then
+		return true;
+	return x1 = x2;
+]
+
+fn floating_less(ex_bits sig_bits : int, x1 x2 : floating_base) : bool
+[
+	var neg1, e1, s1 := unpack(ex_bits, sig_bits, x1);
+	var neg2, e2, s2 := unpack(ex_bits, sig_bits, x2);
+	if s1 = 0, s2 = 0 then
+		return false;
+	if neg1 <> neg2 then
+		return neg1;
+	if neg1 then
+		e1, e2, s1, s2 := e2, e1, s2, s1;
+	if e1 <> e2 then
+		return e1 < e2;
+	return s1 < s2;
+]
+
+fn floating_to_int(ex_bits sig_bits : int, x1 : floating_base) : int
+[
+	var neg1, e1, s1 := unpack(ex_bits, sig_bits, x1);
+	if e1 = max_exp(ex_bits, sig_bits) then
+		abort exception_make(int, ec_sync, error_infinity, 0, true);
+	if e1 < 0 then
+		s1 shr= -e1;
+	else
+		s1 shl= e1;
+	if neg1 then
+		s1 := -s1;
+	//eval debug("to_int result: " + ntos(s1));
+	return s1;
+]
+
+fn floating_from_int(ex_bits sig_bits : int, i1 : int) : floating_base
+[
+	var neg := false;
+	if i1 < 0 then [
+		neg := true;
+		i1 := -i1;
+	]
+	return pack(ex_bits, sig_bits, neg, 0, i1);
+]
+
+fn floating_to_rational(const ex_bits sig_bits : int, x1 : floating_base) : rational
+[
+	return real_to_rational(floating(ex_bits, sig_bits), instance_real_number_floating(ex_bits, sig_bits), x1);
+]
+
+fn floating_from_rational(const ex_bits sig_bits : int, i1 : rational) : floating_base
+[
+	return rational_to_real(floating(ex_bits, sig_bits), instance_real_number_floating(ex_bits, sig_bits), i1);
+]
+
+fn floating_to_bytes(const ex_bits sig_bits : int, x1 : floating_base) : bytes
+[
+	return real_to_bytes(floating(ex_bits, sig_bits), instance_real_number_floating(ex_bits, sig_bits), x1);
+]
+
+fn floating_to_bytes_base_precision(const ex_bits sig_bits : int, x1 : floating_base, b : int, digits : int) : bytes
+[
+	return real_to_bytes_base_precision(floating(ex_bits, sig_bits), instance_real_number_floating(ex_bits, sig_bits), x1, b, digits);
+]
+
+fn floating_from_bytes(const ex_bits sig_bits : int, a1 : bytes) : floating_base
+[
+	return bytes_to_real(floating(ex_bits, sig_bits), instance_real_number_floating(ex_bits, sig_bits), a1);
+]
+
+fn floating_from_bytes_base(const ex_bits sig_bits : int, a1 : bytes, b : int) : floating_base
+[
+	return bytes_to_real_base(floating(ex_bits, sig_bits), instance_real_number_floating(ex_bits, sig_bits), a1, b);
+]
+
+implicit fn instance_real_number_floating~inline(const ex_bits sig_bits : int) : class_real_number(floating(ex_bits, sig_bits)) := 
+	class_real_number(floating(ex_bits, sig_bits)).[
+		add : floating_add(ex_bits, sig_bits,,),
+		zero : floating_zero(ex_bits, sig_bits),
+		neg : floating_neg(ex_bits, sig_bits,),
+		subtract : floating_subtract(ex_bits, sig_bits,,),
+		multiply : floating_multiply(ex_bits, sig_bits,,),
+		one : floating_one(ex_bits, sig_bits),
+		recip : floating_recip(ex_bits, sig_bits,),
+		divide : floating_divide(ex_bits, sig_bits,,),
+		modulo : floating_modulo(ex_bits, sig_bits,,),
+		power : floating_power(ex_bits, sig_bits,,),
+		ldexp : floating_ldexp(ex_bits, sig_bits,,),
+		atan2 : floating_atan2(ex_bits, sig_bits,,),
+		pi : floating_pi~lazy(ex_bits, sig_bits),
+		sqrt : floating_sqrt(ex_bits, sig_bits,),
+		cbrt : floating_cbrt(ex_bits, sig_bits,),
+		sin : floating_sin(ex_bits, sig_bits,),
+		cos : floating_cos(ex_bits, sig_bits,),
+		tan : floating_tan(ex_bits, sig_bits,),
+		asin : floating_asin(ex_bits, sig_bits,),
+		acos : floating_acos(ex_bits, sig_bits,),
+		atan : floating_atan(ex_bits, sig_bits,),
+		sinh : floating_sinh(ex_bits, sig_bits,),
+		cosh : floating_cosh(ex_bits, sig_bits,),
+		tanh : floating_tanh(ex_bits, sig_bits,),
+		asinh : floating_asinh(ex_bits, sig_bits,),
+		acosh : floating_acosh(ex_bits, sig_bits,),
+		atanh : floating_atanh(ex_bits, sig_bits,),
+		exp2 : floating_exp2(ex_bits, sig_bits,),
+		exp : floating_exp(ex_bits, sig_bits,),
+		exp10 : floating_exp10(ex_bits, sig_bits,),
+		log2 : floating_log2(ex_bits, sig_bits,),
+		log : floating_log(ex_bits, sig_bits,),
+		log10 : floating_log10(ex_bits, sig_bits,),
+		round : floating_round(ex_bits, sig_bits,),
+		ceil : floating_ceil(ex_bits, sig_bits,),
+		floor : floating_floor(ex_bits, sig_bits,),
+		trunc : floating_trunc(ex_bits, sig_bits,),
+		fract : floating_fract(ex_bits, sig_bits,),
+		mantissa : floating_mantissa(ex_bits, sig_bits,),
+		exponent : floating_exponent(ex_bits, sig_bits,),
+		next_number : floating_next_number(ex_bits, sig_bits,),
+		prev_number : floating_prev_number(ex_bits, sig_bits,),
+		is_negative : floating_is_negative(ex_bits, sig_bits,),
+		is_infinity : floating_is_infinity(ex_bits, sig_bits,),
+		equal : floating_equal(ex_bits, sig_bits,,),
+		less : floating_less(ex_bits, sig_bits,,),
+		to_int : floating_to_int(ex_bits, sig_bits,),
+		from_int : floating_from_int(ex_bits, sig_bits,),
+		to_rational : floating_to_rational(ex_bits, sig_bits,),
+		from_rational : floating_from_rational(ex_bits, sig_bits,),
+		to_bytes : floating_to_bytes(ex_bits, sig_bits,),
+		to_bytes_base_precision : floating_to_bytes_base_precision(ex_bits, sig_bits,,,),
+		from_bytes : floating_from_bytes(ex_bits, sig_bits,),
+		from_bytes_base : floating_from_bytes_base(ex_bits, sig_bits,,),
+	];
+
+{---------------------
+ - RATIONAL INSTANCE -
+ ---------------------}
+
+implicit fn instance_real_number_rational~inline : class_real_number(rational) :=
+	class_real_number(rational).[
+		add : rational_add,
+		zero : rational_zero,
+		neg : rational_neg,
+		subtract : rational_subtract,
+		multiply : rational_multiply,
+		one : rational_one,
+		recip : rational_recip,
+		divide : rational_divide,
+		modulo : rational_modulo,
+		power : rational_power,
+		ldexp : rational_ldexp,
+		atan2 : rational_atan2,
+		pi : rational_pi~lazy,
+		sqrt : rational_sqrt,
+		cbrt : rational_cbrt,
+		sin : rational_sin,
+		cos : rational_cos,
+		tan : rational_tan,
+		asin : rational_asin,
+		acos : rational_acos,
+		atan : rational_atan,
+		sinh : rational_sinh,
+		cosh : rational_cosh,
+		tanh : rational_tanh,
+		asinh : rational_asinh,
+		acosh : rational_acosh,
+		atanh : rational_atanh,
+		exp2 : rational_exp2,
+		exp : rational_exp,
+		exp10 : rational_exp10,
+		log2 : rational_log2,
+		log : rational_log,
+		log10 : rational_log10,
+		round : rational_round,
+		ceil : rational_ceil,
+		floor : rational_floor,
+		trunc : rational_trunc,
+		fract : rational_fract,
+		mantissa : rational_mantissa,
+		exponent : rational_exponent,
+		next_number : rational_next_number,
+		prev_number : rational_prev_number,
+		is_negative : rational_is_negative,
+		is_infinity : rational_is_infinity,
+		equal : rational_equal,
+		less : rational_less,
+		to_int : rational_to_int,
+		from_int : rational_from_int,
+		to_rational : identity(rational,),
+		from_rational : identity(rational,),
+		to_bytes : rational_to_bytes,
+		to_bytes_base_precision : rational_to_bytes_base_precision,
+		from_bytes : rational_from_bytes,
+		from_bytes_base : rational_from_bytes_base,
+	];
+
+type fixed_point(base digits : int) := fp_type;
+
+implicit fn instance_real_number_fixed_point~inline(const base digits : int) : class_real_number(fixed_point(base, digits)) :=
+	class_real_number(fixed_point(base, digits)).[
+		add : fixed_point_add(base, digits,,),
+		zero : fixed_point_zero(base, digits),
+		neg : fixed_point_neg(base, digits,),
+		subtract : fixed_point_subtract(base, digits,,),
+		multiply : fixed_point_multiply(base, digits,,),
+		one : fixed_point_one(base, digits),
+		recip : fixed_point_recip(base, digits,),
+		divide : fixed_point_divide(base, digits,,),
+		modulo : fixed_point_modulo(base, digits,,),
+		power : fixed_point_power(base, digits,,),
+		ldexp : fixed_point_ldexp(base, digits,,),
+		atan2 : fixed_point_atan2(base, digits,,),
+		pi : fixed_point_pi~lazy(base, digits),
+		sqrt : fixed_point_sqrt(base, digits,),
+		cbrt : fixed_point_cbrt(base, digits,),
+		sin : fixed_point_sin(base, digits,),
+		cos : fixed_point_cos(base, digits,),
+		tan : fixed_point_tan(base, digits,),
+		asin : fixed_point_asin(base, digits,),
+		acos : fixed_point_acos(base, digits,),
+		atan : fixed_point_atan(base, digits,),
+		sinh : fixed_point_sinh(base, digits,),
+		cosh : fixed_point_cosh(base, digits,),
+		tanh : fixed_point_tanh(base, digits,),
+		asinh : fixed_point_asinh(base, digits,),
+		acosh : fixed_point_acosh(base, digits,),
+		atanh : fixed_point_atanh(base, digits,),
+		exp2 : fixed_point_exp2(base, digits,),
+		exp : fixed_point_exp(base, digits,),
+		exp10 : fixed_point_exp10(base, digits,),
+		log2 : fixed_point_log2(base, digits,),
+		log : fixed_point_log(base, digits,),
+		log10 : fixed_point_log10(base, digits,),
+		round : fixed_point_round(base, digits,),
+		ceil : fixed_point_ceil(base, digits,),
+		floor : fixed_point_floor(base, digits,),
+		trunc : fixed_point_trunc(base, digits,),
+		fract : fixed_point_fract(base, digits,),
+		mantissa : fixed_point_mantissa(base, digits,),
+		exponent : fixed_point_exponent(base, digits,),
+		next_number : fixed_point_next_number(base, digits,),
+		prev_number : fixed_point_prev_number(base, digits,),
+		is_negative : fixed_point_is_negative(base, digits,),
+		is_infinity : fixed_point_is_infinity(base, digits,),
+		equal : fixed_point_equal(base, digits,,),
+		less : fixed_point_less(base, digits,,),
+		to_int : fixed_point_to_int(base, digits,),
+		from_int : fixed_point_from_int(base, digits,),
+		to_rational :fixed_point_to_rational(base, digits,),
+		from_rational :fixed_point_from_rational(base, digits,),
+		to_bytes : fixed_point_to_bytes(base, digits,),
+		to_bytes_base_precision : fixed_point_to_bytes_base_precision(base, digits,,,),
+		from_bytes : fixed_point_from_bytes(base, digits,),
+		from_bytes_base : fixed_point_from_bytes_base(base, digits,,),
+	];
+
+{-------------
+ - OPERATORS -
+ -------------}
+
+operator prefix + 1000 ~inline (t : type, c : class_group(t), val : t) : t := val;
+operator prefix - 1000 ~inline (t : type, c : class_group(t), val : t) : t := c.neg(val);
+operator * 2000 ~inline (t : type, c : class_unit_ring(t), val1 val2 : t) : t := c.multiply(val1, val2);
+operator / 2000 ~inline (t : type, c : class_division_ring(t), val1 val2 : t) : t := c.divide(val1, val2);
+operator div 2000 ~inline (t : type, c : class_integer_number(t), val1 val2 : t) : t := c.div(val1, val2);
+operator mod 2000 ~inline (t : type, c : class_integer_number(t), val1 val2 : t) : t := c.mod(val1, val2);
+operator + 3000 ~inline (t : type, c : class_magma(t), val1 val2 : t) : t := c.add(val1, val2);
+operator - 3000 ~inline (t : type, c : class_group(t), val1 val2 : t) : t := c.subtract(val1, val2);
+operator shl 4000 ~inline (t : type, c : class_integer_number(t), val1 val2 : t) : t := c.shl(val1, val2);
+operator shr 4000 ~inline (t : type, c : class_integer_number(t), val1 val2 : t) : t := c.shr(val1, val2);
+operator rol 4000 ~inline (t : type, c : class_fixed_integer_number(t), val1 val2 : t) : t := c.rol(val1, val2);
+operator ror 4000 ~inline (t : type, c : class_fixed_integer_number(t), val1 val2 : t) : t := c.ror(val1, val2);
+operator bts 4000 ~inline (t : type, c : class_integer_number(t), val1 val2 : t) : t := c.bts(val1, val2);
+operator btr 4000 ~inline (t : type, c : class_integer_number(t), val1 val2 : t) : t := c.btr(val1, val2);
+operator btc 4000 ~inline (t : type, c : class_integer_number(t), val1 val2 : t) : t := c.btc(val1, val2);
+operator bt 4000 ~inline (t : type, c : class_integer_number(t), val1 val2 : t) : bool := c.bt(val1, val2);
+operator prefix bswap 4000 ~inline (t : type, c : class_fixed_integer_number(t), val : t) : t := c.bswap(val);
+operator prefix brev 4000 ~inline (t : type, c : class_fixed_integer_number(t), val : t) : t := c.brev(val);
+operator prefix bsf 4000 ~inline (t : type, c : class_integer_number(t), val : t) : t := c.bsf(val);
+operator prefix bsr 4000 ~inline (t : type, c : class_integer_number(t), val : t) : t := c.bsr(val);
+operator prefix popcnt 4000 ~inline (t : type, c : class_integer_number(t), val : t) : t := c.popcnt(val);
+
+operator prefix is_negative 5000 ~inline (t : type, c : class_real_number(t), val : t) : bool := c.is_negative(val);
+operator prefix is_infinity 5000 ~inline (t : type, c : class_real_number(t), val : t) : bool := c.is_infinity(val);
+operator prefix is_exception 5000 ~inline (t : type, v : t) : bool [ var r : bool; pcode UnaryOp Un_IsException =r 0 v; return r; ]
+operator prefix exception_class 5000 ~inline (t : type, v : t) : int [ var r : int; pcode UnaryOp Un_ExceptionClass =r 0 v; return r; ]
+operator prefix exception_type 5000 ~inline (t : type, v : t) : int [ var r : int; pcode UnaryOp Un_ExceptionType =r 0 v; return r; ]
+operator prefix exception_aux 5000 ~inline (t : type, v : t) : int [ var r : int; pcode UnaryOp Un_ExceptionAux =r 0 v; return r; ]
+operator prefix exception_string 5000 ~inline (t : type, v : t) : bytes [ var r : bytes; pcode IO IO_Exception_String 1 1 0 =r v ; return r; ]
+operator prefix exception_payload 5000 ~inline (t : type, v : t) : bytes [ var r : bytes; pcode IO IO_Exception_Payload 1 1 0 =r v ; return r; ]
+operator prefix exception_stack 5000 ~inline (t : type, v : t) : bytes [ var r : bytes; pcode IO IO_Exception_Stack 1 1 0 =r v ; return r; ]
+
+operator = 6000 ~inline (t : type, c : class_eq(t), val1 val2 : t) : bool := c.equal(val1, val2);
+operator <> 6000 ~inline (t : type, c : class_eq(t), val1 val2 : t) : bool := not c.equal(val1, val2);
+operator > 6000 ~inline (t : type, c : class_ord(t), val1 val2 : t) : bool := c.less(val2, val1);
+operator >= 6000 ~inline (t : type, c : class_ord(t), val1 val2 : t) : bool := not c.less(val1, val2);
+operator < 6000 ~inline (t : type, c : class_ord(t), val1 val2 : t) : bool := c.less(val1, val2);
+operator <= 6000 ~inline (t : type, c : class_ord(t), val1 val2 : t) : bool := not c.less(val2, val1);
+operator prefix not 7000 ~inline (t : type, c : class_logical(t), val : t) : t := c.not(val);
+operator and 8000 ~inline (t : type, c : class_logical(t), val1 val2 : t) : t := c.and(val1, val2);
+operator xor 9000 ~inline (t : type, c : class_logical(t), val1 val2 : t) : t := c.xor(val1, val2);
+operator or 10000 ~inline (t : type, c : class_logical(t), val1 val2 : t) : t := c.or(val1, val2);
+
+fn ipower~inline (t : type, c : class_integer_number(t), val1 val2 : t) : t := c.power(val1, val2);
+fn fmod~inline(t : type, c : class_real_number(t), val1 val2 : t) : t := c.modulo(val1, val2);
+fn power~inline(t : type, c : class_real_number(t), val1 val2 : t) : t := c.power(val1, val2);
+fn ldexp~inline(t : type, c : class_real_number(t), val1 val2 : t) : t := c.ldexp(val1, val2);
+fn atan2~inline(t : type, c : class_real_number(t), val1 val2 : t) : t := c.atan2(val1, val2);
+fn sqrt~inline(t : type, c : class_real_number(t), val : t) : t := c.sqrt(val);
+fn cbrt~inline(t : type, c : class_real_number(t), val : t) : t := c.cbrt(val);
+fn sin~inline(t : type, c : class_real_number(t), val : t) : t := c.sin(val);
+fn cos~inline(t : type, c : class_real_number(t), val : t) : t := c.cos(val);
+fn tan~inline(t : type, c : class_real_number(t), val : t) : t := c.tan(val);
+fn asin~inline(t : type, c : class_real_number(t), val : t) : t := c.asin(val);
+fn acos~inline(t : type, c : class_real_number(t), val : t) : t := c.acos(val);
+fn atan~inline(t : type, c : class_real_number(t), val : t) : t := c.atan(val);
+fn sinh~inline(t : type, c : class_real_number(t), val : t) : t := c.sinh(val);
+fn cosh~inline(t : type, c : class_real_number(t), val : t) : t := c.cosh(val);
+fn tanh~inline(t : type, c : class_real_number(t), val : t) : t := c.tanh(val);
+fn asinh~inline(t : type, c : class_real_number(t), val : t) : t := c.asinh(val);
+fn acosh~inline(t : type, c : class_real_number(t), val : t) : t := c.acosh(val);
+fn atanh~inline(t : type, c : class_real_number(t), val : t) : t := c.atanh(val);
+fn exp2~inline(t : type, c : class_real_number(t), val : t) : t := c.exp2(val);
+fn exp~inline(t : type, c : class_real_number(t), val : t) : t := c.exp(val);
+fn exp10~inline(t : type, c : class_real_number(t), val : t) : t := c.exp10(val);
+fn log2~inline(t : type, c : class_real_number(t), val : t) : t := c.log2(val);
+fn log~inline(t : type, c : class_real_number(t), val : t) : t := c.log(val);
+fn log10~inline(t : type, c : class_real_number(t), val : t) : t := c.log10(val);
+fn round~inline(t : type, c : class_real_number(t), val : t) : t := c.round(val);
+fn ceil~inline(t : type, c : class_real_number(t), val : t) : t := c.ceil(val);
+fn floor~inline(t : type, c : class_real_number(t), val : t) : t := c.floor(val);
+fn trunc~inline(t : type, c : class_real_number(t), val : t) : t := c.trunc(val);
+fn fract~inline(t : type, c : class_real_number(t), val : t) : t := c.fract(val);
+fn mantissa~inline(t : type, c : class_real_number(t), val : t) : t := c.mantissa(val);
+fn exponent~inline(t : type, c : class_real_number(t), val : t) : t := c.exponent(val);
+fn next_number~inline(t : type, c : class_real_number(t), val : t) : t := c.next_number(val);
+fn prev_number~inline(t : type, c : class_real_number(t), val : t) : t := c.prev_number(val);
+
+conversion fn integer_number_to_integer_number~inline(t1 : type, c1 : class_integer_number(t1), t2 : type, c2 : class_integer_number(t2), val : t1) : t2 := c2.from_int(c1.to_int(val));
+conversion fn integer_number_to_real_number~inline(t1 : type, c1 : class_integer_number(t1), t2 : type, c2 : class_real_number(t2), val : t1) : t2 := c2.from_int(c1.to_int(val));
+conversion fn real_number_to_integer_number~inline(t1 : type, c1 : class_real_number(t1), t2 : type, c2 : class_integer_number(t2), val : t1) : t2 := c2.from_int(c1.to_int(val));
+conversion fn real_number_to_real_number~inline(t1 : type, c1 : class_real_number(t1), t2 : type, c2 : class_real_number(t2), val : t1) : t2 := c2.from_rational(c1.to_rational(val));
+
+{---------
+ - DEBUG -
+ ---------}
+
+fn debug(m : bytes) : unit_type
+[
+	var b : unit_type;
+	pcode IO IO_Debug 1 1 1 =b m 0;
+	return b;
+]
+
+fn internal(m : bytes) : unit_type
+[
+	var b : unit_type;
+	pcode IO IO_Debug 1 1 1 =b m 1;
+	return b;
+]
+
+fn stop(m : bytes) : unit_type
+[
+	var b : unit_type;
+	pcode IO IO_Debug 1 1 1 =b m 2;
+	return b;
+]
+
+fn report_memory_summary(m : bytes) : unit_type
+[
+	var b : unit_type;
+	pcode IO IO_Debug 1 1 1 =b m 3;
+	return b;
+]
+
+fn report_memory_most(m : bytes) : unit_type
+[
+	var b : unit_type;
+	pcode IO IO_Debug 1 1 1 =b m 4;
+	return b;
+]
+
+fn report_memory_largest(m : bytes) : unit_type
+[
+	var b : unit_type;
+	pcode IO IO_Debug 1 1 1 =b m 5;
+	return b;
+]
+
+fn assert~inline(v : bool, b : bytes) : unit_type
+[
+	if not v then
+		return internal("assertion failure: " + b);
+	return unit_value;
+]
+
+fn stacktrace(t : type, v : t) : unit_type
+[
+	var b : unit_type;
+	pcode IO IO_StackTrace 1 1 1 =b v 2;
+	return b;
+]
+
+fn trace_on : unit_type
+[
+	var b : unit_type;
+	pcode IO IO_TraceCtl 1 0 1 =b 1;
+	return b;
+]
+
+fn trace_off : unit_type
+[
+	var b : unit_type;
+	pcode IO IO_TraceCtl 1 0 1 =b 0;
+	return b;
+]
+
+{------------------
+ - LIST FUNCTIONS -
+ ------------------}
+
+fn len~inline(t : type, a : list(t)) : int
+[
+	var l : int;
+	pcode Array_Len =l a 0;
+	return l;
+]
+
+fn len_at_least~inline(t : type, a : list(t), l : int) : bool
+[
+	var r : bool;
+	pcode Array_Len_At_Least =r a l 0;
+	return r;
+]
+
+fn len_greater_than~inline(t : type, a : list(t), l : int) : bool
+[
+	return len_at_least(t, a, l + 1);
+]
+
+fn empty~inline(t : type) : list(t) := list(t).[];
+
+fn fill~inline(t : type, const x : t, const n : int) : list(t)
+[
+	var l : list(t);
+	pcode Array_Fill =l Undetermined 0 x n;
+	return l;
+]
+
+fn sparse~inline(t : type, const x : t, const n : int) : list(t)
+[
+	var l : list(t);
+	pcode Array_Fill =l Undetermined Flag_Array_Fill_Sparse x n;
+	return l;
+]
+
+fn infinite_internal(t : type, x : t, step : int) : list(t)
+[
+	return sparse(x, step) + infinite_internal~lazy(t, x, step shl bsr step);
+]
+
+fn infinite(t : type, x : t) : list(t)
+[
+	return infinite_internal(t, x, #40000000);
+]
+
+fn infinite_repeat(t : type, x : list(t)) : list(t)
+[
+	return x + infinite_repeat~lazy(x);
+]
+
+fn uninitialized(t : type) : t
+[
+	return exception_make(t, ec_sync, error_array_entry_not_initialized, 0, false);
+]
+
+fn uninitialized_record(t : type) : t
+[
+	return exception_make(t, ec_sync, error_record_field_not_initialized, 0, false);
+]
+
+fn infinite_uninitialized(t : type) : list(t)
+[
+	return infinite(uninitialized(t));
+]
+
+fn is_uninitialized(t : type, v : t) : bool
+[
+	if is_exception v then [
+		if exception_class v = ec_sync and exception_type v = error_array_entry_not_initialized then
+			return true;
+		abort v;
+	]
+	return false;
+]
+
+fn is_uninitialized_record(t : type, v : t) : bool
+[
+	if is_exception v then [
+		if exception_class v = ec_sync and exception_type v = error_record_field_not_initialized then
+			return true;
+		abort v;
+	]
+	return false;
+]
+
+fn identity~inline(t : type, v : t) : t
+[
+	return v;
+]
+
+fn select~inline(t : type, b : bool, v1 v2 : t) : t
+[
+	if b then
+		return v2;
+	else
+		return v1;
+]
+
+fn min~inline(t : type, implicit c : class_ord(t), a b : t) : t := select(a < b, b, a);
+
+fn max~inline(t : type, implicit c : class_ord(t), a b : t) : t := select(a < b, a, b);
+
+fn abs~inline(t : type, implicit cg : class_group(t), implicit co : class_ord(t), x : t) : t := select(x <= cg.zero, x, cg.zero - x);
+
+fn sgn~inline(t : type, implicit cu : class_unit_ring(t), implicit co : class_ord(t), x : t) : t := select(x >= cu.zero, -cu.one, select(x = cu.zero, cu.one, x));
+
+fn list_search(t : type, implicit c : class_eq(t), x : list(t), v : t) : int
+[
+	var i := 0;
+	while len_greater_than(x, i) do [
+		if x[i] = v then
+			return i;
+		i += 1;
+	]
+	return -1;
+]
+
+fn list_search_fn(t : type, x : list(t), f : fn(t) : bool) : int
+[
+	var i := 0;
+	while len_greater_than(x, i) do [
+		if f(x[i]) then
+			return i;
+		i += 1;
+	]
+	return -1;
+]
+
+fn list_search_backwards(t : type, implicit c : class_eq(t), x : list(t), v : t) : int
+[
+	var i := len(x) - 1;
+	while i >= 0 do [
+		if x[i] = v then
+			return i;
+		i -= 1;
+	]
+	return -1;
+]
+
+fn list_search_backwards_fn(t : type, x : list(t), f : fn(t) : bool) : int
+[
+	var i := len(x) - 1;
+	while i >= 0 do [
+		if f(x[i]) then
+			return i;
+		i -= 1;
+	]
+	return -1;
+]
+
+fn list_search_substring(t : type, implicit c : class_eq(t), x v : list(t)) : int
+[
+	var lv := len(v);
+	var i := 0;
+	while len_at_least(x, i + lv) do [
+		for j := 0 to lv do [
+			if x[i + j] <> v[j] then
+				goto mismatch;
+		]
+		return i;
+mismatch:
+		i += 1;
+	]
+	return -1;
+]
+
+fn list_replace_substring(t : type, implicit c : class_eq(t), x v r : list(t)) : list(t)
+[
+	var steps := 64;
+	var len_v := len(v);
+	var res := empty(t);
+again:
+	var s := list_search_substring(x, v);
+	if s = -1 then
+		return res + x;
+	res += x[ .. s];
+	res += r;
+	x := x[s + len_v .. ];
+	steps -= 1;
+	if steps > 0 then
+		goto again;
+	else
+		return res + list_replace_substring~lazy(x, v, r);
+]
+
+fn list_left_pad(t : type, x : list(t), width : int, padding : t) : list(t)
+[
+	if len(x) < width then
+		x := fill(padding, width - len(x)) + x;
+	return x;
+]
+
+fn list_right_pad(t : type, x : list(t), width : int, padding : t) : list(t)
+[
+	if len(x) < width then
+		x += fill(padding, width - len(x));
+	return x;
+]
+
+fn list_repeat(t : type, x : list(t), num : int) : list(t)
+[
+	const step := 64;
+	if num < 0 then
+		abort;
+	var r := empty(t);
+	var l := min(num, step);
+	for i := 0 to l do
+		r += x;
+	if l = num then
+		return r;
+	return r + list_repeat~lazy(x, num - l);
+]
+
+fn list_begins_with(t : type, implicit c : class_eq(t), x y : list(t)) : bool
+[
+	var ly := len(y);
+	if not len_at_least(x, ly) then
+		return false;
+	return x[ .. ly] = y;
+]
+
+fn list_ends_with(t : type, implicit c : class_eq(t), x y : list(t)) : bool
+[
+	var lx := len(x);
+	var ly := len(y);
+	if lx < ly then
+		return false;
+	for i := 0 to ly do [
+		if x[lx - ly + i] <> y[i] then
+			return false;
+	]
+	return true;
+]
+
+fn list_break(t : type, implicit c : class_eq(t), l : list(t), bnd : t) : list(list(t))
+[
+	var i := 0;
+	while len_greater_than(l, i) do [
+		if l[i] = bnd then
+			return [ l[ .. i ] ] + list_break~lazy(l[ i + 1 .. ], bnd);
+		i += 1;
+	]
+	if i > 0 then
+		return [ l ];
+	return empty(list(t));
+]
+
+fn list_break_to_lines(b : bytes) : list(bytes)
+[
+	var i := 0;
+	while len_greater_than(b, i) do [
+		if b[i] = 13, len_greater_than(b, i + 1), b[i + 1] = 10 then [
+			return [ b[ .. i ] ] + list_break_to_lines~lazy(b[ i + 2 .. ]);
+		]
+		if b[i] = 10 then [
+			return [ b[ .. i ] ] + list_break_to_lines~lazy(b[ i + 1 .. ]);
+		]
+		i += 1;
+	]
+	if i > 0 then
+		return [ b ];
+	return empty(bytes);
+]
+
+fn list_string_break_to_lines(b : string) : list(string)
+[
+	var i := 0;
+	while len_greater_than(b, i) do [
+		if b[i] = 13, len_greater_than(b, i + 1), b[i + 1] = 10 then [
+			return [ b[ .. i ] ] + list_string_break_to_lines~lazy(b[ i + 2 .. ]);
+		]
+		if b[i] = 10 then [
+			return [ b[ .. i ] ] + list_string_break_to_lines~lazy(b[ i + 1 .. ]);
+		]
+		i += 1;
+	]
+	if i > 0 then
+		return [ b ];
+	return empty(string);
+]
+
+fn is_whitespace~inline(c : byte) : bool := c = 9 or c = 10 or c = 13 or c = ' ';
+
+fn list_break_whitespace(l : bytes) : list(bytes)
+[
+	var r := empty(bytes);
+	var i := 0;
+	while len_greater_than(l, i) do [
+		if is_whitespace(l[i]) then [
+			i += 1;
+			continue;
+		]
+		var j := i + 1;
+		while len_greater_than(l, j), not is_whitespace(l[j]) do
+			j += 1;
+		r +<= l[i .. j];
+		i := j + 1;
+	]
+	return r;
+]
+
+fn list_join(t : type, lines : list(list(t)), bnd : list(t)) : list(t)
+[
+	const step := 64;
+	var l : int;
+	if len_greater_than(lines, step) then
+		l := step;
+	else
+		l := len(lines);
+	var result := empty(t);
+	for i := 0 to l do [
+		result += lines[i];
+		result += bnd;
+	]
+	if l = step then
+		return result + list_join~lazy(t, lines[l .. ], bnd);
+	return result;
+]
+
+fn list_join_lines(lines : list(bytes)) : bytes
+[
+	return list_join(lines, nl);
+]
+
+fn list_filter(t : type, lst : list(t), test : fn(t) : bool) : list(t)
+[
+	const step := 64;
+	var l : int;
+	if len_greater_than(lst, step) then
+		l := step;
+	else
+		l := len(lst);
+	var result := empty(t);
+	for i := 0 to l do [
+		if test(lst[i]) then
+			result +<= lst[i];
+	]
+	if l = step then
+		return result + list_filter~lazy(lst[l .. ], test);
+	return result;
+]
+
+fn list_filter_idx_internal(t : type, idx : int, lst : list(t), test : fn(int, t) : bool) : list(t)
+[
+	const step := 64;
+	var l : int;
+	if len_greater_than(lst, step) then
+		l := step;
+	else
+		l := len(lst);
+	var result := empty(t);
+	for i := 0 to l do [
+		if test(idx + i, lst[i]) then
+			result +<= lst[i];
+	]
+	if l = step then
+		return result + list_filter_idx_internal~lazy(idx + l, lst[l .. ], test);
+	return result;
+]
+
+fn list_filter_idx(t : type, lst : list(t), test : fn(int, t) : bool) : list(t)
+[
+	return list_filter_idx_internal(0, lst, test);
+]
+
+fn list_fold(t u : type, ini : t, lst : list(u), fold : fn(t, u) : t) : t
+[
+	for val in list_consumer(lst) do
+		ini := fold(ini, val);
+	return ini;
+]
+
+fn list_fold_monoid(t : type, c : class_monoid(t), lst : list(t)) : t
+[
+	return list_fold(c.zero, lst, c.add);
+]
+
+fn list_map_fold_internal(t u : type, lst : list(t), mp : fn(t) : u, re : fn(u, u) : u) : u
+[
+	if len(lst) = 1 then
+		return mp(lst[0]);
+	var half := len(lst) shr 1;
+	return re(list_map_fold_internal(t, u, lst[ .. half], mp, re), list_map_fold_internal(t, u, lst[half .. ], mp, re));
+]
+
+fn list_map_fold(t u : type, ini : u, lst : list(t), mp : fn(t) : u, re : fn(u, u) : u) : u
+[
+	if len(lst) = 0 then
+		return ini;
+	return re(ini, list_map_fold_internal(t, u, lst, mp, re));
+]
+
+fn list_map_fold_monoid(t u : type, c : class_monoid(u), lst : list(t), mp : fn(t) : u) : u
+[
+	return list_map_fold(c.zero, lst, mp, c.add);
+]
+
+fn list_reverse(t : type, l : list(t)) : list(t)
+[
+	var ln := len(l);
+	for i := 0 to ln div 2 do
+		l[i], l[ln - 1 - i] := l[ln - 1 - i], l[i];
+	return l;
+]
+
+fn heap_left~inline(i : int) : int := i + i + 1;
+fn heap_right~inline(i : int) : int := i + i + 2;
+fn heap_parent~inline(i : int) : int := (i - 1) shr 1;
+
+fn list_sort(t : type, implicit c : class_ord(t), l : list(t)) : list(t)
+[
+	var n := len(l);
+
+	for i := 1 to n do [
+		var p := l[i];
+		var j := i;
+		while j > 0, p > l[heap_parent(j)] do [
+			l[j] := l[heap_parent(j)];
+			j := heap_parent(j);
+		]
+		l[j] := p;
+	]
+
+	var i := n - 1;
+	while i >= 0 do [
+		var p := l[i];
+		l[i] := l[0];
+
+		var j := 0;
+continue_loop:
+		if heap_left(j) < i, l[heap_left(j)] > p then
+			goto do_loop;
+		if heap_right(j) < i, l[heap_right(j)] > p then
+			goto do_loop;
+		if false then [
+do_loop:
+			if heap_right(j) < i, l[heap_left(j)] < l[heap_right(j)] then [
+				l[j] := l[heap_right(j)];
+				j := heap_right(j);
+			] else [
+				l[j] := l[heap_left(j)];
+				j := heap_left(j);
+			]
+			goto continue_loop;
+		]
+		l[j] := p;
+
+		i -= 1;
+	]
+
+	return l;
+]
+
+fn list_flatten~inline(t : type, a : list(t)) : list(t)
+[
+	var l : list(t);
+	pcode Array_Flatten =l 0 a;
+	return l;
+]
+
+
+const nl : bytes
+[
+	var os := sysprop(SystemProperty_OS);
+	if os = SystemProperty_OS_DOS or
+	   os = SystemProperty_OS_OS2 or
+	   os = SystemProperty_OS_Windows then
+		return bytes.[ 13, 10 ];
+	return bytes.[ 10 ];
+]
+
+{---------
+ - TUPLE -
+ ---------}
+
+fn tuple2_equal(t1 t2 : type, implicit c1 : class_eq(t1), implicit c2 : class_eq(t2), l1 l2 : tuple2(t1, t2)) : bool
+[
+	return l1.v1 = l2.v1 and l1.v2 = l2.v2;
+]
+fn tuple2_less(t1 t2 : type, implicit c1 : class_ord(t1), implicit c2 : class_ord(t2), l1 l2 : tuple2(t1, t2)) : bool
+[
+	if l1.v1 < l2.v1 then return true;
+	if l1.v1 > l2.v1 then return false;
+	if l1.v2 < l2.v2 then return true;
+	if l1.v2 > l2.v2 then return false;
+	return false;
+]
+implicit fn inherit_eq_tuple2~inline(t1 t2 : type, c1 : class_eq(t1), c2 : class_eq(t2)) : class_eq(tuple2(t1, t2)) :=
+	class_eq(tuple2(t1, t2)).[
+		equal : tuple2_equal(t1, t2, c1, c2,,),
+	];
+implicit fn inherit_ord_tuple2~inline(t1 t2 : type, c1 : class_ord(t1), c2 : class_ord(t2)) : class_ord(tuple2(t1, t2)) :=
+	class_ord(tuple2(t1, t2)).[
+		equal : tuple2_equal(t1, t2, inherit_eq_ord(c1), inherit_eq_ord(c2),,),
+		less : tuple2_less(t1, t2, c1, c2,,),
+	];
+
+fn tuple3_equal(t1 t2 t3 : type, implicit c1 : class_eq(t1), implicit c2 : class_eq(t2), implicit c3 : class_eq(t3), l1 l2 : tuple3(t1, t2, t3)) : bool
+[
+	return l1.v1 = l2.v1 and l1.v2 = l2.v2 and l1.v3 = l2.v3;
+]
+fn tuple3_less(t1 t2 t3 : type, implicit c1 : class_ord(t1), implicit c2 : class_ord(t2), implicit c3 : class_ord(t3), l1 l2 : tuple3(t1, t2, t3)) : bool
+[
+	if l1.v1 < l2.v1 then return true;
+	if l1.v1 > l2.v1 then return false;
+	if l1.v2 < l2.v2 then return true;
+	if l1.v2 > l2.v2 then return false;
+	if l1.v3 < l2.v3 then return true;
+	if l1.v3 > l2.v3 then return false;
+	return false;
+]
+implicit fn inherit_eq_tuple3~inline(t1 t2 t3 : type, c1 : class_eq(t1), c2 : class_eq(t2), c3 : class_eq(t3)) : class_eq(tuple3(t1, t2, t3)) :=
+	class_eq(tuple3(t1, t2, t3)).[
+		equal : tuple3_equal(t1, t2, t3, c1, c2, c3,,),
+	];
+implicit fn inherit_ord_tuple3~inline(t1 t2 t3 : type, c1 : class_ord(t1), c2 : class_ord(t2), c3 : class_ord(t3)) : class_ord(tuple3(t1, t2, t3)) :=
+	class_ord(tuple3(t1, t2, t3)).[
+		equal : tuple3_equal(t1, t2, t3, inherit_eq_ord(c1), inherit_eq_ord(c2), inherit_eq_ord(c3),,),
+		less : tuple3_less(t1, t2, t3, c1, c2, c3,,),
+	];
+
+fn tuple4_equal(t1 t2 t3 t4 : type, implicit c1 : class_eq(t1), implicit c2 : class_eq(t2), implicit c3 : class_eq(t3), implicit c4 : class_eq(t4), l1 l2 : tuple4(t1, t2, t3, t4)) : bool
+[
+	return l1.v1 = l2.v1 and l1.v2 = l2.v2 and l1.v3 = l2.v3 and l1.v4 = l2.v4;
+]
+fn tuple4_less(t1 t2 t3 t4 : type, implicit c1 : class_ord(t1), implicit c2 : class_ord(t2), implicit c3 : class_ord(t3), implicit c4 : class_ord(t4), l1 l2 : tuple4(t1, t2, t3, t4)) : bool
+[
+	if l1.v1 < l2.v1 then return true;
+	if l1.v1 > l2.v1 then return false;
+	if l1.v2 < l2.v2 then return true;
+	if l1.v2 > l2.v2 then return false;
+	if l1.v3 < l2.v3 then return true;
+	if l1.v3 > l2.v3 then return false;
+	if l1.v4 < l2.v4 then return true;
+	if l1.v4 > l2.v4 then return false;
+	return false;
+]
+implicit fn inherit_eq_tuple4~inline(t1 t2 t3 t4 : type, c1 : class_eq(t1), c2 : class_eq(t2), c3 : class_eq(t3), c4 : class_eq(t4)) : class_eq(tuple4(t1, t2, t3, t4)) :=
+	class_eq(tuple4(t1, t2, t3, t4)).[
+		equal : tuple4_equal(t1, t2, t3, t4, c1, c2, c3, c4,,),
+	];
+implicit fn inherit_ord_tuple4~inline(t1 t2 t3 t4 : type, c1 : class_ord(t1), c2 : class_ord(t2), c3 : class_ord(t3), c4 : class_ord(t4)) : class_ord(tuple4(t1, t2, t3, t4)) :=
+	class_ord(tuple4(t1, t2, t3, t4)).[
+		equal : tuple4_equal(t1, t2, t3, t4, inherit_eq_ord(c1), inherit_eq_ord(c2), inherit_eq_ord(c3), inherit_eq_ord(c4),,),
+		less : tuple4_less(t1, t2, t3, t4, c1, c2, c3, c4,,),
+	];
+
+
+fn tuple5_equal(t1 t2 t3 t4 t5 : type, implicit c1 : class_eq(t1), implicit c2 : class_eq(t2), implicit c3 : class_eq(t3), implicit c4 : class_eq(t4), implicit c5 : class_eq(t5), l1 l2 : tuple5(t1, t2, t3, t4, t5)) : bool
+[
+	return l1.v1 = l2.v1 and l1.v2 = l2.v2 and l1.v3 = l2.v3 and l1.v4 = l2.v4 and l1.v5 = l2.v5;
+]
+fn tuple5_less(t1 t2 t3 t4 t5 : type, implicit c1 : class_ord(t1), implicit c2 : class_ord(t2), implicit c3 : class_ord(t3), implicit c4 : class_ord(t4), implicit c5 : class_ord(t5), l1 l2 : tuple5(t1, t2, t3, t4, t5)) : bool
+[
+	if l1.v1 < l2.v1 then return true;
+	if l1.v1 > l2.v1 then return false;
+	if l1.v2 < l2.v2 then return true;
+	if l1.v2 > l2.v2 then return false;
+	if l1.v3 < l2.v3 then return true;
+	if l1.v3 > l2.v3 then return false;
+	if l1.v4 < l2.v4 then return true;
+	if l1.v4 > l2.v4 then return false;
+	if l1.v5 < l2.v5 then return true;
+	if l1.v5 > l2.v5 then return false;
+	return false;
+]
+implicit fn inherit_eq_tuple5~inline(t1 t2 t3 t4 t5 : type, c1 : class_eq(t1), c2 : class_eq(t2), c3 : class_eq(t3), c4 : class_eq(t4), c5 : class_eq(t5)) : class_eq(tuple5(t1, t2, t3, t4, t5)) :=
+	class_eq(tuple5(t1, t2, t3, t4, t5)).[
+		equal : tuple5_equal(t1, t2, t3, t4, t5, c1, c2, c3, c4, c5,,),
+	];
+implicit fn inherit_ord_tuple5~inline(t1 t2 t3 t4 t5 : type, c1 : class_ord(t1), c2 : class_ord(t2), c3 : class_ord(t3), c4 : class_ord(t4), c5 : class_ord(t5)) : class_ord(tuple5(t1, t2, t3, t4, t5)) :=
+	class_ord(tuple5(t1, t2, t3, t4, t5)).[
+		equal : tuple5_equal(t1, t2, t3, t4, t5, inherit_eq_ord(c1), inherit_eq_ord(c2), inherit_eq_ord(c3), inherit_eq_ord(c4), inherit_eq_ord(c5),,),
+		less : tuple5_less(t1, t2, t3, t4, t5, c1, c2, c3, c4, c5,,),
+	];
+
+{---------
+ - MAYBE -
+ ---------}
+
+fn mkmaybe~inline(t : type, v : t) : maybe(t) := maybe(t).j.(v);
+
+{----------
+ - NUMBER -
+ ----------}
+
+fn ntos_base~inline(t : type, c : class_integer_number(t), n : t, base : int) : bytes
+[
+	return c.to_bytes_base(n, base);
+]
+
+fn ntos_base_precision~inlnie(t : type, c : class_real_number(t), n : t, base digits : int) : bytes
+[
+	return c.to_bytes_base_precision(n, base, digits);
+]
+
+fn ntos~inline(t : type, c : class_show(t), n : t) : bytes
+[
+	return c.to_bytes(n);
+]
+
+fn ston_base~inline(b : bytes, base : int) : int
+[
+	return instance_number_int.from_bytes_base(b, base);
+]
+
+fn ston~inline(b : bytes) : int
+[
+	return instance_number_int.from_bytes(b);
+]
+
+fn format(t : type, implicit c : class_show(t), b : bytes, a : list(t)) : bytes
+[
+	var r := empty(byte);
+	var idx := 0;
+	for i := 0 to len(b) do [
+		if b[i] = '%' then [
+			r += ntos(a[idx]);
+			idx += 1;
+		] else [
+			r +<= b[i];
+		]
+	]
+	if idx <> len(a) then
+		return exception_make(bytes, ec_sync, error_invalid_operation, 0, true);
+	return r;
+]
+
+{----------------
+ - NATIVE TYPES -
+ ----------------}
+
+fn int_to_native~inline(n : native, i : int) : bytes
+[
+	var r : bytes;
+	pcode IO IO_Int_To_Native 1 2 0 =r n i;
+	return r;
+]
+
+fn native_to_int~inline(n : native, b : bytes) : int
+[
+	var r : int;
+	pcode IO IO_Native_To_Int 1 2 0 =r n b;
+	return r;
+]
+
+{---------
+ - ARRAY -
+ ---------}
+
+fn array_size(dim : list(int)) : int
+[
+	var prod := 1;
+	for i := 0 to len(dim) do [
+		if dim[i] < 0 then
+			return exception_make(int, ec_sync, error_negative_index, 0, true);
+		prod *= dim[i];
+	]
+	return prod;
+]
+
+fn list_to_array(t : type, const dim : list(int), v : list(t)) : array(t, dim)
+[
+	var prod := array_size(dim);
+	if prod <> len(v) then
+		return exception_make(array(t, dim), ec_sync, error_invalid_operation, 0, true);
+	var l : array(t, dim);
+	pcode Copy_Type_Cast =l 0 v;
+	return l;
+]
+
+fn array_to_list(t : type, const dim : list(int), v : array(t, dim)) : list(t)
+[
+	var l : list(t);
+	pcode Copy_Type_Cast =l 0 v;
+	return l;
+]
+
+fn array_fill~inline(t : type, const x : t, const dim : list(int)) : array(t, dim)
+[
+	var prod := array_size(dim);
+	var l : array(t, dim);
+	pcode Array_Fill =l Undetermined 0 x prod;
+	return l;
+]
+
+fn array_sparse~inline(t : type, const x : t, const dim : list(int)) : array(t, dim)
+[
+	var prod := array_size(dim);
+	var l : array(t, dim);
+	pcode Array_Fill =l Undetermined Flag_Array_Fill_Sparse x prod;
+	return l;
+]
+
+fn array_index(dim : list(int), idx : list(int)) : int
+[
+	if len(dim) <> len(idx) then
+		return exception_make(int, ec_sync, error_invalid_operation, 0, true);
+	var off := 0;
+	var l := len(dim);
+	for ii := 0 to l do [
+		var i := l - 1 - ii;
+		if idx[i] < 0 then
+			return exception_make(int, ec_sync, error_negative_index, 0, true);
+		if idx[i] >= dim[i] then
+			return exception_make(int, ec_sync, error_index_out_of_range, 0, true);
+		off *= dim[i];
+		off += idx[i];
+	]
+	return off;
+]
+
+fn array_read(t : type, const dim : list(int), v : array(t, dim), idx : list(int)) : t
+[
+	var off := array_index(dim, idx);
+	return array_to_list(v)[off];
+]
+
+fn array_write(t : type, const dim : list(int), v : array(t, dim), idx : list(int), val : t) : array(t, dim)
+[
+	var off := array_index(dim, idx);
+	var l := array_to_list(v);
+	l[off] := val;
+	v := list_to_array(dim, l);
+	return v;
+]
+
+fn array_reverse(t : type, const ln : int, implicit c : class_ord(t), v : array(t, [ln])) : array(t, [ln])
+[
+	var l := array_to_list(v);
+	l := list_reverse(l);
+	return list_to_array([ln], l);
+]
+
+fn array_sort(t : type, const ln : int, implicit c : class_ord(t), v : array(t, [ln])) : array(t, [ln])
+[
+	var l := array_to_list(v);
+	l := list_sort(l);
+	return list_to_array([ln], l);
+]
+
+fn array_flatten~inline(t : type, const dim : list(int), v : array(t, dim)) : array(t, dim)
+[
+	var l : array(t, dim);
+	pcode Array_Flatten =l 0 v;
+	return l;
+]
+
+type xarray(dim : list(int), t : type)
+[
+	var l : type;
+	pcode Array_Fixed =l t dim;
+	return l;
+]
+
+{-------------------
+ - LIST DEFINITION -
+ -------------------}
+
+fn list(t : type) : type
+[
+	var l : type;
+	pcode Array_Flexible =l t;
+	return l;
+]

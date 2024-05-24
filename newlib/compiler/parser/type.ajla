@@ -1,0 +1,1357 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit compiler.parser.type;
+
+uses compiler.parser.dict;
+
+const predefined_bool : int := 0;
+const predefined_byte : int := 1;
+const predefined_bytes : int := 2;
+const predefined_char : int := 3;
+const predefined_string : int := 4;
+const predefined_list : int := 5;
+const predefined_xarray : int := 6;
+
+type compare_context;
+
+record compare_argument [
+	cc : compare_context;
+	idx : int;
+]
+
+record compare_context [
+	ctx : function_context;
+	root : bool;
+	args : list(compare_argument);
+	llt_main : maybe(int);
+	llt_redirect : list(compare_argument);
+	return_redirect : list(compare_argument);
+	lambda_redirect : list(int);
+]
+
+record compare_fn_stack [
+	cc : compare_context;
+	main_def : int;
+	dest_def : int;
+	dest_types : list(int);
+]
+
+record inferred_result [
+	arg : int;
+	ctx : function_context;
+	typ : int;
+]
+type maybe_inferred := maybe(inferred_result);
+
+fn get_type_of_var(ctx : function_context, v : int) : int;
+fn convert_type(ctx : function_context, vd : variable_dictionary, a : int, cc : compare_context, typ : int, inferred_bias : int, do_convert : bool, t : tokens) : (function_context, int, maybe_inferred);
+
+fn new_compare_argument(cc : compare_context, idx : int) : compare_argument;
+fn new_compare_context(ctx : function_context) : compare_context;
+fn new_compare_context_from_function(ctx : function_context) : compare_context;
+fn set_llt_main(cc : compare_context, val : int) : compare_context;
+fn empty_compare_context : compare_context;
+
+fn get_defined_maybe(cc : compare_context, typ : int) : maybe(instruction);
+fn get_defined(cc : compare_context, typ : int) : instruction;
+
+fn get_base_definition(ctx : function_context, cc : compare_context, typ : int, want_record : bool) : (compare_context, int);
+fn get_deep_type_of_var(ctx : function_context, v : int) : (compare_context, int);
+
+fn verify_type_equality(ctx : function_context,
+			cc1 : compare_context, typ1 : int, fn_stack1 : list(compare_fn_stack),
+			cc2 : compare_context, typ2 : int, fn_stack2 : list(compare_fn_stack)) : (bool, maybe_inferred);
+
+fn verify_equality(ctx : function_context, typ1 typ2 : int) : bool;
+fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_stack : list(compare_fn_stack), t : tokens) : (function_context, int);
+
+fn array_shape(ctx : function_context, cc : compare_context, a : int, t : tokens) : (bool, compare_context, list(int));
+fn list_type(ctx : function_context, cc : compare_context, a : int, t : tokens) : (compare_context, int);
+fn evaluate_list_type(ctx : function_context, a : int, t : tokens) : (function_context, int);
+fn get_list_id : function_unique_id;
+
+implementation
+
+uses compiler.parser.gen;
+uses compiler.parser.gen2;
+uses compiler.parser.alloc;
+uses compiler.parser.function;
+uses exception;
+
+fn get_type_of_var(ctx : function_context, v : int) : int
+[
+	if v <= T_InferredType then
+		abort internal("get_type_of_var: getting type of inference marker");
+	else if v = T_Type then
+		return T_TypeOfType;
+	else if v < 0 then
+		return T_Type;
+	else
+		return ctx.variables[v].type_idx;
+]
+
+fn do_conversion(ctx : function_context, vd : variable_dictionary, a a_typ : int, cc : compare_context, typ : int, t : tokens) : (function_context, int)
+[
+	var my_cc := new_compare_context(ctx);
+	var cc1, deep_a_typ := get_base_definition(ctx, my_cc, a_typ, true);
+	var cc2, deep_typ := get_base_definition(ctx, cc, typ, true);
+	if deep_a_typ = T_Integer, deep_typ <= T_SInt8, deep_typ >= T_Integer128 then [
+		//eval debug("do_conversion 1: eligible for shortcut: " + ntos(a_typ) + ", " + ntos(deep_a_typ) + " - " + ntos(typ) + ", " + ntos(deep_typ));
+		var l : int;
+		ctx, l := alloc_local_variable(ctx, deep_typ, true, false);
+		ctx := generate_UnaryOp(ctx, Un_ConvertFromInt, a, l);
+		return ctx, l;
+	]
+	if deep_typ = T_Integer, deep_a_typ <= T_SInt8, deep_a_typ >= T_Integer128 then [
+		//eval debug("do_conversion 2: eligible for shortcut: " + ntos(a_typ) + ", " + ntos(deep_a_typ) + " - " + ntos(typ) + ", " + ntos(deep_typ));
+		var l : int;
+		ctx, l := alloc_local_variable(ctx, deep_typ, true, false);
+		ctx := generate_UnaryOp(ctx, Un_ConvertToInt, a, l);
+		return ctx, l;
+	]
+	var conversions := get_implicits(ctx, true);
+	for im := 0 to len(conversions) do [
+		var ctx2 := ctx;
+
+		var def := conversions[im];
+		if def.signature.n_arguments < 1 or def.signature.n_return_values <> 1 then
+			goto cont;
+
+		var result : list(int);
+		ctx, result := process_direct_function(ctx, vd, def, Call_Mode_Unspecified, list(int).[ a ], cc, typ, false, t);
+
+		if is_exception ctx, exception_type ctx = error_compiler_error then
+			goto cont;
+
+		var r_typ := get_type_of_var(ctx, result[0]);
+		my_cc := new_compare_context(ctx);
+		var match, mi := verify_type_equality(ctx, cc, typ, empty(compare_fn_stack), my_cc, r_typ, empty(compare_fn_stack));
+
+		if not match then
+			goto cont;
+
+		return ctx, result[0];
+
+cont:
+		ctx := ctx2;
+	]
+	abort compiler_error("Types do not match", t);
+]
+
+fn convert_type(ctx : function_context, vd : variable_dictionary, a : int, cc : compare_context, typ : int, inferred_bias : int, do_convert : bool, t : tokens) : (function_context, int, maybe_inferred)
+[
+	var my_cc := new_compare_context(ctx);
+	var a_typ := get_type_of_var(ctx, a);
+	var match, mi := verify_type_equality(ctx, my_cc, a_typ, empty(compare_fn_stack), cc, typ, empty(compare_fn_stack));
+	if mi is j then
+		return ctx, 0, mi;
+	if not match then [
+		if not do_convert then
+			abort compiler_error("Types do not match", t);
+		var c : int;
+		ctx.inferred_base -= inferred_bias;
+		ctx, c := do_conversion(ctx, vd, a, a_typ, cc, typ, t);
+		ctx.inferred_base += inferred_bias;
+		return ctx, c, maybe_inferred.n;
+	]
+	return ctx, a, maybe_inferred.n;
+]
+
+fn new_compare_argument(cc : compare_context, idx : int) : compare_argument
+[
+	return compare_argument.[ cc : cc, idx : idx ];
+]
+
+fn new_compare_context(ctx : function_context) : compare_context
+[
+	var cc := compare_context.[
+		ctx : ctx,
+		root : true,
+		args : empty(compare_argument),
+		llt_main : maybe(int).n,
+		llt_redirect : empty(compare_argument),
+		return_redirect : empty(compare_argument),
+		lambda_redirect : exception_make(list(int), ec_sync, error_record_field_not_initialized, 0, false),
+	];
+	return cc;
+]
+
+fn new_compare_context_from_function(ctx : function_context) : compare_context
+[
+	var cc := new_compare_context(ctx);
+	cc.root := false;
+	return cc;
+]
+
+fn set_llt_main(cc : compare_context, val : int) : compare_context
+[
+	if cc.llt_main is j then
+		abort internal("set_llt_main: llt_main already set");
+	if len_greater_than(cc.llt_redirect, 0) then
+		abort internal("set_llt_main: llt_redirect is not empty");
+	cc.llt_main := maybe(int).j.(val);
+	return cc;
+]
+
+fn empty_compare_context : compare_context
+[
+	return exception_make(compare_context, ec_sync, error_record_field_not_initialized, 0, false);
+]
+
+
+fn get_defined_maybe(cc : compare_context, typ : int) : maybe(instruction)
+[
+	if typ < 0 then
+		return maybe(instruction).n;
+	var va := cc.ctx.variables[typ];
+	var def_at := va.defined_at;
+	if def_at = defined_multiple then
+		return maybe(instruction).n;
+	if va.mut then
+		return maybe(instruction).n;
+	return maybe(instruction).j.(cc.ctx.instructions[def_at]);
+]
+
+fn get_defined(cc : compare_context, typ : int) : instruction
+[
+	var instr := get_defined_maybe(cc, typ);
+	if instr is n then
+		abort internal("get_defined: no defining instruction for " + ntos(typ));
+	return instr.j;
+]
+
+fn is_non_const(cc : compare_context, typ : int) : bool
+[
+	if typ < 0 then
+		return false;
+	var va := cc.ctx.variables[typ];
+	var def_at := va.defined_at;
+	return va.defined_at = defined_multiple or va.mut;
+]
+
+fn cc_equal(cc1 cc2 : compare_context) : bool
+[
+	if cc1.ctx.id <> cc2.ctx.id then
+		return false;
+	if cc1.root <> cc2.root then
+		return false;
+	if len(cc1.args) <> len(cc2.args) then
+		return false;
+	for i := 0 to len(cc1.args) do [
+		if cc1.args[i].idx <> cc2.args[i].idx then
+			return false;
+		if not cc_equal(cc1.args[i].cc, cc2.args[i].cc) then
+			return false;
+	]
+	return true;
+]
+
+fn find_fn_stack_depth(fn_stack : list(compare_fn_stack), cc : compare_context, main_def : int) : (compare_fn_stack, int)
+[
+	for i := 0 to len(fn_stack) do [
+		if cc_equal(fn_stack[i].cc, cc) and fn_stack[i].main_def = main_def then
+			return fn_stack[i], len(fn_stack) - 1 - i;
+	]
+	abort internal("find_fn_stack_depth: Fn definition not found");
+]
+
+fn decode_call(ctx : function_context, cc : compare_context, typ : int, instr : instruction) : (bool, function_unique_id, list(compare_argument), int)
+[
+	if instr.opcode = P_Call then [
+		var args := empty(compare_argument);
+		for i := 0 to pcode_Call_get_n_args(instr) do [
+			args +<= new_compare_argument(cc, pcode_Call_get_arg(instr, i));
+		]
+		var fid := pcode_Call_get_unique_id(instr);
+		var ret_idx := pcode_Call_find_return_index(instr, typ);
+		return true, fid, args, ret_idx;
+	]
+	if instr.opcode = P_Call_Indirect then [
+		var reverse_args := empty(compare_argument);
+		if pcode_Call_Indirect_get_n_args(instr) <> 0 then
+			abort internal("Call_Indirect with arguments");
+
+		var fnn := pcode_Call_Indirect_get_fn_variable(instr);
+		var fnn_cc := cc;
+next_fn:
+		var f_typ : int;
+		fnn_cc, f_typ := get_base_definition(ctx, fnn_cc, fnn, false);
+		var f_instrm := get_defined_maybe(fnn_cc, f_typ);
+		if f_instrm is n then
+			goto fail;
+		var f_instr := f_instrm.j;
+
+		if f_instr.opcode = P_Curry then [
+			var i := pcode_Curry_get_n_curried_args(f_instr) - 1;
+			while i >= 0 do [
+				var ca := new_compare_argument(fnn_cc, pcode_Curry_get_arg(f_instr, i));
+				reverse_args +<= ca;
+				i -= 1;
+			]
+			fnn := pcode_Curry_get_fn_variable(f_instr);
+			goto next_fn;
+		]
+
+		if f_instr.opcode <> P_Load_Fn then
+			goto fail;
+		if pcode_Load_Fn_get_n_curried_args(f_instr) <> 0 then
+			abort internal("Load_Fn with arguments");
+		var fid := pcode_Load_Fn_get_unique_id(f_instr);
+		var ret_idx := pcode_Call_Indirect_find_return_index(instr, typ);
+		return true, fid, list_reverse(reverse_args), ret_idx;
+	]
+
+fail:
+	return false, exception_make(function_unique_id, ec_sync, error_record_field_not_initialized, 0, false), empty(compare_argument), -1;
+]
+
+
+fn get_base_definition(ctx : function_context, cc : compare_context, typ : int, want_record : bool) : (compare_context, int)
+[
+restart_fail:
+	var fail_cc := empty_compare_context;
+	var fail_typ := T_UnknownType;
+
+restart:
+	if typ < 0 then
+		return cc, typ;
+
+	var cc_ctx := cc.ctx;
+
+	if typ >= cc_ctx.n_arguments, typ < cc_ctx.n_arguments + cc_ctx.n_return_values then [
+		var idx := typ - cc_ctx.n_arguments;
+		if idx < len(cc.return_redirect) then
+			return cc.return_redirect[idx].cc, cc.return_redirect[idx].idx;
+	]
+
+	if get_defined_maybe(cc, typ) is n then
+		return fail_cc, fail_typ;
+
+	var def_at := cc_ctx.variables[typ].defined_at;
+
+	fail_cc, fail_typ := cc, typ;
+
+	if typ < len(cc.args) then [
+		cc, typ := cc.args[typ].cc, cc.args[typ].idx;
+		goto restart;
+	]
+
+	if def_at = defined_argument then
+		return cc, typ;
+
+	var instr := cc_ctx.instructions[def_at];
+	var opcode := instr.opcode;
+
+	if opcode = P_Copy then [
+		typ := pcode_Copy_get_source(instr);
+		goto restart;
+	]
+	if opcode = P_Call or opcode = P_Call_Indirect then [
+		var success, fid, args, ret_idx := decode_call(ctx, cc, typ, instr);
+		if not success then
+			return cc, typ;
+
+		var f := search_function_from_id(ctx, fid);
+		//eval debug("get_base_definition: " + i_decode(f.signature.name));
+		//eval stacktrace(0 div 0);
+		if f.signature.n_arguments <> len(args) then
+			abort internal("P_Call: the number of arguments doesn't match");
+		if f.body is n then
+			return cc, typ;
+
+		var new_ctx := new_compare_context_from_function(f.body.j);
+		new_ctx.args := args;
+
+		if f.body.j.record_def is j then [
+			if want_record then
+				return new_ctx, T_Record;
+			else
+				return cc, typ;
+		]
+
+		if f.call_mode <> Call_Mode_Type, f.call_mode <> Call_Mode_Flat then [
+			return cc, typ;
+		]
+
+		cc, typ := new_ctx, f.signature.n_arguments + ret_idx;
+
+		goto restart;
+	]
+	if opcode = P_Load_Local_Type then [
+		if cc.llt_main is j, pcode_Load_Local_Type_get_function(instr) = cc.llt_main.j then [
+			var r := cc.llt_redirect[pcode_Load_Local_Type_get_index(instr)];
+			cc, typ := r.cc, r.idx;
+			goto restart_fail;
+		]
+		return cc, typ;
+	]
+	if opcode = P_Record_Load then [
+		var str_v := pcode_Record_Load_get_record(instr);
+		var idx := pcode_Record_Load_get_index(instr);
+		var type_idx := cc_ctx.variables[str_v].type_idx;
+
+		var rec_cc, rec_typ := get_base_definition(ctx, cc, type_idx, true);
+		if rec_typ <> T_Record then [
+			abort internal("No record type for Record_Create");
+		]
+		var def := rec_cc.ctx.record_def.j;
+		if def.is_option then [
+			abort internal("Non-matching record definitions");
+		]
+
+		var rv_cc, rv_typ := get_base_definition(ctx, cc, str_v, false);
+		var rv_instr := get_defined_maybe(rv_cc, rv_typ);
+		if rv_instr is n then
+			return cc, typ;
+		if rv_instr.j.opcode <> P_Record_Create then
+			return cc, typ;
+
+		var rv_var := pcode_Record_Create_get_arg(rv_instr.j, idx);
+		cc, typ := rv_cc, rv_var;
+
+		goto restart;
+	]
+
+	if opcode = P_BinaryOp or
+	   opcode = P_UnaryOp or
+	   opcode = P_Copy_Type_Cast or
+	   opcode = P_Curry or
+	   opcode = P_Load_Fn or
+	   opcode = P_Fn or
+	   opcode = P_Load_Const or
+	   opcode = P_Structured_Write or
+	   opcode = P_Record_Create or
+	   opcode = P_Option_Create or
+	   opcode = P_Option_Load or
+	   opcode = P_Option_Test or
+	   opcode = P_Option_Ord or
+	   opcode = P_Array_Create or
+	   opcode = P_Array_String or
+	   opcode = P_Array_Unicode or
+	   opcode = P_Array_Load or
+	   opcode = P_Array_Sub or
+	   opcode = P_Array_Skip or
+	   opcode = P_Array_Append or
+	   opcode = P_IO or
+	   false then
+		return cc, typ;
+
+	abort internal("get_base_definition: invalid opcode " + ntos(opcode));
+]
+
+fn get_deep_type_of_var(ctx : function_context, v : int) : (compare_context, int)
+[
+	var typ := get_type_of_var(ctx, v);
+	if typ < 0 then
+		return empty_compare_context, typ;
+	var cc := new_compare_context(ctx);
+	return get_base_definition(ctx, cc, typ, true);
+]
+
+fn verify_type_equality(ctx : function_context,
+			cc1 : compare_context, typ1 : int, fn_stack1 : list(compare_fn_stack),
+			cc2 : compare_context, typ2 : int, fn_stack2 : list(compare_fn_stack)) : (bool, maybe_inferred)
+[
+
+	if typ1 >= 0, typ1 = typ2, cc1.ctx.incomplete, cc2.ctx.incomplete, cc1.ctx.id = cc2.ctx.id, get_defined_maybe(cc1, typ1) is j then [
+		//eval debug("verify_type_equality bypass: " + ntos(typ1));
+		return true, maybe_inferred.n;
+	]
+
+	cc1, typ1 := get_base_definition(ctx, cc1, typ1, false);
+	cc2, typ2 := get_base_definition(ctx, cc2, typ2, false);
+
+	if typ1 = T_UnknownType or typ2 = T_UnknownType then
+		return false, maybe_inferred.n;
+
+	if typ1 < 0 or typ2 < 0 then [
+		if typ1 <= ctx.inferred_base and typ2 <= ctx.inferred_base then
+			abort internal("verify_type_equality: both variables are inference markers");
+		if typ1 <= ctx.inferred_base then [
+			var x_typ : int;
+			ctx, x_typ := evaluate_type(ctx, cc2, typ2, empty(compare_fn_stack), empty(token));
+			var inferred := inferred_result.[ arg : ctx.inferred_base - typ1, ctx : ctx, typ : x_typ ];
+			//eval debug(i_decode(ctx.name) +" inferred1: " + ", " + ntos(typ2) + ", " + ntos(x_typ));
+			return false, maybe_inferred.j.(inferred);
+		]
+		if typ2 <= ctx.inferred_base then [
+			var x_typ : int;
+			ctx, x_typ := evaluate_type(ctx, cc1, typ1, empty(compare_fn_stack), empty(token));
+			var inferred := inferred_result.[ arg : ctx.inferred_base - typ2, ctx : ctx, typ : x_typ ];
+			//eval debug(i_decode(ctx.name) + " inferred2: " + ", " + ntos(typ1) + ", " + ntos(x_typ));
+			return false, maybe_inferred.j.(inferred);
+		]
+		if typ1 <= T_InferredType or typ2 <= T_InferredType then
+			return false, maybe_inferred.n;
+		return typ1 = typ2, maybe_inferred.n;
+	]
+
+	if typ1 = typ2, cc1.ctx.incomplete, cc2.ctx.incomplete, cc1.ctx.id = cc2.ctx.id then
+		return true, maybe_inferred.n;
+
+	var instr1 := get_defined(cc1, typ1);
+	var opcode1 := instr1.opcode;
+	var instr2 := get_defined(cc2, typ2);
+	var opcode2 := instr2.opcode;
+
+	if opcode1 = P_Call_Indirect, opcode2 = P_Call then [
+		opcode1, opcode2 := opcode2, opcode1;
+		instr1, instr2 := instr2, instr1;
+		typ1, typ2 := typ2, typ1;
+		cc1, cc2 := cc2, cc1;
+		fn_stack1, fn_stack2 := fn_stack2, fn_stack1;
+	]
+	if opcode1 = P_Call, opcode2 = P_Call_Indirect then [
+		var ret_idx1 := pcode_Call_find_return_index(instr1, typ1);
+		var ret_idx2 := pcode_Call_Indirect_find_return_index(instr2, typ2);
+		if ret_idx1 <> ret_idx2 then
+			return false, maybe_inferred.n;
+
+		var args2 := empty(compare_argument);
+		var fn2 := pcode_Call_Indirect_get_fn_variable(instr2);
+		cc2, typ2 := get_base_definition(ctx, cc2, fn2, false);
+		var ins := get_defined_maybe(cc2, typ2);
+		while ins is j, ins.j.opcode = P_Curry do [
+			instr2 := ins.j;
+			for ii := 0 to pcode_Curry_get_n_curried_args(instr2) do [
+				var i := pcode_Curry_get_n_curried_args(instr2) - 1 - ii;
+				var a := pcode_Curry_get_arg(instr2, i);
+				args2 +<= new_compare_argument(cc2, a);
+			]
+			cc2, typ2 := get_base_definition(ctx, cc2, pcode_Curry_get_fn_variable(instr2), false);
+			ins := get_defined_maybe(cc2, typ2);
+		]
+
+		if not (ins is j and ins.j.opcode = P_Load_Fn) then [
+			if typ2 <= ctx.inferred_base, pcode_Call_get_n_args(instr1) >= len(args2) then [
+				var fid1 := pcode_Call_get_unique_id(instr1);
+				var fd1 := search_function_from_id(ctx, fid1);
+				var x_typ : int;
+				ctx, x_typ := generate_Load_Fn(ctx, fd1, empty(token));
+				if pcode_Call_get_n_args(instr1) > len(args2) then [
+					var iargs := empty(int);
+					for i := 0 to pcode_Call_get_n_args(instr1) - len(args2) do [
+						var iarg : int;
+						ctx, iarg := evaluate_type(ctx, cc1, pcode_Call_get_arg(instr1, i), empty(compare_fn_stack), empty(token));
+						iargs +<= iarg;
+					]
+					var cc, typ := get_deep_type_of_var(ctx, x_typ);
+					ctx, x_typ := generate_Curry(ctx, cc, typ, x_typ, iargs, empty(token));
+				]
+				var inferred := inferred_result.[ arg : ctx.inferred_base - typ2, ctx : ctx, typ : x_typ ];
+				return false, maybe_inferred.j.(inferred);
+			]
+			return false, maybe_inferred.n;
+		]
+		instr2 := ins.j;
+
+		var fid1 := pcode_Call_get_unique_id(instr1);
+		var fid2 := pcode_Load_Fn_get_unique_id(instr2);
+		if fid1 <> fid2 then
+			return false, maybe_inferred.n;
+
+		if pcode_Call_get_n_args(instr1) <> len(args2) then
+			abort internal("verify_type_equality: the number of arguments doesn't match: " + ntos(pcode_Call_get_n_args(instr1)) + ", " + ntos(len(args2)));
+
+		for i := 0 to len(args2) do [
+			var arg_idx := len(args2) - 1 - i;
+			var x1, y1 := verify_type_equality(ctx, cc1, pcode_Call_get_arg(instr1, i), fn_stack1,
+								args2[arg_idx].cc, args2[arg_idx].idx, fn_stack2);
+			if y1 is j then
+				return false, y1;
+			if not x1 then
+				return false, maybe_inferred.n;
+		]
+
+		return true, maybe_inferred.n;
+	]
+
+	if opcode1 <> opcode2 then
+		return false, maybe_inferred.n;
+
+	if opcode1 = P_Copy then
+		return false, maybe_inferred.n;
+
+	if opcode1 = P_BinaryOp then [
+		if pcode_BinaryOp_get_op(instr1) <> pcode_BinaryOp_get_op(instr2) then
+			return false, maybe_inferred.n;
+		var a1 := pcode_BinaryOp_get_arg1(instr1);
+		var a2 := pcode_BinaryOp_get_arg1(instr2);
+		var x, y := verify_type_equality(ctx, cc1, a1, fn_stack1, cc2, a2, fn_stack2);
+		if y is j then
+			return false, y;
+		if not x then
+			return false, maybe_inferred.n;
+		a1 := pcode_BinaryOp_get_arg1(instr1);
+		a2 := pcode_BinaryOp_get_arg1(instr2);
+		x, y := verify_type_equality(ctx, cc1, a1, fn_stack1, cc2, a2, fn_stack2);
+		if y is j then
+			return false, y;
+		if not x then
+			return false, maybe_inferred.n;
+		return true, maybe_inferred.n;
+	]
+
+	if opcode1 = P_UnaryOp then [
+		if pcode_UnaryOp_get_op(instr1) <> pcode_UnaryOp_get_op(instr2) then
+			return false, maybe_inferred.n;
+		if pcode_UnaryOp_get_op(instr1) = Un_ConvertFromInt then [
+			var r1 := pcode_UnaryOp_get_result(instr1);
+			var r2 := pcode_UnaryOp_get_result(instr2);
+			if get_type_of_var(cc1.ctx, r1) <> get_type_of_var(cc2.ctx, r2) then
+				return false, maybe_inferred.n;
+		]
+		var a1 := pcode_UnaryOp_get_arg(instr1);
+		var a2 := pcode_UnaryOp_get_arg(instr2);
+		return verify_type_equality(ctx, cc1, a1, fn_stack1, cc2, a2, fn_stack2);
+	]
+
+	if opcode1 = P_Fn then [
+		if pcode_Fn_get_n_args(instr1) <> pcode_Fn_get_n_args(instr2) or
+		   pcode_Fn_get_n_return_values(instr1) <> pcode_Fn_get_n_return_values(instr2) then
+			return false, maybe_inferred.n;
+		var new_fn_stack1 : compare_fn_stack := compare_fn_stack.[
+			cc : cc1,
+			main_def : pcode_Fn_get_result(instr1),
+			dest_def : exception_make(int, ec_sync, error_record_field_not_initialized, 0, false),
+			dest_types : exception_make(list(int), ec_sync, error_record_field_not_initialized, 0, false),
+		];
+		fn_stack1 +<= new_fn_stack1;
+		var new_fn_stack2 : compare_fn_stack := compare_fn_stack.[
+			cc : cc2,
+			main_def : pcode_Fn_get_result(instr2),
+			dest_def : exception_make(int, ec_sync, error_record_field_not_initialized, 0, false),
+			dest_types : exception_make(list(int), ec_sync, error_record_field_not_initialized, 0, false),
+		];
+		fn_stack2 +<= new_fn_stack2;
+		for i := 0 to pcode_Fn_get_n_args(instr1) do [
+			var a1 := pcode_Fn_get_argument(instr1, i);
+			var a2 := pcode_Fn_get_argument(instr2, i);
+			var x, y := verify_type_equality(ctx, cc1, a1, fn_stack1, cc2, a2, fn_stack2);
+			if y is j then
+				return false, y;
+			if not x then
+				return false, maybe_inferred.n;
+		]
+		for i := 0 to pcode_Fn_get_n_return_values(instr1) do [
+			var a1 := pcode_Fn_get_return_value(instr1, i);
+			var a2 := pcode_Fn_get_return_value(instr2, i);
+			var x, y := verify_type_equality(ctx, cc1, a1, fn_stack1, cc2, a2, fn_stack2);
+			if y is j then
+				return false, y;
+			if not x then
+				return false, maybe_inferred.n;
+		]
+		return true, maybe_inferred.n;
+	]
+	if opcode1 = P_Load_Local_Type then [
+		var s1, d1 := find_fn_stack_depth(fn_stack1, cc1, pcode_Load_Local_Type_get_function(instr1));
+		var s2, d2 := find_fn_stack_depth(fn_stack2, cc2, pcode_Load_Local_Type_get_function(instr2));
+		return d1 = d2 and pcode_Load_Local_Type_get_index(instr1) = pcode_Load_Local_Type_get_index(instr2), maybe_inferred.n;
+	]
+
+	if opcode1 = P_Load_Fn then [
+		var id1 := pcode_Load_Fn_get_unique_id(instr1);
+		var id2 := pcode_Load_Fn_get_unique_id(instr2);
+		if id1 <> id2 then
+			return false, maybe_inferred.n;
+		return true, maybe_inferred.n;
+	]
+	if opcode1 = P_Curry then [
+		var args1 := empty(compare_argument);
+		while true do [
+			for ii := 0 to pcode_Curry_get_n_curried_args(instr1) do [
+				var i := pcode_Curry_get_n_curried_args(instr1) - 1 - ii;
+				var a := pcode_Curry_get_arg(instr1, i);
+				args1 +<= new_compare_argument(cc1, a);
+			]
+			cc1, typ1 := get_base_definition(ctx, cc1, pcode_Curry_get_fn_variable(instr1), false);
+			var ins := get_defined_maybe(cc1, typ1);
+			if ins is j, ins.j.opcode = P_Curry then [
+				instr1 := ins.j;
+				continue;
+			]
+			break;
+		]
+		var args2 := empty(compare_argument);
+		while true do [
+			for ii := 0 to pcode_Curry_get_n_curried_args(instr2) do [
+				var i := pcode_Curry_get_n_curried_args(instr2) - 1 - ii;
+				var a := pcode_Curry_get_arg(instr2, i);
+				args2 +<= new_compare_argument(cc2, a);
+			]
+			cc2, typ2 := get_base_definition(ctx, cc2, pcode_Curry_get_fn_variable(instr2), false);
+			var ins := get_defined_maybe(cc2, typ2);
+			if ins is j, ins.j.opcode = P_Curry then [
+				instr2 := ins.j;
+				continue;
+			]
+			break;
+		]
+		if len(args1) <> len(args2) then [
+			if typ1 <= ctx.inferred_base then [
+				opcode1, opcode2 := opcode2, opcode1;
+				instr1, instr2 := instr2, instr1;
+				typ1, typ2 := typ2, typ1;
+				cc1, cc2 := cc2, cc1;
+				fn_stack1, fn_stack2 := fn_stack2, fn_stack1;
+				args1, args2 := args2, args1;
+			]
+			if typ2 <= ctx.inferred_base, len(args1) > len(args2) then [
+				var x_typ : int;
+				ctx, x_typ := evaluate_type(ctx, cc1, typ1, empty(compare_fn_stack), empty(token));
+				for i := 0 to len(args2) do [
+					var x1, y1 := verify_type_equality(ctx, args1[i].cc, args1[i].idx, fn_stack1, args2[i].cc, args2[i].idx, fn_stack2);
+					if y1 is j then
+						return false, y1;
+					if not x1 then
+						return false, maybe_inferred.n;
+				]
+				var iargs := empty(int);
+				for i := len(args2) to len(args1) do [
+					var iarg : int;
+					ctx, iarg := evaluate_type(ctx, args1[i].cc, args1[i].idx, empty(compare_fn_stack), empty(token));
+					iargs := [ iarg ] + iargs;
+				]
+				var cc, typ := get_deep_type_of_var(ctx, x_typ);
+				ctx, x_typ := generate_Curry(ctx, cc, typ, x_typ, iargs, empty(token));
+				var inferred := inferred_result.[ arg : ctx.inferred_base - typ2, ctx : ctx, typ : x_typ ];
+				return false, maybe_inferred.j.(inferred);
+			]
+			return false, maybe_inferred.n;
+		]
+		var x1, y1 := verify_type_equality(ctx, cc1, typ1, fn_stack1, cc2, typ2, fn_stack2);
+		if y1 is j then
+			return false, y1;
+		if not x1 then
+			return false, maybe_inferred.n;
+		for i := 0 to len(args1) do [
+			var x1, y1 := verify_type_equality(ctx, args1[i].cc, args1[i].idx, fn_stack1, args2[i].cc, args2[i].idx, fn_stack2);
+			if y1 is j then
+				return false, y1;
+			if not x1 then
+				return false, maybe_inferred.n;
+		]
+		return true, maybe_inferred.n;
+	]
+	if opcode1 = P_Call_Indirect then [
+		if pcode_Call_Indirect_get_n_args(instr1) <> 0 then
+			abort internal("verify_type_equality: Call_Indirect with arguments");
+		if pcode_Call_Indirect_get_n_args(instr2) <> 0 then
+			abort internal("verify_type_equality: Call_Indirect with arguments");
+		var ret_idx1 := pcode_Call_Indirect_find_return_index(instr1, typ1);
+		var ret_idx2 := pcode_Call_Indirect_find_return_index(instr2, typ2);
+		if ret_idx1 <> ret_idx2 then
+			return false, maybe_inferred.n;
+		var fn1 := pcode_Call_Indirect_get_fn_variable(instr1);
+		var fn2 := pcode_Call_Indirect_get_fn_variable(instr2);
+		return verify_type_equality(ctx, cc1, fn1, fn_stack1, cc2, fn2, fn_stack2);
+	]
+	if opcode1 = P_Call then [
+		if pcode_Call_quick_compare(instr1, instr2) then
+			return false, maybe_inferred.n;
+		var fid1 := pcode_Call_get_unique_id(instr1);
+		var fid2 := pcode_Call_get_unique_id(instr2);
+		if fid1 <> fid2 then
+			return false, maybe_inferred.n;
+		var ret_idx1 := pcode_Call_find_return_index(instr1, typ1);
+		var ret_idx2 := pcode_Call_find_return_index(instr2, typ2);
+		if ret_idx1 <> ret_idx2 then
+			return false, maybe_inferred.n;
+		for i := 0 to pcode_Call_get_n_args(instr1) do [
+			var x1, y1 := verify_type_equality(ctx, cc1, pcode_Call_get_arg(instr1, i), fn_stack1,
+								cc2, pcode_Call_get_arg(instr2, i), fn_stack2);
+			if y1 is j then
+				return false, y1;
+			if not x1 then
+				return false, maybe_inferred.n;
+		]
+		return true, maybe_inferred.n;
+	]
+	if opcode1 = P_Load_Const then [
+		var val1 := pcode_Load_Const_get_blob(instr1);
+		var val2 := pcode_Load_Const_get_blob(instr2);
+		if len(val1) <> len(val2) then
+			return false, maybe_inferred.n;
+		for i := 0 to len(val1) do
+			if val1[i] <> val2[i] then
+				return false, maybe_inferred.n;
+		return true, maybe_inferred.n;
+	]
+	if opcode1 = P_Record_Create then [
+		var type_idx1 := cc1.ctx.variables[typ1].type_idx;
+		var type_idx2 := cc2.ctx.variables[typ2].type_idx;
+		var rec_cc1, rec_typ1 := get_base_definition(ctx, cc1, type_idx1, true);
+		var rec_cc2, rec_typ2 := get_base_definition(ctx, cc2, type_idx2, true);
+		if rec_typ1 <> T_Record or rec_typ2 <> T_Record then [
+			abort internal("verify_type_equality: No record type for Record_Create");
+		]
+		var x1, y1 := verify_type_equality(ctx, cc1, type_idx1, fn_stack1, cc2, type_idx2, fn_stack2);
+		if y1 is j then
+			return false, y1;
+		if not x1 then
+			return false, maybe_inferred.n;
+		var def1 := rec_cc1.ctx.record_def.j;
+		var def2 := rec_cc2.ctx.record_def.j;
+		if def1.is_option or def2.is_option then
+			abort internal("verify_type_equality: Non-matching record definitions");
+		if len(def1.entries) <> len(def2.entries) then
+			return false, maybe_inferred.n;
+		if len(def1.entries) <> pcode_Record_Create_get_n_args(instr1) or
+		   len(def2.entries) <> pcode_Record_Create_get_n_args(instr2) then
+			abort internal("verify_type_equality: Non-matching number of entries");
+		for i := 0 to len(def1.entries) do [
+			var x1, y1 := verify_type_equality(ctx, cc1, pcode_Record_Create_get_arg(instr1, i), fn_stack1, cc2, pcode_Record_Create_get_arg(instr2, i), fn_stack2);
+			if y1 is j then
+				return false, y1;
+			if not x1 then
+				return false, maybe_inferred.n;
+		]
+		return true, maybe_inferred.n;
+	]
+	if opcode1 = P_Record_Load then [
+		var idx1 := pcode_Record_Load_get_index(instr1);
+		var idx2 := pcode_Record_Load_get_index(instr2);
+		if idx1 <> idx2 then
+			return false, maybe_inferred.n;
+		if cc1.ctx.incomplete, cc2.ctx.incomplete, cc1.ctx.id = cc2.ctx.id, pcode_Record_Load_get_record(instr1) = pcode_Record_Load_get_record(instr2), cc1.ctx.variables[pcode_Record_Load_get_record(instr1)].defined_at <> defined_multiple then [
+			var type_idx1 := cc1.ctx.variables[pcode_Record_Load_get_record(instr1)].type_idx;
+			var rec_cc1, rec_typ1 := get_base_definition(ctx, cc1, type_idx1, true);
+			if rec_typ1 <> T_Record then [
+				abort internal("verify_type_equality: No record type for Record_Load");
+			]
+			var def1 := rec_cc1.ctx.record_def.j;
+			if def1.entries[idx1].cnst then
+				return true, maybe_inferred.n;
+		]
+		return verify_type_equality(ctx,
+					    cc1, pcode_Record_Load_get_record(instr1), fn_stack1,
+					    cc2, pcode_Record_Load_get_record(instr2), fn_stack2);
+	]
+	if opcode1 = P_Option_Create then [
+		if pcode_Option_Create_get_index(instr1) <> pcode_Option_Create_get_index(instr2) then
+			return false, maybe_inferred.n;
+		return verify_type_equality(ctx,
+					    cc1, pcode_Option_Create_get_arg(instr1), fn_stack1,
+					    cc2, pcode_Option_Create_get_arg(instr2), fn_stack2);
+	]
+	if opcode1 = P_Option_Load then [
+		var idx1 := pcode_Option_Load_get_index(instr1);
+		var idx2 := pcode_Option_Load_get_index(instr2);
+		if idx1 <> idx2 then
+			return false, maybe_inferred.n;
+		return verify_type_equality(ctx,
+					    cc1, pcode_Option_Load_get_option(instr1), fn_stack1,
+					    cc2, pcode_Option_Load_get_option(instr2), fn_stack2);
+	]
+	if opcode1 = P_Option_Test then [
+		var idx1 := pcode_Option_Test_get_index(instr1);
+		var idx2 := pcode_Option_Test_get_index(instr2);
+		if idx1 <> idx2 then
+			return false, maybe_inferred.n;
+		return verify_type_equality(ctx,
+					    cc1, pcode_Option_Test_get_option(instr1), fn_stack1,
+					    cc2, pcode_Option_Test_get_option(instr2), fn_stack2);
+	]
+	if opcode1 = P_Option_Ord then [
+		return verify_type_equality(ctx,
+					    cc1, pcode_Option_Ord_get_option(instr1), fn_stack1,
+					    cc2, pcode_Option_Ord_get_option(instr2), fn_stack2);
+	]
+	if opcode1 = P_Array_Create then [
+		if pcode_Array_Create_get_length(instr1) <> pcode_Array_Create_get_length(instr2) then
+			return false, maybe_inferred.n;
+		for i := 0 to pcode_Array_Create_get_length(instr1) do [
+			var x1, y1 := verify_type_equality(ctx,
+							   cc1, pcode_Array_Create_get_arg(instr1, i), fn_stack1,
+							   cc2, pcode_Array_Create_get_arg(instr2, i), fn_stack2);
+			if y1 is j then
+				return false, y1;
+			if not x1 then
+				return false, maybe_inferred.n;
+		]
+		return true, maybe_inferred.n;
+	]
+	if opcode1 = P_Array_String then [
+		var blob1 := pcode_Array_String_get_blob(instr1);
+		var blob2 := pcode_Array_String_get_blob(instr2);
+		if blob1 <> blob2 then
+			return false, maybe_inferred.n;
+		return true, maybe_inferred.n;
+	]
+	if opcode1 = P_Array_Unicode then [
+		var blob1 := pcode_Array_Unicode_get_blob(instr1);
+		var blob2 := pcode_Array_Unicode_get_blob(instr2);
+		if blob1 <> blob2 then
+			return false, maybe_inferred.n;
+		return true, maybe_inferred.n;
+	]
+	if opcode1 = P_Array_Load then [
+		var a1 := pcode_Array_Load_get_array(instr1);
+		var a2 := pcode_Array_Load_get_array(instr2);
+		var idx1 := pcode_Array_Load_get_index(instr1);
+		var idx2 := pcode_Array_Load_get_index(instr2);
+		var x1, y1 := verify_type_equality(ctx,
+						   cc1, a1, fn_stack1,
+						   cc2, a2, fn_stack2);
+		if y1 is j then
+			return false, y1;
+		var x2, y2 := verify_type_equality(ctx,
+						   cc1, idx1, fn_stack1,
+						   cc2, idx2, fn_stack2);
+		if y2 is j then
+			return false, y2;
+		return x1 and x2, maybe_inferred.n;
+	]
+	if opcode1 = P_Array_Sub then [
+		var x1, y1 := verify_type_equality(ctx,
+						   cc1, pcode_Array_Sub_get_array(instr1), fn_stack1,
+						   cc2, pcode_Array_Sub_get_array(instr2), fn_stack2);
+		if y1 is j then
+			return false, y1;
+		var x2, y2 := verify_type_equality(ctx,
+						   cc1, pcode_Array_Sub_get_start(instr1), fn_stack1,
+						   cc2, pcode_Array_Sub_get_start(instr2), fn_stack2);
+		if y2 is j then
+			return false, y2;
+		var x3, y3 := verify_type_equality(ctx,
+						   cc1, pcode_Array_Sub_get_end(instr1), fn_stack1,
+						   cc2, pcode_Array_Sub_get_end(instr2), fn_stack2);
+		if y3 is j then
+			return false, y3;
+		return x1 and x2 and x3, maybe_inferred.n;
+	]
+	if opcode1 = P_Array_Skip then [
+		var x1, y1 := verify_type_equality(ctx,
+						   cc1, pcode_Array_Skip_get_array(instr1), fn_stack1,
+						   cc2, pcode_Array_Skip_get_array(instr2), fn_stack2);
+		if y1 is j then
+			return false, y1;
+		var x2, y2 := verify_type_equality(ctx,
+						   cc1, pcode_Array_Skip_get_start(instr1), fn_stack1,
+						   cc2, pcode_Array_Skip_get_start(instr2), fn_stack2);
+		if y2 is j then
+			return false, y2;
+		return x1 and x2, maybe_inferred.n;
+	]
+{
+	if opcode1 = P_Array_Append then [
+		abort unimplemented("verify_type_equality: P_Array_Append");
+	]
+}
+	if opcode1 = P_Copy_Type_Cast then [
+		return false, maybe_inferred.n;
+	]
+	if opcode1 = P_IO then [
+		return false, maybe_inferred.n;
+	]
+
+	if opcode1 = P_Args then [
+		return false, maybe_inferred.n;
+		//abort internal("verify_type_equality: hit arguments " + ntos(typ1) + ", " + ntos(typ2) + "; " + ntos(len(cc1.args)) + ", " + ntos(len(cc2.args)) + "; " + i_decode(cc1.ctx.name) + ", " + i_decode(cc2.ctx.name));
+	]
+
+	abort internal("verify_type_equality: invalid opcode " + ntos(opcode1));
+]
+
+fn verify_equality(ctx : function_context, typ1 typ2 : int) : bool
+[
+	var cc := new_compare_context(ctx);
+	var x1, x2 := verify_type_equality(ctx, cc, typ1, empty(compare_fn_stack), cc, typ2, empty(compare_fn_stack));
+	return x1;
+]
+
+fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_stack : list(compare_fn_stack), t : tokens) : (function_context, int)
+[
+	cc, typ := get_base_definition(ctx, cc, typ, false);
+
+	if typ = T_UnknownType then
+		abort compiler_error("Only constants may be used in type definitions", t);
+
+	if typ <= T_InferredType then
+		abort compiler_error("Referencing argument that is not yet inferred", t);
+
+	if typ < 0 then
+		return ctx, typ;
+
+	var cc_ctx := cc.ctx;
+
+	{*
+	 * !!! FIXME: dirty HACK
+	 * if we are called from generate_Load_Fn, we must shortcut local variables due to Load_Local_Type
+	 * if we are called from generate_Curry or generate_Call_Indirect, we must not shortcut local variables due to Load_Local_Type
+	 *}
+	if cc.root and cc.llt_main is n then
+		return ctx, typ;
+
+	var instr := get_defined(cc, typ);
+	var opcode := instr.opcode;
+
+	if (opcode = P_Copy or opcode = P_Args) and cc.root then
+		return ctx, typ;
+
+	if opcode = P_BinaryOp then [
+		if is_non_const(cc, pcode_BinaryOp_get_arg1(instr)) or
+		   is_non_const(cc, pcode_BinaryOp_get_arg2(instr)) then
+			goto uses_non_const;
+		var a1 a2 : int;
+		ctx, a1 := evaluate_type(ctx, cc, pcode_BinaryOp_get_arg1(instr), fn_stack, t);
+		ctx, a2 := evaluate_type(ctx, cc, pcode_BinaryOp_get_arg2(instr), fn_stack, t);
+		var rtyp : int;
+		ctx, rtyp := evaluate_type(ctx, cc, get_type_of_var(cc.ctx, pcode_BinaryOp_get_result(instr)), fn_stack, t);
+		var l : int;
+		ctx, l := alloc_local_variable(ctx, rtyp, true, false);
+		var ctx := generate_BinaryOp(ctx, pcode_BinaryOp_get_op(instr), a1, a2, l);
+		return ctx, l;
+	]
+	if opcode = P_UnaryOp then [
+		if is_non_const(cc, pcode_UnaryOp_get_arg(instr)) then
+			goto uses_non_const;
+		var a1 : int;
+		ctx, a1 := evaluate_type(ctx, cc, pcode_UnaryOp_get_arg(instr), fn_stack, t);
+		var rtyp : int;
+		ctx, rtyp := evaluate_type(ctx, cc, get_type_of_var(cc.ctx, pcode_UnaryOp_get_result(instr)), fn_stack, t);
+		var l : int;
+		ctx, l := alloc_local_variable(ctx, rtyp, true, false);
+		var ctx := generate_UnaryOp(ctx, pcode_UnaryOp_get_op(instr), a1, l);
+		return ctx, l;
+	]
+	if opcode = P_Fn then [
+		var n_arguments := pcode_Fn_get_n_args(instr);
+		var n_return_values := pcode_Fn_get_n_return_values(instr);
+		for i := 0 to n_arguments do
+			if is_non_const(cc, pcode_Fn_get_argument(instr, i)) then
+				goto uses_non_const;
+		for i := 0 to n_return_values do
+			if is_non_const(cc, pcode_Fn_get_return_value(instr, i)) then
+				goto uses_non_const;
+		var l : int;
+		ctx, l := alloc_local_variable(ctx, T_Type, true, false);
+		var args := empty(int);
+		var return_values := empty(int);
+		var new_fn_stack : compare_fn_stack := compare_fn_stack.[
+			cc : cc,
+			main_def : pcode_Fn_get_result(instr),
+			dest_def : l,
+			dest_types : empty(int),
+		];
+		fn_stack +<= new_fn_stack;
+		for i := 0 to n_arguments do [
+			var arg := pcode_Fn_get_argument(instr, i);
+			var a1 : int;
+			ctx, a1 := evaluate_type(ctx, cc, arg, fn_stack, t);
+			args +<= a1;
+			fn_stack[len(fn_stack) - 1].dest_types +<= a1;
+		]
+		for i := 0 to n_return_values do [
+			var arg := pcode_Fn_get_return_value(instr, i);
+			var a1 : int;
+			ctx, a1 := evaluate_type(ctx, cc, arg, fn_stack, t);
+			return_values +<= a1;
+			fn_stack[len(fn_stack) - 1].dest_types +<= a1;
+		]
+		ctx := set_defined_here(ctx, l);
+		ctx := generate_Fn(ctx, args, return_values, l);
+		return ctx, l;
+	]
+	if opcode = P_Load_Local_Type then [
+		var s, d := find_fn_stack_depth(fn_stack, cc, pcode_Load_Local_Type_get_function(instr));
+		var l : int;
+		ctx, l := alloc_local_variable(ctx, s.dest_types[pcode_Load_Local_Type_get_index(instr)], true, false);
+		ctx := generate_Load_Local_Type(ctx, s.dest_def, pcode_Load_Local_Type_get_index(instr), l);
+		return ctx, l;
+	]
+	if opcode = P_Load_Fn then [
+		var id := pcode_Load_Fn_get_unique_id(instr);
+		var fd := search_function_from_id(ctx, id);
+		return generate_Load_Fn(ctx, fd, t);
+	]
+	if opcode = P_Curry then [
+		var fnx := pcode_Curry_get_fn_variable(instr);
+		if is_non_const(cc, fnx) then
+			goto uses_non_const;
+		for i := 0 to pcode_Curry_get_n_curried_args(instr) do
+			if is_non_const(cc, pcode_Curry_get_arg(instr, i)) then
+				goto uses_non_const;
+		var af : int;
+		ctx, af := evaluate_type(ctx, cc, fnx, fn_stack, t);
+		var fn_cc, fn_typ := get_deep_type_of_var(ctx, af);
+		fn_cc := set_llt_main(fn_cc, fn_typ);
+		var my_cc := new_compare_context(ctx);
+		var args_idx := empty(int);
+		for i := 0 to pcode_Curry_get_n_curried_args(instr) do [
+			var arg := pcode_Curry_get_arg(instr, i);
+			var a1 : int;
+			ctx, a1 := evaluate_type(ctx, cc, arg, fn_stack, t);
+			args_idx +<= a1;
+			fn_cc.llt_redirect +<= new_compare_argument(my_cc, a1);
+			// TODO: quadratic complexity
+			// is this really needed?
+			for j := 0 to i + 1 do [
+				fn_cc.llt_redirect[j].cc.ctx := ctx;
+			]
+		]
+		var l : int;
+		ctx, l := generate_Curry(ctx, fn_cc, fn_typ, af, args_idx, t);
+		return ctx, l;
+	]
+	if opcode = P_Call_Indirect then [
+		if pcode_Call_Indirect_get_n_args(instr) <> 0 then
+			abort internal("evaluate_type: Call_Indirect with arguments");
+		var fnx := pcode_Call_Indirect_get_fn_variable(instr);
+		if is_non_const(cc, fnx) then
+			goto uses_non_const;
+		var af : int;
+		ctx, af := evaluate_type(ctx, cc, fnx, fn_stack, t);
+		var rv : list(int);
+		ctx, rv := generate_Call_Indirect(ctx, Call_Mode_Unspecified, af, t);
+		var ret_idx := pcode_Call_Indirect_find_return_index(instr, typ);
+		return ctx, rv[ret_idx];
+	]
+	if opcode = P_Call then [
+		for i := 0 to pcode_Call_get_n_args(instr) do
+			if is_non_const(cc, pcode_Call_get_arg(instr, i)) then
+				goto uses_non_const;
+		var id := pcode_Call_get_unique_id(instr);
+		var fd := search_function_from_id(ctx, id);
+		var args := empty(int);
+		for i := 0 to pcode_Call_get_n_args(instr) do [
+			var arg := pcode_Call_get_arg(instr, i);
+			var a1 : int;
+			ctx, a1 := evaluate_type(ctx, cc, arg, fn_stack, t);
+			args +<= a1;
+		]
+		var rv : list(int);
+		ctx, rv := generate_Call(ctx, Call_Mode_Unspecified, fd, args, t);
+		var ret_idx := pcode_Call_find_return_index(instr, typ);
+		return ctx, rv[ret_idx];
+	]
+	if opcode = P_Load_Const then [
+		var type_idx := get_type_of_var(cc_ctx, typ);
+		var at : int;
+		ctx, at := evaluate_type(ctx, cc, type_idx, fn_stack, t);
+		var l : int;
+		ctx, l := generate_Load_Const(ctx, at, pcode_Load_Const_get_blob(instr));
+		return ctx, l;
+	]
+	if opcode = P_Record_Create then [
+		for i := 0 to pcode_Record_Create_get_n_args(instr) do
+			if is_non_const(cc, pcode_Record_Create_get_arg(instr, i)) then
+				goto uses_non_const;
+		var type_idx := cc_ctx.variables[typ].type_idx;
+		var rec_cc, rec_typ := get_base_definition(ctx, cc, type_idx, true);
+		if rec_typ <> T_Record then
+			abort internal("No record type for Record_Create");
+		var def := rec_cc.ctx.record_def.j;
+		if def.is_option or len(def.entries) <> pcode_Record_Create_get_n_args(instr) then
+			abort internal("Non-matching record definitions");
+		var at : int;
+		ctx, at := evaluate_type(ctx, cc, type_idx, fn_stack, t);
+		var fields := fill(T_InvalidType, pcode_Record_Create_get_n_args(instr));
+		for i := 0 to len(fields) do
+			ctx, fields[i] := evaluate_type(ctx, cc, pcode_Record_Create_get_arg(instr, i), fn_stack, t);
+		var l : int;
+		ctx, l := generate_Record_Create(ctx, at, fields);
+		return ctx, l;
+	]
+	if opcode = P_Record_Load then [
+		if cc.root, cc.ctx.variables[pcode_Record_Load_get_record(instr)].mut then
+			return ctx, typ;
+		if is_non_const(cc, pcode_Record_Load_get_record(instr)) then
+			goto uses_non_const;
+		var at : int;
+		ctx, at := evaluate_type(ctx, cc, pcode_Record_Load_get_record(instr), fn_stack, t);
+		var l : int;
+		ctx, l := generate_Record_Load(ctx, at, pcode_Record_Load_get_index(instr), t);
+		return ctx, l;
+	]
+	if opcode = P_Option_Create then [
+		var type_idx := cc_ctx.variables[typ].type_idx;
+		var at ar l : int;
+		ctx, at := evaluate_type(ctx, cc, type_idx, fn_stack, t);
+		ctx, ar := evaluate_type(ctx, cc, pcode_Option_Create_get_arg(instr), fn_stack, t);
+		ctx, l := generate_Option_Create(ctx, at, pcode_Option_Create_get_index(instr), ar);
+		return ctx, l;
+	]
+	if opcode = P_Option_Load then [
+		if is_non_const(cc, pcode_Option_Load_get_option(instr)) then
+			goto uses_non_const;
+		var at : int;
+		ctx, at := evaluate_type(ctx, cc, pcode_Option_Load_get_option(instr), fn_stack, t);
+		var l : int;
+		ctx, l := generate_Option_Load(ctx, at, pcode_Option_Load_get_index(instr), t);
+		return ctx, l;
+	]
+	if opcode = P_Option_Test then [
+		if is_non_const(cc, pcode_Option_Test_get_option(instr)) then
+			goto uses_non_const;
+		var at : int;
+		ctx, at := evaluate_type(ctx, cc, pcode_Option_Test_get_option(instr), fn_stack, t);
+		var l : int;
+		ctx, l := generate_Option_Test(ctx, at, pcode_Option_Test_get_index(instr));
+		return ctx, l;
+	]
+	if opcode = P_Option_Ord then [
+		if is_non_const(cc, pcode_Option_Ord_get_option(instr)) then
+			goto uses_non_const;
+		var at l : int;
+		ctx, at := evaluate_type(ctx, cc, pcode_Option_Ord_get_option(instr), fn_stack, t);
+		ctx, l := generate_Option_Ord(ctx, at);
+		return ctx, l;
+	]
+	if opcode = P_Array_Create then [
+		var type_idx := cc_ctx.variables[typ].type_idx;
+		if is_non_const(cc, type_idx) then
+			goto uses_non_const;
+		var array_length := pcode_Array_Create_get_length(instr);
+		for i := 0 to array_length do
+			if is_non_const(cc, pcode_Array_Create_get_arg(instr, i)) then
+				goto uses_non_const;
+		var at elem length l : int;
+		ctx, at := evaluate_type(ctx, cc, type_idx, fn_stack, t);
+		var fields := fill(-1, array_length);
+		for i := 0 to array_length do
+			ctx, fields[i] := evaluate_type(ctx, cc, pcode_Array_Create_get_arg(instr, i), fn_stack, t);
+		ctx, l := generate_Array_Create(ctx, T_Undetermined, at, fields, t);
+		return ctx, l;
+	]
+	if opcode = P_Array_String then [
+		var blob := pcode_Array_String_get_blob(instr);
+		var l : int;
+		ctx, l := generate_Array_String(ctx, blob);
+		return ctx, l;
+	]
+	if opcode = P_Array_Unicode then [
+		var blob := pcode_Array_Unicode_get_blob(instr);
+		var l : int;
+		ctx, l := generate_Array_Unicode(ctx, blob);
+		return ctx, l;
+	]
+	if opcode = P_Array_Load then [
+		var at ai l : int;
+		if is_non_const(cc, pcode_Array_Load_get_array(instr)) or
+		   is_non_const(cc, pcode_Array_Load_get_index(instr)) then
+			goto uses_non_const;
+		ctx, at := evaluate_type(ctx, cc, pcode_Array_Load_get_array(instr), fn_stack, t);
+		ctx, ai := evaluate_type(ctx, cc, pcode_Array_Load_get_index(instr), fn_stack, t);
+		ctx, l := generate_Array_Load(ctx, at, ai, t);
+		return ctx, l;
+	]
+	if opcode = P_Array_Sub then [
+		var aa am an l : int;
+		if is_non_const(cc, pcode_Array_Sub_get_array(instr)) or
+		   is_non_const(cc, pcode_Array_Sub_get_start(instr)) or
+		   is_non_const(cc, pcode_Array_Sub_get_end(instr)) then
+			goto uses_non_const;
+		ctx, aa := evaluate_type(ctx, cc, pcode_Array_Sub_get_array(instr), fn_stack, t);
+		ctx, am := evaluate_type(ctx, cc, pcode_Array_Sub_get_start(instr), fn_stack, t);
+		ctx, an := evaluate_type(ctx, cc, pcode_Array_Sub_get_end(instr), fn_stack, t);
+		ctx, l := generate_Array_Sub(ctx, aa, am, an);
+		return ctx, l;
+	]
+	if opcode = P_Array_Skip then [
+		var aa am an l : int;
+		if is_non_const(cc, pcode_Array_Skip_get_array(instr)) or
+		   is_non_const(cc, pcode_Array_Skip_get_start(instr)) then
+			goto uses_non_const;
+		ctx, aa := evaluate_type(ctx, cc, pcode_Array_Skip_get_array(instr), fn_stack, t);
+		ctx, am := evaluate_type(ctx, cc, pcode_Array_Skip_get_start(instr), fn_stack, t);
+		ctx, l := generate_Array_Skip(ctx, aa, am);
+		return ctx, l;
+	]
+{
+	if opcode = P_Array_Append then [
+		abort unimplemented("evaluate_type: P_Array_Append");
+	]
+}
+	if opcode = P_IO then [
+		abort compiler_error("Exceptions can't be used as type parameters", t);
+	]
+	if opcode = P_Copy or opcode = P_Args then [
+uses_non_const:
+		if is_exception cc.lambda_redirect, exception_class cc.lambda_redirect = ec_sync and exception_type cc.lambda_redirect = error_record_field_not_initialized then
+			abort compiler_error("Variable used in type should be const", t);
+		if cc.lambda_redirect[typ] >= 0 then
+			return ctx, cc.lambda_redirect[typ];
+		abort exception_make(int, ec_sync, error_user3, typ, false);
+	]
+	abort internal("evaluate_type: invalid opcode " + ntos(opcode));
+]
+
+fn array_shape(ctx : function_context, cc : compare_context, a : int, t : tokens) : (bool, compare_context, list(int))
+[
+	var instrm := get_defined_maybe(cc, a);
+	if instrm is j then [
+		var success, fid, args, ret_idx := decode_call(ctx, cc, a, instrm.j);
+		if success, fid.path_index = 0, fid.unit_string = i_encode("system"), not fid.program, fid.function_index = [ predefined_xarray ] then [
+			if len(args) <> 2 then
+				abort internal("array_shape: array doesn't have two arguments: " + ntos(len(args)));
+			var list_cc := args[0].cc;
+			var list_idx := args[0].idx;
+			list_cc, list_idx := get_base_definition(ctx, list_cc, list_idx, false);
+			var instrm_list := get_defined_maybe(list_cc, list_idx);
+			if instrm_list is j, instrm_list.j.opcode = P_Array_Create then [
+				var n_args := pcode_Array_Create_get_length(instrm_list.j);
+				var shape := empty(int);
+				for i := 0 to n_args do
+					shape +<= pcode_Array_Create_get_arg(instrm_list.j, i);
+				return true, list_cc, shape;
+			] else [
+				abort compiler_error("The array doesn't have fixed number of dimensions", t);
+			]
+		]
+	]
+	return false, empty_compare_context, empty(int);
+]
+
+fn list_type(ctx : function_context, cc : compare_context, a : int, t : tokens) : (compare_context, int)
+[
+	var instrm := get_defined_maybe(cc, a);
+	if instrm is j then [
+		var success, fid, args, ret_idx := decode_call(ctx, cc, a, instrm.j);
+		if success, fid.path_index = 0, fid.unit_string = i_encode("system"), not fid.program, fid.function_index = [ predefined_list ] then [
+			if len(args) <> 1 then
+				abort internal("list_type: list doesn't have one argument: " + ntos(len(args)));
+			return args[0].cc, args[0].idx;
+		]
+		if success, fid.path_index = 0, fid.unit_string = i_encode("system"), not fid.program, fid.function_index = [ predefined_xarray ] then [
+			if len(args) <> 2 then
+				abort internal("list_type: array doesn't have two arguments: " + ntos(len(args)));
+			return args[1].cc, args[1].idx;
+		]
+	]
+	abort compiler_error("List or array type expected", t);
+]
+
+fn evaluate_list_type(ctx : function_context, a : int, t : tokens) : (function_context, int)
+[
+	var cc, typ := get_deep_type_of_var(ctx, a);
+	cc, typ := list_type(ctx, cc, typ, t);
+	return evaluate_type(ctx, cc, typ, empty(compare_fn_stack), t);
+]
+
+fn get_list_id : function_unique_id
+[
+	return function_unique_id.[
+		path_index : 0,
+		unit_string : i_encode("system"),
+		program : false,
+		function_index : [ predefined_list ],
+	];
+]

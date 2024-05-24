@@ -1,0 +1,637 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit compiler.parser.dict;
+
+uses io;
+
+uses compiler.parser.istring;
+uses compiler.parser.token;
+uses pcode;
+
+fn unimplemented(m : bytes) : unit_type;
+
+const T_NoLocalType : int := T_InvalidType;
+
+record variable_dictionary [
+	dict : list(int);
+	impl : list(int);
+	break_label : int;
+	continue_label : int;
+	gvn_backup : list(int);
+	next : maybe(variable_dictionary);
+	parent : maybe(variable_dictionary);
+]
+
+record local_variable [
+	type_idx : int;
+	defined_at : int;
+	mut : bool;
+	local_type : int;
+	name : istring;
+]
+
+const defined_argument : int := 0;
+const defined_multiple : int := -1;
+
+record instruction [
+	opcode : pcode_t;
+	args : list(pcode_t);
+]
+
+record local_type [
+	mode : pcode_t;
+	args : list(pcode_t);
+]
+
+record module_unique_id [
+	path_index : int;
+	unit_string : istring;
+	program : bool;
+]
+
+record function_unique_id [
+	path_index : int;
+	unit_string : istring;
+	program : bool;
+	function_index : list(int);
+]
+
+implicit fn instance_eq_function_unique_id~inline : class_eq(function_unique_id);
+
+type function_dictionary;
+
+option op_option [
+	function;
+	prefix_op;
+	postfix_op;
+	infix_op;
+]
+
+const op_name : bytes := "{";
+const op_prefix_name : bytes := "}";
+
+record record_entry [
+	type_idx : int;
+	cnst : bool;
+	accessing_other : bool;
+]
+
+record record_definition [
+	is_option : bool;
+	is_flat_option : bool;
+	entries : list(record_entry);
+	dict : list(int);
+]
+
+type function_definition;
+
+record function_context [
+	n_arguments : int;
+	n_return_values : int;
+	variables : list(local_variable);
+	instructions : list(instruction);
+
+	lambdas : list(function_definition);
+
+	n_returns : int;
+
+	n_labels : int;
+	defined_labels : list(bool);
+	used_labels : list(int);
+	list_of_used_labels : list(istring);
+
+	incomplete : bool;
+	inferred_return : bool;
+	name : istring;
+
+	op_mode : op_option;
+	op_priority : int;
+
+	record_def : maybe(record_definition);
+
+	local_types : list(local_type);
+	local_types_map : list(int);
+
+	dict : function_dictionary;
+	id : function_unique_id;
+
+	parent_function : maybe(function_context);
+
+	gvn : list(int);
+	gvn_seq : int;
+
+	inferred_base : int;
+]
+
+record function_definition [
+	signature : function_context;
+	body : maybe(function_context);
+	vd : variable_dictionary;
+	call_mode : int;
+	op_bypass : int;
+	op_bypass_reverse : bool;
+	typ : int;
+	private_flag : bool;
+	pcode : list(pcode_t);
+]
+
+type macro := tokens;
+
+record function_dictionary [
+	defs : list(function_definition);
+	dict : list(int);
+	macros : list(macro);
+	id : module_unique_id;
+	impl : list(int);
+	conv : list(int);
+	name_prefix : bytes;
+	priv : bool;
+	modules : list(function_dictionary);
+	modules_map : list(int);
+]
+
+fn new_variable_dictionary(parent : maybe(variable_dictionary)) : variable_dictionary;
+fn new_variable_dictionary_chained(ctx : function_context, v : variable_dictionary) : variable_dictionary;
+fn free_variable_dictionary_chained(ctx : function_context, v : variable_dictionary) : function_context;
+fn new_variable(ctx : function_context, t def_at : int, mut : bool) : (function_context, local_variable);
+fn set_variable_type(ctx : function_context, idx typ : int) : function_context;
+fn add_variable(ctx : function_context, vd : variable_dictionary, name : istring, idx : int, impl : bool, t : tokens) : (function_context, variable_dictionary);
+fn search_variable_dictionary(vd : variable_dictionary, name : istring) : int;
+fn search_break(vd : variable_dictionary) : int;
+fn search_continue(vd : variable_dictionary) : int;
+fn get_implicit_variables(vd : variable_dictionary) : list(int);
+
+fn new_function_dictionary(path_index : int, unit_string : istring, program : bool) : function_dictionary;
+fn new_function_context(dict : function_dictionary, parent_function : maybe(function_context), n_arguments n_return_values : int, name : istring) : function_context;
+fn function_context_is_privileged(ctx : function_context) : bool;
+fn function_context_clear_temp_values(ctx : function_context) : function_context;
+fn add_function(dict : function_dictionary, name : istring, ctx : function_context, vd : variable_dictionary, call_mode : int, op_bypass : int, op_bypass_reverse : bool, private_flag implicit_flag conversion_flag : bool) : (function_dictionary, function_definition);
+fn add_lambda(ctx ctx_head ctx_body : function_context, call_mode : int) : (function_context, function_definition);
+fn search_function_dictionary(dict : function_dictionary, name : istring) : function_definition;
+fn search_function(ctx : function_context, name : istring, t : tokens) : function_definition;
+fn search_function_from_id(ctx : function_context, id : function_unique_id) : function_definition;
+fn get_implicits(ctx : function_context, conv : bool) : list(function_definition);
+fn new_record_definition(is_option : bool) : record_definition;
+
+fn encode_module_id~inline(id : module_unique_id) : int;
+
+fn dump_function_context(ctx : function_context) : unit_type;
+
+implementation
+
+uses exception;
+
+fn function_unique_id_equal(x1 x2 : function_unique_id) : bool
+[
+	return	x1.path_index = x2.path_index and
+		x1.unit_string = x2.unit_string and
+		x1.program = x2.program and
+		x1.function_index = x2.function_index;
+]
+
+implicit fn instance_eq_function_unique_id~inline : class_eq(function_unique_id) :=
+	class_eq(function_unique_id).[
+		equal : function_unique_id_equal,
+	];
+
+fn unimplemented(m : bytes) : unit_type
+[
+	m := "Unimplemented: " + m;
+	return internal(m);
+]
+
+fn new_variable_dictionary(parent : maybe(variable_dictionary)) : variable_dictionary
+[
+	return variable_dictionary.[
+		dict : infinite_uninitialized(int),
+		impl : empty(int),
+		break_label : -1,
+		continue_label : -1,
+		gvn_backup : exception_make(list(int), ec_sync, error_record_field_not_initialized, 0, false),
+		next : maybe(variable_dictionary).n,
+		parent : parent,
+	];
+]
+
+fn new_variable_dictionary_chained(ctx : function_context, v : variable_dictionary) : variable_dictionary
+[
+	var vd := new_variable_dictionary(maybe(variable_dictionary).n);
+	vd.next.j := v;
+	vd.gvn_backup := ctx.gvn;
+	return vd;
+]
+
+fn free_variable_dictionary_chained(ctx : function_context, v : variable_dictionary) : function_context
+[
+	ctx.gvn := v.gvn_backup;
+	return ctx;
+]
+
+fn new_variable(ctx : function_context, t def_at : int, mut : bool) : (function_context, local_variable)
+[
+	return ctx, local_variable.[
+		type_idx : t,
+		defined_at : def_at,
+		mut : mut,
+		local_type : T_NoLocalType,
+		name : 0,
+	];
+]
+
+fn set_variable_type(ctx : function_context, idx typ : int) : function_context
+[
+	ctx.variables[idx].type_idx := typ;
+	return ctx;
+]
+
+fn add_variable(ctx : function_context, vd : variable_dictionary, name : istring, idx : int, impl : bool, t : tokens) : (function_context, variable_dictionary)
+[
+	if name <> 0 then [
+		var existing := vd.dict[name];
+		if not is_uninitialized(existing) then [
+			abort compiler_error("Variable " + i_decode(name) + " already exists", t);
+		]
+		vd.dict[name] := idx;
+		ctx.variables[idx].name := name;
+	]
+	if impl then
+		vd.impl +<= idx;
+	return ctx, vd;
+]
+
+fn search_variable_dictionary(vd : variable_dictionary, name : istring) : int
+[
+again:
+	var v := vd.dict[name];
+	if not is_uninitialized(v) then
+		return v;
+	if vd.next is j then [
+		vd := vd.next.j;
+		goto again;
+	]
+again2:
+	if vd.parent is j then [
+		vd := vd.parent.j;
+again3:
+		var v := vd.dict[name];
+		if not is_uninitialized(v) then
+			return exception_make_str(int, ec_sync, error_user2, 0, false, i_decode(name));
+		if vd.next is j then [
+			vd := vd.next.j;
+			goto again3;
+		]
+		goto again2;
+	]
+	return -1;
+]
+
+fn search_break(vd : variable_dictionary) : int
+[
+lbl:
+	if vd.break_label >= 0 then
+		return vd.break_label;
+	if vd.next is j then [
+		vd := vd.next.j;
+		goto lbl;
+	]
+	return -1;
+]
+
+fn search_continue(vd : variable_dictionary) : int
+[
+lbl:
+	if vd.continue_label >= 0 then
+		return vd.continue_label;
+	if vd.next is j then [
+		vd := vd.next.j;
+		goto lbl;
+	]
+	return -1;
+]
+
+fn get_implicit_variables(vd : variable_dictionary) : list(int)
+[
+	var i := len(vd.impl) - 1;
+	var lst := empty(int);
+	while i >= 0 do [
+		lst +<= vd.impl[i];
+		i -= 1;
+	]
+	if vd.next is j then
+		lst += get_implicit_variables(vd.next.j);
+	return lst;
+]
+
+fn new_function_dictionary(path_index : int, unit_string : istring, program : bool) : function_dictionary
+[
+	return function_dictionary.[
+		defs : empty(function_definition),
+		dict : infinite_uninitialized(int),
+		macros : infinite_uninitialized(macro),
+		id : module_unique_id.[
+			path_index : path_index,
+			unit_string : unit_string,
+			program : program,
+		],
+		impl : empty(int),
+		conv : empty(int),
+		name_prefix : exception_make(bytes, ec_sync, error_record_field_not_initialized, 0, false),
+		priv : false,
+		modules : empty(function_dictionary),
+		modules_map : infinite_uninitialized(int),
+	];
+]
+
+fn new_function_context(dict : function_dictionary, parent_function : maybe(function_context), n_arguments n_return_values : int, name : istring) : function_context
+[
+	var function_index : list(int);
+	if parent_function is j then
+		function_index := parent_function.j.id.function_index +< len(parent_function.j.lambdas);
+	else
+		function_index := [ len(dict.defs) ];
+	var id := function_unique_id.[
+		path_index : dict.id.path_index,
+		unit_string : dict.id.unit_string,
+		program : dict.id.program,
+		function_index : function_index,
+	];
+
+	var nv := exception_make(local_variable, ec_sync, error_record_field_not_initialized, 0, false);
+	var ctx := function_context.[
+		n_arguments : n_arguments,
+		n_return_values : n_return_values,
+		variables : fill(nv, n_arguments + n_return_values),
+		instructions : empty(instruction),
+
+		lambdas : empty(function_definition),
+
+		n_returns : 0,
+
+		n_labels : 0,
+		defined_labels : infinite(false),
+		used_labels : infinite_uninitialized(int),
+		list_of_used_labels : empty(istring),
+
+		incomplete : true,
+		inferred_return : false,
+		name : name,
+
+		op_mode : exception_make(op_option, ec_sync, error_record_field_not_initialized, 0, false),
+		op_priority : exception_make(int, ec_sync, error_record_field_not_initialized, 0, false),
+
+		record_def : maybe(record_definition).n,
+
+		local_types : empty(local_type),
+		local_types_map : infinite_uninitialized(int),
+
+		dict : dict,
+		id : id,
+
+		parent_function : parent_function,
+
+		gvn : infinite(-1),
+		gvn_seq : 0,
+
+		inferred_base : T_InferredType,
+	];
+	return ctx;
+]
+
+fn function_context_is_privileged(ctx : function_context) : bool
+[
+	return is_privileged or ctx.id.path_index = 0;
+]
+
+fn function_context_clear_temp_values(ctx : function_context) : function_context
+[
+	ctx.dict := exception_make(function_dictionary, ec_sync, error_record_field_not_initialized, 0, false);
+	return ctx;
+]
+
+fn add_function(dict : function_dictionary, name : istring, ctx : function_context, vd : variable_dictionary, call_mode : int, op_bypass : int, op_bypass_reverse : bool, private_flag implicit_flag conversion_flag : bool) : (function_dictionary, function_definition)
+[
+	ctx := function_context_clear_temp_values(ctx);
+
+	var def := function_definition.[
+		signature : ctx,
+		body : maybe(function_context).n,
+		vd : vd,
+		call_mode : call_mode,
+		op_bypass : op_bypass,
+		op_bypass_reverse : op_bypass_reverse,
+		typ : exception_make(int, ec_sync, error_record_field_not_initialized, 0, false),
+		private_flag : private_flag,
+		pcode : exception_make(list(pcode_t), ec_sync, error_record_field_not_initialized, 0, false),
+	];
+
+	if implicit_flag then
+		dict.impl +<= len(dict.defs);
+
+	if conversion_flag then
+		dict.conv +<= len(dict.defs);
+
+	dict.dict[name] := len(dict.defs);
+	dict.defs +<= def;
+	return dict, def;
+]
+
+fn add_lambda(ctx ctx_head ctx_body : function_context, call_mode : int) : (function_context, function_definition)
+[
+	ctx_head := function_context_clear_temp_values(ctx_head);
+	ctx_body := function_context_clear_temp_values(ctx_body);
+
+	var def := function_definition.[
+		signature : ctx_head,
+		body : maybe(function_context).j.(ctx_body),
+		call_mode : call_mode,
+		op_bypass : -1,
+		op_bypass_reverse : false,
+		typ : Fn_Function,
+		private_flag : true,
+		pcode : exception_make(list(pcode_t), ec_sync, error_record_field_not_initialized, 0, false),
+	];
+
+	ctx.lambdas +<= def;
+	return ctx, def;
+]
+
+fn search_function_dictionary(dict : function_dictionary, name : istring) : function_definition
+[
+	var fd := dict.defs[dict.dict[name]];
+	xeval fd;
+	if fd.signature.inferred_return, fd.body is n then
+		return uninitialized(function_definition);
+	return fd;
+]
+
+fn search_function(ctx : function_context, name : istring, t : tokens) : function_definition
+[
+	var fd := search_function_dictionary(ctx.dict, name);
+	if not is_uninitialized(fd) then
+		return fd;
+
+	var dict := ctx.dict;
+	var found := empty(function_definition);
+	for i := 0 to len(dict.modules) do [
+		fd := search_function_dictionary(dict.modules[i], name);
+		if not is_uninitialized(fd) then [
+			if fd.private_flag then [
+				if ctx.id.path_index <> fd.signature.id.path_index and not function_context_is_privileged(ctx) then
+					continue;
+			]
+			found +<= fd;
+		]
+	]
+
+	var path_idx := -1;
+	for i := 0 to len(found) do [
+		if found[i].signature.id.path_index > path_idx then
+			path_idx := found[i].signature.id.path_index;
+	]
+	var cnt := 0;
+	for i := 0 to len(found) do [
+		if found[i].signature.id.path_index = path_idx then
+			cnt += 1;
+	]
+	if cnt > 1 then
+		abort compiler_error("Muliple functions named " + i_decode(name), t);
+	for i := 0 to len(found) do [
+		if found[i].signature.id.path_index = path_idx then
+			return found[i];
+	]
+
+	return uninitialized(function_definition);
+]
+
+fn search_function_from_id(ctx : function_context, id : function_unique_id) : function_definition
+[
+	var fd : function_definition;
+	if ctx.dict.id.path_index = id.path_index, ctx.dict.id.unit_string = id.unit_string, ctx.dict.id.program = id.program then [
+		fd := ctx.dict.defs[id.function_index[0]];
+	] else [
+		var m_id := encode_module_id(module_unique_id.[ path_index : id.path_index, unit_string : id.unit_string, program : id.program ]);
+
+		var m_idx := ctx.dict.modules_map[m_id];
+		var m := ctx.dict.modules[m_idx];
+
+		fd := m.defs[id.function_index[0]];
+	]
+	var nested_path := id.function_index[1 .. ];
+	for p in list_consumer(nested_path) do [
+		if fd.body is j then
+			fd := fd.body.j.lambdas[p];
+		else
+			fd := fd.signature.lambdas[p];
+	]
+
+	return fd;
+]
+
+fn get_implicits(ctx : function_context, conv : bool) : list(function_definition)
+[
+	var this_unit := empty(function_definition);
+	var max_path_index := ctx.dict.id.path_index;
+	var all_units : list(list(function_definition)) := fill(empty(function_definition), max_path_index + 1);
+
+	var lst : list(int);
+	if not conv then
+		lst := ctx.dict.impl;
+	else
+		lst := ctx.dict.conv;
+	var i := len(lst) - 1;
+	while i >= 0 do [
+		var idx := lst[i];
+		this_unit +<= ctx.dict.defs[idx];
+		i -= 1;
+	]
+
+	var dict := ctx.dict;
+	for i := 0 to len(dict.modules) do [
+		var md := dict.modules[i];
+		if md.id.path_index > max_path_index then
+			continue;
+
+		if not conv then
+			lst := md.impl;
+		else
+			lst := md.conv;
+		var i := len(lst) - 1;
+		while i >= 0 do [
+			var idx := lst[i];
+			all_units[md.id.path_index] +<= md.defs[idx];
+			i -= 1;
+		]
+	]
+
+
+	var result := this_unit;
+	i := max_path_index;
+	while i >= 0 do [
+		result += all_units[i];
+		i -= 1;
+	]
+
+	return result;
+]
+
+fn new_record_definition(is_option : bool) : record_definition
+[
+	return record_definition. [
+		is_option : is_option,
+		is_flat_option : false,
+		entries : empty(record_entry),
+		dict : infinite_uninitialized(int),
+	];
+]
+
+
+fn encode_module_id~inline(id : module_unique_id) : int
+[
+	if id.path_index <= 7 then
+		return id.path_index shl 1 or id.unit_string shl 4;
+	else
+		return 1 or id.path_index shl 1 or id.unit_string shl 32;
+]
+
+fn dump_function_context(ctx : function_context) : unit_type
+[
+	eval debug("--- dumping function: " + i_decode(ctx.name));
+	for i := 0 to len(ctx.instructions) do [
+		var ins := ctx.instructions[i];
+		var instr_name := (ntos(i) + " " + pcode_name(ins.opcode) + "                    ")[ .. 20];
+		var msg := "instr: " + instr_name + "   ";
+		for j := 0 to len(ins.args) do
+			msg += " " + ntos(ins.args[j]);
+		eval debug(msg);
+	]
+	for i := 0 to len(ctx.variables) do [
+		var va := ctx.variables[i];
+		var name := "";
+		{if va.name <> 0 then
+			name := i_decode(va.name);}
+		var var_name := (ntos(i) + " " + ntos_base(va.name, 16) + "                    ")[ .. 20];
+		var msg := "var: " + var_name + "   ";
+		msg += "type_idx: " + ntos(va.type_idx) + ",";
+		msg += " defined_at: " + ntos(va.defined_at) + ",";
+		msg += " local_type: " + ntos(va.local_type);
+		eval debug(msg);
+	]
+	eval debug("---");
+	return unit_value;
+]

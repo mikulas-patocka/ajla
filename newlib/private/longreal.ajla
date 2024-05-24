@@ -1,0 +1,96 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit private.longreal;
+
+define real_ops [
+fn @1_add(a b : floating(@2,@3)) : floating(@2,@3) := a + b;
+fn @1_subtract(a b : floating(@2,@3)) : floating(@2,@3) := a - b;
+fn @1_multiply(a b : floating(@2,@3)) : floating(@2,@3) := a * b;
+fn @1_divide_int(a b : floating(@2,@3)) : floating(@2,@3) [ abort internal("unsupported real op"); ]
+fn @1_divide_real(a b : floating(@2,@3)) : floating(@2,@3) := a / b;
+fn @1_modulo(a b : floating(@2,@3)) : floating(@2,@3) := fmod(a, b);
+fn @1_power(a b : floating(@2,@3)) : floating(@2,@3) := power(a, b);
+fn @1_atan2(a b : floating(@2,@3)) : floating(@2,@3) := atan2(a, b);
+fn @1_and(a b : floating(@2,@3)) : floating(@2,@3) [ abort internal("unsupported real op"); ]
+fn @1_or(a b : floating(@2,@3)) : floating(@2,@3) [ abort internal("unsupported real op"); ]
+fn @1_xor(a b : floating(@2,@3)) : floating(@2,@3) [ abort internal("unsupported real op"); ]
+fn @1_shl(a b : floating(@2,@3)) : floating(@2,@3) := ldexp(a, b);
+fn @1_shr(a b : floating(@2,@3)) : floating(@2,@3) [ abort internal("unsupported real op"); ]
+fn @1_rol(a b : floating(@2,@3)) : floating(@2,@3) [ abort internal("unsupported real op"); ]
+fn @1_ror(a b : floating(@2,@3)) : floating(@2,@3) [ abort internal("unsupported real op"); ]
+fn @1_bts(a b : floating(@2,@3)) : floating(@2,@3) [ abort internal("unsupported real op"); ]
+fn @1_btr(a b : floating(@2,@3)) : floating(@2,@3) [ abort internal("unsupported real op"); ]
+fn @1_btc(a b : floating(@2,@3)) : floating(@2,@3) [ abort internal("unsupported real op"); ]
+fn @1_equal(a b : floating(@2,@3)) : bool := a = b;
+fn @1_not_equal(a b : floating(@2,@3)) : bool := a <> b;
+fn @1_less(a b : floating(@2,@3)) : bool := a < b;
+fn @1_less_equal(a b : floating(@2,@3)) : bool := a <= b;
+fn @1_bt(a b : floating(@2,@3)) : bool [ abort internal("unsupported real op"); ]
+fn @1_not(a : floating(@2,@3)) : floating(@2,@3) [ abort internal("unsupported real op"); ]
+fn @1_neg(a : floating(@2,@3)) : floating(@2,@3) := -a;
+fn @1_inc(a : floating(@2,@3)) : floating(@2,@3) [ abort internal("unsupported real op"); ]
+fn @1_dec(a : floating(@2,@3)) : floating(@2,@3) [ abort internal("unsupported real op"); ]
+fn @1_bswap(a : floating(@2,@3)) : floating(@2,@3) [ abort internal("unsupported real op"); ]
+fn @1_brev(a : floating(@2,@3)) : floating(@2,@3) [ abort internal("unsupported real op"); ]
+fn @1_bsf(a : floating(@2,@3)) : floating(@2,@3) [ abort internal("unsupported real op"); ]
+fn @1_bsr(a : floating(@2,@3)) : floating(@2,@3) [ abort internal("unsupported real op"); ]
+fn @1_popcnt(a : floating(@2,@3)) : floating(@2,@3) [ abort internal("unsupported real op"); ]
+fn @1_sqrt(a : floating(@2,@3)) : floating(@2,@3) := sqrt(a);
+fn @1_cbrt(a : floating(@2,@3)) : floating(@2,@3) := cbrt(a);
+fn @1_sin(a : floating(@2,@3)) : floating(@2,@3) := sin(a);
+fn @1_cos(a : floating(@2,@3)) : floating(@2,@3) := cos(a);
+fn @1_tan(a : floating(@2,@3)) : floating(@2,@3) := tan(a);
+fn @1_asin(a : floating(@2,@3)) : floating(@2,@3) := asin(a);
+fn @1_acos(a : floating(@2,@3)) : floating(@2,@3) := acos(a);
+fn @1_atan(a : floating(@2,@3)) : floating(@2,@3) := atan(a);
+fn @1_sinh(a : floating(@2,@3)) : floating(@2,@3) := sinh(a);
+fn @1_cosh(a : floating(@2,@3)) : floating(@2,@3) := cosh(a);
+fn @1_tanh(a : floating(@2,@3)) : floating(@2,@3) := tanh(a);
+fn @1_asinh(a : floating(@2,@3)) : floating(@2,@3) := asinh(a);
+fn @1_acosh(a : floating(@2,@3)) : floating(@2,@3) := acosh(a);
+fn @1_atanh(a : floating(@2,@3)) : floating(@2,@3) := atanh(a);
+fn @1_exp2(a : floating(@2,@3)) : floating(@2,@3) := exp2(a);
+fn @1_exp(a : floating(@2,@3)) : floating(@2,@3) := exp(a);
+fn @1_exp10(a : floating(@2,@3)) : floating(@2,@3) := exp10(a);
+fn @1_log2(a : floating(@2,@3)) : floating(@2,@3) := log2(a);
+fn @1_log(a : floating(@2,@3)) : floating(@2,@3) := log(a);
+fn @1_log10(a : floating(@2,@3)) : floating(@2,@3) := log10(a);
+fn @1_round(a : floating(@2,@3)) : floating(@2,@3) := round(a);
+fn @1_ceil(a : floating(@2,@3)) : floating(@2,@3) := ceil(a);
+fn @1_floor(a : floating(@2,@3)) : floating(@2,@3) := floor(a);
+fn @1_trunc(a : floating(@2,@3)) : floating(@2,@3) := trunc(a);
+fn @1_fract(a : floating(@2,@3)) : floating(@2,@3) := fract(a);
+fn @1_mantissa(a : floating(@2,@3)) : floating(@2,@3) := mantissa(a);
+fn @1_exponent(a : floating(@2,@3)) : floating(@2,@3) := exponent(a);
+fn @1_next_number(a : floating(@2,@3)) : floating(@2,@3) := next_number(a);
+fn @1_prev_number(a : floating(@2,@3)) : floating(@2,@3) := prev_number(a);
+fn @1_convert_to_int(a : floating(@2,@3)) : int := a;
+fn @1_convert_from_int(a : int) : floating(@2,@3) := a;
+fn @1_is_exception(a : floating(@2,@3)) : bool := is_exception a;
+fn @1_exception_class(a : floating(@2,@3)) : int := exception_class a;
+fn @1_exception_type(a : floating(@2,@3)) : int := exception_type a;
+fn @1_exception_aux(a : floating(@2,@3)) : int := exception_aux a;
+fn @1_system_property(a : floating(@2,@3)) : int [ abort internal("unsupported real op"); ]
+]
+
+real_ops(real16, 5, 11);
+real_ops(real32, 8, 24);
+real_ops(real64, 11, 53);
+real_ops(real80, 15, 64);
+real_ops(real128, 15, 113);

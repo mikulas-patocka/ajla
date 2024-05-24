@@ -1,0 +1,32 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit ui.widget;
+
+uses ui.widget.common;
+uses ui.widget.fkeys;
+uses ui.widget.mainmenu;
+uses ui.widget.menu;
+uses ui.widget.text;
+uses ui.widget.display;
+uses ui.widget.progress;
+uses ui.widget.checkbox;
+uses ui.widget.input;
+uses ui.widget.button;
+uses ui.widget.dialog;
+uses ui.widget.msgbox;

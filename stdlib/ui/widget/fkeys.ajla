@@ -1,0 +1,160 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit ui.widget.fkeys;
+
+uses ui.widget.common;
+
+type fkeys_state;
+
+fn fkeys_init(n_keys : int, color_scheme : bytes, w : world, app : appstate, id : wid) : (world, appstate, fkeys_state);
+fn fkeys_redraw(app : appstate, curs : curses, com : widget_common, st : fkeys_state) : curses;
+fn fkeys_process_event(w : world, app : appstate, com : widget_common, st : fkeys_state, wev : wevent) : (world, appstate, widget_common, fkeys_state);
+
+const fkeys_class~flat := widget_class.[
+	t : fkeys_state,
+	name : "fkeys",
+	is_selectable : false,
+	redraw : fkeys_redraw,
+	process_event : fkeys_process_event,
+];
+
+implementation
+
+record fkeys_state [
+	labels : list(string);
+	lengths : list(int);
+	color_scheme : bytes;
+]
+
+fn fkeys_load(implicit app : appstate, implicit st : fkeys_state) : fkeys_state
+[
+	var p := property_get("fkeys");
+	if p is l then [
+		for i := 0 to len(st.labels) do [
+			if i < len(p.l) then
+				st.labels[i] := p.l[i].s;
+			else
+				st.labels[i] := ``;
+		]
+	]
+]
+
+fn fkeys_init(n_keys : int, color_scheme : bytes, implicit w : world, implicit app : appstate, id : wid) : (world, appstate, fkeys_state)
+[
+	property_observe(id, "fkeys");
+	implicit st := fkeys_state.[
+		labels : fill(``, n_keys),
+		lengths : fill(0, n_keys),
+		color_scheme : color_scheme,
+	];
+	fkeys_load();
+]
+
+fn fkeys_reflow(implicit app : appstate, implicit com : widget_common, implicit st : fkeys_state) : (appstate, widget_common, fkeys_state)
+[
+	var num_size := 0;
+	for i := 0 to len(st.labels) do [
+		if i <> 0 then
+			num_size += 1;
+		num_size += len(ntos(i + 1));
+	]
+	var label_size := max(com.size_x - num_size, 0);
+	for i := 0 to len(st.labels) do [
+		st.lengths[i] := label_size div len(st.labels) + select(i < label_size mod len(st.labels), 0, 1);
+	]
+
+]
+
+fn fkeys_redraw(implicit app : appstate, implicit curs : curses, com : widget_common, st : fkeys_state) : curses
+[
+	var pn := property_get_attrib(st.color_scheme + "fkeys-number", #aaaa, #aaaa, #aaaa, #0000, #0000, #0000, 0, 0);
+	var pt := property_get_attrib(st.color_scheme + "fkeys-text", #0000, #0000, #0000, #aaaa, #aaaa, #aaaa, 0, curses_invert);
+	curses_set_pos(0, 0);
+	for i := 0 to len(st.labels) do [
+		property_set_attrib(pn);
+		if i <> 0 then
+			curses_print(` `);
+		curses_print(utf8_to_string(ntos(i + 1)));
+		property_set_attrib(pt);
+		var s := st.labels[i];
+		var l := st.lengths[i];
+		s := list_right_pad(s, l, ' ')[ .. l];
+		curses_print(s);
+	]
+]
+
+fn fkeys_process_event(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : fkeys_state, wev : wevent) : (world, appstate, widget_common, fkeys_state)
+[
+	if wev is resize then [
+		com.x := 0;
+		com.size_x := wev.resize.x;
+		com.y := wev.resize.y - 1;
+		com.size_y := 1;
+		fkeys_reflow();
+		goto redraw;
+	]
+	if wev is property_changed then [
+		fkeys_load();
+		goto redraw;
+	]
+	if wev is keyboard then [
+		widget_enqueue_event_to_underlying(com.self, wev);
+		return;
+	]
+	if wev is mouse then [
+		var clicked : int;
+		var mx, my := widget_relative_mouse_coords(com.self, wev.mouse);
+		if (wev.mouse.prev_buttons and not wev.mouse.buttons) <> 0, my = 0 then [
+			for i := 0 to len(st.labels) do [
+				var this_len := 0;
+				if i <> 0 then [
+					this_len := 1;
+					if mx = 0 then
+						break;
+				]
+				this_len += len(ntos(i + 1));
+				this_len += st.lengths[i];
+				if mx < this_len then [
+					clicked := i;
+					goto clicked;
+				]
+				mx -= this_len;
+			]
+		]
+		widget_enqueue_event_to_underlying(com.self, wev);
+		return;
+clicked:
+		var wev_f := wevent.keyboard.(event_keyboard.[
+			key : key_f1 - clicked,
+			flags : 0,
+			rep : 1,
+		]);
+		widget_enqueue_event_to_underlying(com.self, wev_f);
+		return;
+	]
+	return;
+
+redraw:
+	widget_enqueue_event(com.self, wevent.redraw.(event_redraw.[
+		x1 : 0,
+		x2 : com.size_x,
+		y1 : 0,
+		y2 : com.size_y,
+	]));
+]

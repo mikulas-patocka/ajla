@@ -1,0 +1,93 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit private.long;
+
+define fixed_ops [
+fn @1@2_add(a b : @1int(@2)) : @1int(@2) := a + b;
+fn @1@2_subtract(a b : @1int(@2)) : @1int(@2) := a - b;
+fn @1@2_multiply(a b : @1int(@2)) : @1int(@2) := a * b;
+fn @1@2_divide_int(a b : @1int(@2)) : @1int(@2) := a div b;
+fn @1@2_divide_real(a b : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_modulo(a b : @1int(@2)) : @1int(@2) := a mod b;
+fn @1@2_power(a b : @1int(@2)) : @1int(@2) := ipower(a, b);
+fn @1@2_atan2(a b : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_and(a b : @1int(@2)) : @1int(@2) := a and b;
+fn @1@2_or(a b : @1int(@2)) : @1int(@2) := a or b;
+fn @1@2_xor(a b : @1int(@2)) : @1int(@2) := a xor b;
+fn @1@2_shl(a b : @1int(@2)) : @1int(@2) := a shl b;
+fn @1@2_shr(a b : @1int(@2)) : @1int(@2) := a shr b;
+fn @1@2_rol(a b : @1int(@2)) : @1int(@2) := a rol b;
+fn @1@2_ror(a b : @1int(@2)) : @1int(@2) := a ror b;
+fn @1@2_bts(a b : @1int(@2)) : @1int(@2) := a bts b;
+fn @1@2_btr(a b : @1int(@2)) : @1int(@2) := a btr b;
+fn @1@2_btc(a b : @1int(@2)) : @1int(@2) := a btc b;
+fn @1@2_equal(a b : @1int(@2)) : bool := a = b;
+fn @1@2_not_equal(a b : @1int(@2)) : bool := a <> b;
+fn @1@2_less(a b : @1int(@2)) : bool := a < b;
+fn @1@2_less_equal(a b : @1int(@2)) : bool := a <= b;
+fn @1@2_bt(a b : @1int(@2)) : bool := a bt b;
+fn @1@2_not(a : @1int(@2)) : @1int(@2) := not a;
+fn @1@2_neg(a : @1int(@2)) : @1int(@2) := -a;
+fn @1@2_inc(a : @1int(@2)) : @1int(@2) := a + 1;
+fn @1@2_dec(a : @1int(@2)) : @1int(@2) := a - 1;
+fn @1@2_bswap(a : @1int(@2)) : @1int(@2) := bswap a;
+fn @1@2_brev(a : @1int(@2)) : @1int(@2) := brev a;
+fn @1@2_bsf(a : @1int(@2)) : @1int(@2) := bsf a;
+fn @1@2_bsr(a : @1int(@2)) : @1int(@2) := bsr a;
+fn @1@2_popcnt(a : @1int(@2)) : @1int(@2) := popcnt a;
+fn @1@2_sqrt(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_cbrt(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_sin(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_cos(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_tan(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_asin(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_acos(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_atan(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_sinh(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_cosh(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_tanh(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_asinh(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_acosh(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_atanh(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_exp2(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_exp(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_exp10(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_log2(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_log(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_log10(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_round(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_ceil(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_floor(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_trunc(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_fract(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_mantissa(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_exponent(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_prev_number(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_next_number(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_convert_to_int(a : @1int(@2)) : int := a;
+fn @1@2_convert_from_int(a : int) : @1int(@2) := a;
+fn @1@2_is_exception(a : @1int(@2)) : bool := is_exception a;
+fn @1@2_exception_class(a : @1int(@2)) : int := exception_class a;
+fn @1@2_exception_type(a : @1int(@2)) : int := exception_type a;
+fn @1@2_exception_aux(a : @1int(@2)) : int := exception_aux a;
+fn @1@2_system_property(a : @1int(@2)) : int := sysprop(a);
+]
+
+fixed_ops(s, 128);
+fixed_ops(u, 128);

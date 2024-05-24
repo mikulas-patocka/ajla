@@ -1,0 +1,342 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit private.rational;
+
+fn rational_zero : rational;
+fn rational_one : rational;
+fn rational_pi : rational;
+fn rational_neg(i1 : rational) : rational;
+fn rational_add(i1 i2 : rational) : rational;
+fn rational_subtract(i1 i2 : rational) : rational;
+fn rational_multiply(i1 i2 : rational) : rational;
+fn rational_recip(i1 : rational) : rational;
+fn rational_divide(i1 i2 : rational) : rational;
+fn rational_modulo(i1 i2 : rational) : rational;
+fn rational_power(i1 i2 : rational) : rational;
+fn rational_ldexp(i1 i2 : rational) : rational;
+fn rational_atan2(i1 i2 : rational) : rational;
+fn rational_sqrt(i1 : rational) : rational;
+fn rational_cbrt(i1 : rational) : rational;
+fn rational_sin(i1 : rational) : rational;
+fn rational_cos(i1 : rational) : rational;
+fn rational_tan(i1 : rational) : rational;
+fn rational_asin(i1 : rational) : rational;
+fn rational_acos(i1 : rational) : rational;
+fn rational_atan(i1 : rational) : rational;
+fn rational_sinh(i1 : rational) : rational;
+fn rational_cosh(i1 : rational) : rational;
+fn rational_tanh(i1 : rational) : rational;
+fn rational_asinh(i1 : rational) : rational;
+fn rational_acosh(i1 : rational) : rational;
+fn rational_atanh(i1 : rational) : rational;
+fn rational_log2(i1 : rational) : rational;
+fn rational_log(i1 : rational) : rational;
+fn rational_log10(i1 : rational) : rational;
+fn rational_exp2(i1 : rational) : rational;
+fn rational_exp(i1 : rational) : rational;
+fn rational_exp10(i1 : rational) : rational;
+fn rational_round(i1 : rational) : rational;
+fn rational_ceil(i1 : rational) : rational;
+fn rational_floor(i1 : rational) : rational;
+fn rational_trunc(i1 : rational) : rational;
+fn rational_fract(i1 : rational) : rational;
+fn rational_mantissa(i1 : rational) : rational;
+fn rational_exponent(i1 : rational) : rational;
+fn rational_next_number(i1 : rational) : rational;
+fn rational_prev_number(i1 : rational) : rational;
+fn rational_is_negative(i1 : rational) : bool;
+fn rational_is_infinity(i1 : rational) : bool;
+fn rational_equal(i1 i2 : rational) : bool;
+fn rational_less(i1 i2 : rational) : bool;
+fn rational_to_int(i1 : rational) : int;
+fn rational_from_int(i1 : int) : rational;
+fn rational_to_bytes(i1 : rational) : bytes;
+fn rational_to_bytes_base_precision(i1 : rational, b : int, digits : int) : bytes;
+fn rational_from_bytes(a1 : bytes) : rational;
+fn rational_from_bytes_base(a1 : bytes, b : int) : rational;
+
+implementation
+
+uses exception;
+uses private.show;
+
+fn gcd(a b : int) : int
+[
+	a := abs(a);
+	b := abs(b);
+	while b <> 0 do
+		a, b := b, a mod b;
+	return a;
+]
+
+fn rational_normalize(i : rational) : rational
+[
+	if i.den = 0 then [
+		if i.num = 0 then
+			abort exception_make(rational, ec_sync, error_nan, 0, true);
+		if i.num > 0 then
+			i.num := 1;
+		else
+			i.num := -1;
+		return i;
+	]
+	var g := gcd(i.num, i.den);
+	i.num div= g;
+	i.den div= g;
+	if i.den < 0 and i.num <> 0 then [
+		i.num := -i.num;
+		i.den := -i.den;
+	]
+	return i;
+]
+
+fn rational_zero : rational
+[
+	return rational.[ num : 0, den : 1 ];
+]
+
+fn rational_one : rational
+[
+	return rational.[ num : 1, den : 1 ];
+]
+
+fn rational_pi : rational
+[
+	return instance_real_number_real64.pi;
+]
+
+fn rational_neg(i1 : rational) : rational
+[
+	if i1.num = 0 then
+		return rational.[
+			num : i1.num,
+			den : -i1.den,
+		];
+	return rational.[
+		num : -i1.num,
+		den : i1.den,
+	];
+]
+
+fn rational_add(i1 i2 : rational) : rational
+[
+	var r := rational.[
+		num : i1.num * i2.den + i1.den * i2.num,
+		den : i1.den * i2.den,
+	];
+	return rational_normalize(r);
+]
+
+fn rational_subtract(i1 i2 : rational) : rational
+[
+	var r := rational.[
+		num : i1.num * i2.den - i1.den * i2.num,
+		den : i1.den * i2.den,
+	];
+	return rational_normalize(r);
+]
+
+fn rational_multiply(i1 i2 : rational) : rational
+[
+	var r := rational.[
+		num : i1.num * i2.num,
+		den : i1.den * i2.den,
+	];
+	return rational_normalize(r);
+]
+
+fn rational_recip(i1 : rational) : rational
+[
+	var r := rational.[
+		num : i1.den,
+		den : i1.num,
+	];
+	return r;
+]
+
+fn rational_divide(i1 i2 : rational) : rational
+[
+	var r := rational.[
+		num : i1.num * i2.den,
+		den : i1.den * i2.num,
+	];
+	return rational_normalize(r);
+]
+
+fn rational_modulo(i1 i2 : rational) : rational
+[
+	var r := trunc(i1 / i2);
+	return i1 - i2 * r;
+]
+
+fn rational_power(i1 i2 : rational) : rational
+[
+	if i2.den = 1 then [
+		i1.num := ipower(i1.num, i2.num);
+		i1.den := ipower(i1.den, i2.num);
+		return i1;
+	]
+	var r1 : real64 := i1;
+	var r2 : real64 := i2;
+	return power(r1, r2);
+]
+
+fn rational_ldexp(i1 i2 : rational) : rational
+[
+	if i2.den = 1 then [
+		if i2.num >= 0 then [
+			i1.num shl= i2.num;
+			return rational_normalize(i1);
+		] else [
+			i1.den shl= -i2.num;
+			return rational_normalize(i1);
+		]
+	]
+	var r1 : real64 := i1;
+	var r2 : real64 := i2;
+	return ldexp(r1, r2);
+]
+
+fn rational_atan2(i1 i2 : rational) : rational
+[
+	var r1 : real64 := i1;
+	var r2 : real64 := i2;
+	return atan2(r1, r2);
+]
+
+fn rational_sqrt(i1 : rational) : rational [ var r : real64 := i1; return sqrt(r); ]
+fn rational_cbrt(i1 : rational) : rational [ var r : real64 := i1; return cbrt(r); ]
+fn rational_sin(i1 : rational) : rational [ var r : real64 := i1; return sin(r); ]
+fn rational_cos(i1 : rational) : rational [ var r : real64 := i1; return cos(r); ]
+fn rational_tan(i1 : rational) : rational [ var r : real64 := i1; return tan(r); ]
+fn rational_asin(i1 : rational) : rational [ var r : real64 := i1; return asin(r); ]
+fn rational_acos(i1 : rational) : rational [ var r : real64 := i1; return acos(r); ]
+fn rational_atan(i1 : rational) : rational [ var r : real64 := i1; return atan(r); ]
+fn rational_sinh(i1 : rational) : rational [ var r : real64 := i1; return sinh(r); ]
+fn rational_cosh(i1 : rational) : rational [ var r : real64 := i1; return cosh(r); ]
+fn rational_tanh(i1 : rational) : rational [ var r : real64 := i1; return tanh(r); ]
+fn rational_asinh(i1 : rational) : rational [ var r : real64 := i1; return asinh(r); ]
+fn rational_acosh(i1 : rational) : rational [ var r : real64 := i1; return acosh(r); ]
+fn rational_atanh(i1 : rational) : rational [ var r : real64 := i1; return atanh(r); ]
+fn rational_log2(i1 : rational) : rational [ var r : real64 := i1; return log2(r); ]
+fn rational_log(i1 : rational) : rational [ var r : real64 := i1; return log(r); ]
+fn rational_log10(i1 : rational) : rational [ var r : real64 := i1; return log10(r); ]
+fn rational_exp2(i1 : rational) : rational [ var r : real64 := i1; return exp2(r); ]
+fn rational_exp(i1 : rational) : rational [ var r : real64 := i1; return exp(r); ]
+fn rational_exp10(i1 : rational) : rational [ var r : real64 := i1; return exp10(r); ]
+
+fn rational_round(i1 : rational) : rational
+[
+	if abs(rational_fract(i1)) = 0.5 then [
+		var i : int := i1;
+		if i bt 0 = is_negative i1 then
+			return i - (i and 1);
+	]
+	return rational_floor(i1 + 0.5);
+]
+
+fn rational_ceil(i1 : rational) : rational
+[
+	var i : int := i1;
+	if i1 > i then
+		i += 1;
+	return i;
+]
+
+fn rational_floor(i1 : rational) : rational
+[
+	var i : int := i1;
+	if i1 < i then
+		i -= 1;
+	return i;
+]
+
+fn rational_trunc(i1 : rational) : rational
+[
+	var i : int := i1;
+	return i;
+]
+
+fn rational_fract(i1 : rational) : rational
+[
+	var r := rational_trunc(i1);
+	return i1 - r;
+]
+
+fn rational_mantissa(i1 : rational) : rational [ var r : real64 := i1; return mantissa(r); ]
+fn rational_exponent(i1 : rational) : rational [ var r : real64 := i1; return exponent(r); ]
+fn rational_next_number(i1 : rational) : rational [ var r : real64 := i1; return next_number(r); ]
+fn rational_prev_number(i1 : rational) : rational [ var r : real64 := i1; return prev_number(r); ]
+
+fn rational_is_negative(i1 : rational) : bool
+[
+	if i1.num = 0 then
+		return i1.den < 0;
+	return i1.num < 0;
+]
+
+fn rational_is_infinity(i1 : rational) : bool
+[
+	return i1.den = 0;
+]
+
+fn rational_equal(i1 i2 : rational) : bool
+[
+	return i1.num * i2.den = i1.den * i2.num;
+]
+
+fn rational_less(i1 i2 : rational) : bool
+[
+	return i1.num * i2.den < i1.den * i2.num;
+]
+
+fn rational_to_int(i1 : rational) : int
+[
+	if i1.den = 0 then
+		abort exception_make(int, ec_sync, error_infinity, 0, true);
+	return i1.num div i1.den;
+]
+
+fn rational_from_int(i1 : int) : rational
+[
+	return rational.[
+		num : i1,
+		den : 1,
+	];
+]
+
+fn rational_to_bytes(i1 : rational) : bytes
+[
+	return real_to_bytes(i1);
+]
+
+fn rational_to_bytes_base_precision(i1 : rational, b : int, digits : int) : bytes
+[
+	return real_to_bytes_base_precision(i1, b, digits);
+]
+
+fn rational_from_bytes(a1 : bytes) : rational
+[
+	return bytes_to_real(rational, instance_real_number_rational, a1);
+]
+
+fn rational_from_bytes_base(a1 : bytes, b : int) : rational
+[
+	return bytes_to_real_base(rational, instance_real_number_rational, a1, b);
+]

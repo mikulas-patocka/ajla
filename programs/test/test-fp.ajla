@@ -1,0 +1,108 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+uses prng;
+
+fn get_random(implicit p : prng_state, t : type, const ex_bits mant_bits : int, implicit c : class_real_number(t)) : (prng_state, t)
+[
+	var mant : t := prng_get_int(mant_bits);
+	mant /= 1 shl mant_bits;
+	var exp : t := prng_get_int(ex_bits + 1);
+	exp -= (1 shl ex_bits);
+	var result := ldexp(mant, exp);
+	var test_sign := prng_get_uint32();
+	if test_sign bt 31 then
+		result := -result;
+	return result;
+]
+
+fn xlate_exception(t : type, implicit c : class_real_number(t), n : t) : t
+[
+	if is_exception n then
+		return (1 shl 64) + ((exception_class n) shl 48) + ((exception_type n) shl 32) + (exception_aux n);
+	return n;
+]
+
+fn test~inline(implicit w : world, implicit p : prng_state, h : list(handle), t : type, const ex_bits mant_bits : int, implicit c : class_real_number(t)) : (prng_state, world)
+[
+	var v1 := get_random(t, ex_bits, mant_bits);
+	var v2 := get_random(t, ex_bits, mant_bits);
+
+	var f1 : floating(ex_bits, mant_bits) := v1;
+	var f2 : floating(ex_bits, mant_bits) := v2;
+
+	var vv := [
+		v1 + v2,
+		v1 - v2,
+		v1 * v2,
+		v1 / v2,
+		fmod(v1, v2),
+		next_number(v1),
+		prev_number(v1),
+	];
+	var ff := [
+		f1 + f2,
+		f1 - f2,
+		f1 * f2,
+		f1 / f2,
+		fmod(f1, f2),
+		next_number(f1),
+		prev_number(f1),
+	];
+
+	vv := map(vv, xlate_exception(c, ));
+	ff := map(ff, xlate_exception(instance_real_number_floating(ex_bits, mant_bits), ));
+
+	for i := 0 to len(vv) do [
+		var mismatch := is_negative vv[i] <> is_negative ff[i];
+		mismatch or= is_infinity vv[i] <> is_infinity ff[i];
+		if not mismatch then [
+			if i < 7 then [
+				mismatch := vv[i] <> ff[i];
+			] else [
+				var diff := vv[i] - ff[i];
+				mismatch or= diff >= vv[i] / 1000.;
+			]
+		]
+		if mismatch then [
+			eval debug(ntos_base_precision(v1, 16, 40));
+			eval debug(ntos_base_precision(v2, 16, 40));
+			abort internal("mismatch " + ntos(i) + ": " + "(" + ntos(ex_bits) + "," + ntos(mant_bits) + ") " + ntos_base_precision(vv[i], 16, 40) + ", " + ntos_base_precision(ff[i], 16, 40));
+		]
+	]
+]
+
+fn main(implicit w : world, d : dhandle, implicit h : list(handle), args : list(bytes), env : treemap(bytes, bytes)) : world
+[
+	implicit var p := prng_init(0);
+	var limit := 1000000000000000000;
+	if len(args) > 0 then
+		limit := ston(args[0]);
+	for i := 0 to limit do [
+		write(h[1], "iteration: " + ntos(i) + nl);
+		//var v := get_random(p, real32, 8, 24);
+		//write(h[1], ntos_base_precision(v, 16, 40) + nl);
+		//test(real16, 5, 11);
+		test(real32, 8, 24);
+		xeval w;
+		test(real64, 11, 53);
+		xeval w;
+		//test(real80, 15, 64);
+		//test(real128, 15, 113);
+	]
+]

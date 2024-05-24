@@ -1,0 +1,1312 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit ui.termcap;
+
+uses io;
+uses treemap;
+
+type termcap;
+
+fn termcap_init(d : dhandle, env : treemap(bytes, bytes)) : termcap;
+
+fn termcap_query_bool(tc : termcap, entry : int) : bool;
+fn termcap_query_number(tc : termcap, entry : int) : int;
+fn termcap_query_string(tc : termcap, entry : int) : bytes;
+fn termcap_has_string(tc : termcap, entry : int) : bool;
+fn termcap_get_term(tc : termcap) : bytes;
+fn termcap_has_mouse(tc : termcap) : bool;
+
+option tc_param [
+	num : int;
+	str : bytes;
+]
+
+fn termcap_substitute_string(tc : termcap, entry : int, args : list(tc_param)) : (termcap, bytes);
+
+const tc_b_auto_left_margin : int := 0;
+const tc_b_auto_right_margin : int := 1;
+const tc_b_no_esc_ctlc : int := 2;
+const tc_b_ceol_standout_glitch : int := 3;
+const tc_b_eat_newline_glitch : int := 4;
+const tc_b_erase_overstrike : int := 5;
+const tc_b_generic_type : int := 6;
+const tc_b_hard_copy : int := 7;
+const tc_b_has_meta_key : int := 8;
+const tc_b_has_status_line : int := 9;
+const tc_b_insert_null_glitch : int := 10;
+const tc_b_memory_above : int := 11;
+const tc_b_memory_below : int := 12;
+const tc_b_move_insert_mode : int := 13;
+const tc_b_move_standout_mode : int := 14;
+const tc_b_over_strike : int := 15;
+const tc_b_status_line_esc_ok : int := 16;
+const tc_b_dest_tabs_magic_smso : int := 17;
+const tc_b_tilde_glitch : int := 18;
+const tc_b_transparent_underline : int := 19;
+const tc_b_xon_xoff : int := 20;
+const tc_b_needs_xon_xoff : int := 21;
+const tc_b_prtr_silent : int := 22;
+const tc_b_hard_cursor : int := 23;
+const tc_b_non_rev_rmcup : int := 24;
+const tc_b_no_pad_char : int := 25;
+const tc_b_non_dest_scroll_region : int := 26;
+const tc_b_can_change : int := 27;
+const tc_b_back_color_erase : int := 28;
+const tc_b_hue_lightness_saturation : int := 29;
+const tc_b_col_addr_glitch : int := 30;
+const tc_b_cr_cancels_micro_mode : int := 31;
+const tc_b_has_print_wheel : int := 32;
+const tc_b_row_addr_glitch : int := 33;
+const tc_b_semi_auto_right_margin : int := 34;
+const tc_b_cpi_changes_res : int := 35;
+const tc_b_lpi_changes_res : int := 36;
+const tc_b_num : int := 37;
+
+const tc_n_columns : int := 0;
+const tc_n_init_tabs : int := 1;
+const tc_n_lines : int := 2;
+const tc_n_lines_of_memory : int := 3;
+const tc_n_magic_cookie_glitch : int := 4;
+const tc_n_padding_baud_rate : int := 5;
+const tc_n_virtual_terminal : int := 6;
+const tc_n_width_status_line : int := 7;
+const tc_n_num_labels : int := 8;
+const tc_n_label_height : int := 9;
+const tc_n_label_width : int := 10;
+const tc_n_max_attributes : int := 11;
+const tc_n_maximum_windows : int := 12;
+const tc_n_max_colors : int := 13;
+const tc_n_max_pairs : int := 14;
+const tc_n_no_color_video : int := 15;
+const tc_n_buffer_capacity : int := 16;
+const tc_n_dot_vert_spacing : int := 17;
+const tc_n_dot_horz_spacing : int := 18;
+const tc_n_max_micro_address : int := 19;
+const tc_n_max_micro_jump : int := 20;
+const tc_n_micro_col_size : int := 21;
+const tc_n_micro_line_size : int := 22;
+const tc_n_number_of_pins : int := 23;
+const tc_n_output_res_char : int := 24;
+const tc_n_output_res_line : int := 25;
+const tc_n_output_res_horz_inch : int := 26;
+const tc_n_output_res_vert_inch : int := 27;
+const tc_n_print_rate : int := 28;
+const tc_n_wide_char_size : int := 29;
+const tc_n_buttons : int := 30;
+const tc_n_bit_image_entwining : int := 31;
+const tc_n_bit_image_type : int := 32;
+const tc_n_num : int := 33;
+
+const tc_s_back_tab : int := 0;
+const tc_s_bell : int := 1;
+const tc_s_carriage_return : int := 2;
+const tc_s_change_scroll_region : int := 3;
+const tc_s_clear_all_tabs : int := 4;
+const tc_s_clear_screen : int := 5;
+const tc_s_clr_eol : int := 6;
+const tc_s_clr_eos : int := 7;
+const tc_s_column_address : int := 8;
+const tc_s_command_character : int := 9;
+const tc_s_cursor_address : int := 10;
+const tc_s_cursor_down : int := 11;
+const tc_s_cursor_home : int := 12;
+const tc_s_cursor_invisible : int := 13;
+const tc_s_cursor_left : int := 14;
+const tc_s_cursor_mem_address : int := 15;
+const tc_s_cursor_normal : int := 16;
+const tc_s_cursor_right : int := 17;
+const tc_s_cursor_to_ll : int := 18;
+const tc_s_cursor_up : int := 19;
+const tc_s_cursor_visible : int := 20;
+const tc_s_delete_character : int := 21;
+const tc_s_delete_line : int := 22;
+const tc_s_dis_status_line : int := 23;
+const tc_s_down_half_line : int := 24;
+const tc_s_enter_alt_charset_mode : int := 25;
+const tc_s_enter_blink_mode : int := 26;
+const tc_s_enter_bold_mode : int := 27;
+const tc_s_enter_ca_mode : int := 28;
+const tc_s_enter_delete_mode : int := 29;
+const tc_s_enter_dim_mode : int := 30;
+const tc_s_enter_insert_mode : int := 31;
+const tc_s_enter_secure_mode : int := 32;
+const tc_s_enter_protected_mode : int := 33;
+const tc_s_enter_reverse_mode : int := 34;
+const tc_s_enter_standout_mode : int := 35;
+const tc_s_enter_underline_mode : int := 36;
+const tc_s_erase_chars : int := 37;
+const tc_s_exit_alt_charset_mode : int := 38;
+const tc_s_exit_attribute_mode : int := 39;
+const tc_s_exit_ca_mode : int := 40;
+const tc_s_exit_delete_mode : int := 41;
+const tc_s_exit_insert_mode : int := 42;
+const tc_s_exit_standout_mode : int := 43;
+const tc_s_exit_underline_mode : int := 44;
+const tc_s_flash_screen : int := 45;
+const tc_s_form_feed : int := 46;
+const tc_s_from_status_line : int := 47;
+const tc_s_init_1string : int := 48;
+const tc_s_init_2string : int := 49;
+const tc_s_init_3string : int := 50;
+const tc_s_init_file : int := 51;
+const tc_s_insert_character : int := 52;
+const tc_s_insert_line : int := 53;
+const tc_s_insert_padding : int := 54;
+const tc_s_key_backspace : int := 55;
+const tc_s_key_catab : int := 56;
+const tc_s_key_clear : int := 57;
+const tc_s_key_ctab : int := 58;
+const tc_s_key_dc : int := 59;
+const tc_s_key_dl : int := 60;
+const tc_s_key_down : int := 61;
+const tc_s_key_eic : int := 62;
+const tc_s_key_eol : int := 63;
+const tc_s_key_eos : int := 64;
+const tc_s_key_f0 : int := 65;
+const tc_s_key_f1 : int := 66;
+const tc_s_key_f10 : int := 67;
+const tc_s_key_f2 : int := 68;
+const tc_s_key_f3 : int := 69;
+const tc_s_key_f4 : int := 70;
+const tc_s_key_f5 : int := 71;
+const tc_s_key_f6 : int := 72;
+const tc_s_key_f7 : int := 73;
+const tc_s_key_f8 : int := 74;
+const tc_s_key_f9 : int := 75;
+const tc_s_key_home : int := 76;
+const tc_s_key_ic : int := 77;
+const tc_s_key_il : int := 78;
+const tc_s_key_left : int := 79;
+const tc_s_key_ll : int := 80;
+const tc_s_key_npage : int := 81;
+const tc_s_key_ppage : int := 82;
+const tc_s_key_right : int := 83;
+const tc_s_key_sf : int := 84;
+const tc_s_key_sr : int := 85;
+const tc_s_key_stab : int := 86;
+const tc_s_key_up : int := 87;
+const tc_s_keypad_local : int := 88;
+const tc_s_keypad_xmit : int := 89;
+const tc_s_lab_f0 : int := 90;
+const tc_s_lab_f1 : int := 91;
+const tc_s_lab_f10 : int := 92;
+const tc_s_lab_f2 : int := 93;
+const tc_s_lab_f3 : int := 94;
+const tc_s_lab_f4 : int := 95;
+const tc_s_lab_f5 : int := 96;
+const tc_s_lab_f6 : int := 97;
+const tc_s_lab_f7 : int := 98;
+const tc_s_lab_f8 : int := 99;
+const tc_s_lab_f9 : int := 100;
+const tc_s_meta_off : int := 101;
+const tc_s_meta_on : int := 102;
+const tc_s_newline : int := 103;
+const tc_s_pad_char : int := 104;
+const tc_s_parm_dch : int := 105;
+const tc_s_parm_delete_line : int := 106;
+const tc_s_parm_down_cursor : int := 107;
+const tc_s_parm_ich : int := 108;
+const tc_s_parm_index : int := 109;
+const tc_s_parm_insert_line : int := 110;
+const tc_s_parm_left_cursor : int := 111;
+const tc_s_parm_right_cursor : int := 112;
+const tc_s_parm_rindex : int := 113;
+const tc_s_parm_up_cursor : int := 114;
+const tc_s_pkey_key : int := 115;
+const tc_s_pkey_local : int := 116;
+const tc_s_pkey_xmit : int := 117;
+const tc_s_print_screen : int := 118;
+const tc_s_prtr_off : int := 119;
+const tc_s_prtr_on : int := 120;
+const tc_s_repeat_char : int := 121;
+const tc_s_reset_1string : int := 122;
+const tc_s_reset_2string : int := 123;
+const tc_s_reset_3string : int := 124;
+const tc_s_reset_file : int := 125;
+const tc_s_restore_cursor : int := 126;
+const tc_s_row_address : int := 127;
+const tc_s_save_cursor : int := 128;
+const tc_s_scroll_forward : int := 129;
+const tc_s_scroll_reverse : int := 130;
+const tc_s_set_attributes : int := 131;
+const tc_s_set_tab : int := 132;
+const tc_s_set_window : int := 133;
+const tc_s_tab : int := 134;
+const tc_s_to_status_line : int := 135;
+const tc_s_underline_char : int := 136;
+const tc_s_up_half_line : int := 137;
+const tc_s_init_prog : int := 138;
+const tc_s_key_a1 : int := 139;
+const tc_s_key_a3 : int := 140;
+const tc_s_key_b2 : int := 141;
+const tc_s_key_c1 : int := 142;
+const tc_s_key_c3 : int := 143;
+const tc_s_prtr_non : int := 144;
+const tc_s_char_padding : int := 145;
+const tc_s_acs_chars : int := 146;
+const tc_s_plab_norm : int := 147;
+const tc_s_key_btab : int := 148;
+const tc_s_enter_xon_mode : int := 149;
+const tc_s_exit_xon_mode : int := 150;
+const tc_s_enter_am_mode : int := 151;
+const tc_s_exit_am_mode : int := 152;
+const tc_s_xon_character : int := 153;
+const tc_s_xoff_character : int := 154;
+const tc_s_ena_acs : int := 155;
+const tc_s_label_on : int := 156;
+const tc_s_label_off : int := 157;
+const tc_s_key_beg : int := 158;
+const tc_s_key_cancel : int := 159;
+const tc_s_key_close : int := 160;
+const tc_s_key_command : int := 161;
+const tc_s_key_copy : int := 162;
+const tc_s_key_create : int := 163;
+const tc_s_key_end : int := 164;
+const tc_s_key_enter : int := 165;
+const tc_s_key_exit : int := 166;
+const tc_s_key_find : int := 167;
+const tc_s_key_help : int := 168;
+const tc_s_key_mark : int := 169;
+const tc_s_key_message : int := 170;
+const tc_s_key_move : int := 171;
+const tc_s_key_next : int := 172;
+const tc_s_key_open : int := 173;
+const tc_s_key_options : int := 174;
+const tc_s_key_previous : int := 175;
+const tc_s_key_print : int := 176;
+const tc_s_key_redo : int := 177;
+const tc_s_key_reference : int := 178;
+const tc_s_key_refresh : int := 179;
+const tc_s_key_replace : int := 180;
+const tc_s_key_restart : int := 181;
+const tc_s_key_resume : int := 182;
+const tc_s_key_save : int := 183;
+const tc_s_key_suspend : int := 184;
+const tc_s_key_undo : int := 185;
+const tc_s_key_sbeg : int := 186;
+const tc_s_key_scancel : int := 187;
+const tc_s_key_scommand : int := 188;
+const tc_s_key_scopy : int := 189;
+const tc_s_key_screate : int := 190;
+const tc_s_key_sdc : int := 191;
+const tc_s_key_sdl : int := 192;
+const tc_s_key_select : int := 193;
+const tc_s_key_send : int := 194;
+const tc_s_key_seol : int := 195;
+const tc_s_key_sexit : int := 196;
+const tc_s_key_sfind : int := 197;
+const tc_s_key_shelp : int := 198;
+const tc_s_key_shome : int := 199;
+const tc_s_key_sic : int := 200;
+const tc_s_key_sleft : int := 201;
+const tc_s_key_smessage : int := 202;
+const tc_s_key_smove : int := 203;
+const tc_s_key_snext : int := 204;
+const tc_s_key_soptions : int := 205;
+const tc_s_key_sprevious : int := 206;
+const tc_s_key_sprint : int := 207;
+const tc_s_key_sredo : int := 208;
+const tc_s_key_sreplace : int := 209;
+const tc_s_key_sright : int := 210;
+const tc_s_key_srsume : int := 211;
+const tc_s_key_ssave : int := 212;
+const tc_s_key_ssuspend : int := 213;
+const tc_s_key_sundo : int := 214;
+const tc_s_req_for_input : int := 215;
+const tc_s_key_f11 : int := 216;
+const tc_s_key_f12 : int := 217;
+const tc_s_key_f13 : int := 218;
+const tc_s_key_f14 : int := 219;
+const tc_s_key_f15 : int := 220;
+const tc_s_key_f16 : int := 221;
+const tc_s_key_f17 : int := 222;
+const tc_s_key_f18 : int := 223;
+const tc_s_key_f19 : int := 224;
+const tc_s_key_f20 : int := 225;
+const tc_s_key_f21 : int := 226;
+const tc_s_key_f22 : int := 227;
+const tc_s_key_f23 : int := 228;
+const tc_s_key_f24 : int := 229;
+const tc_s_key_f25 : int := 230;
+const tc_s_key_f26 : int := 231;
+const tc_s_key_f27 : int := 232;
+const tc_s_key_f28 : int := 233;
+const tc_s_key_f29 : int := 234;
+const tc_s_key_f30 : int := 235;
+const tc_s_key_f31 : int := 236;
+const tc_s_key_f32 : int := 237;
+const tc_s_key_f33 : int := 238;
+const tc_s_key_f34 : int := 239;
+const tc_s_key_f35 : int := 240;
+const tc_s_key_f36 : int := 241;
+const tc_s_key_f37 : int := 242;
+const tc_s_key_f38 : int := 243;
+const tc_s_key_f39 : int := 244;
+const tc_s_key_f40 : int := 245;
+const tc_s_key_f41 : int := 246;
+const tc_s_key_f42 : int := 247;
+const tc_s_key_f43 : int := 248;
+const tc_s_key_f44 : int := 249;
+const tc_s_key_f45 : int := 250;
+const tc_s_key_f46 : int := 251;
+const tc_s_key_f47 : int := 252;
+const tc_s_key_f48 : int := 253;
+const tc_s_key_f49 : int := 254;
+const tc_s_key_f50 : int := 255;
+const tc_s_key_f51 : int := 256;
+const tc_s_key_f52 : int := 257;
+const tc_s_key_f53 : int := 258;
+const tc_s_key_f54 : int := 259;
+const tc_s_key_f55 : int := 260;
+const tc_s_key_f56 : int := 261;
+const tc_s_key_f57 : int := 262;
+const tc_s_key_f58 : int := 263;
+const tc_s_key_f59 : int := 264;
+const tc_s_key_f60 : int := 265;
+const tc_s_key_f61 : int := 266;
+const tc_s_key_f62 : int := 267;
+const tc_s_key_f63 : int := 268;
+const tc_s_clr_bol : int := 269;
+const tc_s_clear_margins : int := 270;
+const tc_s_set_left_margin : int := 271;
+const tc_s_set_right_margin : int := 272;
+const tc_s_label_format : int := 273;
+const tc_s_set_clock : int := 274;
+const tc_s_display_clock : int := 275;
+const tc_s_remove_clock : int := 276;
+const tc_s_create_window : int := 277;
+const tc_s_goto_window : int := 278;
+const tc_s_hangup : int := 279;
+const tc_s_dial_phone : int := 280;
+const tc_s_quick_dial : int := 281;
+const tc_s_tone : int := 282;
+const tc_s_pulse : int := 283;
+const tc_s_flash_hook : int := 284;
+const tc_s_fixed_pause : int := 285;
+const tc_s_wait_tone : int := 286;
+const tc_s_user0 : int := 287;
+const tc_s_user1 : int := 288;
+const tc_s_user2 : int := 289;
+const tc_s_user3 : int := 290;
+const tc_s_user4 : int := 291;
+const tc_s_user5 : int := 292;
+const tc_s_user6 : int := 293;
+const tc_s_user7 : int := 294;
+const tc_s_user8 : int := 295;
+const tc_s_user9 : int := 296;
+const tc_s_orig_pair : int := 297;
+const tc_s_orig_colors : int := 298;
+const tc_s_initialize_color : int := 299;
+const tc_s_initialize_pair : int := 300;
+const tc_s_set_color_pair : int := 301;
+const tc_s_set_foreground : int := 302;
+const tc_s_set_background : int := 303;
+const tc_s_change_char_pitch : int := 304;
+const tc_s_change_line_pitch : int := 305;
+const tc_s_change_res_horz : int := 306;
+const tc_s_change_res_vert : int := 307;
+const tc_s_define_char : int := 308;
+const tc_s_enter_doublewide_mode : int := 309;
+const tc_s_enter_draft_quality : int := 310;
+const tc_s_enter_italics_mode : int := 311;
+const tc_s_enter_leftward_mode : int := 312;
+const tc_s_enter_micro_mode : int := 313;
+const tc_s_enter_near_letter_quality : int := 314;
+const tc_s_enter_normal_quality : int := 315;
+const tc_s_enter_shadow_mode : int := 316;
+const tc_s_enter_subscript_mode : int := 317;
+const tc_s_enter_superscript_mode : int := 318;
+const tc_s_enter_upward_mode : int := 319;
+const tc_s_exit_doublewide_mode : int := 320;
+const tc_s_exit_italics_mode : int := 321;
+const tc_s_exit_leftward_mode : int := 322;
+const tc_s_exit_micro_mode : int := 323;
+const tc_s_exit_shadow_mode : int := 324;
+const tc_s_exit_subscript_mode : int := 325;
+const tc_s_exit_superscript_mode : int := 326;
+const tc_s_exit_upward_mode : int := 327;
+const tc_s_micro_column_address : int := 328;
+const tc_s_micro_down : int := 329;
+const tc_s_micro_left : int := 330;
+const tc_s_micro_right : int := 331;
+const tc_s_micro_row_address : int := 332;
+const tc_s_micro_up : int := 333;
+const tc_s_order_of_pins : int := 334;
+const tc_s_parm_down_micro : int := 335;
+const tc_s_parm_left_micro : int := 336;
+const tc_s_parm_right_micro : int := 337;
+const tc_s_parm_up_micro : int := 338;
+const tc_s_select_char_set : int := 339;
+const tc_s_set_bottom_margin : int := 340;
+const tc_s_set_bottom_margin_parm : int := 341;
+const tc_s_set_left_margin_parm : int := 342;
+const tc_s_set_right_margin_parm : int := 343;
+const tc_s_set_top_margin : int := 344;
+const tc_s_set_top_margin_parm : int := 345;
+const tc_s_start_bit_image : int := 346;
+const tc_s_start_char_set_def : int := 347;
+const tc_s_stop_bit_image : int := 348;
+const tc_s_stop_char_set_def : int := 349;
+const tc_s_subscript_characters : int := 350;
+const tc_s_superscript_characters : int := 351;
+const tc_s_these_cause_cr : int := 352;
+const tc_s_zero_motion : int := 353;
+const tc_s_char_set_names : int := 354;
+const tc_s_key_mouse : int := 355;
+const tc_s_mouse_info : int := 356;
+const tc_s_req_mouse_pos : int := 357;
+const tc_s_get_mouse : int := 358;
+const tc_s_set_a_foreground : int := 359;
+const tc_s_set_a_background : int := 360;
+const tc_s_pkey_plab : int := 361;
+const tc_s_device_type : int := 362;
+const tc_s_code_set_init : int := 363;
+const tc_s_set0_des_seq : int := 364;
+const tc_s_set1_des_seq : int := 365;
+const tc_s_set2_des_seq : int := 366;
+const tc_s_set3_des_seq : int := 367;
+const tc_s_set_lr_margin : int := 368;
+const tc_s_set_tb_margin : int := 369;
+const tc_s_bit_image_repeat : int := 370;
+const tc_s_bit_image_newline : int := 371;
+const tc_s_bit_image_carriage_return : int := 372;
+const tc_s_color_names : int := 373;
+const tc_s_define_bit_image_region : int := 374;
+const tc_s_end_bit_image_region : int := 375;
+const tc_s_set_color_band : int := 376;
+const tc_s_set_page_length : int := 377;
+const tc_s_display_pc_char : int := 378;
+const tc_s_enter_pc_charset_mode : int := 379;
+const tc_s_exit_pc_charset_mode : int := 380;
+const tc_s_enter_scancode_mode : int := 381;
+const tc_s_exit_scancode_mode : int := 382;
+const tc_s_pc_term_options : int := 383;
+const tc_s_scancode_escape : int := 384;
+const tc_s_alt_scancode_esc : int := 385;
+const tc_s_enter_horizontal_hl_mode : int := 386;
+const tc_s_enter_left_hl_mode : int := 387;
+const tc_s_enter_low_hl_mode : int := 388;
+const tc_s_enter_right_hl_mode : int := 389;
+const tc_s_enter_top_hl_mode : int := 390;
+const tc_s_enter_vertical_hl_mode : int := 391;
+const tc_s_set_a_attributes : int := 392;
+const tc_s_set_pglen_inch : int := 393;
+const tc_s_num : int := 394;
+
+implementation
+
+uses exception;
+uses pcode;
+
+const stack_size : int := 20;
+const num_vars : int := 26;
+
+fn term_caps_map~cache : array(sint16, [16384])
+[
+	var caps_string := "bwamxbxsxneognhckmhsindadbmimsosesxthzulxonx5iHCNRNPNDccuthlYAYBYCYDYEYFYGcoitlilmsgpbvtwsNllhlwmaMWCopaNCYaYbYcYdYeYfYgYhYiYjYkYlYmYnBTYoYpbtblcrcsctclcecdchCCcmdohovileCMvendllupvsdcdldshdasmbmdtidmmhimmkmpmrsousecaemeteedeiseuevbfffsi1isi3ificalipkbkakCktkDkLkdkMkEkSk0k1k;k2k3k4k5k6k7k8k9khkIkAklkHkNkPkrkFkRkTkukeksl0l1lal2l3l4l5l6l7l8l9mommnwpcDCDLDOICSFALLERISRUPpkplpxpspfporpr1r2r3rfrccvscsfsrsastwitatsuchuiPK1K3K2K4K5pOrPacpnkBSXRXSARAXNXFeALOLF@1@2@3@4@5@6@7@8@9@0%1%2%3%4%5%6%7%8%9%0&1&2&3&4&5&6&7&8&9&0*1*2*3*4*5*6*7*8*9*0#1#2#3#4%a%b%c%d%e%f%g%h%i%j!1!2!3RFF1F2F3F4F5F6F7F8F9FAFBFCFDFEFFFGFHFIFJFKFLFMFNFOFPFQFRFSFTFUFVFWFXFYFZFaFbFcFdFeFfFgFhFiFjFkFlFmFnFoFpFqFrcbMCMLMRLfSCDKRCCWWGHUDIQDTOPUfhPAWAu0u1u2u3u4u5u6u7u8u9opocIcIpspSfSbZAZBZCZDZEZFZGZHZIZJZKZLZMZNZOZPZQZRZSZTZUZVZWZXZYZZZaZbZcZdZeZfZgZhZiZjZkZlZmZnZoZpZqZrZsZtZuZvZwZxZyKmMiRQGmAFABxldvcis0s1s2s3MLMTXyZzYvYwYxYyYzYZS1S2S3S4S5S6S7S8XhXlXoXrXtXvsAYI";
+	var a := array_sparse(sint16, -1, [16384]);
+	for i := 0 to len(caps_string) shr 1 do [
+		var chr1 : int := caps_string[i shl 1];
+		var chr2 : int := caps_string[(i shl 1) + 1];
+		a[(chr1 shl 7) + chr2] := i;
+	]
+	return a;
+]
+
+fn tinfo_caps_map~cache : treemap(bytes, int)
+[
+	var caps_string := [ "bw", "am", "xsb", "xhp", "xenl", "eo", "gn", "hc", "km", "hs", "in", "da", "db", "mir", "msgr", "os", "eslok", "xt", "hz", "ul", "xon", "nxon", "mc5i", "chts", "nrrmc", "npc", "ndscr", "ccc", "bce", "hls", "xhpa", "crxm", "daisy", "xvpa", "sam", "cpix", "lpix", "cols", "it", "lines", "lm", "xmc", "pb", "vt", "wsl", "nlab", "lh", "lw", "ma", "wnum", "colors", "pairs", "ncv", "bufsz", "spinv", "spinh", "maddr", "mjump", "mcs", "mls", "npins", "orc", "orl", "orhi", "orvi", "cps", "widcs", "btns", "bitwin", "bitype", "cbt", "bel", "cr", "csr", "tbc", "clear", "el", "ed", "hpa", "cmdch", "cup", "cud1", "home", "civis", "cub1", "mrcup", "cnorm", "cuf1", "ll", "cuu1", "cvvis", "dch1", "dl1", "dsl", "hd", "smacs", "blink", "bold", "smcup", "smdc", "dim", "smir", "invis", "prot", "rev", "smso", "smul", "ech", "rmacs", "sgr0", "rmcup", "rmdc", "rmir", "rmso", "rmul", "flash", "ff", "fsl", "is1", "is2", "is3", "if", "ich1", "il1", "ip", "kbs", "ktbc", "kclr", "kctab", "kdch1", "kdl1", "kcud1", "krmir", "kel", "ked", "kf0", "kf1", "kf10", "kf2", "kf3", "kf4", "kf5", "kf6", "kf7", "kf8", "kf9", "khome", "kich1", "kil1", "kcub1", "kll", "knp", "kpp", "kcuf1", "kind", "kri", "khts", "kcuu1", "rmkx", "smkx", "lf0", "lf1", "lf10", "lf2", "lf3", "lf4", "lf5", "lf6", "lf7", "lf8", "lf9", "rmm", "smm", "nel", "pad", "dch", "dl", "cud", "ich", "indn", "il", "cub", "cuf", "rin", "cuu", "pfkey", "pfloc", "pfx", "mc0", "mc4", "mc5", "rep", "rs1", "rs2", "rs3", "rf", "rc", "vpa", "sc", "ind", "ri", "sgr", "hts", "wind", "ht", "tsl", "uc", "hu", "iprog", "ka1", "ka3", "kb2", "kc1", "kc3", "mc5p", "rmp", "acsc", "pln", "kcbt", "smxon", "rmxon", "smam", "rmam", "xonc", "xoffc", "enacs", "smln", "rmln", "kbeg", "kcan", "kclo", "kcmd", "kcpy", "kcrt", "kend", "kent", "kext", "kfnd", "khlp", "kmrk", "kmsg", "kmov", "knxt", "kopn", "kopt", "kprv", "kprt", "krdo", "kref", "krfr", "krpl", "krst", "kres", "ksav", "kspd", "kund", "kBEG", "kCAN", "kCMD", "kCPY", "kCRT", "kDC", "kDL", "kslt", "kEND", "kEOL", "kEXT", "kFND", "kHLP", "kHOM", "kIC", "kLFT", "kMSG", "kMOV", "kNXT", "kOPT", "kPRV", "kPRT", "kRDO", "kRPL", "kRIT", "kRES", "kSAV", "kSPD", "kUND", "rfi", "kf11", "kf12", "kf13", "kf14", "kf15", "kf16", "kf17", "kf18", "kf19", "kf20", "kf21", "kf22", "kf23", "kf24", "kf25", "kf26", "kf27", "kf28", "kf29", "kf30", "kf31", "kf32", "kf33", "kf34", "kf35", "kf36", "kf37", "kf38", "kf39", "kf40", "kf41", "kf42", "kf43", "kf44", "kf45", "kf46", "kf47", "kf48", "kf49", "kf50", "kf51", "kf52", "kf53", "kf54", "kf55", "kf56", "kf57", "kf58", "kf59", "kf60", "kf61", "kf62", "kf63", "el1", "mgc", "smgl", "smgr", "fln", "sclk", "dclk", "rmclk", "cwin", "wingo", "hup", "dial", "qdial", "tone", "pulse", "hook", "pause", "wait", "u0", "u1", "u2", "u3", "u4", "u5", "u6", "u7", "u8", "u9", "op", "oc", "initc", "initp", "scp", "setf", "setb", "cpi", "lpi", "chr", "cvr", "defc", "swidm", "sdrfq", "sitm", "slm", "smicm", "snlq", "snrmq", "sshm", "ssubm", "ssupm", "sum", "rwidm", "ritm", "rlm", "rmicm", "rshm", "rsubm", "rsupm", "rum", "mhpa", "mcud1", "mcub1", "mcuf1", "mvpa", "mcuu1", "porder", "mcud", "mcub", "mcuf", "mcuu", "scs", "smgb", "smgbp", "smglp", "smgrp", "smgt", "smgtp", "sbim", "scsd", "rbim", "rcsd", "subcs", "supcs", "docr", "zerom", "csnm", "kmous", "minfo", "reqmp", "getm", "setaf", "setab", "pfxl", "devt", "csin", "s0ds", "s1ds", "s2ds", "s3ds", "smglr", "smgtb", "birep", "binel", "bicr", "colornm", "defbi", "endbi", "setcolor", "slines", "dispc", "smpch", "rmpch", "smsc", "rmsc", "pctrm", "scesc", "scesa", "ehhlm", "elhlm", "elohlm", "erhlm", "ethlm", "evhlm", "sgr1", "slength" ];
+	var a := treemap_init(bytes, int);
+	for i := 0 to len(caps_string) do
+		a := treemap_insert(a, caps_string[i], i);
+	return a;
+]
+
+record termcap [
+	term : bytes;
+	b : bytes;
+	extended : bool;
+	is_termcap : bool;
+	terminal_names_bytes : int;
+	boolean_flags_bytes : int;
+	numbers_words : int;
+	strings_words : int;
+	boolean_flags_start : int;
+	numbers_start : int;
+	strings_start : int;
+	strings_table_start : int;
+
+	static_vars : array(sint32, [num_vars]);
+	stack_num : array(sint32, [stack_size]);
+	stack_str : array(bytes, [stack_size]);
+	stack_ptr : int;
+]
+
+record termcap_entry [
+	tc_bool : array(bool, [tc_b_num]);
+	tc_num : array(uint32, [tc_n_num]);
+	tc_string : array(bytes, [tc_s_num]);
+	valid : bool;
+]
+
+fn termcap_decode_escapes(s : bytes) : bytes
+[
+	var result := empty(byte);
+	for i := 0 to len(s) do [
+		var c := s[i];
+		if c = '^' then [
+			i += 1;
+			result +<= (s[i] and #df) - #40;
+		] else if c = '\' then [
+			i += 1;
+			var d := s[i];
+			if (d and #df) = 'A' then result +<= 7;
+			else if (d and #df) = 'B' then result +<= 8;
+			else if (d and #df) = 'E' then result +<= 27;
+			else if (d and #df) = 'F' then result +<= 12;
+			else if (d and #df) = 'L' then result +<= 10;
+			else if (d and #df) = 'N' then result +<= 10;
+			else if (d and #df) = 'R' then result +<= 13;
+			else if (d and #df) = 'S' then result +<= 32;
+			else if (d and #df) = 'T' then result +<= 9;
+			else if (d and #df) = 'V' then result +<= 11;
+			else if d >= '0', d <= '7' then [
+				var oct : byte := d - '0';
+				if len_greater_than(s, i + 1), s[i + 1] >= '0', s[i + 1] <= '7' then [ oct := (oct shl 3) + (s[i + 1] - '0'); i += 1; ]
+				if len_greater_than(s, i + 1), s[i + 1] >= '0', s[i + 1] <= '7' then [ oct := (oct shl 3) + (s[i + 1] - '0'); i += 1; ]
+				result +<= oct;
+			] else result +<= d;
+		] else [
+			result +<= c;
+		]
+	]
+	return result;
+]
+
+fn get_termcap_entry(tce : termcap_entry, lines : list(bytes), term : bytes) : termcap_entry
+[
+	var term_caps := term_caps_map;
+	var i := 0;
+	while len_greater_than(lines, i) do [
+		var line := lines[i];
+		var entries := list_break(line, ':');
+		var names := list_break(entries[0], '|');
+		names := names[ .. len(names) - 1];
+		if list_search(names, term) >= 0 then [
+			entries := entries[1 .. ];
+			if len_greater_than(entries, 0) then [
+				var last_entry := entries[len(entries) - 1];
+				if list_begins_with(last_entry, "tc=") then [
+					tce := get_termcap_entry(tce, lines, last_entry[3 .. ]);
+					if not tce.valid then
+						return tce;
+					entries := entries[ .. len(entries) - 1];
+				]
+			]
+			for j := 0 to len(entries) do [
+				var entry := entries[j];
+				if len(entry) < 2 then
+					continue;
+				var key := 128 * entry[0] + entry[1];
+				var value := term_caps[key];
+				if value = -1 then
+					continue;
+				if len(entry) = 3 and entry[2] = '@' then [
+					if value < tc_b_num then
+						tce.tc_bool[value] := false;
+					else if value < tc_b_num + tc_n_num then
+						tce.tc_num[value - tc_b_num] := #ffffffff;
+					else
+						tce.tc_string[value - tc_b_num - tc_n_num] := bytes.[ 0 ];
+				] else [
+					if value < tc_b_num then [
+						tce.tc_bool[value] := true;
+					] else if value < tc_b_num + tc_n_num then [
+						if not len_greater_than(entry, 2) or entry[2] <> '#' then
+							continue;
+						tce.tc_num[value - tc_b_num] := ston(entry[3 .. ]);
+					] else [
+						if not len_greater_than(entry, 2) or entry[2] <> '=' then
+							continue;
+						tce.tc_string[value - tc_b_num - tc_n_num] := termcap_decode_escapes(entry[3 .. ]);
+					]
+				]
+			]
+			tce.valid := true;
+			return tce;
+		]
+		i += 1;
+	]
+	return tce;
+]
+
+fn get_terminfo_entry(tce : termcap_entry, lines : list(bytes), term : bytes) : termcap_entry
+[
+	var term_caps := tinfo_caps_map;
+	var i := 0;
+	while len_greater_than(lines, i) do [
+		var line := lines[i];
+		var entries := empty(bytes);
+next_entry:
+		var l := 0;
+		while len_greater_than(line, l) do [
+			if line[l] = ',' then [
+				entries +<= line[ .. l];
+				line := line[l + 1 .. ];
+				goto next_entry;
+			] else if line[l] = ' ' then [
+				line := line[ .. l] + line[l + 1 ..];
+			] else if line[l] = '\' then [
+				l += 2;
+			] else [
+				l += 1;
+			]
+		]
+		var names := list_break(entries[0], '|');
+		names := names[ .. len(names) - 1];
+		if list_search(names, term) >= 0 then [
+			entries := entries[1 .. ];
+			for j := 0 to len(entries) do [
+				var entry := entries[j];
+				if list_begins_with(entry, "use=") then [
+					tce := get_terminfo_entry(tce, lines, entry[4 .. ]);
+					if not tce.valid then
+						return tce;
+				]
+			]
+			for j := 0 to len(entries) do [
+				var entry := entries[j];
+				//eval debug("processing '" + term + "' : " + entry);
+				if list_begins_with(entry, "use=") then
+					continue;
+				var k := 0;
+				while len_greater_than(entry, k) do [
+					if entry[k] = '=' or entry[k] = '#' or entry[k] = '@' then
+						break;
+					k += 1;
+				]
+				var t_value := treemap_search(term_caps, entry[ .. k]);
+				if t_value is n then
+					continue;
+				var value := t_value.j;
+				if len_greater_than(entry, k), entry[k] = '@' then [
+					if value < tc_b_num then
+						tce.tc_bool[value] := false;
+					else if value < tc_b_num + tc_n_num then
+						tce.tc_num[value - tc_b_num] := #ffffffff;
+					else
+						tce.tc_string[value - tc_b_num - tc_n_num] := bytes.[ 0 ];
+				] else [
+					if value < tc_b_num then [
+						tce.tc_bool[value] := true;
+					] else if value < tc_b_num + tc_n_num then [
+						if not len_greater_than(entry, k) or entry[k] <> '#' then
+							continue;
+						tce.tc_num[value - tc_b_num] := ston(entry[k + 1 .. ]);
+					] else [
+						if not len_greater_than(entry, k) or entry[k] <> '=' then
+							continue;
+						tce.tc_string[value - tc_b_num - tc_n_num] := termcap_decode_escapes(entry[k + 1 .. ]);
+					]
+				]
+			]
+			tce.valid := true;
+			return tce;
+		]
+		i += 1;
+	]
+	return tce;
+]
+
+fn termcap_valid_line(b : bytes) : bool := len_greater_than(b, 0) and b[0] <> '#';
+
+fn termcap_2_terminfo~save(t : bytes, term : bytes) : (bytes, bool)
+[
+	t := list_replace_substring(t, bytes.[ 13, 10 ], bytes.[ 10 ]);
+	t := list_replace_substring(t, bytes.[ '\', 10 ], "");
+	t := list_replace_substring(t, bytes.[ ',', 10, 9 ], ", ");
+	t := list_replace_substring(t, bytes.[ 10, 9, ' ' ], "");
+	var lines := list_break_to_lines(t);
+	lines := list_filter(lines, termcap_valid_line);
+	if not len_greater_than(lines, 0) then
+		return "", false;
+
+	var tce := termcap_entry.[
+		tc_bool : array_fill(false, [tc_b_num]),
+		tc_num : array_fill(uint32, #ffffffff, [tc_n_num]),
+		tc_string : array_fill(bytes.[ 0 ], [tc_s_num]),
+		valid : false,
+	];
+	var is_termcap := lines[0][len(lines[0]) - 1] <> ',';
+	if is_termcap then
+		tce := get_termcap_entry(tce, lines, term);
+	else
+		tce := get_terminfo_entry(tce, lines, term);
+	if not tce.valid then
+		return "", false;
+
+	var ti := bytes.[ #1e, #02, #00, #00 ];
+	ti += bytes.[ tc_b_num and #ff, tc_b_num shr 8 ];
+	ti += bytes.[ tc_n_num and #ff, tc_n_num shr 8 ];
+	ti += bytes.[ tc_s_num and #ff, tc_s_num shr 8 ];
+	ti += bytes.[ #00, #00 ];
+	for i := 0 to tc_b_num do
+		ti +<= select(tce.tc_bool[i], 0, 1);
+	while (len(ti) and 3) <> 0 do
+		ti +<= 0;
+	for i := 0 to tc_n_num do [
+		var n := tce.tc_num[i];
+		ti += bytes.[ n and #ff, n shr 8 and #ff, n shr 16 and #ff, n shr 24 ];
+	]
+	var str_offs := 0;
+	for i := 0 to tc_s_num do [
+		if tce.tc_string[i] = bytes.[ 0 ] then [
+			ti += bytes.[ #ff, #ff ];
+		] else [
+			ti += bytes.[ str_offs and #ff, str_offs shr 8 ];
+			str_offs += len(tce.tc_string[i]) + 1;
+		]
+	]
+	for i := 0 to tc_s_num do [
+		if tce.tc_string[i] <> bytes.[ 0 ] then [
+			ti += tce.tc_string[i];
+			ti +<= 0;
+		]
+	]
+	return ti, is_termcap;
+]
+
+fn locase(str : bytes) : bytes
+[
+	for i := 0 to len(str) do
+		if str[i] >= 'A', str[i] <= 'Z' then
+			str[i] += 'a' - 'A';
+	return str;
+]
+
+fn termcap_init(d : dhandle, env : treemap(bytes, bytes)) : termcap
+[
+	var is_termcap := false;
+	var path := empty(bytes);
+	var fh : handle;
+	var b : bytes;
+
+	var term : bytes;
+	var t_term := treemap_search(env, "TERM");
+	if t_term is n then
+		term := "";
+	else
+		term := t_term.j;
+	if term = "" then [
+		abort exception_make_str(int, ec_syscall, error_not_supported, 0, false, "the TERM variable is not set");
+	]
+
+	var home := treemap_search(env, "HOME");
+
+	var ti := treemap_search(env, "TERMINFO");
+	if ti is j then [
+		path +<= ti.j;
+	] else [
+		if treemap_test(env, "TERMCAP") then
+			goto get_termcap;
+		if home is j then
+			path +<= path_append(home.j, ".terminfo");
+		var dirs := treemap_search(env, "TERMINFO_DIRS");
+		if dirs is j then
+			path += list_break(dirs.j, ':');
+		path +<= "/etc/terminfo";
+		path +<= "/lib/terminfo";
+		path +<= "/usr/share/terminfo";
+		path +<= "/usr/lib/terminfo";
+		path +<= "/opt/local/share/terminfo";
+	]
+
+	for i := 0 to len(path) do [
+		var file : bytes;
+		file := path_append(path_append(path[i], term[ .. 1]), term);
+		fh := ropen_lazy(d, file, 0);
+		if not is_exception fh then
+			goto got_tinfo;
+		file := path_append(path_append(path[i], locase(ntos_base(term[0], 16))), term);
+		fh := ropen_lazy(d, file, 0);
+		if not is_exception fh then
+			goto got_tinfo;
+	]
+
+get_termcap:
+	path := empty(bytes);
+	ti := treemap_search(env, "TERMCAP");
+	if ti is j then [
+		path +<= ti.j;
+	] else [
+		if home is j then
+			path +<= path_append(home.j, ".termcap");
+		var dirs := treemap_search(env, "TERMPATH");
+		if dirs is j then
+			path += list_break(dirs.j, ':');
+		path +<= "/usr/share/misc/terminfo";
+		path +<= "/usr/share/terminfo/terminfo";
+		path +<= "/etc/termcap";
+		path +<= "/usr/share/misc/termcap";
+		path +<= path_append(dpath_lazy(dlib(unsafe_get_world)), "terminfo");
+	]
+
+	for i := 0 to len(path) do [
+		fh := ropen_lazy(d, path[i], 0);
+		if not is_exception fh then [
+			var t := read_lazy(fh);
+			b, is_termcap := termcap_2_terminfo(t, term);
+			if b <> "" then
+				goto got_termcap;
+		]
+	]
+
+	abort exception_make_str(int, ec_syscall, error_not_supported, 0, false, "unable to find the terminfo or termcap file for terminal " + term);
+
+got_tinfo:
+	b := read_lazy(fh);
+got_termcap:
+	b := list_flatten(b);
+	var tc := termcap.[
+		term : term,
+		b : b,
+		is_termcap : is_termcap,
+		static_vars : array_fill(sint32, 0, [num_vars]),
+		stack_num : array_fill(sint32, 0, [stack_size]),
+		stack_str : array_fill("", [stack_size]),
+		stack_ptr : 0,
+	];
+
+	tc.extended := false;
+	var magic := #100 * b[1] + b[0];
+	if magic <> #11a then [
+		if magic <> #21e then [
+			abort exception_make_str(int, ec_syscall, error_not_supported, 0, false, "invalid magic value in the terminfo file");
+		]
+		tc.extended := true;
+	]
+	tc.terminal_names_bytes := #100 * b[3] + b[2];
+	tc.boolean_flags_bytes := #100 * b[5] + b[4];
+	tc.numbers_words := #100 * b[7] + b[6];
+	tc.strings_words := #100 * b[9] + b[8];
+
+	tc.boolean_flags_start := 12 + tc.terminal_names_bytes;
+	tc.numbers_start := tc.boolean_flags_start + tc.boolean_flags_bytes;
+	if not tc.extended then [
+		tc.numbers_start := tc.numbers_start + (-tc.numbers_start and 1);
+		tc.strings_start := tc.numbers_start + 2 * tc.numbers_words;
+	] else [
+		tc.numbers_start := tc.numbers_start + (-tc.numbers_start and 3);
+		tc.strings_start := tc.numbers_start + 4 * tc.numbers_words;
+	]
+	tc.strings_table_start := tc.strings_start + 2 * tc.strings_words;
+
+	return tc;
+]
+
+fn termcap_query_bool(tc : termcap, entry : int) : bool
+[
+	if entry >= tc.boolean_flags_bytes then
+		return false;
+	return tc.b[tc.boolean_flags_start + entry] <> 0;
+]
+
+fn termcap_query_number(tc : termcap, entry : int) : int
+[
+	if entry >= tc.numbers_words then
+		return -1;
+	var num : int;
+	if not tc.extended then [
+		num := #100 * tc.b[tc.numbers_start + entry * 2 + 1] + tc.b[tc.numbers_start + entry * 2];
+		if num >= #fffe then
+			return -1;
+	] else [
+		num :=	#1000000 * tc.b[tc.numbers_start + entry * 4 + 3] +
+			#10000 * tc.b[tc.numbers_start + entry * 4 + 2] +
+			#100 * tc.b[tc.numbers_start + entry * 4 + 1] +
+			tc.b[tc.numbers_start + entry * 4];
+		if num >= #fffffffe then
+			return -1;
+	]
+	return num;
+]
+
+fn termcap_query_string(tc : termcap, entry : int) : bytes
+[
+	if entry >= tc.strings_words then
+		return "";
+	var num := #100 * tc.b[tc.strings_start + entry * 2 + 1] + tc.b[tc.strings_start + entry * 2];
+	if num >= #fffe then
+		return "";
+	var start := tc.strings_table_start + num;
+	var end := start;
+	while tc.b[end] <> 0 do
+		end += 1;
+	return tc.b[start .. end];
+]
+
+fn termcap_has_string(tc : termcap, entry : int) : bool
+[
+	if entry >= tc.strings_words then
+		return false;
+	var num := #100 * tc.b[tc.strings_start + entry * 2 + 1] + tc.b[tc.strings_start + entry * 2];
+	if num >= #fffe then
+		return false;
+	return true;
+]
+
+fn termcap_get_term(tc : termcap) : bytes
+[
+	return tc.term;
+]
+
+fn termcap_has_mouse(tc : termcap) : bool
+[
+	if len_greater_than(termcap_query_string(tc, tc_s_key_mouse), 0) then
+		return true;
+	if list_search_substring(tc.term, "xterm") >= 0 then
+		return true;
+	return false;
+]
+
+fn pop~inline(tc : termcap, args : list(tc_param)) : (termcap, sint32)
+[
+	tc.stack_ptr -= 1;
+	return tc, tc.stack_num[tc.stack_ptr];
+]
+
+fn pop_str~inline(tc : termcap, args : list(tc_param)) : (termcap, bytes)
+[
+	tc.stack_ptr -= 1;
+	return tc, tc.stack_str[tc.stack_ptr];
+]
+
+fn push~inline(tc : termcap, num : sint32) : termcap
+[
+	tc.stack_num[tc.stack_ptr] := num;
+	tc.stack_ptr += 1;
+	return tc;
+]
+
+fn push_str~inline(tc : termcap, str : bytes) : termcap
+[
+	tc.stack_str[tc.stack_ptr] := str;
+	tc.stack_ptr += 1;
+	return tc;
+]
+
+fn termcap_substitute_string(implicit tc : termcap, entry : int, implicit args : list(tc_param)) : (termcap, bytes)
+[
+	var dynamic_vars := array_fill(sint32, 0, [num_vars]);
+
+	var format := termcap_query_string(tc, entry);
+	var result := "";
+
+	for i := 0 to len(format) do [
+		if format[i] = '$', i + 1 < len(format), format[i + 1] = '<' then [
+			var j := list_search(format[i + 2 .. ], '>');
+			if j >= 0 then [
+				i += 2 + j;
+				continue;
+			]
+		]
+		if format[i] <> '%' then [
+			result +<= format[i];
+			continue;
+		]
+		i += 1;
+		var op := format[i];
+		if op = '%' then [
+			result +<= '%';
+		] else if tc.is_termcap then [
+			if op = 'd' or op = '0' or op = '2' or op = '3' then [
+				if op = '0' then [
+					i += 1;
+					op := format[i];
+				]
+				var min_len := 1;
+				if op = '2' then
+					min_len := 2;
+				if op = '3' then
+					min_len := 3;
+				var str := ntos(args[0].num);
+				args := args[1 .. ];
+				while len(str) < min_len do
+					str := " " + str;
+				result += str;
+			] else if op = '.' then [
+				result +<= args[0].num and #ff;
+				args := args[1 .. ];
+			] else if op = '+' then [
+				i += 1;
+				result +<= (args[0].num + format[i]) and #ff;
+				args := args[1 .. ];
+			] else if op = '>' then [
+				i += 1;
+				if args[0].num > format[i] then
+					args[0].num += format[i + 1];
+				i += 1;
+			] else if op = 'r' then [
+				args[0], args[1] := args[1], args[0];
+			] else if op = 'i' then [
+				for a := 0 to len(args) do
+					args[a].num += 1;
+			] else if op = 'n' then [
+				for a := 0 to len(args) do
+					args[a].num xor= #60;
+			] else if op = 'B' then [
+				args[0].num := 16 * (args[0].num div 10) + args[0].num mod 10;
+			] else if op = 'D' then [
+				args[0].num := args[0].num - 2 * (args[0].num mod 16);
+			]
+			continue;
+		] else if op = ':' or op = ' ' or op = '#' or op = '.' or (op >= '0' and op <= '9') or op = 's' or op = 'c' or op = 'd' or op = 'u' or op = 'o' or op = 'x' or op = 'X' then [
+			if op = ':' then
+				i += 1;
+			var space := false;
+			var plus := false;
+			var left := false;
+			var hash := false;
+			var zero := false;
+			var width := 0;
+			var precision := 0;
+			while true do [
+				op := format[i];
+				if op = ' ' then
+					space := true;
+				else if op = '+' then
+					plus := true;
+				else if op = '-' then
+					left := true;
+				else if op = '#' then
+					hash := true;
+				else if op = '0' then
+					zero := true;
+				else
+					break;
+				i += 1;
+			]
+			while format[i] >= '0', format[i] <= '9' do [
+				width := width * 10 + (format[i] - '0');
+				i += 1;
+			]
+			if format[i] = '.' then [
+				i += 1;
+				while format[i] >= '0', format[i] <= '9' do [
+					precision := precision * 10 + (format[i] - '0');
+					i += 1;
+				]
+			]
+			var str : bytes;
+			var pfx := "";
+			if format[i] = 's' then [
+				str := pop_str();
+				zero := false;
+			] else if format[i] = 'c' then [
+				var num : int := pop();
+				str := bytes.[ num and #ff ];
+				zero := false;
+			] else [
+				var num : int := pop();
+				if format[i] <> 'd' then [
+					if num < 0 then
+						num += #100000000;
+				]
+				if format[i] = 'd' then [
+					if num >= 0 then [
+						str := ntos(num);
+						if plus then
+							pfx := "+";
+						else if space then
+							pfx := " ";
+					] else [
+						str := ntos(-num);
+						pfx := "-";
+					]
+				] else if format[i] = 'u' then [
+					str := ntos(num);
+				] else if format[i] = 'o' then [
+					str := ntos_base(num, 8);
+					if hash then
+						pfx := "0";
+				] else if format[i] = 'x' then [
+					str := ntos_base(num, 16);
+					for c := 0 to len(str) do
+						if str[c] >= 'A', str[c] <= 'F' then
+							str[c] += #20;
+					if hash then
+						pfx := "0x";
+				] else if format[i] = 'X' then [
+					str := ntos_base(num, 16);
+					if hash then
+						pfx := "0X";
+				] else [
+					continue;
+				]
+				while len(str) < precision do
+					str := "0" + str;
+			]
+			while len(pfx) + len(str) < width do [
+				if left then
+					str += " ";
+				else if zero then
+					str := "0" + str;
+				else
+					pfx := " " + pfx;
+			]
+			str := pfx + str;
+			result += str;
+		] else if op = 'p' then [
+			i += 1;
+			var arg := args[format[i] - '1'];
+			if arg is num then
+				push(arg.num);
+			else
+				push_str(arg.str);
+		] else if op = 'P' then [
+			i += 1;
+			var v := format[i];
+			var p := pop();
+			if v >= 'a' then
+				dynamic_vars[v - 'a'] := p;
+			else
+				tc.static_vars[v - 'A'] := p;
+		] else if op = 'g' then [
+			i += 1;
+			var v := format[i];
+			if v >= 'a' then
+				push(dynamic_vars[v - 'a']);
+			else
+				push(tc.static_vars[v - 'A']);
+		] else if op = 'i' then [
+			args[0].num += 1;
+			args[1].num += 1;
+		] else if op = '''' then [
+			i += 1;
+			push(format[i]);
+			i += 1;
+		] else if op = '{' then [
+			var j := list_search(format[i .. ], '}');
+			push(ston(format[i + 1 .. i + j]));
+			i += j;
+		] else if op = 'l' then [
+			var p := pop_str();
+			push(len(p));
+		] else if op = '+' then [
+			var p2 := pop();
+			var p1 := pop();
+			push(p1 + p2);
+		] else if op = '-' then [
+			var p2 := pop();
+			var p1 := pop();
+			push(p1 - p2);
+		] else if op = '*' then [
+			var p2 := pop();
+			var p1 := pop();
+			push(p1 * p2);
+		] else if op = '/' then [
+			var p2 := pop();
+			var p1 := pop();
+			push(p1 div p2);
+		] else if op = 'm' then [
+			var p2 := pop();
+			var p1 := pop();
+			push(p1 mod p2);
+		] else if op = '&' then [
+			var p2 := pop();
+			var p1 := pop();
+			push(p1 and p2);
+		] else if op = '|' then [
+			var p2 := pop();
+			var p1 := pop();
+			push(p1 or p2);
+		] else if op = '^' then [
+			var p2 := pop();
+			var p1 := pop();
+			push(p1 xor p2);
+		] else if op = '=' then [
+			var p2 := pop();
+			var p1 := pop();
+			push(select(p1 = p2, 0, 1));
+		] else if op = '>' then [
+			var p2 := pop();
+			var p1 := pop();
+			push(select(p1 > p2, 0, 1));
+		] else if op = '<' then [
+			var p2 := pop();
+			var p1 := pop();
+			push(select(p1 < p2, 0, 1));
+		] else if op = 'A' then [
+			var p2 := pop();
+			var p1 := pop();
+			push(select(p1 <> 0 and p2 <> 0, 0, 1));
+		] else if op = 'O' then [
+			var p2 := pop();
+			var p1 := pop();
+			push(select(p1 <> 0 or p2 <> 0, 0, 1));
+		] else if op = '!' then [
+			var p := pop();
+			push(select(p = 0, 0, 1));
+		] else if op = '~' then [
+			var p := pop();
+			push(not p);
+		] else if op = '?' then [
+		] else if op = 't' then [
+			var p := pop();
+			if p = 0 then [
+				var level := 0;
+				while true do [
+					i += 1;
+					if format[i] = '%' then [
+						if format[i + 1] = '?' then
+							level += 1;
+						if format[i + 1] = ';' then [
+							if level > 0 then
+								level -= 1;
+							else
+								break;
+						]
+						if format[i + 1] = 'e', level = 0 then
+							break;
+					]
+				]
+				i += 1;
+			]
+		] else if op = 'e' then [
+			var level := 0;
+			while true do [
+				i += 1;
+				if format[i] = '%' then [
+					if format[i + 1] = '?' then
+						level += 1;
+					if format[i + 1] = ';' then [
+						if level > 0 then
+							level -= 1;
+						else
+							break;
+					]
+				]
+			]
+			i += 1;
+		] else if op = ';' then [
+		]
+	]
+
+	return tc, result;
+]

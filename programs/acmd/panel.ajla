@@ -1,0 +1,891 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit panel;
+
+uses ui.widget;
+
+uses defs;
+uses common;
+
+type panel_state;
+
+fn panel_init(panel : int, ro : acmd_ro, cwd : bytes, w : world, app : appstate, id : wid) : (world, appstate, panel_state);
+fn panel_get_property(app : appstate, com : widget_common, st : panel_state, prop : bytes) : property;
+fn panel_reflow(app : appstate, com : widget_common, st : panel_state) : (appstate, widget_common, panel_state);
+fn panel_redraw(app : appstate, curs : curses, com : widget_common, st : panel_state) : curses;
+fn panel_accepts_key(app : appstate, com : widget_common, st : panel_state, k : event_keyboard) : bool;
+fn panel_process_event(w : world, app : appstate, com : widget_common, st : panel_state, wev : wevent) : (world, appstate, widget_common, panel_state);
+
+const panel_class ~flat := widget_class.[
+	t : panel_state,
+	name : "acmd panel",
+	is_selectable : true,
+	get_property : panel_get_property,
+	reflow : panel_reflow,
+	redraw : panel_redraw,
+	accepts_key : panel_accepts_key,
+	process_event : panel_process_event,
+];
+
+implementation
+
+uses timezone;
+uses error;
+uses exception;
+uses copy;
+
+record file_entry [
+	bname : bytes;
+	name : string;
+	inode : int;
+	size : int;
+	atime : int64;
+	mtime : int64;
+	ctime : int64;
+	time : string;
+	typ : int;
+	tgttyp : int;
+]
+
+record panel_state [
+	ro : acmd_ro;
+
+	panel : int;
+
+	filename_x : int;
+	filesize_x : int;
+	date_x : int;
+
+	cwd : bytes;
+	files : list(file_entry);
+	freespace : string;
+
+	self : wid;
+	async_active : bool;
+	async_seq : int;
+	async_files : list(file_entry);
+	async_freespace : string;
+	async_error : unit_type;
+	change_monitor : world;
+
+	view_offset : int;
+	selected : int;
+
+	marked : int128;
+	mouse_marking : sint8;
+	mouse_marking_start : int;
+
+	saved_selected : bytes;
+	saved_marked : treeset(bytes);
+]
+
+fn can_be_marked(st : panel_state, idx : int) : bool
+[
+	if idx >= len(st.files) then
+		return false;
+	if st.files[idx].bname = ".." then
+		return false;
+	return true;
+]
+
+fn save_marked(implicit st : panel_state, dir_name : bytes) : panel_state
+[
+	if dir_name = "" then
+		st.saved_selected := select(st.selected < len(st.files), "", st.files[st.selected].bname);
+	else
+		st.saved_selected := dir_name;
+	implicit var ts := treeset_init(bytes);
+	var marked := st.marked;
+	while marked <> 0 do [
+		var idx : int := bsr marked;
+		marked btr= idx;
+		treeset_set(st.files[idx].bname);
+	]
+	st.saved_marked := ts;
+]
+
+fn restore_marked(implicit st : panel_state) : panel_state
+[
+	implicit var ts := st.saved_marked;
+	var marked : int128 := 0;
+	st.selected := 0;
+	for idx := 0 to len(st.files) do [
+		if treeset_test(st.files[idx].bname) then
+			marked bts= idx;
+		if st.files[idx].bname = st.saved_selected then
+			st.selected := idx;
+	]
+	st.marked := marked;
+	st.mouse_marking := 0;
+	st.saved_marked := exception_make(treeset(bytes), ec_sync, error_record_field_not_initialized, 0, false);
+]
+
+const suffixes~cache := [ "", "k", "M", "G", "T", "P", "E", "Z", "Y", "R", "Q" ];
+
+fn get_size(size : int, space : int) : bytes
+[
+	var idx := 0;
+next:
+	var str := ntos(size) + suffixes[idx];
+	if len(str) > space, idx < len(suffixes), size >= 1000 then [
+		size div= 1000;
+		idx += 1;
+		goto next;
+	]
+	return str;
+]
+
+fn ntos_3(size : int) : string
+[
+	var b := ntos(size);
+	var lb := len(b);
+	var r := ``;
+	for i := 0 to lb do [
+		if i <> 0, (lb - i) mod 3 = 0 then
+			r +<= 32;
+		r +<= b[i];
+	]
+	return r;
+]
+
+fn get_time(implicit loc : locale, implicit tz : timezone, now : int64, time : int64) : string
+[
+	var c := time_to_calendar(time);
+	var str := list_left_pad(locale_to_string(ntos(c.day + 1)), 2, ' ') + `.` + months[c.month];
+	if now - time >= 0, now - time < 365 * 24 * 60 * 60 * 1000000 then
+		str += ` ` + list_left_pad(locale_to_string(ntos(c.hour)), 2, '0') + `:` + list_left_pad(locale_to_string(ntos(c.min)), 2, '0');
+	else
+		str += `  ` + list_left_pad(locale_to_string(ntos(c.year)), 4, ' ');
+	return str;
+]
+
+
+fn panel_sort(implicit app : appstate, implicit st : panel_state, files : list(file_entry)) : list(file_entry)
+[
+	var sort_order := property_get("panel-" + ntos(st.panel) + "-sort-order").i;
+	var sort_order_flags := property_get("panel-" + ntos(st.panel) + "-sort-order-flags").i;
+	fn instance_ord_file_entry : class_ord(file_entry) :=
+		class_ord(file_entry).[
+			equal : lambda(a1 a2 : file_entry) [ return a1.name = a2.name and a1.bname = a2.bname; ],
+			less : lambda(a1 a2 : file_entry) [
+				var ret : bool;
+				if a1.bname = "..", a2.bname <> ".." then
+					return true;
+				if a1.bname <> "..", a2.bname = ".." then
+					return false;
+				if a1.tgttyp = stat_type_directory, a2.tgttyp <> stat_type_directory then
+					return true;
+				if a1.tgttyp <> stat_type_directory, a2.tgttyp = stat_type_directory then
+					return false;
+				if sort_order = sort_size then [ if a1.size <> a2.size then [ ret := a1.size < a2.size; goto do_ret; ] ]
+				if sort_order = sort_mtime then [ if a1.mtime <> a2.mtime then [ ret := a1.mtime < a2.mtime; goto do_ret; ] ]
+				if sort_order = sort_atime then [ if a1.atime <> a2.atime then [ ret := a1.atime < a2.atime; goto do_ret; ] ]
+				if sort_order = sort_ctime then [ if a1.ctime <> a2.ctime then [ ret := a1.ctime < a2.ctime; goto do_ret; ] ]
+				if sort_order = sort_inode then [ if a1.inode <> a2.inode then [ ret := a1.inode < a2.inode; goto do_ret; ] ]
+				var name1 := a1.name;
+				var name2 := a2.name;
+				if not sort_order_flags bt sort_flag_case_sensitive then [
+					name1 := string_upcase(name1);
+					name2 := string_upcase(name2);
+				]
+				if sort_order = sort_extension then [
+					var dot1 := list_search_backwards(name1, '.');
+					var dot2 := list_search_backwards(name2, '.');
+					var ext1 := select(dot1 >= 0, ``, name1[dot1 + 1 .. ]);
+					var ext2 := select(dot2 >= 0, ``, name2[dot2 + 1 .. ]);
+					if ext1 <> ext2 then [
+						ret := ext1 < ext2;
+						goto do_ret;
+					]
+				]
+				if name1 <> name2 then [
+					ret := name1 < name2;
+					goto do_ret;
+				]
+				ret := a1.bname < a2.bname;
+do_ret:
+				ret xor= sort_order_flags bt sort_flag_reverse;
+				return ret;
+			],
+		];
+	return list_sort(instance_ord_file_entry, files);
+]
+
+fn panel_scan_async(implicit w : world, implicit app : appstate, implicit st : panel_state) : (world, list(file_entry), string, unit_type)
+[
+	var async_error := unit_value;
+	var now := get_real_time();
+	var files := empty(file_entry);
+	var old_w := w;
+	var d := dopen(dnone(), st.cwd, 0);
+	var w2 : world;
+	w, w2 := dmonitor(d);
+	if is_exception w then
+		recover_world(old_w);
+	var w3 := fork(w);
+
+	var fsp : list(int64);
+	w3, fsp := dstatfs(w3, d, statfs_flag_frsize or statfs_flag_frtotal or statfs_flag_fravail);
+	var freespace_a := " " + get_size(fsp[0] * fsp[2], 5) + "/" + get_size(fsp[0] * fsp[1], 5) + " ";
+	var freespace := locale_to_string(st.ro.loc, freespace_a);
+
+	old_w := w;
+	var ls := dread(d);
+	if is_exception ls then [
+		recover_world(old_w);
+		async_error := exception_copy(unit_type, ls);
+		//acmd_error(`Error reading the directory "` + locale_to_string(st.ro.loc, st.cwd) + `"`, locale_to_string(st.ro.loc, exception_string(ls)));
+		ls := empty(bytes);
+	]
+	if not path_is_root(st.cwd) then
+		ls := [".."] + ls;
+	for i := 0 to len(ls) do [
+		old_w := w;
+		var st1 := lstat(d, ls[i], stat_flag_inode or stat_flag_type or stat_flag_size or stat_flag_atime or stat_flag_mtime or stat_flag_ctime);
+		var inode := st1[0];
+		var typ := st1[1];
+		var size := st1[2];
+		var atime := st1[3];
+		var mtime := st1[4];
+		var ctime := st1[5];
+		var tgttyp := typ;
+		if is_exception st1 then [
+			recover_world(old_w);
+			typ := -1;
+			size := 0;
+			atime := 0;
+			mtime := 0;
+			ctime := 0;
+			tgttyp := -1;
+			if ls[i] = ".." then [
+				typ := stat_type_directory;
+				tgttyp := stat_type_directory;
+			]
+		]
+		if typ = stat_type_link then [
+			old_w := w;
+			var st2 := stat(d, ls[i], stat_flag_type);
+			tgttyp := st2[0];
+			if is_exception w then [
+				recover_world(old_w);
+				tgttyp := -1;
+			]
+		]
+		var fe := file_entry.[
+			bname : ls[i],
+			name : locale_to_string(st.ro.loc, ls[i]),
+			inode : inode,
+			size : size,
+			atime : atime,
+			mtime : mtime,
+			ctime : ctime,
+			time : get_time(st.ro.loc, st.ro.tz, now, mtime),
+			typ : typ,
+			tgttyp : tgttyp,
+		];
+		files +<= fe;
+	]
+	files := panel_sort(files);
+	if is_exception freespace then
+		freespace := ``;
+	eval files;
+	eval freespace;
+	xeval widget_send_async_event(st.self, wevent.set_property.(event_set_property.[ prop : "async-finished", val : property.i.(st.async_seq) ]));
+	return w2, files, freespace, async_error;
+]
+
+fn panel_scan_finish(implicit w : world, implicit app : appstate, implicit st : panel_state) : (world, appstate, panel_state)
+[
+	st.async_active := false;
+	st.files := st.async_files;
+	st.freespace := st.async_freespace;
+	if is_exception st.async_error then
+		acmd_error(`Error reading the directory "` + locale_to_string(st.ro.loc, st.cwd) + `"`, locale_to_string(st.ro.loc, exception_string(st.async_error)));
+	restore_marked();
+	st.mouse_marking := 0;
+	xeval widget_send_async_event(st.self, wevent.set_property.(event_set_property.[ prop : "async-finished", val : property.i.(st.async_seq) ]));
+	st.change_monitor := widget_send_async_event(st.change_monitor, app, st.self, wevent.set_property.(event_set_property.[ prop : "change-monitor", val : property.n ]));
+]
+
+fn panel_scan(implicit w : world, implicit app : appstate, implicit st : panel_state, dir_name : bytes, set_cwd : bool) : (world, appstate, panel_state)
+[
+	save_marked(dir_name);
+	st.async_seq += 1;
+	st.change_monitor, st.async_files, st.async_freespace, st.async_error := panel_scan_async~spark();
+	var timer := sleep~lazy(unit_value, 20000);
+	if not any(st.async_files, timer) then [
+		panel_scan_finish();
+	] else [
+		st.files := [ file_entry.[
+			bname : "..",
+			name : `..`,
+			inode : 0,
+			size : 0,
+			atime : 0,
+			mtime : 0,
+			ctime : 0,
+			time : ``,
+			typ : stat_type_directory,
+			tgttyp : stat_type_directory,
+		] ];
+		st.freespace := ``;
+		st.async_active := true;
+		st.marked := 0;
+	]
+	if set_cwd then
+		property_set("cwd", property.b.(st.cwd));
+	st.mouse_marking := 0;
+]
+
+fn panel_cd(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : panel_state, rel_path : bytes) : (world, appstate, panel_state)
+[
+	var old_cwd := st.cwd;
+	var is_up_dir := rel_path = "..";
+	var abs_path := path_join(st.cwd, rel_path);
+	st.cwd := abs_path;
+	st.marked := 0;
+	st.mouse_marking := 0;
+	st.selected := 0;
+	var file_to_find := "..";
+	if is_up_dir then [
+		var p := list_search_backwards_fn(old_cwd, path_is_separator);
+		if p >= 0 then
+			file_to_find := old_cwd[p + 1 .. ];
+	]
+	panel_scan(file_to_find, widget_is_top(com.self));
+]
+
+fn panel_init(panel : int, ro : acmd_ro, cwd : bytes, implicit w : world, implicit app : appstate, id : wid) : (world, appstate, panel_state)
+[
+	var prop_sort := "panel-" + ntos(panel) + "-sort-order";
+	var prop_sort_flags := "panel-" + ntos(panel) + "-sort-order-flags";
+	property_observe(id, prop_sort);
+	property_observe(id, prop_sort_flags);
+	implicit var st := panel_state.[
+		ro : ro,
+		panel : panel,
+		filename_x : 0,
+		filesize_x : 0,
+		date_x : 0,
+		cwd : cwd,
+		files : empty(file_entry),
+		freespace : ``,
+		self : id,
+		async_active : false,
+		async_seq : 0,
+		view_offset : 0,
+		selected : 0,
+		marked : 0,
+		mouse_marking : 0,
+		mouse_marking_start : 0,
+	];
+	panel_scan("", true);
+]
+
+fn quote_file(s : string) : string
+[
+	return s;
+]
+
+fn panel_get_property(app : appstate, com : widget_common, st : panel_state, prop : bytes) : property
+[
+	if prop = "cwd" then
+		return property.b.(st.cwd);
+	if prop = "property-index" then
+		return property.i.(st.panel);
+	if prop = "selected-files" then [
+		var r := ``;
+		if st.marked = 0 then [
+			if st.selected < len(st.files) then
+				r := quote_file(st.files[st.selected].name) + ` `;
+		] else [
+			var m := st.marked;
+			while m <> 0 do [
+				var i := bsf m;
+				m btr= i;
+				r += quote_file(st.files[i].name);
+				r += ` `;
+			]
+		]
+		return property.s.(r);
+	]
+	return property.n;
+]
+
+fn panel_set_cwd_cfile(implicit app : appstate, implicit com : widget_common, implicit st : panel_state) : appstate
+[
+	if widget_is_top(com.self) then [
+		property_set("cwd", property.b.(st.cwd));
+		var cfile := "";
+		if st.selected < len(st.files) then
+			cfile := st.files[st.selected].bname;
+		property_set("cfile", property.b.(cfile));
+	]
+]
+
+fn panel_reflow(implicit app : appstate, implicit com : widget_common, implicit st : panel_state) : (appstate, widget_common, panel_state)
+[
+	var x := com.size_x - 4;
+	st.date_x := 12;
+	st.filesize_x := 7;
+	st.filename_x := x - st.date_x - st.filesize_x;
+	while st.filename_x < 12 do [
+		if st.date_x > 0 then [
+			st.date_x -= 1;
+			st.filename_x += 1;
+		] else if st.filesize_x > 0 then [
+			st.filesize_x -= 1;
+			st.filename_x += 1;
+		] else [
+			break;
+		]
+	]
+
+	var vertical_space := com.size_y - 4;
+	st.selected := max(0, min(len(st.files) - 1, st.selected));
+	st.view_offset := min(len(st.files) - vertical_space, st.view_offset);
+	st.view_offset := max(0, st.view_offset);
+	if vertical_space > 0 then [
+		if st.selected >= st.view_offset + vertical_space then
+			st.view_offset := st.selected - vertical_space + 1;
+		if st.selected < st.view_offset then
+			st.view_offset := st.selected;
+	]
+	panel_set_cwd_cfile();
+]
+
+fn panel_redraw(implicit app : appstate, implicit curs : curses, com : widget_common, st : panel_state) : curses
+[
+	var are_we_selected := widget_is_top(com.self);
+
+	//var sc := curses_get_scissors();
+	//eval debug("panel " + ntos(st.panel) + " redraw: " + ntos(sc.x1) + ", " + ntos(sc.x2) + ", " + ntos(sc.y1) + ", " + ntos(sc.y2));
+
+	property_set_attrib(property_get_attrib("acmd-panel-frame", #aaaa, #aaaa, #aaaa, #0000, #0000, #aaaa, 0, 0));
+	curses_fill_rect(1, com.size_x - 1, 1, com.size_y - 1, ' ');
+	curses_box(0, com.size_x - 1, 0, com.size_y - 1, 2);
+	var fsl := string_length(st.freespace);
+	curses_set_pos(com.size_x - 1 - 1 - fsl, com.size_y - 1);
+	curses_print(st.freespace);
+	curses_hline(1, com.size_x - 1, com.size_y - 3, 1);
+	curses_frame(0, com.size_y - 3, #0212);
+	curses_frame(com.size_x - 1, com.size_y - 3, #1202);
+	curses_vline(1 + st.filename_x, 1, com.size_y - 3, 1);
+	curses_vline(1 + st.filename_x + 1 + st.filesize_x, 1, com.size_y - 3, 1);
+	curses_frame(1 + st.filename_x, 0, #2120);
+	curses_frame(1 + st.filename_x + 1 + st.filesize_x, 0, #2120);
+	curses_frame(1 + st.filename_x, com.size_y - 3, #1011);
+	curses_frame(1 + st.filename_x + 1 + st.filesize_x, com.size_y - 3, #1011);
+
+	if are_we_selected then [
+		property_set_attrib(property_get_attrib("acmd-panel-path", #0000, #0000, #0000, #aaaa, #aaaa, #aaaa, 0, curses_invert));
+	] else [
+		property_set_attrib(property_get_attrib("acmd-panel-path-selected", #aaaa, #aaaa, #aaaa, #0000, #0000, #aaaa, 0, 0));
+	]
+	curses_restrict_viewport(2, com.size_x - 2, 0, 1, 2, 0);
+	curses_set_pos(0, 0);
+	var home := path_shortcut_home(st.ro.home, st.cwd);
+	curses_print(` ` + locale_to_string(st.ro.loc, home) + ` `);
+	curses_revert_viewport();
+
+	var prop_file := property_get_attrib("acmd-panel-file", #aaaa, #aaaa, #aaaa, #0000, #0000, #aaaa, 0, 0);
+	var prop_dir := property_get_attrib("acmd-panel-dir", #ffff, #ffff, #ffff, #0000, #0000, #aaaa, curses_bold, 0);
+	var prop_marked := property_get_attrib("acmd-panel-marked", #ffff, #ffff, #0000, #0000, #0000, #aaaa, curses_bold, curses_bold);
+
+	var selected_name := ``;
+	for i := 0 to com.size_y - 4 do [
+		var idx := st.view_offset + i;
+		if idx < len(st.files) then [
+			if st.marked bt idx then [
+				property_set_attrib(prop_marked);
+			] else if st.files[idx].tgttyp = stat_type_directory then [
+				property_set_attrib(prop_dir);
+			] else [
+				property_set_attrib(prop_file);
+			]
+
+			curses_restrict_viewport(1, 1 + st.filename_x, 1 + i, 1 + i + 1, 1, 1 + i);
+			curses_set_pos(0, 0);
+			var pfx : string;
+			if st.files[idx].tgttyp = stat_type_directory then
+				pfx := `/`;
+			else
+				pfx := ` `;
+			curses_print(pfx + st.files[idx].name);
+			if idx = st.selected then
+				selected_name := pfx + st.files[idx].name;
+			curses_revert_viewport();
+
+			curses_restrict_viewport(1 + st.filename_x + 1, 1 + st.filename_x + 1 + st.filesize_x, 1 + i, 1 + i + 1, 1 + st.filename_x + 1, 1 + i);
+			var sstr := locale_to_string(st.ro.loc, get_size(st.files[idx].size, st.filesize_x));
+			curses_set_pos(0, 0);
+			curses_print(list_left_pad(sstr, st.filesize_x, ' '));
+			curses_revert_viewport();
+
+			curses_restrict_viewport(1 + st.filename_x + 1 + st.filesize_x + 1, com.size_x - 1, 1 + i, 1 + i + 1, 1 + st.filename_x + 1 + st.filesize_x + 1, 1 + i);
+			sstr := st.files[idx].time;
+			curses_set_pos(0, 0);
+			curses_print(sstr);
+			curses_revert_viewport();
+		] else [
+			break;
+		]
+	]
+	if are_we_selected, st.selected < len(st.files) then [
+		if not st.marked bt st.selected then
+			property_set_attrib(property_get_attrib("acmd-panel-selected", #0000, #0000, #0000, #0000, #aaaa, #aaaa, 0, curses_invert));
+		else
+			property_set_attrib(property_get_attrib("acmd-panel-selected-marked", #ffff, #ffff, #0000, #0000, #aaaa, #aaaa, 0, curses_bold or curses_invert));
+		curses_restrict_viewport(1, com.size_x - 1, 1, com.size_y - 3, 1, 1);
+		curses_recolor_rect(0, com.size_x - 2, st.selected - st.view_offset, st.selected - st.view_offset + 1);
+		curses_revert_viewport();
+	]
+
+	if st.async_active then [
+		var i := (com.size_y - 4) shr 1;
+		property_set_attrib(prop_file);
+		curses_restrict_viewport(1, 1 + st.filename_x, 1 + i, 1 + i + 1, 1, 1 + i);
+		var str := `Loading ...`;
+		curses_set_pos(st.filename_x - string_length(str) shr 1, 0);
+		curses_print(str);
+		curses_revert_viewport();
+	]
+
+	curses_restrict_viewport(1, com.size_x - 1, com.size_y - 2, com.size_y - 1, 1, com.size_y - 2);
+	if st.marked <> 0 then [
+		var marked_string := ascii_to_string(ntos(popcnt st.marked)) + ` files`;
+		var size := 0;
+		var marked := st.marked;
+		while marked <> 0 do [
+			var idx : int := bsr marked;
+			marked btr= idx;
+			size += st.files[idx].size;
+		]
+		marked_string += `, ` + ntos_3(size) + ` bytes`;
+		property_set_attrib(property_get_attrib("acmd-panel-bottom-marked", #ffff, #ffff, #0000, #0000, #0000, #aaaa, 0, 0));
+		curses_fill_rect(0, com.size_x - 2, 0, 1, ' ');
+		curses_set_pos(com.size_x - 2 - string_length(marked_string) - 1, 0);
+		curses_print(marked_string);
+	] else [
+		property_set_attrib(property_get_attrib("acmd-panel-bottom", #aaaa, #aaaa, #aaaa, #0000, #0000, #aaaa, 0, 0));
+		curses_fill_rect(0, com.size_x - 2, 0, 1, ' ');
+		curses_set_pos(0, 0);
+		curses_print(selected_name);
+	]
+	curses_revert_viewport();
+]
+
+fn panel_accepts_key(app : appstate, com : widget_common, st : panel_state, k : event_keyboard) : bool
+[
+	if k.key = key_up or
+	   k.key = key_down or
+	   k.key = key_page_up or
+	   k.key = key_page_down or
+	   k.key = key_home or
+	   k.key = key_end or
+	   k.key = key_insert or
+	   k.key = key_enter then
+		return true;
+	return false;
+]
+
+fn panel_process_event(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : panel_state, wev : wevent) : (world, appstate, widget_common, panel_state)
+[
+	var redraw_all := false;
+	var redraw_selected := false;
+	var old_selected := st.selected;
+	var old_view_offset := st.view_offset;
+	if wev is keyboard then [
+		var k := wev.keyboard;
+		if k.key = key_up then [
+			if k.rep = 0 then
+				return;
+			st.selected -= k.rep;
+			goto reflow_redraw;
+		]
+		if k.key = key_down then [
+			if k.rep = 0 then
+				return;
+			st.selected += k.rep;
+			goto reflow_redraw;
+		]
+		if k.key = key_page_up then [
+			if k.rep = 0 then
+				return;
+			var ps := com.size_y - 4;
+			st.selected -= ps * k.rep;
+			st.view_offset -= ps * k.rep;
+			goto reflow_redraw;
+		]
+		if k.key = key_page_down then [
+			if k.rep = 0 then
+				return;
+			var ps := com.size_y - 4;
+			st.selected += ps * k.rep;
+			st.view_offset += ps * k.rep;
+			goto reflow_redraw;
+		]
+		if k.key = key_home then [
+			if k.rep = 0 then
+				return;
+			st.selected := 0;
+			goto reflow_redraw;
+		]
+		if k.key = key_end then [
+			if k.rep = 0 then
+				return;
+			st.selected := max(len(st.files) - 1, 0);
+			goto reflow_redraw;
+		]
+		if k.key = key_insert then [
+			if k.rep = 0 then
+				return;
+			for i := 0 to k.rep do [
+				if can_be_marked(st.selected) then
+					st.marked btc= st.selected;
+				st.selected += 1;
+			]
+			if k.rep > 1 then
+				redraw_all := true;
+			redraw_selected := true;
+			goto reflow_redraw;
+		]
+		if k.key = key_enter then [
+process_enter:
+			if st.selected < len(st.files), st.files[st.selected].tgttyp = stat_type_directory then [
+				panel_cd(st.files[st.selected].bname);
+				redraw_all := true;
+				goto reflow_redraw;
+			]
+			return;
+		]
+		return;
+	]
+	if wev is mouse then [
+		var m := wev.mouse;
+		st.selected += m.wy * 5;
+		st.view_offset += m.wy * 5;
+		var mx, my := widget_relative_mouse_coords(com.self, wev.mouse);
+		if m.buttons <> 0 then [
+			if my >= 1, my < com.size_y - 3 then [
+				st.selected := st.view_offset + my - 1;
+				if m.buttons bt 1, can_be_marked(st.selected) then [
+					if not m.prev_buttons bt 1 then [
+						st.mouse_marking := select(st.marked bt st.selected, 1, -1);
+						st.mouse_marking_start := st.selected;
+					]
+					if st.mouse_marking <> 0 then [
+						var idx_from := min(st.mouse_marking_start, st.selected);
+						var idx_to := max(st.mouse_marking_start, st.selected);
+						var mask := (0 bts idx_to + 1) - (0 bts idx_from);
+						if st.mouse_marking = 1 then
+							st.marked or= mask;
+						else if st.mouse_marking = -1 then
+							st.marked and= not mask;
+						redraw_all := true;
+					]
+				]
+				if m.double_buttons bt 0 then
+					goto process_enter;
+				goto reflow_redraw;
+			]
+		]
+		if m.buttons = 0 then
+			st.mouse_marking := 0;
+		if m.wy <> 0 then
+			goto reflow_redraw;
+		return;
+	]
+	if wev is property_changed then [
+		panel_scan("", widget_is_top(com.self));
+		redraw_all := true;
+		goto reflow_redraw;
+	]
+	if wev is change_focus then [
+		panel_set_cwd_cfile();
+		widget_enqueue_events([ wid_wevent.[
+			id : com.self,
+			wev : wevent.redraw.(event_redraw.[
+				x1 : 1,
+				x2 : com.size_x - 1,
+				y1 : 0,
+				y2 : 1,
+			]),
+		], wid_wevent.[
+			id : com.self,
+			wev : wevent.redraw.(event_redraw.[
+				x1 : 1,
+				x2 : com.size_x - 1,
+				y1 : 1 + st.selected - st.view_offset,
+				y2 : 1 + st.selected - st.view_offset + 1,
+			]),
+		] ]);
+		return;
+	]
+	if wev is set_property then [
+		if wev.set_property.prop = "cwd" then [
+			var s := wev.set_property.val.b;
+			panel_cd(s);
+			redraw_all := true;
+			goto reflow_redraw;
+		]
+		if wev.set_property.prop = "rescan" then [
+			panel_scan("", widget_is_top(com.self));
+			redraw_all := true;
+			goto reflow_redraw;
+		]
+		if wev.set_property.prop = "rescan-without-redraw" then [
+			panel_scan("", widget_is_top(com.self));
+			panel_reflow();
+			return;
+		]
+		if wev.set_property.prop = "mark-unselect" then [
+			st.marked := 0;
+			redraw_all := true;
+			goto reflow_redraw;
+		]
+		if wev.set_property.prop = "mark-invert" then [
+			for i := 0 to len(st.files) do [
+				if st.files[i].tgttyp <> stat_type_directory then
+					st.marked btc= i;
+			]
+			redraw_all := true;
+			goto reflow_redraw;
+		]
+		if wev.set_property.prop = "mark-select" or wev.set_property.prop = "mark-unselect" then [
+			var sel := wev.set_property.prop = "mark-select";
+			var files_only := property_get("select-flags").i bt select_flag_files_only;
+			var case_sensitive := property_get("select-flags").i bt select_flag_case_sensitive;
+			var pattern := property_get("select-string").s;
+			for i := 0 to len(st.files) do [
+				if not can_be_marked(i) then
+					continue;
+				if files_only, st.files[i].tgttyp = stat_type_directory then
+					continue;
+				if glob(st.files[i].name, pattern, case_sensitive) then [
+					if sel then
+						st.marked bts= i;
+					else
+						st.marked btr= i;
+				]
+			]
+			redraw_all := true;
+			goto reflow_redraw;
+		]
+		if wev.set_property.prop = "async-finished", st.async_active then [
+			if wev.set_property.val.i = st.async_seq then [
+				panel_scan_finish();
+				redraw_all := true;
+				goto reflow_redraw;
+			]
+		]
+		if wev.set_property.prop = "change-monitor", not st.async_active then [
+			panel_scan("", widget_is_top(com.self));
+			redraw_all := true;
+			goto reflow_redraw;
+		]
+		if wev.set_property.prop = "copy" or wev.set_property.prop = "move" or wev.set_property.prop = "delete" then [
+			if st.async_active then
+				return;
+			var src_files := empty(bytes);
+			if st.marked = 0 then [
+				if st.selected < len(st.files) then [
+					if st.files[st.selected].bname = ".." then [
+						acmd_error(`Cannot operate on ".."`, ``);
+						return;
+					]
+					src_files +<= st.files[st.selected].bname;
+				] else [
+					acmd_error(`No file selected`, ``);
+					return;
+				]
+			] else [
+				for i := 0 to len(st.files) do [
+					if st.marked bt i then [
+						src_files +<= st.files[i].bname;
+					]
+				]
+			]
+			if wev.set_property.prop = "delete" then [
+				delete(st.ro, st.cwd, src_files);
+			] else [
+				copy_move(st.ro, wev.set_property.prop = "move", st.cwd, src_files, wev.set_property.val.b);
+			]
+			return;
+		]
+		if wev.set_property.prop = "mkdir" then [
+			if st.async_active then
+				return;
+			make_dir(st.ro, st.cwd);
+			return;
+		]
+		return;
+	]
+	return;
+
+reflow_redraw:
+	panel_reflow();
+	if redraw_all then [
+		widget_enqueue_events([ wid_wevent.[
+			id : com.self,
+			wev : wevent.redraw.(event_redraw.[
+				x1 : 0,
+				x2 : com.size_x,
+				y1 : 0,
+				y2 : com.size_y,
+			]),
+		] ]);
+	] else if st.view_offset <> old_view_offset then [
+		widget_enqueue_events([ wid_wevent.[
+			id : com.self,
+			wev : wevent.redraw.(event_redraw.[
+				x1 : 1,
+				x2 : com.size_x - 1,
+				y1 : 1,
+				y2 : com.size_y - 1,
+			]),
+		] ]);
+	] else if st.selected <> old_selected or redraw_selected then [
+		widget_enqueue_events([ wid_wevent.[
+			id : com.self,
+			wev : wevent.redraw.(event_redraw.[
+				x1 : 1,
+				x2 : com.size_x - 1,
+				y1 : 1 + old_selected - old_view_offset,
+				y2 : 1 + old_selected - old_view_offset + 1,
+			]),
+		], wid_wevent.[
+			id : com.self,
+			wev : wevent.redraw.(event_redraw.[
+				x1 : 1,
+				x2 : com.size_x - 1,
+				y1 : 1 + st.selected - st.view_offset,
+				y2 : 1 + st.selected - st.view_offset + 1,
+			]),
+		], wid_wevent.[
+			id : com.self,
+			wev : wevent.redraw.(event_redraw.[
+				x1 : 1,
+				x2 : com.size_x - 1,
+				y1 : com.size_y - 2,
+				y2 : com.size_y - 1,
+			]),
+		] ]);
+	]
+]

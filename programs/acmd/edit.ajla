@@ -1,0 +1,790 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit edit;
+
+uses ui.widget;
+
+uses defs;
+uses common;
+uses error;
+
+type edit_state;
+
+fn edit_init(ro : acmd_ro, file_name : string, file : handle, d : dhandle, cfile : bytes, w : world, app : appstate, id : wid) : (world, appstate, edit_state);
+fn edit_redraw(app : appstate, curs : curses, com : widget_common, st : edit_state) : curses;
+fn edit_get_cursor(app : appstate, com : widget_common, st : edit_state) : (int, int);
+fn edit_process_event(w : world, app : appstate, com : widget_common, st : edit_state, wev : wevent) : (world, appstate, widget_common, edit_state);
+
+const edit_class ~flat := widget_class.[
+	t : edit_state,
+	name : "acmd edit",
+	is_selectable : true,
+	redraw : edit_redraw,
+	get_cursor : edit_get_cursor,
+	process_event : edit_process_event,
+];
+
+record edit_state [
+	ro : acmd_ro;
+	loc : locale;
+	file_name : string;
+	d : dhandle;
+	cfile : bytes;
+	loading : bool;
+
+	lines : list(string);
+	xview : int;
+	yview : int;
+	x : int;
+	y : int;
+	modified : bool;
+
+	last_key : event_keyboard;
+
+	lines_async : list(string);
+	self : wid;
+]
+
+fn edit_load(implicit w : world, implicit app : appstate, implicit st : edit_state, file : handle) : list(string)
+[
+	var lines_bytes := list_break_to_lines(bread_lazy(file, 0));
+	var lines := empty(string);
+	if is_exception len(lines_bytes) then [
+		xeval widget_send_async_event(st.self, wevent.set_property.(event_set_property.[ prop : "async-finished", val : property.n ]));
+		abort len(lines_bytes);
+	]
+	for l in lines_bytes do [
+		var s := locale_to_string(st.loc, l);
+		var s2 := empty(char);
+		for i := 0 to len(s) do [
+			if char_length(s[i]) > 0 or s[i] = 9 then
+				s2 +<= s[i];
+		]
+		lines +<= s2;
+	]
+	if len(lines) = 0 then
+		lines := [ `` ];
+	eval lines;
+	xeval widget_send_async_event(st.self, wevent.set_property.(event_set_property.[ prop : "async-finished", val : property.n ]));
+	return lines;
+]
+
+fn edit_save(implicit w : world, implicit app : appstate, implicit st : edit_state) : (world, appstate, edit_state)
+[
+	var content := empty(byte);
+	for i := 0 to len(st.lines) do [
+		var ln := st.lines[i];
+		var b := string_to_locale(st.loc, ln);
+		content += b;
+		content += nl;
+	]
+	var old_w := w;
+	path_write_atomic(st.d, st.cfile, content);
+	if is_exception w then [
+		var xw := w;
+		recover_world(old_w);
+		acmd_error(`Error saving file ` + st.file_name, locale_to_string(st.ro.loc, exception_string(xw)));
+	] else [
+		st.modified := false;
+	]
+]
+
+fn edit_init(ro : acmd_ro, file_name : string, file : handle, d : dhandle, cfile : bytes, implicit w : world, implicit app : appstate, id : wid) : (world, appstate, edit_state)
+[
+	implicit var st := edit_state.[
+		ro : ro,
+		loc : ro.loc,
+		file_name : file_name,
+		d : d,
+		cfile : cfile,
+		loading : true,
+
+		lines : [ `` ],
+		xview : 0,
+		yview : 0,
+		x : 0,
+		y : 0,
+		modified : false,
+
+		last_key : event_keyboard. [ key : 0, flags : 0, rep : 1 ],
+
+		self : id,
+	];
+	var b := property_get(app, "view-charset").b;
+	var loc := locale_get("." + b);
+	if not is_exception loc then
+		st.loc := loc;
+	st.lines_async := edit_load(file);
+]
+
+fn edit_quit(implicit w : world, implicit app : appstate, com : widget_common, implicit st : edit_state) : (world, appstate)
+[
+	if st.modified then [
+		var buttons := [ msgbox_button.[
+				label : `Save`,
+				click : lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ edit_save(); if not st.modified then widget_enqueue_event(com.self, wevent.close); widget_destroy_onclick(id); ],
+			], msgbox_button.[
+				label : `Don't save`,
+				click : lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ widget_enqueue_event(com.self, wevent.close); widget_destroy_onclick(id); ],
+			], msgbox_button.[
+				label : `Cancel`,
+				click : lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ widget_destroy_onclick(id); ],
+				hotkeys : treeset_from_list([ key_esc, key_f10 ]),
+			],
+		];
+		var winid := msgbox_new(`File was modified`, widget_align.center, `File ` + st.file_name + ` was modified`, "", buttons);
+		return;
+	]
+	widget_enqueue_event(com.self, wevent.close);
+]
+
+fn edit_do_goto(implicit w : world, implicit app : appstate, implicit st : edit_state, text : string, mode : int) : (world, appstate, edit_state)
+[
+	var bstr := string_to_locale(st.ro.loc, text);
+	var num := ston(bstr);
+	if is_exception num or num < 0 then [
+invl:
+		acmd_error(`Invalid number`, ``);
+		return;
+	]
+	if mode = edit_goto_mode_line then [
+		if num = 0 then
+			goto invl;
+		num -= 1;
+		if num >= len(st.lines) then
+			goto invl;
+		st.y := num - 1;
+		st.x := 0;
+	] else if mode = edit_goto_mode_percents then [
+		if num > 100 then
+			goto invl;
+		st.y := (len(st.lines) - 1) * num div 100;
+		st.x := 0;
+	]
+]
+
+fn edit_send_goto(implicit app : appstate, implicit com : widget_common) : appstate
+[
+	widget_enqueue_event(com.self, wevent.set_property.(event_set_property.[
+		prop : "edit-goto",
+		val : property.n,
+
+	]));
+]
+
+fn edit_goto_dialog_layout(srch : bool, implicit app : appstate, ids : list(wid), offs_x offs_y min_x pref_x max_x : int) : (appstate, int, int)
+[
+	var e := len(ids);
+	var xs := 0;
+
+	if srch then
+		xs := max(xs, widget_get_width(ids[0], pref_x));
+	for i := 1 to e - 2 do
+		xs := max(xs, widget_get_width(ids[i], pref_x));
+	xs := max(xs, widgets_get_width(ids[e - 2 .. ], 2, pref_x));
+
+	xs := min(xs, max_x);
+	xs := max(xs, min_x);
+
+	var yp := offs_y + 1;
+	yp := widget_place(ids[0], offs_x, xs, yp);
+	yp += 1;
+	for i := 1 to e - 2 do
+		yp := widget_place(ids[i], offs_x, xs, yp);
+	yp += 1;
+	yp := widgets_place(ids[e - 2 .. ], widget_align.center, 2, 1, offs_x, xs, yp);
+
+	return xs, yp;
+]
+
+fn edit_goto(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : edit_state) : (world, appstate, widget_common, edit_state)
+[
+	var entries := [ dialog_entry.[
+			cls : input_class,
+			init : input_init("", "edit-goto-text", true,,,),
+		], dialog_entry.[
+			cls : checkbox_class,
+			init : checkbox_init(`Line number`, "", "edit-goto-mode", true, edit_goto_mode_line,,,),
+		], dialog_entry.[
+			cls : checkbox_class,
+			init : checkbox_init(`Percents`, "", "edit-goto-mode", true, edit_goto_mode_percents,,,),
+		], dialog_entry.[
+			cls : button_class,
+			init : button_init(`OK`, true, "", button_no_action, lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ edit_send_goto(); widget_destroy_onclick(id); ],,,),
+			hotkeys : treeset_from_list([ key_enter ]),
+		], dialog_entry.[
+			cls : button_class,
+			init : button_init(`Cancel`, true, "", button_no_action, lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ widget_destroy_onclick(id); ],,,),
+			hotkeys : treeset_from_list([ key_esc, key_f10 ]),
+		],
+	];
+	var winid := widget_new_window(dialog_class, dialog_init(`Go to`, entries, 0, dialog_no_event, edit_goto_dialog_layout(false,,,,,,,), "",,,), false);
+]
+
+fn is_word~inline(c : char) := c >= '0' and c <= '9' or c = '_';
+fn test_word~inline(c : char) : bool
+[
+	if is_word(char_to_unicode(c)) then
+		return true;
+	return char_upcase(c) <> c or char_locase(c) <> c;
+]
+
+fn edit_search_line(line : string, text : string, mode : int, cursor : int) : int
+[
+	var len_text := len(text);
+	var st en step : int;
+	if not mode bt edit_search_flag_backwards then [
+		st := 0;
+		en := len(line) - len_text;
+		if en < 0 then
+			return -1;
+		step := 1;
+	] else [
+		st := len(line) - len_text;
+		if st < 0 then
+			return -1;
+		en := 0;
+		step := -1;
+	]
+	while true do [
+		if mode bt edit_search_flag_case_sensitive then  [
+			for i := 0 to len_text do [
+				if line[st + i] <> text[i] then
+					goto next_c;
+			]
+		] else [
+			for i := 0 to len_text do [
+				if char_upcase(line[st + i]) <> char_upcase(text[i]) then
+					goto next_c;
+			]
+		]
+		if cursor <> -1 then [
+			if not mode bt edit_search_flag_backwards then [
+				if st <= cursor then
+					goto next_c;
+			] else [
+				if st >= cursor then
+					goto next_c;
+			]
+		]
+		if mode bt edit_search_flag_whole_words then [
+			if st > 0, test_word(line[st - 1]) then
+				goto next_c;
+			if st + len_text < len(line), test_word(line[st + len_text]) then
+				goto next_c;
+		]
+		return st;
+next_c:
+		if st = en then
+			break;
+		st += step;
+	]
+	return -1;
+]
+
+fn edit_do_search(implicit w : world, implicit app : appstate, implicit st : edit_state, text : string, mode : int) : (world, appstate, edit_state)
+[
+	var y := st.y;
+	var cursor := st.x;
+	var direction := select(mode bt edit_search_flag_backwards, 1, -1);
+again:
+	var found := edit_search_line(st.lines[y], text, mode, cursor);
+	if found >= 0 then [
+		st.x := found;
+		st.y := y;
+		return;
+	]
+	y += direction;
+	cursor := -1;
+	if y >= 0, y < len(st.lines) then
+		goto again;
+]
+
+fn edit_send_search(implicit app : appstate, implicit com : widget_common) : appstate
+[
+	widget_enqueue_event(com.self, wevent.set_property.(event_set_property.[
+		prop : "edit-search",
+		val : property.n,
+	]));
+]
+
+fn edit_search(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : edit_state) : (world, appstate, widget_common, edit_state)
+[
+	properties_backup([ "edit-search-text", "edit-search-flags" ]);
+	var entries := [ dialog_entry.[
+			cls : input_class,
+			init : input_init("", "edit-search-text", true,,,),
+		], dialog_entry.[
+			cls : checkbox_class,
+			init : checkbox_init(`Case sensitive`, "", "edit-search-flags", false, edit_search_flag_case_sensitive,,,),
+		], dialog_entry.[
+			cls : checkbox_class,
+			init : checkbox_init(`Backwards`, "", "edit-search-flags", false, edit_search_flag_backwards,,,),
+		], dialog_entry.[
+			cls : checkbox_class,
+			init : checkbox_init(`Whole words`, "", "edit-search-flags", false, edit_search_flag_whole_words,,,),
+		], dialog_entry.[
+			cls : button_class,
+			init : button_init(`OK`, true, "", button_no_action, lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ edit_send_search(); widget_destroy_onclick(id); ],,,),
+			hotkeys : treeset_from_list([ key_enter ]),
+		], dialog_entry.[
+			cls : button_class,
+			init : button_init(`Cancel`, true, "", button_no_action, lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ properties_revert([ "edit-search-text", "edit-search-flags" ]); widget_destroy_onclick(id); ],,,),
+			hotkeys : treeset_from_list([ key_esc, key_f10 ]),
+		],
+	];
+	var winid := widget_new_window(dialog_class, dialog_init(`Search`, entries, 0, dialog_no_event, edit_goto_dialog_layout(true,,,,,,,), "",,,), false);
+]
+
+
+fn edit_tab_step~inline(col : int) : int
+[
+	return (col + 8) and not 7;
+]
+
+fn edit_redraw(implicit app : appstate, implicit curs : curses, com : widget_common, st : edit_state) : curses
+[
+	property_set_attrib(property_get_attrib("acmd-viewer-caption", #0000, #0000, #0000, #0000, #aaaa, #aaaa, 0, curses_invert));
+	curses_fill_rect(0, com.size_x, 0, 1, ' ');
+	curses_set_pos(0, 0);
+	curses_print(st.file_name);
+
+	var cpos := ascii_to_string(ntos(st.x + 1)) + ` / ` + ascii_to_string(ntos(st.y + 1));
+	curses_set_pos(com.size_x - string_length(cpos), 0);
+	curses_print(cpos);
+
+	property_set_attrib(property_get_attrib("acmd-viewer", #aaaa, #aaaa, #aaaa, #0000, #0000, #aaaa, 0, 0));
+
+	if st.loading then [
+		curses_fill_rect(0, com.size_x, 1, com.size_y, ' ');
+		var str := `Loading ...`;
+		curses_set_pos(com.size_x - string_length(str) shr 1, com.size_y shr 1);
+		curses_print(str);
+		return;
+	]
+
+	for i := 0 to com.size_y do [
+		var li := i + st.yview;
+		if not curses_test_viewport(0, com.size_x, i + 1, i + 2) then
+			continue;
+		curses_fill_rect(0, com.size_x, i + 1, i + 2, ' ');
+		if li >= len(st.lines) then
+			continue;
+		curses_set_pos(-st.xview, i + 1);
+		var prnt := st.lines[li];
+		if list_search(prnt, 9) >= 0 then [
+			var p2 := empty(char);
+			var col := 0;
+			for i := 0 to len(prnt) do [
+				var c := prnt[i];
+				if c = 9 then [
+					var old_col := col;
+					col := edit_tab_step(col);
+					p2 += list_repeat(` `, col - old_col);
+					continue;
+				]
+				col += char_length(c);
+				p2 +<= c;
+			]
+			prnt := p2;
+		]
+		curses_print(prnt);
+	]
+]
+
+fn edit_get_column(st : edit_state) : int
+[
+	var col := 0;
+	var ln := st.lines[st.y];
+	for i := 0 to st.x do [
+		var c := ln[i];
+		if c = 9 then [
+			col := edit_tab_step(col);
+			continue;
+		]
+		col += char_length(c);
+	]
+	return col;
+]
+
+fn edit_column_to_offset(st : edit_state, col : int) : int
+[
+	var xcol := 0;
+	var ln := st.lines[st.y];
+	for i := 0 to len(ln) do [
+		var c := ln[i];
+		if c = 9 then [
+			xcol := edit_tab_step(xcol);
+		] else [
+			xcol += char_length(c);
+		]
+		if xcol > col then
+			return i;
+	]
+	return len(ln);
+]
+
+fn edit_get_cursor(app : appstate, com : widget_common, st : edit_state) : (int, int)
+[
+	if st.loading then
+		return -1, -1;
+	return edit_get_column(st) - st.xview, 1 + st.y - st.yview;
+]
+
+fn edit_set_fkeys(implicit app : appstate, implicit com : widget_common) : appstate
+[
+	if widget_is_top(com.self) then [
+		property_set("fkeys", property.l.([
+			property.s.(``),
+			property.s.(`Save`),
+			property.s.(`Quit`),
+			property.s.(``),
+			property.s.(`Goto`),
+			property.s.(``),
+			property.s.(`Search`),
+			property.s.(``),
+			property.s.(``),
+			property.s.(`Quit`),
+		]));
+	]
+]
+
+fn edit_process_event(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : edit_state, wev : wevent) : (world, appstate, widget_common, edit_state)
+[
+	var do_redraw := false;
+	var do_redraw_line := false;
+	if wev is resize then [
+		com.x := 0;
+		com.y := 0;
+		com.size_x := wev.resize.x;
+		com.size_y := wev.resize.y - 1;
+		do_redraw := true;
+		goto set_view;
+	]
+	if wev is change_focus then [
+		edit_set_fkeys();
+		return;
+	]
+	if wev is keyboard then [
+		var k := wev.keyboard;
+		if st.last_key.key = key_esc, k.key = key_esc then [
+			widget_enqueue_event(com.self, wevent.close);
+			return;
+		]
+		if st.last_key.key = key_esc, k.key >= '0', k.key <= '9', k.flags = 0 then [
+			var f := (k.key - '1' + 10) mod 10;
+			k.key := key_f1 - f;
+		]
+		if k.key >= '0', k.key <= '9', k.flags = key_flag_alt then [
+			var f := (k.key - '1' + 10) mod 10;
+			k.key := key_f1 - f;
+		]
+		var lk := st.last_key;
+		st.last_key := k;
+		if k.key = key_f2 then [
+			edit_save();
+			return;
+		]
+		if k.key = key_f3 or k.key = key_f10 then [
+			edit_quit();
+			return;
+		]
+		if st.loading then
+			return;
+		if k.key = key_f5 then [
+			edit_goto();
+			return;
+		]
+		if k.key = key_f7 then [
+			edit_search();
+			return;
+		]
+		if k.key = key_left then [
+			if k.rep = 0 then
+				return;
+			st.x -= k.rep;
+			while st.x < 0 do [
+				if st.y = 0 then
+					break;
+				st.y -= 1;
+				st.x := len(st.lines[st.y]) + 1 - st.x;
+			]
+			goto set_view;
+		]
+		if k.key = key_right then [
+			if k.rep = 0 then
+				return;
+			st.x += k.rep;
+			while st.x > len(st.lines[st.y]) do [
+				var s := st.x - len(st.lines[st.y]);
+				if st.y = len(st.lines) - 1 then
+					break;
+				st.y += 1;
+				st.x := s - 1;
+			]
+			goto set_view;
+		]
+		if k.key = key_home or k.key = 'A' and k.flags = key_flag_ctrl then [
+			st.x := 0;
+			if lk.key = key_home or lk.key = 'A' and lk.flags = key_flag_ctrl then [
+				st.y := 0;
+			]
+			goto set_view;
+		]
+		if k.key = key_end or k.key = 'E' and k.flags = key_flag_ctrl then [
+			if lk.key = key_end or lk.key = 'E' and lk.flags = key_flag_ctrl then [
+				st.y := len(st.lines) - 1;
+			]
+			st.x := len(st.lines[st.y]);
+			goto set_view;
+		]
+		if k.key = key_up then [
+			for i := 0 to k.rep do [
+				if st.y = 0 then
+					break;
+				var col := edit_get_column(st);
+				st.y -= 1;
+				st.x := edit_column_to_offset(st, col);
+			]
+			goto set_view;
+		]
+		if k.key = key_down then [
+			for i := 0 to k.rep do [
+				if st.y = len(st.lines) - 1 then
+					break;
+				var col := edit_get_column(st);
+				st.y += 1;
+				st.x := edit_column_to_offset(st, col);
+			]
+			goto set_view;
+		]
+		if k.key = key_page_up or k.key = 'B' and k.flags = key_flag_ctrl, com.size_y > 0 then [
+			for i := 0 to k.rep do [
+				var col := edit_get_column(st);
+				st.y -= com.size_y - 1;
+				if st.y < 0 then
+					st.y := 0;
+				st.yview -= com.size_y - 1;
+				if st.yview < 0 then
+					st.yview := 0;
+				st.x := edit_column_to_offset(st, col);
+				do_redraw := true;
+			]
+			goto set_view;
+		]
+		if k.key = key_page_down or k.key = 'F' and k.flags = key_flag_ctrl, com.size_y > 0 then [
+			for i := 0 to k.rep do [
+				var col := edit_get_column(st);
+				var oy := st.y;
+				st.y += com.size_y - 1;
+				if st.y > len(st.lines) - 1 then
+					st.y := len(st.lines) - 1;
+				st.yview += com.size_y - 1;
+				if st.yview >= len(st.lines) then
+					st.yview -= com.size_y - 1;
+				st.x := edit_column_to_offset(st, col);
+				do_redraw := true;
+			]
+			goto set_view;
+		]
+		if k.key = key_backspace or k.key = 'H' and (k.flags and key_flag_ctrl) <> 0 then [
+			for i := 0 to k.rep do [
+				if st.x > 0 then [
+					var ln := st.lines[st.y];
+					st.lines[st.y] := ln[ .. st.x - 1] + ln[st.x .. ];
+					st.x -= 1;
+					st.modified := true;
+					do_redraw_line := true;
+				] else if st.y > 0 then [
+					st.x := len(st.lines[st.y - 1]);
+					st.lines[st.y - 1] += st.lines[st.y];
+					st.lines := st.lines[ .. st.y] + st.lines[st.y + 1 .. ];
+					st.y -= 1;
+					st.modified := true;
+					do_redraw := true;
+				]
+			]
+			goto set_view;
+		]
+		if k.key = key_delete or k.key = 'D' and (k.flags and key_flag_ctrl) <> 0 then [
+			for i := 0 to k.rep do [
+				if st.x < len(st.lines[st.y]) then [
+					var ln := st.lines[st.y];
+					st.lines[st.y] := ln[ .. st.x] + ln[st.x + 1 .. ];
+					st.modified := true;
+					do_redraw_line := true;
+				] else if st.y < len(st.lines) - 1 then [
+					st.lines[st.y] += st.lines[st.y + 1];
+					st.lines := st.lines[ .. st.y + 1] + st.lines[st.y + 2 .. ];
+					st.modified := true;
+					do_redraw := true;
+				]
+			]
+			goto set_view;
+		]
+		if k.key = key_enter then [
+			for i := 0 to k.rep do [
+				var ln1 := st.lines[st.y][ .. st.x];
+				var ln2 := st.lines[st.y][st.x .. ];
+				st.lines := st.lines[.. st.y] + [ ln1, ln2 ] + st.lines[st.y + 1 .. ];
+				st.y += 1;
+				st.x := 0;
+					st.modified := true;
+				do_redraw := true;
+			]
+			goto set_view;
+		]
+		if k.key = key_tab then
+			k.key := 9;
+		if k.key >= 0 and k.flags = 0 then [
+			if k.rep > 0 then [
+				var ln := st.lines[st.y];
+				st.lines[st.y] := ln[ .. st.x] + list_repeat([ k.key ], k.rep) + ln[st.x .. ];
+				st.x += 1;
+				st.modified := true;
+				do_redraw_line := true;
+				goto set_view;
+			]
+			return;
+		]
+		return;
+	]
+	if wev is mouse then [
+		var m := wev.mouse;
+		if m.wy <> 0 then [
+			st.yview += m.wy * 5;
+			if st.yview >= len(st.lines) then
+				st.yview := len(st.lines) - 1;
+			if st.yview < 0 then
+				st.yview := 0;
+			if st.y < st.yview then [
+				st.y := st.yview;
+				st.x := 0;
+			]
+			if st.y >= st.yview + (com.size_y - 1) then
+				st.y := st.yview + (com.size_y - 1) - 1;
+			if st.y < 0 then
+				st.y := 0;
+			do_redraw := true;
+		]
+		var mx, my := widget_relative_mouse_coords(com.self, wev.mouse);
+		if my < 1 then
+			goto set_view;
+		my -= 1;
+		if m.buttons bt 0 then [
+			var y := st.yview + my;
+			if y >= len(st.lines) then
+				y := len(st.lines) - 1;
+			st.y := y;
+			st.x := edit_column_to_offset(st, st.xview + mx);
+		]
+		goto set_view;
+	]
+	if wev is set_property then [
+		if wev.set_property.prop = "edit-goto" then [
+			var text := property_get("edit-goto-text").s;
+			var mode := property_get("edit-goto-mode").i;
+			edit_do_goto(text, mode);
+			do_redraw := true;
+			goto set_view;
+		]
+		if wev.set_property.prop = "edit-search" then [
+			var text := property_get("edit-search-text").s;
+			var flags := property_get("edit-search-flags").i;
+			if len(text) = 0 then [
+				acmd_error(`Empty search string`, ``);
+				return;
+			]
+			edit_do_search(text, flags);
+			do_redraw := true;
+			goto set_view;
+		]
+		if wev.set_property.prop = "async-finished", st.loading then [
+			if is_exception st.lines_async then [
+				acmd_error(`Error loading file ` + st.file_name, locale_to_string(st.ro.loc, exception_string(st.lines_async)));
+				widget_enqueue_event(com.self, wevent.close);
+				return;
+			]
+			st.lines := st.lines_async;
+			st.lines_async := empty(string);
+			st.loading := false;
+			do_redraw := true;
+			goto set_view;
+		]
+	]
+	return;
+
+set_view:
+	if st.y < 0 then
+		st.y := 0;
+	if st.y >= len(st.lines) then
+		st.y := len(st.lines) - 1;
+	if st.y < st.yview then [
+		st.yview := st.y;
+		do_redraw :=true;
+	]
+	if st.y >= st.yview + (com.size_y - 1) then [
+		st.yview := st.y - (com.size_y - 1) + 1;
+		if st.yview < 0 then
+			st.yview := 0;
+		do_redraw := true;
+	]
+
+	if st.x < 0 then
+		st.x := 0;
+	if st.x > len(st.lines[st.y]) then
+		st.x := len(st.lines[st.y]);
+	var col := edit_get_column();
+	if col < st.xview then [
+		st.xview := col;
+		do_redraw := true;
+	]
+	if col >= st.xview + com.size_x then [
+		st.xview := col - com.size_x + 1;
+		if st.xview < 0 then
+			st.xview := 0;
+		do_redraw := true;
+	]
+
+	if not do_redraw then [
+		widget_enqueue_event(com.self, wevent.redraw.(event_redraw.[
+			x1 : 0,
+			x2 : com.size_x,
+			y1 : 0,
+			y2 : 1,
+		]));
+		if do_redraw_line then [
+			widget_enqueue_event(com.self, wevent.redraw.(event_redraw.[
+				x1 : 0,
+				x2 : com.size_x,
+				y1 : 1 + st.y - st.yview,
+				y2 : 1 + st.y - st.yview + 1,
+			]));
+		]
+		return;
+	]
+
+redraw:
+	widget_enqueue_event(com.self, wevent.redraw.(event_redraw.[
+		x1 : 0,
+		x2 : com.size_x,
+		y1 : 0,
+		y2 : com.size_y,
+	]));
+]

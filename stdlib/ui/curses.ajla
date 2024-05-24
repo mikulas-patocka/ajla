@@ -1,0 +1,1398 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit ui.curses;
+
+uses io;
+uses treemap;
+uses ui.event;
+uses ui.rect;
+
+type curses;
+
+fn curses_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(bytes, bytes)) : (world, curses);
+fn curses_done(implicit w : world, curs : curses) : world;
+
+fn curses_set_pos~inline(curs : curses, x y : int) : curses;
+fn curses_get_pos~inline(curs : curses) : (int, int);
+fn curses_restrict_viewport(curs : curses, x1 x2 y1 y2 : int, xo yo : int) : curses;
+fn curses_revert_viewport(curs : curses) : curses;
+fn curses_get_scissors(curs : curses) : rect;
+fn curses_valid_viewport(curs : curses) : bool;
+fn curses_test_viewport(curs : curses, x1 x2 y1 y2 : int) : bool;
+fn curses_n_colors~inline(curs : curses) : int;
+fn curses_set_fgcolor(curs : curses, r g b : uint16) : curses;
+fn curses_set_bgcolor(curs : curses, r g b : uint16) : curses;
+const curses_underline : uint8 := 1;
+const curses_blink : uint8 := 2;
+const curses_bold : uint8 := 4;
+const curses_invert : uint8 := 8;
+private const curses_acs : uint8 := 16;
+private const curses_left_wide : uint8 := 32;
+private const curses_right_wide : uint8 := 64;
+fn curses_set_attributes(curs : curses, flags : uint8) : curses;
+fn curses_set_cursor~inline(curs : curses, x y : int) : curses;
+fn curses_print(curs : curses, str : string) : curses;
+fn curses_set_char(curs : curses, x y : int, ch : char) : curses;
+fn curses_fill_rect(curs : curses, x1 x2 y1 y2 : int, ch : char) : curses;
+fn curses_recolor_rect(curs : curses, x1 x2 y1 y2 : int) : curses;
+fn curses_hline(curs : curses, x1 : int, x2 : int, y : int, width : int) : curses;
+fn curses_vline(curs : curses, x : int, y1 : int, y2 : int, width : int) : curses;
+fn curses_box(curs : curses, x1 x2 y1 y2 : int, width : int) : curses;
+fn curses_frame(curs : curses, x y : int, frame : uint16) : curses;
+
+fn curses_update(w : world, curs : curses) : (world, curses);
+
+fn curses_get_event(w : world, curs : curses, t : type, altmq : msgqueue(t)) : (world, curses, event);
+
+implementation
+
+uses charset;
+uses exception;
+uses ui.termcap;
+uses pcode;
+
+type packets := list(int32);
+
+type ccolor := uint8;
+
+const color_16_offset : ccolor := 16;
+const color_216_offset : ccolor := 32;
+
+record cchar~flat [
+	ch : char;
+	fgcolor : ccolor;
+	bgcolor : ccolor;
+	attrib : uint8;
+]
+
+fn cchar_equal~inline(b1 b2 : cchar) : bool := b1.ch = b2.ch and b1.fgcolor = b2.fgcolor and b1.bgcolor = b2.bgcolor and b1.attrib = b2.attrib;
+implicit fn instance_eq_cchar~inline : class_eq(cchar) :=
+	class_eq(cchar).[
+		equal : cchar_equal,
+	];
+
+option color_mode~flat [
+	mono;
+	color16;
+	color256;
+]
+
+const acs_map~lazy : array(byte, [#110000])
+[
+	var am := array_sparse(byte, 0, [#110000]);
+	am[#00a3] := '}';
+	am[#00b0] := 'f';
+	am[#00b1] := 'g';
+	am[#00b7] := '~';
+	am[#03c0] := '{';
+	am[#2190] := ',';
+	am[#2191] := '-';
+	am[#2192] := '+';
+	am[#2193] := '.';
+	am[#2260] := '|';
+	am[#2264] := 'y';
+	am[#2265] := 'z';
+	am[#23ba] := 'o';
+	am[#23bb] := 'p';
+	am[#23bc] := 'r';
+	am[#23bd] := 's';
+	am[#240b] := 'i';
+	am[#2500] := 'q';
+	am[#2502] := 'x';
+	am[#250c] := 'l';
+	am[#2510] := 'k';
+	am[#2514] := 'm';
+	am[#2518] := 'j';
+	am[#251c] := 't';
+	am[#2524] := 'u';
+	am[#252c] := 'w';
+	am[#2534] := 'v';
+	am[#253c] := 'n';
+	am[#2550] := 'q';
+	am[#2551] := 'x';
+	am[#2552] := 'l';
+	am[#2553] := 'l';
+	am[#2554] := 'l';
+	am[#2555] := 'k';
+	am[#2556] := 'k';
+	am[#2557] := 'k';
+	am[#2558] := 'm';
+	am[#2559] := 'm';
+	am[#255a] := 'm';
+	am[#255b] := 'j';
+	am[#255c] := 'j';
+	am[#255d] := 'j';
+	am[#255e] := 't';
+	am[#255f] := 't';
+	am[#2560] := 't';
+	am[#2561] := 'u';
+	am[#2562] := 'u';
+	am[#2563] := 'u';
+	am[#2564] := 'w';
+	am[#2565] := 'w';
+	am[#2566] := 'w';
+	am[#2567] := 'v';
+	am[#2568] := 'v';
+	am[#2569] := 'v';
+	am[#256a] := 'n';
+	am[#256b] := 'n';
+	am[#256c] := 'n';
+	am[#2588] := '0';
+	am[#2591] := 'h';
+	am[#2592] := 'a';
+	am[#25c6] := '`';
+	return am;
+]
+
+record viewport [
+	x1 x2 y1 y2 : int;
+	xo yo : int;
+]
+
+record curses [
+	packet_mode : bool;
+	tc : termcap;
+	loc : locale;
+	acs_map : array(byte, [#110000]);
+	prefer_acs_map : bool;
+	frame_fallback : bool;
+
+	const x y : int;
+	cm : color_mode;
+	underline_supported : bool;
+	blink_supported : bool;
+	bold_supported : bool;
+	altcharset_map : array(byte, [#80]);
+	have_set_attributes : bool;
+	have_right_bottom : bool;
+	tilde_glitch : bool;
+
+	buffer : array(cchar, [y, x]);
+	back_buffer : array(cchar, [y, x]);
+	h : list(handle);
+
+	fgcolor : ccolor;
+	bgcolor : ccolor;
+	attributes : uint8;
+	px : int;
+	py : int;
+	scissors : rect;
+	xo : int;
+	yo : int;
+	old_viewport : list(viewport);
+
+	cx : int;
+	cy : int;
+
+	current_cx : int;
+	current_cy : int;
+	current_fgcolor : int;
+	current_bgcolor : int;
+	current_attributes : int;
+	cursor_visible : bool;
+
+	sgr_underline : bool;
+	sgr_inverse : bool;
+	sgr_blink : bool;
+	sgr_bold : bool;
+	sgr_altcharset : bool;
+
+	lines_redraw : int64;
+	mouse_visible : bool;
+	mouse_x : int;
+	mouse_y : int;
+
+	q : msgqueue(event);
+	kbd_thread : bottom_type;
+	resize_thread : bottom_type;
+	mouse_thread : bottom_type;
+
+	event_buffer : list(event);
+]
+
+fn curses_hide_mouse(implicit curs : curses) : (curses, bytes, packets);
+
+fn curses_string_sgr(implicit curs : curses) : (curses, bytes)
+[
+	var str := "";
+	var s : bytes;
+	if curs.have_set_attributes then [
+		curs.tc, s := termcap_substitute_string(curs.tc, tc_s_set_attributes, [
+			tc_param.num.(0),
+			tc_param.num.(select(curs.sgr_underline, 0, 1)),
+			tc_param.num.(select(curs.sgr_inverse, 0, 1)),
+			tc_param.num.(select(curs.sgr_blink, 0, 1)),
+			tc_param.num.(0),
+			tc_param.num.(select(curs.sgr_bold, 0, 1)),
+			tc_param.num.(0),
+			tc_param.num.(0),
+			tc_param.num.(select(curs.sgr_altcharset, 0, 1)),
+
+		]);
+		str += s;
+	] else [
+		curs.tc, s := termcap_substitute_string(curs.tc, tc_s_exit_attribute_mode, empty(tc_param));
+		str += s;
+		if curs.sgr_underline then [
+			curs.tc, s := termcap_substitute_string(curs.tc, tc_s_enter_underline_mode, empty(tc_param));
+			str += s;
+		]
+		if curs.sgr_inverse then [
+			curs.tc, s := termcap_substitute_string(curs.tc, tc_s_enter_reverse_mode, empty(tc_param));
+			str += s;
+		]
+		if curs.sgr_blink then [
+			curs.tc, s := termcap_substitute_string(curs.tc, tc_s_enter_blink_mode, empty(tc_param));
+			str += s;
+		]
+		if curs.sgr_bold then [
+			curs.tc, s := termcap_substitute_string(curs.tc, tc_s_enter_bold_mode, empty(tc_param));
+			str += s;
+		]
+		if curs.sgr_altcharset then [
+			curs.tc, s := termcap_substitute_string(curs.tc, tc_s_enter_alt_charset_mode, empty(tc_param));
+			str += s;
+		]
+	]
+	if not curs.cm is mono then [
+		curs.current_fgcolor := -1;
+		curs.current_bgcolor := -1;
+	]
+	return str;
+]
+
+fn curses_string_color(implicit curs : curses, fg bg : ccolor, attributes : int) : (curses, bytes)
+[
+	var str := "";
+	var s : bytes;
+	var sgr_underline := curs.underline_supported and (attributes and curses_underline) <> 0;
+	var sgr_inverse := false;
+	if curs.cm is mono then [
+		sgr_inverse := bg > fg xor (attributes and curses_invert) <> 0;
+	] else [
+		if (attributes and curses_invert) <> 0 then
+			fg, bg := bg, fg;
+	]
+	var sgr_blink := curs.blink_supported and (attributes and curses_blink) <> 0;
+	var sgr_bold := curs.bold_supported and (attributes and curses_bold) <> 0;
+	if curs.bold_supported, not curs.cm is color256, fg >= 8 then
+		sgr_bold := true;
+	var sgr_altcharset := (attributes and curses_acs) <> 0;
+	if sgr_underline <> curs.sgr_underline or
+	   sgr_inverse <> curs.sgr_inverse or
+	   sgr_blink <> curs.sgr_blink or
+	   sgr_bold <> curs.sgr_bold or
+	   sgr_altcharset <> curs.sgr_altcharset then [
+		curs.sgr_underline := sgr_underline;
+		curs.sgr_inverse := sgr_inverse;
+		curs.sgr_blink := sgr_blink;
+		curs.sgr_bold := sgr_bold;
+		curs.sgr_altcharset := sgr_altcharset;
+		s := curses_string_sgr(curs);
+		str += s;
+	]
+	if not curs.cm is mono then [
+		if curs.current_fgcolor <> fg then [
+			curs.tc, s := termcap_substitute_string(curs.tc, tc_s_set_a_foreground, [ tc_param.num.(select(curs.cm is color16, fg, fg and 7)) ]);
+			str += s;
+			curs.current_fgcolor := fg;
+		]
+		if curs.current_bgcolor <> bg then [
+			curs.tc, s := termcap_substitute_string(curs.tc, tc_s_set_a_background, [ tc_param.num.(select(curs.cm is color16, bg, bg and 7)) ]);
+			str += s;
+			curs.current_bgcolor := bg;
+		]
+	] else [
+		curs.current_fgcolor := fg;
+		curs.current_bgcolor := bg;
+	]
+	return str;
+]
+
+fn default_16_rgb(i : int) : (int, int, int)
+[
+	var rc := select(i bt 0, 0, 1000);
+	var gc := select(i bt 1, 0, 1000);
+	var bc := select(i bt 2, 0, 1000);
+	if not i bt 3 then [
+		rc := rc * 2 div 3;
+		gc := gc * 2 div 3;
+		bc := bc * 2 div 3;
+	] else [
+		if rc = 0, gc = 0, bc = 0 then
+			rc, gc, bc := 1000 div 3, 1000 div 3, 1000 div 3;
+	]
+	return rc, gc, bc;
+]
+
+fn rgb_to_color(cm : color_mode, r g b : uint16) : ccolor
+[
+	if cm is color256 then [
+		if r = #0000, g = #0000, b = #0000 then return color_16_offset + 0;
+		if r = #aaaa, g = #0000, b = #0000 then return color_16_offset + 1;
+		if r = #0000, g = #aaaa, b = #0000 then return color_16_offset + 2;
+		if r = #aaaa, g = #aaaa, b = #0000 then return color_16_offset + 3;
+		if r = #0000, g = #0000, b = #aaaa then return color_16_offset + 4;
+		if r = #aaaa, g = #0000, b = #aaaa then return color_16_offset + 5;
+		if r = #0000, g = #aaaa, b = #aaaa then return color_16_offset + 6;
+		if r = #aaaa, g = #aaaa, b = #aaaa then return color_16_offset + 7;
+		if r = #5555, g = #5555, b = #5555 then return color_16_offset + 8;
+		if r = #ffff, g = #0000, b = #0000 then return color_16_offset + 9;
+		if r = #0000, g = #ffff, b = #0000 then return color_16_offset + 10;
+		if r = #ffff, g = #ffff, b = #0000 then return color_16_offset + 11;
+		if r = #0000, g = #0000, b = #ffff then return color_16_offset + 12;
+		if r = #ffff, g = #0000, b = #ffff then return color_16_offset + 13;
+		if r = #0000, g = #ffff, b = #ffff then return color_16_offset + 14;
+		if r = #ffff, g = #ffff, b = #ffff then return color_16_offset + 15;
+		var rt := (5 * r + #7fff) div #ffff;
+		var gt := (5 * g + #7fff) div #ffff;
+		var bt := (5 * b + #7fff) div #ffff;
+		//eval debug("color: " + ntos(rt) + ", " + ntos(gt) + ", " + ntos(bt));
+		return color_216_offset + rt * 36 + gt * 6 + bt;
+	]
+	var rf := r > #5555;
+	var gf := g > #5555;
+	var bf := b > #5555;
+	var bold := r > #aaaa or g > #aaaa or b > #aaaa;
+	if r = #5555, g = #5555, b = #5555 then
+		bold := true;
+	return select(rf, 0, 1) + select(gf, 0, 2) + select(bf, 0, 4) + select(bold, 0, 8);
+]
+
+fn default_fg_color(cm : color_mode) : ccolor := rgb_to_color(cm, #aaaa, #aaaa, #aaaa);
+fn default_bg_color(cm : color_mode) : ccolor := rgb_to_color(cm, 0, 0, 0);
+
+fn curses_string_setpos(implicit curs : curses, x y : int) : (curses, bytes, packets)
+[
+	var s := "";
+	var pkt := packets.[];
+	if x = curs.current_cx, y = curs.current_cy then
+		goto ret;
+	if curs.packet_mode then [
+		pkt := packets.[ 3, x, y ];
+	] else [
+		curs.tc, s := termcap_substitute_string(curs.tc, tc_s_cursor_address, [ tc_param.num.(y), tc_param.num.(x) ]);
+	]
+	curs.current_cx := x;
+	curs.current_cy := y;
+ret:
+	return s, pkt;
+]
+
+fn curses_prepare_for_redraw(implicit curs : curses) : curses
+[
+	for j := 0 to curs.y do
+		for i := 0 to curs.x do
+			curs.back_buffer[j, i].ch := -2;
+	curs.lines_redraw := -1;
+]
+
+fn curses_string_cls(implicit curs : curses) : (curses, bytes, packets)
+[
+	if curs.packet_mode then [
+		curses_prepare_for_redraw();
+		curs.cursor_visible := true;
+		return "", packets.[ 4, 1 ];
+	]
+	var str := "";
+	var s : bytes;
+	curs.tc, s := termcap_substitute_string(curs.tc, tc_s_exit_attribute_mode, empty(tc_param));
+	str += s;
+	s := curses_string_color(default_fg_color(curs.cm), default_bg_color(curs.cm), 0);
+	str += s;
+	if termcap_has_string(curs.tc, tc_s_clear_screen) then [
+		curs.tc, s := termcap_substitute_string(curs.tc, tc_s_clear_screen, empty(tc_param));
+		str += s;
+		curs.current_cx := 0;
+		curs.current_cy := 0;
+	]
+	if not termcap_has_string(curs.tc, tc_s_clear_screen) or not termcap_query_bool(curs.tc, tc_b_back_color_erase) then [
+		curses_prepare_for_redraw();
+	]
+	curs.tc, s := termcap_substitute_string(curs.tc, tc_s_cursor_normal, empty(tc_param));
+	str += s;
+	curs.cursor_visible := true;
+	return str, packets.[];
+]
+
+fn curses_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(bytes, bytes)) : (world, curses)
+[
+	var loc := locale_console_init(env);
+	var packet_mode := false;
+
+	var tc := exception_make(termcap, ec_sync, error_not_supported, 0, true);
+
+	var cm := color_mode.color16;
+
+	var underline_supported := false;
+	var blink_supported := false;
+	var bold_supported := false;
+
+	var altcharset_supported := false;
+	var altcharset_map := array_fill(byte, 0, [#80]);
+
+	var have_set_attributes := false;
+	var have_right_bottom := true;
+	var tilde_glitch := false;
+
+	var os := sysprop(SystemProperty_OS);
+	if os = SystemProperty_OS_DOS or os = SystemProperty_OS_OS2 or os = SystemProperty_OS_Windows then [
+		packet_mode := true;
+	] else [
+		tc := termcap_init(d, env);
+
+		if not termcap_has_string(tc, tc_s_cursor_address) then
+			abort exception_make_str(int, ec_sync, error_not_supported, 0, false, "The terminal is too dumb");
+
+		var colors := termcap_query_number(tc, tc_n_max_colors);
+
+		cm := color_mode.mono;
+		if colors >= 8,
+		   termcap_has_string(tc, tc_s_set_a_foreground),
+		   termcap_has_string(tc, tc_s_set_a_background) then [
+			cm := color_mode.color16;
+		]
+		if colors >= 256,
+		   termcap_has_string(tc, tc_s_set_a_foreground),
+		   termcap_has_string(tc, tc_s_set_a_background),
+		   termcap_query_bool(tc, tc_b_can_change),
+		   not termcap_query_bool(tc, tc_b_hue_lightness_saturation),
+		   termcap_has_string(tc, tc_s_initialize_color),
+		   termcap_has_string(tc, tc_s_orig_colors) then [
+			cm := color_mode.color256;
+		]
+
+		underline_supported := true;
+		blink_supported := true;
+		bold_supported := true;
+		altcharset_supported := termcap_has_string(tc, tc_s_acs_chars);
+		if not cm is mono then [
+			var ncv := termcap_query_number(tc, tc_n_no_color_video);
+			if ncv >= 0 then [
+				underline_supported and= not ncv bt 1;
+				blink_supported and= not ncv bt 3;
+				bold_supported and= not ncv bt 5;
+				altcharset_supported and= not ncv bt 8;
+			]
+		]
+		if altcharset_supported then [
+			var str := termcap_query_string(tc, tc_s_acs_chars);
+			var i := 0;
+			while len_greater_than(str, i + 1) do [
+				var key := str[i];
+				var value := str[i + 1];
+				//eval debug("acs map: " + ntos(key) + ", " + ntos(value));
+				if key < #80 then
+					altcharset_map[key] := value;
+				i += 2;
+			]
+		]
+		have_set_attributes := termcap_has_string(tc, tc_s_set_attributes);
+		have_right_bottom := termcap_query_bool(tc, tc_b_eat_newline_glitch);
+		tilde_glitch := termcap_query_bool(tc, tc_b_tilde_glitch);
+	]
+
+	var old_w := w;
+	var xx, yy := tty_size(h[0], -1, -1);
+	if is_exception w then [
+		recover_world(old_w);
+		if packet_mode then [
+			xx := 80;
+			yy := 25;
+		] else [
+			xx := termcap_query_number(tc, tc_n_columns);
+			yy := termcap_query_number(tc, tc_n_lines);
+			if xx < 0 then xx := 80;
+			if yy < 0 then yy := 24;
+		]
+	]
+	const x := xx;
+	const y := yy;
+	var prefer_acs_map := false;
+	if not packet_mode, list_begins_with(termcap_get_term(tc), "linux") then
+		prefer_acs_map := true;
+	var frame_fallback := false;
+	if not packet_mode, list_begins_with(termcap_get_term(tc), "cygwin") then
+		frame_fallback := true;
+	if sysprop(SystemProperty_OS) = SystemProperty_OS_Windows then
+		frame_fallback := true;
+	var space := cchar.[ ch : ' ', fgcolor : default_fg_color(cm), bgcolor : default_bg_color(cm), attrib : 0 ];
+	implicit var curs := curses.[
+		packet_mode : packet_mode,
+		tc : tc,
+		loc : loc,
+		acs_map : acs_map,
+		prefer_acs_map : prefer_acs_map,
+		frame_fallback : frame_fallback,
+		x : x,
+		y : y,
+		cm : cm,
+		underline_supported : underline_supported,
+		blink_supported : blink_supported,
+		bold_supported : bold_supported,
+		altcharset_map : altcharset_map,
+		have_set_attributes : have_set_attributes,
+		have_right_bottom : have_right_bottom,
+		tilde_glitch : tilde_glitch,
+		buffer : array_fill(space, [y, x]),
+		back_buffer : array_fill(space, [y, x]),
+		h : h,
+		fgcolor : default_fg_color(cm),
+		bgcolor : default_bg_color(cm),
+		attributes : 0,
+		px : 0,
+		py : 0,
+		xo : 0,
+		yo : 0,
+		scissors : rect.[ x1 : 0, y1 : 0, x2 : x, y2 : y ],
+		old_viewport : empty(viewport),
+		cx : 0,
+		cy : 0,
+		current_cx : -1,
+		current_cy : -1,
+		current_fgcolor : -1,
+		current_bgcolor : -1,
+		current_attributes : 0,
+		cursor_visible : true,
+		sgr_underline : false,
+		sgr_inverse : false,
+		sgr_blink : false,
+		sgr_bold : false,
+		sgr_altcharset : false,
+		lines_redraw : 0,
+		mouse_visible : false,
+		event_buffer : empty(event),
+	];
+
+	curs.q := msgqueue_new(event);
+
+	if not packet_mode then [
+		var str := "";
+		var s : bytes;
+		var pkt : packets;
+		curs.tc, s := termcap_substitute_string(curs.tc, tc_s_enter_ca_mode, empty(tc_param));
+		str += s;
+		curs.tc, s := termcap_substitute_string(curs.tc, tc_s_keypad_xmit, empty(tc_param));
+		str += s;
+		s, pkt := curses_string_cls();
+		str += s;
+		if termcap_has_mouse(curs.tc) then [
+			var esc := bytes.[ 27 ];
+			str += esc + "[?1000h";
+			str += esc + "[?1003h";
+			str += esc + "[?1006h";
+		]
+		if curs.cm is color256 then [
+			curs.tc, s := termcap_substitute_string(curs.tc, tc_s_orig_colors, empty(tc_param));
+			str += s;
+			for i := 0 to 16 do [
+				var rc, gc, bc := default_16_rgb(i);
+				var ccode := color_16_offset + i;
+				curs.tc, s := termcap_substitute_string(curs.tc, tc_s_initialize_color, [ tc_param.num.(ccode), tc_param.num.(rc), tc_param.num.(gc), tc_param.num.(bc) ]);
+				str += s;
+			]
+			for r := 0 to 6 do [
+				var rc := r * 1000 div 5;
+				for g := 0 to 6 do [
+					var gc := g * 1000 div 5;
+					for b := 0 to 6 do [
+						var bc := b * 1000 div 5;
+						//eval debug("setup: " + ntos(r) + ", " + ntos(g) + ", " + ntos(b) + ": " + ntos(rc) + ", " + ntos(gc) + ", " + ntos(bc));
+						var ccode := color_216_offset + r * 36 + g * 6 + b;
+						curs.tc, s := termcap_substitute_string(curs.tc, tc_s_initialize_color, [ tc_param.num.(ccode), tc_param.num.(rc), tc_param.num.(gc), tc_param.num.(bc) ]);
+						str += s;
+					]
+				]
+			]
+		]
+		write(h[1], str);
+	] else [
+		var s, pstr := curses_string_cls();
+		pstr +<= 1;
+		write_console_packet(curs.h[1], pstr);
+	]
+
+	curs.kbd_thread := event_get_keyboard(w, h[0], curs.tc, curs.loc, curs.q);
+	curs.resize_thread := event_get_resize(w, h[0], curs.q);
+	curs.mouse_thread := event_get_mouse(w, h[0], curs.q);
+]
+
+fn curses_done(implicit w : world, implicit curs : curses) : world
+[
+	var str := "";
+	var pstr := packets.[];
+	var s : bytes;
+	var pkt : packets;
+	if not curs.cursor_visible then [
+		if curs.packet_mode then [
+			pstr += packets.[ 4, 1 ];
+		] else [
+			curs.tc, s := termcap_substitute_string(curs.tc, tc_s_cursor_normal, empty(tc_param));
+			str += s;
+		]
+	]
+	s, pkt := curses_hide_mouse();
+	str += s;
+	pstr += pkt;
+	if not curs.packet_mode then [
+		s := curses_string_color(7, 0, 0);
+		str += s;
+		curs.tc, s := termcap_substitute_string(curs.tc, tc_s_clear_screen, empty(tc_param));
+		str += s;
+	]
+	s, pkt := curses_string_setpos(0, max(0, curs.y - 1));
+	str += s;
+	pstr += pkt;
+	if not curs.packet_mode then [
+		curs.tc, s := termcap_substitute_string(curs.tc, tc_s_exit_attribute_mode, empty(tc_param));
+		str += s;
+		if termcap_has_mouse(curs.tc) then [
+			var esc := bytes.[ 27 ];
+			str += esc + "[?1000l";
+			str += esc + "[?1003l";
+			str += esc + "[?1006l";
+		]
+		if curs.cm is color256 then [
+			curs.tc, s := termcap_substitute_string(curs.tc, tc_s_orig_colors, empty(tc_param));
+			str += s;
+		]
+		curs.tc, s := termcap_substitute_string(curs.tc, tc_s_keypad_local, empty(tc_param));
+		str += s;
+		curs.tc, s := termcap_substitute_string(curs.tc, tc_s_exit_ca_mode, empty(tc_param));
+		str += s;
+	]
+
+	if curs.packet_mode then [
+		pstr +<= 1;
+		write_console_packet(curs.h[1], pstr);
+	] else [
+		write(curs.h[1], str);
+	]
+	curs.kbd_thread := exception_make(bottom_type, ec_sync, error_record_field_not_initialized, 0, false);
+	curs.resize_thread := exception_make(bottom_type, ec_sync, error_record_field_not_initialized, 0, false);
+	curs.mouse_thread := exception_make(bottom_type, ec_sync, error_record_field_not_initialized, 0, false);
+	if not curs.packet_mode then [
+		event_reset_handle(curs.h[0]);
+	]
+]
+
+fn curses_resize(implicit w : world, curs : curses, const x y : int) : (world, curses)
+[
+	var space := cchar.[ ch : ' ', fgcolor : default_fg_color(curs.cm), bgcolor : default_bg_color(curs.cm), attrib : 0 ];
+	var curs2 := curses.[
+		packet_mode : curs.packet_mode,
+		tc : curs.tc,
+		loc : curs.loc,
+		acs_map : curs.acs_map,
+		prefer_acs_map : curs.prefer_acs_map,
+		frame_fallback : curs.frame_fallback,
+		x : x,
+		y : y,
+		cm : curs.cm,
+		underline_supported : curs.underline_supported,
+		blink_supported : curs.blink_supported,
+		bold_supported : curs.bold_supported,
+		altcharset_map : curs.altcharset_map,
+		have_set_attributes : curs.have_set_attributes,
+		have_right_bottom : curs.have_right_bottom,
+		tilde_glitch : curs.tilde_glitch,
+		buffer : array_fill(space, [y, x]),
+		back_buffer : array_fill(space, [y, x]),
+		h : curs.h,
+		fgcolor : curs.fgcolor,
+		bgcolor : curs.bgcolor,
+		attributes : curs.attributes,
+		px : curs.px,
+		py : curs.py,
+		scissors : rect.[ x1 : 0, y1 : 0, x2 : x, y2 : y ],
+		xo : 0,
+		yo : 0,
+		old_viewport : curs.old_viewport,
+		cx : curs.cx,
+		cy : curs.cy,
+		current_cx : -1,
+		current_cy : -1,
+		current_fgcolor : -1,
+		current_bgcolor : -1,
+		current_attributes : 0,
+		cursor_visible : curs.cursor_visible,
+		sgr_underline : false,
+		sgr_inverse : false,
+		sgr_blink : false,
+		sgr_bold : false,
+		sgr_altcharset : false,
+		lines_redraw : -1,
+		mouse_visible : false,
+		q : curs.q,
+		kbd_thread : curs.kbd_thread,
+		resize_thread : curs.resize_thread,
+		mouse_thread : curs.mouse_thread,
+		event_buffer : curs.event_buffer,
+	];
+	var s : bytes;
+	var pstr : packets;
+	curs2, s, pstr := curses_string_cls(curs2);
+	if curs2.packet_mode then [
+		pstr +<= 1;
+		write_console_packet(curs.h[1], pstr);
+	] else [
+		write(curs.h[1], s);
+	]
+	return curs2;
+]
+
+fn curses_set_pos~inline(curs : curses, x y : int) : curses
+[
+	x += curs.xo;
+	y += curs.yo;
+	curs.px := x;
+	curs.py := y;
+	return curs;
+]
+
+fn curses_get_pos~inline(curs : curses) : (int, int)
+[
+	return curs.px - curs.xo, curs.py - curs.yo;
+]
+
+fn curses_restrict_viewport(curs : curses, x1 x2 y1 y2 : int, xo yo : int) : curses
+[
+	var old := viewport.[
+		x1 : curs.scissors.x1,
+		x2 : curs.scissors.x2,
+		y1 : curs.scissors.y1,
+		y2 : curs.scissors.y2,
+		xo : curs.xo,
+		yo : curs.yo,
+	];
+	curs.old_viewport +<= old;
+	x1 += curs.xo;
+	x2 += curs.xo;
+	y1 += curs.yo;
+	y2 += curs.yo;
+	curs.scissors := rect_intersection(curs.scissors, rect.[ x1 : x1, x2 : x2, y1 : y1, y2 : y2 ]);
+	curs.xo += xo;
+	curs.yo += yo;
+	return curs;
+]
+
+fn curses_revert_viewport(curs : curses) : curses
+[
+	var old := curs.old_viewport[len(curs.old_viewport) - 1];
+	curs.old_viewport := curs.old_viewport[ .. len(curs.old_viewport) - 1];
+	curs.scissors.x1 := old.x1;
+	curs.scissors.x2 := old.x2;
+	curs.scissors.y1 := old.y1;
+	curs.scissors.y2 := old.y2;
+	curs.xo := old.xo;
+	curs.yo := old.yo;
+	return curs;
+]
+
+fn curses_get_scissors(curs : curses) : rect
+[
+	var sc := curs.scissors;
+	sc.x1 -= curs.xo;
+	sc.x2 -= curs.xo;
+	sc.y1 -= curs.yo;
+	sc.y2 -= curs.yo;
+	return sc;
+]
+
+fn curses_valid_viewport(curs : curses) : bool
+[
+	return rect_is_valid(curses_get_scissors(curs));
+]
+
+fn curses_test_viewport(curs : curses, x1 x2 y1 y2 : int) : bool
+[
+	var r := rect.[ x1 : x1, x2 : x2, y1 : y1, y2 : y2 ];
+	return rect_test_intersect(curses_get_scissors(curs), r);
+]
+
+fn curses_n_colors~inline(curs : curses) : int
+[
+	return [ 2, 16, 256 ][ ord curs.cm ];
+]
+
+fn curses_set_fgcolor(curs : curses, r g b : uint16) : curses
+[
+	curs.fgcolor := rgb_to_color(curs.cm, r, g, b);
+	return curs;
+]
+
+fn curses_set_bgcolor(curs : curses, r g b : uint16) : curses
+[
+	curs.bgcolor := rgb_to_color(curs.cm, r, g, b);
+	return curs;
+]
+
+fn curses_set_attributes(curs : curses, flags : uint8) : curses
+[
+	curs.attributes := flags;
+	return curs;
+]
+
+fn curses_set_cursor~inline(curs : curses, x y : int) : curses
+[
+	// TODO: handle the case when the cursor points out of scissors
+	x += curs.xo;
+	y += curs.yo;
+	if curs.cx <> x or curs.cy <> y then [
+		curs.cx := x;
+		curs.cy := y;
+		curs.lines_redraw bts= curs.y;
+	]
+	return curs;
+]
+
+fn curses_print(curs : curses, str : string) : curses
+[
+	if curs.py >= curs.scissors.y1, curs.py < curs.scissors.y2 then [
+		var scx1, scx2 := curs.scissors.x1, curs.scissors.x2;
+		for i := 0 to len(str) do [
+			if curs.px >= scx2 then
+				break;
+			var ch := str[i];
+			var cls := classify_character(ch);
+			if cls <= 0 then
+				continue;
+			if curs.px >= scx1 then [
+				if cls = 1 then [
+					curs.buffer[curs.py, curs.px] := cchar.[ ch : ch, fgcolor : curs.fgcolor, bgcolor : curs.bgcolor, attrib : curs.attributes ];
+				] else if curs.packet_mode then [
+					curs.buffer[curs.py, curs.px] := cchar.[ ch : ch, fgcolor : curs.fgcolor, bgcolor : curs.bgcolor, attrib : curs.attributes ];
+					if curs.px + 1 < scx2 then
+						curs.buffer[curs.py, curs.px + 1] := cchar.[ ch : ' ', fgcolor : curs.fgcolor, bgcolor : curs.bgcolor, attrib : curs.attributes ];
+				] else [
+					curs.buffer[curs.py, curs.px] := cchar.[ ch : ch, fgcolor : curs.fgcolor, bgcolor : curs.bgcolor, attrib : curs.attributes or curses_left_wide ];
+					if curs.px + 1 < scx2 then
+						curs.buffer[curs.py, curs.px + 1] := cchar.[ ch : ch, fgcolor : curs.fgcolor, bgcolor : curs.bgcolor, attrib : curs.attributes or curses_right_wide ];
+				]
+			]
+			curs.px += cls;
+			curs.lines_redraw bts= curs.py;
+		]
+	]
+	return curs;
+]
+
+fn curses_get_char(curs : curses, x y : int) : char
+[
+	x += curs.xo;
+	y += curs.yo;
+	if x >= curs.scissors.x1, x < curs.scissors.x2, y >= curs.scissors.y1, y < curs.scissors.y2 then [
+		return curs.buffer[y, x]. ch;
+	]
+	return 0;
+]
+
+fn curses_set_char(curs : curses, x y : int, ch : char) : curses
+[
+	x += curs.xo;
+	y += curs.yo;
+	if x >= curs.scissors.x1, x < curs.scissors.x2, y >= curs.scissors.y1, y < curs.scissors.y2 then [
+		curs.buffer[y, x] := cchar.[ ch : ch, fgcolor : curs.fgcolor, bgcolor : curs.bgcolor, attrib : curs.attributes ];
+		curs.lines_redraw bts= y;
+	]
+	return curs;
+]
+
+fn curses_fill_rect(curs : curses, x1 x2 y1 y2 : int, ch : char) : curses
+[
+	x1 += curs.xo;
+	x2 += curs.xo;
+	y1 += curs.yo;
+	y2 += curs.yo;
+	var cls := classify_character(ch);
+	if cls <> 1 then
+		ch := ' ';
+	x1 := max(x1, curs.scissors.x1);
+	x2 := min(x2, curs.scissors.x2);
+	y1 := max(y1, curs.scissors.y1);
+	y2 := min(y2, curs.scissors.y2);
+	for y := y1 to y2 do [
+		for x := x1 to x2 do [
+			curs.buffer[y, x] := cchar.[ ch : ch, fgcolor : curs.fgcolor, bgcolor : curs.bgcolor, attrib : curs.attributes ];
+			curs.lines_redraw bts= y;
+		]
+	]
+	return curs;
+]
+
+fn curses_recolor_rect(curs : curses, x1 x2 y1 y2 : int) : curses
+[
+	x1 += curs.xo;
+	x2 += curs.xo;
+	y1 += curs.yo;
+	y2 += curs.yo;
+	x1 := max(x1, curs.scissors.x1);
+	x2 := min(x2, curs.scissors.x2);
+	y1 := max(y1, curs.scissors.y1);
+	y2 := min(y2, curs.scissors.y2);
+	for y := y1 to y2 do [
+		for x := x1 to x2 do [
+			curs.buffer[y, x].fgcolor := curs.fgcolor;
+			curs.buffer[y, x].bgcolor := curs.bgcolor;
+			curs.buffer[y, x].attrib := curs.attributes or curs.buffer[y, x].attrib and (curses_acs or curses_left_wide or curses_right_wide);
+			curs.lines_redraw bts= y;
+		]
+	]
+	return curs;
+]
+
+fn frame_desc~cache : array(uint16, [#30]) :=
+	array(uint16, [#30]).[
+		#ffff, #ffff, #ffff, #0101, #1101, #2101, #1202, #1200,
+		#2100, #2202, #0202, #2200, #2002, #1002, #2001, #1100,
+		#0011, #1011, #1110, #0111, #1010, #1111, #0121, #0212,
+		#0022, #0220, #2022, #2220, #0222, #2020, #2222, #2021,
+		#1012, #2120, #1210, #0012, #0021, #0120, #0210, #1212,
+		#2121, #1001, #0110, #ffff, #ffff, #ffff, #ffff, #ffff,
+	];
+
+fn frame_uni~cache : array(uint16, [#30]) :=
+	array(uint16, [#30]).[
+		#2591, #2592, #2593, #2502, #2524, #2561, #2562, #2556,
+		#2555, #2563, #2551, #2557, #255D, #255C, #255B, #2510,
+		#2514, #2534, #252C, #251C, #2500, #253C, #255E, #255F,
+		#255A, #2554, #2569, #2566, #2560, #2550, #256C, #2567,
+		#2568, #2564, #2565, #2559, #2558, #2552, #2553, #256B,
+		#256A, #2518, #250C, #2588, #2584, #258C, #2590, #2580,
+	];
+
+fn frame_to_uni~cache(frame : uint16, frame_fallback : bool) : char
+[
+	var fd := frame_desc;
+	if frame_fallback then [
+		if (frame and #2222) <> 0 and (frame and #1111) <> 0 then [
+			frame and= #eeee;
+		]
+	]
+	for i := 0 to #30 do [
+		if fd[i] = frame then
+			return frame_uni[i];
+	]
+	return -1;
+]
+
+fn curses_hline(curs : curses, x1 : int, x2 : int, y : int, width : int) : curses
+[
+	x1 += curs.xo;
+	x2 += curs.xo;
+	y += curs.yo;
+	if width <> 1, width <> 2 then
+		return curs;
+	var left_line := width shl 4;
+	var right_line := width shl 12;
+	var full_line := left_line or right_line;
+	if y >= curs.scissors.y1, y < curs.scissors.y2 then [
+		x1 := max(x1, curs.scissors.x1);
+		x2 := min(x2, curs.scissors.x2);
+		var new_ch := frame_to_uni(full_line, curs.frame_fallback);
+		for i := x1 to x2 do [
+			curs.buffer[y, i] := cchar.[ ch : new_ch, fgcolor : curs.fgcolor, bgcolor : curs.bgcolor, attrib : curs.attributes ];
+			curs.lines_redraw bts= y;
+		]
+	]
+	return curs;
+]
+
+fn curses_vline(curs : curses, x : int, y1 : int, y2 : int, width : int) : curses
+[
+	x += curs.xo;
+	y1 += curs.yo;
+	y2 += curs.yo;
+	if width <> 1, width <> 2 then
+		return curs;
+	var up_line := width shl 8;
+	var down_line := width;
+	var full_line := up_line or down_line;
+	if x >= curs.scissors.x1, x < curs.scissors.x2 then [
+		y1 := max(y1, curs.scissors.y1);
+		y2 := min(y2, curs.scissors.y2);
+		var new_ch := frame_to_uni(full_line, curs.frame_fallback);
+		for j := y1 to y2 do [
+			curs.buffer[j, x] := cchar.[ ch : new_ch, fgcolor : curs.fgcolor, bgcolor : curs.bgcolor, attrib : curs.attributes ];
+			curs.lines_redraw bts= j;
+		]
+	]
+	return curs;
+]
+
+fn curses_box(implicit curs : curses, x1 x2 y1 y2 : int, width : int) : curses
+[
+	if width <> 1, width <> 2 then
+		return;
+	if x1 >= x2 or y1 >= y2 then
+		return;
+	curses_hline(x1 + 1, x2, y1, width);
+	curses_hline(x1 + 1, x2, y2, width);
+	curses_vline(x1, y1 + 1, y2, width);
+	curses_vline(x2, y1 + 1, y2, width);
+	var ech11 := frame_to_uni(#0110 * width, curs.frame_fallback);
+	var ech12 := frame_to_uni(#1100 * width, curs.frame_fallback);
+	var ech21 := frame_to_uni(#0011 * width, curs.frame_fallback);
+	var ech22 := frame_to_uni(#1001 * width, curs.frame_fallback);
+	curses_set_char(x1, y1, ech11);
+	curses_set_char(x2, y1, ech12);
+	curses_set_char(x1, y2, ech21);
+	curses_set_char(x2, y2, ech22);
+]
+
+fn curses_frame(implicit curs : curses, x y : int, frame : uint16) : curses
+[
+	curses_set_char(x, y, frame_to_uni(frame, curs.frame_fallback));
+]
+
+fn flip_color(c : ccolor) : ccolor
+[
+	if c < color_16_offset then
+		return c and 7 xor 7;
+	var r g b : int;
+	if c < color_216_offset then [
+		c -= color_16_offset;
+		r, g, b := default_16_rgb(c);
+		r := r * 5 div 1000;
+		g := g * 5 div 1000;
+		b := b * 5 div 1000;
+	] else [
+		c -= color_216_offset;
+		r := c div 36;
+		g := c div 6 mod 6;
+		b := c mod 6;
+	]
+	r := 5 - r;
+	g := 5 - g;
+	b := 5 - b;
+	return color_216_offset + r * 36 + g * 6 + b;
+]
+
+fn is_valid_pair(const curs : curses, x y : int) : bool
+[
+	if x < 0 then
+		return false;
+	if x + 1 >= curs.x then
+		return false;
+	var ch1 := curs.buffer[y, x];
+	var ch2 := curs.buffer[y, x + 1];
+	if (ch1.attrib and curses_left_wide) <> 0,
+	   (ch2.attrib and curses_right_wide) <> 0,
+	   ch1.ch = ch2.ch then
+		return true;
+	return false;
+]
+
+fn curses_load_buffer~inline(implicit curs : curses, x y : int) : cchar
+[
+	var n := curs.buffer[y, x];
+	if curs.mouse_visible, y = curs.mouse_y then
+		if x = curs.mouse_x then
+			goto flip;
+		else if x = curs.mouse_x - 1, (n.attrib and curses_left_wide) <> 0, is_valid_pair(x, y) then
+			goto flip;
+	return n;
+flip:
+	n.fgcolor := flip_color(n.fgcolor);
+	n.bgcolor := flip_color(n.bgcolor);
+	return n;
+]
+
+fn curses_packet_attribute~inline(c : cchar) : int32
+[
+	var fgcolor : int32 := c.fgcolor;
+	var bgcolor : int32 := c.bgcolor;
+	return	(fgcolor and 4) shr 2 or (c.fgcolor and 10) or (c.fgcolor and 1) shl 2 or
+		(bgcolor and 4) shl 2 or (c.bgcolor and 10) shl 4 or (c.bgcolor and 1) shl 6;
+]
+
+fn curses_char_to_packet~inline(implicit curs : curses, n : cchar) : packets
+[
+	var n_ch := n.ch;
+	if locale_get_charset(curs.loc).mode is eightbit then [
+		var stl := string_to_locale(curs.loc, [ n_ch ]);
+		if len(stl) = 0 then
+			n_ch := '*';
+		else
+			n_ch := stl[0];
+	] else [
+		n_ch := char_to_unicode(n_ch);
+	]
+	return packets.[ n_ch, curses_packet_attribute(n) ];
+]
+
+fn curses_update_char(implicit curs : curses, x y : int) : (curses, bytes, packets, int)
+[
+	var str := "";
+	var s : bytes;
+	var pkt : packets;
+
+	if not curs.have_right_bottom, y = curs.y - 1 then
+		if x = curs.x - 1 then
+			return "", packets.[], 1;
+		else if x = curs.x - 2, is_valid_pair(x, y) then
+			return "", packets.[], 1;
+
+	var n := curses_load_buffer(curs, x, y);
+	if (n.attrib and curses_right_wide) <> 0, is_valid_pair(x - 1, y) then [
+		x -= 1;
+		n := curses_load_buffer(curs, x, y);
+	]
+	curs.back_buffer[y, x] := n;
+
+	if curs.packet_mode then [
+		var pstr := packets.[ 2, x, y, 1, ] + curses_char_to_packet(n);
+		return "", pstr, 1;
+	]
+
+	if not locale_validate_character(curs.loc, n.ch) or curs.prefer_acs_map, n.ch < #110000 then [
+		var a := curs.acs_map[n.ch];
+		if a > 0 then [
+			var b := curs.altcharset_map[a];
+			if b > 0 then [
+				//eval debug("remap: " + ntos(n.ch) + " -> " + ntos(a) + " -> " + ntos(b));
+				n.ch := b;
+				n.attrib or= curses_acs;
+			]
+		]
+	]
+
+	s, pkt := curses_string_setpos(x, y);
+	str += s;
+	s := curses_string_color(n.fgcolor, n.bgcolor, n.attrib);
+	str += s;
+
+	var width := 1;
+	if (n.attrib and (curses_left_wide or curses_right_wide)) <> 0 then [
+		if is_valid_pair(x, y) then [
+			width := 2;
+			curs.back_buffer[y, x + 1] := curs.buffer[y, x + 1];
+			goto ok_wide;
+		] else [
+			n.ch := ' ';
+		]
+	]
+
+ok_wide:
+	if (n.attrib and curses_acs) <> 0 then [
+		str +<= n.ch;
+	] else if curs.tilde_glitch, n.ch = '~' then [
+		str +<= '.';
+	] else if n.ch < #20 or n.ch = #7f then [
+		str +<= '.';
+	] else if n.ch < #7f then [
+		str +<= n.ch;
+	] else [
+		str += string_to_locale(curs.loc, [ n.ch ]);
+	]
+	curs.current_cx += width;
+	return str, packets.[], width;
+]
+
+fn curses_finish_update(implicit curs : curses) : (curses, bytes, packets)
+[
+	var str := "";
+	var pstr := packets.[];
+	var s : bytes;
+	var pkt : packets;
+	var x, y := curs.cx, curs.cy;
+	var cv := true;
+	if x < 0 or x >= curs.x or y < 0 or y >= curs.y then [
+		x := select(curs.x > 0, 0, curs.x - 1);
+		y := select(curs.y > 0, 0, curs.y - 1);
+		cv := false;
+	]
+	if cv <> curs.cursor_visible then [
+		if curs.packet_mode then [
+			pkt := packets.[ 4, select(cv, 0, 1) ];
+			pstr += pkt;
+		] else [
+			if cv then [
+				curs.tc, s := termcap_substitute_string(curs.tc, tc_s_cursor_normal, empty(tc_param));
+				str += s;
+			] else [
+				curs.tc, s := termcap_substitute_string(curs.tc, tc_s_cursor_invisible, empty(tc_param));
+				str += s;
+			]
+		]
+		curs.cursor_visible := cv;
+	]
+	s, pkt := curses_string_setpos(x, y);
+	str += s;
+	pstr += pkt;
+	if not curs.packet_mode then [
+		s := curses_string_color(7, 0, curs.current_attributes);
+		str += s;
+	]
+	return str, pstr;
+]
+
+fn curses_update_string(implicit curs : curses) : (curses, bytes, packets)
+[
+	var str := "";
+	var pstr := packets.[];
+	var s : bytes;
+	var pkt : packets;
+	for j := 0 to curs.y do [
+		if not curs.lines_redraw bt j then
+			continue;
+		if curs.packet_mode then [
+			var first := -1;
+			var last := -1;
+			for i := 0 to curs.x do [
+				var ch := curses_load_buffer(i, j);
+				var cb := curs.back_buffer[j, i];
+				if ch <> cb then [
+					if first = -1 then
+						first := i;
+					last := i + 1;
+				]
+			]
+			if first >= 0 then [
+				pstr += packets.[ 2, first, j, last - first ];
+				for i := first to last do [
+					var ch := curses_load_buffer(i, j);
+					curs.back_buffer[j, i] := ch;
+					pstr += curses_char_to_packet(ch);
+				]
+			]
+		] else [
+			for i := 0 to curs.x do [
+				var ch := curses_load_buffer(i, j);
+				var cb := curs.back_buffer[j, i];
+				if ch <> cb then [
+					if (ch.attrib and curses_right_wide) <> 0, is_valid_pair(i - 1, j) then
+						i -= 1;
+					var width : int;
+					s, pkt, width := curses_update_char~inline(i, j);
+					str += s;
+					pstr += pkt;
+					i += width - 1;
+				]
+			]
+		]
+	]
+	s, pkt := curses_finish_update();
+	str += s;
+	pstr += pkt;
+	curs.lines_redraw := 0;
+	return str, pstr;
+]
+
+fn curses_update(implicit w : world, implicit curs : curses) : (world, curses)
+[
+	var str, pstr := curses_update_string(curs);
+	if curs.packet_mode then [
+		pstr +<= 1;
+		write_console_packet(curs.h[1], pstr);
+	] else [
+		write(curs.h[1], str);
+	]
+]
+
+fn curses_hide_mouse(implicit curs : curses) : (curses, bytes, packets)
+[
+	if curs.mouse_visible then [
+		curs.mouse_visible := false;
+		var s, pstr, width := curses_update_char(curs.mouse_x, curs.mouse_y);
+		return s, pstr;
+	]
+	return "", packets.[];
+]
+
+fn curses_update_soft_cursor(implicit w : world, implicit curs : curses, ev : event) : (world, curses)
+[
+	var width : int;
+	var str := "";
+	var pstr := packets.[];
+	var s : bytes;
+	var pkt : packets;
+	s, pkt := curses_hide_mouse();
+	str += s;
+	pstr += pkt;
+	var mx := max(min(ev.mouse.x, curs.x - 1), 0);
+	var my := max(min(ev.mouse.y, curs.y - 1), 0);
+	curs.mouse_visible := true;
+	curs.mouse_x := mx;
+	curs.mouse_y := my;
+	s, pkt, width := curses_update_char(mx, my);
+	str += s;
+	pstr += pkt;
+	if curs.packet_mode then [
+		if len_greater_than(pstr, 0) then [
+			s, pkt := curses_finish_update();
+			str += s;
+			pstr += pkt;
+			pstr +<= 1;
+			write_console_packet(curs.h[1], pstr);
+		]
+	] else [
+		if len_greater_than(str, 0) then [
+			s, pkt := curses_finish_update();
+			str += s;
+			write(curs.h[1], str);
+		]
+	]
+]
+
+fn curses_get_event(implicit w : world, implicit curs : curses, t : type, altmq : msgqueue(t)) : (world, curses, event)
+[
+process_event_buffer:
+	var ev : event;
+	if len_greater_than(curs.event_buffer, 0) then [
+		ev := curs.event_buffer[0];
+		curs.event_buffer := curs.event_buffer[1 .. ];
+		goto process_ev;
+	]
+
+	if curs.lines_redraw <> 0 then [
+		curses_update();
+	]
+
+	var wait_for := msgqueue_any(curs.q, altmq);
+	if wait_for then
+		return event.altmq;
+
+pop_next:
+	var tag : int;
+	tag, ev := msgqueue_receive_nonblock(curs.q);
+	if is_exception tag then
+		goto process_event_buffer;
+	if len_greater_than(curs.event_buffer, 0) then [
+		var last := curs.event_buffer[len(curs.event_buffer) - 1];
+		if ev is mouse, last is mouse, last.mouse.prev_buttons = last.mouse.buttons then
+			curs.event_buffer := curs.event_buffer[ .. len(curs.event_buffer) - 1];
+		if ev is keyboard, last is keyboard, ev.keyboard.key = last.keyboard.key, ev.keyboard.flags = last.keyboard.flags then [
+			ev.keyboard.rep += last.keyboard.rep;
+			curs.event_buffer[len(curs.event_buffer) - 1].keyboard.rep := 0;
+		]
+	]
+	curs.event_buffer +<= ev;
+	goto pop_next;
+
+process_ev:
+	if ev is mouse, ev.mouse.soft_cursor then [
+		curses_update_soft_cursor(ev);
+	]
+	if ev is resize then [
+		curses_resize(ev.resize.x, ev.resize.y);
+	]
+
+	return ev;
+]

@@ -1,0 +1,2155 @@
+<html>
+<head>
+<title>Ajla tutorial</title>
+</head>
+<!--
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+-->
+<body>
+<h1><center>Ajla tutorial</center></h1>
+
+<h2>Contents</h2>
+<a href="#introduction">Introduction</a><br>
+<a href="#hello_world">Hello World</a><br>
+<a href="#fizz_buzz">Fizz-buzz</a><br>
+<a href="#statements">Statements</a><br>
+<a href="#types">Types</a><br>
+<a href="#operators">Operators</a><br>
+<a href="#clauses">Clauses</a><br>
+<a href="#automatic_parallelization">Automatic parallelization</a><br>
+<a href="#caching">Caching</a><br>
+<a href="#functions">Functions</a><br>
+<a href="#lists">Lists</a><br>
+<a href="#arrays">Arrays</a><br>
+<a href="#strings">Strings</a><br>
+<a href="#exceptions">Exceptions</a><br>
+<a href="#i_o">I/O</a><br>
+<a href="#units">Units</a><br>
+<a href="#type_classes">Type classes</a><br>
+<a href="#threads">Threads</a><br>
+<a href="#ffi">FFI</a><br>
+<a href="#performance_considerations">Performance considerations</a><br>
+<a href="#hacking_ajla">Hacking Ajla</a><br>
+
+<h2 id=introducton>Introduction</h2>
+
+Ajla is a purely functional programming language that has look-and-feel like
+traditional imperative languages. The return value of every function in Ajla
+depends only on its arguments. Ajla has mutable local variables and control flow
+statements (if, while, for, goto) that are known from imperative languages. Ajla
+doesn't have mutable global variables because they break purity and they may be
+subject to race conditions.
+<br>
+<br>
+Ajla is memory-safe &mdash; i.e. you can't create a segmentation fault in Ajla.
+Ajla doesn't have garbage collection; it uses reference counts to track
+allocated memory. Ajla has mutable arrays &mdash; if the array reference count
+is one, it is mutated in place, if it is different from one, a copy of the array
+is created.
+
+<h3 id=unpacking>Unpacking Ajla</h3>
+Before compiling Ajla, install the packages libgmp-dev and libffi-dev. If
+libgmp-dev is not installed, Ajla will use slow built-in version. If libffi-dev
+is not installed, the possibility to call C functions from Ajla will be
+disabled.
+<br>
+<br>
+Unpack the tar.gz archive and compile it with <code>./configure && make</code>.
+Install it with <code>make install</code>.
+<br>
+<br>
+It is recommended to use gcc. clang works, but the compilation is very slow, it
+may take an hour or more to compile the files ipret.c and ipretc.c.
+<br>
+<br>
+When running Ajla programs, it is recommended to set the cpu governor to
+'performance'. Ajla starts and stops threads rapidly and the 'ondemand' governor
+underclocks the cores, resulting in slower performance.
+<br>
+<br>
+You can compile and run a program directly by executing "<code>ajla
+program.ajla</code>". The program will be compiled as it runs and the result
+will be saved in the file <code>~/.cache/ajla/program.sav</code>. When you run
+the program second time, it will be faster because there will be no compilation.
+If you change the source code file, the cache file will be invalidated and the
+program will be compiled again.
+<br>
+<br>
+There's a <code>--compile</code> switch &mdash; it will compile the whole
+program without running it and save it to the <code>~/.cache/ajla</code>
+directory. You should use this switch when you are developing a program, because
+it will scan all the source code units and look for syntax errors.
+<br>
+<br>
+The standard library is placed in the <code>stdlib</code> subdirectory, you can
+read it to find out what types and functions are there. The
+<code>system.ajla</code> file is implicitly included before compiling any Ajla
+source file.
+<br>
+<br>
+In "<code>programs/acmd/</code>" there's Ajla Commander &mdash; a Midnight
+Commander clone written in Ajla. You can run it with "<code>./ajla
+programs/acmd/acmd.ajla</code>".
+
+<h2 id=hello_world>Hello World</h2>
+
+Programming language tutorials usually start with a program that prints "Hello
+World". Let's have look at "Hello World" in Ajla:
+
+<pre id=hw1>
+fn main(w : world, d : dhandle, h : list(handle), args : list(bytes),
+	env : treemap(bytes, bytes)) : world
+[
+	w := write(w, h[1], "Hello World!" + nl);
+	return w;
+]
+</pre>
+
+Copy this piece of code to a file "hello.ajla" and run "ajla hello.ajla" to
+execute it.
+
+<br>
+<br>
+
+Here we declare a function main with the following arguments. The symbol before
+the dot is the name of them argument and the expression after the dot is the
+type of the argument.
+<dl>
+<dt><code>w : world</code>
+<dd>This is a token that must be passed to and returned from all functions that
+do I/O to sequence the I/O properly.
+<dt><code>d : dhandle</code>
+<dd>This is a handle to the current working directory. The handle can be used
+when the user needs to open files relative to the working directory.
+<dt><code>h : list(handle)</code>
+<dd>The list of handles that were passed to the program when it was executed.
+Usually, it contains 3 entries, the first for standard input, the second for
+standard output and the third for standard error.
+<dt><code>args : list(bytes)</code>
+<dd>The arguments that were passed to the program. The type "<code>bytes</code>"
+represents a sequence of bytes, so <code>list(bytes)</code> is a list of
+sequences of bytes.
+<dt><code>env : treemap(bytes, bytes)</code>
+<dd>This represents the environment variables for the program. The environment
+is represented as a tree that maps a sequence of bytes (i.e. the variable name)
+to another sequence of bytes (i.e. the variable content). This is implemented as
+an AVL tree, so that searching it is efficient.
+</dl>
+The function contains the following statements:
+<dl>
+<dt><code>w := write(w, h[1], "Hello World!" + nl);</code>
+<dd>This statement writes the string <i>"Hello World!"</i> and a newline to the
+handle 1 (standard output). The statement takes a <code>w</code> variable as an
+I/O token and returns the <code>w</code> variable back. Passing the world
+variable back and forth between functions that do I/O is required to maintain
+I/O ordering. <dt><code>return w;</code>
+<dd>This statement returns the world variable to the caller.
+</dl>
+
+<h3>Passing the world variable</h3>
+In order to show how the world passing works, let's split the "Hello World"
+program to three write statements.
+
+<pre id=hw2>
+fn main(w : world, d : dhandle, h : list(handle), args : list(bytes),
+	env : treemap(bytes, bytes)) : world
+[
+	w := write(w, h[1], "Hello ");
+	w := write(w, h[1], "World!");
+	w := write(w, h[1], nl);
+	return w;
+]
+</pre>
+
+In a functional language that has non-strict evaluation, we can't just do I/O
+anywhere because the I/Os could be reordered or not executed at all. We need
+some mechanism to maintain I/O ordering. Haskell uses monads to maintain I/O
+ordering, Ajla uses a different mechanism &mdash; world passing. Every function
+that performs I/O takes "world" as an argument and returns "world" as a return
+value (functions can have multiple return values in Ajla). The "world" variable
+makes sure that the functions can't be reordered. In this example, <code>w :=
+write(w, h[1], nl)</code> may be executed only after <code>w := write(w, h[1],
+"World!")</code> finished. And <code>w := write(w, h[1], "World!")</code> may be
+executed only after <code>w := write(w, h[1], "Hello ")</code> finished.
+
+<h3>Using implicit variables</h3>
+Now, let's have look at another Ajla feature &mdash; implicit variables. We add
+the <code>implicit</code> keyword to the function argument <code>w :
+world</code> and we drop the <code>w</code> variable from the code that does
+writes.
+
+<pre>
+fn main(<b>implicit</b> w : world, d : dhandle, h : list(handle), args : list(bytes),
+	env : treemap(bytes, bytes)) : world
+[
+	write(h[1], "Hello ");
+	write(h[1], "World!");
+	write(h[1], nl);
+]
+</pre>
+
+If a variable is declared as <code>implicit</code>, the compiler will
+automatically add the variable to the function calls where does it fit. The
+<code>write</code> function should have three arguments, here it has only two
+arguments, so the compiler will search for all implicit variables and it will
+use an implicit variable that fits into the remaining argument.
+<br>
+<br>
+If we don't specify a return value for the <code>write</code> function call, the
+compiler will search for all implicit variables and assign the return value to a
+variable where does it fit.
+<br>
+<br>
+If we don't use the <code>return</code> statement at the end of the function,
+the compiler will search for implicit variables and automatically return a
+variable that fits into the return value.
+<br>
+<br>
+Here we can see that with the implicit variables the code really looks as if it
+were written in a procedural programming language. But it is not procedural
+&mdash; the code is translated to <a href="#hw2">this</a> and that is what is
+running on the virtual machine.
+
+<h3>Omitting the arguments</h3>
+The compiler already knows what arguments should the <code>main</code> function
+have, so you can omit them. So, we can simplify our program to this:
+
+<pre>
+fn main
+[
+	write(h[1], "Hello World!" + nl);
+]
+</pre>
+
+This is the simplest way how to write a "Hello World" program in Ajla.
+Internally, it is translated to <a href="#hw1">this</a>.
+
+<h2 id=fizz_buzz>Fizz-buzz</h2>
+
+Fizz-buzz is another standard programming test. The goal is to write a program
+that iterates from 1 to 100. If the number is divisible by 3, "Fizz" is written;
+if the number is divisible by 5, "Buzz" is written, otherwise the number is
+written.
+
+<pre>
+fn main
+[
+	for i := 1 to 101 do [
+		if i mod 15 = 0 then write(h[1], "Fizz Buzz ");
+		else if i mod 3 = 0 then write(h[1], "Fizz ");
+		else if i mod 5 = 0 then write(h[1], "Buzz ");
+		else write(h[1], ntos(i) + " ");
+	]
+	write(h[1], nl);
+]
+</pre>
+
+The <code>for</code> statement iterates a variable over a given range. The
+starting value is inclusive, the ending value is exclusive &mdash; thus, if we
+want to iterate from 1 to 100, we need to specify 1 and 101. The operator
+<code>mod</code> is an arithmetic remainder, the <code>if</code> statements test
+if the value is divisible by 15, 3 and 5. If it is not divisible by these
+numbers, we print the number; the <code>ntos</code> function converts a number
+to a string.
+
+<br>
+<br>
+
+You can see that it looks very much like a procedural language.
+
+<h2 id=statements>Statements</h2>
+
+Ajla has the following statements:
+<dl>
+<dt><code>var x := 10;</code>
+<dd>Creates a variable and assigns a value to it. The type is inferred, if we
+don't want to infer the type, we use "<code>var x : int := 10;</code>"
+<dt><code>x := 20;</code>
+<dd>Modifies the variable.
+<dt><code>const x := 10;</code>
+<dd>Creates a constant and assigns a value to it. A constant can't be modified.
+<dt>
+<code>if condition then statement;</code>
+<br>
+<code>if condition then statement; else statement;</code>
+<dd>The "if" statement.
+<dt><code>for i := 0 to 10 do statement;</code>
+<dd>The "for" statement. It iterates from 0 to 9.
+<dt><code>for i in [ 10, 20, 30, 40 ] do statement;</code>
+<dd>The "for in" statement can iterate over a collection. In this example it
+iterates over a list that holds four values: 10, 20, 30, 40.
+<dt><code>while condition do statement;</code>
+<dd>The "while" statement.
+<dt><code>break;</code>
+<dd>Exits the current "for" or "while" loop.
+<dt><code>continue;</code>
+<dd>Starts a new iteration of the current "for" or "while" loop.
+<dt><code>return expression;</code>
+<dd>Exits the current function and returns the expression.
+<dt><code>goto label;</code>
+<dd>The "goto" statement. It doesn't break purity, so it is allowed.
+</dl>
+The <code>if</code> and <code>while</code> statements can accept multiple
+expressions separated by a comma &mdash; in this case, the expressions are
+evaluated from the first to the last and if one of them is evaluated as
+<code>false</code>, the evaluation is terminated and the conditional branch is
+not taken.
+<br>
+<br>
+The assignment also accepts multiple expressions &mdash; for example, "<code>x,
+y := y, x</code>" will swap the variables <code>x</code> and <code>y</code>.
+
+<h2 id=types>Types</h2>
+
+Ajla has the following primitive types:
+<dl>
+<dt><code>int</code>
+<dd>A general integer number. It is implemented as a 32-bit or 64-bit signed
+number. If some arithmetic operation overflows, it is converted to a long
+integer (using the gmp library) and the arithmetic is done with arbitrary
+precision.
+<br>
+On 32-bit architectures, <code>int</code> is 32-bit. On 64-bit architectures,
+<code>int</code> is 64-bit. On 64-bit architectures when the
+"<code>--ptrcomp</code>" switch is used, <code>int</code> is 32-bit. Note that
+these cases are semantically equivalent, because overflows are handled
+transparently.
+<dt><code>int8</code>, <code>int16</code>, <code>int32</code>,
+<code>int64</code>, <code>int128</code>
+<dd>This is a signed integer that is implemented as a given size. If some
+arithmetic operation overflows, it is converted to a long integer using the gmp
+library. If the compiler that was used to build Ajla doesn't support 128-bit
+integers, <code>int128</code> is equivalent to <code>int64</code>.
+<dt><code>sint8</code>, <code>sint16</code>, <code>sint32</code>,
+<code>sint64</code>, <code>sint128</code>
+<dd>This is a signed integer with a given size. If some arithmetic operation
+overflows, it is wrapped modulo the size. If the compiler doesn't support
+128-bit integers, emulation using gmp is used.
+<dt><code>uint8</code>, <code>uint16</code>, <code>uint32</code>,
+<code>uint64</code>, <code>uint128</code>
+<dd>This is an unsigned integer with a given size. If some arithmetic operation
+overflows, it is wrapped modulo the size. If the compiler doesn't support
+128-bit integers, emulation using gmp is used.
+<dt><code>real16</code>, <code>real32</code>, <code>real64</code>,
+<code>real80</code>, <code>real128</code>
+<dd>A floating point number with a given size. If the compiler has 128-bit
+floating point numbers and doesn't have 80-bit floating point numbers, then
+<code>real80</code> is an alias for <code>real128</code>. If the compiler has
+neither 80-bit nor 128-bit floating point numbers, a slow software emulation is
+used.
+<br>
+Floating point constants can have a suffix that specifies the type &mdash; 'h'
+for real16, 's' for real32, no suffix for real64, 'l' for real80, 'q' for
+real128.
+<dt><code>bool</code>
+<dd>A Boolean type &mdash; it can hold values <code>true</code> or
+<code>false</code>.
+<dt><code>type</code>
+<dd>Ajla can pass types to functions as well as other values. We use the keyword
+<code>type</code> to specify that an argument is a type.
+</dl>
+The following types are defined in the standard library:
+<dl>
+<dt><code>byte</code>
+<dd>An alias for <code>uint8</code>.
+<dt><code>char</code>
+<dd>An alias for <code>int32</code>.
+<dt><code>real</code>
+<dd>An alias for <code>real64</code>.
+<dt><code>rational</code>
+<dd>A rational number &mdash; with an integer numerator and denominator. It is
+declared as:
+<pre>
+record rational [
+	num den : int;
+]
+</pre>
+<dt><code>fixed_point(base, digits)</code>
+<dd>A fixed point number with the specified base and the specified number of
+digits after the dot. The number of digits before the dot may be large &mdash;
+if it doesn't fit, the gmp library is used.
+<dt><code>decimal(digits)</code>
+<dd>An alias for <code>fixed_point(10, digits)</code>.
+<dt><code>sint(bits)</code>
+<dd>A signed integer with the specified number of bits. If some arithmetic
+operation overflows, it is wrapped modulo the size.
+<dt><code>uint(bits)</code>
+<dd>A unsigned integer with the specified number of bits. If some arithmetic
+operation overflows, it is wrapped modulo the size.
+<dt><code>floating(ex_bits, sig_bits)</code>
+<dd>An arbitrary-precision floating-point number. The exponent has
+<code>ex_bits</code> and the mantissa has <code>sig_bits</code>.
+</dl>
+Ajla has the following composite types:
+<dl>
+<dt><code>list(t)</code>
+<dd>A list of elements where each element has a type <code>t</code>. Lists can
+be appended or sliced.
+<dt><code>array(t, [ 10, 20, 30 ])</code>
+<dd>An array with arbitrary number of dimensions. In this example, it has three
+dimensions with the sizes 10, 20 and 30 elements. Arrays can't change their size
+after they are created.
+<dt><code>record [ element1 : type1; element2 : type2; element3 : type3; ...
+]</code>
+<dd>Record &mdash; it groups different types into a single type.
+<dt><code>option [ element1 : type1; element2 : type2; element3 : type3; ...
+]</code>
+<dd>An option holds only one of the specified types. In this example, it can
+hold either an element of the type <code>type1</code> or an element of the type
+<code>type2</code> or an element of the type <code>type3</code>.
+<br>
+There's an operator "<code>is</code>" that tests if the option holds a specified
+value. For example "<code>o is element2</code>" returns "<code>true</code>" if
+the option holds the value "<code>element2</code>".
+<br>
+There's an operator "<code>ord</code>" that returns the ordinal number of the
+value that the option holds (starting from 0). For example, if "<code>o</code>"
+holds the value "<code>element3</code>", then "<code>ord o</code>" returns the
+value 2.
+</dl>
+The following composite types are defined in the standard library:
+<dl>
+<dt><code>bytes</code> <dd>An alias for <code>list(byte)</code>.
+<dt><code>string</code>
+<dd>An alias for <code>list(char)</code>.
+<dt><code>maybe(t)</code>
+<dd>It can hold either the value of type <code>t</code> or nothing. It is
+declared as:
+<pre>
+option maybe(t : type) [
+	j : t;
+	n;
+]
+</pre>
+<dt><code>tuple2(t1, t2)</code>
+<dd>A tuple holding 2 values of types <code>t1</code> and <code>t2</code>.
+<dt><code>tuple3(t1, t2, t3)</code>
+<dd>A tuple holding 3 values of types <code>t1</code>, <code>t2</code> and
+<code>t3</code>.
+<dt><code>tuple4(t1, t2, t3, t4)</code>
+<dd>A tuple holding 4 values of the specified types.
+<dt><code>tuple5(t1, t2, t3, t4, t5)</code>
+<dd>A tuple holding 5 values of the specified types. If you need larger tuples,
+you must declare them on your own with a <code>record</code> type.
+<dt><code>treemap(key_type, value_type)</code>
+<dd>A key-value store with the specified key type and value type. It is
+implemented as an AVL tree.
+<dt><code>treeset(key_type)</code>
+<dd>A set containing values of the specified type. It is implemented as an AVL
+tree.
+<dt><code>heap(key_type)</code>
+<dd>A binary heap that can quickly insert an element or extract the lowest
+element. It is implemented as a list.
+<dt><code>unit_type</code>
+<dd>This type may hold only one value &mdash; unit_value.
+<dt><code>bottom_type</code>
+<dd>This type can't hold any value, it can only hold exceptions. It is used for
+functions that never return (for example for message loops). It is declared as:
+<pre>
+option bottom_type [
+]
+</pre>
+</dl>
+
+<h2 id=operators>Operators</h2>
+
+<table border=1>
+<tr><th>Operator<th>Priority<th>Description</tr>
+<tr><td>Unary <code>+</code><td>1000<td>It just returns the passed value</tr>
+<tr><td>Unary <code>-</code><td>1000<td>Negation</tr>
+<tr><td><code>*</code><td>2000<td>Multiplication</tr>
+<tr><td><code>/</code><td>2000<td>Floating point division</tr>
+<tr><td><code>div</code><td>2000<td>Integer division</tr>
+<tr><td><code>mod</code><td>2000<td>Integer remainder</tr>
+<tr><td><code>+</code><td>3000<td>Addition (or append when applied to lists)</tr>
+<tr><td><code>-</code><td>3000<td>Subtraction</tr>
+<tr><td><code>x +&lt; y</code><td>3000<td>Append a value <code>y</code> to the list <code>x</code></tr>
+<tr><td><code>shl</code><td>4000<td>Bit shift left</tr>
+<tr><td><code>shr</code><td>4000<td>Bit shift right</tr>
+<tr><td><code>rol</code><td>4000<td>Bit rotation left</tr>
+<tr><td><code>ror</code><td>4000<td>Bit rotation right</tr>
+<tr><td><code>x bts y</code><td>4000<td>Set <code>y</code>-th bit in <code>x</code></tr>
+<tr><td><code>x btr y</code><td>4000<td>Clear <code>y</code>-th bit in <code>x</code></tr>
+<tr><td><code>x btc y</code><td>4000<td>Invert <code>y</code>-th bit in <code>x</code></tr>
+<tr><td><code>x bt y</code><td>4000<td>Test if <code>y</code>-th bit in <code>x</code> is set</tr>
+<tr><td>Unary <code>bswap</code><td>4000<td>Reverse bytes in a number</tr>
+<tr><td>Unary <code>brev</code><td>4000<td>Reverse bits in a number</tr>
+<tr><td>Unary <code>bsf</code><td>4000<td>Finds the lowest set bit</tr>
+<tr><td>Unary <code>bsr</code><td>4000<td>Finds the highest set bit</tr>
+<tr><td>Unary <code>popcnt</code><td>4000<td>Count the number of set bits</tr>
+<tr><td>Unary <code>is_negative</code><td>5000<td>Test if a real number is negative</tr>
+<tr><td>Unary <code>is_infinity</code><td>5000<td>Test if a real number is infinite</tr>
+<tr><td>Unary <code>is_exception</code><td>5000<td>Test if a value is an exception</tr>
+<tr><td><code>=</code><td>6000<td>Test for equality</tr>
+<tr><td><code>&lt;&gt;</code><td>6000<td>Test for non-equality</tr>
+<tr><td><code>&gt;</code><td>6000<td>Test if the first argument is greater</tr>
+<tr><td><code>&gt;=</code><td>6000<td>Test if the first argument is greater or equal</tr>
+<tr><td><code>&lt;</code><td>6000<td>Test if the first argument is less</tr>
+<tr><td><code>&lt;=</code><td>6000<td>Test if the first argument is less or equal</tr>
+<tr><td><code>not</code><td>7000<td>Logical negation</tr>
+<tr><td><code>and</code><td>8000<td>Logical and</tr>
+<tr><td><code>xor</code><td>9000<td>Logical exclusive or</tr>
+<tr><td><code>or</code><td>10000<td>Logical or</tr>
+</table>
+If we pass different types to an operator, the second argument is converted to a
+type of the first argument. For example <code>2.5 + 1</code> will return a
+floating point value <code>3.5</code>. <code>1 + 2.5</code> will return an
+integer value <code>3</code>.
+
+<h2 id=clauses>Clauses</h2>
+
+Every Ajla source file consists of clauses. This is the list of the clauses:
+<dl>
+<dt><code>fn</code>
+<dd>Declares a function. For example:
+<pre>
+fn maximum(a b : int) : int := select(a < b, a, b);
+</pre>
+or
+<pre>
+fn maximum(a b : int) : int
+[
+	if a < b then
+		return b;
+	else
+		return a;
+]
+</pre>
+<dt><code>operator</code>
+<dd>Declares an operator with a given priority. For example, this declares a
+unary postfix operator "<code>!</code>" that calculates a factorial:
+<pre>
+operator postfix ! 1000 (n : int) : int
+[
+	var v := 1;
+	for i := 2 to n + 1 do
+		v *= i;
+	return v;
+]
+</pre>
+<dt><code>const</code>
+<dd>Declares a constant. A constant is a function that has no arguments. For
+example:
+<pre>
+const ten := 10;
+const hello := `Hello`;
+</pre>
+<dt><code>type</code>
+<dd>Declares a type. For example <code>type byte := uint8;</code> declares the
+type "<code>byte</code>" as an alias to "<code>uint8</code>".
+<dt><code>record</code>
+<dd>Declares a record. For example:
+<pre>
+record person [
+	name : string;
+	surname : string;
+	age : int;
+]
+</pre>
+<dt><code>option</code>
+<dd>Declares an option. For example:
+<pre>
+option bool [
+	false;
+	true;
+]
+</pre>
+<dt><code>uses</code>
+<dd>Imports a unit from the standard library or from the program directory. For
+example "<code>uses heap;</code>" imports the file
+"<code>stdlib/heap.ajla</code>".
+<dt><code>define</code>
+<dd>Defines a macro. See for example "<code>define int_instance</code>" from
+<code>stdlib/system.ajla</code>.
+</dl>
+Function, const and type declarations may be prefixed with:
+<dl>
+<dt><code>private</code>
+<dd>This declaration is only usable in the unit where it appears. It will not be
+imported to other units.
+<dt><code>implicit</code>
+<dd>If you pass less arguments to a function than what was specified in the
+function header, the compiler will attempt to infer the remaining arguments. The
+"<code>implicit</code>" keyword makes this function a candidate for inferring.
+<dt><code>conversion</code>
+<dd>This function converts one type to another. If there is a type mismatch, the
+compiler will scan all the "<code>conversion</code>" functions and try to
+resolve the mismatch automatically by adding the appropriate conversion.
+</dl>
+
+<h2 id=automatic_parallelization>Automatic parallelization</h2>
+
+Let's have a look at this program that does Fibonacci number calculation. It is
+deliberately written in an inefficient recursive way.
+
+<pre id=fib>
+fn fib(n : int) : int
+[
+	if n &lt;= 1 then
+		return n;
+	else
+		return fib(n - 2) + fib(n - 1);
+]
+
+fn main
+[
+	var x := ston(args[0]);
+	var f := fib(x);
+	write(h[1], "fib " + ntos(x) + " = " + ntos(f) + nl);
+]
+</pre>
+
+If you run this program with some higher value, for example 45, you will notice
+that all the cores are busy. That's because Ajla does automatic parallelization.
+<br>
+<br>
+How does automatic parallelization work? We should parallelize only functions
+that take long time. If we parallelized every function call, the overhead of the
+parallelization would cause massive slowdown.
+<br>
+<br>
+<img src=parallel.svg alt="Automatic parallelization" width=100%>
+<br>
+<br>
+Ajla scans the stack every tick (by default, the tick is 10ms, it can be changed
+with the <code>--tick</code> argument). If some function stays on the stack for
+two ticks, it took long enough and it can be parallelized. For example, suppose
+that "Frame 4" in this diagram is there for 2 timer ticks. The stack is broken
+down into two stacks and both of these stacks are executed concurrently. The
+function "Frame 3" in the upper stack needs some return value, but we don't know
+the return value yet (the return value would be returned by the topmost function
+in the lower stack) &mdash; so we return a structure called <i>thunk</i> to the
+upper stack. If the lowermost function in the upper stack attempts to evaluate
+the thunk, it waits for the lower stack to finish (in this situation,
+parallelization is not possible). If the lowermost function in the upper stack
+doesn't attempt to evaluate the thunk, both stacks run concurrently.
+<br>
+<br>
+Automatic parallelization can be disabled with the "<code>--strict-calls</code>"
+switch.
+
+<h2 id=caching>Caching</h2>
+
+Let's have a look at the Fibonacci number example again:
+
+<pre>
+fn fib<b>~cache</b>(n : int) : int
+[
+	if n &lt;= 1 then
+		return n;
+	else
+		return fib(n - 2) + fib(n - 1);
+]
+
+fn main
+[
+	var x := ston(args[0]);
+	var f := fib(x);
+	write(h[1], "fib " + ntos(x) + " = " + ntos(f) + nl);
+]
+</pre>
+
+We added a <code>~cache</code> specifier to the function fib. Because Ajla is
+purely functional, every function will return the same value if the same
+arguments are supplied. Thus, we can cache the return values. This is what the
+<code>~cache</code> specifier does.
+<br>
+<br>
+Now, you can see that you can pass large values to the function and the function
+will complete quickly. That's because the Ajla virtual machine remembers what
+value was returned for what argument and if you call the function again with the
+same argument, it will just return a cached value.
+<br>
+<br>
+In this example, the caching just turned an algorithm with O(2<sup>n</sup>)
+complexity to an algorithm with O(n&nbsp;log&nbsp;n) complexity. The cache is
+implemented as a red-black tree, so operations on it have logarithmic
+complexity.
+
+<h2 id=functions>Functions</h2>
+
+<h3>Function call specifiers</h3>
+Ajla has the following function call specifiers:
+<dl>
+<dt><code>~normal</code>
+<dd>Default &mdash; attempt to parallelize after two timer ticks
+<dt><code>~strict</code>
+<dd>Don't attempt to parallelize
+<dt><code>~spark</code>
+<dd>Parallelize immediately
+<dt><code>~lazy</code>
+<dd>Evaluate when needed (like in Haskell)
+<dt><code>~inline</code>
+<dd>Inline the function (i.e. insert it into the caller)
+<dt><code>~cache</code>
+<dd>Cache the results
+<dt><code>~save</code>
+<dd>Cache the results and save them to <code>~/.cache/ajla/</code>
+</dl>
+The specifiers may be specified either at function declaration or at function
+call. If different specifiers are specified at function declaration and at
+function call, the specifier from the function call wins.
+
+<h3>Nested functions</h3>
+Functions may be nested. The nested function has access to variables of the
+parent function that were visible at the point where the nested function was
+declared. If the variable is later changed in the parent function, the change is
+not promoted to the nested function. If the variable is later changed in the
+nested function, the change is not promoted to the parent function. This is an
+example of a nested function:
+<pre>
+fn main
+[
+	fn sum(a b : int) : int
+	[
+		return a + b;
+	]
+	write(h[1], ntos(sum(10, 20)) + nl);
+]
+</pre>
+Nested functions can't be recursive.
+
+<h3>Lambda functions</h3>
+Lambda functions are anonymous functions that are declared inside an expression
+in the parent function. Like nested functions, they may use parent function
+variables that were visible when the lambda function was declared. This is an
+example of lambda functions:
+<pre>
+fn main
+[
+	var l := [ 10, 15, 20, 25, 30, 35, 40 ];
+	l := list_filter(l, lambda(x : int) [ return not x bt 0; ]);
+	var add := 1;
+	l := map(l, lambda(x : int) [ return x + add; ]);
+	var m := map(l, lambda(x : int) [ return ntos(x); ]);
+	write(h[1], list_join(m, nl));
+]
+</pre>
+We start with a list of seven elements: 10, 15, 20, 25, 30, 35, 40. The function
+"<code>list_filter</code>" takes a list and a function that returns a Boolean
+value and returns the elements for which the function returned
+<code>"true"</code>. In this example, it selects even numbers (the operator
+"<code>bt 0</code>" tests if bit 0 is set). So, the list has now only four
+elements: 10, 20, 30, 40. The function "<code>map</code>" takes a list and a
+function, applies the function to every element of the list and returns the list
+of the results. In this example, the first "<code>map</code>" function will add
+1 to every element of the list. The next "<code>map</code>" takes a list and
+applies the "<code>ntos</code>" function to every element of the list &mdash;
+i.e. it converts the list of numbers to the list of byte strings. The
+"<code>list_join</code>" function joins the byte strings and separates them with
+the second arguments &mdash; that is a newline. The program will print this:
+<pre>
+11
+21
+31
+41
+</pre>
+
+<h3>Currying</h3>
+Currying is the operation where we take a function, pass fewer arguments to the
+function than what was specified in the function header and create a new
+function that takes the remaining arguments. In Ajla, currying is done by
+passing empty arguments from the right end of the argument list.
+<pre>
+fn main
+[
+	fn sum(a b : int) : int
+	[
+		return a + b;
+	]
+	var add_ten := sum(10,);
+	write(h[1], ntos(add_ten(20)) + nl);
+]
+</pre>
+For example, here we have a function "<code>sum</code>" that takes two arguments
+and returns their sum. If we write "<code>sum(10,)</code>", we create a new
+function that takes one argument and adds the value 10 to the argument. We
+assign this new function to the variable "<code>add_ten</code>". Finally, we
+call "<code>add_ten(20)</code>", which returns the value 30.
+
+<h2 id=lists>Lists</h2>
+
+<code>list(t)</code> represents a list type whose elements have a type of
+<code>t</code>. All the elements in a list must have the same type.
+<dl>
+<dt><code>var l := list(int).[ 10, 20, 30, 40 ];</code>
+<dd>Creates a list with four members &mdash; 10, 20, 30, 40.
+<dt><code>var l := [ 10, 20, 30, 40 ];</code>
+<dd>Creates a list with four members &mdash; 10, 20, 30, 40. We can omit the
+type of the list &mdash; the type will be derived from the type of the first
+member.
+<dt><code>var l := empty(int);</code>
+<dd>Creates an empty list of integers.
+<dt><code>var l := fill('a', 10);</code>
+<dd>Creates a list with 10 elements equal to 'a'.
+<dt><code>var l := sparse('a', 1000000000);</code>
+<dd>Functionally, it is equivalent to <code>fill</code>. But unlike
+<code>fill</code>, <code>sparse</code> creates a compressed list that consumes
+little memory even when it is very large. If you modify the compressed list, it
+will be stored as a b+tree with consecutive runs of the same value compressed
+into a single b+tree node. Sparse lists are slower than flat lists because the
+virtual machine has to walk the b+tree on every access.
+<dt><code>var l := [ 10, 20, 30, 40 ] + [ 50, 60, 70, 80 ];</code>
+<dd>Append two lists.
+<dt><code>var l := [ 10, 20, 30, 40 ] <+ 50;</code>
+<dd>Append one value to a list.
+<dt><code>var m := l[3];</code>
+<dd>Pick a member at index 3. The indices start from 0.
+<dt><code>l[3] := 100;</code>
+<dd>Modify the list. If the list has a reference count different from 1, the
+copy of the list is created and modified. If the list has a reference count 1,
+it is modified in place.
+<dt><code>var m := l[2 .. 4];</code>
+<dd>Take a slice of the list, starting with member 2 (inclusive) and ending with
+member 4 (exclusive).
+<dt><code>var m := l[ .. 4];</code>
+<dd>Take a slice of the list, starting at the beginning of the list and ending
+with member 4 (exclusive).
+<dt><code>var m := l[4 .. ];</code>
+<dd>Take a slice of the list, starting with member 4 (inclusive) and ending at
+the list end.
+<dt><code>var a := len(l);</code>
+<dd>Get a length of the list.
+<dt><code>var b := len_at_least(l, 10);</code>
+<dd>Returns true if the length is 10 or more elements.
+<dt><code>var b := len_greater_than(l, 10);</code>
+<dd>Returns true if the length is greater than 10 elements.
+<br>
+<code>len_at_least</code> and <code>len_greater_than</code> are useful when
+dealing with infinite lists. We cannot use "<code>if len(l) >= 10 then
+...</code>" on an infinite list, because it would attempt to evaluate the whole
+list and get into an infinite loop and memory hog. If we use "<code>if
+len_at_least(l, 10) then ...</code>", the virtual machine will attempt to
+evaluate the first 10 entries and it returns <code>true</code> without
+attempting to evaluate further entries.
+<dt><code>for i in [ 10, 20, 30, 40 ] do ...</code>
+<dd>Iterate over a list. The loop body will be executed 4 times, with
+<code>i</code> being 10, 20, 30 and 40.
+</dl>
+
+<h3>Infinite lists</h3>
+This is an example that creates an infinite list, iterates over it and prints
+the result.
+<pre>
+fn inf_list~lazy(i : int) : list(int)
+[
+	return [ i ] + inf_list(i + 1);
+]
+
+fn main
+[
+	var l := inf_list(0);
+	for e in l do
+		write(h[1], ntos(e) + nl);
+]
+</pre>
+Note that we must not use <code>len(list)</code> because it would force
+evaluation of the whole list &mdash; such evaluation never finishes and it blows
+memory.
+<br>
+<br>
+Infinite lists can be created with these functions:
+<dl>
+<dt><code>infinite(10)</code>
+<dd>Creates an infinite list containing the values 10.
+<dt><code>infinite_repeat([ 1, 2, 3])</code>
+<dd>Creates an infinite list containing the values 1, 2, 3, 1, 2, 3, 1, 2, 3 ...
+etc.
+<dt><code>infinite_uninitialized(int)</code>
+<dd>Creates an infinite lists with all members being exceptions. It may be
+useful to create associative arrays. You can test if a member is uninitialized
+with the function <code>is_uninitialized</code>.
+</dl>
+
+<h2 id=arrays>Arrays</h2>
+
+<code>array(t, shape)</code> represents an array type whose elements have a type
+of <code>t</code>. <code>shape</code> is a list of integers that represents
+dimensions of the array.
+<dl>
+<dt><code>var a := array_fill(1, [ 3, 3, 3 ]);</code>
+<dd>Creates a three-dimensional array and fill it with value 1.
+<dt><code>var a := array_sparse(1, [ 3, 3, 3 ]);</code>
+<dd>Functionally, it is equivalent to array_fill. But it creates a compressed
+array.
+<dt><code>m := a[0, 1, 2];</code>
+<dd>Pick a value at a give index.
+<dt><code>a[0, 1, 2] := 100;</code>
+<dd>Modify a value at a give index.
+<dt><code>list_to_array</code>
+<dd>Converts a list to an array.
+<dt><code>array_to_list</code>
+<dd>Converts an array to a list.
+</dl>
+Note: arrays are just syntactic sugar for lists. Internally, the virtual machine
+treats arrays as if they were lists.
+
+
+<h2 id=strings>Strings</h2>
+
+Ajla has two kind of strings. Byte strings are represented by the type
+"<code>bytes</code>" which is an alias for "<code>list(byte)</code>" which is an
+alias for "<code>list(uint8)</code>". Character strings are represented by the
+type "<code>string</code>", which is an alias for "<code>list(char)</code>"
+which is an alias for "<code>list(int32)</code>".
+<br>
+<br>
+Character constants are specified using single quotes, for example
+<code>'C'</code>. Byte constants can be specified using quotation marks, for
+example <code>"hello"</code>. String constants are specified using backquotes,
+for example <code>`Hello`</code>. String constants are always considered as
+UTF-8, regardless of the system locale &mdash; so that if the user moves the
+source file between systems with different locales, we get consistent result.
+<br>
+<br>
+For byte strings, the characters are stored system-defined locale. It is usually
+UTF-8, but it may be different, depending on the operating system and the
+"<code>LANG</code>" variable.
+<br>
+<br>
+The character strings are stored in Unicode. They use the "<code>int32</code>"
+type &mdash; that is arbitrary-precision integer. If there are Unicode combining
+characters, they are not stored as a separate character, they are superimposed
+to the character they belong to. In the unit <code>charset</code>, there is
+"<code>const combining_shift : char := 21</code> &mdash; that means that a
+combining character is shifted by 21 bits to the left and added to the base
+character. The reason why is it done this way is to make sure that text editors
+can treat each "<code>char</code>" as one visible character and they don't have
+to deal with combining characters in their logic.
+<br>
+<br>
+The unit <code>charset</code> (<code>stdlib/charset.ajla</code>) contains the
+conversion routines between ascii, utf-8, locale-specific encoding and strings.
+If we want to write or read strings, we need to convert them to or from bytes
+using the system locale. The system locale is obtained with the function
+<code>locale_init</code> or <code>locale_console_init</code>. These functions
+are almost equivalent, the only difference is on Windows 9x, where locale_init
+returns the ANSI character set and locale_console_init returns the OEM character
+set. On Windows NT, both of these functions return UTF-8 locale and the Ajla
+runtime will translate UTF-8 names to UTF-16 names that are used by the Windows
+NT syscalls. On Unix-based systems, both of these functions return the character
+set as set by the variables "<code>LC_ALL</code>", "<code>LC_CTYPE</code>" or
+"<code>LANG</code>" and there is no translation of byte strings when they are
+passed to syscalls.
+<br><br>
+For example, this program converts my name to the system locale and prints it:
+<pre>
+uses charset;
+
+fn main
+[
+	var loc := locale_console_init(env);
+	write(h[1], string_to_locale(loc, `Mikul&aacute;&scaron; Pato&ccaron;ka`) + nl);
+]
+</pre>
+The first statement loads the current locale based on the environment variables
+being set. The function <code>string_to_locale</code> will covert the
+<code>string</code> to <code>bytes</code> represented by the current locale. It
+will work not only on UTF-8 system, but on ISO-8895-2 system as well. If the
+system locale doesn't have the characters '&aacute;', '&scaron;' or '&ccaron;',
+they are converted to appropriate ascii characters.
+
+<h2 id=exceptions>Exceptions</h2>
+
+Because Ajla can parallelize or reorder function calls, exceptions as we know
+them from Java or C++ wouldn't be useful because they could be triggered at
+random points. Exceptions in Ajla are implemented differently. Exception is just
+a special value that can be stored in any variable.
+<br>
+<br>
+For example "<code>var x := 0 div 0;</code>" will store the "<i>invalid
+operation</i>" exception into the variable <code>x</code>.
+<br>
+<br>
+If we don't use the variable <code>x</code>, the exception is quietly discarded.
+<br>
+<br>
+If we perform arithmetic using the exception, the exception is propagated. For
+example, if we execute "<code>var y := x + 1;</code>", the variable
+<code>y</code> will hold the exception as well. There is one exception to this
+rule &mdash; the operators "<code>and</code>" and "<code>or</code>" don't always
+propagate exception if one of the arguments is known. "<code>false and
+exception</code>" or "<code>exception and false</code>" evaluates to
+"<code>false</code>". "<code>true or exception</code>" or "<code>exception or
+true</code>" evaluates as "<code>true</code>".
+<br>
+<br>
+If we attempt to perform a conditional branch that depends on the exception
+value, the current function is terminated and the exception is returned to the
+caller. For example "<code>if x = 3 then something;</code>" will terminate the
+current function.
+<br>
+<br>
+There's an operator "is_exception" that returns true if the argument is an
+exception and that returns false otherwise. It allows us to "handle" the
+exception. For example, we could write this code to report the exception to the
+user:
+<pre>
+	if is_exception x then
+		write(h[1], "Exception occurred" + nl);
+	else
+		write(h[1], "There's no exception, the value is " + ntos(x) + nl);
+</pre>
+Floating point "NaN" values are treated like exceptions &mdash;
+<code>is_exception</code> will return <code>true</code> if the value is a NaN.
+<br>
+<br>
+Every exception contains three values:
+<dl>
+<dt>Class
+<dd><code>ec_sync</code>, <code>ec_async</code>, <code>ec_syscall</code> or
+<code>ec_exit</code>
+<dl>
+<dt><code>ec_sync</code>
+<dd>The exception happened due to execution of the program. For example, invalid
+numeric calculation or index out of array/list size.
+<dt><code>ec_async</code>
+<dd>The exception happened due to conditions not related to the program. For
+example, memory allocation failure falls into this category.
+<dt><code>ec_syscall</code>
+<dd>The exception happened because some syscall failed.
+<dt><code>ec_exit</code>
+<dd>The exception holds the return value that should be returned when the
+program exits.
+</dl>
+<dt>Type
+<dd>This is an exception code. Exception types are listed in the file
+<code>stdlib/ex_codes.ajla</code> &mdash; see the constants
+"<code>error_*</code>".
+<dt>Code
+<dd>This is auxiliary value. It's meaning depends on the exception type.
+<dl>
+<dt>Type: <code>error_system</code>
+<dd>Code is one of the <code>system_error_*</code> values.
+<dt>Type: <code>error_errno</code>
+<dd>Code is the <code>errno</code> value.
+<dt>Type: <code>error_os2</code>
+<dd>Code is the OS/2 error number.
+<dt>Type: <code>error_os2_socket</code>
+<dd>Code is the OS/2 socket error number.
+<dt>Type: <code>error_win32</code>
+<dd>Code is the Windows error number.
+<dt>Type: <code>error_h_errno</code>
+<dd>Code is the <code>h_errno</code> error number.
+<dt>Type: <code>error_gai</code>
+<dd>Code is the <code>getaddrinfo</code> return value.
+<dt>Type: <code>error_subprocess</code>
+<dd>Code is the subprocess exit number, if the code is negative, it is the
+signal number that terminated the subprocess.
+<dt>Type: <code>error_exit</code>
+<dd>Code is the return value that should be returned from the current process.
+</dl>
+</dl>
+Note that because different systems (POSIX, OS/2, Windows) have different error
+codes, Ajla tries to translate common error codes to one of the
+<code>system_error_*</code> values. For example, a "file exists" error gets
+translated to <code>system_error_eexist</code>, so that the program that tests
+for it can be portable. However, not all error codes could be translated and if
+an unknown error code is received, it is reported as <code>error_errno</code>,
+<code>error_os2</code> or <code>error_win32</code> depending on the operating
+system.
+<br>
+<br>
+Additionally, exceptions may contain an optional error string and an optional
+stack trace, so that the user can determine where did the exception happen.
+
+<h3>Operators that examine exceptions</h3>
+<dl>
+<dt><code>is_exception</code>
+<dd>Returns true if the argument is an exception.
+<dt><code>exception_class</code>
+<dd>Returns class of an exception.
+<dt><code>exception_type</code>
+<dd>Returns type of an exception.
+<dt><code>exception_aux</code>
+<dd>Returns auxiliary value of an exception.
+<dt><code>exception_string</code>
+<dd>Returns a string representing the type and aux values, you can use it to
+display the exception to the user.
+<dt><code>exception_payload</code>
+<dd>Returns the raw string attached to the exception.
+<dt><code>exception_stack</code>
+<dd>Returns the stack trace attached to the exception.
+</dl>
+
+<h3>Function that manipulate exceptions</h3>
+The unit <code>exception</code> (located in the file
+<code>stdlib/exception.ajla</code>) contains the following functions:
+<dl>
+<dt><code>exception_make</code>
+<dd>Makes an exception with the given class, type and code and optional stack
+trace.
+<dt><code>exception_make_str</code>
+<dd>Makes an exception with the given class, type, code and string and optional
+stack trace.
+<dt><code>exception_copy</code>
+<dd>Copies the exception from a variable <code>s</code> that has a type
+<code>src_type</code> to the return value that has a type <code>dst_type</code>.
+The variable <code>s</code> must hold an exception, if not, <i>invalid
+operation</i> exception is returned.
+</dl>
+
+<h3>Statements that manipulate exceptions</h3>
+<dl>
+<dt><code>eval expression</code>
+<dd>Evaluate a given expression (or more expressions separated by a comma), and
+discards the result. It may be used to print debugging messages, for example
+<code>eval debug("message")</code>. The <code>debug</code> statement writes the
+message to the standard error handle.
+<dt><code>xeval expression</code>
+<dd>Evaluate a given expression (or more expressions separated by a comma). If
+the result is non-exception, the result is discarded. If the result is an
+exception, the current function is terminated and the exception is returned as a
+return
+value.
+<dt><code>abort</code>
+<dd>Terminate the current function with with <code>ec_sync</code>,
+<code>error_abort</code>.
+<dt><code>abort expression</code>
+<dd>Evaluate a given expression (or more expressions separated by a comma). If
+the result is an exception, the current function is terminated and the exception
+is returned as a return value. If the result is non-exception, the current
+function exits with <code>ec_sync</code>, <code>error_abort</code>. It may be
+used with the statement "<code>internal</code>" to terminate the whole process
+if some internal error happens &mdash; <code>abort internal("this shouldn't
+happen")</code>.
+<dt><code>keep variables</code>
+<dd>Doesn't evaluate the variables, it just marks the variables as live, so
+that the optimizer won't discard them.
+</dl>
+
+<h3>Syntax errors</h3>
+Note that syntax errors are also treated as exceptions &mdash; if the function
+with syntax error is never called, the error is ignored; if it is called, the
+exception is returned as a return value. In this program, we define a function
+"<code>syntax_error</code>" that contains a syntax error:
+<pre>
+fn syntax_error : int
+[
+	bla bla bla;
+]
+
+fn main
+[
+	var q := syntax_error;
+	if is_exception q then [
+		write(h[1], "Exception happened" + nl);
+	]
+]
+</pre>
+This program will write: "<code>Exception happened</code>".
+<br>
+<br>
+Reporting exceptions lazily when the function is called may not be useful during
+program development &mdash; when you are developing a program, it is recommended
+to use the "<code>--compile</code>" flag. It will attempt to compile all the
+functions in the program and it will report an error if any of them fails.
+
+<h2 id=i_o>I/O</h2>
+
+We have already seen the function <code>write</code> to perform an I/O. Let's
+have a look at other I/O functions. I/O functions take and return the value of
+type <code>world</code>, this ensures that they are properly sequenced and that
+they are not reordered or executed in parallel. I/O functions specify a handles
+on which the I/O is to be performed, <code>handle</code> represents a handle to
+a file (or pipe, character device, block device, socket). <code>dhandle</code>
+represents a handle to a directory. Handles are automatically closed when the
+handle variable is no longer referenced by the program.
+<br>
+<br>
+The function <code>main</code> receives a <code>dhandle</code> argument that is
+the handle to the current working directory and a list of <code>handle</code>
+values that represents the standard input, output and error streams.
+<br>
+<br>
+Handles may be manipulated in three modes:
+<dl>
+<dt>Read mode
+<dd>The handle is being read sequentially
+<dt>Write mode
+<dd>The handle is being written sequentially
+<dt>Block mode
+<dd>You can perform read and write operations on arbitrary offsets in the file.
+This mode only works for files and block devices.
+</dl>
+You shouldn't mix these modes on a single file because it may result in bugs
+&mdash; for example, some operating systems have the functions
+<code>pread</code> and <code>pwrite</code> and they use them when doing I/O on
+the handle in the block mode. However, other operations systems don't have these
+functions, so they will lock the file handle, perform <code>lseek</code>,
+perform <code>read</code> or <code>write</code> and unlock the file handle. If
+you mixed block mode with read mode, the read mode would read from invalid file
+offsets that were set up by the block mode.
+<br>
+<br>
+The I/O functions are defined in the unit <code>io</code>. This unit is
+automatically included in the main program. If you need I/O in other units, you
+must import the <code>io</code> unit explicitly.
+<dl>
+<dt><code>fn ropen(w : world, d : dhandle, f : bytes, flags : int) : (world,
+handle);</code>
+<dd>This function will open a file in a read mode and return a handle to the
+file. <code>w</code> is the world token, <code>d</code> is the base directory
+that is used for file name lookup, <code>f</code> is the file name,
+<code>flags</code> is one of the <code>open_flag_*</code> flags. For this
+function, only the flag <code>open_flag_no_follow</code> is allowed.
+<dt><code>fn read(w : world, h : handle, size : int) : (world, bytes);</code>
+<dd>Read the specified number of bytes from the handle. If end-of-file is
+detected, it returns less bytes. If not enough bytes is available (in case of a
+pipe or a character device), the function will sleep until the specified number
+of bytes is read.
+<dt><code>fn read_partial(w : world, h : handle, size : int) : (world,
+bytes);</code>
+<dd>Read the specified number of bytes from the handle. If not enough bytes are
+available, the function returns less bytes. If no bytes are available, the
+function sleeps until at least one byte is returned.
+<hr>
+<dt><code>fn wopen(w : world, d : dhandle, f : bytes, flags : int, mode : int) :
+(world, handle);</code>
+<dd>Opens a file in a write mode and return a handle to it. <code>flags</code>
+contain one or more of <code>open_flag_append</code>,
+<code>open_flag_create</code>, <code>open_flag_must_create</code>,
+<code>open_flag_no_follow</code>. <code>open_flag_append</code> specifies that
+we want to append to the file rather than overwrite it,
+<code>open_flag_create</code> specifies that we want to create the file if it
+doesn't exist, <code>open_flag_must_create</code> specifies that we want to fail
+with an error if the file exists, <code>open_flag_no_follow</code> suppresses
+the dereferencing of the last symlink in a file name. <code>mode</code>
+represents the permissions of the file if it is created, it may be
+<code>open_mode_ro_current_user</code>, <code>open_mode_ro_all_users</code>,
+<code>open_mode_rw_current_user</code>, <code>open_mode_read_all_users</code>,
+<code>open_mode_default</code> or other value.
+<dt><code>fn write(w : world, h : handle, s : bytes) : world;</code>
+<dd>Writes the bytes to the write handle.
+<dt><code>fn wcontiguous(w : world, h : handle, size : int64) : world;</code>
+<dd>Allocates a contiguous space for <code>size</code> bytes. Only some of the
+operating systems (Linux and OS/2) support preallocation of file data. If the
+operating system doesn't support it, the function returns with success and does
+nothing.
+<dt><code>fn pipe(w : world) : (world, handle, handle);</code>
+<dd>Creates a pipe and returns two handles. The first handle is used for reading
+from the pipe and the second handle is used for writing to the pipe.
+<hr>
+<dt><code>fn bopen(w : world, d : dhandle, f : bytes, flags : int, mode : int) :
+(world, handle);</code>
+<dd>Opens a file in a block mode. <code>flags</code> is a combination of
+<code>open_flag_*</code>. <code>mode</code> represents the permissions of the
+file if it is created.
+<dt><code>fn bread(w : world, h : handle, position : int64, size : int) :
+(world, bytes);</code>
+<dd>Read bytes from the specified position. If end-of-file is encountered, the
+function returns less bytes.
+<dt><code>fn bwrite(w : world, h : handle, position : int64, s : bytes) :
+world;</code>
+<dd>Write bytes to the specified position. If we write beyond file end, the file
+is extended.
+<dt><code>fn bsize(w : world, h : handle) : (world, int64);</code>
+<dd>Returns the size of the file.
+<dt><code>fn bdata(w : world, h : handle, off : int64) : (world, int64);</code>
+<dd>Skips over a hole in the file. Returns a next offset where some data are
+allocated. Some filesystems do not support holes; for them this function returns
+<code>off</code>.
+<dt><code>fn bhole(w : world, h : handle, off : int64) : (world, int64);</code>
+<dd>Skips over data in the file. Returns a next offset where there is a hole in
+the file. Some filesystems do not support holes; for them this function returns
+<dt><code>fn bsetsize(w : world, h : handle, size : int64) : world;</code>
+<dd>Truncates a file to the specified size or extends it.
+<dt><code>fn bcontiguous(w : world, h : handle, pos : int64, size : int64) :
+world;</code>
+<dd>Allocates a contiguous space at the specified offset. Some operating systems
+do not support file preallocation, for them, this function return success
+without doing anything.
+<dt><code>fn bclone(w : world, src_h : handle, src_pos : int64, dst_h : handle,
+dst_pos : int64, size : int64) : world;</code>
+<dd>Clones a byte range from <code>src_h</code> starting at <code>src_pos</code>
+to <code>dst_h</code> starting at <code>dst_pos</code>. Only some filesystems
+support cloning, if the filesystem doesn't support it, an error is reported.
+<hr>
+<dt><code>fn droot(w : world) : dhandle;</code>
+<dd>Returns a handle to the root directory. On Windows or OS/2, it returns a
+handle to <code>C:\</code>.
+<dt><code>fn dnone(w : world) : dhandle;</code>
+<dd>Returns an invalid directory handle. It is useful if you want to open a file
+and you know that the file path is absolute &mdash; in this case, you can pass
+<code>dnone()</code> to <code>ropen</code>, <code>wopen</code>,
+<code>bopen</code> or <code>dopen</code>.
+<dt><code>fn dopen(w : world, d : dhandle, f : bytes, flags : int) : (world,
+dhandle);</code>
+<dd>Open a directory that is relative to an existing directory. The only allowed
+flag is <code>open_flag_no_follow</code>.
+<dt><code>fn dread(w : world, d : dhandle) : (world, list(bytes));</code>
+<dd>Reads the directory and returns the list of directory entries.
+<dt><code>fn dpath(w : world, d : dhandle) : (world, bytes);</code>
+<dd>Returns a path that the directory points to. Note that we cannot return a
+path for file handles, because there may be multiple names referring to a single
+inode.
+<dt><code>fn dmonitor(w : world, d : dhandle) : (world, world);</code>
+<dd>Monitor the specified directory for changes. If the operating system doesn't
+support directory monitoring, exception is returned. If the operating system
+supports directory monitoring, the first value is returned immediately and the
+second value is returned when the directory changed.
+</dl>
+There are more functions that manipulate files and directories, see the file
+<code>stdlib/io.ajla</code>.
+
+<h3>I/O error handling</h3>
+If some I/O operations fails, an exception is stored into the resulting
+<code>world</code>. If you attempt to perform more I/O with the world tag that
+is an exception, no I/O is performed, and the exception is returned back in the
+world tag. Consequently, you don't need to test for exception after every I/O
+operation &mdash; you can perform several I/O operations with no exception
+checking between them and check exceptions only once at the end of the sequence.
+If you attempt to write to a file and the array that is being written contains
+an exception, the data up to the exception is written and then the exception is
+returned.
+<br>
+<br>
+If you need to recover from the exception, you need to take a world value that
+existed before the exception happened and use it as a current world value
+&mdash; there's a function <code>recover_world</code> that does it.
+<br>
+<br>
+This is an example program that shows how exceptions could be recovered. It
+takes two arguments, coverts both of them to integer numbers, tries to divide
+them and writes the result.
+<pre>
+fn main
+[
+	var old_w := w;
+	var x1 := ston(args[0]);
+	var x2 := ston(args[1]);
+	write(h[1], ntos(x1) + " / " + ntos(x2) + " = " + ntos(x1 div x2) + nl);
+	if is_exception w then [
+		var msg := exception_string w;
+		recover_world(old_w);
+		write(h[1], "An exception " + msg + " happened and was recovered" + nl);
+	]
+]
+</pre>
+If the second argument is zero, you get this output "<code>1 / 0 = An exception
+Invalid operation happened and was recovered</code>". The <code>msg</code>
+variable will capture the exception message. Then, we recover the world tag, so
+that it points to an older value before the exception happened. As we recovered
+it, we can write to the standard output again.
+<br>
+<br>
+If you don't pass any arguments to this programs, you get "<code>An exception
+Index out of range happened and was recovered</code>" &mdash; here, the
+exception happens when we attempt to evaluate "<code>args[0]</code>" and
+"<code>args[1]</code>".
+
+<h3>Lazy functions for I/O</h3>
+In <code>io.ajla</code> there are functions with <code>_lazy</code> suffix. They
+do not take world as an argument and do not return it. They are intended to be
+used in situations where the data accessed are not supposed to change during
+program execution. If the files and directories don't change, we don't need to
+sequence the I/O using the world variable.
+<br>
+<br>
+For example, the function <code>read_lazy</code> will read a handle and return a
+list of bytes, reading more data as they are needed. This program will read
+lines from standard input, echoing the lines back, and prints "<code>read all
+the lines, exiting...</code>" when the user terminates the input stream with
+Ctrl-D.
+<pre>
+fn main
+[
+	var lines := list_break_to_lines(read_lazy(h[0]));
+	for line in lines do [
+		write(h[1], "read a line: """ + line + """." + nl);
+	]
+	write(h[1], "read all the lines, exiting..." + nl);
+]
+</pre>
+The <code>list_break_to_lines</code> functions takes a list of bytes, breaks it
+to separate lines and returns list of lists of bytes representing the lines.
+
+<h2 id=units>Units</h2>
+
+Larger program can be broken up into multiple units. Unit starts with the
+"<code>unit</code>" keyword and the unit name (the unit name must match the file
+name), then, there's an interface section listing all public functions and
+types. Then there's the "<code>implementation</code>" keyword and then there are
+private functions and types and implementations of the public versions.
+<br>
+<br>
+The "<code>uses</code>" keyword will import a unit and make all public functions
+and types visible. You can import units from your program or from the standard
+library. The standard library is located in the directory "<code>stdlib</code>".
+Some of these units are declared with "<code>private unit</code>" keywords,
+these cannot be imported by your program, they can only be imported by other
+units in the standard library.
+<br>
+<br>
+Every Ajla source file automatically imports the unit "<code>system.ajla</code>.
+The main program source file also imports "<code>io.ajla</code>" and
+"<code>treemap.ajla</code>".
+<br>
+<br>
+Let's have look at the <a href="#fib">Fibonacci number calculation</a> and let's
+move the calculation to a separate unit. Now, we have a file
+"<code>fibunit.ajla</code>" with
+this content:
+<pre>
+unit fibunit;
+
+fn fib(n : int) : int;
+
+implementation
+
+fn fib(n : int) : int
+[
+        if n <= 1 then
+                return n;
+        else
+                return fib(n - 2) + fib(n - 1);
+]
+</pre>
+And a file "<code>fib.ajla</code>" with this content:
+<pre>
+uses fibunit;
+
+fn main
+[
+        var x := ston(args[0]);
+        var f := fib(x);
+        write(h[1], "fib " + ntos(x) + " = " + ntos(f) + nl);
+]
+</pre>
+The interface section in the "<code>fibunit</code>" file specifies that the unit
+exports one function, "<code>fib</code>". The file "<code>fib.ajla</code>"
+imports the unit using the "<code>uses fibunit;</code>" statement.
+<br>
+<br>
+For larger programs, units may be located in different directories, when you
+import them, you use dot as a directory separator. For example "<code>uses
+ui.curses;</code>" imports the unit from the file
+"<code>stdlib/ui/curses.ajla</code>".
+
+<h3>Name clashes</h3>
+If you declare a unit with a name that's already present in the standard
+library, your unit will take precedence and it will be imported instead of the
+unit in the standard library. However, if some file in the standard library
+imports a unit that's defined both in the standard library and in your program,
+the version from the standard library will be used.
+<br>
+<br>
+The same rule applies when function or type names clash. Your program will use a
+function that's declared in your program, however the standard library will use
+a version that's declared in the standard library.
+<br>
+<br>
+In new version of Ajla, the standard library can be extended with new units,
+functions and types. However, it shouldn't break existing programs because they
+will preferentially reference units, functions and types that are declared in
+them.
+
+<h3>Hiding the implementations of types</h3>
+Just like you can hide function implementations in the implementation section,
+you can hide type implementations as well. For example, see the unit
+<code>heap</code> from the standard library (i.e. the file
+<code>stdlib/heap.ajla</code>). In the interface section, there's
+<pre>
+type heap(key : type, cls : class_ord(key));
+</pre>In the implementation section, there's
+<pre>
+type heap(key : type, cls : class_ord(key)) := list(key);
+</pre>
+When you import the unit using "<code>uses heap</code>", the compiler will read
+the statements up to the "<code>implementation</code>" keyword and then stop.
+The compiler will see that "<code>heap</code>" is a type that has one
+"<code>key</code>" parameter and one "<code>cls</code>" parameter, but it won't
+know how this type is defined. So, it will allow you to pass the variables with
+the "<code>heap</code>" type back and forth between functions, but it won't let
+you modify these variables directly.
+<br>
+<br>
+When the compiler will be parsing the <code>heap.ajla</code> file directly, it
+will process the line "<code>type heap(key : type, cls : class_ord(key)) :=
+list(key);</code>". From this point on, it knows that "<code>heap</code>" is
+implemented as a list and it will allow all list operations to be performed on
+the "<code>heap</code>" type.
+<br>
+<br>
+We can hide implementations of types from common code, so that the
+implementations may be changed without disrupting the program. For example, we
+could change the implementation of heap from a list to a binary tree and
+existing code could use the same interface functions.
+
+<h2 id=type_classes>Type classes</h2>
+
+Type classes allow us to write functions that can operate on different types.
+For example, let's have a look at this function that multiplies matrices
+containing double-precision numbers:
+<pre>
+fn matmult(const n : int, a b : array(real64, [n, n])) : array(real64, [n, n])
+[
+	var result := array_fill(0., [n, n]);
+	for i := 0 to n do
+		for j := 0 to n do
+			for k := 0 to n do
+				result[i, j] += a[i, k] * b[k, j];
+	return result;
+]
+</pre>
+The variable <code>n</code> is the size of the matrices &mdash; note that if we
+want to use a variable in a type definition, we must declare it with a
+<code>const</code> specifier, so that the variable cannot be changed. If we
+changed <code>n</code>, it would no longer match the size of the arrays.
+<code>a</code> and <code>b</code> are two matrices &mdash; they are square
+arrays of <code>real64</code> with both dimensions equal to <code>n</code>. The
+function return another square array of <code>real64</code>.
+<br>
+<br>
+What if we want to multiply matrices containing single-precision numbers? We
+could copy the code and replace <code>real64</code> with <code>real32</code>,
+but copying code is considered antipattern. Or, we can use type classes:
+<pre>
+fn matmult~inline(t : type, implicit cls : class_unit_ring(t), const n : int,
+		  a b : array(t, [n, n])) : array(t, [n, n])
+[
+	var result := array_fill(cls.zero, [n, n]);
+	for i := 0 to n do
+		for j := 0 to n do
+			for k := 0 to n do
+				result[i, j] += a[i, k] * b[k, j];
+	return result;
+]
+</pre>
+In this second example, we can see new arguments. The <code>t</code> argument
+represents a type. The <code>cls</code> argument represents operations that can
+be done on the type <code>t</code>. We need to perform addition and
+multiplication on the type <code>t</code>, so we use the "unit ring" class that
+has these operations. The arguments <code>n</code>, <code>a</code> and
+<code>b</code> are similar to the previous example.
+<br>
+<br>
+Type class is a record that is parameterized by a type and that contains
+constants or function references. We can look at the standard library
+(<code>stdlib/system.ajla</code>) for the definition of
+<code>class_unit_ring</code>:
+<pre>
+record class_unit_ring(t : type) [
+	add : fn(t, t) : t;
+	zero : t;
+	neg : fn(t) : t;
+	subtract : fn(t, t) : t;
+	multiply : fn(t, t) : t;
+	one : t;
+]
+</pre>
+The function <code>matmult</code> can accept any type for which
+<code>class_unit_ring</code> exists &mdash; it accepts floating-point numbers,
+integers, rational numbers and fixed-point numbers. You can declare
+<code>class_unit_ring</code> for your own type and then, you can pass this type
+to the function <code>matmult</code> as well. In order to improve performance,
+we should define the function <code>matmult</code> with "<code>~inline</code>".
+Without "<code>~inline</code>", the compiler would do indirect function call
+through the <code>class_unit_ring</code> record for every multiplication and
+addition.
+<br>
+<br>
+Note that if we pass less arguments than what was specified in the function
+prototype, Ajla attempts to infer the remaining arguments. So, you can write
+this:
+<pre>
+	var m1 : array(real32, [ 10, 10 ]);
+	var m2 : array(real32, [ 10, 10 ]);
+	... fill m1 and m2 with some data ...
+	var m3 := matmult(m1, m2);
+</pre>
+The first argument (the type) is inferred from the type in the arguments
+<code>m1</code> and <code>m2</code>. The second argument (the class) is inferred
+from the standard library. The third argument (the dimension) is inferred from
+the dimensions of arguments <code>m1</code> and <code>m2</code>.
+
+<h3>Standard type classes</h3>
+This diagram shows some of the default type classes defined in the standard
+library:
+<br>
+<br>
+<img src=classes.svg alt="Standard type classes in Ajla" width=100%>
+<br>
+<br>
+Magma, monoid, group, unit ring and division ring come from abstract algebra.
+Magma has one binary operation. Monoid has one binary operation and a zero
+element. Group is a monoid that has inverse element. Unit ring is a commutative
+group that has multiplication and a "1" element. Division ring is a unit ring
+that has a reciprocal.
+<br>
+<br>
+Real number class has additional mathematical functions, you can look at
+<code>class_real_number</code> in <code>stdlib/system.ajla</code> for the list
+of them. Integer number has operations that can be done on integers (see
+<code>class_integer_number</code>), fixed integer number has all the operation
+of integer number, and adds operations that can be only done on integers that
+have fixed size &mdash; <code>rol</code>, <code>ror</code>, <code>bswap</code>
+and <code>brev</code>.
+<br>
+<br>
+<code>class_eq</code> represents types for which equality is defined.
+<code>class_org</code> represents types where we can compare elements.
+<code>class_logical</code> represents types with the "<code>and</code>",
+"<code>or</code>", "<code>xor</code>" and "<code>not</code>" operations.
+<br>
+<br>
+For example, this is a prototype of the function <code>list_sort</code> that
+sorts a list:
+<br><code>fn list_sort(t : type, implicit c : class_ord(t), l : list(t)) :
+list(t);</code><br>
+It takes a type, an ordered class and a list of elements of type <code>t</code>.
+It returns the sorted list. Because we specified that the type has an ordered
+class, we can use comparison operators <code>=</code>, <code>&lt;&gt;</code>,
+<code>&lt;=</code>, <code>&gt;=</code> in the function body. If you need to sort
+a list with a custom comparison operation, you can define your own
+"<code>class_ord</code>" containing a pointer to your comparison functions and
+pass it as an argument to the "<code>list_sort</code>" function.
+<br>
+<br>
+Note that standard operators are defined using type classes. For example the
+multiplication operator is defined as "<code>operator * 2000 ~inline (t : type, c
+: class_unit_ring(t), val1 val2 : t) : t := c.multiply(val1, val2);</code>", so
+that we can use the operator on any type that has class_unit_ring defined.
+
+<h2 id=threads>Threads</h2>
+
+Ajla uses world-passing to sequence I/O. If we need to create more threads, we
+can split the variable "<code>w</code>" to more variables and the virtual
+machine will execute them concurrently.
+<br>
+<br>
+This is an example of a loop that prints numbers from 1 to 10 and waits one
+second between them:
+<pre>
+fn main
+[
+	for i := 1 to 11 do [
+		w := sleep(w, 1000000);
+		w := write(w, h[1], ntos(i) + nl);
+	]
+]
+</pre>
+Now, we convert this example to two loops that run concurrently:
+<pre>
+fn main
+[
+	var w1, w2 := fork(w);
+	for i := 1 to 11 do [
+		w1 := sleep(w1, 1000000);
+		w1 := write(w1, h[1], "thread 1: " + ntos(i) + nl);
+	]
+	for i := 1 to 11 do [
+		w2 := sleep(w2, 1000000);
+		w2 := write(w2, h[1], "thread 2: " + ntos(i) + nl);
+	]
+	w := join(w1, w2);
+]
+</pre>
+The "<code>fork</code>" function takes a "<code>world</code>" argument and
+splits it into two world arguments &mdash "<code>w1</code>" and
+"<code>w2</code>". The first loop will iterate from 1 to 10 and sequence the I/O
+using "<code>w1</code>" and the second loop will iterate from 1 to 10 and
+sequence the I/O using "<code>w2</code>". The "<code>join</code>" function takes
+two world arguments, evaluates them both, and if one of them is an exception,
+the exception is returned. If both of them are not exceptions, a valid
+"<code>world</code>" variable is returned. The output of this program is:
+<pre>
+thread 1: 1
+thread 2: 1
+thread 1: 2
+thread 2: 2
+thread 1: 3
+thread 2: 3
+thread 1: 4
+thread 2: 4
+thread 1: 5
+thread 2: 5
+thread 1: 6
+thread 2: 6
+thread 1: 7
+thread 2: 7
+thread 1: 8
+thread 2: 8
+thread 1: 9
+thread 2: 9
+thread 1: 10
+thread 2: 10
+</pre>
+What is happening here? The loops are not really run in parallel, they are
+executed sequentially &mdash; Ajla can't parallelize statements within a single
+function. The first "<code>sleep</code>" function is executed and it waits for 1
+second. But before it returns, two timer ticks elapse and, as we have seen in
+the <a href="#automatic_parallelization">automatic parallelization</a> section,
+the "<code>main</code>" function resumes execution and the "<code>w1</code>"
+variable is pointing to a thunk. Next, we execute the "<code>write</code>"
+function, but because the variable "<code>w1</code>" is not known yet, the
+"<code>write</code>" function blocks. After two timer ticks, we return back to
+the "<code>main</code>" function, and we go to second iteration of the first
+loop. "<code>w1</code>" now points to a thunk that references the
+"<code>write</code>" function and this thunk references the
+"<code>sleep</code>" function. In the second iteration, we do exactly the same
+steps as in the first iteration &mdash; and so on up to the tenth iteration: we
+have gone through the first loop without printing anything, just creating a
+chain of thunks.
+<br>
+The second loop is executed as the first loop &mdash; it generates a chain of
+thunks referring functions "<code>sleep</code>" and "<code>write</code>" without
+printing anything. Then, we go to the "<code>join</code>" function &mdash; it
+waits on "<code>w1</code>". As it waits longer than two timer ticks, it is
+parallelized too and the variable "<code>w</code>" will be pointing to a thunk
+that references the "<code>join</code>" function.
+<br>
+Now, "<code>w</code>" is returned from the "<code>main</code>" function and the
+virtual machine will attempt to evaluate it. The evaluation will force the
+execution of the "<code>sleep</code>" and "<code>wait</code>" functions,
+resulting in numbers being printed to the standard output.
+<br>
+<br>
+We can use the "<code>~spark</code>"
+<a href="#function_call_specifiers">specifier</a> to make sure that the
+functions are parallelized immediately and that they don't wait for two timer
+ticks before the parallelization starts. This makes this example execute faster:
+<pre>
+fn main
+[
+	var w1, w2 := fork(w);
+	for i := 1 to 11 do [
+		w1 := sleep~spark(w1, 1000000);
+		w1 := write~spark(w1, h[1], "thread 1: " + ntos(i) + nl);
+	]
+	for i := 1 to 11 do [
+		w2 := sleep~spark(w2, 1000000);
+		w2 := write~spark(w2, h[1], "thread 2: " + ntos(i) + nl);
+	]
+	w := join(w1, w2);
+]
+</pre>
+
+<h3>Infinite loops</h3>
+Beware of infinite loops:
+<pre>
+fn main
+[
+	while true do [
+		write(h[1], "Hello World!" + nl);
+	]
+]
+</pre>
+This will not print anything, because the dead code elimination pass will remove
+the "<code>w</code>" variable as well as the function "<code>write</code>" that
+sets it because the variable can't be returned from the function. A proper way
+how to write it is to use a "<code>xeval w</code>" statement in an infinite
+loop, so that the loop is terminated if the "<code>write</code>" function fails:
+<pre>
+fn main
+[
+	while true do [
+		write(h[1], "Hello World!" + nl);
+		xeval w;
+	]
+]
+</pre>
+Another possibility how to fix it is to test the "<code>w</code>" variable for
+exception in the loop condition.
+<pre>
+fn main
+[
+	while not is_exception w do [
+		write(h[1], "Hello World!" + nl);
+	]
+]
+</pre>
+
+<h3>Other thread functions</h3>
+<dl>
+<dt><code>any</code>
+<dd>Start evaluating both values and wait until any of them becomes evaluated.
+Returns "<code>false</code>" if the first value is evaluated and
+"<code>true</code>" if the second value is evaluated. If both of them are
+evaluated, "<code>false</code>" is returned.
+<dt><code>any_list</code>
+<dd>Start evaluating all the values in the list and wait until any of the
+becomes evaluated. Returns the index of the first value that is evaluated.
+<dt><code>is_ready</code>
+<dd>Returns "<code>true</code>" if the value is evaluated.
+<dt><code>never</code>
+<dd>Blocks and never completes.
+<dt><code>atomic_enter</code>
+<dd>Increases the atomic count &mdash; when the atomic count is non-zero, the
+thread will not be killed.
+<dt><code>atomic_exit</code>
+<dd>Decreases the atomic count &mdash; when the atomic count is zero, the thread
+may be killed if its return value is not used.
+</dl>
+
+<h3>Message queues</h3>
+We can use message queues to communicate between threads. They are defined in
+the file "<code>stdlib/msgqueue.ajla</code>".
+<dl>
+<dt><code>msgqueue_new</code>
+<dd>Creates a new message queue holding entries of the specified type.
+<dt><code>msgqueue_send</code>
+<dd>Sends a message to the message queue. Every message has a tag and a value.
+The tag may be used to filter messages on the receive side.
+<dt><code>msgqueue_replace</code>
+<dd>Replace the content of the queue with a given message.
+<dt><code>msgqueue_receive</code>
+<dd>Waits until the queue is non-empty and returns the first message.
+<dt><code>msgqueue_receive_tag</code>
+<dd>Waits until the queue has at least one message with a given tag and returns
+this message.
+<dt><code>msgqueue_receive_nonblock</code>
+<dd>If the queue is non-empty, return the first message, otherwise return the
+exception "<code>error_not_found</code>".
+<dt><code>msgqueue_receive_tag_nonblock</code>
+<dd>If the queue contains a message with the specified tag, return it, otherwise
+return the exception "<code>error_not_found</code>".
+<dt><code>msgqueue_peek_nonblock</code>
+<dd>Return a message without removing it from the queue. If the queue is empty,
+the exception "<code>error_not_found</code>" is returned.
+<dt><code>msgqueue_peek_tag_nonblock</code>
+<dd>Return a message with the specified tag without removing it from the queue.
+If there is no such message, the exception "<code>error_not_found</code>" is
+returned.
+<dt><code>msgqueue_wait</code>
+<dd>Wait until the queue becomes non-empty.
+<dt><code>msgqueue_is_nonempty</code>
+<dd>Returns true if the queue is non-empty.
+<dt><code>msgqueue_any</code>
+<dd>Wait until any of the two message queues becomes non-empty.
+</dl>
+Note that there is one gotcha when using message queues &mdash; when you insert
+a record containing a message queue to the message queue itself, the message
+queue will leak. Ajla uses reference counts to track memory and in this
+situation, there will be circular reference dependence that prevents the message
+queue from being freed. The memory leak will be detected and resolved when Ajla
+exits, however while it is running, there is no way how to detect it and free
+the leaked message queue.
+<br>
+<br>
+This is an example program that uses a message queue to read characters from the
+keyboard:
+<pre>
+uses ui.termcap;
+uses ui.event;
+
+fn main
+[
+	var tc := termcap_init(d, env);
+	var loc := locale_console_init(env);
+	var q := msgqueue_new(event);
+	var kbd_thread := event_get_keyboard(h[0], tc, loc, q);
+	while not is_exception w do [
+		var tag, e := msgqueue_receive(q);
+		if e is keyboard then [
+			write(h[1], "keyboard event " + ntos(e.keyboard.key) + ", " + ntos(e.keyboard.flags) + nl);
+			if e.keyboard.key = 'q' then break;
+		]
+		keep kbd_thread;
+	]
+]
+</pre>
+<dl>
+<dt><code>var tc := termcap_init(d, env);</code>
+<dd>Initialize the termcap database and store it to the variable
+"<code>tc</code>".
+<dt><code>var loc := locale_console_init(env);</code>
+<dd>Initialize the locale according to environment variables.
+<dt><code>var q := msgqueue_new(event);</code>
+<dd>Create a message queue of events. "<code>event</code>" is defined in the
+file "<code>stdlib/ui/event.ajla</code>".
+<dt><code>var kbd_thread := event_get_keyboard(h[0], tc, loc, q);</code>
+<dd>Create a thread that reads the keyboard from handle 0. "<code>tc</code>" is
+the termcap database, "<code>loc</code>" is the current locale and
+"<code>q</code>" is the message queue, where events will be sent.
+<dt><code>while not is_exception w do</code>
+<dd>Loop while there is no exception.
+<dt><code>var tag, e := msgqueue_receive(q);</code>
+<dd>Read the message queue; wait if it is empty.
+<dt><code>if e is keyboard then</code>
+<dd>If the event is a keyboard event, take this branch.
+<dt><code>write(h[1], "keyboard event " + ntos(e.keyboard.key) + ", " +
+ntos(e.keyboard.flags) + nl);</code>
+<dd>Print the keyboard event.
+<dt><code>if e.keyboard.key = 'q' then break;</code>
+<dd>Exit if the user pressed 'q'.
+<Dt><code>keep kbd_thread;</code>
+<dd>This statement prevents the optimizer from removing the thread. Without this
+statement, the optimizer would conclude that the variable
+"<code>kbd_thread</code>" is not used anymore, it would free it and that would
+terminate the "<code>event_get_keyboard</code>" thread.
+</dl>
+
+<h2 id=ffi>FFI</h2>
+
+FFI (foreign function interface) allows us to call functions that are defined in
+some of the system libraries. It is the only unsafe part of Ajla &mdash; it
+cannot be memory-safe because C pointers aren't safe as well. FFI only works if
+the library "<code>libffi</code>" was present when Ajla was compiled. If not,
+the FFI functions return the exception "<code>error_not_supported</code>".
+<br>
+<br>
+This is an example program that uses FFI to print the string "Hello World!" to
+the standard output, using the "<code>write</code>" function imported from the
+standard library.
+<pre>
+uses ffi;
+
+fn main
+[
+	var str := "Hello World!" + nl;
+	var destr := ffi_destructor_new();
+	var message := ffi_destructor_allocate(destr, len(str), 1, false);
+	ffi_poke_array(message, str);
+	var wrt := ffi_create_function("", "write", ffi_error.e_errno, 3,
+		ffi_type.t_ssize, [ffi_type.t_sint, ffi_type.t_pointer, ffi_type.t_usize ]);
+	var xh := ffi_handle_to_number(h[1]);
+	var r, e := ffi_call_function(wrt, [ xh, message, len(str) ]);
+	keep destr;
+	if r = -1 then [
+		write(h[2], "error " + ntos(e) + " occurred" + nl);
+		exit(1);
+	] else if r &lt;&gt; len(str) then [
+		write(h[2], "wrote only " + ntos(r) + " bytes" + nl);
+		exit(1);
+	]
+]
+</pre>
+Ajla functions may be terminated any time, so in order to reliably free memory,
+the FFI interface introduces so-called destructors. The destructor may contain
+function calls and/or allocated memory. When the destructor variable is freed,
+the stored calls are performed and then the allocated memory is freed.
+<dl>
+<dt><code>var str := "Hello World!" + nl;</code>
+<dd>The string to be written.
+<dt><code>var destr := ffi_destructor_new();</code>
+<dd>This line allocates a destructor. So far, it is empty, so no operation is
+done when the destructor is freed.
+<dt><code>var message := ffi_destructor_allocate(destr, len(str), 1,
+false);</code>
+<dd>This line allocates memory from the destructor and returns a pointer to the
+allocated memory. <code>len(str)</code> is the size of the allocated memory,
+<code>1</code> is the alignment of the memory, <code>false</code> specifies that
+the memory doesn't have to be cleared. When the <code>destr</code> variable is
+freed, the allocated memory is automatically freed as well.
+<dt><code>ffi_poke_array(message, str);</code>
+<dd>This copies the string to the pointer returned by the previous function.
+Note that the function <code>ffi_poke_array</code> may be used to overwrite
+arbitrary memory in the process.
+<dt><code>var wrt := ffi_create_function("", "write", ffi_error.e_errno, 3,
+ffi_type.t_ssize, [ffi_type.t_sint, ffi_type.t_pointer, ffi_type.t_usize
+]);</code>
+<dd>This statement loads a pointer to the function "<code>write</code>" from the
+standard library. The first argument is a library name (empty string for libc),
+the second argument is the name of the function, the third argument specifies
+that we are interested in the <code>errno</code> value returned by the function,
+the fourth argument is the number of fixed arguments, the fifth argument is the
+return type, the sixth argument is the list containing types for the three
+arguments &mdash; the first argument has type signed integer, the second
+argument has type pointer, the third argument has type unsigned size_t.
+<dt><code>var xh := ffi_handle_to_number(h[1]);</code>
+<dd>This statement converts an Ajla handle to a system handle. The result will
+be "1" because we are writing to the standard output.
+<dt><code>var r, e := ffi_call_function(wrt, [ xh, message, len(str) ]);</code>
+<dd>Call the "<code>write</code>" function, <code>r</code> is the return value,
+<code>e</code> is the <code>errno</code> value.
+<dt><code>keep destr;</code>
+<dd>The "keep" statement tells the optimizer not to free the variable
+prematurely. If we omitted this statement, the optimizer would free the
+<code>destr</code> variable at a point when it is no longer referenced in the
+source code. Freeing <code>destr</code> would free the <code>message</code>
+buffer prematurely and we would be writing invalid memory.
+<dt>if r = -1 then ...
+<dd>The rest of the program prints an error if the write failed.
+</dl>
+
+<h2 id=performance_considerations>Performance considerations</h2>
+
+Ajla uses both interpreter and machine code generator when running the program.
+The interpreter handles all the constructs of the language and the machine code
+generator handles only the common constructs. For example, if we add two
+integers, it is translated to the instruction "add" followed by the instruction
+"jo" that jumps to the interpreter on overflow. The interpreter will perform the
+overflowed operation on long integers using the gmp library.
+<br>
+<br>
+In order to get decent performance, you must make sure that the hot spot of the
+program is running in the machine code and not in the interpreter. You shouldn't
+use long integers, lazy evaluation, exceptions, sparse lists, infinite lists in
+the hot spot, because these constructs cause escape from the machine code to the
+interpreter. There are functions "<code>list_flatten</code>" and
+"<code>array_flatten</code>" that convert sparse list or array to a flat
+structure &mdash; you can use these functions before the hot spot to make sure
+that the hot spot can access the array without escaping to the interpreter.
+<br>
+<br>
+There are following profiling parameters:
+<dl>
+<dt><code>--profile=function</code>
+<dd>It will count how many times each function is called and the time spent in
+the function and it will display the functions sorted by the time.
+<dt><code>--profile=escape</code>
+<dd>It will show locations where escape from the machine code to the interpreter
+happened. It shows the function, the line number, the number of escapes and the
+opcode that triggered the escape.
+<dt><code>--profile=memory</code>
+<dd>It will show where memory was allocated.
+<dt><code>--profile</code>
+<dd>Enable "function", "escape" and "memory".
+</dl>
+If you enable "<code>--debug=leak</code>", Ajla will maintain a list of all
+memory blocks that are allocated. You can dump this list at various points in
+your program to see where is it allocating most memory. You can use:
+<dl>
+<dt><code>eval report_memory_summary("hello");</code>
+<dd>Report the summary of allocated memory, for example "<code>DEBUG MESSAGE:
+allocated memory at hello: 689030 / 4054 = 169</code>".
+<dt><code>eval report_memory_most("hello");</code>
+<dd>Report locations where most memory was allocated, for example this
+"<code>DEBUG MESSAGE: pcode.c:3298 284314 / 234 = 1215</code>" means that
+there is 284314 bytes in 234 blocks allocated at pcode.c:3298.
+<dt><code>eval report_memory_largest("hello");</code>
+<dd>Report the largest allocated blocks, for example this <code>"DEBUG MESSAGE:
+pcode.c:3298 35378"</code> means that there is a block of 35378 bytes being
+allocated at pcode.c:3298.
+</dl>
+
+<h2>Other options</h2>
+<dl>
+<dt><code>--compile</code>
+<dd>Compile the whole program without running it. It is useful if you need to
+check the source code for syntax errors. Without this switch, the program is
+being compiled as it runs and syntax errors in unused parts of the program are
+not reported.
+<dt><code>--ptrcomp</code>
+<dd>Use pointer compression &mdash; pointers will have only 32 bits and the
+maximum allocatable memory is 32GiB. It reduces memory consumption slightly.
+<dt><code>--strict-calls</code>
+<dd>Turn off auto-parallelization. It is useful if you want to get longer stack
+trace for debugging purposes. Normally, the stack trace is chopped at a point
+where auto-parallelization happens.
+<dt><code>--system-malloc</code>
+<dd>Use system malloc instead of Ajla malloc. It reduces memory consumption, and
+it decreases performance slightly.
+<dt><code>--thread-tick</code>
+<dd>Use a thread for timer ticks instead of using a signal.
+<dt><code>--threads=<i>n</i></code>
+<dd>Use the specified number of threads. By default, Ajla detects the number of
+hardware threads in the system and uses this value.
+<dt><code>--tick=<i>n</i></code>
+<dd>The timer tick in microseconds. By default, it is 10000. If you specify too
+small value, you should enable <code>--thread-tick</code> as well. If the tick
+value is smaller that the time it takes to process a signal, the signal would be
+hammering the worker threads so heavily, that they can't make any progress.
+</dl>
+
+<h2 id=hacking_ajla>Hacking Ajla</h2>
+
+<h3>Configure options</h3>
+<dl>
+<dt><code>--enable-threads=pthread</code>
+<dd>Compile with pthreads (default, if pthreads are detected).
+<dt><code>--enable-threads=win32</code>
+<dd>Compile with Windows threads.
+<dt><code>--disable-threads</code>
+<dd>Compile without threads.
+<dt><code>--disable-computed-goto</code>
+<dd>Don't use computed goto. By default, computed goto is used if the compiler
+supports it.
+<dt><code>--enable-bitwise-frame</code>
+<dd>Use bitwise tags on the stack rather than byte tags. It may or may not
+improve performance depending on the actual workload. By default, bitwise tags
+are disabled, because they perform slightly worse.
+<dt><code>--enable-debuglevel=0</code>
+<dd>No debugging at all.
+<dt><code>--enable-debuglevel=1</code>
+<dd>Default option. This enables debugging assertions in
+non-performance-critical parts of the code. It also enables
+"<code>--debug</code>" command line flags that turn on debugging of various
+subsystems of Ajla.
+<dt><code>--enable-debuglevel=2</code>
+<dd>This enables all debugging assertions even in performance-critical parts of
+the code.
+<dt><code>--enable-debuglevel=3</code>
+<dd>This enables all debugging checks that degrade performance seriously.
+</dl>
+If you need fine-grained control of debugging, you can modify the file
+"<code>debug.h</code>".
+
+<h3>Debugging options</h3>
+If you configured Ajla with "<code>--enable-debuglevel=1</code>",
+"<code>--enable-debuglevel=2</code>" or "<code>--enable-debuglevel=3</code>",
+the following options are available:
+<dl>
+<dt><code>--debug=magic</code>
+<dd>Put a magic value at the start every memory block. The magic value is
+verified when reallocating or freeing the block. If there is a mismatch,
+internal error is reported and the core is dumped.
+<dt><code>--debug=redzone</code>
+<dd>Put a redzone value at the end of every memory block and verify it when
+reallocating or freeing the block.
+<dt><code>--debug=fill</code>
+<dd>Fill the allocated and freed blocks with a byte pattern.
+<dt><code>--debug=leak</code>
+<dd>Maintain a list of allocated blocks and test for memory leaks when Ajla
+exits. It will display a file and line of the allocation that leaked.
+<dt><code>--debug=memory</code>
+<dd>Enable "magic, redzone, fill, leak".
+<dt><code>--debug=mutex-errorcheck</code>
+<dd>Set the pthread attribute PTHREAD_MUTEX_ERRORCHECK on mutexes.
+<dt><code>--debug=mutex</code>
+<dd>Check the correct usage of mutexes. Also, enable
+"<code>mutex-errorcheck</code>".
+<dt><code>--debug=cond</code>
+<dd>Check the correct usage of condition variables.
+<dt><code>--debug=thread</code>
+<dd>Check the correct usage of threads.
+<dt><code>--debug=tls</code>
+<dd>Check the correct usage of thread-local storage.
+<dt><code>--debug=handles</code>
+<dd>Check the correct usage of handles.
+<dt><code>--debug=objects</code>
+<dd>Enable "mutex-errorcheck, mutex, cond, thread, tls, handles".
+<dt><code>--debug</code>
+<dd>Enable all debugging options.
+</dl>
+
+<h3>Rebuilding the standard library</h3>
+The standard library and the compiler source code is located in the directories
+"<code>stdlib</code>" and "<code>newlib</code>". These directories have
+identical content. The file "<code>builtin.pcd</code>" contains compiled
+standard library and the compiler itself.
+<br>
+<br>
+You shouldn't modify the content of the directory "<code>stdlib</code>" because
+the directory would not match the file "<code>builtin.pcd</code>" and it would
+result in crashes.
+<br>
+<br>
+If you need to modify the standard library, you should modify files in the
+directory "<code>newlib</code>" and then run the script
+"<code>./scripts/update.sh</code>" or "<code>./scripts/update.sh all</code>"
+&mdash; this will rebuild "<code>builtin.pcd</code>" and then copy the content
+of "<code>newlib</code>" to "<code>stdlib</code>" to make sure that it matches
+newly generated "<code>builtin.pcd</code>".
+</body>
+</html>
+
+
+<!--
+vim: textwidth=80
+>

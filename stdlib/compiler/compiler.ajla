@@ -1,0 +1,67 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit compiler.compiler;
+
+uses compiler.parser.dict;
+uses compiler.optimize.defs;
+uses compiler.optimize.evaluate;
+
+fn optimize_function(path_idx : int, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t);
+fn compile_module(lp : bytes, path_idx : int, file : bytes, program : bool) : (list(list(pcode_t)), list(module_unique_id));
+
+implementation
+
+uses io;
+uses compiler.parser.unit;
+uses compiler.optimize.utils;
+uses compiler.optimize.ssa;
+
+fn compile_module(lp : bytes, path_idx : int, file : bytes, program : bool) : (list(list(pcode_t)), list(module_unique_id))
+[
+	//eval debug("compile_module: " + ntos(path_idx) + ", " + file + ", " + select(program, "0", "1"));
+	var w := unsafe_get_world;
+
+	var d := list_break(lp, 0);
+	d := d[ .. path_idx + 1];
+	return compile_module_2(w, d, file, program);
+]
+
+fn get_inline(f : function) : list(pcode_t)
+[
+	//return optimize_function(f.path_idx, f.un, f.program, f.fn_idx);
+	var pc := fill(pcode_t, 0, 1 + len(f.fn_idx));
+	pc[0] := len(f.fn_idx);
+	for i := 0 to len(f.fn_idx) do
+		pc[i + 1] := f.fn_idx[i];
+	return load_optimized_pcode(f.path_idx, f.un, f.program, pc);
+]
+
+fn optimize_function_saved~save(lp : bytes, path_idx : int, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t)
+[
+	var pcod, modules := compile_module~save(lp, path_idx, file, program);
+	var pc := pcod[fn_idx[0]];
+	pc := function_extract_nested(pc, fn_idx);
+	var func := process_pcode(pc, get_inline);
+	return func;
+]
+
+fn optimize_function(path_idx : int, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t)
+[
+	return optimize_function_saved(libpath, path_idx, file, program, fn_idx);
+]

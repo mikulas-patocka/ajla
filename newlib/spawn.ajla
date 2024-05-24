@@ -1,0 +1,174 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit spawn;
+
+uses io;
+uses treemap;
+
+type phandle;
+
+fn spawn_raw(w : world, d : dhandle, lh : list(tuple2(int, handle)), f : bytes, args : list(bytes), env : treemap(bytes, bytes)) : (world, phandle);
+fn spawn(w : world, d : dhandle, h : list(handle), f : bytes, args : list(bytes), env : treemap(bytes, bytes)) : (world, phandle);
+fn spawn_command(cmdline : bytes, env : treemap(bytes, bytes)) : (bytes, list(bytes));
+fn wait(w : world, p : phandle) : (world, int);
+fn get_process_output(w : world, d : dhandle, h : list(handle), f : bytes, args : list(bytes), env : treemap(bytes, bytes)) : bytes;
+
+type main_function_type := fn(world, dhandle, list(handle), list(bytes), treemap(bytes, bytes)) : world;
+fn load_program(w : world, f : bytes) : (world, main_function_type);
+
+implementation
+
+uses exception;
+uses pcode;
+
+type phandle := internal_type;
+
+fn env2string~inline(env : treemap(bytes, bytes)) : bytes
+[
+	var result := empty(byte);
+	for e in treemap_iterator(env) do [
+		if list_search(e.k, '=') >= 0 then
+			continue;
+		if list_search(e.k, 0) >= 0 then
+			continue;
+		if list_search(e.v, 0) >= 0 then
+			continue;
+		result += e.k;
+		result +<= '=';
+		result += e.v;
+		result +<= 0;
+	]
+	result +<= 0;
+	return result;
+]
+
+fn spawn_raw(w : world, d : dhandle, lh : list(tuple2(int, handle)), f : bytes, args : list(bytes), env : treemap(bytes, bytes)) : (world, phandle)
+[
+	var env_str := env2string(env);
+	var ph : phandle;
+	var w2 : world;
+	pcode IO IO_Spawn 2 6 0 =w2 =ph w d lh f args env_str;
+	return w2, ph;
+]
+
+fn spawn(w : world, d : dhandle, h : list(handle), f : bytes, args : list(bytes), env : treemap(bytes, bytes)) : (world, phandle)
+[
+	var lh := empty(tuple2(int, handle));
+	for i := 0 to len(h) do [
+		lh +<= tuple2(int, handle).[ v1 : i, v2 : h[i] ];
+	]
+	return spawn_raw(w, d, lh, f, [ f ] + args, env);
+]
+
+fn break_dos_cmdline(cmdline : bytes) : list(bytes)
+[
+	var result := empty(bytes);
+	var this_line := "";
+	var in_quotes := false;
+	for i := 0 to len(cmdline) do [
+		var c := cmdline[i];
+		if c = ' ', not in_quotes then [
+			if len(this_line) = 0 then
+				continue;
+			result +<= this_line;
+			this_line := "";
+			continue;
+		]
+		if c = '"' then [
+			in_quotes := not in_quotes;
+		] else [
+			this_line +<= c;
+		]
+	]
+	if len(this_line) > 0 then
+		result +<= this_line;
+	return result;
+]
+
+fn spawn_command(cmdline : bytes, env : treemap(bytes, bytes)) : (bytes, list(bytes))
+[
+	var cmd_env cmd_shell cmd_c : bytes;
+	var cmd_string : list(bytes);
+	var os := sysprop(SystemProperty_OS);
+	if os = SystemProperty_OS_DOS then [
+		cmd_env := "COMSPEC";
+		cmd_shell := "C:\COMMAND.COM";
+		cmd_c := "/C";
+		cmd_string := break_dos_cmdline(cmdline);
+	] else if os = SystemProperty_OS_OS2 then [
+		cmd_env := "COMSPEC";
+		cmd_shell := "C:\OS2\CMD.EXE";
+		cmd_c := "/C";
+		cmd_string := break_dos_cmdline(cmdline);
+	] else if os = SystemProperty_OS_Windows then [
+		cmd_env := "COMSPEC";
+		cmd_shell := "C:\Windows\system32\cmd.exe";
+		cmd_c := "/C";
+		cmd_string := break_dos_cmdline(cmdline);
+	] else [
+		cmd_env := "SHELL";
+		cmd_shell := "/bin/sh";
+		cmd_c := "-c";
+		cmd_string := [ cmdline ];
+	]
+	var s := treemap_search(env, cmd_env);
+	if s is j then
+		cmd_shell := s.j;
+	return cmd_shell, [ cmd_c ] + cmd_string;
+]
+
+fn wait(w : world, p : phandle) : (world, int)
+[
+	var ret : int;
+	var w2 : world;
+	pcode IO IO_Wait 2 2 0 =w2 =ret w p;
+	return w2, ret;
+]
+
+fn process_read_lazy(w : world, r : handle, ph : phandle) : bytes
+[
+	var b : bytes;
+	w, b := read_partial~strict(w, r, 16384);
+	if len(b) = 0 then [
+		var i : int;
+		w, i := wait(w, ph);
+		if i <> 0 then [
+			b := exception_make(bytes, ec_syscall, error_subprocess, i, true);
+		]
+		return b;
+	]
+	return b + process_read_lazy~lazy(w, r, ph);
+]
+
+fn get_process_output(w : world, d : dhandle, h : list(handle), f : bytes, args : list(bytes), env : treemap(bytes, bytes)) : bytes
+[
+	var rh wh : handle;
+	w, rh, wh := pipe(w);
+	var ph : phandle;
+	w, ph := spawn(w, d, list(handle).[ h[0], wh, h[2] ], f, args, env);
+	return process_read_lazy(w, rh, ph);
+]
+
+fn load_program(w : world, f : bytes) : (world, main_function_type)
+[
+	var main : main_function_type;
+	var w2 : world;
+	pcode IO IO_Load_Program 2 2 0 =w2 =main w f;
+	return w2, main;
+]

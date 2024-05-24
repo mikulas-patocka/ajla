@@ -1,0 +1,252 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit ui.widget.input;
+
+uses ui.widget.common;
+
+type input_state;
+
+fn input_init(color_scheme : bytes, prop : bytes, delete_on_type : bool, w : world, app : appstate, id : wid) : (world, appstate, input_state);
+fn input_get_width(app : appstate, com : widget_common, st : input_state, x : int) : int;
+fn input_get_height(app : appstate, com : widget_common, st : input_state, x : int) : int;
+fn input_reflow(app : appstate, com : widget_common, st : input_state) : (appstate, widget_common, input_state);
+fn input_redraw(app : appstate, curs : curses, com : widget_common, st : input_state) : curses;
+fn input_get_cursor(app : appstate, com : widget_common, st : input_state) : (int, int);
+fn input_accepts_key(app : appstate, com : widget_common, st : input_state, k : event_keyboard) : bool;
+fn input_process_event(w : world, app : appstate, com : widget_common, st : input_state, wev : wevent) : (world, appstate, widget_common, input_state);
+
+const input_class ~flat := widget_class.[
+	t : input_state,
+	name : "input",
+	is_selectable : true,
+	get_width : input_get_width,
+	get_height : input_get_height,
+	reflow : input_reflow,
+	redraw : input_redraw,
+	get_cursor : input_get_cursor,
+	accepts_key : input_accepts_key,
+	process_event : input_process_event,
+];
+
+const input_not_selectable_class ~flat := widget_class.[
+	t : input_state,
+	name : "input",
+	is_selectable : false,
+	get_width : input_get_width,
+	get_height : input_get_height,
+	reflow : input_reflow,
+	redraw : input_redraw,
+	get_cursor : input_get_cursor,
+	accepts_key : input_accepts_key,
+	process_event : input_process_event,
+];
+
+implementation
+
+record input_state [
+	color_scheme : bytes;
+	prop : bytes;
+	text : string;
+	offset : int;
+	cursor : int;
+	delete_on_type : bool;
+]
+
+fn input_init(color_scheme : bytes, prop : bytes, delete_on_type : bool, implicit w : world, implicit app : appstate, id : wid) : (world, appstate, input_state)
+[
+	property_observe(id, prop);
+	property_observe(id, prop + "-cpos");
+	var text := property_get(prop).s;
+	property_set(prop + "-cpos", property.i.(len(text)));
+	return input_state.[
+		color_scheme : color_scheme,
+		prop : prop,
+		text : text,
+		offset : 0,
+		cursor : len(text),
+		delete_on_type : delete_on_type,
+	];
+]
+
+fn input_get_width(app : appstate, com : widget_common, st : input_state, x : int) : int
+[
+	return x;
+]
+
+fn input_get_height(app : appstate, com : widget_common, st : input_state, x : int) : int
+[
+	return 1;
+]
+
+fn input_reflow(implicit app : appstate, implicit com : widget_common, implicit st : input_state) : (appstate, widget_common, input_state)
+[
+	var x := com.size_x;
+	if x > 0 then [
+		var sl := string_length(st.text[ .. st.cursor]);
+test_again:
+		var cpos := -st.offset + sl;
+		var clen := select(x >= 2 and st.cursor <> len(st.text), 1, char_length(st.text[st.cursor]));
+		if cpos + clen > x then [
+			st.offset += 1;
+			goto test_again;
+		]
+		if cpos < 0 then [
+			st.offset -= 1;
+			goto test_again;
+		]
+	]
+]
+
+fn input_redraw(implicit app : appstate, implicit curs : curses, com : widget_common, st : input_state) : curses
+[
+	property_set_attrib(property_get_attrib(st.color_scheme + "input", #aaaa, #aaaa, #aaaa, #0000, #0000, #0000, 0, 0));
+	curses_set_pos(-st.offset, 0);
+	curses_print(st.text);
+	curses_print(fill(char, ' ', com.size_x));
+]
+
+fn input_get_cursor(app : appstate, com : widget_common, st : input_state) : (int, int)
+[
+	return -st.offset + string_length(st.text[ .. st.cursor]), 0;
+]
+
+fn input_accepts_key(app : appstate, com : widget_common, st : input_state, k : event_keyboard) : bool
+[
+	return	k.key = key_left or
+		k.key = key_right or
+		k.key = key_delete or
+		k.key = key_backspace or
+		k.key = key_home or
+		k.key = key_end or
+		k.key = 'D' and (k.flags and key_flag_ctrl) <> 0 or
+		k.key = 'H' and (k.flags and key_flag_ctrl) <> 0 or
+		k.key = 'A' and (k.flags and key_flag_ctrl) <> 0 or
+		k.key = 'E' and (k.flags and key_flag_ctrl) <> 0 or
+		k.key >= 0 and k.flags = 0;
+]
+
+fn input_process_event(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : input_state, wev : wevent) : (world, appstate, widget_common, input_state)
+[
+	if wev is keyboard then [
+		var k := wev.keyboard;
+		if k.key = key_left then [
+			st.delete_on_type := false;
+			if st.cursor > 0 then [
+				st.cursor -= 1;
+				input_reflow();
+				goto setprop_redraw;
+			]
+		]
+		if k.key = key_right then [
+			st.delete_on_type := false;
+			if st.cursor < len(st.text) then [
+				st.cursor += 1;
+				input_reflow();
+				goto setprop_redraw;
+			]
+		]
+		if k.key = key_delete or k.key = 'D' and (k.flags and key_flag_ctrl) <> 0 then [
+			st.delete_on_type := false;
+			if st.cursor < len(st.text) then [
+				st.text := st.text[ .. st.cursor] + st.text[st.cursor + 1 .. ];
+				input_reflow();
+				goto setprop_redraw;
+			]
+		]
+		if k.key = key_backspace or k.key = 'H' and (k.flags and key_flag_ctrl) <> 0 then [
+			st.delete_on_type := false;
+			if st.cursor > 0 then [
+				st.text := st.text[ .. st.cursor - 1] + st.text[st.cursor .. ];
+				st.cursor -= 1;
+				input_reflow();
+				goto setprop_redraw;
+			]
+		]
+		if k.key = key_home or k.key = 'A' and (k.flags and key_flag_ctrl) <> 0 then [
+			st.delete_on_type := false;
+			st.cursor := 0;
+			input_reflow();
+			goto setprop_redraw;
+		]
+		if k.key = key_end or k.key = 'E' and (k.flags and key_flag_ctrl) <> 0 then [
+			st.delete_on_type := false;
+			st.cursor := len(st.text);
+			input_reflow();
+			goto setprop_redraw;
+		]
+		if k.key >= 0 and k.flags = 0 then [
+			if st.delete_on_type then [
+				st.text := [ k.key ];
+				st.cursor := 1;
+				st.delete_on_type := false;
+			] else [
+				st.text := st.text[ .. st.cursor] + [ k.key ] + st.text[st.cursor .. ];
+				st.cursor += 1;
+			]
+			input_reflow();
+			goto setprop_redraw;
+		]
+	]
+	if wev is mouse then [
+		var mx, my := widget_relative_mouse_coords(com.self, wev.mouse);
+		var m := wev.mouse;
+		if m.buttons bt 0 then [
+			st.delete_on_type := false;
+			//eval debug("mouse: " + ntos(m.x) + ", " + ntos(m.y));
+			var offs := -st.offset;
+			for i := 0 to len(st.text) do [
+				offs += char_length(st.text[i]);
+				if offs > mx then [
+					st.cursor := i;
+					input_reflow();
+					goto setprop_redraw;
+				]
+			]
+			st.cursor := len(st.text);
+			input_reflow();
+			goto setprop_redraw;
+		]
+	]
+	if wev is property_changed then [
+		var new_text := property_get(st.prop).s;
+		if st.text <> new_text then [
+			st.text := new_text;
+			st.cursor := len(st.text);
+			input_reflow();
+		]
+		var cursor := property_get(st.prop + "-cpos").i;
+		if cursor <> st.cursor then [
+			cursor := max(0, cursor);
+			cursor := min(len(st.text), cursor);
+			st.cursor := cursor;
+			input_reflow();
+		]
+		goto setprop_redraw;
+	]
+	return;
+setprop_redraw:
+	property_set(st.prop, property.s.(st.text));
+	property_set(st.prop + "-cpos", property.i.(st.cursor));
+	widget_enqueue_event(com.self, wevent.redraw.(event_redraw.[
+		x1 : 0,
+		x2 : com.size_x,
+		y1 : 0,
+		y2 : com.size_y,
+	]));
+]

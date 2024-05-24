@@ -1,0 +1,424 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit compiler.parser.function;
+
+uses compiler.parser.dict;
+uses compiler.parser.type;
+
+fn infer_argument(ctx : function_context, implicits : list(function_definition), implicit_variables : list(int), cc : compare_context, cc_i : int, t : tokens) : (function_context, int);
+fn process_direct_function(ctx : function_context, vd : variable_dictionary, fd : function_definition, call_mode : int, p : list(int), r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int));
+
+fn parse_and_process_function(ctx : function_context, vd : variable_dictionary, t : tokens, call_mode : int, total_args : int, p : list(int), in_type : bool) : (function_context, list(int));
+
+implementation
+
+uses exception;
+uses compiler.parser.expression;
+uses compiler.parser.gen;
+uses compiler.parser.gen2;
+uses compiler.parser.alloc;
+
+fn infer_argument(ctx : function_context, implicits : list(function_definition), implicit_variables : list(int), cc : compare_context, cc_i : int, t : tokens) : (function_context, int)
+[
+	for im := 0 to len(implicit_variables) do [
+		var v := implicit_variables[im];
+		var match, inferred := verify_type_equality(ctx, cc, cc_i, empty(compare_fn_stack), new_compare_context(ctx), get_type_of_var(ctx, v), empty(compare_fn_stack));
+		if not match then
+			continue;
+		return ctx, v;
+	]
+	for im := 0 to len(implicits) do [
+		var def := implicits[im];
+		if def.signature.n_return_values <> 1 then
+			continue;
+
+		var fn_cc := new_compare_context_from_function(def.signature);
+		var fn_typ := get_type_of_var(fn_cc.ctx, def.signature.n_arguments);
+
+		for i := 0 to def.signature.n_arguments do [
+			fn_cc.args +<= new_compare_argument(empty_compare_context, ctx.inferred_base - i);
+		]
+
+retry:
+		var match, inferred := verify_type_equality(ctx, cc, cc_i, empty(compare_fn_stack), fn_cc, fn_typ, empty(compare_fn_stack));
+		while inferred is j do [
+			ctx := inferred.j.ctx;
+			var inf_idx := inferred.j.arg;
+
+			var pi : int;
+			ctx, pi, inferred := convert_type(ctx, new_variable_dictionary(maybe(variable_dictionary).n), inferred.j.typ, fn_cc, def.signature.variables[inf_idx].type_idx, def.signature.n_arguments, false, t);
+			if inferred is j then
+				continue;
+
+			fn_cc.args[inf_idx] := new_compare_argument(new_compare_context(ctx), pi);
+			goto retry;
+		]
+		if not match then
+			continue;
+
+		var ctx2 := ctx;
+		for i := 0 to def.signature.n_arguments do [
+			if fn_cc.args[i].idx <= ctx.inferred_base then [
+				var v : int;
+				ctx, v := infer_argument(ctx, implicits, implicit_variables, fn_cc, get_type_of_var(fn_cc.ctx, i), t);
+				if v = T_InvalidType then [
+					ctx := ctx2;
+					goto cont;
+				]
+				fn_cc.args[i].idx := v;
+			]
+		]
+
+		var args := empty(int);
+		for i := 0 to def.signature.n_arguments do
+			args +<= fn_cc.args[i].idx;
+		var d : list(int);
+		ctx, d := generate_Call(ctx, Call_Mode_Unspecified, def, args, t);
+		return ctx, d[0];
+cont:
+	]
+	return ctx, T_InvalidType;
+]
+
+fn try_process_function(ctx : function_context, vd : variable_dictionary, fnx : int, call_mode : int, total_args : int, p : list(int), arg_shift : int, r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
+[
+	var provided_args := len(p);
+
+	var cc, typ := get_deep_type_of_var(ctx, fnx);
+	var ins := get_defined_maybe(cc, typ);
+	var instr := ins.j;
+
+	if arg_shift > 0, total_args <> provided_args or total_args + arg_shift > pcode_Fn_get_n_args(instr) then
+		abort exception_make(int, ec_sync, error_user, 0, false);
+
+	if total_args > pcode_Fn_get_n_args(instr) then
+		abort compiler_error("Too many arguments", t);
+
+	var inferred_args := pcode_Fn_get_n_args(instr) - total_args - arg_shift;
+	p := fill(T_InvalidType, inferred_args) + p + fill(T_InvalidType, arg_shift);
+
+	cc := set_llt_main(cc, typ);
+	for i := 0 to inferred_args do [
+		cc.llt_redirect +<= new_compare_argument(new_compare_context(ctx), ctx.inferred_base - i);
+	]
+
+retry:
+	for i := inferred_args to inferred_args + provided_args do [
+		var pi : int;
+		var inferred : maybe_inferred;
+		ctx, pi, inferred := convert_type(ctx, vd, p[i], cc, pcode_Fn_get_argument(instr, i), inferred_args, do_convert, t);
+		while inferred is j do [
+			ctx := inferred.j.ctx;
+			var inf_idx := inferred.j.arg;
+			if cc.llt_redirect[inf_idx].idx > ctx.inferred_base then
+				abort internal("inferring existing variable: " + ntos(inf_idx) + ", " + ntos(cc.llt_redirect[inf_idx].idx));
+
+			ctx, pi, inferred := convert_type(ctx, vd, inferred.j.typ, cc, pcode_Fn_get_argument(instr, inf_idx), inferred_args, false, t);
+			if inferred is j then
+				continue;
+
+			p[inf_idx] := pi;
+			cc.llt_redirect[inf_idx] := new_compare_argument(new_compare_context(ctx), p[inf_idx]);
+			cc.llt_redirect := cc.llt_redirect[ .. inferred_args];
+			goto retry;
+		]
+		p[i] := pi;
+		cc.llt_redirect +<= new_compare_argument(new_compare_context(ctx), p[i]);
+		// TODO: quadratic complexity
+		for j := 0 to i + 1 do
+			cc.llt_redirect[j].cc.ctx := ctx;
+	]
+	if r_typ <> T_InvalidType then [
+		var match, inferred := verify_type_equality(ctx, r_cc, r_typ, empty(compare_fn_stack), cc, pcode_Fn_get_return_value(instr, 0), empty(compare_fn_stack));
+		while inferred is j do [
+			ctx := inferred.j.ctx;
+			var inf_idx := inferred.j.arg;
+			if cc.llt_redirect[inf_idx].idx > ctx.inferred_base then
+				abort internal("inferring existing variable: " + ntos(inf_idx) + ", " + ntos(cc.llt_redirect[inf_idx].idx));
+
+			var pi : int;
+			ctx, pi, inferred := convert_type(ctx, vd, inferred.j.typ, cc, pcode_Fn_get_argument(instr, inf_idx), inferred_args, false, t);
+			if inferred is j then
+				continue;
+
+			p[inf_idx] := pi;
+			cc.llt_redirect[inf_idx] := new_compare_argument(new_compare_context(ctx), p[inf_idx]);
+			cc.llt_redirect := cc.llt_redirect[ .. inferred_args];
+			goto retry;
+		]
+	]
+
+	var implicits := empty(function_definition);
+	var implicit_variables := empty(int);
+	var implicits_initialized := false;
+	for i := 0 to inferred_args + provided_args + arg_shift do [
+		if p[i] = T_InvalidType then [
+			if not implicits_initialized then [
+				implicits := get_implicits(ctx, false);
+				implicit_variables := get_implicit_variables(vd);
+				implicits_initialized := true;
+			]
+			ctx, p[i] := infer_argument(ctx, implicits, implicit_variables, cc, pcode_Fn_get_argument(instr, i), t);
+			if p[i] = T_InvalidType then
+				abort compiler_error("Argument " + ntos(i + 1) + " was not inferred", t);
+			if i >= len(cc.llt_redirect) then
+				cc.llt_redirect +<= new_compare_argument(new_compare_context(ctx), p[i]);
+			else
+				cc.llt_redirect[i] := new_compare_argument(new_compare_context(ctx), p[i]);
+			// TODO: quadratic complexity
+			for j := 0 to len(cc.llt_redirect) do
+				cc.llt_redirect[j].cc.ctx := ctx;
+		]
+	]
+
+	var l : int;
+	ctx, l := generate_Curry(ctx, cc, typ, fnx, p, t);
+	if total_args = provided_args then [
+		var q : list(int);
+		ctx, q := generate_Call_Indirect(ctx, call_mode, l, t);
+		if len(q) <> pcode_Fn_get_n_return_values(instr) then
+			abort internal("invalid number of return values");
+		return ctx, q;
+	]
+	return ctx, list(int).[ l ];
+]
+
+fn process_function(ctx : function_context, vd : variable_dictionary, fnx : int, call_mode : int, total_args : int, p : list(int), r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
+[
+	var cc, typ := get_deep_type_of_var(ctx, fnx);
+	var ins := get_defined_maybe(cc, typ);
+	if ins is n or ins.j.opcode <> P_Fn then
+		abort compiler_error("Function expected", t);
+
+	var arg_shift := 0;
+	var first_ex := exception_make(function_context, ec_sync, error_record_field_not_initialized, 0, false);
+retry:
+	var ctx2, l2 := try_process_function(ctx, vd, fnx, call_mode, total_args, p, arg_shift, r_cc, r_typ, do_convert, t);
+	if is_exception ctx2, exception_type ctx2 = error_compiler_error then [
+		if arg_shift = 0 then
+			first_ex := ctx2;
+		arg_shift += 1;
+		goto retry;
+	]
+	if is_exception ctx2, exception_type ctx2 = error_user then [
+		abort first_ex;
+	]
+	return ctx2, l2;
+]
+
+fn try_process_direct_function(ctx : function_context, vd : variable_dictionary, fd : function_definition, call_mode : int, p : list(int), arg_shift : int, r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
+[
+	var total_args := len(p);
+
+	if arg_shift > 0, total_args + arg_shift > fd.signature.n_arguments then
+		abort exception_make(int, ec_sync, error_user, 0, false);
+
+	if total_args > fd.signature.n_arguments then
+		abort compiler_error("Too many arguments", t);
+
+	var inferred_args := fd.signature.n_arguments - total_args - arg_shift;
+	p := fill(T_InvalidType, inferred_args) + p + fill(T_InvalidType, arg_shift);
+
+	var fn_cc := new_compare_context_from_function(fd.signature);
+	for i := 0 to inferred_args do [
+		fn_cc.args +<= new_compare_argument(new_compare_context(ctx), ctx.inferred_base - i);
+	]
+
+retry:
+	for i := inferred_args to inferred_args + total_args do [
+		var pi : int;
+		var inferred : maybe_inferred;
+		ctx, pi, inferred := convert_type(ctx, vd, p[i], fn_cc, fd.signature.variables[i].type_idx, inferred_args, do_convert, t);
+		while inferred is j do [
+			ctx := inferred.j.ctx;
+			var inf_idx := inferred.j.arg;
+			if fn_cc.args[inf_idx].idx > ctx.inferred_base then
+				abort internal("inferring existing variable: " + ntos(inf_idx));
+
+			ctx, pi, inferred := convert_type(ctx, vd, inferred.j.typ, fn_cc, fd.signature.variables[inf_idx].type_idx, inferred_args, false, t);
+			if inferred is j then
+				continue;
+
+			p[inf_idx] := pi;
+			fn_cc.args[inf_idx] := new_compare_argument(new_compare_context(ctx), p[inf_idx]);
+			fn_cc.args := fn_cc.args[ .. inferred_args];
+			goto retry;
+		]
+		p[i] := pi;
+		fn_cc.args +<= new_compare_argument(new_compare_context(ctx), p[i]);
+		// TODO: quadratic complexity
+		for j := 0 to i + 1 do
+			fn_cc.args[j].cc.ctx := ctx;
+	]
+	if r_typ <> T_InvalidType then [
+		var match, inferred := verify_type_equality(ctx, r_cc, r_typ, empty(compare_fn_stack), fn_cc, fd.signature.variables[inferred_args + total_args].type_idx, empty(compare_fn_stack));
+		while inferred is j do [
+			ctx := inferred.j.ctx;
+			var inf_idx := inferred.j.arg;
+			if fn_cc.args[inf_idx].idx > ctx.inferred_base then
+				abort internal("inferring existing variable: " + ntos(inf_idx));
+
+			var pi : int;
+			ctx, pi, inferred := convert_type(ctx, vd, inferred.j.typ, fn_cc, fd.signature.variables[inf_idx].type_idx, inferred_args, false, t);
+			if inferred is j then
+				continue;
+
+			p[inf_idx] := pi;
+			fn_cc.args[inf_idx] := new_compare_argument(new_compare_context(ctx), p[inf_idx]);
+			fn_cc.args := fn_cc.args[ .. inferred_args];
+			goto retry;
+		]
+	]
+
+	var op_bypass := fd.op_bypass;
+	if op_bypass >= 0 then [
+		var cc, typ := get_deep_type_of_var(ctx, p[2]);
+		if typ > T_SInt8 or typ < T_Real128 then [
+			var bol : int;
+			ctx, bol := generate_Bool(ctx);
+			if not verify_equality(ctx, typ, bol) then [
+				//eval debug("skipping bypass due to bad type: " + i_decode(fd.signature.name));
+				goto skip_bypass;
+			]
+			if op_bypass <> Bin_And and
+			   op_bypass <> Bin_Or and
+			   op_bypass <> Bin_Xor and
+			   op_bypass <> Bin_Equal and
+			   op_bypass <> Bin_NotEqual and
+			   op_bypass <> Bin_Less and
+			   op_bypass <> Bin_LessEqual and
+			   op_bypass <> Un_Not then
+				goto skip_bypass;
+		] else if typ >= T_UInt128 and typ <= T_SInt8 then [
+			if op_bypass = Bin_Divide_Real then
+				goto skip_bypass;
+		] else if typ >= T_Integer128 and typ <= T_Integer then [
+			if op_bypass = Bin_Divide_Real or
+			   op_bypass = Bin_Rol or
+			   op_bypass = Bin_Ror or
+			   op_bypass = Un_Bswap or
+			   op_bypass = Un_Brev then
+				goto skip_bypass;
+		] else if typ >= T_Real128 and typ <= T_Real16 then [
+			if op_bypass <> Bin_Add and
+			   op_bypass <> Bin_Subtract and
+			   op_bypass <> Bin_Multiply and
+			   op_bypass <> Bin_Divide_Real and
+			   op_bypass <> Bin_Equal and
+			   op_bypass <> Bin_NotEqual and
+			   op_bypass <> Bin_Less and
+			   op_bypass <> Bin_LessEqual and
+			   op_bypass <> Un_Neg then
+				goto skip_bypass;
+		]
+		//eval debug("doing op bypass: " + i_decode(fd.signature.name) + ", " + ntos(op_bypass) + ", " + ntos(len(p)));
+		var rtype := typ;
+		if op_bypass = Bin_Bt or
+		   op_bypass = Bin_Equal or
+		   op_bypass = Bin_NotEqual or
+		   op_bypass = Bin_Less or
+		   op_bypass = Bin_LessEqual then [
+			ctx, rtype := generate_Bool(ctx);
+		]
+		var l : int;
+		ctx, l := alloc_local_variable(ctx, rtype, true, false);
+		if fd.signature.n_arguments = 4 then [
+			if not fd.op_bypass_reverse then
+				ctx := generate_BinaryOp(ctx, op_bypass, p[2], p[3], l);
+			else
+				ctx := generate_BinaryOp(ctx, op_bypass, p[3], p[2], l);
+		] else if fd.signature.n_arguments = 3 then [
+			ctx := generate_UnaryOp(ctx, op_bypass, p[2], l);
+		] else [
+			abort internal("invalid number of arguments for op bypass: " + ntos(fd.signature.n_arguments));
+		]
+		return ctx, list(int).[ l ];
+	]
+skip_bypass:
+
+	var implicits := empty(function_definition);
+	var implicit_variables := empty(int);
+	var implicits_initialized := false;
+	for i := 0 to inferred_args + total_args + arg_shift do [
+		if p[i] = T_InvalidType then [
+			if not implicits_initialized then [
+				implicits := get_implicits(ctx, false);
+				implicit_variables := get_implicit_variables(vd);
+				implicits_initialized := true;
+			]
+			ctx, p[i] := infer_argument(ctx, implicits, implicit_variables, fn_cc, fn_cc.ctx.variables[i].type_idx, t);
+			if p[i] = T_InvalidType then
+				abort compiler_error("Argument " + ntos(i + 1) + " was not inferred", t);
+			if i >= len(fn_cc.args) then
+				fn_cc.args +<= new_compare_argument(new_compare_context(ctx), p[i]);
+			else
+				fn_cc.args[i] := new_compare_argument(new_compare_context(ctx), p[i]);
+			// TODO: quadratic complexity
+			for j := 0 to len(fn_cc.args) do
+				fn_cc.args[j].cc.ctx := ctx;
+		]
+	]
+
+	return generate_Call(ctx, call_mode, fd, p, t);
+]
+
+fn process_direct_function(ctx : function_context, vd : variable_dictionary, fd : function_definition, call_mode : int, p : list(int), r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
+[
+	var arg_shift := 0;
+	var first_ex := exception_make(function_context, ec_sync, error_record_field_not_initialized, 0, false);
+retry:
+	var ctx2, l2 := try_process_direct_function(ctx, vd, fd, call_mode, p, arg_shift, r_cc, r_typ, do_convert, t);
+	if is_exception ctx2, exception_type ctx2 = error_compiler_error then [
+		if arg_shift = 0 then
+			first_ex := ctx2;
+		arg_shift += 1;
+		goto retry;
+	]
+	if is_exception ctx2, exception_type ctx2 = error_user then [
+		abort first_ex;
+	]
+	return ctx2, l2;
+]
+
+fn parse_and_process_function(ctx : function_context, vd : variable_dictionary, t : tokens, call_mode : int, total_args : int, p : list(int), in_type : bool) : (function_context, list(int))
+[
+	//goto slow_path;
+	if total_args = len(p), len(t) = 1, t[0].t is identifier or t[0].t is oper then [
+		if t[0].t is identifier, search_variable_dictionary(vd, t[0].t.identifier) >= 0 then
+			goto slow_path;
+		var name : istring;
+		if t[0].t is identifier then
+			name := t[0].t.identifier;
+		else
+			name := t[0].t.oper;
+
+		var fd := search_function(ctx, name, t);
+		if is_uninitialized(fd) then
+			goto slow_path;
+		if total_args > fd.signature.n_arguments then
+			goto slow_path;
+		return process_direct_function(ctx, vd, fd, call_mode, p, empty_compare_context, T_InvalidType, true, t);
+	]
+
+slow_path:
+	var fnx : int;
+	ctx, fnx := parse_expression(ctx, vd, t, in_type);
+
+	return process_function(ctx, vd, fnx, call_mode, total_args, p, empty_compare_context, T_InvalidType, true, t);
+]

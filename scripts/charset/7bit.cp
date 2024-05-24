@@ -1,0 +1,1 @@
+# Dummy table for 7-bit terminals

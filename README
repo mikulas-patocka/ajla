@@ -1,0 +1,48 @@
+Before compiling Ajla, install the packages libgmp-dev and libffi-dev. If
+libgmp-dev is not installed, Ajla will use slow built-in version. If libffi-dev
+is not installed, the possibility to call C functions from Ajla will be
+disabled.
+
+You can compile and install Ajla with ./configure && make && make install
+
+It is recommended to use gcc. clang works, but the compilation is very slow, it
+may take an hour or more to compile the files ipret.c and ipretc.c.
+
+When running ajla programs, it is recommended to set cpu governor to
+'performance'. Ajla starts and stops threads rapidly and the 'ondemand' governor
+underclocks the cores, resulting in slower performance.
+
+
+Ajla arguments:
+--compile	- compile the program without running it
+--debug		- enable all debugging
+--debug=magic		- put a magic value at the start every memory block
+--debug=redzone		- put a redzone value at the end of every memory block
+--debug=fill		- fill the allocated and free blocks with a byte pattern
+--debug=leak		- test for memory leaks
+--debug=memory		- enable "magic, redzone, fill, leak"
+--debug=mutex-errorcheck- set pthread attribute PTHREAD_MUTEX_ERRORCHECK
+--debug=mutex		- check correct usage of mutexes (also enables
+			  mutex-errorcheck)
+--debug=cond		- check correct usage of condition variables
+--debng=thread		- check correct usage of threads
+--debug=tls		- check correct usage of thread-local storage
+--debug=handles		- check correct usage of handles
+--debug=objects		- enable "mutex, cond, thread, tls, handles"
+--profile	- enable all profiling
+--profile=function	- display functions that took most time
+--profile=escapes	- display files and lines where escape from compiled
+			  code to the interpreter happend most often
+--profile=memory	- display files and lines where memory allocation
+			  happened
+--ptrcomp	- use 4-byte pointers and 4-byte integers by default - heap
+		  memory is limited to 32GiB
+--strict-calls	- disable auto-parallelization
+--system-malloc	- use system malloc instead of ajla malloc
+--thread-tick	- spawn a thread that increases the tick variable instead of
+		  using signals
+--threads=n	- the number of worker threads, the default is the number of
+		  threads on the system
+--tick=n	- tick time in microseconds, the default is 10000
+
+vim: textwidth=80

@@ -1,0 +1,89 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit ui.widget.display;
+
+uses ui.widget.common;
+
+type display_state;
+
+fn display_init(display_prop : bytes, color_scheme : bytes, w : world, app : appstate, id : wid) : (world, appstate, display_state);
+fn display_get_width(app : appstate, com : widget_common, st : display_state, x : int) : int;
+fn display_get_height(app : appstate, com : widget_common, st : display_state, x : int) : int;
+fn display_redraw(app : appstate, curs : curses, com : widget_common, st : display_state) : curses;
+fn display_process_event(w : world, app : appstate, com : widget_common, st : display_state, wev : wevent) : (world, appstate, widget_common, display_state);
+
+const display_class~flat := widget_class.[
+	t : display_state,
+	name : "display",
+	is_selectable : false,
+	get_width : display_get_width,
+	get_height : display_get_height,
+	redraw : display_redraw,
+	process_event : display_process_event,
+];
+
+implementation
+
+record display_state [
+	display_prop : bytes;
+	color_scheme : bytes;
+]
+
+fn display_init(display_prop : bytes, color_scheme : bytes, implicit w : world, implicit app : appstate, id : wid) : (world, appstate, display_state)
+[
+	property_observe(id, display_prop);
+	return display_state.[
+		display_prop : display_prop,
+		color_scheme : color_scheme,
+	];
+]
+
+fn display_get_width(app : appstate, com : widget_common, st : display_state, x : int) : int
+[
+	return max(x, 6);
+]
+
+fn display_get_height(app : appstate, com : widget_common, st : display_state, x : int) : int
+[
+	return 1;
+]
+
+fn display_redraw(implicit app : appstate, implicit curs : curses, com : widget_common, st : display_state) : curses
+[
+	var disp := property_get(st.display_prop).s;
+	if len(disp) > com.size_x then [
+		if com.size_x >= 6 then
+			disp := `...` + disp[len(disp) - (com.size_x - 3) ..];
+	]
+	curses_set_pos(0, 0);
+	property_set_attrib(property_get_attrib(st.color_scheme + "display", #0000, #0000, #0000, #aaaa, #aaaa, #aaaa, 0, curses_invert));
+	curses_print(disp);
+]
+
+fn display_process_event(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : display_state, wev : wevent) : (world, appstate, widget_common, display_state)
+[
+	if wev is property_changed then [
+		widget_enqueue_event(com.self, wevent.redraw.(event_redraw.[
+			x1 : 0,
+			x2 : com.size_x,
+			y1 : 0,
+			y2 : com.size_y,
+		]));
+	]
+]

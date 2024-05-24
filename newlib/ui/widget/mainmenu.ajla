@@ -1,0 +1,238 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit ui.widget.mainmenu;
+
+uses ui.widget.common;
+
+type mainmenu_state;
+
+record mainmenu_entry [
+	label : string;
+	click : fn(world, appstate, wid) : (world, appstate);
+]
+
+fn mainmenu_init(color_scheme : bytes, selected : int, entries : list(mainmenu_entry), w : world, app : appstate, id : wid) : (world, appstate, mainmenu_state);
+fn mainmenu_redraw(app : appstate, curs : curses, com : widget_common, st : mainmenu_state) : curses;
+fn mainmenu_get_cursor(app : appstate, com : widget_common, st : mainmenu_state) : (int, int);
+fn mainmenu_get_pivot(app : appstate, com : widget_common, st : mainmenu_state) : (int, int);
+fn mainmenu_process_event(w : world, app : appstate, com : widget_common, st : mainmenu_state, wev : wevent) : (world, appstate, widget_common, mainmenu_state);
+
+const mainmenu_class~flat := widget_class.[
+	t : mainmenu_state,
+	name : "mainmenu",
+	is_selectable : true,
+	redraw : mainmenu_redraw,
+	get_cursor : mainmenu_get_cursor,
+	get_pivot : mainmenu_get_pivot,
+	process_event : mainmenu_process_event,
+];
+
+implementation
+
+record mainmenu_state [
+	color_scheme : bytes;
+	entries : list(mainmenu_entry);
+	hotkeys : list(char);
+	hotkey_index : list(int);
+	selected : int;
+]
+
+fn mainmenu_init(color_scheme : bytes, selected : int, entries : list(mainmenu_entry), implicit w : world, implicit app : appstate, id : wid) : (world, appstate, mainmenu_state)
+[
+	var hotkeys := fill(char, 0, len(entries));
+	var hotkey_index := fill(-1, len(entries));
+	for i := 0 to len(entries) do [
+		var idx := list_search(entries[i].label, '~');
+		if idx >= 0, idx < len(entries[i].label) - 1 then [
+			var key := entries[i].label[idx + 1];
+			entries[i].label := entries[i].label[ .. idx] + entries[i].label[idx + 1 .. ];
+			for j := 0 to i do
+				if hotkeys[j] = key then
+					goto skip_hotkey;
+			hotkeys[i] := char_upcase(key);
+			hotkey_index[i] := idx;
+skip_hotkey:
+		]
+	]
+	return mainmenu_state.[
+		color_scheme : color_scheme,
+		entries : entries,
+		hotkeys : hotkeys,
+		hotkey_index : hotkey_index,
+		selected : selected,
+	];
+]
+
+fn mainmenu_redraw(implicit app : appstate, implicit curs : curses, com : widget_common, st : mainmenu_state) : curses
+[
+	var prop_text := property_get_attrib(st.color_scheme + "mainmenu-text", #0000, #0000, #0000, #aaaa, #aaaa, #aaaa, 0, curses_invert);
+	var prop_selected := property_get_attrib(st.color_scheme + "mainmenu-text-selected", #aaaa, #aaaa, #aaaa, #0000, #0000, #0000, 0, 0);
+	var prop_text_hotkey := property_get_attrib(st.color_scheme + "mainmenu-text-hotkey", #0000, #0000, #0000, #aaaa, #aaaa, #aaaa, 0, curses_invert);
+	var prop_selected_hotkey := property_get_attrib(st.color_scheme + "mainmenu-text-selected-hotkey", #aaaa, #aaaa, #aaaa, #0000, #0000, #0000, 0, 0);
+	property_set_attrib(prop_text);
+	curses_fill_rect(0, com.size_x, 0, com.size_y, ' ');
+	curses_set_pos(2, 0);
+	for i := 0 to len(st.entries) do [
+		var label := st.entries[i].label;
+		if i = st.selected then [
+			property_set_attrib(prop_selected);
+		] else [
+			property_set_attrib(prop_text);
+		]
+		curses_print(`  `);
+		if st.hotkey_index[i] >= 0 then [
+			curses_print(label[ .. st.hotkey_index[i]]);
+			property_set_attrib(select(i = st.selected, prop_text_hotkey, prop_selected_hotkey));
+			curses_print([ label[st.hotkey_index[i]] ]);
+			property_set_attrib(select(i = st.selected, prop_text, prop_selected));
+			curses_print(label[st.hotkey_index[i] + 1 .. ]);
+		] else [
+			curses_print(label);
+		]
+		curses_print(`  `);
+	]
+]
+
+fn mainmenu_get_cursor(app : appstate, com : widget_common, st : mainmenu_state) : (int, int)
+[
+	var pos := 2;
+	for i := 0 to len(st.entries) do [
+		if i = st.selected then
+			return pos, 0;
+		pos += string_length(st.entries[i].label) + 4;
+	]
+	return -1, -1;
+]
+
+fn mainmenu_get_pivot(app : appstate, com : widget_common, st : mainmenu_state) : (int, int)
+[
+	var pos := 2;
+	for i := 0 to len(st.entries) do [
+		if i = st.selected then
+			return pos, 1;
+		pos += string_length(st.entries[i].label) + 4;
+	]
+	return 0, 1;
+]
+
+fn mainmenu_process_event(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : mainmenu_state, wev : wevent) : (world, appstate, widget_common, mainmenu_state)
+[
+	if wev is resize then [
+		com.x := 0;
+		com.y := 0;
+		com.size_x := wev.resize.x;
+		com.size_y := 1;
+		goto redraw;
+	]
+	if wev is change_focus then [
+		if widget_is_top(com.self) then [
+			property_set("fkeys", property.l.([
+				property.s.(``),
+				property.s.(``),
+				property.s.(``),
+				property.s.(``),
+				property.s.(``),
+				property.s.(``),
+				property.s.(``),
+				property.s.(``),
+				property.s.(``),
+				property.s.(`Cancel`),
+			]));
+		]
+		return;
+	]
+	if wev is keyboard then [
+		if wev.keyboard.key = key_left or
+		   wev.keyboard.key = key_right or
+		   wev.keyboard.key = key_home or
+		   wev.keyboard.key = key_end then [
+			if wev.keyboard.key = key_left then
+				st.selected -= 1;
+			if wev.keyboard.key = key_right then
+				st.selected += 1;
+			if wev.keyboard.key = key_home then
+				st.selected := 0;
+			if wev.keyboard.key = key_end then
+				st.selected := len(st.entries) - 1;
+			if st.selected < 0 then
+				st.selected := len(st.entries) - 1;
+			if st.selected >= len(st.entries) then
+				st.selected := 0;
+			goto redraw;
+		]
+		if wev.keyboard.key = key_down or
+		   wev.keyboard.key = key_up or
+		   wev.keyboard.key = key_page_down or
+		   wev.keyboard.key = key_page_up or
+		   wev.keyboard.key = key_enter or
+		   wev.keyboard.key = ' ' then [
+			if len(st.entries) <> 0 then [
+				st.entries[st.selected].click(com.self);
+				return;
+			]
+		]
+		if wev.keyboard.key = key_esc or wev.keyboard.key = key_f10 then [
+delete_self:
+			widget_enqueue_event(com.self, wevent.close);
+			return;
+		]
+		if wev.keyboard.flags = 0 then [
+			for i := 0 to len(st.hotkeys) do [
+				if st.hotkeys[i] = char_upcase(wev.keyboard.key) then [
+					st.selected := i;
+					st.entries[st.selected].click(com.self);
+					goto redraw;
+				]
+			]
+		]
+		return;
+	]
+	if wev is mouse, wev.mouse.buttons <> 0 or wev.mouse.prev_buttons <> 0 then [
+		var mx, my := widget_relative_mouse_coords(com.self, wev.mouse);
+		if my >= 1 then [
+			if (wev.mouse.buttons and not wev.mouse.prev_buttons) <> 0 then [
+				widget_enqueue_event(com.parent, wev);
+				goto delete_self;
+			]
+			return;
+		]
+		var pos := 2;
+		for i := 0 to len(st.entries) do [
+			var this_len := string_length(st.entries[i].label) + 4;
+			if mx >= pos, mx < pos + this_len then [
+				if wev.mouse.buttons <> 0 or wev.mouse.prev_buttons <> 0 then [
+					st.entries[i].click(com.self);
+				]
+				st.selected := i;
+				goto redraw;
+			]
+			pos += string_length(st.entries[i].label) + 4;
+		]
+		return;
+	]
+	return;
+
+redraw:
+	widget_enqueue_event(com.self, wevent.redraw.(event_redraw.[
+		x1 : 0,
+		x2 : com.size_x,
+		y1 : 0,
+		y2 : com.size_y,
+	]));
+]

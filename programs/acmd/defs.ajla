@@ -1,0 +1,53 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit defs;
+
+const sort_name := 0;
+const sort_extension := 1;
+const sort_size := 2;
+const sort_mtime := 3;
+const sort_atime := 4;
+const sort_ctime := 5;
+const sort_inode := 6;
+const sort_n := 7;
+
+const sort_flag_case_sensitive := 0;
+const sort_flag_reverse := 1;
+
+const select_flag_files_only := 0;
+const select_flag_case_sensitive := 1;
+
+const view_goto_mode_line := 0;
+const view_goto_mode_percents := 1;
+const view_goto_mode_decimal_offset := 2;
+const view_goto_mode_hexadecimal_offset := 3;
+
+const view_search_mode_string := 0;
+const view_search_mode_hexadecimal := 1;
+
+const view_search_flag_case_sensitive := 0;
+const view_search_flag_backwards := 1;
+const view_search_flag_whole_words := 2;
+
+const edit_goto_mode_line := 0;
+const edit_goto_mode_percents := 1;
+
+const edit_search_flag_case_sensitive := 0;
+const edit_search_flag_backwards := 1;
+const edit_search_flag_whole_words := 2;

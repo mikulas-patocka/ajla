@@ -1,0 +1,592 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit copy;
+
+uses ui.widget;
+
+uses common;
+
+fn copy_move(w : world, app : appstate, ro : acmd_ro, mv : bool, src_dir : bytes, src_files : list(bytes), dest_dir : bytes) : (world, appstate);
+fn make_dir(w : world, app : appstate, ro : acmd_ro, dest_dir : bytes) : (world, appstate);
+fn delete(implicit w : world, implicit app : appstate, implicit ro : acmd_ro, src_dir : bytes, src_files : list(bytes)) : (world, appstate);
+
+implementation
+
+uses defs;
+uses error;
+uses exception;
+
+const buffer_size := 16384;
+const update_rate := 20000;
+
+option operation [
+	copy;
+	move;
+	mkdir;
+	delete;
+]
+
+record copy_async_state [
+	ro : acmd_ro;
+	async_event_fn : fn(w : world, wev : wevent) : world;
+	async_event_finish_fn : fn(w : world, wev : wevent) : world;
+	async_event_timestamp : int64;
+	op : operation;
+	processed_bytes : int64;
+	total_bytes : int64;
+	status : property;
+]
+
+fn send_status(implicit w : world, implicit as : copy_async_state) : (world, copy_async_state)
+[
+	xeval as.async_event_fn(wevent.set_property.(event_set_property.[ prop : "progress", val : as.status ] ));
+]
+
+fn update_file_progress(implicit w : world, implicit as : copy_async_state, pos size : int64, always : bool) : (world, copy_async_state)
+[
+	var tm := get_monotonic_time();
+	tm div= update_rate;
+	if always or tm <> as.async_event_timestamp then [
+		as.async_event_timestamp := tm;
+		as.status.l[1].r := rational.[
+			num : pos,
+			den : size,
+		];
+		as.status.l[2].r := rational.[
+			num : as.processed_bytes,
+			den : as.total_bytes,
+		];
+		send_status();
+	]
+]
+
+fn update_file(implicit w : world, implicit as : copy_async_state, file : bytes) : (world, copy_async_state)
+[
+	as.status.l[0].b := file;
+	update_file_progress(0, 0, true);
+]
+
+fn copy_file_content(implicit w : world, implicit as : copy_async_state, dh sh : handle) : (world, copy_async_state)
+[
+	var try_clone := true;
+	var last_size : int64 := 0;
+	var pos : int64 := 0;
+	var size := bsize(sh);
+	var ps_orig := as.processed_bytes;
+	while true do [
+		pos := bdata(sh, pos);
+		var hole := bhole(sh, pos);
+		if hole = pos then
+			break;
+		if try_clone then [
+			xeval w;
+			var old_w := w;
+			bclone(sh, pos, dh, pos, hole - pos);
+			if is_exception w then [
+				recover_world(old_w);
+				try_clone := false;
+			]
+			if try_clone then [
+				pos := hole;
+				continue;
+			]
+		]
+		bcontiguous(dh, pos, hole - pos);
+		while pos < hole do [
+			var ln := min(buffer_size, hole - pos);
+			var b := bread(sh, pos, ln);
+			if len(b) = 0 then
+				goto unexpected_truncation;
+			bwrite(dh, pos, b);
+			pos += len(b);
+			last_size := pos;
+			as.processed_bytes := ps_orig + pos;
+			update_file_progress(pos, size, false);
+			//w := sleep(w, 100000);
+		]
+	]
+	if pos > last_size then
+		bsetsize(dh, pos);
+	as.processed_bytes := ps_orig + pos;
+	update_file_progress(pos, size, true);
+unexpected_truncation:
+	//fsync(dh);
+]
+
+fn copy_file(implicit w : world, implicit as : copy_async_state, dest_dir : dhandle, dest_file : bytes, src_dir : dhandle, src_file : bytes) : (world, copy_async_state);
+
+fn copy_directory_content(implicit w : world, implicit as : copy_async_state, dest_dir : dhandle, dest_file : bytes, src_dir : dhandle, src_file : bytes) : (world, copy_async_state)
+[
+	var src_d := dopen(src_dir, src_file, open_flag_no_follow);
+	var dest_d := dopen(dest_dir, dest_file, open_flag_no_follow);
+	var src_files := dread(src_d);
+	for i := 0 to len(src_files) do [
+		//eval debug("attempting to copy " + dpath_lazy(src_d) + "," + src_files[i] + " -> " + dpath_lazy(dest_d) + "," + src_files[i]);
+		copy_file(dest_d, src_files[i], src_d, src_files[i]);
+		xeval w;
+	]
+]
+
+fn copy_file(implicit w : world, implicit as : copy_async_state, dest_dir : dhandle, dest_file : bytes, src_dir : dhandle, src_file : bytes) : (world, copy_async_state)
+[
+	update_file(src_file);
+	var old_w := w;
+	var st_t := lstat(dest_dir, dest_file, 0);
+	if not is_exception st_t then
+		abort exception_make_str(unit_type, ec_sync, error_system, system_error_eexist, false, "The destination file already exists");
+	recover_world(old_w);
+	var st := lstat(src_dir, src_file,
+		stat_flag_type or
+		stat_flag_mode or
+		stat_flag_uid or
+		stat_flag_gid or
+		stat_flag_rdevmajor or
+		stat_flag_rdevminor or
+		stat_flag_atime or
+		stat_flag_mtime);
+	if st[0] = stat_type_file then [
+		var dh := bopen(dest_dir, dest_file, open_flag_write or open_flag_create or open_flag_must_create or open_flag_no_follow, st[1]);
+		var sh := bopen(src_dir, src_file, open_flag_read or open_flag_no_follow, 0);
+		copy_file_content(dh, sh);
+	] else if st[0] = stat_type_directory then [
+		mkdir(dest_dir, dest_file, st[1] bts 7);
+		copy_directory_content(dest_dir, dest_file, src_dir, src_file);
+		if not st[1] bt 7 then
+			chmod(dest_dir, dest_file, st[1]);
+	] else if st[0] = stat_type_link then [
+		var lnk := readlink(src_dir, src_file);
+		mksymlink(dest_dir, dest_file, lnk);
+	] else if st[0] = stat_type_fifo then [
+		mkpipe(dest_dir, dest_file, st[1]);
+	] else if st[0] = stat_type_chardev then [
+		mkchardev(dest_dir, dest_file, st[1], st[5], st[4]);
+	] else if st[0] = stat_type_blockdev then [
+		mkblockdev(dest_dir, dest_file, st[1], st[5], st[4]);
+	] else if st[0] = stat_type_socket then [
+		mksocket(dest_dir, dest_file, st[1]);
+	]
+
+	//for i := 0 to len(st) do eval debug("stat(" + ntos(i) + "): " + ntos(st[i]));
+	old_w := w;
+	lutime(dest_dir, dest_file, st[6], st[7]);
+	recover_world(old_w);
+
+	old_w := w;
+	lchown(dest_dir, dest_file, st[2], st[3]);
+	recover_world(old_w);
+
+	if as.op is move then [
+		if st[0] = stat_type_directory then [
+			rmdir(src_dir, src_file);
+		] else [
+			unlink(src_dir, src_file);
+		]
+	]
+]
+
+fn calculate_total_bytes(implicit w : world, implicit as : copy_async_state, src_dir : dhandle, src_files : list(bytes)) : (world, copy_async_state)
+[
+	for src_file in src_files do [
+		var old_w := w;
+		var st := lstat(src_dir, src_file,
+			stat_flag_type or
+			stat_flag_size);
+		if is_exception st then [
+			recover_world(old_w);
+			continue;
+		]
+		if st[0] = stat_type_file then [
+			as.total_bytes += st[1];
+		] else if st[0] = stat_type_directory then [
+			var old_w := w;
+			var src_d := dopen(src_dir, src_file, open_flag_no_follow);
+			var sf := dread(src_d);
+			if is_exception(sf) then [
+				recover_world(old_w);
+				continue;
+			]
+			calculate_total_bytes(src_d, sf);
+		]
+	]
+]
+
+fn try_move_file(implicit w : world, implicit as : copy_async_state, dest_dir : dhandle, dest_file : bytes, src_dir : dhandle, src_file : bytes) : (world, copy_async_state, bool)
+[
+	if as.op is copy then
+		return false;
+	update_file(src_file);
+	var old_w := w;
+	var st_t := lstat(dest_dir, dest_file, 0);
+	if not is_exception st_t then
+		return false;
+	recover_world(old_w);
+	old_w := w;
+	rename(dest_dir, dest_file, src_dir, src_file);
+	if is_exception w then [
+		recover_world(old_w);
+		return false;
+	]
+	return true;
+]
+
+fn delete_recursive(implicit w : world, implicit as : copy_async_state, src_dir : dhandle, src_file : bytes) : world
+[
+	update_file(src_file);
+	var st_t := lstat(src_dir, src_file, stat_flag_type);
+	if st_t[0] <> stat_type_directory then [
+		unlink(src_dir, src_file);
+	] else [
+		var src_d := dopen(src_dir, src_file, open_flag_no_follow);
+		var sf := dread(src_d);
+		for i := 0 to len(sf) do [
+			delete_recursive(src_d, sf[i]);
+			xeval w;
+		]
+		rmdir(src_dir, src_file);
+	]
+]
+
+fn do_copy_nox(implicit w : world, implicit as : copy_async_state, src_str : bytes, src_files : list(bytes), dest_str : bytes) : world
+[
+	var old_w := w;
+	if as.op is mkdir then [
+		var src_dir := dopen(dnone(), src_str, 0);
+		for src_file in src_files do [
+			update_file(src_file);
+			mkdir(src_dir, src_file, #1ff);
+			xeval w;
+		]
+		return;
+	]
+	if as.op is delete then [
+		var src_dir := dopen(dnone(), src_str, 0);
+		for src_file in src_files do [
+			delete_recursive(src_dir, src_file);
+			xeval w;
+		]
+		return;
+	]
+	var dest_dir := dopen(dnone(), dest_str, 0);
+	if is_exception dest_dir then [
+		recover_world(old_w);
+		if len(src_files) <> 1 then [
+			abort exception_make_str(unit_type, ec_sync, error_invalid_operation, 0, false, "Cannot copy multiple files into one destination");
+		]
+		var dd, df := path_to_dir_file(dest_str);
+		dest_dir := dopen(dnone(), dd, 0);
+		var src_dir := dopen(dnone(), src_str, 0);
+		var moved := try_move_file(dest_dir, df, src_dir, src_files[0]);
+		if moved then
+			return;
+		calculate_total_bytes(src_dir, src_files);
+		copy_file(dest_dir, df, src_dir, src_files[0]);
+		return;
+	]
+	var src_dir := dopen(dnone(), src_str, 0);
+	while len_greater_than(src_files, 0) do [
+		var moved := try_move_file(dest_dir, src_files[0], src_dir, src_files[0]);
+		if not moved then
+			break;
+		src_files := src_files[1 .. ];
+	]
+	calculate_total_bytes(src_dir, src_files);
+	for src_file in src_files do [
+		copy_file(dest_dir, src_file, src_dir, src_file);
+		xeval w;
+	]
+]
+
+fn do_copy(implicit w : world, implicit as : copy_async_state, ro : acmd_ro, src_str : bytes, src_files : list(bytes), dest_str : bytes) : world
+[
+	var old_w := w;
+	w := do_copy_nox(src_str, src_files, dest_str);
+	if is_exception w then [
+		var error_w := w;
+		recover_world(old_w);
+		xeval as.async_event_finish_fn(wevent.set_property.(event_set_property.[ prop : "copy-finished", val : property.n ]));
+		return error_w;
+	]
+	xeval as.async_event_finish_fn(wevent.set_property.(event_set_property.[ prop : "copy-finished", val : property.n ]));
+]
+
+record copy_state [
+	as : copy_async_state;
+	copy_w : world;
+]
+
+fn rescan_panels(implicit app : appstate) : appstate
+[
+	widget_enqueue_event(widget_get_app(app), wevent.set_property.(event_set_property.[ prop : "rescan-panels", val : property.n ]));
+]
+
+fn copy_process_event(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : copy_state, wev : wevent) : (world, appstate, widget_common, copy_state)
+[
+	if wev is resize then [
+		com.x := 0;
+		com.y := 0;
+		com.size_x := 0;
+		com.size_y := 0;
+		return;
+	]
+	if wev is keyboard or wev is mouse then [
+		widget_enqueue_event_to_underlying(com.self, wev);
+		return;
+	]
+	if wev is set_property then [
+		if wev.set_property.prop = "progress" then [
+			var str := locale_to_string(st.as.ro.loc, wev.set_property.val.l[0].b);
+			property_set("copy-file", property.s.(str));
+			property_set("copy-progress", wev.set_property.val.l[1]);
+			property_set("copy-progress-global", wev.set_property.val.l[2]);
+		]
+		if wev.set_property.prop = "copy-finished" then [
+			eval st.copy_w;
+			widget_enqueue_event(com.self, wevent.close);
+			var winid := property_get("copy-dialog").w;
+			widget_enqueue_event(winid, wevent.close);
+			if is_exception st.copy_w then [
+				var str := ``;
+				if st.as.op is copy then
+					str := `Error copying the file`;
+				else if st.as.op is move then
+					str := `Error moving the file`;
+				else if st.as.op is mkdir then
+					str := `Error making the directory`;
+				else if st.as.op is delete then
+					str := `Error deleting the file`;
+				acmd_error(str + ` ` + property_get("copy-file").s, locale_to_string(st.as.ro.loc, ex_str(st.copy_w)));
+			]
+			rescan_panels();
+		]
+	]
+]
+
+fn copy_init(ro : acmd_ro, op : operation, src_str : bytes, src_files : list(bytes), dest_str : bytes, implicit w : world, implicit app : appstate, id : wid) : (world, appstate, copy_state)
+[
+	var as := copy_async_state.[
+		ro : ro,
+		async_event_fn : widget_get_async_event_exchange_function(id),
+		async_event_finish_fn : widget_get_async_event_function(id),
+		async_event_timestamp : -1,
+		op : op,
+		processed_bytes : 0,
+		total_bytes : 0,
+		status : property.l.([
+			property.b.(""),
+			property.r.(0),
+			property.r.(0),
+		]),
+	];
+	var copy_w := do_copy~spark(w, as, ro, src_str, src_files, dest_str);
+	return copy_state.[
+		as : as,
+		copy_w : copy_w,
+	];
+]
+
+const copy_class ~flat := widget_class.[
+	t : copy_state,
+	name : "acmd copy",
+	is_selectable : false,
+	process_event : copy_process_event,
+];
+
+fn progress_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y min_x pref_x max_x : int) : (appstate, int, int)
+[
+	var xs := 0;
+	xs := max(xs, widget_get_width(ids[0], pref_x));
+	xs := max(xs, widget_get_width(ids[1], pref_x));
+	xs := max(xs, widget_get_width(ids[2], pref_x));
+	xs := max(xs, widgets_get_width(ids[3 ..], 2, pref_x));
+
+	xs := min(xs, max_x);
+	xs := max(xs, min_x);
+
+	var yp := offs_y;
+	yp += 1;
+	yp := widget_place(ids[0], offs_x, xs, yp);
+	yp := widget_place(ids[1], offs_x, xs, yp);
+	yp += 1;
+	yp := widget_place(ids[2], offs_x, xs, yp);
+	yp += 1;
+	yp := widgets_place(ids[3 .. ], widget_align.center, 2, 1, offs_x, xs, yp);
+
+	return xs, yp;
+]
+
+fn file_progress_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y min_x pref_x max_x : int) : (appstate, int, int)
+[
+	var xs := 0;
+	xs := max(xs, widget_get_width(ids[0], pref_x));
+	xs := max(xs, widgets_get_width(ids[1 ..], 2, pref_x));
+
+	xs := min(xs, max_x);
+	xs := max(xs, min_x);
+
+	var yp := offs_y;
+	yp += 1;
+	yp := widget_place(ids[0], offs_x, xs, yp);
+	yp += 1;
+	yp := widgets_place(ids[1 .. ], widget_align.center, 2, 1, offs_x, xs, yp);
+
+	return xs, yp;
+]
+
+fn copy_start(implicit w : world, implicit app : appstate, ro : acmd_ro, op : operation, src_str : bytes, src_files : list(bytes), dest_str : bytes) : (world, appstate)
+[
+	if op is copy or op is move then [
+		widget_enqueue_event(widget_get_app(app), wevent.set_property.(event_set_property.[ prop : "mark-unselect", val : property.n ]));
+		var dest_s := property_get("copy-destination").s;
+		if dest_s <> locale_to_string(ro.loc, dest_str) then [
+			dest_str := string_to_locale(ro.loc, dest_s);
+		]
+		dest_str := path_join(src_str, dest_str);
+	] else if op is mkdir then [
+		src_files := [ string_to_locale(ro.loc, property_get("mkdir").s) ];
+	]
+	var cpyid := widget_new_window(copy_class, copy_init(ro, op, src_str, src_files, dest_str,,,), true);
+	property_set("copy-file", property.s.(``));
+	property_set("copy-progress", property.r.(0));
+	property_set("copy-progress-global", property.r.(0));
+	var entries := empty(dialog_entry);
+	entries +<= dialog_entry.[
+		cls : display_class,
+		init : display_init("copy-file", "",,,),
+	];
+	if op is copy or op is move then [
+		entries +<= dialog_entry.[
+			cls : progress_class,
+			init : progress_init("copy-progress", "",,,),
+		];
+		entries +<= dialog_entry.[
+			cls : progress_class,
+			init : progress_init("copy-progress-global", "",,,),
+		];
+	]
+	entries +<= dialog_entry.[
+		cls : button_class,
+		init : button_init(`Cancel`, true, "", button_no_action, lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ rescan_panels(); widget_destroy_onclick(id); widget_enqueue_event(cpyid, wevent.close); ],,,),
+		hotkeys : treeset_from_list([ key_esc, key_f10 ]),
+	];
+	var str : string := ``;
+	if op is copy then
+		str := `Copy`;
+	if op is move then
+		str := `Move`;
+	if op is mkdir then
+		str := `Make a directory`;
+	if op is delete then
+		str := `Delete`;
+	var winid := widget_new_window(dialog_class, dialog_init(str, entries, select(op is copy or op is move, 1, 3), dialog_no_event, select(op is copy or op is move, file_progress_dialog_layout, progress_dialog_layout), "",,,), false);
+	property_set("copy-dialog", property.w.(winid));
+]
+
+fn copy_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y min_x pref_x max_x : int) : (appstate, int, int)
+[
+	var xs := 0;
+	xs := max(xs, widget_get_width(ids[0], pref_x));
+	xs := max(xs, widget_get_width(ids[1], pref_x));
+	xs := max(xs, widgets_get_width(ids[2 ..], 2, pref_x));
+
+	xs := min(xs, max_x);
+	xs := max(xs, min_x);
+
+	var yp := offs_y;
+	yp := widget_place(ids[0], offs_x, xs, yp);
+	yp := widget_place(ids[1], offs_x, xs, yp);
+	yp += 1;
+	yp := widgets_place(ids[2 .. ], widget_align.center, 2, 1, offs_x, xs, yp);
+
+	return xs, yp;
+]
+
+fn copy_move(implicit w : world, implicit app : appstate, implicit ro : acmd_ro, mv : bool, src_dir : bytes, src_files : list(bytes), dest_dir : bytes) : (world, appstate)
+[
+	property_set("copy-destination", property.s.(locale_to_string(ro.loc, dest_dir)));
+	//eval debug(src_dir + " -> " + dest_dir);
+	var str := select(mv, `Copy`, `Move`) + ` `;
+	if len(src_files) = 1 then [
+		str += `the file "` + locale_to_string(ro.loc, src_files[0]) + `"`;
+	] else [
+		str += ascii_to_string(ntos(len(src_files))) + ` files`;
+	]
+	str += ` to`;
+	var entries := [ dialog_entry.[
+			cls : text_class,
+			init : text_init(widget_align.left, str, "",,,),
+		], dialog_entry.[
+			cls : input_class,
+			init : input_init("", "copy-destination", true,,,),
+		], dialog_entry.[
+			cls : button_class,
+			init : button_init(`OK`, true, "", button_no_action, lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ copy_start(select(mv, operation.copy, operation.move), src_dir, src_files, dest_dir); widget_destroy_onclick(id); ],,,),
+			hotkeys : treeset_from_list([ key_enter ]),
+		], dialog_entry.[
+			cls : button_class,
+			init : button_init(`Cancel`, true, "", button_no_action, lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ widget_destroy_onclick(id); ],,,),
+			hotkeys : treeset_from_list([ key_esc, key_f10 ]),
+		],
+	];
+	var winid := widget_new_window(dialog_class, dialog_init(select(mv, `Copy`, `Move`), entries, 1, dialog_no_event, copy_dialog_layout, "",,,), false);
+]
+
+fn make_dir(implicit w : world, implicit app : appstate, implicit ro : acmd_ro, dest_dir : bytes) : (world, appstate)
+[
+	property_set("mkdir", property.s.(``));
+
+	var entries := [ dialog_entry.[
+		cls : text_class,
+		init : text_init(widget_align.left, `Directory name`, "",,,),
+		], dialog_entry.[
+			cls : input_class,
+			init : input_init("", "mkdir", true,,,),
+		], dialog_entry.[
+			cls : button_class,
+			init : button_init(`OK`, true, "", button_no_action, lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ copy_start(operation.mkdir, dest_dir, empty(bytes), ""); widget_destroy_onclick(id); ],,,),
+			hotkeys : treeset_from_list([ key_enter ]),
+		], dialog_entry.[
+			cls : button_class,
+			init : button_init(`Cancel`, true, "", button_no_action, lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ widget_destroy_onclick(id); ],,,),
+			hotkeys : treeset_from_list([ key_esc, key_f10 ]),
+		],
+	];
+
+	var winid := widget_new_window(dialog_class, dialog_init(`Create a new directory`, entries, 1, dialog_no_event, copy_dialog_layout, "",,,), false);
+]
+
+fn delete(implicit w : world, implicit app : appstate, implicit ro : acmd_ro, src_dir : bytes, src_files : list(bytes)) : (world, appstate)
+[
+	var prompt := `Delete `;
+	if len(src_files) <> 1 then
+		prompt += ascii_to_string(ntos(len(src_files))) + ` files`;
+	else
+		prompt += `the file "` + locale_to_string(ro.loc, src_files[0]) + `"`;
+	prompt += `?`;
+
+	var buttons := [ msgbox_button.[
+			label : `Yes`,
+			click : lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ copy_start(operation.delete, src_dir, src_files, ""); widget_destroy_onclick(id); ],
+		], msgbox_button.[
+			label : `No`,
+			click : lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ return widget_destroy_onclick(id); ],
+			hotkeys : treeset_from_list([ key_esc, key_f10 ]),
+		]
+	];
+	var winid := msgbox_new(`Delete`, widget_align.center, prompt, "error-", buttons);
+]

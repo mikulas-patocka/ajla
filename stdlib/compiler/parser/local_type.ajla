@@ -1,0 +1,95 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit compiler.parser.local_type;
+
+uses compiler.parser.dict;
+uses compiler.parser.type;
+
+fn get_record_local_type(ctx rec_ctx : function_context) : (function_context, int);
+fn get_local_type_cc(ctx : function_context, cc : compare_context, typ : int) : (function_context, int);
+fn generate_local_types(ctx : function_context) : function_context;
+
+implementation
+
+uses compiler.common.gvn;
+uses compiler.parser.gen2;
+
+fn local_type_to_int(lt : local_type) : int
+[
+	return gvn_encode(list(pcode_t).[ lt.mode ] + lt.args);
+]
+
+fn local_type_idx(ctx : function_context, lt : local_type) : (function_context, int)
+[
+	var r := local_type_to_int(lt);
+	var m := ctx.local_types_map[r];
+	if not is_uninitialized(m) then
+		return ctx, m;
+	var idx := len(ctx.local_types);
+	ctx.local_types_map[r] := idx;
+	ctx.local_types +<= lt;
+	return ctx, idx;
+]
+
+fn get_record_local_type(ctx rec_ctx : function_context) : (function_context, int)
+[
+	var lt := local_type.[
+		mode : Local_Type_Record,
+		args : generate_function_id(rec_ctx.id),
+	];
+	return local_type_idx(ctx, lt);
+]
+
+fn get_local_type_cc(ctx : function_context, cc : compare_context, typ : int) : (function_context, int)
+[
+	if typ = T_Record then [
+		var rec := cc.ctx.record_def.j;
+		if not rec.is_option then [
+			return get_record_local_type(ctx, cc.ctx);
+		] else [
+			if rec.is_flat_option then
+				return ctx, T_FlatOption;
+			else
+				return ctx, T_Undetermined;
+		]
+	] else if typ < 0 and typ <> T_UnknownType then [
+		return ctx, typ;
+	]
+	return ctx, T_Undetermined;
+]
+
+fn get_local_type(ctx : function_context, i : int) : (function_context, int)
+[
+	var cc, typ := get_deep_type_of_var(ctx, i);
+	return get_local_type_cc(ctx, cc, typ);
+]
+
+fn generate_local_types(ctx : function_context) : function_context
+[
+	var ctx2, bol := generate_Bool(ctx);
+	for i := 0 to len(ctx.variables) do [
+		var lt : int;
+		if verify_equality(ctx2, get_type_of_var(ctx2, i), bol) then
+			lt := T_FlatOption;
+		else
+			ctx, lt := get_local_type(ctx, i);
+		ctx.variables[i].local_type := lt;
+	]
+	return ctx;
+]
