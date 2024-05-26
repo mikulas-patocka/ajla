@@ -72,6 +72,11 @@ Unpack the tar.gz archive and compile it with <code>./configure && make</code>.
 Install it with <code>make install</code>.
 <br>
 <br>
+If you cloned the git repository, there is no <code>./configure</code> script.
+You can generate it with the <code>./rebuild</code> script. You need autoconf,
+automake and ed installed.
+<br>
+<br>
 It is recommended to use gcc. clang works, but the compilation is very slow, it
 may take an hour or more to compile the files ipret.c and ipretc.c.
 <br>
@@ -126,8 +131,8 @@ execute it.
 <br>
 
 Here we declare a function main with the following arguments. The symbol before
-the dot is the name of them argument and the expression after the dot is the
-type of the argument.
+the dot is the name of the argument and the expression after the dot is the type
+of the argument.
 <dl>
 <dt><code>w : world</code>
 <dd>This is a token that must be passed to and returned from all functions that
@@ -1660,7 +1665,7 @@ fn main
 ]
 </pre>
 The "<code>fork</code>" function takes a "<code>world</code>" argument and
-splits it into two world arguments &mdash "<code>w1</code>" and
+splits it into two world arguments &mdash; "<code>w1</code>" and
 "<code>w2</code>". The first loop will iterate from 1 to 10 and sequence the I/O
 using "<code>w1</code>" and the second loop will iterate from 1 to 10 and
 sequence the I/O using "<code>w2</code>". The "<code>join</code>" function takes
@@ -1720,9 +1725,9 @@ resulting in numbers being printed to the standard output.
 <br>
 <br>
 We can use the "<code>~spark</code>"
-<a href="#function_call_specifiers">specifier</a> to make sure that the
-functions are parallelized immediately and that they don't wait for two timer
-ticks before the parallelization starts. This makes this example execute faster:
+<a href="#functions">specifier</a> to make sure that the functions are
+parallelized immediately and that they don't wait for two timer ticks before the
+parallelization starts. This makes this example execute faster:
 <pre>
 fn main
 [
