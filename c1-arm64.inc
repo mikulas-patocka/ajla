@@ -388,6 +388,9 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(R_TIMESTAMP);
 	gen_one(R_ARG2);
 
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(R_ARG3);
+
 	return true;
 }
 
@@ -458,7 +461,7 @@ static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsi
 	return true;
 }
 
-static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t label_id)
+static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t escape_label)
 {
 	g(gen_address(ctx, R_UPCALL, offsetof(struct cg_upcall_vector_s, ts), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_4));
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
@@ -469,8 +472,8 @@ static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t labe
 	gen_one(R_SCRATCH_1);
 	gen_one(R_TIMESTAMP);
 
-	gen_insn(INSN_JMP_COND, OP_SIZE_4, COND_E, 0);
-	gen_four(label_id);
+	gen_insn(INSN_JMP_COND, OP_SIZE_4, COND_NE, 0);
+	gen_four(escape_label);
 
 	return true;
 }

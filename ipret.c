@@ -33,6 +33,7 @@
 #include "ipfn.h"
 #include "ipio.h"
 #include "util.h"
+#include "codegen.h"
 
 #include "ipret.h"
 

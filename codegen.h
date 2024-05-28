@@ -19,10 +19,18 @@
 #ifndef AJLA_CODEGEN_H
 #define AJLA_CODEGEN_H
 
+#include "data.h"
+
+#ifdef HAVE_CODEGEN
+
 #define codegen_fn			name(codegen_fn)
 #define codegen_free			name(codegen_free)
+#define codegen_entry			name(codegen_entry)
 
 void *codegen_fn(frame_s *fp, const code_t *ip, union internal_arg ia[]);
 void codegen_free(struct data *codegen);
+extern code_return_t (*codegen_entry)(frame_s *, struct cg_upcall_vector_s *, tick_stamp_t, void *);
+
+#endif
 
 #endif

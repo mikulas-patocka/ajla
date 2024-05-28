@@ -39,6 +39,10 @@
 
 /*#define DEBUG_INSNS*/
 
+code_return_t (*codegen_entry)(frame_s *, struct cg_upcall_vector_s *, tick_stamp_t, void *);
+static void *codegen_ptr;
+static size_t codegen_size;
+
 /*
  * insn:
  *	opcode		- 16 bits
@@ -183,7 +187,6 @@
 
 enum {
 	INSN_ENTRY,
-	INSN_AFTER_ENTRY,
 	INSN_LABEL,
 	INSN_RET,
 	INSN_RET_IMM,
@@ -428,8 +431,6 @@ struct codegen_context {
 	struct trap_record *trap_records;
 	size_t trap_records_size;
 
-	unsigned entry_size;
-
 	struct code_arg *args;
 	size_t args_l;
 	const code_t *return_values;
@@ -496,15 +497,8 @@ static void done_ctx(struct codegen_context *ctx)
 		mem_free(ctx->args);
 	if (ctx->flag_cache)
 		mem_free(ctx->flag_cache);
-	if (ctx->codegen) {
-#ifdef codegen_stub_free
-		frame_t i;
-		for (i = 0; i < da(ctx->codegen,codegen)->n_entries; i++) {
-			codegen_stub_free(da(ctx->codegen,codegen)->unoptimized_code[i]);
-		}
-#endif
+	if (ctx->codegen)
 		data_free(ctx->codegen);
-	}
 }
 
 static uint32_t alloc_label(struct codegen_context *ctx)
@@ -6576,7 +6570,7 @@ skip_ref_argument:
 	gen_pointer_compression(R_SCRATCH_1);
 #if (defined(ARCH_X86) && !defined(ARCH_X86_X32)) || defined(ARCH_ARM32)
 	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_base), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-	gen_insn(INSN_JMP_INDIRECT, 0, 1, 0);
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 	gen_address_offset_compressed();
 #else
 	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_base), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
@@ -6584,7 +6578,7 @@ skip_ref_argument:
 	gen_one(R_SCRATCH_1);
 	gen_address_offset_compressed();
 
-	gen_insn(INSN_JMP_INDIRECT, 0, 1, 0);
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 	gen_one(R_SCRATCH_1);
 #endif
 	g(clear_flag_cache(ctx));
@@ -8978,28 +8972,20 @@ skip_dereference:
 			}
 			case OPCODE_CHECKPOINT: {
 				g(clear_flag_cache(ctx));
-				if (unlikely(!(label_id = alloc_label(ctx))))
-					return false;
-				g(gen_timestamp_test(ctx, label_id));
 
 				escape_label = alloc_escape_label(ctx);
 				if (unlikely(!escape_label))
 					return false;
 
-				gen_insn(INSN_JMP, 0, 0, 0);
-				gen_four(escape_label);
+				g(gen_timestamp_test(ctx, escape_label));
 
 				get_one(ctx, &slot_1);
 				gen_insn(INSN_ENTRY, 0, 0, 0);
 				gen_four(slot_1);
-				g(gen_entry(ctx));
 				if (unlikely(!(slot_1 + 1)))
 					return false;
 				if (unlikely(slot_1 >= ctx->n_entries))
 					ctx->n_entries = slot_1 + 1;
-				gen_insn(INSN_AFTER_ENTRY, 0, 0, 0);
-				gen_four(slot_1);
-				gen_label(label_id);
 				continue;
 			}
 			case OPCODE_JMP: {
@@ -9347,18 +9333,6 @@ static bool attr_w cgen_entry(struct codegen_context *ctx)
 	return true;
 }
 
-static bool attr_w cgen_after_entry(struct codegen_context *ctx)
-{
-	uint32_t entry_id = cget_four(ctx);
-	ajla_assert_lo(entry_id < ctx->n_entries, (file_line, "cgen_after_entry: invalid entry %lx", (unsigned long)entry_id));
-	if (!entry_id)
-		ctx->entry_size = ctx->mcode_size - ctx->entry_to_pos[entry_id];
-	else
-		if (unlikely(ctx->entry_size != ctx->mcode_size - ctx->entry_to_pos[entry_id]))
-			internal(file_line, "cgen_after_entry: entry has different size");
-	return true;
-}
-
 static bool attr_w cgen_label(struct codegen_context *ctx)
 {
 	uint32_t label_id = cget_four(ctx);
@@ -9496,25 +9470,11 @@ static bool attr_w codegen_map(struct codegen_context *ctx)
 	}
 	for (i = 0; i < ctx->n_entries; i++) {
 		char *entry = cast_ptr(char *, ptr) + ctx->entry_to_pos[i];
-#ifdef codegen_stub_alloc
-		entry = codegen_stub_alloc(ctx, entry);
-		if (!entry) {
-			os_code_unmap(ptr, ctx->mcode_size);
-			return false;
-		}
-#else
-		entry += ctx->entry_size;
-#endif
 		da(ctx->codegen,codegen)->unoptimized_code[i] = entry;
 		da(ctx->codegen,codegen)->n_entries++;
 	}
 	da(ctx->codegen,codegen)->unoptimized_code_base = ptr;
 	da(ctx->codegen,codegen)->unoptimized_code_size = ctx->mcode_size;
-#ifdef codegen_stub_alloc
-	da(ctx->codegen,codegen)->entry_offset = 0;
-#else
-	da(ctx->codegen,codegen)->entry_offset = ctx->entry_size;
-#endif
 
 	return true;
 }
@@ -9641,13 +9601,17 @@ again:
 		char *hex;
 		size_t hexl;
 		size_t i;
-		if (!os_write_atomic(".", "dump.asm", cast_ptr(const char *, ctx->mcode), ctx->mcode_size, &ctx->err)) {
+		size_t mcode_size = codegen_size + ctx->mcode_size;
+		uint8_t *mcode = mem_alloc(uint8_t *, mcode_size);
+		memcpy(mcode, codegen_ptr, codegen_size);
+		memcpy(mcode + codegen_size, ctx->mcode, ctx->mcode_size);
+		if (!os_write_atomic(".", "dump.asm", cast_ptr(const char *, mcode), mcode_size, &ctx->err)) {
 			warning("dump failed");
 		}
 
 		str_init(&hex, &hexl);
-		for (i = 0; i < ctx->mcode_size; i++) {
-			uint8_t a = ctx->mcode[i];
+		for (i = 0; i < mcode_size; i++) {
+			uint8_t a = mcode[i];
 			if (a < 16)
 				str_add_char(&hex, &hexl, '0');
 			str_add_unsigned(&hex, &hexl, a, 16);
@@ -9661,8 +9625,8 @@ again:
 #if defined(ARCH_RISCV64)
 		str_add_string(&hex, &hexl, "	.attribute arch, \"rv64i2p1_m2p0_a2p1_f2p2_d2p2_c2p0_zicsr2p0_zifencei2p0_zba1p0_zbb1p0_zbc1p0_zbs1p0\"\n");
 #endif
-		for (i = 0; i < ctx->mcode_size; i++) {
-			uint8_t a = ctx->mcode[i];
+		for (i = 0; i < mcode_size; i++) {
+			uint8_t a = mcode[i];
 			str_add_string(&hex, &hexl, "	.byte	0x");
 			if (a < 16)
 				str_add_char(&hex, &hexl, '0');
@@ -9673,6 +9637,7 @@ again:
 			warning("dump failed");
 		}
 		mem_free(hex);
+		mem_free(mcode);
 	}
 #endif
 
@@ -9705,16 +9670,73 @@ fail:
 
 void codegen_free(struct data *codegen)
 {
-#ifdef codegen_stub_free
-	frame_t i;
-	for (i = 0; i < da(codegen,codegen)->n_entries; i++) {
-		codegen_stub_free(da(codegen,codegen)->unoptimized_code[i]);
-	}
-#endif
 #ifdef HAVE_CODEGEN_TRAPS
 	mem_free(da(codegen,codegen)->trap_records);
 #endif
 	os_code_unmap(da(codegen,codegen)->unoptimized_code_base, da(codegen,codegen)->unoptimized_code_size);
+}
+
+#if defined(ARCH_POWER) && defined(AIX_CALL)
+static uintptr_t stub[3];
+#endif
+
+void name(codegen_init)(void)
+{
+	struct codegen_context ctx_;
+	struct codegen_context *ctx = &ctx_;
+	void *ptr;
+
+	init_ctx(ctx);
+
+	array_init_mayfail(uint8_t, &ctx->code, &ctx->code_size, NULL);
+
+	if (unlikely(!gen_entry(ctx)))
+		goto fail;
+
+	array_init_mayfail(uint8_t, &ctx->mcode, &ctx->mcode_size, NULL);
+
+#ifdef ARCH_CONTEXT
+	init_arch_context(ctx);
+#endif
+
+	if (unlikely(!gen_mcode(ctx)))
+		goto fail;
+
+	array_finish(uint8_t, &ctx->mcode, &ctx->mcode_size);
+	ptr = os_code_map(ctx->mcode, ctx->mcode_size, NULL, NULL, NULL);
+	codegen_ptr = ptr;
+	codegen_size = ctx->mcode_size;
+	ctx->mcode = NULL;
+#if defined(ARCH_POWER) && defined(AIX_CALL)
+	stub[0] = ptr_to_num(ptr);
+	stub[1] = 0;
+	stub[2] = 0;
+	codegen_entry = cast_ptr(void *, stub);
+#else
+	codegen_entry = ptr;
+#endif
+
+	done_ctx(ctx);
+
+	return;
+
+fail:
+	fatal("couldn't compile global entry");
+}
+
+void name(codegen_done)(void)
+{
+	os_code_unmap(codegen_ptr, codegen_size);
+}
+
+#else
+
+void name(codegen_init)(void)
+{
+}
+
+void name(codegen_done)(void)
+{
 }
 
 #endif

@@ -1064,7 +1064,7 @@ DEFINE_OPCODE_START(OPCODE_CHECKPOINT)
 		/*__asm__ volatile("xnop");*/
 		/*__asm__ volatile("cover");*/
 		/*debug("calling: %p, %u, %lx, %lx", da(codegen,codegen)->unoptimized_code[id], da(codegen,codegen)->entry_offset, ((long *)da(codegen,codegen)->unoptimized_code[id])[0], ((long *)da(codegen,codegen)->unoptimized_code[id])[1]);*/
-		r = ((code_fn)(da(codegen,codegen)->unoptimized_code[id] - da(codegen,codegen)->entry_offset))(fp, &cg_upcall_vector, ts);
+		r = codegen_entry(fp, &cg_upcall_vector, ts, da(codegen,codegen)->unoptimized_code[id]);
 #if defined(ARCH_X86_32) || defined(ARCH_ARM32) || defined(ARCH_MIPS32) || defined(ARCH_POWER32) || defined(ARCH_SPARC32)
 #if defined(C_LITTLE_ENDIAN) || defined(ARCH_MIPS_N32)
 		new_fp = num_to_ptr(r & 0xffffffffU);

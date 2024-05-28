@@ -87,6 +87,8 @@ void u_name(fn)(void);				\
 void c_name(fn)(void);				\
 static inline void fn(void) { call(fn)(); }
 
+switch_call(codegen_init)
+switch_call(codegen_done)
 switch_call(data_init)
 switch_call(data_done)
 switch_call(array_index_init)

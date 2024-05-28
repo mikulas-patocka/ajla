@@ -1482,9 +1482,6 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		case INSN_ENTRY:
 			g(cgen_entry(ctx));
 			return true;
-		case INSN_AFTER_ENTRY:
-			g(cgen_after_entry(ctx));
-			return true;
 		case INSN_LABEL:
 			g(cgen_label(ctx));
 			return true;
@@ -1587,7 +1584,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_jmp_fp_test(ctx, insn_jump_size(insn)));
 			return true;
 		case INSN_JMP_INDIRECT:
-			g(cgen_jmp_indirect(ctx, insn_aux(insn), cget_one(ctx)));
+			g(cgen_jmp_indirect(ctx, 0, cget_one(ctx)));
 			return true;
 		case INSN_CALL_MILLICODE:
 			g(cgen_call_millicode(ctx));

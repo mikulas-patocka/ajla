@@ -207,6 +207,7 @@
 #define R_ARG1				R_4
 #define R_ARG2				R_5
 #define R_ARG3				R_6
+#define R_ARG4				R_7
 #define R_RET0				R_3
 #define R_RET1				R_4
 
@@ -228,22 +229,6 @@ static bool reg_is_vs(unsigned reg)
 {
 	return reg >= 0x60 && reg < 0x80;
 }
-
-#if defined(AIX_CALL)
-static char *codegen_stub_alloc(struct codegen_context *ctx, char *code)
-{
-	uintptr_t *stub = mem_alloc_mayfail(uintptr_t *, sizeof(uintptr_t) * 4, &ctx->err);
-	if (unlikely(!stub))
-		return NULL;
-	stub[0] = ptr_to_num(code);
-	stub[1] = 0;
-	stub[2] = 0;
-	stub[3] = ptr_to_num(code) + ctx->entry_size;
-	return cast_ptr(char *, stub);
-}
-#define codegen_stub_alloc	codegen_stub_alloc
-#define codegen_stub_free(stub)	mem_free(stub)
-#endif
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
 {
@@ -419,7 +404,7 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(R_SP);
 
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-	gen_one(R_SCRATCH_NA_1);
+	gen_one(R_SCRATCH_NA_3);
 	gen_one(R_LR);
 
 	for (i = R_LOWEST_SAVED, offs = REGS_OFFSET; i <= R_31; i++, offs += 1 << OP_SIZE_ADDRESS) {
@@ -434,7 +419,7 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_SP);
 	gen_eight(LR_OFFSET);
-	gen_one(R_SCRATCH_NA_1);
+	gen_one(R_SCRATCH_NA_3);
 
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_ZERO);
@@ -453,6 +438,9 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_TIMESTAMP);
 	gen_one(R_ARG2);
+
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(R_ARG3);
 #else
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(ARG_ADDRESS_1);
@@ -471,6 +459,9 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_TIMESTAMP);
 	gen_one(R_ARG3);
+
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(R_ARG4);
 #endif
 
 	return true;
@@ -598,7 +589,7 @@ static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsi
 #endif
 }
 
-static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t label_id)
+static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t escape_label)
 {
 	g(gen_address(ctx, R_UPCALL, offsetof(struct cg_upcall_vector_s, ts), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_4));
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
@@ -609,8 +600,8 @@ static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t labe
 	gen_one(R_SCRATCH_1);
 	gen_one(R_TIMESTAMP);
 
-	gen_insn(INSN_JMP_COND, OP_SIZE_4, COND_E, 0);
-	gen_four(label_id);
+	gen_insn(INSN_JMP_COND, OP_SIZE_4, COND_NE, 0);
+	gen_four(escape_label);
 
 	return true;
 }

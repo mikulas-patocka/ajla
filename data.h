@@ -982,7 +982,6 @@ typedef struct {
 } code_return_t;
 #endif
 struct cg_upcall_vector_s;
-typedef code_return_t (*code_fn)(frame_s *, struct cg_upcall_vector_s *, tick_stamp_t);
 
 struct trap_record {
 	size_t source_ip;
@@ -998,7 +997,6 @@ struct data_codegen {
 	void *unoptimized_code_base;
 	size_t unoptimized_code_size;
 	struct data *function;
-	int entry_offset;
 	frame_t n_entries;
 	char *unoptimized_code[FLEXIBLE_ARRAY_GCC];
 };

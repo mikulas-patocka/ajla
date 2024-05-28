@@ -972,20 +972,10 @@ invl:
 	return false;
 }
 
-static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, unsigned is_call)
+static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx)
 {
 	uint32_t mc;
 	unsigned reg = cget_one(ctx);
-
-	if (!is_call) {
-#ifdef AIX_CALL
-#if !defined(ARCH_POWER64)
-		cgen_dform(POWER_LWZ, reg, reg, 12);
-#else
-		cgen_dform(POWER_LD, reg, reg, 24);
-#endif
-#endif
-	}
 
 	mc = POWER_MTCTR;
 	mc |= (uint32_t)reg << 21;
@@ -1030,9 +1020,6 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 	switch (insn_opcode(insn)) {
 		case INSN_ENTRY:
 			g(cgen_entry(ctx));
-			return true;
-		case INSN_AFTER_ENTRY:
-			g(cgen_after_entry(ctx));
 			return true;
 		case INSN_LABEL:
 			g(cgen_label(ctx));
@@ -1109,7 +1096,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_jmp_cond(ctx, insn_jump_size(insn) == JMP_SHORT, insn_aux(insn), true));
 			return true;
 		case INSN_JMP_INDIRECT:
-			g(cgen_jmp_indirect(ctx, insn_aux(insn)));
+			g(cgen_jmp_indirect(ctx));
 			return true;
 		invalid_insn:
 		default:

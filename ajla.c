@@ -24,6 +24,7 @@
 #include "obj_reg.h"
 #include "os.h"
 #include "asm.h"
+#include "codegen.h"
 #include "mpint.h"
 #include "thread.h"
 #include "addrlock.h"
@@ -54,6 +55,7 @@ int main(int argc, const char * const argv[])
 	obj_registry_init();
 	os_init();
 	asm_init();
+	codegen_init();
 	mpint_init();
 	thread_init();
 	error_init_multithreaded();
@@ -109,6 +111,7 @@ int main(int argc, const char * const argv[])
 	error_done_multithreaded();
 	thread_done();
 	mpint_done();
+	codegen_done();
 	asm_done();
 	os_done();
 	obj_registry_done();

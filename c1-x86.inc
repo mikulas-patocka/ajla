@@ -174,7 +174,8 @@
 #define ARG_SPACE	0x1c		/* must be 0xc modulo 0x10 */
 #define ARG_OFFSET	0x14
 #elif defined(ARCH_X86_WIN_ABI)
-#define ARG_SPACE	0x28
+#define ARG_SPACE	0x28		/* must be 0x8 modulo 0x10 */
+#define ARG_OFFSET	0x38
 #endif
 
 #define SUPPORTED_FP		(cpu_test_feature(CPU_FEATURE_sse) * 0x2 + cpu_test_feature(CPU_FEATURE_sse2) * 0x4)
@@ -296,6 +297,11 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_SP);
 	gen_eight(ARG_SPACE + ARG_OFFSET);
+
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(ARG_ADDRESS_1);
+	gen_one(R_SP);
+	gen_eight(ARG_SPACE + ARG_OFFSET + 12);
 #else
 	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
 	gen_one(R_FRAME);
@@ -332,6 +338,11 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_UPCALL);
 	gen_one(R_ARG2);
+
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(ARG_ADDRESS_1);
+	gen_one(R_SP);
+	gen_eight(ARG_SPACE + ARG_OFFSET + 32);
 #else
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_FRAME);
@@ -344,6 +355,9 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
 	gen_one(R_TIMESTAMP);
 	gen_one(R_ARG2);
+
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(R_ARG3);
 #endif
 #endif
 	return true;
@@ -507,7 +521,7 @@ static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsi
 	return true;
 }
 
-static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t label_id)
+static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t escape_label)
 {
 #if defined(ARCH_X86_32)
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
@@ -534,8 +548,8 @@ static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t labe
 	gen_one(R_UPCALL);
 	gen_eight(offsetof(struct cg_upcall_vector_s, ts));
 #endif
-	gen_insn(INSN_JMP_COND, OP_SIZE_4, COND_E, 0);
-	gen_four(label_id);
+	gen_insn(INSN_JMP_COND, OP_SIZE_4, COND_NE, 0);
+	gen_four(escape_label);
 
 	return true;
 }
