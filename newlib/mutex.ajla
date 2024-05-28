@@ -1,0 +1,52 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit mutex;
+
+uses io;
+
+type mutex;
+
+fn mutex_new(w : world) : (world, mutex);
+fn mutex_lock(w : world, m : mutex) : world;
+fn mutex_unlock(w : world, m : mutex) : world;
+
+implementation
+
+uses msgqueue;
+
+type mutex := msgqueue(unit_type);
+
+fn mutex_new(implicit w : world) : (world, mutex)
+[
+	var m := msgqueue_new(unit_type);
+	mutex_unlock(m);
+	return m;
+]
+
+fn mutex_lock(implicit w : world, m : mutex) : world
+[
+	var tag, val := msgqueue_receive(m);
+]
+
+fn mutex_unlock(implicit w : world, m : mutex) : world
+[
+	if msgqueue_is_nonempty(m) then
+		abort internal("unlocking unlocked mutex");
+	msgqueue_send(m, 0, unit_value);
+]
