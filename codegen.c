@@ -910,9 +910,17 @@ static bool attr_w gen_3address_alu_imm(struct codegen_context *ctx, unsigned si
 		alu == ALU_AND ? IMM_PURPOSE_AND :
 		alu == ALU_OR ? IMM_PURPOSE_OR :
 		alu == ALU_XOR ? IMM_PURPOSE_XOR :
+		alu == ALU_EXTBL ? IMM_PURPOSE_OR :
+		alu == ALU_EXTWL ? IMM_PURPOSE_OR :
+		alu == ALU_EXTLL ? IMM_PURPOSE_OR :
+		alu == ALU_EXTLH ? IMM_PURPOSE_OR :
+		alu == ALU_INSBL ? IMM_PURPOSE_OR :
+		alu == ALU_MSKBL ? IMM_PURPOSE_OR :
 		alu == ALU_ZAP ? IMM_PURPOSE_ANDN :
 		alu == ALU_ZAPNOT ? IMM_PURPOSE_AND :
 		-1U;
+	if (unlikely(purpose == -1U))
+		internal(file_line, "gen_3address_alu_imm: invalid parameters: size %u, alu %u, dest %u, src %u, imm %"PRIxMAX"", size, alu, dest, src, (uintmax_t)imm);
 	if (
 		dest != src
 #if !defined(ARCH_S390)
