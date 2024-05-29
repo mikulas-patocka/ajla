@@ -1252,27 +1252,10 @@ invalid:
 	internal(file_line, "cgen_jmp_reg: invalid arguments %x, %x, %x", reg, aux, length);
 }
 
-static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, unsigned is_call)
+static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx)
 {
 	uint64_t mc;
 	unsigned reg = cget_one(ctx);
-
-	if (!is_call) {
-		int64_t imm = ctx->entry_size;
-
-		mc = OP_SIZE_ADDRESS == OP_SIZE_4 ? IA64_M_LD4 : IA64_M_LD8;
-		mc |= bits_gr(reg) << 6;
-		mc |= bits_gr(reg) << 20;
-		g(ia64_insn(ctx, UNIT_M, mc, reg, ACCESS_NOTHING, reg, ACCESS_MEMORY, ACCESS_NOTHING));
-
-		mc = IA64_A_ADD_IMM14;
-		mc |= bits_gr(reg) << 6;
-		mc |= bits_gr(reg) << 20;
-		mc |= (imm & 0x7f) << 13;
-		mc |= ((uint64_t)imm >> 7 & 0x3f) << 27;
-		mc |= ((uint64_t)imm >> 13 & 1) << 36;
-		g(ia64_insn(ctx, UNIT_A, mc, reg, ACCESS_NOTHING, reg, ACCESS_NOTHING, ACCESS_NOTHING));
-	}
 
 	mc = IA64_I_MOVE_TO_BR;
 	mc |= bits_gr(reg) << 13;
@@ -1364,14 +1347,6 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			if (full)
 				ctx->mcode_size -= 16;
 			return true;
-		case INSN_AFTER_ENTRY:
-			full = ia64_fill_bundle(ctx);
-			if (full)
-				ctx->mcode_size += 16;
-			g(cgen_after_entry(ctx));
-			if (full)
-				ctx->mcode_size -= 16;
-			return true;
 		case INSN_LABEL:
 			full = ia64_fill_bundle(ctx);
 			if (full)
@@ -1456,7 +1431,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_jmp_reg(ctx, insn_aux(insn), insn_jump_size(insn)));
 			return true;
 		case INSN_JMP_INDIRECT:
-			g(cgen_jmp_indirect(ctx, insn_aux(insn)));
+			g(cgen_jmp_indirect(ctx));
 			return true;
 		default:
 		invalid_insn:

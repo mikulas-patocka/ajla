@@ -9676,8 +9676,11 @@ void codegen_free(struct data *codegen)
 	os_code_unmap(da(codegen,codegen)->unoptimized_code_base, da(codegen,codegen)->unoptimized_code_size);
 }
 
+#if defined(ARCH_IA64)
+static uintptr_t ia64_stub[2];
+#endif
 #if defined(ARCH_POWER) && defined(AIX_CALL)
-static uintptr_t stub[3];
+static uintptr_t ppc_stub[3];
 #endif
 
 void name(codegen_init)(void)
@@ -9707,11 +9710,15 @@ void name(codegen_init)(void)
 	codegen_ptr = ptr;
 	codegen_size = ctx->mcode_size;
 	ctx->mcode = NULL;
-#if defined(ARCH_POWER) && defined(AIX_CALL)
-	stub[0] = ptr_to_num(ptr);
-	stub[1] = 0;
-	stub[2] = 0;
-	codegen_entry = cast_ptr(void *, stub);
+#if defined(ARCH_IA64)
+	ia64_stub[0] = ptr_to_num(ptr);
+	ia64_stub[1] = 0;
+	codegen_entry = cast_ptr(void *, ia64_stub);
+#elif defined(ARCH_POWER) && defined(AIX_CALL)
+	ppc_stub[0] = ptr_to_num(ptr);
+	ppc_stub[1] = 0;
+	ppc_stub[2] = 0;
+	codegen_entry = cast_ptr(void *, ppc_stub);
 #else
 	codegen_entry = ptr;
 #endif

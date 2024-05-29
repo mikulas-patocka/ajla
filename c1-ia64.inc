@@ -147,10 +147,11 @@
 #define R_FRAME		R_32
 #define R_UPCALL	R_33
 #define R_TIMESTAMP	R_34
-#define R_SAVED_B0	R_35
-#define R_SAVED_AR_PFS	R_36
-#define R_SAVED_1	R_37
-#define R_SAVED_2	R_38
+#define R_ENTRY		R_35
+#define R_SAVED_1	R_35
+#define R_SAVED_2	R_36
+#define R_SAVED_B0	R_37
+#define R_SAVED_AR_PFS	R_38
 #define R_ARG0		R_39
 #define R_ARG1		R_40
 #define R_ARG2		R_41
@@ -220,18 +221,6 @@ static inline uint64_t bits_b(unsigned reg)
 	ajla_assert_lo(reg_is_b(reg), (file_line, "bits_b: register %x", reg));
 	return reg - 0xb0;
 }
-
-static char *codegen_stub_alloc(struct codegen_context *ctx, char *code)
-{
-	uintptr_t *stub = mem_alloc_mayfail(uintptr_t *, sizeof(uintptr_t) * 2, &ctx->err);
-	if (unlikely(!stub))
-		return NULL;
-	stub[0] = ptr_to_num(code);
-	stub[1] = 0;
-	return cast_ptr(char *, stub);
-}
-#define codegen_stub_alloc		codegen_stub_alloc
-#define codegen_stub_free(stub)		mem_free(stub)
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
 {
@@ -327,17 +316,10 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(R_SAVED_B0);
 	gen_one(B_0);
 
-	/*gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
-	gen_one(R_ARG0);
-	gen_one(R_FRAME);
-	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
-	gen_one(R_ARG1);
-	gen_one(R_UPCALL);
-	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
-	gen_one(R_ARG2);
-	gen_one(R_TIMESTAMP);
-	g(gen_load_constant(ctx, R_ARG3, 0x123));
-	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_debug), 4));*/
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(R_ENTRY);
+
+	gen_insn(INSN_RET, 0, 0, 0);
 
 	return true;
 }
