@@ -9687,6 +9687,12 @@ void codegen_free(struct data *codegen)
 #if defined(ARCH_IA64)
 static uintptr_t ia64_stub[2];
 #endif
+#if defined(ARCH_PARISC32) && defined(ARCH_PARISC_USE_STUBS)
+static uintptr_t parisc_stub[2];
+#endif
+#if defined(ARCH_PARISC64) && defined(ARCH_PARISC_USE_STUBS)
+static uintptr_t parisc_stub[4];
+#endif
 #if defined(ARCH_POWER) && defined(AIX_CALL)
 static uintptr_t ppc_stub[3];
 #endif
@@ -9698,13 +9704,14 @@ void name(codegen_init)(void)
 	void *ptr;
 
 	init_ctx(ctx);
+	ctx->fn = NULL;
 
-	array_init_mayfail(uint8_t, &ctx->code, &ctx->code_size, NULL);
+	array_init(uint8_t, &ctx->code, &ctx->code_size);
 
 	if (unlikely(!gen_entry(ctx)))
 		goto fail;
 
-	array_init_mayfail(uint8_t, &ctx->mcode, &ctx->mcode_size, NULL);
+	array_init(uint8_t, &ctx->mcode, &ctx->mcode_size);
 
 #ifdef ARCH_CONTEXT
 	init_arch_context(ctx);
@@ -9721,12 +9728,22 @@ void name(codegen_init)(void)
 #if defined(ARCH_IA64)
 	ia64_stub[0] = ptr_to_num(ptr);
 	ia64_stub[1] = 0;
-	codegen_entry = cast_ptr(void *, ia64_stub);
+	codegen_entry = cast_ptr(codegen_type, ia64_stub);
+#elif defined(ARCH_PARISC32) && defined(ARCH_PARISC_USE_STUBS)
+	parisc_stub[0] = ptr_to_num(ptr);
+	parisc_stub[1] = 0;
+	codegen_entry = cast_ptr(codegen_type, cast_ptr(char *, parisc_stub) + 2);
+#elif defined(ARCH_PARISC64) && defined(ARCH_PARISC_USE_STUBS)
+	parisc_stub[0] = 0;
+	parisc_stub[1] = 0;
+	parisc_stub[2] = ptr_to_num(ptr);
+	parisc_stub[3] = 0;
+	codegen_entry = cast_ptr(codegen_type, parisc_stub);
 #elif defined(ARCH_POWER) && defined(AIX_CALL)
 	ppc_stub[0] = ptr_to_num(ptr);
 	ppc_stub[1] = 0;
 	ppc_stub[2] = 0;
-	codegen_entry = cast_ptr(void *, ppc_stub);
+	codegen_entry = cast_ptr(codegen_type, ppc_stub);
 #else
 	codegen_entry = ptr;
 #endif

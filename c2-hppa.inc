@@ -1344,19 +1344,16 @@ static bool attr_w cgen_jmp_fp_test(struct codegen_context *ctx, unsigned length
 	return true;
 }
 
-static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, unsigned attr_unused is_call, unsigned reg)
+static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, unsigned reg)
 {
 	uint32_t mc;
 #ifdef ARCH_PARISC32
 #ifdef ARCH_PARISC_USE_STUBS
-	if (!is_call) {
-		mc = PARISC_LDW_LONG | low_sign_ext_14(6);
-		g(cgen_2reg(ctx, mc, reg, reg));
-	}
 #endif
 	if (PA_20) {
 		mc = PARISC_BVE_RET;
 		mc |= (uint32_t)reg << 21;
+		mc |= PARISC_N;
 		cgen_four(mc);
 	} else {
 		if (PA_SPACES) {
@@ -1369,33 +1366,23 @@ static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, unsigned attr_
 			cgen_four(mc);
 			mc = PARISC_BE;
 			mc |= (uint32_t)reg << 21;
+			mc |= PARISC_N;
 			cgen_four(mc);
 		} else {
 			mc = PARISC_BV;
 			mc |= (uint32_t)reg << 21;
+			mc |= PARISC_N;
 			cgen_four(mc);
 		}
 	}
-
-	mc = PARISC_STW_LONG;
-	mc |= low_sign_ext_14(-0x18);
-	g(cgen_2reg(ctx, mc, R_SP, R_RP));
 #else
-	if (is_call) {
-		mc = PARISC_BV;
-		mc |= (uint32_t)reg << 21;
-		mc |= PARISC_N;
-		cgen_four(mc);
-	} else {
-		mc = PARISC_LDD | low_sign_ext_14(0);
-		g(cgen_2reg(ctx, mc, reg, R_CG_SCRATCH));
-
-		mc = PARISC_BV;
-		mc |= (uint32_t)R_CG_SCRATCH << 21;
-		mc |= PARISC_N;
-		cgen_four(mc);
-	}
+	mc = PARISC_BV;
+	mc |= (uint32_t)reg << 21;
+	mc |= PARISC_N;
+	cgen_four(mc);
 #endif
+	if (unlikely(!ctx->fn))
+		cgen_four(PARISC_NOP);
 	return true;
 }
 
@@ -1419,7 +1406,7 @@ static bool attr_w cgen_call_millicode(struct codegen_context attr_unused *ctx)
 	g(cgen_3reg(ctx, mc, low_sign_ext_5(2), reg, R_19));
 	g(cgen_3reg(ctx, mc, low_sign_ext_5(-2), reg, reg));
 
-	g(cgen_jmp_indirect(ctx, 1, reg));
+	g(cgen_jmp_indirect(ctx, reg));
 #endif
 	return true;
 }
@@ -1584,7 +1571,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_jmp_fp_test(ctx, insn_jump_size(insn)));
 			return true;
 		case INSN_JMP_INDIRECT:
-			g(cgen_jmp_indirect(ctx, 0, cget_one(ctx)));
+			g(cgen_jmp_indirect(ctx, cget_one(ctx)));
 			return true;
 		case INSN_CALL_MILLICODE:
 			g(cgen_call_millicode(ctx));

@@ -29,7 +29,8 @@
 
 void *codegen_fn(frame_s *fp, const code_t *ip, union internal_arg ia[]);
 void codegen_free(struct data *codegen);
-extern code_return_t (*codegen_entry)(frame_s *, struct cg_upcall_vector_s *, tick_stamp_t, void *);
+typedef code_return_t (*codegen_type)(frame_s *, struct cg_upcall_vector_s *, tick_stamp_t, void *);
+extern codegen_type codegen_entry;
 
 #endif
 

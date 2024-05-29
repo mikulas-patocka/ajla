@@ -177,37 +177,6 @@
 #define RP_OFFS -0x10
 #endif
 
-#if defined(ARCH_PARISC_USE_STUBS)
-#if defined(ARCH_PARISC32)
-static char *codegen_stub_alloc(struct codegen_context *ctx, char *code)
-{
-	uint32_t *stub = mem_alloc_mayfail(uint32_t *, sizeof(uint32_t) * 3, &ctx->err);
-	if (unlikely(!stub))
-		return NULL;
-	stub[0] = ptr_to_num(code);
-	stub[1] = 0;
-	stub[2] = ptr_to_num(code) + ctx->entry_size;
-	return cast_ptr(char *, stub) + 2;
-}
-#define codegen_stub_alloc	codegen_stub_alloc
-#define codegen_stub_free(stub)	mem_free(cast_ptr(char *, stub) - 2)
-#else
-static char *codegen_stub_alloc(struct codegen_context *ctx, char *code)
-{
-	uint64_t *stub = mem_alloc_mayfail(uint64_t *, sizeof(uint64_t) * 4, &ctx->err);
-	if (unlikely(!stub))
-		return NULL;
-	stub[0] = ptr_to_num(code) + ctx->entry_size;
-	stub[1] = 0;
-	stub[2] = ptr_to_num(code);
-	stub[3] = 0;
-	return cast_ptr(char *, stub);
-}
-#define codegen_stub_alloc	codegen_stub_alloc
-#define codegen_stub_free(stub)	mem_free(stub)
-#endif
-#endif
-
 static bool reg_is_fp(unsigned reg)
 {
 	return reg >= R_FSTATUS && reg < R_F31;
