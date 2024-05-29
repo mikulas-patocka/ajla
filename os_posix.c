@@ -336,11 +336,9 @@ void os_block_signals(sig_state_t attr_unused *set)
 #ifdef USE_SIGPROCMASK
 	int er;
 	sig_state_t block;
-#ifdef HAVE_SIGFILLSET
 	sigfillset(&block);
-#else
-	memset(&block, -1, sizeof(block));
-#endif
+	sigdelset(&block, SIGFPE);
+	sigdelset(&block, SIGTRAP);
 #ifdef USE_PTHREAD_SIGMASK
 	er = pthread_sigmask(SIG_BLOCK, &block, set);
 	if (unlikely(er))
@@ -352,7 +350,7 @@ void os_block_signals(sig_state_t attr_unused *set)
 	}
 #endif
 #elif defined(HAVE_SIGBLOCK) && defined(HAVE_SIGSETMASK)
-	sig_state_t s = sigblock(-1);
+	sig_state_t s = sigblock(~(sigmask(SIGFPE) | sigmask(SIGTRAP)));
 	if (set)
 		*set = s;
 #endif
@@ -3292,8 +3290,8 @@ void os_init(void)
 		exit(127);
 
 #ifdef HAVE_AT_FUNCTIONS
-	if (os_kernel_version("Linux", "3") ||
-	    os_kernel_version("Linux", "2.6.23")) {
+	if (os_kernel_version("GNU/Linux", "3") ||
+	    os_kernel_version("GNU/Linux", "2.6.23")) {
 		have_O_CLOEXEC_openat = true;
 	} else {
 		int h, r;

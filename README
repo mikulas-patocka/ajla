@@ -7,7 +7,7 @@ You can compile and install Ajla with ./configure && make && make install
 
 If you cloned the git repository, there is no ./configure script. You can
 generate it with the ./rebuild script. You need autoconf, automake and ed
-installed
+installed.
 
 It is recommended to use gcc. clang works, but the compilation is very slow, it
 may take an hour or more to compile the files ipret.c and ipretc.c.

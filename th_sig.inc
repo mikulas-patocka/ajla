@@ -34,7 +34,7 @@
 
 static uchar_efficient_t signal_thread_end;
 static uchar_efficient_t signal_thread_enabled;
-static sigset_t signal_saved_sigset;
+static sig_state_t signal_saved_sigset;
 static pthread_t signal_thread;
 static pthread_cond_t signal_cond;
 static pthread_mutex_t signal_mutex;
@@ -64,27 +64,27 @@ static void thread_signal_init(void)
 	signal_thread_end = false;
 
 #if defined(__linux__) && defined(__alpha__)
-	if (os_kernel_version("Linux", "5") ||
-	    os_kernel_version("Linux", "4.16") ||
-	    os_kernel_version("Linux", "4.15.4") ||
-	    os_kernel_version("Linux", "4.14.20") ||
-	    os_kernel_version("Linux", "4.9.82") ||
-	    os_kernel_version("Linux", "4.4.116") ||
-	    os_kernel_version("Linux", "4.1.50") ||
-	    os_kernel_version("Linux", "3.18.95"))
+	if (os_kernel_version("GNU/Linux", "5") ||
+	    os_kernel_version("GNU/Linux", "4.16") ||
+	    os_kernel_version("GNU/Linux", "4.15.4") ||
+	    os_kernel_version("GNU/Linux", "4.14.20") ||
+	    os_kernel_version("GNU/Linux", "4.9.82") ||
+	    os_kernel_version("GNU/Linux", "4.4.116") ||
+	    os_kernel_version("GNU/Linux", "4.1.50") ||
+	    os_kernel_version("GNU/Linux", "3.18.95"))
 		return;
 #endif
 #if defined(__linux__) && defined(__hppa)
-	if (os_kernel_version("Linux", "6") ||
-	    os_kernel_version("Linux", "5.15") ||
-	    os_kernel_version("Linux", "5.14.6") ||
-	    os_kernel_version("Linux", "5.13.19") ||
-	    os_kernel_version("Linux", "5.10.67") ||
-	    os_kernel_version("Linux", "5.4.148") ||
-	    os_kernel_version("Linux", "4.19.207") ||
-	    os_kernel_version("Linux", "4.14.247") ||
-	    os_kernel_version("Linux", "4.9.283") ||
-	    os_kernel_version("Linux", "4.4.284"))
+	if (os_kernel_version("GNU/Linux", "6") ||
+	    os_kernel_version("GNU/Linux", "5.15") ||
+	    os_kernel_version("GNU/Linux", "5.14.6") ||
+	    os_kernel_version("GNU/Linux", "5.13.19") ||
+	    os_kernel_version("GNU/Linux", "5.10.67") ||
+	    os_kernel_version("GNU/Linux", "5.4.148") ||
+	    os_kernel_version("GNU/Linux", "4.19.207") ||
+	    os_kernel_version("GNU/Linux", "4.14.247") ||
+	    os_kernel_version("GNU/Linux", "4.9.283") ||
+	    os_kernel_version("GNU/Linux", "4.4.284"))
 		return;
 #endif
 

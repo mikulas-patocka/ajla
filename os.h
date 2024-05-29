@@ -332,7 +332,7 @@ void *os_mremap(void *old_ptr, size_t old_size, size_t new_size, int flags, void
 #endif
 #endif
 
-#if defined(HAVE_SIGPROCMASK) && defined(HAVE_SIGSET_T)
+#if defined(HAVE_SIGPROCMASK) && defined(HAVE_SIGSET_T) && defined(HAVE_SIGFILLSET)
 typedef sigset_t sig_state_t;
 #define USE_SIGPROCMASK
 #else
