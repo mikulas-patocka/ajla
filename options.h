@@ -384,6 +384,8 @@ typedef uint16_t real16_t;
 #define TYPE_REAL_N		0
 #endif
 
+#define NEED_OP_EMULATION	(INT_MASK != 0x1f || REAL_MASK != 0x1f)
+
 #if !defined(signbit) || (defined(HAVE___FLOAT128) && !defined(HAVE_SIGNBIT___FLOAT128))
 #ifdef signbit
 #undef signbit

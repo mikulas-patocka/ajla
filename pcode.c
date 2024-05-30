@@ -695,7 +695,7 @@ static int ld_tree_compare(const struct tree_entry *e, uintptr_t ptr)
 	return 0;
 }
 
-static size_t pcode_module_load_function_idx(struct build_function_context *ctx, pointer_t *ptr)
+static size_t pcode_module_load_function_idx(struct build_function_context *ctx, pointer_t *ptr, bool must_exist)
 {
 	struct tree_entry *e;
 	struct ld_ref *ld_ref;
@@ -706,6 +706,9 @@ static size_t pcode_module_load_function_idx(struct build_function_context *ctx,
 		ld_ref = get_struct(e, struct ld_ref, entry);
 		return ld_ref->idx;
 	}
+
+	if (unlikely(must_exist))
+		internal(file_line, "pcode_module_load_function_idx: local directory preload didn't work");
 
 	ld_ref = mem_alloc_mayfail(struct ld_ref *, sizeof(struct ld_ref), ctx->err);
 	if (unlikely(!ld_ref))
@@ -1015,7 +1018,7 @@ static bool pcode_call(struct build_function_context *ctx, pcode_t instr)
 		ptr = pcode_module_load_function(ctx);
 		if (unlikely(!ptr))
 			goto exception;
-		fn_idx = pcode_module_load_function_idx(ctx, ptr);
+		fn_idx = pcode_module_load_function_idx(ctx, ptr, true);
 		if (unlikely(fn_idx == no_function_idx))
 			goto exception;
 		get_arg_mode(am, fn_idx);
@@ -1172,7 +1175,7 @@ skip_instr:
 	return true;
 }
 
-static bool pcode_op_to_call(struct build_function_context *ctx, pcode_t op, const struct pcode_type *tr, const struct pcode_type *t1, pcode_t flags1, const struct pcode_type *t2, pcode_t flags2)
+static bool pcode_op_to_call(struct build_function_context *ctx, pcode_t op, const struct pcode_type *tr, const struct pcode_type *t1, pcode_t flags1, const struct pcode_type *t2, pcode_t flags2, bool preload)
 {
 	const char *module;
 	struct module_designator *md = NULL;
@@ -1207,9 +1210,12 @@ static bool pcode_op_to_call(struct build_function_context *ctx, pcode_t op, con
 		goto exception;
 	module_designator_free(md), md = NULL;
 	function_designator_free(fd), fd = NULL;
-	fn_idx = pcode_module_load_function_idx(ctx, ptr);
+	fn_idx = pcode_module_load_function_idx(ctx, ptr, !preload);
 	if (unlikely(fn_idx == no_function_idx))
 		goto exception;
+
+	if (preload)
+		return true;
 
 	am = INIT_ARG_MODE;
 	get_arg_mode(am, fn_idx);
@@ -2164,6 +2170,58 @@ static void pcode_get_instr(struct build_function_context *ctx, pcode_t *instr, 
 
 }
 
+static bool pcode_preload_ld(struct build_function_context *ctx)
+{
+	pcode_position_save_t saved;
+
+	pcode_position_save(ctx, &saved);
+	while (ctx->pcode != ctx->pcode_limit) {
+		pcode_t instr, instr_params;
+		pcode_get_instr(ctx, &instr, &instr_params);
+		switch (instr) {
+#if NEED_OP_EMULATION
+			case P_BinaryOp:
+			case P_UnaryOp: {
+				const struct pcode_type *tr, *t1;
+				pcode_t op = u_pcode_get();
+				pcode_t res = u_pcode_get();
+				pcode_t flags1 = u_pcode_get();
+				pcode_t a1 = pcode_get();
+				if (unlikely(var_elided(res)))
+					break;
+				tr = get_var_type(ctx, res);
+				t1 = get_var_type(ctx, a1);
+				if (unlikely(t1->extra_type) || unlikely(tr->extra_type)) {
+					if (unlikely(!pcode_op_to_call(ctx, op, tr, t1, flags1, NULL, 0, true)))
+						goto exception;
+				}
+				break;
+			}
+#endif
+			case P_Load_Fn:
+			case P_Call: {
+				pointer_t *ptr;
+				size_t fn_idx;
+				ctx->pcode += 3;
+				ptr = pcode_module_load_function(ctx);
+				if (unlikely(!ptr))
+					goto exception;
+				fn_idx = pcode_module_load_function_idx(ctx, ptr, false);
+				if (unlikely(fn_idx == no_function_idx))
+					goto exception;
+				break;
+			}
+		}
+		ctx->pcode = ctx->pcode_instr_end;
+	}
+	pcode_position_restore(ctx, &saved);
+
+	return true;
+
+exception:
+	return false;
+}
+
 static bool pcode_generate_instructions(struct build_function_context *ctx)
 {
 	if (unlikely(!gen_checkpoint(ctx, INIT_ARG_MODE)))
@@ -2204,8 +2262,8 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 					type_is_equal(tr->type, (Op_IsBool(op) ? type_get_flat_option()
 					: Op_IsInt(op) ? type_get_int(INT_DEFAULT_N)
 					: t1->type))), (file_line, "P_BinaryOp(%s): invalid types for binary operation %"PRIdMAX": %u, %u, %u", function_name(ctx), (intmax_t)op, t1->type->tag, t2->type->tag, tr->type->tag));
-				if (unlikely(t1->extra_type)) {
-					if (unlikely(!pcode_op_to_call(ctx, op, tr, t1, flags1, t2, flags2)))
+				if (NEED_OP_EMULATION && unlikely(t1->extra_type)) {
+					if (unlikely(!pcode_op_to_call(ctx, op, tr, t1, flags1, t2, flags2, false)))
 						goto exception;
 					break;
 				}
@@ -2243,8 +2301,8 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 					type_is_equal(tr->type, (Op_IsBool(op) ? type_get_flat_option()
 					: Op_IsInt(op) ? type_get_int(INT_DEFAULT_N)
 					: t1->type)), (file_line, "P_UnaryOp(%s): invalid types for unary operation %"PRIdMAX": %u, %u", function_name(ctx), (intmax_t)op, t1->type->tag, tr->type->tag));
-				if (unlikely(t1->extra_type) || unlikely(tr->extra_type)) {
-					if (unlikely(!pcode_op_to_call(ctx, op, tr, t1, flags1, NULL, 0)))
+				if (NEED_OP_EMULATION && (unlikely(t1->extra_type) || unlikely(tr->extra_type))) {
+					if (unlikely(!pcode_op_to_call(ctx, op, tr, t1, flags1, NULL, 0, false)))
 						goto exception;
 					break;
 				}
@@ -3120,6 +3178,12 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 	}
 #endif
 
+	if (unlikely(!array_init_mayfail(pointer_t *, &ctx->ld, &ctx->ld_len, ctx->err)))
+		goto exception;
+
+	if (unlikely(!pcode_preload_ld(ctx)))
+		goto exception;
+
 	ctx->labels = mem_alloc_array_mayfail(mem_alloc_mayfail, size_t *, 0, 0, ctx->n_labels, sizeof(size_t), ctx->err);
 	if (unlikely(!ctx->labels))
 		goto exception;
@@ -3127,9 +3191,6 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 		ctx->labels[p] = no_label;
 
 	if (unlikely(!array_init_mayfail(struct label_ref, &ctx->label_ref, &ctx->label_ref_len, ctx->err)))
-		goto exception;
-
-	if (unlikely(!array_init_mayfail(pointer_t *, &ctx->ld, &ctx->ld_len, ctx->err)))
 		goto exception;
 
 	if (unlikely(!array_init_mayfail(const struct type *, &ctx->types, &ctx->types_len, ctx->err)))
