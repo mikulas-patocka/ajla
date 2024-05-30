@@ -199,41 +199,45 @@ void stack_trace_free(struct stack_trace *st)
 		mem_free(st->trace);
 }
 
+bool stack_trace_get_location(struct data *function, ip_t ip_rel, struct stack_trace_entry *result)
+{
+	size_t idx;
+	struct line_position *lp, *my_lp;
+	size_t n_lp;
+	lp = da(function,function)->lp;
+	n_lp = da(function,function)->lp_size;
+	if (!n_lp)
+		return false;
+	binary_search(code_t, da(function,function)->lp_size, idx, false, idx + 1 >= n_lp ? false : lp[idx + 1].ip < ip_rel, break);
+	my_lp = &lp[idx];
+	result->module_designator = da(function,function)->module_designator;
+	result->function_name = da(function,function)->function_name;
+	result->line = my_lp->line;
+	return true;
+}
+
 void stack_trace_capture(struct stack_trace *st, frame_s *fp, const code_t *ip, unsigned max_depth)
 {
 	struct data *function;
 	ip_t ip_rel, previous_ip;
-	size_t idx;
-	struct line_positions *lps;
-	struct line_position *my_lp;
-	size_t i;
+	struct stack_trace_entry ste;
 	ajla_error_t sink;
 	if (!fp)
 		return;
-	if (!array_init_mayfail(struct full_position_entry, &st->trace, &st->trace_n, &sink))
+	if (!array_init_mayfail(struct stack_trace_entry, &st->trace, &st->trace_n, &sink))
 		return;
 
 go_up:
 	function = get_frame(fp)->function;
 	ip_rel = ip - da(function,function)->code;
-	lps = da(function,function)->lps;
-	if (!lps || !lps->n_lp)
+	if (unlikely(!stack_trace_get_location(function, ip_rel, &ste)))
 		goto skip_this_frame;
-	binary_search(code_t, lps->n_lp, idx, false, idx + 1 >= lps->n_lp ? false : lps->lp[idx + 1].ip < ip_rel, break);
-	my_lp = &lps->lp[idx];
-	for (i = 0; i < my_lp->fp->n_positions; i++) {
-		struct full_position_entry fpe = my_lp->fp->positions[i];
-		if (!i)
-			fpe.line = my_lp->line;
-		if (unlikely(!array_add_mayfail(struct full_position_entry, &st->trace, &st->trace_n, fpe, NULL, &sink))) {
-			if (st->trace)
-				mem_free(st->trace);
-			return;
-		}
+	if (unlikely(!array_add_mayfail(struct stack_trace_entry, &st->trace, &st->trace_n, ste, NULL, &sink))) {
+		return;
 	}
 
 	if (!--max_depth)
-		return;
+		goto ret;
 
 skip_this_frame:
 	previous_ip = get_frame(fp)->previous_ip;
@@ -242,6 +246,9 @@ skip_this_frame:
 		ip = da(get_frame(fp)->function,function)->code + previous_ip;
 		goto go_up;
 	}
+
+ret:
+	array_finish(struct stack_trace_entry, &st->trace, &st->trace_n);
 }
 
 char * attr_cold stack_trace_string(struct stack_trace *st, ajla_error_t *err)
@@ -256,21 +263,20 @@ char * attr_cold stack_trace_string(struct stack_trace *st, ajla_error_t *err)
 		size_t xl;
 		char buffer[11];
 		char *b;
-		struct full_position_entry *fpe = &st->trace[t];
+		struct stack_trace_entry *ste = &st->trace[t];
 		if (unlikely(!array_add_mayfail(char, &msg, &msg_l, ' ', NULL, err)))
 			return NULL;
-		xl = strlen(fpe->unit);
-		if (unlikely(!array_add_multiple_mayfail(char, &msg, &msg_l, fpe->unit, xl, NULL, err)))
+		if (unlikely(!array_add_multiple_mayfail(char, &msg, &msg_l, ste->module_designator->path, ste->module_designator->path_len, NULL, err)))
 			return NULL;
 		if (unlikely(!array_add_multiple_mayfail(char, &msg, &msg_l, " : ", 3, NULL, err)))
 			return NULL;
-		xl = strlen(fpe->function);
-		if (unlikely(!array_add_multiple_mayfail(char, &msg, &msg_l, fpe->function, xl, NULL, err)))
+		xl = strlen(ste->function_name);
+		if (unlikely(!array_add_multiple_mayfail(char, &msg, &msg_l, ste->function_name, xl, NULL, err)))
 			return NULL;
 		if (unlikely(!array_add_mayfail(char, &msg, &msg_l, ':', NULL, err)))
 			return NULL;
 		b = buffer;
-		str_add_unsigned(&b, NULL, fpe->line & 0xffffffffU, 10);
+		str_add_unsigned(&b, NULL, ste->line & 0xffffffffU, 10);
 		xl = strlen(buffer);
 		if (unlikely(!array_add_multiple_mayfail(char, &msg, &msg_l, buffer, xl, NULL, err)))
 			return NULL;
@@ -295,23 +301,6 @@ void attr_cold stack_trace_print(struct stack_trace *st)
 		stderr_msg("%s", m);
 	}
 	mem_free(m);
-}
-
-bool stack_trace_get_location(struct data *function, ip_t ip_rel, struct full_position_entry *result)
-{
-	size_t idx;
-	struct line_positions *lps;
-	struct line_position *my_lp;
-	lps = da(function,function)->lps;
-	if (!lps || !lps->n_lp)
-		return false;
-	binary_search(code_t, lps->n_lp, idx, false, idx + 1 >= lps->n_lp ? false : lps->lp[idx + 1].ip < ip_rel, break);
-	my_lp = &lps->lp[idx];
-	if (!my_lp->fp->n_positions)
-		return false;
-	*result = my_lp->fp->positions[0];
-	result->line = my_lp->line;
-	return true;
 }
 
 
@@ -509,31 +498,6 @@ struct data * attr_fastcall data_alloc_resource_mayfail(size_t size, void (*clos
 	mem_set_position(data_untag(d) pass_position);
 	da(d,resource)->close = close;
 	return d;
-}
-
-
-void data_free_full_positions(struct full_position *fp)
-{
-	size_t i;
-	for (i = 0; i < fp->n_positions; i++) {
-		mem_free(fp->positions[i].unit);
-		mem_free(fp->positions[i].function);
-	}
-	mem_free(fp);
-}
-
-void data_free_line_positions(struct line_positions *lps)
-{
-	if (unlikely(!lps))
-		return;
-	while (!tree_is_empty(&lps->full_positions_tree)) {
-		struct full_position *fp = get_struct(tree_any(&lps->full_positions_tree), struct full_position, entry);
-		tree_delete(&fp->entry);
-		data_free_full_positions(fp);
-	}
-	if (lps->lp)
-		mem_free(lps->lp);
-	mem_free(lps);
 }
 
 
@@ -1035,7 +999,8 @@ static void attr_fastcall free_function(void *data)
 	mem_free(da(d,function)->local_directory);
 	mem_free(da(d,function)->types);
 	mem_free(da(d,function)->function_name);
-	data_free_line_positions(da(d,function)->lps);
+	if (da(d,function)->lp)
+		mem_free(da(d,function)->lp);
 	while (unlikely(!tree_is_empty(&da(d,function)->cache))) {
 		struct cache_entry *ce = get_struct(tree_any(&da(d,function)->cache), struct cache_entry, entry);
 		tree_delete(&ce->entry);

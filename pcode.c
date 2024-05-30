@@ -276,8 +276,8 @@ struct build_function_context {
 
 	struct record_definition *record_definition;
 
-	struct line_positions *lps;
-	struct full_position *last_full_position;
+	struct line_position *lp;
+	size_t lp_size;
 
 	struct escape_data *escape_data;
 
@@ -313,8 +313,8 @@ static void init_ctx(struct build_function_context *ctx)
 	ctx->code = NULL;
 	ctx->record_entries = NULL;
 	ctx->record_definition = NULL;
-	ctx->lps = NULL;
-	ctx->last_full_position = NULL;
+	ctx->lp = NULL;
+	ctx->lp_size = 0;
 	ctx->escape_data = NULL;
 	ctx->checkpoint_num = 0;
 	ctx->leaf = true;
@@ -364,7 +364,8 @@ static void done_ctx(struct build_function_context *ctx)
 		mem_free(ctx->record_definition->idx_to_frame);
 		mem_free(ctx->record_definition);
 	}
-	data_free_line_positions(ctx->lps);
+	if (ctx->lp)
+		mem_free(ctx->lp);
 	if (ctx->escape_data)
 		mem_free(ctx->escape_data);
 }
@@ -2154,59 +2155,19 @@ exception:
 	return false;
 }
 
-static int full_position_test(const struct tree_entry *e, uintptr_t id)
-{
-	const struct full_position *fp1 = get_struct(e, struct full_position, entry);
-	const struct full_position *fp2 = cast_cpp(const struct full_position *, num_to_ptr(id));
-	size_t i;
-
-	if (fp1->n_positions < fp2->n_positions)
-		return -1;
-	if (fp1->n_positions > fp2->n_positions)
-		return 1;
-
-	for (i = 0; i < fp1->n_positions; i++) {
-		int c;
-		const struct full_position_entry *fpe1 = &fp1->positions[i];
-		const struct full_position_entry *fpe2 = &fp2->positions[i];
-
-		c = strcmp(fpe1->unit, fpe2->unit);
-		if (c)
-			return c;
-		c = strcmp(fpe1->function, fpe2->function);
-		if (c)
-			return c;
-		if (fpe1->line < fpe2->line)
-			return -1;
-		if (fpe1->line > fpe2->line)
-			return 1;
-	}
-
-	return 0;
-}
-
-static bool pcode_line_info_full(struct build_function_context *ctx, struct line_position *lp)
+/* !!! FIXME: this should be deleted */
+static bool pcode_line_info_full(struct build_function_context *ctx)
 {
 	uint8_t *unit = NULL;
 	size_t unit_l;
 	uint8_t *function = NULL;
 	size_t function_l;
-	struct full_position *fp = NULL;
 	pcode_t n_positions;
 	size_t i;
-
-	struct tree_insert_position ins;
-	struct tree_entry *e;
 
 	n_positions = u_pcode_get();
 
 	ajla_assert_lo(n_positions != 0, (file_line, "pcode_line_info_full(%s): no positions", function_name(ctx)));
-
-	fp = struct_alloc_array_mayfail(mem_alloc_mayfail, struct full_position, positions, n_positions, ctx->err);
-	if (unlikely(!fp))
-		goto exception;
-
-	fp->n_positions = 0;
 
 	for (i = 0; i < (size_t)n_positions; i++) {
 		pcode_t line;
@@ -2216,48 +2177,28 @@ static bool pcode_line_info_full(struct build_function_context *ctx, struct line
 		if (unlikely(!array_add_mayfail(uint8_t, &unit, &unit_l, 0, NULL, ctx->err)))
 			goto exception;
 		array_finish(uint8_t, &unit, &unit_l);
+		mem_free(unit);
 
 		if (unlikely(!pcode_load_blob(ctx, &function, &function_l)))
 			goto exception;
 		if (unlikely(!array_add_mayfail(uint8_t, &function, &function_l, 0, NULL, ctx->err)))
 			goto exception;
 		array_finish(uint8_t, &function, &function_l);
+		mem_free(function);
 
 		line = u_pcode_get();
-
-		fp->positions[i].unit = cast_ptr(char *, unit);
-		fp->positions[i].function = cast_ptr(char *, function);
-		fp->positions[i].line = line;
-		fp->n_positions = i + 1;
-
-		unit = function = NULL;
-
 		if (!i) {
-			lp->line = line;
-			fp->positions[i].line = 0;
+			struct line_position lp;
+			lp.ip = ctx->code_len;
+			lp.line = line;
+			if (unlikely(!array_add_mayfail(struct line_position, &ctx->lp, &ctx->lp_size, lp, NULL, ctx->err)))
+				goto exception;
 		}
 	}
-
-	e = tree_find_for_insert(&ctx->lps->full_positions_tree, full_position_test, ptr_to_num(fp), &ins);
-	if (e) {
-		data_free_full_positions(fp);
-		fp = get_struct(e, struct full_position, entry);
-	} else {
-		tree_insert_after_find(&fp->entry, &ins);
-	}
-
-	ctx->last_full_position = fp;
-	lp->fp = fp;
 
 	return true;
 
 exception:
-	if (fp)
-		data_free_full_positions(fp);
-	if (unit)
-		mem_free(unit);
-	if (function)
-		mem_free(function);
 	return false;
 }
 
@@ -2858,21 +2799,15 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 					goto exception;
 				break;
 			case P_Line_Info:
-				ajla_assert_lo(ctx->last_full_position != NULL, (file_line, "P_Line_Info(%s): no last position", function_name(ctx)));
 				lp.line = u_pcode_get();
-				lp.fp = ctx->last_full_position;
-
-line_info_continue:
 				lp.ip = ctx->code_len;
-				if (unlikely(!array_add_mayfail(struct line_position, &ctx->lps->lp, &ctx->lps->n_lp, lp, NULL, ctx->err)))
+				if (unlikely(!array_add_mayfail(struct line_position, &ctx->lp, &ctx->lp_size, lp, NULL, ctx->err)))
 					goto exception;
 				break;
 			case P_Line_Info_Full:
-				lp.line = 0;		/* avoid warning */
-				lp.fp = NULL;		/* avoid warning */
-				if (unlikely(!pcode_line_info_full(ctx, &lp)))
+				if (unlikely(!pcode_line_info_full(ctx)))
 					goto exception;
-				goto line_info_continue;
+				break;
 			default:
 				internal(file_line, "pcode_generate_instructions(%s): invalid pcode %"PRIdMAX"", function_name(ctx), (intmax_t)instr);
 		}
@@ -3254,12 +3189,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 	if (unlikely(!array_init_mayfail(code_t, &ctx->code, &ctx->code_len, ctx->err)))
 		goto exception;
 
-	ctx->lps = mem_alloc_mayfail(struct line_positions *, sizeof(struct line_positions), ctx->err);
-	if (unlikely(!ctx->lps))
-		goto exception;
-	tree_init(&ctx->lps->full_positions_tree);
-	ctx->lps->lp = NULL;
-	if (unlikely(!array_init_mayfail(struct line_position, &ctx->lps->lp, &ctx->lps->n_lp, ctx->err)))
+	if (unlikely(!array_init_mayfail(struct line_position, &ctx->lp, &ctx->lp_size, ctx->err)))
 		goto exception;
 
 	if (unlikely(ctx->function_type == Fn_Record) || unlikely(ctx->function_type == Fn_Option)) {
@@ -3275,7 +3205,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 
 	array_finish(code_t, &ctx->code, &ctx->code_len);
 	array_finish(pointer_t *, &ctx->ld, &ctx->ld_len);
-	array_finish(struct line_position, &ctx->lps->lp, &ctx->lps->n_lp);
+	array_finish(struct line_position, &ctx->lp, &ctx->lp_size);
 	mem_free(ctx->local_types), ctx->local_types = NULL;
 	free_ld_tree(ctx);
 
@@ -3333,7 +3263,8 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 	da(fn,function)->function_name = cast_ptr(char *, ctx->function_name);
 	da(fn,function)->module_designator = md;
 	da(fn,function)->function_designator = fd;
-	da(fn,function)->lps = ctx->lps;
+	da(fn,function)->lp = ctx->lp;
+	da(fn,function)->lp_size = ctx->lp_size;
 #ifdef HAVE_CODEGEN
 	ia[0].ptr = fn;
 	da(fn,function)->codegen = function_build_internal_thunk(codegen_fn, 1, ia);

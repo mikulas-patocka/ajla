@@ -55,8 +55,6 @@
 #define data_fill_function_reference	name(data_fill_function_reference)
 #define data_fill_function_reference_flat	name(data_fill_function_reference_flat)
 #define data_alloc_resource_mayfail	name(data_alloc_resource_mayfail)
-#define data_free_full_positions	name(data_free_full_positions)
-#define data_free_line_positions	name(data_free_line_positions)
 #define out_of_memory_ptr		name(out_of_memory_ptr)
 #define thunk_alloc_exception_error	name(thunk_alloc_exception_error)
 #define pointer_error			name(pointer_error)
@@ -891,28 +889,9 @@ struct local_arg {
 	char may_be_flat;
 };
 
-struct full_position_entry {
-	const char *unit;
-	const char *function;
-	unsigned line;
-};
-
-struct full_position {
-	struct tree_entry entry;
-	size_t n_positions;
-	struct full_position_entry positions[FLEXIBLE_ARRAY];
-};
-
 struct line_position {
 	ip_t ip;
 	unsigned line;
-	const struct full_position *fp;
-};
-
-struct line_positions {
-	struct tree full_positions_tree;
-	struct line_position *lp;
-	size_t n_lp;
 };
 
 struct cache_entry;
@@ -955,7 +934,8 @@ struct data_function {
 	const struct module_designator *module_designator;
 	const struct function_designator *function_designator;
 	char *function_name;
-	struct line_positions *lps;
+	struct line_position *lp;
+	size_t lp_size;
 #ifdef HAVE_CODEGEN
 	pointer_t codegen;
 	atomic_type uchar_efficient_t codegen_failed;
@@ -1210,8 +1190,14 @@ static inline void *data_untag_(void *d, const char attr_unused *fl)
  * THUNK *
  *********/
 
+struct stack_trace_entry {
+	const struct module_designator *module_designator;
+	const char *function_name;
+	unsigned line;
+};
+
 struct stack_trace {
-	struct full_position_entry *trace;
+	struct stack_trace_entry *trace;
 	size_t trace_n;
 };
 
@@ -1476,10 +1462,10 @@ frame_s * attr_fastcall stack_split(frame_s *from_fp, frame_s *to_fp, frame_s **
 
 void stack_trace_init(struct stack_trace *st);
 void stack_trace_free(struct stack_trace *st);
+bool stack_trace_get_location(struct data *function, ip_t ip_rel, struct stack_trace_entry *result);
 void stack_trace_capture(struct stack_trace *st, frame_s *fp, const code_t *ip, unsigned max_depth);
 char *stack_trace_string(struct stack_trace *st, ajla_error_t *err);
 void stack_trace_print(struct stack_trace *st);
-bool stack_trace_get_location(struct data *function, ip_t ip_rel, struct full_position_entry *result);
 
 
 /*********************
@@ -1499,9 +1485,6 @@ struct data * attr_fastcall data_alloc_function_reference_mayfail(arg_t n_currie
 void attr_fastcall data_fill_function_reference(struct data *function_reference, arg_t a, pointer_t ptr);
 void attr_fastcall data_fill_function_reference_flat(struct data *function_reference, arg_t a, const struct type *type, const unsigned char *data);
 struct data * attr_fastcall data_alloc_resource_mayfail(size_t size, void (*close)(struct data *), ajla_error_t *mayfail argument_position);
-
-void data_free_full_positions(struct full_position *fp);
-void data_free_line_positions(struct line_positions *lps);
 
 extern pointer_t *out_of_memory_ptr;
 struct thunk * attr_fastcall thunk_alloc_exception_error(ajla_error_t err, char *msg, frame_s *fp, const code_t *ip argument_position);

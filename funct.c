@@ -197,7 +197,8 @@ void name(function_init)(void)
 	da(int_fn,function)->types = mem_alloc(const struct type **, 0);
 	da(int_fn,function)->record_definition = NULL;
 	da(int_fn,function)->function_name = str_dup("internal_function", -1, NULL);
-	da(int_fn,function)->lps = NULL;
+	da(int_fn,function)->lp = NULL;
+	da(int_fn,function)->lp_size = 0;
 #ifdef HAVE_CODEGEN
 	da(int_fn,function)->codegen = pointer_thunk(thunk_alloc_exception_error(error_ajla(EC_ASYNC, AJLA_ERROR_NOT_SUPPORTED), NULL, NULL, NULL pass_file_line));
 	store_relaxed(&da(int_fn,function)->codegen_failed, 0);

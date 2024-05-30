@@ -263,13 +263,13 @@ static void module_finish_function(struct module_function *mf)
 		if (profiling_escapes) {
 			ip_t ip_rel;
 			for (ip_rel = 0; ip_rel < da(d,function)->code_size; ip_rel++) {
-				struct full_position_entry fpe;
+				struct stack_trace_entry ste;
 				profile_counter_t profiling_counter = load_relaxed(&da(d,function)->escape_data[ip_rel].counter);
 				if (likely(!profiling_counter))
 					continue;
-				if (unlikely(!stack_trace_get_location(d, ip_rel, &fpe)))
+				if (unlikely(!stack_trace_get_location(d, ip_rel, &ste)))
 					continue;
-				profile_escape_collect(fpe.function, profiling_counter, fpe.line, da(d,function)->code[ip_rel], load_relaxed(&da(d,function)->escape_data[ip_rel].line));
+				profile_escape_collect(ste.function_name, profiling_counter, ste.line, da(d,function)->code[ip_rel], load_relaxed(&da(d,function)->escape_data[ip_rel].line));
 			}
 		}
 		while ((e = tree_first(&da(d,function)->cache))) {
