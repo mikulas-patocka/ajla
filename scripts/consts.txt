@@ -60,7 +60,6 @@ P_Args			; (arg ...)
 P_Return_Vars		; (ret ...)
 P_Return		; ((ref_flag, arg) ...)
 P_Line_Info		; line_number
-P_Line_Info_Full	; n_traces (n_unit_chars, (unit_name), n_function_chars, (function_name), line_nubmer)
 P_Phi			; result, (arg ...)
 P_Pcode_N
 

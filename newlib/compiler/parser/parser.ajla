@@ -593,7 +593,7 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 		ctx.incomplete := true;
 		ctx.dict := dict;
 
-		ctx := generate_Line_Info_Full(ctx, i_decode(dict.id.unit_string), i_decode(name), t[0].line);
+		ctx := generate_Line_Info(ctx, t[0].line);
 
 		if decl_type is k_fn or decl_type is k_type or decl_type is k_const or decl_type is k_operator then [
 			dict.defs[def.signature.id.function_index[0]].typ := Fn_Function;
@@ -713,7 +713,7 @@ again:
 	ctx_head.incomplete := false;
 	var ctx_body := ctx_head;
 	ctx_body.incomplete := true;
-	ctx_body := generate_Line_Info_Full(ctx_body, i_decode(ctx.dict.id.unit_string), fn_name, t[0].line);
+	ctx_body := generate_Line_Info(ctx_body, t[0].line);
 	ctx_body := parse_function_body(ctx_body, vd, t[b .. ]);
 	if is_exception ctx_body, exception_type ctx_body = error_user2 then [
 		variable := i_encode(exception_payload ctx_body);

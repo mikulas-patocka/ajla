@@ -232,7 +232,7 @@ done_post_list:
 		var instrs := empty(int);
 		for j := 0 to len(new_ctx.blocks[i].instrs) do [
 			var ins := new_ctx.instrs[new_ctx.blocks[i].instrs[j]];
-			if ins.opcode <> P_Line_Info and ins.opcode <> P_Line_Info_Full then [
+			if ins.opcode <> P_Line_Info then [
 				instrs +<= new_ctx.blocks[i].instrs[j];
 			]
 		]

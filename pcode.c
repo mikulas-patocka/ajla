@@ -2155,53 +2155,6 @@ exception:
 	return false;
 }
 
-/* !!! FIXME: this should be deleted */
-static bool pcode_line_info_full(struct build_function_context *ctx)
-{
-	uint8_t *unit = NULL;
-	size_t unit_l;
-	uint8_t *function = NULL;
-	size_t function_l;
-	pcode_t n_positions;
-	size_t i;
-
-	n_positions = u_pcode_get();
-
-	ajla_assert_lo(n_positions != 0, (file_line, "pcode_line_info_full(%s): no positions", function_name(ctx)));
-
-	for (i = 0; i < (size_t)n_positions; i++) {
-		pcode_t line;
-
-		if (unlikely(!pcode_load_blob(ctx, &unit, &unit_l)))
-			goto exception;
-		if (unlikely(!array_add_mayfail(uint8_t, &unit, &unit_l, 0, NULL, ctx->err)))
-			goto exception;
-		array_finish(uint8_t, &unit, &unit_l);
-		mem_free(unit);
-
-		if (unlikely(!pcode_load_blob(ctx, &function, &function_l)))
-			goto exception;
-		if (unlikely(!array_add_mayfail(uint8_t, &function, &function_l, 0, NULL, ctx->err)))
-			goto exception;
-		array_finish(uint8_t, &function, &function_l);
-		mem_free(function);
-
-		line = u_pcode_get();
-		if (!i) {
-			struct line_position lp;
-			lp.ip = ctx->code_len;
-			lp.line = line;
-			if (unlikely(!array_add_mayfail(struct line_position, &ctx->lp, &ctx->lp_size, lp, NULL, ctx->err)))
-				goto exception;
-		}
-	}
-
-	return true;
-
-exception:
-	return false;
-}
-
 static void pcode_get_instr(struct build_function_context *ctx, pcode_t *instr, pcode_t *instr_params)
 {
 	*instr = u_pcode_get();
@@ -2802,10 +2755,6 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				lp.line = u_pcode_get();
 				lp.ip = ctx->code_len;
 				if (unlikely(!array_add_mayfail(struct line_position, &ctx->lp, &ctx->lp_size, lp, NULL, ctx->err)))
-					goto exception;
-				break;
-			case P_Line_Info_Full:
-				if (unlikely(!pcode_line_info_full(ctx)))
 					goto exception;
 				break;
 			default:

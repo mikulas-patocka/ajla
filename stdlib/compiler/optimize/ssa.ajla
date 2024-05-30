@@ -769,8 +769,7 @@ fn gvn_recursive(ctx : context, bgi : int, vals : list(int)) : context
 			ins.opcode = P_Args or
 			ins.opcode = P_Return_Vars or
 			ins.opcode = P_Return or
-			ins.opcode = P_Line_Info or
-			ins.opcode = P_Line_Info_Full
+			ins.opcode = P_Line_Info
 				then continue;
 
 		var value_list := list(pcode_t).[ ins.opcode, len(ins.params) ];

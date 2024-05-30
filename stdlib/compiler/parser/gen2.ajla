@@ -106,7 +106,6 @@ fn pcode_Array_Skip_get_array(ins : instruction) : int;
 fn pcode_Array_Skip_get_start(ins : instruction) : int;
 
 fn generate_Line_Info(ctx : function_context, line : int) : function_context;
-fn generate_Line_Info_Full(ctx : function_context, un func : bytes, line : int) : function_context;
 
 implementation
 
@@ -1064,16 +1063,4 @@ fn generate_Line_Info(ctx : function_context, line : int) : function_context
 		abort internal("generate_Line_Info: negative line " + ntos(line));
 	var args := list(pcode_t).[ line ];
 	return generate_instruction(ctx, P_Line_Info, args);
-]
-
-fn generate_Line_Info_Full(ctx : function_context, un func : bytes, line : int) : function_context
-[
-	if line < 0 then
-		abort internal("generate_Line_Info_Full: negative line " + ntos(line));
-	var args := empty(pcode_t);
-	args +<= 1;
-	args += blob_generate(un);
-	args += blob_generate(func);
-	args +<= line;
-	return generate_instruction(ctx, P_Line_Info_Full, args);
 ]
