@@ -1028,6 +1028,7 @@ static void attr_fastcall free_function(void *data)
 #ifdef HAVE_CODEGEN
 	pointer_dereference(da(d,function)->codegen);
 #endif
+	mem_free(da(d,function)->code);
 	mem_free(da(d,function)->local_variables);
 	if (da(d,function)->args)
 		mem_free(da(d,function)->args);

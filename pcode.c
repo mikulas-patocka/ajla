@@ -3273,6 +3273,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 			goto exception;
 	}
 
+	array_finish(code_t, &ctx->code, &ctx->code_len);
 	array_finish(pointer_t *, &ctx->ld, &ctx->ld_len);
 	array_finish(struct line_position, &ctx->lps->lp, &ctx->lps->n_lp);
 	mem_free(ctx->local_types), ctx->local_types = NULL;
@@ -3313,7 +3314,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 			goto exception;
 	}
 
-	fn = data_alloc_flexible(function, code, ctx->code_len, ctx->err);
+	fn = data_alloc(function, ctx->err);
 	if (unlikely(!fn))
 		goto exception;
 
@@ -3321,6 +3322,8 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 	da(fn,function)->n_bitmap_slots = bitmap_slots(ctx->n_slots);
 	da(fn,function)->n_arguments = ctx->n_real_arguments;
 	da(fn,function)->n_return_values = ctx->n_real_return_values;
+	da(fn,function)->code = ctx->code;
+	da(fn,function)->code_size = ctx->code_len;
 	da(fn,function)->local_variables = ctx->local_variables;
 	da(fn,function)->args = ctx->args;
 	da(fn,function)->local_directory = ctx->ld;
@@ -3345,10 +3348,6 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 
 	da(fn,function)->escape_data = ctx->escape_data;
 	da(fn,function)->leaf = ctx->leaf;
-
-	da(fn,function)->code_size = ctx->code_len;
-	memcpy(&da(fn,function)->code, ctx->code, ctx->code_len * sizeof(code_t));
-	mem_free(ctx->code);
 
 	ipret_prefetch_functions(fn);
 

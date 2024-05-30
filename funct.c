@@ -173,9 +173,7 @@ void name(function_init)(void)
 	struct local_arg *ar;
 	arg_t ia;
 	ip_t ip;
-	ip_t code_size;
-
-	code_size = 6;
+	ip_t code_size = 6;
 
 	layout = layout_start(slot_bits, frame_flags_per_slot_bits, frame_align, frame_offset, NULL);
 	for (ia = 0; ia < N_SLOTS; ia++) {
@@ -183,13 +181,15 @@ void name(function_init)(void)
 	}
 	layout_compute(layout, false, NULL);
 
-	int_fn = data_alloc_flexible(function, code, code_size, NULL);
+	int_fn = data_alloc(function, NULL);
 
 	n_slots = layout_size(layout);
 	da(int_fn,function)->frame_slots = frame_offset / slot_size + n_slots;
 	da(int_fn,function)->n_bitmap_slots = bitmap_slots(n_slots);
 	da(int_fn,function)->n_arguments = N_ARGUMENTS;
 	da(int_fn,function)->n_return_values = N_RETURN_VALUES;
+	da(int_fn,function)->code = mem_alloc_array_mayfail(mem_alloc_mayfail, code_t *, 0, 0, code_size, sizeof(code_t), NULL);
+	da(int_fn,function)->code_size = code_size;
 	da(int_fn,function)->local_variables = lv = mem_alloc_array_mayfail(mem_calloc_mayfail, struct local_variable *, 0, 0, n_slots, sizeof(struct local_variable), NULL);
 	da(int_fn,function)->args = ar = mem_alloc(struct local_arg *, N_ARGUMENTS * sizeof(struct local_arg));
 	da(int_fn,function)->local_directory = mem_alloc(pointer_t **, 0);
@@ -205,7 +205,6 @@ void name(function_init)(void)
 	function_init_common(int_fn);
 	if (profiling_escapes)
 		da(int_fn,function)->escape_data = mem_alloc_array_mayfail(mem_calloc_mayfail, struct escape_data *, 0, 0, code_size, sizeof(struct escape_data), NULL);
-	da(int_fn,function)->code_size = code_size;
 	da(int_fn,function)->leaf = true;
 
 	for (ia = 0; ia < N_SLOTS; ia++) {

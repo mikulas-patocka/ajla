@@ -6624,7 +6624,12 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 
 	g(gen_frame_load(ctx, log_2(sizeof(ip_t)), false, 0, frame_offs(previous_ip), R_SCRATCH_1));
 
-	g(gen_lea3(ctx, R_SAVED_1, R_SCRATCH_2, R_SCRATCH_1, log_2(sizeof(code_t)), offsetof(struct data, u_.function.code)));
+	g(gen_address(ctx, R_SCRATCH_2, offsetof(struct data, u_.function.code), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_SAVED_1);
+	gen_address_offset();
+
+	g(gen_lea3(ctx, R_SAVED_1, R_SAVED_1, R_SCRATCH_1, log_2(sizeof(code_t)), 0));
 
 	retval_offset = 0;
 	for (i = 0; i < ctx->args_l; i++) {

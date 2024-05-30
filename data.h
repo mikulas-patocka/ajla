@@ -944,6 +944,8 @@ struct data_function {
 	frame_t n_bitmap_slots;
 	arg_t n_arguments;
 	arg_t n_return_values;
+	code_t *code;
+	ip_t code_size;
 	const struct local_variable *local_variables;	/* indexed by slot */
 	const struct local_arg *args;			/* indexed by argument */
 	pointer_t * const *local_directory;
@@ -963,9 +965,7 @@ struct data_function {
 	atomic_type profile_counter_t profiling_counter;
 	atomic_type profile_counter_t call_counter;
 	struct escape_data *escape_data;
-	ip_t code_size;
 	bool leaf;
-	code_t code[FLEXIBLE_ARRAY_GCC];
 };
 
 #ifdef HAVE_CODEGEN
