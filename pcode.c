@@ -160,10 +160,10 @@ static code_t get_code(pcode_t op, const struct type *t)
 {
 	code_t code, typeq;
 	unsigned cls;
-	ajla_assert_lo(op >= 0 && op < Op_NN, (file_line, "get_code: invalid operation %"PRIdMAX"", (intmax_t)op));
+	ajla_assert(op >= 0 && op < Op_NN, (file_line, "get_code: invalid operation %"PRIdMAX"", (intmax_t)op));
 	instruction_class(t, &cls, &typeq, op);
 	code = pcode2code[op][cls];
-	ajla_assert_lo(code != NO_OPCODE, (file_line, "get_code: invalid instruction and type: %"PRIdMAX", %u", (intmax_t)op, t->tag));
+	ajla_assert(code != NO_OPCODE, (file_line, "get_code: invalid instruction and type: %"PRIdMAX", %u", (intmax_t)op, t->tag));
 	code += typeq;
 	return code_alt(code);
 }
@@ -379,7 +379,7 @@ static char *function_name(const struct build_function_context *ctx)
 
 static pcode_t pcode_get_fn(struct build_function_context *ctx argument_position)
 {
-	ajla_assert_lo(ctx->pcode < ctx->pcode_limit, (caller_file_line, "pcode_get_fn(%s): no pcode left", function_name(ctx)));
+	ajla_assert(ctx->pcode < ctx->pcode_limit, (caller_file_line, "pcode_get_fn(%s): no pcode left", function_name(ctx)));
 	return *ctx->pcode++;
 }
 #define pcode_get()	pcode_get_fn(ctx pass_file_line)
@@ -387,7 +387,7 @@ static pcode_t pcode_get_fn(struct build_function_context *ctx argument_position
 static pcode_t u_pcode_get_fn(struct build_function_context *ctx argument_position)
 {
 	pcode_t p = pcode_get_fn(ctx pass_position);
-	ajla_assert_lo(p >= 0, (caller_file_line, "u_pcode_get_fn(%s): negative pcode %"PRIdMAX"", function_name(ctx), (intmax_t)p));
+	ajla_assert(p >= 0, (caller_file_line, "u_pcode_get_fn(%s): negative pcode %"PRIdMAX"", function_name(ctx), (intmax_t)p));
 	return p;
 }
 #define u_pcode_get()	u_pcode_get_fn(ctx pass_file_line)
@@ -2165,7 +2165,7 @@ static void pcode_get_instr(struct build_function_context *ctx, pcode_t *instr, 
 {
 	*instr = u_pcode_get();
 	*instr_params = u_pcode_get();
-	ajla_assert_lo(ctx->pcode_limit - ctx->pcode >= *instr_params, (file_line, "pcode_get_instr(%s): instruction %"PRIdMAX" crosses pcode boundary: %"PRIdMAX" > %"PRIdMAX"", function_name(ctx), (intmax_t)*instr, (intmax_t)*instr_params, (intmax_t)(ctx->pcode_limit - ctx->pcode)));
+	ajla_assert(ctx->pcode_limit - ctx->pcode >= *instr_params, (file_line, "pcode_get_instr(%s): instruction %"PRIdMAX" crosses pcode boundary: %"PRIdMAX" > %"PRIdMAX"", function_name(ctx), (intmax_t)*instr, (intmax_t)*instr_params, (intmax_t)(ctx->pcode_limit - ctx->pcode)));
 	ctx->pcode_instr_end = ctx->pcode + *instr_params;
 
 }
