@@ -340,6 +340,7 @@ void save_prepare(void)
 	last_md = (size_t)-1;
 	tree_init(&position_tree);
 	pointers = NULL;
+	pointers_len = 0;
 	loaded_fn_idx = 0;
 	loaded_fn_cache = (size_t)-1;
 	if (unlikely(!array_init_mayfail(char, &save_data, &save_len, &sink))) {
@@ -523,59 +524,59 @@ void save_cache_entry(struct data *d, struct cache_entry *ce)
 
 static void save_finish_one(const struct module_designator *md, const struct function_designator *fd, arg_t n_arguments, arg_t n_return_values)
 {
-	if (pointers) {
-		if (pointers_len) {
-			ajla_error_t sink;
-			size_t saved_pos;
-			struct function_descriptor fn_desc;
-			struct data *dsc;
-			size_t last_fd;
-			/*debug("save_finish_one: %u:%.*s:%lu", md->path_idx, (int)md->path_len, md->path, fn_idx);*/
-			dsc = data_alloc_flexible(saved_cache, pointers, pointers_len, &sink);
-			if (unlikely(!dsc)) {
-				save_ok = false;
-				goto free_it;
-			}
-			refcount_set_read_only(&dsc->refcount_);
-			da(dsc,saved_cache)->n_entries = pointers_len / ((size_t)n_arguments + (size_t)n_return_values);
-			da(dsc,saved_cache)->n_arguments = n_arguments;
-			da(dsc,saved_cache)->n_return_values = n_return_values;
-			memcpy(da(dsc,saved_cache)->pointers, pointers, pointers_len * sizeof(pointer_t));
-			if (unlikely(!align_output(SAVED_DATA_ALIGN)))
-				goto free_it_2;
+	ajla_error_t sink;
+	size_t saved_pos;
+	struct function_descriptor fn_desc;
+	struct data *dsc;
+	size_t last_fd;
+	if (!n_return_values || !pointers_len)
+		goto free_it;
+	/*debug("save_finish_one: %u:%.*s:%u", md->path_idx, (int)md->path_len, md->path, fd->entries[0]);*/
+	dsc = data_alloc_flexible(saved_cache, pointers, pointers_len, &sink);
+	if (unlikely(!dsc)) {
+		save_ok = false;
+		goto free_it;
+	}
+	refcount_set_read_only(&dsc->refcount_);
+	da(dsc,saved_cache)->n_entries = pointers_len / ((size_t)n_arguments + (size_t)n_return_values);
+	da(dsc,saved_cache)->n_arguments = n_arguments;
+	da(dsc,saved_cache)->n_return_values = n_return_values;
+	memcpy(da(dsc,saved_cache)->pointers, pointers, pointers_len * sizeof(pointer_t));
+	if (unlikely(!align_output(SAVED_DATA_ALIGN)))
+		goto free_it_2;
 
-			saved_pos = save_len;
-			if (unlikely(!array_add_multiple_mayfail(char, &save_data, &save_len, dsc, offsetof(struct data, u_.saved_cache.pointers[pointers_len]), NULL, &sink))) {
-				save_ok = false;
-				goto free_it_2;
-			}
+	saved_pos = save_len;
+	if (unlikely(!array_add_multiple_mayfail(char, &save_data, &save_len, dsc, offsetof(struct data, u_.saved_cache.pointers[pointers_len]), NULL, &sink))) {
+		save_ok = false;
+		goto free_it_2;
+	}
 
-			if (!(last_md != (size_t)-1 && !module_designator_compare(cast_ptr(struct module_designator *, save_data + last_md), md))) {
-				last_md = save_range(md, align_of(struct module_designator), module_designator_length(md), NULL, 0);
-				if (unlikely(last_md == (size_t)-1))
-					goto free_it_2;
-			}
+	if (!(last_md != (size_t)-1 && !module_designator_compare(cast_ptr(struct module_designator *, save_data + last_md), md))) {
+		last_md = save_range(md, align_of(struct module_designator), module_designator_length(md), NULL, 0);
+		if (unlikely(last_md == (size_t)-1))
+			goto free_it_2;
+	}
 
-			last_fd = save_range(fd, align_of(struct function_designator), function_designator_length(fd), NULL, 0);
-			if (unlikely(last_fd == (size_t)-1))
-				goto free_it_2;
+	last_fd = save_range(fd, align_of(struct function_designator), function_designator_length(fd), NULL, 0);
+	if (unlikely(last_fd == (size_t)-1))
+		goto free_it_2;
 
-			fn_desc.data_saved_cache = num_to_ptr(saved_pos);
-			fn_desc.data_saved_cache = data_pointer_tag(fn_desc.data_saved_cache, DATA_TAG_saved_cache);
-			fn_desc.md = num_to_ptr(last_md);
-			fn_desc.fd = num_to_ptr(last_fd);
-			if (!unlikely(array_add_mayfail(struct function_descriptor, &fn_descs, &fn_descs_len, fn_desc, NULL, &sink))) {
-				save_ok = false;
-				goto free_it_2;
-			}
+	fn_desc.data_saved_cache = num_to_ptr(saved_pos);
+	fn_desc.data_saved_cache = data_pointer_tag(fn_desc.data_saved_cache, DATA_TAG_saved_cache);
+	fn_desc.md = num_to_ptr(last_md);
+	fn_desc.fd = num_to_ptr(last_fd);
+	if (!unlikely(array_add_mayfail(struct function_descriptor, &fn_descs, &fn_descs_len, fn_desc, NULL, &sink))) {
+		save_ok = false;
+		goto free_it_2;
+	}
 
 free_it_2:
-			data_free(dsc);
-		}
+	data_free(dsc);
 free_it:
+	if (pointers)
 		mem_free(pointers);
-		pointers = NULL;
-	}
+	pointers = NULL;
+	pointers_len = 0;
 }
 
 void save_finish_function(struct data *d)
