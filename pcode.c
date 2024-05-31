@@ -2946,6 +2946,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 	size_t is;
 
 	struct data *fn;
+	struct function_descriptor *sfd;
 
 #if defined(HAVE_CODEGEN)
 	union internal_arg ia[1];
@@ -3184,6 +3185,12 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 	if (unlikely(!pcode_preload_ld(ctx)))
 		goto exception;
 
+	if (md) {
+		sfd = save_find_function_descriptor(md, fd);
+	} else {
+		sfd = NULL;
+	}
+
 	ctx->labels = mem_alloc_array_mayfail(mem_alloc_mayfail, size_t *, 0, 0, ctx->n_labels, sizeof(size_t), ctx->err);
 	if (unlikely(!ctx->labels))
 		goto exception;
@@ -3282,8 +3289,8 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 #endif
 	function_init_common(fn);
 
-	if (md) {
-		da(fn,function)->loaded_cache = save_find_cache(md, fd);
+	if (sfd) {
+		da(fn,function)->loaded_cache = sfd->data_saved_cache;
 		/*if (da(fn,function)->loaded_cache) debug("loaded cache: %s", function_name(ctx));*/
 	}
 

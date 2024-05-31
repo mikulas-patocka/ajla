@@ -25,14 +25,20 @@
 #define save_prepare			name(save_prepare)
 #define save_cache_entry		name(save_cache_entry)
 #define save_finish_function		name(save_finish_function)
-#define save_find_cache			name(save_find_cache)
+#define save_find_function_descriptor	name(save_find_function_descriptor)
 #define save_register_dependence	name(save_register_dependence)
 
 void save_prepare(void);
 void save_cache_entry(struct data *d, struct cache_entry *ce);
 void save_finish_function(struct data *d);
 
-struct data *save_find_cache(const struct module_designator *md, const struct function_designator *fd);
+struct function_descriptor {
+	struct data *data_saved_cache;
+	struct module_designator *md;
+	struct function_designator *fd;
+};
+
+struct function_descriptor *save_find_function_descriptor(const struct module_designator *md, const struct function_designator *fd);
 
 void save_register_dependence(const char *path_name);
 

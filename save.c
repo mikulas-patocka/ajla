@@ -58,12 +58,6 @@ static struct tree position_tree;
 static pointer_t *pointers;
 static size_t pointers_len;
 
-struct function_descriptor {
-	struct data *data_saved_cache;
-	struct module_designator *md;
-	struct function_designator *fd;
-};
-
 static struct function_descriptor *fn_descs;
 static size_t fn_descs_len;
 
@@ -699,7 +693,7 @@ static int function_compare(const struct module_designator *md1, const struct fu
 	return function_designator_compare(fd1, fd2->fd);
 }
 
-struct data *save_find_cache(const struct module_designator *md, const struct function_designator *fd)
+struct function_descriptor *save_find_function_descriptor(const struct module_designator *md, const struct function_designator *fd)
 {
 	struct function_descriptor *fn_descs;
 	size_t fn_descs_len;
@@ -710,7 +704,7 @@ struct data *save_find_cache(const struct module_designator *md, const struct fu
 	fn_descs = loaded_file_descriptor->fn_descs;
 	fn_descs_len = loaded_file_descriptor->fn_descs_len;
 	binary_search(size_t, fn_descs_len, result, !(cmp = function_compare(md, fd, &fn_descs[result])), cmp >= 0, return NULL);
-	return fn_descs[result].data_saved_cache;
+	return &fn_descs[result];
 }
 
 static int dep_compare(const struct tree_entry *e1, uintptr_t e2)
