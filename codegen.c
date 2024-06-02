@@ -6321,16 +6321,19 @@ static bool attr_w gen_load_fn_or_curry(struct codegen_context *ctx, frame_t fn_
 	gen_one(R_RET0);
 
 	if (!curry) {
-		pointer_t *ptr = da(ctx->fn,function)->local_directory[fn_idx];
-		ajla_assert_lo(!pointer_is_thunk(*ptr), (file_line, "gen_load_fn_or_curry: local directory has a thunk"));
+		g(load_function_offset(ctx, R_SCRATCH_1, offsetof(struct data, u_.function.local_directory)));
 
-		g(gen_address(ctx, R_RET0, offsetof(struct data, u_.function_reference.u.direct), IMM_PURPOSE_STR_OFFSET, OP_SIZE_ADDRESS));
-		g(gen_imm(ctx, ptr_to_num(ptr), IMM_PURPOSE_STORE_VALUE, OP_SIZE_ADDRESS));
+		g(gen_address(ctx, R_SCRATCH_1, (size_t)fn_idx * sizeof(da(ctx->fn,function)->local_directory[0]), IMM_PURPOSE_STR_OFFSET, OP_SIZE_ADDRESS));
+		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+		gen_one(R_SCRATCH_1);
+		gen_address_offset();
+
+		g(gen_address(ctx, R_SAVED_1, offsetof(struct data, u_.function_reference.u.direct), IMM_PURPOSE_STR_OFFSET, OP_SIZE_ADDRESS));
 		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 		gen_address_offset();
-		gen_imm_offset();
+		gen_one(R_SCRATCH_1);
 
-		g(gen_address(ctx, R_RET0, offsetof(struct data, u_.function_reference.is_indirect), IMM_PURPOSE_STR_OFFSET, log_2(sizeof(bool))));
+		g(gen_address(ctx, R_SAVED_1, offsetof(struct data, u_.function_reference.is_indirect), IMM_PURPOSE_STR_OFFSET, log_2(sizeof(bool))));
 		g(gen_imm(ctx, 0, IMM_PURPOSE_STORE_VALUE, log_2(sizeof(uchar_efficient_t))));
 		gen_insn(INSN_MOV, log_2(sizeof(uchar_efficient_t)), 0, 0);
 		gen_address_offset();
@@ -6338,12 +6341,12 @@ static bool attr_w gen_load_fn_or_curry(struct codegen_context *ctx, frame_t fn_
 	} else {
 		g(gen_frame_get_pointer(ctx, slot_fn, (flags & OPCODE_FLAG_FREE_ARGUMENT) != 0, R_SCRATCH_1));
 
-		g(gen_address(ctx, R_RET0, offsetof(struct data, u_.function_reference.u.indirect), IMM_PURPOSE_STR_OFFSET, OP_SIZE_ADDRESS));
+		g(gen_address(ctx, R_SAVED_1, offsetof(struct data, u_.function_reference.u.indirect), IMM_PURPOSE_STR_OFFSET, OP_SIZE_ADDRESS));
 		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 		gen_address_offset();
 		gen_one(R_SCRATCH_1);
 
-		g(gen_address(ctx, R_RET0, offsetof(struct data, u_.function_reference.is_indirect), IMM_PURPOSE_STR_OFFSET, log_2(sizeof(bool))));
+		g(gen_address(ctx, R_SAVED_1, offsetof(struct data, u_.function_reference.is_indirect), IMM_PURPOSE_STR_OFFSET, log_2(sizeof(bool))));
 		g(gen_imm(ctx, 1, IMM_PURPOSE_STORE_VALUE, log_2(sizeof(uchar_efficient_t))));
 		gen_insn(INSN_MOV, log_2(sizeof(uchar_efficient_t)), 0, 0);
 		gen_address_offset();
