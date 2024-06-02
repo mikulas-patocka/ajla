@@ -6587,14 +6587,25 @@ skip_ref_argument:
 		gen_label(next_arg_label);
 	}
 
+	g(load_function_offset(ctx, R_SCRATCH_1, offsetof(struct data, u_.function.local_directory)));
+
+	g(gen_address(ctx, R_SCRATCH_1, (size_t)fn_idx * sizeof(da(ctx->fn,function)->local_directory[0]), IMM_PURPOSE_STR_OFFSET, OP_SIZE_ADDRESS));
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_SCRATCH_1);
+	gen_address_offset();
+
+	g(gen_address(ctx, R_SCRATCH_1, 0, IMM_PURPOSE_STR_OFFSET, OP_SIZE_SLOT));
+	gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
+	gen_one(R_SCRATCH_1);
+	gen_address_offset();
+
+	g(gen_frame_store(ctx, OP_SIZE_ADDRESS, 0, frame_offs(function) + new_fp_offset, R_SCRATCH_1));
+
 #if !defined(ARCH_X86) && !defined(ARCH_PARISC)
 	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_SUB, R_FRAME, R_FRAME, -new_fp_offset));
 #else
 	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_FRAME, R_FRAME, new_fp_offset));
 #endif
-
-	g(gen_load_constant(ctx, R_SCRATCH_1, ptr_to_num(new_fn)));
-	g(gen_frame_store(ctx, OP_SIZE_ADDRESS, 0, frame_offs(function), R_SCRATCH_1));
 
 	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.function.codegen), ARCH_PREFERS_SX(OP_SIZE_SLOT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_SLOT));
 	gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, 0);
