@@ -7845,7 +7845,7 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 	return true;
 }
 
-static bool attr_w gen_array_string(struct codegen_context *ctx, const struct type *type, uint8_t *string, frame_t len, frame_t slot_r)
+static bool attr_w gen_array_string(struct codegen_context *ctx, type_tag_t tag, uint8_t *string, frame_t len, frame_t slot_r)
 {
 	uint32_t escape_label;
 	uintptr_t string_loc = ptr_to_num(string);
@@ -7856,7 +7856,7 @@ static bool attr_w gen_array_string(struct codegen_context *ctx, const struct ty
 	if (unlikely(!escape_label))
 		return false;
 
-	g(gen_load_constant(ctx, R_ARG0, ptr_to_num(type)));
+	g(gen_load_constant(ctx, R_ARG0, tag));
 	g(gen_upcall_argument(ctx, 0));
 
 	g(gen_load_constant(ctx, R_ARG1, len));
@@ -7874,7 +7874,7 @@ static bool attr_w gen_array_string(struct codegen_context *ctx, const struct ty
 
 	g(gen_load_constant(ctx, R_SCRATCH_3, string_loc));
 
-	g(gen_memcpy(ctx, R_SAVED_1, data_array_offset, R_SCRATCH_3, 0, (size_t)len * type->size, align));
+	g(gen_memcpy(ctx, R_SAVED_1, data_array_offset, R_SCRATCH_3, 0, (size_t)len * type_get_from_tag(tag)->size, align));
 
 	return true;
 }
@@ -9264,14 +9264,14 @@ jump_over_arguments_and_return:
 			case OPCODE_ARRAY_STRING: {
 				frame_t i;
 				get_two(ctx, &slot_r, &i);
-				g(gen_array_string(ctx, type_get_fixed(0, true), cast_ptr(uint8_t *, ctx->current_position), i, slot_r));
+				g(gen_array_string(ctx, type_get_fixed(0, true)->tag, cast_ptr(uint8_t *, ctx->current_position), i, slot_r));
 				ctx->current_position += (i + 1) >> 1;
 				continue;
 			}
 			case OPCODE_ARRAY_UNICODE: {
 				frame_t i;
 				get_two(ctx, &slot_r, &i);
-				g(gen_array_string(ctx, type_get_int(2), cast_ptr(uint8_t *, ctx->current_position), i, slot_r));
+				g(gen_array_string(ctx, type_get_int(2)->tag, cast_ptr(uint8_t *, ctx->current_position), i, slot_r));
 				ctx->current_position += i * 2;
 				continue;
 			}
