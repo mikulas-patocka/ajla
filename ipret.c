@@ -815,10 +815,10 @@ static unsigned char *cg_upcall_data_alloc_option_mayfail(void)
 	return cast_ptr(unsigned char *, data_alloc(option, &sink));
 }
 
-static unsigned char *cg_upcall_data_alloc_array_flat_mayfail(const struct type *t, int_default_t_upcall n_allocated, int_default_t_upcall n_used, bool clear)
+static unsigned char *cg_upcall_data_alloc_array_flat_mayfail(const struct type *t, int_default_t_upcall n_entries)
 {
 	ajla_error_t sink;
-	return cast_ptr(unsigned char *, data_alloc_array_flat_mayfail(t, n_allocated, n_used, clear, &sink pass_file_line));
+	return cast_ptr(unsigned char *, data_alloc_array_flat_mayfail(t, n_entries, n_entries, false, &sink pass_file_line));
 }
 
 static unsigned char *cg_upcall_data_alloc_array_pointers_mayfail(int_default_t_upcall n_allocated, int_default_t_upcall n_used)

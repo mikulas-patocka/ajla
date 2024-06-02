@@ -7628,13 +7628,7 @@ static bool attr_w gen_array_create(struct codegen_context *ctx, frame_t slot_r)
 		g(gen_load_constant(ctx, R_ARG1, ctx->args_l));
 		g(gen_upcall_argument(ctx, 1));
 
-		g(gen_load_constant(ctx, R_ARG2, ctx->args_l));
-		g(gen_upcall_argument(ctx, 2));
-
-		g(gen_load_constant(ctx, R_ARG3, 0));
-		g(gen_upcall_argument(ctx, 3));
-
-		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_array_flat_mayfail), 4));
+		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_array_flat_mayfail), 2));
 		g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, escape_label));
 
 		gen_insn(INSN_MOV, i_size(OP_SIZE_ADDRESS), 0, 0);
@@ -7698,13 +7692,7 @@ static bool attr_w gen_array_create_empty_flat(struct codegen_context *ctx, fram
 	g(gen_load_constant(ctx, R_ARG1, 0));
 	g(gen_upcall_argument(ctx, 1));
 
-	g(gen_load_constant(ctx, R_ARG2, 0));
-	g(gen_upcall_argument(ctx, 2));
-
-	g(gen_load_constant(ctx, R_ARG3, 0));
-	g(gen_upcall_argument(ctx, 3));
-
-	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_array_flat_mayfail), 4));
+	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_array_flat_mayfail), 2));
 	g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, escape_label));
 
 	g(gen_compress_pointer(ctx, R_RET0));
@@ -7874,13 +7862,7 @@ static bool attr_w gen_array_string(struct codegen_context *ctx, const struct ty
 	g(gen_load_constant(ctx, R_ARG1, len));
 	g(gen_upcall_argument(ctx, 1));
 
-	g(gen_load_constant(ctx, R_ARG2, len));
-	g(gen_upcall_argument(ctx, 2));
-
-	g(gen_load_constant(ctx, R_ARG3, 0));
-	g(gen_upcall_argument(ctx, 3));
-
-	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_array_flat_mayfail), 4));
+	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_array_flat_mayfail), 2));
 	g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, escape_label));
 
 	gen_insn(INSN_MOV, i_size(OP_SIZE_ADDRESS), 0, 0);
