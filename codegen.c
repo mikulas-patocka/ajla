@@ -5188,7 +5188,7 @@ static bool attr_w gen_real_constant(struct codegen_context *ctx, const struct t
 		return gen_constant(ctx, log_2(t->size), false, slot_r);
 
 	g(gen_load_constant(ctx, R_SCRATCH_3, ptr_to_num(ctx->current_position)));
-	g(gen_memcpy(ctx, R_FRAME, (size_t)slot_r * slot_size, R_SCRATCH_3, 0, t->size, t->align));
+	g(gen_memcpy(ctx, R_FRAME, (size_t)slot_r * slot_size, R_SCRATCH_3, 0, t->size, minimum(t->align, align_of(code_t))));
 	return true;
 }
 
