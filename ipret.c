@@ -802,10 +802,11 @@ static unsigned char *cg_upcall_data_alloc_function_reference_mayfail(uintptr_t 
 	return cast_ptr(unsigned char *, data_alloc_function_reference_mayfail(n_curried_arguments, &sink pass_file_line));
 }
 
-static unsigned char *cg_upcall_data_alloc_record_mayfail(const struct record_definition *def)
+static unsigned char *cg_upcall_data_alloc_record_mayfail(frame_s *fp, uintptr_t slot)
 {
 	ajla_error_t sink;
-	return cast_ptr(unsigned char *, data_alloc_record_mayfail(def, &sink pass_file_line));
+	const struct type *type = frame_get_type_of_local(fp, slot);
+	return cast_ptr(unsigned char *, data_alloc_record_mayfail(type_def(type,record), &sink pass_file_line));
 }
 
 static unsigned char *cg_upcall_data_alloc_option_mayfail(void)

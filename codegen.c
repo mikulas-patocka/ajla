@@ -7154,9 +7154,16 @@ static bool attr_w gen_record_create(struct codegen_context *ctx, frame_t slot_r
 
 	def = type_def(t,record);
 
-	g(gen_load_constant(ctx, R_ARG0, ptr_to_num(def)));
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_ARG0);
+	gen_one(R_FRAME);
 	g(gen_upcall_argument(ctx, 0));
-	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_record_mayfail), 1));
+
+	g(gen_load_constant(ctx, R_ARG1, slot_r));
+	g(gen_upcall_argument(ctx, 1));
+
+	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_record_mayfail), 2));
+
 	g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, escape_label));
 
 	gen_insn(INSN_MOV, i_size(OP_SIZE_ADDRESS), 0, 0);
