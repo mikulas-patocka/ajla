@@ -3130,6 +3130,18 @@ next_loop:
 	return true;
 }
 
+static bool attr_w load_function_offset(struct codegen_context *ctx, unsigned dest, size_t fn_offset)
+{
+	g(gen_frame_load(ctx, OP_SIZE_ADDRESS, false, 0, frame_offs(function), dest));
+
+	g(gen_address(ctx, dest, fn_offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(dest);
+	gen_address_offset();
+
+	return true;
+}
+
 #define MODE_FIXED	0
 #define MODE_INT	1
 #define MODE_BOOL	2
@@ -5184,11 +5196,15 @@ static bool attr_w gen_constant(struct codegen_context *ctx, unsigned op_size, b
 
 static bool attr_w gen_real_constant(struct codegen_context *ctx, const struct type *t, frame_t slot_r)
 {
+	int64_t offset;
 	if (is_power_of_2(t->size) && t->size <= sizeof(uintbig_t))
 		return gen_constant(ctx, log_2(t->size), false, slot_r);
 
-	g(gen_load_constant(ctx, R_SCRATCH_3, ptr_to_num(ctx->current_position)));
-	g(gen_memcpy(ctx, R_FRAME, (size_t)slot_r * slot_size, R_SCRATCH_3, 0, t->size, minimum(t->align, align_of(code_t))));
+	g(load_function_offset(ctx, R_SCRATCH_3, offsetof(struct data, u_.function.code)));
+
+	offset = (ctx->current_position - da(ctx->fn,function)->code) * sizeof(code_t);
+
+	g(gen_memcpy(ctx, R_FRAME, (size_t)slot_r * slot_size, R_SCRATCH_3, offset, t->size, minimum(t->align, align_of(code_t))));
 	return true;
 }
 
