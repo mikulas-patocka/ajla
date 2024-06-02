@@ -3625,10 +3625,8 @@ bool os_dlsym(struct dl_handle_t *dlh, const char *symbol, void **result)
 }
 
 
-void *os_code_map(uint8_t *code, size_t attr_unused code_size, void (*hack)(uint8_t *code, size_t code_size, void *cookie), void *cookie, ajla_error_t attr_unused *err)
+void *os_code_map(uint8_t *code, size_t attr_unused code_size, ajla_error_t attr_unused *err)
 {
-	if (hack)
-		hack(code, code_size, cookie);
 	return code;
 }
 

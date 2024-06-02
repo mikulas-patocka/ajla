@@ -4479,7 +4479,7 @@ bool os_mprotect(void *ptr, size_t size, int prot, ajla_error_t *err)
 	return true;
 }
 
-void *os_code_map(uint8_t *code, size_t attr_unused code_size, void (*hack)(uint8_t *code, size_t code_size, void *cookie), void *cookie, ajla_error_t attr_unused *err)
+void *os_code_map(uint8_t *code, size_t attr_unused code_size, void *cookie), void *cookie, ajla_error_t attr_unused *err)
 {
 	DWORD old;
 	/*debug("making executable: %p, %lx", code, code_size);*/
@@ -4495,8 +4495,6 @@ void *os_code_map(uint8_t *code, size_t attr_unused code_size, void (*hack)(uint
 			return NULL;
 		}
 	}
-	if (hack)
-		hack(code, code_size, cookie);
 	if (unlikely(!VirtualProtect(code, code_size, PAGE_EXECUTE_READWRITE, &old))) {
 		ajla_error_t e = error_from_win32(EC_SYSCALL, GetLastError());
 		if (!err)

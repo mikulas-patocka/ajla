@@ -6626,10 +6626,10 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 
 	g(gen_address(ctx, R_SCRATCH_2, offsetof(struct data, u_.function.code), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-	gen_one(R_SAVED_1);
+	gen_one(R_SCRATCH_2);
 	gen_address_offset();
 
-	g(gen_lea3(ctx, R_SAVED_1, R_SAVED_1, R_SCRATCH_1, log_2(sizeof(code_t)), 0));
+	g(gen_lea3(ctx, R_SAVED_1, R_SCRATCH_2, R_SCRATCH_1, log_2(sizeof(code_t)), 0));
 
 	retval_offset = 0;
 	for (i = 0; i < ctx->args_l; i++) {
@@ -9472,11 +9472,7 @@ static bool attr_w codegen_map(struct codegen_context *ctx)
 	void *ptr;
 	frame_t i;
 	array_finish(uint8_t, &ctx->mcode, &ctx->mcode_size);
-#if defined(ARCH_MIPS) && !MIPS_R6
-	ptr = os_code_map(ctx->mcode, ctx->mcode_size, mips_optimize_jumps, ctx, &ctx->err);
-#else
-	ptr = os_code_map(ctx->mcode, ctx->mcode_size, NULL, NULL, &ctx->err);
-#endif
+	ptr = os_code_map(ctx->mcode, ctx->mcode_size, &ctx->err);
 	ctx->mcode = NULL;
 	if (unlikely(!ptr)) {
 		return false;
@@ -9657,7 +9653,6 @@ again:
 	ctx->codegen = data_alloc_flexible(codegen, unoptimized_code, ctx->n_entries, &ctx->err);
 	if (unlikely(!ctx->codegen))
 		goto fail;
-	da(ctx->codegen,codegen)->function = ctx->fn;
 	da(ctx->codegen,codegen)->n_entries = 0;
 
 	if (unlikely(!codegen_map(ctx)))
@@ -9726,7 +9721,7 @@ void name(codegen_init)(void)
 		goto fail;
 
 	array_finish(uint8_t, &ctx->mcode, &ctx->mcode_size);
-	ptr = os_code_map(ctx->mcode, ctx->mcode_size, NULL, NULL, NULL);
+	ptr = os_code_map(ctx->mcode, ctx->mcode_size, NULL);
 	codegen_ptr = ptr;
 	codegen_size = ctx->mcode_size;
 	ctx->mcode = NULL;

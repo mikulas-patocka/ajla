@@ -100,7 +100,7 @@ static void alpha_read_amask(void)
 	uint64_t res;
 	str_init(&c, &cs);
 	str_add_hex(&c, &cs, "ffff1f20200ce0470180fa6b");
-	fn = os_code_map(cast_ptr(uint8_t *, c), cs, NULL, NULL, NULL);
+	fn = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
 	res = fn();
 	os_code_unmap(fn, cs);
 	amask = ~res;
@@ -236,7 +236,7 @@ static void ia64_read_cpuid(void)
 	size_t cs;
 	str_init(&c, &cs);
 	str_add_hex(&c, &cs, "0a4000401704000000020000000004001d000000010000000002008008008400");
-	desc[0] = os_code_map(cast_ptr(uint8_t *, c), cs, NULL, NULL, NULL);
+	desc[0] = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
 	desc[1] = NULL;
 	cpuid_4 = ((uint64_t (*)(uint64_t))desc)(4);
 	os_code_unmap(desc[0], cs);
@@ -255,7 +255,7 @@ static void loongarch_read_cpucfg(void)
 	uint64_t (*fn)(uint64_t);
 	str_init(&c, &cs);
 	str_add_hex(&c, &cs, "846c00002000004c");
-	fn = os_code_map(cast_ptr(uint8_t *, c), cs, NULL, NULL, NULL);
+	fn = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
 	cpucfg_1 = fn(1);
 	os_code_unmap(fn, cs);
 }
@@ -313,7 +313,7 @@ static bool trap_insn(const char *hex)
 		t = c[i + 1]; c[i + 1] = c[i + 2]; c[i + 2] = t;
 	}
 #endif
-	fn = os_code_map(cast_ptr(uint8_t *, c), cs, NULL, NULL, NULL);
+	fn = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
 #ifdef _CALL_AIXDESC
 	{
 		volatile uintptr_t desc[3];
@@ -357,7 +357,7 @@ static bool trap_insn(const char *hex)
 	str_add_hex(&c, &cs, "0545");
 	str_add_hex(&c, &cs, hex);
 	str_add_hex(&c, &cs, "8280");
-	fn = os_code_map(cast_ptr(uint8_t *, c), cs, NULL, NULL, NULL);
+	fn = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
 	ret = fn();
 	os_code_unmap(fn, cs);
 	/*debug("trap: %d", ret);*/
@@ -391,7 +391,7 @@ static void s390_stfle(void)
 	}
 	str_init(&c, &cs);
 	str_add_hex(&c, &cs, "a7090003b2b0200007fe");
-	fn = os_code_map(cast_ptr(uint8_t *, c), cs, NULL, NULL, NULL);
+	fn = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
 	os_signal_trap(SIGILL, s390_sigill);
 	fn(s390_facilities);
 	os_signal_restore(SIGILL);
@@ -441,7 +441,7 @@ static void test_eflags_bits(void)
 	sig_state_t set;
 	str_init(&c, &cs);
 	str_add_hex(&c, &cs, "b8000024009c330424509d9c583304249dc3");
-	fn = os_code_map(cast_ptr(uint8_t *, c), cs, NULL, NULL, NULL);
+	fn = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
 	os_block_signals(&set);
 	eflags_bits = fn();
 	os_unblock_signals(&set);
@@ -481,7 +481,7 @@ static void do_cpuid(void)
 #else
 	unknown arch
 #endif
-	cpuid = os_code_map(cast_ptr(uint8_t *, c), cs, NULL, NULL, NULL);
+	cpuid = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
 
 	cpuid(0, 0, cpuid_0);
 	if (likely(cpuid_0[0] >= 1))
@@ -513,7 +513,7 @@ static bool test_fxsave(void)
 
 	str_init(&c, &cs);
 	str_add_hex(&c, &cs, "8b4424040fae00fe80a00000000fae080fae8000020000c3");
-	fn = os_code_map(cast_ptr(uint8_t *, c), cs, NULL, NULL, NULL);
+	fn = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
 	fn(mem);
 	os_code_unmap(fn, cs);
 	supported = mem[160] == mem[160 + 512];
@@ -531,7 +531,7 @@ static bool test_xcr0(unsigned mask)
 	uint32_t res;
 	str_init(&c, &cs);
 	str_add_hex(&c, &cs, "31c90f01d0c3");
-	fn = os_code_map(cast_ptr(uint8_t *, c), cs, NULL, NULL, NULL);
+	fn = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
 	res = fn();
 	os_code_unmap(fn, cs);
 	return (res & mask) == mask;

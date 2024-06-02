@@ -369,7 +369,7 @@ uint32_t os_get_last_error(void);
 uint32_t os_get_last_socket_error(void);
 
 
-void *os_code_map(uint8_t *code, size_t code_size, void (*hack)(uint8_t *code, size_t code_size, void *cookie), void *cookie, ajla_error_t *err);
+void *os_code_map(uint8_t *code, size_t code_size, ajla_error_t *err);
 void os_code_unmap(void *mapped_code, size_t code_size);
 
 

@@ -268,11 +268,9 @@ static void invalidate_cache(uint8_t attr_unused *ptr, size_t attr_unused size)
 #endif
 }
 
-void *os_code_map(uint8_t *code, size_t code_size, void (*hack)(uint8_t *code, size_t code_size, void *cookie), void *cookie, ajla_error_t attr_unused *err)
+void *os_code_map(uint8_t *code, size_t code_size, ajla_error_t attr_unused *err)
 {
 #ifdef CODEGEN_USE_HEAP
-	if (hack)
-		hack(code, code_size, cookie);
 	invalidate_cache(code, code_size);
 #ifdef OS_HAS_MMAP
 	if (!amalloc_enabled) {
@@ -304,8 +302,6 @@ void *os_code_map(uint8_t *code, size_t code_size, void (*hack)(uint8_t *code, s
 		return NULL;
 	}
 	memcpy(ptr, code, code_size);
-	if (hack)
-		hack(ptr, code_size, cookie);
 	invalidate_cache(ptr, code_size);
 #ifdef HAVE_MPROTECT
 	if (unlikely(!os_mprotect(ptr, rounded_size, PROT_READ | PROT_EXEC, err))) {

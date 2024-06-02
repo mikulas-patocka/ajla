@@ -860,45 +860,6 @@ static bool attr_w cgen_jmp_extra_long(struct codegen_context *ctx)
 	return true;
 }
 
-#if !MIPS_R6
-static void mips_optimize_jumps(uint8_t *code_, size_t code_size, void attr_unused *ctx_)
-{
-	uint32_t *code = cast_ptr(uint32_t *, code_);
-	code_size >>= 2;
-	while (code_size >= 6) {
-		if (unlikely((code[1] & 0xFFFFFFFFU) == (MIPS_BGEZAL | ((uint32_t)R_ZERO << 21) | 1)) &&
-		    (code[0] & 0xFFFF0000U) == (MIPS_LUI | ((uint32_t)R_AT << 16)) &&
-		    (code[2] & 0xFFFF0000U) == (MIPS_ORI | ((uint32_t)R_AT << 21) | ((uint32_t)R_AT << 16)) &&
-		    (code[3] & 0xFFFFFFFFU) == ((OP_SIZE_ADDRESS == OP_SIZE_8 ? MIPS_DADDU : MIPS_ADDU) | ((uint32_t)R_AT << 21) | ((uint32_t)R_RA << 16) | ((uint32_t)R_AT << 11)) &&
-		    (code[4] & 0xFFFFFFFFU) == (MIPS_JR | ((uint32_t)R_AT << 21)) &&
-		    (code[5] & 0xFFFFFFFFU) == MIPS_NOP) {
-			int32_t rel = (((code[0] & 0xFFFFU) << 16) | (code[2] & 0xFFFFU));
-			uintptr_t src = ptr_to_num(code + 2);
-			uintptr_t dst = ptr_to_num(code + 3) + rel;
-#if MIPS_R4000_ERRATA
-			if ((src & 0x0FFFFFFFULL) >= 0x0FFFFFF4ULL)	/* R4000 has broken J */
-				goto skip;
-#endif
-			if ((src & ~0x0FFFFFFFULL) == (dst & ~0x0FFFFFFFULL)) {
-				code[0] = MIPS_NOP;
-				code[1] = MIPS_J | ((dst & 0x0FFFFFFFULL) >> 2);
-				code[2] = MIPS_NOP;
-				code[3] = MIPS_NOP;
-				code[4] = MIPS_NOP;
-				code[5] = MIPS_NOP;
-				/*debug("branch hacked: at %lx: rel %x, %lx -> %lx", (char *)code - (char *)code_, rel, src, dst);*/
-			} else {
-				/*debug("brach out of range");*/
-			}
-		}
-		goto skip;
-skip:
-		code++;
-		code_size--;
-	}
-}
-#endif
-
 static bool attr_w cgen_jmp(struct codegen_context *ctx, unsigned length)
 {
 	if (MIPS_R6 && length <= JMP_LONG) {
