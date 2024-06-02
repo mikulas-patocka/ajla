@@ -6599,6 +6599,8 @@ skip_ref_argument:
 	gen_one(R_SCRATCH_1);
 	gen_address_offset();
 
+	g(gen_decompress_pointer(ctx, R_SCRATCH_1, 0));
+
 	g(gen_frame_store(ctx, OP_SIZE_ADDRESS, 0, frame_offs(function) + new_fp_offset, R_SCRATCH_1));
 
 #if !defined(ARCH_X86) && !defined(ARCH_PARISC)
