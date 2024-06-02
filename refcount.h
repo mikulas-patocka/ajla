@@ -147,7 +147,8 @@ static attr_always_inline void refcount_init_(refcount_t *r, const char *positio
 static attr_always_inline void refcount_init_tag_(refcount_t *r, unsigned char tag, const char *position)
 {
 #ifdef DEBUG_REFCOUNTS
-	if (unlikely(tag >= REFCOUNT_STEP))
+	unsigned t = tag;
+	if (unlikely(t >= REFCOUNT_STEP))
 		internal(file_line, "refcount_init_tag: invalid tag %u", tag);
 #endif
 	refcount_init_raw_(r, tag, position);
@@ -292,11 +293,11 @@ static attr_always_inline void refcount_tag_set_(refcount_t *r, unsigned char ol
 }
 #endif
 
-static attr_always_inline void refcount_poison(refcount_t attr_unused *r)
+static attr_always_inline void refcount_poison_(refcount_t attr_unused *r, const char attr_unused *position)
 {
 #ifdef DEBUG_REFCOUNTS
 #ifndef REFCOUNT_TAG
-	refcount_init_raw_(r, -1, file_line);
+	refcount_init_raw_(r, -1, position);
 #else
 	refcount_int_t add = (refcount_int_t)-REFCOUNT_STEP - (refcount_int_t)((refcount_int_t)refcount_get_(r, memory_order_relaxed) & (refcount_int_t)-REFCOUNT_STEP);
 	refcount_add_raw_(r, add, NULL);
@@ -304,10 +305,10 @@ static attr_always_inline void refcount_poison(refcount_t attr_unused *r)
 #endif
 }
 
-static attr_always_inline void refcount_poison_tag(refcount_t attr_unused *r)
+static attr_always_inline void refcount_poison_tag_(refcount_t attr_unused *r, const char attr_unused *position)
 {
 #ifdef DEBUG_REFCOUNTS
-	refcount_init_raw_(r, -1, file_line);
+	refcount_init_raw_(r, -1, position);
 #endif
 }
 
@@ -315,7 +316,7 @@ static attr_always_inline void refcount_poison_tag(refcount_t attr_unused *r)
 #define refcount_one_fastpath				\
 do {							\
 	if (likely(REFCOUNT_VOLATILE(r, MEMORY_ORDER_TEST_1) < REFCOUNT_STEP)) {\
-		refcount_poison(r);			\
+		refcount_poison_(r, position);		\
 		return true;				\
 	}						\
 } while (0)
@@ -333,7 +334,7 @@ static attr_always_inline bool refcount_dec_(refcount_t *r, const char *position
 	__asm__ goto ("lock; sub"REFCOUNT_ASM_X86_SUFFIX" %1, %0; jc %l[x86_ret_true]"::"m"(r->refcount),"i"(REFCOUNT_STEP):"cc","memory":x86_ret_true);
 	return false;
 x86_ret_true:
-	refcount_poison(r);
+	refcount_poison_(r, position);
 	return true;
 #elif defined(REFCOUNT_ASM_X86)
 	refcount_one_fastpath;
@@ -363,7 +364,7 @@ x86_ret_true:
 	error - no refcount method
 #endif
 	if (result)
-		refcount_poison(r);
+		refcount_poison_(r, position);
 	return result;
 }
 
@@ -442,7 +443,7 @@ static attr_always_inline bool refcount_dec_nonatomic_(refcount_t *r, const char
 	refcount_init_raw_(r, r->refcount - REFCOUNT_STEP, position);
 	result = (refcount_int_t)r->refcount >= (refcount_int_t)-REFCOUNT_STEP;
 	if (result)
-		refcount_poison(r);
+		refcount_poison_(r, position);
 	return result;
 }
 
@@ -460,6 +461,8 @@ static attr_always_inline refcount_int_t refcount_get_nonatomic_(refcount_t *r, 
 #define refcount_inc_(r, position)	refcount_add_raw_(r, REFCOUNT_STEP, position)
 #define refcount_add(r, val)		refcount_add_raw_(r, (refcount_int_t)(val) * REFCOUNT_STEP, file_line)
 #define refcount_add_(r, val, position)	refcount_add_raw_(r, (refcount_int_t)(val) * REFCOUNT_STEP, position)
+#define refcount_poison(r)		refcount_poison_(r, file_line);
+#define refcount_poison_tag(r)		refcount_poison_tag_(r, file_line);
 #define refcount_dec(r)			refcount_dec_(r, file_line)
 #define refcount_is_one_nonatomic(r)	refcount_is_one_nonatomic_(r, file_line)
 #define refcount_inc_nonatomic(r)	refcount_inc_nonatomic_(r, file_line)

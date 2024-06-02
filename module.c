@@ -257,6 +257,7 @@ static void module_finish_function(struct module_function *mf)
 	if (!pointer_is_thunk(mf->function)) {
 		struct data *d = pointer_get_data(mf->function);
 		struct tree_entry *e;
+		bool new_cache;
 		if (profiling) {
 			profile_collect(da(d,function)->function_name, load_relaxed(&da(d,function)->profiling_counter), load_relaxed(&da(d,function)->call_counter));
 		}
@@ -272,12 +273,22 @@ static void module_finish_function(struct module_function *mf)
 				profile_escape_collect(ste.function_name, profiling_counter, ste.line, da(d,function)->code[ip_rel], load_relaxed(&da(d,function)->escape_data[ip_rel].line));
 			}
 		}
+		new_cache = false;
+		for (e = tree_first(&da(d,function)->cache); e; e = tree_next(e)) {
+			struct cache_entry *ce = get_struct(e, struct cache_entry, entry);
+			if (ce->save && da(d,function)->module_designator) {
+				new_cache = true;
+				break;
+			}
+		}
+		save_start_function(d, new_cache);
 		while ((e = tree_first(&da(d,function)->cache))) {
 			struct cache_entry *ce = get_struct(e, struct cache_entry, entry);
-			/*debug("saving: %s", da(d,function)->function_name);*/
 			tree_delete(&ce->entry);
-			if (ce->save && da(d,function)->module_designator)
+			if (ce->save && da(d,function)->module_designator) {
+				/*debug("saving: %s", da(d,function)->function_name);*/
 				save_cache_entry(d, ce);
+			}
 			free_cache_entry(d, ce);
 		}
 		save_finish_function(d);
@@ -367,7 +378,17 @@ int function_designator_compare(const struct function_designator *fd1, const str
 		return -1;
 	if (fd1->n_entries > fd2->n_entries)
 		return 1;
-	return memcmp(fd1->entries, fd2->entries, fd1->n_entries * sizeof(fd1->entries[0]));
+	/*return memcmp(fd1->entries, fd2->entries, fd1->n_entries * sizeof(fd1->entries[0]));*/
+	{
+		size_t i;
+		for (i = 0; i < fd1->n_entries; i++) {
+			if (fd1->entries[i] < fd2->entries[i])
+				return -1;
+			if (fd1->entries[i] > fd2->entries[i])
+				return 1;
+		}
+		return 0;
+	}
 }
 
 

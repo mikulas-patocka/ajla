@@ -251,6 +251,7 @@ struct build_function_context {
 	struct pcode_type *pcode_types;		/* indexed by pcode idx */
 	struct layout *layout;
 	struct local_variable *local_variables;	/* indexed by slot */
+	struct local_variable_flags *local_variables_flags;	/* indexed by slot */
 
 	struct color *colors;
 	size_t n_colors;
@@ -267,6 +268,7 @@ struct build_function_context {
 
 	const struct type **types;
 	size_t types_len;
+	struct data *ft_free;
 
 	code_t *code;
 	size_t code_len;
@@ -302,6 +304,7 @@ static void init_ctx(struct build_function_context *ctx)
 	ctx->pcode_types = NULL;
 	ctx->layout = NULL;
 	ctx->local_variables = NULL;
+	ctx->local_variables_flags = NULL;
 	ctx->colors = NULL;
 	ctx->labels = NULL;
 	ctx->label_ref = NULL;
@@ -309,6 +312,7 @@ static void init_ctx(struct build_function_context *ctx)
 	tree_init(&ctx->ld_tree);
 	ctx->args = NULL;
 	ctx->types = NULL;
+	ctx->ft_free = NULL;
 	ctx->types_len = 0;
 	ctx->code = NULL;
 	ctx->record_entries = NULL;
@@ -343,6 +347,8 @@ static void done_ctx(struct build_function_context *ctx)
 		layout_free(ctx->layout);
 	if (ctx->local_variables)
 		mem_free(ctx->local_variables);
+	if (ctx->local_variables_flags)
+		mem_free(ctx->local_variables_flags);
 	if (ctx->colors)
 		mem_free(ctx->colors);
 	if (ctx->labels)
@@ -356,6 +362,8 @@ static void done_ctx(struct build_function_context *ctx)
 		mem_free(ctx->args);
 	if (ctx->types)
 		mem_free(ctx->types);
+	if (ctx->ft_free)
+		mem_free(ctx->ft_free);
 	if (ctx->code)
 		mem_free(ctx->code);
 	if (ctx->record_entries)
@@ -2080,7 +2088,7 @@ static bool pcode_args(struct build_function_context *ctx)
 		ctx->pcode_types[res].argument = &ctx->args[vv];
 		ctx->colors[tr->color].is_argument = true;
 		if (!TYPE_IS_FLAT(tr->type))
-			ctx->local_variables[tr->slot].may_be_borrowed = true;
+			ctx->local_variables_flags[tr->slot].may_be_borrowed = true;
 		vv++;
 	}
 	ctx->n_real_arguments = vv;
@@ -2179,6 +2187,10 @@ static bool pcode_preload_ld(struct build_function_context *ctx)
 		pcode_t instr, instr_params;
 		pcode_get_instr(ctx, &instr, &instr_params);
 		switch (instr) {
+			case P_Args:
+				if (unlikely(!pcode_args(ctx)))
+					goto exception;
+				break;
 #if NEED_OP_EMULATION
 			case P_BinaryOp:
 			case P_UnaryOp: {
@@ -2438,7 +2450,7 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 					(flags & Flag_Evaluate ? OPCODE_OP_FLAG_STRICT : 0) |
 					(flags & Flag_Borrow ? OPCODE_STRUCT_MAY_BORROW : 0));
 				if (flags & Flag_Borrow)
-					ctx->local_variables[tr->slot].may_be_borrowed = true;
+					ctx->local_variables_flags[tr->slot].may_be_borrowed = true;
 				break;
 			case P_Option_Load:
 				res = u_pcode_get();
@@ -2463,7 +2475,7 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 					(flags & Flag_Evaluate ? OPCODE_OP_FLAG_STRICT : 0) |
 					(flags & Flag_Borrow ? OPCODE_STRUCT_MAY_BORROW : 0));
 				if (flags & Flag_Borrow)
-					ctx->local_variables[tr->slot].may_be_borrowed = true;
+					ctx->local_variables_flags[tr->slot].may_be_borrowed = true;
 				break;
 			case P_Option_Create:
 				res = u_pcode_get();
@@ -2603,7 +2615,7 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 					(flags & Flag_Evaluate ? OPCODE_OP_FLAG_STRICT : 0) |
 					(flags & Flag_Borrow ? OPCODE_STRUCT_MAY_BORROW : 0));
 				if (flags & Flag_Borrow)
-					ctx->local_variables[tr->slot].may_be_borrowed = true;
+					ctx->local_variables_flags[tr->slot].may_be_borrowed = true;
 				break;
 			case P_Array_Len:
 				res = u_pcode_get();
@@ -2798,8 +2810,7 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 					goto exception;
 				break;
 			case P_Args:
-				if (unlikely(!pcode_args(ctx)))
-					goto exception;
+				ctx->pcode = ctx->pcode_instr_end;
 				break;
 			case P_Return_Vars:
 				for (p = 0; p < instr_params; p++)
@@ -2945,8 +2956,9 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 
 	size_t is;
 
-	struct data *fn;
+	struct data *ft, *fn;
 	struct function_descriptor *sfd;
+	bool is_saved;
 
 #if defined(HAVE_CODEGEN)
 	union internal_arg ia[1];
@@ -3154,6 +3166,10 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 	if (unlikely(!ctx->local_variables))
 		goto exception;
 
+	ctx->local_variables_flags = mem_alloc_array_mayfail(mem_calloc_mayfail, struct local_variable_flags *, 0, 0, ctx->n_slots, sizeof(struct local_variable_flags), ctx->err);
+	if (unlikely(!ctx->local_variables_flags))
+		goto exception;
+
 	for (v = 0; v < ctx->n_local_variables; v++) {
 		struct pcode_type *pt = &ctx->pcode_types[v];
 		if (!pt->type) {
@@ -3161,7 +3177,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 		} else {
 			pt->slot = layout_get(ctx->layout, pt->color);
 			ctx->local_variables[pt->slot].type = pt->type;
-			ctx->local_variables[pt->slot].may_be_borrowed = false;
+			ctx->local_variables_flags[pt->slot].may_be_borrowed = false;
 		}
 	}
 
@@ -3189,6 +3205,15 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 		sfd = save_find_function_descriptor(md, fd);
 	} else {
 		sfd = NULL;
+	}
+
+	is_saved = false;
+	if (sfd) {
+		ctx->code = sfd->code;
+		ctx->code_len = sfd->code_size;
+		ft = sfd->types;
+		is_saved = true;
+		goto skip_codegen;
 	}
 
 	ctx->labels = mem_alloc_array_mayfail(mem_alloc_mayfail, size_t *, 0, 0, ctx->n_labels, sizeof(size_t), ctx->err);
@@ -3221,10 +3246,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 	}
 
 	array_finish(code_t, &ctx->code, &ctx->code_len);
-	array_finish(pointer_t *, &ctx->ld, &ctx->ld_len);
 	array_finish(struct line_position, &ctx->lp, &ctx->lp_size);
-	mem_free(ctx->local_types), ctx->local_types = NULL;
-	free_ld_tree(ctx);
 
 	for (is = 0; is < ctx->label_ref_len; is++) {
 		uint32_t diff;
@@ -3249,11 +3271,25 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 		}
 	}
 
-	mem_free(ctx->colors), ctx->colors = NULL;
 	mem_free(ctx->labels), ctx->labels = NULL;
 	mem_free(ctx->label_ref), ctx->label_ref = NULL;
 
+	ft = data_alloc_flexible(function_types, types, ctx->types_len, ctx->err);
+	if (unlikely(!ft))
+		goto exception;
+	da(ft,function_types)->n_types = ctx->types_len;
+	memcpy(da(ft,function_types)->types, ctx->types, ctx->types_len * sizeof(const struct type *));
+	mem_free(ctx->types);
+	ctx->types = NULL;
+	ctx->ft_free = ft;
+
+skip_codegen:
+
+	mem_free(ctx->colors), ctx->colors = NULL;
 	mem_free(ctx->pcode_types), ctx->pcode_types = NULL;
+	mem_free(ctx->local_types), ctx->local_types = NULL;
+	free_ld_tree(ctx);
+	array_finish(pointer_t *, &ctx->ld, &ctx->ld_len);
 
 	if (profiling_escapes) {
 		ctx->escape_data = mem_alloc_array_mayfail(mem_calloc_mayfail, struct escape_data *, 0, 0, ctx->code_len, sizeof(struct escape_data), ctx->err);
@@ -3272,16 +3308,28 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 	da(fn,function)->code = ctx->code;
 	da(fn,function)->code_size = ctx->code_len;
 	da(fn,function)->local_variables = ctx->local_variables;
+	if (!is_saved) {
+		da(fn,function)->local_variables_flags = ctx->local_variables_flags;
+	} else {
+		mem_free(ctx->local_variables_flags);
+		da(fn,function)->local_variables_flags = sfd->local_variables_flags;
+	}
+	da(fn,function)->n_slots = ctx->n_slots;
 	da(fn,function)->args = ctx->args;
 	da(fn,function)->local_directory = ctx->ld;
 	da(fn,function)->local_directory_size = ctx->ld_len;
-	da(fn,function)->types = ctx->types;
+	da(fn,function)->types_ptr = pointer_data(ft);
 	da(fn,function)->record_definition = ctx->record_definition ? &ctx->record_definition->type : NULL;
 	da(fn,function)->function_name = cast_ptr(char *, ctx->function_name);
 	da(fn,function)->module_designator = md;
 	da(fn,function)->function_designator = fd;
-	da(fn,function)->lp = ctx->lp;
-	da(fn,function)->lp_size = ctx->lp_size;
+	if (!is_saved) {
+		da(fn,function)->lp = ctx->lp;
+		da(fn,function)->lp_size = ctx->lp_size;
+	} else {
+		da(fn,function)->lp = sfd->lp;
+		da(fn,function)->lp_size = sfd->lp_size;
+	}
 #ifdef HAVE_CODEGEN
 	ia[0].ptr = fn;
 	da(fn,function)->codegen = function_build_internal_thunk(codegen_fn, 1, ia);
@@ -3290,12 +3338,14 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 	function_init_common(fn);
 
 	if (sfd) {
+		/*if (memcmp(ctx->code, sfd->code, ctx->code_len * sizeof(code_t))) internal(file_line, "code mismatch");*/
 		da(fn,function)->loaded_cache = sfd->data_saved_cache;
 		/*if (da(fn,function)->loaded_cache) debug("loaded cache: %s", function_name(ctx));*/
 	}
 
 	da(fn,function)->escape_data = ctx->escape_data;
 	da(fn,function)->leaf = ctx->leaf;
+	da(fn,function)->is_saved = is_saved;
 
 	ipret_prefetch_functions(fn);
 

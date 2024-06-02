@@ -402,7 +402,10 @@ int type_memcmp(const unsigned char *flat1, const unsigned char *flat2, const st
 			arg_t i;
 			for (i = 0; i < rec->n_entries; i++) {
 				frame_t f = rec->idx_to_frame[i];
-				struct flat_record_definition_entry *fde = &fd->entries[f];
+				struct flat_record_definition_entry *fde;
+				if (unlikely(f == NO_FRAME_T))
+					continue;
+				fde = &fd->entries[f];
 				c = type_memcmp(flat1 + fde->flat_offset, flat2 + fde->flat_offset, fde->subtype, 1);
 				if (c)
 					return c;

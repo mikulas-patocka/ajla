@@ -989,17 +989,20 @@ void free_cache_entry(struct data *d, struct cache_entry *ce)
 static void attr_fastcall free_function(void *data)
 {
 	struct data *d = cast_cpp(struct data *, data);
+	pointer_dereference(da(d,function)->types_ptr);
 #ifdef HAVE_CODEGEN
 	pointer_dereference(da(d,function)->codegen);
 #endif
-	mem_free(da(d,function)->code);
+	if (unlikely(!da(d,function)->is_saved))
+		mem_free(da(d,function)->code);
 	mem_free(da(d,function)->local_variables);
+	if (unlikely(!da(d,function)->is_saved))
+		mem_free(da(d,function)->local_variables_flags);
 	if (da(d,function)->args)
 		mem_free(da(d,function)->args);
 	mem_free(da(d,function)->local_directory);
-	mem_free(da(d,function)->types);
 	mem_free(da(d,function)->function_name);
-	if (da(d,function)->lp)
+	if (unlikely(!da(d,function)->is_saved) && da(d,function)->lp)
 		mem_free(da(d,function)->lp);
 	while (unlikely(!tree_is_empty(&da(d,function)->cache))) {
 		struct cache_entry *ce = get_struct(tree_any(&da(d,function)->cache), struct cache_entry, entry);
@@ -2634,28 +2637,27 @@ static bool save_type_get_properties(struct stack_entry *ste, size_t *align, siz
 		case TYPE_TAG_record: {
 			struct record_definition *rec = type_def(t,record);
 			struct stack_entry *subp;
-			size_t i;
-			if (likely(rec->n_entries != 0)) {
-				if (unlikely(!((size_t)rec->n_entries + 1)))
-					return false;
-				subp = mem_alloc_array_mayfail(mem_alloc_mayfail, struct stack_entry *, 0, 0, (size_t)rec->n_entries + 1, sizeof(struct stack_entry), &sink);
-				if (unlikely(!subp))
-					return false;
-				subp[0].t = &save_run;
-				subp[0].ptr = &rec->idx_to_frame;
-				subp[0].align = align_of(frame_t);
-				subp[0].size = rec->n_entries * sizeof(frame_t);
-				for (i = 0; i < rec->n_entries; i++) {
-					size_t slot = record_definition_slot(rec, i);
-					subp[i + 1].t = &save_type;
-					subp[i + 1].ptr = &rec->types[slot];
-				}
-				*subptrs = subp;
-				*subptrs_len = (size_t)rec->n_entries + 1;
-			} else {
-				*subptrs = NULL;
-				*subptrs_len = 0;
+			size_t i, ii;
+			if (unlikely(!((size_t)rec->n_entries + 1)))
+				return false;
+			subp = mem_alloc_array_mayfail(mem_alloc_mayfail, struct stack_entry *, 0, 0, (size_t)rec->n_entries + 1, sizeof(struct stack_entry), &sink);
+			if (unlikely(!subp))
+				return false;
+			subp[0].t = &save_run;
+			subp[0].ptr = &rec->idx_to_frame;
+			subp[0].align = align_of(frame_t);
+			subp[0].size = rec->n_entries * sizeof(frame_t);
+			ii = 1;
+			for (i = 0; i < rec->n_entries; i++) {
+				frame_t slot = rec->idx_to_frame[i];
+				if (unlikely(slot == NO_FRAME_T))
+					continue;
+				subp[ii].t = &save_type;
+				subp[ii].ptr = &rec->types[slot];
+				ii++;
 			}
+			*subptrs = subp;
+			*subptrs_len = ii;
 			*align = align_of(struct record_definition);
 			*size = offsetof(struct record_definition, types[rec->n_slots]);
 			break;
@@ -2664,7 +2666,7 @@ static bool save_type_get_properties(struct stack_entry *ste, size_t *align, siz
 			struct flat_record_definition *def = type_def(t,flat_record);
 			struct record_definition *rec = type_def(def->base,record);
 			struct stack_entry *subp;
-			size_t i;
+			size_t i, ii;
 			if (unlikely(!((size_t)rec->n_entries + 1)))
 				return false;
 			subp = mem_alloc_array_mayfail(mem_alloc_mayfail, struct stack_entry *, 0, 0, (size_t)rec->n_entries + 1, sizeof(struct stack_entry), &sink);
@@ -2672,15 +2674,19 @@ static bool save_type_get_properties(struct stack_entry *ste, size_t *align, siz
 				return false;
 			subp[0].t = &save_type;
 			subp[0].ptr = &def->base;
+			ii = 1;
 			for (i = 0; i < rec->n_entries; i++) {
-				size_t slot = record_definition_slot(rec, i);
-				subp[i + 1].t = &save_type;
-				subp[i + 1].ptr = &def->entries[slot].subtype;
+				frame_t slot = rec->idx_to_frame[i];
+				if (unlikely(slot == NO_FRAME_T))
+					continue;
+				subp[ii].t = &save_type;
+				subp[ii].ptr = &def->entries[slot].subtype;
+				ii++;
 			}
 			*align = align_of(struct flat_record_definition);
 			*size = offsetof(struct flat_record_definition, entries[rec->n_slots]);
 			*subptrs = subp;
-			*subptrs_len = (size_t)rec->n_entries + 1;
+			*subptrs_len = ii;
 			break;
 		}
 		case TYPE_TAG_flat_array: {
@@ -3035,6 +3041,23 @@ static bool attr_fastcall save_array_incomplete(void attr_unused *data, uintptr_
 	return true;
 }
 
+static bool attr_fastcall save_function_types(void *data, uintptr_t attr_unused offset, size_t attr_unused *align, size_t *size, struct stack_entry attr_unused **subptrs, size_t attr_unused *subptrs_l)
+{
+	ajla_error_t sink;
+	struct data *d = data;
+	size_t i;
+	*size = data_function_types_offset + da(d,function_types)->n_types * sizeof(const struct type *);
+	*subptrs = mem_alloc_array_mayfail(mem_alloc_mayfail, struct stack_entry *, 0, 0, da(d,function_types)->n_types, sizeof(struct stack_entry), &sink);
+	if (unlikely(!*subptrs))
+		return false;
+	for (i = 0; i < da(d,function_types)->n_types; i++) {
+		(*subptrs)[i].t = &save_type;
+		(*subptrs)[i].ptr = &da(d,function_types)->types[i];
+	}
+	*subptrs_l = da(d,function_types)->n_types;
+	return true;
+}
+
 static bool attr_fastcall save_saved(void *data, uintptr_t attr_unused offset, size_t attr_unused *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_l)
 {
 	ajla_error_t sink;
@@ -3284,6 +3307,7 @@ void name(data_init)(void)
 	data_method_table[DATA_TAG_array_same].save = save_array_same;
 	data_method_table[DATA_TAG_array_btree].save = save_array_btree;
 	data_method_table[DATA_TAG_array_incomplete].save = save_array_incomplete;
+	data_method_table[DATA_TAG_function_types].save = save_function_types;
 	data_method_table[DATA_TAG_saved].save = save_saved;
 	data_method_table[DATA_TAG_saved_cache].save = save_saved_cache;
 	data_method_table[THUNK_TAG_EXCEPTION].save = save_exception;

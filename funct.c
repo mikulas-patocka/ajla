@@ -162,12 +162,13 @@ void function_init_common(struct data *fn)
 	tree_init(&da(fn,function)->cache);
 	store_relaxed(&da(fn,function)->profiling_counter, 0);
 	store_relaxed(&da(fn,function)->call_counter, 0);
+	da(fn,function)->is_saved = false;
 }
 
 void name(function_init)(void)
 {
 	struct layout *layout;
-	struct data *int_fn;
+	struct data *ft, *int_fn;
 	frame_t n_slots;
 	struct local_variable *lv;
 	struct local_arg *ar;
@@ -181,6 +182,9 @@ void name(function_init)(void)
 	}
 	layout_compute(layout, false, NULL);
 
+	ft = data_alloc_flexible(function_types, types, 0, NULL);
+	da(ft,function_types)->n_types = 0;
+
 	int_fn = data_alloc(function, NULL);
 
 	n_slots = layout_size(layout);
@@ -191,10 +195,11 @@ void name(function_init)(void)
 	da(int_fn,function)->code = mem_alloc_array_mayfail(mem_alloc_mayfail, code_t *, 0, 0, code_size, sizeof(code_t), NULL);
 	da(int_fn,function)->code_size = code_size;
 	da(int_fn,function)->local_variables = lv = mem_alloc_array_mayfail(mem_calloc_mayfail, struct local_variable *, 0, 0, n_slots, sizeof(struct local_variable), NULL);
+	da(int_fn,function)->local_variables_flags = mem_alloc_array_mayfail(mem_calloc_mayfail, struct local_variable_flags *, 0, 0, n_slots, sizeof(struct local_variable_flags), NULL);
 	da(int_fn,function)->args = ar = mem_alloc(struct local_arg *, N_ARGUMENTS * sizeof(struct local_arg));
 	da(int_fn,function)->local_directory = mem_alloc(pointer_t **, 0);
 	da(int_fn,function)->local_directory_size = 0;
-	da(int_fn,function)->types = mem_alloc(const struct type **, 0);
+	da(int_fn,function)->types_ptr = pointer_data(ft);
 	da(int_fn,function)->record_definition = NULL;
 	da(int_fn,function)->function_name = str_dup("internal_function", -1, NULL);
 	da(int_fn,function)->lp = NULL;

@@ -1961,7 +1961,7 @@ static bool attr_w gen_test_2_cached(struct codegen_context *ctx, frame_t slot_1
 static bool attr_w gen_test_1_jz_cached(struct codegen_context *ctx, frame_t slot_1, uint32_t label)
 {
 	const struct type *type = get_type_of_local(ctx, slot_1);
-	if (!TYPE_IS_FLAT(type) && !da(ctx->fn,function)->local_variables[slot_1].may_be_borrowed)
+	if (!TYPE_IS_FLAT(type) && !da(ctx->fn,function)->local_variables_flags[slot_1].may_be_borrowed)
 		return true;
 	if (!flag_cache_chicken && ctx->flag_cache[slot_1] == 1)
 		return true;
@@ -2521,7 +2521,7 @@ static bool attr_w gen_frame_get_pointer(struct codegen_context *ctx, frame_t sl
 		g(gen_upcall_argument(ctx, 0));
 		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1));
 		g(gen_frame_load(ctx, OP_SIZE_SLOT, false, slot, 0, dest));
-	} else if (!da(ctx->fn,function)->local_variables[slot].may_be_borrowed) {
+	} else if (!da(ctx->fn,function)->local_variables_flags[slot].may_be_borrowed) {
 		g(gen_frame_load(ctx, OP_SIZE_SLOT, false, slot, 0, dest));
 		g(gen_set_1(ctx, R_FRAME, slot, 0, false));
 		ctx->flag_cache[slot] = -1;
@@ -6159,7 +6159,7 @@ static bool attr_w gen_ref_move_copy(struct codegen_context *ctx, code_t code, f
 	if (code == OPCODE_REF_COPY) {
 		g(gen_upcall_argument(ctx, 0));
 		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1));
-	} else if (code == OPCODE_REF_MOVE && !da(ctx->fn,function)->local_variables[slot_1].may_be_borrowed) {
+	} else if (code == OPCODE_REF_MOVE && !da(ctx->fn,function)->local_variables_flags[slot_1].may_be_borrowed) {
 		g(gen_set_1(ctx, R_FRAME, slot_1, 0, false));
 		ctx->flag_cache[slot_1] = -1;
 	} else {
@@ -6739,7 +6739,7 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 			g(gen_frame_load(ctx, OP_SIZE_SLOT, false, src_arg->slot, 0, R_ARG0));
 			g(gen_upcall_argument(ctx, 0));
 			g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1));
-		} else if (da(ctx->fn,function)->local_variables[src_arg->slot].may_be_borrowed) {
+		} else if (da(ctx->fn,function)->local_variables_flags[src_arg->slot].may_be_borrowed) {
 			g(gen_test_1_cached(ctx, src_arg->slot, load_write_ptr_label));
 			g(gen_frame_load(ctx, OP_SIZE_SLOT, false, src_arg->slot, 0, R_ARG0));
 			g(gen_upcall_argument(ctx, 0));
@@ -6961,7 +6961,7 @@ struct_zero:
 			switch (ctx->args[i].flags & OPCODE_STRUCTURED_MASK) {
 				case OPCODE_STRUCTURED_RECORD: {
 					const struct type *rec_type, *e_type;
-					rec_type = da(ctx->fn,function)->types[ctx->args[i].type];
+					rec_type = da_type(ctx->fn, ctx->args[i].type);
 					TYPE_TAG_VALIDATE(rec_type->tag);
 					if (unlikely(rec_type->tag == TYPE_TAG_flat_record))
 						rec_type = type_def(rec_type,flat_record)->base;
@@ -6998,7 +6998,7 @@ struct_zero:
 					break;
 				}
 				case OPCODE_STRUCTURED_ARRAY: {
-					const struct type *e_type = da(ctx->fn,function)->types[ctx->args[i].type];
+					const struct type *e_type = da_type(ctx->fn, ctx->args[i].type);
 
 					g(gen_test_1_cached(ctx, param_slot, escape_label));
 					ctx->flag_cache[param_slot] = -1;
@@ -7628,7 +7628,7 @@ static bool attr_w gen_array_create_empty_flat(struct codegen_context *ctx, fram
 	if (unlikely(!escape_label))
 		return false;
 
-	type = da(ctx->fn,function)->types[local_type];
+	type = da_type(ctx->fn, local_type);
 
 	g(gen_load_constant(ctx, R_ARG0, ptr_to_num(type)));
 	g(gen_upcall_argument(ctx, 0));
@@ -8928,7 +8928,7 @@ unconditional_escape:
 			}
 			case OPCODE_TAKE_BORROWED:
 				get_one(ctx, &slot_1);
-				if (!da(ctx->fn,function)->local_variables[slot_1].may_be_borrowed)
+				if (!da(ctx->fn,function)->local_variables_flags[slot_1].may_be_borrowed)
 					continue;
 				if (unlikely(!(label_id = alloc_label(ctx))))
 					return false;

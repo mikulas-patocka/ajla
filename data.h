@@ -880,6 +880,9 @@ struct data_resource {
 
 struct local_variable {
 	const struct type *type;
+};
+
+struct local_variable_flags {
 	bool may_be_borrowed;
 };
 
@@ -925,11 +928,13 @@ struct data_function {
 	arg_t n_return_values;
 	code_t *code;
 	ip_t code_size;
-	const struct local_variable *local_variables;	/* indexed by slot */
-	const struct local_arg *args;			/* indexed by argument */
+	const struct local_variable *local_variables;			/* indexed by slot */
+	const struct local_variable_flags *local_variables_flags;	/* indexed by slot */
+	frame_t n_slots;
+	const struct local_arg *args;					/* indexed by argument */
 	pointer_t * const *local_directory;
 	frame_t local_directory_size;
-	const struct type **types;
+	pointer_t types_ptr;
 	const struct type *record_definition;
 	const struct module_designator *module_designator;
 	const struct function_designator *function_designator;
@@ -946,6 +951,12 @@ struct data_function {
 	atomic_type profile_counter_t call_counter;
 	struct escape_data *escape_data;
 	bool leaf;
+	bool is_saved;
+};
+
+struct data_function_types {
+	size_t n_types;
+	const struct type *types[FLEXIBLE_ARRAY_GCC];
 };
 
 #ifdef HAVE_CODEGEN
@@ -1021,25 +1032,26 @@ typedef uchar_efficient_t tag_t;
 #define DATA_TAG_function_reference		11
 #define DATA_TAG_resource			12
 #define DATA_TAG_function			13
+#define DATA_TAG_function_types			14
 #ifdef HAVE_CODEGEN
-#define DATA_TAG_codegen			14
+#define DATA_TAG_codegen			15
 #endif
-#define DATA_TAG_internal			15
-#define DATA_TAG_saved				16
-#define DATA_TAG_saved_cache			17
-#define DATA_TAG_END				18
+#define DATA_TAG_internal			16
+#define DATA_TAG_saved				17
+#define DATA_TAG_saved_cache			18
+#define DATA_TAG_END				19
 
-#define THUNK_TAG_START				18
-#define THUNK_TAG_FUNCTION_CALL			18
-#define THUNK_TAG_BLACKHOLE			19
-#define THUNK_TAG_BLACKHOLE_SOME_DEREFERENCED	20
-#define THUNK_TAG_BLACKHOLE_DEREFERENCED	21
-#define THUNK_TAG_RESULT			22
-#define THUNK_TAG_MULTI_RET_REFERENCE		23
-#define THUNK_TAG_EXCEPTION			24
-#define THUNK_TAG_END				25
+#define THUNK_TAG_START				19
+#define THUNK_TAG_FUNCTION_CALL			19
+#define THUNK_TAG_BLACKHOLE			20
+#define THUNK_TAG_BLACKHOLE_SOME_DEREFERENCED	21
+#define THUNK_TAG_BLACKHOLE_DEREFERENCED	22
+#define THUNK_TAG_RESULT			23
+#define THUNK_TAG_MULTI_RET_REFERENCE		24
+#define THUNK_TAG_EXCEPTION			25
+#define THUNK_TAG_END				26
 
-#define TAG_END					25
+#define TAG_END					26
 
 #if defined(POINTER_TAG_AT_ALLOC) && DATA_TAG_END <= (1 << POINTER_IGNORE_BITS) / 2
 #define DATA_TAG_AT_ALLOC
@@ -1066,6 +1078,7 @@ struct data {
 
 		/* these do not appear on the ajla heap */
 		struct data_function function;
+		struct data_function_types function_types;
 #ifdef HAVE_CODEGEN
 		struct data_codegen codegen;
 #endif
@@ -1104,6 +1117,7 @@ struct data {
 #define data_array_offset	(data_array_offset_ + scalar_align)
 #define data_resource_offset	(data_resource_offset_ + scalar_align)
 #endif
+#define data_function_types_offset	offsetof(struct data, u_.function_types.types)
 
 static attr_always_inline unsigned char *da_flat(struct data *d)
 {
@@ -1127,6 +1141,13 @@ static attr_always_inline unsigned char *da_array_flat(struct data *d)
 	ajla_assert(da(parent,array_btree)->n_used_btree_entries >= 2 && da(parent,array_btree)->n_used_btree_entries <= BTREE_MAX_SIZE, (file_line, "da_array_assert_son: invalid parent size %"PRIuMAX"", (uintmax_t)da(parent,array_btree)->n_used_btree_entries)),\
 	ajla_assert(da_array_depth(son) + 1 == da_array_depth(parent), (file_line, "da_array_assert_son: depth mismatch: %d, %d", da_array_depth(parent), da_array_depth(son)))\
 	)
+
+static attr_always_inline const struct type *da_type(struct data *fn, size_t idx)
+{
+	struct data *t = pointer_get_data(da(fn,function)->types_ptr);
+	ajla_assert(idx < da(t,function_types)->n_types, (file_line, "da_type: access out of range: %"PRIuMAX" >= %"PRIuMAX"", (uintmax_t)idx, (uintmax_t)da(t,function_types)->n_types));
+	return da(t,function_types)->types[idx];
+}
 
 #define function_frame_size(fn)		((size_t)da(fn,function)->frame_slots * slot_size)
 #define function_n_variables(fn)	((size_t)da(fn,function)->frame_slots - frame_offset / slot_size)

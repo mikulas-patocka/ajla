@@ -96,7 +96,7 @@ static mutex_t dependencies_mutex;
 
 static int function_compare(const struct module_designator *md1, const struct function_designator *fd1, struct function_descriptor *fd2);
 static void save_one_entry(arg_t n_arguments, arg_t n_return_values, pointer_t *arguments, pointer_t *returns);
-static void save_finish_one(const struct module_designator *md, const struct function_designator *fd, arg_t n_arguments, arg_t n_return_values);
+static void save_finish_one(const struct module_designator *md, const struct function_designator *fd, arg_t n_arguments, arg_t n_return_values, code_t *code, ip_t code_size, const struct local_variable_flags *local_variables_flags, frame_t n_slots, struct data *types, struct line_position *lp, size_t lp_size);
 static bool dep_get_stream(char **result, size_t *result_l);
 
 
@@ -413,7 +413,17 @@ static void save_loaded_function(struct function_descriptor *fn_desc)
 		if (unlikely(!save_ok))
 			return;
 	}
-	save_finish_one(fn_desc->md, fn_desc->fd, da(dsc,saved_cache)->n_arguments, da(dsc,saved_cache)->n_return_values);
+	save_finish_one(fn_desc->md,
+			fn_desc->fd,
+			da(dsc,saved_cache)->n_arguments,
+			da(dsc,saved_cache)->n_return_values,
+			fn_desc->code,
+			fn_desc->code_size,
+			fn_desc->local_variables_flags,
+			fn_desc->n_slots,
+			fn_desc->types,
+			fn_desc->lp,
+			fn_desc->lp_size);
 }
 
 static void save_functions_until(struct data *d)
@@ -475,6 +485,25 @@ static void save_one_entry(arg_t n_arguments, arg_t n_return_values, pointer_t *
 	}
 }
 
+void save_start_function(struct data *d, bool new_cache)
+{
+	if (!da(d,function)->n_return_values)
+		return;
+	if (!da(d,function)->is_saved || new_cache) {
+		ajla_error_t sink;
+		/*const struct module_designator *md = da(d,function)->module_designator;
+		const struct function_designator *fd = da(d,function)->function_designator;
+		debug("save_start_function: %u:%.*s:%u (%lu) - %s", md->path_idx, (int)md->path_len, md->path, fd->entries[0], fd->n_entries, da(d,function)->function_name);*/
+		save_functions_until(d);
+		if (unlikely(!save_ok))
+			return;
+		if (unlikely(!array_init_mayfail(pointer_t, &pointers, &pointers_len, &sink))) {
+			save_ok = false;
+			return;
+		}
+	}
+}
+
 void save_cache_entry(struct data *d, struct cache_entry *ce)
 {
 	arg_t i;
@@ -498,15 +527,6 @@ void save_cache_entry(struct data *d, struct cache_entry *ce)
 			return;
 		}
 	}
-	if (!pointers) {
-		save_functions_until(d);
-		if (unlikely(!save_ok))
-			return;
-		if (unlikely(!array_init_mayfail(pointer_t, &pointers, &pointers_len, &sink))) {
-			save_ok = false;
-			return;
-		}
-	}
 	save_entries_until(ce->arguments);
 	if (!save_ok)
 		return;
@@ -522,16 +542,21 @@ void save_cache_entry(struct data *d, struct cache_entry *ce)
 	mem_free(returns);
 }
 
-static void save_finish_one(const struct module_designator *md, const struct function_designator *fd, arg_t n_arguments, arg_t n_return_values)
+static void save_finish_one(const struct module_designator *md, const struct function_designator *fd, arg_t n_arguments, arg_t n_return_values, code_t *code, ip_t code_size, const struct local_variable_flags *local_variables_flags, frame_t n_slots, struct data *types, struct line_position *lp, size_t lp_size)
 {
 	ajla_error_t sink;
 	size_t saved_pos;
 	struct function_descriptor fn_desc;
 	struct data *dsc;
+	size_t code_off, lvf_off, lp_off;
 	size_t last_fd;
-	if (!n_return_values || !pointers_len)
+	pointer_t types_ptr = pointer_data(types);
+	size_t saved_types;
+	if (!n_return_values)
 		goto free_it;
-	/*debug("save_finish_one: %u:%.*s:%u", md->path_idx, (int)md->path_len, md->path, fd->entries[0]);*/
+	if (!pointers)
+		goto free_it;
+	/*debug("save_finish_one: %u:%.*s:%u (%lu)", md->path_idx, (int)md->path_len, md->path, fd->entries[0], fd->n_entries);*/
 	dsc = data_alloc_flexible(saved_cache, pointers, pointers_len, &sink);
 	if (unlikely(!dsc)) {
 		save_ok = false;
@@ -551,6 +576,24 @@ static void save_finish_one(const struct module_designator *md, const struct fun
 		goto free_it_2;
 	}
 
+	code_off = save_range(code, align_of(code_t), (size_t)code_size * sizeof(code_t), NULL, 0);
+	if (unlikely(code_off == (size_t)-1))
+		goto free_it_2;
+
+	lvf_off = save_range(local_variables_flags, align_of(struct local_variable_flags), (size_t)n_slots * sizeof(struct local_variable_flags), NULL, 0);
+	if (unlikely(lvf_off == (size_t)-1))
+		goto free_it_2;
+
+	saved_types = save_pointer(&types_ptr, false);
+	if (unlikely(saved_types == (size_t)-1)) {
+		save_ok = false;
+		goto free_it_2;
+	}
+
+	lp_off = save_range(lp, align_of(struct line_position), (size_t)lp_size * sizeof(struct line_position), NULL, 0);
+	if (unlikely(lp_off == (size_t)-1))
+		goto free_it_2;
+
 	if (!(last_md != (size_t)-1 && !module_designator_compare(cast_ptr(struct module_designator *, save_data + last_md), md))) {
 		last_md = save_range(md, align_of(struct module_designator), module_designator_length(md), NULL, 0);
 		if (unlikely(last_md == (size_t)-1))
@@ -563,6 +606,14 @@ static void save_finish_one(const struct module_designator *md, const struct fun
 
 	fn_desc.data_saved_cache = num_to_ptr(saved_pos);
 	fn_desc.data_saved_cache = data_pointer_tag(fn_desc.data_saved_cache, DATA_TAG_saved_cache);
+	fn_desc.code = num_to_ptr(code_off);
+	fn_desc.code_size = code_size;
+	fn_desc.local_variables_flags = num_to_ptr(lvf_off);
+	fn_desc.n_slots = n_slots;
+	fn_desc.types = num_to_ptr(saved_types);
+	fn_desc.types = data_pointer_tag(fn_desc.types, DATA_TAG_function_types);
+	fn_desc.lp = num_to_ptr(lp_off);
+	fn_desc.lp_size = lp_size;
 	fn_desc.md = num_to_ptr(last_md);
 	fn_desc.fd = num_to_ptr(last_fd);
 	if (!unlikely(array_add_mayfail(struct function_descriptor, &fn_descs, &fn_descs_len, fn_desc, NULL, &sink))) {
@@ -588,11 +639,21 @@ void save_finish_function(struct data *d)
 		loaded_fn_idx++;
 		loaded_fn_cache = (size_t)-1;
 	}
-	save_finish_one(da(d,function)->module_designator, da(d,function)->function_designator, da(d,function)->n_arguments, da(d,function)->n_return_values);
+	save_finish_one(da(d,function)->module_designator,
+			da(d,function)->function_designator,
+			da(d,function)->n_arguments,
+			da(d,function)->n_return_values,
+			da(d,function)->code, da(d,function)->code_size,
+			da(d,function)->local_variables_flags,
+			da(d,function)->n_slots,
+			pointer_get_data(da(d,function)->types_ptr),
+			da(d,function)->lp,
+			da(d,function)->lp_size);
 }
 
 static void save_finish_file(void)
 {
+	const int fn_desc_ptrs = 7;
 	ajla_error_t sink;
 	struct stack_entry *subptrs;
 	char *deps;
@@ -607,18 +668,22 @@ static void save_finish_file(void)
 
 	save_functions_until(NULL);
 
-	subptrs = mem_alloc_array_mayfail(mem_alloc_mayfail, struct stack_entry *, 0, 0, fn_descs_len, sizeof(struct stack_entry) * 3, &sink);
+	subptrs = mem_alloc_array_mayfail(mem_alloc_mayfail, struct stack_entry *, 0, 0, fn_descs_len, sizeof(struct stack_entry) * fn_desc_ptrs, &sink);
 	if (unlikely(!subptrs)) {
 		save_ok = false;
 		return;
 	}
 	for (i = 0; i < fn_descs_len; i++) {
-		subptrs[i * 3 + 0].ptr = &fn_descs[i].data_saved_cache;
-		subptrs[i * 3 + 1].ptr = &fn_descs[i].md;
-		subptrs[i * 3 + 2].ptr = &fn_descs[i].fd;
+		subptrs[i * fn_desc_ptrs + 0].ptr = &fn_descs[i].data_saved_cache;
+		subptrs[i * fn_desc_ptrs + 1].ptr = &fn_descs[i].code;
+		subptrs[i * fn_desc_ptrs + 2].ptr = &fn_descs[i].local_variables_flags;
+		subptrs[i * fn_desc_ptrs + 3].ptr = &fn_descs[i].types;
+		subptrs[i * fn_desc_ptrs + 4].ptr = &fn_descs[i].lp;
+		subptrs[i * fn_desc_ptrs + 5].ptr = &fn_descs[i].md;
+		subptrs[i * fn_desc_ptrs + 6].ptr = &fn_descs[i].fd;
 		/*debug("%p %p %zx", fn_descs[i].data_saved_cache, fn_descs[i].md, fn_descs[i].idx);*/
 	}
-	fn_descs_offset = save_range(fn_descs, align_of(struct function_descriptor), fn_descs_len * sizeof(struct function_descriptor), subptrs, fn_descs_len * 3);
+	fn_descs_offset = save_range(fn_descs, align_of(struct function_descriptor), fn_descs_len * sizeof(struct function_descriptor), subptrs, fn_descs_len * fn_desc_ptrs);
 	mem_free(subptrs);
 	if (unlikely(fn_descs_offset == (size_t)-1))
 		return;
@@ -1050,12 +1115,14 @@ verify_ret:
 					internal(file_line, "save_init: misordered function descriptors: %d (%"PRIuMAX" / %"PRIuMAX")", c, (uintmax_t)i, (uintmax_t)loaded_file_descriptor->fn_descs_len);
 			}
 			k = (size_t)da(dsc,saved_cache)->n_arguments + (size_t)da(dsc,saved_cache)->n_return_values;
-			for (j = 0; j < da(dsc,saved_cache)->n_entries - 1; j++) {
-				pointer_t *p1 = &da(dsc,saved_cache)->pointers[j * k];
-				pointer_t *p2 = &da(dsc,saved_cache)->pointers[(j + 1) * k];
-				int c = compare_arguments(da(dsc,saved_cache)->n_arguments, p1, p2);
-				if (unlikely(c >= 0) && c != DATA_COMPARE_OOM)
-					internal(file_line, "save_init: misordered cache entries: %d", c);
+			if (da(dsc,saved_cache)->n_entries) {
+				for (j = 0; j < da(dsc,saved_cache)->n_entries - 1; j++) {
+					pointer_t *p1 = &da(dsc,saved_cache)->pointers[j * k];
+					pointer_t *p2 = &da(dsc,saved_cache)->pointers[(j + 1) * k];
+					int c = compare_arguments(da(dsc,saved_cache)->n_arguments, p1, p2);
+					if (unlikely(c >= 0) && c != DATA_COMPARE_OOM)
+						internal(file_line, "save_init: misordered cache entries: %d", c);
+				}
 			}
 		}
 	}
@@ -1106,10 +1173,12 @@ static void save_stream(void)
 
 void name(save_done)(void)
 {
+	/*debug("1: save_data: %p, save_ok %d", save_data, save_ok);*/
 	if (save_ok) {
 		save_finish_file();
 	}
 	free_position_tree(&position_tree);
+	/*debug("2: save_data: %p, save_ok %d", save_data, save_ok);*/
 	if (save_data) {
 		if (save_ok) {
 			save_stream();

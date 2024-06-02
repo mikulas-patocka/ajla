@@ -1049,7 +1049,7 @@ DEFINE_OPCODE_START(OPCODE_CHECKPOINT)
 		);
 #endif
 
-		/*debug("running optimized code: %s, %p, %x, %p, %d, %p, %p, %u", da(fn,function)->function_name, da(codegen,codegen)->unoptimized_code_base, id, da(codegen,codegen)->unoptimized_code[id], da(codegen,codegen)->entry_offset, fp, &cg_upcall_vector, ts);*/
+		/*debug("running optimized code: %s, %p, %x, %p, %p, %p, %u", da(fn,function)->function_name, da(codegen,codegen)->unoptimized_code_base, id, da(codegen,codegen)->unoptimized_code[id], fp, &cg_upcall_vector, ts);*/
 		/*debug("fp[0] = %lx", *(long *)((char *)fp + 0));
 		debug("fp[8] = %lx", *(long *)((char *)fp + 8));
 		debug("fp[16] = %lx", *(long *)((char *)fp + 16));
@@ -2357,7 +2357,7 @@ DEFINE_OPCODE_START(OPCODE_ARRAY_CREATE_EMPTY_FLAT)
 #ifdef EMIT_CODE
 	frame_t result_slot;
 	struct data *a;
-	const struct type *type = da(get_frame(fp)->function,function)->types[get_i_param(1)];
+	const struct type *type = da_type(get_frame(fp)->function, get_i_param(1));
 	TYPE_TAG_VALIDATE(type->tag);
 
 	a = data_alloc_array_flat_mayfail(type, 0, 0, false, &ajla_error pass_file_line);
