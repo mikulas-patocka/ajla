@@ -7848,9 +7848,8 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 static bool attr_w gen_array_string(struct codegen_context *ctx, type_tag_t tag, uint8_t *string, frame_t len, frame_t slot_r)
 {
 	uint32_t escape_label;
-	uintptr_t string_loc = ptr_to_num(string);
-	uintptr_t sca = scalar_align;
-	size_t align = minimum(sca, string_loc & -string_loc);
+	int64_t offset;
+	const struct type *type;
 
 	escape_label = alloc_escape_label(ctx);
 	if (unlikely(!escape_label))
@@ -7872,9 +7871,11 @@ static bool attr_w gen_array_string(struct codegen_context *ctx, type_tag_t tag,
 	g(gen_compress_pointer(ctx, R_RET0));
 	g(gen_frame_set_pointer(ctx, slot_r, R_RET0));
 
-	g(gen_load_constant(ctx, R_SCRATCH_3, string_loc));
+	g(load_function_offset(ctx, R_SCRATCH_3, offsetof(struct data, u_.function.code)));
 
-	g(gen_memcpy(ctx, R_SAVED_1, data_array_offset, R_SCRATCH_3, 0, (size_t)len * type_get_from_tag(tag)->size, align));
+	offset = string - cast_ptr(uint8_t *, da(ctx->fn,function)->code);
+	type = type_get_from_tag(tag);
+	g(gen_memcpy(ctx, R_SAVED_1, data_array_offset, R_SCRATCH_3, offset, (size_t)len * type->size, minimum(type->align, align_of(code_t))));
 
 	return true;
 }
