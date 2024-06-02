@@ -6404,17 +6404,22 @@ static bool attr_w gen_load_fn_or_curry(struct codegen_context *ctx, frame_t fn_
 				gen_insn(INSN_JMP, 0, 0, 0);
 				gen_four(next_arg_label);
 			} else {
-				g(gen_load_constant(ctx, R_ARG0, ptr_to_num(t)));
+				gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+				gen_one(R_ARG0);
+				gen_one(R_FRAME);
 				g(gen_upcall_argument(ctx, 0));
+
+				g(gen_load_constant(ctx, R_ARG1, arg_slot));
+				g(gen_upcall_argument(ctx, 1));
 
 				g(gen_imm(ctx, (size_t)arg_slot * slot_size, IMM_PURPOSE_ADD, i_size(OP_SIZE_ADDRESS)));
 				gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, is_imm()));
-				gen_one(R_ARG1);
+				gen_one(R_ARG2);
 				gen_one(R_FRAME);
 				gen_imm_offset();
-				g(gen_upcall_argument(ctx, 1));
+				g(gen_upcall_argument(ctx, 2));
 
-				g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 2));
+				g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 3));
 
 				gen_insn(INSN_JMP, 0, 0, 0);
 				gen_four(set_ptr_label);
@@ -6510,13 +6515,18 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 			if (dest_arg->may_be_flat) {
 				g(gen_memcpy(ctx, R_FRAME, new_fp_offset + (size_t)dest_arg->slot * slot_size, R_FRAME, (size_t)src_arg->slot * slot_size, t->size, maximum(slot_size, t->align)));
 			} else {
-				g(gen_load_constant(ctx, R_ARG0, ptr_to_num(t)));
+				gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+				gen_one(R_ARG0);
+				gen_one(R_FRAME);
 				g(gen_upcall_argument(ctx, 0));
 
-				g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG1, R_FRAME, (size_t)src_arg->slot * slot_size));
+				g(gen_load_constant(ctx, R_ARG1, src_arg->slot));
 				g(gen_upcall_argument(ctx, 1));
 
-				g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 2));
+				g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG2, R_FRAME, (size_t)src_arg->slot * slot_size));
+				g(gen_upcall_argument(ctx, 2));
+
+				g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 3));
 
 				g(gen_frame_store(ctx, OP_SIZE_SLOT, dest_arg->slot, new_fp_offset, R_RET0));
 
@@ -6734,13 +6744,18 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 
 			gen_label(flat_to_data_label);
 
-			g(gen_load_constant(ctx, R_ARG0, ptr_to_num(t)));
+			gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+			gen_one(R_ARG0);
+			gen_one(R_FRAME);
 			g(gen_upcall_argument(ctx, 0));
 
-			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG1, R_FRAME, (size_t)src_arg->slot * slot_size));
+			g(gen_load_constant(ctx, R_ARG1, src_arg->slot));
 			g(gen_upcall_argument(ctx, 1));
 
-			g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 2));
+			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG2, R_FRAME, (size_t)src_arg->slot * slot_size));
+			g(gen_upcall_argument(ctx, 2));
+
+			g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 3));
 
 			if (!flag_cache_chicken && ctx->flag_cache[src_arg->slot] == -1)
 				goto skip_ref_argument;
@@ -7166,13 +7181,18 @@ static bool attr_w gen_record_create(struct codegen_context *ctx, frame_t slot_r
 				gen_insn(INSN_JMP, 0, 0, 0);
 				gen_four(next_arg_label);
 			} else {
-				g(gen_load_constant(ctx, R_ARG0, ptr_to_num(var_type)));
+				gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+				gen_one(R_ARG0);
+				gen_one(R_FRAME);
 				g(gen_upcall_argument(ctx, 0));
 
-				g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG1, R_FRAME, (size_t)var_slot * slot_size));
+				g(gen_load_constant(ctx, R_ARG1, var_slot));
 				g(gen_upcall_argument(ctx, 1));
 
-				g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 2));
+				g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG2, R_FRAME, (size_t)var_slot * slot_size));
+				g(gen_upcall_argument(ctx, 2));
+
+				g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 3));
 
 				gen_insn(INSN_JMP, 0, 0, 0);
 				gen_four(set_ptr_label);
@@ -7330,13 +7350,18 @@ static bool attr_w gen_option_create(struct codegen_context *ctx, ajla_option_t 
 	if (TYPE_IS_FLAT(type)) {
 		g(gen_test_1_cached(ctx, slot_1, get_pointer_label));
 
-		g(gen_load_constant(ctx, R_ARG0, ptr_to_num(type)));
+		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+		gen_one(R_ARG0);
+		gen_one(R_FRAME);
 		g(gen_upcall_argument(ctx, 0));
 
-		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG1, R_FRAME, (size_t)slot_1 * slot_size));
+		g(gen_load_constant(ctx, R_ARG1, slot_1));
 		g(gen_upcall_argument(ctx, 1));
 
-		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 2));
+		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG2, R_FRAME, (size_t)slot_1 * slot_size));
+		g(gen_upcall_argument(ctx, 2));
+
+		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 3));
 
 		if (!flag_cache_chicken && ctx->flag_cache[slot_1] == -1)
 			goto skip_get_pointer_label;
@@ -7738,13 +7763,18 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 		if (TYPE_IS_FLAT(content_type)) {
 			g(gen_test_1_cached(ctx, slot_1, get_ptr_label));
 
-			g(gen_load_constant(ctx, R_ARG0, ptr_to_num(content_type)));
+			gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+			gen_one(R_ARG0);
+			gen_one(R_FRAME);
 			g(gen_upcall_argument(ctx, 0));
 
-			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG1, R_FRAME, (size_t)slot_1 * slot_size));
+			g(gen_load_constant(ctx, R_ARG1, slot_1));
 			g(gen_upcall_argument(ctx, 1));
 
-			g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 2));
+			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG2, R_FRAME, (size_t)slot_1 * slot_size));
+			g(gen_upcall_argument(ctx, 2));
+
+			g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 3));
 
 			gen_insn(ARCH_PREFERS_SX(i_size(OP_SIZE_SLOT)) ? INSN_MOVSX : INSN_MOV, i_size(OP_SIZE_SLOT), 0, 0);
 			gen_one(R_ARG1);

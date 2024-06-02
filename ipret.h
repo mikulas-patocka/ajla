@@ -43,7 +43,7 @@ struct cg_upcall_vector_s {
 	void (*mem_clear)(void *ptr, size_t size);
 	void (*cg_upcall_pointer_dereference)(pointer_t_upcall ptr);
 	void (*cg_upcall_pointer_reference_owned)(pointer_t_upcall ptr);
-	pointer_t (*cg_upcall_flat_to_data)(const struct type *type, const unsigned char *flat);
+	pointer_t (*cg_upcall_flat_to_data)(frame_s *fp, uintptr_t slot, const unsigned char *flat);
 	unsigned char *(*cg_upcall_data_alloc_function_reference_mayfail)(uintptr_t n_curried_arguments);
 	unsigned char *(*cg_upcall_data_alloc_record_mayfail)(const struct record_definition *def);
 	unsigned char *(*cg_upcall_data_alloc_option_mayfail)(void);

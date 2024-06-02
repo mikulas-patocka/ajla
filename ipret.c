@@ -790,8 +790,9 @@ static void cg_upcall_pointer_reference_owned(pointer_t_upcall ptr)
 	pointer_reference_owned(ptr);
 }
 
-static pointer_t cg_upcall_flat_to_data(const struct type *type, const unsigned char *flat)
+static pointer_t cg_upcall_flat_to_data(frame_s *fp, uintptr_t slot, const unsigned char *flat)
 {
+	const struct type *type = frame_get_type_of_local(fp, slot);
 	return flat_to_data(type, flat);
 }
 
