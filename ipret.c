@@ -815,15 +815,24 @@ static unsigned char *cg_upcall_data_alloc_option_mayfail(void)
 	return cast_ptr(unsigned char *, data_alloc(option, &sink));
 }
 
-static unsigned char *cg_upcall_data_alloc_array_flat_mayfail(void *t, int_default_t_upcall n_entries)
+static unsigned char *cg_upcall_data_alloc_array_flat_tag_mayfail(uintptr_t tag, int_default_t_upcall n_entries)
 {
 	ajla_error_t sink;
-	const struct type *type;
-	if (ptr_to_num(t) < TYPE_TAG_N) {
-		type = type_get_from_tag(ptr_to_num(t));
-	} else {
-		type = t;
-	}
+	const struct type *type = type_get_from_tag(tag);
+	return cast_ptr(unsigned char *, data_alloc_array_flat_mayfail(type, n_entries, n_entries, false, &sink pass_file_line));
+}
+
+static unsigned char *cg_upcall_data_alloc_array_flat_slot_mayfail(frame_s *fp, uintptr_t slot, int_default_t_upcall n_entries)
+{
+	ajla_error_t sink;
+	const struct type *type = frame_get_type_of_local(fp, slot);
+	return cast_ptr(unsigned char *, data_alloc_array_flat_mayfail(type, n_entries, n_entries, false, &sink pass_file_line));
+}
+
+static unsigned char *cg_upcall_data_alloc_array_flat_types_ptr_mayfail(frame_s *fp, uintptr_t local_type, int_default_t_upcall n_entries)
+{
+	ajla_error_t sink;
+	const struct type *type = da_type(get_frame(fp)->function, local_type);
 	return cast_ptr(unsigned char *, data_alloc_array_flat_mayfail(type, n_entries, n_entries, false, &sink pass_file_line));
 }
 
@@ -999,7 +1008,9 @@ struct cg_upcall_vector_s cg_upcall_vector = {
 	cg_upcall_data_alloc_function_reference_mayfail,
 	cg_upcall_data_alloc_record_mayfail,
 	cg_upcall_data_alloc_option_mayfail,
-	cg_upcall_data_alloc_array_flat_mayfail,
+	cg_upcall_data_alloc_array_flat_tag_mayfail,
+	cg_upcall_data_alloc_array_flat_slot_mayfail,
+	cg_upcall_data_alloc_array_flat_types_ptr_mayfail,
 	cg_upcall_data_alloc_array_pointers_mayfail,
 	cg_upcall_array_create,
 	cg_upcall_array_create_sparse,

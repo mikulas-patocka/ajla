@@ -7624,13 +7624,19 @@ static bool attr_w gen_array_create(struct codegen_context *ctx, frame_t slot_r)
 			g(gen_test_1_cached(ctx, ctx->args[i].slot, escape_label));
 			ctx->flag_cache[ctx->args[i].slot] = -1;
 		}
-		g(gen_load_constant(ctx, R_ARG0, ptr_to_num(type)));
+
+		gen_insn(INSN_MOV, i_size(OP_SIZE_ADDRESS), 0, 0);
+		gen_one(R_ARG0);
+		gen_one(R_FRAME);
 		g(gen_upcall_argument(ctx, 0));
 
-		g(gen_load_constant(ctx, R_ARG1, ctx->args_l));
+		g(gen_load_constant(ctx, R_ARG1, ctx->args[0].slot));
 		g(gen_upcall_argument(ctx, 1));
 
-		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_array_flat_mayfail), 2));
+		g(gen_load_constant(ctx, R_ARG2, ctx->args_l));
+		g(gen_upcall_argument(ctx, 2));
+
+		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_array_flat_slot_mayfail), 3));
 		g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, escape_label));
 
 		gen_insn(INSN_MOV, i_size(OP_SIZE_ADDRESS), 0, 0);
@@ -7680,21 +7686,23 @@ static bool attr_w gen_array_create(struct codegen_context *ctx, frame_t slot_r)
 static bool attr_w gen_array_create_empty_flat(struct codegen_context *ctx, frame_t slot_r, frame_t local_type)
 {
 	uint32_t escape_label;
-	const struct type *type;
 
 	escape_label = alloc_escape_label(ctx);
 	if (unlikely(!escape_label))
 		return false;
 
-	type = da_type(ctx->fn, local_type);
-
-	g(gen_load_constant(ctx, R_ARG0, ptr_to_num(type)));
+	gen_insn(INSN_MOV, i_size(OP_SIZE_ADDRESS), 0, 0);
+	gen_one(R_ARG0);
+	gen_one(R_FRAME);
 	g(gen_upcall_argument(ctx, 0));
 
-	g(gen_load_constant(ctx, R_ARG1, 0));
+	g(gen_load_constant(ctx, R_ARG1, local_type));
 	g(gen_upcall_argument(ctx, 1));
 
-	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_array_flat_mayfail), 2));
+	g(gen_load_constant(ctx, R_ARG2, 0));
+	g(gen_upcall_argument(ctx, 2));
+
+	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_array_flat_types_ptr_mayfail), 3));
 	g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, escape_label));
 
 	g(gen_compress_pointer(ctx, R_RET0));
@@ -7863,7 +7871,7 @@ static bool attr_w gen_array_string(struct codegen_context *ctx, type_tag_t tag,
 	g(gen_load_constant(ctx, R_ARG1, len));
 	g(gen_upcall_argument(ctx, 1));
 
-	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_array_flat_mayfail), 2));
+	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_array_flat_tag_mayfail), 2));
 	g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, escape_label));
 
 	gen_insn(INSN_MOV, i_size(OP_SIZE_ADDRESS), 0, 0);
