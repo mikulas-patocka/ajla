@@ -4479,32 +4479,27 @@ bool os_mprotect(void *ptr, size_t size, int prot, ajla_error_t *err)
 	return true;
 }
 
-void *os_code_map(uint8_t *code, size_t attr_unused code_size, void *cookie), void *cookie, ajla_error_t attr_unused *err)
+void os_code_invalidate_cache(uint8_t *code, size_t code_size, bool set_exec)
 {
 	DWORD old;
-	/*debug("making executable: %p, %lx", code, code_size);*/
 	if (fn_FlushInstructionCache) {
 		if (unlikely(!fn_FlushInstructionCache(GetCurrentProcess(), cast_ptr(void *, code), code_size))) {
 			ajla_error_t e = error_from_win32(EC_SYSCALL, GetLastError());
-			if (!err)
-				fatal("failed to flush instruction cache: FlushInstructionCache(%p, %"PRIxMAX") returned error: %s", code, (uintmax_t)code_size, error_decode(*err));
-			else
-				*err = e;
-			warning("failed to flush instruction cache: FlushInstructionCache(%p, %"PRIxMAX") returned error: %s", code, (uintmax_t)code_size, error_decode(*err));
-			mem_free(code);
-			return NULL;
+			fatal("failed to flush instruction cache: FlushInstructionCache(%p, %"PRIxMAX") returned error: %s", code, (uintmax_t)code_size, error_decode(e));
 		}
 	}
-	if (unlikely(!VirtualProtect(code, code_size, PAGE_EXECUTE_READWRITE, &old))) {
-		ajla_error_t e = error_from_win32(EC_SYSCALL, GetLastError());
-		if (!err)
-			fatal("failed to set memory range read+write+exec: VirtualProtect(%p, %"PRIxMAX") returned error: %s", code, (uintmax_t)code_size, error_decode(*err));
-		else
-			*err = e;
-		warning("failed to set memory range read+write+exec: VirtualProtect(%p, %"PRIxMAX") returned error: %s", code, (uintmax_t)code_size, error_decode(*err));
-		mem_free(code);
-		return NULL;
+	if (set_exec) {
+		if (unlikely(!VirtualProtect(code, code_size, PAGE_EXECUTE_READWRITE, &old))) {
+			ajla_error_t e = error_from_win32(EC_SYSCALL, GetLastError());
+			fatal("failed to set memory range read+write+exec: VirtualProtect(%p, %"PRIxMAX") returned error: %s", code, (uintmax_t)code_size, error_decode(e));
+		}
 	}
+}
+
+void *os_code_map(uint8_t *code, size_t attr_unused code_size, ajla_error_t attr_unused *err)
+{
+	/*debug("making executable: %p, %lx", code, code_size);*/
+	os_code_invalidate_cache(code, code_size, true);
 	return code;
 }
 

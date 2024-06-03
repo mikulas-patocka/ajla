@@ -274,7 +274,14 @@ static void module_finish_function(struct module_function *mf)
 			}
 		}
 		new_cache = false;
-		for (e = tree_first(&da(d,function)->cache); e; e = tree_next(e)) {
+#ifdef HAVE_CODEGEN
+		if (likely(!pointer_is_thunk(da(d,function)->codegen))) {
+			struct data *codegen = pointer_get_data(da(d,function)->codegen);
+			if (unlikely(!da(codegen,codegen)->is_saved))
+				new_cache = true;
+		}
+#endif
+		for (e = tree_first(&da(d,function)->cache); e && !new_cache; e = tree_next(e)) {
 			struct cache_entry *ce = get_struct(e, struct cache_entry, entry);
 			if (ce->save && da(d,function)->module_designator) {
 				new_cache = true;

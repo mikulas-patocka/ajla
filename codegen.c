@@ -29,6 +29,7 @@
 #include "funct.h"
 #include "thread.h"
 #include "task.h"
+#include "save.h"
 
 #include "codegen.h"
 
@@ -9587,6 +9588,31 @@ next_one:;
 		/*debug("processing call: %s -> %s", da(ctx->fn,function)->function_name, da(callee,function)->function_name);*/
 	}
 
+	if (da(ctx->fn,function)->module_designator) {
+		struct function_descriptor *sfd = save_find_function_descriptor(da(ctx->fn,function)->module_designator, da(ctx->fn,function)->function_designator);
+		if (sfd && sfd->unoptimized_code_size) {
+			codegen = data_alloc_flexible(codegen, unoptimized_code, sfd->n_entries, &ctx->err);
+			if (unlikely(!codegen))
+				goto fail;
+			da(codegen,codegen)->unoptimized_code_base = sfd->unoptimized_code_base;
+			da(codegen,codegen)->unoptimized_code_size = sfd->unoptimized_code_size;
+			da(codegen,codegen)->function = ctx->fn;
+			da(codegen,codegen)->is_saved = true;
+			da(codegen,codegen)->n_entries = sfd->n_entries;
+			da(codegen,codegen)->offsets = NULL;
+			for (i = 0; i < sfd->n_entries; i++) {
+				da(codegen,codegen)->unoptimized_code[i] = cast_ptr(char *, da(codegen,codegen)->unoptimized_code_base) + sfd->entries[i];
+				/*debug("%s: %p + %lx -> %p", da(ctx->fn,function)->function_name, da(codegen,codegen)->unoptimized_code_base, sfd->entries[i], da(codegen,codegen)->unoptimized_code[i]);*/
+			}
+#ifdef HAVE_CODEGEN_TRAPS
+			da(codegen,codegen)->trap_records = sfd->trap_records;
+			da(codegen,codegen)->trap_records_size = sfd->trap_records_size;
+			data_trap_insert(codegen);
+#endif
+			goto have_codegen;
+		}
+	}
+
 	/*debug("trying: %s", da(ctx->fn,function)->function_name);*/
 	if (unlikely(!array_init_mayfail(uint8_t, &ctx->code, &ctx->code_size, &ctx->err)))
 		goto fail;
@@ -9703,7 +9729,9 @@ again:
 	ctx->codegen = data_alloc_flexible(codegen, unoptimized_code, ctx->n_entries, &ctx->err);
 	if (unlikely(!ctx->codegen))
 		goto fail;
+	da(ctx->codegen,codegen)->is_saved = false;
 	da(ctx->codegen,codegen)->n_entries = 0;
+	da(ctx->codegen,codegen)->offsets = NULL;
 
 	if (unlikely(!codegen_map(ctx)))
 		goto fail;
@@ -9718,6 +9746,7 @@ again:
 	data_trap_insert(codegen);
 #endif
 
+have_codegen:
 	done_ctx(ctx);
 	return function_return(fp, pointer_data(codegen));
 
@@ -9728,6 +9757,10 @@ fail:
 
 void codegen_free(struct data *codegen)
 {
+	if (unlikely(da(codegen,codegen)->offsets != NULL))
+		mem_free(da(codegen,codegen)->offsets);
+	if (likely(da(codegen,codegen)->is_saved))
+		return;
 #ifdef HAVE_CODEGEN_TRAPS
 	mem_free(da(codegen,codegen)->trap_records);
 #endif

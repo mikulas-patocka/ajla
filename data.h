@@ -988,7 +988,9 @@ struct data_codegen {
 	void *unoptimized_code_base;
 	size_t unoptimized_code_size;
 	struct data *function;
+	bool is_saved;
 	frame_t n_entries;
+	size_t *offsets;
 	char *unoptimized_code[FLEXIBLE_ARRAY_GCC];
 };
 #endif

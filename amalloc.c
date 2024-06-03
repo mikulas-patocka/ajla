@@ -1897,9 +1897,9 @@ void amalloc_init(void)
 		}
 	}
 #endif
+	amalloc_os_init();
 	if (unlikely(!amalloc_enabled))
 		return;
-	amalloc_os_init();
 #ifdef POINTER_COMPRESSION_POSSIBLE
 	if (pointer_compression_enabled)
 		reserve_memory();
@@ -1977,7 +1977,7 @@ void amalloc_done(void)
 {
 	unsigned i;
 	if (unlikely(!amalloc_enabled))
-		return;
+		goto os_done;
 	if (unlikely(amalloc_threads_initialized))
 		internal(file_line, "amalloc_done: amalloc_threads_initialized set");
 	detach_pt_data(&thread1);
@@ -1999,6 +1999,7 @@ void amalloc_done(void)
 		internal(file_line, "amalloc_done: huge tree is not empty");
 	if (unlikely(!tree_is_empty(&arena_tree)))
 		internal(file_line, "amalloc_done: arena tree is not empty");
+os_done:
 	amalloc_os_done();
 #if 0
 	{

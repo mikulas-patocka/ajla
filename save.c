@@ -75,6 +75,7 @@ static char *loaded_data;
 static size_t loaded_data_len;
 #ifdef USE_MMAP
 static bool loaded_data_mapped;
+static bool loaded_data_amalloc;
 #endif
 #define loaded_file_descriptor		cast_ptr(struct file_descriptor *, loaded_data + loaded_data_len - sizeof(struct file_descriptor))
 
@@ -96,7 +97,7 @@ static mutex_t dependencies_mutex;
 
 static int function_compare(const struct module_designator *md1, const struct function_designator *fd1, struct function_descriptor *fd2);
 static void save_one_entry(arg_t n_arguments, arg_t n_return_values, pointer_t *arguments, pointer_t *returns);
-static void save_finish_one(const struct module_designator *md, const struct function_designator *fd, arg_t n_arguments, arg_t n_return_values, code_t *code, ip_t code_size, const struct local_variable_flags *local_variables_flags, frame_t n_slots, struct data *types, struct line_position *lp, size_t lp_size);
+static void save_finish_one(const struct module_designator *md, const struct function_designator *fd, arg_t n_arguments, arg_t n_return_values, code_t *code, ip_t code_size, const struct local_variable_flags *local_variables_flags, frame_t n_slots, struct data *types, struct line_position *lp, size_t lp_size, void *unoptimized_code_base, size_t unoptimized_code_size, size_t *entries, size_t n_entries, struct trap_record *trap_records, size_t trap_records_size);
 static bool dep_get_stream(char **result, size_t *result_l);
 
 
@@ -423,7 +424,13 @@ static void save_loaded_function(struct function_descriptor *fn_desc)
 			fn_desc->n_slots,
 			fn_desc->types,
 			fn_desc->lp,
-			fn_desc->lp_size);
+			fn_desc->lp_size,
+			fn_desc->unoptimized_code_base,
+			fn_desc->unoptimized_code_size,
+			fn_desc->entries,
+			fn_desc->n_entries,
+			fn_desc->trap_records,
+			fn_desc->trap_records_size);
 }
 
 static void save_functions_until(struct data *d)
@@ -542,13 +549,13 @@ void save_cache_entry(struct data *d, struct cache_entry *ce)
 	mem_free(returns);
 }
 
-static void save_finish_one(const struct module_designator *md, const struct function_designator *fd, arg_t n_arguments, arg_t n_return_values, code_t *code, ip_t code_size, const struct local_variable_flags *local_variables_flags, frame_t n_slots, struct data *types, struct line_position *lp, size_t lp_size)
+static void save_finish_one(const struct module_designator *md, const struct function_designator *fd, arg_t n_arguments, arg_t n_return_values, code_t *code, ip_t code_size, const struct local_variable_flags *local_variables_flags, frame_t n_slots, struct data *types, struct line_position *lp, size_t lp_size, void *unoptimized_code_base, size_t unoptimized_code_size, size_t *entries, size_t n_entries, struct trap_record *trap_records, size_t trap_records_size)
 {
 	ajla_error_t sink;
 	size_t saved_pos;
 	struct function_descriptor fn_desc;
 	struct data *dsc;
-	size_t code_off, lvf_off, lp_off;
+	size_t code_off, lvf_off, lp_off, uc_off, en_off, tr_off;
 	size_t last_fd;
 	pointer_t types_ptr = pointer_data(types);
 	size_t saved_types;
@@ -594,6 +601,18 @@ static void save_finish_one(const struct module_designator *md, const struct fun
 	if (unlikely(lp_off == (size_t)-1))
 		goto free_it_2;
 
+	uc_off = save_range(unoptimized_code_base, 16, unoptimized_code_size, NULL, 0);
+	if (unlikely(uc_off == (size_t)-1))
+		goto free_it_2;
+
+	en_off = save_range(entries, align_of(size_t), n_entries * sizeof(size_t), NULL, 0);
+	if (unlikely(en_off == (size_t)-1))
+		goto free_it_2;
+
+	tr_off = save_range(trap_records, align_of(struct trap_record), trap_records_size * sizeof(struct trap_record), NULL, 0);
+	if (unlikely(tr_off == (size_t)-1))
+		goto free_it_2;
+
 	if (!(last_md != (size_t)-1 && !module_designator_compare(cast_ptr(struct module_designator *, save_data + last_md), md))) {
 		last_md = save_range(md, align_of(struct module_designator), module_designator_length(md), NULL, 0);
 		if (unlikely(last_md == (size_t)-1))
@@ -614,6 +633,12 @@ static void save_finish_one(const struct module_designator *md, const struct fun
 	fn_desc.types = data_pointer_tag(fn_desc.types, DATA_TAG_function_types);
 	fn_desc.lp = num_to_ptr(lp_off);
 	fn_desc.lp_size = lp_size;
+	fn_desc.unoptimized_code_base = num_to_ptr(uc_off);
+	fn_desc.unoptimized_code_size = unoptimized_code_size;
+	fn_desc.entries = num_to_ptr(en_off);
+	fn_desc.n_entries = n_entries;
+	fn_desc.trap_records = num_to_ptr(tr_off);
+	fn_desc.trap_records_size = trap_records_size;
 	fn_desc.md = num_to_ptr(last_md);
 	fn_desc.fd = num_to_ptr(last_fd);
 	if (!unlikely(array_add_mayfail(struct function_descriptor, &fn_descs, &fn_descs_len, fn_desc, NULL, &sink))) {
@@ -632,6 +657,12 @@ free_it:
 
 void save_finish_function(struct data *d)
 {
+	void *unoptimized_code_base = NULL;
+	size_t unoptimized_code_size = 0;
+	size_t *entries = NULL;
+	size_t n_entries = 0;
+	struct trap_record *trap_records = NULL;
+	size_t trap_records_size = 0;
 	if (loaded_fn_cache != (size_t)-1) {
 		save_entries_until(NULL);
 		if (unlikely(!save_ok))
@@ -639,6 +670,27 @@ void save_finish_function(struct data *d)
 		loaded_fn_idx++;
 		loaded_fn_cache = (size_t)-1;
 	}
+#ifdef HAVE_CODEGEN
+	if (!pointer_is_thunk(da(d,function)->codegen)) {
+		ajla_error_t sink;
+		size_t i;
+		struct data *codegen = pointer_get_data(da(d,function)->codegen);
+		entries = da(codegen,codegen)->offsets = mem_alloc_array_mayfail(mem_alloc_mayfail, size_t *, 0, 0, da(codegen,codegen)->n_entries, sizeof(size_t), &sink);
+		if (unlikely(!entries)) {
+			save_ok = false;
+			return;
+		}
+		n_entries = da(codegen,codegen)->n_entries;
+		for (i = 0; i < n_entries; i++)
+			entries[i] = da(codegen,codegen)->unoptimized_code[i] - cast_ptr(char *, da(codegen,codegen)->unoptimized_code_base);
+		unoptimized_code_base = da(codegen,codegen)->unoptimized_code_base;
+		unoptimized_code_size = da(codegen,codegen)->unoptimized_code_size;
+#ifdef HAVE_CODEGEN_TRAPS
+		trap_records = da(codegen,codegen)->trap_records;
+		trap_records_size = da(codegen,codegen)->trap_records_size;
+#endif
+	}
+#endif
 	save_finish_one(da(d,function)->module_designator,
 			da(d,function)->function_designator,
 			da(d,function)->n_arguments,
@@ -648,12 +700,18 @@ void save_finish_function(struct data *d)
 			da(d,function)->n_slots,
 			pointer_get_data(da(d,function)->types_ptr),
 			da(d,function)->lp,
-			da(d,function)->lp_size);
+			da(d,function)->lp_size,
+			unoptimized_code_base,
+			unoptimized_code_size,
+			entries,
+			n_entries,
+			trap_records,
+			trap_records_size);
 }
 
 static void save_finish_file(void)
 {
-	const int fn_desc_ptrs = 7;
+	const int fn_desc_ptrs = 10;
 	ajla_error_t sink;
 	struct stack_entry *subptrs;
 	char *deps;
@@ -681,6 +739,9 @@ static void save_finish_file(void)
 		subptrs[i * fn_desc_ptrs + 4].ptr = &fn_descs[i].lp;
 		subptrs[i * fn_desc_ptrs + 5].ptr = &fn_descs[i].md;
 		subptrs[i * fn_desc_ptrs + 6].ptr = &fn_descs[i].fd;
+		subptrs[i * fn_desc_ptrs + 7].ptr = &fn_descs[i].unoptimized_code_base;
+		subptrs[i * fn_desc_ptrs + 8].ptr = &fn_descs[i].entries;
+		subptrs[i * fn_desc_ptrs + 9].ptr = &fn_descs[i].trap_records;
 		/*debug("%p %p %zx", fn_descs[i].data_saved_cache, fn_descs[i].md, fn_descs[i].idx);*/
 	}
 	fn_descs_offset = save_range(fn_descs, align_of(struct function_descriptor), fn_descs_len * sizeof(struct function_descriptor), subptrs, fn_descs_len * fn_desc_ptrs);
@@ -944,11 +1005,9 @@ static void unmap_loaded_data(void)
 	if (loaded_data) {
 #ifdef USE_MMAP
 		if (likely(loaded_data_mapped)) {
-#ifndef POINTER_COMPRESSION
 			os_munmap(loaded_data, loaded_data_len, true);
-#else
+		} else if (loaded_data_amalloc) {
 			amalloc_run_free(loaded_data, loaded_data_len);
-#endif
 		} else
 #endif
 		{
@@ -1044,9 +1103,14 @@ static void save_load_cache(void)
 	}
 #ifdef USE_MMAP
 	{
+		int prot_flags = PROT_READ
+#ifdef HAVE_CODEGEN
+			| PROT_EXEC
+#endif
+		;
 		void *ptr;
 #ifndef POINTER_COMPRESSION
-		ptr = os_mmap(file_desc.base, loaded_data_len, PROT_READ, MAP_PRIVATE, h, 0, &sink);
+		ptr = os_mmap(file_desc.base, loaded_data_len, prot_flags, MAP_PRIVATE, h, 0, &sink);
 		/*debug("mapped: %p, %lx -> %p", file_desc.base, loaded_data_len, ptr);*/
 		if (unlikely(ptr == MAP_FAILED))
 			goto skip_mmap;
@@ -1062,7 +1126,7 @@ static void save_load_cache(void)
 			/*debug("amalloc_ptrcomp_try_reserve_range failed");*/
 			goto skip_mmap;
 		}
-		ptr = os_mmap(file_desc.base, loaded_data_len, PROT_READ, MAP_PRIVATE | MAP_FIXED, h, 0, &sink);
+		ptr = os_mmap(file_desc.base, loaded_data_len, prot_flags, MAP_PRIVATE | MAP_FIXED, h, 0, &sink);
 		if (unlikely(ptr == MAP_FAILED)) {
 			amalloc_run_free(file_desc.base, loaded_data_len);
 			goto skip_mmap;
@@ -1070,13 +1134,12 @@ static void save_load_cache(void)
 		if (unlikely(ptr != file_desc.base))
 			internal(file_line, "save_init: os_mmap(MAP_FIXED) returned different pointer: %p != %p", ptr, file_desc.base);
 		loaded_data = ptr;
-		loaded_data_mapped = true;
+		loaded_data_amalloc = true;
 #endif
 		os_close(h);
 		goto verify_ret;
 	}
 skip_mmap:
-	loaded_data_mapped = false;
 #endif
 	loaded_data = mem_alloc_mayfail(char *, st.st_size, &sink);
 	if (unlikely(!loaded_data)) {
@@ -1090,8 +1153,29 @@ skip_mmap:
 		return;
 	}
 	os_close(h);
+#ifdef HAVE_CODEGEN
+#if defined(CODEGEN_USE_HEAP) || !defined(OS_HAS_MMAP)
 	/*debug("adjusting pointers: %p, %p", loaded_data, loaded_data + loaded_data_len);*/
 	adjust_pointers(loaded_data, loaded_data_len, ptr_to_num(loaded_data) - ptr_to_num(loaded_file_descriptor->base));
+	os_code_invalidate_cache(cast_ptr(uint8_t *, loaded_data), loaded_data_len, true);
+#else
+	{
+		void *new_ptr;
+		new_ptr = amalloc_run_alloc(16, loaded_data_len, false, false);
+		if (unlikely(!new_ptr)) {
+			unmap_loaded_data();
+			return;
+		}
+		memcpy(new_ptr, loaded_data, loaded_data_len);
+		mem_free(loaded_data);
+		loaded_data = new_ptr;
+		/*debug("adjusting pointers: %p, %p", loaded_data, loaded_data + loaded_data_len);*/
+		adjust_pointers(loaded_data, loaded_data_len, ptr_to_num(loaded_data) - ptr_to_num(loaded_file_descriptor->base));
+		os_code_invalidate_cache(cast_ptr(uint8_t *, loaded_data), loaded_data_len, true);
+		loaded_data_amalloc = true;
+	}
+#endif
+#endif
 	/*adjust_pointers(loaded_data, loaded_data_len, 0);*/
 #ifdef USE_MMAP
 verify_ret:
@@ -1131,6 +1215,11 @@ verify_ret:
 
 void name(save_init)(void)
 {
+	loaded_data = NULL;
+#ifdef USE_MMAP
+	loaded_data_mapped = false;
+	loaded_data_amalloc = false;
+#endif
 	tree_init(&dependencies);
 	dependencies_failed = false;
 	mutex_init(&dependencies_mutex);

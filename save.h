@@ -43,6 +43,12 @@ struct function_descriptor {
 	struct data *types;
 	struct line_position *lp;
 	size_t lp_size;
+	void *unoptimized_code_base;
+	size_t unoptimized_code_size;
+	size_t *entries;
+	size_t n_entries;
+	struct trap_record *trap_records;
+	size_t trap_records_size;
 	struct module_designator *md;
 	struct function_designator *fd;
 };

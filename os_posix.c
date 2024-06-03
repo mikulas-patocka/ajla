@@ -167,6 +167,12 @@ int os_getpagesize(void)
 void *os_mmap(void *ptr, size_t size, int prot, int flags, int h, os_off_t off, ajla_error_t *err)
 {
 	void *p;
+#ifdef PROT_MPROTECT
+	prot |= PROT_MPROTECT(PROT_EXEC);
+#endif
+#ifndef HAVE_MPROTECT
+	prot |= PROT_EXEC;
+#endif
 	EINTR_LOOP_VAL(p, MAP_FAILED, mmap(ptr, size, prot, flags, h, off));
 	if (unlikely(p == MAP_FAILED)) {
 		ajla_error_t e = error_from_errno(EC_SYSCALL, errno);
@@ -224,34 +230,34 @@ void *os_mremap(void *old_ptr, size_t old_size, size_t new_size, int flags, void
 #endif
 
 
-static void invalidate_cache(uint8_t attr_unused *ptr, size_t attr_unused size)
+void os_code_invalidate_cache(uint8_t attr_unused *code, size_t attr_unused code_size, bool attr_unused set_exec)
 {
 #if defined(ARCH_PARISC) && defined(HAVE_GCC_ASSEMBLER)
 	size_t i;
 	size_t cl_size = cpu_test_feature(CPU_FEATURE_pa20) ? 64 : 16;
-	size_t align = ptr_to_num(ptr) & (cl_size - 1);
-	ptr -= align;
-	size += align;
+	size_t align = ptr_to_num(code) & (cl_size - 1);
+	code -= align;
+	code_size += align;
 	__asm__ volatile ("sync" : : : "memory");
-	for (i = 0; i < size; i += cl_size) {
-		__asm__ volatile ("fdc %%r0(%0)" : : "r"(ptr + i) : "memory");
+	for (i = 0; i < code_size; i += cl_size) {
+		__asm__ volatile ("fdc %%r0(%0)" : : "r"(code + i) : "memory");
 	}
 	__asm__ volatile ("sync");
 #if defined(ARCH_PARISC32)
 	if (PA_SPACES) {
 		unsigned long reg;
-		__asm__ volatile("ldsid (%1), %0\n mtsp %0, %%sr0" : "=r"(reg) : "r"(ptr) : "memory");
+		__asm__ volatile("ldsid (%1), %0\n mtsp %0, %%sr0" : "=r"(reg) : "r"(code) : "memory");
 	}
 #endif
-	for (i = 0; i < size; i += cl_size) {
+	for (i = 0; i < code_size; i += cl_size) {
 #if defined(ARCH_PARISC32)
 		if (PA_SPACES) {
-			__asm__ volatile ("fic %%r0(%%sr0, %0)" : : "r"(ptr + i) : "memory");
+			__asm__ volatile ("fic %%r0(%%sr0, %0)" : : "r"(code + i) : "memory");
 		} else {
-			__asm__ volatile ("fic %%r0(%%sr4, %0)" : : "r"(ptr + i) : "memory");
+			__asm__ volatile ("fic %%r0(%%sr4, %0)" : : "r"(code + i) : "memory");
 		}
 #else
-		__asm__ volatile ("fic %%r0(%0)" : : "r"(ptr + i) : "memory");
+		__asm__ volatile ("fic %%r0(%0)" : : "r"(code + i) : "memory");
 #endif
 	}
 	__asm__ volatile ("sync" : : : "memory");
@@ -260,49 +266,38 @@ static void invalidate_cache(uint8_t attr_unused *ptr, size_t attr_unused size)
 #elif defined(ARCH_SPARC64) && defined(HAVE_GCC_ASSEMBLER)
 	size_t i;
 	__asm__ volatile ("membar #StoreStore" : : : "memory");
-	for (i = 0; i < size; i += 8) {
-		__asm__ volatile ("flush %0" : : "r"(ptr + i) : "memory");
+	for (i = 0; i < code_size; i += 8) {
+		__asm__ volatile ("flush %0" : : "r"(code + i) : "memory");
 	}
 #elif defined(HAVE___BUILTIN___CLEAR_CACHE)
-	__builtin___clear_cache(cast_ptr(void *, ptr), cast_ptr(char *, ptr) + size);
+	__builtin___clear_cache(cast_ptr(void *, code), cast_ptr(char *, code) + code_size);
+#endif
+#if defined(OS_HAS_MMAP) && defined(HAVE_MPROTECT)
+	if (set_exec) {
+		int page_size = os_getpagesize();
+		int front_pad = ptr_to_num(code) & (page_size - 1);
+		uint8_t *mem_region = code - front_pad;
+		size_t mem_length = code_size + front_pad;
+		mem_length = round_up(mem_length, page_size);
+		os_mprotect(mem_region, mem_length, PROT_READ | PROT_WRITE | PROT_EXEC, NULL);
+	}
 #endif
 }
 
 void *os_code_map(uint8_t *code, size_t code_size, ajla_error_t attr_unused *err)
 {
 #ifdef CODEGEN_USE_HEAP
-	invalidate_cache(code, code_size);
-#ifdef OS_HAS_MMAP
-	if (!amalloc_enabled) {
-		int page_size = os_getpagesize();
-		int front_pad = ptr_to_num(code) & (page_size - 1);
-		uint8_t *mem_region = code - front_pad;
-		size_t mem_length = code_size + front_pad;
-		mem_length = round_up(mem_length, page_size);
-		if (unlikely(!os_mprotect(mem_region, mem_length, PROT_READ | PROT_WRITE | PROT_EXEC, err))) {
-			warning("failed to set memory range read+write+exec: mprotect(%p, %"PRIxMAX") returned error: %s", mem_region, (uintmax_t)mem_length, error_decode(*err));
-			mem_free(code);
-			return NULL;
-		}
-	}
-#endif
+	os_code_invalidate_cache(code, code_size, !amalloc_enabled);
 	return code;
 #else
 	size_t rounded_size = round_up(code_size, os_getpagesize());
-	void *ptr = os_mmap(NULL, rounded_size, PROT_READ | PROT_WRITE
-#ifdef PROT_MPROTECT
-			| PROT_MPROTECT(PROT_EXEC)
-#endif
-#ifndef HAVE_MPROTECT
-			| PROT_EXEC
-#endif
-			, MAP_PRIVATE | MAP_ANONYMOUS, handle_none, 0, err);
+	void *ptr = os_mmap(NULL, rounded_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, handle_none, 0, err);
 	if (unlikely(ptr == MAP_FAILED)) {
 		mem_free(code);
 		return NULL;
 	}
 	memcpy(ptr, code, code_size);
-	invalidate_cache(ptr, code_size);
+	os_code_invalidate_cache(ptr, code_size, false);
 #ifdef HAVE_MPROTECT
 	if (unlikely(!os_mprotect(ptr, rounded_size, PROT_READ | PROT_EXEC, err))) {
 		warning("failed to set memory range read+exec: mprotect(%p, %"PRIxMAX") returned error: %s", ptr, (uintmax_t)rounded_size, error_decode(*err));

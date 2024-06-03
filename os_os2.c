@@ -3625,6 +3625,10 @@ bool os_dlsym(struct dl_handle_t *dlh, const char *symbol, void **result)
 }
 
 
+void os_code_invalidate_cache(uint8_t attr_unused *code_ptr, size_t attr_unused code_size, bool attr_unused set_exec)
+{
+}
+
 void *os_code_map(uint8_t *code, size_t attr_unused code_size, ajla_error_t attr_unused *err)
 {
 	return code;
