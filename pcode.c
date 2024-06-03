@@ -3297,7 +3297,7 @@ skip_codegen:
 			goto exception;
 	}
 
-	fn = data_alloc(function, ctx->err);
+	fn = data_alloc_flexible(function, local_directory, ctx->ld_len, ctx->err);
 	if (unlikely(!fn))
 		goto exception;
 
@@ -3316,8 +3316,6 @@ skip_codegen:
 	}
 	da(fn,function)->n_slots = ctx->n_slots;
 	da(fn,function)->args = ctx->args;
-	da(fn,function)->local_directory = ctx->ld;
-	da(fn,function)->local_directory_size = ctx->ld_len;
 	da(fn,function)->types_ptr = pointer_data(ft);
 	da(fn,function)->record_definition = ctx->record_definition ? &ctx->record_definition->type : NULL;
 	da(fn,function)->function_name = cast_ptr(char *, ctx->function_name);
@@ -3330,6 +3328,9 @@ skip_codegen:
 		da(fn,function)->lp = sfd->lp;
 		da(fn,function)->lp_size = sfd->lp_size;
 	}
+	memcpy(da(fn,function)->local_directory, ctx->ld, ctx->ld_len * sizeof(pointer_t *));
+	da(fn,function)->local_directory_size = ctx->ld_len;
+	mem_free(ctx->ld);
 #ifdef HAVE_CODEGEN
 	ia[0].ptr = fn;
 	da(fn,function)->codegen = function_build_internal_thunk(codegen_fn, 1, ia);

@@ -185,7 +185,7 @@ void name(function_init)(void)
 	ft = data_alloc_flexible(function_types, types, 0, NULL);
 	da(ft,function_types)->n_types = 0;
 
-	int_fn = data_alloc(function, NULL);
+	int_fn = data_alloc_flexible(function, local_directory, 0, NULL);
 
 	n_slots = layout_size(layout);
 	da(int_fn,function)->frame_slots = frame_offset / slot_size + n_slots;
@@ -197,13 +197,12 @@ void name(function_init)(void)
 	da(int_fn,function)->local_variables = lv = mem_alloc_array_mayfail(mem_calloc_mayfail, struct local_variable *, 0, 0, n_slots, sizeof(struct local_variable), NULL);
 	da(int_fn,function)->local_variables_flags = mem_alloc_array_mayfail(mem_calloc_mayfail, struct local_variable_flags *, 0, 0, n_slots, sizeof(struct local_variable_flags), NULL);
 	da(int_fn,function)->args = ar = mem_alloc(struct local_arg *, N_ARGUMENTS * sizeof(struct local_arg));
-	da(int_fn,function)->local_directory = mem_alloc(pointer_t **, 0);
-	da(int_fn,function)->local_directory_size = 0;
 	da(int_fn,function)->types_ptr = pointer_data(ft);
 	da(int_fn,function)->record_definition = NULL;
 	da(int_fn,function)->function_name = str_dup("internal_function", -1, NULL);
 	da(int_fn,function)->lp = NULL;
 	da(int_fn,function)->lp_size = 0;
+	da(int_fn,function)->local_directory_size = 0;
 #ifdef HAVE_CODEGEN
 	da(int_fn,function)->codegen = pointer_thunk(thunk_alloc_exception_error(error_ajla(EC_ASYNC, AJLA_ERROR_NOT_SUPPORTED), NULL, NULL, NULL pass_file_line));
 	store_relaxed(&da(int_fn,function)->codegen_failed, 0);

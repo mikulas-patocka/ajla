@@ -6321,12 +6321,7 @@ static bool attr_w gen_load_fn_or_curry(struct codegen_context *ctx, frame_t fn_
 	gen_one(R_RET0);
 
 	if (!curry) {
-		g(load_function_offset(ctx, R_SCRATCH_1, offsetof(struct data, u_.function.local_directory)));
-
-		g(gen_address(ctx, R_SCRATCH_1, (size_t)fn_idx * sizeof(da(ctx->fn,function)->local_directory[0]), IMM_PURPOSE_STR_OFFSET, OP_SIZE_ADDRESS));
-		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-		gen_one(R_SCRATCH_1);
-		gen_address_offset();
+		g(load_function_offset(ctx, R_SCRATCH_1, offsetof(struct data, u_.function.local_directory[fn_idx])));
 
 		g(gen_address(ctx, R_SAVED_1, offsetof(struct data, u_.function_reference.u.direct), IMM_PURPOSE_STR_OFFSET, OP_SIZE_ADDRESS));
 		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
@@ -6587,12 +6582,7 @@ skip_ref_argument:
 		gen_label(next_arg_label);
 	}
 
-	g(load_function_offset(ctx, R_SCRATCH_1, offsetof(struct data, u_.function.local_directory)));
-
-	g(gen_address(ctx, R_SCRATCH_1, (size_t)fn_idx * sizeof(da(ctx->fn,function)->local_directory[0]), IMM_PURPOSE_STR_OFFSET, OP_SIZE_ADDRESS));
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-	gen_one(R_SCRATCH_1);
-	gen_address_offset();
+	g(load_function_offset(ctx, R_SCRATCH_1, offsetof(struct data, u_.function.local_directory[fn_idx])));
 
 	g(gen_address(ctx, R_SCRATCH_1, 0, IMM_PURPOSE_STR_OFFSET, OP_SIZE_SLOT));
 	gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);

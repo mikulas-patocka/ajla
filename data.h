@@ -932,8 +932,6 @@ struct data_function {
 	const struct local_variable_flags *local_variables_flags;	/* indexed by slot */
 	frame_t n_slots;
 	const struct local_arg *args;					/* indexed by argument */
-	pointer_t * const *local_directory;
-	frame_t local_directory_size;
 	pointer_t types_ptr;
 	const struct type *record_definition;
 	const struct module_designator *module_designator;
@@ -952,6 +950,8 @@ struct data_function {
 	struct escape_data *escape_data;
 	bool leaf;
 	bool is_saved;
+	frame_t local_directory_size;
+	pointer_t *local_directory[FLEXIBLE_ARRAY_GCC];
 };
 
 struct data_function_types {

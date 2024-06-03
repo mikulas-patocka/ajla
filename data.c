@@ -1000,7 +1000,6 @@ static void attr_fastcall free_function(void *data)
 		mem_free(da(d,function)->local_variables_flags);
 	if (da(d,function)->args)
 		mem_free(da(d,function)->args);
-	mem_free(da(d,function)->local_directory);
 	mem_free(da(d,function)->function_name);
 	if (unlikely(!da(d,function)->is_saved) && da(d,function)->lp)
 		mem_free(da(d,function)->lp);
