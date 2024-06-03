@@ -940,9 +940,10 @@ static pointer_t cg_upcall_array_join(pointer_t_upcall ptr1, pointer_t_upcall pt
 	return pointer_data(d);
 }
 
-static void *cg_upcall_ipret_io(frame_s *fp, const code_t *ip, uintptr_t code_params)
+static void *cg_upcall_ipret_io(frame_s *fp, uintptr_t ip_offset, uintptr_t code_params)
 {
 	void *ret;
+	code_t *ip = da(get_frame(fp)->function,function)->code + ip_offset;
 	unsigned char io_code = code_params >> 24;
 	unsigned char n_outputs = code_params >> 16;
 	unsigned char n_inputs = code_params >> 8;

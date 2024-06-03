@@ -8632,7 +8632,7 @@ static bool attr_w gen_io(struct codegen_context *ctx, frame_t code, frame_t slo
 	gen_one(R_FRAME);
 	g(gen_upcall_argument(ctx, 0));
 
-	g(gen_load_constant(ctx, R_ARG1, ptr_to_num(ctx->instr_start)));
+	g(gen_load_constant(ctx, R_ARG1, ctx->instr_start - da(ctx->fn,function)->code));
 	g(gen_upcall_argument(ctx, 1));
 
 	g(gen_load_constant(ctx, R_ARG2, ((uint32_t)code << 24) | ((uint32_t)slot_1 << 16) | ((uint32_t)slot_2 << 8) | slot_3));

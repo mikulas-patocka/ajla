@@ -56,7 +56,7 @@ struct cg_upcall_vector_s {
 	pointer_t (*cg_upcall_array_sub)(pointer_t_upcall array, int_default_t_upcall start, int_default_t_upcall end, bool deref);
 	pointer_t (*cg_upcall_array_skip)(pointer_t_upcall array, int_default_t_upcall start, bool deref);
 	pointer_t (*cg_upcall_array_join)(pointer_t_upcall ptr1, pointer_t_upcall ptr2);
-	void *(*cg_upcall_ipret_io)(frame_s *fp, const code_t *ip, uintptr_t code_params);
+	void *(*cg_upcall_ipret_io)(frame_s *fp, uintptr_t ip_offset, uintptr_t code_params);
 	pointer_t (*cg_upcall_ipret_copy_variable_to_pointer)(frame_s *src_fp, uintptr_t src_slot, bool deref);
 	int_default_t (*ipret_system_property)(int_default_t_upcall idx);
 	bool (*cat(FIXED_binary_add_,TYPE_INT_MAX))(const uintbig_t *v1, const uintbig_t *v2, uintbig_t *r);
