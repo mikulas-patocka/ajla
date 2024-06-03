@@ -842,11 +842,19 @@ static unsigned char *cg_upcall_data_alloc_array_pointers_mayfail(int_default_t_
 	return cast_ptr(unsigned char *, data_alloc_array_pointers_mayfail(n_allocated, n_used, &sink pass_file_line));
 }
 
-static pointer_t cg_upcall_array_create(int_default_t_upcall length, const struct type *flat_type, const unsigned char *flat, pointer_t_upcall ptr)
+static pointer_t cg_upcall_array_create_flat(frame_s *fp, int_default_t_upcall length, uintptr_t content_slot)
+{
+	array_index_t idx;
+	const struct type *content_type = frame_get_type_of_local(fp, content_slot);
+	index_from_int(&idx, length);
+	return array_create(idx, content_type, frame_var(fp, content_slot), pointer_empty());
+}
+
+static pointer_t cg_upcall_array_create_pointers(int_default_t_upcall length, pointer_t_upcall ptr)
 {
 	array_index_t idx;
 	index_from_int(&idx, length);
-	return array_create(idx, flat_type, flat, ptr);
+	return array_create(idx, NULL, NULL, ptr);
 }
 
 static pointer_t cg_upcall_array_create_sparse(int_default_t_upcall length, pointer_t_upcall ptr)
@@ -1013,7 +1021,8 @@ struct cg_upcall_vector_s cg_upcall_vector = {
 	cg_upcall_data_alloc_array_flat_slot_mayfail,
 	cg_upcall_data_alloc_array_flat_types_ptr_mayfail,
 	cg_upcall_data_alloc_array_pointers_mayfail,
-	cg_upcall_array_create,
+	cg_upcall_array_create_flat,
+	cg_upcall_array_create_pointers,
 	cg_upcall_array_create_sparse,
 	cg_upcall_array_sub,
 	cg_upcall_array_skip,

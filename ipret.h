@@ -51,7 +51,8 @@ struct cg_upcall_vector_s {
 	unsigned char *(*cg_upcall_data_alloc_array_flat_slot_mayfail)(frame_s *fp, uintptr_t slot, int_default_t_upcall n_entries);
 	unsigned char *(*cg_upcall_data_alloc_array_flat_types_ptr_mayfail)(frame_s *fp, uintptr_t local_type, int_default_t_upcall n_entries);
 	unsigned char *(*cg_upcall_data_alloc_array_pointers_mayfail)(int_default_t_upcall n_allocated, int_default_t_upcall n_used);
-	pointer_t (*cg_upcall_array_create)(int_default_t_upcall length, const struct type *flat_type, const unsigned char *flat, pointer_t_upcall ptr);
+	pointer_t (*cg_upcall_array_create_flat)(frame_s *fp, int_default_t_upcall length, uintptr_t content_slot);
+	pointer_t (*cg_upcall_array_create_pointers)(int_default_t_upcall length, pointer_t_upcall ptr);
 	pointer_t (*cg_upcall_array_create_sparse)(int_default_t_upcall length, pointer_t_upcall ptr);
 	pointer_t (*cg_upcall_array_sub)(pointer_t_upcall array, int_default_t_upcall start, int_default_t_upcall end, bool deref);
 	pointer_t (*cg_upcall_array_skip)(pointer_t_upcall array, int_default_t_upcall start, bool deref);
