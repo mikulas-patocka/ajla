@@ -7820,28 +7820,35 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 		g(gen_test_1_cached(ctx, slot_1, escape_label));
 		ctx->flag_cache[slot_1] = -1;
 
-		g(gen_frame_load(ctx, OP_SIZE_INT, true, slot_2, 0, R_ARG1));
-		g(gen_jmp_if_negative(ctx, R_ARG1, escape_label));
-		g(gen_upcall_argument(ctx, 1));
-
 		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 		gen_one(R_ARG0);
 		gen_one(R_FRAME);
 		g(gen_upcall_argument(ctx, 0));
+
+		g(gen_frame_load(ctx, OP_SIZE_INT, true, slot_2, 0, R_ARG1));
+		g(gen_jmp_if_negative(ctx, R_ARG1, escape_label));
+		g(gen_upcall_argument(ctx, 1));
 
 		g(gen_load_constant(ctx, R_ARG2, slot_1));
 		g(gen_upcall_argument(ctx, 2));
 
 		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_array_create_flat), 3));
 	} else {
-		g(gen_frame_get_pointer(ctx, slot_1, (flags & OPCODE_FLAG_FREE_ARGUMENT) != 0, R_ARG1));
-		g(gen_upcall_argument(ctx, 1));
+		g(gen_frame_get_pointer(ctx, slot_1, (flags & OPCODE_FLAG_FREE_ARGUMENT) != 0, R_ARG3));
+		g(gen_upcall_argument(ctx, 3));
 
-		g(gen_frame_load(ctx, OP_SIZE_INT, true, slot_2, 0, R_ARG0));
-		g(gen_jmp_if_negative(ctx, R_ARG0, escape_label));
+		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+		gen_one(R_ARG0);
+		gen_one(R_FRAME);
 		g(gen_upcall_argument(ctx, 0));
 
-		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_array_create_pointers), 2));
+		g(gen_load_constant(ctx, R_ARG1, ctx->instr_start - da(ctx->fn,function)->code));
+		g(gen_upcall_argument(ctx, 1));
+
+		g(gen_load_constant(ctx, R_ARG2, slot_2));
+		g(gen_upcall_argument(ctx, 2));
+
+		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_array_create_pointers), 4));
 	}
 	g(gen_frame_set_pointer(ctx, slot_r, R_RET0));
 

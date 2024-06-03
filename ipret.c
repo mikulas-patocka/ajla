@@ -850,9 +850,16 @@ static pointer_t cg_upcall_array_create_flat(frame_s *fp, int_default_t_upcall l
 	return array_create(idx, content_type, frame_var(fp, content_slot), pointer_empty());
 }
 
-static pointer_t cg_upcall_array_create_pointers(int_default_t_upcall length, pointer_t_upcall ptr)
+static pointer_t cg_upcall_array_create_pointers(frame_s *fp, uintptr_t ip_offset, uintptr_t length_slot, pointer_t_upcall ptr)
 {
 	array_index_t idx;
+	int_default_t length = *frame_slot(fp, length_slot, int_default_t);
+	if (unlikely(length < 0)) {
+		code_t *ip;
+		pointer_dereference(ptr);
+		ip = da(get_frame(fp)->function,function)->code + ip_offset;
+		return pointer_error(error_ajla(EC_SYNC, AJLA_ERROR_NEGATIVE_INDEX), fp, ip pass_file_line);
+	}
 	index_from_int(&idx, length);
 	return array_create(idx, NULL, NULL, ptr);
 }
