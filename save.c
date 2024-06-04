@@ -601,7 +601,7 @@ static void save_finish_one(const struct module_designator *md, const struct fun
 	if (unlikely(lp_off == (size_t)-1))
 		goto free_it_2;
 
-	uc_off = save_range(unoptimized_code_base, 16, unoptimized_code_size, NULL, 0);
+	uc_off = save_range(unoptimized_code_base, CODE_ALIGNMENT, unoptimized_code_size, NULL, 0);
 	if (unlikely(uc_off == (size_t)-1))
 		goto free_it_2;
 
@@ -1161,7 +1161,7 @@ skip_mmap:
 #else
 	{
 		void *new_ptr;
-		new_ptr = amalloc_run_alloc(16, loaded_data_len, false, false);
+		new_ptr = amalloc_run_alloc(CODE_ALIGNMENT, loaded_data_len, false, false);
 		if (unlikely(!new_ptr)) {
 			unmap_loaded_data();
 			return;

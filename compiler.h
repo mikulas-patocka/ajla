@@ -885,6 +885,8 @@ typedef uint16_t ushort_efficient_t;
 #undef CODEGEN_USE_HEAP
 #endif
 
+#define CODE_ALIGNMENT		16
+
 
 #ifdef attr_unaligned
 #if defined(__i386__) || defined(__x86_64__) || defined(__ARM_FEATURE_UNALIGNED) || defined(__alpha__) || defined(__m68k__) || defined(__mips) || defined(__powerpc__) || defined(__s390__)
