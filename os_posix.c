@@ -274,12 +274,17 @@ void os_code_invalidate_cache(uint8_t attr_unused *code, size_t attr_unused code
 #endif
 #if defined(OS_HAS_MMAP) && defined(HAVE_MPROTECT)
 	if (set_exec) {
+		int prot_flags = PROT_READ | PROT_EXEC
+#ifdef CODEGEN_USE_HEAP
+			| PROT_WRITE
+#endif
+			;
 		int page_size = os_getpagesize();
 		int front_pad = ptr_to_num(code) & (page_size - 1);
 		uint8_t *mem_region = code - front_pad;
 		size_t mem_length = code_size + front_pad;
 		mem_length = round_up(mem_length, page_size);
-		os_mprotect(mem_region, mem_length, PROT_READ | PROT_WRITE | PROT_EXEC, NULL);
+		os_mprotect(mem_region, mem_length, prot_flags, NULL);
 	}
 #endif
 }
