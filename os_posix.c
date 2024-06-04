@@ -302,15 +302,7 @@ void *os_code_map(uint8_t *code, size_t code_size, ajla_error_t attr_unused *err
 		return NULL;
 	}
 	memcpy(ptr, code, code_size);
-	os_code_invalidate_cache(ptr, code_size, false);
-#ifdef HAVE_MPROTECT
-	if (unlikely(!os_mprotect(ptr, rounded_size, PROT_READ | PROT_EXEC, err))) {
-		warning("failed to set memory range read+exec: mprotect(%p, %"PRIxMAX") returned error: %s", ptr, (uintmax_t)rounded_size, error_decode(*err));
-		os_munmap(ptr, rounded_size, false);
-		mem_free(code);
-		return NULL;
-	}
-#endif
+	os_code_invalidate_cache(ptr, code_size, true);
 	mem_free(code);
 	return ptr;
 #endif
