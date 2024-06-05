@@ -1049,7 +1049,7 @@ DEFINE_OPCODE_START(OPCODE_CHECKPOINT)
 		);
 #endif
 
-		/*debug("running optimized code: %s, %p, %x, %p, %p, %p, %u", da(fn,function)->function_name, da(codegen,codegen)->unoptimized_code_base, id, da(codegen,codegen)->unoptimized_code[id], fp, &cg_upcall_vector, ts);*/
+		/*debug("running optimized code: %s, %p, %x, %p, %p, %p, %u, %p", da(fn,function)->function_name, da(codegen,codegen)->unoptimized_code_base, id, da(codegen,codegen)->unoptimized_code[id], fp, &cg_upcall_vector, ts, da(codegen,codegen)->unoptimized_code[id]);*/
 		/*debug("fp[0] = %lx", *(long *)((char *)fp + 0));
 		debug("fp[8] = %lx", *(long *)((char *)fp + 8));
 		debug("fp[16] = %lx", *(long *)((char *)fp + 16));

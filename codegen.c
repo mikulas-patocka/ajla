@@ -1239,6 +1239,7 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 			return true;
 #else
 #ifdef R_CMP_RESULT
+			unsigned jmp_cond = COND_NE;
 #if defined(ARCH_MIPS)
 			if (cond == COND_E || cond == COND_NE) {
 				gen_insn(INSN_JMP_2REGS, op_size, cond, 0);
@@ -1249,6 +1250,7 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 			}
 			if (cond == COND_AE || cond == COND_BE || cond == COND_LE || cond == COND_GE) {
 				cond ^= 1;
+				jmp_cond ^= 1;
 			}
 #endif
 #if defined(ARCH_ALPHA)
@@ -1263,7 +1265,7 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 				gen_one(reg2);
 			}
 
-			gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, COND_NE, 0);
+			gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, jmp_cond, 0);
 			gen_one(R_CMP_RESULT);
 			gen_four(label);
 #else
@@ -9729,6 +9731,7 @@ again:
 	ctx->codegen = data_alloc_flexible(codegen, unoptimized_code, ctx->n_entries, &ctx->err);
 	if (unlikely(!ctx->codegen))
 		goto fail;
+	da(ctx->codegen,codegen)->function = ctx->fn;
 	da(ctx->codegen,codegen)->is_saved = false;
 	da(ctx->codegen,codegen)->n_entries = 0;
 	da(ctx->codegen,codegen)->offsets = NULL;
