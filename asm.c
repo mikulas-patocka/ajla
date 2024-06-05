@@ -26,11 +26,7 @@
 
 #include "asm.h"
 
-#if 0
-#define CRASH_HANDLER
-#endif
-
-#ifdef CRASH_HANDLER
+#ifdef DEBUG_CRASH_HANDLER
 void *u_data_trap_lookup(void *ptr);
 void *c_data_trap_lookup(void *ptr);
 static void dump_registers(int sig, ucontext_t *uc)
@@ -677,7 +673,7 @@ void asm_init(void)
 #endif
 	asm_setup_thread();
 
-#ifdef CRASH_HANDLER
+#ifdef DEBUG_CRASH_HANDLER
 	os_signal_trap(SIGSEGV, crash);
 	os_signal_trap(SIGBUS, crash);
 	os_signal_trap(SIGILL, crash);

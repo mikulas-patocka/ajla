@@ -23,6 +23,7 @@
 /*#define DEBUG_BIST*/
 /*#define DEBUG_INFO*/
 /*#define DEBUG_ENV*/
+/*#define DEBUG_CRASH_HANDLER*/
 
 #if HAVE_DEBUGLEVEL >= 1
 #define DEBUG_TRACK_FILE_LINE

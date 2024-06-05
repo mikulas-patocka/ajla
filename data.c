@@ -1018,7 +1018,10 @@ static void attr_fastcall free_codegen(void *data)
 {
 	struct data *d = cast_cpp(struct data *, data);
 #ifdef HAVE_CODEGEN_TRAPS
-	if (da(d,codegen)->trap_records_size) {
+#ifndef DEBUG_CRASH_HANDLER
+	if (da(d,codegen)->trap_records_size)
+#endif
+	{
 		rwmutex_lock_write(&traps_lock);
 		tree_delete(&da(d,codegen)->codegen_tree);
 		rwmutex_unlock_write(&traps_lock);
@@ -3212,8 +3215,10 @@ void data_trap_insert(struct data *codegen)
 {
 	struct tree_insert_position ins;
 	struct tree_entry *e;
+#ifndef DEBUG_CRASH_HANDLER
 	if (!da(codegen,codegen)->trap_records_size)
 		return;
+#endif
 	/*debug("inserting trap for %p, %lx", da(codegen,codegen)->unoptimized_code_base, da(codegen,codegen)->unoptimized_code_size);*/
 	rwmutex_lock_write(&traps_lock);
 	e = tree_find_for_insert(&traps_tree, data_traps_tree_compare, ptr_to_num(da(codegen,codegen)->unoptimized_code_base), &ins);
