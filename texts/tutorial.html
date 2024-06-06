@@ -1919,12 +1919,11 @@ fn main
 	var str := "Hello World!" + nl;
 	var destr := ffi_destructor_new();
 	var message := ffi_destructor_allocate(destr, len(str), 1, false);
-	ffi_poke_array(message, str);
+	ffi_poke_array(destr, message, str);
 	var wrt := ffi_create_function("", "write", ffi_error.e_errno, 3,
 		ffi_type.t_ssize, [ffi_type.t_sint, ffi_type.t_pointer, ffi_type.t_usize ]);
 	var xh := ffi_handle_to_number(h[1]);
-	var r, e := ffi_call_function(wrt, [ xh, message, len(str) ]);
-	keep destr;
+	var r, e := ffi_call_function([ destr ], wrt, [ xh, message, len(str) ]);
 	if r = -1 then [
 		write(h[2], "error " + ntos(e) + " occurred" + nl);
 		exit(1);
@@ -1951,7 +1950,7 @@ allocated memory. <code>len(str)</code> is the size of the allocated memory,
 <code>1</code> is the alignment of the memory, <code>false</code> specifies that
 the memory doesn't have to be cleared. When the <code>destr</code> variable is
 freed, the allocated memory is automatically freed as well.
-<dt><code>ffi_poke_array(message, str);</code>
+<dt><code>ffi_poke_array(destr, message, str);</code>
 <dd>This copies the string to the pointer returned by the previous function.
 Note that the function <code>ffi_poke_array</code> may be used to overwrite
 arbitrary memory in the process.
@@ -1969,15 +1968,9 @@ argument has type pointer, the third argument has type unsigned size_t.
 <dt><code>var xh := ffi_handle_to_number(h[1]);</code>
 <dd>This statement converts an Ajla handle to a system handle. The result will
 be "1" because we are writing to the standard output.
-<dt><code>var r, e := ffi_call_function(wrt, [ xh, message, len(str) ]);</code>
-<dd>Call the "<code>write</code>" function, <code>r</code> is the return value,
-<code>e</code> is the <code>errno</code> value.
-<dt><code>keep destr;</code>
-<dd>The "keep" statement tells the optimizer not to free the variable
-prematurely. If we omitted this statement, the optimizer would free the
-<code>destr</code> variable at a point when it is no longer referenced in the
-source code. Freeing <code>destr</code> would free the <code>message</code>
-buffer prematurely and we would be writing invalid memory.
+<dt><code>var r, e := ffi_call_function([ destr ], wrt, [ xh, message, len(str)
+]);</code> <dd>Call the "<code>write</code>" function, <code>r</code> is the
+return value, <code>e</code> is the <code>errno</code> value.
 <dt>if r = -1 then ...
 <dd>The rest of the program prints an error if the write failed.
 </dl>

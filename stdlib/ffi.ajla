@@ -58,6 +58,7 @@ option ffi_error [
 ]
 
 type ffi_function;
+type ffi_destructor;
 
 fn ffi_unsafe_get_world : world;
 
@@ -67,18 +68,18 @@ fn ffi_get_alignment(ft : ffi_type) : int;
 fn ffi_create_structure(elements : list(ffi_type)) : (ffi_structure, list(int));
 fn ffi_get_structure_offset(str : ffi_structure, element : int) : int;
 
-fn ffi_poke(w : world, ptr : int, ft : ffi_type, val : int) : world;
-fn ffi_peek(w : world, ptr : int, ft : ffi_type) : (world, int);
+fn ffi_poke(w : world, desc : ffi_destructor, ptr : int, ft : ffi_type, val : int) : world;
+fn ffi_peek(w : world, desc : ffi_destructor, ptr : int, ft : ffi_type) : (world, int);
 
-fn ffi_poke_array(t : type, w : world, ptr : int, a : list(t)) : world;
-fn ffi_peek_array(w : world, ptr : int, l : int, ft : ffi_type, t : type) : (world, list(t));
+fn ffi_poke_array(t : type, w : world, desc : ffi_destructor, ptr : int, a : list(t)) : world;
+fn ffi_peek_array(w : world, desc : ffi_destructor, ptr : int, l : int, ft : ffi_type, t : type) : (world, list(t));
 
 fn ffi_handle_to_number(w : world, h : handle) : (world, int);
 fn ffi_number_to_handle(w : world, n : int, sckt : bool) : (world, handle);
 
 fn ffi_create_function(filename : bytes, funcname : bytes, err_type : ffi_error, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : ffi_function;
-fn ffi_call_function(w : world, func : ffi_function, args : list(int)) : (world, int, int);
-fn ffi_call_function_pure(func : ffi_function, args : list(int)) : (int, int);
+fn ffi_call_function(w : world, desc : list(ffi_destructor), func : ffi_function, args : list(int)) : (world, int, int);
+fn ffi_call_function_pure(desc : list(ffi_destructor), func : ffi_function, args : list(int)) : (int, int);
 
 fn ffi_encode_float(f : real32) : int;
 fn ffi_encode_double(f : real64) : int;
@@ -86,8 +87,6 @@ fn ffi_encode_longdouble(f : real80) : int;
 fn ffi_decode_float(i : int) : real32;
 fn ffi_decode_double(i : int) : real64;
 fn ffi_decode_longdouble(i : int) : real80;
-
-type ffi_destructor;
 
 fn ffi_destructor_new(w : world) : (world, ffi_destructor);
 fn ffi_destructor_allocate(w : world, fd : ffi_destructor, size align : int, zero : bool) : (world, int);
@@ -133,33 +132,33 @@ fn ffi_get_structure_offset(str : ffi_structure, element : int) : int
 	return r;
 ]
 
-fn ffi_poke(w : world, ptr : int, ft : ffi_type, val : int) : world
+fn ffi_poke(w : world, desc : ffi_destructor, ptr : int, ft : ffi_type, val : int) : world
 [
 	var w2 : world;
-	pcode IO IO_FFI_Poke 1 4 0 =w2 w ptr ft val;
+	pcode IO IO_FFI_Poke 1 5 0 =w2 w ptr ft val desc;
 	return w2;
 ]
 
-fn ffi_peek(w : world, ptr : int, ft : ffi_type) : (world, int)
+fn ffi_peek(w : world, desc : ffi_destructor, ptr : int, ft : ffi_type) : (world, int)
 [
 	var r : int;
 	var w2 : world;
-	pcode IO IO_FFI_Peek 2 3 0 =w2 =r w ptr ft;
+	pcode IO IO_FFI_Peek 2 4 0 =w2 =r w ptr ft desc;
 	return w2, r;
 ]
 
-fn ffi_poke_array(t : type, w : world, ptr : int, a : list(t)) : world
+fn ffi_poke_array(t : type, w : world, desc : ffi_destructor, ptr : int, a : list(t)) : world
 [
 	var w2 : world;
-	pcode IO IO_FFI_Poke_Array 1 3 0 =w2 w ptr a;
+	pcode IO IO_FFI_Poke_Array 1 4 0 =w2 w ptr a desc;
 	return w2;
 ]
 
-fn ffi_peek_array(w : world, ptr : int, l : int, ft : ffi_type, t : type) : (world, list(t))
+fn ffi_peek_array(w : world, desc : ffi_destructor, ptr : int, l : int, ft : ffi_type, t : type) : (world, list(t))
 [
 	var r : list(t);
 	var w2 : world;
-	pcode IO IO_FFI_Peek_Array 2 4 0 =w2 =r w ptr l ft;
+	pcode IO IO_FFI_Peek_Array 2 5 0 =w2 =r w ptr l ft desc;
 	return w2, r;
 ]
 
@@ -186,20 +185,20 @@ fn ffi_create_function(filename : bytes, funcname : bytes, err_type : ffi_error,
 	return r;
 ]
 
-fn ffi_call_function(w : world, func : ffi_function, args : list(int)) : (world, int, int)
+fn ffi_call_function(w : world, desc : list(ffi_destructor), func : ffi_function, args : list(int)) : (world, int, int)
 [
 	var r e : int;
 	var w2 : world;
-	pcode IO IO_FFI_Call_Function 3 3 0 =w2 =r =e w func args;
+	pcode IO IO_FFI_Call_Function 3 4 0 =w2 =r =e w func args desc;
 	return w2, r, e;
 ]
 
-fn ffi_call_function_pure(func : ffi_function, args : list(int)) : (int, int)
+fn ffi_call_function_pure(desc : list(ffi_destructor), func : ffi_function, args : list(int)) : (int, int)
 [
 	var r e : int;
 	var w := unsafe_get_world;
 	var w2 : world;
-	pcode IO IO_FFI_Call_Function 3 3 0 =w2 =r =e w func args;
+	pcode IO IO_FFI_Call_Function 3 4 0 =w2 =r =e w func args desc;
 	return r, e;
 ]
 
