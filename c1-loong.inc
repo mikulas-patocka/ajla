@@ -230,7 +230,7 @@ static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int64
 			if (likely(imm >= -0x800) && likely(imm < 0x800)) {
 				return true;
 			}
-			if (imm >= -0x10000 && imm < 0x10000 && !(imm & 3)) {
+			if (imm >= -0x8000 && imm < 0x8000 && !(imm & 3)) {
 				if (size == OP_SIZE_NATIVE)
 					return true;
 				if (purpose == IMM_PURPOSE_LDR_SX_OFFSET && size == OP_SIZE_4)
