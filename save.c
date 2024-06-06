@@ -609,7 +609,11 @@ static void save_finish_one(const struct module_designator *md, const struct fun
 	if (unlikely(en_off == (size_t)-1))
 		goto free_it_2;
 
+#ifdef HAVE_CODEGEN_TRAPS
 	tr_off = save_range(trap_records, align_of(struct trap_record), trap_records_size * sizeof(struct trap_record), NULL, 0);
+#else
+	tr_off = save_range(trap_records, 1, 0, NULL, 0);
+#endif
 	if (unlikely(tr_off == (size_t)-1))
 		goto free_it_2;
 
