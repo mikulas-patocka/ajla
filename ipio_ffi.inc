@@ -1020,6 +1020,8 @@ struct resource_ffi_destructor {
 	size_t ptrs_l;
 	struct destructor_call *calls;
 	size_t calls_l;
+	pointer_t *handles;
+	size_t handles_l;
 };
 
 static void resource_ffi_destructor_close(struct data *d)
@@ -1055,6 +1057,9 @@ static void resource_ffi_destructor_close(struct data *d)
 		mem_free(call->args);
 	}
 	mem_free(rfd->calls);
+	for (i = 0; i < rfd->handles_l; i++)
+		pointer_dereference(rfd->handles[i]);
+	mem_free(rfd->handles);
 	for (i = 0; i < rfd->ptrs_l; i++)
 		mem_free_aligned(rfd->ptrs[i]);
 	mem_free(rfd->ptrs);
@@ -1080,6 +1085,12 @@ static void * attr_fastcall io_ffi_destructor_new_handler(struct io_ctx *ctx)
 		goto ret_err;
 	}
 	if (unlikely(!array_init_mayfail(struct destructor_call, &rfd->calls, &rfd->calls_l, &ctx->err))) {
+		mem_free(rfd->ptrs);
+		data_free_r1(d);
+		goto ret_err;
+	}
+	if (unlikely(!array_init_mayfail(pointer_t, &rfd->handles, &rfd->handles_l, &ctx->err))) {
+		mem_free(rfd->calls);
 		mem_free(rfd->ptrs);
 		data_free_r1(d);
 		goto ret_err;
@@ -1273,6 +1284,96 @@ ret_test:
 	if (ctx->ptrs)
 		mem_free(ctx->ptrs);
 
+	return test;
+
+ret_err:
+	io_terminate_with_error(ctx, ctx->err, true, NULL);
+	test = POINTER_FOLLOW_THUNK_EXCEPTION;
+	goto ret_test;
+}
+
+static void * attr_fastcall io_ffi_handle_to_number_handler(struct io_ctx *ctx)
+{
+	void *test;
+	pointer_t ptr, hptr;
+	struct resource_ffi_destructor *rfd;
+	uintptr_t n;
+	void *old;
+
+	test = io_deep_eval(ctx, "012", true);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
+
+	ptr = *frame_pointer(ctx->fp, get_input(ctx, 1));
+	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_handle_to_number_handler: pointer is thunk"));
+	rfd = da_resource(pointer_get_data(ptr));
+
+	hptr = *frame_pointer(ctx->fp, get_input(ctx, 2));
+
+	address_lock(rfd, DEPTH_AUX);
+	if (unlikely(!array_add_mayfail(pointer_t, &rfd->handles, &rfd->handles_l, hptr, &old, &ctx->err))) {
+		rfd->handles = old;
+		address_unlock(rfd, DEPTH_AUX);
+		goto ret_err;
+	}
+	pointer_reference_owned(hptr);
+	address_unlock(rfd, DEPTH_AUX);
+
+	io_get_handle(ctx, get_input(ctx, 2));
+
+	n = os_handle_to_number(ctx->handle->fd);
+
+	io_store_typed_number(ctx, get_output(ctx, 1), int_default_t, INT_DEFAULT_N, uintptr_t, n);
+
+	test = POINTER_FOLLOW_THUNK_GO;
+
+ret_test:
+	return test;
+
+ret_err:
+	io_terminate_with_error(ctx, ctx->err, true, NULL);
+	test = POINTER_FOLLOW_THUNK_EXCEPTION;
+	goto ret_test;
+}
+
+static void * attr_fastcall io_ffi_number_to_handle_handler(struct io_ctx *ctx)
+{
+	void *test;
+	uintptr_t n = 0;	/* avoid warning */
+	ajla_option_t sckt;
+	handle_t hn;
+	struct data *d = NULL;
+	struct resource_handle *h;
+
+	test = io_deep_eval(ctx, "012", true);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
+
+	io_get_number(ctx, get_input(ctx, 1), int_default_t, uintptr_t, n);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_err;
+
+	io_get_option(ctx, get_input(ctx, 2), &sckt, NULL);
+
+	d = data_alloc_resource_mayfail(sizeof(struct resource_handle), handle_close, &ctx->err pass_file_line);
+	if (unlikely(!d))
+		goto ret_err;
+	h = da_resource(d);
+
+	hn = os_number_to_handle(n, !!sckt, &ctx->err);
+	if (unlikely(!handle_is_valid(hn)))
+		goto ret_err;
+
+	h->fd = hn;
+
+	frame_set_pointer(ctx->fp, get_output(ctx, 1), pointer_data(d));
+
+	d = NULL;
+	test = POINTER_FOLLOW_THUNK_GO;
+
+ret_test:
+	if (d)
+		data_free_r1(d);
 	return test;
 
 ret_err:

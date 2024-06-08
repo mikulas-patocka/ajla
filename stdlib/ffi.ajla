@@ -74,7 +74,7 @@ fn ffi_peek(w : world, desc : ffi_destructor, ptr : int, ft : ffi_type) : (world
 fn ffi_poke_array(t : type, w : world, desc : ffi_destructor, ptr : int, a : list(t)) : world;
 fn ffi_peek_array(w : world, desc : ffi_destructor, ptr : int, l : int, ft : ffi_type, t : type) : (world, list(t));
 
-fn ffi_handle_to_number(w : world, h : handle) : (world, int);
+fn ffi_handle_to_number(w : world, desc : ffi_destructor, h : handle) : (world, int);
 fn ffi_number_to_handle(w : world, n : int, sckt : bool) : (world, handle);
 
 fn ffi_create_function(filename : bytes, funcname : bytes, err_type : ffi_error, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : ffi_function;
@@ -162,11 +162,11 @@ fn ffi_peek_array(w : world, desc : ffi_destructor, ptr : int, l : int, ft : ffi
 	return w2, r;
 ]
 
-fn ffi_handle_to_number(w : world, h : handle) : (world, int)
+fn ffi_handle_to_number(w : world, desc : ffi_destructor, h : handle) : (world, int)
 [
 	var n : int;
 	var w2 : world;
-	pcode IO IO_FFI_Handle_To_Number 2 2 0 =w2 =n w h;
+	pcode IO IO_FFI_Handle_To_Number 2 3 0 =w2 =n w desc h;
 	return w2, n;
 ]
 
