@@ -1922,7 +1922,7 @@ fn main
 	ffi_poke_array(destr, message, str);
 	var wrt := ffi_create_function("", "write", ffi_error.e_errno, 3,
 		ffi_type.t_ssize, [ffi_type.t_sint, ffi_type.t_pointer, ffi_type.t_usize ]);
-	var xh := ffi_handle_to_number(h[1]);
+	var xh := ffi_handle_to_number(destr, h[1]);
 	var r, e := ffi_call_function([ destr ], wrt, [ xh, message, len(str) ]);
 	if r = -1 then [
 		write(h[2], "error " + ntos(e) + " occurred" + nl);
@@ -1965,7 +1965,7 @@ the fourth argument is the number of fixed arguments, the fifth argument is the
 return type, the sixth argument is the list containing types for the three
 arguments &mdash; the first argument has type signed integer, the second
 argument has type pointer, the third argument has type unsigned size_t.
-<dt><code>var xh := ffi_handle_to_number(h[1]);</code>
+<dt><code>var xh := ffi_handle_to_number(destr, h[1]);</code>
 <dd>This statement converts an Ajla handle to a system handle. The result will
 be "1" because we are writing to the standard output.
 <dt><code>var r, e := ffi_call_function([ destr ], wrt, [ xh, message, len(str)
