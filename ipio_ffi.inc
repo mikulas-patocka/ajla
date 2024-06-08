@@ -168,6 +168,8 @@ static void * attr_fastcall io_ffi_get_size_alignment_handler(struct io_ctx *ctx
 	}
 
 	io_store_typed_number(ctx, get_output(ctx, 0), int_default_t, INT_DEFAULT_N, size_t, v);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 
 	test = POINTER_FOLLOW_THUNK_GO;
 
@@ -381,6 +383,8 @@ static void * attr_fastcall io_ffi_structure_offset_handler(struct io_ctx *ctx)
 	}
 	off = s->offsets[n];
 	io_store_typed_number(ctx, get_output(ctx, 0), int_default_t, INT_DEFAULT_N, unsigned, off);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 
 	test = POINTER_FOLLOW_THUNK_GO;
 
@@ -506,10 +510,10 @@ static void * attr_fastcall io_ffi_peek_handler(struct io_ctx *ctx)
 		case T_UNSIGNED: {
 			memcpy(&u, ad, sz);
 			switch (sz) {
-				case 1:	io_store_typed_number(ctx, slot, int_default_t, INT_DEFAULT_N, uint8_t, u.u8); break;
-				case 2:	io_store_typed_number(ctx, slot, int_default_t, INT_DEFAULT_N, uint16_t, u.u16); break;
-				case 4:	io_store_typed_number(ctx, slot, int_default_t, INT_DEFAULT_N, uint32_t, u.u32); break;
-				case 8:	io_store_typed_number(ctx, slot, int_default_t, INT_DEFAULT_N, uint64_t, u.u64); break;
+				case 1:	io_store_typed_number(ctx, slot, int_default_t, INT_DEFAULT_N, uint8_t, u.u8); if (unlikely(test != POINTER_FOLLOW_THUNK_GO)) goto ret_test; break;
+				case 2:	io_store_typed_number(ctx, slot, int_default_t, INT_DEFAULT_N, uint16_t, u.u16); if (unlikely(test != POINTER_FOLLOW_THUNK_GO)) goto ret_test; break;
+				case 4:	io_store_typed_number(ctx, slot, int_default_t, INT_DEFAULT_N, uint32_t, u.u32); if (unlikely(test != POINTER_FOLLOW_THUNK_GO)) goto ret_test; break;
+				case 8:	io_store_typed_number(ctx, slot, int_default_t, INT_DEFAULT_N, uint64_t, u.u64); if (unlikely(test != POINTER_FOLLOW_THUNK_GO)) goto ret_test; break;
 				default:internal(file_line, "io_ffi_peek_handler: invalid size %"PRIuMAX"", (uintmax_t)sz);
 			}
 			break;
@@ -517,10 +521,10 @@ static void * attr_fastcall io_ffi_peek_handler(struct io_ctx *ctx)
 		case T_SIGNED: {
 			memcpy(&u, ad, sz);
 			switch (sz) {
-				case 1:	io_store_typed_number(ctx, slot, int_default_t, INT_DEFAULT_N, int8_t, u.s8); break;
-				case 2:	io_store_typed_number(ctx, slot, int_default_t, INT_DEFAULT_N, int16_t, u.s16); break;
-				case 4:	io_store_typed_number(ctx, slot, int_default_t, INT_DEFAULT_N, int32_t, u.s32); break;
-				case 8:	io_store_typed_number(ctx, slot, int_default_t, INT_DEFAULT_N, int64_t, u.s64); break;
+				case 1:	io_store_typed_number(ctx, slot, int_default_t, INT_DEFAULT_N, int8_t, u.s8); if (unlikely(test != POINTER_FOLLOW_THUNK_GO)) goto ret_test; break;
+				case 2:	io_store_typed_number(ctx, slot, int_default_t, INT_DEFAULT_N, int16_t, u.s16); if (unlikely(test != POINTER_FOLLOW_THUNK_GO)) goto ret_test; break;
+				case 4:	io_store_typed_number(ctx, slot, int_default_t, INT_DEFAULT_N, int32_t, u.s32); if (unlikely(test != POINTER_FOLLOW_THUNK_GO)) goto ret_test; break;
+				case 8:	io_store_typed_number(ctx, slot, int_default_t, INT_DEFAULT_N, int64_t, u.s64); if (unlikely(test != POINTER_FOLLOW_THUNK_GO)) goto ret_test; break;
 				default:internal(file_line, "io_ffi_peek_handler: invalid size %"PRIuMAX"", (uintmax_t)sz);
 			}
 			break;
@@ -979,6 +983,8 @@ ret_test:
 	if (likely(store)) {
 		if (ajla_type_to_ffi_type_table[rf->ret_type].sign == T_VOID) {
 			io_store_typed_number(ctx, get_output(ctx, 1), int_default_t, INT_DEFAULT_N, int, 0);
+			if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+				goto store_failed;
 		} else if (ajla_type_to_ffi_type_table[rf->ret_type].sign == T_REAL) {
 			struct data *dl = data_alloc_longint_mayfail(ajla_type_to_ffi_type_table[rf->ret_type].size * 8, &ctx->err pass_file_line);
 			if (unlikely(!dl)) {
@@ -990,17 +996,28 @@ ret_test:
 		} else if (ajla_type_to_ffi_type_table[rf->ret_type].size > sizeof(u.rc)) {
 			if (ajla_type_to_ffi_type_table[rf->ret_type].sign != T_SIGNED) {
 				io_store_typed_number(ctx, get_output(ctx, 1), int_default_t, INT_DEFAULT_N, uint64_t, u.ui64);
+				if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+					goto store_failed;
 			} else {
 				io_store_typed_number(ctx, get_output(ctx, 1), int_default_t, INT_DEFAULT_N, int64_t, u.i64);
+				if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+					goto store_failed;
 			}
 		} else if (ajla_type_to_ffi_type_table[rf->ret_type].sign != T_SIGNED) {
 			io_store_typed_number(ctx, get_output(ctx, 1), int_default_t, INT_DEFAULT_N, ffi_arg, u.rc);
+			if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+				goto store_failed;
 		} else {
 			io_store_typed_number(ctx, get_output(ctx, 1), int_default_t, INT_DEFAULT_N, ffi_sarg, u.src);
+			if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+				goto store_failed;
 		}
 		io_store_typed_number(ctx, get_output(ctx, 2), int_default_t, INT_DEFAULT_N, uint32_t, e);
+		if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+			goto store_failed;
 	}
 
+store_failed:
 	return test;
 
 ret_err:
@@ -1158,6 +1175,8 @@ static void * attr_fastcall io_ffi_destructor_allocate_handler(struct io_ctx *ct
 	}
 
 	io_store_typed_number(ctx, get_output(ctx, 1), int_default_t, INT_DEFAULT_N, uintptr_t, ptr_to_num(n));
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 
 	test = POINTER_FOLLOW_THUNK_GO;
 
@@ -1324,6 +1343,8 @@ static void * attr_fastcall io_ffi_handle_to_number_handler(struct io_ctx *ctx)
 	n = os_handle_to_number(ctx->handle->fd);
 
 	io_store_typed_number(ctx, get_output(ctx, 1), int_default_t, INT_DEFAULT_N, uintptr_t, n);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 
 	test = POINTER_FOLLOW_THUNK_GO;
 

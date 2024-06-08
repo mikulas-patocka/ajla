@@ -561,11 +561,13 @@ do {									\
 		d = data_alloc_longint_mayfail(sizeof(result_type_) * 8, &ctx->err pass_file_line);\
 		if (unlikely(!d)) {					\
 			io_terminate_with_error(ctx, ctx->err, true, NULL);\
-			return POINTER_FOLLOW_THUNK_EXCEPTION;		\
+			test = POINTER_FOLLOW_THUNK_EXCEPTION;		\
+			break;						\
 		}							\
 		mpint_import_from_variable(&da(d,longint)->mp, result_type_, r_);\
 		frame_set_pointer(ctx->fp, slot, pointer_data(d));	\
 	}								\
+	test = POINTER_FOLLOW_THUNK_GO;					\
 } while (0)
 
 #define io_get_time(ctx, slot, result)					\
@@ -791,13 +793,18 @@ static void * attr_fastcall io_n_std_handles_handler(struct io_ctx attr_unused *
 
 	test = io_deep_eval(ctx, "0", true);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
-		return test;
+		goto ret_test;
 
 	n = os_n_std_handles();
 
 	io_store_typed_number(ctx, get_output(ctx, 1), int_default_t, INT_DEFAULT_N, unsigned, n);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 
 	return POINTER_FOLLOW_THUNK_GO;
+
+ret_test:
+	return test;
 }
 
 static void * attr_fastcall io_get_std_handle_handler(struct io_ctx attr_unused *ctx)
@@ -1304,6 +1311,8 @@ static void * attr_fastcall io_lseek_handler(struct io_ctx *ctx)
 		goto ret_thunk;
 
 	io_store_typed_number(ctx, get_output(ctx, 1), int64_t, 3, os_off_t, ctx->position);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 
 	return POINTER_FOLLOW_THUNK_GO;
 
@@ -2894,6 +2903,8 @@ static void * attr_fastcall io_wait_handler(struct io_ctx *ctx)
 	ex = frame_execution_control(ctx->fp);
 	if (os_proc_register_wait(h->ph, &ex->wait[0].mutex_to_lock, &ex->wait[0].wait_entry, &status)) {
 		io_store_typed_number(ctx, get_output(ctx, 1), int_default_t, INT_DEFAULT_N, int, status);
+		if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+			goto ret_test;
 	} else {
 		pointer_follow_wait(ctx->fp, ctx->ip);
 		test = POINTER_FOLLOW_THUNK_EXIT;
@@ -2927,6 +2938,10 @@ static void * attr_fastcall io_get_time_handler(struct io_ctx *ctx)
 	}
 
 	io_store_time(ctx, get_output(ctx, 1), t);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
+
+	return POINTER_FOLLOW_THUNK_GO;
 
 ret_test:
 	return test;
@@ -2956,15 +2971,35 @@ static void * attr_fastcall io_time_to_calendar_handler(struct io_ctx *ctx)
 	}
 
 	io_store_typed_number(ctx, get_output(ctx, 0), int_default_t, INT_DEFAULT_N, int, year);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 	io_store_typed_number(ctx, get_output(ctx, 1), int_default_t, INT_DEFAULT_N, int, month);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 	io_store_typed_number(ctx, get_output(ctx, 2), int_default_t, INT_DEFAULT_N, int, day);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 	io_store_typed_number(ctx, get_output(ctx, 3), int_default_t, INT_DEFAULT_N, int, hour);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 	io_store_typed_number(ctx, get_output(ctx, 4), int_default_t, INT_DEFAULT_N, int, min);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 	io_store_typed_number(ctx, get_output(ctx, 5), int_default_t, INT_DEFAULT_N, int, sec);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 	io_store_typed_number(ctx, get_output(ctx, 6), int_default_t, INT_DEFAULT_N, int, usec);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 	io_store_typed_number(ctx, get_output(ctx, 7), int_default_t, INT_DEFAULT_N, int, yday);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 	io_store_typed_number(ctx, get_output(ctx, 8), int_default_t, INT_DEFAULT_N, int, wday);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 	io_store_typed_number(ctx, get_output(ctx, 9), int_default_t, INT_DEFAULT_N, int, is_dst);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 
 	test = POINTER_FOLLOW_THUNK_GO;
 
@@ -3016,6 +3051,8 @@ static void * attr_fastcall io_calendar_to_time_handler(struct io_ctx *ctx)
 	}
 
 	io_store_time(ctx, get_output(ctx, 0), t);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 
 	return POINTER_FOLLOW_THUNK_GO;
 
@@ -3247,7 +3284,7 @@ static void * attr_fastcall io_native_to_int_handler(struct io_ctx *ctx)
 
 	test = io_deep_eval(ctx, "01", false);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
-		return test;
+		goto ret_test;
 
 	f = get_output(ctx, 0);
 
@@ -3264,6 +3301,8 @@ static void * attr_fastcall io_native_to_int_handler(struct io_ctx *ctx)
 			s = *cast_ptr(t *, ctx->str);			\
 			mem_free(ctx->str);				\
 			io_store_typed_number(ctx, f, int_default_t, INT_DEFAULT_N, t, s);\
+			if (unlikely(test != POINTER_FOLLOW_THUNK_GO))	\
+				goto ret_test;				\
 			break;						\
 		}
 		native_to_int_case(0, short);
@@ -3288,11 +3327,15 @@ static void * attr_fastcall io_native_to_int_handler(struct io_ctx *ctx)
 		invalid_op:
 			mem_free(ctx->str);
 			io_terminate_with_error(ctx, error_ajla(EC_SYNC, AJLA_ERROR_INVALID_OPERATION), true, NULL);
-			return POINTER_FOLLOW_THUNK_EXCEPTION;
+			test = POINTER_FOLLOW_THUNK_EXCEPTION;
+			goto ret_test;
 #undef native_to_int_case
 	}
 
 	return POINTER_FOLLOW_THUNK_GO;
+
+ret_test:
+	return test;
 }
 
 static void * attr_fastcall io_socket_handler(struct io_ctx *ctx)
@@ -3553,11 +3596,11 @@ static void * attr_fastcall io_sendto_handler(struct io_ctx *ctx)
 
 	test = io_deep_eval(ctx, "01234", true);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
-		return test;
+		goto ret_test;
 
 	io_get_positive_number(ctx, ctx->fp, get_input(ctx, 3), int, flags);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
-		return test;
+		goto ret_test;
 
 	io_get_handle(ctx, get_input(ctx, 1));
 	io_get_bytes(ctx, get_input(ctx, 2));
@@ -3570,14 +3613,21 @@ static void * attr_fastcall io_sendto_handler(struct io_ctx *ctx)
 
 	if (wr == OS_RW_WOULDBLOCK) {
 		io_block_on_handle(ctx, false, false);
-		return POINTER_FOLLOW_THUNK_EXIT;
+		test = POINTER_FOLLOW_THUNK_EXIT;
+		goto ret_test;
 	}
 	if (unlikely(wr == OS_RW_ERROR)) {
 		io_terminate_with_error(ctx, ctx->err, true, NULL);
-		return POINTER_FOLLOW_THUNK_GO;
+		test = POINTER_FOLLOW_THUNK_GO;
+		goto ret_test;
 	}
 	io_store_typed_number(ctx, get_output(ctx, 1), int_default_t, INT_DEFAULT_N, ssize_t, wr);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 	return POINTER_FOLLOW_THUNK_GO;
+
+ret_test:
+	return test;
 }
 
 static void * attr_fastcall io_getsockopt_handler(struct io_ctx *ctx)
