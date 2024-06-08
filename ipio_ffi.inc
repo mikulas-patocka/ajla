@@ -1144,8 +1144,6 @@ static void * attr_fastcall io_ffi_destructor_allocate_handler(struct io_ctx *ct
 	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_destructor_allocate_handler: pointer is thunk"));
 	rfd = da_resource(pointer_get_data(ptr));
 
-	address_lock(rfd, DEPTH_AUX);
-
 	io_get_number(ctx, get_input(ctx, 2), int_default_t, size_t, size);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
@@ -1168,11 +1166,14 @@ static void * attr_fastcall io_ffi_destructor_allocate_handler(struct io_ctx *ct
 	if (unlikely(!n))
 		goto ret_err;
 
+	address_lock(rfd, DEPTH_AUX);
 	if (unlikely(!array_add_mayfail(void *, &rfd->ptrs, &rfd->ptrs_l, n, &old, &ctx->err))) {
 		rfd->ptrs = old;
+		address_unlock(rfd, DEPTH_AUX);
 		mem_free_aligned(n);
 		goto ret_err;
 	}
+	address_unlock(rfd, DEPTH_AUX);
 
 	io_store_typed_number(ctx, get_output(ctx, 1), int_default_t, INT_DEFAULT_N, uintptr_t, ptr_to_num(n));
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
@@ -1181,8 +1182,6 @@ static void * attr_fastcall io_ffi_destructor_allocate_handler(struct io_ctx *ct
 	test = POINTER_FOLLOW_THUNK_GO;
 
 ret_test:
-	if (rfd)
-		address_unlock(rfd, DEPTH_AUX);
 	return test;
 
 ret_err:
@@ -1208,29 +1207,28 @@ static void * attr_fastcall io_ffi_destructor_free_handler(struct io_ctx *ctx)
 	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_destructor_free_handler: pointer is thunk"));
 	rfd = da_resource(pointer_get_data(ptr));
 
-	address_lock(rfd, DEPTH_AUX);
-
 	io_get_number(ctx, get_input(ctx, 2), int_default_t, uintptr_t, nn);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 	n = num_to_ptr(nn);
 
+	address_lock(rfd, DEPTH_AUX);
 	for (i = 0; i < rfd->ptrs_l; i++) {
 		if (rfd->ptrs[i] == n) {
 			memmove(&rfd->ptrs[i], &rfd->ptrs[i + 1], (rfd->ptrs_l - i - 1) * sizeof(void *));
 			rfd->ptrs_l--;
+			address_unlock(rfd, DEPTH_AUX);
 			mem_free_aligned(n);
 			test = POINTER_FOLLOW_THUNK_GO;
 			goto ret_test;
 		}
 	}
+	address_unlock(rfd, DEPTH_AUX);
 
 	ctx->err = error_ajla(EC_SYNC, AJLA_ERROR_INVALID_OPERATION);
 	goto ret_err;
 
 ret_test:
-	if (rfd)
-		address_unlock(rfd, DEPTH_AUX);
 	return test;
 
 ret_err:
@@ -1260,8 +1258,6 @@ static void * attr_fastcall io_ffi_destructor_call_handler(struct io_ctx *ctx)
 	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_destructor_call_handler: pointer is thunk"));
 	rfd = da_resource(pointer_get_data(ptr));
 
-	address_lock(rfd, DEPTH_AUX);
-
 	ptr = *frame_pointer(ctx->fp, get_input(ctx, 2));
 	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_destructor_call_handler: pointer is thunk"));
 	call.d = pointer_get_data(ptr);
@@ -1284,10 +1280,13 @@ static void * attr_fastcall io_ffi_destructor_call_handler(struct io_ctx *ctx)
 	call.args = ctx->ptrs;
 	call.args_l = ctx->ptrs_l;
 
+	address_lock(rfd, DEPTH_AUX);
 	if (unlikely(!array_add_mayfail(struct destructor_call, &rfd->calls, &rfd->calls_l, call, &old, &ctx->err))) {
 		rfd->calls = old;
+		address_unlock(rfd, DEPTH_AUX);
 		goto ret_err;
 	}
+	address_unlock(rfd, DEPTH_AUX);
 
 	ctx->ptrs = NULL;
 	ctx->ptrs_l = 0;
@@ -1296,8 +1295,6 @@ static void * attr_fastcall io_ffi_destructor_call_handler(struct io_ctx *ctx)
 	test = POINTER_FOLLOW_THUNK_GO;
 
 ret_test:
-	if (rfd)
-		address_unlock(rfd, DEPTH_AUX);
 	for (i = 0; i < ctx->ptrs_l; i++)
 		mem_free(ctx->ptrs[i]);
 	if (ctx->ptrs)
