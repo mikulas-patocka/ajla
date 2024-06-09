@@ -8301,6 +8301,11 @@ static bool attr_w gen_array_len(struct codegen_context *ctx, frame_t slot_1, fr
 	if (unlikely(!escape_label))
 		return false;
 
+	if (slot_2 != NO_FRAME_T) {
+		g(gen_test_1_cached(ctx, slot_2, escape_label));
+		ctx->flag_cache[slot_2] = -1;
+	}
+
 	if (unlikely(t->tag == TYPE_TAG_flat_array)) {
 		if (slot_2 == NO_FRAME_T) {
 			g(gen_frame_store_imm(ctx, OP_SIZE_INT, slot_r, 0, (unsigned)type_def(t,flat_array)->n_elements));
