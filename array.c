@@ -172,7 +172,7 @@ static int_default_t array_align_alloc(int_default_t len)
 }
 
 
-bool attr_fastcall array_read(struct data *array, array_index_t idx, pointer_t **result_ptr, unsigned char **result_flat, const struct type **flat_type, int_default_t *run, ajla_error_t *err)
+bool attr_fastcall array_read(struct data *array, array_index_t idx, pointer_t **result_ptr, unsigned char **result_flat, const struct type **flat_type, int_default_t *run)
 {
 go_down:
 	switch (da_tag(array)) {
@@ -247,7 +247,6 @@ go_down:
 	return true;
 
 invalid_index:
-	fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_INDEX_OUT_OF_RANGE), err, "index out of range");
 	index_free(&idx);
 	return false;
 }

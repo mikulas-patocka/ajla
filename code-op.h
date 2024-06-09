@@ -29,6 +29,7 @@ typedef uint16_t code_t;
 #define OPCODE_CALL_MAY_LEND			0x0004	/* OPCODE_FLAG_FREE_ARGUMENT must not be set */
 #define OPCODE_CALL_MAY_GIVE			0x0008	/* OPCODE_FLAG_FREE_ARGUMENT must be set */
 #define OPCODE_ARRAY_FILL_FLAG_SPARSE		0x0004
+#define OPCODE_ARRAY_INDEX_IN_RANGE		0x0004
 #define OPCODE_STRUCT_MAY_BORROW		0x0008
 #define FLAG_NEED_BOTH_EXCEPTIONS_TO_FAIL	0x0100	/* not used in code, used internally in ipret.c */
 #define FLAG_FIRST_EXCEPTION			0x0200	/* not used in code, used internally in ipret.c */

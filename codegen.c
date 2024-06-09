@@ -8114,9 +8114,14 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 		const struct flat_array_definition *def = type_def(t,flat_array);
 
 		g(gen_test_2_cached(ctx, slot_1, slot_idx, escape_label));
+
+		ctx->flag_cache[slot_1] = -1;
+		ctx->flag_cache[slot_idx] = -1;
+
 		g(gen_frame_load(ctx, OP_SIZE_INT, false, slot_idx, 0, R_SCRATCH_2));
 
-		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, R_SCRATCH_2, def->n_elements, COND_AE, escape_label));
+		if (!(flags & OPCODE_ARRAY_INDEX_IN_RANGE))
+			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, R_SCRATCH_2, def->n_elements, COND_AE, escape_label));
 
 		g(gen_scaled_array_load(ctx, def->base->size, def->base->align, R_FRAME, (size_t)slot_1 * slot_size, slot_r));
 		return true;
@@ -8131,7 +8136,8 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 	ctx->flag_cache[slot_idx] = -1;
 	g(gen_frame_load(ctx, OP_SIZE_INT, false, slot_idx, 0, R_SCRATCH_2));
 
-	g(gen_check_array_len(ctx, R_SCRATCH_1, false, R_SCRATCH_2, COND_AE, escape_label));
+	if (!(flags & OPCODE_ARRAY_INDEX_IN_RANGE))
+		g(gen_check_array_len(ctx, R_SCRATCH_1, false, R_SCRATCH_2, COND_AE, escape_label));
 
 	if (TYPE_IS_FLAT(tr)) {
 		uint32_t label;

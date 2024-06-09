@@ -2507,6 +2507,8 @@ DEFINE_OPCODE_START(OPCODE_ARRAY_LOAD)
 	if (t->tag == TYPE_TAG_flat_array && !frame_test_flag(fp, array)) {
 		const struct flat_array_definition *def = type_def(t,flat_array);
 		if (unlikely(index_ge_int(array_index, def->n_elements))) {
+			if (unlikely((flags & OPCODE_ARRAY_INDEX_IN_RANGE) != 0))
+				internal(file_line, "array_load: flat array index out of range");
 			index_free(&array_index);
 			ptr = pointer_error(error_ajla(EC_SYNC, AJLA_ERROR_INDEX_OUT_OF_RANGE), fp, ip pass_file_line);
 			goto cat(array_load_set_ptr_,ARG_MODE);
@@ -2557,8 +2559,10 @@ cat(array_restart_pointer_follow_,ARG_MODE):
 			}
 		}
 
-		if (unlikely(!array_read(data, array_index, &pptr, &flat, &t_elem, NULL, &ajla_error))) {
-			ptr = pointer_error(ajla_error, fp, ip pass_file_line);
+		if (unlikely(!array_read(data, array_index, &pptr, &flat, &t_elem, NULL))) {
+			if (unlikely((flags & OPCODE_ARRAY_INDEX_IN_RANGE) != 0))
+				internal(file_line, "array_load: array index out of range");
+			ptr = pointer_error(error_ajla(EC_SYNC, AJLA_ERROR_INDEX_OUT_OF_RANGE), fp, ip pass_file_line);
 			goto cat(array_load_set_ptr_,ARG_MODE);
 		}
 		if (pptr) {

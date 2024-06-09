@@ -98,6 +98,7 @@ const Flag_Borrow := 4;
 const Flag_Array_Fill_Sparse := 8;
 const Flag_Op_Strict := 16;
 const Flag_Return_Elided := 32;
+const Flag_Index_In_Range := 64;
 
 const Bin_Add := 0;
 const Bin_Subtract := 1;
@@ -549,6 +550,7 @@ fn name_to_value~cache : list(int)
 	a[#236CC39EFC1E5CB0F9BF1B4ECD97E9F0C3CB9E5] := 8;			// Flag_Array_Fill_Sparse
 	a[#236CC39EFCFE17E9F4E5A71F4] := 16;					// Flag_Op_Strict
 	a[#236CC39EFD2CBD3AF2DD7E2ECD3932E4] := 32;				// Flag_Return_Elided
+	a[#11B661CF7E4EEC997C5F93BAFD2C3BB3E5] := 64;				// Flag_Index_In_Range
 
 	a[#10B4EEBF07264] := 0;							// Bin_Add
 	a[#85A775FA7D7174E5871F4] := 1;						// Bin_Subtract

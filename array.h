@@ -43,7 +43,7 @@
 #define SCALAR_SPLIT_SIZE	minimum(BTREE_MAX_SIZE, signed_maximum(int_default_t))
 
 
-bool attr_fastcall array_read(struct data *array, array_index_t idx, pointer_t **result_ptr, unsigned char **result_flat, const struct type **flat_type, int_default_t *run, ajla_error_t *err);
+bool attr_fastcall array_read(struct data *array, array_index_t idx, pointer_t **result_ptr, unsigned char **result_flat, const struct type **flat_type, int_default_t *run);
 
 struct data *array_clone(pointer_t *ptr, ajla_error_t *err);
 

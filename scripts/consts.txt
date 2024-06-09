@@ -44,7 +44,7 @@ P_Array_Create		; result, local_type, length, length_var, (ref_flag, arg_idx)
 P_Array_Fill		; result, local_type, (ref_flag | sparse_flag), content_var, length_var
 P_Array_String		; result, n_chars, (chars)
 P_Array_Unicode		; result, (chars)
-P_Array_Load		; scalar, Flag_Evaluate | Flag_Borrow, array, index
+P_Array_Load		; scalar, Flag_Evaluate | Flag_Borrow | Flag_Index_In_Range, array, index
 P_Array_Len		; result, array, Flag_Evaluate
 P_Array_Len_Greater_Than	; result, array, length, Flag_Evaluate
 P_Array_Sub		; result, (ref_flag | Flag_Evaluate), array, start, end
@@ -107,6 +107,7 @@ Flag_Borrow
 Flag_Array_Fill_Sparse
 Flag_Op_Strict
 Flag_Return_Elided
+Flag_Index_In_Range
 
 0
 Bin_Add

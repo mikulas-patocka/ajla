@@ -912,7 +912,7 @@ static void bist_array_toggle(struct bist_array_state *st, int_bist_t i)
 	const struct type *flat_type;
 	struct data *d;
 
-	array_read(pointer_get_data(st->array_ptr), int32_to_idx(i), &result_ptr, &result_flat, &flat_type, NULL, NULL);
+	array_read(pointer_get_data(st->array_ptr), int32_to_idx(i), &result_ptr, &result_flat, &flat_type, NULL);
 
 	if (!st->array_flag[i]) {
 		if (unlikely(!result_flat))
