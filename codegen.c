@@ -8305,7 +8305,7 @@ static bool attr_w gen_array_len(struct codegen_context *ctx, frame_t slot_1, fr
 		if (slot_2 == NO_FRAME_T) {
 			g(gen_frame_store_imm(ctx, OP_SIZE_INT, slot_r, 0, (unsigned)type_def(t,flat_array)->n_elements));
 		} else {
-			g(gen_frame_load_cmp_imm_set_cond(ctx, OP_SIZE_INT, false, slot_2, 0, type_def(t,flat_array)->n_elements, COND_GE, slot_r));
+			g(gen_frame_load_cmp_imm_set_cond(ctx, OP_SIZE_INT, false, slot_2, 0, type_def(t,flat_array)->n_elements, COND_G, slot_r));
 		}
 		ctx->flag_cache[slot_r] = -1;
 	} else {
@@ -8342,7 +8342,7 @@ static bool attr_w gen_array_len(struct codegen_context *ctx, frame_t slot_1, fr
 		if (slot_2 == NO_FRAME_T) {
 			g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, R_SCRATCH_1));
 		} else {
-			g(gen_frame_load_cmp_set_cond(ctx, OP_SIZE_INT, false, slot_2, 0, R_SCRATCH_1, COND_GE, slot_r));
+			g(gen_frame_load_cmp_set_cond(ctx, OP_SIZE_INT, false, slot_2, 0, R_SCRATCH_1, COND_G, slot_r));
 		}
 		ctx->flag_cache[slot_r] = -1;
 	}
@@ -9291,7 +9291,7 @@ jump_over_arguments_and_return:
 				g(gen_array_len(ctx, slot_1, NO_FRAME_T, slot_r));
 				continue;
 			}
-			case OPCODE_ARRAY_LEN_ATLEAST: {
+			case OPCODE_ARRAY_LEN_GREATER_THAN: {
 				get_two(ctx, &slot_1, &slot_2);
 				get_two(ctx, &slot_r, &flags);
 				g(gen_array_len(ctx, slot_1, slot_2, slot_r));

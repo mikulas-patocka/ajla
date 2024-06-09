@@ -48,7 +48,7 @@
 #define thunk_option_test			name(thunk_option_test)
 #define thunk_option_ord			name(thunk_option_ord)
 #define ipret_array_len				name(ipret_array_len)
-#define ipret_array_len_atleast			name(ipret_array_len_atleast)
+#define ipret_array_len_greater_than		name(ipret_array_len_greater_than)
 #define ipret_array_sub				name(ipret_array_sub)
 #define ipret_array_skip			name(ipret_array_skip)
 #define ipret_array_append			name(ipret_array_append)
@@ -108,7 +108,7 @@ struct ipret_call_cache_arg {
 };
 void * attr_fastcall ipret_call_cache(frame_s *fp, const code_t *ip, pointer_t *direct_function, struct ipret_call_cache_arg *arguments, frame_t *return_values, frame_t free_fn_slot);
 
-void * attr_hot_fastcall ipret_get_index(frame_s *fp, const code_t *ip, frame_s *fp_slot, frame_t slot, bool negative_to_zero, array_index_t *idx, pointer_t *thunk argument_position);
+void * attr_hot_fastcall ipret_get_index(frame_s *fp, const code_t *ip, frame_s *fp_slot, frame_t slot, bool *is_negative, array_index_t *idx, pointer_t *thunk argument_position);
 
 void * attr_hot_fastcall ipret_record_load_create_thunk(frame_s *fp, const code_t *ip, frame_t record, frame_t record_slot, frame_t result_slot);
 void * attr_hot_fastcall ipret_option_load_create_thunk(frame_s *fp, const code_t *ip, frame_t option, frame_t option_idx, frame_t result_slot);
@@ -116,7 +116,7 @@ void * attr_hot_fastcall thunk_option_test(frame_s *fp, const code_t *ip, frame_
 void * attr_hot_fastcall thunk_option_ord(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_r);
 void * attr_hot_fastcall ipret_array_load_create_thunk(frame_s *fp, const code_t *ip, frame_t array, frame_t index, frame_t result_slot);
 void * attr_hot_fastcall ipret_array_len(frame_s *fp, const code_t *ip, frame_t slot_r, frame_t slot_a, unsigned flags);
-void * attr_hot_fastcall ipret_array_len_atleast(frame_s *fp, const code_t *ip, frame_t slot_r, frame_t slot_a, frame_t l, unsigned flags);
+void * attr_hot_fastcall ipret_array_len_greater_than(frame_s *fp, const code_t *ip, frame_t slot_r, frame_t slot_a, frame_t l, unsigned flags);
 void * attr_hot_fastcall ipret_array_sub(frame_s *fp, const code_t *ip, frame_t slot_r, frame_t slot_a, frame_t slot_start, frame_t slot_end, unsigned flags);
 void * attr_hot_fastcall ipret_array_skip(frame_s *fp, const code_t *ip, frame_t slot_r, frame_t slot_a, frame_t slot_start, unsigned flags);
 void * attr_hot_fastcall ipret_array_append(frame_s *fp, const code_t *ip, frame_t slot_r, frame_t slot_1, frame_t slot_2, unsigned flags);

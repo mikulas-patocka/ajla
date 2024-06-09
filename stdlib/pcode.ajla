@@ -40,7 +40,7 @@ const P_Array_String := 29;
 const P_Array_Unicode := 30;
 const P_Array_Load := 31;
 const P_Array_Len := 32;
-const P_Array_Len_At_Least := 33;
+const P_Array_Len_Greater_Than := 33;
 const P_Array_Sub := 34;
 const P_Array_Skip := 35;
 const P_Array_Append := 36;
@@ -436,7 +436,7 @@ fn pcode_name(p : int) : bytes
 	if p = P_Array_Unicode then return "Array_Unicode";
 	if p = P_Array_Load then return "Array_Load";
 	if p = P_Array_Len then return "Array_Len";
-	if p = P_Array_Len_At_Least then return "Array_Len_At_Least";
+	if p = P_Array_Len_Greater_Than then return "Array_Len_Greater_Than";
 	if p = P_Array_Sub then return "Array_Sub";
 	if p = P_Array_Skip then return "Array_Skip";
 	if p = P_Array_Append then return "Array_Append";
@@ -491,7 +491,7 @@ fn name_to_value~cache : list(int)
 	a[#41E5CB0F9BF57769C7BF265] := 30;					// Array_Unicode
 	a[#20F2E587CDF99BF0E4] := 31;						// Array_Load
 	a[#41E5CB0F9BF332EE] := 32;						// Array_Len
-	a[#20F2E587CDF999775F83D2FCCCB879F4] := 33;				// Array_Len_At_Least
+	a[#20F2E587CDF999775F8FCB2E1E99795FA9A30EE] := 33;			// Array_Len_Greater_Than
 	a[#41E5CB0F9BF4FAE2] := 34;						// Array_Sub
 	a[#20F2E587CDFA7AF4F0] := 35;						// Array_Skip
 	a[#83CB961F37E0F0E197764] := 36;					// Array_Append

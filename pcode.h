@@ -32,7 +32,7 @@
 #define pcode_find_get_exception		name(pcode_find_get_exception)
 #define pcode_find_array_load_function		name(pcode_find_array_load_function)
 #define pcode_find_array_len_function		name(pcode_find_array_len_function)
-#define pcode_find_array_len_atleast_function	name(pcode_find_array_len_atleast_function)
+#define pcode_find_array_len_greater_than_function	name(pcode_find_array_len_greater_than_function)
 #define pcode_find_array_sub_function		name(pcode_find_array_sub_function)
 #define pcode_find_array_skip_function		name(pcode_find_array_skip_function)
 #define pcode_find_array_append_function	name(pcode_find_array_append_function)
@@ -59,7 +59,7 @@ void * attr_fastcall pcode_find_get_exception(unsigned mode, frame_s *fp, const 
 
 void * attr_fastcall pcode_find_array_load_function(frame_s *fp, const code_t *ip, pointer_t **result);
 void * attr_fastcall pcode_find_array_len_function(frame_s *fp, const code_t *ip, pointer_t **result);
-void * attr_fastcall pcode_find_array_len_atleast_function(frame_s *fp, const code_t *ip, pointer_t **result);
+void * attr_fastcall pcode_find_array_len_greater_than_function(frame_s *fp, const code_t *ip, pointer_t **result);
 void * attr_fastcall pcode_find_array_sub_function(frame_s *fp, const code_t *ip, pointer_t **result);
 void * attr_fastcall pcode_find_array_skip_function(frame_s *fp, const code_t *ip, pointer_t **result);
 void * attr_fastcall pcode_find_array_append_function(frame_s *fp, const code_t *ip, pointer_t **result);

@@ -116,7 +116,10 @@ fn process_consts_txt(implicit w : world, implicit d : dhandle) : world
 			l := l[2 .. ];
 		]
 		var p3 := "	a[#" + ntos_base(i_encode(l), 16) + "] := " + ntos(current_number) + ";";
-		p3 += fill(byte, '	', (80 - len(p3)) div 8);
+		var n_tabs := (80 - len(p3)) div 8;
+		if n_tabs < 0 then
+			n_tabs := 0;
+		p3 += fill(byte, '	', n_tabs);
 		p3 += "// " + l;
 		pcode_3 +<= p3;
 

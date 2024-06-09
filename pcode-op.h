@@ -38,7 +38,7 @@
 #define P_Array_Unicode			30
 #define P_Array_Load			31
 #define P_Array_Len			32
-#define P_Array_Len_At_Least		33
+#define P_Array_Len_Greater_Than	33
 #define P_Array_Sub			34
 #define P_Array_Skip			35
 #define P_Array_Append			36

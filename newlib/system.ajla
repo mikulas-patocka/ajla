@@ -2773,14 +2773,14 @@ fn len~inline(t : type, a : list(t)) : int
 
 fn len_at_least~inline(t : type, a : list(t), l : int) : bool
 [
-	var r : bool;
-	pcode Array_Len_At_Least =r a l 0;
-	return r;
+	return len_greater_than(t, a, l - 1);
 ]
 
 fn len_greater_than~inline(t : type, a : list(t), l : int) : bool
 [
-	return len_at_least(t, a, l + 1);
+	var r : bool;
+	pcode Array_Len_Greater_Than =r a l 0;
+	return r;
 ]
 
 fn empty~inline(t : type) : list(t) := list(t).[];

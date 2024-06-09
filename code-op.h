@@ -313,7 +313,7 @@ enum {
 	OPCODE_ARRAY_UNICODE,		/* result, length, [chars] */
 	OPCODE_ARRAY_LOAD,		/* array, idx slot, result, (strict_flag | borrow_flag) */
 	OPCODE_ARRAY_LEN,		/* array, result, strict_flag */
-	OPCODE_ARRAY_LEN_ATLEAST,	/* array, size, result, strict_flag */
+	OPCODE_ARRAY_LEN_GREATER_THAN,	/* array, size, result, strict_flag */
 	OPCODE_ARRAY_SUB,		/* array, start, end, result, strict_flags | deref */
 	OPCODE_ARRAY_SKIP,		/* array, start, result, strict_flags | deref */
 	OPCODE_ARRAY_APPEND,		/* result, arg_deref1 | arg_deref2, arg1, arg2 */

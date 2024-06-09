@@ -451,7 +451,7 @@ void * attr_hot_fastcall ipret_get_system_property(frame_s *fp, const code_t *ip
 	int_default_t idx, result;
 	pointer_t result_ptr;
 
-	ex = ipret_get_index(fp, ip, fp, slot_1, false, &idx_l, &result_ptr pass_file_line);
+	ex = ipret_get_index(fp, ip, fp, slot_1, NULL, &idx_l, &result_ptr pass_file_line);
 	if (unlikely(ex != POINTER_FOLLOW_THUNK_GO)) {
 		if (ex == POINTER_FOLLOW_THUNK_EXCEPTION) {
 			frame_free_and_set_pointer(fp, slot_r, result_ptr);
@@ -1385,7 +1385,7 @@ ret1:
 }
 
 
-static attr_noinline void * ipret_get_index_complicated(frame_s *fp, const code_t *ip, frame_s *fp_slot, frame_t slot, bool negative_to_zero, array_index_t *idx, pointer_t *thunk argument_position)
+static attr_noinline void * ipret_get_index_complicated(frame_s *fp, const code_t *ip, frame_s *fp_slot, frame_t slot, bool *is_negative, array_index_t *idx, pointer_t *thunk argument_position)
 {
 again:
 	if (likely(!frame_test_flag(fp_slot, slot))) {
@@ -1395,11 +1395,12 @@ again:
 		barrier_aliasing();
 		if (unlikely(in < 0)) {
 negative:
-			if (!negative_to_zero) {
+			if (!is_negative) {
 				*thunk = pointer_error(error_ajla(EC_SYNC, AJLA_ERROR_NEGATIVE_INDEX), fp, ip pass_position);
 				return POINTER_FOLLOW_THUNK_EXCEPTION;
 			}
-			in = 0;
+			*is_negative = true;
+			return POINTER_FOLLOW_THUNK_GO;
 		}
 		index_from_int_(idx, in pass_position);
 	} else {
@@ -1424,7 +1425,7 @@ negative:
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
-void * attr_hot_fastcall ipret_get_index(frame_s *fp, const code_t *ip, frame_s *fp_slot, frame_t slot, bool negative_to_zero, array_index_t *idx, pointer_t *thunk argument_position)
+void * attr_hot_fastcall ipret_get_index(frame_s *fp, const code_t *ip, frame_s *fp_slot, frame_t slot, bool *is_negative, array_index_t *idx, pointer_t *thunk argument_position)
 {
 	if (likely(fp == fp_slot))
 		ajla_assert(frame_get_type_of_local(fp_slot, slot)->tag == type_get_int(INT_DEFAULT_N)->tag, (file_line, "ipret_get_index: invalid type %u", (unsigned)frame_get_type_of_local(fp_slot, slot)->tag));
@@ -1438,7 +1439,7 @@ void * attr_hot_fastcall ipret_get_index(frame_s *fp, const code_t *ip, frame_s 
 		index_from_int_(idx, in pass_position);
 	} else {
 complicated:
-		return ipret_get_index_complicated(fp, ip, fp_slot, slot, negative_to_zero, idx, thunk pass_position);
+		return ipret_get_index_complicated(fp, ip, fp_slot, slot, is_negative, idx, thunk pass_position);
 	}
 	return POINTER_FOLLOW_THUNK_GO;
 }
@@ -1578,14 +1579,14 @@ static attr_noinline void *array_len_create_thunk(frame_s *fp, const code_t *ip,
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
-static attr_noinline void *array_len_atleast_create_thunk(frame_s *fp, const code_t *ip, frame_t array_slot, frame_t length_slot, frame_t result_slot)
+static attr_noinline void *array_len_greater_than_create_thunk(frame_s *fp, const code_t *ip, frame_t array_slot, frame_t length_slot, frame_t result_slot)
 {
 	pointer_t *fn_ptr;
 	void *ex;
 	struct data *function_reference;
 	struct thunk *result;
 
-	ex = pcode_find_array_len_atleast_function(fp, ip, &fn_ptr);
+	ex = pcode_find_array_len_greater_than_function(fp, ip, &fn_ptr);
 
 	if (unlikely(ex != POINTER_FOLLOW_THUNK_RETRY))
 		return ex;
@@ -1800,9 +1801,10 @@ array_len_error:
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
-void * attr_hot_fastcall ipret_array_len_atleast(frame_s *fp, const code_t *ip, frame_t slot_r, frame_t slot_a, frame_t slot_l, unsigned flags)
+void * attr_hot_fastcall ipret_array_len_greater_than(frame_s *fp, const code_t *ip, frame_t slot_r, frame_t slot_a, frame_t slot_l, unsigned flags)
 {
 	const struct type *type;
+	bool neg = false;
 	int result = 1;
 	pointer_t *ptr;
 	void *ex;
@@ -1810,20 +1812,24 @@ void * attr_hot_fastcall ipret_array_len_atleast(frame_s *fp, const code_t *ip, 
 	pointer_t res_ptr;
 	pointer_t *can_modify;
 
-	ajla_assert(type_is_equal(frame_get_type_of_local(fp, slot_r), type_get_flat_option()), (file_line, "ipret_array_len_atleast: invalid index type %u", frame_get_type_of_local(fp, slot_r)->tag));
-	ajla_assert(!frame_test_flag(fp, slot_r), (file_line, "ipret_array_len_atleast: flag already set for destination slot %"PRIuMAX"", (uintmax_t)slot_r));
+	ajla_assert(type_is_equal(frame_get_type_of_local(fp, slot_r), type_get_flat_option()), (file_line, "ipret_array_len_greater_than: invalid index type %u", frame_get_type_of_local(fp, slot_r)->tag));
+	ajla_assert(!frame_test_flag(fp, slot_r), (file_line, "ipret_array_len_greater_than: flag already set for destination slot %"PRIuMAX"", (uintmax_t)slot_r));
 
-	ex = ipret_get_index(fp, ip, fp, slot_l, true, &remaining_length, &res_ptr pass_file_line);
+	ex = ipret_get_index(fp, ip, fp, slot_l, &neg, &remaining_length, &res_ptr pass_file_line);
 	if (unlikely(ex != POINTER_FOLLOW_THUNK_GO)) {
 		if (ex == POINTER_FOLLOW_THUNK_EXCEPTION)
 			goto err;
 		return ex;
 	}
+	if (unlikely(neg)) {
+		result = 1;
+		goto ret_result;
+	}
 
 	type = frame_get_type_of_local(fp, slot_a);
 	if (unlikely(TYPE_IS_FLAT(type))) {
 		const struct flat_array_definition *flat_def = type_def(type,flat_array);
-		if (index_ge_int(remaining_length, flat_def->n_elements + 1))
+		if (index_ge_int(remaining_length, flat_def->n_elements))
 			result = 0;
 		goto ret_result;
 	}
@@ -1834,6 +1840,7 @@ void * attr_hot_fastcall ipret_array_len_atleast(frame_s *fp, const code_t *ip, 
 		array_resolve_thunk(fp, slot_a);
 	}
 
+	index_add_int(&remaining_length, 1);
 	ex = array_walk(fp, ip, ptr, &remaining_length, flags, &res_ptr, &can_modify);
 	if (unlikely(ex != POINTER_FOLLOW_THUNK_GO)) {
 		if (likely(ex == POINTER_FOLLOW_THUNK_RETRY)) {
@@ -1843,7 +1850,7 @@ void * attr_hot_fastcall ipret_array_len_atleast(frame_s *fp, const code_t *ip, 
 		if (unlikely(ex == POINTER_FOLLOW_THUNK_EXCEPTION))
 			goto err_free;
 		if (!(flags & OPCODE_OP_FLAG_STRICT))
-			ex = array_len_atleast_create_thunk(fp, ip, slot_a, slot_l, slot_r);
+			ex = array_len_greater_than_create_thunk(fp, ip, slot_a, slot_l, slot_r);
 		index_free(&remaining_length);
 		return ex;
 	}
@@ -1873,13 +1880,13 @@ void * attr_hot_fastcall ipret_array_sub(frame_s *fp, const code_t *ip, frame_t 
 
 	ajla_assert(flags & OPCODE_FLAG_FREE_ARGUMENT || !frame_test_flag(fp, slot_r), (file_line, "ipret_array_sub: flag already set for destination slot %"PRIuMAX"", (uintmax_t)slot_r));
 
-	ex = ipret_get_index(fp, ip, fp, slot_start, false, &start, &res_ptr pass_file_line);
+	ex = ipret_get_index(fp, ip, fp, slot_start, NULL, &start, &res_ptr pass_file_line);
 	if (unlikely(ex != POINTER_FOLLOW_THUNK_GO)) {
 		if (ex == POINTER_FOLLOW_THUNK_EXCEPTION)
 			goto except;
 		return ex;
 	}
-	ex = ipret_get_index(fp, ip, fp, slot_end, false, &end, &res_ptr pass_file_line);
+	ex = ipret_get_index(fp, ip, fp, slot_end, NULL, &end, &res_ptr pass_file_line);
 	if (unlikely(ex != POINTER_FOLLOW_THUNK_GO)) {
 		if (ex == POINTER_FOLLOW_THUNK_EXCEPTION)
 			goto except_start;
@@ -2051,7 +2058,7 @@ void * attr_hot_fastcall ipret_array_skip(frame_s *fp, const code_t *ip, frame_t
 
 	ajla_assert(flags & OPCODE_FLAG_FREE_ARGUMENT || !frame_test_flag(fp, slot_r), (file_line, "ipret_array_skip: flag already set for destination slot %"PRIuMAX"", (uintmax_t)slot_r));
 
-	ex = ipret_get_index(fp, ip, fp, slot_start, false, &start, &res_ptr pass_file_line);
+	ex = ipret_get_index(fp, ip, fp, slot_start, NULL, &start, &res_ptr pass_file_line);
 	if (unlikely(ex != POINTER_FOLLOW_THUNK_GO)) {
 		if (ex == POINTER_FOLLOW_THUNK_EXCEPTION)
 			goto ret;

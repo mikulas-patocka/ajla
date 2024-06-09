@@ -2641,25 +2641,25 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 					gen_am(am, flags & Flag_Evaluate ? OPCODE_OP_FLAG_STRICT : 0);
 				}
 				break;
-			case P_Array_Len_At_Least:
+			case P_Array_Len_Greater_Than:
 				res = u_pcode_get();
 				a1 = u_pcode_get();
 				a2 = u_pcode_get();
 				flags = u_pcode_get();
-				ajla_assert_lo(!(flags & ~Flag_Evaluate), (file_line, "P_Array_Len_At_Least(%s): invalid flags %"PRIuMAX"", function_name(ctx), (uintmax_t)flags));
+				ajla_assert_lo(!(flags & ~Flag_Evaluate), (file_line, "P_Array_Len_Greater_Than(%s): invalid flags %"PRIuMAX"", function_name(ctx), (uintmax_t)flags));
 				if (unlikely(var_elided(res)))
 					break;
 				tr = get_var_type(ctx, res);
 				t1 = get_var_type(ctx, a1);
 				t2 = get_var_type(ctx, a2);
-				ajla_assert_lo(type_is_equal(tr->type, type_get_flat_option()), (file_line, "P_Array_Len_At_Least(%s): invalid result type: %u", function_name(ctx), tr->type->tag));
-				ajla_assert_lo(type_is_equal(t2->type, type_get_int(INT_DEFAULT_N)), (file_line, "P_Array_Len_At_Least(%s): invalid length type: %u", function_name(ctx), t2->type->tag));
+				ajla_assert_lo(type_is_equal(tr->type, type_get_flat_option()), (file_line, "P_Array_Len_Greater_Than(%s): invalid result type: %u", function_name(ctx), tr->type->tag));
+				ajla_assert_lo(type_is_equal(t2->type, type_get_int(INT_DEFAULT_N)), (file_line, "P_Array_Len_Greater_Than(%s): invalid length type: %u", function_name(ctx), t2->type->tag));
 
 				am = INIT_ARG_MODE;
 				get_arg_mode(am, t1->slot);
 				get_arg_mode(am, t2->slot);
 				get_arg_mode(am, tr->slot);
-				gen_code(OPCODE_ARRAY_LEN_ATLEAST + am * OPCODE_MODE_MULT);
+				gen_code(OPCODE_ARRAY_LEN_GREATER_THAN + am * OPCODE_MODE_MULT);
 				gen_am_two(am, t1->slot, t2->slot);
 				gen_am_two(am, tr->slot, flags & Flag_Evaluate ? OPCODE_OP_FLAG_STRICT : 0);
 				break;
@@ -3918,7 +3918,7 @@ void * attr_fastcall pcode_find_array_len_function(frame_s *fp, const code_t *ip
 	return pcode_alloc_op_function(&array_len_thunk, fp, ip, pcode_build_array_len_function, 0, NULL, result);
 }
 
-static void *pcode_build_array_len_atleast_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
+static void *pcode_build_array_len_greater_than_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
 {
 	pcode_t pcode[42];
 	pcode_t *pc = pcode;
@@ -3954,7 +3954,7 @@ static void *pcode_build_array_len_atleast_function(frame_s *fp, const code_t *i
 	*pc++ = 0;
 	*pc++ = 1;
 
-	*pc++ = P_Array_Len_At_Least;
+	*pc++ = P_Array_Len_Greater_Than;
 	*pc++ = 4;
 	*pc++ = 2;
 	*pc++ = 0;
@@ -3979,11 +3979,11 @@ static void *pcode_build_array_len_atleast_function(frame_s *fp, const code_t *i
 	return pcode_build_function(fp, ip, pcode, pc - pcode, NULL, NULL);
 }
 
-static pointer_t array_len_atleast_thunk;
+static pointer_t array_len_greater_than_thunk;
 
-void * attr_fastcall pcode_find_array_len_atleast_function(frame_s *fp, const code_t *ip, pointer_t **result)
+void * attr_fastcall pcode_find_array_len_greater_than_function(frame_s *fp, const code_t *ip, pointer_t **result)
 {
-	return pcode_alloc_op_function(&array_len_atleast_thunk, fp, ip, pcode_build_array_len_atleast_function, 0, NULL, result);
+	return pcode_alloc_op_function(&array_len_greater_than_thunk, fp, ip, pcode_build_array_len_greater_than_function, 0, NULL, result);
 }
 
 static void *pcode_build_array_sub_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
@@ -4451,7 +4451,7 @@ void name(pcode_init)(void)
 	thunk_init_run(bool_op_thunk, OPCODE_BOOL_OP_N);
 	thunk_init_run(&array_load_thunk, 1);
 	thunk_init_run(&array_len_thunk, 1);
-	thunk_init_run(&array_len_atleast_thunk, 1);
+	thunk_init_run(&array_len_greater_than_thunk, 1);
 	thunk_init_run(&array_sub_thunk, 1);
 	thunk_init_run(&array_skip_thunk, 1);
 	thunk_init_run(&array_append_thunk, 1);
@@ -4471,7 +4471,7 @@ void name(pcode_done)(void)
 	thunk_free_run(bool_op_thunk, OPCODE_BOOL_OP_N);
 	thunk_free_run(&array_load_thunk, 1);
 	thunk_free_run(&array_len_thunk, 1);
-	thunk_free_run(&array_len_atleast_thunk, 1);
+	thunk_free_run(&array_len_greater_than_thunk, 1);
 	thunk_free_run(&array_sub_thunk, 1);
 	thunk_free_run(&array_skip_thunk, 1);
 	thunk_free_run(&array_append_thunk, 1);

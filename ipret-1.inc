@@ -1783,7 +1783,7 @@ cat(structured_retry_,ARG_MODE):
 		ADVANCE_IP(param_size(3));
 
 		if ((type & OPCODE_STRUCTURED_MASK) == OPCODE_STRUCTURED_ARRAY) {
-			void *ex = ipret_get_index(fp, orig_ip, fp, arg, false, &array_index, &thunk_ptr pass_file_line);
+			void *ex = ipret_get_index(fp, orig_ip, fp, arg, NULL, &array_index, &thunk_ptr pass_file_line);
 			if (unlikely(ex != POINTER_FOLLOW_THUNK_GO)) {
 				if (ex == POINTER_FOLLOW_THUNK_EXCEPTION)
 					goto cat(structured_error_,ARG_MODE);
@@ -2392,7 +2392,7 @@ DEFINE_OPCODE_START(OPCODE_ARRAY_FILL)
 	length_slot = get_i_param(2);
 	result_slot = get_i_param(3);
 
-	ex = ipret_get_index(fp, ip, fp, length_slot, false, &length, &result_ptr pass_file_line);
+	ex = ipret_get_index(fp, ip, fp, length_slot, NULL, &length, &result_ptr pass_file_line);
 	if (unlikely(ex != POINTER_FOLLOW_THUNK_GO)) {
 		if (ex == POINTER_FOLLOW_THUNK_EXCEPTION) {
 			if (content_flag & OPCODE_FLAG_FREE_ARGUMENT)
@@ -2496,7 +2496,7 @@ DEFINE_OPCODE_START(OPCODE_ARRAY_LOAD)
 	result = get_i_param(2);
 	flags = get_i_param(3);
 
-	ex = ipret_get_index(fp, ip, fp, idx, false, &array_index, &ptr pass_file_line);
+	ex = ipret_get_index(fp, ip, fp, idx, NULL, &array_index, &ptr pass_file_line);
 	if (unlikely(ex != POINTER_FOLLOW_THUNK_GO)) {
 		if (ex == POINTER_FOLLOW_THUNK_EXCEPTION)
 			goto cat(array_load_set_ptr_,ARG_MODE);
@@ -2601,7 +2601,7 @@ DEFINE_OPCODE_START(OPCODE_ARRAY_LEN)
 #endif
 DEFINE_OPCODE_END(OPCODE_ARRAY_LEN)
 
-DEFINE_OPCODE_START(OPCODE_ARRAY_LEN_ATLEAST)
+DEFINE_OPCODE_START(OPCODE_ARRAY_LEN_GREATER_THAN)
 #ifdef EMIT_CODE
 	frame_t slot_a, slot_l, slot_r;
 	unsigned flags;
@@ -2612,13 +2612,13 @@ DEFINE_OPCODE_START(OPCODE_ARRAY_LEN_ATLEAST)
 	slot_r = get_i_param(2);
 	flags = get_i_param(3);
 
-	ex = ipret_array_len_atleast(fp, ip, slot_r, slot_a, slot_l, flags);
+	ex = ipret_array_len_greater_than(fp, ip, slot_r, slot_a, slot_l, flags);
 	if (unlikely(ex != POINTER_FOLLOW_THUNK_GO))
 		RELOAD_EX_POSITION(ex);
 
 	ADVANCE_I_PARAM(4);
 #endif
-DEFINE_OPCODE_END(OPCODE_ARRAY_LEN_ATLEAST)
+DEFINE_OPCODE_END(OPCODE_ARRAY_LEN_GREATER_THAN)
 
 DEFINE_OPCODE_START(OPCODE_ARRAY_SUB)
 #ifdef EMIT_CODE

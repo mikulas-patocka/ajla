@@ -444,7 +444,7 @@ static void io_get_option(struct io_ctx *ctx, frame_t slot, ajla_option_t *resul
 static void *io_get_array_index(struct io_ctx *ctx, frame_s *fp_slot, frame_t slot, array_index_t *i argument_position)
 {
 	pointer_t thunk;
-	void *ex = ipret_get_index(ctx->fp, ctx->ip, fp_slot, slot, false, i, &thunk pass_position);
+	void *ex = ipret_get_index(ctx->fp, ctx->ip, fp_slot, slot, NULL, i, &thunk pass_position);
 	if (unlikely(ex == POINTER_FOLLOW_THUNK_EXCEPTION)) {
 		io_terminate_with_thunk(ctx, pointer_get_thunk(thunk));
 	}
