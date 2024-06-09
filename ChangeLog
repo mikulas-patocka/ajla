@@ -1,3 +1,17 @@
+=== RELEASE 0.1.1 ===
+
+Save the JIT-generated machine code to the files in ~/.cache/ajla. This reduces
+startup time.
+
+Introduce stdlib/mutex.ajla
+
+Fix crashes on alpha, loongarch64, mips.
+
+Imcompatible change: Fix misdesigned FFI interface - we need to pass the
+destructor to the functions that manipulate memory allocated from the
+destructor, so that the destructor is not freed prematurely. Previously, the
+"keep" statement was used for this purpose, but it is not reliable.
+
 === RELEASE 0.1.0 ===
 
 Initial release
