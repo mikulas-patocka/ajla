@@ -983,6 +983,11 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 			params[4] := ins.params[1];
 			return create_instr(P_IO, params, ins.bb), true;
 		]
+		if ins.params[0] = Bin_Less, v2_ins.opcode = P_Array_Len then [
+			//eval debug(ctx.name + ": P_Array_Len_Greater_Than optimized");
+			var params := list(pcode_t).[ vgir, v2_ins.params[1], vgi1, 0 ];
+			return create_instr(P_Array_Len_Greater_Than, params, ins.bb), true;
+		]
 		goto end;
 	]
 	if ins.opcode = P_UnaryOp then [
@@ -1081,7 +1086,7 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 			]
 			if not verify_positive(ctx, vgii) then
 				goto next_dom;
-			//eval debug("found candidate in " + ctx.name);
+			//eval debug(ctx.name + ": array index optimized");
 			ins.params[1] or= Flag_Index_In_Range;
 			return ins, true;
 next_dom:
