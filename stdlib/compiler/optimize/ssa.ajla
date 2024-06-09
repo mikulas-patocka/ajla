@@ -865,6 +865,7 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 			fn_ins.params += ins.params[4 .. ];
 			return create_instr(P_Curry, fn_ins.params, ins.bb), true;
 		]
+		goto end;
 	]
 	if ins.opcode = P_Call_Indirect then [
 		var vgi := ins.params[4];
@@ -886,6 +887,7 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 			var call_indirect_params := ins.params[0 .. 5] + fn_ins.params[4 .. ] + ins.params[5 .. ];
 			return create_instr(P_Call_Indirect, call_indirect_params, ins.bb), true;
 		]
+		goto end;
 	]
 	if ins.opcode = P_BinaryOp then [
 		var vgi1 := ins.params[3];
@@ -929,6 +931,7 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 			params[4] := ins.params[1];
 			return create_instr(P_IO, params, ins.bb), true;
 		]
+		goto end;
 	]
 	if ins.opcode = P_UnaryOp then [
 		var vgi1 := ins.params[3];
@@ -970,6 +973,7 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 				return create_instr(P_BinaryOp, params, ins.bb), true;
 			]
 		]
+		goto end;
 	]
 	if ins.opcode = P_Option_Test then [
 		var idx := ins.params[2];
@@ -990,6 +994,7 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 				res := 0;
 			return create_instr(P_Load_Const, list(pcode_t).[ ins.params[0] ] + int_to_blob(res), ins.bb), true;
 		]
+		goto end;
 	]
 	if ins.opcode = P_Array_Len then [
 		var vgis := ins.params[1];
@@ -998,6 +1003,7 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 		if vs_ins.opcode = P_Array_Create then [
 			return create_instr(P_Load_Const, list(pcode_t).[ ins.params[0] ] + int_to_blob(vs_ins.params[2]), ins.bb), true;
 		]
+		goto end;
 	]
 	if ins.opcode = P_Array_Len_Greater_Than then [
 		var vgis := ins.params[1];
@@ -1017,6 +1023,7 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 				return create_instr(P_Load_Const, list(pcode_t).[ ins.params[0] ] + int_to_blob(v), ins.bb), true;
 			]
 		]
+		goto end;
 	]
 	if ins.opcode = P_Array_Append then [
 		var vgi2 := ins.params[4];
@@ -1025,7 +1032,9 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 		if vs2_ins.opcode = P_Array_Create, vs2_ins.params[2] = 1 then [
 			return create_instr(P_Array_Append_One, ins.params[ .. 4] +< vs2_ins.params[5], ins.bb), true;
 		]
+		goto end;
 	]
+end:
 	if ins.borrow <> -1, (ins.params[ins.borrow - 1] and Flag_Borrow) = 0 then [
 		ins.params[ins.borrow - 1] or= Flag_Borrow;
 		return ins, true;
