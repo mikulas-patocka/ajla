@@ -357,7 +357,7 @@ if test "$ac_cv_have_gcc_assembler" = yes; then
 fi
 
 # Checks for header files.
-AC_CHECK_HEADERS(ffi.h gmp.h gmp/gmp.h linux/fs.h malloc.h netdb.h netinet/in.h os2thunk.h quadmath.h signal.h stdalign.h stdatomic.h stdnoreturn.h sys/auxv.h sys/builtin.h sys/epoll.h sys/event.h sys/fmutex.h sys/inotify.h sys/mman.h sys/mount.h sys/netinet.in sys/param.h sys/pstat.h sys/select.h sys/socket.h sys/statvfs.h sys/sysctl.h sys/sysmacros.h sys/time.h sys/utsname.h sys/vfs.h ucontext.h)
+AC_CHECK_HEADERS(ffi.h gmp.h gmp/gmp.h linux/falloc.h linux/fs.h malloc.h netdb.h netinet/in.h os2thunk.h quadmath.h signal.h stdalign.h stdatomic.h stdnoreturn.h sys/auxv.h sys/builtin.h sys/epoll.h sys/event.h sys/fmutex.h sys/inotify.h sys/mman.h sys/mount.h sys/netinet.in sys/param.h sys/pstat.h sys/select.h sys/socket.h sys/statvfs.h sys/sysctl.h sys/sysmacros.h sys/time.h sys/utsname.h sys/vfs.h ucontext.h)
 
 # Checks for libraries.
 AC_CHECK_LIB(m, frexp)

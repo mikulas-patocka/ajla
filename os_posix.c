@@ -39,6 +39,9 @@
 #ifdef HAVE_SYS_SYSMACROS_H
 #include <sys/sysmacros.h>
 #endif
+#ifdef HAVE_LINUX_FALLOC_H
+#include <linux/falloc.h>
+#endif
 #include <time.h>
 #include <sys/time.h>
 #include <sys/wait.h>
