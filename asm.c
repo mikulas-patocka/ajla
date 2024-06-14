@@ -408,6 +408,32 @@ static bool test_facility(unsigned f)
 #endif
 
 
+#ifdef ARCH_RISCV64
+
+static struct {
+	int64_t key;
+	uint64_t value;
+} riscv_hwp[2];
+
+static void riscv64_syscall(void)
+{
+	int r;
+	memset(riscv_hwp, 0, sizeof riscv_hwp);
+	riscv_hwp[0].key = 4;
+	riscv_hwp[1].key = 5;
+#ifdef HAVE_SYSCALL
+	EINTR_LOOP(r, syscall(258, riscv_hwp, n_array_elements(riscv_hwp), 0, NULL, 0));
+#else
+	r = -1;
+#endif
+	if (r == -1) {
+		riscv_hwp[0].key = -1;
+		riscv_hwp[1].key = -1;
+	}
+}
+
+#endif
+
 
 #ifdef ARCH_SPARC32
 
@@ -613,6 +639,7 @@ static attr_noinline void verify_alttable(void)
 
 void asm_init(void)
 {
+	bool trap_sigill = false;
 	uint32_t missing_features;
 
 	verify_alttable();
@@ -630,22 +657,28 @@ void asm_init(void)
 #ifdef ARCH_LOONGARCH64
 	loongarch_read_cpucfg();
 #endif
+#ifdef ARCH_POWER
+	trap_sigill = true;
+#endif
 #ifdef ARCH_S390
 	s390_stfle();
+#endif
+#ifdef ARCH_RISCV64
+	riscv64_syscall();
+	if (riscv_hwp[0].key < 0)
+		trap_sigill = true;
 #endif
 #ifdef ARCH_X86
 	test_eflags_bits();
 	do_cpuid();
 #endif
-#if defined(ARCH_POWER) || defined(ARCH_RISCV64)
-	os_signal_trap(SIGILL, sigill);
-#endif
+	if (trap_sigill)
+		os_signal_trap(SIGILL, sigill);
 #define ASM_INC_DYNAMIC
 #include "asm.inc"
 #undef ASM_INC_DYNAMIC
-#if defined(ARCH_POWER) || defined(ARCH_RISCV64)
-	os_signal_restore(SIGILL);
-#endif
+	if (trap_sigill)
+		os_signal_restore(SIGILL);
 	if (unlikely(detection_failed))
 		cpu_feature_flags |= cpu_feature_static_flags;
 	missing_features = cpu_feature_static_flags & ~cpu_feature_flags;

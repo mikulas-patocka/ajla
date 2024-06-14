@@ -21,7 +21,7 @@
 
 #define JMP_LIMIT			JMP_EXTRA_LONG
 
-#define UNALIGNED_TRAP			1
+#define UNALIGNED_TRAP			(!cpu_test_feature(CPU_FEATURE_unaligned))
 
 #define ALU_WRITES_FLAGS(alu, im)	0
 #define ALU1_WRITES_FLAGS(alu)		0

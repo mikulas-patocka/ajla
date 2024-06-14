@@ -18,22 +18,27 @@
 
 #define feature_name		c
 #define static_test_c		(__riscv_c)
-#define dynamic_test		trap_insn("01000100")
+#define dynamic_test		(riscv_hwp[0].key >= 0 ? riscv_hwp[0].value & (1ULL << 1) : trap_insn("01000100"))
 #include "asm-1.inc"
 
 #define feature_name		zba
 #define static_test_zba		(__riscv_zba)
-#define dynamic_test		trap_insn("33200020")
+#define dynamic_test		(riscv_hwp[0].key >= 0 ? riscv_hwp[0].value & (1ULL << 3) : trap_insn("33200020"))
 #include "asm-1.inc"
 
 #define feature_name		zbb
 #define static_test_zbb		(__riscv_zbb)
-#define dynamic_test		trap_insn("13100060")
+#define dynamic_test		(riscv_hwp[0].key >= 0 ? riscv_hwp[0].value & (1ULL << 4) : trap_insn("13100060"))
 #include "asm-1.inc"
 
 #define feature_name		zbs
 #define static_test_zbs		(__riscv_zbs)
-#define dynamic_test		trap_insn("33100048")
+#define dynamic_test		(riscv_hwp[0].key >= 0 ? riscv_hwp[0].value & (1ULL << 5) : trap_insn("33100048"))
+#include "asm-1.inc"
+
+#define feature_name		unaligned
+#define static_test_unaligned	0
+#define dynamic_test		(riscv_hwp[1].key >= 0 && (riscv_hwp[1].value & 7) == 3)
 #include "asm-1.inc"
 
 /* riscv_zicond = trap_insn("3350000e"); */
