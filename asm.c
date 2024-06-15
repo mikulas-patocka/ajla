@@ -672,13 +672,19 @@ void asm_init(void)
 	test_eflags_bits();
 	do_cpuid();
 #endif
-	if (trap_sigill)
+	if (trap_sigill) {
+#if defined(ARCH_POWER) || defined(ARCH_RISCV64)
 		os_signal_trap(SIGILL, sigill);
+#endif
+}
 #define ASM_INC_DYNAMIC
 #include "asm.inc"
 #undef ASM_INC_DYNAMIC
-	if (trap_sigill)
+	if (trap_sigill) {
+#if defined(ARCH_POWER) || defined(ARCH_RISCV64)
 		os_signal_restore(SIGILL);
+#endif
+	}
 	if (unlikely(detection_failed))
 		cpu_feature_flags |= cpu_feature_static_flags;
 	missing_features = cpu_feature_static_flags & ~cpu_feature_flags;
