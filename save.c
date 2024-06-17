@@ -67,6 +67,7 @@ struct file_descriptor {
 	char *dependencies;
 	size_t dependencies_l;
 	void *base;
+	cpu_feature_mask_t cpu_feature_flags;
 	char privileged;
 	char ajla_id[sizeof(id)];
 };
@@ -769,6 +770,7 @@ static void save_finish_file(void)
 	file_desc.dependencies_l = deps_l;
 
 	file_desc.base = num_to_ptr(0);
+	file_desc.cpu_feature_flags = cpu_feature_flags;
 	file_desc.privileged = ipret_is_privileged;
 	memcpy(file_desc.ajla_id, id, sizeof(id));
 
@@ -1100,7 +1102,8 @@ static void save_load_cache(void)
 		os_close(h);
 		return;
 	}
-	if (unlikely(file_desc.privileged != ipret_is_privileged) ||
+	if (unlikely(file_desc.cpu_feature_flags != cpu_feature_flags) ||
+	    unlikely(file_desc.privileged != ipret_is_privileged) ||
 	    unlikely(memcmp(file_desc.ajla_id, id, sizeof(id)))) {
 		os_close(h);
 		return;
