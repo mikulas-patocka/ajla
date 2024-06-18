@@ -1,3 +1,12 @@
+=== RELEASE 0.1.2 ===
+
+Fix a bug that the tag bit was not checked on the second argument of
+len_at_least and len_greater_than - this resulted in incorrect result if the
+value was a box or a thunk.
+
+Optimization: don't check index against list length if it can be proved that the
+index is smaller (such as "for i := 0 to len(l) do ...").
+
 === RELEASE 0.1.1 ===
 
 Save the JIT-generated machine code to the files in ~/.cache/ajla. This reduces
