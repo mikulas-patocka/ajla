@@ -295,6 +295,10 @@ IO_MsgQueue_Send
 IO_MsgQueue_Receive
 IO_MsgQueue_Wait
 IO_MsgQueue_Is_Nonempty
+IO_Signal_Handle
+IO_Signal_Prepare
+IO_Signal_Wait
+IO_Consume_Parameters
 IO_Load_Program
 IO_Get_Function_Ptr
 IO_Get_SubFunctions

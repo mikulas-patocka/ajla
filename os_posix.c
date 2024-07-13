@@ -1797,7 +1797,7 @@ int os_tty_size(handle_t h, int x, int y, int *nx, int *ny, mutex_t **mutex_to_l
 {
 	int r;
 	struct winsize ws;
-	sig_atomic_t attr_unused seq;
+	signal_seq_t attr_unused seq;
 
 #if defined(OS_HAS_SIGNALS) && defined(SIGWINCH)
 	if (likely(!dll)) {
@@ -2072,7 +2072,7 @@ struct proc_handle *os_proc_spawn(dir_handle_t wd, const char *path, size_t n_ha
 
 #if defined(OS_HAS_SIGNALS) && defined(SIGCHLD)
 	if (!dll) {
-		sig_atomic_t seq;
+		signal_seq_t seq;
 		if (unlikely(!os_signal_prepare(SIGCHLD, &seq, err)))
 			return NULL;
 	} else
@@ -2241,16 +2241,17 @@ test_another:
 #ifdef OS_HAS_SIGNALS
 
 #if defined(SIGRTMAX)
-#define N_SIGNALS	(unsigned)(SIGRTMAX + 1)
+#define N_SIGNALS	(int)(SIGRTMAX + 1)
 #elif defined(NSIG)
-#define N_SIGNALS	(unsigned)NSIG
+#define N_SIGNALS	(int)NSIG
 #else
 #define N_SIGNALS	32
 #endif
 
 struct signal_state {
-	thread_volatile sig_atomic_t sig_sequence;
-	sig_atomic_t last_sig_sequence;
+	thread_volatile signal_seq_t sig_sequence;
+	signal_seq_t last_sig_sequence;
+	uintptr_t refcount;
 	struct list wait_list;
 	struct sigaction prev_sa;
 };
@@ -2264,7 +2265,7 @@ static void signal_handler(int sig)
 	os_notify();
 }
 
-bool os_signal_prepare(unsigned sig, sig_atomic_t *seq, ajla_error_t *err)
+bool os_signal_prepare(int sig, signal_seq_t *seq, ajla_error_t *err)
 {
 	struct signal_state *s;
 	if (dll) {
@@ -2286,6 +2287,7 @@ bool os_signal_prepare(unsigned sig, sig_atomic_t *seq, ajla_error_t *err)
 			goto unlock_false;
 		s->sig_sequence = 0;
 		s->last_sig_sequence = 0;
+		s->refcount = 0;
 		list_init(&s->wait_list);
 		signal_states[sig] = s;
 
@@ -2313,9 +2315,14 @@ unlock_false:
 	return false;
 }
 
-bool os_signal_wait(int sig, sig_atomic_t seq, mutex_t **mutex_to_lock, struct list *list_entry)
+bool os_signal_wait(int sig, signal_seq_t seq, mutex_t **mutex_to_lock, struct list *list_entry)
 {
 	struct signal_state *s;
+
+	if (unlikely(!sig)) {
+		iomux_never(mutex_to_lock, list_entry);
+		return true;
+	}
 
 	mutex_lock(&signal_state_mutex);
 	s = signal_states[sig];
@@ -2332,13 +2339,13 @@ bool os_signal_wait(int sig, sig_atomic_t seq, mutex_t **mutex_to_lock, struct l
 
 void os_signal_check_all(void)
 {
-	unsigned sig = 0;
+	int sig = 0;
 again:
 	mutex_lock(&signal_state_mutex);
 	for (; sig < N_SIGNALS; sig++) {
 		struct signal_state *s = signal_states[sig];
 		if (unlikely(s != NULL)) {
-			sig_atomic_t seq = s->sig_sequence;
+			signal_seq_t seq = s->sig_sequence;
 			if (unlikely(seq != s->last_sig_sequence)) {
 				s->last_sig_sequence = seq;
 				call(wake_up_wait_list)(&s->wait_list, &signal_state_mutex, true);
@@ -2373,7 +2380,7 @@ static void sigfpe_handler(int attr_unused sig, siginfo_t *siginfo, void *uconte
 #endif
 
 #ifdef SA_SIGINFO
-void os_signal_trap(unsigned sig, void (*handler)(int, siginfo_t *, void *))
+void os_signal_trap(int sig, void (*handler)(int, siginfo_t *, void *))
 {
 	if (OS_SUPPORTS_TRAPS) {
 		struct signal_state *s;
@@ -2381,6 +2388,10 @@ void os_signal_trap(unsigned sig, void (*handler)(int, siginfo_t *, void *))
 		int r;
 
 		s = mem_alloc(struct signal_state *, sizeof(struct signal_state));
+		s->sig_sequence = 0;
+		s->last_sig_sequence = 0;
+		s->refcount = 1;
+		list_init(&s->wait_list);
 		signal_states[sig] = s;
 
 		(void)memset(&sa, 0, sizeof sa);
@@ -2396,7 +2407,7 @@ void os_signal_trap(unsigned sig, void (*handler)(int, siginfo_t *, void *))
 }
 #endif
 
-void os_signal_restore(unsigned sig)
+void os_signal_restore(int sig)
 {
 	struct signal_state *s = signal_states[sig];
 	if (unlikely(s != NULL)) {
@@ -2409,6 +2420,220 @@ void os_signal_restore(unsigned sig)
 		mem_free(s);
 		signal_states[sig] = NULL;
 	}
+}
+
+static int os_signal_number(const char *str)
+{
+#ifdef SIGABRT
+	if (!strcmp(str, "SIGABRT")) return SIGABRT;
+#endif
+#ifdef SIGALRM
+	if (!strcmp(str, "SIGALRM")) return SIGALRM;
+#endif
+#ifdef SIGBUS
+	if (!strcmp(str, "SIGBUS")) return SIGBUS;
+#endif
+#ifdef SIGCHLD
+	if (!strcmp(str, "SIGCHLD")) return SIGCHLD;
+#endif
+#ifdef SIGCLD
+	if (!strcmp(str, "SIGCLD")) return SIGCLD;
+#endif
+#ifdef SIGCONT
+	if (!strcmp(str, "SIGCONT")) return SIGCONT;
+#endif
+#ifdef SIGEMT
+	if (!strcmp(str, "SIGEMT")) return SIGEMT;
+#endif
+#ifdef SIGFPE
+	if (!strcmp(str, "SIGFPE")) return SIGFPE;
+#endif
+#ifdef SIGHUP
+	if (!strcmp(str, "SIGHUP")) return SIGHUP;
+#endif
+#ifdef SIGILL
+	if (!strcmp(str, "SIGILL")) return SIGILL;
+#endif
+#ifdef SIGINFO
+	if (!strcmp(str, "SIGINFO")) return SIGINFO;
+#endif
+#ifdef SIGINT
+	if (!strcmp(str, "SIGINT")) return SIGINT;
+#endif
+#ifdef SIGIO
+	if (!strcmp(str, "SIGIO")) return SIGIO;
+#endif
+#ifdef SIGIOT
+	if (!strcmp(str, "SIGIOT")) return SIGIOT;
+#endif
+#ifdef SIGKILL
+	if (!strcmp(str, "SIGKILL")) return SIGKILL;
+#endif
+#ifdef SIGLOST
+	if (!strcmp(str, "SIGLOST")) return SIGLOST;
+#endif
+#ifdef SIGPIPE
+	if (!strcmp(str, "SIGPIPE")) return SIGPIPE;
+#endif
+#ifdef SIGPOLL
+	if (!strcmp(str, "SIGPOLL")) return SIGPOLL;
+#endif
+#ifdef SIGPROF
+	if (!strcmp(str, "SIGPROF")) return SIGPROF;
+#endif
+#ifdef SIGPWR
+	if (!strcmp(str, "SIGPWR")) return SIGPWR;
+#endif
+#ifdef SIGQUIT
+	if (!strcmp(str, "SIGQUIT")) return SIGQUIT;
+#endif
+#ifdef SIGSEGV
+	if (!strcmp(str, "SIGSEGV")) return SIGSEGV;
+#endif
+#ifdef SIGSTKFLT
+	if (!strcmp(str, "SIGSTKFLT")) return SIGSTKFLT;
+#endif
+#ifdef SIGSTOP
+	if (!strcmp(str, "SIGSTOP")) return SIGSTOP;
+#endif
+#ifdef SIGTSTP
+	if (!strcmp(str, "SIGTSTP")) return SIGTSTP;
+#endif
+#ifdef SIGSYS
+	if (!strcmp(str, "SIGSYS")) return SIGSYS;
+#endif
+#ifdef SIGTERM
+	if (!strcmp(str, "SIGTERM")) return SIGTERM;
+#endif
+#ifdef SIGTRAP
+	if (!strcmp(str, "SIGTRAP")) return SIGTRAP;
+#endif
+#ifdef SIGTTIN
+	if (!strcmp(str, "SIGTTIN")) return SIGTTIN;
+#endif
+#ifdef SIGTTOU
+	if (!strcmp(str, "SIGTTOU")) return SIGTTOU;
+#endif
+#ifdef SIGUNUSED
+	if (!strcmp(str, "SIGUNUSED")) return SIGUNUSED;
+#endif
+#ifdef SIGURG
+	if (!strcmp(str, "SIGURG")) return SIGURG;
+#endif
+#ifdef SIGUSR1
+	if (!strcmp(str, "SIGUSR1")) return SIGUSR1;
+#endif
+#ifdef SIGUSR2
+	if (!strcmp(str, "SIGUSR2")) return SIGUSR2;
+#endif
+#ifdef SIGVTALRM
+	if (!strcmp(str, "SIGVTALRM")) return SIGVTALRM;
+#endif
+#ifdef SIGWINCH
+	if (!strcmp(str, "SIGWINCH")) return SIGWINCH;
+#endif
+#ifdef SIGXCPU
+	if (!strcmp(str, "SIGXCPU")) return SIGXCPU;
+#endif
+#ifdef SIGXFSZ
+	if (!strcmp(str, "SIGXFSZ")) return SIGXFSZ;
+#endif
+	return 0;
+}
+
+int os_signal_handle(const char *str, signal_seq_t *seq, ajla_error_t *err)
+{
+	struct signal_state *s;
+	int sig = os_signal_number(str);
+	if (unlikely(!sig))
+		return 0;
+	mutex_lock(&signal_state_mutex);
+	s = signal_states[sig];
+	if (unlikely(!s)) {
+		struct sigaction sa;
+		int r;
+
+		s = mem_alloc_mayfail(struct signal_state *, sizeof(struct signal_state), err);
+		if (unlikely(!s))
+			goto unlock_err;
+		s->sig_sequence = 0;
+		s->last_sig_sequence = 0;
+		s->refcount = 0;
+		list_init(&s->wait_list);
+		signal_states[sig] = s;
+
+		(void)memset(&sa, 0, sizeof sa);
+		sa.sa_handler = signal_handler;
+		sigemptyset(&sa.sa_mask);
+#ifdef SA_RESTART
+		sa.sa_flags |= SA_RESTART;
+#endif
+		EINTR_LOOP(r, sigaction(sig, &sa, &s->prev_sa));
+		if (unlikely(r == -1)) {
+			ajla_error_t e = error_from_errno(EC_SYSCALL, errno);
+			fatal_mayfail(e, err, "sigaction(%d) failed: %s", sig, error_decode(e));
+			mem_free(s);
+			signal_states[sig] = NULL;
+			goto unlock_err;
+		}
+	}
+	s->refcount++;
+	*seq = s->last_sig_sequence;
+	mutex_unlock(&signal_state_mutex);
+	return sig;
+
+unlock_err:
+	mutex_unlock(&signal_state_mutex);
+	return -1;
+}
+
+void os_signal_unhandle(int sig)
+{
+	struct signal_state *s;
+	if (unlikely(!sig))
+		return;
+	mutex_lock(&signal_state_mutex);
+	s = signal_states[sig];
+	if (unlikely(!s))
+		internal(file_line, "os_signal_unhandle: unhandled signal");
+	if (!s->refcount)
+		internal(file_line, "os_signal_unhandle: refcount underflow");
+	s->refcount--;
+	if (!s->refcount) {
+		os_signal_restore(sig);
+	}
+	mutex_unlock(&signal_state_mutex);
+}
+
+signal_seq_t os_signal_seq(int sig)
+{
+	struct signal_state *s;
+	signal_seq_t seq;
+	if (unlikely(!sig))
+		return 0;
+	mutex_lock(&signal_state_mutex);
+	s = signal_states[sig];
+	if (unlikely(!s))
+		internal(file_line, "os_signal_unhandle: unhandled signal");
+	seq = s->last_sig_sequence;
+	mutex_unlock(&signal_state_mutex);
+	return seq;
+}
+
+#else
+
+struct signal_state *os_signal_handle(const char *str)
+{
+	return NULL;
+}
+
+void os_signal_unhandle(struct signal_state *s)
+{
+}
+
+uint64_t os_signal_seq(struct signal_state *s)
+{
+	return 0;
 }
 
 #endif
@@ -3382,7 +3607,7 @@ void os_done_multithreaded(void)
 
 #ifdef OS_HAS_SIGNALS
 	if (!dll) {
-		unsigned sig;
+		int sig;
 		for (sig = 0; sig < N_SIGNALS; sig++) {
 			os_signal_restore(sig);
 		}

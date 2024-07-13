@@ -1,0 +1,65 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit signal;
+
+uses io;
+
+type shandle;
+type stoken;
+
+fn signal_handle(w : world, sig : bytes) : (world, shandle, stoken);
+fn signal_unhandle(w : world, s : shandle) : world;
+fn signal_prepare(w : world, s : shandle) : (world, stoken);
+fn signal_wait(w : world, s : shandle, t : stoken) : world;
+
+implementation
+
+type shandle := internal_type;
+type stoken := int64;
+
+fn signal_handle(w : world, sig : bytes) : (world, shandle, stoken)
+[
+	var s : shandle;
+	var t : stoken;
+	var w2 : world;
+	pcode IO IO_Signal_Handle 3 2 0 =w2 =s =t w sig;
+	return w2, s, t;
+]
+
+fn signal_unhandle(w : world, s : shandle) : world
+[
+	var w2 : world;
+	pcode IO IO_Consume_Parameters 1 2 0 =w2 w s;
+	return w2;
+]
+
+fn signal_prepare(w : world, s : shandle) : (world, stoken)
+[
+	var t : stoken;
+	var w2 : world;
+	pcode IO IO_Signal_Prepare 2 2 0 =w2 =t w s;
+	return w2, t;
+]
+
+fn signal_wait(w : world, s : shandle, t : stoken) : world
+[
+	var w2 : world;
+	pcode IO IO_Signal_Wait 1 3 0 =w2 w s t;
+	return w2;
+]

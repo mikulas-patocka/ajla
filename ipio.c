@@ -89,6 +89,10 @@ struct resource_msgqueue {
 	struct list list_entry;
 };
 
+struct resource_signal {
+	int s;
+};
+
 static mutex_t lib_path_mutex;
 static char *lib_path;
 static size_t lib_path_len;
@@ -204,6 +208,12 @@ static void msgqueue_close(struct data *d)
 		pointer_dereference(qe->ptr);
 	}
 	mem_free(q->queue);
+}
+
+static void signal_close(struct data *d)
+{
+	struct resource_signal *s = da_resource(d);
+	os_signal_unhandle(s->s);
 }
 
 #define verify_file_handle(d)						\
@@ -4091,6 +4101,101 @@ static void * attr_fastcall io_msgqueue_is_nonempty_handler(struct io_ctx *ctx)
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
+static void * attr_fastcall io_signal_handle_handler(struct io_ctx *ctx)
+{
+	void *test;
+	struct data *d;
+	struct resource_signal *s;
+	signal_seq_t seq;
+
+	test = io_deep_eval(ctx, "01", true);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
+
+	io_get_bytes(ctx, get_input(ctx, 1));
+
+	d = data_alloc_resource_mayfail(sizeof(struct resource_signal), signal_close, &ctx->err pass_file_line);
+	if (unlikely(!d))
+		goto ret_thunk;
+
+	s = da_resource(d);
+	s->s = os_signal_handle(ctx->str, &seq, &ctx->err);
+	if (unlikely(s->s < 0))
+		goto free_d_ret_thunk;
+
+	io_store_typed_number(ctx, get_output(ctx, 2), int64_t, 3, signal_seq_t, seq);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto free_d_ret_thunk;
+	frame_set_pointer(ctx->fp, get_output(ctx, 1), pointer_data(d));
+
+	mem_free(ctx->str);
+	return POINTER_FOLLOW_THUNK_GO;
+
+free_d_ret_thunk:
+	data_free_r1(d);
+ret_thunk:
+	mem_free(ctx->str);
+	io_terminate_with_error(ctx, ctx->err, true, NULL);
+	return POINTER_FOLLOW_THUNK_GO;
+}
+
+static void * attr_fastcall io_signal_prepare_handler(struct io_ctx *ctx)
+{
+	void *test;
+	pointer_t ptr;
+	struct data *d;
+	struct resource_signal *s;
+	signal_seq_t seq;
+
+	test = io_deep_eval(ctx, "01", true);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
+
+	ptr = *frame_pointer(ctx->fp, get_input(ctx, 1));
+	d = pointer_get_data(ptr);
+	s = da_resource(d);
+	seq = os_signal_seq(s->s);
+
+	io_store_typed_number(ctx, get_output(ctx, 1), int64_t, 3, signal_seq_t, seq);
+
+	return POINTER_FOLLOW_THUNK_GO;
+}
+
+static void * attr_fastcall io_signal_wait_handler(struct io_ctx *ctx)
+{
+	void *test;
+	pointer_t ptr;
+	struct data *d;
+	struct resource_signal *s;
+	signal_seq_t seq;
+	struct execution_control *ex;
+
+	test = io_deep_eval(ctx, "012", true);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
+
+	ptr = *frame_pointer(ctx->fp, get_input(ctx, 1));
+	d = pointer_get_data(ptr);
+	s = da_resource(d);
+
+	io_get_number(ctx, get_input(ctx, 2), int64_t, signal_seq_t, seq);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
+
+	ex = frame_execution_control(ctx->fp);
+	if (os_signal_wait(s->s, seq, &ex->wait[0].mutex_to_lock, &ex->wait[0].wait_entry)) {
+		pointer_follow_wait(ctx->fp, ctx->ip);
+		return POINTER_FOLLOW_THUNK_EXIT;
+	}
+
+	return POINTER_FOLLOW_THUNK_GO;
+}
+
+static void * attr_fastcall io_consume_parameter_handler(struct io_ctx *ctx)
+{
+	return io_deep_eval(ctx, "0", true);
+}
+
 static void * attr_fastcall io_load_program_handler(struct io_ctx *ctx)
 {
 	void *test;
@@ -4685,6 +4790,10 @@ static const struct {
 	{ io_msgqueue_receive_handler },
 	{ io_msgqueue_wait_handler },
 	{ io_msgqueue_is_nonempty_handler },
+	{ io_signal_handle_handler },
+	{ io_signal_prepare_handler },
+	{ io_signal_wait_handler },
+	{ io_consume_parameter_handler },
 	{ io_load_program_handler },
 	{ io_get_function_ptr_handler },
 	{ io_get_subfunctions_handler },

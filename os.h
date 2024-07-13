@@ -515,17 +515,22 @@ void os_proc_free_handle(struct proc_handle *ph);
 bool os_proc_register_wait(struct proc_handle *ph, mutex_t **mutex_to_lock, struct list *list_entry, int *status);
 void os_proc_check_all(void);
 
+typedef sig_atomic_t signal_seq_t;
 #ifdef OS_HAS_SIGNALS
-bool os_signal_prepare(unsigned sig, sig_atomic_t *seq, ajla_error_t *err);
-bool os_signal_wait(int sig, sig_atomic_t seq, mutex_t **mutex_to_lock, struct list *list_entry);
+bool os_signal_prepare(int sig, signal_seq_t *seq, ajla_error_t *err);
+bool os_signal_wait(int sig, signal_seq_t seq, mutex_t **mutex_to_lock, struct list *list_entry);
 void os_signal_check_all(void);
 #ifdef SA_SIGINFO
-void os_signal_trap(unsigned sig, void (*handler)(int, siginfo_t *, void *));
+void os_signal_trap(int sig, void (*handler)(int, siginfo_t *, void *));
 #endif
-void os_signal_restore(unsigned sig);
+void os_signal_restore(int sig);
 #else
 static inline void os_signal_check_all(void) { }
 #endif
+
+int os_signal_handle(const char *str, signal_seq_t *seq, ajla_error_t *err);
+void os_signal_unhandle(int sig);
+signal_seq_t os_signal_seq(int sig);
 
 handle_t os_socket(int domain, int type, int protocol, ajla_error_t *err);
 bool os_bind_connect(bool bnd, handle_t h, unsigned char *addr, size_t addr_len, ajla_error_t *err);
