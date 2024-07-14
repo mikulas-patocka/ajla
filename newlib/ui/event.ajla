@@ -130,6 +130,7 @@ implementation
 uses socket;
 uses pcode;
 uses exception;
+uses signal;
 
 const terminal_read_timeout : int64 := 100000;
 
@@ -729,7 +730,12 @@ fn event_get_keyboard~spark(implicit w : world, h : handle, tc : termcap, loc : 
 
 fn event_get_resize~spark(implicit w : world, h : handle, q : msgqueue(event), x y : int) : bottom_type
 [
+	var os := sysprop(SystemProperty_OS);
+	if os = SystemProperty_OS_DOS or os = SystemProperty_OS_OS2 then
+		abort;
+	var sigwinch, stoken := signal_handle("SIGWINCH");
 	while true do [
+		stoken := signal_prepare(sigwinch);
 		var nx, ny := tty_size(h);
 		if nx <> x or ny <> y then [
 			x, y := nx, ny;
@@ -740,7 +746,11 @@ fn event_get_resize~spark(implicit w : world, h : handle, q : msgqueue(event), x
 			xtag, xev := msgqueue_receive_tag_nonblock(q, ev_tag_resize);
 			msgqueue_send(q, ev_tag_resize, ev);
 		]
-		sleep(w, 3000000);
+		if os = SystemProperty_OS_Windows then [
+			sleep(w, 3000000);
+		] else [
+			signal_wait(sigwinch, stoken);
+		]
 		xeval w;
 	]
 	abort;
