@@ -731,13 +731,17 @@ fn event_get_resize~spark(implicit w : world, h : handle, q : msgqueue(event)) :
 [
 	var x, y := -1, -1;
 	while true do [
-		x, y := tty_size(h, x, y);
-		var ev : event := event.resize.(event_resize.[ x : x, y : y ]);
-		var xev : event;
-		var xtag : int;
-		xtag, xev := msgqueue_receive_tag_nonblock(q, ev_tag_redraw);
-		xtag, xev := msgqueue_receive_tag_nonblock(q, ev_tag_resize);
-		msgqueue_send(q, ev_tag_resize, ev);
+		var nx, ny := tty_size(h);
+		if nx <> x or ny <> y then [
+			x, y := nx, ny;
+			var ev : event := event.resize.(event_resize.[ x : x, y : y ]);
+			var xev : event;
+			var xtag : int;
+			xtag, xev := msgqueue_receive_tag_nonblock(q, ev_tag_redraw);
+			xtag, xev := msgqueue_receive_tag_nonblock(q, ev_tag_resize);
+			msgqueue_send(q, ev_tag_resize, ev);
+		]
+		sleep(w, 3000000);
 		xeval w;
 	]
 	abort;

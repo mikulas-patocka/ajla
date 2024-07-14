@@ -196,7 +196,7 @@ const stty_flag_nosignal : int;
 const stty_flag_nocrlf : int;
 
 fn stty(w : world, h : handle, flags : int) : world;
-fn tty_size(w : world, h : handle, x y : int) : (world, int, int);
+fn tty_size(w : world, h : handle) : (world, int, int);
 
 const uname_flag_ajla_version : int;
 const uname_flag_flavor : int;
@@ -973,11 +973,11 @@ fn stty(w : world, h : handle, flags : int) : world
 	return w2;
 ]
 
-fn tty_size(w : world, h : handle, x y : int) : (world, int, int)
+fn tty_size(w : world, h : handle) : (world, int, int)
 [
 	var nx ny : int;
 	var w2 : world;
-	pcode IO IO_Tty_Size 3 4 0 =w2 =nx =ny w h x y;
+	pcode IO IO_Tty_Size 3 2 0 =w2 =nx =ny w h;
 	return w2, nx, ny;
 ]
 

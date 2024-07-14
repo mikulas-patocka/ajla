@@ -509,7 +509,7 @@ fn curses_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(
 	]
 
 	var old_w := w;
-	var xx, yy := tty_size(h[0], -1, -1);
+	var xx, yy := tty_size(h[0]);
 	if is_exception w then [
 		recover_world(old_w);
 		if packet_mode then [

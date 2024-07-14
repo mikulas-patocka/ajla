@@ -2574,47 +2574,27 @@ ret_error:
 static void * attr_fastcall io_tty_size_handler(struct io_ctx *ctx)
 {
 	void *test;
-	int x = 0, y = 0;	/* avoid warning */
 	int nx, ny;
-	struct execution_control *ex;
-	int ts;
 
-	test = io_deep_eval(ctx, "0123", true);
+	test = io_deep_eval(ctx, "01", true);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
-		goto ret_test;
+		return test;
 
 	io_get_handle(ctx, get_input(ctx, 1));
-	io_get_number(ctx, get_input(ctx, 2), int_default_t, int, x);
-	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
-		goto ret_test;
-	io_get_number(ctx, get_input(ctx, 3), int_default_t, int, y);
-	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
-		goto ret_test;
 
-	ex = frame_execution_control(ctx->fp);
-	ts = os_tty_size(ctx->handle->fd, x, y, &nx, &ny, &ex->wait[0].mutex_to_lock, &ex->wait[0].wait_entry, &ctx->err);
-	if (unlikely(!ts)) {
+	if (unlikely(!os_tty_size(ctx->handle->fd, &nx, &ny, &ctx->err))) {
 		io_terminate_with_error(ctx, ctx->err, true, NULL);
-		test = POINTER_FOLLOW_THUNK_EXCEPTION;
-		goto ret_test;
-	}
-	if (ts == 2) {
-		pointer_follow_wait(ctx->fp, ctx->ip);
-		test = POINTER_FOLLOW_THUNK_EXIT;
-		goto ret_test;
+		return POINTER_FOLLOW_THUNK_EXCEPTION;
 	}
 
 	io_store_typed_number(ctx, get_output(ctx, 1), int_default_t, INT_DEFAULT_N, int, nx);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
-		goto ret_test;
+		return test;
 	io_store_typed_number(ctx, get_output(ctx, 2), int_default_t, INT_DEFAULT_N, int, ny);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
-		goto ret_test;
+		return test;
 
-	test = POINTER_FOLLOW_THUNK_GO;
-
-ret_test:
-	return test;
+	return POINTER_FOLLOW_THUNK_GO;
 }
 
 static int_default_t io_get_spawn_handles_callback(unsigned char *flat, const struct type attr_unused * type, int_default_t n_elements, pointer_t *ptr, void *ctx_)

@@ -491,7 +491,7 @@ bool os_dir2_action(dir_handle_t dir, const char *path, int action, dir_handle_t
 bool os_tcgetattr(handle_t h, os_termios_t *t, ajla_error_t *err);
 bool os_tcsetattr(handle_t h, const os_termios_t *t, ajla_error_t *err);
 void os_tcflags(os_termios_t *t, int flags);
-int os_tty_size(handle_t h, int x, int y, int *nx, int *ny, mutex_t **mutex_to_lock, struct list *list_entry, ajla_error_t *err);
+bool os_tty_size(handle_t h, int *nx, int *ny, ajla_error_t *err);
 const char *os_get_path_to_exe(void);
 
 ajla_time_t os_time_t_to_ajla_time(os_time_t sec);

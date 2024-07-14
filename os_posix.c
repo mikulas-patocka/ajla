@@ -1793,7 +1793,7 @@ void os_tcflags(os_termios_t *t, int flags)
 		t->c_oflag |= OPOST;
 }
 
-int os_tty_size(handle_t h, int x, int y, int *nx, int *ny, mutex_t **mutex_to_lock, struct list *list_entry, ajla_error_t *err)
+bool os_tty_size(handle_t h, int *nx, int *ny, ajla_error_t *err)
 {
 	int r;
 	struct winsize ws;
@@ -1803,19 +1803,12 @@ int os_tty_size(handle_t h, int x, int y, int *nx, int *ny, mutex_t **mutex_to_l
 	if (unlikely(r == -1)) {
 		ajla_error_t e = error_from_errno(EC_SYSCALL, errno);
 		fatal_mayfail(e, err, "ioctl(TIOCGWINSZ) failed: %s", error_decode(e));
-		return 0;
-	}
-
-	if (ws.ws_col == x && ws.ws_row == y) {
-		ajla_time_t mt = os_time_monotonic() + POLL_WINCH_US;
-		if (unlikely(!timer_register_wait(mt, mutex_to_lock, list_entry, err)))
-			return 0;
-		return 2;
+		return false;
 	}
 
 	*nx = ws.ws_col;
 	*ny = ws.ws_row;
-	return 1;
+	return true;
 }
 
 
