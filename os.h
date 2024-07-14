@@ -339,7 +339,7 @@ typedef sigset_t sig_state_t;
 #else
 typedef int sig_state_t;
 #endif
-typedef sig_atomic_t sig_state_t;
+typedef sig_atomic_t signal_seq_t;
 #ifdef HAVE_SIGACTION
 #define OS_HAS_SIGNALS
 #endif
