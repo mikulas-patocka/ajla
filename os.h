@@ -523,6 +523,7 @@ bool os_signal_wait(int sig, signal_seq_t seq, mutex_t **mutex_to_lock, struct l
 void os_signal_check_all(void);
 #if defined(OS_HAS_SIGNALS) && defined(SA_SIGINFO)
 void os_signal_trap(int sig, void (*handler)(int, siginfo_t *, void *));
+void os_signal_untrap(int sig);
 #endif
 
 handle_t os_socket(int domain, int type, int protocol, ajla_error_t *err);

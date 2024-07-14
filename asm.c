@@ -390,7 +390,7 @@ static void s390_stfle(void)
 	fn = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
 	os_signal_trap(SIGILL, s390_sigill);
 	fn(s390_facilities);
-	os_signal_restore(SIGILL);
+	os_signal_untrap(SIGILL);
 	os_code_unmap(fn, cs);
 #if 0
 	debug("facilities0: %016llx", (unsigned long long)s390_facilities[0]);
@@ -682,7 +682,7 @@ void asm_init(void)
 #undef ASM_INC_DYNAMIC
 	if (trap_sigill) {
 #if defined(ARCH_POWER) || defined(ARCH_RISCV64)
-		os_signal_restore(SIGILL);
+		os_signal_untrap(SIGILL);
 #endif
 	}
 	if (unlikely(detection_failed))
@@ -721,4 +721,9 @@ void asm_init(void)
 
 void asm_done(void)
 {
+#ifdef DEBUG_CRASH_HANDLER
+	os_signal_untrap(SIGSEGV);
+	os_signal_untrap(SIGBUS);
+	os_signal_untrap(SIGILL);
+#endif
 }
