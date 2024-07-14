@@ -1799,13 +1799,6 @@ int os_tty_size(handle_t h, int x, int y, int *nx, int *ny, mutex_t **mutex_to_l
 	struct winsize ws;
 	signal_seq_t attr_unused seq;
 
-#if defined(OS_HAS_SIGNALS) && defined(SIGWINCH)
-	if (likely(!dll)) {
-		if (unlikely(!os_signal_prepare(SIGWINCH, &seq, err)))
-			return 0;
-	}
-#endif
-
 	EINTR_LOOP(r, ioctl(h, TIOCGWINSZ, &ws));
 	if (unlikely(r == -1)) {
 		ajla_error_t e = error_from_errno(EC_SYSCALL, errno);
@@ -1814,18 +1807,10 @@ int os_tty_size(handle_t h, int x, int y, int *nx, int *ny, mutex_t **mutex_to_l
 	}
 
 	if (ws.ws_col == x && ws.ws_row == y) {
-#if defined(OS_HAS_SIGNALS) && defined(SIGWINCH)
-		if (likely(!dll)) {
-			if (likely(os_signal_wait(SIGWINCH, seq, mutex_to_lock, list_entry)))
-				return 2;
-		} else
-#endif
-		{
-			ajla_time_t mt = os_time_monotonic() + POLL_WINCH_US;
-			if (unlikely(!timer_register_wait(mt, mutex_to_lock, list_entry, err)))
-				return 0;
-			return 2;
-		}
+		ajla_time_t mt = os_time_monotonic() + POLL_WINCH_US;
+		if (unlikely(!timer_register_wait(mt, mutex_to_lock, list_entry, err)))
+			return 0;
+		return 2;
 	}
 
 	*nx = ws.ws_col;
@@ -2037,6 +2022,7 @@ struct proc_handle {
 	bool fired;
 	bool detached;
 	int status;
+	int sigchld;
 	struct list wait_list;
 };
 
@@ -2053,6 +2039,12 @@ static inline void proc_unlock(void)
 	mutex_unlock(&proc_tree_mutex);
 }
 
+static void proc_handle_free(struct proc_handle *ph)
+{
+	os_signal_unhandle(ph->sigchld);
+	mem_free(ph);
+}
+
 static int proc_handle_compare(const struct tree_entry *e, uintptr_t pid)
 {
 	const struct proc_handle *ph = get_struct(e, struct proc_handle, entry);
@@ -2064,20 +2056,12 @@ static int proc_handle_compare(const struct tree_entry *e, uintptr_t pid)
 struct proc_handle *os_proc_spawn(dir_handle_t wd, const char *path, size_t n_handles, handle_t *src, int *target, char * const args[], char *envc, ajla_error_t *err)
 {
 	struct proc_handle *ph;
+	signal_seq_t seq;
 	struct tree_insert_position ins;
 	struct tree_entry *e;
 
 	char **env;
 	size_t env_l;
-
-#if defined(OS_HAS_SIGNALS) && defined(SIGCHLD)
-	if (!dll) {
-		signal_seq_t seq;
-		if (unlikely(!os_signal_prepare(SIGCHLD, &seq, err)))
-			return NULL;
-	} else
-#endif
-		iomux_enable_poll();
 
 	if (unlikely(!array_init_mayfail(char *, &env, &env_l, err)))
 		return NULL;
@@ -2097,13 +2081,21 @@ struct proc_handle *os_proc_spawn(dir_handle_t wd, const char *path, size_t n_ha
 	ph->fired = false;
 	ph->detached = false;
 	list_init(&ph->wait_list);
+	ph->sigchld = os_signal_handle("SIGCHLD", &seq, err);
+	if (unlikely(ph->sigchld < 0)) {
+		mem_free(env);
+		mem_free(ph);
+		return NULL;
+	}
+	if (unlikely(!ph->sigchld))
+		iomux_enable_poll();
 
 	proc_lock();
 
 	if (unlikely(!os_fork(wd, path, n_handles, src, target, args, env, &ph->pid, err))) {
 		proc_unlock();
 		mem_free(env);
-		mem_free(ph);
+		proc_handle_free(ph);
 		return NULL;
 	}
 
@@ -2127,7 +2119,7 @@ void os_proc_free_handle(struct proc_handle *ph)
 	ajla_assert_lo(list_is_empty(&ph->wait_list), (file_line, "os_proc_free_handle: freeing handle when there are processes waiting for it"));
 	if (ph->fired) {
 		proc_unlock();
-		mem_free(ph);
+		proc_handle_free(ph);
 	} else {
 		ph->detached = true;
 		proc_unlock();
@@ -2179,7 +2171,7 @@ static void process_pid_and_status(pid_t pid, int status)
 	if (!ph->detached) {
 		call(wake_up_wait_list)(&ph->wait_list, &proc_tree_mutex, true);
 	} else {
-		mem_free(ph);
+		proc_handle_free(ph);
 		proc_unlock();
 	}
 }
@@ -2263,163 +2255,6 @@ static void signal_handler(int sig)
 {
 	signal_states[sig]->sig_sequence += 1UL;
 	os_notify();
-}
-
-bool os_signal_prepare(int sig, signal_seq_t *seq, ajla_error_t *err)
-{
-	struct signal_state *s;
-	if (dll) {
-		fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED), err, "signals not supported");
-		return false;
-	}
-	mutex_lock(&signal_state_mutex);
-	if (unlikely(sig >= N_SIGNALS)) {
-		fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED), err, "too high signal number: %d", sig);
-		goto unlock_false;
-	}
-	s = signal_states[sig];
-	if (unlikely(!s)) {
-		struct sigaction sa;
-		int r;
-
-		s = mem_alloc_mayfail(struct signal_state *, sizeof(struct signal_state), err);
-		if (unlikely(!s))
-			goto unlock_false;
-		s->sig_sequence = 0;
-		s->last_sig_sequence = 0;
-		s->refcount = 0;
-		list_init(&s->wait_list);
-		signal_states[sig] = s;
-
-		(void)memset(&sa, 0, sizeof sa);
-		sa.sa_handler = signal_handler;
-		sigemptyset(&sa.sa_mask);
-#ifdef SA_RESTART
-		sa.sa_flags |= SA_RESTART;
-#endif
-		EINTR_LOOP(r, sigaction(sig, &sa, &s->prev_sa));
-		if (unlikely(r == -1)) {
-			ajla_error_t e = error_from_errno(EC_SYSCALL, errno);
-			fatal_mayfail(e, err, "sigaction(%d) failed: %s", sig, error_decode(e));
-			mem_free(s);
-			signal_states[sig] = NULL;
-			goto unlock_false;
-		}
-	}
-	*seq = s->last_sig_sequence;
-	mutex_unlock(&signal_state_mutex);
-	return true;
-
-unlock_false:
-	mutex_unlock(&signal_state_mutex);
-	return false;
-}
-
-bool os_signal_wait(int sig, signal_seq_t seq, mutex_t **mutex_to_lock, struct list *list_entry)
-{
-	struct signal_state *s;
-
-	if (unlikely(!sig)) {
-		iomux_never(mutex_to_lock, list_entry);
-		return true;
-	}
-
-	mutex_lock(&signal_state_mutex);
-	s = signal_states[sig];
-	if (unlikely(seq != s->last_sig_sequence)) {
-		mutex_unlock(&signal_state_mutex);
-		return false;
-	}
-	*mutex_to_lock = &signal_state_mutex;
-	list_add(&s->wait_list, list_entry);
-	mutex_unlock(&signal_state_mutex);
-
-	return true;
-}
-
-void os_signal_check_all(void)
-{
-	int sig = 0;
-again:
-	mutex_lock(&signal_state_mutex);
-	for (; sig < N_SIGNALS; sig++) {
-		struct signal_state *s = signal_states[sig];
-		if (unlikely(s != NULL)) {
-			signal_seq_t seq = s->sig_sequence;
-			if (unlikely(seq != s->last_sig_sequence)) {
-				s->last_sig_sequence = seq;
-				call(wake_up_wait_list)(&s->wait_list, &signal_state_mutex, true);
-				sig++;
-				goto again;
-			}
-		}
-	}
-	mutex_unlock(&signal_state_mutex);
-}
-
-#ifdef HAVE_CODEGEN_TRAPS
-
-void *u_data_trap_lookup(void *ptr);
-void *c_data_trap_lookup(void *ptr);
-
-static void sigfpe_handler(int attr_unused sig, siginfo_t *siginfo, void *ucontext)
-{
-	ucontext_t *uc = ucontext;
-#if defined(ARCH_ALPHA)
-	if (unlikely(siginfo->si_code != FPE_FLTINV))
-		fatal("unexpected SIGFPE received: %d", siginfo->si_code);
-	uc->uc_mcontext.sc_pc = ptr_to_num(call(data_trap_lookup)(num_to_ptr(uc->uc_mcontext.sc_pc)));
-#endif
-#if defined(ARCH_MIPS)
-	if (unlikely(siginfo->si_code != FPE_INTOVF))
-		fatal("unexpected SIGFPE received: %d", siginfo->si_code);
-	uc->uc_mcontext.pc = ptr_to_num(call(data_trap_lookup)(num_to_ptr(uc->uc_mcontext.pc)));
-#endif
-}
-
-#endif
-
-#ifdef SA_SIGINFO
-void os_signal_trap(int sig, void (*handler)(int, siginfo_t *, void *))
-{
-	if (OS_SUPPORTS_TRAPS) {
-		struct signal_state *s;
-		struct sigaction sa;
-		int r;
-
-		s = mem_alloc(struct signal_state *, sizeof(struct signal_state));
-		s->sig_sequence = 0;
-		s->last_sig_sequence = 0;
-		s->refcount = 1;
-		list_init(&s->wait_list);
-		signal_states[sig] = s;
-
-		(void)memset(&sa, 0, sizeof sa);
-		sa.sa_sigaction = handler;
-		sigemptyset(&sa.sa_mask);
-		sa.sa_flags |= SA_SIGINFO;
-		EINTR_LOOP(r, sigaction(sig, &sa, &s->prev_sa));
-		if (unlikely(r == -1)) {
-			ajla_error_t e = error_from_errno(EC_SYSCALL, errno);
-			fatal("sigaction(%d) failed: %s", sig, error_decode(e));
-		}
-	}
-}
-#endif
-
-void os_signal_restore(int sig)
-{
-	struct signal_state *s = signal_states[sig];
-	if (unlikely(s != NULL)) {
-		int r;
-		EINTR_LOOP(r, sigaction(sig, &s->prev_sa, NULL));
-		if (unlikely(r == -1)) {
-			ajla_error_t e = error_from_errno(EC_SYSCALL, errno);
-			fatal("sigaction(%d) failed: %s", sig, error_decode(e));
-		}
-		mem_free(s);
-		signal_states[sig] = NULL;
-	}
 }
 
 static int os_signal_number(const char *str)
@@ -2587,6 +2422,21 @@ unlock_err:
 	return -1;
 }
 
+static void os_signal_restore(int sig)
+{
+	struct signal_state *s = signal_states[sig];
+	if (unlikely(s != NULL)) {
+		int r;
+		EINTR_LOOP(r, sigaction(sig, &s->prev_sa, NULL));
+		if (unlikely(r == -1)) {
+			ajla_error_t e = error_from_errno(EC_SYSCALL, errno);
+			fatal("sigaction(%d) failed: %s", sig, error_decode(e));
+		}
+		mem_free(s);
+		signal_states[sig] = NULL;
+	}
+}
+
 void os_signal_unhandle(int sig)
 {
 	struct signal_state *s;
@@ -2620,20 +2470,122 @@ signal_seq_t os_signal_seq(int sig)
 	return seq;
 }
 
+bool os_signal_wait(int sig, signal_seq_t seq, mutex_t **mutex_to_lock, struct list *list_entry)
+{
+	struct signal_state *s;
+
+	if (unlikely(!sig)) {
+		iomux_never(mutex_to_lock, list_entry);
+		return true;
+	}
+
+	mutex_lock(&signal_state_mutex);
+	s = signal_states[sig];
+	if (unlikely(seq != s->last_sig_sequence)) {
+		mutex_unlock(&signal_state_mutex);
+		return false;
+	}
+	*mutex_to_lock = &signal_state_mutex;
+	list_add(&s->wait_list, list_entry);
+	mutex_unlock(&signal_state_mutex);
+
+	return true;
+}
+
+void os_signal_check_all(void)
+{
+	int sig = 0;
+again:
+	mutex_lock(&signal_state_mutex);
+	for (; sig < N_SIGNALS; sig++) {
+		struct signal_state *s = signal_states[sig];
+		if (unlikely(s != NULL)) {
+			signal_seq_t seq = s->sig_sequence;
+			if (unlikely(seq != s->last_sig_sequence)) {
+				s->last_sig_sequence = seq;
+				call(wake_up_wait_list)(&s->wait_list, &signal_state_mutex, true);
+				sig++;
+				goto again;
+			}
+		}
+	}
+	mutex_unlock(&signal_state_mutex);
+}
+
+#ifdef HAVE_CODEGEN_TRAPS
+
+void *u_data_trap_lookup(void *ptr);
+void *c_data_trap_lookup(void *ptr);
+
+static void sigfpe_handler(int attr_unused sig, siginfo_t *siginfo, void *ucontext)
+{
+	ucontext_t *uc = ucontext;
+#if defined(ARCH_ALPHA)
+	if (unlikely(siginfo->si_code != FPE_FLTINV))
+		fatal("unexpected SIGFPE received: %d", siginfo->si_code);
+	uc->uc_mcontext.sc_pc = ptr_to_num(call(data_trap_lookup)(num_to_ptr(uc->uc_mcontext.sc_pc)));
+#endif
+#if defined(ARCH_MIPS)
+	if (unlikely(siginfo->si_code != FPE_INTOVF))
+		fatal("unexpected SIGFPE received: %d", siginfo->si_code);
+	uc->uc_mcontext.pc = ptr_to_num(call(data_trap_lookup)(num_to_ptr(uc->uc_mcontext.pc)));
+#endif
+}
+
+#endif
+
+#ifdef SA_SIGINFO
+void os_signal_trap(int sig, void (*handler)(int, siginfo_t *, void *))
+{
+	if (OS_SUPPORTS_TRAPS) {
+		struct signal_state *s;
+		struct sigaction sa;
+		int r;
+
+		s = mem_alloc(struct signal_state *, sizeof(struct signal_state));
+		s->sig_sequence = 0;
+		s->last_sig_sequence = 0;
+		s->refcount = 1;
+		list_init(&s->wait_list);
+		signal_states[sig] = s;
+
+		(void)memset(&sa, 0, sizeof sa);
+		sa.sa_sigaction = handler;
+		sigemptyset(&sa.sa_mask);
+		sa.sa_flags |= SA_SIGINFO;
+		EINTR_LOOP(r, sigaction(sig, &sa, &s->prev_sa));
+		if (unlikely(r == -1)) {
+			ajla_error_t e = error_from_errno(EC_SYSCALL, errno);
+			fatal("sigaction(%d) failed: %s", sig, error_decode(e));
+		}
+	}
+}
+#endif
+
 #else
 
-struct signal_state *os_signal_handle(const char *str)
-{
-	return NULL;
-}
-
-void os_signal_unhandle(struct signal_state *s)
-{
-}
-
-uint64_t os_signal_seq(struct signal_state *s)
+int os_signal_handle(const char attr_unused *str, signal_seq_t attr_unused *seq, ajla_error_t attr_unused *err)
 {
 	return 0;
+}
+
+void os_signal_unhandle(int attr_unused sig)
+{
+}
+
+signal_seq_t os_signal_seq(int attr_unused sig)
+{
+	return 0;
+}
+
+bool os_signal_wait(int attr_unused sig, signal_seq_t attr_unused seq, mutex_t **mutex_to_lock, struct list *list_entry)
+{
+	iomux_never(mutex_to_lock, list_entry);
+	return true;
+}
+
+void os_signal_check_all(void)
+{
 }
 
 #endif
@@ -3621,7 +3573,7 @@ void os_done_multithreaded(void)
 	if (unlikely(!tree_is_empty(&proc_tree))) {
 		struct proc_handle *ph = get_struct(tree_any(&proc_tree), struct proc_handle, entry);
 		tree_delete(&ph->entry);
-		mem_free(ph);
+		proc_handle_free(ph);
 	}
 	mutex_done(&proc_tree_mutex);
 #endif
