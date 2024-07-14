@@ -221,6 +221,7 @@ record curses [
 	q : msgqueue(event);
 	kbd_thread : bottom_type;
 	resize_thread : bottom_type;
+	suspend_thread : bottom_type;
 	mouse_thread : bottom_type;
 
 	event_buffer : list(event);
@@ -633,6 +634,7 @@ fn curses_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(
 
 	curs.kbd_thread := event_get_keyboard(w, h[0], curs.tc, curs.loc, curs.q);
 	curs.resize_thread := event_get_resize(w, h[0], curs.q, x, y);
+	curs.suspend_thread := event_get_suspend(w, curs.q);
 	curs.mouse_thread := event_get_mouse(w, h[0], curs.q);
 ]
 
@@ -689,6 +691,7 @@ fn curses_done(implicit w : world, implicit curs : curses) : world
 	]
 	curs.kbd_thread := exception_make(bottom_type, ec_sync, error_record_field_not_initialized, 0, false);
 	curs.resize_thread := exception_make(bottom_type, ec_sync, error_record_field_not_initialized, 0, false);
+	curs.suspend_thread := exception_make(bottom_type, ec_sync, error_record_field_not_initialized, 0, false);
 	curs.mouse_thread := exception_make(bottom_type, ec_sync, error_record_field_not_initialized, 0, false);
 	if not curs.packet_mode then [
 		event_reset_handle(curs.h[0]);
@@ -745,6 +748,7 @@ fn curses_resize(implicit w : world, curs : curses, const x y : int) : (world, c
 		q : curs.q,
 		kbd_thread : curs.kbd_thread,
 		resize_thread : curs.resize_thread,
+		suspend_thread : curs.suspend_thread,
 		mouse_thread : curs.mouse_thread,
 		event_buffer : curs.event_buffer,
 	];

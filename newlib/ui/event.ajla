@@ -121,6 +121,7 @@ const key_to_termcap : list(int) := [
 
 fn event_get_keyboard~spark(w : world, h : handle, tc : termcap, loc : locale, q : msgqueue(event)) : bottom_type;
 fn event_get_resize~spark(w : world, h : handle, q : msgqueue(event), x y : int) : bottom_type;
+fn event_get_suspend~spark(w : world, q : msgqueue(event)) : bottom_type;
 fn event_get_mouse~spark(w : world, h : handle, q : msgqueue(event)) : bottom_type;
 fn event_wait_for_any_key(w : world, h : handle) : world;
 fn event_reset_handle(w : world, h : handle) : world;
@@ -751,6 +752,23 @@ fn event_get_resize~spark(implicit w : world, h : handle, q : msgqueue(event), x
 		] else [
 			signal_wait(sigwinch, stoken);
 		]
+		xeval w;
+	]
+	abort;
+]
+
+
+fn event_get_suspend~spark(implicit w : world, q : msgqueue(event)) : bottom_type
+[
+	var os := sysprop(SystemProperty_OS);
+	if os = SystemProperty_OS_DOS or
+	   os = SystemProperty_OS_OS2 or
+	   os = SystemProperty_OS_Windows then
+		abort;
+	var sigtstp, stoken := signal_handle("SIGTSTP");
+	while true do [
+		signal_wait(sigtstp, stoken);
+		stoken := signal_prepare(sigtstp);
 		xeval w;
 	]
 	abort;
