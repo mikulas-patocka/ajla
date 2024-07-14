@@ -120,7 +120,7 @@ const key_to_termcap : list(int) := [
 ];
 
 fn event_get_keyboard~spark(w : world, h : handle, tc : termcap, loc : locale, q : msgqueue(event)) : bottom_type;
-fn event_get_resize~spark(w : world, h : handle, q : msgqueue(event)) : bottom_type;
+fn event_get_resize~spark(w : world, h : handle, q : msgqueue(event), x y : int) : bottom_type;
 fn event_get_mouse~spark(w : world, h : handle, q : msgqueue(event)) : bottom_type;
 fn event_wait_for_any_key(w : world, h : handle) : world;
 fn event_reset_handle(w : world, h : handle) : world;
@@ -727,9 +727,8 @@ fn event_get_keyboard~spark(implicit w : world, h : handle, tc : termcap, loc : 
 	return err;
 ]
 
-fn event_get_resize~spark(implicit w : world, h : handle, q : msgqueue(event)) : bottom_type
+fn event_get_resize~spark(implicit w : world, h : handle, q : msgqueue(event), x y : int) : bottom_type
 [
-	var x, y := -1, -1;
 	while true do [
 		var nx, ny := tty_size(h);
 		if nx <> x or ny <> y then [

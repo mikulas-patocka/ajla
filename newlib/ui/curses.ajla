@@ -628,8 +628,11 @@ fn curses_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(
 		write_console_packet(curs.h[1], pstr);
 	]
 
+	var ev : event := event.resize.(event_resize.[ x : x, y : y ]);
+	msgqueue_send(curs.q, ev_tag_resize, ev);
+
 	curs.kbd_thread := event_get_keyboard(w, h[0], curs.tc, curs.loc, curs.q);
-	curs.resize_thread := event_get_resize(w, h[0], curs.q);
+	curs.resize_thread := event_get_resize(w, h[0], curs.q, x, y);
 	curs.mouse_thread := event_get_mouse(w, h[0], curs.q);
 ]
 
