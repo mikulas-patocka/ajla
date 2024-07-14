@@ -119,6 +119,8 @@ static BOOL (WINAPI *fn_MoveFileExA)(LPCSTR lpExistingFileName, LPCSTR lpNewFile
 static BOOL (WINAPI *fn_MoveFileExW)(LPWSTR lpExistingFileName, LPWSTR lpNewFileName, DWORD dwFlags);
 static BOOL (WINAPI *fn_FlushInstructionCache)(HANDLE hProcess, LPCVOID *lpBaseAddress, SIZE_T dwSize);
 static DWORD (WINAPI *fn_GetNetworkParams)(char *, PULONG pOutBufLen);
+static uint64_t (WINAPI *fn_GetTickCount64)(void);
+
 /* QPC is broken, it sometimes jumps backwards, so don't use it by default */
 #ifdef USER_QPC
 static BOOL (WINAPI *fn_QueryPerformanceFrequency)(LARGE_INTEGER *lpPerformanceCount);
@@ -2885,15 +2887,19 @@ ajla_time_t os_time_monotonic(void)
 	}
 #endif
 
-	if (likely(os_threads_initialized))
-		mutex_lock(&tick_mutex);
-	t = GetTickCount();
-	if (unlikely(t < tick_last))
-		tick_high++;
-	tick_last = t;
-	ret = ((uint64_t)tick_high << 32) | t;
-	if (likely(os_threads_initialized))
-		mutex_unlock(&tick_mutex);
+	if (likely(fn_GetTickCount64 != NULL)) {
+		ret = fn_GetTickCount64();
+	} else {
+		if (likely(os_threads_initialized))
+			mutex_lock(&tick_mutex);
+		t = GetTickCount();
+		if (unlikely(t < tick_last))
+			tick_high++;
+		tick_last = t;
+		ret = ((uint64_t)tick_high << 32) | t;
+		if (likely(os_threads_initialized))
+			mutex_unlock(&tick_mutex);
+	}
 	return ret * 1000;
 }
 
@@ -4657,6 +4663,8 @@ void os_init(void)
 	handle_iphlpa = LoadLibraryA("iphlpapi.dll");
 	if (handle_iphlpa)
 		fn_GetNetworkParams = (void *)GetProcAddress(handle_iphlpa, "GetNetworkParams");
+
+	fn_GetTickCount64 = (void *)GetProcAddress(GetModuleHandleA("kernel32.dll"), "GetTickCount64");
 
 #ifdef USER_QPC
 	fn_QueryPerformanceFrequency = (void *)GetProcAddress(GetModuleHandleA("kernel32.dll"), "QueryPerformanceFrequency");
