@@ -2568,6 +2568,7 @@ void os_signal_untrap(int sig)
 
 int os_signal_handle(const char attr_unused *str, signal_seq_t attr_unused *seq, ajla_error_t attr_unused *err)
 {
+	*seq = NULL;
 	return 0;
 }
 

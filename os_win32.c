@@ -119,9 +119,12 @@ static BOOL (WINAPI *fn_MoveFileExA)(LPCSTR lpExistingFileName, LPCSTR lpNewFile
 static BOOL (WINAPI *fn_MoveFileExW)(LPWSTR lpExistingFileName, LPWSTR lpNewFileName, DWORD dwFlags);
 static BOOL (WINAPI *fn_FlushInstructionCache)(HANDLE hProcess, LPCVOID *lpBaseAddress, SIZE_T dwSize);
 static DWORD (WINAPI *fn_GetNetworkParams)(char *, PULONG pOutBufLen);
+/* QPC is broken, it sometimes jumps backwards, so don't use it by default */
+#ifdef USER_QPC
 static BOOL (WINAPI *fn_QueryPerformanceFrequency)(LARGE_INTEGER *lpPerformanceCount);
 static BOOL (WINAPI *fn_QueryPerformanceCounter)(LARGE_INTEGER *lpPerformanceCount);
 static long double perf_multiplier;
+#endif
 
 typedef struct addrinfo {
 	int ai_flags;
@@ -2644,7 +2647,7 @@ void os_tcflags(os_termios_t *t, int flags)
 	t->tc_flags = flags;
 }
 
-int os_tty_size(handle_t h, int x, int y, int *nx, int *ny, mutex_t **mutex_to_lock, struct list *list_entry, ajla_error_t *err)
+bool os_tty_size(handle_t h, int *nx, int *ny, ajla_error_t *err)
 {
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
 
@@ -2666,23 +2669,16 @@ have_h:
 	if (!GetConsoleScreenBufferInfo(h->h, &csbi)) {
 		ajla_error_t e = error_from_win32(EC_SYSCALL, GetLastError());
 		fatal_mayfail(e, err, "GetConsoleScreenBufefrInfo failed: %s", error_decode(e));
-		return 0;
+		return false;
 	}
 
 	*nx = csbi.srWindow.Right - csbi.srWindow.Left + 1;
 	*ny = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
 
-	if (*nx == x && *ny == y) {
-		ajla_time_t mt = os_time_monotonic() + POLL_WINCH_US;
-		if (unlikely(!timer_register_wait(mt, mutex_to_lock, list_entry, err)))
-			return 0;
-		return 2;
-	}
-
 	store_relaxed(&window_offset_x, csbi.srWindow.Left);
 	store_relaxed(&window_offset_y, csbi.srWindow.Top);
 
-	return 1;
+	return true;
 }
 
 
@@ -2878,6 +2874,7 @@ ajla_time_t os_time_monotonic(void)
 	DWORD t;
 	int64_t ret;
 
+#ifdef USER_QPC
 	if (likely(fn_QueryPerformanceCounter != NULL)) {
 		LARGE_INTEGER li;
 		if (likely(fn_QueryPerformanceCounter(&li))) {
@@ -2886,6 +2883,7 @@ ajla_time_t os_time_monotonic(void)
 			return c;
 		}
 	}
+#endif
 
 	if (likely(os_threads_initialized))
 		mutex_lock(&tick_mutex);
@@ -3452,6 +3450,28 @@ bool os_proc_register_wait(struct proc_handle *ph, mutex_t **mutex_to_lock, stru
 		monitor_unlock();
 		return false;
 	}
+}
+
+
+int os_signal_handle(const char attr_unused *str, signal_seq_t attr_unused *seq, ajla_error_t attr_unused *err)
+{
+	*seq = 0;
+	return 0;
+}
+
+void os_signal_unhandle(int attr_unused sig)
+{
+}
+
+signal_seq_t os_signal_seq(int attr_unused sig)
+{
+	return 0;
+}
+
+bool os_signal_wait(int attr_unused sig, signal_seq_t attr_unused seq, mutex_t **mutex_to_lock, struct list *list_entry)
+{
+	iomux_never(mutex_to_lock, list_entry);
+	return true;
 }
 
 
@@ -4638,6 +4658,7 @@ void os_init(void)
 	if (handle_iphlpa)
 		fn_GetNetworkParams = (void *)GetProcAddress(handle_iphlpa, "GetNetworkParams");
 
+#ifdef USER_QPC
 	fn_QueryPerformanceFrequency = (void *)GetProcAddress(GetModuleHandleA("kernel32.dll"), "QueryPerformanceFrequency");
 	if (likely(fn_QueryPerformanceFrequency != NULL)) {
 		LARGE_INTEGER li;
@@ -4648,6 +4669,7 @@ void os_init(void)
 			fn_QueryPerformanceCounter = (void *)GetProcAddress(GetModuleHandleA("kernel32.dll"), "QueryPerformanceCounter");
 		}
 	}
+#endif
 
 	fn_getaddrinfo = (void *)GetProcAddress(GetModuleHandleA("ws2_32.dll"), "getaddrinfo");
 	fn_freeaddrinfo = (void *)GetProcAddress(GetModuleHandleA("ws2_32.dll"), "freeaddrinfo");

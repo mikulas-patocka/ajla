@@ -89,6 +89,7 @@ typedef char *dir_handle_t;
 #define dir_none		NULL
 
 typedef unsigned char sig_state_t;
+typedef unsigned signal_seq_t;
 
 #define OS_HAS_DLOPEN
 struct dl_handle_t;
@@ -101,7 +102,6 @@ bool os_dlsym(struct dl_handle_t *dlh, const char *symbol, void **result);
 #elif defined(OS_WIN32)
 
 #include <sys/stat.h>
-/*#include <sys/time.h>*/
 #include <fcntl.h>
 
 #define NO_DIR_HANDLES
@@ -161,6 +161,7 @@ typedef char *dir_handle_t;
 #define dir_none		NULL
 
 typedef unsigned char sig_state_t;
+typedef size_t signal_seq_t;
 
 #ifndef O_NONBLOCK
 #define O_NONBLOCK		0x40000000
@@ -338,6 +339,7 @@ typedef sigset_t sig_state_t;
 #else
 typedef int sig_state_t;
 #endif
+typedef sig_atomic_t sig_state_t;
 #ifdef HAVE_SIGACTION
 #define OS_HAS_SIGNALS
 #endif
@@ -515,7 +517,6 @@ void os_proc_free_handle(struct proc_handle *ph);
 bool os_proc_register_wait(struct proc_handle *ph, mutex_t **mutex_to_lock, struct list *list_entry, int *status);
 void os_proc_check_all(void);
 
-typedef sig_atomic_t signal_seq_t;
 int os_signal_handle(const char *str, signal_seq_t *seq, ajla_error_t *err);
 void os_signal_unhandle(int sig);
 signal_seq_t os_signal_seq(int sig);
