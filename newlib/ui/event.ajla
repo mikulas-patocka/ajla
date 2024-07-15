@@ -22,13 +22,15 @@ uses io;
 uses msgqueue;
 uses treemap;
 uses charset;
+uses signal;
 uses ui.termcap;
 
-const ev_tag_key : int := 1;
-const ev_tag_mouse_move : int := 2;
-const ev_tag_mouse_button : int := 3;
-const ev_tag_redraw : int := 4;
-const ev_tag_resize : int := 5;
+const ev_tag_key := 1;
+const ev_tag_mouse_move := 2;
+const ev_tag_mouse_button := 3;
+const ev_tag_redraw := 4;
+const ev_tag_resize := 5;
+const ev_tag_suspend := 6;
 
 record event_keyboard [
 	key : char;
@@ -54,6 +56,7 @@ option event [
 	resize : event_resize;
 	redraw : event_redraw;
 	mouse : event_mouse;
+	suspend;
 	altmq;
 ]
 
@@ -121,7 +124,7 @@ const key_to_termcap : list(int) := [
 
 fn event_get_keyboard~spark(w : world, h : handle, tc : termcap, loc : locale, q : msgqueue(event)) : bottom_type;
 fn event_get_resize~spark(w : world, h : handle, q : msgqueue(event), x y : int) : bottom_type;
-fn event_get_suspend~spark(w : world, q : msgqueue(event)) : bottom_type;
+fn event_get_suspend~spark(implicit w : world, q : msgqueue(event), sigtstp : shandle, stk : stoken) : bottom_type;
 fn event_get_mouse~spark(w : world, h : handle, q : msgqueue(event)) : bottom_type;
 fn event_wait_for_any_key(w : world, h : handle) : world;
 fn event_reset_handle(w : world, h : handle) : world;
@@ -131,7 +134,6 @@ implementation
 uses socket;
 uses pcode;
 uses exception;
-uses signal;
 
 const terminal_read_timeout : int64 := 100000;
 
@@ -758,17 +760,17 @@ fn event_get_resize~spark(implicit w : world, h : handle, q : msgqueue(event), x
 ]
 
 
-fn event_get_suspend~spark(implicit w : world, q : msgqueue(event)) : bottom_type
+fn event_get_suspend~spark(implicit w : world, q : msgqueue(event), sigtstp : shandle, stk : stoken) : bottom_type
 [
 	var os := sysprop(SystemProperty_OS);
 	if os = SystemProperty_OS_DOS or
 	   os = SystemProperty_OS_OS2 or
 	   os = SystemProperty_OS_Windows then
 		abort;
-	var sigtstp, stoken := signal_handle("SIGTSTP");
 	while true do [
-		signal_wait(sigtstp, stoken);
-		stoken := signal_prepare(sigtstp);
+		signal_wait(sigtstp, stk);
+		msgqueue_send(q, ev_tag_suspend, event.suspend);
+		stk := signal_prepare(sigtstp);
 		xeval w;
 	]
 	abort;
