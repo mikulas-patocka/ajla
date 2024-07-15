@@ -261,6 +261,8 @@ IO_Dir_Action
 IO_Dir2_Action
 IO_Stty
 IO_Tty_Size
+IO_Tty_Background
+IO_Tty_Foreground
 IO_UName
 IO_GetHostName
 IO_Spawn

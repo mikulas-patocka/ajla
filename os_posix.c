@@ -347,15 +347,6 @@ void os_block_signals(sig_state_t attr_unused *set)
 #endif
 }
 
-void attr_cold os_stop(void)
-{
-#ifdef SIGSTOP
-	kill(getpid(), SIGSTOP);
-#else
-	warning("stop not supported");
-#endif
-}
-
 void os_unblock_signals(const sig_state_t attr_unused *set)
 {
 #ifdef USE_SIGPROCMASK
@@ -387,6 +378,68 @@ static void os_unblock_all_signals(void)
 	os_unblock_signals(&unblock);
 }
 #endif
+
+
+void attr_cold os_stop(void)
+{
+#ifdef SIGSTOP
+	kill(getpid(), SIGSTOP);
+#else
+	warning("stop not supported");
+#endif
+}
+
+void os_background(void)
+{
+#ifndef OS_DOS
+	int r;
+	pid_t pa, p;
+#ifdef __linux__
+	sig_state_t set;
+#endif
+	pa = getpid();
+	os_lock_fork(true);
+#ifdef __linux__
+	os_block_signals(&set);
+#endif
+	EINTR_LOOP(p, fork());
+#ifdef __linux__
+	os_unblock_signals(&set);
+#endif
+	if (!p) {
+		while (1) {
+			struct timeval tv;
+			kill(pa, SIGCONT);
+			tv.tv_sec = 0;
+			tv.tv_usec = 10000;
+			select(0, NULL, NULL, NULL, &tv);
+		}
+	}
+	os_unlock_fork(true);
+	if (p == -1)
+		return;
+	kill(pa, SIGSTOP);
+	kill(p, SIGKILL);
+	EINTR_LOOP(r, waitpid(p, NULL, 0));
+#endif
+}
+
+bool os_foreground(void)
+{
+	int sigttin, sigttou;
+	signal_seq_t seq;
+	os_termios_t tc;
+	int r;
+
+	sigttin = os_signal_handle("SIGTTIN", &seq, NULL);
+	sigttou = os_signal_handle("SIGTTOU", &seq, NULL);
+	r = tcgetattr(0, &tc);
+	if (!r)
+		r = tcsetattr(0, TCSANOW, &tc);
+	os_signal_unhandle(sigttin);
+	os_signal_unhandle(sigttou);
+	return !r;
+}
 
 
 void os_set_cloexec(handle_t h)
@@ -2394,7 +2447,8 @@ int os_signal_handle(const char *str, signal_seq_t *seq, ajla_error_t *err)
 		sa.sa_handler = signal_handler;
 		sigemptyset(&sa.sa_mask);
 #ifdef SA_RESTART
-		sa.sa_flags |= SA_RESTART;
+		if (sig != SIGTTIN && sig != SIGTTOU)
+			sa.sa_flags |= SA_RESTART;
 #endif
 		EINTR_LOOP(r, sigaction(sig, &sa, &s->prev_sa));
 		if (unlikely(r == -1)) {

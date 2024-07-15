@@ -1142,6 +1142,16 @@ fn app_run(implicit w : world, d : dhandle, h : list(handle), env : treemap(byte
 			wev.redraw := ev.redraw;
 		] else if ev is resize then [
 			wev.resize := ev.resize;
+		] else if ev is suspend then [
+			app_suspend();
+			tty_background();
+try_fg:
+			var b := tty_foreground();
+			if not b then [
+				sleep(w, 1000000);
+				goto try_fg;
+			]
+			app_resume();
 		] else [
 			continue;
 		]

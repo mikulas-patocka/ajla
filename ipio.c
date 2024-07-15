@@ -2597,6 +2597,34 @@ static void * attr_fastcall io_tty_size_handler(struct io_ctx *ctx)
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
+static void * attr_fastcall io_tty_background_handler(struct io_ctx *ctx)
+{
+	void *test;
+
+	test = io_deep_eval(ctx, "0", true);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
+
+	os_background();
+
+	return POINTER_FOLLOW_THUNK_GO;
+}
+
+static void * attr_fastcall io_tty_foreground_handler(struct io_ctx *ctx)
+{
+	void *test;
+	bool b;
+
+	test = io_deep_eval(ctx, "0", true);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
+
+	b = os_foreground();
+	io_store_flat_option(ctx, get_output(ctx, 1), b);
+
+	return POINTER_FOLLOW_THUNK_GO;
+}
+
 static int_default_t io_get_spawn_handles_callback(unsigned char *flat, const struct type attr_unused * type, int_default_t n_elements, pointer_t *ptr, void *ctx_)
 {
 	struct io_ctx *ctx = cast_ptr(struct io_ctx *, ctx_);
@@ -4736,6 +4764,8 @@ static const struct {
 	{ io_dir2_action_handler },
 	{ io_stty_handler },
 	{ io_tty_size_handler },
+	{ io_tty_background_handler },
+	{ io_tty_foreground_handler },
 	{ io_uname_handler },
 	{ io_get_host_name_handler },
 	{ io_spawn_handler },

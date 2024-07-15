@@ -413,6 +413,8 @@ void os_set_original_cwd(void);
 void os_block_signals(sig_state_t *set);
 void os_unblock_signals(const sig_state_t *set);
 void os_stop(void);
+void os_background(void);
+bool os_foreground(void);
 
 void os_set_cloexec(handle_t h);
 handle_t os_open(dir_handle_t dir, const char *path, int flags, int mode, ajla_error_t *err);
