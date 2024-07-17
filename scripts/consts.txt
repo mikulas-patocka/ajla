@@ -276,6 +276,7 @@ IO_Never
 IO_Fork
 IO_Atomic_Enter
 IO_Atomic_Exit
+IO_Wait_For_Dereferenced
 IO_Int_To_Native
 IO_Native_To_Int
 IO_Socket

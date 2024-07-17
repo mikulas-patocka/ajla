@@ -3212,6 +3212,27 @@ static void * attr_fastcall io_atomic_exit_handler(struct io_ctx *ctx)
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
+static void * attr_fastcall io_wait_for_dereferenced_handler(struct io_ctx *ctx)
+{
+	void *test;
+
+	test = io_deep_eval(ctx, "0", true);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
+
+	if (unlikely(are_there_dereferenced())) {
+		struct execution_control *ex = frame_execution_control(ctx->fp);
+		if (unlikely(!timer_register_wait(os_time_monotonic() + tick_us, &ex->wait[0].mutex_to_lock, &ex->wait[0].wait_entry, &ctx->err))) {
+			io_terminate_with_error(ctx, ctx->err, true, NULL);
+			return POINTER_FOLLOW_THUNK_EXCEPTION;
+		}
+		pointer_follow_wait(ctx->fp, ctx->ip);
+		return POINTER_FOLLOW_THUNK_EXIT;
+	}
+
+	return POINTER_FOLLOW_THUNK_GO;
+}
+
 static void * attr_fastcall io_int_to_native_handler(struct io_ctx *ctx)
 {
 	void *test;
@@ -4779,6 +4800,7 @@ static const struct {
 	{ io_fork_handler },
 	{ io_atomic_enter_handler },
 	{ io_atomic_exit_handler },
+	{ io_wait_for_dereferenced_handler },
 	{ io_int_to_native_handler },
 	{ io_native_to_int_handler },
 	{ io_socket_handler },

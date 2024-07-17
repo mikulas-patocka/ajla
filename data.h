@@ -63,6 +63,7 @@
 #define thunk_exception_print		name(thunk_exception_print)
 #define thunk_alloc_function_call	name(thunk_alloc_function_call)
 #define thunk_alloc_blackhole		name(thunk_alloc_blackhole)
+#define are_there_dereferenced		name(are_there_dereferenced)
 #define execution_control_unlink_and_submit	name(execution_control_unlink_and_submit)
 #define execution_control_acquire	name(execution_control_acquire)
 #define wake_up_wait_list		name(wake_up_wait_list)
@@ -1565,6 +1566,7 @@ struct execution_control {
 	bool atomic_interrupted;
 };
 
+bool are_there_dereferenced(void);
 void execution_control_unlink_and_submit(struct execution_control *ex, bool can_allocate_memory);
 bool execution_control_acquire(struct execution_control *ex);
 void wake_up_wait_list(struct list *wait_list, mutex_t *mutex_to_lock, bool can_allocate_memory);

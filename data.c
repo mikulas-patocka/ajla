@@ -42,6 +42,9 @@ static struct tree traps_tree;
 #endif
 
 
+static refcount_t n_dereferenced;
+
+
 /*********
  * FRAME *
  *********/
@@ -686,6 +689,11 @@ bool attr_fastcall thunk_alloc_blackhole(struct execution_control *ex, arg_t n_r
 	return thunk_alloc_result(t, n_return_values, result, mayfail);
 }
 
+bool are_there_dereferenced(void)
+{
+	return !refcount_is_one(&n_dereferenced);
+}
+
 static void execution_control_unlink(struct execution_control *ex)
 {
 	unsigned i;
@@ -717,7 +725,7 @@ bool execution_control_acquire(struct execution_control *ex)
 static struct execution_control *execution_control_acquire_from_thunk(struct thunk *t)
 {
 	struct execution_control *ex = t->u.function_call.u.execution_control;
-	ajla_assert_lo(ex->thunk == t, (file_line, "execution_control_acquire: pointer mismatch"));
+	ajla_assert_lo(ex->thunk == t, (file_line, "execution_control_acquire_from_thunk: pointer mismatch"));
 
 	return execution_control_acquire(ex) ? ex : NULL;
 }
@@ -802,8 +810,11 @@ return_dereference_unused:
 		} while (++i < n_return_values);
 		address_lock(t, DEPTH_THUNK);
 		thunk_assert_refcount(t);
-		if (thunk_dereference_nonatomic(t))
+		if (thunk_dereference_nonatomic(t)) {
+			if (unlikely(tag == THUNK_TAG_BLACKHOLE_DEREFERENCED))
+				refcount_add(&n_dereferenced, -1);
 			thunk_free(t);
+		}
 	}
 
 	ret = wake_up_wait_list_internal(&ex->wait_list, address_get_mutex(t, DEPTH_THUNK), true);
@@ -1158,6 +1169,7 @@ static void * attr_hot_fastcall get_sub_blackhole(void *data)
 	struct thunk *t = cast_cpp(struct thunk *, data);
 	struct execution_control *ex;
 
+	refcount_add(&n_dereferenced, 1);
 	thunk_tag_set(t, THUNK_TAG_BLACKHOLE, THUNK_TAG_BLACKHOLE_DEREFERENCED);
 	ex = execution_control_acquire_from_thunk(t);
 	address_unlock(t, DEPTH_THUNK);
@@ -1172,6 +1184,7 @@ static void * attr_hot_fastcall get_sub_blackhole_some_dereferenced(void *data)
 	struct thunk *t = cast_cpp(struct thunk *, data);
 	struct execution_control *ex;
 
+	refcount_add(&n_dereferenced, 1);
 	thunk_tag_set(t, THUNK_TAG_BLACKHOLE_SOME_DEREFERENCED, THUNK_TAG_BLACKHOLE_DEREFERENCED);
 	ex = execution_control_acquire_from_thunk(t);
 	address_unlock(t, DEPTH_THUNK);
@@ -1252,6 +1265,7 @@ static void * attr_hot_fastcall get_sub_multi_ret_reference(void *data)
 	if (tag == THUNK_TAG_BLACKHOLE_SOME_DEREFERENCED) {
 		mt->u.function_call.results[idx].wanted = false;
 		if (thunk_dereference_nonatomic(mt)) {
+			refcount_add(&n_dereferenced, 1);
 			thunk_tag_set(mt, THUNK_TAG_BLACKHOLE_SOME_DEREFERENCED, THUNK_TAG_BLACKHOLE_DEREFERENCED);
 			tag = THUNK_TAG_BLACKHOLE_DEREFERENCED;
 			ex = execution_control_acquire_from_thunk(mt);
@@ -3237,6 +3251,8 @@ void name(data_init)(void)
 	if (slot_size < sizeof(pointer_t))
 		internal(file_line, "data_init: invalid slot size: %lu < %lu", (unsigned long)slot_size, (unsigned long)sizeof(pointer_t));
 
+	refcount_init(&n_dereferenced);
+
 	for (i = DATA_TAG_START; i < DATA_TAG_END; i++) {
 		data_method_table[i].get_sub = no_sub;
 		data_method_table[i].free_object = free_primitive;
@@ -3327,6 +3343,9 @@ void name(data_init)(void)
 
 void name(data_done)(void)
 {
+	if (unlikely(!refcount_is_one(&n_dereferenced)))
+		internal(file_line, "data_done: n_dereferenced_leaked: %"PRIxMAX"", (uintmax_t)refcount_get_nonatomic(&n_dereferenced));
+
 #ifdef HAVE_CODEGEN_TRAPS
 	rwmutex_done(&traps_lock);
 	ajla_assert_lo(tree_is_empty(&traps_tree), (file_line, "data_done: traps_tree is not empty"));

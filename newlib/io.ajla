@@ -36,6 +36,7 @@ fn never(t : type) : t;
 fn fork(t : type, w : t) : (t, t);
 fn atomic_enter~inline(w : world) : world;
 fn atomic_exit~inline(w : world) : world;
+fn wait_for_dereferenced(w : world) : world;
 fn exit(w : world, n : int) : world;
 fn exit_msg(w : world, n : int, m : bytes) : world;
 
@@ -326,6 +327,13 @@ fn atomic_exit~inline(w : world) : world
 [
 	var w2 : world;
 	pcode IO IO_Atomic_Exit 1 1 0 =w2 w;
+	return w2;
+]
+
+fn wait_for_dereferenced(w : world) : world
+[
+	var w2 : world;
+	pcode IO IO_Wait_For_Dereferenced 1 1 0 =w2 w;
 	return w2;
 ]
 

@@ -695,6 +695,7 @@ fn curses_done(implicit w : world, implicit curs : curses) : world
 	curs.resize_thread := exception_make(bottom_type, ec_sync, error_record_field_not_initialized, 0, false);
 	curs.suspend_thread := exception_make(bottom_type, ec_sync, error_record_field_not_initialized, 0, false);
 	curs.mouse_thread := exception_make(bottom_type, ec_sync, error_record_field_not_initialized, 0, false);
+	wait_for_dereferenced();
 	if not curs.packet_mode then [
 		event_reset_handle(curs.h[0]);
 	]
