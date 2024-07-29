@@ -3554,10 +3554,10 @@ skip_test:;
 #ifdef OS_HAS_SIGNALS
 	signal_states = mem_calloc(struct signal_state **, sizeof(struct signal_state *) * N_SIGNALS);
 	if (!dll) {
-#ifdef have_codegen_traps
-		os_signal_trap(sigfpe, sigfpe_handler);
-#if defined(arch_mips)
-		os_signal_trap(sigtrap, sigfpe_handler);
+#ifdef HAVE_CODEGEN_TRAPS
+		os_signal_trap(SIGFPE, sigfpe_handler);
+#if defined(ARCH_MIPS)
+		os_signal_trap(SIGTRAP, sigfpe_handler);
 #endif
 #endif
 	}
@@ -3568,6 +3568,14 @@ void os_done(void)
 {
 #ifdef OS_HAS_SIGNALS
 	int sig;
+	if (!dll) {
+#ifdef HAVE_CODEGEN_TRAPS
+		os_signal_untrap(SIGFPE);
+#if defined(ARCH_MIPS)
+		os_signal_untrap(SIGTRAP);
+#endif
+#endif
+	}
 	for (sig = 0; sig < N_SIGNALS; sig++) {
 		if (unlikely(signal_states[sig] != NULL))
 			internal(file_line, "signal %d leaked", sig);
