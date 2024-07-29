@@ -2619,6 +2619,9 @@ static bool save_run_get_properties(struct stack_entry *ste, size_t *align, size
 
 static void ptr_fixup_sub_ptr(void *loc, uintptr_t offset)
 {
+#if defined(HAVE_REAL_GNUC) && !GNUC_ATLEAST(3,0,0)	/* EGCS bug */
+	*(char **)loc += offset;
+#else
 	void *p;
 	uintptr_t num;
 	memcpy(&p, loc, sizeof(void *));
@@ -2626,6 +2629,7 @@ static void ptr_fixup_sub_ptr(void *loc, uintptr_t offset)
 	num += offset;
 	p = num_to_ptr(num);
 	memcpy(loc, &p, sizeof(void *));
+#endif
 }
 
 static const struct stack_entry_type save_run = {
