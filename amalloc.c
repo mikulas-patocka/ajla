@@ -202,14 +202,16 @@ static attr_always_inline size_t find_bit(bitmap_t bitmap)
 #elif BITMAP_BITS == 64 && SIZEOF_UNSIGNED_LONG_LONG == 8 && defined(HAVE_FFSLL)
 	return ffsll(bitmap) - 1;
 #else
-	unsigned ret = 0;
-	while (1) {
-		if (bitmap & 1)
-			break;
-		ret++;
-		bitmap >>= 1;
+	{
+		unsigned ret = 0;
+		while (1) {
+			if (bitmap & 1)
+				break;
+			ret++;
+			bitmap >>= 1;
+		}
+		return ret;
 	}
-	return ret;
 #endif
 }
 
@@ -260,10 +262,12 @@ static attr_always_inline unsigned count_bits(bitmap_t bitmap)
 #elif BITMAP_BITS == 64 && SIZEOF_UNSIGNED_LONG_LONG == 8 && defined(HAVE_BUILTIN_POPCOUNT)
 	return __builtin_popcountll(bitmap);
 #else
-	unsigned ret = 0;
-	while (bitmap)
-		bitmap &= bitmap - 1, ret++;
-	return ret;
+	{
+		unsigned ret = 0;
+		while (bitmap)
+			bitmap &= bitmap - 1, ret++;
+		return ret;
+	}
 #endif
 }
 
