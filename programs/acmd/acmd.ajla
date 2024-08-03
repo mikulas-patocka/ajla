@@ -458,7 +458,14 @@ fn acmd_menu_drive(implicit st : acmd_state, panel : int, implicit w : world, im
 [
 	panel := widget_get_property(st.panels[panel], "property-index").i;
 
+	var w1 := w;
 	var mp := mount_points();
+	if is_exception w then [
+		recover_world(w1);
+		return;
+	]
+	if len(mp) = 0 then
+		return;
 	var mpc := empty(string);
 	var m := 0;
 	for i := 0 to len(mp) do [
