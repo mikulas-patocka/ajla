@@ -21,6 +21,7 @@
 #include "mem_al.h"
 #include "os.h"
 #include "os_util.h"
+#include "save.h"
 
 #include "builtin.h"
 
@@ -138,7 +139,6 @@ void builtin_init(void)
 	builtin_lib_path = pte;
 	builtin_path = os_join_paths(pte, "builtin.pcd", true, NULL);
 	h = os_open(os_cwd, builtin_path, O_RDONLY, 0, &sink);
-	mem_free(builtin_path);
 	if (unlikely(handle_is_valid(h)))
 		goto found_builtin;
 
@@ -146,7 +146,6 @@ void builtin_init(void)
 	builtin_lib_path = AJLA_LIB;
 	builtin_path = os_join_paths(AJLA_LIB, "builtin.pcd", true, NULL);
 	h = os_open(os_cwd, builtin_path, O_RDONLY, 0, &sink);
-	mem_free(builtin_path);
 	if (unlikely(handle_is_valid(h)))
 		goto found_builtin;
 #endif
@@ -171,7 +170,7 @@ found_builtin:
 				builtin_ptr = ptr;
 				builtin_mapped = true;
 				os_close(h);
-				return;
+				goto finalize;
 			}
 		} else if (unlikely(fi.signature != 0x416A6C61))
 			goto bad_sig;
@@ -202,6 +201,9 @@ bad_sig:
 			p[3] = a[0];
 		}
 	}
+finalize:
+	save_register_dependence(builtin_path);
+	mem_free(builtin_path);
 }
 
 void builtin_done(void)

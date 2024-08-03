@@ -70,9 +70,9 @@ int main(int argc, const char * const argv[])
 	function_init();
 	pcode_init();
 	profile_init();
-	builtin_init();
 	ipio_init();
 	save_init();
+	builtin_init();
 	module_init();
 	ipret_init();
 	tick_init();
@@ -94,9 +94,9 @@ int main(int argc, const char * const argv[])
 	tick_done();
 	ipret_done();
 	module_done();
+	builtin_done();
 	save_done();
 	ipio_done();
-	builtin_done();
 	profile_done();
 	pcode_done();
 	function_done();
