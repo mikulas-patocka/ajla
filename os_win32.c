@@ -460,6 +460,15 @@ void os_stop(void)
 	warning("stop not supported on Windows");
 }
 
+void os_background(void)
+{
+}
+
+bool os_foreground(void)
+{
+	return true;
+}
+
 
 static void win32_close_handle(HANDLE h)
 {
