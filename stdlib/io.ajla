@@ -994,7 +994,8 @@ fn mount_points(implicit w : world) : (world, list(bytes))
 	var os := sysprop(SystemProperty_OS);
 	if os = SystemProperty_OS_DOS or
 	   os = SystemProperty_OS_OS2 or
-	   os = SystemProperty_OS_Windows then [
+	   os = SystemProperty_OS_Windows or
+	   os = SystemProperty_OS_Cygwin then [
 		var w2 : world;
 		var drvs2 : int32;
 		pcode IO IO_Drives 2 1 0 =w2 =drvs2 w;

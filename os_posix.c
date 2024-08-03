@@ -1794,7 +1794,11 @@ free_ret:
 
 uint32_t os_drives(void)
 {
+#ifdef OS_CYGWIN
+	return GetLogicalDrives();
+#else
 	return 0;
+#endif
 }
 
 
