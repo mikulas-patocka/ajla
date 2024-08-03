@@ -243,7 +243,7 @@ void os_get_environment(char **str, size_t *l);
 #endif
 #include <termios.h>
 
-#if !defined(HAVE_FCHDIR) || defined(OS_DOS) || defined(UNUSUAL_NO_DIR_HANDLES)
+#if !defined(HAVE_FCHDIR) || defined(OS_DOS) || defined(OS_CYGWIN) || defined(UNUSUAL_NO_DIR_HANDLES)
 #define NO_DIR_HANDLES
 #endif
 
