@@ -67,6 +67,7 @@ const open_mode_default : int;
 
 fn ropen(w : world, d : dhandle, f : bytes, flags : int) : (world, handle);
 fn read(w : world, h : handle, size : int) : (world, bytes);
+fn read_full(w : world, h : handle) : (world, bytes);
 fn read_partial(w : world, h : handle, size : int) : (world, bytes);
 fn wopen(w : world, d : dhandle, f : bytes, flags : int, mode : int) : (world, handle);
 fn write(w : world, h : handle, s : bytes) : world;
@@ -190,6 +191,7 @@ fn chown(w : world, d : dhandle, f : bytes, uid gid : int) : world;
 fn lchown(w : world, d : dhandle, f : bytes, uid gid : int) : world;
 fn utime(w : world, d : dhandle, f : bytes, atime mtime : int64) : world;
 fn lutime(w : world, d : dhandle, f : bytes, atime mtime : int64) : world;
+fn mount_points(w : world) : (world, list(bytes));
 
 const stty_flag_raw : int;
 const stty_flag_noecho : int;
@@ -401,6 +403,22 @@ fn read(w : world, h : handle, size : int) : (world, bytes)
 		if l1 = 0 then
 			break;
 		read_so_far += l1;
+		s += s1;
+	]
+	return w, s;
+]
+
+fn read_full(w : world, h : handle) : (world, bytes)
+[
+	var s := bytes.[];
+	while true do [
+		var s1 : bytes;
+		var w2 : world;
+		w2, s1 := read_partial~strict(w, h, 16384);
+		w := w2;
+		var l1 := len(s1);
+		if l1 = 0 then
+			break;
 		s += s1;
 	]
 	return w, s;
@@ -968,6 +986,49 @@ fn lutime(w : world, d : dhandle, f : bytes, atime mtime : int64) : world
 	var w2 : world;
 	pcode IO IO_Dir_Action 1 5 1 =w2 w d f mtime atime IO_Action_LUTime;
 	return w2;
+]
+
+fn mount_points(implicit w : world) : (world, list(bytes))
+[
+	var result := empty(bytes);
+	var os := sysprop(SystemProperty_OS);
+	if os = SystemProperty_OS_DOS or
+	   os = SystemProperty_OS_OS2 or
+	   os = SystemProperty_OS_Windows then [
+		var w2 : world;
+		var drvs2 : int32;
+		pcode IO IO_Drives 2 1 0 =w2 =drvs2 w;
+		w := w2;
+		var drvs := drvs2;
+		while drvs <> 0 do [
+			var drv := bsf drvs;
+			drvs btr= drv;
+			result +<= bytes.[ 'A' + drv, ':', '\' ];
+		]
+		return w, result;
+	]
+	var d := ropen(dnone(), "/etc/mtab", 0);
+	var mtab := read_full(d);
+	var lines := list_break_to_lines(mtab);
+	for l in lines do [
+		if len(l) = 0 or l[1] = '#' then
+			continue;
+		var brk := list_break_whitespace(l);
+		if len(brk) > 1 then [
+			var q := brk[1];
+			var w2 := w;
+			var qh := dopen(dnone(), q, 0);
+			var st := dstatfs(qh, statfs_flag_frtotal);
+			if is_exception st then [
+				recover_world(w2);
+				continue;
+			]
+			if st[0] > 0 then
+				result +<= q;
+		]
+	]
+	result := list_sort(result);
+	return w, result;
 ]
 
 

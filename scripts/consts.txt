@@ -259,6 +259,7 @@ IO_DStatFS
 IO_ReadLink
 IO_Dir_Action
 IO_Dir2_Action
+IO_Drives
 IO_Stty
 IO_Tty_Size
 IO_Tty_Background

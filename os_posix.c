@@ -1792,6 +1792,12 @@ free_ret:
 	return ret;
 }
 
+uint32_t os_drives(void)
+{
+	return 0;
+}
+
+
 bool os_tcgetattr(handle_t h, os_termios_t *t, ajla_error_t *err)
 {
 	int r;

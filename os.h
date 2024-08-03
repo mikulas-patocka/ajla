@@ -492,6 +492,8 @@ bool os_fstatvfs(handle_t h, os_statvfs_t *st, ajla_error_t *err);
 bool os_dstatvfs(dir_handle_t dir, os_statvfs_t *st, ajla_error_t *err);
 bool os_dir_action(dir_handle_t dir, const char *path, int action, int mode, ajla_time_t major, ajla_time_t minor, const char *syml, ajla_error_t *err);
 bool os_dir2_action(dir_handle_t dir, const char *path, int action, dir_handle_t src_dir, const char *src_path, ajla_error_t *err);
+uint32_t os_drives(void);
+
 bool os_tcgetattr(handle_t h, os_termios_t *t, ajla_error_t *err);
 bool os_tcsetattr(handle_t h, const os_termios_t *t, ajla_error_t *err);
 void os_tcflags(os_termios_t *t, int flags);

@@ -2521,6 +2521,24 @@ ret_test:
 	return test;
 }
 
+static void * attr_fastcall io_drives_handler(struct io_ctx *ctx)
+{
+	void *test;
+	unsigned drives;
+
+	test = io_deep_eval(ctx, "0", true);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
+
+	drives = os_drives();
+
+	io_store_typed_number(ctx, get_output(ctx, 1), int32_t, 2, unsigned, drives);
+	test = POINTER_FOLLOW_THUNK_GO;
+
+ret_test:
+	return test;
+}
+
 static void * attr_fastcall io_stty_handler(struct io_ctx *ctx)
 {
 	void *test;
@@ -4783,6 +4801,7 @@ static const struct {
 	{ io_readlink_handler },
 	{ io_dir_action_handler },
 	{ io_dir2_action_handler },
+	{ io_drives_handler },
 	{ io_stty_handler },
 	{ io_tty_size_handler },
 	{ io_tty_background_handler },
