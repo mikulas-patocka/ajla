@@ -1008,6 +1008,7 @@ fn mount_points(implicit w : world) : (world, list(bytes))
 		]
 		return w, result;
 	]
+	var is_minix := uname(uname_flag_system)[0] = "Minix";
 	var w1 := w;
 	var d := ropen(dnone(), "/etc/mtab", 0);
 	if not is_exception w then
@@ -1027,7 +1028,11 @@ have_d:
 			continue;
 		var brk := list_break_whitespace(l);
 		if len(brk) > 1 then [
-			var q := brk[1];
+			var q : bytes;
+			if is_minix then
+				q := brk[2];
+			else
+				q := brk[1];
 			var w2 := w;
 			var qh := dopen(dnone(), q, 0);
 			var st := dstatfs(qh, statfs_flag_frtotal);
