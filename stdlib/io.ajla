@@ -1008,7 +1008,18 @@ fn mount_points(implicit w : world) : (world, list(bytes))
 		]
 		return w, result;
 	]
+	var w1 := w;
 	var d := ropen(dnone(), "/etc/mtab", 0);
+	if not is_exception w then
+		goto have_d;
+	recover_world(w1);
+	w1 := w;
+	d := ropen(dnone(), "/proc/mounts", 0);
+	if not is_exception w then
+		goto have_d;
+	recover_world(w1);
+	return empty(bytes);
+have_d:
 	var mtab := read_full(d);
 	var lines := list_break_to_lines(mtab);
 	for l in lines do [
