@@ -477,9 +477,17 @@ fn acmd_menu_drive(implicit st : acmd_state, mp : list(bytes), panel : int, impl
 		mpc +<= c;
 		m := max(m, string_length(c));
 	]
+	var cwd := widget_get_property(st.panels[panel], "cwd").b;
 	var init := 0;
+	var init_len := 0;
 	var entries := empty(dialog_entry);
 	for i := 0 to len(mpc) do [
+		if list_begins_with(cwd, mp[i]) then [
+			if len(mp[i]) > init_len then [
+				init_len := len(mp[i]);
+				init := i;
+			]
+		]
 		var padding := m - string_length(mpc[i]);
 		var label := mpc[i] + fill(char, ' ', padding);
 		var de := dialog_entry.[
