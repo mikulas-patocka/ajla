@@ -1024,25 +1024,25 @@ have_d:
 	var mtab := read_full(d);
 	var lines := list_break_to_lines(mtab);
 	for l in lines do [
-		if len(l) = 0 or l[1] = '#' then
+		if len(l) = 0 or l[0] = '#' then
 			continue;
 		var brk := list_break_whitespace(l);
-		if len(brk) > 1 then [
-			var q : bytes;
-			if is_minix then
-				q := brk[2];
-			else
-				q := brk[1];
-			var w2 := w;
-			var qh := dopen(dnone(), q, 0);
-			var st := dstatfs(qh, statfs_flag_frtotal);
-			if is_exception st then [
-				recover_world(w2);
-				continue;
-			]
-			if st[0] > 0 then
-				result +<= q;
+		var q : bytes;
+		if is_minix then
+			q := brk[2];
+		else
+			q := brk[1];
+		if is_exception q then
+			continue;
+		var w2 := w;
+		var qh := dopen(dnone(), q, 0);
+		var st := dstatfs(qh, statfs_flag_frtotal);
+		if is_exception st then [
+			recover_world(w2);
+			continue;
 		]
+		if st[0] > 0 then
+			result +<= q;
 	]
 	result := list_sort(result);
 	return w, result;
