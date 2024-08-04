@@ -454,18 +454,20 @@ activate:
 	return true;
 ]
 
-fn acmd_menu_drive(implicit st : acmd_state, panel : int, implicit w : world, implicit app : appstate, id : wid) : (world, appstate)
+fn acmd_mount_points(implicit w : world) : (world, list(bytes))
 [
-	panel := widget_get_property(st.panels[panel], "property-index").i;
-
 	var w1 := w;
 	var mp := mount_points();
 	if is_exception w then [
 		recover_world(w1);
-		return;
+		return empty(bytes);
 	]
-	if len(mp) = 0 then
-		return;
+	return mp;
+]
+
+fn acmd_menu_drive(implicit st : acmd_state, mp : list(bytes), panel : int, implicit w : world, implicit app : appstate, id : wid) : (world, appstate)
+[
+	panel := widget_get_property(st.panels[panel], "property-index").i;
 	var mpc := empty(string);
 	var m := 0;
 	for i := 0 to len(mp) do [
@@ -649,15 +651,21 @@ fn acmd_menu_save_setup(implicit st : acmd_state, implicit w : world, implicit a
 
 fn acmd_main_menu_panel(implicit st : acmd_state, panel : int, implicit w : world, implicit app : appstate, id : wid) : (world, appstate)
 [
-	var entries := [ menu_entry.[
-			label : `~Drive`,
-			label_right : ``,
-			click : acmd_menu_drive(panel,,,),
-			close_onclick : true,
-		], menu_entry.[
-			label : ``,
-			label_right : ``,
-		], menu_entry.[
+	var entries := empty(menu_entry);
+	var mp := acmd_mount_points();
+	if len(mp) > 0 then [
+		entries += [ menu_entry.[
+				label : `~Drive`,
+				label_right : ``,
+				click : acmd_menu_drive(mp, panel,,,),
+				close_onclick : true,
+			], menu_entry.[
+				label : ``,
+				label_right : ``,
+			]
+		];
+	]
+	entries += [ menu_entry.[
 			label : `~Sort order`,
 			label_right : ``,
 			click : acmd_menu_sort_order(panel,,,),
