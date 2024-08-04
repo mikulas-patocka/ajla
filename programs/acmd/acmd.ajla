@@ -79,6 +79,8 @@ fn acmd_set_fkeys(implicit app : appstate) : appstate
 		property.s.(`Delete`),
 		property.s.(`PullDn`),
 		property.s.(`Quit`),
+		property.s.(`Left`),
+		property.s.(`Right`),
 	]));
 ]
 
@@ -864,6 +866,18 @@ fn acmd_process_event(implicit w : world, implicit app : appstate, implicit com 
 		]
 		if wev.keyboard.key = key_f10 then [
 			acmd_quit(com.self);
+			return;
+		]
+		if wev.keyboard.key = key_f11 or
+		   wev.keyboard.key = key_f12 or
+		   wev.keyboard.key = key_f1 and wev.keyboard.flags = key_flag_alt or
+		   wev.keyboard.key = key_f2 and wev.keyboard.flags = key_flag_alt then [
+			var mp := acmd_mount_points();
+			if len(mp) > 0 then [
+				var panel := select(wev.keyboard.key = key_f12 or wev.keyboard.key = key_f2, 0, 1);
+				panel := widget_get_property(st.panels[panel], "property-index").i;
+				acmd_menu_drive(st, mp, panel, w, app, com.self);
+			]
 			return;
 		]
 		if wev.keyboard.key = key_home or wev.keyboard.key = key_end then
