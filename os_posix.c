@@ -714,7 +714,7 @@ set_nonblock:
 	return true;
 }
 
-static void os_close_handle(handle_t h)
+void os_close_handle(handle_t h)
 {
 	int r;
 	if (unlikely(h < 0))

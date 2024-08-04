@@ -70,7 +70,7 @@ void iomux_register_wait(handle_t handle, bool wr, mutex_t **mutex_to_lock, stru
 	EINTR_LOOP(r, kevent(kq_fd, &event, 1, NULL, 0, NULL));
 	if (unlikely(r == -1)) {
 		int er = errno;
-		fatal("kevent failed: %d, %s", er, error_decode(error_from_errno(EC_SYSCALL, er)));
+		fatal("kevent failed adding a new handle: %d, %s", er, error_decode(error_from_errno(EC_SYSCALL, er)));
 	}
 
 	*mutex_to_lock = address_get_mutex(iow, DEPTH_THUNK);
@@ -124,8 +124,11 @@ bool iomux_directory_handle_alloc(dir_handle_t attr_unused handle, notify_handle
 
 	EINTR_LOOP(r, kevent(kq_fd, &event, 1, NULL, 0, NULL));
 	if (unlikely(r == -1)) {
-		int er = errno;
-		fatal("kevent failed: %d, %s", er, error_decode(error_from_errno(EC_SYSCALL, er)));
+		ajla_error_t e = error_from_errno(EC_SYSCALL, errno);
+		address_unlock(iow, DEPTH_THUNK);
+		os_close_handle(newfd);
+		fatal_mayfail(e, err, "adding a directory watch failed: %s", error_decode(e));
+		return false;
 	}
 
 	*h = iow;
@@ -162,11 +165,7 @@ bool iomux_directory_handle_wait(notify_handle_t h, uint64_t seq, mutex_t **mute
 void iomux_directory_handle_free(notify_handle_t h)
 {
 	struct iomux_wait *iow = h;
-	int r;
-
-	EINTR_LOOP(r, close(iow->self));
-	if (unlikely(r == -1) && errno == EBADF)
-		internal(file_line, "iomux_directory_handle_free: closing invalid handle %d", iow->self);
+	os_close_handle(iow->self);
 }
 
 
@@ -189,7 +188,7 @@ void iomux_check_all(uint32_t us)
 		if (likely(errno == EINTR))
 			goto no_events;
 		er = errno;
-		fatal("kevent failed: %d, %s", er, error_decode(error_from_errno(EC_SYSCALL, er)));
+		fatal("kevent failed getting events: %d, %s", er, error_decode(error_from_errno(EC_SYSCALL, er)));
 	}
 
 	rwlock_lock_read(&iomux_rwlock);
@@ -243,7 +242,7 @@ void iomux_init(void)
 	EINTR_LOOP(r, kevent(kq_fd, &pipe_ev, 1, NULL, 0, NULL));
 	if (unlikely(r == -1)) {
 		int er = errno;
-		fatal("kevent failed: %d, %s", er, error_decode(error_from_errno(EC_SYSCALL, er)));
+		fatal("kevent failed adding notify pipe: %d, %s", er, error_decode(error_from_errno(EC_SYSCALL, er)));
 	}
 #ifndef THREAD_NONE
 	thread_spawn(&iomux_thread, iomux_poll_thread, NULL, PRIORITY_IO, NULL);
@@ -263,7 +262,7 @@ void iomux_done(void)
 	EINTR_LOOP(r, kevent(kq_fd, &pipe_ev, 1, NULL, 0, NULL));
 	if (unlikely(r == -1)) {
 		int er = errno;
-		fatal("kevent failed: %d, %s", er, error_decode(error_from_errno(EC_SYSCALL, er)));
+		fatal("kevent failed removing notify pipe: %d, %s", er, error_decode(error_from_errno(EC_SYSCALL, er)));
 	}
 	os_close(kq_fd);
 
