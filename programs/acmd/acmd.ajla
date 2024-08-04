@@ -666,7 +666,7 @@ fn acmd_main_menu_panel(implicit st : acmd_state, panel : int, implicit w : worl
 	if len(mp) > 0 then [
 		entries += [ menu_entry.[
 				label : `~Drive`,
-				label_right : ``,
+				label_right : select(panel = 1, `F11`, `F12`),
 				click : acmd_menu_drive(mp, panel,,,),
 				close_onclick : true,
 			], menu_entry.[
