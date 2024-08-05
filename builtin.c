@@ -201,6 +201,7 @@ bad_sig:
 			p[3] = a[0];
 		}
 	}
+	goto finalize;	/* avoid warning */
 finalize:
 	save_register_dependence(builtin_path);
 	mem_free(builtin_path);
