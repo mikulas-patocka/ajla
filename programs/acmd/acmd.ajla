@@ -388,74 +388,6 @@ fn acmd_quit(implicit st : acmd_state, implicit w : world, implicit app : appsta
 	var winid := msgbox_new(`Exit the Ajla Commander`, widget_align.center, `Do you want to exit the Ajla Commander?`, "", buttons);
 ]
 
-fn drive_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y min_x pref_x max_x : int) : (appstate, int, int)
-[
-	var e := len(ids);
-	var xs := min_x;
-
-	for i := 0 to e do
-		xs := max(xs, widget_get_width(ids[i], pref_x));
-
-	var yp := offs_y + 1;
-	for i := 0 to e do
-		yp := widget_place(ids[i], offs_x, xs, yp);
-
-	yp += 1;
-
-	return xs, yp;
-]
-
-fn drive_dialog_event(implicit w : world, implicit app : appstate, implicit com : widget_common, wev : wevent, ids : list(wid)) : (world, appstate, widget_common, bool)
-[
-	var idx : int;
-	if wev is keyboard then [
-		if wev.keyboard.key = key_home then [
-			idx := 0;
-			goto activate;
-		]
-		if wev.keyboard.key = key_end then [
-			idx := len(ids) - 1;
-			goto activate;
-		]
-		if wev.keyboard.key = key_left or
-		   wev.keyboard.key = key_right or
-		   wev.keyboard.key = key_tab then [
-			return true;
-		]
-		if wev.keyboard.key = key_up or
-		   wev.keyboard.key = key_down or
-		   wev.keyboard.key = key_page_up or
-		   wev.keyboard.key = key_page_down then [
-			idx := 0;
-			var top := com.sub_widgets[len(com.sub_widgets) - 1];
-			while true do [
-				if ids[idx] = top then
-					break;
-				idx += 1;
-			]
-			if wev.keyboard.key = key_up then
-				idx := max(idx - 1, 0);
-			if wev.keyboard.key = key_down then
-				idx := min(idx + 1, len(ids) - 1);
-			if wev.keyboard.key = key_page_up then
-				idx := max(idx - (com.size_y - 4), 0);
-			if wev.keyboard.key = key_page_down then
-				idx := min(idx + (com.size_y - 4), len(ids) - 1);
-			goto activate;
-		]
-		if wev.keyboard.key = key_esc or
-		   wev.keyboard.key = key_f10 then [
-			widget_enqueue_event(com.self, wevent.close);
-			return true;
-		]
-	]
-	return false;
-
-activate:
-	widget_activate(ids[idx]);
-	return true;
-]
-
 fn acmd_mount_points(implicit w : world) : (world, list(bytes))
 [
 	var w1 := w;
@@ -499,7 +431,7 @@ fn acmd_menu_drive(implicit st : acmd_state, mp : list(bytes), panel : int, impl
 		entries +<= de;
 	]
 	var winid : wid;
-	app, winid := widget_new_window(w, app, dialog_class, dialog_init(`Select Drive`, entries, init, drive_dialog_event, drive_dialog_layout, "",,,), false);
+	app, winid := vselect_new(app, `Select Drive`, "", true, entries, init);
 	return app;
 ]
 

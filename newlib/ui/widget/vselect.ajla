@@ -1,0 +1,103 @@
+{*
+ * Copyright (C) 2024 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit ui.widget.vselect;
+
+uses ui.widget.common;
+uses ui.widget.dialog;
+
+fn vselect_new(implicit w : world, implicit app : appstate, caption : string, color_scheme : bytes, handle_esc : bool, entries : list(dialog_entry), init : int) : (world, appstate, wid);
+
+implementation
+
+fn vselect_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y min_x pref_x max_x : int) : (appstate, int, int)
+[
+	var e := len(ids);
+	var xs := min_x;
+
+	for i := 0 to e do
+		xs := max(xs, widget_get_width(ids[i], pref_x));
+
+	var yp := offs_y + 1;
+	for i := 0 to e do
+		yp := widget_place(ids[i], offs_x, xs, yp);
+
+	yp += 1;
+
+	return xs, yp;
+]
+
+fn vselect_dialog_event(handle_esc : bool, implicit w : world, implicit app : appstate, implicit com : widget_common, wev : wevent, ids : list(wid)) : (world, appstate, widget_common, bool)
+[
+	var idx : int;
+	if wev is keyboard then [
+		if wev.keyboard.key = key_home then [
+			idx := 0;
+			goto activate;
+		]
+		if wev.keyboard.key = key_end then [
+			idx := len(ids) - 1;
+			goto activate;
+		]
+		if wev.keyboard.key = key_left or
+		   wev.keyboard.key = key_right or
+		   wev.keyboard.key = key_tab then [
+			return true;
+		]
+		if wev.keyboard.key = key_up or
+		   wev.keyboard.key = key_down or
+		   wev.keyboard.key = key_page_up or
+		   wev.keyboard.key = key_page_down then [
+			idx := 0;
+			var top := com.sub_widgets[len(com.sub_widgets) - 1];
+			while true do [
+				if ids[idx] = top then
+					break;
+				idx += 1;
+			]
+			if wev.keyboard.key = key_up then
+				idx := max(idx - 1, 0);
+			if wev.keyboard.key = key_down then
+				idx := min(idx + 1, len(ids) - 1);
+			if wev.keyboard.key = key_page_up then
+				idx := max(idx - (com.size_y - 4), 0);
+			if wev.keyboard.key = key_page_down then
+				idx := min(idx + (com.size_y - 4), len(ids) - 1);
+			goto activate;
+		]
+		if handle_esc then [
+			if wev.keyboard.key = key_esc or
+			   wev.keyboard.key = key_f10 then [
+				widget_enqueue_event(com.self, wevent.close);
+				return true;
+			]
+		]
+	]
+	return false;
+
+activate:
+	widget_activate(ids[idx]);
+	return true;
+]
+
+fn vselect_new(implicit w : world, implicit app : appstate, caption : string, color_scheme : bytes, handle_esc : bool, entries : list(dialog_entry), init : int) : (world, appstate, wid)
+[
+	var winid : wid;
+	app, winid := widget_new_window(w, app, dialog_class, dialog_init(caption, entries, init, vselect_dialog_event(handle_esc,,,,,), vselect_dialog_layout, color_scheme,,,), false);
+	return winid;
+]

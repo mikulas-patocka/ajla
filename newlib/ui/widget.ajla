@@ -30,3 +30,4 @@ uses ui.widget.input;
 uses ui.widget.button;
 uses ui.widget.dialog;
 uses ui.widget.msgbox;
+uses ui.widget.vselect;
