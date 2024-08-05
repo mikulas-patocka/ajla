@@ -58,6 +58,9 @@
 #if defined(HAVE_SYS_PARAM_H)
 #include <sys/param.h>
 #endif
+#if defined(HAVE_SYS_UCRED_H)
+#include <sys/ucred.h>
+#endif
 #if defined(HAVE_SYS_MOUNT_H)
 #include <sys/mount.h>
 #endif
@@ -1792,12 +1795,71 @@ free_ret:
 	return ret;
 }
 
-uint32_t os_drives(void)
+bool os_drives(char **drives, size_t *drives_l, ajla_error_t *err)
 {
-#ifdef OS_CYGWIN
-	return GetLogicalDrives();
+#if defined(OS_CYGWIN)
+	/* copied in os_win32.c:os_drives */
+	unsigned mask = GetLogicalDrives();
+	if (unlikely(!array_init_mayfail(char, drives, drives_l, err)))
+		return false;
+	while (mask) {
+		char str[4] = " :\\";
+		unsigned bit = low_bit(mask);
+		mask &= ~(1U << bit);
+		str[0] = bit + 'A';
+		if (unlikely(str[0] > 'Z'))
+			break;
+		if (unlikely(!array_add_multiple_mayfail(char, drives, drives_l, str, 4, NULL, err)))
+			return false;
+	}
+	return true;
+#elif defined(HAVE_GETFSSTAT)
+	int r, i;
+	int n_entries;
+	struct statfs *buf;
+
+	n_entries = 2;
+again:
+	buf = mem_alloc_array_mayfail(mem_alloc_mayfail, struct statfs *, 0, 0, n_entries, sizeof(struct statfs), err);
+	if (unlikely(!buf))
+		return false;
+	EINTR_LOOP(r, getfsstat(buf, sizeof(struct statfs) * n_entries, MNT_NOWAIT));
+	if (unlikely(r == -1)) {
+		ajla_error_t e = error_from_errno(EC_SYSCALL, errno);
+		fatal_mayfail(e, err, "getfsstat failed: %s", error_decode(e));
+		mem_free(buf);
+		return false;
+	}
+	if (r >= n_entries) {
+		mem_free(buf);
+		n_entries *= 2U;
+		if (unlikely(n_entries < 0)) {
+			fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_SIZE_OVERFLOW), err, "getfsstat buffer overflow");
+			return false;
+		}
+		goto again;
+	}
+
+	if (unlikely(!array_init_mayfail(char, drives, drives_l, err))) {
+		mem_free(buf);
+		return false;
+	}
+
+	for (i = 0; i < r; i++) {
+		char *str = buf[i].f_mntonname;
+		size_t str_l = strlen(str) + 1;
+		if (unlikely(!array_add_multiple_mayfail(char, drives, drives_l, str, str_l, NULL, err))) {
+			mem_free(buf);
+			return false;
+		}
+	}
+
+	mem_free(buf);
+	return true;
 #else
-	return 0;
+	if (unlikely(!array_init_mayfail(char, drives, drives_l, err)))
+		return false;
+	return true;
 #endif
 }
 

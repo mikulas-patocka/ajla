@@ -996,17 +996,7 @@ fn mount_points(implicit w : world) : (world, list(bytes))
 	   os = SystemProperty_OS_OS2 or
 	   os = SystemProperty_OS_Windows or
 	   os = SystemProperty_OS_Cygwin then [
-		var w2 : world;
-		var drvs2 : int32;
-		pcode IO IO_Drives 2 1 0 =w2 =drvs2 w;
-		w := w2;
-		var drvs := drvs2;
-		while drvs <> 0 do [
-			var drv := bsf drvs;
-			drvs btr= drv;
-			result +<= bytes.[ 'A' + drv, ':', '\' ];
-		]
-		return w, result;
+		goto call_io_drives;
 	]
 	var is_minix := uname(uname_flag_system)[0] = "Minix";
 	var w1 := w;
@@ -1019,7 +1009,8 @@ fn mount_points(implicit w : world) : (world, list(bytes))
 	if not is_exception w then
 		goto have_d;
 	recover_world(w1);
-	return empty(bytes);
+	goto call_io_drives;
+
 have_d:
 	var mtab := read_full(d);
 	var lines := list_break_to_lines(mtab);
@@ -1046,6 +1037,13 @@ have_d:
 	]
 	result := list_sort(result);
 	return w, result;
+
+call_io_drives:
+	var w2 : world;
+	var drvs : bytes;
+	pcode IO IO_Drives 2 1 0 =w2 =drvs w;
+	w := w2;
+	return w, list_break(drvs, 0);
 ]
 
 

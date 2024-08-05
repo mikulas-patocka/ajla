@@ -357,7 +357,7 @@ if test "$ac_cv_have_gcc_assembler" = yes; then
 fi
 
 # Checks for header files.
-AC_CHECK_HEADERS(ffi.h gmp.h gmp/gmp.h linux/falloc.h linux/fs.h malloc.h netdb.h netinet/in.h os2thunk.h quadmath.h signal.h stdalign.h stdatomic.h stdnoreturn.h sys/auxv.h sys/builtin.h sys/epoll.h sys/event.h sys/fmutex.h sys/inotify.h sys/mman.h sys/mount.h sys/netinet.in sys/param.h sys/pstat.h sys/select.h sys/socket.h sys/statvfs.h sys/sysctl.h sys/sysmacros.h sys/time.h sys/utsname.h sys/vfs.h ucontext.h)
+AC_CHECK_HEADERS(ffi.h gmp.h gmp/gmp.h linux/falloc.h linux/fs.h malloc.h netdb.h netinet/in.h os2thunk.h quadmath.h signal.h stdalign.h stdatomic.h stdnoreturn.h sys/auxv.h sys/builtin.h sys/epoll.h sys/event.h sys/fmutex.h sys/inotify.h sys/mman.h sys/mount.h sys/netinet.in sys/param.h sys/pstat.h sys/select.h sys/socket.h sys/statvfs.h sys/sysctl.h sys/sysmacros.h sys/time.h sys/ucred.h sys/utsname.h sys/vfs.h ucontext.h)
 
 # Checks for libraries.
 AC_CHECK_LIB(m, frexp)
@@ -386,7 +386,7 @@ AC_FUNC_MALLOC
 AC_CHECK_LIB(xnet, getpeername)
 
 # Checks for library functions.
-AC_CHECK_FUNCS(accept4 aligned_alloc cfmakeraw chown clock_gettime epoll_create fallocate fchdir fchmodat fchownat fdatasync ffs ffsl ffsll fls flsl flsll fstat64 fstatat fstatfs fstatvfs fstatvfs64 ftruncate64 getauxval getenv gethostname getpagesize getpeername gmtime_r inotify_init isatty kqueue lchown link linkat localtime_r lseek64 lstat lstat64 madvise memalign mempcpy mkdirat mknod mknodat mkostemp mmap mmap64 mprotect mremap open64 openat pipe2 posix_memalign pread pread64 pstat_getdynamic pthread_condattr_setclock pthread_sigmask pthread_spin_init pwrite pwrite64 raise readlink readlinkat renameat setitimer setvbuf sigaction sigblock sigfillset sigprocmask sigsetmask socket stat64 statfs statvfs statvfs64 strerror strerror_r strnlen strverscmp symlink symlinkat syncfs syscall sysconf sysctl timegm timer_create truncate64 uname unlinkat utime utimensat utimes vsnprintf _beginthreadex _fmutex_create _threadstore)
+AC_CHECK_FUNCS(accept4 aligned_alloc cfmakeraw chown clock_gettime epoll_create fallocate fchdir fchmodat fchownat fdatasync ffs ffsl ffsll fls flsl flsll fstat64 fstatat fstatfs fstatvfs fstatvfs64 ftruncate64 getauxval getenv getfsstat gethostname getpagesize getpeername gmtime_r inotify_init isatty kqueue lchown link linkat localtime_r lseek64 lstat lstat64 madvise memalign mempcpy mkdirat mknod mknodat mkostemp mmap mmap64 mprotect mremap open64 openat pipe2 posix_memalign pread pread64 pstat_getdynamic pthread_condattr_setclock pthread_sigmask pthread_spin_init pwrite pwrite64 raise readlink readlinkat renameat setitimer setvbuf sigaction sigblock sigfillset sigprocmask sigsetmask socket stat64 statfs statvfs statvfs64 strerror strerror_r strnlen strverscmp symlink symlinkat syncfs syscall sysconf sysctl timegm timer_create truncate64 uname unlinkat utime utimensat utimes vsnprintf _beginthreadex _fmutex_create _threadstore)
 
 AC_CHECK_FUNCS(
 	copysign copysignf						\

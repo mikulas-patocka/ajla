@@ -2524,17 +2524,32 @@ ret_test:
 static void * attr_fastcall io_drives_handler(struct io_ctx *ctx)
 {
 	void *test;
-	unsigned drives;
+	char *drives;
+	size_t drives_l;
+	struct data *d;
 
 	test = io_deep_eval(ctx, "0", true);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 
-	drives = os_drives();
+	if (unlikely(!os_drives(&drives, &drives_l, &ctx->err)))
+		goto ret_thunk;
 
-	io_store_typed_number(ctx, get_output(ctx, 1), int32_t, 2, unsigned, drives);
-	test = POINTER_FOLLOW_THUNK_GO;
+	d = data_alloc_array_flat_mayfail(type_get_fixed(0, true), drives_l, drives_l, false, &ctx->err pass_file_line);
+	if (unlikely(!d)) {
+		mem_free(drives);
+		goto ret_thunk;
+	}
+	memcpy(da_array_flat(d), drives, drives_l);
+	mem_free(drives);
 
+	frame_set_pointer(ctx->fp, get_output(ctx, 1), pointer_data(d));
+
+	return POINTER_FOLLOW_THUNK_GO;
+
+ret_thunk:
+	io_terminate_with_error(ctx, ctx->err, true, NULL);
+	test = POINTER_FOLLOW_THUNK_EXCEPTION;
 ret_test:
 	return test;
 }
