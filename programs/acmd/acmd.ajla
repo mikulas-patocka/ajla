@@ -391,7 +391,7 @@ fn acmd_quit(implicit st : acmd_state, implicit w : world, implicit app : appsta
 fn drive_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y min_x pref_x max_x : int) : (appstate, int, int)
 [
 	var e := len(ids);
-	var xs := 0;
+	var xs := min_x;
 
 	for i := 0 to e do
 		xs := max(xs, widget_get_width(ids[i], pref_x));
