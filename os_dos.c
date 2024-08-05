@@ -327,6 +327,27 @@ fail:
 	return false;
 }
 
+bool os_drives(char **drives, size_t *drives_l, ajla_error_t *err)
+{
+	unsigned cd, n_drvs, i, j;
+	if (unlikely(!array_init_mayfail(char, drives, drives_l, err)))
+		return false;
+	_dos_getdrive(&cd);
+	for (i = 0; i < 26; i++) {
+		char str[4] = " :\\";
+		str[0] = 'A' + i;
+		_dos_setdrive(i + 1, &n_drvs);
+		_dos_getdrive(&j);
+		j--;
+		if (likely(j != i))
+			continue;
+		if (unlikely(!array_add_multiple_mayfail(char, drives, drives_l, str, 4, NULL, err)))
+			return false;
+	}
+	_dos_setdrive(cd, &n_drvs);
+	return true;
+}
+
 struct proc_handle {
 	int status;
 };

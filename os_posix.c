@@ -1795,6 +1795,8 @@ free_ret:
 	return ret;
 }
 
+#if !defined(OS_DOS)
+
 bool os_drives(char **drives, size_t *drives_l, ajla_error_t *err)
 {
 #if defined(OS_CYGWIN)
@@ -1862,6 +1864,8 @@ again:
 	return true;
 #endif
 }
+
+#endif
 
 
 bool os_tcgetattr(handle_t h, os_termios_t *t, ajla_error_t *err)
