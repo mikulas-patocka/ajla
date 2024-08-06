@@ -341,8 +341,10 @@ bool os_drives(char **drives, size_t *drives_l, ajla_error_t *err)
 		j--;
 		if (likely(j != i))
 			continue;
-		if (unlikely(!array_add_multiple_mayfail(char, drives, drives_l, str, 4, NULL, err)))
+		if (unlikely(!array_add_multiple_mayfail(char, drives, drives_l, str, 4, NULL, err))) {
+			_dos_setdrive(cd, &n_drvs);
 			return false;
+		}
 	}
 	_dos_setdrive(cd, &n_drvs);
 	return true;
