@@ -161,7 +161,7 @@ typedef char *dir_handle_t;
 #define dir_none		NULL
 
 typedef unsigned char sig_state_t;
-typedef size_t signal_seq_t;
+typedef uint64_t signal_seq_t;
 
 #ifndef O_NONBLOCK
 #define O_NONBLOCK		0x40000000
