@@ -3487,24 +3487,86 @@ bool os_proc_register_wait(struct proc_handle *ph, mutex_t **mutex_to_lock, stru
 }
 
 
-int os_signal_handle(const char attr_unused *str, signal_seq_t attr_unused *seq, ajla_error_t attr_unused *err)
+static mutex_t signal_mutex;
+
+#define N_SIG	2
+
+struct {
+	signal_seq_t seq;
+	uintptr_t refcount;
+	struct list wait_list;
+} signals[N_SIG];
+
+static BOOL WINAPI signal_handler(DWORD sig)
 {
-	*seq = 0;
-	return 0;
+	if (sig >= N_SIG)
+		return FALSE;
+	mutex_lock(&signal_mutex);
+	if (!signals[sig].refcount) {
+		mutex_unlock(&signal_mutex);
+		return FALSE;
+	}
+	signals[sig].seq++;
+	call(wake_up_wait_list)(&signals[sig].wait_list, &signal_mutex, false);
+	return TRUE;
 }
 
-void os_signal_unhandle(int attr_unused sig)
+int os_signal_handle(const char *str, signal_seq_t *seq, ajla_error_t attr_unused *err)
 {
+	int sig;
+	if (!strcmp(str, "SIGINT")) {
+		sig = CTRL_C_EVENT;
+	} else if (!strcmp(str, "SIGBREAK")) {
+		sig = CTRL_BREAK_EVENT;
+	} else {
+		*seq = 0;
+		return N_SIG;
+	}
+	mutex_lock(&signal_mutex);
+	*seq = signals[sig].seq;
+	signals[sig].refcount++;
+	mutex_unlock(&signal_mutex);
+	return sig;
 }
 
-signal_seq_t os_signal_seq(int attr_unused sig)
+void os_signal_unhandle(int sig)
 {
-	return 0;
+	ajla_assert_lo(sig >= 0 && sig <= N_SIG, (file_line, "os_signal_unhandle: invalid signal %d", sig));
+	if (sig == N_SIG)
+		return;
+	mutex_lock(&signal_mutex);
+	ajla_assert_lo(signals[sig].refcount > 0, (file_line, "os_signal_unhandle: refcount underflow"));
+	signals[sig].refcount--;
+	mutex_unlock(&signal_mutex);
 }
 
-bool os_signal_wait(int attr_unused sig, signal_seq_t attr_unused seq, mutex_t **mutex_to_lock, struct list *list_entry)
+signal_seq_t os_signal_seq(int sig)
 {
-	iomux_never(mutex_to_lock, list_entry);
+	signal_seq_t seq;
+	ajla_assert_lo(sig >= 0 && sig <= N_SIG, (file_line, "os_signal_seq: invalid signal %d", sig));
+	if (sig == N_SIG)
+		return 0;
+	mutex_lock(&signal_mutex);
+	seq = signals[sig].seq;
+	mutex_unlock(&signal_mutex);
+	return seq;
+}
+
+bool os_signal_wait(int sig, signal_seq_t seq, mutex_t **mutex_to_lock, struct list *list_entry)
+{
+	ajla_assert_lo(sig >= 0 && sig <= N_SIG, (file_line, "os_signal_wait: invalid signal %d", sig));
+	if (sig == N_SIG) {
+		iomux_never(mutex_to_lock, list_entry);
+		return true;
+	}
+	mutex_lock(&signal_mutex);
+	if (seq != signals[sig].seq) {
+		mutex_unlock(&signal_mutex);
+		return false;
+	}
+	*mutex_to_lock = &signal_mutex;
+	list_add(&signals[sig].wait_list, list_entry);
+	mutex_unlock(&signal_mutex);
 	return true;
 }
 
@@ -4782,11 +4844,28 @@ void os_init_multithreaded(void)
 		list_init(&socket_list[1]);
 		thread_spawn(&iomux_thread, iomux_poll_thread, NULL, PRIORITY_IO, NULL);
 	}
+
+	mutex_init(&signal_mutex);
+	memset(signals, 0, sizeof signals);
+	for (u = 0; u < N_SIG; u++)
+		list_init(&signals[u].wait_list);
+
+	if (unlikely(!SetConsoleCtrlHandler(signal_handler, TRUE))) {
+		ajla_error_t e = error_from_win32(EC_SYSCALL, GetLastError());
+		fatal("SetConsoleCtrlHandler set failed: %s", error_decode(e));
+	}
 }
 
 void os_done_multithreaded(void)
 {
 	unsigned u;
+
+	if (unlikely(!SetConsoleCtrlHandler(signal_handler, FALSE))) {
+		ajla_error_t e = error_from_win32(EC_SYSCALL, GetLastError());
+		fatal("SetConsoleCtrlHandler unset failed: %s", error_decode(e));
+	}
+
+	mutex_done(&signal_mutex);
 
 	if (winsock_supported) {
 		win32_shutdown_notify_pipe();

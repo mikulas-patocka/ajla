@@ -2502,8 +2502,10 @@ int os_signal_handle(const char *str, signal_seq_t *seq, ajla_error_t *err)
 {
 	struct signal_state *s;
 	int sig = os_signal_number(str);
-	if (unlikely(!sig))
+	if (unlikely(!sig)) {
+		*seq = 0;
 		return 0;
+	}
 	mutex_lock(&signal_state_mutex);
 	s = signal_states[sig];
 	if (unlikely(!s)) {
