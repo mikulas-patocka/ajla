@@ -332,6 +332,16 @@ void attr_cold os_stop(void)
 	warning("stop not supported on OS/2");
 }
 
+void os_background(void)
+{
+}
+
+bool os_foreground(void)
+{
+	return true;
+}
+
+
 static void os2_enter_critical_section(void)
 {
 	APIRET rc = DosEnterCritSec();
@@ -2317,6 +2327,37 @@ ret_false:
 	return false;
 }
 
+bool os_drives(char **drives, size_t *drives_l, ajla_error_t *err)
+{
+	ULONG c, mask;
+	APIRET rc;
+	/* copied in os_win32.c:os_drives */
+again:
+	rc = DosQueryCurrentDisk(&c, &mask);
+	if (unlikely(rc)) {
+		ajla_error_t e;
+		if (rc == ERROR_INTERRUPT)
+			goto again;
+		e = error_from_os2(EC_SYSCALL, rc);
+		fatal_mayfail(e, err, "can't query current disk: %s", error_decode(e));
+		return false;
+	}
+	if (unlikely(!array_init_mayfail(char, drives, drives_l, err)))
+		return false;
+	while (mask) {
+		char str[4] = " :\\";
+		unsigned bit = low_bit(mask);
+		mask &= ~(1U << bit);
+		str[0] = bit + 'A';
+		if (unlikely(str[0] > 'Z'))
+			break;
+		if (unlikely(!array_add_multiple_mayfail(char, drives, drives_l, str, 4, NULL, err)))
+			return false;
+	}
+	return true;
+}
+
+
 static unsigned char os_path_to_exe[270];
 
 const char *os_get_path_to_exe(void)
@@ -2393,7 +2434,7 @@ void os_tcflags(os_termios_t *t, int flags)
 	t->tc_flags = flags;
 }
 
-int os_tty_size(handle_t attr_unused h, int x, int y, int *nx, int *ny, mutex_t **mutex_to_lock, struct list *list_entry, ajla_error_t *err)
+bool os_tty_size(handle_t attr_unused h, int *nx, int *ny, ajla_error_t *err)
 {
 	A_DECL(VIOMODEINFO, vmi);
 	APIRET rc;
@@ -2402,18 +2443,13 @@ int os_tty_size(handle_t attr_unused h, int x, int y, int *nx, int *ny, mutex_t 
 	if (unlikely(rc != 0)) {
 		ajla_error_t e = error_from_os2(EC_SYSCALL, rc);
 		fatal_mayfail(e, err, "can't get tty size: %s", error_decode(e));
-		return 0;
+		return false;
 	}
 
 	*nx = vmi->col;
 	*ny = vmi->row;
 
-	if (*nx == x && *ny == y) {
-		iomux_never(mutex_to_lock, list_entry);
-		return 2;
-	}
-
-	return 1;
+	return true;
 }
 
 
@@ -2979,6 +3015,141 @@ bool os_proc_register_wait(struct proc_handle *ph, mutex_t **mutex_to_lock, stru
 		proc_unlock();
 		return false;
 	}
+}
+
+
+#define N_SIG	5
+
+static mutex_t signal_mutex;
+
+static bool signal_thread_running;
+static thread_t signal_thread;
+static HEV signal_ev;
+
+static struct {
+	thread_volatile signal_seq_t sig_sequence;
+	signal_seq_t last_sig_sequence;
+	thread_volatile uintptr_t refcount;
+	struct list wait_list;
+} signals[N_SIG];
+
+ULONG APIENTRY os2_exception_handler(PEXCEPTIONREPORTRECORD exrep, struct _EXCEPTIONREGISTRATIONRECORD attr_unused *expreg, PCONTEXTRECORD attr_unused ctx, PVOID attr_unused v)
+{
+	/*debug("signal: %lx, %lx", exrep->ExceptionNum, exrep->ExceptionInfo[0]);*/
+	if (exrep->ExceptionNum == XCPT_SIGNAL) {
+		unsigned sig = exrep->ExceptionInfo[0];
+		if (sig < N_SIG) {
+			if (signals[sig].refcount) {
+				APIRET rc;
+				signals[sig].sig_sequence++;
+				rc = DosPostEventSem(signal_ev);
+				if (unlikely(rc != 0) && unlikely(rc != ERROR_ALREADY_POSTED) && rc != ERROR_TOO_MANY_POSTS)
+					internal(file_line, "DosPostEventSem returned an error: %lu", rc);
+				return XCPT_CONTINUE_EXECUTION;
+			}
+		}
+	}
+	return XCPT_CONTINUE_SEARCH;
+}
+
+static void signal_thread_fn(void attr_unused *p)
+{
+	ULONG count;
+	APIRET rc;
+	int sig;
+scan_again:
+	rc = DosResetEventSem(signal_ev, &count);
+	if (rc && unlikely(rc != ERROR_ALREADY_RESET))
+		internal(file_line, "DosResetEventSem returned an error: %lu", rc);
+	sig = 0;
+again:
+	mutex_lock(&signal_mutex);
+	for (; sig < N_SIG; sig++) {
+		signal_seq_t seq = signals[sig].sig_sequence;
+		if (signals[sig].last_sig_sequence != seq) {
+			signals[sig].last_sig_sequence = seq;
+			call(wake_up_wait_list)(&signals[sig].wait_list, &signal_mutex, true);
+			sig++;
+			goto again;
+		}
+	}
+	mutex_unlock(&signal_mutex);
+	if (unlikely(!signal_thread_running))
+		return;
+	rc = DosWaitEventSem(signal_ev, SEM_INDEFINITE_WAIT);
+	if (unlikely(rc != 0)) {
+		if (rc == ERROR_INTERRUPT || rc == ERROR_TIMEOUT)
+			goto scan_again;
+		internal(file_line, "DosWaitEventSem returned an error: %lu", rc);
+	}
+	goto scan_again;
+}
+
+int os_signal_handle(const char *str, signal_seq_t *seq, ajla_error_t *err)
+{
+	int sig;
+	if (!strcmp(str, "SIGINT")) {
+		sig = XCPT_SIGNAL_INTR;
+	} else if (!strcmp(str, "SIGBREAK")) {
+		sig = XCPT_SIGNAL_BREAK;
+	} else if (!strcmp(str, "SIGTERM")) {
+		sig = XCPT_SIGNAL_KILLPROC;
+	} else {
+		*seq = 0;
+		return 0;
+	}
+	mutex_lock(&signal_mutex);
+	*seq = signals[sig].last_sig_sequence;
+	signals[sig].refcount++;
+	if (!signal_thread_running) {
+		signal_thread_running = true;
+		if (unlikely(!thread_spawn(&signal_thread, signal_thread_fn, NULL, PRIORITY_IO, err))) {
+			signal_thread_running = false;
+			signals[sig].refcount--;
+			mutex_unlock(&signal_mutex);
+			return -1;
+		}
+	}
+	mutex_unlock(&signal_mutex);
+	return sig;
+}
+
+void os_signal_unhandle(int sig)
+{
+	if (!sig)
+		return;
+	mutex_lock(&signal_mutex);
+	ajla_assert_lo(signals[sig].refcount > 0, (file_line, "os_signal_unhandle: refcount underflow"));
+	signals[sig].refcount--;
+	mutex_unlock(&signal_mutex);
+}
+
+signal_seq_t os_signal_seq(int sig)
+{
+	signal_seq_t seq;
+	if (!sig)
+		return 0;
+	mutex_lock(&signal_mutex);
+	seq = signals[sig].last_sig_sequence;
+	mutex_unlock(&signal_mutex);
+	return seq;
+}
+
+bool os_signal_wait(int sig, signal_seq_t seq, mutex_t **mutex_to_lock, struct list *list_entry)
+{
+	if (!sig) {
+		iomux_never(mutex_to_lock, list_entry);
+		return true;
+	}
+	mutex_lock(&signal_mutex);
+	if (seq != signals[sig].last_sig_sequence) {
+		mutex_unlock(&signal_mutex);
+		return false;
+	}
+	*mutex_to_lock = &signal_mutex;
+	list_add(&signals[sig].wait_list, list_entry);
+	mutex_unlock(&signal_mutex);
+	return true;
 }
 
 
@@ -3860,6 +4031,7 @@ void os_done(void)
 void os_init_multithreaded(void)
 {
 	unsigned u;
+	APIRET rc;
 
 	os_init_calendar_lock();
 
@@ -3911,6 +4083,16 @@ void os_init_multithreaded(void)
 	}
 #endif
 
+	signal_thread_running = false;
+	rc = DosCreateEventSem(NULL, &signal_ev, 0, FALSE);
+	if (unlikely(rc != 0)) {
+		fatal("DosCreateEventSem failed: %lu", rc);
+	}
+	mutex_init(&signal_mutex);
+	memset(signals, 0, sizeof signals);
+	for (u = 0; u < N_SIG; u++)
+		list_init(&signals[u].wait_list);
+
 	if (tcpip_loaded) {
 		mutex_init(&socket_list_mutex);
 		list_init(&socket_list[0]);
@@ -3921,8 +4103,22 @@ void os_init_multithreaded(void)
 
 void os_done_multithreaded(void)
 {
+	APIRET rc;
 	unsigned u;
 	TID pwt;
+
+	if (signal_thread_running) {
+		signal_thread_running = false;
+		rc = DosPostEventSem(signal_ev);
+		if (unlikely(rc != 0) && unlikely(rc != ERROR_ALREADY_POSTED) && rc != ERROR_TOO_MANY_POSTS)
+			internal(file_line, "DosPostEventSem returned an error: %lu", rc);
+		thread_join(&signal_thread);
+	}
+	rc = DosCloseEventSem(signal_ev);
+	if (unlikely(rc != 0))
+		internal(file_line, "DosCloseEventSem returned an error: %lu", rc);
+
+	mutex_done(&signal_mutex);
 
 	if (tcpip_loaded) {
 		os2_shutdown_notify_pipe();

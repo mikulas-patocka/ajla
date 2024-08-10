@@ -3491,7 +3491,7 @@ static mutex_t signal_mutex;
 
 #define N_SIG	2
 
-struct {
+static struct {
 	signal_seq_t seq;
 	uintptr_t refcount;
 	struct list wait_list;

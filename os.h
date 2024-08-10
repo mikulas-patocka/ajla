@@ -99,6 +99,8 @@ bool os_dlsym(struct dl_handle_t *dlh, const char *symbol, void **result);
 
 #define os_getaddrinfo_is_thread_safe()		false
 
+ULONG APIENTRY os2_exception_handler(PEXCEPTIONREPORTRECORD, struct _EXCEPTIONREGISTRATIONRECORD *, PCONTEXTRECORD, PVOID);
+
 #elif defined(OS_WIN32)
 
 #include <sys/stat.h>

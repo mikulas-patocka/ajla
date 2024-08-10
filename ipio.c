@@ -4229,7 +4229,7 @@ static void * attr_fastcall io_signal_wait_handler(struct io_ctx *ctx)
 	pointer_t ptr;
 	struct data *d;
 	struct resource_signal *s;
-	signal_seq_t seq;
+	signal_seq_t seq = 0;	/* avoid warning */
 	struct execution_control *ex;
 
 	test = io_deep_eval(ctx, "012", true);

@@ -48,6 +48,14 @@ int retval = 0;
 
 int main(int argc, const char * const argv[])
 {
+#ifdef OS_OS2
+	EXCEPTIONREGISTRATIONRECORD ex;
+	APIRET r;
+	ex.ExceptionHandler = os2_exception_handler;
+	r = DosSetExceptionHandler(&ex);
+	if (unlikely(r))
+		fatal("DosSetExceptionHandler failed: %ld", r);
+#endif
 	error_init();
 	args_init(argc, argv);
 	amalloc_init();
@@ -119,6 +127,12 @@ int main(int argc, const char * const argv[])
 	amalloc_done();
 	args_done();
 	error_done();
+
+#ifdef OS_OS2
+	r = DosUnsetExceptionHandler(&ex);
+	if (unlikely(r))
+		fatal("DosUnsetExceptionHandler failed: %ld", r);
+#endif
 
 	return retval;
 }
