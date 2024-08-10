@@ -2365,17 +2365,18 @@ test_another:
 struct signal_state {
 	thread_volatile signal_seq_t sig_sequence;
 	signal_seq_t last_sig_sequence;
+	bool trapped;
 	uintptr_t refcount;
 	struct list wait_list;
 	struct sigaction prev_sa;
 };
 
-static struct signal_state **signal_states;
+static struct signal_state *signal_states;
 static mutex_t signal_state_mutex;
 
 static void signal_handler(int sig)
 {
-	signal_states[sig]->sig_sequence += 1UL;
+	signal_states[sig].sig_sequence += 1UL;
 	os_notify();
 }
 
@@ -2495,6 +2496,18 @@ static int os_signal_number(const char *str)
 #ifdef SIGXFSZ
 	if (!strcmp(str, "SIGXFSZ")) return SIGXFSZ;
 #endif
+#if defined(SIGRTMIN) && defined(SIGRTMAX)
+	if (!strncmp(str, "SIGRT", 5) && str[5]) {
+		char *endptr;
+		unsigned long num = strtoul(str + 5, &endptr, 10);
+		if (unlikely(*endptr))
+			return 0;
+		num += SIGRTMIN;
+		if (unlikely(num < (unsigned long)SIGRTMIN) || unlikely(num > (unsigned long)SIGRTMAX))
+			return 0;
+		return num;
+	}
+#endif
 	return 0;
 }
 
@@ -2507,19 +2520,17 @@ int os_signal_handle(const char *str, signal_seq_t *seq, ajla_error_t *err)
 		return 0;
 	}
 	mutex_lock(&signal_state_mutex);
-	s = signal_states[sig];
-	if (unlikely(!s)) {
+	s = &signal_states[sig];
+	if (unlikely(s->trapped)) {
+		fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED), err, "signal %s already handled", str);
+		goto unlock_err;
+	}
+	if (likely(!s->refcount)) {
 		struct sigaction sa;
 		int r;
 
-		s = mem_alloc_mayfail(struct signal_state *, sizeof(struct signal_state), err);
-		if (unlikely(!s))
-			goto unlock_err;
 		s->sig_sequence = 0;
 		s->last_sig_sequence = 0;
-		s->refcount = 0;
-		list_init(&s->wait_list);
-		signal_states[sig] = s;
 
 		(void)memset(&sa, 0, sizeof sa);
 		sa.sa_handler = signal_handler;
@@ -2532,13 +2543,6 @@ int os_signal_handle(const char *str, signal_seq_t *seq, ajla_error_t *err)
 		if (unlikely(r == -1)) {
 			ajla_error_t e = error_from_errno(EC_SYSCALL, errno);
 			fatal_mayfail(e, err, "sigaction(%d) failed: %s", sig, error_decode(e));
-			mem_free(s);
-			signal_states[sig] = NULL;
-			goto unlock_err;
-		}
-	} else {
-		if (!s->refcount) {
-			fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED), err, "signal %s already handled", str);
 			goto unlock_err;
 		}
 	}
@@ -2560,8 +2564,6 @@ static void os_signal_restore(struct signal_state *s, int sig)
 		ajla_error_t e = error_from_errno(EC_SYSCALL, errno);
 		fatal("sigaction(%d) failed: %s", sig, error_decode(e));
 	}
-	mem_free(s);
-	signal_states[sig] = NULL;
 }
 
 void os_signal_unhandle(int sig)
@@ -2570,9 +2572,7 @@ void os_signal_unhandle(int sig)
 	if (unlikely(!sig))
 		return;
 	mutex_lock(&signal_state_mutex);
-	s = signal_states[sig];
-	if (unlikely(!s))
-		internal(file_line, "os_signal_unhandle: unhandled signal");
+	s = &signal_states[sig];
 	if (!s->refcount)
 		internal(file_line, "os_signal_unhandle: refcount underflow");
 	s->refcount--;
@@ -2588,7 +2588,7 @@ signal_seq_t os_signal_seq(int sig)
 	if (unlikely(!sig))
 		return 0;
 	mutex_lock(&signal_state_mutex);
-	s = signal_states[sig];
+	s = &signal_states[sig];
 	if (unlikely(!s))
 		internal(file_line, "os_signal_unhandle: unhandled signal");
 	seq = s->last_sig_sequence;
@@ -2606,7 +2606,7 @@ bool os_signal_wait(int sig, signal_seq_t seq, mutex_t **mutex_to_lock, struct l
 	}
 
 	mutex_lock(&signal_state_mutex);
-	s = signal_states[sig];
+	s = &signal_states[sig];
 	if (unlikely(seq != s->last_sig_sequence)) {
 		mutex_unlock(&signal_state_mutex);
 		return false;
@@ -2624,15 +2624,13 @@ void os_signal_check_all(void)
 again:
 	mutex_lock(&signal_state_mutex);
 	for (; sig < N_SIGNALS; sig++) {
-		struct signal_state *s = signal_states[sig];
-		if (unlikely(s != NULL)) {
-			signal_seq_t seq = s->sig_sequence;
-			if (unlikely(seq != s->last_sig_sequence)) {
-				s->last_sig_sequence = seq;
-				call(wake_up_wait_list)(&s->wait_list, &signal_state_mutex, true);
-				sig++;
-				goto again;
-			}
+		struct signal_state *s = &signal_states[sig];
+		signal_seq_t seq = s->sig_sequence;
+		if (unlikely(seq != s->last_sig_sequence)) {
+			s->last_sig_sequence = seq;
+			call(wake_up_wait_list)(&s->wait_list, &signal_state_mutex, true);
+			sig++;
+			goto again;
 		}
 	}
 	mutex_unlock(&signal_state_mutex);
@@ -2664,16 +2662,11 @@ static void sigfpe_handler(int attr_unused sig, siginfo_t *siginfo, void *uconte
 void os_signal_trap(int sig, void (*handler)(int, siginfo_t *, void *))
 {
 	if (OS_SUPPORTS_TRAPS) {
-		struct signal_state *s;
+		struct signal_state *s = &signal_states[sig];
 		struct sigaction sa;
 		int r;
 
-		s = mem_alloc(struct signal_state *, sizeof(struct signal_state));
-		s->sig_sequence = 0;
-		s->last_sig_sequence = 0;
-		s->refcount = 0;
-		list_init(&s->wait_list);
-		signal_states[sig] = s;
+		s->trapped = true;
 
 		(void)memset(&sa, 0, sizeof sa);
 		sa.sa_sigaction = handler;
@@ -2689,9 +2682,10 @@ void os_signal_trap(int sig, void (*handler)(int, siginfo_t *, void *))
 void os_signal_untrap(int sig)
 {
 	if (OS_SUPPORTS_TRAPS) {
-		struct signal_state *s = signal_states[sig];
-		ajla_assert_lo(s && s->refcount == 0, (file_line, "os_signal_untrap: signal %d not trapped", sig));
+		struct signal_state *s = &signal_states[sig];
+		ajla_assert_lo(s->trapped, (file_line, "os_signal_untrap: signal %d not trapped", sig));
 		os_signal_restore(s, sig);
+		s->trapped = false;
 	}
 }
 #endif
@@ -3574,7 +3568,7 @@ try_more:
 void os_init(void)
 {
 	ajla_error_t sink;
-	int r;
+	int r, i;
 
 #if defined(OS_DOS)
 	EINTR_LOOP(r, close(3));
@@ -3630,7 +3624,9 @@ skip_test:;
 #endif
 
 #ifdef OS_HAS_SIGNALS
-	signal_states = mem_calloc(struct signal_state **, sizeof(struct signal_state *) * N_SIGNALS);
+	signal_states = mem_alloc_array_mayfail(mem_calloc_mayfail, struct signal_state *, 0, 0, N_SIGNALS, sizeof(struct signal_state), NULL);
+	for (i = 0; i < N_SIGNALS; i++)
+		list_init(&signal_states[i].wait_list);
 	if (!dll) {
 #ifdef HAVE_CODEGEN_TRAPS
 		os_signal_trap(SIGFPE, sigfpe_handler);
@@ -3655,7 +3651,7 @@ void os_done(void)
 #endif
 	}
 	for (sig = 0; sig < N_SIGNALS; sig++) {
-		if (unlikely(signal_states[sig] != NULL))
+		if (unlikely(signal_states[sig].trapped) || unlikely(signal_states[sig].refcount != 0))
 			internal(file_line, "signal %d leaked", sig);
 	}
 	mem_free(signal_states);
