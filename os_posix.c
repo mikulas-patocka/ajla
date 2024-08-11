@@ -1800,7 +1800,7 @@ free_ret:
 bool os_drives(char **drives, size_t *drives_l, ajla_error_t *err)
 {
 #if defined(OS_CYGWIN)
-	unsigned mask = GetLogicalDrives();
+	uint32_t mask = GetLogicalDrives();
 	return os_drives_bitmap(mask, drives, drives_l, err);
 #elif defined(HAVE_GETFSSTAT)
 	int r, i;
