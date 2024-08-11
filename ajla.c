@@ -51,10 +51,6 @@ int main(int argc, const char * const argv[])
 #ifdef OS_OS2
 	EXCEPTIONREGISTRATIONRECORD ex;
 	APIRET r;
-	ex.ExceptionHandler = os2_exception_handler;
-	r = DosSetExceptionHandler(&ex);
-	if (unlikely(r))
-		fatal("DosSetExceptionHandler failed: %ld", r);
 #endif
 	error_init();
 	args_init(argc, argv);
@@ -71,6 +67,12 @@ int main(int argc, const char * const argv[])
 	obj_registry_init_multithreaded();
 	address_lock_init();
 	os_init_multithreaded();
+#ifdef OS_OS2
+	ex.ExceptionHandler = os2_exception_handler;
+	r = DosSetExceptionHandler(&ex);
+	if (unlikely(r))
+		fatal("DosSetExceptionHandler failed: %ld", r);
+#endif
 	amalloc_init_multithreaded();
 	type_init();
 	data_init();
@@ -112,6 +114,11 @@ int main(int argc, const char * const argv[])
 	data_done();
 	type_done();
 	amalloc_done_multithreaded();
+#ifdef OS_OS2
+	r = DosUnsetExceptionHandler(&ex);
+	if (unlikely(r))
+		fatal("DosUnsetExceptionHandler failed: %ld", r);
+#endif
 	os_done_multithreaded();
 	address_lock_done();
 	obj_registry_done_multithreaded();
@@ -127,10 +134,5 @@ int main(int argc, const char * const argv[])
 	amalloc_done();
 	args_done();
 	error_done();
-#ifdef OS_OS2
-	r = DosUnsetExceptionHandler(&ex);
-	if (unlikely(r))
-		fatal("DosUnsetExceptionHandler failed: %ld", r);
-#endif
 	return retval;
 }
