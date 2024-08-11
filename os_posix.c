@@ -1261,7 +1261,7 @@ bool os_stat(dir_handle_t dir, const char *path, bool attr_unused lnk, os_stat_t
 		return false;
 
 #ifdef HAVE_AT_FUNCTIONS
-	if (likely(have_O_CLOEXEC_openat)) {
+	if (likely(have_O_CLOEXEC_openat) && dir_handle_is_valid(dir)) {
 		EINTR_LOOP(r, fstatat(dir, path, st, lnk ? AT_SYMLINK_NOFOLLOW : 0));
 		if (unlikely(r == -1)) {
 			ajla_error_t e = error_from_errno(EC_SYSCALL, errno);
