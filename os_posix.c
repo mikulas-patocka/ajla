@@ -1819,17 +1819,29 @@ bool os_drives(char **drives, size_t *drives_l, ajla_error_t *err)
 #if defined(OS_CYGWIN)
 	uint32_t mask = GetLogicalDrives();
 	return os_drives_bitmap(mask, drives, drives_l, err);
-#elif defined(HAVE_GETFSSTAT)
+#elif defined(HAVE_GETFSSTAT) || defined(HAVE_GETVFSFSSTAT)
 	int r, i;
 	int n_entries;
+#if defined(HAVE_GETVFSSTAT)
+	struct statvfs *buf;
+#else
 	struct statfs *buf;
+#endif
 
 	n_entries = 2;
 again:
+#if defined(HAVE_GETVFSSTAT)
+	buf = mem_alloc_array_mayfail(mem_alloc_mayfail, struct statvfs *, 0, 0, n_entries, sizeof(struct statvfs), err);
+#else
 	buf = mem_alloc_array_mayfail(mem_alloc_mayfail, struct statfs *, 0, 0, n_entries, sizeof(struct statfs), err);
+#endif
 	if (unlikely(!buf))
 		return false;
+#if defined(HAVE_GETVFSSTAT)
+	EINTR_LOOP(r, getvfsstat(buf, sizeof(struct statvfs) * n_entries, ST_NOWAIT));
+#else
 	EINTR_LOOP(r, getfsstat(buf, sizeof(struct statfs) * n_entries, MNT_NOWAIT));
+#endif
 	if (unlikely(r == -1)) {
 		ajla_error_t e = error_from_errno(EC_SYSCALL, errno);
 		fatal_mayfail(e, err, "getfsstat failed: %s", error_decode(e));
