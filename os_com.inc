@@ -23,13 +23,15 @@
 
 static inline bool os_drives_bitmap(uint32_t mask, char **drives, size_t *drives_l, ajla_error_t *err)
 {
+	unsigned shift = 0;
 	if (unlikely(!array_init_mayfail(char, drives, drives_l, err)))
 		return false;
 	while (mask) {
 		char str[4] = " :\\";
 		unsigned bit = low_bit(mask);
-		mask &= ~(1U << bit);
-		str[0] = bit + 'A';
+		mask = mask >> bit >> 1;
+		str[0] = bit + shift + 'A';
+		shift += bit + 1;
 		if (unlikely(str[0] > 'Z'))
 			break;
 		if (unlikely(!array_add_multiple_mayfail(char, drives, drives_l, str, 4, NULL, err)))
