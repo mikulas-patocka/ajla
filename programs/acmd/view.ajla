@@ -1048,23 +1048,17 @@ fn view_send_charset(chs : bytes, implicit app : appstate) : appstate
 fn view_charset(implicit w : world, app : appstate, st : view_state) : (world, appstate)
 [
 	var charsets := charset_list;
-	var m := 0;
-	for i := 0 to len(charsets) do [
-		m := max(m, string_length(charsets[i].label));
-	]
 	var init := 0;
-	var entries := empty(dialog_entry);
+	var entries := empty(vselect_entry);
 	for i := 0 to len(charsets) do [
-		var padding := m - string_length(charsets[i].label);
-		var label := charsets[i].label + fill(char, ' ', padding);
+		var label := charsets[i].label;
 		var chs := charsets[i].mime_name;
 		if chs = locale_get_charset(st.ro.loc).mime_name then
 			chs := "";
-		var de := dialog_entry.[
-			cls : button_class,
-			init : button_init(label, false, "",
-				lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ if widget_is_top(id) then view_send_charset(chs); ],
-				lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ view_send_charset(chs); widget_destroy_onclick(id); ],,,),
+		var de := vselect_entry.[
+			label : label,
+			change_focus: lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ if widget_is_top(id) then view_send_charset(chs); ],
+			click : lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ view_send_charset(chs); widget_destroy_onclick(id); ],
 		];
 		if charsets[i].mime_name = locale_get_charset(st.loc).mime_name then [
 			de.hotkeys := treeset_from_list([ key_esc, key_f10 ]);

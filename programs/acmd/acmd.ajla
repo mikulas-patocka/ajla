@@ -402,31 +402,22 @@ fn acmd_mount_points(implicit w : world) : (world, list(bytes))
 fn acmd_menu_drive(implicit st : acmd_state, mp : list(bytes), panel : int, implicit w : world, implicit app : appstate, id : wid) : (world, appstate)
 [
 	panel := widget_get_property(st.panels[panel], "property-index").i;
-	var mpc := empty(string);
-	var m := 0;
-	for i := 0 to len(mp) do [
-		var c := locale_to_string(st.ro.loc, mp[i]);
-		mpc +<= c;
-		m := max(m, string_length(c));
-	]
 	var cwd := widget_get_property(st.panels[panel], "cwd").b;
 	var init := 0;
 	var init_len := 0;
-	var entries := empty(dialog_entry);
-	for i := 0 to len(mpc) do [
+	var entries := empty(vselect_entry);
+	for i := 0 to len(mp) do [
+		var c := locale_to_string(st.ro.loc, mp[i]);
 		if list_begins_with(cwd, mp[i]) then [
 			if len(mp[i]) > init_len then [
 				init_len := len(mp[i]);
 				init := i;
 			]
 		]
-		var padding := m - string_length(mpc[i]);
-		var label := mpc[i] + fill(char, ' ', padding);
-		var de := dialog_entry.[
-			cls : button_class,
-			init : button_init(label, false, "",
-				button_no_action,
-				lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ acmd_chdir_panel(panel, mp[i]); widget_destroy_onclick(id); ],,,),
+		var de := vselect_entry.[
+			label : c,
+			change_focus : button_no_action,
+			click : lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ acmd_chdir_panel(panel, mp[i]); widget_destroy_onclick(id); ],
 		];
 		entries +<= de;
 	]

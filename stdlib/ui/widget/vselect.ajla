@@ -19,9 +19,17 @@
 private unit ui.widget.vselect;
 
 uses ui.widget.common;
+uses ui.widget.button;
 uses ui.widget.dialog;
 
-fn vselect_new(implicit w : world, implicit app : appstate, caption : string, color_scheme : bytes, handle_esc : bool, entries : list(dialog_entry), init : int) : (world, appstate, wid);
+record vselect_entry [
+	label : string;
+	change_focus : fn(world, appstate, wid) : (world, appstate);
+	click : fn(world, appstate, wid) : (world, appstate);
+	hotkeys : treeset(char);
+]
+
+fn vselect_new(implicit w : world, implicit app : appstate, caption : string, color_scheme : bytes, handle_esc : bool, entries : list(vselect_entry), init : int) : (world, appstate, wid);
 
 implementation
 
@@ -95,9 +103,24 @@ activate:
 	return true;
 ]
 
-fn vselect_new(implicit w : world, implicit app : appstate, caption : string, color_scheme : bytes, handle_esc : bool, entries : list(dialog_entry), init : int) : (world, appstate, wid)
+fn vselect_new(implicit w : world, implicit app : appstate, caption : string, color_scheme : bytes, handle_esc : bool, entries : list(vselect_entry), init : int) : (world, appstate, wid)
 [
 	var winid : wid;
-	app, winid := widget_new_window(w, app, dialog_class, dialog_init(caption, entries, init, vselect_dialog_event(handle_esc,,,,,), vselect_dialog_layout, color_scheme,,,), false);
+	var de := empty(dialog_entry);
+	var m := 0;
+	for i := 0 to len(entries) do
+		m := max(m, string_length(entries[i].label));
+	for i := 0 to len(entries) do [
+		var label := entries[i].label;
+		var padding := m - string_length(label);
+		label += fill(char, ' ', padding);
+		var d := dialog_entry.[
+			cls : button_class,
+			init : button_init(label, false, color_scheme, entries[i].change_focus, entries[i].click,,,),
+			hotkeys : entries[i].hotkeys,
+		];
+		de +<= d;
+	]
+	app, winid := widget_new_window(w, app, dialog_class, dialog_init(caption, de, init, vselect_dialog_event(handle_esc,,,,,), vselect_dialog_layout, color_scheme,,,), false);
 	return winid;
 ]
