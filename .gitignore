@@ -11,6 +11,7 @@ Makefile.am
 Makefile.in
 a.out*
 aclocal.m4
+actmp.*
 ajla
 autom4te.cache/
 confdefs*

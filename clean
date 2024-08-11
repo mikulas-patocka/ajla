@@ -22,7 +22,7 @@ rm -rf *.o *.obj *.exe ajla
 rm -f core
 rm -f Makefile.am
 rm -rf .deps Makefile config.cache config.h config.log config.status configure stamp-h1
-rm -rf Makefile.in aclocal.m4 autom4te.cache config.h.in conftest* confdefs*
+rm -rf Makefile.in aclocal.m4 autom4te.cache config.h.in conftest* confdefs* actmp.*
 rm -f INSTALL config.guess config.sub depcomp install-sh missing
 rm -f configure.lineno
 rm -f .*.sw? */.*.sw? */*/.*.sw? */*/*/.*.sw? */*/*/*/.*.sw?
