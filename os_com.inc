@@ -27,9 +27,10 @@ static inline bool os_drives_bitmap(uint32_t mask, char **drives, size_t *drives
 	if (unlikely(!array_init_mayfail(char, drives, drives_l, err)))
 		return false;
 	while (mask) {
-		char str[4] = " :\\";
+		char str[4] = " : ";
 		unsigned bit = low_bit(mask);
 		mask = mask >> bit >> 1;
+		str[2] = os_path_separator();
 		str[0] = bit + shift + 'A';
 		shift += bit + 1;
 		if (unlikely(str[0] > 'Z'))
