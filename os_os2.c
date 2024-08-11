@@ -2434,7 +2434,7 @@ void os_tcflags(os_termios_t *t, int flags)
 	t->tc_flags = flags;
 }
 
-bool os_tty_size(handle_t attr_unused h, int *nx, int *ny, ajla_error_t *err)
+bool os_tty_size(handle_t attr_unused h, int *nx, int *ny, int *ox, int *oy, ajla_error_t *err)
 {
 	A_DECL(VIOMODEINFO, vmi);
 	APIRET rc;
@@ -2448,6 +2448,8 @@ bool os_tty_size(handle_t attr_unused h, int *nx, int *ny, ajla_error_t *err)
 
 	*nx = vmi->col;
 	*ny = vmi->row;
+	*ox = 0;
+	*oy = 0;
 
 	return true;
 }

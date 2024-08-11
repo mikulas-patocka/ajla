@@ -512,7 +512,7 @@ fn curses_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(
 	]
 
 	var old_w := w;
-	var xx, yy := tty_size(h[0]);
+	var xx, yy, ox, oy := tty_size(h[0]);
 	if is_exception w then [
 		recover_world(old_w);
 		if packet_mode then [
@@ -635,7 +635,7 @@ fn curses_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(
 	msgqueue_send(curs.q, ev_tag_resize, ev);
 
 	curs.kbd_thread := event_get_keyboard(w, h[0], curs.tc, curs.loc, curs.q);
-	curs.resize_thread := event_get_resize(w, h[0], curs.q, x, y);
+	curs.resize_thread := event_get_resize(w, h[0], curs.q, x, y, ox, oy);
 	curs.suspend_thread := event_get_suspend(w, curs.q, sigtstp, stk);
 	curs.mouse_thread := event_get_mouse(w, h[0], curs.q);
 ]

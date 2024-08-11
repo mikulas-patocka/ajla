@@ -123,7 +123,7 @@ const key_to_termcap : list(int) := [
 ];
 
 fn event_get_keyboard~spark(w : world, h : handle, tc : termcap, loc : locale, q : msgqueue(event)) : bottom_type;
-fn event_get_resize~spark(w : world, h : handle, q : msgqueue(event), x y : int) : bottom_type;
+fn event_get_resize~spark(w : world, h : handle, q : msgqueue(event), x y ox oy : int) : bottom_type;
 fn event_get_suspend~spark(implicit w : world, q : msgqueue(event), sigtstp : shandle, stk : stoken) : bottom_type;
 fn event_get_mouse~spark(w : world, h : handle, q : msgqueue(event)) : bottom_type;
 fn event_wait_for_any_key(w : world, h : handle) : world;
@@ -731,7 +731,7 @@ fn event_get_keyboard~spark(implicit w : world, h : handle, tc : termcap, loc : 
 	return err;
 ]
 
-fn event_get_resize~spark(implicit w : world, h : handle, q : msgqueue(event), x y : int) : bottom_type
+fn event_get_resize~spark(implicit w : world, h : handle, q : msgqueue(event), x y ox oy : int) : bottom_type
 [
 	var os := sysprop(SystemProperty_OS);
 	if os = SystemProperty_OS_DOS or os = SystemProperty_OS_OS2 then
@@ -739,9 +739,9 @@ fn event_get_resize~spark(implicit w : world, h : handle, q : msgqueue(event), x
 	var sigwinch, stoken := signal_handle("SIGWINCH");
 	while true do [
 		stoken := signal_prepare(sigwinch);
-		var nx, ny := tty_size(h);
-		if nx <> x or ny <> y then [
-			x, y := nx, ny;
+		var nx, ny, nox, noy := tty_size(h);
+		if nx <> x or ny <> y or nox <> ox or noy <> oy then [
+			x, y, ox, oy := nx, ny, nox, noy;
 			var ev : event := event.resize.(event_resize.[ x : x, y : y ]);
 			var xev : event;
 			var xtag : int;

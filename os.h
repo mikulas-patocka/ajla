@@ -500,7 +500,7 @@ bool os_drives(char **drives, size_t *drives_l, ajla_error_t *err);
 bool os_tcgetattr(handle_t h, os_termios_t *t, ajla_error_t *err);
 bool os_tcsetattr(handle_t h, const os_termios_t *t, ajla_error_t *err);
 void os_tcflags(os_termios_t *t, int flags);
-bool os_tty_size(handle_t h, int *nx, int *ny, ajla_error_t *err);
+bool os_tty_size(handle_t h, int *nx, int *ny, int *ox, int *oy, ajla_error_t *err);
 const char *os_get_path_to_exe(void);
 
 ajla_time_t os_time_t_to_ajla_time(os_time_t sec);

@@ -2607,7 +2607,7 @@ ret_error:
 static void * attr_fastcall io_tty_size_handler(struct io_ctx *ctx)
 {
 	void *test;
-	int nx, ny;
+	int nx, ny, ox, oy;
 
 	test = io_deep_eval(ctx, "01", true);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
@@ -2615,7 +2615,7 @@ static void * attr_fastcall io_tty_size_handler(struct io_ctx *ctx)
 
 	io_get_handle(ctx, get_input(ctx, 1));
 
-	if (unlikely(!os_tty_size(ctx->handle->fd, &nx, &ny, &ctx->err))) {
+	if (unlikely(!os_tty_size(ctx->handle->fd, &nx, &ny, &ox, &oy, &ctx->err))) {
 		io_terminate_with_error(ctx, ctx->err, true, NULL);
 		return POINTER_FOLLOW_THUNK_EXCEPTION;
 	}
@@ -2624,6 +2624,12 @@ static void * attr_fastcall io_tty_size_handler(struct io_ctx *ctx)
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		return test;
 	io_store_typed_number(ctx, get_output(ctx, 2), int_default_t, INT_DEFAULT_N, int, ny);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
+	io_store_typed_number(ctx, get_output(ctx, 3), int_default_t, INT_DEFAULT_N, int, ox);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
+	io_store_typed_number(ctx, get_output(ctx, 4), int_default_t, INT_DEFAULT_N, int, oy);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		return test;
 

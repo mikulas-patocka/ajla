@@ -1922,7 +1922,7 @@ void os_tcflags(os_termios_t *t, int flags)
 		t->c_oflag |= OPOST;
 }
 
-bool os_tty_size(handle_t h, int *nx, int *ny, ajla_error_t *err)
+bool os_tty_size(handle_t h, int *nx, int *ny, int *ox, int *oy, ajla_error_t *err)
 {
 	int r;
 	struct winsize ws;
@@ -1937,6 +1937,9 @@ bool os_tty_size(handle_t h, int *nx, int *ny, ajla_error_t *err)
 
 	*nx = ws.ws_col;
 	*ny = ws.ws_row;
+	*ox = 0;
+	*oy = 0;
+
 	return true;
 }
 

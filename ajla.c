@@ -127,12 +127,10 @@ int main(int argc, const char * const argv[])
 	amalloc_done();
 	args_done();
 	error_done();
-
 #ifdef OS_OS2
 	r = DosUnsetExceptionHandler(&ex);
 	if (unlikely(r))
 		fatal("DosUnsetExceptionHandler failed: %ld", r);
 #endif
-
 	return retval;
 }

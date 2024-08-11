@@ -2677,7 +2677,7 @@ void os_tcflags(os_termios_t *t, int flags)
 	t->tc_flags = flags;
 }
 
-bool os_tty_size(handle_t h, int *nx, int *ny, ajla_error_t *err)
+bool os_tty_size(handle_t h, int *nx, int *ny, int *ox, int *oy, ajla_error_t *err)
 {
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
 
@@ -2704,6 +2704,8 @@ have_h:
 
 	*nx = csbi.srWindow.Right - csbi.srWindow.Left + 1;
 	*ny = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+	*ox = csbi.srWindow.Left;
+	*oy = csbi.srWindow.Top;
 
 	store_relaxed(&window_offset_x, csbi.srWindow.Left);
 	store_relaxed(&window_offset_y, csbi.srWindow.Top);
