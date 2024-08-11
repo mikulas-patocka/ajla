@@ -45,6 +45,9 @@
 #include <time.h>
 #include <sys/time.h>
 #include <sys/wait.h>
+#ifdef HAVE_SYS_SELECT_H
+#include <sys/select.h>
+#endif
 #ifdef HAVE_NETWORK
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -392,6 +395,14 @@ void attr_cold os_stop(void)
 #endif
 }
 
+static void u_sleep(unsigned us)
+{
+	struct timeval tv;
+	tv.tv_sec = us / 1000000;
+	tv.tv_usec = us % 1000000;
+	select(0, NULL, NULL, NULL, &tv);
+}
+
 void os_background(void)
 {
 #ifndef OS_DOS
@@ -411,17 +422,23 @@ void os_background(void)
 #endif
 	if (!p) {
 		while (1) {
-			struct timeval tv;
+			/*
+			 * Note that this is racy. If we send SIGCONT too
+			 * quickly, the ajla process will not be put to
+			 * background.
+			 */
+			u_sleep(100000);
 			kill(pa, SIGCONT);
-			tv.tv_sec = 0;
-			tv.tv_usec = 10000;
-			select(0, NULL, NULL, NULL, &tv);
 		}
 	}
 	os_unlock_fork(true);
 	if (p == -1)
 		return;
 	kill(pa, SIGSTOP);
+	/*
+	 * Another race - we must not send SIGKILL too quickly
+	 */
+	u_sleep(100000);
 	kill(p, SIGKILL);
 	EINTR_LOOP(r, waitpid(p, NULL, 0));
 #endif
