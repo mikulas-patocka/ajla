@@ -21,9 +21,13 @@
 #include "mem_al.h"
 #include "os.h"
 #include "os_util.h"
-#include "save.h"
 
 #include "builtin.h"
+
+#ifndef wake_up_wait_list
+void u_name(save_register_dependence)(const char *path_name);
+void c_name(save_register_dependence)(const char *path_name);
+#endif
 
 #include <fcntl.h>
 
@@ -203,7 +207,7 @@ bad_sig:
 	}
 	goto finalize;	/* avoid warning */
 finalize:
-	save_register_dependence(builtin_path);
+	call(save_register_dependence)(builtin_path);
 	mem_free(builtin_path);
 }
 
