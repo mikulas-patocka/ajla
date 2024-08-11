@@ -395,7 +395,7 @@ void attr_cold os_stop(void)
 #endif
 }
 
-static void u_sleep(unsigned us)
+static inline void u_sleep(unsigned us)
 {
 	struct timeval tv;
 	tv.tv_sec = us / 1000000;
