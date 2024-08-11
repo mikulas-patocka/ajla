@@ -2636,21 +2636,8 @@ free_ret:
 
 bool os_drives(char **drives, size_t *drives_l, ajla_error_t *err)
 {
-	/* copied in os_posix.c:os_drives */
 	unsigned mask = GetLogicalDrives();
-	if (unlikely(!array_init_mayfail(char, drives, drives_l, err)))
-		return false;
-	while (mask) {
-		char str[4] = " :\\";
-		unsigned bit = low_bit(mask);
-		mask &= ~(1U << bit);
-		str[0] = bit + 'A';
-		if (unlikely(str[0] > 'Z'))
-			break;
-		if (unlikely(!array_add_multiple_mayfail(char, drives, drives_l, str, 4, NULL, err)))
-			return false;
-	}
-	return true;
+	return os_drives_bitmap(mask, drives, drives_l, err);
 }
 
 

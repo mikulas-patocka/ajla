@@ -21,6 +21,24 @@
 #endif
 
 
+static inline bool os_drives_bitmap(uint32_t mask, char **drives, size_t *drives_l, ajla_error_t *err)
+{
+	if (unlikely(!array_init_mayfail(char, drives, drives_l, err)))
+		return false;
+	while (mask) {
+		char str[4] = " :\\";
+		unsigned bit = low_bit(mask);
+		mask &= ~(1U << bit);
+		str[0] = bit + 'A';
+		if (unlikely(str[0] > 'Z'))
+			break;
+		if (unlikely(!array_add_multiple_mayfail(char, drives, drives_l, str, 4, NULL, err)))
+			return false;
+	}
+	return true;
+}
+
+
 #if defined(HAVE_NETWORK) || defined(OS_OS2) || defined(OS_WIN32)
 
 static int translate_flags(int (*x)(int idx, ajla_error_t *err), int flags, ajla_error_t *err)
@@ -88,6 +106,7 @@ static unsigned char *os_get_ajla_addr(struct sockaddr *sa, socklen_t *addr_len,
 }
 
 #endif
+
 
 static const uint8_t month_days[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 
