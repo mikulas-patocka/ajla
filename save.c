@@ -1139,7 +1139,7 @@ static void save_load_cache(void)
 			goto skip_mmap;
 		}
 		if (unlikely(ptr != file_desc.base))
-			internal(file_line, "save_init: os_mmap(MAP_FIXED) returned different pointer: %p != %p", ptr, file_desc.base);
+			internal(file_line, "save_load_cache: os_mmap(MAP_FIXED) returned different pointer: %p != %p", ptr, file_desc.base);
 		loaded_data = ptr;
 		loaded_data_amalloc = true;
 #endif
@@ -1203,7 +1203,7 @@ verify_ret:
 			if (i > 0) {
 				int c = function_compare(loaded_file_descriptor->fn_descs[i - 1].md, loaded_file_descriptor->fn_descs[i - 1].fd, &loaded_file_descriptor->fn_descs[i]);
 				if (unlikely(c >= 0))
-					internal(file_line, "save_init: misordered function descriptors: %d (%"PRIuMAX" / %"PRIuMAX")", c, (uintmax_t)i, (uintmax_t)loaded_file_descriptor->fn_descs_len);
+					internal(file_line, "save_load_cache: misordered function descriptors: %d (%"PRIuMAX" / %"PRIuMAX")", c, (uintmax_t)i, (uintmax_t)loaded_file_descriptor->fn_descs_len);
 			}
 			k = (size_t)da(dsc,saved_cache)->n_arguments + (size_t)da(dsc,saved_cache)->n_return_values;
 			if (da(dsc,saved_cache)->n_entries) {
@@ -1212,7 +1212,7 @@ verify_ret:
 					pointer_t *p2 = &da(dsc,saved_cache)->pointers[(j + 1) * k];
 					int c = compare_arguments(da(dsc,saved_cache)->n_arguments, p1, p2);
 					if (unlikely(c >= 0) && c != DATA_COMPARE_OOM)
-						internal(file_line, "save_init: misordered cache entries: %d", c);
+						internal(file_line, "save_load_cache: misordered cache entries: %d", c);
 				}
 			}
 		}
