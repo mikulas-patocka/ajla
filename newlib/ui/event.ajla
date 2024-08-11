@@ -767,6 +767,13 @@ fn event_get_suspend~spark(implicit w : world, q : msgqueue(event), sigtstp : sh
 	   os = SystemProperty_OS_OS2 or
 	   os = SystemProperty_OS_Windows then
 		abort;
+	if os = SystemProperty_OS_Cygwin then [
+		while true do [
+			signal_wait(sigtstp, stk);
+			stk := signal_prepare(sigtstp);
+			xeval w;
+		]
+	]
 	while true do [
 		signal_wait(sigtstp, stk);
 		msgqueue_send(q, ev_tag_suspend, event.suspend);
