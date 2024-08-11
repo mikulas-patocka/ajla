@@ -1032,7 +1032,8 @@ have_d:
 			recover_world(w2);
 			continue;
 		]
-		if st[0] > 0 then
+		//eval debug(q + " " + ntos(st[0]));
+		if st[0] > 2 then
 			result +<= q;
 	]
 	result := list_sort(result);
