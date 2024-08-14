@@ -79,7 +79,6 @@ fn ffi_number_to_handle(w : world, n : int, sckt : bool) : (world, handle);
 
 fn ffi_create_function(filename : bytes, funcname : bytes, err_type : ffi_error, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : ffi_function;
 fn ffi_call_function(w : world, desc : list(ffi_destructor), func : ffi_function, args : list(int)) : (world, int, int);
-fn ffi_call_function_pure(desc : list(ffi_destructor), func : ffi_function, args : list(int)) : (int, int);
 
 fn ffi_encode_float(f : real32) : int;
 fn ffi_encode_double(f : real64) : int;
@@ -191,15 +190,6 @@ fn ffi_call_function(w : world, desc : list(ffi_destructor), func : ffi_function
 	var w2 : world;
 	pcode IO IO_FFI_Call_Function 3 4 0 =w2 =r =e w func args desc;
 	return w2, r, e;
-]
-
-fn ffi_call_function_pure(desc : list(ffi_destructor), func : ffi_function, args : list(int)) : (int, int)
-[
-	var r e : int;
-	var w := unsafe_get_world;
-	var w2 : world;
-	pcode IO IO_FFI_Call_Function 3 4 0 =w2 =r =e w func args desc;
-	return r, e;
 ]
 
 fn ffi_encode_float(f : real32) : int
