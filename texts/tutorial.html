@@ -1919,11 +1919,12 @@ fn main
 	var str := "Hello World!" + nl;
 	var destr := ffi_destructor_new();
 	var message := ffi_destructor_allocate(destr, len(str), 1, false);
-	ffi_poke_array(destr, message, str);
+	ffi_poke_array(message, str);
 	var wrt := ffi_create_function("", "write", ffi_error.e_errno, 3,
 		ffi_type.t_ssize, [ffi_type.t_sint, ffi_type.t_pointer, ffi_type.t_usize ]);
 	var xh := ffi_handle_to_number(destr, h[1]);
-	var r, e := ffi_call_function([ destr ], wrt, [ xh, message, len(str) ]);
+	var r, e := ffi_call_function(wrt, [ xh, message, len(str) ]);
+	ffi_destructor_destroy(destr);
 	if r = -1 then [
 		write(h[2], "error " + ntos(e) + " occurred" + nl);
 		exit(1);
@@ -1935,8 +1936,10 @@ fn main
 </pre>
 Ajla functions may be terminated any time, so in order to reliably free memory,
 the FFI interface introduces so-called destructors. The destructor may contain
-function calls and/or allocated memory. When the destructor variable is freed,
-the stored calls are performed and then the allocated memory is freed.
+function calls and/or file handles and/or allocated memory. When the destructor
+variable is freed, the stored calls are performed and then the allocated memory
+is freed and the associated file handles are closed (if no one else refers to
+them).
 <dl>
 <dt><code>var str := "Hello World!" + nl;</code>
 <dd>The string to be written.
@@ -1950,7 +1953,7 @@ allocated memory. <code>len(str)</code> is the size of the allocated memory,
 <code>1</code> is the alignment of the memory, <code>false</code> specifies that
 the memory doesn't have to be cleared. When the <code>destr</code> variable is
 freed, the allocated memory is automatically freed as well.
-<dt><code>ffi_poke_array(destr, message, str);</code>
+<dt><code>ffi_poke_array(message, str);</code>
 <dd>This copies the string to the pointer returned by the previous function.
 Note that the function <code>ffi_poke_array</code> may be used to overwrite
 arbitrary memory in the process.
@@ -1967,10 +1970,19 @@ arguments &mdash; the first argument has type signed integer, the second
 argument has type pointer, the third argument has type unsigned size_t.
 <dt><code>var xh := ffi_handle_to_number(destr, h[1]);</code>
 <dd>This statement converts an Ajla handle to a system handle. The result will
-be "1" because we are writing to the standard output.
-<dt><code>var r, e := ffi_call_function([ destr ], wrt, [ xh, message, len(str)
-]);</code> <dd>Call the "<code>write</code>" function, <code>r</code> is the
-return value, <code>e</code> is the <code>errno</code> value.
+be "1" because we are writing to the standard output. A reference to the handle
+is stored in the destructor, so that it will be dropped when the destructor is
+dropped.
+<dt><code>var r, e := ffi_call_function(wrt, [ xh, message, len(str)
+]);</code>
+<dd>Call the "<code>write</code>" function, <code>r</code> is the return value,
+<code>e</code> is the <code>errno</code> value.
+<dt><code>ffi_destructor_destroy(destr);</code>
+<dd>This function indicates that the <code>destr</code> variable should be freed
+at this point. If we didn't use <code>ffi_destructor_destroy(destr)</code>, the
+<code>destr</code> variable would be freed when it goes out of scope (i.e. after
+the call to <code>ffi_handle_to_number</code>) and the function
+<code>ffi_call_function</code> would access invalid memory and invalid handle.
 <dt>if r = -1 then ...
 <dd>The rest of the program prints an error if the write failed.
 </dl>
