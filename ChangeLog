@@ -1,3 +1,24 @@
+=== RELEASE 0.1.3 ===
+
+Implement API for signal handling.
+
+Support Ctrl-Z for suspending text-mode applications.
+
+Invalidate cached compilations when builtin.pcd changes.
+
+Implement API for listing mount points.
+
+Fix failure on NetBSD when walking the kernfs mount point, because it doesn't
+support kqueue.
+
+Introduce a "vselect" widget that displays vertical list of entries.
+
+Incompatible FFI changes:
+- Change the FFI interface, so that the destructor is freed explictly with
+  ffi_destructor_destroy.
+- Delete the function ffi_call_function_pure - ffi_unsafe_get_world and
+  ffi_call_function should be used instead.
+
 === RELEASE 0.1.2 ===
 
 Fix a bug that the tag bit was not checked on the second argument of
@@ -16,7 +37,7 @@ Introduce stdlib/mutex.ajla
 
 Fix crashes on alpha, loongarch64, mips.
 
-Imcompatible change: Fix misdesigned FFI interface - we need to pass the
+Incompatible change: Fix misdesigned FFI interface - we need to pass the
 destructor to the functions that manipulate memory allocated from the
 destructor, so that the destructor is not freed prematurely. Previously, the
 "keep" statement was used for this purpose, but it is not reliable.
