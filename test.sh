@@ -37,6 +37,7 @@ targets=" 				\
 	powerpc64le-linux-gnu		\
 	riscv64-linux-gnu		\
 	s390x-linux-gnu			\
+	sh4-linux-gnu			\
 	sparc64-linux-gnu		\
 	x86_64-linux-gnu		\
 "
