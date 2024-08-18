@@ -54,6 +54,7 @@ fn test~inline(implicit w : world, implicit p : prng_state, h : list(handle), t 
 		fmod(v1, v2),
 		next_number(v1),
 		prev_number(v1),
+		round(v1),
 	];
 	var ff := [
 		f1 + f2,
@@ -63,6 +64,7 @@ fn test~inline(implicit w : world, implicit p : prng_state, h : list(handle), t 
 		fmod(f1, f2),
 		next_number(f1),
 		prev_number(f1),
+		round(f1),
 	];
 
 	vv := map(vv, xlate_exception(c, ));
@@ -72,7 +74,7 @@ fn test~inline(implicit w : world, implicit p : prng_state, h : list(handle), t 
 		var mismatch := is_negative vv[i] <> is_negative ff[i];
 		mismatch or= is_infinity vv[i] <> is_infinity ff[i];
 		if not mismatch then [
-			if i < 7 then [
+			if i < 8 then [
 				mismatch := vv[i] <> ff[i];
 			] else [
 				var diff := vv[i] - ff[i];
