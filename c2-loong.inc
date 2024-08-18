@@ -103,6 +103,8 @@
 #define LOONG_FFINT_S_L		0x011d1800U
 #define LOONG_FFINT_D_W		0x011d2000U
 #define LOONG_FFINT_D_L		0x011d2800U
+#define LOONG_FRINT_S		0x011e4400U
+#define LOONG_FRINT_D		0x011e4800U
 #define LOONG_SLTI		0x02000000U
 #define LOONG_SLTUI		0x02400000U
 #define LOONG_ADDI_W		0x02800000U
@@ -635,6 +637,7 @@ static bool attr_w cgen_fp_alu1(struct codegen_context *ctx, unsigned op_size, u
 	switch (aux) {
 		case FP_ALU1_NEG:	mc = op_size == OP_SIZE_4 ? LOONG_FNEG_S : LOONG_FNEG_D; break;
 		case FP_ALU1_SQRT:	mc = op_size == OP_SIZE_4 ? LOONG_FSQRT_S : LOONG_FSQRT_D; break;
+		case FP_ALU1_ROUND:	mc = op_size == OP_SIZE_4 ? LOONG_FRINT_S : LOONG_FRINT_D; break;
 		default:		internal(file_line, "cgen_fp_alu1: invalid alu %u", aux);
 	}
 	cgen_2r(mc, arg1[0] & 0x1f, arg2[0] & 0x1f);

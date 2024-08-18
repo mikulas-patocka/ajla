@@ -5619,6 +5619,7 @@ do_alu:
 #elif defined(ARCH_IA64)
 		&& !(fp_alu == FP_ALU1_SQRT)
 		&& !(fp_alu == FP_ALU1_ROUND)
+#elif defined(ARCH_LOONGARCH64)
 #elif defined(ARCH_MIPS)
 		&& !(fp_alu == FP_ALU1_SQRT && !MIPS_HAS_SQRT)
 		&& !(fp_alu == FP_ALU1_ROUND)
