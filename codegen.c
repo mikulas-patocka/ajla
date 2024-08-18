@@ -5615,6 +5615,7 @@ do_alu:
 #elif defined(ARCH_ALPHA)
 		&& !(fp_alu == FP_ALU1_SQRT && !cpu_test_feature(CPU_FEATURE_fix))
 		&& !(fp_alu == FP_ALU1_ROUND)
+#elif defined(ARCH_ARM64)
 #elif defined(ARCH_IA64)
 		&& !(fp_alu == FP_ALU1_SQRT)
 		&& !(fp_alu == FP_ALU1_ROUND)

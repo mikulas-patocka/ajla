@@ -83,6 +83,7 @@
 #define ARM64_FP_ALU1		0x1e204000U
 #define  ARM64_FP_ALU1_NEG		0x00010000U
 #define  ARM64_FP_ALU1_SQRT		0x00018000U
+#define  ARM64_FP_ALU1_RINTN		0x00040000U
 #define  ARM64_FP_ALU1_SINGLE		0x00000000U
 #define  ARM64_FP_ALU1_DOUBLE		0x00400000U
 #define  ARM64_FP_ALU1_HALF		0x00c00000U
@@ -877,6 +878,7 @@ static bool attr_w cgen_fp_alu1(struct codegen_context *ctx, unsigned op_size, u
 	switch (aux) {
 		case FP_ALU1_NEG:	mc = ARM64_FP_ALU1 | ARM64_FP_ALU1_NEG; break;
 		case FP_ALU1_SQRT:	mc = ARM64_FP_ALU1 | ARM64_FP_ALU1_SQRT; break;
+		case FP_ALU1_ROUND:	mc = ARM64_FP_ALU1 | ARM64_FP_ALU1_RINTN; break;
 		case FP_ALU1_VCNT8:	mc = ARM64_CNT; goto do_regs;
 		case FP_ALU1_ADDV:	mc = ARM64_ADDV; goto do_regs;
 		default:		internal(file_line, "cgen_fp_alu1: invalid alu %u", aux);
