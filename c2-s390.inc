@@ -222,6 +222,10 @@ typedef uint64_t it;
 #define S390_MEEB		0xed0000000017ULL
 #define S390_MDB		0xed000000001cULL
 
+#define S390_FIEBR		0xb35700000000ULL
+#define S390_FIDBR		0xb35f00000000ULL
+#define S390_FIXBR		0xb34700000000ULL
+
 #define S390_CEFBR		0xb39400000000ULL
 #define S390_CDFBR		0xb39500000000ULL
 #define S390_CXFBR		0xb39600000000ULL
@@ -450,9 +454,10 @@ static const struct fp_alu fp_alus[4] = {
 	{ S390_DEBR, S390_DDBR, S390_DXBR, S390_DEB, S390_DDB },
 };
 
-static const struct fp_alu fp_alu1s[2] = {
+static const struct fp_alu fp_alu1s[3] = {
 	{ S390_LCEBR, S390_LCDBR, S390_LCXBR, -1, -1 },
 	{ S390_SQEBR, S390_SQDBR, S390_SQXBR, S390_SQEB, S390_SQDB },
+	{ S390_FIEBR | 0x40000000, S390_FIDBR | 0x40000000, S390_FIXBR | 0x40000000, -1, -1 },
 };
 
 static const struct fp_alu fp_cmp = {

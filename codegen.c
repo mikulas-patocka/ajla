@@ -5628,6 +5628,7 @@ do_alu:
 #elif defined(ARCH_POWER)
 		&& !(fp_alu == FP_ALU1_SQRT && (!cpu_test_feature(CPU_FEATURE_p2) || real_type == 4))
 		&& !(fp_alu == FP_ALU1_ROUND)
+#elif defined(ARCH_S390)
 #else
 		&& !(fp_alu == FP_ALU1_ROUND)
 #endif
