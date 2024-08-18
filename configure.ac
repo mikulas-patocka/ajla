@@ -832,17 +832,18 @@ AC_TRY_RUN([
 	volatile float a = HUGE_VAL;
 	volatile __fp16 b;
 
-	static void store0(__fp16 *fp)
+	static __fp16 store0(__fp16 *fp, __fp16 arg)
 	{
 		*fp = 0;
+		return arg;
 	}
 
-	void (*volatile ptr_store0)(__fp16 *) = store0;
+	__fp16 (*volatile ptr_store0)(__fp16 *, __fp16) = store0;
 
 	int main(void)
 	{
 		__fp16 f;
-		ptr_store0(&f);
+		ptr_store0(&f, 0);
 		b = (__fp16)a;
 		return !(f == 0 && b == HUGE_VAL);
 	}
@@ -859,17 +860,18 @@ if test "$ac_cv_have___fp16" = no; then
 		volatile float a = HUGE_VAL;
 		volatile __fp16 b;
 
-		static void store0(__fp16 *fp)
+		static __fp16 store0(__fp16 *fp, __fp16 arg)
 		{
 			*fp = 0;
+			return arg;
 		}
 
-		void (*volatile ptr_store0)(__fp16 *) = store0;
+		__fp16 (*volatile ptr_store0)(__fp16 *, __fp16) = store0;
 
 		int main(void)
 		{
 			__fp16 f;
-			ptr_store0(&f);
+			ptr_store0(&f, 0);
 			b = (__fp16)a;
 			return !(f == 0 && b == HUGE_VAL);
 		}
