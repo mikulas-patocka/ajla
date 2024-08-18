@@ -142,7 +142,7 @@ typedef unsigned __int128 uint128_t;
 float half_to_float(uint16_t x);
 uint16_t float_to_half(float x);
 
-#if FLT_RAFIX == 2 && (defined(HAVE___FP16) || defined(HAVE__FLOAT16)) && \
+#if FLT_RADIX == 2 && (defined(HAVE___FP16) || defined(HAVE__FLOAT16)) && \
 	!(defined(__ARM_FP) && !defined(__ARM_FP16_FORMAT_IEEE)) && \
 	!(defined(ARCH_ARM32) && CLANG_ATLEAST(5,0,0))	/* clang 5, 6, 7 fail fp16 bist */
 #define TEST_HALF_FLOAT_CONVERSION
