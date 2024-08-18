@@ -149,7 +149,7 @@
 #define X86_0F_38_CVTPH2PS_X128_RM64	0x13
 
 #define X86_0F_3A_ROUNDSS_X128_M32	0x0a
-#define X86_0F_3A_ROUNDSD_X128_M32	0x0b
+#define X86_0F_3A_ROUNDSD_X128_M64	0x0b
 #define X86_0F_3A_PEXTRW_RM16_X128_IMM8	0x15
 #define X86_0F_3A_CVTPS2PH_RM64_X128	0x1d
 
@@ -1073,11 +1073,13 @@ static bool attr_w cgen_sse_alu1(struct codegen_context *ctx, unsigned size, uns
 		case FP_ALU1_ROUND:	sse_pfx = SSE_PREFIX_66;
 					sse_op_map = PREFIX_0F_3A;
 					if (size == OP_SIZE_4) {
-						opcode = X86_0F_3A_ROUNDSS_X128_M32; break;
+						opcode = X86_0F_3A_ROUNDSS_X128_M32;
 					} else if (size == OP_SIZE_8) {
-						opcode = X86_0F_3A_ROUNDSD_X128_M32; break;
+						opcode = X86_0F_3A_ROUNDSD_X128_M64;
+					} else {
+						goto fail;
 					}
-					/*-fallthrough*/
+					break;
 		fail:
 		default:		internal(file_line, "cgen_sse_alu1: invalid alu %u, %u", alu, size);
 	}
