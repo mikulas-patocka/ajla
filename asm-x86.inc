@@ -51,6 +51,11 @@
 #define dynamic_test		(likely(cpu_test_feature(CPU_FEATURE_sse2)) && likely(cpuid_1[2] & (1U << 0)))
 #include "asm-1.inc"
 
+#define feature_name		sse41
+#define static_test_sse41	(__SSE4_1__)
+#define dynamic_test		(likely(cpu_test_feature(CPU_FEATURE_sse2)) && likely(cpuid_1[2] & (1U << 19)))
+#include "asm-1.inc"
+
 #define feature_name		avx
 #define static_test_avx		(__AVX__)
 #define dynamic_test		(likely(cpu_test_feature(CPU_FEATURE_sse2)) && likely((cpuid_1[2] & (7U << 26)) == (7U << 26)) && likely(test_xcr0(6)))

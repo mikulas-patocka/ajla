@@ -148,6 +148,8 @@
 
 #define X86_0F_38_CVTPH2PS_X128_RM64	0x13
 
+#define X86_0F_3A_ROUNDSS_X128_M32	0x0a
+#define X86_0F_3A_ROUNDSD_X128_M32	0x0b
 #define X86_0F_3A_PEXTRW_RM16_X128_IMM8	0x15
 #define X86_0F_3A_CVTPS2PH_RM64_X128	0x1d
 
@@ -176,6 +178,8 @@
 #define  X87_FCHS_2				0xe0
 #define X87_FSQRT			0xd9
 #define  X87_FSQRT_2				0xfa
+#define X87_FRNDINT			0xd9
+#define  X87_FRNDINT_2				0xfc
 #define X87_FALU_ST_M64			0xdc
 #define X87_FALU_STi_ST			0xdc
 #define X87_FISTTP_M64			0xdd
@@ -1051,14 +1055,35 @@ static bool attr_w cgen_sse_alu(struct codegen_context *ctx, unsigned size, unsi
 static bool attr_w cgen_sse_alu1(struct codegen_context *ctx, unsigned size, unsigned alu)
 {
 	uint8_t opcode;
+	unsigned sse_pfx, sse_op_map;
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
 	switch (alu) {
-		case FP_ALU1_SQRT:	opcode = X86_0F_SQRTPS_X128_M32; break;
-		default:		internal(file_line, "cgen_sse_alu1: invalid alu %u", alu);
+		case FP_ALU1_SQRT:	if (size == OP_SIZE_4) {
+						sse_pfx = SSE_PREFIX_F3;
+					} else if (size == OP_SIZE_8) {
+						sse_pfx = SSE_PREFIX_F2;
+					} else {
+						goto fail;
+					}
+					sse_op_map = PREFIX_0F;
+					opcode = X86_0F_SQRTPS_X128_M32;
+					break;
+		case FP_ALU1_ROUND:	sse_pfx = SSE_PREFIX_66;
+					sse_op_map = PREFIX_0F_3A;
+					if (size == OP_SIZE_4) {
+						opcode = X86_0F_3A_ROUNDSS_X128_M32; break;
+					} else if (size == OP_SIZE_8) {
+						opcode = X86_0F_3A_ROUNDSD_X128_M32; break;
+					}
+					/*-fallthrough*/
+		fail:
+		default:		internal(file_line, "cgen_sse_alu1: invalid alu %u, %u", alu, size);
 	}
-	g(cgen_sse_insn(ctx, size == OP_SIZE_4 ? SSE_PREFIX_F3 : SSE_PREFIX_F2, PREFIX_0F, opcode, false, arg1[0], arg1[0], arg2));
+	g(cgen_sse_insn(ctx, sse_pfx, sse_op_map, opcode, false, arg1[0], arg1[0], arg2));
+	if (alu == FP_ALU1_ROUND)
+		cgen_one(0x04);
 	return true;
 }
 
@@ -1520,6 +1545,10 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		case INSN_X87_FSQRT:
 			cgen_one(X87_FSQRT);
 			cgen_one(X87_FSQRT_2);
+			return true;
+		case INSN_X87_FRNDINT:
+			cgen_one(X87_FRNDINT);
+			cgen_one(X87_FRNDINT_2);
 			return true;
 		case INSN_X87_FNSTSW:
 			if (unlikely(cget_one(ctx) != R_AX))
