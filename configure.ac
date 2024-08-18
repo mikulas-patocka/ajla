@@ -939,6 +939,26 @@ if test "$cf_have_fp16" = yes; then
 fi
 test "$cf_have_fp16" = yes && AC_DEFINE(HAVE___FP16, 1, Have __fp16)
 
+save_CFLAGS="$CFLAGS"
+CFLAGS="-fno-math-errno $CFLAGS"
+AC_CACHE_CHECK(for -fno-math-errno, ac_cv_have__fno_math_errno,
+AC_TRY_RUN([
+#include <errno.h>
+#include <math.h>
+
+	volatile double a = -1;
+
+	int main(void)
+	{
+		errno = 0;
+		a = sqrt(a);
+		return !!errno;
+	}
+], ac_cv_have__fno_math_errno=yes, ac_cv_have__fno_math_errno=no, ac_cv_have__fno_math_errno=unknown))
+if test "$ac_cv_have__fno_math_errno" != yes; then
+	CFLAGS="$save_CFLAGS"
+fi
+
 AC_CACHE_CHECK(if fmod is buggy, ac_cv_have_buggy_fmod,
 AC_TRY_RUN([
 #include <math.h>
