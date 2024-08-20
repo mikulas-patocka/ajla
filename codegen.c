@@ -5679,20 +5679,21 @@ do_alu:
 			gen_insn(INSN_X87_FRNDINT, op_size, 0, 0);
 			g(gen_frame_store_x87(ctx, INSN_X87_FSTP, op_size, slot_r));
 			return true;
-		} else {
-			internal(file_line, "gen_fp_alu1: invalid alu %u", fp_alu);
 		}
 	}
 #endif
 #ifdef SUPPORTED_FP_HALF_CVT
-	if ((SUPPORTED_FP_HALF_CVT >> real_type) & 1
-#if defined(ARCH_X86)
-		&& !(fp_alu == FP_ALU1_NEG)
-		&& !(fp_alu == FP_ALU1_ROUND && !cpu_test_feature(CPU_FEATURE_sse41))
-#else
-		&& !(fp_alu == FP_ALU1_ROUND)
+	if ((SUPPORTED_FP_HALF_CVT >> real_type) & 1 && (
+#if defined(ARCH_ARM32)
+		fp_alu == FP_ALU1_NEG ||
+		fp_alu == FP_ALU1_SQRT ||
+#elif defined(ARCH_ARM64)
+		true ||
+#elif defined(ARCH_X86)
+		fp_alu == FP_ALU1_SQRT ||
+		(fp_alu == FP_ALU1_ROUND && cpu_test_feature(CPU_FEATURE_sse41)) ||
 #endif
-		) {
+		false)) {
 		g(gen_frame_load(ctx, op_size, false, slot_1, 0, FR_SCRATCH_1));
 		gen_insn(INSN_FP_CVT, op_size, OP_SIZE_4, 0);
 		gen_one(FR_SCRATCH_1);
