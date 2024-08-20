@@ -163,8 +163,8 @@ Un_Log2
 Un_Log
 Un_Log10
 Un_Round
-Un_Ceil
 Un_Floor
+Un_Ceil
 Un_Trunc
 Un_Fract
 Un_Mantissa

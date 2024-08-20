@@ -151,8 +151,8 @@
 #define Un_Log				50
 #define Un_Log10			51
 #define Un_Round			52
-#define Un_Ceil				53
-#define Un_Floor			54
+#define Un_Floor			53
+#define Un_Ceil				54
 #define Un_Trunc			55
 #define Un_Fract			56
 #define Un_Mantissa			57

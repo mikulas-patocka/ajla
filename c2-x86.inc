@@ -1070,7 +1070,10 @@ static bool attr_w cgen_sse_alu1(struct codegen_context *ctx, unsigned size, uns
 					sse_op_map = PREFIX_0F;
 					opcode = X86_0F_SQRTPS_X128_M32;
 					break;
-		case FP_ALU1_ROUND:	sse_pfx = SSE_PREFIX_66;
+		case FP_ALU1_ROUND:
+		case FP_ALU1_FLOOR:
+		case FP_ALU1_CEIL:
+		case FP_ALU1_TRUNC:	sse_pfx = SSE_PREFIX_66;
 					sse_op_map = PREFIX_0F_3A;
 					if (size == OP_SIZE_4) {
 						opcode = X86_0F_3A_ROUNDSS_X128_M32;
@@ -1084,8 +1087,8 @@ static bool attr_w cgen_sse_alu1(struct codegen_context *ctx, unsigned size, uns
 		default:		internal(file_line, "cgen_sse_alu1: invalid alu %u, %u", alu, size);
 	}
 	g(cgen_sse_insn(ctx, sse_pfx, sse_op_map, opcode, false, arg1[0], arg1[0], arg2));
-	if (alu == FP_ALU1_ROUND)
-		cgen_one(0x04);
+	if (OP_IS_ROUND(alu))
+		cgen_one(alu - FP_ALU1_ROUND);
 	return true;
 }
 

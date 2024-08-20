@@ -201,8 +201,8 @@ typedef uint16_t code_t;
 #define OPCODE_REAL_OP_log			52
 #define OPCODE_REAL_OP_log10			53
 #define OPCODE_REAL_OP_round			54
-#define OPCODE_REAL_OP_ceil			55
-#define OPCODE_REAL_OP_floor			56
+#define OPCODE_REAL_OP_floor			55
+#define OPCODE_REAL_OP_ceil			56
 #define OPCODE_REAL_OP_trunc			57
 #define OPCODE_REAL_OP_fract			58
 #define OPCODE_REAL_OP_mantissa			59

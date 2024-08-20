@@ -118,9 +118,12 @@ static size_t codegen_size;
 #define FP_ALU1_NEG			0
 #define FP_ALU1_SQRT			1
 #define FP_ALU1_ROUND			2
-#define FP_ALU1_VCNT8			3
-#define FP_ALU1_VPADDL			4
-#define FP_ALU1_ADDV			5
+#define FP_ALU1_FLOOR			3
+#define FP_ALU1_CEIL			4
+#define FP_ALU1_TRUNC			5
+#define FP_ALU1_VCNT8			6
+#define FP_ALU1_VPADDL			7
+#define FP_ALU1_ADDV			8
 
 #define COND_O				0x0
 #define COND_NO				0x1
@@ -5582,6 +5585,8 @@ do_upcall:
 	return gen_alu_typed_upcall(ctx, upc, real_type, slot_1, slot_2, slot_r, label_ovf);
 }
 
+#define OP_IS_ROUND(alu)	((alu) == FP_ALU1_ROUND || (alu) == FP_ALU1_FLOOR || (alu) == FP_ALU1_CEIL || (alu) == FP_ALU1_TRUNC)
+
 static bool attr_w gen_fp_alu1(struct codegen_context *ctx, unsigned real_type, unsigned op, uint32_t label_ovf, frame_t slot_1, frame_t slot_r)
 {
 	unsigned attr_unused fp_alu;
@@ -5595,6 +5600,9 @@ static bool attr_w gen_fp_alu1(struct codegen_context *ctx, unsigned real_type, 
 		case OPCODE_REAL_OP_sqrt_alt1:
 		case OPCODE_REAL_OP_sqrt_alt2: fp_alu = FP_ALU1_SQRT; upc = offsetof(struct cg_upcall_vector_s, REAL_unary_sqrt_real16_t); label_ovf = 0; goto do_alu;
 		case OPCODE_REAL_OP_round: fp_alu = FP_ALU1_ROUND; upc = offsetof(struct cg_upcall_vector_s, REAL_unary_round_real16_t); label_ovf = 0; goto do_alu;
+		case OPCODE_REAL_OP_floor: fp_alu = FP_ALU1_FLOOR; upc = offsetof(struct cg_upcall_vector_s, REAL_unary_floor_real16_t); label_ovf = 0; goto do_alu;
+		case OPCODE_REAL_OP_ceil: fp_alu = FP_ALU1_CEIL; upc = offsetof(struct cg_upcall_vector_s, REAL_unary_ceil_real16_t); label_ovf = 0; goto do_alu;
+		case OPCODE_REAL_OP_trunc: fp_alu = FP_ALU1_TRUNC; upc = offsetof(struct cg_upcall_vector_s, REAL_unary_trunc_real16_t); label_ovf = 0; goto do_alu;
 		case OPCODE_REAL_OP_to_int:
 		case OPCODE_REAL_OP_to_int_alt1:
 		case OPCODE_REAL_OP_to_int_alt2: upc = offsetof(struct cg_upcall_vector_s, REAL_unary_to_int_real16_t); goto do_to_int;
@@ -5628,7 +5636,7 @@ do_alu:
 		(fp_alu == FP_ALU1_SQRT && MIPS_HAS_SQRT) ||
 #elif defined(ARCH_PARISC)
 		(fp_alu == FP_ALU1_NEG && PA_20) ||
-		fp_alu == FP_ALU1_ROUND ||
+		fp_alu == FP_ALU1_SQRT ||
 #elif defined(ARCH_POWER)
 		fp_alu == FP_ALU1_NEG ||
 		(fp_alu == FP_ALU1_SQRT && cpu_test_feature(CPU_FEATURE_p2) && real_type != 4) ||
@@ -5642,7 +5650,7 @@ do_alu:
 		fp_alu == FP_ALU1_SQRT ||
 #elif defined(ARCH_X86)
 		fp_alu == FP_ALU1_SQRT ||
-		(fp_alu == FP_ALU1_ROUND && cpu_test_feature(CPU_FEATURE_sse41)) ||
+		(OP_IS_ROUND(fp_alu) && cpu_test_feature(CPU_FEATURE_sse41)) ||
 #endif
 		false)) {
 #if defined(ARCH_S390)
@@ -5691,7 +5699,7 @@ do_alu:
 		true ||
 #elif defined(ARCH_X86)
 		fp_alu == FP_ALU1_SQRT ||
-		(fp_alu == FP_ALU1_ROUND && cpu_test_feature(CPU_FEATURE_sse41)) ||
+		(OP_IS_ROUND(fp_alu) && cpu_test_feature(CPU_FEATURE_sse41)) ||
 #endif
 		false)) {
 		g(gen_frame_load(ctx, op_size, false, slot_1, 0, FR_SCRATCH_1));

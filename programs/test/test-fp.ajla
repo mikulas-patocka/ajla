@@ -55,8 +55,8 @@ fn test~inline(implicit w : world, implicit p : prng_state, h : list(handle), t 
 		next_number(v1),
 		prev_number(v1),
 		round(v1),
-		ceil(v1),
 		floor(v1),
+		ceil(v1),
 		trunc(v1),
 	];
 	var ff := [
@@ -68,8 +68,8 @@ fn test~inline(implicit w : world, implicit p : prng_state, h : list(handle), t 
 		next_number(f1),
 		prev_number(f1),
 		round(f1),
-		ceil(f1),
 		floor(f1),
+		ceil(f1),
 		trunc(f1),
 	];
 
