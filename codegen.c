@@ -5608,32 +5608,43 @@ static bool attr_w gen_fp_alu1(struct codegen_context *ctx, unsigned real_type, 
 	}
 
 do_alu:
-	if ((SUPPORTED_FP >> real_type) & 1
-#if defined(ARCH_X86)
-		&& !(fp_alu == FP_ALU1_NEG)
-		&& !(fp_alu == FP_ALU1_ROUND && !cpu_test_feature(CPU_FEATURE_sse41))
-#elif defined(ARCH_ALPHA)
-		&& !(fp_alu == FP_ALU1_SQRT && !cpu_test_feature(CPU_FEATURE_fix))
-		&& !(fp_alu == FP_ALU1_ROUND)
+	if ((SUPPORTED_FP >> real_type) & 1 && (
+#if defined(ARCH_ALPHA)
+		fp_alu == FP_ALU1_NEG ||
+		(fp_alu == FP_ALU1_SQRT && cpu_test_feature(CPU_FEATURE_fix)) ||
+#elif defined(ARCH_ARM32)
+		fp_alu == FP_ALU1_NEG ||
+		fp_alu == FP_ALU1_SQRT ||
 #elif defined(ARCH_ARM64)
+		true ||
 #elif defined(ARCH_IA64)
-		&& !(fp_alu == FP_ALU1_SQRT)
-		&& !(fp_alu == FP_ALU1_ROUND)
+		fp_alu == FP_ALU1_NEG ||
 #elif defined(ARCH_LOONGARCH64)
+		fp_alu == FP_ALU1_NEG ||
+		fp_alu == FP_ALU1_SQRT ||
+		fp_alu == FP_ALU1_ROUND ||
 #elif defined(ARCH_MIPS)
-		&& !(fp_alu == FP_ALU1_SQRT && !MIPS_HAS_SQRT)
-		&& !(fp_alu == FP_ALU1_ROUND)
+		fp_alu == FP_ALU1_NEG ||
+		(fp_alu == FP_ALU1_SQRT && MIPS_HAS_SQRT) ||
 #elif defined(ARCH_PARISC)
-		&& !(fp_alu == FP_ALU1_NEG && !PA_20)
-		&& !(fp_alu == FP_ALU1_ROUND)
+		(fp_alu == FP_ALU1_NEG && PA_20) ||
+		fp_alu == FP_ALU1_ROUND ||
 #elif defined(ARCH_POWER)
-		&& !(fp_alu == FP_ALU1_SQRT && (!cpu_test_feature(CPU_FEATURE_p2) || real_type == 4))
-		&& !(fp_alu == FP_ALU1_ROUND)
+		fp_alu == FP_ALU1_NEG ||
+		(fp_alu == FP_ALU1_SQRT && cpu_test_feature(CPU_FEATURE_p2) && real_type != 4) ||
 #elif defined(ARCH_S390)
-#else
-		&& !(fp_alu == FP_ALU1_ROUND)
+		true ||
+#elif defined(ARCH_SPARC)
+		fp_alu == FP_ALU1_NEG ||
+		fp_alu == FP_ALU1_SQRT ||
+#elif defined(ARCH_RISCV64)
+		fp_alu == FP_ALU1_NEG ||
+		fp_alu == FP_ALU1_SQRT ||
+#elif defined(ARCH_X86)
+		fp_alu == FP_ALU1_SQRT ||
+		(fp_alu == FP_ALU1_ROUND && cpu_test_feature(CPU_FEATURE_sse41)) ||
 #endif
-		) {
+		false)) {
 #if defined(ARCH_S390)
 		if (op_size <= OP_SIZE_8 && (size_t)slot_1 * slot_size < 4096 && fp_alu == FP_ALU1_SQRT) {
 			g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
