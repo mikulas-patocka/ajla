@@ -20,6 +20,7 @@
 #define _LARGEFILE64_SOURCE	1
 #else
 #define _FILE_OFFSET_BITS	64
+#define _TIME_BITS		64
 #endif
 
 #ifdef __hpux
