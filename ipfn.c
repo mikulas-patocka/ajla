@@ -1209,7 +1209,9 @@ void * attr_fastcall ipret_call_cache(frame_s *fp, const code_t *ip, pointer_t *
 				frame_free_and_clear(fp, free_fn_slot);
 			}
 			if (unlikely(ctx.err.error_class != EC_NONE)) {
-				frame_set_pointer(fp, return_values[ai], pointer_error(ctx.err, NULL, NULL pass_file_line));
+				for (ai = 0; ai < n_return_values; ai++) {
+					frame_set_pointer(fp, return_values[ai], pointer_error(ctx.err, NULL, NULL pass_file_line));
+				}
 			} else {
 				for (ai = 0; ai < n_return_values; ai++) {
 					pointer_t ptr = pointer_reference(&results[ai]);
