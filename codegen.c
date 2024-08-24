@@ -9744,6 +9744,7 @@ again:
 		uint8_t *mcode = mem_alloc(uint8_t *, mcode_size);
 		memcpy(mcode, codegen_ptr, codegen_size);
 		memcpy(mcode + codegen_size, ctx->mcode, ctx->mcode_size);
+#if 0
 		if (!os_write_atomic(".", "dump.asm", cast_ptr(const char *, mcode), mcode_size, &ctx->err)) {
 			warning("dump failed");
 		}
@@ -9759,6 +9760,7 @@ again:
 			warning("dump failed");
 		}
 		mem_free(hex);
+#endif
 
 		str_init(&hex, &hexl);
 #if defined(ARCH_RISCV64)
