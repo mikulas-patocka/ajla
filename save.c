@@ -69,6 +69,7 @@ struct file_descriptor {
 	void *base;
 	cpu_feature_mask_t cpu_feature_flags;
 	char privileged;
+	char profiling;
 	char ajla_id[sizeof(id)];
 };
 
@@ -772,6 +773,7 @@ static void save_finish_file(void)
 	file_desc.base = num_to_ptr(0);
 	file_desc.cpu_feature_flags = cpu_feature_flags;
 	file_desc.privileged = ipret_is_privileged;
+	file_desc.profiling = profiling;
 	memcpy(file_desc.ajla_id, id, sizeof(id));
 
 	subptrs = mem_alloc_mayfail(struct stack_entry *, sizeof(struct stack_entry) * 3, &sink);
@@ -1104,6 +1106,7 @@ static void save_load_cache(void)
 	}
 	if (unlikely(file_desc.cpu_feature_flags != cpu_feature_flags) ||
 	    unlikely(file_desc.privileged != ipret_is_privileged) ||
+	    unlikely(file_desc.profiling != profiling) ||
 	    unlikely(memcmp(file_desc.ajla_id, id, sizeof(id)))) {
 		os_close(h);
 		return;

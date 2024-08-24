@@ -9176,6 +9176,8 @@ jump_over_arguments_and_return:
 #endif
 					get_code(ctx);
 				}
+				if (unlikely(profiling))
+					goto unconditional_escape;
 				if (code == OPCODE_CALL || code == OPCODE_CALL_STRICT) {
 					g(gen_call(ctx, code, fn_idx));
 					continue;
@@ -9201,6 +9203,8 @@ jump_over_arguments_and_return:
 			case OPCODE_RETURN: {
 				n_args = da(ctx->fn,function)->n_return_values;
 				load_args;
+				if (unlikely(profiling))
+					goto unconditional_escape;
 				g(gen_return(ctx));
 				continue;
 			}
