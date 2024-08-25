@@ -2045,6 +2045,9 @@ allocated at pcode.c:3298.
 check the source code for syntax errors. Without this switch, the program is
 being compiled as it runs and syntax errors in unused parts of the program are
 not reported.
+<dt><code>--nosave</code>
+<dd>Do not save and load compiled code. This option also inhibits saving and
+loading cache of functions with the <code>~save</code> specifier.
 <dt><code>--ptrcomp</code>
 <dd>Use pointer compression &mdash; pointers will have only 32 bits and the
 maximum allocatable memory is 32GiB. It reduces memory consumption slightly.

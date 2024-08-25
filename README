@@ -33,6 +33,7 @@ Ajla arguments:
 --debug=tls		- check correct usage of thread-local storage
 --debug=handles		- check correct usage of handles
 --debug=objects		- enable "mutex, cond, thread, tls, handles"
+--nosave	- do not save and load compiled code
 --profile	- enable all profiling
 --profile=function	- display functions that took most time
 --profile=escapes	- display files and lines where escape from compiled
