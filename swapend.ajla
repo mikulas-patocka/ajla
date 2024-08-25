@@ -1,0 +1,15 @@
+fn main
+[
+	var hr := ropen(d, args[0], 0);
+	var a := read_full(hr);
+	if native_to_int(native.n_int32, a[len(a) - 4 .. ]) = #616C6A41 then
+		return;
+	if native_to_int(native.n_int32, a[len(a) - 4 .. ]) <> #416A6C61 then
+		abort;
+	for i in range(0, len(a), 4) do [
+		a[i + 0], a[i + 3] := a[i + 3], a[i + 0];
+		a[i + 1], a[i + 2] := a[i + 2], a[i + 1];
+	]
+	var hw := wopen(d, args[0], open_flag_create, open_mode_read_all_users);
+	write(hw, a);
+]
