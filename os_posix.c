@@ -67,7 +67,7 @@
 #if defined(HAVE_SYS_MOUNT_H)
 #include <sys/mount.h>
 #endif
-#if defined(HAVE_LINUX_FS_H)
+#if defined(HAVE_LINUX_FS_H) && !defined(__TINYC__)
 #include <linux/fs.h>
 #endif
 
