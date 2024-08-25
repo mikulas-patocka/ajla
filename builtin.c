@@ -145,6 +145,7 @@ void builtin_init(void)
 	h = os_open(os_cwd, builtin_path, O_RDONLY, 0, &sink);
 	if (unlikely(handle_is_valid(h)))
 		goto found_builtin;
+	mem_free(builtin_path);
 
 #ifdef AJLA_LIB
 	builtin_lib_path = AJLA_LIB;
