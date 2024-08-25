@@ -24,8 +24,8 @@ if test "$1" = all; then
 fi
 rm -rf ~/.cache/ajla/ /tmp/ajla/
 if $ALL; then
-	./ajla "$@" scripts/charset/gen_charset8.ajla &
-	./ajla --privileged "$@" scripts/consts.ajla &
+	./ajla --nosave "$@" scripts/charset/gen_charset8.ajla &
+	./ajla --nosave --privileged "$@" scripts/consts.ajla &
 	wait
 	g++ -O2 -Wall -Wextra scripts/charset/widechar_width.c -o scripts/charset/widechar_width
 	scripts/charset/widechar_width >newlib/uni_table.ajla
@@ -33,10 +33,10 @@ if $ALL; then
 	rm -rf newcomp
 	mkdir newcomp
 	cp -a newlib/compiler newlib/pcode.ajla newlib/ex_codes.ajla newcomp
-	./ajla --privileged "$@" selfopt-all.ajla
+	./ajla --nosave --privileged "$@" selfopt-all.ajla
 	rm -rf newcomp
 else
-	./ajla --privileged "$@" selfopt.ajla
+	./ajla --nosave --privileged "$@" selfopt.ajla
 fi
 rm -rf stdlib
 cp -r newlib stdlib

@@ -38,6 +38,8 @@
 #define USE_MMAP
 #endif
 
+shared_var bool save_disable shared_init(false);
+
 static const char id[] = "AJLA" " " __DATE__ " " __TIME__;
 
 static bool save_ok;
@@ -339,7 +341,7 @@ void save_prepare(void)
 {
 	ajla_error_t sink;
 	save_data = NULL;
-	save_ok = true;
+	save_ok = !save_disable;
 	last_md = (size_t)-1;
 	tree_init(&position_tree);
 	pointers = NULL;
@@ -1062,6 +1064,9 @@ static void save_load_cache(void)
 	handle_t h;
 	os_stat_t st;
 	struct file_descriptor file_desc;
+
+	if (unlikely(save_disable))
+		return;
 
 	path = os_get_directory_cache(&sink);
 	if (unlikely(!path))

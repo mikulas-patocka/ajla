@@ -27,6 +27,7 @@
 #include "task.h"
 #include "os.h"
 #include "ipfn.h"
+#include "save.h"
 
 #include "args.h"
 
@@ -92,6 +93,11 @@ static void ipret_set_compile(const char attr_unused *str)
 	ipret_compile = true;
 }
 
+static void set_nosave(const char attr_unused *str)
+{
+	save_disable = true;
+}
+
 #define ARG_SWITCH	0
 #define ARG_STRING	1
 #define ARG_NUMBER	2
@@ -109,6 +115,7 @@ static const struct arg args[] = {
 	{ "--compile",			ARG_SWITCH,	ipret_set_compile,		NULL,			0, 0 },
 	{ "--debug",			ARG_SWITCH,	debug_all,			NULL,			0, 0 },
 	{ "--debug=",			ARG_STRING,	debug_select,			NULL,			0, 0 },
+	{ "--nosave",			ARG_SWITCH,	set_nosave,			NULL,			0, 0 },
 	{ "--privileged",		ARG_SWITCH,	ipret_set_privileged,		NULL,			0, 0 },
 	{ "--profile",			ARG_SWITCH,	profile_all,			NULL,			0, 0 },
 	{ "--profile=",			ARG_STRING,	profile_select,			NULL,			0, 0 },

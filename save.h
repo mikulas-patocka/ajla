@@ -29,6 +29,8 @@
 #define save_find_function_descriptor	name(save_find_function_descriptor)
 #define save_register_dependence	name(save_register_dependence)
 
+extern bool save_disable;
+
 void save_prepare(void);
 void save_start_function(struct data *d, bool new_cache);
 void save_cache_entry(struct data *d, struct cache_entry *ce);
