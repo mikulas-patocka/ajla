@@ -645,15 +645,17 @@ fn dump_basic_blocks(ctx : context, dump_it : bool) : list(pcode_t)
 
 		if dump_it then
 			eval debug("process block from worklist " + ntos(bgi));
+
+		if bgi = 0 then
+			goto process_block_no_label;
 process_block:
+		rpc +<= P_Label;
+		rpc +<= 1;
+		rpc +<= bgi - 1;
+		if dump_it then
+			eval debug("generate label " + ntos(bgi - 1));
+process_block_no_label:
 		worklist btr= bgi;
-		if bgi <> 0 then [
-			rpc +<= P_Label;
-			rpc +<= 1;
-			rpc +<= bgi - 1;
-			if dump_it then
-				eval debug("generate label " + ntos(bgi - 1));
-		]
 
 		var block := ctx.blocks[bgi];
 		for ili := 0 to len(block.instrs) do [
@@ -739,6 +741,8 @@ process_block:
 		bgi := next_bgi;
 		if dump_it then
 			eval debug("process following block " + ntos(bgi));
+		if len(ctx.blocks[bgi].pred_list) <= 1 then
+			goto process_block_no_label;
 		goto process_block;
 	]
 	return rpc;
