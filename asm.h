@@ -34,9 +34,11 @@ enum {
 
 enum {
 cpu_feature_static_flags = 0
+#ifndef DEBUG_ENV
 #define ASM_INC_STATIC
 #include "asm.inc"
 #undef ASM_INC_STATIC
+#endif
 };
 
 #define cpu_feature_mask(feature)	((cpu_feature_mask_t)1 << (feature))

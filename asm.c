@@ -706,6 +706,17 @@ void asm_init(void)
 		str_finish(&error, &error_l);
 		fatal("%s", error);
 	}
+#ifdef DEBUG_ENV
+	{
+		char *str = getenv("CPU_FLAGS");
+		if (str && *str) {
+			char *e;
+			cpu_feature_flags = strtoul(str, &e, 16);
+			if (unlikely(*e))
+				fatal("invalid CPU_FLAGS");
+		}
+	}
+#endif
 #ifdef DEBUG_INFO
 	debug("static flags:  %x", cpu_feature_static_flags);
 	debug("dynamic flags: %x", cpu_feature_flags);
