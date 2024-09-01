@@ -2772,10 +2772,11 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 						break;
 					}
 				}
-#endif
+#else
 				if (ctx->labels[res] != no_label)
 					if (unlikely(!gen_checkpoint(ctx, INIT_ARG_MODE)))
 						goto exception;
+#endif
 				gen_code(OPCODE_JMP);
 				gen_relative_jump(res, SIZEOF_IP_T);
 				break;
