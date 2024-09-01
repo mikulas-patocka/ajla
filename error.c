@@ -167,7 +167,7 @@ static attr_noreturn attr_cold force_dump(void)
 static void attr_cold print_msg(FILE *f, const char *m, va_list l, const char *pfx, ...)
 {
 	va_list pfx_l;
-	char buffer[4096];
+	char attr_unused buffer[4096];
 #ifdef OS_OS2
 	if (f == stderr) {
 		size_t i, j;
