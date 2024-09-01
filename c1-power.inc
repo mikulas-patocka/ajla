@@ -218,7 +218,7 @@
 #define FR_SCRATCH_2			(real_type == 4 ? R_VS33 : R_F1)
 #define FR_SCRATCH_3			(real_type == 4 ? R_VS34 : R_F2)
 
-#define SUPPORTED_FP			(0x6 + cpu_test_feature(CPU_FEATURE_v30) * 0x10)
+#define SUPPORTED_FP			(cpu_test_feature(CPU_FEATURE_ppc) * 0x2 + 0x4 + cpu_test_feature(CPU_FEATURE_v30) * 0x10)
 
 static bool reg_is_fp(unsigned reg)
 {

@@ -868,7 +868,7 @@ static bool attr_w cgen_fp_cmp(struct codegen_context *ctx, unsigned attr_unused
 
 static bool attr_w cgen_fp_alu(struct codegen_context *ctx, unsigned op_size, unsigned aux)
 {
-	bool use_s = op_size == OP_SIZE_4 && cpu_test_feature(CPU_FEATURE_ppc);
+	bool use_s = op_size == OP_SIZE_4;
 	bool use_vs = op_size == OP_SIZE_16;
 	uint32_t mc;
 	uint8_t *arg1 = ctx->code_position;

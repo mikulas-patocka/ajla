@@ -139,7 +139,7 @@
 #define FR_SCRATCH_1	R_FA0
 #define FR_SCRATCH_2	R_FA1
 
-#define SUPPORTED_FP	6
+#define SUPPORTED_FP	0x6
 
 #define FRAME_SIZE	0x30
 
