@@ -1966,18 +1966,32 @@ dont_optimize:
 	return true;
 }
 
+static inline bool flag_is_clear(struct codegen_context *ctx, frame_t slot)
+{
+	if (!flag_cache_chicken && ctx->flag_cache[slot] == -1)
+		return true;
+	return false;
+}
+
+static inline bool flag_is_set(struct codegen_context *ctx, frame_t slot)
+{
+	if (!flag_cache_chicken && ctx->flag_cache[slot] == 1)
+		return true;
+	return false;
+}
+
 static bool attr_w gen_test_1_cached(struct codegen_context *ctx, frame_t slot_1, uint32_t label)
 {
-	if (!flag_cache_chicken && ctx->flag_cache[slot_1] == -1)
+	if (flag_is_clear(ctx, slot_1))
 		return true;
 	return gen_test_1(ctx, R_FRAME, slot_1, 0, label, false, TEST);
 }
 
 static bool attr_w gen_test_2_cached(struct codegen_context *ctx, frame_t slot_1, frame_t slot_2, uint32_t label)
 {
-	if (!flag_cache_chicken && ctx->flag_cache[slot_1] == -1)
+	if (flag_is_clear(ctx, slot_1))
 		return gen_test_1_cached(ctx, slot_2, label);
-	if (!flag_cache_chicken && ctx->flag_cache[slot_2] == -1)
+	if (flag_is_clear(ctx, slot_2))
 		return gen_test_1_cached(ctx, slot_1, label);
 	return gen_test_2(ctx, slot_1, slot_2, label);
 }
@@ -1987,7 +2001,7 @@ static bool attr_w gen_test_1_jz_cached(struct codegen_context *ctx, frame_t slo
 	const struct type *type = get_type_of_local(ctx, slot_1);
 	if (!TYPE_IS_FLAT(type) && !da(ctx->fn,function)->local_variables_flags[slot_1].may_be_borrowed)
 		return true;
-	if (!flag_cache_chicken && ctx->flag_cache[slot_1] == 1)
+	if (flag_is_set(ctx, slot_1))
 		return true;
 	return gen_test_1(ctx, R_FRAME, slot_1, 0, label, true, TEST);
 }
@@ -2554,13 +2568,12 @@ static bool attr_w gen_frame_get_pointer(struct codegen_context *ctx, frame_t sl
 		skip_label = alloc_label(ctx);
 		if (unlikely(!skip_label))
 			return false;
-		if (!flag_cache_chicken && ctx->flag_cache[slot] == 1) {
+		if (flag_is_set(ctx, slot)) {
 			g(gen_set_1(ctx, R_FRAME, slot, 0, false));
 			goto move_it;
 		}
-		if (!flag_cache_chicken && ctx->flag_cache[slot] == -1) {
+		if (flag_is_clear(ctx, slot))
 			goto do_reference;
-		}
 		g(gen_test_1(ctx, R_FRAME, slot, 0, skip_label, false, TEST_CLEAR));
 do_reference:
 		g(gen_frame_load(ctx, OP_SIZE_SLOT, false, slot, 0, R_ARG0));
@@ -6238,13 +6251,12 @@ static bool attr_w gen_ref_move_copy(struct codegen_context *ctx, code_t code, f
 		uint32_t label_id;
 		if (unlikely(!(label_id = alloc_label(ctx))))
 			return false;
-		if (!flag_cache_chicken && ctx->flag_cache[slot_1] == 1) {
+		if (flag_is_set(ctx, slot_1)) {
 			g(gen_set_1(ctx, R_FRAME, slot_1, 0, false));
 			goto move_it;
 		}
-		if (!flag_cache_chicken && ctx->flag_cache[slot_1] == -1) {
+		if (flag_is_clear(ctx, slot_1))
 			goto do_reference;
-		}
 		g(gen_test_1(ctx, R_FRAME, slot_1, 0, label_id, false, TEST_CLEAR));
 do_reference:
 		g(gen_upcall_argument(ctx, 0));
@@ -6587,7 +6599,7 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 				g(gen_set_1(ctx, R_FRAME, dest_arg->slot, new_fp_offset, true));
 			}
 
-			if (!flag_cache_chicken && ctx->flag_cache[src_arg->slot] == -1)
+			if (flag_is_clear(ctx, src_arg->slot))
 				goto skip_ref_argument;
 
 			gen_insn(INSN_JMP, 0, 0, 0);
@@ -6617,14 +6629,13 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 		g(gen_frame_store(ctx, OP_SIZE_SLOT, dest_arg->slot, new_fp_offset, R_ARG0));
 		if (src_arg->flags & OPCODE_FLAG_FREE_ARGUMENT) {
 			g(gen_frame_clear(ctx, OP_SIZE_SLOT, src_arg->slot));
-			if (!flag_cache_chicken && ctx->flag_cache[src_arg->slot] == 1) {
+			if (flag_is_set(ctx, src_arg->slot)) {
 				g(gen_set_1(ctx, R_FRAME, src_arg->slot, 0, false));
 				ctx->flag_cache[src_arg->slot] = -1;
 				goto skip_ref_argument;
 			}
-			if (!flag_cache_chicken && ctx->flag_cache[src_arg->slot] == -1) {
+			if (flag_is_clear(ctx, src_arg->slot))
 				goto do_reference;
-			}
 			g(gen_test_1(ctx, R_FRAME, src_arg->slot, 0, incr_ref_label, true, TEST_CLEAR));
 			gen_insn(INSN_JMP, 0, 0, 0);
 			gen_four(next_arg_label);
@@ -6819,7 +6830,7 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 
 			g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 3));
 
-			if (!flag_cache_chicken && ctx->flag_cache[src_arg->slot] == -1)
+			if (flag_is_clear(ctx, src_arg->slot))
 				goto skip_ref_argument;
 
 			gen_insn(INSN_JMP, 0, 0, 0);
@@ -7432,7 +7443,7 @@ static bool attr_w gen_option_create(struct codegen_context *ctx, ajla_option_t 
 
 		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 3));
 
-		if (!flag_cache_chicken && ctx->flag_cache[slot_1] == -1)
+		if (flag_is_clear(ctx, slot_1))
 			goto skip_get_pointer_label;
 
 		gen_insn(INSN_JMP, 0, 0, 0);
@@ -7612,7 +7623,7 @@ static bool attr_w gen_option_ord(struct codegen_context *ctx, frame_t slot_1, f
 
 		g(gen_frame_load(ctx, op_size_flat, false, slot_1, 0, R_SCRATCH_1));
 
-		if (!flag_cache_chicken && ctx->flag_cache[slot_1] == -1)
+		if (flag_is_clear(ctx, slot_1))
 			goto skip_ptr_label;
 
 		gen_insn(INSN_JMP, 0, 0, 0);
@@ -9049,9 +9060,9 @@ unconditional_escape:
 					continue;
 				if (unlikely(!(label_id = alloc_label(ctx))))
 					return false;
-				if (!flag_cache_chicken && ctx->flag_cache[slot_1] == 1)
+				if (flag_is_set(ctx, slot_1))
 					goto take_borrowed_done;
-				if (!flag_cache_chicken && ctx->flag_cache[slot_1] == -1) {
+				if (flag_is_clear(ctx, slot_1)) {
 					g(gen_set_1(ctx, R_FRAME, slot_1, 0, true));
 					goto do_take_borrowed;
 				}
@@ -9069,13 +9080,11 @@ take_borrowed_done:
 				bool need_bit_test;
 				/*const struct type *type;*/
 				get_one(ctx, &slot_1);
-				if (!flag_cache_chicken && ctx->flag_cache[slot_1] == -1)
+				if (flag_is_clear(ctx, slot_1))
 					goto skip_dereference;
 				/*type = get_type_of_local(ctx, slot_1);*/
 				/*need_bit_test = 1 || TYPE_IS_FLAT(type) || da(ctx->fn,function)->local_variables[slot_1].may_be_borrowed;*/
-				need_bit_test = !ctx->flag_cache[slot_1];
-				if (flag_cache_chicken)
-					need_bit_test = true;
+				need_bit_test = !flag_is_set(ctx, slot_1);
 				if (need_bit_test) {
 					if (unlikely(!(label_id = alloc_label(ctx))))
 						return false;
