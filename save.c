@@ -70,8 +70,8 @@ struct file_descriptor {
 	size_t dependencies_l;
 	void *base;
 	cpu_feature_mask_t cpu_feature_flags;
-	char privileged;
-	char profiling;
+	unsigned char privileged;
+	unsigned char profiling;
 	char ajla_id[sizeof(id)];
 };
 
