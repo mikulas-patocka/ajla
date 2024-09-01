@@ -1499,12 +1499,26 @@ static bool attr_w gen_set_1(struct codegen_context *ctx, unsigned base, frame_t
 	int bit = slot_1 & ((1 << (OP_SIZE_BITMAP + 3)) - 1);
 	offset += slot_1 >> (OP_SIZE_BITMAP + 3) << OP_SIZE_BITMAP;
 #if defined(ARCH_X86)
-	g(gen_address(ctx, base, offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_BITMAP));
-	g(gen_imm(ctx, bit, IMM_PURPOSE_BITWISE, OP_SIZE_BITMAP));
-	gen_insn(INSN_BTX, OP_SIZE_BITMAP, val ? BTX_BTS : BTX_BTR, 1);
-	gen_address_offset();
-	gen_address_offset();
-	gen_imm_offset();
+	if (OP_SIZE_BITMAP == OP_SIZE_4) {
+		g(gen_address(ctx, base, offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_BITMAP));
+		if (val) {
+			g(gen_imm(ctx, (int32_t)((uint32_t)1 << bit), IMM_PURPOSE_OR, OP_SIZE_BITMAP));
+			gen_insn(INSN_ALU, OP_SIZE_BITMAP, ALU_OR, ALU_WRITES_FLAGS(ALU_OR, true));
+		} else {
+			g(gen_imm(ctx, ~(int32_t)((uint32_t)1 << bit), IMM_PURPOSE_AND, OP_SIZE_BITMAP));
+			gen_insn(INSN_ALU, OP_SIZE_BITMAP, ALU_AND, ALU_WRITES_FLAGS(ALU_AND, true));
+		}
+		gen_address_offset();
+		gen_address_offset();
+		gen_imm_offset();
+	} else {
+		g(gen_address(ctx, base, offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_BITMAP));
+		g(gen_imm(ctx, bit, IMM_PURPOSE_BITWISE, OP_SIZE_BITMAP));
+		gen_insn(INSN_BTX, OP_SIZE_BITMAP, val ? BTX_BTS : BTX_BTR, 1);
+		gen_address_offset();
+		gen_address_offset();
+		gen_imm_offset();
+	}
 #else
 	g(gen_address(ctx, base, offset, ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_BITMAP));
 	gen_insn(ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? INSN_MOVSX : INSN_MOV, OP_SIZE_BITMAP, 0, 0);
