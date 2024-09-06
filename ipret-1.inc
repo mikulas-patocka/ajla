@@ -1014,6 +1014,12 @@ cat(eval_skip_,ARG_MODE):;
 DEFINE_OPCODE_END(OPCODE_EVAL)
 
 
+DEFINE_OPCODE_START(OPCODE_ESCAPE_NONFLAT)
+#ifdef EMIT_CODE
+	ADVANCE_I_PARAM(1);
+#endif
+DEFINE_OPCODE_END(OPCODE_ESCAPE_NONFLAT)
+
 DEFINE_OPCODE_START(OPCODE_CHECKPOINT)
 #ifdef EMIT_CODE
 #if defined(HAVE_CODEGEN)
@@ -1031,6 +1037,7 @@ DEFINE_OPCODE_START(OPCODE_CHECKPOINT)
 		void *new_fp;
 		ip_t new_ip;
 		struct data *codegen;
+		frame_t l;
 		if (unlikely(load_relaxed(&da(fn,function)->codegen_failed)))
 			goto cat(checkpoint_exit_,ARG_MODE);
 #if 1
@@ -1048,6 +1055,13 @@ DEFINE_OPCODE_START(OPCODE_CHECKPOINT)
 			goto cat(checkpoint_exit_,ARG_MODE);
 		);
 #endif
+
+		for (l = MIN_USEABLE_SLOT; l < function_n_variables(fn); l++) {
+			if (da(fn,function)->local_variables_flags[l].must_be_flat) {
+				if (unlikely(frame_test_flag(fp, l)))
+					goto cat(checkpoint_exit_,ARG_MODE);
+			}
+		}
 
 		/*debug("running optimized code: %s, %p, %x, %p, %p, %p, %u, %p", da(fn,function)->function_name, da(codegen,codegen)->unoptimized_code_base, id, da(codegen,codegen)->unoptimized_code[id], fp, &cg_upcall_vector, ts, da(codegen,codegen)->unoptimized_code[id]);*/
 		/*debug("fp[0] = %lx", *(long *)((char *)fp + 0));

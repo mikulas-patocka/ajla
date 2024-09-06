@@ -978,6 +978,56 @@ exception:
 	return false;
 }
 
+static bool pcode_finish_call(struct build_function_context *ctx, const struct pcode_type **rets, size_t rets_l)
+{
+	size_t i;
+	frame_t slot;
+
+	ctx->leaf = false;
+
+	for (i = 0; i < rets_l; i++) {
+		const struct pcode_type *tv = rets[i];
+		if (ARG_MODE_N >= 3) {
+			gen_uint32(tv->slot);
+		} else {
+			gen_code((code_t)tv->slot);
+		}
+		gen_code(TYPE_IS_FLAT(tv->type) ? OPCODE_MAY_RETURN_FLAT : 0);
+	}
+
+	if (unlikely(!gen_checkpoint(ctx, ARG_MODE_N - 1)))
+		goto exception;
+
+	/*for (i = 0; i < rets_l; i++) {
+		slot = rets[i]->slot;
+		if (ctx->local_variables_flags[slot].must_be_flat) {
+			code_t code;
+			arg_mode_t am = INIT_ARG_MODE;
+			get_arg_mode(am, slot);
+			code = OPCODE_ESCAPE_NONFLAT;
+			code += am * OPCODE_MODE_MULT;
+			gen_code(code);
+			gen_am(am, slot);
+		}
+	}*/
+	for (slot = MIN_USEABLE_SLOT; slot < ctx->n_slots; slot++) {
+		if (ctx->local_variables_flags[slot].must_be_flat) {
+			code_t code;
+			arg_mode_t am = INIT_ARG_MODE;
+			get_arg_mode(am, slot);
+			code = OPCODE_ESCAPE_NONFLAT;
+			code += am * OPCODE_MODE_MULT;
+			gen_code(code);
+			gen_am(am, slot);
+		}
+	}
+
+	return true;
+
+exception:
+	return false;
+}
+
 static bool pcode_call(struct build_function_context *ctx, pcode_t instr)
 {
 	bool elide = false;
@@ -995,6 +1045,8 @@ static bool pcode_call(struct build_function_context *ctx, pcode_t instr)
 	arg_t n_return_values, n_real_return_values;
 	size_t fn_idx = 0;			/* avoid warning */
 	pcode_position_save_t saved;
+	const struct pcode_type **rets = NULL;
+	size_t rets_l;
 
 	if (instr == P_Load_Fn || instr == P_Curry) {
 		res = u_pcode_get();
@@ -1153,22 +1205,21 @@ static bool pcode_call(struct build_function_context *ctx, pcode_t instr)
 		goto exception;
 
 	if (instr == P_Call || instr == P_Call_Indirect) {
+		if (unlikely(!array_init_mayfail(const struct pcode_type *, &rets, &rets_l, ctx->err)))
+			goto exception;
 		for (ai = 0; ai < n_return_values; ai++) {
 			const struct pcode_type *tv;
 			q = u_pcode_get();
 			if (unlikely(var_elided(q)))
 				continue;
 			tv = get_var_type(ctx, q);
-			if (ARG_MODE_N >= 3) {
-				gen_uint32(tv->slot);
-			} else {
-				gen_code((code_t)tv->slot);
-			}
-			gen_code(TYPE_IS_FLAT(tv->type) ? OPCODE_MAY_RETURN_FLAT : 0);
+			if (unlikely(!array_add_mayfail(const struct pcode_type *, &rets, &rets_l, tv, NULL, ctx->err)))
+				goto exception;
 		}
-		ctx->leaf = false;
-		if (unlikely(!gen_checkpoint(ctx, ARG_MODE_N - 1)))
+		if (unlikely(!pcode_finish_call(ctx, rets, rets_l)))
 			goto exception;
+		mem_free(rets);
+		rets = NULL;
 	}
 
 	return true;
@@ -1176,6 +1227,8 @@ static bool pcode_call(struct build_function_context *ctx, pcode_t instr)
 exception_overflow:
 	*ctx->err = error_ajla(EC_ASYNC, AJLA_ERROR_SIZE_OVERFLOW);
 exception:
+	if (rets)
+		mem_free(rets);
 	return false;
 
 skip_instr:
@@ -1238,15 +1291,8 @@ static bool pcode_op_to_call(struct build_function_context *ctx, pcode_t op, con
 	gen_am_two(am, t1->slot, flags1 & Flag_Free_Argument ? OPCODE_FLAG_FREE_ARGUMENT : 0);
 	if (t2)
 		gen_am_two(am, t2->slot, flags2 & Flag_Free_Argument ? OPCODE_FLAG_FREE_ARGUMENT : 0);
-	if (ARG_MODE_N >= 3) {
-		gen_uint32(tr->slot);
-	} else {
-		gen_code(tr->slot);
-	}
-	gen_code(OPCODE_MAY_RETURN_FLAT);
 
-	ctx->leaf = false;
-	if (unlikely(!gen_checkpoint(ctx, ARG_MODE_N - 1)))
+	if (unlikely(!pcode_finish_call(ctx, &tr, 1)))
 		goto exception;
 
 	return true;
@@ -2234,9 +2280,33 @@ exception:
 	return false;
 }
 
+static bool pcode_check_args(struct build_function_context *ctx)
+{
+	arg_t i;
+	for (i = 0; i < ctx->n_real_arguments; i++) {
+		frame_t slot = ctx->args[i].slot;
+		if (ctx->local_variables_flags[slot].must_be_flat) {
+			code_t code;
+			arg_mode_t am = INIT_ARG_MODE;
+			get_arg_mode(am, slot);
+			code = OPCODE_ESCAPE_NONFLAT;
+			code += am * OPCODE_MODE_MULT;
+			gen_code(code);
+			gen_am(am, slot);
+		}
+	}
+	return true;
+
+exception:
+	return false;
+}
+
 static bool pcode_generate_instructions(struct build_function_context *ctx)
 {
 	if (unlikely(!gen_checkpoint(ctx, INIT_ARG_MODE)))
+		goto exception;
+
+	if (unlikely(!pcode_check_args(ctx)))
 		goto exception;
 
 	while (ctx->pcode != ctx->pcode_limit) {
@@ -3179,7 +3249,8 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 		} else {
 			pt->slot = layout_get(ctx->layout, pt->color);
 			ctx->local_variables[pt->slot].type = pt->type;
-			ctx->local_variables_flags[pt->slot].may_be_borrowed = false;
+			/*ctx->local_variables_flags[pt->slot].may_be_borrowed = false;*/
+			ctx->local_variables_flags[pt->slot].must_be_flat = TYPE_TAG_IS_BUILTIN(pt->type->tag);
 		}
 	}
 

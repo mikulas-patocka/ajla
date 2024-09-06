@@ -885,6 +885,7 @@ struct local_variable {
 
 struct local_variable_flags {
 	bool may_be_borrowed;
+	bool must_be_flat;
 };
 
 struct local_arg {
