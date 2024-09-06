@@ -705,7 +705,7 @@ void save_finish_function(struct data *d)
 			da(d,function)->n_return_values,
 			da(d,function)->code, da(d,function)->code_size,
 			da(d,function)->local_variables_flags,
-			da(d,function)->n_slots,
+			function_n_variables(d),
 			pointer_get_data(da(d,function)->types_ptr),
 			da(d,function)->lp,
 			da(d,function)->lp_size,

@@ -3316,7 +3316,6 @@ skip_codegen:
 		mem_free(ctx->local_variables_flags);
 		da(fn,function)->local_variables_flags = sfd->local_variables_flags;
 	}
-	da(fn,function)->n_slots = ctx->n_slots;
 	da(fn,function)->args = ctx->args;
 	da(fn,function)->types_ptr = pointer_data(ft);
 	da(fn,function)->record_definition = ctx->record_definition ? &ctx->record_definition->type : NULL;

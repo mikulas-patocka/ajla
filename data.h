@@ -931,7 +931,6 @@ struct data_function {
 	ip_t code_size;
 	const struct local_variable *local_variables;			/* indexed by slot */
 	const struct local_variable_flags *local_variables_flags;	/* indexed by slot */
-	frame_t n_slots;
 	const struct local_arg *args;					/* indexed by argument */
 	pointer_t types_ptr;
 	const struct type *record_definition;
