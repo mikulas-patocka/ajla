@@ -548,8 +548,9 @@ fn load_function_context(pc : list(pcode_t)) : context
 		ctx.variables[i].runtime_type := pc[ptr + 1];
 		ctx.variables[i].local_type := -1;
 		ctx.variables[i].color := pc[ptr + 2];
+		ctx.variables[i].flags := pc[ptr + 3];
 		ctx.variables[i].is_option_type := false;
-		ptr += 3;
+		ptr += 4;
 		ctx.variables[i].name := blob_load(pc[ptr .. ]);
 		ptr += blob_length(pc[ptr .. ]);
 

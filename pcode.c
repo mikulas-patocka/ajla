@@ -3184,6 +3184,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 		pcode_get();
 		typ = pcode_get();
 		color = pcode_get();
+		u_pcode_get();
 		pcode_load_blob(ctx, NULL, NULL);
 		pt = &ctx->pcode_types[v];
 		pt->argument = NULL;
@@ -3561,6 +3562,7 @@ pointer_t pcode_build_eval_function(pcode_t src_type, pcode_t dest_type, pcode_t
 		add(t);
 		add(i);
 		add(0);
+		add(0);
 	}
 
 	add(P_Args);
@@ -3655,7 +3657,7 @@ static void *pcode_build_op_function(frame_s *fp, const code_t *ip, union intern
 	unsigned i;
 	unsigned n_local_variables;
 	unsigned n_arguments;
-	pcode_t pcode[38];
+	pcode_t pcode[41];
 	pcode_t *pc = pcode;
 
 	n_local_variables = flags & PCODE_FIND_OP_UNARY ? 2 : 3;
@@ -3677,6 +3679,7 @@ static void *pcode_build_op_function(frame_s *fp, const code_t *ip, union intern
 		*pc++ = t;
 		*pc++ = t;
 		*pc++ = i;
+		*pc++ = 0;
 		*pc++ = 0;
 	}
 
@@ -3749,7 +3752,7 @@ void * attr_fastcall pcode_find_op_function(const struct type *type, const struc
 
 static void *pcode_build_is_exception_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
 {
-	pcode_t pcode[34];
+	pcode_t pcode[36];
 	pcode_t *pc = pcode;
 
 	*pc++ = Fn_Function;
@@ -3767,10 +3770,12 @@ static void *pcode_build_is_exception_function(frame_s *fp, const code_t *ip, un
 	*pc++ = T_Undetermined;
 	*pc++ = 0;
 	*pc++ = 0;
+	*pc++ = 0;
 
 	*pc++ = T_FlatOption;
 	*pc++ = T_FlatOption;
 	*pc++ = 1;
+	*pc++ = 0;
 	*pc++ = 0;
 
 	*pc++ = P_Args;
@@ -3807,7 +3812,7 @@ void * attr_fastcall pcode_find_is_exception(frame_s *fp, const code_t *ip, poin
 
 static void *pcode_build_get_exception_function(frame_s *fp, const code_t *ip, union internal_arg a[])
 {
-	pcode_t pcode[34];
+	pcode_t pcode[36];
 	pcode_t *pc = pcode;
 
 	*pc++ = Fn_Function;
@@ -3825,10 +3830,12 @@ static void *pcode_build_get_exception_function(frame_s *fp, const code_t *ip, u
 	*pc++ = T_Undetermined;
 	*pc++ = 0;
 	*pc++ = 0;
+	*pc++ = 0;
 
 	*pc++ = T_Integer;
 	*pc++ = T_Integer;
 	*pc++ = 1;
+	*pc++ = 0;
 	*pc++ = 0;
 
 	*pc++ = P_Args;
@@ -3867,7 +3874,7 @@ void * attr_fastcall pcode_find_get_exception(unsigned mode, frame_s *fp, const 
 
 static void *pcode_build_array_load_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
 {
-	pcode_t pcode[42];
+	pcode_t pcode[45];
 	pcode_t *pc = pcode;
 
 	*pc++ = Fn_Function;
@@ -3885,15 +3892,18 @@ static void *pcode_build_array_load_function(frame_s *fp, const code_t *ip, unio
 	*pc++ = T_Undetermined;
 	*pc++ = 0;
 	*pc++ = 0;
+	*pc++ = 0;
 
 	*pc++ = T_Integer;
 	*pc++ = T_Integer;
 	*pc++ = 1;
 	*pc++ = 0;
+	*pc++ = 0;
 
 	*pc++ = T_Undetermined;
 	*pc++ = T_Undetermined;
 	*pc++ = 2;
+	*pc++ = 0;
 	*pc++ = 0;
 
 	*pc++ = P_Args;
@@ -3935,7 +3945,7 @@ void * attr_fastcall pcode_find_array_load_function(frame_s *fp, const code_t *i
 
 static void *pcode_build_array_len_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
 {
-	pcode_t pcode[33];
+	pcode_t pcode[35];
 	pcode_t *pc = pcode;
 
 	*pc++ = Fn_Function;
@@ -3953,10 +3963,12 @@ static void *pcode_build_array_len_function(frame_s *fp, const code_t *ip, union
 	*pc++ = T_Undetermined;
 	*pc++ = 0;
 	*pc++ = 0;
+	*pc++ = 0;
 
 	*pc++ = T_Integer;
 	*pc++ = T_Integer;
 	*pc++ = 1;
+	*pc++ = 0;
 	*pc++ = 0;
 
 	*pc++ = P_Args;
@@ -3992,7 +4004,7 @@ void * attr_fastcall pcode_find_array_len_function(frame_s *fp, const code_t *ip
 
 static void *pcode_build_array_len_greater_than_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
 {
-	pcode_t pcode[42];
+	pcode_t pcode[45];
 	pcode_t *pc = pcode;
 
 	*pc++ = Fn_Function;
@@ -4010,15 +4022,18 @@ static void *pcode_build_array_len_greater_than_function(frame_s *fp, const code
 	*pc++ = T_Undetermined;
 	*pc++ = 0;
 	*pc++ = 0;
+	*pc++ = 0;
 
 	*pc++ = T_Integer;
 	*pc++ = T_Integer;
 	*pc++ = 1;
 	*pc++ = 0;
+	*pc++ = 0;
 
 	*pc++ = T_FlatOption;
 	*pc++ = T_FlatOption;
 	*pc++ = 2;
+	*pc++ = 0;
 	*pc++ = 0;
 
 	*pc++ = P_Args;
@@ -4060,7 +4075,7 @@ void * attr_fastcall pcode_find_array_len_greater_than_function(frame_s *fp, con
 
 static void *pcode_build_array_sub_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
 {
-	pcode_t pcode[51];
+	pcode_t pcode[55];
 	pcode_t *pc = pcode;
 
 	*pc++ = Fn_Function;
@@ -4078,20 +4093,24 @@ static void *pcode_build_array_sub_function(frame_s *fp, const code_t *ip, union
 	*pc++ = T_Undetermined;
 	*pc++ = 0;
 	*pc++ = 0;
+	*pc++ = 0;
 
 	*pc++ = T_Integer;
 	*pc++ = T_Integer;
 	*pc++ = 1;
+	*pc++ = 0;
 	*pc++ = 0;
 
 	*pc++ = T_Integer;
 	*pc++ = T_Integer;
 	*pc++ = 2;
 	*pc++ = 0;
+	*pc++ = 0;
 
 	*pc++ = T_Undetermined;
 	*pc++ = T_Undetermined;
 	*pc++ = 3;
+	*pc++ = 0;
 	*pc++ = 0;
 
 	*pc++ = P_Args;
@@ -4139,7 +4158,7 @@ void * attr_fastcall pcode_find_array_sub_function(frame_s *fp, const code_t *ip
 
 static void *pcode_build_array_skip_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
 {
-	pcode_t pcode[42];
+	pcode_t pcode[45];
 	pcode_t *pc = pcode;
 
 	*pc++ = Fn_Function;
@@ -4157,15 +4176,18 @@ static void *pcode_build_array_skip_function(frame_s *fp, const code_t *ip, unio
 	*pc++ = T_Undetermined;
 	*pc++ = 0;
 	*pc++ = 0;
+	*pc++ = 0;
 
 	*pc++ = T_Integer;
 	*pc++ = T_Integer;
 	*pc++ = 1;
 	*pc++ = 0;
+	*pc++ = 0;
 
 	*pc++ = T_Undetermined;
 	*pc++ = T_Undetermined;
 	*pc++ = 2;
+	*pc++ = 0;
 	*pc++ = 0;
 
 	*pc++ = P_Args;
@@ -4207,7 +4229,7 @@ void * attr_fastcall pcode_find_array_skip_function(frame_s *fp, const code_t *i
 
 static void *pcode_build_array_append_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
 {
-	pcode_t pcode[40];
+	pcode_t pcode[43];
 	pcode_t *pc = pcode;
 
 	*pc++ = Fn_Function;
@@ -4225,15 +4247,18 @@ static void *pcode_build_array_append_function(frame_s *fp, const code_t *ip, un
 	*pc++ = T_Undetermined;
 	*pc++ = 0;
 	*pc++ = 0;
+	*pc++ = 0;
 
 	*pc++ = T_Undetermined;
 	*pc++ = T_Undetermined;
 	*pc++ = 1;
 	*pc++ = 0;
+	*pc++ = 0;
 
 	*pc++ = T_Undetermined;
 	*pc++ = T_Undetermined;
 	*pc++ = 2;
+	*pc++ = 0;
 	*pc++ = 0;
 
 	*pc++ = P_Args;
@@ -4278,7 +4303,7 @@ void * attr_fastcall pcode_find_array_append_function(frame_s *fp, const code_t 
 
 static void *pcode_build_option_ord_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
 {
-	pcode_t pcode[35];
+	pcode_t pcode[37];
 	pcode_t *pc = pcode;
 
 	*pc++ = Fn_Function;
@@ -4296,10 +4321,12 @@ static void *pcode_build_option_ord_function(frame_s *fp, const code_t *ip, unio
 	*pc++ = T_Undetermined;
 	*pc++ = 0;
 	*pc++ = 0;
+	*pc++ = 0;
 
 	*pc++ = T_Integer;
 	*pc++ = T_Integer;
 	*pc++ = 1;
+	*pc++ = 0;
 	*pc++ = 0;
 
 	*pc++ = P_Args;
@@ -4344,7 +4371,7 @@ struct function_key {
 
 static void *pcode_build_record_option_load_function(frame_s *fp, const code_t *ip, union internal_arg a[])
 {
-	pcode_t pcode[36];
+	pcode_t pcode[38];
 	pcode_t *pc = pcode;
 	pcode_t result_type = a[0].i == PCODE_FUNCTION_OPTION_TEST ? T_FlatOption : T_Undetermined;
 
@@ -4363,10 +4390,12 @@ static void *pcode_build_record_option_load_function(frame_s *fp, const code_t *
 	*pc++ = T_Undetermined;
 	*pc++ = 0;
 	*pc++ = 0;
+	*pc++ = 0;
 
 	*pc++ = result_type;
 	*pc++ = result_type;
 	*pc++ = 1;
+	*pc++ = 0;
 	*pc++ = 0;
 
 	*pc++ = P_Args;

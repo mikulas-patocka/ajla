@@ -68,7 +68,8 @@ fn dump_function(def : function_definition) : list(pcode_t)
 		result += list(pcode_t).[
 			v.type_idx,
 			v.local_type,
-			color
+			color,
+			0,
 		];
 		result += blob_generate(i_decode(v.name));
 	]

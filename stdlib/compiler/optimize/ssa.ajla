@@ -2367,6 +2367,7 @@ retry_optimize:
 		rpc +<= v.type_index;
 		rpc +<= v.runtime_type;
 		rpc +<= v.color;
+		rpc +<= v.flags;
 		rpc += blob_store(v.name);
 	]
 
