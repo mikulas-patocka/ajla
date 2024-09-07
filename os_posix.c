@@ -1022,7 +1022,7 @@ bool os_fsync(handle_t h, unsigned mode, ajla_error_t *err)
 ret:
 	if (unlikely(r == -1)) {
 		ajla_error_t e = error_from_errno(EC_SYSCALL, errno);
-		fatal_mayfail(e, err, "ftruncate returned an error: %s", error_decode(e));
+		fatal_mayfail(e, err, "fsync returned an error: %s", error_decode(e));
 		return false;
 	}
 	return true;
