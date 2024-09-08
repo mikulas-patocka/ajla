@@ -80,6 +80,7 @@ record variable [
 	type_index : int;
 	runtime_type : int;
 	local_type : int;
+	must_be_flat : bool;
 	name : bytes;
 
 	//reading_instrs : instr_set;
@@ -89,7 +90,6 @@ record variable [
 	defining_instr : int;
 
 	color : int;
-	flags : int;
 	needed : bool;
 
 	is_option_type : bool;
@@ -101,13 +101,13 @@ fn new_variable : variable
 		type_index : -1,
 		runtime_type : -1,
 		local_type : -1,
+		must_be_flat : false,
 		name : "",
 		writing_instrs : -1,
 		reaching_def : -1,
 		defining_block : -1,
 		defining_instr : -1,
 		color : -1,
-		flags : 0,
 		needed : false,
 		is_option_type : false,
 	];

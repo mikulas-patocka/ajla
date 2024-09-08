@@ -208,6 +208,7 @@ struct pcode_type {
 	pcode_t color;
 	int8_t extra_type;
 	bool is_dereferenced_in_call_argument;
+	uint8_t varflags;
 };
 
 struct color {
@@ -3179,16 +3180,17 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 	is = 0;
 	for (v = 0; v < ctx->n_local_variables; v++) {
 		struct pcode_type *pt;
-		pcode_t typ, color;
+		pcode_t typ, color, varflags;
 
 		pcode_get();
 		typ = pcode_get();
 		color = pcode_get();
-		u_pcode_get();
+		varflags = u_pcode_get();
 		pcode_load_blob(ctx, NULL, NULL);
 		pt = &ctx->pcode_types[v];
 		pt->argument = NULL;
 		pt->extra_type = 0;
+		pt->varflags = varflags;
 
 		if (color == -1) {
 			pt->type = NULL;
@@ -3251,7 +3253,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 			pt->slot = layout_get(ctx->layout, pt->color);
 			ctx->local_variables[pt->slot].type = pt->type;
 			/*ctx->local_variables_flags[pt->slot].may_be_borrowed = false;*/
-			ctx->local_variables_flags[pt->slot].must_be_flat = TYPE_TAG_IS_BUILTIN(pt->type->tag);
+			ctx->local_variables_flags[pt->slot].must_be_flat = !!(pt->varflags & VarFlag_Must_Be_Flat) /*|| TYPE_TAG_IS_BUILTIN(pt->type->tag)*/;
 		}
 	}
 

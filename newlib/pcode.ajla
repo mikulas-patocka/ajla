@@ -92,6 +92,8 @@ const Structured_Record := 1;
 const Structured_Option := 2;
 const Structured_Array := 3;
 
+const VarFlag_Must_Be_Flat := 1;
+
 const Flag_Free_Argument := 1;
 const Flag_Evaluate := 2;
 const Flag_Borrow := 4;
@@ -551,6 +553,8 @@ fn name_to_value~cache : list(int)
 	a[#53E9CBAE3E9D7965C97E965C7BF964] := 1;				// Structured_Record
 	a[#53E9CBAE3E9D7965C97E7F0E9A77EE] := 2;				// Structured_Option
 	a[#A7D3975C7D3AF2CB92FC1E5CB0F9] := 3;					// Structured_Array
+
+	a[#AD87946D9873DF9BD79F4BF0B2DF8DB30F4] := 1;				// VarFlag_Must_Be_Flat
 
 	a[#236CC39EFC6E5972DF83CB3F5DB97774] := 1;				// Flag_Free_Argument
 	a[#46D9873DF8BDB0ECEB87A65] := 2;					// Flag_Evaluate

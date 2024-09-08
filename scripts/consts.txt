@@ -101,6 +101,9 @@ Structured_Option
 Structured_Array
 
 *
+VarFlag_Must_Be_Flat
+
+*
 Flag_Free_Argument
 Flag_Evaluate
 Flag_Borrow

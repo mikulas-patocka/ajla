@@ -90,6 +90,8 @@
 #define Structured_Option		2
 #define Structured_Array		3
 
+#define VarFlag_Must_Be_Flat		1
+
 #define Flag_Free_Argument		1
 #define Flag_Evaluate			2
 #define Flag_Borrow			4
