@@ -2009,15 +2009,15 @@ fn instance_ord_type_index(ctx : context) : class_ord(int) :=
 fn allocate_variables(ctx : context) : context
 [
 	var non_elided := 0;
-	var type_to_var_set : list(var_set) := fill(var_set, 0, len(ctx.local_types) - T_Undetermined);
+	var type_to_var_set : list(var_set) := fill(var_set, 0, (len(ctx.local_types) - T_Undetermined) * 2);
 	for vgi := 0 to len(ctx.variables) do [
 		var v := ctx.variables[vgi];
 		if v.color = -1 then
 			continue;
 		if v.runtime_type < T_Undetermined then
 			abort internal("allocate_variables: invalid runtime_type: " + ctx.name + ", " + ntos(vgi) + "(" + v.name + "): " + ntos(v.runtime_type));
-		type_to_var_set[v.runtime_type - T_Undetermined] bts= vgi;
-		if not (ctx.cm[vgi] bt vgi) then
+		type_to_var_set[(v.runtime_type - T_Undetermined) * 2 + select(v.must_be_flat, 0, 1)] bts= vgi;
+		if not ctx.cm[vgi] bt vgi then
 			abort internal("self-bit not set for variable " + ntos(vgi));
 		non_elided += 1;
 		ctx.variables[vgi].color := -1;
