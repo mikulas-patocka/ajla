@@ -711,7 +711,7 @@ do {								\
 		unsigned ln = 0;
 		stack_trace_capture(&st, fp, ip, 1);
 		if (st.trace_n >= 1) {
-			fn = st.trace[0].function;
+			fn = st.trace[0].function_name;
 			ln = st.trace[0].line;
 		}
 #define xip(n)	(frame_ip(fp, ip) + n >= da(get_frame(fp)->function,function)->code_size ? 0xffff : ip[n])
