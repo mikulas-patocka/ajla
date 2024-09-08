@@ -1773,6 +1773,44 @@ fn dlte(ctx : context) : context
 	return ctx;
 ]
 
+fn identify_loops(ctx : context) : context
+[
+	//var needs_checkpoint : node_set := 0;
+	var loops : node_set := 0;
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		var block := ctx.blocks[bgi];
+		for post_idx := 0 to len(block.post_list) do [
+			var post := block.post_list[post_idx];
+			//if post < bgi then [
+			//	needs_checkpoint bts= bgi;
+			//]
+			if post = block.idom then [
+				loops bts= post;
+				loops bts= block.idom;
+			]
+		]
+	]
+	while loops <> 0 do [
+		var bgi : int := bsr loops;
+		loops btr= bgi;
+		var block := ctx.blocks[bgi];
+		for ili := 0 to len(block.instrs) do [
+			var instr := ctx.instrs[block.instrs[ili]];
+			var read_mask := set_to_mask(instr, instr.read_set);
+			while read_mask <> 0 do [
+				var vgi : int := bsr read_mask;
+				read_mask btr= vgi;
+				var rt := ctx.variables[vgi].runtime_type;
+				if rt < 0, rt >= T_FlatOption then
+					ctx.variables[vgi].must_be_flat := true;
+			]
+		]
+	]
+	return ctx;
+]
+
 fn liveness(ctx : context) : context
 [
 	var worklist : node_set := 0;
@@ -2311,6 +2349,10 @@ retry_optimize:
 	if print_passes then [ eval ctx; eval debug("dlte"); if is_exception ctx then eval debug("ctx exception"); ]
 	ctx := dlte(ctx);
 	ctx := check_consistency(ctx, "dlte", true);
+
+	if print_passes then [ eval ctx; eval debug("identify_loops"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := identify_loops(ctx);
+	ctx := check_consistency(ctx, "liveness", true);
 
 	if print_passes then [ eval ctx; eval debug("liveness"); if is_exception ctx then eval debug("ctx exception"); ]
 	ctx := liveness(ctx);
