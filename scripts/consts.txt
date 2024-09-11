@@ -59,6 +59,7 @@ P_IO			; io_type, n_outputs, n_inputs, n_params, outputs, inputs, params
 P_Args			; (arg ...)
 P_Return_Vars		; (ret ...)
 P_Return		; ((ref_flag, arg) ...)
+P_Checkpoint		; (must-be-flat-var ...)
 P_Line_Info		; line_number
 P_Phi			; result, (arg ...)
 P_Pcode_N

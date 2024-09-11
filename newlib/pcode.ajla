@@ -53,9 +53,10 @@ const P_IO := 42;
 const P_Args := 43;
 const P_Return_Vars := 44;
 const P_Return := 45;
-const P_Line_Info := 46;
-const P_Phi := 47;
-const P_Pcode_N := 48;
+const P_Checkpoint := 46;
+const P_Line_Info := 47;
+const P_Phi := 48;
+const P_Pcode_N := 49;
 
 const T_Type := -1;
 const T_SInt8 := -2;
@@ -460,6 +461,7 @@ fn pcode_name(p : int) : bytes
 	if p = P_Args then return "Args";
 	if p = P_Return_Vars then return "Return_Vars";
 	if p = P_Return then return "Return";
+	if p = P_Checkpoint then return "Checkpoint";
 	if p = P_Line_Info then return "Line_Info";
 	if p = P_Phi then return "Phi";
 	if p = P_Pcode_N then return "Pcode_N";
@@ -515,9 +517,10 @@ fn name_to_value~cache : list(int)
 	a[#83CB3F3] := 43;							// Args
 	a[#14B2F4EBCB75FAD87973] := 44;						// Return_Vars
 	a[#2965E9D796E] := 45;							// Return
-	a[#4CD3BB2DF93BB36F] := 46;						// Line_Info
-	a[#143469] := 47;							// Phi
-	a[#1431EFC996FCE] := 48;						// Pcode_N
+	a[#21E8CB8F5F0DFA7774] := 46;						// Checkpoint
+	a[#4CD3BB2DF93BB36F] := 47;						// Line_Info
+	a[#143469] := 48;							// Phi
+	a[#1431EFC996FCE] := 49;						// Pcode_N
 
 	a[#A9E7865] := -1;							// Type
 	a[#5393BBA38] := -2;							// SInt8

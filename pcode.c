@@ -2834,8 +2834,6 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 #if SIZEOF_IP_T > 2
 				if (ctx->labels[res] != no_label) {
 					uint32_t target;
-					if (unlikely(!gen_checkpoint(ctx, INIT_ARG_MODE)))
-						goto exception;
 					target = (uint32_t)((ctx->code_len - ctx->labels[res]) * sizeof(code_t));
 					if (likely(target < 0x10000)) {
 						gen_code(OPCODE_JMP_BACK_16);
@@ -2843,10 +2841,6 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 						break;
 					}
 				}
-#else
-				if (ctx->labels[res] != no_label)
-					if (unlikely(!gen_checkpoint(ctx, INIT_ARG_MODE)))
-						goto exception;
 #endif
 				gen_code(OPCODE_JMP);
 				gen_relative_jump(res, SIZEOF_IP_T);
@@ -2858,10 +2852,6 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 
 				a1 = u_pcode_get();
 				a2 = u_pcode_get();
-
-				if (ctx->labels[a1] != no_label || ctx->labels[a2] != no_label)
-					if (unlikely(!gen_checkpoint(ctx, INIT_ARG_MODE)))
-						goto exception;
 
 				am = INIT_ARG_MODE;
 				get_arg_mode(am, tr->slot);
@@ -2891,6 +2881,10 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				break;
 			case P_Return:
 				if (unlikely(!pcode_return(ctx)))
+					goto exception;
+				break;
+			case P_Checkpoint:
+				if (unlikely(!gen_checkpoint(ctx, ARG_MODE_N - 1)))
 					goto exception;
 				break;
 			case P_Line_Info:

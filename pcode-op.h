@@ -51,9 +51,10 @@
 #define P_Args				43
 #define P_Return_Vars			44
 #define P_Return			45
-#define P_Line_Info			46
-#define P_Phi				47
-#define P_Pcode_N			48
+#define P_Checkpoint			46
+#define P_Line_Info			47
+#define P_Phi				48
+#define P_Pcode_N			49
 
 #define T_Type				-1
 #define T_SInt8				-2

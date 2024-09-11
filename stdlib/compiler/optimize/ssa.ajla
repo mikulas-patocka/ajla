@@ -1775,7 +1775,10 @@ fn dlte(ctx : context) : context
 
 fn identify_loops(ctx : context) : context
 [
-	//var needs_checkpoint : node_set := 0;
+	var cp_instr := create_instr(P_Checkpoint, empty(pcode_t), 0);
+	ctx := insert_instr(ctx, cp_instr, 1);
+
+	var needs_checkpoint : node_set := 0;
 	var loops : node_set := 0;
 	for bgi := 0 to len(ctx.blocks) do [
 		if not ctx.blocks[bgi].active then
@@ -1783,15 +1786,16 @@ fn identify_loops(ctx : context) : context
 		var block := ctx.blocks[bgi];
 		for post_idx := 0 to len(block.post_list) do [
 			var post := block.post_list[post_idx];
-			//if post < bgi then [
-			//	needs_checkpoint bts= bgi;
-			//]
+			if post < bgi then [
+				needs_checkpoint bts= bgi;
+			]
 			if post = block.idom then [
 				loops bts= post;
 				loops bts= block.idom;
 			]
 		]
 	]
+
 	while loops <> 0 do [
 		var bgi : int := bsr loops;
 		loops btr= bgi;
@@ -1806,6 +1810,34 @@ fn identify_loops(ctx : context) : context
 				if rt < 0, rt >= T_FlatOption then
 					ctx.variables[vgi].must_be_flat := true;
 			]
+		]
+	]
+
+	while needs_checkpoint <> 0 do [
+		var bgi : int := bsr needs_checkpoint;
+		needs_checkpoint btr= bgi;
+		var has_cp := false;
+		var block := ctx.blocks[bgi];
+		var ili := len(block.instrs) - 1;
+		while ili >= 0 do [
+			var instr := ctx.instrs[block.instrs[ili]];
+			if instr.opcode = P_Call or instr.opcode = P_Call_Indirect then [
+				var cp_instr := create_instr(P_Checkpoint, empty(pcode_t), bgi);
+				ctx := insert_instr(ctx, cp_instr, ili + 1);
+				has_cp := true;
+			]
+			ili -= 1;
+		]
+		if not has_cp then [
+			var block := ctx.blocks[bgi];
+			var cp_instr := create_instr(P_Checkpoint, empty(pcode_t), bgi);
+			var idx := len(block.instrs);
+			if idx > 0 then [
+				var instr := ctx.instrs[block.instrs[idx - 1]];
+				if instr.opcode = P_Jmp_False or instr.opcode = P_Return then
+					idx -= 1;
+			]
+			ctx := insert_instr(ctx, cp_instr, idx);
 		]
 	]
 	return ctx;
