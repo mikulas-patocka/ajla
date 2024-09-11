@@ -1020,13 +1020,23 @@ DEFINE_OPCODE_START(OPCODE_ESCAPE_NONFLAT)
 #endif
 DEFINE_OPCODE_END(OPCODE_ESCAPE_NONFLAT)
 
+#if ARG_MODE >= 1
 DEFINE_OPCODE_START(OPCODE_CHECKPOINT)
 #ifdef EMIT_CODE
-#if defined(HAVE_CODEGEN)
-	frame_t id = get_i_param(0);
 	const code_t attr_unused *orig_ip = ip;
-#endif
-	ADVANCE_I_PARAM(1);
+	frame_t attr_unused id;
+	ip_t len;
+	if (SIZEOF_IP_T == 2) {
+		id = ip[1];
+		ADVANCE_IP(2);
+	} else if (SIZEOF_IP_T == 4) {
+		id = get_unaligned_32(&ip[1]);
+		ADVANCE_IP(3);
+	} else {
+		not_reached();
+	}
+	len = get_param(ip, 0);
+	ADVANCE_IP((len + 1) * ARG_MODE);
 
 	if (unlikely(tick_elapsed(&ts)) && likely(frame_execution_control(fp) != NULL)) {
 		ipret_checkpoint_forced;
@@ -1114,6 +1124,7 @@ cat(checkpoint_exit_,ARG_MODE):;
 	}
 #endif
 DEFINE_OPCODE_END(OPCODE_CHECKPOINT)
+#endif
 
 
 #if ARG_MODE == 0

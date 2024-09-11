@@ -799,19 +799,45 @@ do {									\
 	else not_reached();						\
 } while (0)
 
-static bool gen_checkpoint(struct build_function_context *ctx, arg_mode_t am)
+static bool gen_checkpoint(struct build_function_context *ctx, const pcode_t *params, pcode_t n_params)
 {
+	arg_mode_t am;
 	code_t code;
+	pcode_t i;
+	pcode_t n_used_params;
 
-	if (ctx->is_eval)
+	if (unlikely(ctx->is_eval))
 		return true;
 
-	get_arg_mode(am, ctx->checkpoint_num);
+	am = 1;
+	get_arg_mode(am, n_params);
+
+	n_used_params = 0;
+	for (i = 0; i < n_params; i++) {
+		const struct pcode_type *tv;
+		pcode_t var = params[i];
+		if (var_elided(var))
+			continue;
+		tv = get_var_type(ctx, var);
+		get_arg_mode(am, tv->slot);
+		n_used_params++;
+	}
 
 	code = OPCODE_CHECKPOINT;
 	code += am * OPCODE_MODE_MULT;
 	gen_code(code);
-	gen_am(am, ctx->checkpoint_num);
+	gen_am(ARG_MODE_N - 1, ctx->checkpoint_num);
+
+	gen_am(am, n_used_params);
+
+	for (i = 0; i < n_params; i++) {
+		const struct pcode_type *tv;
+		pcode_t var = params[i];
+		if (var_elided(var))
+			continue;
+		tv = get_var_type(ctx, var);
+		gen_am(am, tv->slot);
+	}
 
 	ctx->checkpoint_num++;
 	if (unlikely(!ctx->checkpoint_num)) {
@@ -996,7 +1022,7 @@ static bool pcode_finish_call(struct build_function_context *ctx, const struct p
 		gen_code(TYPE_IS_FLAT(tv->type) ? OPCODE_MAY_RETURN_FLAT : 0);
 	}
 
-	if (unlikely(!gen_checkpoint(ctx, ARG_MODE_N - 1)))
+	if (unlikely(!gen_checkpoint(ctx, NULL, 0)))
 		goto exception;
 
 	/*for (i = 0; i < rets_l; i++) {
@@ -2304,7 +2330,7 @@ exception:
 
 static bool pcode_generate_instructions(struct build_function_context *ctx)
 {
-	if (unlikely(!gen_checkpoint(ctx, INIT_ARG_MODE)))
+	if (unlikely(!gen_checkpoint(ctx, NULL, 0)))
 		goto exception;
 
 	if (unlikely(!pcode_check_args(ctx)))
@@ -2884,11 +2910,10 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 					goto exception;
 				break;
 			case P_Checkpoint:
-				for (p = 0; p < instr_params; p++) {
-					pcode_get();
-				}
-				if (unlikely(!gen_checkpoint(ctx, ARG_MODE_N - 1)))
+				if (unlikely(!gen_checkpoint(ctx, ctx->pcode, instr_params)))
 					goto exception;
+				for (p = 0; p < instr_params; p++)
+					u_pcode_get();
 				break;
 			case P_Line_Info:
 				lp.line = u_pcode_get();

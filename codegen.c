@@ -9236,6 +9236,8 @@ skip_dereference:
 				continue;
 			}
 			case OPCODE_CHECKPOINT: {
+				frame_t n_vars, i;
+
 				g(clear_flag_cache(ctx));
 
 				escape_label = alloc_escape_label(ctx);
@@ -9244,7 +9246,21 @@ skip_dereference:
 
 				g(gen_timestamp_test(ctx, escape_label));
 
-				get_one(ctx, &slot_1);
+				if (SIZEOF_IP_T == 2) {
+					slot_1 = get_code(ctx);
+				} else if (SIZEOF_IP_T == 4) {
+					slot_1 = get_uint32(ctx);
+				} else {
+					not_reached();
+					continue;
+				}
+
+				get_one(ctx, &n_vars);
+				for (i = 0; i < n_vars; i++) {
+					frame_t dummy;
+					get_one(ctx, &dummy);
+				}
+
 				gen_insn(INSN_ENTRY, 0, 0, 0);
 				gen_four(slot_1);
 				if (unlikely(!(slot_1 + 1)))
