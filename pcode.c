@@ -2884,6 +2884,9 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 					goto exception;
 				break;
 			case P_Checkpoint:
+				for (p = 0; p < instr_params; p++) {
+					pcode_get();
+				}
 				if (unlikely(!gen_checkpoint(ctx, ARG_MODE_N - 1)))
 					goto exception;
 				break;
