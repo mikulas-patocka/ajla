@@ -9302,7 +9302,9 @@ skip_dereference:
 						return false;
 					gen_label(entry_label);
 					ce->entry_label = entry_label;
-				}{
+
+					g(gen_timestamp_test(ctx, escape_label));
+				} else {
 					g(gen_timestamp_test(ctx, escape_label));
 
 					gen_insn(INSN_ENTRY, 0, 0, 0);
@@ -9617,6 +9619,21 @@ jump_over_arguments_and_return:
 	return true;
 }
 
+static bool attr_w gen_entries(struct codegen_context *ctx)
+{
+	size_t i;
+	for (i = 0; i < ctx->n_entries; i++) {
+		struct cg_entry *ce = &ctx->entries[i];
+		if (ce->entry_label) {
+			gen_insn(INSN_ENTRY, 0, 0, 0);
+			gen_four(i);
+			gen_insn(INSN_JMP, 0, 0, 0);
+			gen_four(ce->entry_label);
+		}
+	}
+	return true;
+}
+
 static bool attr_w gen_epilogues(struct codegen_context *ctx)
 {
 	ip_t ip;
@@ -9889,6 +9906,9 @@ next_one:;
 		goto fail;
 
 	if (unlikely(!gen_function(ctx)))
+		goto fail;
+
+	if (unlikely(!gen_entries(ctx)))
 		goto fail;
 
 	if (unlikely(!gen_epilogues(ctx)))
