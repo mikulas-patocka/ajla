@@ -411,6 +411,7 @@ struct cg_entry {
 	frame_t *variables;
 	size_t n_variables;
 	uint32_t entry_label;
+	uint32_t escape_label;
 };
 
 struct codegen_context {
@@ -9288,6 +9289,7 @@ skip_dereference:
 					frame_t i;
 					uint32_t entry_label;
 					struct cg_entry *ce = &ctx->entries[slot_1];
+					ce->escape_label = escape_label;
 
 					if (unlikely(!array_init_mayfail(frame_t, &ce->variables, &ce->n_variables, &ctx->err)))
 						return false;
@@ -9625,8 +9627,15 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 	for (i = 0; i < ctx->n_entries; i++) {
 		struct cg_entry *ce = &ctx->entries[i];
 		if (ce->entry_label) {
+			frame_t j;
+
 			gen_insn(INSN_ENTRY, 0, 0, 0);
 			gen_four(i);
+
+			for (j = 0; j < ce->n_variables; j++) {
+				g(gen_test_1(ctx, R_FRAME, ce->variables[j], 0, ce->escape_label, false, TEST));
+			}
+
 			gen_insn(INSN_JMP, 0, 0, 0);
 			gen_four(ce->entry_label);
 		}
