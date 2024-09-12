@@ -406,6 +406,10 @@ struct code_arg {
 	frame_t type;
 };
 
+struct cg_entry {
+	size_t entry_to_pos;
+};
+
 struct codegen_context {
 	struct data *fn;
 	struct data **local_directory;
@@ -415,6 +419,7 @@ struct codegen_context {
 	uchar_efficient_t arg_mode;
 
 	uint32_t label_id;
+	struct cg_entry *entries;
 	frame_t n_entries;
 
 	uint8_t *code;
@@ -431,7 +436,6 @@ struct codegen_context {
 	size_t mcode_size;
 
 	size_t *label_to_pos;
-	size_t *entry_to_pos;
 	struct relocation *reloc;
 	size_t reloc_size;
 
@@ -464,6 +468,7 @@ static void init_ctx(struct codegen_context *ctx)
 {
 	ctx->local_directory = NULL;
 	ctx->label_id = 0;
+	ctx->entries = NULL;
 	ctx->n_entries = 0;
 	ctx->code = NULL;
 	ctx->code_labels = NULL;
@@ -472,7 +477,6 @@ static void init_ctx(struct codegen_context *ctx)
 	ctx->reload_label = 0;
 	ctx->mcode = NULL;
 	ctx->label_to_pos = NULL;
-	ctx->entry_to_pos = NULL;
 	ctx->reloc = NULL;
 	ctx->trap_records = NULL;
 	ctx->args = NULL;
@@ -484,6 +488,8 @@ static void done_ctx(struct codegen_context *ctx)
 {
 	if (ctx->local_directory)
 		mem_free(ctx->local_directory);
+	if (ctx->entries)
+		mem_free(ctx->entries);
 	if (ctx->code)
 		mem_free(ctx->code);
 	if (ctx->code_labels)
@@ -494,8 +500,6 @@ static void done_ctx(struct codegen_context *ctx)
 		mem_free(ctx->mcode);
 	if (ctx->label_to_pos)
 		mem_free(ctx->label_to_pos);
-	if (ctx->entry_to_pos)
-		mem_free(ctx->entry_to_pos);
 	if (ctx->reloc)
 		mem_free(ctx->reloc);
 	if (ctx->trap_records)
@@ -9236,15 +9240,13 @@ skip_dereference:
 				continue;
 			}
 			case OPCODE_CHECKPOINT: {
-				frame_t n_vars, i;
+				frame_t n_vars;
 
 				g(clear_flag_cache(ctx));
 
 				escape_label = alloc_escape_label(ctx);
 				if (unlikely(!escape_label))
 					return false;
-
-				g(gen_timestamp_test(ctx, escape_label));
 
 				if (SIZEOF_IP_T == 2) {
 					slot_1 = get_code(ctx);
@@ -9255,18 +9257,40 @@ skip_dereference:
 					continue;
 				}
 
-				get_one(ctx, &n_vars);
-				for (i = 0; i < n_vars; i++) {
-					frame_t dummy;
-					get_one(ctx, &dummy);
-				}
-
-				gen_insn(INSN_ENTRY, 0, 0, 0);
-				gen_four(slot_1);
 				if (unlikely(!(slot_1 + 1)))
 					return false;
-				if (unlikely(slot_1 >= ctx->n_entries))
-					ctx->n_entries = slot_1 + 1;
+				while (slot_1 >= ctx->n_entries) {
+					void *err_entries;
+					struct cg_entry e;
+					if (unlikely(!ctx->entries)) {
+						if (unlikely(!array_init_mayfail(struct cg_entry, &ctx->entries, &ctx->n_entries, &ctx->err)))
+							return false;
+					}
+					memset(&e, 0, sizeof(struct cg_entry));
+					if (unlikely(!array_add_mayfail(struct cg_entry, &ctx->entries, &ctx->n_entries, e, &err_entries, &ctx->err))) {
+						ctx->entries = err_entries;
+						return false;
+					}
+				}
+
+				get_one(ctx, &n_vars);
+				if (n_vars) {
+					frame_t i;
+					uint32_t entry_label;
+					for (i = 0; i < n_vars; i++) {
+						frame_t dummy;
+						get_one(ctx, &dummy);
+					}
+					entry_label = alloc_label(ctx);
+					if (unlikely(!entry_label))
+						return false;
+					gen_label(entry_label);
+				}{
+					g(gen_timestamp_test(ctx, escape_label));
+
+					gen_insn(INSN_ENTRY, 0, 0, 0);
+					gen_four(slot_1);
+				}
 				continue;
 			}
 			case OPCODE_JMP: {
@@ -9611,7 +9635,7 @@ static bool attr_w cgen_entry(struct codegen_context *ctx)
 {
 	uint32_t entry_id = cget_four(ctx);
 	ajla_assert_lo(entry_id < ctx->n_entries, (file_line, "cgen_entry: invalid entry %lx", (unsigned long)entry_id));
-	ctx->entry_to_pos[entry_id] = ctx->mcode_size;
+	ctx->entries[entry_id].entry_to_pos = ctx->mcode_size;
 	return true;
 }
 
@@ -9747,7 +9771,7 @@ static bool attr_w codegen_map(struct codegen_context *ctx)
 		return false;
 	}
 	for (i = 0; i < ctx->n_entries; i++) {
-		char *entry = cast_ptr(char *, ptr) + ctx->entry_to_pos[i];
+		char *entry = cast_ptr(char *, ptr) + ctx->entries[i].entry_to_pos;
 		da(ctx->codegen,codegen)->unoptimized_code[i] = entry;
 		da(ctx->codegen,codegen)->n_entries++;
 	}
@@ -9856,9 +9880,6 @@ next_one:;
 	if (unlikely(!(ctx->label_id + 1)))
 		goto fail;
 	if (unlikely(!(ctx->label_to_pos = mem_alloc_array_mayfail(mem_alloc_mayfail, size_t *, 0, 0, ctx->label_id + 1, sizeof(size_t), &ctx->err))))
-		goto fail;
-
-	if (unlikely(!(ctx->entry_to_pos = mem_alloc_array_mayfail(mem_alloc_mayfail, size_t *, 0, 0, ctx->n_entries, sizeof(size_t), &ctx->err))))
 		goto fail;
 
 again:
