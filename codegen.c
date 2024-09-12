@@ -411,7 +411,7 @@ struct cg_entry {
 	frame_t *variables;
 	size_t n_variables;
 	uint32_t entry_label;
-	uint32_t escape_label;
+	uint32_t nonflat_label;
 };
 
 struct codegen_context {
@@ -9287,9 +9287,8 @@ skip_dereference:
 				get_one(ctx, &n_vars);
 				if (n_vars) {
 					frame_t i;
-					uint32_t entry_label;
+					uint32_t entry_label, nonflat_label;
 					struct cg_entry *ce = &ctx->entries[slot_1];
-					ce->escape_label = escape_label;
 
 					if (unlikely(!array_init_mayfail(frame_t, &ce->variables, &ce->n_variables, &ctx->err)))
 						return false;
@@ -9304,6 +9303,11 @@ skip_dereference:
 						return false;
 					gen_label(entry_label);
 					ce->entry_label = entry_label;
+
+					nonflat_label = alloc_escape_label_for_ip(ctx, ctx->current_position);
+					if (unlikely(!nonflat_label))
+						return false;
+					ce->nonflat_label = nonflat_label;
 
 					g(gen_timestamp_test(ctx, escape_label));
 				} else {
@@ -9633,7 +9637,7 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 			gen_four(i);
 
 			for (j = 0; j < ce->n_variables; j++) {
-				g(gen_test_1(ctx, R_FRAME, ce->variables[j], 0, ce->escape_label, false, TEST));
+				g(gen_test_1(ctx, R_FRAME, ce->variables[j], 0, ce->nonflat_label, false, TEST));
 			}
 
 			gen_insn(INSN_JMP, 0, 0, 0);
