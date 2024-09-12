@@ -408,6 +408,9 @@ struct code_arg {
 
 struct cg_entry {
 	size_t entry_to_pos;
+	frame_t *variables;
+	size_t n_variables;
+	uint32_t entry_label;
 };
 
 struct codegen_context {
@@ -488,8 +491,15 @@ static void done_ctx(struct codegen_context *ctx)
 {
 	if (ctx->local_directory)
 		mem_free(ctx->local_directory);
-	if (ctx->entries)
+	if (ctx->entries) {
+		size_t i;
+		for (i = 0; i < ctx->n_entries; i++) {
+			struct cg_entry *ce = &ctx->entries[i];
+			if (ce->variables)
+				mem_free(ce->variables);
+		}
 		mem_free(ctx->entries);
+	}
 	if (ctx->code)
 		mem_free(ctx->code);
 	if (ctx->code_labels)
@@ -9277,14 +9287,21 @@ skip_dereference:
 				if (n_vars) {
 					frame_t i;
 					uint32_t entry_label;
+					struct cg_entry *ce = &ctx->entries[slot_1];
+
+					if (unlikely(!array_init_mayfail(frame_t, &ce->variables, &ce->n_variables, &ctx->err)))
+						return false;
 					for (i = 0; i < n_vars; i++) {
-						frame_t dummy;
-						get_one(ctx, &dummy);
+						frame_t v;
+						get_one(ctx, &v);
+						if (unlikely(!array_add_mayfail(frame_t, &ce->variables, &ce->n_variables, v, NULL, &ctx->err)))
+							return false;
 					}
 					entry_label = alloc_label(ctx);
 					if (unlikely(!entry_label))
 						return false;
 					gen_label(entry_label);
+					ce->entry_label = entry_label;
 				}{
 					g(gen_timestamp_test(ctx, escape_label));
 
