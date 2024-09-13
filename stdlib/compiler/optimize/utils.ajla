@@ -590,6 +590,7 @@ fn load_function_context(pc : list(pcode_t)) : context
 			b.instrs +<= len(ctx.instrs);
 			ctx.instrs +<= ins;
 		] else if ins.opcode = P_Free then [
+		] else if ins.opcode = P_Checkpoint then [
 		] else [
 			b.instrs +<= len(ctx.instrs);
 			ctx.instrs +<= ins;
@@ -636,6 +637,7 @@ again:
 
 fn dump_basic_blocks(ctx : context, dump_it : bool) : list(pcode_t)
 [
+	//dump_it := ctx.name = "main" or ctx.name = "fact";
 	if dump_it then [
 		eval debug("-----------------------------------------------------------------");
 		eval debug("dump_basic_blocks: " + ctx.name);
