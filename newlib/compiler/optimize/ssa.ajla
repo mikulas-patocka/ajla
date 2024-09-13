@@ -1975,6 +1975,7 @@ fn insert_free(ctx : context) : context
 
 			var prev_live := live;
 
+			var elided := (live and write_mask) = 0;
 			live and= not write_mask;
 			live or= read_mask;
 
@@ -2032,6 +2033,20 @@ skip_free_instr:
 			]
 			if freed <> 0 then
 				cm := update_conflict_map(cm, prev_live or freed);
+
+			if instr.opcode = P_Call or instr.opcode = P_Call_Indirect, not elided then [
+				var p_live := prev_live;
+				var new_live : var_set := 0;
+				while p_live <> 0 do [
+					var l : int := bsr p_live;
+					p_live btr= l;
+					if ctx.variables[l].must_be_flat then
+						new_live bts= l;
+				]
+				var cp_instr := create_instr(P_Checkpoint, var_set_2_list(new_live), bgi);
+				ctx := insert_instr(ctx, cp_instr, ili + 1);
+				needs_checkpoint := false;
+			]
 
 			ili -= 1;
 		]
