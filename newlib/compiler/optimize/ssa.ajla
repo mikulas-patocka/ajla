@@ -1975,7 +1975,6 @@ fn insert_free(ctx : context) : context
 
 			var prev_live := live;
 
-			var elided := (live and write_mask) = 0;
 			live and= not write_mask;
 			live or= read_mask;
 
@@ -2034,7 +2033,16 @@ skip_free_instr:
 			if freed <> 0 then
 				cm := update_conflict_map(cm, prev_live or freed);
 
-			if instr.opcode = P_Call or instr.opcode = P_Call_Indirect, not elided then [
+			if instr.opcode = P_Call or instr.opcode = P_Call_Indirect then [
+				var output := write_mask;
+				while output <> 0 do [
+					var o : int := bsr output;
+					output btr= o;
+					if ctx.variables[o].color <> -1 then
+						goto not_elided;
+				]
+				goto skip_call;
+not_elided:
 				var p_live := prev_live;
 				var new_live : var_set := 0;
 				while p_live <> 0 do [
@@ -2046,6 +2054,7 @@ skip_free_instr:
 				var cp_instr := create_instr(P_Checkpoint, var_set_2_list(new_live), bgi);
 				ctx := insert_instr(ctx, cp_instr, ili + 1);
 				needs_checkpoint := false;
+skip_call:
 			]
 
 			ili -= 1;
@@ -2083,8 +2092,14 @@ skip_free_instr:
 				if ctx.variables[l].must_be_flat then
 					new_live_bottom bts= l;
 			]
+			var ili := len(ctx.blocks[bgi].instrs);
+			if ili > 0 then [
+				var instr := ctx.instrs[ctx.blocks[bgi].instrs[ili - 1]];
+				if instr.opcode = P_Jmp_False or instr.opcode = P_Return then
+					ili -= 1;
+			]
 			var cp_instr := create_instr(P_Checkpoint, var_set_2_list(new_live_bottom), bgi);
-			ctx := insert_instr(ctx, cp_instr, len(ctx.blocks[bgi].instrs) - 1);
+			ctx := insert_instr(ctx, cp_instr, ili);
 		]
 	]
 
