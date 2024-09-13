@@ -1579,6 +1579,18 @@ fn remove_phis(ctx : context) : context
 	return ctx;
 ]
 
+fn var_set_2_list(vs : var_set) : list(pcode_t)
+[
+	var p := empty(pcode_t);
+	while vs <> 0 do [
+		var v : int := bsr vs;
+		vs btr= v;
+		p +<= v;
+	]
+	p := list_reverse(p);
+	return p;
+]
+
 fn remap_variables(ctx : context, old_new : list(int)) : context
 [
 	for bgi := 0 to len(ctx.blocks) do [
@@ -1594,14 +1606,7 @@ fn remap_variables(ctx : context, old_new : list(int)) : context
 					if n >= 0 then
 						new_set bts= old_new[ins.params[s]];
 				]
-				var p := empty(pcode_t);
-				while new_set <> 0 do [
-					var v : int := bsr new_set;
-					new_set btr= v;
-					p +<= v;
-				]
-				p := list_reverse(p);
-				ctx.instrs[igi].params := p;
+				ctx.instrs[igi].params := var_set_2_list(new_set);
 				continue;
 			]
 			var s := ins.read_set or ins.write_set;
@@ -1792,10 +1797,6 @@ fn dlte(ctx : context) : context
 
 fn identify_loops(ctx : context) : context
 [
-	var cp_instr := create_instr(P_Checkpoint, empty(pcode_t), 0);
-	ctx := insert_instr(ctx, cp_instr, 1);
-
-	var needs_checkpoint : node_set := 0;
 	var loops : node_set := 0;
 	for bgi := 0 to len(ctx.blocks) do [
 		if not ctx.blocks[bgi].active then
@@ -1803,9 +1804,6 @@ fn identify_loops(ctx : context) : context
 		var block := ctx.blocks[bgi];
 		for post_idx := 0 to len(block.post_list) do [
 			var post := block.post_list[post_idx];
-			if post < bgi then [
-				needs_checkpoint bts= bgi;
-			]
 			if post = block.idom then [
 				loops bts= post;
 				loops bts= block.idom;
@@ -1830,33 +1828,6 @@ fn identify_loops(ctx : context) : context
 		]
 	]
 
-	while needs_checkpoint <> 0 do [
-		var bgi : int := bsr needs_checkpoint;
-		needs_checkpoint btr= bgi;
-		var has_cp := false;
-		var block := ctx.blocks[bgi];
-		var ili := len(block.instrs) - 1;
-		while ili >= 0 do [
-			var instr := ctx.instrs[block.instrs[ili]];
-			if instr.opcode = P_Call or instr.opcode = P_Call_Indirect then [
-				var cp_instr := create_instr(P_Checkpoint, empty(pcode_t), bgi);
-				ctx := insert_instr(ctx, cp_instr, ili + 1);
-				has_cp := true;
-			]
-			ili -= 1;
-		]
-		if not has_cp then [
-			var block := ctx.blocks[bgi];
-			var cp_instr := create_instr(P_Checkpoint, empty(pcode_t), bgi);
-			var idx := len(block.instrs);
-			if idx > 0 then [
-				var instr := ctx.instrs[block.instrs[idx - 1]];
-				if instr.opcode = P_Jmp_False or instr.opcode = P_Return then
-					idx -= 1;
-			]
-			ctx := insert_instr(ctx, cp_instr, idx);
-		]
-	]
 	return ctx;
 ]
 
@@ -1885,20 +1856,6 @@ fn liveness(ctx : context) : context
 			if instr.opcode = P_Jmp_False, not live bt instr.params[0] then [
 				live bts= instr.params[0];
 				ctx.blocks[bgi].live_bottom := live;
-			]
-
-			if instr.opcode = P_Checkpoint then [
-				var f := live;
-				var p := empty(pcode_t);
-				while f <> 0 do [
-					var vgi : int := bsr f;
-					f btr= vgi;
-					var v := ctx.variables[vgi];
-					if v.must_be_flat then [
-						p +<= vgi;
-					]
-				]
-				ctx.instrs[block.instrs[ili]].params := p;
 			]
 
 			var read_mask := set_to_mask(instr, instr.read_set);
@@ -1999,6 +1956,16 @@ fn insert_free(ctx : context) : context
 		cm := update_conflict_map(cm, live);
 
 		var block := ctx.blocks[bgi];
+
+		var needs_checkpoint := false;
+		for post_idx := 0 to len(block.post_list) do [
+			var post := block.post_list[post_idx];
+			if post < bgi then [
+				needs_checkpoint := true;
+				break;
+			]
+		]
+
 		var ili := len(block.instrs) - 1;
 		while ili >= 0 do [
 			var instr := ctx.instrs[block.instrs[ili]];
@@ -2090,6 +2057,19 @@ skip_free_instr:
 					ctx := insert_instr(ctx, free_instr, 0);
 				]
 			]
+		]
+
+		if needs_checkpoint, len(ctx.blocks[bgi].instrs) > 0 then [
+			var live_bottom := ctx.blocks[bgi].live_bottom;
+			var new_live_bottom : var_set := 0;
+			while live_bottom <> 0 do [
+				var l : int := bsr live_bottom;
+				live_bottom btr= l;
+				if ctx.variables[l].must_be_flat then
+					new_live_bottom bts= l;
+			]
+			var cp_instr := create_instr(P_Checkpoint, var_set_2_list(new_live_bottom), bgi);
+			ctx := insert_instr(ctx, cp_instr, len(ctx.blocks[bgi].instrs) - 1);
 		]
 	]
 
