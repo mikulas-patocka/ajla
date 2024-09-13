@@ -1005,7 +1005,7 @@ exception:
 	return false;
 }
 
-static bool pcode_finish_call(struct build_function_context *ctx, const struct pcode_type **rets, size_t rets_l)
+static bool pcode_finish_call(struct build_function_context *ctx, const struct pcode_type **rets, size_t rets_l, bool test_flat)
 {
 	size_t i;
 	frame_t slot;
@@ -1022,30 +1022,20 @@ static bool pcode_finish_call(struct build_function_context *ctx, const struct p
 		gen_code(TYPE_IS_FLAT(tv->type) ? OPCODE_MAY_RETURN_FLAT : 0);
 	}
 
-	if (unlikely(!gen_checkpoint(ctx, NULL, 0)))
-		goto exception;
+	if (unlikely(test_flat)) {
+		if (unlikely(!gen_checkpoint(ctx, NULL, 0)))
+			goto exception;
 
-	/*for (i = 0; i < rets_l; i++) {
-		slot = rets[i]->slot;
-		if (ctx->local_variables_flags[slot].must_be_flat) {
-			code_t code;
-			arg_mode_t am = INIT_ARG_MODE;
-			get_arg_mode(am, slot);
-			code = OPCODE_ESCAPE_NONFLAT;
-			code += am * OPCODE_MODE_MULT;
-			gen_code(code);
-			gen_am(am, slot);
-		}
-	}*/
-	for (slot = MIN_USEABLE_SLOT; slot < ctx->n_slots; slot++) {
-		if (ctx->local_variables_flags[slot].must_be_flat) {
-			code_t code;
-			arg_mode_t am = INIT_ARG_MODE;
-			get_arg_mode(am, slot);
-			code = OPCODE_ESCAPE_NONFLAT;
-			code += am * OPCODE_MODE_MULT;
-			gen_code(code);
-			gen_am(am, slot);
+		for (slot = MIN_USEABLE_SLOT; slot < ctx->n_slots; slot++) {
+			if (ctx->local_variables_flags[slot].must_be_flat) {
+				code_t code;
+				arg_mode_t am = INIT_ARG_MODE;
+				get_arg_mode(am, slot);
+				code = OPCODE_ESCAPE_NONFLAT;
+				code += am * OPCODE_MODE_MULT;
+				gen_code(code);
+				gen_am(am, slot);
+			}
 		}
 	}
 
@@ -1243,7 +1233,7 @@ static bool pcode_call(struct build_function_context *ctx, pcode_t instr)
 			if (unlikely(!array_add_mayfail(const struct pcode_type *, &rets, &rets_l, tv, NULL, ctx->err)))
 				goto exception;
 		}
-		if (unlikely(!pcode_finish_call(ctx, rets, rets_l)))
+		if (unlikely(!pcode_finish_call(ctx, rets, rets_l, false)))
 			goto exception;
 		mem_free(rets);
 		rets = NULL;
@@ -1319,7 +1309,7 @@ static bool pcode_op_to_call(struct build_function_context *ctx, pcode_t op, con
 	if (t2)
 		gen_am_two(am, t2->slot, flags2 & Flag_Free_Argument ? OPCODE_FLAG_FREE_ARGUMENT : 0);
 
-	if (unlikely(!pcode_finish_call(ctx, &tr, 1)))
+	if (unlikely(!pcode_finish_call(ctx, &tr, 1, true)))
 		goto exception;
 
 	return true;

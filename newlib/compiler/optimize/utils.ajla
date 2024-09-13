@@ -637,7 +637,7 @@ again:
 
 fn dump_basic_blocks(ctx : context, dump_it : bool) : list(pcode_t)
 [
-	//dump_it := ctx.name = "main";
+	//dump_it := ctx.name = "main" or ctx.name = "fact";
 	if dump_it then [
 		eval debug("-----------------------------------------------------------------");
 		eval debug("dump_basic_blocks: " + ctx.name);
