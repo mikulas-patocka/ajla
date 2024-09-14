@@ -2014,8 +2014,19 @@ dont_optimize:
 	    || 1
 #endif
 	    ) {
-		g(gen_test_1(ctx, R_FRAME, slot_1, 0, label, false, TEST));
-		g(gen_test_1(ctx, R_FRAME, slot_2, 0, label, false, TEST));
+		if (!ARCH_HAS_BWX && (slot_1 & ~7) == (slot_2 & ~7)) {
+			g(gen_address(ctx, R_FRAME, slot_1 & ~7, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_8));
+			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+			gen_one(R_SCRATCH_1);
+			gen_address_offset();
+
+			g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_ZAPNOT, R_SCRATCH_1, R_SCRATCH_1, (1U << (slot_1 & 7)) | (1U << (slot_2 & 7))));
+
+			g(gen_jmp_on_zero(ctx, OP_SIZE_8, R_SCRATCH_1, COND_NE, label));
+		} else {
+			g(gen_test_1(ctx, R_FRAME, slot_1, 0, label, false, TEST));
+			g(gen_test_1(ctx, R_FRAME, slot_2, 0, label, false, TEST));
+		}
 	} else {
 		g(gen_address(ctx, R_FRAME, slot_1, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
 		gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
@@ -2140,6 +2151,35 @@ static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *varia
 
 	return true;
 #endif
+	if (!ARCH_HAS_BWX) {
+		pos = 0;
+		while (pos < n_variables) {
+			frame_t addr = variables[pos] & ~7;
+			unsigned bit = variables[pos] & 7;
+			unsigned mask = 1U << bit;
+			pos++;
+			while (pos < n_variables) {
+				frame_t addr2 = variables[pos] & ~7;
+				unsigned bit2 = variables[pos] & 7;
+				unsigned mask2 = 1U << bit2;
+
+				if (addr != addr2)
+					break;
+
+				mask |= mask2;
+				pos++;
+			}
+			g(gen_address(ctx, R_FRAME, addr, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_8));
+			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+			gen_one(R_SCRATCH_1);
+			gen_address_offset();
+
+			g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_ZAPNOT, R_SCRATCH_1, R_SCRATCH_1, mask));
+
+			g(gen_jmp_on_zero(ctx, OP_SIZE_8, R_SCRATCH_1, COND_NE, label));
+		}
+		return true;
+	}
 #endif
 	for (i = 0; i < n_variables; i++) {
 		g(gen_test_1(ctx, R_FRAME, variables[i], 0, label, false, TEST));

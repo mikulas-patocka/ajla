@@ -475,11 +475,14 @@ static attr_always_inline struct data *pointer_get_data_(pointer_t ptr argument_
 	(5))
 
 #define slot_size		((size_t)1 << slot_bits)
-#if defined(ARCH_PARISC)
+#if defined(ARCH_ALPHA) || defined(ARCH_PARISC)
 /*
  * This improves generated code on parisc.
  * The ldd/std instructions require 8-byte alignment.
  * Aligning the offset avoids offset-generating instructions.
+ *
+ * On alpha, we need this, so that we can access flags using the ldq
+ * instruction.
  */
 #define slot_align		maximum(slot_size, 8)
 #else
