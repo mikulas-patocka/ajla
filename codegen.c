@@ -2057,6 +2057,38 @@ static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *varia
 {
 	size_t i;
 	qsort(variables, n_variables, sizeof(frame_t), frame_t_compare);
+	if (!n_variables)
+		return true;
+	if (n_variables == 1) {
+		g(gen_test_1(ctx, R_FRAME, variables[0], 0, escape_label, false, TEST));
+		return true;
+	}
+	if (n_variables == 2) {
+		g(gen_test_2(ctx, variables[0], variables[1], escape_label));
+		return true;
+	}
+#ifdef HAVE_BITWISE_FRAME
+#else
+#if defined(ARCH_X86)
+	g(gen_address(ctx, R_FRAME, variables[0], IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
+	gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
+	gen_one(R_SCRATCH_1);
+	gen_address_offset();
+
+	for (i = 1; i < n_variables; i++) {
+		g(gen_address(ctx, R_FRAME, variables[i], IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
+		gen_insn(INSN_ALU_PARTIAL, OP_SIZE_1, ALU_OR, 1);
+		gen_one(R_SCRATCH_1);
+		gen_one(R_SCRATCH_1);
+		gen_address_offset();
+	}
+
+	gen_insn(INSN_JMP_COND, OP_SIZE_1, COND_NE, 0);
+	gen_four(escape_label);
+
+	return true;
+#endif
+#endif
 	for (i = 0; i < n_variables; i++) {
 		g(gen_test_1(ctx, R_FRAME, variables[i], 0, escape_label, false, TEST));
 	}
