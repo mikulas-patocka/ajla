@@ -2053,21 +2053,67 @@ static int frame_t_compare(const void *p1, const void *p2)
 	return 0;
 }
 
-static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *variables, size_t n_variables, uint32_t escape_label)
+static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *variables, size_t n_variables, uint32_t label)
 {
 	size_t i;
+	size_t attr_unused pos;
 	qsort(variables, n_variables, sizeof(frame_t), frame_t_compare);
 	if (!n_variables)
 		return true;
 	if (n_variables == 1) {
-		g(gen_test_1(ctx, R_FRAME, variables[0], 0, escape_label, false, TEST));
+		g(gen_test_1(ctx, R_FRAME, variables[0], 0, label, false, TEST));
 		return true;
 	}
 	if (n_variables == 2) {
-		g(gen_test_2(ctx, variables[0], variables[1], escape_label));
+		g(gen_test_2(ctx, variables[0], variables[1], label));
 		return true;
 	}
 #ifdef HAVE_BITWISE_FRAME
+	pos = 0;
+	while (pos < n_variables) {
+		frame_t addr = variables[pos] >> (OP_SIZE_BITMAP + 3) << OP_SIZE_BITMAP;
+		uintptr_t bit_mask = (uintptr_t)1 << (variables[pos] & ((1 << (OP_SIZE_BITMAP + 3)) - 1));
+		unsigned n_bits = 1;
+		pos++;
+		while (pos < n_variables) {
+			frame_t addr2 = variables[pos] >> (OP_SIZE_BITMAP + 3) << OP_SIZE_BITMAP;
+			uintptr_t bit_mask_2 = (uintptr_t)1 << (variables[pos] & ((1 << (OP_SIZE_BITMAP + 3)) - 1));
+			if (addr != addr2)
+				break;
+			bit_mask |= bit_mask_2;
+			n_bits++;
+			pos++;
+		}
+		if (n_bits == 1) {
+			g(gen_test_1(ctx, R_FRAME, variables[pos - 1], 0, label, false, TEST));
+			continue;
+		} else if (n_bits == 2) {
+			g(gen_test_2(ctx, variables[pos - 1], variables[pos - 2], label));
+			continue;
+		}
+#if defined(ARCH_X86)
+		g(gen_address(ctx, R_FRAME, addr, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_BITMAP));
+		if (OP_SIZE_BITMAP == OP_SIZE_4) {
+			g(gen_imm(ctx, (int32_t)bit_mask, IMM_PURPOSE_TEST, OP_SIZE_BITMAP));
+		} else {
+			g(gen_imm(ctx, bit_mask, IMM_PURPOSE_TEST, OP_SIZE_BITMAP));
+		}
+		gen_insn(INSN_TEST, OP_SIZE_BITMAP, 0, 1);
+		gen_address_offset();
+		gen_imm_offset();
+
+		gen_insn(INSN_JMP_COND, OP_SIZE_BITMAP, COND_NE, 0);
+		gen_four(label);
+#else
+		g(gen_address(ctx, R_FRAME, addr, ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_BITMAP));
+		gen_insn(ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? INSN_MOVSX : INSN_MOV, OP_SIZE_BITMAP, 0, 0);
+		gen_one(R_SCRATCH_NA_1);
+		gen_address_offset();
+
+		g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, i_size(OP_SIZE_BITMAP), R_SCRATCH_NA_1, bit_mask, COND_NE, label));
+#endif
+	}
+	return true;
 #else
 #if defined(ARCH_X86)
 	g(gen_address(ctx, R_FRAME, variables[0], IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
@@ -2084,13 +2130,13 @@ static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *varia
 	}
 
 	gen_insn(INSN_JMP_COND, OP_SIZE_1, COND_NE, 0);
-	gen_four(escape_label);
+	gen_four(label);
 
 	return true;
 #endif
 #endif
 	for (i = 0; i < n_variables; i++) {
-		g(gen_test_1(ctx, R_FRAME, variables[i], 0, escape_label, false, TEST));
+		g(gen_test_1(ctx, R_FRAME, variables[i], 0, label, false, TEST));
 	}
 	return true;
 }
