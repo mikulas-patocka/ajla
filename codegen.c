@@ -2094,7 +2094,7 @@ static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *varia
 			g(gen_test_1(ctx, R_FRAME, variables[pos - 1], 0, label, false, TEST));
 			continue;
 		} else if (n_bits == 2) {
-			g(gen_test_2(ctx, variables[pos - 1], variables[pos - 2], label));
+			g(gen_test_2(ctx, variables[pos - 2], variables[pos - 1], label));
 			continue;
 		}
 #if defined(ARCH_X86)
