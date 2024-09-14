@@ -1804,8 +1804,8 @@ fn identify_loops(ctx : context) : context
 		for post_idx := 0 to len(block.post_list) do [
 			var post := block.post_list[post_idx];
 			if post = block.idom then [
+				loops bts= bgi;
 				loops bts= post;
-				loops bts= block.idom;
 			]
 		]
 	]
