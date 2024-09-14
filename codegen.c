@@ -2068,19 +2068,25 @@ static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *varia
 		g(gen_test_2(ctx, variables[0], variables[1], label));
 		return true;
 	}
-#if defined(HAVE_BITWISE_FRAME) && !defined(ARCH_S390)
+#if defined(HAVE_BITWISE_FRAME)
 	pos = 0;
 	while (pos < n_variables) {
 		frame_t addr = variables[pos] >> (OP_SIZE_BITMAP + 3) << OP_SIZE_BITMAP;
-		uintptr_t bit_mask = (uintptr_t)1 << (variables[pos] & ((1 << (OP_SIZE_BITMAP + 3)) - 1));
+		unsigned bit = variables[pos] & ((1 << (OP_SIZE_BITMAP + 3)) - 1);
+		uintptr_t mask = (uintptr_t)1 << bit;
 		unsigned n_bits = 1;
 		pos++;
 		while (pos < n_variables) {
 			frame_t addr2 = variables[pos] >> (OP_SIZE_BITMAP + 3) << OP_SIZE_BITMAP;
-			uintptr_t bit_mask_2 = (uintptr_t)1 << (variables[pos] & ((1 << (OP_SIZE_BITMAP + 3)) - 1));
+			unsigned bit2 = variables[pos] & ((1 << (OP_SIZE_BITMAP + 3)) - 1);
+			uintptr_t mask2 = (uintptr_t)1 << bit2;
 			if (addr != addr2)
 				break;
-			bit_mask |= bit_mask_2;
+#if defined(ARCH_S390)
+			if (bit >> 4 != bit2 >> 4)
+				break;
+#endif
+			mask |= mask2;
 			n_bits++;
 			pos++;
 		}
@@ -2094,9 +2100,9 @@ static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *varia
 #if defined(ARCH_X86)
 		g(gen_address(ctx, R_FRAME, addr, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_BITMAP));
 		if (OP_SIZE_BITMAP == OP_SIZE_4) {
-			g(gen_imm(ctx, (int32_t)bit_mask, IMM_PURPOSE_TEST, OP_SIZE_BITMAP));
+			g(gen_imm(ctx, (int32_t)mask, IMM_PURPOSE_TEST, OP_SIZE_BITMAP));
 		} else {
-			g(gen_imm(ctx, bit_mask, IMM_PURPOSE_TEST, OP_SIZE_BITMAP));
+			g(gen_imm(ctx, mask, IMM_PURPOSE_TEST, OP_SIZE_BITMAP));
 		}
 		gen_insn(INSN_TEST, OP_SIZE_BITMAP, 0, 1);
 		gen_address_offset();
@@ -2110,7 +2116,7 @@ static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *varia
 		gen_one(R_SCRATCH_NA_1);
 		gen_address_offset();
 
-		g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, i_size(OP_SIZE_BITMAP), R_SCRATCH_NA_1, bit_mask, COND_NE, label));
+		g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, i_size(OP_SIZE_BITMAP), R_SCRATCH_NA_1, mask, COND_NE, label));
 #endif
 	}
 	return true;
