@@ -2068,7 +2068,7 @@ static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *varia
 		g(gen_test_2(ctx, variables[0], variables[1], label));
 		return true;
 	}
-#ifdef HAVE_BITWISE_FRAME
+#if defined(HAVE_BITWISE_FRAME) && !defined(ARCH_S390)
 	pos = 0;
 	while (pos < n_variables) {
 		frame_t addr = variables[pos] >> (OP_SIZE_BITMAP + 3) << OP_SIZE_BITMAP;
@@ -2114,7 +2114,7 @@ static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *varia
 #endif
 	}
 	return true;
-#else
+#elif !defined(HAVE_BITWISE_FRAME)
 #if defined(ARCH_X86)
 	g(gen_address(ctx, R_FRAME, variables[0], IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
 	gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
