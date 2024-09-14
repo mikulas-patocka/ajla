@@ -2044,9 +2044,19 @@ dont_optimize:
 	return true;
 }
 
+static int frame_t_compare(const void *p1, const void *p2)
+{
+	if (*(const frame_t *)p1 < *(const frame_t *)p2)
+		return -1;
+	if (likely(*(const frame_t *)p1 > *(const frame_t *)p2))
+		return 1;
+	return 0;
+}
+
 static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *variables, size_t n_variables, uint32_t escape_label)
 {
 	size_t i;
+	qsort(variables, n_variables, sizeof(frame_t), frame_t_compare);
 	for (i = 0; i < n_variables; i++) {
 		g(gen_test_1(ctx, R_FRAME, variables[i], 0, escape_label, false, TEST));
 	}

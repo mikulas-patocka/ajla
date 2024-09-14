@@ -1587,7 +1587,6 @@ fn var_set_2_list(vs : var_set) : list(pcode_t)
 		vs btr= v;
 		p +<= v;
 	]
-	p := list_reverse(p);
 	return p;
 ]
 
