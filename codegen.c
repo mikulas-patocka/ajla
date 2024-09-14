@@ -2083,7 +2083,7 @@ static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *varia
 			if (addr != addr2)
 				break;
 #if defined(ARCH_S390)
-			if (bit >> 4 != bit2 >> 4)
+			if (!is_direct_const(mask | mask2, IMM_PURPOSE_TEST, OP_SIZE_BITMAP))
 				break;
 #endif
 			mask |= mask2;
