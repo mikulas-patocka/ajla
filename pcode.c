@@ -169,6 +169,7 @@ static code_t get_code(pcode_t op, const struct type *t)
 }
 
 #define INIT_ARG_MODE	0
+#define INIT_ARG_MODE_1	1
 typedef unsigned char arg_mode_t;
 
 static bool adjust_arg_mode(arg_mode_t *am, uintmax_t offs, ajla_error_t *mayfail)
@@ -809,7 +810,7 @@ static bool gen_checkpoint(struct build_function_context *ctx, const pcode_t *pa
 	if (unlikely(ctx->is_eval))
 		return true;
 
-	am = 1;
+	am = INIT_ARG_MODE_1;
 	get_arg_mode(am, n_params);
 
 	n_used_params = 0;
@@ -1009,6 +1010,8 @@ static bool pcode_finish_call(struct build_function_context *ctx, const struct p
 {
 	size_t i;
 	frame_t slot;
+	frame_t *vars = NULL;
+	size_t n_vars = 0;
 
 	ctx->leaf = false;
 
@@ -1023,25 +1026,40 @@ static bool pcode_finish_call(struct build_function_context *ctx, const struct p
 	}
 
 	if (unlikely(test_flat)) {
+		arg_mode_t am;
+
 		if (unlikely(!gen_checkpoint(ctx, NULL, 0)))
 			goto exception;
 
+		vars = mem_alloc_array_mayfail(mem_alloc_mayfail, frame_t *, 0, 0, ctx->n_slots, sizeof(frame_t), ctx->err);
+		if (unlikely(!vars))
+			goto exception;
+		am = INIT_ARG_MODE_1;
 		for (slot = MIN_USEABLE_SLOT; slot < ctx->n_slots; slot++) {
 			if (ctx->local_variables_flags[slot].must_be_flat) {
-				code_t code;
-				arg_mode_t am = INIT_ARG_MODE;
+				vars[n_vars++] = slot;
 				get_arg_mode(am, slot);
-				code = OPCODE_ESCAPE_NONFLAT;
-				code += am * OPCODE_MODE_MULT;
-				gen_code(code);
-				gen_am(am, slot);
 			}
 		}
+		if (n_vars) {
+			code_t code;
+			get_arg_mode(am, n_vars);
+			code = OPCODE_ESCAPE_NONFLAT;
+			code += am * OPCODE_MODE_MULT;
+			gen_code(code);
+			gen_am(am, n_vars);
+			for (i = 0; i < n_vars; i++)
+				gen_am(am, vars[i]);
+		}
+		mem_free(vars);
+		vars = NULL;
 	}
 
 	return true;
 
 exception:
+	if (vars)
+		mem_free(vars);
 	return false;
 }
 
@@ -2299,22 +2317,41 @@ exception:
 
 static bool pcode_check_args(struct build_function_context *ctx)
 {
-	arg_t i;
+	size_t i;
+	arg_mode_t am;
+	frame_t *vars = NULL;
+	size_t n_vars = 0;
+
+	vars = mem_alloc_array_mayfail(mem_alloc_mayfail, frame_t *, 0, 0, ctx->n_real_arguments, sizeof(frame_t), ctx->err);
+	if (unlikely(!vars))
+		goto exception;
+
+	am = INIT_ARG_MODE_1;
 	for (i = 0; i < ctx->n_real_arguments; i++) {
 		frame_t slot = ctx->args[i].slot;
 		if (ctx->local_variables_flags[slot].must_be_flat) {
-			code_t code;
-			arg_mode_t am = INIT_ARG_MODE;
+			vars[n_vars++] = slot;
 			get_arg_mode(am, slot);
-			code = OPCODE_ESCAPE_NONFLAT;
-			code += am * OPCODE_MODE_MULT;
-			gen_code(code);
-			gen_am(am, slot);
 		}
 	}
+	if (n_vars) {
+		code_t code;
+		get_arg_mode(am, n_vars);
+		code = OPCODE_ESCAPE_NONFLAT;
+		code += am * OPCODE_MODE_MULT;
+		gen_code(code);
+		gen_am(am, n_vars);
+		for (i = 0; i < n_vars; i++)
+			gen_am(am, vars[i]);
+	}
+	mem_free(vars);
+	vars = NULL;
+
 	return true;
 
 exception:
+	if (vars)
+		mem_free(vars);
 	return false;
 }
 

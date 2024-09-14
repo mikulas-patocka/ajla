@@ -2044,6 +2044,15 @@ dont_optimize:
 	return true;
 }
 
+static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *variables, size_t n_variables, uint32_t escape_label)
+{
+	size_t i;
+	for (i = 0; i < n_variables; i++) {
+		g(gen_test_1(ctx, R_FRAME, variables[i], 0, escape_label, false, TEST));
+	}
+	return true;
+}
+
 static bool attr_w clear_flag_cache(struct codegen_context *ctx)
 {
 	memset(ctx->flag_cache, 0, function_n_variables(ctx->fn) * sizeof(int8_t));
@@ -9240,13 +9249,28 @@ skip_dereference:
 				continue;
 			}
 			case OPCODE_ESCAPE_NONFLAT: {
-				get_one(ctx, &slot_1);
+				frame_t n, i;
+				frame_t *vars;
+
+				get_one(ctx, &n);
+				vars = mem_alloc_array_mayfail(mem_alloc_mayfail, frame_t *, 0, 0, n, sizeof(frame_t), &ctx->err);
+				if (unlikely(!vars))
+					return false;
+				for (i = 0; i < n; i++) {
+					get_one(ctx, &vars[i]);
+				}
 
 				escape_label = alloc_escape_label(ctx);
-				if (unlikely(!escape_label))
+				if (unlikely(!escape_label)) {
+					mem_free(vars);
 					return false;
+				}
 
-				g(gen_test_1(ctx, R_FRAME, slot_1, 0, escape_label, false, TEST));
+				if (unlikely(!gen_test_multiple(ctx, vars, n, escape_label))) {
+					mem_free(vars);
+					return false;
+				}
+				mem_free(vars);
 
 				continue;
 			}
@@ -9631,14 +9655,10 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 	for (i = 0; i < ctx->n_entries; i++) {
 		struct cg_entry *ce = &ctx->entries[i];
 		if (ce->entry_label) {
-			frame_t j;
-
 			gen_insn(INSN_ENTRY, 0, 0, 0);
 			gen_four(i);
 
-			for (j = 0; j < ce->n_variables; j++) {
-				g(gen_test_1(ctx, R_FRAME, ce->variables[j], 0, ce->nonflat_label, false, TEST));
-			}
+			g(gen_test_multiple(ctx, ce->variables, ce->n_variables, ce->nonflat_label));
 
 			gen_insn(INSN_JMP, 0, 0, 0);
 			gen_four(ce->entry_label);
