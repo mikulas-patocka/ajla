@@ -1816,6 +1816,11 @@ fn identify_loops(ctx : context) : context
 		var block := ctx.blocks[bgi];
 		for ili := 0 to len(block.instrs) do [
 			var instr := ctx.instrs[block.instrs[ili]];
+			if instr.opcode = P_Call or instr.opcode = P_Call_Indirect then
+				goto skip_must_be_flat;
+		]
+		for ili := 0 to len(block.instrs) do [
+			var instr := ctx.instrs[block.instrs[ili]];
 			var read_mask := set_to_mask(instr, instr.read_set);
 			while read_mask <> 0 do [
 				var vgi : int := bsr read_mask;
@@ -1825,6 +1830,7 @@ fn identify_loops(ctx : context) : context
 					ctx.variables[vgi].must_be_flat := true;
 			]
 		]
+skip_must_be_flat:
 	]
 
 	return ctx;
