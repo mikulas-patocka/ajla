@@ -1623,7 +1623,7 @@ static bool attr_w gen_set_1(struct codegen_context *ctx, unsigned base, frame_t
 #else
 #if !defined(ARCH_X86)
 	if (!ARCH_HAS_BWX) {
-		g(gen_address(ctx, base, offset + (slot_1 & ~(frame_t)7), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_8));
+		g(gen_address(ctx, base, offset + (slot_1 & ~7), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_8));
 		gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
 		gen_one(R_SCRATCH_NA_1);
 		gen_address_offset();
@@ -1634,7 +1634,7 @@ static bool attr_w gen_set_1(struct codegen_context *ctx, unsigned base, frame_t
 			g(gen_3address_alu_imm(ctx, OP_SIZE_8, ALU_OR, R_SCRATCH_NA_1, R_SCRATCH_NA_1, 1ULL << ((slot_1 & 7) * 8)));
 		}
 
-		g(gen_address(ctx, base, offset + (slot_1 & ~(frame_t)7), IMM_PURPOSE_STR_OFFSET, OP_SIZE_8));
+		g(gen_address(ctx, base, offset + (slot_1 & ~7), IMM_PURPOSE_STR_OFFSET, OP_SIZE_8));
 		gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
 		gen_address_offset();
 		gen_one(R_SCRATCH_NA_1);
@@ -1877,7 +1877,7 @@ static bool attr_w gen_test_1(struct codegen_context *ctx, unsigned base, frame_
 	}
 #else
 	if (!ARCH_HAS_BWX) {
-		g(gen_address(ctx, base, offset + (slot_1 & ~(frame_t)7), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_8));
+		g(gen_address(ctx, base, offset + (slot_1 & ~7), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_8));
 		gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
 		gen_one(R_SCRATCH_NA_2);
 		gen_address_offset();
