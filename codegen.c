@@ -4795,6 +4795,33 @@ do_alu: {
 			bool arch_use_flags = ARCH_HAS_FLAGS;
 #if defined(ARCH_POWER)
 			arch_use_flags = false;
+			if (op_size == OP_SIZE_NATIVE) {
+				gen_insn(INSN_ALU1, i_size(op_size), alu, ALU1_WRITES_FLAGS(alu));
+				gen_one(R_SCRATCH_2);
+				gen_one(R_SCRATCH_1);
+				if (alu == ALU1_NEG) {
+					gen_insn(INSN_ALU, i_size(op_size), ALU_AND, 1);
+					gen_one(R_CG_SCRATCH);
+					gen_one(R_SCRATCH_2);
+					gen_one(R_SCRATCH_1);
+				} else if (alu == ALU1_INC) {
+					gen_insn(INSN_ALU, i_size(op_size), ALU_ANDN, 1);
+					gen_one(R_CG_SCRATCH);
+					gen_one(R_SCRATCH_2);
+					gen_one(R_SCRATCH_1);
+				} else if (alu == ALU1_DEC) {
+					gen_insn(INSN_ALU, i_size(op_size), ALU_ANDN, 1);
+					gen_one(R_CG_SCRATCH);
+					gen_one(R_SCRATCH_1);
+					gen_one(R_SCRATCH_2);
+				}
+				gen_insn(INSN_JMP_COND, op_size, COND_L, 0);
+				gen_four(label_ovf);
+
+				g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_2));
+
+				return true;
+			}
 #endif
 			if (!arch_use_flags && !ARCH_SUPPORTS_TRAPS && ARCH_IS_3ADDRESS && ARCH_HAS_ANDN && op_size == OP_SIZE_NATIVE) {
 				gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(i_size(op_size)), i_size(op_size), alu, ALU1_WRITES_FLAGS(alu));
