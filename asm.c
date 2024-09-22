@@ -717,9 +717,11 @@ void asm_init(void)
 		}
 	}
 #endif
-#ifdef DEBUG_INFO
-	debug("static flags:  %x", cpu_feature_static_flags);
-	debug("dynamic flags: %x", cpu_feature_flags);
+#ifdef DEBUG_ENV
+	if (getenv("PRINT_FLAGS")) {
+		debug("static flags: %x", cpu_feature_static_flags);
+		debug("dynamic flags: %x", cpu_feature_flags);
+	}
 #endif
 	asm_setup_thread();
 
