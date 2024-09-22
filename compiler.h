@@ -543,7 +543,7 @@ do {				\
 #define int_efficient_t		cat4(int,EFFICIENT_WORD_SIZE,_,t)
 #define uint_efficient_t	cat4(uint,EFFICIENT_WORD_SIZE,_,t)
 
-#if defined(__alpha__) && !defined(__alpha_bwx__)
+#if defined(__alpha__) && (!defined(__alpha_bwx__) || defined(DEBUG_ENV))
 typedef int32_t char_efficient_t;
 typedef uint32_t uchar_efficient_t;
 typedef int32_t short_efficient_t;
