@@ -1801,19 +1801,6 @@ fn identify_loops(ctx : context) : context
 		if not ctx.blocks[bgi].active then
 			continue;
 		var block := ctx.blocks[bgi];
-		for post_idx := 0 to len(block.post_list) do [
-			var post := block.post_list[post_idx];
-			if post = block.idom then [
-				loops bts= bgi;
-				loops bts= post;
-			]
-		]
-	]
-
-	while loops <> 0 do [
-		var bgi : int := bsr loops;
-		loops btr= bgi;
-		var block := ctx.blocks[bgi];
 		for ili := 0 to len(block.instrs) do [
 			var instr := ctx.instrs[block.instrs[ili]];
 			if instr.opcode = P_Call or instr.opcode = P_Call_Indirect then [
@@ -1822,10 +1809,47 @@ fn identify_loops(ctx : context) : context
 					var o : int := bsr output;
 					output btr= o;
 					if ctx.variables[o].color <> -1 then
-						goto skip_must_be_flat;
+						goto skip;
 				]
 			]
 		]
+		loops bts= bgi;
+skip:
+	]
+
+	while true do [
+		var did_something := false;
+
+		var loops2 := loops;
+		while loops2 <> 0 do [
+			var bgi : int := bsr loops2;
+			loops2 btr= bgi;
+			var block := ctx.blocks[bgi];
+			for i := 0 to len(block.pred_list) do [
+				if loops bt block.pred_list[i] then
+					goto in_loop;
+			]
+			loops btr= bgi;
+			did_something := true;
+			continue;
+in_loop:
+			for i := 0 to len(block.post_list) do [
+				if loops bt block.post_list[i] then
+					goto in_loop2;
+			]
+			loops btr= bgi;
+			did_something := true;
+			continue;
+in_loop2:
+		]
+		if not did_something then
+			break;
+	]
+
+	while loops <> 0 do [
+		var bgi : int := bsr loops;
+		loops btr= bgi;
+		var block := ctx.blocks[bgi];
 		for ili := 0 to len(block.instrs) do [
 			var instr := ctx.instrs[block.instrs[ili]];
 			var read_mask := set_to_mask(instr, instr.read_set);
