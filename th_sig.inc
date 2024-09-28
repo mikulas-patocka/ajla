@@ -16,7 +16,7 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#if defined(__CYGWIN__) || (defined(__linux__) && (defined(__alpha__) || defined(__hppa)))
+#if defined(__CYGWIN__) || (defined(__linux__) && (defined(__alpha__) || defined(__hppa))) || defined(__HAIKU__)
 
 /*
  * In Cygwin, signals must not be delivered to threads doing Win32 waiting
