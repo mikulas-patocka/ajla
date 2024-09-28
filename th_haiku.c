@@ -61,7 +61,11 @@ do {									\
 
 #define do_mutex_lock(m)						\
 do {									\
-	status_t s = __mutex_lock(m);					\
+	status_t s;							\
+	int32 o = atomic_test_and_set(&m->lock, B_USER_MUTEX_LOCKED, 0);\
+	if (likely(!o))							\
+		return;							\
+	s = __mutex_lock(m);						\
 	if (unlikely(s != B_NO_ERROR))					\
 		fatal("__mutex_lock failed at %s: %x", position_string(position_arg), s);\
 } while (0)
