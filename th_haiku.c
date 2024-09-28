@@ -278,6 +278,7 @@ static int32 haiku_thread_function(void *tcb_)
 #define do_thread_spawn(t, function, arg, priority, err)		\
 do {									\
 	status_t s;							\
+	int32 b;							\
 	struct haiku_thread *tcb;					\
 	tcb = mem_alloc_mayfail(struct haiku_thread *, sizeof(struct haiku_thread), err);\
 	if (unlikely(!tcb))						\
@@ -285,7 +286,17 @@ do {									\
 	haiku_thread_init(tcb pass_position);				\
 	tcb->function = function;					\
 	tcb->arg = arg;							\
-	tcb->id = spawn_thread(haiku_thread_function, NULL, B_NORMAL_PRIORITY, tcb);\
+	switch (priority) {						\
+		case PRIORITY_COMPUTE:					\
+			b = B_NORMAL_PRIORITY; break;			\
+		case PRIORITY_IO:					\
+			b = B_DISPLAY_PRIORITY; break;			\
+		case PRIORITY_TIMER:					\
+			b = B_URGENT_DISPLAY_PRIORITY; break;		\
+		default:						\
+			b = B_NORMAL_PRIORITY; break;			\
+	}								\
+	tcb->id = spawn_thread(haiku_thread_function, NULL, b, tcb);	\
 	if (unlikely(tcb->id < 0)) {					\
 		ajla_error_t e = error_from_errno(EC_SYSCALL, tcb->id);	\
 		fatal_mayfail(e, err, "spawn_thread failed at %s: %x", position_string(position_arg), tcb->id);\
