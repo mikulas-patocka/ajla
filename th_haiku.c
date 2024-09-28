@@ -51,48 +51,32 @@ unsigned thread_concurrency(void)
 
 #define do_mutex_init(m)						\
 do {									\
-	*m = create_sem(1, NULL);					\
-	if (unlikely(*m < 0))						\
-		fatal("create_sem failed at %s: %x", position_string(position_arg), *m);\
+	__mutex_init_etc(m, "ajla mutex", MUTEX_FLAG_ADAPTIVE);		\
 } while (0)
 
 #define do_mutex_done(m)						\
 do {									\
-	status_t s = delete_sem(*m);					\
-	if (unlikely(s != B_NO_ERROR))					\
-		fatal("delete_sem failed at %s: %x", position_string(position_arg), s);\
+	__mutex_destroy(m);						\
 } while (0)
 
 #define do_mutex_lock(m)						\
 do {									\
-	status_t s;							\
-	do {								\
-		s = acquire_sem(*m);					\
-	} while (unlikely(s == B_INTERRUPTED));				\
+	status_t s = __mutex_lock(m);					\
 	if (unlikely(s != B_NO_ERROR))					\
-		fatal("acquire_sem failed at %s: %x", position_string(position_arg), s);\
+		fatal("__mutex_lock failed at %s: %x", position_string(position_arg), s);\
 } while (0)
 
 #define do_mutex_trylock(m)						\
 do {									\
-	status_t s;							\
-again:									\
-	s = acquire_sem_etc(*m, 1, B_RELATIVE_TIMEOUT, 0);		\
-	if (unlikely(s != B_NO_ERROR)) {				\
-		if (likely(s == B_WOULD_BLOCK))				\
-			return false;					\
-		if (likely(s == B_INTERRUPTED))				\
-			goto again;					\
-		fatal("acquire_sem_etc failed at %s: %x", position_string(position_arg), s);\
-	}								\
-	return true;							\
+	int32 o = atomic_test_and_set(&m->lock, B_USER_MUTEX_LOCKED, 0);\
+	if (likely(!o))							\
+		return true;						\
+	return false;							\
 } while (0)
 
 #define do_mutex_unlock(m)						\
 do {									\
-	status_t s = release_sem(*m);					\
-	if (unlikely(s != B_NO_ERROR))					\
-		fatal("release_sem failed at %s: %x", position_string(position_arg), s);\
+	__mutex_unlock(m);						\
 } while (0)
 
 
@@ -106,9 +90,29 @@ do {									\
 		fatal("create_sem failed at %s: %x", position_string(position_arg), *m);\
 } while (0)
 
-#define do_rwmutex_done(m)		do_mutex_done(m)
-#define do_rwmutex_lock_read(m)		do_mutex_lock(m)
-#define do_rwmutex_unlock_read(m)	do_mutex_unlock(m)
+#define do_rwmutex_done(m)						\
+do {									\
+	status_t s = delete_sem(*m);					\
+	if (unlikely(s != B_NO_ERROR))					\
+		fatal("delete_sem failed at %s: %x", position_string(position_arg), s);\
+} while (0)
+
+#define do_rwmutex_lock_read(m)						\
+do {									\
+	status_t s;							\
+	do {								\
+		s = acquire_sem(*m);					\
+	} while (unlikely(s == B_INTERRUPTED));				\
+	if (unlikely(s != B_NO_ERROR))					\
+		fatal("acquire_sem failed at %s: %x", position_string(position_arg), s);\
+} while (0)
+
+#define do_rwmutex_unlock_read(m)					\
+do {									\
+	status_t s = release_sem(*m);					\
+	if (unlikely(s != B_NO_ERROR))					\
+		fatal("release_sem failed at %s: %x", position_string(position_arg), s);\
+} while (0)
 
 #define do_rwmutex_lock_write(m)					\
 do {									\
