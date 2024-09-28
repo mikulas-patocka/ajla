@@ -158,6 +158,22 @@ typedef void *thread_function_t(void *arg);
 typedef pthread_key_t tls_t_;
 #endif
 
+#elif defined(THREAD_HAIKU)
+
+#include <kernel/OS.h>
+
+typedef sem_id mutex_t;
+typedef sem_id rwmutex_t;
+#define rwmutex_supported	1
+typedef struct {
+	mutex_t mutex;
+	struct list wait_list;
+} cond_t;
+
+typedef struct haiku_thread *thread_t;
+typedef void thread_function_t(void *arg);
+#define thread_function_decl(name, content)	static void name(void attr_unused *arg) { content }
+
 #elif defined(THREAD_NONE)
 
 #if defined(DEBUG_OBJECT_POSSIBLE)

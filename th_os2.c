@@ -214,7 +214,7 @@ do {									\
 #define do_cond_done(c)							\
 do {									\
 	mutex_done_position(&(c)->mutex pass_position);			\
-	ajla_assert(list_is_empty(&(c)->wait_list), (caller_file_line, "cond_done: wait list is not empty"));\
+	ajla_assert_lo(list_is_empty(&(c)->wait_list), (caller_file_line, "cond_done: wait list is not empty"));\
 } while (0)
 
 #define do_cond_lock(c)							\

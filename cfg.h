@@ -24,6 +24,8 @@
 
 #if defined(DEBUG_THREAD_NONE)
 #define THREAD_NONE
+#elif defined(__HAIKU__)
+#define THREAD_HAIKU
 #elif ((defined(OS_WIN32) && defined(HAVE__BEGINTHREADEX)) || (defined(OS_CYGWIN) && defined(THREAD_WIN32_CYGWIN) && defined(HAVE_PTHREAD))) && !defined(HAVE_PTHREAD_PREFER)
 #define THREAD_WIN32
 #elif defined(HAVE_PTHREAD)

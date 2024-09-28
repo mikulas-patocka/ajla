@@ -283,7 +283,7 @@ static attr_always_inline uint16_t div_16(uint16_t x, uint16_t y)
 	return x / y;
 }
 
-static attr_always_inline void atomic_or(atomic_type bitmap_t *bitmap, bitmap_t value)
+static attr_always_inline void amalloc_atomic_or(atomic_type bitmap_t *bitmap, bitmap_t value)
 {
 #if defined(HAVE_C11_ATOMICS)
 	atomic_fetch_or_explicit(bitmap, value, memory_order_release);
@@ -300,7 +300,7 @@ static attr_always_inline void atomic_or(atomic_type bitmap_t *bitmap, bitmap_t 
 #endif
 }
 
-static attr_always_inline bitmap_t atomic_xchg(atomic_type bitmap_t *bitmap, bitmap_t value)
+static attr_always_inline bitmap_t amalloc_atomic_xchg(atomic_type bitmap_t *bitmap, bitmap_t value)
 {
 #if defined(HAVE_C11_ATOMICS)
 	return atomic_exchange_explicit(bitmap, value, memory_order_acquire);
@@ -1151,7 +1151,7 @@ static void detach_pt_data(struct per_thread *pt)
 		if (m == &full_midblock)
 			continue;
 		sbc_lock(sbc);
-		atomic_or(&m->s.atomic_map, m->s.map);
+		amalloc_atomic_or(&m->s.atomic_map, m->s.map);
 		m->s.map = 0;
 		if (unlikely(!amalloc_detach_small(sbc, m))) {
 			int er = errno;
@@ -1661,7 +1661,7 @@ static attr_noinline void *amalloc_small_empty(struct per_thread *pt, size_t siz
 #endif
 			;
 		sbc_unlock(sbc);
-		m->s.map = atomic_xchg(&m->s.atomic_map, 0);
+		m->s.map = amalloc_atomic_xchg(&m->s.atomic_map, 0);
 #ifdef AMALLOC_EAGER_FREE
 		m->s.index = (size_t)-1;
 #endif
@@ -1698,7 +1698,7 @@ static attr_always_inline void *amalloc_small(struct per_thread *pt, size_t size
 		goto found_bit;
 	}
 	if (load_relaxed(&m->s.atomic_map) != 0) {
-		m->s.map = atomic_xchg(&m->s.atomic_map, 0);
+		m->s.map = amalloc_atomic_xchg(&m->s.atomic_map, 0);
 		goto found_bit;
 	}
 	return amalloc_small_empty(pt, size);
@@ -1805,7 +1805,7 @@ void attr_fastcall afree(void *ptr)
 			sbc = &small_block_cache[m->s.cls];
 		}
 #endif
-		atomic_or(&m->s.atomic_map, bit_or);
+		amalloc_atomic_or(&m->s.atomic_map, bit_or);
 #ifdef AMALLOC_EAGER_FREE
 		if (unlikely(idx != (size_t)-1)) {
 			amalloc_test_free_small(sbc, idx, m);
