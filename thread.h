@@ -161,13 +161,9 @@ typedef pthread_key_t tls_t_;
 #elif defined(THREAD_HAIKU)
 
 #include <kernel/OS.h>
-#include <private/shared/locks.h>
-#include <private/system/user_mutex_defs.h>
-#undef mutex_init
-#undef mutex_lock
-#undef mutex_unlock
+#include <pthread.h>
 
-typedef mutex mutex_t;
+typedef pthread_mutex_t mutex_t;
 typedef sem_id rwmutex_t;
 #define rwmutex_supported	1
 typedef struct {

@@ -51,36 +51,46 @@ unsigned thread_concurrency(void)
 
 #define do_mutex_init(m)						\
 do {									\
-	__mutex_init_etc(m, "ajla mutex", MUTEX_FLAG_ADAPTIVE);		\
+	int r;								\
+	r = pthread_mutex_init(m, NULL);				\
+	if (unlikely(r))						\
+		fatal("pthread_mutex_init failed at %s: %d, %s", position_string(position_arg), r, error_decode(error_from_errno(EC_SYSCALL, r)));\
 } while (0)
 
 #define do_mutex_done(m)						\
 do {									\
-	__mutex_destroy(m);						\
+	int r;								\
+	r = pthread_mutex_destroy(m);					\
+	if (unlikely(r))						\
+		internal(caller_file_line, "mutex_done: pthread_mutex_destroy failed: %d, %s", r, error_decode(error_from_errno(EC_SYSCALL, r)));\
 } while (0)
 
 #define do_mutex_lock(m)						\
 do {									\
-	status_t s;							\
-	int32 o = atomic_test_and_set(&m->lock, B_USER_MUTEX_LOCKED, 0);\
-	if (likely(!o))							\
-		return;							\
-	s = __mutex_lock(m);						\
-	if (unlikely(s != B_NO_ERROR))					\
-		fatal("__mutex_lock failed at %s: %x", position_string(position_arg), s);\
+	int r;								\
+	r = pthread_mutex_lock(m);					\
+	if (unlikely(r))						\
+		internal(caller_file_line, "mutex_lock: pthread_mutex_lock failed: %d, %s", r, error_decode(error_from_errno(EC_SYSCALL, r)));\
 } while (0)
 
 #define do_mutex_trylock(m)						\
 do {									\
-	int32 o = atomic_test_and_set(&m->lock, B_USER_MUTEX_LOCKED, 0);\
-	if (likely(!o))							\
-		return true;						\
-	return false;							\
+	int r;								\
+	r = pthread_mutex_trylock(m);					\
+	if (unlikely(r)) {						\
+		if (unlikely(r != EBUSY) && unlikely(r != EDEADLK))	\
+			internal(caller_file_line, "mutex_trylock: pthread_mutex_trylock failed: %d, %s", r, error_decode(error_from_errno(EC_SYSCALL, r)));\
+		return false;						\
+	}								\
+	return true;							\
 } while (0)
 
 #define do_mutex_unlock(m)						\
 do {									\
-	__mutex_unlock(m);						\
+	int r;								\
+	r = pthread_mutex_unlock(m);					\
+	if (unlikely(r))						\
+		internal(caller_file_line, "mutex_unlock: pthread_mutex_unlock failed: %d, %s", r, error_decode(error_from_errno(EC_SYSCALL, r)));\
 } while (0)
 
 
