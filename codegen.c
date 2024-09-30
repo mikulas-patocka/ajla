@@ -949,6 +949,16 @@ static const struct type *get_type_of_local(struct codegen_context *ctx, frame_t
 	return t;
 }
 
+static bool attr_w gen_sanitize_returned_pointer(struct codegen_context attr_unused *ctx, unsigned attr_unused reg)
+{
+#if defined(ARCH_X86_X32)
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(reg);
+	gen_one(reg);
+#endif
+	return true;
+}
+
 static bool attr_w gen_3address_alu(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src1, unsigned src2)
 {
 	if (unlikely(dest == src2) && (alu == ALU_ADD || alu == ALU_OR || alu == ALU_AND || alu == ALU_XOR || alu == ALU_MUL || alu == ALU_UMULH || alu == ALU_SMULH)) {
@@ -6675,6 +6685,7 @@ static bool attr_w gen_load_fn_or_curry(struct codegen_context *ctx, frame_t fn_
 	g(gen_upcall_argument(ctx, 0));
 
 	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_function_reference_mayfail), 1));
+	g(gen_sanitize_returned_pointer(ctx, R_RET0));
 	g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, escape_label));
 
 	gen_insn(INSN_MOV, i_size(OP_SIZE_ADDRESS), 0, 0);
@@ -7515,7 +7526,7 @@ static bool attr_w gen_record_create(struct codegen_context *ctx, frame_t slot_r
 	g(gen_upcall_argument(ctx, 1));
 
 	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_record_mayfail), 2));
-
+	g(gen_sanitize_returned_pointer(ctx, R_RET0));
 	g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, escape_label));
 
 	gen_insn(INSN_MOV, i_size(OP_SIZE_ADDRESS), 0, 0);
@@ -7680,6 +7691,7 @@ static bool attr_w gen_option_create_empty(struct codegen_context *ctx, ajla_opt
 	}
 
 	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_option_mayfail), 0));
+	g(gen_sanitize_returned_pointer(ctx, R_RET0));
 	g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, escape_label));
 
 	g(gen_address(ctx, R_RET0, offsetof(struct data, u_.option.option), IMM_PURPOSE_STR_OFFSET, option_size));
@@ -7727,6 +7739,7 @@ static bool attr_w gen_option_create(struct codegen_context *ctx, ajla_option_t 
 	type = get_type_of_local(ctx, slot_1);
 
 	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_option_mayfail), 0));
+	g(gen_sanitize_returned_pointer(ctx, R_RET0));
 	g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, escape_label));
 
 	gen_insn(INSN_MOV, i_size(OP_SIZE_ADDRESS), 0, 0);
@@ -8013,6 +8026,7 @@ static bool attr_w gen_array_create(struct codegen_context *ctx, frame_t slot_r)
 		g(gen_upcall_argument(ctx, 2));
 
 		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_array_flat_slot_mayfail), 3));
+		g(gen_sanitize_returned_pointer(ctx, R_RET0));
 		g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, escape_label));
 
 		gen_insn(INSN_MOV, i_size(OP_SIZE_ADDRESS), 0, 0);
@@ -8033,6 +8047,7 @@ static bool attr_w gen_array_create(struct codegen_context *ctx, frame_t slot_r)
 		g(gen_upcall_argument(ctx, 1));
 
 		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_array_pointers_mayfail), 2));
+		g(gen_sanitize_returned_pointer(ctx, R_RET0));
 		g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, escape_label));
 
 		gen_insn(INSN_MOV, i_size(OP_SIZE_ADDRESS), 0, 0);
@@ -8079,6 +8094,7 @@ static bool attr_w gen_array_create_empty_flat(struct codegen_context *ctx, fram
 	g(gen_upcall_argument(ctx, 2));
 
 	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_array_flat_types_ptr_mayfail), 3));
+	g(gen_sanitize_returned_pointer(ctx, R_RET0));
 	g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, escape_label));
 
 	g(gen_compress_pointer(ctx, R_RET0));
@@ -8102,6 +8118,7 @@ static bool attr_w gen_array_create_empty(struct codegen_context *ctx, frame_t s
 	g(gen_upcall_argument(ctx, 1));
 
 	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_array_pointers_mayfail), 2));
+	g(gen_sanitize_returned_pointer(ctx, R_RET0));
 	g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, escape_label));
 
 	g(gen_compress_pointer(ctx, R_RET0));
@@ -8249,6 +8266,7 @@ static bool attr_w gen_array_string(struct codegen_context *ctx, type_tag_t tag,
 	g(gen_upcall_argument(ctx, 1));
 
 	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_array_flat_tag_mayfail), 2));
+	g(gen_sanitize_returned_pointer(ctx, R_RET0));
 	g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, escape_label));
 
 	gen_insn(INSN_MOV, i_size(OP_SIZE_ADDRESS), 0, 0);
@@ -9036,7 +9054,7 @@ static bool attr_w gen_io(struct codegen_context *ctx, frame_t code, frame_t slo
 	/*debug("arg2: %08x", ((uint32_t)code << 24) | ((uint32_t)slot_1 << 16) | ((uint32_t)slot_2 << 8) | slot_3);*/
 
 	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_io), 3));
-
+	g(gen_sanitize_returned_pointer(ctx, R_RET0));
 	g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_ADDRESS, R_RET0, ptr_to_num(POINTER_FOLLOW_THUNK_GO), COND_NE, reload_label));
 
 	outputs = mem_alloc_array_mayfail(mem_alloc_mayfail, frame_t *, 0, 0, slot_1, sizeof(frame_t), &ctx->err);
