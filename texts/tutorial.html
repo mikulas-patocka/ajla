@@ -323,10 +323,10 @@ y := y, x</code>" will swap the variables <code>x</code> and <code>y</code>.
 Ajla has the following primitive types:
 <dl>
 <dt><code>int</code>
-<dd>A general integer number. It is implemented as a 32-bit or 64-bit signed
-number. If some arithmetic operation overflows, it is converted to a long
-integer (using the gmp library) and the arithmetic is done with arbitrary
-precision.
+<dd>A general integer number with arbitrary length. It is implemented as a
+32-bit or 64-bit signed number. If some arithmetic operation overflows, it is
+converted to a long integer (using the gmp library) and the arithmetic is done
+with arbitrary precision.
 <br>
 On 32-bit architectures, <code>int</code> is 32-bit. On 64-bit architectures,
 <code>int</code> is 64-bit. On 64-bit architectures when the
@@ -335,10 +335,13 @@ these cases are semantically equivalent, because overflows are handled
 transparently.
 <dt><code>int8</code>, <code>int16</code>, <code>int32</code>,
 <code>int64</code>, <code>int128</code>
-<dd>This is a signed integer that is implemented as a given size. If some
-arithmetic operation overflows, it is converted to a long integer using the gmp
-library. If the compiler that was used to build Ajla doesn't support 128-bit
-integers, <code>int128</code> is equivalent to <code>int64</code>.
+<dd>These types behave in the same way as the "int" type. The difference is in
+their implementation. <code>int8</code> is implemented as an 8-bit integer and
+if it overflows, long integers using the gmp library are used.
+<code>int16</code> is implemented as a 16-bit integer (with overflows handled by
+the gmp library), etc. If the compiler that was used to build Ajla doesn't
+support 128-bit integers, <code>int128</code> is equivalent to
+<code>int64</code>.
 <dt><code>sint8</code>, <code>sint16</code>, <code>sint32</code>,
 <code>sint64</code>, <code>sint128</code>
 <dd>This is a signed integer with a given size. If some arithmetic operation
@@ -906,7 +909,7 @@ treats arrays as if they were lists.
 
 <h2 id=strings>Strings</h2>
 
-Ajla has two kind of strings. Byte strings are represented by the type
+Ajla has two kinds of strings. Byte strings are represented by the type
 "<code>bytes</code>" which is an alias for "<code>list(byte)</code>" which is an
 alias for "<code>list(uint8)</code>". Character strings are represented by the
 type "<code>string</code>", which is an alias for "<code>list(char)</code>"
@@ -1750,8 +1753,9 @@ Beware of infinite loops:
 fn main
 [
 	while true do [
-		write(h[1], "Hello World!" + nl);
+		w := write(w, h[1], "Hello World!" + nl);
 	]
+	return w;
 ]
 </pre>
 This will not print anything, because the dead code elimination pass will remove
@@ -1763,9 +1767,10 @@ loop, so that the loop is terminated if the "<code>write</code>" function fails:
 fn main
 [
 	while true do [
-		write(h[1], "Hello World!" + nl);
+		w := write(w, h[1], "Hello World!" + nl);
 		xeval w;
 	]
+	return w;
 ]
 </pre>
 Another possibility how to fix it is to test the "<code>w</code>" variable for
@@ -1774,10 +1779,13 @@ exception in the loop condition.
 fn main
 [
 	while not is_exception w do [
-		write(h[1], "Hello World!" + nl);
+		w := write(w, h[1], "Hello World!" + nl);
 	]
+	return w;
 ]
 </pre>
+Note that the "<code>w</code>" variable may be omitted, as shown in the
+<a href="#hello_world">Hello World</a> section.
 
 <h3>Other thread functions</h3>
 <dl>
