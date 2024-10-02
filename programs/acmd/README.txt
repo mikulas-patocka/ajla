@@ -2,7 +2,7 @@ How to run the Ajla Commander:
 
 Install the packages libgmp-dev and libffi-dev
 
-Download Ajla from https://www.ajla-lang.cz/downloads/ajla-0.1.4.tar.gz
+Download Ajla from https://www.ajla-lang.cz/downloads/ajla-0.1.5.tar.gz
 
 Extract Ajla and compile it with "./configure; make"
 

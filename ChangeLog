@@ -1,3 +1,17 @@
+=== RELEASE 0.1.5 ===
+
+Fix a bug that swapend.ajla was not present in the distributed archive. It
+produced spurious make install error (that could be ignored).
+
+Haiku support - the pthread implementation fails on Haiku (perhaps, there is
+some signal race condition in the Haiku pthread implementation), so I added a
+new file th_haiku.c.
+
+Code generator improvements - variables' tags are checked when entering machine
+code so that they don't have to be checked inside loops.
+
+Fix code generator bugs on power1 and power2.
+
 === RELEASE 0.1.4 ===
 
 Use the _Float16 type if available
