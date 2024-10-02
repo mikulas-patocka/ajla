@@ -68,8 +68,10 @@ is not installed, the possibility to call C functions from Ajla will be
 disabled.
 <br>
 <br>
-Unpack the tar.gz archive and compile it with <code>./configure && make</code>.
-Install it with <code>make install</code>.
+Download the newest Ajla version from the
+<a href="https://www.ajla-lang.cz/downloads/">downloads</a> directory. Unpack
+the tar.gz archive and compile it with <code>./configure && make</code>. Install
+it with <code>make install</code>.
 <br>
 <br>
 If you cloned the git repository, there is no <code>./configure</code> script.
@@ -77,8 +79,10 @@ You can generate it with the <code>./rebuild</code> script. You need autoconf,
 automake and ed installed.
 <br>
 <br>
-It is recommended to use gcc. clang works, but the compilation is very slow, it
-may take an hour or more to compile the files ipret.c and ipretc.c.
+It is recommended to use gcc &mdash the compilation will take several minutes
+and it will consume about 4GB memory when compiling the files ipret.c and
+ipretc.c. Compilation with clang works, but it is very slow, it may take an hour
+or more to compile the files ipret.c and ipretc.c.
 <br>
 <br>
 When running Ajla programs, it is recommended to set the cpu governor to
