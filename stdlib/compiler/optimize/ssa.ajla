@@ -1857,8 +1857,10 @@ in_loop2:
 				var vgi : int := bsr read_mask;
 				read_mask btr= vgi;
 				var rt := ctx.variables[vgi].runtime_type;
-				if rt < 0, rt >= T_FlatOption then
+				if rt < 0, rt >= T_FlatOption then [
 					ctx.variables[vgi].must_be_flat := true;
+					ctx.variables[vgi].ra_priority += 1;
+				]
 			]
 		]
 skip_must_be_flat:
@@ -2168,6 +2170,7 @@ fn allocate_variables(ctx : context) : context
 		ctx.variables[vgi].color := -1;
 	]
 	var color := 0;
+	var ra_color := empty(tuple2(int, int));
 	for t := 0 to len(type_to_var_set) do [
 		var vs := type_to_var_set[t];
 		var vsl := vs;
@@ -2175,8 +2178,8 @@ fn allocate_variables(ctx : context) : context
 			var vgi : int := bsr vsl;
 			vsl btr= vgi;
 			ctx.variables[vgi].color := color;
+			ra_color +<= mktuple2(-ctx.variables[vgi].ra_priority, color);
 			var remaining := not ctx.cm[vgi] and vs;
-			//eval debug("color=" + ntos(color) + " type=" + ntos(t + T_Undetermined) + " vgi=" + ntos(vgi) {+ " remaining=" + ntos_base(remaining, 2)} );
 			while remaining <> 0 do [
 				var vgi2 := bsr remaining;
 				vsl btr= vgi2;
@@ -2186,10 +2189,16 @@ fn allocate_variables(ctx : context) : context
 					continue;
 				remaining and= not ctx.cm[vgi2];
 				ctx.variables[vgi2].color := color;
-				//eval debug("color=" + ntos(color) + " type=" + ntos(t + T_Undetermined) + " vgi=" + ntos(vgi) + " vgi2=" + ntos(vgi2) + " old color=" + ntos(old_color) {+ " remaining=" + ntos_base(remaining, 2)} );
+				ra_color[color].v1 -= ctx.variables[vgi2].ra_priority;
 			]
 			color += 1;
 		]
+	]
+	ra_color := list_sort(ra_color);
+	var cmap := fill(-1, color);
+	for i := 0 to len(ra_color) do [
+		cmap[ra_color[i].v2] := i;
+		//eval debug("ra_color: " + ntos(i) + ", " + ntos(ra_color[i].v1) + ", " + ntos(ra_color[i].v2));
 	]
 
 	var vars_for_color := fill(empty(int), color);
@@ -2197,6 +2206,8 @@ fn allocate_variables(ctx : context) : context
 		var v := ctx.variables[vgi];
 		if v.color = -1 then
 			continue;
+		//eval debug(ctx.name + ": " + ntos(v.color) + " -> " + ntos(cmap[v.color]));
+		v.color := cmap[v.color];
 		vars_for_color[v.color] +<= vgi;
 	]
 	var new_idx := -1;

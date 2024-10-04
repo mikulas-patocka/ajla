@@ -92,6 +92,8 @@ record variable [
 	color : int;
 	needed : bool;
 
+	ra_priority : int;
+
 	is_option_type : bool;
 ]
 
@@ -109,6 +111,7 @@ fn new_variable : variable
 		defining_instr : -1,
 		color : -1,
 		needed : false,
+		ra_priority : 0,
 		is_option_type : false,
 	];
 ]
