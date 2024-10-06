@@ -41,7 +41,7 @@ cpu_feature_static_flags = 0
 
 #define cpu_feature_mask(feature)	((cpu_feature_mask_t)1 << (feature))
 #ifdef DEBUG_ENV
-#define cpu_test_feature(feature)	(cpu_feature_flags & cpu_feature_mask(feature))
+#define cpu_test_feature(feature)	(!!(cpu_feature_flags & cpu_feature_mask(feature)))
 #else
 #define cpu_test_feature(feature)	(cpu_feature_static_flags & cpu_feature_mask(feature) || cpu_feature_flags & cpu_feature_mask(feature))
 #endif
