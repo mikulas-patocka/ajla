@@ -259,7 +259,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 	ctx->code_position = arg2 + arg_size(*arg2);
 	if (arg1[0] < 32) {
 		if (arg2[0] < 32) {
-			if (unlikely(sx))
+			if (unlikely(sx) && size != OP_SIZE_8)
 				internal(file_line, "cgen_mov: unsupported sign extension");
 			if (unlikely(size < OP_SIZE_4))
 				internal(file_line, "cgen_mov: unsupported size %u", size);

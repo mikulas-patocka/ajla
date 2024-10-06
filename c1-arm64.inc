@@ -110,7 +110,7 @@
 #define FR_30		0x3e
 #define FR_31		0x3f
 
-#define FRAME_SIZE	0x40
+#define FRAME_SIZE	0x60
 
 #define R_FRAME		R_28
 #define R_UPCALL	R_27
@@ -118,6 +118,10 @@
 #define R_SAVED_1	R_25
 #define R_SAVED_2	R_24
 #define R_SAVED_3	R_23
+#define R_SAVED_4	R_22
+#define R_SAVED_5	R_21
+#define R_SAVED_6	R_20
+#define R_SAVED_7	R_19
 
 #define R_SCRATCH_1	R_0
 #define R_SCRATCH_2	R_1
@@ -147,7 +151,7 @@ static bool reg_is_fp(unsigned reg)
 	return reg >= 0x20 && reg < 0x40;
 }
 
-static const uint8_t reg_available[] = { 0 };
+static const uint8_t reg_available[] = { 5, R_SAVED_7, R_SAVED_6, R_SAVED_5, R_SAVED_4, R_SAVED_3 };
 #define reg_is_saved(r)	1
 
 struct logical_imm {
@@ -379,6 +383,20 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(R_SAVED_3);
 	gen_one(R_SAVED_2);
 
+	gen_insn(INSN_STP, OP_SIZE_8, 0, 0);
+	gen_one(ARG_ADDRESS_1);
+	gen_one(R_SP);
+	gen_eight(0x40);
+	gen_one(R_SAVED_5);
+	gen_one(R_SAVED_4);
+
+	gen_insn(INSN_STP, OP_SIZE_8, 0, 0);
+	gen_one(ARG_ADDRESS_1);
+	gen_one(R_SP);
+	gen_eight(0x50);
+	gen_one(R_SAVED_7);
+	gen_one(R_SAVED_6);
+
 	gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
 	gen_one(R_FRAME);
 	gen_one(R_ARG0);
@@ -412,6 +430,20 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
 	gen_one(R_RET0);
 	gen_one(R_FRAME);
+
+	gen_insn(INSN_LDP, OP_SIZE_8, 0, 0);
+	gen_one(R_SAVED_7);
+	gen_one(R_SAVED_6);
+	gen_one(ARG_ADDRESS_1);
+	gen_one(R_SP);
+	gen_eight(0x50);
+
+	gen_insn(INSN_LDP, OP_SIZE_8, 0, 0);
+	gen_one(R_SAVED_5);
+	gen_one(R_SAVED_4);
+	gen_one(ARG_ADDRESS_1);
+	gen_one(R_SP);
+	gen_eight(0x40);
 
 	gen_insn(INSN_LDP, OP_SIZE_8, 0, 0);
 	gen_one(R_SAVED_3);
