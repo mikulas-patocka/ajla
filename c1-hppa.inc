@@ -153,6 +153,9 @@
 
 #define SUPPORTED_FP	0x6
 
+static const uint8_t reg_available[] = { 0 };
+#define reg_is_saved(r)	1
+
 #ifdef ARCH_PARISC32
 #define FRAME_SIZE	0x80
 /*

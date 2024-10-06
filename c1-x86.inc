@@ -115,10 +115,17 @@
 #define R_IS_GPR(r)	((r) < 16)
 #define R_IS_XMM(r)	((r) >= R_XMM0 && (r) <= R_XMM31)
 
+/*#define TIMESTAMP_IN_REGISTER*/
+#ifdef ARCH_X86_WIN_ABI
+#define TIMESTAMP_IN_REGISTER
+#endif
+
 #define R_FRAME		R_BX
 #ifndef ARCH_X86_32
 #define R_UPCALL	R_R15
+#ifdef TIMESTAMP_IN_REGISTER
 #define R_TIMESTAMP	R_R14
+#endif
 #define R_OFFSET_IMM	R_R10
 #define R_CONST_IMM	R_R11
 #else
@@ -137,7 +144,7 @@
 #define R_SCRATCH_1	R_AX
 #define R_SCRATCH_2	R_DX
 #define R_SCRATCH_3	R_CX
-#define R_SCRATCH_4	R_SI
+#define R_SCRATCH_4	R_SAVED_2
 #define R_SAVED_1	R_BP
 #define R_SAVED_2	R_DI
 #else
@@ -186,6 +193,17 @@ static bool reg_is_fp(unsigned reg)
 {
 	return reg >= 0x20 && reg < 0x40;
 }
+
+#if defined(ARCH_X86_32)
+static const uint8_t reg_available[] = { 1, R_SI };
+#elif defined(ARCH_X86_WIN_ABI)
+static const uint8_t reg_available[] = { 0 };
+#elif defined(TIMESTAMP_IN_REGISTER)
+static const uint8_t reg_available[] = { 1, R_R13 };
+#else
+static const uint8_t reg_available[] = { 2, R_R13, R_R14 };
+#endif
+#define reg_is_saved(r)	1
 
 static bool attr_w imm_is_8bit(int64_t imm)
 {
@@ -313,10 +331,16 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(R_SAVED_2);
 
 	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_TIMESTAMP);
+	gen_one(R_R13);
+
+	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
+	gen_one(R_R14);
 
 	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
 	gen_one(R_UPCALL);
+
+	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
+	gen_one(R_ARG2);
 #if defined(ARCH_X86_WIN_ABI)
 	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
 	gen_one(R_ARG0);
@@ -351,11 +375,11 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_UPCALL);
 	gen_one(R_ARG1);
-
+#ifdef TIMESTAMP_IN_REGISTER
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
 	gen_one(R_TIMESTAMP);
 	gen_one(R_ARG2);
-
+#endif
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 	gen_one(R_ARG3);
 #endif
@@ -458,10 +482,16 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_one(R_FRAME);
 #endif
 	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
+	gen_one(R_CX);
+
+	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
 	gen_one(R_UPCALL);
 
 	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_TIMESTAMP);
+	gen_one(R_R14);
+
+	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
+	gen_one(R_R13);
 
 	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
 	gen_one(R_SAVED_2);
@@ -541,9 +571,21 @@ static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t esca
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_AX);
 	gen_eight(offsetof(struct cg_upcall_vector_s, ts));
-#else
+#elif defined(TIMESTAMP_IN_REGISTER)
 	gen_insn(INSN_CMP, OP_SIZE_4, 0, 1);
 	gen_one(R_TIMESTAMP);
+	gen_one(ARG_ADDRESS_1);
+	gen_one(R_UPCALL);
+	gen_eight(offsetof(struct cg_upcall_vector_s, ts));
+#else
+	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
+	gen_one(R_AX);
+	gen_one(ARG_ADDRESS_1);
+	gen_one(R_SP);
+	gen_eight(0);
+
+	gen_insn(INSN_CMP, OP_SIZE_4, 0, 1);
+	gen_one(R_AX);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_UPCALL);
 	gen_eight(offsetof(struct cg_upcall_vector_s, ts));

@@ -136,6 +136,9 @@ static bool reg_is_fp(unsigned reg)
 	return reg >= 0x10 && reg < 0x20;
 }
 
+static const uint8_t reg_available[] = { 0 };
+#define reg_is_saved(r)	1
+
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
 {
 	if (OP_SIZE_NATIVE == OP_SIZE_4)

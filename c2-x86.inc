@@ -1478,6 +1478,13 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_rm_insn(ctx, -1, PREFIX_0F, X86_0F_SETCC_RM8 + (insn_aux(insn) & 0xf), OP_SIZE_1, false, 0, ctx->code_position));
 			ctx->code_position += arg_size(*ctx->code_position);
 			return true;
+		case INSN_SET_COND_PARTIAL:
+			if (unlikely(insn_op_size(insn) != OP_SIZE_1))
+				goto invalid_insn;
+			g(cgen_rm_insn(ctx, -1, PREFIX_0F, X86_0F_SETCC_RM8 + (insn_aux(insn) & 0xf), OP_SIZE_1, false, 0, ctx->code_position));
+			ctx->code_position += arg_size(*ctx->code_position);
+			ctx->code_position += arg_size(*ctx->code_position);
+			return true;
 		case INSN_CMOV:
 		case INSN_CMOV_XCC:
 			if (unlikely(insn_op_size(insn) == OP_SIZE_1))

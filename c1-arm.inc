@@ -167,6 +167,9 @@ static bool reg_is_fp(unsigned reg)
 	return reg >= 0x20 && reg < 0x40;
 }
 
+static const uint8_t reg_available[] = { 0 };
+#define reg_is_saved(r)	1
+
 static int gen_imm12(uint32_t c)
 {
 	int rot;

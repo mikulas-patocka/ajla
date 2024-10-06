@@ -100,12 +100,10 @@ fn main(implicit w : world, d : dhandle, implicit h : list(handle), args : list(
 		write(h[1], "iteration: " + ntos(i) + nl);
 		//var v := get_random(p, real32, 8, 24);
 		//write(h[1], ntos_base_precision(v, 16, 40) + nl);
-		//test(real16, 5, 11);
-		test(real32, 8, 24);
-		xeval w;
-		test(real64, 11, 53);
-		xeval w;
-		//test(real80, 15, 64);
-		//test(real128, 15, 113);
+		//test(real16, 5, 11);	xeval w;
+		test(real32, 8, 24);	xeval w;
+		test(real64, 11, 53);	xeval w;
+		//test(real80, 15, 64);	xeval w;
+		//test(real128, 15, 113);	xeval w;
 	]
 ]

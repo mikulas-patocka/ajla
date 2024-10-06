@@ -230,6 +230,9 @@ static bool reg_is_vs(unsigned reg)
 	return reg >= 0x60 && reg < 0x80;
 }
 
+static const uint8_t reg_available[] = { 0 };
+#define reg_is_saved(r)	1
+
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
 {
 	unsigned xreg = R_ZERO;
