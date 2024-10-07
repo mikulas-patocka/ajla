@@ -449,7 +449,7 @@ static bool attr_w gen_upcall_argument(struct codegen_context attr_unused *ctx, 
 	return true;
 }
 
-static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsigned attr_unused n_args)
+static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsigned n_args)
 {
 #ifdef ARCH_PARISC32
 	uint32_t label = alloc_call_label(ctx);
@@ -472,6 +472,8 @@ static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsi
 	gen_insn(INSN_CALL_INDIRECT, OP_SIZE_8, 0, 0);
 	gen_one(R_DP);
 #endif
+	g(gen_upcall_end(ctx, n_args));
+
 	return true;
 }
 

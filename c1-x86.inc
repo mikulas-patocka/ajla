@@ -520,7 +520,7 @@ static bool attr_w gen_upcall_argument(struct codegen_context attr_unused *ctx, 
 	return true;
 }
 
-static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsigned attr_unused n_args)
+static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsigned n_args)
 {
 #if defined(ARCH_X86_32)
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
@@ -548,6 +548,8 @@ static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsi
 	gen_one(R_UPCALL);
 	gen_eight(offset);
 #endif
+	g(gen_upcall_end(ctx, n_args));
+
 	return true;
 }
 

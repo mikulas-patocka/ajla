@@ -541,7 +541,7 @@ static bool attr_w gen_upcall_argument(struct codegen_context attr_unused *ctx, 
 	return true;
 }
 
-static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsigned attr_unused n_args)
+static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsigned n_args)
 {
 #ifndef AIX_CALL
 	g(gen_address(ctx, R_UPCALL, offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
@@ -555,8 +555,6 @@ static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsi
 
 	gen_insn(INSN_CALL_INDIRECT, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_CTR);
-
-	return true;
 #else
 	g(gen_address(ctx, R_UPCALL, offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
@@ -587,9 +585,10 @@ static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsi
 
 	gen_insn(INSN_CALL_INDIRECT, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_CTR);
+#endif
+	g(gen_upcall_end(ctx, n_args));
 
 	return true;
-#endif
 }
 
 static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t escape_label)
