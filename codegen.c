@@ -455,6 +455,8 @@ struct codegen_context {
 
 	int8_t *flag_cache;
 	short *registers;
+	frame_t *need_spill;
+	size_t need_spill_l;
 
 	unsigned base_reg;
 	bool offset_reg;
@@ -494,6 +496,7 @@ static void init_ctx(struct codegen_context *ctx)
 	ctx->args = NULL;
 	ctx->flag_cache = NULL;
 	ctx->registers = NULL;
+	ctx->need_spill = NULL;
 	ctx->codegen = NULL;
 	ctx->upcall_args = -1;
 	ctx->var_aux = NULL;
@@ -532,6 +535,8 @@ static void done_ctx(struct codegen_context *ctx)
 		mem_free(ctx->flag_cache);
 	if (ctx->registers)
 		mem_free(ctx->registers);
+	if (ctx->need_spill)
+		mem_free(ctx->need_spill);
 	if (ctx->codegen)
 		data_free(ctx->codegen);
 	if (ctx->var_aux)
@@ -1615,26 +1620,35 @@ static bool attr_w unspill(struct codegen_context *ctx, frame_t v)
 
 static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned args)
 {
+	size_t i;
 	ajla_assert_lo(ctx->upcall_args == -1, (file_line, "gen_upcall_start: gen_upcall_end not called"));
 	ctx->upcall_args = (int)args;
 
+	for (i = 0; i < ctx->need_spill_l; i++)
+		g(spill(ctx, ctx->need_spill[i]));
+
 	/*gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_SI);
+	gen_one(R_R8);
 	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_DI);*/
+	gen_one(R_R9);*/
 
 	return true;
 }
 
 static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned args)
 {
+	size_t i;
 	ajla_assert_lo(ctx->upcall_args == (int)args, (file_line, "gen_upcall_end: gen_upcall_start mismatch: %d", ctx->upcall_args));
 	ctx->upcall_args = -1;
 
+	for (i = 0; i < ctx->need_spill_l; i++)
+		g(unspill(ctx, ctx->need_spill[i]));
+
+
 	/*gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_DI);
+	gen_one(R_R9);
 	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_SI);*/
+	gen_one(R_R8);*/
 
 	return true;
 }
@@ -9560,6 +9574,10 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 				continue;
 			ctx->registers[v] = av[1 + int_reg];
 			int_reg++;
+			if (!reg_is_saved(ctx->registers[v])) {
+				if (unlikely(!array_add_mayfail(frame_t, &ctx->need_spill, &ctx->need_spill_l, v, NULL, &ctx->err)))
+					return false;
+			}
 			continue;
 		}
 	}
@@ -10627,6 +10645,9 @@ next_one:;
 
 	ctx->registers = mem_alloc_array_mayfail(mem_alloc_mayfail, short *, 0, 0, function_n_variables(ctx->fn), sizeof(short), &ctx->err);
 	if (unlikely(!ctx->registers))
+		goto fail;
+
+	if (unlikely(!array_init_mayfail(frame_t, &ctx->need_spill, &ctx->need_spill_l, &ctx->err)))
 		goto fail;
 
 	if (unlikely(!gen_registers(ctx)))

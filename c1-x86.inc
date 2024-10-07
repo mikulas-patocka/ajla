@@ -196,14 +196,17 @@ static bool reg_is_fp(unsigned reg)
 
 #if defined(ARCH_X86_32)
 static const uint8_t reg_available[] = { 1, R_SI };
+#define reg_is_saved(r)	1
 #elif defined(ARCH_X86_WIN_ABI)
 static const uint8_t reg_available[] = { 0 };
-#elif defined(TIMESTAMP_IN_REGISTER)
-static const uint8_t reg_available[] = { 1, R_R13 };
-#else
-static const uint8_t reg_available[] = { 2, R_R13, R_R14 };
-#endif
 #define reg_is_saved(r)	1
+#elif defined(TIMESTAMP_IN_REGISTER)
+static const uint8_t reg_available[] = { 3, R_R13, R_R8, R_R9 };
+#define reg_is_saved(r)	((r) == R_R13)
+#else
+static const uint8_t reg_available[] = { 4, R_R13, R_R14, R_R8, R_R9 };
+#define reg_is_saved(r)	((r) == R_R13 || (r) == R_R14)
+#endif
 
 static bool attr_w imm_is_8bit(int64_t imm)
 {
