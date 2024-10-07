@@ -150,7 +150,7 @@
 #define R_SCRATCH_1	R_AX
 #define R_SCRATCH_2	R_DX
 #define R_SCRATCH_3	R_CX
-#define R_SCRATCH_4	R_SI
+#define R_SCRATCH_4	R_SAVED_2
 #define R_SAVED_1	R_BP
 #define R_SAVED_2	R_R12
 #endif
@@ -200,10 +200,10 @@ static const uint8_t reg_available[] = { 1, R_SI };
 static const uint8_t reg_available[] = { 0 };
 #define reg_is_saved(r)	1
 #elif defined(TIMESTAMP_IN_REGISTER)
-static const uint8_t reg_available[] = { 4, R_R13, R_R8, R_R9, R_R10 };
+static const uint8_t reg_available[] = { 6, R_R13, R_SI, R_DI, R_R8, R_R9, R_R10 };
 #define reg_is_saved(r)	((r) == R_R13)
 #else
-static const uint8_t reg_available[] = { 5, R_R13, R_R14, R_R8, R_R9, R_R10 };
+static const uint8_t reg_available[] = { 7, R_R13, R_R14, R_SI, R_DI, R_R8, R_R9, R_R10 };
 #define reg_is_saved(r)	((r) == R_R13 || (r) == R_R14)
 #endif
 
