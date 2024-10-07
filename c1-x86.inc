@@ -126,12 +126,11 @@
 #ifdef TIMESTAMP_IN_REGISTER
 #define R_TIMESTAMP	R_R14
 #endif
-#define R_OFFSET_IMM	R_R10
 #define R_CONST_IMM	R_R11
 #else
-#define R_OFFSET_IMM	255	/* this should not be used */
-#define R_CONST_IMM	255
+#define R_CONST_IMM	255	/* this should not be used */
 #endif
+#define R_OFFSET_IMM	255	/* this should not be used */
 
 #if defined(ARCH_X86_64) && defined(ARCH_X86_WIN_ABI)
 #define R_SCRATCH_1	R_AX
@@ -201,10 +200,10 @@ static const uint8_t reg_available[] = { 1, R_SI };
 static const uint8_t reg_available[] = { 0 };
 #define reg_is_saved(r)	1
 #elif defined(TIMESTAMP_IN_REGISTER)
-static const uint8_t reg_available[] = { 3, R_R13, R_R8, R_R9 };
+static const uint8_t reg_available[] = { 4, R_R13, R_R8, R_R9, R_R10 };
 #define reg_is_saved(r)	((r) == R_R13)
 #else
-static const uint8_t reg_available[] = { 4, R_R13, R_R14, R_R8, R_R9 };
+static const uint8_t reg_available[] = { 5, R_R13, R_R14, R_R8, R_R9, R_R10 };
 #define reg_is_saved(r)	((r) == R_R13 || (r) == R_R14)
 #endif
 
@@ -249,13 +248,8 @@ static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int64
 			internal(file_line, "gen_address: invalid purpose %d", purpose);
 	}
 #ifndef ARCH_X86_32
-	if (likely(imm_is_32bit(imm)))
-		return true;
-	gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
-	gen_one(R_OFFSET_IMM);
-	gen_one(ARG_IMM);
-	gen_eight(imm);
-	ctx->offset_reg = true;
+	if (unlikely(!imm_is_32bit(imm)))
+		return false;
 #endif
 	return true;
 }
