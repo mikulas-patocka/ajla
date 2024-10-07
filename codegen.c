@@ -8625,8 +8625,8 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 		g(gen_test_1_cached(ctx, slot_1, escape_label));
 		flag_set(ctx, slot_1, false);
 
-		g(gen_frame_load(ctx, OP_SIZE_INT, true, slot_2, 0, R_SCRATCH_1));
-		g(gen_jmp_if_negative(ctx, R_SCRATCH_1, escape_label));
+		g(gen_frame_load(ctx, OP_SIZE_INT, true, slot_2, 0, R_SCRATCH_2));
+		g(gen_jmp_if_negative(ctx, R_SCRATCH_2, escape_label));
 
 		g(gen_upcall_start(ctx, 3));
 		gen_insn(INSN_MOV, i_size(OP_SIZE_ADDRESS), 0, 0);
@@ -8636,7 +8636,7 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 
 		gen_insn(INSN_MOV, i_size(OP_SIZE_INT), 0, 0);
 		gen_one(R_ARG1);
-		gen_one(R_SCRATCH_1);
+		gen_one(R_SCRATCH_2);
 		g(gen_upcall_argument(ctx, 1));
 
 		g(gen_load_constant(ctx, R_ARG2, slot_1));
