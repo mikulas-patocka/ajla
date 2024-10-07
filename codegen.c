@@ -1624,14 +1624,19 @@ static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned args)
 	ajla_assert_lo(ctx->upcall_args == -1, (file_line, "gen_upcall_start: gen_upcall_end not called"));
 	ctx->upcall_args = (int)args;
 
+#if defined(ARCH_X86_64) && !defined(ARCH_X86_WIN_ABI)
+	for (i = 0; i < ctx->need_spill_l; i++) {
+		gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
+		gen_one(ctx->registers[ctx->need_spill[i]]);
+	}
+	if (ctx->need_spill_l & 1) {
+		gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
+		gen_one(R_AX);
+	}
+#else
 	for (i = 0; i < ctx->need_spill_l; i++)
 		g(spill(ctx, ctx->need_spill[i]));
-
-	/*gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_R8);
-	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_R9);*/
-
+#endif
 	return true;
 }
 
@@ -1641,15 +1646,20 @@ static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned args)
 	ajla_assert_lo(ctx->upcall_args == (int)args, (file_line, "gen_upcall_end: gen_upcall_start mismatch: %d", ctx->upcall_args));
 	ctx->upcall_args = -1;
 
+#if defined(ARCH_X86_64) && !defined(ARCH_X86_WIN_ABI)
+	if (ctx->need_spill_l & 1) {
+		gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
+		gen_one(R_CX);
+	}
+	for (i = ctx->need_spill_l; i;) {
+		i--;
+		gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
+		gen_one(ctx->registers[ctx->need_spill[i]]);
+	}
+#else
 	for (i = 0; i < ctx->need_spill_l; i++)
 		g(unspill(ctx, ctx->need_spill[i]));
-
-
-	/*gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_R9);
-	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_R8);*/
-
+#endif
 	return true;
 }
 
