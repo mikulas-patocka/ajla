@@ -435,7 +435,7 @@ struct codegen_context {
 
 	uint32_t *code_labels;
 	uint32_t *escape_labels;
-	uint32_t escape_nospill;
+	uint32_t escape_nospill_label;
 	uint32_t call_label;
 	uint32_t reload_label;
 
@@ -483,7 +483,7 @@ static void init_ctx(struct codegen_context *ctx)
 	ctx->code = NULL;
 	ctx->code_labels = NULL;
 	ctx->escape_labels = NULL;
-	ctx->escape_nospill = 0;
+	ctx->escape_nospill_label = 0;
 	ctx->call_label = 0;
 	ctx->reload_label = 0;
 	ctx->mcode = NULL;
@@ -7237,12 +7237,7 @@ skip_ref_argument:
 	gen_one(R_SCRATCH_1);
 	gen_address_offset();
 
-	if (!ctx->escape_nospill) {
-		ctx->escape_nospill = alloc_label(ctx);
-		if (unlikely(!ctx->escape_nospill))
-			return false;
-	}
-	g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, true, ctx->escape_nospill));
+	g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, true, ctx->escape_nospill_label));
 	g(gen_barrier(ctx));
 
 	gen_pointer_compression(R_SCRATCH_1);
@@ -9420,6 +9415,10 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 {
 	ctx->current_position = da(ctx->fn,function)->code;
 
+	ctx->escape_nospill_label = alloc_label(ctx);
+	if (unlikely(!ctx->escape_nospill_label))
+		return false;
+
 	while (ctx->current_position != da(ctx->fn,function)->code + da(ctx->fn,function)->code_size) {
 		ip_t ip;
 		code_t code;
@@ -9787,10 +9786,6 @@ skip_dereference:
 
 				g(clear_flag_cache(ctx));
 
-				escape_label = alloc_escape_label(ctx);
-				if (unlikely(!escape_label))
-					return false;
-
 				if (SIZEOF_IP_T == 2) {
 					slot_1 = get_code(ctx);
 				} else if (SIZEOF_IP_T == 4) {
@@ -9817,6 +9812,14 @@ skip_dereference:
 				}
 
 				get_one(ctx, &n_vars);
+
+				escape_label = 0;	/* avoid warning */
+				if (likely(slot_1 != 0)) {
+					escape_label = alloc_escape_label(ctx);
+					if (unlikely(!escape_label))
+						return false;
+				}
+
 				if (n_vars || !slot_1) {
 					frame_t i;
 					uint32_t entry_label, nonflat_label;
@@ -9831,7 +9834,7 @@ skip_dereference:
 							return false;
 					}
 					if (!slot_1) {
-						g(gen_test_multiple(ctx, ce->variables, ce->n_variables, escape_label));
+						g(gen_test_multiple(ctx, ce->variables, ce->n_variables, ctx->escape_nospill_label));
 					}
 					entry_label = alloc_label(ctx);
 					if (unlikely(!entry_label))
@@ -9844,7 +9847,9 @@ skip_dereference:
 						return false;
 					ce->nonflat_label = nonflat_label;
 
-					if (slot_1)
+					if (unlikely(!slot_1))
+						g(gen_timestamp_test(ctx, ctx->escape_nospill_label));
+					else
 						g(gen_timestamp_test(ctx, escape_label));
 				} else {
 					g(gen_timestamp_test(ctx, escape_label));
@@ -10203,10 +10208,8 @@ static bool attr_w gen_epilogues(struct codegen_context *ctx)
 		gen_one(R_RET0);
 		g(gen_escape_arg(ctx, (ip_t)-1, escape_label));
 	}
-	if (ctx->escape_nospill) {
-		gen_label(ctx->escape_nospill);
-		g(gen_escape_arg(ctx, 0, nospill_label));
-	}
+	gen_label(ctx->escape_nospill_label);
+	g(gen_escape_arg(ctx, 0, nospill_label));
 	for (ip = 0; ip < da(ctx->fn,function)->code_size; ip++) {
 		if (ctx->escape_labels[ip]) {
 			gen_label(ctx->escape_labels[ip]);
