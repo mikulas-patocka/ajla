@@ -143,14 +143,14 @@
 
 #define SUPPORTED_FP	0x6
 
-#define FRAME_SIZE	0x40
+#define FRAME_SIZE	0x50
 
 static bool reg_is_fp(unsigned reg)
 {
 	return reg >= 0x20 && reg < 0x40;
 }
 
-static const uint8_t reg_available[] = { 0 };
+static const uint8_t reg_available[] = { 2, R_S5, R_FP };
 #define reg_is_saved(r)	1
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
@@ -328,6 +328,16 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	g(gen_address(ctx, R_SP, 48, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_address_offset();
+	gen_one(R_S5);
+
+	g(gen_address(ctx, R_SP, 56, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
+	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+	gen_address_offset();
+	gen_one(R_FP);
+
+	g(gen_address(ctx, R_SP, 64, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
+	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+	gen_address_offset();
 	gen_one(R_ARG0);
 
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
@@ -360,7 +370,7 @@ static bool attr_w gen_escape_arg(struct codegen_context *ctx, ip_t ip, uint32_t
 
 static bool attr_w gen_escape(struct codegen_context *ctx)
 {
-	g(gen_address(ctx, R_SP, 48, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
+	g(gen_address(ctx, R_SP, 64, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_RET0);
 	gen_address_offset();
@@ -403,6 +413,16 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	g(gen_address(ctx, R_SP, 40, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_S4);
+	gen_address_offset();
+
+	g(gen_address(ctx, R_SP, 48, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
+	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+	gen_one(R_S5);
+	gen_address_offset();
+
+	g(gen_address(ctx, R_SP, 56, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
+	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+	gen_one(R_FP);
 	gen_address_offset();
 
 	g(gen_imm(ctx, FRAME_SIZE, IMM_PURPOSE_ADD, OP_SIZE_NATIVE));
