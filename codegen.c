@@ -2513,10 +2513,12 @@ static bool attr_w gen_frame_store_x87(struct codegen_context *ctx, unsigned ins
 }
 #endif
 
-static bool attr_w gen_frame_load_op(struct codegen_context *ctx, unsigned size, bool attr_unused sx, unsigned alu, unsigned writes_flags, frame_t slot, int64_t offset, unsigned reg)
+static bool attr_w gen_frame_load_op(struct codegen_context *ctx, unsigned size, bool sx, unsigned alu, unsigned writes_flags, frame_t slot, int64_t offset, unsigned reg)
 {
 	ajla_assert_lo(slot >= MIN_USEABLE_SLOT && slot < function_n_variables(ctx->fn), (file_line, "gen_frame_load_op: invalid slot: %lu >= %lu", (unsigned long)slot, (unsigned long)function_n_variables(ctx->fn)));
 	if (ctx->registers[slot] >= 0) {
+		if (size != i_size(size) && sx != ARCH_PREFERS_SX(size))
+			goto fallback;
 		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(i_size(size)), i_size(size), alu, ALU_WRITES_FLAGS(alu, false) | writes_flags);
 		gen_one(reg);
 		gen_one(reg);
@@ -2537,14 +2539,15 @@ static bool attr_w gen_frame_load_op(struct codegen_context *ctx, unsigned size,
 		return true;
 	}
 #endif
+fallback:
 #if !defined(ARCH_X86)
 	g(gen_frame_load(ctx, size, sx, slot, offset, R_SCRATCH_NA_1));
 	gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(i_size(size)), i_size(size), alu, ALU_WRITES_FLAGS(alu, false) | writes_flags);
 	gen_one(reg);
 	gen_one(reg);
 	gen_one(R_SCRATCH_NA_1);
-	return true;
 #endif
+	return true;
 }
 
 static bool attr_w attr_unused gen_frame_load_op1(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned writes_flags, frame_t slot, int64_t offset, unsigned reg)
@@ -2809,6 +2812,12 @@ static bool attr_w gen_frame_store_imm(struct codegen_context *ctx, unsigned siz
 	if (ctx->registers[slot] >= 0) {
 		if (unlikely(offset != 0))
 			internal(file_line, "gen_frame_store_imm: offset is non-zero: %"PRIdMAX"", (intmax_t)offset);
+		if (size == OP_SIZE_1)
+			imm = ARCH_PREFERS_SX(size) ? (int64_t)(int8_t)imm : (int64_t)(uint8_t)imm;
+		if (size == OP_SIZE_2)
+			imm = ARCH_PREFERS_SX(size) ? (int64_t)(int16_t)imm : (int64_t)(uint16_t)imm;
+		if (size == OP_SIZE_4)
+			imm = ARCH_PREFERS_SX(size) ? (int64_t)(int32_t)imm : (int64_t)(uint32_t)imm;
 		g(gen_load_constant(ctx, ctx->registers[slot], imm));
 		return true;
 	}
