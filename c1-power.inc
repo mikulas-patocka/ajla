@@ -25,11 +25,11 @@
 #define OP_SIZE_NATIVE			OP_SIZE_4
 #define OP_SIZE_ADDRESS			OP_SIZE_4
 #ifdef AIX_CALL
-#define FRAME_SIZE			80
+#define FRAME_SIZE			128
 #define REGS_OFFSET			56
 #define LR_OFFSET			(FRAME_SIZE + 8)
 #else
-#define FRAME_SIZE			32
+#define FRAME_SIZE			80
 #define REGS_OFFSET			8
 #define LR_OFFSET			(FRAME_SIZE + 4)
 #endif
@@ -39,12 +39,12 @@
 #define OP_SIZE_NATIVE			OP_SIZE_8
 #define OP_SIZE_ADDRESS			OP_SIZE_8
 #ifdef AIX_CALL
-#define FRAME_SIZE			176
-#define REGS_OFFSET			128
+#define FRAME_SIZE			256
+#define REGS_OFFSET			112
 #define LR_OFFSET			(FRAME_SIZE + 16)
-#define STRUCT_RET_OFFSET		112
+#define STRUCT_RET_OFFSET		304
 #else
-#define FRAME_SIZE			96
+#define FRAME_SIZE			176
 #define REGS_OFFSET			32
 #define LR_OFFSET			(FRAME_SIZE + 16)
 #endif
@@ -187,7 +187,7 @@
 #define R_SCRATCH_1			R_3
 #define R_SCRATCH_2			R_4
 #define R_SCRATCH_3			R_5
-#define R_SCRATCH_4			R_6
+#define R_SCRATCH_4			R_SAVED_2
 
 #define R_SCRATCH_NA_1			R_7
 #define R_SCRATCH_NA_2			R_8
@@ -201,7 +201,7 @@
 #define R_SAVED_2			R_27
 #define R_ZERO				R_26
 
-#define R_LOWEST_SAVED			R_26
+#define R_LOWEST_SAVED			R_14
 
 #define R_ARG0				R_3
 #define R_ARG1				R_4
@@ -230,8 +230,8 @@ static bool reg_is_vs(unsigned reg)
 	return reg >= 0x60 && reg < 0x80;
 }
 
-static const uint8_t reg_available[] = { 0 };
-#define reg_is_saved(r)	1
+static const uint8_t reg_available[] = { 14, R_14, R_15, R_16, R_17, R_18, R_19, R_20, R_21, R_22, R_23, R_24, R_25, R_6, R_12 };
+#define reg_is_saved(r)	((r) >= R_14 && (r) <= R_31)
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
 {
