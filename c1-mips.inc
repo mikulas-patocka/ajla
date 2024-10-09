@@ -164,7 +164,6 @@
 
 #define R_FRAME		R_S0
 #define R_UPCALL	R_S1
-#define R_TIMESTAMP	R_S2
 
 #define R_SCRATCH_1	R_A0
 #define R_SCRATCH_2	R_A1
@@ -174,8 +173,8 @@
 #define R_SCRATCH_NA_2	R_T1
 #define R_SCRATCH_NA_3	R_T2
 
-#define R_SAVED_1	R_S3
-#define R_SAVED_2	R_S4
+#define R_SAVED_1	R_S2
+#define R_SAVED_2	R_S3
 
 #define R_ARG0		R_A0
 #define R_ARG1		R_A1
@@ -198,9 +197,9 @@
 
 #ifdef ARCH_MIPS_O32
 #define FRAME_SIZE	64
-#define SAVE_OFFSET	28
+#define SAVE_OFFSET	24
 #else
-#define FRAME_SIZE	80
+#define FRAME_SIZE	96
 #define SAVE_OFFSET	0
 #endif
 
@@ -210,10 +209,10 @@ static bool reg_is_fp(unsigned reg)
 }
 
 #ifdef ARCH_MIPS_O32
-static const uint8_t reg_available[] = { 3, R_S5, R_S6, R_S7 };
+static const uint8_t reg_available[] = { 4, R_S4, R_S5, R_S6, R_S7 };
 #define reg_is_saved(r)	1
 #else
-static const uint8_t reg_available[] = { 4, R_S5, R_S6, R_S7, R_GP };
+static const uint8_t reg_available[] = { 5, R_S4, R_S5, R_S6, R_S7, R_GP };
 #define reg_is_saved(r)	1
 #endif
 
@@ -431,6 +430,13 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_eight(FRAME_SIZE);
 
 	save_offset = SAVE_OFFSET;
+
+	g(gen_address(ctx, R_SP, save_offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
+	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
+	gen_address_offset();
+	gen_one(R_ARG2);
+	save_offset += 1 << OP_SIZE_NATIVE;
+
 	for (reg = R_S0; reg <= R_S7; reg++) {
 		g(gen_address(ctx, R_SP, save_offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
 		gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
@@ -457,10 +463,6 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_UPCALL);
 	gen_one(R_ARG1);
-
-	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
-	gen_one(R_TIMESTAMP);
-	gen_one(R_ARG2);
 
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 	gen_one(R_ARG3);
@@ -500,7 +502,7 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_one(R_FRAME);
 #endif
 
-	save_offset = SAVE_OFFSET;
+	save_offset = SAVE_OFFSET + (1 << OP_SIZE_NATIVE);
 	for (reg = R_S0; reg <= R_S7; reg++) {
 		g(gen_address(ctx, R_SP, save_offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
 		gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
@@ -556,11 +558,16 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t escape_label)
 {
 	g(gen_address(ctx, R_UPCALL, offsetof(struct cg_upcall_vector_s, ts), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_4));
-	gen_insn(INSN_MOVSX, OP_SIZE_4, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
 	gen_one(R_SCRATCH_1);
 	gen_address_offset();
 
-	g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, R_SCRATCH_1, R_TIMESTAMP, COND_NE, escape_label));
+	g(gen_address(ctx, R_SP, SAVE_OFFSET, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
+	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
+	gen_one(R_SCRATCH_2);
+	gen_address_offset();
+
+	g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, R_SCRATCH_1, R_SCRATCH_2, COND_NE, escape_label));
 
 	return true;
 }
