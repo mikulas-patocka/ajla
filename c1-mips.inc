@@ -197,11 +197,11 @@
 #define SUPPORTED_FP	0x6
 
 #ifdef ARCH_MIPS_O32
-#define FRAME_SIZE	48
-#define SAVE_OFFSET	24
-#else
 #define FRAME_SIZE	64
-#define SAVE_OFFSET	8
+#define SAVE_OFFSET	28
+#else
+#define FRAME_SIZE	80
+#define SAVE_OFFSET	0
 #endif
 
 static bool reg_is_fp(unsigned reg)
@@ -209,8 +209,13 @@ static bool reg_is_fp(unsigned reg)
 	return reg >= 0x20 && reg < 0x40;
 }
 
-static const uint8_t reg_available[] = { 0 };
+#ifdef ARCH_MIPS_O32
+static const uint8_t reg_available[] = { 3, R_S5, R_S6, R_S7 };
 #define reg_is_saved(r)	1
+#else
+static const uint8_t reg_available[] = { 4, R_S5, R_S6, R_S7, R_GP };
+#define reg_is_saved(r)	1
+#endif
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
 {
@@ -426,13 +431,20 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_eight(FRAME_SIZE);
 
 	save_offset = SAVE_OFFSET;
-	for (reg = R_S0; reg <= R_S4; reg++) {
+	for (reg = R_S0; reg <= R_S7; reg++) {
 		g(gen_address(ctx, R_SP, save_offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
 		gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 		gen_address_offset();
 		gen_one(reg);
 		save_offset += 1 << OP_SIZE_NATIVE;
 	}
+#ifndef ARCH_MIPS_O32
+	g(gen_address(ctx, R_SP, save_offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
+	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+	gen_address_offset();
+	gen_one(R_GP);
+	save_offset += 1 << OP_SIZE_NATIVE;
+#endif
 	g(gen_address(ctx, R_SP, save_offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_address_offset();
@@ -489,13 +501,20 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 #endif
 
 	save_offset = SAVE_OFFSET;
-	for (reg = R_S0; reg <= R_S4; reg++) {
+	for (reg = R_S0; reg <= R_S7; reg++) {
 		g(gen_address(ctx, R_SP, save_offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
 		gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 		gen_one(reg);
 		gen_address_offset();
 		save_offset += 1 << OP_SIZE_NATIVE;
 	}
+#ifndef ARCH_MIPS_O32
+	g(gen_address(ctx, R_SP, save_offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
+	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+	gen_one(R_GP);
+	gen_address_offset();
+	save_offset += 1 << OP_SIZE_NATIVE;
+#endif
 	g(gen_address(ctx, R_SP, save_offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_RA);
