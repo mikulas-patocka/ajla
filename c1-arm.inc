@@ -138,7 +138,7 @@
 #define R_SCRATCH_1	R_0
 #define R_SCRATCH_2	R_1
 #define R_SCRATCH_3	R_2
-#define R_SCRATCH_4	R_3
+#define R_SCRATCH_4	R_SAVED_2
 
 #define R_SAVED_1	R_6
 #define R_SAVED_2	R_7
@@ -167,8 +167,8 @@ static bool reg_is_fp(unsigned reg)
 	return reg >= 0x20 && reg < 0x40;
 }
 
-static const uint8_t reg_available[] = { 0 };
-#define reg_is_saved(r)	1
+static const uint8_t reg_available[] = { 2, R_9, R_3 };
+#define reg_is_saved(r)	((r) == R_9)
 
 static int gen_imm12(uint32_t c)
 {
