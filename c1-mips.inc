@@ -168,7 +168,7 @@
 #define R_SCRATCH_1	R_A0
 #define R_SCRATCH_2	R_A1
 #define R_SCRATCH_3	R_A2
-#define R_SCRATCH_4	R_A3
+#define R_SCRATCH_4	R_SAVED_2
 #define R_SCRATCH_NA_1	R_T0
 #define R_SCRATCH_NA_2	R_T1
 #define R_SCRATCH_NA_3	R_T2
@@ -209,12 +209,11 @@ static bool reg_is_fp(unsigned reg)
 }
 
 #ifdef ARCH_MIPS_O32
-static const uint8_t reg_available[] = { 5, R_S4, R_S5, R_S6, R_S7, R_FP };
-#define reg_is_saved(r)	1
+static const uint8_t reg_available[] = { 12, R_S4, R_S5, R_S6, R_S7, R_FP, R_AT, R_A3, R_T6, R_T7, R_T8, R_T9, R_RA };
 #else
-static const uint8_t reg_available[] = { 6, R_S4, R_S5, R_S6, R_S7, R_GP, R_FP };
-#define reg_is_saved(r)	1
+static const uint8_t reg_available[] = { 13, R_S4, R_S5, R_S6, R_S7, R_GP, R_FP, R_AT, R_A3, R_T6, R_T7, R_T8, R_T9, R_RA };
 #endif
+#define reg_is_saved(r)	(((r) >= R_S0 && (r) <= R_S7) || (r) == R_GP || (r) == R_FP)
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
 {
