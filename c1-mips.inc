@@ -126,7 +126,7 @@
 #define R_K1		0x1b
 #define R_GP		0x1c
 #define R_SP		0x1d
-#define R_S8		0x1e
+#define R_FP		0x1e
 #define R_RA		0x1f
 
 #define R_F0		0x20
@@ -197,7 +197,7 @@
 
 #ifdef ARCH_MIPS_O32
 #define FRAME_SIZE	64
-#define SAVE_OFFSET	24
+#define SAVE_OFFSET	20
 #else
 #define FRAME_SIZE	96
 #define SAVE_OFFSET	0
@@ -209,10 +209,10 @@ static bool reg_is_fp(unsigned reg)
 }
 
 #ifdef ARCH_MIPS_O32
-static const uint8_t reg_available[] = { 4, R_S4, R_S5, R_S6, R_S7 };
+static const uint8_t reg_available[] = { 5, R_S4, R_S5, R_S6, R_S7, R_FP };
 #define reg_is_saved(r)	1
 #else
-static const uint8_t reg_available[] = { 5, R_S4, R_S5, R_S6, R_S7, R_GP };
+static const uint8_t reg_available[] = { 6, R_S4, R_S5, R_S6, R_S7, R_GP, R_FP };
 #define reg_is_saved(r)	1
 #endif
 
@@ -454,6 +454,12 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	g(gen_address(ctx, R_SP, save_offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_address_offset();
+	gen_one(R_FP);
+	save_offset += 1 << OP_SIZE_NATIVE;
+
+	g(gen_address(ctx, R_SP, save_offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
+	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+	gen_address_offset();
 	gen_one(R_RA);
 
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
@@ -517,6 +523,12 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_address_offset();
 	save_offset += 1 << OP_SIZE_NATIVE;
 #endif
+	g(gen_address(ctx, R_SP, save_offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
+	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+	gen_one(R_FP);
+	gen_address_offset();
+	save_offset += 1 << OP_SIZE_NATIVE;
+
 	g(gen_address(ctx, R_SP, save_offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_RA);
