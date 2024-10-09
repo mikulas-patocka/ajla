@@ -153,24 +153,20 @@
 
 #define SUPPORTED_FP	0x6
 
-static const uint8_t reg_available[] = { 0 };
-#define reg_is_saved(r)	1
-
 #ifdef ARCH_PARISC32
 #define FRAME_SIZE	0x80
 /*
- * 0-20		- register save area
- * 20-64	- unused
+ * 0-64		- register save area
  * 64-96	- outgoing parameters
  * 96-128	- frame marker
  */
 #else
-#define FRAME_SIZE	0x80
+#define FRAME_SIZE	0xd0
 /*
- * 0-40		- register save area
- * 40-48	- unused
- * 48-112	- outgoing parameters
- * 112-128	- frame marker
+ * 0-128	- register save area
+ * 128-128	- unused
+ * 128-192	- outgoing parameters
+ * 192-208	- frame marker
  */
 #endif
 
@@ -184,6 +180,9 @@ static bool reg_is_fp(unsigned reg)
 {
 	return reg >= R_FSTATUS && reg < R_F31;
 }
+
+static const uint8_t reg_available[] = { 11, R_8, R_9, R_10, R_11, R_12, R_13, R_14, R_15, R_16, R_17, R_18 };
+#define reg_is_saved(r)	1
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
 {
@@ -373,7 +372,7 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_eight(FRAME_SIZE);
 	gen_one(R_3);
 
-	for (i = R_4; i <= R_7; i++) {
+	for (i = R_4; i <= R_18; i++) {
 		int offs = -FRAME_SIZE + ((i - R_3) << OP_SIZE_ADDRESS);
 		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 		gen_one(ARG_ADDRESS_1);
@@ -424,7 +423,7 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_one(R_SP);
 	gen_eight(-FRAME_SIZE + RP_OFFS);
 
-	for (i = R_4; i <= R_7; i++) {
+	for (i = R_4; i <= R_18; i++) {
 		int offs = -FRAME_SIZE + ((i - R_3) << OP_SIZE_ADDRESS);
 		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 		gen_one(i);
