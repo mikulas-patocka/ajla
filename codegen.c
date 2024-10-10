@@ -9604,6 +9604,10 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 			continue;
 		if (!ARCH_HAS_BWX && t->size < 1U << OP_SIZE_4)
 			continue;
+#if defined(ARCH_PARISC) || defined(ARCH_SPARC)
+		if (t->size > 1U << OP_SIZE_ADDRESS)
+			continue;
+#endif
 		if ((TYPE_TAG_IS_FIXED(t->tag) || TYPE_TAG_IS_INT(t->tag)) && is_power_of_2(t->size) && t->size <= 1U << OP_SIZE_NATIVE) {
 			if (int_reg >= nav)
 				continue;
