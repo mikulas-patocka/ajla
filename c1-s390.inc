@@ -106,7 +106,7 @@
 #define R_SCRATCH_2	R_2
 #define R_SCRATCH_3	R_5
 #define R_SCRATCH_4	R_4
-#define R_CONST_IMM	R_11
+#define R_CONST_IMM	(cpu_test_feature(CPU_FEATURE_extended_imm) ? R_0 : R_11)
 #define R_OFFSET_IMM	R_14
 
 #define R_ARG0		R_2
@@ -143,8 +143,8 @@ static const uint8_t reg_available[] = {
 #ifndef HAVE_BITWISE_FRAME
 	R_6, R_7,
 #endif
-	R_8, };
-#define n_reg_available n_array_elements(reg_available)
+	R_8, R_11 };
+#define n_reg_available (cpu_test_feature(CPU_FEATURE_extended_imm) ? n_array_elements(reg_available) : n_array_elements(reg_available) - 1)
 #define reg_is_saved(r)	1
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
