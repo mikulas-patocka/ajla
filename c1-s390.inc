@@ -105,8 +105,8 @@
 #define R_SCRATCH_2	R_2
 #define R_SCRATCH_3	R_5
 #define R_SCRATCH_4	R_4
-#define R_CONST_IMM	R_14
-#define R_OFFSET_IMM	R_8
+#define R_CONST_IMM	R_0
+#define R_OFFSET_IMM	R_14
 
 #define R_ARG0		R_2
 #define R_ARG1		R_3
@@ -136,7 +136,7 @@ static bool reg_is_fp(unsigned reg)
 	return reg >= 0x10 && reg < 0x20;
 }
 
-static const uint8_t reg_available[] = { 0 };
+static const uint8_t reg_available[] = { 1, R_8 };
 #define reg_is_saved(r)	1
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
@@ -285,7 +285,7 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 
 static bool attr_w gen_imm(struct codegen_context *ctx, int64_t imm, unsigned purpose, unsigned size)
 {
-	if (is_direct_const(imm, purpose, size)) {
+	if (is_direct_const(imm, purpose, size)/* && (purpose == IMM_PURPOSE_TEST || purpose == IMM_PURPOSE_CMP)*/) {
 		ctx->const_imm = imm;
 		ctx->const_reg = false;
 	} else {
