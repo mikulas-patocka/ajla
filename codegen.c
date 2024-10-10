@@ -2521,7 +2521,7 @@ static bool attr_w gen_frame_load_op(struct codegen_context *ctx, unsigned size,
 {
 	ajla_assert_lo(slot >= MIN_USEABLE_SLOT && slot < function_n_variables(ctx->fn), (file_line, "gen_frame_load_op: invalid slot: %lu >= %lu", (unsigned long)slot, (unsigned long)function_n_variables(ctx->fn)));
 	if (ctx->registers[slot] >= 0) {
-		if (size != i_size(size) + zero && sx != ARCH_PREFERS_SX(size))
+		if (size != i_size(size) + (unsigned)zero && sx != ARCH_PREFERS_SX(size))
 			goto fallback;
 		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(i_size(size)), i_size(size), alu, ALU_WRITES_FLAGS(alu, false) | writes_flags);
 		gen_one(reg);
