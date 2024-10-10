@@ -223,6 +223,7 @@ static inline uint64_t bits_b(unsigned reg)
 }
 
 static const uint8_t reg_available[] = { 0 };
+#define n_reg_available 0
 #define reg_is_saved(r)	1
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)

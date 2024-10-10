@@ -152,11 +152,12 @@ static bool reg_is_fp(unsigned reg)
 	return reg >= 0x20 && reg < 0x40;
 }
 
-#ifdef TIMESTAMP_IN_REGISTER
-static const uint8_t reg_available[] = { 14, R_S5, R_S6, R_S7, R_S8, R_FP, R_RA, R_A3, R_A7, R_T3, R_T4, R_T5, R_T6, R_T7, R_T8 };
-#else
-static const uint8_t reg_available[] = { 15, R_S4, R_S5, R_S6, R_S7, R_S8, R_FP, R_RA, R_A3, R_A7, R_T3, R_T4, R_T5, R_T6, R_T7, R_T8 };
+static const uint8_t reg_available[] = {
+#ifndef TIMESTAMP_IN_REGISTER
+	R_S4,
 #endif
+	R_S5, R_S6, R_S7, R_S8, R_FP, R_RA, R_A3, R_A7, R_T3, R_T4, R_T5, R_T6, R_T7, R_T8 };
+#define n_reg_available n_array_elements(reg_available)
 #define reg_is_saved(r)	((r) >= R_FP && (r) <= R_S8)
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)

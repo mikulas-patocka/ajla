@@ -181,7 +181,8 @@ static bool reg_is_fp(unsigned reg)
 	return reg >= R_FSTATUS && reg < R_F31;
 }
 
-static const uint8_t reg_available[] = { 11, R_8, R_9, R_10, R_11, R_12, R_13, R_14, R_15, R_16, R_17, R_18 };
+static const uint8_t reg_available[] = { R_8, R_9, R_10, R_11, R_12, R_13, R_14, R_15, R_16, R_17, R_18 };
+#define n_reg_available n_array_elements(reg_available)
 #define reg_is_saved(r)	1
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)

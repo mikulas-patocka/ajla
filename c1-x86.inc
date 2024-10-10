@@ -194,16 +194,20 @@ static bool reg_is_fp(unsigned reg)
 }
 
 #if defined(ARCH_X86_32)
-static const uint8_t reg_available[] = { 1, R_SI };
+static const uint8_t reg_available[] = { R_SI };
+#define n_reg_available n_array_elements(reg_available)
 #define reg_is_saved(r)	1
 #elif defined(ARCH_X86_WIN_ABI)
 static const uint8_t reg_available[] = { 0 };
+#define n_reg_available 0
 #define reg_is_saved(r)	1
 #elif defined(TIMESTAMP_IN_REGISTER)
-static const uint8_t reg_available[] = { 6, R_R13, R_SI, R_DI, R_R8, R_R9, R_R10 };
+static const uint8_t reg_available[] = { R_R13, R_SI, R_DI, R_R8, R_R9, R_R10 };
+#define n_reg_available n_array_elements(reg_available)
 #define reg_is_saved(r)	((r) == R_R13)
 #else
-static const uint8_t reg_available[] = { 7, R_R13, R_R14, R_SI, R_DI, R_R8, R_R9, R_R10 };
+static const uint8_t reg_available[] = { R_R13, R_R14, R_SI, R_DI, R_R8, R_R9, R_R10 };
+#define n_reg_available n_array_elements(reg_available)
 #define reg_is_saved(r)	((r) == R_R13 || (r) == R_R14)
 #endif
 

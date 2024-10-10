@@ -9575,7 +9575,8 @@ static bool attr_w gen_io(struct codegen_context *ctx, frame_t code, frame_t slo
 static bool attr_w gen_registers(struct codegen_context *ctx)
 {
 	frame_t v;
-	unsigned int_reg = 0;
+	size_t int_reg = 0;
+	size_t nav = n_reg_available;
 	const uint8_t *av = reg_available;
 	/*for (v = function_n_variables(ctx->fn) - 1; v >= MIN_USEABLE_SLOT; v--)*/
 	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
@@ -9591,9 +9592,9 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 		if (!ARCH_HAS_BWX && t->size < 1U << OP_SIZE_4)
 			continue;
 		if ((TYPE_TAG_IS_FIXED(t->tag) || TYPE_TAG_IS_INT(t->tag)) && is_power_of_2(t->size) && t->size <= 1U << OP_SIZE_NATIVE) {
-			if (int_reg >= av[0])
+			if (int_reg >= nav)
 				continue;
-			ctx->registers[v] = av[1 + int_reg];
+			ctx->registers[v] = av[int_reg];
 			int_reg++;
 			if (!reg_is_saved(ctx->registers[v])) {
 				if (unlikely(!array_add_mayfail(frame_t, &ctx->need_spill, &ctx->need_spill_l, v, NULL, &ctx->err)))
