@@ -141,14 +141,14 @@
 
 #define SUPPORTED_FP	0x6
 
-#define FRAME_SIZE	0x30
+#define FRAME_SIZE	0x60
 
 static bool reg_is_fp(unsigned reg)
 {
 	return reg >= 0x20 && reg < 0x40;
 }
 
-static const uint8_t reg_available[] = { 0 };
+static const uint8_t reg_available[] = { 5, R_S5, R_S6, R_S7, R_S8, R_FP };
 #define reg_is_saved(r)	1
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
@@ -302,41 +302,29 @@ static bool attr_w gen_imm(struct codegen_context *ctx, int64_t imm, unsigned pu
 
 static bool attr_w gen_entry(struct codegen_context *ctx)
 {
+	int offset, i;
+
 	g(gen_imm(ctx, -FRAME_SIZE, IMM_PURPOSE_ADD, OP_SIZE_NATIVE));
 	gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_ADD, 0);
 	gen_one(R_SP);
 	gen_one(R_SP);
 	gen_imm_offset();
 
+	offset = FRAME_SIZE - (1 << OP_SIZE_NATIVE);
+
 	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x08, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_address_offset();
 	gen_one(R_RA);
+	offset -= 1 << OP_SIZE_NATIVE;
 
-	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x10, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
-	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
-	gen_address_offset();
-	gen_one(R_FRAME);
-
-	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x18, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
-	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
-	gen_address_offset();
-	gen_one(R_UPCALL);
-
-	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x20, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
-	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
-	gen_address_offset();
-	gen_one(R_TIMESTAMP);
-
-	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x28, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
-	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
-	gen_address_offset();
-	gen_one(R_SAVED_1);
-
-	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x30, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
-	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
-	gen_address_offset();
-	gen_one(R_SAVED_2);
+	for (i = R_FP; i <= R_S8; i++) {
+		g(gen_address(ctx, R_SP, offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
+		gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+		gen_address_offset();
+		gen_one(i);
+		offset -= 1 << OP_SIZE_NATIVE;
+	}
 
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_FRAME);
@@ -368,39 +356,27 @@ static bool attr_w gen_escape_arg(struct codegen_context *ctx, ip_t ip, uint32_t
 
 static bool attr_w gen_escape(struct codegen_context *ctx)
 {
+	int offset, i;
+
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_RET0);
 	gen_one(R_FRAME);
 
-	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x08, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
+	offset = FRAME_SIZE - (1 << OP_SIZE_NATIVE);
+
+	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x08, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_RA);
 	gen_address_offset();
+	offset -= 1 << OP_SIZE_NATIVE;
 
-	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x10, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
-	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
-	gen_one(R_FRAME);
-	gen_address_offset();
-
-	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x18, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
-	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
-	gen_one(R_UPCALL);
-	gen_address_offset();
-
-	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x20, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
-	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
-	gen_one(R_TIMESTAMP);
-	gen_address_offset();
-
-	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x28, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
-	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
-	gen_one(R_SAVED_1);
-	gen_address_offset();
-
-	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x30, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
-	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
-	gen_one(R_SAVED_2);
-	gen_address_offset();
+	for (i = R_FP; i <= R_S8; i++) {
+		g(gen_address(ctx, R_SP, offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
+		gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+		gen_one(i);
+		gen_address_offset();
+		offset -= 1 << OP_SIZE_NATIVE;
+	}
 
 	g(gen_imm(ctx, FRAME_SIZE, IMM_PURPOSE_ADD, OP_SIZE_NATIVE));
 	gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_ADD, 0);
