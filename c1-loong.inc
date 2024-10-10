@@ -117,7 +117,7 @@
 #define R_SCRATCH_1	R_A0
 #define R_SCRATCH_2	R_A1
 #define R_SCRATCH_3	R_A2
-#define R_SCRATCH_4	R_A3
+#define R_SCRATCH_4	R_SAVED_2
 #define R_SCRATCH_NA_1	R_A4
 #define R_SCRATCH_NA_2	R_A5
 #define R_SCRATCH_NA_3	R_A6
@@ -148,8 +148,8 @@ static bool reg_is_fp(unsigned reg)
 	return reg >= 0x20 && reg < 0x40;
 }
 
-static const uint8_t reg_available[] = { 5, R_S5, R_S6, R_S7, R_S8, R_FP };
-#define reg_is_saved(r)	1
+static const uint8_t reg_available[] = { 14, R_S5, R_S6, R_S7, R_S8, R_FP, R_RA, R_A3, R_A7, R_T3, R_T4, R_T5, R_T6, R_T7, R_T8 };
+#define reg_is_saved(r)	((r) >= R_FP && (r) <= R_S8)
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
 {
