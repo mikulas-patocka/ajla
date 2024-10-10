@@ -98,8 +98,10 @@
 #define R_SAVED_2	R_10
 
 #define R_SCRATCH_NA_1	R_1
+#ifdef HAVE_BITWISE_FRAME
 #define R_SCRATCH_NA_2	R_6
 #define R_SCRATCH_NA_3	R_7
+#endif
 #define R_SCRATCH_1	R_3
 #define R_SCRATCH_2	R_2
 #define R_SCRATCH_3	R_5
@@ -403,11 +405,11 @@ static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsi
 {
 	g(gen_address(ctx, R_UPCALL, offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-	gen_one(R_SCRATCH_NA_1);
+	gen_one(R_OFFSET_IMM);
 	gen_address_offset();
 
 	gen_insn(INSN_CALL_INDIRECT, OP_SIZE_ADDRESS, 0, 0);
-	gen_one(R_SCRATCH_NA_1);
+	gen_one(R_OFFSET_IMM);
 
 	g(gen_upcall_end(ctx, n_args));
 

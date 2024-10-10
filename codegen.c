@@ -1716,7 +1716,7 @@ static bool attr_w gen_set_1(struct codegen_context *ctx, unsigned base, frame_t
 	gen_one(R_SCRATCH_NA_1);
 #endif
 #else
-#if !defined(ARCH_X86)
+#if defined(ARCH_ALPHA)
 	if (!ARCH_HAS_BWX) {
 		g(gen_address(ctx, base, offset + (slot_1 & ~7), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_8));
 		gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
@@ -1827,6 +1827,7 @@ save_it:
 	gen_imm_offset();
 #else
 	g(gen_3address_alu(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_SCRATCH_NA_1, R_FRAME, slot_reg));
+#ifdef ARCH_ALPHA
 	if (!ARCH_HAS_BWX) {
 		g(gen_address(ctx, R_SCRATCH_NA_1, offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_8));
 		gen_insn(INSN_MOV_U, OP_SIZE_8, 0, 0);
@@ -1848,6 +1849,7 @@ save_it:
 
 		return true;
 	}
+#endif
 
 	g(gen_address(ctx, R_SCRATCH_NA_1, offset, IMM_PURPOSE_MVI_CLI_OFFSET, OP_SIZE_1));
 	g(gen_imm(ctx, val, IMM_PURPOSE_STORE_VALUE, OP_SIZE_1));
