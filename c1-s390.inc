@@ -91,7 +91,6 @@
 
 #define R_FRAME		R_12
 #define R_UPCALL	R_13
-#define R_TIMESTAMP	R_11
 
 #define R_SP		R_15
 
@@ -124,11 +123,13 @@
 #define FRAME_SIZE	160
 #define FRAME_REGS	48
 #define FRAME_RETPTR	(FRAME_SIZE + 16)
+#define FRAME_TIMESTAMP	(FRAME_SIZE + 40)
 #else
 #define FRAME_SIZE	96
 #define FRAME_REGS	24
 #define FRAME_FP_REGS	80
 #define FRAME_RETPTR	(FRAME_SIZE + 8)
+#define FRAME_TIMESTAMP	(FRAME_SIZE + 20)
 #endif
 
 static bool reg_is_fp(unsigned reg)
@@ -136,7 +137,7 @@ static bool reg_is_fp(unsigned reg)
 	return reg >= 0x10 && reg < 0x20;
 }
 
-static const uint8_t reg_available[] = { 1, R_8 };
+static const uint8_t reg_available[] = { 2, R_8, R_11 };
 #define reg_is_saved(r)	1
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
@@ -334,8 +335,10 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(R_UPCALL);
 	gen_one(R_ARG2);
 
-	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
-	gen_one(R_TIMESTAMP);
+	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
+	gen_one(ARG_ADDRESS_1);
+	gen_one(R_SP);
+	gen_eight(FRAME_TIMESTAMP);
 	gen_one(R_ARG3);
 
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
@@ -413,9 +416,15 @@ static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsi
 
 static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t escape_label)
 {
+	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
+	gen_one(R_SCRATCH_1);
+	gen_one(ARG_ADDRESS_1);
+	gen_one(R_SP);
+	gen_eight(FRAME_TIMESTAMP);
+
 	g(gen_address(ctx, R_UPCALL, offsetof(struct cg_upcall_vector_s, ts), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_4));
 	gen_insn(INSN_CMP, OP_SIZE_4, 0, 1);
-	gen_one(R_TIMESTAMP);
+	gen_one(R_SCRATCH_1);
 	gen_address_offset();
 
 	gen_insn(INSN_JMP_COND, OP_SIZE_4, COND_NE, 0);
