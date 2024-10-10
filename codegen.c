@@ -3557,6 +3557,17 @@ static bool attr_w gen_memcpy_to_slot(struct codegen_context *ctx, frame_t dest_
 	short dest_reg = ctx->registers[dest_slot];
 	if (dest_reg >= 0) {
 		if (ARCH_PREFERS_SX(size) && !reg_is_fp(dest_reg)) {
+#if defined(ARCH_S390)
+			if (size == OP_SIZE_1 && !cpu_test_feature(CPU_FEATURE_long_displacement)) {
+				g(gen_address(ctx, src_base, src_offset, IMM_PURPOSE_LDR_OFFSET, size));
+				gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, MOV_MASK_0_8, 0);
+				gen_one(dest_reg);
+				gen_one(dest_reg);
+				gen_address_offset();
+				g(gen_extend(ctx, size, true, dest_reg, dest_reg));
+				return true;
+			}
+#endif
 			g(gen_address(ctx, src_base, src_offset, IMM_PURPOSE_LDR_SX_OFFSET, size));
 			gen_insn(INSN_MOVSX, size, 0, 0);
 		} else {

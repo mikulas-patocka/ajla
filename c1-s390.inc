@@ -106,7 +106,7 @@
 #define R_SCRATCH_2	R_2
 #define R_SCRATCH_3	R_5
 #define R_SCRATCH_4	R_4
-#define R_CONST_IMM	R_0
+#define R_CONST_IMM	R_11
 #define R_OFFSET_IMM	R_14
 
 #define R_ARG0		R_2
@@ -143,7 +143,7 @@ static const uint8_t reg_available[] = {
 #ifndef HAVE_BITWISE_FRAME
 	R_6, R_7,
 #endif
-	R_8, R_11 };
+	R_8, };
 #define n_reg_available n_array_elements(reg_available)
 #define reg_is_saved(r)	1
 
