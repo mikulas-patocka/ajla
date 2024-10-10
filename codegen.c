@@ -1974,12 +1974,14 @@ static bool attr_w gen_test_1(struct codegen_context *ctx, unsigned base, frame_
 	}
 #else
 	if (!ARCH_HAS_BWX) {
+#if defined(ARCH_ALPHA)
 		g(gen_address(ctx, base, offset + (slot_1 & ~7), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_8));
 		gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
 		gen_one(R_SCRATCH_NA_2);
 		gen_address_offset();
 
 		g(gen_3address_alu_imm(ctx, OP_SIZE_8, ALU_EXTBL, R_SCRATCH_NA_2, R_SCRATCH_NA_2, slot_1 & 7));
+#endif
 	} else {
 		g(gen_address(ctx, base, offset + slot_1, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
 		gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);

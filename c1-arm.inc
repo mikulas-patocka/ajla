@@ -143,12 +143,14 @@
 #define R_SAVED_1	R_6
 #define R_SAVED_2	R_7
 
-#define R_OFFSET_IMM	R_8
+#define R_OFFSET_IMM	R_LR
 #define R_CONST_IMM	R_IP
 
 #define R_SCRATCH_NA_1	R_10
 #define R_SCRATCH_NA_2	R_FP
-#define R_SCRATCH_NA_3	R_LR
+#ifdef HAVE_BITWISE_FRAME
+#define R_SCRATCH_NA_3	R_8
+#endif
 
 #define R_ARG0		R_0
 #define R_ARG1		R_1
@@ -167,9 +169,13 @@ static bool reg_is_fp(unsigned reg)
 	return reg >= 0x20 && reg < 0x40;
 }
 
-static const uint8_t reg_available[] = { R_9, R_3 };
+static const uint8_t reg_available[] = {
+#ifndef HAVE_BITWISE_FRAME
+	R_8,
+#endif
+	R_9, R_3 };
 #define n_reg_available n_array_elements(reg_available)
-#define reg_is_saved(r)	((r) == R_9)
+#define reg_is_saved(r)	((r) == R_8 || (r) == R_9)
 
 static int gen_imm12(uint32_t c)
 {
