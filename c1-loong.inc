@@ -44,6 +44,8 @@
 #define i_size(size)			OP_SIZE_NATIVE
 #define i_size_rot(size)		maximum(size, OP_SIZE_4)
 
+/*#define TIMESTAMP_IN_REGISTER*/
+
 #define R_ZERO		0x00
 #define R_RA		0x01
 #define R_TP		0x02
@@ -112,7 +114,9 @@
 
 #define R_FRAME		R_S0
 #define R_UPCALL	R_S1
-#define R_TIMESTAMP	R_S2
+#ifdef TIMESTAMP_IN_REGISTER
+#define R_TIMESTAMP	R_S4
+#endif
 
 #define R_SCRATCH_1	R_A0
 #define R_SCRATCH_2	R_A1
@@ -122,8 +126,8 @@
 #define R_SCRATCH_NA_2	R_A5
 #define R_SCRATCH_NA_3	R_A6
 
-#define R_SAVED_1	R_S3
-#define R_SAVED_2	R_S4
+#define R_SAVED_1	R_S2
+#define R_SAVED_2	R_S3
 
 #define R_ARG0		R_A0
 #define R_ARG1		R_A1
@@ -148,7 +152,11 @@ static bool reg_is_fp(unsigned reg)
 	return reg >= 0x20 && reg < 0x40;
 }
 
+#ifdef TIMESTAMP_IN_REGISTER
 static const uint8_t reg_available[] = { 14, R_S5, R_S6, R_S7, R_S8, R_FP, R_RA, R_A3, R_A7, R_T3, R_T4, R_T5, R_T6, R_T7, R_T8 };
+#else
+static const uint8_t reg_available[] = { 15, R_S4, R_S5, R_S6, R_S7, R_S8, R_FP, R_RA, R_A3, R_A7, R_T3, R_T4, R_T5, R_T6, R_T7, R_T8 };
+#endif
 #define reg_is_saved(r)	((r) >= R_FP && (r) <= R_S8)
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
@@ -326,6 +334,13 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 		offset -= 1 << OP_SIZE_NATIVE;
 	}
 
+#ifndef TIMESTAMP_IN_REGISTER
+	g(gen_address(ctx, R_SP, offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
+	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
+	gen_address_offset();
+	gen_one(R_ARG2);
+#endif
+
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_FRAME);
 	gen_one(R_ARG0);
@@ -334,9 +349,11 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(R_UPCALL);
 	gen_one(R_ARG1);
 
+#ifdef TIMESTAMP_IN_REGISTER
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_TIMESTAMP);
 	gen_one(R_ARG2);
+#endif
 
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 	gen_one(R_ARG3);
@@ -418,7 +435,16 @@ static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t esca
 	gen_one(R_SCRATCH_1);
 	gen_address_offset();
 
+#ifdef TIMESTAMP_IN_REGISTER
 	g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, R_SCRATCH_1, R_TIMESTAMP, COND_NE, escape_label));
+#else
+	g(gen_address(ctx, R_SP, 0, IMM_PURPOSE_LDR_SX_OFFSET, OP_SIZE_4));
+	gen_insn(INSN_MOVSX, OP_SIZE_4, 0, 0);
+	gen_one(R_SCRATCH_2);
+	gen_address_offset();
+
+	g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, R_SCRATCH_1, R_SCRATCH_2, COND_NE, escape_label));
+#endif
 
 	return true;
 }
