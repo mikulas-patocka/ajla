@@ -230,7 +230,7 @@ static bool reg_is_vs(unsigned reg)
 	return reg >= 0x60 && reg < 0x80;
 }
 
-static const uint8_t regs_saved[] = { R_14, R_15, R_16, R_17, R_18, R_19, R_20, R_21, R_22, R_23, R_24, R_25 }
+static const uint8_t regs_saved[] = { R_14, R_15, R_16, R_17, R_18, R_19, R_20, R_21, R_22, R_23, R_24, R_25 };
 static const uint8_t regs_volatile[] = { R_6, R_12 };
 #define reg_is_saved(r)	((r) >= R_14 && (r) <= R_31)
 
