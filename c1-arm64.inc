@@ -129,7 +129,9 @@
 #define R_SCRATCH_4	R_3
 #define R_SCRATCH_NA_1	R_8
 #define R_SCRATCH_NA_2	R_9
+#ifdef HAVE_BITWISE_FRAME
 #define R_SCRATCH_NA_3	R_10
+#endif
 #define R_OFFSET_IMM	R_16
 #define R_CONST_IMM	R_17
 
@@ -152,7 +154,11 @@ static bool reg_is_fp(unsigned reg)
 }
 
 static const uint8_t regs_saved[] = { R_SAVED_7, R_SAVED_6, R_SAVED_5, R_SAVED_4, R_SAVED_3 };
-static const uint8_t regs_volatile[] = { R_4, R_5, R_6, R_7, R_11, R_12, R_13, R_14, R_15, R_LR };
+static const uint8_t regs_volatile[] = { R_4, R_5, R_6, R_7,
+#ifndef HAVE_BITWISE_FRAME
+	R_10,
+#endif
+	R_11, R_12, R_13, R_14, R_15, R_LR };
 #define reg_is_saved(r)	((r) >= R_19 && (r) <= R_FP)
 
 struct logical_imm {
