@@ -2634,30 +2634,37 @@ no_load_op:
 static bool attr_w gen_frame_load_cmp_imm(struct codegen_context *ctx, unsigned size, bool logical, bool attr_unused sx, frame_t slot, int64_t offset, int64_t value)
 {
 	if (ctx->registers[slot] >= 0) {
-		g(gen_imm(ctx, value, IMM_PURPOSE_CMP, size));
+		g(gen_imm(ctx, value, logical ? IMM_PURPOSE_CMP_LOGICAL : IMM_PURPOSE_CMP, size));
 		gen_insn(INSN_CMP, i_size(size), 0, 1 + logical);
 		gen_one(ctx->registers[slot]);
 		gen_imm_offset();
 		return true;
 	}
-#if defined(ARCH_S390) || defined(ARCH_X86)
-#if defined(ARCH_S390)
-	if (size != OP_SIZE_1 || !logical)
-		goto no_load_op;
-#endif
+#if defined(ARCH_X86)
 	offset += (size_t)slot * slot_size;
 	g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_MVI_CLI_OFFSET, size));
-	g(gen_imm(ctx, value, IMM_PURPOSE_CMP, size));
+	g(gen_imm(ctx, value, logical ? IMM_PURPOSE_CMP_LOGICAL : IMM_PURPOSE_CMP, size));
 	gen_insn(INSN_CMP, size, 0, 1 + logical);
 	gen_address_offset();
 	gen_imm_offset();
+	return true;
+#endif
+#if defined(ARCH_S390)
+	if (size != OP_SIZE_1 || !logical)
+		goto no_load_op;
+	offset += (size_t)slot * slot_size;
+	g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_MVI_CLI_OFFSET, size));
+	gen_insn(INSN_CMP, size, 0, 1 + logical);
+	gen_address_offset();
+	gen_one(ARG_IMM);
+	gen_eight((int8_t)value);
 	return true;
 #endif
 #if defined(R_SCRATCH_NA_1)
 	goto no_load_op;
 no_load_op:
 	g(gen_frame_load(ctx, size, sx, slot, offset, R_SCRATCH_NA_1));
-	g(gen_imm(ctx, value, IMM_PURPOSE_CMP, size));
+	g(gen_imm(ctx, value, logical ? IMM_PURPOSE_CMP_LOGICAL : IMM_PURPOSE_CMP, size));
 	gen_insn(INSN_CMP, i_size(size), 0, 1 + logical);
 	gen_one(R_SCRATCH_NA_1);
 	gen_imm_offset();
@@ -3120,6 +3127,10 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned attr
 		gen_insn(INSN_SET_COND_PARTIAL, OP_SIZE_1, cond, 0);
 		gen_one(ctx->registers[slot]);
 		gen_one(ctx->registers[slot]);
+		gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
+		gen_one(ctx->registers[slot]);
+		gen_one(ctx->registers[slot]);
+		return true;
 	}
 	offset = (size_t)slot * slot_size;
 	if (sizeof(ajla_flat_option_t) > 1) {
@@ -9611,7 +9622,7 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 			continue;
 		if (!ARCH_HAS_BWX && t->size < 1U << OP_SIZE_4)
 			continue;
-		if (TYPE_TAG_IS_FIXED(t->tag) || TYPE_TAG_IS_INT(t->tag)) {
+		if (TYPE_TAG_IS_FIXED(t->tag) || TYPE_TAG_IS_INT(t->tag) || t->tag == TYPE_TAG_flat_option) {
 			if (!is_power_of_2(t->size) || t->size > 1U << OP_SIZE_NATIVE)
 				continue;
 			if (index_saved < n_regs_saved + zero

@@ -279,6 +279,7 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 				return true;
 			break;
 		case IMM_PURPOSE_CMP:
+		case IMM_PURPOSE_CMP_LOGICAL:
 			if (imm > -0x80 && imm < 0x80)
 				return true;
 			break;

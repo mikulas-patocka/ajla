@@ -146,7 +146,7 @@ static const uint8_t regs_saved[] = {
 	R_8, R_11 };
 #define n_regs_saved (cpu_test_feature(CPU_FEATURE_extended_imm) ? n_array_elements(regs_saved) : n_array_elements(regs_saved) - 1)
 static const uint8_t regs_volatile[] = { 0 };
-#define n_regs_volatile 0
+#define n_regs_volatile 0U
 #define reg_is_saved(r)	1
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
@@ -242,7 +242,6 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 {
 	switch (purpose) {
 		case IMM_PURPOSE_ADD:
-		case IMM_PURPOSE_CMP:
 			if (imm >= -0x8000 && imm < 0x8000)
 				return true;
 			break;
