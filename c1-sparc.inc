@@ -210,12 +210,12 @@ static bool reg_is_fp(unsigned reg)
 	return reg >= 0x20 && reg < 0x40;
 }
 
-static const uint8_t reg_available[] = { R_L2, R_L3, R_L4, R_L5, R_L6, R_L7, R_I3, R_I4, R_I5, R_G4, R_G5,
+static const uint8_t regs_saved[] = { R_L2, R_L3, R_L4, R_L5, R_L6, R_L7, R_I3, R_I4, R_I5 };
+static const uint8_t regs_volatile[] = { R_G4, R_G5,
 #ifndef HAVE_BITWISE_FRAME
 		R_O7,
 #endif
 	};
-#define n_reg_available n_array_elements(reg_available)
 #define reg_is_saved(r)	((r) >= R_L0 && (r) <= R_I7)
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)

@@ -151,8 +151,8 @@ static bool reg_is_fp(unsigned reg)
 	return reg >= 0x20 && reg < 0x40;
 }
 
-static const uint8_t reg_available[] = { R_SAVED_7, R_SAVED_6, R_SAVED_5, R_SAVED_4, R_SAVED_3 };
-#define n_reg_available n_array_elements(reg_available)
+static const uint8_t regs_saved[] = { R_SAVED_7, R_SAVED_6, R_SAVED_5, R_SAVED_4, R_SAVED_3 };
+static const uint8_t regs_volatile[] = { };
 #define reg_is_saved(r)	1
 
 struct logical_imm {

@@ -149,8 +149,8 @@ static bool reg_is_fp(unsigned reg)
 	return reg >= 0x20 && reg < 0x40;
 }
 
-static const uint8_t reg_available[] = { R_S5, R_S6, R_S7, R_S8, R_S9, R_S10, R_S11 };
-#define n_reg_available n_array_elements(reg_available)
+static const uint8_t regs_saved[] = { R_S5, R_S6, R_S7, R_S8, R_S9, R_S10, R_S11 };
+static const uint8_t regs_volatile[] = { };
 #define reg_is_saved(r)	1
 
 static const struct {

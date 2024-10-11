@@ -208,12 +208,12 @@ static bool reg_is_fp(unsigned reg)
 	return reg >= 0x20 && reg < 0x40;
 }
 
-static const uint8_t reg_available[] = { R_S4, R_S5, R_S6, R_S7,
+static const uint8_t regs_saved[] = { R_S4, R_S5, R_S6, R_S7,
 #ifndef ARCH_MIPS_O32
 	R_GP,
 #endif
-	R_FP, R_AT, R_A3, R_T6, R_T7, R_T8, R_T9, R_RA };
-#define n_reg_available n_array_elements(reg_available)
+	R_FP };
+static const uint8_t regs_volatile[] = { R_AT, R_A3, R_T6, R_T7, R_T8, R_T9, R_RA };
 #define reg_is_saved(r)	(((r) >= R_S0 && (r) <= R_S7) || (r) == R_GP || (r) == R_FP)
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)

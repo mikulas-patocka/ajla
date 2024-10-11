@@ -169,12 +169,12 @@ static bool reg_is_fp(unsigned reg)
 	return reg >= 0x20 && reg < 0x40;
 }
 
-static const uint8_t reg_available[] = {
+static const uint8_t regs_saved[] = {
 #ifndef HAVE_BITWISE_FRAME
 	R_8,
 #endif
-	R_9, R_3 };
-#define n_reg_available n_array_elements(reg_available)
+	R_9 };
+static const uint8_t regs_volatile[] = { R_3 };
 #define reg_is_saved(r)	((r) == R_8 || (r) == R_9)
 
 static int gen_imm12(uint32_t c)

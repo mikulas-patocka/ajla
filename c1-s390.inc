@@ -139,12 +139,14 @@ static bool reg_is_fp(unsigned reg)
 	return reg >= 0x10 && reg < 0x20;
 }
 
-static const uint8_t reg_available[] = {
+static const uint8_t regs_saved[] = {
 #ifndef HAVE_BITWISE_FRAME
 	R_6, R_7,
 #endif
 	R_8, R_11 };
-#define n_reg_available (cpu_test_feature(CPU_FEATURE_extended_imm) ? n_array_elements(reg_available) : n_array_elements(reg_available) - 1)
+#define n_regs_saved (cpu_test_feature(CPU_FEATURE_extended_imm) ? n_array_elements(regs_saved) : n_array_elements(regs_saved) - 1)
+static const uint8_t regs_volatile[] = { 0 };
+#define n_regs_volatile 0
 #define reg_is_saved(r)	1
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
