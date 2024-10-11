@@ -132,7 +132,9 @@
 
 #define R_SCRATCH_NA_1	R_22
 #define R_SCRATCH_NA_2	R_21
+#ifdef HAVE_BITWISE_FRAME
 #define R_SCRATCH_NA_3	R_20
+#endif
 #define R_CMP_RESULT	R_19
 
 #define R_CG_SCRATCH	R_31
@@ -182,8 +184,12 @@ static bool reg_is_fp(unsigned reg)
 }
 
 static const uint8_t regs_saved[] = { R_8, R_9, R_10, R_11, R_12, R_13, R_14, R_15, R_16, R_17, R_18 };
-static const uint8_t regs_volatile[] = { };
-#define reg_is_saved(r)	1
+static const uint8_t regs_volatile[] = { R_RP,
+#ifdef HAVE_BITWISE_FRAME
+		R_20,
+#endif
+	};
+#define reg_is_saved(r)	((r) >= R_3 && (r) <= R_18)
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
 {
