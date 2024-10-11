@@ -530,7 +530,7 @@ mov_rm:
 		return true;
 	} else {
 		uint8_t code = size == OP_SIZE_1 ? X86_0F_MOVZX_R16_RM8 : X86_0F_MOVZX_R16_RM16;
-		g(cgen_rm_insn(ctx, -1, PREFIX_0F, code, OP_SIZE_4, true, arg1[0], arg2));
+		g(cgen_rm_insn(ctx, -1, PREFIX_0F, code, size, true, arg1[0], arg2));
 		return true;
 	}
 }
