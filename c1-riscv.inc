@@ -139,8 +139,8 @@
 #define R_CONST_HELPER	R_T2
 #define R_CMP_RESULT	R_T3
 
-#define FR_SCRATCH_1	R_FA0
-#define FR_SCRATCH_2	R_FA1
+#define FR_SCRATCH_1	R_FT0
+#define FR_SCRATCH_2	R_FT1
 
 #define SUPPORTED_FP	0x6
 
@@ -159,9 +159,8 @@ static const uint8_t regs_volatile[] = { R_RA,
 	R_A7, R_T4, R_T5, R_T6 };
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved 0U
-static const uint8_t fp_volatile[] = { 0 };
-#define n_fp_volatile 0U
-#define reg_is_saved(r)	(((r) >= R_S0 && (r) <= R_S1) || ((r) >= R_S2 && (r) <= R_S11))
+static const uint8_t fp_volatile[] = { R_FT2, R_FT3, R_FT4, R_FT5, R_FT6, R_FT7, R_FA0, R_FA1, R_FA2, R_FA3, R_FA4, R_FA5, R_FA6, R_FA7, R_FT8, R_FT9, R_FT10, R_FT11 };
+#define reg_is_saved(r)	(((r) >= R_S0 && (r) <= R_S1) || ((r) >= R_S2 && (r) <= R_S11) || ((r) >= R_FS0 && (r) <= R_FS1) || ((r) >= R_FS2 && (r) <= R_FS11))
 
 static const struct {
 	uint32_t l;

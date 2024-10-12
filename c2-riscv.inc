@@ -198,6 +198,18 @@ static bool attr_w cgen_jmp_call_indirect(struct codegen_context *ctx, bool call
 	return true;
 }
 
+static uint32_t riscv_fp_op_size(unsigned fp_op_size)
+{
+	switch (fp_op_size) {
+		case OP_SIZE_2:		return RISCV_F_HALF;
+		case OP_SIZE_4:		return RISCV_F_SINGLE;
+		case OP_SIZE_8:		return RISCV_F_DOUBLE;
+		case OP_SIZE_16:	return RISCV_F_QUAD;
+		default:		internal(file_line, "riscv_fp_op_size: invalid size %u", fp_op_size);
+	}
+	return (uint32_t)-1;
+}
+
 static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size)
 {
 	uint32_t mc;
@@ -246,7 +258,16 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size)
 		}
 		goto invalid;
 	}
-	if (arg1[0] < 0x40) {
+	if (reg_is_fp(arg1[0])) {
+		if (reg_is_fp(arg2[0])) {
+			mc = RISCV_FSGNJ;
+			mc |= (uint32_t)(arg1[0] & 0x1f) << 7;
+			mc |= (uint32_t)(arg2[0] & 0x1f) << 15;
+			mc |= (uint32_t)(arg2[0] & 0x1f) << 20;
+			mc |= riscv_fp_op_size(size);
+			cgen_rv(mc);
+			return true;
+		}
 		if (arg2[0] == ARG_ADDRESS_1) {
 			imm = get_imm(&arg2[2]);
 			switch (size) {
@@ -280,7 +301,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size)
 			g(cgen_memory_store(ctx, mc, arg1[1], arg2[0], imm));
 			return true;
 		}
-		if (arg2[0] < 0x40) {
+		if (reg_is_fp(arg2[0])) {
 			imm = get_imm(&arg1[2]);
 			switch (size) {
 				case OP_SIZE_2:	mc = RISCV_FS | RISCV_FSL_H; break;
@@ -610,18 +631,6 @@ static bool attr_w cgen_fp_cmp_dest_reg(struct codegen_context *ctx, unsigned op
 	mc |= (uint32_t)(arg3[0] & 0x1f) << 20;
 	cgen_rv(mc);
 	return true;
-}
-
-static uint32_t riscv_fp_op_size(unsigned fp_op_size)
-{
-	switch (fp_op_size) {
-		case OP_SIZE_2:		return RISCV_F_HALF;
-		case OP_SIZE_4:		return RISCV_F_SINGLE;
-		case OP_SIZE_8:		return RISCV_F_DOUBLE;
-		case OP_SIZE_16:	return RISCV_F_QUAD;
-		default:		internal(file_line, "riscv_fp_op_size: invalid size %u", fp_op_size);
-	}
-	return (uint32_t)-1;
 }
 
 static bool attr_w cgen_fp_alu(struct codegen_context *ctx, unsigned op_size, unsigned aux)
