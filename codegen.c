@@ -6597,7 +6597,7 @@ do_from_int:
 		if (op_size == OP_SIZE_8 && !cpu_test_feature(CPU_FEATURE_ppc))
 			goto do_upcall;
 #endif
-#if defined(ARCH_PARISC)
+#if defined(ARCH_PARISC) || defined(ARCH_POWER)
 		if (ctx->registers[slot_1] >= 0) {
 			g(spill(ctx, slot_1));
 			g(gen_frame_load_raw(ctx, int_op_size, false, slot_1, 0, FR_SCRATCH_1));
@@ -9536,6 +9536,10 @@ static bool attr_w gen_io(struct codegen_context *ctx, frame_t code, frame_t slo
 #define n_fp_volatile n_array_elements(fp_volatile)
 #endif
 
+#ifndef n_vector_volatile
+#define n_vector_volatile n_array_elements(vector_volatile)
+#endif
+
 static bool attr_w gen_registers(struct codegen_context *ctx)
 {
 	frame_t v;
@@ -9543,6 +9547,7 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 	size_t index_volatile = 0;
 	size_t index_fp_saved = 0;
 	size_t index_fp_volatile = 0;
+	size_t attr_unused index_vector_volatile = 0;
 	/*for (v = function_n_variables(ctx->fn) - 1; v >= MIN_USEABLE_SLOT; v--)*/
 	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
 		const struct type *t;
@@ -9573,6 +9578,15 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 		} else if (TYPE_TAG_IS_REAL(t->tag)) {
 			unsigned real_type = TYPE_TAG_IDX_REAL(t->tag);
 			if ((SUPPORTED_FP >> real_type) & 1) {
+#ifdef ARCH_POWER
+				if (real_type == 4) {
+					if (index_vector_volatile < n_vector_volatile + zero) {
+						ctx->registers[v] = vector_volatile[index_vector_volatile++];
+						goto success;
+					}
+					continue;
+				}
+#endif
 				if (index_fp_saved < n_fp_saved + zero) {
 					ctx->registers[v] = fp_saved[index_fp_saved++];
 				} else if (index_fp_volatile < n_fp_volatile + zero) {
@@ -9586,6 +9600,8 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 		} else {
 			continue;
 		}
+		goto success;
+success:
 		if (!reg_is_saved(ctx->registers[v])) {
 			if (unlikely(!array_add_mayfail(frame_t, &ctx->need_spill, &ctx->need_spill_l, v, NULL, &ctx->err)))
 				return false;

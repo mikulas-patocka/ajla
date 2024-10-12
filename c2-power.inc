@@ -149,6 +149,7 @@
 #define POWER_FSQRTS		0xec00002cU
 #define POWER_FMULS		0xec000032U
 #define POWER_FCFIDS		0xec00069cU
+#define POWER_XXLOR		0xf0000497U
 #define POWER_LXV		0xf4000001U
 #define POWER_STXSD		0xf4000002U
 #define POWER_STXV		0xf4000005U
@@ -164,6 +165,7 @@
 #define POWER_FCMPO		0xfc000040U
 #define POWER_XSMULQP		0xfc000048U
 #define POWER_FNEG		0xfc000050U
+#define POWER_FMR		0xfc000090U
 #define POWER_XSCMPOQP		0xfc000108U
 #define POWER_XSSUBQP		0xfc000408U
 #define POWER_XSDIVQP		0xfc000448U
@@ -472,6 +474,16 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 			cgen_xform(mc, arg2[0] & 31, arg1[1], arg1[2], false);
 			return true;
 		}
+	}
+	if (reg_is_fp(arg1[0]) && !reg_is_vs(arg1[0]) && reg_is_fp(arg2[0]) && !reg_is_vs(arg2[0])) {
+		mc = POWER_FMR;
+		cgen_xform(mc, arg1[0] & 31, 0, arg2[0] & 31, false);
+		return true;
+	}
+	if (reg_is_vs(arg1[0]) && reg_is_vs(arg2[0])) {
+		mc = POWER_XXLOR;
+		cgen_xform(mc, arg1[0] & 31, arg2[0] & 31, arg2[0] & 31, false);
+		return true;
 	}
 
 invl:
