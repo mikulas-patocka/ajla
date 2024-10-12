@@ -264,6 +264,8 @@ static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, 
 	return true;
 }
 
+static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size);
+
 static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int64_t imm, unsigned purpose, unsigned size)
 {
 	ctx->base_reg = base;
@@ -294,6 +296,20 @@ static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int64
 		default:
 			internal(file_line, "gen_address: invalid purpose %u (imm %"PRIxMAX", size %u)", purpose, (uintmax_t)imm, size);
 	}
+
+	if (is_direct_const(imm, IMM_PURPOSE_ADD, OP_SIZE_ADDRESS)) {
+		gen_insn(INSN_ALU, OP_SIZE_ADDRESS, ALU_ADD, 0);
+		gen_one(R_OFFSET_IMM);
+		gen_one(base);
+		gen_one(ARG_IMM);
+		gen_eight(imm);
+
+		ctx->base_reg = R_OFFSET_IMM;
+		ctx->offset_imm = 0;
+
+		return true;
+	}
+
 	g(gen_load_constant(ctx, R_OFFSET_IMM, imm));
 
 	if (purpose == IMM_PURPOSE_LDR_OFFSET || purpose == IMM_PURPOSE_LDR_SX_OFFSET) {
@@ -305,6 +321,7 @@ static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int64
 	gen_one(R_OFFSET_IMM);
 	gen_one(R_OFFSET_IMM);
 	gen_one(base);
+
 	ctx->base_reg = R_OFFSET_IMM;
 	ctx->offset_imm = 0;
 
