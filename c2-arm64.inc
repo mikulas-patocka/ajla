@@ -81,6 +81,7 @@
 #define  ARM64_FCMP_DOUBLE		0x00400000U
 #define  ARM64_FCMP_HALF		0x00c00000U
 #define ARM64_FP_ALU1		0x1e204000U
+#define  ARM64_FP_ALU1_MOV		0x00000000U
 #define  ARM64_FP_ALU1_NEG		0x00010000U
 #define  ARM64_FP_ALU1_SQRT		0x00018000U
 #define  ARM64_FP_ALU1_RINTN		0x00040000U
@@ -305,7 +306,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 		else
 			return cgen_ldr_str(ctx, ARM64_LDST_LD_SX, size, arg1[0], arg2);
 	}
-	if (arg1[0] < 64) {
+	if (reg_is_fp(arg1[0])) {
 		if (arg2[0] < 32) {
 			if (size < OP_SIZE_4)
 				goto invalid;
@@ -315,14 +316,25 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 			cgen_four(mc);
 			return true;
 		}
-		if (arg2[0] < 64)
-			goto invalid;
+		if (reg_is_fp(arg2[0])) {
+			mc = ARM64_FP_ALU1 | ARM64_FP_ALU1_MOV;
+			switch (size) {
+				case OP_SIZE_2:		mc |= ARM64_FP_ALU1_HALF; break;
+				case OP_SIZE_4:		mc |= ARM64_FP_ALU1_SINGLE; break;
+				case OP_SIZE_8:		mc |= ARM64_FP_ALU1_DOUBLE; break;
+				default:		internal(file_line, "cgen_mov: invalid size %u", size);
+			}
+			mc |= arg1[0] & 31;
+			mc |= ((uint32_t)(arg2[0] & 31)) << 5;
+			cgen_four(mc);
+			return true;
+		}
 		return cgen_ldr_str(ctx, ARM64_LDST_LD_UX | ARM64_LDST_FP, size, arg1[0] & 31, arg2);
 	}
 	if (arg2[0] < 31) {
 		return cgen_ldr_str(ctx, ARM64_LDST_ST, size, arg2[0], arg1);
 	}
-	if (arg2[0] < 64) {
+	if (reg_is_fp(arg2[0])) {
 		return cgen_ldr_str(ctx, ARM64_LDST_ST | ARM64_LDST_FP, size, arg2[0] & 31, arg1);
 	}
 	if (arg2[0] == ARG_IMM) {
