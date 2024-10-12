@@ -148,7 +148,7 @@
 #define R_ARG3		R_23
 
 #define R_CONST_IMM	R_1
-#define R_OFFSET_IMM	R_RET1
+#define R_OFFSET_IMM	R_RP
 
 #define FR_SCRATCH_1	R_F4
 #define FR_SCRATCH_2	R_F5
@@ -184,15 +184,11 @@ static bool reg_is_fp(unsigned reg)
 }
 
 static const uint8_t regs_saved[] = { R_8, R_9, R_10, R_11, R_12, R_13, R_14, R_15, R_16, R_17, R_18 };
-static const uint8_t regs_volatile[] = { R_RP,
-#ifndef HAVE_BITWISE_FRAME
-		R_20,
-#endif
-	};
+static const uint8_t regs_volatile[] = { 0 };
+#define n_regs_volatile 0U
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved 0U
-static const uint8_t fp_volatile[] = { 0 };
-#define n_fp_volatile 0U
+static const uint8_t fp_volatile[] = { R_F6, R_F7, R_F8, R_F9, R_F10, R_F11, R_F22, R_F23, R_F24, R_F25, R_F26, R_F27, R_F28, R_F29, R_F30, R_F31 };
 #define reg_is_saved(r)	((r) >= R_3 && (r) <= R_18)
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)

@@ -156,6 +156,7 @@
 #define PARISC_FADD		0x30000600U
 #define PARISC_FTEST		0x30002420U
 #define PARISC_FSUB		0x30002600U
+#define PARISC_FCPY		0x30004000U
 #define PARISC_FMPY		0x30004600U
 #define PARISC_FDIV		0x30006600U
 #define PARISC_FCNVXF		0x30008200U
@@ -516,6 +517,16 @@ static bool attr_w cgen_mov_args(struct codegen_context *ctx, unsigned size, uin
 	}
 	if (reg_is_fp(arg2[0]) && arg1[0] == ARG_ADDRESS_1) {
 		return cgen_fp_ld_st(ctx, false, size, arg2[0], arg1);
+	}
+	if (reg_is_fp(arg1[0]) && reg_is_fp(arg2[0])) {
+		mc = PARISC_FCPY;
+		switch (size) {
+			case OP_SIZE_4:		break;
+			case OP_SIZE_8:		mc |= PARISC_FP_DOUBLE; break;
+			default:		internal(file_line, "cgen_fp_alu: invalid size %u", size);
+		}
+		g(cgen_3reg(ctx, mc, 0, arg2[0] & 0x1f, arg1[0] & 0x1f));
+		return true;
 	}
 
 invalid:
