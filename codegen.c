@@ -2516,7 +2516,7 @@ static bool attr_w gen_frame_load(struct codegen_context *ctx, unsigned size, bo
 			return true;
 		}
 		if (reg != (unsigned)ctx->registers[slot]) {
-			gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+			gen_insn(INSN_MOV, !reg_is_fp(reg) ? OP_SIZE_NATIVE : log_2(get_type_of_local(ctx, slot)->size), 0, 0);
 			gen_one(reg);
 			gen_one(ctx->registers[slot]);
 		}
@@ -2780,7 +2780,7 @@ static bool attr_w gen_frame_store(struct codegen_context *ctx, unsigned size, f
 		if (unlikely(offset != 0))
 			internal(file_line, "gen_frame_store: offset is non-zero: %"PRIdMAX"", (intmax_t)offset);
 		if (reg != (unsigned)ctx->registers[slot]) {
-			gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+			gen_insn(INSN_MOV, !reg_is_fp(reg) ? OP_SIZE_NATIVE : log_2(get_type_of_local(ctx, slot)->size), 0, 0);
 			gen_one(ctx->registers[slot]);
 			gen_one(reg);
 		}

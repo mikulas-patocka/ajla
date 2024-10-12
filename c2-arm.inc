@@ -89,6 +89,7 @@
 #define ARM_VADD		0x0e300a00U
 #define ARM_VSUB		0x0e300a40U
 #define ARM_VDIV		0x0e800a00U
+#define ARM_VMOV		0x0eb00a40U
 #define ARM_VNEG		0x0eb10a40U
 #define ARM_VSQRT		0x0eb10ac0U
 #define ARM_VCVT_F32_F16	0x0eb20a40U
@@ -332,7 +333,7 @@ static bool attr_w cgen_mov_args(struct codegen_context *ctx, uint32_t cond, uns
 			cgen_four(mc);
 			return true;
 		}
-		if (arg2[0] < 64) {
+		if (reg_is_fp(arg2[0])) {
 			if (unlikely(sx))
 				internal(file_line, "cgen_mov_args: unsupported sign extension");
 			if (unlikely(size != OP_SIZE_NATIVE))
@@ -374,7 +375,7 @@ static bool attr_w cgen_mov_args(struct codegen_context *ctx, uint32_t cond, uns
 		}
 		return cgen_ldr_str(ctx, true, cond, size, sx, arg1[0], arg2);
 	}
-	if (arg1[0] < 64) {
+	if (reg_is_fp(arg1[0])) {
 		if (arg2[0] < 16) {
 			if (unlikely(sx))
 				internal(file_line, "cgen_mov_args: unsupported sign extension");
@@ -387,14 +388,26 @@ static bool attr_w cgen_mov_args(struct codegen_context *ctx, uint32_t cond, uns
 			cgen_four(mc);
 			return true;
 		}
-		if (arg2[0] < 64)
-			goto invalid;
+		if (reg_is_fp(arg2[0])) {
+			mc = cond | ARM_VMOV;
+			switch (size) {
+				case OP_SIZE_4:		break;
+				case OP_SIZE_8:		mc |= ARM_V_D; break;
+				default:		internal(file_line, "cgen_mov_args: invalid size %u", size);
+			}
+			mc |= (uint32_t)(arg1[0] & 0x1e) << 11;
+			mc |= (uint32_t)(arg1[0] & 1) << 22;
+			mc |= (uint32_t)(arg2[0] & 0x1e) >> 1;
+			mc |= (uint32_t)(arg2[0] & 1) << 5;
+			cgen_four(mc);
+			return true;
+		}
 		return cgen_vldr_vstr(ctx, true, cond, size, arg1[0] & 31, arg2);
 	}
 	if (arg2[0] < 16) {
 		return cgen_ldr_str(ctx, false, cond, size, false, arg2[0], arg1);
 	}
-	if (arg2[0] < 64) {
+	if (reg_is_fp(arg2[0])) {
 		return cgen_vldr_vstr(ctx, false, cond, size, arg2[0] & 31, arg1);
 	}
 invalid:

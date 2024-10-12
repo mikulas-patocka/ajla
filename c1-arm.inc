@@ -158,8 +158,8 @@
 #define R_ARG3		R_3
 #define R_RET0		R_0
 
-#define FR_SCRATCH_1	FQR_0
-#define FR_SCRATCH_2	FQR_4
+#define FR_SCRATCH_1	FDR_0
+#define FR_SCRATCH_2	FDR_2
 
 #define SUPPORTED_FP		(cpu_test_feature(CPU_FEATURE_vfp) * 0x6)
 #define SUPPORTED_FP_HALF_CVT	(cpu_test_feature(CPU_FEATURE_half) * 0x1)
@@ -177,8 +177,7 @@ static const uint8_t regs_saved[] = {
 static const uint8_t regs_volatile[] = { R_3 };
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved 0U
-static const uint8_t fp_volatile[] = { 0 };
-#define n_fp_volatile 0U
+static const uint8_t fp_volatile[] = { FDR_4, FDR_6, FDR_8, FDR_10, FDR_12, FDR_14 };
 #define reg_is_saved(r)	((r) == R_8 || (r) == R_9)
 
 static int gen_imm12(uint32_t c)
