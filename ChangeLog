@@ -1,3 +1,5 @@
+Fix a bug on alpha that the code generator accidentally used saved register f2
+
 === RELEASE 0.1.5 ===
 
 Fix a bug that swapend.ajla was not present in the distributed archive. It

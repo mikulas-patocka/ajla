@@ -159,6 +159,10 @@ static const uint8_t regs_volatile[] = { R_4, R_5, R_6, R_7,
 	R_10,
 #endif
 	R_11, R_12, R_13, R_14, R_15, R_LR };
+static const uint8_t fp_saved[] = { 0 };
+#define n_fp_saved 0U
+static const uint8_t fp_volatile[] = { 0 };
+#define n_fp_volatile 0U
 #define reg_is_saved(r)	((r) >= R_19 && (r) <= R_FP)
 
 struct logical_imm {

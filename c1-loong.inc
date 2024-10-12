@@ -158,6 +158,10 @@ static const uint8_t regs_saved[] = {
 #endif
 	R_S5, R_S6, R_S7, R_S8, R_FP };
 static const uint8_t regs_volatile[] = { R_RA, R_A3, R_A7, R_T3, R_T4, R_T5, R_T6, R_T7, R_T8 };
+static const uint8_t fp_saved[] = { 0 };
+#define n_fp_saved 0U
+static const uint8_t fp_volatile[] = { 0 };
+#define n_fp_volatile 0U
 #define reg_is_saved(r)	((r) >= R_FP && (r) <= R_S8)
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)

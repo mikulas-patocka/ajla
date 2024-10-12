@@ -244,21 +244,23 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size)
 			g(cgen_operate(ctx, ALPHA_BIS, R_ZERO, arg2, arg1[0]));
 			return true;
 		}
-		if (arg2[0] < 0x40) {
+		if (reg_is_fp(arg2[0])) {
 			mc = size == OP_SIZE_4 ? ALPHA_FTOIS : ALPHA_FTOIT;
 			g(cgen_fp_operate(ctx, mc, arg2[0], 0x1f, arg1[0]));
 			return true;
 		}
 		goto invalid;
 	}
-	if (arg1[0] < 0x40) {
+	if (reg_is_fp(arg1[0])) {
 		if (arg2[0] < 0x20) {
 			mc = size == OP_SIZE_4 ? ALPHA_ITOFS : ALPHA_ITOFT;
 			g(cgen_fp_operate(ctx, mc, arg2[0], 0x1f, arg1[0]));
 			return true;
 		}
-		if (arg2[0] < 0x40)
-			goto invalid;
+		if (reg_is_fp(arg2[0])) {
+			g(cgen_fp_operate(ctx, ALPHA_CPYS, arg2[0], arg2[0], arg1[0]));
+			return true;
+		}
 		if (arg2[0] == ARG_ADDRESS_1) {
 			imm = get_imm(&arg2[2]);
 			switch (size) {
@@ -303,7 +305,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size)
 			g(cgen_memory(ctx, mc, *arg2, arg1[1], imm));
 			return true;
 		}
-		if (arg2[0] < 0x40) {
+		if (reg_is_fp(arg2[0])) {
 			imm = get_imm(&arg1[2]);
 			switch (size) {
 				case OP_SIZE_4:	mc = ALPHA_STS; break;

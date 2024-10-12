@@ -157,6 +157,10 @@ static const uint8_t regs_volatile[] = { R_RA,
 	R_A6,
 #endif
 	R_A7, R_T4, R_T5, R_T6 };
+static const uint8_t fp_saved[] = { 0 };
+#define n_fp_saved 0U
+static const uint8_t fp_volatile[] = { 0 };
+#define n_fp_volatile 0U
 #define reg_is_saved(r)	(((r) >= R_S0 && (r) <= R_S1) || ((r) >= R_S2 && (r) <= R_S11))
 
 static const struct {

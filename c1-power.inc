@@ -232,6 +232,10 @@ static bool reg_is_vs(unsigned reg)
 
 static const uint8_t regs_saved[] = { R_14, R_15, R_16, R_17, R_18, R_19, R_20, R_21, R_22, R_23, R_24, R_25 };
 static const uint8_t regs_volatile[] = { R_6, R_12 };
+static const uint8_t fp_saved[] = { 0 };
+#define n_fp_saved 0U
+static const uint8_t fp_volatile[] = { 0 };
+#define n_fp_volatile 0U
 #define reg_is_saved(r)	((r) >= R_14 && (r) <= R_31)
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)

@@ -175,6 +175,10 @@ static const uint8_t regs_saved[] = {
 #endif
 	R_9 };
 static const uint8_t regs_volatile[] = { R_3 };
+static const uint8_t fp_saved[] = { 0 };
+#define n_fp_saved 0U
+static const uint8_t fp_volatile[] = { 0 };
+#define n_fp_volatile 0U
 #define reg_is_saved(r)	((r) == R_8 || (r) == R_9)
 
 static int gen_imm12(uint32_t c)

@@ -340,7 +340,7 @@ gen:
 		if (size == OP_SIZE_2)
 			cgen_one(X86_OP_SIZE);
 	}
-	if (rex != X86_REX || (size == OP_SIZE_1 && ((reg_is_reg && reg >= 4) || (mod == 0xc0 && arg[0] >= 4))))
+	if (rex != X86_REX || (size == OP_SIZE_1 && ((reg_is_reg && !reg_is_fp(reg) && reg >= 4) || (mod == 0xc0 && !reg_is_fp(arg[0]) && arg[0] >= 4))))
 		cgen_rex(rex);
 
 	switch (prefix) {
@@ -519,8 +519,14 @@ mov_rm:
 		g(cgen_sse_insn(ctx, size == OP_SIZE_4 ? SSE_PREFIX_F3 : SSE_PREFIX_F2, PREFIX_0F, X86_0F_MOVSS_M32_X128, false, arg2[0], 0, arg1));
 		return true;
 	}
-	if (!R_IS_GPR(arg1[0]) && unlikely(!R_IS_GPR(arg2[0])))
+	if (R_IS_XMM(arg1[0]) && R_IS_XMM(arg2[0])) {
+		g(cgen_sse_insn(ctx, SSE_PREFIX_NONE, PREFIX_0F, X86_0F_MOVAPS_X128_M128, false, arg1[0], 0, arg2));
+		return true;
+	}
+	if (!R_IS_GPR(arg1[0]) && unlikely(!R_IS_GPR(arg2[0]))) {
+		/*debug("%s", da(ctx->fn,function)->function_name);*/
 		internal(file_line, "cgen_mov: two addresses not supported");
+	}
 	if (!R_IS_GPR(arg1[0])) {
 		uint8_t code = size == OP_SIZE_1 ? X86_MOV_RM8_R8 : X86_MOV_RM16_R16;
 		g(cgen_rm_insn(ctx, -1, PREFIX_NONE, code, size, true, arg2[0], arg1));
@@ -530,7 +536,7 @@ mov_rm:
 		return true;
 	} else {
 		uint8_t code = size == OP_SIZE_1 ? X86_0F_MOVZX_R16_RM8 : X86_0F_MOVZX_R16_RM16;
-		g(cgen_rm_insn(ctx, -1, PREFIX_0F, code, size, true, arg1[0], arg2));
+		g(cgen_rm_insn(ctx, -1, PREFIX_0F, code, size, false, arg1[0], arg2));
 		return true;
 	}
 }

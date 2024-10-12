@@ -1621,15 +1621,26 @@ static bool attr_w unspill(struct codegen_context *ctx, frame_t v)
 static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned args)
 {
 	size_t i;
+	size_t attr_unused n_pushes;
 	ajla_assert_lo(ctx->upcall_args == -1, (file_line, "gen_upcall_start: gen_upcall_end not called"));
 	ctx->upcall_args = (int)args;
 
 #if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI)
 	for (i = 0; i < ctx->need_spill_l; i++) {
-		gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-		gen_one(ctx->registers[ctx->need_spill[i]]);
+		unsigned reg = ctx->registers[ctx->need_spill[i]];
+		if (reg_is_fp(reg))
+			g(spill(ctx, ctx->need_spill[i]));
 	}
-	if (ctx->need_spill_l & 1) {
+	n_pushes = 0;
+	for (i = 0; i < ctx->need_spill_l; i++) {
+		unsigned reg = ctx->registers[ctx->need_spill[i]];
+		if (!reg_is_fp(reg)) {
+			gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
+			gen_one(reg);
+			n_pushes++;
+		}
+	}
+	if (n_pushes & 1) {
 		gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
 		gen_one(R_AX);
 	}
@@ -1643,18 +1654,34 @@ static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned args)
 static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned args)
 {
 	size_t i;
+	size_t attr_unused n_pushes;
 	ajla_assert_lo(ctx->upcall_args == (int)args, (file_line, "gen_upcall_end: gen_upcall_start mismatch: %d", ctx->upcall_args));
 	ctx->upcall_args = -1;
 
 #if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI)
-	if (ctx->need_spill_l & 1) {
+	n_pushes = 0;
+	for (i = 0; i < ctx->need_spill_l; i++) {
+		unsigned reg = ctx->registers[ctx->need_spill[i]];
+		if (!reg_is_fp(reg))
+			n_pushes++;
+	}
+	if (n_pushes & 1) {
 		gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
 		gen_one(R_CX);
 	}
 	for (i = ctx->need_spill_l; i;) {
+		unsigned reg;
 		i--;
-		gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-		gen_one(ctx->registers[ctx->need_spill[i]]);
+		reg = ctx->registers[ctx->need_spill[i]];
+		if (!reg_is_fp(reg)) {
+			gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
+			gen_one(reg);
+		}
+	}
+	for (i = 0; i < ctx->need_spill_l; i++) {
+		unsigned reg = ctx->registers[ctx->need_spill[i]];
+		if (reg_is_fp(reg))
+			g(unspill(ctx, ctx->need_spill[i]));
 	}
 #else
 	for (i = 0; i < ctx->need_spill_l; i++)
@@ -3118,18 +3145,26 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned attr
 {
 	size_t offset;
 	if (ctx->registers[slot] >= 0) {
-		if (sizeof(ajla_flat_option_t) > 1) {
-			gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
-			gen_one(ctx->registers[slot]);
-			gen_one(ARG_IMM);
-			gen_eight(0);
+		unsigned reg = ctx->registers[slot];
+#if defined(ARCH_X86_32)
+		if (reg >= 4) {
+			gen_insn(INSN_SET_COND_PARTIAL, OP_SIZE_1, cond, 0);
+			gen_one(R_SCRATCH_1);
+			gen_one(R_SCRATCH_1);
+
+			gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
+			gen_one(reg);
+			gen_one(R_SCRATCH_1);
+			return true;
 		}
+#endif
 		gen_insn(INSN_SET_COND_PARTIAL, OP_SIZE_1, cond, 0);
-		gen_one(ctx->registers[slot]);
-		gen_one(ctx->registers[slot]);
+		gen_one(reg);
+		gen_one(reg);
+
 		gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
-		gen_one(ctx->registers[slot]);
-		gen_one(ctx->registers[slot]);
+		gen_one(reg);
+		gen_one(reg);
 		return true;
 	}
 	offset = (size_t)slot * slot_size;
@@ -6567,7 +6602,7 @@ do_cvt_to_int:;
 			gen_one(R_SP);
 			gen_eight(0);
 
-			gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, true));
+			gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, 1);
 			gen_one(R_SP);
 			gen_one(R_SP);
 			gen_one(ARG_IMM);
@@ -9604,11 +9639,21 @@ static bool attr_w gen_io(struct codegen_context *ctx, frame_t code, frame_t slo
 #define n_regs_volatile n_array_elements(regs_volatile)
 #endif
 
+#ifndef n_fp_saved
+#define n_fp_saved n_array_elements(fp_saved)
+#endif
+
+#ifndef n_fp_volatile
+#define n_fp_volatile n_array_elements(fp_volatile)
+#endif
+
 static bool attr_w gen_registers(struct codegen_context *ctx)
 {
 	frame_t v;
 	size_t index_saved = 0;
 	size_t index_volatile = 0;
+	size_t index_fp_saved = 0;
+	size_t index_fp_volatile = 0;
 	/*for (v = function_n_variables(ctx->fn) - 1; v >= MIN_USEABLE_SLOT; v--)*/
 	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
 		const struct type *t;
@@ -9636,11 +9681,25 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 			} else {
 				continue;
 			}
-			if (!reg_is_saved(ctx->registers[v])) {
-				if (unlikely(!array_add_mayfail(frame_t, &ctx->need_spill, &ctx->need_spill_l, v, NULL, &ctx->err)))
-					return false;
+		} else if (TYPE_TAG_IS_REAL(t->tag)) {
+			unsigned real_type = TYPE_TAG_IDX_REAL(t->tag);
+			if ((SUPPORTED_FP >> real_type) & 1) {
+				if (index_fp_saved < n_fp_saved + zero) {
+					ctx->registers[v] = fp_saved[index_fp_saved++];
+				} else if (index_fp_volatile < n_fp_volatile + zero) {
+					ctx->registers[v] = fp_volatile[index_fp_volatile++];
+				} else {
+					continue;
+				}
+			} else {
+				continue;
 			}
+		} else {
 			continue;
+		}
+		if (!reg_is_saved(ctx->registers[v])) {
+			if (unlikely(!array_add_mayfail(frame_t, &ctx->need_spill, &ctx->need_spill_l, v, NULL, &ctx->err)))
+				return false;
 		}
 	}
 
