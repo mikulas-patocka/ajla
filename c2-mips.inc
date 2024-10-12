@@ -91,6 +91,7 @@
 #define MIPS_MUL_FP		0x46000002U
 #define MIPS_DIV_FP		0x46000003U
 #define MIPS_SQRT_FP		0x46000004U
+#define MIPS_MOV_FP		0x46000006U
 #define MIPS_NEG_FP		0x46000007U
 #define MIPS_TRUNC_L		0x46000009U
 #define MIPS_TRUNC_W		0x4600000dU
@@ -278,8 +279,12 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 	if (reg_is_fp(arg1[0])) {
 		if (arg2[0] < 32)
 			goto invalid;
-		if (reg_is_fp(arg2[0]))
-			goto invalid;
+		if (reg_is_fp(arg2[0])) {
+			uint32_t fmt = cgen_fp_fmt(size);
+			uint32_t mc = MIPS_MOV_FP;
+			cgen_mips_fp(mc, fmt, arg1[0] & 31, arg2[0] & 31, 0);
+			return true;
+		}
 		g(cgen_ls(ctx, size == OP_SIZE_4 ? MIPS_LWC1 : MIPS_LDC1, arg1[0] & 31, arg2));
 		if (MIPS_LOAD_DELAY_SLOTS)
 			cgen_four(MIPS_NOP);
