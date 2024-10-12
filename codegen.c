@@ -9587,6 +9587,33 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 					continue;
 				}
 #endif
+#ifdef ARCH_S390
+				if (real_type == 4) {
+					if (!(index_fp_saved & 1) && index_fp_saved + 1 < n_fp_saved + zero) {
+						ctx->registers[v] = fp_saved[index_fp_saved++];
+						index_fp_saved++;
+						goto success;
+					}
+					if (index_fp_saved & 1 && index_fp_saved + 2 < n_fp_saved + zero) {
+						index_fp_saved++;
+						ctx->registers[v] = fp_saved[index_fp_saved++];
+						index_fp_saved++;
+						goto success;
+					}
+					if (!(index_fp_volatile & 1) && index_fp_volatile + 1 < n_fp_volatile + zero) {
+						ctx->registers[v] = fp_volatile[index_fp_volatile++];
+						index_fp_volatile++;
+						goto success;
+					}
+					if (index_fp_volatile & 1 && index_fp_volatile + 2 < n_fp_volatile + zero) {
+						index_fp_volatile++;
+						ctx->registers[v] = fp_volatile[index_fp_volatile++];
+						index_fp_volatile++;
+						goto success;
+					}
+					continue;
+				}
+#endif
 				if (index_fp_saved < n_fp_saved + zero) {
 					ctx->registers[v] = fp_saved[index_fp_saved++];
 				} else if (index_fp_volatile < n_fp_volatile + zero) {

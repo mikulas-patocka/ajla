@@ -116,8 +116,8 @@
 #define R_ARG4		R_6
 #define R_RET0		R_2
 
-#define FR_SCRATCH_1	FR_0
-#define FR_SCRATCH_2	FR_4
+#define FR_SCRATCH_1	FR_0	/* + FR_2 */
+#define FR_SCRATCH_2	FR_4	/* + FR_6 */
 
 #define SUPPORTED_FP	0x16
 
@@ -149,7 +149,7 @@ static const uint8_t regs_volatile[] = { 0 };
 #define n_regs_volatile 0U
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved 0U
-static const uint8_t fp_volatile[] = { FR_1, FR_5 };
+static const uint8_t fp_volatile[] = { FR_1, FR_3, FR_5, FR_7 };
 #define reg_is_saved(r)	1
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
