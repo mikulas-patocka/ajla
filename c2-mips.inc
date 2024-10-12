@@ -252,7 +252,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 			cgen_mips_3reg(MIPS_OR, arg1[0], arg2[0], R_ZERO);
 			return true;
 		}
-		if (arg2[0] < 64) {
+		if (reg_is_fp(arg2[0])) {
 			uint32_t fmt = cgen_fp_fmt(size);
 			cgen_mips_fp(MIPS_MFC1, fmt, 0, arg2[0] & 31, arg1[0]);
 			return true;
@@ -275,8 +275,10 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 		}
 		goto invalid;
 	}
-	if (arg1[0] < 64) {
-		if (arg2[0] < 64)
+	if (reg_is_fp(arg1[0])) {
+		if (arg2[0] < 32)
+			goto invalid;
+		if (reg_is_fp(arg2[0]))
 			goto invalid;
 		g(cgen_ls(ctx, size == OP_SIZE_4 ? MIPS_LWC1 : MIPS_LDC1, arg1[0] & 31, arg2));
 		if (MIPS_LOAD_DELAY_SLOTS)
@@ -293,7 +295,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 		if (arg2[0] < 32) {
 			return cgen_ls(ctx, size == OP_SIZE_1 ? MIPS_SB : size == OP_SIZE_2 ? MIPS_SH : size == OP_SIZE_4 ? MIPS_SW : MIPS_SD, arg2[0], arg1);
 		}
-		if (arg2[0] < 64) {
+		if (reg_is_fp(arg2[0])) {
 			return cgen_ls(ctx, size == OP_SIZE_4 ? MIPS_SWC1 : MIPS_SDC1, arg2[0] & 31, arg1);
 		}
 		goto invalid;

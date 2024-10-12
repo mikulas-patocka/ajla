@@ -6644,7 +6644,7 @@ do_from_int:
 		if (op_size == OP_SIZE_8 && !cpu_test_feature(CPU_FEATURE_ppc))
 			goto do_upcall;
 #endif
-#if defined(ARCH_PARISC)
+#if defined(ARCH_MIPS) || defined(ARCH_PARISC)
 		if (ctx->registers[slot_1] >= 0) {
 			g(spill(ctx, slot_1));
 			g(gen_frame_load_raw(ctx, int_op_size, false, slot_1, 0, FR_SCRATCH_1));
