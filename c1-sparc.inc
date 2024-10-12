@@ -53,6 +53,8 @@
 #define i_size(size)			OP_SIZE_NATIVE
 #define i_size_rot(size)		maximum(size, OP_SIZE_4)
 
+/*#define SUPPORT_QUAD_PRECISION*/
+
 #define R_G0		0x00
 #define R_G1		0x01
 #define R_G2		0x02
@@ -196,14 +198,19 @@
 #define R_ARG3		R_O3
 #define R_RET0		R_O0
 
-#define FR_SCRATCH_1	FDR_0
-#define FR_SCRATCH_2	FDR_2
-
 #define R_OFFSET_IMM	R_G1
 #define R_CONST_IMM	R_G2
 #define R_CONST_HELPER	R_G3
 
+#ifdef SUPPORT_QUAD_PRECISION
+#define FR_SCRATCH_1	FDR_0
+#define FR_SCRATCH_2	FDR_4
+#define SUPPORTED_FP	0x16
+#else
+#define FR_SCRATCH_1	FDR_0
+#define FR_SCRATCH_2	FDR_2
 #define SUPPORTED_FP	0x6
+#endif
 
 static bool reg_is_fp(unsigned reg)
 {
@@ -218,7 +225,11 @@ static const uint8_t regs_volatile[] = { R_G4, R_G5,
 	};
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved 0U
+#ifdef SUPPORT_QUAD_PRECISION
+static const uint8_t fp_volatile[] = { FDR_8, FDR_12, FDR_16, FDR_20, FDR_24, FDR_28 };
+#else
 static const uint8_t fp_volatile[] = { FDR_4, FDR_6, FDR_8, FDR_10, FDR_12, FDR_14, FDR_16, FDR_18, FDR_20, FDR_22, FDR_24, FDR_26, FDR_28, FDR_30 };
+#endif
 #define reg_is_saved(r)	((r) >= R_L0 && (r) <= R_I7)
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
