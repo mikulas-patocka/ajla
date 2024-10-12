@@ -467,6 +467,10 @@ static const struct fp_alu fp_alu1s[6] = {
 	{ S390_FIEBR | S390_FI_TRUNC, S390_FIDBR | S390_FI_TRUNC, S390_FIXBR | S390_FI_TRUNC, -1, -1 },
 };
 
+static const struct fp_alu fp_mov = {
+	S390_LER, S390_LDR, S390_LXR, -1, -1
+};
+
 static const struct fp_alu fp_cmp = {
 	S390_CEBR, S390_CDBR, S390_CXBR, S390_CEB, S390_CDB
 };
@@ -721,9 +725,16 @@ static bool attr_w cgen_fp_op(struct codegen_context *ctx, unsigned size, uint8_
 	if (size != OP_SIZE_4 && size != OP_SIZE_8 && size != OP_SIZE_16)
 		goto invl;
 	if (reg_is_fp(arg2[0])) {
+		unsigned sz;
 		code = size == OP_SIZE_4 ? fp_alu->err : size == OP_SIZE_8 ? fp_alu->drr : fp_alu->xrr;
-		code |= (it)(arg1[0] & 0xf) << 20;
-		code |= (it)(arg2[0] & 0xf) << 16;
+		sz = code >> 46;
+		if (!sz) {
+			code |= (it)(arg1[0] & 0xf) << 36;
+			code |= (it)(arg2[0] & 0xf) << 32;
+		} else {
+			code |= (it)(arg1[0] & 0xf) << 20;
+			code |= (it)(arg2[0] & 0xf) << 16;
+		}
 		g(cgen_s390(ctx, code));
 		return true;
 	} else if (arg2[0] == ARG_ADDRESS_0) {
@@ -906,9 +917,11 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size)
 		g(cgen_rr_rx(ctx, size, arg1, arg1, arg2, &codes_load));
 		return true;
 	}
-	if (arg1[0] < 0x20) {
-		if (unlikely(arg2[0] < 0x20))
-			goto invl;
+	if (reg_is_fp(arg1[0])) {
+		if (reg_is_fp(arg2[0])) {
+			g(cgen_fp_op(ctx, size, arg1, arg2, &fp_mov));
+			return true;
+		}
 		if (unlikely(size < OP_SIZE_4) || unlikely(size > OP_SIZE_8))
 			goto invl;
 		g(cgen_fp_mem(ctx, size, arg1, arg2, S390_LE, S390_LEY, S390_LD, S390_LDY));
@@ -918,7 +931,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size)
 		g(cgen_rr_rx(ctx, size, arg2, arg2, arg1, size == OP_SIZE_1 ? &codes_store_8 : size == OP_SIZE_2 ? &codes_store_16 : &codes_store));
 		return true;
 	}
-	if (arg2[0] < 0x20) {
+	if (reg_is_fp(arg2[0])) {
 		if (unlikely(size < OP_SIZE_4) || unlikely(size > OP_SIZE_8))
 			goto invl;
 		g(cgen_fp_mem(ctx, size, arg2, arg1, S390_STE, S390_STEY, S390_STD, S390_STDY));
