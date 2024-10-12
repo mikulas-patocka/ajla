@@ -9548,6 +9548,16 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 	size_t index_fp_saved = 0;
 	size_t index_fp_volatile = 0;
 	size_t attr_unused index_vector_volatile = 0;
+#ifdef ARCH_S390
+	bool uses_x = false;
+	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
+		const struct type *t = get_type_of_local(ctx, v);
+		if (t && TYPE_TAG_IS_REAL(t->tag) && TYPE_TAG_IDX_REAL(t->tag) == 4) {
+			uses_x = true;
+			break;
+		}
+	}
+#endif
 	/*for (v = function_n_variables(ctx->fn) - 1; v >= MIN_USEABLE_SLOT; v--)*/
 	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
 		const struct type *t;
