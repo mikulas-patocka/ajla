@@ -44,6 +44,8 @@
 #define i_size(size)			OP_SIZE_NATIVE
 #define i_size_rot(size)		OP_SIZE_NATIVE
 
+#define N_SAVED_REGS	0x40
+
 #define R_ZERO		0x00
 #define R_GP		0x01
 #define R_2		0x02
@@ -108,6 +110,70 @@
 #define R_61		0x3d
 #define R_62		0x3e
 #define R_63		0x3f
+#define R_64		0x40
+#define R_65		0x41
+#define R_66		0x42
+#define R_67		0x43
+#define R_68		0x44
+#define R_69		0x45
+#define R_70		0x46
+#define R_71		0x47
+#define R_72		0x48
+#define R_73		0x49
+#define R_74		0x4a
+#define R_75		0x4b
+#define R_76		0x4c
+#define R_77		0x4d
+#define R_78		0x4e
+#define R_79		0x4f
+#define R_80		0x50
+#define R_81		0x51
+#define R_82		0x52
+#define R_83		0x53
+#define R_84		0x54
+#define R_85		0x55
+#define R_86		0x56
+#define R_87		0x57
+#define R_88		0x58
+#define R_89		0x59
+#define R_90		0x5a
+#define R_91		0x5b
+#define R_92		0x5c
+#define R_93		0x5d
+#define R_94		0x5e
+#define R_95		0x5f
+#define R_96		0x60
+#define R_97		0x61
+#define R_98		0x62
+#define R_99		0x63
+#define R_100		0x64
+#define R_101		0x65
+#define R_102		0x66
+#define R_103		0x67
+#define R_104		0x68
+#define R_105		0x69
+#define R_106		0x6a
+#define R_107		0x6b
+#define R_108		0x6c
+#define R_109		0x6d
+#define R_110		0x6e
+#define R_111		0x6f
+#define R_112		0x70
+#define R_113		0x71
+#define R_114		0x72
+#define R_115		0x73
+#define R_116		0x74
+#define R_117		0x75
+#define R_118		0x76
+#define R_119		0x77
+#define R_120		0x78
+#define R_121		0x79
+#define R_122		0x7a
+#define R_123		0x7b
+#define R_124		0x7c
+#define R_125		0x7d
+#define R_126		0x7e
+#define R_127		0x7f
 
 #define FR_ZERO		0x80
 #define FR_ONE		0x81
@@ -152,10 +218,10 @@
 #define R_SAVED_2	R_36
 #define R_SAVED_B0	R_37
 #define R_SAVED_AR_PFS	R_38
-#define R_ARG0		R_39
-#define R_ARG1		R_40
-#define R_ARG2		R_41
-#define R_ARG3		R_42
+#define R_ARG0		(R_32 + N_SAVED_REGS - 4)
+#define R_ARG1		(R_32 + N_SAVED_REGS - 3)
+#define R_ARG2		(R_32 + N_SAVED_REGS - 2)
+#define R_ARG3		(R_32 + N_SAVED_REGS - 1)
 
 #define R_RET0		R_8
 #define R_RET1		R_9
@@ -180,7 +246,7 @@
 
 static inline bool reg_is_gr(unsigned reg)
 {
-	return reg < 0x40;
+	return reg < 0x80;
 }
 
 static inline bool reg_is_fp(unsigned reg)
@@ -222,9 +288,77 @@ static inline uint64_t bits_b(unsigned reg)
 	return reg - 0xb0;
 }
 
-static const uint8_t regs_saved[] = { };
-static const uint8_t regs_volatile[] = { };
-#define reg_is_saved(r)	1
+static const uint8_t regs_saved[] = {
+	R_39,
+	R_40,
+	R_41,
+	R_42,
+	R_43,
+	R_44,
+	R_45,
+	R_46,
+	R_47,
+	R_48,
+	R_49,
+	R_50,
+	R_51,
+	R_52,
+	R_53,
+	R_54,
+	R_55,
+	R_56,
+	R_57,
+	R_58,
+	R_59,
+	R_60,
+	R_61,
+	R_62,
+	R_63,
+	R_64,
+	R_65,
+	R_66,
+	R_67,
+	R_68,
+	R_69,
+	R_70,
+	R_71,
+	R_72,
+	R_73,
+	R_74,
+	R_75,
+	R_76,
+	R_77,
+	R_78,
+	R_79,
+	R_80,
+	R_81,
+	R_82,
+	R_83,
+	R_84,
+	R_85,
+	R_86,
+	R_87,
+	R_88,
+	R_89,
+	R_90,
+	R_91,
+};
+static const uint8_t regs_volatile[] = {
+	R_10,
+	R_11,
+	R_21,
+	R_22,
+	R_23,
+	R_24,
+	R_25,
+	R_26,
+	R_27,
+	R_28,
+	R_29,
+	R_30,
+	R_31,
+};
+#define reg_is_saved(r)	((r) >= R_32 && (r) <= R_127)
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
 {
@@ -312,9 +446,9 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_insn(INSN_IA64_ALLOC, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_SAVED_AR_PFS);
 	gen_one(ARG_IMM);
-	gen_eight(11);
+	gen_eight(N_SAVED_REGS);
 	gen_one(ARG_IMM);
-	gen_eight(7);
+	gen_eight(N_SAVED_REGS - 4);
 
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_SAVED_B0);
