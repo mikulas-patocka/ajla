@@ -2516,7 +2516,7 @@ static bool attr_w gen_frame_load(struct codegen_context *ctx, unsigned size, bo
 			return true;
 		}
 		if (reg != (unsigned)ctx->registers[slot]) {
-			gen_insn(INSN_MOV, !reg_is_fp(reg) ? OP_SIZE_NATIVE : log_2(get_type_of_local(ctx, slot)->size), 0, 0);
+			gen_insn(INSN_MOV, !reg_is_fp(reg) ? OP_SIZE_NATIVE : size, 0, 0);
 			gen_one(reg);
 			gen_one(ctx->registers[slot]);
 		}
@@ -2780,7 +2780,7 @@ static bool attr_w gen_frame_store(struct codegen_context *ctx, unsigned size, f
 		if (unlikely(offset != 0))
 			internal(file_line, "gen_frame_store: offset is non-zero: %"PRIdMAX"", (intmax_t)offset);
 		if (reg != (unsigned)ctx->registers[slot]) {
-			gen_insn(INSN_MOV, !reg_is_fp(reg) ? OP_SIZE_NATIVE : log_2(get_type_of_local(ctx, slot)->size), 0, 0);
+			gen_insn(INSN_MOV, !reg_is_fp(reg) ? OP_SIZE_NATIVE : size, 0, 0);
 			gen_one(ctx->registers[slot]);
 			gen_one(reg);
 		}
@@ -6510,7 +6510,9 @@ do_cvt_to_int:;
 		gen_one(FR_SCRATCH_1);
 		gen_one(FR_SCRATCH_1);
 
-		g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, FR_SCRATCH_1));
+		g(gen_frame_store_raw(ctx, OP_SIZE_INT, slot_r, 0, FR_SCRATCH_1));
+		if (ctx->registers[slot_r] >= 0)
+			g(unspill(ctx, slot_r));
 		g(gen_frame_load(ctx, OP_SIZE_INT, false, slot_r, 0, R_SCRATCH_1));
 
 		g(gen_imm(ctx, sign_bit(uint_default_t) + 1, IMM_PURPOSE_ADD, OP_SIZE_INT));
@@ -6642,7 +6644,13 @@ do_from_int:
 		if (op_size == OP_SIZE_8 && !cpu_test_feature(CPU_FEATURE_ppc))
 			goto do_upcall;
 #endif
-		g(gen_frame_load(ctx, int_op_size, false, slot_1, 0, FR_SCRATCH_1));
+#if defined(ARCH_PARISC)
+		if (ctx->registers[slot_1] >= 0) {
+			g(spill(ctx, slot_1));
+			g(gen_frame_load_raw(ctx, int_op_size, false, slot_1, 0, FR_SCRATCH_1));
+		} else
+#endif
+			g(gen_frame_load(ctx, int_op_size, false, slot_1, 0, FR_SCRATCH_1));
 #if defined(ARCH_ALPHA)
 		if (OP_SIZE_INT == OP_SIZE_4) {
 			gen_insn(INSN_MOVSX, OP_SIZE_4, 0, 0);

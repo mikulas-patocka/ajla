@@ -185,7 +185,7 @@ static bool reg_is_fp(unsigned reg)
 
 static const uint8_t regs_saved[] = { R_8, R_9, R_10, R_11, R_12, R_13, R_14, R_15, R_16, R_17, R_18 };
 static const uint8_t regs_volatile[] = { R_RP,
-#ifdef HAVE_BITWISE_FRAME
+#ifndef HAVE_BITWISE_FRAME
 		R_20,
 #endif
 	};
