@@ -84,6 +84,8 @@
 #define MIPS_LUI		0x3c000000U
 #define MIPS_MFC1		0x44000000U
 #define MIPS_DMFC1		0x44200000U
+#define MIPS_MTC1		0x44800000U
+#define MIPS_DMTC1		0x44a00000U
 #define MIPS_BC1F		0x45000000U
 #define MIPS_BC1T		0x45010000U
 #define MIPS_ADD_FP		0x46000000U
@@ -277,8 +279,11 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 		goto invalid;
 	}
 	if (reg_is_fp(arg1[0])) {
-		if (arg2[0] < 32)
-			goto invalid;
+		if (arg2[0] < 32) {
+			uint32_t fmt = cgen_fp_fmt(size);
+			cgen_mips_fp(MIPS_MTC1, fmt, 0, arg1[0] & 31, arg2[0]);
+			return true;
+		}
 		if (reg_is_fp(arg2[0])) {
 			uint32_t fmt = cgen_fp_fmt(size);
 			uint32_t mc = MIPS_MOV_FP;
