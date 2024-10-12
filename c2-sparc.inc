@@ -75,6 +75,7 @@
 #define  SPARC_MOVR_NZ			0x00001400U
 #define  SPARC_MOVR_GZ			0x00001800U
 #define  SPARC_MOVR_GEZ			0x00001c00U
+#define SPARC_FMOV		0x81a00000U
 #define SPARC_FNEG		0x81a00080U
 #define SPARC_FSQRT		0x81a00500U
 #define SPARC_FADD		0x81a00800U
@@ -224,15 +225,24 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 			}
 		}
 	}
-	if (arg1[0] < 64) {
-		if (arg2[0] < 64)
-			goto invalid;
+	if (reg_is_fp(arg1[0])) {
+		if (reg_is_fp(arg2[0])) {
+			uint32_t mc = SPARC_FMOV;
+			switch (size) {
+				case OP_SIZE_4:		mc |= SPARC_FP_SINGLE; break;
+				case OP_SIZE_8:		mc |= SPARC_FP_DOUBLE; break;
+				case OP_SIZE_16:	mc |= SPARC_FP_QUAD; break;
+				default:		internal(file_line, "cgen_mov: invalid size %u", size);
+			}
+			cgen_sparc_3reg(mc, arg1[0] & 31, 0, arg2[0] & 31);
+			return true;
+		}
 		return cgen_ld_st(ctx, SPARC_LDF | (size == OP_SIZE_4 ? SPARC_LDSTF_SINGLE : size == OP_SIZE_8 ? SPARC_LDSTF_DOUBLE : SPARC_LDSTF_QUAD), arg1[0] & 31, arg2);
 	}
 	if (arg2[0] < 32) {
 		return cgen_ld_st(ctx, size == OP_SIZE_1 ? SPARC_STB : size == OP_SIZE_2 ? SPARC_STH : size == OP_SIZE_4 ? SPARC_STW : SPARC_STX, arg2[0], arg1);
 	}
-	if (arg2[0] < 64) {
+	if (reg_is_fp(arg2[0])) {
 		return cgen_ld_st(ctx, SPARC_STF | (size == OP_SIZE_4 ? SPARC_LDSTF_SINGLE : size == OP_SIZE_8 ? SPARC_LDSTF_DOUBLE : SPARC_LDSTF_QUAD), arg2[0] & 31, arg1);
 	}
 	if (arg2[0] == ARG_IMM) {
@@ -240,7 +250,6 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 		if (!imm)
 			return cgen_ld_st(ctx, size == OP_SIZE_1 ? SPARC_STB : size == OP_SIZE_2 ? SPARC_STH : size == OP_SIZE_4 ? SPARC_STW : SPARC_STX, R_ZERO, arg1);
 	}
-invalid:
 	internal(file_line, "cgen_mov: invalid arguments %02x, %02x", arg1[0], arg2[0]);
 	return false;
 }

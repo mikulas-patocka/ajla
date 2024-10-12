@@ -197,7 +197,7 @@
 #define R_RET0		R_O0
 
 #define FR_SCRATCH_1	FDR_0
-#define FR_SCRATCH_2	FDR_4
+#define FR_SCRATCH_2	FDR_2
 
 #define R_OFFSET_IMM	R_G1
 #define R_CONST_IMM	R_G2
@@ -218,8 +218,7 @@ static const uint8_t regs_volatile[] = { R_G4, R_G5,
 	};
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved 0U
-static const uint8_t fp_volatile[] = { 0 };
-#define n_fp_volatile 0U
+static const uint8_t fp_volatile[] = { FDR_4, FDR_6, FDR_8, FDR_10, FDR_12, FDR_14, FDR_16, FDR_18, FDR_20, FDR_22, FDR_24, FDR_26, FDR_28, FDR_30 };
 #define reg_is_saved(r)	((r) >= R_L0 && (r) <= R_I7)
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
