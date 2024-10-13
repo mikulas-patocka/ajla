@@ -4533,16 +4533,18 @@ do_divide: {
 		if (unlikely(!label_end))
 			return false;
 
-		g(gen_frame_load(ctx, op_size, (sgn && op_size < i_size(op_size)) || force_sx, slot_1, 0, R_SCRATCH_1));
-		g(gen_frame_load(ctx, op_size, (sgn && op_size < i_size(op_size)) || force_sx, slot_2, 0, R_SCRATCH_2));
+		g(gen_frame_get(ctx, op_size, (sgn && op_size < i_size(op_size)) || force_sx, slot_1, 0, R_SCRATCH_1, &reg1));
+		g(gen_frame_get(ctx, op_size, (sgn && op_size < i_size(op_size)) || force_sx, slot_2, 0, R_SCRATCH_2, &reg2));
 
 		if (ARCH_PREFERS_SX(op_size) && !sgn && op_size < i_size(op_size)) {
-			g(gen_extend(ctx, op_size, false, R_SCRATCH_1, R_SCRATCH_1));
-			g(gen_extend(ctx, op_size, false, R_SCRATCH_2, R_SCRATCH_2));
+			g(gen_extend(ctx, op_size, false, R_SCRATCH_1, reg1));
+			reg1 = R_SCRATCH_1;
+			g(gen_extend(ctx, op_size, false, R_SCRATCH_2, reg2));
+			reg2 = R_SCRATCH_2;
 		}
 
 		if (mode == MODE_INT) {
-			g(gen_jmp_on_zero(ctx, i_size(op_size), R_SCRATCH_2, COND_E, label_ovf));
+			g(gen_jmp_on_zero(ctx, i_size(op_size), reg2, COND_E, label_ovf));
 			if (sgn) {
 				uint64_t val;
 				uint32_t label_not_minus_1;
@@ -4550,10 +4552,10 @@ do_divide: {
 				if (unlikely(!label_not_minus_1))
 					return false;
 
-				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(op_size), R_SCRATCH_2, -1, COND_NE, label_not_minus_1));
+				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(op_size), reg2, -1, COND_NE, label_not_minus_1));
 
 				val = 0xFFFFFFFFFFFFFF80ULL << (((1 << op_size) - 1) * 8);
-				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(op_size), R_SCRATCH_1, val, COND_E, label_ovf));
+				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(op_size), reg1, val, COND_E, label_ovf));
 
 				gen_label(label_not_minus_1);
 			}
@@ -4562,9 +4564,9 @@ do_divide: {
 			if (!mod) {
 				g(gen_load_constant(ctx, R_SCRATCH_3, 0));
 			} else {
-				g(gen_mov(ctx, OP_SIZE_NATIVE, R_SCRATCH_3, R_SCRATCH_1));
+				g(gen_mov(ctx, OP_SIZE_NATIVE, R_SCRATCH_3, reg1));
 			}
-			g(gen_jmp_on_zero(ctx, i_size(op_size), R_SCRATCH_2, COND_E, label_end));
+			g(gen_jmp_on_zero(ctx, i_size(op_size), reg2, COND_E, label_end));
 			if (sgn) {
 				uint64_t val;
 				uint32_t label_not_minus_1;
@@ -4572,25 +4574,25 @@ do_divide: {
 				if (unlikely(!label_not_minus_1))
 					return false;
 
-				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(op_size), R_SCRATCH_2, -1, COND_NE, label_not_minus_1));
+				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(op_size), reg2, -1, COND_NE, label_not_minus_1));
 
 				if (!mod) {
-					g(gen_mov(ctx, OP_SIZE_NATIVE, R_SCRATCH_3, R_SCRATCH_1));
+					g(gen_mov(ctx, OP_SIZE_NATIVE, R_SCRATCH_3, reg1));
 				} else {
 					g(gen_load_constant(ctx, R_SCRATCH_3, 0));
 				}
 
 				val = 0xFFFFFFFFFFFFFF80ULL << (((1 << op_size) - 1) * 8);
-				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(op_size), R_SCRATCH_1, val, COND_E, label_end));
+				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(op_size), reg1, val, COND_E, label_end));
 
 				gen_label(label_not_minus_1);
 			}
 #endif
 		}
 		if (mod && have_mod) {
-			g(gen_3address_alu(ctx, div_op_size, sgn ? ALU_SREM : ALU_UREM, R_SCRATCH_3, R_SCRATCH_1, R_SCRATCH_2));
+			g(gen_3address_alu(ctx, div_op_size, sgn ? ALU_SREM : ALU_UREM, R_SCRATCH_3, reg1, reg2));
 		} else {
-			g(gen_3address_alu(ctx, div_op_size, sgn ? ALU_SDIV : ALU_UDIV, R_SCRATCH_3, R_SCRATCH_1, R_SCRATCH_2));
+			g(gen_3address_alu(ctx, div_op_size, sgn ? ALU_SDIV : ALU_UDIV, R_SCRATCH_3, reg1, reg2));
 		}
 
 		if (mod && !have_mod) {
@@ -4598,12 +4600,11 @@ do_divide: {
 			gen_insn(INSN_MADD, i_size(op_size), 1, 0);
 			gen_one(R_SCRATCH_3);
 			gen_one(R_SCRATCH_3);
-			gen_one(R_SCRATCH_2);
-			gen_one(R_SCRATCH_1);
+			gen_one(reg2);
+			gen_one(reg1);
 #else
-			g(gen_3address_alu(ctx, i_size(op_size), ALU_MUL, R_SCRATCH_2, R_SCRATCH_2, R_SCRATCH_3));
-
-			g(gen_3address_alu(ctx, i_size(op_size), ALU_SUB, R_SCRATCH_3, R_SCRATCH_1, R_SCRATCH_2));
+			g(gen_3address_alu(ctx, i_size(op_size), ALU_MUL, R_SCRATCH_2, reg2, R_SCRATCH_3));
+			g(gen_3address_alu(ctx, i_size(op_size), ALU_SUB, R_SCRATCH_3, reg1, R_SCRATCH_2));
 #endif
 		}
 
