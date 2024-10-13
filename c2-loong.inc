@@ -92,6 +92,8 @@
 #define LOONG_FNEG_D		0x01141800U
 #define LOONG_FSQRT_S		0x01144400U
 #define LOONG_FSQRT_D		0x01144800U
+#define LOONG_FMOV_S		0x01149400U
+#define LOONG_FMOV_D		0x01149800U
 #define LOONG_MOVFR2GR_S	0x0114b400U
 #define LOONG_MOVFR2GR_D	0x0114b800U
 #define LOONG_MOVCF2GR		0x0114dc00U
@@ -324,6 +326,18 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 					return true;
 				case OP_SIZE_8:
 					cgen_2r(LOONG_MOVGR2FR_D, arg1[0] & 0x1f, arg2[0]);
+					return true;
+				default:
+					goto invalid;
+			}
+		}
+		if (reg_is_fp(arg2[0])) {
+			switch (size) {
+				case OP_SIZE_4:
+					cgen_2r(LOONG_FMOV_S, arg1[0] & 0x1f, arg2[0] & 0x1f);
+					return true;
+				case OP_SIZE_8:
+					cgen_2r(LOONG_FMOV_D, arg1[0] & 0x1f, arg2[0] & 0x1f);
 					return true;
 				default:
 					goto invalid;
