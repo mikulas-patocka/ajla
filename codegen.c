@@ -2543,6 +2543,21 @@ static bool attr_w gen_frame_load(struct codegen_context *ctx, unsigned size, bo
 	return gen_frame_load_raw(ctx, size, sx, slot, offset, reg);
 }
 
+static bool attr_w gen_frame_get(struct codegen_context *ctx, unsigned size, bool sx, frame_t slot, int64_t offset, unsigned reg, unsigned *dest)
+{
+	ajla_assert_lo(slot >= MIN_USEABLE_SLOT && slot < function_n_variables(ctx->fn), (file_line, "gen_frame_get: invalid slot: %lu >= %lu", (unsigned long)slot, (unsigned long)function_n_variables(ctx->fn)));
+	if (ctx->registers[slot] >= 0) {
+		if (sx && !ARCH_PREFERS_SX(size))
+			goto extend;
+		*dest = ctx->registers[slot];
+		return true;
+	}
+extend:
+	*dest = reg;
+	g(gen_frame_load(ctx, size, sx, slot, offset, reg));
+	return true;
+}
+
 #if defined(ARCH_X86)
 static bool attr_w gen_frame_load_x87(struct codegen_context *ctx, unsigned insn, unsigned size, unsigned alu, frame_t slot)
 {
@@ -3249,13 +3264,15 @@ do_store:
 }
 #endif
 
-static bool attr_w attr_unused gen_frame_cmp_imm_set_cond_reg(struct codegen_context *ctx, unsigned size, unsigned reg, int64_t imm, unsigned cond, frame_t slot_r)
+#if !ARCH_HAS_FLAGS
+static bool attr_w gen_frame_cmp_imm_set_cond_reg(struct codegen_context *ctx, unsigned size, unsigned reg, int64_t imm, unsigned cond, frame_t slot_r)
 {
-	g(gen_cmp_dest_reg(ctx, size, reg, (unsigned)-1, reg, imm, cond));
-	g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, reg));
+	g(gen_cmp_dest_reg(ctx, size, reg, (unsigned)-1, R_CMP_RESULT, imm, cond));
+	g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, R_CMP_RESULT));
 
 	return true;
 }
+#endif
 
 static bool attr_w gen_frame_load_cmp_set_cond(struct codegen_context *ctx, unsigned size, bool sx, frame_t slot, int64_t offset, unsigned reg, unsigned cond, frame_t slot_r)
 {
@@ -3264,10 +3281,9 @@ static bool attr_w gen_frame_load_cmp_set_cond(struct codegen_context *ctx, unsi
 	g(gen_frame_load_cmp(ctx, size, logical, sx, false, slot, offset, reg));
 	g(gen_frame_set_cond(ctx, size, logical, cond, slot_r));
 #else
-	g(gen_frame_load(ctx, size, sx, slot, offset, R_SCRATCH_NA_1));
-
-	g(gen_cmp_dest_reg(ctx, size, reg, R_SCRATCH_NA_1, R_SCRATCH_NA_1, 0, cond));
-
+	unsigned src_reg;
+	g(gen_frame_get(ctx, size, sx, slot, offset, R_SCRATCH_NA_1, &src_reg));
+	g(gen_cmp_dest_reg(ctx, size, reg, src_reg, R_SCRATCH_NA_1, 0, cond));
 	g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, R_SCRATCH_NA_1));
 #endif
 	return true;
@@ -3284,8 +3300,9 @@ static bool attr_w gen_frame_load_cmp_imm_set_cond(struct codegen_context *ctx, 
 	g(gen_frame_load_cmp_imm(ctx, size, logical, sx, slot, offset, value));
 	g(gen_frame_set_cond(ctx, size, false, cond, slot_r));
 #else
-	g(gen_frame_load(ctx, size, sx, slot, offset, R_SCRATCH_NA_1));
-	g(gen_frame_cmp_imm_set_cond_reg(ctx, size, R_SCRATCH_NA_1, value, cond, slot_r));
+	unsigned src_reg;
+	g(gen_frame_get(ctx, size, sx, slot, offset, R_SCRATCH_NA_1, &src_reg));
+	g(gen_frame_cmp_imm_set_cond_reg(ctx, size, src_reg, value, cond, slot_r));
 #endif
 	return true;
 }
