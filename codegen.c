@@ -8583,9 +8583,8 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 			g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 3));
 
 			gen_insn(ARCH_PREFERS_SX(i_size(OP_SIZE_SLOT)) ? INSN_MOVSX : INSN_MOV, i_size(OP_SIZE_SLOT), 0, 0);
-			gen_one(R_SCRATCH_3);
+			gen_one(R_SCRATCH_4);
 			gen_one(R_RET0);
-			g(gen_upcall_argument(ctx, 1));
 
 			gen_insn(INSN_JMP, 0, 0, 0);
 			gen_four(got_ptr_label);
