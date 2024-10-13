@@ -3910,6 +3910,7 @@ do_alu: {
 		unsigned second_flags;
 		unsigned second_alu;
 		unsigned attr_unused op_size_flags;
+		unsigned reg1, reg2;
 		if (unlikely(op_size > OP_SIZE_NATIVE)) {
 #if !defined(ARCH_X86) && !defined(ARCH_ARM) && !defined(ARCH_PARISC) && !defined(ARCH_POWER) && !defined(ARCH_SPARC32)
 			if (mode == MODE_FIXED) {
@@ -3985,24 +3986,24 @@ do_alu: {
 #if defined(ARCH_POWER)
 		op_size_flags = OP_SIZE_NATIVE;
 #endif
-		g(gen_frame_load(ctx, op_size, mode == MODE_INT && (op_size < op_size_flags || ARCH_SUPPORTS_TRAPS), slot_1, 0, R_SCRATCH_1));
-		g(gen_frame_load(ctx, op_size, mode == MODE_INT && (op_size < op_size_flags || ARCH_SUPPORTS_TRAPS), slot_2, 0, R_SCRATCH_2));
+		g(gen_frame_get(ctx, op_size, mode == MODE_INT && (op_size < op_size_flags || ARCH_SUPPORTS_TRAPS), slot_1, 0, R_SCRATCH_1, &reg1));
+		g(gen_frame_get(ctx, op_size, mode == MODE_INT && (op_size < op_size_flags || ARCH_SUPPORTS_TRAPS), slot_2, 0, R_SCRATCH_2, &reg2));
 #if !ARCH_HAS_FLAGS
 		if (mode == MODE_INT && op_size >= OP_SIZE_4) {
 			if (ARCH_SUPPORTS_TRAPS) {
 				gen_insn(INSN_ALU_TRAP, op_size, alu, ALU_WRITES_FLAGS(alu, false));
 				gen_one(R_SCRATCH_1);
-				gen_one(R_SCRATCH_1);
-				gen_one(R_SCRATCH_2);
+				gen_one(reg1);
+				gen_one(reg2);
 				gen_four(label_ovf);
 				g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_1));
 				return true;
 			}
 			if (op_size >= OP_SIZE_NATIVE) {
-				g(gen_3address_alu(ctx, i_size(op_size), alu, R_SCRATCH_3, R_SCRATCH_1, R_SCRATCH_2));
+				g(gen_3address_alu(ctx, i_size(op_size), alu, R_SCRATCH_3, reg1, reg2));
 #if defined(ARCH_IA64)
-				g(gen_3address_alu(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_2));
-				g(gen_3address_alu(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_2, R_SCRATCH_2, R_SCRATCH_3));
+				g(gen_3address_alu(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_1, reg1, reg2));
+				g(gen_3address_alu(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_2, reg2, R_SCRATCH_3));
 				if (alu == ALU_ADD) {
 					gen_insn(INSN_ALU, i_size(op_size), ALU_ANDN, ALU_WRITES_FLAGS(ALU_ANDN, false));
 					gen_one(R_SCRATCH_1);
@@ -4020,16 +4021,16 @@ do_alu: {
 				gen_one(R_SCRATCH_1);
 				if (alu == ALU_ADD) {
 					gen_one(R_SCRATCH_3);
-					gen_one(R_SCRATCH_1);
+					gen_one(reg1);
 				} else {
-					gen_one(R_SCRATCH_1);
+					gen_one(reg1);
 					gen_one(R_SCRATCH_3);
 				}
 
 				g(gen_imm(ctx, 0, IMM_PURPOSE_CMP, i_size(op_size)));
 				gen_insn(INSN_CMP_DEST_REG, i_size(op_size), COND_L, 0);
 				gen_one(R_SCRATCH_2);
-				gen_one(R_SCRATCH_2);
+				gen_one(reg2);
 				gen_imm_offset();
 
 				g(gen_cmp_test_jmp(ctx, INSN_CMP, i_size(op_size), R_SCRATCH_1, R_SCRATCH_2, COND_NE, label_ovf));
@@ -4041,8 +4042,8 @@ do_alu: {
 #endif
 		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(i_size(op_size)), i_size(op_size), alu, (mode == MODE_INT && op_size >= op_size_flags) | ALU_WRITES_FLAGS(alu, false));
 		gen_one(R_SCRATCH_1);
-		gen_one(R_SCRATCH_1);
-		gen_one(R_SCRATCH_2);
+		gen_one(reg1);
+		gen_one(reg2);
 
 		if (mode == MODE_INT && unlikely(op_size < op_size_flags)) {
 			g(gen_cmp_extended(ctx, op_size_flags, op_size, R_SCRATCH_1, R_SCRATCH_2, label_ovf));
