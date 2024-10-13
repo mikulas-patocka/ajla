@@ -128,7 +128,7 @@
 #define R_SCRATCH_1	R_26
 #define R_SCRATCH_2	R_25
 #define R_SCRATCH_3	R_24
-#define R_SCRATCH_4	R_23
+#define R_SCRATCH_4	R_SAVED_2
 
 #define R_SCRATCH_NA_1	R_22
 #define R_SCRATCH_NA_2	R_21
@@ -183,9 +183,19 @@ static bool reg_is_fp(unsigned reg)
 	return reg >= R_FSTATUS && reg < R_F31;
 }
 
-static const uint8_t regs_saved[] = { R_8, R_9, R_10, R_11, R_12, R_13, R_14, R_15, R_16, R_17, R_18 };
-static const uint8_t regs_volatile[] = { 0 };
-#define n_regs_volatile 0U
+static const uint8_t regs_saved[] = {
+#if !(defined(ARCH_PARISC32) && defined(__HP_cc))
+	R_8,
+#endif
+	R_9, R_10, R_11, R_12, R_13, R_14, R_15, R_16, R_17, R_18 };
+static const uint8_t regs_volatile[] = { R_23, R_RET1,
+#if defined(ARCH_PARISC64)
+	R_DP,
+#endif
+#ifndef HAVE_BITWISE_FRAME
+	R_20,
+#endif
+};
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved 0U
 static const uint8_t fp_volatile[] = { R_F6, R_F7, R_F8, R_F9, R_F10, R_F11, R_F22, R_F23, R_F24, R_F25, R_F26, R_F27, R_F28, R_F29, R_F30, R_F31 };
@@ -425,7 +435,7 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 
 static bool attr_w gen_escape_arg(struct codegen_context *ctx, ip_t ip, uint32_t escape_label)
 {
-	g(gen_load_constant(ctx, R_RET1, ip));
+	g(gen_load_constant(ctx, R_SCRATCH_1, ip));
 
 	gen_insn(INSN_JMP, 0, 0, 0);
 	gen_four(escape_label);
@@ -440,6 +450,10 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_RET0);
 	gen_one(R_FRAME);
+
+	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+	gen_one(R_RET1);
+	gen_one(R_SCRATCH_1);
 
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_RP);
