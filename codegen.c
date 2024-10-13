@@ -1599,20 +1599,43 @@ static bool attr_w gen_jmp_if_negative(struct codegen_context *ctx, unsigned reg
 }
 
 
+static unsigned real_type_to_op_size(unsigned real_type)
+{
+	switch (real_type) {
+		case 0:	return OP_SIZE_2;
+		case 1:	return OP_SIZE_4;
+		case 2:	return OP_SIZE_8;
+		case 3:	return OP_SIZE_10;
+		case 4:	return OP_SIZE_16;
+		default:
+			internal(file_line, "real_type_to_op_size: invalid type %u", real_type);
+			return 0;
+	}
+}
+
+static unsigned spill_size(const struct type *t)
+{
+	if (TYPE_TAG_IS_REAL(t->tag)) {
+		return real_type_to_op_size(TYPE_TAG_IDX_REAL(t->tag));
+	} else {
+		return log_2(t->size);
+	}
+}
+
 static bool attr_w gen_frame_load_raw(struct codegen_context *ctx, unsigned size, bool sx, frame_t slot, int64_t offset, unsigned reg);
 static bool attr_w gen_frame_store_raw(struct codegen_context *ctx, unsigned size, frame_t slot, int64_t offset, unsigned reg);
 
 static bool attr_w spill(struct codegen_context *ctx, frame_t v)
 {
 	const struct type *t = get_type_of_local(ctx, v);
-	g(gen_frame_store_raw(ctx, log_2(t->size), v, 0, ctx->registers[v]));
+	g(gen_frame_store_raw(ctx, spill_size(t), v, 0, ctx->registers[v]));
 	return true;
 }
 
 static bool attr_w unspill(struct codegen_context *ctx, frame_t v)
 {
 	const struct type *t = get_type_of_local(ctx, v);
-	g(gen_frame_load_raw(ctx, log_2(t->size), false, v, 0, ctx->registers[v]));
+	g(gen_frame_load_raw(ctx, spill_size(t), false, v, 0, ctx->registers[v]));
 	return true;
 }
 
@@ -3578,7 +3601,7 @@ call_memcpy:
 static bool attr_w gen_memcpy_to_slot(struct codegen_context *ctx, frame_t dest_slot, unsigned src_base, int64_t src_offset)
 {
 	const struct type *t = get_type_of_local(ctx, dest_slot);
-	unsigned size = log_2(t->size);
+	unsigned size = spill_size(t);
 	short dest_reg = ctx->registers[dest_slot];
 	if (dest_reg >= 0) {
 		if (ARCH_PREFERS_SX(size) && !reg_is_fp(dest_reg)) {
@@ -3610,7 +3633,7 @@ static bool attr_w gen_memcpy_to_slot(struct codegen_context *ctx, frame_t dest_
 static bool attr_w gen_memcpy_from_slot(struct codegen_context *ctx, unsigned dest_base, int64_t dest_offset, frame_t src_slot)
 {
 	const struct type *t = get_type_of_local(ctx, src_slot);
-	unsigned size = log_2(t->size);
+	unsigned size = spill_size(t);
 	short src_reg = ctx->registers[src_slot];
 	if (src_reg >= 0) {
 		g(gen_address(ctx, dest_base, dest_offset, reg_is_fp(src_reg) ? IMM_PURPOSE_VLDR_VSTR_OFFSET : IMM_PURPOSE_STR_OFFSET, size));
@@ -3626,7 +3649,7 @@ static bool attr_w gen_memcpy_from_slot(struct codegen_context *ctx, unsigned de
 static bool attr_w gen_memcpy_slots(struct codegen_context *ctx, frame_t dest_slot, frame_t src_slot)
 {
 	const struct type *t = get_type_of_local(ctx, src_slot);
-	unsigned size = log_2(t->size);
+	unsigned size = spill_size(t);
 	short dest_reg = ctx->registers[dest_slot];
 	short src_reg = ctx->registers[src_slot];
 	if (dest_reg >= 0 && src_reg >= 0) {
@@ -5874,20 +5897,6 @@ static bool attr_w gen_copy(struct codegen_context *ctx, unsigned op_size, frame
 	}
 }
 
-static unsigned real_type_to_op_size(unsigned real_type)
-{
-	switch (real_type) {
-		case 0:	return OP_SIZE_2;
-		case 1:	return OP_SIZE_4;
-		case 2:	return OP_SIZE_8;
-		case 3:	return OP_SIZE_10;
-		case 4:	return OP_SIZE_16;
-		default:
-			internal(file_line, "real_type_to_op_size: invalid type %u", real_type);
-			return 0;
-	}
-}
-
 static bool attr_w gen_fp_alu(struct codegen_context *ctx, unsigned real_type, unsigned op, uint32_t label_ovf, frame_t slot_1, frame_t slot_2, frame_t slot_r)
 {
 	unsigned attr_unused fp_alu;
@@ -7098,7 +7107,7 @@ static bool attr_w gen_load_fn_or_curry(struct codegen_context *ctx, frame_t fn_
 
 				if (ctx->registers[arg_slot] >= 0) {
 					g(gen_address(ctx, R_SAVED_1, arg_offset_slot, IMM_PURPOSE_STR_OFFSET, copy_size));
-					gen_insn(INSN_MOV, copy_size, 0, 0);
+					gen_insn(INSN_MOV, spill_size(t), 0, 0);
 					gen_address_offset();
 					gen_one(ctx->registers[arg_slot]);
 					goto copied;
