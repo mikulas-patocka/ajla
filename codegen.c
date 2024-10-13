@@ -1284,7 +1284,7 @@ static bool attr_w gen_cmp_dest_reg(struct codegen_context *ctx, unsigned attr_u
 	else
 		gen_one(reg2);
 
-	g(cgen_mov(ctx, OP_SIZE_NATIVE, reg_dest, R_CMP_RESULT));
+	g(gen_mov(ctx, OP_SIZE_NATIVE, reg_dest, R_CMP_RESULT));
 
 	goto done;
 #endif
