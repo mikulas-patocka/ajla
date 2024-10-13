@@ -191,13 +191,17 @@ static void init_arch_context(struct codegen_context *ctx)
 
 static bool test_mask(uint64_t mask[4], uint8_t bit)
 {
-	return mask[bit >> 6] & 1ULL << (bit & 63);
+	if (bit == ACCESS_NOTHING)
+		return false;
+	ajla_assert_lo(reg_is_gr(bit) || reg_is_fp(bit) || reg_is_p(bit) || reg_is_b(bit) || bit == ACCESS_MEMORY, (file_line, "test_mask: invalid bit %u", bit));
+	return (mask[bit >> 6] & 1ULL << (bit & 63)) != 0;
 }
 
 static void set_mask(uint64_t mask[4], uint8_t bit)
 {
 	if (bit == ACCESS_NOTHING)
 		return;
+	ajla_assert_lo(reg_is_gr(bit) || reg_is_fp(bit) || reg_is_p(bit) || reg_is_b(bit) || bit == ACCESS_MEMORY, (file_line, "set_mask: invalid bit %u", bit));
 	mask[bit >> 6] |= 1ULL << (bit & 63);
 }
 
@@ -660,7 +664,7 @@ static bool attr_w cgen_cmp_dest_reg(struct codegen_context *ctx, unsigned op_si
 		mc |= bits_gr(arg2[0]) << 20;
 		mc |= bits_p(pred) << 6;
 		mc |= bits_p(pred ^ 1) << 27;
-		g(ia64_insn(ctx, UNIT_A, mc, arg1[0], arg1[0] ^ 1, arg2[0], arg3[0], ACCESS_NOTHING));
+		g(ia64_insn(ctx, UNIT_A, mc, arg1[0], arg1[0] ^ 1, arg2[0], ACCESS_NOTHING, ACCESS_NOTHING));
 		return true;
 	}
 
