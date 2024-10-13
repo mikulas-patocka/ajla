@@ -137,7 +137,7 @@
 #define R_SAVED_1	R_SI
 #define R_SAVED_2	R_DI
 #elif defined(ARCH_X86_WIN_ABI)
-#define R_FRAME		R_BX
+#define R_FRAME		R_BP
 #define R_SCRATCH_1	R_AX
 #define R_SCRATCH_2	R_DX
 #define R_SCRATCH_3	R_CX
@@ -196,6 +196,7 @@ static bool reg_is_fp(unsigned reg)
 }
 
 #if defined(ARCH_X86_32)
+
 static const uint8_t regs_saved[] = { R_BX };
 static const uint8_t regs_volatile[] = { 0 };
 #define n_regs_volatile 0U
@@ -203,13 +204,22 @@ static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved 0U
 static const uint8_t fp_volatile[] = { R_XMM2, R_XMM3, R_XMM4, R_XMM5, R_XMM6, R_XMM7 };
 #define reg_is_saved(r)	((r) == R_BX)
+
 #elif defined(ARCH_X86_WIN_ABI)
-static const uint8_t regs_saved[] = { };
-static const uint8_t regs_volatile[] = { };
-static const uint8_t fp_saved[] = { };
-static const uint8_t fp_volatile[] = { };
-#define reg_is_saved(r)	1
+
+static const uint8_t regs_saved[] = { R_BX, R_R12, R_R13,
+#ifndef TIMESTAMP_IN_REGISTER
+	R_R14,
+#endif
+	};
+static const uint8_t regs_volatile[] = { R_R8, R_R9, R_R10 };
+static const uint8_t fp_saved[] = { 0 };
+#define n_fp_saved 0U
+static const uint8_t fp_volatile[] = { R_XMM2, R_XMM3, R_XMM4, R_XMM5 };
+#define reg_is_saved(r)	((r) == R_BX || ((r) >= R_R12 && ((r) <= R_R15)))
+
 #else
+
 static const uint8_t regs_saved[] = { R_R13,
 #ifndef TIMESTAMP_IN_REGISTER
 	R_R14,
