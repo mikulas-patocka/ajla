@@ -127,6 +127,8 @@
 #define  LOONG_FCMP_NE			0x00080000U
 #define  LOONG_FCMP_OR			0x000a0000U
 #define  LOONG_FCMP_UNE			0x000c0000U
+#define LOONG_MOVGR2FR_W	0x0114a400U
+#define LOONG_MOVGR2FR_D	0x0114a800U
 #define LOONG_LU12I_W		0x14000000U
 #define LOONG_LU32I_D		0x16000000U
 #define LOONG_LDPTR_W		0x24000000U
@@ -273,7 +275,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 				}
 			}
 		}
-		if (arg2[0] < 0x40) {
+		if (reg_is_fp(arg2[0])) {
 			switch (size) {
 				case OP_SIZE_4:
 					cgen_2r(LOONG_MOVFR2GR_S, arg1[0], arg2[0] & 0x1f);
@@ -314,7 +316,19 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 		goto invalid;
 	}
 
-	if (arg1[0] < 0x40) {
+	if (reg_is_fp(arg1[0])) {
+		if (arg2[0] < 0x20) {
+			switch (size) {
+				case OP_SIZE_4:
+					cgen_2r(LOONG_MOVGR2FR_W, arg1[0] & 0x1f, arg2[0]);
+					return true;
+				case OP_SIZE_8:
+					cgen_2r(LOONG_MOVGR2FR_D, arg1[0] & 0x1f, arg2[0]);
+					return true;
+				default:
+					goto invalid;
+			}
+		}
 		if (arg2[0] == ARG_ADDRESS_1 || arg2[0] == ARG_ADDRESS_2) {
 			return cgen_ld_st(ctx, ld_fp, size, arg1[0] & 0x1f, arg2);
 		}
@@ -324,7 +338,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 		if (arg2[0] < 0x20) {
 			return cgen_ld_st(ctx, st, size, arg2[0], arg1);
 		}
-		if (arg2[0] < 0x40) {
+		if (reg_is_fp(arg2[0])) {
 			return cgen_ld_st(ctx, st_fp, size, arg2[0] & 0x1f, arg1);
 		}
 		if (arg2[0] == ARG_IMM) {
@@ -336,7 +350,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 	}
 
 invalid:
-	internal(file_line, "cgen_mov: invalid arguments %02x, %02x", arg1[0], arg2[0]);
+	internal(file_line, "cgen_mov: invalid arguments %u, %02x, %02x", size, arg1[0], arg2[0]);
 	return false;
 }
 
