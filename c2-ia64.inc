@@ -495,7 +495,15 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size)
 			mc = IA64_M_SETF_SIG;
 			mc |= bits_fp(arg1[0]) << 6;
 			mc |= bits_gr(arg2[0]) << 13;
-			g(ia64_insn(ctx, UNIT_M, mc, arg1[0], ACCESS_NOTHING, arg2[1], ACCESS_NOTHING, ACCESS_NOTHING));
+			g(ia64_insn(ctx, UNIT_M, mc, arg1[0], ACCESS_NOTHING, arg2[0], ACCESS_NOTHING, ACCESS_NOTHING));
+			return true;
+		}
+		if (reg_is_fp(arg2[0])) {
+			mc = IA64_F_FMERGE_S;
+			mc |= bits_fp(arg1[0]) << 6;
+			mc |= bits_fp(arg2[0]) << 13;
+			mc |= bits_fp(arg2[0]) << 20;
+			g(ia64_insn(ctx, UNIT_F, mc, arg1[0], ACCESS_NOTHING, arg2[0], ACCESS_NOTHING, ACCESS_NOTHING));
 			return true;
 		}
 		if (arg2[0] == ARG_ADDRESS_1) {
@@ -561,7 +569,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size)
 	}
 
 invalid:
-	internal(file_line, "cgen_mov: invalid arguments %02x, %02x, %u", arg1[0], arg2[0], size);
+	internal(file_line, "cgen_mov: invalid arguments %u, %02x, %02x", size, arg1[0], arg2[0]);
 	return false;
 }
 

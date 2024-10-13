@@ -142,55 +142,71 @@
 #define R_93		0x5d
 #define R_94		0x5e
 #define R_95		0x5f
-#define R_96		0x60
-#define R_97		0x61
-#define R_98		0x62
-#define R_99		0x63
-#define R_100		0x64
-#define R_101		0x65
-#define R_102		0x66
-#define R_103		0x67
-#define R_104		0x68
-#define R_105		0x69
-#define R_106		0x6a
-#define R_107		0x6b
-#define R_108		0x6c
-#define R_109		0x6d
-#define R_110		0x6e
-#define R_111		0x6f
-#define R_112		0x70
-#define R_113		0x71
-#define R_114		0x72
-#define R_115		0x73
-#define R_116		0x74
-#define R_117		0x75
-#define R_118		0x76
-#define R_119		0x77
-#define R_120		0x78
-#define R_121		0x79
-#define R_122		0x7a
-#define R_123		0x7b
-#define R_124		0x7c
-#define R_125		0x7d
-#define R_126		0x7e
-#define R_127		0x7f
 
-#define FR_ZERO		0x80
-#define FR_ONE		0x81
-#define FR_2		0x82
-#define FR_3		0x83
-#define FR_4		0x84
-#define FR_5		0x85
-#define FR_6		0x86
-#define FR_7		0x87
-#define FR_8		0x88
-#define FR_9		0x89
-#define FR_10		0x8a
-#define FR_11		0x8b
-#define FR_12		0x8c
-#define FR_13		0x8d
-#define FR_14		0x8e
-#define FR_15		0x8f
+#define FR_ZERO		0x60
+#define FR_ONE		0x61
+#define FR_2		0x62
+#define FR_3		0x63
+#define FR_4		0x64
+#define FR_5		0x65
+#define FR_6		0x66
+#define FR_7		0x67
+#define FR_8		0x68
+#define FR_9		0x69
+#define FR_10		0x6a
+#define FR_11		0x6b
+#define FR_12		0x6c
+#define FR_13		0x6d
+#define FR_14		0x6e
+#define FR_15		0x6f
+#define FR_16		0x70
+#define FR_17		0x71
+#define FR_18		0x72
+#define FR_19		0x73
+#define FR_20		0x74
+#define FR_21		0x75
+#define FR_22		0x76
+#define FR_23		0x77
+#define FR_24		0x78
+#define FR_25		0x79
+#define FR_26		0x7a
+#define FR_27		0x7b
+#define FR_28		0x7c
+#define FR_29		0x7d
+#define FR_30		0x7e
+#define FR_31		0x7f
+#define FR_32		0x80
+#define FR_33		0x81
+#define FR_34		0x82
+#define FR_35		0x83
+#define FR_36		0x84
+#define FR_37		0x85
+#define FR_38		0x86
+#define FR_39		0x87
+#define FR_40		0x88
+#define FR_41		0x89
+#define FR_42		0x8a
+#define FR_43		0x8b
+#define FR_44		0x8c
+#define FR_45		0x8d
+#define FR_46		0x8e
+#define FR_47		0x8f
+#define FR_48		0x90
+#define FR_49		0x91
+#define FR_50		0x92
+#define FR_51		0x93
+#define FR_52		0x94
+#define FR_53		0x95
+#define FR_54		0x96
+#define FR_55		0x97
+#define FR_56		0x98
+#define FR_57		0x99
+#define FR_58		0x9a
+#define FR_59		0x9b
+#define FR_60		0x9c
+#define FR_61		0x9d
+#define FR_62		0x9e
+#define FR_63		0x9f
 
 #define P_0		0xa0
 #define P_1		0xa1
@@ -246,12 +262,12 @@
 
 static inline bool reg_is_gr(unsigned reg)
 {
-	return reg < 0x80;
+	return reg < 0x60;
 }
 
 static inline bool reg_is_fp(unsigned reg)
 {
-	return reg >= 0x80 && reg < 0x90;
+	return reg >= 0x60 && reg < 0xa0;
 }
 
 static inline bool reg_is_p(unsigned reg)
@@ -273,7 +289,7 @@ static inline uint64_t bits_gr(unsigned reg)
 static inline uint64_t bits_fp(unsigned reg)
 {
 	ajla_assert_lo(reg_is_fp(reg), (file_line, "bits_fp: register %x", reg));
-	return reg - 0x80;
+	return reg - 0x60;
 }
 
 static inline uint64_t bits_p(unsigned reg)
@@ -360,9 +376,49 @@ static const uint8_t regs_volatile[] = {
 };
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved 0U
-static const uint8_t fp_volatile[] = { 0 };
-#define n_fp_volatile 0U
-#define reg_is_saved(r)	((r) >= R_32 && (r) <= R_127)
+static const uint8_t fp_volatile[] = {
+	FR_8,
+	FR_9,
+	FR_10,
+	FR_11,
+	FR_12,
+	FR_13,
+	FR_14,
+	FR_15,
+	FR_32,
+	FR_33,
+	FR_34,
+	FR_35,
+	FR_36,
+	FR_37,
+	FR_38,
+	FR_39,
+	FR_40,
+	FR_41,
+	FR_42,
+	FR_43,
+	FR_44,
+	FR_45,
+	FR_46,
+	FR_47,
+	FR_48,
+	FR_49,
+	FR_50,
+	FR_51,
+	FR_52,
+	FR_53,
+	FR_54,
+	FR_55,
+	FR_56,
+	FR_57,
+	FR_58,
+	FR_59,
+	FR_60,
+	FR_61,
+	FR_62,
+	FR_63,
+};
+#define reg_is_saved(r)	((r) >= R_32 && (r) <= R_95)
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
 {
