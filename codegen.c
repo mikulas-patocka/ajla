@@ -2532,7 +2532,7 @@ static bool attr_w gen_frame_load(struct codegen_context *ctx, unsigned size, bo
 	if (ctx->registers[slot] >= 0) {
 		if (unlikely(offset != 0))
 			internal(file_line, "gen_frame_load: offset is non-zero: %"PRIdMAX"", (intmax_t)offset);
-		if (sx && !ARCH_PREFERS_SX(size)) {
+		if (sx && !ARCH_PREFERS_SX(size) && size < OP_SIZE_NATIVE) {
 			g(gen_extend(ctx, size, true, reg, ctx->registers[slot]));
 			return true;
 		}
@@ -2547,7 +2547,7 @@ static bool attr_w gen_frame_get(struct codegen_context *ctx, unsigned size, boo
 {
 	ajla_assert_lo(slot >= MIN_USEABLE_SLOT && slot < function_n_variables(ctx->fn), (file_line, "gen_frame_get: invalid slot: %lu >= %lu", (unsigned long)slot, (unsigned long)function_n_variables(ctx->fn)));
 	if (ctx->registers[slot] >= 0) {
-		if (sx && !ARCH_PREFERS_SX(size))
+		if (sx && !ARCH_PREFERS_SX(size) && size < OP_SIZE_NATIVE)
 			goto extend;
 		*dest = ctx->registers[slot];
 		return true;
@@ -5029,11 +5029,11 @@ do_compare: {
 			return false;
 		}
 #if defined(ARCH_X86)
-		g(gen_frame_load(ctx, op_size, false, slot_1, 0, R_SCRATCH_1));
-		g(gen_frame_load_cmp_set_cond(ctx, op_size, false, slot_2, 0, R_SCRATCH_1, alu, slot_r));
+		g(gen_frame_get(ctx, op_size, false, slot_1, 0, R_SCRATCH_1, &reg1));
+		g(gen_frame_load_cmp_set_cond(ctx, op_size, false, slot_2, 0, reg1, alu, slot_r));
 #else
-		g(gen_frame_load(ctx, op_size, alu == COND_L || alu == COND_LE, slot_1, 0, R_SCRATCH_1));
-		g(gen_frame_load_cmp_set_cond(ctx, op_size, alu == COND_L || alu == COND_LE, slot_2, 0, R_SCRATCH_1, alu, slot_r));
+		g(gen_frame_get(ctx, op_size, alu == COND_L || alu == COND_LE, slot_1, 0, R_SCRATCH_1, &reg1));
+		g(gen_frame_load_cmp_set_cond(ctx, op_size, alu == COND_L || alu == COND_LE, slot_2, 0, reg1, alu, slot_r));
 #endif
 		return true;
 	}
