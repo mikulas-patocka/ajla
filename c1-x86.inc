@@ -397,13 +397,13 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_eight(ARG_OFFSET);
 #else
 	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_FRAME);
+	gen_one(R_BX);
 
 	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_SAVED_1);
+	gen_one(R_BP);
 
 	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_SAVED_2);
+	gen_one(R_R12);
 
 	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
 	gen_one(R_R13);
@@ -412,7 +412,7 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(R_R14);
 
 	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_UPCALL);
+	gen_one(R_R15);
 
 	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
 	gen_one(R_ARG2);
@@ -544,7 +544,7 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_one(R_CX);
 
 	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_UPCALL);
+	gen_one(R_R15);
 
 	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
 	gen_one(R_R14);
@@ -553,13 +553,13 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_one(R_R13);
 
 	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_SAVED_2);
+	gen_one(R_R12);
 
 	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_SAVED_1);
+	gen_one(R_BP);
 
 	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_FRAME);
+	gen_one(R_BX);
 
 	gen_insn(INSN_RET, 0, 0, 0);
 #endif
