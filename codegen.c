@@ -4658,10 +4658,12 @@ do_shift: {
 #if defined(ARCH_MIPS)
 		sx |= op_size == OP_SIZE_4;
 #endif
-		g(gen_frame_load(ctx, op_size, sx, slot_1, 0, R_SCRATCH_1));
+		g(gen_frame_get(ctx, op_size, sx, slot_1, 0, R_SCRATCH_1, &reg1));
 		g(gen_frame_load(ctx, op_size, false, slot_2, 0, R_SCRATCH_3));
-		if (ARCH_PREFERS_SX(op_size) && !sx && op_size < op_s)
-			g(gen_extend(ctx, op_size, false, R_SCRATCH_1, R_SCRATCH_1));
+		if (ARCH_PREFERS_SX(op_size) && !sx && op_size < op_s) {
+			g(gen_extend(ctx, op_size, false, R_SCRATCH_1, reg1));
+			reg1 = R_SCRATCH_1;
+		}
 
 		if (mode == MODE_INT) {
 			int64_t imm = (1U << (op_size + 3)) - 1;
@@ -4714,10 +4716,10 @@ do_shift: {
 
 #if defined(ARCH_X86)
 		if (mode == MODE_INT && alu == ROT_SHL && op_size == OP_SIZE_NATIVE) {
-			g(gen_mov(ctx, OP_SIZE_NATIVE, R_SCRATCH_2, R_SCRATCH_1));
+			g(gen_mov(ctx, OP_SIZE_NATIVE, R_SCRATCH_2, reg1));
 		}
 
-		g(gen_3address_rot(ctx, op_s, alu, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_3));
+		g(gen_3address_rot(ctx, op_s, alu, R_SCRATCH_1, reg1, R_SCRATCH_3));
 
 		if (mode == MODE_INT && alu == ROT_SHL) {
 			if (op_size < OP_SIZE_NATIVE) {
@@ -4741,12 +4743,13 @@ do_shift: {
 		if (op_size <= OP_SIZE_2 && alu == ROT_ROR) {
 			gen_insn(INSN_ALU, OP_SIZE_4, ALU_OR, ALU_WRITES_FLAGS(ALU_OR, false));
 			gen_one(R_SCRATCH_1);
-			gen_one(R_SCRATCH_1);
+			gen_one(reg1);
 			gen_one(ARG_SHIFTED_REGISTER);
 			gen_one(ARG_SHIFT_LSL | (1U << (op_size + 3)));
-			gen_one(R_SCRATCH_1);
+			gen_one(reg1);
 			if (op_size == OP_SIZE_1)
 				alu = ROT_SHR;
+			reg1 = R_SCRATCH_1;
 		}
 		goto do_generic_shift;
 #endif
@@ -4774,14 +4777,14 @@ do_shift: {
 			goto do_generic_shift;
 #endif
 		if (alu == ROT_ROL || alu == ROT_ROR) {
-			g(gen_3address_rot(ctx, op_s, alu == ROT_ROL ? ROT_SHL : ROT_SHR, R_SCRATCH_2, R_SCRATCH_1, R_SCRATCH_3));
+			g(gen_3address_rot(ctx, op_s, alu == ROT_ROL ? ROT_SHL : ROT_SHR, R_SCRATCH_2, reg1, R_SCRATCH_3));
 			gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(i_size(OP_SIZE_4)), i_size(OP_SIZE_4), ALU1_NEG, ALU1_WRITES_FLAGS(ALU1_NEG));
 			gen_one(R_SCRATCH_3);
 			gen_one(R_SCRATCH_3);
 			if (must_mask) {
 				g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_4), ALU_AND, R_SCRATCH_3, R_SCRATCH_3, (1U << (op_size + 3)) - 1));
 			}
-			g(gen_3address_rot(ctx, op_s, alu == ROT_ROL ? ROT_SHR : ROT_SHL, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_3));
+			g(gen_3address_rot(ctx, op_s, alu == ROT_ROL ? ROT_SHR : ROT_SHL, R_SCRATCH_1, reg1, R_SCRATCH_3));
 			g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_OR, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_2));
 			g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_1));
 			return true;
@@ -4792,29 +4795,29 @@ do_generic_shift:
 		if (mode == MODE_INT && alu == ROT_SHL) {
 #if defined(ARCH_S390)
 			if (op_size >= OP_SIZE_4) {
-				g(gen_3address_rot(ctx, op_size, ROT_SAL, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_3));
+				g(gen_3address_rot(ctx, op_size, ROT_SAL, R_SCRATCH_1, reg1, R_SCRATCH_3));
 
 				gen_insn(INSN_JMP_COND, op_size, COND_O, 0);
 				gen_four(label_ovf);
 			} else
 #endif
 			if (op_size <= OP_SIZE_NATIVE - 1) {
-				g(gen_3address_rot(ctx, OP_SIZE_NATIVE, alu, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_3));
+				g(gen_3address_rot(ctx, OP_SIZE_NATIVE, alu, R_SCRATCH_1, reg1, R_SCRATCH_3));
 
 				g(gen_cmp_extended(ctx, OP_SIZE_NATIVE, op_size, R_SCRATCH_1, R_SCRATCH_2, label_ovf));
 			} else {
-				g(gen_3address_rot(ctx, OP_SIZE_NATIVE, alu, R_SCRATCH_2, R_SCRATCH_1, R_SCRATCH_3));
+				g(gen_3address_rot(ctx, OP_SIZE_NATIVE, alu, R_SCRATCH_2, reg1, R_SCRATCH_3));
 
 				g(gen_3address_rot(ctx, OP_SIZE_NATIVE, ROT_SAR, R_SCRATCH_4, R_SCRATCH_2, R_SCRATCH_3));
 
-				g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, R_SCRATCH_1, R_SCRATCH_4, COND_NE, label_ovf));
+				g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, reg1, R_SCRATCH_4, COND_NE, label_ovf));
 
 				g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_2));
 
 				return true;
 			}
 		} else {
-			g(gen_3address_rot(ctx, op_s, alu, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_3));
+			g(gen_3address_rot(ctx, op_s, alu, R_SCRATCH_1, reg1, R_SCRATCH_3));
 		}
 
 		g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_1));
