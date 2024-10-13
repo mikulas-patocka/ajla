@@ -1360,13 +1360,19 @@ static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, unsigned reg)
 	uint32_t mc;
 #ifdef ARCH_PARISC32
 	if (PA_20) {
-		mc = PARISC_BVE_RET;
-		mc |= (uint32_t)reg << 21;
-		/*mc |= PARISC_N;*/
-		cgen_four(mc);
-		mc = PARISC_STW_LONG;
-		mc |= low_sign_ext_14(-0x18);
-		g(cgen_2reg(ctx, mc, R_SP, R_RP));
+		if (PA_SPACES) {
+			mc = PARISC_BVE_RET;
+			mc |= (uint32_t)reg << 21;
+			cgen_four(mc);
+			mc = PARISC_STW_LONG;
+			mc |= low_sign_ext_14(-0x18);
+			g(cgen_2reg(ctx, mc, R_SP, R_RP));
+		} else {
+			mc = PARISC_BVE_RET;
+			mc |= (uint32_t)reg << 21;
+			mc |= PARISC_N;
+			cgen_four(mc);
+		}
 	} else {
 		if (PA_SPACES) {
 			mc = PARISC_LDSID;
@@ -1378,7 +1384,6 @@ static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, unsigned reg)
 			cgen_four(mc);
 			mc = PARISC_BE;
 			mc |= (uint32_t)reg << 21;
-			/*mc |= PARISC_N;*/
 			cgen_four(mc);
 			mc = PARISC_STW_LONG;
 			mc |= low_sign_ext_14(-0x18);
