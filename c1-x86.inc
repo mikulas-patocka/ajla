@@ -116,9 +116,6 @@
 #define R_IS_XMM(r)	((r) >= R_XMM0 && (r) <= R_XMM31)
 
 /*#define TIMESTAMP_IN_REGISTER*/
-#ifdef ARCH_X86_WIN_ABI
-#define TIMESTAMP_IN_REGISTER
-#endif
 
 #ifndef ARCH_X86_32
 #define R_UPCALL	R_R15
@@ -131,16 +128,16 @@
 #endif
 #define R_OFFSET_IMM	255	/* this should not be used */
 
-#if defined(ARCH_X86_64) && defined(ARCH_X86_WIN_ABI)
-#define R_FRAME		R_BX
+#if defined(ARCH_X86_32)
+#define R_FRAME		R_BP
 #define R_SCRATCH_1	R_AX
 #define R_SCRATCH_2	R_DX
 #define R_SCRATCH_3	R_CX
-#define R_SCRATCH_4	R_R8
+#define R_SCRATCH_4	R_SAVED_2
 #define R_SAVED_1	R_SI
 #define R_SAVED_2	R_DI
-#elif defined(ARCH_X86_32)
-#define R_FRAME		R_BP
+#elif defined(ARCH_X86_WIN_ABI)
+#define R_FRAME		R_BX
 #define R_SCRATCH_1	R_AX
 #define R_SCRATCH_2	R_DX
 #define R_SCRATCH_3	R_CX
@@ -181,9 +178,12 @@
 #if defined(ARCH_X86_32)
 #define ARG_SPACE	0x1c		/* must be 0xc modulo 0x10 */
 #define ARG_OFFSET	0x14
-#elif defined(ARCH_X86_WIN_ABI)
+#elif defined(ARCH_X86_WIN_ABI) && !defined(TIMESTAMP_IN_REGISTER)
 #define ARG_SPACE	0x28		/* must be 0x8 modulo 0x10 */
-#define ARG_OFFSET	0x38
+#define ARG_OFFSET	0xa0
+#elif defined(ARCH_X86_WIN_ABI)
+#define ARG_SPACE	0x20		/* must be 0x0 modulo 0x10 */
+#define ARG_OFFSET	0x90
 #endif
 
 #define SUPPORTED_FP		(cpu_test_feature(CPU_FEATURE_sse) * 0x2 + cpu_test_feature(CPU_FEATURE_sse2) * 0x4)
@@ -332,6 +332,59 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_SP);
 	gen_eight(ARG_SPACE + ARG_OFFSET + 12);
+#elif defined(ARCH_X86_WIN_ABI)
+	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
+	gen_one(R_BX);
+
+	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
+	gen_one(R_BP);
+
+	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
+	gen_one(R_SI);
+
+	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
+	gen_one(R_DI);
+
+	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
+	gen_one(R_R12);
+
+	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
+	gen_one(R_R13);
+
+	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
+	gen_one(R_R14);
+
+	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
+	gen_one(R_R15);
+
+	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
+	gen_one(R_ARG0);
+#ifndef TIMESTAMP_IN_REGISTER
+	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
+	gen_one(R_ARG3);
+#endif
+	gen_insn(INSN_ALU, OP_SIZE_8, ALU_SUB, 1);
+	gen_one(R_SP);
+	gen_one(R_SP);
+	gen_one(ARG_IMM);
+	gen_eight(ARG_SPACE);
+
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_FRAME);
+	gen_one(R_ARG1);
+
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_UPCALL);
+	gen_one(R_ARG2);
+#ifdef TIMESTAMP_IN_REGISTER
+	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
+	gen_one(R_TIMESTAMP);
+	gen_one(R_ARG3);
+#endif
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(ARG_ADDRESS_1);
+	gen_one(R_SP);
+	gen_eight(ARG_OFFSET);
 #else
 	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
 	gen_one(R_FRAME);
@@ -353,33 +406,6 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 
 	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
 	gen_one(R_ARG2);
-#if defined(ARCH_X86_WIN_ABI)
-	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_ARG0);
-
-	gen_insn(INSN_ALU, OP_SIZE_8, ALU_SUB, 1);
-	gen_one(R_SP);
-	gen_one(R_SP);
-	gen_one(ARG_IMM);
-	gen_eight(ARG_SPACE);
-
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-	gen_one(R_FRAME);
-	gen_one(R_ARG1);
-
-	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
-	gen_one(R_TIMESTAMP);
-	gen_one(R_ARG3);
-
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-	gen_one(R_UPCALL);
-	gen_one(R_ARG2);
-
-	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
-	gen_one(ARG_ADDRESS_1);
-	gen_one(R_SP);
-	gen_eight(ARG_SPACE + ARG_OFFSET + 32);
-#else
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_FRAME);
 	gen_one(R_ARG0);
@@ -394,7 +420,6 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 #endif
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 	gen_one(R_ARG3);
-#endif
 #endif
 	return true;
 }
@@ -449,8 +474,11 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_one(R_SP);
 	gen_one(R_SP);
 	gen_one(ARG_IMM);
+#if defined(TIMESTAMP_IN_REGISTER)
 	gen_eight(ARG_SPACE);
-
+#else
+	gen_eight(ARG_SPACE + 8);
+#endif
 	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
 	gen_one(R_AX);
 
@@ -467,19 +495,28 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_one(R_DX);
 
 	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_UPCALL);
+	gen_one(R_R15);
 
 	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_TIMESTAMP);
+	gen_one(R_R14);
 
 	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_SAVED_2);
+	gen_one(R_R13);
 
 	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_SAVED_1);
+	gen_one(R_R12);
 
 	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_FRAME);
+	gen_one(R_DI);
+
+	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
+	gen_one(R_SI);
+
+	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
+	gen_one(R_BP);
+
+	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
+	gen_one(R_BX);
 
 	gen_insn(INSN_RET, 0, 0, 0);
 #else
@@ -596,8 +633,11 @@ static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t esca
 	gen_one(R_AX);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_SP);
+#if defined(ARCH_X86_WIN_ABI)
+	gen_eight(ARG_SPACE);
+#else
 	gen_eight(0);
-
+#endif
 	gen_insn(INSN_CMP, OP_SIZE_4, 0, 1);
 	gen_one(R_AX);
 	gen_one(ARG_ADDRESS_1);

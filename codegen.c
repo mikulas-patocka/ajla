@@ -8593,7 +8593,7 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 
 		gen_label(get_ptr_label);
 
-		g(gen_frame_get_pointer(ctx, slot_1, (flags & OPCODE_FLAG_FREE_ARGUMENT) != 0, R_SCRATCH_3));
+		g(gen_frame_get_pointer(ctx, slot_1, (flags & OPCODE_FLAG_FREE_ARGUMENT) != 0, R_SCRATCH_4));
 		g(gen_upcall_argument(ctx, 1));
 
 		gen_label(got_ptr_label);
@@ -8605,7 +8605,7 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, R_SCRATCH_1));
 		g(gen_upcall_argument(ctx, 0));
 
-		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG1, R_SCRATCH_3));
+		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG1, R_SCRATCH_4));
 		g(gen_upcall_argument(ctx, 1));
 
 		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_array_create_sparse), 2));
@@ -8613,14 +8613,14 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 		g(gen_test_1_cached(ctx, slot_1, escape_label));
 		flag_set(ctx, slot_1, false);
 
-		g(gen_frame_load(ctx, OP_SIZE_INT, true, slot_2, 0, R_SCRATCH_3));
+		g(gen_frame_load(ctx, OP_SIZE_INT, true, slot_2, 0, R_SCRATCH_4));
 		g(gen_jmp_if_negative(ctx, R_SCRATCH_3, escape_label));
 
 		g(gen_upcall_start(ctx, 3));
 		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, R_FRAME));
 		g(gen_upcall_argument(ctx, 0));
 
-		g(gen_mov(ctx, i_size(OP_SIZE_INT), R_ARG1, R_SCRATCH_3));
+		g(gen_mov(ctx, i_size(OP_SIZE_INT), R_ARG1, R_SCRATCH_4));
 		g(gen_upcall_argument(ctx, 1));
 
 		g(gen_load_constant(ctx, R_ARG2, slot_1));
