@@ -997,7 +997,7 @@ static bool attr_w gen_3address_alu(struct codegen_context *ctx, unsigned size, 
 		src1 = src2;
 		src2 = swap;
 	}
-	if (unlikely(dest == src2)) {
+	if (!ARCH_IS_3ADDRESS && unlikely(dest == src2)) {
 		internal(file_line, "gen_3address_alu: invalid registers: %u, %u, %x, %x, %x", size, alu, dest, src1, src2);
 	}
 	if (!ARCH_IS_3ADDRESS && dest != src1
@@ -5180,18 +5180,14 @@ do_alu: {
 		}
 #endif
 #if defined(ARCH_X86)
-		gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(op_size), op_size, alu, (mode == MODE_INT) | ALU1_WRITES_FLAGS(alu));
-		gen_one(R_SCRATCH_1);
-		gen_one(reg1);
+		g(gen_2address_alu1(ctx, op_size, alu, R_SCRATCH_1, reg1, mode == MODE_INT));
 #else
 		if (mode == MODE_INT) {
 			bool arch_use_flags = ARCH_HAS_FLAGS;
 #if defined(ARCH_POWER)
 			arch_use_flags = false;
 			if (op_size == OP_SIZE_NATIVE) {
-				gen_insn(INSN_ALU1, i_size(op_size), alu, ALU1_WRITES_FLAGS(alu));
-				gen_one(R_SCRATCH_2);
-				gen_one(reg1);
+				g(gen_2address_alu1(ctx, i_size(op_size), alu, R_SCRATCH_2, reg1, 0));
 				if (alu == ALU1_NEG) {
 					gen_insn(INSN_ALU, i_size(op_size), ALU_AND, 1);
 					gen_one(R_CG_SCRATCH);
@@ -5217,9 +5213,7 @@ do_alu: {
 			}
 #endif
 			if (!arch_use_flags && !ARCH_SUPPORTS_TRAPS && ARCH_IS_3ADDRESS && ARCH_HAS_ANDN && op_size == OP_SIZE_NATIVE) {
-				gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(i_size(op_size)), i_size(op_size), alu, ALU1_WRITES_FLAGS(alu));
-				gen_one(R_SCRATCH_2);
-				gen_one(reg1);
+				g(gen_2address_alu1(ctx, i_size(op_size), alu, R_SCRATCH_2, reg1, 0));
 
 				if (alu == ALU1_NEG) {
 					g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_AND, R_SCRATCH_3, R_SCRATCH_2, reg1));
@@ -5252,9 +5246,7 @@ do_alu: {
 			return true;
 		}
 #endif
-		gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(i_size(op_size)), i_size(op_size), alu, (mode == MODE_INT) | ALU1_WRITES_FLAGS(alu));
-		gen_one(R_SCRATCH_1);
-		gen_one(reg1);
+		g(gen_2address_alu1(ctx, i_size(op_size), alu, R_SCRATCH_1, reg1, mode == MODE_INT));
 #endif
 		if (mode == MODE_INT) {
 			gen_insn(INSN_JMP_COND, maximum(OP_SIZE_4, op_size), COND_O, 0);
@@ -5313,33 +5305,21 @@ do_bswap: {
 		if (op_size == OP_SIZE_1) {
 #if defined(ARCH_IA64) || defined(ARCH_RISCV64)
 		} else if (op_size == OP_SIZE_2 || op_size == OP_SIZE_4) {
-			gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(OP_SIZE_NATIVE), OP_SIZE_NATIVE, ALU1_BSWAP, ALU1_WRITES_FLAGS(ALU1_BSWAP));
-			gen_one(R_SCRATCH_1);
-			gen_one(reg1);
+			g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_BSWAP, R_SCRATCH_1, reg1, 0));
 
-			gen_insn(INSN_ROT, OP_SIZE_NATIVE, ROT_SAR, ROT_WRITES_FLAGS(ROT_SAR));
-			gen_one(R_SCRATCH_1);
-			gen_one(R_SCRATCH_1);
-			gen_one(ARG_IMM);
-			gen_eight(op_size == OP_SIZE_2 ? 48 : 32);
+			g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, R_SCRATCH_1, R_SCRATCH_1, op_size == OP_SIZE_2 ? 48 : 32, 0));
 #endif
 		} else if (op_size == OP_SIZE_2) {
 #if defined(ARCH_X86)
 			g(gen_3address_rot_imm(ctx, OP_SIZE_2, ROT_ROR, R_SCRATCH_1, reg1, 8, 0));
 #else
-			gen_insn(INSN_ALU1, OP_SIZE_4, ALU1_BSWAP16, ALU1_WRITES_FLAGS(ALU1_BSWAP16));
-			gen_one(R_SCRATCH_1);
-			gen_one(reg1);
+			g(gen_2address_alu1(ctx, OP_SIZE_4, ALU1_BSWAP16, R_SCRATCH_1, reg1, 0));
 #endif
 		} else {
-			gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(minimum(op_size, OP_SIZE_NATIVE)), minimum(op_size, OP_SIZE_NATIVE), ALU1_BSWAP, ALU1_WRITES_FLAGS(ALU1_BSWAP));
-			gen_one(R_SCRATCH_1);
-			gen_one(reg1);
+			g(gen_2address_alu1(ctx, minimum(op_size, OP_SIZE_NATIVE), ALU1_BSWAP, R_SCRATCH_1, reg1, 0));
 		}
 		if (op_size > OP_SIZE_NATIVE) {
-			gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(OP_SIZE_NATIVE), OP_SIZE_NATIVE, ALU1_BSWAP, ALU1_WRITES_FLAGS(ALU1_BSWAP));
-			gen_one(R_SCRATCH_2);
-			gen_one(R_SCRATCH_2);
+			g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_BSWAP, R_SCRATCH_2, R_SCRATCH_2, 0));
 		}
 
 		if (op_size > OP_SIZE_NATIVE)
@@ -5368,20 +5348,12 @@ do_brev: {
 			g(gen_frame_get(ctx, op_size, false, slot_1, 0, R_SCRATCH_1, &reg1));
 		}
 
-		gen_insn(INSN_ALU1, minimum(maximum(OP_SIZE_4, op_size), OP_SIZE_NATIVE), ALU1_BREV, ALU1_WRITES_FLAGS(ALU1_BREV));
-		gen_one(R_SCRATCH_1);
-		gen_one(reg1);
+		g(gen_2address_alu1(ctx, minimum(maximum(OP_SIZE_4, op_size), OP_SIZE_NATIVE), ALU1_BREV, R_SCRATCH_1, reg1, 0));
 		if (op_size <= OP_SIZE_2) {
-			gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(OP_SIZE_4), OP_SIZE_4, ROT_SHR, ROT_WRITES_FLAGS(ROT_SHR));
-			gen_one(R_SCRATCH_1);
-			gen_one(R_SCRATCH_1);
-			gen_one(ARG_IMM);
-			gen_eight(op_size == OP_SIZE_1 ? 24 : 16);
+			g(gen_3address_rot_imm(ctx, OP_SIZE_4, ROT_SHR, R_SCRATCH_1, R_SCRATCH_1, op_size == OP_SIZE_1 ? 24 : 16, 0));
 		}
 		if (op_size > OP_SIZE_NATIVE) {
-			gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_BREV, ALU1_WRITES_FLAGS(ALU1_BREV));
-			gen_one(R_SCRATCH_2);
-			gen_one(R_SCRATCH_2);
+			g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_BREV, R_SCRATCH_2, R_SCRATCH_2, 0));
 		}
 
 		if (op_size > OP_SIZE_NATIVE)
@@ -5408,9 +5380,7 @@ do_bsf_bsr_popcnt: {
 			if ((alu == ALU1_BSR || alu == ALU1_POPCNT) && mode == MODE_INT) {
 				g(gen_cmp_test_jmp(ctx, INSN_TEST, op_size, reg1, reg1, alu == ALU1_BSR ? COND_LE : COND_S, label_ovf));
 			}
-			gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(op_size), maximum(op_size, OP_SIZE_2), alu, 1);
-			gen_one(R_SCRATCH_1);
-			gen_one(reg1);
+			g(gen_2address_alu1(ctx, maximum(op_size, OP_SIZE_2), alu, R_SCRATCH_1, reg1, 1));
 			if ((alu == ALU1_BSR || alu == ALU1_POPCNT) && mode == MODE_INT)
 				goto x86_bsf_bsr_popcnt_finish;
 		} else {
@@ -5485,15 +5455,11 @@ x86_bsf_bsr_popcnt_finish:
 		}
 
 		if (alu == ALU1_BSF) {
-			gen_insn(INSN_ALU1, i_size(op_size), ALU1_BREV, ALU1_WRITES_FLAGS(ALU1_BREV));
-			gen_one(R_SCRATCH_1);
-			gen_one(reg1);
+			g(gen_2address_alu1(ctx, i_size(op_size), ALU1_BREV, R_SCRATCH_1, reg1, 0));
 			reg1 = R_SCRATCH_1;
 		}
 
-		gen_insn(INSN_ALU1, i_size(op_size), ALU1_LZCNT, ALU1_WRITES_FLAGS(ALU1_LZCNT));
-		gen_one(R_SCRATCH_1);
-		gen_one(reg1);
+		g(gen_2address_alu1(ctx, i_size(op_size), ALU1_LZCNT, R_SCRATCH_1, reg1, 0));
 
 		if (alu == ALU1_BSR) {
 			g(gen_load_constant(ctx, R_SCRATCH_2, op_size == OP_SIZE_8 ? 63 : 31));
@@ -5535,14 +5501,10 @@ x86_bsf_bsr_popcnt_finish:
 				}
 			}
 			if (alu == ALU1_POPCNT) {
-				gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_POPCNT, ALU1_WRITES_FLAGS(ALU1_POPCNT));
-				gen_one(R_SCRATCH_2);
-				gen_one(reg1);
+				g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_POPCNT, R_SCRATCH_2, reg1, 0));
 			}
 			if (alu == ALU1_BSF) {
-				gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_BSF, ALU1_WRITES_FLAGS(ALU1_BSF));
-				gen_one(R_SCRATCH_2);
-				gen_one(reg1);
+				g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_BSF, R_SCRATCH_2, reg1, 0));
 
 				if (mode == MODE_FIXED) {
 					g(gen_imm(ctx, -1, IMM_PURPOSE_MOVR, OP_SIZE_INT));
@@ -5554,16 +5516,11 @@ x86_bsf_bsr_popcnt_finish:
 				}
 			}
 			if (alu == ALU1_BSR) {
-				gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_LZCNT, ALU1_WRITES_FLAGS(ALU1_LZCNT));
-				gen_one(R_SCRATCH_2);
-				gen_one(reg1);
+				g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_LZCNT, R_SCRATCH_2, reg1, 0));
 
 				g(gen_load_constant(ctx, R_SCRATCH_3, OP_SIZE_NATIVE == OP_SIZE_8 ? 63 : 31));
 
-				gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_SUB, ALU_WRITES_FLAGS(ALU_SUB, false));
-				gen_one(R_SCRATCH_2);
-				gen_one(R_SCRATCH_3);
-				gen_one(R_SCRATCH_2);
+				g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_SUB, R_SCRATCH_2, R_SCRATCH_3, R_SCRATCH_2));
 			}
 			g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_2));
 			return true;
@@ -5578,26 +5535,16 @@ x86_bsf_bsr_popcnt_finish:
 				g(gen_frame_get(ctx, op_size, false, slot_1, 0, R_SCRATCH_1, &reg1));
 			}
 			if (alu == ALU1_BSF) {
-				gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_NEG, ALU1_WRITES_FLAGS(ALU1_NEG));
-				gen_one(R_SCRATCH_2);
-				gen_one(reg1);
+				g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_NEG, R_SCRATCH_2, reg1, 0));
 
-				gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_AND, ALU_WRITES_FLAGS(ALU_AND, false));
-				gen_one(R_SCRATCH_1);
-				gen_one(reg1);
-				gen_one(R_SCRATCH_2);
+				g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_AND, R_SCRATCH_1, reg1, R_SCRATCH_2));
 				reg1 = R_SCRATCH_1;
 			}
-			gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_LZCNT, ALU1_WRITES_FLAGS(ALU1_LZCNT));
-			gen_one(R_SCRATCH_2);
-			gen_one(reg1);
+			g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_LZCNT, R_SCRATCH_2, reg1, 0));
 
 			g(gen_load_constant(ctx, R_SCRATCH_3, OP_SIZE_NATIVE == OP_SIZE_8 ? 63 : 31));
 
-			gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_SUB, ALU_WRITES_FLAGS(ALU_SUB, false));
-			gen_one(R_SCRATCH_2);
-			gen_one(R_SCRATCH_3);
-			gen_one(R_SCRATCH_2);
+			g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_SUB, R_SCRATCH_2, R_SCRATCH_3, R_SCRATCH_2));
 
 			g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_2));
 			return true;
@@ -5613,14 +5560,10 @@ x86_bsf_bsr_popcnt_finish:
 			g(gen_cmp_test_jmp(ctx, INSN_TEST, i_size(op_size), reg1, reg1, alu == ALU1_BSR ? COND_LE : alu == ALU1_BSF ? COND_E : COND_S, label_ovf));
 		}
 		if (alu == ALU1_POPCNT) {
-			gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_POPCNT, ALU1_WRITES_FLAGS(ALU1_POPCNT));
-			gen_one(R_SCRATCH_2);
-			gen_one(reg1);
+			g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_POPCNT, R_SCRATCH_2, reg1, 0));
 		}
 		if (alu == ALU1_BSF) {
-			gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_BSF, ALU1_WRITES_FLAGS(ALU1_BSF));
-			gen_one(R_SCRATCH_2);
-			gen_one(reg1);
+			g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_BSF, R_SCRATCH_2, reg1, 0));
 
 			if (mode == MODE_FIXED) {
 				gen_insn(INSN_ALU, i_size(op_size), ALU_AND, 1);
@@ -5636,16 +5579,11 @@ x86_bsf_bsr_popcnt_finish:
 			}
 		}
 		if (alu == ALU1_BSR) {
-			gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_LZCNT, ALU1_WRITES_FLAGS(ALU1_LZCNT));
-			gen_one(R_SCRATCH_2);
-			gen_one(reg1);
+			g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_LZCNT, R_SCRATCH_2, reg1, 0));
 
 			g(gen_load_constant(ctx, R_SCRATCH_3, OP_SIZE_NATIVE == OP_SIZE_8 ? 63 : 31));
 
-			gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_SUB, ALU_WRITES_FLAGS(ALU_SUB, false));
-			gen_one(R_SCRATCH_2);
-			gen_one(R_SCRATCH_3);
-			gen_one(R_SCRATCH_2);
+			g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_SUB, R_SCRATCH_2, R_SCRATCH_3, R_SCRATCH_2));
 		}
 		g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_2));
 		return true;
@@ -5669,14 +5607,10 @@ x86_bsf_bsr_popcnt_finish:
 			}
 		}
 		if (alu == ALU1_POPCNT) {
-			gen_insn(INSN_ALU1, maximum(OP_SIZE_4, op_size), ALU1_POPCNT, ALU1_WRITES_FLAGS(ALU1_POPCNT));
-			gen_one(R_SCRATCH_2);
-			gen_one(reg1);
+			g(gen_2address_alu1(ctx, maximum(OP_SIZE_4, op_size), ALU1_POPCNT, R_SCRATCH_2, reg1, 0));
 		}
 		if (alu == ALU1_BSF) {
-			gen_insn(INSN_ALU1, maximum(OP_SIZE_4, op_size), ALU1_BSF, ALU1_WRITES_FLAGS(ALU1_BSF));
-			gen_one(R_SCRATCH_2);
-			gen_one(reg1);
+			g(gen_2address_alu1(ctx, maximum(OP_SIZE_4, op_size), ALU1_BSF, R_SCRATCH_2, reg1, 0));
 
 			if (mode == MODE_FIXED) {
 				g(gen_imm(ctx, 1, IMM_PURPOSE_CMP, OP_SIZE_NATIVE));
@@ -5685,27 +5619,17 @@ x86_bsf_bsr_popcnt_finish:
 				gen_one(reg1);
 				gen_imm_offset();
 
-				gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_NEG, ALU1_WRITES_FLAGS(ALU1_NEG));
-				gen_one(R_SCRATCH_3);
-				gen_one(R_SCRATCH_3);
+				g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_NEG, R_SCRATCH_3, R_SCRATCH_3, 0));
 
-				gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_OR, ALU_WRITES_FLAGS(ALU_OR, false));
-				gen_one(R_SCRATCH_2);
-				gen_one(R_SCRATCH_2);
-				gen_one(R_SCRATCH_3);
+				g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_OR, R_SCRATCH_2, R_SCRATCH_2, R_SCRATCH_3));
 			}
 		}
 		if (alu == ALU1_BSR) {
-			gen_insn(INSN_ALU1, maximum(OP_SIZE_4, op_size), ALU1_LZCNT, ALU1_WRITES_FLAGS(ALU1_LZCNT));
-			gen_one(R_SCRATCH_2);
-			gen_one(reg1);
+			g(gen_2address_alu1(ctx, maximum(OP_SIZE_4, op_size), ALU1_LZCNT, R_SCRATCH_2, reg1, 0));
 
 			g(gen_load_constant(ctx, R_SCRATCH_3, op_size <= OP_SIZE_4 ? 31 : 63));
 
-			gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_SUB, ALU_WRITES_FLAGS(ALU_SUB, false));
-			gen_one(R_SCRATCH_2);
-			gen_one(R_SCRATCH_3);
-			gen_one(R_SCRATCH_2);
+			g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_SUB, R_SCRATCH_2, R_SCRATCH_3, R_SCRATCH_2));
 		}
 		g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_2));
 		return true;
@@ -5731,9 +5655,7 @@ x86_bsf_bsr_popcnt_finish:
 			}
 		}
 		if (alu == ALU1_POPCNT) {
-			gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_POPCNT, ALU1_WRITES_FLAGS(ALU1_POPCNT));
-			gen_one(R_SCRATCH_1);
-			gen_one(reg1);
+			g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_POPCNT, R_SCRATCH_1, reg1, 0));
 			g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_1));
 			return true;
 		}
@@ -5742,9 +5664,7 @@ x86_bsf_bsr_popcnt_finish:
 
 			g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ANDN, R_SCRATCH_2, R_SCRATCH_2, reg1));
 
-			gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_POPCNT, ALU1_WRITES_FLAGS(ALU1_POPCNT));
-			gen_one(R_SCRATCH_2);
-			gen_one(R_SCRATCH_2);
+			g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_POPCNT, R_SCRATCH_2, R_SCRATCH_2, 0));
 
 			if (mode == MODE_FIXED) {
 				unsigned attr_unused test_reg = R_SCRATCH_1;
