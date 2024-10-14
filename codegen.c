@@ -8562,7 +8562,6 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 		gen_label(get_ptr_label);
 
 		g(gen_frame_get_pointer(ctx, slot_1, (flags & OPCODE_FLAG_FREE_ARGUMENT) != 0, R_SCRATCH_4));
-		g(gen_upcall_argument(ctx, 1));
 
 		gen_label(got_ptr_label);
 
