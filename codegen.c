@@ -1226,7 +1226,7 @@ static bool attr_w gen_load_code_32(struct codegen_context *ctx, unsigned dest, 
 	return true;
 }
 
-static bool attr_w gen_cmp_dest_reg(struct codegen_context *ctx, unsigned attr_unused size, unsigned reg1, unsigned reg2, unsigned reg_dest, int64_t imm, unsigned cond)
+static bool attr_w attr_unused gen_cmp_dest_reg(struct codegen_context *ctx, unsigned attr_unused size, unsigned reg1, unsigned reg2, unsigned reg_dest, int64_t imm, unsigned cond)
 {
 	unsigned neg_result = false;
 
