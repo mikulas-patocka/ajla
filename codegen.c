@@ -9243,10 +9243,10 @@ static bool attr_w gen_array_skip(struct codegen_context *ctx, frame_t slot_arra
 
 	g(gen_upcall_start(ctx, 3));
 
-	g(gen_frame_load(ctx, OP_SIZE_SLOT, false, slot_array, 0, R_ARG0));
+	g(gen_frame_load_raw(ctx, OP_SIZE_SLOT, false, slot_array, 0, R_ARG0));
 	g(gen_upcall_argument(ctx, 0));
 
-	g(gen_frame_load(ctx, OP_SIZE_INT, false, slot_from, 0, R_ARG1));
+	g(gen_frame_load_raw(ctx, OP_SIZE_INT, false, slot_from, 0, R_ARG1));
 	g(gen_upcall_argument(ctx, 1));
 
 	g(gen_load_constant(ctx, R_ARG2, (flags & OPCODE_FLAG_FREE_ARGUMENT) != 0));
