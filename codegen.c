@@ -6660,28 +6660,30 @@ do_from_int:
 		if (ctx->registers[slot_1] >= 0) {
 			g(spill(ctx, slot_1));
 			g(gen_frame_load_raw(ctx, int_op_size, false, slot_1, 0, FR_SCRATCH_1));
+			reg1 = FR_SCRATCH_1;
 		} else
 #endif
-			g(gen_frame_load(ctx, int_op_size, false, slot_1, 0, FR_SCRATCH_1));
+			g(gen_frame_get(ctx, int_op_size, false, slot_1, 0, FR_SCRATCH_1, &reg1));
 #if defined(ARCH_ALPHA)
 		if (OP_SIZE_INT == OP_SIZE_4) {
 			gen_insn(INSN_MOVSX, OP_SIZE_4, 0, 0);
 			gen_one(FR_SCRATCH_1);
-			gen_one(FR_SCRATCH_1);
+			gen_one(reg1);
+			reg1 = FR_SCRATCH_1;
 
 			int_op_size = OP_SIZE_8;
 		}
 #endif
 		gen_insn(int_op_size == OP_SIZE_4 ? INSN_FP_FROM_INT32 : INSN_FP_FROM_INT64, op_size, 0, 0);
 		gen_one(FR_SCRATCH_2);
-		gen_one(FR_SCRATCH_1);
+		gen_one(reg1);
 
 		g(gen_frame_store(ctx, op_size, slot_r, 0, FR_SCRATCH_2));
 		return true;
 #elif defined(ARCH_IA64)
-		g(gen_frame_load(ctx, OP_SIZE_INT, true, slot_1, 0, R_SCRATCH_1));
+		g(gen_frame_get(ctx, OP_SIZE_INT, true, slot_1, 0, R_SCRATCH_1, reg1));
 
-		g(gen_mov(ctx, OP_SIZE_NATIVE, FR_SCRATCH_1, R_SCRATCH_1));
+		g(gen_mov(ctx, OP_SIZE_NATIVE, FR_SCRATCH_1, reg1));
 
 		gen_insn(INSN_FP_FROM_INT64, op_size, 0, 0);
 		gen_one(FR_SCRATCH_1);
@@ -6690,11 +6692,11 @@ do_from_int:
 		g(gen_frame_store(ctx, op_size, slot_r, 0, FR_SCRATCH_1));
 		return true;
 #else
-		g(gen_frame_load(ctx, OP_SIZE_INT, false, slot_1, 0, R_SCRATCH_1));
+		g(gen_frame_get(ctx, OP_SIZE_INT, false, slot_1, 0, R_SCRATCH_1, &reg1));
 
 		gen_insn(OP_SIZE_INT == OP_SIZE_4 ? INSN_FP_FROM_INT32 : INSN_FP_FROM_INT64, op_size, 0, 0);
 		gen_one(FR_SCRATCH_1);
-		gen_one(R_SCRATCH_1);
+		gen_one(reg1);
 
 		g(gen_frame_store(ctx, op_size, slot_r, 0, FR_SCRATCH_1));
 		return true;
@@ -6712,16 +6714,16 @@ do_from_int:
 #ifdef SUPPORTED_FP_HALF_CVT
 	if ((SUPPORTED_FP_HALF_CVT >> real_type) & 1) {
 #if defined(ARCH_ARM32)
-		g(gen_frame_load(ctx, OP_SIZE_INT, false, slot_1, 0, FR_SCRATCH_1));
+		g(gen_frame_get(ctx, OP_SIZE_INT, false, slot_1, 0, FR_SCRATCH_1, &reg1));
 
 		gen_insn(INSN_FP_FROM_INT32, OP_SIZE_4, 0, 0);
 		gen_one(FR_SCRATCH_1);
-		gen_one(FR_SCRATCH_1);
+		gen_one(reg1);
 #else
-		g(gen_frame_load(ctx, OP_SIZE_INT, false, slot_1, 0, R_SCRATCH_1));
+		g(gen_frame_get(ctx, OP_SIZE_INT, false, slot_1, 0, R_SCRATCH_1, &reg1));
 		gen_insn(OP_SIZE_INT == OP_SIZE_4 ? INSN_FP_FROM_INT32 : INSN_FP_FROM_INT64, OP_SIZE_4, 0, 0);
 		gen_one(FR_SCRATCH_1);
-		gen_one(R_SCRATCH_1);
+		gen_one(reg1);
 #endif
 		gen_insn(INSN_FP_CVT, OP_SIZE_4, op_size, 0);
 		gen_one(FR_SCRATCH_1);
