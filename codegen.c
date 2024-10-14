@@ -5271,9 +5271,9 @@ do_alu: {
 	 * NOT *
 	 *******/
 do_bool_not: {
-		g(gen_frame_load(ctx, op_size, false, slot_1, 0, R_SCRATCH_1));
+		g(gen_frame_get(ctx, op_size, false, slot_1, 0, R_SCRATCH_1, &reg1));
 
-		g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_1, R_SCRATCH_1, 1));
+		g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_1, reg1, 1));
 
 		g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_1));
 		return true;
@@ -5306,17 +5306,19 @@ do_bswap: {
 		if (op_size >= OP_SIZE_4 && !cpu_test_feature(CPU_FEATURE_bswap))
 			goto do_generic_bswap;
 #endif
-		if (op_size > OP_SIZE_NATIVE)
+		if (op_size > OP_SIZE_NATIVE) {
 			g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, slot_1, 0, R_SCRATCH_1, R_SCRATCH_2));
-		else
-			g(gen_frame_load(ctx, op_size, sx, slot_1, 0, R_SCRATCH_1));
+			reg1 = R_SCRATCH_1;
+		} else {
+			g(gen_frame_get(ctx, op_size, sx, slot_1, 0, R_SCRATCH_1, &reg1));
+		}
 
 		if (op_size == OP_SIZE_1) {
 #if defined(ARCH_IA64) || defined(ARCH_RISCV64)
 		} else if (op_size == OP_SIZE_2 || op_size == OP_SIZE_4) {
 			gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(OP_SIZE_NATIVE), OP_SIZE_NATIVE, ALU1_BSWAP, ALU1_WRITES_FLAGS(ALU1_BSWAP));
 			gen_one(R_SCRATCH_1);
-			gen_one(R_SCRATCH_1);
+			gen_one(reg1);
 
 			gen_insn(INSN_ROT, OP_SIZE_NATIVE, ROT_SAR, ROT_WRITES_FLAGS(ROT_SAR));
 			gen_one(R_SCRATCH_1);
@@ -5326,20 +5328,16 @@ do_bswap: {
 #endif
 		} else if (op_size == OP_SIZE_2) {
 #if defined(ARCH_X86)
-			gen_insn(INSN_ROT_PARTIAL, OP_SIZE_2, ROT_ROR, 1);
-			gen_one(R_SCRATCH_1);
-			gen_one(R_SCRATCH_1);
-			gen_one(ARG_IMM);
-			gen_eight(8);
+			g(gen_3address_rot_imm(ctx, OP_SIZE_2, ROT_ROR, R_SCRATCH_1, reg1, 8));
 #else
 			gen_insn(INSN_ALU1, OP_SIZE_4, ALU1_BSWAP16, ALU1_WRITES_FLAGS(ALU1_BSWAP16));
 			gen_one(R_SCRATCH_1);
-			gen_one(R_SCRATCH_1);
+			gen_one(reg1);
 #endif
 		} else {
 			gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(minimum(op_size, OP_SIZE_NATIVE)), minimum(op_size, OP_SIZE_NATIVE), ALU1_BSWAP, ALU1_WRITES_FLAGS(ALU1_BSWAP));
 			gen_one(R_SCRATCH_1);
-			gen_one(R_SCRATCH_1);
+			gen_one(reg1);
 		}
 		if (op_size > OP_SIZE_NATIVE) {
 			gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(OP_SIZE_NATIVE), OP_SIZE_NATIVE, ALU1_BSWAP, ALU1_WRITES_FLAGS(ALU1_BSWAP));
