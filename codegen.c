@@ -8976,6 +8976,7 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 	const struct type *t = get_type_of_local(ctx, slot_1);
 	const struct type *tr = get_type_of_local(ctx, slot_r);
 	uint32_t escape_label;
+	unsigned reg2;
 
 	escape_label = alloc_escape_label(ctx);
 	if (unlikely(!escape_label))
@@ -8989,10 +8990,10 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 		flag_set(ctx, slot_1, false);
 		flag_set(ctx, slot_idx, false);
 
-		g(gen_frame_load(ctx, OP_SIZE_INT, false, slot_idx, 0, R_SCRATCH_2));
+		g(gen_frame_get(ctx, OP_SIZE_INT, false, slot_idx, 0, R_SCRATCH_2, &reg2));
 
 		if (!(flags & OPCODE_ARRAY_INDEX_IN_RANGE))
-			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, R_SCRATCH_2, def->n_elements, COND_AE, escape_label));
+			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, reg2, def->n_elements, COND_AE, escape_label));
 
 		g(gen_scaled_array_load(ctx, R_FRAME, (size_t)slot_1 * slot_size, slot_r));
 		return true;
@@ -9005,10 +9006,10 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 
 	g(gen_test_1_cached(ctx, slot_idx, escape_label));
 	flag_set(ctx, slot_idx, false);
-	g(gen_frame_load(ctx, OP_SIZE_INT, false, slot_idx, 0, R_SCRATCH_2));
+	g(gen_frame_get(ctx, OP_SIZE_INT, false, slot_idx, 0, R_SCRATCH_2, &reg2));
 
 	if (!(flags & OPCODE_ARRAY_INDEX_IN_RANGE))
-		g(gen_check_array_len(ctx, R_SCRATCH_1, false, R_SCRATCH_2, COND_AE, escape_label));
+		g(gen_check_array_len(ctx, R_SCRATCH_1, false, reg2, COND_AE, escape_label));
 
 	if (TYPE_IS_FLAT(tr)) {
 		uint32_t label;
@@ -9115,13 +9116,13 @@ no_cmov:
 		gen_one(R_SCRATCH_1);
 		gen_one(ARG_ADDRESS_2 + OP_SIZE_SLOT);
 		gen_one(R_SCRATCH_1);
-		gen_one(R_SCRATCH_2);
+		gen_one(reg2);
 		gen_eight(0);
 
 		goto scaled_load_done;
 #endif
 #if defined(ARCH_LOONGARCH64) || defined(ARCH_PARISC) || defined(ARCH_POWER) || defined(ARCH_S390) || defined(ARCH_SPARC)
-		g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_SCRATCH_2, R_SCRATCH_2, OP_SIZE_SLOT, false));
+		g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_SCRATCH_2, reg2, OP_SIZE_SLOT, false));
 
 		gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
 		gen_one(R_SCRATCH_1);
@@ -9137,7 +9138,7 @@ no_cmov:
 			gen_one(R_SCRATCH_2);
 			gen_one(ARG_SHIFTED_REGISTER);
 			gen_one(ARG_SHIFT_LSL | OP_SIZE_SLOT);
-			gen_one(R_SCRATCH_2);
+			gen_one(reg2);
 			gen_one(R_SCRATCH_1);
 
 			gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, 0);
@@ -9149,7 +9150,7 @@ no_cmov:
 			goto scaled_load_done;
 		}
 
-		g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_SCRATCH_2, R_SCRATCH_2, OP_SIZE_SLOT, false));
+		g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_SCRATCH_2, reg2, OP_SIZE_SLOT, false));
 
 		g(gen_3address_alu(ctx, OP_SIZE_ADDRESS, ALU_ADD, R_SCRATCH_2, R_SCRATCH_2, R_SCRATCH_1));
 
