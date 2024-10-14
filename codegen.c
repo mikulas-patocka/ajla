@@ -5407,13 +5407,13 @@ do_bsf_bsr_popcnt: {
 		if (alu == ALU1_POPCNT && unlikely(!cpu_test_feature(CPU_FEATURE_popcnt)))
 			goto do_generic_bsf_bsr_popcnt;
 		if (op_size == OP_SIZE_1 || ((alu == ALU1_BSR || alu == ALU1_POPCNT) && mode == MODE_INT)) {
-			g(gen_frame_load(ctx, op_size, false, slot_1, 0, R_SCRATCH_1));
+			g(gen_frame_get(ctx, op_size, false, slot_1, 0, R_SCRATCH_1, &reg1));
 			if ((alu == ALU1_BSR || alu == ALU1_POPCNT) && mode == MODE_INT) {
-				g(gen_cmp_test_jmp(ctx, INSN_TEST, op_size, R_SCRATCH_1, R_SCRATCH_1, alu == ALU1_BSR ? COND_LE : COND_S, label_ovf));
+				g(gen_cmp_test_jmp(ctx, INSN_TEST, op_size, reg1, reg1, alu == ALU1_BSR ? COND_LE : COND_S, label_ovf));
 			}
 			gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(op_size), maximum(op_size, OP_SIZE_2), alu, 1);
 			gen_one(R_SCRATCH_1);
-			gen_one(R_SCRATCH_1);
+			gen_one(reg1);
 			if ((alu == ALU1_BSR || alu == ALU1_POPCNT) && mode == MODE_INT)
 				goto x86_bsf_bsr_popcnt_finish;
 		} else {
@@ -5449,13 +5449,13 @@ x86_bsf_bsr_popcnt_finish:
 #endif
 		if (alu == ALU1_POPCNT && unlikely(!cpu_test_feature(CPU_FEATURE_neon)))
 			goto do_generic_bsf_bsr_popcnt;
-		g(gen_frame_load(ctx, op_size, mode == MODE_INT, slot_1, 0, R_SCRATCH_1));
+		g(gen_frame_get(ctx, op_size, mode == MODE_INT, slot_1, 0, R_SCRATCH_1, &reg1));
 		if (mode == MODE_INT) {
-			g(gen_cmp_test_jmp(ctx, INSN_TEST, i_size(op_size), R_SCRATCH_1, R_SCRATCH_1, alu == ALU1_BSR ? COND_LE : alu == ALU1_BSF ? COND_E : COND_S, label_ovf));
+			g(gen_cmp_test_jmp(ctx, INSN_TEST, i_size(op_size), reg1, reg1, alu == ALU1_BSR ? COND_LE : alu == ALU1_BSF ? COND_E : COND_S, label_ovf));
 		}
 
 		if (alu == ALU1_POPCNT) {
-			g(gen_mov(ctx, OP_SIZE_NATIVE, FR_SCRATCH_1, R_SCRATCH_1));
+			g(gen_mov(ctx, OP_SIZE_NATIVE, FR_SCRATCH_1, reg1));
 			gen_insn(INSN_FP_ALU1, OP_SIZE_NATIVE, FP_ALU1_VCNT8, 0);
 			gen_one(FR_SCRATCH_1);
 			gen_one(FR_SCRATCH_1);
@@ -5483,19 +5483,20 @@ x86_bsf_bsr_popcnt_finish:
 
 		if (mode == MODE_FIXED && alu == ALU1_BSF) {
 			gen_insn(INSN_TEST, i_size(op_size), 0, 1);
-			gen_one(R_SCRATCH_1);
-			gen_one(R_SCRATCH_1);
+			gen_one(reg1);
+			gen_one(reg1);
 		}
 
 		if (alu == ALU1_BSF) {
 			gen_insn(INSN_ALU1, i_size(op_size), ALU1_BREV, ALU1_WRITES_FLAGS(ALU1_BREV));
 			gen_one(R_SCRATCH_1);
-			gen_one(R_SCRATCH_1);
+			gen_one(reg1);
+			reg1 = R_SCRATCH_1;
 		}
 
 		gen_insn(INSN_ALU1, i_size(op_size), ALU1_LZCNT, ALU1_WRITES_FLAGS(ALU1_LZCNT));
 		gen_one(R_SCRATCH_1);
-		gen_one(R_SCRATCH_1);
+		gen_one(reg1);
 
 		if (alu == ALU1_BSR) {
 			g(gen_load_constant(ctx, R_SCRATCH_2, op_size == OP_SIZE_8 ? 63 : 31));
@@ -5527,36 +5528,38 @@ x86_bsf_bsr_popcnt_finish:
 #if defined(ARCH_ALPHA)
 		if (likely(cpu_test_feature(CPU_FEATURE_cix))) {
 			if (mode == MODE_INT) {
-				g(gen_frame_load(ctx, op_size, true, slot_1, 0, R_SCRATCH_1));
-				g(gen_cmp_test_jmp(ctx, INSN_TEST, OP_SIZE_NATIVE, R_SCRATCH_1, R_SCRATCH_1, alu == ALU1_BSR ? COND_LE : alu == ALU1_BSF ? COND_E : COND_S, label_ovf));
+				g(gen_frame_get(ctx, op_size, true, slot_1, 0, R_SCRATCH_1, &reg1));
+				g(gen_cmp_test_jmp(ctx, INSN_TEST, OP_SIZE_NATIVE, reg1, reg1, alu == ALU1_BSR ? COND_LE : alu == ALU1_BSF ? COND_E : COND_S, label_ovf));
 			} else {
-				g(gen_frame_load(ctx, op_size, false, slot_1, 0, R_SCRATCH_1));
-				if (ARCH_PREFERS_SX(op_size))
-					g(gen_extend(ctx, op_size, false, R_SCRATCH_1, R_SCRATCH_1));
+				g(gen_frame_get(ctx, op_size, false, slot_1, 0, R_SCRATCH_1, &reg1));
+				if (ARCH_PREFERS_SX(op_size)) {
+					g(gen_extend(ctx, op_size, false, R_SCRATCH_1, reg1));
+					reg1 = R_SCRATCH_1;
+				}
 			}
 			if (alu == ALU1_POPCNT) {
 				gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_POPCNT, ALU1_WRITES_FLAGS(ALU1_POPCNT));
 				gen_one(R_SCRATCH_2);
-				gen_one(R_SCRATCH_1);
+				gen_one(reg1);
 			}
 			if (alu == ALU1_BSF) {
 				gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_BSF, ALU1_WRITES_FLAGS(ALU1_BSF));
 				gen_one(R_SCRATCH_2);
-				gen_one(R_SCRATCH_1);
+				gen_one(reg1);
 
 				if (mode == MODE_FIXED) {
 					g(gen_imm(ctx, -1, IMM_PURPOSE_MOVR, OP_SIZE_INT));
 					gen_insn(INSN_MOVR, OP_SIZE_NATIVE, COND_E, 0);
 					gen_one(R_SCRATCH_2);
 					gen_one(R_SCRATCH_2);
-					gen_one(R_SCRATCH_1);
+					gen_one(reg1);
 					gen_imm_offset();
 				}
 			}
 			if (alu == ALU1_BSR) {
 				gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_LZCNT, ALU1_WRITES_FLAGS(ALU1_LZCNT));
 				gen_one(R_SCRATCH_2);
-				gen_one(R_SCRATCH_1);
+				gen_one(reg1);
 
 				g(gen_load_constant(ctx, R_SCRATCH_3, OP_SIZE_NATIVE == OP_SIZE_8 ? 63 : 31));
 
@@ -5572,24 +5575,25 @@ x86_bsf_bsr_popcnt_finish:
 #if defined(ARCH_MIPS)
 		if (MIPS_HAS_CLZ && alu != ALU1_POPCNT) {
 			if (mode == MODE_INT) {
-				g(gen_frame_load(ctx, op_size, true, slot_1, 0, R_SCRATCH_1));
-				g(gen_cmp_test_jmp(ctx, INSN_TEST, OP_SIZE_NATIVE, R_SCRATCH_1, R_SCRATCH_1, alu == ALU1_BSR ? COND_LE : alu == ALU1_BSF ? COND_E : COND_S, label_ovf));
+				g(gen_frame_get(ctx, op_size, true, slot_1, 0, R_SCRATCH_1, &reg1));
+				g(gen_cmp_test_jmp(ctx, INSN_TEST, OP_SIZE_NATIVE, reg1, reg1, alu == ALU1_BSR ? COND_LE : alu == ALU1_BSF ? COND_E : COND_S, label_ovf));
 			} else {
-				g(gen_frame_load(ctx, op_size, false, slot_1, 0, R_SCRATCH_1));
+				g(gen_frame_get(ctx, op_size, false, slot_1, 0, R_SCRATCH_1, &reg1));
 			}
 			if (alu == ALU1_BSF) {
 				gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_NEG, ALU1_WRITES_FLAGS(ALU1_NEG));
 				gen_one(R_SCRATCH_2);
-				gen_one(R_SCRATCH_1);
+				gen_one(reg1);
 
 				gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_AND, ALU_WRITES_FLAGS(ALU_AND, false));
 				gen_one(R_SCRATCH_1);
-				gen_one(R_SCRATCH_1);
+				gen_one(reg1);
 				gen_one(R_SCRATCH_2);
+				reg1 = R_SCRATCH_1;
 			}
 			gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_LZCNT, ALU1_WRITES_FLAGS(ALU1_LZCNT));
 			gen_one(R_SCRATCH_2);
-			gen_one(R_SCRATCH_1);
+			gen_one(reg1);
 
 			g(gen_load_constant(ctx, R_SCRATCH_3, OP_SIZE_NATIVE == OP_SIZE_8 ? 63 : 31));
 
@@ -5607,25 +5611,25 @@ x86_bsf_bsr_popcnt_finish:
 			goto do_generic_bsf_bsr_popcnt;
 		if (alu == ALU1_POPCNT && unlikely(!cpu_test_feature(CPU_FEATURE_v206)))
 			goto do_generic_bsf_bsr_popcnt;
-		g(gen_frame_load(ctx, op_size, mode == MODE_INT, slot_1, 0, R_SCRATCH_1));
+		g(gen_frame_get(ctx, op_size, mode == MODE_INT, slot_1, 0, R_SCRATCH_1, &reg1));
 		if (mode == MODE_INT) {
-			g(gen_cmp_test_jmp(ctx, INSN_TEST, i_size(op_size), R_SCRATCH_1, R_SCRATCH_1, alu == ALU1_BSR ? COND_LE : alu == ALU1_BSF ? COND_E : COND_S, label_ovf));
+			g(gen_cmp_test_jmp(ctx, INSN_TEST, i_size(op_size), reg1, reg1, alu == ALU1_BSR ? COND_LE : alu == ALU1_BSF ? COND_E : COND_S, label_ovf));
 		}
 		if (alu == ALU1_POPCNT) {
 			gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_POPCNT, ALU1_WRITES_FLAGS(ALU1_POPCNT));
 			gen_one(R_SCRATCH_2);
-			gen_one(R_SCRATCH_1);
+			gen_one(reg1);
 		}
 		if (alu == ALU1_BSF) {
 			gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_BSF, ALU1_WRITES_FLAGS(ALU1_BSF));
 			gen_one(R_SCRATCH_2);
-			gen_one(R_SCRATCH_1);
+			gen_one(reg1);
 
 			if (mode == MODE_FIXED) {
 				gen_insn(INSN_ALU, i_size(op_size), ALU_AND, 1);
 				gen_one(R_SCRATCH_3);
-				gen_one(R_SCRATCH_1);
-				gen_one(R_SCRATCH_1);
+				gen_one(reg1);
+				gen_one(reg1);
 
 				g(gen_imm(ctx, -1, IMM_PURPOSE_CMOV, OP_SIZE_NATIVE));
 				gen_insn(INSN_CMOV, OP_SIZE_NATIVE, COND_E, 0);
@@ -5637,7 +5641,7 @@ x86_bsf_bsr_popcnt_finish:
 		if (alu == ALU1_BSR) {
 			gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_LZCNT, ALU1_WRITES_FLAGS(ALU1_LZCNT));
 			gen_one(R_SCRATCH_2);
-			gen_one(R_SCRATCH_1);
+			gen_one(reg1);
 
 			g(gen_load_constant(ctx, R_SCRATCH_3, OP_SIZE_NATIVE == OP_SIZE_8 ? 63 : 31));
 
@@ -5658,28 +5662,30 @@ x86_bsf_bsr_popcnt_finish:
 		if (unlikely(!cpu_test_feature(CPU_FEATURE_zbb)))
 			goto do_generic_bsf_bsr_popcnt;
 #endif
-		g(gen_frame_load(ctx, op_size, true, slot_1, 0, R_SCRATCH_1));
+		g(gen_frame_get(ctx, op_size, true, slot_1, 0, R_SCRATCH_1, &reg1));
 		if (mode == MODE_INT) {
-			g(gen_cmp_test_jmp(ctx, INSN_TEST, OP_SIZE_NATIVE, R_SCRATCH_1, R_SCRATCH_1, alu == ALU1_BSR ? COND_LE : alu == ALU1_BSF ? COND_E : COND_S, label_ovf));
+			g(gen_cmp_test_jmp(ctx, INSN_TEST, OP_SIZE_NATIVE, reg1, reg1, alu == ALU1_BSR ? COND_LE : alu == ALU1_BSF ? COND_E : COND_S, label_ovf));
 		} else {
-			if (op_size < OP_SIZE_4)
-				g(gen_extend(ctx, op_size, false, R_SCRATCH_1, R_SCRATCH_1));
+			if (op_size < OP_SIZE_4) {
+				g(gen_extend(ctx, op_size, false, R_SCRATCH_1, reg1));
+				reg1 = R_SCRATCH_1;
+			}
 		}
 		if (alu == ALU1_POPCNT) {
 			gen_insn(INSN_ALU1, maximum(OP_SIZE_4, op_size), ALU1_POPCNT, ALU1_WRITES_FLAGS(ALU1_POPCNT));
 			gen_one(R_SCRATCH_2);
-			gen_one(R_SCRATCH_1);
+			gen_one(reg1);
 		}
 		if (alu == ALU1_BSF) {
 			gen_insn(INSN_ALU1, maximum(OP_SIZE_4, op_size), ALU1_BSF, ALU1_WRITES_FLAGS(ALU1_BSF));
 			gen_one(R_SCRATCH_2);
-			gen_one(R_SCRATCH_1);
+			gen_one(reg1);
 
 			if (mode == MODE_FIXED) {
 				g(gen_imm(ctx, 1, IMM_PURPOSE_CMP, OP_SIZE_NATIVE));
 				gen_insn(INSN_CMP_DEST_REG, OP_SIZE_NATIVE, COND_B, 0);
 				gen_one(R_SCRATCH_3);
-				gen_one(R_SCRATCH_1);
+				gen_one(reg1);
 				gen_imm_offset();
 
 				gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_NEG, ALU1_WRITES_FLAGS(ALU1_NEG));
@@ -5695,7 +5701,7 @@ x86_bsf_bsr_popcnt_finish:
 		if (alu == ALU1_BSR) {
 			gen_insn(INSN_ALU1, maximum(OP_SIZE_4, op_size), ALU1_LZCNT, ALU1_WRITES_FLAGS(ALU1_LZCNT));
 			gen_one(R_SCRATCH_2);
-			gen_one(R_SCRATCH_1);
+			gen_one(reg1);
 
 			g(gen_load_constant(ctx, R_SCRATCH_3, op_size <= OP_SIZE_4 ? 31 : 63));
 
@@ -5718,24 +5724,26 @@ x86_bsf_bsr_popcnt_finish:
 		if (!SPARC_9)
 			goto do_generic_bsf_bsr_popcnt;
 #endif
-		g(gen_frame_load(ctx, op_size, mode == MODE_INT, slot_1, 0, R_SCRATCH_1));
+		g(gen_frame_get(ctx, op_size, mode == MODE_INT, slot_1, 0, R_SCRATCH_1, &reg1));
 		if (mode == MODE_INT) {
-			g(gen_cmp_test_jmp(ctx, INSN_TEST, maximum(op_size, OP_SIZE_4), R_SCRATCH_1, R_SCRATCH_1, alu == ALU1_BSR ? COND_LE : alu == ALU1_BSF ? COND_E : COND_S, label_ovf));
+			g(gen_cmp_test_jmp(ctx, INSN_TEST, maximum(op_size, OP_SIZE_4), reg1, reg1, alu == ALU1_BSR ? COND_LE : alu == ALU1_BSF ? COND_E : COND_S, label_ovf));
 		} else {
-			if (ARCH_PREFERS_SX(op_size) && alu == ALU1_POPCNT && op_size < OP_SIZE_NATIVE)
-				g(gen_extend(ctx, op_size, false, R_SCRATCH_1, R_SCRATCH_1));
+			if (ARCH_PREFERS_SX(op_size) && alu == ALU1_POPCNT && op_size < OP_SIZE_NATIVE) {
+				g(gen_extend(ctx, op_size, false, R_SCRATCH_1, reg1));
+				reg1 = R_SCRATCH_1;
+			}
 		}
 		if (alu == ALU1_POPCNT) {
 			gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_POPCNT, ALU1_WRITES_FLAGS(ALU1_POPCNT));
 			gen_one(R_SCRATCH_1);
-			gen_one(R_SCRATCH_1);
+			gen_one(reg1);
 			g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_1));
 			return true;
 		}
 		if (alu == ALU1_BSF) {
-			g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_SUB, R_SCRATCH_2, R_SCRATCH_1, 1));
+			g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_SUB, R_SCRATCH_2, reg1, 1));
 
-			g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ANDN, R_SCRATCH_2, R_SCRATCH_2, R_SCRATCH_1));
+			g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ANDN, R_SCRATCH_2, R_SCRATCH_2, reg1));
 
 			gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_POPCNT, ALU1_WRITES_FLAGS(ALU1_POPCNT));
 			gen_one(R_SCRATCH_2);
@@ -5815,14 +5823,15 @@ do_conv: {
 		}
 
 		if (src_op_size <= OP_SIZE_NATIVE) {
-			g(gen_frame_load(ctx, src_op_size, true, slot_1, 0, R_SCRATCH_1));
+			g(gen_frame_get(ctx, src_op_size, true, slot_1, 0, R_SCRATCH_1, &reg1));
 		} else {
 			g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, slot_1, 0, R_SCRATCH_1, R_SCRATCH_2));
+			reg1 = R_SCRATCH_1;
 		}
 
 		if (dest_op_size >= src_op_size) {
 			if (dest_op_size <= OP_SIZE_NATIVE) {
-				g(gen_frame_store(ctx, dest_op_size, slot_r, 0, R_SCRATCH_1));
+				g(gen_frame_store(ctx, dest_op_size, slot_r, 0, reg1));
 			} else {
 				if (src_op_size <= OP_SIZE_NATIVE) {
 #if defined(ARCH_X86)
@@ -5832,10 +5841,10 @@ do_conv: {
 					gen_one(R_DX);
 					gen_one(R_AX);
 #else
-					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, R_SCRATCH_2, R_SCRATCH_1, (1U << (OP_SIZE_NATIVE + 3)) - 1, false));
+					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, R_SCRATCH_2, reg1, (1U << (OP_SIZE_NATIVE + 3)) - 1, false));
 #endif
 				}
-				g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, R_SCRATCH_1, R_SCRATCH_2));
+				g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, reg1, R_SCRATCH_2));
 			}
 			return true;
 		} else {
@@ -5864,9 +5873,9 @@ do_conv: {
 				src_op_size = OP_SIZE_NATIVE;
 			}
 			if (src_op_size > dest_op_size) {
-				g(gen_cmp_extended(ctx, OP_SIZE_NATIVE, dest_op_size, R_SCRATCH_1, R_SCRATCH_3, label_ovf));
+				g(gen_cmp_extended(ctx, OP_SIZE_NATIVE, dest_op_size, reg1, R_SCRATCH_3, label_ovf));
 			}
-			g(gen_frame_store(ctx, dest_op_size, slot_r, 0, R_SCRATCH_1));
+			g(gen_frame_store(ctx, dest_op_size, slot_r, 0, reg1));
 			return true;
 		}
 	}
