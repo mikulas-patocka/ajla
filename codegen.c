@@ -7023,7 +7023,7 @@ static bool attr_w gen_eval(struct codegen_context *ctx, frame_t slot_1)
 	return true;
 }
 
-static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, unsigned cond)
+static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, unsigned cond, unsigned reg1)
 {
 	ip_t ip = (ctx->current_position - da(ctx->fn,function)->code) + (jmp_offset / (int)sizeof(code_t));
 	if (likely(!ctx->code_labels[ip])) {
@@ -7042,7 +7042,7 @@ static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, uns
 #endif
 		gen_four(ctx->code_labels[ip]);
 	} else if (cond == 2) {
-		g(gen_jmp_on_zero(ctx, OP_SIZE_NATIVE, R_SCRATCH_1, COND_E, ctx->code_labels[ip]));
+		g(gen_jmp_on_zero(ctx, OP_SIZE_NATIVE, reg1, COND_E, ctx->code_labels[ip]));
 	} else {
 		internal(file_line, "gen_jump: invalid condition %u", cond);
 	}
@@ -7053,6 +7053,7 @@ static bool attr_w gen_cond_jump(struct codegen_context *ctx, frame_t slot, int3
 {
 	unsigned size = log_2(sizeof(ajla_flat_option_t));
 	size_t attr_unused offset;
+	unsigned reg1;
 	if (ctx->registers[slot] >= 0) {
 		goto no_load_op;
 	}
@@ -7068,13 +7069,13 @@ static bool attr_w gen_cond_jump(struct codegen_context *ctx, frame_t slot, int3
 	gen_one(ARG_IMM);
 	gen_eight(0);
 
-	g(gen_jump(ctx, jmp_offset, 1));
+	g(gen_jump(ctx, jmp_offset, 1, -1U));
 	return true;
 #endif
 	goto no_load_op;
 no_load_op:
-	g(gen_frame_load(ctx, size, false, slot, 0, R_SCRATCH_1));
-	g(gen_jump(ctx, jmp_offset, 2));
+	g(gen_frame_get(ctx, size, false, slot, 0, R_SCRATCH_1, &reg1));
+	g(gen_jump(ctx, jmp_offset, 2, reg1));
 	return true;
 }
 
@@ -10158,12 +10159,12 @@ skip_dereference:
 			}
 			case OPCODE_JMP: {
 				int32_t x = get_jump_offset(ctx);
-				g(gen_jump(ctx, x, 0));
+				g(gen_jump(ctx, x, 0, -1U));
 				continue;
 			}
 			case OPCODE_JMP_BACK_16: {
 				int32_t x = get_code(ctx);
-				g(gen_jump(ctx, -x - (int)(2 * sizeof(code_t)), 0));
+				g(gen_jump(ctx, -x - (int)(2 * sizeof(code_t)), 0, -1U));
 				continue;
 			}
 			case OPCODE_JMP_FALSE: {
