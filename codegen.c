@@ -5364,14 +5364,16 @@ do_brev: {
 		if (unlikely(!cpu_test_feature(CPU_FEATURE_armv6t2)))
 			goto do_generic_brev;
 #endif
-		if (op_size > OP_SIZE_NATIVE)
+		if (op_size > OP_SIZE_NATIVE) {
 			g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, slot_1, 0, R_SCRATCH_1, R_SCRATCH_2));
-		else
-			g(gen_frame_load(ctx, op_size, false, slot_1, 0, R_SCRATCH_1));
+			reg1 = R_SCRATCH_1;
+		} else {
+			g(gen_frame_get(ctx, op_size, false, slot_1, 0, R_SCRATCH_1, &reg1));
+		}
 
 		gen_insn(INSN_ALU1, minimum(maximum(OP_SIZE_4, op_size), OP_SIZE_NATIVE), ALU1_BREV, ALU1_WRITES_FLAGS(ALU1_BREV));
 		gen_one(R_SCRATCH_1);
-		gen_one(R_SCRATCH_1);
+		gen_one(reg1);
 		if (op_size <= OP_SIZE_2) {
 			gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(OP_SIZE_4), OP_SIZE_4, ROT_SHR, ROT_WRITES_FLAGS(ROT_SHR));
 			gen_one(R_SCRATCH_1);
