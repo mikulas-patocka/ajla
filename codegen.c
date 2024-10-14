@@ -7433,6 +7433,7 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 	uint32_t escape_label;
 	arg_t i;
 	int64_t retval_offset;
+	unsigned attr_unused reg1;
 
 	escape_label = alloc_escape_label(ctx);
 	if (unlikely(!escape_label))
@@ -7529,14 +7530,14 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 					gen_eight(new_fp_offset + hi_word(OP_SIZE_NATIVE));
 					gen_one(R_SCRATCH_2);
 				} else {
-					g(gen_frame_load(ctx, log_2(t->size), false, src_arg->slot, 0, R_SCRATCH_1));
+					g(gen_frame_get(ctx, log_2(t->size), false, src_arg->slot, 0, R_SCRATCH_1, &reg1));
 
 					gen_insn(INSN_MOV, log_2(t->size), 0, 0);
 					gen_one(ARG_ADDRESS_2 + OP_SIZE_SLOT);
 					gen_one(R_FRAME);
 					gen_one(R_SAVED_2);
 					gen_eight(new_fp_offset);
-					gen_one(R_SCRATCH_1);
+					gen_one(reg1);
 				}
 			} else
 #endif
@@ -7730,6 +7731,7 @@ static bool attr_w gen_structured(struct codegen_context *ctx, frame_t slot_stru
 	uint32_t escape_label;
 	const struct type *struct_type, *elem_type;
 	size_t i;
+	unsigned reg1, reg2;
 
 	escape_label = alloc_escape_label(ctx);
 	if (unlikely(!escape_label))
@@ -7775,11 +7777,11 @@ struct_zero:
 					ajla_assert_lo(struct_type->tag == TYPE_TAG_flat_array, (file_line, "gen_structured: invalid tag %u, expected %u", struct_type->tag, TYPE_TAG_flat_array));
 					g(gen_test_1_cached(ctx, param_slot, escape_label));
 					flag_set(ctx, param_slot, false);
-					g(gen_frame_load(ctx, OP_SIZE_INT, false, param_slot, 0, R_SCRATCH_1));
+					g(gen_frame_get(ctx, OP_SIZE_INT, false, param_slot, 0, R_SCRATCH_1, &reg1));
 
-					g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, R_SCRATCH_1, type_def(struct_type,flat_array)->n_elements, COND_AE, escape_label));
+					g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, reg1, type_def(struct_type,flat_array)->n_elements, COND_AE, escape_label));
 
-					g(gen_scaled_array_address(ctx, type_def(struct_type,flat_array)->base->size, R_SAVED_1, R_SAVED_1, R_SCRATCH_1, 0));
+					g(gen_scaled_array_address(ctx, type_def(struct_type,flat_array)->base->size, R_SAVED_1, R_SAVED_1, reg1, 0));
 
 					struct_type = type_def(struct_type,flat_array)->base;
 					break;
@@ -7846,9 +7848,9 @@ struct_zero:
 					g(gen_test_1_cached(ctx, param_slot, escape_label));
 					flag_set(ctx, param_slot, false);
 
-					g(gen_frame_load(ctx, OP_SIZE_INT, false, param_slot, 0, R_SCRATCH_2));
+					g(gen_frame_get(ctx, OP_SIZE_INT, false, param_slot, 0, R_SCRATCH_2, &reg2));
 
-					g(gen_check_array_len(ctx, R_SCRATCH_1, false, R_SCRATCH_2, COND_AE, escape_label));
+					g(gen_check_array_len(ctx, R_SCRATCH_1, false, reg2, COND_AE, escape_label));
 
 					if (!TYPE_IS_FLAT(e_type) || (e_type->tag == TYPE_TAG_flat_option && !(ctx->args[i].flags & OPCODE_STRUCTURED_FLAG_END))) {
 						g(gen_compare_ptr_tag(ctx, R_SCRATCH_1, DATA_TAG_array_pointers, COND_NE, escape_label, R_SCRATCH_3));
@@ -7858,11 +7860,11 @@ struct_zero:
 						gen_one(R_SCRATCH_1);
 						gen_address_offset();
 
-						g(gen_scaled_array_address(ctx, slot_size, R_SAVED_1, R_SCRATCH_1, R_SCRATCH_2, 0));
+						g(gen_scaled_array_address(ctx, slot_size, R_SAVED_1, R_SCRATCH_1, reg2, 0));
 					} else {
 						g(gen_compare_ptr_tag(ctx, R_SCRATCH_1, DATA_TAG_array_flat, COND_NE, escape_label, R_SCRATCH_3));
 
-						g(gen_scaled_array_address(ctx, e_type->size, R_SAVED_1, R_SCRATCH_1, R_SCRATCH_2, data_array_offset));
+						g(gen_scaled_array_address(ctx, e_type->size, R_SAVED_1, R_SCRATCH_1, reg2, data_array_offset));
 
 						struct_type = e_type;
 					}
