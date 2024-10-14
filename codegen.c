@@ -8584,12 +8584,12 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 		g(gen_frame_get(ctx, OP_SIZE_INT, true, slot_2, 0, R_SCRATCH_4, &reg4));
 		g(gen_jmp_if_negative(ctx, reg4, escape_label));
 
+		g(gen_mov(ctx, i_size(OP_SIZE_INT), R_ARG1, reg4));
+		g(gen_upcall_argument(ctx, 1));
+
 		g(gen_upcall_start(ctx, 3));
 		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, R_FRAME));
 		g(gen_upcall_argument(ctx, 0));
-
-		g(gen_mov(ctx, i_size(OP_SIZE_INT), R_ARG1, reg4));
-		g(gen_upcall_argument(ctx, 1));
 
 		g(gen_load_constant(ctx, R_ARG2, slot_1));
 		g(gen_upcall_argument(ctx, 2));
@@ -8682,11 +8682,7 @@ static bool attr_w gen_scaled_array_address(struct codegen_context *ctx, size_t 
 		}
 
 		if (shift) {
-			gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(OP_SIZE_ADDRESS), OP_SIZE_ADDRESS, ROT_SHL, ROT_WRITES_FLAGS(ROT_SHL));
-			gen_one(reg_dst);
-			gen_one(reg_index);
-			gen_one(ARG_IMM);
-			gen_eight(shift);
+			g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, reg_dst, reg_index, shift, 0));
 			reg_index = reg_dst;
 		}
 	} else {
