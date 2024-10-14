@@ -8763,24 +8763,28 @@ static bool attr_w gen_scaled_array_address(struct codegen_context *ctx, size_t 
 
 		if (shift) {
 			gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(OP_SIZE_ADDRESS), OP_SIZE_ADDRESS, ROT_SHL, ROT_WRITES_FLAGS(ROT_SHL));
-			gen_one(reg_index);
+			gen_one(reg_dst);
 			gen_one(reg_index);
 			gen_one(ARG_IMM);
 			gen_eight(shift);
+			reg_index = reg_dst;
 		}
 	} else {
 		if (ARCH_HAS_MUL) {
 			g(gen_imm(ctx, element_size, IMM_PURPOSE_MUL, i_size(OP_SIZE_ADDRESS)));
 			gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_MUL, ALU_WRITES_FLAGS(ALU_MUL, is_imm()));
-			gen_one(reg_index);
+			gen_one(reg_dst);
 			gen_one(reg_index);
 			gen_imm_offset();
+			reg_index = reg_dst;
 		} else {
 			size_t e_size = element_size;
 			unsigned sh = 0;
 			bool first_match = true;
 
 			g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_CONST_IMM, reg_index));
+			g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), reg_dst, reg_index));
+			reg_index = reg_dst;
 
 			if (!e_size)
 				g(gen_load_constant(ctx, reg_index, 0));
@@ -8836,7 +8840,7 @@ add_offset:
 	return true;
 }
 
-static bool attr_w gen_scaled_array_load(struct codegen_context *ctx, unsigned reg_src, int64_t offset_src, frame_t slot_r)
+static bool attr_w gen_scaled_array_load(struct codegen_context *ctx, unsigned reg_src, unsigned reg_idx, int64_t offset_src, frame_t slot_r)
 {
 	const struct type *t = get_type_of_local(ctx, slot_r);
 #if defined(ARCH_X86)
@@ -8848,7 +8852,7 @@ static bool attr_w gen_scaled_array_load(struct codegen_context *ctx, unsigned r
 			gen_one(reg >= 0 ? reg : R_SCRATCH_2);
 			gen_one(ARG_ADDRESS_2 + shift);
 			gen_one(reg_src);
-			gen_one(R_SCRATCH_2);
+			gen_one(reg_idx);
 			gen_eight(offset_src);
 
 			if (reg < 0) {
@@ -8869,7 +8873,7 @@ static bool attr_w gen_scaled_array_load(struct codegen_context *ctx, unsigned r
 		gen_one(reg >= 0 ? reg : R_SCRATCH_2);
 		gen_one(ARG_ADDRESS_2);
 		gen_one(reg_src);
-		gen_one(R_SCRATCH_2);
+		gen_one(reg_idx);
 		gen_eight(offset_src);
 
 		if (reg < 0) {
@@ -8882,7 +8886,7 @@ static bool attr_w gen_scaled_array_load(struct codegen_context *ctx, unsigned r
 		return true;
 	}
 #endif
-	g(gen_scaled_array_address(ctx, t->size, R_SCRATCH_2, reg_src, R_SCRATCH_2, 0));
+	g(gen_scaled_array_address(ctx, t->size, R_SCRATCH_2, reg_src, reg_idx, 0));
 
 	g(gen_memcpy_to_slot(ctx, slot_r, R_SCRATCH_2, offset_src));
 
@@ -8990,7 +8994,7 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 		if (!(flags & OPCODE_ARRAY_INDEX_IN_RANGE))
 			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, reg2, def->n_elements, COND_AE, escape_label));
 
-		g(gen_scaled_array_load(ctx, R_FRAME, (size_t)slot_1 * slot_size, slot_r));
+		g(gen_scaled_array_load(ctx, R_FRAME, reg2, (size_t)slot_1 * slot_size, slot_r));
 		return true;
 	}
 
@@ -9089,7 +9093,7 @@ no_cmov:
 
 			gen_label(label);
 		}
-		g(gen_scaled_array_load(ctx, R_SCRATCH_1, data_array_offset, slot_r));
+		g(gen_scaled_array_load(ctx, R_SCRATCH_1, reg2, data_array_offset, slot_r));
 		flag_set(ctx, slot_r, false);
 		return true;
 	} else {
