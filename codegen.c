@@ -8577,6 +8577,7 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 {
 	const struct type *content_type, *array_type;
 	uint32_t escape_label;
+	unsigned reg1, reg4;
 
 	escape_label = alloc_escape_label(ctx);
 	if (unlikely(!escape_label))
@@ -8650,11 +8651,11 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 
 		gen_label(got_ptr_label);
 
-		g(gen_frame_load(ctx, OP_SIZE_INT, true, slot_2, 0, R_SCRATCH_1));
-		g(gen_jmp_if_negative(ctx, R_SCRATCH_1, escape_label));
+		g(gen_frame_get(ctx, OP_SIZE_INT, true, slot_2, 0, R_SCRATCH_1, &reg1));
+		g(gen_jmp_if_negative(ctx, reg1, escape_label));
 
 		g(gen_upcall_start(ctx, 2));
-		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, R_SCRATCH_1));
+		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, reg1));
 		g(gen_upcall_argument(ctx, 0));
 
 		g(gen_mov(ctx, i_size(OP_SIZE_SLOT), R_ARG1, R_SCRATCH_4));
@@ -8665,14 +8666,14 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 		g(gen_test_1_cached(ctx, slot_1, escape_label));
 		flag_set(ctx, slot_1, false);
 
-		g(gen_frame_load(ctx, OP_SIZE_INT, true, slot_2, 0, R_SCRATCH_4));
-		g(gen_jmp_if_negative(ctx, R_SCRATCH_3, escape_label));
+		g(gen_frame_get(ctx, OP_SIZE_INT, true, slot_2, 0, R_SCRATCH_4, &reg4));
+		g(gen_jmp_if_negative(ctx, reg4, escape_label));
 
 		g(gen_upcall_start(ctx, 3));
 		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, R_FRAME));
 		g(gen_upcall_argument(ctx, 0));
 
-		g(gen_mov(ctx, i_size(OP_SIZE_INT), R_ARG1, R_SCRATCH_4));
+		g(gen_mov(ctx, i_size(OP_SIZE_INT), R_ARG1, reg4));
 		g(gen_upcall_argument(ctx, 1));
 
 		g(gen_load_constant(ctx, R_ARG2, slot_1));
