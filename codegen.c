@@ -5053,6 +5053,7 @@ do_compare: {
 static bool attr_w gen_alu1(struct codegen_context *ctx, unsigned mode, unsigned op_size, unsigned op, uint32_t label_ovf, frame_t slot_1, frame_t slot_r)
 {
 	unsigned alu;
+	unsigned reg1;
 	switch (mode) {
 		case MODE_FIXED: switch (op) {
 			case OPCODE_FIXED_OP_not:		alu = ALU1_NOT; goto do_alu;
@@ -5172,10 +5173,10 @@ do_alu: {
 			g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, R_SCRATCH_1, R_SCRATCH_2));
 			return true;
 		}
-		g(gen_frame_load(ctx, op_size, mode == MODE_INT && op_size >= OP_SIZE_4 && ARCH_SUPPORTS_TRAPS, slot_1, 0, R_SCRATCH_1));
+		g(gen_frame_get(ctx, op_size, mode == MODE_INT && op_size >= OP_SIZE_4 && ARCH_SUPPORTS_TRAPS, slot_1, 0, R_SCRATCH_1, &reg1));
 #if defined(ARCH_S390)
 		if (alu == ALU1_NOT) {
-			g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_1, R_SCRATCH_1, -1));
+			g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_1, reg1, -1));
 
 			g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_1));
 			return true;
@@ -5184,7 +5185,7 @@ do_alu: {
 #if defined(ARCH_X86)
 		gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(op_size), op_size, alu, (mode == MODE_INT) | ALU1_WRITES_FLAGS(alu));
 		gen_one(R_SCRATCH_1);
-		gen_one(R_SCRATCH_1);
+		gen_one(reg1);
 #else
 		if (mode == MODE_INT) {
 			bool arch_use_flags = ARCH_HAS_FLAGS;
@@ -5193,21 +5194,21 @@ do_alu: {
 			if (op_size == OP_SIZE_NATIVE) {
 				gen_insn(INSN_ALU1, i_size(op_size), alu, ALU1_WRITES_FLAGS(alu));
 				gen_one(R_SCRATCH_2);
-				gen_one(R_SCRATCH_1);
+				gen_one(reg1);
 				if (alu == ALU1_NEG) {
 					gen_insn(INSN_ALU, i_size(op_size), ALU_AND, 1);
 					gen_one(R_CG_SCRATCH);
 					gen_one(R_SCRATCH_2);
-					gen_one(R_SCRATCH_1);
+					gen_one(reg1);
 				} else if (alu == ALU1_INC) {
 					gen_insn(INSN_ALU, i_size(op_size), ALU_ANDN, 1);
 					gen_one(R_CG_SCRATCH);
 					gen_one(R_SCRATCH_2);
-					gen_one(R_SCRATCH_1);
+					gen_one(reg1);
 				} else if (alu == ALU1_DEC) {
 					gen_insn(INSN_ALU, i_size(op_size), ALU_ANDN, 1);
 					gen_one(R_CG_SCRATCH);
-					gen_one(R_SCRATCH_1);
+					gen_one(reg1);
 					gen_one(R_SCRATCH_2);
 				}
 				gen_insn(INSN_JMP_COND, op_size, COND_L, 0);
@@ -5221,14 +5222,14 @@ do_alu: {
 			if (!arch_use_flags && !ARCH_SUPPORTS_TRAPS && ARCH_IS_3ADDRESS && ARCH_HAS_ANDN && op_size == OP_SIZE_NATIVE) {
 				gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(i_size(op_size)), i_size(op_size), alu, ALU1_WRITES_FLAGS(alu));
 				gen_one(R_SCRATCH_2);
-				gen_one(R_SCRATCH_1);
+				gen_one(reg1);
 
 				if (alu == ALU1_NEG) {
-					g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_AND, R_SCRATCH_3, R_SCRATCH_2, R_SCRATCH_1));
+					g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_AND, R_SCRATCH_3, R_SCRATCH_2, reg1));
 				} else if (alu == ALU1_INC) {
-					g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ANDN, R_SCRATCH_3, R_SCRATCH_2, R_SCRATCH_1));
+					g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ANDN, R_SCRATCH_3, R_SCRATCH_2, reg1));
 				} else if (alu == ALU1_DEC) {
-					g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ANDN, R_SCRATCH_3, R_SCRATCH_1, R_SCRATCH_2));
+					g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ANDN, R_SCRATCH_3, reg1, R_SCRATCH_2));
 				}
 				g(gen_jmp_on_zero(ctx, OP_SIZE_NATIVE, R_SCRATCH_3, COND_S, label_ovf));
 
@@ -5239,7 +5240,7 @@ do_alu: {
 			if (op_size <= OP_SIZE_2 || (!arch_use_flags && !ARCH_SUPPORTS_TRAPS)) {
 				int64_t imm = ((alu != ALU1_INC && ARCH_PREFERS_SX(op_size) ? -0x80ULL : 0x80ULL) << (((1 << op_size) - 1) * 8)) - (alu == ALU1_INC);
 
-				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, R_SCRATCH_1, imm, COND_E, label_ovf));
+				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, reg1, imm, COND_E, label_ovf));
 
 				mode = MODE_FIXED;
 			}
@@ -5248,7 +5249,7 @@ do_alu: {
 		if (mode == MODE_INT) {
 			gen_insn(INSN_ALU1_TRAP, op_size, alu, ALU1_WRITES_FLAGS(alu));
 			gen_one(R_SCRATCH_1);
-			gen_one(R_SCRATCH_1);
+			gen_one(reg1);
 			gen_four(label_ovf);
 			g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_1));
 			return true;
@@ -5256,7 +5257,7 @@ do_alu: {
 #endif
 		gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(i_size(op_size)), i_size(op_size), alu, (mode == MODE_INT) | ALU1_WRITES_FLAGS(alu));
 		gen_one(R_SCRATCH_1);
-		gen_one(R_SCRATCH_1);
+		gen_one(reg1);
 #endif
 		if (mode == MODE_INT) {
 			gen_insn(INSN_JMP_COND, maximum(OP_SIZE_4, op_size), COND_O, 0);
