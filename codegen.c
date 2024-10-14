@@ -1117,20 +1117,29 @@ static bool attr_w gen_3address_rot_imm(struct codegen_context *ctx, unsigned si
 
 static bool attr_w gen_2address_alu1(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src, unsigned writes_flags)
 {
+	if (dest != src) {
 #if defined(ARCH_X86)
-	if (dest != src && (alu == ALU1_NOT || alu == ALU1_NEG || alu == ALU1_INC || alu == ALU1_DEC || alu == ALU1_BSWAP)) {
-		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src));
-
-		gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(size), size, alu, ALU1_WRITES_FLAGS(alu) | writes_flags);
-		gen_one(dest);
-		gen_one(dest);
-
-		return true;
-	}
+		if (alu == ALU1_NOT || alu == ALU1_NEG || alu == ALU1_INC || alu == ALU1_DEC || alu == ALU1_BSWAP)
+			goto do_copy;
 #endif
+#if defined(ARCH_S390)
+		if (alu == ALU1_INC || alu == ALU1_DEC)
+			goto do_copy;
+#endif
+	}
 	gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(size), size, alu, ALU1_WRITES_FLAGS(alu) | writes_flags);
 	gen_one(dest);
 	gen_one(src);
+
+	return true;
+
+	goto do_copy;
+do_copy:
+	g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src));
+
+	gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(size), size, alu, ALU1_WRITES_FLAGS(alu) | writes_flags);
+	gen_one(dest);
+	gen_one(dest);
 
 	return true;
 }

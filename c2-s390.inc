@@ -1092,7 +1092,7 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
-	if (unlikely(arg1[0] >= 0x10) || unlikely(arg2[0] != arg1[0]))
+	if (unlikely(arg1[0] >= 0x10) || (unlikely(arg2[0] != arg1[0]) && (alu == ALU1_INC || alu == ALU1_DEC)))
 		goto invl;
 	switch (alu) {
 		case ALU1_NEG:
