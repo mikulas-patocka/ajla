@@ -1003,14 +1003,10 @@ static bool attr_w gen_3address_alu(struct codegen_context *ctx, unsigned size, 
 		src1 = src2;
 		src2 = swap;
 	}
-	if (!ARCH_IS_3ADDRESS && unlikely(dest == src2) && unlikely(dest != src1)) {
+	if (!ARCH_IS_3ADDRESS(alu) && unlikely(dest == src2) && unlikely(dest != src1)) {
 		internal(file_line, "gen_3address_alu: invalid registers: %u, %u, %x, %x, %x", size, alu, dest, src1, src2);
 	}
-	if (!ARCH_IS_3ADDRESS && dest != src1
-#if defined(ARCH_X86)
-		&& alu != ALU_ADD
-#endif
-	    ) {
+	if (!ARCH_IS_3ADDRESS(alu) && dest != src1) {
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src1));
 
 		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(alu, false) | writes_flags);
@@ -1050,15 +1046,7 @@ static bool attr_w gen_3address_alu_imm(struct codegen_context *ctx, unsigned si
 		-1U;
 	if (unlikely(purpose == -1U))
 		internal(file_line, "gen_3address_alu_imm: invalid parameters: size %u, alu %u, dest %u, src %u, imm %"PRIxMAX"", size, alu, dest, src, (uintmax_t)imm);
-	if (
-		dest != src
-#if !defined(ARCH_S390)
-		&& !ARCH_IS_3ADDRESS
-#endif
-#if defined(ARCH_X86)
-		&& alu != ALU_ADD
-#endif
-	    ) {
+	if (!ARCH_IS_3ADDRESS_IMM(alu) && dest != src) {
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src));
 
 		g(gen_imm(ctx, imm, purpose, i_size(OP_SIZE_ADDRESS)));
@@ -1082,7 +1070,7 @@ static bool attr_w attr_unused gen_3address_rot(struct codegen_context *ctx, uns
 {
 	if (unlikely(dest == src2))
 		internal(file_line, "gen_3address_rot: invalid registers: %u, %u, %x, %x, %x", size, alu, dest, src1, src2);
-	if (!ARCH_IS_3ADDRESS && dest != src1) {
+	if (!ARCH_IS_3ADDRESS_ROT(alu) && dest != src1) {
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src1));
 
 		gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(size), size, alu, ROT_WRITES_FLAGS(alu));
@@ -1102,7 +1090,7 @@ static bool attr_w attr_unused gen_3address_rot(struct codegen_context *ctx, uns
 
 static bool attr_w gen_3address_rot_imm(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src, int64_t imm, unsigned writes_flags)
 {
-	if (!ARCH_IS_3ADDRESS && dest != src) {
+	if (!ARCH_IS_3ADDRESS_ROT_IMM(alu) && dest != src) {
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src));
 
 		gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(size), size, alu, ROT_WRITES_FLAGS(alu) | writes_flags);
@@ -1118,34 +1106,24 @@ static bool attr_w gen_3address_rot_imm(struct codegen_context *ctx, unsigned si
 	gen_one(src);
 	gen_one(ARG_IMM);
 	gen_eight(imm);
+
 	return true;
 }
 
 static bool attr_w gen_2address_alu1(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src, unsigned writes_flags)
 {
-	if (dest != src) {
-#if defined(ARCH_X86)
-		if (alu == ALU1_NOT || alu == ALU1_NEG || alu == ALU1_INC || alu == ALU1_DEC || alu == ALU1_BSWAP)
-			goto do_copy;
-#endif
-#if defined(ARCH_S390)
-		if (alu == ALU1_INC || alu == ALU1_DEC)
-			goto do_copy;
-#endif
+	if (!ARCH_IS_2ADDRESS(alu) && dest != src) {
+		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src));
+
+		gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(size), size, alu, ALU1_WRITES_FLAGS(alu) | writes_flags);
+		gen_one(dest);
+		gen_one(dest);
+
+		return true;
 	}
 	gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(size), size, alu, ALU1_WRITES_FLAGS(alu) | writes_flags);
 	gen_one(dest);
 	gen_one(src);
-
-	return true;
-
-	goto do_copy;
-do_copy:
-	g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src));
-
-	gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(size), size, alu, ALU1_WRITES_FLAGS(alu) | writes_flags);
-	gen_one(dest);
-	gen_one(dest);
 
 	return true;
 }
@@ -5139,7 +5117,7 @@ do_alu: {
 				return true;
 			}
 #endif
-			if (!arch_use_flags && !ARCH_SUPPORTS_TRAPS && ARCH_IS_3ADDRESS && ARCH_HAS_ANDN && op_size == OP_SIZE_NATIVE) {
+			if (!arch_use_flags && !ARCH_SUPPORTS_TRAPS && ARCH_HAS_ANDN && op_size == OP_SIZE_NATIVE) {
 				g(gen_2address_alu1(ctx, i_size(op_size), alu, R_SCRATCH_2, reg1, 0));
 
 				if (alu == ALU1_NEG) {
@@ -5849,8 +5827,8 @@ do_alu:
 			return true;
 		}
 #if defined(ARCH_ALPHA)
-		g(gen_frame_get(ctx, op_size, false, slot_1, 0, &reg1));
-		g(gen_frame_get(ctx, op_size, false, slot_2, 0, &reg2));
+		g(gen_frame_get(ctx, op_size, false, slot_1, 0, FR_SCRATCH_1, &reg1));
+		g(gen_frame_get(ctx, op_size, false, slot_2, 0, FR_SCRATCH_2, &reg2));
 		gen_insn(INSN_FP_ALU, op_size, fp_alu, 0);
 		gen_one(FR_SCRATCH_3);
 		gen_one(reg1);

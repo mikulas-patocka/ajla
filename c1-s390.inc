@@ -40,7 +40,11 @@
 #define COND_IS_LOGICAL(cond)		((cond) == COND_B || (cond) == COND_AE || (cond) == COND_BE || (cond) == COND_A)
 
 #define ARCH_PARTIAL_ALU(size)		((size) < OP_SIZE_NATIVE)
-#define ARCH_IS_3ADDRESS		cpu_test_feature(CPU_FEATURE_misc_45)
+#define ARCH_IS_3ADDRESS(alu)		cpu_test_feature(CPU_FEATURE_misc_45)
+#define ARCH_IS_3ADDRESS_IMM(alu)	0
+#define ARCH_IS_3ADDRESS_ROT(alu)	cpu_test_feature(CPU_FEATURE_misc_45)
+#define ARCH_IS_3ADDRESS_ROT_IMM(alu)	0
+#define ARCH_IS_2ADDRESS(alu)		((alu) != ALU1_INC && (alu) != ALU1_DEC)
 #define ARCH_HAS_FLAGS			1
 #define ARCH_PREFERS_SX(size)		1
 #define ARCH_HAS_BWX			1
