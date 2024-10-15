@@ -3202,7 +3202,10 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned attr
 		gen_one(reg);
 		gen_one(reg);
 
-		g(gen_mov(ctx, OP_SIZE_1, reg, reg));
+		if (sizeof(ajla_flat_option_t) > 1) {
+			g(gen_mov(ctx, OP_SIZE_1, reg, reg));
+		}
+
 		return true;
 	}
 	offset = (size_t)slot * slot_size;
