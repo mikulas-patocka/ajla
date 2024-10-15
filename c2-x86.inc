@@ -23,6 +23,10 @@
 #define X86_ALU_AL_IMM8			0x04
 #define X86_ALU_AX_IMM16		0x05
 #define X86_0F				0x0f
+#define X86_ES				0x26
+#define X86_CS				0x2e
+#define X86_SS				0x36
+#define X86_DS				0x3e
 #define X86_REX				0x40
 #define  X86_REX_B				0x01
 #define  X86_REX_X				0x02
@@ -33,6 +37,8 @@
 #define X86_PUSH_R16			0x50
 #define X86_POP_R16			0x58
 #define X86_MOVSXD			0x63
+#define X86_FS				0x64
+#define X86_GS				0x65
 #define X86_OP_SIZE			0x66
 #define X86_PUSH_IMM16			0x68
 #define X86_IMUL_R16_RM16_IMM16		0x69
@@ -261,6 +267,7 @@ static bool attr_w cgen_rm_insn(struct codegen_context *ctx, int16_t sse_prefix,
 		if (unlikely(!imm_is_32bit(imm)))
 			internal(file_line, "cgen_rm_insn: immediate out of range: %"PRIxMAX"", (uintmax_t)imm);
 		if (arg[0] == ARG_ADDRESS_0) {
+address_0:
 			addr_size = 4;
 			mod = 0x00;
 			rm = 0x4;
@@ -283,6 +290,11 @@ static bool attr_w cgen_rm_insn(struct codegen_context *ctx, int16_t sse_prefix,
 		else
 			mod = 0x80;
 		if (arg[0] == ARG_ADDRESS_1) {
+			if (reg_is_segment(arg[1])) {
+				static const uint8_t segments[6] = { X86_ES, X86_CS, X86_SS, X86_DS, X86_FS, X86_GS };
+				cgen_one(segments[arg[1] - R_ES]);
+				goto address_0;
+			}
 			if (arg[1] & 8)
 				rex |= X86_REX_B;
 			if ((arg[1] & 7) == 0x4) {

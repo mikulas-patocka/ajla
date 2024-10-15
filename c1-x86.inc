@@ -79,6 +79,13 @@
 #define R_ST6		0x16
 #define R_ST7		0x17
 
+#define R_ES		0x18
+#define R_CS		0x19
+#define R_SS		0x1a
+#define R_DS		0x1b
+#define R_FS		0x1c
+#define R_GS		0x1d
+
 #define R_XMM0		0x20
 #define R_XMM1		0x21
 #define R_XMM2		0x22
@@ -118,7 +125,8 @@
 /*#define TIMESTAMP_IN_REGISTER*/
 
 #ifndef ARCH_X86_32
-#define R_UPCALL	R_R15
+static uint8_t upcall_register = R_R15;
+#define R_UPCALL	upcall_register
 #ifdef TIMESTAMP_IN_REGISTER
 #define R_TIMESTAMP	R_R14
 #endif
@@ -195,6 +203,11 @@ static bool reg_is_fp(unsigned reg)
 	return reg >= 0x20 && reg < 0x40;
 }
 
+static bool reg_is_segment(unsigned reg)
+{
+	return reg >= 0x18 && reg < 0x1e;
+}
+
 #if defined(ARCH_X86_32)
 
 static const uint8_t regs_saved[] = { R_BX };
@@ -224,12 +237,14 @@ static const uint8_t regs_saved[] = { R_R13,
 #ifndef TIMESTAMP_IN_REGISTER
 	R_R14,
 #endif
+	R_R15,
 	};
+#define n_regs_saved (n_array_elements(regs_saved) - !reg_is_segment(R_UPCALL))
 static const uint8_t regs_volatile[] = { R_SI, R_DI, R_R8, R_R9, R_R10 };
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved 0U
 static const uint8_t fp_volatile[] = { R_XMM2, R_XMM3, R_XMM4, R_XMM5, R_XMM6, R_XMM7, R_XMM8, R_XMM9, R_XMM10, R_XMM11, R_XMM12, R_XMM13, R_XMM14, R_XMM15 };
-#define reg_is_saved(r)	((r) == R_R13 || (r) == R_R14)
+#define reg_is_saved(r)	((r) >= R_R13 && (r) <= R_R15)
 #endif
 
 static bool attr_w imm_is_8bit(int64_t imm)

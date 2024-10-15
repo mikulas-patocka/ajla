@@ -44,6 +44,12 @@
 
 /*#define DEBUG_INSNS*/
 
+#if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI) && defined(HAVE_SYSCALL) && defined(HAVE_ASM_PRCTL_H) && defined(HAVE_SYS_SYSCALL_H)
+#include <asm/prctl.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#endif
+
 code_return_t (*codegen_entry)(frame_s *, struct cg_upcall_vector_s *, tick_stamp_t, void *);
 static void *codegen_ptr;
 static size_t codegen_size;
@@ -10807,9 +10813,16 @@ void name(codegen_init)(void)
 #else
 	codegen_entry = ptr;
 #endif
-
 	done_ctx(ctx);
 
+#if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI) && defined(HAVE_SYSCALL) && defined(HAVE_ASM_PRCTL_H) && defined(HAVE_SYS_SYSCALL_H)
+	if (!dll) {
+		int r;
+		EINTR_LOOP(r, syscall(SYS_arch_prctl, ARCH_SET_GS, &cg_upcall_vector));
+		if (!r)
+			upcall_register = R_GS;
+	}
+#endif
 	return;
 
 fail:
