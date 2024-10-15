@@ -6866,7 +6866,7 @@ static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, uns
 #endif
 		gen_four(ctx->code_labels[ip]);
 	} else if (cond == 2) {
-		g(gen_jmp_on_zero(ctx, OP_SIZE_NATIVE, reg1, COND_E, ctx->code_labels[ip]));
+		g(gen_jmp_on_zero(ctx, log_2(sizeof(ajla_flat_option_t)), reg1, COND_E, ctx->code_labels[ip]));
 	} else {
 		internal(file_line, "gen_jump: invalid condition %u", cond);
 	}
