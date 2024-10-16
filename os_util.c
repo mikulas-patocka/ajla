@@ -22,8 +22,6 @@
 #include "os.h"
 #include "obj_reg.h"
 
-#include <fcntl.h>
-
 #include "os_util.h"
 
 bool os_read_file(const char *path, char **file, size_t *len, ajla_error_t *err)

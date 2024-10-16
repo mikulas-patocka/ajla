@@ -33,7 +33,6 @@
 #include "os.h"
 
 #include <stdio.h>
-#include <fcntl.h>
 #include <unistd.h>
 #include <dirent.h>
 #ifdef HAVE_SYS_SYSMACROS_H

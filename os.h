@@ -244,6 +244,7 @@ void os_get_environment(char **str, size_t *l);
 #include <sys/vfs.h>
 #endif
 #include <termios.h>
+#include <fcntl.h>
 
 #if !defined(HAVE_FCHDIR) || defined(OS_DOS) || defined(OS_CYGWIN) || defined(UNUSUAL_NO_DIR_HANDLES)
 #define NO_DIR_HANDLES

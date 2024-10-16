@@ -31,8 +31,6 @@
 #include "task.h"
 #include "save.h"
 
-#include <fcntl.h>
-
 #include "codegen.h"
 
 #ifdef HAVE_CODEGEN
