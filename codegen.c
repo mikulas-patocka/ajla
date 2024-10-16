@@ -4578,11 +4578,12 @@ do_shift: {
 #endif
 		g(gen_frame_get(ctx, op_size, sx, slot_1, 0, R_SCRATCH_1, &reg1));
 #if defined(ARCH_X86)
-		g(gen_frame_load(ctx, op_size, false, slot_2, 0, R_SCRATCH_3));
-		reg3 = R_SCRATCH_3;
-#else
-		g(gen_frame_get(ctx, op_size, false, slot_2, 0, R_SCRATCH_3, &reg3));
+		if (!ARCH_IS_3ADDRESS_ROT(alu, op_size)) {
+			g(gen_frame_load(ctx, op_size, false, slot_2, 0, R_SCRATCH_3));
+			reg3 = R_SCRATCH_3;
+		} else
 #endif
+		g(gen_frame_get(ctx, op_size, false, slot_2, 0, R_SCRATCH_3, &reg3));
 		if (ARCH_PREFERS_SX(op_size) && !sx && op_size < op_s) {
 			g(gen_extend(ctx, op_size, false, R_SCRATCH_1, reg1));
 			reg1 = R_SCRATCH_1;
