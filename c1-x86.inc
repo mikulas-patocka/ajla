@@ -38,8 +38,8 @@
 #define COND_IS_LOGICAL(cond)		0
 
 #define ARCH_PARTIAL_ALU(size)		((size) <= OP_SIZE_2)
-#define ARCH_IS_3ADDRESS(alu)		((alu) == ALU_ADD)
-#define ARCH_IS_3ADDRESS_IMM(alu)	((alu) == ALU_ADD)
+#define ARCH_IS_3ADDRESS(alu, f)	((alu) == ALU_ADD && !(f))
+#define ARCH_IS_3ADDRESS_IMM(alu, f)	((alu) == ALU_ADD && !(f))
 #define ARCH_IS_3ADDRESS_ROT(alu)	0
 #define ARCH_IS_3ADDRESS_ROT_IMM(alu)	0
 #define ARCH_IS_2ADDRESS(alu)		((alu) == ALU1_BSF || (alu) == ALU1_BSR || (alu) == ALU1_LZCNT || (alu) == ALU1_POPCNT)

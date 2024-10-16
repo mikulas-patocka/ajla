@@ -1003,10 +1003,10 @@ static bool attr_w gen_3address_alu(struct codegen_context *ctx, unsigned size, 
 		src1 = src2;
 		src2 = swap;
 	}
-	if (!ARCH_IS_3ADDRESS(alu) && unlikely(dest == src2) && unlikely(dest != src1)) {
+	if (!ARCH_IS_3ADDRESS(alu, writes_flags) && unlikely(dest == src2) && unlikely(dest != src1)) {
 		internal(file_line, "gen_3address_alu: invalid registers: %u, %u, %x, %x, %x", size, alu, dest, src1, src2);
 	}
-	if (!ARCH_IS_3ADDRESS(alu) && dest != src1) {
+	if (!ARCH_IS_3ADDRESS(alu, writes_flags) && dest != src1) {
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src1));
 
 		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(alu, false) | writes_flags);
@@ -1023,7 +1023,7 @@ static bool attr_w gen_3address_alu(struct codegen_context *ctx, unsigned size, 
 	return true;
 }
 
-static bool attr_w gen_3address_alu_imm(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src, int64_t imm)
+static bool attr_w gen_3address_alu_imm(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src, int64_t imm, unsigned writes_flags)
 {
 	unsigned purpose =
 		alu == ALU_ADD ? IMM_PURPOSE_ADD :
@@ -1046,11 +1046,11 @@ static bool attr_w gen_3address_alu_imm(struct codegen_context *ctx, unsigned si
 		-1U;
 	if (unlikely(purpose == -1U))
 		internal(file_line, "gen_3address_alu_imm: invalid parameters: size %u, alu %u, dest %u, src %u, imm %"PRIxMAX"", size, alu, dest, src, (uintmax_t)imm);
-	if (!ARCH_IS_3ADDRESS_IMM(alu) && dest != src) {
+	if (!ARCH_IS_3ADDRESS_IMM(alu, writes_flags) && dest != src) {
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src));
 
 		g(gen_imm(ctx, imm, purpose, i_size(OP_SIZE_ADDRESS)));
-		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(alu, is_imm()));
+		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(alu, is_imm()) | writes_flags);
 		gen_one(dest);
 		gen_one(dest);
 		gen_imm_offset();
@@ -1058,7 +1058,7 @@ static bool attr_w gen_3address_alu_imm(struct codegen_context *ctx, unsigned si
 		return true;
 	}
 	g(gen_imm(ctx, imm, purpose, i_size(OP_SIZE_ADDRESS)));
-	gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(alu, is_imm()));
+	gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(alu, is_imm()) | writes_flags);
 	gen_one(dest);
 	gen_one(src);
 	gen_imm_offset();
@@ -1161,7 +1161,7 @@ static bool attr_w attr_unused gen_load_two(struct codegen_context *ctx, unsigne
 		gen_one(dest);
 		gen_address_offset();
 
-		g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_AND, dest, dest, 0xffff));
+		g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_AND, dest, dest, 0xffff, 0));
 #endif
 	} else {
 		g(gen_address(ctx, src, offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_2));
@@ -1177,7 +1177,7 @@ static bool attr_w gen_load_code_32(struct codegen_context *ctx, unsigned dest, 
 #if ARG_MODE_N == 3 && defined(ARCH_ALPHA) && !(defined(C_BIG_ENDIAN) ^ CODE_ENDIAN)
 	if (!ARCH_HAS_BWX && UNALIGNED_TRAP) {
 		if (offset & 7) {
-			g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_ADD, R_OFFSET_IMM, src, offset));
+			g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_ADD, R_OFFSET_IMM, src, offset, 0));
 			src = R_OFFSET_IMM;
 			offset = 0;
 		}
@@ -1313,7 +1313,7 @@ static bool attr_w attr_unused gen_cmp_dest_reg(struct codegen_context *ctx, uns
 	goto done;
 done:
 	if (neg_result)
-		g(gen_3address_alu_imm(ctx, i_size(size), ALU_XOR, reg_dest, reg_dest, 1));
+		g(gen_3address_alu_imm(ctx, i_size(size), ALU_XOR, reg_dest, reg_dest, 1, 0));
 
 	return true;
 }
@@ -1527,7 +1527,7 @@ static bool attr_w gen_cmp_test_imm_jmp(struct codegen_context *ctx, unsigned in
 			gen_one(reg1);
 			gen_one(R_CONST_IMM);
 		} else if (cond == COND_NE) {
-			g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_XOR, R_CMP_RESULT, reg1, value));
+			g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_XOR, R_CMP_RESULT, reg1, value, 0));
 		} else
 #endif
 #if defined(ARCH_MIPS)
@@ -1567,7 +1567,7 @@ static bool attr_w gen_cmp_test_imm_jmp(struct codegen_context *ctx, unsigned in
 #if defined(ARCH_IA64)
 		internal(file_line, "gen_cmp_test_imm_jmp: value %"PRIxMAX" not supported", (uintmax_t)value);
 #endif
-		g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_AND, R_CMP_RESULT, reg1, value));
+		g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_AND, R_CMP_RESULT, reg1, value, 0));
 
 		gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, cond, 0);
 		gen_one(R_CMP_RESULT);
@@ -1767,9 +1767,9 @@ static bool attr_w gen_set_1(struct codegen_context *ctx, unsigned base, frame_t
 		gen_one(R_SCRATCH_NA_1);
 		gen_imm_offset();
 	} else if (!val) {
-		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_BITMAP), ALU_AND, R_SCRATCH_NA_1, R_SCRATCH_NA_1, ~((uintptr_t)1 << bit)));
+		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_BITMAP), ALU_AND, R_SCRATCH_NA_1, R_SCRATCH_NA_1, ~((uintptr_t)1 << bit), 0));
 	} else {
-		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_BITMAP), val ? ALU_OR : ALU_ANDN, R_SCRATCH_NA_1, R_SCRATCH_NA_1, (uintptr_t)1 << bit));
+		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_BITMAP), val ? ALU_OR : ALU_ANDN, R_SCRATCH_NA_1, R_SCRATCH_NA_1, (uintptr_t)1 << bit, 0));
 	}
 
 	g(gen_address(ctx, base, offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_BITMAP));
@@ -1786,9 +1786,9 @@ static bool attr_w gen_set_1(struct codegen_context *ctx, unsigned base, frame_t
 		gen_address_offset();
 
 		if (!val) {
-			g(gen_3address_alu_imm(ctx, OP_SIZE_8, ALU_MSKBL, R_SCRATCH_NA_1, R_SCRATCH_NA_1, slot_1 & 7));
+			g(gen_3address_alu_imm(ctx, OP_SIZE_8, ALU_MSKBL, R_SCRATCH_NA_1, R_SCRATCH_NA_1, slot_1 & 7, 0));
 		} else {
-			g(gen_3address_alu_imm(ctx, OP_SIZE_8, ALU_OR, R_SCRATCH_NA_1, R_SCRATCH_NA_1, 1ULL << ((slot_1 & 7) * 8)));
+			g(gen_3address_alu_imm(ctx, OP_SIZE_8, ALU_OR, R_SCRATCH_NA_1, R_SCRATCH_NA_1, 1ULL << ((slot_1 & 7) * 8), 0));
 		}
 
 		g(gen_address(ctx, base, offset + (slot_1 & ~7), IMM_PURPOSE_STR_OFFSET, OP_SIZE_8));
@@ -1846,7 +1846,7 @@ static bool attr_w gen_set_1_variable(struct codegen_context *ctx, unsigned slot
 		goto save_it;
 	}
 	if (ARCH_SHIFT_SIZE > OP_SIZE_BITMAP) {
-		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_BITMAP), ALU_AND, R_SCRATCH_NA_3, slot_reg, (1U << (OP_SIZE_BITMAP + 3)) - 1));
+		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_BITMAP), ALU_AND, R_SCRATCH_NA_3, slot_reg, (1U << (OP_SIZE_BITMAP + 3)) - 1, 0));
 
 		g(gen_load_constant(ctx, R_SCRATCH_NA_2, 1));
 
@@ -1974,9 +1974,9 @@ static bool attr_w gen_test_1(struct codegen_context *ctx, unsigned base, frame_
 			gen_one(R_SCRATCH_NA_1);
 			gen_imm_offset();
 		} else if (test == TEST_CLEAR) {
-			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_BITMAP), ALU_AND, R_SCRATCH_NA_2, R_SCRATCH_NA_1, ~((uintptr_t)1 << bit)));
+			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_BITMAP), ALU_AND, R_SCRATCH_NA_2, R_SCRATCH_NA_1, ~((uintptr_t)1 << bit), 0));
 		} else {
-			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_BITMAP), test == TEST_SET ? ALU_OR : ALU_ANDN, R_SCRATCH_NA_2, R_SCRATCH_NA_1, (uintptr_t)1 << bit));
+			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_BITMAP), test == TEST_SET ? ALU_OR : ALU_ANDN, R_SCRATCH_NA_2, R_SCRATCH_NA_1, (uintptr_t)1 << bit, 0));
 		}
 
 		g(gen_address(ctx, base, offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_BITMAP));
@@ -2003,10 +2003,10 @@ static bool attr_w gen_test_1(struct codegen_context *ctx, unsigned base, frame_
 		} else {
 #if defined(ARCH_S390)
 			if (test == TEST_CLEAR)
-				g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_BITMAP), ALU_AND, R_SCRATCH_NA_1, R_SCRATCH_NA_1, ~((uintptr_t)1 << bit)));
+				g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_BITMAP), ALU_AND, R_SCRATCH_NA_1, R_SCRATCH_NA_1, ~((uintptr_t)1 << bit), 0));
 			else
 #endif
-				g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_BITMAP), test == TEST_SET ? ALU_OR : ALU_XOR, R_SCRATCH_NA_1, R_SCRATCH_NA_1, (uintptr_t)1 << bit));
+				g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_BITMAP), test == TEST_SET ? ALU_OR : ALU_XOR, R_SCRATCH_NA_1, R_SCRATCH_NA_1, (uintptr_t)1 << bit, 0));
 		}
 		g(gen_address(ctx, base, offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_BITMAP));
 		gen_insn(INSN_MOV, OP_SIZE_BITMAP, 0, 0);
@@ -2040,7 +2040,7 @@ static bool attr_w gen_test_1(struct codegen_context *ctx, unsigned base, frame_
 		gen_one(R_SCRATCH_NA_2);
 		gen_address_offset();
 
-		g(gen_3address_alu_imm(ctx, OP_SIZE_8, ALU_EXTBL, R_SCRATCH_NA_2, R_SCRATCH_NA_2, slot_1 & 7));
+		g(gen_3address_alu_imm(ctx, OP_SIZE_8, ALU_EXTBL, R_SCRATCH_NA_2, R_SCRATCH_NA_2, slot_1 & 7, 0));
 #endif
 	} else {
 		g(gen_address(ctx, base, offset + slot_1, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
@@ -2176,7 +2176,7 @@ dont_optimize:
 			gen_one(R_SCRATCH_1);
 			gen_address_offset();
 
-			g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_ZAPNOT, R_SCRATCH_1, R_SCRATCH_1, (1U << (slot_1 & 7)) | (1U << (slot_2 & 7))));
+			g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_ZAPNOT, R_SCRATCH_1, R_SCRATCH_1, (1U << (slot_1 & 7)) | (1U << (slot_2 & 7)), 0));
 
 			g(gen_jmp_on_zero(ctx, OP_SIZE_8, R_SCRATCH_1, COND_NE, label));
 		} else {
@@ -2345,7 +2345,7 @@ static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *varia
 			gen_one(R_SCRATCH_1);
 			gen_address_offset();
 
-			g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_ZAPNOT, R_SCRATCH_1, R_SCRATCH_1, mask));
+			g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_ZAPNOT, R_SCRATCH_1, R_SCRATCH_1, mask, 0));
 
 			g(gen_jmp_on_zero(ctx, OP_SIZE_8, R_SCRATCH_1, COND_NE, label));
 		}
@@ -2437,7 +2437,7 @@ static bool attr_w gen_test_1_jz_cached(struct codegen_context *ctx, frame_t slo
 static bool attr_w gen_frame_address(struct codegen_context *ctx, frame_t slot, int64_t offset, unsigned reg)
 {
 	offset += (size_t)slot * slot_size;
-	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, reg, R_FRAME, offset));
+	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, reg, R_FRAME, offset, 0));
 	return true;
 }
 
@@ -2989,7 +2989,7 @@ static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg
 	gen_one(reg);
 	gen_eight(offsetof(struct data, refcount_));
 
-	g(gen_3address_alu_imm(ctx, log_2(sizeof(refcount_int_t)), ALU_AND, tmp_reg, tmp_reg, REFCOUNT_STEP - 1));
+	g(gen_3address_alu_imm(ctx, log_2(sizeof(refcount_int_t)), ALU_AND, tmp_reg, tmp_reg, REFCOUNT_STEP - 1, 0));
 #endif
 #else
 #if defined(ARCH_S390)
@@ -3075,7 +3075,7 @@ static bool attr_w gen_decompress_pointer(struct codegen_context *ctx, unsigned 
 	g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, reg, reg, POINTER_COMPRESSION, false));
 #endif
 	if (offset)
-		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, reg, reg, offset));
+		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, reg, reg, offset, 0));
 	return true;
 }
 
@@ -3361,7 +3361,7 @@ static bool attr_w gen_extend(struct codegen_context *ctx, unsigned op_size, boo
 	}
 #if defined(ARCH_ALPHA)
 	if (!sx) {
-		g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_ZAPNOT, dest, src, op_size == OP_SIZE_1 ? 0x1 : op_size == OP_SIZE_2 ? 0x3 : 0xf));
+		g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_ZAPNOT, dest, src, op_size == OP_SIZE_1 ? 0x1 : op_size == OP_SIZE_2 ? 0x3 : 0xf, 0));
 		return true;
 	} else if (op_size == OP_SIZE_4 || ARCH_HAS_BWX) {
 		gen_insn(INSN_MOVSX, op_size, 0, 0);
@@ -3456,7 +3456,7 @@ static bool attr_w gen_lea3(struct codegen_context *ctx, unsigned dest, unsigned
 	gen_eight(likely(imm_is_32bit(offset)) ? offset : 0);
 
 	if (unlikely(!imm_is_32bit(offset)))
-		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, dest, dest, offset));
+		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, dest, dest, offset, 0));
 
 	return true;
 #endif
@@ -3484,7 +3484,7 @@ static bool attr_w gen_lea3(struct codegen_context *ctx, unsigned dest, unsigned
 	g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ADD, dest, dest, base, 0));
 
 	if (offset)
-		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, dest, dest, offset));
+		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, dest, dest, offset, 0));
 	return true;
 }
 
@@ -3579,15 +3579,15 @@ call_memcpy:
 	if (unlikely(R_ARG0 == src_base)) {
 		if (unlikely(R_ARG1 == dest_base))
 			internal(file_line, "gen_memcpy_raw: swapped registers: %u, %u", src_base, dest_base);
-		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG1, src_base, src_offset));
+		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG1, src_base, src_offset, 0));
 		g(gen_upcall_argument(ctx, 1));
 	}
 
-	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG0, dest_base, dest_offset));
+	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG0, dest_base, dest_offset, 0));
 	g(gen_upcall_argument(ctx, 0));
 
 	if (R_ARG0 != src_base) {
-		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG1, src_base, src_offset));
+		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG1, src_base, src_offset, 0));
 		g(gen_upcall_argument(ctx, 1));
 	}
 
@@ -3770,7 +3770,7 @@ next_loop:
 		gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
 		gen_one(R_DI);
 
-		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_DI, dest_base, dest_offset));
+		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_DI, dest_base, dest_offset, 0));
 
 		g(gen_load_constant(ctx, R_CX, (size_t)bitmap_slots * slot_size));
 
@@ -3791,7 +3791,7 @@ next_loop:
 #endif
 	g(gen_upcall_start(ctx, 2));
 
-	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG0, dest_base, dest_offset));
+	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG0, dest_base, dest_offset, 0));
 	g(gen_upcall_argument(ctx, 0));
 
 	g(gen_load_constant(ctx, R_ARG1, (size_t)bitmap_slots * slot_size));
@@ -4647,7 +4647,7 @@ do_shift: {
 			}
 #endif
 			if (must_mask) {
-				g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_4), ALU_AND, R_SCRATCH_3, reg3, (1U << (op_size + 3)) - 1));
+				g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_4), ALU_AND, R_SCRATCH_3, reg3, (1U << (op_size + 3)) - 1, 0));
 				reg3 = R_SCRATCH_3;
 			}
 		}
@@ -4718,7 +4718,7 @@ do_shift: {
 			g(gen_3address_rot(ctx, op_s, alu == ROT_ROL ? ROT_SHL : ROT_SHR, R_SCRATCH_2, reg1, reg3));
 			g(gen_2address_alu1(ctx, i_size(OP_SIZE_4), ALU1_NEG, R_SCRATCH_3, reg3, 0));
 			if (must_mask) {
-				g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_4), ALU_AND, R_SCRATCH_3, R_SCRATCH_3, (1U << (op_size + 3)) - 1));
+				g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_4), ALU_AND, R_SCRATCH_3, R_SCRATCH_3, (1U << (op_size + 3)) - 1, 0));
 			}
 			g(gen_3address_rot(ctx, op_s, alu == ROT_ROL ? ROT_SHR : ROT_SHL, R_SCRATCH_1, reg1, R_SCRATCH_3));
 			g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_OR, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_2, 0));
@@ -4817,7 +4817,7 @@ do_bt: {
 #endif
 		}
 		if (need_mask) {
-			g(gen_3address_alu_imm(ctx, OP_SIZE_4, ALU_AND, R_SCRATCH_2, reg2, (1U << (op_size + 3)) - 1));
+			g(gen_3address_alu_imm(ctx, OP_SIZE_4, ALU_AND, R_SCRATCH_2, reg2, (1U << (op_size + 3)) - 1, 0));
 			reg2 = R_SCRATCH_2;
 		}
 		if (alu == BTX_BT) {
@@ -4854,7 +4854,7 @@ do_bt: {
 		goto do_generic_bt;
 do_generic_bt:
 		if (mode == MODE_FIXED && op_size < ARCH_SHIFT_SIZE) {
-			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_4), ALU_AND, R_SCRATCH_2, reg2, (1U << (op_size + 3)) - 1));
+			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_4), ALU_AND, R_SCRATCH_2, reg2, (1U << (op_size + 3)) - 1, 0));
 			reg2 = R_SCRATCH_2;
 		}
 		g(gen_load_constant(ctx, R_SCRATCH_3, 1));
@@ -4882,7 +4882,7 @@ do_generic_bt:
 				break;
 			case BTX_BTR:
 				if (!ARCH_HAS_ANDN) {
-					g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_3, R_SCRATCH_3, -1));
+					g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_3, R_SCRATCH_3, -1, 0));
 
 					g(gen_3address_alu(ctx, i_size(op_size), ALU_AND, R_SCRATCH_1, reg1, R_SCRATCH_3, 0));
 					break;
@@ -5087,7 +5087,7 @@ do_alu: {
 		g(gen_frame_get(ctx, op_size, mode == MODE_INT && op_size >= OP_SIZE_4 && ARCH_SUPPORTS_TRAPS, slot_1, 0, R_SCRATCH_1, &reg1));
 #if defined(ARCH_S390)
 		if (alu == ALU1_NOT) {
-			g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_1, reg1, -1));
+			g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_1, reg1, -1, 0));
 
 			g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_1));
 			return true;
@@ -5167,7 +5167,7 @@ do_alu: {
 do_bool_not: {
 		g(gen_frame_get(ctx, op_size, false, slot_1, 0, R_SCRATCH_1, &reg1));
 
-		g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_1, reg1, 1));
+		g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_1, reg1, 1, 0));
 
 		g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_1));
 		return true;
@@ -5559,7 +5559,7 @@ x86_bsf_bsr_popcnt_finish:
 			return true;
 		}
 		if (alu == ALU1_BSF) {
-			g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_SUB, R_SCRATCH_2, reg1, 1));
+			g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_SUB, R_SCRATCH_2, reg1, 1, 0));
 
 			g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ANDN, R_SCRATCH_2, R_SCRATCH_2, reg1, 0));
 
@@ -7129,7 +7129,7 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 				g(gen_load_constant(ctx, R_ARG1, src_arg->slot));
 				g(gen_upcall_argument(ctx, 1));
 
-				g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG2, R_FRAME, (size_t)src_arg->slot * slot_size));
+				g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG2, R_FRAME, (size_t)src_arg->slot * slot_size, 0));
 				g(gen_upcall_argument(ctx, 2));
 
 				g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 3));
@@ -7206,9 +7206,9 @@ skip_ref_argument:
 	g(gen_frame_store_raw(ctx, OP_SIZE_ADDRESS, 0, frame_offs(function) + new_fp_offset, R_SCRATCH_1));
 
 #if !defined(ARCH_X86) && !defined(ARCH_PARISC)
-	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_SUB, R_FRAME, R_FRAME, -new_fp_offset));
+	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_SUB, R_FRAME, R_FRAME, -new_fp_offset, 0));
 #else
-	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_FRAME, R_FRAME, new_fp_offset));
+	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_FRAME, R_FRAME, new_fp_offset, 0));
 #endif
 
 	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.function.codegen), ARCH_PREFERS_SX(OP_SIZE_SLOT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_SLOT));
@@ -7374,7 +7374,7 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 			g(gen_load_constant(ctx, R_ARG1, src_arg->slot));
 			g(gen_upcall_argument(ctx, 1));
 
-			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG2, R_FRAME, (size_t)src_arg->slot * slot_size));
+			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG2, R_FRAME, (size_t)src_arg->slot * slot_size, 0));
 			g(gen_upcall_argument(ctx, 2));
 
 			g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 3));
@@ -7460,7 +7460,7 @@ scaled_store_done:
 
 	g(gen_load_code_32(ctx, R_SCRATCH_2, R_SAVED_1, retval_offset + 2));
 
-	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_FRAME, R_FRAME, new_fp_offset));
+	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_FRAME, R_FRAME, new_fp_offset, 0));
 
 #if defined(ARCH_X86) && !defined(ARCH_X86_X32)
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
@@ -7628,7 +7628,7 @@ struct_zero:
 						g(gen_test_1(ctx, R_SCRATCH_1, param_slot, data_record_offset, escape_label, false, TEST));
 						struct_type = e_type;
 					}
-					g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_SAVED_1, R_SCRATCH_1, data_record_offset + (size_t)param_slot * slot_size));
+					g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_SAVED_1, R_SCRATCH_1, data_record_offset + (size_t)param_slot * slot_size, 0));
 					break;
 				}
 				case OPCODE_STRUCTURED_OPTION: {
@@ -7650,7 +7650,7 @@ struct_zero:
 
 					g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(op_size), R_SCRATCH_2, param_slot, COND_NE, escape_label));
 #endif
-					g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_SAVED_1, R_SCRATCH_1, offsetof(struct data, u_.option.pointer)));
+					g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_SAVED_1, R_SCRATCH_1, offsetof(struct data, u_.option.pointer), 0));
 					break;
 				}
 				case OPCODE_STRUCTURED_ARRAY: {
@@ -7822,7 +7822,7 @@ static bool attr_w gen_record_create(struct codegen_context *ctx, frame_t slot_r
 				g(gen_load_constant(ctx, R_ARG1, var_slot));
 				g(gen_upcall_argument(ctx, 1));
 
-				g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG2, R_FRAME, (size_t)var_slot * slot_size));
+				g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG2, R_FRAME, (size_t)var_slot * slot_size, 0));
 				g(gen_upcall_argument(ctx, 2));
 
 				g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 3));
@@ -8017,7 +8017,7 @@ static bool attr_w gen_option_create(struct codegen_context *ctx, ajla_option_t 
 		g(gen_load_constant(ctx, R_ARG1, slot_1));
 		g(gen_upcall_argument(ctx, 1));
 
-		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG2, R_FRAME, (size_t)slot_1 * slot_size));
+		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG2, R_FRAME, (size_t)slot_1 * slot_size, 0));
 		g(gen_upcall_argument(ctx, 2));
 
 		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 3));
@@ -8444,7 +8444,7 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 			g(gen_load_constant(ctx, R_ARG1, slot_1));
 			g(gen_upcall_argument(ctx, 1));
 
-			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG2, R_FRAME, (size_t)slot_1 * slot_size));
+			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG2, R_FRAME, (size_t)slot_1 * slot_size, 0));
 			g(gen_upcall_argument(ctx, 2));
 
 			g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 3));
@@ -8843,7 +8843,7 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 		gen_one(R_SCRATCH_1);
 		gen_address_offset();
 #elif defined(ARCH_LOONGARCH64) || defined(ARCH_MIPS) || defined(ARCH_RISCV64)
-		g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_XOR, R_SCRATCH_4, R_SCRATCH_4, DATA_TAG_array_slice));
+		g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_XOR, R_SCRATCH_4, R_SCRATCH_4, DATA_TAG_array_slice, 0));
 
 		label = alloc_label(ctx);
 		if (unlikely(!label))
@@ -9242,7 +9242,7 @@ static bool attr_w gen_array_append_one_flat(struct codegen_context *ctx, frame_
 
 	g(gen_check_array_len(ctx, R_SAVED_1, true, R_SCRATCH_2, COND_E, escape_label));
 
-	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_INT), ALU_ADD, R_SCRATCH_1, R_SCRATCH_2, 1));
+	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_INT), ALU_ADD, R_SCRATCH_1, R_SCRATCH_2, 1, 0));
 
 	g(gen_address(ctx, R_SAVED_1, offsetof(struct data, u_.array_flat.n_used_entries), IMM_PURPOSE_STR_OFFSET, OP_SIZE_INT));
 	gen_insn(INSN_MOV, OP_SIZE_INT, 0, 0);
@@ -9295,7 +9295,7 @@ static bool attr_w gen_array_append_one(struct codegen_context *ctx, frame_t slo
 
 	g(gen_frame_get_pointer(ctx, slot_2, (flags & OPCODE_FLAG_FREE_ARGUMENT_2) != 0, R_SCRATCH_2));
 
-	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_INT), ALU_ADD, R_SCRATCH_1, R_SAVED_2, 1));
+	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_INT), ALU_ADD, R_SCRATCH_1, R_SAVED_2, 1, 0));
 
 	g(gen_address(ctx, R_SAVED_1, offsetof(struct data, u_.array_pointers.n_used_entries), IMM_PURPOSE_STR_OFFSET, OP_SIZE_INT));
 	gen_insn(INSN_MOV, OP_SIZE_INT, 0, 0);
