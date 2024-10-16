@@ -10747,6 +10747,15 @@ void name(codegen_init)(void)
 	struct codegen_context *ctx = &ctx_;
 	void *ptr;
 
+#if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI) && defined(HAVE_SYSCALL) && defined(HAVE_ASM_PRCTL_H) && defined(HAVE_SYS_SYSCALL_H)
+	if (!dll) {
+		int r;
+		EINTR_LOOP(r, syscall(SYS_arch_prctl, ARCH_SET_GS, &cg_upcall_vector));
+		if (!r)
+			upcall_register = R_GS;
+	}
+#endif
+
 	init_ctx(ctx);
 	ctx->fn = NULL;
 
@@ -10793,14 +10802,6 @@ void name(codegen_init)(void)
 #endif
 	done_ctx(ctx);
 
-#if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI) && defined(HAVE_SYSCALL) && defined(HAVE_ASM_PRCTL_H) && defined(HAVE_SYS_SYSCALL_H)
-	if (!dll) {
-		int r;
-		EINTR_LOOP(r, syscall(SYS_arch_prctl, ARCH_SET_GS, &cg_upcall_vector));
-		if (!r)
-			upcall_register = R_GS;
-	}
-#endif
 	return;
 
 fail:

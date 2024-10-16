@@ -439,9 +439,11 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(R_FRAME);
 	gen_one(R_ARG0);
 
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-	gen_one(R_UPCALL);
-	gen_one(R_ARG1);
+	if (!reg_is_segment(R_UPCALL)) {
+		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+		gen_one(R_UPCALL);
+		gen_one(R_ARG1);
+	}
 #ifdef TIMESTAMP_IN_REGISTER
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
 	gen_one(R_TIMESTAMP);
