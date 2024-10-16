@@ -793,8 +793,8 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 				} else {
 					mc = PARISC_ADDI;
 					mc |= low_sign_ext_11(alu == ALU1_INC ? 1 : -1);
-					r1 = arg2[0];
-					r2 = arg1[0];
+					r1 = arg1[0];
+					r2 = arg2[0];
 					rt = 0;
 				}
 				break;
