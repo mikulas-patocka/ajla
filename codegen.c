@@ -4298,7 +4298,7 @@ do_multiply: {
 #if defined(ARCH_S390)
 		if (mode == MODE_INT && op_size >= OP_SIZE_4 && likely(cpu_test_feature(CPU_FEATURE_misc_insn_ext_2))) {
 			target = gen_frame_target(ctx, slot_r, slot_1, slot_2, R_SCRATCH_1);
-			g(gen_frame_load(ctx, op_size, true, slot_1, 0, R_SCRATCH_1));
+			g(gen_frame_load(ctx, op_size, true, slot_1, 0, target));
 			g(gen_frame_load_op(ctx, op_size, true, ALU_MUL, 1, slot_2, 0, target));
 
 			gen_insn(INSN_JMP_COND, op_size, COND_O, 0);
