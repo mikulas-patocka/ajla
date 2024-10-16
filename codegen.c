@@ -5418,7 +5418,7 @@ x86_bsf_bsr_popcnt_finish:
 
 		if (alu == ALU1_BSR) {
 			g(gen_load_constant(ctx, R_SCRATCH_2, op_size == OP_SIZE_8 ? 63 : 31));
-			g(gen_3address_alu(ctx, i_size(op_size), ALU_SUB, R_SCRATCH_1, R_SCRATCH_2, R_SCRATCH_1));
+			g(gen_3address_alu(ctx, i_size(op_size), ALU_SUB, R_SCRATCH_1, R_SCRATCH_2, R_SCRATCH_1, 0));
 		}
 
 		if (mode == MODE_FIXED && alu == ALU1_BSF) {
