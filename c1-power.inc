@@ -60,13 +60,13 @@
 						((alu) == ALU_AND ? 1 : 0)\
 					)
 #define ALU1_WRITES_FLAGS(alu)		0
-#define ROT_WRITES_FLAGS(alu)		0
+#define ROT_WRITES_FLAGS(alu, size, im)	0
 #define COND_IS_LOGICAL(cond)		((cond) == COND_B || (cond) == COND_AE || (cond) == COND_BE || (cond) == COND_A)
 
 #define ARCH_PARTIAL_ALU(size)		0
 #define ARCH_IS_3ADDRESS(alu, f)	1
 #define ARCH_IS_3ADDRESS_IMM(alu, f)	1
-#define ARCH_IS_3ADDRESS_ROT(alu)	1
+#define ARCH_IS_3ADDRESS_ROT(alu, size)	1
 #define ARCH_IS_3ADDRESS_ROT_IMM(alu)	1
 #define ARCH_IS_2ADDRESS(alu)		1
 #define ARCH_HAS_FLAGS			1

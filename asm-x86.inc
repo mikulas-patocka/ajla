@@ -66,6 +66,11 @@
 #define dynamic_test		(likely(cpu_test_feature(CPU_FEATURE_avx)) && likely(cpuid_1[2] & (1U << 29)))
 #include "asm-1.inc"
 
+#define feature_name		bmi2
+#define static_test_bmi2	(__BMI2__)
+#define dynamic_test		(cpuid_7[1] & (1U << 8))
+#include "asm-1.inc"
+
 #define feature_name		erms
 #define static_test_erms	0
 #define dynamic_test		(cpuid_7[1] & (1U << 9))

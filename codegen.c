@@ -936,20 +936,9 @@ do {									\
 #define gen_pointer_compression(base)					\
 do {									\
 	if (ARCH_PREFERS_SX(OP_SIZE_4)) {				\
-		g(gen_extend(ctx, OP_SIZE_4, false, base, base));\
-									\
-		gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(OP_SIZE_ADDRESS), OP_SIZE_ADDRESS, ROT_SHL, ROT_WRITES_FLAGS(ROT_SHL));\
-		gen_one(base);						\
-		gen_one(base);						\
-		gen_one(ARG_IMM);					\
-		gen_eight(POINTER_COMPRESSION);				\
-	} else {							\
-		gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(OP_SIZE_ADDRESS), OP_SIZE_ADDRESS, ROT_SHL, ROT_WRITES_FLAGS(ROT_SHL));\
-		gen_one(base);						\
-		gen_one(base);						\
-		gen_one(ARG_IMM);					\
-		gen_eight(POINTER_COMPRESSION);				\
+		g(gen_extend(ctx, OP_SIZE_4, false, base, base));	\
 	}								\
+	g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, base, base, POINTER_COMPRESSION, 0));\
 } while (0)
 #define gen_address_offset_compressed()		gen_address_offset()
 #endif
@@ -1070,17 +1059,17 @@ static bool attr_w attr_unused gen_3address_rot(struct codegen_context *ctx, uns
 {
 	if (unlikely(dest == src2))
 		internal(file_line, "gen_3address_rot: invalid registers: %u, %u, %x, %x, %x", size, alu, dest, src1, src2);
-	if (!ARCH_IS_3ADDRESS_ROT(alu) && dest != src1) {
+	if (!ARCH_IS_3ADDRESS_ROT(alu, size) && dest != src1) {
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src1));
 
-		gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(size), size, alu, ROT_WRITES_FLAGS(alu));
+		gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(size), size, alu, ROT_WRITES_FLAGS(alu, size, false));
 		gen_one(dest);
 		gen_one(dest);
 		gen_one(src2);
 
 		return true;
 	}
-	gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(size), size, alu, ROT_WRITES_FLAGS(alu));
+	gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(size), size, alu, ROT_WRITES_FLAGS(alu, size, false));
 	gen_one(dest);
 	gen_one(src1);
 	gen_one(src2);
@@ -1093,7 +1082,7 @@ static bool attr_w gen_3address_rot_imm(struct codegen_context *ctx, unsigned si
 	if (!ARCH_IS_3ADDRESS_ROT_IMM(alu) && dest != src) {
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src));
 
-		gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(size), size, alu, ROT_WRITES_FLAGS(alu) | writes_flags);
+		gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(size), size, alu, ROT_WRITES_FLAGS(alu, size, true) | writes_flags);
 		gen_one(dest);
 		gen_one(dest);
 		gen_one(ARG_IMM);
@@ -1101,7 +1090,7 @@ static bool attr_w gen_3address_rot_imm(struct codegen_context *ctx, unsigned si
 
 		return true;
 	}
-	gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(size), size, alu, ROT_WRITES_FLAGS(alu) | writes_flags);
+	gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(size), size, alu, ROT_WRITES_FLAGS(alu, size, true) | writes_flags);
 	gen_one(dest);
 	gen_one(src);
 	gen_one(ARG_IMM);
@@ -3372,11 +3361,7 @@ static bool attr_w gen_extend(struct codegen_context *ctx, unsigned op_size, boo
 #endif
 #if defined(ARCH_MIPS)
 	if (sx && shift == 32) {
-		gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(OP_SIZE_4), OP_SIZE_4, ROT_SHL, ROT_WRITES_FLAGS(ROT_SHL));
-		gen_one(dest);
-		gen_one(src);
-		gen_one(ARG_IMM);
-		gen_eight(0);
+		g(gen_3address_rot_imm(ctx, OP_SIZE_4, ROT_SHL, dest, src, 0, 0));
 		return true;
 	}
 	if (sx && MIPS_HAS_ROT) {
@@ -3396,11 +3381,7 @@ static bool attr_w gen_extend(struct codegen_context *ctx, unsigned op_size, boo
 #endif
 #if defined(ARCH_SPARC)
 	if (shift == 32) {
-		gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(OP_SIZE_4), OP_SIZE_4, sx ? ROT_SAR : ROT_SHR, ROT_WRITES_FLAGS(sx ? ROT_SAR : ROT_SHR));
-		gen_one(dest);
-		gen_one(src);
-		gen_one(ARG_IMM);
-		gen_eight(0);
+		g(gen_3address_rot_imm(ctx, OP_SIZE_4, sx ? ROT_SAR : ROT_SHR, dest, src, 0, 0));
 		return true;
 	}
 #endif
@@ -5677,11 +5658,7 @@ do_conv: {
 #else
 				g(gen_mov(ctx, OP_SIZE_NATIVE, R_SCRATCH_3, R_SCRATCH_1));
 
-				gen_insn(INSN_ROT, OP_SIZE_NATIVE, ROT_SAR, ROT_WRITES_FLAGS(ROT_SAR));
-				gen_one(R_SCRATCH_3);
-				gen_one(R_SCRATCH_3);
-				gen_one(ARG_IMM);
-				gen_eight((1U << (OP_SIZE_NATIVE + 3)) - 1);
+				g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, R_SCRATCH_3, R_SCRATCH_3, (1U << (OP_SIZE_NATIVE + 3)) - 1, 0));
 
 				g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, R_SCRATCH_2, R_SCRATCH_3, COND_NE, label_ovf));
 #endif
@@ -5912,11 +5889,7 @@ do_cmp:
 			gen_one(R_SCRATCH_1);
 			gen_imm_offset();
 		} else {
-			gen_insn(INSN_ROT, OP_SIZE_NATIVE, ROT_SHR, ROT_WRITES_FLAGS(ROT_SHR));
-			gen_one(R_SCRATCH_1);
-			gen_one(R_SCRATCH_1);
-			gen_one(ARG_IMM);
-			gen_eight(30);
+			g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHR, R_SCRATCH_1, R_SCRATCH_1, 30, 0));
 		}
 
 		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, R_SCRATCH_1));
@@ -6561,11 +6534,7 @@ do_is_exception:
 			g(gen_mov(ctx, OP_SIZE_4, R_SCRATCH_1, FR_SCRATCH_2));
 		}
 
-		gen_insn(INSN_ROT, OP_SIZE_NATIVE, ROT_SHR, ROT_WRITES_FLAGS(ROT_SHR));
-		gen_one(R_SCRATCH_1);
-		gen_one(R_SCRATCH_1);
-		gen_one(ARG_IMM);
-		gen_eight(30);
+		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHR, R_SCRATCH_1, R_SCRATCH_1, 30, 0));
 
 		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, R_SCRATCH_1));
 

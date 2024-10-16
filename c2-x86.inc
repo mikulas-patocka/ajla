@@ -153,6 +153,7 @@
 #define X86_0F_PINSRW_X128_RM16_IMM8	0xc4
 
 #define X86_0F_38_CVTPH2PS_X128_RM64	0x13
+#define X86_0F_38_ROTX			0xf7
 
 #define X86_0F_3A_ROUNDSS_X128_M32	0x0a
 #define X86_0F_3A_ROUNDSD_X128_M64	0x0b
@@ -332,7 +333,7 @@ address_0:
 
 gen:
 	if (unlikely(sse_prefix >= 0)) {
-		if (likely(cpu_test_feature(CPU_FEATURE_avx))) {
+		if (likely(cpu_test_feature(CPU_FEATURE_avx)) || (sse_prefix & 0x4000)) {
 			if ((rex & (X86_REX_X | X86_REX_B | X86_REX_W)) == 0 && prefix == PREFIX_0F) {
 				cgen_one(X86_VEX_2);
 				cgen_one((~rex & X86_REX_R) << 5 | (~(sse_prefix >> 8) & 0xf) << 3 | (sse_prefix & 3));
@@ -885,12 +886,24 @@ static bool attr_w cgen_lea3(struct codegen_context *ctx, unsigned size, unsigne
 	return true;
 }
 
-static bool attr_w cgen_rot(struct codegen_context *ctx, unsigned size, uint8_t rot)
+static bool attr_w cgen_rot(struct codegen_context *ctx, unsigned size, uint8_t rot, unsigned writes_flags)
 {
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	uint8_t *arg3 = arg2 + arg_size(*arg2);
 	ctx->code_position = arg3 + arg_size(*arg3);
+
+	if (cpu_test_feature(CPU_FEATURE_bmi2) && size >= OP_SIZE_4 && arg3[0] != ARG_IMM && !writes_flags && (rot == ROT_SHL || rot == ROT_SHR || rot == ROT_SAR)) {
+		int16_t sse_prefix;
+		switch (rot) {
+			case ROT_SHL:	sse_prefix = SSE_PREFIX_66; break;
+			case ROT_SAR:	sse_prefix = SSE_PREFIX_F3; break;
+			case ROT_SHR:	sse_prefix = SSE_PREFIX_F2; break;
+			default:	internal(file_line, "cgen_rot: invalid rotation %x", rot);
+		}
+		g(cgen_sse_insn(ctx, sse_prefix + 0x4000, PREFIX_0F_38, X86_0F_38_ROTX, size == OP_SIZE_8, arg1[0], arg3[0], arg2));
+		return true;
+	}
 
 	if (arg1[0] != arg2[0])
 		internal(file_line, "cgen_rot: invalid arguments: %x, %02x, %02x, %02x", rot, arg1[0], arg2[0], arg3[0]);
@@ -1423,12 +1436,12 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		case INSN_ROT:
 			if (unlikely(insn_op_size(insn) < OP_SIZE_4))
 				goto invalid_insn;
-			g(cgen_rot(ctx, insn_op_size(insn), insn_aux(insn)));
+			g(cgen_rot(ctx, insn_op_size(insn), insn_aux(insn), insn_writes_flags(insn)));
 			return true;
 		case INSN_ROT_PARTIAL:
 			if (unlikely(insn_op_size(insn) >= OP_SIZE_4))
 				goto invalid_insn;
-			g(cgen_rot(ctx, insn_op_size(insn), insn_aux(insn)));
+			g(cgen_rot(ctx, insn_op_size(insn), insn_aux(insn), insn_writes_flags(insn)));
 			return true;
 		case INSN_BT:
 			if (unlikely(insn_op_size(insn) == OP_SIZE_1) || unlikely(!insn_writes_flags(insn)))

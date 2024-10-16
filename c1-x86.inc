@@ -34,13 +34,13 @@
 
 #define ALU_WRITES_FLAGS(alu, im)	((alu) != ALU_ADD ? 3 : 0)
 #define ALU1_WRITES_FLAGS(alu)		((alu) == ALU1_INC || (alu) == ALU1_DEC ? 1 : (alu) == ALU1_NOT || (alu) == ALU1_BSWAP ? 0 : 3)
-#define ROT_WRITES_FLAGS(alu)		1
+#define ROT_WRITES_FLAGS(alu, size, im)	(cpu_test_feature(CPU_FEATURE_bmi2) && (alu == ROT_SHL || alu == ROT_SHR || alu == ROT_SAR) && size >= OP_SIZE_4 && !(im) ? 0 : 1)
 #define COND_IS_LOGICAL(cond)		0
 
 #define ARCH_PARTIAL_ALU(size)		((size) <= OP_SIZE_2)
 #define ARCH_IS_3ADDRESS(alu, f)	((alu) == ALU_ADD && !(f))
 #define ARCH_IS_3ADDRESS_IMM(alu, f)	((alu) == ALU_ADD && !(f))
-#define ARCH_IS_3ADDRESS_ROT(alu)	0
+#define ARCH_IS_3ADDRESS_ROT(alu, size)	(ROT_WRITES_FLAGS(alu, size, false) ? 0 : 1)
 #define ARCH_IS_3ADDRESS_ROT_IMM(alu)	0
 #define ARCH_IS_2ADDRESS(alu)		((alu) == ALU1_BSF || (alu) == ALU1_BSR || (alu) == ALU1_LZCNT || (alu) == ALU1_POPCNT)
 #define ARCH_HAS_FLAGS			1

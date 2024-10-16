@@ -38,13 +38,13 @@
 
 #define ALU_WRITES_FLAGS(alu, im)	((alu) == ALU_ADC || (alu) == ALU_SUB || (alu) == ALU_SBB ? 3 : 0)
 #define ALU1_WRITES_FLAGS(alu)		((alu) == ALU1_NEG || (alu) == ALU1_INC || (alu) == ALU1_DEC ? 3 : 0)
-#define ROT_WRITES_FLAGS(alu)		0
+#define ROT_WRITES_FLAGS(alu, size, im)	0
 #define COND_IS_LOGICAL(cond)		0
 
 #define ARCH_PARTIAL_ALU(size)		0
 #define ARCH_IS_3ADDRESS(alu, f)	1
 #define ARCH_IS_3ADDRESS_IMM(alu, f)	1
-#define ARCH_IS_3ADDRESS_ROT(alu)	1
+#define ARCH_IS_3ADDRESS_ROT(alu, size)	1
 #define ARCH_IS_3ADDRESS_ROT_IMM(alu)	1
 #define ARCH_IS_2ADDRESS(alu)		1
 #define ARCH_HAS_FLAGS			0
