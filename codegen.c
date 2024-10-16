@@ -1066,6 +1066,16 @@ static bool attr_w attr_unused gen_3address_rot(struct codegen_context *ctx, uns
 {
 	if (unlikely(dest == src2))
 		internal(file_line, "gen_3address_rot: invalid registers: %u, %u, %x, %x, %x", size, alu, dest, src1, src2);
+#ifdef ARCH_X86
+	if (dest == src1 && src2 == R_CX) {
+		gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(size), size, alu, 1);
+		gen_one(dest);
+		gen_one(src1);
+		gen_one(src2);
+
+		return true;
+	}
+#endif
 	if (!ARCH_IS_3ADDRESS_ROT(alu, size) && dest != src1) {
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src1));
 
