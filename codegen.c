@@ -31,6 +31,8 @@
 #include "task.h"
 #include "save.h"
 
+#include <fcntl.h>
+
 #include "codegen.h"
 
 #ifdef HAVE_CODEGEN
@@ -53,6 +55,11 @@
 code_return_t (*codegen_entry)(frame_s *, struct cg_upcall_vector_s *, tick_stamp_t, void *);
 static void *codegen_ptr;
 static size_t codegen_size;
+
+#ifdef DEBUG_ENV
+static mutex_t dump_mutex;
+static uint64_t dump_seq = 0;
+#endif
 
 /*
  * insn:
@@ -10609,50 +10616,38 @@ again:
 	resolve_traps(ctx);
 
 #ifdef DEBUG_ENV
-	/*debug("success: %"PRIuMAX" %s", (uintmax_t)ctx->mcode_size, da(ctx->fn,function)->function_name);*/
-	if (getenv("DUMP") && !strcmp(getenv("DUMP"), da(ctx->fn,function)->function_name)) {
+	if ((getenv("DUMP") && !strcmp(getenv("DUMP"), da(ctx->fn,function)->function_name)) || getenv("DUMP_ALL")) {
 		char *hex;
 		size_t hexl;
 		size_t i;
-		size_t mcode_size = codegen_size + ctx->mcode_size;
-		uint8_t *mcode = mem_alloc(uint8_t *, mcode_size);
-		memcpy(mcode, codegen_ptr, codegen_size);
-		memcpy(mcode + codegen_size, ctx->mcode, ctx->mcode_size);
-#if 0
-		if (!os_write_atomic(".", "dump.asm", cast_ptr(const char *, mcode), mcode_size, &ctx->err)) {
-			warning("dump failed");
-		}
+		handle_t h;
 
+		mutex_lock(&dump_mutex);
 		str_init(&hex, &hexl);
-		for (i = 0; i < mcode_size; i++) {
-			uint8_t a = mcode[i];
+		str_add_string(&hex, &hexl, "_");
+		str_add_unsigned(&hex, &hexl, dump_seq++, 10);
+		str_add_string(&hex, &hexl, "_");
+		str_add_string(&hex, &hexl, da(ctx->fn,function)->function_name);
+		str_add_string(&hex, &hexl, ":");
+		for (i = 0; i < hexl; i++)
+			if (hex[i] == '/')
+				hex[i] = '_';
+		for (i = 0; i < ctx->mcode_size; i++) {
+			uint8_t a = ctx->mcode[i];
+			if (!(i & 0xff))
+				str_add_string(&hex, &hexl, "\n	.byte	0x");
+			else
+				str_add_string(&hex, &hexl, ",0x");
 			if (a < 16)
 				str_add_char(&hex, &hexl, '0');
 			str_add_unsigned(&hex, &hexl, a, 16);
 		}
-		if (!os_write_atomic(".", "dump.hex", hex, hexl, &ctx->err)) {
-			warning("dump failed");
-		}
+		str_add_string(&hex, &hexl, "\n");
+		h = os_open(os_cwd, "dump.s", O_WRONLY | O_APPEND, 0600, NULL);
+		os_write_all(h, hex, hexl, NULL);
+		os_close(h);
 		mem_free(hex);
-#endif
-
-		str_init(&hex, &hexl);
-#if defined(ARCH_RISCV64)
-		str_add_string(&hex, &hexl, "	.attribute arch, \"rv64i2p1_m2p0_a2p1_f2p2_d2p2_c2p0_zicsr2p0_zifencei2p0_zba1p0_zbb1p0_zbc1p0_zbs1p0\"\n");
-#endif
-		for (i = 0; i < mcode_size; i++) {
-			uint8_t a = mcode[i];
-			str_add_string(&hex, &hexl, "	.byte	0x");
-			if (a < 16)
-				str_add_char(&hex, &hexl, '0');
-			str_add_unsigned(&hex, &hexl, a, 16);
-			str_add_char(&hex, &hexl, '\n');
-		}
-		if (!os_write_atomic(".", "dump.s", hex, hexl, &ctx->err)) {
-			warning("dump failed");
-		}
-		mem_free(hex);
-		mem_free(mcode);
+		mutex_unlock(&dump_mutex);
 	}
 #endif
 
@@ -10772,6 +10767,29 @@ void name(codegen_init)(void)
 #endif
 	done_ctx(ctx);
 
+#ifdef DEBUG_ENV
+	mutex_init(&dump_mutex);
+	if (getenv("DUMP") || getenv("DUMP_ALL")) {
+		size_t i;
+		char *hex;
+		size_t hexl;
+		str_init(&hex, &hexl);
+#if defined(ARCH_RISCV64)
+		str_add_string(&hex, &hexl, "	.attribute arch, \"rv64i2p1_m2p0_a2p1_f2p2_d2p2_c2p0_zicsr2p0_zifencei2p0_zba1p0_zbb1p0_zbc1p0_zbs1p0\"\n");
+#endif
+		for (i = 0; i < codegen_size; i++) {
+			uint8_t a = cast_ptr(uint8_t *, codegen_ptr)[i];
+			str_add_string(&hex, &hexl, "	.byte	0x");
+			if (a < 16)
+				str_add_char(&hex, &hexl, '0');
+			str_add_unsigned(&hex, &hexl, a, 16);
+			str_add_char(&hex, &hexl, '\n');
+		}
+		os_write_atomic(".", "dump.s", hex, hexl, NULL);
+		mem_free(hex);
+	}
+#endif
+
 	return;
 
 fail:
@@ -10781,6 +10799,9 @@ fail:
 void name(codegen_done)(void)
 {
 	os_code_unmap(codegen_ptr, codegen_size);
+#ifdef DEBUG_ENV
+	mutex_done(&dump_mutex);
+#endif
 }
 
 #else
