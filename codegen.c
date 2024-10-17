@@ -4517,6 +4517,7 @@ do_divide: {
 
 		g(gen_frame_get(ctx, op_size, (sgn && op_size < i_size(op_size)) || force_sx, slot_1, 0, R_SCRATCH_1, &reg1));
 		g(gen_frame_get(ctx, op_size, (sgn && op_size < i_size(op_size)) || force_sx, slot_2, 0, R_SCRATCH_2, &reg2));
+		target = gen_frame_target(ctx, slot_r, slot_1, slot_2, R_SCRATCH_3);
 
 		if (ARCH_PREFERS_SX(op_size) && !sgn && op_size < i_size(op_size)) {
 			g(gen_extend(ctx, op_size, false, R_SCRATCH_1, reg1));
@@ -4544,9 +4545,9 @@ do_divide: {
 		} else {
 #if !(defined(ARCH_ARM) && ARM_ASM_DIV_NO_TRAP)
 			if (!mod) {
-				g(gen_load_constant(ctx, R_SCRATCH_3, 0));
+				g(gen_load_constant(ctx, target, 0));
 			} else {
-				g(gen_mov(ctx, OP_SIZE_NATIVE, R_SCRATCH_3, reg1));
+				g(gen_mov(ctx, OP_SIZE_NATIVE, target, reg1));
 			}
 			g(gen_jmp_on_zero(ctx, i_size(op_size), reg2, COND_E, label_end));
 			if (sgn) {
@@ -4559,9 +4560,9 @@ do_divide: {
 				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(op_size), reg2, -1, COND_NE, label_not_minus_1));
 
 				if (!mod) {
-					g(gen_mov(ctx, OP_SIZE_NATIVE, R_SCRATCH_3, reg1));
+					g(gen_mov(ctx, OP_SIZE_NATIVE, target, reg1));
 				} else {
-					g(gen_load_constant(ctx, R_SCRATCH_3, 0));
+					g(gen_load_constant(ctx, target, 0));
 				}
 
 				val = 0xFFFFFFFFFFFFFF80ULL << (((1 << op_size) - 1) * 8);
@@ -4572,26 +4573,26 @@ do_divide: {
 #endif
 		}
 		if (mod && have_mod) {
-			g(gen_3address_alu(ctx, div_op_size, sgn ? ALU_SREM : ALU_UREM, R_SCRATCH_3, reg1, reg2, 0));
+			g(gen_3address_alu(ctx, div_op_size, sgn ? ALU_SREM : ALU_UREM, target, reg1, reg2, 0));
 		} else {
-			g(gen_3address_alu(ctx, div_op_size, sgn ? ALU_SDIV : ALU_UDIV, R_SCRATCH_3, reg1, reg2, 0));
+			g(gen_3address_alu(ctx, div_op_size, sgn ? ALU_SDIV : ALU_UDIV, target, reg1, reg2, 0));
 		}
 
 		if (mod && !have_mod) {
 #if defined(ARCH_ARM)
 			gen_insn(INSN_MADD, i_size(op_size), 1, 0);
-			gen_one(R_SCRATCH_3);
-			gen_one(R_SCRATCH_3);
+			gen_one(target);
+			gen_one(target);
 			gen_one(reg2);
 			gen_one(reg1);
 #else
-			g(gen_3address_alu(ctx, i_size(op_size), ALU_MUL, R_SCRATCH_2, reg2, R_SCRATCH_3, 0));
-			g(gen_3address_alu(ctx, i_size(op_size), ALU_SUB, R_SCRATCH_3, reg1, R_SCRATCH_2, 0));
+			g(gen_3address_alu(ctx, i_size(op_size), ALU_MUL, R_SCRATCH_2, reg2, target, 0));
+			g(gen_3address_alu(ctx, i_size(op_size), ALU_SUB, target, reg1, R_SCRATCH_2, 0));
 #endif
 		}
 
 		gen_label(label_end);
-		g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_3));
+		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
 #endif
 	}
