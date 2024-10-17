@@ -4465,11 +4465,7 @@ do_divide: {
 		gen_one(R_SCRATCH_3);
 #endif
 		if (mod && i_size(op_size) == OP_SIZE_1) {
-			gen_insn(INSN_ROT_PARTIAL, OP_SIZE_2, ROT_SHR, 1);
-			gen_one(R_SCRATCH_1);
-			gen_one(R_SCRATCH_1);
-			gen_one(ARG_IMM);
-			gen_eight(8);
+			g(gen_3address_rot_imm(ctx, OP_SIZE_2, ROT_SHR, R_SCRATCH_1, R_SCRATCH_1, 8, 0));
 			g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_1));
 		} else if (mod) {
 			g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_2));
