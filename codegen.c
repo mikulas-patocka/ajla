@@ -1067,8 +1067,6 @@ static bool attr_w gen_3address_alu_imm(struct codegen_context *ctx, unsigned si
 
 static bool attr_w attr_unused gen_3address_rot(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src1, unsigned src2)
 {
-	if (unlikely(dest == src2))
-		internal(file_line, "gen_3address_rot: invalid registers: %u, %u, %x, %x, %x", size, alu, dest, src1, src2);
 #ifdef ARCH_X86
 	if (dest == src1 && src2 == R_CX) {
 		gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(size), size, alu, 1);
@@ -1080,6 +1078,9 @@ static bool attr_w attr_unused gen_3address_rot(struct codegen_context *ctx, uns
 	}
 #endif
 	if (!ARCH_IS_3ADDRESS_ROT(alu, size) && dest != src1) {
+		if (unlikely(dest == src2))
+			internal(file_line, "gen_3address_rot: invalid registers: %u, %u, %x, %x, %x", size, alu, dest, src1, src2);
+
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src1));
 
 		gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(size), size, alu, ROT_WRITES_FLAGS(alu, size, false));
@@ -4729,7 +4730,6 @@ do_shift: {
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
 #endif
-		target = gen_frame_target(ctx, slot_r, slot_1, slot_2, R_SCRATCH_1);
 #if defined(ARCH_ARM)
 		if (op_size <= OP_SIZE_2 && alu == ROT_ROR) {
 			gen_insn(INSN_ALU, OP_SIZE_4, ALU_OR, ALU_WRITES_FLAGS(ALU_OR, false));
@@ -4768,6 +4768,7 @@ do_shift: {
 			goto do_generic_shift;
 #endif
 		if (alu == ROT_ROL || alu == ROT_ROR) {
+			target = gen_frame_target(ctx, slot_r, slot_1, slot_2, R_SCRATCH_1);
 			g(gen_3address_rot(ctx, op_s, alu == ROT_ROL ? ROT_SHL : ROT_SHR, R_SCRATCH_2, reg1, reg3));
 			g(gen_2address_alu1(ctx, i_size(OP_SIZE_4), ALU1_NEG, R_SCRATCH_3, reg3, 0));
 			if (must_mask) {
@@ -4782,6 +4783,7 @@ do_shift: {
 		goto do_generic_shift;
 do_generic_shift:
 		if (mode == MODE_INT && alu == ROT_SHL) {
+			target = gen_frame_target(ctx, slot_r, slot_1, slot_2, R_SCRATCH_1);
 #if defined(ARCH_S390)
 			if (op_size >= OP_SIZE_4) {
 				g(gen_3address_rot(ctx, op_size, ROT_SAL, target, reg1, reg3));
@@ -4806,6 +4808,7 @@ do_generic_shift:
 				return true;
 			}
 		} else {
+			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 			g(gen_3address_rot(ctx, op_s, alu, target, reg1, reg3));
 		}
 
