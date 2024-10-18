@@ -2548,7 +2548,7 @@ static bool attr_w gen_frame_load(struct codegen_context *ctx, unsigned size, bo
 	if (ctx->registers[slot] >= 0) {
 		if (unlikely(offset != 0))
 			internal(file_line, "gen_frame_load: offset is non-zero: %"PRIdMAX"", (intmax_t)offset);
-		if (sx && !ARCH_PREFERS_SX(size) && size < OP_SIZE_NATIVE) {
+		if (sx && size < OP_SIZE_NATIVE) {
 			g(gen_extend(ctx, size, true, reg, ctx->registers[slot]));
 			return true;
 		}
@@ -2564,7 +2564,7 @@ static bool attr_w gen_frame_get(struct codegen_context *ctx, unsigned size, boo
 	ajla_assert_lo(slot >= MIN_USEABLE_SLOT && slot < function_n_variables(ctx->fn), (file_line, "gen_frame_get: invalid slot: %lu >= %lu", (unsigned long)slot, (unsigned long)function_n_variables(ctx->fn)));
 	if (ctx->registers[slot] >= 0) {
 		if (!reg_is_fp(reg)) {
-			if (sx && !ARCH_PREFERS_SX(size) && size < OP_SIZE_NATIVE)
+			if (sx && size < OP_SIZE_NATIVE)
 				goto extend;
 		}
 		*dest = ctx->registers[slot];
@@ -4808,7 +4808,7 @@ do_generic_shift:
 				return true;
 			}
 		} else {
-			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
+			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, slot_2, R_SCRATCH_1);
 			g(gen_3address_rot(ctx, op_s, alu, target, reg1, reg3));
 		}
 
