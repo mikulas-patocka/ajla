@@ -6567,27 +6567,21 @@ do_from_int:
 		if (op_size == OP_SIZE_8 && !cpu_test_feature(CPU_FEATURE_ppc))
 			goto do_upcall;
 #endif
-#if defined(ARCH_PARISC) || defined(ARCH_POWER) || defined(ARCH_SPARC)
-		if (ctx->registers[slot_1] >= 0) {
+		if (ctx->registers[slot_1] >= 0)
 			g(spill(ctx, slot_1));
-			g(gen_frame_load_raw(ctx, int_op_size, zero_x, slot_1, 0, FR_SCRATCH_1));
-			reg1 = FR_SCRATCH_1;
-		} else
-#endif
-			g(gen_frame_get(ctx, int_op_size, zero_x, slot_1, 0, FR_SCRATCH_1, &reg1));
+		g(gen_frame_load_raw(ctx, int_op_size, zero_x, slot_1, 0, FR_SCRATCH_1));
 #if defined(ARCH_ALPHA)
 		if (OP_SIZE_INT == OP_SIZE_4) {
 			gen_insn(INSN_MOVSX, OP_SIZE_4, 0, 0);
 			gen_one(FR_SCRATCH_1);
-			gen_one(reg1);
-			reg1 = FR_SCRATCH_1;
+			gen_one(FR_SCRATCH_1);
 
 			int_op_size = OP_SIZE_8;
 		}
 #endif
 		gen_insn(int_op_size == OP_SIZE_4 ? INSN_FP_FROM_INT32 : INSN_FP_FROM_INT64, op_size, 0, 0);
 		gen_one(FR_SCRATCH_2);
-		gen_one(reg1);
+		gen_one(FR_SCRATCH_1);
 
 		g(gen_frame_store(ctx, op_size, slot_r, 0, FR_SCRATCH_2));
 		return true;
