@@ -59,7 +59,7 @@ static struct stack_bottom *stack_alloc_space(size_t needed_size, bool leaf, ajl
 	struct frame_struct *stack_end;
 
 	if (unlikely(needed_size + additional_space < additional_space) ||
-	    unlikely(needed_size / slot_size != (stack_size_t)(needed_size / slot_size))) {
+	    unlikely(needed_size / slot_size >= sign_bit(stack_size_t))) {
 		fatal_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_SIZE_OVERFLOW), mayfail, "stack allocation size overflow");
 		return NULL;
 	}
@@ -76,7 +76,7 @@ static struct stack_bottom *stack_alloc_space(size_t needed_size, bool leaf, ajl
 	}
 	extra_space = round_down(test_size - additional_space - needed_size, frame_align);
 	slots = (extra_space + needed_size) / slot_size;
-	if (unlikely(slots != (stack_size_t)slots))
+	if (unlikely(slots >= sign_bit(stack_size_t)))
 		goto exact;
 	stack = mem_align_mayfail(struct stack_bottom *, extra_space + needed_size + additional_space, frame_align, &sink);
 	if (unlikely(!stack)) {
