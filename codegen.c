@@ -4353,10 +4353,10 @@ do_multiply: {
 		}
 #endif
 #if defined(ARCH_POWER)
-		if (mode == MODE_INT && op_size == OP_SIZE_NATIVE) {
+		if (mode == MODE_INT && op_size >= OP_SIZE_4) {
 			target = gen_frame_target(ctx, slot_r, slot_1, slot_2, R_SCRATCH_1);
-			g(gen_frame_get(ctx, op_size, sign_x, slot_1, 0, R_SCRATCH_1, &reg1));
-			g(gen_frame_get(ctx, op_size, sign_x, slot_2, 0, R_SCRATCH_2, &reg2));
+			g(gen_frame_get(ctx, op_size, garbage, slot_1, 0, R_SCRATCH_1, &reg1));
+			g(gen_frame_get(ctx, op_size, garbage, slot_2, 0, R_SCRATCH_2, &reg2));
 
 			g(gen_3address_alu(ctx, op_size, ALU_MUL, target, reg1, reg2, 1));
 

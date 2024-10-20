@@ -1061,7 +1061,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_ALU:
 		case INSN_ALU_FLAGS:
-			if (unlikely(insn_op_size(insn) != OP_SIZE_NATIVE) && (insn_aux(insn) < ALU_UDIV || insn_aux(insn) > ALU_SREM))
+			if (unlikely(insn_op_size(insn) != OP_SIZE_NATIVE) && !((insn_aux(insn) >= ALU_UDIV && insn_aux(insn) <= ALU_SREM) || insn_aux(insn) == ALU_MUL))
 				goto invalid_insn;
 			g(cgen_alu(ctx, insn_op_size(insn), insn_aux(insn), insn_writes_flags(insn)));
 			return true;
