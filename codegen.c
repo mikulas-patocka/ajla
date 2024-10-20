@@ -2732,7 +2732,7 @@ static bool attr_w attr_unused gen_frame_load_op1(struct codegen_context *ctx, u
 static bool attr_w gen_frame_load_cmp(struct codegen_context *ctx, unsigned size, bool logical, enum extend attr_unused ex, bool swap, frame_t slot, int64_t offset, unsigned reg)
 {
 	if (ctx->registers[slot] >= 0) {
-		if (size != i_size_cmp(size) + (unsigned)zero && size < OP_SIZE_4 && ex != garbage)
+		if (size != i_size_cmp(size) + (unsigned)zero && ex != garbage)
 			goto fallback;
 		gen_insn(INSN_CMP, i_size_cmp(size), 0, 1 + logical);
 		if (!swap) {
