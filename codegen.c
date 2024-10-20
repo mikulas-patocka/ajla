@@ -5446,16 +5446,17 @@ do_bsf_bsr_popcnt: {
 #if defined(ARCH_X86)
 		if (alu == ALU1_POPCNT && unlikely(!cpu_test_feature(CPU_FEATURE_popcnt)))
 			goto do_generic_bsf_bsr_popcnt;
+		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 		if (op_size == OP_SIZE_1 || ((alu == ALU1_BSR || alu == ALU1_POPCNT) && mode == MODE_INT)) {
-			g(gen_frame_get(ctx, op_size, zero_x, slot_1, 0, R_SCRATCH_1, &reg1));
+			g(gen_frame_get(ctx, op_size, zero_x, slot_1, 0, target, &reg1));
 			if ((alu == ALU1_BSR || alu == ALU1_POPCNT) && mode == MODE_INT) {
 				g(gen_cmp_test_jmp(ctx, INSN_TEST, op_size, reg1, reg1, alu == ALU1_BSR ? COND_LE : COND_S, label_ovf));
 			}
-			g(gen_2address_alu1(ctx, maximum(op_size, OP_SIZE_2), alu, R_SCRATCH_1, reg1, 1));
+			g(gen_2address_alu1(ctx, maximum(op_size, OP_SIZE_2), alu, target, reg1, 1));
 			if ((alu == ALU1_BSR || alu == ALU1_POPCNT) && mode == MODE_INT)
 				goto x86_bsf_bsr_popcnt_finish;
 		} else {
-			g(gen_frame_load_op1(ctx, op_size, alu, 1, slot_1, 0, R_SCRATCH_1));
+			g(gen_frame_load_op1(ctx, op_size, alu, 1, slot_1, 0, target));
 		}
 		if (alu == ALU1_POPCNT)
 			goto x86_bsf_bsr_popcnt_finish;
@@ -5465,7 +5466,7 @@ do_bsf_bsr_popcnt: {
 			gen_one(R_SCRATCH_2);
 			gen_one(ARG_IMM);
 			gen_eight(-1);
-			g(gen_cmov(ctx, maximum(op_size, OP_SIZE_4), COND_E, R_SCRATCH_1, &cmov_label));
+			g(gen_cmov(ctx, maximum(op_size, OP_SIZE_4), COND_E, target, &cmov_label));
 			gen_one(R_SCRATCH_2);
 			if (cmov_label)
 				gen_label(cmov_label);
@@ -5475,7 +5476,7 @@ do_bsf_bsr_popcnt: {
 			gen_four(label_ovf);
 		}
 x86_bsf_bsr_popcnt_finish:
-		g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_1));
+		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
 #endif
 #if defined(ARCH_ARM)
@@ -5516,44 +5517,48 @@ x86_bsf_bsr_popcnt_finish:
 			}
 #endif
 			g(gen_frame_store(ctx, op_size, slot_r, 0, FR_SCRATCH_1));
+			if (ctx->registers[slot_r] >= 0)
+				g(unspill(ctx, slot_r));
 			return true;
 		}
 
+		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 		if (mode == MODE_FIXED && alu == ALU1_BSF) {
 			gen_insn(INSN_TEST, i_size(op_size), 0, 1);
+			gen_one(target);
 			gen_one(reg1);
-			gen_one(reg1);
+			reg1 = target;
 		}
 
 		if (alu == ALU1_BSF) {
-			g(gen_2address_alu1(ctx, i_size(op_size), ALU1_BREV, R_SCRATCH_1, reg1, 0));
-			reg1 = R_SCRATCH_1;
+			g(gen_2address_alu1(ctx, i_size(op_size), ALU1_BREV, target, reg1, 0));
+			reg1 = target;
 		}
 
-		g(gen_2address_alu1(ctx, i_size(op_size), ALU1_LZCNT, R_SCRATCH_1, reg1, 0));
+		g(gen_2address_alu1(ctx, i_size(op_size), ALU1_LZCNT, target, reg1, 0));
 
 		if (alu == ALU1_BSR) {
 			g(gen_load_constant(ctx, R_SCRATCH_2, op_size == OP_SIZE_8 ? 63 : 31));
-			g(gen_3address_alu(ctx, i_size(op_size), ALU_SUB, R_SCRATCH_1, R_SCRATCH_2, R_SCRATCH_1, 0));
+			g(gen_3address_alu(ctx, i_size(op_size), ALU_SUB, target, R_SCRATCH_2, target, 0));
 		}
 
 		if (mode == MODE_FIXED && alu == ALU1_BSF) {
 #if defined(ARCH_ARM32)
 			g(gen_imm(ctx, -1, IMM_PURPOSE_CMOV, OP_SIZE_NATIVE));
 			gen_insn(INSN_CMOV, OP_SIZE_NATIVE, COND_E, 0);
-			gen_one(R_SCRATCH_1);
-			gen_one(R_SCRATCH_1);
+			gen_one(target);
+			gen_one(target);
 			gen_imm_offset();
 #else
 			gen_insn(INSN_CSEL_INV, i_size(op_size), COND_NE, 0);
-			gen_one(R_SCRATCH_1);
+			gen_one(target);
 			gen_one(ARG_IMM);
 			gen_eight(0);
-			gen_one(R_SCRATCH_1);
+			gen_one(target);
 #endif
 		}
 
-		g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_1));
+		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
 #endif
 #if defined(ARCH_ALPHA)
