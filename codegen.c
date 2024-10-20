@@ -3263,10 +3263,10 @@ static bool attr_w gen_alu_upcall(struct codegen_context *ctx, size_t upcall, fr
 		g(gen_upcall_argument(ctx, 1));
 		g(gen_upcall(ctx, upcall, 2));
 	}
-	if (label_ovf)
-		g(gen_jmp_on_zero(ctx, OP_SIZE_1, R_RET0, COND_E, label_ovf));
 	if (ctx->registers[slot_r] >= 0)
 		g(unspill(ctx, slot_r));
+	if (label_ovf)
+		g(gen_jmp_on_zero(ctx, OP_SIZE_1, R_RET0, COND_E, label_ovf));
 	return true;
 }
 
