@@ -9152,6 +9152,7 @@ static bool attr_w gen_array_len(struct codegen_context *ctx, frame_t slot_1, fr
 {
 	const struct type *t = get_type_of_local(ctx, slot_1);
 	uint32_t escape_label;
+	unsigned target;
 
 	escape_label = alloc_escape_label(ctx);
 	if (unlikely(!escape_label))
@@ -9192,14 +9193,20 @@ static bool attr_w gen_array_len(struct codegen_context *ctx, frame_t slot_1, fr
 
 		g(gen_compare_da_tag(ctx, R_SCRATCH_1, DATA_TAG_array_pointers, COND_A, escape_label, R_SCRATCH_1));
 
+		if (slot_2 == NO_FRAME_T) {
+			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
+		} else {
+			target = R_SCRATCH_1;
+		}
+
 		gen_pointer_compression(R_SCRATCH_2);
 		g(gen_address(ctx, R_SCRATCH_2, offsetof(struct data, u_.array_flat.n_used_entries), ARCH_PREFERS_SX(OP_SIZE_INT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_INT));
 		gen_insn(ARCH_PREFERS_SX(OP_SIZE_INT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_INT, 0, 0);
-		gen_one(R_SCRATCH_1);
+		gen_one(target);
 		gen_address_offset_compressed();
 
 		if (slot_2 == NO_FRAME_T) {
-			g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, R_SCRATCH_1));
+			g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, target));
 		} else {
 			g(gen_frame_load_cmp_set_cond(ctx, OP_SIZE_INT, zero_x, slot_2, 0, R_SCRATCH_1, COND_G, slot_r));
 		}
