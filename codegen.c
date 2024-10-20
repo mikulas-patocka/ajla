@@ -6632,6 +6632,7 @@ do_from_int:
 		if (ctx->registers[slot_1] >= 0)
 			g(spill(ctx, slot_1));
 		g(gen_frame_load_raw(ctx, int_op_size, zero_x, slot_1, 0, FR_SCRATCH_1));
+		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, FR_SCRATCH_2);
 #if defined(ARCH_ALPHA)
 		if (OP_SIZE_INT == OP_SIZE_4) {
 			gen_insn(INSN_MOVSX, OP_SIZE_4, 0, 0);
@@ -6642,30 +6643,32 @@ do_from_int:
 		}
 #endif
 		gen_insn(int_op_size == OP_SIZE_4 ? INSN_FP_FROM_INT32 : INSN_FP_FROM_INT64, op_size, 0, 0);
-		gen_one(FR_SCRATCH_2);
+		gen_one(target);
 		gen_one(FR_SCRATCH_1);
 
-		g(gen_frame_store(ctx, op_size, slot_r, 0, FR_SCRATCH_2));
+		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
 #elif defined(ARCH_IA64)
 		g(gen_frame_get(ctx, OP_SIZE_INT, sign_x, slot_1, 0, R_SCRATCH_1, reg1));
+		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, FR_SCRATCH_1);
 
-		g(gen_mov(ctx, OP_SIZE_NATIVE, FR_SCRATCH_1, reg1));
+		g(gen_mov(ctx, OP_SIZE_NATIVE, target, reg1));
 
 		gen_insn(INSN_FP_FROM_INT64, op_size, 0, 0);
-		gen_one(FR_SCRATCH_1);
-		gen_one(FR_SCRATCH_1);
+		gen_one(target);
+		gen_one(target);
 
-		g(gen_frame_store(ctx, op_size, slot_r, 0, FR_SCRATCH_1));
+		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
 #else
 		g(gen_frame_get(ctx, OP_SIZE_INT, garbage, slot_1, 0, R_SCRATCH_1, &reg1));
+		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, FR_SCRATCH_1);
 
 		gen_insn(OP_SIZE_INT == OP_SIZE_4 ? INSN_FP_FROM_INT32 : INSN_FP_FROM_INT64, op_size, 0, 0);
-		gen_one(FR_SCRATCH_1);
+		gen_one(target);
 		gen_one(reg1);
 
-		g(gen_frame_store(ctx, op_size, slot_r, 0, FR_SCRATCH_1));
+		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
 #endif
 	}
@@ -6680,22 +6683,23 @@ do_from_int:
 #endif
 #ifdef SUPPORTED_FP_HALF_CVT
 	if ((SUPPORTED_FP_HALF_CVT >> real_type) & 1) {
+		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, FR_SCRATCH_1);
 #if defined(ARCH_ARM32)
 		g(gen_frame_get(ctx, OP_SIZE_INT, zero_x, slot_1, 0, FR_SCRATCH_1, &reg1));
 
 		gen_insn(INSN_FP_FROM_INT32, OP_SIZE_4, 0, 0);
-		gen_one(FR_SCRATCH_1);
+		gen_one(target);
 		gen_one(reg1);
 #else
 		g(gen_frame_get(ctx, OP_SIZE_INT, garbage, slot_1, 0, R_SCRATCH_1, &reg1));
 		gen_insn(OP_SIZE_INT == OP_SIZE_4 ? INSN_FP_FROM_INT32 : INSN_FP_FROM_INT64, OP_SIZE_4, 0, 0);
-		gen_one(FR_SCRATCH_1);
+		gen_one(target);
 		gen_one(reg1);
 #endif
 		gen_insn(INSN_FP_CVT, OP_SIZE_4, op_size, 0);
-		gen_one(FR_SCRATCH_1);
-		gen_one(FR_SCRATCH_1);
-		g(gen_frame_store(ctx, op_size, slot_r, 0, FR_SCRATCH_1));
+		gen_one(target);
+		gen_one(target);
+		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
 	}
 #endif
@@ -6704,6 +6708,7 @@ do_from_int:
 do_is_exception:
 	if ((SUPPORTED_FP >> real_type) & 1) {
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, 0, FR_SCRATCH_1, &reg1));
+		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 #if defined(ARCH_ALPHA)
 		gen_insn(INSN_FP_CMP_UNORDERED_DEST_REG, op_size, 0, 0);
 		gen_one(FR_SCRATCH_2);
@@ -6712,14 +6717,14 @@ do_is_exception:
 
 		if (!cpu_test_feature(CPU_FEATURE_fix)) {
 			g(gen_frame_store_raw(ctx, OP_SIZE_4, slot_r, 0, FR_SCRATCH_2));
-			g(gen_frame_load_raw(ctx, OP_SIZE_4, sign_x, slot_r, 0, R_SCRATCH_1));
+			g(gen_frame_load_raw(ctx, OP_SIZE_4, sign_x, slot_r, 0, target));
 		} else {
-			g(gen_mov(ctx, OP_SIZE_4, R_SCRATCH_1, FR_SCRATCH_2));
+			g(gen_mov(ctx, OP_SIZE_4, target, FR_SCRATCH_2));
 		}
 
-		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHR, R_SCRATCH_1, R_SCRATCH_1, 30, 0));
+		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHR, target, target, 30, 0));
 
-		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, R_SCRATCH_1));
+		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, target));
 
 		return true;
 #elif defined(ARCH_IA64)
@@ -6728,31 +6733,31 @@ do_is_exception:
 		gen_one(reg1);
 		gen_one(reg1);
 
-		g(gen_mov(ctx, OP_SIZE_NATIVE, R_SCRATCH_1, R_CMP_RESULT));
+		g(gen_mov(ctx, OP_SIZE_NATIVE, target, R_CMP_RESULT));
 
-		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, R_SCRATCH_1));
+		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, target));
 #elif defined(ARCH_LOONGARCH64) || defined(ARCH_MIPS) || defined(ARCH_PARISC)
 		gen_insn(INSN_FP_CMP_COND, op_size, FP_COND_P, 1);
 		gen_one(reg1);
 		gen_one(reg1);
 
 		gen_insn(INSN_FP_TEST_REG, OP_SIZE_NATIVE, FP_COND_P, 0);
-		gen_one(R_SCRATCH_1);
+		gen_one(target);
 
-		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, R_SCRATCH_1));
+		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, target));
 #elif defined(ARCH_RISCV64)
 		gen_insn(INSN_FP_CMP_DEST_REG, op_size, FP_COND_E, 0);
-		gen_one(R_SCRATCH_1);
+		gen_one(target);
 		gen_one(reg1);
 		gen_one(reg1);
 
 		g(gen_imm(ctx, 1, IMM_PURPOSE_XOR, OP_SIZE_NATIVE));
 		gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_XOR, ALU_WRITES_FLAGS(ALU_XOR, is_imm()));
-		gen_one(R_SCRATCH_1);
-		gen_one(R_SCRATCH_1);
+		gen_one(target);
+		gen_one(target);
 		gen_imm_offset();
 
-		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, R_SCRATCH_1));
+		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, target));
 #else
 		gen_insn(INSN_FP_CMP, op_size, 0, 1);
 		gen_one(reg1);
