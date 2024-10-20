@@ -1288,8 +1288,8 @@ static bool attr_w attr_unused gen_cmp_dest_reg(struct codegen_context *ctx, uns
 #if defined(ARCH_ALPHA)
 	if (cond == COND_NE) {
 		if (reg2 == (unsigned)-1)
-			g(gen_imm(ctx, imm, IMM_PURPOSE_CMP, i_size(size)));
-		gen_insn(INSN_CMP_DEST_REG, i_size(size), COND_E, 0);
+			g(gen_imm(ctx, imm, IMM_PURPOSE_CMP, i_size_cmp(size)));
+		gen_insn(INSN_CMP_DEST_REG, i_size_cmp(size), COND_E, 0);
 		gen_one(reg_dest);
 		gen_one(reg1);
 		if (reg2 == (unsigned)-1)
@@ -1319,13 +1319,13 @@ static bool attr_w attr_unused gen_cmp_dest_reg(struct codegen_context *ctx, uns
 		rx = reg_dest;
 skip_xor:
 		if (cond == COND_E) {
-			g(gen_imm(ctx, 1, IMM_PURPOSE_CMP, i_size(size)));
-			gen_insn(INSN_CMP_DEST_REG, i_size(size), COND_B, 0);
+			g(gen_imm(ctx, 1, IMM_PURPOSE_CMP, i_size_cmp(size)));
+			gen_insn(INSN_CMP_DEST_REG, i_size_cmp(size), COND_B, 0);
 			gen_one(reg_dest);
 			gen_one(rx);
 			gen_imm_offset();
 		} else {
-			gen_insn(INSN_CMP_DEST_REG, i_size(size), COND_B, 0);
+			gen_insn(INSN_CMP_DEST_REG, i_size_cmp(size), COND_B, 0);
 			gen_one(reg_dest);
 			gen_one(ARG_IMM);
 			gen_eight(0);
@@ -1340,8 +1340,8 @@ skip_xor:
 #endif
 #if defined(ARCH_IA64)
 	if (reg2 == (unsigned)-1)
-		g(gen_imm(ctx, imm, IMM_PURPOSE_CMP, i_size(size)));
-	gen_insn(INSN_CMP_DEST_REG, i_size(size), cond, 0);
+		g(gen_imm(ctx, imm, IMM_PURPOSE_CMP, i_size_cmp(size)));
+	gen_insn(INSN_CMP_DEST_REG, i_size_cmp(size), cond, 0);
 	gen_one(R_CMP_RESULT);
 	gen_one(reg1);
 	if (reg2 == (unsigned)-1)
@@ -1354,8 +1354,8 @@ skip_xor:
 	goto done;
 #endif
 	if (reg2 == (unsigned)-1)
-		g(gen_imm(ctx, imm, IMM_PURPOSE_CMP, i_size(size)));
-	gen_insn(INSN_CMP_DEST_REG, i_size(size), cond, 0);
+		g(gen_imm(ctx, imm, IMM_PURPOSE_CMP, i_size_cmp(size)));
+	gen_insn(INSN_CMP_DEST_REG, i_size_cmp(size), cond, 0);
 	gen_one(reg_dest);
 	gen_one(reg1);
 	if (reg2 == (unsigned)-1)
@@ -1564,7 +1564,7 @@ static bool attr_w gen_cmp_test_imm_jmp(struct codegen_context *ctx, unsigned in
 #if defined(ARCH_PARISC)
 		gen_insn(INSN_JMP_2REGS, op_size, cond, 0);
 #else
-		gen_insn(INSN_JMP_2REGS, i_size(op_size), cond, 0);
+		gen_insn(INSN_JMP_2REGS, i_size_cmp(op_size), cond, 0);
 #endif
 		gen_one(reg1);
 		gen_imm_offset();
@@ -1642,13 +1642,13 @@ static bool attr_w gen_jmp_on_zero(struct codegen_context *ctx, unsigned attr_un
 	if (0)
 #endif
 	{
-		gen_insn(INSN_JMP_REG, i_size(op_size), cond, 0);
+		gen_insn(INSN_JMP_REG, i_size_cmp(op_size), cond, 0);
 		gen_one(reg);
 		gen_four(label);
 
 		return true;
 	}
-	g(gen_cmp_test_jmp(ctx, INSN_TEST, i_size(op_size), reg, reg, cond, label));
+	g(gen_cmp_test_jmp(ctx, INSN_TEST, i_size_cmp(op_size), reg, reg, cond, label));
 
 	return true;
 }
@@ -2717,13 +2717,9 @@ static bool attr_w attr_unused gen_frame_load_op1(struct codegen_context *ctx, u
 static bool attr_w gen_frame_load_cmp(struct codegen_context *ctx, unsigned size, bool logical, enum extend attr_unused ex, bool swap, frame_t slot, int64_t offset, unsigned reg)
 {
 	if (ctx->registers[slot] >= 0) {
-#if defined(ARCH_X86)
-		gen_insn(INSN_CMP, size, 0, 1 + logical);
-#else
-		if (size != i_size(size) + (unsigned)zero && size < OP_SIZE_4 && ex != garbage)
+		if (size != i_size_cmp(size) + (unsigned)zero && size < OP_SIZE_4 && ex != garbage)
 			goto fallback;
-		gen_insn(INSN_CMP, maximum(size, OP_SIZE_4), 0, 1 + logical);
-#endif
+		gen_insn(INSN_CMP, i_size_cmp(size), 0, 1 + logical);
 		if (!swap) {
 			gen_one(reg);
 			gen_one(ctx->registers[slot]);
@@ -2753,7 +2749,7 @@ static bool attr_w gen_frame_load_cmp(struct codegen_context *ctx, unsigned size
 #if defined(R_SCRATCH_NA_1)
 fallback:
 	g(gen_frame_load(ctx, size, ex, slot, offset, R_SCRATCH_NA_1));
-	gen_insn(INSN_CMP, maximum(size, OP_SIZE_4), 0, 1 + logical);
+	gen_insn(INSN_CMP, i_size_cmp(size), 0, 1 + logical);
 	if (!swap) {
 		gen_one(reg);
 		gen_one(R_SCRATCH_NA_1);
@@ -2777,7 +2773,7 @@ static bool attr_w gen_frame_load_cmp_imm(struct codegen_context *ctx, unsigned 
 		if (size != i_size(size) + (unsigned)zero && size < OP_SIZE_4 && ex != garbage)
 			goto fallback;
 		g(gen_imm(ctx, value, logical ? IMM_PURPOSE_CMP_LOGICAL : IMM_PURPOSE_CMP, size));
-		gen_insn(INSN_CMP, maximum(size, OP_SIZE_4), 0, 1 + logical);
+		gen_insn(INSN_CMP, i_size_cmp(size), 0, 1 + logical);
 		gen_one(ctx->registers[slot]);
 		gen_imm_offset();
 #endif
@@ -3338,7 +3334,7 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned size
 		label = alloc_label(ctx);
 		if (unlikely(!label))
 			return false;
-		gen_insn(!logical ? INSN_JMP_COND : INSN_JMP_COND_LOGICAL, i_size(size), cond, 0);
+		gen_insn(!logical ? INSN_JMP_COND : INSN_JMP_COND_LOGICAL, i_size_cmp(size), cond, 0);
 		gen_four(label);
 		g(gen_load_constant(ctx, R_SCRATCH_1, 0));
 		gen_label(label);
@@ -4736,7 +4732,7 @@ do_shift: {
 
 		if (mode == MODE_INT) {
 			int64_t imm = (1U << (op_size + 3)) - 1;
-			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, maximum(op_size, OP_SIZE_4), reg3, imm, COND_A, label_ovf));
+			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg3, imm, COND_A, label_ovf));
 		} else {
 #if defined(ARCH_ARM)
 			if (alu == ROT_ROL) {
@@ -4936,7 +4932,7 @@ do_bt: {
 		g(gen_frame_get(ctx, op_size, garbage, slot_2, 0, R_SCRATCH_2, &reg2));
 		if (mode == MODE_INT) {
 			int64_t imm = (1U << (op_size + 3)) - 1;
-			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, maximum(op_size, OP_SIZE_4), reg2, imm, alu == BTX_BT ? COND_A : COND_AE, label_ovf));
+			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg2, imm, alu == BTX_BT ? COND_A : COND_AE, label_ovf));
 		}
 		if (alu != BTX_BT) {
 			if (!ARCH_HAS_BTX(alu, OP_SIZE_NATIVE, false))
@@ -5006,7 +5002,7 @@ do_generic_bt:
 				gen_one(reg1);
 				gen_one(R_SCRATCH_3);
 #endif
-				g(gen_frame_set_cond(ctx, maximum(op_size, OP_SIZE_4), false, COND_NE, slot_r));
+				g(gen_frame_set_cond(ctx, i_size_cmp(op_size), false, COND_NE, slot_r));
 #else
 				g(gen_3address_alu(ctx, i_size(op_size), ALU_AND, R_SCRATCH_1, reg1, R_SCRATCH_3, 0));
 				g(gen_frame_cmp_imm_set_cond_reg(ctx, i_size(op_size), R_SCRATCH_1, 0, COND_NE, slot_r));
