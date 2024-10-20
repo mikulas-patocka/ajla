@@ -3443,7 +3443,7 @@ static bool attr_w gen_extend(struct codegen_context *ctx, unsigned op_size, enu
 		g(gen_mov(ctx, op_size, dest, src));
 		return true;
 	}
-#if defined(ARCH_IA64) || defined(ARCH_LOONGARCH64) || defined(ARCH_PARISC) || defined(ARCH_X86)
+#if defined(ARCH_ARM64) || defined(ARCH_IA64) || defined(ARCH_LOONGARCH64) || defined(ARCH_PARISC) || defined(ARCH_X86)
 	gen_insn(ex == sign_x ? INSN_MOVSX : INSN_MOV, op_size, 0, 0);
 	gen_one(dest);
 	gen_one(src);

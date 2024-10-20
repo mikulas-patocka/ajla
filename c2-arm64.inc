@@ -260,10 +260,15 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 	ctx->code_position = arg2 + arg_size(*arg2);
 	if (arg1[0] < 32) {
 		if (arg2[0] < 32) {
-			if (unlikely(sx) && size != OP_SIZE_8)
-				internal(file_line, "cgen_mov: unsupported sign extension");
-			if (unlikely(size < OP_SIZE_4))
-				internal(file_line, "cgen_mov: unsupported size %u", size);
+			if (size < (sx ? OP_SIZE_8 : OP_SIZE_4)) {
+				mc = ARM64_SUBFM | (sx * ARM64_SUBFM_SIZE);
+				mc |= arg1[0];
+				mc |= (uint32_t)arg2[0] << 5;
+				mc |= ((8U << size) - 1) << 10;
+				mc |= ARM64_SUBFM_U * !sx;
+				cgen_four(mc);
+				return true;
+			}
 			if (arg1[0] == R_SP || arg2[0] == R_SP) {
 				mc = ARM64_ADDSUB_IMM;
 				mc |= arg1[0];
