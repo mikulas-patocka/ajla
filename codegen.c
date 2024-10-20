@@ -3463,7 +3463,7 @@ static bool attr_w gen_extend(struct codegen_context *ctx, unsigned op_size, enu
 		internal(file_line, "gen_extend: invalid OP_SIZE_NATIVE");
 	}
 #if defined(ARCH_ARM) || defined(ARCH_IA64) || defined(ARCH_LOONGARCH64) || defined(ARCH_PARISC) || defined(ARCH_X86)
-#if defined(ARCH_ARM)
+#if defined(ARCH_ARM32)
 	if (unlikely(!cpu_test_feature(CPU_FEATURE_armv6)))
 		goto default_extend;
 #endif
