@@ -5927,7 +5927,7 @@ static bool attr_w gen_fp_alu(struct codegen_context *ctx, unsigned real_type, u
 	unsigned attr_unused fp_alu;
 	size_t upc;
 	unsigned attr_unused op_size = real_type_to_op_size(real_type);
-	unsigned reg1, reg2;
+	unsigned reg1, reg2, target;
 	switch (op) {
 		case OPCODE_REAL_OP_add:
 		case OPCODE_REAL_OP_add_alt1:
@@ -5974,29 +5974,32 @@ do_alu:
 		if (ctx->registers[slot_2] >= 0)
 #endif
 		{
+			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, slot_2, FR_SCRATCH_1);
 			g(gen_frame_get(ctx, op_size, garbage, slot_1, 0, FR_SCRATCH_1, &reg1));
 			if (ctx->registers[slot_2] >= 0) {
-				g(gen_3address_fp_alu(ctx, op_size, fp_alu, FR_SCRATCH_1, reg1, ctx->registers[slot_2]));
+				g(gen_3address_fp_alu(ctx, op_size, fp_alu, target, reg1, ctx->registers[slot_2]));
 			} else {
 				g(gen_address(ctx, R_FRAME, (size_t)slot_2 * slot_size, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
 				gen_insn(INSN_FP_ALU, op_size, fp_alu, 0);
-				gen_one(FR_SCRATCH_1);
+				gen_one(target);
 				gen_one(reg1);
 				gen_address_offset();
 			}
-			g(gen_frame_store(ctx, op_size, slot_r, 0, FR_SCRATCH_1));
+			g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 			return true;
 		}
 #if defined(ARCH_ALPHA)
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, 0, FR_SCRATCH_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, 0, FR_SCRATCH_2, &reg2));
-		g(gen_3address_fp_alu(ctx, op_size, fp_alu, FR_SCRATCH_3, reg1, reg2));
-		g(gen_frame_store(ctx, op_size, slot_r, 0, FR_SCRATCH_3));
+		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, FR_SCRATCH_3);
+		g(gen_3address_fp_alu(ctx, op_size, fp_alu, target, reg1, reg2));
+		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 #else
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, 0, FR_SCRATCH_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, 0, FR_SCRATCH_2, &reg2));
-		g(gen_3address_fp_alu(ctx, op_size, fp_alu, FR_SCRATCH_1, reg1, reg2));
-		g(gen_frame_store(ctx, op_size, slot_r, 0, FR_SCRATCH_1));
+		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, FR_SCRATCH_1);
+		g(gen_3address_fp_alu(ctx, op_size, fp_alu, target, reg1, reg2));
+		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 #endif
 		return true;
 	}
@@ -6019,6 +6022,7 @@ do_alu:
 	if ((SUPPORTED_FP_HALF_CVT >> real_type) & 1) {
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, 0, FR_SCRATCH_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, 0, FR_SCRATCH_2, &reg2));
+		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, FR_SCRATCH_1);
 		gen_insn(INSN_FP_CVT, op_size, OP_SIZE_4, 0);
 		gen_one(FR_SCRATCH_1);
 		gen_one(reg1);
@@ -6030,9 +6034,9 @@ do_alu:
 		gen_one(FR_SCRATCH_1);
 		gen_one(FR_SCRATCH_2);
 		gen_insn(INSN_FP_CVT, OP_SIZE_4, op_size, 0);
+		gen_one(target);
 		gen_one(FR_SCRATCH_1);
-		gen_one(FR_SCRATCH_1);
-		g(gen_frame_store(ctx, op_size, slot_r, 0, FR_SCRATCH_1));
+		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
 	}
 #endif
@@ -6046,6 +6050,7 @@ do_cmp:
 	) {
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, 0, FR_SCRATCH_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, 0, FR_SCRATCH_2, &reg2));
+		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 #if defined(ARCH_ALPHA)
 		gen_insn(INSN_FP_CMP_DEST_REG_TRAP, op_size, fp_alu == FP_COND_NE ? FP_COND_E : fp_alu, 0);
 		gen_one(FR_SCRATCH_3);
@@ -6055,22 +6060,22 @@ do_cmp:
 
 		if (!cpu_test_feature(CPU_FEATURE_fix)) {
 			g(gen_frame_store_raw(ctx, OP_SIZE_4, slot_r, 0, FR_SCRATCH_3));
-			g(gen_frame_load_raw(ctx, OP_SIZE_4, sign_x, slot_r, 0, R_SCRATCH_1));
+			g(gen_frame_load_raw(ctx, OP_SIZE_4, sign_x, slot_r, 0, target));
 		} else {
-			g(gen_mov(ctx, OP_SIZE_4, R_SCRATCH_1, FR_SCRATCH_3));
+			g(gen_mov(ctx, OP_SIZE_4, target, FR_SCRATCH_3));
 		}
 
 		if (fp_alu == FP_COND_NE) {
 			g(gen_imm(ctx, 0, IMM_PURPOSE_CMP, OP_SIZE_NATIVE));
 			gen_insn(INSN_CMP_DEST_REG, OP_SIZE_NATIVE, COND_E, 0);
-			gen_one(R_SCRATCH_1);
-			gen_one(R_SCRATCH_1);
+			gen_one(target);
+			gen_one(target);
 			gen_imm_offset();
 		} else {
-			g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHR, R_SCRATCH_1, R_SCRATCH_1, 30, 0));
+			g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHR, target, target, 30, 0));
 		}
 
-		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, R_SCRATCH_1));
+		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, target));
 
 		return true;
 #elif defined(ARCH_IA64)
@@ -6088,9 +6093,9 @@ do_cmp:
 		gen_one(reg1);
 		gen_one(reg2);
 
-		g(gen_mov(ctx, OP_SIZE_NATIVE, R_SCRATCH_1, R_CMP_RESULT));
+		g(gen_mov(ctx, OP_SIZE_NATIVE, target, R_CMP_RESULT));
 
-		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, R_SCRATCH_1));
+		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, target));
 
 		return true;
 #elif defined(ARCH_LOONGARCH64) || defined(ARCH_MIPS) || defined(ARCH_PARISC)
@@ -6106,9 +6111,9 @@ do_cmp:
 		gen_one(reg2);
 
 		gen_insn(INSN_FP_TEST_REG, OP_SIZE_NATIVE, fp_alu, 0);
-		gen_one(R_SCRATCH_1);
+		gen_one(target);
 
-		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, R_SCRATCH_1));
+		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, target));
 
 		return true;
 #elif defined(ARCH_RISCV64)
@@ -6127,19 +6132,19 @@ do_cmp:
 		g(gen_jmp_on_zero(ctx, OP_SIZE_NATIVE, R_SCRATCH_1, COND_E, label_ovf));
 
 		gen_insn(INSN_FP_CMP_DEST_REG, op_size, fp_alu == FP_COND_NE ? FP_COND_E : fp_alu, 0);
-		gen_one(R_SCRATCH_1);
+		gen_one(target);
 		gen_one(reg1);
 		gen_one(reg2);
 
 		if (fp_alu == FP_COND_NE) {
 			g(gen_imm(ctx, 1, IMM_PURPOSE_XOR, OP_SIZE_NATIVE));
 			gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_XOR, ALU_WRITES_FLAGS(ALU_AND, false));
-			gen_one(R_SCRATCH_1);
-			gen_one(R_SCRATCH_1);
+			gen_one(target);
+			gen_one(target);
 			gen_imm_offset();
 		}
 
-		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, R_SCRATCH_1));
+		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, target));
 		return true;
 #else
 		gen_insn(INSN_FP_CMP, op_size, 0, 1);
