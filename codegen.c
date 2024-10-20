@@ -8351,6 +8351,7 @@ static bool attr_w gen_option_ord(struct codegen_context *ctx, frame_t slot_1, f
 	unsigned op_size = log_2(sizeof(ajla_option_t));
 	unsigned op_size_flat = log_2(sizeof(ajla_flat_option_t));
 	uint32_t escape_label, ptr_label, store_label;
+	unsigned target;
 
 	escape_label = alloc_escape_label(ctx);
 	if (unlikely(!escape_label))
@@ -8364,10 +8365,12 @@ static bool attr_w gen_option_ord(struct codegen_context *ctx, frame_t slot_1, f
 	if (unlikely(!store_label))
 		return false;
 
+	target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
+
 	if (flat) {
 		g(gen_test_1_cached(ctx, slot_1, ptr_label));
 
-		g(gen_frame_load(ctx, op_size_flat, zero_x, slot_1, 0, R_SCRATCH_1));
+		g(gen_frame_load(ctx, op_size_flat, zero_x, slot_1, 0, target));
 
 		if (flag_is_clear(ctx, slot_1))
 			goto skip_ptr_label;
@@ -8385,12 +8388,12 @@ static bool attr_w gen_option_ord(struct codegen_context *ctx, frame_t slot_1, f
 
 	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.option.option), ARCH_PREFERS_SX(op_size) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, op_size));
 	gen_insn(ARCH_PREFERS_SX(op_size) ? INSN_MOVSX : INSN_MOV, op_size, 0, 0);
-	gen_one(R_SCRATCH_1);
+	gen_one(target);
 	gen_address_offset();
 
 skip_ptr_label:
 	gen_label(store_label);
-	g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, R_SCRATCH_1));
+	g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, target));
 	flag_set(ctx, slot_r, false);
 
 	return true;
