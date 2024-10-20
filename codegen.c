@@ -5991,7 +5991,7 @@ do_alu:
 #if defined(ARCH_ALPHA)
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, 0, FR_SCRATCH_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, 0, FR_SCRATCH_2, &reg2));
-		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, FR_SCRATCH_3);
+		target = gen_frame_target(ctx, slot_r, slot_1, slot_2, FR_SCRATCH_3);
 		g(gen_3address_fp_alu(ctx, op_size, fp_alu, target, reg1, reg2));
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 #else
@@ -6264,7 +6264,7 @@ static bool attr_w gen_fp_alu1(struct codegen_context *ctx, unsigned real_type, 
 	unsigned attr_unused fp_alu;
 	size_t upc;
 	unsigned attr_unused op_size = real_type_to_op_size(real_type);
-	unsigned reg1;
+	unsigned reg1, target;
 	switch (op) {
 		case OPCODE_REAL_OP_neg:
 		case OPCODE_REAL_OP_neg_alt1:
@@ -6328,26 +6328,28 @@ do_alu:
 		false)) {
 #if defined(ARCH_S390)
 		if (op_size <= OP_SIZE_8 && (size_t)slot_1 * slot_size < 4096 && fp_alu == FP_ALU1_SQRT) {
+			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, FR_SCRATCH_1);
 			if (ctx->registers[slot_1] >= 0) {
 				gen_insn(INSN_FP_ALU1, op_size, fp_alu, 0);
-				gen_one(FR_SCRATCH_1);
+				gen_one(target);
 				gen_one(ctx->registers[slot_1]);
-				g(gen_frame_store(ctx, op_size, slot_r, 0, FR_SCRATCH_1));
+				g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 			} else {
 				g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
 				gen_insn(INSN_FP_ALU1, op_size, fp_alu, 0);
-				gen_one(FR_SCRATCH_1);
+				gen_one(target);
 				gen_address_offset();
-				g(gen_frame_store(ctx, op_size, slot_r, 0, FR_SCRATCH_1));
+				g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 			}
 			return true;
 		}
 #endif
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, 0, FR_SCRATCH_1, &reg1));
+		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, FR_SCRATCH_2);
 		gen_insn(INSN_FP_ALU1, op_size, fp_alu, 0);
-		gen_one(FR_SCRATCH_2);
+		gen_one(target);
 		gen_one(reg1);
-		g(gen_frame_store(ctx, op_size, slot_r, 0, FR_SCRATCH_2));
+		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
 	}
 #ifdef SUPPORTED_FP_X87
@@ -6383,16 +6385,17 @@ do_alu:
 #endif
 		false)) {
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, 0, FR_SCRATCH_1, &reg1));
+		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, FR_SCRATCH_1);
 		gen_insn(INSN_FP_CVT, op_size, OP_SIZE_4, 0);
-		gen_one(FR_SCRATCH_1);
+		gen_one(target);
 		gen_one(reg1);
 		gen_insn(INSN_FP_ALU1, OP_SIZE_4, fp_alu, 0);
-		gen_one(FR_SCRATCH_1);
-		gen_one(FR_SCRATCH_1);
+		gen_one(target);
+		gen_one(target);
 		gen_insn(INSN_FP_CVT, OP_SIZE_4, op_size, 0);
-		gen_one(FR_SCRATCH_1);
-		gen_one(FR_SCRATCH_1);
-		g(gen_frame_store(ctx, op_size, slot_r, 0, FR_SCRATCH_1));
+		gen_one(target);
+		gen_one(target);
+		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
 	}
 #endif
