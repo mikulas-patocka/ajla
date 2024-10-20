@@ -6523,7 +6523,7 @@ do_cvt_to_int:
 			g(gen_frame_store_raw(ctx, OP_SIZE_INT, slot_r, 0, FR_SCRATCH_2));
 		}
 		if (ctx->registers[slot_r] >= 0)
-			g(gen_unspill(ctx, slot_r);
+			g(unspill(ctx, slot_r));
 		return true;
 #endif
 #if defined(ARCH_S390)
