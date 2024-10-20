@@ -71,8 +71,12 @@
 #define ARM_CLZ			0x016f0f10U
 #define ARM_MOV_IMM16		0x03000000U
 #define ARM_MOVT		0x03400000U
+#define ARM_SXTB		0x06af0070U
+#define ARM_SXTH		0x06bf0070U
 #define ARM_REV			0x06bf0f30U
 #define ARM_REV16		0x06bf0fb0U
+#define ARM_UXTB		0x06ef0070U
+#define ARM_UXTH		0x06ff0070U
 #define ARM_RBIT		0x06ff0f30U
 #define ARM_SDIV		0x0710f010U
 #define ARM_UDIV		0x0730f010U
@@ -323,11 +327,20 @@ static bool attr_w cgen_mov_args(struct codegen_context *ctx, uint32_t cond, uns
 	uint32_t mc;
 	if (arg1[0] < 16) {
 		if (arg2[0] < 16) {
-			if (unlikely(sx))
-				internal(file_line, "cgen_mov_args: unsupported sign extension");
-			if (unlikely(size != OP_SIZE_NATIVE))
-				internal(file_line, "cgen_mov_args: unsupported size %u", size);
-			mc = cond | ARM_MOV;
+			if (unlikely(sx)) {
+				switch (size) {
+					case OP_SIZE_1:	mc = cond | ARM_SXTB; break;
+					case OP_SIZE_2:	mc = cond | ARM_SXTH; break;
+					default:	internal(file_line, "cgen_mov_args: invalid sign extend size");
+				}
+			} else {
+				switch (size) {
+					case OP_SIZE_1:	mc = cond | ARM_UXTB; break;
+					case OP_SIZE_2:	mc = cond | ARM_UXTH; break;
+					case OP_SIZE_4:	mc = cond | ARM_MOV; break;
+					default:	internal(file_line, "cgen_mov_args: invalid zero extend size");
+				}
+			}
 			mc |= arg2[0];
 			mc |= (uint32_t)arg1[0] << 12;
 			cgen_four(mc);

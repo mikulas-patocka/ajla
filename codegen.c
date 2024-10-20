@@ -3455,7 +3455,18 @@ static bool attr_w gen_extend(struct codegen_context *ctx, unsigned op_size, enu
 		g(gen_mov(ctx, op_size, dest, src));
 		return true;
 	}
-#if defined(ARCH_ARM64) || defined(ARCH_IA64) || defined(ARCH_LOONGARCH64) || defined(ARCH_PARISC) || defined(ARCH_X86)
+	if (OP_SIZE_NATIVE == OP_SIZE_4) {
+		shift = op_size == OP_SIZE_1 ? 24 : 16;
+	} else if (OP_SIZE_NATIVE == OP_SIZE_8) {
+		shift = op_size == OP_SIZE_1 ? 56 : op_size == OP_SIZE_2 ? 48 : 32;
+	} else {
+		internal(file_line, "gen_extend: invalid OP_SIZE_NATIVE");
+	}
+#if defined(ARCH_ARM) || defined(ARCH_IA64) || defined(ARCH_LOONGARCH64) || defined(ARCH_PARISC) || defined(ARCH_X86)
+#if defined(ARCH_ARM)
+	if (unlikely(!cpu_test_feature(CPU_FEATURE_armv6)))
+		goto default_extend;
+#endif
 	gen_insn(ex == sign_x ? INSN_MOVSX : INSN_MOV, op_size, 0, 0);
 	gen_one(dest);
 	gen_one(src);
@@ -3469,13 +3480,6 @@ static bool attr_w gen_extend(struct codegen_context *ctx, unsigned op_size, enu
 		return true;
 	}
 #endif
-	if (OP_SIZE_NATIVE == OP_SIZE_4) {
-		shift = op_size == OP_SIZE_1 ? 24 : 16;
-	} else if (OP_SIZE_NATIVE == OP_SIZE_8) {
-		shift = op_size == OP_SIZE_1 ? 56 : op_size == OP_SIZE_2 ? 48 : 32;
-	} else {
-		internal(file_line, "gen_extend: invalid OP_SIZE_NATIVE");
-	}
 #if defined(ARCH_ALPHA)
 	if (ex == zero_x) {
 		g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_ZAPNOT, dest, src, op_size == OP_SIZE_1 ? 0x1 : op_size == OP_SIZE_2 ? 0x3 : 0xf, 0));
@@ -3527,6 +3531,8 @@ static bool attr_w gen_extend(struct codegen_context *ctx, unsigned op_size, enu
 		return true;
 	}
 #endif
+	goto default_extend;
+default_extend:
 	g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, dest, src, shift, false));
 	g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ex == sign_x ? ROT_SAR : ROT_SHR, dest, dest, shift, false));
 
