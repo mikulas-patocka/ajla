@@ -5097,7 +5097,7 @@ do_compare: {
 		g(gen_frame_get(ctx, op_size, garbage, slot_1, 0, R_SCRATCH_1, &reg1));
 		g(gen_frame_load_cmp_set_cond(ctx, op_size, garbage, slot_2, 0, reg1, alu, slot_r));
 #else
-		g(gen_frame_get(ctx, op_size, alu == COND_L || alu == COND_LE || ARCH_PREFERS_SX(op_size) ? sign_x : zero_x, slot_1, 0, R_SCRATCH_1, &reg1));
+		g(gen_frame_get(ctx, op_size, op_size == i_size(op_size) + (unsigned)zero ? garbage : alu == COND_L || alu == COND_LE || ARCH_PREFERS_SX(op_size) ? sign_x : zero_x, slot_1, 0, R_SCRATCH_1, &reg1));
 		g(gen_frame_load_cmp_set_cond(ctx, op_size, alu == COND_L || alu == COND_LE || ARCH_PREFERS_SX(op_size) ? sign_x : zero_x, slot_2, 0, reg1, alu, slot_r));
 #endif
 		return true;
