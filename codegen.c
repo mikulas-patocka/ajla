@@ -4421,7 +4421,7 @@ do_multiply: {
 			gen_one(reg1);
 			gen_one(reg2);
 
-			g(gen_3address_rot_imm(ctx, op_size, ROT_SAR, R_SCRATCH_4, target, (1U << (op_size + 3)) - 1, false));
+			g(gen_3address_rot_imm(ctx, op_size, ROT_SAR, R_SCRATCH_4, target, (8U << op_size) - 1, false));
 
 			g(gen_cmp_test_jmp(ctx, INSN_CMP, op_size, R_SCRATCH_2, R_SCRATCH_4, COND_NE, label_ovf));
 
@@ -4746,7 +4746,7 @@ do_shift: {
 		}
 
 		if (mode == MODE_INT) {
-			int64_t imm = (1U << (op_size + 3)) - 1;
+			int64_t imm = (8U << op_size) - 1;
 			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg3, imm, COND_A, label_ovf));
 		} else {
 #if defined(ARCH_ARM)
@@ -4785,7 +4785,7 @@ do_shift: {
 			}
 #endif
 			if (must_mask) {
-				g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_4), ALU_AND, R_SCRATCH_3, reg3, (1U << (op_size + 3)) - 1, 0));
+				g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_4), ALU_AND, R_SCRATCH_3, reg3, (8U << op_size) - 1, 0));
 				reg3 = R_SCRATCH_3;
 			}
 		}
@@ -4826,7 +4826,7 @@ do_shift: {
 			gen_one(R_SCRATCH_1);
 			gen_one(reg1);
 			gen_one(ARG_SHIFTED_REGISTER);
-			gen_one(ARG_SHIFT_LSL | (1U << (op_size + 3)));
+			gen_one(ARG_SHIFT_LSL | (8U << op_size));
 			gen_one(reg1);
 			if (op_size == OP_SIZE_1)
 				alu = ROT_SHR;
@@ -4862,7 +4862,7 @@ do_shift: {
 			g(gen_3address_rot(ctx, op_s, alu == ROT_ROL ? ROT_SHL : ROT_SHR, R_SCRATCH_2, reg1, reg3));
 			g(gen_2address_alu1(ctx, i_size(OP_SIZE_4), ALU1_NEG, R_SCRATCH_3, reg3, 0));
 			if (must_mask) {
-				g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_4), ALU_AND, R_SCRATCH_3, R_SCRATCH_3, (1U << (op_size + 3)) - 1, 0));
+				g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_4), ALU_AND, R_SCRATCH_3, R_SCRATCH_3, (8U << op_size) - 1, 0));
 			}
 			g(gen_3address_rot(ctx, op_s, alu == ROT_ROL ? ROT_SHR : ROT_SHL, target, reg1, R_SCRATCH_3));
 			g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_OR, target, target, R_SCRATCH_2, 0));
@@ -4946,7 +4946,7 @@ do_bt: {
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, 0, R_SCRATCH_1, &reg1));
 		g(gen_frame_get(ctx, op_size, garbage, slot_2, 0, R_SCRATCH_2, &reg2));
 		if (mode == MODE_INT) {
-			int64_t imm = (1U << (op_size + 3)) - 1;
+			int64_t imm = (8U << op_size) - 1;
 			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg2, imm, alu == BTX_BT ? COND_A : COND_AE, label_ovf));
 		}
 		if (alu != BTX_BT) {
@@ -4963,7 +4963,7 @@ do_bt: {
 #endif
 		}
 		if (need_mask) {
-			g(gen_3address_alu_imm(ctx, OP_SIZE_4, ALU_AND, R_SCRATCH_2, reg2, (1U << (op_size + 3)) - 1, 0));
+			g(gen_3address_alu_imm(ctx, OP_SIZE_4, ALU_AND, R_SCRATCH_2, reg2, (8U << op_size) - 1, 0));
 			reg2 = R_SCRATCH_2;
 		}
 		if (alu == BTX_BT) {
@@ -5006,7 +5006,7 @@ do_bt: {
 		goto do_generic_bt;
 do_generic_bt:
 		if (mode == MODE_FIXED && op_size < ARCH_SHIFT_SIZE) {
-			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_4), ALU_AND, R_SCRATCH_2, reg2, (1U << (op_size + 3)) - 1, 0));
+			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_4), ALU_AND, R_SCRATCH_2, reg2, (8U << op_size) - 1, 0));
 			reg2 = R_SCRATCH_2;
 		}
 		g(gen_load_constant(ctx, R_SCRATCH_3, 1));
