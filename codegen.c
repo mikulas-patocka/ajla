@@ -4974,26 +4974,32 @@ do_bt: {
 
 			g(gen_frame_set_cond(ctx, maximum(op_size, OP_SIZE_2), false, COND_B, slot_r));
 #else
+			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 			gen_insn(INSN_BTX, need_mask ? OP_SIZE_NATIVE : op_size, BTX_BTEXT, 0);
-			gen_one(R_SCRATCH_1);
+			gen_one(target);
 			gen_one(reg1);
 			gen_one(reg2);
 
-			g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, R_SCRATCH_1));
+			g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, target));
 #endif
 		} else {
+			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 #if defined(ARCH_X86)
-			g(gen_mov(ctx, op_size, R_SCRATCH_1, reg1));
-			reg1 = R_SCRATCH_1;
+			if (target == reg2)
+				target = R_SCRATCH_1;
+			if (target != reg1) {
+				g(gen_mov(ctx, op_size, target, reg1));
+				reg1 = target;
+			}
 			gen_insn(INSN_BTX, maximum(op_size, OP_SIZE_2), alu, 1);
 #else
 			gen_insn(INSN_BTX, need_mask ? OP_SIZE_NATIVE : op_size, alu, 0);
 #endif
-			gen_one(R_SCRATCH_1);
+			gen_one(target);
 			gen_one(reg1);
 			gen_one(reg2);
 
-			g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_1));
+			g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		}
 		return true;
 
