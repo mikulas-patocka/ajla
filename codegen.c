@@ -5494,7 +5494,7 @@ x86_bsf_bsr_popcnt_finish:
 #endif
 		if (alu == ALU1_POPCNT && unlikely(!cpu_test_feature(CPU_FEATURE_neon)))
 			goto do_generic_bsf_bsr_popcnt;
-		g(gen_frame_get(ctx, op_size, mode == MODE_INT ? sign_x : native, slot_1, 0, R_SCRATCH_1, &reg1));
+		g(gen_frame_get(ctx, op_size, mode == MODE_INT ? sign_x : zero_x, slot_1, 0, R_SCRATCH_1, &reg1));
 		if (mode == MODE_INT) {
 			g(gen_cmp_test_jmp(ctx, INSN_TEST, i_size(op_size), reg1, reg1, alu == ALU1_BSR ? COND_LE : alu == ALU1_BSF ? COND_E : COND_S, label_ovf));
 		}
@@ -5602,7 +5602,7 @@ x86_bsf_bsr_popcnt_finish:
 #endif
 #if defined(ARCH_MIPS)
 		if (MIPS_HAS_CLZ && alu != ALU1_POPCNT) {
-			g(gen_frame_get(ctx, op_size, sign_x, slot_1, 0, R_SCRATCH_1, &reg1));
+			g(gen_frame_get(ctx, op_size, mode == MODE_INT ? sign_x : zero_x, slot_1, 0, R_SCRATCH_1, &reg1));
 			target = gen_frame_target(ctx, slot_r, slot_1, NO_FRAME_T, R_SCRATCH_2);
 			if (mode == MODE_INT) {
 				g(gen_cmp_test_jmp(ctx, INSN_TEST, OP_SIZE_NATIVE, reg1, reg1, alu == ALU1_BSR ? COND_LE : alu == ALU1_BSF ? COND_E : COND_S, label_ovf));
@@ -5668,15 +5668,10 @@ x86_bsf_bsr_popcnt_finish:
 		if (unlikely(!cpu_test_feature(CPU_FEATURE_zbb)))
 			goto do_generic_bsf_bsr_popcnt;
 #endif
-		g(gen_frame_get(ctx, op_size, sign_x, slot_1, 0, R_SCRATCH_1, &reg1));
+		g(gen_frame_get(ctx, op_size, mode == MODE_INT ? sign_x : zero_x, slot_1, 0, R_SCRATCH_1, &reg1));
 		target = gen_frame_target(ctx, slot_r, slot_1, NO_FRAME_T, R_SCRATCH_2);
 		if (mode == MODE_INT) {
 			g(gen_cmp_test_jmp(ctx, INSN_TEST, OP_SIZE_NATIVE, reg1, reg1, alu == ALU1_BSR ? COND_LE : alu == ALU1_BSF ? COND_E : COND_S, label_ovf));
-		} else {
-			if (op_size < OP_SIZE_4) {
-				g(gen_extend(ctx, op_size, zero_x, R_SCRATCH_1, reg1));
-				reg1 = R_SCRATCH_1;
-			}
 		}
 		if (alu == ALU1_POPCNT) {
 			g(gen_2address_alu1(ctx, maximum(OP_SIZE_4, op_size), ALU1_POPCNT, target, reg1, 0));
