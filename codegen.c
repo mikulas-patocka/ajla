@@ -2607,10 +2607,25 @@ static bool attr_w gen_frame_load(struct codegen_context *ctx, unsigned size, en
 			return true;
 		}
 		g(gen_mov(ctx, !reg_is_fp(reg) ? OP_SIZE_NATIVE : size, reg, ctx->registers[slot]));
-		return true;
+		goto ret;
 	}
 
-	return gen_frame_load_raw(ctx, size, ex, slot, offset, reg);
+	g(gen_frame_load_raw(ctx, size, ex, slot, offset, reg));
+ret:
+#ifdef DEBUG_GARBAGE
+	if (size < OP_SIZE_NATIVE && ex == garbage) {
+		uint64_t mask;
+		g(gen_extend(ctx, size, zero_x, reg, reg));
+		mask = (rand()) | ((uint64_t)rand() << 31) | ((uint64_t)rand() << 62);
+		mask <<= 8ULL << size;
+		g(gen_imm(ctx, mask, IMM_PURPOSE_OR, OP_SIZE_NATIVE));
+		gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_OR, ALU_WRITES_FLAGS(ALU_OR, false));
+		gen_one(reg);
+		gen_one(reg);
+		gen_imm_offset();
+	}
+#endif
+	return true;
 }
 
 static bool attr_w gen_frame_get(struct codegen_context *ctx, unsigned size, enum extend ex, frame_t slot, int64_t offset, unsigned reg, unsigned *dest)
@@ -2746,8 +2761,8 @@ static bool attr_w gen_frame_load_cmp(struct codegen_context *ctx, unsigned size
 	}
 	return true;
 #endif
-#if defined(R_SCRATCH_NA_1)
 fallback:
+#if defined(R_SCRATCH_NA_1)
 	g(gen_frame_load(ctx, size, ex, slot, offset, R_SCRATCH_NA_1));
 	gen_insn(INSN_CMP, i_size_cmp(size), 0, 1 + logical);
 	if (!swap) {
@@ -2757,8 +2772,8 @@ fallback:
 		gen_one(R_SCRATCH_NA_1);
 		gen_one(reg);
 	}
-	return true;
 #endif
+	return true;
 }
 
 static bool attr_w gen_frame_load_cmp_imm(struct codegen_context *ctx, unsigned size, bool logical, enum extend attr_unused ex, frame_t slot, int64_t offset, int64_t value)
