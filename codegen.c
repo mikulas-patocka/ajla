@@ -1146,6 +1146,29 @@ static bool attr_w gen_2address_alu1(struct codegen_context *ctx, unsigned size,
 	return true;
 }
 
+static bool attr_w gen_3address_fp_alu(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src1, unsigned src2)
+{
+	if (!ARCH_IS_3ADDRESS_FP && unlikely(dest == src2) && unlikely(dest != src1)) {
+		internal(file_line, "gen_3address_fp_alu: invalid registers: %u, %u, %x, %x, %x", size, alu, dest, src1, src2);
+	}
+	if (!ARCH_IS_3ADDRESS_FP && dest != src1) {
+		g(gen_mov(ctx, size, dest, src1));
+
+		gen_insn(INSN_FP_ALU, size, alu, 0);
+		gen_one(dest);
+		gen_one(dest);
+		gen_one(src2);
+
+		return true;
+	}
+	gen_insn(INSN_FP_ALU, size, alu, 0);
+	gen_one(dest);
+	gen_one(src1);
+	gen_one(src2);
+
+	return true;
+}
+
 
 static bool attr_w attr_unused gen_load_two(struct codegen_context *ctx, unsigned dest, unsigned src, int64_t offset)
 {
@@ -5916,10 +5939,7 @@ do_alu:
 		{
 			g(gen_frame_get(ctx, op_size, garbage, slot_1, 0, FR_SCRATCH_1, &reg1));
 			if (ctx->registers[slot_2] >= 0) {
-				gen_insn(INSN_FP_ALU, op_size, fp_alu, 0);
-				gen_one(FR_SCRATCH_1);
-				gen_one(reg1);
-				gen_one(ctx->registers[slot_2]);
+				g(gen_3address_fp_alu(ctx, op_size, fp_alu, FR_SCRATCH_1, reg1, ctx->registers[slot_2]));
 			} else {
 				g(gen_address(ctx, R_FRAME, (size_t)slot_2 * slot_size, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
 				gen_insn(INSN_FP_ALU, op_size, fp_alu, 0);
@@ -5933,18 +5953,12 @@ do_alu:
 #if defined(ARCH_ALPHA)
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, 0, FR_SCRATCH_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, 0, FR_SCRATCH_2, &reg2));
-		gen_insn(INSN_FP_ALU, op_size, fp_alu, 0);
-		gen_one(FR_SCRATCH_3);
-		gen_one(reg1);
-		gen_one(reg2);
+		g(gen_3address_fp_alu(ctx, op_size, fp_alu, FR_SCRATCH_3, reg1, reg2));
 		g(gen_frame_store(ctx, op_size, slot_r, 0, FR_SCRATCH_3));
 #else
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, 0, FR_SCRATCH_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, 0, FR_SCRATCH_2, &reg2));
-		gen_insn(INSN_FP_ALU, op_size, fp_alu, 0);
-		gen_one(FR_SCRATCH_1);
-		gen_one(reg1);
-		gen_one(reg2);
+		g(gen_3address_fp_alu(ctx, op_size, fp_alu, FR_SCRATCH_1, reg1, reg2));
 		g(gen_frame_store(ctx, op_size, slot_r, 0, FR_SCRATCH_1));
 #endif
 		return true;
