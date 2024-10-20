@@ -6649,7 +6649,7 @@ do_from_int:
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
 #elif defined(ARCH_IA64)
-		g(gen_frame_get(ctx, OP_SIZE_INT, sign_x, slot_1, 0, R_SCRATCH_1, reg1));
+		g(gen_frame_get(ctx, OP_SIZE_INT, sign_x, slot_1, 0, R_SCRATCH_1, &reg1));
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, FR_SCRATCH_1);
 
 		g(gen_mov(ctx, OP_SIZE_NATIVE, target, reg1));
