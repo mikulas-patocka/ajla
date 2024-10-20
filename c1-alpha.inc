@@ -319,8 +319,8 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(R_RA);
 
 #ifndef TIMESTAMP_IN_REGISTER
-	g(gen_address(ctx, R_SP, 8, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
-	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+	g(gen_address(ctx, R_SP, 8, IMM_PURPOSE_STR_OFFSET, OP_SIZE_4));
+	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
 	gen_address_offset();
 	gen_one(R_ARG3);
 #endif
@@ -495,8 +495,8 @@ static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t esca
 #ifdef TIMESTAMP_IN_REGISTER
 	g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, R_SCRATCH_1, R_TIMESTAMP, COND_NE, escape_label));
 #else
-	g(gen_address(ctx, R_SP, 8, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_8));
-	gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+	g(gen_address(ctx, R_SP, 8, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_4));
+	gen_insn(INSN_MOVSX, OP_SIZE_4, 0, 0);
 	gen_one(R_SCRATCH_2);
 	gen_address_offset();
 
