@@ -3334,6 +3334,7 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned attr
 #elif ARCH_HAS_FLAGS
 static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned size, bool logical, unsigned cond, frame_t slot)
 {
+	unsigned target = gen_frame_target(ctx, slot, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 #if defined(ARCH_POWER)
 	if (!cpu_test_feature(CPU_FEATURE_v203))
 #elif defined(ARCH_S390)
@@ -3345,17 +3346,17 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned size
 #endif
 	{
 		uint32_t label;
-		g(gen_load_constant(ctx, R_SCRATCH_1, 1));
+		g(gen_load_constant(ctx, target, 1));
 		label = alloc_label(ctx);
 		if (unlikely(!label))
 			return false;
 		gen_insn(!logical ? INSN_JMP_COND : INSN_JMP_COND_LOGICAL, i_size_cmp(size), cond, 0);
 		gen_four(label);
-		g(gen_load_constant(ctx, R_SCRATCH_1, 0));
+		g(gen_load_constant(ctx, target, 0));
 		gen_label(label);
 		goto do_store;
 	}
-	g(gen_load_constant(ctx, R_SCRATCH_1, 1));
+	g(gen_load_constant(ctx, target, 1));
 	g(gen_imm(ctx, 0, IMM_PURPOSE_CMOV, OP_SIZE_NATIVE));
 	if (cond & COND_FP) {
 		gen_insn(INSN_CMOV, OP_SIZE_NATIVE, cond ^ 1, 0);
@@ -3366,11 +3367,11 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned size
 		gen_insn(size == OP_SIZE_8 ? INSN_CMOV_XCC : INSN_CMOV, OP_SIZE_NATIVE, cond ^ 1, 0);
 #endif
 	}
-	gen_one(R_SCRATCH_1);
-	gen_one(R_SCRATCH_1);
+	gen_one(target);
+	gen_one(target);
 	gen_imm_offset();
 do_store:
-	g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot, 0, R_SCRATCH_1));
+	g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot, 0, target));
 	return true;
 }
 #endif
