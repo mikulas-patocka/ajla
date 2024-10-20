@@ -5030,25 +5030,28 @@ do_generic_bt:
 #endif
 				return true;
 			case BTX_BTS:
-				g(gen_3address_alu(ctx, i_size(op_size), ALU_OR, R_SCRATCH_1, reg1, R_SCRATCH_3, 0));
+				target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
+				g(gen_3address_alu(ctx, i_size(op_size), ALU_OR, target, reg1, R_SCRATCH_3, 0));
 				break;
 			case BTX_BTR:
+				target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 				if (!ARCH_HAS_ANDN) {
 					g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_3, R_SCRATCH_3, -1, 0));
 
-					g(gen_3address_alu(ctx, i_size(op_size), ALU_AND, R_SCRATCH_1, reg1, R_SCRATCH_3, 0));
+					g(gen_3address_alu(ctx, i_size(op_size), ALU_AND, target, reg1, R_SCRATCH_3, 0));
 					break;
 				}
-				g(gen_3address_alu(ctx, i_size(op_size), ALU_ANDN, R_SCRATCH_1, reg1, R_SCRATCH_3, 0));
+				g(gen_3address_alu(ctx, i_size(op_size), ALU_ANDN, target, reg1, R_SCRATCH_3, 0));
 				break;
 			case BTX_BTC:
-				g(gen_3address_alu(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_1, reg1, R_SCRATCH_3, 0));
+				target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
+				g(gen_3address_alu(ctx, i_size(op_size), ALU_XOR, target, reg1, R_SCRATCH_3, 0));
 				break;
 			default:
 				internal(file_line, "gen_alu: unsupported bit test %u", alu);
 		}
 
-		g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_1));
+		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 
 		return true;
 	}
