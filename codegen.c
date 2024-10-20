@@ -6412,15 +6412,16 @@ do_to_int:
 	) {
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, 0, FR_SCRATCH_1, &reg1));
 		goto do_cvt_to_int;
-do_cvt_to_int:;
+do_cvt_to_int:
+		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 #if defined(ARCH_X86)
 		gen_insn(OP_SIZE_INT == OP_SIZE_4 ? INSN_FP_TO_INT32 : INSN_FP_TO_INT64, op_size, 0, 0);
-		gen_one(R_SCRATCH_1);
+		gen_one(target);
 		gen_one(reg1);
 
-		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, R_SCRATCH_1, sign_bit(uint_default_t), COND_E, label_ovf));
+		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, target, sign_bit(uint_default_t), COND_E, label_ovf));
 
-		g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, R_SCRATCH_1));
+		g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, target));
 		return true;
 #endif
 #if defined(ARCH_ARM) || defined(ARCH_LOONGARCH64) || defined(ARCH_MIPS)
@@ -6446,21 +6447,21 @@ do_cvt_to_int:;
 		gen_one(FR_SCRATCH_1);
 		gen_one(reg1);
 
-		g(gen_mov(ctx, OP_SIZE_INT, R_SCRATCH_1, FR_SCRATCH_1));
+		g(gen_mov(ctx, OP_SIZE_INT, target, FR_SCRATCH_1));
 #else
 		gen_insn(OP_SIZE_INT == OP_SIZE_4 ? INSN_FP_TO_INT32 : INSN_FP_TO_INT64, op_size, 0, 0);
-		gen_one(R_SCRATCH_1);
+		gen_one(target);
 		gen_one(reg1);
 #endif
 		g(gen_imm(ctx, (int_default_t)(sign_bit(uint_default_t) + 1), IMM_PURPOSE_ADD, OP_SIZE_INT));
 		gen_insn(INSN_ALU, OP_SIZE_INT, ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, is_imm()));
 		gen_one(R_SCRATCH_2);
-		gen_one(R_SCRATCH_1);
+		gen_one(target);
 		gen_imm_offset();
 
 		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, R_SCRATCH_2, 1, COND_BE, label_ovf));
 
-		g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, R_SCRATCH_1));
+		g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, target));
 		return true;
 #endif
 #if defined(ARCH_IA64)
@@ -6468,16 +6469,16 @@ do_cvt_to_int:;
 		gen_one(FR_SCRATCH_1);
 		gen_one(reg1);
 
-		g(gen_mov(ctx, OP_SIZE_NATIVE, R_SCRATCH_1, FR_SCRATCH_1));
+		g(gen_mov(ctx, OP_SIZE_NATIVE, target, FR_SCRATCH_1));
 
 		if (OP_SIZE_INT == OP_SIZE_4) {
-			g(gen_extend(ctx, OP_SIZE_4, sign_x, R_SCRATCH_2, R_SCRATCH_1));
-			g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, R_SCRATCH_1, R_SCRATCH_2, COND_NE, label_ovf));
+			g(gen_extend(ctx, OP_SIZE_4, sign_x, R_SCRATCH_2, target));
+			g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, target, R_SCRATCH_2, COND_NE, label_ovf));
 		} else {
-			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, R_SCRATCH_1, sign_bit(uint64_t), COND_E, label_ovf));
+			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, target, sign_bit(uint64_t), COND_E, label_ovf));
 		}
 
-		g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, R_SCRATCH_1));
+		g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, target));
 		return true;
 #endif
 #if defined(ARCH_PARISC) || defined(ARCH_POWER) || defined(ARCH_SPARC)
@@ -6494,12 +6495,12 @@ do_cvt_to_int:;
 		g(gen_frame_store_raw(ctx, OP_SIZE_INT, slot_r, 0, FR_SCRATCH_1));
 		if (ctx->registers[slot_r] >= 0)
 			g(unspill(ctx, slot_r));
-		g(gen_frame_load(ctx, OP_SIZE_INT, garbage, slot_r, 0, R_SCRATCH_1));
+		g(gen_frame_load(ctx, OP_SIZE_INT, garbage, slot_r, 0, target));
 
 		g(gen_imm(ctx, sign_bit(uint_default_t) + 1, IMM_PURPOSE_ADD, OP_SIZE_INT));
 		gen_insn(INSN_ALU, i_size(OP_SIZE_INT), ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, is_imm()));
 		gen_one(R_SCRATCH_2);
-		gen_one(R_SCRATCH_1);
+		gen_one(target);
 		gen_imm_offset();
 
 		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, R_SCRATCH_2, 1, COND_BE, label_ovf));
@@ -6517,31 +6518,33 @@ do_cvt_to_int:;
 			gen_one(FR_SCRATCH_3);
 			gen_one(FR_SCRATCH_2);
 			gen_four(label_ovf);
-			g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, FR_SCRATCH_3));
+			g(gen_frame_store_raw(ctx, OP_SIZE_INT, slot_r, 0, FR_SCRATCH_3));
 		} else {
-			g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, FR_SCRATCH_2));
+			g(gen_frame_store_raw(ctx, OP_SIZE_INT, slot_r, 0, FR_SCRATCH_2));
 		}
+		if (ctx->registers[slot_r] >= 0)
+			g(gen_unspill(ctx, slot_r);
 		return true;
 #endif
 #if defined(ARCH_S390)
 		gen_insn(OP_SIZE_INT == OP_SIZE_4 ? INSN_FP_TO_INT32 : INSN_FP_TO_INT64, op_size, 0, 1);
-		gen_one(R_SCRATCH_1);
+		gen_one(target);
 		gen_one(reg1);
 
 		gen_insn(INSN_JMP_COND, op_size, FP_COND_P, 0);
 		gen_four(label_ovf);
 
-		g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, R_SCRATCH_1));
+		g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, target));
 		return true;
 #endif
 #if defined(ARCH_RISCV64)
 		gen_insn(OP_SIZE_INT == OP_SIZE_4 ? INSN_FP_TO_INT32 : INSN_FP_TO_INT64, op_size, 0, 0);
-		gen_one(R_SCRATCH_1);
+		gen_one(target);
 		gen_one(reg1);
 
 		g(gen_load_constant(ctx, R_SCRATCH_2, sign_bit(int_default_t)));
 
-		g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, R_SCRATCH_1, R_SCRATCH_2, COND_E, label_ovf));
+		g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, target, R_SCRATCH_2, COND_E, label_ovf));
 
 		g(gen_imm(ctx, -1, IMM_PURPOSE_XOR, i_size(size)));
 		gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_XOR, ALU_WRITES_FLAGS(ALU_XOR, is_imm()));
@@ -6549,9 +6552,9 @@ do_cvt_to_int:;
 		gen_one(R_SCRATCH_2);
 		gen_imm_offset();
 
-		g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, R_SCRATCH_1, R_SCRATCH_2, COND_E, label_ovf));
+		g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, target, R_SCRATCH_2, COND_E, label_ovf));
 
-		g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, R_SCRATCH_1));
+		g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, target));
 		return true;
 #endif
 	}
