@@ -4990,7 +4990,7 @@ do_bt: {
 			g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, target));
 #endif
 		} else {
-			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
+			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, slot_2, R_SCRATCH_1);
 #if defined(ARCH_X86)
 			if (target == reg2)
 				target = R_SCRATCH_1;
