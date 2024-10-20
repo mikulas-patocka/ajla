@@ -1634,21 +1634,21 @@ static bool attr_w gen_cmp_test_imm_jmp(struct codegen_context *ctx, unsigned in
 
 static bool attr_w gen_jmp_on_zero(struct codegen_context *ctx, unsigned attr_unused op_size, unsigned reg, unsigned cond, uint32_t label)
 {
+	bool jmp_reg = false;
 #if defined(ARCH_ALPHA) || defined(ARCH_ARM64) || defined(ARCH_LOONGARCH64) || defined(ARCH_RISCV64)
-	if (1)
-#elif defined(ARCH_SPARC)
-	if (SPARC_9)
-#else
-	if (0)
+	jmp_reg = true;
 #endif
-	{
-		gen_insn(INSN_JMP_REG, i_size_cmp(op_size), cond, 0);
+#if defined(ARCH_SPARC)
+	jmp_reg |= SPARC_9;
+#endif
+	if (jmp_reg) {
+		gen_insn(INSN_JMP_REG, i_size(op_size), cond, 0);
 		gen_one(reg);
 		gen_four(label);
 
 		return true;
 	}
-	g(gen_cmp_test_jmp(ctx, INSN_TEST, i_size_cmp(op_size), reg, reg, cond, label));
+	g(gen_cmp_test_jmp(ctx, INSN_TEST, i_size(op_size), reg, reg, cond, label));
 
 	return true;
 }
