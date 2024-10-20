@@ -233,7 +233,9 @@
 #define cgen_rex(rex)		cgen_one(rex)
 #endif
 
-static bool attr_w cgen_rm_insn(struct codegen_context *ctx, int16_t sse_prefix, uint8_t prefix, uint8_t opcode, unsigned size, bool reg_is_reg, uint8_t reg, uint8_t *arg)
+#define force_vex			0x10000
+
+static bool attr_w cgen_rm_insn(struct codegen_context *ctx, int32_t sse_prefix, uint8_t prefix, uint8_t opcode, unsigned size, bool reg_is_reg, uint8_t reg, uint8_t *arg)
 {
 	uint8_t rex, mod, rm;
 	int16_t sib;
@@ -333,7 +335,7 @@ address_0:
 
 gen:
 	if (unlikely(sse_prefix >= 0)) {
-		if (likely(cpu_test_feature(CPU_FEATURE_avx)) || (sse_prefix & 0x4000)) {
+		if (likely(cpu_test_feature(CPU_FEATURE_avx)) || (sse_prefix & force_vex)) {
 			if ((rex & (X86_REX_X | X86_REX_B | X86_REX_W)) == 0 && prefix == PREFIX_0F) {
 				cgen_one(X86_VEX_2);
 				cgen_one((~rex & X86_REX_R) << 5 | (~(sse_prefix >> 8) & 0xf) << 3 | (sse_prefix & 3));
@@ -894,14 +896,14 @@ static bool attr_w cgen_rot(struct codegen_context *ctx, unsigned size, uint8_t 
 	ctx->code_position = arg3 + arg_size(*arg3);
 
 	if (cpu_test_feature(CPU_FEATURE_bmi2) && size >= OP_SIZE_4 && arg3[0] != ARG_IMM && !writes_flags && (rot == ROT_SHL || rot == ROT_SHR || rot == ROT_SAR)) {
-		int16_t sse_prefix;
+		int32_t sse_prefix;
 		switch (rot) {
 			case ROT_SHL:	sse_prefix = SSE_PREFIX_66; break;
 			case ROT_SAR:	sse_prefix = SSE_PREFIX_F3; break;
 			case ROT_SHR:	sse_prefix = SSE_PREFIX_F2; break;
 			default:	internal(file_line, "cgen_rot: invalid rotation %x", rot);
 		}
-		g(cgen_sse_insn(ctx, sse_prefix + 0x4000, PREFIX_0F_38, X86_0F_38_ROTX, size == OP_SIZE_8, arg1[0], arg3[0], arg2));
+		g(cgen_sse_insn(ctx, sse_prefix + force_vex, PREFIX_0F_38, X86_0F_38_ROTX, size == OP_SIZE_8, arg1[0], arg3[0], arg2));
 		return true;
 	}
 
