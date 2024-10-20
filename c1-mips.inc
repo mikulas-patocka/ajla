@@ -58,6 +58,7 @@
 
 #define i_size(size)			OP_SIZE_NATIVE
 #define i_size_rot(size)		maximum(size, OP_SIZE_4)
+#define i_size_cmp(size)		OP_SIZE_NATIVE
 
 #if __mips < 2
 #define MIPS_LOAD_DELAY_SLOTS		1

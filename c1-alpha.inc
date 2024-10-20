@@ -49,6 +49,7 @@
 
 #define i_size(size)			OP_SIZE_NATIVE
 #define i_size_rot(size)		OP_SIZE_NATIVE
+#define i_size_cmp(size)		OP_SIZE_NATIVE
 
 /*#define TIMESTAMP_IN_REGISTER*/
 

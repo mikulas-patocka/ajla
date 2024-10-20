@@ -52,6 +52,7 @@
 
 #define i_size(size)			OP_SIZE_4
 #define i_size_rot(size)		OP_SIZE_4
+#define i_size_cmp(size)		OP_SIZE_4
 
 #define R_0		0x00
 #define R_1		0x01

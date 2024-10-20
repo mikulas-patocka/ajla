@@ -48,6 +48,7 @@
 
 #define i_size(size)			OP_SIZE_NATIVE
 #define i_size_rot(size)		OP_SIZE_NATIVE
+#define i_size_cmp(size)		maximum(size, OP_SIZE_4)
 
 #define N_SAVED_REGS	0x40
 

@@ -62,6 +62,7 @@
 
 #define i_size(size)			OP_SIZE_NATIVE
 #define i_size_rot(size)		maximum(size, OP_SIZE_4)
+#define i_size_cmp(size)		maximum(size, OP_SIZE_4)
 
 #define R_ZERO		0x00
 #define R_1		0x01
