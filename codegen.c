@@ -5365,25 +5365,27 @@ do_bswap: {
 		if (op_size > OP_SIZE_NATIVE) {
 			g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, slot_1, 0, R_SCRATCH_1, R_SCRATCH_2));
 			reg1 = R_SCRATCH_1;
+			target = R_SCRATCH_1;
 		} else {
+			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 			g(gen_frame_get(ctx, op_size, sx ? sign_x : garbage, slot_1, 0, R_SCRATCH_1, &reg1));
 		}
 
 		if (op_size == OP_SIZE_1) {
 #if defined(ARCH_IA64) || defined(ARCH_RISCV64)
 		} else if (op_size == OP_SIZE_2 || op_size == OP_SIZE_4) {
-			g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_BSWAP, R_SCRATCH_1, reg1, 0));
+			g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_BSWAP, target, reg1, 0));
 
-			g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, R_SCRATCH_1, R_SCRATCH_1, op_size == OP_SIZE_2 ? 48 : 32, 0));
+			g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, target, target, op_size == OP_SIZE_2 ? 48 : 32, 0));
 #endif
 		} else if (op_size == OP_SIZE_2) {
 #if defined(ARCH_X86)
-			g(gen_3address_rot_imm(ctx, OP_SIZE_2, ROT_ROR, R_SCRATCH_1, reg1, 8, 0));
+			g(gen_3address_rot_imm(ctx, OP_SIZE_2, ROT_ROR, target, reg1, 8, 0));
 #else
-			g(gen_2address_alu1(ctx, OP_SIZE_4, ALU1_BSWAP16, R_SCRATCH_1, reg1, 0));
+			g(gen_2address_alu1(ctx, OP_SIZE_4, ALU1_BSWAP16, target, reg1, 0));
 #endif
 		} else {
-			g(gen_2address_alu1(ctx, minimum(op_size, OP_SIZE_NATIVE), ALU1_BSWAP, R_SCRATCH_1, reg1, 0));
+			g(gen_2address_alu1(ctx, minimum(op_size, OP_SIZE_NATIVE), ALU1_BSWAP, target, reg1, 0));
 		}
 		if (op_size > OP_SIZE_NATIVE) {
 			g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_BSWAP, R_SCRATCH_2, R_SCRATCH_2, 0));
@@ -5392,7 +5394,7 @@ do_bswap: {
 		if (op_size > OP_SIZE_NATIVE)
 			g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, R_SCRATCH_2, R_SCRATCH_1));
 		else
-			g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_1));
+			g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
 #endif
 		goto do_generic_bswap;
@@ -5411,13 +5413,15 @@ do_brev: {
 		if (op_size > OP_SIZE_NATIVE) {
 			g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, slot_1, 0, R_SCRATCH_1, R_SCRATCH_2));
 			reg1 = R_SCRATCH_1;
+			target = R_SCRATCH_1;
 		} else {
+			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 			g(gen_frame_get(ctx, op_size, garbage, slot_1, 0, R_SCRATCH_1, &reg1));
 		}
 
-		g(gen_2address_alu1(ctx, minimum(maximum(OP_SIZE_4, op_size), OP_SIZE_NATIVE), ALU1_BREV, R_SCRATCH_1, reg1, 0));
+		g(gen_2address_alu1(ctx, minimum(maximum(OP_SIZE_4, op_size), OP_SIZE_NATIVE), ALU1_BREV, target, reg1, 0));
 		if (op_size <= OP_SIZE_2) {
-			g(gen_3address_rot_imm(ctx, OP_SIZE_4, ROT_SHR, R_SCRATCH_1, R_SCRATCH_1, op_size == OP_SIZE_1 ? 24 : 16, 0));
+			g(gen_3address_rot_imm(ctx, OP_SIZE_4, ROT_SHR, target, target, op_size == OP_SIZE_1 ? 24 : 16, 0));
 		}
 		if (op_size > OP_SIZE_NATIVE) {
 			g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_BREV, R_SCRATCH_2, R_SCRATCH_2, 0));
@@ -5426,7 +5430,7 @@ do_brev: {
 		if (op_size > OP_SIZE_NATIVE)
 			g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, R_SCRATCH_2, R_SCRATCH_1));
 		else
-			g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_1));
+			g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
 #endif
 		goto do_generic_brev;
