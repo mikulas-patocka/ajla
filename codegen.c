@@ -4154,7 +4154,7 @@ do_alu: {
 						ce->undo_opcode = INSN_ALU + ARCH_PARTIAL_ALU(op_size);
 						ce->undo_op_size = op_size;
 						ce->undo_aux = undo_alu;
-						ce->undo_writes_flags = ALU_WRITES_FLAGS(undo_alu, false);
+						ce->undo_writes_flags = 1;
 						ce->undo_parameters[0] = reg1;
 						ce->undo_parameters[1] = reg1;
 						ce->undo_parameters[2] = reg2;
@@ -4164,7 +4164,65 @@ do_alu: {
 					}
 					return true;
 				}
+#if defined(ARCH_X86)
+				else {
+					size_t m;
+					int64_t offset = (size_t)slot_2 * slot_size;
+					g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDR_OFFSET, op_size));
+					gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(op_size), op_size, alu, 1);
+					gen_one(reg1);
+					gen_one(reg1);
+					gen_address_offset();
+					if (mode == MODE_INT) {
+						ce = alloc_undo_label(ctx);
+						if (unlikely(!ce))
+							return false;
+						ce->undo_opcode = INSN_ALU + ARCH_PARTIAL_ALU(op_size);
+						ce->undo_op_size = op_size;
+						ce->undo_aux = undo_alu;
+						ce->undo_writes_flags = 1;
+						m = mark_params(ctx);
+						gen_one(reg1);
+						gen_one(reg1);
+						gen_address_offset();
+						copy_params(ctx, ce, m);
+						gen_insn(INSN_JMP_COND, i_size_cmp(op_size), COND_O, 0);
+						gen_four(ce->undo_label);
+					}
+					return true;
+				}
+#endif
 			}
+#if defined(ARCH_X86)
+			else {
+				unsigned reg2;
+				size_t m;
+				int64_t offset = (size_t)slot_1 * slot_size;
+				g(gen_frame_get(ctx, op_size, garbage, slot_2, 0, R_SCRATCH_1, &reg2));
+				g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDR_OFFSET, op_size));
+				gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(op_size), op_size, alu, 1);
+				gen_address_offset();
+				gen_address_offset();
+				gen_one(reg2);
+				if (mode == MODE_INT) {
+					ce = alloc_undo_label(ctx);
+					if (unlikely(!ce))
+						return false;
+					ce->undo_opcode = INSN_ALU + ARCH_PARTIAL_ALU(op_size);
+					ce->undo_op_size = op_size;
+					ce->undo_aux = undo_alu;
+					ce->undo_writes_flags = 1;
+					m = mark_params(ctx);
+					gen_address_offset();
+					gen_address_offset();
+					gen_one(reg2);
+					copy_params(ctx, ce, m);
+					gen_insn(INSN_JMP_COND, i_size_cmp(op_size), COND_O, 0);
+					gen_four(ce->undo_label);
+				}
+				return true;
+			}
+#endif
 		}
 
 #if defined(ARCH_X86)
