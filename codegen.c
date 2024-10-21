@@ -5917,7 +5917,8 @@ static bool attr_w gen_copy(struct codegen_context *ctx, unsigned op_size, frame
 		g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, R_SCRATCH_1, R_SCRATCH_2));
 		return true;
 	} else {
-		g(gen_frame_get(ctx, op_size, garbage, slot_1, 0, R_SCRATCH_1, &reg1));
+		unsigned target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
+		g(gen_frame_get(ctx, op_size, garbage, slot_1, 0, target, &reg1));
 		g(gen_frame_store(ctx, op_size, slot_r, 0, reg1));
 		return true;
 	}
