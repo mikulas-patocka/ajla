@@ -434,7 +434,7 @@ struct cg_exit {
 	uint8_t undo_op_size;
 	uint8_t undo_aux;
 	uint8_t undo_writes_flags;
-	uint8_t undo_parameters[19];
+	uint8_t undo_parameters[35];
 	uint8_t undo_parameters_len;
 	uint32_t escape_label;
 };
@@ -700,6 +700,20 @@ static uint32_t alloc_reload_label(struct codegen_context *ctx)
 		ctx->reload_label = alloc_label(ctx);
 	}
 	return ctx->reload_label;
+}
+
+static size_t mark_params(struct codegen_context *ctx)
+{
+	return ctx->code_size;
+}
+
+static void copy_params(struct codegen_context *ctx, struct cg_exit *ce, size_t mark)
+{
+	if (ctx->code_size - mark > n_array_elements(ce->undo_parameters))
+		internal(file_line, "undo_parameters is too small: %"PRIuMAX" > %"PRIuMAX"", (uintmax_t)(ctx->code_size - mark), (uintmax_t)n_array_elements(ce->undo_parameters));
+	memcpy(ce->undo_parameters, ctx->code + mark, ctx->code_size - mark);
+	ce->undo_parameters_len = ctx->code_size - mark;
+	ctx->code_size = mark;
 }
 
 #define g(call)								\
@@ -5293,24 +5307,49 @@ do_alu: {
 			return true;
 		}
 #if defined(ARCH_X86)
-		if (mode == MODE_INT && slot_1 == slot_r) {
+		if (slot_1 == slot_r) {
+			struct cg_exit *ce;
 			unsigned undo_alu = alu == ALU1_NEG ? ALU1_NEG : alu == ALU1_INC ? ALU1_DEC : ALU1_INC;
 			if (ctx->registers[slot_1] >= 0) {
-				struct cg_exit *ce;
 				unsigned reg = ctx->registers[slot_1];
-				g(gen_2address_alu1(ctx, op_size, alu, reg, reg, 1));
-				ce = alloc_undo_label(ctx);
-				if (unlikely(!ce))
-					return false;
-				ce->undo_opcode = INSN_ALU1;
-				ce->undo_op_size = op_size;
-				ce->undo_aux = undo_alu;
-				ce->undo_writes_flags = ALU1_WRITES_FLAGS(undo_alu);
-				ce->undo_parameters[0] = reg;
-				ce->undo_parameters[1] = reg;
-				ce->undo_parameters_len = 2;
-				gen_insn(INSN_JMP_COND, maximum(OP_SIZE_4, op_size), COND_O, 0);
-				gen_four(ce->undo_label);
+				g(gen_2address_alu1(ctx, op_size, alu, reg, reg, mode == MODE_INT));
+				if (mode == MODE_INT) {
+					ce = alloc_undo_label(ctx);
+					if (unlikely(!ce))
+						return false;
+					ce->undo_opcode = INSN_ALU1 + ARCH_PARTIAL_ALU(op_size);
+					ce->undo_op_size = op_size;
+					ce->undo_aux = undo_alu;
+					ce->undo_writes_flags = ALU1_WRITES_FLAGS(undo_alu);
+					ce->undo_parameters[0] = reg;
+					ce->undo_parameters[1] = reg;
+					ce->undo_parameters_len = 2;
+					gen_insn(INSN_JMP_COND, maximum(OP_SIZE_4, op_size), COND_O, 0);
+					gen_four(ce->undo_label);
+				}
+				return true;
+			} else {
+				size_t m;
+				int64_t offset = (size_t)slot_1 * slot_size;
+				g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDR_OFFSET, op_size));
+				gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(op_size), op_size, alu, ALU1_WRITES_FLAGS(alu) | (mode == MODE_INT));
+				gen_address_offset();
+				gen_address_offset();
+				if (mode == MODE_INT) {
+					ce = alloc_undo_label(ctx);
+					if (unlikely(!ce))
+						return false;
+					ce->undo_opcode = INSN_ALU1 + ARCH_PARTIAL_ALU(op_size);
+					ce->undo_op_size = op_size;
+					ce->undo_aux = undo_alu;
+					ce->undo_writes_flags = ALU1_WRITES_FLAGS(undo_alu);
+					m = mark_params(ctx);
+					gen_address_offset();
+					gen_address_offset();
+					copy_params(ctx, ce, m);
+					gen_insn(INSN_JMP_COND, maximum(OP_SIZE_4, op_size), COND_O, 0);
+					gen_four(ce->undo_label);
+				}
 				return true;
 			}
 		}

@@ -740,7 +740,7 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 	ctx->code_position = arg2 + arg_size(*arg2);
 	if (alu == ALU1_NOT || alu == ALU1_NEG || alu == ALU1_INC || alu == ALU1_DEC || alu == ALU1_BSWAP) {
 		if (unlikely(arg1[0] != arg2[0]))
-			internal(file_line, "cgen_alu1: arguments mismatch");
+			internal(file_line, "cgen_alu1: arguments mismatch: %x, %x", arg1[0], arg2[0]);
 	}
 	switch (alu) {
 		case ALU1_NOT:
