@@ -428,6 +428,10 @@ struct cg_entry {
 	uint32_t nonflat_label;
 };
 
+struct cg_exit {
+	uint32_t escape_label;
+};
+
 struct codegen_context {
 	struct data *fn;
 	struct data **local_directory;
@@ -446,7 +450,7 @@ struct codegen_context {
 	uint8_t *code_position;
 
 	uint32_t *code_labels;
-	uint32_t *escape_labels;
+	struct cg_exit **code_exits;
 	uint32_t escape_nospill_label;
 	uint32_t call_label;
 	uint32_t reload_label;
@@ -497,7 +501,7 @@ static void init_ctx(struct codegen_context *ctx)
 	ctx->n_entries = 0;
 	ctx->code = NULL;
 	ctx->code_labels = NULL;
-	ctx->escape_labels = NULL;
+	ctx->code_exits = NULL;
 	ctx->escape_nospill_label = 0;
 	ctx->call_label = 0;
 	ctx->reload_label = 0;
@@ -531,8 +535,15 @@ static void done_ctx(struct codegen_context *ctx)
 		mem_free(ctx->code);
 	if (ctx->code_labels)
 		mem_free(ctx->code_labels);
-	if (ctx->escape_labels)
-		mem_free(ctx->escape_labels);
+	if (ctx->code_exits) {
+		ip_t ip;
+		ip_t cs = da(ctx->fn,function)->code_size;
+		for (ip = 0; ip < cs; ip++) {
+			if (ctx->code_exits[ip])
+				mem_free(ctx->code_exits[ip]);
+		}
+		mem_free(ctx->code_exits);
+	}
 	if (ctx->mcode)
 		mem_free(ctx->mcode);
 	if (ctx->label_to_pos)
@@ -630,9 +641,16 @@ static uint32_t alloc_label(struct codegen_context *ctx)
 static uint32_t alloc_escape_label_for_ip(struct codegen_context *ctx, const code_t *code)
 {
 	ip_t ip = code - da(ctx->fn,function)->code;
-	if (!ctx->escape_labels[ip])
-		ctx->escape_labels[ip] = alloc_label(ctx);
-	return ctx->escape_labels[ip];
+	struct cg_exit *ce = ctx->code_exits[ip];
+	if (!ce) {
+		ce = mem_calloc_mayfail(struct cg_exit *, sizeof(struct cg_exit), &ctx->err);
+		if (unlikely(!ce))
+			return 0;
+		ctx->code_exits[ip] = ce;
+	}
+	if (!ce->escape_label)
+		ce->escape_label = alloc_label(ctx);
+	return ce->escape_label;
 }
 
 static uint32_t alloc_escape_label(struct codegen_context *ctx)
@@ -10486,9 +10504,12 @@ static bool attr_w gen_epilogues(struct codegen_context *ctx)
 	gen_label(ctx->escape_nospill_label);
 	g(gen_escape_arg(ctx, 0, nospill_label));
 	for (ip = 0; ip < da(ctx->fn,function)->code_size; ip++) {
-		if (ctx->escape_labels[ip]) {
-			gen_label(ctx->escape_labels[ip]);
-			g(gen_escape_arg(ctx, ip, escape_label));
+		struct cg_exit *ce = ctx->code_exits[ip];
+		if (ce) {
+			if (ce->escape_label) {
+				gen_label(ce->escape_label);
+				g(gen_escape_arg(ctx, ip, escape_label));
+			}
 		}
 	}
 	gen_label(escape_label);
@@ -10734,8 +10755,8 @@ next_one:;
 	if (unlikely(!ctx->code_labels))
 		goto fail;
 
-	ctx->escape_labels = mem_alloc_array_mayfail(mem_calloc_mayfail, uint32_t *, 0, 0, da(ctx->fn,function)->code_size, sizeof(uint32_t), &ctx->err);
-	if (unlikely(!ctx->escape_labels))
+	ctx->code_exits = mem_alloc_array_mayfail(mem_calloc_mayfail, struct cg_exit **, 0, 0, da(ctx->fn,function)->code_size, sizeof(struct cg_exit *), &ctx->err);
+	if (unlikely(!ctx->code_exits))
 		goto fail;
 
 	ctx->flag_cache = mem_alloc_array_mayfail(mem_calloc_mayfail, int8_t *, 0, 0, function_n_variables(ctx->fn), sizeof(int8_t), &ctx->err);
