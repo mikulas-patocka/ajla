@@ -429,6 +429,13 @@ struct cg_entry {
 };
 
 struct cg_exit {
+	uint32_t undo_label;
+	uint8_t undo_opcode;
+	uint8_t undo_op_size;
+	uint8_t undo_aux;
+	uint8_t undo_writes_flags;
+	uint8_t undo_parameters[19];
+	uint8_t undo_parameters_len;
 	uint32_t escape_label;
 };
 
@@ -638,16 +645,37 @@ static uint32_t alloc_label(struct codegen_context *ctx)
 	return ++ctx->label_id;
 }
 
-static uint32_t alloc_escape_label_for_ip(struct codegen_context *ctx, const code_t *code)
+static struct cg_exit *alloc_cg_exit_for_ip(struct codegen_context *ctx, const code_t *code)
 {
 	ip_t ip = code - da(ctx->fn,function)->code;
 	struct cg_exit *ce = ctx->code_exits[ip];
 	if (!ce) {
 		ce = mem_calloc_mayfail(struct cg_exit *, sizeof(struct cg_exit), &ctx->err);
 		if (unlikely(!ce))
-			return 0;
+			return NULL;
 		ctx->code_exits[ip] = ce;
 	}
+	return ce;
+}
+
+static struct cg_exit *alloc_undo_label(struct codegen_context *ctx)
+{
+	struct cg_exit *ce = alloc_cg_exit_for_ip(ctx, ctx->instr_start);
+	if (unlikely(!ce))
+		return NULL;
+	if (unlikely(ce->undo_label != 0))
+		internal(file_line, "alloc_cg_exit: undo label already allocated");
+	ce->undo_label = alloc_label(ctx);
+	if (unlikely(!ce->undo_label))
+		return NULL;
+	return ce;
+}
+
+static uint32_t alloc_escape_label_for_ip(struct codegen_context *ctx, const code_t *code)
+{
+	struct cg_exit *ce = alloc_cg_exit_for_ip(ctx, code);
+	if (!ce)
+		return 0;
 	if (!ce->escape_label)
 		ce->escape_label = alloc_label(ctx);
 	return ce->escape_label;
@@ -5264,6 +5292,29 @@ do_alu: {
 			g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, R_SCRATCH_1, R_SCRATCH_2));
 			return true;
 		}
+#if defined(ARCH_X86)
+		if (mode == MODE_INT && slot_1 == slot_r) {
+			unsigned undo_alu = alu == ALU1_NEG ? ALU1_NEG : alu == ALU1_INC ? ALU1_DEC : ALU1_INC;
+			if (ctx->registers[slot_1] >= 0) {
+				struct cg_exit *ce;
+				unsigned reg = ctx->registers[slot_1];
+				g(gen_2address_alu1(ctx, op_size, alu, reg, reg, 1));
+				ce = alloc_undo_label(ctx);
+				if (unlikely(!ce))
+					return false;
+				ce->undo_opcode = INSN_ALU1;
+				ce->undo_op_size = op_size;
+				ce->undo_aux = undo_alu;
+				ce->undo_writes_flags = ALU1_WRITES_FLAGS(undo_alu);
+				ce->undo_parameters[0] = reg;
+				ce->undo_parameters[1] = reg;
+				ce->undo_parameters_len = 2;
+				gen_insn(INSN_JMP_COND, maximum(OP_SIZE_4, op_size), COND_O, 0);
+				gen_four(ce->undo_label);
+				return true;
+			}
+		}
+#endif
 		target = gen_frame_target(ctx, slot_r, mode == MODE_INT ? slot_1 : NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 		g(gen_frame_get(ctx, op_size, mode == MODE_INT && op_size >= OP_SIZE_4 && ARCH_SUPPORTS_TRAPS ? sign_x : garbage, slot_1, 0, target, &reg1));
 #if defined(ARCH_S390)
@@ -10505,11 +10556,18 @@ static bool attr_w gen_epilogues(struct codegen_context *ctx)
 	g(gen_escape_arg(ctx, 0, nospill_label));
 	for (ip = 0; ip < da(ctx->fn,function)->code_size; ip++) {
 		struct cg_exit *ce = ctx->code_exits[ip];
-		if (ce) {
+		if (ce && (ce->undo_label || ce->escape_label)) {
+			if (ce->undo_label) {
+				size_t i;
+				gen_label(ce->undo_label);
+				gen_insn(ce->undo_opcode, ce->undo_op_size, ce->undo_aux, ce->undo_writes_flags);
+				for (i = 0; i < ce->undo_parameters_len; i++)
+					gen_one(ce->undo_parameters[i]);
+			}
 			if (ce->escape_label) {
 				gen_label(ce->escape_label);
-				g(gen_escape_arg(ctx, ip, escape_label));
 			}
+			g(gen_escape_arg(ctx, ip, escape_label));
 		}
 	}
 	gen_label(escape_label);
