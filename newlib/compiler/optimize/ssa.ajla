@@ -2175,13 +2175,13 @@ fn allocate_variables(ctx : context) : context
 		var vs := type_to_var_set[t];
 		var vsl := vs;
 		while vsl <> 0 do [
-			var vgi : int := bsr vsl;
+			var vgi : int := bsf vsl;
 			vsl btr= vgi;
 			ctx.variables[vgi].color := color;
 			ra_color +<= mktuple2(-ctx.variables[vgi].ra_priority, color);
 			var remaining := not ctx.cm[vgi] and vs;
 			while remaining <> 0 do [
-				var vgi2 := bsr remaining;
+				var vgi2 := bsf remaining;
 				vsl btr= vgi2;
 				remaining btr= vgi2;
 				var old_color := ctx.variables[vgi2].color;
