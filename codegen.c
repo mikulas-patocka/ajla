@@ -4150,13 +4150,13 @@ do_alu: {
 				unsigned reg1 = ctx->registers[slot_1];
 				if (ctx->registers[slot_2] >= 0) {
 					unsigned reg2 = ctx->registers[slot_2];
-					g(gen_3address_alu(ctx, op_size, alu, reg1, reg1, reg2, mode == MODE_INT));
+					g(gen_3address_alu(ctx, i_size(op_size), alu, reg1, reg1, reg2, mode == MODE_INT));
 					if (mode == MODE_INT) {
 						ce = alloc_undo_label(ctx);
 						if (unlikely(!ce))
 							return false;
 						ce->undo_opcode = INSN_ALU + ARCH_PARTIAL_ALU(op_size);
-						ce->undo_op_size = op_size;
+						ce->undo_op_size = i_size(op_size);
 						ce->undo_aux = undo_alu;
 						ce->undo_writes_flags = 1;
 						ce->undo_parameters[0] = reg1;
@@ -4172,8 +4172,8 @@ do_alu: {
 				else {
 					size_t m;
 					int64_t offset = (size_t)slot_2 * slot_size;
-					g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDR_OFFSET, op_size));
-					gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(op_size), op_size, alu, 1);
+					g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDR_OFFSET, i_size(op_size)));
+					gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(op_size), i_size(op_size), alu, 1);
 					gen_one(reg1);
 					gen_one(reg1);
 					gen_address_offset();
@@ -4182,7 +4182,7 @@ do_alu: {
 						if (unlikely(!ce))
 							return false;
 						ce->undo_opcode = INSN_ALU + ARCH_PARTIAL_ALU(op_size);
-						ce->undo_op_size = op_size;
+						ce->undo_op_size = i_size(op_size);
 						ce->undo_aux = undo_alu;
 						ce->undo_writes_flags = 1;
 						m = mark_params(ctx);
@@ -4203,8 +4203,8 @@ do_alu: {
 				size_t m;
 				int64_t offset = (size_t)slot_1 * slot_size;
 				g(gen_frame_get(ctx, op_size, garbage, slot_2, 0, R_SCRATCH_1, &reg2));
-				g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDR_OFFSET, op_size));
-				gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(op_size), op_size, alu, 1);
+				g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDR_OFFSET, i_size(op_size)));
+				gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(op_size), i_size(op_size), alu, 1);
 				gen_address_offset();
 				gen_address_offset();
 				gen_one(reg2);
@@ -4213,7 +4213,7 @@ do_alu: {
 					if (unlikely(!ce))
 						return false;
 					ce->undo_opcode = INSN_ALU + ARCH_PARTIAL_ALU(op_size);
-					ce->undo_op_size = op_size;
+					ce->undo_op_size = i_size(op_size);
 					ce->undo_aux = undo_alu;
 					ce->undo_writes_flags = 1;
 					m = mark_params(ctx);
@@ -5410,14 +5410,14 @@ do_alu: {
 			unsigned undo_alu = alu == ALU1_INC ? ALU1_DEC : alu == ALU1_DEC ? ALU1_INC : alu;
 			if (ctx->registers[slot_1] >= 0) {
 				unsigned reg = ctx->registers[slot_1];
-				g(gen_2address_alu1(ctx, op_size, alu, reg, reg, mode == MODE_INT));
+				g(gen_2address_alu1(ctx, i_size(op_size), alu, reg, reg, mode == MODE_INT));
 				if (mode == MODE_INT) {
 					if (alu != undo_alu) {
 						ce = alloc_undo_label(ctx);
 						if (unlikely(!ce))
 							return false;
 						ce->undo_opcode = INSN_ALU1 + ARCH_PARTIAL_ALU(op_size);
-						ce->undo_op_size = op_size;
+						ce->undo_op_size = i_size(op_size);
 						ce->undo_aux = undo_alu;
 						ce->undo_writes_flags = ALU1_WRITES_FLAGS(undo_alu);
 						ce->undo_parameters[0] = reg;
@@ -5436,8 +5436,8 @@ do_alu: {
 			else {
 				size_t m;
 				int64_t offset = (size_t)slot_1 * slot_size;
-				g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDR_OFFSET, op_size));
-				gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(op_size), op_size, alu, ALU1_WRITES_FLAGS(alu) | (mode == MODE_INT));
+				g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDR_OFFSET, i_size(op_size)));
+				gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(op_size), i_size(op_size), alu, ALU1_WRITES_FLAGS(alu) | (mode == MODE_INT));
 				gen_address_offset();
 				gen_address_offset();
 				if (mode == MODE_INT) {
@@ -5446,7 +5446,7 @@ do_alu: {
 						if (unlikely(!ce))
 							return false;
 						ce->undo_opcode = INSN_ALU1 + ARCH_PARTIAL_ALU(op_size);
-						ce->undo_op_size = op_size;
+						ce->undo_op_size = i_size(op_size);
 						ce->undo_aux = undo_alu;
 						ce->undo_writes_flags = ALU1_WRITES_FLAGS(undo_alu);
 						m = mark_params(ctx);
