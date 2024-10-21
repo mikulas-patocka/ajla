@@ -5241,6 +5241,10 @@ static bool attr_w gen_alu1(struct codegen_context *ctx, unsigned mode, unsigned
 	 * ALU *
 	 *******/
 do_alu: {
+		bool arch_use_flags = ARCH_HAS_FLAGS;
+#if defined(ARCH_POWER)
+		arch_use_flags = false;
+#endif
 		if (op_size > OP_SIZE_NATIVE) {
 #if !defined(ARCH_X86) && !defined(ARCH_ARM) && !defined(ARCH_POWER)
 			if (alu == ALU1_NEG) {
@@ -5306,8 +5310,7 @@ do_alu: {
 			g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, R_SCRATCH_1, R_SCRATCH_2));
 			return true;
 		}
-#if defined(ARCH_X86)
-		if (slot_1 == slot_r) {
+		if (arch_use_flags && slot_1 == slot_r && i_size_cmp(op_size) == op_size + zero) {
 			struct cg_exit *ce;
 			unsigned undo_alu = alu == ALU1_NEG ? ALU1_NEG : alu == ALU1_INC ? ALU1_DEC : ALU1_INC;
 			if (ctx->registers[slot_1] >= 0) {
@@ -5324,11 +5327,13 @@ do_alu: {
 					ce->undo_parameters[0] = reg;
 					ce->undo_parameters[1] = reg;
 					ce->undo_parameters_len = 2;
-					gen_insn(INSN_JMP_COND, maximum(OP_SIZE_4, op_size), COND_O, 0);
+					gen_insn(INSN_JMP_COND, i_size_cmp(op_size), COND_O, 0);
 					gen_four(ce->undo_label);
 				}
 				return true;
-			} else {
+			}
+#if defined(ARCH_X86)
+			else {
 				size_t m;
 				int64_t offset = (size_t)slot_1 * slot_size;
 				g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDR_OFFSET, op_size));
@@ -5347,13 +5352,13 @@ do_alu: {
 					gen_address_offset();
 					gen_address_offset();
 					copy_params(ctx, ce, m);
-					gen_insn(INSN_JMP_COND, maximum(OP_SIZE_4, op_size), COND_O, 0);
+					gen_insn(INSN_JMP_COND, i_size_cmp(op_size), COND_O, 0);
 					gen_four(ce->undo_label);
 				}
 				return true;
 			}
-		}
 #endif
+		}
 		target = gen_frame_target(ctx, slot_r, mode == MODE_INT ? slot_1 : NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 		g(gen_frame_get(ctx, op_size, mode == MODE_INT && op_size >= OP_SIZE_4 && ARCH_SUPPORTS_TRAPS ? sign_x : garbage, slot_1, 0, target, &reg1));
 #if defined(ARCH_S390)
@@ -5368,9 +5373,7 @@ do_alu: {
 		g(gen_2address_alu1(ctx, op_size, alu, target, reg1, mode == MODE_INT));
 #else
 		if (mode == MODE_INT) {
-			bool arch_use_flags = ARCH_HAS_FLAGS;
 #if defined(ARCH_POWER)
-			arch_use_flags = false;
 			if (op_size == OP_SIZE_NATIVE) {
 				g(gen_2address_alu1(ctx, i_size(op_size), alu, target, reg1, 0));
 				if (alu == ALU1_NEG) {
@@ -5425,7 +5428,7 @@ do_alu: {
 		g(gen_2address_alu1(ctx, i_size(op_size), alu, target, reg1, mode == MODE_INT));
 #endif
 		if (mode == MODE_INT) {
-			gen_insn(INSN_JMP_COND, maximum(OP_SIZE_4, op_size), COND_O, 0);
+			gen_insn(INSN_JMP_COND, i_size_cmp(op_size), COND_O, 0);
 			gen_four(label_ovf);
 		}
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
