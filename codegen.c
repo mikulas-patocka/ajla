@@ -5370,7 +5370,7 @@ do_bswap: {
 			target = R_SCRATCH_1;
 		} else {
 			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
-			g(gen_frame_get(ctx, op_size, sx ? sign_x : garbage, slot_1, 0, R_SCRATCH_1, &reg1));
+			g(gen_frame_get(ctx, op_size, sx ? sign_x : garbage, slot_1, 0, target, &reg1));
 		}
 
 		if (op_size == OP_SIZE_1) {
@@ -5418,7 +5418,7 @@ do_brev: {
 			target = R_SCRATCH_1;
 		} else {
 			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
-			g(gen_frame_get(ctx, op_size, garbage, slot_1, 0, R_SCRATCH_1, &reg1));
+			g(gen_frame_get(ctx, op_size, garbage, slot_1, 0, target, &reg1));
 		}
 
 		g(gen_2address_alu1(ctx, minimum(maximum(OP_SIZE_4, op_size), OP_SIZE_NATIVE), ALU1_BREV, target, reg1, 0));
