@@ -5246,10 +5246,10 @@ do_alu: {
 			g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, R_SCRATCH_1, R_SCRATCH_2));
 			return true;
 		}
-		g(gen_frame_get(ctx, op_size, mode == MODE_INT && op_size >= OP_SIZE_4 && ARCH_SUPPORTS_TRAPS ? sign_x : garbage, slot_1, 0, R_SCRATCH_1, &reg1));
+		target = gen_frame_target(ctx, slot_r, mode == MODE_INT ? slot_1 : NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
+		g(gen_frame_get(ctx, op_size, mode == MODE_INT && op_size >= OP_SIZE_4 && ARCH_SUPPORTS_TRAPS ? sign_x : garbage, slot_1, 0, target, &reg1));
 #if defined(ARCH_S390)
 		if (alu == ALU1_NOT) {
-			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 			g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, target, reg1, -1, 0));
 
 			g(gen_frame_store(ctx, op_size, slot_r, 0, target));
@@ -5257,12 +5257,10 @@ do_alu: {
 		}
 #endif
 #if defined(ARCH_X86)
-		target = gen_frame_target(ctx, slot_r, mode == MODE_INT ? slot_1 : NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 		g(gen_2address_alu1(ctx, op_size, alu, target, reg1, mode == MODE_INT));
 #else
 		if (mode == MODE_INT) {
 			bool arch_use_flags = ARCH_HAS_FLAGS;
-			target = gen_frame_target(ctx, slot_r, slot_1, NO_FRAME_T, R_SCRATCH_2);
 #if defined(ARCH_POWER)
 			arch_use_flags = false;
 			if (op_size == OP_SIZE_NATIVE) {
@@ -5308,7 +5306,6 @@ do_alu: {
 		}
 #if !ARCH_HAS_FLAGS
 		if (mode == MODE_INT) {
-			target = gen_frame_target(ctx, slot_r, slot_1, NO_FRAME_T, R_SCRATCH_1);
 			gen_insn(INSN_ALU1_TRAP, op_size, alu, ALU1_WRITES_FLAGS(alu));
 			gen_one(target);
 			gen_one(reg1);
@@ -5317,7 +5314,6 @@ do_alu: {
 			return true;
 		}
 #endif
-		target = gen_frame_target(ctx, slot_r, mode == MODE_INT ? slot_1 : NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 		g(gen_2address_alu1(ctx, i_size(op_size), alu, target, reg1, mode == MODE_INT));
 #endif
 		if (mode == MODE_INT) {
