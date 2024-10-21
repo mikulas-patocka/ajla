@@ -1863,7 +1863,6 @@ in_loop2:
 				]
 			]
 		]
-skip_must_be_flat:
 	]
 
 	return ctx;
