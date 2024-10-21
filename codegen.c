@@ -702,12 +702,12 @@ static uint32_t alloc_reload_label(struct codegen_context *ctx)
 	return ctx->reload_label;
 }
 
-static size_t mark_params(struct codegen_context *ctx)
+static size_t attr_unused mark_params(struct codegen_context *ctx)
 {
 	return ctx->code_size;
 }
 
-static void copy_params(struct codegen_context *ctx, struct cg_exit *ce, size_t mark)
+static void attr_unused copy_params(struct codegen_context *ctx, struct cg_exit *ce, size_t mark)
 {
 	if (ctx->code_size - mark > n_array_elements(ce->undo_parameters))
 		internal(file_line, "undo_parameters is too small: %"PRIuMAX" > %"PRIuMAX"", (uintmax_t)(ctx->code_size - mark), (uintmax_t)n_array_elements(ce->undo_parameters));
@@ -4139,7 +4139,11 @@ do_alu: {
 			slot_1 = slot_2;
 			slot_2 = x;
 		}
-		if (ARCH_HAS_FLAGS && slot_1 == slot_r && slot_1 != slot_2 && i_size_cmp(op_size) == op_size + zero) {
+		if (ARCH_HAS_FLAGS && slot_1 == slot_r && slot_1 != slot_2 && i_size_cmp(op_size) == op_size + zero
+#if defined(ARCH_POWER)
+			&& op_size == OP_SIZE_NATIVE
+#endif
+		    ) {
 			struct cg_exit *ce;
 			unsigned undo_alu = alu == ALU_ADD ? ALU_SUB : ALU_ADD;
 			if (ctx->registers[slot_1] >= 0) {
