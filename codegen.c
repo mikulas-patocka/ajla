@@ -4134,6 +4134,39 @@ do_alu: {
 			return true;
 		}
 
+		if (ARCH_HAS_FLAGS && slot_2 == slot_r && slot_1 != slot_2 && alu_is_commutative(alu)) {
+			frame_t x = slot_1;
+			slot_1 = slot_2;
+			slot_2 = x;
+		}
+		if (ARCH_HAS_FLAGS && slot_1 == slot_r && slot_1 != slot_2 && i_size_cmp(op_size) == op_size + zero) {
+			struct cg_exit *ce;
+			unsigned undo_alu = alu == ALU_ADD ? ALU_SUB : ALU_ADD;
+			if (ctx->registers[slot_1] >= 0) {
+				unsigned reg1 = ctx->registers[slot_1];
+				if (ctx->registers[slot_2] >= 0) {
+					unsigned reg2 = ctx->registers[slot_2];
+					g(gen_3address_alu(ctx, op_size, alu, reg1, reg1, reg2, mode == MODE_INT));
+					if (mode == MODE_INT) {
+						ce = alloc_undo_label(ctx);
+						if (unlikely(!ce))
+							return false;
+						ce->undo_opcode = INSN_ALU + ARCH_PARTIAL_ALU(op_size);
+						ce->undo_op_size = op_size;
+						ce->undo_aux = undo_alu;
+						ce->undo_writes_flags = ALU_WRITES_FLAGS(undo_alu, false);
+						ce->undo_parameters[0] = reg1;
+						ce->undo_parameters[1] = reg1;
+						ce->undo_parameters[2] = reg2;
+						ce->undo_parameters_len = 3;
+						gen_insn(INSN_JMP_COND, i_size_cmp(op_size), COND_O, 0);
+						gen_four(ce->undo_label);
+					}
+					return true;
+				}
+			}
+		}
+
 #if defined(ARCH_X86)
 		if (1)
 #elif defined(ARCH_S390)
