@@ -5759,8 +5759,41 @@ do_generic_brev:
 	 * BSF/BSR/POPCNT *
 	 ******************/
 do_bsf_bsr_popcnt: {
-		if (op_size > OP_SIZE_NATIVE)
+		if (op_size > OP_SIZE_NATIVE) {
+#if defined(ARCH_X86)
+			if (alu == ALU1_POPCNT) {
+				if (mode == MODE_INT) {
+					g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size + hi_word(OP_SIZE_NATIVE), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
+					g(gen_imm(ctx, 0, IMM_PURPOSE_STORE_VALUE, OP_SIZE_NATIVE));
+					gen_insn(INSN_CMP, OP_SIZE_NATIVE, 0, 1);
+					gen_address_offset();
+					gen_imm_offset();
+					gen_insn(INSN_JMP_COND, OP_SIZE_NATIVE, COND_S, 0);
+					gen_four(label_ovf);
+				}
+				g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size + lo_word(OP_SIZE_NATIVE), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
+				gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_POPCNT, ALU1_WRITES_FLAGS(ALU1_POPCNT));
+				gen_one(R_SCRATCH_1);
+				gen_address_offset();
+				g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size + hi_word(OP_SIZE_NATIVE), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
+				gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_POPCNT, ALU1_WRITES_FLAGS(ALU1_POPCNT));
+				gen_one(R_SCRATCH_2);
+				gen_address_offset();
+				g(gen_3address_alu(ctx, OP_SIZE_4, ALU_ADD, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_2, 1));
+				g(gen_address(ctx, R_FRAME, (size_t)slot_r * slot_size + lo_word(OP_SIZE_NATIVE), IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
+				gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+				gen_address_offset();
+				gen_one(R_SCRATCH_1);
+				g(gen_address(ctx, R_FRAME, (size_t)slot_r * slot_size + hi_word(OP_SIZE_NATIVE), IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
+				g(gen_imm(ctx, 0, IMM_PURPOSE_STORE_VALUE, OP_SIZE_NATIVE));
+				gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+				gen_address_offset();
+				gen_imm_offset();
+				return true;
+			}
+#endif
 			goto do_generic_bsf_bsr_popcnt;
+		}
 #if defined(ARCH_X86)
 		if (alu == ALU1_POPCNT && unlikely(!cpu_test_feature(CPU_FEATURE_popcnt)))
 			goto do_generic_bsf_bsr_popcnt;
