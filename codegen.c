@@ -4150,7 +4150,7 @@ do_alu: {
 			slot_1 = slot_2;
 			slot_2 = x;
 		}
-		if ((ARCH_HAS_FLAGS || ARCH_SUPPORTS_TRAPS) && slot_1 == slot_r && slot_1 != slot_2 && i_size_cmp(op_size) == op_size + zero
+		if ((ARCH_HAS_FLAGS || ARCH_SUPPORTS_TRAPS) && slot_1 == slot_r && (slot_1 != slot_2 || mode != MODE_INT) && i_size_cmp(op_size) == op_size + zero
 #if defined(ARCH_POWER)
 			&& op_size == OP_SIZE_NATIVE
 #endif
