@@ -970,6 +970,9 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 			if ins.params[0] = Bin_Subtract, v2_ins.opcode = P_Load_Const, v2_ins.params[1] = 1, v2_ins.params[2] = 1 then [
 				return create_instr(P_UnaryOp, list(pcode_t).[ Un_Dec, ins.params[1], ins.params[2], ins.params[3] ], ins.bb), true;
 			]
+			if ins.params[0] = Bin_Multiply, v2_ins.opcode = P_Load_Const, v2_ins.params[1] = 1, v2_ins.params[2] = 2 then [
+				return create_instr(P_BinaryOp, list(pcode_t).[ Bin_Add, ins.params[1], ins.params[2], ins.params[3], ins.params[2], ins.params[3] ], ins.bb), true;
+			]
 		]
 		if v1_ins.opcode = P_IO, v1_ins.params[0] = IO_Exception_Make,
 		   v1.runtime_type <> T_FlatOption or (v2_ins.opcode = P_IO and v2_ins.params[0] = IO_Exception_Make) then [
