@@ -6240,7 +6240,7 @@ do_conv: {
 		if (src_op_size <= OP_SIZE_NATIVE) {
 			g(gen_frame_get(ctx, src_op_size, sign_x, slot_1, 0, R_SCRATCH_1, &reg1));
 		} else {
-			g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, slot_1, 0, R_SCRATCH_1, R_SCRATCH_2));
+			g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, slot_1, 0, R_SCRATCH_1, R_SCRATCH_3));
 			reg1 = R_SCRATCH_1;
 		}
 
@@ -6258,31 +6258,41 @@ do_conv: {
 #else
 					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, R_SCRATCH_2, reg1, (1U << (OP_SIZE_NATIVE + 3)) - 1, false));
 #endif
+					g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, reg1, R_SCRATCH_2));
+				} else {
+					g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, reg1, R_SCRATCH_3));
 				}
-				g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, reg1, R_SCRATCH_2));
 			}
 			return true;
 		} else {
 			if (src_op_size > OP_SIZE_NATIVE) {
 #if defined(ARCH_ARM)
 				gen_insn(INSN_CMP, OP_SIZE_NATIVE, 0, 1);
-				gen_one(R_SCRATCH_2);
+				gen_one(R_SCRATCH_3);
 				gen_one(ARG_SHIFTED_REGISTER);
 				gen_one(ARG_SHIFT_ASR | ((1U << (OP_SIZE_NATIVE + 3)) - 1));
 				gen_one(R_SCRATCH_1);
 
 				gen_insn(INSN_JMP_COND, OP_SIZE_NATIVE, COND_NE, 0);
 				gen_four(label_ovf);
-#else
-				g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, R_SCRATCH_3, R_SCRATCH_1, (1U << (OP_SIZE_NATIVE + 3)) - 1, 0));
+#elif defined(ARCH_X86)
+				if (R_SCRATCH_1 != R_AX || R_SCRATCH_2 != R_DX)
+					internal(file_line, "gen_alu1: bad scratch registers");
+				gen_insn(INSN_CWD, OP_SIZE_NATIVE, 0, 0);
+				gen_one(R_DX);
+				gen_one(R_AX);
 
-				g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, R_SCRATCH_2, R_SCRATCH_3, COND_NE, label_ovf));
+				g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, R_SCRATCH_3, R_SCRATCH_2, COND_NE, label_ovf));
+#else
+				g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, R_SCRATCH_2, R_SCRATCH_1, (1U << (OP_SIZE_NATIVE + 3)) - 1, 0));
+
+				g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, R_SCRATCH_3, R_SCRATCH_2, COND_NE, label_ovf));
 #endif
 
 				src_op_size = OP_SIZE_NATIVE;
 			}
 			if (src_op_size > dest_op_size) {
-				g(gen_cmp_extended(ctx, OP_SIZE_NATIVE, dest_op_size, reg1, R_SCRATCH_3, label_ovf));
+				g(gen_cmp_extended(ctx, OP_SIZE_NATIVE, dest_op_size, reg1, R_SCRATCH_2, label_ovf));
 			}
 			g(gen_frame_store(ctx, dest_op_size, slot_r, 0, reg1));
 			return true;
