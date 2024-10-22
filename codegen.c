@@ -6274,9 +6274,7 @@ do_conv: {
 				gen_insn(INSN_JMP_COND, OP_SIZE_NATIVE, COND_NE, 0);
 				gen_four(label_ovf);
 #else
-				g(gen_mov(ctx, OP_SIZE_NATIVE, R_SCRATCH_3, R_SCRATCH_1));
-
-				g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, R_SCRATCH_3, R_SCRATCH_3, (1U << (OP_SIZE_NATIVE + 3)) - 1, 0));
+				g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, R_SCRATCH_3, R_SCRATCH_1, (1U << (OP_SIZE_NATIVE + 3)) - 1, 0));
 
 				g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, R_SCRATCH_2, R_SCRATCH_3, COND_NE, label_ovf));
 #endif
