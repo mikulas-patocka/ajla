@@ -5124,10 +5124,11 @@ do_bt: {
 		bool need_mask;
 #if defined(ARCH_X86)
 		if ((alu == BTX_BT || slot_1 == slot_r) && ctx->registers[slot_1] < 0) {
-			g(gen_frame_get(ctx, op_size, garbage, slot_2, 0, R_SCRATCH_1, &reg2));
+			unsigned n_op_size = minimum(op_size, OP_SIZE_NATIVE);
+			g(gen_frame_get(ctx, n_op_size, garbage, slot_2, 0, R_SCRATCH_1, &reg2));
 			if (mode == MODE_INT) {
 				int64_t imm = (8U << op_size) - 1;
-				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, op_size, reg2, imm, alu == BTX_BT ? COND_A : COND_AE, label_ovf));
+				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, n_op_size, reg2, imm, alu == BTX_BT ? COND_A : COND_AE, label_ovf));
 				if (unlikely(op_size > OP_SIZE_NATIVE)) {
 					g(gen_address(ctx, R_FRAME, (size_t)slot_2 * slot_size + hi_word(OP_SIZE_NATIVE), IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
 					gen_insn(INSN_CMP, OP_SIZE_NATIVE, 0, 1);
@@ -5138,17 +5139,17 @@ do_bt: {
 					gen_four(label_ovf);
 				}
 			} else {
-				g(gen_3address_alu_imm(ctx, OP_SIZE_4, ALU_AND, R_SCRATCH_2, reg2, (8U << op_size) - 1, 0));
-				reg2 = R_SCRATCH_2;
+				g(gen_3address_alu_imm(ctx, OP_SIZE_4, ALU_AND, R_SCRATCH_1, reg2, (8U << op_size) - 1, 0));
+				reg2 = R_SCRATCH_1;
 			}
-			g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_STR_OFFSET, maximum(op_size, OP_SIZE_2)));
+			g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_STR_OFFSET, maximum(n_op_size, OP_SIZE_2)));
 			if (alu == BTX_BT) {
-				gen_insn(INSN_BT, maximum(op_size, OP_SIZE_2), 0, 1);
+				gen_insn(INSN_BT, maximum(n_op_size, OP_SIZE_2), 0, 1);
 				gen_address_offset();
 				gen_one(reg2);
-				g(gen_frame_set_cond(ctx, maximum(op_size, OP_SIZE_2), false, COND_B, slot_r));
+				g(gen_frame_set_cond(ctx, maximum(n_op_size, OP_SIZE_2), false, COND_B, slot_r));
 			} else {
-				gen_insn(INSN_BTX, maximum(op_size, OP_SIZE_2), alu, 1);
+				gen_insn(INSN_BTX, maximum(n_op_size, OP_SIZE_2), alu, 1);
 				gen_address_offset();
 				gen_address_offset();
 				gen_one(reg2);
