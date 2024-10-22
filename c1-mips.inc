@@ -46,6 +46,7 @@
 #define ARCH_IS_3ADDRESS_FP		1
 #define ARCH_HAS_FLAGS			0
 #define ARCH_SUPPORTS_TRAPS		OS_SUPPORTS_TRAPS
+#define ARCH_TRAP_BEFORE		1
 #define ARCH_PREFERS_SX(size)		0
 #define ARCH_HAS_BWX			1
 #define ARCH_HAS_MUL			1

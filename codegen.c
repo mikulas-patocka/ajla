@@ -984,6 +984,7 @@ do {									\
 
 #ifndef ARCH_SUPPORTS_TRAPS
 #define ARCH_SUPPORTS_TRAPS	0
+#define ARCH_TRAP_BEFORE	0
 #endif
 
 
@@ -4144,12 +4145,12 @@ do_alu: {
 			return true;
 		}
 
-		if (ARCH_HAS_FLAGS && slot_2 == slot_r && slot_1 != slot_2 && alu_is_commutative(alu)) {
+		if ((ARCH_HAS_FLAGS || ARCH_SUPPORTS_TRAPS) && slot_2 == slot_r && slot_1 != slot_2 && alu_is_commutative(alu)) {
 			frame_t x = slot_1;
 			slot_1 = slot_2;
 			slot_2 = x;
 		}
-		if (ARCH_HAS_FLAGS && slot_1 == slot_r && slot_1 != slot_2 && i_size_cmp(op_size) == op_size + zero
+		if ((ARCH_HAS_FLAGS || ARCH_SUPPORTS_TRAPS) && slot_1 == slot_r && slot_1 != slot_2 && i_size_cmp(op_size) == op_size + zero
 #if defined(ARCH_POWER)
 			&& op_size == OP_SIZE_NATIVE
 #endif
@@ -4160,11 +4161,30 @@ do_alu: {
 				unsigned reg1 = ctx->registers[slot_1];
 				if (ctx->registers[slot_2] >= 0) {
 					unsigned reg2 = ctx->registers[slot_2];
+					if (mode == MODE_INT && ARCH_SUPPORTS_TRAPS) {
+						gen_insn(INSN_ALU_TRAP, i_size(op_size), alu, ALU_WRITES_FLAGS(alu, false));
+						gen_one(reg1);
+						gen_one(reg1);
+						gen_one(reg2);
+						if (ARCH_TRAP_BEFORE) {
+							gen_four(label_ovf);
+							return true;
+						} else {
+							ce = alloc_undo_label(ctx);
+							if (unlikely(!ce))
+								return false;
+							gen_four(ce->undo_label);
+							goto do_undo_opcode;
+						}
+					}
 					g(gen_3address_alu(ctx, i_size(op_size), alu, reg1, reg1, reg2, mode == MODE_INT));
 					if (mode == MODE_INT) {
 						ce = alloc_undo_label(ctx);
 						if (unlikely(!ce))
 							return false;
+						gen_insn(INSN_JMP_COND, i_size_cmp(op_size), COND_O, 0);
+						gen_four(ce->undo_label);
+do_undo_opcode:
 						ce->undo_opcode = INSN_ALU + ARCH_PARTIAL_ALU(op_size);
 						ce->undo_op_size = i_size(op_size);
 						ce->undo_aux = undo_alu;
@@ -4173,8 +4193,6 @@ do_alu: {
 						ce->undo_parameters[1] = reg1;
 						ce->undo_parameters[2] = reg2;
 						ce->undo_parameters_len = 3;
-						gen_insn(INSN_JMP_COND, i_size_cmp(op_size), COND_O, 0);
-						gen_four(ce->undo_label);
 					}
 					return true;
 				}
