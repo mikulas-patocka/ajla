@@ -3593,9 +3593,19 @@ static bool attr_w gen_extend(struct codegen_context *ctx, unsigned op_size, enu
 #endif
 	goto default_extend;
 default_extend:
+	if (ex == zero_x && op_size <= OP_SIZE_4) {
+		int64_t cnst = (0x1ULL << (8U << op_size)) - 1;
+		if (is_direct_const(cnst, IMM_PURPOSE_AND, OP_SIZE_NATIVE)) {
+			g(gen_imm(ctx, 0xff, IMM_PURPOSE_AND, OP_SIZE_NATIVE));
+			gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_AND, ALU_WRITES_FLAGS(ALU_AND, is_imm()));
+			gen_one(dest);
+			gen_one(src);
+			gen_imm_offset();
+			return true;
+		}
+	}
 	g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, dest, src, shift, false));
 	g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ex == sign_x ? ROT_SAR : ROT_SHR, dest, dest, shift, false));
-
 	return true;
 }
 

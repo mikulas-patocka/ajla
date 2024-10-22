@@ -2669,11 +2669,13 @@ static void sigfpe_handler(int attr_unused sig, siginfo_t *siginfo, void *uconte
 #if defined(ARCH_ALPHA)
 	if (unlikely(siginfo->si_code != FPE_FLTINV))
 		fatal("unexpected SIGFPE received: %d", siginfo->si_code);
+	/*debug("bla: %lx, %lx, %lx", uc->uc_mcontext.sc_regs[0x7], uc->uc_mcontext.sc_regs[0xf], uc->uc_mcontext.sc_regs[0x10]);*/
 	uc->uc_mcontext.sc_pc = ptr_to_num(call(data_trap_lookup)(num_to_ptr(uc->uc_mcontext.sc_pc)));
 #endif
 #if defined(ARCH_MIPS)
 	if (unlikely(siginfo->si_code != FPE_INTOVF))
 		fatal("unexpected SIGFPE received: %d", siginfo->si_code);
+	/*debug("bla: %llx, %llx, %llx", uc->uc_mcontext.gregs[0x4], uc->uc_mcontext.gregs[0x17], uc->uc_mcontext.gregs[0x16]);*/
 	uc->uc_mcontext.pc = ptr_to_num(call(data_trap_lookup)(num_to_ptr(uc->uc_mcontext.pc)));
 #endif
 }
