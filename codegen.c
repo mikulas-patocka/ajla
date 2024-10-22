@@ -4162,7 +4162,7 @@ do_alu: {
 				if (ctx->registers[slot_2] >= 0) {
 					unsigned reg2 = ctx->registers[slot_2];
 					if (mode == MODE_INT && ARCH_SUPPORTS_TRAPS) {
-						gen_insn(INSN_ALU_TRAP, i_size(op_size), alu, ALU_WRITES_FLAGS(alu, false));
+						gen_insn(INSN_ALU_TRAP, op_size, alu, ALU_WRITES_FLAGS(alu, false));
 						gen_one(reg1);
 						gen_one(reg1);
 						gen_one(reg2);
@@ -4188,7 +4188,7 @@ do_undo_opcode:
 						ce->undo_opcode = INSN_ALU + ARCH_PARTIAL_ALU(op_size);
 						ce->undo_op_size = i_size(op_size);
 						ce->undo_aux = undo_alu;
-						ce->undo_writes_flags = 1;
+						ce->undo_writes_flags = ARCH_HAS_FLAGS;
 						ce->undo_parameters[0] = reg1;
 						ce->undo_parameters[1] = reg1;
 						ce->undo_parameters[2] = reg2;
@@ -4212,7 +4212,7 @@ do_undo_opcode:
 						ce->undo_opcode = INSN_ALU + ARCH_PARTIAL_ALU(op_size);
 						ce->undo_op_size = i_size(op_size);
 						ce->undo_aux = undo_alu;
-						ce->undo_writes_flags = 1;
+						ce->undo_writes_flags = ARCH_HAS_FLAGS;
 						m = mark_params(ctx);
 						gen_one(reg1);
 						gen_one(reg1);
@@ -4243,7 +4243,7 @@ do_undo_opcode:
 					ce->undo_opcode = INSN_ALU + ARCH_PARTIAL_ALU(op_size);
 					ce->undo_op_size = i_size(op_size);
 					ce->undo_aux = undo_alu;
-					ce->undo_writes_flags = 1;
+					ce->undo_writes_flags = ARCH_HAS_FLAGS;
 					m = mark_params(ctx);
 					gen_address_offset();
 					gen_address_offset();
@@ -5433,17 +5433,35 @@ do_alu: {
 			g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, R_SCRATCH_1, R_SCRATCH_2));
 			return true;
 		}
-		if (arch_use_flags && slot_1 == slot_r && i_size_cmp(op_size) == op_size + zero) {
+		if ((arch_use_flags || ARCH_SUPPORTS_TRAPS) && slot_1 == slot_r && i_size_cmp(op_size) == op_size + zero) {
 			struct cg_exit *ce;
 			unsigned undo_alu = alu == ALU1_INC ? ALU1_DEC : alu == ALU1_DEC ? ALU1_INC : alu;
 			if (ctx->registers[slot_1] >= 0) {
 				unsigned reg = ctx->registers[slot_1];
+				if (mode == MODE_INT && ARCH_SUPPORTS_TRAPS) {
+					gen_insn(INSN_ALU1_TRAP, op_size, alu, ALU1_WRITES_FLAGS(alu));
+					gen_one(reg);
+					gen_one(reg);
+					if (ARCH_TRAP_BEFORE || alu == undo_alu) {
+						gen_four(label_ovf);
+						return true;
+					} else {
+						ce = alloc_undo_label(ctx);
+						if (unlikely(!ce))
+							return false;
+						gen_four(ce->undo_label);
+						goto do_undo_opcode;
+					}
+				}
 				g(gen_2address_alu1(ctx, i_size(op_size), alu, reg, reg, mode == MODE_INT));
 				if (mode == MODE_INT) {
 					if (alu != undo_alu) {
 						ce = alloc_undo_label(ctx);
 						if (unlikely(!ce))
 							return false;
+						gen_insn(INSN_JMP_COND, i_size_cmp(op_size), COND_O, 0);
+						gen_four(ce->undo_label);
+do_undo_opcode:
 						ce->undo_opcode = INSN_ALU1 + ARCH_PARTIAL_ALU(op_size);
 						ce->undo_op_size = i_size(op_size);
 						ce->undo_aux = undo_alu;
@@ -5451,8 +5469,6 @@ do_alu: {
 						ce->undo_parameters[0] = reg;
 						ce->undo_parameters[1] = reg;
 						ce->undo_parameters_len = 2;
-						gen_insn(INSN_JMP_COND, i_size_cmp(op_size), COND_O, 0);
-						gen_four(ce->undo_label);
 					} else {
 						gen_insn(INSN_JMP_COND, i_size_cmp(op_size), COND_O, 0);
 						gen_four(label_ovf);
