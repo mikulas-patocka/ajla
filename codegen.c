@@ -5123,7 +5123,7 @@ do_bt: {
 		unsigned attr_unused op_s;
 		bool need_mask;
 #if defined(ARCH_X86)
-		if (slot_1 == slot_r && ctx->registers[slot_1] < 0 && alu != BTX_BT) {
+		if ((alu == BTX_BT || slot_1 == slot_r) && ctx->registers[slot_1] < 0) {
 			g(gen_frame_get(ctx, op_size, garbage, slot_2, 0, R_SCRATCH_1, &reg2));
 			if (mode == MODE_INT) {
 				int64_t imm = (8U << op_size) - 1;
@@ -5142,10 +5142,17 @@ do_bt: {
 				reg2 = R_SCRATCH_2;
 			}
 			g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_STR_OFFSET, maximum(op_size, OP_SIZE_2)));
-			gen_insn(INSN_BTX, maximum(op_size, OP_SIZE_2), alu, 1);
-			gen_address_offset();
-			gen_address_offset();
-			gen_one(reg2);
+			if (alu == BTX_BT) {
+				gen_insn(INSN_BT, maximum(op_size, OP_SIZE_2), 0, 1);
+				gen_address_offset();
+				gen_one(reg2);
+				g(gen_frame_set_cond(ctx, maximum(op_size, OP_SIZE_2), false, COND_B, slot_r));
+			} else {
+				gen_insn(INSN_BTX, maximum(op_size, OP_SIZE_2), alu, 1);
+				gen_address_offset();
+				gen_address_offset();
+				gen_one(reg2);
+			}
 			return true;
 		}
 #endif
