@@ -4437,6 +4437,25 @@ do_multiply: {
 
 #if defined(ARCH_X86)
 		if (mode == MODE_INT) {
+			if (op_size != OP_SIZE_1 && slot_r == slot_1 && ctx->registers[slot_1] >= 0) {
+				struct cg_exit *ce;
+				target = ctx->registers[slot_1];
+				g(gen_mov(ctx, op_size, R_SCRATCH_1, target));
+				g(gen_frame_load_op(ctx, op_size, garbage, ALU_MUL, mode == MODE_INT, slot_2, 0, target));
+				ce = alloc_undo_label(ctx);
+				if (unlikely(!ce))
+					return false;
+				ce->undo_opcode = INSN_MOV;
+				ce->undo_op_size = op_size;
+				ce->undo_aux = 0;
+				ce->undo_writes_flags = 0;
+				ce->undo_parameters[0] = target;
+				ce->undo_parameters[1] = R_SCRATCH_1;
+				ce->undo_parameters_len = 2;
+				gen_insn(INSN_JMP_COND, op_size, COND_O, 0);
+				gen_four(ce->undo_label);
+				return true;
+			}
 			target = gen_frame_target(ctx, slot_r, slot_1, slot_2, R_SCRATCH_1);
 		} else {
 			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, slot_2, R_SCRATCH_1);
