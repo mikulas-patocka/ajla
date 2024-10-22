@@ -4441,6 +4441,8 @@ do_multiply: {
 		} else {
 			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, slot_2, R_SCRATCH_1);
 		}
+		if (op_size == OP_SIZE_1)
+			target = R_SCRATCH_1;
 		g(gen_frame_load(ctx, op_size, garbage, slot_1, 0, target));
 		g(gen_frame_load_op(ctx, op_size, garbage, ALU_MUL, mode == MODE_INT, slot_2, 0, target));
 		if (mode == MODE_INT) {
