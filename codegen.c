@@ -4168,7 +4168,7 @@ do_alu: {
 					}
 					return true;
 				}
-#if defined(ARCH_X86)
+#if defined(ARCH_S390) || defined(ARCH_X86)
 				else {
 					size_t m;
 					int64_t offset = (size_t)slot_2 * slot_size;
