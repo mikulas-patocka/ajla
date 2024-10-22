@@ -6240,7 +6240,12 @@ do_conv: {
 		if (src_op_size <= OP_SIZE_NATIVE) {
 			g(gen_frame_get(ctx, src_op_size, sign_x, slot_1, 0, R_SCRATCH_1, &reg1));
 		} else {
-			g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, slot_1, 0, R_SCRATCH_1, R_SCRATCH_3));
+#if defined(ARCH_X86)
+			if (dest_op_size < src_op_size)
+				g(gen_frame_load(ctx, OP_SIZE_NATIVE, garbage, slot_1, 0, R_SCRATCH_1));
+			else
+#endif
+				g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, slot_1, 0, R_SCRATCH_1, R_SCRATCH_3));
 			reg1 = R_SCRATCH_1;
 		}
 
@@ -6282,7 +6287,13 @@ do_conv: {
 				gen_one(R_DX);
 				gen_one(R_AX);
 
-				g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, R_SCRATCH_3, R_SCRATCH_2, COND_NE, label_ovf));
+				g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size + hi_word(OP_SIZE_NATIVE), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
+				gen_insn(INSN_CMP, OP_SIZE_NATIVE, 0, 1);
+				gen_one(R_SCRATCH_2);
+				gen_address_offset();
+
+				gen_insn(INSN_JMP_COND, OP_SIZE_NATIVE, COND_NE, 0);
+				gen_four(label_ovf);
 #else
 				g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, R_SCRATCH_2, R_SCRATCH_1, (1U << (OP_SIZE_NATIVE + 3)) - 1, 0));
 
