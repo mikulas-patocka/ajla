@@ -4931,6 +4931,23 @@ do_shift: {
 		}
 		op_s = i_size_rot(op_size);
 #if defined(ARCH_X86)
+		if (slot_1 == slot_r && ctx->registers[slot_1] < 0 && !(mode == MODE_INT && alu == ROT_SHL)) {
+			int64_t offset;
+			g(gen_frame_load(ctx, op_size, garbage, slot_2, 0, R_SCRATCH_3));
+			if (mode == MODE_INT) {
+				int64_t imm = (8U << op_size) - 1;
+				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, op_size, R_SCRATCH_3, imm, COND_A, label_ovf));
+			} else if ((alu != ROT_ROL && alu != ROT_ROR) && op_size < OP_SIZE_4) {
+				g(gen_3address_alu_imm(ctx, OP_SIZE_1, ALU_AND, R_SCRATCH_3, R_SCRATCH_3, (8U << op_size) - 1, 0));
+			}
+			offset = (size_t)slot_1 * slot_size;
+			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDR_OFFSET, op_size));
+			gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(op_size), op_size, alu, 1);
+			gen_address_offset();
+			gen_address_offset();
+			gen_one(R_SCRATCH_3);
+			return true;
+		}
 		if (mode == MODE_INT && alu == ROT_SHL && op_size < OP_SIZE_NATIVE)
 			op_s = op_size + 1;
 #endif
