@@ -6257,12 +6257,13 @@ do_conv: {
 #if defined(ARCH_X86)
 					if (R_SCRATCH_1 != R_AX || R_SCRATCH_2 != R_DX)
 						internal(file_line, "gen_alu1: bad scratch registers");
-					gen_insn(INSN_CWD, OP_SIZE_NATIVE, 0, 0);
-					gen_one(R_DX);
-					gen_one(R_AX);
-#else
-					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, R_SCRATCH_2, reg1, (1U << (OP_SIZE_NATIVE + 3)) - 1, false));
+					if (reg1 == R_SCRATCH_1) {
+						gen_insn(INSN_CWD, OP_SIZE_NATIVE, 0, 0);
+						gen_one(R_DX);
+						gen_one(R_AX);
+					} else
 #endif
+					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, R_SCRATCH_2, reg1, (1U << (OP_SIZE_NATIVE + 3)) - 1, false));
 					g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, reg1, R_SCRATCH_2));
 				} else {
 					g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, reg1, R_SCRATCH_3));
