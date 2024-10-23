@@ -5848,7 +5848,7 @@ do_bsf_bsr_popcnt: {
 				gen_address_offset();
 				gen_one(R_SCRATCH_2);
 
-				return 0;
+				return true;
 			}
 			if (alu == ALU1_POPCNT) {
 				g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size + lo_word(OP_SIZE_NATIVE), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
@@ -11329,6 +11329,7 @@ have_codegen:
 	return function_return(fp, pointer_data(codegen));
 
 fail:
+	/*debug("FAILED: %s", da(ctx->fn,function)->function_name);*/
 	done_ctx(ctx);
 	return function_return(fp, pointer_thunk(thunk_alloc_exception_error(error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED), NULL, NULL, NULL pass_file_line)));
 }
