@@ -1635,14 +1635,13 @@ static bool attr_w gen_cmp_test_imm_jmp(struct codegen_context *ctx, unsigned in
 		unsigned final_cond = COND_NE;
 #if defined(ARCH_ALPHA)
 		if (cond == COND_AE || cond == COND_A || cond == COND_GE || cond == COND_G) {
-			g(gen_load_constant(ctx, R_CONST_IMM, value));
-			gen_insn(INSN_CMP_DEST_REG, OP_SIZE_NATIVE, cond, 0);
-			gen_one(R_CMP_RESULT);
-			gen_one(reg1);
-			gen_one(R_CONST_IMM);
+			cond ^= 1;
+			final_cond ^= 1;
+			goto gen_const;
 		} else if (cond == COND_NE) {
 			g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_XOR, R_CMP_RESULT, reg1, value, 0));
 		} else
+gen_const:
 #endif
 #if defined(ARCH_MIPS)
 		if (cond == COND_E || cond == COND_NE) {
