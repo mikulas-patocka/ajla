@@ -242,6 +242,7 @@ static bool attr_w cgen_rm_insn(struct codegen_context *ctx, int32_t sse_prefix,
 	int64_t imm = 0;	/* avoid warning */
 	uint8_t addr_size;
 	uint8_t arg_reg;
+	bool need_rex;
 
 	if (unlikely(R_IS_XMM(reg)))
 		reg -= R_XMM0;
@@ -355,7 +356,12 @@ gen:
 		if (size == OP_SIZE_2)
 			cgen_one(X86_OP_SIZE);
 	}
-	if (rex != X86_REX || (size == OP_SIZE_1 && ((reg_is_reg && !reg_is_fp(reg) && reg >= 4) || (mod == 0xc0 && !reg_is_fp(arg[0]) && arg[0] >= 4))))
+	need_rex = rex != X86_REX;
+	need_rex |= size == OP_SIZE_1 && ((reg_is_reg && !reg_is_fp(reg) && reg >= 4) || (mod == 0xc0 && !reg_is_fp(arg[0]) && arg[0] >= 4));
+	if (prefix == PREFIX_0F && (opcode == X86_0F_MOVZX_R16_RM8 || opcode == X86_0F_MOVSX_R16_RM8)) {
+		need_rex |= mod == 0xc0 && arg[0] >= 4;
+	}
+	if (need_rex)
 		cgen_rex(rex);
 
 	switch (prefix) {
@@ -551,7 +557,7 @@ mov_rm:
 		return true;
 	} else {
 		uint8_t code = size == OP_SIZE_1 ? X86_0F_MOVZX_R16_RM8 : X86_0F_MOVZX_R16_RM16;
-		g(cgen_rm_insn(ctx, -1, PREFIX_0F, code, size, false, arg1[0], arg2));
+		g(cgen_rm_insn(ctx, -1, PREFIX_0F, code, OP_SIZE_4, false, arg1[0], arg2));
 		return true;
 	}
 }
