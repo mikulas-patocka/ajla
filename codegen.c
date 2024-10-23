@@ -4711,8 +4711,8 @@ do_divide: {
 		if (R_SCRATCH_1 != R_AX || R_SCRATCH_2 != R_DX || R_SCRATCH_3 != R_CX)
 			internal(file_line, "gen_alu: bad scratch registers");
 #endif
-		g(gen_frame_load(ctx, op_size, sgn ? sign_x : garbage, slot_1, 0, R_SCRATCH_1));
-		g(gen_frame_load(ctx, op_size, sgn ? sign_x : garbage, slot_2, 0, R_SCRATCH_3));
+		g(gen_frame_load(ctx, op_size, sgn ? sign_x : zero_x, slot_1, 0, R_SCRATCH_1));
+		g(gen_frame_load(ctx, op_size, sgn ? sign_x : zero_x, slot_2, 0, R_SCRATCH_3));
 
 		g(gen_jmp_on_zero(ctx, i_size(op_size), R_SCRATCH_3, COND_E, mode == MODE_INT ? label_ovf : label_skip));
 
@@ -4750,10 +4750,6 @@ do_divide: {
 		gen_one(i_size(op_size) == OP_SIZE_1 ? R_SCRATCH_1 : R_SCRATCH_2);
 		gen_one(R_SCRATCH_3);
 #else
-		if (!sgn && op_size < OP_SIZE_4) {
-			g(gen_extend(ctx, op_size, zero_x, R_SCRATCH_1, R_SCRATCH_1));
-			g(gen_extend(ctx, op_size, zero_x, R_SCRATCH_3, R_SCRATCH_3));
-		}
 		if (!sgn) {
 			g(gen_load_constant(ctx, R_SCRATCH_2, 0));
 		} else if (op_size <= OP_SIZE_4) {
