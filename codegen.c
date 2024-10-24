@@ -918,14 +918,6 @@ do {									\
 #define IMM_PURPOSE_BITWISE		21
 
 
-enum extend {
-	zero_x,
-	sign_x,
-	native,
-	garbage,
-};
-
-static bool attr_w gen_extend(struct codegen_context *ctx, unsigned op_size, enum extend ex, unsigned dest, unsigned src);
 static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned args);
 
 #define gen_address_offset()						\
@@ -988,170 +980,9 @@ do {									\
 #endif
 
 
-#if !defined(POINTER_COMPRESSION)
-#define gen_pointer_compression(base)		do { } while (0)
-#define gen_address_offset_compressed()		gen_address_offset()
-#elif defined(ARCH_X86)
-#define gen_pointer_compression(base)		do { } while (0)
-#define gen_address_offset_compressed()					\
-do {									\
-	if (likely(!ctx->offset_reg)) {					\
-		gen_one(ARG_ADDRESS_1 + POINTER_COMPRESSION);		\
-		gen_one(ctx->base_reg);					\
-		gen_eight(ctx->offset_imm);				\
-	} else {							\
-		gen_one(ARG_ADDRESS_2 + POINTER_COMPRESSION);		\
-		gen_one(R_OFFSET_IMM);					\
-		gen_one(ctx->base_reg);					\
-		gen_eight(0);						\
-	}								\
-} while (0)
-#else
-#define gen_pointer_compression(base)					\
-do {									\
-	if (ARCH_PREFERS_SX(OP_SIZE_4)) {				\
-		g(gen_extend(ctx, OP_SIZE_4, zero_x, base, base));	\
-	}								\
-	g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, base, base, POINTER_COMPRESSION, 0));\
-} while (0)
-#define gen_address_offset_compressed()		gen_address_offset()
-#endif
-
-
-#if defined(C_LITTLE_ENDIAN)
-#define lo_word(size)		(0)
-#define hi_word(size)		((size_t)1 << (size))
-#elif defined(C_BIG_ENDIAN)
-#define lo_word(size)		((size_t)1 << (size))
-#define hi_word(size)		(0)
-#else
-endian not defined
-#endif
-
-
-static const struct type *get_type_of_local(struct codegen_context *ctx, frame_t pos)
-{
-	const struct type *t;
-	const struct data *function = ctx->fn;
-	t = da(function,function)->local_variables[pos].type;
-	if (t)
-		TYPE_TAG_VALIDATE(t->tag);
-	return t;
-}
-
 #include "cg-util.inc"
 
-static unsigned real_type_to_op_size(unsigned real_type)
-{
-	switch (real_type) {
-		case 0:	return OP_SIZE_2;
-		case 1:	return OP_SIZE_4;
-		case 2:	return OP_SIZE_8;
-		case 3:	return OP_SIZE_10;
-		case 4:	return OP_SIZE_16;
-		default:
-			internal(file_line, "real_type_to_op_size: invalid type %u", real_type);
-			return 0;
-	}
-}
-
-static unsigned spill_size(const struct type *t)
-{
-	if (TYPE_TAG_IS_REAL(t->tag)) {
-		return real_type_to_op_size(TYPE_TAG_IDX_REAL(t->tag));
-	} else {
-		return log_2(t->size);
-	}
-}
-
-static bool attr_w gen_frame_load_raw(struct codegen_context *ctx, unsigned size, enum extend ex, frame_t slot, int64_t offset, unsigned reg);
-static bool attr_w gen_frame_store_raw(struct codegen_context *ctx, unsigned size, frame_t slot, int64_t offset, unsigned reg);
-
-static bool attr_w spill(struct codegen_context *ctx, frame_t v)
-{
-	const struct type *t = get_type_of_local(ctx, v);
-	g(gen_frame_store_raw(ctx, spill_size(t), v, 0, ctx->registers[v]));
-	return true;
-}
-
-static bool attr_w unspill(struct codegen_context *ctx, frame_t v)
-{
-	const struct type *t = get_type_of_local(ctx, v);
-	g(gen_frame_load_raw(ctx, spill_size(t), garbage, v, 0, ctx->registers[v]));
-	return true;
-}
-
-static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned args)
-{
-	size_t i;
-	size_t attr_unused n_pushes;
-	ajla_assert_lo(ctx->upcall_args == -1, (file_line, "gen_upcall_start: gen_upcall_end not called"));
-	ctx->upcall_args = (int)args;
-
-#if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI)
-	for (i = 0; i < ctx->need_spill_l; i++) {
-		unsigned reg = ctx->registers[ctx->need_spill[i]];
-		if (reg_is_fp(reg))
-			g(spill(ctx, ctx->need_spill[i]));
-	}
-	n_pushes = 0;
-	for (i = 0; i < ctx->need_spill_l; i++) {
-		unsigned reg = ctx->registers[ctx->need_spill[i]];
-		if (!reg_is_fp(reg)) {
-			gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-			gen_one(reg);
-			n_pushes++;
-		}
-	}
-	if (n_pushes & 1) {
-		gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-		gen_one(R_AX);
-	}
-#else
-	for (i = 0; i < ctx->need_spill_l; i++)
-		g(spill(ctx, ctx->need_spill[i]));
-#endif
-	return true;
-}
-
-static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned args)
-{
-	size_t i;
-	size_t attr_unused n_pushes;
-	ajla_assert_lo(ctx->upcall_args == (int)args, (file_line, "gen_upcall_end: gen_upcall_start mismatch: %d", ctx->upcall_args));
-	ctx->upcall_args = -1;
-
-#if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI)
-	n_pushes = 0;
-	for (i = 0; i < ctx->need_spill_l; i++) {
-		unsigned reg = ctx->registers[ctx->need_spill[i]];
-		if (!reg_is_fp(reg))
-			n_pushes++;
-	}
-	if (n_pushes & 1) {
-		gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-		gen_one(R_CX);
-	}
-	for (i = ctx->need_spill_l; i;) {
-		unsigned reg;
-		i--;
-		reg = ctx->registers[ctx->need_spill[i]];
-		if (!reg_is_fp(reg)) {
-			gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-			gen_one(reg);
-		}
-	}
-	for (i = 0; i < ctx->need_spill_l; i++) {
-		unsigned reg = ctx->registers[ctx->need_spill[i]];
-		if (reg_is_fp(reg))
-			g(unspill(ctx, ctx->need_spill[i]));
-	}
-#else
-	for (i = 0; i < ctx->need_spill_l; i++)
-		g(unspill(ctx, ctx->need_spill[i]));
-#endif
-	return true;
-}
+#include "cg-spill.inc"
 
 #include "cg-flags.inc"
 
@@ -1164,6 +995,7 @@ static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned args)
 #include "cg-alu.inc"
 
 #include "cg-ops.inc"
+
 
 #ifndef n_regs_saved
 #define n_regs_saved n_array_elements(regs_saved)

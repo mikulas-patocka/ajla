@@ -725,6 +725,13 @@ static bool attr_w gen_cmov(struct codegen_context *ctx, unsigned op_size, unsig
 }
 #endif
 
+enum extend {
+	zero_x,
+	sign_x,
+	native,
+	garbage,
+};
+
 static bool attr_w gen_extend(struct codegen_context *ctx, unsigned op_size, enum extend ex, unsigned dest, unsigned src)
 {
 	unsigned attr_unused shift;
@@ -892,3 +899,34 @@ static bool attr_w gen_lea3(struct codegen_context *ctx, unsigned dest, unsigned
 		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, dest, dest, offset, 0));
 	return true;
 }
+
+#if !defined(POINTER_COMPRESSION)
+#define gen_pointer_compression(base)		do { } while (0)
+#define gen_address_offset_compressed()		gen_address_offset()
+#elif defined(ARCH_X86)
+#define gen_pointer_compression(base)		do { } while (0)
+#define gen_address_offset_compressed()					\
+do {									\
+	if (likely(!ctx->offset_reg)) {					\
+		gen_one(ARG_ADDRESS_1 + POINTER_COMPRESSION);		\
+		gen_one(ctx->base_reg);					\
+		gen_eight(ctx->offset_imm);				\
+	} else {							\
+		gen_one(ARG_ADDRESS_2 + POINTER_COMPRESSION);		\
+		gen_one(R_OFFSET_IMM);					\
+		gen_one(ctx->base_reg);					\
+		gen_eight(0);						\
+	}								\
+} while (0)
+#else
+#define gen_pointer_compression(base)					\
+do {									\
+	if (ARCH_PREFERS_SX(OP_SIZE_4)) {				\
+		g(gen_extend(ctx, OP_SIZE_4, zero_x, base, base));	\
+	}								\
+	g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, base, base, POINTER_COMPRESSION, 0));\
+} while (0)
+#define gen_address_offset_compressed()		gen_address_offset()
+#endif
+
+

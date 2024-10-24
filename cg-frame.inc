@@ -18,6 +18,90 @@
 
 #define frame_offs(x)	((ssize_t)offsetof(struct frame_struct, x) - (ssize_t)frame_offset)
 
+#if defined(C_LITTLE_ENDIAN)
+#define lo_word(size)		(0)
+#define hi_word(size)		((size_t)1 << (size))
+#elif defined(C_BIG_ENDIAN)
+#define lo_word(size)		((size_t)1 << (size))
+#define hi_word(size)		(0)
+#else
+endian not defined
+#endif
+
+
+static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned args)
+{
+	size_t i;
+	size_t attr_unused n_pushes;
+	ajla_assert_lo(ctx->upcall_args == -1, (file_line, "gen_upcall_start: gen_upcall_end not called"));
+	ctx->upcall_args = (int)args;
+
+#if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI)
+	for (i = 0; i < ctx->need_spill_l; i++) {
+		unsigned reg = ctx->registers[ctx->need_spill[i]];
+		if (reg_is_fp(reg))
+			g(spill(ctx, ctx->need_spill[i]));
+	}
+	n_pushes = 0;
+	for (i = 0; i < ctx->need_spill_l; i++) {
+		unsigned reg = ctx->registers[ctx->need_spill[i]];
+		if (!reg_is_fp(reg)) {
+			gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
+			gen_one(reg);
+			n_pushes++;
+		}
+	}
+	if (n_pushes & 1) {
+		gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
+		gen_one(R_AX);
+	}
+#else
+	for (i = 0; i < ctx->need_spill_l; i++)
+		g(spill(ctx, ctx->need_spill[i]));
+#endif
+	return true;
+}
+
+static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned args)
+{
+	size_t i;
+	size_t attr_unused n_pushes;
+	ajla_assert_lo(ctx->upcall_args == (int)args, (file_line, "gen_upcall_end: gen_upcall_start mismatch: %d", ctx->upcall_args));
+	ctx->upcall_args = -1;
+
+#if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI)
+	n_pushes = 0;
+	for (i = 0; i < ctx->need_spill_l; i++) {
+		unsigned reg = ctx->registers[ctx->need_spill[i]];
+		if (!reg_is_fp(reg))
+			n_pushes++;
+	}
+	if (n_pushes & 1) {
+		gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
+		gen_one(R_CX);
+	}
+	for (i = ctx->need_spill_l; i;) {
+		unsigned reg;
+		i--;
+		reg = ctx->registers[ctx->need_spill[i]];
+		if (!reg_is_fp(reg)) {
+			gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
+			gen_one(reg);
+		}
+	}
+	for (i = 0; i < ctx->need_spill_l; i++) {
+		unsigned reg = ctx->registers[ctx->need_spill[i]];
+		if (reg_is_fp(reg))
+			g(unspill(ctx, ctx->need_spill[i]));
+	}
+#else
+	for (i = 0; i < ctx->need_spill_l; i++)
+		g(unspill(ctx, ctx->need_spill[i]));
+#endif
+	return true;
+}
+
+
 static bool attr_w gen_frame_address(struct codegen_context *ctx, frame_t slot, int64_t offset, unsigned reg)
 {
 	offset += (size_t)slot * slot_size;
