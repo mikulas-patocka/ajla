@@ -1817,7 +1817,7 @@ do_generic_brev:
 do_bsf_bsr_popcnt: {
 		if (op_size > OP_SIZE_NATIVE) {
 #if defined(ARCH_X86)
-			uint32_t label_finish;
+			uint32_t label_finish = 0;	/* avoid warning */
 			if (alu == ALU1_POPCNT && unlikely(!cpu_test_feature(CPU_FEATURE_popcnt)))
 				goto do_generic_bsf_bsr_popcnt;
 			if (alu == ALU1_BSR || alu == ALU1_POPCNT) {
