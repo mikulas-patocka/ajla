@@ -982,13 +982,11 @@ do {									\
 
 #include "cg-util.inc"
 
-#include "cg-spill.inc"
+#include "cg-frame.inc"
 
 #include "cg-flags.inc"
 
 #include "cg-flcch.inc"
-
-#include "cg-frame.inc"
 
 #include "cg-ptr.inc"
 
