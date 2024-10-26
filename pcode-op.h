@@ -100,6 +100,7 @@
 #define Flag_Op_Strict			16
 #define Flag_Return_Elided		32
 #define Flag_Index_In_Range		64
+#define Flag_Fused_Bin_Jmp		128
 
 #define Bin_Add				0
 #define Bin_Subtract			1

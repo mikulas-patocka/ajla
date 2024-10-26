@@ -16,6 +16,8 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  */
 
+static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, unsigned cond, unsigned reg1);
+
 static bool attr_w gen_alu_upcall(struct codegen_context *ctx, size_t upcall, frame_t slot_1, frame_t slot_2, frame_t slot_r, uint32_t label_ovf)
 {
 	if (ctx->registers[slot_1] >= 0)
@@ -1477,6 +1479,7 @@ static bool attr_w gen_alu1(struct codegen_context *ctx, unsigned mode, unsigned
 	 *******/
 do_alu: {
 		bool arch_use_flags = ARCH_HAS_FLAGS;
+		enum extend ex;
 #if defined(ARCH_POWER)
 		arch_use_flags = false;
 #endif
@@ -1621,7 +1624,16 @@ do_undo_opcode:
 #endif
 		}
 		target = gen_frame_target(ctx, slot_r, mode == MODE_INT ? slot_1 : NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
-		g(gen_frame_get(ctx, op_size, mode == MODE_INT && op_size >= OP_SIZE_4 && ARCH_SUPPORTS_TRAPS ? sign_x : garbage, slot_1, 0, target, &reg1));
+		if (mode == MODE_FIXED) {
+			ex = garbage;
+		} else {
+			ex = ARCH_PREFERS_SX(op_size) ? sign_x : zero_x;
+			if (ARCH_SUPPORTS_TRAPS && op_size >= OP_SIZE_4)
+				ex = garbage;
+			if (op_size == i_size(op_size) + (unsigned)zero)
+				ex = garbage;
+		}
+		g(gen_frame_get(ctx, op_size, ex, slot_1, 0, target, &reg1));
 #if defined(ARCH_S390)
 		if (alu == ALU1_NOT) {
 			g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, target, reg1, -1, 0));
@@ -1671,7 +1683,7 @@ do_undo_opcode:
 			if (op_size <= OP_SIZE_2 || (!arch_use_flags && !ARCH_SUPPORTS_TRAPS)) {
 				int64_t imm = ((alu != ALU1_INC && ARCH_PREFERS_SX(op_size) ? -0x80ULL : 0x80ULL) << (((1 << op_size) - 1) * 8)) - (alu == ALU1_INC);
 
-				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, reg1, imm, COND_E, label_ovf));
+				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg1, imm, COND_E, label_ovf));
 
 				mode = MODE_FIXED;
 			}
@@ -3381,4 +3393,64 @@ static bool attr_w gen_system_property(struct codegen_context *ctx, frame_t slot
 	flag_set(ctx, slot_r, false);
 
 	return true;
+}
+
+static bool attr_w gen_alu_jmp(struct codegen_context *ctx, unsigned mode, unsigned op_size, unsigned op, frame_t slot_1, frame_t slot_2, int32_t jmp_offset, bool *failed)
+{
+	unsigned alu;
+#if 0
+	*failed = true; return true;
+#endif
+	switch (mode) {
+		case MODE_FIXED: switch (op) {
+			case OPCODE_FIXED_OP_equal:		alu = COND_E; goto do_compare;
+			case OPCODE_FIXED_OP_not_equal:		alu = COND_NE; goto do_compare;
+			case OPCODE_FIXED_OP_less:		alu = COND_L; goto do_compare;
+			case OPCODE_FIXED_OP_less_equal:	alu = COND_LE; goto do_compare;
+			case OPCODE_FIXED_OP_uless:		alu = COND_B; goto do_compare;
+			case OPCODE_FIXED_OP_uless_equal:	alu = COND_BE; goto do_compare;
+			case OPCODE_FIXED_OP_bt:		*failed = true; return true;
+			default:				internal(file_line, "gen_alu_jmp: unsupported fixed operation %u", op);
+		}
+		case MODE_INT: switch (op) {
+			case OPCODE_INT_OP_equal:		alu = COND_E; goto do_compare;
+			case OPCODE_INT_OP_not_equal:		alu = COND_NE; goto do_compare;
+			case OPCODE_INT_OP_less:		alu = COND_L; goto do_compare;
+			case OPCODE_INT_OP_less_equal:		alu = COND_LE; goto do_compare;
+			case OPCODE_INT_OP_bt:			*failed = true; return true;
+			default:				internal(file_line, "gen_alu: unsupported int operation %u", op);
+		}
+		case MODE_BOOL: *failed = true; return true; /*switch (op) {
+			case OPCODE_BOOL_OP_and:		alu = ALU_AND; mode = MODE_FIXED; goto do_alu;
+			case OPCODE_BOOL_OP_or:			alu = ALU_OR; mode = MODE_FIXED; goto do_alu;
+			case OPCODE_BOOL_OP_equal:		alu = COND_E; goto do_compare;
+			case OPCODE_BOOL_OP_not_equal:		alu = ALU_XOR; mode = MODE_FIXED; goto do_alu;
+			case OPCODE_BOOL_OP_less:		alu = COND_L; goto do_compare;
+			case OPCODE_BOOL_OP_less_equal:		alu = COND_LE; goto do_compare;
+			default:				internal(file_line, "gen_alu: unsupported bool operation %u", op);
+		}*/
+	}
+	internal(file_line, "gen_alu_jmp: unsupported mode %u", mode);
+do_compare: {
+		enum extend ex;
+		unsigned reg1;
+		unsigned attr_unused reg2;
+		bool attr_unused logical;
+		if (unlikely(op_size > OP_SIZE_NATIVE)) {
+			*failed = true;
+			return true;
+		}
+		ex = op_size == i_size_cmp(op_size) + (unsigned)zero ? garbage : alu == COND_L || alu == COND_LE || ARCH_PREFERS_SX(op_size) ? sign_x : zero_x;
+		g(gen_frame_get(ctx, op_size, ex, slot_1, 0, R_SCRATCH_1, &reg1));
+#if ARCH_HAS_FLAGS
+		logical = COND_IS_LOGICAL(alu ^ 1);
+		g(gen_frame_load_cmp(ctx, op_size, logical, ex, false, slot_2, 0, reg1));
+		g(gen_jump(ctx, jmp_offset, alu ^ 1, -1U));
+#else
+		g(gen_frame_get(ctx, op_size, ex, slot_2, 0, R_SCRATCH_NA_1, &reg2));
+		g(gen_cmp_dest_reg(ctx, op_size, reg1, reg2, R_CMP_RESULT, 0, alu));
+		g(gen_jump(ctx, jmp_offset, COND_E, R_CMP_RESULT));
+#endif
+		return true;
+	}
 }

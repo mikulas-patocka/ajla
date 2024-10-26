@@ -1123,6 +1123,44 @@ success:
 	return true;
 }
 
+static bool attr_w gen_fused_binary(struct codegen_context *ctx, unsigned mode, unsigned op_size, unsigned op, frame_t slot_1, frame_t slot_2, frame_t slot_r, bool *failed)
+{
+	const code_t *backup = ctx->current_position;
+	code_t code;
+	frame_t slot_dr, slot_test;
+	int32_t offs_false;
+
+	*failed = false;
+
+next_code:
+	code = get_code(ctx);
+	ctx->arg_mode = code / OPCODE_MODE_MULT;
+	code %= OPCODE_MODE_MULT;
+	ajla_assert_lo(ctx->arg_mode < ARG_MODE_N, (file_line, "gen_fused_binary: invalid opcode %04x", (unsigned)*ctx->instr_start));
+
+	if (code == OPCODE_DEREFERENCE) {
+		get_one(ctx, &slot_dr);
+		if (unlikely(!flag_is_clear(ctx, slot_dr))) {
+			internal(file_line, "gen_fused_binary: flag not cleared for destination slot");
+		}
+		goto next_code;
+	}
+	if (unlikely(code != OPCODE_JMP_FALSE))
+		internal(file_line, "gen_fused_binary: binary operation is not followed by jmp false: %x, %s", code, decode_opcode(code, true));
+	get_one(ctx, &slot_test);
+	if (unlikely(slot_test != slot_r))
+		internal(file_line, "gen_fused_binary: the result of the binary operation and the tested variable do not match");
+	offs_false = get_jump_offset(ctx);
+	get_jump_offset(ctx);
+
+	g(gen_alu_jmp(ctx, mode, op_size, op, slot_1, slot_2, offs_false, failed));
+
+	if (*failed)
+		ctx->current_position = backup;
+
+	return true;
+}
+
 static bool attr_w gen_function(struct codegen_context *ctx)
 {
 	ctx->current_position = da(ctx->fn,function)->code;
@@ -1139,6 +1177,7 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 		arg_t n_args, n_ret, i_arg;
 		uint32_t label_id;
 		uint32_t escape_label;
+		bool failed;
 
 		ajla_assert_lo(ctx->current_position < da(ctx->fn,function)->code + da(ctx->fn,function)->code_size, (file_line, "gen_function: ran out of code in %s", da(ctx->fn,function)->function_name));
 
@@ -1170,10 +1209,15 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				if (unlikely(!escape_label))
 					return false;
 				g(gen_test_2_cached(ctx, slot_1, slot_2, escape_label));
-				g(gen_alu(ctx, MODE_FIXED, type, op, escape_label, slot_1, slot_2, slot_r));
 				flag_set(ctx, slot_1, false);
 				flag_set(ctx, slot_2, false);
 				flag_set(ctx, slot_r, false);
+				if (flags & OPCODE_FLAG_FUSED) {
+					g(gen_fused_binary(ctx, MODE_FIXED, type, op, slot_1, slot_2, slot_r, &failed));
+					if (unlikely(!failed))
+						continue;
+				}
+				g(gen_alu(ctx, MODE_FIXED, type, op, escape_label, slot_1, slot_2, slot_r));
 				continue;
 			} else if (op < OPCODE_FIXED_OP_N) {
 				get_two(ctx, &slot_1, &slot_r);
@@ -1182,9 +1226,9 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				if (unlikely(!escape_label))
 					return false;
 				g(gen_test_1_cached(ctx, slot_1, escape_label));
-				g(gen_alu1(ctx, MODE_FIXED, type, op, escape_label, slot_1, slot_r));
 				flag_set(ctx, slot_1, false);
 				flag_set(ctx, slot_r, false);
+				g(gen_alu1(ctx, MODE_FIXED, type, op, escape_label, slot_1, slot_r));
 				continue;
 			} else if (op == OPCODE_FIXED_OP_ldc) {
 				unsigned i;
@@ -1206,9 +1250,9 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				if (unlikely(!escape_label))
 					return false;
 				g(gen_test_1_cached(ctx, slot_1, escape_label));
-				g(gen_copy(ctx, type, slot_1, slot_r));
 				flag_set(ctx, slot_1, false);
 				flag_set(ctx, slot_r, false);
+				g(gen_copy(ctx, type, slot_1, slot_r));
 				continue;
 			} else {
 				internal(file_line, "gen_function: bad fixed code %04x", *ctx->instr_start);
@@ -1224,10 +1268,15 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				if (unlikely(!escape_label))
 					return false;
 				g(gen_test_2_cached(ctx, slot_1, slot_2, escape_label));
-				g(gen_alu(ctx, MODE_INT, type, op, escape_label, slot_1, slot_2, slot_r));
 				flag_set(ctx, slot_1, false);
 				flag_set(ctx, slot_2, false);
 				flag_set(ctx, slot_r, false);
+				if (flags & OPCODE_FLAG_FUSED) {
+					g(gen_fused_binary(ctx, MODE_INT, type, op, slot_1, slot_2, slot_r, &failed));
+					if (unlikely(!failed))
+						continue;
+				}
+				g(gen_alu(ctx, MODE_INT, type, op, escape_label, slot_1, slot_2, slot_r));
 				continue;
 			} else if (op < OPCODE_INT_OP_N) {
 				get_two(ctx, &slot_1, &slot_r);
@@ -1238,9 +1287,9 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				if (unlikely(!escape_label))
 					return false;
 				g(gen_test_1_cached(ctx, slot_1, escape_label));
-				g(gen_alu1(ctx, MODE_INT, type, op, escape_label, slot_1, slot_r));
 				flag_set(ctx, slot_1, false);
 				flag_set(ctx, slot_r, false);
+				g(gen_alu1(ctx, MODE_INT, type, op, escape_label, slot_1, slot_r));
 				continue;
 			} else if (op == OPCODE_INT_OP_ldc) {
 				unsigned i;
@@ -1262,9 +1311,9 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				if (unlikely(!escape_label))
 					return false;
 				g(gen_test_1_cached(ctx, slot_1, escape_label));
-				g(gen_copy(ctx, type, slot_1, slot_r));
 				flag_set(ctx, slot_1, false);
 				flag_set(ctx, slot_r, false);
+				g(gen_copy(ctx, type, slot_1, slot_r));
 				continue;
 			} else {
 				internal(file_line, "gen_function: bad integer code %04x", *ctx->instr_start);
@@ -1280,10 +1329,10 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				if (unlikely(!escape_label))
 					return false;
 				g(gen_test_2_cached(ctx, slot_1, slot_2, escape_label));
-				g(gen_fp_alu(ctx, type, op, escape_label, slot_1, slot_2, slot_r));
 				flag_set(ctx, slot_1, false);
 				flag_set(ctx, slot_2, false);
 				flag_set(ctx, slot_r, false);
+				g(gen_fp_alu(ctx, type, op, escape_label, slot_1, slot_2, slot_r));
 				continue;
 			} else if (op < OPCODE_REAL_OP_N) {
 				get_two(ctx, &slot_1, &slot_r);
@@ -1292,9 +1341,9 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				if (unlikely(!escape_label))
 					return false;
 				g(gen_test_1_cached(ctx, slot_1, escape_label));
-				g(gen_fp_alu1(ctx, type, op, escape_label, slot_1, slot_r));
 				flag_set(ctx, slot_1, false);
 				flag_set(ctx, slot_r, false);
+				g(gen_fp_alu1(ctx, type, op, escape_label, slot_1, slot_r));
 				continue;
 			} else if (op == OPCODE_REAL_OP_ldc) {
 				const struct type *t;
@@ -1312,9 +1361,9 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				if (unlikely(!escape_label))
 					return false;
 				g(gen_test_1_cached(ctx, slot_1, escape_label));
-				g(gen_memcpy_slots(ctx, slot_r, slot_1));
 				flag_set(ctx, slot_1, false);
 				flag_set(ctx, slot_r, false);
+				g(gen_memcpy_slots(ctx, slot_r, slot_1));
 				continue;
 			} else {
 				internal(file_line, "gen_function: bad real code %04x", *ctx->instr_start);
@@ -1330,10 +1379,15 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				if (unlikely(!escape_label))
 					return false;
 				g(gen_test_2_cached(ctx, slot_1, slot_2, escape_label));
-				g(gen_alu(ctx, MODE_BOOL, type, op, escape_label, slot_1, slot_2, slot_r));
 				flag_set(ctx, slot_1, false);
 				flag_set(ctx, slot_2, false);
 				flag_set(ctx, slot_r, false);
+				if (flags & OPCODE_FLAG_FUSED) {
+					g(gen_fused_binary(ctx, MODE_BOOL, type, op, slot_1, slot_2, slot_r, &failed));
+					if (unlikely(!failed))
+						continue;
+				}
+				g(gen_alu(ctx, MODE_BOOL, type, op, escape_label, slot_1, slot_2, slot_r));
 				continue;
 			} else if (op < OPCODE_BOOL_OP_N) {
 				get_two(ctx, &slot_1, &slot_r);
@@ -1342,9 +1396,9 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				if (unlikely(!escape_label))
 					return false;
 				g(gen_test_1_cached(ctx, slot_1, escape_label));
-				g(gen_alu1(ctx, MODE_BOOL, type, op, escape_label, slot_1, slot_r));
 				flag_set(ctx, slot_1, false);
 				flag_set(ctx, slot_r, false);
+				g(gen_alu1(ctx, MODE_BOOL, type, op, escape_label, slot_1, slot_r));
 				continue;
 			} else if (op == OPCODE_BOOL_OP_move || op == OPCODE_BOOL_OP_copy) {
 				get_two(ctx, &slot_1, &slot_r);
@@ -1352,9 +1406,9 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				if (unlikely(!escape_label))
 					return false;
 				g(gen_test_1_cached(ctx, slot_1, escape_label));
-				g(gen_copy(ctx, type, slot_1, slot_r));
 				flag_set(ctx, slot_1, false);
 				flag_set(ctx, slot_r, false);
+				g(gen_copy(ctx, type, slot_1, slot_r));
 				continue;
 			} else {
 				internal(file_line, "gen_function: bad boolean code %04x", *ctx->instr_start);
@@ -1575,12 +1629,12 @@ skip_dereference:
 			}
 			case OPCODE_JMP: {
 				int32_t x = get_jump_offset(ctx);
-				g(gen_jump(ctx, x, 0, -1U));
+				g(gen_jump(ctx, x, COND_ALWAYS, -1U));
 				continue;
 			}
 			case OPCODE_JMP_BACK_16: {
 				int32_t x = get_code(ctx);
-				g(gen_jump(ctx, -x - (int)(2 * sizeof(code_t)), 0, -1U));
+				g(gen_jump(ctx, -x - (int)(2 * sizeof(code_t)), COND_ALWAYS, -1U));
 				continue;
 			}
 			case OPCODE_JMP_FALSE: {
@@ -1592,8 +1646,8 @@ skip_dereference:
 				if (unlikely(!escape_label))
 					return false;
 				g(gen_test_1_cached(ctx, slot_1, escape_label));
-				g(gen_cond_jump(ctx, slot_1, offs_false));
 				flag_set(ctx, slot_1, false);
+				g(gen_cond_jump(ctx, slot_1, offs_false));
 				continue;
 			}
 			case OPCODE_LABEL: {

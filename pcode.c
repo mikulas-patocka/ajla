@@ -2372,6 +2372,7 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 			bool a1_deref, a2_deref;
 			arg_mode_t am;
 			code_t code;
+			frame_t fflags;
 			struct line_position lp;
 			struct record_definition *def;
 
@@ -2403,6 +2404,11 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 						goto exception;
 					break;
 				}
+				fflags = 0;
+				if (unlikely(flags1 & Flag_Op_Strict) != 0)
+					fflags |= OPCODE_OP_FLAG_STRICT;
+				if (flags1 & Flag_Fused_Bin_Jmp)
+					fflags |= OPCODE_FLAG_FUSED;
 				am = INIT_ARG_MODE;
 				get_arg_mode(am, t1->slot);
 				get_arg_mode(am, t2->slot);
@@ -2410,7 +2416,7 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				code = (code_t)((likely(op < Op_N) ? get_code(op, t1->type) : (code_t)(op - Op_N)) + am * OPCODE_MODE_MULT);
 				gen_code(code);
 				gen_am_two(am, t1->slot, t2->slot);
-				gen_am_two(am, tr->slot, flags1 & Flag_Op_Strict ? OPCODE_OP_FLAG_STRICT : 0);
+				gen_am_two(am, tr->slot, fflags);
 				if (flags1 & Flag_Free_Argument) {
 					if (t1->slot != tr->slot)
 						pcode_free(ctx, a1);

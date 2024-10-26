@@ -1998,6 +1998,7 @@ fn insert_free(ctx : context) : context
 		var block := ctx.blocks[bgi];
 
 		var needs_checkpoint := false;
+		var is_fused := false;
 		for post_idx := 0 to len(block.post_list) do [
 			var post := block.post_list[post_idx];
 			if post < bgi then [
@@ -2007,6 +2008,22 @@ fn insert_free(ctx : context) : context
 		]
 
 		var ili := len(block.instrs) - 1;
+
+		if ili >= 1 then [
+			var instr1 := ctx.instrs[block.instrs[ili - 1]];
+			var instr2 := ctx.instrs[block.instrs[ili]];
+			if instr1.opcode = P_BinaryOp, instr2.opcode = P_Jmp_False, instr1.params[1] = instr2.params[0] then [
+				var bvar := instr2.params[0];
+				var post0 := block.post_list[0];
+				var post1 := block.post_list[1];
+				if not ctx.blocks[post0].live_top bt bvar,
+				   not ctx.blocks[post1].live_top bt bvar then [
+					ctx.instrs[block.instrs[ili - 1]].params[2] or= Flag_Fused_Bin_Jmp;
+					is_fused := true;
+				]
+			]
+		]
+
 		while ili >= 0 do [
 			var instr := ctx.instrs[block.instrs[ili]];
 
@@ -2125,18 +2142,35 @@ skip_call:
 
 		if needs_checkpoint, len(ctx.blocks[bgi].instrs) > 0 then [
 			var live_bottom := ctx.blocks[bgi].live_bottom;
+
+			var ili := len(ctx.blocks[bgi].instrs);
+			if ili > 0 then [
+				var instr := ctx.instrs[ctx.blocks[bgi].instrs[ili - 1]];
+				if instr.opcode = P_Jmp_False or instr.opcode = P_Return then
+					ili -= 1;
+				if is_fused then [
+skip_derefs:
+					ili -= 1;
+					var instr := ctx.instrs[ctx.blocks[bgi].instrs[ili]];
+					if instr.opcode = P_Free then [
+						goto skip_derefs;
+					]
+					if instr.opcode = P_BinaryOp, (instr.params[2] and Flag_Fused_Bin_Jmp) <> 0 then [
+						live_bottom bts= instr.params[3];
+						live_bottom bts= instr.params[5];
+						goto have_ili;
+					]
+					abort internal("insert_free: invalid opcode " + ntos(instr.opcode));
+have_ili:
+				]
+			]
+
 			var new_live_bottom : var_set := 0;
 			while live_bottom <> 0 do [
 				var l : int := bsr live_bottom;
 				live_bottom btr= l;
 				if ctx.variables[l].must_be_flat then
 					new_live_bottom bts= l;
-			]
-			var ili := len(ctx.blocks[bgi].instrs);
-			if ili > 0 then [
-				var instr := ctx.instrs[ctx.blocks[bgi].instrs[ili - 1]];
-				if instr.opcode = P_Jmp_False or instr.opcode = P_Return then
-					ili -= 1;
 			]
 			var cp_instr := create_instr(P_Checkpoint, var_set_2_list(new_live_bottom), bgi);
 			ctx := insert_instr(ctx, cp_instr, ili);

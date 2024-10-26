@@ -132,7 +132,7 @@ static bool attr_w gen_eval(struct codegen_context *ctx, frame_t slot_1)
 	return true;
 }
 
-static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, unsigned cond, unsigned reg1)
+static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, unsigned cond, unsigned reg)
 {
 	ip_t ip = (ctx->current_position - da(ctx->fn,function)->code) + (jmp_offset / (int)sizeof(code_t));
 	if (likely(!ctx->code_labels[ip])) {
@@ -140,20 +140,14 @@ static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, uns
 		if (unlikely(!ctx->code_labels[ip]))
 			return false;
 	}
-	if (!cond) {
+	if (reg != -1U) {
+		g(gen_jmp_on_zero(ctx, log_2(sizeof(ajla_flat_option_t)), reg, cond, ctx->code_labels[ip]));
+	} else if (cond == COND_ALWAYS) {
 		gen_insn(INSN_JMP, 0, 0, 0);
 		gen_four(ctx->code_labels[ip]);
-	} else if (cond == 1) {
-#if defined(ARCH_S390)
-		gen_insn(INSN_JMP_COND_LOGICAL, maximum(OP_SIZE_4, log_2(sizeof(ajla_flat_option_t))), COND_E, 0);
-#else
-		gen_insn(COND_IS_LOGICAL(COND_E) ? INSN_JMP_COND_LOGICAL : INSN_JMP_COND, maximum(OP_SIZE_4, log_2(sizeof(ajla_flat_option_t))), COND_E, 0);
-#endif
-		gen_four(ctx->code_labels[ip]);
-	} else if (cond == 2) {
-		g(gen_jmp_on_zero(ctx, log_2(sizeof(ajla_flat_option_t)), reg1, COND_E, ctx->code_labels[ip]));
 	} else {
-		internal(file_line, "gen_jump: invalid condition %u", cond);
+		gen_insn(COND_IS_LOGICAL(cond) ? INSN_JMP_COND_LOGICAL : INSN_JMP_COND, maximum(OP_SIZE_4, log_2(sizeof(ajla_flat_option_t))), cond, 0);
+		gen_four(ctx->code_labels[ip]);
 	}
 	return true;
 }
@@ -178,13 +172,13 @@ static bool attr_w gen_cond_jump(struct codegen_context *ctx, frame_t slot, int3
 	gen_one(ARG_IMM);
 	gen_eight(0);
 
-	g(gen_jump(ctx, jmp_offset, 1, -1U));
+	g(gen_jump(ctx, jmp_offset, COND_E, -1U));
 	return true;
 #endif
 	goto no_load_op;
 no_load_op:
 	g(gen_frame_get(ctx, size, i_size(size) == size ? garbage : native, slot, 0, R_SCRATCH_1, &reg1));
-	g(gen_jump(ctx, jmp_offset, 2, reg1));
+	g(gen_jump(ctx, jmp_offset, COND_E, reg1));
 	return true;
 }
 

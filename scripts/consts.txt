@@ -14,7 +14,7 @@
 ; You should have received a copy of the GNU General Public License along with
 ; Ajla. If not, see <https://www.gnu.org/licenses/>.
 1
-P_BinaryOp		; op, result, (ref_flag1, strict flag), src1, (ref_flag2), src2
+P_BinaryOp		; op, result, (ref_flag1, strict_flag, fused_flag), src1, (ref_flag2), src2
 P_UnaryOp		; op, result, (ref_flag, strict_flag), src
 P_Copy			; dest, ref_flag, src
 P_Copy_Type_Cast	; dest, def_flag, src
@@ -112,6 +112,7 @@ Flag_Array_Fill_Sparse
 Flag_Op_Strict
 Flag_Return_Elided
 Flag_Index_In_Range
+Flag_Fused_Bin_Jmp
 
 0
 Bin_Add
