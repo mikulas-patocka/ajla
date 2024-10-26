@@ -2416,7 +2416,7 @@ static bool attr_w gen_constant(struct codegen_context *ctx, unsigned op_size, b
 static bool attr_w gen_real_constant(struct codegen_context *ctx, const struct type *t, frame_t slot_r)
 {
 	int64_t offset;
-	if (is_power_of_2(t->size) && t->size <= sizeof(uintbig_t))
+	if (is_power_of_2(t->size) && t->size <= sizeof(uintbig_t) && ctx->registers[slot_r] < 0)
 		return gen_constant(ctx, log_2(t->size), false, slot_r);
 
 	g(load_function_offset(ctx, R_SCRATCH_3, offsetof(struct data, u_.function.code)));
@@ -2424,6 +2424,9 @@ static bool attr_w gen_real_constant(struct codegen_context *ctx, const struct t
 	offset = (ctx->current_position - da(ctx->fn,function)->code) * sizeof(code_t);
 
 	g(gen_memcpy_to_slot(ctx, slot_r, R_SCRATCH_3, offset));
+	if (ctx->registers[slot_r] >= 0)
+		g(unspill(ctx, slot_r));
+
 	return true;
 }
 
