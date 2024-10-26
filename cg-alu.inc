@@ -2502,6 +2502,10 @@ do_alu:
 			if (ctx->registers[slot_2] >= 0) {
 				g(gen_3address_fp_alu(ctx, op_size, fp_alu, target, reg1, ctx->registers[slot_2]));
 			} else {
+				if (target != reg1 && !ARCH_IS_3ADDRESS_FP) {
+					g(gen_mov(ctx, op_size, target, reg1));
+					reg1 = target;
+				}
 				g(gen_address(ctx, R_FRAME, (size_t)slot_2 * slot_size, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
 				gen_insn(INSN_FP_ALU, op_size, fp_alu, 0);
 				gen_one(target);
