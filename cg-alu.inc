@@ -53,7 +53,8 @@ static bool attr_w gen_alu_typed_upcall(struct codegen_context *ctx, size_t upca
 
 #define MODE_FIXED	0
 #define MODE_INT	1
-#define MODE_BOOL	2
+#define MODE_REAL	2
+#define MODE_BOOL	3
 
 static bool attr_w gen_alu(struct codegen_context *ctx, unsigned mode, unsigned op_size, unsigned op, uint32_t label_ovf, frame_t slot_1, frame_t slot_2, frame_t slot_r)
 {
@@ -2423,7 +2424,7 @@ static bool attr_w gen_real_constant(struct codegen_context *ctx, const struct t
 
 	offset = (ctx->current_position - da(ctx->fn,function)->code) * sizeof(code_t);
 
-	g(gen_memcpy_to_slot(ctx, slot_r, R_SCRATCH_3, offset));
+	g(gen_memcpy_raw(ctx, R_FRAME, (size_t)slot_r * slot_size, R_SCRATCH_3, offset, t->size, minimum(t->align, sizeof(code_t))));
 	if (ctx->registers[slot_r] >= 0)
 		g(unspill(ctx, slot_r));
 
@@ -3514,4 +3515,130 @@ skip_flags:
 		g(gen_jump(ctx, jmp_offset, COND_E, R_SCRATCH_1));
 		return true;
 	}
+}
+
+static bool attr_w gen_fp_alu_jmp(struct codegen_context *ctx, unsigned real_type, unsigned op, uint32_t label_ovf, frame_t slot_1, frame_t slot_2, int32_t jmp_offset, bool *failed)
+{
+	unsigned attr_unused fp_alu;
+	unsigned attr_unused op_size = real_type_to_op_size(real_type);
+	unsigned reg1, reg2;
+	unsigned attr_unused target;
+	switch (op) {
+		case OPCODE_REAL_OP_equal:
+		case OPCODE_REAL_OP_equal_alt1:
+		case OPCODE_REAL_OP_equal_alt2:	fp_alu = FP_COND_E; goto do_cmp;
+		case OPCODE_REAL_OP_not_equal:
+		case OPCODE_REAL_OP_not_equal_alt1:
+		case OPCODE_REAL_OP_not_equal_alt2: fp_alu = FP_COND_NE; goto do_cmp;
+		case OPCODE_REAL_OP_less:
+		case OPCODE_REAL_OP_less_alt1:
+		case OPCODE_REAL_OP_less_alt2: fp_alu = FP_COND_B; goto do_cmp;
+		case OPCODE_REAL_OP_less_equal:
+		case OPCODE_REAL_OP_less_equal_alt1:
+		case OPCODE_REAL_OP_less_equal_alt2: fp_alu = FP_COND_BE; goto do_cmp;
+		default: internal(file_line, "gen_fp_alu_jmp: unsupported operation %u", op);
+	}
+
+do_cmp:
+	if ((SUPPORTED_FP >> real_type) & 1
+#if defined(ARCH_ALPHA)
+		&& ARCH_SUPPORTS_TRAPS && cpu_test_feature(CPU_FEATURE_fix)
+#endif
+	) {
+		g(gen_frame_get(ctx, op_size, zero_x, slot_1, 0, FR_SCRATCH_1, &reg1));
+		g(gen_frame_get(ctx, op_size, zero_x, slot_2, 0, FR_SCRATCH_2, &reg2));
+		target = R_SCRATCH_1;
+#if defined(ARCH_ALPHA)
+		gen_insn(INSN_FP_CMP_DEST_REG_TRAP, op_size, fp_alu == FP_COND_NE ? FP_COND_E : fp_alu, 0);
+		gen_one(FR_SCRATCH_3);
+		gen_one(reg1);
+		gen_one(reg2);
+		gen_four(label_ovf);
+
+		g(gen_mov(ctx, OP_SIZE_4, target, FR_SCRATCH_3));
+
+		if (fp_alu == FP_COND_NE) {
+			g(gen_jump(ctx, jmp_offset, COND_NE, target));
+		} else {
+			g(gen_jump(ctx, jmp_offset, COND_E, target));
+		}
+
+		return true;
+#elif defined(ARCH_IA64)
+		gen_insn(INSN_FP_CMP_DEST_REG, op_size, FP_COND_P, 0);
+		gen_one(R_CMP_RESULT);
+		gen_one(reg1);
+		gen_one(reg2);
+
+		gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, COND_NE, 0);
+		gen_one(R_CMP_RESULT);
+		gen_four(label_ovf);
+
+		gen_insn(INSN_FP_CMP_DEST_REG, op_size, fp_alu, 0);
+		gen_one(R_CMP_RESULT);
+		gen_one(reg1);
+		gen_one(reg2);
+
+		g(gen_jump(ctx, jmp_offset, COND_E, R_CMP_RESULT);
+
+		return true;
+#elif defined(ARCH_LOONGARCH64) || defined(ARCH_MIPS) || defined(ARCH_PARISC)
+		gen_insn(INSN_FP_CMP_COND, op_size, FP_COND_P, 1);
+		gen_one(reg1);
+		gen_one(reg2);
+
+		gen_insn(INSN_JMP_FP_TEST, 0, FP_COND_P, 0);
+		gen_four(label_ovf);
+
+		gen_insn(INSN_FP_CMP_COND, op_size, fp_alu, 1);
+		gen_one(reg1);
+		gen_one(reg2);
+
+		gen_insn(INSN_FP_TEST_REG, OP_SIZE_NATIVE, fp_alu, 0);
+		gen_one(target);
+
+		g(gen_jump(ctx, jmp_offset, COND_E, target));
+
+		return true;
+#elif defined(ARCH_RISCV64)
+		gen_insn(INSN_FP_CMP_DEST_REG, op_size, FP_COND_E, 0);
+		gen_one(R_SCRATCH_1);
+		gen_one(reg1);
+		gen_one(reg1);
+
+		gen_insn(INSN_FP_CMP_DEST_REG, op_size, FP_COND_E, 0);
+		gen_one(R_SCRATCH_2);
+		gen_one(reg2);
+		gen_one(reg2);
+
+		g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_AND, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_2, 0));
+
+		g(gen_jmp_on_zero(ctx, OP_SIZE_NATIVE, R_SCRATCH_1, COND_E, label_ovf));
+
+		gen_insn(INSN_FP_CMP_DEST_REG, op_size, fp_alu == FP_COND_NE ? FP_COND_E : fp_alu, 0);
+		gen_one(target);
+		gen_one(reg1);
+		gen_one(reg2);
+
+		if (fp_alu == FP_COND_NE) {
+			g(gen_jump(ctx, jmp_offset, COND_NE, target));
+		} else {
+			g(gen_jump(ctx, jmp_offset, COND_E, target));
+		}
+		return true;
+#else
+		gen_insn(INSN_FP_CMP, op_size, 0, 1);
+		gen_one(reg1);
+		gen_one(reg2);
+#if defined(ARCH_ARM32)
+		gen_insn(INSN_FP_TO_INT_FLAGS, 0, 0, 1);
+#endif
+		gen_insn(INSN_JMP_COND, op_size, FP_COND_P, 0);
+		gen_four(label_ovf);
+		g(gen_jump(ctx, jmp_offset, fp_alu ^ 1, -1U));
+		return true;
+#endif
+	}
+	*failed = true;
+	return true;
 }

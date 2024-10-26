@@ -1123,7 +1123,7 @@ success:
 	return true;
 }
 
-static bool attr_w gen_fused_binary(struct codegen_context *ctx, unsigned mode, unsigned op_size, unsigned op, frame_t slot_1, frame_t slot_2, frame_t slot_r, bool *failed)
+static bool attr_w gen_fused_binary(struct codegen_context *ctx, unsigned mode, unsigned op_size, unsigned op, uint32_t escape_label, frame_t slot_1, frame_t slot_2, frame_t slot_r, bool *failed)
 {
 	const code_t *backup = ctx->current_position;
 	code_t code;
@@ -1153,7 +1153,10 @@ next_code:
 	offs_false = get_jump_offset(ctx);
 	get_jump_offset(ctx);
 
-	g(gen_alu_jmp(ctx, mode, op_size, op, slot_1, slot_2, offs_false, failed));
+	if (mode != MODE_REAL)
+		g(gen_alu_jmp(ctx, mode, op_size, op, slot_1, slot_2, offs_false, failed));
+	else
+		g(gen_fp_alu_jmp(ctx, op_size, op, escape_label, slot_1, slot_2, offs_false, failed));
 
 	if (*failed)
 		ctx->current_position = backup;
@@ -1213,7 +1216,7 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				flag_set(ctx, slot_2, false);
 				flag_set(ctx, slot_r, false);
 				if (flags & OPCODE_FLAG_FUSED) {
-					g(gen_fused_binary(ctx, MODE_FIXED, type, op, slot_1, slot_2, slot_r, &failed));
+					g(gen_fused_binary(ctx, MODE_FIXED, type, op, escape_label, slot_1, slot_2, slot_r, &failed));
 					if (unlikely(!failed))
 						continue;
 				}
@@ -1272,7 +1275,7 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				flag_set(ctx, slot_2, false);
 				flag_set(ctx, slot_r, false);
 				if (flags & OPCODE_FLAG_FUSED) {
-					g(gen_fused_binary(ctx, MODE_INT, type, op, slot_1, slot_2, slot_r, &failed));
+					g(gen_fused_binary(ctx, MODE_INT, type, op, escape_label, slot_1, slot_2, slot_r, &failed));
 					if (unlikely(!failed))
 						continue;
 				}
@@ -1332,6 +1335,11 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				flag_set(ctx, slot_1, false);
 				flag_set(ctx, slot_2, false);
 				flag_set(ctx, slot_r, false);
+				if (flags & OPCODE_FLAG_FUSED) {
+					g(gen_fused_binary(ctx, MODE_REAL, type, op, escape_label, slot_1, slot_2, slot_r, &failed));
+					if (unlikely(!failed))
+						continue;
+				}
 				g(gen_fp_alu(ctx, type, op, escape_label, slot_1, slot_2, slot_r));
 				continue;
 			} else if (op < OPCODE_REAL_OP_N) {
@@ -1383,7 +1391,7 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				flag_set(ctx, slot_2, false);
 				flag_set(ctx, slot_r, false);
 				if (flags & OPCODE_FLAG_FUSED) {
-					g(gen_fused_binary(ctx, MODE_BOOL, type, op, slot_1, slot_2, slot_r, &failed));
+					g(gen_fused_binary(ctx, MODE_BOOL, type, op, escape_label, slot_1, slot_2, slot_r, &failed));
 					if (unlikely(!failed))
 						continue;
 				}
