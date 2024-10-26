@@ -1014,7 +1014,6 @@ cat(eval_skip_,ARG_MODE):;
 DEFINE_OPCODE_END(OPCODE_EVAL)
 
 
-#if ARG_MODE >= 1
 DEFINE_OPCODE_START(OPCODE_ESCAPE_NONFLAT)
 #ifdef EMIT_CODE
 	frame_t n = get_i_param(0);
@@ -1022,9 +1021,7 @@ DEFINE_OPCODE_START(OPCODE_ESCAPE_NONFLAT)
 	ADVANCE_IP(n * ARG_MODE);
 #endif
 DEFINE_OPCODE_END(OPCODE_ESCAPE_NONFLAT)
-#endif
 
-#if ARG_MODE >= 1
 DEFINE_OPCODE_START(OPCODE_CHECKPOINT)
 #ifdef EMIT_CODE
 	const code_t attr_unused *orig_ip = ip;
@@ -1127,7 +1124,6 @@ cat(checkpoint_exit_,ARG_MODE):;
 	}
 #endif
 DEFINE_OPCODE_END(OPCODE_CHECKPOINT)
-#endif
 
 
 #if ARG_MODE == 0
