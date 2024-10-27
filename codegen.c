@@ -45,10 +45,15 @@
 /*#define DEBUG_INSNS*/
 /*#define DEBUG_GARBAGE*/
 
-#if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI) && defined(HAVE_SYSCALL) && defined(HAVE_ASM_PRCTL_H) && defined(HAVE_SYS_SYSCALL_H)
+#if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI)
+#if defined(HAVE_SYSCALL) && defined(HAVE_ASM_PRCTL_H) && defined(HAVE_SYS_SYSCALL_H)
 #include <asm/prctl.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+#endif
+#if defined(HAVE_AMD64_SET_GSBASE) && defined(HAVE_X86_SYSARCH_H)
+#include <x86/sysarch.h>
+#endif
 #endif
 
 code_return_t (*codegen_entry)(frame_s *, struct cg_upcall_vector_s *, tick_stamp_t, void *);
@@ -2410,13 +2415,23 @@ void name(codegen_init)(void)
 	struct codegen_context *ctx = &ctx_;
 	void *ptr;
 
-#if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI) && defined(HAVE_SYSCALL) && defined(HAVE_ASM_PRCTL_H) && defined(HAVE_SYS_SYSCALL_H)
+#if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI)
+#if defined(HAVE_SYSCALL) && defined(HAVE_ASM_PRCTL_H) && defined(HAVE_SYS_SYSCALL_H)
 	if (!dll) {
 		int r;
 		EINTR_LOOP(r, syscall(SYS_arch_prctl, ARCH_SET_GS, &cg_upcall_vector));
 		if (!r)
 			upcall_register = R_GS;
 	}
+#endif
+#if defined(HAVE_AMD64_SET_GSBASE) && defined(HAVE_X86_SYSARCH_H)
+	if (!dll) {
+		int r;
+		EINTR_LOOP(r, amd64_set_gsbase(&cg_upcall_vector));
+		if (!r)
+			upcall_register = R_GS;
+	}
+#endif
 #endif
 
 	init_ctx(ctx);
