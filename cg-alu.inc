@@ -1634,7 +1634,7 @@ do_undo_opcode:
 			if (op_size == i_size(op_size) + (unsigned)zero)
 				ex = garbage;
 		}
-		g(gen_frame_get(ctx, op_size, ex, slot_1, 0, target, &reg1));
+		g(gen_frame_get(ctx, op_size, ex, slot_1, 0, mode == MODE_INT ? R_SCRATCH_2 : target, &reg1));
 #if defined(ARCH_S390)
 		if (alu == ALU1_NOT) {
 			g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, target, reg1, -1, 0));
@@ -1665,8 +1665,8 @@ do_undo_opcode:
 				return true;
 			}
 #endif
-			if (!arch_use_flags && !ARCH_SUPPORTS_TRAPS && ARCH_HAS_ANDN && op_size == OP_SIZE_NATIVE) {
-				g(gen_2address_alu1(ctx, i_size(op_size), alu, target, reg1, 0));
+			if (!arch_use_flags && !ARCH_SUPPORTS_TRAPS && ARCH_HAS_ANDN && op_size >= OP_SIZE_4) {
+				g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, alu, target, reg1, 0));
 
 				if (alu == ALU1_NEG) {
 					g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_AND, R_SCRATCH_3, target, reg1, 0));
@@ -1675,6 +1675,10 @@ do_undo_opcode:
 				} else if (alu == ALU1_DEC) {
 					g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ANDN, R_SCRATCH_3, reg1, target, 0));
 				}
+
+				if (op_size < OP_SIZE_NATIVE)
+					g(gen_extend(ctx, op_size, sign_x, R_SCRATCH_3, R_SCRATCH_3));
+
 				g(gen_jmp_on_zero(ctx, OP_SIZE_NATIVE, R_SCRATCH_3, COND_S, label_ovf));
 
 				g(gen_frame_store(ctx, op_size, slot_r, 0, target));
