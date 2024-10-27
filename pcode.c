@@ -783,15 +783,15 @@ do {									\
 do {									\
 	uint32_t target;						\
 	ajla_assert_lo((lbl) < ctx->n_labels, (file_line, "gen_relative_jump(%s): invalid label %"PRIdMAX"", function_name(ctx), (intmax_t)(lbl)));\
+	target = -(((uint32_t)(diff) + 1) / (uint32_t)sizeof(code_t) * (uint32_t)sizeof(code_t));\
 	if (ctx->labels[lbl] == no_label) {				\
 		struct label_ref lr;					\
 		lr.code_pos = ctx->code_len;				\
 		lr.label = (lbl);					\
 		if (unlikely(!array_add_mayfail(struct label_ref, &ctx->label_ref, &ctx->label_ref_len, lr, NULL, ctx->err)))\
 			goto exception;					\
-		target = -(((uint32_t)(diff) + 1) / (uint32_t)sizeof(code_t) * (uint32_t)sizeof(code_t));\
 	} else {							\
-		target = ((uint32_t)ctx->labels[lbl] - (uint32_t)(ctx->code_len + SIZEOF_IP_T / (uint32_t)sizeof(code_t))) * (uint32_t)sizeof(code_t);\
+		target += ((uint32_t)ctx->labels[lbl] - (uint32_t)ctx->code_len) * (uint32_t)sizeof(code_t);\
 	}								\
 	if (SIZEOF_IP_T == 2)						\
 		gen_code((code_t)target);				\
