@@ -3621,14 +3621,11 @@ do_cmp:
 		gen_insn(INSN_JMP_FP_TEST, 0, FP_COND_P, 0);
 		gen_four(label_ovf);
 
-		gen_insn(INSN_FP_CMP_COND, op_size, fp_alu, 1);
+		gen_insn(INSN_FP_CMP_COND, op_size, fp_alu ^ 1, 1);
 		gen_one(reg1);
 		gen_one(reg2);
 
-		gen_insn(INSN_FP_TEST_REG, OP_SIZE_NATIVE, fp_alu, 0);
-		gen_one(target);
-
-		g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, COND_E, target, -1U));
+		g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, fp_alu ^ 1, -1U, -1U));
 
 		return true;
 #elif defined(ARCH_RISCV64)

@@ -147,6 +147,11 @@ static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, uns
 	} else if (cond == COND_ALWAYS) {
 		gen_insn(INSN_JMP, 0, 0, 0);
 		gen_four(ctx->code_labels[ip]);
+#if defined(ARCH_LOONGARCH64) || defined(ARCH_MIPS) || defined(ARCH_PARISC)
+	} else if (cond & COND_FP) {
+		gen_insn(INSN_JMP_FP_TEST, 0, cond, 0);
+		gen_four(ctx->code_labels[ip]);
+#endif
 	} else {
 		gen_insn(COND_IS_LOGICAL(cond) ? INSN_JMP_COND_LOGICAL : INSN_JMP_COND, i_size_cmp(op_size), cond, 0);
 		gen_four(ctx->code_labels[ip]);
