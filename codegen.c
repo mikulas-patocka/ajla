@@ -51,7 +51,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 #endif
-#if defined(HAVE_AMD64_SET_GSBASE) && defined(HAVE_X86_SYSARCH_H)
+#if (defined(HAVE_AMD64_SET_GSBASE) || defined(HAVE_SYSARCH)) && defined(HAVE_X86_SYSARCH_H)
 #include <x86/sysarch.h>
 #endif
 #endif
@@ -2423,11 +2423,18 @@ void name(codegen_init)(void)
 		if (!r)
 			upcall_register = R_GS;
 	}
-#endif
-#if defined(HAVE_AMD64_SET_GSBASE) && defined(HAVE_X86_SYSARCH_H)
+#elif defined(HAVE_AMD64_SET_GSBASE) && defined(HAVE_X86_SYSARCH_H)
 	if (!dll) {
 		int r;
 		EINTR_LOOP(r, amd64_set_gsbase(&cg_upcall_vector));
+		if (!r)
+			upcall_register = R_GS;
+	}
+#elif defined(HAVE_SYSARCH) && defined(HAVE_X86_SYSARCH_H) && defined(X86_64_SET_GSBASE)
+	if (!dll) {
+		int r;
+		void *ptr = &cg_upcall_vector;
+		EINTR_LOOP(r, sysarch(X86_64_SET_GSBASE, &ptr));
 		if (!r)
 			upcall_register = R_GS;
 	}
