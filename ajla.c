@@ -59,12 +59,12 @@ int main(int argc, const char * const argv[])
 	obj_registry_init();
 	os_init();
 	asm_init();
-	codegen_init();
 	mpint_init();
 	thread_init();
 	error_init_multithreaded();
 	mem_init_multithreaded();
 	obj_registry_init_multithreaded();
+	codegen_init();
 	address_lock_init();
 	os_init_multithreaded();
 #ifdef OS_OS2
@@ -121,12 +121,12 @@ int main(int argc, const char * const argv[])
 #endif
 	os_done_multithreaded();
 	address_lock_done();
+	codegen_done();
 	obj_registry_done_multithreaded();
 	mem_done_multithreaded();
 	error_done_multithreaded();
 	thread_done();
 	mpint_done();
-	codegen_done();
 	asm_done();
 	os_done();
 	obj_registry_done();
