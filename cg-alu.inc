@@ -3472,7 +3472,7 @@ do_compare: {
 				case COND_BE:	alu = COND_AE; break;
 			}
 		}
-		ex = op_size == i_size_cmp(op_size) + (unsigned)zero ? garbage : alu == COND_L || alu == COND_LE || ARCH_PREFERS_SX(op_size) ? sign_x : zero_x;
+		ex = op_size == i_size_cmp(op_size) + (unsigned)zero ? garbage : alu == COND_L || alu == COND_LE || alu == COND_G || alu == COND_GE || ARCH_PREFERS_SX(op_size) ? sign_x : zero_x;
 		g(gen_frame_get(ctx, op_size, ex, slot_1, 0, R_SCRATCH_1, &reg1));
 #if ARCH_HAS_FLAGS
 		logical = COND_IS_LOGICAL(alu ^ 1);
