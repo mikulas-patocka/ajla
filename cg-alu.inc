@@ -1665,6 +1665,15 @@ do_undo_opcode:
 				return true;
 			}
 #endif
+			if (ARCH_HAS_JMP_2REGS(COND_L) && ARCH_HAS_JMP_2REGS(COND_G) && (alu == ALU1_INC || alu == ALU1_DEC) && op_size == i_size_cmp(op_size) + (unsigned)zero) {
+				g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, alu, target, reg1, 0));
+
+				g(gen_cmp_test_jmp(ctx, INSN_CMP, i_size_cmp(op_size), target, reg1, alu == ALU1_INC ? COND_L : COND_G, label_ovf));
+
+				g(gen_frame_store(ctx, op_size, slot_r, 0, target));
+
+				return true;
+			}
 			if (!arch_use_flags && !ARCH_SUPPORTS_TRAPS && ARCH_HAS_ANDN && op_size >= OP_SIZE_4) {
 				g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, alu, target, reg1, 0));
 
