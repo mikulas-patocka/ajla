@@ -168,6 +168,8 @@
 #define MIPS_R6_DMODU		0x000000dfU
 #define MIPS_R6_DAHI		0x04060000U
 #define MIPS_R6_DATI		0x041e0000U
+#define MIPS_R6_BGEUC		0x18000000U
+#define MIPS_R6_BLTUC		0x1c000000U
 #define MIPS_R6_AUI		0x3c000000U
 #define MIPS_R6_BC1EQZ		0x45200000U
 #define MIPS_R6_BC1NEZ		0x45a00000U
@@ -182,10 +184,8 @@
 #define MIPS_R6_CMP_OR		0x46800011U
 #define MIPS_R6_CMP_UNE		0x46800012U
 #define MIPS_R6_CMP_NE		0x46800013U
-#define MIPS_R6_BGEZC		0x58000000U
-#define MIPS_R6_BLEZC		0x58000000U
-#define MIPS_R6_BGTZC		0x5c000000U
-#define MIPS_R6_BLTZC		0x5c000000U
+#define MIPS_R6_BGEC		0x58000000U
+#define MIPS_R6_BLTC		0x5c000000U
 #define MIPS_R6_DAUI		0x74000000U
 #define MIPS_R6_BITSWAP		0x7c000020U
 #define MIPS_R6_DBITSWAP	0x7c000024U
@@ -194,6 +194,8 @@
 #define MIPS_R6_BEQZC		0xd8000000U
 #define MIPS_R6_JIALC		0xf8000000U
 #define MIPS_R6_BNEZC		0xf8000000U
+#define MIPS_R6_BLTC		0x5c000000U
+#define MIPS_R6_BGEC		0x58000000U
 
 #define cgen_mips_3reg(mc, rd, rs, rt) \
 	cgen_four((mc) | ((uint32_t)(rd) << 11) | ((uint32_t)(rs) << 21) | ((uint32_t)(rt) << 16))
@@ -973,15 +975,70 @@ static bool attr_w cgen_jmp_2regs(struct codegen_context *ctx, unsigned cond, un
 		cgen_four(MIPS_NOP);
 		return true;
 	}
-	if (MIPS_R6 && length <= JMP_LONG) {
-		g(cgen_jump_not_last(ctx, 3));
+	g(cgen_jump_not_last(ctx, cgen_jmp_extra_long_length() + 1));
+	cgen_mips_imm(mc, arg1[0], arg2[0], cgen_jmp_extra_long_length());
+	g(add_relocation(ctx, JMP_EXTRA_LONG, 2, NULL));
+	g(cgen_jmp_extra_long(ctx));
+	return true;
+
+invalid:
+	internal(file_line, "cgen_jmp_2regs: invalid arguments %u, %u, %02x, %02x", cond, length, arg1[0], arg2[0]);
+	return false;
+}
+
+static bool attr_w cgen_jmp_2regs_mips_r6(struct codegen_context *ctx, unsigned cond, unsigned length)
+{
+	uint32_t mc;
+	bool swap = false;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t arg3[1] = { R_AT };
+	ctx->code_position = arg2 + arg_size(*arg2);
+	if (arg1[0] >= 0x20 || arg2[0] >= 0x20)
+		goto invalid;
+
+	if (arg1[0] == arg2[0]) {
+		cgen_mips_3reg(MIPS_OR, R_AT, arg2[0], R_ZERO);
+		arg2 = arg3;
+	}
+
+	if (length > JMP_SHORTEST)
+		cond ^= 1;
+
+	switch (cond) {
+		case COND_B:	mc = MIPS_R6_BLTUC; break;
+		case COND_AE:	mc = MIPS_R6_BGEUC; break;
+		case COND_E:	mc = MIPS_BEQ; break;
+		case COND_NE:	mc = MIPS_BNE; break;
+		case COND_BE:	mc = MIPS_R6_BGEUC; swap = true; break;
+		case COND_A:	mc = MIPS_R6_BLTUC; swap = true; break;
+		case COND_S:
+		case COND_L:	mc = MIPS_R6_BLTC; break;
+		case COND_NS:
+		case COND_GE:	mc = MIPS_R6_BGEC; break;
+		case COND_LE:	mc = MIPS_R6_BGEC; swap = true; break;
+		case COND_G:	mc = MIPS_R6_BLTC; swap = true; break;
+		default:	goto invalid;
+	}
+	if (!swap) {
+		uint8_t *argx = arg1;
+		arg1 = arg2;
+		arg2 = argx;
+	}
+
+	if (length == JMP_SHORTEST) {
+		g(add_relocation(ctx, JMP_SHORTEST, 2, NULL));
+		cgen_mips_imm(mc, arg1[0], arg2[0], 0);
+		cgen_four(MIPS_NOP);
+		return true;
+	}
+	if (length <= JMP_LONG) {
 		cgen_mips_imm(mc, arg1[0], arg2[0], 2);
 		cgen_four(MIPS_NOP);
-		g(add_relocation(ctx, JMP_LONG, 1, NULL));
+		g(add_relocation(ctx, JMP_LONG, 2, NULL));
 		cgen_four(MIPS_R6_BC);
 		return true;
 	}
-	g(cgen_jump_not_last(ctx, cgen_jmp_extra_long_length() + 1));
 	cgen_mips_imm(mc, arg1[0], arg2[0], cgen_jmp_extra_long_length());
 	g(add_relocation(ctx, JMP_EXTRA_LONG, 2, NULL));
 	g(cgen_jmp_extra_long(ctx));
@@ -1208,7 +1265,10 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_jmp_reg(ctx, insn_aux(insn), insn_jump_size(insn)));
 			return true;
 		case INSN_JMP_2REGS:
-			g(cgen_jmp_2regs(ctx, insn_aux(insn), insn_jump_size(insn)));
+			if (!MIPS_R6)
+				g(cgen_jmp_2regs(ctx, insn_aux(insn), insn_jump_size(insn)));
+			else
+				g(cgen_jmp_2regs_mips_r6(ctx, insn_aux(insn), insn_jump_size(insn)));
 			return true;
 		case INSN_JMP_FP_TEST:
 			g(cgen_jmp_fp_test(ctx, insn_aux(insn), insn_jump_size(insn)));

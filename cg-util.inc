@@ -448,7 +448,7 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 		gen_four(label);
 	} else {
 		if (insn == INSN_CMP) {
-#if defined(ARCH_LOONGARCH64) || defined(ARCH_PARISC) || defined(ARCH_RISCV64)
+#if defined(ARCH_LOONGARCH64) || defined(ARCH_PARISC) || defined(ARCH_RISCV64) || (defined(ARCH_MIPS) && MIPS_R6)
 			gen_insn(INSN_JMP_2REGS, op_size, cond, 0);
 			gen_one(reg1);
 			gen_one(reg2);
