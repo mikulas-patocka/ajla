@@ -132,7 +132,7 @@ static bool attr_w gen_eval(struct codegen_context *ctx, frame_t slot_1)
 	return true;
 }
 
-static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, unsigned op_size, unsigned cond, unsigned reg)
+static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, unsigned op_size, unsigned cond, unsigned reg1, unsigned reg2)
 {
 	ip_t ip = (ctx->current_position - da(ctx->fn,function)->code) + (jmp_offset / (int)sizeof(code_t));
 	if (likely(!ctx->code_labels[ip])) {
@@ -140,8 +140,10 @@ static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, uns
 		if (unlikely(!ctx->code_labels[ip]))
 			return false;
 	}
-	if (reg != -1U) {
-		g(gen_jmp_on_zero(ctx, op_size, reg, cond, ctx->code_labels[ip]));
+	if (reg1 != -1U && reg2 != -1U) {
+		g(gen_cmp_test_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg1, reg2, cond, ctx->code_labels[ip]));
+	} else if (reg1 != -1U) {
+		g(gen_jmp_on_zero(ctx, op_size, reg1, cond, ctx->code_labels[ip]));
 	} else if (cond == COND_ALWAYS) {
 		gen_insn(INSN_JMP, 0, 0, 0);
 		gen_four(ctx->code_labels[ip]);
@@ -172,13 +174,13 @@ static bool attr_w gen_cond_jump(struct codegen_context *ctx, frame_t slot, int3
 	gen_one(ARG_IMM);
 	gen_eight(0);
 
-	g(gen_jump(ctx, jmp_offset, size, COND_E, -1U));
+	g(gen_jump(ctx, jmp_offset, size, COND_E, -1U, -1U));
 	return true;
 #endif
 	goto no_load_op;
 no_load_op:
 	g(gen_frame_get(ctx, size, i_size(size) == size ? garbage : native, slot, 0, R_SCRATCH_1, &reg1));
-	g(gen_jump(ctx, jmp_offset, size, COND_E, reg1));
+	g(gen_jump(ctx, jmp_offset, size, COND_E, reg1, -1U));
 	return true;
 }
 

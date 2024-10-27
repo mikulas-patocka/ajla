@@ -44,6 +44,7 @@
 #define ARCH_IS_3ADDRESS_ROT_IMM(alu)	1
 #define ARCH_IS_2ADDRESS(alu)		1
 #define ARCH_IS_3ADDRESS_FP		1
+#define ARCH_HAS_JMP_2REGS(cond)	((cond) == COND_E || (cond) == COND_NE)
 #define ARCH_HAS_FLAGS			0
 #define ARCH_SUPPORTS_TRAPS		OS_SUPPORTS_TRAPS
 #define ARCH_TRAP_BEFORE		1

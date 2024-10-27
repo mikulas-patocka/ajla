@@ -44,6 +44,7 @@
 #define ARCH_IS_3ADDRESS_ROT_IMM(alu)	0
 #define ARCH_IS_2ADDRESS(alu)		((alu) == ALU1_BSF || (alu) == ALU1_BSR || (alu) == ALU1_LZCNT || (alu) == ALU1_POPCNT)
 #define ARCH_IS_3ADDRESS_FP		cpu_test_feature(CPU_FEATURE_avx)
+#define ARCH_HAS_JMP_2REGS(cond)	0
 #define ARCH_HAS_FLAGS			1
 #define ARCH_PREFERS_SX(size)		0
 #define ARCH_HAS_BWX			1
