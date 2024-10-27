@@ -1687,6 +1687,8 @@ do_undo_opcode:
 				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg1, imm, COND_E, label_ovf));
 
 				mode = MODE_FIXED;
+
+				target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 			}
 		}
 #if !ARCH_HAS_FLAGS
