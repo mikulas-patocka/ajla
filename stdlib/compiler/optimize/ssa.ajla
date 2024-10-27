@@ -264,6 +264,38 @@ again:
 	for bgi := 0 to n_blocks do [
 		if not ctx.blocks[bgi].active then
 			continue;
+{rpt:
+		var instrs := ctx.blocks[bgi].instrs;
+		if len_greater_than(instrs, 0) then [
+			var instr := ctx.instrs[instrs[0]];
+			if instr.opcode = P_Copy, instr.params[0] = instr.params[2] then [
+				ctx.blocks[bgi].instrs := ctx.blocks[bgi].instrs[1 .. ];
+				goto rpt;
+			]
+		]}
+		{if len(ctx.blocks[bgi].post_list) = 3 then [
+			var false_block := ctx.blocks[bgi].post_list[1];
+			if len(ctx.blocks[false_block].instrs) = 1 and ctx.instrs[ctx.blocks[false_block].instrs[0]].opcode = P_Label then [
+				if ctx.name = "fact" then eval debug("label node " + ntos(bgi) + " -> " + ntos(false_block));
+			]
+			if len(ctx.blocks[false_block].instrs) = 0 and len(ctx.blocks[false_block].post_list) = 1 then [
+				var next_block := ctx.blocks[false_block].post_list[0];
+				if ctx.name = "fact" then eval debug("empty node " + ntos(bgi) + " -> " + ntos(false_block) + " -> " + ntos(next_block));
+				for pl := 0 to len(ctx.blocks[next_block].pred_list) do [
+					if ctx.blocks[next_block].pred_list[pl] = false_block then [
+						ctx.blocks[next_block].pred_list[pl] := bgi;
+						ctx.blocks[next_block].pred_position[pl] := 1;
+					]
+				]
+				ctx.blocks[bgi].post_list[1] := next_block;
+				ctx.blocks[false_block].pred_list := empty(int);
+				ctx.blocks[false_block].post_list := empty(int);
+				ctx := deactivate_node(ctx, false_block);
+				did_something := true;
+				continue;
+			]
+		]
+}
 		if len(ctx.blocks[bgi].post_list) = 1 then [
 			var post := ctx.blocks[bgi].post_list[0];
 			if len(ctx.blocks[post].pred_list) = 1 then [
@@ -277,13 +309,13 @@ again:
 						abort internal("bb doesn't match: " + ntos(ctx.instrs[in_idx].bb) + " <> " + ntos(post) + " (opcode " + ntos(ctx.instrs[in_idx].opcode) + ")");
 					ctx.instrs[in_idx].bb := bgi;
 				]
-				if len_greater_than(int, instrs1, 0) then [
+				if len_greater_than(instrs1, 0) then [
 					var last1 := ctx.instrs[instrs1[len(instrs1) - 1]].opcode;
 					if last1 = P_Jmp or last1 = P_Jmp_False then [
 						instrs1 := instrs1[ .. len(instrs1) - 1];
 					]
 				]
-				if len_greater_than(int, instrs2, 0) then [
+				if len_greater_than(instrs2, 0) then [
 					var first2 := ctx.instrs[instrs2[0]].opcode;
 					if first2 = P_Label then [
 						lbl := ctx.instrs[instrs2[0]].params[0];
@@ -1998,7 +2030,7 @@ fn insert_free(ctx : context) : context
 		var block := ctx.blocks[bgi];
 
 		var needs_checkpoint := false;
-		var is_fused := false;
+		var fused_variable := -1;
 		for post_idx := 0 to len(block.post_list) do [
 			var post := block.post_list[post_idx];
 			if post < bgi then [
@@ -2019,7 +2051,7 @@ fn insert_free(ctx : context) : context
 				if not ctx.blocks[post0].live_top bt bvar,
 				   not ctx.blocks[post1].live_top bt bvar then [
 					ctx.instrs[block.instrs[ili - 1]].params[2] or= Flag_Fused_Bin_Jmp;
-					is_fused := true;
+					fused_variable := instr2.params[0];
 				]
 			]
 		]
@@ -2133,6 +2165,9 @@ skip_call:
 
 					ctx := undo_borrow(ctx, to_free, post_block.live_top);
 
+					if post_bli <= 1, to_free = fused_variable then
+						continue;
+
 					//eval debug("4: inserting free at " + ntos(bgi) + ":" + ntos(post_bgi) + " -> " + ntos(to_free));
 					var free_instr := create_instr(P_Free, list(pcode_t).[ to_free ], post_bgi);
 					ctx := insert_instr(ctx, free_instr, 0);
@@ -2148,7 +2183,7 @@ skip_call:
 				var instr := ctx.instrs[ctx.blocks[bgi].instrs[ili - 1]];
 				if instr.opcode = P_Jmp_False or instr.opcode = P_Return then
 					ili -= 1;
-				if is_fused then [
+				if fused_variable >= 0 then [
 skip_derefs:
 					ili -= 1;
 					var instr := ctx.instrs[ctx.blocks[bgi].instrs[ili]];
@@ -2304,6 +2339,42 @@ fn remove_redundant_frees(ctx : context) : context
 			]
 			freed_vars bts= v;
 			i += 1;
+		]
+		while i < len(ctx.blocks[bgi].instrs), ctx.instrs[ctx.blocks[bgi].instrs[i]].opcode = P_Copy do [
+			var v1 := ctx.instrs[ctx.blocks[bgi].instrs[i]].params[0];
+			var v2 := ctx.instrs[ctx.blocks[bgi].instrs[i]].params[2];
+			if v1 = v2 then [
+				ctx.blocks[bgi].instrs := ctx.blocks[bgi].instrs[ .. i] + ctx.blocks[bgi].instrs[i + 1 .. ];
+				continue;
+			]
+			i += 1;
+		]
+	]
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		var i := len(ctx.blocks[bgi].instrs);
+		if i > 0 then [
+			var instr := ctx.instrs[ctx.blocks[bgi].instrs[i - 1]];
+			if instr.opcode = P_Jmp_False then [
+				var false_bgi := ctx.blocks[bgi].post_list[1];
+				var false_block := ctx.blocks[false_bgi];
+				if len(false_block.instrs) = 0, len(false_block.post_list) = 1, len(false_block.pred_list) = 1 then [
+					var next_bgi := false_block.post_list[0];
+					//eval debug("folding nodes " + ntos(bgi) + ", " + ntos(false_bgi) + ", " + ntos(next_bgi));
+					ctx.blocks[bgi].post_list[1] := next_bgi;
+					for j := 0 to len(ctx.blocks[next_bgi].pred_list) do [
+						if ctx.blocks[next_bgi].pred_list[j] = false_bgi then [
+							ctx.blocks[next_bgi].pred_list[j] := bgi;
+							ctx.blocks[next_bgi].pred_position[j] := 1;
+						]
+					]
+					ctx.blocks[false_bgi].pred_list := empty(int);
+					ctx.blocks[false_bgi].pred_position := empty(int);
+					ctx.blocks[false_bgi].post_list := empty(int);
+					ctx := deactivate_node(ctx, false_bgi);
+				]
+			]
 		]
 	]
 
