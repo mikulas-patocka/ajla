@@ -273,6 +273,14 @@ static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, 
 				gen_one(ARG_IMM);
 				gen_eight(cu);
 			}
+			if (!(c & 0xFFFFFFFFULL)) {
+				gen_insn(INSN_ROT, OP_SIZE_NATIVE, ROT_SHL, 0);
+				gen_one(reg);
+				gen_one(R_CONST_HELPER);
+				gen_one(ARG_IMM);
+				gen_eight(32);
+				return true;
+			}
 			gen_insn(INSN_ROT, OP_SIZE_NATIVE, ROT_SHL, 0);
 			gen_one(R_CONST_HELPER);
 			gen_one(R_CONST_HELPER);
