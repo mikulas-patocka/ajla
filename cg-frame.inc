@@ -175,12 +175,13 @@ static bool attr_w gen_frame_get(struct codegen_context *ctx, unsigned size, enu
 {
 	ajla_assert_lo(slot >= MIN_USEABLE_SLOT && slot < function_n_variables(ctx->fn), (file_line, "gen_frame_get: invalid slot: %lu >= %lu", (unsigned long)slot, (unsigned long)function_n_variables(ctx->fn)));
 	if (ctx->registers[slot] >= 0) {
-		if (ex != garbage && size < OP_SIZE_NATIVE && !reg_is_fp(reg))
-			goto extend;
-		*dest = ctx->registers[slot];
+		unsigned reg = ctx->registers[slot];
+		if (ex != garbage && size < OP_SIZE_NATIVE && !reg_is_fp(reg)) {
+			g(gen_extend(ctx, size, ex, reg, reg));
+		}
+		*dest = reg;
 		goto ret;
 	}
-extend:
 	*dest = reg;
 	g(gen_frame_load(ctx, size, ex, slot, offset, reg));
 ret:
