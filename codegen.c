@@ -1236,14 +1236,14 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 			} else if (op == OPCODE_FIXED_OP_ldc) {
 				unsigned i;
 				get_one(ctx, &slot_r);
-				g(gen_constant(ctx, type, false, slot_r));
+				g(gen_constant(ctx, false, type, false, slot_r));
 				for (i = 0; i < 1U << type; i += 2)
 					get_code(ctx);
 				flag_set(ctx, slot_r, false);
 				continue;
 			} else if (op == OPCODE_FIXED_OP_ldc16) {
 				get_one(ctx, &slot_r);
-				g(gen_constant(ctx, type, true, slot_r));
+				g(gen_constant(ctx, false, type, true, slot_r));
 				get_code(ctx);
 				flag_set(ctx, slot_r, false);
 				continue;
@@ -1297,14 +1297,14 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 			} else if (op == OPCODE_INT_OP_ldc) {
 				unsigned i;
 				get_one(ctx, &slot_r);
-				g(gen_constant(ctx, type, false, slot_r));
+				g(gen_constant(ctx, false, type, false, slot_r));
 				for (i = 0; i < 1U << type; i += 2)
 					get_code(ctx);
 				flag_set(ctx, slot_r, false);
 				continue;
 			} else if (op == OPCODE_INT_OP_ldc16) {
 				get_one(ctx, &slot_r);
-				g(gen_constant(ctx, type, true, slot_r));
+				g(gen_constant(ctx, false, type, true, slot_r));
 				get_code(ctx);
 				flag_set(ctx, slot_r, false);
 				continue;

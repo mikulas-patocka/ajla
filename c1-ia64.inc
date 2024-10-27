@@ -44,6 +44,7 @@
 #define ARCH_HAS_SHIFTED_ADD(bits)	((bits) <= 4)
 #define ARCH_HAS_BTX(btx, size, cnst)	(((btx) == BTX_BTS || (btx) == BTX_BTR) && (cnst))
 #define ARCH_SHIFT_SIZE			32
+#define ARCH_HAS_FP_GP_MOV		1
 #define ARCH_NEEDS_BARRIER		0
 
 #define i_size(size)			OP_SIZE_NATIVE

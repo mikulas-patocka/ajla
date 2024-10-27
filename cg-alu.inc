@@ -2389,7 +2389,7 @@ conv_ufrom_int: {
 	}
 }
 
-static bool attr_w gen_constant(struct codegen_context *ctx, unsigned op_size, bool shrt, frame_t slot_r)
+static bool attr_w gen_constant(struct codegen_context *ctx, bool real, unsigned op_size, bool shrt, frame_t slot_r)
 {
 	uintbig_t c;
 	if (shrt) {
@@ -2405,9 +2405,20 @@ static bool attr_w gen_constant(struct codegen_context *ctx, unsigned op_size, b
 			internal(file_line, "gen_constant: invalid type %u", op_size);
 	}
 	if (op_size > OP_SIZE_NATIVE) {
-		g(gen_frame_store_imm(ctx, OP_SIZE_NATIVE, slot_r, lo_word(OP_SIZE_NATIVE), c));
-		g(gen_frame_store_imm(ctx, OP_SIZE_NATIVE, slot_r, hi_word(OP_SIZE_NATIVE), c >> 1 >> ((1U << (OP_SIZE_NATIVE + 3)) - 1)));
+		unsigned shift = (8U << OP_SIZE_NATIVE) - 1;
+		g(gen_frame_store_imm_raw(ctx, OP_SIZE_NATIVE, slot_r, lo_word(OP_SIZE_NATIVE), c & ((2ULL << shift) - 1)));
+		g(gen_frame_store_imm_raw(ctx, OP_SIZE_NATIVE, slot_r, hi_word(OP_SIZE_NATIVE), c >> 1 >> shift));
+		if (real && ctx->registers[slot_r] >= 0)
+			g(unspill(ctx, slot_r));
 		return true;
+	} else if (real && ctx->registers[slot_r] >= 0) {
+		if (ARCH_HAS_FP_GP_MOV) {
+			g(gen_load_constant(ctx, R_SCRATCH_1, c));
+			g(gen_mov(ctx, op_size, ctx->registers[slot_r], R_SCRATCH_1));
+		} else {
+			g(gen_frame_store_imm_raw(ctx, op_size, slot_r, 0, c));
+			g(unspill(ctx, slot_r));
+		}
 	} else {
 		g(gen_frame_store_imm(ctx, op_size, slot_r, 0, c));
 	}
@@ -2417,8 +2428,8 @@ static bool attr_w gen_constant(struct codegen_context *ctx, unsigned op_size, b
 static bool attr_w gen_real_constant(struct codegen_context *ctx, const struct type *t, frame_t slot_r)
 {
 	int64_t offset;
-	if (is_power_of_2(t->size) && t->size <= sizeof(uintbig_t) && ctx->registers[slot_r] < 0)
-		return gen_constant(ctx, log_2(t->size), false, slot_r);
+	if (is_power_of_2(t->size) && t->size <= sizeof(uintbig_t))
+		return gen_constant(ctx, true, log_2(t->size), false, slot_r);
 
 	g(load_function_offset(ctx, R_SCRATCH_3, offsetof(struct data, u_.function.code)));
 
@@ -2586,7 +2597,7 @@ do_cmp:
 		gen_one(reg2);
 		gen_four(label_ovf);
 
-		if (!cpu_test_feature(CPU_FEATURE_fix)) {
+		if (!ARCH_HAS_FP_GP_MOV) {
 			g(gen_frame_store_raw(ctx, OP_SIZE_4, slot_r, 0, FR_SCRATCH_3));
 			g(gen_frame_load_raw(ctx, OP_SIZE_4, sign_x, slot_r, 0, target));
 		} else {

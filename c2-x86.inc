@@ -130,6 +130,8 @@
 #define X86_0F_MULPS_X128_M32		0x59
 #define X86_0F_SUBPS_X128_M32		0x5c
 #define X86_0F_DIVPS_X128_M32		0x5e
+#define X86_0F_MOVD_X128_RM32		0x6e
+#define X86_0F_MOVD_RM32_X128		0x7e
 #define X86_0F_JCC_16			0x80
 #define X86_0F_SETCC_RM8		0x90
 #define X86_0F_BT_RM16_R16		0xa3
@@ -542,6 +544,14 @@ mov_rm:
 	}
 	if (R_IS_XMM(arg1[0]) && R_IS_XMM(arg2[0])) {
 		g(cgen_sse_insn(ctx, SSE_PREFIX_NONE, PREFIX_0F, X86_0F_MOVAPS_X128_M128, false, arg1[0], 0, arg2));
+		return true;
+	}
+	if (R_IS_XMM(arg1[0]) && R_IS_GPR(arg2[0])) {
+		g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F, X86_0F_MOVD_X128_RM32, size == OP_SIZE_8, arg1[0], 0, arg2));
+		return true;
+	}
+	if (R_IS_GPR(arg1[0]) && R_IS_XMM(arg2[0])) {
+		g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F, X86_0F_MOVD_RM32_X128, size == OP_SIZE_8, arg2[0], 0, arg1));
 		return true;
 	}
 	if (!R_IS_GPR(arg1[0]) && unlikely(!R_IS_GPR(arg2[0]))) {
