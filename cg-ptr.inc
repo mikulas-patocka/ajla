@@ -81,6 +81,14 @@ static bool attr_w gen_compare_refcount(struct codegen_context *ctx, unsigned pt
 
 static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg, unsigned tag, unsigned cond, uint32_t label, unsigned tmp_reg)
 {
+#if defined(ARCH_S390)
+	switch (cond) {
+		case COND_A:	cond = COND_G; break;
+		case COND_AE:	cond = COND_GE; break;
+		case COND_B:	cond = COND_L; break;
+		case COND_BE:	cond = COND_LE; break;
+	}
+#endif
 #if defined(DATA_TAG_AT_ALLOC)
 	g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHR, tmp_reg, reg, POINTER_IGNORE_START, false));
 #elif defined(REFCOUNT_TAG)
@@ -140,6 +148,14 @@ static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg
 
 static bool attr_w gen_compare_da_tag(struct codegen_context *ctx, unsigned reg, unsigned tag, unsigned cond, uint32_t label, unsigned tmp_reg)
 {
+#if defined(ARCH_S390)
+	switch (cond) {
+		case COND_A:	cond = COND_G; break;
+		case COND_AE:	cond = COND_GE; break;
+		case COND_B:	cond = COND_L; break;
+		case COND_BE:	cond = COND_LE; break;
+	}
+#endif
 #if defined(POINTER_COMPRESSION)
 #if defined(ARCH_X86) && POINTER_COMPRESSION <= 3 && defined(REFCOUNT_TAG) && REFCOUNT_STEP == 256 && defined(C_LITTLE_ENDIAN)
 	g(gen_imm(ctx, tag, IMM_PURPOSE_CMP, log_2(sizeof(tag_t))));

@@ -261,6 +261,20 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 			if (imm > -0x8000 && imm <= 0x8000)
 				return true;
 			break;
+		case IMM_PURPOSE_CMP:
+			if (imm >= -0x8000 && imm < 0x8000)
+				return true;
+			/*if (cpu_test_feature(CPU_FEATURE_extended_imm)) {
+				if (imm >= -0x80000000LL && imm < 0x80000000LL)
+					return true;
+			}*/
+			break;
+		case IMM_PURPOSE_CMP_LOGICAL:
+			/*if (cpu_test_feature(CPU_FEATURE_extended_imm)) {
+				if (imm >= 0LL && imm < 0x100000000LL)
+					return true;
+			}*/
+			break;
 		case IMM_PURPOSE_AND:
 			imm = ~imm;
 			/*-fallthrough*/
@@ -306,7 +320,7 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 
 static bool attr_w gen_imm(struct codegen_context *ctx, int64_t imm, unsigned purpose, unsigned size)
 {
-	if (is_direct_const(imm, purpose, size)/* && (purpose == IMM_PURPOSE_TEST || purpose == IMM_PURPOSE_CMP)*/) {
+	if (is_direct_const(imm, purpose, size)) {
 		ctx->const_imm = imm;
 		ctx->const_reg = false;
 	} else {
