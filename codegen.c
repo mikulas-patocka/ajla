@@ -444,6 +444,10 @@ struct cg_exit {
 	uint32_t escape_label;
 };
 
+#define FLAG_CACHE_IS_FLAT	0x01
+#define FLAG_CACHE_IS_NOT_FLAT	0x02
+#define FLAG_CACHE_IS_NOT_THUNK	0x04
+
 struct codegen_context {
 	struct data *fn;
 	struct data **local_directory;
@@ -481,7 +485,7 @@ struct codegen_context {
 	size_t args_l;
 	const code_t *return_values;
 
-	int8_t *flag_cache;
+	uint8_t *flag_cache;
 	short *registers;
 	frame_t *need_spill;
 	size_t need_spill_l;
@@ -1542,6 +1546,7 @@ take_borrowed_done:
 skip_dereference:
 				if (code == OPCODE_DEREFERENCE_CLEAR)
 					g(gen_frame_clear(ctx, OP_SIZE_SLOT, slot_1));
+				flag_set_unknown(ctx, slot_1);
 				flag_set(ctx, slot_1, false);
 				continue;
 			}
@@ -2274,7 +2279,7 @@ next_one:;
 	if (unlikely(!ctx->code_exits))
 		goto fail;
 
-	ctx->flag_cache = mem_alloc_array_mayfail(mem_calloc_mayfail, int8_t *, 0, 0, function_n_variables(ctx->fn), sizeof(int8_t), &ctx->err);
+	ctx->flag_cache = mem_alloc_array_mayfail(mem_calloc_mayfail, uint8_t *, 0, 0, function_n_variables(ctx->fn), sizeof(int8_t), &ctx->err);
 	if (unlikely(!ctx->flag_cache))
 		goto fail;
 

@@ -26,19 +26,24 @@
 unsupported pointer mode
 #endif
 
-static bool attr_w gen_ptr_is_thunk(struct codegen_context *ctx, unsigned reg, bool jnz, uint32_t label)
+static bool attr_w gen_ptr_is_thunk(struct codegen_context *ctx, unsigned reg, frame_t slot, uint32_t label)
 {
+	if (slot != NO_FRAME_T) {
+		if (ctx->flag_cache[slot] & FLAG_CACHE_IS_NOT_THUNK)
+			return true;
+		ctx->flag_cache[slot] |= FLAG_CACHE_IS_NOT_THUNK;
+	}
 #if defined(ARCH_X86)
 	if (POINTER_THUNK_BIT < 8
 #if defined(ARCH_X86_32)
 		&& reg < 4
 #endif
 		) {
-		g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, OP_SIZE_1, reg, (uint64_t)1 << POINTER_THUNK_BIT, jnz ? COND_NE : COND_E, label));
+		g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, OP_SIZE_1, reg, (uint64_t)1 << POINTER_THUNK_BIT, COND_NE, label));
 	} else
 #endif
 	{
-		g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, OP_SIZE_SLOT, reg, (uint64_t)1 << POINTER_THUNK_BIT, jnz ? COND_NE : COND_E, label));
+		g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, OP_SIZE_SLOT, reg, (uint64_t)1 << POINTER_THUNK_BIT, COND_NE, label));
 	}
 	return true;
 }
@@ -241,9 +246,12 @@ move_it:
 	return true;
 }
 
-static bool attr_w gen_frame_set_pointer(struct codegen_context *ctx, frame_t slot, unsigned src)
+static bool attr_w gen_frame_set_pointer(struct codegen_context *ctx, frame_t slot, unsigned src, bool not_thunk)
 {
 	g(gen_set_1(ctx, R_FRAME, slot, 0, true));
+	flag_set_unknown(ctx, slot);
+	if (not_thunk)
+		ctx->flag_cache[slot] |= FLAG_CACHE_IS_NOT_THUNK;
 	flag_set(ctx, slot, true);
 	g(gen_frame_store(ctx, OP_SIZE_SLOT, slot, 0, src));
 	return true;

@@ -3390,7 +3390,7 @@ static bool attr_w gen_is_exception(struct codegen_context *ctx, frame_t slot_1,
 		g(gen_test_1_jz_cached(ctx, slot_1, no_ex_label));
 
 	g(gen_frame_load(ctx, OP_SIZE_SLOT, zero_x, slot_1, 0, R_SCRATCH_1));
-	g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, true, escape_label));
+	g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, slot_1, escape_label));
 	g(gen_barrier(ctx));
 
 	if (!TYPE_IS_FLAT(type)) {
