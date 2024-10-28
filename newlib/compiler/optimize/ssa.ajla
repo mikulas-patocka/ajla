@@ -2051,7 +2051,17 @@ fn insert_free(ctx : context) : context
 				if not ctx.blocks[post0].live_top bt bvar,
 				   not ctx.blocks[post1].live_top bt bvar then [
 					ctx.instrs[block.instrs[ili - 1]].params[2] or= Flag_Fused_Bin_Jmp;
-					fused_variable := instr2.params[0];
+					fused_variable := bvar;
+				]
+			]
+			if instr1.opcode = P_Array_Len_Greater_Than, instr2.opcode = P_Jmp_False, instr1.params[0] = instr2.params[0] then [
+				var bvar := instr2.params[0];
+				var post0 := block.post_list[0];
+				var post1 := block.post_list[1];
+				if not ctx.blocks[post0].live_top bt bvar,
+				   not ctx.blocks[post1].live_top bt bvar then [
+					ctx.instrs[block.instrs[ili - 1]].params[3] or= Flag_Fused_Bin_Jmp;
+					fused_variable := bvar;
 				]
 			]
 		]
@@ -2193,6 +2203,11 @@ skip_derefs:
 					if instr.opcode = P_BinaryOp, (instr.params[2] and Flag_Fused_Bin_Jmp) <> 0 then [
 						live_bottom bts= instr.params[3];
 						live_bottom bts= instr.params[5];
+						goto have_ili;
+					]
+					if instr.opcode = P_Array_Len_Greater_Than, (instr.params[3] and Flag_Fused_Bin_Jmp) <> 0 then [
+						live_bottom bts= instr.params[1];
+						live_bottom bts= instr.params[2];
 						goto have_ili;
 					]
 					abort internal("insert_free: invalid opcode " + ntos(instr.opcode));

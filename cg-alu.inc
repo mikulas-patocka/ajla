@@ -51,10 +51,11 @@ static bool attr_w gen_alu_typed_upcall(struct codegen_context *ctx, size_t upca
 	return gen_alu_upcall(ctx, upcall, slot_1, slot_2, slot_r, label_ovf);
 }
 
-#define MODE_FIXED	0
-#define MODE_INT	1
-#define MODE_REAL	2
-#define MODE_BOOL	3
+#define MODE_FIXED		0
+#define MODE_INT		1
+#define MODE_REAL		2
+#define MODE_BOOL		3
+#define MODE_ARRAY_LEN_GT	4
 
 static bool attr_w gen_alu(struct codegen_context *ctx, unsigned mode, unsigned op_size, unsigned op, uint32_t label_ovf, frame_t slot_1, frame_t slot_2, frame_t slot_r)
 {

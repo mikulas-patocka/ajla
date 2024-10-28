@@ -2777,7 +2777,7 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				a1 = u_pcode_get();
 				a2 = u_pcode_get();
 				flags = u_pcode_get();
-				ajla_assert_lo(!(flags & ~Flag_Evaluate), (file_line, "P_Array_Len_Greater_Than(%s): invalid flags %"PRIuMAX"", function_name(ctx), (uintmax_t)flags));
+				ajla_assert_lo(!(flags & ~(Flag_Evaluate | Flag_Fused_Bin_Jmp)), (file_line, "P_Array_Len_Greater_Than(%s): invalid flags %"PRIuMAX"", function_name(ctx), (uintmax_t)flags));
 				if (unlikely(var_elided(res)))
 					break;
 				tr = get_var_type(ctx, res);
@@ -2786,13 +2786,18 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				ajla_assert_lo(type_is_equal(tr->type, type_get_flat_option()), (file_line, "P_Array_Len_Greater_Than(%s): invalid result type: %u", function_name(ctx), tr->type->tag));
 				ajla_assert_lo(type_is_equal(t2->type, type_get_int(INT_DEFAULT_N)), (file_line, "P_Array_Len_Greater_Than(%s): invalid length type: %u", function_name(ctx), t2->type->tag));
 
+				fflags = 0;
+				if (unlikely(flags & Flag_Evaluate) != 0)
+					fflags |= OPCODE_OP_FLAG_STRICT;
+				if (flags & Flag_Fused_Bin_Jmp)
+					fflags |= OPCODE_FLAG_FUSED;
 				am = INIT_ARG_MODE;
 				get_arg_mode(am, t1->slot);
 				get_arg_mode(am, t2->slot);
 				get_arg_mode(am, tr->slot);
 				gen_code(OPCODE_ARRAY_LEN_GREATER_THAN + am * OPCODE_MODE_MULT);
 				gen_am_two(am, t1->slot, t2->slot);
-				gen_am_two(am, tr->slot, flags & Flag_Evaluate ? OPCODE_OP_FLAG_STRICT : 0);
+				gen_am_two(am, tr->slot, fflags);
 				break;
 			case P_Array_Sub:
 				res = u_pcode_get();

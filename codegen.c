@@ -1145,10 +1145,20 @@ next_code:
 
 	if (code == OPCODE_DEREFERENCE) {
 		get_one(ctx, &slot_dr);
+		const struct type *t = get_type_of_local(ctx, slot_dr);
+		if (!TYPE_TAG_IS_BUILTIN(t->tag)) {
+			*failed = true;
+			goto fail;
+		}
 		if (unlikely(!flag_is_clear(ctx, slot_dr))) {
-			internal(file_line, "gen_fused_binary: flag not cleared for destination slot");
+			*failed = true;
+			goto fail;
 		}
 		goto next_code;
+	}
+	if (code == OPCODE_DEREFERENCE_CLEAR) {
+		*failed = true;
+		goto fail;
 	}
 	if (unlikely(code != OPCODE_JMP_FALSE))
 		internal(file_line, "gen_fused_binary: binary operation is not followed by jmp false: %x, %s", code, decode_opcode(code, true));
@@ -1158,11 +1168,15 @@ next_code:
 	offs_false = get_jump_offset(ctx);
 	get_jump_offset(ctx);
 
-	if (mode != MODE_REAL)
-		g(gen_alu_jmp(ctx, mode, op_size, op, slot_1, slot_2, offs_false, failed));
-	else
+	if (mode == MODE_ARRAY_LEN_GT) {
+		g(gen_array_len(ctx, slot_1, slot_2, slot_r, true, offs_false));
+	} else if (mode == MODE_REAL) {
 		g(gen_fp_alu_jmp(ctx, op_size, op, escape_label, slot_1, slot_2, offs_false, failed));
+	} else {
+		g(gen_alu_jmp(ctx, mode, op_size, op, slot_1, slot_2, offs_false, failed));
+	}
 
+fail:
 	if (*failed)
 		ctx->current_position = backup;
 
@@ -1878,13 +1892,21 @@ jump_over_arguments_and_return:
 			case OPCODE_ARRAY_LEN: {
 				get_two(ctx, &slot_1, &slot_r);
 				get_one(ctx, &flags);
-				g(gen_array_len(ctx, slot_1, NO_FRAME_T, slot_r));
+				g(gen_array_len(ctx, slot_1, NO_FRAME_T, slot_r, false, 0));
 				continue;
 			}
 			case OPCODE_ARRAY_LEN_GREATER_THAN: {
 				get_two(ctx, &slot_1, &slot_2);
 				get_two(ctx, &slot_r, &flags);
-				g(gen_array_len(ctx, slot_1, slot_2, slot_r));
+				escape_label = alloc_escape_label(ctx);
+				if (unlikely(!escape_label))
+					return false;
+				if (flags & OPCODE_FLAG_FUSED) {
+					g(gen_fused_binary(ctx, MODE_ARRAY_LEN_GT, 0, 0, escape_label, slot_1, slot_2, slot_r, &failed));
+					if (unlikely(!failed))
+						continue;
+				}
+				g(gen_array_len(ctx, slot_1, slot_2, slot_r, false, 0));
 				continue;
 			}
 			case OPCODE_ARRAY_SUB: {

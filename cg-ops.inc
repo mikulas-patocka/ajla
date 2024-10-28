@@ -2290,7 +2290,7 @@ scaled_load_done:
 	}
 }
 
-static bool attr_w gen_array_len(struct codegen_context *ctx, frame_t slot_1, frame_t slot_2, frame_t slot_r)
+static bool attr_w gen_array_len(struct codegen_context *ctx, frame_t slot_1, frame_t slot_2, frame_t slot_r, bool fused, int32_t offs_false)
 {
 	const struct type *t = get_type_of_local(ctx, slot_1);
 	uint32_t escape_label;
@@ -2306,7 +2306,11 @@ static bool attr_w gen_array_len(struct codegen_context *ctx, frame_t slot_1, fr
 	}
 
 	if (unlikely(t->tag == TYPE_TAG_flat_array)) {
-		if (slot_2 == NO_FRAME_T) {
+		if (fused) {
+			target = R_SCRATCH_1;
+			g(gen_load_constant(ctx, target, type_def(t,flat_array)->n_elements));
+			goto do_fused;
+		} else if (slot_2 == NO_FRAME_T) {
 			g(gen_frame_store_imm(ctx, OP_SIZE_INT, slot_r, 0, (unsigned)type_def(t,flat_array)->n_elements));
 		} else {
 			g(gen_frame_load_cmp_imm_set_cond(ctx, OP_SIZE_INT, zero_x, slot_2, 0, type_def(t,flat_array)->n_elements, COND_G, slot_r));
@@ -2345,7 +2349,19 @@ static bool attr_w gen_array_len(struct codegen_context *ctx, frame_t slot_1, fr
 		gen_one(target);
 		gen_address_offset_compressed();
 
-		if (slot_2 == NO_FRAME_T) {
+		if (fused)
+do_fused:	{
+			enum extend ex = OP_SIZE_INT == i_size_cmp(OP_SIZE_INT) + (unsigned)zero ? garbage : sign_x;
+#if ARCH_HAS_FLAGS
+			g(gen_frame_load_cmp(ctx, OP_SIZE_INT, COND_IS_LOGICAL(COND_LE), ex, false, slot_2, 0, target));
+			g(gen_jump(ctx, offs_false, i_size_cmp(OP_SIZE_INT), COND_LE, -1U, -1U));
+#else
+			unsigned reg2;
+			g(gen_frame_get(ctx, OP_SIZE_INT, ex, slot_2, 0, R_SCRATCH_2, &reg2));
+			g(gen_cmp_dest_reg(ctx, i_size_cmp(OP_SIZE_INT), target, reg2, R_CMP_RESULT, 0, COND_G));
+			g(gen_jump(ctx, offs_false, OP_SIZE_NATIVE, COND_E, R_CMP_RESULT, -1U));
+#endif
+		} else if (slot_2 == NO_FRAME_T) {
 			g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, target));
 		} else {
 			g(gen_frame_load_cmp_set_cond(ctx, OP_SIZE_INT, zero_x, slot_2, 0, R_SCRATCH_1, COND_G, slot_r));
