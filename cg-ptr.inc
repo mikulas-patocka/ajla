@@ -84,34 +84,37 @@ static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg
 #if defined(DATA_TAG_AT_ALLOC)
 	g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHR, tmp_reg, reg, POINTER_IGNORE_START, false));
 #elif defined(REFCOUNT_TAG)
-#if REFCOUNT_STEP == 256 && defined(C_LITTLE_ENDIAN) && !defined(ARCH_ALPHA)
-#if defined(ARCH_X86)
+	size_t offset = offsetof(struct data, refcount_);
+#if defined(C_BIG_ENDIAN)
+	offset += sizeof(refcount_t) - 1;
+#endif
+#if defined(ARCH_X86) && REFCOUNT_STEP == 256
 	g(gen_imm(ctx, tag, IMM_PURPOSE_CMP, OP_SIZE_4));
 	gen_insn(INSN_CMP, OP_SIZE_1, 0, 1);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(reg);
-	gen_eight(offsetof(struct data, refcount_));
+	gen_eight(offset);
 	gen_imm_offset();
 
 	gen_insn(INSN_JMP_COND, OP_SIZE_1, cond, 0);
 	gen_four(label);
 	return true;
-#else
-	gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
-	gen_one(tmp_reg);
-	gen_one(ARG_ADDRESS_1);
-	gen_one(reg);
-	gen_eight(offsetof(struct data, refcount_));
 #endif
-#else
-	gen_insn(INSN_MOV, log_2(sizeof(refcount_int_t)), 0, 0);
-	gen_one(tmp_reg);
-	gen_one(ARG_ADDRESS_1);
-	gen_one(reg);
-	gen_eight(offsetof(struct data, refcount_));
+	if (ARCH_HAS_BWX && REFCOUNT_STEP == 256) {
+		gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
+		gen_one(tmp_reg);
+		gen_one(ARG_ADDRESS_1);
+		gen_one(reg);
+		gen_eight(offset);
+	} else {
+		gen_insn(INSN_MOV, log_2(sizeof(refcount_int_t)), 0, 0);
+		gen_one(tmp_reg);
+		gen_one(ARG_ADDRESS_1);
+		gen_one(reg);
+		gen_eight(offset);
 
-	g(gen_3address_alu_imm(ctx, log_2(sizeof(refcount_int_t)), ALU_AND, tmp_reg, tmp_reg, REFCOUNT_STEP - 1, 0));
-#endif
+		g(gen_3address_alu_imm(ctx, log_2(sizeof(refcount_int_t)), ALU_AND, tmp_reg, tmp_reg, REFCOUNT_STEP - 1, 0));
+	}
 #else
 #if defined(ARCH_S390)
 	if (sizeof(tag_t) == 1 && !cpu_test_feature(CPU_FEATURE_long_displacement)) {
