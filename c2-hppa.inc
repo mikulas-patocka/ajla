@@ -1055,6 +1055,42 @@ invalid:
 	return false;
 }
 
+static bool attr_w cgen_cmp_cmov(struct codegen_context *ctx, unsigned op_size, unsigned cond)
+{
+	int32_t fc;
+	uint32_t mc;
+	int64_t imm;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	uint8_t *arg4 = arg3 + arg_size(*arg3);
+	uint8_t *arg5 = arg4 + arg_size(*arg4);
+	ctx->code_position = arg5 + arg_size(*arg5);
+
+	if (arg3[0] == ARG_IMM) {
+		cond = cmp_swap_arguments(cond);
+	}
+
+	fc = cmp_sub_cond[cond];
+	fc ^= PARISC_COND_NEG;
+
+	if (arg5[0] == ARG_IMM) {
+		imm = get_imm(&arg5[1]);
+		mc = PARISC_CMPICLR;
+		mc |= fc;
+		mc |= low_sign_ext_11(imm);
+		g(cgen_2reg(ctx, mc, arg4[0], R_ZERO));
+	} else {
+		mc = PARISC_CMPCLR;
+		mc |= fc;
+		g(cgen_3reg(ctx, mc, arg4[0], arg5[0], R_ZERO));
+	}
+
+	g(cgen_mov_args(ctx, op_size, arg1, arg3));
+
+	return true;
+}
+
 static bool attr_w cgen_movr(struct codegen_context *ctx, unsigned cond)
 {
 	int32_t fc;
@@ -1543,6 +1579,11 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			if (unlikely(insn_op_size(insn) < OP_SIZE_4))
 				goto invalid_insn;
 			g(cgen_btx(ctx, insn_op_size(insn), insn_aux(insn)));
+			return true;
+		case INSN_CMP_CMOV:
+			if (unlikely(insn_writes_flags(insn) != 0))
+				goto invalid_insn;
+			g(cgen_cmp_cmov(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_MOVR:
 			if (unlikely(insn_op_size(insn) != OP_SIZE_NATIVE) || unlikely(insn_writes_flags(insn) != 0))

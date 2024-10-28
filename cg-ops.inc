@@ -2144,6 +2144,15 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 		gen_one(R_SCRATCH_1);
 		gen_one(R_SCRATCH_1);
 		gen_address_offset();
+#elif defined(ARCH_PARISC)
+		g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.array_slice.flat_data_minus_data_array_offset), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+		gen_insn(INSN_CMP_CMOV, OP_SIZE_ADDRESS, COND_E, 0);
+		gen_one(R_SCRATCH_1);
+		gen_one(R_SCRATCH_1);
+		gen_address_offset();
+		gen_one(R_SCRATCH_4);
+		gen_one(ARG_IMM);
+		gen_eight(DATA_TAG_array_slice);
 #elif defined(ARCH_LOONGARCH64) || defined(ARCH_MIPS) || defined(ARCH_RISCV64)
 		g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_XOR, R_SCRATCH_4, R_SCRATCH_4, DATA_TAG_array_slice, 0));
 
