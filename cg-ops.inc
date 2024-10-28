@@ -2344,6 +2344,17 @@ static bool attr_w gen_array_len(struct codegen_context *ctx, frame_t slot_1, fr
 		}
 
 		gen_pointer_compression(R_SCRATCH_1);
+#if defined(ARCH_X86) || defined(ARCH_S390)
+		if (fused && ctx->registers[slot_2] >= 0) {
+			g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.array_flat.n_used_entries), ARCH_PREFERS_SX(OP_SIZE_INT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_INT));
+			gen_insn(INSN_CMP, OP_SIZE_INT, 0, 1 + COND_IS_LOGICAL(COND_GE));
+			gen_one(ctx->registers[slot_2]);
+			gen_address_offset_compressed();
+
+			g(gen_jump(ctx, offs_false, i_size_cmp(OP_SIZE_INT), COND_GE, -1U, -1U));
+			return true;
+		}
+#endif
 		g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.array_flat.n_used_entries), ARCH_PREFERS_SX(OP_SIZE_INT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_INT));
 		gen_insn(ARCH_PREFERS_SX(OP_SIZE_INT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_INT, 0, 0);
 		gen_one(target);
