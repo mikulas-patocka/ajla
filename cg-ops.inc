@@ -2352,11 +2352,16 @@ static bool attr_w gen_array_len(struct codegen_context *ctx, frame_t slot_1, fr
 		if (fused)
 do_fused:	{
 			enum extend ex = OP_SIZE_INT == i_size_cmp(OP_SIZE_INT) + (unsigned)zero ? garbage : sign_x;
+			unsigned reg2;
+			if (ARCH_HAS_JMP_2REGS(COND_LE)) {
+				g(gen_frame_get(ctx, OP_SIZE_INT, ex, slot_2, 0, R_SCRATCH_2, &reg2));
+				g(gen_jump(ctx, offs_false, i_size_cmp(OP_SIZE_INT), COND_LE, target, reg2));
+				return true;
+			}
 #if ARCH_HAS_FLAGS
 			g(gen_frame_load_cmp(ctx, OP_SIZE_INT, COND_IS_LOGICAL(COND_LE), ex, false, slot_2, 0, target));
 			g(gen_jump(ctx, offs_false, i_size_cmp(OP_SIZE_INT), COND_LE, -1U, -1U));
 #else
-			unsigned reg2;
 			g(gen_frame_get(ctx, OP_SIZE_INT, ex, slot_2, 0, R_SCRATCH_2, &reg2));
 			g(gen_cmp_dest_reg(ctx, i_size_cmp(OP_SIZE_INT), target, reg2, R_CMP_RESULT, 0, COND_G));
 			g(gen_jump(ctx, offs_false, OP_SIZE_NATIVE, COND_E, R_CMP_RESULT, -1U));
