@@ -45,6 +45,7 @@
 #define ARCH_HAS_SHIFTED_ADD(bits)	((bits) <= 3 && cpu_test_feature(CPU_FEATURE_zba))
 #define ARCH_HAS_BTX(btx, size, cnst)	(((size) == OP_SIZE_8 || (cnst)) && cpu_test_feature(CPU_FEATURE_zbs))
 #define ARCH_SHIFT_SIZE			OP_SIZE_4
+#define ARCH_BOOL_SIZE			OP_SIZE_NATIVE
 #define ARCH_HAS_FP_GP_MOV		0
 #define ARCH_NEEDS_BARRIER		0
 

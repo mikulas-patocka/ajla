@@ -29,6 +29,30 @@ endian not defined
 #endif
 
 
+static const struct type *get_type_of_local(struct codegen_context *ctx, frame_t pos)
+{
+	const struct type *t;
+	const struct data *function = ctx->fn;
+	t = da(function,function)->local_variables[pos].type;
+	if (t)
+		TYPE_TAG_VALIDATE(t->tag);
+	return t;
+}
+
+static unsigned real_type_to_op_size(unsigned real_type)
+{
+	switch (real_type) {
+		case 0:	return OP_SIZE_2;
+		case 1:	return OP_SIZE_4;
+		case 2:	return OP_SIZE_8;
+		case 3:	return OP_SIZE_10;
+		case 4:	return OP_SIZE_16;
+		default:
+			internal(file_line, "real_type_to_op_size: invalid type %u", real_type);
+			return 0;
+	}
+}
+
 
 static bool attr_w gen_frame_address(struct codegen_context *ctx, frame_t slot, int64_t offset, unsigned reg)
 {
@@ -173,12 +197,16 @@ ret:
 
 static bool attr_w gen_frame_get(struct codegen_context *ctx, unsigned size, enum extend ex, frame_t slot, int64_t offset, unsigned reg, unsigned *dest)
 {
+	const struct type *t = get_type_of_local(ctx, slot);
 	ajla_assert_lo(slot >= MIN_USEABLE_SLOT && slot < function_n_variables(ctx->fn), (file_line, "gen_frame_get: invalid slot: %lu >= %lu", (unsigned long)slot, (unsigned long)function_n_variables(ctx->fn)));
 	if (ctx->registers[slot] >= 0) {
 		unsigned reg = ctx->registers[slot];
 		if (ex != garbage && size < OP_SIZE_NATIVE && !reg_is_fp(reg)) {
+			if (t->tag == TYPE_TAG_flat_option && size <= ARCH_BOOL_SIZE)
+				goto skip_extend;
 			g(gen_extend(ctx, size, ex, reg, reg));
 		}
+skip_extend:
 		*dest = reg;
 		goto ret;
 	}
@@ -186,7 +214,7 @@ static bool attr_w gen_frame_get(struct codegen_context *ctx, unsigned size, enu
 	g(gen_frame_load(ctx, size, ex, slot, offset, reg));
 ret:
 #ifdef DEBUG_GARBAGE
-	if (size < OP_SIZE_NATIVE && ex == garbage) {
+	if (size < OP_SIZE_NATIVE && ex == garbage && t->tag != TYPE_TAG_flat_option) {
 		uint64_t mask;
 		g(gen_extend(ctx, size, zero_x, *dest, *dest));
 		mask = (rand()) | ((uint64_t)rand() << 31) | ((uint64_t)rand() << 62);
@@ -698,30 +726,6 @@ static bool attr_w gen_frame_load_cmp_imm_set_cond(struct codegen_context *ctx, 
 	g(gen_frame_cmp_imm_set_cond_reg(ctx, size, src_reg, value, cond, slot_r));
 #endif
 	return true;
-}
-
-static const struct type *get_type_of_local(struct codegen_context *ctx, frame_t pos)
-{
-	const struct type *t;
-	const struct data *function = ctx->fn;
-	t = da(function,function)->local_variables[pos].type;
-	if (t)
-		TYPE_TAG_VALIDATE(t->tag);
-	return t;
-}
-
-static unsigned real_type_to_op_size(unsigned real_type)
-{
-	switch (real_type) {
-		case 0:	return OP_SIZE_2;
-		case 1:	return OP_SIZE_4;
-		case 2:	return OP_SIZE_8;
-		case 3:	return OP_SIZE_10;
-		case 4:	return OP_SIZE_16;
-		default:
-			internal(file_line, "real_type_to_op_size: invalid type %u", real_type);
-			return 0;
-	}
 }
 
 static unsigned spill_size(const struct type *t)

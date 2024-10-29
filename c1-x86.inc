@@ -54,6 +54,7 @@
 #define ARCH_HAS_BTX(btx, size, cnst)	((btx) != BTX_BTEXT && (size) >= OP_SIZE_2)
 #define ARCH_HAS_SHIFTED_ADD(bits)	((bits) <= 3)
 #define ARCH_SHIFT_SIZE			OP_SIZE_4
+#define ARCH_BOOL_SIZE			log_2(sizeof(ajla_flat_option_t))
 #define ARCH_HAS_FP_GP_MOV		cpu_test_feature(CPU_FEATURE_sse2)
 #define ARCH_NEEDS_BARRIER		0
 

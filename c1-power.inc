@@ -80,6 +80,7 @@
 #define ARCH_HAS_SHIFTED_ADD(bits)	0
 #define ARCH_HAS_BTX(btx, size, cnst)	0
 #define ARCH_SHIFT_SIZE			OP_SIZE_16
+#define ARCH_BOOL_SIZE			OP_SIZE_NATIVE
 #define ARCH_HAS_FP_GP_MOV		0
 #define ARCH_NEEDS_BARRIER		0
 
