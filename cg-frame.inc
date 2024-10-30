@@ -986,9 +986,9 @@ static bool attr_w gen_memcpy_to_slot(struct codegen_context *ctx, frame_t dest_
 static bool attr_w gen_memcpy_from_slot(struct codegen_context *ctx, unsigned dest_base, int64_t dest_offset, frame_t src_slot)
 {
 	const struct type *t = get_type_of_local(ctx, src_slot);
-	unsigned size = spill_size(t);
 	short src_reg = ctx->registers[src_slot];
 	if (src_reg >= 0) {
+		unsigned size = spill_size(t);
 		g(gen_address(ctx, dest_base, dest_offset, reg_is_fp(src_reg) ? IMM_PURPOSE_VLDR_VSTR_OFFSET : IMM_PURPOSE_STR_OFFSET, size));
 		gen_insn(INSN_MOV, size, 0, 0);
 		gen_address_offset();
