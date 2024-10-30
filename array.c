@@ -1995,14 +1995,10 @@ oom:
 		array = data_alloc_array_pointers_mayfail(est, est, err_ptr pass_file_line);
 		if (unlikely(!array))
 			goto oom;
-		if (unlikely(!est))
-			pointer_dereference(ptr);
-		else
-			pointer_reference_owned_multiple(ptr, est - 1);
+		pointer_reference_owned_multiple(ptr, est);
 		for (i = 0; i < est; i++) {
 			da(array,array_pointers)->pointer[i] = ptr;
 		}
-		ptr = pointer_empty();
 	}
 
 	if (likely(pointer_is_empty(result))) {
