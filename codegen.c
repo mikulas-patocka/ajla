@@ -1198,8 +1198,8 @@ static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *vari
 		return false;
 
 	for (i = 0; i < 2; i++) {
-		size_t n;
 		size_t n_vars = 0;
+		size_t n;
 		for (n = 0; n < n_variables; n++) {
 			frame_t v = variables[n];
 			if (!i ? da(ctx->fn,function)->local_variables_flags[v].must_be_flat : da(ctx->fn,function)->local_variables_flags[v].must_be_data)
@@ -1211,12 +1211,9 @@ static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *vari
 				return false;
 			}
 		} else {
-			for (n = 0; n < n_vars; n++) {
-				if (!gen_frame_load(ctx, OP_SIZE_SLOT, garbage, vars[n], 0, R_SCRATCH_1) ||
-				    !gen_ptr_is_thunk(ctx, R_SCRATCH_1, NO_FRAME_T, label)) {
-					mem_free(vars);
-					return false;
-				}
+			if (!gen_test_multiple_thunks(ctx, vars, n_vars, label)) {
+				mem_free(vars);
+				return false;
 			}
 		}
 	}

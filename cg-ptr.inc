@@ -48,6 +48,26 @@ static bool attr_w gen_ptr_is_thunk(struct codegen_context *ctx, unsigned reg, f
 	return true;
 }
 
+static bool attr_w gen_test_multiple_thunks(struct codegen_context *ctx, frame_t *variables, size_t n_variables, uint32_t label)
+{
+	size_t n;
+#if defined(ARCH_X86) || defined(ARCH_S390)
+	if (n_variables >= 2) {
+		g(gen_frame_load(ctx, OP_SIZE_SLOT, garbage, variables[0], 0, R_SCRATCH_1));
+		for (n = 1; n < n_variables; n++) {
+			g(gen_frame_load_op(ctx, OP_SIZE_SLOT, garbage, ALU_OR, 0, variables[n], 0, R_SCRATCH_1));
+		}
+		g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, NO_FRAME_T, label));
+		return true;
+	}
+#endif
+	for (n = 0; n < n_variables; n++) {
+		g(gen_frame_load(ctx, OP_SIZE_SLOT, garbage, variables[n], 0, R_SCRATCH_1));
+		g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, NO_FRAME_T, label));
+	}
+	return true;
+}
+
 static bool attr_w gen_barrier(struct codegen_context *ctx)
 {
 	if (ARCH_NEEDS_BARRIER)
