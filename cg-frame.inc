@@ -29,6 +29,10 @@ endian not defined
 #endif
 
 
+static bool attr_w gen_frame_load_raw(struct codegen_context *ctx, unsigned size, enum extend ex, frame_t slot, int64_t offset, unsigned reg);
+static bool attr_w gen_frame_store_raw(struct codegen_context *ctx, unsigned size, frame_t slot, int64_t offset, unsigned reg);
+
+
 static const struct type *get_type_of_local(struct codegen_context *ctx, frame_t pos)
 {
 	const struct type *t;
@@ -51,6 +55,29 @@ static unsigned real_type_to_op_size(unsigned real_type)
 			internal(file_line, "real_type_to_op_size: invalid type %u", real_type);
 			return 0;
 	}
+}
+
+static unsigned spill_size(const struct type *t)
+{
+	if (TYPE_TAG_IS_REAL(t->tag)) {
+		return real_type_to_op_size(TYPE_TAG_IDX_REAL(t->tag));
+	} else {
+		return log_2(t->size);
+	}
+}
+
+static bool attr_w spill(struct codegen_context *ctx, frame_t v)
+{
+	const struct type *t = get_type_of_local(ctx, v);
+	g(gen_frame_store_raw(ctx, spill_size(t), v, 0, ctx->registers[v]));
+	return true;
+}
+
+static bool attr_w unspill(struct codegen_context *ctx, frame_t v)
+{
+	const struct type *t = get_type_of_local(ctx, v);
+	g(gen_frame_load_raw(ctx, spill_size(t), garbage, v, 0, ctx->registers[v]));
+	return true;
 }
 
 
@@ -232,6 +259,8 @@ ret:
 #if defined(ARCH_X86)
 static bool attr_w gen_frame_load_x87(struct codegen_context *ctx, unsigned insn, unsigned size, unsigned alu, frame_t slot)
 {
+	if (ctx->registers[slot] >= 0)
+		g(spill(ctx,slot));
 	g(gen_address(ctx, R_FRAME, (size_t)slot * slot_size, IMM_PURPOSE_LDR_OFFSET, size));
 	gen_insn(insn, size, alu, 0);
 	gen_address_offset();
@@ -243,6 +272,8 @@ static bool attr_w gen_frame_store_x87(struct codegen_context *ctx, unsigned ins
 	g(gen_address(ctx, R_FRAME, (size_t)slot * slot_size, IMM_PURPOSE_STR_OFFSET, size));
 	gen_insn(insn, size, 0, 0);
 	gen_address_offset();
+	if (ctx->registers[slot] >= 0)
+		g(unspill(ctx,slot));
 	return true;
 }
 #endif
@@ -725,29 +756,6 @@ static bool attr_w gen_frame_load_cmp_imm_set_cond(struct codegen_context *ctx, 
 	g(gen_frame_get(ctx, size, ex, slot, offset, R_SCRATCH_NA_1, &src_reg));
 	g(gen_frame_cmp_imm_set_cond_reg(ctx, size, src_reg, value, cond, slot_r));
 #endif
-	return true;
-}
-
-static unsigned spill_size(const struct type *t)
-{
-	if (TYPE_TAG_IS_REAL(t->tag)) {
-		return real_type_to_op_size(TYPE_TAG_IDX_REAL(t->tag));
-	} else {
-		return log_2(t->size);
-	}
-}
-
-static bool attr_w spill(struct codegen_context *ctx, frame_t v)
-{
-	const struct type *t = get_type_of_local(ctx, v);
-	g(gen_frame_store_raw(ctx, spill_size(t), v, 0, ctx->registers[v]));
-	return true;
-}
-
-static bool attr_w unspill(struct codegen_context *ctx, frame_t v)
-{
-	const struct type *t = get_type_of_local(ctx, v);
-	g(gen_frame_load_raw(ctx, spill_size(t), garbage, v, 0, ctx->registers[v]));
 	return true;
 }
 
