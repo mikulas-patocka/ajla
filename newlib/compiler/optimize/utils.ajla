@@ -551,6 +551,7 @@ fn load_function_context(pc : list(pcode_t)) : context
 		ctx.variables[i].local_type := -1;
 		ctx.variables[i].color := pc[ptr + 2];
 		ctx.variables[i].must_be_flat := pc[ptr + 3] bt bsf VarFlag_Must_Be_Flat;
+		ctx.variables[i].must_be_data := pc[ptr + 3] bt bsf VarFlag_Must_Be_Data;
 		ctx.variables[i].is_option_type := false;
 		ptr += 4;
 		ctx.variables[i].name := blob_load(pc[ptr .. ]);

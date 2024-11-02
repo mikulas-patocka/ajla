@@ -1009,9 +1009,7 @@ exception:
 static bool pcode_finish_call(struct build_function_context *ctx, const struct pcode_type **rets, size_t rets_l, bool test_flat)
 {
 	size_t i;
-	frame_t slot;
 	frame_t *vars = NULL;
-	size_t n_vars = 0;
 
 	ctx->leaf = false;
 
@@ -1027,6 +1025,8 @@ static bool pcode_finish_call(struct build_function_context *ctx, const struct p
 
 	if (unlikely(test_flat)) {
 		arg_mode_t am;
+		frame_t slot;
+		size_t n_vars;
 
 		if (unlikely(!gen_checkpoint(ctx, NULL, 0)))
 			goto exception;
@@ -1034,9 +1034,11 @@ static bool pcode_finish_call(struct build_function_context *ctx, const struct p
 		vars = mem_alloc_array_mayfail(mem_alloc_mayfail, frame_t *, 0, 0, ctx->n_slots, sizeof(frame_t), ctx->err);
 		if (unlikely(!vars))
 			goto exception;
+
 		am = INIT_ARG_MODE_1;
+		n_vars = 0;
 		for (slot = MIN_USEABLE_SLOT; slot < ctx->n_slots; slot++) {
-			if (ctx->local_variables_flags[slot].must_be_flat) {
+			if (ctx->local_variables_flags[slot].must_be_flat || ctx->local_variables_flags[slot].must_be_data) {
 				vars[n_vars++] = slot;
 				get_arg_mode(am, slot);
 			}
@@ -2318,22 +2320,25 @@ exception:
 static bool pcode_check_args(struct build_function_context *ctx)
 {
 	size_t i;
-	arg_mode_t am;
 	frame_t *vars = NULL;
-	size_t n_vars = 0;
+	size_t n_vars;
+	arg_mode_t am;
 
 	vars = mem_alloc_array_mayfail(mem_alloc_mayfail, frame_t *, 0, 0, ctx->n_real_arguments, sizeof(frame_t), ctx->err);
 	if (unlikely(!vars))
 		goto exception;
 
+	n_vars = 0;
 	am = INIT_ARG_MODE_1;
+
 	for (i = 0; i < ctx->n_real_arguments; i++) {
 		frame_t slot = ctx->args[i].slot;
-		if (ctx->local_variables_flags[slot].must_be_flat) {
+		if (ctx->local_variables_flags[slot].must_be_flat || ctx->local_variables_flags[slot].must_be_data) {
 			vars[n_vars++] = slot;
 			get_arg_mode(am, slot);
 		}
 	}
+
 	if (n_vars) {
 		code_t code;
 		get_arg_mode(am, n_vars);
@@ -2344,6 +2349,7 @@ static bool pcode_check_args(struct build_function_context *ctx)
 		for (i = 0; i < n_vars; i++)
 			gen_am(am, vars[i]);
 	}
+
 	mem_free(vars);
 	vars = NULL;
 
@@ -2516,6 +2522,23 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 			case P_Call:
 				if (unlikely(!pcode_call(ctx, instr)))
 					goto exception;
+#if 0
+				if (instr == P_Call || instr == P_Call_Indirect) {
+					pcode_t next, next_params;
+					pcode_position_save_t s;
+					pcode_position_save(ctx, &s);
+next_one:
+					pcode_get_instr(ctx, &next, &next_params);
+					if (next == P_Line_Info) {
+						ctx->pcode = ctx->pcode_instr_end;
+						goto next_one;
+					}
+					pcode_position_restore(ctx, &s);
+					//ajla_assert_lo(next == P_Checkpoint, (file_line, "%s: is followed by %"PRIdMAX"", instr == P_Call ? "P_Call" : "P_Call_Indirect", (intmax_t)next));
+					debug("%d", next);
+					ctx->pcode_instr_end = ctx->pcode;
+				}
+#endif
 				break;
 			case P_Load_Const:
 				if (unlikely(!pcode_load_constant(ctx)))
@@ -3313,7 +3336,10 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 			pt->slot = layout_get(ctx->layout, pt->color);
 			ctx->local_variables[pt->slot].type = pt->type;
 			/*ctx->local_variables_flags[pt->slot].may_be_borrowed = false;*/
-			ctx->local_variables_flags[pt->slot].must_be_flat = !!(pt->varflags & VarFlag_Must_Be_Flat) /*|| TYPE_TAG_IS_BUILTIN(pt->type->tag)*/;
+			/*if (pt->type->tag == TYPE_TAG_flat_option && !(pt->varflags & VarFlag_Must_Be_Flat))
+				debug("non-flat variable in %s", function_name(ctx));*/
+			ctx->local_variables_flags[pt->slot].must_be_flat = !!(pt->varflags & VarFlag_Must_Be_Flat);
+			ctx->local_variables_flags[pt->slot].must_be_data = !!(pt->varflags & VarFlag_Must_Be_Data);
 		}
 	}
 

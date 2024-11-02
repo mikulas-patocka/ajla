@@ -92,6 +92,7 @@
 #define Structured_Array		3
 
 #define VarFlag_Must_Be_Flat		1
+#define VarFlag_Must_Be_Data		2
 
 #define Flag_Free_Argument		1
 #define Flag_Evaluate			2

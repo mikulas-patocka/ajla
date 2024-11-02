@@ -803,7 +803,7 @@ DEFINE_OPCODE_START(OPCODE_IS_EXCEPTION)
 #ifdef EMIT_CODE
 	frame_t slot_1 = get_i_param(0);
 	frame_t slot_r = get_i_param(1);
-	ajla_assert(slot_r == slot_1 || !frame_test_flag(fp, slot_r), (file_line, "is exception: flag already set for destination slot %"PRIuMAX"", (uintmax_t)slot_r));
+	ajla_assert(slot_r == slot_1 || !frame_test_flag(fp, slot_r), (file_line, "is exception: %s: flag already set for destination slot %"PRIuMAX"", da(get_frame(fp)->function,function)->function_name, (uintmax_t)slot_r));
 	if (!frame_variable_is_flat(fp, slot_1)) {
 		void *ex = is_thunk_operator(fp, ip, slot_1, slot_r, get_i_param(2));
 		if (ex == POINTER_FOLLOW_THUNK_GO)
@@ -1069,6 +1069,12 @@ DEFINE_OPCODE_START(OPCODE_CHECKPOINT)
 		/*for (frame_t l = MIN_USEABLE_SLOT; l < function_n_variables(fn); l++) {
 			if (da(fn,function)->local_variables_flags[l].must_be_flat) {
 				if (unlikely(frame_test_flag(fp, l)))
+					goto cat(checkpoint_exit_,ARG_MODE);
+			}
+		}*/
+		/*for (frame_t l = MIN_USEABLE_SLOT; l < function_n_variables(fn); l++) {
+			if (da(fn,function)->local_variables_flags[l].must_be_data) {
+				if (unlikely(pointer_is_thunk(*frame_pointer(fp, l))))
 					goto cat(checkpoint_exit_,ARG_MODE);
 			}
 		}*/
@@ -2585,7 +2591,7 @@ cat(array_restart_pointer_follow_,ARG_MODE):
 
 		if (unlikely(!array_read(data, array_index, &pptr, &flat, &t_elem, NULL))) {
 			if (unlikely((flags & OPCODE_ARRAY_INDEX_IN_RANGE) != 0))
-				internal(file_line, "array_load: array index out of range");
+				internal(file_line, "array_load: %s: array index out of range", da(get_frame(fp)->function,function)->function_name);
 			ptr = pointer_error(error_ajla(EC_SYNC, AJLA_ERROR_INDEX_OUT_OF_RANGE), fp, ip pass_file_line);
 			goto cat(array_load_set_ptr_,ARG_MODE);
 		}

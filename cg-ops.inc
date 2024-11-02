@@ -36,7 +36,23 @@ static bool attr_w gen_flat_move_copy(struct codegen_context *ctx, frame_t slot_
 
 static bool attr_w gen_ref_move_copy(struct codegen_context *ctx, code_t code, frame_t slot_1, frame_t slot_r)
 {
+	if (flag_must_be_flat(ctx, slot_r)) {
+		uint32_t escape_label = alloc_escape_label(ctx);
+		if (unlikely(!escape_label))
+			return false;
+		gen_insn(INSN_JMP, 0, 0, 0);
+		gen_four(escape_label);
+		return true;
+	}
 	g(gen_frame_load(ctx, OP_SIZE_SLOT, garbage, slot_1, 0, R_SCRATCH_1));
+	if (!da(ctx->fn,function)->local_variables_flags[slot_1].must_be_data &&
+	     da(ctx->fn,function)->local_variables_flags[slot_r].must_be_data) {
+		uint32_t escape_label = alloc_escape_label(ctx);
+		if (unlikely(!escape_label))
+			return false;
+		g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, slot_1, escape_label));
+		ctx->flag_cache[slot_r] |= FLAG_CACHE_IS_NOT_THUNK;
+	}
 	g(gen_frame_store(ctx, OP_SIZE_SLOT, slot_r, 0, R_SCRATCH_1));
 	g(gen_set_1(ctx, R_FRAME, slot_r, 0, true));
 	flag_set(ctx, slot_r, true);
@@ -105,7 +121,7 @@ static bool attr_w gen_box_move_copy(struct codegen_context *ctx, code_t code, f
 		flag_set(ctx, slot_1, false);
 	}
 
-	g(gen_frame_set_pointer(ctx, slot_r, R_RET0, false));
+	g(gen_frame_set_pointer(ctx, slot_r, R_RET0, false, false));
 
 	return true;
 }
@@ -343,7 +359,7 @@ copied:
 	}
 
 	g(gen_compress_pointer(ctx, R_SAVED_1));
-	g(gen_frame_set_pointer(ctx, slot_r, R_SAVED_1, true));
+	g(gen_frame_set_pointer(ctx, slot_r, R_SAVED_1, false, true));
 
 	return true;
 }
@@ -1146,7 +1162,7 @@ static bool attr_w gen_record_create(struct codegen_context *ctx, frame_t slot_r
 	}
 
 	g(gen_compress_pointer(ctx, R_SAVED_1));
-	g(gen_frame_set_pointer(ctx, slot_r, R_SAVED_1, true));
+	g(gen_frame_set_pointer(ctx, slot_r, R_SAVED_1, false, true));
 
 	return true;
 }
@@ -1209,12 +1225,7 @@ static bool attr_w gen_record_load(struct codegen_context *ctx, frame_t slot_1, 
 		g(gen_frame_store(ctx, OP_SIZE_SLOT, slot_r, 0, R_SCRATCH_1));
 		flag_set(ctx, slot_r, false);
 	} else {
-		g(gen_frame_set_pointer(ctx, slot_r, R_SCRATCH_1, false));
-
-		g(gen_upcall_start(ctx, 1));
-		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, R_SCRATCH_1));
-		g(gen_upcall_argument(ctx, 0));
-		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1));
+		g(gen_frame_set_pointer(ctx, slot_r, R_SCRATCH_1, true, false));
 	}
 	return true;
 }
@@ -1258,7 +1269,7 @@ static bool attr_w gen_option_create_empty(struct codegen_context *ctx, ajla_opt
 	gen_imm_offset();
 
 	g(gen_compress_pointer(ctx, R_RET0));
-	g(gen_frame_set_pointer(ctx, slot_r, R_RET0, true));
+	g(gen_frame_set_pointer(ctx, slot_r, R_RET0, false, true));
 
 	return true;
 }
@@ -1339,7 +1350,7 @@ skip_get_pointer_label:
 	gen_one(R_RET0);
 
 	g(gen_compress_pointer(ctx, R_SAVED_1));
-	g(gen_frame_set_pointer(ctx, slot_r, R_SAVED_1, true));
+	g(gen_frame_set_pointer(ctx, slot_r, R_SAVED_1, false, true));
 
 	return true;
 }
@@ -1428,12 +1439,7 @@ static bool attr_w gen_option_load(struct codegen_context *ctx, frame_t slot_1, 
 		g(gen_frame_store(ctx, OP_SIZE_SLOT, slot_r, 0, R_SCRATCH_1));
 		flag_set(ctx, slot_r, false);
 	} else {
-		g(gen_frame_set_pointer(ctx, slot_r, R_SCRATCH_1, false));
-
-		g(gen_upcall_start(ctx, 1));
-		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, R_SCRATCH_1));
-		g(gen_upcall_argument(ctx, 0));
-		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1));
+		g(gen_frame_set_pointer(ctx, slot_r, R_SCRATCH_1, true, false));
 	}
 
 	return true;
@@ -1627,7 +1633,7 @@ static bool attr_w gen_array_create(struct codegen_context *ctx, frame_t slot_r)
 		}
 	}
 	g(gen_compress_pointer(ctx, R_SAVED_1));
-	g(gen_frame_set_pointer(ctx, slot_r, R_SAVED_1, true));
+	g(gen_frame_set_pointer(ctx, slot_r, R_SAVED_1, false, true));
 	return true;
 }
 
@@ -1655,7 +1661,7 @@ static bool attr_w gen_array_create_empty_flat(struct codegen_context *ctx, fram
 	g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, escape_label));
 
 	g(gen_compress_pointer(ctx, R_RET0));
-	g(gen_frame_set_pointer(ctx, slot_r, R_RET0, true));
+	g(gen_frame_set_pointer(ctx, slot_r, R_RET0, false, true));
 
 	return true;
 }
@@ -1681,7 +1687,7 @@ static bool attr_w gen_array_create_empty(struct codegen_context *ctx, frame_t s
 	g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, escape_label));
 
 	g(gen_compress_pointer(ctx, R_RET0));
-	g(gen_frame_set_pointer(ctx, slot_r, R_RET0, true));
+	g(gen_frame_set_pointer(ctx, slot_r, R_RET0, false, true));
 
 	return true;
 }
@@ -1793,6 +1799,9 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 
 		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_array_create_flat), 3));
 	} else {
+		if (ctx->registers[slot_2] >= 0)
+			g(spill(ctx, slot_2));
+
 		g(gen_frame_get_pointer(ctx, slot_1, (flags & OPCODE_FLAG_FREE_ARGUMENT) != 0, R_SCRATCH_1));
 
 		g(gen_upcall_start(ctx, 4));
@@ -1811,7 +1820,7 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 
 		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_array_create_pointers), 4));
 	}
-	g(gen_frame_set_pointer(ctx, slot_r, R_RET0, false));
+	g(gen_frame_set_pointer(ctx, slot_r, R_RET0, false, false));
 
 	return true;
 }
@@ -1841,7 +1850,7 @@ static bool attr_w gen_array_string(struct codegen_context *ctx, type_tag_t tag,
 	g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SAVED_1, R_RET0));
 
 	g(gen_compress_pointer(ctx, R_RET0));
-	g(gen_frame_set_pointer(ctx, slot_r, R_RET0, true));
+	g(gen_frame_set_pointer(ctx, slot_r, R_RET0, false, true));
 
 	g(load_function_offset(ctx, R_SCRATCH_3, offsetof(struct data, u_.function.code)));
 
@@ -2287,13 +2296,7 @@ scaled_load_done:
 			g(gen_frame_store(ctx, OP_SIZE_SLOT, slot_r, 0, R_SCRATCH_1));
 			flag_set(ctx, slot_r, false);
 		} else {
-			g(gen_frame_set_pointer(ctx, slot_r, R_SCRATCH_1, false));
-
-			g(gen_upcall_start(ctx, 1));
-			g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, R_SCRATCH_1));
-
-			g(gen_upcall_argument(ctx, 0));
-			g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1));
+			g(gen_frame_set_pointer(ctx, slot_r, R_SCRATCH_1, true, false));
 		}
 		return true;
 	}
@@ -2455,7 +2458,7 @@ static bool attr_w gen_array_sub(struct codegen_context *ctx, frame_t slot_array
 		}
 	}
 
-	g(gen_frame_set_pointer(ctx, slot_r, R_RET0, false));
+	g(gen_frame_set_pointer(ctx, slot_r, R_RET0, false, false));
 
 	return true;
 }
@@ -2514,7 +2517,7 @@ static bool attr_w gen_array_skip(struct codegen_context *ctx, frame_t slot_arra
 		}
 	}
 
-	g(gen_frame_set_pointer(ctx, slot_r, R_RET0, false));
+	g(gen_frame_set_pointer(ctx, slot_r, R_RET0, false, false));
 
 	return true;
 }
@@ -2553,7 +2556,7 @@ static bool attr_w gen_array_append(struct codegen_context *ctx, frame_t slot_1,
 	gen_one(R_SAVED_1);
 	g(gen_upcall_argument(ctx, 1));
 	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_array_join), 2));
-	g(gen_frame_set_pointer(ctx, slot_r, R_RET0, false));
+	g(gen_frame_set_pointer(ctx, slot_r, R_RET0, false, false));
 	return true;
 }
 
@@ -2604,7 +2607,7 @@ static bool attr_w gen_array_append_one_flat(struct codegen_context *ctx, frame_
 		g(gen_set_1(ctx, R_FRAME, slot_1, 0, false));
 		flag_set(ctx, slot_1, false);
 		g(gen_compress_pointer(ctx, R_SAVED_1));
-		g(gen_frame_set_pointer(ctx, slot_r, R_SAVED_1, true));
+		g(gen_frame_set_pointer(ctx, slot_r, R_SAVED_1, false, true));
 	}
 
 	return true;
@@ -2668,7 +2671,7 @@ static bool attr_w gen_array_append_one(struct codegen_context *ctx, frame_t slo
 		g(gen_set_1(ctx, R_FRAME, slot_1, 0, false));
 		flag_set(ctx, slot_1, false);
 		g(gen_compress_pointer(ctx, R_SAVED_1));
-		g(gen_frame_set_pointer(ctx, slot_r, R_SAVED_1, true));
+		g(gen_frame_set_pointer(ctx, slot_r, R_SAVED_1, false, true));
 	}
 
 	return true;
@@ -2734,6 +2737,15 @@ static bool attr_w gen_io(struct codegen_context *ctx, frame_t code, frame_t slo
 				return false;
 			}
 			g(gen_test_1(ctx, R_FRAME, output_slot, 0, escape_label, false, TEST));
+		}
+		if (da(ctx->fn,function)->local_variables_flags[output_slot].must_be_data) {
+			uint32_t escape_label = alloc_escape_label_for_ip(ctx, ctx->current_position);
+			if (unlikely(!escape_label)) {
+				mem_free(ctx->var_aux);
+				return false;
+			}
+			g(gen_frame_load(ctx, OP_SIZE_SLOT, garbage, slot_1, 0, R_SCRATCH_1));
+			g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, slot_1, escape_label));
 		}
 	}
 

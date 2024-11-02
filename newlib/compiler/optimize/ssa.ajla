@@ -1896,9 +1896,19 @@ in_loop2:
 					ctx.variables[vgi].must_be_flat := true;
 					ctx.variables[vgi].ra_priority += 1;
 				]
+				if rt = T_Undetermined or rt = T_Record then [
+					ctx.variables[vgi].must_be_data := true;
+				]
 			]
 		]
 	]
+	{for vgi := 0 to len(ctx.variables) do [
+		var rt := ctx.variables[vgi].runtime_type;
+		if rt < 0, rt >= T_FlatOption then
+			ctx.variables[vgi].must_be_flat := true;
+		if rt = T_Undetermined or rt = T_Record then
+			ctx.variables[vgi].must_be_data := true;
+	]}
 
 	return ctx;
 ]
@@ -2138,12 +2148,12 @@ skip_free_instr:
 				]
 				goto skip_call;
 not_elided:
-				var p_live := prev_live;
+				var p_live := prev_live or write_mask;
 				var new_live : var_set := 0;
 				while p_live <> 0 do [
 					var l : int := bsr p_live;
 					p_live btr= l;
-					if ctx.variables[l].must_be_flat then
+					if ctx.variables[l].must_be_flat or ctx.variables[l].must_be_data then
 						new_live bts= l;
 				]
 				var cp_instr := create_instr(P_Checkpoint, var_set_2_list(new_live), bgi);
@@ -2215,7 +2225,7 @@ have_ili:
 			while live_bottom <> 0 do [
 				var l : int := bsr live_bottom;
 				live_bottom btr= l;
-				if ctx.variables[l].must_be_flat then
+				if ctx.variables[l].must_be_flat or ctx.variables[l].must_be_data then
 					new_live_bottom bts= l;
 			]
 			var cp_instr := create_instr(P_Checkpoint, var_set_2_list(new_live_bottom), bgi);
@@ -2239,14 +2249,14 @@ fn instance_ord_type_index(ctx : context) : class_ord(int) :=
 
 fn allocate_variables(ctx : context) : context
 [
-	var type_to_var_set : list(var_set) := fill(var_set, 0, (len(ctx.local_types) - T_Undetermined) * 2);
+	var type_to_var_set : list(var_set) := fill(var_set, 0, (len(ctx.local_types) - T_Undetermined) * 4);
 	for vgi := 0 to len(ctx.variables) do [
 		var v := ctx.variables[vgi];
 		if v.color = -1 then
 			continue;
 		if v.runtime_type < T_Undetermined then
 			abort internal("allocate_variables: invalid runtime_type: " + ctx.name + ", " + ntos(vgi) + "(" + v.name + "): " + ntos(v.runtime_type));
-		type_to_var_set[(v.runtime_type - T_Undetermined) * 2 + select(v.must_be_flat, 0, 1)] bts= vgi;
+		type_to_var_set[(v.runtime_type - T_Undetermined) * 4 + select(v.must_be_flat, 0, 1) + select(v.must_be_data, 0, 2)] bts= vgi;
 		if not ctx.cm[vgi] bt vgi then
 			abort internal("self-bit not set for variable " + ntos(vgi));
 		ctx.variables[vgi].color := -1;
@@ -2645,7 +2655,7 @@ retry_optimize:
 		rpc +<= v.type_index;
 		rpc +<= v.runtime_type;
 		rpc +<= v.color;
-		rpc +<= select(v.must_be_flat, 0, VarFlag_Must_Be_Flat);
+		rpc +<= select(v.must_be_flat, 0, VarFlag_Must_Be_Flat) or select(v.must_be_data, 0, VarFlag_Must_Be_Data);
 		rpc += blob_store(v.name);
 	]
 

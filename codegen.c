@@ -1188,6 +1188,43 @@ fail:
 	return true;
 }
 
+static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *variables, size_t n_variables, uint32_t label)
+{
+	size_t i;
+	frame_t *vars;
+
+	vars = mem_alloc_array_mayfail(mem_alloc_mayfail, frame_t *, 0, 0, n_variables, sizeof(frame_t), &ctx->err);
+	if (unlikely(!vars))
+		return false;
+
+	for (i = 0; i < 2; i++) {
+		size_t n;
+		size_t n_vars = 0;
+		for (n = 0; n < n_variables; n++) {
+			frame_t v = variables[n];
+			if (!i ? da(ctx->fn,function)->local_variables_flags[v].must_be_flat : da(ctx->fn,function)->local_variables_flags[v].must_be_data)
+				vars[n_vars++] = v;
+		}
+		if (!i) {
+			if (!gen_test_multiple(ctx, vars, n_vars, label)) {
+				mem_free(vars);
+				return false;
+			}
+		} else {
+			for (n = 0; n < n_vars; n++) {
+				if (!gen_frame_load(ctx, OP_SIZE_SLOT, garbage, vars[n], 0, R_SCRATCH_1) ||
+				    !gen_ptr_is_thunk(ctx, R_SCRATCH_1, NO_FRAME_T, label)) {
+					mem_free(vars);
+					return false;
+				}
+			}
+		}
+	}
+
+	mem_free(vars);
+	return true;
+}
+
 static bool attr_w gen_function(struct codegen_context *ctx)
 {
 	ctx->current_position = da(ctx->fn,function)->code;
@@ -1574,7 +1611,7 @@ skip_dereference:
 					return false;
 				}
 
-				if (unlikely(!gen_test_multiple(ctx, vars, n, escape_label))) {
+				if (unlikely(!gen_test_variables(ctx, vars, n, escape_label))) {
 					mem_free(vars);
 					return false;
 				}
@@ -1635,7 +1672,7 @@ skip_dereference:
 							return false;
 					}
 					if (!slot_1) {
-						g(gen_test_multiple(ctx, ce->variables, ce->n_variables, ctx->escape_nospill_label));
+						g(gen_test_variables(ctx, ce->variables, ce->n_variables, ctx->escape_nospill_label));
 					}
 					entry_label = alloc_label(ctx);
 					if (unlikely(!entry_label))
@@ -1984,7 +2021,7 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 			gen_insn(INSN_ENTRY, 0, 0, 0);
 			gen_four(i);
 
-			g(gen_test_multiple(ctx, ce->variables, ce->n_variables, ce->nonflat_label));
+			g(gen_test_variables(ctx, ce->variables, ce->n_variables, ce->nonflat_label));
 
 			gen_insn(INSN_JMP, 0, 0, 0);
 			gen_four(ce->entry_label);
@@ -2013,7 +2050,7 @@ static bool attr_w gen_epilogues(struct codegen_context *ctx)
 	if (ctx->reload_label) {
 		gen_label(ctx->reload_label);
 		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_FRAME, R_RET0));
-		g(gen_escape_arg(ctx, (ip_t)-1, escape_label));
+		g(gen_escape_arg(ctx, (ip_t)-1, nospill_label));
 	}
 	gen_label(ctx->escape_nospill_label);
 	g(gen_escape_arg(ctx, 0, nospill_label));

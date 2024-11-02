@@ -29,7 +29,7 @@ unsupported pointer mode
 static bool attr_w gen_ptr_is_thunk(struct codegen_context *ctx, unsigned reg, frame_t slot, uint32_t label)
 {
 	if (slot != NO_FRAME_T) {
-		if (ctx->flag_cache[slot] & FLAG_CACHE_IS_NOT_THUNK)
+		if (ctx->flag_cache[slot] & FLAG_CACHE_IS_NOT_THUNK || da(ctx->fn,function)->local_variables_flags[slot].must_be_data)
 			return true;
 		ctx->flag_cache[slot] |= FLAG_CACHE_IS_NOT_THUNK;
 	}
@@ -265,13 +265,30 @@ move_it:
 	return true;
 }
 
-static bool attr_w gen_frame_set_pointer(struct codegen_context *ctx, frame_t slot, unsigned src, bool not_thunk)
+static bool attr_w gen_frame_set_pointer(struct codegen_context *ctx, frame_t slot, unsigned src, bool reference, bool not_thunk)
 {
+	bool escape_on_thunk = !not_thunk && da(ctx->fn,function)->local_variables_flags[slot].must_be_data;
 	g(gen_set_1(ctx, R_FRAME, slot, 0, true));
 	flag_set_unknown(ctx, slot);
 	if (not_thunk)
 		ctx->flag_cache[slot] |= FLAG_CACHE_IS_NOT_THUNK;
 	flag_set(ctx, slot, true);
 	g(gen_frame_store(ctx, OP_SIZE_SLOT, slot, 0, src));
+	if (reference) {
+		if (escape_on_thunk)
+			g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SAVED_1, src));
+		g(gen_upcall_start(ctx, 1));
+		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, src));
+		g(gen_upcall_argument(ctx, 0));
+		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1));
+		if (escape_on_thunk)
+			src = R_SAVED_1;
+	}
+	if (escape_on_thunk) {
+		uint32_t nondata_label = alloc_escape_label_for_ip(ctx, ctx->current_position);
+		if (unlikely(!nondata_label))
+			return false;
+		g(gen_ptr_is_thunk(ctx, src, NO_FRAME_T, nondata_label));
+	}
 	return true;
 }
