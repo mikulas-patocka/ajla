@@ -1010,18 +1010,20 @@ static bool attr_w gen_memcpy_from_slot(struct codegen_context *ctx, unsigned de
 static bool attr_w gen_memcpy_slots(struct codegen_context *ctx, frame_t dest_slot, frame_t src_slot)
 {
 	const struct type *t = get_type_of_local(ctx, src_slot);
-	unsigned size = spill_size(t);
 	short dest_reg = ctx->registers[dest_slot];
 	short src_reg = ctx->registers[src_slot];
 	if (dest_reg >= 0 && src_reg >= 0) {
+		unsigned size = spill_size(t);
 		g(gen_mov(ctx, reg_is_fp(src_reg) ? size : OP_SIZE_NATIVE, dest_reg, src_reg));
 		return true;
 	}
 	if (dest_reg >= 0) {
+		unsigned size = spill_size(t);
 		g(gen_frame_load(ctx, size, garbage, src_slot, 0, dest_reg));
 		return true;
 	}
 	if (src_reg >= 0) {
+		unsigned size = spill_size(t);
 		g(gen_frame_store(ctx, size, dest_slot, 0, src_reg));
 		return true;
 	}
