@@ -800,15 +800,21 @@ do {									\
 	else not_reached();						\
 } while (0)
 
-static bool gen_checkpoint(struct build_function_context *ctx, const pcode_t *params, pcode_t n_params)
+static bool gen_checkpoint(struct build_function_context *ctx, const pcode_t *params, pcode_t n_params, bool check_arguments)
 {
 	arg_mode_t am;
 	code_t code;
 	pcode_t i;
 	pcode_t n_used_params;
+	frame_t v;
+	bool *processed_variables = NULL;
 
 	if (unlikely(ctx->is_eval))
 		return true;
+
+	processed_variables = mem_alloc_array_mayfail(mem_calloc_mayfail, bool *, 0, 0, ctx->n_slots, sizeof(bool), ctx->err);
+	if (unlikely(!processed_variables))
+		goto exception;
 
 	am = INIT_ARG_MODE_1;
 	get_arg_mode(am, n_params);
@@ -821,7 +827,27 @@ static bool gen_checkpoint(struct build_function_context *ctx, const pcode_t *pa
 			continue;
 		tv = get_var_type(ctx, var);
 		get_arg_mode(am, tv->slot);
-		n_used_params++;
+		if (!processed_variables[tv->slot]) {
+			processed_variables[tv->slot] = true;
+			n_used_params++;
+		}
+	}
+
+	if (check_arguments) {
+		arg_t ia;
+		for (ia = 0; ia < ctx->n_real_arguments; ia++) {
+			const struct local_arg *la = &ctx->args[ia];
+			if (ctx->local_variables_flags[la->slot].must_be_flat && ia < 4 && 0)
+				goto x;
+			if (!la->may_be_borrowed)
+				continue;
+x:
+			get_arg_mode(am, la->slot);
+			if (!processed_variables[la->slot]) {
+				processed_variables[la->slot] = true;
+				n_used_params++;
+			}
+		}
 	}
 
 	code = OPCODE_CHECKPOINT;
@@ -831,23 +857,26 @@ static bool gen_checkpoint(struct build_function_context *ctx, const pcode_t *pa
 
 	gen_am(am, n_used_params);
 
-	for (i = 0; i < n_params; i++) {
-		const struct pcode_type *tv;
-		pcode_t var = params[i];
-		if (var_elided(var))
-			continue;
-		tv = get_var_type(ctx, var);
-		gen_am(am, tv->slot);
+	for (v = 0; v < ctx->n_slots; v++) {
+		if (unlikely(processed_variables[v])) {
+			gen_am(am, v);
+		}
 	}
+
+	mem_free(processed_variables);
+	processed_variables = NULL;
 
 	ctx->checkpoint_num++;
 	if (unlikely(!ctx->checkpoint_num)) {
 		fatal_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_SIZE_OVERFLOW), ctx->err, "checkpoint number overflow");
 		goto exception;
 	}
+
 	return true;
 
 exception:
+	if (processed_variables)
+		mem_free(processed_variables);
 	return false;
 }
 
@@ -1028,7 +1057,7 @@ static bool pcode_finish_call(struct build_function_context *ctx, const struct p
 		frame_t slot;
 		size_t n_vars;
 
-		if (unlikely(!gen_checkpoint(ctx, NULL, 0)))
+		if (unlikely(!gen_checkpoint(ctx, NULL, 0, false)))
 			goto exception;
 
 		vars = mem_alloc_array_mayfail(mem_alloc_mayfail, frame_t *, 0, 0, ctx->n_slots, sizeof(frame_t), ctx->err);
@@ -2363,7 +2392,7 @@ exception:
 
 static bool pcode_generate_instructions(struct build_function_context *ctx)
 {
-	if (unlikely(!gen_checkpoint(ctx, NULL, 0)))
+	if (unlikely(!gen_checkpoint(ctx, NULL, 0, false)))
 		goto exception;
 
 	if (unlikely(!pcode_check_args(ctx)))
@@ -2971,7 +3000,7 @@ next_one:
 					goto exception;
 				break;
 			case P_Checkpoint:
-				if (unlikely(!gen_checkpoint(ctx, ctx->pcode, instr_params)))
+				if (unlikely(!gen_checkpoint(ctx, ctx->pcode, instr_params, true)))
 					goto exception;
 				for (p = 0; p < instr_params; p++)
 					u_pcode_get();

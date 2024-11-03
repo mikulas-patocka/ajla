@@ -1052,13 +1052,15 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 		t = get_type_of_local(ctx, v);
 		if (unlikely(!t))
 			continue;
-		if (!da(ctx->fn,function)->local_variables_flags[v].must_be_flat)
+		if (!da(ctx->fn,function)->local_variables_flags[v].must_be_flat && !da(ctx->fn,function)->local_variables_flags[v].must_be_data)
 			continue;
 		if (!ARCH_HAS_BWX && t->size < 1U << OP_SIZE_4)
 			continue;
-		if (TYPE_TAG_IS_FIXED(t->tag) || TYPE_TAG_IS_INT(t->tag) || t->tag == TYPE_TAG_flat_option) {
-			if (!is_power_of_2(t->size) || t->size > 1U << OP_SIZE_NATIVE)
-				continue;
+		if (TYPE_TAG_IS_FIXED(t->tag) || TYPE_TAG_IS_INT(t->tag) || t->tag == TYPE_TAG_flat_option || t->tag == TYPE_TAG_unknown || t->tag == TYPE_TAG_record) {
+			if (TYPE_TAG_IS_BUILTIN(t->tag)) {
+				if (!is_power_of_2(t->size) || t->size > 1U << OP_SIZE_NATIVE)
+					continue;
+			}
 			if (index_saved < n_regs_saved + zero
 #if defined(ARCH_PARISC) || defined(ARCH_SPARC)
 				&& t->size <= 1U << OP_SIZE_ADDRESS
@@ -1192,6 +1194,12 @@ static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *vari
 {
 	size_t i;
 	frame_t *vars;
+
+	for (i = 0; i < n_variables; i++) {
+		frame_t v = variables[i];
+		if (ctx->registers[v] >= 0)
+			g(unspill(ctx, v));
+	}
 
 	vars = mem_alloc_array_mayfail(mem_alloc_mayfail, frame_t *, 0, 0, n_variables, sizeof(frame_t), &ctx->err);
 	if (unlikely(!vars))

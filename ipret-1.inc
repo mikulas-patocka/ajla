@@ -1079,7 +1079,7 @@ DEFINE_OPCODE_START(OPCODE_CHECKPOINT)
 			}
 		}*/
 
-		/*debug("running optimized code: %s, %p, %x, %p, %p, %p, %u, %p", da(fn,function)->function_name, da(codegen,codegen)->unoptimized_code_base, id, da(codegen,codegen)->unoptimized_code[id], fp, &cg_upcall_vector, ts, da(codegen,codegen)->unoptimized_code[id]);*/
+		/*debug("running optimized code: %s, %p, %x, %p, %p, %p, %u, %p, %lx", da(fn,function)->function_name, da(codegen,codegen)->unoptimized_code_base, id, da(codegen,codegen)->unoptimized_code[id], fp, &cg_upcall_vector, ts, da(codegen,codegen)->unoptimized_code[id], (unsigned long)((char *)da(codegen,codegen)->unoptimized_code[id] - (char *)da(codegen,codegen)->unoptimized_code_base));*/
 		/*debug("fp[0] = %lx", *(long *)((char *)fp + 0));
 		debug("fp[8] = %lx", *(long *)((char *)fp + 8));
 		debug("fp[16] = %lx", *(long *)((char *)fp + 16));

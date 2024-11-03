@@ -1898,6 +1898,7 @@ in_loop2:
 				]
 				if rt = T_Undetermined or rt = T_Record then [
 					ctx.variables[vgi].must_be_data := true;
+					ctx.variables[vgi].ra_priority += 1;
 				]
 			]
 		]

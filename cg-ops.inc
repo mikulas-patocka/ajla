@@ -879,6 +879,8 @@ struct_zero:
 		struct_type = NULL;
 	}
 
+	if (ctx->registers[slot_struct] >= 0)
+		g(spill(ctx, slot_struct));
 	g(gen_frame_address(ctx, slot_struct, 0, R_SAVED_1));
 
 	for (i = 0; i < ctx->args_l; i++) {

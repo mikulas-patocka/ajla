@@ -59,7 +59,9 @@ static unsigned real_type_to_op_size(unsigned real_type)
 
 static unsigned spill_size(const struct type *t)
 {
-	if (TYPE_TAG_IS_REAL(t->tag)) {
+	if (!TYPE_TAG_IS_BUILTIN(t->tag)) {
+		return OP_SIZE_SLOT;
+	} else if (TYPE_TAG_IS_REAL(t->tag)) {
 		return real_type_to_op_size(TYPE_TAG_IDX_REAL(t->tag));
 	} else {
 		return log_2(t->size);
@@ -610,6 +612,8 @@ static bool attr_w gen_frame_clear_raw(struct codegen_context *ctx, unsigned siz
 static bool attr_w gen_frame_clear(struct codegen_context *ctx, unsigned size, frame_t slot)
 {
 	g(gen_frame_store_imm(ctx, size, slot, 0, 0));
+	if (ctx->registers[slot] >= 0)
+		g(spill(ctx, slot));
 	return true;
 }
 
