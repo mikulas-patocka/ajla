@@ -1052,7 +1052,8 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 		t = get_type_of_local(ctx, v);
 		if (unlikely(!t))
 			continue;
-		if (!da(ctx->fn,function)->local_variables_flags[v].must_be_flat && !da(ctx->fn,function)->local_variables_flags[v].must_be_data)
+		if (!da(ctx->fn,function)->local_variables_flags[v].must_be_flat &&
+		    !da(ctx->fn,function)->local_variables_flags[v].must_be_data)
 			continue;
 		if (!ARCH_HAS_BWX && t->size < 1U << OP_SIZE_4)
 			continue;

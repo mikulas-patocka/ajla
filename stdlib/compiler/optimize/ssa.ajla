@@ -1896,7 +1896,11 @@ in_loop2:
 					ctx.variables[vgi].must_be_flat := true;
 					ctx.variables[vgi].ra_priority += 1;
 				]
-				if rt = T_Undetermined or rt = T_Record then [
+				if rt = T_Undetermined then [
+					ctx.variables[vgi].must_be_data := true;
+					ctx.variables[vgi].ra_priority += 1;
+				]
+				if rt >= 0, ctx.local_types[rt] is rec then [
 					ctx.variables[vgi].must_be_data := true;
 					ctx.variables[vgi].ra_priority += 1;
 				]
@@ -1907,7 +1911,9 @@ in_loop2:
 		var rt := ctx.variables[vgi].runtime_type;
 		if rt < 0, rt >= T_FlatOption then
 			ctx.variables[vgi].must_be_flat := true;
-		if rt = T_Undetermined or rt = T_Record then
+		if rt = T_Undetermined then
+			ctx.variables[vgi].must_be_data := true;
+		if rt >= 0, ctx.local_types[rt] is rec then
 			ctx.variables[vgi].must_be_data := true;
 	]}
 
