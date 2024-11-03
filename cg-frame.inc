@@ -78,7 +78,12 @@ static bool attr_w spill(struct codegen_context *ctx, frame_t v)
 static bool attr_w unspill(struct codegen_context *ctx, frame_t v)
 {
 	const struct type *t = get_type_of_local(ctx, v);
-	g(gen_frame_load_raw(ctx, spill_size(t), garbage, v, 0, ctx->registers[v]));
+	enum extend ex = garbage;
+	if (t->tag == TYPE_TAG_flat_option)
+		ex = zero;
+	else if (!TYPE_IS_FLAT(t))
+		ex = native;
+	g(gen_frame_load_raw(ctx, spill_size(t), ex, v, 0, ctx->registers[v]));
 	return true;
 }
 
@@ -1160,5 +1165,23 @@ static bool attr_w load_function_offset(struct codegen_context *ctx, unsigned de
 	gen_one(dest);
 	gen_address_offset();
 
+	return true;
+}
+
+
+static bool attr_w gen_frame_load_slot(struct codegen_context *ctx, frame_t slot, unsigned reg)
+{
+	g(gen_frame_load(ctx, OP_SIZE_SLOT, native, slot, 0, reg));
+	return true;
+}
+
+static bool attr_w gen_frame_get_slot(struct codegen_context *ctx, frame_t slot, unsigned reg, unsigned *dest)
+{
+	if (ctx->registers[slot] >= 0) {
+		*dest = ctx->registers[slot];
+		return true;
+	}
+	*dest = reg;
+	g(gen_frame_load_slot(ctx, slot, reg));
 	return true;
 }

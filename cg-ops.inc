@@ -36,6 +36,7 @@ static bool attr_w gen_flat_move_copy(struct codegen_context *ctx, frame_t slot_
 
 static bool attr_w gen_ref_move_copy(struct codegen_context *ctx, code_t code, frame_t slot_1, frame_t slot_r)
 {
+	unsigned reg;
 	if (flag_must_be_flat(ctx, slot_r)) {
 		uint32_t escape_label = alloc_escape_label(ctx);
 		if (unlikely(!escape_label))
@@ -44,21 +45,21 @@ static bool attr_w gen_ref_move_copy(struct codegen_context *ctx, code_t code, f
 		gen_four(escape_label);
 		return true;
 	}
-	g(gen_frame_load(ctx, OP_SIZE_SLOT, garbage, slot_1, 0, R_SCRATCH_1));
+	g(gen_frame_get_slot(ctx, slot_1, R_SCRATCH_1, &reg));
 	if (!da(ctx->fn,function)->local_variables_flags[slot_1].must_be_data &&
 	     da(ctx->fn,function)->local_variables_flags[slot_r].must_be_data) {
 		uint32_t escape_label = alloc_escape_label(ctx);
 		if (unlikely(!escape_label))
 			return false;
-		g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, slot_1, escape_label));
+		g(gen_ptr_is_thunk(ctx, reg, slot_1, escape_label));
 		ctx->flag_cache[slot_r] |= FLAG_CACHE_IS_NOT_THUNK;
 	}
-	g(gen_frame_store(ctx, OP_SIZE_SLOT, slot_r, 0, R_SCRATCH_1));
+	g(gen_frame_store(ctx, OP_SIZE_SLOT, slot_r, 0, reg));
 	g(gen_set_1(ctx, R_FRAME, slot_r, 0, true));
 	flag_set(ctx, slot_r, true);
 	if (code == OPCODE_REF_COPY) {
 		g(gen_upcall_start(ctx, 1));
-		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, R_SCRATCH_1));
+		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, reg));
 		g(gen_upcall_argument(ctx, 0));
 		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1));
 	} else if (code == OPCODE_REF_MOVE && !da(ctx->fn,function)->local_variables_flags[slot_1].may_be_borrowed) {
@@ -77,7 +78,7 @@ static bool attr_w gen_ref_move_copy(struct codegen_context *ctx, code_t code, f
 		g(gen_test_1(ctx, R_FRAME, slot_1, 0, label_id, false, TEST_CLEAR));
 do_reference:
 		g(gen_upcall_start(ctx, 1));
-		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, R_SCRATCH_1));
+		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, reg));
 		g(gen_upcall_argument(ctx, 0));
 		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1));
 move_it:
