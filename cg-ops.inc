@@ -130,6 +130,7 @@ static bool attr_w gen_box_move_copy(struct codegen_context *ctx, code_t code, f
 static bool attr_w gen_eval(struct codegen_context *ctx, frame_t slot_1)
 {
 	uint32_t escape_label, skip_label;
+	unsigned reg;
 
 	escape_label = alloc_escape_label(ctx);
 	if (unlikely(!escape_label))
@@ -141,8 +142,8 @@ static bool attr_w gen_eval(struct codegen_context *ctx, frame_t slot_1)
 
 	g(gen_test_1_jz_cached(ctx, slot_1, skip_label));
 
-	g(gen_frame_load(ctx, OP_SIZE_SLOT, garbage, slot_1, 0, R_SCRATCH_1));
-	g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, slot_1, escape_label));
+	g(gen_frame_get_slot(ctx, slot_1, R_SCRATCH_1, &reg));
+	g(gen_ptr_is_thunk(ctx, reg, slot_1, escape_label));
 
 	gen_label(skip_label);
 
