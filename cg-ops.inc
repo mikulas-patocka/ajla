@@ -2298,7 +2298,7 @@ static bool attr_w gen_array_len(struct codegen_context *ctx, frame_t slot_1, fr
 {
 	const struct type *t = get_type_of_local(ctx, slot_1);
 	uint32_t escape_label;
-	unsigned target;
+	unsigned reg, target;
 
 	escape_label = alloc_escape_label(ctx);
 	if (unlikely(!escape_label))
@@ -2321,9 +2321,7 @@ static bool attr_w gen_array_len(struct codegen_context *ctx, frame_t slot_1, fr
 		}
 		flag_set(ctx, slot_r, false);
 	} else {
-		g(gen_frame_load(ctx, OP_SIZE_SLOT, zero_x, slot_1, 0, R_SCRATCH_1));
-		g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, slot_1, escape_label));
-		g(gen_barrier(ctx));
+		g(gen_frame_decompress_slot(ctx, slot_1, R_SCRATCH_1, &reg, escape_label));
 
 		if (offsetof(struct data, u_.array_flat.n_used_entries) != offsetof(struct data, u_.array_slice.n_entries) ||
 		    offsetof(struct data, u_.array_flat.n_used_entries) != offsetof(struct data, u_.array_pointers.n_used_entries)) {
@@ -2339,7 +2337,7 @@ static bool attr_w gen_array_len(struct codegen_context *ctx, frame_t slot_1, fr
 			return false;
 		}
 
-		g(gen_compare_da_tag(ctx, R_SCRATCH_1, DATA_TAG_array_pointers, COND_A, escape_label, R_SCRATCH_2));
+		g(gen_compare_ptr_tag(ctx, reg, DATA_TAG_array_pointers, COND_A, escape_label, R_SCRATCH_2));
 
 		if (slot_2 == NO_FRAME_T) {
 			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
@@ -2347,22 +2345,21 @@ static bool attr_w gen_array_len(struct codegen_context *ctx, frame_t slot_1, fr
 			target = R_SCRATCH_1;
 		}
 
-		gen_pointer_compression(R_SCRATCH_1);
 #if defined(ARCH_X86) || defined(ARCH_S390)
 		if (fused && ctx->registers[slot_2] >= 0) {
-			g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.array_flat.n_used_entries), ARCH_PREFERS_SX(OP_SIZE_INT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_INT));
+			g(gen_address(ctx, reg, offsetof(struct data, u_.array_flat.n_used_entries), ARCH_PREFERS_SX(OP_SIZE_INT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_INT));
 			gen_insn(INSN_CMP, OP_SIZE_INT, 0, 1 + COND_IS_LOGICAL(COND_GE));
 			gen_one(ctx->registers[slot_2]);
-			gen_address_offset_compressed();
+			gen_address_offset();
 
 			g(gen_jump(ctx, offs_false, i_size_cmp(OP_SIZE_INT), COND_GE, -1U, -1U));
 			return true;
 		}
 #endif
-		g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.array_flat.n_used_entries), ARCH_PREFERS_SX(OP_SIZE_INT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_INT));
+		g(gen_address(ctx, reg, offsetof(struct data, u_.array_flat.n_used_entries), ARCH_PREFERS_SX(OP_SIZE_INT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_INT));
 		gen_insn(ARCH_PREFERS_SX(OP_SIZE_INT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_INT, 0, 0);
 		gen_one(target);
-		gen_address_offset_compressed();
+		gen_address_offset();
 
 		if (fused)
 do_fused:	{
