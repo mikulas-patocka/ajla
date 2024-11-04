@@ -2091,7 +2091,7 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 	const struct type *t = get_type_of_local(ctx, slot_1);
 	const struct type *tr = get_type_of_local(ctx, slot_r);
 	uint32_t escape_label;
-	unsigned reg2;
+	unsigned reg1, reg2;
 
 	escape_label = alloc_escape_label(ctx);
 	if (unlikely(!escape_label))
@@ -2114,21 +2114,19 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 		return true;
 	}
 
-	g(gen_frame_load(ctx, OP_SIZE_SLOT, zero_x, slot_1, 0, R_SCRATCH_1));
-	g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, slot_1, escape_label));
-	g(gen_barrier(ctx));
-	g(gen_decompress_pointer(ctx, false, R_SCRATCH_1, R_SCRATCH_1, 0));
+	g(gen_frame_decompress_slot(ctx, slot_1, R_SCRATCH_1, &reg1, escape_label));
 
 	g(gen_test_1_cached(ctx, slot_idx, escape_label));
 	flag_set(ctx, slot_idx, false);
 	g(gen_frame_get(ctx, OP_SIZE_INT, native, slot_idx, 0, R_SCRATCH_2, &reg2));
 
 	if (!(flags & OPCODE_ARRAY_INDEX_IN_RANGE))
-		g(gen_check_array_len(ctx, R_SCRATCH_1, false, reg2, COND_AE, escape_label));
+		g(gen_check_array_len(ctx, reg1, false, reg2, COND_AE, escape_label));
 
 	if (TYPE_IS_FLAT(tr)) {
 		uint32_t label;
-		g(gen_compare_ptr_tag(ctx, R_SCRATCH_1, DATA_TAG_array_slice, COND_A, escape_label, R_SCRATCH_4));
+		g(gen_compare_ptr_tag(ctx, reg1, DATA_TAG_array_slice, COND_A, escape_label, R_SCRATCH_4));
+		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SCRATCH_1, reg1));
 #if defined(ARCH_X86) || defined(ARCH_S390)
 #if defined(ARCH_X86)
 		if (unlikely(!cpu_test_feature(CPU_FEATURE_cmov)))
@@ -2136,13 +2134,13 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 		if (unlikely(!cpu_test_feature(CPU_FEATURE_misc_45)))
 #endif
 		{
-			g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.array_slice.flat_data_minus_data_array_offset), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+			g(gen_address(ctx, reg1, offsetof(struct data, u_.array_slice.flat_data_minus_data_array_offset), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 			gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 			gen_one(R_SCRATCH_3);
 			gen_address_offset();
 			goto no_cmov;
 		}
-		g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.array_slice.flat_data_minus_data_array_offset), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+		g(gen_address(ctx, reg1, offsetof(struct data, u_.array_slice.flat_data_minus_data_array_offset), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 		gen_insn(INSN_CMOV, OP_SIZE_ADDRESS, COND_E, 0);
 		gen_one(R_SCRATCH_1);
 		gen_one(R_SCRATCH_1);
@@ -2228,9 +2226,9 @@ no_cmov:
 			return true;
 		}
 
-		g(gen_compare_ptr_tag(ctx, R_SCRATCH_1, DATA_TAG_array_pointers, COND_NE, escape_label, R_SCRATCH_3));
+		g(gen_compare_ptr_tag(ctx, reg1, DATA_TAG_array_pointers, COND_NE, escape_label, R_SCRATCH_3));
 
-		g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.array_pointers.pointer), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+		g(gen_address(ctx, reg1, offsetof(struct data, u_.array_pointers.pointer), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 		gen_one(R_SCRATCH_1);
 		gen_address_offset();
