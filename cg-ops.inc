@@ -2666,8 +2666,6 @@ static bool attr_w gen_array_append_one(struct codegen_context *ctx, frame_t slo
 	return true;
 }
 
-static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *variables, size_t n_variables, uint32_t label);
-
 static bool attr_w gen_io(struct codegen_context *ctx, frame_t code, frame_t slot_1, frame_t slot_2, frame_t slot_3)
 {
 	uint32_t reload_label, escape_label;

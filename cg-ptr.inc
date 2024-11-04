@@ -68,6 +68,46 @@ static bool attr_w gen_test_multiple_thunks(struct codegen_context *ctx, frame_t
 	return true;
 }
 
+static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *variables, size_t n_variables, uint32_t label)
+{
+	size_t i;
+	frame_t *vars;
+
+	for (i = 0; i < n_variables; i++) {
+		frame_t v = variables[i];
+		if (ctx->registers[v] >= 0)
+			g(unspill(ctx, v));
+	}
+
+	vars = mem_alloc_array_mayfail(mem_alloc_mayfail, frame_t *, 0, 0, n_variables, sizeof(frame_t), &ctx->err);
+	if (unlikely(!vars))
+		return false;
+
+	for (i = 0; i < 2; i++) {
+		size_t n_vars = 0;
+		size_t n;
+		for (n = 0; n < n_variables; n++) {
+			frame_t v = variables[n];
+			if (!i ? da(ctx->fn,function)->local_variables_flags[v].must_be_flat : da(ctx->fn,function)->local_variables_flags[v].must_be_data)
+				vars[n_vars++] = v;
+		}
+		if (!i) {
+			if (!gen_test_multiple(ctx, vars, n_vars, label)) {
+				mem_free(vars);
+				return false;
+			}
+		} else {
+			if (!gen_test_multiple_thunks(ctx, vars, n_vars, label)) {
+				mem_free(vars);
+				return false;
+			}
+		}
+	}
+
+	mem_free(vars);
+	return true;
+}
+
 static bool attr_w gen_barrier(struct codegen_context *ctx)
 {
 	if (ARCH_NEEDS_BARRIER)
