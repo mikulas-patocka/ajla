@@ -242,10 +242,12 @@ static bool attr_w gen_decompress_pointer(struct codegen_context *ctx, bool attr
 	return true;
 }
 
-static bool attr_w gen_compress_pointer(struct codegen_context attr_unused *ctx, unsigned attr_unused reg)
+static bool attr_w gen_compress_pointer(struct codegen_context attr_unused *ctx, unsigned dest, unsigned src)
 {
 #ifdef POINTER_COMPRESSION
-	g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHR, reg, reg, POINTER_COMPRESSION, false));
+	g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHR, dest, src, POINTER_COMPRESSION, false));
+#else
+	g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), dest, src));
 #endif
 	return true;
 }

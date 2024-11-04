@@ -360,7 +360,7 @@ copied:
 		gen_label(next_arg_label);
 	}
 
-	g(gen_compress_pointer(ctx, R_SAVED_1));
+	g(gen_compress_pointer(ctx, R_SAVED_1, R_SAVED_1));
 	g(gen_frame_set_pointer(ctx, slot_r, R_SAVED_1, false, true));
 
 	return true;
@@ -1166,7 +1166,7 @@ static bool attr_w gen_record_create(struct codegen_context *ctx, frame_t slot_r
 		gen_label(next_arg_label);
 	}
 
-	g(gen_compress_pointer(ctx, R_SAVED_1));
+	g(gen_compress_pointer(ctx, R_SAVED_1, R_SAVED_1));
 	g(gen_frame_set_pointer(ctx, slot_r, R_SAVED_1, false, true));
 
 	return true;
@@ -1270,7 +1270,7 @@ static bool attr_w gen_option_create_empty(struct codegen_context *ctx, ajla_opt
 	gen_address_offset();
 	gen_imm_offset();
 
-	g(gen_compress_pointer(ctx, R_RET0));
+	g(gen_compress_pointer(ctx, R_RET0, R_RET0));
 	g(gen_frame_set_pointer(ctx, slot_r, R_RET0, false, true));
 
 	return true;
@@ -1351,7 +1351,7 @@ skip_get_pointer_label:
 	gen_address_offset();
 	gen_one(R_RET0);
 
-	g(gen_compress_pointer(ctx, R_SAVED_1));
+	g(gen_compress_pointer(ctx, R_SAVED_1, R_SAVED_1));
 	g(gen_frame_set_pointer(ctx, slot_r, R_SAVED_1, false, true));
 
 	return true;
@@ -1626,7 +1626,7 @@ static bool attr_w gen_array_create(struct codegen_context *ctx, frame_t slot_r)
 			offset += sizeof(pointer_t);
 		}
 	}
-	g(gen_compress_pointer(ctx, R_SAVED_1));
+	g(gen_compress_pointer(ctx, R_SAVED_1, R_SAVED_1));
 	g(gen_frame_set_pointer(ctx, slot_r, R_SAVED_1, false, true));
 	return true;
 }
@@ -1654,7 +1654,7 @@ static bool attr_w gen_array_create_empty_flat(struct codegen_context *ctx, fram
 	g(gen_sanitize_returned_pointer(ctx, R_RET0));
 	g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, escape_label));
 
-	g(gen_compress_pointer(ctx, R_RET0));
+	g(gen_compress_pointer(ctx, R_RET0, R_RET0));
 	g(gen_frame_set_pointer(ctx, slot_r, R_RET0, false, true));
 
 	return true;
@@ -1680,7 +1680,7 @@ static bool attr_w gen_array_create_empty(struct codegen_context *ctx, frame_t s
 	g(gen_sanitize_returned_pointer(ctx, R_RET0));
 	g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, escape_label));
 
-	g(gen_compress_pointer(ctx, R_RET0));
+	g(gen_compress_pointer(ctx, R_RET0, R_RET0));
 	g(gen_frame_set_pointer(ctx, slot_r, R_RET0, false, true));
 
 	return true;
@@ -1843,7 +1843,7 @@ static bool attr_w gen_array_string(struct codegen_context *ctx, type_tag_t tag,
 
 	g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SAVED_1, R_RET0));
 
-	g(gen_compress_pointer(ctx, R_RET0));
+	g(gen_compress_pointer(ctx, R_RET0, R_RET0));
 	g(gen_frame_set_pointer(ctx, slot_r, R_RET0, false, true));
 
 	g(load_function_offset(ctx, R_SCRATCH_3, offsetof(struct data, u_.function.code)));
@@ -2548,6 +2548,7 @@ static bool attr_w gen_array_append(struct codegen_context *ctx, frame_t slot_1,
 static bool attr_w gen_array_append_one_flat(struct codegen_context *ctx, frame_t slot_1, frame_t slot_2, frame_t slot_r, frame_t flags)
 {
 	uint32_t escape_label;
+	unsigned reg;
 
 	escape_label = alloc_escape_label(ctx);
 	if (unlikely(!escape_label))
@@ -2563,36 +2564,37 @@ static bool attr_w gen_array_append_one_flat(struct codegen_context *ctx, frame_
 	g(gen_test_1_cached(ctx, slot_2, escape_label));
 	flag_set(ctx, slot_2, false);
 
-	g(gen_frame_load(ctx, OP_SIZE_SLOT, zero_x, slot_1, 0, R_SAVED_1));
-	g(gen_ptr_is_thunk(ctx, R_SAVED_1, slot_1, escape_label));
-	g(gen_barrier(ctx));
+	g(gen_frame_decompress_slot(ctx, slot_1, R_SAVED_1, &reg, escape_label));
 
-	g(gen_decompress_pointer(ctx, false, R_SAVED_1, R_SAVED_1, 0));
+	g(gen_compare_tag_and_refcount(ctx, reg, DATA_TAG_array_flat, escape_label, R_SCRATCH_1));
 
-	g(gen_compare_tag_and_refcount(ctx, R_SAVED_1, DATA_TAG_array_flat, escape_label, R_SCRATCH_1));
-
-	g(gen_address(ctx, R_SAVED_1, offsetof(struct data, u_.array_flat.n_used_entries), ARCH_PREFERS_SX(OP_SIZE_INT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_INT));
+	g(gen_address(ctx, reg, offsetof(struct data, u_.array_flat.n_used_entries), ARCH_PREFERS_SX(OP_SIZE_INT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_INT));
 	gen_insn(ARCH_PREFERS_SX(OP_SIZE_INT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_INT, 0, 0);
 	gen_one(R_SCRATCH_2);
 	gen_address_offset();
 
-	g(gen_check_array_len(ctx, R_SAVED_1, true, R_SCRATCH_2, COND_E, escape_label));
+	g(gen_check_array_len(ctx, reg, true, R_SCRATCH_2, COND_E, escape_label));
 
 	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_INT), ALU_ADD, R_SCRATCH_1, R_SCRATCH_2, 1, 0));
 
-	g(gen_address(ctx, R_SAVED_1, offsetof(struct data, u_.array_flat.n_used_entries), IMM_PURPOSE_STR_OFFSET, OP_SIZE_INT));
+	g(gen_address(ctx, reg, offsetof(struct data, u_.array_flat.n_used_entries), IMM_PURPOSE_STR_OFFSET, OP_SIZE_INT));
 	gen_insn(INSN_MOV, OP_SIZE_INT, 0, 0);
 	gen_address_offset();
 	gen_one(R_SCRATCH_1);
 
-	g(gen_scaled_array_store(ctx, R_SAVED_1, data_array_offset, slot_2));
+	g(gen_scaled_array_store(ctx, reg, data_array_offset, slot_2));
 
 	if (slot_1 != slot_r) {
+#if !defined(POINTER_COMPRESSION)
+		g(gen_frame_set_pointer(ctx, slot_r, reg, false, true));
+#else
+		unsigned target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SAVED_1);
+		g(gen_compress_pointer(ctx, target, reg));
+		g(gen_frame_set_pointer(ctx, slot_r, target, false, true));
+#endif
 		g(gen_frame_clear(ctx, OP_SIZE_SLOT, slot_1));
 		g(gen_set_1(ctx, R_FRAME, slot_1, 0, false));
 		flag_set(ctx, slot_1, false);
-		g(gen_compress_pointer(ctx, R_SAVED_1));
-		g(gen_frame_set_pointer(ctx, slot_r, R_SAVED_1, false, true));
 	}
 
 	return true;
@@ -2655,7 +2657,7 @@ static bool attr_w gen_array_append_one(struct codegen_context *ctx, frame_t slo
 		g(gen_frame_clear(ctx, OP_SIZE_SLOT, slot_1));
 		g(gen_set_1(ctx, R_FRAME, slot_1, 0, false));
 		flag_set(ctx, slot_1, false);
-		g(gen_compress_pointer(ctx, R_SAVED_1));
+		g(gen_compress_pointer(ctx, R_SAVED_1, R_SAVED_1));
 		g(gen_frame_set_pointer(ctx, slot_r, R_SAVED_1, false, true));
 	}
 
