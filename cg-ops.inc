@@ -2536,13 +2536,9 @@ static bool attr_w gen_array_append(struct codegen_context *ctx, frame_t slot_1,
 	g(gen_frame_get_pointer(ctx, slot_2, (flags & OPCODE_FLAG_FREE_ARGUMENT_2) != 0, R_SAVED_1));
 	g(gen_frame_get_pointer(ctx, slot_1, (flags & OPCODE_FLAG_FREE_ARGUMENT) != 0, R_SCRATCH_1));
 	g(gen_upcall_start(ctx, 2));
-	gen_insn(ARCH_PREFERS_SX(i_size(OP_SIZE_SLOT)) ? INSN_MOVSX : INSN_MOV, i_size(OP_SIZE_SLOT), 0, 0);
-	gen_one(R_ARG0);
-	gen_one(R_SCRATCH_1);
+	g(gen_mov(ctx, i_size(OP_SIZE_SLOT), R_ARG0, R_SCRATCH_1));
 	g(gen_upcall_argument(ctx, 0));
-	gen_insn(ARCH_PREFERS_SX(i_size(OP_SIZE_SLOT)) ? INSN_MOVSX : INSN_MOV, i_size(OP_SIZE_SLOT), 0, 0);
-	gen_one(R_ARG1);
-	gen_one(R_SAVED_1);
+	g(gen_mov(ctx, i_size(OP_SIZE_SLOT), R_ARG1, R_SAVED_1));
 	g(gen_upcall_argument(ctx, 1));
 	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_array_join), 2));
 	g(gen_frame_set_pointer(ctx, slot_r, R_RET0, false, false));
