@@ -215,27 +215,30 @@ static bool attr_w gen_compare_tag_and_refcount(struct codegen_context *ctx, uns
 	return true;
 }
 
-static bool attr_w gen_decompress_pointer(struct codegen_context *ctx, bool attr_unused zx, unsigned reg, int64_t offset)
+static bool attr_w gen_decompress_pointer(struct codegen_context *ctx, bool attr_unused zx, unsigned dest, unsigned src, int64_t offset)
 {
 #ifdef POINTER_COMPRESSION
 #if defined(ARCH_X86) && POINTER_COMPRESSION <= 3
-	if (offset) {
+	if (offset || dest != src) {
 		g(gen_imm(ctx, offset, IMM_PURPOSE_ADD, i_size(OP_SIZE_ADDRESS)));
 		gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, is_imm()));
-		gen_one(reg);
+		gen_one(dest);
 		gen_one(ARG_SHIFTED_REGISTER);
 		gen_one(ARG_SHIFT_LSL | POINTER_COMPRESSION);
-		gen_one(reg);
+		gen_one(src);
 		gen_imm_offset();
 		return true;
 	}
 #endif
-	if (zx)
-		g(gen_extend(ctx, OP_SIZE_4, zero_x, reg, reg));
-	g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, reg, reg, POINTER_COMPRESSION, false));
+	if (zx) {
+		g(gen_extend(ctx, OP_SIZE_4, zero_x, dest, src));
+		src = dest;
+	}
+	g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, dest, src, POINTER_COMPRESSION, false));
+	src = dest;
 #endif
 	if (offset)
-		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, reg, reg, offset, 0));
+		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, dest, src, offset, 0));
 	return true;
 }
 
@@ -310,5 +313,45 @@ static bool attr_w gen_frame_set_pointer(struct codegen_context *ctx, frame_t sl
 			return false;
 		g(gen_ptr_is_thunk(ctx, src, NO_FRAME_T, nondata_label));
 	}
+	return true;
+}
+
+static bool attr_w gen_frame_load_slot(struct codegen_context *ctx, frame_t slot, unsigned reg)
+{
+	g(gen_frame_load(ctx, OP_SIZE_SLOT, native, slot, 0, reg));
+	return true;
+}
+
+static bool attr_w gen_frame_get_slot(struct codegen_context *ctx, frame_t slot, unsigned reg, unsigned *dest)
+{
+	if (ctx->registers[slot] >= 0) {
+		*dest = ctx->registers[slot];
+		return true;
+	}
+	*dest = reg;
+	g(gen_frame_load_slot(ctx, slot, reg));
+	return true;
+}
+
+static bool attr_w gen_frame_decompress_slot(struct codegen_context *ctx, frame_t slot, unsigned reg, unsigned *dest, uint32_t escape_label)
+{
+	if (ctx->registers[slot] >= 0) {
+		unsigned creg = ctx->registers[slot];
+		g(gen_ptr_is_thunk(ctx, creg, slot, escape_label));
+#if !defined(POINTER_COMPRESSION)
+		g(gen_barrier(ctx));
+		*dest = creg;
+#else
+		g(gen_decompress_pointer(ctx, ARCH_PREFERS_SX(OP_SIZE_SLOT), reg, creg, 0));
+		g(gen_barrier(ctx));
+		*dest = reg;
+#endif
+		return true;
+	}
+	g(gen_frame_load(ctx, OP_SIZE_SLOT, native, slot, 0, reg));
+	g(gen_ptr_is_thunk(ctx, reg, slot, escape_label));
+	g(gen_decompress_pointer(ctx, ARCH_PREFERS_SX(OP_SIZE_SLOT), reg, reg, 0));
+	g(gen_barrier(ctx));
+	*dest = reg;
 	return true;
 }

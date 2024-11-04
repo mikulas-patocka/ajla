@@ -1167,21 +1167,3 @@ static bool attr_w load_function_offset(struct codegen_context *ctx, unsigned de
 
 	return true;
 }
-
-
-static bool attr_w gen_frame_load_slot(struct codegen_context *ctx, frame_t slot, unsigned reg)
-{
-	g(gen_frame_load(ctx, OP_SIZE_SLOT, native, slot, 0, reg));
-	return true;
-}
-
-static bool attr_w gen_frame_get_slot(struct codegen_context *ctx, frame_t slot, unsigned reg, unsigned *dest)
-{
-	if (ctx->registers[slot] >= 0) {
-		*dest = ctx->registers[slot];
-		return true;
-	}
-	*dest = reg;
-	g(gen_frame_load_slot(ctx, slot, reg));
-	return true;
-}
