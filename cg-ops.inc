@@ -2666,9 +2666,11 @@ static bool attr_w gen_array_append_one(struct codegen_context *ctx, frame_t slo
 	return true;
 }
 
+static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *variables, size_t n_variables, uint32_t label);
+
 static bool attr_w gen_io(struct codegen_context *ctx, frame_t code, frame_t slot_1, frame_t slot_2, frame_t slot_3)
 {
-	uint32_t reload_label;
+	uint32_t reload_label, escape_label;
 	frame_t i;
 
 	reload_label = alloc_reload_label(ctx);
@@ -2713,26 +2715,14 @@ static bool attr_w gen_io(struct codegen_context *ctx, frame_t code, frame_t slo
 
 	for (i = 0; i < slot_1; i++) {
 		frame_t output_slot = ctx->var_aux[i];
-		if (ctx->registers[output_slot] >= 0)
-			g(unspill(ctx, output_slot));
-	}
-	for (i = 0; i < slot_1; i++) {
-		frame_t output_slot = ctx->var_aux[i];
 		flag_set_unknown(ctx, output_slot);
-		if (da(ctx->fn,function)->local_variables_flags[output_slot].must_be_flat) {
-			uint32_t escape_label = alloc_escape_label_for_ip(ctx, ctx->current_position);
-			if (unlikely(!escape_label))
-				return false;
-			g(gen_test_1(ctx, R_FRAME, output_slot, 0, escape_label, false, TEST));
-		}
-		if (da(ctx->fn,function)->local_variables_flags[output_slot].must_be_data) {
-			uint32_t escape_label = alloc_escape_label_for_ip(ctx, ctx->current_position);
-			if (unlikely(!escape_label))
-				return false;
-			g(gen_frame_load(ctx, OP_SIZE_SLOT, garbage, slot_1, 0, R_SCRATCH_1));
-			g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, slot_1, escape_label));
-		}
 	}
+
+	escape_label = alloc_escape_label_for_ip(ctx, ctx->current_position);
+	if (unlikely(!escape_label))
+		return false;
+
+	g(gen_test_variables(ctx, ctx->var_aux, slot_1, escape_label));
 
 	return true;
 }
