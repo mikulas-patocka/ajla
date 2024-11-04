@@ -62,8 +62,9 @@ static bool attr_w gen_test_multiple_thunks(struct codegen_context *ctx, frame_t
 	}
 #endif
 	for (n = 0; n < n_variables; n++) {
-		g(gen_frame_load(ctx, OP_SIZE_SLOT, garbage, variables[n], 0, R_SCRATCH_1));
-		g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, NO_FRAME_T, label));
+		unsigned reg;
+		g(gen_frame_get(ctx, OP_SIZE_SLOT, garbage, variables[n], 0, R_SCRATCH_1, &reg));
+		g(gen_ptr_is_thunk(ctx, reg, NO_FRAME_T, label));
 	}
 	return true;
 }
