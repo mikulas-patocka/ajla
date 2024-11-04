@@ -1497,7 +1497,7 @@ static bool attr_w gen_option_ord(struct codegen_context *ctx, frame_t slot_1, f
 	unsigned op_size = log_2(sizeof(ajla_option_t));
 	unsigned op_size_flat = log_2(sizeof(ajla_flat_option_t));
 	uint32_t escape_label, ptr_label, store_label;
-	unsigned target;
+	unsigned reg, target;
 
 	escape_label = alloc_escape_label(ctx);
 	if (unlikely(!escape_label))
@@ -1526,13 +1526,9 @@ static bool attr_w gen_option_ord(struct codegen_context *ctx, frame_t slot_1, f
 	}
 
 	gen_label(ptr_label);
-	g(gen_frame_load(ctx, OP_SIZE_SLOT, zero_x, slot_1, 0, R_SCRATCH_1));
-	g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, slot_1, escape_label));
-	g(gen_barrier(ctx));
+	g(gen_frame_decompress_slot(ctx, slot_1, R_SCRATCH_1, &reg, escape_label));
 
-	g(gen_decompress_pointer(ctx, false, R_SCRATCH_1, R_SCRATCH_1, 0));
-
-	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.option.option), ARCH_PREFERS_SX(op_size) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, op_size));
+	g(gen_address(ctx, reg, offsetof(struct data, u_.option.option), ARCH_PREFERS_SX(op_size) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, op_size));
 	gen_insn(ARCH_PREFERS_SX(op_size) ? INSN_MOVSX : INSN_MOV, op_size, 0, 0);
 	gen_one(target);
 	gen_address_offset();
