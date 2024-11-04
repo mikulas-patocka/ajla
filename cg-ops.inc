@@ -1472,14 +1472,13 @@ static bool attr_w gen_option_test_flat(struct codegen_context *ctx, frame_t slo
 static bool attr_w gen_option_test(struct codegen_context *ctx, frame_t slot_1, frame_t opt, frame_t slot_r)
 {
 	uint32_t escape_label;
+	unsigned reg;
 
 	escape_label = alloc_escape_label(ctx);
 	if (unlikely(!escape_label))
 		return false;
 
-	g(gen_frame_load(ctx, OP_SIZE_SLOT, zero_x, slot_1, 0, R_SCRATCH_1));
-	g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, slot_1, escape_label));
-	g(gen_barrier(ctx));
+	g(gen_frame_decompress_slot(ctx, slot_1, R_SCRATCH_1, &reg, escape_label));
 
 	flag_set(ctx, slot_r, false);
 
@@ -1488,8 +1487,7 @@ static bool attr_w gen_option_test(struct codegen_context *ctx, frame_t slot_1, 
 		return true;
 	}
 
-	g(gen_decompress_pointer(ctx, false, R_SCRATCH_1, R_SCRATCH_1, 0));
-	g(gen_option_cmp(ctx, R_SCRATCH_1, opt, 0, slot_r));
+	g(gen_option_cmp(ctx, reg, opt, 0, slot_r));
 
 	return true;
 }
