@@ -1970,7 +1970,7 @@ static bool attr_w gen_scaled_array_load(struct codegen_context *ctx, unsigned r
 	}
 #endif
 #if defined(ARCH_S390)
-	if (t->size == 1 && s390_inline_address(offset_src) && cpu_test_feature(CPU_FEATURE_extended_imm)) {
+	if (t->size == 1 && s390_inline_address(offset_src) && cpu_test_feature(CPU_FEATURE_long_displacement) && cpu_test_feature(CPU_FEATURE_extended_imm)) {
 		short reg = ctx->registers[slot_r];
 		gen_insn(INSN_MOVSX, OP_SIZE_1, 0, 0);
 		gen_one(reg >= 0 ? reg : R_SCRATCH_2);
