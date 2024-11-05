@@ -359,6 +359,20 @@ static bool attr_w gen_frame_set_pointer(struct codegen_context *ctx, frame_t sl
 	return true;
 }
 
+static bool attr_w gen_frame_set_pointer_2(struct codegen_context *ctx, frame_t slot_r, unsigned src, unsigned flags, uint32_t escape_label)
+{
+	g(gen_ptr_is_thunk(ctx, src, NO_FRAME_T, escape_label));
+
+	if (flags & OPCODE_STRUCT_MAY_BORROW) {
+		g(gen_frame_store(ctx, OP_SIZE_SLOT, slot_r, 0, src));
+		flag_set(ctx, slot_r, false);
+	} else {
+		g(gen_frame_set_pointer(ctx, slot_r, src, true, false));
+	}
+	g(gen_barrier(ctx));
+	return true;
+}
+
 static bool attr_w gen_frame_load_slot(struct codegen_context *ctx, frame_t slot, unsigned reg)
 {
 	g(gen_frame_load(ctx, OP_SIZE_SLOT, native, slot, 0, reg));

@@ -1221,15 +1221,8 @@ static bool attr_w gen_record_load(struct codegen_context *ctx, frame_t slot_1, 
 	gen_one(R_SCRATCH_1);
 	gen_address_offset();
 
-	g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, NO_FRAME_T, escape_label));
+	g(gen_frame_set_pointer_2(ctx, slot_r, R_SCRATCH_1, flags, escape_label));
 
-	if (flags & OPCODE_STRUCT_MAY_BORROW) {
-		g(gen_frame_store(ctx, OP_SIZE_SLOT, slot_r, 0, R_SCRATCH_1));
-		flag_set(ctx, slot_r, false);
-	} else {
-		g(gen_frame_set_pointer(ctx, slot_r, R_SCRATCH_1, true, false));
-	}
-	g(gen_barrier(ctx));
 	return true;
 }
 
@@ -1434,15 +1427,7 @@ static bool attr_w gen_option_load(struct codegen_context *ctx, frame_t slot_1, 
 	gen_one(R_SCRATCH_1);
 	gen_address_offset();
 
-	g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, NO_FRAME_T, escape_label));
-
-	if (flags & OPCODE_STRUCT_MAY_BORROW) {
-		g(gen_frame_store(ctx, OP_SIZE_SLOT, slot_r, 0, R_SCRATCH_1));
-		flag_set(ctx, slot_r, false);
-	} else {
-		g(gen_frame_set_pointer(ctx, slot_r, R_SCRATCH_1, true, false));
-	}
-	g(gen_barrier(ctx));
+	g(gen_frame_set_pointer_2(ctx, slot_r, R_SCRATCH_1, flags, escape_label));
 
 	return true;
 }
@@ -2284,15 +2269,7 @@ no_cmov:
 		gen_one(R_SCRATCH_2);
 		gen_eight(0);
 scaled_load_done:
-		g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, NO_FRAME_T, escape_label));
-
-		if (flags & OPCODE_STRUCT_MAY_BORROW) {
-			g(gen_frame_store(ctx, OP_SIZE_SLOT, slot_r, 0, R_SCRATCH_1));
-			flag_set(ctx, slot_r, false);
-		} else {
-			g(gen_frame_set_pointer(ctx, slot_r, R_SCRATCH_1, true, false));
-		}
-		g(gen_barrier(ctx));
+		g(gen_frame_set_pointer_2(ctx, slot_r, R_SCRATCH_1, flags, escape_label));
 		return true;
 	}
 }
