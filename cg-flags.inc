@@ -511,23 +511,6 @@ static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *varia
 	size_t attr_unused pos;
 	qsort(variables, n_variables, sizeof(frame_t), frame_t_compare);
 
-#if 1
-	for (i = 0; i < n_variables; i++) {
-		frame_t v = variables[i];
-		if (ctx->registers[v] >= 0) {
-			g(unspill(ctx, v));
-		}
-	}
-#else
-	{
-		frame_t v;
-		for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
-			if (ctx->registers[v] >= 0)
-				g(unspill(ctx, v));
-		}
-	}
-#endif
-
 	if (!n_variables)
 		goto tested;
 	if (n_variables == 1) {
