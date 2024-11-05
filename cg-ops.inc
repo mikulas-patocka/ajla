@@ -2024,7 +2024,7 @@ static bool attr_w gen_scaled_array_store(struct codegen_context *ctx, unsigned 
 	}
 #endif
 #if defined(ARCH_S390)
-	if (t->size == 1 && s390_inline_address(offset_src) && cpu_test_feature(CPU_FEATURE_extended_imm)) {
+	if (t->size == 1 && s390_inline_address(offset_src) && cpu_test_feature(CPU_FEATURE_long_displacement) && cpu_test_feature(CPU_FEATURE_extended_imm)) {
 		short reg = ctx->registers[slot_1];
 		if (reg < 0) {
 			g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_LDR_SX_OFFSET, OP_SIZE_1));
