@@ -184,7 +184,7 @@ static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg
 		gen_one(tmp_reg);
 		gen_one(ARG_ADDRESS_1);
 		gen_one(reg);
-		gen_eight(offset);
+		gen_eight(offsetof(struct data, refcount_));
 
 		g(gen_3address_alu_imm(ctx, log_2(sizeof(refcount_int_t)), ALU_AND, tmp_reg, tmp_reg, REFCOUNT_STEP - 1, 0));
 	}
