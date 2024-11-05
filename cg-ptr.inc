@@ -155,7 +155,7 @@ static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg
 #elif defined(REFCOUNT_TAG)
 	size_t offset = offsetof(struct data, refcount_);
 #if defined(C_BIG_ENDIAN)
-	offset += sizeof(refcount_t) - 1;
+	offset += sizeof(refcount_int_t) - 1;
 #endif
 #if defined(ARCH_X86) && REFCOUNT_STEP == 256
 	g(gen_imm(ctx, tag, IMM_PURPOSE_CMP, OP_SIZE_4));
@@ -169,7 +169,11 @@ static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg
 	gen_four(label);
 	return true;
 #endif
-	if (ARCH_HAS_BWX && REFCOUNT_STEP == 256) {
+	if (ARCH_HAS_BWX && REFCOUNT_STEP == 256
+#if defined(ARCH_S390)
+		&& cpu_test_feature(CPU_FEATURE_extended_imm)
+#endif
+	    ) {
 		gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
 		gen_one(tmp_reg);
 		gen_one(ARG_ADDRESS_1);
@@ -186,7 +190,7 @@ static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg
 	}
 #else
 #if defined(ARCH_S390)
-	if (sizeof(tag_t) == 1 && !cpu_test_feature(CPU_FEATURE_long_displacement)) {
+	if (sizeof(tag_t) == 1 && !cpu_test_feature(CPU_FEATURE_extended_imm)) {
 		g(gen_address(ctx, reg, offsetof(struct data, tag), IMM_PURPOSE_LDR_OFFSET, log_2(sizeof(tag_t))));
 		gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, MOV_MASK_0_8, 0);
 		gen_one(tmp_reg);

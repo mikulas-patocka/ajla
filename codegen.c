@@ -369,7 +369,7 @@ do {									\
 } while (0)
 
 #ifdef DEBUG_INSNS
-#define gen_line()	gen_four(__LINE__)
+#define gen_line()	gen_four(__LINE__ + (insn_file << 24))
 #else
 #define gen_line()	do { } while (0)
 #endif
@@ -957,6 +957,7 @@ do {									\
 #define is_imm()	(!ctx->const_reg)
 
 
+#define insn_file		1
 #if defined(ARCH_ALPHA)
 #include "c1-alpha.inc"
 #elif defined(ARCH_ARM32)
@@ -982,6 +983,7 @@ do {									\
 #elif defined(ARCH_X86)
 #include "c1-x86.inc"
 #endif
+#undef insn_file
 
 
 #ifndef ARCH_SUPPORTS_TRAPS
@@ -990,19 +992,35 @@ do {									\
 #endif
 
 
+#define insn_file		2
 #include "cg-util.inc"
+#undef insn_file
 
+#define insn_file		3
 #include "cg-frame.inc"
+#undef insn_file
 
+#define insn_file		4
 #include "cg-flags.inc"
+#undef insn_file
 
+#define insn_file		5
 #include "cg-flcch.inc"
+#undef insn_file
 
+#define insn_file		6
 #include "cg-ptr.inc"
+#undef insn_file
 
+#define insn_file		7
 #include "cg-alu.inc"
+#undef insn_file
 
+#define insn_file		8
 #include "cg-ops.inc"
+#undef insn_file
+
+#define insn_file		0
 
 
 #ifndef n_regs_saved
@@ -2123,7 +2141,7 @@ static bool attr_w gen_mcode(struct codegen_context *ctx)
 		ajla_assert_lo(ctx->code_position < ctx->code + ctx->code_size, (file_line, "gen_mcode: ran out of code"));
 #ifdef DEBUG_INSNS
 		insn = cget_four(ctx);
-		debug("line: %u", insn);
+		debug("line: %u/%u", insn >> 24, insn & 0x00FFFFFFU);
 #endif
 		insn = cget_four(ctx);
 		g(cgen_insn(ctx, insn));
