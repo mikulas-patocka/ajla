@@ -367,7 +367,7 @@ static bool attr_w gen_frame_set_pointer_2(struct codegen_context *ctx, frame_t 
 		g(gen_frame_store(ctx, OP_SIZE_SLOT, slot_r, 0, src));
 		flag_set(ctx, slot_r, false);
 	} else {
-		g(gen_frame_set_pointer(ctx, slot_r, src, true, false));
+		g(gen_frame_set_pointer(ctx, slot_r, src, true, true));
 	}
 	g(gen_barrier(ctx));
 	return true;
