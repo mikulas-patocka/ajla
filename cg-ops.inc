@@ -1229,6 +1229,7 @@ static bool attr_w gen_record_load(struct codegen_context *ctx, frame_t slot_1, 
 	} else {
 		g(gen_frame_set_pointer(ctx, slot_r, R_SCRATCH_1, true, false));
 	}
+	g(gen_barrier(ctx));
 	return true;
 }
 
@@ -1441,6 +1442,7 @@ static bool attr_w gen_option_load(struct codegen_context *ctx, frame_t slot_1, 
 	} else {
 		g(gen_frame_set_pointer(ctx, slot_r, R_SCRATCH_1, true, false));
 	}
+	g(gen_barrier(ctx));
 
 	return true;
 }
@@ -2290,6 +2292,7 @@ scaled_load_done:
 		} else {
 			g(gen_frame_set_pointer(ctx, slot_r, R_SCRATCH_1, true, false));
 		}
+		g(gen_barrier(ctx));
 		return true;
 	}
 }
@@ -2528,7 +2531,6 @@ static bool attr_w gen_array_append(struct codegen_context *ctx, frame_t slot_1,
 	g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, slot_1, escape_label));
 	g(gen_frame_load(ctx, OP_SIZE_SLOT, zero_x, slot_2, 0, R_SCRATCH_2));
 	g(gen_ptr_is_thunk(ctx, R_SCRATCH_2, slot_2, escape_label));
-	g(gen_barrier(ctx));
 
 	g(gen_compare_da_tag(ctx, R_SCRATCH_1, DATA_TAG_array_incomplete, COND_E, escape_label, R_SCRATCH_1));
 	g(gen_compare_da_tag(ctx, R_SCRATCH_2, DATA_TAG_array_incomplete, COND_E, escape_label, R_SCRATCH_2));

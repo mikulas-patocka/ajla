@@ -3391,7 +3391,6 @@ static bool attr_w gen_is_exception(struct codegen_context *ctx, frame_t slot_1,
 
 	g(gen_frame_load(ctx, OP_SIZE_SLOT, zero_x, slot_1, 0, R_SCRATCH_1));
 	g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, slot_1, escape_label));
-	g(gen_barrier(ctx));
 
 	if (!TYPE_IS_FLAT(type)) {
 		g(gen_compare_da_tag(ctx, R_SCRATCH_1, DATA_TAG_flat, COND_E, escape_label, R_SCRATCH_1));

@@ -382,11 +382,9 @@ static bool attr_w gen_frame_decompress_slot(struct codegen_context *ctx, frame_
 		unsigned creg = ctx->registers[slot];
 		g(gen_ptr_is_thunk(ctx, creg, slot, escape_label));
 #if !defined(POINTER_COMPRESSION)
-		g(gen_barrier(ctx));
 		*dest = creg;
 #else
 		g(gen_decompress_pointer(ctx, ARCH_PREFERS_SX(OP_SIZE_SLOT), reg, creg, 0));
-		g(gen_barrier(ctx));
 		*dest = reg;
 #endif
 		return true;
@@ -394,7 +392,6 @@ static bool attr_w gen_frame_decompress_slot(struct codegen_context *ctx, frame_
 	g(gen_frame_load(ctx, OP_SIZE_SLOT, native, slot, 0, reg));
 	g(gen_ptr_is_thunk(ctx, reg, slot, escape_label));
 	g(gen_decompress_pointer(ctx, ARCH_PREFERS_SX(OP_SIZE_SLOT), reg, reg, 0));
-	g(gen_barrier(ctx));
 	*dest = reg;
 	return true;
 }
