@@ -59,7 +59,11 @@ struct cg_upcall_vector_s {
 	pointer_t (*cg_upcall_array_join)(pointer_t_upcall ptr1, pointer_t_upcall ptr2);
 	void *(*cg_upcall_ipret_io)(frame_s *fp, uintptr_t ip_offset, uintptr_t code_params);
 	pointer_t (*cg_upcall_ipret_copy_variable_to_pointer)(frame_s *src_fp, uintptr_t src_slot, bool deref);
-	int_default_t (*ipret_system_property)(int_default_t_upcall idx);
+	int_default_t (*cg_upcall_ipret_system_property)(int_default_t_upcall idx);
+#define f(n, s, u, sz, bits) \
+	bool (*cat(INT_binary_const_,s))(const s *v1, int_default_t_upcall v2, s *r, bool (*op)(const void *, const void *, void *));
+	for_all_int(f, for_all_empty)
+#undef f
 	bool (*cat(FIXED_binary_add_,TYPE_INT_MAX))(const uintbig_t *v1, const uintbig_t *v2, uintbig_t *r);
 	bool (*cat(FIXED_binary_subtract_,TYPE_INT_MAX))(const uintbig_t *v1, const uintbig_t *v2, uintbig_t *r);
 #define f(n, s, u, sz, bits) \

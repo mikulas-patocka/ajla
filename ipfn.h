@@ -30,8 +30,8 @@
 #define ipret_system_property			name(ipret_system_property)
 #define ipret_get_system_property		name(ipret_get_system_property)
 #define thunk_int_binary_operator		name(thunk_int_binary_operator)
-#define thunk_int_unary_operator		name(thunk_int_unary_operator)
 #define thunk_int_binary_logical_operator	name(thunk_int_binary_logical_operator)
+#define thunk_int_unary_operator		name(thunk_int_unary_operator)
 #define ipret_int_ldc_long			name(ipret_int_ldc_long)
 #define convert_fixed_to_mpint			name(convert_fixed_to_mpint)
 #define convert_real_to_mpint			name(convert_real_to_mpint)
@@ -86,8 +86,8 @@ int_default_t ipret_system_property(int_default_t idx);
 void * attr_hot_fastcall ipret_get_system_property(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_r);
 
 void * attr_hot_fastcall thunk_int_binary_operator(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2, frame_t slot_r, unsigned strict_flag, bool (attr_fastcall *do_op)(const mpint_t *op1, const mpint_t *op2, mpint_t *res, ajla_error_t *err));
-void * attr_hot_fastcall thunk_int_unary_operator(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_r, unsigned strict_flag, bool (attr_fastcall *do_op)(const mpint_t *op1, mpint_t *res, ajla_error_t *err));
 void * attr_hot_fastcall thunk_int_binary_logical_operator(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2, frame_t slot_r, unsigned strict_flag, bool (attr_fastcall *do_op)(const mpint_t *op1, const mpint_t *op2, ajla_flat_option_t *res, ajla_error_t *err));
+void * attr_hot_fastcall thunk_int_unary_operator(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_r, unsigned strict_flag, bool (attr_fastcall *do_op)(const mpint_t *op1, mpint_t *res, ajla_error_t *err));
 ip_t attr_hot_fastcall ipret_int_ldc_long(frame_s *fp, frame_t slot, const code_t *ip);
 pointer_t attr_fastcall convert_fixed_to_mpint(uintbig_t val, bool uns);
 pointer_t attr_fastcall convert_real_to_mpint(frame_s *fp, frame_t src_slot, const struct type *src_type);

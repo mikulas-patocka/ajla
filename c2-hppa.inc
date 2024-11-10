@@ -627,6 +627,7 @@ static bool attr_w cgen_cmp_dest_reg(struct codegen_context *ctx, unsigned size,
 static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned writes_flags, unsigned alu, bool trap, unsigned length)
 {
 	uint32_t mc;
+	uint8_t z = R_ZERO;
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	uint8_t *arg3 = arg2 + arg_size(*arg2);
@@ -637,6 +638,10 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 
 	if (arg3[0] == ARG_IMM && !trap) {
 		int64_t imm = get_imm(&arg3[1]);
+		if (!imm) {
+			arg3 = &z;
+			goto do_3reg;
+		}
 		if (unlikely(writes_flags))
 			goto invalid;
 		switch (alu) {
@@ -663,6 +668,7 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 		}
 	}
 
+do_3reg:
 	switch (alu) {
 		case ALU_ADD:	mc = writes_flags ? PARISC_ADD : PARISC_ADD_L;
 				break;
@@ -708,13 +714,13 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 
 #ifdef ARCH_PARISC32
 	if (alu == ALU_ADD && size == OP_SIZE_4 && arg1[0] == arg2[0] && trap && length == JMP_SHORTEST) {
-		bool need_nop;
+		bool known;
 		mc = PARISC_ADDB;
 		mc |= PARISC_COND_SV;
 		mc |= PARISC_N;
-		g(add_relocation(ctx, JMP_SHORTEST, ctx->code_position - arg1, &need_nop));
+		g(add_relocation(ctx, JMP_SHORTEST, ctx->code_position - arg1, &known));
 		g(cgen_2reg(ctx, mc, arg1[0], arg3[0]));
-		if (unlikely(need_nop))
+		if (unlikely(!known))
 			cgen_four(PARISC_NOP);
 		return true;
 	}
@@ -1245,11 +1251,11 @@ static bool attr_w cgen_fp_from_int(struct codegen_context *ctx, unsigned int_op
 static bool attr_w cgen_cond_jmp(struct codegen_context *ctx, uint32_t mc, unsigned length, unsigned reg1, unsigned reg2, int reloc_offset)
 {
 	if (length == JMP_SHORTEST) {
-		bool need_nop;
+		bool known;
 		mc |= PARISC_N;
-		g(add_relocation(ctx, JMP_SHORTEST, reloc_offset, &need_nop));
+		g(add_relocation(ctx, JMP_SHORTEST, reloc_offset, &known));
 		g(cgen_2reg(ctx, mc, reg2, reg1));
-		if (unlikely(need_nop))
+		if (unlikely(!known))
 			cgen_four(PARISC_NOP);
 	} else if (length == JMP_SHORT) {
 		mc |= PARISC_N;

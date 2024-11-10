@@ -137,6 +137,12 @@ static void *ipret_op_build_thunk(frame_s *fp, const code_t *ip, frame_t slot_1,
 	code = *ip % OPCODE_MODE_MULT;
 	if (code == OPCODE_IS_EXCEPTION)
 		strict_flag |= FLAG_TESTING_FOR_EXCEPTION;
+	if (code >= OPCODE_INT_OP && code < OPCODE_INT_OP + OPCODE_INT_TYPE_MULT * TYPE_INT_N) {
+		code_t op = (code - OPCODE_INT_OP) % OPCODE_INT_TYPE_MULT;
+		if (op >= OPCODE_INT_OP_C && op < OPCODE_INT_OP_UNARY) {
+			code -= OPCODE_INT_OP_C;
+		}
+	}
 	if (code >= OPCODE_REAL_OP && code < OPCODE_REAL_OP + OPCODE_REAL_TYPE_MULT * TYPE_REAL_N) {
 		code_t op = (code - OPCODE_REAL_OP) % OPCODE_REAL_TYPE_MULT;
 		if (op == OPCODE_REAL_OP_is_exception || op == OPCODE_REAL_OP_is_exception_alt1 || op == OPCODE_REAL_OP_is_exception_alt2)
@@ -163,7 +169,7 @@ static void *ipret_op_build_thunk(frame_s *fp, const code_t *ip, frame_t slot_1,
 		);
 	}
 
-	if (slot_2 != NO_FRAME_T && frame_test_flag(fp, slot_2) && pointer_is_thunk(*frame_pointer(fp, slot_2))) {
+	if (slot_2 != NO_FRAME_T && !frame_t_is_const(slot_2) && frame_test_flag(fp, slot_2) && pointer_is_thunk(*frame_pointer(fp, slot_2))) {
 		pointer_follow_thunk_noeval(frame_pointer(fp, slot_2),
 			return POINTER_FOLLOW_THUNK_RETRY,
 			if ((strict_flag & (FLAG_NEED_BOTH_EXCEPTIONS_TO_FAIL | FLAG_FIRST_EXCEPTION)) != FLAG_NEED_BOTH_EXCEPTIONS_TO_FAIL) {
@@ -201,8 +207,21 @@ static void *ipret_op_build_thunk(frame_s *fp, const code_t *ip, frame_t slot_1,
 
 	result = build_thunk(fn_ptr, slot_2 != NO_FRAME_T ? 2 : 1, &function_reference);
 	ipret_fill_function_reference_from_slot(function_reference, 0, fp, slot_1, false);
-	if (slot_2 != NO_FRAME_T)
-		ipret_fill_function_reference_from_slot(function_reference, 1, fp, slot_2, false);
+	if (slot_2 != NO_FRAME_T) {
+		if (!frame_t_is_const(slot_2)) {
+			ipret_fill_function_reference_from_slot(function_reference, 1, fp, slot_2, false);
+		} else {
+			ajla_error_t err;
+			struct data *d = data_alloc_longint_mayfail(32, &err pass_file_line);
+			if (unlikely(!d)) {
+				data_fill_function_reference(function_reference, 1, pointer_error(err, NULL, NULL pass_file_line));
+			} else {
+				int32_t c = frame_t_get_const(slot_2);
+				mpint_import_from_variable(&da(d,longint)->mp, int32_t, c);
+				data_fill_function_reference(function_reference, 1, pointer_data(d));
+			}
+		}
+	}
 
 	frame_free_and_set_pointer(fp, slot_r, pointer_thunk(result));
 
@@ -495,6 +514,11 @@ static bool int_to_mpint(mpint_t *m, const unsigned char *ptr, unsigned intx, aj
 static mpint_t * attr_hot_fastcall int_get_mpint(frame_s *fp, frame_t slot, mpint_t *storage, unsigned intx, ajla_error_t *err)
 {
 	unsigned char *flat;
+	if (frame_t_is_const(slot)) {
+		if (unlikely(!mpint_init_from_int32_t(storage, frame_t_get_const(slot), err)))
+			return NULL;
+		return storage;
+	}
 	if (frame_test_flag(fp, slot)) {
 		struct data *d = pointer_get_data(*frame_pointer(fp, slot));
 		if (likely(da_tag(d) == DATA_TAG_longint))
@@ -545,19 +569,29 @@ void * attr_hot_fastcall thunk_int_binary_operator(frame_s *fp, const code_t *ip
 	pointer_t to_free;
 
 	type = frame_get_type_of_local(fp, slot_1);
-	ajla_assert(TYPE_TAG_IS_INT(type->tag) &&
-		    frame_get_type_of_local(fp, slot_2) == type &&
-		    frame_get_type_of_local(fp, slot_r) == type,
-		    (file_line, "thunk_int_binary_operator: invalid types on opcode %04x: %u, %u, %u",
-		    *ip,
-		    type->tag,
-		    frame_get_type_of_local(fp, slot_2)->tag,
-		    frame_get_type_of_local(fp, slot_r)->tag));
+	if (!frame_t_is_const(slot_2)) {
+		ajla_assert(TYPE_TAG_IS_INT(type->tag) &&
+			    frame_get_type_of_local(fp, slot_2) == type &&
+			    frame_get_type_of_local(fp, slot_r) == type,
+			    (file_line, "thunk_int_binary_operator: invalid types on opcode %04x: %u, %u, %u",
+			    *ip,
+			    type->tag,
+			    frame_get_type_of_local(fp, slot_2)->tag,
+			    frame_get_type_of_local(fp, slot_r)->tag));
+	} else {
+		ajla_assert(TYPE_TAG_IS_INT(type->tag) &&
+			    frame_get_type_of_local(fp, slot_r) == type,
+			    (file_line, "thunk_int_binary_operator: invalid types on opcode %04x: %u, %u",
+			    *ip,
+			    type->tag,
+			    frame_get_type_of_local(fp, slot_r)->tag));
+	}
 
 	converted = 0;
 
 	converted |= ipret_unbox_value(fp, type, slot_1);
-	converted |= ipret_unbox_value(fp, type, slot_2);
+	if (!frame_t_is_const(slot_2))
+		converted |= ipret_unbox_value(fp, type, slot_2);
 
 	if (converted & UNBOX_THUNK)
 		return ipret_op_build_thunk(fp, ip, slot_1, slot_2, slot_r, strict_flag);
@@ -591,6 +625,76 @@ void * attr_hot_fastcall thunk_int_binary_operator(frame_s *fp, const code_t *ip
 fail_oom_3:
 	if (!pointer_is_empty(to_free))
 		pointer_dereference(to_free);
+	if (val2 == &s2)
+		mpint_free(&s2);
+fail_oom_2:
+	if (val1 == &s1)
+		mpint_free(&s1);
+fail_oom_1:
+	frame_free_and_set_pointer(fp, slot_r, pointer_error(err, fp, ip pass_file_line));
+	return POINTER_FOLLOW_THUNK_GO;
+}
+
+void * attr_hot_fastcall thunk_int_binary_logical_operator(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2, frame_t slot_r, unsigned strict_flag, bool (attr_fastcall *do_op)(const mpint_t *op1, const mpint_t *op2, ajla_flat_option_t *res, ajla_error_t *err))
+{
+	ajla_error_t err;
+	const struct type *type;
+	unsigned intx;
+	int converted;
+	mpint_t s1, s2;
+	mpint_t *val1, *val2;
+
+	type = frame_get_type_of_local(fp, slot_1);
+	if (!frame_t_is_const(slot_2)) {
+		ajla_assert(TYPE_TAG_IS_INT(type->tag) &&
+			    frame_get_type_of_local(fp, slot_2) == type &&
+			    frame_get_type_of_local(fp, slot_r)->tag == TYPE_TAG_flat_option,
+			    (file_line, "thunk_int_binary_logical_operator: invalid types on opcode %04x: %u, %u, %u",
+			    *ip,
+			    type->tag,
+			    frame_get_type_of_local(fp, slot_2)->tag,
+			    frame_get_type_of_local(fp, slot_r)->tag));
+	} else {
+		ajla_assert(TYPE_TAG_IS_INT(type->tag) &&
+			    frame_get_type_of_local(fp, slot_r)->tag == TYPE_TAG_flat_option,
+			    (file_line, "thunk_int_binary_logical_operator: invalid types on opcode %04x: %u, %u",
+			    *ip,
+			    type->tag,
+			    frame_get_type_of_local(fp, slot_r)->tag));
+	}
+
+	converted = 0;
+
+	converted |= ipret_unbox_value(fp, type, slot_1);
+	if (!frame_t_is_const(slot_2))
+		converted |= ipret_unbox_value(fp, type, slot_2);
+
+	if (converted & UNBOX_THUNK)
+		return ipret_op_build_thunk(fp, ip, slot_1, slot_2, slot_r, strict_flag);
+
+	if (converted == UNBOX_DID_SOMETHING)
+		return POINTER_FOLLOW_THUNK_RETRY;
+
+	intx = TYPE_TAG_IDX_INT(type->tag);
+
+	if (unlikely(!(val1 = int_get_mpint(fp, slot_1, &s1, intx, &err))))
+		goto fail_oom_1;
+	if (unlikely(!(val2 = int_get_mpint(fp, slot_2, &s2, intx, &err))))
+		goto fail_oom_2;
+	barrier_aliasing();
+	if (unlikely(!do_op(val1, val2, frame_slot(fp, slot_r, ajla_flat_option_t), &err))) {
+		barrier_aliasing();
+		goto fail_oom_3;
+	}
+	barrier_aliasing();
+	if (val1 == &s1)
+		mpint_free(&s1);
+	if (val2 == &s2)
+		mpint_free(&s2);
+
+	return POINTER_FOLLOW_THUNK_GO;
+
+fail_oom_3:
 	if (val2 == &s2)
 		mpint_free(&s2);
 fail_oom_2:
@@ -652,66 +756,6 @@ void * attr_hot_fastcall thunk_int_unary_operator(frame_s *fp, const code_t *ip,
 fail_oom_3:
 	if (!pointer_is_empty(to_free))
 		pointer_dereference(to_free);
-	if (val1 == &s1)
-		mpint_free(&s1);
-fail_oom_1:
-	frame_free_and_set_pointer(fp, slot_r, pointer_error(err, fp, ip pass_file_line));
-	return POINTER_FOLLOW_THUNK_GO;
-}
-
-void * attr_hot_fastcall thunk_int_binary_logical_operator(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2, frame_t slot_r, unsigned strict_flag, bool (attr_fastcall *do_op)(const mpint_t *op1, const mpint_t *op2, ajla_flat_option_t *res, ajla_error_t *err))
-{
-	ajla_error_t err;
-	const struct type *type;
-	unsigned intx;
-	int converted;
-	mpint_t s1, s2;
-	mpint_t *val1, *val2;
-
-	type = frame_get_type_of_local(fp, slot_1);
-	ajla_assert(TYPE_TAG_IS_INT(type->tag) &&
-		    frame_get_type_of_local(fp, slot_2) == type &&
-		    frame_get_type_of_local(fp, slot_r)->tag == TYPE_TAG_flat_option,
-		    (file_line, "thunk_int_binary_logical_operator: invalid types on opcode %04x: %u, %u, %u",
-		    *ip,
-		    type->tag,
-		    frame_get_type_of_local(fp, slot_2)->tag,
-		    frame_get_type_of_local(fp, slot_r)->tag));
-
-	converted = 0;
-
-	converted |= ipret_unbox_value(fp, type, slot_1);
-	converted |= ipret_unbox_value(fp, type, slot_2);
-
-	if (converted & UNBOX_THUNK)
-		return ipret_op_build_thunk(fp, ip, slot_1, slot_2, slot_r, strict_flag);
-
-	if (converted == UNBOX_DID_SOMETHING)
-		return POINTER_FOLLOW_THUNK_RETRY;
-
-	intx = TYPE_TAG_IDX_INT(type->tag);
-
-	if (unlikely(!(val1 = int_get_mpint(fp, slot_1, &s1, intx, &err))))
-		goto fail_oom_1;
-	if (unlikely(!(val2 = int_get_mpint(fp, slot_2, &s2, intx, &err))))
-		goto fail_oom_2;
-	barrier_aliasing();
-	if (unlikely(!do_op(val1, val2, frame_slot(fp, slot_r, ajla_flat_option_t), &err))) {
-		barrier_aliasing();
-		goto fail_oom_3;
-	}
-	barrier_aliasing();
-	if (val1 == &s1)
-		mpint_free(&s1);
-	if (val2 == &s2)
-		mpint_free(&s2);
-
-	return POINTER_FOLLOW_THUNK_GO;
-
-fail_oom_3:
-	if (val2 == &s2)
-		mpint_free(&s2);
-fail_oom_2:
 	if (val1 == &s1)
 		mpint_free(&s1);
 fail_oom_1:

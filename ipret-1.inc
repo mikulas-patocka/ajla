@@ -521,6 +521,68 @@ cat6(escape_int_binary_logical_,op,_,type,_,ARG_MODE):			\
 	}								\
 )
 
+#define DEFINE_INT_BINARY_CONST_OPCODE(type, op)			\
+DEFINE_OPCODE(								\
+		OPCODE_INT_OP +						\
+		cat(OPCODE_INT_OP_C_,op) * OPCODE_INT_OP_MULT +		\
+		cat(OPCODE_INT_TYPE_,type) * OPCODE_INT_TYPE_MULT,	\
+		cat6(int_binary_const_,op,_,type,_,ARG_MODE),		\
+	frame_t slot_1 = get_i_param(0);				\
+	frame_t slot_2 = get_i_param(1);				\
+	frame_t slot_r = get_i_param(2);				\
+	ajla_assert(slot_r == slot_1 || slot_r == slot_2 || !frame_test_flag(fp, slot_r), (file_line, "int binary: flag already set for destination slot %"PRIuMAX"", (uintmax_t)slot_r));\
+	if (unlikely(frame_test_flag(fp, slot_1))) {			\
+cat6(escape_int_binary_const_,op,_,type,_,ARG_MODE):			\
+		function_int_binary = cat(mpint_,op);			\
+		goto cat(escape_int_binary_const_thunk_,ARG_MODE);	\
+	} else {							\
+		const void *val1;					\
+		type val2;						\
+		void *result;						\
+		val1 = frame_var(fp, slot_1);				\
+		val2 = (int32_t)slot_2;					\
+		result = frame_var(fp, slot_r);				\
+		barrier_aliasing();					\
+		if (unlikely(!cat4(INT_binary_,op,_,type)(val1, &val2, result))) {\
+			barrier_aliasing();				\
+			goto cat6(escape_int_binary_const_,op,_,type,_,ARG_MODE);\
+		}							\
+		barrier_aliasing();					\
+		ADVANCE_I_PARAM(4);					\
+	}								\
+)
+
+#define DEFINE_INT_BINARY_CONST_LOGICAL_OPCODE(type, op)		\
+DEFINE_OPCODE(								\
+		OPCODE_INT_OP +						\
+		cat(OPCODE_INT_OP_C_,op) * OPCODE_INT_OP_MULT +		\
+		cat(OPCODE_INT_TYPE_,type) * OPCODE_INT_TYPE_MULT,	\
+		cat6(int_binary_const_,op,_,type,_,ARG_MODE),		\
+	frame_t slot_1 = get_i_param(0);				\
+	frame_t slot_2 = get_i_param(1);				\
+	frame_t slot_r = get_i_param(2);				\
+	ajla_assert(slot_r == slot_1 || slot_r == slot_2 || !frame_test_flag(fp, slot_r), (file_line, "int logical: flag already set for destination slot %"PRIuMAX"", (uintmax_t)slot_r));\
+	if (unlikely(frame_test_flag(fp, slot_1))) {			\
+cat6(escape_int_binary_const_logical_,op,_,type,_,ARG_MODE):		\
+		function_int_binary_logical = cat(mpint_,op);		\
+		goto cat(escape_int_binary_const_logical_thunk_,ARG_MODE);\
+	} else {							\
+		const void *val1;					\
+		type val2;						\
+		void *result;						\
+		val1 = frame_var(fp, slot_1);				\
+		val2 = (int32_t)slot_2;					\
+		result = frame_var(fp, slot_r);				\
+		barrier_aliasing();					\
+		if (unlikely(!cat4(INT_binary_,op,_,type)(val1, &val2, result))) {\
+			barrier_aliasing();				\
+			goto cat6(escape_int_binary_const_logical_,op,_,type,_,ARG_MODE);\
+		}							\
+		barrier_aliasing();					\
+		ADVANCE_I_PARAM(4);					\
+	}								\
+)
+
 #define DEFINE_INT_UNARY_OPCODE(type, op)				\
 DEFINE_OPCODE(								\
 		OPCODE_INT_OP +						\
@@ -638,6 +700,25 @@ DEFINE_INT_BINARY_LOGICAL_OPCODE(s, not_equal)		\
 DEFINE_INT_BINARY_LOGICAL_OPCODE(s, less)		\
 DEFINE_INT_BINARY_LOGICAL_OPCODE(s, less_equal)		\
 DEFINE_INT_BINARY_LOGICAL_OPCODE(s, bt)			\
+DEFINE_INT_BINARY_CONST_OPCODE(s, add)			\
+DEFINE_INT_BINARY_CONST_OPCODE(s, subtract)		\
+DEFINE_INT_BINARY_CONST_OPCODE(s, multiply)		\
+DEFINE_INT_BINARY_CONST_OPCODE(s, divide)		\
+DEFINE_INT_BINARY_CONST_OPCODE(s, modulo)		\
+DEFINE_INT_BINARY_CONST_OPCODE(s, power)		\
+DEFINE_INT_BINARY_CONST_OPCODE(s, and)			\
+DEFINE_INT_BINARY_CONST_OPCODE(s, or)			\
+DEFINE_INT_BINARY_CONST_OPCODE(s, xor)			\
+DEFINE_INT_BINARY_CONST_OPCODE(s, shl)			\
+DEFINE_INT_BINARY_CONST_OPCODE(s, shr)			\
+DEFINE_INT_BINARY_CONST_OPCODE(s, bts)			\
+DEFINE_INT_BINARY_CONST_OPCODE(s, btr)			\
+DEFINE_INT_BINARY_CONST_OPCODE(s, btc)			\
+DEFINE_INT_BINARY_CONST_LOGICAL_OPCODE(s, equal)	\
+DEFINE_INT_BINARY_CONST_LOGICAL_OPCODE(s, not_equal)	\
+DEFINE_INT_BINARY_CONST_LOGICAL_OPCODE(s, less)		\
+DEFINE_INT_BINARY_CONST_LOGICAL_OPCODE(s, less_equal)	\
+DEFINE_INT_BINARY_CONST_LOGICAL_OPCODE(s, bt)		\
 DEFINE_INT_UNARY_OPCODE(s, not)				\
 DEFINE_INT_UNARY_OPCODE(s, neg)				\
 DEFINE_INT_UNARY_OPCODE(s, inc)				\
@@ -668,6 +749,26 @@ DEFINE_LABEL(cat(escape_int_binary_logical_thunk_,ARG_MODE),
 	void *ex;
 	ASM_PREVENT_CSE;
 	ex = thunk_int_binary_logical_operator(fp, ip, get_i_param(0), get_i_param(1), get_i_param(2), get_i_param(3), function_int_binary_logical);
+	if (ex == POINTER_FOLLOW_THUNK_GO)
+		ADVANCE_I_PARAM(4);
+	else if (ex != POINTER_FOLLOW_THUNK_RETRY)
+		RELOAD_EX_POSITION(ex);
+)
+
+DEFINE_LABEL(cat(escape_int_binary_const_thunk_,ARG_MODE),
+	void *ex;
+	ASM_PREVENT_CSE;
+	ex = thunk_int_binary_operator(fp, ip, get_i_param(0), frame_t_from_const((int32_t)get_i_param(1)), get_i_param(2), get_i_param(3), function_int_binary);
+	if (ex == POINTER_FOLLOW_THUNK_GO)
+		ADVANCE_I_PARAM(4);
+	else if (unlikely(ex != POINTER_FOLLOW_THUNK_RETRY))
+		RELOAD_EX_POSITION(ex);
+)
+
+DEFINE_LABEL(cat(escape_int_binary_const_logical_thunk_,ARG_MODE),
+	void *ex;
+	ASM_PREVENT_CSE;
+	ex = thunk_int_binary_logical_operator(fp, ip, get_i_param(0), frame_t_from_const((int32_t)get_i_param(1)), get_i_param(2), get_i_param(3), function_int_binary_logical);
 	if (ex == POINTER_FOLLOW_THUNK_GO)
 		ADVANCE_I_PARAM(4);
 	else if (ex != POINTER_FOLLOW_THUNK_RETRY)

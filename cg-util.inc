@@ -70,27 +70,7 @@ static bool attr_w gen_3address_alu(struct codegen_context *ctx, unsigned size, 
 
 static bool attr_w gen_3address_alu_imm(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src, int64_t imm, unsigned writes_flags)
 {
-	unsigned purpose =
-		alu == ALU_ADD ? IMM_PURPOSE_ADD :
-		alu == ALU_SUB ? IMM_PURPOSE_SUB :
-		alu == ALU_MUL ? IMM_PURPOSE_MUL :
-		alu == ALU_UMULH ? IMM_PURPOSE_MUL :
-		alu == ALU_SMULH ? IMM_PURPOSE_MUL :
-		alu == ALU_ANDN ? IMM_PURPOSE_ANDN :
-		alu == ALU_AND ? IMM_PURPOSE_AND :
-		alu == ALU_OR ? IMM_PURPOSE_OR :
-		alu == ALU_XOR ? IMM_PURPOSE_XOR :
-		alu == ALU_EXTBL ? IMM_PURPOSE_OR :
-		alu == ALU_EXTWL ? IMM_PURPOSE_OR :
-		alu == ALU_EXTLL ? IMM_PURPOSE_OR :
-		alu == ALU_EXTLH ? IMM_PURPOSE_OR :
-		alu == ALU_INSBL ? IMM_PURPOSE_OR :
-		alu == ALU_MSKBL ? IMM_PURPOSE_OR :
-		alu == ALU_ZAP ? IMM_PURPOSE_ANDN :
-		alu == ALU_ZAPNOT ? IMM_PURPOSE_AND :
-		-1U;
-	if (unlikely(purpose == -1U))
-		internal(file_line, "gen_3address_alu_imm: invalid parameters: size %u, alu %u, dest %u, src %u, imm %"PRIxMAX"", size, alu, dest, src, (uintmax_t)imm);
+	unsigned purpose = alu_purpose(alu);
 	if (!ARCH_IS_3ADDRESS_IMM(alu, writes_flags) && dest != src) {
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src));
 

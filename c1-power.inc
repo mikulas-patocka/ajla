@@ -555,13 +555,20 @@ static bool attr_w gen_upcall_argument(struct codegen_context attr_unused *ctx, 
 	return true;
 }
 
+static bool attr_w gen_get_upcall_pointer(struct codegen_context *ctx, unsigned offset, unsigned reg)
+{
+	g(gen_address(ctx, R_UPCALL, offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(reg);
+	gen_address_offset();
+
+	return true;
+}
+
 static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsigned n_args)
 {
 #ifndef AIX_CALL
-	g(gen_address(ctx, R_UPCALL, offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-	gen_one(R_12);
-	gen_address_offset();
+	g(gen_get_upcall_pointer(ctx, offset, R_12));
 
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_CTR);
@@ -570,10 +577,7 @@ static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsi
 	gen_insn(INSN_CALL_INDIRECT, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_CTR);
 #else
-	g(gen_address(ctx, R_UPCALL, offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-	gen_one(R_SCRATCH_NA_2);
-	gen_address_offset();
+	g(gen_get_upcall_pointer(ctx, offset, R_SCRATCH_NA_2));
 
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_SCRATCH_NA_1);

@@ -979,6 +979,14 @@ static int_default_t cg_upcall_ipret_system_property(int_default_t_upcall idx)
 	return ipret_system_property(idx);
 }
 
+#define f(n, s, u, sz, bits)						\
+static bool cat(INT_binary_const_,s)(const s *v1, int_default_t_upcall v2, s *r, bool (*op)(const void *, const void *, void *))\
+{									\
+	s c = v2;							\
+	return op(v1, &c, r);						\
+}
+for_all_int(f, for_all_empty)
+#undef f
 
 #define f(n, s, u, sz, bits)						\
 static bool cat(FIXED_uto_int_,s)(const u *v1, int_default_t *r)	\
@@ -1037,6 +1045,10 @@ struct cg_upcall_vector_s cg_upcall_vector = {
 	cg_upcall_ipret_io,
 	cg_upcall_ipret_copy_variable_to_pointer,
 	cg_upcall_ipret_system_property,
+#define f(n, s, u, sz, bits) \
+	cat(INT_binary_const_,s),
+	for_all_int(f, for_all_empty)
+#undef f
 	cat(FIXED_binary_add_,TYPE_INT_MAX),
 	cat(FIXED_binary_subtract_,TYPE_INT_MAX),
 #define f(n, s, u, sz, bits) \

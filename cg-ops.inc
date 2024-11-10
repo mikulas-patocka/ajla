@@ -101,7 +101,7 @@ static bool attr_w gen_box_move_copy(struct codegen_context *ctx, code_t code, f
 		return true;
 	}
 
-	if (ctx->registers[slot_1] >= 0)
+	if (slot_is_register(ctx, slot_1))
 		g(spill(ctx, slot_1));
 
 	g(gen_upcall_start(ctx, 3));
@@ -182,7 +182,7 @@ static bool attr_w gen_cond_jump(struct codegen_context *ctx, frame_t slot, int3
 	unsigned size = log_2(sizeof(ajla_flat_option_t));
 	size_t attr_unused offset;
 	unsigned reg1;
-	if (ctx->registers[slot] >= 0) {
+	if (slot_is_register(ctx, slot)) {
 		goto no_load_op;
 	}
 #if defined(ARCH_S390) || defined(ARCH_X86)
@@ -286,7 +286,7 @@ static bool attr_w gen_load_fn_or_curry(struct codegen_context *ctx, frame_t fn_
 				gen_address_offset();
 				gen_imm_offset();
 
-				if (ctx->registers[arg_slot] >= 0) {
+				if (slot_is_register(ctx, arg_slot)) {
 					g(gen_address(ctx, R_SAVED_1, arg_offset_slot, IMM_PURPOSE_STR_OFFSET, copy_size));
 					gen_insn(INSN_MOV, spill_size(t), 0, 0);
 					gen_address_offset();
@@ -317,7 +317,7 @@ copied:
 				gen_insn(INSN_JMP, 0, 0, 0);
 				gen_four(next_arg_label);
 			} else {
-				if (ctx->registers[arg_slot] >= 0)
+				if (slot_is_register(ctx, arg_slot))
 					g(spill(ctx, arg_slot));
 
 				g(gen_upcall_start(ctx, 3));
@@ -386,12 +386,12 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 		return false;
 
 	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
-		if (ctx->registers[v] >= 0) {
+		if (slot_is_register(ctx, v)) {
 			g(spill(ctx, v));
 		}
 	}
 
-	g(gen_frame_load_raw(ctx, log_2(sizeof(stack_size_t)), native, 0, frame_offs(available_slots), R_SCRATCH_1));
+	g(gen_frame_load_raw(ctx, log_2(sizeof(stack_size_t)), native, 0, frame_offs(available_slots), false, R_SCRATCH_1));
 	g(gen_imm(ctx, required_slots, IMM_PURPOSE_SUB, i_size(log_2(sizeof(stack_size_t)))));
 	gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(i_size(log_2(sizeof(stack_size_t)))), i_size(log_2(sizeof(stack_size_t))), ALU_SUB, arch_use_flags);
 	gen_one(R_SCRATCH_1);
@@ -409,7 +409,7 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 
 	g(gen_frame_store_raw(ctx, log_2(sizeof(stack_size_t)), 0, new_fp_offset + frame_offs(available_slots), R_SCRATCH_1));
 	g(gen_frame_store_imm_raw(ctx, log_2(sizeof(ip_t)), 0, new_fp_offset + frame_offs(previous_ip), ctx->return_values - da(ctx->fn,function)->code));
-	g(gen_frame_load_raw(ctx, log_2(sizeof(timestamp_t)), garbage, 0, frame_offs(timestamp), R_SCRATCH_1));
+	g(gen_frame_load_raw(ctx, log_2(sizeof(timestamp_t)), garbage, 0, frame_offs(timestamp), false, R_SCRATCH_1));
 	g(gen_frame_store_raw(ctx, log_2(sizeof(timestamp_t)), 0, new_fp_offset + frame_offs(timestamp), R_SCRATCH_1));
 	call_mode = code == OPCODE_CALL ? CALL_MODE_NORMAL : code == OPCODE_CALL_STRICT ? CALL_MODE_STRICT : CALL_MODE_SPARK;
 	g(gen_frame_store_imm_raw(ctx, log_2(sizeof(uchar_efficient_t)), 0, new_fp_offset + frame_offs(mode), call_mode));
@@ -570,7 +570,7 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 
 	new_fp_offset = (size_t)da(ctx->fn,function)->frame_slots * slot_size;
 
-	g(gen_frame_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, 0, new_fp_offset + frame_offs(function), R_SCRATCH_2));
+	g(gen_frame_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, 0, new_fp_offset + frame_offs(function), false, R_SCRATCH_2));
 
 	g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_SCRATCH_2, COND_E, escape_label));
 
@@ -582,10 +582,10 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 	g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, NO_FRAME_T, escape_label));
 	g(gen_barrier(ctx));
 
-	g(gen_frame_load_raw(ctx, log_2(sizeof(timestamp_t)), garbage, 0, frame_offs(timestamp), R_SCRATCH_1));
+	g(gen_frame_load_raw(ctx, log_2(sizeof(timestamp_t)), garbage, 0, frame_offs(timestamp), false, R_SCRATCH_1));
 	g(gen_frame_store_raw(ctx, log_2(sizeof(timestamp_t)), 0, new_fp_offset + frame_offs(timestamp), R_SCRATCH_1));
 
-	g(gen_frame_load_raw(ctx, log_2(sizeof(ip_t)), native, 0, frame_offs(previous_ip), R_SCRATCH_1));
+	g(gen_frame_load_raw(ctx, log_2(sizeof(ip_t)), native, 0, frame_offs(previous_ip), false, R_SCRATCH_1));
 
 	g(gen_address(ctx, R_SCRATCH_2, offsetof(struct data, u_.function.code), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
@@ -681,7 +681,7 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 
 			gen_label(flat_to_data_label);
 
-			if (ctx->registers[src_arg->slot] >= 0)
+			if (slot_is_register(ctx, src_arg->slot))
 				g(spill(ctx, src_arg->slot));
 
 			g(gen_upcall_start(ctx, 3));
@@ -767,7 +767,7 @@ scaled_store_done:
 		retval_offset += 4 + 2 * (ARG_MODE_N >= 3);
 	}
 
-	g(gen_frame_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, 0, new_fp_offset + frame_offs(function), R_SCRATCH_1));
+	g(gen_frame_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, 0, new_fp_offset + frame_offs(function), false, R_SCRATCH_1));
 
 	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.function.codegen), ARCH_PREFERS_SX(OP_SIZE_SLOT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_SLOT));
 	gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, 0);
@@ -882,7 +882,7 @@ struct_zero:
 		struct_type = NULL;
 	}
 
-	if (ctx->registers[slot_struct] >= 0)
+	if (slot_is_register(ctx, slot_struct))
 		g(spill(ctx, slot_struct));
 	g(gen_frame_address(ctx, slot_struct, 0, R_SAVED_1));
 
@@ -1131,7 +1131,7 @@ static bool attr_w gen_record_create(struct codegen_context *ctx, frame_t slot_r
 				gen_insn(INSN_JMP, 0, 0, 0);
 				gen_four(next_arg_label);
 			} else {
-				if (ctx->registers[var_slot] >= 0)
+				if (slot_is_register(ctx, var_slot))
 					g(spill(ctx, var_slot));
 
 				g(gen_upcall_start(ctx, 3));
@@ -1312,7 +1312,7 @@ static bool attr_w gen_option_create(struct codegen_context *ctx, ajla_option_t 
 	if (TYPE_IS_FLAT(type)) {
 		g(gen_test_1_cached(ctx, slot_1, get_pointer_label));
 
-		if (ctx->registers[slot_1] >= 0)
+		if (slot_is_register(ctx, slot_1))
 			g(spill(ctx, slot_1));
 
 		g(gen_upcall_start(ctx, 3));
@@ -1451,7 +1451,7 @@ static bool attr_w gen_option_test_flat(struct codegen_context *ctx, frame_t slo
 		return true;
 	}
 
-	g(gen_frame_load_cmp_imm_set_cond(ctx, op_size, zero_x, slot_1, 0, opt, COND_E, slot_r));
+	g(gen_frame_load_cmp_imm_set_cond(ctx, op_size, zero_x, slot_1, opt, COND_E, slot_r));
 
 	return true;
 }
@@ -1503,7 +1503,7 @@ static bool attr_w gen_option_ord(struct codegen_context *ctx, frame_t slot_1, f
 	if (flat) {
 		g(gen_test_1_cached(ctx, slot_1, ptr_label));
 
-		g(gen_frame_load(ctx, op_size_flat, zero_x, slot_1, 0, target));
+		g(gen_frame_load(ctx, op_size_flat, zero_x, slot_1, 0, false, target));
 
 		if (flag_is_clear(ctx, slot_1))
 			goto skip_ptr_label;
@@ -1708,7 +1708,7 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 		return true;
 	}
 
-	if (ctx->registers[slot_1] >= 0)
+	if (slot_is_register(ctx, slot_1))
 		g(spill(ctx, slot_1));
 
 	if (unlikely((flags & OPCODE_ARRAY_FILL_FLAG_SPARSE) != 0)) {
@@ -1780,7 +1780,7 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 
 		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_array_create_flat), 3));
 	} else {
-		if (ctx->registers[slot_2] >= 0)
+		if (slot_is_register(ctx, slot_2))
 			g(spill(ctx, slot_2));
 
 		g(gen_frame_get_pointer(ctx, slot_1, (flags & OPCODE_FLAG_FREE_ARGUMENT) != 0, R_SCRATCH_1));
@@ -2297,7 +2297,7 @@ static bool attr_w gen_array_len(struct codegen_context *ctx, frame_t slot_1, fr
 		} else if (slot_2 == NO_FRAME_T) {
 			g(gen_frame_store_imm(ctx, OP_SIZE_INT, slot_r, 0, (unsigned)type_def(t,flat_array)->n_elements));
 		} else {
-			g(gen_frame_load_cmp_imm_set_cond(ctx, OP_SIZE_INT, zero_x, slot_2, 0, type_def(t,flat_array)->n_elements, COND_G, slot_r));
+			g(gen_frame_load_cmp_imm_set_cond(ctx, OP_SIZE_INT, zero_x, slot_2, type_def(t,flat_array)->n_elements, COND_G, slot_r));
 		}
 		flag_set(ctx, slot_r, false);
 	} else {
@@ -2326,7 +2326,7 @@ static bool attr_w gen_array_len(struct codegen_context *ctx, frame_t slot_1, fr
 		}
 
 #if defined(ARCH_X86) || defined(ARCH_S390)
-		if (fused && ctx->registers[slot_2] >= 0) {
+		if (fused && slot_is_register(ctx, slot_2)) {
 			g(gen_address(ctx, reg, offsetof(struct data, u_.array_flat.n_used_entries), ARCH_PREFERS_SX(OP_SIZE_INT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_INT));
 			gen_insn(INSN_CMP, OP_SIZE_INT, 0, 1 + COND_IS_LOGICAL(COND_GE));
 			gen_one(ctx->registers[slot_2]);
@@ -2351,7 +2351,7 @@ do_fused:	{
 				return true;
 			}
 #if ARCH_HAS_FLAGS
-			g(gen_frame_load_cmp(ctx, OP_SIZE_INT, COND_IS_LOGICAL(COND_LE), ex, false, slot_2, 0, target));
+			g(gen_frame_load_cmp(ctx, OP_SIZE_INT, COND_IS_LOGICAL(COND_LE), ex, false, slot_2, 0, false, target));
 			g(gen_jump(ctx, offs_false, i_size_cmp(OP_SIZE_INT), COND_LE, -1U, -1U));
 #else
 			g(gen_frame_get(ctx, OP_SIZE_INT, ex, slot_2, 0, R_SCRATCH_2, &reg2));
@@ -2361,7 +2361,7 @@ do_fused:	{
 		} else if (slot_2 == NO_FRAME_T) {
 			g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, target));
 		} else {
-			g(gen_frame_load_cmp_set_cond(ctx, OP_SIZE_INT, zero_x, slot_2, 0, R_SCRATCH_1, COND_G, slot_r));
+			g(gen_frame_load_cmp_set_cond(ctx, OP_SIZE_INT, zero_x, slot_2, R_SCRATCH_1, COND_G, slot_r));
 		}
 		flag_set(ctx, slot_r, false);
 	}
@@ -2387,22 +2387,22 @@ static bool attr_w gen_array_sub(struct codegen_context *ctx, frame_t slot_array
 
 	g(gen_test_2_cached(ctx, slot_from, slot_to, escape_label));
 
-	if (ctx->registers[slot_array] >= 0)
+	if (slot_is_register(ctx, slot_array))
 		g(spill(ctx, slot_array));
-	if (ctx->registers[slot_from] >= 0)
+	if (slot_is_register(ctx, slot_from))
 		g(spill(ctx, slot_from));
-	if (ctx->registers[slot_to] >= 0)
+	if (slot_is_register(ctx, slot_to))
 		g(spill(ctx, slot_to));
 
 	g(gen_upcall_start(ctx, 4));
 
-	g(gen_frame_load_raw(ctx, OP_SIZE_SLOT, garbage, slot_array, 0, R_ARG0));
+	g(gen_frame_load_raw(ctx, OP_SIZE_SLOT, garbage, slot_array, 0, false, R_ARG0));
 	g(gen_upcall_argument(ctx, 0));
 
-	g(gen_frame_load_raw(ctx, OP_SIZE_INT, garbage, slot_from, 0, R_ARG1));
+	g(gen_frame_load_raw(ctx, OP_SIZE_INT, garbage, slot_from, 0, false, R_ARG1));
 	g(gen_upcall_argument(ctx, 1));
 
-	g(gen_frame_load_raw(ctx, OP_SIZE_INT, garbage, slot_to, 0, R_ARG2));
+	g(gen_frame_load_raw(ctx, OP_SIZE_INT, garbage, slot_to, 0, false, R_ARG2));
 	g(gen_upcall_argument(ctx, 2));
 
 	g(gen_load_constant(ctx, R_ARG3, (flags & OPCODE_FLAG_FREE_ARGUMENT) != 0));
@@ -2451,17 +2451,17 @@ static bool attr_w gen_array_skip(struct codegen_context *ctx, frame_t slot_arra
 
 	g(gen_test_1_cached(ctx, slot_from, escape_label));
 
-	if (ctx->registers[slot_array] >= 0)
+	if (slot_is_register(ctx, slot_array))
 		g(spill(ctx, slot_array));
-	if (ctx->registers[slot_from] >= 0)
+	if (slot_is_register(ctx, slot_from))
 		g(spill(ctx, slot_from));
 
 	g(gen_upcall_start(ctx, 3));
 
-	g(gen_frame_load_raw(ctx, OP_SIZE_SLOT, garbage, slot_array, 0, R_ARG0));
+	g(gen_frame_load_raw(ctx, OP_SIZE_SLOT, garbage, slot_array, 0, false, R_ARG0));
 	g(gen_upcall_argument(ctx, 0));
 
-	g(gen_frame_load_raw(ctx, OP_SIZE_INT, garbage, slot_from, 0, R_ARG1));
+	g(gen_frame_load_raw(ctx, OP_SIZE_INT, garbage, slot_from, 0, false, R_ARG1));
 	g(gen_upcall_argument(ctx, 1));
 
 	g(gen_load_constant(ctx, R_ARG2, (flags & OPCODE_FLAG_FREE_ARGUMENT) != 0));
@@ -2504,9 +2504,9 @@ static bool attr_w gen_array_append(struct codegen_context *ctx, frame_t slot_1,
 	if (unlikely(TYPE_IS_FLAT(get_type_of_local(ctx, slot_2))))
 		g(gen_test_1_jz_cached(ctx, slot_2, escape_label));
 
-	g(gen_frame_load(ctx, OP_SIZE_SLOT, zero_x, slot_1, 0, R_SCRATCH_1));
+	g(gen_frame_load(ctx, OP_SIZE_SLOT, zero_x, slot_1, 0, false, R_SCRATCH_1));
 	g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, slot_1, escape_label));
-	g(gen_frame_load(ctx, OP_SIZE_SLOT, zero_x, slot_2, 0, R_SCRATCH_2));
+	g(gen_frame_load(ctx, OP_SIZE_SLOT, zero_x, slot_2, 0, false, R_SCRATCH_2));
 	g(gen_ptr_is_thunk(ctx, R_SCRATCH_2, slot_2, escape_label));
 
 	g(gen_compare_da_tag(ctx, R_SCRATCH_1, DATA_TAG_array_incomplete, COND_E, escape_label, R_SCRATCH_1));
@@ -2669,7 +2669,7 @@ static bool attr_w gen_io(struct codegen_context *ctx, frame_t code, frame_t slo
 
 	for (i = 0; i < slot_2; i++) {
 		frame_t input_slot = ctx->var_aux[slot_1 + i];
-		if (ctx->registers[input_slot] >= 0)
+		if (slot_is_register(ctx, input_slot))
 			g(spill(ctx, input_slot));
 	}
 

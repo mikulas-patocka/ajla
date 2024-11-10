@@ -2402,7 +2402,7 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 		pcode_t instr, instr_params;
 		pcode_get_instr(ctx, &instr, &instr_params);
 		switch (instr) {
-			pcode_t p, op, res, a1, a2, aa, flags, flags1, flags2;
+			pcode_t p, op, res, a1, a2, aa, flags, flags1, flags2, cnst;
 			const struct pcode_type *tr, *t1, *t2, *ta;
 			bool a1_deref, a2_deref;
 			arg_mode_t am;
@@ -2459,6 +2459,37 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				if (flags2 & Flag_Free_Argument) {
 					if (t2->slot != tr->slot)
 						pcode_free(ctx, a2);
+				}
+				break;
+			case P_BinaryConstOp:
+				op = u_pcode_get();
+				ajla_assert_lo(Op_IsBinary(op), (file_line, "P_BinaryConstOp(%s): invalid binary op %"PRIdMAX"", function_name(ctx), (intmax_t)op));
+				res = u_pcode_get();
+				flags1 = u_pcode_get();
+				a1 = pcode_get();
+				cnst = pcode_get();
+				if (unlikely(var_elided(res))) {
+					if (flags1 & Flag_Free_Argument)
+						pcode_free(ctx, a1);
+					break;
+				}
+				tr = get_var_type(ctx, res);
+				t1 = get_var_type(ctx, a1);
+				ajla_assert_lo(type_is_equal(tr->type, (Op_IsBool(op) ? type_get_flat_option() : t1->type)), (file_line, "P_BinaryConstOp(%s): invalid types for binary operation %"PRIdMAX": %u, %u", function_name(ctx), (intmax_t)op, t1->type->tag, tr->type->tag));
+				fflags = 0;
+				if (flags1 & Flag_Fused_Bin_Jmp)
+					fflags |= OPCODE_FLAG_FUSED;
+				am = INIT_ARG_MODE;
+				get_arg_mode(am, t1->slot);
+				get_arg_mode(am, (frame_t)cnst);
+				get_arg_mode(am, tr->slot);
+				code = get_code(op, t1->type) + OPCODE_INT_OP_C + am * OPCODE_MODE_MULT;
+				gen_code(code);
+				gen_am_two(am, t1->slot, (frame_t)cnst);
+				gen_am_two(am, tr->slot, fflags);
+				if (flags1 & Flag_Free_Argument) {
+					if (t1->slot != tr->slot)
+						pcode_free(ctx, a1);
 				}
 				break;
 			case P_UnaryOp:
@@ -3844,6 +3875,8 @@ void * attr_fastcall pcode_find_op_function(const struct type *type, const struc
 		ptr = &fixed_op_thunk[TYPE_TAG_IDX_FIXED(tag) >> 1][idx];
 	} else if (TYPE_TAG_IS_INT(tag)) {
 		unsigned idx = (code - OPCODE_INT_OP - TYPE_TAG_IDX_INT(tag) * OPCODE_INT_TYPE_MULT) / OPCODE_INT_OP_MULT;
+		if (idx >= OPCODE_INT_OP_C && idx < OPCODE_INT_OP_UNARY)
+			idx -= OPCODE_INT_OP_C;
 		ajla_assert(idx < OPCODE_INT_OP_N, (file_line, "pcode_find_op_function: invalid parameters, type %u, code %04x", tag, code));
 		ptr = &int_op_thunk[TYPE_TAG_IDX_INT(tag)][idx];
 		ajla_assert(is_power_of_2(type->size), (file_line, "pcode_find_op_function: invalid integer type size %"PRIuMAX"", (uintmax_t)type->size));

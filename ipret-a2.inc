@@ -30,6 +30,18 @@
 #define DEF(type)	DEFINE_INT_BINARY_OPCODE(type, op)
 #include "ipret-b1.inc"
 
+#define orig_op		divide
+#define op		divide_alt1
+#define OPF		INT_DIVIDE_ALT1_
+#define DEF(type)	DEFINE_INT_BINARY_CONST_OPCODE(type, op)
+#include "ipret-b1.inc"
+
+#define orig_op		modulo
+#define op		modulo_alt1
+#define OPF		INT_MODULO_ALT1_
+#define DEF(type)	DEFINE_INT_BINARY_CONST_OPCODE(type, op)
+#include "ipret-b1.inc"
+
 #define orig_op		popcnt
 #define op		popcnt_alt1
 #define OPF		INT_POPCNT_ALT1_

@@ -55,6 +55,11 @@ static void dump_registers(int sig, ucontext_t *uc)
 	for (i = 0; i < 32; i++)
 		debug("gpr_%d = %lx", i, uc->uc_mcontext.regs->gpr[i]);
 #endif
+#if defined(ARCH_S390)
+	debug("%s at %lx", sig == SIGSEGV ? "sigsegv" : sig == SIGBUS ? "sigbus" : "sigill", uc->uc_mcontext.psw.addr);
+	for (i = 0; i < 16; i++)
+		debug("gpr_%d = %lx", i, uc->uc_mcontext.gregs[i]);
+#endif
 #if defined(__SH4__)
 	debug("%s at %x", sig == SIGSEGV ? "sigsegv" : sig == SIGBUS ? "sigbus" : "sigill", uc->uc_mcontext.pc);
 	for (i = 0; i < 16; i++)

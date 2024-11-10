@@ -928,6 +928,35 @@ do {									\
 #define IMM_PURPOSE_BITWISE		21
 
 
+static unsigned alu_purpose(unsigned alu)
+{
+	unsigned purpose =
+		alu == ALU_ADD ? IMM_PURPOSE_ADD :
+		alu == ALU_ADC ? IMM_PURPOSE_ADD :
+		alu == ALU_SUB ? IMM_PURPOSE_SUB :
+		alu == ALU_SBB ? IMM_PURPOSE_SUB :
+		alu == ALU_MUL ? IMM_PURPOSE_MUL :
+		alu == ALU_UMULH ? IMM_PURPOSE_MUL :
+		alu == ALU_SMULH ? IMM_PURPOSE_MUL :
+		alu == ALU_ANDN ? IMM_PURPOSE_ANDN :
+		alu == ALU_AND ? IMM_PURPOSE_AND :
+		alu == ALU_OR ? IMM_PURPOSE_OR :
+		alu == ALU_XOR ? IMM_PURPOSE_XOR :
+		alu == ALU_EXTBL ? IMM_PURPOSE_OR :
+		alu == ALU_EXTWL ? IMM_PURPOSE_OR :
+		alu == ALU_EXTLL ? IMM_PURPOSE_OR :
+		alu == ALU_EXTLH ? IMM_PURPOSE_OR :
+		alu == ALU_INSBL ? IMM_PURPOSE_OR :
+		alu == ALU_MSKBL ? IMM_PURPOSE_OR :
+		alu == ALU_ZAP ? IMM_PURPOSE_ANDN :
+		alu == ALU_ZAPNOT ? IMM_PURPOSE_AND :
+		-1U;
+	if (unlikely(purpose == -1U))
+		internal(file_line, "alu_purpose: invalid alu %u", alu);
+	return purpose;
+}
+
+
 static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned args);
 
 #define gen_address_offset()						\
@@ -955,6 +984,16 @@ do {									\
 } while (0)
 
 #define is_imm()	(!ctx->const_reg)
+
+
+static inline bool slot_is_register(struct codegen_context *ctx, frame_t slot)
+{
+	if (frame_t_is_const(slot))
+		return false;
+	if (unlikely(slot >= function_n_variables(ctx->fn)))
+		internal(file_line, "slot_is_register: invalid slot %lu", (unsigned long)slot);
+	return ctx->registers[slot] >= 0;
+}
 
 
 #define insn_file		1
@@ -1309,7 +1348,7 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 			code -= OPCODE_INT_OP;
 			op = (code / OPCODE_INT_OP_MULT) % OPCODE_INT_TYPE_MULT;
 			type = code / OPCODE_INT_TYPE_MULT;
-			if (op < OPCODE_INT_OP_UNARY) {
+			if (op < OPCODE_INT_OP_C) {
 				get_two(ctx, &slot_1, &slot_2);
 				get_two(ctx, &slot_r, &flags);
 				escape_label = alloc_escape_label(ctx);
@@ -1319,6 +1358,24 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				flag_set(ctx, slot_1, false);
 				flag_set(ctx, slot_2, false);
 				flag_set(ctx, slot_r, false);
+				if (flags & OPCODE_FLAG_FUSED) {
+					g(gen_fused_binary(ctx, MODE_INT, type, op, escape_label, slot_1, slot_2, slot_r, &failed));
+					if (unlikely(!failed))
+						continue;
+				}
+				g(gen_alu(ctx, MODE_INT, type, op, escape_label, slot_1, slot_2, slot_r));
+				continue;
+			} else if (op < OPCODE_INT_OP_UNARY) {
+				op -= OPCODE_INT_OP_C;
+				get_two(ctx, &slot_1, &slot_2);
+				get_two(ctx, &slot_r, &flags);
+				escape_label = alloc_escape_label(ctx);
+				if (unlikely(!escape_label))
+					return false;
+				g(gen_test_1_cached(ctx, slot_1, escape_label));
+				flag_set(ctx, slot_1, false);
+				flag_set(ctx, slot_r, false);
+				slot_2 = frame_t_from_const((int32_t)slot_2);
 				if (flags & OPCODE_FLAG_FUSED) {
 					g(gen_fused_binary(ctx, MODE_INT, type, op, escape_label, slot_1, slot_2, slot_r, &failed));
 					if (unlikely(!failed))
@@ -1534,7 +1591,7 @@ unconditional_escape:
 				g(gen_test_1(ctx, R_FRAME, slot_1, 0, label_id, false, TEST_SET));
 do_take_borrowed:
 				g(gen_upcall_start(ctx, 1));
-				g(gen_frame_load(ctx, OP_SIZE_SLOT, garbage, slot_1, 0, R_ARG0));
+				g(gen_frame_load(ctx, OP_SIZE_SLOT, garbage, slot_1, 0, false, R_ARG0));
 				g(gen_upcall_argument(ctx, 0));
 				g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1));
 				flag_set(ctx, slot_1, true);
@@ -1560,7 +1617,7 @@ take_borrowed_done:
 					label_id = 0;	/* avoid warning */
 				}
 				g(gen_upcall_start(ctx, 1));
-				g(gen_frame_load(ctx, OP_SIZE_SLOT, garbage, slot_1, 0, R_ARG0));
+				g(gen_frame_load(ctx, OP_SIZE_SLOT, garbage, slot_1, 0, false, R_ARG0));
 				g(gen_upcall_argument(ctx, 0));
 				g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_dereference), 1));
 				if (need_bit_test)
@@ -2056,7 +2113,7 @@ static bool attr_w gen_epilogues(struct codegen_context *ctx)
 	}
 	gen_label(escape_label);
 	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
-		if (ctx->registers[v] >= 0) {
+		if (slot_is_register(ctx, v)) {
 			g(spill(ctx, v));
 		}
 	}

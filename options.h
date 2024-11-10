@@ -417,6 +417,18 @@ typedef uint32_t stack_size_t;
 typedef uint32_t arg_t;
 #define NO_FRAME_T		((frame_t)-1)
 
+#define frame_t_is_const(f)	((f) != NO_FRAME_T && (f) & sign_bit(frame_t))
+static inline int32_t frame_t_get_const(frame_t f)
+{
+	return (int32_t)(f - 0xc0000000UL);
+}
+static inline frame_t frame_t_from_const(int32_t c)
+{
+	/* this logic is copied in simplify_instr */
+	/*ajla_assert_lo(c >= -0x40000000L && c < 0x3fffffffL, (file_line, "frame_t_from_const: invalid constant %ld", (long)c));*/
+	return (frame_t)c + 0xc0000000UL;
+}
+
 typedef frame_t ajla_option_t;	/* some code casts ajla_option_t to frame_t */
 
 #if (defined(HAVE_SYS_MMAN_H) && defined(HAVE_MMAP)) || defined(OS_OS2) || defined(OS_WIN32)
