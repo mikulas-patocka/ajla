@@ -293,12 +293,18 @@ do_undo_opcode:
 				unsigned reg2;
 				size_t m;
 				int64_t offset = (size_t)slot_1 * slot_size;
-				g(gen_frame_get(ctx, op_size, garbage, slot_2, R_SCRATCH_1, &reg2));
+				if (!frame_t_is_const(slot_2))
+					g(gen_frame_get(ctx, op_size, garbage, slot_2, R_SCRATCH_1, &reg2));
 				g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDR_OFFSET, i_size(op_size)));
+				if (frame_t_is_const(slot_2))
+					g(gen_imm(ctx, frame_t_get_const(slot_2), alu_purpose(alu), i_size(op_size)));
 				gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(op_size), i_size(op_size), alu, 1);
 				gen_address_offset();
 				gen_address_offset();
-				gen_one(reg2);
+				if (frame_t_is_const(slot_2))
+					gen_imm_offset();
+				else
+					gen_one(reg2);
 				if (mode == MODE_INT) {
 					ce = alloc_undo_label(ctx);
 					if (unlikely(!ce))
@@ -310,7 +316,10 @@ do_undo_opcode:
 					m = mark_params(ctx);
 					gen_address_offset();
 					gen_address_offset();
-					gen_one(reg2);
+					if (frame_t_is_const(slot_2))
+						gen_imm_offset();
+					else
+						gen_one(reg2);
 					copy_params(ctx, ce, m);
 					gen_insn(INSN_JMP_COND, i_size_cmp(op_size), COND_O, 0);
 					gen_four(ce->undo_label);
