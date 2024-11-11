@@ -333,8 +333,10 @@ do_undo_opcode:
 		if (1)
 #elif defined(ARCH_S390)
 		if (op_size >= OP_SIZE_4)
+#elif ARCH_HAS_FLAGS && !defined(ARCH_POWER)
+		if (op_size == i_size(op_size) + (unsigned)zero && frame_t_is_const(slot_2))
 #else
-		if (0)
+		if (mode != MODE_INT && op_size == i_size(op_size) + (unsigned)zero && frame_t_is_const(slot_2))
 #endif
 		{
 			if (mode == MODE_INT) {
