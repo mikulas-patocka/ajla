@@ -926,6 +926,8 @@ do {									\
 #define IMM_PURPOSE_CMOV		19
 #define IMM_PURPOSE_MOVR		20
 #define IMM_PURPOSE_BITWISE		21
+#define IMM_PURPOSE_ADD_TRAP		22
+#define IMM_PURPOSE_SUB_TRAP		23
 
 
 static unsigned alu_purpose(unsigned alu)
@@ -953,6 +955,17 @@ static unsigned alu_purpose(unsigned alu)
 		-1U;
 	if (unlikely(purpose == -1U))
 		internal(file_line, "alu_purpose: invalid alu %u", alu);
+	return purpose;
+}
+
+static unsigned alu_trap_purpose(unsigned alu)
+{
+	unsigned purpose =
+		alu == ALU_ADD ? IMM_PURPOSE_ADD_TRAP :
+		alu == ALU_SUB ? IMM_PURPOSE_SUB_TRAP :
+		-1U;
+	if (unlikely(purpose == -1U))
+		internal(file_line, "alu_trap_purpose: invalid alu %u", alu);
 	return purpose;
 }
 

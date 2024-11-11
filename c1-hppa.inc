@@ -382,6 +382,9 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 			break;
 		case IMM_PURPOSE_BITWISE:
 			return true;
+		case IMM_PURPOSE_ADD_TRAP:
+		case IMM_PURPOSE_SUB_TRAP:
+			break;
 		default:
 			internal(file_line, "is_direct_const: invalid purpose %u (imm %"PRIxMAX", size %u)", purpose, (uintmax_t)imm, size);
 	}

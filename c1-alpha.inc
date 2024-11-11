@@ -288,6 +288,8 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 		case IMM_PURPOSE_TEST:
 		case IMM_PURPOSE_MUL:
 		case IMM_PURPOSE_MOVR:
+		case IMM_PURPOSE_ADD_TRAP:
+		case IMM_PURPOSE_SUB_TRAP:
 			if (imm >= 0 && imm < 256)
 				return true;
 			break;

@@ -222,13 +222,18 @@ do_alu: {
 			unsigned undo_alu = alu == ALU_ADD ? ALU_SUB : ALU_ADD;
 			if (slot_is_register(ctx, slot_1)) {
 				unsigned reg1 = ctx->registers[slot_1];
-				if (slot_is_register(ctx, slot_2)) {
-					unsigned reg2 = ctx->registers[slot_2];
+				if (slot_is_register(ctx, slot_2) || frame_t_is_const(slot_2)) {
+					unsigned reg2 = frame_t_is_const(slot_2) ? 0xff /* avoid warning */ : ctx->registers[slot_2];
 					if (mode == MODE_INT && ARCH_SUPPORTS_TRAPS) {
+						if (frame_t_is_const(slot_2))
+							g(gen_imm(ctx, frame_t_get_const(slot_2), alu_trap_purpose(alu), i_size(op_size)));
 						gen_insn(INSN_ALU_TRAP, op_size, alu, ALU_WRITES_FLAGS(alu, false));
 						gen_one(reg1);
 						gen_one(reg1);
-						gen_one(reg2);
+						if (frame_t_is_const(slot_2))
+							gen_imm_offset();
+						else
+							gen_one(reg2);
 						if (ARCH_TRAP_BEFORE) {
 							gen_four(label_ovf);
 							return true;
@@ -240,8 +245,12 @@ do_alu: {
 							goto do_undo_opcode;
 						}
 					}
-					g(gen_3address_alu(ctx, i_size(op_size), alu, reg1, reg1, reg2, mode == MODE_INT));
+					if (frame_t_is_const(slot_2))
+						g(gen_3address_alu_imm(ctx, i_size(op_size), alu, reg1, reg1, frame_t_get_const(slot_2), mode == MODE_INT));
+					else
+						g(gen_3address_alu(ctx, i_size(op_size), alu, reg1, reg1, reg2, mode == MODE_INT));
 					if (mode == MODE_INT) {
+						size_t m;
 						ce = alloc_undo_label(ctx);
 						if (unlikely(!ce))
 							return false;
@@ -252,10 +261,14 @@ do_undo_opcode:
 						ce->undo_op_size = i_size(op_size);
 						ce->undo_aux = undo_alu;
 						ce->undo_writes_flags = ALU_WRITES_FLAGS(undo_alu, false);
-						ce->undo_parameters[0] = reg1;
-						ce->undo_parameters[1] = reg1;
-						ce->undo_parameters[2] = reg2;
-						ce->undo_parameters_len = 3;
+						m = mark_params(ctx);
+						gen_one(reg1);
+						gen_one(reg1);
+						if (frame_t_is_const(slot_2))
+							gen_imm_offset();
+						else
+							gen_one(reg2);
+						copy_params(ctx, ce, m);
 					}
 					return true;
 				}

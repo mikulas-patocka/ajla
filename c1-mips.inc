@@ -387,7 +387,7 @@ static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int64
 
 static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 {
-	if (MIPS_R4000_ERRATA && (purpose == IMM_PURPOSE_ADD || purpose == IMM_PURPOSE_SUB) && size == OP_SIZE_8)
+	if (MIPS_R4000_ERRATA && (purpose == IMM_PURPOSE_ADD_TRAP || purpose == IMM_PURPOSE_SUB_TRAP) && size == OP_SIZE_8)
 		return false;
 	switch (purpose) {
 		case IMM_PURPOSE_STORE_VALUE:
@@ -412,6 +412,14 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 				return true;
 			break;
 		case IMM_PURPOSE_MUL:
+			break;
+		case IMM_PURPOSE_ADD_TRAP:
+			if (likely(imm == (int16_t)imm))
+				return true;
+			break;
+		case IMM_PURPOSE_SUB_TRAP:
+			if (likely(imm > -0x8000) && likely(imm <= 0x8000))
+				return true;
 			break;
 		default:
 			internal(file_line, "is_direct_const: invalid purpose %u (imm %"PRIxMAX", size %u)", purpose, (uintmax_t)imm, size);
