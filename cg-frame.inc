@@ -259,11 +259,11 @@ ret:
 	return true;
 }
 
-static bool attr_w gen_frame_get(struct codegen_context *ctx, unsigned size, enum extend ex, frame_t slot, int64_t offset, unsigned reg, unsigned *dest)
+static bool attr_w gen_frame_get(struct codegen_context *ctx, unsigned size, enum extend ex, frame_t slot, unsigned reg, unsigned *dest)
 {
 	const struct type *t;
 	if (frame_t_is_const(slot)) {
-		g(gen_frame_load(ctx, size, ex, slot, offset, false, reg));
+		g(gen_frame_load(ctx, size, ex, slot, 0, false, reg));
 		*dest = reg;
 		return true;
 	}
@@ -281,7 +281,7 @@ skip_extend:
 		goto ret;
 	}
 	*dest = reg;
-	g(gen_frame_load(ctx, size, ex, slot, offset, false, reg));
+	g(gen_frame_load(ctx, size, ex, slot, 0, false, reg));
 ret:
 #ifdef DEBUG_GARBAGE
 	if (size < OP_SIZE_NATIVE && ex == garbage && t->tag != TYPE_TAG_flat_option) {
@@ -804,7 +804,7 @@ static bool attr_w gen_frame_load_cmp_set_cond(struct codegen_context *ctx, unsi
 	g(gen_frame_set_cond(ctx, size, logical, cond, slot_r));
 #else
 	unsigned src_reg, dest_reg;
-	g(gen_frame_get(ctx, size, ex, slot, 0, R_SCRATCH_NA_1, &src_reg));
+	g(gen_frame_get(ctx, size, ex, slot, R_SCRATCH_NA_1, &src_reg));
 	dest_reg = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_NA_1);
 	g(gen_cmp_dest_reg(ctx, size, reg, src_reg, dest_reg, 0, cond));
 	g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, dest_reg));
@@ -824,7 +824,7 @@ static bool attr_w gen_frame_load_cmp_imm_set_cond(struct codegen_context *ctx, 
 	g(gen_frame_set_cond(ctx, size, false, cond, slot_r));
 #else
 	unsigned src_reg;
-	g(gen_frame_get(ctx, size, ex, slot, 0, R_SCRATCH_NA_1, &src_reg));
+	g(gen_frame_get(ctx, size, ex, slot, R_SCRATCH_NA_1, &src_reg));
 	g(gen_frame_cmp_imm_set_cond_reg(ctx, size, src_reg, value, cond, slot_r));
 #endif
 	return true;

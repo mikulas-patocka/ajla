@@ -202,7 +202,7 @@ static bool attr_w gen_cond_jump(struct codegen_context *ctx, frame_t slot, int3
 #endif
 	goto no_load_op;
 no_load_op:
-	g(gen_frame_get(ctx, size, i_size(size) == size ? garbage : native, slot, 0, R_SCRATCH_1, &reg1));
+	g(gen_frame_get(ctx, size, i_size(size) == size ? garbage : native, slot, R_SCRATCH_1, &reg1));
 	g(gen_jump(ctx, jmp_offset, size, COND_E, reg1, -1U));
 	return true;
 }
@@ -659,7 +659,7 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 					gen_eight(new_fp_offset + hi_word(OP_SIZE_NATIVE));
 					gen_one(R_SCRATCH_2);
 				} else {
-					g(gen_frame_get(ctx, log_2(t->size), garbage, src_arg->slot, 0, R_SCRATCH_1, &reg1));
+					g(gen_frame_get(ctx, log_2(t->size), garbage, src_arg->slot, R_SCRATCH_1, &reg1));
 
 					gen_insn(INSN_MOV, log_2(t->size), 0, 0);
 					gen_one(ARG_ADDRESS_2 + OP_SIZE_SLOT);
@@ -908,7 +908,7 @@ struct_zero:
 					ajla_assert_lo(struct_type->tag == TYPE_TAG_flat_array, (file_line, "gen_structured: invalid tag %u, expected %u", struct_type->tag, TYPE_TAG_flat_array));
 					g(gen_test_1_cached(ctx, param_slot, escape_label));
 					flag_set(ctx, param_slot, false);
-					g(gen_frame_get(ctx, OP_SIZE_INT, native, param_slot, 0, R_SCRATCH_1, &reg1));
+					g(gen_frame_get(ctx, OP_SIZE_INT, native, param_slot, R_SCRATCH_1, &reg1));
 
 					g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, reg1, type_def(struct_type,flat_array)->n_elements, COND_AE, escape_label));
 
@@ -979,7 +979,7 @@ struct_zero:
 					g(gen_test_1_cached(ctx, param_slot, escape_label));
 					flag_set(ctx, param_slot, false);
 
-					g(gen_frame_get(ctx, OP_SIZE_INT, native, param_slot, 0, R_SCRATCH_2, &reg2));
+					g(gen_frame_get(ctx, OP_SIZE_INT, native, param_slot, R_SCRATCH_2, &reg2));
 
 					g(gen_check_array_len(ctx, R_SCRATCH_1, false, reg2, COND_AE, escape_label));
 
@@ -1750,7 +1750,7 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 
 		gen_label(got_ptr_label);
 
-		g(gen_frame_get(ctx, OP_SIZE_INT, sign_x, slot_2, 0, R_SCRATCH_1, &reg1));
+		g(gen_frame_get(ctx, OP_SIZE_INT, sign_x, slot_2, R_SCRATCH_1, &reg1));
 		g(gen_jmp_if_negative(ctx, reg1, escape_label));
 
 		g(gen_upcall_start(ctx, 2));
@@ -1765,7 +1765,7 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 		g(gen_test_1_cached(ctx, slot_1, escape_label));
 		flag_set(ctx, slot_1, false);
 
-		g(gen_frame_get(ctx, OP_SIZE_INT, sign_x, slot_2, 0, R_SCRATCH_4, &reg4));
+		g(gen_frame_get(ctx, OP_SIZE_INT, sign_x, slot_2, R_SCRATCH_4, &reg4));
 		g(gen_jmp_if_negative(ctx, reg4, escape_label));
 
 		g(gen_upcall_start(ctx, 3));
@@ -2092,7 +2092,7 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 		flag_set(ctx, slot_1, false);
 		flag_set(ctx, slot_idx, false);
 
-		g(gen_frame_get(ctx, OP_SIZE_INT, native, slot_idx, 0, R_SCRATCH_2, &reg2));
+		g(gen_frame_get(ctx, OP_SIZE_INT, native, slot_idx, R_SCRATCH_2, &reg2));
 
 		if (!(flags & OPCODE_ARRAY_INDEX_IN_RANGE))
 			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, reg2, def->n_elements, COND_AE, escape_label));
@@ -2105,7 +2105,7 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 
 	g(gen_test_1_cached(ctx, slot_idx, escape_label));
 	flag_set(ctx, slot_idx, false);
-	g(gen_frame_get(ctx, OP_SIZE_INT, native, slot_idx, 0, R_SCRATCH_2, &reg2));
+	g(gen_frame_get(ctx, OP_SIZE_INT, native, slot_idx, R_SCRATCH_2, &reg2));
 
 	if (!(flags & OPCODE_ARRAY_INDEX_IN_RANGE))
 		g(gen_check_array_len(ctx, reg1, false, reg2, COND_AE, escape_label));
@@ -2346,7 +2346,7 @@ do_fused:	{
 			enum extend ex = OP_SIZE_INT == i_size_cmp(OP_SIZE_INT) + (unsigned)zero ? garbage : sign_x;
 			unsigned reg2;
 			if (ARCH_HAS_JMP_2REGS(COND_LE)) {
-				g(gen_frame_get(ctx, OP_SIZE_INT, ex, slot_2, 0, R_SCRATCH_2, &reg2));
+				g(gen_frame_get(ctx, OP_SIZE_INT, ex, slot_2, R_SCRATCH_2, &reg2));
 				g(gen_jump(ctx, offs_false, i_size_cmp(OP_SIZE_INT), COND_LE, target, reg2));
 				return true;
 			}
@@ -2354,7 +2354,7 @@ do_fused:	{
 			g(gen_frame_load_cmp(ctx, OP_SIZE_INT, COND_IS_LOGICAL(COND_LE), ex, false, slot_2, 0, false, target));
 			g(gen_jump(ctx, offs_false, i_size_cmp(OP_SIZE_INT), COND_LE, -1U, -1U));
 #else
-			g(gen_frame_get(ctx, OP_SIZE_INT, ex, slot_2, 0, R_SCRATCH_2, &reg2));
+			g(gen_frame_get(ctx, OP_SIZE_INT, ex, slot_2, R_SCRATCH_2, &reg2));
 			g(gen_cmp_dest_reg(ctx, i_size_cmp(OP_SIZE_INT), target, reg2, R_CMP_RESULT, 0, COND_G));
 			g(gen_jump(ctx, offs_false, OP_SIZE_NATIVE, COND_E, R_CMP_RESULT, -1U));
 #endif
