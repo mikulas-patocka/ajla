@@ -414,10 +414,14 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 		case IMM_PURPOSE_MUL:
 			break;
 		case IMM_PURPOSE_ADD_TRAP:
+			if (MIPS_R6)
+				break;
 			if (likely(imm == (int16_t)imm))
 				return true;
 			break;
 		case IMM_PURPOSE_SUB_TRAP:
+			if (MIPS_R6)
+				break;
 			if (likely(imm > -0x8000) && likely(imm <= 0x8000))
 				return true;
 			break;
