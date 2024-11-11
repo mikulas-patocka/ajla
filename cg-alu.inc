@@ -227,7 +227,7 @@ do_alu: {
 					if (mode == MODE_INT && ARCH_SUPPORTS_TRAPS) {
 						if (frame_t_is_const(slot_2))
 							g(gen_imm(ctx, frame_t_get_const(slot_2), alu_trap_purpose(alu), i_size(op_size)));
-						gen_insn(INSN_ALU_TRAP, op_size, alu, ALU_WRITES_FLAGS(alu, false));
+						gen_insn(INSN_ALU_TRAP, op_size, alu, ALU_WRITES_FLAGS(alu, frame_t_is_const(slot_2) && is_imm()));
 						gen_one(reg1);
 						gen_one(reg1);
 						if (frame_t_is_const(slot_2))
@@ -260,7 +260,7 @@ do_undo_opcode:
 						ce->undo_opcode = INSN_ALU + ARCH_PARTIAL_ALU(op_size);
 						ce->undo_op_size = i_size(op_size);
 						ce->undo_aux = undo_alu;
-						ce->undo_writes_flags = ALU_WRITES_FLAGS(undo_alu, false);
+						ce->undo_writes_flags = ALU_WRITES_FLAGS(undo_alu, frame_t_is_const(slot_2) && is_imm());
 						m = mark_params(ctx);
 						gen_one(reg1);
 						gen_one(reg1);

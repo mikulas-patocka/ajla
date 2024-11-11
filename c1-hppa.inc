@@ -36,7 +36,7 @@
 
 #define UNALIGNED_TRAP			1
 
-#define ALU_WRITES_FLAGS(alu, im)	((alu) == ALU_ADC || (alu) == ALU_SUB || (alu) == ALU_SBB ? 3 : 0)
+#define ALU_WRITES_FLAGS(alu, im)	(!(im) && ((alu) == ALU_ADC || (alu) == ALU_SUB || (alu) == ALU_SBB) ? 3 : 0)
 #define ALU1_WRITES_FLAGS(alu)		((alu) == ALU1_NEG || (alu) == ALU1_INC || (alu) == ALU1_DEC ? 3 : 0)
 #define ROT_WRITES_FLAGS(alu, size, im)	0
 #define COND_IS_LOGICAL(cond)		0
@@ -357,12 +357,14 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 				return true;
 			break;
 		case IMM_PURPOSE_SUB:
+		case IMM_PURPOSE_SUB_TRAP:
 			imm_copy = -(uint64_t)imm_copy;
 			/*-fallthrough*/
 		case IMM_PURPOSE_ADD:
 		case IMM_PURPOSE_CMP:
 		case IMM_PURPOSE_CMP_LOGICAL:
 		case IMM_PURPOSE_MOVR:
+		case IMM_PURPOSE_ADD_TRAP:
 			if (likely(imm_copy >= -1024) && likely(imm_copy < 1024))
 				return true;
 			break;
@@ -382,9 +384,6 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 			break;
 		case IMM_PURPOSE_BITWISE:
 			return true;
-		case IMM_PURPOSE_ADD_TRAP:
-		case IMM_PURPOSE_SUB_TRAP:
-			break;
 		default:
 			internal(file_line, "is_direct_const: invalid purpose %u (imm %"PRIxMAX", size %u)", purpose, (uintmax_t)imm, size);
 	}

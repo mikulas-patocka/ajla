@@ -627,6 +627,7 @@ static bool attr_w cgen_cmp_dest_reg(struct codegen_context *ctx, unsigned size,
 static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned writes_flags, unsigned alu, bool trap, unsigned length)
 {
 	uint32_t mc;
+	unsigned r1, r2, rt;
 	uint8_t z = R_ZERO;
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
@@ -636,7 +637,7 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 	if (unlikely(arg1[0] >= 0x20) || unlikely(arg2[0] >= 0x20))
 		goto invalid;
 
-	if (arg3[0] == ARG_IMM && !trap) {
+	if (arg3[0] == ARG_IMM) {
 		int64_t imm = get_imm(&arg3[1]);
 		if (!imm) {
 			arg3 = &z;
@@ -644,27 +645,47 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 		}
 		if (unlikely(writes_flags))
 			goto invalid;
-		switch (alu) {
-			case ALU_SUB:
+		if (!trap) {
+			if (alu == ALU_SUB)
 				imm = -(uint64_t)imm;
-				/*-fallthrough*/
-			case ALU_ADD:
-				if (imm >= -0x2000 && imm < 0x2000) {
-					mc = PARISC_LDO;
-					mc |= low_sign_ext_14(imm);
-					g(cgen_2reg(ctx, mc, arg2[0], arg1[0]));
-					return true;
-				} else if (!(imm & 0x7ff) && arg1[0] == R_1) {
-					mc = PARISC_ADDIL;
-					mc |= (uint32_t)arg2[0] << 21;
-					mc |= assemble_21((uint64_t)imm >> 11);
-					cgen_four(mc);
-					return true;
-				} else {
-					goto invalid;
-				}
-			default:
+			else if (unlikely(alu != ALU_ADD))
 				goto invalid;
+			if (imm >= -0x2000 && imm < 0x2000) {
+				mc = PARISC_LDO;
+				mc |= low_sign_ext_14(imm);
+				g(cgen_2reg(ctx, mc, arg2[0], arg1[0]));
+				return true;
+			} else if (!(imm & 0x7ff) && arg1[0] == R_1) {
+				mc = PARISC_ADDIL;
+				mc |= (uint32_t)arg2[0] << 21;
+				mc |= assemble_21((uint64_t)imm >> 11);
+				cgen_four(mc);
+				return true;
+			} else {
+				goto invalid;
+			}
+		} else {
+			if (alu == ALU_SUB)
+				imm = -(uint64_t)imm;
+			else if (unlikely(alu != ALU_ADD))
+				goto invalid;
+			if (size == OP_SIZE_8) {
+				mc = PARISC_LDO;
+				mc |= low_sign_ext_14(imm);
+				g(cgen_2reg(ctx, mc, R_ZERO, R_CG_SCRATCH));
+
+				mc = PARISC_ADD;
+				r1 = arg2[0];
+				r2 = R_CG_SCRATCH;
+				rt = arg1[0];
+			} else {
+				mc = PARISC_ADDI;
+				mc |= low_sign_ext_11(imm);
+				r1 = arg1[0];
+				r2 = arg2[0];
+				rt = 0;
+			}
+			goto do_op;
 		}
 	}
 
@@ -726,6 +747,11 @@ do_3reg:
 	}
 #endif
 
+	r1 = arg2[0];
+	r2 = arg3[0];
+	rt = arg1[0];
+
+do_op:
 	if (trap) {
 		if (length == JMP_EXTRA_LONG || (length == JMP_LONG && !PA_20))
 			mc |= PARISC_COND_SV;
@@ -735,7 +761,7 @@ do_3reg:
 			mc |= PARISC_COND_64;
 	}
 
-	g(cgen_3reg(ctx, mc, arg2[0], arg3[0], arg1[0]));
+	g(cgen_3reg(ctx, mc, r1, r2, rt));
 
 	if (trap) {
 		if (length <= JMP_SHORT) {
@@ -757,7 +783,7 @@ do_3reg:
 	return true;
 
 invalid:
-	internal(file_line, "cgen_alu: invalid arguments %02x, %02x, %02x, %u, %u", arg1[0], arg2[0], arg3[0], alu, writes_flags);
+	internal(file_line, "cgen_alu: invalid arguments %02x, %02x, %02x, %u, %u, %u", arg1[0], arg2[0], arg3[0], alu, writes_flags, (unsigned)trap);
 	return false;
 }
 
