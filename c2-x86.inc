@@ -930,7 +930,7 @@ static bool attr_w cgen_rot(struct codegen_context *ctx, unsigned size, uint8_t 
 		g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_ROT_RM8_CL : X86_ROT_RM16_CL, size, false, rot, arg1));
 	} else if (likely(arg3[0] == ARG_IMM)) {
 		int64_t imm;
-		imm = get_imm(&arg1[3]);
+		imm = get_imm(&arg3[1]);
 		if (imm == 1) {
 			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_ROT_RM8_1 : X86_ROT_RM16_1, size, false, rot, arg1));
 		} else {

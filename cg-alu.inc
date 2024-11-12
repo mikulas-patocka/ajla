@@ -1019,20 +1019,38 @@ do_shift: {
 		op_s = i_size_rot(op_size);
 #if defined(ARCH_X86)
 		if (slot_1 == slot_r && !slot_is_register(ctx, slot_1) && !(mode == MODE_INT && alu == ROT_SHL)) {
-			int64_t offset;
-			g(gen_frame_load(ctx, op_size, garbage, slot_2, 0, false, R_SCRATCH_3));
-			if (mode == MODE_INT) {
-				int64_t imm = (8U << op_size) - 1;
-				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, op_size, R_SCRATCH_3, imm, COND_A, label_ovf));
-			} else if ((alu != ROT_ROL && alu != ROT_ROR) && op_size < OP_SIZE_4) {
-				g(gen_3address_alu_imm(ctx, OP_SIZE_1, ALU_AND, R_SCRATCH_3, R_SCRATCH_3, (8U << op_size) - 1, 0));
+			int64_t offset = (size_t)slot_1 * slot_size;
+			if (frame_t_is_const(slot_2)) {
+				int64_t cnst = frame_t_get_const(slot_2);
+				if (mode == MODE_INT) {
+					if (cnst > (8U << op_size) - 1 || cnst < 0) {
+						gen_insn(INSN_JMP, 0, 0, 0);
+						gen_four(label_ovf);
+						return true;
+					}
+				} else {
+					cnst &= (8U << op_size) - 1;
+				}
+				g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDR_OFFSET, op_size));
+				gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(op_size), op_size, alu, 1);
+				gen_address_offset();
+				gen_address_offset();
+				gen_one(ARG_IMM);
+				gen_eight(cnst);
+			} else {
+				g(gen_frame_load(ctx, op_size, garbage, slot_2, 0, false, R_SCRATCH_3));
+				if (mode == MODE_INT) {
+					int64_t imm = (8U << op_size) - 1;
+					g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, op_size, R_SCRATCH_3, imm, COND_A, label_ovf));
+				} else if ((alu != ROT_ROL && alu != ROT_ROR) && op_size < OP_SIZE_4) {
+					g(gen_3address_alu_imm(ctx, OP_SIZE_1, ALU_AND, R_SCRATCH_3, R_SCRATCH_3, (8U << op_size) - 1, 0));
+				}
+				g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDR_OFFSET, op_size));
+				gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(op_size), op_size, alu, 1);
+				gen_address_offset();
+				gen_address_offset();
+				gen_one(R_SCRATCH_3);
 			}
-			offset = (size_t)slot_1 * slot_size;
-			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDR_OFFSET, op_size));
-			gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(op_size), op_size, alu, 1);
-			gen_address_offset();
-			gen_address_offset();
-			gen_one(R_SCRATCH_3);
 			return true;
 		}
 		if (mode == MODE_INT && alu == ROT_SHL && op_size < OP_SIZE_NATIVE)
