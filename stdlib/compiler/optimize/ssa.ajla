@@ -1056,6 +1056,22 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 		]
 		goto end;
 	]
+	if ins.opcode = P_BinaryConstOp then [
+		var vgi1 := ins.params[3];
+		var v1 := ctx.variables[vgi1];
+		var v1_ins := ctx.instrs[v1.defining_instr];
+		var vgir := ins.params[1];
+		var vr := ctx.variables[vgir];
+		if v1_ins.opcode = P_Load_Const then [
+			var cnst := ins.params[4];
+			var c := evaluate_binary(v1.runtime_type, vr.runtime_type, ins.params[0], v1_ins.params[1 ..], int_to_blob(cnst));
+			if is_exception c then
+				return ins, false;
+			var params := list(pcode_t).[ ins.params[1] ] + c;
+			return create_instr(P_Load_Const, params, ins.bb), true;
+		]
+		goto end;
+	]
 	if ins.opcode = P_UnaryOp then [
 		var vgi1 := ins.params[3];
 		var v1 := ctx.variables[vgi1];
