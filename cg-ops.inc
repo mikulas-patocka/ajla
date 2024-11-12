@@ -1657,7 +1657,7 @@ static bool attr_w gen_array_create_empty(struct codegen_context *ctx, frame_t s
 
 	g(gen_upcall_start(ctx, 2));
 
-	g(gen_load_constant(ctx, R_ARG0, 0));
+	g(gen_load_constant(ctx, R_ARG0, ARRAY_PREALLOC_SIZE));
 	g(gen_upcall_argument(ctx, 0));
 
 	g(gen_load_constant(ctx, R_ARG1, 0));

@@ -2491,7 +2491,7 @@ DEFINE_OPCODE_START(OPCODE_ARRAY_CREATE_EMPTY_FLAT)
 	const struct type *type = da_type(get_frame(fp)->function, get_i_param(1));
 	TYPE_TAG_VALIDATE(type->tag);
 
-	a = data_alloc_array_flat_mayfail(type, 0, 0, false, &ajla_error pass_file_line);
+	a = data_alloc_array_flat_mayfail(type, ARRAY_PREALLOC_SIZE, 0, false, &ajla_error pass_file_line);
 	result_slot = get_i_param(0);
 	frame_set_pointer(fp, result_slot, likely(a != NULL) ? pointer_data(a) : pointer_error(ajla_error, fp, ip pass_file_line));
 	ADVANCE_I_PARAM(2);
@@ -2503,7 +2503,7 @@ DEFINE_OPCODE_START(OPCODE_ARRAY_CREATE_EMPTY)
 	frame_t result_slot;
 	struct data *a;
 
-	a = data_alloc_array_pointers_mayfail(0, 0, &ajla_error pass_file_line);
+	a = data_alloc_array_pointers_mayfail(ARRAY_PREALLOC_SIZE, 0, &ajla_error pass_file_line);
 	result_slot = get_i_param(0);
 	frame_set_pointer(fp, result_slot, likely(a != NULL) ? pointer_data(a) : pointer_error(ajla_error, fp, ip pass_file_line));
 	ADVANCE_I_PARAM(1);

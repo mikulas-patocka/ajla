@@ -466,4 +466,6 @@ typedef frame_t ajla_option_t;	/* some code casts ajla_option_t to frame_t */
 #define BTREE_MAX_SIZE			128
 #endif
 
+#define ARRAY_PREALLOC_SIZE		4
+
 #define DEFAULT_TICK_US			10000
