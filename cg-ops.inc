@@ -1626,7 +1626,7 @@ static bool attr_w gen_array_create_empty_flat(struct codegen_context *ctx, fram
 	if (unlikely(!escape_label))
 		return false;
 
-	g(gen_upcall_start(ctx, 3));
+	g(gen_upcall_start(ctx, 4));
 
 	g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, R_FRAME));
 	g(gen_upcall_argument(ctx, 0));
@@ -1634,10 +1634,13 @@ static bool attr_w gen_array_create_empty_flat(struct codegen_context *ctx, fram
 	g(gen_load_constant(ctx, R_ARG1, local_type));
 	g(gen_upcall_argument(ctx, 1));
 
-	g(gen_load_constant(ctx, R_ARG2, 0));
+	g(gen_load_constant(ctx, R_ARG2, ARRAY_PREALLOC_SIZE));
 	g(gen_upcall_argument(ctx, 2));
 
-	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_array_flat_types_ptr_mayfail), 3));
+	g(gen_load_constant(ctx, R_ARG3, 0));
+	g(gen_upcall_argument(ctx, 3));
+
+	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_array_flat_types_ptr_mayfail), 4));
 	g(gen_sanitize_returned_pointer(ctx, R_RET0));
 	g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, escape_label));
 

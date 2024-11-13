@@ -829,11 +829,11 @@ static unsigned char *cg_upcall_data_alloc_array_flat_slot_mayfail(frame_s *fp, 
 	return cast_ptr(unsigned char *, data_alloc_array_flat_mayfail(type, n_entries, n_entries, false, &sink pass_file_line));
 }
 
-static unsigned char *cg_upcall_data_alloc_array_flat_types_ptr_mayfail(frame_s *fp, uintptr_t local_type, int_default_t_upcall n_entries)
+static unsigned char *cg_upcall_data_alloc_array_flat_types_ptr_mayfail(frame_s *fp, uintptr_t local_type, int_default_t_upcall n_allocated, int_default_t_upcall n_used)
 {
 	ajla_error_t sink;
 	const struct type *type = da_type(get_frame(fp)->function, local_type);
-	return cast_ptr(unsigned char *, data_alloc_array_flat_mayfail(type, n_entries ? n_entries : ARRAY_PREALLOC_SIZE, n_entries, false, &sink pass_file_line));
+	return cast_ptr(unsigned char *, data_alloc_array_flat_mayfail(type, n_allocated, n_used, false, &sink pass_file_line));
 }
 
 static unsigned char *cg_upcall_data_alloc_array_pointers_mayfail(int_default_t_upcall n_allocated, int_default_t_upcall n_used)
