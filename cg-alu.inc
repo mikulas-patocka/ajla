@@ -550,7 +550,15 @@ do_multiply: {
 		if (op_size == OP_SIZE_1)
 			target = R_SCRATCH_1;
 		g(gen_frame_load(ctx, op_size, garbage, slot_1, 0, false, target));
-		g(gen_frame_load_op(ctx, op_size, garbage, ALU_MUL, mode == MODE_INT, slot_2, 0, false, target));
+		if (op_size == OP_SIZE_1 && frame_t_is_const(slot_2)) {
+			g(gen_load_constant(ctx, R_SCRATCH_3, frame_t_get_const(slot_2)));
+			gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(op_size), op_size, ALU_MUL, 1);
+			gen_one(target);
+			gen_one(target);
+			gen_one(R_SCRATCH_3);
+		} else {
+			g(gen_frame_load_op(ctx, op_size, garbage, ALU_MUL, mode == MODE_INT, slot_2, 0, false, target));
+		}
 		if (mode == MODE_INT) {
 			gen_insn(INSN_JMP_COND, op_size, COND_O, 0);
 			gen_four(label_ovf);
