@@ -1299,21 +1299,25 @@ do_bt: {
 		bool need_mask;
 		bool c = frame_t_is_const(slot_2);
 		int64_t cnst = !c ? 0 : frame_t_get_const(slot_2);
+		int64_t max_imm = (8U << op_size) - 1;
+		if (c) {
+			if (mode == MODE_INT) {
+				if (alu == BTX_BT ? (uint64_t)cnst > (uint64_t)max_imm : (uint64_t)cnst >= (uint64_t)max_imm) {
+					gen_insn(INSN_JMP, 0, 0, 0);
+					gen_four(label_ovf);
+					return true;
+				}
+			}
+			cnst &= max_imm;
+		}
 #if defined(ARCH_X86)
 		if ((alu == BTX_BT || slot_1 == slot_r) && !slot_is_register(ctx, slot_1)) {
 			int64_t offset;
 			unsigned n_op_size = minimum(op_size, OP_SIZE_NATIVE);
 			g(gen_frame_get(ctx, n_op_size, garbage, slot_2, R_SCRATCH_1, &reg2));
 			if (mode == MODE_INT) {
-				int64_t imm = (8U << op_size) - 1;
-				if (c) {
-					if (alu == BTX_BT ? (uint64_t)c > (uint64_t)imm : (uint64_t)c >= (uint64_t)imm) {
-						gen_insn(INSN_JMP, 0, 0, 0);
-						gen_four(label_ovf);
-						return true;
-					}
-				} else {
-					g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, n_op_size, reg2, imm, alu == BTX_BT ? COND_A : COND_AE, label_ovf));
+				if (!c) {
+					g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, n_op_size, reg2, max_imm, alu == BTX_BT ? COND_A : COND_AE, label_ovf));
 					if (unlikely(op_size > OP_SIZE_NATIVE)) {
 						g(gen_address(ctx, R_FRAME, (size_t)slot_2 * slot_size + hi_word(OP_SIZE_NATIVE), IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
 						gen_insn(INSN_CMP, OP_SIZE_NATIVE, 0, 1);
@@ -1325,9 +1329,7 @@ do_bt: {
 					}
 				}
 			} else {
-				if (c) {
-					cnst &= (8U << op_size) - 1;
-				} else {
+				if (!c) {
 					g(gen_3address_alu_imm(ctx, OP_SIZE_4, ALU_AND, R_SCRATCH_1, reg2, (8U << op_size) - 1, 0));
 					reg2 = R_SCRATCH_1;
 				}
@@ -1395,10 +1397,34 @@ do_bt: {
 		op_s = minimum(OP_SIZE_NATIVE, ARCH_SHIFT_SIZE);
 		op_s = maximum(op_s, op_size);
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, R_SCRATCH_1, &reg1));
+		if (c) {
+			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
+			switch (alu) {
+				case BTX_BTS:
+					g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_OR, target, reg1, 1ULL << cnst, 0));
+					break;
+				case BTX_BTR:
+					g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_AND, target, reg1, ~(1ULL << cnst), 0));
+					break;
+				case BTX_BTC:
+					g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, target, reg1, 1ULL << cnst, 0));
+					break;
+				case BTX_BT:
+					if (cnst) {
+						g(gen_3address_rot_imm(ctx, i_size(op_size), ROT_SHR, target, reg1, cnst, 0));
+					}
+					g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_AND, target, target, 1, 0));
+					break;
+				default:
+					internal(file_line, "do_alu: invalid bit test %u", alu);
+			}
+			g(gen_frame_store(ctx, op_size, slot_r, 0, target));
+			return true;
+		}
 		g(gen_frame_get(ctx, op_size, garbage, slot_2, R_SCRATCH_2, &reg2));
 		if (mode == MODE_INT) {
-			int64_t imm = (8U << op_size) - 1;
-			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg2, imm, alu == BTX_BT ? COND_A : COND_AE, label_ovf));
+			if (!c)
+				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg2, max_imm, alu == BTX_BT ? COND_A : COND_AE, label_ovf));
 		}
 		if (alu != BTX_BT) {
 			if (!ARCH_HAS_BTX(alu, OP_SIZE_NATIVE, false))
