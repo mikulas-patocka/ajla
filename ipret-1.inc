@@ -530,7 +530,7 @@ DEFINE_OPCODE(								\
 	frame_t slot_1 = get_i_param(0);				\
 	frame_t slot_2 = get_i_param(1);				\
 	frame_t slot_r = get_i_param(2);				\
-	ajla_assert(slot_r == slot_1 || slot_r == slot_2 || !frame_test_flag(fp, slot_r), (file_line, "int binary: flag already set for destination slot %"PRIuMAX"", (uintmax_t)slot_r));\
+	ajla_assert(slot_r == slot_1 || !frame_test_flag(fp, slot_r), (file_line, "int const binary: flag already set for destination slot %"PRIuMAX"", (uintmax_t)slot_r));\
 	if (unlikely(frame_test_flag(fp, slot_1))) {			\
 cat6(escape_int_binary_const_,op,_,type,_,ARG_MODE):			\
 		function_int_binary = cat(mpint_,op);			\
@@ -561,7 +561,7 @@ DEFINE_OPCODE(								\
 	frame_t slot_1 = get_i_param(0);				\
 	frame_t slot_2 = get_i_param(1);				\
 	frame_t slot_r = get_i_param(2);				\
-	ajla_assert(slot_r == slot_1 || slot_r == slot_2 || !frame_test_flag(fp, slot_r), (file_line, "int logical: flag already set for destination slot %"PRIuMAX"", (uintmax_t)slot_r));\
+	ajla_assert(slot_r == slot_1 || !frame_test_flag(fp, slot_r), (file_line, "int const logical: flag already set for destination slot %"PRIuMAX"", (uintmax_t)slot_r));\
 	if (unlikely(frame_test_flag(fp, slot_1))) {			\
 cat6(escape_int_binary_const_logical_,op,_,type,_,ARG_MODE):		\
 		function_int_binary_logical = cat(mpint_,op);		\
