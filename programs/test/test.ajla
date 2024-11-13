@@ -244,6 +244,27 @@ fn eval_fixed_number(implicit w : world, implicit h : handle, t : type, implicit
 	var p30 := popcnt a;
 	var p31 := a + 1;
 	var p32 := a - 1;
+	var p33 := a * 3;
+	var p34 := a div 4;
+	var p35 := a mod 5;
+	var p36 := ipower(a, 6);
+	var p37 := a and 7;
+	var p38 := a or 8;
+	var p39 := a xor 9;
+	var p40 := a shl 10;
+	var p41 := a shr 11;
+	var p42 := a rol 12;
+	var p43 := a ror 13;
+	var p44 := a bts 14;
+	var p45 := a btr 15;
+	var p46 := a btc 16;
+	var p47 := select(a = 17, 0, 1);
+	var p48 := select(a <> 18, 0, 1);
+	var p49 := select(a < 19, 0, 1);
+	var p50 := select(a <= 20, 0, 1);
+	var p51 := select(a > 21, 0, 1);
+	var p52 := select(a >= 22, 0, 1);
+	var p53 := select(a bt 23, 0, 1);
 
 	write(s + " plus: " + ntos_base(p1, 16) + nl);
 	write(s + " minus: " + ntos_base(p2, 16) + nl);
@@ -277,8 +298,29 @@ fn eval_fixed_number(implicit w : world, implicit h : handle, t : type, implicit
 	write(s + " popcnt: " + ntos_base(p30, 16) + nl);
 	write(s + " inc: " + ntos_base(p31, 16) + nl);
 	write(s + " dec: " + ntos_base(p32, 16) + nl);
+	write(s + " multiply: " + ntos_base(p33, 16) + nl);
+	write(s + " divide: " + ntos_base(p34, 16) + nl);
+	write(s + " modulo: " + ntos_base(p35, 16) + nl);
+	write(s + " power: " + ntos_base(p36, 16) + nl);
+	write(s + " and: " + ntos_base(p37, 16) + nl);
+	write(s + " or: " + ntos_base(p38, 16) + nl);
+	write(s + " xor: " + ntos_base(p39, 16) + nl);
+	write(s + " shl: " + ntos_base(p40, 16) + nl);
+	write(s + " shr: " + ntos_base(p41, 16) + nl);
+	write(s + " rol: " + ntos_base(p42, 16) + nl);
+	write(s + " ror: " + ntos_base(p43, 16) + nl);
+	write(s + " bts: " + ntos_base(p44, 16) + nl);
+	write(s + " btr: " + ntos_base(p45, 16) + nl);
+	write(s + " btc: " + ntos_base(p46, 16) + nl);
+	write(s + " equal: " + ntos_base(p47, 16) + nl);
+	write(s + " not_equal: " + ntos_base(p48, 16) + nl);
+	write(s + " less: " + ntos_base(p49, 16) + nl);
+	write(s + " less_equal: " + ntos_base(p50, 16) + nl);
+	write(s + " greater: " + ntos_base(p51, 16) + nl);
+	write(s + " greater_equal: " + ntos_base(p52, 16) + nl);
+	write(s + " bt: " + ntos_base(p53, 16) + nl);
 
-	var p := p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 + p10 + p11 + p12 + p13 + p14 + p15 + p16 + p17 + p18 + p19 + p20 + p21 + p22 + p23 + p24 + p25 + p26 + p27 + p28 + p29 + p30 + p31 + p32;
+	var p := p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 + p10 + p11 + p12 + p13 + p14 + p15 + p16 + p17 + p18 + p19 + p20 + p21 + p22 + p23 + p24 + p25 + p26 + p27 + p28 + p29 + p30 + p31 + p32 + p33 + p34 + p35 + p36 + p37 + p38 + p39 + p40 + p41 + p42 + p43 + p44 + p45 + p46 + p47 + p48 + p49 + p50 + p51 + p52 + p53;
 	if is_exception p then [
 		eval internal("Fixed operation generated an exception");
 	]
