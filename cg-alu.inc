@@ -1399,7 +1399,19 @@ do_bt: {
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, R_SCRATCH_1, &reg1));
 		if (c) {
 			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
-			switch (alu) {
+			if (ARCH_HAS_BTX(alu == BTX_BT ? BTX_BTEXT : alu, OP_SIZE_NATIVE, true)) {
+#ifdef ARCH_X86
+				g(gen_mov(ctx, OP_SIZE_NATIVE, target, reg1));
+				reg1 = target;
+				gen_insn(INSN_BTX, OP_SIZE_NATIVE, alu == BTX_BT ? BTX_BTEXT : alu, 1);
+#else
+				gen_insn(INSN_BTX, OP_SIZE_NATIVE, alu == BTX_BT ? BTX_BTEXT : alu, 0);
+#endif
+				gen_one(target);
+				gen_one(reg1);
+				gen_one(ARG_IMM);
+				gen_eight(cnst);
+			} else switch (alu) {
 				case BTX_BTS:
 					g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_OR, target, reg1, 1ULL << cnst, 0));
 					break;
