@@ -1026,14 +1026,21 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 				return create_instr(P_BinaryOp, list(pcode_t).[ Bin_Add, ins.params[1], ins.params[2], ins.params[3], ins.params[2], ins.params[3] ], ins.bb), true;
 			]
 		]
-		if v1.runtime_type <= T_Integer, v1.runtime_type >= T_Integer128, v2_ins.opcode = P_Load_Const then [
+		if v1.runtime_type <= T_SInt8, v1.runtime_type >= T_Integer128, v2_ins.opcode = P_Load_Const then [
 			var i := blob_to_int(v2_ins.params[1 .. ]);
+			//if v1.runtime_type <= T_SInt8, v1.runtime_type >= T_UInt128 then eval debug("evaluating constant " + ntos(i));
 			// this logic is copied in frame_t_from_const
 			var lower_limit, upper_limit := -#40000000, #3fffffff;
-			if v1.runtime_type = T_Integer8 then
+			if v1.runtime_type = T_Integer8 or v1.runtime_type = T_SInt8 then
 				lower_limit, upper_limit := -#80, #80;
-			if v1.runtime_type = T_Integer16 then
+			if v1.runtime_type = T_UInt8 then
+				lower_limit, upper_limit := #0, #100;
+			if v1.runtime_type = T_Integer16 or v1.runtime_type = T_SInt16 then
 				lower_limit, upper_limit := -#8000, #8000;
+			if v1.runtime_type = T_UInt16 then
+				lower_limit, upper_limit := #0, #10000;
+			if v1.runtime_type = T_UInt32 or v1.runtime_type = T_UInt64 or v1.runtime_type = T_UInt128 then
+				lower_limit := #0;
 			if i >= lower_limit, i < upper_limit then
 				return create_instr(P_BinaryConstOp, ins.params[ .. 4] +< i, ins.bb), true;
 		]

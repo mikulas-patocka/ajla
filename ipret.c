@@ -1356,6 +1356,12 @@ void name(ipret_init)(void)
 	debug("%s", s);
 	mem_free(s);
 #endif
+#if 0
+	int i;
+	for (i = 0; i < OPCODE_MODE_MULT * ARG_MODE_N - (OPCODE_MODE_MULT - OPCODE_N); i++) {
+		debug("%04x - %s", i, decode_opcode(i, true));
+	}
+#endif
 	tick_stamp_ptr = &tick_stamp;
 }
 

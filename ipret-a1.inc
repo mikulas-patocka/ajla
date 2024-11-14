@@ -42,6 +42,30 @@
 #define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(FIXED_, type, op)
 #include "ipret-b1.inc"
 
+#define orig_op		divide
+#define op		divide_alt1
+#define OPF		FIXED_DIVIDE_ALT1_
+#define DEF(type)	DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, op)
+#include "ipret-b1.inc"
+
+#define orig_op		udivide
+#define op		udivide_alt1
+#define OPF		FIXED_UDIVIDE_ALT1_
+#define DEF(type)	DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, op)
+#include "ipret-b1.inc"
+
+#define orig_op		modulo
+#define op		modulo_alt1
+#define OPF		FIXED_MODULO_ALT1_
+#define DEF(type)	DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, op)
+#include "ipret-b1.inc"
+
+#define orig_op		umodulo
+#define op		umodulo_alt1
+#define OPF		FIXED_UMODULO_ALT1_
+#define DEF(type)	DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, op)
+#include "ipret-b1.inc"
+
 #define orig_op		bswap
 #define op		bswap_alt1
 #define OPF		FIXED_BSWAP_ALT1_

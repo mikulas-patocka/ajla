@@ -2483,7 +2483,7 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				get_arg_mode(am, t1->slot);
 				get_arg_mode(am, (frame_t)cnst);
 				get_arg_mode(am, tr->slot);
-				code = get_code(op, t1->type) + OPCODE_INT_OP_C + am * OPCODE_MODE_MULT;
+				code = get_code(op, t1->type) + (TYPE_TAG_IS_FIXED(t1->type->tag) ? OPCODE_FIXED_OP_C : OPCODE_INT_OP_C) + am * OPCODE_MODE_MULT;
 				gen_code(code);
 				gen_am_two(am, t1->slot, (frame_t)cnst);
 				gen_am_two(am, tr->slot, fflags);

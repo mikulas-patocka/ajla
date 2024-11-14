@@ -137,6 +137,12 @@ static void *ipret_op_build_thunk(frame_s *fp, const code_t *ip, frame_t slot_1,
 	code = *ip % OPCODE_MODE_MULT;
 	if (code == OPCODE_IS_EXCEPTION)
 		strict_flag |= FLAG_TESTING_FOR_EXCEPTION;
+	if (code >= OPCODE_FIXED_OP + zero && code < OPCODE_FIXED_OP + OPCODE_FIXED_TYPE_MULT * TYPE_FIXED_N) {
+		code_t op = (code - OPCODE_FIXED_OP) % OPCODE_FIXED_TYPE_MULT;
+		if (op >= OPCODE_FIXED_OP_C && op < OPCODE_FIXED_OP_UNARY) {
+			code -= OPCODE_FIXED_OP_C;
+		}
+	}
 	if (code >= OPCODE_INT_OP && code < OPCODE_INT_OP + OPCODE_INT_TYPE_MULT * TYPE_INT_N) {
 		code_t op = (code - OPCODE_INT_OP) % OPCODE_INT_TYPE_MULT;
 		if (op >= OPCODE_INT_OP_C && op < OPCODE_INT_OP_UNARY) {
@@ -208,11 +214,57 @@ static void *ipret_op_build_thunk(frame_s *fp, const code_t *ip, frame_t slot_1,
 	result = build_thunk(fn_ptr, slot_2 != NO_FRAME_T ? 2 : 1, &function_reference);
 	ipret_fill_function_reference_from_slot(function_reference, 0, fp, slot_1, false);
 	if (slot_2 != NO_FRAME_T) {
+		ajla_error_t err;
+		struct data *d;
+		const struct type *type = frame_get_type_of_local(fp, slot_1);
 		if (!frame_t_is_const(slot_2)) {
 			ipret_fill_function_reference_from_slot(function_reference, 1, fp, slot_2, false);
 		} else {
-			ajla_error_t err;
-			struct data *d = data_alloc_longint_mayfail(32, &err pass_file_line);
+			int32_t c = frame_t_get_const(slot_2);
+			union {
+#define f(n, s, u, sz, bits)						\
+				s cat(int_val_,bits);
+				for_all_int(f, for_all_empty)
+#undef f
+#define f(n, s, u, sz, bits)						\
+				s cat(sfixed_val_,bits);		\
+				u cat(ufixed_val_,bits);
+				for_all_fixed(f)
+#undef f
+				unsigned char flat[1 << (TYPE_INT_N - 1)];
+			} un;
+			switch (type->tag) {
+#define f(n, s, u, sz, bits)						\
+				case TYPE_TAG_integer + n:		\
+					un.cat(int_val_,bits) = c;	\
+					if (unlikely(c != un.cat(int_val_,bits)))\
+						goto do_mpint;		\
+					break;				\
+				case TYPE_TAG_fixed + 2 * n + TYPE_TAG_fixed_signed:\
+					un.cat(sfixed_val_,bits) = c;	\
+					if (unlikely(c != un.cat(sfixed_val_,bits)))\
+						internal(file_line, "ipret_op_build_thunk: invalid constant %ld for type %u", (long)c, type->tag);\
+					break;				\
+				case TYPE_TAG_fixed + 2 * n + TYPE_TAG_fixed_unsigned:\
+					un.cat(ufixed_val_,bits) = c;	\
+					if (unlikely(c < 0) || unlikely((u)c != un.cat(ufixed_val_,bits)))\
+						internal(file_line, "ipret_op_build_thunk: invalid constant %ld for type %u", (long)c, type->tag);\
+					break;
+				for_all_fixed(f)
+#undef f
+				default:
+					internal(file_line, "ipret_op_build_thunk: invalid type tag %u", type->tag);
+			}
+			d = data_alloc_flat_mayfail(type->tag, un.flat, type->size, &err pass_file_line);
+			if (unlikely(!d)) {
+				data_fill_function_reference(function_reference, 1, pointer_error(err, NULL, NULL pass_file_line));
+			} else {
+				data_fill_function_reference(function_reference, 1, pointer_data(d));
+			}
+		}
+		if (false) {
+do_mpint:
+			d = data_alloc_longint_mayfail(32, &err pass_file_line);
 			if (unlikely(!d)) {
 				data_fill_function_reference(function_reference, 1, pointer_error(err, NULL, NULL pass_file_line));
 			} else {
@@ -284,17 +336,17 @@ void * attr_hot_fastcall thunk_fixed_operator(frame_s *fp, const code_t *ip, fra
 
 	type = frame_get_type_of_local(fp, slot_1);
 	ajla_assert((TYPE_TAG_IS_FIXED(type->tag) || TYPE_TAG_IS_REAL(type->tag)) &&
-		    (slot_2 == NO_FRAME_T || frame_get_type_of_local(fp, slot_2) == type),
+		    (slot_2 == NO_FRAME_T || frame_t_is_const(slot_2) || frame_get_type_of_local(fp, slot_2) == type),
 		    (file_line, "thunk_fixed_operator: invalid types on opcode %04x: %u, %u, %u",
 		    *ip,
 		    type->tag,
-		    slot_2 == NO_FRAME_T ? type->tag : frame_get_type_of_local(fp, slot_2)->tag,
+		    slot_2 == NO_FRAME_T || frame_t_is_const(slot_2) ? type->tag : frame_get_type_of_local(fp, slot_2)->tag,
 		    frame_get_type_of_local(fp, slot_r)->tag));
 
 	converted = ipret_unbox_value(fp, type, slot_1);
 	if (!frame_test_flag(fp, slot_1) && unlikely(test_and_copy_nan(fp, ip, type->tag, slot_1, slot_r)))
 		return POINTER_FOLLOW_THUNK_GO;
-	if (slot_2 != NO_FRAME_T) {
+	if (slot_2 != NO_FRAME_T && !frame_t_is_const(slot_2)) {
 		converted |= ipret_unbox_value(fp, type, slot_2);
 		if (!frame_test_flag(fp, slot_2) && unlikely(test_and_copy_nan(fp, ip, type->tag, slot_2, slot_r)))
 			return POINTER_FOLLOW_THUNK_GO;
