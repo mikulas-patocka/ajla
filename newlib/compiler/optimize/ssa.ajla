@@ -955,6 +955,22 @@ fn operator_not~inline(op : pcode_t) : pcode_t
 	return -1;
 ]
 
+fn operator_swap~inline(op : pcode_t) : pcode_t
+[
+	if op = Bin_Add then return op;
+	if op = Bin_Multiply then return op;
+	if op = Bin_And then return op;
+	if op = Bin_Or then return op;
+	if op = Bin_Xor then return op;
+	if op = Bin_Equal then return op;
+	if op = Bin_NotEqual then return op;
+	if op = Bin_Less then return Bin_Greater;
+	if op = Bin_LessEqual then return Bin_GreaterEqual;
+	if op = Bin_Greater then return Bin_Less;
+	if op = Bin_GreaterEqual then return Bin_LessEqual;
+	return -1;
+]
+
 fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 [
 	if ins.opcode = P_Load_Local_Type then [
@@ -1054,6 +1070,18 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 				lower_limit := #0;
 			if i >= lower_limit, i < upper_limit then
 				return create_instr(P_BinaryConstOp, ins.params[ .. 4] +< i, ins.bb), true;
+		]
+		if v1.runtime_type <= T_SInt8, v1.runtime_type >= T_Integer128, v1_ins.opcode = P_Load_Const then [
+			var new_op := operator_swap(ins.params[0]);
+			if new_op >= 0 then [
+				var params := ins.params;
+				params[0] := new_op;
+				params[2] := ins.params[4];
+				params[3] := ins.params[5];
+				params[4] := ins.params[2];
+				params[5] := ins.params[3];
+				return create_instr(P_BinaryOp, params, ins.bb), true;
+			]
 		]
 		if v1_ins.opcode = P_IO, v1_ins.params[0] = IO_Exception_Make,
 		   v1.runtime_type <> T_FlatOption or (v2_ins.opcode = P_IO and v2_ins.params[0] = IO_Exception_Make) then [
