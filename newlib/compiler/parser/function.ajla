@@ -303,6 +303,8 @@ retry:
 			   op_bypass <> Bin_NotEqual and
 			   op_bypass <> Bin_Less and
 			   op_bypass <> Bin_LessEqual and
+			   op_bypass <> Bin_Greater and
+			   op_bypass <> Bin_GreaterEqual and
 			   op_bypass <> Un_Not then
 				goto skip_bypass;
 		] else if typ >= T_UInt128 and typ <= T_SInt8 then [
@@ -324,6 +326,8 @@ retry:
 			   op_bypass <> Bin_NotEqual and
 			   op_bypass <> Bin_Less and
 			   op_bypass <> Bin_LessEqual and
+			   op_bypass <> Bin_Greater and
+			   op_bypass <> Bin_GreaterEqual and
 			   op_bypass <> Un_Neg then
 				goto skip_bypass;
 		]
@@ -333,7 +337,9 @@ retry:
 		   op_bypass = Bin_Equal or
 		   op_bypass = Bin_NotEqual or
 		   op_bypass = Bin_Less or
-		   op_bypass = Bin_LessEqual then [
+		   op_bypass = Bin_LessEqual or
+		   op_bypass = Bin_Greater or
+		   op_bypass = Bin_GreaterEqual then [
 			ctx, rtype := generate_Bool(ctx);
 		]
 		var l : int;

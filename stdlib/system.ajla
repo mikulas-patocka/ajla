@@ -312,10 +312,10 @@ operator prefix exception_stack 5000 ~inline (t : type, v : t) : bytes;
 
 operator = 6000 ~inline ~Bin_Equal (t : type, c : class_eq(t), val1 val2 : t) : bool;
 operator <> 6000 ~inline ~Bin_NotEqual (t : type, c : class_eq(t), val1 val2 : t) : bool;
-operator > 6000 ~inline ~Bin_Less_ (t : type, c : class_ord(t), val1 val2 : t) : bool;
-operator >= 6000 ~inline ~Bin_LessEqual_ (t : type, c : class_ord(t), val1 val2 : t) : bool;
 operator < 6000 ~inline ~Bin_Less (t : type, c : class_ord(t), val1 val2 : t) : bool;
 operator <= 6000 ~inline ~Bin_LessEqual (t : type, c : class_ord(t), val1 val2 : t) : bool;
+operator > 6000 ~inline ~Bin_Greater (t : type, c : class_ord(t), val1 val2 : t) : bool;
+operator >= 6000 ~inline ~Bin_GreaterEqual (t : type, c : class_ord(t), val1 val2 : t) : bool;
 operator prefix not 7000 ~inline ~Un_Not (t : type, c : class_logical(t), val : t) : t;
 operator and 8000 ~inline ~Bin_And (t : type, c : class_logical(t), val1 val2 : t) : t;
 operator xor 9000 ~inline ~Bin_Xor (t : type, c : class_logical(t), val1 val2 : t) : t;
@@ -2637,10 +2637,10 @@ operator prefix exception_stack 5000 ~inline (t : type, v : t) : bytes [ var r :
 
 operator = 6000 ~inline (t : type, c : class_eq(t), val1 val2 : t) : bool := c.equal(val1, val2);
 operator <> 6000 ~inline (t : type, c : class_eq(t), val1 val2 : t) : bool := not c.equal(val1, val2);
-operator > 6000 ~inline (t : type, c : class_ord(t), val1 val2 : t) : bool := c.less(val2, val1);
-operator >= 6000 ~inline (t : type, c : class_ord(t), val1 val2 : t) : bool := not c.less(val1, val2);
 operator < 6000 ~inline (t : type, c : class_ord(t), val1 val2 : t) : bool := c.less(val1, val2);
 operator <= 6000 ~inline (t : type, c : class_ord(t), val1 val2 : t) : bool := not c.less(val2, val1);
+operator > 6000 ~inline (t : type, c : class_ord(t), val1 val2 : t) : bool := c.less(val2, val1);
+operator >= 6000 ~inline (t : type, c : class_ord(t), val1 val2 : t) : bool := not c.less(val1, val2);
 operator prefix not 7000 ~inline (t : type, c : class_logical(t), val : t) : t := c.not(val);
 operator and 8000 ~inline (t : type, c : class_logical(t), val1 val2 : t) : t := c.and(val1, val2);
 operator xor 9000 ~inline (t : type, c : class_logical(t), val1 val2 : t) : t := c.xor(val1, val2);
