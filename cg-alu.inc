@@ -1569,7 +1569,7 @@ do_generic_bt:
 do_compare: {
 		if (unlikely(op_size > OP_SIZE_NATIVE)) {
 			size_t attr_unused upcall;
-			frame_t swap;
+			frame_t attr_unused swap;
 			switch (alu) {
 				case COND_E:
 				case COND_NE:
