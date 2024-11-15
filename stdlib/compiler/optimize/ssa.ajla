@@ -1154,13 +1154,13 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 			params[4] := ins.params[1];
 			return create_instr(P_IO, params, ins.bb), true;
 		]
-		if ins.params[0] = Un_Not, v1_ins.opcode = P_BinaryOp then [
+		if ins.params[0] = Un_Not, v1_ins.opcode = P_BinaryOp or v1_ins.opcode = P_BinaryConstOp then [
 			var new_op := operator_not(v1_ins.params[0]);
 			if new_op >= 0 then [
 				var params := v1_ins.params;
 				params[0] := new_op;
 				params[1] := ins.params[1];
-				return create_instr(P_BinaryOp, params, ins.bb), true;
+				return create_instr(v1_ins.opcode, params, ins.bb), true;
 			]
 		]
 		goto end;
