@@ -1438,7 +1438,10 @@ do_bt: {
 				default:
 					internal(file_line, "do_alu: invalid bit test %u", alu);
 			}
-			g(gen_frame_store(ctx, op_size, slot_r, 0, target));
+			if (alu == BTX_BT)
+				g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, target));
+			else
+				g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 			return true;
 		}
 		g(gen_frame_get(ctx, op_size, garbage, slot_2, R_SCRATCH_2, &reg2));
