@@ -235,6 +235,8 @@ bool attr_fastcall mpint_equal(const mpint_t *s1, const mpint_t *s2, ajla_flat_o
 bool attr_fastcall mpint_not_equal(const mpint_t *s1, const mpint_t *s2, ajla_flat_option_t *r, ajla_error_t *err);
 bool attr_fastcall mpint_less(const mpint_t *s1, const mpint_t *s2, ajla_flat_option_t *r, ajla_error_t *err);
 bool attr_fastcall mpint_less_equal(const mpint_t *s1, const mpint_t *s2, ajla_flat_option_t *r, ajla_error_t *err);
+bool attr_fastcall mpint_greater(const mpint_t *s1, const mpint_t *s2, ajla_flat_option_t *r, ajla_error_t *err);
+bool attr_fastcall mpint_greater_equal(const mpint_t *s1, const mpint_t *s2, ajla_flat_option_t *r, ajla_error_t *err);
 bool attr_fastcall mpint_bt(const mpint_t *s1, const mpint_t *s2, ajla_flat_option_t *r, ajla_error_t *err);
 
 bool attr_fastcall mpint_not(const mpint_t *s, mpint_t *r, ajla_error_t *err);

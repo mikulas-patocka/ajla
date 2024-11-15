@@ -90,8 +90,12 @@
 #define op_not_equal(type, utype, op1, op2)	op1 != op2
 #define op_less(type, utype, op1, op2)		(type)op1 < (type)op2
 #define op_less_equal(type, utype, op1, op2)	(type)op1 <= (type)op2
+#define op_greater(type, utype, op1, op2)	(type)op1 > (type)op2
+#define op_greater_equal(type, utype, op1, op2)	(type)op1 >= (type)op2
 #define op_uless(type, utype, op1, op2)		op1 < op2
 #define op_uless_equal(type, utype, op1, op2)	op1 <= op2
+#define op_ugreater(type, utype, op1, op2)	op1 > op2
+#define op_ugreater_equal(type, utype, op1, op2) op1 >= op2
 #define op_not(type, utype, op1)		~op1
 #define op_neg(type, utype, op1)		-op1
 #define op_inc(type, utype, op1)		op1 + 1
@@ -173,8 +177,12 @@ generate_fixed_binary_logical(type, utype, equal)			\
 generate_fixed_binary_logical(type, utype, not_equal)			\
 generate_fixed_binary_logical(type, utype, less)			\
 generate_fixed_binary_logical(type, utype, less_equal)			\
+generate_fixed_binary_logical(type, utype, greater)			\
+generate_fixed_binary_logical(type, utype, greater_equal)		\
 generate_fixed_binary_logical(type, utype, uless)			\
 generate_fixed_binary_logical(type, utype, uless_equal)			\
+generate_fixed_binary_logical(type, utype, ugreater)			\
+generate_fixed_binary_logical(type, utype, ugreater_equal)		\
 generate_fixed_unary(type, utype, not)					\
 generate_fixed_unary(type, utype, neg)					\
 generate_fixed_unary(type, utype, inc)					\
@@ -219,6 +227,8 @@ generate_int_binary_logical(type, utype, equal, ==)			\
 generate_int_binary_logical(type, utype, not_equal, !=)			\
 generate_int_binary_logical(type, utype, less, <)			\
 generate_int_binary_logical(type, utype, less_equal, <=)		\
+generate_int_binary_logical(type, utype, greater, >)			\
+generate_int_binary_logical(type, utype, greater_equal, >=)		\
 generate_int_ldc(type, utype, bits)
 for_all_int(generate_int_functions, for_all_empty)
 #undef generate_int_binary_functions
@@ -485,6 +495,16 @@ static ipret_inline void cat4(REAL_unary_,op,_,type)			\
 #else
 #define op_real_less_equal				op_less_equal
 #endif
+#if defined(use_is_macros)
+#define op_real_greater(type, utype, op1, op2)		isgreater(op1, op2)
+#else
+#define op_real_greater					op_greater
+#endif
+#if defined(use_is_macros)
+#define op_real_greater_equal(type, utype, op1, op2)	isgreaterequal(op1, op2)
+#else
+#define op_real_greater_equal				op_greater_equal
+#endif
 
 #define generate_real_ldc(n, rtype, ntype, pack, unpack)		\
 static ipret_inline size_t cat(fixed_ldc_,rtype)			\
@@ -521,6 +541,8 @@ generate_real_binary_logical(type, ntype, pack, unpack, equal)		\
 generate_real_binary_logical(type, ntype, pack, unpack, not_equal)	\
 generate_real_binary_logical(type, ntype, pack, unpack, less)		\
 generate_real_binary_logical(type, ntype, pack, unpack, less_equal)	\
+generate_real_binary_logical(type, ntype, pack, unpack, greater)	\
+generate_real_binary_logical(type, ntype, pack, unpack, greater_equal)	\
 generate_real_unary(n, type, ntype, pack, unpack, neg, 0)		\
 generate_real_unary(n, type, ntype, pack, unpack, sqrt, 1)		\
 generate_real_unary(n, type, ntype, pack, unpack, cbrt, 1)		\
@@ -1085,8 +1107,12 @@ struct cg_upcall_vector_s cg_upcall_vector = {
 	cat(FIXED_binary_btc_,TYPE_INT_MAX),
 	cat(FIXED_binary_less_,TYPE_INT_MAX),
 	cat(FIXED_binary_less_equal_,TYPE_INT_MAX),
+	cat(FIXED_binary_greater_,TYPE_INT_MAX),
+	cat(FIXED_binary_greater_equal_,TYPE_INT_MAX),
 	cat(FIXED_binary_uless_,TYPE_INT_MAX),
 	cat(FIXED_binary_uless_equal_,TYPE_INT_MAX),
+	cat(FIXED_binary_ugreater_,TYPE_INT_MAX),
+	cat(FIXED_binary_ugreater_equal_,TYPE_INT_MAX),
 	cat(FIXED_binary_bt_,TYPE_INT_MAX),
 	cat(FIXED_unary_neg_,TYPE_INT_MAX),
 	cat(FIXED_unary_inc_,TYPE_INT_MAX),
@@ -1204,6 +1230,14 @@ struct cg_upcall_vector_s cg_upcall_vector = {
 #undef f
 #define f(n, t, nt, pack, unpack) \
 	cat(REAL_binary_less_equal_,t),
+	for_all_real(f, nf)
+#undef f
+#define f(n, t, nt, pack, unpack) \
+	cat(REAL_binary_greater_,t),
+	for_all_real(f, nf)
+#undef f
+#define f(n, t, nt, pack, unpack) \
+	cat(REAL_binary_greater_equal_,t),
 	for_all_real(f, nf)
 #undef f
 #define f(n, t, nt, pack, unpack) \

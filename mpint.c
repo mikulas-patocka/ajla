@@ -300,7 +300,19 @@ bool attr_fastcall mpint_less(const mpint_t *s1, const mpint_t *s2, ajla_flat_op
 
 bool attr_fastcall mpint_less_equal(const mpint_t *s1, const mpint_t *s2, ajla_flat_option_t *r, ajla_error_t attr_unused *err)
 {
-	*r = mpz_cmp(s2, s1) >= 0;
+	*r = mpz_cmp(s1, s2) <= 0;
+	return true;
+}
+
+bool attr_fastcall mpint_greater(const mpint_t *s1, const mpint_t *s2, ajla_flat_option_t *r, ajla_error_t attr_unused *err)
+{
+	*r = mpz_cmp(s1, s2) > 0;
+	return true;
+}
+
+bool attr_fastcall mpint_greater_equal(const mpint_t *s1, const mpint_t *s2, ajla_flat_option_t *r, ajla_error_t attr_unused *err)
+{
+	*r = mpz_cmp(s1, s2) >= 0;
 	return true;
 }
 

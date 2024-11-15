@@ -100,8 +100,12 @@ struct cg_upcall_vector_s {
 	bool (*cat(FIXED_binary_btc_,TYPE_INT_MAX))(const uintbig_t *v1, const uintbig_t *v2, uintbig_t *r);
 	bool (*cat(FIXED_binary_less_,TYPE_INT_MAX))(const uintbig_t *v1, const uintbig_t *v2, ajla_flat_option_t *r);
 	bool (*cat(FIXED_binary_less_equal_,TYPE_INT_MAX))(const uintbig_t *v1, const uintbig_t *v2, ajla_flat_option_t *r);
+	bool (*cat(FIXED_binary_greater_,TYPE_INT_MAX))(const uintbig_t *v1, const uintbig_t *v2, ajla_flat_option_t *r);
+	bool (*cat(FIXED_binary_greater_equal_,TYPE_INT_MAX))(const uintbig_t *v1, const uintbig_t *v2, ajla_flat_option_t *r);
 	bool (*cat(FIXED_binary_uless_,TYPE_INT_MAX))(const uintbig_t *v1, const uintbig_t *v2, ajla_flat_option_t *r);
 	bool (*cat(FIXED_binary_uless_equal_,TYPE_INT_MAX))(const uintbig_t *v1, const uintbig_t *v2, ajla_flat_option_t *r);
+	bool (*cat(FIXED_binary_ugreater_,TYPE_INT_MAX))(const uintbig_t *v1, const uintbig_t *v2, ajla_flat_option_t *r);
+	bool (*cat(FIXED_binary_ugreater_equal_,TYPE_INT_MAX))(const uintbig_t *v1, const uintbig_t *v2, ajla_flat_option_t *r);
 	bool (*cat(FIXED_binary_bt_,TYPE_INT_MAX))(const uintbig_t *v1, const uintbig_t *v2, ajla_flat_option_t *r);
 	void (*cat(FIXED_unary_neg_,TYPE_INT_MAX))(const uintbig_t *v1, uintbig_t *r);
 	void (*cat(FIXED_unary_inc_,TYPE_INT_MAX))(const uintbig_t *v1, uintbig_t *r);
@@ -254,6 +258,20 @@ struct cg_upcall_vector_s {
 	bool (*cat(REAL_binary_less_equal_,t))(const t *v1, const t *v2, ajla_flat_option_t *r);
 #define nf(n, t) \
 	void (*cat(REAL_binary_less_equal_,t))(void);
+	for_all_real(f, nf)
+#undef f
+#undef nf
+#define f(n, t, nt, pack, unpack) \
+	bool (*cat(REAL_binary_greater_,t))(const t *v1, const t *v2, ajla_flat_option_t *r);
+#define nf(n, t) \
+	void (*cat(REAL_binary_greater_,t))(void);
+	for_all_real(f, nf)
+#undef f
+#undef nf
+#define f(n, t, nt, pack, unpack) \
+	bool (*cat(REAL_binary_greater_equal_,t))(const t *v1, const t *v2, ajla_flat_option_t *r);
+#define nf(n, t) \
+	void (*cat(REAL_binary_greater_equal_,t))(void);
 	for_all_real(f, nf)
 #undef f
 #undef nf

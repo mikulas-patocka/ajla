@@ -76,6 +76,8 @@ shared_var const code_t pcode2code[Op_NN][5]
 	{ fx(not_equal),	fx(not_equal),		in(not_equal),		re(not_equal),		bo(not_equal),	},
 	{ fx(less),		fx(uless),		in(less),		re(less),		bo(less),	},
 	{ fx(less_equal),	fx(uless_equal),	in(less_equal),		re(less_equal),		bo(less_equal),	},
+	{ fx(greater),		fx(ugreater),		in(greater),		re(greater),		bo(greater),	},
+	{ fx(greater_equal),	fx(ugreater_equal),	in(greater_equal),	re(greater_equal),	bo(greater_equal),},
 	{ fx(bt),		fx(bt),			in(bt),			NO_OPCODE,		NO_OPCODE,	},
 	{ fx(not),		fx(not),		in(not),		NO_OPCODE,		bo(not),	},
 	{ fx(neg),		fx(neg),		in(neg),		re(neg),		NO_OPCODE,	},

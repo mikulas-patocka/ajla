@@ -466,6 +466,8 @@ gen_sse_logical(equal_alt1, type, "", sete, s)				\
 gen_sse_logical(not_equal_alt1, type, "", setne, s)			\
 gen_sse_logical(less_alt1, type, "", setb, s)				\
 gen_sse_logical(less_equal_alt1, type, "", setbe, s)			\
+gen_sse_logical(greater_alt1, type, "", seta, s)			\
+gen_sse_logical(greater_equal_alt1, type, "", setae, s)			\
 gen_sse_neg(neg_alt1, type, "", s, sse_one_param)			\
 gen_sse_sqrt(sqrt_alt1, type, "", s, sse_one_param)			\
 gen_sse_to_int(to_int_alt1, type, "", s)				\
@@ -481,6 +483,8 @@ gen_sse_logical(equal_alt2, type, "v", sete, s)				\
 gen_sse_logical(not_equal_alt2, type, "v", setne, s)			\
 gen_sse_logical(less_alt2, type, "v", setb, s)				\
 gen_sse_logical(less_equal_alt2, type, "v", setbe, s)			\
+gen_sse_logical(greater_alt2, type, "v", seta, s)			\
+gen_sse_logical(greater_equal_alt2, type, "v", setae, s)		\
 gen_sse_neg(neg_alt2, type, "v", s, avx_two_params)			\
 gen_sse_sqrt(sqrt_alt2, type, "v", s, avx_two_params)			\
 gen_sse_to_int(to_int_alt2, type, "v", s)				\
@@ -496,6 +500,8 @@ gen_f16c_logical(equal_alt1, real16_t, sete)				\
 gen_f16c_logical(not_equal_alt1, real16_t, setne)			\
 gen_f16c_logical(less_alt1, real16_t, setb)				\
 gen_f16c_logical(less_equal_alt1, real16_t, setbe)			\
+gen_f16c_logical(greater_alt1, real16_t, seta)				\
+gen_f16c_logical(greater_equal_alt1, real16_t, setae)			\
 gen_f16c_to_int(to_int_alt1, real16_t)					\
 gen_f16c_from_int(from_int_alt1, real16_t, z)
 
@@ -510,6 +516,8 @@ gen_vfp_logical(equal_alt1, type, eq, f, s)				\
 gen_vfp_logical(not_equal_alt1, type, ne, f, s)				\
 gen_vfp_logical(less_alt1, type, mi, f, s)				\
 gen_vfp_logical(less_equal_alt1, type, ls, f, s)			\
+gen_vfp_logical(greater_alt1, type, gt, f, s)				\
+gen_vfp_logical(greater_equal_alt1, type, ge, f, s)			\
 gen_vfp_to_int(to_int_alt1, type, f, s)					\
 gen_vfp_from_int(from_int_alt1, type, f, s)				\
 gen_vfp_is_exception(is_exception_alt1, type, f, s)
@@ -523,6 +531,8 @@ gen_vfp_half_logical(equal_alt1, real16_t, eq)				\
 gen_vfp_half_logical(not_equal_alt1, real16_t, ne)			\
 gen_vfp_half_logical(less_alt1, real16_t, mi)				\
 gen_vfp_half_logical(less_equal_alt1, real16_t, ls)			\
+gen_vfp_half_logical(greater_alt1, real16_t, gt)			\
+gen_vfp_half_logical(greater_equal_alt1, real16_t, ge)			\
 gen_vfp_half_to_int(to_int_alt1, real16_t)				\
 gen_vfp_half_from_int(from_int_alt1, real16_t)
 

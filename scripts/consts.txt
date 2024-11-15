@@ -139,6 +139,8 @@ Bin_Equal
 Bin_NotEqual
 Bin_Less
 Bin_LessEqual
+Bin_Greater
+Bin_GreaterEqual
 Bin_Bt
 Un_Not
 Un_Neg

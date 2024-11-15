@@ -101,8 +101,12 @@ static bool attr_w gen_alu(struct codegen_context *ctx, unsigned mode, unsigned 
 			case OPCODE_FIXED_OP_not_equal:		alu = COND_NE; goto do_compare;
 			case OPCODE_FIXED_OP_less:		alu = COND_L; goto do_compare;
 			case OPCODE_FIXED_OP_less_equal:	alu = COND_LE; goto do_compare;
+			case OPCODE_FIXED_OP_greater:		alu = COND_G; goto do_compare;
+			case OPCODE_FIXED_OP_greater_equal:	alu = COND_GE; goto do_compare;
 			case OPCODE_FIXED_OP_uless:		alu = COND_B; goto do_compare;
 			case OPCODE_FIXED_OP_uless_equal:	alu = COND_BE; goto do_compare;
+			case OPCODE_FIXED_OP_ugreater:		alu = COND_A; goto do_compare;
+			case OPCODE_FIXED_OP_ugreater_equal:	alu = COND_AE; goto do_compare;
 			case OPCODE_FIXED_OP_bt:		alu = BTX_BT; goto do_bt;
 			default:				internal(file_line, "gen_alu: unsupported fixed operation %u", op);
 		}
@@ -127,6 +131,8 @@ static bool attr_w gen_alu(struct codegen_context *ctx, unsigned mode, unsigned 
 			case OPCODE_INT_OP_not_equal:		alu = COND_NE; goto do_compare;
 			case OPCODE_INT_OP_less:		alu = COND_L; goto do_compare;
 			case OPCODE_INT_OP_less_equal:		alu = COND_LE; goto do_compare;
+			case OPCODE_INT_OP_greater:		alu = COND_G; goto do_compare;
+			case OPCODE_INT_OP_greater_equal:	alu = COND_GE; goto do_compare;
 			case OPCODE_INT_OP_bt:			alu = BTX_BT; goto do_bt;
 			default:				internal(file_line, "gen_alu: unsupported int operation %u", op);
 		}
@@ -137,6 +143,8 @@ static bool attr_w gen_alu(struct codegen_context *ctx, unsigned mode, unsigned 
 			case OPCODE_BOOL_OP_not_equal:		alu = ALU_XOR; mode = MODE_FIXED; goto do_alu;
 			case OPCODE_BOOL_OP_less:		alu = COND_L; goto do_compare;
 			case OPCODE_BOOL_OP_less_equal:		alu = COND_LE; goto do_compare;
+			case OPCODE_BOOL_OP_greater:		alu = COND_G; goto do_compare;
+			case OPCODE_BOOL_OP_greater_equal:	alu = COND_GE; goto do_compare;
 			default:				internal(file_line, "gen_alu: unsupported bool operation %u", op);
 		}
 	}
@@ -1561,6 +1569,7 @@ do_generic_bt:
 do_compare: {
 		if (unlikely(op_size > OP_SIZE_NATIVE)) {
 			size_t attr_unused upcall;
+			frame_t swap;
 			switch (alu) {
 				case COND_E:
 				case COND_NE:
@@ -1584,6 +1593,11 @@ do_compare: {
 #endif
 					return true;
 #if defined(ARCH_X86_64) || defined(ARCH_X86_X32) || defined(ARCH_ARM)
+				case COND_G:
+				case COND_A:
+					swap = slot_1; slot_1 = slot_2; slot_2 = swap;
+					alu = alu == COND_G ? COND_L : COND_B;
+					/*-fallthrough*/
 				case COND_L:
 				case COND_B:
 					g(gen_frame_load(ctx, OP_SIZE_NATIVE, garbage, slot_2, lo_word(OP_SIZE_NATIVE), true, R_SCRATCH_2));
@@ -1592,6 +1606,11 @@ do_compare: {
 					g(gen_frame_load_op(ctx, OP_SIZE_NATIVE, garbage, ALU_SBB, 1, slot_2, hi_word(OP_SIZE_NATIVE), true, R_SCRATCH_1));
 					g(gen_frame_set_cond(ctx, OP_SIZE_NATIVE, false, alu, slot_r));
 					return true;
+				case COND_GE:
+				case COND_AE:
+					swap = slot_1; slot_1 = slot_2; slot_2 = swap;
+					alu = alu == COND_GE ? COND_LE : COND_BE;
+					/*-fallthrough*/
 				case COND_LE:
 				case COND_BE:
 					g(gen_frame_load(ctx, OP_SIZE_NATIVE, garbage, slot_1, lo_word(OP_SIZE_NATIVE), true, R_SCRATCH_2));
@@ -1602,9 +1621,13 @@ do_compare: {
 					return true;
 #else
 				case COND_L:	upcall = offsetof(struct cg_upcall_vector_s, cat(FIXED_binary_less_,TYPE_INT_MAX)); goto do_upcall;
-				case COND_B:	upcall = offsetof(struct cg_upcall_vector_s, cat(FIXED_binary_uless_,TYPE_INT_MAX)); goto do_upcall;
 				case COND_LE:	upcall = offsetof(struct cg_upcall_vector_s, cat(FIXED_binary_less_equal_,TYPE_INT_MAX)); goto do_upcall;
+				case COND_G:	upcall = offsetof(struct cg_upcall_vector_s, cat(FIXED_binary_greater_,TYPE_INT_MAX)); goto do_upcall;
+				case COND_GE:	upcall = offsetof(struct cg_upcall_vector_s, cat(FIXED_binary_greater_equal_,TYPE_INT_MAX)); goto do_upcall;
+				case COND_B:	upcall = offsetof(struct cg_upcall_vector_s, cat(FIXED_binary_uless_,TYPE_INT_MAX)); goto do_upcall;
 				case COND_BE:	upcall = offsetof(struct cg_upcall_vector_s, cat(FIXED_binary_uless_equal_,TYPE_INT_MAX)); goto do_upcall;
+				case COND_A:	upcall = offsetof(struct cg_upcall_vector_s, cat(FIXED_binary_ugreater_,TYPE_INT_MAX)); goto do_upcall;
+				case COND_AE:	upcall = offsetof(struct cg_upcall_vector_s, cat(FIXED_binary_ugreater_equal_,TYPE_INT_MAX)); goto do_upcall;
 				do_upcall:	g(gen_alu_upcall(ctx, upcall, op_size, slot_1, slot_2, slot_r, 0));
 						return true;
 #endif
@@ -1617,8 +1640,8 @@ do_compare: {
 		g(gen_frame_get(ctx, op_size, garbage, slot_1, R_SCRATCH_1, &reg1));
 		g(gen_frame_load_cmp_set_cond(ctx, op_size, garbage, slot_2, reg1, alu, slot_r));
 #else
-		g(gen_frame_get(ctx, op_size, op_size == i_size_cmp(op_size) + (unsigned)zero ? garbage : alu == COND_L || alu == COND_LE || ARCH_PREFERS_SX(op_size) ? sign_x : zero_x, slot_1, R_SCRATCH_1, &reg1));
-		g(gen_frame_load_cmp_set_cond(ctx, op_size, alu == COND_L || alu == COND_LE || ARCH_PREFERS_SX(op_size) ? sign_x : zero_x, slot_2, reg1, alu, slot_r));
+		g(gen_frame_get(ctx, op_size, op_size == i_size_cmp(op_size) + (unsigned)zero ? garbage : alu == COND_L || alu == COND_LE || alu == COND_G || alu == COND_GE || ARCH_PREFERS_SX(op_size) ? sign_x : zero_x, slot_1, R_SCRATCH_1, &reg1));
+		g(gen_frame_load_cmp_set_cond(ctx, op_size, alu == COND_L || alu == COND_LE || alu == COND_G || alu == COND_GE || ARCH_PREFERS_SX(op_size) ? sign_x : zero_x, slot_2, reg1, alu, slot_r));
 #endif
 		return true;
 	}
@@ -2702,6 +2725,12 @@ static bool attr_w gen_fp_alu(struct codegen_context *ctx, unsigned real_type, u
 		case OPCODE_REAL_OP_less_equal:
 		case OPCODE_REAL_OP_less_equal_alt1:
 		case OPCODE_REAL_OP_less_equal_alt2: fp_alu = FP_COND_BE; upc = offsetof(struct cg_upcall_vector_s, REAL_binary_less_equal_real16_t); goto do_cmp;
+		case OPCODE_REAL_OP_greater:
+		case OPCODE_REAL_OP_greater_alt1:
+		case OPCODE_REAL_OP_greater_alt2: fp_alu = FP_COND_A; upc = offsetof(struct cg_upcall_vector_s, REAL_binary_greater_real16_t); goto do_cmp;
+		case OPCODE_REAL_OP_greater_equal:
+		case OPCODE_REAL_OP_greater_equal_alt1:
+		case OPCODE_REAL_OP_greater_equal_alt2: fp_alu = FP_COND_AE; upc = offsetof(struct cg_upcall_vector_s, REAL_binary_greater_equal_real16_t); goto do_cmp;
 		default: internal(file_line, "gen_fp_alu: unsupported operation %u", op);
 	}
 
@@ -3638,8 +3667,12 @@ static bool attr_w gen_alu_jmp(struct codegen_context *ctx, unsigned mode, unsig
 			case OPCODE_FIXED_OP_not_equal:		alu = COND_NE; goto do_compare;
 			case OPCODE_FIXED_OP_less:		alu = COND_L; goto do_compare;
 			case OPCODE_FIXED_OP_less_equal:	alu = COND_LE; goto do_compare;
+			case OPCODE_FIXED_OP_greater:		alu = COND_G; goto do_compare;
+			case OPCODE_FIXED_OP_greater_equal:	alu = COND_GE; goto do_compare;
 			case OPCODE_FIXED_OP_uless:		alu = COND_B; goto do_compare;
 			case OPCODE_FIXED_OP_uless_equal:	alu = COND_BE; goto do_compare;
+			case OPCODE_FIXED_OP_ugreater:		alu = COND_A; goto do_compare;
+			case OPCODE_FIXED_OP_ugreater_equal:	alu = COND_AE; goto do_compare;
 			case OPCODE_FIXED_OP_bt:		*failed = true; return true;
 			default:				internal(file_line, "gen_alu_jmp: unsupported fixed operation %u", op);
 		}
@@ -3648,6 +3681,8 @@ static bool attr_w gen_alu_jmp(struct codegen_context *ctx, unsigned mode, unsig
 			case OPCODE_INT_OP_not_equal:		alu = COND_NE; goto do_compare;
 			case OPCODE_INT_OP_less:		alu = COND_L; goto do_compare;
 			case OPCODE_INT_OP_less_equal:		alu = COND_LE; goto do_compare;
+			case OPCODE_INT_OP_greater:		alu = COND_G; goto do_compare;
+			case OPCODE_INT_OP_greater_equal:	alu = COND_GE; goto do_compare;
 			case OPCODE_INT_OP_bt:			*failed = true; return true;
 			default:				internal(file_line, "gen_alu_jmp: unsupported int operation %u", op);
 		}
@@ -3658,6 +3693,8 @@ static bool attr_w gen_alu_jmp(struct codegen_context *ctx, unsigned mode, unsig
 			case OPCODE_BOOL_OP_not_equal:		alu = COND_NE; mode = MODE_FIXED; goto do_compare;
 			case OPCODE_BOOL_OP_less:		alu = COND_L; mode = MODE_FIXED; goto do_compare;
 			case OPCODE_BOOL_OP_less_equal:		alu = COND_LE; mode = MODE_FIXED; goto do_compare;
+			case OPCODE_BOOL_OP_greater:		alu = COND_G; mode = MODE_FIXED; goto do_compare;
+			case OPCODE_BOOL_OP_greater_equal:	alu = COND_GE; mode = MODE_FIXED; goto do_compare;
 			default:				internal(file_line, "gen_alu_jmp: unsupported bool operation %u", op);
 		}
 	}
@@ -3675,8 +3712,12 @@ do_compare: {
 			switch (alu) {
 				case COND_L:	alu = COND_G; break;
 				case COND_LE:	alu = COND_GE; break;
+				case COND_G:	alu = COND_L; break;
+				case COND_GE:	alu = COND_LE; break;
 				case COND_B:	alu = COND_A; break;
 				case COND_BE:	alu = COND_AE; break;
+				case COND_A:	alu = COND_B; break;
+				case COND_AE:	alu = COND_BE; break;
 			}
 		}
 		ex = op_size == i_size_cmp(op_size) + (unsigned)zero ? garbage : alu == COND_L || alu == COND_LE || alu == COND_G || alu == COND_GE || ARCH_PREFERS_SX(op_size) ? sign_x : zero_x;
@@ -3761,6 +3802,12 @@ static bool attr_w gen_fp_alu_jmp(struct codegen_context *ctx, unsigned real_typ
 		case OPCODE_REAL_OP_less_equal:
 		case OPCODE_REAL_OP_less_equal_alt1:
 		case OPCODE_REAL_OP_less_equal_alt2: fp_alu = FP_COND_BE; goto do_cmp;
+		case OPCODE_REAL_OP_greater:
+		case OPCODE_REAL_OP_greater_alt1:
+		case OPCODE_REAL_OP_greater_alt2: fp_alu = FP_COND_A; goto do_cmp;
+		case OPCODE_REAL_OP_greater_equal:
+		case OPCODE_REAL_OP_greater_equal_alt1:
+		case OPCODE_REAL_OP_greater_equal_alt2: fp_alu = FP_COND_AE; goto do_cmp;
 		default: internal(file_line, "gen_fp_alu_jmp: unsupported operation %u", op);
 	}
 

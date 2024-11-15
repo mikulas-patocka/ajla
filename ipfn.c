@@ -1023,15 +1023,27 @@ void * attr_hot_fastcall thunk_bool_operator(frame_s *fp, const code_t *ip, fram
 		val1 = *frame_slot(fp, slot_1, ajla_flat_option_t);
 		barrier_aliasing();
 		switch (code) {
-			case OPCODE_BOOL_OP_and:
+			case OPCODE_BOOL_OP_less:
+				if (val1) {
+					result = 0;
+					goto have_result;
+				}
+				break;
 			case OPCODE_BOOL_OP_less_equal:
+				if (!val1) {
+					result = 1;
+					goto have_result;
+				}
+				break;
+			case OPCODE_BOOL_OP_and:
+			case OPCODE_BOOL_OP_greater:
 				if (!val1) {
 					result = 0;
 					goto have_result;
 				}
 				break;
 			case OPCODE_BOOL_OP_or:
-			case OPCODE_BOOL_OP_less:
+			case OPCODE_BOOL_OP_greater_equal:
 				if (val1) {
 					result = 1;
 					goto have_result;
@@ -1047,16 +1059,28 @@ void * attr_hot_fastcall thunk_bool_operator(frame_s *fp, const code_t *ip, fram
 		val2 = *frame_slot(fp, slot_2, ajla_flat_option_t);
 		barrier_aliasing();
 		switch (code) {
-			case OPCODE_BOOL_OP_and:
 			case OPCODE_BOOL_OP_less:
+			case OPCODE_BOOL_OP_and:
 				if (!val2) {
 					result = 0;
 					goto have_result;
 				}
 				break;
-			case OPCODE_BOOL_OP_or:
 			case OPCODE_BOOL_OP_less_equal:
+			case OPCODE_BOOL_OP_or:
 				if (val2) {
+					result = 1;
+					goto have_result;
+				}
+				break;
+			case OPCODE_BOOL_OP_greater:
+				if (val2) {
+					result = 0;
+					goto have_result;
+				}
+				break;
+			case OPCODE_BOOL_OP_greater_equal:
+				if (!val2) {
 					result = 1;
 					goto have_result;
 				}
@@ -1064,27 +1088,7 @@ void * attr_hot_fastcall thunk_bool_operator(frame_s *fp, const code_t *ip, fram
 		}
 	}
 	if (!((val1 | val2) & 2)) {
-#if 1
 		return POINTER_FOLLOW_THUNK_RETRY;
-#else
-		switch (code) {
-			case OPCODE_BOOL_OP_and:
-			case OPCODE_BOOL_OP_less:
-				result = 1;
-				goto have_result;
-			case OPCODE_BOOL_OP_or:
-			case OPCODE_BOOL_OP_less_equal:
-				result = 0;
-				goto have_result;
-			case OPCODE_BOOL_OP_equal:
-				result = val1 ^ val2 ^ 1;
-				goto have_result;
-			case OPCODE_BOOL_OP_not_equal:
-				result = val1 ^ val2;
-				goto have_result;
-		}
-		internal(file_line, "thunk_bool_operator: invalid opcode: %04x -> %x", *ip, code);
-#endif
 	}
 	if (val1 & val2 & 2) {
 		switch (code) {
@@ -1092,6 +1096,8 @@ void * attr_hot_fastcall thunk_bool_operator(frame_s *fp, const code_t *ip, fram
 			case OPCODE_BOOL_OP_or:
 			case OPCODE_BOOL_OP_less:
 			case OPCODE_BOOL_OP_less_equal:
+			case OPCODE_BOOL_OP_greater:
+			case OPCODE_BOOL_OP_greater_equal:
 				strict_flag |= FLAG_NEED_BOTH_EXCEPTIONS_TO_FAIL;
 		}
 	}

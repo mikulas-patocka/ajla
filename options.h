@@ -397,7 +397,7 @@ int signbit_d(double d);
 
 
 /* these macros cause a crash on 64-bit HPUX */
-#if defined(isunordered) && defined(islessgreater) && defined(isgreater) && defined(isgreaterequal) && defined(isless) && defined(islessequal)
+#if defined(isunordered) && defined(islessgreater) && defined(isgreater) && defined(isgreaterequal) && defined(isless) && defined(islessequal) && defined(isgreater) && defined(isgreaterequal)
 #if GNUC_ATLEAST(3,0,0) && defined(__linux__)
 #define use_is_macros
 #endif

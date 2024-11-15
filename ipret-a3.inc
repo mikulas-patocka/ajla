@@ -116,6 +116,30 @@
 #define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
 
+#define orig_op		greater
+#define op		greater_alt1
+#define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
+#define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+
+#define orig_op		greater
+#define op		greater_alt2
+#define OPF		cat4(REAL,TYPE_BITS,_,ALT2_)
+#define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+
+#define orig_op		greater_equal
+#define op		greater_equal_alt1
+#define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
+#define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+
+#define orig_op		greater_equal
+#define op		greater_equal_alt2
+#define OPF		cat4(REAL,TYPE_BITS,_,ALT2_)
+#define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+
 #if TYPE_MASK != 1
 #define orig_op		neg
 #define op		neg_alt1
