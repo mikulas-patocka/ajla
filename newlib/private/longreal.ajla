@@ -41,6 +41,8 @@ fn @1_equal(a b : floating(@2,@3)) : bool := a = b;
 fn @1_not_equal(a b : floating(@2,@3)) : bool := a <> b;
 fn @1_less(a b : floating(@2,@3)) : bool := a < b;
 fn @1_less_equal(a b : floating(@2,@3)) : bool := a <= b;
+fn @1_greater(a b : floating(@2,@3)) : bool := a > b;
+fn @1_greater_equal(a b : floating(@2,@3)) : bool := a >= b;
 fn @1_bt(a b : floating(@2,@3)) : bool [ abort internal("unsupported real op"); ]
 fn @1_not(a : floating(@2,@3)) : floating(@2,@3) [ abort internal("unsupported real op"); ]
 fn @1_neg(a : floating(@2,@3)) : floating(@2,@3) := -a;

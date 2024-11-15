@@ -41,6 +41,8 @@ fn @1@2_equal(a b : @1int(@2)) : bool := a = b;
 fn @1@2_not_equal(a b : @1int(@2)) : bool := a <> b;
 fn @1@2_less(a b : @1int(@2)) : bool := a < b;
 fn @1@2_less_equal(a b : @1int(@2)) : bool := a <= b;
+fn @1@2_greater(a b : @1int(@2)) : bool := a > b;
+fn @1@2_greater_equal(a b : @1int(@2)) : bool := a >= b;
 fn @1@2_bt(a b : @1int(@2)) : bool := a bt b;
 fn @1@2_not(a : @1int(@2)) : @1int(@2) := not a;
 fn @1@2_neg(a : @1int(@2)) : @1int(@2) := -a;
