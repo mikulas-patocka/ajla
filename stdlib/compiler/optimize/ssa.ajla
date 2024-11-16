@@ -1034,14 +1034,6 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 			//str := "vr:"; for i := 0 to len(params) do [ str += " " + ntos(params[i]); ]; eval debug(str);
 			return create_instr(P_Load_Const, params, ins.bb), true;
 		]
-		if vr.runtime_type <= T_SInt8, vr.runtime_type >= T_Integer128 then [
-			if ins.params[0] = Bin_Multiply, v2_ins.opcode = P_Load_Const, v2_ins.params[1] = 1, v2_ins.params[2] = 2 then [
-				return create_instr(P_BinaryOp, list(pcode_t).[ Bin_Add, ins.params[1], ins.params[2], ins.params[3], ins.params[2], ins.params[3] ], ins.bb), true;
-			]
-			if ins.params[0] = Bin_Shl, v2_ins.opcode = P_Load_Const, v2_ins.params[1] = 1, v2_ins.params[2] = 1 then [
-				return create_instr(P_BinaryOp, list(pcode_t).[ Bin_Add, ins.params[1], ins.params[2], ins.params[3], ins.params[2], ins.params[3] ], ins.bb), true;
-			]
-		]
 		if v1.runtime_type <= T_SInt8, v1.runtime_type >= T_Integer128, v2_ins.opcode = P_Load_Const then [
 			var i := blob_to_int(v2_ins.params[1 .. ]);
 			//if v1.runtime_type <= T_SInt8, v1.runtime_type >= T_UInt128 then eval debug("evaluating constant " + ntos(i));
