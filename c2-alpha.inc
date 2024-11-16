@@ -525,7 +525,6 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 {
 	uint32_t mc;
 	uint32_t trap_label = 0;	/* avoid warning */
-	uint8_t one_imm[9] = { ARG_IMM, 1, 0, 0, 0, 0, 0, 0, 0 };
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
@@ -543,20 +542,6 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 			else
 				mc = size == OP_SIZE_8 ? ALPHA_SUBQ_V : ALPHA_SUBL_V;
 			g(cgen_operate(ctx, mc, R_ZERO, arg2, arg1[0]));
-			break;
-		case ALU1_INC:
-			if (!trap)
-				mc = size == OP_SIZE_8 ? ALPHA_ADDQ : ALPHA_ADDL;
-			else
-				mc = size == OP_SIZE_8 ? ALPHA_ADDQ_V : ALPHA_ADDL_V;
-			g(cgen_operate(ctx, mc, arg2[0], one_imm, arg1[0]));
-			break;
-		case ALU1_DEC:
-			if (!trap)
-				mc = size == OP_SIZE_8 ? ALPHA_SUBQ : ALPHA_SUBL;
-			else
-				mc = size == OP_SIZE_8 ? ALPHA_SUBQ_V : ALPHA_SUBL_V;
-			g(cgen_operate(ctx, mc, arg2[0], one_imm, arg1[0]));
 			break;
 		case ALU1_BSF:
 			mc = ALPHA_CTTZ;

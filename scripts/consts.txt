@@ -144,8 +144,6 @@ Bin_GreaterEqual
 Bin_Bt
 Un_Not
 Un_Neg
-Un_Inc
-Un_Dec
 Un_Bswap
 Un_Brev
 Un_Bsf

@@ -585,22 +585,9 @@ invalid:
 static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigned alu, bool trap)
 {
 	bool have_imm_trap = !MIPS_R6 && !(size == OP_SIZE_8 && MIPS_R4000_ERRATA); /* R4000 has broken DADDI */
-	int cnst = alu == ALU1_INC ? 1 : alu == ALU1_DEC ? -1 : 0;
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
-
-	if (cnst && trap && !have_imm_trap) {
-		cgen_mips_imm(MIPS_ADDIU, R_AT, R_ZERO, cnst);
-		g(cgen_trap(ctx, cget_four(ctx)));
-		cgen_mips_3reg(size == OP_SIZE_8 ? MIPS_DADD : MIPS_ADD, arg1[0], arg2[0], R_AT);
-		return true;
-	}
-	if (MIPS_R4000_ERRATA && cnst && !trap && size == OP_SIZE_8) {	/* R4000 has broken DADDIU */
-		cgen_mips_imm(MIPS_ADDIU, R_AT, R_ZERO, cnst);
-		cgen_mips_3reg(size == OP_SIZE_8 ? MIPS_DADDU : MIPS_ADDU, arg1[0], arg2[0], R_AT);
-		return true;
-	}
 
 	if (trap)
 		g(cgen_trap(ctx, cget_four(ctx)));
@@ -610,10 +597,6 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 				return true;
 		case ALU1_NEG:	if (trap) cgen_mips_3reg(size == OP_SIZE_8 ? MIPS_DSUB : MIPS_SUB, arg1[0], R_ZERO, arg2[0]);
 				else cgen_mips_3reg(size == OP_SIZE_8 ? MIPS_DSUBU : MIPS_SUBU, arg1[0], R_ZERO, arg2[0]);
-				return true;
-		case ALU1_INC:
-		case ALU1_DEC:	if (trap) cgen_mips_imm(size == OP_SIZE_8 ? MIPS_DADDI : MIPS_ADDI, arg1[0], arg2[0], cnst);
-				else cgen_mips_imm(size == OP_SIZE_8 ? MIPS_DADDIU : MIPS_ADDIU, arg1[0], arg2[0], cnst);
 				return true;
 		case ALU1_LZCNT: if (!MIPS_R6)
 					cgen_mips_3reg(size == OP_SIZE_8 ? MIPS_DCLZ : MIPS_CLZ, arg1[0], arg2[0], arg1[0]);

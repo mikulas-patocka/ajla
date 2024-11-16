@@ -108,8 +108,6 @@ struct cg_upcall_vector_s {
 	bool (*cat(FIXED_binary_ugreater_equal_,TYPE_INT_MAX))(const uintbig_t *v1, const uintbig_t *v2, ajla_flat_option_t *r);
 	bool (*cat(FIXED_binary_bt_,TYPE_INT_MAX))(const uintbig_t *v1, const uintbig_t *v2, ajla_flat_option_t *r);
 	void (*cat(FIXED_unary_neg_,TYPE_INT_MAX))(const uintbig_t *v1, uintbig_t *r);
-	void (*cat(FIXED_unary_inc_,TYPE_INT_MAX))(const uintbig_t *v1, uintbig_t *r);
-	void (*cat(FIXED_unary_dec_,TYPE_INT_MAX))(const uintbig_t *v1, uintbig_t *r);
 #define f(n, s, u, sz, bits) \
 	void (*cat(FIXED_unary_bswap_,s))(const u *v1, u *r);
 	for_all_fixed(f)
@@ -163,8 +161,6 @@ struct cg_upcall_vector_s {
 	bool (*cat(INT_binary_btc_,TYPE_INT_MAX))(const intbig_t *v1, const intbig_t *v2, intbig_t *r);
 	bool (*cat(INT_binary_bt_,TYPE_INT_MAX))(const intbig_t *v1, const intbig_t *v2, ajla_flat_option_t *r);
 	bool (*cat(INT_unary_neg_,TYPE_INT_MAX))(const intbig_t *v1, intbig_t *r);
-	bool (*cat(INT_unary_inc_,TYPE_INT_MAX))(const intbig_t *v1, intbig_t *r);
-	bool (*cat(INT_unary_dec_,TYPE_INT_MAX))(const intbig_t *v1, intbig_t *r);
 #define f(n, s, u, sz, bits) \
 	bool (*cat(INT_unary_bsf_,s))(const s *v1, s *r);
 	for_all_int(f, for_all_empty)

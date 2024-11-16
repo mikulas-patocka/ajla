@@ -1096,8 +1096,6 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
-	if (unlikely(arg1[0] >= 0x10) || (unlikely(arg2[0] != arg1[0]) && (alu == ALU1_INC || alu == ALU1_DEC)))
-		goto invl;
 	switch (alu) {
 		case ALU1_NEG:
 			if (unlikely(writes_flags != 1))
@@ -1113,23 +1111,6 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 			} else {
 				goto invl;
 			}
-			break;
-		case ALU1_INC:
-		case ALU1_DEC:
-			if (unlikely(writes_flags != 1))
-				goto invl;
-			if (size == OP_SIZE_4) {
-				code = S390_AHI;
-			} else if (size == OP_SIZE_8) {
-				code = S390_AGHI;
-			} else {
-				goto invl;
-			}
-			code |= (it)arg1[0] << 36;
-			if (alu == ALU1_INC)
-				code |= (it)0x0001 << 16;
-			else
-				code |= (it)0xffff << 16;
 			break;
 		case ALU1_BSWAP:
 			if (size == OP_SIZE_4) {

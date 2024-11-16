@@ -696,18 +696,6 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 			}
 			cgen_xform(mc, arg1[0], arg2[0], 0, writes_flags);
 			return true;
-		case ALU1_INC:
-			if (unlikely(writes_flags & 2))
-				cgen_dform(POWER_ADDIC, arg1[0], arg2[0], 1);
-			else
-				cgen_dform(POWER_ADDI, arg1[0], arg2[0], 1);
-			return true;
-		case ALU1_DEC:
-			if (unlikely(writes_flags & 2))
-				cgen_dform(POWER_ADDIC, arg1[0], arg2[0], -1);
-			else
-				cgen_dform(POWER_ADDI, arg1[0], arg2[0], -1);
-			return true;
 		case ALU1_BSF:
 			cgen_xform(size == OP_SIZE_4 ? POWER_CNTTZW : POWER_CNTTZD, arg2[0], arg1[0], 0, writes_flags);
 			return true;

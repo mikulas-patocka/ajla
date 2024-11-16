@@ -503,8 +503,6 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 	switch (alu) {
 		case ALU1_NOT:	mc = RISCV_XORI | ((uint32_t)-1 << 20); break;
 		case ALU1_NEG:	mc = (size == OP_SIZE_8 ? RISCV_SUB : RISCV_SUBW); tgt20 = true; break;
-		case ALU1_INC:	mc = (size == OP_SIZE_8 ? RISCV_ADDI : RISCV_ADDIW) | ((uint32_t)1 << 20); break;
-		case ALU1_DEC:	mc = (size == OP_SIZE_8 ? RISCV_ADDI : RISCV_ADDIW) | ((uint32_t)-1 << 20); break;
 		case ALU1_BSWAP:if (unlikely(size != OP_SIZE_8))
 					goto invalid;
 				mc = RISCV_REV8; break;

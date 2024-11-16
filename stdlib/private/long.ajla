@@ -46,8 +46,6 @@ fn @1@2_greater_equal(a b : @1int(@2)) : bool := a >= b;
 fn @1@2_bt(a b : @1int(@2)) : bool := a bt b;
 fn @1@2_not(a : @1int(@2)) : @1int(@2) := not a;
 fn @1@2_neg(a : @1int(@2)) : @1int(@2) := -a;
-fn @1@2_inc(a : @1int(@2)) : @1int(@2) := a + 1;
-fn @1@2_dec(a : @1int(@2)) : @1int(@2) := a - 1;
 fn @1@2_bswap(a : @1int(@2)) : @1int(@2) := bswap a;
 fn @1@2_brev(a : @1int(@2)) : @1int(@2) := brev a;
 fn @1@2_bsf(a : @1int(@2)) : @1int(@2) := bsf a;

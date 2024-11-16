@@ -1655,8 +1655,6 @@ static bool attr_w gen_alu1(struct codegen_context *ctx, unsigned mode, unsigned
 		case MODE_FIXED: switch (op) {
 			case OPCODE_FIXED_OP_not:		alu = ALU1_NOT; goto do_alu;
 			case OPCODE_FIXED_OP_neg:		alu = ALU1_NEG; goto do_alu;
-			case OPCODE_FIXED_OP_inc:		alu = ALU1_INC; goto do_alu;
-			case OPCODE_FIXED_OP_dec:		alu = ALU1_DEC; goto do_alu;
 			case OPCODE_FIXED_OP_bswap:
 			case OPCODE_FIXED_OP_bswap_alt1:	alu = ALU1_BSWAP; goto do_bswap;
 			case OPCODE_FIXED_OP_brev:
@@ -1676,8 +1674,6 @@ static bool attr_w gen_alu1(struct codegen_context *ctx, unsigned mode, unsigned
 		case MODE_INT: switch (op) {
 			case OPCODE_INT_OP_not:			alu = ALU1_NOT; mode = MODE_FIXED; goto do_alu;
 			case OPCODE_INT_OP_neg:			alu = ALU1_NEG; goto do_alu;
-			case OPCODE_INT_OP_inc:			alu = ALU1_INC; goto do_alu;
-			case OPCODE_INT_OP_dec:			alu = ALU1_DEC; goto do_alu;
 			case OPCODE_INT_OP_bsf:			alu = ALU1_BSF; goto do_bsf_bsr_popcnt;
 			case OPCODE_INT_OP_bsr:			alu = ALU1_BSR; goto do_bsf_bsr_popcnt;
 			case OPCODE_INT_OP_popcnt:
@@ -1711,20 +1707,6 @@ do_alu: {
 					g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(INT_unary_neg_,TYPE_INT_MAX)), op_size, slot_1, NO_FRAME_T, slot_r, label_ovf));
 				return true;
 			}
-			if (alu == ALU1_DEC) {
-				if (mode == MODE_FIXED)
-					g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(FIXED_unary_dec_,TYPE_INT_MAX)), op_size, slot_1, NO_FRAME_T, slot_r, 0));
-				else
-					g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(INT_unary_dec_,TYPE_INT_MAX)), op_size, slot_1, NO_FRAME_T, slot_r, label_ovf));
-				return true;
-			}
-			if (alu == ALU1_INC) {
-				if (mode == MODE_FIXED)
-					g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(FIXED_unary_inc_,TYPE_INT_MAX)), op_size, slot_1, NO_FRAME_T, slot_r, 0));
-				else
-					g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(INT_unary_inc_,TYPE_INT_MAX)), op_size, slot_1, NO_FRAME_T, slot_r, label_ovf));
-				return true;
-			}
 #endif
 			g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, slot_1, 0, R_SCRATCH_1, R_SCRATCH_2));
 #if defined(ARCH_S390)
@@ -1738,15 +1720,9 @@ do_alu: {
 				return true;
 			}
 #endif
-			g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, alu, R_SCRATCH_1, R_SCRATCH_1, alu == ALU1_INC || alu == ALU1_DEC || alu == ALU1_NEG ? 2 : 0));
+			g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, alu, R_SCRATCH_1, R_SCRATCH_1, alu == ALU1_NEG ? 2 : 0));
 			if (alu == ALU1_NOT) {
 				g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_NOT, R_SCRATCH_2, R_SCRATCH_2, 0));
-			} else if (alu == ALU1_INC || alu == ALU1_DEC) {
-				g(gen_imm(ctx, 0, alu == ALU1_INC ? IMM_PURPOSE_ADD : IMM_PURPOSE_SUB, OP_SIZE_NATIVE));
-				gen_insn(INSN_ALU, OP_SIZE_NATIVE, alu == ALU1_INC ? ALU_ADC : ALU_SBB, (mode == MODE_INT) | ALU_WRITES_FLAGS(alu == ALU1_INC ? ALU_ADC : ALU_SBB, is_imm()));
-				gen_one(R_SCRATCH_2);
-				gen_one(R_SCRATCH_2);
-				gen_imm_offset();
 			} else {
 #if defined(ARCH_X86)
 				g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_NOT, R_SCRATCH_2, R_SCRATCH_2, 0));
@@ -1769,7 +1745,7 @@ do_alu: {
 		}
 		if ((arch_use_flags || ARCH_SUPPORTS_TRAPS) && slot_1 == slot_r && i_size_cmp(op_size) == op_size + zero) {
 			struct cg_exit *ce;
-			unsigned undo_alu = alu == ALU1_INC ? ALU1_DEC : alu == ALU1_DEC ? ALU1_INC : alu;
+			unsigned undo_alu = alu;
 			if (slot_is_register(ctx, slot_1)) {
 				unsigned reg = ctx->registers[slot_1];
 				if (mode == MODE_INT && ARCH_SUPPORTS_TRAPS) {
@@ -1870,10 +1846,6 @@ do_undo_opcode:
 				g(gen_2address_alu1(ctx, i_size(op_size), alu, target, reg1, 0));
 				if (alu == ALU1_NEG) {
 					g(gen_3address_alu(ctx, i_size(op_size), ALU_AND, R_CG_SCRATCH, target, reg1, 1));
-				} else if (alu == ALU1_INC) {
-					g(gen_3address_alu(ctx, i_size(op_size), ALU_ANDN, R_CG_SCRATCH, target, reg1, 1));
-				} else if (alu == ALU1_DEC) {
-					g(gen_3address_alu(ctx, i_size(op_size), ALU_ANDN, R_CG_SCRATCH, reg1, target, 1));
 				}
 				gen_insn(INSN_JMP_COND, op_size, COND_L, 0);
 				gen_four(label_ovf);
@@ -1883,24 +1855,11 @@ do_undo_opcode:
 				return true;
 			}
 #endif
-			if (ARCH_HAS_JMP_2REGS(COND_L) && ARCH_HAS_JMP_2REGS(COND_G) && (alu == ALU1_INC || alu == ALU1_DEC) && op_size == i_size_cmp(op_size) + (unsigned)zero) {
-				g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, alu, target, reg1, 0));
-
-				g(gen_cmp_test_jmp(ctx, INSN_CMP, i_size_cmp(op_size), target, reg1, alu == ALU1_INC ? COND_L : COND_G, label_ovf));
-
-				g(gen_frame_store(ctx, op_size, slot_r, 0, target));
-
-				return true;
-			}
 			if (!arch_use_flags && !ARCH_SUPPORTS_TRAPS && ARCH_HAS_ANDN && op_size >= OP_SIZE_4) {
 				g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, alu, target, reg1, 0));
 
 				if (alu == ALU1_NEG) {
 					g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_AND, R_SCRATCH_3, target, reg1, 0));
-				} else if (alu == ALU1_INC) {
-					g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ANDN, R_SCRATCH_3, target, reg1, 0));
-				} else if (alu == ALU1_DEC) {
-					g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ANDN, R_SCRATCH_3, reg1, target, 0));
 				}
 
 				if (op_size < OP_SIZE_NATIVE)
@@ -1913,7 +1872,7 @@ do_undo_opcode:
 				return true;
 			}
 			if (op_size <= OP_SIZE_2 || (!arch_use_flags && !ARCH_SUPPORTS_TRAPS)) {
-				int64_t imm = ((alu != ALU1_INC && ARCH_PREFERS_SX(op_size) ? -0x80ULL : 0x80ULL) << (((1 << op_size) - 1) * 8)) - (alu == ALU1_INC);
+				int64_t imm = (ARCH_PREFERS_SX(op_size) ? -0x80ULL : 0x80ULL) << (((1 << op_size) - 1) * 8);
 
 				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg1, imm, COND_E, label_ovf));
 

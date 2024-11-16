@@ -475,12 +475,6 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 		case ALU1_NEG:
 			cgen_3r(size == OP_SIZE_4 ? LOONG_SUB_W : LOONG_SUB_D, arg1[0], R_ZERO, arg2[0]);
 			return true;
-		case ALU1_INC:
-			cgen_2ri12(size == OP_SIZE_4 ? LOONG_ADDI_W : LOONG_ADDI_D, arg1[0], arg2[0], 1);
-			return true;
-		case ALU1_DEC:
-			cgen_2ri12(size == OP_SIZE_4 ? LOONG_ADDI_W : LOONG_ADDI_D, arg1[0], arg2[0], -1);
-			return true;
 		case ALU1_BSWAP:
 			if (size == OP_SIZE_4) {
 				cgen_2r(LOONG_REVB_2H, arg1[0], arg2[0]);

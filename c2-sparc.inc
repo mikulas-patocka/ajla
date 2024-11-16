@@ -311,7 +311,6 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned writes_flags, 
 static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned writes_flags, uint8_t alu)
 {
 	uint8_t z = R_ZERO;
-	uint8_t one_imm[9] = { ARG_IMM, 1, 0, 0, 0, 0, 0, 0, 0 };
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
@@ -321,12 +320,6 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned writes_flags,
 			return true;
 		case ALU1_NEG:
 			g(cgen_alu_args(ctx, writes_flags, SPARC_SUB, arg1, &z, arg2));
-			return true;
-		case ALU1_INC:
-			g(cgen_alu_args(ctx, writes_flags, SPARC_ADD, arg1, arg2, one_imm));
-			return true;
-		case ALU1_DEC:
-			g(cgen_alu_args(ctx, writes_flags, SPARC_SUB, arg1, arg2, one_imm));
 			return true;
 		case ALU1_POPCNT:
 			g(cgen_alu_args(ctx, writes_flags, SPARC_POPC, arg1, &z, arg2));

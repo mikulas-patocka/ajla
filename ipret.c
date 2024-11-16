@@ -98,8 +98,6 @@
 #define op_ugreater_equal(type, utype, op1, op2) op1 >= op2
 #define op_not(type, utype, op1)		~op1
 #define op_neg(type, utype, op1)		-op1
-#define op_inc(type, utype, op1)		op1 + 1
-#define op_dec(type, utype, op1)		op1 - 1
 #define op_sqrt(type, utype, op1)		cat(mathfunc_,type)(sqrt)(op1)
 #define op_cbrt(type, utype, op1)		cat(mathfunc_,type)(cbrt)(op1)
 #define op_sin(type, utype, op1)		cat(mathfunc_,type)(sin)(op1)
@@ -185,8 +183,6 @@ generate_fixed_binary_logical(type, utype, ugreater)			\
 generate_fixed_binary_logical(type, utype, ugreater_equal)		\
 generate_fixed_unary(type, utype, not)					\
 generate_fixed_unary(type, utype, neg)					\
-generate_fixed_unary(type, utype, inc)					\
-generate_fixed_unary(type, utype, dec)					\
 generate_fixed_ldc(type, utype, sz, bits)
 for_all_fixed(generate_fixed_functions)
 #undef generate_fixed_functions
@@ -1115,8 +1111,6 @@ struct cg_upcall_vector_s cg_upcall_vector = {
 	cat(FIXED_binary_ugreater_equal_,TYPE_INT_MAX),
 	cat(FIXED_binary_bt_,TYPE_INT_MAX),
 	cat(FIXED_unary_neg_,TYPE_INT_MAX),
-	cat(FIXED_unary_inc_,TYPE_INT_MAX),
-	cat(FIXED_unary_dec_,TYPE_INT_MAX),
 #define f(n, s, u, sz, bits) \
 	cat(FIXED_unary_bswap_,s),
 	for_all_fixed(f)
@@ -1170,8 +1164,6 @@ struct cg_upcall_vector_s cg_upcall_vector = {
 	cat(INT_binary_btc_,TYPE_INT_MAX),
 	cat(INT_binary_bt_,TYPE_INT_MAX),
 	cat(INT_unary_neg_,TYPE_INT_MAX),
-	cat(INT_unary_inc_,TYPE_INT_MAX),
-	cat(INT_unary_dec_,TYPE_INT_MAX),
 #define f(n, s, u, sz, bits) \
 	cat(INT_unary_bsf_,s),
 	for_all_int(f, for_all_empty)

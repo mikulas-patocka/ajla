@@ -811,25 +811,6 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 				r2 = arg2[0];
 				rt = arg1[0];
 				break;
-		case ALU1_INC:
-		case ALU1_DEC:	ajla_assert_lo(writes_flags, (file_line, "cgen_alu1: inc/dec must write flags"));
-				if (trap && size == OP_SIZE_8) {
-					mc = PARISC_LDO;
-					mc |= low_sign_ext_14(alu == ALU1_INC ? 1 : -1);
-					g(cgen_2reg(ctx, mc, R_ZERO, R_CG_SCRATCH));
-
-					mc = PARISC_ADD;
-					r1 = arg2[0];
-					r2 = R_CG_SCRATCH;
-					rt = arg1[0];
-				} else {
-					mc = PARISC_ADDI;
-					mc |= low_sign_ext_11(alu == ALU1_INC ? 1 : -1);
-					r1 = arg1[0];
-					r2 = arg2[0];
-					rt = 0;
-				}
-				break;
 		default:	goto invalid;
 	}
 

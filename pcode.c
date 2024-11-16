@@ -81,8 +81,6 @@ shared_var const code_t pcode2code[Op_NN][5]
 	{ fx(bt),		fx(bt),			in(bt),			NO_OPCODE,		NO_OPCODE,	},
 	{ fx(not),		fx(not),		in(not),		NO_OPCODE,		bo(not),	},
 	{ fx(neg),		fx(neg),		in(neg),		re(neg),		NO_OPCODE,	},
-	{ fx(inc),		fx(inc),		in(inc),		NO_OPCODE,		NO_OPCODE,	},
-	{ fx(dec),		fx(dec),		in(dec),		NO_OPCODE,		NO_OPCODE,	},
 	{ fx(bswap),		fx(bswap),		NO_OPCODE,		NO_OPCODE,		NO_OPCODE,	},
 	{ fx(brev),		fx(brev),		NO_OPCODE,		NO_OPCODE,		NO_OPCODE,	},
 	{ fx(bsf),		fx(bsf),		in(bsf),		NO_OPCODE,		NO_OPCODE,	},

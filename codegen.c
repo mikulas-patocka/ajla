@@ -122,8 +122,8 @@ static uint64_t dump_seq = 0;
 #define ALU1_NOT			0x00
 #define ALU1_NEG			0x01
 #define ALU1_NGC			0x02
-#define ALU1_INC			0x03
-#define ALU1_DEC			0x04
+#define ALU1_XINC			0x03
+#define ALU1_XDEC			0x04
 #define ALU1_BSWAP			0x05
 #define ALU1_BSWAP16			0x06
 #define ALU1_BREV			0x07

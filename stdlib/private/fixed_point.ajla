@@ -68,8 +68,6 @@ fn fixed_point_equal~inline(base digits : int, i1 i2 : fp_type) : bool;
 fn fixed_point_not_equal~inline(base digits : int, i1 i2 : fp_type) : bool;
 fn fixed_point_less~inline(base digits : int, i1 i2 : fp_type) : bool;
 fn fixed_point_less_equal~inline(base digits : int, i1 i2 : fp_type) : bool;
-fn fixed_point_greater~inline(base digits : int, i1 i2 : fp_type) : bool;
-fn fixed_point_greater_equal~inline(base digits : int, i1 i2 : fp_type) : bool;
 fn fixed_point_to_int~inline(base digits : int, i1 : fp_type) : int;
 fn fixed_point_from_int~inline(base digits : int, i1 : int) : fp_type;
 fn fixed_point_to_rational~inline(base digits : int, i1 : fp_type) : rational;
@@ -343,16 +341,6 @@ fn fixed_point_less~inline(base digits : int, i1 i2 : fp_type) : bool
 fn fixed_point_less_equal~inline(base digits : int, i1 i2 : fp_type) : bool
 [
 	return i1 <= i2;
-]
-
-fn fixed_point_greater~inline(base digits : int, i1 i2 : fp_type) : bool
-[
-	return i1 > i2;
-]
-
-fn fixed_point_greater_equal~inline(base digits : int, i1 i2 : fp_type) : bool
-[
-	return i1 >= i2;
 ]
 
 fn fixed_point_to_int~inline(base digits : int, i1 : fp_type) : int

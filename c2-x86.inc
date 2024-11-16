@@ -754,7 +754,7 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
-	if (alu == ALU1_NOT || alu == ALU1_NEG || alu == ALU1_INC || alu == ALU1_DEC || alu == ALU1_BSWAP) {
+	if (alu == ALU1_NOT || alu == ALU1_NEG || alu == ALU1_XINC || alu == ALU1_XDEC || alu == ALU1_BSWAP) {
 		if (unlikely(arg1[0] != arg2[0]))
 			internal(file_line, "cgen_alu1: arguments mismatch: %x, %x", arg1[0], arg2[0]);
 	}
@@ -765,7 +765,7 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 		case ALU1_NEG:
 			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_F6 : X86_F7, size, false, X86_F6_NEG_RM8, arg1));
 			return true;
-		case ALU1_INC:
+		case ALU1_XINC:
 			if (writes_flags & 2) {
 				g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_ALU_RM8_IMM8 : X86_ALU_RM16_IMM8, size, false, ALU_ADD, arg1));
 				cgen_one(1);
@@ -781,7 +781,7 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 #endif
 			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_FE : X86_FF, size, false, X86_FE_INC_RM8, arg1));
 			return true;
-		case ALU1_DEC:
+		case ALU1_XDEC:
 			if (writes_flags & 2) {
 				g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_ALU_RM8_IMM8 : X86_ALU_RM16_IMM8, size, false, ALU_SUB, arg1));
 				cgen_one(1);
