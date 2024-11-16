@@ -584,7 +584,6 @@ invalid:
 
 static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigned alu, bool trap)
 {
-	bool have_imm_trap = !MIPS_R6 && !(size == OP_SIZE_8 && MIPS_R4000_ERRATA); /* R4000 has broken DADDI */
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);

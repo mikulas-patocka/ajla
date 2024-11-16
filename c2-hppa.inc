@@ -628,7 +628,6 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 {
 	uint32_t mc;
 	unsigned r1, r2, rt;
-	uint8_t z = R_ZERO;
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	uint8_t *arg3 = arg2 + arg_size(*arg2);
@@ -639,10 +638,6 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 
 	if (arg3[0] == ARG_IMM) {
 		int64_t imm = get_imm(&arg3[1]);
-		if (!imm) {
-			arg3 = &z;
-			goto do_3reg;
-		}
 		if (unlikely(writes_flags))
 			goto invalid;
 		if (!trap) {
@@ -689,7 +684,6 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 		}
 	}
 
-do_3reg:
 	switch (alu) {
 		case ALU_ADD:	mc = writes_flags ? PARISC_ADD : PARISC_ADD_L;
 				break;

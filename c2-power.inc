@@ -25,6 +25,7 @@
 #define POWER_CMPLI		0x28000000U
 #define POWER_CMPI		0x2c000000U
 #define POWER_ADDIC		0x30000000U
+#define POWER_ADDIC_		0x34000000U
 #define POWER_ADDI		0x38000000U
 #define POWER_ADDIS		0x3c000000U
 #define POWER_BGE		0x40800000U
@@ -744,6 +745,9 @@ static bool attr_w cgen_rot(struct codegen_context *ctx, unsigned size, unsigned
 		i32 = (uint32_t)imm;
 		if (size == OP_SIZE_4) {
 			switch (alu) {
+				case ROT_ROL:
+					mc = POWER_RLWINM | (i32 << 11) | 0x3e;
+					break;
 				case ROT_SHL:
 					mc = POWER_RLWINM | (i32 << 11) | ((31 - i32) << 1);
 					break;
@@ -758,6 +762,11 @@ static bool attr_w cgen_rot(struct codegen_context *ctx, unsigned size, unsigned
 			}
 		} else {
 			switch (alu) {
+				case ROT_ROL:
+					mc = POWER_RLDICL;
+					mc |= (i32 & 0x1f) << 11;
+					mc |= (i32 & 0x20) >> 4;
+					break;
 				case ROT_SHL:
 					mc = POWER_RLDICR;
 					mc |= (i32 << 11) & 0xf800U;
