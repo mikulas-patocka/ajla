@@ -122,15 +122,13 @@ static uint64_t dump_seq = 0;
 #define ALU1_NOT			0x00
 #define ALU1_NEG			0x01
 #define ALU1_NGC			0x02
-#define ALU1_XINC			0x03
-#define ALU1_XDEC			0x04
-#define ALU1_BSWAP			0x05
-#define ALU1_BSWAP16			0x06
-#define ALU1_BREV			0x07
-#define ALU1_BSF			0x08
-#define ALU1_BSR			0x09
-#define ALU1_LZCNT			0x0a
-#define ALU1_POPCNT			0x0b
+#define ALU1_BSWAP			0x03
+#define ALU1_BSWAP16			0x04
+#define ALU1_BREV			0x05
+#define ALU1_BSF			0x06
+#define ALU1_BSR			0x07
+#define ALU1_LZCNT			0x08
+#define ALU1_POPCNT			0x09
 
 #define FP_ALU_ADD			0
 #define FP_ALU_SUB			1

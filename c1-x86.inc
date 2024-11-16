@@ -33,7 +33,7 @@
 #define UNALIGNED_TRAP			0
 
 #define ALU_WRITES_FLAGS(alu, im)	((alu) != ALU_ADD ? 3 : 0)
-#define ALU1_WRITES_FLAGS(alu)		((alu) == ALU1_XINC || (alu) == ALU1_XDEC ? 1 : (alu) == ALU1_NOT || (alu) == ALU1_BSWAP ? 0 : 3)
+#define ALU1_WRITES_FLAGS(alu)		((alu) == ALU1_NOT || (alu) == ALU1_BSWAP ? 0 : 3)
 #define ROT_WRITES_FLAGS(alu, size, im)	(cpu_test_feature(CPU_FEATURE_bmi2) && (alu == ROT_SHL || alu == ROT_SHR || alu == ROT_SAR) && size >= OP_SIZE_4 && !(im) ? 0 : 1)
 #define COND_IS_LOGICAL(cond)		0
 

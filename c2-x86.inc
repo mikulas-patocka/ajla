@@ -634,7 +634,7 @@ invalid:
 	return true;
 }
 
-static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned alu)
+static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned writes_flags)
 {
 	uint8_t *arg1, *arg2, *arg3;
 	if (alu != 7) {
@@ -692,6 +692,33 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 		if (unlikely(!imm_is_32bit(imm)))
 			internal(file_line, "cgen_alu: immediate out of range: %"PRIxMAX"", (uintmax_t)imm);
 
+		if (!(writes_flags & 2)) {
+			if ((alu == ALU_ADD && imm == 1) || (alu == ALU_SUB && imm == -1)) {
+#ifdef ARCH_X86_32
+				if (R_IS_GPR(arg1[0]) && size >= OP_SIZE_2) {
+					if (size == OP_SIZE_2)
+						cgen_one(X86_OP_SIZE);
+					cgen_one(X86_INC_R16 + arg1[0]);
+					return true;
+				}
+#endif
+				g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_FE : X86_FF, size, false, X86_FE_INC_RM8, arg1));
+				return true;
+			}
+			if ((alu == ALU_ADD && imm == -1) || (alu == ALU_SUB && imm == 1)) {
+#ifdef ARCH_X86_32
+				if (R_IS_GPR(arg1[0]) && size >= OP_SIZE_2) {
+					if (size == OP_SIZE_2)
+						cgen_one(X86_OP_SIZE);
+					cgen_one(X86_INC_R16 + arg1[0]);
+					return true;
+				}
+#endif
+				g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_FE : X86_FF, size, false, X86_FE_DEC_RM8, arg1));
+				return true;
+			}
+		}
+
 		if (arg1[0] == R_AX) {
 			if (imm_is_8bit(imm) && size >= OP_SIZE_4)
 				goto use_shorter;
@@ -748,13 +775,13 @@ use_shorter:
 	}
 }
 
-static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned writes_flags)
+static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigned alu)
 {
 	uint8_t rex;
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
-	if (alu == ALU1_NOT || alu == ALU1_NEG || alu == ALU1_XINC || alu == ALU1_XDEC || alu == ALU1_BSWAP) {
+	if (alu == ALU1_NOT || alu == ALU1_NEG || alu == ALU1_BSWAP) {
 		if (unlikely(arg1[0] != arg2[0]))
 			internal(file_line, "cgen_alu1: arguments mismatch: %x, %x", arg1[0], arg2[0]);
 	}
@@ -764,38 +791,6 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 			return true;
 		case ALU1_NEG:
 			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_F6 : X86_F7, size, false, X86_F6_NEG_RM8, arg1));
-			return true;
-		case ALU1_XINC:
-			if (writes_flags & 2) {
-				g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_ALU_RM8_IMM8 : X86_ALU_RM16_IMM8, size, false, ALU_ADD, arg1));
-				cgen_one(1);
-				return true;
-			}
-#ifdef ARCH_X86_32
-			if (R_IS_GPR(arg1[0]) && size >= OP_SIZE_2) {
-				if (size == OP_SIZE_2)
-					cgen_one(X86_OP_SIZE);
-				cgen_one(X86_INC_R16 + arg1[0]);
-				return true;
-			}
-#endif
-			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_FE : X86_FF, size, false, X86_FE_INC_RM8, arg1));
-			return true;
-		case ALU1_XDEC:
-			if (writes_flags & 2) {
-				g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_ALU_RM8_IMM8 : X86_ALU_RM16_IMM8, size, false, ALU_SUB, arg1));
-				cgen_one(1);
-				return true;
-			}
-#ifdef ARCH_X86_32
-			if (R_IS_GPR(arg1[0]) && size >= OP_SIZE_2) {
-				if (size == OP_SIZE_2)
-					cgen_one(X86_OP_SIZE);
-				cgen_one(X86_DEC_R16 + arg1[0]);
-				return true;
-			}
-#endif
-			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_FE : X86_FF, size, false, X86_FE_DEC_RM8, arg1));
 			return true;
 		case ALU1_BSWAP:
 			if (unlikely(size <= OP_SIZE_2))
@@ -1411,7 +1406,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_movsx(ctx, insn_op_size(insn)));
 			return true;
 		case INSN_CMP:
-			g(cgen_alu(ctx, insn_op_size(insn), 7));
+			g(cgen_alu(ctx, insn_op_size(insn), 7, insn_writes_flags(insn)));
 			return true;
 		case INSN_TEST:
 			g(cgen_test(ctx, insn_op_size(insn)));
@@ -1426,25 +1421,25 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 				g(cgen_lea(ctx, insn_op_size(insn)));
 				return true;
 			}
-			g(cgen_alu(ctx, insn_op_size(insn), insn_aux(insn)));
+			g(cgen_alu(ctx, insn_op_size(insn), insn_aux(insn), insn_writes_flags(insn)));
 			return true;
 		case INSN_ALU_PARTIAL:
 		case INSN_ALU_FLAGS_PARTIAL:
 			if (unlikely(insn_op_size(insn) >= OP_SIZE_4))
 				goto invalid_insn;
-			g(cgen_alu(ctx, insn_op_size(insn), insn_aux(insn)));
+			g(cgen_alu(ctx, insn_op_size(insn), insn_aux(insn), insn_writes_flags(insn)));
 			return true;
 		case INSN_ALU1:
 		case INSN_ALU1_FLAGS:
 			if (unlikely(insn_op_size(insn) < OP_SIZE_4))
 				goto invalid_insn;
-			g(cgen_alu1(ctx, insn_op_size(insn), insn_aux(insn), insn_writes_flags(insn)));
+			g(cgen_alu1(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_ALU1_PARTIAL:
 		case INSN_ALU1_FLAGS_PARTIAL:
 			if (unlikely(insn_op_size(insn) >= OP_SIZE_4))
 				goto invalid_insn;
-			g(cgen_alu1(ctx, insn_op_size(insn), insn_aux(insn), insn_writes_flags(insn)));
+			g(cgen_alu1(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_LEA3:
 			if (unlikely(insn_op_size(insn) < OP_SIZE_4))
