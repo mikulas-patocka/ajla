@@ -671,7 +671,7 @@ static pointer_t *pcode_module_load_function(struct build_function_context *ctx)
 		goto exception;
 	ctx->pcode += fd->n_entries + 1;
 
-	ptr = module_load_function(md, fd, false, ctx->err);
+	ptr = module_load_function(md, fd, true, false, ctx->err);
 	if (unlikely(!ptr))
 		goto exception;
 
@@ -1332,7 +1332,7 @@ static bool pcode_op_to_call(struct build_function_context *ctx, pcode_t op, con
 	fd = function_designator_alloc_single(fn, ctx->err);
 	if (unlikely(!fd))
 		goto exception;
-	ptr = module_load_function(md, fd, false, ctx->err);
+	ptr = module_load_function(md, fd, true, false, ctx->err);
 	if (unlikely(!ptr))
 		goto exception;
 	module_designator_free(md), md = NULL;

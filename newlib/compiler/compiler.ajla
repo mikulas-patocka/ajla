@@ -23,6 +23,7 @@ uses compiler.optimize.defs;
 uses compiler.optimize.evaluate;
 
 fn optimize_function(path_idx : int, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t);
+fn get_unoptimized_function(path_idx : int, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t);
 fn compile_module(lp : bytes, path_idx : int, file : bytes, program : bool) : (list(list(pcode_t)), list(module_unique_id));
 
 implementation
@@ -64,4 +65,12 @@ fn optimize_function_saved~save(lp : bytes, path_idx : int, file : bytes, progra
 fn optimize_function(path_idx : int, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t)
 [
 	return optimize_function_saved(libpath, path_idx, file, program, fn_idx);
+]
+
+fn get_unoptimized_function(path_idx : int, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t)
+[
+	var pcod, modules := compile_module~save(libpath, path_idx, file, program);
+	var pc := pcod[fn_idx[0]];
+	pc := function_extract_nested(pc, fn_idx);
+	return pc;
 ]

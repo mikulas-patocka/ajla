@@ -4303,7 +4303,7 @@ static void * attr_fastcall io_load_program_handler(struct io_ctx *ctx)
 		goto ret_err;
 	}
 
-	main_ptr = module_load_function(md, fd, false, &ctx->err);
+	main_ptr = module_load_function(md, fd, true, false, &ctx->err);
 	module_designator_free(md);
 	function_designator_free(fd);
 
@@ -4418,7 +4418,7 @@ static void * attr_fastcall io_load_optimized_pcode_handler(struct io_ctx *ctx)
 		goto ret_test;
 	}
 
-	ptr = module_load_function(md, fd, optimized, &ctx->err);
+	ptr = module_load_function(md, fd, false, optimized, &ctx->err);
 	if (unlikely(!ptr)) {
 		io_terminate_with_error(ctx, ctx->err, true, NULL);
 		test = POINTER_FOLLOW_THUNK_EXCEPTION;

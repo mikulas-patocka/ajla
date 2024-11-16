@@ -59,6 +59,6 @@ size_t function_designator_length(const struct function_designator *fd);
 int function_designator_compare(const struct function_designator *fd1, const struct function_designator *fd2);
 
 /* returns a pointer to pointer_t */
-pointer_t *module_load_function(const struct module_designator *md, const struct function_designator *fd, bool optimizer, ajla_error_t *mayfail);
+pointer_t *module_load_function(const struct module_designator *md, const struct function_designator *fd, bool get_fn, bool optimizer, ajla_error_t *mayfail);
 
 #endif
