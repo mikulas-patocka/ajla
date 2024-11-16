@@ -72,16 +72,18 @@ fn name_to_ident(n : bytes) : bytes
 	return r;
 ]
 
-fn get_inline(w : world, d : list(bytes), f : function) : list(pcode_t)
+fn get_inline(w : world, d : list(bytes), f : function, optimized : bool) : list(pcode_t)
 [
 	var pc, modules := compile_module_2~save(w, d, f.un, f.program);
 	var pcode1 := pc[f.fn_idx[0]];
 	pcode1 := function_extract_nested(pcode1, f.fn_idx);
-	var pcode2 := process_pcode(pcode1, get_inline(w, d,));
+	if not optimized then
+		return pcode1;
+	var pcode2 := process_pcode(pcode1, get_inline(w, d,,));
 	return pcode2;
 ]
 
-fn process_nested_functions(pcode1 : list(pcode_t), get_inline : fn(function) : list(pcode_t)) : list(pcode_t)
+fn process_nested_functions(pcode1 : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t)) : list(pcode_t)
 [
 	var pcode2 := process_pcode(pcode1, get_inline);
 	var ptr := 9 + blob_length(pcode1[9 .. ]);
@@ -103,7 +105,7 @@ fn optimize_module(w : world, d : list(bytes), u : uni, pc : list(list(pcode_t))
 [
 	for idx := 0 to len(pc) do [
 		var pcode1 := pc[idx];
-		var pcode2 := process_nested_functions(pcode1, get_inline(w, d,));
+		var pcode2 := process_nested_functions(pcode1, get_inline(w, d,,));
 		u.functions +<= pcode2;
 	]
 	return u;

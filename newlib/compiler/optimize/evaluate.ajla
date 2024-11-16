@@ -22,7 +22,7 @@ uses pcode;
 
 fn evaluate_binary(srctype dsttype : pcode_t, op : pcode_t, arg1 arg2 : list(pcode_t)) : list(pcode_t);
 fn evaluate_unary(srctype dsttype : pcode_t, op : pcode_t, arg1 : list(pcode_t)) : list(pcode_t);
-fn load_optimized_pcode(path_idx : pcode_t, unit_name : bytes, program : bool, fn_idx : list(pcode_t)) : list(pcode_t);
+fn load_optimized_pcode(path_idx : pcode_t, unit_name : bytes, program : bool, fn_idx : list(pcode_t), optimized : bool) : list(pcode_t);
 
 implementation
 
@@ -40,9 +40,9 @@ fn evaluate_unary(srctype dsttype : pcode_t, op : pcode_t, arg1 : list(pcode_t))
 	return result;
 ]
 
-fn load_optimized_pcode(path_idx : pcode_t, unit_name : bytes, program : bool, fn_idx : list(pcode_t)) : list(pcode_t)
+fn load_optimized_pcode(path_idx : pcode_t, unit_name : bytes, program : bool, fn_idx : list(pcode_t), optimized : bool) : list(pcode_t)
 [
 	var result : list(pcode_t);
-	pcode IO IO_Load_Optimized_Pcode 1 4 0 =result path_idx unit_name program fn_idx;
+	pcode IO IO_Load_Optimized_Pcode 1 5 0 =result path_idx unit_name program fn_idx optimized;
 	return result;
 ]

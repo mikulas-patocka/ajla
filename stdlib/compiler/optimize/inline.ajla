@@ -20,7 +20,7 @@ private unit compiler.optimize.inline;
 
 uses compiler.optimize.defs;
 
-fn inline_functions(ctx : context, get_inline : fn(function) : list(pcode_t)) : context;
+fn inline_functions(ctx : context, get_inline : fn(function, bool) : list(pcode_t)) : context;
 
 implementation
 
@@ -57,7 +57,7 @@ next:
 ]}
 
 
-fn do_inline(ctx : context, bgi : int, ili : int, call_mode : pcode_t, get_inline : fn(function) : list(pcode_t)) : (context, bool)
+fn do_inline(ctx : context, bgi : int, ili : int, call_mode : pcode_t, get_inline : fn(function, bool) : list(pcode_t)) : (context, bool)
 [
 	//eval dump_graph(ctx);
 	var block := ctx.blocks[bgi];
@@ -71,7 +71,7 @@ fn do_inline(ctx : context, bgi : int, ili : int, call_mode : pcode_t, get_inlin
 
 	//eval debug("considering inline " + ntos(f.path_idx) + " " + f.un + " " + ntos(f.fn_idx) + " in block " + ntos(bgi));
 	//var new_pc := load_optimized_pcode(f.path_idx, f.un, f.fn_idx);
-	var new_pc := get_inline~save(f);
+	var new_pc := get_inline~save(f, true);
 
 	var ft := new_pc[0] and Fn_Mask;
 
@@ -256,7 +256,7 @@ done_post_list:
 	return ctx, true;
 ]
 
-fn inline_functions(ctx : context, get_inline : fn(function) : list(pcode_t)) : context
+fn inline_functions(ctx : context, get_inline : fn(function, bool) : list(pcode_t)) : context
 [
 again:
 	var did_something := false;

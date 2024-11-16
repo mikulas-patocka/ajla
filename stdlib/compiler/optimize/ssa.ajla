@@ -20,7 +20,7 @@ private unit compiler.optimize.ssa;
 
 uses compiler.optimize.defs;
 
-fn process_pcode(pc : list(pcode_t), get_inline : fn(function) : list(pcode_t)) : list(pcode_t);
+fn process_pcode(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t)) : list(pcode_t);
 
 
 implementation
@@ -2543,7 +2543,7 @@ fn check_consistency(ctx : context, msg : bytes, test_no_pred : bool) : context
 	return ctx;
 ]
 
-fn process_pcode(pc : list(pcode_t), get_inline : fn(function) : list(pcode_t)) : list(pcode_t)
+fn process_pcode(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t)) : list(pcode_t)
 [
 	{[
 		var src_type : pcode_t := T_FlatOption;

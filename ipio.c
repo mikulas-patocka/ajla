@@ -4387,7 +4387,7 @@ static void * attr_fastcall io_load_optimized_pcode_handler(struct io_ctx *ctx)
 {
 	void *test;
 	pcode_t path_idx;
-	ajla_option_t program;
+	ajla_option_t program, optimized;
 	struct module_designator *md = NULL;
 	struct function_designator *fd = NULL;
 	pointer_t *ptr;
@@ -4395,7 +4395,7 @@ static void * attr_fastcall io_load_optimized_pcode_handler(struct io_ctx *ctx)
 	ctx->str = NULL;
 	ctx->str2 = NULL;
 
-	test = io_deep_eval(ctx, "0123", false);
+	test = io_deep_eval(ctx, "01234", false);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 
@@ -4403,6 +4403,7 @@ static void * attr_fastcall io_load_optimized_pcode_handler(struct io_ctx *ctx)
 	io_get_bytes(ctx, get_input(ctx, 1));
 	io_get_option(ctx, get_input(ctx, 2), &program, NULL);
 	io_get_bytes2(ctx, get_input(ctx, 3));
+	io_get_option(ctx, get_input(ctx, 4), &optimized, NULL);
 
 	md = module_designator_alloc(path_idx, cast_ptr(uint8_t *, ctx->str), ctx->str_l - 1, program, &ctx->err);
 	if (unlikely(!md)) {
@@ -4417,7 +4418,7 @@ static void * attr_fastcall io_load_optimized_pcode_handler(struct io_ctx *ctx)
 		goto ret_test;
 	}
 
-	ptr = module_load_function(md, fd, true, &ctx->err);
+	ptr = module_load_function(md, fd, optimized, &ctx->err);
 	if (unlikely(!ptr)) {
 		io_terminate_with_error(ctx, ctx->err, true, NULL);
 		test = POINTER_FOLLOW_THUNK_EXCEPTION;

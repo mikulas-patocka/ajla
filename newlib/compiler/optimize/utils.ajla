@@ -151,7 +151,7 @@ fn function_name(params : list(pcode_t)) : bytes
 	var fi := list(pcode_t).[ len(f.fn_idx) ];
 	for i := 0 to len(f.fn_idx) do
 		fi +<= f.fn_idx[i];
-	var pc := load_optimized_pcode(f.path_idx, f.un, f.program, fi);
+	var pc := load_optimized_pcode(f.path_idx, f.un, f.program, fi, true);
 	return blob_decode(pc[9 .. ]);
 ]
 
