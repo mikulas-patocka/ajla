@@ -2707,6 +2707,11 @@ retry_optimize:
 	if print_passes then [ eval ctx; eval debug("check_consistency"); if is_exception ctx then eval debug("ctx exception"); ]
 	ctx := check_consistency(ctx, "end", true);
 
+	var n_labels := len(ctx.blocks);
+
+	while not ctx.blocks[n_labels - 1].active do
+		n_labels -= 1;
+
 	var rpc := list(pcode_t).[
 		Fn_Function,
 		pc[1],
@@ -2716,7 +2721,7 @@ retry_optimize:
 		pc[5],
 		pc[6],
 		pc[7],
-		len(ctx.blocks) - 1
+		n_labels - 1
 	];
 	rpc += blob_store(ctx.name);
 	for i := 0 to len(ctx.local_types) do [

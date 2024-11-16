@@ -23,6 +23,7 @@ uses compiler.optimize.defs;
 fn blob_length(blob : list(pcode_t)) : int;
 fn blob_load(blob : list(pcode_t)) : bytes;
 fn blob_store(blob : bytes) : list(pcode_t);
+fn function_pcode(params : list(pcode_t)) : list(pcode_t);
 fn function_name(params : list(pcode_t)) : bytes;
 fn function_extract_nested(pc : list(pcode_t), fn_idx : list(int)) : list(pcode_t);
 fn blob_to_int(c : list(pcode_t)) : int;
@@ -145,13 +146,18 @@ fn function_store(f : function) : list(pcode_t)
 	return pc;
 ]
 
-fn function_name(params : list(pcode_t)) : bytes
+fn function_pcode(params : list(pcode_t)) : list(pcode_t)
 [
 	var l, f := function_load(params);
 	var fi := list(pcode_t).[ len(f.fn_idx) ];
 	for i := 0 to len(f.fn_idx) do
 		fi +<= f.fn_idx[i];
-	var pc := load_optimized_pcode(f.path_idx, f.un, f.program, fi, true);
+	return load_optimized_pcode(f.path_idx, f.un, f.program, fi, false);
+]
+
+fn function_name(params : list(pcode_t)) : bytes
+[
+	var pc := function_pcode(params);
 	return blob_decode(pc[9 .. ]);
 ]
 

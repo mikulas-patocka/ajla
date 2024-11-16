@@ -272,6 +272,7 @@ again:
 				//xeval debug("considering inline of " + ctx.name + " -> " + function_name(ins.params[3 .. ]) + ": " + ntos(ins.params[0]));
 				var call_mode := ins.params[0];
 				if call_mode = Call_Mode_Inline or call_mode = Call_Mode_Type or call_mode = Call_Mode_Flat then [
+do_inline:
 					var progress : bool;
 					ctx, progress := do_inline(ctx, bgi, ili, call_mode, get_inline);
 					if progress then [
@@ -279,6 +280,13 @@ again:
 						ctx.should_retry := true;
 						break;
 					]
+				] else if call_mode = Call_Mode_Unspecified then [
+					var pc := function_pcode(ins.params[3 .. ]);
+					if pc[8] <= 1 then [
+						//xeval debug("auto-inlining " + ctx.name + " -> " + function_name(ins.params[3 .. ]));
+						goto do_inline;
+					]
+					//xeval function_name(ins.params[3 .. ]);
 				]
 			]
 		]
