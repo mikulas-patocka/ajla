@@ -968,6 +968,7 @@ static unsigned alu_trap_purpose(unsigned alu)
 }
 
 
+static bool attr_w gen_imm(struct codegen_context *ctx, int64_t imm, unsigned purpose, unsigned size);
 static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned args);
 
 #define gen_address_offset()						\
@@ -1040,6 +1041,19 @@ static inline bool slot_is_register(struct codegen_context *ctx, frame_t slot)
 #define ARCH_SUPPORTS_TRAPS	0
 #define ARCH_TRAP_BEFORE	0
 #endif
+
+
+static bool attr_w gen_imm(struct codegen_context *ctx, int64_t imm, unsigned purpose, unsigned size)
+{
+	if (is_direct_const(imm, purpose, size)) {
+		ctx->const_imm = imm;
+		ctx->const_reg = false;
+	} else {
+		g(gen_load_constant(ctx, R_CONST_IMM, imm));
+		ctx->const_reg = true;
+	}
+	return true;
+}
 
 
 #define insn_file		2

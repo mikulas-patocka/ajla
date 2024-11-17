@@ -314,29 +314,6 @@ static bool is_direct_const(int64_t attr_unused imm, unsigned attr_unused purpos
 #endif
 }
 
-static bool attr_w gen_imm(struct codegen_context *ctx, int64_t imm, unsigned purpose, unsigned size)
-{
-#if 0
-	if (size == OP_SIZE_1 && (unlikely(imm < -0x80LL) || unlikely(imm >= 0x80LL)))
-		internal(file_line, "invalid imm for size 1: %016llx", (long long)imm);
-	if (size == OP_SIZE_2 && (unlikely(imm < -0x8000LL) || unlikely(imm >= 0x8000LL)))
-		internal(file_line, "invalid imm for size 2 : %016llx", (long long)imm);
-	if (size == OP_SIZE_4 && (unlikely(imm < -0x80000000LL) || unlikely(imm >= 0x80000000LL)))
-		internal(file_line, "invalid imm for size 3: %016llx", (long long)imm);
-#endif
-	if (is_direct_const(imm, purpose, size)) {
-		ctx->const_imm = imm;
-		ctx->const_reg = false;
-	} else {
-		gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
-		gen_one(R_CONST_IMM);
-		gen_one(ARG_IMM);
-		gen_eight(imm);
-		ctx->const_reg = true;
-	}
-	return true;
-}
-
 static bool attr_w gen_entry(struct codegen_context *ctx)
 {
 #if defined(ARCH_X86_32)

@@ -438,8 +438,6 @@ static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, 
 	return true;
 }
 
-static bool attr_w gen_imm(struct codegen_context *ctx, int64_t imm, unsigned purpose, unsigned size);
-
 static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int64_t imm, unsigned attr_unused purpose, unsigned attr_unused size)
 {
 	if (!imm) {
@@ -496,18 +494,6 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 			internal(file_line, "is_direct_const: invalid purpose %u (imm %"PRIxMAX", size %u)", purpose, (uintmax_t)imm, size);
 	}
 	return false;
-}
-
-static bool attr_w gen_imm(struct codegen_context *ctx, int64_t imm, unsigned purpose, unsigned size)
-{
-	if (is_direct_const(imm, purpose, size)) {
-		ctx->const_imm = imm;
-		ctx->const_reg = false;
-	} else {
-		g(gen_load_constant(ctx, R_CONST_IMM, imm));
-		ctx->const_reg = true;
-	}
-	return true;
 }
 
 static bool attr_w gen_entry(struct codegen_context *ctx)
