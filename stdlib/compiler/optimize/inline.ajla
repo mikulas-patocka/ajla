@@ -282,8 +282,8 @@ do_inline:
 					]
 				] else if call_mode = Call_Mode_Unspecified then [
 					var pc := function_pcode(ins.params[3 .. ]);
-					if pc[8] <= 1 then [
-						//xeval debug("auto-inlining " + ctx.name + " -> " + function_name(ins.params[3 .. ]));
+					if pc[8] <= 1, not len_greater_than(pc, 1024) then [
+						//xeval debug("auto-inlining " + ctx.name + " -> " + function_name(ins.params[3 .. ]) + ", " + ntos(len(pc)));
 						goto do_inline;
 					]
 					//xeval function_name(ins.params[3 .. ]);
