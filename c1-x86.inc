@@ -32,7 +32,7 @@
 
 #define UNALIGNED_TRAP			0
 
-#define ALU_WRITES_FLAGS(alu, im)	((alu) != ALU_ADD ? 3 : 0)
+#define ALU_WRITES_FLAGS(alu, im)	((alu) == ALU_ADD ? 0 : (alu) == ALU_SUB && (im) ? 0 : 3)
 #define ALU1_WRITES_FLAGS(alu)		((alu) == ALU1_NOT || (alu) == ALU1_BSWAP ? 0 : 3)
 #define ROT_WRITES_FLAGS(alu, size, im)	(cpu_test_feature(CPU_FEATURE_bmi2) && (alu == ROT_SHL || alu == ROT_SHR || alu == ROT_SAR) && size >= OP_SIZE_4 && !(im) ? 0 : 1)
 #define COND_IS_LOGICAL(cond)		0
@@ -308,6 +308,8 @@ static bool is_direct_const(int64_t attr_unused imm, unsigned attr_unused purpos
 #ifdef ARCH_X86_32
 	return true;
 #else
+	if (purpose == IMM_PURPOSE_SUB && imm == -(int64_t)0x80000000)
+		return false;
 	return imm_is_32bit(imm);
 #endif
 }

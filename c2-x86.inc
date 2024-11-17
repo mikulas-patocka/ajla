@@ -590,7 +590,7 @@ static bool attr_w cgen_movsx(struct codegen_context *ctx, unsigned size)
 	return true;
 }
 
-static bool attr_w cgen_lea(struct codegen_context *ctx, unsigned size)
+static bool attr_w cgen_lea(struct codegen_context *ctx, unsigned size, bool neg)
 {
 	uint8_t addr[11];
 	uint8_t *arg1, *arg2, *arg3;
@@ -601,24 +601,34 @@ static bool attr_w cgen_lea(struct codegen_context *ctx, unsigned size)
 	ctx->code_position = arg3 + arg_size(*arg3);
 
 	if (arg3[0] == ARG_IMM) {
+		int64_t imm;
 		if (arg2[0] == ARG_SHIFTED_REGISTER) {
 			if (unlikely((arg2[1] & ARG_SHIFT_MODE) != ARG_SHIFT_LSL) ||
 			    unlikely((arg2[1] & ARG_SHIFT_AMOUNT) > 3))
 				goto invalid;
 			addr[0] = ARG_ADDRESS_1 + (arg2[1] & ARG_SHIFT_AMOUNT);
 			addr[1] = arg2[2];
-			memcpy(&addr[2], &arg3[1], 8);
 		} else {
 			addr[0] = ARG_ADDRESS_1;
 			addr[1] = arg2[0];
-			memcpy(&addr[2], &arg3[1], 8);
 		}
+		imm = get_imm(&arg3[1]);
+		if (neg) {
+			if (unlikely(imm == -(int64_t)0x80000000))
+				goto invalid;
+			imm = -(uint64_t)imm;
+		}
+		memcpy(&addr[2], &imm, 8);
 	} else if (R_IS_GPR(arg3[0])) {
+		if (unlikely(neg))
+			goto invalid;
 		addr[0] = ARG_ADDRESS_2;
 		addr[1] = arg2[0];
 		addr[2] = arg3[0];
 		memset(&addr[3], 0, 8);
 	} else if (arg3[0] == ARG_SHIFTED_REGISTER) {
+		if (unlikely(neg))
+			goto invalid;
 		if (unlikely((arg3[1] & ARG_SHIFT_MODE) != ARG_SHIFT_LSL) ||
 		    unlikely((arg3[1] & ARG_SHIFT_AMOUNT) > 3))
 			goto invalid;
@@ -628,7 +638,7 @@ static bool attr_w cgen_lea(struct codegen_context *ctx, unsigned size)
 		memset(&addr[3], 0, 8);
 	} else {
 invalid:
-		internal(file_line, "cgen_lea: invalid argument %02x, %02x, %02x", arg1[0], arg2[0], arg3[0]);
+		internal(file_line, "cgen_lea: invalid argument %u, %02x, %02x, %02x, %u", size, arg1[0], arg2[0], arg3[0], (unsigned)neg);
 	}
 	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_LEA_R16_RM16, size, true, arg1[0], addr));
 	return true;
@@ -1416,9 +1426,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			if (unlikely(insn_op_size(insn) < OP_SIZE_4))
 				goto invalid_insn;
 			if (!insn_writes_flags(insn) && insn_op_size(insn) <= OP_SIZE_8) {
-				if (unlikely(insn_aux(insn) != ALU_ADD))
+				if (unlikely(insn_aux(insn) != ALU_ADD) && unlikely(insn_aux(insn) != ALU_SUB))
 					goto invalid_insn;
-				g(cgen_lea(ctx, insn_op_size(insn)));
+				g(cgen_lea(ctx, insn_op_size(insn), insn_aux(insn) == ALU_SUB));
 				return true;
 			}
 			g(cgen_alu(ctx, insn_op_size(insn), insn_aux(insn), insn_writes_flags(insn)));
