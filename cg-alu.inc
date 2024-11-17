@@ -415,8 +415,8 @@ do_undo_opcode:
 					g(gen_3address_alu(ctx, i_size(op_size), alu, target, reg1, reg2, 0));
 #if defined(ARCH_IA64)
 				if (c) {
-					g(gen_3address_alu(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_1, reg1, frame_t_get_const(slot_2), 0));
-					g(gen_3address_alu(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_2, target, frame_t_get_const(slot_2), 0));
+					g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_1, reg1, frame_t_get_const(slot_2), 0));
+					g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_2, target, frame_t_get_const(slot_2), 0));
 				} else {
 					g(gen_3address_alu(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_1, reg1, reg2, 0));
 					g(gen_3address_alu(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_2, target, reg2, 0));
@@ -3846,7 +3846,7 @@ do_cmp:
 		gen_one(reg1);
 		gen_one(reg2);
 
-		g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, COND_E, R_CMP_RESULT, -1U);
+		g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, COND_E, R_CMP_RESULT, -1U));
 
 		return true;
 #elif defined(ARCH_LOONGARCH64) || defined(ARCH_MIPS) || defined(ARCH_PARISC)

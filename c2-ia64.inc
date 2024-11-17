@@ -570,6 +570,30 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size)
 			g(ia64_insn(ctx, UNIT_M, mc, ACCESS_MEMORY, ACCESS_NOTHING, arg1[1], arg2[0], ACCESS_NOTHING));
 			return true;
 		}
+		if (reg_is_p(arg2[0])) {
+			mc = IA64_A_ADD_IMM14;
+			mc |= bits_gr(R_CG_SCRATCH) << 6;
+			mc |= (uint64_t)1 << 13;
+			mc |= bits_p(arg2[0]);
+			g(ia64_insn(ctx, UNIT_A, mc, R_CG_SCRATCH, ACCESS_NOTHING, arg2[0], ACCESS_NOTHING, ACCESS_NOTHING));
+
+			mc = IA64_A_ADD_IMM14;
+			mc |= bits_gr(R_CG_SCRATCH) << 6;
+			mc |= bits_p(arg2[0] ^ 1);
+			g(ia64_insn(ctx, UNIT_A, mc, R_CG_SCRATCH, ACCESS_NOTHING, arg2[0], ACCESS_NOTHING, ACCESS_NOTHING));
+
+			switch (size) {
+				case OP_SIZE_1:	mc = IA64_M_ST1; break;
+				case OP_SIZE_2:	mc = IA64_M_ST2; break;
+				case OP_SIZE_4:	mc = IA64_M_ST4; break;
+				case OP_SIZE_8:	mc = IA64_M_ST8; break;
+				default:	goto invalid;
+			}
+			mc |= bits_gr(R_CG_SCRATCH) << 13;
+			mc |= bits_gr(arg1[1]) << 20;
+			g(ia64_insn(ctx, UNIT_M, mc, ACCESS_MEMORY, ACCESS_NOTHING, arg1[1], R_CG_SCRATCH, ACCESS_NOTHING));
+			return true;
+		}
 	}
 
 invalid:

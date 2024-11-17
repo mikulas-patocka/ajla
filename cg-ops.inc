@@ -160,6 +160,12 @@ static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, uns
 	}
 	if (reg1 != -1U && reg2 != -1U) {
 		g(gen_cmp_test_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg1, reg2, cond, ctx->code_labels[ip]));
+#if defined(ARCH_IA64)
+	} else if (reg_is_p(reg1)) {
+		gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, cond, 0);
+		gen_one(reg1);
+		gen_four(ctx->code_labels[ip]);
+#endif
 	} else if (reg1 != -1U) {
 		g(gen_jmp_on_zero(ctx, op_size, reg1, cond, ctx->code_labels[ip]));
 	} else if (cond == COND_ALWAYS) {

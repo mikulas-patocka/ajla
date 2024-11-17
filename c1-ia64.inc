@@ -250,6 +250,7 @@
 
 #define R_RET0		R_8
 #define R_RET1		R_9
+#define R_CG_SCRATCH	R_10
 #define R_SCRATCH_NA_1	R_14
 #define R_SCRATCH_NA_2	R_15
 #define R_SCRATCH_NA_3	R_16
@@ -369,7 +370,6 @@ static const uint8_t regs_saved[] = {
 	R_91,
 };
 static const uint8_t regs_volatile[] = {
-	R_10,
 	R_11,
 	R_21,
 	R_22,
