@@ -68,9 +68,11 @@ static bool attr_w gen_3address_alu(struct codegen_context *ctx, unsigned size, 
 	return true;
 }
 
-static bool attr_w gen_3address_alu_imm(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src, int64_t imm, unsigned writes_flags)
+static bool attr_w gen_3address_alu_imm_2p(struct codegen_context *ctx, unsigned size, unsigned alu, int alu2, unsigned dest, unsigned src, int64_t imm, unsigned writes_flags)
 {
 	unsigned purpose = alu_purpose(alu);
+	if (alu2 >= 0)
+		purpose |= alu_purpose(alu2) << 8;
 	if (!ARCH_IS_3ADDRESS_IMM(alu, writes_flags) && dest != src) {
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src));
 
@@ -88,6 +90,12 @@ static bool attr_w gen_3address_alu_imm(struct codegen_context *ctx, unsigned si
 	gen_one(src);
 	gen_imm_offset();
 
+	return true;
+}
+
+static bool attr_w gen_3address_alu_imm(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src, int64_t imm, unsigned writes_flags)
+{
+	g(gen_3address_alu_imm_2p(ctx, size, alu, -1, dest, src, imm, writes_flags));
 	return true;
 }
 

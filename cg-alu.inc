@@ -239,7 +239,7 @@ do_alu: {
 					unsigned reg2 = frame_t_is_const(slot_2) ? 0xff /* avoid warning */ : ctx->registers[slot_2];
 					if (mode == MODE_INT && ARCH_SUPPORTS_TRAPS) {
 						if (frame_t_is_const(slot_2))
-							g(gen_imm(ctx, frame_t_get_const(slot_2), alu_trap_purpose(alu), i_size(op_size)));
+							g(gen_imm(ctx, frame_t_get_const(slot_2), alu_trap_purpose(alu) | (alu_purpose(undo_alu) << 8), i_size(op_size)));
 						gen_insn(INSN_ALU_TRAP, op_size, alu, ALU_WRITES_FLAGS(alu, frame_t_is_const(slot_2) && is_imm()));
 						gen_one(reg1);
 						gen_one(reg1);
@@ -259,7 +259,7 @@ do_alu: {
 						}
 					}
 					if (frame_t_is_const(slot_2))
-						g(gen_3address_alu_imm(ctx, i_size(op_size), alu, reg1, reg1, frame_t_get_const(slot_2), mode == MODE_INT));
+						g(gen_3address_alu_imm_2p(ctx, i_size(op_size), alu, undo_alu, reg1, reg1, frame_t_get_const(slot_2), mode == MODE_INT));
 					else
 						g(gen_3address_alu(ctx, i_size(op_size), alu, reg1, reg1, reg2, mode == MODE_INT));
 					if (mode == MODE_INT) {
@@ -323,7 +323,7 @@ do_undo_opcode:
 					g(gen_frame_get(ctx, op_size, garbage, slot_2, R_SCRATCH_1, &reg2));
 				g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDR_OFFSET, i_size(op_size)));
 				if (frame_t_is_const(slot_2))
-					g(gen_imm(ctx, frame_t_get_const(slot_2), alu_purpose(alu), i_size(op_size)));
+					g(gen_imm(ctx, frame_t_get_const(slot_2), alu_purpose(alu) | (alu_purpose(undo_alu) << 8), i_size(op_size)));
 				gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(op_size), i_size(op_size), alu, 1);
 				gen_address_offset();
 				gen_address_offset();

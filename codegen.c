@@ -1045,13 +1045,16 @@ static inline bool slot_is_register(struct codegen_context *ctx, frame_t slot)
 
 static bool attr_w gen_imm(struct codegen_context *ctx, int64_t imm, unsigned purpose, unsigned size)
 {
-	if (is_direct_const(imm, purpose, size)) {
-		ctx->const_imm = imm;
-		ctx->const_reg = false;
-	} else {
-		g(gen_load_constant(ctx, R_CONST_IMM, imm));
-		ctx->const_reg = true;
-	}
+	if (!is_direct_const(imm, purpose & 0xff, size))
+		goto load_const;
+	if (purpose >> 8 && !is_direct_const(imm, purpose >> 8, size))
+		goto load_const;
+	ctx->const_imm = imm;
+	ctx->const_reg = false;
+	return true;
+load_const:
+	g(gen_load_constant(ctx, R_CONST_IMM, imm));
+	ctx->const_reg = true;
 	return true;
 }
 
