@@ -193,6 +193,8 @@ Fn_Record
 Fn_Option
 3
 Fn_Mask
+4
+Fn_AutoInline
 
 0
 Local_Type_Record

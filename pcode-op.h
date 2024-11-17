@@ -178,6 +178,7 @@
 #define Fn_Record			2
 #define Fn_Option			3
 #define Fn_Mask				3
+#define Fn_AutoInline			4
 
 #define Local_Type_Record		0
 #define Local_Type_Flat_Record		1

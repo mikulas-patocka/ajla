@@ -35,7 +35,7 @@ fn dump_function(def : function_definition) : list(pcode_t)
 		if ctx.variables[i].type_idx <> T_Type then
 			n_real_return_values += 1;
 	var result := list(pcode_t).[
-		def.typ,
+		def.typ or select(ctx.n_labels > 1, Fn_AutoInline, 0),
 		def.call_mode,
 		len(ctx.lambdas),
 		len(ctx.local_types),
