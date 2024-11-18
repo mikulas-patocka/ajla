@@ -308,8 +308,6 @@ static bool is_direct_const(int64_t attr_unused imm, unsigned attr_unused purpos
 #ifdef ARCH_X86_32
 	return true;
 #else
-	if (purpose == IMM_PURPOSE_SUB && imm == -(int64_t)0x80000000)
-		return false;
 	return imm_is_32bit(imm);
 #endif
 }
