@@ -217,12 +217,12 @@ do_alu: {
 			return true;
 		}
 
-		if ((ARCH_HAS_FLAGS || ARCH_SUPPORTS_TRAPS) && slot_2 == slot_r && slot_1 != slot_2 && alu_is_commutative(alu)) {
+		if (((ARCH_HAS_FLAGS && i_size_cmp(op_size) == op_size + zero) || ARCH_SUPPORTS_TRAPS(op_size)) && slot_2 == slot_r && slot_1 != slot_2 && alu_is_commutative(alu)) {
 			frame_t x = slot_1;
 			slot_1 = slot_2;
 			slot_2 = x;
 		}
-		if ((ARCH_HAS_FLAGS || ARCH_SUPPORTS_TRAPS) && slot_1 == slot_r && (slot_1 != slot_2 || mode != MODE_INT) && i_size_cmp(op_size) == op_size + zero
+		if (((ARCH_HAS_FLAGS && i_size_cmp(op_size) == op_size + zero) || ARCH_SUPPORTS_TRAPS(op_size)) && slot_1 == slot_r && (slot_1 != slot_2 || mode != MODE_INT)
 #if defined(ARCH_POWER)
 			&& op_size == OP_SIZE_NATIVE
 #endif
@@ -237,7 +237,7 @@ do_alu: {
 #endif
 				    ) {
 					unsigned reg2 = frame_t_is_const(slot_2) ? 0xff /* avoid warning */ : ctx->registers[slot_2];
-					if (mode == MODE_INT && ARCH_SUPPORTS_TRAPS) {
+					if (mode == MODE_INT && ARCH_SUPPORTS_TRAPS(op_size)) {
 						if (frame_t_is_const(slot_2))
 							g(gen_imm(ctx, frame_t_get_const(slot_2), alu_trap_purpose(alu) | (alu_purpose(undo_alu) << 8), i_size(op_size)));
 						gen_insn(INSN_ALU_TRAP, op_size, alu, ALU_WRITES_FLAGS(alu, false, frame_t_is_const(slot_2) && is_imm(), ctx->const_imm));
@@ -379,11 +379,11 @@ do_undo_opcode:
 			g(gen_frame_load_op(ctx, op_size, garbage, alu, mode == MODE_INT, slot_2, 0, false, target));
 			goto check_ovf_store;
 		}
-		op_size_flags = !ARCH_HAS_FLAGS && !ARCH_SUPPORTS_TRAPS ? OP_SIZE_NATIVE : OP_SIZE_4;
+		op_size_flags = !ARCH_HAS_FLAGS && !ARCH_SUPPORTS_TRAPS(op_size) ? OP_SIZE_NATIVE : OP_SIZE_4;
 #if defined(ARCH_POWER)
 		op_size_flags = OP_SIZE_NATIVE;
 #endif
-		g(gen_frame_get(ctx, op_size, mode == MODE_INT && (op_size < op_size_flags || ARCH_SUPPORTS_TRAPS) ? sign_x : garbage, slot_1, R_SCRATCH_1, &reg1));
+		g(gen_frame_get(ctx, op_size, mode == MODE_INT && (op_size < op_size_flags || ARCH_SUPPORTS_TRAPS(op_size)) ? sign_x : garbage, slot_1, R_SCRATCH_1, &reg1));
 		if (frame_t_is_const(slot_2)
 #if defined(ARCH_POWER)
 			&& 0
@@ -392,12 +392,12 @@ do_undo_opcode:
 			reg2 = 0xff;
 			c = true;
 		} else {
-			g(gen_frame_get(ctx, op_size, mode == MODE_INT && (op_size < op_size_flags || ARCH_SUPPORTS_TRAPS) ? sign_x : garbage, slot_2, R_SCRATCH_2, &reg2));
+			g(gen_frame_get(ctx, op_size, mode == MODE_INT && (op_size < op_size_flags || ARCH_SUPPORTS_TRAPS(op_size)) ? sign_x : garbage, slot_2, R_SCRATCH_2, &reg2));
 			c = false;
 		}
 #if !ARCH_HAS_FLAGS
 		if (mode == MODE_INT && op_size >= OP_SIZE_4) {
-			if (ARCH_SUPPORTS_TRAPS) {
+			if (ARCH_SUPPORTS_TRAPS(op_size)) {
 				target = gen_frame_target(ctx, slot_r, slot_1, slot_2, R_SCRATCH_1);
 				if (c)
 					g(gen_imm(ctx, frame_t_get_const(slot_2), alu_trap_purpose(alu), op_size));
@@ -616,7 +616,7 @@ do_multiply: {
 		return true;
 #endif
 #if defined(ARCH_ALPHA)
-		if (mode == MODE_INT && op_size >= OP_SIZE_4 && ARCH_SUPPORTS_TRAPS) {
+		if (mode == MODE_INT && ARCH_SUPPORTS_TRAPS(op_size)) {
 			target = gen_frame_target(ctx, slot_r, slot_1, slot_2, R_SCRATCH_1);
 			g(gen_frame_get(ctx, op_size, garbage, slot_1, R_SCRATCH_1, &reg1));
 			g(gen_frame_get(ctx, op_size, garbage, slot_2, R_SCRATCH_2, &reg2));
@@ -1784,12 +1784,12 @@ do_alu: {
 			g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, R_SCRATCH_1, R_SCRATCH_2));
 			return true;
 		}
-		if ((arch_use_flags || ARCH_SUPPORTS_TRAPS) && slot_1 == slot_r && i_size_cmp(op_size) == op_size + zero) {
+		if ((arch_use_flags || ARCH_SUPPORTS_TRAPS(op_size)) && slot_1 == slot_r && i_size_cmp(op_size) == op_size + zero) {
 			struct cg_exit *ce;
 			unsigned undo_alu = alu;
 			if (slot_is_register(ctx, slot_1)) {
 				unsigned reg = ctx->registers[slot_1];
-				if (mode == MODE_INT && ARCH_SUPPORTS_TRAPS) {
+				if (mode == MODE_INT && ARCH_SUPPORTS_TRAPS(op_size)) {
 					gen_insn(INSN_ALU1_TRAP, op_size, alu, ALU1_WRITES_FLAGS(alu));
 					gen_one(reg);
 					gen_one(reg);
@@ -1864,7 +1864,7 @@ do_undo_opcode:
 			ex = garbage;
 		} else {
 			ex = ARCH_PREFERS_SX(op_size) ? sign_x : zero_x;
-			if (ARCH_SUPPORTS_TRAPS && op_size >= OP_SIZE_4)
+			if (ARCH_SUPPORTS_TRAPS(op_size))
 				ex = garbage;
 			if (op_size == i_size(op_size) + (unsigned)zero)
 				ex = garbage;
@@ -1896,7 +1896,7 @@ do_undo_opcode:
 				return true;
 			}
 #endif
-			if (!arch_use_flags && !ARCH_SUPPORTS_TRAPS && ARCH_HAS_ANDN && op_size >= OP_SIZE_4) {
+			if (!arch_use_flags && !ARCH_SUPPORTS_TRAPS(op_size) && ARCH_HAS_ANDN && op_size >= OP_SIZE_4) {
 				g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, alu, target, reg1, 0));
 
 				if (alu == ALU1_NEG) {
@@ -1912,7 +1912,7 @@ do_undo_opcode:
 
 				return true;
 			}
-			if (op_size <= OP_SIZE_2 || (!arch_use_flags && !ARCH_SUPPORTS_TRAPS)) {
+			if (op_size <= OP_SIZE_2 || (!arch_use_flags && !ARCH_SUPPORTS_TRAPS(op_size))) {
 				int64_t imm = (ARCH_PREFERS_SX(op_size) ? -0x80ULL : 0x80ULL) << (((1 << op_size) - 1) * 8);
 
 				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg1, imm, COND_E, label_ovf));
@@ -2823,7 +2823,7 @@ do_alu:
 do_cmp:
 	if ((SUPPORTED_FP >> real_type) & 1
 #if defined(ARCH_ALPHA)
-		&& ARCH_SUPPORTS_TRAPS
+		&& OS_SUPPORTS_TRAPS
 #endif
 	) {
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, FR_SCRATCH_1, &reg1));
@@ -3182,7 +3182,7 @@ do_alu:
 do_to_int:
 	if ((SUPPORTED_FP >> real_type) & 1
 #if defined(ARCH_ALPHA)
-		&& ARCH_SUPPORTS_TRAPS
+		&& OS_SUPPORTS_TRAPS
 #endif
 #if defined(ARCH_MIPS)
 		&& MIPS_HAS_TRUNC
@@ -3814,7 +3814,7 @@ static bool attr_w gen_fp_alu_jmp(struct codegen_context *ctx, unsigned real_typ
 do_cmp:
 	if ((SUPPORTED_FP >> real_type) & 1
 #if defined(ARCH_ALPHA)
-		&& ARCH_SUPPORTS_TRAPS && cpu_test_feature(CPU_FEATURE_fix)
+		&& OS_SUPPORTS_TRAPS && cpu_test_feature(CPU_FEATURE_fix)
 #endif
 	) {
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, FR_SCRATCH_1, &reg1));

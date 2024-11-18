@@ -50,7 +50,7 @@
 #define ARCH_IS_3ADDRESS_FP		1
 #define ARCH_HAS_JMP_2REGS(cond)	1
 #define ARCH_HAS_FLAGS			0
-#define ARCH_SUPPORTS_TRAPS		1
+#define ARCH_SUPPORTS_TRAPS(size)	((size) == OP_SIZE_4 || (size) == OP_SIZE_8)
 #define ARCH_TRAP_BEFORE		0
 #define ARCH_PREFERS_SX(size)		0
 #define ARCH_HAS_BWX			1

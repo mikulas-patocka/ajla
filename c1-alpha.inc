@@ -37,7 +37,7 @@
 #define ARCH_IS_3ADDRESS_FP		1
 #define ARCH_HAS_JMP_2REGS(cond)	0
 #define ARCH_HAS_FLAGS			0
-#define ARCH_SUPPORTS_TRAPS		OS_SUPPORTS_TRAPS
+#define ARCH_SUPPORTS_TRAPS(size)	(OS_SUPPORTS_TRAPS && ((size) == OP_SIZE_4 || (size) == OP_SIZE_8))
 #define ARCH_TRAP_BEFORE		0
 #define ARCH_PREFERS_SX(size)		((size) == OP_SIZE_4)
 #define ARCH_HAS_BWX			cpu_test_feature(CPU_FEATURE_bwx)

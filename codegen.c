@@ -1038,8 +1038,8 @@ static inline bool slot_is_register(struct codegen_context *ctx, frame_t slot)
 
 
 #ifndef ARCH_SUPPORTS_TRAPS
-#define ARCH_SUPPORTS_TRAPS	0
-#define ARCH_TRAP_BEFORE	0
+#define ARCH_SUPPORTS_TRAPS(size)	0
+#define ARCH_TRAP_BEFORE		0
 #endif
 
 
