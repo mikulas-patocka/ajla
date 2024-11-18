@@ -345,7 +345,7 @@ static bool attr_w gen_frame_load_op(struct codegen_context *ctx, unsigned size,
 	{
 		offset += (size_t)slot * slot_size;
 		g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDR_OFFSET, size));
-		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, (alu == ALU_MUL ? ALU_WRITES_FLAGS(alu, true, false, 0) : 1) | writes_flags);
+		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(alu, true, false, 0) | writes_flags);
 		gen_one(reg);
 		gen_one(reg);
 		gen_address_offset();
