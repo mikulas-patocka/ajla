@@ -259,9 +259,14 @@ do_alu: {
 						}
 					}
 					if (frame_t_is_const(slot_2))
-						g(gen_3address_alu_imm_2p(ctx, i_size(op_size), alu, undo_alu, reg1, reg1, frame_t_get_const(slot_2), mode == MODE_INT));
+						g(gen_imm(ctx, frame_t_get_const(slot_2), alu_purpose(alu) | (alu_purpose(undo_alu) << 8), i_size(op_size)));
+					gen_insn(INSN_ALU, i_size(op_size), alu, ALU_WRITES_FLAGS(alu, false, frame_t_is_const(slot_2) && is_imm(), ctx->const_imm));
+					gen_one(reg1);
+					gen_one(reg1);
+					if (frame_t_is_const(slot_2))
+						gen_imm_offset();
 					else
-						g(gen_3address_alu(ctx, i_size(op_size), alu, reg1, reg1, reg2, mode == MODE_INT));
+						gen_one(reg2);
 					if (mode == MODE_INT) {
 						size_t m;
 						ce = alloc_undo_label(ctx);
