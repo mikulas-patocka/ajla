@@ -34,7 +34,7 @@
 
 #define UNALIGNED_TRAP			0
 
-#define ALU_WRITES_FLAGS(alu, im)	((alu) != ALU_MUL)
+#define ALU_WRITES_FLAGS(alu, is_mem, is_imm, imm)	((alu) != ALU_MUL)
 #define ALU1_WRITES_FLAGS(alu)		1
 #define ROT_WRITES_FLAGS(alu, size, im)	((alu) == ROT_SAR || (alu) == ROT_SAL)
 #define COND_IS_LOGICAL(cond)		((cond) == COND_B || (cond) == COND_AE || (cond) == COND_BE || (cond) == COND_A)
@@ -338,7 +338,7 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_eight(FRAME_FP_REGS + 8);
 	gen_one(FR_6);
 #endif
-	gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, true));
+	gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, false, true, -FRAME_SIZE));
 	gen_one(R_SP);
 	gen_one(R_SP);
 	gen_one(ARG_IMM);

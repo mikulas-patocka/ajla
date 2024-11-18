@@ -54,14 +54,14 @@ static bool attr_w gen_3address_alu(struct codegen_context *ctx, unsigned size, 
 	if (!ARCH_IS_3ADDRESS(alu, writes_flags) && dest != src1) {
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src1));
 
-		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(alu, false) | writes_flags);
+		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(alu, false, false, 0) | writes_flags);
 		gen_one(dest);
 		gen_one(dest);
 		gen_one(src2);
 
 		return true;
 	}
-	gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(alu, false) | writes_flags);
+	gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(alu, false, false, 0) | writes_flags);
 	gen_one(dest);
 	gen_one(src1);
 	gen_one(src2);
@@ -77,7 +77,7 @@ static bool attr_w gen_3address_alu_imm_2p(struct codegen_context *ctx, unsigned
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src));
 
 		g(gen_imm(ctx, imm, purpose, i_size(OP_SIZE_ADDRESS)));
-		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(alu, is_imm()) | writes_flags);
+		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(alu, false, is_imm(), ctx->const_imm) | writes_flags);
 		gen_one(dest);
 		gen_one(dest);
 		gen_imm_offset();
@@ -85,7 +85,7 @@ static bool attr_w gen_3address_alu_imm_2p(struct codegen_context *ctx, unsigned
 		return true;
 	}
 	g(gen_imm(ctx, imm, purpose, i_size(OP_SIZE_ADDRESS)));
-	gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(alu, is_imm()) | writes_flags);
+	gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(alu, false, is_imm(), ctx->const_imm) | writes_flags);
 	gen_one(dest);
 	gen_one(src);
 	gen_imm_offset();
@@ -208,7 +208,7 @@ static bool attr_w attr_unused gen_load_two(struct codegen_context *ctx, unsigne
 			g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_EXTWL, dest, dest, src, 0));
 		} else {
 			g(gen_imm(ctx, offset, IMM_PURPOSE_ADD, i_size(OP_SIZE_ADDRESS)));
-			gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, is_imm()));
+			gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, false, is_imm(), ctx->const_imm));
 			gen_one(R_OFFSET_IMM);
 			gen_one(src);
 			gen_imm_offset();
@@ -335,7 +335,7 @@ static bool attr_w attr_unused gen_cmp_dest_reg(struct codegen_context *ctx, uns
 		}
 		if (reg2 == (unsigned)-1)
 			g(gen_imm(ctx, imm, IMM_PURPOSE_XOR, i_size(size)));
-		gen_insn(INSN_ALU, i_size(size), ALU_XOR, ALU_WRITES_FLAGS(ALU_XOR, reg2 == (unsigned)-1 ? is_imm() : false));
+		gen_insn(INSN_ALU, i_size(size), ALU_XOR, ALU_WRITES_FLAGS(ALU_XOR, false, reg2 == (unsigned)-1 && is_imm(), ctx->const_imm));
 		gen_one(reg_dest);
 		gen_one(reg1);
 		if (reg2 == (unsigned)-1)
@@ -812,7 +812,7 @@ default_extend:
 		int64_t cnst = (0x1ULL << (8U << op_size)) - 1;
 		if (is_direct_const(cnst, IMM_PURPOSE_AND, OP_SIZE_NATIVE)) {
 			g(gen_imm(ctx, 0xff, IMM_PURPOSE_AND, OP_SIZE_NATIVE));
-			gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_AND, ALU_WRITES_FLAGS(ALU_AND, is_imm()));
+			gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_AND, ALU_WRITES_FLAGS(ALU_AND, false, is_imm(), ctx->const_imm));
 			gen_one(dest);
 			gen_one(src);
 			gen_imm_offset();
@@ -861,7 +861,7 @@ static bool attr_w gen_lea3(struct codegen_context *ctx, unsigned dest, unsigned
 	return true;
 #endif
 	if (ARCH_HAS_SHIFTED_ADD(shift)) {
-		gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, false));
+		gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, false, false, 0));
 		gen_one(dest);
 		gen_one(base);
 		gen_one(ARG_SHIFTED_REGISTER);
@@ -870,7 +870,7 @@ static bool attr_w gen_lea3(struct codegen_context *ctx, unsigned dest, unsigned
 
 		if (offset) {
 			g(gen_imm(ctx, offset, IMM_PURPOSE_ADD, i_size(OP_SIZE_ADDRESS)));
-			gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, is_imm()));
+			gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, false, is_imm(), ctx->const_imm));
 			gen_one(dest);
 			gen_one(dest);
 			gen_imm_offset();

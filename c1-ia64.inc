@@ -23,7 +23,7 @@
 
 #define UNALIGNED_TRAP			1
 
-#define ALU_WRITES_FLAGS(alu, im)	0
+#define ALU_WRITES_FLAGS(alu, is_mem, is_imm, imm)	0
 #define ALU1_WRITES_FLAGS(alu)		0
 #define ROT_WRITES_FLAGS(alu, size, im)	0
 #define COND_IS_LOGICAL(cond)		0

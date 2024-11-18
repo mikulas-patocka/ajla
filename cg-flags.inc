@@ -26,10 +26,10 @@ static bool attr_w gen_set_1(struct codegen_context *ctx, unsigned base, frame_t
 		g(gen_address(ctx, base, offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_BITMAP));
 		if (val) {
 			g(gen_imm(ctx, (int32_t)((uint32_t)1 << bit), IMM_PURPOSE_OR, OP_SIZE_BITMAP));
-			gen_insn(INSN_ALU, OP_SIZE_BITMAP, ALU_OR, ALU_WRITES_FLAGS(ALU_OR, true));
+			gen_insn(INSN_ALU, OP_SIZE_BITMAP, ALU_OR, ALU_WRITES_FLAGS(ALU_OR, false, is_imm(), ctx->const_imm));
 		} else {
 			g(gen_imm(ctx, ~(int32_t)((uint32_t)1 << bit), IMM_PURPOSE_AND, OP_SIZE_BITMAP));
-			gen_insn(INSN_ALU, OP_SIZE_BITMAP, ALU_AND, ALU_WRITES_FLAGS(ALU_AND, true));
+			gen_insn(INSN_ALU, OP_SIZE_BITMAP, ALU_AND, ALU_WRITES_FLAGS(ALU_AND, false, is_imm(), ctx->const_imm));
 		}
 		gen_address_offset();
 		gen_address_offset();
@@ -109,7 +109,7 @@ static bool attr_w gen_set_1_variable(struct codegen_context *ctx, unsigned slot
 	g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHR, R_SCRATCH_NA_1, slot_reg, OP_SIZE_BITMAP + 3, false));
 
 	if (ARCH_HAS_SHIFTED_ADD(OP_SIZE_BITMAP)) {
-		gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, false));
+		gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, false, false, 0));
 		gen_one(R_SCRATCH_NA_1);
 		gen_one(R_FRAME);
 		gen_one(ARG_SHIFTED_REGISTER);

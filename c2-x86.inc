@@ -614,8 +614,6 @@ static bool attr_w cgen_lea(struct codegen_context *ctx, unsigned size, bool neg
 		}
 		imm = get_imm(&arg3[1]);
 		if (neg) {
-			if (unlikely(imm == -(int64_t)0x80000000))
-				goto invalid;
 			imm = -(uint64_t)imm;
 		}
 		memcpy(&addr[2], &imm, 8);
@@ -720,7 +718,7 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 				if (R_IS_GPR(arg1[0]) && size >= OP_SIZE_2) {
 					if (size == OP_SIZE_2)
 						cgen_one(X86_OP_SIZE);
-					cgen_one(X86_INC_R16 + arg1[0]);
+					cgen_one(X86_DEC_R16 + arg1[0]);
 					return true;
 				}
 #endif

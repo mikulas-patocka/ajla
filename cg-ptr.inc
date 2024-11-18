@@ -266,7 +266,7 @@ static bool attr_w gen_decompress_pointer(struct codegen_context *ctx, bool attr
 #if defined(ARCH_X86) && POINTER_COMPRESSION <= 3
 	if (offset || dest != src) {
 		g(gen_imm(ctx, offset, IMM_PURPOSE_ADD, i_size(OP_SIZE_ADDRESS)));
-		gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, is_imm()));
+		gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, false, is_imm(), ctx->imm_offset));
 		gen_one(dest);
 		gen_one(ARG_SHIFTED_REGISTER);
 		gen_one(ARG_SHIFT_LSL | POINTER_COMPRESSION);
