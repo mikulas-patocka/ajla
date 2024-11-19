@@ -250,7 +250,7 @@ ret:
 		mask = (rand()) | ((uint64_t)rand() << 31) | ((uint64_t)rand() << 62);
 		mask <<= 8ULL << size;
 		g(gen_imm(ctx, mask, IMM_PURPOSE_OR, OP_SIZE_NATIVE));
-		gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_OR, ALU_WRITES_FLAGS(ALU_OR, false, is_imm(), ctx->const_imm));
+		gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_OR, ALU_WRITES_FLAGS(OP_SIZE_NATIVE, ALU_OR, false, is_imm(), ctx->const_imm));
 		gen_one(reg);
 		gen_one(reg);
 		gen_imm_offset();
@@ -290,7 +290,7 @@ ret:
 		mask = (rand()) | ((uint64_t)rand() << 31) | ((uint64_t)rand() << 62);
 		mask <<= 8ULL << size;
 		g(gen_imm(ctx, mask, IMM_PURPOSE_OR, OP_SIZE_NATIVE));
-		gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_OR, ALU_WRITES_FLAGS(ALU_OR, false, is_imm(), ctx->const_imm));
+		gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_OR, ALU_WRITES_FLAGS(OP_SIZE_NATIVE, ALU_OR, false, is_imm(), ctx->const_imm));
 		gen_one(*dest);
 		gen_one(*dest);
 		gen_imm_offset();
@@ -332,7 +332,7 @@ static bool attr_w gen_frame_load_op(struct codegen_context *ctx, unsigned size,
 	}
 	if (frame_t_is_const(slot)) {
 		g(gen_imm(ctx, get_constant(size, ex, slot, offset, dual), alu_purpose(alu), i_size(size)));
-		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), i_size(size), alu, ALU_WRITES_FLAGS(alu, false, is_imm(), ctx->const_imm) | writes_flags);
+		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), i_size(size), alu, ALU_WRITES_FLAGS(i_size(size), alu, false, is_imm(), ctx->const_imm) | writes_flags);
 		gen_one(reg);
 		gen_one(reg);
 		gen_imm_offset();
@@ -345,7 +345,7 @@ static bool attr_w gen_frame_load_op(struct codegen_context *ctx, unsigned size,
 	{
 		offset += (size_t)slot * slot_size;
 		g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDR_OFFSET, size));
-		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(alu, true, false, 0) | writes_flags);
+		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(size, alu, true, false, 0) | writes_flags);
 		gen_one(reg);
 		gen_one(reg);
 		gen_address_offset();

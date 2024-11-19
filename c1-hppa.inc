@@ -36,7 +36,7 @@
 
 #define UNALIGNED_TRAP			1
 
-#define ALU_WRITES_FLAGS(alu, is_mem, is_imm, imm)	(!(is_imm) && ((alu) == ALU_ADC || (alu) == ALU_SUB || (alu) == ALU_SBB) ? 3 : 0)
+#define ALU_WRITES_FLAGS(size, alu, is_mem, is_imm, imm)	(!(is_imm) && ((alu) == ALU_ADC || (alu) == ALU_SUB || (alu) == ALU_SBB) ? 3 : 0)
 #define ALU1_WRITES_FLAGS(alu)		((alu) == ALU1_NEG ? 3 : 0)
 #define ROT_WRITES_FLAGS(alu, size, im)	0
 #define COND_IS_LOGICAL(cond)		0

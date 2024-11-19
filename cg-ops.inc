@@ -335,7 +335,7 @@ copied:
 				g(gen_upcall_argument(ctx, 1));
 
 				g(gen_imm(ctx, (size_t)arg_slot * slot_size, IMM_PURPOSE_ADD, i_size(OP_SIZE_ADDRESS)));
-				gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, false, is_imm(), ctx->const_imm));
+				gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(i_size(OP_SIZE_ADDRESS), ALU_ADD, false, is_imm(), ctx->const_imm));
 				gen_one(R_ARG2);
 				gen_one(R_FRAME);
 				gen_imm_offset();
@@ -742,7 +742,7 @@ skip_ref_argument:
 		goto scaled_store_done;
 #endif
 		if (ARCH_HAS_SHIFTED_ADD(OP_SIZE_SLOT)) {
-			gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, false, false, 0));
+			gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(i_size(OP_SIZE_ADDRESS), ALU_ADD, false, false, 0));
 			gen_one(R_SCRATCH_3);
 			gen_one(R_FRAME);
 			gen_one(ARG_SHIFTED_REGISTER);
@@ -809,7 +809,7 @@ scaled_store_done:
 	goto scaled_jmp_done;
 #endif
 #if defined(ARCH_ARM32)
-	gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, false, false, 0));
+	gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(i_size(OP_SIZE_ADDRESS), ALU_ADD, false, false, 0));
 	gen_one(R_SCRATCH_1);
 	gen_one(R_SCRATCH_1);
 	gen_one(ARG_SHIFTED_REGISTER);
@@ -823,7 +823,7 @@ scaled_store_done:
 	goto scaled_jmp_done;
 #endif
 	if (ARCH_HAS_SHIFTED_ADD(OP_SIZE_ADDRESS)) {
-		gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, false, false, 0));
+		gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(i_size(OP_SIZE_ADDRESS), ALU_ADD, false, false, 0));
 		gen_one(R_SCRATCH_1);
 		gen_one(R_SCRATCH_1);
 		gen_one(ARG_SHIFTED_REGISTER);
@@ -902,7 +902,7 @@ struct_zero:
 					e = &type_def(struct_type,flat_record)->entries[param_slot];
 
 					g(gen_imm(ctx, e->flat_offset, IMM_PURPOSE_ADD, i_size(OP_SIZE_ADDRESS)));
-					gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, false, is_imm(), ctx->const_imm));
+					gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(i_size(OP_SIZE_ADDRESS), ALU_ADD, false, is_imm(), ctx->const_imm));
 					gen_one(R_SAVED_1);
 					gen_one(R_SAVED_1);
 					gen_imm_offset();
@@ -1867,7 +1867,7 @@ static bool attr_w gen_scaled_array_address(struct codegen_context *ctx, size_t 
 		}
 #endif
 		if (ARCH_HAS_SHIFTED_ADD(shift)) {
-			gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, false, false, 0));
+			gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(i_size(OP_SIZE_ADDRESS), ALU_ADD, false, false, 0));
 			gen_one(reg_dst);
 			gen_one(reg_src);
 			gen_one(ARG_SHIFTED_REGISTER);
@@ -1884,7 +1884,7 @@ static bool attr_w gen_scaled_array_address(struct codegen_context *ctx, size_t 
 	} else {
 		if (ARCH_HAS_MUL) {
 			g(gen_imm(ctx, element_size, IMM_PURPOSE_MUL, i_size(OP_SIZE_ADDRESS)));
-			gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_MUL, ALU_WRITES_FLAGS(ALU_MUL, false, is_imm(), ctx->const_imm));
+			gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_MUL, ALU_WRITES_FLAGS(i_size(OP_SIZE_ADDRESS), ALU_MUL, false, is_imm(), ctx->const_imm));
 			gen_one(reg_dst);
 			gen_one(reg_index);
 			gen_imm_offset();
@@ -1908,7 +1908,7 @@ static bool attr_w gen_scaled_array_address(struct codegen_context *ctx, size_t 
 							g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, reg_index, reg_index, sh, false));
 						first_match = false;
 					} else if (ARCH_HAS_SHIFTED_ADD(sh)) {
-						gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, false, false, 0));
+						gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(i_size(OP_SIZE_ADDRESS), ALU_ADD, false, false, 0));
 						gen_one(reg_index);
 						gen_one(reg_index);
 						gen_one(ARG_SHIFTED_REGISTER);
@@ -1944,7 +1944,7 @@ static bool attr_w gen_scaled_array_address(struct codegen_context *ctx, size_t 
 add_offset:
 	if (offset_src) {
 		g(gen_imm(ctx, offset_src, IMM_PURPOSE_ADD, i_size(OP_SIZE_ADDRESS)));
-		gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, false, is_imm(), ctx->const_imm));
+		gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(i_size(OP_SIZE_ADDRESS), ALU_ADD, false, is_imm(), ctx->const_imm));
 		gen_one(reg_dst);
 		gen_one(reg_dst);
 		gen_imm_offset();
@@ -2252,7 +2252,7 @@ no_cmov:
 		goto scaled_load_done;
 #endif
 		if (ARCH_HAS_SHIFTED_ADD(OP_SIZE_SLOT)) {
-			gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(ALU_ADD, false, false, 0));
+			gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(i_size(OP_SIZE_ADDRESS), ALU_ADD, false, false, 0));
 			gen_one(R_SCRATCH_2);
 			gen_one(ARG_SHIFTED_REGISTER);
 			gen_one(ARG_SHIFT_LSL | OP_SIZE_SLOT);
