@@ -1374,6 +1374,7 @@ struct cg_upcall_vector_s cg_upcall_vector = {
 bool asm_generated_upcalls = false;
 static size_t cg_upcall_pointer_dereference_size;
 static size_t cg_upcall_pointer_reference_owned_size;
+static size_t cg_upcall_ipret_copy_variable_to_pointer_size;
 
 void name(ipret_init)(void)
 {
@@ -1398,6 +1399,7 @@ void name(ipret_init)(void)
 	if (!offsetof(struct data, refcount_) && REFCOUNT_STEP == 256) {
 		const char *id = "codegen";
 		void *pde = (void *)pointer_dereference_;
+		void *icvtp = (void *)ipret_copy_variable_to_pointer;
 		char *c;
 		size_t cs;
 		asm_generated_upcalls = true;
@@ -1414,6 +1416,11 @@ void name(ipret_init)(void)
 		cg_upcall_vector.cg_upcall_pointer_reference_owned = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
 		cg_upcall_pointer_reference_owned_size = cs;
 
+		str_init(&c, &cs);
+		str_add_hex(&c, &cs, "56574150415141524889d74889ce0fb6d048b80000000000000000ffd0415a415941585f5ec3");
+		memcpy(&c[0x13], &icvtp, 8);
+		cg_upcall_vector.cg_upcall_ipret_copy_variable_to_pointer = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
+		cg_upcall_ipret_copy_variable_to_pointer_size = cs;
 	}
 #endif
 }
@@ -1423,6 +1430,7 @@ void name(ipret_done)(void)
 	if (asm_generated_upcalls) {
 		os_code_unmap(cg_upcall_vector.cg_upcall_pointer_dereference, cg_upcall_pointer_dereference_size);
 		os_code_unmap(cg_upcall_vector.cg_upcall_pointer_reference_owned, cg_upcall_pointer_reference_owned_size);
+		os_code_unmap(cg_upcall_vector.cg_upcall_ipret_copy_variable_to_pointer, cg_upcall_ipret_copy_variable_to_pointer_size);
 	}
 }
 

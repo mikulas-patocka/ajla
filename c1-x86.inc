@@ -186,8 +186,8 @@ static uint8_t upcall_register = R_R15;
 #define R_ARG3		R_R9
 #else
 #define R_ARG0		(ctx->upcall_hacked_abi ? R_DX : R_DI)
-#define R_ARG1		R_SI
-#define R_ARG2		R_DX
+#define R_ARG1		(ctx->upcall_hacked_abi ? R_CX : R_SI)
+#define R_ARG2		(ctx->upcall_hacked_abi ? R_AX : R_DX)
 #define R_ARG3		R_CX
 #endif
 #define R_RET0		R_AX

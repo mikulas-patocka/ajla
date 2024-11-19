@@ -842,7 +842,8 @@ static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned offset
 #if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI)
 	if (asm_generated_upcalls && (
 	    offset == offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_dereference) ||
-	    offset == offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned))) {
+	    offset == offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned) ||
+	    offset == offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_copy_variable_to_pointer))) {
 		ctx->upcall_hacked_abi = true;
 	}
 
