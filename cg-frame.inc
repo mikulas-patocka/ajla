@@ -855,7 +855,7 @@ static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned offset
 	for (i = 0; i < ctx->need_spill_l; i++) {
 		unsigned reg = ctx->registers[ctx->need_spill[i]];
 		if (!reg_is_fp(reg)) {
-			if (ctx->upcall_hacked_abi && reg != R_DI && !reg_is_saved(reg))
+			if (ctx->upcall_hacked_abi && !reg_is_saved(reg))
 				continue;
 			gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
 			gen_one(reg);
@@ -889,7 +889,7 @@ static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned offset, 
 		i--;
 		reg = ctx->registers[ctx->need_spill[i]];
 		if (!reg_is_fp(reg)) {
-			if (ctx->upcall_hacked_abi && reg != R_DI && !reg_is_saved(reg))
+			if (ctx->upcall_hacked_abi && !reg_is_saved(reg))
 				continue;
 			gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
 			gen_one(reg);

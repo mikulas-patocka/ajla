@@ -1403,14 +1403,14 @@ void name(ipret_init)(void)
 		asm_generated_upcalls = true;
 
 		str_init(&c, &cs);
-		str_add_hex(&c, &cs, "4889f84883e0fe488b104881fafffeffff7732488b104881faff0000007727564150415141525048be000000000000000048b80000000000000000ffd058415a415941585ec3f04881280001000073f548810000010000ebc6");
-		memcpy(&c[0x29], &id, 8);
-		memcpy(&c[0x33], &pde, 8);
+		str_add_hex(&c, &cs, "4889d04883e0fe488b084881f9fffeffff77324881f9ff000000772a565741504151415248b8000000000000000048be00000000000000004889d7ffd0415a415941585f5ec3f04881280001000073f548810000010000ebc3");
+		memcpy(&c[0x26], &pde, 8);
+		memcpy(&c[0x30], &id, 8);
 		cg_upcall_vector.cg_upcall_pointer_dereference = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
 		cg_upcall_pointer_dereference_size = cs;
 
 		str_init(&c, &cs);
-		str_add_hex(&c, &cs, "4883e7fe488b07483dfffeffff7708f048810700010000c3");
+		str_add_hex(&c, &cs, "4883e2fe488b02483dfffeffff7708f048810200010000c3");
 		cg_upcall_vector.cg_upcall_pointer_reference_owned = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
 		cg_upcall_pointer_reference_owned_size = cs;
 
