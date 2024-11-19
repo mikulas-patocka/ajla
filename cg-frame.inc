@@ -830,29 +830,39 @@ static bool attr_w gen_frame_load_cmp_imm_set_cond(struct codegen_context *ctx, 
 	return true;
 }
 
-static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned args)
+static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned offset, unsigned args)
 {
 	size_t i;
-	size_t attr_unused n_pushes;
 	ajla_assert_lo(ctx->upcall_args == -1, (file_line, "gen_upcall_start: gen_upcall_end not called"));
+	ajla_assert_lo(ctx->upcall_offset == -1, (file_line, "gen_upcall_start: gen_upcall_end not called"));
 	ctx->upcall_args = (int)args;
+	ctx->upcall_offset = (int)offset;
+	ctx->upcall_hacked_abi = false;
 
 #if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI)
+	if (asm_generated_upcalls && (
+	    offset == offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_dereference) ||
+	    offset == offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned))) {
+		ctx->upcall_hacked_abi = true;
+	}
+
 	for (i = 0; i < ctx->need_spill_l; i++) {
 		unsigned reg = ctx->registers[ctx->need_spill[i]];
 		if (reg_is_fp(reg))
 			g(spill(ctx, ctx->need_spill[i]));
 	}
-	n_pushes = 0;
+	ctx->n_pushes = 0;
 	for (i = 0; i < ctx->need_spill_l; i++) {
 		unsigned reg = ctx->registers[ctx->need_spill[i]];
 		if (!reg_is_fp(reg)) {
+			if (ctx->upcall_hacked_abi && reg != R_DI && !reg_is_saved(reg))
+				continue;
 			gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
 			gen_one(reg);
-			n_pushes++;
+			ctx->n_pushes++;
 		}
 	}
-	if (n_pushes & 1) {
+	if (ctx->n_pushes & 1) {
 		gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
 		gen_one(R_AX);
 	}
@@ -863,21 +873,14 @@ static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned args)
 	return true;
 }
 
-static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned args)
+static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned offset, unsigned args)
 {
 	size_t i;
-	size_t attr_unused n_pushes;
-	ajla_assert_lo(ctx->upcall_args == (int)args, (file_line, "gen_upcall_end: gen_upcall_start mismatch: %d", ctx->upcall_args));
-	ctx->upcall_args = -1;
+	ajla_assert_lo(ctx->upcall_args == (int)args, (file_line, "gen_upcall_end: gen_upcall_start args mismatch: %d != %d", ctx->upcall_args, (int)args));
+	ajla_assert_lo(ctx->upcall_offset == (int)offset, (file_line, "gen_upcall_end: gen_upcall_start offset mismatch: %d != %d", ctx->upcall_offset, (int)offset));
 
 #if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI)
-	n_pushes = 0;
-	for (i = 0; i < ctx->need_spill_l; i++) {
-		unsigned reg = ctx->registers[ctx->need_spill[i]];
-		if (!reg_is_fp(reg))
-			n_pushes++;
-	}
-	if (n_pushes & 1) {
+	if (ctx->n_pushes & 1) {
 		gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
 		gen_one(R_CX);
 	}
@@ -886,6 +889,8 @@ static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned args)
 		i--;
 		reg = ctx->registers[ctx->need_spill[i]];
 		if (!reg_is_fp(reg)) {
+			if (ctx->upcall_hacked_abi && reg != R_DI && !reg_is_saved(reg))
+				continue;
 			gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
 			gen_one(reg);
 		}
@@ -899,6 +904,9 @@ static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned args)
 	for (i = 0; i < ctx->need_spill_l; i++)
 		g(unspill(ctx, ctx->need_spill[i]));
 #endif
+
+	ctx->upcall_args = -1;
+	ctx->upcall_offset = -1;
 	return true;
 }
 
@@ -989,7 +997,7 @@ do_explicit_copy:
 	}
 
 call_memcpy:
-	g(gen_upcall_start(ctx, 3));
+	g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, mem_copy), 3));
 	if (unlikely(R_ARG0 == src_base)) {
 		if (unlikely(R_ARG1 == dest_base))
 			internal(file_line, "gen_memcpy_raw: swapped registers: %u, %u", src_base, dest_base);
@@ -1017,7 +1025,7 @@ call_memcpy:
 		gen_one(R_SI);
 		gen_eight(0);
 		gen_one(R_CX);
-		g(gen_upcall_end(ctx, 3));
+		g(gen_upcall_end(ctx, offsetof(struct cg_upcall_vector_s, mem_copy), 3));
 		return true;
 	}
 #endif
@@ -1205,7 +1213,7 @@ next_loop:
 		return true;
 	}
 #endif
-	g(gen_upcall_start(ctx, 2));
+	g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, mem_clear), 2));
 
 	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG0, dest_base, dest_offset, 0));
 	g(gen_upcall_argument(ctx, 0));

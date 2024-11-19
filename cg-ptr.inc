@@ -300,7 +300,7 @@ static bool attr_w gen_compress_pointer(struct codegen_context attr_unused *ctx,
 static bool attr_w gen_frame_get_pointer(struct codegen_context *ctx, frame_t slot, bool deref, unsigned dest)
 {
 	if (!deref) {
-		g(gen_upcall_start(ctx, 1));
+		g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1));
 		g(gen_frame_load(ctx, OP_SIZE_SLOT, garbage, slot, 0, false, R_ARG0));
 		g(gen_upcall_argument(ctx, 0));
 		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1));
@@ -322,7 +322,7 @@ static bool attr_w gen_frame_get_pointer(struct codegen_context *ctx, frame_t sl
 			goto do_reference;
 		g(gen_test_1(ctx, R_FRAME, slot, 0, skip_label, false, TEST_CLEAR));
 do_reference:
-		g(gen_upcall_start(ctx, 1));
+		g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1));
 		g(gen_frame_load(ctx, OP_SIZE_SLOT, garbage, slot, 0, false, R_ARG0));
 		g(gen_upcall_argument(ctx, 0));
 		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1));
@@ -347,7 +347,7 @@ static bool attr_w gen_frame_set_pointer(struct codegen_context *ctx, frame_t sl
 	if (reference) {
 		if (escape_on_thunk)
 			g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SAVED_1, src));
-		g(gen_upcall_start(ctx, 1));
+		g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1));
 		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, src));
 		g(gen_upcall_argument(ctx, 0));
 		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1));

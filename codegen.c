@@ -498,7 +498,10 @@ struct codegen_context {
 
 	struct data *codegen;
 
-	int upcall_args;
+	int upcall_offset;
+	int8_t upcall_args;
+	uint8_t n_pushes;
+	bool upcall_hacked_abi;
 	frame_t *var_aux;
 
 	ajla_error_t err;
@@ -530,6 +533,7 @@ static void init_ctx(struct codegen_context *ctx)
 	ctx->need_spill = NULL;
 	ctx->codegen = NULL;
 	ctx->upcall_args = -1;
+	ctx->upcall_offset = -1;
 	ctx->var_aux = NULL;
 }
 
@@ -969,7 +973,7 @@ static unsigned alu_trap_purpose(unsigned alu)
 
 
 static bool attr_w gen_imm(struct codegen_context *ctx, int64_t imm, unsigned purpose, unsigned size);
-static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned args);
+static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned offset, unsigned args);
 
 #define gen_address_offset()						\
 do {									\
@@ -1636,7 +1640,7 @@ unconditional_escape:
 				}
 				g(gen_test_1(ctx, R_FRAME, slot_1, 0, label_id, false, TEST_SET));
 do_take_borrowed:
-				g(gen_upcall_start(ctx, 1));
+				g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1));
 				g(gen_frame_load(ctx, OP_SIZE_SLOT, garbage, slot_1, 0, false, R_ARG0));
 				g(gen_upcall_argument(ctx, 0));
 				g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1));
@@ -1662,7 +1666,7 @@ take_borrowed_done:
 					g(gen_set_1(ctx, R_FRAME, slot_1, 0, false));
 					label_id = 0;	/* avoid warning */
 				}
-				g(gen_upcall_start(ctx, 1));
+				g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_dereference), 1));
 				g(gen_frame_load(ctx, OP_SIZE_SLOT, garbage, slot_1, 0, false, R_ARG0));
 				g(gen_upcall_argument(ctx, 0));
 				g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_dereference), 1));

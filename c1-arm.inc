@@ -403,7 +403,7 @@ static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsi
 	gen_insn(INSN_CALL_INDIRECT, OP_SIZE_4, 0, 0);
 	gen_one(R_SCRATCH_NA_1);
 
-	g(gen_upcall_end(ctx, n_args));
+	g(gen_upcall_end(ctx, offset, n_args));
 
 	return true;
 }

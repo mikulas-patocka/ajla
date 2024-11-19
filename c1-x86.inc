@@ -615,7 +615,7 @@ static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsi
 	gen_one(R_UPCALL);
 	gen_eight(offset);
 #endif
-	g(gen_upcall_end(ctx, n_args));
+	g(gen_upcall_end(ctx, offset, n_args));
 
 	return true;
 }
