@@ -1428,6 +1428,12 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		case INSN_ALU_FLAGS_PARTIAL:
 			if (unlikely(insn_op_size(insn) >= OP_SIZE_4))
 				goto invalid_insn;
+			if (!insn_writes_flags(insn)) {
+				if (unlikely(insn_aux(insn) != ALU_ADD) || insn_op_size(insn) != OP_SIZE_2)
+					goto invalid_insn;
+				g(cgen_lea(ctx, insn_op_size(insn)));
+				return true;
+			}
 			g(cgen_alu(ctx, insn_op_size(insn), insn_aux(insn), insn_writes_flags(insn)));
 			return true;
 		case INSN_ALU1:
