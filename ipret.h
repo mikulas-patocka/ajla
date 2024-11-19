@@ -23,6 +23,7 @@
 
 #define run			name(run)
 #define cg_upcall_vector	name(cg_upcall_vector)
+#define asm_generated_upcalls	name(asm_generated_upcalls)
 
 /*#define DEBUG_UPCALL*/
 
@@ -35,6 +36,8 @@
 #endif
 
 void attr_fastcall run(frame_s *, ip_t);
+
+extern bool asm_generated_upcalls;
 
 struct cg_upcall_vector_s {
 	atomic_type tick_stamp_t ts;

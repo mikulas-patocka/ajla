@@ -33,6 +33,7 @@
 #include "ipfn.h"
 #include "ipio.h"
 #include "util.h"
+#include "os.h"
 #include "codegen.h"
 
 #include "ipret.h"
@@ -1370,6 +1371,10 @@ struct cg_upcall_vector_s cg_upcall_vector = {
 #endif
 };
 
+bool asm_generated_upcalls = false;
+static size_t cg_upcall_pointer_dereference_size;
+static size_t cg_upcall_pointer_reference_owned_size;
+
 void name(ipret_init)(void)
 {
 #if 0
@@ -1389,10 +1394,36 @@ void name(ipret_init)(void)
 	}
 #endif
 	tick_stamp_ptr = &tick_stamp;
+#if defined(ARCH_X86_64) && !defined(ARCH_X86_WIN_ABI)
+	if (!offsetof(struct data, refcount_) && REFCOUNT_STEP == 256) {
+		const char *id = "codegen";
+		void *pde = (void *)pointer_dereference_;
+		char *c;
+		size_t cs;
+		asm_generated_upcalls = true;
+
+		str_init(&c, &cs);
+		str_add_hex(&c, &cs, "4889f84883e0fe488b104881fafffeffff7732488b104881faff0000007727564150415141525048be000000000000000048b80000000000000000ffd058415a415941585ec3f04881280001000073f548810000010000ebc6");
+		memcpy(&c[0x29], &id, 8);
+		memcpy(&c[0x33], &pde, 8);
+		cg_upcall_vector.cg_upcall_pointer_dereference = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
+		cg_upcall_pointer_dereference_size = cs;
+
+		str_init(&c, &cs);
+		str_add_hex(&c, &cs, "4883e7fe488b07483dfffeffff7708f048810700010000c3");
+		cg_upcall_vector.cg_upcall_pointer_reference_owned = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
+		cg_upcall_pointer_reference_owned_size = cs;
+
+	}
+#endif
 }
 
 void name(ipret_done)(void)
 {
+	if (asm_generated_upcalls) {
+		os_code_unmap(cg_upcall_vector.cg_upcall_pointer_dereference, cg_upcall_pointer_dereference_size);
+		os_code_unmap(cg_upcall_vector.cg_upcall_pointer_reference_owned, cg_upcall_pointer_reference_owned_size);
+	}
 }
 
 #endif
