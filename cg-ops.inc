@@ -104,21 +104,27 @@ static bool attr_w gen_box_move_copy(struct codegen_context *ctx, code_t code, f
 	if (slot_is_register(ctx, slot_1))
 		g(spill(ctx, slot_1));
 
-	g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_copy_variable_to_pointer), 3));
+	if (code != OPCODE_BOX_MOVE_CLEAR) {
+		g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_copy_variable_to_pointer_noderef), 2));
 
-	g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, R_FRAME));
-	g(gen_upcall_argument(ctx, 0));
+		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, R_FRAME));
+		g(gen_upcall_argument(ctx, 0));
 
-	g(gen_load_constant(ctx, R_ARG1, slot_1));
-	g(gen_upcall_argument(ctx, 1));
+		g(gen_load_constant(ctx, R_ARG1, slot_1));
+		g(gen_upcall_argument(ctx, 1));
 
-	g(gen_load_constant(ctx, R_ARG2, code == OPCODE_BOX_MOVE_CLEAR));
-	g(gen_upcall_argument(ctx, 2));
+		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_copy_variable_to_pointer_noderef), 2));
+	} else {
+		g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_copy_variable_to_pointer_deref), 2));
 
-	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_copy_variable_to_pointer), 3));
+		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, R_FRAME));
+		g(gen_upcall_argument(ctx, 0));
 
-	if (code == OPCODE_BOX_MOVE_CLEAR) {
-		g(gen_frame_clear(ctx, OP_SIZE_SLOT, slot_1));
+		g(gen_load_constant(ctx, R_ARG1, slot_1));
+		g(gen_upcall_argument(ctx, 1));
+
+		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_copy_variable_to_pointer_deref), 2));
+
 		flag_set(ctx, slot_1, false);
 	}
 

@@ -832,21 +832,18 @@ static bool attr_w gen_frame_load_cmp_imm_set_cond(struct codegen_context *ctx, 
 
 static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned offset, unsigned args)
 {
+	unsigned idx;
 	size_t i;
 	ajla_assert_lo(ctx->upcall_args == -1, (file_line, "gen_upcall_start: gen_upcall_end not called"));
 	ajla_assert_lo(ctx->upcall_offset == -1, (file_line, "gen_upcall_start: gen_upcall_end not called"));
 	ctx->upcall_args = (int)args;
 	ctx->upcall_offset = (int)offset;
+	idx = offset / sizeof(void *);
 	ctx->upcall_hacked_abi = false;
+	if (idx < 32 && (hacked_upcall_map >> idx) & 1)
+		ctx->upcall_hacked_abi = true;
 
 #if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI)
-	if (asm_generated_upcalls && (
-	    offset == offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_dereference) ||
-	    offset == offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned) ||
-	    offset == offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_copy_variable_to_pointer))) {
-		ctx->upcall_hacked_abi = true;
-	}
-
 	for (i = 0; i < ctx->need_spill_l; i++) {
 		unsigned reg = ctx->registers[ctx->need_spill[i]];
 		if (reg_is_fp(reg))

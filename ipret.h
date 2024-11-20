@@ -23,7 +23,7 @@
 
 #define run			name(run)
 #define cg_upcall_vector	name(cg_upcall_vector)
-#define asm_generated_upcalls	name(asm_generated_upcalls)
+#define hacked_upcall_map	name(hacked_upcall_map)
 
 /*#define DEBUG_UPCALL*/
 
@@ -37,7 +37,7 @@
 
 void attr_fastcall run(frame_s *, ip_t);
 
-extern bool asm_generated_upcalls;
+extern uint32_t hacked_upcall_map;
 
 struct cg_upcall_vector_s {
 	atomic_type tick_stamp_t ts;
@@ -46,6 +46,8 @@ struct cg_upcall_vector_s {
 	void (*mem_clear)(void *ptr, size_t size);
 	void (*cg_upcall_pointer_dereference)(pointer_t_upcall ptr);
 	void (*cg_upcall_pointer_reference_owned)(pointer_t_upcall ptr);
+	pointer_t (*cg_upcall_ipret_copy_variable_to_pointer_noderef)(frame_s *src_fp, uintptr_t src_slot);
+	pointer_t (*cg_upcall_ipret_copy_variable_to_pointer_deref)(frame_s *src_fp, uintptr_t src_slot);
 	pointer_t (*cg_upcall_flat_to_data)(frame_s *fp, uintptr_t slot, const unsigned char *flat);
 	unsigned char *(*cg_upcall_data_alloc_function_reference_mayfail)(uintptr_t n_curried_arguments);
 	unsigned char *(*cg_upcall_data_alloc_record_mayfail)(frame_s *fp, uintptr_t slot);
@@ -61,7 +63,6 @@ struct cg_upcall_vector_s {
 	pointer_t (*cg_upcall_array_skip)(pointer_t_upcall array, int_default_t_upcall start, bool deref);
 	pointer_t (*cg_upcall_array_join)(pointer_t_upcall ptr1, pointer_t_upcall ptr2);
 	void *(*cg_upcall_ipret_io)(frame_s *fp, uintptr_t ip_offset, uintptr_t code_params);
-	pointer_t (*cg_upcall_ipret_copy_variable_to_pointer)(frame_s *src_fp, uintptr_t src_slot, bool deref);
 	int_default_t (*cg_upcall_ipret_system_property)(int_default_t_upcall idx);
 #define f(n, s, u, sz, bits) \
 	bool (*cat(INT_binary_const_,s))(const s *v1, int_default_t_upcall v2, s *r, bool (*op)(const void *, const void *, void *));

@@ -809,6 +809,18 @@ static void cg_upcall_pointer_reference_owned(pointer_t_upcall ptr)
 	pointer_reference_owned(ptr);
 }
 
+static pointer_t cg_upcall_ipret_copy_variable_to_pointer_noderef(frame_s *src_fp, uintptr_t src_slot)
+{
+	return ipret_copy_variable_to_pointer(src_fp, src_slot, false);
+}
+
+static pointer_t cg_upcall_ipret_copy_variable_to_pointer_deref(frame_s *src_fp, uintptr_t src_slot)
+{
+	pointer_t ptr = ipret_copy_variable_to_pointer(src_fp, src_slot, true);
+	*frame_pointer(src_fp, src_slot) = pointer_empty();
+	return ptr;
+}
+
 static pointer_t cg_upcall_flat_to_data(frame_s *fp, uintptr_t slot, const unsigned char *flat)
 {
 	const struct type *type = frame_get_type_of_local(fp, slot);
@@ -988,11 +1000,6 @@ static void *cg_upcall_ipret_io(frame_s *fp, uintptr_t ip_offset, uintptr_t code
 	return ret;
 }
 
-static pointer_t cg_upcall_ipret_copy_variable_to_pointer(frame_s *src_fp, uintptr_t src_slot, bool deref)
-{
-	return ipret_copy_variable_to_pointer(src_fp, src_slot, deref);
-}
-
 static int_default_t cg_upcall_ipret_system_property(int_default_t_upcall idx)
 {
 	return ipret_system_property(idx);
@@ -1047,6 +1054,8 @@ struct cg_upcall_vector_s cg_upcall_vector = {
 	cg_upcall_mem_clear,
 	cg_upcall_pointer_dereference,
 	cg_upcall_pointer_reference_owned,
+	cg_upcall_ipret_copy_variable_to_pointer_noderef,
+	cg_upcall_ipret_copy_variable_to_pointer_deref,
 	cg_upcall_flat_to_data,
 	cg_upcall_data_alloc_function_reference_mayfail,
 	cg_upcall_data_alloc_record_mayfail,
@@ -1062,7 +1071,6 @@ struct cg_upcall_vector_s cg_upcall_vector = {
 	cg_upcall_array_skip,
 	cg_upcall_array_join,
 	cg_upcall_ipret_io,
-	cg_upcall_ipret_copy_variable_to_pointer,
 	cg_upcall_ipret_system_property,
 #define f(n, s, u, sz, bits) \
 	cat(INT_binary_const_,s),
@@ -1371,10 +1379,8 @@ struct cg_upcall_vector_s cg_upcall_vector = {
 #endif
 };
 
-bool asm_generated_upcalls = false;
-static size_t cg_upcall_pointer_dereference_size;
-static size_t cg_upcall_pointer_reference_owned_size;
-static size_t cg_upcall_ipret_copy_variable_to_pointer_size;
+uint32_t hacked_upcall_map = 0;
+static size_t hacked_upcall_size[32];
 
 void name(ipret_init)(void)
 {
@@ -1400,37 +1406,65 @@ void name(ipret_init)(void)
 		const char *id = "codegen";
 		void *pde = (void *)pointer_dereference_;
 		void *icvtp = (void *)ipret_copy_variable_to_pointer;
+		void *cuftd = (void *)cg_upcall_flat_to_data;
 		char *c;
 		size_t cs;
-		asm_generated_upcalls = true;
+		unsigned idx;
 
 		str_init(&c, &cs);
 		str_add_hex(&c, &cs, "4889d04883e0fe488b084881f9fffeffff77324881f9ff000000772a565741504151415248b8000000000000000048be00000000000000004889d7ffd0415a415941585f5ec3f04881280001000073f548810000010000ebc3");
+		array_finish(char, &c, &cs);
 		memcpy(&c[0x26], &pde, 8);
 		memcpy(&c[0x30], &id, 8);
 		cg_upcall_vector.cg_upcall_pointer_dereference = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
-		cg_upcall_pointer_dereference_size = cs;
+		idx = offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_dereference) / sizeof(void *);
+		hacked_upcall_map |= 1U << idx;
+		hacked_upcall_size[idx] = cs;
 
 		str_init(&c, &cs);
 		str_add_hex(&c, &cs, "4883e2fe488b02483dfffeffff7708f048810200010000c3");
+		array_finish(char, &c, &cs);
 		cg_upcall_vector.cg_upcall_pointer_reference_owned = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
-		cg_upcall_pointer_reference_owned_size = cs;
+		idx = offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned) / sizeof(void *);
+		hacked_upcall_map |= 1U << idx;
+		hacked_upcall_size[idx] = cs;
 
 		str_init(&c, &cs);
-		str_add_hex(&c, &cs, "56574150415141524889d74889ce0fb6d048b80000000000000000ffd0415a415941585f5ec3");
-		memcpy(&c[0x13], &icvtp, 8);
-		cg_upcall_vector.cg_upcall_ipret_copy_variable_to_pointer = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
-		cg_upcall_ipret_copy_variable_to_pointer_size = cs;
+		str_add_hex(&c, &cs, "56574150415141524889d789ce31d248b80000000000000000ffd0415a415941585f5ec3");
+		array_finish(char, &c, &cs);
+		memcpy(&c[0x11], &icvtp, 8);
+		cg_upcall_vector.cg_upcall_ipret_copy_variable_to_pointer_noderef = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
+		idx = offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_copy_variable_to_pointer_noderef) / sizeof(void *);
+		hacked_upcall_map |= 1U << idx;
+		hacked_upcall_size[idx] = cs;
+
+		str_init(&c, &cs);
+		str_add_hex(&c, &cs, "565741504151415252514889d789ceba0100000048b80000000000000000ffd0595a48c704ca00000000415a415941585f5ec3");
+		array_finish(char, &c, &cs);
+		memcpy(&c[0x16], &icvtp, 8);
+		cg_upcall_vector.cg_upcall_ipret_copy_variable_to_pointer_deref = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
+		idx = offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_copy_variable_to_pointer_deref) / sizeof(void *);
+		hacked_upcall_map |= 1U << idx;
+		hacked_upcall_size[idx] = cs;
+
+		str_init(&c, &cs);
+		str_add_hex(&c, &cs, "56574150415141524889d789ce4889c248b80000000000000000ffd0415a415941585f5ec3");
+		array_finish(char, &c, &cs);
+		memcpy(&c[0x12], &cuftd, 8);
+		cg_upcall_vector.cg_upcall_flat_to_data = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
+		idx = offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data) / sizeof(void *);
+		hacked_upcall_map |= 1U << idx;
+		hacked_upcall_size[idx] = cs;
 	}
 #endif
 }
 
 void name(ipret_done)(void)
 {
-	if (asm_generated_upcalls) {
-		os_code_unmap(cg_upcall_vector.cg_upcall_pointer_dereference, cg_upcall_pointer_dereference_size);
-		os_code_unmap(cg_upcall_vector.cg_upcall_pointer_reference_owned, cg_upcall_pointer_reference_owned_size);
-		os_code_unmap(cg_upcall_vector.cg_upcall_ipret_copy_variable_to_pointer, cg_upcall_ipret_copy_variable_to_pointer_size);
+	while (hacked_upcall_map) {
+		unsigned idx = low_bit(hacked_upcall_map);
+		hacked_upcall_map &= hacked_upcall_map - 1;
+		os_code_unmap(*((void **)&cg_upcall_vector + idx), hacked_upcall_size[idx]);
 	}
 }
 
