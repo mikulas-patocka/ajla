@@ -1395,7 +1395,7 @@ void name(ipret_init)(void)
 	}
 #endif
 	tick_stamp_ptr = &tick_stamp;
-#if defined(ARCH_X86_64) && !defined(ARCH_X86_WIN_ABI)
+#if defined(ARCH_X86_64) && !defined(ARCH_X86_WIN_ABI) && !defined(POINTER_COMPRESSION)
 	if (!offsetof(struct data, refcount_) && REFCOUNT_STEP == 256) {
 		const char *id = "codegen";
 		void *pde = (void *)pointer_dereference_;
