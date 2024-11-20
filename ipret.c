@@ -1401,7 +1401,7 @@ void name(ipret_init)(void)
 	}
 #endif
 	tick_stamp_ptr = &tick_stamp;
-#if defined(ARCH_X86_64) && !defined(ARCH_X86_WIN_ABI) && !defined(POINTER_COMPRESSION)
+#if defined(ARCH_X86_64) && !defined(ARCH_X86_WIN_ABI) && (!defined(POINTER_COMPRESSION) || POINTER_COMPRESSION == 3)
 	if (!offsetof(struct data, refcount_) && REFCOUNT_STEP == 256) {
 		const char *id = "codegen";
 		void *pde = (void *)pointer_dereference_;
@@ -1412,17 +1412,27 @@ void name(ipret_init)(void)
 		unsigned idx;
 
 		str_init(&c, &cs);
+#ifndef POINTER_COMPRESSION
 		str_add_hex(&c, &cs, "4889d04883e0fe488b084881f9fffeffff77324881f9ff000000772a565741504151415248b8000000000000000048be00000000000000004889d7ffd0415a415941585f5ec3f04881280001000073f548810000010000ebc3");
-		array_finish(char, &c, &cs);
 		memcpy(&c[0x26], &pde, 8);
 		memcpy(&c[0x30], &id, 8);
+#else
+		str_add_hex(&c, &cs, "89d083e0fe48c1e003488b084881f9fffeffff77314881f9ff0000007729565741504151415248b8000000000000000048be000000000000000089d7ffd0415a415941585f5ec3f04881280001000073f548810000010000ebc4");
+		memcpy(&c[0x28], &pde, 8);
+		memcpy(&c[0x32], &id, 8);
+#endif
+		array_finish(char, &c, &cs);
 		cg_upcall_vector.cg_upcall_pointer_dereference = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
 		idx = offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_dereference) / sizeof(void *);
 		hacked_upcall_map |= 1U << idx;
 		hacked_upcall_size[idx] = cs;
 
 		str_init(&c, &cs);
+#ifndef POINTER_COMPRESSION
 		str_add_hex(&c, &cs, "4883e2fe488b02483dfffeffff7708f048810200010000c3");
+#else
+		str_add_hex(&c, &cs, "83e2fe48c1e203488b02483dfffeffff7708f048810200010000c30f1f440000");
+#endif
 		array_finish(char, &c, &cs);
 		cg_upcall_vector.cg_upcall_pointer_reference_owned = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
 		idx = offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned) / sizeof(void *);
@@ -1430,27 +1440,42 @@ void name(ipret_init)(void)
 		hacked_upcall_size[idx] = cs;
 
 		str_init(&c, &cs);
+#ifndef POINTER_COMPRESSION
 		str_add_hex(&c, &cs, "56574150415141524889d789ce31d248b80000000000000000ffd0415a415941585f5ec3");
-		array_finish(char, &c, &cs);
 		memcpy(&c[0x11], &icvtp, 8);
+#else
+		str_add_hex(&c, &cs, "56574150415141524889d789ce31d248b80000000000000000ffd0415a415941585f5ec3");
+		memcpy(&c[0x11], &icvtp, 8);
+#endif
+		array_finish(char, &c, &cs);
 		cg_upcall_vector.cg_upcall_ipret_copy_variable_to_pointer_noderef = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
 		idx = offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_copy_variable_to_pointer_noderef) / sizeof(void *);
 		hacked_upcall_map |= 1U << idx;
 		hacked_upcall_size[idx] = cs;
 
 		str_init(&c, &cs);
+#ifndef POINTER_COMPRESSION
 		str_add_hex(&c, &cs, "565741504151415252514889d789ceba0100000048b80000000000000000ffd0595a48c704ca00000000415a415941585f5ec3");
-		array_finish(char, &c, &cs);
 		memcpy(&c[0x16], &icvtp, 8);
+#else
+		str_add_hex(&c, &cs, "565741504151415252514889d789ceba0100000048b80000000000000000ffd0595ac7048a00000000415a415941585f5ec3");
+		memcpy(&c[0x16], &icvtp, 8);
+#endif
+		array_finish(char, &c, &cs);
 		cg_upcall_vector.cg_upcall_ipret_copy_variable_to_pointer_deref = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
 		idx = offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_copy_variable_to_pointer_deref) / sizeof(void *);
 		hacked_upcall_map |= 1U << idx;
 		hacked_upcall_size[idx] = cs;
 
 		str_init(&c, &cs);
+#ifndef POINTER_COMPRESSION
 		str_add_hex(&c, &cs, "56574150415141524889d789ce4889c248b80000000000000000ffd0415a415941585f5ec3");
-		array_finish(char, &c, &cs);
 		memcpy(&c[0x12], &cuftd, 8);
+#else
+		str_add_hex(&c, &cs, "56574150415141524889d789ce4889c248b80000000000000000ffd0415a415941585f5ec3");
+		memcpy(&c[0x12], &cuftd, 8);
+#endif
+		array_finish(char, &c, &cs);
 		cg_upcall_vector.cg_upcall_flat_to_data = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
 		idx = offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data) / sizeof(void *);
 		hacked_upcall_map |= 1U << idx;
