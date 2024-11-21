@@ -821,9 +821,10 @@ static pointer_t cg_upcall_ipret_copy_variable_to_pointer_deref(frame_s *src_fp,
 	return ptr;
 }
 
-static pointer_t cg_upcall_flat_to_data(frame_s *fp, uintptr_t slot, const unsigned char *flat)
+static pointer_t cg_upcall_flat_to_data(frame_s *fp, uintptr_t slot)
 {
 	const struct type *type = frame_get_type_of_local(fp, slot);
+	const unsigned char *flat = frame_var(fp, slot);
 	return flat_to_data(type, flat);
 }
 
@@ -1469,11 +1470,11 @@ void name(ipret_init)(void)
 
 		str_init(&c, &cs);
 #ifndef POINTER_COMPRESSION
-		str_add_hex(&c, &cs, "56574150415141524889d789ce4889c248b80000000000000000ffd0415a415941585f5ec3");
-		memcpy(&c[0x12], &cuftd, 8);
+		str_add_hex(&c, &cs, "56574150415141524889d789ce48b80000000000000000ffd0415a415941585f5ec3");
+		memcpy(&c[0xf], &cuftd, 8);
 #else
-		str_add_hex(&c, &cs, "56574150415141524889d789ce4889c248b80000000000000000ffd0415a415941585f5ec3");
-		memcpy(&c[0x12], &cuftd, 8);
+		str_add_hex(&c, &cs, "56574150415141524889d789ce48b80000000000000000ffd0415a415941585f5ec3");
+		memcpy(&c[0xf], &cuftd, 8);
 #endif
 		array_finish(char, &c, &cs);
 		cg_upcall_vector.cg_upcall_flat_to_data = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
