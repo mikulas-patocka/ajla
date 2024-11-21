@@ -340,11 +340,7 @@ copied:
 				g(gen_load_constant(ctx, R_ARG1, arg_slot));
 				g(gen_upcall_argument(ctx, 1));
 
-				g(gen_imm(ctx, (size_t)arg_slot * slot_size, IMM_PURPOSE_ADD, i_size(OP_SIZE_ADDRESS)));
-				gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(i_size(OP_SIZE_ADDRESS), ALU_ADD, false, is_imm(), ctx->const_imm));
-				gen_one(R_ARG2);
-				gen_one(R_FRAME);
-				gen_imm_offset();
+				g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG2, R_FRAME, (size_t)arg_slot * slot_size, 0));
 				g(gen_upcall_argument(ctx, 2));
 
 				g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 3));
