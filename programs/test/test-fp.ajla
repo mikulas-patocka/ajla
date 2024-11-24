@@ -21,6 +21,7 @@ uses prng;
 fn get_random(implicit p : prng_state, t : type, const ex_bits mant_bits : int, implicit c : class_real_number(t)) : (prng_state, t)
 [
 	var mant : t := prng_get_int(mant_bits);
+	//mant := #fffffffffffffffffffffffffffffffff;
 	mant /= 1 shl mant_bits;
 	var exp : t := prng_get_int(ex_bits + 1);
 	exp -= (1 shl ex_bits);
