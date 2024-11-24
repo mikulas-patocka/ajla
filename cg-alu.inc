@@ -3007,6 +3007,20 @@ do_cmp:
 				gen_eight(0x4100);
 				g(gen_frame_set_cond(ctx, OP_SIZE_2, false, COND_NE, slot_r));
 				break;
+			case FP_COND_A:
+				gen_insn(INSN_TEST, OP_SIZE_2, 0, 1);
+				gen_one(R_AX);
+				gen_one(ARG_IMM);
+				gen_eight(0x4100);
+				g(gen_frame_set_cond(ctx, OP_SIZE_2, false, COND_E, slot_r));
+				break;
+			case FP_COND_AE:
+				gen_insn(INSN_TEST, OP_SIZE_2, 0, 1);
+				gen_one(R_AX);
+				gen_one(ARG_IMM);
+				gen_eight(0x0100);
+				g(gen_frame_set_cond(ctx, OP_SIZE_2, false, COND_E, slot_r));
+				break;
 			default:
 				internal(file_line, "gen_fp_alu: invalid condition %u", fp_alu);
 		}
