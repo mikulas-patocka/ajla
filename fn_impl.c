@@ -270,3 +270,10 @@ float modff(float x, float *iflt)
 	return r;
 }
 #endif
+
+#if defined(HAVE_BUGGY_LDEXP) && defined(SIZEOF_LONG_DOUBLE) && SIZEOF_LONG_DOUBLE > 8 && defined(HAVE_LDEXPL)
+double ldexp(double x, int exp)
+{
+	return ldexpl(x, exp);
+}
+#endif

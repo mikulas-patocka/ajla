@@ -143,6 +143,7 @@ default_long_long=0
 default_unsigned__int128=0
 default_void=0
 default_size_t=0
+default_long_double=0
 
 AC_CHECK_SIZEOF(unsigned short,"$default_short")
 AC_CHECK_SIZEOF(unsigned, "$default_int")
@@ -151,6 +152,7 @@ AC_CHECK_SIZEOF(unsigned long long, "$default_long_long")
 AC_CHECK_SIZEOF(unsigned __int128, "$default_unsigned__int128")
 AC_CHECK_SIZEOF(void *, "$default_void")
 AC_CHECK_SIZEOF(size_t, "$default_size_t")
+AC_CHECK_SIZEOF(long double, "$default_long_double")
 
 if test "$ax_pthread_ok" = yes; then
 	AC_CACHE_CHECK([for PTHREAD_MUTEX_ERRORCHECK],
@@ -1000,6 +1002,19 @@ int main(void)
 }
 ], ac_cv_have_buggy_modf=no, ac_cv_have_buggy_modf=yes, ac_cv_have_buggy_modf=yes))
 test "$ac_cv_have_buggy_modf" = yes && AC_DEFINE(HAVE_BUGGY_MODF, 1, Have buggy modf)
+
+AC_CACHE_CHECK(if ldexp is buggy, ac_cv_have_buggy_ldexp,
+AC_TRY_RUN([
+#include <math.h>
+int main(void)
+{
+	volatile double s = 1;
+	volatile double lx = ldexp(s, 1024);
+	volatile double ly = ldexp(lx, -1024);
+	return lx != ly;
+}
+], ac_cv_have_buggy_ldexp=no, ac_cv_have_buggy_ldexp=yes, ac_cv_have_buggy_ldexp=yes))
+test "$ac_cv_have_buggy_ldexp" = yes && AC_DEFINE(HAVE_BUGGY_LDEXP, 1, Have buggy ldexp)
 
 
 AC_CONFIG_FILES(Makefile)
