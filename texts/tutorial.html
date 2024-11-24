@@ -79,10 +79,27 @@ You can generate it with the <code>./rebuild</code> script. You need autoconf,
 automake and ed installed.
 <br>
 <br>
-It is recommended to use gcc &mdash the compilation will take several minutes
-and it will consume about 4GB memory when compiling the files ipret.c and
-ipretc.c. Compilation with clang works, but it is very slow, it may take an hour
-or more to compile the files ipret.c and ipretc.c.
+It is recommended to use gcc &mdash; the compilation will take several minutes
+and it will consume about 8GB memory when compiling the files ipret.c and
+ipretc.c. Compilation with clang works, but it may be very slow, it may take an
+hour or more to compile the files ipret.c and ipretc.c. If you want to reduce
+the compilation time and memory consumption, here are some tips:
+<ul>
+<li>Pass the flag <code>--disable-computed-goto</code> to
+<code>./configure</code> &mdash; this will make the interpreter use one big
+<code>switch</code> statement instead of a table of labels &mdash; it will
+degrade performance, but it will decrease compilation time and memory usage.
+<li>Don't compile the files <code>ipret.c</code> and <code>ipretc.c</code> in
+parallel &mdash; this will reduce memory consumption (compilation of each of
+these files consumes about 4GB RAM).
+<li>Use <code>CFLAGS=-O1</code>.
+<li>If you are using <code>clang</code>, use version 19 or 20 &mdash; the older
+versions compile Ajla very slowly, it may take an hour or more.
+<li>If you are using <code>clang</code>, don't use the options
+<code>-Wall</code> or <code>-Wuninitialized</code> &mdash; the uninitialized
+variable check on clang is very inefficient and it may add about 30 minutes to
+the compilation time.
+</ul>
 <br>
 <br>
 When running Ajla programs, it is recommended to set the cpu governor to
@@ -1278,6 +1295,7 @@ allocated. Some filesystems do not support holes; for them this function returns
 <dt><code>fn bhole(w : world, h : handle, off : int64) : (world, int64);</code>
 <dd>Skips over data in the file. Returns a next offset where there is a hole in
 the file. Some filesystems do not support holes; for them this function returns
+the size of the file.
 <dt><code>fn bsetsize(w : world, h : handle, size : int64) : world;</code>
 <dd>Truncates a file to the specified size or extends it.
 <dt><code>fn bcontiguous(w : world, h : handle, pos : int64, size : int64) :
@@ -1614,7 +1632,7 @@ and <code>brev</code>.
 <br>
 <br>
 <code>class_eq</code> represents types for which equality is defined.
-<code>class_org</code> represents types where we can compare elements.
+<code>class_ord</code> represents types where we can compare elements.
 <code>class_logical</code> represents types with the "<code>and</code>",
 "<code>or</code>", "<code>xor</code>" and "<code>not</code>" operations.
 <br>
