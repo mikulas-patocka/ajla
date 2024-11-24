@@ -417,6 +417,7 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 
 	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
 	gen_one(R_ARG2);
+
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_FRAME);
 	gen_one(R_ARG0);

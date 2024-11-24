@@ -532,8 +532,9 @@ static void init_ctx(struct codegen_context *ctx)
 	ctx->registers = NULL;
 	ctx->need_spill = NULL;
 	ctx->codegen = NULL;
-	ctx->upcall_args = -1;
 	ctx->upcall_offset = -1;
+	ctx->upcall_args = -1;
+	ctx->upcall_hacked_abi = false;
 	ctx->var_aux = NULL;
 }
 

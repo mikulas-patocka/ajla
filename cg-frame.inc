@@ -906,6 +906,7 @@ static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned offset, 
 
 	ctx->upcall_args = -1;
 	ctx->upcall_offset = -1;
+	ctx->upcall_hacked_abi = false;
 	return true;
 }
 
