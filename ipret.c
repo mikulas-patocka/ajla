@@ -443,7 +443,7 @@ static ipret_inline type cat(REAL_unary_next_prev_number_,type)		\
 		return pack(unpack(res) * dir);				\
 	}								\
 	m = cat(mathfunc_,type)(frexp)(n1, &ex);			\
-	bit = cat(bits_,type);						\
+	bit = cat(bits_,type) + 1;					\
 again:									\
 	mm = m + cat(mathfunc_,ntype)(ldexp)(dir, -bit);		\
 	o = pack(cat(mathfunc_,ntype)(ldexp)(mm, ex));			\
