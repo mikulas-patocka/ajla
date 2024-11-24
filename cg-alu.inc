@@ -1475,13 +1475,13 @@ do_bt: {
 				gen_eight(cnst);
 			} else switch (alu) {
 				case BTX_BTS:
-					g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_OR, target, reg1, 1ULL << cnst, 0));
+					g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_OR, target, reg1, (uint64_t)1 << cnst, 0));
 					break;
 				case BTX_BTR:
-					g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_AND, target, reg1, ~(1ULL << cnst), 0));
+					g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_AND, target, reg1, ~((uint64_t)1 << cnst), 0));
 					break;
 				case BTX_BTC:
-					g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, target, reg1, 1ULL << cnst, 0));
+					g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, target, reg1, (uint64_t)1 << cnst, 0));
 					break;
 				case BTX_BT:
 					if (cnst) {
@@ -2644,7 +2644,7 @@ static bool attr_w gen_constant(struct codegen_context *ctx, bool real, unsigned
 	}
 	if (op_size > OP_SIZE_NATIVE) {
 		unsigned shift = (8U << OP_SIZE_NATIVE) - 1;
-		g(gen_frame_store_imm_raw(ctx, OP_SIZE_NATIVE, slot_r, lo_word(OP_SIZE_NATIVE), c & ((2ULL << shift) - 1)));
+		g(gen_frame_store_imm_raw(ctx, OP_SIZE_NATIVE, slot_r, lo_word(OP_SIZE_NATIVE), c & (((uint64_t)2 << shift) - 1)));
 		g(gen_frame_store_imm_raw(ctx, OP_SIZE_NATIVE, slot_r, hi_word(OP_SIZE_NATIVE), c >> 1 >> shift));
 		if (real && slot_is_register(ctx, slot_r))
 			g(unspill(ctx, slot_r));

@@ -801,7 +801,7 @@ static bool attr_w gen_extend(struct codegen_context *ctx, unsigned op_size, enu
 	goto default_extend;
 default_extend:
 	if (ex == zero_x && op_size <= OP_SIZE_4) {
-		int64_t cnst = (0x1ULL << (8U << op_size)) - 1;
+		int64_t cnst = ((uint64_t)0x1 << (8U << op_size)) - 1;
 		if (is_direct_const(cnst, IMM_PURPOSE_AND, OP_SIZE_NATIVE)) {
 			g(gen_imm(ctx, 0xff, IMM_PURPOSE_AND, OP_SIZE_NATIVE));
 			gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_AND, ALU_WRITES_FLAGS(OP_SIZE_NATIVE, ALU_AND, false, is_imm(), ctx->const_imm));

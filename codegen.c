@@ -1241,8 +1241,9 @@ next_code:
 	ajla_assert_lo(ctx->arg_mode < ARG_MODE_N, (file_line, "gen_fused_binary: invalid opcode %04x", (unsigned)*ctx->instr_start));
 
 	if (code == OPCODE_DEREFERENCE) {
+		const struct type *t;
 		get_one(ctx, &slot_dr);
-		const struct type *t = get_type_of_local(ctx, slot_dr);
+		t = get_type_of_local(ctx, slot_dr);
 		if (!TYPE_TAG_IS_BUILTIN(t->tag)) {
 			*failed = true;
 			goto fail;

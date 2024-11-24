@@ -119,6 +119,7 @@ static int64_t get_constant(unsigned size, enum extend ex, frame_t slot, int64_t
 		return frame_t_get_const(slot) < 0 ? -1 : 0;
 crash:
 	internal(file_line, "get_constant: invalid offset %"PRIdMAX"", (intmax_t)offset);
+	return 0;
 }
 
 static bool attr_w gen_frame_load_raw(struct codegen_context *ctx, unsigned size, enum extend ex, frame_t slot, int64_t offset, bool dual, unsigned reg)
