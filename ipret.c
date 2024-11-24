@@ -1380,8 +1380,10 @@ struct cg_upcall_vector_s cg_upcall_vector = {
 #endif
 };
 
+#if defined(HAVE_CODEGEN)
 uint32_t hacked_upcall_map = 0;
 static size_t hacked_upcall_size[32];
+#endif
 
 void name(ipret_init)(void)
 {
@@ -1402,7 +1404,7 @@ void name(ipret_init)(void)
 	}
 #endif
 	tick_stamp_ptr = &tick_stamp;
-#if defined(ARCH_X86_64) && !defined(ARCH_X86_WIN_ABI) && (!defined(POINTER_COMPRESSION) || POINTER_COMPRESSION == 3)
+#if defined(HAVE_CODEGEN) && defined(ARCH_X86_64) && !defined(ARCH_X86_WIN_ABI) && (!defined(POINTER_COMPRESSION) || POINTER_COMPRESSION == 3)
 	if (!offsetof(struct data, refcount_) && REFCOUNT_STEP == 256) {
 		const char *id = "codegen";
 		void *pde = (void *)pointer_dereference_;
@@ -1487,11 +1489,13 @@ void name(ipret_init)(void)
 
 void name(ipret_done)(void)
 {
+#if defined(HAVE_CODEGEN)
 	while (hacked_upcall_map) {
 		unsigned idx = low_bit(hacked_upcall_map);
 		hacked_upcall_map &= hacked_upcall_map - 1;
 		os_code_unmap(*((void **)&cg_upcall_vector + idx), hacked_upcall_size[idx]);
 	}
+#endif
 }
 
 #endif
