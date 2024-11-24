@@ -47,6 +47,15 @@ fn test~inline(implicit w : world, implicit p : prng_state, h : list(handle), t 
 	var f1 : floating(ex_bits, mant_bits) := v1;
 	var f2 : floating(ex_bits, mant_bits) := v2;
 
+	if (v1 > v2) <> (v2 < v1) then
+		abort internal("comparison 1 doesn't work");
+	if (v1 >= v2) <> (v2 <= v1) then
+		abort internal("comparison 2 doesn't work");
+	if (f1 > f2) <> (f2 < f1) then
+		abort internal("comparison 3 doesn't work");
+	if (f1 >= f2) <> (f2 <= f1) then
+		abort internal("comparison 4 doesn't work");
+
 	var vv := [
 		v1 + v2,
 		v1 - v2,
