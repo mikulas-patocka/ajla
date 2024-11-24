@@ -872,7 +872,7 @@ static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned offset
 	return true;
 }
 
-static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned offset, unsigned args)
+static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned attr_unused offset, unsigned attr_unused args)
 {
 	size_t i;
 	ajla_assert_lo(ctx->upcall_args == (int)args, (file_line, "gen_upcall_end: gen_upcall_start args mismatch: %d != %d", ctx->upcall_args, (int)args));
