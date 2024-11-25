@@ -599,7 +599,11 @@ static handle_t os_open_internal(dir_handle_t dir, const char *path, int flags, 
 			ajla_error_t e = error_from_errno(EC_SYSCALL, errno);
 #ifdef O_PATH
 			if (errno == EACCES && want_dir) {
-				EINTR_LOOP(h, openat(dir, path, flags | O_CLOEXEC | O_PATH, mode));
+				if (!dir_handle_is_valid(dir)) {
+					EINTR_LOOP(h, open(path, flags | O_CLOEXEC | O_PATH, mode));
+				} else {
+					EINTR_LOOP(h, openat(dir, path, flags | O_CLOEXEC | O_PATH, mode));
+				}
 				if (h != -1)
 					goto have_it;
 			}
