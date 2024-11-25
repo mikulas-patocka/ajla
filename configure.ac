@@ -987,7 +987,7 @@ int main(void)
 {
 	return fmod(a, b) == 0;
 }
-], ac_cv_have_buggy_fmod=no, ac_cv_have_buggy_fmod=yes, ac_cv_have_buggy_fmod=yes))
+], ac_cv_have_buggy_fmod=no, ac_cv_have_buggy_fmod=yes, ac_cv_have_buggy_fmod=unknown))
 test "$ac_cv_have_buggy_fmod" = yes && AC_DEFINE(HAVE_BUGGY_FMOD, 1, Have buggy fmod)
 
 AC_CACHE_CHECK(if modf is buggy, ac_cv_have_buggy_modf,
@@ -1000,7 +1000,7 @@ int main(void)
 	double d;
 	return !(modf(a / b, &d) == 0);
 }
-], ac_cv_have_buggy_modf=no, ac_cv_have_buggy_modf=yes, ac_cv_have_buggy_modf=yes))
+], ac_cv_have_buggy_modf=no, ac_cv_have_buggy_modf=yes, ac_cv_have_buggy_modf=unknown))
 test "$ac_cv_have_buggy_modf" = yes && AC_DEFINE(HAVE_BUGGY_MODF, 1, Have buggy modf)
 
 AC_CACHE_CHECK(if ldexp is buggy, ac_cv_have_buggy_ldexp,
@@ -1013,7 +1013,7 @@ int main(void)
 	volatile double ly = ldexp(lx, -1024);
 	return lx != ly;
 }
-], ac_cv_have_buggy_ldexp=no, ac_cv_have_buggy_ldexp=yes, ac_cv_have_buggy_ldexp=yes))
+], ac_cv_have_buggy_ldexp=no, ac_cv_have_buggy_ldexp=yes, ac_cv_have_buggy_ldexp=unknown))
 test "$ac_cv_have_buggy_ldexp" = yes && AC_DEFINE(HAVE_BUGGY_LDEXP, 1, Have buggy ldexp)
 
 
