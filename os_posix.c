@@ -1246,8 +1246,6 @@ bool os_fstat(handle_t h, os_stat_t *st, ajla_error_t *err)
 	EINTR_LOOP(r, fstat(h, st));
 	if (unlikely(r == -1)) {
 		ajla_error_t e;
-		if (unlikely(errno == EBADF))
-			internal(file_line, "os_fstat: invalid handle %d", h);
 		e = error_from_errno(EC_SYSCALL, errno);
 		fatal_mayfail(e, err, "can't stat file handle: %s", error_decode(e));
 		return false;
@@ -1356,8 +1354,6 @@ bool os_fstatvfs(handle_t h, os_statvfs_t *st, ajla_error_t *err)
 
 	goto err;
 err:
-	if (unlikely(errno == EBADF))
-		internal(file_line, "os_fstatvfs: invalid handle %d", h);
 	e = error_from_errno(EC_SYSCALL, errno);
 	fatal_mayfail(e, err, "can't fstatvfs file handle: %s", error_decode(e));
 	return false;
