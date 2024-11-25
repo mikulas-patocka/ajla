@@ -300,7 +300,7 @@ do_undo_opcode:
 					size_t m;
 					int64_t offset = (size_t)slot_2 * slot_size;
 					g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDR_OFFSET, i_size(op_size)));
-					gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(i_size(op_size)), i_size(op_size), alu, ALU_WRITES_FLAGS(i_size(op_size), alu, true, false, 0) | 1);
+					gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(i_size(op_size)), i_size(op_size), alu, ALU_WRITES_FLAGS(i_size(op_size), alu, true, false, 0) | (mode == MODE_INT));
 					gen_one(reg1);
 					gen_one(reg1);
 					gen_address_offset();
@@ -334,7 +334,7 @@ do_undo_opcode:
 				g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDR_OFFSET, i_size(op_size)));
 				if (frame_t_is_const(slot_2))
 					g(gen_imm(ctx, frame_t_get_const(slot_2), alu_purpose(alu) | (alu_purpose(undo_alu) << 8), i_size(op_size)));
-				gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(op_size), i_size(op_size), alu, ALU_WRITES_FLAGS(i_size(op_size), undo_alu, true, frame_t_is_const(slot_2) && is_imm(), ctx->const_imm) | 1);
+				gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(op_size), i_size(op_size), alu, ALU_WRITES_FLAGS(i_size(op_size), undo_alu, true, frame_t_is_const(slot_2) && is_imm(), ctx->const_imm) | (mode == MODE_INT));
 				gen_address_offset();
 				gen_address_offset();
 				if (frame_t_is_const(slot_2))
