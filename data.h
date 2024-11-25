@@ -922,7 +922,6 @@ struct cache_entry {
 
 struct escape_data {
 	atomic_type profile_counter_t counter;
-	atomic_type unsigned short line;
 };
 
 struct module_designator;

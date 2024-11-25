@@ -93,13 +93,12 @@ struct profile_escape_data {
 	ip_t ip;
 	unsigned line;
 	code_t code;
-	unsigned short compile_line;
 };
 
 static struct profile_escape_data *ped;
 static size_t ped_len;
 
-void profile_escape_collect(const char *function_name, profile_counter_t profiling_counter, ip_t ip, unsigned line, code_t code, unsigned short compile_line)
+void profile_escape_collect(const char *function_name, profile_counter_t profiling_counter, ip_t ip, unsigned line, code_t code)
 {
 	struct profile_escape_data pe;
 	if ((code % OPCODE_MODE_MULT) == OPCODE_CHECKPOINT)
@@ -109,7 +108,6 @@ void profile_escape_collect(const char *function_name, profile_counter_t profili
 	pe.ip = ip;
 	pe.line = line;
 	pe.code = code;
-	pe.compile_line = compile_line;
 	array_add(struct profile_escape_data, &ped, &ped_len, pe);
 }
 
@@ -127,8 +125,6 @@ static int profile_escape_cmp(const void *p1, const void *p2)
 	if (q1->line > q2->line) return 1;
 	if (q1->code < q2->code) return -1;
 	if (q1->code > q2->code) return 1;
-	if (q1->compile_line < q2->compile_line) return -1;
-	if (q1->compile_line > q2->compile_line) return 1;
 	return 0;
 }
 

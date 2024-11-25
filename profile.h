@@ -29,7 +29,7 @@ typedef uint_efficient_t profile_counter_t;
 void profile_unblock(void);
 profile_counter_t profile_sample(void);
 void profile_collect(const char *function_name, profile_counter_t profiling_counter, profile_counter_t call_counter);
-void profile_escape_collect(const char *function_name, profile_counter_t profiling_counter, ip_t ip, unsigned line, code_t code, unsigned short compile_line);
+void profile_escape_collect(const char *function_name, profile_counter_t profiling_counter, ip_t ip, unsigned line, code_t code);
 
 bool function_enable_profile(const char *option, size_t l);
 

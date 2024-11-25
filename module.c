@@ -278,7 +278,7 @@ static void module_finish_function(struct module_function *mf)
 					continue;
 				if (unlikely(!stack_trace_get_location(d, ip_rel, &ste)))
 					continue;
-				profile_escape_collect(ste.function_name, profiling_counter, ip_rel, ste.line, da(d,function)->code[ip_rel], load_relaxed(&da(d,function)->escape_data[ip_rel].line));
+				profile_escape_collect(ste.function_name, profiling_counter, ip_rel, ste.line, da(d,function)->code[ip_rel]);
 			}
 		}
 		new_cache = false;
