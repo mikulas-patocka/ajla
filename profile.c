@@ -90,6 +90,7 @@ static void profile_print(void)
 struct profile_escape_data {
 	const char *function_name;
 	profile_counter_t profiling_counter;
+	ip_t ip;
 	unsigned line;
 	code_t code;
 	unsigned short compile_line;
@@ -98,13 +99,14 @@ struct profile_escape_data {
 static struct profile_escape_data *ped;
 static size_t ped_len;
 
-void profile_escape_collect(const char *function_name, profile_counter_t profiling_counter, unsigned line, code_t code, unsigned short compile_line)
+void profile_escape_collect(const char *function_name, profile_counter_t profiling_counter, ip_t ip, unsigned line, code_t code, unsigned short compile_line)
 {
 	struct profile_escape_data pe;
 	if ((code % OPCODE_MODE_MULT) == OPCODE_CHECKPOINT)
 		return;
 	pe.function_name = str_dup(function_name, -1, NULL);
 	pe.profiling_counter = profiling_counter;
+	pe.ip = ip;
 	pe.line = line;
 	pe.code = code;
 	pe.compile_line = compile_line;
@@ -135,7 +137,7 @@ static void profile_escape_print(void)
 	size_t i;
 	qsort(ped, ped_len, sizeof(struct profile_escape_data), profile_escape_cmp);
 	for (i = 0; i < ped_len; i++) {
-		debug("%30s:%-6u %-10"PRIuMAX" %s,%u", ped[i].function_name, ped[i].line, (uintmax_t)ped[i].profiling_counter, decode_opcode(ped[i].code, false), ped[i].compile_line);
+		debug("%30s:%-6u %-10"PRIuMAX" %s,%lx", ped[i].function_name, ped[i].line, (uintmax_t)ped[i].profiling_counter, decode_opcode(ped[i].code, false), (unsigned long)ped[i].ip);
 		mem_free(ped[i].function_name);
 	}
 	mem_free(ped);
