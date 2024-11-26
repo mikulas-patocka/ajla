@@ -1244,6 +1244,7 @@ static bool attr_w gen_option_create_empty(struct codegen_context *ctx, ajla_opt
 		return true;
 	}
 
+	g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_option_mayfail), 0));
 	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_data_alloc_option_mayfail), 0));
 	g(gen_sanitize_returned_pointer(ctx, R_RET0));
 	g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, escape_label));
