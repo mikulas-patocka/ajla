@@ -348,7 +348,7 @@ do_undo_opcode:
 					ce->undo_opcode = INSN_ALU + ARCH_PARTIAL_ALU(op_size);
 					ce->undo_op_size = i_size(op_size);
 					ce->undo_aux = undo_alu;
-					ce->undo_writes_flags = ALU_WRITES_FLAGS(i_size(op_size), undo_alu, true, false, 0);
+					ce->undo_writes_flags = ALU_WRITES_FLAGS(i_size(op_size), undo_alu, true, frame_t_is_const(slot_2) && is_imm(), ctx->const_imm);
 					m = mark_params(ctx);
 					gen_address_offset();
 					gen_address_offset();
