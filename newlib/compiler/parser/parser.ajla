@@ -339,6 +339,8 @@ fn parse_record_definition(ctx : function_context, orig_vd : variable_dictionary
 [
 	var vd := orig_vd;
 	var def := new_record_definition(is_option);
+	if is_option then
+		def.always_flat_option := true;
 	var fields := empty(int);
 	t := t[1 .. len(t) - 1];
 	while len_greater_than(t, 0) do [
@@ -373,6 +375,7 @@ next_flag:
 			] else [
 				ctx := new_ctx;
 			]
+			def.always_flat_option := false;
 		] else [
 			colon := len(decl);
 			a := T_EmptyOption;

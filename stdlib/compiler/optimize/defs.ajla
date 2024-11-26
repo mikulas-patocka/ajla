@@ -96,6 +96,7 @@ record variable [
 	ra_priority : int;
 
 	is_option_type : bool;
+	always_flat_option : bool;
 ]
 
 fn new_variable : variable
@@ -115,6 +116,7 @@ fn new_variable : variable
 		needed : false,
 		ra_priority : 0,
 		is_option_type : false,
+		always_flat_option : false,
 	];
 ]
 

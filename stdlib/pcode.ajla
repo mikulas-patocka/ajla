@@ -83,12 +83,13 @@ const T_Real80 := -21;
 const T_Real128 := -22;
 const T_EmptyOption := -23;
 const T_FlatOption := -24;
-const T_Undetermined := -25;
-const T_TypeOfType := -26;
-const T_Record := -27;
-const T_UnknownType := -28;
-const T_InvalidType := -29;
-const T_InferredType := -30;
+const T_AlwaysFlatOption := -25;
+const T_Undetermined := -26;
+const T_TypeOfType := -27;
+const T_Record := -28;
+const T_UnknownType := -29;
+const T_InvalidType := -30;
+const T_InferredType := -31;
 
 const Structured_Record := 1;
 const Structured_Option := 2;
@@ -181,6 +182,8 @@ const Fn_Record := 2;
 const Fn_Option := 3;
 const Fn_Mask := 3;
 const Fn_AutoInline := 4;
+const Fn_IsFlatOption := 8;
+const Fn_AlwaysFlatOption := 16;
 
 const Local_Type_Record := 0;
 const Local_Type_Flat_Record := 1;
@@ -552,12 +555,13 @@ fn name_to_value~cache : list(int)
 	a[#14B2E1D8C5938] := -22;						// Real128
 	a[#1176F0E9E67F0E9A77EE] := -23;					// EmptyOption
 	a[#236CC3D27F0E9A77EE] := -24;						// FlatOption
-	a[#ABBB265E99796DD3BB2E4] := -25;					// Undetermined
-	a[#2A79E1967E6A9E7865] := -26;						// TypeOfType
-	a[#2965C7BF964] := -27;							// Record
-	a[#15776BDDBFBEEA9E7865] := -28;					// UnknownType
-	a[#127776C3B34E4A9E7865] := -29;					// InvalidType
-	a[#93BB365E5CB2E4A9E7865] := -30;					// InferredType
+	a[#83B3BE1F3CE36CC3D27F0E9A77EE] := -25;				// AlwaysFlatOption
+	a[#ABBB265E99796DD3BB2E4] := -26;					// Undetermined
+	a[#2A79E1967E6A9E7865] := -27;						// TypeOfType
+	a[#2965C7BF964] := -28;							// Record
+	a[#15776BDDBFBEEA9E7865] := -29;					// UnknownType
+	a[#127776C3B34E4A9E7865] := -30;					// InvalidType
+	a[#93BB365E5CB2E4A9E7865] := -31;					// InferredType
 
 	a[#53E9CBAE3E9D7965C97E965C7BF964] := 1;				// Structured_Record
 	a[#53E9CBAE3E9D7965C97E7F0E9A77EE] := 2;				// Structured_Option
@@ -650,6 +654,8 @@ fn name_to_value~cache : list(int)
 	a[#46DD7E7F0E9A77EE] := 3;						// Fn_Option
 	a[#11B75F9B879EB] := 3;							// Fn_Mask
 	a[#46DD7E0F5E9BE4EED9A7765] := 4;					// Fn_AutoInline
+	a[#11B75F93CE36CC3D27F0E9A77EE] := 8;					// Fn_IsFlatOption
+	a[#11B75F83B3BE1F3CE36CC3D27F0E9A77EE] := 16;				// Fn_AlwaysFlatOption
 
 	a[#4CDF8F0ECBF53CF0CB7E965C7BF964] := 0;				// Local_Type_Record
 	a[#266FC78765FA9E7865BF1B661E97E965C7BF964] := 1;			// Local_Type_Flat_Record

@@ -45,6 +45,12 @@ fn dump_function(def : function_definition) : list(pcode_t)
 		n_real_return_values,
 		ctx.n_labels,
 	];
+	if ctx.record_def is j, ctx.record_def.j.is_option then [
+		if ctx.record_def.j.is_flat_option then
+			result[0] or= Fn_IsFlatOption;
+		if ctx.record_def.j.always_flat_option then
+			result[0] or= Fn_AlwaysFlatOption;
+	]
 	result += blob_generate(i_decode(ctx.name));
 
 	for i := 0 to len(ctx.lambdas) do [

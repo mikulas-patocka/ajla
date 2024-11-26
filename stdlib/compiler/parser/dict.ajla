@@ -95,6 +95,7 @@ record record_entry [
 record record_definition [
 	is_option : bool;
 	is_flat_option : bool;
+	always_flat_option : bool;
 	entries : list(record_entry);
 	dict : list(int);
 ]
@@ -595,6 +596,7 @@ fn new_record_definition(is_option : bool) : record_definition
 	return record_definition. [
 		is_option : is_option,
 		is_flat_option : false,
+		always_flat_option : false,
 		entries : empty(record_entry),
 		dict : infinite_uninitialized(int),
 	];

@@ -82,11 +82,16 @@ fn do_inline(ctx : context, bgi : int, ili : int, call_mode : pcode_t, get_inlin
 		return ctx, false;
 
 	if ft = Fn_Option then [
-		if ctx.variables[call_result[0]].is_option_type <> true then [
+		var did_something := false;
+		if new_pc[0] bt bsf Fn_IsFlatOption, ctx.variables[call_result[0]].is_option_type <> true then [
 			ctx.variables[call_result[0]].is_option_type := true;
-			return ctx, true;
+			did_something := true;
 		]
-		return ctx, false;
+		if new_pc[0] bt bsf Fn_AlwaysFlatOption, ctx.variables[call_result[0]].always_flat_option <> true then [
+			ctx.variables[call_result[0]].always_flat_option := true;
+			did_something := true;
+		]
+		return ctx, did_something;
 	]
 	//if ft <> Fn_Function then
 	//	return ctx, false;

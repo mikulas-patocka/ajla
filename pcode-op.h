@@ -81,12 +81,13 @@
 #define T_Real128			-22
 #define T_EmptyOption			-23
 #define T_FlatOption			-24
-#define T_Undetermined			-25
-#define T_TypeOfType			-26
-#define T_Record			-27
-#define T_UnknownType			-28
-#define T_InvalidType			-29
-#define T_InferredType			-30
+#define T_AlwaysFlatOption		-25
+#define T_Undetermined			-26
+#define T_TypeOfType			-27
+#define T_Record			-28
+#define T_UnknownType			-29
+#define T_InvalidType			-30
+#define T_InferredType			-31
 
 #define Structured_Record		1
 #define Structured_Option		2
@@ -179,6 +180,8 @@
 #define Fn_Option			3
 #define Fn_Mask				3
 #define Fn_AutoInline			4
+#define Fn_IsFlatOption			8
+#define Fn_AlwaysFlatOption		16
 
 #define Local_Type_Record		0
 #define Local_Type_Flat_Record		1

@@ -501,6 +501,10 @@ const struct type *pcode_get_type(pcode_t q)
 			t = type_get_flat_option();
 			break;
 
+		case T_AlwaysFlatOption:
+			t = type_get_flat_option();
+			break;
+
 		case T_Undetermined:
 			t = type_get_unknown();
 			break;
@@ -541,7 +545,7 @@ static pcode_t type_to_pcode(const struct type *type)
 	else if (TYPE_TAG_IS_REAL(type->tag))
 		return (pcode_t)(T_Real16 - TYPE_TAG_IDX_REAL(type->tag));
 	else if (type->tag == TYPE_TAG_flat_option)
-		return T_FlatOption;
+		return T_AlwaysFlatOption;
 	else
 		internal(file_line, "type_to_pcode: invalid type %u", type->tag);
 	return 0;
@@ -3922,8 +3926,8 @@ static void *pcode_build_is_exception_function(frame_s *fp, const code_t *ip, un
 	*pc++ = 0;
 	*pc++ = 0;
 
-	*pc++ = T_FlatOption;
-	*pc++ = T_FlatOption;
+	*pc++ = T_AlwaysFlatOption;
+	*pc++ = T_AlwaysFlatOption;
 	*pc++ = 1;
 	*pc++ = 0;
 	*pc++ = 0;
@@ -4180,8 +4184,8 @@ static void *pcode_build_array_len_greater_than_function(frame_s *fp, const code
 	*pc++ = 0;
 	*pc++ = 0;
 
-	*pc++ = T_FlatOption;
-	*pc++ = T_FlatOption;
+	*pc++ = T_AlwaysFlatOption;
+	*pc++ = T_AlwaysFlatOption;
 	*pc++ = 2;
 	*pc++ = 0;
 	*pc++ = 0;

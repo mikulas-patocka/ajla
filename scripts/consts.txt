@@ -90,6 +90,7 @@ T_Real80
 T_Real128
 T_EmptyOption	; used in option declaration for typeless fields
 T_FlatOption	; these are used in variable runtime types
+T_AlwaysFlatOption	; these are used in variable runtime types
 T_Undetermined	; this must be the last type that may appear as runtime type in pcode
 T_TypeOfType	; these are not used in pcode
 T_Record
@@ -195,6 +196,10 @@ Fn_Option
 Fn_Mask
 4
 Fn_AutoInline
+8
+Fn_IsFlatOption
+16
+Fn_AlwaysFlatOption
 
 0
 Local_Type_Record

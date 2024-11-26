@@ -769,10 +769,14 @@ fn remap_variable(ctx : context, vgi : int) : context
 	if v >= 0 then [
 		var vm := ctx.var_map[v];
 		ctx.variables[vgi].type_index := vm;
-		if vm > T_Undetermined and vm < 0 then
+		if vm > T_Undetermined and vm < 0 then [
 			ctx.variables[vgi].runtime_type := vm;
-		else if vm >= 0, ctx.variables[vm].is_option_type then
-			ctx.variables[vgi].runtime_type := T_FlatOption;
+		] else if vm >= 0, ctx.variables[vm].is_option_type then [
+			if ctx.variables[vm].always_flat_option then
+				ctx.variables[vgi].runtime_type := T_AlwaysFlatOption;
+			else
+				ctx.variables[vgi].runtime_type := T_FlatOption;
+		]
 	]
 	return ctx;
 ]
@@ -1065,13 +1069,13 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 			]
 		]
 		if v1_ins.opcode = P_IO, v1_ins.params[0] = IO_Exception_Make,
-		   v1.runtime_type <> T_FlatOption or (v2_ins.opcode = P_IO and v2_ins.params[0] = IO_Exception_Make) then [
+		   v1.runtime_type <> T_AlwaysFlatOption or (v2_ins.opcode = P_IO and v2_ins.params[0] = IO_Exception_Make) then [
 			var params := v1_ins.params;
 			params[4] := ins.params[1];
 			return create_instr(P_IO, params, ins.bb), true;
 		]
 		if v2_ins.opcode = P_IO, v2_ins.params[0] = IO_Exception_Make,
-		   v1.runtime_type <> T_FlatOption then [
+		   v1.runtime_type <> T_AlwaysFlatOption then [
 			var params := v2_ins.params;
 			params[4] := ins.params[1];
 			return create_instr(P_IO, params, ins.bb), true;
@@ -1965,7 +1969,11 @@ in_loop2:
 				var vgi : int := bsr read_mask;
 				read_mask btr= vgi;
 				var rt := ctx.variables[vgi].runtime_type;
-				if rt < 0, rt >= T_FlatOption then [
+				if rt = T_AlwaysFlatOption then [
+					ctx.variables[vgi].must_be_flat := true;
+					ctx.variables[vgi].ra_priority += 1;
+				]
+				if rt < 0, rt > T_FlatOption then [
 					ctx.variables[vgi].must_be_flat := true;
 					ctx.variables[vgi].ra_priority += 1;
 				]
@@ -1982,7 +1990,9 @@ in_loop2:
 	]
 	{for vgi := 0 to len(ctx.variables) do [
 		var rt := ctx.variables[vgi].runtime_type;
-		if rt < 0, rt >= T_FlatOption then
+		if rt = T_AlwaysFlatOption then
+			ctx.variables[vgi].must_be_flat := true;
+		if rt < 0, rt > T_FlatOption then
 			ctx.variables[vgi].must_be_flat := true;
 		if rt = T_Undetermined then
 			ctx.variables[vgi].must_be_data := true;
