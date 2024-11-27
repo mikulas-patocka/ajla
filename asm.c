@@ -492,7 +492,7 @@ static void do_cpuid(void)
 	memset(cpuid_1, 0, sizeof cpuid_1);
 	memset(cpuid_7, 0, sizeof cpuid_7);
 	memset(cpuid_8_0, 0, sizeof cpuid_8_0);
-	memset(cpuid_8_0, 1, sizeof cpuid_8_1);
+	memset(cpuid_8_0, 0, sizeof cpuid_8_1);
 	if (unlikely(!(eflags_bits & (1U << 21))))
 		return;
 
