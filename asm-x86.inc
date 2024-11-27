@@ -33,7 +33,7 @@
 
 #define feature_name		lzcnt
 #define static_test_lzcnt	(__LZCNT__)
-#define dynamic_test		(cpuid_8_1[2] & (1U << 5))
+#define dynamic_test		(cpuid_80000001[2] & (1U << 5))
 #include "asm-1.inc"
 
 #define feature_name		sse

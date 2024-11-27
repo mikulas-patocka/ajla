@@ -479,8 +479,8 @@ static void test_eflags_bits(void)
 static uint32_t cpuid_0[4];
 static uint32_t cpuid_1[4];
 static uint32_t cpuid_7[4];
-static uint32_t cpuid_8_0[4];
-static uint32_t cpuid_8_1[4];
+static uint32_t cpuid_80000000[4];
+static uint32_t cpuid_80000001[4];
 
 static void do_cpuid(void)
 {
@@ -491,8 +491,8 @@ static void do_cpuid(void)
 	memset(cpuid_0, 0, sizeof cpuid_0);
 	memset(cpuid_1, 0, sizeof cpuid_1);
 	memset(cpuid_7, 0, sizeof cpuid_7);
-	memset(cpuid_8_0, 0, sizeof cpuid_8_0);
-	memset(cpuid_8_1, 0, sizeof cpuid_8_1);
+	memset(cpuid_80000000, 0, sizeof cpuid_80000000);
+	memset(cpuid_80000001, 0, sizeof cpuid_80000001);
 	if (unlikely(!(eflags_bits & (1U << 21))))
 		return;
 
@@ -515,10 +515,10 @@ static void do_cpuid(void)
 		cpuid(1, 0, cpuid_1);
 	if (likely(cpuid_0[0] >= 7))
 		cpuid(7, 0, cpuid_7);
-	cpuid(0x80000000, 0, cpuid_8_0);
-	if (likely((cpuid_8_0[0] & 0xffff0000) == 0x80000000)) {
-		if (likely(cpuid_8_0[0] >= 0x80000001))
-			cpuid(0x80000001, 0, cpuid_8_1);
+	cpuid(0x80000000, 0, cpuid_80000000);
+	if (likely((cpuid_80000000[0] & 0xffff0000) == 0x80000000)) {
+		if (likely(cpuid_80000000[0] >= 0x80000001))
+			cpuid(0x80000001, 0, cpuid_80000001);
 	}
 
 	os_code_unmap(cpuid, cs);
