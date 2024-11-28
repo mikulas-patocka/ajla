@@ -1,3 +1,19 @@
+===RELEASE 0.2.0 ===
+
+Fix an internal error if we call dstatfs on a directory open with O_PATH.
+
+Implement automatic inlining of functions with just one basic block.
+
+Implement integer operations with immediate value opperand - so that we don't
+have to allocate frame slots for immediates.
+
+Move tests for thunks to machine code entry, so that thunks don't have to be
+checked inside loops.
+
+Remember that a pointer is not thunk and do not test it for thunk repetitively.
+
+Implement register allocation in the code generator.
+
 Fix a bug on alpha that the code generator accidentally used saved register f2
 
 === RELEASE 0.1.5 ===
