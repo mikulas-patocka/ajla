@@ -86,8 +86,7 @@ static ipret_inline void attr_unused cat4(REAL_unary_,fn,_,type)(const type *op1
 static ipret_inline void attr_unused cat4(REAL_unary_,fn,_,type)(const type *op1, type *res)\
 {									\
 	__asm__ ("							\
-		"v"movs"#s"	%1, %%xmm0				\n\
-		"v"sqrts"#s"	%%xmm0, "p(%%xmm0)"			\n\
+		"v"sqrts"#s"	%1, "p(%%xmm0)"				\n\
 		"v"movs"#s"	%%xmm0, %0				\n\
 	" : "=m"(*res) : "m"(*op1) X86_ASM_XMM0_CLOB X86_ASM_XMM1_CLOBC);\
 }
