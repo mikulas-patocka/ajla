@@ -52,7 +52,7 @@ fn blob_generate(blob : bytes) : list(pcode_t)
 	for i := 0 to len(blob) do [
 		var b : pcode_t := blob[i];
 		val or= b shl ((i and 3) * 8);
-		if i mod 4 = 3 then [
+		if (i and 3) = 3 then [
 			result +<= val;
 			val := 0;
 		]
