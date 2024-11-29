@@ -38,11 +38,11 @@
 #define COND_IS_LOGICAL(cond)		0
 
 #define ARCH_PARTIAL_ALU(size)		((size) <= OP_SIZE_2)
-#define ARCH_IS_3ADDRESS(alu, f)	((alu) == ALU_ADD && !(f))
-#define ARCH_IS_3ADDRESS_IMM(alu, f)	((alu) == ALU_ADD && !(f))
+#define ARCH_IS_3ADDRESS(alu, f)	(((alu) == ALU_ADD && !(f)) || cpu_test_feature(CPU_FEATURE_apx))
+#define ARCH_IS_3ADDRESS_IMM(alu, f)	(((alu) == ALU_ADD && !(f)) || cpu_test_feature(CPU_FEATURE_apx))
 #define ARCH_IS_3ADDRESS_ROT(alu, size)	(ROT_WRITES_FLAGS(alu, size, false) ? 0 : 1)
 #define ARCH_IS_3ADDRESS_ROT_IMM(alu)	0
-#define ARCH_IS_2ADDRESS(alu)		((alu) == ALU1_BSF || (alu) == ALU1_BSR || (alu) == ALU1_LZCNT || (alu) == ALU1_POPCNT)
+#define ARCH_IS_2ADDRESS(alu)		((alu) == ALU1_BSF || (alu) == ALU1_BSR || (alu) == ALU1_LZCNT || (alu) == ALU1_POPCNT || ((((alu) == ALU1_NOT || (alu) == ALU1_NEG)) && cpu_test_feature(CPU_FEATURE_apx)))
 #define ARCH_IS_3ADDRESS_FP		cpu_test_feature(CPU_FEATURE_avx)
 #define ARCH_HAS_JMP_2REGS(cond)	0
 #define ARCH_HAS_FLAGS			1
@@ -78,57 +78,73 @@
 #define R_R13		0xd
 #define R_R14		0xe
 #define R_R15		0xf
+#define R_R16		0x10
+#define R_R17		0x11
+#define R_R18		0x12
+#define R_R19		0x13
+#define R_R20		0x14
+#define R_R21		0x15
+#define R_R22		0x16
+#define R_R23		0x17
+#define R_R24		0x18
+#define R_R25		0x19
+#define R_R26		0x1a
+#define R_R27		0x1b
+#define R_R28		0x1c
+#define R_R29		0x1d
+#define R_R30		0x1e
+#define R_R31		0x1f
 
-#define R_ST0		0x10
-#define R_ST1		0x11
-#define R_ST2		0x12
-#define R_ST3		0x13
-#define R_ST4		0x14
-#define R_ST5		0x15
-#define R_ST6		0x16
-#define R_ST7		0x17
+#define R_ST0		0x20
+#define R_ST1		0x21
+#define R_ST2		0x22
+#define R_ST3		0x23
+#define R_ST4		0x24
+#define R_ST5		0x25
+#define R_ST6		0x26
+#define R_ST7		0x27
 
-#define R_ES		0x18
-#define R_CS		0x19
-#define R_SS		0x1a
-#define R_DS		0x1b
-#define R_FS		0x1c
-#define R_GS		0x1d
+#define R_ES		0x28
+#define R_CS		0x29
+#define R_SS		0x2a
+#define R_DS		0x2b
+#define R_FS		0x2c
+#define R_GS		0x2d
 
-#define R_XMM0		0x20
-#define R_XMM1		0x21
-#define R_XMM2		0x22
-#define R_XMM3		0x23
-#define R_XMM4		0x24
-#define R_XMM5		0x25
-#define R_XMM6		0x26
-#define R_XMM7		0x27
-#define R_XMM8		0x28
-#define R_XMM9		0x29
-#define R_XMM10		0x2a
-#define R_XMM11		0x2b
-#define R_XMM12		0x2c
-#define R_XMM13		0x2d
-#define R_XMM14		0x2e
-#define R_XMM15		0x2f
-#define R_XMM16		0x30
-#define R_XMM17		0x31
-#define R_XMM18		0x32
-#define R_XMM19		0x33
-#define R_XMM20		0x34
-#define R_XMM21		0x35
-#define R_XMM22		0x36
-#define R_XMM23		0x37
-#define R_XMM24		0x38
-#define R_XMM25		0x39
-#define R_XMM26		0x3a
-#define R_XMM27		0x3b
-#define R_XMM28		0x3c
-#define R_XMM29		0x3d
-#define R_XMM30		0x3e
-#define R_XMM31		0x3f
+#define R_XMM0		0x40
+#define R_XMM1		0x41
+#define R_XMM2		0x42
+#define R_XMM3		0x43
+#define R_XMM4		0x44
+#define R_XMM5		0x45
+#define R_XMM6		0x46
+#define R_XMM7		0x47
+#define R_XMM8		0x48
+#define R_XMM9		0x49
+#define R_XMM10		0x4a
+#define R_XMM11		0x4b
+#define R_XMM12		0x4c
+#define R_XMM13		0x4d
+#define R_XMM14		0x4e
+#define R_XMM15		0x4f
+#define R_XMM16		0x50
+#define R_XMM17		0x51
+#define R_XMM18		0x52
+#define R_XMM19		0x53
+#define R_XMM20		0x54
+#define R_XMM21		0x55
+#define R_XMM22		0x56
+#define R_XMM23		0x57
+#define R_XMM24		0x58
+#define R_XMM25		0x59
+#define R_XMM26		0x5a
+#define R_XMM27		0x5b
+#define R_XMM28		0x5c
+#define R_XMM29		0x5d
+#define R_XMM30		0x5e
+#define R_XMM31		0x5f
 
-#define R_IS_GPR(r)	((r) < 16)
+#define R_IS_GPR(r)	((r) < 0x20)
 #define R_IS_XMM(r)	((r) >= R_XMM0 && (r) <= R_XMM31)
 
 /*#define TIMESTAMP_IN_REGISTER*/
@@ -209,12 +225,12 @@ static uint8_t upcall_register = R_R15;
 
 static bool reg_is_fp(unsigned reg)
 {
-	return reg >= 0x20 && reg < 0x40;
+	return reg >= 0x40 && reg < 0x60;
 }
 
 static bool reg_is_segment(unsigned reg)
 {
-	return reg >= 0x18 && reg < 0x1e;
+	return reg >= 0x28 && reg < 0x2e;
 }
 
 #if defined(ARCH_X86_32)
@@ -249,7 +265,9 @@ static const uint8_t regs_saved[] = { R_R13,
 	R_R15,
 	};
 #define n_regs_saved (n_array_elements(regs_saved) - !reg_is_segment(R_UPCALL))
-static const uint8_t regs_volatile[] = { R_SI, R_DI, R_R8, R_R9, R_R10 };
+static const uint8_t regs_volatile[] = { R_SI, R_DI, R_R8, R_R9, R_R10,
+	R_R16, R_R17, R_R18, R_R19, R_R20, R_R21, R_R22, R_R23, R_R24, R_R25, R_R26, R_R27, R_R28, R_R29, R_R30, R_R31 };
+#define n_regs_volatile	(cpu_test_feature(CPU_FEATURE_apx) ? n_array_elements(regs_volatile) : 5 )
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved 0U
 static const uint8_t fp_volatile[] = { R_XMM2, R_XMM3, R_XMM4, R_XMM5, R_XMM6, R_XMM7, R_XMM8, R_XMM9, R_XMM10, R_XMM11, R_XMM12, R_XMM13, R_XMM14, R_XMM15 };

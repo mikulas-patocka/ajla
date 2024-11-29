@@ -479,6 +479,7 @@ static void test_eflags_bits(void)
 static uint32_t cpuid_0[4];
 static uint32_t cpuid_1[4];
 static uint32_t cpuid_7[4];
+static uint32_t cpuid_7_1[4];
 static uint32_t cpuid_80000000[4];
 static uint32_t cpuid_80000001[4];
 
@@ -491,6 +492,7 @@ static void do_cpuid(void)
 	memset(cpuid_0, 0, sizeof cpuid_0);
 	memset(cpuid_1, 0, sizeof cpuid_1);
 	memset(cpuid_7, 0, sizeof cpuid_7);
+	memset(cpuid_7_1, 0, sizeof cpuid_7_1);
 	memset(cpuid_80000000, 0, sizeof cpuid_80000000);
 	memset(cpuid_80000001, 0, sizeof cpuid_80000001);
 	if (unlikely(!(eflags_bits & (1U << 21))))
@@ -513,8 +515,11 @@ static void do_cpuid(void)
 	cpuid(0, 0, cpuid_0);
 	if (likely(cpuid_0[0] >= 1))
 		cpuid(1, 0, cpuid_1);
-	if (likely(cpuid_0[0] >= 7))
+	if (likely(cpuid_0[0] >= 7)) {
 		cpuid(7, 0, cpuid_7);
+		if (cpuid_7[0] >= 1)
+			cpuid(7, 1, cpuid_7_1);
+	}
 	cpuid(0x80000000, 0, cpuid_80000000);
 	if (likely((cpuid_80000000[0] & 0xffff0000) == 0x80000000)) {
 		if (likely(cpuid_80000000[0] >= 0x80000001))
@@ -550,17 +555,21 @@ static bool test_fxsave(void)
 #endif
 }
 
-static bool test_xcr0(unsigned mask)
+static bool test_xcr0(uint32_t mask)
 {
-	char *c;
-	size_t cs;
-	uint32_t (*fn)(void);
-	uint32_t res;
-	str_init(&c, &cs);
-	str_add_hex(&c, &cs, "31c90f01d0c3");
-	fn = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
-	res = fn();
-	os_code_unmap(fn, cs);
+	static bool xcr_tested = false;
+	static uint32_t res;
+	if (!xcr_tested) {
+		char *c;
+		size_t cs;
+		uint32_t (*fn)(void);
+		str_init(&c, &cs);
+		str_add_hex(&c, &cs, "31c90f01d0c3");
+		fn = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
+		res = fn();
+		os_code_unmap(fn, cs);
+		xcr_tested = true;
+	}
 	return (res & mask) == mask;
 }
 

@@ -16,6 +16,8 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#define test_evex	0
+
 #define X86_ALU_RM8_R8			0x00
 #define X86_ALU_RM16_R16		0x01
 #define X86_ALU_R8_RM8			0x02
@@ -36,6 +38,7 @@
 #define X86_DEC_R16			0x48
 #define X86_PUSH_R16			0x50
 #define X86_POP_R16			0x58
+#define X86_EVEX			0x62
 #define X86_MOVSXD			0x63
 #define X86_FS				0x64
 #define X86_GS				0x65
@@ -81,6 +84,15 @@
 #define X86_ROT_RM16_1			0xd1
 #define X86_ROT_RM8_CL			0xd2
 #define X86_ROT_RM16_CL			0xd3
+#define X86_REX2			0xd5
+#define  X86_REX2_B3				0x01
+#define  X86_REX2_X3				0x02
+#define  X86_REX2_R3				0x04
+#define  X86_REX2_W				0x08
+#define  X86_REX2_B4				0x10
+#define  X86_REX2_X4				0x20
+#define  X86_REX2_R4				0x40
+#define  X86_REX2_M0				0x80
 #define X86_JMP_16			0xe9
 #define X86_JMP_8			0xeb
 #define X86_REPNE			0xf2
@@ -228,18 +240,32 @@
 #define PREFIX_0F			1
 #define PREFIX_0F_38			2
 #define PREFIX_0F_3A			3
+#define PREFIX_LEGACY_EVEX		4
 
+static bool attr_w cgen_rex2(struct codegen_context *ctx, uint8_t rex2)
+{
 #ifdef ARCH_X86_32
-#define cgen_rex(rex)		internal(file_line, "cgen_rex: attempting to generate rex in 32-bit mode: %02x", rex)
+	internal(file_line, "cgen_rex: attempting to generate rex in 32-bit mode: %02x", rex2);
+	return false;
 #else
-#define cgen_rex(rex)		cgen_one(rex)
+	if (!(rex2 & 0xf0)) {
+		cgen_one(X86_REX | rex2);
+	} else {
+		if (unlikely(!cpu_test_feature(CPU_FEATURE_apx)))
+			internal(file_line, "cgen_rex2: attempting to generate rex2 without apx: %02x", rex2);
+		cgen_one(X86_REX2);
+		cgen_one(rex2);
+	}
+	return true;
 #endif
+}
 
 #define force_vex			0x10000
+#define force_ndd			0x20000
 
 static bool attr_w cgen_rm_insn(struct codegen_context *ctx, int32_t sse_prefix, uint8_t prefix, uint8_t opcode, unsigned size, bool reg_is_reg, uint8_t reg, uint8_t *arg)
 {
-	uint8_t rex, mod, rm;
+	uint8_t rex2, mod, rm;
 	int16_t sib;
 	int64_t imm = 0;	/* avoid warning */
 	uint8_t addr_size;
@@ -256,14 +282,18 @@ static bool attr_w cgen_rm_insn(struct codegen_context *ctx, int32_t sse_prefix,
 		internal(file_line, "cgen_rm_insn: invalid register %02x", reg);
 
 	sib = -1;
-	rex = X86_REX;
+	rex2 = 0;
 	if (size == OP_SIZE_8)
-		rex |= X86_REX_W;
+		rex2 |= X86_REX2_W;
 	if (reg & 8)
-		rex |= X86_REX_R;
+		rex2 |= X86_REX2_R3;
+	if (reg & 16)
+		rex2 |= X86_REX2_R4;
 	if (arg[0] < 0x40) {
 		if (arg[0] & 8)
-			rex |= X86_REX_B;
+			rex2 |= X86_REX2_B3;
+		if (arg[0] & 16)
+			rex2 |= X86_REX2_B4;
 		mod = 0xc0;
 		rm = arg[0] & 7;
 		addr_size = 0;
@@ -302,7 +332,9 @@ address_0:
 				goto address_0;
 			}
 			if (arg[1] & 8)
-				rex |= X86_REX_B;
+				rex2 |= X86_REX2_B3;
+			if (arg[1] & 16)
+				rex2 |= X86_REX2_B4;
 			if ((arg[1] & 7) == 0x4) {
 				rm = 0x4;
 				sib = 0x24;
@@ -315,7 +347,9 @@ address_0:
 			if (unlikely(arg[1] == R_SP))
 				internal(file_line, "cgen_rm_insn: attemptint to scale SP");
 			if (arg[1] & 8)
-				rex |= X86_REX_X;
+				rex2 |= X86_REX2_X3;
+			if (arg[1] & 16)
+				rex2 |= X86_REX2_X4;
 			addr_size = 4;
 			mod = 0x00;
 			rm = 0x4;
@@ -326,9 +360,13 @@ address_0:
 			if (unlikely(arg[2] == R_SP))
 				internal(file_line, "cgen_rm_insn: attemptint to scale SP");
 			if (arg[1] & 8)
-				rex |= X86_REX_B;
+				rex2 |= X86_REX2_B3;
+			if (arg[1] & 16)
+				rex2 |= X86_REX2_B4;
 			if (arg[2] & 8)
-				rex |= X86_REX_X;
+				rex2 |= X86_REX2_X3;
+			if (arg[2] & 16)
+				rex2 |= X86_REX2_X4;
 			rm = 0x4;
 			sib = ((arg[0] - ARG_ADDRESS_2) << 6) | ((arg[2] & 7) << 3) | (arg[1] & 7);
 			goto gen;
@@ -338,14 +376,20 @@ address_0:
 
 gen:
 	if (unlikely(sse_prefix >= 0)) {
-		if (likely(cpu_test_feature(CPU_FEATURE_avx)) || (sse_prefix & force_vex)) {
-			if ((rex & (X86_REX_X | X86_REX_B | X86_REX_W)) == 0 && prefix == PREFIX_0F) {
+		if (likely(cpu_test_feature(CPU_FEATURE_avx)) || (sse_prefix & (force_vex | force_ndd))) {
+			if (rex2 & 0xf0 || sse_prefix & 0x1000 || sse_prefix & force_ndd) {
+				/*debug("evex: %02x, %02x, %02x", reg, (sse_prefix >> 8) & 0x1f, arg[0]);*/
+				cgen_one(X86_EVEX);
+				cgen_one(((~rex2 & (X86_REX2_R3 | X86_REX2_X3 | X86_REX2_B3)) << 5) | !(rex2 & X86_REX2_R4) << 4 | !!(rex2 & X86_REX2_B4) << 3 | prefix);
+				cgen_one((rex2 & X86_REX2_W) << 4 | (~(sse_prefix >> 8) & 0xf) << 3 | !(rex2 & X86_REX2_X4) << 2 | (sse_prefix & 3));
+				cgen_one(!!(sse_prefix & force_ndd) << 4 | !((sse_prefix >> 8) & 0x10) << 3);
+			} else if ((rex2 & (X86_REX2_X3 | X86_REX2_B3 | X86_REX2_W)) == 0 && prefix == PREFIX_0F) {
 				cgen_one(X86_VEX_2);
-				cgen_one((~rex & X86_REX_R) << 5 | (~(sse_prefix >> 8) & 0xf) << 3 | (sse_prefix & 3));
+				cgen_one((~rex2 & X86_REX2_R3) << 5 | (~(sse_prefix >> 8) & 0xf) << 3 | (sse_prefix & 3));
 			} else {
 				cgen_one(X86_VEX_3);
-				cgen_one((~rex & (X86_REX_R | X86_REX_X | X86_REX_B)) << 5 | prefix);
-				cgen_one((rex & X86_REX_W) << 4 | (~(sse_prefix >> 8) & 0xf) << 3 | (sse_prefix & 3));
+				cgen_one((~rex2 & (X86_REX2_R3 | X86_REX2_X3 | X86_REX2_B3)) << 5 | prefix);
+				cgen_one((rex2 & X86_REX2_W) << 4 | (~(sse_prefix >> 8) & 0xf) << 3 | (sse_prefix & 3));
 			}
 			goto avx_done;
 		}
@@ -358,13 +402,25 @@ gen:
 		if (size == OP_SIZE_2)
 			cgen_one(X86_OP_SIZE);
 	}
-	need_rex = rex != X86_REX;
+	need_rex = rex2 != 0;
 	need_rex |= size == OP_SIZE_1 && ((reg_is_reg && !reg_is_fp(reg) && reg >= 4) || (mod == 0xc0 && !reg_is_fp(arg[0]) && arg[0] >= 4));
 	if (prefix == PREFIX_0F && (opcode == X86_0F_MOVZX_R16_RM8 || opcode == X86_0F_MOVSX_R16_RM8)) {
 		need_rex |= mod == 0xc0 && arg[0] >= 4;
 	}
+	if (rex2 & 0xf0) {
+		switch (prefix) {
+			case PREFIX_NONE:
+				break;
+			case PREFIX_0F:
+				prefix = PREFIX_NONE;
+				rex2 |= X86_REX2_M0;
+				break;
+			default:
+				internal(file_line, "cgen_rm_insn: invalid prefix %u", prefix);
+		}
+	}
 	if (need_rex)
-		cgen_rex(rex);
+		g(cgen_rex2(ctx, rex2));
 
 	switch (prefix) {
 		case PREFIX_NONE:
@@ -410,8 +466,13 @@ static bool attr_w cgen_push(struct codegen_context *ctx)
 	uint8_t *arg1 = ctx->code_position;
 	ctx->code_position += arg_size(*arg1);
 	if (likely(R_IS_GPR(arg1[0]))) {
+		uint8_t rex2 = 0;
 		if (arg1[0] & 8)
-			cgen_rex(X86_REX | X86_REX_B);
+			rex2 |= X86_REX2_B3;
+		if (arg1[0] & 16)
+			rex2 |= X86_REX2_B4;
+		if (rex2)
+			g(cgen_rex2(ctx, rex2));
 		cgen_one(X86_PUSH_R16 + (arg1[0] & 7));
 		return true;
 	}
@@ -439,8 +500,13 @@ static bool attr_w cgen_pop(struct codegen_context *ctx)
 	uint8_t *arg1 = ctx->code_position;
 	ctx->code_position += arg_size(*arg1);
 	if (likely(R_IS_GPR(arg1[0]))) {
+		uint8_t rex2 = 0;
 		if (arg1[0] & 8)
-			cgen_rex(X86_REX | X86_REX_B);
+			rex2 |= X86_REX2_B3;
+		if (arg1[0] & 16)
+			rex2 |= X86_REX2_B4;
+		if (rex2)
+			g(cgen_rex2(ctx, rex2));
 		cgen_one(X86_POP_R16 + (arg1[0] & 7));
 		return true;
 	}
@@ -454,18 +520,20 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size)
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
 	if (arg2[0] == ARG_IMM) {
-		int rex = X86_REX;
+		int rex2 = 0;
 		int64_t imm;
 		imm = get_imm(&arg2[1]);
 		if (R_IS_GPR(arg1[0])) {
 			if (arg1[0] & 8)
-				rex |= X86_REX_B;
+				rex2 |= X86_REX2_B3;
+			if (arg1[0] & 16)
+				rex2 |= X86_REX2_B4;
 #ifndef ARCH_X86_32
 			if (imm >= 0 && imm < 0x100000000LL)
 #endif
 			{
-				if (rex != X86_REX)
-					cgen_rex(rex);
+				if (rex2)
+					g(cgen_rex2(ctx, rex2));
 				cgen_one(X86_MOV_R16_IMM16 + (arg1[0] & 7));
 				cgen_four(imm);
 				return true;
@@ -473,8 +541,8 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size)
 			if (imm >= ~(int64_t)0x7fffffff && imm < 0) {
 				goto mov_rm;
 			}
-			rex |= X86_REX_W;
-			cgen_rex(rex);
+			rex2 |= X86_REX2_W;
+			g(cgen_rex2(ctx, rex2));
 			cgen_one(X86_MOV_R16_IMM16 + (arg1[0] & 7));
 			cgen_eight(imm);
 			return true;
@@ -499,7 +567,7 @@ mov_rm:
 		int64_t imm;
 		imm = get_imm(&arg2[1]);
 		if (size == OP_SIZE_8)
-			cgen_rex(X86_REX | X86_REX_W);
+			g(cgen_rex2(ctx, X86_REX2_W));
 		cgen_one(X86_MOV_AX_M16);
 		cgen_eight(imm);
 		return true;
@@ -511,7 +579,7 @@ mov_rm:
 		if (size == OP_SIZE_2)
 			cgen_one(X86_OP_SIZE);
 		if (size == OP_SIZE_8)
-			cgen_rex(X86_REX | X86_REX_W);
+			g(cgen_rex2(ctx, X86_REX2_W));
 		cgen_one(code);
 		cgen_eight(imm);
 		return true;
@@ -645,7 +713,7 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 		ctx->code_position = arg3 + arg_size(*arg3);
 		if (unlikely(arg_size(*arg1) != arg_size(*arg2)))
 			internal(file_line, "cgen_alu: three-operand mode not supported");
-		if (unlikely(memcmp(arg1, arg2, arg_size(*arg1))))
+		if (!cpu_test_feature(CPU_FEATURE_apx) && unlikely(memcmp(arg1, arg2, arg_size(*arg1))))
 			internal(file_line, "cgen_alu: three-operand mode not supported");
 	} else {
 		arg1 = ctx->code_position;
@@ -661,6 +729,8 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 			imm = get_imm(&arg3[1]);
 			if (unlikely(!imm_is_32bit(imm)))
 				internal(file_line, "cgen_alu: immediate out of range: %"PRIxMAX"", (uintmax_t)imm);
+			if (unlikely(size == OP_SIZE_1))
+				internal(file_line, "cgen_alu: byte mul with imm not supported");
 			code = imm_is_8bit(imm) ? X86_IMUL_R16_RM16_IMM8 : X86_IMUL_R16_RM16_IMM16;
 			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, code, size, true, arg1[0], arg2));
 			if (code == X86_IMUL_R16_RM16_IMM8) {
@@ -680,7 +750,10 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 		} else {
 			if (unlikely(!R_IS_GPR(arg1[0])))
 				internal(file_line, "cgen_alu: invalid multiply args");
-			g(cgen_rm_insn(ctx, -1, PREFIX_0F, X86_0F_IMUL_R16_RM16, size, true, arg1[0], arg3));
+			if (arg1[0] == arg2[0] && !test_evex)
+				g(cgen_rm_insn(ctx, -1, PREFIX_0F, X86_0F_IMUL_R16_RM16, size, true, arg1[0], arg3));
+			else
+				g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, X86_0F_IMUL_R16_RM16, size, true, arg2[0], arg3));
 			return true;
 		}
 	}
@@ -703,7 +776,10 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 					return true;
 				}
 #endif
-				g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_FE : X86_FF, size, false, X86_FE_INC_RM8, arg1));
+				if ((arg1[0] == arg2[0] && !test_evex) || !R_IS_GPR(arg1[0]))
+					g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_FE : X86_FF, size, false, X86_FE_INC_RM8, arg1));
+				else
+					g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, size == OP_SIZE_1 ? X86_FE : X86_FF, size, false, X86_FE_INC_RM8, arg2));
 				return true;
 			}
 			if ((alu == ALU_ADD && imm == -1) || (alu == ALU_SUB && imm == 1)) {
@@ -715,12 +791,15 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 					return true;
 				}
 #endif
-				g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_FE : X86_FF, size, false, X86_FE_DEC_RM8, arg1));
+				if ((arg1[0] == arg2[0] && !test_evex) || !R_IS_GPR(arg1[0]))
+					g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_FE : X86_FF, size, false, X86_FE_DEC_RM8, arg1));
+				else
+					g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, size == OP_SIZE_1 ? X86_FE : X86_FF, size, false, X86_FE_DEC_RM8, arg2));
 				return true;
 			}
 		}
 
-		if (arg1[0] == R_AX) {
+		if (arg1[0] == R_AX && arg1[0] == arg2[0]) {
 			if (imm_is_8bit(imm) && size >= OP_SIZE_4)
 				goto use_shorter;
 			bit8 = false;
@@ -728,14 +807,17 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 			if (size == OP_SIZE_2)
 				cgen_one(X86_OP_SIZE);
 			if (size == OP_SIZE_8)
-				cgen_rex(X86_REX | X86_REX_W);
+				g(cgen_rex2(ctx, X86_REX2_W));
 			code += alu * 8;
 			cgen_one(code);
 		} else {
 use_shorter:
 			bit8 = imm_is_8bit(imm);
 			code = size == OP_SIZE_1 ? X86_ALU_RM8_IMM8 : bit8 ? X86_ALU_RM16_IMM8 : X86_ALU_RM16_IMM16;
-			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, code, size, false, alu, arg1));
+			if (alu == 7 || (arg1[0] == arg2[0] && !test_evex) || !R_IS_GPR(arg1[0]) || 0)
+				g(cgen_rm_insn(ctx, -1, PREFIX_NONE, code, size, false, alu, arg1));
+			else
+				g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, code, size, false, alu, arg2));
 		}
 		if (bit8 || size == OP_SIZE_1) {
 			cgen_one(imm);
@@ -771,41 +853,55 @@ use_shorter:
 	} else {
 		uint8_t code = size == OP_SIZE_1 ? X86_ALU_R8_RM8 : X86_ALU_R16_RM16;
 		code += alu * 8;
-		g(cgen_rm_insn(ctx, -1, PREFIX_NONE, code, size, true, arg1[0], arg3));
+		if (alu == 7 || (arg1[0] == arg2[0] && !test_evex))
+			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, code, size, true, arg1[0], arg3));
+		else
+			g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, code, size, true, arg2[0], arg3));
 		return true;
 	}
 }
 
 static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigned alu)
 {
-	uint8_t rex;
+	uint8_t rex2;
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
-	if (alu == ALU1_NOT || alu == ALU1_NEG || alu == ALU1_BSWAP) {
+	if ((!cpu_test_feature(CPU_FEATURE_apx) && (alu == ALU1_NOT || alu == ALU1_NEG)) || alu == ALU1_BSWAP) {
 		if (unlikely(arg1[0] != arg2[0]))
 			internal(file_line, "cgen_alu1: arguments mismatch: %x, %x", arg1[0], arg2[0]);
 	}
 	switch (alu) {
 		case ALU1_NOT:
-			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_F6 : X86_F7, size, false, X86_F6_NOT_RM8, arg1));
+			if ((arg1[0] == arg2[0] && !test_evex) || !R_IS_GPR(arg1[0]))
+				g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_F6 : X86_F7, size, false, X86_F6_NOT_RM8, arg1));
+			else
+				g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, size == OP_SIZE_1 ? X86_F6 : X86_F7, size, false, X86_F6_NOT_RM8, arg2));
 			return true;
 		case ALU1_NEG:
-			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_F6 : X86_F7, size, false, X86_F6_NEG_RM8, arg1));
+			if ((arg1[0] == arg2[0] && !test_evex) || !R_IS_GPR(arg1[0]))
+				g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_F6 : X86_F7, size, false, X86_F6_NEG_RM8, arg1));
+			else
+				g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, size == OP_SIZE_1 ? X86_F6 : X86_F7, size, false, X86_F6_NEG_RM8, arg2));
 			return true;
 		case ALU1_BSWAP:
 			if (unlikely(size <= OP_SIZE_2))
 				internal(file_line, "cgen_alu1: bytes or words not supported with this operation");
-			rex = X86_REX;
+			rex2 = 0;
 			if (!R_IS_GPR(arg1[0]))
 				internal(file_line, "cgen_alu1: bswap needs a register");
 			if (arg1[0] & 8)
-				rex |= X86_REX_B;
+				rex2 |= X86_REX2_B3;
+			if (arg1[0] & 16)
+				rex2 |= X86_REX2_B4;
 			if (size == OP_SIZE_8)
-				rex |= X86_REX_W;
-			if (rex != X86_REX)
-				cgen_rex(rex);
-			cgen_one(X86_0F);
+				rex2 |= X86_REX2_W;
+			if (rex2 & 0xf0)
+				rex2 |= X86_REX2_M0;
+			if (rex2)
+				g(cgen_rex2(ctx, rex2));
+			if (!(rex2 & X86_REX2_M0))
+				cgen_one(X86_0F);
 			cgen_one(X86_0F_BSWAP + (arg1[0] & 7));
 			return true;
 		case ALU1_BSF:
@@ -844,8 +940,8 @@ static bool attr_w cgen_test(struct codegen_context *ctx, unsigned size)
 				cgen_one(X86_TEST_AX_IMM16);
 			} else {
 				if (unlikely(!imm_is_32bit(imm)))
-					internal(file_line, "cgen_Test: immediate out of range: %"PRIxMAX"", (uintmax_t)imm);
-				cgen_rex(X86_REX | X86_REX_W);
+					internal(file_line, "cgen_test: immediate out of range: %"PRIxMAX"", (uintmax_t)imm);
+				g(cgen_rex2(ctx, X86_REX2_W));
 				cgen_one(X86_TEST_AX_IMM16);
 			}
 		} else {
@@ -859,7 +955,7 @@ static bool attr_w cgen_test(struct codegen_context *ctx, unsigned size)
 			cgen_four(imm);
 		} else {
 			if (unlikely(!imm_is_32bit(imm)))
-				internal(file_line, "cgen_Test: immediate out of range: %"PRIxMAX"", (uintmax_t)imm);
+				internal(file_line, "cgen_test: immediate out of range: %"PRIxMAX"", (uintmax_t)imm);
 			cgen_four(imm);
 		}
 		return true;
@@ -1483,7 +1579,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			if (unlikely(insn_op_size(insn) <= OP_SIZE_2))
 				goto invalid_insn;
 			if (insn_op_size(insn) == OP_SIZE_8)
-				cgen_rex(X86_REX | X86_REX_W);
+				g(cgen_rex2(ctx, X86_REX2_W));
 			if (unlikely(cget_one(ctx) != R_AX))
 				goto invalid_insn;
 			if (unlikely(cget_one(ctx) != R_AX))
@@ -1508,7 +1604,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			if (unlikely(cget_one(ctx) != R_AX))
 				goto invalid_insn;
 			if (insn_op_size(insn) == OP_SIZE_8)
-				cgen_rex(X86_REX | X86_REX_W);
+				g(cgen_rex2(ctx, X86_REX2_W));
 			cgen_one(X86_CWD);
 			return true;
 		case INSN_CWD_PARTIAL:

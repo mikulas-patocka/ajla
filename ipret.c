@@ -1416,13 +1416,25 @@ void name(ipret_init)(void)
 
 		str_init(&c, &cs);
 #ifndef POINTER_COMPRESSION
-		str_add_hex(&c, &cs, "4889d04883e0fe488b084881f9fffeffff77324881f9ff000000772a565741504151415248b8000000000000000048be00000000000000004889d7ffd0415a415941585f5ec3f04881280001000073f548810000010000ebc3");
-		memcpy(&c[0x26], &pde, 8);
-		memcpy(&c[0x30], &id, 8);
+		if (cpu_test_feature(CPU_FEATURE_apx)) {
+			str_add_hex(&c, &cs, "4889d04883e0fe488b084881f9fffeffff0f87a40000004881f9ff0000000f8798000000d5085662f4bc18fff762d4ac18fff162fcf410fff062fce410fff262fcd410fff462fcc410fff662dcb410fff062dca410fff262dc9410fff462dc8410fff648b8000000000000000048be00000000000000004889d7ffd062dc8c108fc762dc9c108fc562dcac108fc362dcbc108fc162fccc108fc762fcdc108fc562fcec108fc362fcfc108fc162d4b4188fc262d4c4188fc0d5085ec3f04881280001000073f548810000010000e952ffffff");
+			memcpy(&c[0x65], &pde, 8);
+			memcpy(&c[0x6f], &id, 8);
+		} else {
+			str_add_hex(&c, &cs, "4889d04883e0fe488b084881f9fffeffff77324881f9ff000000772a565741504151415248b8000000000000000048be00000000000000004889d7ffd0415a415941585f5ec3f04881280001000073f548810000010000ebc3");
+			memcpy(&c[0x26], &pde, 8);
+			memcpy(&c[0x30], &id, 8);
+		}
 #else
-		str_add_hex(&c, &cs, "89d083e0fe48c1e003488b084881f9fffeffff77314881f9ff0000007729565741504151415248b8000000000000000048be000000000000000089d7ffd0415a415941585f5ec3f04881280001000073f548810000010000ebc4");
-		memcpy(&c[0x28], &pde, 8);
-		memcpy(&c[0x32], &id, 8);
+		if (cpu_test_feature(CPU_FEATURE_apx)) {
+			str_add_hex(&c, &cs, "89d083e0fe48c1e003488b084881f9fffeffff0f87a30000004881f9ff0000000f8797000000d5085662f4bc18fff762d4ac18fff162fcf410fff062fce410fff262fcd410fff462fcc410fff662dcb410fff062dca410fff262dc9410fff462dc8410fff648b8000000000000000048be000000000000000089d7ffd062dc8c108fc762dc9c108fc562dcac108fc362dcbc108fc162fccc108fc762fcdc108fc562fcec108fc362fcfc108fc162d4b4188fc262d4c4188fc0d5085ec3f04881280001000073f548810000010000e953ffffff");
+			memcpy(&c[0x67], &pde, 8);
+			memcpy(&c[0x71], &id, 8);
+		} else {
+			str_add_hex(&c, &cs, "89d083e0fe48c1e003488b084881f9fffeffff77314881f9ff0000007729565741504151415248b8000000000000000048be000000000000000089d7ffd0415a415941585f5ec3f04881280001000073f548810000010000ebc4");
+			memcpy(&c[0x28], &pde, 8);
+			memcpy(&c[0x32], &id, 8);
+		}
 #endif
 		array_finish(char, &c, &cs);
 		cg_upcall_vector.cg_upcall_pointer_dereference = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
@@ -1443,13 +1455,13 @@ void name(ipret_init)(void)
 		hacked_upcall_size[idx] = cs;
 
 		str_init(&c, &cs);
-#ifndef POINTER_COMPRESSION
-		str_add_hex(&c, &cs, "56574150415141524889d789ce31d248b80000000000000000ffd0415a415941585f5ec3");
-		memcpy(&c[0x11], &icvtp, 8);
-#else
-		str_add_hex(&c, &cs, "56574150415141524889d789ce31d248b80000000000000000ffd0415a415941585f5ec3");
-		memcpy(&c[0x11], &icvtp, 8);
-#endif
+		if (cpu_test_feature(CPU_FEATURE_apx)) {
+			str_add_hex(&c, &cs, "d5085662f4bc18fff762d4ac18fff162fcf410fff062fce410fff262fcd410fff462fcc410fff662dcb410fff062dca410fff262dc9410fff462dc8410fff64889d789ce31d248b80000000000000000ffd062dc8c108fc762dc9c108fc562dcac108fc362dcbc108fc162fccc108fc762fcdc108fc562fcec108fc362fcfc108fc162d4b4188fc262d4c4188fc0d5085ec3");
+			memcpy(&c[0x48], &icvtp, 8);
+		} else {
+			str_add_hex(&c, &cs, "56574150415141524889d789ce31d248b80000000000000000ffd0415a415941585f5ec3");
+			memcpy(&c[0x11], &icvtp, 8);
+		}
 		array_finish(char, &c, &cs);
 		cg_upcall_vector.cg_upcall_ipret_copy_variable_to_pointer_noderef = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
 		idx = offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_copy_variable_to_pointer_noderef) / sizeof(void *);
@@ -1458,11 +1470,21 @@ void name(ipret_init)(void)
 
 		str_init(&c, &cs);
 #ifndef POINTER_COMPRESSION
-		str_add_hex(&c, &cs, "565741504151415252514889d789ceba0100000048b80000000000000000ffd0595a48c704ca00000000415a415941585f5ec3");
-		memcpy(&c[0x16], &icvtp, 8);
+		if (cpu_test_feature(CPU_FEATURE_apx)) {
+			str_add_hex(&c, &cs, "d5085662f4bc18fff762d4ac18fff162fcf410fff062fce410fff262fcd410fff462fcc410fff662dcb410fff062dca410fff262dc9410fff462dc8410fff662f4f418fff24889d789ceba0100000048b80000000000000000ffd062f4ec188fc148c704ca0000000062dc8c108fc762dc9c108fc562dcac108fc362dcbc108fc162fccc108fc762fcdc108fc562fcec108fc362fcfc108fc162d4b4188fc262d4c4188fc0d5085ec3");
+			memcpy(&c[0x51], &icvtp, 8);
+		} else {
+			str_add_hex(&c, &cs, "565741504151415252514889d789ceba0100000048b80000000000000000ffd0595a48c704ca00000000415a415941585f5ec3");
+			memcpy(&c[0x16], &icvtp, 8);
+		}
 #else
-		str_add_hex(&c, &cs, "565741504151415252514889d789ceba0100000048b80000000000000000ffd0595ac7048a00000000415a415941585f5ec3");
-		memcpy(&c[0x16], &icvtp, 8);
+		if (cpu_test_feature(CPU_FEATURE_apx)) {
+			str_add_hex(&c, &cs, "d5085662f4bc18fff762d4ac18fff162fcf410fff062fce410fff262fcd410fff462fcc410fff662dcb410fff062dca410fff262dc9410fff462dc8410fff662f4f418fff24889d789ceba0100000048b80000000000000000ffd062f4ec188fc1c7048a0000000062dc8c108fc762dc9c108fc562dcac108fc362dcbc108fc162fccc108fc762fcdc108fc562fcec108fc362fcfc108fc162d4b4188fc262d4c4188fc0d5085ec3");
+			memcpy(&c[0x51], &icvtp, 8);
+		} else {
+			str_add_hex(&c, &cs, "565741504151415252514889d789ceba0100000048b80000000000000000ffd0595ac7048a00000000415a415941585f5ec3");
+			memcpy(&c[0x16], &icvtp, 8);
+		}
 #endif
 		array_finish(char, &c, &cs);
 		cg_upcall_vector.cg_upcall_ipret_copy_variable_to_pointer_deref = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
@@ -1471,13 +1493,13 @@ void name(ipret_init)(void)
 		hacked_upcall_size[idx] = cs;
 
 		str_init(&c, &cs);
-#ifndef POINTER_COMPRESSION
-		str_add_hex(&c, &cs, "56574150415141524889d789ce48b80000000000000000ffd0415a415941585f5ec3");
-		memcpy(&c[0xf], &cuftd, 8);
-#else
-		str_add_hex(&c, &cs, "56574150415141524889d789ce48b80000000000000000ffd0415a415941585f5ec3");
-		memcpy(&c[0xf], &cuftd, 8);
-#endif
+		if (cpu_test_feature(CPU_FEATURE_apx)) {
+			str_add_hex(&c, &cs, "d5085662f4bc18fff762d4ac18fff162fcf410fff062fce410fff262fcd410fff462fcc410fff662dcb410fff062dca410fff262dc9410fff462dc8410fff64889d789ce48b80000000000000000ffd062dc8c108fc762dc9c108fc562dcac108fc362dcbc108fc162fccc108fc762fcdc108fc562fcec108fc362fcfc108fc162d4b4188fc262d4c4188fc0d5085ec3");
+			memcpy(&c[0x46], &cuftd, 8);
+		} else {
+			str_add_hex(&c, &cs, "56574150415141524889d789ce48b80000000000000000ffd0415a415941585f5ec3");
+			memcpy(&c[0xf], &cuftd, 8);
+		}
 		array_finish(char, &c, &cs);
 		cg_upcall_vector.cg_upcall_flat_to_data = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
 		idx = offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data) / sizeof(void *);

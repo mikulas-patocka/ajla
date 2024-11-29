@@ -863,7 +863,7 @@ static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned offset
 	}
 	if (ctx->n_pushes & 1) {
 		gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-		gen_one(R_AX);
+		gen_one(R_CX);
 	}
 #else
 	for (i = 0; i < ctx->need_spill_l; i++)

@@ -75,3 +75,13 @@
 #define static_test_erms	0
 #define dynamic_test		(cpuid_7[1] & (1U << 9))
 #include "asm-1.inc"
+
+#define feature_name		apx
+#if defined(ARCH_X86_64) && !defined(ARCH_X86_WIN_ABI)
+#define static_test_apx		(__APX_F__)
+#define dynamic_test		(cpuid_7_1[3] & (1U << 21) && likely(test_xcr0(1U << 19)))
+#else
+#define static_test_apx		0
+#define dynamic_test		false
+#endif
+#include "asm-1.inc"
