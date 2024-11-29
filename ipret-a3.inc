@@ -152,6 +152,7 @@
 #define OPF		cat4(REAL,TYPE_BITS,_,ALT2_)
 #define DEF(type)	DEFINE_FIXED_REAL_UNARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
+#endif
 
 #define orig_op		sqrt
 #define op		sqrt_alt1
@@ -164,7 +165,6 @@
 #define OPF		cat4(REAL,TYPE_BITS,_,ALT2_)
 #define DEF(type)	DEFINE_FIXED_REAL_UNARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
-#endif
 
 #define orig_op		to_int
 #define op		to_int_alt1
@@ -172,13 +172,11 @@
 #define DEF(type)	DEFINE_REAL_TO_INT(type, op)
 #include "ipret-b1.inc"
 
-#if TYPE_MASK != 1
 #define orig_op		to_int
 #define op		to_int_alt2
 #define OPF		cat4(REAL,TYPE_BITS,_,ALT2_)
 #define DEF(type)	DEFINE_REAL_TO_INT(type, op)
 #include "ipret-b1.inc"
-#endif
 
 #define orig_op		from_int
 #define op		from_int_alt1
@@ -186,13 +184,11 @@
 #define DEF(type)	DEFINE_REAL_FROM_INT(type, op)
 #include "ipret-b1.inc"
 
-#if TYPE_MASK != 1
 #define orig_op		from_int
 #define op		from_int_alt2
 #define OPF		cat4(REAL,TYPE_BITS,_,ALT2_)
 #define DEF(type)	DEFINE_REAL_FROM_INT(type, op)
 #include "ipret-b1.inc"
-#endif
 
 #if TYPE_MASK != 1
 #define orig_op		is_exception

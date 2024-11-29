@@ -141,6 +141,19 @@ static ipret_inline bool attr_unused cat4(REAL_binary_,fn,_,type)(const type *op
 	return true;							\
 }
 
+#define gen_f16c_sqrt(fn, type)						\
+static ipret_inline bool attr_unused cat4(REAL_unary_,fn,_,type)(const type *op1, type *res)\
+{									\
+	__asm__ ("							\n\
+		vpinsrw			$0, %1, %%xmm7, %%xmm0		\n\
+		vcvtph2ps		%%xmm0, %%xmm0			\n\
+		vsqrtss			%%xmm0, %%xmm0, %%xmm0		\n\
+		vcvtps2ph		$4, %%xmm0, %%xmm0		\n\
+		vpextrw			$0, %%xmm0, %0			\n\
+	" : "=m"(*res) : "m"(*op1) X86_ASM_XMM0_CLOB);			\
+	return true;							\
+}
+
 #ifdef INLINE_ASM_GCC_LABELS
 #define gen_f16c_logical(fn, type, instr)				\
 static ipret_inline bool attr_unused cat4(REAL_binary_,fn,_,type)(const type *op1, const type *op2, ajla_flat_option_t *res)\
@@ -214,6 +227,16 @@ static ipret_inline bool attr_unused cat4(REAL_binary_,fn,_,type)(const type *op
 		v"#instr"sh		%2, %%xmm0, %%xmm0		\n\
 		vmovsh			%%xmm0, %0			\n\
 	" : "=m"(*res) : "m"(*op1), "m"(*op2) X86_ASM_XMM0_CLOB);	\
+	return true;							\
+}
+
+#define gen_fp16_sqrt(fn, type)						\
+static ipret_inline bool attr_unused cat4(REAL_unary_,fn,_,type)(const type *op1, type *res)\
+{									\
+	__asm__ ("							\n\
+		vsqrtsh			%1, %%xmm7, %%xmm0		\n\
+		vmovsh			%%xmm0, %0			\n\
+	" : "=m"(*res) : "m"(*op1) X86_ASM_XMM0_CLOB);			\
 	return true;							\
 }
 
@@ -563,6 +586,7 @@ gen_f16c_binary(add_alt1, real16_t, add)				\
 gen_f16c_binary(subtract_alt1, real16_t, sub)				\
 gen_f16c_binary(multiply_alt1, real16_t, mul)				\
 gen_f16c_binary(divide_alt1, real16_t, div)				\
+gen_f16c_sqrt(sqrt_alt1, real16_t)					\
 gen_f16c_logical(equal_alt1, real16_t, sete)				\
 gen_f16c_logical(not_equal_alt1, real16_t, setne)			\
 gen_f16c_logical(less_alt1, real16_t, setb)				\
@@ -577,6 +601,7 @@ gen_fp16_binary(add_alt2, real16_t, add)				\
 gen_fp16_binary(subtract_alt2, real16_t, sub)				\
 gen_fp16_binary(multiply_alt2, real16_t, mul)				\
 gen_fp16_binary(divide_alt2, real16_t, div)				\
+gen_fp16_sqrt(sqrt_alt2, real16_t)					\
 gen_fp16_logical(equal_alt2, real16_t, sete)				\
 gen_fp16_logical(not_equal_alt2, real16_t, setne)			\
 gen_fp16_logical(less_alt2, real16_t, setb)				\
