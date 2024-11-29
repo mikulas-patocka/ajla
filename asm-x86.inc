@@ -96,6 +96,11 @@
 #define dynamic_test		(likely(cpu_test_feature(CPU_FEATURE_avx512vl)) || likely(cpu_test_feature(CPU_FEATURE_avx10)))
 #include "asm-1.inc"
 
+#define feature_name		fp16
+#define static_test_fp16	(__AVX512FP16__ || static_test_avx10)
+#define dynamic_test		((likely(cpu_test_feature(CPU_FEATURE_avx512)) && likely(cpuid_7[3] & (1U << 23))) || likely(cpu_test_feature(CPU_FEATURE_avx10)))
+#include "asm-1.inc"
+
 #define feature_name		apx
 #if defined(ARCH_X86_64) && !defined(ARCH_X86_WIN_ABI)
 #define static_test_apx		(__APX_F__)

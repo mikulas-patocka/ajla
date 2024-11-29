@@ -313,6 +313,13 @@ if test "$ac_cv_have_gcc_assembler" = yes; then
 	], ac_cv_have_x86_assembler_f16c=yes, ac_cv_have_x86_assembler_f16c=no))
 	test "$ac_cv_have_x86_assembler_f16c" = yes && AC_DEFINE(HAVE_X86_ASSEMBLER_F16C, 1, Have X86 f16c)
 
+	AC_CACHE_CHECK(for X86 assembler fp16, ac_cv_have_x86_assembler_fp16,
+	AC_TRY_LINK([
+	], [
+		__asm__ volatile ("vmovsh (%%rax), %%xmm0":::"memory");
+	], ac_cv_have_x86_assembler_fp16=yes, ac_cv_have_x86_assembler_fp16=no))
+	test "$ac_cv_have_x86_assembler_fp16" = yes && AC_DEFINE(HAVE_X86_ASSEMBLER_FP16, 1, Have X86 fp16)
+
 	AC_CACHE_CHECK(for ARM assembler, ac_cv_have_arm_assembler,
 	AC_TRY_LINK([
 	], [

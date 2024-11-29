@@ -41,6 +41,11 @@ gen_sse_ops(type, s, z)
 #define REAL64_ALT1_TYPES	0x4
 gen_sse_ops(type, d, z)
 #endif
+#if defined(INLINE_ASM_GCC_X86) && defined(HAVE_X86_ASSEMBLER_FP16) && TYPE_MASK == 0x1
+#define REAL16_ALT2_FEATURES	(cpu_feature_mask(CPU_FEATURE_fp16))
+#define REAL16_ALT2_TYPES	0x1
+gen_fp16_ops(z)
+#endif
 #if defined(INLINE_ASM_GCC_X86) && defined(HAVE_X86_ASSEMBLER_AVX) && TYPE_MASK == 0x2
 #define REAL32_ALT2_FEATURES	(cpu_feature_mask(CPU_FEATURE_avx))
 #define REAL32_ALT2_TYPES	0x2

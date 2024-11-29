@@ -206,6 +206,73 @@ static ipret_inline void attr_unused cat4(REAL_unary_,fn,_,type)(const int_defau
 	" : "=m"(*res) : "rm"(*op1) X86_ASM_XMM0_CLOB);			\
 }
 
+#define gen_fp16_binary(fn, type, instr)				\
+static ipret_inline bool attr_unused cat4(REAL_binary_,fn,_,type)(const type *op1, const type *op2, type *res)\
+{									\
+	__asm__ ("							\n\
+		vmovsh			%1, %%xmm0			\n\
+		v"#instr"sh		%2, %%xmm0, %%xmm0		\n\
+		vmovsh			%%xmm0, %0			\n\
+	" : "=m"(*res) : "m"(*op1), "m"(*op2) X86_ASM_XMM0_CLOB);	\
+	return true;							\
+}
+
+#ifdef INLINE_ASM_GCC_LABELS
+#define gen_fp16_logical(fn, type, instr)				\
+static ipret_inline bool attr_unused cat4(REAL_binary_,fn,_,type)(const type *op1, const type *op2, ajla_flat_option_t *res)\
+{									\
+	if (sizeof(ajla_flat_option_t) != 1)				\
+		*res = 0;						\
+	__asm__ goto ("							\n\
+		vmovsh			%1, %%xmm0			\n\
+		vucomish		%2, %%xmm0			\n\
+		jp			%l[unordered]			\n\
+		"#instr"		%0				\n\
+	" : : "m"(*res), "m"(*op1), "m"(*op2) : "memory", "cc" X86_ASM_XMM0_CLOBC : unordered);\
+	return true;							\
+unordered:								\
+	return false;							\
+}
+#else
+#define gen_fp16_logical(fn, type, instr)				\
+static ipret_inline bool attr_unused cat4(REAL_binary_,fn,_,type)(const type *op1, const type *op2, ajla_flat_option_t *res)\
+{									\
+	unsigned char unordered, r;					\
+	__asm__ ("							\n\
+		vmovsh			%2, %%xmm0			\n\
+		vucomish		%3, %%xmm0			\n\
+		setp			%1				\n\
+		"#instr"		%0				\n\
+	" : "=r"(r), "=r"(unordered) : "m"(*op1), "m"(*op2) : "cc" X86_ASM_XMM0_CLOBC);\
+	if (unlikely(unordered))					\
+		return false;						\
+	*res = r;							\
+	return true;							\
+}
+#endif
+
+#define gen_fp16_to_int(fn, type)					\
+static ipret_inline bool attr_unused cat4(REAL_unary_,fn,_,type)(const type *op1, int_default_t *res)\
+{									\
+	int_default_t r;						\
+	__asm__ ("							\n\
+		vcvttsh2si	%1, %0					\n\
+	" : "=r"(r) : "m"(*op1));					\
+	if (unlikely(r == sign_bit(int_default_t)))			\
+		return false;						\
+	*res = r;							\
+	return true;							\
+}
+
+#define gen_fp16_from_int(fn, type, z)					\
+static ipret_inline void attr_unused cat4(REAL_unary_,fn,_,type)(const int_default_t *op1, type *res)\
+{									\
+	__asm__ ("							\n\
+		vcvtsi2sh		%1, %%xmm7, %%xmm0		\n\
+		vmovsh			%%xmm0, %0			\n\
+	" : "=m"(*res) : "rm"(*op1) X86_ASM_XMM0_CLOB);			\
+}
+
 #define gen_vfp_binary(fn, type, op, f, s)				\
 static ipret_inline bool attr_unused cat4(REAL_binary_,fn,_,type)(const type *op1, const type *op2, type *res)\
 {									\
@@ -505,6 +572,20 @@ gen_f16c_logical(greater_equal_alt1, real16_t, setae)			\
 gen_f16c_to_int(to_int_alt1, real16_t)					\
 gen_f16c_from_int(from_int_alt1, real16_t, z)
 
+#define gen_fp16_ops(z)							\
+gen_fp16_binary(add_alt2, real16_t, add)				\
+gen_fp16_binary(subtract_alt2, real16_t, sub)				\
+gen_fp16_binary(multiply_alt2, real16_t, mul)				\
+gen_fp16_binary(divide_alt2, real16_t, div)				\
+gen_fp16_logical(equal_alt2, real16_t, sete)				\
+gen_fp16_logical(not_equal_alt2, real16_t, setne)			\
+gen_fp16_logical(less_alt2, real16_t, setb)				\
+gen_fp16_logical(less_equal_alt2, real16_t, setbe)			\
+gen_fp16_logical(greater_alt2, real16_t, seta)				\
+gen_fp16_logical(greater_equal_alt2, real16_t, setae)			\
+gen_fp16_to_int(to_int_alt2, real16_t)					\
+gen_fp16_from_int(from_int_alt2, real16_t, z)
+
 #define gen_vfp_ops(type, f, s)						\
 gen_vfp_binary(add_alt1, type, "vadd", f, s)				\
 gen_vfp_binary(subtract_alt1, type, "vsub", f, s)			\
@@ -541,6 +622,7 @@ gen_vfp_half_from_int(from_int_alt1, real16_t)
 #define gen_sse_ops(type, s, z)
 #define gen_avx_ops(type, s, z)
 #define gen_f16c_ops(z)
+#define gen_fp16_ops(z)
 #define gen_vfp_ops(type, f, s)
 #define gen_vfp_half_ops()
 
