@@ -1158,13 +1158,13 @@ static bool attr_w gen_clear_bitmap(struct codegen_context *ctx, unsigned additi
 			len = minimum(len, 1U << OP_SIZE_16);
 			if (len == 1U << OP_SIZE_16 && cpu_test_feature(CPU_FEATURE_sse)) {
 				if (!scratch_2_zeroed) {
-					g(gen_3address_alu(ctx, OP_SIZE_16, ALU_XOR, R_XMM0, R_XMM0, R_XMM0, 0));
+					g(gen_3address_alu(ctx, OP_SIZE_16, ALU_XOR, FR_SCRATCH_1, FR_SCRATCH_1, FR_SCRATCH_1, 0));
 					scratch_2_zeroed = true;
 				}
 				g(gen_address(ctx, dest_base, dest_offset + clear_offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_16));
 				gen_insn(INSN_MOV, OP_SIZE_16, 0, 0);
 				gen_address_offset();
-				gen_one(R_XMM0);
+				gen_one(FR_SCRATCH_1);
 				goto next_loop;
 			}
 #endif

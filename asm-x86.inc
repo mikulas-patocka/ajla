@@ -76,6 +76,26 @@
 #define dynamic_test		(cpuid_7[1] & (1U << 9))
 #include "asm-1.inc"
 
+#define feature_name		avx512
+#define static_test_avx512	(__AVX512F__)
+#define dynamic_test		(likely(cpu_test_feature(CPU_FEATURE_avx)) && likely(cpuid_7[1] & (1U << 16)) && likely(test_xcr0(0xe0)))
+#include "asm-1.inc"
+
+#define feature_name		avx512vl
+#define static_test_avx512vl	(__AVX512VL__)
+#define dynamic_test		(likely(cpu_test_feature(CPU_FEATURE_avx512)) && likely(cpuid_7[1] & (1U << 31)))
+#include "asm-1.inc"
+
+#define feature_name		avx10
+#define static_test_avx10	(__AVX10_1__)
+#define dynamic_test		(likely(cpu_test_feature(CPU_FEATURE_avx)) && likely(cpuid_7_1[3] & (1U << 21)) && likely(test_xcr0(0xa0)))
+#include "asm-1.inc"
+
+#define feature_name		fp_regs_32
+#define static_test_fp_regs_32	(static_test_avx512vl || static_test_avx10)
+#define dynamic_test		(likely(cpu_test_feature(CPU_FEATURE_avx512vl)) || likely(cpu_test_feature(CPU_FEATURE_avx10)))
+#include "asm-1.inc"
+
 #define feature_name		apx
 #if defined(ARCH_X86_64) && !defined(ARCH_X86_WIN_ABI)
 #define static_test_apx		(__APX_F__)
