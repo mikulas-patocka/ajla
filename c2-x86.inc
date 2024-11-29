@@ -170,9 +170,18 @@
 #define X86_0F_38_ROTX			0xf7
 
 #define X86_0F_3A_ROUNDSS_X128_M32	0x0a
+#define X86_0F_3A_RNDSCALESH_X128_M16	0x0a
 #define X86_0F_3A_ROUNDSD_X128_M64	0x0b
 #define X86_0F_3A_PEXTRW_RM16_X128_IMM8	0x15
 #define X86_0F_3A_CVTPS2PH_RM64_X128	0x1d
+
+#define X86_MAP5_MOVSH_X128_M16		0x10
+#define X86_MAP5_MOVSH_M16_X128		0x11
+#define X86_MAP5_SQRTPS_X128_M16	0x51
+#define X86_MAP5_ADDPS_X128_M16		0x58
+#define X86_MAP5_MULPS_X128_M16		0x59
+#define X86_MAP5_SUBPS_X128_M16		0x5c
+#define X86_MAP5_DIVPS_X128_M16		0x5e
 
 #define X87_FLD_RM32			0xd9
 #define  X87_FLD_RM32_X				0x0
@@ -241,6 +250,7 @@
 #define PREFIX_0F_38			2
 #define PREFIX_0F_3A			3
 #define PREFIX_LEGACY_EVEX		4
+#define PREFIX_MAP5			5
 
 static bool attr_w cgen_rex2(struct codegen_context attr_unused *ctx, uint8_t rex2)
 {
@@ -378,7 +388,7 @@ address_0:
 gen:
 	if (unlikely(sse_prefix >= 0)) {
 		if (likely(cpu_test_feature(CPU_FEATURE_avx)) || (sse_prefix & (force_vex | force_ndd))) {
-			if (rex2 & 0xf0 || sse_prefix & 0x1000 || sse_prefix & force_ndd || test_evex) {
+			if (rex2 & 0xf0 || sse_prefix & 0x1000 || sse_prefix & force_ndd || prefix >= 4 || test_evex) {
 				/*debug("evex: %02x, %02x, %02x", reg, (sse_prefix >> 8) & 0x1f, arg[0]);*/
 				if (!(sse_prefix & (force_vex | force_ndd))) {
 					if (sse_prefix & SSE_PREFIX_W)
@@ -601,9 +611,14 @@ mov_rm:
 	}
 	if (R_IS_XMM(arg1[0]) && ARG_IS_ADDRESS(arg2[0])) {
 		if (size == OP_SIZE_2) {
-			g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F, X86_0F_PINSRW_X128_RM16_IMM8, false, arg1[0], R_XMM7, arg2));
-			cgen_one(0x00);
-			return true;
+			if (cpu_test_feature(CPU_FEATURE_fp16)) {
+				g(cgen_sse_insn(ctx, SSE_PREFIX_F3, PREFIX_MAP5, X86_MAP5_MOVSH_X128_M16, false, arg1[0], 0, arg2));
+				return true;
+			} else {
+				g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F, X86_0F_PINSRW_X128_RM16_IMM8, false, arg1[0], R_XMM7, arg2));
+				cgen_one(0x00);
+				return true;
+			}
 		}
 		if (size == OP_SIZE_16) {
 			g(cgen_sse_insn(ctx, SSE_PREFIX_NONE, PREFIX_0F, X86_0F_MOVAPS_X128_M128, false, arg1[0], 0, arg2));
@@ -614,9 +629,14 @@ mov_rm:
 	}
 	if (ARG_IS_ADDRESS(arg1[0]) && R_IS_XMM(arg2[0])) {
 		if (size == OP_SIZE_2) {
-			g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F_3A, X86_0F_3A_PEXTRW_RM16_X128_IMM8, false, arg2[0], 0, arg1));
-			cgen_one(0x00);
-			return true;
+			if (cpu_test_feature(CPU_FEATURE_fp16)) {
+				g(cgen_sse_insn(ctx, SSE_PREFIX_F3, PREFIX_MAP5, X86_MAP5_MOVSH_M16_X128, false, arg2[0], 0, arg1));
+				return true;
+			} else {
+				g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F_3A, X86_0F_3A_PEXTRW_RM16_X128_IMM8, false, arg2[0], 0, arg1));
+				cgen_one(0x00);
+				return true;
+			}
 		}
 		if (size == OP_SIZE_16) {
 			g(cgen_sse_insn(ctx, SSE_PREFIX_NONE, PREFIX_0F, X86_0F_MOVAPS_M128_X128, false, arg2[0], 0, arg1));
