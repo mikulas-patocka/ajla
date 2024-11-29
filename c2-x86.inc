@@ -177,11 +177,14 @@
 
 #define X86_MAP5_MOVSH_X128_M16		0x10
 #define X86_MAP5_MOVSH_M16_X128		0x11
-#define X86_MAP5_SQRTPS_X128_M16	0x51
-#define X86_MAP5_ADDPS_X128_M16		0x58
-#define X86_MAP5_MULPS_X128_M16		0x59
-#define X86_MAP5_SUBPS_X128_M16		0x5c
-#define X86_MAP5_DIVPS_X128_M16		0x5e
+#define X86_MAP5_CVTSI2SH_X128_RM16	0x2a
+#define X86_MAP5_UCOMISH_X128_RM16	0x2e
+#define X86_MAP5_CVTTSH2SI_X128_RM16	0x2c
+#define X86_MAP5_SQRTPH_X128_M16	0x51
+#define X86_MAP5_ADDPH_X128_M16		0x58
+#define X86_MAP5_MULPH_X128_M16		0x59
+#define X86_MAP5_SUBPH_X128_M16		0x5c
+#define X86_MAP5_DIVPH_X128_M16		0x5e
 
 #define X87_FLD_RM32			0xd9
 #define  X87_FLD_RM32_X				0x0
@@ -271,8 +274,9 @@ static bool attr_w cgen_rex2(struct codegen_context attr_unused *ctx, uint8_t re
 }
 
 #define force_vex			0x10000
-#define force_ndd			0x20000
-#define SSE_PREFIX_W			0x40000
+#define force_evex			0x20000
+#define force_ndd			0x40000
+#define SSE_PREFIX_W			0x80000
 
 static bool attr_w cgen_rm_insn(struct codegen_context *ctx, int32_t sse_prefix, uint8_t prefix, uint8_t opcode, unsigned size, bool reg_is_reg, uint8_t reg, uint8_t *arg)
 {
@@ -387,8 +391,8 @@ address_0:
 
 gen:
 	if (unlikely(sse_prefix >= 0)) {
-		if (likely(cpu_test_feature(CPU_FEATURE_avx)) || (sse_prefix & (force_vex | force_ndd))) {
-			if (rex2 & 0xf0 || sse_prefix & 0x1000 || sse_prefix & force_ndd || prefix >= 4 || test_evex) {
+		if (likely(cpu_test_feature(CPU_FEATURE_avx)) || (sse_prefix & (force_vex | force_evex | force_ndd))) {
+			if (rex2 & 0xf0 || sse_prefix & 0x1000 || sse_prefix & (force_evex | force_ndd) || test_evex) {
 				/*debug("evex: %02x, %02x, %02x", reg, (sse_prefix >> 8) & 0x1f, arg[0]);*/
 				if (!(sse_prefix & (force_vex | force_ndd))) {
 					if (sse_prefix & SSE_PREFIX_W)
@@ -612,7 +616,7 @@ mov_rm:
 	if (R_IS_XMM(arg1[0]) && ARG_IS_ADDRESS(arg2[0])) {
 		if (size == OP_SIZE_2) {
 			if (cpu_test_feature(CPU_FEATURE_fp16)) {
-				g(cgen_sse_insn(ctx, SSE_PREFIX_F3, PREFIX_MAP5, X86_MAP5_MOVSH_X128_M16, false, arg1[0], 0, arg2));
+				g(cgen_sse_insn(ctx, SSE_PREFIX_F3 | force_evex, PREFIX_MAP5, X86_MAP5_MOVSH_X128_M16, false, arg1[0], 0, arg2));
 				return true;
 			} else {
 				g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F, X86_0F_PINSRW_X128_RM16_IMM8, false, arg1[0], R_XMM7, arg2));
@@ -630,7 +634,7 @@ mov_rm:
 	if (ARG_IS_ADDRESS(arg1[0]) && R_IS_XMM(arg2[0])) {
 		if (size == OP_SIZE_2) {
 			if (cpu_test_feature(CPU_FEATURE_fp16)) {
-				g(cgen_sse_insn(ctx, SSE_PREFIX_F3, PREFIX_MAP5, X86_MAP5_MOVSH_M16_X128, false, arg2[0], 0, arg1));
+				g(cgen_sse_insn(ctx, SSE_PREFIX_F3 | force_evex, PREFIX_MAP5, X86_MAP5_MOVSH_M16_X128, false, arg2[0], 0, arg1));
 				return true;
 			} else {
 				g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F_3A, X86_0F_3A_PEXTRW_RM16_X128_IMM8, false, arg2[0], 0, arg1));
@@ -1206,7 +1210,11 @@ static bool attr_w cgen_sse_cmp(struct codegen_context *ctx, unsigned size)
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
-	g(cgen_sse_insn(ctx, size == OP_SIZE_4 ? SSE_PREFIX_NONE : SSE_PREFIX_66 | SSE_PREFIX_W, PREFIX_0F, X86_0F_UCOMISS_X128_RM32, false, arg1[0], 0, arg2));
+	if (size == OP_SIZE_2) {
+		g(cgen_sse_insn(ctx, SSE_PREFIX_NONE | force_evex, PREFIX_MAP5, X86_MAP5_UCOMISH_X128_RM16, false, arg1[0], 0, arg2));
+	} else {
+		g(cgen_sse_insn(ctx, size == OP_SIZE_4 ? SSE_PREFIX_NONE : SSE_PREFIX_66 | SSE_PREFIX_W, PREFIX_0F, X86_0F_UCOMISS_X128_RM32, false, arg1[0], 0, arg2));
+	}
 	return true;
 }
 
@@ -1224,7 +1232,11 @@ static bool attr_w cgen_sse_alu(struct codegen_context *ctx, unsigned size, unsi
 		case FP_ALU_DIV:	opcode = X86_0F_DIVPS_X128_M32; break;
 		default:		internal(file_line, "cgen_sse_alu: invalid alu %u", alu);
 	}
-	g(cgen_sse_insn(ctx, size == OP_SIZE_4 ? SSE_PREFIX_F3 : SSE_PREFIX_F2 | SSE_PREFIX_W, PREFIX_0F, opcode, false, arg1[0], arg2[0], arg3));
+	if (size == OP_SIZE_2) {
+		g(cgen_sse_insn(ctx, SSE_PREFIX_F3 | force_evex, PREFIX_MAP5, opcode, false, arg1[0], arg2[0], arg3));
+	} else {
+		g(cgen_sse_insn(ctx, size == OP_SIZE_4 ? SSE_PREFIX_F3 : SSE_PREFIX_F2 | SSE_PREFIX_W, PREFIX_0F, opcode, false, arg1[0], arg2[0], arg3));
+	}
 	return true;
 }
 
@@ -1236,15 +1248,18 @@ static bool attr_w cgen_sse_alu1(struct codegen_context *ctx, unsigned size, uns
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
 	switch (alu) {
-		case FP_ALU1_SQRT:	if (size == OP_SIZE_4) {
+		case FP_ALU1_SQRT:	if (size == OP_SIZE_2) {
+						sse_pfx = SSE_PREFIX_F3 | force_evex;
+						sse_op_map = PREFIX_MAP5;
+					} else if (size == OP_SIZE_4) {
 						sse_pfx = SSE_PREFIX_F3;
+						sse_op_map = PREFIX_0F;
 					} else if (size == OP_SIZE_8) {
-						sse_pfx = SSE_PREFIX_F2;
-						sse_pfx |= SSE_PREFIX_W;
+						sse_pfx = SSE_PREFIX_F2 | SSE_PREFIX_W;
+						sse_op_map = PREFIX_0F;
 					} else {
 						goto fail;
 					}
-					sse_op_map = PREFIX_0F;
 					opcode = X86_0F_SQRTPS_X128_M32;
 					break;
 		case FP_ALU1_ROUND:
@@ -1252,7 +1267,10 @@ static bool attr_w cgen_sse_alu1(struct codegen_context *ctx, unsigned size, uns
 		case FP_ALU1_CEIL:
 		case FP_ALU1_TRUNC:	sse_pfx = SSE_PREFIX_66;
 					sse_op_map = PREFIX_0F_3A;
-					if (size == OP_SIZE_4) {
+					if (size == OP_SIZE_2) {
+						sse_pfx = SSE_PREFIX_NONE | force_evex;
+						opcode = X86_0F_3A_RNDSCALESH_X128_M16;
+					} else if (size == OP_SIZE_4) {
 						opcode = X86_0F_3A_ROUNDSS_X128_M32;
 					} else if (size == OP_SIZE_8) {
 						opcode = X86_0F_3A_ROUNDSD_X128_M64;
@@ -1275,7 +1293,11 @@ static bool attr_w cgen_sse_from_int(struct codegen_context *ctx, unsigned int_o
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
-	g(cgen_sse_insn(ctx, fp_op_size == OP_SIZE_4 ? SSE_PREFIX_F3 : SSE_PREFIX_F2 | SSE_PREFIX_W, PREFIX_0F, X86_0F_CVTSI2SS_X128_RM32, int_op_size == OP_SIZE_8, arg1[0], R_XMM7, arg2));
+	if (fp_op_size == OP_SIZE_2) {
+		g(cgen_sse_insn(ctx, SSE_PREFIX_F3 | force_evex, PREFIX_MAP5, X86_MAP5_CVTSI2SH_X128_RM16, int_op_size == OP_SIZE_8, arg1[0], R_XMM7, arg2));
+	} else {
+		g(cgen_sse_insn(ctx, fp_op_size == OP_SIZE_4 ? SSE_PREFIX_F3 : SSE_PREFIX_F2 | SSE_PREFIX_W, PREFIX_0F, X86_0F_CVTSI2SS_X128_RM32, int_op_size == OP_SIZE_8, arg1[0], R_XMM7, arg2));
+	}
 	return true;
 }
 
@@ -1284,7 +1306,11 @@ static bool attr_w cgen_sse_to_int(struct codegen_context *ctx, unsigned int_op_
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
-	g(cgen_sse_insn(ctx, fp_op_size == OP_SIZE_4 ? SSE_PREFIX_F3 : SSE_PREFIX_F2 | SSE_PREFIX_W, PREFIX_0F, X86_0F_CVTTSS2SI_X128_RM32, int_op_size == OP_SIZE_8, arg1[0], 0, arg2));
+	if (fp_op_size == OP_SIZE_2) {
+		g(cgen_sse_insn(ctx, SSE_PREFIX_F3 | force_evex, PREFIX_MAP5, X86_MAP5_CVTTSH2SI_X128_RM16, int_op_size == OP_SIZE_8, arg1[0], 0, arg2));
+	} else {
+		g(cgen_sse_insn(ctx, fp_op_size == OP_SIZE_4 ? SSE_PREFIX_F3 : SSE_PREFIX_F2 | SSE_PREFIX_W, PREFIX_0F, X86_0F_CVTTSS2SI_X128_RM32, int_op_size == OP_SIZE_8, arg1[0], 0, arg2));
+	}
 	return true;
 }
 

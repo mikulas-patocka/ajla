@@ -219,7 +219,7 @@ static uint8_t upcall_register = R_R15;
 #define ARG_OFFSET	0x90
 #endif
 
-#define SUPPORTED_FP		(cpu_test_feature(CPU_FEATURE_sse) * 0x2 + cpu_test_feature(CPU_FEATURE_sse2) * 0x4)
+#define SUPPORTED_FP		(cpu_test_feature(CPU_FEATURE_fp16) + cpu_test_feature(CPU_FEATURE_sse) * 0x2 + cpu_test_feature(CPU_FEATURE_sse2) * 0x4)
 #define SUPPORTED_FP_X87	0xe
 #define SUPPORTED_FP_HALF_CVT	(cpu_test_feature(CPU_FEATURE_f16c) * 0x1)
 
