@@ -336,6 +336,8 @@ static bool is_direct_const(int64_t attr_unused imm, unsigned attr_unused purpos
 
 static bool attr_w gen_x86_push(struct codegen_context *ctx, unsigned reg, bool forwarding)
 {
+	if (!cpu_test_feature(CPU_FEATURE_apx))
+		forwarding = false;
 	gen_insn(INSN_PUSH, OP_SIZE_NATIVE, forwarding, 0);
 	gen_one(reg);
 	return true;
@@ -343,6 +345,8 @@ static bool attr_w gen_x86_push(struct codegen_context *ctx, unsigned reg, bool 
 
 static bool attr_w gen_x86_pop(struct codegen_context *ctx, unsigned reg, bool forwarding)
 {
+	if (!cpu_test_feature(CPU_FEATURE_apx))
+		forwarding = false;
 	gen_insn(INSN_POP, OP_SIZE_NATIVE, forwarding, 0);
 	gen_one(reg);
 	return true;
@@ -350,19 +354,33 @@ static bool attr_w gen_x86_pop(struct codegen_context *ctx, unsigned reg, bool f
 
 static bool attr_w gen_x86_push2(struct codegen_context *ctx, unsigned reg1, unsigned reg2, bool forwarding)
 {
-	gen_insn(INSN_PUSH, OP_SIZE_NATIVE, forwarding, 0);
-	gen_one(reg1);
-	gen_insn(INSN_PUSH, OP_SIZE_NATIVE, forwarding, 0);
-	gen_one(reg2);
+	if (!cpu_test_feature(CPU_FEATURE_apx)) {
+		forwarding = false;
+		gen_insn(INSN_PUSH, OP_SIZE_NATIVE, forwarding, 0);
+		gen_one(reg1);
+		gen_insn(INSN_PUSH, OP_SIZE_NATIVE, forwarding, 0);
+		gen_one(reg2);
+	} else {
+		gen_insn(INSN_PUSH2, OP_SIZE_NATIVE, forwarding, 0);
+		gen_one(reg1);
+		gen_one(reg2);
+	}
 	return true;
 }
 
 static bool attr_w gen_x86_pop2(struct codegen_context *ctx, unsigned reg1, unsigned reg2, bool forwarding)
 {
-	gen_insn(INSN_POP, OP_SIZE_NATIVE, forwarding, 0);
-	gen_one(reg1);
-	gen_insn(INSN_POP, OP_SIZE_NATIVE, forwarding, 0);
-	gen_one(reg2);
+	if (!cpu_test_feature(CPU_FEATURE_apx)) {
+		forwarding = false;
+		gen_insn(INSN_POP, OP_SIZE_NATIVE, forwarding, 0);
+		gen_one(reg1);
+		gen_insn(INSN_POP, OP_SIZE_NATIVE, forwarding, 0);
+		gen_one(reg2);
+	} else {
+		gen_insn(INSN_POP2, OP_SIZE_NATIVE, forwarding, 0);
+		gen_one(reg1);
+		gen_one(reg2);
+	}
 	return true;
 }
 

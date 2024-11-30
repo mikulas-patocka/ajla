@@ -58,6 +58,8 @@
 #define X86_MOV_R8_RM8			0x8a
 #define X86_MOV_R16_RM16		0x8b
 #define X86_LEA_R16_RM16		0x8d
+#define X86_8F				0x8f
+#define  X86_8F_POP				0x0
 #define X86_CBW				0x98
 #define X86_CWD				0x99
 #define X86_MOV_AL_M16			0xa0
@@ -78,8 +80,6 @@
 #define X86_MOV_RM8_IMM8		0xc6
 #define X86_MOV_RM16_IMM16		0xc7
 #define  X86_MOV_R16_IMM16_REG			0x0
-#define X86_8F				0x8f
-#define  X86_8F_POP				0x0
 #define X86_ROT_RM8_1			0xd0
 #define X86_ROT_RM16_1			0xd1
 #define X86_ROT_RM8_CL			0xd2
@@ -494,8 +494,6 @@ static bool attr_w cgen_push(struct codegen_context *ctx, unsigned aux)
 {
 	uint8_t *arg1 = ctx->code_position;
 	ctx->code_position += arg_size(*arg1);
-	if (!cpu_test_feature(CPU_FEATURE_apx))
-		aux = 0;
 	if (likely(R_IS_GPR(arg1[0]))) {
 		uint8_t rex2 = 0;
 		if (arg1[0] & 8)
@@ -536,8 +534,6 @@ static bool attr_w cgen_pop(struct codegen_context *ctx, unsigned aux)
 {
 	uint8_t *arg1 = ctx->code_position;
 	ctx->code_position += arg_size(*arg1);
-	if (!cpu_test_feature(CPU_FEATURE_apx))
-		aux = 0;
 	if (likely(R_IS_GPR(arg1[0]))) {
 		uint8_t rex2 = 0;
 		if (arg1[0] & 8)
@@ -556,6 +552,24 @@ static bool attr_w cgen_pop(struct codegen_context *ctx, unsigned aux)
 		return true;
 	}
 	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_8F, OP_SIZE_4, false, X86_8F_POP, arg1));
+	return true;
+}
+
+static bool attr_w cgen_push2(struct codegen_context *ctx, unsigned aux)
+{
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+	g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, X86_FF, !aux ? OP_SIZE_4 : OP_SIZE_8, false, X86_FF_PUSH, arg2));
+	return true;
+}
+
+static bool attr_w cgen_pop2(struct codegen_context *ctx, unsigned aux)
+{
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+	g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, X86_8F, !aux ? OP_SIZE_4 : OP_SIZE_8, false, X86_8F_POP, arg2));
 	return true;
 }
 
@@ -1570,6 +1584,12 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_POP:
 			g(cgen_pop(ctx, insn_aux(insn)));
+			return true;
+		case INSN_PUSH2:
+			g(cgen_push2(ctx, insn_aux(insn)));
+			return true;
+		case INSN_POP2:
+			g(cgen_pop2(ctx, insn_aux(insn)));
 			return true;
 		case INSN_CALL_INDIRECT:
 			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_FF, OP_SIZE_4, false, X86_FF_CALL_INDIRECT, ctx->code_position));
