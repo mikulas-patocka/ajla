@@ -481,13 +481,13 @@ fn math_round(t : type, implicit cls : class_real_number(t), x : t) : t
 		if i bt 0 = is_negative x then
 			return i - (i and 1);
 	]
-	var xx := x + 0.5;
-	if xx = x + 1 then
-		return x;
-	var fl := math_floor(xx);
-	if fl = 0, is_negative(x) then
-		return -0.0;
-	return fl;
+
+	var fl := math_floor(x);
+	var ce := math_ceil(x);
+	if ce - x <= x - fl then
+		return ce;
+	else
+		return fl;
 ]
 
 fn math_ceil(t : type, implicit cls : class_real_number(t), x : t) : t
