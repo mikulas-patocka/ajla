@@ -290,7 +290,7 @@ static ipret_inline bool attr_unused cat4(REAL_unary_,fn,_,type)(const type *op1
 static ipret_inline void attr_unused cat4(REAL_unary_,fn,_,type)(const int_default_t *op1, type *res)\
 {									\
 	__asm__ ("							\n\
-		vcvtsi2sh		%1, %%xmm7, %%xmm0		\n\
+		vcvtsi2sh"#z"		%1, %%xmm7, %%xmm0		\n\
 		vmovsh			%%xmm0, %0			\n\
 	" : "=m"(*res) : "rm"(*op1) X86_ASM_XMM0_CLOB);			\
 }
