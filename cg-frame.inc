@@ -835,6 +835,7 @@ static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned offset
 {
 	unsigned idx;
 	size_t i;
+	int attr_unused reg_to_push = -1;
 	ajla_assert_lo(ctx->upcall_args == -1, (file_line, "gen_upcall_start: gen_upcall_end not called"));
 	ajla_assert_lo(ctx->upcall_offset == -1, (file_line, "gen_upcall_start: gen_upcall_end not called"));
 	ctx->upcall_args = (int)args;
@@ -856,14 +857,17 @@ static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned offset
 		if (!reg_is_fp(reg)) {
 			if (ctx->upcall_hacked_abi && !reg_is_saved(reg))
 				continue;
-			gen_insn(INSN_PUSH, OP_SIZE_8, 1, 0);
-			gen_one(reg);
+			if (reg_to_push < 0) {
+				reg_to_push = reg;
+			} else {
+				g(gen_x86_push2(ctx, reg_to_push, reg, true));
+				reg_to_push = -1;
+			}
 			ctx->n_pushes++;
 		}
 	}
 	if (ctx->n_pushes & 1) {
-		gen_insn(INSN_PUSH, OP_SIZE_8, 1, 0);
-		gen_one(R_CX);
+		g(gen_x86_push2(ctx, reg_to_push, R_CX, true));
 	}
 #else
 	for (i = 0; i < ctx->need_spill_l; i++)
@@ -875,13 +879,13 @@ static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned offset
 static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned attr_unused offset, unsigned attr_unused args)
 {
 	size_t i;
+	int attr_unused reg_to_pop = -1;
 	ajla_assert_lo(ctx->upcall_args == (int)args, (file_line, "gen_upcall_end: gen_upcall_start args mismatch: %d != %d", ctx->upcall_args, (int)args));
 	ajla_assert_lo(ctx->upcall_offset == (int)offset, (file_line, "gen_upcall_end: gen_upcall_start offset mismatch: %d != %d", ctx->upcall_offset, (int)offset));
 
 #if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI)
 	if (ctx->n_pushes & 1) {
-		gen_insn(INSN_POP, OP_SIZE_8, 1, 0);
-		gen_one(R_CX);
+		reg_to_pop = R_CX;
 	}
 	for (i = ctx->need_spill_l; i;) {
 		unsigned reg;
@@ -890,10 +894,15 @@ static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned attr_unu
 		if (!reg_is_fp(reg)) {
 			if (ctx->upcall_hacked_abi && !reg_is_saved(reg))
 				continue;
-			gen_insn(INSN_POP, OP_SIZE_8, 1, 0);
-			gen_one(reg);
+			if (reg_to_pop < 0) {
+				reg_to_pop = reg;
+			} else {
+				g(gen_x86_pop2(ctx, reg_to_pop, reg, true));
+				reg_to_pop = -1;
+			}
 		}
 	}
+	ajla_assert_lo(reg_to_pop == -1, (file_line, "gen_upcall_end: reg_to_pop mismatch"));
 	for (i = 0; i < ctx->need_spill_l; i++) {
 		unsigned reg = ctx->registers[ctx->need_spill[i]];
 		if (reg_is_fp(reg))
