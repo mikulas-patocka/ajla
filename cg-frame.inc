@@ -701,14 +701,16 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned attr
 			return true;
 		}
 #endif
-		gen_insn(INSN_SET_COND_PARTIAL, OP_SIZE_1, cond, 0);
-		gen_one(reg);
-		gen_one(reg);
-
-		if (sizeof(ajla_flat_option_t) > 1) {
-			g(gen_mov(ctx, OP_SIZE_1, reg, reg));
+		if (cpu_test_feature(CPU_FEATURE_apx)) {
+			gen_insn(INSN_SET_COND, OP_SIZE_8, cond, 0);
+			gen_one(reg);
+		} else {
+			gen_insn(INSN_SET_COND_PARTIAL, OP_SIZE_1, cond, 0);
+			gen_one(reg);
+			gen_one(reg);
+			if (sizeof(ajla_flat_option_t) > 1)
+				g(gen_mov(ctx, OP_SIZE_1, reg, reg));
 		}
-
 		return true;
 	}
 	offset = (size_t)slot * slot_size;

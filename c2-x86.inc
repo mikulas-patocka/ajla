@@ -175,6 +175,8 @@
 #define X86_0F_3A_PEXTRW_RM16_X128_IMM8	0x15
 #define X86_0F_3A_CVTPS2PH_RM64_X128	0x1d
 
+#define X86_LEGACY_EVEX_SETCC_R64	0x40
+
 #define X86_MAP5_MOVSH_X128_M16		0x10
 #define X86_MAP5_MOVSH_M16_X128		0x11
 #define X86_MAP5_CVTSI2SH_X128_RM16	0x2a
@@ -1719,9 +1721,13 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			cgen_one(X86_CWD);
 			return true;
 		case INSN_SET_COND:
-			if (unlikely(insn_op_size(insn) != OP_SIZE_1))
+			if (insn_op_size(insn) >= OP_SIZE_4) {
+				g(cgen_rm_insn(ctx, SSE_PREFIX_F2 | force_ndd, PREFIX_LEGACY_EVEX, X86_LEGACY_EVEX_SETCC_R64 + (insn_aux(insn) & 0xf), OP_SIZE_8, false, 0, ctx->code_position));
+			} else if (insn_op_size(insn) == OP_SIZE_1) {
+				g(cgen_rm_insn(ctx, -1, PREFIX_0F, X86_0F_SETCC_RM8 + (insn_aux(insn) & 0xf), OP_SIZE_1, false, 0, ctx->code_position));
+			} else {
 				goto invalid_insn;
-			g(cgen_rm_insn(ctx, -1, PREFIX_0F, X86_0F_SETCC_RM8 + (insn_aux(insn) & 0xf), OP_SIZE_1, false, 0, ctx->code_position));
+			}
 			ctx->code_position += arg_size(*ctx->code_position);
 			return true;
 		case INSN_SET_COND_PARTIAL:
