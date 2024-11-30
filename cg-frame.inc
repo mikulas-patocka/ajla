@@ -856,13 +856,13 @@ static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned offset
 		if (!reg_is_fp(reg)) {
 			if (ctx->upcall_hacked_abi && !reg_is_saved(reg))
 				continue;
-			gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
+			gen_insn(INSN_PUSH, OP_SIZE_8, 1, 0);
 			gen_one(reg);
 			ctx->n_pushes++;
 		}
 	}
 	if (ctx->n_pushes & 1) {
-		gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
+		gen_insn(INSN_PUSH, OP_SIZE_8, 1, 0);
 		gen_one(R_CX);
 	}
 #else
@@ -880,7 +880,7 @@ static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned attr_unu
 
 #if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI)
 	if (ctx->n_pushes & 1) {
-		gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
+		gen_insn(INSN_POP, OP_SIZE_8, 1, 0);
 		gen_one(R_CX);
 	}
 	for (i = ctx->need_spill_l; i;) {
@@ -890,7 +890,7 @@ static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned attr_unu
 		if (!reg_is_fp(reg)) {
 			if (ctx->upcall_hacked_abi && !reg_is_saved(reg))
 				continue;
-			gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
+			gen_insn(INSN_POP, OP_SIZE_8, 1, 0);
 			gen_one(reg);
 		}
 	}
@@ -1191,8 +1191,7 @@ next_loop:
 	}
 #if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI)
 	if (cpu_test_feature(CPU_FEATURE_erms)) {
-		gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-		gen_one(R_DI);
+		g(gen_x86_push(ctx, R_DI, true));
 
 		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_DI, dest_base, dest_offset, 0));
 
@@ -1207,8 +1206,7 @@ next_loop:
 		gen_one(R_CX);
 		gen_one(R_AX);
 
-		gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-		gen_one(R_DI);
+		g(gen_x86_pop(ctx, R_DI, true));
 
 		return true;
 	}

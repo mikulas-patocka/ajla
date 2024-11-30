@@ -334,20 +334,43 @@ static bool is_direct_const(int64_t attr_unused imm, unsigned attr_unused purpos
 #endif
 }
 
+static bool attr_w gen_x86_push(struct codegen_context *ctx, unsigned reg, bool forwarding)
+{
+	gen_insn(INSN_PUSH, OP_SIZE_NATIVE, forwarding, 0);
+	gen_one(reg);
+	return true;
+}
+
+static bool attr_w gen_x86_pop(struct codegen_context *ctx, unsigned reg, bool forwarding)
+{
+	gen_insn(INSN_POP, OP_SIZE_NATIVE, forwarding, 0);
+	gen_one(reg);
+	return true;
+}
+
+static bool attr_w gen_x86_push2(struct codegen_context *ctx, unsigned reg1, unsigned reg2, bool forwarding)
+{
+	gen_insn(INSN_PUSH, OP_SIZE_NATIVE, forwarding, 0);
+	gen_one(reg1);
+	gen_insn(INSN_PUSH, OP_SIZE_NATIVE, forwarding, 0);
+	gen_one(reg2);
+	return true;
+}
+
+static bool attr_w gen_x86_pop2(struct codegen_context *ctx, unsigned reg1, unsigned reg2, bool forwarding)
+{
+	gen_insn(INSN_POP, OP_SIZE_NATIVE, forwarding, 0);
+	gen_one(reg1);
+	gen_insn(INSN_POP, OP_SIZE_NATIVE, forwarding, 0);
+	gen_one(reg2);
+	return true;
+}
+
 static bool attr_w gen_entry(struct codegen_context *ctx)
 {
 #if defined(ARCH_X86_32)
-	gen_insn(INSN_PUSH, OP_SIZE_4, 0, 0);
-	gen_one(R_BX);
-
-	gen_insn(INSN_PUSH, OP_SIZE_4, 0, 0);
-	gen_one(R_BP);
-
-	gen_insn(INSN_PUSH, OP_SIZE_4, 0, 0);
-	gen_one(R_SI);
-
-	gen_insn(INSN_PUSH, OP_SIZE_4, 0, 0);
-	gen_one(R_DI);
+	g(gen_x86_push2(ctx, R_BX, R_BP, true));
+	g(gen_x86_push2(ctx, R_SI, R_DI, true));
 
 	gen_insn(INSN_ALU, OP_SIZE_4, ALU_SUB, 1);
 	gen_one(R_SP);
@@ -366,35 +389,13 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(R_SP);
 	gen_eight(ARG_SPACE + ARG_OFFSET + 12);
 #elif defined(ARCH_X86_WIN_ABI)
-	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_BX);
-
-	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_BP);
-
-	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_SI);
-
-	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_DI);
-
-	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_R12);
-
-	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_R13);
-
-	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_R14);
-
-	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_R15);
-
-	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_ARG0);
+	g(gen_x86_push(ctx, R_BX, true));
+	g(gen_x86_push2(ctx, R_BP, R_SI, true));
+	g(gen_x86_push2(ctx, R_DI, R_R12, true));
+	g(gen_x86_push2(ctx, R_R13, R_R14, true));
+	g(gen_x86_push2(ctx, R_R15, R_ARG0, true));
 #ifndef TIMESTAMP_IN_REGISTER
-	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_ARG3);
+	g(gen_x86_push(ctx, R_ARG3, false));
 #endif
 	gen_insn(INSN_ALU, OP_SIZE_8, ALU_SUB, 1);
 	gen_one(R_SP);
@@ -419,26 +420,10 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(R_SP);
 	gen_eight(ARG_OFFSET);
 #else
-	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_BX);
-
-	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_BP);
-
-	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_R12);
-
-	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_R13);
-
-	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_R14);
-
-	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_R15);
-
-	gen_insn(INSN_PUSH, OP_SIZE_8, 0, 0);
-	gen_one(R_ARG2);
+	g(gen_x86_push(ctx, R_BX, true));
+	g(gen_x86_push2(ctx, R_BP, R_R12, true));
+	g(gen_x86_push2(ctx, R_R13, R_R14, true));
+	g(gen_x86_push2(ctx, R_R15, R_ARG2, false));
 
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_FRAME);
@@ -497,17 +482,8 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_one(ARG_IMM);
 	gen_eight(ARG_SPACE);
 
-	gen_insn(INSN_POP, OP_SIZE_4, 0, 0);
-	gen_one(R_DI);
-
-	gen_insn(INSN_POP, OP_SIZE_4, 0, 0);
-	gen_one(R_SI);
-
-	gen_insn(INSN_POP, OP_SIZE_4, 0, 0);
-	gen_one(R_BP);
-
-	gen_insn(INSN_POP, OP_SIZE_4, 0, 0);
-	gen_one(R_BX);
+	g(gen_x86_pop2(ctx, R_DI, R_SI, true));
+	g(gen_x86_pop2(ctx, R_BP, R_BX, true));
 
 	gen_insn(INSN_RET, 0, 0, 0);
 #elif defined(ARCH_X86_WIN_ABI)
@@ -520,8 +496,7 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 #else
 	gen_eight(ARG_SPACE + 8);
 #endif
-	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_AX);
+	g(gen_x86_pop2(ctx, R_AX, R_R15, true));
 
 	gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
 	gen_one(ARG_ADDRESS_1);
@@ -535,29 +510,10 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_eight(8);
 	gen_one(R_DX);
 
-	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_R15);
-
-	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_R14);
-
-	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_R13);
-
-	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_R12);
-
-	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_DI);
-
-	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_SI);
-
-	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_BP);
-
-	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_BX);
+	g(gen_x86_pop2(ctx, R_R14, R_R13, true));
+	g(gen_x86_pop2(ctx, R_R12, R_DI, true));
+	g(gen_x86_pop2(ctx, R_SI, R_BP, true));
+	g(gen_x86_pop(ctx, R_BX, true));
 
 	gen_insn(INSN_RET, 0, 0, 0);
 #else
@@ -571,26 +527,10 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_one(R_AX);
 	gen_one(R_FRAME);
 #endif
-	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_CX);
-
-	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_R15);
-
-	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_R14);
-
-	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_R13);
-
-	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_R12);
-
-	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_BP);
-
-	gen_insn(INSN_POP, OP_SIZE_8, 0, 0);
-	gen_one(R_BX);
+	g(gen_x86_pop2(ctx, R_CX, R_R15, false));
+	g(gen_x86_pop2(ctx, R_R14, R_R13, true));
+	g(gen_x86_pop2(ctx, R_R12, R_BP, true));
+	g(gen_x86_pop(ctx, R_BX, true));
 
 	gen_insn(INSN_RET, 0, 0, 0);
 #endif

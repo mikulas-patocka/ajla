@@ -490,18 +490,26 @@ static bool attr_w cgen_sse_insn(struct codegen_context *ctx, unsigned sse_prefi
 	return true;
 }
 
-static bool attr_w cgen_push(struct codegen_context *ctx)
+static bool attr_w cgen_push(struct codegen_context *ctx, unsigned aux)
 {
 	uint8_t *arg1 = ctx->code_position;
 	ctx->code_position += arg_size(*arg1);
+	if (!cpu_test_feature(CPU_FEATURE_apx))
+		aux = 0;
 	if (likely(R_IS_GPR(arg1[0]))) {
 		uint8_t rex2 = 0;
 		if (arg1[0] & 8)
 			rex2 |= X86_REX2_B3;
 		if (arg1[0] & 16)
 			rex2 |= X86_REX2_B4;
-		if (rex2)
+		if (aux)
+			rex2 |= X86_REX2_W;
+		if (aux) {
+			cgen_one(X86_REX2);
+			cgen_one(rex2);
+		} else if (rex2) {
 			g(cgen_rex2(ctx, rex2));
+		}
 		cgen_one(X86_PUSH_R16 + (arg1[0] & 7));
 		return true;
 	}
@@ -524,18 +532,26 @@ static bool attr_w cgen_push(struct codegen_context *ctx)
 	return true;
 }
 
-static bool attr_w cgen_pop(struct codegen_context *ctx)
+static bool attr_w cgen_pop(struct codegen_context *ctx, unsigned aux)
 {
 	uint8_t *arg1 = ctx->code_position;
 	ctx->code_position += arg_size(*arg1);
+	if (!cpu_test_feature(CPU_FEATURE_apx))
+		aux = 0;
 	if (likely(R_IS_GPR(arg1[0]))) {
 		uint8_t rex2 = 0;
 		if (arg1[0] & 8)
 			rex2 |= X86_REX2_B3;
 		if (arg1[0] & 16)
 			rex2 |= X86_REX2_B4;
-		if (rex2)
+		if (aux)
+			rex2 |= X86_REX2_W;
+		if (aux) {
+			cgen_one(X86_REX2);
+			cgen_one(rex2);
+		} else if (rex2) {
 			g(cgen_rex2(ctx, rex2));
+		}
 		cgen_one(X86_POP_R16 + (arg1[0] & 7));
 		return true;
 	}
@@ -1550,10 +1566,10 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			cgen_two(imm16);
 			return true;
 		case INSN_PUSH:
-			g(cgen_push(ctx));
+			g(cgen_push(ctx, insn_aux(insn)));
 			return true;
 		case INSN_POP:
-			g(cgen_pop(ctx));
+			g(cgen_pop(ctx, insn_aux(insn)));
 			return true;
 		case INSN_CALL_INDIRECT:
 			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_FF, OP_SIZE_4, false, X86_FF_CALL_INDIRECT, ctx->code_position));
