@@ -2236,7 +2236,7 @@ fn floating_add(ex_bits sig_bits : int, x1 x2 : floating_base) : floating_base
 	if e2 = max_exp(ex_bits, sig_bits) then [
 		if e1 = max_exp(ex_bits, sig_bits), neg1 <> neg2 then
 			abort exception_make(floating_base, ec_sync, error_nan, 0, true);
-	] else if e2 - e1 <= sig_bits then [
+	] else if e2 - e1 <= sig_bits + 1 then [
 		s2 shl= e2 - e1;
 		e2 := e1;
 		if neg1 <> neg2 then [
