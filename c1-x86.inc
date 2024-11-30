@@ -334,7 +334,7 @@ static bool is_direct_const(int64_t attr_unused imm, unsigned attr_unused purpos
 #endif
 }
 
-static bool attr_w gen_x86_push(struct codegen_context *ctx, unsigned reg, bool forwarding)
+static bool attr_w attr_unused gen_x86_push(struct codegen_context *ctx, unsigned reg, bool forwarding)
 {
 	if (!cpu_test_feature(CPU_FEATURE_apx))
 		forwarding = false;
@@ -343,7 +343,7 @@ static bool attr_w gen_x86_push(struct codegen_context *ctx, unsigned reg, bool 
 	return true;
 }
 
-static bool attr_w gen_x86_pop(struct codegen_context *ctx, unsigned reg, bool forwarding)
+static bool attr_w attr_unused gen_x86_pop(struct codegen_context *ctx, unsigned reg, bool forwarding)
 {
 	if (!cpu_test_feature(CPU_FEATURE_apx))
 		forwarding = false;
