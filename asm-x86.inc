@@ -91,11 +91,6 @@
 #define dynamic_test		(likely(cpu_test_feature(CPU_FEATURE_avx)) && likely(cpuid_7_1[3] & (1U << 21)) && likely(test_xcr0(0xa0)))
 #include "asm-1.inc"
 
-#define feature_name		fp_regs_32
-#define static_test_fp_regs_32	(static_test_avx512vl || static_test_avx10)
-#define dynamic_test		(likely(cpu_test_feature(CPU_FEATURE_avx512vl)) || likely(cpu_test_feature(CPU_FEATURE_avx10)))
-#include "asm-1.inc"
-
 #define feature_name		fp16
 #define static_test_fp16	(__AVX512FP16__ || static_test_avx10)
 #define dynamic_test		((likely(cpu_test_feature(CPU_FEATURE_avx512)) && likely(cpuid_7[3] & (1U << 23))) || likely(cpu_test_feature(CPU_FEATURE_avx10)))
