@@ -24,10 +24,10 @@ fn self_optimize(w : world, dir : dhandle) : world;
 
 implementation
 
+uses compiler.common.evaluate;
 uses compiler.parser.unit;
 uses compiler.parser.util;
 uses compiler.optimize.utils;
-uses compiler.optimize.evaluate;
 uses compiler.optimize.ssa;
 
 fn read_dir_recursive(d : dhandle) : list(bytes)

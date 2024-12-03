@@ -18,9 +18,9 @@
 
 private unit compiler.compiler;
 
+uses compiler.common.evaluate;
 uses compiler.parser.dict;
 uses compiler.optimize.defs;
-uses compiler.optimize.evaluate;
 
 fn optimize_function(path_idx : int, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t);
 fn get_unoptimized_function(path_idx : int, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t);

@@ -39,7 +39,7 @@ fn dump_basic_blocks(ctx : context, dump_it : bool) : list(pcode_t);
 implementation
 
 uses exception;
-uses compiler.optimize.evaluate;
+uses compiler.common.evaluate;
 uses compiler.parser.util;
 
 fn blob_length(blob : list(pcode_t)) : int

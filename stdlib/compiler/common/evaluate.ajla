@@ -16,7 +16,7 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  *}
 
-private unit compiler.optimize.evaluate;
+private unit compiler.common.evaluate;
 
 uses pcode;
 

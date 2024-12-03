@@ -27,9 +27,9 @@ implementation
 
 uses exception;
 uses compiler.optimize.utils;
-uses compiler.optimize.evaluate;
 uses compiler.optimize.inline;
 uses compiler.common.gvn;
+uses compiler.common.evaluate;
 
 fn mtos(x : var_set) : bytes
 [
