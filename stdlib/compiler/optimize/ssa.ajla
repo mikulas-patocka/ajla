@@ -1038,6 +1038,36 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 			//str := "vr:"; for i := 0 to len(params) do [ str += " " + ntos(params[i]); ]; eval debug(str);
 			return create_instr(P_Load_Const, params, ins.bb), true;
 		]
+		if v1.runtime_type = T_AlwaysFlatOption then [
+			var c res : int;
+			var op := ins.params[0];
+			if v1_ins.opcode = P_Load_Const then [
+				c := blob_to_int(v1_ins.params[1 .. ]);
+			] else if v2_ins.opcode = P_Load_Const then [
+				c := blob_to_int(v2_ins.params[1 .. ]);
+				op := operator_swap(op);
+			] else [
+				goto skip_bool;
+			]
+			if op = Bin_And, c = 0 then [
+				res := 0;
+			] else if op = Bin_Or, c = 1 then [
+				res := 1;
+			] else if op = Bin_Less, c = 1 then [
+				res := 0;
+			] else if op = Bin_LessEqual, c = 0 then [
+				res := 1;
+			] else if op = Bin_Greater, c = 0 then [
+				res := 0;
+			] else if op = Bin_GreaterEqual, c = 1 then [
+				res := 1;
+			] else [
+				goto skip_bool;
+			]
+			var params := list(pcode_t).[ ins.params[1] ] + int_to_blob(res);
+			return create_instr(P_Load_Const, params, ins.bb), true;
+skip_bool:
+		]
 		if v1.runtime_type <= T_SInt8, v1.runtime_type >= T_Integer128, v2_ins.opcode = P_Load_Const then [
 			var i := blob_to_int(v2_ins.params[1 .. ]);
 			//if v1.runtime_type <= T_SInt8, v1.runtime_type >= T_UInt128 then eval debug("evaluating constant " + ntos(i));
