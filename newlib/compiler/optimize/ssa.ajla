@@ -26,10 +26,11 @@ fn process_pcode(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcod
 implementation
 
 uses exception;
-uses compiler.optimize.utils;
-uses compiler.optimize.inline;
+uses compiler.common.blob;
 uses compiler.common.gvn;
 uses compiler.common.evaluate;
+uses compiler.optimize.utils;
+uses compiler.optimize.inline;
 
 fn mtos(x : var_set) : bytes
 [

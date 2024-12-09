@@ -24,6 +24,7 @@ fn self_optimize(w : world, dir : dhandle) : world;
 
 implementation
 
+uses compiler.common.blob;
 uses compiler.common.evaluate;
 uses compiler.parser.unit;
 uses compiler.parser.util;
