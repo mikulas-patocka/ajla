@@ -360,7 +360,7 @@ fn list_array_get_index(ctx : function_context, vd : variable_dictionary, cc : c
 		]
 		var index_expression := empty(token);
 		if n_idxs = 0 then [
-			ctx, ai := generate_Load_Const(ctx, T_Integer, integer_to_blob(0));
+			ctx, ai := generate_Load_Const(ctx, T_Integer, int_to_blob(0));
 		] else [
 			// [ a, b, c ] -> ((c) * ib + b) * ia + a
 			for ii := 0 to n_idxs do [
@@ -628,7 +628,7 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 				abort compiler_error("Option field " + i_decode(field) + " requires a value", t);
 			]
 			var l : int;
-			ctx, l := generate_Load_Const(ctx, a, integer_to_blob(idx));
+			ctx, l := generate_Load_Const(ctx, a, int_to_blob(idx));
 			return ctx, [ l ];
 		]
 
@@ -792,7 +792,7 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 
 			var str := t[0].t.string;
 			var l : int;
-			ctx, l := generate_Array_String(ctx, blob_generate(str));
+			ctx, l := generate_Array_String(ctx, blob_store(str));
 			return ctx, [ l ];
 		]
 		if t[0].t is unicode then [

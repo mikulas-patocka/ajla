@@ -25,6 +25,7 @@ fn generate_pcode(fd : function_dictionary) : list(list(pcode_t));
 
 implementation
 
+uses compiler.common.blob;
 uses compiler.parser.util;
 
 fn dump_function(def : function_definition) : list(pcode_t)
@@ -51,7 +52,7 @@ fn dump_function(def : function_definition) : list(pcode_t)
 		if ctx.record_def.j.always_flat_option then
 			result[0] or= Fn_AlwaysFlatOption;
 	]
-	result += blob_generate(i_decode(ctx.name));
+	result += blob_store(i_decode(ctx.name));
 
 	for i := 0 to len(ctx.lambdas) do [
 		var pc := dump_function(ctx.lambdas[i]);
@@ -77,7 +78,7 @@ fn dump_function(def : function_definition) : list(pcode_t)
 			color,
 			0,
 		];
-		result += blob_generate(i_decode(v.name));
+		result += blob_store(i_decode(v.name));
 	]
 	for i := 0 to len(ctx.instructions) do [
 		var ins := ctx.instructions[i];

@@ -21,9 +21,6 @@ private unit compiler.parser.util;
 uses pcode;
 
 fn get_call_mode(l : list(bytes), fn_def : bool) : int;
-fn blob_generate(blob : bytes) : list(pcode_t);
-fn blob_decode(p : list(pcode_t)) : bytes;
-fn blob_get_length(p : list(pcode_t)) : int;
 
 implementation
 
@@ -43,41 +40,4 @@ fn get_call_mode(l : list(bytes), fn_def : bool) : int
 		else if s = "flat", fn_def then call_mode := Call_Mode_Flat;
 	]
 	return call_mode;
-]
-
-fn blob_generate(blob : bytes) : list(pcode_t)
-[
-	var result := list(pcode_t).[ len(blob) ];
-	var val : pcode_t := 0;
-	for i := 0 to len(blob) do [
-		var b : pcode_t := blob[i];
-		val or= b shl ((i and 3) * 8);
-		if (i and 3) = 3 then [
-			result +<= val;
-			val := 0;
-		]
-	]
-	if (len(blob) and 3) <> 0 then [
-		result +<= val;
-	]
-	return result;
-]
-
-fn blob_decode(p : list(pcode_t)) : bytes
-[
-	var result := empty(byte);
-	var val : pcode_t := 0;
-	for i := 0 to p[0] do [
-		if (i and 3) = 0 then
-			val := p[1 + (i shr 2)];
-		result +<= val and #ff;
-		val shr= 8;
-	]
-	return result;
-]
-
-fn blob_get_length(p : list(pcode_t)) : int
-[
-	var p0 : int := p[0];
-	return p0 + 7 shr 2;
 ]

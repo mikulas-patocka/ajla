@@ -80,7 +80,7 @@ fn function_pcode(params : list(pcode_t)) : list(pcode_t)
 fn function_name(params : list(pcode_t)) : bytes
 [
 	var pc := function_pcode(params);
-	return blob_decode(pc[9 .. ]);
+	return blob_load(pc[9 .. ]);
 ]
 
 fn function_extract_nested(pc : list(pcode_t), fn_idx : list(int)) : list(pcode_t)

@@ -48,7 +48,6 @@ fn pcode_Call_get_return_value(ins : instruction, i : int) : int;
 fn pcode_Call_find_return_index(ins : instruction, ret_var : int) : int;
 fn pcode_Call_quick_compare(in1 in2 : instruction) : bool;
 
-fn integer_to_blob(val : int) : list(pcode_t);
 fn constant_to_blob(str : bytes) : (list(pcode_t), int);
 fn generate_Load_Const(ctx : function_context, typ : int, blob : list(pcode_t)) : (function_context, int);
 fn pcode_Load_Const_get_blob(ins : instruction) : list(pcode_t);
@@ -110,11 +109,12 @@ implementation
 
 uses pcode;
 uses private.show;
+uses compiler.common.blob;
+uses compiler.common.gvn;
 uses compiler.parser.type;
 uses compiler.parser.alloc;
 uses compiler.parser.gen;
 uses compiler.parser.util;
-uses compiler.common.gvn;
 
 fn variable_is_suitable_for_gvn(ctx : function_context, v : int) : bool
 [
@@ -129,7 +129,7 @@ fn variable_is_suitable_for_gvn(ctx : function_context, v : int) : bool
 fn generate_function_id(id : function_unique_id) : list(pcode_t)
 [
 	var result := list(pcode_t).[ (id.path_index shl 1) + select(id.program, 0, 1) ];
-	result += blob_generate(i_decode(id.unit_string));
+	result += blob_store(i_decode(id.unit_string));
 	result +<= len(id.function_index);
 	for i := 0 to len(id.function_index) do
 		result +<= id.function_index[i];
@@ -141,17 +141,17 @@ fn decode_function_id(p : list(pcode_t)) : function_unique_id
 	var fui := function_unique_id.[
 		path_index : p[0] shr 1,
 		program : (p[0] and 1) <> 0,
-		unit_string : i_encode(blob_decode(p[1 .. ])),
-		function_index : fill(0, p[1 + blob_get_length(p[1 .. ])]),
+		unit_string : i_encode(blob_load(p[1 .. ])),
+		function_index : fill(0, p[1 + blob_length(p[1 .. ])]),
 	];
 	for i := 0 to len(fui.function_index) do
-		fui.function_index[i] := p[1 + blob_get_length(p[1 .. ]) + 1 + i];
+		fui.function_index[i] := p[1 + blob_length(p[1 .. ]) + 1 + i];
 	return fui;
 ]
 
 fn length_of_function_id(p : list(pcode_t)) : int
 [
-	var bl := blob_get_length(p[1 .. ]);
+	var bl := blob_length(p[1 .. ]);
 	return 1 + bl + 1 + p[1 + bl];
 ]
 
@@ -528,28 +528,6 @@ fn pcode_Call_find_return_index(ins : instruction, ret_var : int) : int
 	abort internal("Variable not found in return values");
 ]
 
-fn integer_to_blob(val : int) : list(pcode_t)
-[
-	var buffer := empty(byte);
-	var by : byte := 0;
-
-	while val <> 0, val <> -1 do [
-		by := val and #ff;
-		val shr= 8;
-		buffer +<= by;
-	]
-
-	if val >= 0 then [
-		if (by and #80) <> 0 then
-			buffer +<= 0;
-	] else [
-		if (by and #80) <> #80 then
-			buffer +<= #ff;
-	]
-
-	return blob_generate(buffer);
-]
-
 fn bytes_to_float(t : type, implicit c : class_real_number(t), a : bytes) : t
 [
 	if a[0] = '#' then
@@ -593,7 +571,7 @@ fn real_to_blob(str : bytes) : (list(pcode_t), int)
 	const sb := sig_bits;
 	var f := bytes_to_float(floating(eb, sb), instance_real_number_floating(eb, sb), str);
 	var fb := floating_internal(eb, sb, f);
-	return integer_to_blob(fb), t;
+	return int_to_blob(fb), t;
 ]
 
 fn constant_to_blob(str : bytes) : (list(pcode_t), int)
@@ -624,7 +602,7 @@ fn constant_to_blob(str : bytes) : (list(pcode_t), int)
 		val := val * base + v;
 	]
 
-	return integer_to_blob(val), T_Integer;
+	return int_to_blob(val), T_Integer;
 ]
 
 fn generate_Load_Const(ctx : function_context, typ : int, blob : list(pcode_t)) : (function_context, int)
@@ -915,7 +893,7 @@ fn pcode_Option_Ord_get_option(ins : instruction) : int
 fn generate_Array_Create(ctx : function_context, lt at : int, fields : list(int), t : tokens) : (function_context, int)
 [
 	var array_length := len(fields);
-	var blob := integer_to_blob(array_length);
+	var blob := int_to_blob(array_length);
 	var c l : int;
 	ctx, c := generate_Load_Const(ctx, T_Integer, blob);
 	ctx, l := alloc_local_variable(ctx, at, true, false);
