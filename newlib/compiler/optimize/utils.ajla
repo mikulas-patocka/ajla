@@ -44,7 +44,7 @@ uses compiler.parser.util;
 
 fn blob_length(blob : list(pcode_t)) : int
 [
-	return 1 + (blob[0] + 3) div 4;
+	return 1 + (blob[0] + 3 shr 2);
 ]
 
 fn blob_load(blob : list(pcode_t)) : bytes

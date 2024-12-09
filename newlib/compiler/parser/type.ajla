@@ -71,6 +71,10 @@ fn empty_compare_context : compare_context;
 fn get_defined_maybe(cc : compare_context, typ : int) : maybe(instruction);
 fn get_defined(cc : compare_context, typ : int) : instruction;
 
+const gbd_const_flag := 62;
+const gbd_const_type := 63;
+const gbd_const_blob := 71;
+fn typ_is_const(typ : int) : bool;
 fn get_base_definition(ctx : function_context, cc : compare_context, typ : int, want_record : bool) : (compare_context, int);
 fn get_deep_type_of_var(ctx : function_context, v : int) : (compare_context, int);
 
@@ -92,6 +96,7 @@ uses compiler.parser.gen;
 uses compiler.parser.gen2;
 uses compiler.parser.alloc;
 uses compiler.parser.function;
+uses compiler.common.evaluate;
 uses exception;
 
 fn get_type_of_var(ctx : function_context, v : int) : int
@@ -215,9 +220,12 @@ fn empty_compare_context : compare_context
 ]
 
 
+fn typ_is_const(typ : int) : bool := typ < 0 or typ >= 0 bts gbd_const_flag;
+
+
 fn get_defined_maybe(cc : compare_context, typ : int) : maybe(instruction)
 [
-	if typ < 0 then
+	if typ_is_const(typ) then
 		return maybe(instruction).n;
 	var va := cc.ctx.variables[typ];
 	var def_at := va.defined_at;
@@ -322,6 +330,42 @@ fail:
 ]
 
 
+fn encode_constant(t : int, cnst : list(pcode_t)) : int
+[
+	if not (t <= T_SInt8 and t >= T_Real128 or t = T_AlwaysFlatOption) then
+		abort internal("encode_constant: invalid type " + ntos(t));
+	var c := 0 bts gbd_const_flag;
+	c or= -t shl gbd_const_type;
+	for i := 0 to len(cnst) do [
+		var val : int := cnst[i];
+		if val < 0 then
+			val += #80000000;
+		c or= val shl gbd_const_blob + (i shl 5);
+	]
+	return c;
+]
+
+fn decode_constant(c : int) : (int, list(pcode_t))
+[
+	var t := -(c shr gbd_const_type and (1 shl gbd_const_blob - gbd_const_type) - 1);
+	c shr= gbd_const_blob;
+	var l := empty(pcode_t);
+	while true do [
+		var up := c and #ffffffff;
+		var p : pcode_t;
+		if up < #80000000 then
+			p := up;
+		else
+			p := up - #100000000;
+		l +<= p;
+		if len(l) >= 1 + (l[0] + 3 shr 2) then
+			break;
+		c shr= 32;
+	]
+	return t, l;
+]
+
+
 fn get_base_definition(ctx : function_context, cc : compare_context, typ : int, want_record : bool) : (compare_context, int)
 [
 restart_fail:
@@ -329,7 +373,7 @@ restart_fail:
 	var fail_typ := T_UnknownType;
 
 restart:
-	if typ < 0 then
+	if typ_is_const(typ) then
 		return cc, typ;
 
 	var cc_ctx := cc.ctx;
@@ -427,7 +471,52 @@ restart:
 
 		goto restart;
 	]
+	if opcode = P_Load_Const then [
+		var blob := pcode_Load_Const_get_blob(instr);
+		var t := get_type_of_var(cc_ctx, typ);
+		return cc, encode_constant(t, blob);
+	]
+	if opcode = P_BinaryOp then [
+		var t := get_type_of_var(cc_ctx, typ);
+		if not (t <= T_SInt8 and t >= T_Real128 or t = T_AlwaysFlatOption) then
+			goto skip_this;
+		var op := pcode_BinaryOp_get_op(instr);
+		var arg1 := pcode_BinaryOp_get_arg1(instr);
+		var arg2 := pcode_BinaryOp_get_arg2(instr);
+		var arg1_cc, arg1_typ := get_base_definition(ctx, cc, arg1, false);
+		var arg2_cc, arg2_typ := get_base_definition(ctx, cc, arg2, false);
+		if arg1_typ < 0 or arg2_typ < 0 then
+			goto skip_this;
+		if not (arg1_typ bt gbd_const_flag and arg2_typ bt gbd_const_flag) then
+			goto skip_this;
+		var t1, b1 := decode_constant(arg1_typ);
+		var t2, b2 := decode_constant(arg2_typ);
+		if t1 <> t2 then
+			goto skip_this;
+		var res := evaluate_binary(t1, t, op, b1, b2);
+		if is_exception res then
+			goto skip_this;
+		return empty_compare_context, encode_constant(t1, res);
+	]
+	if opcode = P_UnaryOp then [
+		var t := get_type_of_var(cc_ctx, typ);
+		if not (t <= T_SInt8 and t >= T_Real128 or t = T_AlwaysFlatOption) then
+			goto skip_this;
+		var op := pcode_UnaryOp_get_op(instr);
+		var arg1 := pcode_UnaryOp_get_arg(instr);
+		var arg1_cc, arg1_typ := get_base_definition(ctx, cc, arg1, false);
+		if arg1_typ < 0 then
+			goto skip_this;
+		if not arg1_typ bt gbd_const_flag then
+			goto skip_this;
+		var t1, b1 := decode_constant(arg1_typ);
+		var res := evaluate_unary(t1, t, op, b1);
+		if is_exception res then
+			goto skip_this;
+		return empty_compare_context, encode_constant(t1, res);
+	]
 
+skip_this:
 	if opcode = P_BinaryOp or
 	   opcode = P_UnaryOp or
 	   opcode = P_Copy_Type_Cast or
@@ -458,7 +547,7 @@ restart:
 fn get_deep_type_of_var(ctx : function_context, v : int) : (compare_context, int)
 [
 	var typ := get_type_of_var(ctx, v);
-	if typ < 0 then
+	if typ_is_const(typ) then
 		return empty_compare_context, typ;
 	var cc := new_compare_context(ctx);
 	return get_base_definition(ctx, cc, typ, true);
@@ -480,7 +569,7 @@ fn verify_type_equality(ctx : function_context,
 	if typ1 = T_UnknownType or typ2 = T_UnknownType then
 		return false, maybe_inferred.n;
 
-	if typ1 < 0 or typ2 < 0 then [
+	if typ_is_const(typ1) or typ_is_const(typ2) then [
 		if typ1 <= ctx.inferred_base and typ2 <= ctx.inferred_base then
 			abort internal("verify_type_equality: both variables are inference markers");
 		if typ1 <= ctx.inferred_base then [
@@ -989,6 +1078,13 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 
 	if typ < 0 then
 		return ctx, typ;
+
+	if typ_is_const(typ) then [
+		var tp, pc := decode_constant(typ);
+		var l : int;
+		ctx, l := generate_Load_Const(ctx, tp, pc);
+		return ctx, l;
+	]
 
 	var cc_ctx := cc.ctx;
 

@@ -1212,6 +1212,8 @@ static bool pcode_call(struct build_function_context *ctx, pcode_t instr)
 					break;
 				case Call_Mode_Strict:
 				case Call_Mode_Inline:
+				case Call_Mode_Type:
+				case Call_Mode_Flat:
 					code = OPCODE_CALL_STRICT;
 					break;
 				case Call_Mode_Spark:
@@ -1238,6 +1240,8 @@ static bool pcode_call(struct build_function_context *ctx, pcode_t instr)
 					break;
 				case Call_Mode_Strict:
 				case Call_Mode_Inline:
+				case Call_Mode_Type:
+				case Call_Mode_Flat:
 					code = OPCODE_CALL_INDIRECT_STRICT;
 					break;
 				case Call_Mode_Spark:

@@ -296,7 +296,8 @@ do_inline:
 			]
 		]
 	]
-	if did_something then goto again;
+	if did_something then
+		goto again;
 
 	return ctx;
 ]
