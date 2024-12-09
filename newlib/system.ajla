@@ -19,7 +19,7 @@
 unit system;
 
 // types hardcoded in type.ajla
-type bool;
+type xbool;
 type byte;
 type bytes;
 type char;
@@ -29,8 +29,8 @@ private type xarray~inline(dim : list(int), t : type);
 
 type array(t : type, dim : list(int)) := xarray(dim, t);
 
-const false : bool;
-const true : bool;
+const xfalse : xbool;
+const xtrue : xbool;
 
 type unit_type;
 const unit_value~inline : unit_type;
@@ -620,13 +620,13 @@ uses private.rational;
 uses private.fixed_point;
 uses private.math;
 
-option bool [
-	false;
-	true;
+option xbool [
+	xfalse;
+	xtrue;
 ]
 
-const false : bool := bool.false;
-const true : bool := bool.true;
+const xfalse : xbool := xbool.xfalse;
+const xtrue : xbool := xbool.xtrue;
 
 type unit_type := byte;
 const unit_value~inline : unit_type := 0;

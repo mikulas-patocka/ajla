@@ -60,6 +60,9 @@ option token_opt [
 	k_real64;
 	k_real80;
 	k_real128;
+	k_bool;
+	k_false;
+	k_true;
 	k_record;
 	k_option;
 	k_private;
@@ -187,6 +190,9 @@ fn token_opt_to_string(t : token_opt, us : bool) : bytes
 	else if t is k_real64 then str := "real64";
 	else if t is k_real80 then str := "real80";
 	else if t is k_real128 then str := "real128";
+	else if t is k_bool then str := "bool";
+	else if t is k_false then str := "false";
+	else if t is k_true then str := "true";
 	else if t is k_record then str := "record";
 	else if t is k_option then str := "option";
 	else if t is k_private then str := "private";
@@ -306,6 +312,9 @@ fn get_kwmap~cache : list(token_opt)
 	result[i_encode("real64")] := token_opt.k_real64;
 	result[i_encode("real80")] := token_opt.k_real80;
 	result[i_encode("real128")] := token_opt.k_real128;
+	result[i_encode("bool")] := token_opt.k_bool;
+	result[i_encode("false")] := token_opt.k_false;
+	result[i_encode("true")] := token_opt.k_true;
 	result[i_encode("record")] := token_opt.k_record;
 	result[i_encode("option")] := token_opt.k_option;
 	result[i_encode("private")] := token_opt.k_private;

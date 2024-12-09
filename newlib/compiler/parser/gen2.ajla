@@ -665,6 +665,7 @@ fn generate_std(ctx : function_context, index : int) : (function_context, int)
 
 fn generate_Bool(ctx : function_context) : (function_context, int)
 [
+	return ctx, T_AlwaysFlatOption;
 	return generate_std(ctx, predefined_bool);
 ]
 

@@ -703,6 +703,15 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 		if o >= ord token_opt.k_type, o <= ord token_opt.k_real128 then [
 			return ctx, [ T_Type - (o - ord token_opt.k_type) ];
 		]
+		if o = ord token_opt.k_bool then [
+			return ctx, [ T_AlwaysFlatOption ];
+		]
+		if t[0].t is k_false or t[0].t is k_true then [
+			var l : int;
+			var c, t := constant_to_blob(select(t[0].t is k_true, "0", "1"));
+			ctx, l := generate_Load_Const(ctx, T_AlwaysFlatOption, c);
+			return ctx, [ l ];
+		]
 
 		if t[0].t is identifier or t[0].t is oper then [
 
