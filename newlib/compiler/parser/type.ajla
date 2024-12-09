@@ -20,13 +20,12 @@ private unit compiler.parser.type;
 
 uses compiler.parser.dict;
 
-const predefined_bool : int := 0;
-const predefined_byte : int := 1;
-const predefined_bytes : int := 2;
-const predefined_char : int := 3;
-const predefined_string : int := 4;
-const predefined_list : int := 5;
-const predefined_xarray : int := 6;
+const predefined_byte : int := 0;
+const predefined_bytes : int := 1;
+const predefined_char : int := 2;
+const predefined_string : int := 3;
+const predefined_list : int := 4;
+const predefined_xarray : int := 5;
 
 type compare_context;
 
