@@ -451,10 +451,8 @@ fn parse_statement_modify(ctx : function_context, vd : variable_dictionary, modi
 
 fn evaluate_condition(ctx : function_context, vd : variable_dictionary, t : tokens, l_false l_exception : int) : (function_context, int)
 [
-	var bol : int;
-	ctx, bol := generate_Bool(ctx);
 	var cond : int;
-	ctx, cond := alloc_local_variable(ctx, bol, false, false);
+	ctx, cond := alloc_local_variable(ctx, T_AlwaysFlatOption, false, false);
 	while len(t) > 0 do [
 		var t1 : tokens;
 		t1, t := split_tokens(t, token_opt.comma);
@@ -463,7 +461,7 @@ fn evaluate_condition(ctx : function_context, vd : variable_dictionary, t : toke
 		ctx, a := parse_expression(ctx, vd, t1, false);
 
 		var typ := get_type_of_var(ctx, a);
-		if not verify_equality(ctx, typ, bol) then
+		if not verify_equality(ctx, typ, T_AlwaysFlatOption) then
 			abort compiler_error("boolean value expected", t1);
 
 		ctx := generate_Copy(ctx, a, cond);
@@ -793,12 +791,11 @@ fn parse_statement_goto(ctx : function_context, vd : variable_dictionary, t : to
 
 fn parse_statement_xeval(ctx : function_context, a : int) : function_context
 [
-	var l_exception l_else ab l : int;
+	var l_exception l_else l : int;
 	ctx, l_exception := alloc_local_label(ctx);
 	ctx, l_else := alloc_local_label(ctx);
-	ctx, ab := generate_Bool(ctx);
 
-	ctx, l := alloc_local_variable(ctx, ab, true, false);
+	ctx, l := alloc_local_variable(ctx, T_AlwaysFlatOption, true, false);
 	ctx := generate_UnaryOp(ctx, Un_IsException, a, l);
 	ctx := generate_Jmp_False(ctx, l, l_else, l_exception);
 
@@ -813,9 +810,8 @@ fn parse_statement_xeval(ctx : function_context, a : int) : function_context
 
 fn generate_abort(ctx : function_context) : function_context
 [
-	var ab l : int;
-	ctx, ab := generate_Bool(ctx);
-	ctx, l := alloc_local_variable(ctx, ab, true, false);
+	var l : int;
+	ctx, l := alloc_local_variable(ctx, T_AlwaysFlatOption, true, false);
 	ctx := generate_IO_Exception_Make(ctx, ec_sync, error_abort, 0, l);
 	ctx := generate_condition_exception(ctx, l, -1);
 	return ctx;

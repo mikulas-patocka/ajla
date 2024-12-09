@@ -85,13 +85,9 @@ fn get_local_type(ctx : function_context, i : int) : (function_context, int)
 
 fn generate_local_types(ctx : function_context) : function_context
 [
-	var ctx2, bol := generate_Bool(ctx);
 	for i := 0 to len(ctx.variables) do [
 		var lt : int;
-		if verify_equality(ctx2, get_type_of_var(ctx2, i), bol) then
-			lt := T_AlwaysFlatOption;
-		else
-			ctx, lt := get_local_type(ctx, i);
+		ctx, lt := get_local_type(ctx, i);
 		ctx.variables[i].local_type := lt;
 	]
 	return ctx;
