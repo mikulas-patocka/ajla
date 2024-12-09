@@ -33,6 +33,7 @@ implementation
 uses pcode;
 uses exception;
 uses charset;
+uses compiler.common.blob;
 uses compiler.parser.alloc;
 uses compiler.parser.util;
 uses compiler.parser.gen;
@@ -708,7 +709,7 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 		]
 		if t[0].t is k_false or t[0].t is k_true then [
 			var l : int;
-			var c, t := constant_to_blob(select(t[0].t is k_true, "0", "1"));
+			var c := int_to_blob(select(t[0].t is k_true, 0, 1));
 			ctx, l := generate_Load_Const(ctx, T_AlwaysFlatOption, c);
 			return ctx, [ l ];
 		]

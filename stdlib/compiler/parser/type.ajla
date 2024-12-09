@@ -91,11 +91,12 @@ fn get_list_id : function_unique_id;
 
 implementation
 
+uses compiler.common.blob;
+uses compiler.common.evaluate;
 uses compiler.parser.gen;
 uses compiler.parser.gen2;
 uses compiler.parser.alloc;
 uses compiler.parser.function;
-uses compiler.common.evaluate;
 uses exception;
 
 fn get_type_of_var(ctx : function_context, v : int) : int
@@ -357,7 +358,7 @@ fn decode_constant(c : int) : (int, list(pcode_t))
 		else
 			p := up - #100000000;
 		l +<= p;
-		if len(l) >= 1 + (l[0] + 3 shr 2) then
+		if len(l) >= blob_length(l) then
 			break;
 		c shr= 32;
 	]
