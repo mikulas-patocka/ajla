@@ -27,6 +27,7 @@ record treemap_key_value(key : type, value : type) [
 ]
 
 fn treemap_init(key : type, value : type, const cls : class_ord(key)) : treemap(key, value, cls);
+fn treemap_is_nonempty(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls)) : bool;
 fn treemap_test(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls), k : key) : bool;
 fn treemap_search(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls), k : key) : maybe(value);
 fn treemap_first(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls)) : maybe(treemap_key_value(key, value));
@@ -62,6 +63,7 @@ fn treemap_iterator_reverse~type(key : type, value : type, const cls : class_ord
 type treeset(key : type, cls : class_ord(key));
 
 fn treeset_init(key : type, const cls : class_ord(key)) : treeset(key, cls);
+fn treeset_is_nonempty(key : type, const cls : class_ord(key), ts : treeset(key, cls)) : bool;
 fn treeset_test(key : type, const cls : class_ord(key), ts : treeset(key, cls), k : key) : bool;
 fn treeset_first(key : type, const cls : class_ord(key), ts : treeset(key, cls)) : maybe(key);
 fn treeset_last(key : type, const cls : class_ord(key), ts : treeset(key, cls)) : maybe(key);
@@ -122,6 +124,11 @@ fn treemap_verify(key : type, value : type, const implicit cls : class_ord(key),
 fn treemap_init(key : type, value : type, const cls : class_ord(key)) : treemap(key, value, cls)
 [
 	return treemap(key, value, cls).n;
+]
+
+fn treemap_is_nonempty(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls)) : bool
+[
+	return tm is j;
 ]
 
 fn treemap_test(key : type, value : type, const implicit cls : class_ord(key), tm : treemap(key, value, cls), k : key) : bool
@@ -426,6 +433,7 @@ implicit fn instance_functor_treemap~inline(key : type, const cls : class_ord(ke
 type treeset(key : type, cls : class_ord(key)) := treemap(key, unit_type, cls);
 
 fn treeset_init(key : type, const cls : class_ord(key)) : treeset(key, cls) := treemap_init(key, unit_type, cls);
+fn treeset_is_nonempty(key : type, const cls : class_ord(key), ts : treeset(key, cls)) : bool := treemap_is_nonempty(ts);
 fn treeset_test(key : type, const cls : class_ord(key), ts : treeset(key, cls), k : key) : bool := treemap_test(ts, k);
 fn treeset_first(key : type, const cls : class_ord(key), ts : treeset(key, cls)) : maybe(key)
 [
