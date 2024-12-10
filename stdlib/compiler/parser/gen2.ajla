@@ -408,7 +408,7 @@ fn pcode_Call_Indirect_find_return_index(ins : instruction, ret_var : int) : int
 
 fn generate_Call(ctx : function_context, call_mode : int, fd : function_definition, args : list(int), t : tokens) : (function_context, list(int))
 [
-	if fd.call_mode = Call_Mode_Type or fd.call_mode = Call_Mode_Flat then
+	if fd.call_mode = Call_Mode_Flat then
 		call_mode := fd.call_mode;
 	else if call_mode = Call_Mode_Unspecified then
 		call_mode := fd.call_mode;

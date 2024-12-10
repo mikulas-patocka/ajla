@@ -1003,7 +1003,7 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 			var fn_spec_len := function_specifier_length(fn_ins.params[3 .. ]);
 			var fn_args := fn_ins.params[3 + fn_spec_len .. ];
 			var call_params := list(pcode_t).[ ins.params[0], ins.params[1], ins.params[2] + fn_ins.params[1]] + fn_ins.params[3 .. 3 + fn_spec_len] + fn_args + ins.params[5 .. ];
-			if fn_ins.params[2] = Call_Mode_Type or fn_ins.params[2] = Call_Mode_Flat then
+			if fn_ins.params[2] = Call_Mode_Flat then
 				call_params[0] := fn_ins.params[2];
 			else if call_params[0] = Call_Mode_Unspecified then
 				call_params[0] := fn_ins.params[2];

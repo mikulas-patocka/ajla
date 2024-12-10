@@ -467,19 +467,6 @@ fn compare_function_signatures(c1 c2 : function_context) : bool
 	return true;
 ]
 
-fn is_function_simple(ctx : function_context) : bool
-[
-	if ctx.n_labels > 1 then
-		return false;
-
-	for i := 0 to len(ctx.variables) do [
-		if ctx.variables[i].defined_at = defined_multiple or ctx.variables[i].mut then
-			return false;
-	]
-
-	return true;
-]
-
 fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_flag conversion_flag : bool) : function_dictionary
 [
 	var decl_type := t[0].t;
@@ -578,7 +565,7 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 		if decl_type is k_const and call_mode = Call_Mode_Unspecified then
 			call_mode := Call_Mode_Inline;
 		if (decl_type is k_type or decl_type is k_record or decl_type is k_option) and call_mode = Call_Mode_Unspecified then
-			call_mode := Call_Mode_Type;
+			call_mode := Call_Mode_Inline;
 
 		if function_context_is_privileged(ctx) then [
 			for i := 0 to len(post_hints) do [
@@ -610,10 +597,6 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 		if decl_type is k_fn or decl_type is k_type or decl_type is k_const or decl_type is k_operator then [
 			dict.defs[def.signature.id.function_index[0]].typ := Fn_Function;
 			ctx := parse_function_body(ctx, vd, t[b .. ]);
-			if def.call_mode = Call_Mode_Type or def.call_mode = Call_Mode_Flat then [
-				if not is_function_simple(ctx) then
-					abort compiler_error("Type function must be simple (no conditions and no non-const variables)", t);
-			]
 		] else if decl_type is k_record then [
 			dict.defs[def.signature.id.function_index[0]].typ := Fn_Record;
 			ctx := parse_record_definition(ctx, vd, false, t[b .. ]);
@@ -735,10 +718,6 @@ again:
 		variable_idx := exception_aux ctx_body;
 		goto add_variable_2;
 	]
-
-	if call_mode = Call_Mode_Type or call_mode = Call_Mode_Flat then
-		if not is_function_simple(ctx_body) then
-			abort compiler_error("Type function must be simple (no conditions and no non-const variables)", t);
 
 	ctx_body := generate_local_types(ctx_body);
 	ctx_body.incomplete := false;

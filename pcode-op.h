@@ -195,8 +195,7 @@
 #define Call_Mode_Inline		5
 #define Call_Mode_Cache			6
 #define Call_Mode_Save			7
-#define Call_Mode_Type			8
-#define Call_Mode_Flat			9
+#define Call_Mode_Flat			8
 
 #define SystemProperty_OS		1
 #define SystemProperty_Charset		2

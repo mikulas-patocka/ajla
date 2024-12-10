@@ -197,8 +197,7 @@ const Call_Mode_Lazy := 4;
 const Call_Mode_Inline := 5;
 const Call_Mode_Cache := 6;
 const Call_Mode_Save := 7;
-const Call_Mode_Type := 8;
-const Call_Mode_Flat := 9;
+const Call_Mode_Flat := 8;
 
 const SystemProperty_OS := 1;
 const SystemProperty_Charset := 2;
@@ -669,8 +668,7 @@ fn name_to_value~cache : list(int)
 	a[#878766CBF377E4CB7E4EED9A7765] := 5;					// Call_Mode_Inline
 	a[#10F0ECD97E6EFC996FC3C38F465] := 6;					// Call_Mode_Cache
 	a[#21E1D9B2FCDDF932DFA787B65] := 7;					// Call_Mode_Save
-	a[#21E1D9B2FCDDF932DFA9E7865] := 8;					// Call_Mode_Type
-	a[#21E1D9B2FCDDF932DF8DB30F4] := 9;					// Call_Mode_Flat
+	a[#21E1D9B2FCDDF932DF8DB30F4] := 8;					// Call_Mode_Flat
 
 	a[#53F3CFA65DB4396FE197974F37E7D3] := 1;				// SystemProperty_OS
 	a[#29F9E7D32EDA1CB7F0CBCBA79BF0F461E5CF2F4] := 2;			// SystemProperty_Charset

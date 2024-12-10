@@ -36,7 +36,6 @@ fn get_call_mode(l : list(bytes), fn_def : bool) : int
 		else if s = "inline" then call_mode := Call_Mode_Inline;
 		else if s = "cache" then call_mode := Call_Mode_Cache;
 		else if s = "save" then call_mode := Call_Mode_Save;
-		else if s = "type", fn_def then call_mode := Call_Mode_Type;
 		else if s = "flat", fn_def then call_mode := Call_Mode_Flat;
 	]
 	return call_mode;

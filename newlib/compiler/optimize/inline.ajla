@@ -276,7 +276,7 @@ again:
 			if ins.opcode = P_Call then [
 				//xeval debug("considering inline of " + ctx.name + " -> " + function_name(ins.params[3 .. ]) + ": " + ntos(ins.params[0]));
 				var call_mode := ins.params[0];
-				if call_mode = Call_Mode_Inline or call_mode = Call_Mode_Type or call_mode = Call_Mode_Flat then [
+				if call_mode = Call_Mode_Inline or call_mode = Call_Mode_Flat then [
 do_inline:
 					var progress : bool;
 					ctx, progress := do_inline(ctx, bgi, ili, call_mode, get_inline);
