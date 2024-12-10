@@ -36,7 +36,7 @@ fn mtos(x : var_set) : bytes
 [
 	var str := "(";
 	while x <> 0 do [
-		var v : int := bsr x;
+		var v : int := bsf x;
 		x btr= v;
 		if len(str) > 1 then
 			str += ",";
@@ -1782,10 +1782,11 @@ fn dve(ctx : context) : context
 				var p : int := bsr s;
 				s btr= p;
 				var typ := ins.params[p];
-				if typ >= 0, not ctx.variables[typ].needed then [
+				while typ >= 0, not ctx.variables[typ].needed do [
 					ctx.variables[typ].needed := true;
 					old_new[typ] := len(new_old);
 					new_old +<= typ;
+					typ := ctx.variables[typ].type_index;
 				]
 			]
 		]
