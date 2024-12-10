@@ -112,10 +112,10 @@ fn parse_statement_var(ctx : function_context, vd : variable_dictionary, cnst mu
 					var typ1 := get_type_of_var(ctx, al[al_idx]);
 					var cc2 := new_compare_context(ctx);
 					var typ2 := get_type_of_var(ctx, implicit_variables[i]);
-					var match, inferred := verify_type_equality(ctx,
+					var match := verify_type_equality(ctx,
 						cc1, typ1, empty(compare_fn_stack),
 						cc2, typ2, empty(compare_fn_stack));
-					if not match then
+					if not match is eq then
 						continue;
 					var l : int;
 					ctx, l := alloc_local_variable(ctx, typ1, false, false);
@@ -145,7 +145,7 @@ inferred:
 				ctx, v.idx := alloc_local_variable(ctx, get_type_of_var(ctx, al[i]), cnst, mut);
 				ctx, vd := add_variable(ctx, vd, v.name, v.idx, impl, t);
 			] else [
-				var inferred : maybe_inferred;
+				var inferred : teq;
 				ctx, al[i], inferred := convert_type(ctx, vd, al[i], new_compare_context(ctx), get_type_of_var(ctx, v.idx), 0, true, t);
 			]
 			if (cnst or mut) and not v.impl_assign then
@@ -370,10 +370,10 @@ fn parse_statement_assign(ctx : function_context, vd : variable_dictionary, can_
 				var typ1 := get_type_of_var(ctx, al[al_idx]);
 				var cc2 := new_compare_context(ctx);
 				var typ2 := get_type_of_var(ctx, implicit_variables[i]);
-				var match, inferred := verify_type_equality(ctx,
+				var match := verify_type_equality(ctx,
 					cc1, typ1, empty(compare_fn_stack),
 					cc2, typ2, empty(compare_fn_stack));
-				if not match then
+				if not match is eq then
 					continue;
 				var av := assign_variable.[
 					v : implicit_variables[i],
@@ -415,7 +415,7 @@ inferred:
 	for i := 0 to n do [
 		var av := avs[i];
 		var ax : int;
-		var inferred : maybe_inferred;
+		var inferred : teq;
 		ctx, ax, inferred := convert_type(ctx, vd, al[i], av.cc, av.typ, 0, true, expr);
 		if not av.deep_structured then [
 			ctx := generate_Copy(ctx, ax, av.v);
@@ -467,8 +467,8 @@ fn evaluate_condition(ctx : function_context, vd : variable_dictionary, t : toke
 		if ctx.is_pattern_matched then
 			ctx.pattern_matching_info[len(ctx.pattern_matching_info) - 1].conditions +<= a;
 
-		var typ := get_type_of_var(ctx, a);
-		if not verify_equality(ctx, typ, T_AlwaysFlatOption) then
+		var cc, typ := get_deep_type_of_var(ctx, a);
+		if typ <> T_AlwaysFlatOption then
 			abort compiler_error("boolean value expected", t1);
 
 		ctx := generate_Copy(ctx, a, cond);
@@ -762,7 +762,7 @@ fn parse_statement_return(ctx : function_context, vd : variable_dictionary, t : 
 			ctx.variables[v].type_idx := get_type_of_var(ctx, a[i]);
 			ax := a[i];
 		] else [
-			var inferred : maybe_inferred;
+			var inferred : teq;
 			ctx, ax, inferred := convert_type(ctx, vd, a[i], new_compare_context(ctx), get_type_of_var(ctx, v), 0, true, t);
 		]
 		ctx.pattern_matching_info[len(ctx.pattern_matching_info) - 1].return_values +<= ax;

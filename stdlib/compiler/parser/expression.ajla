@@ -231,7 +231,7 @@ fn record_list_create(ctx : function_context, vd : variable_dictionary, t : toke
 			] else [
 				var l1 : int;
 				ctx, l1 := parse_expression(ctx, vd, decls[idx], in_type);
-				var m : maybe_inferred;
+				var m : teq;
 				ctx, l, m := convert_type(ctx, vd, l1, cc, rec_def.entries[idx].type_idx, 0, true, decls[idx]);
 			]
 			fields[idx] := l;
@@ -263,7 +263,7 @@ fn record_list_create(ctx : function_context, vd : variable_dictionary, t : toke
 		decl, content := split_tokens(content, token_opt.comma);
 		var a : int;
 		ctx, a := parse_expression(ctx, vd, decl, in_type);
-		var m : maybe_inferred;
+		var m : teq;
 		ctx, a, m := convert_type(ctx, vd, a, type_cc, type_var, 0, true, decl);
 		fields +<= a;
 	]
@@ -296,7 +296,7 @@ fn shortened_list_create(ctx : function_context, vd : variable_dictionary, t : t
 			type_cc := new_compare_context(ctx);
 			type_var := get_type_of_var(ctx, a);
 		] else [
-			var m : maybe_inferred;
+			var m : teq;
 			ctx, a, m := convert_type(ctx, vd, a, type_cc, type_var, 0, true, decl);
 		]
 		fields +<= a;
@@ -328,7 +328,7 @@ fn list_sub(ctx : function_context, vd : variable_dictionary, t t2 t3 : tokens, 
 	ctx, ax := evaluate_list_type(ctx, aa, t);
 
 	ctx, am := parse_expression(ctx, vd, t2, in_type);
-	var m : maybe_inferred;
+	var m : teq;
 	ctx, am, m := convert_type(ctx, vd, am, empty_compare_context, T_Integer, 0, true, t2);
 
 	var l : int;
@@ -355,7 +355,7 @@ fn list_array_get_index(ctx : function_context, vd : variable_dictionary, cc : c
 		var idxs : list(int);
 		ctx, idxs := parse_n_expressions(ctx, vd, t2, in_type, n_idxs);
 		for i := 0 to n_idxs do [
-			var m : maybe_inferred;
+			var m : teq;
 			ctx, idxs[i], m := convert_type(ctx, vd, idxs[i], empty_compare_context, T_Integer, 0, true, t2);
 		]
 		var index_expression := empty(token);
@@ -379,7 +379,7 @@ fn list_array_get_index(ctx : function_context, vd : variable_dictionary, cc : c
 		]
 	] else [
 		ctx, ai := parse_expression(ctx, vd, t2, in_type);
-		var m : maybe_inferred;
+		var m : teq;
 		ctx, ai, m := convert_type(ctx, vd, ai, empty_compare_context, T_Integer, 0, true, t2);
 	]
 
@@ -433,7 +433,7 @@ fn non_empty_option_create(ctx : function_context, vd : variable_dictionary, t :
 		abort compiler_error("Option field " + i_decode(field) + " doesn't have a value", t);
 	var ar : int;
 	ctx, ar := parse_expression(ctx, vd, arg_tokens, in_type);
-	var m : maybe_inferred;
+	var m : teq;
 	ctx, ar, m := convert_type(ctx, vd, ar, cc, rec_def.entries[idx].type_idx, 0, true, t);
 	var l : int;
 	ctx, l := generate_Option_Create(ctx, at, idx, ar);

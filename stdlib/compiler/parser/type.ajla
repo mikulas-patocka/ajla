@@ -56,10 +56,16 @@ record inferred_result [
 	ctx : function_context;
 	typ : int;
 ]
-type maybe_inferred := maybe(inferred_result);
+
+option teq [
+	eq;
+	noeq;
+	dont_know;
+	inferred : inferred_result;
+]
 
 fn get_type_of_var(ctx : function_context, v : int) : int;
-fn convert_type(ctx : function_context, vd : variable_dictionary, a : int, cc : compare_context, typ : int, inferred_bias : int, do_convert : bool, t : tokens) : (function_context, int, maybe_inferred);
+fn convert_type(ctx : function_context, vd : variable_dictionary, a : int, cc : compare_context, typ : int, inferred_bias : int, do_convert : bool, t : tokens) : (function_context, int, teq);
 
 fn new_compare_argument(cc : compare_context, idx : int) : compare_argument;
 fn new_compare_context(ctx : function_context) : compare_context;
@@ -79,9 +85,8 @@ fn get_deep_type_of_var(ctx : function_context, v : int) : (compare_context, int
 
 fn verify_type_equality(ctx : function_context,
 			cc1 : compare_context, typ1 : int, fn_stack1 : list(compare_fn_stack),
-			cc2 : compare_context, typ2 : int, fn_stack2 : list(compare_fn_stack)) : (bool, maybe_inferred);
+			cc2 : compare_context, typ2 : int, fn_stack2 : list(compare_fn_stack)) : teq;
 
-fn verify_equality(ctx : function_context, typ1 typ2 : int) : bool;
 fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_stack : list(compare_fn_stack), t : tokens) : (function_context, int);
 
 fn array_shape(ctx : function_context, cc : compare_context, a : int, t : tokens) : (bool, compare_context, list(int));
@@ -146,9 +151,9 @@ fn do_conversion(ctx : function_context, vd : variable_dictionary, a a_typ : int
 
 		var r_typ := get_type_of_var(ctx, result[0]);
 		my_cc := new_compare_context(ctx);
-		var match, mi := verify_type_equality(ctx, cc, typ, empty(compare_fn_stack), my_cc, r_typ, empty(compare_fn_stack));
+		var match := verify_type_equality(ctx, cc, typ, empty(compare_fn_stack), my_cc, r_typ, empty(compare_fn_stack));
 
-		if not match then
+		if not match is eq then
 			goto cont;
 
 		return ctx, result[0];
@@ -159,23 +164,23 @@ cont:
 	abort compiler_error("Types do not match", t);
 ]
 
-fn convert_type(ctx : function_context, vd : variable_dictionary, a : int, cc : compare_context, typ : int, inferred_bias : int, do_convert : bool, t : tokens) : (function_context, int, maybe_inferred)
+fn convert_type(ctx : function_context, vd : variable_dictionary, a : int, cc : compare_context, typ : int, inferred_bias : int, do_convert : bool, t : tokens) : (function_context, int, teq)
 [
 	var my_cc := new_compare_context(ctx);
 	var a_typ := get_type_of_var(ctx, a);
-	var match, mi := verify_type_equality(ctx, my_cc, a_typ, empty(compare_fn_stack), cc, typ, empty(compare_fn_stack));
-	if mi is j then
-		return ctx, 0, mi;
-	if not match then [
+	var match := verify_type_equality(ctx, my_cc, a_typ, empty(compare_fn_stack), cc, typ, empty(compare_fn_stack));
+	if match is inferred then
+		return ctx, 0, match;
+	if not match is eq then [
 		if not do_convert then
 			abort compiler_error("Types do not match", t);
 		var c : int;
 		ctx.inferred_base -= inferred_bias;
 		ctx, c := do_conversion(ctx, vd, a, a_typ, cc, typ, t);
 		ctx.inferred_base += inferred_bias;
-		return ctx, c, maybe_inferred.n;
+		return ctx, c, teq.dont_know;
 	]
-	return ctx, a, maybe_inferred.n;
+	return ctx, a, teq.dont_know;
 ]
 
 fn new_compare_argument(cc : compare_context, idx : int) : compare_argument
@@ -553,21 +558,35 @@ fn get_deep_type_of_var(ctx : function_context, v : int) : (compare_context, int
 	return get_base_definition(ctx, cc, typ, true);
 ]
 
+fn teq_ret~inline(x : teq) : teq
+[
+	if x is inferred then
+		return x;
+	return teq.dont_know;
+]
+
+fn teq_ret_noeq~inline(x : teq) : teq
+[
+	if x is inferred or x is noeq then
+		return x;
+	return teq.dont_know;
+]
+
 fn verify_type_equality(ctx : function_context,
 			cc1 : compare_context, typ1 : int, fn_stack1 : list(compare_fn_stack),
-			cc2 : compare_context, typ2 : int, fn_stack2 : list(compare_fn_stack)) : (bool, maybe_inferred)
+			cc2 : compare_context, typ2 : int, fn_stack2 : list(compare_fn_stack)) : teq
 [
 
 	if typ1 >= 0, typ1 = typ2, cc1.ctx.incomplete, cc2.ctx.incomplete, cc1.ctx.id = cc2.ctx.id, get_defined_maybe(cc1, typ1) is j then [
 		//eval debug("verify_type_equality bypass: " + ntos(typ1));
-		return true, maybe_inferred.n;
+		return teq.eq;
 	]
 
 	cc1, typ1 := get_base_definition(ctx, cc1, typ1, false);
 	cc2, typ2 := get_base_definition(ctx, cc2, typ2, false);
 
 	if typ1 = T_UnknownType or typ2 = T_UnknownType then
-		return false, maybe_inferred.n;
+		return teq.dont_know;
 
 	if typ_is_const(typ1) or typ_is_const(typ2) then [
 		if typ1 <= ctx.inferred_base and typ2 <= ctx.inferred_base then
@@ -577,22 +596,24 @@ fn verify_type_equality(ctx : function_context,
 			ctx, x_typ := evaluate_type(ctx, cc2, typ2, empty(compare_fn_stack), empty(token));
 			var inferred := inferred_result.[ arg : ctx.inferred_base - typ1, ctx : ctx, typ : x_typ ];
 			//eval debug(i_decode(ctx.name) +" inferred1: " + ", " + ntos(typ2) + ", " + ntos(x_typ));
-			return false, maybe_inferred.j.(inferred);
+			return teq.inferred.(inferred);
 		]
 		if typ2 <= ctx.inferred_base then [
 			var x_typ : int;
 			ctx, x_typ := evaluate_type(ctx, cc1, typ1, empty(compare_fn_stack), empty(token));
 			var inferred := inferred_result.[ arg : ctx.inferred_base - typ2, ctx : ctx, typ : x_typ ];
 			//eval debug(i_decode(ctx.name) + " inferred2: " + ", " + ntos(typ1) + ", " + ntos(x_typ));
-			return false, maybe_inferred.j.(inferred);
+			return teq.inferred.(inferred);
 		]
 		if typ1 <= T_InferredType or typ2 <= T_InferredType then
-			return false, maybe_inferred.n;
-		return typ1 = typ2, maybe_inferred.n;
+			return teq.dont_know;
+		if typ1 = typ2 then
+			return teq.eq;
+		return teq.noeq;
 	]
 
 	if typ1 = typ2, cc1.ctx.incomplete, cc2.ctx.incomplete, cc1.ctx.id = cc2.ctx.id then
-		return true, maybe_inferred.n;
+		return teq.eq;
 
 	var instr1 := get_defined(cc1, typ1);
 	var opcode1 := instr1.opcode;
@@ -610,7 +631,7 @@ fn verify_type_equality(ctx : function_context,
 		var ret_idx1 := pcode_Call_find_return_index(instr1, typ1);
 		var ret_idx2 := pcode_Call_Indirect_find_return_index(instr2, typ2);
 		if ret_idx1 <> ret_idx2 then
-			return false, maybe_inferred.n;
+			return teq.dont_know;
 
 		var args2 := empty(compare_argument);
 		var fn2 := pcode_Call_Indirect_get_fn_variable(instr2);
@@ -644,77 +665,73 @@ fn verify_type_equality(ctx : function_context,
 					ctx, x_typ := generate_Curry(ctx, cc, typ, x_typ, iargs, empty(token));
 				]
 				var inferred := inferred_result.[ arg : ctx.inferred_base - typ2, ctx : ctx, typ : x_typ ];
-				return false, maybe_inferred.j.(inferred);
+				return teq.inferred.(inferred);
 			]
-			return false, maybe_inferred.n;
+			return teq.dont_know;
 		]
 		instr2 := ins.j;
 
 		var fid1 := pcode_Call_get_unique_id(instr1);
 		var fid2 := pcode_Load_Fn_get_unique_id(instr2);
 		if fid1 <> fid2 then
-			return false, maybe_inferred.n;
+			return teq.dont_know;
 
 		if pcode_Call_get_n_args(instr1) <> len(args2) then
 			abort internal("verify_type_equality: the number of arguments doesn't match: " + ntos(pcode_Call_get_n_args(instr1)) + ", " + ntos(len(args2)));
 
 		for i := 0 to len(args2) do [
 			var arg_idx := len(args2) - 1 - i;
-			var x1, y1 := verify_type_equality(ctx, cc1, pcode_Call_get_arg(instr1, i), fn_stack1,
-								args2[arg_idx].cc, args2[arg_idx].idx, fn_stack2);
-			if y1 is j then
-				return false, y1;
-			if not x1 then
-				return false, maybe_inferred.n;
+			var x1 := verify_type_equality(ctx, cc1, pcode_Call_get_arg(instr1, i), fn_stack1,
+							    args2[arg_idx].cc, args2[arg_idx].idx, fn_stack2);
+			if not x1 is eq then
+				return teq_ret(x1);
 		]
-
-		return true, maybe_inferred.n;
+		return teq.eq;
 	]
 
 	if opcode1 <> opcode2 then
-		return false, maybe_inferred.n;
+		return teq.dont_know;
 
 	if opcode1 = P_Copy then
-		return false, maybe_inferred.n;
+		return teq.dont_know;
 
 	if opcode1 = P_BinaryOp then [
 		if pcode_BinaryOp_get_op(instr1) <> pcode_BinaryOp_get_op(instr2) then
-			return false, maybe_inferred.n;
+			return teq.dont_know;
 		var a1 := pcode_BinaryOp_get_arg1(instr1);
 		var a2 := pcode_BinaryOp_get_arg1(instr2);
-		var x, y := verify_type_equality(ctx, cc1, a1, fn_stack1, cc2, a2, fn_stack2);
-		if y is j then
-			return false, y;
-		if not x then
-			return false, maybe_inferred.n;
+		var x := verify_type_equality(ctx, cc1, a1, fn_stack1, cc2, a2, fn_stack2);
+		if not x is eq then
+			return teq_ret(x);
 		a1 := pcode_BinaryOp_get_arg1(instr1);
 		a2 := pcode_BinaryOp_get_arg1(instr2);
-		x, y := verify_type_equality(ctx, cc1, a1, fn_stack1, cc2, a2, fn_stack2);
-		if y is j then
-			return false, y;
-		if not x then
-			return false, maybe_inferred.n;
-		return true, maybe_inferred.n;
+		x := verify_type_equality(ctx, cc1, a1, fn_stack1, cc2, a2, fn_stack2);
+		if not x is eq then
+			return teq_ret(x);
+		return teq.eq;
 	]
 
 	if opcode1 = P_UnaryOp then [
 		if pcode_UnaryOp_get_op(instr1) <> pcode_UnaryOp_get_op(instr2) then
-			return false, maybe_inferred.n;
+			return teq.dont_know;
 		if pcode_UnaryOp_get_op(instr1) = Un_ConvertFromInt then [
 			var r1 := pcode_UnaryOp_get_result(instr1);
 			var r2 := pcode_UnaryOp_get_result(instr2);
 			if get_type_of_var(cc1.ctx, r1) <> get_type_of_var(cc2.ctx, r2) then
-				return false, maybe_inferred.n;
+				return teq.dont_know;
 		]
 		var a1 := pcode_UnaryOp_get_arg(instr1);
 		var a2 := pcode_UnaryOp_get_arg(instr2);
-		return verify_type_equality(ctx, cc1, a1, fn_stack1, cc2, a2, fn_stack2);
+		var x := verify_type_equality(ctx, cc1, a1, fn_stack1, cc2, a2, fn_stack2);
+		if not x is eq then
+			return teq_ret(x);
+		return teq.eq;
 	]
 
 	if opcode1 = P_Fn then [
 		if pcode_Fn_get_n_args(instr1) <> pcode_Fn_get_n_args(instr2) or
 		   pcode_Fn_get_n_return_values(instr1) <> pcode_Fn_get_n_return_values(instr2) then
-			return false, maybe_inferred.n;
+			return teq.dont_know;
 		var new_fn_stack1 : compare_fn_stack := compare_fn_stack.[
 			cc : cc1,
 			main_def : pcode_Fn_get_result(instr1),
@@ -732,35 +749,33 @@ fn verify_type_equality(ctx : function_context,
 		for i := 0 to pcode_Fn_get_n_args(instr1) do [
 			var a1 := pcode_Fn_get_argument(instr1, i);
 			var a2 := pcode_Fn_get_argument(instr2, i);
-			var x, y := verify_type_equality(ctx, cc1, a1, fn_stack1, cc2, a2, fn_stack2);
-			if y is j then
-				return false, y;
-			if not x then
-				return false, maybe_inferred.n;
+			var x := verify_type_equality(ctx, cc1, a1, fn_stack1, cc2, a2, fn_stack2);
+			if not x is eq then
+				return teq_ret(x);
 		]
 		for i := 0 to pcode_Fn_get_n_return_values(instr1) do [
 			var a1 := pcode_Fn_get_return_value(instr1, i);
 			var a2 := pcode_Fn_get_return_value(instr2, i);
-			var x, y := verify_type_equality(ctx, cc1, a1, fn_stack1, cc2, a2, fn_stack2);
-			if y is j then
-				return false, y;
-			if not x then
-				return false, maybe_inferred.n;
+			var x := verify_type_equality(ctx, cc1, a1, fn_stack1, cc2, a2, fn_stack2);
+			if not x is eq then
+				return teq_ret(x);
 		]
-		return true, maybe_inferred.n;
+		return teq.eq;
 	]
 	if opcode1 = P_Load_Local_Type then [
 		var s1, d1 := find_fn_stack_depth(fn_stack1, cc1, pcode_Load_Local_Type_get_function(instr1));
 		var s2, d2 := find_fn_stack_depth(fn_stack2, cc2, pcode_Load_Local_Type_get_function(instr2));
-		return d1 = d2 and pcode_Load_Local_Type_get_index(instr1) = pcode_Load_Local_Type_get_index(instr2), maybe_inferred.n;
+		if d1 = d2 and pcode_Load_Local_Type_get_index(instr1) = pcode_Load_Local_Type_get_index(instr2) then
+			return teq.eq;
+		return teq.dont_know;
 	]
 
 	if opcode1 = P_Load_Fn then [
 		var id1 := pcode_Load_Fn_get_unique_id(instr1);
 		var id2 := pcode_Load_Fn_get_unique_id(instr2);
 		if id1 <> id2 then
-			return false, maybe_inferred.n;
-		return true, maybe_inferred.n;
+			return teq.noeq;
+		return teq.eq;
 	]
 	if opcode1 = P_Curry then [
 		var args1 := empty(compare_argument);
@@ -806,11 +821,9 @@ fn verify_type_equality(ctx : function_context,
 				var x_typ : int;
 				ctx, x_typ := evaluate_type(ctx, cc1, typ1, empty(compare_fn_stack), empty(token));
 				for i := 0 to len(args2) do [
-					var x1, y1 := verify_type_equality(ctx, args1[i].cc, args1[i].idx, fn_stack1, args2[i].cc, args2[i].idx, fn_stack2);
-					if y1 is j then
-						return false, y1;
-					if not x1 then
-						return false, maybe_inferred.n;
+					var x1 := verify_type_equality(ctx, args1[i].cc, args1[i].idx, fn_stack1, args2[i].cc, args2[i].idx, fn_stack2);
+					if not x1 is eq then
+						return teq_ret(x1);
 				]
 				var iargs := empty(int);
 				for i := len(args2) to len(args1) do [
@@ -821,23 +834,19 @@ fn verify_type_equality(ctx : function_context,
 				var cc, typ := get_deep_type_of_var(ctx, x_typ);
 				ctx, x_typ := generate_Curry(ctx, cc, typ, x_typ, iargs, empty(token));
 				var inferred := inferred_result.[ arg : ctx.inferred_base - typ2, ctx : ctx, typ : x_typ ];
-				return false, maybe_inferred.j.(inferred);
+				return teq.inferred.(inferred);
 			]
-			return false, maybe_inferred.n;
+			return teq.dont_know;
 		]
-		var x1, y1 := verify_type_equality(ctx, cc1, typ1, fn_stack1, cc2, typ2, fn_stack2);
-		if y1 is j then
-			return false, y1;
-		if not x1 then
-			return false, maybe_inferred.n;
+		var x1 := verify_type_equality(ctx, cc1, typ1, fn_stack1, cc2, typ2, fn_stack2);
+		if not x1 is eq then
+			return teq_ret(x1);
 		for i := 0 to len(args1) do [
-			var x1, y1 := verify_type_equality(ctx, args1[i].cc, args1[i].idx, fn_stack1, args2[i].cc, args2[i].idx, fn_stack2);
-			if y1 is j then
-				return false, y1;
-			if not x1 then
-				return false, maybe_inferred.n;
+			var x1 := verify_type_equality(ctx, args1[i].cc, args1[i].idx, fn_stack1, args2[i].cc, args2[i].idx, fn_stack2);
+			if not x1 is eq then
+				return teq_ret(x1);
 		]
-		return true, maybe_inferred.n;
+		return teq.eq;
 	]
 	if opcode1 = P_Call_Indirect then [
 		if pcode_Call_Indirect_get_n_args(instr1) <> 0 then
@@ -847,41 +856,39 @@ fn verify_type_equality(ctx : function_context,
 		var ret_idx1 := pcode_Call_Indirect_find_return_index(instr1, typ1);
 		var ret_idx2 := pcode_Call_Indirect_find_return_index(instr2, typ2);
 		if ret_idx1 <> ret_idx2 then
-			return false, maybe_inferred.n;
+			return teq.dont_know;
 		var fn1 := pcode_Call_Indirect_get_fn_variable(instr1);
 		var fn2 := pcode_Call_Indirect_get_fn_variable(instr2);
-		return verify_type_equality(ctx, cc1, fn1, fn_stack1, cc2, fn2, fn_stack2);
+		var x := verify_type_equality(ctx, cc1, fn1, fn_stack1, cc2, fn2, fn_stack2);
+		if not x is eq then
+			return teq_ret(x);
+		return teq.eq;
 	]
 	if opcode1 = P_Call then [
 		if pcode_Call_quick_compare(instr1, instr2) then
-			return false, maybe_inferred.n;
+			return teq.dont_know;
 		var fid1 := pcode_Call_get_unique_id(instr1);
 		var fid2 := pcode_Call_get_unique_id(instr2);
 		if fid1 <> fid2 then
-			return false, maybe_inferred.n;
+			return teq.dont_know;
 		var ret_idx1 := pcode_Call_find_return_index(instr1, typ1);
 		var ret_idx2 := pcode_Call_find_return_index(instr2, typ2);
 		if ret_idx1 <> ret_idx2 then
-			return false, maybe_inferred.n;
+			return teq.dont_know;
 		for i := 0 to pcode_Call_get_n_args(instr1) do [
-			var x1, y1 := verify_type_equality(ctx, cc1, pcode_Call_get_arg(instr1, i), fn_stack1,
-								cc2, pcode_Call_get_arg(instr2, i), fn_stack2);
-			if y1 is j then
-				return false, y1;
-			if not x1 then
-				return false, maybe_inferred.n;
+			var x1 := verify_type_equality(ctx, cc1, pcode_Call_get_arg(instr1, i), fn_stack1,
+							    cc2, pcode_Call_get_arg(instr2, i), fn_stack2);
+			if not x1 is eq then
+				return teq_ret(x1);
 		]
-		return true, maybe_inferred.n;
+		return teq.eq;
 	]
 	if opcode1 = P_Load_Const then [
 		var val1 := pcode_Load_Const_get_blob(instr1);
 		var val2 := pcode_Load_Const_get_blob(instr2);
-		if len(val1) <> len(val2) then
-			return false, maybe_inferred.n;
-		for i := 0 to len(val1) do
-			if val1[i] <> val2[i] then
-				return false, maybe_inferred.n;
-		return true, maybe_inferred.n;
+		if val1 <> val2 then
+			return teq.noeq;
+		return teq.eq;
 	]
 	if opcode1 = P_Record_Create then [
 		var type_idx1 := cc1.ctx.variables[typ1].type_idx;
@@ -891,34 +898,30 @@ fn verify_type_equality(ctx : function_context,
 		if rec_typ1 <> T_Record or rec_typ2 <> T_Record then [
 			abort internal("verify_type_equality: No record type for Record_Create");
 		]
-		var x1, y1 := verify_type_equality(ctx, cc1, type_idx1, fn_stack1, cc2, type_idx2, fn_stack2);
-		if y1 is j then
-			return false, y1;
-		if not x1 then
-			return false, maybe_inferred.n;
+		var x1 := verify_type_equality(ctx, cc1, type_idx1, fn_stack1, cc2, type_idx2, fn_stack2);
+		if not x1 is eq then
+			return teq_ret_noeq(x1);
 		var def1 := rec_cc1.ctx.record_def.j;
 		var def2 := rec_cc2.ctx.record_def.j;
 		if def1.is_option or def2.is_option then
 			abort internal("verify_type_equality: Non-matching record definitions");
 		if len(def1.entries) <> len(def2.entries) then
-			return false, maybe_inferred.n;
+			return teq.noeq;
 		if len(def1.entries) <> pcode_Record_Create_get_n_args(instr1) or
 		   len(def2.entries) <> pcode_Record_Create_get_n_args(instr2) then
 			abort internal("verify_type_equality: Non-matching number of entries");
 		for i := 0 to len(def1.entries) do [
-			var x1, y1 := verify_type_equality(ctx, cc1, pcode_Record_Create_get_arg(instr1, i), fn_stack1, cc2, pcode_Record_Create_get_arg(instr2, i), fn_stack2);
-			if y1 is j then
-				return false, y1;
-			if not x1 then
-				return false, maybe_inferred.n;
+			var x1 := verify_type_equality(ctx, cc1, pcode_Record_Create_get_arg(instr1, i), fn_stack1, cc2, pcode_Record_Create_get_arg(instr2, i), fn_stack2);
+			if not x1 is eq then
+				return teq_ret_noeq(x1);
 		]
-		return true, maybe_inferred.n;
+		return teq.eq;
 	]
 	if opcode1 = P_Record_Load then [
 		var idx1 := pcode_Record_Load_get_index(instr1);
 		var idx2 := pcode_Record_Load_get_index(instr2);
 		if idx1 <> idx2 then
-			return false, maybe_inferred.n;
+			return teq.dont_know;
 		if cc1.ctx.incomplete, cc2.ctx.incomplete, cc1.ctx.id = cc2.ctx.id, pcode_Record_Load_get_record(instr1) = pcode_Record_Load_get_record(instr2), cc1.ctx.variables[pcode_Record_Load_get_record(instr1)].defined_at <> defined_multiple then [
 			var type_idx1 := cc1.ctx.variables[pcode_Record_Load_get_record(instr1)].type_idx;
 			var rec_cc1, rec_typ1 := get_base_definition(ctx, cc1, type_idx1, true);
@@ -927,117 +930,117 @@ fn verify_type_equality(ctx : function_context,
 			]
 			var def1 := rec_cc1.ctx.record_def.j;
 			if def1.entries[idx1].cnst then
-				return true, maybe_inferred.n;
+				return teq.eq;
 		]
-		return verify_type_equality(ctx,
-					    cc1, pcode_Record_Load_get_record(instr1), fn_stack1,
-					    cc2, pcode_Record_Load_get_record(instr2), fn_stack2);
+		var x := verify_type_equality(ctx, cc1, pcode_Record_Load_get_record(instr1), fn_stack1,
+						   cc2, pcode_Record_Load_get_record(instr2), fn_stack2);
+		if not x is eq then
+			return teq_ret(x);
+		return teq.eq;
 	]
 	if opcode1 = P_Option_Create then [
 		if pcode_Option_Create_get_index(instr1) <> pcode_Option_Create_get_index(instr2) then
-			return false, maybe_inferred.n;
-		return verify_type_equality(ctx,
-					    cc1, pcode_Option_Create_get_arg(instr1), fn_stack1,
-					    cc2, pcode_Option_Create_get_arg(instr2), fn_stack2);
+			return teq.noeq;
+		var x := verify_type_equality(ctx, cc1, pcode_Option_Create_get_arg(instr1), fn_stack1,
+						   cc2, pcode_Option_Create_get_arg(instr2), fn_stack2);
+		if not x is eq then
+			return teq_ret(x);
+		return teq.eq;
 	]
 	if opcode1 = P_Option_Load then [
 		var idx1 := pcode_Option_Load_get_index(instr1);
 		var idx2 := pcode_Option_Load_get_index(instr2);
 		if idx1 <> idx2 then
-			return false, maybe_inferred.n;
-		return verify_type_equality(ctx,
-					    cc1, pcode_Option_Load_get_option(instr1), fn_stack1,
-					    cc2, pcode_Option_Load_get_option(instr2), fn_stack2);
+			return teq.dont_know;
+		var x := verify_type_equality(ctx, cc1, pcode_Option_Load_get_option(instr1), fn_stack1,
+						   cc2, pcode_Option_Load_get_option(instr2), fn_stack2);
+		if not x is eq then
+			return teq_ret(x);
+		return teq.eq;
 	]
 	if opcode1 = P_Option_Test then [
 		var idx1 := pcode_Option_Test_get_index(instr1);
 		var idx2 := pcode_Option_Test_get_index(instr2);
 		if idx1 <> idx2 then
-			return false, maybe_inferred.n;
-		return verify_type_equality(ctx,
-					    cc1, pcode_Option_Test_get_option(instr1), fn_stack1,
-					    cc2, pcode_Option_Test_get_option(instr2), fn_stack2);
+			return teq.dont_know;
+		var x := verify_type_equality(ctx, cc1, pcode_Option_Test_get_option(instr1), fn_stack1,
+						   cc2, pcode_Option_Test_get_option(instr2), fn_stack2);
+		if not x is eq then
+			return teq_ret(x);
+		return teq.eq;
 	]
 	if opcode1 = P_Option_Ord then [
-		return verify_type_equality(ctx,
-					    cc1, pcode_Option_Ord_get_option(instr1), fn_stack1,
-					    cc2, pcode_Option_Ord_get_option(instr2), fn_stack2);
+		var x := verify_type_equality(ctx, cc1, pcode_Option_Ord_get_option(instr1), fn_stack1,
+						   cc2, pcode_Option_Ord_get_option(instr2), fn_stack2);
+		if not x is eq then
+			return teq_ret(x);
+		return teq.eq;
 	]
 	if opcode1 = P_Array_Create then [
 		if pcode_Array_Create_get_length(instr1) <> pcode_Array_Create_get_length(instr2) then
-			return false, maybe_inferred.n;
+			return teq.noeq;
 		for i := 0 to pcode_Array_Create_get_length(instr1) do [
-			var x1, y1 := verify_type_equality(ctx,
-							   cc1, pcode_Array_Create_get_arg(instr1, i), fn_stack1,
-							   cc2, pcode_Array_Create_get_arg(instr2, i), fn_stack2);
-			if y1 is j then
-				return false, y1;
-			if not x1 then
-				return false, maybe_inferred.n;
+			var x1 := verify_type_equality(ctx, cc1, pcode_Array_Create_get_arg(instr1, i), fn_stack1,
+							    cc2, pcode_Array_Create_get_arg(instr2, i), fn_stack2);
+			if not x1 is eq then
+				return teq_ret_noeq(x1);
 		]
-		return true, maybe_inferred.n;
+		return teq.eq;
 	]
 	if opcode1 = P_Array_String then [
 		var blob1 := pcode_Array_String_get_blob(instr1);
 		var blob2 := pcode_Array_String_get_blob(instr2);
 		if blob1 <> blob2 then
-			return false, maybe_inferred.n;
-		return true, maybe_inferred.n;
+			return teq.noeq;
+		return teq.eq;
 	]
 	if opcode1 = P_Array_Unicode then [
 		var blob1 := pcode_Array_Unicode_get_blob(instr1);
 		var blob2 := pcode_Array_Unicode_get_blob(instr2);
 		if blob1 <> blob2 then
-			return false, maybe_inferred.n;
-		return true, maybe_inferred.n;
+			return teq.noeq;
+		return teq.eq;
 	]
 	if opcode1 = P_Array_Load then [
 		var a1 := pcode_Array_Load_get_array(instr1);
 		var a2 := pcode_Array_Load_get_array(instr2);
 		var idx1 := pcode_Array_Load_get_index(instr1);
 		var idx2 := pcode_Array_Load_get_index(instr2);
-		var x1, y1 := verify_type_equality(ctx,
-						   cc1, a1, fn_stack1,
-						   cc2, a2, fn_stack2);
-		if y1 is j then
-			return false, y1;
-		var x2, y2 := verify_type_equality(ctx,
-						   cc1, idx1, fn_stack1,
-						   cc2, idx2, fn_stack2);
-		if y2 is j then
-			return false, y2;
-		return x1 and x2, maybe_inferred.n;
+		var x1 := verify_type_equality(ctx, cc1, a1, fn_stack1,
+						    cc2, a2, fn_stack2);
+		if not x1 is eq then
+			return teq_ret(x1);
+		var x2 := verify_type_equality(ctx, cc1, idx1, fn_stack1,
+						    cc2, idx2, fn_stack2);
+		if not x2 is eq then
+			return teq_ret(x2);
+		return teq.eq;
 	]
 	if opcode1 = P_Array_Sub then [
-		var x1, y1 := verify_type_equality(ctx,
-						   cc1, pcode_Array_Sub_get_array(instr1), fn_stack1,
-						   cc2, pcode_Array_Sub_get_array(instr2), fn_stack2);
-		if y1 is j then
-			return false, y1;
-		var x2, y2 := verify_type_equality(ctx,
-						   cc1, pcode_Array_Sub_get_start(instr1), fn_stack1,
-						   cc2, pcode_Array_Sub_get_start(instr2), fn_stack2);
-		if y2 is j then
-			return false, y2;
-		var x3, y3 := verify_type_equality(ctx,
-						   cc1, pcode_Array_Sub_get_end(instr1), fn_stack1,
-						   cc2, pcode_Array_Sub_get_end(instr2), fn_stack2);
-		if y3 is j then
-			return false, y3;
-		return x1 and x2 and x3, maybe_inferred.n;
+		var x1 := verify_type_equality(ctx, cc1, pcode_Array_Sub_get_array(instr1), fn_stack1,
+						    cc2, pcode_Array_Sub_get_array(instr2), fn_stack2);
+		if not x1 is eq then
+			return teq_ret(x1);
+		var x2 := verify_type_equality(ctx, cc1, pcode_Array_Sub_get_start(instr1), fn_stack1,
+						    cc2, pcode_Array_Sub_get_start(instr2), fn_stack2);
+		if not x2 is eq then
+			return teq_ret(x2);
+		var x3 := verify_type_equality(ctx, cc1, pcode_Array_Sub_get_end(instr1), fn_stack1,
+						    cc2, pcode_Array_Sub_get_end(instr2), fn_stack2);
+		if not x3 is eq then
+			return teq_ret(x3);
+		return teq.eq;
 	]
 	if opcode1 = P_Array_Skip then [
-		var x1, y1 := verify_type_equality(ctx,
-						   cc1, pcode_Array_Skip_get_array(instr1), fn_stack1,
-						   cc2, pcode_Array_Skip_get_array(instr2), fn_stack2);
-		if y1 is j then
-			return false, y1;
-		var x2, y2 := verify_type_equality(ctx,
-						   cc1, pcode_Array_Skip_get_start(instr1), fn_stack1,
-						   cc2, pcode_Array_Skip_get_start(instr2), fn_stack2);
-		if y2 is j then
-			return false, y2;
-		return x1 and x2, maybe_inferred.n;
+		var x1 := verify_type_equality(ctx, cc1, pcode_Array_Skip_get_array(instr1), fn_stack1,
+						    cc2, pcode_Array_Skip_get_array(instr2), fn_stack2);
+		if not x1 is eq then
+			return teq_ret(x1);
+		var x2 := verify_type_equality(ctx, cc1, pcode_Array_Skip_get_start(instr1), fn_stack1,
+						    cc2, pcode_Array_Skip_get_start(instr2), fn_stack2);
+		if not x2 is eq then
+			return teq_ret(x2);
+		return teq.eq;
 	]
 {
 	if opcode1 = P_Array_Append then [
@@ -1045,25 +1048,17 @@ fn verify_type_equality(ctx : function_context,
 	]
 }
 	if opcode1 = P_Copy_Type_Cast then [
-		return false, maybe_inferred.n;
+		return teq.dont_know;
 	]
 	if opcode1 = P_IO then [
-		return false, maybe_inferred.n;
+		return teq.dont_know;
 	]
 
 	if opcode1 = P_Args then [
-		return false, maybe_inferred.n;
-		//abort internal("verify_type_equality: hit arguments " + ntos(typ1) + ", " + ntos(typ2) + "; " + ntos(len(cc1.args)) + ", " + ntos(len(cc2.args)) + "; " + i_decode(cc1.ctx.name) + ", " + i_decode(cc2.ctx.name));
+		return teq.dont_know;
 	]
 
 	abort internal("verify_type_equality: invalid opcode " + ntos(opcode1));
-]
-
-fn verify_equality(ctx : function_context, typ1 typ2 : int) : bool
-[
-	var cc := new_compare_context(ctx);
-	var x1, x2 := verify_type_equality(ctx, cc, typ1, empty(compare_fn_stack), cc, typ2, empty(compare_fn_stack));
-	return x1;
 ]
 
 fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_stack : list(compare_fn_stack), t : tokens) : (function_context, int)

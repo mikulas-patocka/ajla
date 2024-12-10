@@ -38,8 +38,8 @@ fn infer_argument(ctx : function_context, implicits : list(function_definition),
 [
 	for im := 0 to len(implicit_variables) do [
 		var v := implicit_variables[im];
-		var match, inferred := verify_type_equality(ctx, cc, cc_i, empty(compare_fn_stack), new_compare_context(ctx), get_type_of_var(ctx, v), empty(compare_fn_stack));
-		if not match then
+		var match := verify_type_equality(ctx, cc, cc_i, empty(compare_fn_stack), new_compare_context(ctx), get_type_of_var(ctx, v), empty(compare_fn_stack));
+		if not match is eq then
 			continue;
 		return ctx, v;
 	]
@@ -56,20 +56,20 @@ fn infer_argument(ctx : function_context, implicits : list(function_definition),
 		]
 
 retry:
-		var match, inferred := verify_type_equality(ctx, cc, cc_i, empty(compare_fn_stack), fn_cc, fn_typ, empty(compare_fn_stack));
-		while inferred is j do [
-			ctx := inferred.j.ctx;
-			var inf_idx := inferred.j.arg;
+		var match := verify_type_equality(ctx, cc, cc_i, empty(compare_fn_stack), fn_cc, fn_typ, empty(compare_fn_stack));
+		while match is inferred do [
+			ctx := match.inferred.ctx;
+			var inf_idx := match.inferred.arg;
 
 			var pi : int;
-			ctx, pi, inferred := convert_type(ctx, new_variable_dictionary(maybe(variable_dictionary).n), inferred.j.typ, fn_cc, def.signature.variables[inf_idx].type_idx, def.signature.n_arguments, false, t);
-			if inferred is j then
+			ctx, pi, match := convert_type(ctx, new_variable_dictionary(maybe(variable_dictionary).n), match.inferred.typ, fn_cc, def.signature.variables[inf_idx].type_idx, def.signature.n_arguments, false, t);
+			if match is inferred then
 				continue;
 
 			fn_cc.args[inf_idx] := new_compare_argument(new_compare_context(ctx), pi);
 			goto retry;
 		]
-		if not match then
+		if not match is eq then
 			continue;
 
 		var ctx2 := ctx;
@@ -121,16 +121,16 @@ fn try_process_function(ctx : function_context, vd : variable_dictionary, fnx : 
 retry:
 	for i := inferred_args to inferred_args + provided_args do [
 		var pi : int;
-		var inferred : maybe_inferred;
+		var inferred : teq;
 		ctx, pi, inferred := convert_type(ctx, vd, p[i], cc, pcode_Fn_get_argument(instr, i), inferred_args, do_convert, t);
-		while inferred is j do [
-			ctx := inferred.j.ctx;
-			var inf_idx := inferred.j.arg;
+		while inferred is inferred do [
+			ctx := inferred.inferred.ctx;
+			var inf_idx := inferred.inferred.arg;
 			if cc.llt_redirect[inf_idx].idx > ctx.inferred_base then
 				abort internal("inferring existing variable: " + ntos(inf_idx) + ", " + ntos(cc.llt_redirect[inf_idx].idx));
 
-			ctx, pi, inferred := convert_type(ctx, vd, inferred.j.typ, cc, pcode_Fn_get_argument(instr, inf_idx), inferred_args, false, t);
-			if inferred is j then
+			ctx, pi, inferred := convert_type(ctx, vd, inferred.inferred.typ, cc, pcode_Fn_get_argument(instr, inf_idx), inferred_args, false, t);
+			if inferred is inferred then
 				continue;
 
 			p[inf_idx] := pi;
@@ -145,16 +145,16 @@ retry:
 			cc.llt_redirect[j].cc.ctx := ctx;
 	]
 	if r_typ <> T_InvalidType then [
-		var match, inferred := verify_type_equality(ctx, r_cc, r_typ, empty(compare_fn_stack), cc, pcode_Fn_get_return_value(instr, 0), empty(compare_fn_stack));
-		while inferred is j do [
-			ctx := inferred.j.ctx;
-			var inf_idx := inferred.j.arg;
+		var match := verify_type_equality(ctx, r_cc, r_typ, empty(compare_fn_stack), cc, pcode_Fn_get_return_value(instr, 0), empty(compare_fn_stack));
+		while match is inferred do [
+			ctx := match.inferred.ctx;
+			var inf_idx := match.inferred.arg;
 			if cc.llt_redirect[inf_idx].idx > ctx.inferred_base then
 				abort internal("inferring existing variable: " + ntos(inf_idx) + ", " + ntos(cc.llt_redirect[inf_idx].idx));
 
 			var pi : int;
-			ctx, pi, inferred := convert_type(ctx, vd, inferred.j.typ, cc, pcode_Fn_get_argument(instr, inf_idx), inferred_args, false, t);
-			if inferred is j then
+			ctx, pi, match := convert_type(ctx, vd, match.inferred.typ, cc, pcode_Fn_get_argument(instr, inf_idx), inferred_args, false, t);
+			if match is inferred then
 				continue;
 
 			p[inf_idx] := pi;
@@ -243,16 +243,16 @@ fn try_process_direct_function(ctx : function_context, vd : variable_dictionary,
 retry:
 	for i := inferred_args to inferred_args + total_args do [
 		var pi : int;
-		var inferred : maybe_inferred;
+		var inferred : teq;
 		ctx, pi, inferred := convert_type(ctx, vd, p[i], fn_cc, fd.signature.variables[i].type_idx, inferred_args, do_convert, t);
-		while inferred is j do [
-			ctx := inferred.j.ctx;
-			var inf_idx := inferred.j.arg;
+		while inferred is inferred do [
+			ctx := inferred.inferred.ctx;
+			var inf_idx := inferred.inferred.arg;
 			if fn_cc.args[inf_idx].idx > ctx.inferred_base then
 				abort internal("inferring existing variable: " + ntos(inf_idx));
 
-			ctx, pi, inferred := convert_type(ctx, vd, inferred.j.typ, fn_cc, fd.signature.variables[inf_idx].type_idx, inferred_args, false, t);
-			if inferred is j then
+			ctx, pi, inferred := convert_type(ctx, vd, inferred.inferred.typ, fn_cc, fd.signature.variables[inf_idx].type_idx, inferred_args, false, t);
+			if inferred is inferred then
 				continue;
 
 			p[inf_idx] := pi;
@@ -267,16 +267,16 @@ retry:
 			fn_cc.args[j].cc.ctx := ctx;
 	]
 	if r_typ <> T_InvalidType then [
-		var match, inferred := verify_type_equality(ctx, r_cc, r_typ, empty(compare_fn_stack), fn_cc, fd.signature.variables[inferred_args + total_args].type_idx, empty(compare_fn_stack));
-		while inferred is j do [
-			ctx := inferred.j.ctx;
-			var inf_idx := inferred.j.arg;
+		var match := verify_type_equality(ctx, r_cc, r_typ, empty(compare_fn_stack), fn_cc, fd.signature.variables[inferred_args + total_args].type_idx, empty(compare_fn_stack));
+		while match is inferred do [
+			ctx := match.inferred.ctx;
+			var inf_idx := match.inferred.arg;
 			if fn_cc.args[inf_idx].idx > ctx.inferred_base then
 				abort internal("inferring existing variable: " + ntos(inf_idx));
 
 			var pi : int;
-			ctx, pi, inferred := convert_type(ctx, vd, inferred.j.typ, fn_cc, fd.signature.variables[inf_idx].type_idx, inferred_args, false, t);
-			if inferred is j then
+			ctx, pi, match := convert_type(ctx, vd, match.inferred.typ, fn_cc, fd.signature.variables[inf_idx].type_idx, inferred_args, false, t);
+			if match is inferred then
 				continue;
 
 			p[inf_idx] := pi;
