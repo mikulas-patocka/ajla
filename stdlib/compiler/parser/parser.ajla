@@ -334,10 +334,12 @@ fn parse_function_body(ctx : function_context, vd : variable_dictionary, t : tok
 			abort compiler_error("Return type was not inferred", t);
 	]
 
-	if not ctx.is_pattern_matched then
+	if not ctx.is_pattern_matched then [
 		ctx.pattern_matching_info := empty(pattern_context);
-	//if ctx.is_pattern_matched, ctx.n_labels > 1 then
-	//	eval debug(i_decode(ctx.name));
+	] else [
+		for i := 0 to ctx.n_arguments do
+			ctx.variables[i].defined_at := defined_argument;
+	]
 
 	return ctx;
 ]

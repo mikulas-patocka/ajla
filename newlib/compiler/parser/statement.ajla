@@ -185,6 +185,8 @@ fn parse_block(ctx : function_context, up_vd : variable_dictionary, level : int,
 	var term := false;
 
 	while len(t) > 0 do [
+		if term then
+			ctx.is_pattern_matched := false;
 		if len(t) >= 2, t[0].t is identifier, t[1].t is colon then [
 			ctx.is_pattern_matched := false;
 			ctx := parse_statement_label(ctx, t);
@@ -1018,7 +1020,5 @@ fn parse_statement(ctx : function_context, vd : variable_dictionary, level : int
 	goto ret;
 
 ret:
-	if len_greater_than(t, semicolon + 1), term then
-		ctx.is_pattern_matched := false;
 	return ctx, t[semicolon + 1 .. ], term;
 ]

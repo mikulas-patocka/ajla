@@ -423,24 +423,37 @@ restart:
 			abort internal("P_Call: the number of arguments doesn't match");
 		if f.body is n then
 			return cc, typ;
+		var body := f.body.j;
 
-		var new_ctx := new_compare_context_from_function(f.body.j);
+		var new_ctx := new_compare_context_from_function(body);
 		new_ctx.args := args;
 
-		if f.body.j.record_def is j then [
+		if body.record_def is j then [
 			if want_record then
 				return new_ctx, T_Record;
 			else
 				return cc, typ;
 		]
 
-		if f.call_mode <> Call_Mode_Type, f.call_mode <> Call_Mode_Flat then [
+		if not body.is_pattern_matched then
 			return cc, typ;
+
+		var cnst := encode_constant(T_AlwaysFlatOption, int_to_blob(1));
+
+		for m := 0 to len(body.pattern_matching_info) do [
+			var pi := body.pattern_matching_info[m];
+			for p := 0 to len(pi.conditions) do [
+				var match := verify_type_equality(ctx, new_ctx, pi.conditions[p], empty(compare_fn_stack), empty_compare_context, cnst, empty(compare_fn_stack));
+				if match is noeq then
+					goto skip_cond;
+				if not match is eq then
+					return cc, typ;
+			]
+			cc, typ := new_ctx, pi.return_values[ret_idx];
+			goto restart;
+skip_cond:
 		]
-
-		cc, typ := new_ctx, f.signature.n_arguments + ret_idx;
-
-		goto restart;
+		return cc, typ;
 	]
 	if opcode = P_Load_Local_Type then [
 		if cc.llt_main is j, pcode_Load_Local_Type_get_function(instr) = cc.llt_main.j then [
