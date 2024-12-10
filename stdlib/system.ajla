@@ -2852,8 +2852,7 @@ fn select~inline(t : type, b : bool, v1 v2 : t) : t
 [
 	if b then
 		return v2;
-	else
-		return v1;
+	return v1;
 ]
 
 fn min~inline(t : type, implicit c : class_ord(t), a b : t) : t := select(a < b, b, a);

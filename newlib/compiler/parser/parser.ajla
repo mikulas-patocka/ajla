@@ -292,6 +292,8 @@ fn parse_function_body(ctx : function_context, vd : variable_dictionary, t : tok
 	if lbl <> 0 then
 		abort internal("The first label should be zero");
 
+	ctx.is_pattern_matched := true;
+
 	if t[0].t is assign then [
 		var new_tokens := empty(token);
 		var skip := 2 + len(t[1 .. ]);
@@ -309,7 +311,7 @@ fn parse_function_body(ctx : function_context, vd : variable_dictionary, t : tok
 
 	var left : tokens;
 	var term : bool;
-	ctx, left, term := parse_statement(ctx, vd, true, t);
+	ctx, left, term := parse_statement(ctx, vd, 0, t);
 	xeval ctx;
 	if len(left) > 0 then
 		abort compiler_error("Tokens after the end of the function", left);
@@ -331,6 +333,11 @@ fn parse_function_body(ctx : function_context, vd : variable_dictionary, t : tok
 		if get_type_of_var(ctx, v) = T_InvalidType then
 			abort compiler_error("Return type was not inferred", t);
 	]
+
+	if not ctx.is_pattern_matched then
+		ctx.pattern_matching_info := empty(pattern_context);
+	//if ctx.is_pattern_matched, ctx.n_labels > 1 then
+	//	eval debug(i_decode(ctx.name));
 
 	return ctx;
 ]

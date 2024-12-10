@@ -102,6 +102,11 @@ record record_definition [
 
 type function_definition;
 
+record pattern_context [
+	conditions : list(int);
+	return_values : list(int);
+]
+
 record function_context [
 	n_arguments : int;
 	n_return_values : int;
@@ -138,6 +143,9 @@ record function_context [
 	gvn_seq : int;
 
 	inferred_base : int;
+
+	is_pattern_matched : bool;
+	pattern_matching_info : list(pattern_context);
 ]
 
 record function_definition [
@@ -410,6 +418,9 @@ fn new_function_context(dict : function_dictionary, parent_function : maybe(func
 		gvn_seq : 0,
 
 		inferred_base : T_InferredType,
+
+		is_pattern_matched : false,
+		pattern_matching_info : empty(pattern_context),
 	];
 	return ctx;
 ]

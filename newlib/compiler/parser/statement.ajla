@@ -20,7 +20,7 @@ private unit compiler.parser.statement;
 
 uses compiler.parser.dict;
 
-fn parse_statement(ctx : function_context, vd : variable_dictionary, top_level : bool, t : tokens) : (function_context, tokens, bool);
+fn parse_statement(ctx : function_context, vd : variable_dictionary, level : int, t : tokens) : (function_context, tokens, bool);
 
 implementation
 
@@ -179,13 +179,14 @@ fn parse_statement_function(ctx : function_context, vd : variable_dictionary, t 
 	return ctx, vd;
 ]
 
-fn parse_block(ctx : function_context, up_vd : variable_dictionary, top_level : bool, t : tokens) : (function_context, bool)
+fn parse_block(ctx : function_context, up_vd : variable_dictionary, level : int, t : tokens) : (function_context, bool)
 [
 	var vd := new_variable_dictionary_chained(ctx, up_vd);
 	var term := false;
 
 	while len(t) > 0 do [
 		if len(t) >= 2, t[0].t is identifier, t[1].t is colon then [
+			ctx.is_pattern_matched := false;
 			ctx := parse_statement_label(ctx, t);
 			t := t[2 .. ];
 			term := false;
@@ -236,10 +237,10 @@ next_flag:
 			t := t[f + 1 .. ];
 			continue;
 		]
-		ctx, t, term := parse_statement(ctx, vd, false, t);
+		ctx, t, term := parse_statement(ctx, vd, level + 1, t);
 	]
 
-	if top_level and not term then [
+	if level = 0 and not term then [
 		var ctx2 := parse_statement_return(ctx, vd, empty(token));
 		if not is_exception ctx2 then [
 			ctx := ctx2;
@@ -451,6 +452,10 @@ fn parse_statement_modify(ctx : function_context, vd : variable_dictionary, modi
 
 fn evaluate_condition(ctx : function_context, vd : variable_dictionary, t : tokens, l_false l_exception : int) : (function_context, int)
 [
+	if ctx.is_pattern_matched then [
+		ctx.pattern_matching_info +<= pattern_context.[ conditions : empty(int), return_values : empty(int) ];
+	]
+
 	var cond : int;
 	ctx, cond := alloc_local_variable(ctx, T_AlwaysFlatOption, false, false);
 	while len(t) > 0 do [
@@ -459,6 +464,8 @@ fn evaluate_condition(ctx : function_context, vd : variable_dictionary, t : toke
 
 		var a : int;
 		ctx, a := parse_expression(ctx, vd, t1, false);
+		if ctx.is_pattern_matched then
+			ctx.pattern_matching_info[len(ctx.pattern_matching_info) - 1].conditions +<= a;
 
 		var typ := get_type_of_var(ctx, a);
 		if not verify_equality(ctx, typ, T_AlwaysFlatOption) then
@@ -489,7 +496,7 @@ fn generate_condition_exception(ctx : function_context, cond : int, l_exception 
 	return ctx;
 ]
 
-fn parse_statement_if(ctx : function_context, vd : variable_dictionary, t : tokens) : (function_context, tokens, bool)
+fn parse_statement_if(ctx : function_context, vd : variable_dictionary, level : int, t : tokens) : (function_context, tokens, bool)
 [
 	var thn := token_find(t, token_opt.k_then, true);
 
@@ -504,7 +511,7 @@ fn parse_statement_if(ctx : function_context, vd : variable_dictionary, t : toke
 	ctx, cond := evaluate_condition(ctx, thn_vd, t[ .. thn], l_else, l_exception);
 
 	var thn_term els_term : bool;
-	ctx, t, thn_term := parse_statement(ctx, thn_vd, false, t[thn + 1 .. ]);
+	ctx, t, thn_term := parse_statement(ctx, thn_vd, level + 1, t[thn + 1 .. ]);
 	ctx := generate_Jmp(ctx, l_end);
 
 	ctx := free_variable_dictionary_chained(ctx, thn_vd);
@@ -513,8 +520,9 @@ fn parse_statement_if(ctx : function_context, vd : variable_dictionary, t : toke
 
 	ctx := generate_Label(ctx, l_else);
 	if len(t) > 0, t[0].t is k_else then [
+		ctx.is_pattern_matched := false;
 		var els_vd := new_variable_dictionary_chained(ctx, vd);
-		ctx, t, els_term := parse_statement(ctx, els_vd, false, t[1 .. ]);
+		ctx, t, els_term := parse_statement(ctx, els_vd, level + 1, t[1 .. ]);
 		ctx := free_variable_dictionary_chained(ctx, els_vd);
 	] else [
 		els_term := false;
@@ -522,10 +530,13 @@ fn parse_statement_if(ctx : function_context, vd : variable_dictionary, t : toke
 
 	ctx := generate_Label(ctx, l_end);
 
+	if not thn_term then
+		ctx.is_pattern_matched := false;
+
 	return ctx, t, thn_term and els_term;
 ]
 
-fn parse_statement_while(ctx : function_context, vd : variable_dictionary, t : tokens) : (function_context, tokens, bool)
+fn parse_statement_while(ctx : function_context, vd : variable_dictionary, level : int, t : tokens) : (function_context, tokens, bool)
 [
 	var d := token_find(t, token_opt.k_do, true);
 
@@ -544,7 +555,7 @@ fn parse_statement_while(ctx : function_context, vd : variable_dictionary, t : t
 	ctx, cond := evaluate_condition(ctx, do_vd, t[ .. d], l_end, l_exception);
 
 	var do_term : bool;
-	ctx, t, do_term := parse_statement(ctx, do_vd, false, t[d + 1 .. ]);
+	ctx, t, do_term := parse_statement(ctx, do_vd, level + 1, t[d + 1 .. ]);
 
 	ctx := generate_Jmp(ctx, l_start);
 
@@ -557,7 +568,7 @@ fn parse_statement_while(ctx : function_context, vd : variable_dictionary, t : t
 	return ctx, t, false;
 ]
 
-fn parse_statement_for(ctx : function_context, vd : variable_dictionary, t : tokens) : (function_context, tokens, bool)
+fn parse_statement_for(ctx : function_context, vd : variable_dictionary, level : int, t : tokens) : (function_context, tokens, bool)
 [
 	if len(t) < 6 or
 	   not t[0].t is identifier or
@@ -608,7 +619,7 @@ fn parse_statement_for(ctx : function_context, vd : variable_dictionary, t : tok
 	ctx, a := evaluate_condition(ctx, do_vd, toks, l_end, l_exception);
 
 	var term : bool;
-	ctx, t, term := parse_statement(ctx, do_vd, false, t);
+	ctx, t, term := parse_statement(ctx, do_vd, level + 1, t);
 
 	ctx := generate_Label(ctx, l_continue);
 
@@ -624,7 +635,7 @@ fn parse_statement_for(ctx : function_context, vd : variable_dictionary, t : tok
 	return ctx, t, false;
 ]
 
-fn parse_statement_for_in(ctx : function_context, vd : variable_dictionary, t : tokens) : (function_context, tokens, bool)
+fn parse_statement_for_in(ctx : function_context, vd : variable_dictionary, level : int, t : tokens) : (function_context, tokens, bool)
 [
 	if len(t) < 4 or
 	   not t[0].t is identifier or
@@ -680,7 +691,7 @@ fn parse_statement_for_in(ctx : function_context, vd : variable_dictionary, t : 
 	ctx, do_vd := parse_statement_var(ctx, do_vd, false, false, false, toks);
 
 	var term : bool;
-	ctx, t, term := parse_statement(ctx, do_vd, false, t);
+	ctx, t, term := parse_statement(ctx, do_vd, level + 1, t);
 
 	ctx := generate_Label(ctx, l_continue);
 
@@ -700,10 +711,23 @@ fn parse_statement_for_in(ctx : function_context, vd : variable_dictionary, t : 
 	return ctx, t, false;
 ]
 
+fn pattern_prepare_return(ctx : function_context) : function_context
+[
+	if ctx.is_pattern_matched then [
+		if len(ctx.pattern_matching_info) = 0 then
+			ctx.pattern_matching_info +<= pattern_context.[ conditions : empty(int), return_values : empty(int) ];
+		else if len_greater_than(ctx.pattern_matching_info[len(ctx.pattern_matching_info) - 1].return_values, 0) then
+			ctx.pattern_matching_info +<= pattern_context.[ conditions : empty(int), return_values : empty(int) ];
+	]
+	return ctx;
+]
+
 fn parse_statement_return(ctx : function_context, vd : variable_dictionary, t : tokens) : function_context
 [
 	var a : list(int);
 	var nr := ctx.n_return_values;
+
+	ctx := pattern_prepare_return(ctx);
 
 	if len(t) = 0 then
 		a := empty(int);
@@ -741,6 +765,7 @@ fn parse_statement_return(ctx : function_context, vd : variable_dictionary, t : 
 			var inferred : maybe_inferred;
 			ctx, ax, inferred := convert_type(ctx, vd, a[i], new_compare_context(ctx), get_type_of_var(ctx, v), 0, true, t);
 		]
+		ctx.pattern_matching_info[len(ctx.pattern_matching_info) - 1].return_values +<= ax;
 		ctx := set_defined_here(ctx, v);
 		ctx := generate_Copy(ctx, ax, v);
 	]
@@ -813,6 +838,10 @@ fn generate_abort(ctx : function_context) : function_context
 	var l : int;
 	ctx, l := alloc_local_variable(ctx, T_AlwaysFlatOption, true, false);
 	ctx := generate_IO_Exception_Make(ctx, ec_sync, error_abort, 0, l);
+	ctx := pattern_prepare_return(ctx);
+	if ctx.is_pattern_matched then [
+		ctx.pattern_matching_info[len(ctx.pattern_matching_info) - 1].return_values := fill(l, ctx.n_return_values);
+	]
 	ctx := generate_condition_exception(ctx, l, -1);
 	return ctx;
 ]
@@ -888,7 +917,7 @@ invalid_parameter:
 	return ctx;
 ]
 
-fn parse_statement(ctx : function_context, vd : variable_dictionary, top_level : bool, t : tokens) : (function_context, tokens, bool)
+fn parse_statement(ctx : function_context, vd : variable_dictionary, level : int, t : tokens) : (function_context, tokens, bool)
 [
 	var term := false;
 
@@ -904,23 +933,29 @@ fn parse_statement(ctx : function_context, vd : variable_dictionary, top_level :
 	if t[0].t is left_bracket then [
 		var end := t[0].bracket_skip;
 		var term : bool;
-		ctx, term := parse_block(ctx, vd, top_level, t[1 .. end]);
+		ctx, term := parse_block(ctx, vd, level, t[1 .. end]);
 		return ctx, t[end + 1 .. ], term;
 	]
 
-	if t[0].t is k_if then
-		return parse_statement_if(ctx, vd, t[1 .. ]);
+	if t[0].t is k_if then [
+		if level > 1 then
+			ctx.is_pattern_matched := false;
+		return parse_statement_if(ctx, vd, level, t[1 .. ]);
+	]
 
-	if t[0].t is k_while then
-		return parse_statement_while(ctx, vd, t[1 .. ]);
+	if t[0].t is k_while then [
+		ctx.is_pattern_matched := false;
+		return parse_statement_while(ctx, vd, level, t[1 .. ]);
+	]
 
 	if t[0].t is k_for then [
+		ctx.is_pattern_matched := false;
 		var tt := t[1 .. ];
 		var d := token_find(tt, token_opt.k_do, true);
 		if token_find(tt[ .. d], token_opt.k_in, false) >= 0 then
-			return parse_statement_for_in(ctx, vd, tt);
+			return parse_statement_for_in(ctx, vd, level, tt);
 		else
-			return parse_statement_for(ctx, vd, tt);
+			return parse_statement_for(ctx, vd, level, tt);
 	]
 
 	var semicolon := token_find(t, token_opt.semicolon, true);
@@ -951,33 +986,39 @@ fn parse_statement(ctx : function_context, vd : variable_dictionary, top_level :
 	]
 
 	if s[0].t is k_eval or s[0].t is k_xeval or s[0].t is k_abort or s[0].t is k_keep then [
+		if not s[0].t is k_abort then
+			ctx.is_pattern_matched := false;
 		ctx := parse_statement_eval(ctx, vd, s[1 .. ], s[0].t);
 		term := s[0].t is k_abort;
 		goto ret;
 	]
 
 	if s[0].t is identifier, s[0].t.identifier = i_encode("pcode"), function_context_is_privileged(ctx) then [
+		ctx.is_pattern_matched := false;
 		ctx := parse_statement_pcode(ctx, vd, s[1 .. ]);
 		goto ret;
 	]
 
 	var assign := token_find(s, token_opt.assign, false);
 	if assign >= 1 then [
+		ctx.is_pattern_matched := false;
 		ctx := parse_statement_assign(ctx, vd, true, s[ .. assign], s[assign + 1 .. ]);
 		goto ret;
 	]
 
 	var modify := token_find(s, token_opt.oper.(0), false);
 	if modify >= 1 then [
+		ctx.is_pattern_matched := false;
 		ctx := parse_statement_modify(ctx, vd, s[modify], s[ .. modify], s[modify + 1 .. ]);
 		goto ret;
 	]
 
+	ctx.is_pattern_matched := false;
 	ctx := parse_statement_assign(ctx, vd, true, empty(token), s);
 	goto ret;
 
-	//abort compiler_error("Invalid statement", s);
-
 ret:
+	if len_greater_than(t, semicolon + 1), term then
+		ctx.is_pattern_matched := false;
 	return ctx, t[semicolon + 1 .. ], term;
 ]
