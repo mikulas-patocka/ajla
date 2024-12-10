@@ -3502,7 +3502,7 @@ type xarray(dim : list(int), t : type)
  - LIST DEFINITION -
  -------------------}
 
-fn list(t : type) : type
+type list(t : type)
 [
 	var l : type;
 	pcode Array_Flexible =l t;
