@@ -85,11 +85,10 @@ const T_EmptyOption := -23;
 const T_FlatOption := -24;
 const T_AlwaysFlatOption := -25;
 const T_Undetermined := -26;
-const T_TypeOfType := -27;
-const T_Record := -28;
-const T_UnknownType := -29;
-const T_InvalidType := -30;
-const T_InferredType := -31;
+const T_Record := -27;
+const T_UnknownType := -28;
+const T_InvalidType := -29;
+const T_InferredType := -30;
 
 const Structured_Record := 1;
 const Structured_Option := 2;
@@ -556,11 +555,10 @@ fn name_to_value~cache : list(int)
 	a[#236CC3D27F0E9A77EE] := -24;						// FlatOption
 	a[#83B3BE1F3CE36CC3D27F0E9A77EE] := -25;				// AlwaysFlatOption
 	a[#ABBB265E99796DD3BB2E4] := -26;					// Undetermined
-	a[#2A79E1967E6A9E7865] := -27;						// TypeOfType
-	a[#2965C7BF964] := -28;							// Record
-	a[#15776BDDBFBEEA9E7865] := -29;					// UnknownType
-	a[#127776C3B34E4A9E7865] := -30;					// InvalidType
-	a[#93BB365E5CB2E4A9E7865] := -31;					// InferredType
+	a[#2965C7BF964] := -27;							// Record
+	a[#15776BDDBFBEEA9E7865] := -28;					// UnknownType
+	a[#127776C3B34E4A9E7865] := -29;					// InvalidType
+	a[#93BB365E5CB2E4A9E7865] := -30;					// InferredType
 
 	a[#53E9CBAE3E9D7965C97E965C7BF964] := 1;				// Structured_Record
 	a[#53E9CBAE3E9D7965C97E7F0E9A77EE] := 2;				// Structured_Option

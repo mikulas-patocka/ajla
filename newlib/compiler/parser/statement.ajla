@@ -857,7 +857,7 @@ fn parse_statement_eval(ctx : function_context, vd : variable_dictionary, t : to
 	ctx, al := parse_expressions(ctx, vd, t, false);
 	for i := 0 to len(al) do [
 		var gt := get_type_of_var(ctx, al[i]);
-		if gt = T_Type or gt = T_TypeOfType then
+		if gt = T_Type then
 			continue;
 		if x is k_eval then [
 			ctx := generate_Eval(ctx, al[i]);

@@ -83,11 +83,10 @@
 #define T_FlatOption			-24
 #define T_AlwaysFlatOption		-25
 #define T_Undetermined			-26
-#define T_TypeOfType			-27
-#define T_Record			-28
-#define T_UnknownType			-29
-#define T_InvalidType			-30
-#define T_InferredType			-31
+#define T_Record			-27
+#define T_UnknownType			-28
+#define T_InvalidType			-29
+#define T_InferredType			-30
 
 #define Structured_Record		1
 #define Structured_Option		2
