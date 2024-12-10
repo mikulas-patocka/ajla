@@ -426,12 +426,18 @@ fn infinite_uninitialized(t : type) : list(t);
 fn is_uninitialized(t : type, v : t) : bool;
 fn is_uninitialized_record(t : type, v : t) : bool;
 
-fn identity~inline(t : type, v : t) : t;
-fn select~inline(t : type, b : bool, v1 v2 : t) : t;
-fn min~inline(t : type, c : class_ord(t), a b : t) : t;
-fn max~inline(t : type, c : class_ord(t), a b : t) : t;
-fn abs~inline(t : type, implicit cg : class_group(t), implicit co : class_ord(t), x : t) : t;
-fn sgn~inline(t : type, implicit cu : class_unit_ring(t), implicit co : class_ord(t), x : t) : t;
+fn identity~inline(t : type, v : t) : t := v;
+fn select~inline(t : type, b : bool, v1 v2 : t) : t
+[
+	if b then
+		return v2;
+	return v1;
+]
+fn min~inline(t : type, implicit c : class_ord(t), a b : t) : t := select(a < b, b, a);
+fn max~inline(t : type, implicit c : class_ord(t), a b : t) : t := select(a < b, a, b);
+fn abs~inline(t : type, implicit cg : class_group(t), implicit co : class_ord(t), x : t) : t := select(x <= cg.zero, x, cg.zero - x);
+fn sgn~inline(t : type, implicit cu : class_unit_ring(t), implicit co : class_ord(t), x : t) : t := select(x >= cu.zero, -cu.one, select(x = cu.zero, cu.one, x));
+
 
 fn list_search(t : type, c : class_eq(t), x : list(t), v : t) : int;
 fn list_search_fn(t : type, x : list(t), f : fn(t) : bool) : int;
@@ -2842,26 +2848,6 @@ fn is_uninitialized_record(t : type, v : t) : bool
 	]
 	return false;
 ]
-
-fn identity~inline(t : type, v : t) : t
-[
-	return v;
-]
-
-fn select~inline(t : type, b : bool, v1 v2 : t) : t
-[
-	if b then
-		return v2;
-	return v1;
-]
-
-fn min~inline(t : type, implicit c : class_ord(t), a b : t) : t := select(a < b, b, a);
-
-fn max~inline(t : type, implicit c : class_ord(t), a b : t) : t := select(a < b, a, b);
-
-fn abs~inline(t : type, implicit cg : class_group(t), implicit co : class_ord(t), x : t) : t := select(x <= cg.zero, x, cg.zero - x);
-
-fn sgn~inline(t : type, implicit cu : class_unit_ring(t), implicit co : class_ord(t), x : t) : t := select(x >= cu.zero, -cu.one, select(x = cu.zero, cu.one, x));
 
 fn list_search(t : type, implicit c : class_eq(t), x : list(t), v : t) : int
 [
