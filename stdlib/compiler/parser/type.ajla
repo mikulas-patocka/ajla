@@ -620,7 +620,9 @@ fn verify_type_equality(ctx : function_context,
 			return teq.dont_know;
 		if typ1 = typ2 then
 			return teq.eq;
-		return teq.noeq;
+		if typ_is_const(typ1), typ_is_const(typ2) then
+			return teq.noeq;
+		return teq.dont_know;
 	]
 
 	if typ1 = typ2, cc1.ctx.incomplete, cc2.ctx.incomplete, cc1.ctx.id = cc2.ctx.id then
