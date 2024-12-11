@@ -548,6 +548,22 @@ skip_cond:
 		]
 		return cc, typ;
 	]
+	if opcode = P_Option_Ord then [
+		var arg := pcode_Option_Ord_get_option(instr);
+		var arg_cc, arg_typ := get_base_definition(ctx, cc, arg, false);
+		var arg_instr := get_defined_maybe(arg_cc, arg_typ);
+		if arg_instr is n then
+			return cc, typ;
+		var cnst : int;
+		if arg_instr.j.opcode = P_Load_Const then [
+			cnst := blob_to_int(pcode_Load_Const_get_blob(arg_instr.j));
+		] else if arg_instr.j.opcode = P_Option_Create then [
+			cnst := pcode_Option_Create_get_index(arg_instr.j);
+		] else [
+			return cc, typ;
+		]
+		return empty_compare_context, encode_constant(T_Integer, int_to_blob(cnst));
+	]
 
 	if opcode = P_Copy_Type_Cast or
 	   opcode = P_Curry or
@@ -557,7 +573,6 @@ skip_cond:
 	   opcode = P_Record_Create or
 	   opcode = P_Option_Create or
 	   opcode = P_Option_Load or
-	   opcode = P_Option_Ord or
 	   opcode = P_Array_Create or
 	   opcode = P_Array_String or
 	   opcode = P_Array_Unicode or
