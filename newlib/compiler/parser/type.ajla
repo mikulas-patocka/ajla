@@ -495,56 +495,68 @@ skip_cond:
 	if opcode = P_BinaryOp then [
 		var t := get_type_of_var(cc_ctx, typ);
 		if not (t <= T_SInt8 and t >= T_Real128 or t = T_AlwaysFlatOption) then
-			goto skip_this;
+			return cc, typ;
 		var op := pcode_BinaryOp_get_op(instr);
 		var arg1 := pcode_BinaryOp_get_arg1(instr);
 		var arg2 := pcode_BinaryOp_get_arg2(instr);
 		var arg1_cc, arg1_typ := get_base_definition(ctx, cc, arg1, false);
 		var arg2_cc, arg2_typ := get_base_definition(ctx, cc, arg2, false);
 		if arg1_typ < 0 or arg2_typ < 0 then
-			goto skip_this;
+			return cc, typ;
 		if not (arg1_typ bt gbd_const_flag and arg2_typ bt gbd_const_flag) then
-			goto skip_this;
+			return cc, typ;
 		var t1, b1 := decode_constant(arg1_typ);
 		var t2, b2 := decode_constant(arg2_typ);
 		if t1 <> t2 then
-			goto skip_this;
+			return cc, typ;
 		var res := evaluate_binary(t1, t, op, b1, b2);
 		if is_exception res then
-			goto skip_this;
+			return cc, typ;
 		return empty_compare_context, encode_constant(t1, res);
 	]
 	if opcode = P_UnaryOp then [
 		var t := get_type_of_var(cc_ctx, typ);
 		if not (t <= T_SInt8 and t >= T_Real128 or t = T_AlwaysFlatOption) then
-			goto skip_this;
+			return cc, typ;
 		var op := pcode_UnaryOp_get_op(instr);
 		var arg1 := pcode_UnaryOp_get_arg(instr);
 		var arg1_cc, arg1_typ := get_base_definition(ctx, cc, arg1, false);
 		if arg1_typ < 0 then
-			goto skip_this;
+			return cc, typ;
 		if not arg1_typ bt gbd_const_flag then
-			goto skip_this;
+			return cc, typ;
 		var t1, b1 := decode_constant(arg1_typ);
 		var res := evaluate_unary(t1, t, op, b1);
 		if is_exception res then
-			goto skip_this;
+			return cc, typ;
 		return empty_compare_context, encode_constant(t1, res);
 	]
+	if opcode = P_Option_Test then [
+		var arg := pcode_Option_Test_get_option(instr);
+		var idx := pcode_Option_Test_get_index(instr);
+		var arg_cc, arg_typ := get_base_definition(ctx, cc, arg, false);
+		var arg_instr := get_defined_maybe(arg_cc, arg_typ);
+		if arg_instr is n then
+			return cc, typ;
+		if arg_instr.j.opcode = P_Load_Const then [
+			var cnst := blob_to_int(pcode_Load_Const_get_blob(arg_instr.j));
+			return empty_compare_context, encode_constant(T_AlwaysFlatOption, int_to_blob(select(cnst = idx, 0, 1)));
+		]
+		if arg_instr.j.opcode = P_Option_Create then [
+			var cnst := pcode_Option_Create_get_index(arg_instr.j);
+			return empty_compare_context, encode_constant(T_AlwaysFlatOption, int_to_blob(select(cnst = idx, 0, 1)));
+		]
+		return cc, typ;
+	]
 
-skip_this:
-	if opcode = P_BinaryOp or
-	   opcode = P_UnaryOp or
-	   opcode = P_Copy_Type_Cast or
+	if opcode = P_Copy_Type_Cast or
 	   opcode = P_Curry or
 	   opcode = P_Load_Fn or
 	   opcode = P_Fn or
-	   opcode = P_Load_Const or
 	   opcode = P_Structured_Write or
 	   opcode = P_Record_Create or
 	   opcode = P_Option_Create or
 	   opcode = P_Option_Load or
-	   opcode = P_Option_Test or
 	   opcode = P_Option_Ord or
 	   opcode = P_Array_Create or
 	   opcode = P_Array_String or
