@@ -335,8 +335,6 @@ fail:
 
 fn encode_constant(t : int, cnst : list(pcode_t)) : int
 [
-	if not (t <= T_SInt8 and t >= T_Real128 or t = T_AlwaysFlatOption) then
-		abort internal("encode_constant: invalid type " + ntos(t));
 	var c := 0 bts gbd_const_flag;
 	c or= -t shl gbd_const_type;
 	for i := 0 to len(cnst) do [
@@ -490,6 +488,8 @@ skip_cond:
 	if opcode = P_Load_Const then [
 		var blob := pcode_Load_Const_get_blob(instr);
 		var t := get_type_of_var(cc_ctx, typ);
+		if not (t <= T_SInt8 and t >= T_Real128 or t = T_AlwaysFlatOption) then
+			return cc, typ;
 		return cc, encode_constant(t, blob);
 	]
 	if opcode = P_BinaryOp then [
