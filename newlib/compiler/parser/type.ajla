@@ -531,6 +531,20 @@ skip_cond:
 			return cc, typ;
 		return empty_compare_context, encode_constant(t1, res);
 	]
+	if opcode = P_Option_Load then [
+		var arg := pcode_Option_Load_get_option(instr);
+		var idx := pcode_Option_Load_get_index(instr);
+		var arg_cc, arg_typ := get_base_definition(ctx, cc, arg, false);
+		var arg_instr := get_defined_maybe(arg_cc, arg_typ);
+		if arg_instr is n then
+			return cc, typ;
+		if arg_instr.j.opcode <> P_Option_Create then
+			return cc, typ;
+		if pcode_Option_Create_get_index(arg_instr.j) <> idx then
+			return cc, typ;
+		cc, typ := arg_cc, pcode_Option_Create_get_arg(arg_instr.j);
+		goto restart;
+	]
 	if opcode = P_Option_Test then [
 		var arg := pcode_Option_Test_get_option(instr);
 		var idx := pcode_Option_Test_get_index(instr);
@@ -572,7 +586,6 @@ skip_cond:
 	   opcode = P_Structured_Write or
 	   opcode = P_Record_Create or
 	   opcode = P_Option_Create or
-	   opcode = P_Option_Load or
 	   opcode = P_Array_Create or
 	   opcode = P_Array_String or
 	   opcode = P_Array_Unicode or
