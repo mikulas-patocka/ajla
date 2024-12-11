@@ -30,6 +30,7 @@ fn treemap_init(key : type, value : type, const cls : class_ord(key)) : treemap(
 fn treemap_is_nonempty(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls)) : bool;
 fn treemap_test(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls), k : key) : bool;
 fn treemap_search(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls), k : key) : maybe(value);
+fn treemap_search_default(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls), k : key, def : value) : value;
 fn treemap_first(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls)) : maybe(treemap_key_value(key, value));
 fn treemap_last(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls)) : maybe(treemap_key_value(key, value));
 fn treemap_next(key : type, value : type, const implicit cls : class_ord(key), tm : treemap(key, value, cls), k : key) : maybe(treemap_key_value(key, value));
@@ -157,6 +158,14 @@ again:
 	else
 		tm := tm.j.right;
 	goto again;
+]
+
+fn treemap_search_default(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls), k : key, def : value) : value
+[
+	var s := treemap_search(tm, k);
+	if s is j then
+		return s.j;
+	return def;
 ]
 
 fn treemap_first(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls)) : maybe(treemap_key_value(key, value))
