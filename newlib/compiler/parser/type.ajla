@@ -512,7 +512,7 @@ skip_cond:
 		var res := evaluate_binary(t1, t, op, b1, b2);
 		if is_exception res then
 			return cc, typ;
-		return empty_compare_context, encode_constant(t1, res);
+		return empty_compare_context, encode_constant(t, res);
 	]
 	if opcode = P_UnaryOp then [
 		var t := get_type_of_var(cc_ctx, typ);
