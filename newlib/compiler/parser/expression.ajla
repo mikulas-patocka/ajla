@@ -884,7 +884,7 @@ fn parse_expression_type(ctx : function_context, vd : variable_dictionary, t : t
 	var a : int;
 	ctx, a := parse_expression(ctx, vd, t, true);
 	var cc, typ := get_deep_type_of_var(ctx, a);
-	if typ <> T_Type then
+	if typ <> T_Type and typ <> T_TypeOfType then
 		abort compiler_error("Type expected", t);
 	return ctx, a;
 ]

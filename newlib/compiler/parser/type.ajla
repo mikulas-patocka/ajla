@@ -108,6 +108,8 @@ fn get_type_of_var(ctx : function_context, v : int) : int
 [
 	if v <= T_InferredType then
 		abort internal("get_type_of_var: getting type of inference marker");
+	else if v = T_Type then
+		return T_TypeOfType;
 	else if v < 0 then
 		return T_Type;
 	else

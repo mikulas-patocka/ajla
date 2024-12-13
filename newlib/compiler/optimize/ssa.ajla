@@ -369,7 +369,7 @@ again:
 				if src >= 0 then
 					src_rt := ctx.variables[src].runtime_type;
 				else if src = T_Type then
-					src_rt := T_Type;
+					src_rt := T_TypeOfType;
 				if src_rt = dest_rt then
 					continue;
 				if src_rt = T_Undetermined then
