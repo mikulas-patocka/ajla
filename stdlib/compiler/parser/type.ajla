@@ -494,44 +494,85 @@ skip_cond:
 			return cc, typ;
 		return cc, encode_constant(t, blob);
 	]
+	fn get_constant(arg : int) : list(pcode_t)
+	[
+		var arg_cc, arg_typ := get_base_definition(ctx, cc, arg, false);
+		if arg_typ < 0 or not arg_typ bt gbd_const_flag then
+			return empty(pcode_t);
+		var t, b := decode_constant(arg_typ);
+		return b;
+	]
 	if opcode = P_BinaryOp then [
-		var t := get_type_of_var(cc_ctx, typ);
-		if not (t <= T_SInt8 and t >= T_Real128 or t = T_AlwaysFlatOption) then
-			return cc, typ;
+		var ccx, t := get_deep_type_of_var(cc_ctx, typ);
 		var op := pcode_BinaryOp_get_op(instr);
 		var arg1 := pcode_BinaryOp_get_arg1(instr);
 		var arg2 := pcode_BinaryOp_get_arg2(instr);
-		var arg1_cc, arg1_typ := get_base_definition(ctx, cc, arg1, false);
-		var arg2_cc, arg2_typ := get_base_definition(ctx, cc, arg2, false);
-		if arg1_typ < 0 or arg2_typ < 0 then
+		var ccx1, t1 := get_deep_type_of_var(cc_ctx, arg1);
+		if not (t <= T_SInt8 and t >= T_Real128 or t = T_AlwaysFlatOption) then
+			abort internal("get_base_definition: invalid destination type for binary operation: " + ntos(t));
+		if not (t1 <= T_SInt8 and t1 >= T_Real128 or t1 = T_AlwaysFlatOption) then
+			abort internal("get_base_definition: invalid source type for binary operation: " + ntos(t1));
+		var arg1_blob := get_constant(arg1);
+		var arg2_blob := get_constant(arg2);
+		if t1 = T_AlwaysFlatOption then [
+			if op = Bin_And then [
+				if len_greater_than(arg1_blob, 0) and blob_to_int(arg1_blob) = 0 or
+				   len_greater_than(arg2_blob, 0) and blob_to_int(arg2_blob) = 0 then
+					goto ret_false;
+			]
+			if op = Bin_Or then [
+				if len_greater_than(arg1_blob, 0) and blob_to_int(arg1_blob) = 1 or
+				   len_greater_than(arg2_blob, 0) and blob_to_int(arg2_blob) = 1 then
+					goto ret_true;
+			]
+			if op = Bin_Less then [
+				if len_greater_than(arg1_blob, 0) and blob_to_int(arg1_blob) = 1 or
+				   len_greater_than(arg2_blob, 0) and blob_to_int(arg2_blob) = 0 then
+					goto ret_false;
+			]
+			if op = Bin_LessEqual then [
+				if len_greater_than(arg1_blob, 0) and blob_to_int(arg1_blob) = 0 or
+				   len_greater_than(arg2_blob, 0) and blob_to_int(arg2_blob) = 1 then
+					goto ret_true;
+			]
+			if op = Bin_Greater then [
+				if len_greater_than(arg1_blob, 0) and blob_to_int(arg1_blob) = 0 or
+				   len_greater_than(arg2_blob, 0) and blob_to_int(arg2_blob) = 1 then
+					goto ret_false;
+			]
+			if op = Bin_GreaterEqual then [
+				if len_greater_than(arg1_blob, 0) and blob_to_int(arg1_blob) = 1 or
+				   len_greater_than(arg2_blob, 0) and blob_to_int(arg2_blob) = 0 then
+					goto ret_true;
+			]
+		]
+		if not len_greater_than(arg1_blob, 0) or not len_greater_than(arg2_blob, 0) then
 			return cc, typ;
-		if not (arg1_typ bt gbd_const_flag and arg2_typ bt gbd_const_flag) then
-			return cc, typ;
-		var t1, b1 := decode_constant(arg1_typ);
-		var t2, b2 := decode_constant(arg2_typ);
-		if t1 <> t2 then
-			return cc, typ;
-		var res := evaluate_binary(t1, t, op, b1, b2);
+		var res := evaluate_binary(t1, t, op, arg1_blob, arg2_blob);
 		if is_exception res then
 			return cc, typ;
 		return empty_compare_context, encode_constant(t, res);
+ret_false:
+		return empty_compare_context, encode_constant(t, int_to_blob(0));
+ret_true:
+		return empty_compare_context, encode_constant(t, int_to_blob(1));
 	]
 	if opcode = P_UnaryOp then [
-		var t := get_type_of_var(cc_ctx, typ);
-		if not (t <= T_SInt8 and t >= T_Real128 or t = T_AlwaysFlatOption) then
-			return cc, typ;
+		var ccx, t := get_deep_type_of_var(cc_ctx, typ);
 		var op := pcode_UnaryOp_get_op(instr);
 		var arg1 := pcode_UnaryOp_get_arg(instr);
-		var arg1_cc, arg1_typ := get_base_definition(ctx, cc, arg1, false);
-		if arg1_typ < 0 then
+		var ccx1, t1 := get_deep_type_of_var(cc_ctx, arg1);
+		if not (t <= T_SInt8 and t >= T_Real128 or t = T_AlwaysFlatOption) then
+			abort internal("get_base_definition: invalid destination type for unary operation: " + ntos(t));
+		if not (t1 <= T_SInt8 and t1 >= T_Real128 or t1 = T_AlwaysFlatOption) then
+			abort internal("get_base_definition: invalid source type for unary operation: " + ntos(t));
+		var arg1_blob := get_constant(arg1);
+		if not len_greater_than(arg1_blob, 0) then
 			return cc, typ;
-		if not arg1_typ bt gbd_const_flag then
-			return cc, typ;
-		var t1, b1 := decode_constant(arg1_typ);
-		var res := evaluate_unary(t1, t, op, b1);
+		var res := evaluate_unary(t1, t, op, arg1_blob);
 		if is_exception res then
 			return cc, typ;
-		return empty_compare_context, encode_constant(t1, res);
+		return empty_compare_context, encode_constant(t, res);
 	]
 	if opcode = P_Option_Load then [
 		var arg := pcode_Option_Load_get_option(instr);
