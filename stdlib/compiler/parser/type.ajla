@@ -42,6 +42,7 @@ record compare_context [
 	llt_redirect : list(compare_argument);
 	return_redirect : list(compare_argument);
 	lambda_redirect : list(int);
+	no_pattern_match : bool;
 ]
 
 record compare_fn_stack [
@@ -198,6 +199,7 @@ fn new_compare_context(ctx : function_context) : compare_context
 		llt_redirect : empty(compare_argument),
 		return_redirect : empty(compare_argument),
 		lambda_redirect : exception_make(list(int), ec_sync, error_record_field_not_initialized, 0, false),
+		no_pattern_match : false,
 	];
 	return cc;
 ]
@@ -436,22 +438,45 @@ restart:
 		if not body.is_pattern_matched then
 			return cc, typ;
 
-		var cnst := encode_constant(T_AlwaysFlatOption, int_to_blob(1));
+		var cnst_true := encode_constant(T_AlwaysFlatOption, int_to_blob(1));
 
+		var possible_patterns := 0;
 		for m := 0 to len(body.pattern_matching_info) do [
 			var pi := body.pattern_matching_info[m];
+			var dont_know := false;
 			for p := 0 to len(pi.conditions) do [
-				var match := verify_type_equality(ctx, new_ctx, pi.conditions[p], empty(compare_fn_stack), empty_compare_context, cnst, empty(compare_fn_stack));
+				var match := verify_type_equality(ctx, new_ctx, pi.conditions[p], empty(compare_fn_stack), empty_compare_context, cnst_true, empty(compare_fn_stack));
 				if match is noeq then
 					goto skip_cond;
-				if not match is eq then
+				else if match is dont_know then
+					dont_know := true;
+				else if not match is eq then
 					return cc, typ;
 			]
-			cc, typ := new_ctx, pi.return_values[ret_idx];
-			goto restart;
+			possible_patterns bts= m;
+			if not dont_know then
+				break;
 skip_cond:
 		]
-		return cc, typ;
+		if possible_patterns = 0 then
+			abort internal("No possible patterns");
+		var p1 := bsf possible_patterns;
+		possible_patterns btr= p1;
+		var pi1 := body.pattern_matching_info[p1];
+		while possible_patterns <> 0 do [
+			if cc.no_pattern_match then
+				return cc, typ;
+			var p2 := bsf possible_patterns;
+			possible_patterns btr= p2;
+			var pi2 := body.pattern_matching_info[p2];
+			new_ctx.no_pattern_match := true;
+			var match := verify_type_equality(ctx, new_ctx, pi1.return_values[ret_idx], empty(compare_fn_stack), new_ctx, pi2.return_values[ret_idx], empty(compare_fn_stack));
+			new_ctx.no_pattern_match := false;
+			if not match is eq then
+				return cc, typ;
+		]
+		cc, typ := new_ctx, pi1.return_values[ret_idx];
+		goto restart;
 	]
 	if opcode = P_Load_Local_Type then [
 		if cc.llt_main is j, pcode_Load_Local_Type_get_function(instr) = cc.llt_main.j then [
