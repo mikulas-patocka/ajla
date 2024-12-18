@@ -371,6 +371,11 @@ fn decode_constant(c : int) : (int, list(pcode_t))
 ]
 
 
+record match_state [
+	cc : compare_context;
+	idx : int;
+]
+
 fn get_base_definition(ctx : function_context, cc : compare_context, typ : int, want_record : bool) : (compare_context, int)
 [
 restart_fail:
@@ -438,9 +443,18 @@ restart:
 		if not body.is_pattern_matched then
 			return cc, typ;
 
-		var cnst_true := encode_constant(T_AlwaysFlatOption, int_to_blob(1));
+		if len(body.pattern_matching_info) = 1 then [
+			cc, typ := new_ctx, body.pattern_matching_info[0].return_values[ret_idx];
+			goto restart;
+		]
 
+		if cc.no_pattern_match then
+			return cc, typ;
+
+		new_ctx.no_pattern_match := true;
+		var cnst_true := encode_constant(T_AlwaysFlatOption, int_to_blob(1));
 		var possible_patterns := 0;
+		var states := fill(match_state.[ ], len(body.pattern_matching_info));
 		for m := 0 to len(body.pattern_matching_info) do [
 			var pi := body.pattern_matching_info[m];
 			var dont_know := false;
@@ -454,6 +468,7 @@ restart:
 					return cc, typ;
 			]
 			possible_patterns bts= m;
+			states[m].cc, states[m].idx := get_base_definition(ctx, new_ctx, body.pattern_matching_info[m].return_values[ret_idx], false);
 			if not dont_know then
 				break;
 skip_cond:
@@ -464,17 +479,14 @@ skip_cond:
 		possible_patterns btr= p1;
 		var pi1 := body.pattern_matching_info[p1];
 		while possible_patterns <> 0 do [
-			if cc.no_pattern_match then
-				return cc, typ;
 			var p2 := bsf possible_patterns;
 			possible_patterns btr= p2;
 			var pi2 := body.pattern_matching_info[p2];
-			new_ctx.no_pattern_match := true;
-			var match := verify_type_equality(ctx, new_ctx, pi1.return_values[ret_idx], empty(compare_fn_stack), new_ctx, pi2.return_values[ret_idx], empty(compare_fn_stack));
-			new_ctx.no_pattern_match := false;
+			var match := verify_type_equality(ctx, states[p1].cc, states[p1].idx, empty(compare_fn_stack), states[p2].cc, states[p2].idx, empty(compare_fn_stack));
 			if not match is eq then
 				return cc, typ;
 		]
+		new_ctx.no_pattern_match := false;
 		cc, typ := new_ctx, pi1.return_values[ret_idx];
 		goto restart;
 	]
