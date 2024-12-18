@@ -43,6 +43,7 @@ record compare_context [
 	return_redirect : list(compare_argument);
 	lambda_redirect : list(int);
 	no_pattern_match : bool;
+	option_map : list(int);
 ]
 
 record compare_fn_stack [
@@ -200,6 +201,7 @@ fn new_compare_context(ctx : function_context) : compare_context
 		return_redirect : empty(compare_argument),
 		lambda_redirect : exception_make(list(int), ec_sync, error_record_field_not_initialized, 0, false),
 		no_pattern_match : false,
+		option_map : infinite(-1),
 	];
 	return cc;
 ]
@@ -376,6 +378,17 @@ record match_state [
 	idx : int;
 ]
 
+fn get_record_or_option(ctx : function_context, cc : compare_context, typ : int, want_option : bool) : record_definition
+[
+	var rec_cc, rec_typ := get_base_definition(ctx, cc, cc.ctx.variables[typ].type_idx, true);
+	if rec_typ <> T_Record then
+		abort internal("No record or option definition");
+	var def := rec_cc.ctx.record_def.j;
+	if def.is_option <> want_option then
+		abort internal("Non-matching record definition");
+	return def;
+]
+
 fn get_base_definition(ctx : function_context, cc : compare_context, typ : int, want_record : bool) : (compare_context, int)
 [
 restart_fail:
@@ -402,7 +415,10 @@ restart:
 	fail_cc, fail_typ := cc, typ;
 
 	if typ < len(cc.args) then [
+		var option_map := cc.args[typ].cc.option_map[typ];
 		cc, typ := cc.args[typ].cc, cc.args[typ].idx;
+		if not typ_is_const(typ), option_map >= 0 then
+			cc.option_map[typ] := option_map;
 		goto restart;
 	]
 
@@ -458,7 +474,10 @@ restart:
 		for m := 0 to len(body.pattern_matching_info) do [
 			var pi := body.pattern_matching_info[m];
 			var dont_know := false;
+			var option_map := infinite(-1);
+			var option_vars := empty(int);
 			for p := 0 to len(pi.conditions) do [
+				var gbd_cc, gbd_idx := get_base_definition(ctx, new_ctx, pi.conditions[p], false);
 				var match := verify_type_equality(ctx, new_ctx, pi.conditions[p], empty(compare_fn_stack), empty_compare_context, cnst_true, empty(compare_fn_stack));
 				if match is noeq then
 					goto skip_cond;
@@ -466,9 +485,20 @@ restart:
 					dont_know := true;
 				else if not match is eq then
 					return cc, typ;
+				var da := get_defined_maybe(new_ctx, pi.conditions[p]);
+				if da is j, da.j.opcode = P_Option_Test then [
+					var option_var := pcode_Option_Test_get_option(da.j);
+					var option_idx := pcode_Option_Test_get_index(da.j);
+					if option_map[option_var] <> -1, option_map[option_var] <> option_idx then
+						goto skip_cond;
+					option_map[option_var] := option_idx;
+					option_vars +<= option_var;
+				]
 			]
-			possible_patterns bts= m;
 			states[m].cc, states[m].idx := get_base_definition(ctx, new_ctx, body.pattern_matching_info[m].return_values[ret_idx], false);
+			for i := 0 to len(option_vars) do
+				states[m].cc.option_map[option_vars[i]] := option_map[option_vars[i]];
+			possible_patterns bts= m;
 			if not dont_know then
 				break;
 skip_cond:
@@ -477,18 +507,15 @@ skip_cond:
 			abort internal("No possible patterns");
 		var p1 := bsf possible_patterns;
 		possible_patterns btr= p1;
-		var pi1 := body.pattern_matching_info[p1];
 		while possible_patterns <> 0 do [
 			var p2 := bsf possible_patterns;
 			possible_patterns btr= p2;
-			var pi2 := body.pattern_matching_info[p2];
 			var match := verify_type_equality(ctx, states[p1].cc, states[p1].idx, empty(compare_fn_stack), states[p2].cc, states[p2].idx, empty(compare_fn_stack));
 			if not match is eq then
 				return cc, typ;
 		]
 		new_ctx.no_pattern_match := false;
-		cc, typ := new_ctx, pi1.return_values[ret_idx];
-		goto restart;
+		return states[p1].cc, states[p1].idx;
 	]
 	if opcode = P_Load_Local_Type then [
 		if cc.llt_main is j, pcode_Load_Local_Type_get_function(instr) = cc.llt_main.j then [
@@ -629,6 +656,9 @@ ret_true:
 		var arg := pcode_Option_Test_get_option(instr);
 		var idx := pcode_Option_Test_get_index(instr);
 		var arg_cc, arg_typ := get_base_definition(ctx, cc, arg, false);
+		if arg_cc.option_map[arg_typ] >= 0 then [
+			return empty_compare_context, encode_constant(T_AlwaysFlatOption, int_to_blob(select(arg_cc.option_map[arg_typ] = idx, 0, 1)));
+		]
 		var arg_instr := get_defined_maybe(arg_cc, arg_typ);
 		if arg_instr is n then
 			return cc, typ;
@@ -644,11 +674,15 @@ ret_true:
 	]
 	if opcode = P_Option_Ord then [
 		var arg := pcode_Option_Ord_get_option(instr);
+		var cnst : int;
 		var arg_cc, arg_typ := get_base_definition(ctx, cc, arg, false);
+		if arg_cc.option_map[arg_typ] >= 0 then [
+			cnst := arg_cc.option_map[arg_typ];
+			goto ret_cnst;
+		]
 		var arg_instr := get_defined_maybe(arg_cc, arg_typ);
 		if arg_instr is n then
 			return cc, typ;
-		var cnst : int;
 		if arg_instr.j.opcode = P_Load_Const then [
 			cnst := blob_to_int(pcode_Load_Const_get_blob(arg_instr.j));
 		] else if arg_instr.j.opcode = P_Option_Create then [
@@ -656,6 +690,7 @@ ret_true:
 		] else [
 			return cc, typ;
 		]
+ret_cnst:
 		return empty_compare_context, encode_constant(T_Integer, int_to_blob(cnst));
 	]
 
@@ -820,6 +855,17 @@ fn verify_type_equality(ctx : function_context,
 				return teq_ret(x1);
 		]
 		return teq.eq;
+	]
+
+	if cc1.option_map[typ1] >= 0 then [
+		var def1 := get_record_or_option(ctx, cc1, typ1, true);
+		if def1.entries[cc1.option_map[typ1]].type_idx = T_EmptyOption then
+			opcode1 := P_Load_Const;
+	]
+	if cc2.option_map[typ2] >= 0 then [
+		var def2 := get_record_or_option(ctx, cc2, typ2, true);
+		if def2.entries[cc2.option_map[typ2]].type_idx = T_EmptyOption then
+			opcode2 := P_Load_Const;
 	]
 
 	if opcode1 <> opcode2 then
@@ -1017,8 +1063,15 @@ fn verify_type_equality(ctx : function_context,
 		return teq.eq;
 	]
 	if opcode1 = P_Load_Const then [
-		var val1 := pcode_Load_Const_get_blob(instr1);
-		var val2 := pcode_Load_Const_get_blob(instr2);
+		var val1 val2 : list(pcode_t);
+		if instr1.opcode = P_Load_Const then
+			val1 := pcode_Load_Const_get_blob(instr1);
+		else
+			val1 := int_to_blob(cc1.option_map[typ1]);
+		if instr2.opcode = P_Load_Const then
+			val2 := pcode_Load_Const_get_blob(instr2);
+		else
+			val2 := int_to_blob(cc2.option_map[typ2]);
 		if val1 <> val2 then
 			return teq.noeq;
 		return teq.eq;
@@ -1215,6 +1268,19 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 	]
 
 	var cc_ctx := cc.ctx;
+
+	if cc.option_map[typ] >= 0 then [
+		var idx := cc.option_map[typ];
+		var def := get_record_or_option(ctx, cc, typ, true);
+		if def.entries[idx].type_idx = T_EmptyOption then [
+			var type_idx := get_type_of_var(cc_ctx, typ);
+			var at : int;
+			ctx, at := evaluate_type(ctx, cc, type_idx, fn_stack, t);
+			var l : int;
+			ctx, l := generate_Load_Const(ctx, at, int_to_blob(idx));
+			return ctx, l;
+		]
+	]
 
 	{*
 	 * !!! FIXME: dirty HACK
