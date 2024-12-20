@@ -1575,6 +1575,8 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 	]
 	if opcode = P_Copy or opcode = P_Args then [
 uses_non_const:
+		if cc.root then
+			return ctx, typ;
 		if is_exception cc.lambda_redirect, exception_class cc.lambda_redirect = ec_sync and exception_type cc.lambda_redirect = error_record_field_not_initialized then
 			abort compiler_error("Variable used in type should be const", t);
 		if cc.lambda_redirect[typ] >= 0 then
