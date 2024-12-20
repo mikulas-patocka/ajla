@@ -471,11 +471,20 @@ restart:
 		var cnst_true := encode_constant(T_AlwaysFlatOption, int_to_blob(1));
 		var possible_patterns := 0;
 		var states := fill(match_state.[ ], len(body.pattern_matching_info));
+		var excluded_options := infinite(0);
+		var excluded_all := false;
+		var forced_options := empty(tuple2(int, int));
 		for m := 0 to len(body.pattern_matching_info) do [
+			if excluded_all then
+				break;
 			var pi := body.pattern_matching_info[m];
 			var dont_know := false;
 			var option_map := infinite(-1);
 			var option_vars := empty(int);
+			for i := 0 to len(forced_options) do [
+				option_map[forced_options[i].v1] := forced_options[i].v2;
+				option_vars +<= forced_options[i].v1;
+			]
 			for p := 0 to len(pi.conditions) do [
 				var gbd_cc, gbd_idx := get_base_definition(ctx, new_ctx, pi.conditions[p], false);
 				var match := verify_type_equality(ctx, new_ctx, pi.conditions[p], empty(compare_fn_stack), empty_compare_context, cnst_true, empty(compare_fn_stack));
@@ -489,6 +498,18 @@ restart:
 				if da is j, da.j.opcode = P_Option_Test then [
 					var option_var := pcode_Option_Test_get_option(da.j);
 					var option_idx := pcode_Option_Test_get_index(da.j);
+					if len(pi.conditions) = 1 then [
+						var def := get_record_or_option(ctx, new_ctx, option_var, true);
+						var excl := excluded_options[option_var];
+						if excl bt option_idx then
+							goto skip_cond;
+						excl bts= option_idx;
+						excluded_options[option_var] := excl;
+						if popcnt excl = len(def.entries) then
+							excluded_all := true;
+						if (popcnt excl) + 1 = len(def.entries) then
+							forced_options +<= mktuple2(option_var, bsf not excl);
+					]
 					if option_map[option_var] <> -1, option_map[option_var] <> option_idx then
 						goto skip_cond;
 					option_map[option_var] := option_idx;
