@@ -528,16 +528,8 @@ skip_cond:
 	if opcode = P_Record_Load then [
 		var str_v := pcode_Record_Load_get_record(instr);
 		var idx := pcode_Record_Load_get_index(instr);
-		var type_idx := cc_ctx.variables[str_v].type_idx;
 
-		var rec_cc, rec_typ := get_base_definition(ctx, cc, type_idx, true);
-		if rec_typ <> T_Record then [
-			abort internal("No record type for Record_Create");
-		]
-		var def := rec_cc.ctx.record_def.j;
-		if def.is_option then [
-			abort internal("Non-matching record definitions");
-		]
+		var def := get_record_or_option(ctx, cc, str_v, false);
 
 		var rv_cc, rv_typ := get_base_definition(ctx, cc, str_v, false);
 		var rv_instr := get_defined_maybe(rv_cc, rv_typ);
@@ -1079,18 +1071,11 @@ fn verify_type_equality(ctx : function_context,
 	if opcode1 = P_Record_Create then [
 		var type_idx1 := cc1.ctx.variables[typ1].type_idx;
 		var type_idx2 := cc2.ctx.variables[typ2].type_idx;
-		var rec_cc1, rec_typ1 := get_base_definition(ctx, cc1, type_idx1, true);
-		var rec_cc2, rec_typ2 := get_base_definition(ctx, cc2, type_idx2, true);
-		if rec_typ1 <> T_Record or rec_typ2 <> T_Record then [
-			abort internal("verify_type_equality: No record type for Record_Create");
-		]
+		var def1 := get_record_or_option(ctx, cc1, typ1, false);
+		var def2 := get_record_or_option(ctx, cc2, typ2, false);
 		var x1 := verify_type_equality(ctx, cc1, type_idx1, fn_stack1, cc2, type_idx2, fn_stack2);
 		if not x1 is eq then
 			return teq_ret_noeq(x1);
-		var def1 := rec_cc1.ctx.record_def.j;
-		var def2 := rec_cc2.ctx.record_def.j;
-		if def1.is_option or def2.is_option then
-			abort internal("verify_type_equality: Non-matching record definitions");
 		if len(def1.entries) <> len(def2.entries) then
 			return teq.noeq;
 		if len(def1.entries) <> pcode_Record_Create_get_n_args(instr1) or
@@ -1109,12 +1094,8 @@ fn verify_type_equality(ctx : function_context,
 		if idx1 <> idx2 then
 			return teq.dont_know;
 		if cc1.ctx.incomplete, cc2.ctx.incomplete, cc1.ctx.id = cc2.ctx.id, pcode_Record_Load_get_record(instr1) = pcode_Record_Load_get_record(instr2), cc1.ctx.variables[pcode_Record_Load_get_record(instr1)].defined_at <> defined_multiple then [
-			var type_idx1 := cc1.ctx.variables[pcode_Record_Load_get_record(instr1)].type_idx;
-			var rec_cc1, rec_typ1 := get_base_definition(ctx, cc1, type_idx1, true);
-			if rec_typ1 <> T_Record then [
-				abort internal("verify_type_equality: No record type for Record_Load");
-			]
-			var def1 := rec_cc1.ctx.record_def.j;
+			var type_idx1 := pcode_Record_Load_get_record(instr1);
+			var def1 := get_record_or_option(ctx, cc1, type_idx1, false);
 			if def1.entries[idx1].cnst then
 				return teq.eq;
 		]
@@ -1444,12 +1425,9 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 		for i := 0 to pcode_Record_Create_get_n_args(instr) do
 			if is_non_const(cc, pcode_Record_Create_get_arg(instr, i)) then
 				goto uses_non_const;
+		var def := get_record_or_option(ctx, cc, typ, false);
 		var type_idx := cc_ctx.variables[typ].type_idx;
-		var rec_cc, rec_typ := get_base_definition(ctx, cc, type_idx, true);
-		if rec_typ <> T_Record then
-			abort internal("No record type for Record_Create");
-		var def := rec_cc.ctx.record_def.j;
-		if def.is_option or len(def.entries) <> pcode_Record_Create_get_n_args(instr) then
+		if len(def.entries) <> pcode_Record_Create_get_n_args(instr) then
 			abort internal("Non-matching record definitions");
 		var at : int;
 		ctx, at := evaluate_type(ctx, cc, type_idx, fn_stack, t);
