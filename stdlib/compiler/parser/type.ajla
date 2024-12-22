@@ -669,7 +669,7 @@ ret_true:
 		var arg := pcode_Option_Test_get_option(instr);
 		var idx := pcode_Option_Test_get_index(instr);
 		var arg_cc, arg_typ := get_base_definition(ctx, cc, arg, false);
-		if arg_cc.option_map[arg_typ] >= 0 then [
+		if not typ_is_const(arg_typ), arg_cc.option_map[arg_typ] >= 0 then [
 			return empty_compare_context, encode_constant(T_AlwaysFlatOption, int_to_blob(select(arg_cc.option_map[arg_typ] = idx, 0, 1)));
 		]
 		var arg_instr := get_defined_maybe(arg_cc, arg_typ);
@@ -689,7 +689,7 @@ ret_true:
 		var arg := pcode_Option_Ord_get_option(instr);
 		var cnst : int;
 		var arg_cc, arg_typ := get_base_definition(ctx, cc, arg, false);
-		if arg_cc.option_map[arg_typ] >= 0 then [
+		if not typ_is_const(arg_typ), arg_cc.option_map[arg_typ] >= 0 then [
 			cnst := arg_cc.option_map[arg_typ];
 			goto ret_cnst;
 		]
