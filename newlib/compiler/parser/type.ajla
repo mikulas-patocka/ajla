@@ -535,8 +535,10 @@ skip_cond:
 			if not match is eq then
 				return cc, typ;
 		]
+		//new_ctx.option_map := states[p1].cc.option_map;
 		new_ctx.no_pattern_match := false;
-		return states[p1].cc, states[p1].idx;
+		cc, typ := new_ctx, body.pattern_matching_info[p1].return_values[ret_idx];
+		goto restart;
 	]
 	if opcode = P_Load_Local_Type then [
 		if cc.llt_main is j, pcode_Load_Local_Type_get_function(instr) = cc.llt_main.j then [
