@@ -1,5 +1,5 @@
 {*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -73,6 +73,9 @@ fn ffi_peek(w : world, ptr : int, ft : ffi_type) : (world, int);
 
 fn ffi_poke_array(t : type, w : world, ptr : int, a : list(t)) : world;
 fn ffi_peek_array(w : world, ptr : int, l : int, ft : ffi_type, t : type) : (world, list(t));
+
+fn ffi_poke_zstring(w : world, destr : ffi_destructor, str : bytes) : (world, int);
+fn ffi_peek_zstring(w : world, addr : int) : (world, bytes);
 
 fn ffi_handle_to_number(w : world, desc : ffi_destructor, h : handle) : (world, int);
 fn ffi_number_to_handle(w : world, n : int, sckt : bool) : (world, handle);
@@ -160,6 +163,29 @@ fn ffi_peek_array(w : world, ptr : int, l : int, ft : ffi_type, t : type) : (wor
 	var w2 : world;
 	pcode IO IO_FFI_Peek_Array 2 4 0 =w2 =r w ptr l ft;
 	return w2, r;
+]
+
+fn ffi_poke_zstring(w : world, destr : ffi_destructor, str : bytes) : (world, int)
+[
+	var mem_str : int;
+	w, mem_str := ffi_destructor_allocate(w, destr, len(str) + 1, 1, false);
+	w := ffi_poke_array(w, mem_str, str);
+	w := ffi_poke(w, mem_str + len(str), ffi_type.t_uchar, 0);
+	return w, mem_str;
+]
+
+fn ffi_peek_zstring(w : world, addr : int) : (world, bytes)
+[
+	var result := empty(byte);
+	while true do [
+		var c : int;
+		w, c := ffi_peek(w, addr, ffi_type.t_uchar);
+		if c = 0 then
+			break;
+		result +<= c;
+		addr += 1;
+	]
+	return w, result;
 ]
 
 fn ffi_handle_to_number(w : world, desc : ffi_destructor, h : handle) : (world, int)
