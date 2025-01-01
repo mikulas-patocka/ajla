@@ -1,0 +1,87 @@
+{*
+ * Copyright (C) 2025 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit z3;
+
+uses io;
+
+type z3_context;
+
+fn z3_mk_context(w : world) : (world, z3_context);
+fn z3_del_context(w : world, ctx : z3_context) : world;
+
+fn z3_eval_smtlib2_string(w : world, ctx : z3_context, str : bytes) : (world, bytes);
+
+implementation
+
+uses exception;
+uses ffi;
+
+record z3_context [
+	destr : ffi_destructor;
+	ptr_z3_context : int;
+	z3_set_error : ffi_function;
+	z3_get_error_code : ffi_function;
+	z3_get_error_msg : ffi_function;
+	z3_eval_smtlib2_string : ffi_function;
+]
+
+fn z3_mk_context(implicit w : world) : (world, z3_context)
+[
+	var ctx := z3_context.[ ];
+	var v e : int;
+	ctx.destr := ffi_destructor_new();
+	ctx.z3_set_error := ffi_create_function("libz3.so.4", "Z3_set_error", ffi_error.e_none, 2, ffi_type.t_void, [ ffi_type.t_pointer, ffi_type.t_uint ]);
+	ctx.z3_get_error_code := ffi_create_function("libz3.so.4", "Z3_get_error_code", ffi_error.e_none, 1, ffi_type.t_uint, [ ffi_type.t_pointer ]);
+	ctx.z3_get_error_msg := ffi_create_function("libz3.so.4", "Z3_get_error_msg", ffi_error.e_none, 2, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_uint ]);
+	ctx.z3_eval_smtlib2_string := ffi_create_function("libz3.so.4", "Z3_eval_smtlib2_string", ffi_error.e_none, 3, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_pointer ]);
+	var z3_mk_context := ffi_create_function("libz3.so.4", "Z3_mk_context", ffi_error.e_none, 1, ffi_type.t_pointer, [ ffi_type.t_pointer ]);
+	var z3_del_context := ffi_create_function("libz3.so.4", "Z3_del_context", ffi_error.e_none, 1, ffi_type.t_void, [ ffi_type.t_pointer ]);
+	var z3_set_error_handler := ffi_create_function("libz3.so.4", "Z3_set_error_handler", ffi_error.e_none, 1, ffi_type.t_void, [ ffi_type.t_pointer, ffi_type.t_pointer ]);
+
+	atomic_enter();
+	ctx.ptr_z3_context, e := ffi_call_function(z3_mk_context, [ 0 ]);
+	ffi_destructor_call(ctx.destr, z3_del_context, [ ctx.ptr_z3_context ]);
+	atomic_exit();
+
+	v, e := ffi_call_function(z3_set_error_handler, [ ctx.ptr_z3_context, 0 ]);
+	return ctx;
+]
+
+fn z3_del_context(implicit w : world, ctx : z3_context) : world
+[
+	ffi_destructor_destroy(ctx.destr);
+]
+
+fn z3_eval_smtlib2_string(implicit w : world, ctx : z3_context, str : bytes) : (world, bytes)
+[
+	var r e ec es : int;
+	r, e := ffi_call_function(ctx.z3_set_error, [ ctx.ptr_z3_context, 0 ]);
+	var mem_str := ffi_poke_zstring(ctx.destr, str);
+	r, e := ffi_call_function(ctx.z3_eval_smtlib2_string, [ ctx.ptr_z3_context, mem_str ]);
+	ffi_destructor_free(ctx.destr, mem_str);
+	ec, e := ffi_call_function(ctx.z3_get_error_code, [ ctx.ptr_z3_context ]);
+	if ec <> 0 then [
+		es, e := ffi_call_function(ctx.z3_get_error_msg, [ ctx.ptr_z3_context, ec ]);
+		var b := ffi_peek_zstring(es);
+		b := list_join(list_break_to_lines(b), "");
+		abort exception_make_str(world, ec_library, error_invalid_operation, ec, true, b);
+	]
+	var b := ffi_peek_zstring(r);
+	return b;
+]
