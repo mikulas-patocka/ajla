@@ -407,7 +407,7 @@ const IO_Stty_Flag_Noecho := 2;
 const IO_Stty_Flag_Nosignal := 4;
 const IO_Stty_Flag_NoCRLF := 8;
 
-const EC_N := 5;
+const EC_N := 6;
 
 const AJLA_ERROR_BASE := 1;
 const AJLA_ERROR_N := 35;
@@ -882,8 +882,9 @@ fn name_to_value~cache : list(int)
 	a[#1971DFE7E7763] := 1;							// ec_sync
 	a[#CB8EFE1E7E7763] := 2;						// ec_async
 	a[#32E3BFCFCF3C78766C] := 3;						// ec_syscall
-	a[#1971DFCBE34F4] := 4;							// ec_exit
-	a[#8B0EFCE] := 5;							// EC_N
+	a[#32E3BFB34E2E587979] := 4;						// ec_library
+	a[#1971DFCBE34F4] := 5;							// ec_exit
+	a[#8B0EFCE] := 6;							// EC_N
 
 	a[#10654C837E2D2A53E95F85069C5] := 1;					// AJLA_ERROR_BASE
 	a[#197972DFCAFF5DDAF76FEFBAFE5E5CB7F2] := 1;				// error_unknown_error

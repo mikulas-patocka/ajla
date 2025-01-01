@@ -9,6 +9,7 @@ const ec_none : int;
 const ec_sync : int;
 const ec_async : int;
 const ec_syscall : int;
+const ec_library : int;
 const ec_exit : int;
 
 const error_unknown_error : int;
@@ -184,7 +185,8 @@ const ec_none : int := 0;
 const ec_sync : int := 1;
 const ec_async : int := 2;
 const ec_syscall : int := 3;
-const ec_exit : int := 4;
+const ec_library : int := 4;
+const ec_exit : int := 5;
 
 const error_unknown_error : int := 1;
 const error_out_of_memory : int := 2;

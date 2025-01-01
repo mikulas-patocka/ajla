@@ -409,8 +409,9 @@
 #define EC_SYNC				1
 #define EC_ASYNC			2
 #define EC_SYSCALL			3
-#define EC_EXIT				4
-#define EC_N				5
+#define EC_LIBRARY			4
+#define EC_EXIT				5
+#define EC_N				6
 
 #define AJLA_ERROR_BASE			1
 #define AJLA_ERROR_UNKNOWN_ERROR	1

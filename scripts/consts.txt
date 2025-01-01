@@ -1,4 +1,4 @@
-; Copyright (C) 2024 Mikulas Patocka
+; Copyright (C) 2024, 2025 Mikulas Patocka
 ;
 ; This file is part of Ajla.
 ;
@@ -441,6 +441,7 @@ EC_NONE
 EC_SYNC
 EC_ASYNC
 EC_SYSCALL
+EC_LIBRARY
 EC_EXIT
 EC_N
 
