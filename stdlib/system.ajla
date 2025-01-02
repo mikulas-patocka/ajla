@@ -407,6 +407,17 @@ fn stacktrace(t : type, v : t) : unit_type;
 fn trace_on : unit_type;
 fn trace_off : unit_type;
 
+{-----------
+ - GENERAL -
+ -----------}
+
+fn join(t : type, w1 w2 : t) : t;
+fn any~lazy(t1 t2 : type, w1 : t1, w2 : t2) : bool;
+fn any_list~lazy(t : type, wx : list(t)) : int;
+fn is_ready(t : type, v : t) : bool;
+fn never(t : type) : t;
+fn fork(t : type, w : t) : (t, t);
+
 {------------------
  - LIST FUNCTIONS -
  ------------------}
@@ -2758,6 +2769,56 @@ fn trace_off : unit_type
 	var b : unit_type;
 	pcode IO IO_TraceCtl 1 0 1 =b 0;
 	return b;
+]
+
+{-----------
+ - GENERAL -
+ -----------}
+
+fn join(t : type, w1 w2 : t) : t
+[
+	if is_exception w1 then [
+		eval w2;
+		return w1;
+	]
+	if is_exception w2 then
+		return w2;
+	return w1;
+]
+
+fn any~lazy(t1 t2 : type, w1 : t1, w2 : t2) : bool
+[
+	var b : bool;
+	pcode IO IO_Any 1 2 0 =b w1 w2;
+	return b;
+]
+
+fn any_list~lazy(t : type, wx : list(t)) : int
+[
+	if not len_greater_than(wx, 0) then
+		return never(int);
+	var n := any_list~lazy(wx[1 .. ]);
+	var b := any(wx[0], n);
+	return select(b, 0, n + 1);
+]
+
+fn is_ready(t : type, v : t) : bool
+[
+	return not any(v, unit_value);
+]
+
+fn never(t : type) : t
+[
+	var w : t;
+	pcode IO IO_Never 1 0 0 =w;
+	return w;
+]
+
+fn fork(t : type, w : t) : (t, t)
+[
+	var w1 w2 : t;
+	pcode IO IO_Fork 2 1 0 =w1 =w2 w;
+	return w1, w2;
 ]
 
 {------------------
