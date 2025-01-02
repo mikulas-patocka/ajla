@@ -18,19 +18,21 @@
 
 unit z3;
 
-uses io;
-
+type z3_world;
 type z3_context;
 
-fn z3_mk_context(w : world) : (world, z3_context);
-fn z3_del_context(w : world, ctx : z3_context) : world;
+fn z3_mk_world : z3_world;
+fn z3_mk_context(w : z3_world) : (z3_world, z3_context);
+fn z3_del_context(w : z3_world, ctx : z3_context) : z3_world;
 
-fn z3_eval_smtlib2_string(w : world, ctx : z3_context, str : bytes) : (world, bytes);
+fn z3_eval_smtlib2_string(w : z3_world, ctx : z3_context, str : bytes) : (z3_world, bytes);
 
 implementation
 
 uses exception;
 uses ffi;
+
+type z3_world := world;
 
 record z3_context [
 	destr : ffi_destructor;
@@ -41,7 +43,9 @@ record z3_context [
 	z3_eval_smtlib2_string : ffi_function;
 ]
 
-fn z3_mk_context(implicit w : world) : (world, z3_context)
+fn z3_mk_world := ffi_unsafe_get_world;
+
+fn z3_mk_context(implicit w : z3_world) : (z3_world, z3_context)
 [
 	var ctx := z3_context.[ ];
 	var v e : int;
@@ -63,12 +67,12 @@ fn z3_mk_context(implicit w : world) : (world, z3_context)
 	return ctx;
 ]
 
-fn z3_del_context(implicit w : world, ctx : z3_context) : world
+fn z3_del_context(implicit w : z3_world, ctx : z3_context) : z3_world
 [
 	ffi_destructor_destroy(ctx.destr);
 ]
 
-fn z3_eval_smtlib2_string(implicit w : world, ctx : z3_context, str : bytes) : (world, bytes)
+fn z3_eval_smtlib2_string(implicit w : z3_world, ctx : z3_context, str : bytes) : (z3_world, bytes)
 [
 	var r e ec es : int;
 	r, e := ffi_call_function(ctx.z3_set_error, [ ctx.ptr_z3_context, 0 ]);
@@ -80,7 +84,7 @@ fn z3_eval_smtlib2_string(implicit w : world, ctx : z3_context, str : bytes) : (
 		es, e := ffi_call_function(ctx.z3_get_error_msg, [ ctx.ptr_z3_context, ec ]);
 		var b := ffi_peek_zstring(es);
 		b := list_join(list_break_to_lines(b), "");
-		abort exception_make_str(world, ec_library, error_invalid_operation, ec, true, b);
+		abort exception_make_str(z3_world, ec_library, error_invalid_operation, ec, true, b);
 	]
 	var b := ffi_peek_zstring(r);
 	return b;
