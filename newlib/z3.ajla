@@ -78,10 +78,10 @@ fn z3_eval_smtlib2_string(implicit w : z3_world, ctx : z3_context, str : bytes) 
 		es, e := ffi_call_function(ctx.z3_get_error_msg, [ ctx.ptr_z3_context, ec ]);
 		var b := ffi_peek_zstring(es);
 		b := list_join(list_break_to_lines(b), "");
-		ffi_destructor_destroy(ctx.destr);
+		xeval ffi_destructor_destroy(ctx.destr);
 		abort exception_make_str(z3_world, ec_library, error_invalid_operation, ec, true, b);
 	]
 	var b := ffi_peek_zstring(r);
-	ffi_destructor_destroy(ctx.destr);
+	xeval ffi_destructor_destroy(ctx.destr);
 	return b;
 ]
