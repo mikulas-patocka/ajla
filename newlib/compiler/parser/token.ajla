@@ -68,6 +68,8 @@ option token_opt [
 	k_private;
 	k_implicit;
 	k_conversion;
+	k_prereq;
+	k_contract;
 	k_var;
 	k_return;
 	k_if;
@@ -85,6 +87,8 @@ option token_opt [
 	k_xeval;
 	k_abort;
 	k_keep;
+	k_assume;
+	k_claim;
 	k_is;
 	k_ord;
 	k_define;
@@ -198,6 +202,8 @@ fn token_opt_to_string(t : token_opt, us : bool) : bytes
 	else if t is k_private then str := "private";
 	else if t is k_implicit then str := "implicit";
 	else if t is k_conversion then str := "conversion";
+	else if t is k_prereq then str := "prereq";
+	else if t is k_contract then str := "contract";
 	else if t is k_var then str := "var";
 	else if t is k_return then str := "return";
 	else if t is k_if then str := "if";
@@ -215,6 +221,8 @@ fn token_opt_to_string(t : token_opt, us : bool) : bytes
 	else if t is k_xeval then str := "xeval";
 	else if t is k_abort then str := "abort";
 	else if t is k_keep then str := "keep";
+	else if t is k_assume then str := "assume";
+	else if t is k_claim then str := "claim";
 	else if t is k_is then str := "is";
 	else if t is k_ord then str := "ord";
 	else if t is k_define then str := "define";
@@ -320,6 +328,8 @@ fn get_kwmap~cache : list(token_opt)
 	result[i_encode("private")] := token_opt.k_private;
 	result[i_encode("implicit")] := token_opt.k_implicit;
 	result[i_encode("conversion")] := token_opt.k_conversion;
+	result[i_encode("prereq")] := token_opt.k_prereq;
+	result[i_encode("contract")] := token_opt.k_contract;
 	result[i_encode("var")] := token_opt.k_var;
 	result[i_encode("return")] := token_opt.k_return;
 	result[i_encode("if")] := token_opt.k_if;
@@ -337,6 +347,8 @@ fn get_kwmap~cache : list(token_opt)
 	result[i_encode("xeval")] := token_opt.k_xeval;
 	result[i_encode("abort")] := token_opt.k_abort;
 	result[i_encode("keep")] := token_opt.k_keep;
+	result[i_encode("assume")] := token_opt.k_assume;
+	result[i_encode("claim")] := token_opt.k_claim;
 	result[i_encode("is")] := token_opt.k_is;
 	result[i_encode("ord")] := token_opt.k_ord;
 	result[i_encode("define")] := token_opt.k_define;

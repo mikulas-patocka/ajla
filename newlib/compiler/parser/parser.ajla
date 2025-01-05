@@ -112,6 +112,22 @@ fn parse_arguments(ctx : function_context, vd : variable_dictionary, t : tokens,
 
 		decl, t := split_tokens(t, token_opt.comma);
 
+		if len(decl) > 0 then [
+			if not retval and decl[0].t is k_prereq or
+			   retval and decl[0].t is k_contract then [
+				var a : int;
+				ctx, a := parse_expression(ctx, vd, decl[1 .. ], false);
+				var cc, typ := get_deep_type_of_var(ctx, a);
+				if typ <> T_AlwaysFlatOption then
+					abort compiler_error("boolean value expected", decl);
+				if not retval then
+					ctx.prereqs +<= a;
+				else
+					ctx.contracts +<= a;
+				continue;
+			]
+		]
+
 		var cnst := cnst;
 		var mut := false;
 		var impl := false;
@@ -177,6 +193,13 @@ fn count_arguments(t : tokens, retval : bool) : int
 		decl, t := split_tokens(t, token_opt.comma);
 		if not in_parens and len(t) > 0 then
 			abort compiler_error("Multiple return values must be in parentheses", t);
+
+		if len(decl) > 0 then [
+			if not retval and decl[0].t is k_prereq or
+			   retval and decl[0].t is k_contract then [
+				continue;
+			]
+		]
 
 		if not retval then [
 next_flag:
@@ -449,6 +472,11 @@ fn compare_function_signatures(c1 c2 : function_context) : bool
 		if v1.local_type <> v2.local_type then
 			return false;
 	]
+
+	if c1.prereqs <> c2.prereqs then
+		return false;
+	if c1.contracts <> c2.contracts then
+		return false;
 
 	if len(c1.instructions) <> len(c2.instructions) then
 		return false;

@@ -111,6 +111,10 @@ record function_context [
 	n_arguments : int;
 	n_return_values : int;
 	variables : list(local_variable);
+
+	prereqs : list(int);
+	contracts : list(int);
+
 	instructions : list(instruction);
 
 	lambdas : list(function_definition);
@@ -386,6 +390,10 @@ fn new_function_context(dict : function_dictionary, parent_function : maybe(func
 		n_arguments : n_arguments,
 		n_return_values : n_return_values,
 		variables : fill(nv, n_arguments + n_return_values),
+
+		prereqs : empty(int),
+		contracts : empty(int),
+
 		instructions : empty(instruction),
 
 		lambdas : empty(function_definition),
