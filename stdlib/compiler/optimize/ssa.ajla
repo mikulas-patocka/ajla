@@ -31,6 +31,7 @@ uses compiler.common.gvn;
 uses compiler.common.evaluate;
 uses compiler.optimize.utils;
 uses compiler.optimize.inline;
+uses compiler.optimize.verify;
 
 fn mtos(x : var_set) : bytes
 [
@@ -443,7 +444,7 @@ fn test_uninitialized(ctx : context) : context
 				var v : int := bsf uninit_mask;
 				if len(ctx.variables[v].name) > 0 then
 					str += ": " + ctx.variables[v].name;
-				ctx := exception_make_str(context, ec_async, error_compiler_error, 0, true, str);
+				ctx := exception_make_str(context, ec_async, error_compiler_error, 0, false, str);
 				return ctx;
 			]
 			//uninit or= free_mask;
@@ -2717,6 +2718,12 @@ retry_optimize:
 	]
 
 	//eval debug("retries: " + ntos(num_retries));
+
+	if verify then [
+		if print_passes then [ eval ctx; eval debug("verify_function"); if is_exception ctx then eval debug("ctx exception"); ]
+		ctx := verify_function(ctx);
+		ctx := check_consistency(ctx, "verify_function", true);
+	]
 
 	if print_passes then [ eval ctx; eval debug("join_adjacent"); if is_exception ctx then eval debug("ctx exception"); ]
 	ctx := join_adjacent(ctx);

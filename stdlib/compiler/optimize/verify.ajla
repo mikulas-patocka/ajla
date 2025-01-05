@@ -1,0 +1,50 @@
+{*
+ * Copyright (C) 2025 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit compiler.optimize.verify;
+
+uses compiler.optimize.defs;
+
+fn verify_function(ctx : context) : context;
+
+implementation
+
+uses exception;
+uses z3;
+
+fn verify_function(ctx : context) : context
+[
+	var claims := "";
+	var b : bytes;
+	implicit var z3w := z3_mk_world;
+	implicit var z3ctx := z3_mk_context();
+	//eval debug("verify function " + ctx.name);
+	b := z3_eval_smtlib2_string("(assert (not (and true" + claims + ")))");
+	b := z3_eval_smtlib2_string("(check-sat)");
+	if list_begins_with(b, "unsat") then
+		return ctx;
+	if list_begins_with(b, "sat") then [
+		b := z3_eval_smtlib2_string("(get-model)");
+		b := "Verification of function " + ctx.name + " failed:" + nl + b;
+		ctx := exception_make_str(context, ec_async, error_compiler_error, 0, false, b);
+		return ctx;
+	]
+	b := "Verification of function " + ctx.name + "inconclusive";
+	ctx := exception_make_str(context, ec_async, error_compiler_error, 0, false, b);
+	return ctx;
+]
