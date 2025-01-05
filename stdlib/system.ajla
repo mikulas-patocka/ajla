@@ -318,6 +318,7 @@ operator xor 9000 ~inline ~Bin_Xor (t : type, c : class_logical(t), val1 val2 : 
 operator or 10000 ~inline ~Bin_Or (t : type, c : class_logical(t), val1 val2 : t) : t;
 
 operator +< 3000 ~inline (t : type, x : list(t), y : t) : list(t) := x + list(t).[ y ];
+operator ==> 11000 ~inline (val1 val2 : bool) : bool := val1 <= val2;
 
 fn ipower~inline(t : type, c : class_integer_number(t), val1 val2 : t) : t;
 fn fmod~inline(t : type, c : class_real_number(t), val1 val2 : t) : t;
