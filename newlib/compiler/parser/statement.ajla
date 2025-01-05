@@ -465,13 +465,9 @@ fn evaluate_condition(ctx : function_context, vd : variable_dictionary, t : toke
 		t1, t := split_tokens(t, token_opt.comma);
 
 		var a : int;
-		ctx, a := parse_expression(ctx, vd, t1, false);
+		ctx, a := parse_expression_bool(ctx, vd, t1);
 		if ctx.is_pattern_matched then
 			ctx.pattern_matching_info[len(ctx.pattern_matching_info) - 1].conditions +<= a;
-
-		var cc, typ := get_deep_type_of_var(ctx, a);
-		if typ <> T_AlwaysFlatOption then
-			abort compiler_error("boolean value expected", t1);
 
 		ctx := generate_Copy(ctx, a, cond);
 
@@ -863,6 +859,10 @@ fn parse_statement_eval(ctx : function_context, vd : variable_dictionary, t : to
 			ctx := generate_Eval(ctx, al[i]);
 		] else if x is k_keep then [
 			ctx := generate_Keep(ctx, al[i]);
+		] else if x is k_assume then [
+			ctx := generate_Assume(ctx, al[i]);
+		] else if x is k_claim then [
+			ctx := generate_Claim(ctx, al[i]);
 		] else [
 			ctx := parse_statement_xeval(ctx, al[i]);
 		]
@@ -987,8 +987,8 @@ fn parse_statement(ctx : function_context, vd : variable_dictionary, level : int
 		goto ret;
 	]
 
-	if s[0].t is k_eval or s[0].t is k_xeval or s[0].t is k_abort or s[0].t is k_keep then [
-		if not s[0].t is k_abort then
+	if s[0].t is k_eval or s[0].t is k_xeval or s[0].t is k_abort or s[0].t is k_keep or s[0].t is k_assume or s[0].t is k_claim then [
+		if not s[0].t is k_abort and not s[0].t is k_assume and not s[0].t is k_claim then
 			ctx.is_pattern_matched := false;
 		ctx := parse_statement_eval(ctx, vd, s[1 .. ], s[0].t);
 		term := s[0].t is k_abort;

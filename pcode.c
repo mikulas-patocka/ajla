@@ -3036,6 +3036,10 @@ next_one:
 				if (unlikely(!pcode_return(ctx)))
 					goto exception;
 				break;
+			case P_Assume:
+			case P_Claim:
+				a1 = pcode_get();
+				break;
 			case P_Checkpoint:
 				if (unlikely(!gen_checkpoint(ctx, ctx->pcode, instr_params, true)))
 					goto exception;

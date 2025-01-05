@@ -157,6 +157,8 @@ fn do_inline(ctx : context, bgi : int, ili : int, call_mode : pcode_t, get_inlin
 			new_ctx.instrs[i].params[2] and= not Flag_Fused_Bin_Jmp;
 		if new_ctx.instrs[i].opcode = P_BinaryConstOp then
 			new_ctx.instrs[i].params[2] and= not Flag_Fused_Bin_Jmp;
+		if new_ctx.instrs[i].opcode = P_Claim then
+			new_ctx.instrs[i].opcode := P_Assume;
 		var s := new_ctx.instrs[i].read_set or new_ctx.instrs[i].write_set;
 		while s <> 0 do [
 			var p : int := bsr s;

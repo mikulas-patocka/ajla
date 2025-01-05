@@ -23,10 +23,11 @@ uses compiler.parser.type;
 
 fn list_array_get_index(ctx : function_context, vd : variable_dictionary, cc : compare_context, a : int, t2 : tokens, in_type : bool) : (function_context, int);
 
-fn parse_expression_type(ctx : function_context, vd : variable_dictionary, t : tokens) : (function_context, int);
 fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool) : (function_context, list(int));
 fn parse_n_expressions(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool, n : int) : (function_context, list(int));
 fn parse_expression(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool) : (function_context, int);
+fn parse_expression_type(ctx : function_context, vd : variable_dictionary, t : tokens) : (function_context, int);
+fn parse_expression_bool(ctx : function_context, vd : variable_dictionary, t : tokens) : (function_context, int);
 
 implementation
 
@@ -886,5 +887,15 @@ fn parse_expression_type(ctx : function_context, vd : variable_dictionary, t : t
 	var cc, typ := get_deep_type_of_var(ctx, a);
 	if typ <> T_Type and typ <> T_TypeOfType then
 		abort compiler_error("Type expected", t);
+	return ctx, a;
+]
+
+fn parse_expression_bool(ctx : function_context, vd : variable_dictionary, t : tokens) : (function_context, int)
+[
+	var a : int;
+	ctx, a := parse_expression(ctx, vd, t, false);
+	var cc, typ := get_deep_type_of_var(ctx, a);
+	if typ <> T_AlwaysFlatOption then
+		abort compiler_error("Boolean value expected", t);
 	return ctx, a;
 ]

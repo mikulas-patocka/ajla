@@ -52,10 +52,12 @@
 #define P_Args				44
 #define P_Return_Vars			45
 #define P_Return			46
-#define P_Checkpoint			47
-#define P_Line_Info			48
-#define P_Phi				49
-#define P_Pcode_N			50
+#define P_Assume			47
+#define P_Claim				48
+#define P_Checkpoint			49
+#define P_Line_Info			50
+#define P_Phi				51
+#define P_Pcode_N			52
 
 #define T_Type				-1
 #define T_SInt8				-2

@@ -116,10 +116,7 @@ fn parse_arguments(ctx : function_context, vd : variable_dictionary, t : tokens,
 			if not retval and decl[0].t is k_prereq or
 			   retval and decl[0].t is k_contract then [
 				var a : int;
-				ctx, a := parse_expression(ctx, vd, decl[1 .. ], false);
-				var cc, typ := get_deep_type_of_var(ctx, a);
-				if typ <> T_AlwaysFlatOption then
-					abort compiler_error("boolean value expected", decl);
+				ctx, a := parse_expression_bool(ctx, vd, decl[1 .. ]);
 				if not retval then
 					ctx.prereqs +<= a;
 				else
@@ -303,6 +300,9 @@ fn parse_function_header(dict : function_dictionary, parent_function : maybe(fun
 	var vd2 := new_variable_dictionary_chained(ctx, vd);
 	ctx, vd2 := parse_arguments(ctx, vd2, return_values, true, n_arguments, false);
 
+	for i := 0 to len(ctx.prereqs) do
+		ctx := generate_Assume(ctx, ctx.prereqs[i]);
+
 	ctx.incomplete := false;
 
 	return ctx, vd;
@@ -342,6 +342,9 @@ fn parse_function_body(ctx : function_context, vd : variable_dictionary, t : tok
 		abort compiler_error("The function must end with terminating statement", t[len(t) - 1 .. ]);
 
 	ctx := generate_Label(ctx, lbl);
+
+	for i := 0 to len(ctx.prereqs) do
+		ctx := generate_Claim(ctx, ctx.contracts[i]);
 
 	ctx := generate_Return(ctx);
 
