@@ -80,13 +80,13 @@ fn get_inline(w : world, d : list(bytes), f : function, optimized : bool) : list
 	pcode1 := function_extract_nested(pcode1, f.fn_idx);
 	if not optimized then
 		return pcode1;
-	var pcode2 := process_pcode(pcode1, get_inline(w, d,,));
+	var pcode2 := process_pcode(pcode1, get_inline(w, d,,), sysprop(SystemProperty_Verify) <> 0);
 	return pcode2;
 ]
 
 fn process_nested_functions(pcode1 : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t)) : list(pcode_t)
 [
-	var pcode2 := process_pcode(pcode1, get_inline);
+	var pcode2 := process_pcode(pcode1, get_inline, sysprop(SystemProperty_Verify) <> 0);
 	var ptr := 9 + blob_length(pcode1[9 .. ]);
 	var pcode_to_insert := empty(pcode_t);
 	for i := 0 to pcode1[2] do [

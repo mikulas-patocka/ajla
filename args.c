@@ -93,6 +93,11 @@ static void ipret_set_compile(const char attr_unused *str)
 	ipret_compile = true;
 }
 
+static void ipret_set_verify(const char attr_unused *str)
+{
+	ipret_verify = true;
+}
+
 static void set_nosave(const char attr_unused *str)
 {
 	save_disable = true;
@@ -125,6 +130,7 @@ static const struct arg args[] = {
 	{ "--thread-tick",		ARG_SWITCH,	NULL,				&thread_tick,		0, 0 },
 	{ "--threads=",			ARG_NUMBER,	NULL,				&nr_cpus_override,	1, (unsigned)-1 },
 	{ "--tick=", 			ARG_NUMBER,	NULL,				&tick_us,		1, (uint32_t)-1 },
+	{ "--verify",			ARG_SWITCH,	ipret_set_verify,		NULL,			0, 0 },
 };
 
 static void process_arg(const char *arg)

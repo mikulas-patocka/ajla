@@ -53,18 +53,18 @@ fn get_inline(f : function, optimized : bool) : list(pcode_t)
 	return load_optimized_pcode(f.path_idx, f.un, f.program, pc, optimized);
 ]
 
-fn optimize_function_saved~save(lp : bytes, path_idx : int, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t)
+fn optimize_function_saved~save(lp : bytes, path_idx : int, file : bytes, program : bool, fn_idx : list(int), verify : bool) : list(pcode_t)
 [
 	var pcod, modules := compile_module~save(lp, path_idx, file, program);
 	var pc := pcod[fn_idx[0]];
 	pc := function_extract_nested(pc, fn_idx);
-	var func := process_pcode(pc, get_inline);
+	var func := process_pcode(pc, get_inline, verify);
 	return func;
 ]
 
 fn optimize_function(path_idx : int, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t)
 [
-	return optimize_function_saved(libpath, path_idx, file, program, fn_idx);
+	return optimize_function_saved(libpath, path_idx, file, program, fn_idx, sysprop(SystemProperty_Verify) <> 0);
 ]
 
 fn get_unoptimized_function(path_idx : int, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t)

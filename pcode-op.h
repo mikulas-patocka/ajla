@@ -206,6 +206,7 @@
 #define SystemProperty_Real		5
 #define SystemProperty_Privileged	6
 #define SystemProperty_Compile		7
+#define SystemProperty_Verify		8
 
 #define SystemProperty_OS_Posix		1
 #define SystemProperty_OS_DOS		2

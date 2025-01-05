@@ -227,6 +227,7 @@ SystemProperty_Fixed
 SystemProperty_Real
 SystemProperty_Privileged
 SystemProperty_Compile
+SystemProperty_Verify
 
 1
 SystemProperty_OS_Posix
