@@ -26,6 +26,133 @@ implementation
 
 uses exception;
 uses z3;
+uses compiler.common.blob;
+
+fn allocate_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int) : (z3_world, context, bytes);
+
+fn get_z3_name(ctx : context, v : int) : bytes
+[
+	var n := "var_" + ntos_base(v, 16);
+	if len_greater_than(ctx.variables[v].name, 0) then
+		n += "_" + ctx.variables[v].name;
+	return n;
+]
+
+fn get_z3_type(ctx : context, v : int) : bytes
+[
+	if ctx.variables[v].type_index = T_AlwaysFlatOption then
+		return "Bool";
+	if ctx.variables[v].type_index <= T_Integer, ctx.variables[v].type_index >= T_Integer128 then
+		return "Int";
+	if ctx.variables[v].type_index <= T_Real16, ctx.variables[v].type_index >= T_Real128 then
+		return "Real";
+	return "";
+]
+
+fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int) : (z3_world, context)
+[
+	var ins := ctx.instrs[ctx.variables[v].defining_instr];
+	if ins.opcode = P_BinaryOp or ins.opcode = P_BinaryConstOp then [
+		var t := ctx.variables[ins.params[3]].type_index;
+		var is_bool := t = T_AlwaysFlatOption;
+		var is_int := t <= T_Integer and t >= T_Integer128;
+		var is_real := t <= T_Real16 and t >= T_Real128;
+		var op_z3 : bytes;
+		var op := ins.params[0];
+		if op = Bin_Add					then op_z3 := "+";
+		else if op = Bin_Subtract			then op_z3 := "-";
+		else if op = Bin_Multiply			then op_z3 := "*";
+		else if op = Bin_Divide_Int			then op_z3 := "div";
+		else if op = Bin_Divide_Real			then op_z3 := "/";
+		else if op = Bin_Modulo				then op_z3 := "rem";
+		else if op = Bin_And, is_bool			then op_z3 := "and";
+		else if op = Bin_Or, is_bool			then op_z3 := "or";
+		else if op = Bin_Xor, is_bool			then op_z3 := "xor";
+		else if op = Bin_Equal				then op_z3 := "=";
+		else if op = Bin_NotEqual			then op_z3 := "distinct";
+		else if op = Bin_Less, is_int or is_real	then op_z3 := "<";
+		else if op = Bin_LessEqual, is_int or is_real	then op_z3 := "<=";
+		else if op = Bin_Greater, is_int or is_real	then op_z3 := ">";
+		else if op = Bin_GreaterEqual, is_int or is_real then op_z3 := ">=";
+		else return ctx;
+		var var1 var2 : bytes;
+		//eval debug("P_BinaryOp: " + ntos(ins.params[0]) + ", " + ntos(ins.params[1]) + ", " + ntos(ins.params[2]) + ", " + ntos(ins.params[3]) + ", " + ntos(ins.params[4]) + ", " + ntos(ins.params[5]));
+		ctx, var1 := allocate_variable(ctx, ins.params[3]);
+		if ins.opcode = P_BinaryOp then [
+			ctx, var2 := allocate_variable(ctx, ins.params[5]);
+		] else [
+			if is_bool then
+				var2 := select(ins.params[4] <> 0, "false", "true");
+			else
+				var2 := ntos(ins.params[4]);
+		]
+		if len_greater_than(var1, 0), len_greater_than(var2, 0) then [
+			z3_eval_smtlib2_string_noret("(assert (= " + ctx.variables[v].verifier_name + " (" + op_z3 + " " + var1 + " " + var2 + ")))");
+		]
+		return ctx;
+	]
+	if ins.opcode = P_UnaryOp then [
+		var t := ctx.variables[v].type_index;
+		var is_bool := t = T_AlwaysFlatOption;
+		var is_int := t <= T_Integer and t >= T_Integer128;
+		var is_real := t <= T_Real16 and t >= T_Real128;
+		var op_z3 : bytes;
+		var op := ins.params[0];
+		if op = Un_Not, is_bool				then op_z3 := "not";
+		else if op = Un_Neg, is_int or is_real		then op_z3 := "-";
+		else return ctx;
+		var var1 : bytes;
+		ctx, var1 := allocate_variable(ctx, ins.params[3]);
+		if len_greater_than(var1, 0) then [
+			z3_eval_smtlib2_string_noret("(assert (= " + ctx.variables[v].verifier_name + " (" + op_z3 + " " + var1 + ")))");
+		]
+		return ctx;
+	]
+	if ins.opcode = P_Load_Const then [
+		var cnst : bytes;
+		var l := blob_to_int(ins.params[1 ..]);
+		var t := ctx.variables[v].type_index;
+		if t = T_AlwaysFlatOption then
+			cnst := select(l <> 0, "false", "true");
+		else if t <= T_Integer and t >= T_Integer128 then
+			cnst := ntos(l);
+		else
+			return ctx;
+		z3_eval_smtlib2_string_noret("(assert (= " + ctx.variables[v].verifier_name + " " + cnst + "))");
+		return ctx;
+	]
+	if ins.opcode = P_Return_Vars then [
+		var new_v : int;
+		for i := 0 to len(ins.params) do [
+			if ins.params[i] = v then [
+				new_v := ctx.return_ins.params[1 + 2 * i];
+				goto found_new_v;
+			]
+		]
+		abort internal("P_Return_Vars parameter not found");
+found_new_v:
+		var new_var : bytes;
+		ctx, new_var := allocate_variable(ctx, new_v);
+		z3_eval_smtlib2_string_noret("(assert (= " + ctx.variables[v].verifier_name + " " + new_var + "))");
+		return ctx;
+	]
+	//eval debug("opcode: " + ntos(ins.opcode) + " (" + ctx.variables[v].verifier_name + ")");
+	return ctx;
+]
+
+fn allocate_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int) : (z3_world, context, bytes)
+[
+	if not len_greater_than(ctx.variables[v].verifier_name, 0) then [
+		var t := get_z3_type(ctx, v);
+		if not len_greater_than(t, 0) then
+			return ctx, "";
+		var n := get_z3_name(ctx, v);
+		ctx.variables[v].verifier_name := n;
+		z3_eval_smtlib2_string_noret("(declare-const " + n + " " + t + ")");
+		ctx := assert_instruction(ctx, v);
+	]
+	return ctx, ctx.variables[v].verifier_name;
+]
 
 fn verify_function(ctx : context) : context
 [
@@ -34,7 +161,44 @@ fn verify_function(ctx : context) : context
 	implicit var z3w := z3_mk_world;
 	implicit var z3ctx := z3_mk_context();
 	//eval debug("verify function " + ctx.name);
-	b := z3_eval_smtlib2_string("(assert (not (and true" + claims + ")))");
+
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
+			var igi := ctx.blocks[bgi].instrs[ili];
+			var ins := ctx.instrs[igi];
+			if ins.opcode = P_Return then [
+				ctx.return_ins := ins;
+				goto found_ret;
+			]
+		]
+	]
+found_ret:
+
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
+			var igi := ctx.blocks[bgi].instrs[ili];
+			var ins := ctx.instrs[igi];
+			if ins.opcode = P_Assume then [
+				//eval debug("assume");
+				var str : bytes;
+				ctx, str := allocate_variable(ctx, ins.params[0]);
+				if str <> "" then
+					z3_eval_smtlib2_string_noret("(assert " + str + ")");
+			] else if ins.opcode = P_Claim then [
+				//eval debug("claim");
+				var str : bytes;
+				ctx, str := allocate_variable(ctx, ins.params[0]);
+				if str <> "" then
+					claims += " " + str;
+			]
+		]
+	]
+
+	z3_eval_smtlib2_string_noret("(assert (not (and true" + claims + ")))");
 	b := z3_eval_smtlib2_string("(check-sat)");
 	if list_begins_with(b, "unsat") then
 		return ctx;

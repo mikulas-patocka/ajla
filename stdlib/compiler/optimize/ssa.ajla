@@ -1445,7 +1445,7 @@ fn dce(ctx : context) : context
 		for ili := 0 to l do [
 			var igi := block.instrs[ili];
 			var ins := ctx.instrs[igi];
-			if ins.opcode = P_Eval or ins.opcode = P_Keep then [
+			if ins.opcode = P_Eval or ins.opcode = P_Keep or ins.opcode = P_Assume or ins.opcode = P_Claim then [
 				if ins.params[0] >= 0 then
 					worklist bts= ins.params[0];
 			]

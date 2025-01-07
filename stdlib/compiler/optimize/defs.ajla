@@ -1,5 +1,5 @@
 {*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -97,6 +97,8 @@ record variable [
 
 	is_option_type : bool;
 	always_flat_option : bool;
+
+	verifier_name : bytes;
 ]
 
 fn new_variable : variable
@@ -117,6 +119,7 @@ fn new_variable : variable
 		ra_priority : 0,
 		is_option_type : false,
 		always_flat_option : false,
+		verifier_name : "",
 	];
 ]
 
@@ -155,4 +158,5 @@ record context [
 	cm : conflict_map;
 	should_retry : bool;
 	name : bytes;
+	return_ins : instruction;
 ]

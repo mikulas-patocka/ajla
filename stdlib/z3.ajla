@@ -25,6 +25,7 @@ fn z3_mk_world : z3_world;
 fn z3_mk_context(w : z3_world) : (z3_world, z3_context);
 
 fn z3_eval_smtlib2_string(w : z3_world, ctx : z3_context, str : bytes) : (z3_world, bytes);
+fn z3_eval_smtlib2_string_noret(w : z3_world, ctx : z3_context, str : bytes) : z3_world;
 
 implementation
 
@@ -68,6 +69,7 @@ fn z3_mk_context(implicit w : z3_world) : (z3_world, z3_context)
 
 fn z3_eval_smtlib2_string(implicit w : z3_world, ctx : z3_context, str : bytes) : (z3_world, bytes)
 [
+	//eval debug("Z3: " + str);
 	var r e ec es : int;
 	r, e := ffi_call_function(ctx.z3_set_error, [ ctx.ptr_z3_context, 0 ]);
 	var mem_str := ffi_poke_zstring(ctx.destr, str);
@@ -84,4 +86,9 @@ fn z3_eval_smtlib2_string(implicit w : z3_world, ctx : z3_context, str : bytes) 
 	var b := ffi_peek_zstring(r);
 	xeval ffi_destructor_destroy(ctx.destr);
 	return b;
+]
+
+fn z3_eval_smtlib2_string_noret(implicit w : z3_world, ctx : z3_context, str : bytes) : z3_world
+[
+	var b := z3_eval_smtlib2_string(ctx, str);
 ]

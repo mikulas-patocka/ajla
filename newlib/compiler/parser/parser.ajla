@@ -343,7 +343,7 @@ fn parse_function_body(ctx : function_context, vd : variable_dictionary, t : tok
 
 	ctx := generate_Label(ctx, lbl);
 
-	for i := 0 to len(ctx.prereqs) do
+	for i := 0 to len(ctx.contracts) do
 		ctx := generate_Claim(ctx, ctx.contracts[i]);
 
 	ctx := generate_Return(ctx);
