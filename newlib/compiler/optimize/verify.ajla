@@ -109,6 +109,13 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		]
 		return ctx;
 	]
+	if ins.opcode = P_Copy then [
+		var new_var : bytes;
+		ctx, new_var := allocate_variable(ctx, ins.params[2]);
+		if len_greater_than(new_var, 0) then
+			z3_eval_smtlib2_string_noret("(assert (= " + ctx.variables[v].verifier_name + " " + new_var + "))");
+		return ctx;
+	]
 	if ins.opcode = P_Load_Const then [
 		var cnst : bytes;
 		var l := blob_to_int(ins.params[1 ..]);
@@ -134,7 +141,8 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 found_new_v:
 		var new_var : bytes;
 		ctx, new_var := allocate_variable(ctx, new_v);
-		z3_eval_smtlib2_string_noret("(assert (= " + ctx.variables[v].verifier_name + " " + new_var + "))");
+		if len_greater_than(new_var, 0) then
+			z3_eval_smtlib2_string_noret("(assert (= " + ctx.variables[v].verifier_name + " " + new_var + "))");
 		return ctx;
 	]
 	//eval debug("opcode: " + ntos(ins.opcode) + " (" + ctx.variables[v].verifier_name + ")");
@@ -180,6 +188,8 @@ fn get_cond_guards(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 			var vgic := lins.params[0];
 			var vgic_name : bytes;
 			ctx, vgic_name := allocate_variable(ctx, vgic);
+			if not len_greater_than(vgic_name, 0) then
+				goto next_dom;
 			if len_greater_than(pred_string, 0) then [
 				pred_string +<= ' ';
 			] else [

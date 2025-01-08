@@ -555,7 +555,6 @@ fn insert_phi(ctx : context, vgi : int, bgi : int) : context
 fn find_phi_blocks(ctx : context) : context
 [
 	for vgi := 0 to len(ctx.variables) do [
-
 		if is_noclone_variable(ctx, vgi) then
 			continue;
 
@@ -2631,6 +2630,7 @@ fn process_pcode(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcod
 	ctx := check_consistency(ctx, "start", false);
 
 	var num_retries := 0;
+	var do_verify := false;
 retry_optimize:
 	ctx.should_retry := false;
 	ctx := check_consistency(ctx, "retry_optimize", false);
@@ -2699,6 +2699,12 @@ retry_optimize:
 	ctx := create_lt(ctx);
 	ctx := check_consistency(ctx, "create_lt", true);
 
+	if do_verify then [
+		if print_passes then [ eval ctx; eval debug("verify_function"); if is_exception ctx then eval debug("ctx exception"); ]
+		ctx := verify_function(ctx);
+		ctx := check_consistency(ctx, "verify_function", true);
+	]
+
 	if print_passes then [ eval ctx; eval debug("remove_phis"); if is_exception ctx then eval debug("ctx exception"); ]
 	ctx := remove_phis(ctx);
 	ctx := check_consistency(ctx, "remove_phis", true);
@@ -2717,13 +2723,13 @@ retry_optimize:
 		goto retry_optimize;
 	]
 
-	//eval debug("retries: " + ntos(num_retries));
-
-	if verify then [
-		if print_passes then [ eval ctx; eval debug("verify_function"); if is_exception ctx then eval debug("ctx exception"); ]
-		ctx := verify_function(ctx);
-		ctx := check_consistency(ctx, "verify_function", true);
+	if verify and not do_verify then [
+		do_verify := true;
+		num_retries += 1;
+		goto retry_optimize;
 	]
+
+	//eval debug("retries: " + ntos(num_retries));
 
 	if print_passes then [ eval ctx; eval debug("join_adjacent"); if is_exception ctx then eval debug("ctx exception"); ]
 	ctx := join_adjacent(ctx);
