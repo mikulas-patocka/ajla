@@ -74,6 +74,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		else if op = Bin_LessEqual, is_int or is_real	then op_z3 := "<=";
 		else if op = Bin_Greater, is_int or is_real	then op_z3 := ">";
 		else if op = Bin_GreaterEqual, is_int or is_real then op_z3 := ">=";
+		else if op = Bin_LessEqual, is_bool		then op_z3 := "=>";
 		else return ctx;
 		var var1 var2 : bytes;
 		//eval debug("P_BinaryOp: " + ntos(ins.params[0]) + ", " + ntos(ins.params[1]) + ", " + ntos(ins.params[2]) + ", " + ntos(ins.params[3]) + ", " + ntos(ins.params[4]) + ", " + ntos(ins.params[5]));
@@ -154,6 +155,61 @@ fn allocate_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx :
 	return ctx, ctx.variables[v].verifier_name;
 ]
 
+fn get_cond_guards(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, bgi : int) : (z3_world, context, bytes)
+[
+	var dom_set := ctx.blocks[bgi].dom;
+	var all_preds := "";
+	while dom_set <> 0 do [
+		var dom : int := bsr dom_set;
+		dom_set btr= dom;
+		var bb := ctx.blocks[dom];
+		if not bb.active then
+			abort internal("dominator is not active");
+		if len(bb.pred_list) = 0 then
+			goto next_dom;
+		var pred_string := "";
+		for i := 0 to len(bb.pred_list) do [
+			if bb.pred_position[i] = 2 then
+				goto next_dom;
+			var bb_pred := ctx.blocks[bb.pred_list[i]];
+			if len(bb_pred.instrs) = 0 then
+				goto next_dom;
+			var lins := ctx.instrs[bb_pred.instrs[len(bb_pred.instrs) - 1]];
+			if lins.opcode <> P_Jmp_False then
+				goto next_dom;
+			var vgic := lins.params[0];
+			var vgic_name : bytes;
+			ctx, vgic_name := allocate_variable(ctx, vgic);
+			if len_greater_than(pred_string, 0) then [
+				pred_string +<= ' ';
+			] else [
+				pred_string := "(or ";
+			]
+			if bb.pred_position[i] = 0 then [
+				pred_string += vgic_name;
+			] else [
+				pred_string += "(not " + vgic_name + ")";
+			]
+		]
+		if not len_greater_than(pred_string, 0) then
+			goto next_dom;
+		pred_string +<= ')';
+		//eval debug("pred_string: " + pred_string);
+		if len_greater_than(all_preds, 0) then [
+			all_preds +<= ' ';
+		] else [
+			all_preds := "(and ";
+		]
+		all_preds += pred_string;
+next_dom:
+	]
+	if not len_greater_than(all_preds, 0) then
+		return ctx, " ";
+	all_preds +<= ')';
+	//eval debug("all_preds: " + all_preds);
+	return ctx, all_preds;
+]
+
 fn verify_function(ctx : context) : context
 [
 	var claims := "";
@@ -179,6 +235,7 @@ found_ret:
 	for bgi := 0 to len(ctx.blocks) do [
 		if not ctx.blocks[bgi].active then
 			continue;
+		var cond_guards := "";
 		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
 			var igi := ctx.blocks[bgi].instrs[ili];
 			var ins := ctx.instrs[igi];
@@ -186,14 +243,20 @@ found_ret:
 				//eval debug("assume");
 				var str : bytes;
 				ctx, str := allocate_variable(ctx, ins.params[0]);
-				if str <> "" then
+				if len_greater_than(str, 0) then
 					z3_eval_smtlib2_string_noret("(assert " + str + ")");
 			] else if ins.opcode = P_Claim then [
 				//eval debug("claim");
+				if not len_greater_than(cond_guards, 0) then
+					ctx, cond_guards := get_cond_guards(ctx, bgi);
 				var str : bytes;
 				ctx, str := allocate_variable(ctx, ins.params[0]);
-				if str <> "" then
-					claims += " " + str;
+				if len_greater_than(str, 0) then [
+					if cond_guards[0] <> ' ' then
+						claims += " (=> " + cond_guards + " " + str + ")";
+					else
+						claims += " " + str;
+				]
 			]
 		]
 	]
