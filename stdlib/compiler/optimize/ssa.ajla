@@ -2701,8 +2701,7 @@ retry_optimize:
 
 	if do_verify then [
 		if print_passes then [ eval ctx; eval debug("verify_function"); if is_exception ctx then eval debug("ctx exception"); ]
-		ctx := verify_function(ctx);
-		ctx := check_consistency(ctx, "verify_function", true);
+		xeval verify_function(ctx);
 	]
 
 	if print_passes then [ eval ctx; eval debug("remove_phis"); if is_exception ctx then eval debug("ctx exception"); ]

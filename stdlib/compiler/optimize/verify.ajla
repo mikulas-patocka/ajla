@@ -20,7 +20,7 @@ private unit compiler.optimize.verify;
 
 uses compiler.optimize.defs;
 
-fn verify_function(ctx : context) : context;
+fn verify_function(ctx : context) : unit_type;
 
 implementation
 
@@ -220,7 +220,7 @@ next_dom:
 	return ctx, all_preds;
 ]
 
-fn verify_function(ctx : context) : context
+fn verify_function(ctx : context) : unit_type
 [
 	var claims := "";
 	var b : bytes;
@@ -274,14 +274,12 @@ found_ret:
 	z3_eval_smtlib2_string_noret("(assert (not (and true" + claims + ")))");
 	b := z3_eval_smtlib2_string("(check-sat)");
 	if list_begins_with(b, "unsat") then
-		return ctx;
+		return unit_value;
 	if list_begins_with(b, "sat") then [
 		b := z3_eval_smtlib2_string("(get-model)");
 		b := "Verification of function " + ctx.name + " failed:" + nl + b;
-		ctx := exception_make_str(context, ec_async, error_compiler_error, 0, false, b);
-		return ctx;
+		return exception_make_str(unit_type, ec_async, error_compiler_error, 0, false, b);
 	]
-	b := "Verification of function " + ctx.name + "inconclusive";
-	ctx := exception_make_str(context, ec_async, error_compiler_error, 0, false, b);
-	return ctx;
+	b := "Verification of function " + ctx.name + " inconclusive";
+	return exception_make_str(unit_type, ec_async, error_compiler_error, 0, false, b);
 ]
