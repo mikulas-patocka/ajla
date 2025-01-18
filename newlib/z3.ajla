@@ -69,7 +69,7 @@ fn z3_mk_context(implicit w : z3_world) : (z3_world, z3_context)
 
 fn z3_eval_smtlib2_string(implicit w : z3_world, ctx : z3_context, str : bytes) : (z3_world, bytes)
 [
-	//eval debug("Z3: " + str);
+	//if not is_exception w then eval debug("Z3: " + str);
 	var r e ec es : int;
 	r, e := ffi_call_function(ctx.z3_set_error, [ ctx.ptr_z3_context, 0 ]);
 	var mem_str := ffi_poke_zstring(ctx.destr, str);

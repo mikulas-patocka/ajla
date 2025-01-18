@@ -25,17 +25,28 @@ fn verify_function(ctx : context) : unit_type;
 implementation
 
 uses exception;
+uses charset;
 uses z3;
 uses compiler.common.blob;
 
-fn allocate_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int) : (z3_world, context, bytes);
+fn allocate_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int) : (z3_world, context, bytes, bytes);
 
-fn get_z3_name(ctx : context, v : int) : bytes
+fn get_z3_name(ctx : context, v : int) : (bytes, bytes)
 [
-	var n := "var_" + ntos_base(v, 16);
-	if len_greater_than(ctx.variables[v].name, 0) then
+	var n := "var_" + map(ntos_base(v, 16), ascii_locase);
+	var m := "valid_" + map(ntos_base(v, 16), ascii_locase);
+	if len_greater_than(ctx.variables[v].name, 0) then [
 		n += "_" + ctx.variables[v].name;
-	return n;
+		m += "_" + ctx.variables[v].name;
+	]
+	return n, m;
+]
+
+fn get_z3_bb_name(ctx : context, bgi : int) : (context, bytes)
+[
+	var str := "bb_" + map(ntos_base(bgi, 16), ascii_locase);
+	ctx.blocks[bgi].verifier_name := str;
+	return ctx, str;
 ]
 
 fn get_z3_type(ctx : context, v : int) : bytes
@@ -47,6 +58,15 @@ fn get_z3_type(ctx : context, v : int) : bytes
 	if ctx.variables[v].type_index <= T_Real16, ctx.variables[v].type_index >= T_Real128 then
 		return "Real";
 	return "";
+]
+
+fn gen_assert(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int, deps : list(bytes), ops : bytes) : z3_world
+[
+	var str := "(assert (= " + ctx.variables[v].verifier_valid + " (and";
+	for i := 0 to len(deps) do
+		str += " " + deps[i];
+	str += " (= " + ctx.variables[v].verifier_name + " " + ops + "))))";
+	z3_eval_smtlib2_string_noret(str);
 ]
 
 fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int) : (z3_world, context)
@@ -76,19 +96,22 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		else if op = Bin_GreaterEqual, is_int or is_real then op_z3 := ">=";
 		else if op = Bin_LessEqual, is_bool		then op_z3 := "=>";
 		else return ctx;
-		var var1 var2 : bytes;
+		var var1 var1v var2 var2v : bytes;
 		//eval debug("P_BinaryOp: " + ntos(ins.params[0]) + ", " + ntos(ins.params[1]) + ", " + ntos(ins.params[2]) + ", " + ntos(ins.params[3]) + ", " + ntos(ins.params[4]) + ", " + ntos(ins.params[5]));
-		ctx, var1 := allocate_variable(ctx, ins.params[3]);
+		ctx, var1, var1v := allocate_variable(ctx, ins.params[3]);
+		if len(var1) = 0 then
+			return ctx;
 		if ins.opcode = P_BinaryOp then [
-			ctx, var2 := allocate_variable(ctx, ins.params[5]);
+			ctx, var2, var2v := allocate_variable(ctx, ins.params[5]);
+			if len(var2) = 0 then
+				return ctx;
+			gen_assert(ctx, v, [var1v, var2v], "(" + op_z3 + " " + var1 + " " + var2 + ")");
 		] else [
 			if is_bool then
 				var2 := select(ins.params[4] <> 0, "false", "true");
 			else
 				var2 := ntos(ins.params[4]);
-		]
-		if len_greater_than(var1, 0), len_greater_than(var2, 0) then [
-			z3_eval_smtlib2_string_noret("(assert (= " + ctx.variables[v].verifier_name + " (" + op_z3 + " " + var1 + " " + var2 + ")))");
+			gen_assert(ctx, v, [var1v], "(" + op_z3 + " " + var1 + " " + var2 + ")");
 		]
 		return ctx;
 	]
@@ -102,18 +125,19 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		if op = Un_Not, is_bool				then op_z3 := "not";
 		else if op = Un_Neg, is_int or is_real		then op_z3 := "-";
 		else return ctx;
-		var var1 : bytes;
-		ctx, var1 := allocate_variable(ctx, ins.params[3]);
-		if len_greater_than(var1, 0) then [
-			z3_eval_smtlib2_string_noret("(assert (= " + ctx.variables[v].verifier_name + " (" + op_z3 + " " + var1 + ")))");
-		]
+		var var1 var1v : bytes;
+		ctx, var1, var1v := allocate_variable(ctx, ins.params[3]);
+		if len(var1) = 0 then
+			return ctx;
+		gen_assert(ctx, v, [var1v], "(" + op_z3 + " " + var1 + ")");
 		return ctx;
 	]
 	if ins.opcode = P_Copy then [
-		var new_var : bytes;
-		ctx, new_var := allocate_variable(ctx, ins.params[2]);
-		if len_greater_than(new_var, 0) then
-			z3_eval_smtlib2_string_noret("(assert (= " + ctx.variables[v].verifier_name + " " + new_var + "))");
+		var var1 var1v : bytes;
+		ctx, var1, var1v := allocate_variable(ctx, ins.params[2]);
+		if len(var1) = 0 then
+			return ctx;
+		gen_assert(ctx, v, [var1v], var1);
 		return ctx;
 	]
 	if ins.opcode = P_Load_Const then [
@@ -126,7 +150,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 			cnst := ntos(l);
 		else
 			return ctx;
-		z3_eval_smtlib2_string_noret("(assert (= " + ctx.variables[v].verifier_name + " " + cnst + "))");
+		gen_assert(ctx, v, empty(bytes), cnst);
 		return ctx;
 	]
 	if ins.opcode = P_Return_Vars then [
@@ -139,90 +163,35 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		]
 		abort internal("P_Return_Vars parameter not found");
 found_new_v:
-		var new_var : bytes;
-		ctx, new_var := allocate_variable(ctx, new_v);
-		if len_greater_than(new_var, 0) then
-			z3_eval_smtlib2_string_noret("(assert (= " + ctx.variables[v].verifier_name + " " + new_var + "))");
+		var var1 var1v : bytes;
+		ctx, var1, var1v := allocate_variable(ctx, new_v);
+		if len(var1) = 0 then
+			return ctx;
+		gen_assert(ctx, v, [var1v], var1);
 		return ctx;
 	]
 	//eval debug("opcode: " + ntos(ins.opcode) + " (" + ctx.variables[v].verifier_name + ")");
 	return ctx;
 ]
 
-fn allocate_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int) : (z3_world, context, bytes)
+fn allocate_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int) : (z3_world, context, bytes, bytes)
 [
 	if not len_greater_than(ctx.variables[v].verifier_name, 0) then [
 		var t := get_z3_type(ctx, v);
 		if not len_greater_than(t, 0) then
-			return ctx, "";
-		var n := get_z3_name(ctx, v);
+			return ctx, "", "";
+		var n, m := get_z3_name(ctx, v);
 		ctx.variables[v].verifier_name := n;
+		ctx.variables[v].verifier_valid := m;
 		z3_eval_smtlib2_string_noret("(declare-const " + n + " " + t + ")");
+		z3_eval_smtlib2_string_noret("(declare-const " + m + " Bool)");
 		ctx := assert_instruction(ctx, v);
 	]
-	return ctx, ctx.variables[v].verifier_name;
-]
-
-fn get_cond_guards(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, bgi : int) : (z3_world, context, bytes)
-[
-	var dom_set := ctx.blocks[bgi].dom;
-	var all_preds := "";
-	while dom_set <> 0 do [
-		var dom : int := bsr dom_set;
-		dom_set btr= dom;
-		var bb := ctx.blocks[dom];
-		if not bb.active then
-			abort internal("dominator is not active");
-		if len(bb.pred_list) = 0 then
-			goto next_dom;
-		var pred_string := "";
-		for i := 0 to len(bb.pred_list) do [
-			if bb.pred_position[i] = 2 then
-				goto next_dom;
-			var bb_pred := ctx.blocks[bb.pred_list[i]];
-			if len(bb_pred.instrs) = 0 then
-				goto next_dom;
-			var lins := ctx.instrs[bb_pred.instrs[len(bb_pred.instrs) - 1]];
-			if lins.opcode <> P_Jmp_False then
-				goto next_dom;
-			var vgic := lins.params[0];
-			var vgic_name : bytes;
-			ctx, vgic_name := allocate_variable(ctx, vgic);
-			if not len_greater_than(vgic_name, 0) then
-				goto next_dom;
-			if len_greater_than(pred_string, 0) then [
-				pred_string +<= ' ';
-			] else [
-				pred_string := "(or ";
-			]
-			if bb.pred_position[i] = 0 then [
-				pred_string += vgic_name;
-			] else [
-				pred_string += "(not " + vgic_name + ")";
-			]
-		]
-		if not len_greater_than(pred_string, 0) then
-			goto next_dom;
-		pred_string +<= ')';
-		//eval debug("pred_string: " + pred_string);
-		if len_greater_than(all_preds, 0) then [
-			all_preds +<= ' ';
-		] else [
-			all_preds := "(and ";
-		]
-		all_preds += pred_string;
-next_dom:
-	]
-	if not len_greater_than(all_preds, 0) then
-		return ctx, " ";
-	all_preds +<= ')';
-	//eval debug("all_preds: " + all_preds);
-	return ctx, all_preds;
+	return ctx, ctx.variables[v].verifier_name, ctx.variables[v].verifier_valid;
 ]
 
 fn verify_function(ctx : context) : unit_type
 [
-	var claims := "";
 	var b : bytes;
 	implicit var z3w := z3_mk_world;
 	implicit var z3ctx := z3_mk_context();
@@ -236,42 +205,46 @@ fn verify_function(ctx : context) : unit_type
 			var ins := ctx.instrs[igi];
 			if ins.opcode = P_Return then [
 				ctx.return_ins := ins;
-				goto found_ret;
 			]
 		]
+		var str : bytes;
+		ctx, str := get_z3_bb_name(ctx, bgi);
+		z3_eval_smtlib2_string_noret("(declare-const " + str + " Bool)");
 	]
-found_ret:
 
 	for bgi := 0 to len(ctx.blocks) do [
 		if not ctx.blocks[bgi].active then
 			continue;
-		var cond_guards := "";
+		var assumes := "";
+		var claims := "";
 		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
 			var igi := ctx.blocks[bgi].instrs[ili];
 			var ins := ctx.instrs[igi];
 			if ins.opcode = P_Assume then [
-				//eval debug("assume");
-				var str : bytes;
-				ctx, str := allocate_variable(ctx, ins.params[0]);
-				if len_greater_than(str, 0) then
-					z3_eval_smtlib2_string_noret("(assert " + str + ")");
+				var var1 var1v : bytes;
+				ctx, var1, var1v := allocate_variable(ctx, ins.params[0]);
+				if len_greater_than(var1, 0) then
+					assumes += " (=> " + var1v + " " + var1 + ")";
 			] else if ins.opcode = P_Claim then [
-				//eval debug("claim");
-				if not len_greater_than(cond_guards, 0) then
-					ctx, cond_guards := get_cond_guards(ctx, bgi);
-				var str : bytes;
-				ctx, str := allocate_variable(ctx, ins.params[0]);
-				if len_greater_than(str, 0) then [
-					if cond_guards[0] <> ' ' then
-						claims += " (=> " + cond_guards + " " + str + ")";
-					else
-						claims += " " + str;
+				var var1 var1v : bytes;
+				ctx, var1, var1v := allocate_variable(ctx, ins.params[0]);
+				if len_greater_than(var1, 0) then [
+					claims += " (=> " + var1v + " " + var1 + ")";
 				]
 			]
 		]
+		for i := 0 to len(ctx.blocks[bgi].post_list) do [
+			var p := ctx.blocks[bgi].post_list[i];
+			claims += " " + ctx.blocks[p].verifier_name;
+		]
+		if len(assumes) = 0 then
+			assumes := " true";
+		if len(claims) = 0 then
+			claims := " true";
+		z3_eval_smtlib2_string_noret("(assert (= " + ctx.blocks[bgi].verifier_name + " (=> (and" + assumes + ") (and" + claims + "))))");
 	]
 
-	z3_eval_smtlib2_string_noret("(assert (not (and true" + claims + ")))");
+	z3_eval_smtlib2_string_noret("(assert (not " + ctx.blocks[0].verifier_name + "))");
 	b := z3_eval_smtlib2_string("(check-sat)");
 	if list_begins_with(b, "unsat") then
 		return unit_value;

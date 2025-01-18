@@ -54,6 +54,8 @@ record basic_block [
 	uninitialized : var_set;
 	live_top : var_set;
 	live_bottom : var_set;
+
+	verifier_name : bytes;
 ]
 
 fn new_basic_block : basic_block
@@ -73,6 +75,8 @@ fn new_basic_block : basic_block
 		uninitialized : -1,
 		live_top : -1,
 		live_bottom : -1,
+
+		verifier_name : "",
 	];
 ]
 
@@ -99,6 +103,7 @@ record variable [
 	always_flat_option : bool;
 
 	verifier_name : bytes;
+	verifier_valid : bytes;
 ]
 
 fn new_variable : variable
@@ -120,6 +125,7 @@ fn new_variable : variable
 		is_option_type : false,
 		always_flat_option : false,
 		verifier_name : "",
+		verifier_valid : "",
 	];
 ]
 
