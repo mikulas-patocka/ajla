@@ -217,6 +217,26 @@ fn verify_function(ctx : context) : unit_type
 			continue;
 		var assumes := "";
 		var claims := "";
+		var guards := "";
+		for i := 0 to len(ctx.blocks[bgi].pred_list) do [
+			var p := ctx.blocks[bgi].pred_list[i];
+			if len_greater_than(ctx.blocks[p].instrs, 0) then [
+				var ins := ctx.instrs[ctx.blocks[p].instrs[len(ctx.blocks[p].instrs) - 1]];
+				if ins.opcode = P_Jmp_False then [
+					var pos := ctx.blocks[bgi].pred_position[i];
+					var var1 var1v : bytes;
+					ctx, var1, var1v := allocate_variable(ctx, ins.params[0]);
+					if pos = 0 then
+						guards += " (and " + var1v + " " + var1 + ")";
+					else if pos = 1 then
+						guards += " (and " + var1v + " (not " + var1 + "))";
+					else
+						guards += " false";
+				]
+			]
+		]
+		if len_greater_than(guards, 0) then
+			assumes += " (or" + guards + ")";
 		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
 			var igi := ctx.blocks[bgi].instrs[ili];
 			var ins := ctx.instrs[igi];
