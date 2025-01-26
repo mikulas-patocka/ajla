@@ -57,6 +57,7 @@ record basic_block [
 
 	block_name : bytes;
 	post_cut_nodes : int;
+	pre_cut_nodes : bool;
 ]
 
 fn new_basic_block : basic_block
@@ -79,6 +80,7 @@ fn new_basic_block : basic_block
 
 		block_name : "",
 		post_cut_nodes : 0,
+		pre_cut_nodes : false,
 	];
 ]
 
