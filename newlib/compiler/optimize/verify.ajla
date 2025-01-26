@@ -226,7 +226,11 @@ fn verify_function(ctx : context) : unit_type
 						guards += " (not " + var1 + ")";
 					else
 						guards += " false";
+				] else [
+					guards += " true";
 				]
+			] else [
+				guards += " true";
 			]
 			var phis := "";
 			for ili := 0 to len(ctx.blocks[bgi].instrs) do [
