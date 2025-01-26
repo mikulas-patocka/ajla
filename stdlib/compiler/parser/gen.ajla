@@ -60,6 +60,7 @@ fn generate_IO_Exception_Make(ctx : function_context, class typ num v : int) : f
 
 fn generate_Assume(ctx : function_context, l : int) : function_context;
 fn generate_Claim(ctx : function_context, l : int) : function_context;
+fn generate_Invariant(ctx : function_context, l : int) : function_context;
 
 implementation
 
@@ -272,4 +273,9 @@ fn generate_Assume(ctx : function_context, l : int) : function_context
 fn generate_Claim(ctx : function_context, l : int) : function_context
 [
 	return generate_instruction(ctx, P_Claim, list(pcode_t).[ l ]);
+]
+
+fn generate_Invariant(ctx : function_context, l : int) : function_context
+[
+	return generate_instruction(ctx, P_Invariant, list(pcode_t).[ l ]);
 ]

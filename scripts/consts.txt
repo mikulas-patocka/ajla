@@ -62,6 +62,7 @@ P_Return_Vars		; (ret ...)
 P_Return		; ((ref_flag, arg) ...)
 P_Assume		; var
 P_Claim			; var
+P_Invariant		; var
 P_Checkpoint		; (must-be-flat-var ...)
 P_Line_Info		; line_number
 P_Phi			; result, (arg ...)

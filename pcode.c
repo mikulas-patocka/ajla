@@ -3038,6 +3038,7 @@ next_one:
 				break;
 			case P_Assume:
 			case P_Claim:
+			case P_Invariant:
 				a1 = pcode_get();
 				break;
 			case P_Checkpoint:
