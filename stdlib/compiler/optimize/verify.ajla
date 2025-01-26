@@ -43,7 +43,7 @@ fn get_z3_name(ctx : context, v : int) : bytes
 fn get_z3_bb_name(ctx : context, bgi : int) : (context, bytes)
 [
 	var str := "bb_" + map(ntos_base(bgi, 16), ascii_locase);
-	ctx.blocks[bgi].verifier_name := str;
+	ctx.blocks[bgi].block_name := str;
 	return ctx, str;
 ]
 
@@ -269,16 +269,16 @@ fn verify_function(ctx : context) : unit_type
 		]
 		for i := 0 to len(ctx.blocks[bgi].post_list) do [
 			var p := ctx.blocks[bgi].post_list[i];
-			claims += " " + ctx.blocks[p].verifier_name;
+			claims += " " + ctx.blocks[p].block_name;
 		]
 		if len(assumes) = 0 then
 			assumes := " true";
 		if len(claims) = 0 then
 			claims := " true";
-		z3_eval_smtlib2_string_noret("(assert (= " + ctx.blocks[bgi].verifier_name + " (=> (and" + assumes + ") (and" + claims + "))))");
+		z3_eval_smtlib2_string_noret("(assert (= " + ctx.blocks[bgi].block_name + " (=> (and" + assumes + ") (and" + claims + "))))");
 	]
 
-	z3_eval_smtlib2_string_noret("(assert (not " + ctx.blocks[0].verifier_name + "))");
+	z3_eval_smtlib2_string_noret("(assert (not " + ctx.blocks[0].block_name + "))");
 	b := z3_eval_smtlib2_string("(check-sat)");
 	if list_begins_with(b, "unsat") then
 		return unit_value;

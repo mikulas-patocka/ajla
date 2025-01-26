@@ -55,7 +55,7 @@ record basic_block [
 	live_top : var_set;
 	live_bottom : var_set;
 
-	verifier_name : bytes;
+	block_name : bytes;
 ]
 
 fn new_basic_block : basic_block
@@ -76,7 +76,7 @@ fn new_basic_block : basic_block
 		live_top : -1,
 		live_bottom : -1,
 
-		verifier_name : "",
+		block_name : "",
 	];
 ]
 
