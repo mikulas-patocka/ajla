@@ -115,13 +115,13 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 			ctx, var2 := allocate_variable_block(ctx, ins.params[5], phi_node, ins.bb);
 			if len(var2) = 0 then
 				return ctx;
-			gen_assert(ctx, v, 0, "(" + op_z3 + " " + var1 + " " + var2 + ")");
+			gen_assert(ctx, v, phi_node, "(" + op_z3 + " " + var1 + " " + var2 + ")");
 		] else [
 			if is_bool then
 				var2 := select(ins.params[4] <> 0, "false", "true");
 			else
 				var2 := ntos(ins.params[4]);
-			gen_assert(ctx, v, 0, "(" + op_z3 + " " + var1 + " " + var2 + ")");
+			gen_assert(ctx, v, phi_node, "(" + op_z3 + " " + var1 + " " + var2 + ")");
 		]
 		return ctx;
 	]
@@ -139,7 +139,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var1 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
 		if len(var1) = 0 then
 			return ctx;
-		gen_assert(ctx, v, 0, "(" + op_z3 + " " + var1 + ")");
+		gen_assert(ctx, v, phi_node, "(" + op_z3 + " " + var1 + ")");
 		return ctx;
 	]
 	if ins.opcode = P_Copy then [
@@ -147,7 +147,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb);
 		if len(var1) = 0 then
 			return ctx;
-		gen_assert(ctx, v, 0, var1);
+		gen_assert(ctx, v, phi_node, var1);
 		return ctx;
 	]
 	if ins.opcode = P_Load_Const then [
@@ -160,7 +160,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 			cnst := ntos(l);
 		else
 			return ctx;
-		gen_assert(ctx, v, 0, cnst);
+		gen_assert(ctx, v, phi_node, cnst);
 		return ctx;
 	]
 	if ins.opcode = P_Return_Vars then [
@@ -177,7 +177,7 @@ found_new_v:
 		ctx, var1 := allocate_variable_block(ctx, new_v, phi_node, ins.bb);
 		if len(var1) = 0 then
 			return ctx;
-		gen_assert(ctx, v, 0, var1);
+		gen_assert(ctx, v, phi_node, var1);
 		return ctx;
 	]
 	//eval debug("opcode: " + ntos(ins.opcode) + " (" + ctx.variables[v].verifier_name + ")");
@@ -231,6 +231,30 @@ fn verify_function(ctx : context) : unit_type
 	for bgi := 0 to len(ctx.blocks) do [
 		if not ctx.blocks[bgi].active then
 			continue;
+		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
+			var igi := ctx.blocks[bgi].instrs[ili];
+			var ins := ctx.instrs[igi];
+			if ins.opcode = P_Invariant then [
+				if not len_greater_than(ctx.blocks[bgi].pred_list, 0) then [
+					var str := "A block with invariant statement has not predecessor in " + ctx.name;
+					return exception_make_str(unit_type, ec_async, error_compiler_error, 0, false, str);
+
+				]
+				for i := 0 to len(ctx.blocks[bgi].pred_list) do [
+					var var1 : bytes;
+					ctx, var1 := allocate_variable(ctx, ins.params[0], i + 1);
+					if len(var1) = 0 then
+						var1 := "false";
+					var new_blk := ctx.blocks[bgi].pred_list[i];
+					ctx.blocks[new_blk].added_claims +<= var1;
+				]
+			]
+		]
+	]
+
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
 		var assumes := "";
 		var claims := "";
 		var guards := "";
@@ -279,7 +303,7 @@ fn verify_function(ctx : context) : unit_type
 		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
 			var igi := ctx.blocks[bgi].instrs[ili];
 			var ins := ctx.instrs[igi];
-			if ins.opcode = P_Assume then [
+			if ins.opcode = P_Assume or ins.opcode = P_Invariant then [
 				var var1 : bytes;
 				ctx, var1 := allocate_variable(ctx, ins.params[0], 0);
 				if len_greater_than(var1, 0) then
@@ -291,6 +315,9 @@ fn verify_function(ctx : context) : unit_type
 					claims += " " + var1;
 				]
 			]
+		]
+		for i := 0 to len(ctx.blocks[bgi].added_claims) do [
+			claims += " " + ctx.blocks[bgi].added_claims[i];
 		]
 		for i := 0 to len(ctx.blocks[bgi].post_list) do [
 			if ctx.blocks[bgi].post_cut_nodes bt i then
