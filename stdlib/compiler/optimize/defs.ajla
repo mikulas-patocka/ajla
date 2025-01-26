@@ -103,7 +103,6 @@ record variable [
 	always_flat_option : bool;
 
 	verifier_name : bytes;
-	verifier_valid : bytes;
 ]
 
 fn new_variable : variable
@@ -125,7 +124,6 @@ fn new_variable : variable
 		is_option_type : false,
 		always_flat_option : false,
 		verifier_name : "",
-		verifier_valid : "",
 	];
 ]
 
