@@ -852,8 +852,12 @@ fn parse_statement_eval(ctx : function_context, vd : variable_dictionary, t : to
 	var al : list(int);
 	ctx, al := parse_expressions(ctx, vd, t, false);
 	for i := 0 to len(al) do [
-		var gt := get_type_of_var(ctx, al[i]);
-		if gt = T_Type or gt = T_TypeOfType then
+		var cc, typ := get_deep_type_of_var(ctx, al[i]);
+		if x is k_assume or x is k_claim or x is k_invariant then [
+			if typ <> T_AlwaysFlatOption then
+				abort compiler_error("Boolean value expected", t);
+		]
+		if typ = T_Type or typ = T_TypeOfType then
 			continue;
 		if x is k_eval then [
 			ctx := generate_Eval(ctx, al[i]);
