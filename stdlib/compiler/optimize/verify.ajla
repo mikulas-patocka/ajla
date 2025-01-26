@@ -200,6 +200,12 @@ fn verify_function(ctx : context) : unit_type
 				ctx.return_ins := ins;
 			]
 		]
+		for i := 0 to len(ctx.blocks[bgi].post_list) do [
+			var p := ctx.blocks[bgi].post_list[i];
+			// TODO: this doesn't eliminate all loops
+			if ctx.blocks[p].dominates bt bgi then
+				ctx.blocks[bgi].post_cut_nodes bts= i;
+		]
 		var str : bytes;
 		ctx, str := get_z3_bb_name(ctx, bgi);
 		z3_eval_smtlib2_string_noret("(declare-const " + str + " Bool)");
@@ -268,6 +274,8 @@ fn verify_function(ctx : context) : unit_type
 			]
 		]
 		for i := 0 to len(ctx.blocks[bgi].post_list) do [
+			if ctx.blocks[bgi].post_cut_nodes bt i then
+				continue;
 			var p := ctx.blocks[bgi].post_list[i];
 			claims += " " + ctx.blocks[p].block_name;
 		]

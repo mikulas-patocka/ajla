@@ -56,6 +56,7 @@ record basic_block [
 	live_bottom : var_set;
 
 	block_name : bytes;
+	post_cut_nodes : int;
 ]
 
 fn new_basic_block : basic_block
@@ -77,6 +78,7 @@ fn new_basic_block : basic_block
 		live_bottom : -1,
 
 		block_name : "",
+		post_cut_nodes : 0,
 	];
 ]
 
