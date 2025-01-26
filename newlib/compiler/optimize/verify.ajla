@@ -70,10 +70,13 @@ fn gen_assert(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : contex
 fn allocate_variable_block(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int, phi_node : int, bb : int) : (z3_world, context, bytes)
 [
 	var ins := ctx.instrs[ctx.variables[v].defining_instr];
-	if ins.bb = bb then
+	if ins.bb = bb then [
+		if ins.opcode = P_Phi, phi_node > 0 then
+			return allocate_variable(ctx, ins.params[phi_node], 0);
 		return allocate_variable(ctx, v, phi_node);
-	else
+	] else [
 		return allocate_variable(ctx, v, 0);
+	]
 ]
 
 fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int, phi_node : int) : (z3_world, context)
@@ -172,14 +175,6 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 found_new_v:
 		var var1 : bytes;
 		ctx, var1 := allocate_variable_block(ctx, new_v, phi_node, ins.bb);
-		if len(var1) = 0 then
-			return ctx;
-		gen_assert(ctx, v, 0, var1);
-		return ctx;
-	]
-	if ins.opcode = P_Phi and phi_node > 0 then [
-		var var1 : bytes;
-		ctx, var1 := allocate_variable(ctx, ins.params[phi_node], 0);
 		if len(var1) = 0 then
 			return ctx;
 		gen_assert(ctx, v, 0, var1);
