@@ -28,6 +28,7 @@ uses exception;
 uses charset;
 uses z3;
 uses compiler.common.blob;
+uses compiler.optimize.ssa;
 
 fn allocate_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int, phi_node : int) : (z3_world, context, bytes);
 
@@ -208,6 +209,14 @@ fn verify_function(ctx : context) : unit_type
 	for bgi := 0 to len(ctx.blocks) do [
 		if not ctx.blocks[bgi].active then
 			continue;
+		if len(ctx.blocks[bgi].post_list) = 3 then
+			ctx := deactivate_arrow(ctx, bgi, 2);
+	]
+	ctx := prune_unreachable(ctx);
+
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
 		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
 			var igi := ctx.blocks[bgi].instrs[ili];
 			var ins := ctx.instrs[igi];
@@ -261,6 +270,7 @@ fn verify_function(ctx : context) : unit_type
 		var all_phis := "";
 		for i := 0 to len(ctx.blocks[bgi].pred_list) do [
 			var p := ctx.blocks[bgi].pred_list[i];
+			var guard : bytes;
 			if len_greater_than(ctx.blocks[p].instrs, 0) then [
 				var ins := ctx.instrs[ctx.blocks[p].instrs[len(ctx.blocks[p].instrs) - 1]];
 				if ins.opcode = P_Jmp_False then [
@@ -268,17 +278,18 @@ fn verify_function(ctx : context) : unit_type
 					var var1 : bytes;
 					ctx, var1 := allocate_variable(ctx, ins.params[0], 0);
 					if pos = 0 then
-						guards += " " + var1;
+						guard := var1;
 					else if pos = 1 then
-						guards += " (not " + var1 + ")";
+						guard := "(not " + var1 + ")";
 					else
-						guards += " false";
+						guard := "false";
 				] else [
-					guards += " true";
+					guard := "true";
 				]
 			] else [
-				guards += " true";
+				guard := "true";
 			]
+			guards += " " + guard;
 			if not ctx.blocks[bgi].pre_cut_nodes then [
 				var phis := "";
 				for ili := 0 to len(ctx.blocks[bgi].instrs) do [

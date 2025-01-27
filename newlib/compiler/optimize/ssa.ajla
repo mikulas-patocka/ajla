@@ -20,6 +20,9 @@ private unit compiler.optimize.ssa;
 
 uses compiler.optimize.defs;
 
+fn deactivate_arrow(ctx : context, bgi : int, pidx : int) : context;
+fn prune_unreachable(ctx : context) : context;
+
 fn process_pcode(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t), verify : bool) : list(pcode_t);
 
 
