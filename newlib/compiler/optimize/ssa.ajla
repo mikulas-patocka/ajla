@@ -1407,7 +1407,7 @@ again:
 	return ctx;
 ]
 
-fn dce(ctx : context) : context
+fn dce(ctx : context, keep_verify : bool) : context
 [
 	for vgi := 0 to len(ctx.variables) do [
 		ctx.variables[vgi].color := -1;
@@ -1447,8 +1447,12 @@ fn dce(ctx : context) : context
 		for ili := 0 to l do [
 			var igi := block.instrs[ili];
 			var ins := ctx.instrs[igi];
-			if ins.opcode = P_Eval or ins.opcode = P_Keep or ins.opcode = P_Assume or ins.opcode = P_Claim or ins.opcode = P_Invariant then [
+			if ins.opcode = P_Eval or ins.opcode = P_Keep then [
 				if ins.params[0] >= 0 then
+					worklist bts= ins.params[0];
+			]
+			if keep_verify then [
+				if ins.opcode = P_Assume or ins.opcode = P_Claim or ins.opcode = P_Invariant then
 					worklist bts= ins.params[0];
 			]
 		]
@@ -2690,8 +2694,13 @@ retry_optimize:
 	ctx := prune_unreachable(ctx);
 	ctx := check_consistency(ctx, "prune_unreachable", true);
 
+	if do_verify then [
+		if print_passes then [ eval ctx; eval debug("verify_function"); if is_exception ctx then eval debug("ctx exception"); ]
+		xeval verify_function(ctx);
+	]
+
 	if print_passes then [ eval ctx; eval debug("dce"); if is_exception ctx then eval debug("ctx exception"); ]
-	ctx := dce(ctx);
+	ctx := dce(ctx, verify and not do_verify);
 	ctx := check_consistency(ctx, "dce", true);
 
 	if print_passes then [ eval ctx; eval debug("dce2"); if is_exception ctx then eval debug("ctx exception"); ]
@@ -2701,11 +2710,6 @@ retry_optimize:
 	if print_passes then [ eval ctx; eval debug("create_lt"); if is_exception ctx then eval debug("ctx exception"); ]
 	ctx := create_lt(ctx);
 	ctx := check_consistency(ctx, "create_lt", true);
-
-	if do_verify then [
-		if print_passes then [ eval ctx; eval debug("verify_function"); if is_exception ctx then eval debug("ctx exception"); ]
-		xeval verify_function(ctx);
-	]
 
 	if print_passes then [ eval ctx; eval debug("remove_phis"); if is_exception ctx then eval debug("ctx exception"); ]
 	ctx := remove_phis(ctx);
