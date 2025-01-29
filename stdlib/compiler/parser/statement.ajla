@@ -586,6 +586,7 @@ fn parse_statement_for(ctx : function_context, vd : variable_dictionary, level :
 	var variable := t[0];
 	var assign_op := t[assign_idx];
 	var less_op := new_token(assign_op, token_opt.oper.(i_encode("<")));
+	var less_eq_op := new_token(assign_op, token_opt.oper.(i_encode("<=")));
 	var plus_op := new_token(assign_op, token_opt.oper.(i_encode("+=")));
 	var one := new_token(assign_op, token_opt.number.("1"));
 	t := t[assign_idx + 1 .. ];
@@ -594,9 +595,18 @@ fn parse_statement_for(ctx : function_context, vd : variable_dictionary, level :
 	var lower_bound := t[ .. lb_idx];
 	t := t[lb_idx + 1 .. ];
 
-	var ub_idx := token_find(t, token_opt.k_do, true);
-	var upper_bound := t[ .. ub_idx];
-	t := t[ub_idx + 1 .. ];
+	var upper_bound : tokens;
+	var invr_tokens : tokens;
+	var do_idx := token_find(t, token_opt.k_do, true);
+	var invr := token_find(t[ .. do_idx], token_opt.k_invariant, false);
+	if invr >= 0 then [
+		invr_tokens := t[invr + 1 .. do_idx];
+		upper_bound := t[ .. invr];
+	] else [
+		invr_tokens := empty(token);
+		upper_bound := t[ .. do_idx];
+	]
+	t := t[do_idx + 1 .. ];
 
 	var upper_bound_var := variable;
 	upper_bound_var.t.identifier := i_encode("/bnd");
@@ -618,6 +628,12 @@ fn parse_statement_for(ctx : function_context, vd : variable_dictionary, level :
 	ctx, do_vd := parse_statement_var(ctx, do_vd, false, false, false, toks);
 
 	ctx := generate_Label(ctx, l_test_again);
+
+	if invr >= 0 then [
+		ctx := parse_statement_eval(ctx, do_vd, invr_tokens, token_opt.k_invariant);
+		toks := [ variable, less_eq_op, upper_bound_var ];
+		ctx := parse_statement_eval(ctx, do_vd, toks, token_opt.k_invariant);
+	]
 
 	toks := [ variable, less_op, upper_bound_var ];
 	var a : int;
