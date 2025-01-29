@@ -1451,9 +1451,12 @@ fn dce(ctx : context, keep_verify : bool) : context
 				if ins.params[0] >= 0 then
 					worklist bts= ins.params[0];
 			]
-			if keep_verify then [
-				if ins.opcode = P_Assume or ins.opcode = P_Claim or ins.opcode = P_Invariant then
+			if ins.opcode = P_Assume or ins.opcode = P_Claim or ins.opcode = P_Invariant then [
+				if keep_verify then [
 					worklist bts= ins.params[0];
+				] else [
+					ctx.instrs[igi].read_set := 0;
+				]
 			]
 		]
 	]
