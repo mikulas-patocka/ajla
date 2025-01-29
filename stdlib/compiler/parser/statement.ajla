@@ -34,6 +34,7 @@ uses compiler.parser.local_type;
 uses compiler.parser.parser;
 uses exception;
 
+fn parse_statement_eval(ctx : function_context, vd : variable_dictionary, t : tokens, x : token_opt) : function_context;
 fn parse_statement_return(ctx : function_context, vd : variable_dictionary, t : tokens) : function_context;
 
 fn parse_statement_label(ctx : function_context, t : tokens) : function_context
@@ -537,6 +538,7 @@ fn parse_statement_if(ctx : function_context, vd : variable_dictionary, level : 
 fn parse_statement_while(ctx : function_context, vd : variable_dictionary, level : int, t : tokens) : (function_context, tokens, bool)
 [
 	var d := token_find(t, token_opt.k_do, true);
+	var invr := token_find(t[ .. d], token_opt.k_invariant, false);
 
 	var l_start l_end l_exception : int;
 	ctx, l_start := alloc_local_label(ctx);
@@ -550,7 +552,12 @@ fn parse_statement_while(ctx : function_context, vd : variable_dictionary, level
 	do_vd.continue_label := l_start;
 
 	var cond : int;
-	ctx, cond := evaluate_condition(ctx, do_vd, t[ .. d], l_end, l_exception);
+	if invr >= 0 then [
+		ctx := parse_statement_eval(ctx, do_vd, t[invr + 1 .. d], token_opt.k_invariant);
+		ctx, cond := evaluate_condition(ctx, do_vd, t[ .. invr], l_end, l_exception);
+	] else [
+		ctx, cond := evaluate_condition(ctx, do_vd, t[ .. d], l_end, l_exception);
+	]
 
 	var do_term : bool;
 	ctx, t, do_term := parse_statement(ctx, do_vd, level + 1, t[d + 1 .. ]);
