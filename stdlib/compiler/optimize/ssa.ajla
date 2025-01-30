@@ -802,6 +802,9 @@ fn gvn_recursive(ctx : context, bgi : int, vals : list(int)) : context
 			ins.opcode = P_Load_Local_Type or
 			ins.opcode = P_Eval or
 			ins.opcode = P_Keep or
+			ins.opcode = P_Assume or
+			ins.opcode = P_Claim or
+			ins.opcode = P_Invariant or
 			ins.opcode = P_Jmp or
 			ins.opcode = P_Jmp_False or
 			ins.opcode = P_Label or
@@ -1407,7 +1410,7 @@ again:
 	return ctx;
 ]
 
-fn dce(ctx : context, keep_verify : bool) : context
+fn dce(ctx : context) : context
 [
 	for vgi := 0 to len(ctx.variables) do [
 		ctx.variables[vgi].color := -1;
@@ -1450,13 +1453,6 @@ fn dce(ctx : context, keep_verify : bool) : context
 			if ins.opcode = P_Eval or ins.opcode = P_Keep then [
 				if ins.params[0] >= 0 then
 					worklist bts= ins.params[0];
-			]
-			if ins.opcode = P_Assume or ins.opcode = P_Claim or ins.opcode = P_Invariant then [
-				if keep_verify then [
-					worklist bts= ins.params[0];
-				] else [
-					ctx.instrs[igi].read_set := 0;
-				]
 			]
 		]
 	]
@@ -1505,6 +1501,12 @@ fn dce2(ctx : context) : context
 				var read_mask := set_to_mask(ins, ins.read_set);
 				worklist or= read_mask;
 			]
+		]
+		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
+			var igi := ctx.blocks[bgi].instrs[ili];
+			var ins := ctx.instrs[igi];
+			if ins.opcode = P_Assume or ins.opcode = P_Claim or ins.opcode = P_Invariant then
+				worklist or= set_to_mask(ins, ins.read_set);
 		]
 	]
 
@@ -2703,7 +2705,7 @@ retry_optimize:
 	]
 
 	if print_passes then [ eval ctx; eval debug("dce"); if is_exception ctx then eval debug("ctx exception"); ]
-	ctx := dce(ctx, verify and not do_verify);
+	ctx := dce(ctx);
 	ctx := check_consistency(ctx, "dce", true);
 
 	if print_passes then [ eval ctx; eval debug("dce2"); if is_exception ctx then eval debug("ctx exception"); ]
