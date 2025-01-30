@@ -670,16 +670,16 @@ fn parse_statement_for_in(ctx : function_context, vd : variable_dictionary, leve
 	t := t[in_idx + 1 .. ];
 
 	var iter : tokens;
-	//var invr_tokens : tokens;
+	var invr_tokens : tokens;
 	var do_idx := token_find(t, token_opt.k_do, true);
-	//var invr := token_find(t[ .. do_idx], token_opt.k_invariant, false);
-	//if invr >= 0 then [
-	//	iter := t[ .. invr];
-	//	invr_tokens := t[invr + 1 .. do_idx];
-	//] else [
+	var invr := token_find(t[ .. do_idx], token_opt.k_invariant, false);
+	if invr >= 0 then [
+		iter := t[ .. invr];
+		invr_tokens := t[invr + 1 .. do_idx];
+	] else [
 		iter := t[ .. do_idx];
-	//	invr_tokens := empty(token);
-	//]
+		invr_tokens := empty(token);
+	]
 	t := t[do_idx + 1 .. ];
 
 	var l_test_again l_continue l_exception l_end : int;
@@ -699,7 +699,7 @@ fn parse_statement_for_in(ctx : function_context, vd : variable_dictionary, leve
 	var toks := [ tok_it, tok_colon, tok_class_iterator, tok_assign ] + iter;
 	ctx, do_vd := parse_statement_var(ctx, do_vd, true, false, false, toks);
 
-	var tok_st := new_token(in_op, token_opt.identifier.(i_encode("/st")));
+	var tok_st := new_token(in_op, token_opt.identifier.(i_encode("state")));
 	var tok_dot := new_token(in_op, token_opt.dot);
 	var tok_init := new_token(in_op, token_opt.identifier.(i_encode("init")));
 	toks := [ tok_st, tok_assign, tok_it, tok_dot, tok_init ];
@@ -707,9 +707,9 @@ fn parse_statement_for_in(ctx : function_context, vd : variable_dictionary, leve
 
 	ctx := generate_Label(ctx, l_test_again);
 
-	//if invr >= 0 then [
-	//	ctx := parse_statement_eval(ctx, do_vd, invr_tokens, token_opt.k_invariant);
-	//]
+	if invr >= 0 then [
+		ctx := parse_statement_eval(ctx, do_vd, invr_tokens, token_opt.k_invariant);
+	]
 
 	var tok_test := new_token(in_op, token_opt.identifier.(i_encode("test")));
 	var tok_lp := new_token(in_op, token_opt.left_paren);
