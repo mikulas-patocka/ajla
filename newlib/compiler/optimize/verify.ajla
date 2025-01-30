@@ -206,6 +206,8 @@ fn verify_function(ctx : context) : unit_type
 	implicit var z3ctx := z3_mk_context();
 	//eval debug("verify function " + ctx.name);
 
+	z3_eval_smtlib2_string_noret("(declare-datatypes (T) ((Arr (mk-arr (arr-len Int) (arr (Array Int T))))))");
+
 	for bgi := 0 to len(ctx.blocks) do [
 		if not ctx.blocks[bgi].active then
 			continue;

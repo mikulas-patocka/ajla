@@ -1501,7 +1501,7 @@ fn dce2(ctx : context) : context
 			var ili := len(ctx.blocks[bgi].instrs) - 1;
 			var igi := ctx.blocks[bgi].instrs[ili];
 			var ins := ctx.instrs[igi];
-			if ins.write_set = 0 then [
+			if ins.opcode = P_Jmp_False or ins.opcode = P_Return then [
 				var read_mask := set_to_mask(ins, ins.read_set);
 				worklist or= read_mask;
 			]
