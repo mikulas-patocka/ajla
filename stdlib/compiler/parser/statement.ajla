@@ -658,6 +658,14 @@ fn parse_statement_for(ctx : function_context, vd : variable_dictionary, level :
 
 fn parse_statement_for_in(ctx : function_context, vd : variable_dictionary, level : int, t : tokens) : (function_context, tokens, bool)
 [
+	if len(t) < 2 then
+		abort compiler_error("Invalid for statement", t);
+	var tok_st := new_token(t[0], token_opt.identifier.(i_encode("/st")));
+	if t[0].t is identifier, t[1].t is comma then [
+		tok_st := t[0];
+		t := t[2 .. ];
+	]
+
 	if len(t) < 4 or
 	   not t[0].t is identifier or
 	   not (t[1].t is colon or t[1].t is k_in) then
@@ -699,7 +707,6 @@ fn parse_statement_for_in(ctx : function_context, vd : variable_dictionary, leve
 	var toks := [ tok_it, tok_colon, tok_class_iterator, tok_assign ] + iter;
 	ctx, do_vd := parse_statement_var(ctx, do_vd, true, false, false, toks);
 
-	var tok_st := new_token(in_op, token_opt.identifier.(i_encode("state")));
 	var tok_dot := new_token(in_op, token_opt.dot);
 	var tok_init := new_token(in_op, token_opt.identifier.(i_encode("init")));
 	toks := [ tok_st, tok_assign, tok_it, tok_dot, tok_init ];
