@@ -109,6 +109,7 @@ record variable [
 	always_flat_option : bool;
 
 	verifier_name : list(bytes);
+	type_name : bytes;
 ]
 
 fn new_variable : variable
@@ -130,6 +131,7 @@ fn new_variable : variable
 		is_option_type : false,
 		always_flat_option : false,
 		verifier_name : infinite(""),
+		type_name : "",
 	];
 ]
 

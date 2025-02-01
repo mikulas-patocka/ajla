@@ -51,15 +51,37 @@ fn get_z3_bb_name(ctx : context, bgi : int) : (context, bytes)
 	return ctx, str;
 ]
 
-fn get_z3_type(ctx : context, v : int) : bytes
+fn get_z3_type(ctx : context, type_index : int) : (context, bytes)
 [
-	if ctx.variables[v].type_index = T_AlwaysFlatOption then
-		return "Bool";
-	if ctx.variables[v].type_index <= T_Integer, ctx.variables[v].type_index >= T_Integer128 then
-		return "Int";
-	if ctx.variables[v].type_index <= T_Real16, ctx.variables[v].type_index >= T_Real128 then
-		return "Real";
-	return "";
+	if type_index = T_AlwaysFlatOption then
+		return ctx, "Bool";
+	if type_index <= T_Integer, type_index >= T_Integer128 then
+		return ctx, "Int";
+	if type_index <= T_Real16, type_index >= T_Real128 then
+		return ctx, "Real";
+	if len_greater_than(ctx.variables[type_index].type_name, 0) then
+		return ctx, ctx.variables[type_index].type_name;
+	var ins := ctx.instrs[ctx.variables[type_index].defining_instr];
+	if ins.opcode = P_Array_Flexible or ins.opcode = P_Array_Fixed then [
+		var t1 := ins.params[1];
+		var t1_str : bytes;
+		ctx, t1_str := get_z3_type(ctx, t1);
+		if not len_greater_than(t1_str, 0) then
+			return ctx, "";
+		ctx.variables[type_index].type_name := "(Arr " + t1_str + ")";
+		return ctx, ctx.variables[type_index].type_name;
+	]
+	return ctx, "";
+]
+
+fn get_array_type(ctx : context, v : int) : (context, bytes)
+[
+	var type_index := ctx.variables[v].type_index;
+	var ins := ctx.instrs[ctx.variables[type_index].defining_instr];
+	if ins.opcode = P_Array_Flexible or ins.opcode = P_Array_Fixed then [
+		return get_z3_type(ctx, ins.params[1]);
+	]
+	abort internal("get_array_type: invalid type " + ntos(ins.opcode));
 ]
 
 fn gen_assert(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int, phi_node : int, ops : bytes) : z3_world
@@ -82,6 +104,7 @@ fn allocate_variable_block(implicit z3w : z3_world, implicit z3ctx : z3_context,
 
 fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int, phi_node : int) : (z3_world, context)
 [
+	var var_name := ctx.variables[v].verifier_name[phi_node];
 	var ins := ctx.instrs[ctx.variables[v].defining_instr];
 	if ins.opcode = P_BinaryOp or ins.opcode = P_BinaryConstOp then [
 		var t := ctx.variables[ins.params[3]].type_index;
@@ -164,6 +187,32 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		gen_assert(ctx, v, phi_node, cnst);
 		return ctx;
 	]
+	if ins.opcode = P_Array_Fill then [
+		var var1 var2 t1 : bytes;
+		ctx, var1 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
+		if len(var1) = 0 then
+			return ctx;
+		ctx, t1 := get_z3_type(ctx, ctx.variables[ins.params[3]].type_index);
+		if len(t1) = 0 then
+			return ctx;
+		ctx, var2 := allocate_variable_block(ctx, ins.params[4], phi_node, ins.bb);
+		if len(var2) = 0 then
+			return ctx;
+		gen_assert(ctx, v, phi_node, "(mk-arr "+var2+" ((as const (Array Int "+t1+")) "+var1+"))");
+		return ctx;
+	]
+	if ins.opcode = P_Array_Load then [
+		var var1 var2 : bytes;
+		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb);
+		if len(var1) = 0 then
+			return ctx;
+		ctx, var2 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
+		if len(var2) = 0 then
+			return ctx;
+		var str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" (arr-len "+var1+"))) (= "+ var_name +" (select (arr "+var1+") "+var2+"))))";
+		z3_eval_smtlib2_string_noret(str);
+		return ctx;
+	]
 	if ins.opcode = P_Return_Vars then [
 		var new_v : int;
 		for i := 0 to len(ins.params) do [
@@ -181,14 +230,15 @@ found_new_v:
 		gen_assert(ctx, v, phi_node, var1);
 		return ctx;
 	]
-	//eval debug("opcode: " + ntos(ins.opcode) + " (" + ctx.variables[v].verifier_name + ")");
+	//eval debug("unknown opcode: " + ntos(ins.opcode) + " (" + ctx.variables[v].verifier_name[0] + ")");
 	return ctx;
 ]
 
 fn allocate_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int, phi_node : int) : (z3_world, context, bytes)
 [
 	if not len_greater_than(ctx.variables[v].verifier_name[phi_node], 0) then [
-		var t := get_z3_type(ctx, v);
+		var t : bytes;
+		ctx, t := get_z3_type(ctx, ctx.variables[v].type_index);
 		if not len_greater_than(t, 0) then
 			return ctx, "";
 		var n := get_z3_name(ctx, v, phi_node);
