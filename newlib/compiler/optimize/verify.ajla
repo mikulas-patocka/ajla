@@ -84,9 +84,9 @@ fn get_array_type(ctx : context, v : int) : (context, bytes)
 	abort internal("get_array_type: invalid type " + ntos(ins.opcode));
 ]
 
-fn gen_assert(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int, phi_node : int, ops : bytes) : z3_world
+fn gen_assert(implicit z3w : z3_world, implicit z3ctx : z3_context, var_name : bytes, ops : bytes) : z3_world
 [
-	var str := "(assert (= " + ctx.variables[v].verifier_name[phi_node] + " " + ops + "))";
+	var str := "(assert (= " + var_name + " " + ops + "))";
 	z3_eval_smtlib2_string_noret(str);
 ]
 
@@ -139,13 +139,13 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 			ctx, var2 := allocate_variable_block(ctx, ins.params[5], phi_node, ins.bb);
 			if len(var2) = 0 then
 				return ctx;
-			gen_assert(ctx, v, phi_node, "(" + op_z3 + " " + var1 + " " + var2 + ")");
+			gen_assert(var_name, "(" + op_z3 + " " + var1 + " " + var2 + ")");
 		] else [
 			if is_bool then
 				var2 := select(ins.params[4] <> 0, "false", "true");
 			else
 				var2 := ntos(ins.params[4]);
-			gen_assert(ctx, v, phi_node, "(" + op_z3 + " " + var1 + " " + var2 + ")");
+			gen_assert(var_name, "(" + op_z3 + " " + var1 + " " + var2 + ")");
 		]
 		return ctx;
 	]
@@ -163,7 +163,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var1 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
 		if len(var1) = 0 then
 			return ctx;
-		gen_assert(ctx, v, phi_node, "(" + op_z3 + " " + var1 + ")");
+		gen_assert(var_name, "(" + op_z3 + " " + var1 + ")");
 		return ctx;
 	]
 	if ins.opcode = P_Copy then [
@@ -171,7 +171,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb);
 		if len(var1) = 0 then
 			return ctx;
-		gen_assert(ctx, v, phi_node, var1);
+		gen_assert(var_name, var1);
 		return ctx;
 	]
 	if ins.opcode = P_Load_Const then [
@@ -184,7 +184,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 			cnst := ntos(l);
 		else
 			return ctx;
-		gen_assert(ctx, v, phi_node, cnst);
+		gen_assert(var_name, cnst);
 		return ctx;
 	]
 	if ins.opcode = P_Array_Fill then [
@@ -198,7 +198,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var2 := allocate_variable_block(ctx, ins.params[4], phi_node, ins.bb);
 		if len(var2) = 0 then
 			return ctx;
-		gen_assert(ctx, v, phi_node, "(mk-arr "+var2+" ((as const (Array Int "+t1+")) "+var1+"))");
+		gen_assert(var_name, "(mk-arr "+var2+" ((as const (Array Int "+t1+")) "+var1+"))");
 		return ctx;
 	]
 	if ins.opcode = P_Array_Load then [
@@ -227,7 +227,7 @@ found_new_v:
 		ctx, var1 := allocate_variable_block(ctx, new_v, phi_node, ins.bb);
 		if len(var1) = 0 then
 			return ctx;
-		gen_assert(ctx, v, phi_node, var1);
+		gen_assert(var_name, var1);
 		return ctx;
 	]
 	//eval debug("unknown opcode: " + ntos(ins.opcode) + " (" + ctx.variables[v].verifier_name[0] + ")");
