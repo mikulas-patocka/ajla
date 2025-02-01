@@ -241,6 +241,17 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		gen_assert(var_name, "(arr-len "+var1+")");
 		return ctx;
 	]
+	if ins.opcode = P_Array_Len_Greater_Than then [
+		var var1 var2 : bytes;
+		ctx, var1 := allocate_variable_block(ctx, ins.params[1], phi_node, ins.bb);
+		if len(var1) = 0 then
+			return ctx;
+		ctx, var2 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb);
+		if len(var2) = 0 then
+			return ctx;
+		gen_assert(var_name, "(> (arr-len "+var1+") "+var2+")");
+		return ctx;
+	]
 	if ins.opcode = P_Array_Flatten then [
 		var var1 : bytes;
 		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb);
