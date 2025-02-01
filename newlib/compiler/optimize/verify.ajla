@@ -187,6 +187,26 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		gen_assert(var_name, cnst);
 		return ctx;
 	]
+	if ins.opcode = P_Array_Create then [
+		var ln := ins.params[2];
+		var t1 : bytes;
+		ctx, t1 := get_array_type(ctx, v);
+		if len(t1) = 0 then
+			return ctx;
+		var a := "(declare-const array_"+var_name+" (Array Int "+t1+"))";
+		z3_eval_smtlib2_string_noret(a);
+		var str := "array_"+var_name+"";
+		for i := 0 to ln do [
+			var var1 : bytes;
+			ctx, var1 := allocate_variable_block(ctx, ins.params[5 + i * 2], phi_node, ins.bb);
+			if len(var1) = 0 then
+				return ctx;
+			str := "(store "+str+" "+ntos(i)+" "+var1+")";
+		]
+		str := "(mk-arr "+ntos(ln)+" "+str+")";
+		gen_assert(var_name, str);
+		return ctx;
+	]
 	if ins.opcode = P_Array_Fill then [
 		var var1 var2 t1 : bytes;
 		ctx, var1 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
