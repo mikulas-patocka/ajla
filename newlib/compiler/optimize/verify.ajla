@@ -271,6 +271,22 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		z3_eval_smtlib2_string_noret(str);
 		return ctx;
 	]
+	if ins.opcode = P_Array_Append then [
+		var var1 var2 : bytes;
+		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb);
+		if len(var1) = 0 then
+			return ctx;
+		ctx, var2 := allocate_variable_block(ctx, ins.params[4], phi_node, ins.bb);
+		if len(var2) = 0 then
+			return ctx;
+		var str := "(assert (= (arr-len "+var_name+") (+ (arr-len "+var1+") (arr-len "+var2+"))))";
+		z3_eval_smtlib2_string_noret(str);
+		str := "(assert (forall ((i Int)) (=> (and (>= i 0) (< i (arr-len "+var1+"))) (= (select (arr "+var1+") i) (select (arr "+var_name+") i)))))";
+		z3_eval_smtlib2_string_noret(str);
+		str := "(assert (forall ((i Int)) (=> (and (>= i 0) (< i (arr-len "+var2+"))) (= (select (arr "+var2+") i) (select (arr "+var_name+") (+ i (arr-len "+var1+")))))))";
+		z3_eval_smtlib2_string_noret(str);
+		return ctx;
+	]
 	if ins.opcode = P_Array_Flatten then [
 		var var1 : bytes;
 		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb);
