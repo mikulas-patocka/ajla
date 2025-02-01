@@ -229,7 +229,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var2 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
 		if len(var2) = 0 then
 			return ctx;
-		var str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" (arr-len "+var1+"))) (= "+ var_name +" (select (arr "+var1+") "+var2+"))))";
+		var str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" (arr-len "+var1+"))) (= "+var_name+" (select (arr "+var1+") "+var2+"))))";
 		z3_eval_smtlib2_string_noret(str);
 		return ctx;
 	]
@@ -250,6 +250,33 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		if len(var2) = 0 then
 			return ctx;
 		gen_assert(var_name, "(> (arr-len "+var1+") "+var2+")");
+		return ctx;
+	]
+	if ins.opcode = P_Array_Sub then [
+		var var1 var2 var3 t1 : bytes;
+		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb);
+		if len(var1) = 0 then
+			return ctx;
+		ctx, var2 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
+		if len(var2) = 0 then
+			return ctx;
+		ctx, var3 := allocate_variable_block(ctx, ins.params[4], phi_node, ins.bb);
+		if len(var3) = 0 then
+			return ctx;
+{
+		ctx, t1 := get_array_type(ctx, v);
+		if len(t1) = 0 then
+			return ctx;
+		var a := "array_"+var_name;
+		var str := "(declare-fun "+a+" (Int) "+t1+")";
+		z3_eval_smtlib2_string_noret(str);
+		str := "(assert (= "+a+" (lambda ((i Int)) (select (arr "+var1+") (+ i "+var2+")))))";
+		z3_eval_smtlib2_string_noret(str);
+		str := "(assert (=> (and (<= 0 "+var2+") (<= "+var2+" "+var3+") (<= "+var3+" (arr-len "+var1+"))) (= "+var_name+" (mk-arr (- "+var3+" "+var2+") (_ as-array "+a+")))))";
+		z3_eval_smtlib2_string_noret(str);
+}
+		var str := "(assert (=> (and (<= 0 "+var2+") (<= "+var2+" "+var3+") (<= "+var3+" (arr-len "+var1+"))) (and (= (arr-len "+var_name+") (- "+var3+" "+var2+")) (forall ((i Int)) (=> (and (>= i "+var2+") (< i "+var3+")) (= (select (arr "+var1+") i) (select (arr "+var_name+") (- i "+var2+"))))))))";
+		z3_eval_smtlib2_string_noret(str);
 		return ctx;
 	]
 	if ins.opcode = P_Array_Flatten then [
