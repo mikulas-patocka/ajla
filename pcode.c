@@ -3262,6 +3262,9 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 				ptr = pcode_module_load_function(ctx);
 				if (unlikely(!ptr))
 					goto exception;
+				q = u_pcode_get();
+				while (q--)
+					pcode_get();
 				pointer_follow(ptr, false, rec_fn, PF_WAIT, fp, ip,
 					*ret_ex = ex_;
 					ctx->ret_val = pointer_empty();
@@ -3273,6 +3276,19 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 				ajla_assert_lo(da(rec_fn,function)->record_definition != NULL, (file_line, "pcode_build_function_core(%s): record has no definition", function_name(ctx)));
 				def = type_def(da(rec_fn,function)->record_definition,record);
 				tt = &def->type;
+				break;
+			case Local_Type_Option:
+				ptr = pcode_module_load_function(ctx);
+				if (unlikely(!ptr))
+					goto exception;
+				q = u_pcode_get();
+				while (q--)
+					pcode_get();
+				tt = NULL;
+				break;
+			case Local_Type_Array:
+				pcode_get();
+				tt = NULL;
 				break;
 			case Local_Type_Flat_Record:
 				base_idx = u_pcode_get();

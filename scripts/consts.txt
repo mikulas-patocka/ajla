@@ -206,6 +206,8 @@ Fn_AlwaysFlatOption
 
 0
 Local_Type_Record
+Local_Type_Option
+Local_Type_Array
 Local_Type_Flat_Record
 Local_Type_Flat_Array
 

@@ -460,10 +460,11 @@ fn load_function_context(pc : list(pcode_t)) : context
 		var ft := pc[ptr];
 		ptr += 1;
 		var lt : local_type;
-		if ft = Local_Type_Record then [
+		if ft = Local_Type_Record or ft = Local_Type_Option then [
 			var n, f := function_load(pc[ptr .. ]);
 			ptr += n;
 			lt := local_type.rec.(f);
+			ptr += 1 + pc[ptr];
 		] else if ft = Local_Type_Flat_Record then [
 			var non_flat_rec := pc[ptr];
 			var n_entries := pc[ptr + 1];
@@ -473,6 +474,9 @@ fn load_function_context(pc : list(pcode_t)) : context
 				lt.flat_rec.flat_types +<= pc[ptr];
 				ptr += 1;
 			]
+		] else if ft = Local_Type_Array then [
+			lt := local_type.arr.(pc[ptr]);
+			ptr += 1;
 		] else if ft = Local_Type_Flat_Array then [
 			lt := local_type.flat_array.(local_type_flat_array.[ flat_type : pc[ptr], number_of_elements : pc[ptr + 1] ]);
 			ptr += 2;

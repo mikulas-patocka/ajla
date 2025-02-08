@@ -189,8 +189,10 @@ const Fn_IsFlatOption := 8;
 const Fn_AlwaysFlatOption := 16;
 
 const Local_Type_Record := 0;
-const Local_Type_Flat_Record := 1;
-const Local_Type_Flat_Array := 2;
+const Local_Type_Option := 1;
+const Local_Type_Array := 2;
+const Local_Type_Flat_Record := 3;
+const Local_Type_Flat_Array := 4;
 
 const Call_Mode_Unspecified := 0;
 const Call_Mode_Normal := 1;
@@ -667,8 +669,10 @@ fn name_to_value~cache : list(int)
 	a[#11B75F83B3BE1F3CE36CC3D27F0E9A77EE] := 16;				// Fn_AlwaysFlatOption
 
 	a[#4CDF8F0ECBF53CF0CB7E965C7BF964] := 0;				// Local_Type_Record
-	a[#266FC78765FA9E7865BF1B661E97E965C7BF964] := 1;			// Local_Type_Flat_Record
-	a[#4CDF8F0ECBF53CF0CB7E36CC3D2FC1E5CB0F9] := 2;				// Local_Type_Flat_Array
+	a[#4CDF8F0ECBF53CF0CB7E7F0E9A77EE] := 1;				// Local_Type_Option
+	a[#99BF1E1D97EA79E196FC1E5CB0F9] := 2;					// Local_Type_Array
+	a[#266FC78765FA9E7865BF1B661E97E965C7BF964] := 3;			// Local_Type_Flat_Record
+	a[#4CDF8F0ECBF53CF0CB7E36CC3D2FC1E5CB0F9] := 4;				// Local_Type_Flat_Array
 
 	a[#43C3B365F9BBF265BF57773E1971E9CDA72E4] := 0;				// Call_Mode_Unspecified
 	a[#878766CBF377E4CB7E76FE5B70EC] := 1;					// Call_Mode_Normal

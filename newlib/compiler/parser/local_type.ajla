@@ -51,7 +51,7 @@ fn get_record_local_type(ctx rec_ctx : function_context) : (function_context, in
 [
 	var lt := local_type.[
 		mode : Local_Type_Record,
-		args : generate_function_id(rec_ctx.id),
+		args : generate_function_id(rec_ctx.id) + list(pcode_t).[ 0 ],
 	];
 	return local_type_idx(ctx, lt);
 ]

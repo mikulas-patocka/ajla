@@ -1824,7 +1824,7 @@ fn encode_local_type(lt : local_type) : int
 [
 	var pc : list(pcode_t);
 	if lt is rec then [
-		pc := list(pcode_t).[ Local_Type_Record ] + function_store(lt.rec);
+		pc := list(pcode_t).[ Local_Type_Record ] + function_store(lt.rec) + list(pcode_t).[ 0 ];
 	] else if lt is flat_rec then [
 		pc := list(pcode_t).[ Local_Type_Flat_Record, lt.flat_rec.non_flat_record, len(lt.flat_rec.flat_types) ];
 		for i := 0 to len(lt.flat_rec.flat_types) do [
@@ -2794,6 +2794,10 @@ retry_optimize:
 		if ctx.local_types[i] is rec then [
 			rpc +<= Local_Type_Record;
 			rpc += function_store(ctx.local_types[i].rec);
+			rpc +<= 0;
+		] else if ctx.local_types[i] is arr then [
+			rpc +<= Local_Type_Array;
+			rpc +<= ctx.local_types[i].arr;
 		] else if ctx.local_types[i] is flat_rec then [
 			rpc +<= Local_Type_Flat_Record;
 			rpc +<= ctx.local_types[i].flat_rec.non_flat_record;

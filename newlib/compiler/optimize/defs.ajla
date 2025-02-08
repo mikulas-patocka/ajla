@@ -154,6 +154,7 @@ record local_type_flat_array [
 
 option local_type [
 	rec : function;
+	arr : int;
 	flat_rec : local_type_flat_record;
 	flat_array : local_type_flat_array;
 ]
