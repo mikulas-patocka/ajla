@@ -142,6 +142,12 @@ record function [
 	fn_idx : list(int);
 ]
 
+record local_type_record [
+	opt : bool;
+	f : function;
+	types : list(int);
+]
+
 record local_type_flat_record [
 	non_flat_record : int;
 	flat_types : list(int);
@@ -153,7 +159,7 @@ record local_type_flat_array [
 ]
 
 option local_type [
-	rec : function;
+	rec : local_type_record;
 	arr : int;
 	flat_rec : local_type_flat_record;
 	flat_array : local_type_flat_array;

@@ -1577,8 +1577,10 @@ retry:
 				non_flat_record : -1,
 				flat_types : empty(int),
 			];
+			var list_of_types := empty(int);
 			for i := 0 to ins.params[1] do [
 				var l := ins.params[2 + i];
+				list_of_types +<= l;
 				if l = T_Undetermined then [
 					goto skip;
 				]
@@ -1594,7 +1596,8 @@ retry:
 
 			var n, f := function_load(ins.params[2 + ins.params[1] .. ]);
 			ltfr.non_flat_record := len(ctx.local_types);
-			ctx.local_types +<= local_type.rec.(f);
+			var lt := local_type.rec.(local_type_record.[ opt : false, f : f, types : list_of_types ]);
+			ctx.local_types +<= lt;
 
 			ctx.variables[vgi].local_type := len(ctx.local_types);
 			ctx.local_types +<= local_type.flat_rec.(ltfr);
@@ -1824,7 +1827,12 @@ fn encode_local_type(lt : local_type) : int
 [
 	var pc : list(pcode_t);
 	if lt is rec then [
-		pc := list(pcode_t).[ Local_Type_Record ] + function_store(lt.rec) + list(pcode_t).[ 0 ];
+		pc := list(pcode_t).[ select(lt.rec.opt, Local_Type_Record, Local_Type_Option) ] + function_store(lt.rec.f);
+		pc +<= len(lt.rec.types);
+		for i := 0 to len(lt.rec.types) do
+			pc +<= lt.rec.types[i];
+	] else if lt is arr then [
+		pc := list(pcode_t).[ Local_Type_Array, lt.arr ];
 	] else if lt is flat_rec then [
 		pc := list(pcode_t).[ Local_Type_Flat_Record, lt.flat_rec.non_flat_record, len(lt.flat_rec.flat_types) ];
 		for i := 0 to len(lt.flat_rec.flat_types) do [
@@ -1865,7 +1873,23 @@ fn dlte(ctx : context) : context
 		for lti := 0 to len(ctx.local_types) do [
 			if needed[lti] then [
 				var lt := ctx.local_types[lti];
-				if lt is flat_rec then [
+				if lt is rec then [
+					for i := 0 to len(lt.rec.types) do [
+						if lt.rec.types[i] >= 0 then [
+							if not needed[lt.rec.types[i]] then [
+								needed[lt.rec.types[i]] := true;
+								did_something := true;
+							]
+						]
+					]
+				] else if lt is arr then [
+					if lt.arr >= 0 then [
+						if not needed[lt.arr] then [
+							needed[lt.arr] := true;
+							did_something := true;
+						]
+					]
+				] else if lt is flat_rec then [
 					if not needed[lt.flat_rec.non_flat_record] then [
 						needed[lt.flat_rec.non_flat_record] := true;
 						did_something := true;
@@ -1913,7 +1937,15 @@ fn dlte(ctx : context) : context
 			break;
 
 		for ili := 0 to len(new_local_types) do [
-			if new_local_types[ili] is flat_rec then [
+			if new_local_types[ili] is rec then [
+				for i := 0 to len(new_local_types[ili].rec.types) do [
+					if new_local_types[ili].rec.types[i] >= 0 then
+						new_local_types[ili].rec.types[i] := old_new[new_local_types[ili].rec.types[i]];
+				]
+			] else if new_local_types[ili] is arr then [
+				if new_local_types[ili].arr >= 0 then
+					new_local_types[ili].arr := old_new[new_local_types[ili].arr];
+			] else if new_local_types[ili] is flat_rec then [
 				new_local_types[ili].flat_rec.non_flat_record := old_new[new_local_types[ili].flat_rec.non_flat_record];
 				for i := 0 to len(new_local_types[ili].flat_rec.flat_types) do
 					if new_local_types[ili].flat_rec.flat_types[i] >= 0 then
@@ -2792,9 +2824,11 @@ retry_optimize:
 	rpc += blob_store(ctx.name);
 	for i := 0 to len(ctx.local_types) do [
 		if ctx.local_types[i] is rec then [
-			rpc +<= Local_Type_Record;
-			rpc += function_store(ctx.local_types[i].rec);
-			rpc +<= 0;
+			rpc +<= select(ctx.local_types[i].rec.opt, Local_Type_Record, Local_Type_Option);
+			rpc += function_store(ctx.local_types[i].rec.f);
+			rpc +<= len(ctx.local_types[i].rec.types);
+			for j := 0 to len(ctx.local_types[i].rec.types) do
+				rpc +<= ctx.local_types[i].rec.types[j];
 		] else if ctx.local_types[i] is arr then [
 			rpc +<= Local_Type_Array;
 			rpc +<= ctx.local_types[i].arr;
