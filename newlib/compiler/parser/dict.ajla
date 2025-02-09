@@ -24,6 +24,8 @@ uses compiler.parser.istring;
 uses compiler.parser.token;
 uses pcode;
 
+type compare_context;
+
 fn unimplemented(m : bytes) : unit_type;
 
 const T_NoLocalType : int := T_InvalidType;
@@ -177,6 +179,23 @@ record function_dictionary [
 	priv : bool;
 	modules : list(function_dictionary);
 	modules_map : list(int);
+]
+
+record compare_argument [
+	cc : compare_context;
+	idx : int;
+]
+
+record compare_context [
+	ctx : function_context;
+	root : bool;
+	args : list(compare_argument);
+	llt_main : maybe(int);
+	llt_redirect : list(compare_argument);
+	return_redirect : list(compare_argument);
+	lambda_redirect : list(int);
+	no_pattern_match : bool;
+	option_map : list(int);
 ]
 
 fn new_variable_dictionary(parent : maybe(variable_dictionary)) : variable_dictionary;
