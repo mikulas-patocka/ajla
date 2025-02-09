@@ -138,7 +138,6 @@ record function_context [
 	record_def : maybe(record_definition);
 
 	local_types : list(local_type);
-	local_types_map : list(int);
 
 	dict : function_dictionary;
 	id : function_unique_id;
@@ -434,7 +433,6 @@ fn new_function_context(dict : function_dictionary, parent_function : maybe(func
 		record_def : maybe(record_definition).n,
 
 		local_types : empty(local_type),
-		local_types_map : infinite_uninitialized(int),
 
 		dict : dict,
 		id : id,
