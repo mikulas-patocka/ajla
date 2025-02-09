@@ -21,7 +21,7 @@ private unit compiler.parser.local_type;
 uses compiler.parser.dict;
 uses compiler.parser.type;
 
-fn get_record_type_cc(ctx : function_context, cc : compare_context) : (function_context, int);
+fn get_record_type_cc(ctx : function_context, cc : compare_context, typ_cc : compare_context, typ_idx : int) : (function_context, int);
 fn get_array_type_cc(ctx : function_context, cc : compare_context, typ : int) : int;
 fn generate_local_types(ctx : function_context) : function_context;
 
@@ -32,25 +32,32 @@ uses compiler.parser.gen2;
 
 fn local_type_idx(ctx : function_context, lt : local_type) : (function_context, int)
 [
+	for i := 0 to len(ctx.local_types) do [
+		var match := verify_type_equality(ctx, ctx.local_types[i].cc, ctx.local_types[i].typ, empty(compare_fn_stack), lt.cc, lt.typ, empty(compare_fn_stack));
+		if match is eq then
+			return ctx, i;
+	]
 	var idx := len(ctx.local_types);
 	ctx.local_types +<= lt;
 	return ctx, idx;
 ]
 
-fn get_record_local_type(ctx rec_ctx : function_context) : (function_context, int)
+fn get_record_local_type(ctx rec_ctx : function_context, typ_cc : compare_context, typ_idx : int) : (function_context, int)
 [
 	var lt := local_type.[
 		mode : Local_Type_Record,
 		args : generate_function_id(rec_ctx.id) + list(pcode_t).[ 0 ],
+		cc : typ_cc,
+		typ : typ_idx,
 	];
 	return local_type_idx(ctx, lt);
 ]
 
-fn get_record_type_cc(ctx : function_context, cc : compare_context) : (function_context, int)
+fn get_record_type_cc(ctx : function_context, cc : compare_context, typ_cc : compare_context, typ_idx : int) : (function_context, int)
 [
 	var rec := cc.ctx.record_def.j;
 	if not rec.is_option then [
-		return get_record_local_type(ctx, cc.ctx);
+		return get_record_local_type(ctx, cc.ctx, typ_cc, typ_idx);
 	] else [
 		if rec.is_flat_option, rec.always_flat_option then [
 			return ctx, T_AlwaysFlatOption;
@@ -74,7 +81,8 @@ fn get_local_type(ctx : function_context, i : int) : (function_context, int)
 [
 	var cc, typ := get_deep_type_of_var(ctx, i);
 	if typ = T_Record then [
-		return get_record_type_cc(ctx, cc);
+		var cc1 := new_compare_context(ctx);
+		return get_record_type_cc(ctx, cc, cc1, get_type_of_var(ctx, i));
 	]
 	return ctx, get_array_type_cc(ctx, cc, typ);
 ]

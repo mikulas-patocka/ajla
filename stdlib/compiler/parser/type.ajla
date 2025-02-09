@@ -266,7 +266,7 @@ fn find_fn_stack_depth(fn_stack : list(compare_fn_stack), cc : compare_context, 
 		if cc_equal(fn_stack[i].cc, cc) and fn_stack[i].main_def = main_def then
 			return fn_stack[i], len(fn_stack) - 1 - i;
 	]
-	abort internal("find_fn_stack_depth: Fn definition not found");
+	return exception_make(compare_fn_stack, ec_sync, error_record_field_not_initialized, 0, false), -1;
 ]
 
 fn decode_call(ctx : function_context, cc : compare_context, typ : int, instr : instruction) : (bool, function_unique_id, list(compare_argument), int)
@@ -940,6 +940,11 @@ fn verify_type_equality(ctx : function_context,
 	if opcode1 = P_Load_Local_Type then [
 		var s1, d1 := find_fn_stack_depth(fn_stack1, cc1, pcode_Load_Local_Type_get_function(instr1));
 		var s2, d2 := find_fn_stack_depth(fn_stack2, cc2, pcode_Load_Local_Type_get_function(instr2));
+		if d1 < 0 or d2 < 0 then [
+			var x := verify_type_equality(ctx, cc1, pcode_Load_Local_Type_get_function(instr1), fn_stack1, cc2, pcode_Load_Local_Type_get_function(instr2), fn_stack2);
+			if not x is eq then
+				return teq_ret(x);
+		]
 		if d1 = d2 and pcode_Load_Local_Type_get_index(instr1) = pcode_Load_Local_Type_get_index(instr2) then
 			return teq.eq;
 		return teq.dont_know;
@@ -1347,6 +1352,8 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 	]
 	if opcode = P_Load_Local_Type then [
 		var s, d := find_fn_stack_depth(fn_stack, cc, pcode_Load_Local_Type_get_function(instr));
+		if d = -1 then
+			abort internal("find_fn_stack_depth: Fn definition not found");
 		var l : int;
 		ctx, l := alloc_local_variable(ctx, s.dest_types[pcode_Load_Local_Type_get_index(instr)], true, false);
 		ctx := generate_Load_Local_Type(ctx, s.dest_def, pcode_Load_Local_Type_get_index(instr), l);

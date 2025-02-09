@@ -59,6 +59,8 @@ record instruction [
 record local_type [
 	mode : pcode_t;
 	args : list(pcode_t);
+	cc : compare_context;
+	typ : int;
 ]
 
 record module_unique_id [
