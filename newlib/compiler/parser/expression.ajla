@@ -253,9 +253,7 @@ fn record_list_create(ctx : function_context, vd : variable_dictionary, t : toke
 	 =================}
 
 	var type_cc, type_var := list_type(ctx, cc, typ, t);
-	var content_cc, content_typ := get_base_definition(ctx, type_cc, type_var, false);
-	var lt : int;
-	ctx, lt := get_local_type_cc(ctx, content_cc, content_typ);
+	var lt := get_array_type_cc(ctx, type_cc, type_var);
 
 	var content := t[left_bracket + 1 .. len(t) - 1];
 	var fields := empty(int);
@@ -303,8 +301,7 @@ fn shortened_list_create(ctx : function_context, vd : variable_dictionary, t : t
 		fields +<= a;
 	]
 
-	var lt : int;
-	ctx, lt := get_local_type_cc(ctx, type_cc, type_var);
+	var lt := get_array_type_cc(ctx, type_cc, type_var);
 
 	var id := get_list_id;
 	var fd := search_function_from_id(ctx, id);

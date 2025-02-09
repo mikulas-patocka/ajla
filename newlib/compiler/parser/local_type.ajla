@@ -22,6 +22,7 @@ uses compiler.parser.dict;
 uses compiler.parser.type;
 
 fn get_local_type_cc(ctx : function_context, cc : compare_context, typ : int) : (function_context, int);
+fn get_array_type_cc(ctx : function_context, cc : compare_context, typ : int) : int;
 fn generate_local_types(ctx : function_context) : function_context;
 
 implementation
@@ -74,6 +75,14 @@ fn get_local_type_cc(ctx : function_context, cc : compare_context, typ : int) : 
 		return ctx, typ;
 	]
 	return ctx, T_Undetermined;
+]
+
+fn get_array_type_cc(ctx : function_context, cc : compare_context, typ : int) : int
+[
+	var content_cc, content_typ := get_base_definition(ctx, cc, typ, false);
+	if typ < 0 and typ <> T_UnknownType then
+		return typ;
+	return T_Undetermined;
 ]
 
 fn get_local_type(ctx : function_context, i : int) : (function_context, int)
