@@ -21,7 +21,6 @@ private unit compiler.parser.local_type;
 uses compiler.parser.dict;
 uses compiler.parser.type;
 
-fn get_record_local_type(ctx rec_ctx : function_context) : (function_context, int);
 fn get_local_type_cc(ctx : function_context, cc : compare_context, typ : int) : (function_context, int);
 fn generate_local_types(ctx : function_context) : function_context;
 
