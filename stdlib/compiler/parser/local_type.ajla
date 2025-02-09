@@ -21,7 +21,7 @@ private unit compiler.parser.local_type;
 uses compiler.parser.dict;
 uses compiler.parser.type;
 
-fn get_local_type_cc(ctx : function_context, cc : compare_context, typ : int) : (function_context, int);
+fn get_record_type_cc(ctx : function_context, cc : compare_context) : (function_context, int);
 fn get_array_type_cc(ctx : function_context, cc : compare_context, typ : int) : int;
 fn generate_local_types(ctx : function_context) : function_context;
 
@@ -56,25 +56,20 @@ fn get_record_local_type(ctx rec_ctx : function_context) : (function_context, in
 	return local_type_idx(ctx, lt);
 ]
 
-fn get_local_type_cc(ctx : function_context, cc : compare_context, typ : int) : (function_context, int)
+fn get_record_type_cc(ctx : function_context, cc : compare_context) : (function_context, int)
 [
-	if typ = T_Record then [
-		var rec := cc.ctx.record_def.j;
-		if not rec.is_option then [
-			return get_record_local_type(ctx, cc.ctx);
+	var rec := cc.ctx.record_def.j;
+	if not rec.is_option then [
+		return get_record_local_type(ctx, cc.ctx);
+	] else [
+		if rec.is_flat_option, rec.always_flat_option then [
+			return ctx, T_AlwaysFlatOption;
+		] else if rec.is_flat_option then [
+			return ctx, T_FlatOption;
 		] else [
-			if rec.is_flat_option, rec.always_flat_option then [
-				return ctx, T_AlwaysFlatOption;
-			] else if rec.is_flat_option then [
-				return ctx, T_FlatOption;
-			] else [
-				return ctx, T_Undetermined;
-			]
+			return ctx, T_Undetermined;
 		]
-	] else if typ < 0 and typ <> T_UnknownType then [
-		return ctx, typ;
 	]
-	return ctx, T_Undetermined;
 ]
 
 fn get_array_type_cc(ctx : function_context, cc : compare_context, typ : int) : int
@@ -88,7 +83,10 @@ fn get_array_type_cc(ctx : function_context, cc : compare_context, typ : int) : 
 fn get_local_type(ctx : function_context, i : int) : (function_context, int)
 [
 	var cc, typ := get_deep_type_of_var(ctx, i);
-	return get_local_type_cc(ctx, cc, typ);
+	if typ = T_Record then [
+		return get_record_type_cc(ctx, cc);
+	]
+	return ctx, get_array_type_cc(ctx, cc, typ);
 ]
 
 fn generate_local_types(ctx : function_context) : function_context
