@@ -21,7 +21,7 @@ private unit compiler.parser.local_type;
 uses compiler.parser.dict;
 uses compiler.parser.type;
 
-fn get_record_type_cc(ctx : function_context, cc : compare_context, typ_cc : compare_context, typ_idx : int) : (function_context, int);
+fn get_record_option_type_cc(ctx : function_context, cc : compare_context, typ_cc : compare_context, typ_idx : int) : (function_context, int);
 fn get_array_type_cc(ctx : function_context, cc : compare_context, typ : int) : int;
 fn generate_local_types(ctx : function_context) : function_context;
 
@@ -53,7 +53,7 @@ fn get_record_local_type(ctx rec_ctx : function_context, typ_cc : compare_contex
 	return local_type_idx(ctx, lt);
 ]
 
-fn get_record_type_cc(ctx : function_context, cc : compare_context, typ_cc : compare_context, typ_idx : int) : (function_context, int)
+fn get_record_option_type_cc(ctx : function_context, cc : compare_context, typ_cc : compare_context, typ_idx : int) : (function_context, int)
 [
 	var rec := cc.ctx.record_def.j;
 	if not rec.is_option then [
@@ -81,7 +81,7 @@ fn get_type_cc(ctx : function_context, cc : compare_context, typ : int) : (funct
 [
 	var content_cc, content_typ := get_base_definition(ctx, cc, typ, true);
 	if content_typ = T_Record then [
-		return get_record_type_cc(ctx, content_cc, cc, typ);
+		return get_record_option_type_cc(ctx, content_cc, cc, typ);
 	] else [
 		return ctx, get_array_type_cc(ctx, cc, typ);
 	]
@@ -92,7 +92,7 @@ fn get_local_type(ctx : function_context, i : int) : (function_context, int)
 	var cc, typ := get_deep_type_of_var(ctx, i);
 	if typ = T_Record then [
 		var cc1 := new_compare_context(ctx);
-		return get_record_type_cc(ctx, cc, cc1, get_type_of_var(ctx, i));
+		return get_record_option_type_cc(ctx, cc, cc1, get_type_of_var(ctx, i));
 	]
 	return ctx, get_array_type_cc(ctx, cc, typ);
 ]

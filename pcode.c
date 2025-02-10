@@ -1857,6 +1857,7 @@ static bool pcode_structured_loop(struct build_function_context *ctx, pcode_t n_
 				ajla_option_t opt;
 				pcode_t q;
 
+				u_pcode_get();
 				q = u_pcode_get();
 				opt = (ajla_option_t)q;
 				if (unlikely(q != (pcode_t)opt))

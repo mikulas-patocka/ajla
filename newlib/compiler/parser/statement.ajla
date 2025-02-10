@@ -327,13 +327,15 @@ fn parse_statement_assign(ctx : function_context, vd : variable_dictionary, can_
 					abort compiler_error("Record field may not be modified here", lvalue);
 				if not rec_def.is_option then [
 					var lt : int;
-					ctx, lt := get_record_type_cc(ctx, rec_cc, cc, typ);
+					ctx, lt := get_record_option_type_cc(ctx, rec_cc, cc, typ);
 					av.instr := append_Structured_Record(av.instr, idx, lt);
 					ctx, cc, typ := generate_record_entry_type(ctx, v, idx, rec_cc, lvalue);
 				] else [
 					if rec_def.entries[idx].type_idx = T_EmptyOption then
 						abort compiler_error("Option field doesn't have a value", lvalue);
-					av.instr := append_Structured_Option(av.instr, idx);
+					var lt : int;
+					ctx, lt := get_record_option_type_cc(ctx, rec_cc, cc, typ);
+					av.instr := append_Structured_Option(av.instr, idx, lt);
 					cc, typ := rec_cc, rec_def.entries[idx].type_idx;
 				]
 

@@ -59,7 +59,7 @@ fn generate_String(ctx : function_context) : (function_context, int);
 fn start_Structured_Write(v : int) : list(pcode_t);
 fn append_Structured_Array(m : list(pcode_t), idx local_type : int) : list(pcode_t);
 fn append_Structured_Record(m : list(pcode_t), idx local_type : int) : list(pcode_t);
-fn append_Structured_Option(m : list(pcode_t), idx : int) : list(pcode_t);
+fn append_Structured_Option(m : list(pcode_t), idx local_type : int) : list(pcode_t);
 fn generate_Structured_Write(ctx : function_context, instr : list(pcode_t), scalar : int) : function_context;
 
 fn generate_Record_Type(ctx : function_context, fields : list(int), result : int) : function_context;
@@ -676,10 +676,10 @@ fn append_Structured_Record(m : list(pcode_t), idx local_type : int) : list(pcod
 	return m;
 ]
 
-fn append_Structured_Option(m : list(pcode_t), idx : int) : list(pcode_t)
+fn append_Structured_Option(m : list(pcode_t), idx local_type : int) : list(pcode_t)
 [
 	m[0] += 1;
-	m += list(pcode_t).[ Structured_Option, idx ];
+	m += list(pcode_t).[ Structured_Option, local_type, idx ];
 	return m;
 ]
 

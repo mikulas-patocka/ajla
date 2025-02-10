@@ -29,7 +29,7 @@ P_Curry			; result, n_curried_args, ref_flag, function, (ref_flag, arg_idx)
 P_Call			; call_mode, n_return_values, n_args, [path_idx, fn_idx, n_unit_chars, (unit_name)], (ref_flag, arg_idx), (return_value_idx)
 P_Call_Indirect		; call_mode, n_return_values, n_args, ref_flag, function, (ref_flag, arg_idx), (return_value_idx)
 P_Load_Const		; result, n_bytes, lsb...msb
-P_Structured_Write	; n_steps, structured_result, ref_flag, structured_struct, ref_flag, scalar, ...	(Structured_Record, local_type, idx) | (Structured_Option, idx) | (Structured_Array, idx, local_type)
+P_Structured_Write	; n_steps, structured_result, ref_flag, structured_struct, ref_flag, scalar, ...	(Structured_Record, local_type, idx) | (Structured_Option, local_type, idx) | (Structured_Array, idx, local_type)
 P_Record_Type		; result, n_entries, (entries), [path_idx, fn_idx, n_unit_chars, (unit_name)]
 P_Option_Type		; result, n_entries, (entries), [path_idx, fn_idx, n_unit_chars, (unit_name)]
 P_Record_Create		; result, n_args, (ref_flag, arg_idx)

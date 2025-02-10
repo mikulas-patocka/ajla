@@ -110,7 +110,8 @@ fn decode_structured_params(offs : int, params : list(pcode_t)) : (int, param_se
 			ls bts= offs + 1;
 			offs += 3;
 		] else if scode = Structured_Option then [
-			offs += 2;
+			ls bts= offs + 1;
+			offs += 3;
 		] else if scode = Structured_Array then [
 			ps bts= offs + 1;
 			ls bts= offs + 2;
