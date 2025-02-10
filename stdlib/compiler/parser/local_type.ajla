@@ -113,40 +113,12 @@ fn generate_local_types(ctx : function_context) : function_context
 				abort internal("generate_local_types: expecting record");
 			var rec := rec_cc.ctx.record_def.j;
 			var l := empty(pcode_t);
-			{if rec_cc.ctx.n_arguments = 0 then [
-				for j := 0 to len(rec.entries) do [
-					if rec.entries[j].accessing_other then [
-						//eval debug("no opt 1: " + i_decode(rec_cc.ctx.name) + " (" + i_decode(ctx.name) + ")");
-						goto no_optimize;
-					]
-				]
-				//eval debug("opt: " + i_decode(rec_cc.ctx.name) + " (" + i_decode(ctx.name) + ")");
-				for j := 0 to len(rec.entries) do [
-					var lt_idx : int;
-					ctx, lt_idx := get_type_cc(ctx, rec_cc, rec.entries[j].type_idx);
-					l +<= lt_idx;
-				]
-				goto store_rec_lt;
-no_optimize:
-			]}
-			//eval debug("no opt 2: " + i_decode(rec_cc.ctx.name) + " (" + i_decode(ctx.name) + ")");
-			{for j := 0 to len(rec.entries) do [
-				if rec.entries[j].type_idx < 0 then [
-					l +<= rec.entries[j].type_idx;
-					continue;
-				]
-				var xctx, cc, typ := generate_record_entry_type(ctx, -1, j, rec_cc, empty(token));
-				var lt_idx : int;
-				ctx, lt_idx := get_type_cc(ctx, cc, typ);
-				l +<= lt_idx;
-			]}
 			var cc, types := generate_record_entry_types(ctx, rec_cc);
 			for j := 0 to len(types) do [
 				var lt_idx : int;
 				ctx, lt_idx := get_type_cc(ctx, cc, types[j]);
 				l +<= lt_idx;
 			]
-store_rec_lt:
 			ctx.local_types[i].args +<= len(l);
 			for j := 0 to len(l) do
 				ctx.local_types[i].args +<= l[j];
