@@ -69,6 +69,7 @@ fn generate_Record_Create(ctx : function_context, at : int, fields : list(int)) 
 fn pcode_Record_Create_get_n_args(ins : instruction) : int;
 fn pcode_Record_Create_get_arg(ins : instruction, arg : int) : int;
 fn generate_record_entry_type(ctx : function_context, ar idx : int, rec_cc : compare_context, t : tokens) : (function_context, compare_context, int);
+fn generate_record_entry_types(ctx : function_context, rec_cc : compare_context) : (compare_context, list(int));
 fn generate_Record_Load(ctx : function_context, a idx : int, t : tokens) : (function_context, int);
 fn pcode_Record_Load_get_record(ins : instruction) : int;
 fn pcode_Record_Load_get_index(ins : instruction) : int;
@@ -772,6 +773,35 @@ fn generate_record_entry_type(ctx : function_context, ar idx : int, rec_cc : com
 	]
 
 	return ctx, rec_cc, rec_def.entries[idx].type_idx;
+]
+
+fn generate_record_entry_types(ctx : function_context, rec_cc : compare_context) : (compare_context, list(int))
+[
+	var my_cc := new_compare_context(ctx);
+
+	rec_cc := set_llt_main(rec_cc, -1);
+	var rec_def := rec_cc.ctx.record_def.j;
+
+	var result := empty(int);
+
+	for i := 0 to len(rec_def.entries) do [
+		if rec_def.entries[i].cnst then [
+			var ae : int;
+			ctx, ae := evaluate_type(ctx, rec_cc, rec_def.entries[i].type_idx, empty(compare_fn_stack), empty(token));
+			var l : int;
+			ctx, l := generate_record_option_load(ctx, P_Record_Load, ae, -1, i);
+			rec_cc.llt_redirect +<= new_compare_argument(my_cc, l);
+		] else [
+			rec_cc.llt_redirect +<= new_compare_argument(empty_compare_context, T_InvalidType);
+		]
+		// TODO: quadratic complexity
+		for j := 0 to i + 1 do [
+			rec_cc.llt_redirect[j].cc.ctx := ctx;
+		]
+		result +<= rec_def.entries[i].type_idx;
+	]
+
+	return rec_cc, result;
 ]
 
 fn generate_Record_Load(ctx : function_context, ar idx : int, t : tokens) : (function_context, int)

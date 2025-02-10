@@ -77,6 +77,16 @@ fn get_array_type_cc(ctx : function_context, cc : compare_context, typ : int) : 
 	return T_Undetermined;
 ]
 
+fn get_type_cc(ctx : function_context, cc : compare_context, typ : int) : (function_context, int)
+[
+	var content_cc, content_typ := get_base_definition(ctx, cc, typ, true);
+	if content_typ = T_Record then [
+		return get_record_type_cc(ctx, content_cc, cc, typ);
+	] else [
+		return ctx, get_array_type_cc(ctx, cc, typ);
+	]
+]
+
 fn get_local_type(ctx : function_context, i : int) : (function_context, int)
 [
 	var cc, typ := get_deep_type_of_var(ctx, i);
@@ -93,6 +103,52 @@ fn generate_local_types(ctx : function_context) : function_context
 		var lt : int;
 		ctx, lt := get_local_type(ctx, i);
 		ctx.variables[i].local_type := lt;
+	]
+	var i := 0;
+	while i < len(ctx.local_types) do [
+		var lt := ctx.local_types[i];
+		if lt.mode = Local_Type_Record then [
+			var rec_cc, rec_typ := get_base_definition(ctx, lt.cc, lt.typ, true);
+			if rec_typ <> T_Record then
+				abort internal("generate_local_types: expecting record");
+			var rec := rec_cc.ctx.record_def.j;
+			var l := empty(pcode_t);
+			{if rec_cc.ctx.n_arguments = 0 then [
+				for j := 0 to len(rec.entries) do [
+					if rec.entries[j].accessing_other then [
+						//eval debug("no opt 1: " + i_decode(rec_cc.ctx.name) + " (" + i_decode(ctx.name) + ")");
+						goto no_optimize;
+					]
+				]
+				//eval debug("opt: " + i_decode(rec_cc.ctx.name) + " (" + i_decode(ctx.name) + ")");
+				for j := 0 to len(rec.entries) do [
+					var lt_idx : int;
+					ctx, lt_idx := get_type_cc(ctx, rec_cc, rec.entries[j].type_idx);
+					l +<= lt_idx;
+				]
+				goto cont;
+no_optimize:
+			]}
+			//eval debug("no opt 2: " + i_decode(rec_cc.ctx.name) + " (" + i_decode(ctx.name) + ")");
+			{for j := 0 to len(rec.entries) do [
+				if rec.entries[j].type_idx < 0 then [
+					l +<= rec.entries[j].type_idx;
+					continue;
+				]
+				var xctx, cc, typ := generate_record_entry_type(ctx, -1, j, rec_cc, empty(token));
+				var lt_idx : int;
+				ctx, lt_idx := get_type_cc(ctx, cc, typ);
+				l +<= lt_idx;
+			]}
+			var cc, types := generate_record_entry_types(ctx, rec_cc);
+			for j := 0 to len(types) do [
+				var lt_idx : int;
+				ctx, lt_idx := get_type_cc(ctx, cc, types[j]);
+				l +<= lt_idx;
+			]
+		]
+cont:
+		i += 1;
 	]
 	return ctx;
 ]
