@@ -46,7 +46,7 @@ fn get_record_local_type(ctx rec_ctx : function_context, typ_cc : compare_contex
 [
 	var lt := local_type.[
 		mode : Local_Type_Record,
-		args : generate_function_id(rec_ctx.id) + list(pcode_t).[ 0 ],
+		args : generate_function_id(rec_ctx.id),
 		cc : typ_cc,
 		typ : typ_idx,
 	];
@@ -126,7 +126,7 @@ fn generate_local_types(ctx : function_context) : function_context
 					ctx, lt_idx := get_type_cc(ctx, rec_cc, rec.entries[j].type_idx);
 					l +<= lt_idx;
 				]
-				goto cont;
+				goto store_rec_lt;
 no_optimize:
 			]}
 			//eval debug("no opt 2: " + i_decode(rec_cc.ctx.name) + " (" + i_decode(ctx.name) + ")");
@@ -146,8 +146,11 @@ no_optimize:
 				ctx, lt_idx := get_type_cc(ctx, cc, types[j]);
 				l +<= lt_idx;
 			]
+store_rec_lt:
+			ctx.local_types[i].args +<= len(l);
+			for j := 0 to len(l) do
+				ctx.local_types[i].args +<= l[j];
 		]
-cont:
 		i += 1;
 	]
 	return ctx;
