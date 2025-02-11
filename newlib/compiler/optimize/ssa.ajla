@@ -2100,11 +2100,7 @@ in_loop2:
 				var vgi : int := bsr read_mask;
 				read_mask btr= vgi;
 				var rt := ctx.variables[vgi].runtime_type;
-				if rt = T_AlwaysFlatOption then [
-					ctx.variables[vgi].must_be_flat := true;
-					ctx.variables[vgi].ra_priority += 1;
-				]
-				if rt < 0, rt > T_FlatOption then [
+				if rt < 0, rt >= T_AlwaysFlatOption then [
 					ctx.variables[vgi].must_be_flat := true;
 					ctx.variables[vgi].ra_priority += 1;
 				]
@@ -2116,14 +2112,13 @@ in_loop2:
 					ctx.variables[vgi].must_be_data := true;
 					ctx.variables[vgi].ra_priority += 1;
 				]
+				// TODO: allocate options that are always flat
 			]
 		]
 	]
 	{for vgi := 0 to len(ctx.variables) do [
 		var rt := ctx.variables[vgi].runtime_type;
-		if rt = T_AlwaysFlatOption then
-			ctx.variables[vgi].must_be_flat := true;
-		if rt < 0, rt > T_FlatOption then
+		if rt < 0, rt >= T_AlwaysFlatOption then
 			ctx.variables[vgi].must_be_flat := true;
 		if rt = T_Undetermined then
 			ctx.variables[vgi].must_be_data := true;
@@ -2686,22 +2681,6 @@ fn check_consistency(ctx : context, msg : bytes, test_no_pred : bool) : context
 
 fn process_pcode(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t), verify : bool) : list(pcode_t)
 [
-	{[
-		var src_type : pcode_t := T_FlatOption;
-		var dst_type : pcode_t := T_FlatOption;
-		var op : pcode_t := Bin_And;
-		var src := list(pcode_t).[ 1, 0 ];
-		var dst := list(pcode_t).[ 1, 1 ];
-		eval debug("start evaluate");
-		var res := evaluate(src_type, dst_type, op, src, dst);
-		eval debug("end evaluate");
-		var str := "result:";
-		for i := 0 to len(res) do [
-			str += " " + ntos_base(res[i], 16);
-		]
-		eval debug(str);
-	]}
-
 	//eval debug("process_pcode");
 
 	var ft := pc[0] and Fn_Mask;

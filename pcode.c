@@ -497,10 +497,6 @@ const struct type *pcode_get_type(pcode_t q)
 			t = type_get_real(4);
 			break;
 
-		case T_FlatOption:
-			t = type_get_flat_option();
-			break;
-
 		case T_AlwaysFlatOption:
 			t = type_get_flat_option();
 			break;
@@ -4551,7 +4547,7 @@ static void *pcode_build_record_option_load_function(frame_s *fp, const code_t *
 {
 	pcode_t pcode[38];
 	pcode_t *pc = pcode;
-	pcode_t result_type = a[0].i == PCODE_FUNCTION_OPTION_TEST ? T_FlatOption : T_Undetermined;
+	pcode_t result_type = a[0].i == PCODE_FUNCTION_OPTION_TEST ? T_AlwaysFlatOption : T_Undetermined;
 
 	*pc++ = Fn_Function;
 	*pc++ = Call_Mode_Strict;
