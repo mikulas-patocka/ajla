@@ -426,26 +426,17 @@ again:
 					src_rt := T_TypeOfType;
 				if src_rt = dest_rt then
 					continue;
-				if src_rt = T_Undetermined then [
-follow_dest:
-					ctx.variables[src].runtime_type := dest_rt;
-				] else if dest_rt = T_Undetermined then [
-follow_src:
-					ctx.variables[dest].runtime_type := src_rt;
-				] else [
-					if src_rt >= 0, dest_rt >= 0 then [
-						var c := compare_local_types(ctx, src_rt, dest_rt, 0, 0);
-						if c > 0 then
-							goto follow_dest;
-						else if c < 0 then
-							goto follow_src;
-						else if dest_rt > src_rt then
-							goto follow_src;
-						else
-							goto follow_dest;
-					]
-					abort internal("copying between variables '" + ctx.variables[src].name + "', '" + ctx.variables[dest].name + "' with types " + ntos(src_rt) + " and " + ntos(dest_rt));
+				var c := compare_local_types(ctx, src_rt, dest_rt, 0, 0);
+				if c = 0 then [
+					if dest_rt > src_rt then
+						c := -1;
+					else
+						c := 1;
 				]
+				if c < 0 then
+					ctx.variables[dest].runtime_type := src_rt;
+				else
+					ctx.variables[src].runtime_type := dest_rt;
 				did_something := true;
 			]
 		]
