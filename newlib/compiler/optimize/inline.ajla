@@ -83,14 +83,6 @@ fn do_inline(ctx : context, bgi : int, ili : int, call_mode : pcode_t, get_inlin
 
 	if ft = Fn_Option then [
 		var did_something := false;
-		if new_pc[0] bt bsf Fn_IsFlatOption, ctx.variables[call_result[0]].is_option_type <> true then [
-			ctx.variables[call_result[0]].is_option_type := true;
-			did_something := true;
-		]
-		if new_pc[0] bt bsf Fn_AlwaysFlatOption, ctx.variables[call_result[0]].always_flat_option <> true then [
-			ctx.variables[call_result[0]].always_flat_option := true;
-			did_something := true;
-		]
 		return ctx, did_something;
 	]
 	//if ft <> Fn_Function then
@@ -139,22 +131,24 @@ fn do_inline(ctx : context, bgi : int, ili : int, call_mode : pcode_t, get_inlin
 	for i := 0 to len(new_ctx.local_types) do [
 		var lt := new_ctx.local_types[i];
 		if lt is rec then [
-			for i := 0 to len(lt.rec.types) do
-				lt.rec.types[i] += len(ctx.local_types);
+			for i := 0 to len(lt.rec.types) do [
+				if lt.rec.types[i] >= 0 then
+					lt.rec.types[i] += len(ctx.local_types);
+			]
 		] else if lt is arr then [
-			lt.arr += len(ctx.local_types);
+			if lt.arr >= 0 then
+				lt.arr += len(ctx.local_types);
 		] else if lt is flat_rec then [
 			lt.flat_rec.non_flat_record += len(ctx.local_types);
 			for j := 0 to len(lt.flat_rec.flat_types) do [
 				if lt.flat_rec.flat_types[j] >= 0 then
 					lt.flat_rec.flat_types[j] += len(ctx.local_types);
 			]
-			new_ctx.local_types[i] := lt;
 		] else if lt is flat_array then [
 			if lt.flat_array.flat_type >= 0 then
 				lt.flat_array.flat_type += len(ctx.local_types);
-			new_ctx.local_types[i] := lt;
 		]
+		new_ctx.local_types[i] := lt;
 	]
 
 	for i := 0 to len(new_ctx.instrs) do [

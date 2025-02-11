@@ -55,18 +55,7 @@ fn get_record_option_local_type(ctx rec_ctx : function_context, typ_cc : compare
 
 fn get_record_option_type_cc(ctx : function_context, cc : compare_context, typ_cc : compare_context, typ_idx : int) : (function_context, int)
 [
-	var rec := cc.ctx.record_def.j;
-	if not rec.is_option then [
-		return get_record_option_local_type(ctx, cc.ctx, typ_cc, typ_idx);
-	] else [
-		if rec.is_flat_option, rec.always_flat_option then [
-			return ctx, T_AlwaysFlatOption;
-		] else if rec.is_flat_option then [
-			return ctx, T_FlatOption;
-		] else [
-			return ctx, T_Undetermined;
-		]
-	]
+	return get_record_option_local_type(ctx, cc.ctx, typ_cc, typ_idx);
 ]
 
 fn get_array_type_cc(ctx : function_context, cc : compare_context, typ : int) : int

@@ -353,6 +353,56 @@ again:
 	return ctx;
 ]
 
+fn compare_local_types(ctx : context, src_rt dest_rt : int, src_visited : var_set, dest_visited : var_set) : int
+[
+	if src_rt = T_Undetermined, dest_rt = T_Undetermined then
+		return 0;
+	if src_rt = T_Undetermined then
+		return 1;
+	if dest_rt = T_Undetermined then
+		return -1;
+	if src_rt = dest_rt then
+		return 0;
+	if src_rt < 0 or dest_rt < 0 then
+		abort internal("mismatch between flat types " + ntos(src_rt) + ", " + ntos(dest_rt) + " in " + ctx.name);
+	if src_visited bt src_rt or dest_visited bt dest_rt then
+		return 0;
+	src_visited bts= src_rt;
+	dest_visited bts= dest_rt;
+	var src_lt := ctx.local_types[src_rt];
+	var dest_lt := ctx.local_types[dest_rt];
+	if src_lt is rec and dest_lt is flat_rec then
+		return 1;
+	if src_lt is flat_rec and dest_lt is rec then
+		return -1;
+	if src_lt is arr and dest_lt is flat_array then
+		return 1;
+	if src_lt is flat_array and dest_lt is arr then
+		return -1;
+	if ord src_lt <> ord dest_lt then
+		abort internal("mismatch between local types " + ntos(ord src_lt) + ", " + ntos(ord dest_lt) + " in " + ctx.name);
+	if src_lt is flat_array or src_lt is flat_rec then
+		return 0;
+	if src_lt is arr then
+		return compare_local_types(ctx, src_lt.arr, dest_lt.arr, src_visited, dest_visited);
+	if src_lt.rec.opt <> dest_lt.rec.opt then
+		abort internal("mismatch between records and options " + select(src_lt.rec.opt, "record", "option") + ", " + select(dest_lt.rec.opt, "record", "option") + " in " + ctx.name);
+	if len(src_lt.rec.types) <> len(dest_lt.rec.types) then
+		abort internal("mismatch between " + select(src_lt.rec.opt, "record", "option") + " length: " + ntos(len(src_lt.rec.types)) + ", " + ntos(len(dest_lt.rec.types)) + " in " + ctx.name);
+	for i := 0 to len(src_lt.rec.types) do [
+		if src_lt.rec.types[i] = T_Undetermined, dest_lt.rec.types[i] <> T_Undetermined then
+			return 1;
+		if src_lt.rec.types[i] <> T_Undetermined, dest_lt.rec.types[i] = T_Undetermined then
+			return -1;
+	]
+	for i := 0 to len(src_lt.rec.types) do [
+		var c := compare_local_types(ctx, src_lt.rec.types[i], dest_lt.rec.types[i], src_visited, dest_visited);
+		if c <> 0 then
+			return c;
+	]
+	return 0;
+]
+
 fn propagate_types(ctx : context) : context
 [
 	var did_something : bool;
@@ -376,13 +426,24 @@ again:
 					src_rt := T_TypeOfType;
 				if src_rt = dest_rt then
 					continue;
-				if src_rt = T_Undetermined then
+				if src_rt = T_Undetermined then [
+follow_dest:
 					ctx.variables[src].runtime_type := dest_rt;
-				else if dest_rt = T_Undetermined then
+				] else if dest_rt = T_Undetermined then [
+follow_src:
 					ctx.variables[dest].runtime_type := src_rt;
-				else [
-					if src_rt >= 0, dest_rt >= 0 then
-						continue;
+				] else [
+					if src_rt >= 0, dest_rt >= 0 then [
+						var c := compare_local_types(ctx, src_rt, dest_rt, 0, 0);
+						if c > 0 then
+							goto follow_dest;
+						else if c < 0 then
+							goto follow_src;
+						else if dest_rt > src_rt then
+							goto follow_src;
+						else
+							goto follow_dest;
+					]
 					abort internal("copying between variables '" + ctx.variables[src].name + "', '" + ctx.variables[dest].name + "' with types " + ntos(src_rt) + " and " + ntos(dest_rt));
 				]
 				did_something := true;
@@ -608,7 +669,6 @@ fn clone_variable(ctx : context, vgi : int) : (variable, int)
 	v1.local_type := ctx.variables[vgi].local_type;
 	v1.color := ctx.variables[vgi].color;
 	v1.name := ctx.variables[vgi].name;
-	v1.is_option_type := ctx.variables[vgi].is_option_type;
 
 	return v1, v1_idx;
 ]
@@ -775,11 +835,6 @@ fn remap_variable(ctx : context, vgi : int) : context
 		ctx.variables[vgi].type_index := vm;
 		if vm > T_Undetermined and vm < 0 then [
 			ctx.variables[vgi].runtime_type := vm;
-		] else if vm >= 0, ctx.variables[vm].is_option_type then [
-			if ctx.variables[vm].always_flat_option then
-				ctx.variables[vgi].runtime_type := T_AlwaysFlatOption;
-			else
-				ctx.variables[vgi].runtime_type := T_FlatOption;
 		]
 	]
 	return ctx;
@@ -2057,7 +2112,7 @@ in_loop2:
 					ctx.variables[vgi].must_be_data := true;
 					ctx.variables[vgi].ra_priority += 1;
 				]
-				if rt >= 0, ctx.local_types[rt] is rec then [
+				if rt >= 0, ctx.local_types[rt] is rec, not ctx.local_types[rt].rec.opt then [
 					ctx.variables[vgi].must_be_data := true;
 					ctx.variables[vgi].ra_priority += 1;
 				]
