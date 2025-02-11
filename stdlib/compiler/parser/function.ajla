@@ -289,7 +289,7 @@ retry:
 	var op_bypass := fd.op_bypass;
 	if op_bypass >= 0 then [
 		var cc, typ := get_deep_type_of_var(ctx, p[2]);
-		if typ = T_AlwaysFlatOption then [
+		if typ = T_Bool then [
 			if op_bypass <> Bin_And and
 			   op_bypass <> Bin_Or and
 			   op_bypass <> Bin_Xor and
@@ -336,7 +336,7 @@ retry:
 		   op_bypass = Bin_LessEqual or
 		   op_bypass = Bin_Greater or
 		   op_bypass = Bin_GreaterEqual then [
-			rtype := T_AlwaysFlatOption;
+			rtype := T_Bool;
 		]
 		var l : int;
 		ctx, l := alloc_local_variable(ctx, rtype, true, false);

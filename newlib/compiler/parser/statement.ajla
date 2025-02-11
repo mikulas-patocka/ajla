@@ -462,7 +462,7 @@ fn evaluate_condition(ctx : function_context, vd : variable_dictionary, t : toke
 	]
 
 	var cond : int;
-	ctx, cond := alloc_local_variable(ctx, T_AlwaysFlatOption, false, false);
+	ctx, cond := alloc_local_variable(ctx, T_Bool, false, false);
 	while len(t) > 0 do [
 		var t1 : tokens;
 		t1, t := split_tokens(t, token_opt.comma);
@@ -863,7 +863,7 @@ fn parse_statement_xeval(ctx : function_context, a : int) : function_context
 	ctx, l_exception := alloc_local_label(ctx);
 	ctx, l_else := alloc_local_label(ctx);
 
-	ctx, l := alloc_local_variable(ctx, T_AlwaysFlatOption, true, false);
+	ctx, l := alloc_local_variable(ctx, T_Bool, true, false);
 	ctx := generate_UnaryOp(ctx, Un_IsException, a, l);
 	ctx := generate_Jmp_False(ctx, l, l_else, l_exception);
 
@@ -879,7 +879,7 @@ fn parse_statement_xeval(ctx : function_context, a : int) : function_context
 fn generate_abort(ctx : function_context) : function_context
 [
 	var l : int;
-	ctx, l := alloc_local_variable(ctx, T_AlwaysFlatOption, true, false);
+	ctx, l := alloc_local_variable(ctx, T_Bool, true, false);
 	ctx := generate_IO_Exception_Make(ctx, ec_sync, error_abort, 0, l);
 	ctx := pattern_prepare_return(ctx);
 	if ctx.is_pattern_matched then [
@@ -899,7 +899,7 @@ fn parse_statement_eval(ctx : function_context, vd : variable_dictionary, t : to
 	for i := 0 to len(al) do [
 		var cc, typ := get_deep_type_of_var(ctx, al[i]);
 		if x is k_assume or x is k_claim or x is k_invariant then [
-			if typ <> T_AlwaysFlatOption then
+			if typ <> T_Bool then
 				abort compiler_error("Boolean value expected", t);
 		]
 		if typ = T_Type or typ = T_TypeOfType then

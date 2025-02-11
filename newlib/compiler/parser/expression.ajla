@@ -703,12 +703,12 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 			return ctx, [ T_Type - (o - ord token_opt.k_type) ];
 		]
 		if o = ord token_opt.k_bool then [
-			return ctx, [ T_AlwaysFlatOption ];
+			return ctx, [ T_Bool ];
 		]
 		if t[0].t is k_false or t[0].t is k_true then [
 			var l : int;
 			var c := int_to_blob(select(t[0].t is k_true, 0, 1));
-			ctx, l := generate_Load_Const(ctx, T_AlwaysFlatOption, c);
+			ctx, l := generate_Load_Const(ctx, T_Bool, c);
 			return ctx, [ l ];
 		]
 
@@ -892,7 +892,7 @@ fn parse_expression_bool(ctx : function_context, vd : variable_dictionary, t : t
 	var a : int;
 	ctx, a := parse_expression(ctx, vd, t, false);
 	var cc, typ := get_deep_type_of_var(ctx, a);
-	if typ <> T_AlwaysFlatOption then
+	if typ <> T_Bool then
 		abort compiler_error("Boolean value expected", t);
 	return ctx, a;
 ]

@@ -53,7 +53,7 @@ fn get_z3_bb_name(ctx : context, bgi : int) : (context, bytes)
 
 fn get_z3_type(ctx : context, type_index : int) : (context, bytes)
 [
-	if type_index = T_AlwaysFlatOption then
+	if type_index = T_Bool then
 		return ctx, "Bool";
 	if type_index <= T_Integer, type_index >= T_Integer128 then
 		return ctx, "Int";
@@ -108,7 +108,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 	var ins := ctx.instrs[ctx.variables[v].defining_instr];
 	if ins.opcode = P_BinaryOp or ins.opcode = P_BinaryConstOp then [
 		var t := ctx.variables[ins.params[3]].type_index;
-		var is_bool := t = T_AlwaysFlatOption;
+		var is_bool := t = T_Bool;
 		var is_int := t <= T_Integer and t >= T_Integer128;
 		var is_real := t <= T_Real16 and t >= T_Real128;
 		var op_z3 : bytes;
@@ -151,7 +151,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 	]
 	if ins.opcode = P_UnaryOp then [
 		var t := ctx.variables[v].type_index;
-		var is_bool := t = T_AlwaysFlatOption;
+		var is_bool := t = T_Bool;
 		var is_int := t <= T_Integer and t >= T_Integer128;
 		var is_real := t <= T_Real16 and t >= T_Real128;
 		var op_z3 : bytes;
@@ -178,7 +178,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		var cnst : bytes;
 		var l := blob_to_int(ins.params[1 ..]);
 		var t := ctx.variables[v].type_index;
-		if t = T_AlwaysFlatOption then
+		if t = T_Bool then
 			cnst := select(l <> 0, "false", "true");
 		else if t <= T_Integer and t >= T_Integer128 then
 			cnst := ntos(l);

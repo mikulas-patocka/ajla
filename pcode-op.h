@@ -82,8 +82,8 @@
 #define T_Real64			-20
 #define T_Real80			-21
 #define T_Real128			-22
-#define T_EmptyOption			-23
-#define T_AlwaysFlatOption		-24
+#define T_Bool				-23
+#define T_EmptyOption			-24
 #define T_Undetermined			-25
 #define T_TypeOfType			-26
 #define T_Record			-27

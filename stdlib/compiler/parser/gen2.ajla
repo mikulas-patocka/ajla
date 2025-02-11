@@ -886,7 +886,7 @@ fn pcode_Option_Load_get_index(ins : instruction) : int
 fn generate_Option_Test(ctx : function_context, ar idx : int) : (function_context, int)
 [
 	var l : int;
-	ctx, l := alloc_local_variable(ctx, T_AlwaysFlatOption, true, false);
+	ctx, l := alloc_local_variable(ctx, T_Bool, true, false);
 	var pcode_args := list(pcode_t).[ l, ar, idx ];
 	ctx := generate_instruction(ctx, P_Option_Test, pcode_args);
 	return ctx, l;
