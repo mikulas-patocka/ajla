@@ -75,7 +75,7 @@ fn verify_type_equality(ctx : function_context,
 fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_stack : list(compare_fn_stack), t : tokens) : (function_context, int);
 
 fn array_shape(ctx : function_context, cc : compare_context, a : int, t : tokens) : (bool, compare_context, list(int));
-fn list_type(ctx : function_context, cc : compare_context, a : int, t : tokens) : (compare_context, int);
+fn list_type(ctx : function_context, cc : compare_context, a : int, err : bool, t : tokens) : (compare_context, int);
 fn evaluate_list_type(ctx : function_context, a : int, t : tokens) : (function_context, int);
 fn get_list_id : function_unique_id;
 
@@ -1603,7 +1603,7 @@ fn array_shape(ctx : function_context, cc : compare_context, a : int, t : tokens
 	return false, empty_compare_context, empty(int);
 ]
 
-fn list_type(ctx : function_context, cc : compare_context, a : int, t : tokens) : (compare_context, int)
+fn list_type(ctx : function_context, cc : compare_context, a : int, err : bool, t : tokens) : (compare_context, int)
 [
 	var instrm := get_defined_maybe(cc, a);
 	if instrm is j then [
@@ -1619,13 +1619,16 @@ fn list_type(ctx : function_context, cc : compare_context, a : int, t : tokens) 
 			return args[1].cc, args[1].idx;
 		]
 	]
-	abort compiler_error("List or array type expected", t);
+	if err then
+		abort compiler_error("List or array type expected", t);
+	else
+		return empty_compare_context, T_InvalidType;
 ]
 
 fn evaluate_list_type(ctx : function_context, a : int, t : tokens) : (function_context, int)
 [
 	var cc, typ := get_deep_type_of_var(ctx, a);
-	cc, typ := list_type(ctx, cc, typ, t);
+	cc, typ := list_type(ctx, cc, typ, true, t);
 	return evaluate_type(ctx, cc, typ, empty(compare_fn_stack), t);
 ]
 

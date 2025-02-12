@@ -298,7 +298,7 @@ fn parse_statement_assign(ctx : function_context, vd : variable_dictionary, can_
 				lvalue := lvalue[skip + 1 .. ];
 
 				var cc_base, typ_base := get_base_definition(ctx, cc, typ, false);
-				cc, typ := list_type(ctx, cc_base, typ_base, index_ex);
+				cc, typ := list_type(ctx, cc_base, typ_base, true, index_ex);
 
 				var ai : int;
 				ctx, ai := list_array_get_index(ctx, vd, cc_base, typ_base, index_ex, false);

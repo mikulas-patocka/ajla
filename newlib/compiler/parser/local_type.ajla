@@ -22,13 +22,15 @@ uses compiler.parser.dict;
 uses compiler.parser.type;
 
 fn get_record_option_type_cc(ctx : function_context, cc : compare_context, typ_cc : compare_context, typ_idx : int) : (function_context, int);
-fn get_array_type_cc(ctx : function_context, cc : compare_context, typ : int) : int;
+fn get_array_type_cc(ctx : function_context, cc : compare_context, typ : int) : (function_context, int);
 fn generate_local_types(ctx : function_context) : function_context;
 
 implementation
 
 uses compiler.common.gvn;
 uses compiler.parser.gen2;
+
+fn get_type_cc(ctx : function_context, cc : compare_context, typ : int) : (function_context, int);
 
 fn local_type_idx(ctx : function_context, lt : local_type) : (function_context, int)
 [
@@ -58,12 +60,25 @@ fn get_record_option_type_cc(ctx : function_context, cc : compare_context, typ_c
 	return get_record_option_local_type(ctx, cc.ctx, typ_cc, typ_idx);
 ]
 
-fn get_array_type_cc(ctx : function_context, cc : compare_context, typ : int) : int
+fn get_array_type_cc(ctx : function_context, cc : compare_context, typ : int) : (function_context, int)
 [
 	var content_cc, content_typ := get_base_definition(ctx, cc, typ, false);
 	if typ < 0 and typ <> T_UnknownType then
-		return typ;
-	return T_Undetermined;
+		return ctx, typ;
+	var list_cc, list_typ := list_type(ctx, cc, typ, false, empty(token));
+	if list_typ <> T_InvalidType then [
+		return ctx, T_Undetermined;
+		var sub_lt : int;
+		ctx, sub_lt := get_type_cc(ctx, list_cc, list_typ);
+		var lt := local_type.[
+			mode : Local_Type_Array,
+			args : list(pcode_t).[ sub_lt ],
+			cc : cc,
+			typ : typ,
+		];
+		return local_type_idx(ctx, lt);
+	]
+	return ctx, T_Undetermined;
 ]
 
 fn get_type_cc(ctx : function_context, cc : compare_context, typ : int) : (function_context, int)
@@ -72,7 +87,7 @@ fn get_type_cc(ctx : function_context, cc : compare_context, typ : int) : (funct
 	if content_typ = T_Record then [
 		return get_record_option_type_cc(ctx, content_cc, cc, typ);
 	] else [
-		return ctx, get_array_type_cc(ctx, cc, typ);
+		return get_array_type_cc(ctx, cc, typ);
 	]
 ]
 
@@ -83,7 +98,7 @@ fn get_local_type(ctx : function_context, i : int) : (function_context, int)
 		var cc1 := new_compare_context(ctx);
 		return get_record_option_type_cc(ctx, cc, cc1, get_type_of_var(ctx, i));
 	]
-	return ctx, get_array_type_cc(ctx, cc, typ);
+	return get_array_type_cc(ctx, cc, typ);
 ]
 
 fn generate_local_types(ctx : function_context) : function_context

@@ -3285,7 +3285,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 				break;
 			case Local_Type_Array:
 				pcode_get();
-				tt = NULL;
+				tt = type_get_unknown();
 				break;
 			case Local_Type_Flat_Record:
 				base_idx = u_pcode_get();
