@@ -63,8 +63,7 @@ fn dump_function(def : function_definition) : list(pcode_t)
 	for i := 0 to len(ctx.local_types) do [
 		var lt := ctx.local_types[i];
 		result +<= lt.mode;
-		for j := 0 to len(lt.args) do
-			result +<= lt.args[j];
+		result += lt.args;
 	]
 
 	for i := 0 to len(ctx.variables) do [
