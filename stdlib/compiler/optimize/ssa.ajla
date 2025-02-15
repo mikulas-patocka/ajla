@@ -2471,9 +2471,12 @@ fn allocate_variables(ctx : context) : context
 		var v := ctx.variables[vgi];
 		if v.color = -1 then
 			continue;
-		if v.runtime_type < T_Undetermined then
-			abort internal("allocate_variables: invalid runtime_type: " + ctx.name + ", " + ntos(vgi) + "(" + v.name + "): " + ntos(v.runtime_type));
-		type_to_var_set[(v.runtime_type - T_Undetermined) * 4 + select(v.must_be_flat, 0, 1) + select(v.must_be_data, 0, 2)] bts= vgi;
+		var rt := v.runtime_type;
+		if rt < T_Undetermined then
+			abort internal("allocate_variables: invalid runtime_type: " + ctx.name + ", " + ntos(vgi) + "(" + v.name + "): " + ntos(rt));
+		if rt >= 0, ctx.local_types[rt] is arr then
+			rt := T_Undetermined;
+		type_to_var_set[(rt - T_Undetermined) * 4 + select(v.must_be_flat, 0, 1) + select(v.must_be_data, 0, 2)] bts= vgi;
 		if not ctx.cm[vgi] bt vgi then
 			abort internal("self-bit not set for variable " + ntos(vgi));
 		ctx.variables[vgi].color := -1;
