@@ -860,7 +860,6 @@ fn gvn_recursive(ctx : context, bgi : int, vals : list(int)) : context
 			ins.opcode = P_Return or
 			ins.opcode = P_Line_Info
 				then continue;
-		if ins.opcode = P_Array_Create then continue;
 
 		var value_list := list(pcode_t).[ ins.opcode, len(ins.params) ];
 		for i := 0 to len(ins.params) do [
@@ -874,15 +873,17 @@ fn gvn_recursive(ctx : context, bgi : int, vals : list(int)) : context
 
 		if ins.opcode = P_UnaryOp, ins.params[0] = Un_ConvertFromInt then [
 			value_list +<= ctx.variables[ins.params[1]].runtime_type;
-		]
-		if ins.opcode = P_Copy_Type_Cast then [
+		] else if ins.opcode = P_Copy_Type_Cast then [
 			if ctx.variables[ins.params[0]].runtime_type = T_Undetermined then
 				continue;
 			if ctx.variables[ins.params[1]].runtime_type = T_Undetermined then
 				continue;
 			value_list +<= ctx.variables[ins.params[0]].runtime_type;
-		]
-		if ins.opcode = P_Load_Const then [
+		] else if ins.opcode = P_Load_Const then [
+			value_list +<= ctx.variables[ins.params[0]].runtime_type;
+		] else if ins.opcode = P_Array_Create then [
+			if ctx.variables[ins.params[0]].runtime_type = T_Undetermined then
+				continue;
 			value_list +<= ctx.variables[ins.params[0]].runtime_type;
 		]
 
