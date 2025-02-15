@@ -67,7 +67,7 @@ fn get_array_type_cc(ctx : function_context, cc : compare_context, typ : int) : 
 		return ctx, typ;
 	var list_cc, list_typ := list_type(ctx, cc, typ, false, empty(token));
 	if list_typ <> T_InvalidType then [
-		return ctx, T_Undetermined;
+		//return ctx, T_Undetermined;
 		var sub_lt : int;
 		ctx, sub_lt := get_type_cc(ctx, list_cc, list_typ);
 		var lt := local_type.[

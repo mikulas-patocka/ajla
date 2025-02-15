@@ -168,7 +168,7 @@ fn do_inline(ctx : context, bgi : int, ili : int, call_mode : pcode_t, get_inlin
 
 		var ls := new_ctx.instrs[i].lt_set;
 		while ls <> 0 do [
-			var p := bsr ls;
+			var p : int := bsr ls;
 			ls btr= p;
 			new_ctx.instrs[i].params[p] += len(ctx.local_types);
 		]

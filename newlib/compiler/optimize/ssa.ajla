@@ -353,7 +353,7 @@ again:
 	return ctx;
 ]
 
-fn compare_local_types(ctx : context, src_rt dest_rt : int, src_visited : var_set, dest_visited : var_set) : int
+fn compare_local_types(ctx : context, src_rt dest_rt : int, src_visited dest_visited : var_set) : int
 [
 	if src_rt = T_Undetermined, dest_rt = T_Undetermined then
 		return 0;
@@ -860,6 +860,7 @@ fn gvn_recursive(ctx : context, bgi : int, vals : list(int)) : context
 			ins.opcode = P_Return or
 			ins.opcode = P_Line_Info
 				then continue;
+		if ins.opcode = P_Array_Create then continue;
 
 		var value_list := list(pcode_t).[ ins.opcode, len(ins.params) ];
 		for i := 0 to len(ins.params) do [
@@ -1723,7 +1724,7 @@ fn append_copy(ctx : context, dest : int, src : int, bgi : int) : context
 	var append_idx := len(ctx.blocks[bgi].instrs);
 	if append_idx <> 0, ctx.instrs[ctx.blocks[bgi].instrs[append_idx - 1]].opcode = P_Jmp_False then
 		append_idx -= 1;
-	ctx := insert_instr(ctx, instr, len(ctx.blocks[bgi].instrs));
+	ctx := insert_instr(ctx, instr, append_idx);
 	return ctx;
 ]
 
