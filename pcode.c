@@ -2034,12 +2034,16 @@ static bool pcode_array_create(struct build_function_context *ctx)
 	get_arg_mode(am, tr->slot);
 
 	if (!length) {
-		struct local_type *lt = &ctx->local_types[tr->typ];
+		struct local_type *lt;
+		if (tr->typ == T_Undetermined)
+			goto create_nonflat;
+		lt = &ctx->local_types[tr->typ];
 		ajla_assert_lo(lt->mode == Local_Type_Array || lt->mode == Local_Type_Flat_Array, (file_line, "pcode_array_create: invalid local type %u", lt->mode));
 		pcode_t type_idx = pcode_to_type_index(ctx, lt->array_element, true);
 		if (unlikely(type_idx == error_type_index))
 			goto exception;
 		if (type_idx == no_type_index) {
+create_nonflat:
 			gen_code(OPCODE_ARRAY_CREATE_EMPTY + am * OPCODE_MODE_MULT);
 			gen_am(am, tr->slot);
 		} else {
@@ -3258,6 +3262,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 		const struct type *tt, *tp;
 
 		q = pcode_get();
+		ctx->local_types[p].mode = q;
 		switch (q) {
 			case Local_Type_Record:
 				ptr = pcode_module_load_function(ctx);
@@ -3336,7 +3341,6 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 		}
 		ctx->local_types[p].type = tt;
 		ctx->local_types[p].type_index = no_type_index;
-		ctx->local_types[p].mode = q;
 		ctx->local_types[p].array_element = base_idx;
 	}
 
