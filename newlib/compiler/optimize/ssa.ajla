@@ -1295,7 +1295,7 @@ next_dom:
 		var vs := ctx.variables[vgis];
 		var vs_ins := ctx.instrs[vs.defining_instr];
 		if vs_ins.opcode = P_Array_Create then [
-			return create_instr(P_Load_Const, list(pcode_t).[ ins.params[0] ] + int_to_blob(vs_ins.params[2]), ins.bb), true;
+			return create_instr(P_Load_Const, list(pcode_t).[ ins.params[0] ] + int_to_blob(vs_ins.params[1]), ins.bb), true;
 		]
 		goto end;
 	]
@@ -1310,7 +1310,7 @@ next_dom:
 			var l := blob_to_int(vi_ins.params[1 ..]);
 			if l >= 0 then [
 				var v : int;
-				if vs_ins.params[2] > l then
+				if vs_ins.params[1] > l then
 					v := 1;
 				else
 					v := 0;
@@ -1323,8 +1323,8 @@ next_dom:
 		var vgi2 := ins.params[4];
 		var vs2 := ctx.variables[vgi2];
 		var vs2_ins := ctx.instrs[vs2.defining_instr];
-		if vs2_ins.opcode = P_Array_Create, vs2_ins.params[2] = 1 then [
-			return create_instr(P_Array_Append_One, ins.params[ .. 4] +< vs2_ins.params[5], ins.bb), true;
+		if vs2_ins.opcode = P_Array_Create, vs2_ins.params[1] = 1 then [
+			return create_instr(P_Array_Append_One, ins.params[ .. 4] +< vs2_ins.params[4], ins.bb), true;
 		]
 		goto end;
 	]
@@ -1375,19 +1375,19 @@ fn substitute_variable(ctx : context, ins : instruction) : (int, int)
 		var vs_ins := ctx.instrs[vs.defining_instr];
 		if vi_ins.opcode = P_Load_Const and vs_ins.opcode = P_Array_Create then [
 			var idx := blob_to_int(vi_ins.params[1 ..]);
-			if idx >= 0 and idx < vs_ins.params[2] then [
-				return ins.params[0], vs_ins.params[5 + idx * 2];
+			if idx >= 0 and idx < vs_ins.params[1] then [
+				return ins.params[0], vs_ins.params[4 + idx * 2];
 			]
 		]
 		if vi_ins.opcode = P_Load_Const and vs_ins.opcode = P_Array_Fill then [
-			var vgll := vs_ins.params[4];
+			var vgll := vs_ins.params[3];
 			var vl := ctx.variables[vgll];
 			var vl_ins := ctx.instrs[vl.defining_instr];
 			if vl_ins.opcode = P_Load_Const then [
 				var idx := blob_to_int(vi_ins.params[1 ..]);
 				var length := blob_to_int(vl_ins.params[1 ..]);
 				if idx >= 0 and idx < length then [
-					return ins.params[0], vs_ins.params[3];
+					return ins.params[0], vs_ins.params[2];
 				]
 			]
 		]
@@ -1664,8 +1664,8 @@ retry:
 			if in2.opcode <> P_Array_Create then [
 				goto skip;
 			]
-			for i := 0 to in2.params[2] do [
-				var d := in2.params[5 + 2 * i];
+			for i := 0 to in2.params[1] do [
+				var d := in2.params[4 + 2 * i];
 				var vt3 := ctx.variables[d];
 				if vt3.defining_instr < 0 then [
 					goto skip;

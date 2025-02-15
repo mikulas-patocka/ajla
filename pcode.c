@@ -200,11 +200,14 @@ do {									\
 struct local_type {
 	const struct type *type;
 	pcode_t type_index;
+	pcode_t mode;
+	pcode_t array_element;
 };
 
 struct pcode_type {
 	const struct type *type;
 	struct local_arg *argument;
+	pcode_t typ;
 	frame_t slot;
 	pcode_t color;
 	int8_t extra_type;
@@ -2004,13 +2007,12 @@ exception:
 
 static bool pcode_array_create(struct build_function_context *ctx)
 {
-	pcode_t result, local_type, length, n_real_arguments;
+	pcode_t result, length, n_real_arguments;
 	pcode_position_save_t saved;
 	const struct pcode_type *tr;
 	arg_mode_t am = INIT_ARG_MODE;
 
 	result = u_pcode_get();
-	local_type = pcode_get();
 	length = u_pcode_get();
 	pcode_get();
 
@@ -2032,7 +2034,9 @@ static bool pcode_array_create(struct build_function_context *ctx)
 	get_arg_mode(am, tr->slot);
 
 	if (!length) {
-		pcode_t type_idx = pcode_to_type_index(ctx, local_type, true);
+		struct local_type *lt = &ctx->local_types[tr->typ];
+		ajla_assert_lo(lt->mode == Local_Type_Array || lt->mode == Local_Type_Flat_Array, (file_line, "pcode_array_create: invalid local type %u", lt->mode));
+		pcode_t type_idx = pcode_to_type_index(ctx, lt->array_element, true);
 		if (unlikely(type_idx == error_type_index))
 			goto exception;
 		if (type_idx == no_type_index) {
@@ -2777,7 +2781,6 @@ next_one:
 				break;
 			case P_Array_Fill:
 				res = u_pcode_get();
-				pcode_get();	/* local type */
 				op = u_pcode_get();
 				ajla_assert_lo(!(op & ~(pcode_t)(Flag_Free_Argument | Flag_Array_Fill_Sparse)), (file_line, "P_Array_Fill(%s): invalid flags %"PRIdMAX"", function_name(ctx), (intmax_t)op));
 				a1 = pcode_get();
@@ -3248,7 +3251,8 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 		pointer_t *ptr;
 		struct data *rec_fn;
 		const struct record_definition *def;
-		pcode_t base_idx, n_elements;
+		pcode_t base_idx = -1;
+		pcode_t n_elements;
 		struct type_entry *flat_rec;
 		arg_t ai;
 		const struct type *tt, *tp;
@@ -3284,7 +3288,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 				tt = type_get_flat_option();
 				break;
 			case Local_Type_Array:
-				pcode_get();
+				base_idx = pcode_get();
 				tt = type_get_unknown();
 				break;
 			case Local_Type_Flat_Record:
@@ -3332,6 +3336,8 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 		}
 		ctx->local_types[p].type = tt;
 		ctx->local_types[p].type_index = no_type_index;
+		ctx->local_types[p].mode = q;
+		ctx->local_types[p].array_element = base_idx;
 	}
 
 	ctx->layout = layout_start(slot_bits, frame_flags_per_slot_bits, frame_align, frame_offset, ctx->err);
@@ -3355,6 +3361,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 		varflags = u_pcode_get();
 		pcode_load_blob(ctx, NULL, NULL);
 		pt = &ctx->pcode_types[v];
+		pt->typ = typ;
 		pt->argument = NULL;
 		pt->extra_type = 0;
 		pt->varflags = varflags;

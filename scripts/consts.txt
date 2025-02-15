@@ -41,8 +41,8 @@ P_Option_Test		; result, option, index
 P_Option_Ord		; result, option
 P_Array_Flexible	; result, type
 P_Array_Fixed		; result, type, dim_var
-P_Array_Create		; result, local_type, length, length_var, (ref_flag, arg_idx)
-P_Array_Fill		; result, local_type, (ref_flag | sparse_flag), content_var, length_var
+P_Array_Create		; result, length, length_var, (ref_flag, arg_idx)
+P_Array_Fill		; result, (ref_flag | sparse_flag), content_var, length_var
 P_Array_String		; result, n_chars, (chars)
 P_Array_Unicode		; result, (chars)
 P_Array_Load		; scalar, Flag_Evaluate | Flag_Borrow | Flag_Index_In_Range, array, index

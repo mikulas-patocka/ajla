@@ -1690,7 +1690,7 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 		size_t i;
 		const struct flat_array_definition *def = type_def(array_type,flat_array);
 
-		ajla_assert_lo(TYPE_IS_FLAT(content_type), (file_line, "gen_array_fill: array is flat but content is not"));
+		ajla_assert_lo(TYPE_IS_FLAT(content_type), (file_line, "gen_array_fill: array is flat but content is not: %s", da(ctx->fn,function)->function_name));
 
 		g(gen_test_1_cached(ctx, slot_1, escape_label));
 

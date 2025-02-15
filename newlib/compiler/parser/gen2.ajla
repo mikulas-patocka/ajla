@@ -86,7 +86,7 @@ fn pcode_Option_Test_get_index(ins : instruction) : int;
 fn generate_Option_Ord(ctx : function_context, ar : int) : (function_context, int);
 fn pcode_Option_Ord_get_option(ins : instruction) : int;
 
-fn generate_Array_Create(ctx : function_context, lt at : int, ae : list(int), t : tokens) : (function_context, int);
+fn generate_Array_Create(ctx : function_context, at : int, ae : list(int), t : tokens) : (function_context, int);
 fn pcode_Array_Create_get_length(ins : instruction) : int;
 fn pcode_Array_Create_get_arg(ins : instruction, arg : int) : int;
 fn generate_Array_String(ctx : function_context, blob : list(pcode_t)) : (function_context, int);
@@ -920,7 +920,7 @@ fn pcode_Option_Ord_get_option(ins : instruction) : int
 ]
 
 
-fn generate_Array_Create(ctx : function_context, lt at : int, fields : list(int), t : tokens) : (function_context, int)
+fn generate_Array_Create(ctx : function_context, at : int, fields : list(int), t : tokens) : (function_context, int)
 [
 	var array_length := len(fields);
 	var blob := int_to_blob(array_length);
@@ -928,7 +928,7 @@ fn generate_Array_Create(ctx : function_context, lt at : int, fields : list(int)
 	ctx, c := generate_Load_Const(ctx, T_Integer, blob);
 	ctx, l := alloc_local_variable(ctx, at, true, false);
 
-	var pcode_args := list(pcode_t).[ l, lt, array_length, c ];
+	var pcode_args := list(pcode_t).[ l, array_length, c ];
 
 	for i := 0 to array_length do [
 		pcode_args +<= 0;
@@ -943,13 +943,13 @@ fn generate_Array_Create(ctx : function_context, lt at : int, fields : list(int)
 fn pcode_Array_Create_get_length(ins : instruction) : int
 [
 	xeval assert(ins.opcode = P_Array_Create, "pcode_Array_Create_get_length: invalid instruction");
-	return ins.args[2];
+	return ins.args[1];
 ]
 
 fn pcode_Array_Create_get_arg(ins : instruction, arg : int) : int
 [
 	xeval assert(ins.opcode = P_Array_Create, "pcode_Array_Create_get_arg: invalid instruction");
-	return ins.args[4 + arg * 2 + 1];
+	return ins.args[3 + arg * 2 + 1];
 ]
 
 fn generate_Array_String(ctx : function_context, blob : list(pcode_t)) : (function_context, int)

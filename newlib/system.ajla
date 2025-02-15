@@ -2850,14 +2850,14 @@ fn empty~inline(t : type) : list(t) := list(t).[];
 fn fill~inline(t : type, const x : t, const n : int) : list(t)
 [
 	var l : list(t);
-	pcode Array_Fill =l Undetermined 0 x n;
+	pcode Array_Fill =l 0 x n;
 	return l;
 ]
 
 fn sparse~inline(t : type, const x : t, const n : int) : list(t)
 [
 	var l : list(t);
-	pcode Array_Fill =l Undetermined Flag_Array_Fill_Sparse x n;
+	pcode Array_Fill =l Flag_Array_Fill_Sparse x n;
 	return l;
 ]
 
@@ -3487,7 +3487,7 @@ fn array_fill~inline(t : type, const x : t, const dim : list(int)) : array(t, di
 [
 	var prod := array_size(dim);
 	var l : array(t, dim);
-	pcode Array_Fill =l Undetermined 0 x prod;
+	pcode Array_Fill =l 0 x prod;
 	return l;
 ]
 
@@ -3495,7 +3495,7 @@ fn array_sparse~inline(t : type, const x : t, const dim : list(int)) : array(t, 
 [
 	var prod := array_size(dim);
 	var l : array(t, dim);
-	pcode Array_Fill =l Undetermined Flag_Array_Fill_Sparse x prod;
+	pcode Array_Fill =l Flag_Array_Fill_Sparse x prod;
 	return l;
 ]
 

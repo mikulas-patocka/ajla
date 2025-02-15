@@ -188,7 +188,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		return ctx;
 	]
 	if ins.opcode = P_Array_Create then [
-		var ln := ins.params[2];
+		var ln := ins.params[1];
 		var t1 : bytes;
 		ctx, t1 := get_array_type(ctx, v);
 		if len(t1) = 0 then
@@ -198,7 +198,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		var str := "array_"+var_name+"";
 		for i := 0 to ln do [
 			var var1 : bytes;
-			ctx, var1 := allocate_variable_block(ctx, ins.params[5 + i * 2], phi_node, ins.bb);
+			ctx, var1 := allocate_variable_block(ctx, ins.params[4 + i * 2], phi_node, ins.bb);
 			if len(var1) = 0 then
 				return ctx;
 			str := "(store "+str+" "+ntos(i)+" "+var1+")";
@@ -209,13 +209,13 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 	]
 	if ins.opcode = P_Array_Fill then [
 		var var1 var2 t1 : bytes;
-		ctx, var1 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
+		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb);
 		if len(var1) = 0 then
 			return ctx;
-		ctx, t1 := get_z3_type(ctx, ctx.variables[ins.params[3]].type_index);
+		ctx, t1 := get_z3_type(ctx, ctx.variables[ins.params[2]].type_index);
 		if len(t1) = 0 then
 			return ctx;
-		ctx, var2 := allocate_variable_block(ctx, ins.params[4], phi_node, ins.bb);
+		ctx, var2 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
 		if len(var2) = 0 then
 			return ctx;
 		gen_assert(var_name, "(mk-arr "+var2+" ((as const (Array Int "+t1+")) "+var1+"))");

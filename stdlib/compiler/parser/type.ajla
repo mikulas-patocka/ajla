@@ -1509,7 +1509,7 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 		var fields := fill(-1, array_length);
 		for i := 0 to array_length do
 			ctx, fields[i] := evaluate_type(ctx, cc, pcode_Array_Create_get_arg(instr, i), fn_stack, t);
-		ctx, l := generate_Array_Create(ctx, T_Undetermined, at, fields, t);
+		ctx, l := generate_Array_Create(ctx, at, fields, t);
 		return ctx, l;
 	]
 	if opcode = P_Array_String then [

@@ -253,8 +253,6 @@ fn record_list_create(ctx : function_context, vd : variable_dictionary, t : toke
 	 =================}
 
 	var type_cc, type_var := list_type(ctx, cc, typ, true, t);
-	var lt : int;
-	ctx, lt := get_array_type_cc(ctx, type_cc, type_var);
 
 	var content := t[left_bracket + 1 .. len(t) - 1];
 	var fields := empty(int);
@@ -268,7 +266,7 @@ fn record_list_create(ctx : function_context, vd : variable_dictionary, t : toke
 		fields +<= a;
 	]
 	var l : int;
-	ctx, l := generate_Array_Create(ctx, lt, at, fields, t);
+	ctx, l := generate_Array_Create(ctx, at, fields, t);
 	return ctx, [ l ];
 ]
 
@@ -302,16 +300,13 @@ fn shortened_list_create(ctx : function_context, vd : variable_dictionary, t : t
 		fields +<= a;
 	]
 
-	var lt : int;
-	ctx, lt := get_array_type_cc(ctx, type_cc, type_var);
-
 	var id := get_list_id;
 	var fd := search_function_from_id(ctx, id);
 	var at : list(int);
 	ctx, at := generate_Call(ctx, Call_Mode_Unspecified, fd, list(int).[ type_var ], t);
 
 	var l : int;
-	ctx, l := generate_Array_Create(ctx, lt, at[0], fields, t);
+	ctx, l := generate_Array_Create(ctx, at[0], fields, t);
 	return ctx, [ l ];
 ]
 
