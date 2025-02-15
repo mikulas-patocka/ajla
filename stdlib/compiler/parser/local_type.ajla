@@ -44,8 +44,9 @@ fn local_type_idx(ctx : function_context, lt : local_type) : (function_context, 
 	return ctx, idx;
 ]
 
-fn get_record_option_local_type(ctx rec_ctx : function_context, typ_cc : compare_context, typ_idx : int) : (function_context, int)
+fn get_record_option_type_cc(ctx : function_context, cc : compare_context, typ_cc : compare_context, typ_idx : int) : (function_context, int)
 [
+	var rec_ctx := cc.ctx;
 	var lt := local_type.[
 		mode : select(rec_ctx.record_def.j.is_option, Local_Type_Record, Local_Type_Option),
 		args : generate_function_id(rec_ctx.id),
@@ -53,11 +54,6 @@ fn get_record_option_local_type(ctx rec_ctx : function_context, typ_cc : compare
 		typ : typ_idx,
 	];
 	return local_type_idx(ctx, lt);
-]
-
-fn get_record_option_type_cc(ctx : function_context, cc : compare_context, typ_cc : compare_context, typ_idx : int) : (function_context, int)
-[
-	return get_record_option_local_type(ctx, cc.ctx, typ_cc, typ_idx);
 ]
 
 fn get_array_type_cc(ctx : function_context, cc : compare_context, typ : int) : (function_context, int)
