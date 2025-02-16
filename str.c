@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -42,7 +42,7 @@ const char *position_string_alloc(void *ptr)
 
 static size_t next_power_of_2(size_t len)
 {
-#if defined(HAVE_BUILTIN_CLZ)
+#if defined(HAVE_BUILTIN_CLZ) && defined(HAVE_FAST_CLZ)
 	if (is_power_of_2(sizeof(size_t)) && sizeof(size_t) == sizeof(unsigned long)) {
 		if (!len)
 			return 1;

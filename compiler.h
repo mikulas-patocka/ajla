@@ -989,6 +989,22 @@ static inline uintptr_t POINTER_TAG_GET(const void *ptr)
 #define CLZ_BSR_OP	^
 #endif
 
+#if !(									\
+	defined(__tune_i386__) ||					\
+	defined(__tune_i486__) ||					\
+	defined(__tune_i586__) ||					\
+	defined(__tune_k6__) ||						\
+	defined(__tune_lakemont__) ||					\
+	(defined(__alpha__) && !defined(__alpha_cix__)) ||		\
+	(defined(__mips) && __mips < 32) ||				\
+	(defined(__ARM_ARCH) && __ARM_ARCH < 5) ||			\
+	(defined(__sparc__) && (!defined(__VIS__) || __VIS__ < 0x300)) ||\
+	defined(__hppa) ||						\
+	(defined(__riscv) && !defined(__riscv_zbb)) ||			\
+	defined(__sh__))
+#define HAVE_FAST_CLZ
+#endif
+
 #if defined(HAVE_REAL_GNUC) && defined(__mips_isa_rev) && __mips_isa_rev >= 6
 #define broken_128bit_multiply		volatile
 #else

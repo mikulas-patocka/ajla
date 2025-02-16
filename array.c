@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -139,7 +139,7 @@ static int_default_t array_align_alloc(int_default_t len)
 	volatile
 #endif
 	uint_default_t val = (uint_default_t)len;
-#if defined(HAVE_BUILTIN_CLZ)
+#if defined(HAVE_BUILTIN_CLZ) && defined(HAVE_FAST_CLZ)
 	if (is_power_of_2(sizeof(int_default_t)) && sizeof(int_default_t) == sizeof(unsigned)) {
 		val = (uint_default_t)1 << ((unsigned)(sizeof(uint_default_t) * 8 - 1) CLZ_BSR_OP __builtin_clz(val + val - 1));
 		if (unlikely((int_default_t)val < 0))
