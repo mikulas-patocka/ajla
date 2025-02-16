@@ -193,6 +193,12 @@ static attr_always_inline size_t find_bit(bitmap_t bitmap)
 	__asm__ ("popc %1, %0" : "=r"(bitmap) : "r"((bitmap - 1) & ~bitmap));
 	return bitmap;
 #endif
+#if defined(HAVE_STDBIT_H)
+	if (BITMAP_BITS == sizeof(unsigned) * 8)
+		return stdc_trailing_zeros_ui(bitmap);
+	if (BITMAP_BITS == sizeof(unsigned long) * 8)
+		return stdc_trailing_zeros_ul(bitmap);
+#endif
 #if BITMAP_BITS == 32 && SIZEOF_UNSIGNED == 4 && defined(HAVE_BUILTIN_CTZ)
 	return __builtin_ctz(bitmap);
 #elif BITMAP_BITS == 64 && SIZEOF_UNSIGNED_LONG_LONG == 8 && defined(HAVE_BUILTIN_CTZ)
@@ -256,6 +262,12 @@ static attr_always_inline unsigned count_bits(bitmap_t bitmap)
 		__asm__ (".arch ev68; ctpop %1, %0" : "=r"(bitmap) : "r"(bitmap));
 		return bitmap;
 	}
+#endif
+#if defined(HAVE_STDBIT_H)
+	if (BITMAP_BITS == sizeof(unsigned) * 8)
+		return stdc_count_ones_ui(bitmap);
+	if (BITMAP_BITS == sizeof(unsigned long) * 8)
+		return stdc_count_ones_ul(bitmap);
 #endif
 #if BITMAP_BITS == 32 && SIZEOF_UNSIGNED == 4 && defined(HAVE_BUILTIN_POPCOUNT)
 	return __builtin_popcount(bitmap);

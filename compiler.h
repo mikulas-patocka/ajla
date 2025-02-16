@@ -205,6 +205,11 @@ typedef uintmax_t uintbig_t;
 #endif
 
 
+#if defined(HAVE_STDBIT_H)
+#include <stdbit.h>
+#endif
+
+
 #if defined(SIZEOF_VOID_P) && SIZEOF_VOID_P > 0
 #if SIZEOF_VOID_P >= 8
 #define BIT64
