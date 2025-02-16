@@ -132,7 +132,9 @@ static const size_t attr_unused size_t_limit = (size_t)-1;	/* use const to avoid
 
 static inline unsigned low_bit(unsigned x)
 {
-#if defined(HAVE_BUILTIN_CTZ)
+#if defined(HAVE_STDBIT_H)
+	return stdc_trailing_zeros_ui(x);
+#elif defined(HAVE_BUILTIN_CTZ)
 	return __builtin_ctz(x);
 #elif defined(HAVE_FFS)
 	return ffs(x) - 1;
@@ -150,7 +152,9 @@ static inline unsigned low_bit(unsigned x)
 
 static inline unsigned high_bit(unsigned x)
 {
-#if defined(HAVE_BUILTIN_CLZ)
+#if defined(HAVE_STDBIT_H)
+	return sizeof(unsigned) * 8 - 1 - stdc_leading_zeros_ui(x);
+#elif defined(HAVE_BUILTIN_CLZ)
 	return sizeof(unsigned) * 8 - 1 - __builtin_clz(x);
 #elif defined(HAVE_FLS)
 	return fls(x) - 1;
@@ -172,7 +176,9 @@ static inline unsigned log_2(unsigned x)
 
 static inline int pop_count(unsigned x)
 {
-#if defined(HAVE_BUILTIN_POPCOUNT)
+#if defined(HAVE_STDBIT_H)
+	return stdc_count_ones_ui(x);
+#elif defined(HAVE_BUILTIN_POPCOUNT)
 	return __builtin_popcount(x);
 #else
 	int ret = 0;

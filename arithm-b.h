@@ -369,7 +369,10 @@ gen_arm_brev_2reg(int64_t, uint64_t, uint32_t, "", _alt1_)
  * BSF/BSR
  */
 
-#if defined(HAVE_BUILTIN_CTZ)
+#if defined(HAVE_STDBIT_H)
+#define libc_ffs_int8_t		if (unlikely(!o)) { *res = -1; return; } else { *res = stdc_trailing_zeros_uc(o); return; }
+#define libc_ffs_int16_t	if (unlikely(!o)) { *res = -1; return; } else { *res = stdc_trailing_zeros_us(o); return; }
+#elif defined(HAVE_BUILTIN_CTZ)
 #define libc_ffs_int8_t		if (unlikely(!o)) { *res = -1; return; } else { *res = __builtin_ctz(o); return; }
 #define libc_ffs_int16_t	if (unlikely(!o)) { *res = -1; return; } else { *res = __builtin_ctz(o); return; }
 #elif defined(HAVE_FFS)
@@ -379,7 +382,9 @@ gen_arm_brev_2reg(int64_t, uint64_t, uint32_t, "", _alt1_)
 #define libc_ffs_int8_t
 #define libc_ffs_int16_t
 #endif
-#if defined(HAVE_BUILTIN_CTZ) && SIZEOF_UNSIGNED >= 4
+#if defined(HAVE_STDBIT_H) && SIZEOF_UNSIGNED >= 4
+#define libc_ffs_int32_t	if (unlikely(!o)) { *res = -1; return; } else { *res = stdc_trailing_zeros_ui(o); return; }
+#elif defined(HAVE_BUILTIN_CTZ) && SIZEOF_UNSIGNED >= 4
 #define libc_ffs_int32_t	if (unlikely(!o)) { *res = -1; return; } else { *res = __builtin_ctz(o); return; }
 #elif defined(HAVE_FFS) && SIZEOF_UNSIGNED >= 4
 #define libc_ffs_int32_t	*res = ffs(o) - 1; return;
@@ -388,7 +393,10 @@ gen_arm_brev_2reg(int64_t, uint64_t, uint32_t, "", _alt1_)
 #else
 #define libc_ffs_int32_t
 #endif
-#if defined(HAVE_BUILTIN_CTZ) && SIZEOF_UNSIGNED_LONG_LONG == 8
+#if defined(HAVE_STDBIT_H) && SIZEOF_UNSIGNED_LONG_LONG == 8
+#define libc_ffs_int64_t	if (unlikely(!o)) { *res = -1; return; } else { *res =  stdc_trailing_zeros_ull(o); return; }
+#define libc_ffs_int128_t	if ((uint64_t)o) { *res = stdc_trailing_zeros_ull(o); return; } else if (o >> 64) { *res = stdc_trailing_zeros_ull(o >> 64) + 64; return; } else { *res = -1; return; }
+#elif defined(HAVE_BUILTIN_CTZ) && SIZEOF_UNSIGNED_LONG_LONG == 8
 #define libc_ffs_int64_t	if (unlikely(!o)) { *res = -1; return; } else { *res =  __builtin_ctzll(o); return; }
 #define libc_ffs_int128_t	if ((uint64_t)o) { *res = __builtin_ctzll(o); return; } else if (o >> 64) { *res = __builtin_ctzll(o >> 64) + 64; return; } else { *res = -1; return; }
 #elif defined(HAVE_FFSL) && SIZEOF_UNSIGNED_LONG >= 8
@@ -402,7 +410,10 @@ gen_arm_brev_2reg(int64_t, uint64_t, uint32_t, "", _alt1_)
 #define libc_ffs_int128_t
 #endif
 
-#if defined(HAVE_BUILTIN_CLZ) && SIZEOF_UNSIGNED >= 2 && !(SIZEOF_UNSIGNED & (SIZEOF_UNSIGNED - 1))
+#if defined(HAVE_STDBIT_H) && SIZEOF_UNSIGNED_SHORT == 2
+#define libc_fls_int8_t		if (unlikely(!o)) { *res = -1; return; } else { *res = 7 - stdc_leading_zeros_uc(o); return; }
+#define libc_fls_int16_t	if (unlikely(!o)) { *res = -1; return; } else { *res = 15 - stdc_leading_zeros_us(o); return; }
+#elif defined(HAVE_BUILTIN_CLZ) && SIZEOF_UNSIGNED >= 2 && !(SIZEOF_UNSIGNED & (SIZEOF_UNSIGNED - 1))
 #define libc_fls_int8_t		if (unlikely(!o)) { *res = -1; return; } else { *res = ((unsigned)sizeof(unsigned) * 8 - 1) CLZ_BSR_OP __builtin_clz(o); return; }
 #define libc_fls_int16_t	if (unlikely(!o)) { *res = -1; return; } else { *res = ((unsigned)sizeof(unsigned) * 8 - 1) CLZ_BSR_OP __builtin_clz(o); return; }
 #elif defined(HAVE_FLS)
@@ -412,7 +423,9 @@ gen_arm_brev_2reg(int64_t, uint64_t, uint32_t, "", _alt1_)
 #define libc_fls_int8_t
 #define libc_fls_int16_t
 #endif
-#if defined(HAVE_BUILTIN_CLZ) && SIZEOF_UNSIGNED >= 4 && !(SIZEOF_UNSIGNED & (SIZEOF_UNSIGNED - 1))
+#if defined(HAVE_STDBIT_H) && SIZEOF_UNSIGNED == 4
+#define libc_fls_int32_t	if (unlikely(!o)) { *res = -1; return; } else { *res = 31 - stdc_leading_zeros_ui(o); return; }
+#elif defined(HAVE_BUILTIN_CLZ) && SIZEOF_UNSIGNED >= 4 && !(SIZEOF_UNSIGNED & (SIZEOF_UNSIGNED - 1))
 #define libc_fls_int32_t	if (unlikely(!o)) { *res = -1; return; } else { *res = ((unsigned)sizeof(unsigned) * 8 - 1) CLZ_BSR_OP __builtin_clz(o); return; }
 #elif defined(HAVE_FLS) && SIZEOF_UNSIGNED >= 4
 #define libc_fls_int32_t	*res = fls(o) - 1; return;
@@ -421,7 +434,10 @@ gen_arm_brev_2reg(int64_t, uint64_t, uint32_t, "", _alt1_)
 #else
 #define libc_fls_int32_t
 #endif
-#if defined(HAVE_BUILTIN_CLZ) && SIZEOF_UNSIGNED_LONG_LONG == 8
+#if defined(HAVE_STDBIT_H) && SIZEOF_UNSIGNED_LONG_LONG == 8
+#define libc_fls_int64_t	if (unlikely(!o)) { *res = -1; return; } else { *res = 63 - stdc_leading_zeros_ull(o); return; }
+#define libc_fls_int128_t	if (o >> 64) { *res = (127 CLZ_BSR_OP stdc_leading_zeros_ull((uint64_t)(o >> 64))); return; } else if (likely((uint64_t)o != 0)) { *res = 63 CLZ_BSR_OP stdc_leading_zeros_ull((uint64_t)o); return; } else { *res = -1; return; }
+#elif defined(HAVE_BUILTIN_CLZ) && SIZEOF_UNSIGNED_LONG_LONG == 8
 #define libc_fls_int64_t	if (unlikely(!o)) { *res = -1; return; } else { *res = ((unsigned)sizeof(unsigned long long) * 8 - 1) CLZ_BSR_OP __builtin_clzll(o); return; }
 #define libc_fls_int128_t	if (o >> 64) { *res = (127 CLZ_BSR_OP __builtin_clzll((uint64_t)(o >> 64))); return; } else if (likely((uint64_t)o != 0)) { *res = ((unsigned)sizeof(unsigned long long) * 8 - 1) CLZ_BSR_OP __builtin_clzll((uint64_t)o); return; } else { *res = -1; return; }
 #elif defined(HAVE_FLSL) && SIZEOF_UNSIGNED_LONG >= 8
@@ -582,7 +598,13 @@ gen_arm_clz_split()
  * POPCNT
  */
 
-#if defined(HAVE_BUILTIN_POPCOUNT) && SIZEOF_UNSIGNED >= 4 && SIZEOF_UNSIGNED_LONG_LONG >= 8
+#if defined(HAVE_STDBIT_H) && SIZEOF_UNSIGNED >= 4 && SIZEOF_UNSIGNED_LONG_LONG >= 8
+#define libc_popcnt_int8_t	*res = (unsigned)stdc_count_ones_uc(o); return;
+#define libc_popcnt_int16_t	*res = (unsigned)stdc_count_ones_us(o); return;
+#define libc_popcnt_int32_t	*res = (unsigned)stdc_count_ones_ui(o); return;
+#define libc_popcnt_int64_t	*res = (unsigned)stdc_count_ones_ull(o); return;
+#define libc_popcnt_int128_t	*res = (unsigned)stdc_count_ones_ull((uint64_t)o) + (unsigned)stdc_count_ones_ull((uint64_t)(o >> 64)); return;
+#elif defined(HAVE_BUILTIN_POPCOUNT) && SIZEOF_UNSIGNED >= 4 && SIZEOF_UNSIGNED_LONG_LONG >= 8
 #define libc_popcnt_int8_t	*res = (unsigned)__builtin_popcount(o); return;
 #define libc_popcnt_int16_t	*res = (unsigned)__builtin_popcount(o); return;
 #define libc_popcnt_int32_t	*res = (unsigned)__builtin_popcount(o); return;

@@ -224,7 +224,11 @@ typedef uintmax_t uintbig_t;
 
 
 #ifndef UNUSUAL_UNKNOWN_ENDIAN
-#if defined(CONFIG_LITTLE_ENDIAN)
+#if defined(HAVE_STDBIT_H) && __STDC_ENDIAN_NATIVE__ == __STDC_ENDIAN_LITTLE__
+#define C_LITTLE_ENDIAN
+#elif defined(HAVE_STDBIT_H) && __STDC_ENDIAN_NATIVE__ == __STDC_ENDIAN_BIG__
+#define C_BIG_ENDIAN
+#elif defined(CONFIG_LITTLE_ENDIAN)
 #define C_LITTLE_ENDIAN
 #elif defined(CONFIG_BIG_ENDIAN)
 #define C_BIG_ENDIAN
