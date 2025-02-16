@@ -139,6 +139,22 @@ static int_default_t array_align_alloc(int_default_t len)
 	volatile
 #endif
 	uint_default_t val = (uint_default_t)len;
+#if defined(HAVE_STDBIT_H) && defined(HAVE_FAST_CLZ)
+	if (sizeof(int_default_t) == sizeof(unsigned)) {
+		val = stdc_bit_ceil_ui(val);
+		if (unlikely((int_default_t)val < 0))
+			return val - 1;
+		else
+			return val;
+	}
+	if (sizeof(int_default_t) == sizeof(unsigned long long)) {
+		val = stdc_bit_ceil_ull(val);
+		if (unlikely((int_default_t)val < 0))
+			return val - 1;
+		else
+			return val;
+	}
+#endif
 #if defined(HAVE_BUILTIN_CLZ) && defined(HAVE_FAST_CLZ)
 	if (is_power_of_2(sizeof(int_default_t)) && sizeof(int_default_t) == sizeof(unsigned)) {
 		val = (uint_default_t)1 << ((unsigned)(sizeof(uint_default_t) * 8 - 1) CLZ_BSR_OP __builtin_clz(val + val - 1));
@@ -146,29 +162,28 @@ static int_default_t array_align_alloc(int_default_t len)
 			return likely(!len) ? 0 : val - 1;
 		else
 			return val;
-	} else if (is_power_of_2(sizeof(int_default_t)) && sizeof(int_default_t) == sizeof(unsigned long long)) {
+	}
+	if (is_power_of_2(sizeof(int_default_t)) && sizeof(int_default_t) == sizeof(unsigned long long)) {
 		val = (uint_default_t)1 << ((unsigned)(sizeof(uint_default_t) * 8 - 1) CLZ_BSR_OP __builtin_clzll(val + val - 1));
 		if (unlikely((int_default_t)val < 0))
 			return likely(!len) ? 0 : val - 1;
 		else
 			return val;
-	} else
-#endif
-	{
-		val--;
-		val |= val >> 1;
-		val |= val >> 2;
-		val |= val >> 4;
-		val |= val >> 8;
-		val |= val >> 15 >> 1;
-		val |= val >> 15 >> 15 >> 2;
-		val |= val >> 15 >> 15 >> 15 >> 15 >> 4;
-		val++;
-		if (unlikely((int_default_t)val < 0))
-			return val - 1;
-		else
-			return val;
 	}
+#endif
+	val--;
+	val |= val >> 1;
+	val |= val >> 2;
+	val |= val >> 4;
+	val |= val >> 8;
+	val |= val >> 15 >> 1;
+	val |= val >> 15 >> 15 >> 2;
+	val |= val >> 15 >> 15 >> 15 >> 15 >> 4;
+	val++;
+	if (unlikely((int_default_t)val < 0))
+		return val - 1;
+	else
+		return val;
 }
 
 
