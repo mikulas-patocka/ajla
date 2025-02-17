@@ -1486,8 +1486,10 @@ do_bt: {
 				case BTX_BT:
 					if (cnst) {
 						g(gen_3address_rot_imm(ctx, i_size(op_size), ROT_SHR, target, reg1, cnst, 0));
+						g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_AND, target, target, 1, 0));
+					} else {
+						g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_AND, target, reg1, 1, 0));
 					}
-					g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_AND, target, target, 1, 0));
 					break;
 				default:
 					internal(file_line, "do_alu: invalid bit test %u", alu);
