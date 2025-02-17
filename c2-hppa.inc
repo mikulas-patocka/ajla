@@ -1013,7 +1013,7 @@ static bool attr_w cgen_btx(struct codegen_context *ctx, unsigned size, unsigned
 					return true;
 				case BTX_BTEXT:
 					mc = PARISC_EXTRD_U;
-					mc |= 31U | (((63 - bit) & 0x1f) << 5) | (((63 - bit) & 0x20) << 6);
+					mc ^= 31U | 0x1000 | (((63 - bit) & 0x1f) << 5) | ((bit & 0x20) << 6);
 					g(cgen_2reg(ctx, mc, arg2[0], arg1[0]));
 					return true;
 				default:
