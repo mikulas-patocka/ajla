@@ -148,6 +148,13 @@ static bool attr_w gen_3address_rot_imm(struct codegen_context *ctx, unsigned si
 
 static bool attr_w gen_2address_alu1(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src, unsigned writes_flags)
 {
+#if defined(ARCH_S390)
+	if (alu == ALU1_NOT) {
+		g(gen_3address_alu_imm(ctx, size, ALU_XOR, dest, src, -1, writes_flags));
+
+		return true;
+	}
+#endif
 	if (!ARCH_IS_2ADDRESS(alu) && dest != src) {
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src));
 
