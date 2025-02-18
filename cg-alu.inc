@@ -1757,17 +1757,6 @@ do_alu: {
 			}
 #endif
 			g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, slot_1, 0, R_SCRATCH_1, R_SCRATCH_2));
-#if defined(ARCH_S390)
-			if (alu == ALU1_NOT) {
-				g(gen_load_constant(ctx, R_SCRATCH_3, -1));
-
-				g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_XOR, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_3, 0));
-				g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_XOR, R_SCRATCH_2, R_SCRATCH_2, R_SCRATCH_3, 0));
-
-				g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, R_SCRATCH_1, R_SCRATCH_2));
-				return true;
-			}
-#endif
 			g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, alu, R_SCRATCH_1, R_SCRATCH_1, alu == ALU1_NEG ? 2 : 0));
 			if (alu == ALU1_NOT) {
 				g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_NOT, R_SCRATCH_2, R_SCRATCH_2, 0));
@@ -1877,14 +1866,6 @@ do_undo_opcode:
 				ex = garbage;
 		}
 		g(gen_frame_get(ctx, op_size, ex, slot_1, mode == MODE_INT ? R_SCRATCH_2 : target, &reg1));
-#if defined(ARCH_S390)
-		if (alu == ALU1_NOT) {
-			g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, target, reg1, -1, 0));
-
-			g(gen_frame_store(ctx, op_size, slot_r, 0, target));
-			return true;
-		}
-#endif
 #if defined(ARCH_X86)
 		g(gen_2address_alu1(ctx, op_size, alu, target, reg1, mode == MODE_INT));
 #else
