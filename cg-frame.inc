@@ -840,6 +840,8 @@ static bool arm64_can_pair(struct codegen_context *ctx, frame_t slot1, frame_t s
 	const struct type *t2 = get_type_of_local(ctx, slot2);
 	unsigned s1 = spill_size(t1);
 	unsigned s2 = spill_size(t2);
+	if (TYPE_TAG_IS_REAL(t1->tag) || TYPE_TAG_IS_REAL(t2->tag))
+		return false;
 	if (unlikely(s1 > OP_SIZE_NATIVE) || unlikely(s2 > OP_SIZE_NATIVE))
 		return false;
 	s1 = maximum(s1, OP_SIZE_SLOT);
@@ -854,10 +856,60 @@ static bool arm64_can_pair(struct codegen_context *ctx, frame_t slot1, frame_t s
 }
 #endif
 
+static bool attr_w gen_spill_multiple(struct codegen_context *ctx, frame_t *v, size_t l)
+{
+	size_t i;
+	for (i = 0; i < l; i++) {
+#if defined(ARCH_ARM64)
+		if (i + 1 < l) {
+			unsigned s;
+			int64_t offset;
+			if (!arm64_can_pair(ctx, v[i], v[i + 1], &s, &offset))
+				goto skip_opt;
+			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
+			gen_insn(INSN_STP, s, 0, 0);
+			gen_address_offset();
+			gen_one(ctx->registers[v[i]]);
+			gen_one(ctx->registers[v[i + 1]]);
+			i++;
+			continue;
+		}
+skip_opt:
+#endif
+		g(spill(ctx, v[i]));
+	}
+	return true;
+}
+
+static bool attr_w gen_unspill_multiple(struct codegen_context *ctx, frame_t *v, size_t l)
+{
+	size_t i;
+	for (i = 0; i < l; i++) {
+#if defined(ARCH_ARM64)
+		if (i + 1 < l) {
+			unsigned s;
+			int64_t offset;
+			if (!arm64_can_pair(ctx, v[i], v[i + 1], &s, &offset))
+				goto skip_opt;
+			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
+			gen_insn(INSN_LDP, s, 0, 0);
+			gen_one(ctx->registers[v[i]]);
+			gen_one(ctx->registers[v[i + 1]]);
+			gen_address_offset();
+			i++;
+			continue;
+		}
+skip_opt:
+#endif
+		g(unspill(ctx, v[i]));
+	}
+	return true;
+}
+
 static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned offset, unsigned args)
 {
 	unsigned idx;
-	size_t i;
+	size_t attr_unused i;
 	int attr_unused reg_to_push = -1;
 	ajla_assert_lo(ctx->upcall_args == -1, (file_line, "gen_upcall_start: gen_upcall_end not called"));
 	ajla_assert_lo(ctx->upcall_offset == -1, (file_line, "gen_upcall_start: gen_upcall_end not called"));
@@ -893,32 +945,14 @@ static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned offset
 		g(gen_x86_push2(ctx, reg_to_push, R_CX, true));
 	}
 #else
-	for (i = 0; i < ctx->need_spill_l; i++) {
-#if defined(ARCH_ARM64)
-		if (i + 1 < ctx->need_spill_l) {
-			unsigned s;
-			int64_t offset;
-			if (!arm64_can_pair(ctx, ctx->need_spill[i], ctx->need_spill[i + 1], &s, &offset))
-				goto skip_opt;
-			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
-			gen_insn(INSN_STP, s, 0, 0);
-			gen_address_offset();
-			gen_one(ctx->registers[ctx->need_spill[i]]);
-			gen_one(ctx->registers[ctx->need_spill[i + 1]]);
-			i++;
-			continue;
-		}
-skip_opt:
-#endif
-		g(spill(ctx, ctx->need_spill[i]));
-	}
+	g(gen_spill_multiple(ctx, ctx->need_spill, ctx->need_spill_l));
 #endif
 	return true;
 }
 
 static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned attr_unused offset, unsigned attr_unused args)
 {
-	size_t i;
+	size_t attr_unused i;
 	int attr_unused reg_to_pop = -1;
 	ajla_assert_lo(ctx->upcall_args == (int)args, (file_line, "gen_upcall_end: gen_upcall_start args mismatch: %d != %d", ctx->upcall_args, (int)args));
 	ajla_assert_lo(ctx->upcall_offset == (int)offset, (file_line, "gen_upcall_end: gen_upcall_start offset mismatch: %d != %d", ctx->upcall_offset, (int)offset));
@@ -949,27 +983,8 @@ static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned attr_unu
 			g(unspill(ctx, ctx->need_spill[i]));
 	}
 #else
-	for (i = 0; i < ctx->need_spill_l; i++) {
-#if defined(ARCH_ARM64)
-		if (i + 1 < ctx->need_spill_l) {
-			unsigned s;
-			int64_t offset;
-			if (!arm64_can_pair(ctx, ctx->need_spill[i], ctx->need_spill[i + 1], &s, &offset))
-				goto skip_opt;
-			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
-			gen_insn(INSN_LDP, s, 0, 0);
-			gen_one(ctx->registers[ctx->need_spill[i]]);
-			gen_one(ctx->registers[ctx->need_spill[i + 1]]);
-			gen_address_offset();
-			i++;
-			continue;
-		}
-skip_opt:
+	g(gen_unspill_multiple(ctx, ctx->need_spill, ctx->need_spill_l));
 #endif
-		g(unspill(ctx, ctx->need_spill[i]));
-	}
-#endif
-
 	ctx->upcall_args = -1;
 	ctx->upcall_offset = -1;
 	ctx->upcall_hacked_abi = false;

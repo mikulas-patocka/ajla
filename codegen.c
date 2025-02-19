@@ -2166,11 +2166,26 @@ static bool attr_w gen_epilogues(struct codegen_context *ctx)
 		}
 	}
 	gen_label(escape_label);
+#if 1
 	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
 		if (slot_is_register(ctx, v)) {
 			g(spill(ctx, v));
 		}
 	}
+#else
+	vars = mem_alloc_array_mayfail(mem_alloc_mayfail, frame_t *, 0, 0, function_n_variables(ctx->fn), sizeof(frame_t), &ctx->err);
+	if (unlikely(!vars))
+		return false;
+	n_vars = 0;
+	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++)
+		if (slot_is_register(ctx, v))
+			vars[n_vars++] = v;
+	if (unlikely(!gen_spill_multiple(ctx, vars, n_vars))) {
+		mem_free(vars);
+		return false;
+	}
+	mem_free(vars);
+#endif
 	gen_label(nospill_label);
 	g(gen_escape(ctx));
 	return true;
