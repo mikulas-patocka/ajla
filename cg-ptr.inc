@@ -72,17 +72,23 @@ static bool attr_w gen_test_multiple_thunks(struct codegen_context *ctx, frame_t
 static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *variables, size_t n_variables, uint32_t label)
 {
 	size_t i;
-	frame_t *vars;
-
-	for (i = 0; i < n_variables; i++) {
-		frame_t v = variables[i];
-		if (slot_is_register(ctx, v))
-			g(unspill(ctx, v));
-	}
+	frame_t n_vars, *vars;
 
 	vars = mem_alloc_array_mayfail(mem_alloc_mayfail, frame_t *, 0, 0, n_variables, sizeof(frame_t), &ctx->err);
 	if (unlikely(!vars))
 		return false;
+
+	n_vars = 0;
+	for (i = 0; i < n_variables; i++) {
+		frame_t v = variables[i];
+		if (slot_is_register(ctx, v))
+			vars[n_vars++] = v;
+	}
+
+	if (unlikely(!gen_unspill_multiple(ctx, vars, n_vars, false))) {
+		mem_free(vars);
+		return false;
+	}
 
 	for (i = 0; i < 2; i++) {
 		size_t n_vars = 0;

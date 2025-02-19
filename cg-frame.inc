@@ -883,7 +883,7 @@ skip_opt:
 	return true;
 }
 
-static bool attr_w gen_unspill_multiple(struct codegen_context *ctx, frame_t *v, size_t l)
+static bool attr_w gen_unspill_multiple(struct codegen_context *ctx, frame_t *v, size_t l, bool attr_unused can_be_smaller)
 {
 	size_t i;
 	for (i = 0; i < l; i++) {
@@ -891,7 +891,7 @@ static bool attr_w gen_unspill_multiple(struct codegen_context *ctx, frame_t *v,
 		if (i + 1 < l) {
 			unsigned s;
 			int64_t offset;
-			if (!arm64_can_pair(ctx, v[i], v[i + 1], &s, &offset, true))
+			if (!arm64_can_pair(ctx, v[i], v[i + 1], &s, &offset, can_be_smaller))
 				goto skip_opt;
 			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
 			gen_insn(INSN_LDP, s, 0, 0);
@@ -985,7 +985,7 @@ static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned attr_unu
 			g(unspill(ctx, ctx->need_spill[i]));
 	}
 #else
-	g(gen_unspill_multiple(ctx, ctx->need_spill, ctx->need_spill_l));
+	g(gen_unspill_multiple(ctx, ctx->need_spill, ctx->need_spill_l, true));
 #endif
 	ctx->upcall_args = -1;
 	ctx->upcall_offset = -1;
