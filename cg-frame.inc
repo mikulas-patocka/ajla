@@ -833,6 +833,27 @@ static bool attr_w gen_frame_load_cmp_imm_set_cond(struct codegen_context *ctx, 
 	return true;
 }
 
+#if defined(ARCH_ARM64)
+static bool arm64_can_pair(struct codegen_context *ctx, frame_t slot1, frame_t slot2, unsigned *s, int64_t *o)
+{
+	const struct type *t1 = get_type_of_local(ctx, slot1);
+	const struct type *t2 = get_type_of_local(ctx, slot2);
+	unsigned s1 = spill_size(t1);
+	unsigned s2 = spill_size(t2);
+	if (unlikely(s1 > OP_SIZE_NATIVE) || unlikely(s2 > OP_SIZE_NATIVE))
+		return false;
+	s1 = maximum(s1, OP_SIZE_SLOT);
+	s2 = maximum(s2, OP_SIZE_SLOT);
+	if (unlikely(s1 != s2))
+		return false;
+	if (slot1 + 1 + (s1 > OP_SIZE_SLOT) != slot2)
+		return false;
+	*s = s1;
+	*o = (size_t)slot1 * slot_size;
+	return true;
+}
+#endif
+
 static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned offset, unsigned args)
 {
 	unsigned idx;
@@ -872,8 +893,25 @@ static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned offset
 		g(gen_x86_push2(ctx, reg_to_push, R_CX, true));
 	}
 #else
-	for (i = 0; i < ctx->need_spill_l; i++)
+	for (i = 0; i < ctx->need_spill_l; i++) {
+#if defined(ARCH_ARM64)
+		if (i + 1 < ctx->need_spill_l) {
+			unsigned s;
+			int64_t offset;
+			if (!arm64_can_pair(ctx, ctx->need_spill[i], ctx->need_spill[i + 1], &s, &offset))
+				goto skip_opt;
+			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
+			gen_insn(INSN_STP, s, 0, 0);
+			gen_address_offset();
+			gen_one(ctx->registers[ctx->need_spill[i]]);
+			gen_one(ctx->registers[ctx->need_spill[i + 1]]);
+			i++;
+			continue;
+		}
+skip_opt:
+#endif
 		g(spill(ctx, ctx->need_spill[i]));
+	}
 #endif
 	return true;
 }
@@ -911,8 +949,25 @@ static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned attr_unu
 			g(unspill(ctx, ctx->need_spill[i]));
 	}
 #else
-	for (i = 0; i < ctx->need_spill_l; i++)
+	for (i = 0; i < ctx->need_spill_l; i++) {
+#if defined(ARCH_ARM64)
+		if (i + 1 < ctx->need_spill_l) {
+			unsigned s;
+			int64_t offset;
+			if (!arm64_can_pair(ctx, ctx->need_spill[i], ctx->need_spill[i + 1], &s, &offset))
+				goto skip_opt;
+			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
+			gen_insn(INSN_LDP, s, 0, 0);
+			gen_one(ctx->registers[ctx->need_spill[i]]);
+			gen_one(ctx->registers[ctx->need_spill[i + 1]]);
+			gen_address_offset();
+			i++;
+			continue;
+		}
+skip_opt:
+#endif
 		g(unspill(ctx, ctx->need_spill[i]));
+	}
 #endif
 
 	ctx->upcall_args = -1;
