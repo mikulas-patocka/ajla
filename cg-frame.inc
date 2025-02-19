@@ -834,7 +834,7 @@ static bool attr_w gen_frame_load_cmp_imm_set_cond(struct codegen_context *ctx, 
 }
 
 #if defined(ARCH_ARM64)
-static bool arm64_can_pair(struct codegen_context *ctx, frame_t slot1, frame_t slot2, unsigned *s, int64_t *o)
+static bool arm64_can_pair(struct codegen_context *ctx, frame_t slot1, frame_t slot2, unsigned *s, int64_t *o, bool can_be_smaller)
 {
 	const struct type *t1 = get_type_of_local(ctx, slot1);
 	const struct type *t2 = get_type_of_local(ctx, slot2);
@@ -843,6 +843,8 @@ static bool arm64_can_pair(struct codegen_context *ctx, frame_t slot1, frame_t s
 	if (TYPE_TAG_IS_REAL(t1->tag) || TYPE_TAG_IS_REAL(t2->tag))
 		return false;
 	if (unlikely(s1 > OP_SIZE_NATIVE) || unlikely(s2 > OP_SIZE_NATIVE))
+		return false;
+	if (!can_be_smaller && (s1 < OP_SIZE_SLOT || s2 < OP_SIZE_SLOT))
 		return false;
 	s1 = maximum(s1, OP_SIZE_SLOT);
 	s2 = maximum(s2, OP_SIZE_SLOT);
@@ -856,7 +858,7 @@ static bool arm64_can_pair(struct codegen_context *ctx, frame_t slot1, frame_t s
 }
 #endif
 
-static bool attr_w gen_spill_multiple(struct codegen_context *ctx, frame_t *v, size_t l)
+static bool attr_w gen_spill_multiple(struct codegen_context *ctx, frame_t *v, size_t l, bool attr_unused can_be_smaller)
 {
 	size_t i;
 	for (i = 0; i < l; i++) {
@@ -864,7 +866,7 @@ static bool attr_w gen_spill_multiple(struct codegen_context *ctx, frame_t *v, s
 		if (i + 1 < l) {
 			unsigned s;
 			int64_t offset;
-			if (!arm64_can_pair(ctx, v[i], v[i + 1], &s, &offset))
+			if (!arm64_can_pair(ctx, v[i], v[i + 1], &s, &offset, can_be_smaller))
 				goto skip_opt;
 			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
 			gen_insn(INSN_STP, s, 0, 0);
@@ -889,7 +891,7 @@ static bool attr_w gen_unspill_multiple(struct codegen_context *ctx, frame_t *v,
 		if (i + 1 < l) {
 			unsigned s;
 			int64_t offset;
-			if (!arm64_can_pair(ctx, v[i], v[i + 1], &s, &offset))
+			if (!arm64_can_pair(ctx, v[i], v[i + 1], &s, &offset, true))
 				goto skip_opt;
 			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
 			gen_insn(INSN_LDP, s, 0, 0);
@@ -945,7 +947,7 @@ static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned offset
 		g(gen_x86_push2(ctx, reg_to_push, R_CX, true));
 	}
 #else
-	g(gen_spill_multiple(ctx, ctx->need_spill, ctx->need_spill_l));
+	g(gen_spill_multiple(ctx, ctx->need_spill, ctx->need_spill_l, true));
 #endif
 	return true;
 }

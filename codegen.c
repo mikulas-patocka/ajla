@@ -1136,7 +1136,7 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 	}
 #endif
 	/*for (v = function_n_variables(ctx->fn) - 1; v >= MIN_USEABLE_SLOT; v--)*/
-	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
+	for (v = 0; v < function_n_variables(ctx->fn); v++) {
 		const struct type *t;
 		ctx->registers[v] = -1;
 		if (ra_chicken)
@@ -2127,7 +2127,7 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 
 static bool attr_w gen_epilogues(struct codegen_context *ctx)
 {
-	frame_t v;
+	frame_t v, n_vars, *vars;
 	ip_t ip;
 	uint32_t escape_label, nospill_label;
 	escape_label = alloc_label(ctx);
@@ -2166,13 +2166,7 @@ static bool attr_w gen_epilogues(struct codegen_context *ctx)
 		}
 	}
 	gen_label(escape_label);
-#if 1
-	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
-		if (slot_is_register(ctx, v)) {
-			g(spill(ctx, v));
-		}
-	}
-#else
+
 	vars = mem_alloc_array_mayfail(mem_alloc_mayfail, frame_t *, 0, 0, function_n_variables(ctx->fn), sizeof(frame_t), &ctx->err);
 	if (unlikely(!vars))
 		return false;
@@ -2180,12 +2174,12 @@ static bool attr_w gen_epilogues(struct codegen_context *ctx)
 	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++)
 		if (slot_is_register(ctx, v))
 			vars[n_vars++] = v;
-	if (unlikely(!gen_spill_multiple(ctx, vars, n_vars))) {
+	if (unlikely(!gen_spill_multiple(ctx, vars, n_vars, false))) {
 		mem_free(vars);
 		return false;
 	}
 	mem_free(vars);
-#endif
+
 	gen_label(nospill_label);
 	g(gen_escape(ctx));
 	return true;
