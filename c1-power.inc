@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -358,9 +358,6 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 		case IMM_PURPOSE_ANDN:
 			break;
 		case IMM_PURPOSE_ADD:
-		case IMM_PURPOSE_CMP:
-			if (likely(imm >= -0x8000) && likely(imm < 0x8000))
-				return true;
 			if (imm & 0xffff)
 				break;
 			if (likely(imm >= -0x80000000L) && likely(imm < 0x80000000L))
@@ -374,7 +371,14 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 			if (likely(imm > -0x80000000L) && likely(imm <= 0x80000000L))
 				return true;
 			break;
+		case IMM_PURPOSE_CMP:
+			if (likely(imm >= -0x8000) && likely(imm < 0x8000))
+				return true;
+			break;
 		case IMM_PURPOSE_CMP_LOGICAL:
+			if (likely(imm >= 0) && likely(imm < 0x10000))
+				return true;
+			break;
 		case IMM_PURPOSE_AND:
 		case IMM_PURPOSE_OR:
 		case IMM_PURPOSE_XOR:
