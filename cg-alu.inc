@@ -769,12 +769,15 @@ do_multiply: {
 		{
 #if defined(ARCH_S390)
 			target = R_SCRATCH_1;
+			reg1 = R_SCRATCH_1;
+			reg2 = R_SCRATCH_3;
+			g(gen_frame_load(ctx, op_size, sign_x, slot_1, 0, false, R_SCRATCH_1));
+			g(gen_frame_load(ctx, op_size, sign_x, slot_2, 0, false, R_SCRATCH_3));
 #else
 			target = gen_frame_target(ctx, slot_r, slot_1, slot_2, R_SCRATCH_1);
-#endif
 			g(gen_frame_get(ctx, op_size, sign_x, slot_1, R_SCRATCH_1, &reg1));
 			g(gen_frame_get(ctx, op_size, sign_x, slot_2, R_SCRATCH_3, &reg2));
-
+#endif
 			gen_insn(INSN_MUL_L, op_size, 0, 0);
 			gen_one(target);
 			gen_one(R_SCRATCH_2);

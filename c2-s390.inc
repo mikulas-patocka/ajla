@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -1239,7 +1239,7 @@ static bool attr_w cgen_mul_l(struct codegen_context *ctx, unsigned size)
 	g(cgen_s390(ctx, code));
 	return true;
 invl:
-	internal(file_line, "cgen_mul_l: invalid arguments %02x, %02x, %02x, %02x", *arg1, *arg2, *arg3, *arg4);
+	internal(file_line, "cgen_mul_l: invalid arguments %u, %02x, %02x, %02x, %02x", size, *arg1, *arg2, *arg3, *arg4);
 	return false;
 }
 
