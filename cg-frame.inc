@@ -833,7 +833,7 @@ static bool attr_w gen_frame_load_cmp_imm_set_cond(struct codegen_context *ctx, 
 	return true;
 }
 
-#if defined(ARCH_ARM) || defined(ARCH_S390)
+#if defined(ARCH_ARM) || defined(ARCH_S390) || defined(ARCH_SPARC)
 static bool spill_can_pair(struct codegen_context *ctx, frame_t slot1, frame_t slot2, unsigned *s, int64_t *o, bool can_be_smaller)
 {
 	const struct type *t1 = get_type_of_local(ctx, slot1);
@@ -855,12 +855,20 @@ static bool spill_can_pair(struct codegen_context *ctx, frame_t slot1, frame_t s
 #if defined(ARCH_ARM32)
 	if (unlikely(!cpu_test_feature(CPU_FEATURE_armv6)))
 		return false;
+#endif
+#if defined(ARCH_ARM32) || defined(ARCH_SPARC)
 	if (ctx->registers[slot1] & 1 ||
 	    ctx->registers[slot2] != ctx->registers[slot1] + 1)
 		return false;
 #endif
 #if defined(ARCH_S390)
 	if (ctx->registers[slot2] != ctx->registers[slot1] + 1)
+		return false;
+#endif
+#if defined(ARCH_SPARC)
+	if (s1 != OP_SIZE_4)
+		return false;
+	if ((frame_offset + (slot1 * slot_size)) & 0x7)
 		return false;
 #endif
 	*s = s1;
@@ -873,7 +881,7 @@ static bool attr_w gen_spill_multiple(struct codegen_context *ctx, frame_t *v, s
 {
 	size_t i;
 	for (i = 0; i < l; i++) {
-#if defined(ARCH_ARM) || defined(ARCH_S390)
+#if defined(ARCH_ARM) || defined(ARCH_S390) || defined(ARCH_SPARC)
 		if (i + 1 < l) {
 			unsigned s;
 			int64_t offset;
@@ -882,7 +890,7 @@ static bool attr_w gen_spill_multiple(struct codegen_context *ctx, frame_t *v, s
 			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
 			gen_insn(INSN_STP, s, 0, 0);
 			gen_address_offset();
-#if defined(ARCH_S390)
+#if defined(ARCH_S390) || defined(ARCH_SPARC)
 			gen_one(ctx->registers[v[i + 1]]);
 			gen_one(ctx->registers[v[i]]);
 #else
@@ -903,7 +911,7 @@ static bool attr_w gen_unspill_multiple(struct codegen_context *ctx, frame_t *v,
 {
 	size_t i;
 	for (i = 0; i < l; i++) {
-#if defined(ARCH_ARM) || defined(ARCH_S390)
+#if defined(ARCH_ARM) || defined(ARCH_S390) || defined(ARCH_SPARC)
 		if (i + 1 < l) {
 			unsigned s;
 			int64_t offset;
@@ -911,7 +919,7 @@ static bool attr_w gen_unspill_multiple(struct codegen_context *ctx, frame_t *v,
 				goto skip_opt;
 			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
 			gen_insn(INSN_LDP, s, 0, 0);
-#if defined(ARCH_S390)
+#if defined(ARCH_S390) || defined(ARCH_SPARC)
 			gen_one(ctx->registers[v[i + 1]]);
 			gen_one(ctx->registers[v[i]]);
 #else
