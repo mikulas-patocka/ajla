@@ -1339,7 +1339,7 @@ static bool attr_w cgen_ldp_stp(struct codegen_context *ctx, unsigned size, bool
 		g(cgen_lm_stm(ctx, size, arg3[0], arg2[0], arg1, S390_STM, S390_STMY, S390_STMG));
 	return true;
 invl:
-	internal(file_line, "cgen_ldp_stp: invalid arguments %u, %02x, %02x, %02x", size, *arg1, *arg2, *arg3);
+	internal(file_line, "cgen_ldp_stp: invalid arguments %u, %u, %02x, %02x, %02x", (unsigned)st, size, *arg1, *arg2, *arg3);
 	return false;
 }
 
