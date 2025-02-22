@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -442,6 +442,19 @@ static ipret_inline bool attr_unused cat4(REAL_binary_,fn,_,type)(const type *op
 	return true;							\
 }
 
+#define gen_vfp_half_unary(fn, type, op)				\
+static ipret_inline bool attr_unused cat4(REAL_unary_,fn,_,type)(const type *op1, type *res)\
+{									\
+	__asm__ (ARM_ASM_PREFIX "					\n\
+		vld1.16			d0[0], [ %1 ]			\n\
+		vcvtb.f32.f16		s0, s0				\n\
+		"op".f32		s0, s0				\n\
+		vcvtb.f16.f32		s0, s0				\n\
+		vst1.16			d0[0], [ %0 ]			\n\
+	" :: "r"(res), "r"(op1) : "d0", "memory");			\
+	return true;							\
+}
+
 #ifdef INLINE_ASM_GCC_LABELS
 #define gen_vfp_half_logical(fn, type, cond)				\
 static ipret_inline bool attr_unused cat4(REAL_binary_,fn,_,type)(const type *op1, const type *op2, ajla_flat_option_t *res)\
@@ -632,6 +645,7 @@ gen_vfp_half_binary(add_alt1, real16_t, "vadd")				\
 gen_vfp_half_binary(subtract_alt1, real16_t, "vsub")			\
 gen_vfp_half_binary(multiply_alt1, real16_t, "vmul")			\
 gen_vfp_half_binary(divide_alt1, real16_t, "vdiv")			\
+gen_vfp_half_unary(sqrt_alt1, real16_t, "vsqrt")			\
 gen_vfp_half_logical(equal_alt1, real16_t, eq)				\
 gen_vfp_half_logical(not_equal_alt1, real16_t, ne)			\
 gen_vfp_half_logical(less_alt1, real16_t, mi)				\
