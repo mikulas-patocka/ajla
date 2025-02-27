@@ -51,37 +51,44 @@ fn get_z3_bb_name(ctx : context, bgi : int) : (context, bytes)
 	return ctx, str;
 ]
 
-fn get_z3_type(ctx : context, type_index : int) : (context, bytes)
+fn get_z3_type(ctx : context, runtime_type : int) : (context, bytes)
 [
-	if type_index = T_Bool then
+	if runtime_type = T_Bool then
 		return ctx, "Bool";
-	if type_index <= T_Integer, type_index >= T_Integer128 then
+	if runtime_type <= T_Integer, runtime_type >= T_Integer128 then
 		return ctx, "Int";
-	if type_index <= T_Real16, type_index >= T_Real128 then
+	if runtime_type <= T_Real16, runtime_type >= T_Real128 then
 		return ctx, "Real";
-	if len_greater_than(ctx.variables[type_index].type_name, 0) then
-		return ctx, ctx.variables[type_index].type_name;
-	var ins := ctx.instrs[ctx.variables[type_index].defining_instr];
-	if ins.opcode = P_Array_Flexible or ins.opcode = P_Array_Fixed then [
-		var t1 := ins.params[1];
+	if runtime_type < 0 then
+		return ctx, "";
+	var lt := ctx.local_types[runtime_type];
+	if lt is arr or lt is flat_array then [
+		var a : int;
+		if lt is arr then
+			a := lt.arr;
+		else
+			a := lt.flat_array.flat_type;
 		var t1_str : bytes;
-		ctx, t1_str := get_z3_type(ctx, t1);
+		ctx, t1_str := get_z3_type(ctx, a);
 		if not len_greater_than(t1_str, 0) then
 			return ctx, "";
-		ctx.variables[type_index].type_name := "(Arr " + t1_str + ")";
-		return ctx, ctx.variables[type_index].type_name;
+		return ctx, "(Arr " + t1_str + ")";
 	]
 	return ctx, "";
 ]
 
 fn get_array_type(ctx : context, v : int) : (context, bytes)
 [
-	var type_index := ctx.variables[v].type_index;
-	var ins := ctx.instrs[ctx.variables[type_index].defining_instr];
-	if ins.opcode = P_Array_Flexible or ins.opcode = P_Array_Fixed then [
-		return get_z3_type(ctx, ins.params[1]);
+	var lt := ctx.local_types[ctx.variables[v].runtime_type];
+	if lt is arr or lt is flat_array then [
+		var a : int;
+		if lt is arr then
+			a := lt.arr;
+		else
+			a := lt.flat_array.flat_type;
+		return get_z3_type(ctx, a);
 	]
-	abort internal("get_array_type: invalid type " + ntos(ins.opcode));
+	abort internal("get_array_type: invalid type " + ntos(ord lt));
 ]
 
 fn gen_assert(implicit z3w : z3_world, implicit z3ctx : z3_context, var_name : bytes, ops : bytes) : z3_world
@@ -212,7 +219,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb);
 		if len(var1) = 0 then
 			return ctx;
-		ctx, t1 := get_z3_type(ctx, ctx.variables[ins.params[2]].type_index);
+		ctx, t1 := get_z3_type(ctx, ctx.variables[ins.params[2]].runtime_type);
 		if len(t1) = 0 then
 			return ctx;
 		ctx, var2 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
@@ -334,7 +341,7 @@ fn allocate_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx :
 [
 	if not len_greater_than(ctx.variables[v].verifier_name[phi_node], 0) then [
 		var t : bytes;
-		ctx, t := get_z3_type(ctx, ctx.variables[v].type_index);
+		ctx, t := get_z3_type(ctx, ctx.variables[v].runtime_type);
 		if not len_greater_than(t, 0) then
 			return ctx, "";
 		var n := get_z3_name(ctx, v, phi_node);

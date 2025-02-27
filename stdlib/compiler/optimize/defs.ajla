@@ -106,7 +106,6 @@ record variable [
 	ra_priority : int;
 
 	verifier_name : list(bytes);
-	type_name : bytes;
 ]
 
 fn new_variable : variable
@@ -126,7 +125,6 @@ fn new_variable : variable
 		needed : false,
 		ra_priority : 0,
 		verifier_name : infinite(""),
-		type_name : "",
 	];
 ]
 
