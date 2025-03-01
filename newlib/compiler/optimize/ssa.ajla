@@ -1644,7 +1644,7 @@ retry:
 
 			var n, f := function_load(ins.params[2 + ins.params[1] .. ]);
 			ltfr.non_flat_record := len(ctx.local_types);
-			var lt := local_type.rec.(local_type_record.[ opt : false, f : f, types : list_of_types ]);
+			var lt := local_type.rec.(local_type_record.[ opt : false, f : f, types : list_of_types, name : "" ]);
 			ctx.local_types +<= lt;
 
 			ctx.variables[vgi].local_type := len(ctx.local_types);
@@ -2762,6 +2762,13 @@ retry_optimize:
 	ctx := check_consistency(ctx, "prune_unreachable", true);
 
 	if do_verify then [
+		for i := 0 to len(ctx.local_types) do [
+			var lt := ctx.local_types[i];
+			if lt is rec then [
+				var pc := get_inline(lt.rec.f, false);
+				ctx.local_types[i].rec.name := blob_load(pc[9 .. ]);
+			]
+		]
 		if print_passes then [ eval ctx; eval debug("verify_function"); if is_exception ctx then eval debug("ctx exception"); ]
 		xeval verify_function(ctx);
 	]

@@ -139,6 +139,7 @@ record local_type_record [
 	opt : bool;
 	f : function;
 	types : list(int);
+	name : bytes;
 ]
 
 record local_type_flat_record [

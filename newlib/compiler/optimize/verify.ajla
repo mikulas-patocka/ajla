@@ -383,7 +383,7 @@ fn verify_function(ctx : context) : unit_type
 		if not first then
 			str += " ";
 		first := false;
-		var name := "LT_" + ntos(lti);
+		var name := "LT_" + ntos(lti) + "-" + lt.rec.name;
 		ctx.local_type_names[lti] := name;
 		str += "(" + name + " 0)";
 	]
@@ -408,6 +408,17 @@ fn verify_function(ctx : context) : unit_type
 			]
 			str += "))";
 		] else [
+			str += "(" + name;
+			for i := 0 to len(ltr.types) do [
+				str += " (mk-" + name + "-" + ntos(i);
+				if ltr.types[i] <> T_EmptyOption then [
+					//eval debug("OPT: " + ntos(ltr.types[i]));
+					ctx, b := get_z3_type(ctx, ltr.types[i]);
+					str += " (entry-" + name + "-" + ntos(i) + " " + b + ")";
+				]
+				str += ")";
+			]
+			str += ")";
 		]
 	]
 	str += "))";
