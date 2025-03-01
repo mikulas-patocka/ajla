@@ -59,6 +59,8 @@ fn get_z3_type(ctx : context, runtime_type : int) : (context, bytes)
 		return ctx, "Int";
 	if runtime_type <= T_Real16, runtime_type >= T_Real128 then
 		return ctx, "Real";
+	if runtime_type = T_Undetermined then
+		return ctx, "Undetermined";
 	if runtime_type < 0 then
 		return ctx, "";
 	if len_greater_than(ctx.local_type_names[runtime_type], 0) then
@@ -75,6 +77,12 @@ fn get_z3_type(ctx : context, runtime_type : int) : (context, bytes)
 		if not len_greater_than(t1_str, 0) then
 			return ctx, "";
 		var str := "(Arr " + t1_str + ")";
+		ctx.local_type_names[runtime_type] := str;
+		return ctx, str;
+	]
+	if lt is flat_rec then [
+		var str : bytes;
+		ctx, str := get_z3_type(ctx, lt.flat_rec.non_flat_record);
 		ctx.local_type_names[runtime_type] := str;
 		return ctx, str;
 	]
@@ -363,7 +371,47 @@ fn verify_function(ctx : context) : unit_type
 	implicit var z3ctx := z3_mk_context();
 	//eval debug("verify function " + ctx.name);
 
+	z3_eval_smtlib2_string_noret("(declare-sort Undetermined 0)");
 	z3_eval_smtlib2_string_noret("(declare-datatypes (T) ((Arr (mk-arr (arr-len Int) (arr (Array Int T))))))");
+
+	var str := "(declare-datatypes (";
+	var first := true;
+	for lti := 0 to len(ctx.local_types) do [
+		var lt := ctx.local_types[lti];
+		if lt is arr or lt is flat_array or lt is flat_rec then
+			continue;
+		if not first then
+			str += " ";
+		first := false;
+		var name := "LT_" + ntos(lti);
+		ctx.local_type_names[lti] := name;
+		str += "(" + name + " 0)";
+	]
+	str += ") (";
+	first := true;
+	for lti := 0 to len(ctx.local_types) do [
+		var lt := ctx.local_types[lti];
+		if lt is arr or lt is flat_array or lt is flat_rec then
+			continue;
+		if not first then
+			str += " ";
+		first := false;
+		var ltr := lt.rec;
+		var name := ctx.local_type_names[lti];
+		if not ltr.opt then [
+			str += "(" + name + " (mk-" + name;
+			if len_greater_than(ltr.types, 0) then [
+				for i := 0 to len(ltr.types) do [
+					ctx, b := get_z3_type(ctx, ltr.types[i]);
+					str += " (entry-" + name + "-" + ntos(i) + " " + b + ")";
+				]
+			]
+			str += "))";
+		] else [
+		]
+	]
+	str += "))";
+	z3_eval_smtlib2_string_noret(str);
 
 	for bgi := 0 to len(ctx.blocks) do [
 		if not ctx.blocks[bgi].active then

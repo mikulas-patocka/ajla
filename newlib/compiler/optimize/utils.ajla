@@ -437,7 +437,7 @@ fn load_function_context(pc : list(pcode_t)) : context
 [
 	var ctx := context.[
 		local_types : empty(local_type),
-		local_type_names : empty(bytes),
+		local_type_names : infinite(""),
 		instrs : empty(instruction),
 		blocks : empty(basic_block),
 
@@ -486,7 +486,6 @@ fn load_function_context(pc : list(pcode_t)) : context
 			abort internal("unknown local type " + ntos(ft));
 		]
 		ctx.local_types +<= lt;
-		ctx.local_type_names +<= "";
 	]
 
 	var n_variables := pc[4];
