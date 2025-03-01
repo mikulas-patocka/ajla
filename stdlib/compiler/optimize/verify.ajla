@@ -61,6 +61,8 @@ fn get_z3_type(ctx : context, runtime_type : int) : (context, bytes)
 		return ctx, "Real";
 	if runtime_type < 0 then
 		return ctx, "";
+	if len_greater_than(ctx.local_type_names[runtime_type], 0) then
+		return ctx, ctx.local_type_names[runtime_type];
 	var lt := ctx.local_types[runtime_type];
 	if lt is arr or lt is flat_array then [
 		var a : int;
@@ -72,7 +74,9 @@ fn get_z3_type(ctx : context, runtime_type : int) : (context, bytes)
 		ctx, t1_str := get_z3_type(ctx, a);
 		if not len_greater_than(t1_str, 0) then
 			return ctx, "";
-		return ctx, "(Arr " + t1_str + ")";
+		var str := "(Arr " + t1_str + ")";
+		ctx.local_type_names[runtime_type] := str;
+		return ctx, str;
 	]
 	return ctx, "";
 ]
