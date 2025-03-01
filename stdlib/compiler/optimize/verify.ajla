@@ -61,6 +61,10 @@ fn get_z3_type(ctx : context, runtime_type : int) : (context, bytes)
 		return ctx, "Real";
 	if runtime_type = T_Undetermined then
 		return ctx, "Undetermined";
+	if runtime_type <= T_SInt8, runtime_type >= T_UInt128 then [
+		var v := 8 shl ((T_SInt8 - runtime_type) shr 1);
+		return ctx, "(_ BitVec " + ntos(v) + ")";
+	]
 	if runtime_type < 0 then
 		return ctx, "";
 	if len_greater_than(ctx.local_type_names[runtime_type], 0) then
@@ -386,6 +390,7 @@ fn verify_function(ctx : context) : unit_type
 		var name := "LT_" + ntos(lti) + "-" + lt.rec.name;
 		ctx.local_type_names[lti] := name;
 		str += "(" + name + " 0)";
+		//eval debug("NAME: " + name);
 	]
 	str += ") (";
 	first := true;
@@ -400,11 +405,11 @@ fn verify_function(ctx : context) : unit_type
 		var name := ctx.local_type_names[lti];
 		if not ltr.opt then [
 			str += "(" + name + " (mk-" + name;
-			if len_greater_than(ltr.types, 0) then [
-				for i := 0 to len(ltr.types) do [
-					ctx, b := get_z3_type(ctx, ltr.types[i]);
-					str += " (entry-" + name + "-" + ntos(i) + " " + b + ")";
-				]
+			for i := 0 to len(ltr.types) do [
+				if ltr.types[i] = T_Type then
+					continue;
+				ctx, b := get_z3_type(ctx, ltr.types[i]);
+				str += " (entry-" + name + "-" + ntos(i) + " " + b + ")";
 			]
 			str += "))";
 		] else [

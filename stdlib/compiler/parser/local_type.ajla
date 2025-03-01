@@ -58,7 +58,7 @@ fn get_record_option_type_cc(ctx : function_context, cc : compare_context, typ_c
 
 fn get_array_type_cc(ctx : function_context, cc : compare_context, typ : int) : (function_context, int)
 [
-	var content_cc, content_typ := get_base_definition(ctx, cc, typ, false);
+	cc, typ := get_base_definition(ctx, cc, typ, false);
 	if typ < 0 and typ <> T_UnknownType then
 		return ctx, typ;
 	var list_cc, list_typ := list_type(ctx, cc, typ, false, empty(token));
