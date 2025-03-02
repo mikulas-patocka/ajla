@@ -206,7 +206,6 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		] else if t <= T_Integer and t >= T_Integer128 then [
 			cnst := ntos(l);
 		] else if t >= 0, ctx.local_types[t] is rec, ctx.local_types[t].rec.opt then [
-			var ltr := ctx.local_types[t].rec;
 			cnst := "mk-"+ctx.local_type_names[t]+"-"+ntos(l);
 		] else [
 			return ctx;
@@ -275,15 +274,47 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		gen_assert(var_name, str);
 		return ctx;
 	]
+	if ins.opcode = P_Option_Test then [
+		var t := ctx.variables[ins.params[1]].runtime_type;
+		var lt := ctx.local_types[t];
+		var var1 : bytes;
+		ctx, var1 := allocate_variable_block(ctx, ins.params[1], phi_node, ins.bb);
+		if len(var1) = 0 then
+			return ctx;
+		var index := ins.params[2];
+		var str : bytes;
+		var b : bytes;
+		ctx, b := get_z3_type(ctx, lt.rec.types[index]);
+		//str := "(not (forall ((x "+b+")) (distinct "+var1+" (mk-"+ctx.local_type_names[t]+"-"+ntos(index)+" x))))";
+		str := "((_ is mk-"+ctx.local_type_names[t]+"-"+ntos(index)+") "+var1+")";
+		gen_assert(var_name, str);
+		return ctx;
+	]
+	if ins.opcode = P_Option_Ord then [
+		var t := ctx.variables[ins.params[1]].runtime_type;
+		var lt := ctx.local_types[t];
+		var var1 : bytes;
+		ctx, var1 := allocate_variable_block(ctx, ins.params[1], phi_node, ins.bb);
+		if len(var1) = 0 then
+			return ctx;
+		var str := "";
+		for i := 0 to len(lt.rec.types) do [
+			str += "(ite ((_ is mk-"+ctx.local_type_names[t]+"-"+ntos(i)+") "+var1+") "+ntos(i)+" ";
+		]
+		str += "-1";
+		str += fill(byte, ')', len(lt.rec.types));
+		gen_assert(var_name, str);
+		return ctx;
+	]
 	if ins.opcode = P_Array_Create then [
 		var ln := ins.params[1];
 		var t1 : bytes;
 		ctx, t1 := get_array_type(ctx, v);
 		if len(t1) = 0 then
 			return ctx;
-		var a := "(declare-const array_"+var_name+" (Array Int "+t1+"))";
+		var a := "(declare-const array-"+var_name+" (Array Int "+t1+"))";
 		z3_eval_smtlib2_string_noret(a);
-		var str := "array_"+var_name+"";
+		var str := "array-"+var_name;
 		for i := 0 to ln do [
 			var var1 : bytes;
 			ctx, var1 := allocate_variable_block(ctx, ins.params[4 + i * 2], phi_node, ins.bb);

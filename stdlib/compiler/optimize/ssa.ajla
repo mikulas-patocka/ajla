@@ -1230,6 +1230,7 @@ skip_bool:
 		goto end;
 	]
 	if ins.opcode = P_Option_Test then [
+		//if ctx.name = "rec" then goto end;
 		var idx := ins.params[2];
 		var vgis := ins.params[1];
 		var vs := ctx.variables[vgis];
