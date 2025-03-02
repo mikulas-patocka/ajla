@@ -1347,6 +1347,7 @@ fn substitute_variable(ctx : context, ins : instruction) : (int, int)
 	]
 
 	if ins.opcode = P_Record_Load then [
+		//if ctx.name = "rec" then goto nothing;
 		var idx := ins.params[3];
 		var vgis := ins.params[2];
 		var vs := ctx.variables[vgis];
@@ -1356,6 +1357,7 @@ fn substitute_variable(ctx : context, ins : instruction) : (int, int)
 		]
 	]
 	if ins.opcode = P_Option_Load then [
+		//if ctx.name = "rec" then goto nothing;
 		var idx := ins.params[3];
 		var vgis := ins.params[2];
 		var vs := ctx.variables[vgis];

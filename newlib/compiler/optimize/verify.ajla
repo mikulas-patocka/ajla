@@ -200,14 +200,79 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 	if ins.opcode = P_Load_Const then [
 		var cnst : bytes;
 		var l := blob_to_int(ins.params[1 ..]);
-		var t := ctx.variables[v].type_index;
-		if t = T_Bool then
+		var t := ctx.variables[v].runtime_type;
+		if t = T_Bool then [
 			cnst := select(l <> 0, "false", "true");
-		else if t <= T_Integer and t >= T_Integer128 then
+		] else if t <= T_Integer and t >= T_Integer128 then [
 			cnst := ntos(l);
-		else
+		] else if t >= 0, ctx.local_types[t] is rec, ctx.local_types[t].rec.opt then [
+			var ltr := ctx.local_types[t].rec;
+			cnst := "mk-"+ctx.local_type_names[t]+"-"+ntos(l);
+		] else [
 			return ctx;
+		]
 		gen_assert(var_name, cnst);
+		return ctx;
+	]
+	if ins.opcode = P_Record_Create then [
+		var lt := ctx.local_types[ctx.variables[v].runtime_type];
+		var name := ctx.local_type_names[ctx.variables[v].runtime_type];
+		if lt is flat_rec then [
+			lt := ctx.local_types[lt.flat_rec.non_flat_record];
+			name := ctx.local_type_names[lt.flat_rec.non_flat_record];
+		]
+		var str : bytes;
+		if len(lt.rec.types) = 0 then [
+			str := "mk-"+name;
+		] else [
+			str := "(mk-"+name;
+			for i := 0 to len(lt.rec.types) do [
+				var var1 : bytes;
+				ctx, var1 := allocate_variable_block(ctx, ins.params[3 + i * 2], phi_node, ins.bb);
+				if len(var1) = 0 then
+					return ctx;
+				str += " "+var1;
+			]
+			str += ")";
+		]
+		gen_assert(var_name, str);
+		return ctx;
+	]
+	if ins.opcode = P_Record_Load then [
+		var var1 t1 : bytes;
+		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb);
+		if len(var1) = 0 then
+			return ctx;
+		ctx, t1 := get_z3_type(ctx, ctx.variables[ins.params[2]].runtime_type);
+		if len(t1) = 0 then
+			return ctx;
+		var slot := ins.params[3];
+		var str := "(entry-"+t1+"-"+ntos(slot)+" "+var1+")";
+		gen_assert(var_name, str);
+		return ctx;
+	]
+	if ins.opcode = P_Option_Create then [
+		var var1 : bytes;
+		ctx, var1 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
+		if len(var1) = 0 then
+			return ctx;
+		var name := ctx.local_type_names[ctx.variables[v].runtime_type];
+		var index := ins.params[1];
+		var str := "(mk-"+name+"-"+ntos(index)+" "+var1+")";
+		gen_assert(var_name, str);
+		return ctx;
+	]
+	if ins.opcode = P_Option_Load then [
+		var var1 t1 : bytes;
+		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb);
+		if len(var1) = 0 then
+			return ctx;
+		ctx, t1 := get_z3_type(ctx, ctx.variables[ins.params[2]].runtime_type);
+		if len(t1) = 0 then
+			return ctx;
+		var index := ins.params[3];
+		var str := "(entry-"+t1+"-"+ntos(index)+" "+var1+")";
+		gen_assert(var_name, str);
 		return ctx;
 	]
 	if ins.opcode = P_Array_Create then [
