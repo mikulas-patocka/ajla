@@ -125,10 +125,12 @@ fn allocate_variable_block(implicit z3w : z3_world, implicit z3ctx : z3_context,
 	]
 ]
 
-fn declare_tmp_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, n : bytes, lt : int) : (z3_world, context)
+fn declare_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, n : bytes, lt : int) : (z3_world, context)
 [
 	var t : bytes;
 	ctx, t := get_z3_type(ctx, lt);
+	if len(t) = 0 then
+		return ctx;
 	z3_eval_smtlib2_string_noret("(declare-const " + n + " " + t + ")");
 	if lt >= 0, ctx.local_types[lt] is rec then [
 		if not ctx.local_types[lt].rec.opt then
@@ -243,8 +245,8 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				if len(t1) = 0 then
 					return ctx;
 				var slot := ins.params[idx + 2];
-				ctx := declare_tmp_variable(ctx, new_var, ctx.local_types[ins.params[idx + 1]].rec.types[slot]);
-				ctx := declare_tmp_variable(ctx, stored_var, ctx.local_types[ins.params[idx + 1]].rec.types[slot]);
+				ctx := declare_variable(ctx, new_var, ctx.local_types[ins.params[idx + 1]].rec.types[slot]);
+				ctx := declare_variable(ctx, stored_var, ctx.local_types[ins.params[idx + 1]].rec.types[slot]);
 				var str := "(assert (= "+new_var+" (entry-"+t1+"-"+ntos(slot)+" "+old_var+")))";
 				z3_eval_smtlib2_string_noret(str);
 				idx += 3;
@@ -254,8 +256,8 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				if len(t1) = 0 then
 					return ctx;
 				var slot := ins.params[idx + 2];
-				ctx := declare_tmp_variable(ctx, new_var, ctx.local_types[ins.params[idx + 1]].rec.types[slot]);
-				ctx := declare_tmp_variable(ctx, stored_var, ctx.local_types[ins.params[idx + 1]].rec.types[slot]);
+				ctx := declare_variable(ctx, new_var, ctx.local_types[ins.params[idx + 1]].rec.types[slot]);
+				ctx := declare_variable(ctx, stored_var, ctx.local_types[ins.params[idx + 1]].rec.types[slot]);
 				var str := "(assert (= "+new_var+" (entry-"+t1+"-"+ntos(slot)+" "+old_var+")))";
 				z3_eval_smtlib2_string_noret(str);
 				idx += 3;
@@ -264,8 +266,8 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				ctx, var2 := allocate_variable_block(ctx, ins.params[idx + 1], phi_node, ins.bb);
 				if len(var2) = 0 then
 					return ctx;
-				ctx := declare_tmp_variable(ctx, new_var, ins.params[idx + 2]);
-				ctx := declare_tmp_variable(ctx, stored_var, ins.params[idx + 2]);
+				ctx := declare_variable(ctx, new_var, ins.params[idx + 2]);
+				ctx := declare_variable(ctx, stored_var, ins.params[idx + 2]);
 				var str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" (arr-len "+old_var+"))) (= "+new_var+" (select (arr "+old_var+") "+var2+"))))";
 				z3_eval_smtlib2_string_noret(str);
 				idx += 3;
@@ -563,17 +565,9 @@ found_new_v:
 fn allocate_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int, phi_node : int) : (z3_world, context, bytes)
 [
 	if not len_greater_than(ctx.variables[v].verifier_name[phi_node], 0) then [
-		var t : bytes;
-		ctx, t := get_z3_type(ctx, ctx.variables[v].runtime_type);
-		if not len_greater_than(t, 0) then
-			return ctx, "";
 		var n := get_z3_name(ctx, v, phi_node);
 		ctx.variables[v].verifier_name[phi_node] := n;
-		z3_eval_smtlib2_string_noret("(declare-const " + n + " " + t + ")");
-		if ctx.variables[v].runtime_type >= 0, ctx.local_types[ctx.variables[v].runtime_type] is rec then [
-			if not ctx.local_types[ctx.variables[v].runtime_type].rec.opt then
-				z3_eval_smtlib2_string_noret("(assert ((_ is mk-"+t+") "+n+"))");
-		]
+		ctx := declare_variable(ctx, n, ctx.variables[v].runtime_type);
 		ctx := assert_instruction(ctx, v, phi_node);
 	]
 	return ctx, ctx.variables[v].verifier_name[phi_node];
