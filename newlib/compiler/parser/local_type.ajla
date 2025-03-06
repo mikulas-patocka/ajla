@@ -23,14 +23,13 @@ uses compiler.parser.type;
 
 fn get_record_option_type_cc(ctx : function_context, cc : compare_context, typ_cc : compare_context, typ_idx : int) : (function_context, int);
 fn get_array_type_cc(ctx : function_context, cc : compare_context, typ : int) : (function_context, int);
+fn get_type_cc(ctx : function_context, cc : compare_context, typ : int) : (function_context, int);
 fn generate_local_types(ctx : function_context) : function_context;
 
 implementation
 
 uses compiler.common.gvn;
 uses compiler.parser.gen2;
-
-fn get_type_cc(ctx : function_context, cc : compare_context, typ : int) : (function_context, int);
 
 fn local_type_idx(ctx : function_context, lt : local_type) : (function_context, int)
 [

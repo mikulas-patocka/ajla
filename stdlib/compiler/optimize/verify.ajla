@@ -264,7 +264,6 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				ctx, var2 := allocate_variable_block(ctx, ins.params[idx + 1], phi_node, ins.bb);
 				if len(var2) = 0 then
 					return ctx;
-				eval debug("ATT: " + ntos(ins.params[idx + 2]));	// !!! FIXME
 				ctx := declare_tmp_variable(ctx, new_var, ins.params[idx + 2]);
 				ctx := declare_tmp_variable(ctx, stored_var, ins.params[idx + 2]);
 				var str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" (arr-len "+old_var+"))) (= "+new_var+" (select (arr "+old_var+") "+var2+"))))";

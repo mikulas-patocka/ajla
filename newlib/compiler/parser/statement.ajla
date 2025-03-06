@@ -304,11 +304,7 @@ fn parse_statement_assign(ctx : function_context, vd : variable_dictionary, can_
 				ctx, ai := list_array_get_index(ctx, vd, cc_base, typ_base, index_ex, false);
 
 				var local_type : int;
-				if typ < 0 then
-					local_type := typ;
-				else
-					local_type := T_Undetermined;
-
+				ctx, local_type := get_type_cc(ctx, cc, typ);
 				av.instr := append_Structured_Array(av.instr, ai, local_type);
 			] else if len(lvalue) >= 2, lvalue[0].t is dot then [
 				xeval token_assert(lvalue[1 ..], token_opt.identifier.(0));
