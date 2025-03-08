@@ -59,7 +59,7 @@ fn get_nonflat_record(ctx : context, runtime_type : int) : int
 	return runtime_type;
 ]
 
-fn get_array_subtype(ctx : context, lt : local_type) : int
+fn get_array_subtype(lt : local_type) : int
 [
 	if lt is flat_array then
 		return lt.flat_array.flat_type;
@@ -86,7 +86,7 @@ fn get_z3_type(ctx : context, runtime_type : int) : (context, bytes)
 		return ctx, ctx.local_type_names[runtime_type];
 	var lt := ctx.local_types[runtime_type];
 	if lt is arr or lt is flat_array then [
-		var a := get_array_subtype(ctx, lt);
+		var a := get_array_subtype(lt);
 		var t1_str : bytes;
 		ctx, t1_str := get_z3_type(ctx, a);
 		if not len_greater_than(t1_str, 0) then
@@ -108,7 +108,7 @@ fn get_array_type(ctx : context, v : int) : (context, bytes)
 [
 	var lt := ctx.local_types[ctx.variables[v].runtime_type];
 	if lt is arr or lt is flat_array then
-		return get_z3_type(ctx, get_array_subtype(ctx, lt));
+		return get_z3_type(ctx, get_array_subtype(lt));
 	abort internal("get_array_type: invalid type " + ntos(ord lt));
 ]
 
@@ -238,31 +238,35 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var1 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
 		if len(var1) = 0 then
 			return ctx;
+		var lti := get_nonflat_record(ctx, ctx.variables[ins.params[3]].runtime_type);
 		var idx := 6;
 		var idxs := [ idx ];
+		var ltis := [ lti ];
 		var old_var := var1;
 		for i := 0 to n_steps - 1 do [
 			var new_var := var_name + "-ld-" + ntos(i + 1);
 			var stored_var := var_name + "-st-" + ntos(i + 1);
 			if ins.params[idx] = Structured_Record then [
 				var t1 : bytes;
-				ctx, t1 := get_z3_type(ctx, ins.params[idx + 1]);
+				ctx, t1 := get_z3_type(ctx, lti);
 				if len(t1) = 0 then
 					return ctx;
 				var slot := ins.params[idx + 2];
-				ctx := declare_variable(ctx, new_var, ctx.local_types[ins.params[idx + 1]].rec.types[slot]);
-				ctx := declare_variable(ctx, stored_var, ctx.local_types[ins.params[idx + 1]].rec.types[slot]);
+				lti := ctx.local_types[lti].rec.types[slot];
+				ctx := declare_variable(ctx, new_var, lti);
+				ctx := declare_variable(ctx, stored_var, lti);
 				var str := "(assert (= "+new_var+" (entry-"+t1+"-"+ntos(slot)+" "+old_var+")))";
 				z3_eval_smtlib2_string_noret(str);
 				idx += 3;
 			] else if ins.params[idx] = Structured_Option then [
 				var t1 : bytes;
-				ctx, t1 := get_z3_type(ctx, ins.params[idx + 1]);
+				ctx, t1 := get_z3_type(ctx, lti);
 				if len(t1) = 0 then
 					return ctx;
 				var slot := ins.params[idx + 2];
-				ctx := declare_variable(ctx, new_var, ctx.local_types[ins.params[idx + 1]].rec.types[slot]);
-				ctx := declare_variable(ctx, stored_var, ctx.local_types[ins.params[idx + 1]].rec.types[slot]);
+				lti := ctx.local_types[lti].rec.types[slot];
+				ctx := declare_variable(ctx, new_var, lti);
+				ctx := declare_variable(ctx, stored_var, lti);
 				var str := "(assert (= "+new_var+" (entry-"+t1+"-"+ntos(slot)+" "+old_var+")))";
 				z3_eval_smtlib2_string_noret(str);
 				idx += 3;
@@ -271,8 +275,9 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				ctx, var2 := allocate_variable_block(ctx, ins.params[idx + 1], phi_node, ins.bb);
 				if len(var2) = 0 then
 					return ctx;
-				ctx := declare_variable(ctx, new_var, ins.params[idx + 2]);
-				ctx := declare_variable(ctx, stored_var, ins.params[idx + 2]);
+				lti := get_array_subtype(ctx.local_types[lti]);
+				ctx := declare_variable(ctx, new_var, lti);
+				ctx := declare_variable(ctx, stored_var, lti);
 				var str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" (arr-len "+old_var+"))) (= "+new_var+" (select (arr "+old_var+") "+var2+"))))";
 				z3_eval_smtlib2_string_noret(str);
 				idx += 3;
@@ -280,6 +285,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				abort internal("assert_instruction: invalid structured type " + ntos(ins.params[idx]));
 			]
 			idxs +<= idx;
+			ltis +<= lti;
 			old_var := new_var;
 		]
 		var svar : bytes;
@@ -294,9 +300,10 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 			else
 				new_var := var_name + "-st-" + ntos(i);
 			var idx := idxs[i];
+			var lti := ltis[i];
 			if ins.params[idx] = Structured_Record then [
 				var t1 : bytes;
-				ctx, t1 := get_z3_type(ctx, ins.params[idx + 1]);
+				ctx, t1 := get_z3_type(ctx, lti);
 				if len(t1) = 0 then
 					return ctx;
 				var slot := ins.params[idx + 2];
@@ -304,7 +311,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				z3_eval_smtlib2_string_noret(str);
 			] else if ins.params[idx] = Structured_Option then [
 				var t1 : bytes;
-				ctx, t1 := get_z3_type(ctx, ins.params[idx + 1]);
+				ctx, t1 := get_z3_type(ctx, lti);
 				if len(t1) = 0 then
 					return ctx;
 				var slot := ins.params[idx + 2];
