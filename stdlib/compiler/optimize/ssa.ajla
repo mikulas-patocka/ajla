@@ -1904,20 +1904,6 @@ fn dlte(ctx : context) : context
 		if ctx.variables[vgi].runtime_type >= 0 then
 			needed[ctx.variables[vgi].runtime_type] := true;
 	]
-	for bgi := 0 to len(ctx.blocks) do [
-		if not ctx.blocks[bgi].active then
-			continue;
-		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
-			var igi := ctx.blocks[bgi].instrs[ili];
-			var ins := ctx.instrs[igi];
-			var s := ins.lt_set;
-			while s <> 0 do [
-				var p : int := bsr s;
-				s btr= p;
-				needed[ins.params[p]] := true;
-			]
-		]
-	]
 
 	while true do [
 		var did_something := false;
@@ -2009,21 +1995,6 @@ fn dlte(ctx : context) : context
 		for vgi := 0 to len(ctx.variables) do [
 			if ctx.variables[vgi].runtime_type >= 0 then
 				ctx.variables[vgi].runtime_type := old_new[ctx.variables[vgi].runtime_type];
-		]
-		for bgi := 0 to len(ctx.blocks) do [
-			if not ctx.blocks[bgi].active then
-				continue;
-			for ili := 0 to len(ctx.blocks[bgi].instrs) do [
-				var igi := ctx.blocks[bgi].instrs[ili];
-				var ins := ctx.instrs[igi];
-				var s := ins.lt_set;
-				while s <> 0 do [
-					var p : int := bsr s;
-					s btr= p;
-					needed[ins.params[p]] := true;
-					ctx.instrs[igi].params[p] := old_new[ins.params[p]];
-				]
-			]
 		]
 
 		ctx.local_types := new_local_types;

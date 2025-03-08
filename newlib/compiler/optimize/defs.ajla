@@ -33,7 +33,6 @@ record instruction [
 	read_set : param_set;
 	write_set : param_set;
 	free_set : param_set;
-	lt_set : param_set;
 	conflict_1 : param_set;
 	conflict_2 : param_set;
 	borrow : int;
