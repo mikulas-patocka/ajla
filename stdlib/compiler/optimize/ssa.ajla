@@ -2765,6 +2765,10 @@ retry_optimize:
 	ctx := check_consistency(ctx, "prune_unreachable", true);
 
 	if do_verify then [
+		if print_passes then [ eval ctx; eval debug("dlte"); if is_exception ctx then eval debug("ctx exception"); ]
+		ctx := dlte(ctx);
+		ctx := check_consistency(ctx, "dlte", true);
+
 		for i := 0 to len(ctx.local_types) do [
 			var lt := ctx.local_types[i];
 			if lt is rec then [

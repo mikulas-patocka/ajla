@@ -51,6 +51,21 @@ fn get_z3_bb_name(ctx : context, bgi : int) : (context, bytes)
 	return ctx, str;
 ]
 
+fn get_nonflat_record(ctx : context, runtime_type : int) : int
+[
+	var lt := ctx.local_types[runtime_type];
+	if lt is flat_rec then
+		return lt.flat_rec.non_flat_record;
+	return runtime_type;
+]
+
+fn get_array_subtype(ctx : context, lt : local_type) : int
+[
+	if lt is flat_array then
+		return lt.flat_array.flat_type;
+	return lt.arr;
+]
+
 fn get_z3_type(ctx : context, runtime_type : int) : (context, bytes)
 [
 	if runtime_type = T_Bool then
@@ -71,11 +86,7 @@ fn get_z3_type(ctx : context, runtime_type : int) : (context, bytes)
 		return ctx, ctx.local_type_names[runtime_type];
 	var lt := ctx.local_types[runtime_type];
 	if lt is arr or lt is flat_array then [
-		var a : int;
-		if lt is arr then
-			a := lt.arr;
-		else
-			a := lt.flat_array.flat_type;
+		var a := get_array_subtype(ctx, lt);
 		var t1_str : bytes;
 		ctx, t1_str := get_z3_type(ctx, a);
 		if not len_greater_than(t1_str, 0) then
@@ -96,14 +107,8 @@ fn get_z3_type(ctx : context, runtime_type : int) : (context, bytes)
 fn get_array_type(ctx : context, v : int) : (context, bytes)
 [
 	var lt := ctx.local_types[ctx.variables[v].runtime_type];
-	if lt is arr or lt is flat_array then [
-		var a : int;
-		if lt is arr then
-			a := lt.arr;
-		else
-			a := lt.flat_array.flat_type;
-		return get_z3_type(ctx, a);
-	]
+	if lt is arr or lt is flat_array then
+		return get_z3_type(ctx, get_array_subtype(ctx, lt));
 	abort internal("get_array_type: invalid type " + ntos(ord lt));
 ]
 
@@ -327,12 +332,9 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		return ctx;
 	]
 	if ins.opcode = P_Record_Create then [
-		var lt := ctx.local_types[ctx.variables[v].runtime_type];
-		var name := ctx.local_type_names[ctx.variables[v].runtime_type];
-		if lt is flat_rec then [
-			lt := ctx.local_types[lt.flat_rec.non_flat_record];
-			name := ctx.local_type_names[lt.flat_rec.non_flat_record];
-		]
+		var lti := get_nonflat_record(ctx, ctx.variables[v].runtime_type);
+		var lt := ctx.local_types[lti];
+		var name := ctx.local_type_names[lti];
 		var str : bytes;
 		if len(lt.rec.types) = 0 then [
 			str := "mk-"+name;
