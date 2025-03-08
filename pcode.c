@@ -202,6 +202,8 @@ struct local_type {
 	pcode_t type_index;
 	pcode_t mode;
 	pcode_t array_element;
+	pcode_t n_elements;
+	pcode_t *elements;
 };
 
 struct pcode_type {
@@ -340,12 +342,21 @@ static void free_ld_tree(struct build_function_context *ctx)
 	}
 }
 
+static void free_local_types(struct build_function_context *ctx)
+{
+	pcode_t i;
+	for (i = 0; i < ctx->n_local_types; i++)
+		if (ctx->local_types[i].elements)
+			mem_free(ctx->local_types[i].elements);
+	mem_free(ctx->local_types);
+}
+
 static void done_ctx(struct build_function_context *ctx)
 {
 	if (ctx->function_name)
 		mem_free(ctx->function_name);
 	if (ctx->local_types)
-		mem_free(ctx->local_types);
+		free_local_types(ctx);
 	if (ctx->pcode_types)
 		mem_free(ctx->pcode_types);
 	if (ctx->layout)
@@ -1808,9 +1819,10 @@ static bool pcode_load_constant(struct build_function_context *ctx)
 	}
 }
 
-static bool pcode_structured_loop(struct build_function_context *ctx, pcode_t n_steps, code_t extra_flags, arg_mode_t *am, bool gen)
+static bool pcode_structured_loop(struct build_function_context *ctx, pcode_t structured, pcode_t n_steps, code_t extra_flags, arg_mode_t *am, bool gen)
 {
 	pcode_t i = 0;
+	pcode_t local_type = ctx->pcode_types[structured].typ;
 	do {
 		pcode_t type;
 		if (i == n_steps - 1)
@@ -1820,25 +1832,27 @@ static bool pcode_structured_loop(struct build_function_context *ctx, pcode_t n_
 		switch (type) {
 			case Structured_Record: {
 				arg_t idx;
-				pcode_t rec_local, q, type_idx;
+				pcode_t q, type_idx;
 				const struct record_definition *def;
 				frame_t slot;
 
-				rec_local = u_pcode_get();
+				u_pcode_get();
 				q = u_pcode_get();
 
 				idx = (arg_t)q;
 				if (unlikely(q != (pcode_t)idx))
 					goto exception_overflow;
 
-				def = type_def(pcode_to_type(ctx, rec_local, NULL),record);
+				if (ctx->local_types[local_type].mode == Local_Type_Flat_Record)
+					local_type = ctx->local_types[local_type].array_element;
+				def = type_def(pcode_to_type(ctx, local_type, NULL),record);
 
 				if (record_definition_is_elided(def, idx)) {
 					ajla_assert_lo(!gen, (file_line, "pcode_structured_loop(%s): elided record entry in the second pass", function_name(ctx)));
-					continue;
+					goto c1;
 				}
 
-				type_idx = pcode_to_type_index(ctx, rec_local, false);
+				type_idx = pcode_to_type_index(ctx, local_type, false);
 				if (unlikely(type_idx == error_type_index))
 					goto exception;
 
@@ -1850,6 +1864,8 @@ static bool pcode_structured_loop(struct build_function_context *ctx, pcode_t n_
 					gen_am_two(*am, OPCODE_STRUCTURED_RECORD | extra_flags, slot);
 					gen_am(*am, type_idx);
 				}
+c1:
+				local_type = ctx->local_types[local_type].elements[idx];
 				break;
 			}
 			case Structured_Option: {
@@ -1868,15 +1884,19 @@ static bool pcode_structured_loop(struct build_function_context *ctx, pcode_t n_
 					gen_am_two(*am, OPCODE_STRUCTURED_OPTION | extra_flags, opt);
 					gen_am(*am, 0);
 				}
+
+				local_type = ctx->local_types[local_type].elements[opt];
 				break;
 			}
 			case Structured_Array: {
-				pcode_t var, local_type, local_idx;
+				pcode_t var, local_idx;
 				const struct pcode_type *var_type;
 
 				var = u_pcode_get();
 
-				local_type = pcode_get();
+				pcode_get();
+
+				local_type = ctx->local_types[local_type].array_element;
 
 				if (var_elided(var)) {
 					ajla_assert_lo(!gen, (file_line, "pcode_structured_loop(%s): elided array index in the second pass", function_name(ctx)));
@@ -1934,7 +1954,7 @@ static bool pcode_structured_write(struct build_function_context *ctx)
 
 	pcode_position_save(ctx, &saved);
 
-	if (!pcode_structured_loop(ctx, n_steps, extra_flags, &am, false))
+	if (!pcode_structured_loop(ctx, structured, n_steps, extra_flags, &am, false))
 		goto exception;
 
 	if (unlikely(var_elided(structured)) || unlikely(var_elided(scalar)))
@@ -1953,7 +1973,7 @@ static bool pcode_structured_write(struct build_function_context *ctx)
 	gen_code(OPCODE_STRUCTURED + am * OPCODE_MODE_MULT);
 	gen_am_two(am, structured_type->slot, scalar_type->slot);
 
-	if (!pcode_structured_loop(ctx, n_steps, extra_flags, &am, true))
+	if (!pcode_structured_loop(ctx, structured, n_steps, extra_flags, &am, true))
 		goto exception;
 
 	return true;
@@ -3251,14 +3271,16 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 	if (unlikely(!ctx->local_types))
 		goto exception;
 
+	for (p = 0; p < ctx->n_local_types; p++)
+		ctx->local_types[p].elements = NULL;
+
 	for (p = 0; p < ctx->n_local_types; p++) {
 		pointer_t *ptr;
 		struct data *rec_fn;
 		const struct record_definition *def;
 		pcode_t base_idx = -1;
-		pcode_t n_elements;
+		pcode_t n_elements = 0;
 		struct type_entry *flat_rec;
-		arg_t ai;
 		const struct type *tt, *tp;
 
 		q = pcode_get();
@@ -3268,9 +3290,12 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 				ptr = pcode_module_load_function(ctx);
 				if (unlikely(!ptr))
 					goto exception;
-				q = u_pcode_get();
-				while (q--)
-					pcode_get();
+				n_elements = u_pcode_get();
+				ctx->local_types[p].elements = mem_alloc_array_mayfail(mem_alloc_mayfail, pcode_t *, 0, 0, n_elements, sizeof(pcode_t), ctx->err);
+				if (unlikely(!ctx->local_types[p].elements))
+					goto exception;
+				for (q = 0; q < n_elements; q++)
+					ctx->local_types[p].elements[q] = pcode_get();
 				pointer_follow(ptr, false, rec_fn, PF_WAIT, fp, ip,
 					*ret_ex = ex_;
 					ctx->ret_val = pointer_empty();
@@ -3287,9 +3312,12 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 				ptr = pcode_module_load_function(ctx);
 				if (unlikely(!ptr))
 					goto exception;
-				q = u_pcode_get();
-				while (q--)
-					pcode_get();
+				n_elements = u_pcode_get();
+				ctx->local_types[p].elements = mem_alloc_array_mayfail(mem_alloc_mayfail, pcode_t *, 0, 0, n_elements, sizeof(pcode_t), ctx->err);
+				if (unlikely(!ctx->local_types[p].elements))
+					goto exception;
+				for (q = 0; q < n_elements; q++)
+					ctx->local_types[p].elements[q] = pcode_get();
 				tt = type_get_flat_option();
 				break;
 			case Local_Type_Array:
@@ -3300,19 +3328,23 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 				base_idx = u_pcode_get();
 				ajla_assert_lo(base_idx < p, (file_line, "pcode_build_function_core(%s): invalid base record index: %"PRIdMAX" >= %"PRIdMAX"", function_name(ctx), (intmax_t)base_idx, (intmax_t)p));
 				n_elements = u_pcode_get();
+				ctx->local_types[p].elements = mem_alloc_array_mayfail(mem_alloc_mayfail, pcode_t *, 0, 0, n_elements, sizeof(pcode_t), ctx->err);
+				if (unlikely(!ctx->local_types[p].elements))
+					goto exception;
+				for (q = 0; q < n_elements; q++)
+					ctx->local_types[p].elements[q] = pcode_get();
 				def = type_def(ctx->local_types[base_idx].type,record);
 				ajla_assert_lo(n_elements == (pcode_t)def->n_entries, (file_line, "pcode_build_function_core(%s): the number of entries doesn't match: %"PRIdMAX" != %"PRIuMAX"", function_name(ctx), (intmax_t)n_elements, (uintmax_t)def->n_entries));
 				flat_rec = type_prepare_flat_record(&def->type, ctx->err);
 				if (unlikely(!flat_rec))
 					goto record_not_flattened;
-				for (ai = 0; ai < def->n_entries; ai++) {
-					pcode_t typ = pcode_get();
-					tp = pcode_to_type(ctx, typ, NULL);
+				for (q = 0; q < n_elements; q++) {
+					tp = pcode_to_type(ctx, ctx->local_types[p].elements[q], NULL);
 					if (unlikely(!TYPE_IS_FLAT(tp))) {
 						type_free_flat_record(flat_rec);
 						goto record_not_flattened;
 					}
-					type_set_flat_record_entry(flat_rec, ai, tp);
+					type_set_flat_record_entry(flat_rec, q, tp);
 				}
 				tt = type_get_flat_record(flat_rec, ctx->err);
 				if (unlikely(!tt))
@@ -3342,6 +3374,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 		ctx->local_types[p].type = tt;
 		ctx->local_types[p].type_index = no_type_index;
 		ctx->local_types[p].array_element = base_idx;
+		ctx->local_types[p].n_elements = n_elements;
 	}
 
 	ctx->layout = layout_start(slot_bits, frame_flags_per_slot_bits, frame_align, frame_offset, ctx->err);
@@ -3544,7 +3577,7 @@ skip_codegen:
 
 	mem_free(ctx->colors), ctx->colors = NULL;
 	mem_free(ctx->pcode_types), ctx->pcode_types = NULL;
-	mem_free(ctx->local_types), ctx->local_types = NULL;
+	free_local_types(ctx), ctx->local_types = NULL;
 	free_ld_tree(ctx);
 	array_finish(pointer_t *, &ctx->ld, &ctx->ld_len);
 
