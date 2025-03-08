@@ -665,21 +665,21 @@ fn start_Structured_Write(v : int) : list(pcode_t)
 fn append_Structured_Array(m : list(pcode_t), idx local_type : int) : list(pcode_t)
 [
 	m[0] += 1;
-	m += list(pcode_t).[ Structured_Array, idx, local_type ];
+	m += list(pcode_t).[ Structured_Array, idx ];
 	return m;
 ]
 
 fn append_Structured_Record(m : list(pcode_t), idx local_type : int) : list(pcode_t)
 [
 	m[0] += 1;
-	m += list(pcode_t).[ Structured_Record, local_type, idx ];
+	m += list(pcode_t).[ Structured_Record, idx ];
 	return m;
 ]
 
 fn append_Structured_Option(m : list(pcode_t), idx local_type : int) : list(pcode_t)
 [
 	m[0] += 1;
-	m += list(pcode_t).[ Structured_Option, local_type, idx ];
+	m += list(pcode_t).[ Structured_Option, idx ];
 	return m;
 ]
 

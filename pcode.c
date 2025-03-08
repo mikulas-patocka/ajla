@@ -1836,7 +1836,6 @@ static bool pcode_structured_loop(struct build_function_context *ctx, pcode_t st
 				const struct record_definition *def;
 				frame_t slot;
 
-				u_pcode_get();
 				q = u_pcode_get();
 
 				idx = (arg_t)q;
@@ -1872,7 +1871,6 @@ c1:
 				ajla_option_t opt;
 				pcode_t q;
 
-				u_pcode_get();
 				q = u_pcode_get();
 				opt = (ajla_option_t)q;
 				if (unlikely(q != (pcode_t)opt))
@@ -1893,8 +1891,6 @@ c1:
 				const struct pcode_type *var_type;
 
 				var = u_pcode_get();
-
-				pcode_get();
 
 				local_type = ctx->local_types[local_type].array_element;
 

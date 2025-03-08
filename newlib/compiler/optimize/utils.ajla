@@ -107,15 +107,12 @@ fn decode_structured_params(offs : int, params : list(pcode_t)) : (int, param_se
 	for i := 0 to params[0] do [
 		var scode := params[offs];
 		if scode = Structured_Record then [
-			ls bts= offs + 1;
-			offs += 3;
+			offs += 2;
 		] else if scode = Structured_Option then [
-			ls bts= offs + 1;
-			offs += 3;
+			offs += 2;
 		] else if scode = Structured_Array then [
 			ps bts= offs + 1;
-			ls bts= offs + 2;
-			offs += 3;
+			offs += 2;
 		] else [
 			abort internal("invalid structured type");
 		]
