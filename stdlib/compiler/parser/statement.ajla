@@ -303,9 +303,7 @@ fn parse_statement_assign(ctx : function_context, vd : variable_dictionary, can_
 				var ai : int;
 				ctx, ai := list_array_get_index(ctx, vd, cc_base, typ_base, index_ex, false);
 
-				var local_type : int;
-				ctx, local_type := get_type_cc(ctx, cc, typ);
-				av.instr := append_Structured_Array(av.instr, ai, local_type);
+				av.instr := append_Structured_Array(av.instr, ai);
 			] else if len(lvalue) >= 2, lvalue[0].t is dot then [
 				xeval token_assert(lvalue[1 ..], token_opt.identifier.(0));
 				var field := lvalue[1].t.identifier;
@@ -322,16 +320,12 @@ fn parse_statement_assign(ctx : function_context, vd : variable_dictionary, can_
 				if rec_def.entries[idx].accessing_other, av.deep_structured then
 					abort compiler_error("Record field may not be modified here", lvalue);
 				if not rec_def.is_option then [
-					var lt : int;
-					ctx, lt := get_record_option_type_cc(ctx, rec_cc, cc, typ);
-					av.instr := append_Structured_Record(av.instr, idx, lt);
+					av.instr := append_Structured_Record(av.instr, idx);
 					ctx, cc, typ := generate_record_entry_type(ctx, v, idx, rec_cc, lvalue);
 				] else [
 					if rec_def.entries[idx].type_idx = T_EmptyOption then
 						abort compiler_error("Option field doesn't have a value", lvalue);
-					var lt : int;
-					ctx, lt := get_record_option_type_cc(ctx, rec_cc, cc, typ);
-					av.instr := append_Structured_Option(av.instr, idx, lt);
+					av.instr := append_Structured_Option(av.instr, idx);
 					cc, typ := rec_cc, rec_def.entries[idx].type_idx;
 				]
 
