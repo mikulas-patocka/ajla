@@ -182,7 +182,7 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 		else if op = Bin_Multiply	then str := "*";
 		else if op = Bin_Divide_Int	then str := "div";
 		else if op = Bin_Modulo		then str := "rem";
-		else if op = Bin_Power		then str := "^";
+		else if op = Bin_Power		then [ z3_eval_smtlib2_string_noret("(define-fun int-power ((x Int) (y Int)) Int (to_int (^ x y)))"); str := "int-power"; ]
 		else if op = Bin_Bts		then [ z3_eval_smtlib2_string_noret("(define-fun int-bts ((x Int) (y Int)) Int (ite (int-bt x y) x (+ x (to_int (^ 2 y)))))"); str := "int-bts"; ]
 		else if op = Bin_Btr		then [ z3_eval_smtlib2_string_noret("(define-fun int-btr ((x Int) (y Int)) Int (ite (int-bt x y) (- x (to_int (^ 2 y))) x))"); str := "int-btr"; ]
 		else if op = Bin_Btc		then [ z3_eval_smtlib2_string_noret("(define-fun int-btc ((x Int) (y Int)) Int (ite (int-bt x y) (- x (to_int (^ 2 y))) (+ x (to_int (^ 2 y)))))"); str := "int-btc"; ]
