@@ -172,4 +172,5 @@ record context [
 	should_retry : bool;
 	name : bytes;
 	return_ins : instruction;
+	op_map : array(bytes, [ -T_Bool + 1, Op_N ]);
 ]

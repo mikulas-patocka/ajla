@@ -142,34 +142,65 @@ fn declare_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : 
 	return ctx;
 ]
 
+fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, typ : int, op : int) : (z3_world, context, bytes)
+[
+	if len(ctx.op_map[-typ, op]) <> 0 then
+		return ctx, ctx.op_map[-typ, op];
+	var str := "";
+	if typ <= T_SInt8, typ >= T_UInt128 then [
+
+	] else if typ <= T_Integer, typ >= T_Integer128 then [
+		if op = Bin_Add			then str := "+";
+		else if op = Bin_Subtract	then str := "-";
+		else if op = Bin_Multiply	then str := "*";
+		else if op = Bin_Divide_Int	then str := "div";
+		else if op = Bin_Modulo		then str := "rem";
+		else if op = Bin_Equal		then str := "=";
+		else if op = Bin_NotEqual	then str := "distinct";
+		else if op = Bin_Less		then str := "<";
+		else if op = Bin_LessEqual	then str := "<=";
+		else if op = Bin_Greater	then str := ">";
+		else if op = Bin_GreaterEqual	then str := ">=";
+		else if op = Un_Neg		then str := "-";
+	] else if typ <= T_Real16, typ >= T_Real128 then [
+		if op = Bin_Add			then str := "+";
+		else if op = Bin_Subtract	then str := "-";
+		else if op = Bin_Multiply	then str := "*";
+		else if op = Bin_Divide_Real	then str := "/";
+		else if op = Bin_Modulo		then str := "rem";
+		else if op = Bin_Equal		then str := "=";
+		else if op = Bin_NotEqual	then str := "distinct";
+		else if op = Bin_Less		then str := "<";
+		else if op = Bin_LessEqual	then str := "<=";
+		else if op = Bin_Greater	then str := ">";
+		else if op = Bin_GreaterEqual	then str := ">=";
+		else if op = Un_Neg		then str := "-";
+	] else if typ = T_Bool then [
+		if op = Bin_And			then str := "and";
+		else if op = Bin_Or		then str := "or";
+		else if op = Bin_Xor		then str := "distinct";
+		else if op = Bin_Equal		then str := "=";
+		else if op = Bin_NotEqual	then str := "distinct";
+		else if op = Bin_LessEqual	then str := "=>";
+		else if op = Un_Not		then str := "not";
+	] else [
+		abort internal("get_z3_operator: invalid type " + ntos(typ));
+	]
+
+	ctx.op_map[-typ, op] := str;
+	return ctx, str;
+]
+
 fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int, phi_node : int) : (z3_world, context)
 [
 	var var_name := ctx.variables[v].verifier_name[phi_node];
 	var ins := ctx.instrs[ctx.variables[v].defining_instr];
 	if ins.opcode = P_BinaryOp or ins.opcode = P_BinaryConstOp then [
 		var t := ctx.variables[ins.params[3]].type_index;
-		var is_bool := t = T_Bool;
-		var is_int := t <= T_Integer and t >= T_Integer128;
-		var is_real := t <= T_Real16 and t >= T_Real128;
 		var op_z3 : bytes;
-		var op := ins.params[0];
-		if op = Bin_Add					then op_z3 := "+";
-		else if op = Bin_Subtract			then op_z3 := "-";
-		else if op = Bin_Multiply			then op_z3 := "*";
-		else if op = Bin_Divide_Int			then op_z3 := "div";
-		else if op = Bin_Divide_Real			then op_z3 := "/";
-		else if op = Bin_Modulo				then op_z3 := "rem";
-		else if op = Bin_And, is_bool			then op_z3 := "and";
-		else if op = Bin_Or, is_bool			then op_z3 := "or";
-		else if op = Bin_Xor, is_bool			then op_z3 := "xor";
-		else if op = Bin_Equal				then op_z3 := "=";
-		else if op = Bin_NotEqual			then op_z3 := "distinct";
-		else if op = Bin_Less, is_int or is_real	then op_z3 := "<";
-		else if op = Bin_LessEqual, is_int or is_real	then op_z3 := "<=";
-		else if op = Bin_Greater, is_int or is_real	then op_z3 := ">";
-		else if op = Bin_GreaterEqual, is_int or is_real then op_z3 := ">=";
-		else if op = Bin_LessEqual, is_bool		then op_z3 := "=>";
-		else return ctx;
+		ctx, op_z3 := get_z3_operator(ctx, t, ins.params[0]);
+		if len(op_z3) = 0 then
+			return ctx;
 		var var1 var1v var2 var2v : bytes;
 		//eval debug("P_BinaryOp: " + ntos(ins.params[0]) + ", " + ntos(ins.params[1]) + ", " + ntos(ins.params[2]) + ", " + ntos(ins.params[3]) + ", " + ntos(ins.params[4]) + ", " + ntos(ins.params[5]));
 		ctx, var1 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
@@ -181,7 +212,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				return ctx;
 			gen_assert(var_name, "(" + op_z3 + " " + var1 + " " + var2 + ")");
 		] else [
-			if is_bool then
+			if t = T_Bool then
 				var2 := select(ins.params[4] <> 0, "false", "true");
 			else
 				var2 := ntos(ins.params[4]);
@@ -191,14 +222,10 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 	]
 	if ins.opcode = P_UnaryOp then [
 		var t := ctx.variables[v].type_index;
-		var is_bool := t = T_Bool;
-		var is_int := t <= T_Integer and t >= T_Integer128;
-		var is_real := t <= T_Real16 and t >= T_Real128;
 		var op_z3 : bytes;
-		var op := ins.params[0];
-		if op = Un_Not, is_bool				then op_z3 := "not";
-		else if op = Un_Neg, is_int or is_real		then op_z3 := "-";
-		else return ctx;
+		ctx, op_z3 := get_z3_operator(ctx, t, ins.params[0]);
+		if len(op_z3) = 0 then
+			return ctx;
 		var var1 : bytes;
 		ctx, var1 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
 		if len(var1) = 0 then
@@ -572,6 +599,8 @@ fn verify_function(ctx : context) : unit_type
 	implicit var z3w := z3_mk_world;
 	implicit var z3ctx := z3_mk_context();
 	//eval debug("verify function " + ctx.name);
+
+	ctx.op_map := array_fill("", [ -T_Bool + 1, Op_N ]);
 
 	z3_eval_smtlib2_string_noret("(declare-sort Undetermined 0)");
 	z3_eval_smtlib2_string_noret("(declare-datatypes (T) ((Arr (mk-arr (arr-len Int) (arr (Array Int T))))))");
