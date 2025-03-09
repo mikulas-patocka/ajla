@@ -182,10 +182,10 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 		else if op = Bin_Multiply	then str := "*";
 		else if op = Bin_Divide_Int	then str := "div";
 		else if op = Bin_Modulo		then str := "rem";
-		else if op = Bin_Power		then [ z3_eval_smtlib2_string_noret("(define-fun int-power ((x Int) (y Int)) Int (to_int (^ x y)))"); str := "int-power"; ]
-		else if op = Bin_Bts		then [ z3_eval_smtlib2_string_noret("(define-fun int-bts ((x Int) (y Int)) Int (ite (int-bt x y) x (+ x (to_int (^ 2 y)))))"); str := "int-bts"; ]
-		else if op = Bin_Btr		then [ z3_eval_smtlib2_string_noret("(define-fun int-btr ((x Int) (y Int)) Int (ite (int-bt x y) (- x (to_int (^ 2 y))) x))"); str := "int-btr"; ]
-		else if op = Bin_Btc		then [ z3_eval_smtlib2_string_noret("(define-fun int-btc ((x Int) (y Int)) Int (ite (int-bt x y) (- x (to_int (^ 2 y))) (+ x (to_int (^ 2 y)))))"); str := "int-btc"; ]
+		else if op = Bin_Power		then str := "int-power";
+		else if op = Bin_Bts		then str := "int-bts";
+		else if op = Bin_Btr		then str := "int-btr";
+		else if op = Bin_Btc		then str := "int-btc";
 		else if op = Bin_Equal		then str := "=";
 		else if op = Bin_NotEqual	then str := "distinct";
 		else if op = Bin_Less		then str := "<";
@@ -193,7 +193,7 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 		else if op = Bin_Greater	then str := ">";
 		else if op = Bin_GreaterEqual	then str := ">=";
 		else if op = Bin_Bt		then str := "int-bt";
-		else if op = Un_Not		then [ z3_eval_smtlib2_string_noret("(define-fun int-not ((x Int)) Int (- (- x) 1))"); str := "int-not"; ]
+		else if op = Un_Not		then str := "int-not";
 		else if op = Un_Neg		then str := "-";
 	] else if typ <= T_Real16, typ >= T_Real128 then [
 		if op = Bin_Add			then str := "+";
@@ -714,7 +714,12 @@ fn verify_function(ctx : context) : unit_type
 	str += "))";
 	z3_eval_smtlib2_string_noret(str);
 
+	z3_eval_smtlib2_string_noret("(define-fun int-power ((x Int) (y Int)) Int (to_int (^ x y)))");
 	z3_eval_smtlib2_string_noret("(define-fun int-bt ((x Int) (b Int)) Bool (>= (mod x (^ 2 (+ b 1))) (^ 2 b)))");
+	z3_eval_smtlib2_string_noret("(define-fun int-bts ((x Int) (y Int)) Int (ite (int-bt x y) x (+ x (to_int (^ 2 y)))))");
+	z3_eval_smtlib2_string_noret("(define-fun int-btr ((x Int) (y Int)) Int (ite (int-bt x y) (- x (to_int (^ 2 y))) x))");
+	z3_eval_smtlib2_string_noret("(define-fun int-btc ((x Int) (y Int)) Int (ite (int-bt x y) (- x (to_int (^ 2 y))) (+ x (to_int (^ 2 y)))))");
+	z3_eval_smtlib2_string_noret("(define-fun int-not ((x Int)) Int (- (- x) 1))");
 
 	for bgi := 0 to len(ctx.blocks) do [
 		if not ctx.blocks[bgi].active then
