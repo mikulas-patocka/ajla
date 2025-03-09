@@ -437,6 +437,39 @@ fn compare_local_types(ctx : context, old_new : list(int), src_rt dest_rt : int,
 	return old_new, c;
 ]
 
+fn remap_local_types(ctx : context, old_new : list(int)) : context
+[
+	for i := 0 to len(ctx.variables) do [
+		if ctx.variables[i].runtime_type < 0 then
+			continue;
+		if old_new[ctx.variables[i].runtime_type] <> T_InvalidType then [
+			ctx.variables[i].runtime_type := old_new[ctx.variables[i].runtime_type];
+		]
+	]
+	for i := 0 to len(ctx.local_types) do [
+		var lt := ctx.local_types[i];
+		if lt is rec then [
+			for j := 0 to len(lt.rec.types) do
+				if lt.rec.types[j] >= 0, old_new[lt.rec.types[j]] <> T_InvalidType then
+					ctx.local_types[i].rec.types[j] := old_new[lt.rec.types[j]];
+		] else if lt is arr then [
+			if lt.arr >= 0, old_new[lt.arr] <> T_InvalidType then
+				ctx.local_types[i].arr := old_new[lt.arr];
+		] else if lt is flat_rec then [
+			if lt.flat_rec.non_flat_record >= 0, old_new[lt.flat_rec.non_flat_record] <> T_InvalidType then
+				ctx.local_types[i].flat_rec.non_flat_record := old_new[lt.flat_rec.non_flat_record];
+			for j := 0 to len(lt.flat_rec.flat_types) do
+				if lt.flat_rec.flat_types[j] >= 0, old_new[lt.flat_rec.flat_types[j]] <> T_InvalidType then
+					ctx.local_types[i].flat_rec.flat_types[j] := old_new[lt.flat_rec.flat_types[j]];
+		] else if lt is flat_array then [
+			if lt.flat_array.flat_type >= 0, old_new[lt.flat_array.flat_type] <> T_InvalidType then
+				ctx.local_types[i].flat_array.flat_type := old_new[lt.flat_array.flat_type];
+		]
+	]
+
+	return ctx;
+]
+
 fn propagate_types(ctx : context) : context
 [
 	var did_something : bool;
@@ -480,33 +513,7 @@ again:
 	if did_something then
 		goto again;
 
-	for i := 0 to len(ctx.variables) do [
-		if ctx.variables[i].runtime_type < 0 then
-			continue;
-		if old_new[ctx.variables[i].runtime_type] <> T_InvalidType then [
-			ctx.variables[i].runtime_type := old_new[ctx.variables[i].runtime_type];
-		]
-	]
-	for i := 0 to len(ctx.local_types) do [
-		var lt := ctx.local_types[i];
-		if lt is rec then [
-			for j := 0 to len(lt.rec.types) do
-				if lt.rec.types[j] >= 0, old_new[lt.rec.types[j]] <> T_InvalidType then
-					ctx.local_types[i].rec.types[j] := old_new[lt.rec.types[j]];
-		] else if lt is arr then [
-			if lt.arr >= 0, old_new[lt.arr] <> T_InvalidType then
-				ctx.local_types[i].arr := old_new[lt.arr];
-		] else if lt is flat_rec then [
-			if lt.flat_rec.non_flat_record >= 0, old_new[lt.flat_rec.non_flat_record] <> T_InvalidType then
-				ctx.local_types[i].flat_rec.non_flat_record := old_new[lt.flat_rec.non_flat_record];
-			for j := 0 to len(lt.flat_rec.flat_types) do
-				if lt.flat_rec.flat_types[j] >= 0, old_new[lt.flat_rec.flat_types[j]] <> T_InvalidType then
-					ctx.local_types[i].flat_rec.flat_types[j] := old_new[lt.flat_rec.flat_types[j]];
-		] else if lt is flat_array then [
-			if lt.flat_array.flat_type >= 0, old_new[lt.flat_array.flat_type] <> T_InvalidType then
-				ctx.local_types[i].flat_array.flat_type := old_new[lt.flat_array.flat_type];
-		]
-	]
+	ctx := remap_local_types(ctx, old_new);
 
 	return ctx;
 ]
@@ -2038,31 +2045,9 @@ fn dlte(ctx : context) : context
 		if len(new_local_types) = len(ctx.local_types) then
 			break;
 
-		for ili := 0 to len(new_local_types) do [
-			if new_local_types[ili] is rec then [
-				for i := 0 to len(new_local_types[ili].rec.types) do [
-					if new_local_types[ili].rec.types[i] >= 0 then
-						new_local_types[ili].rec.types[i] := old_new[new_local_types[ili].rec.types[i]];
-				]
-			] else if new_local_types[ili] is arr then [
-				if new_local_types[ili].arr >= 0 then
-					new_local_types[ili].arr := old_new[new_local_types[ili].arr];
-			] else if new_local_types[ili] is flat_rec then [
-				new_local_types[ili].flat_rec.non_flat_record := old_new[new_local_types[ili].flat_rec.non_flat_record];
-				for i := 0 to len(new_local_types[ili].flat_rec.flat_types) do
-					if new_local_types[ili].flat_rec.flat_types[i] >= 0 then
-						new_local_types[ili].flat_rec.flat_types[i] := old_new[new_local_types[ili].flat_rec.flat_types[i]];
-			] else if new_local_types[ili] is flat_array then [
-				if new_local_types[ili].flat_array.flat_type >= 0 then
-					new_local_types[ili].flat_array.flat_type := old_new[new_local_types[ili].flat_array.flat_type];
-			]
-		]
-		for vgi := 0 to len(ctx.variables) do [
-			if ctx.variables[vgi].runtime_type >= 0 then
-				ctx.variables[vgi].runtime_type := old_new[ctx.variables[vgi].runtime_type];
-		]
-
 		ctx.local_types := new_local_types;
+		ctx := remap_local_types(ctx, old_new);
+
 		needed := fill(true, len(ctx.local_types));
 	]
 
