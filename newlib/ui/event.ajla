@@ -426,7 +426,7 @@ fn kbd_test_input(ctx : kbd_context, b : bytes) : int
 [
 	var i := 1;
 	while true do [
-		var test := treeset_test(ctx.partial_map, b[ .. i]) or kbd_is_partial_locale_character(ctx, b[ .. i]);
+		var test := treeset_test~lazy(ctx.partial_map, b[ .. i]) or kbd_is_partial_locale_character~lazy(ctx, b[ .. i]);
 		if i > 1 then [
 			var timer := sleep~lazy(unit_value, terminal_read_timeout);
 			if any(test, timer) then [
