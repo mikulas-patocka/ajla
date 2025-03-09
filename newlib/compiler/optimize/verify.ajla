@@ -155,6 +155,7 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 		else if op = Bin_Multiply	then str := "*";
 		else if op = Bin_Divide_Int	then str := "div";
 		else if op = Bin_Modulo		then str := "rem";
+		else if op = Bin_Power		then str := "^";
 		else if op = Bin_Equal		then str := "=";
 		else if op = Bin_NotEqual	then str := "distinct";
 		else if op = Bin_Less		then str := "<";
@@ -168,6 +169,7 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 		else if op = Bin_Multiply	then str := "*";
 		else if op = Bin_Divide_Real	then str := "/";
 		else if op = Bin_Modulo		then str := "rem";
+		else if op = Bin_Power		then str := "^";
 		else if op = Bin_Equal		then str := "=";
 		else if op = Bin_NotEqual	then str := "distinct";
 		else if op = Bin_Less		then str := "<";
@@ -175,6 +177,18 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 		else if op = Bin_Greater	then str := ">";
 		else if op = Bin_GreaterEqual	then str := ">=";
 		else if op = Un_Neg		then str := "-";
+		else if op = Un_Sin		then str := "sin";
+		else if op = Un_Cos		then str := "cos";
+		else if op = Un_Tan		then str := "tan";
+		else if op = Un_Asin		then str := "asin";
+		else if op = Un_Acos		then str := "acos";
+		else if op = Un_Atan		then str := "atan";
+		else if op = Un_Sinh		then str := "sinh";
+		else if op = Un_Cosh		then str := "cosh";
+		else if op = Un_Tanh		then str := "tanh";
+		else if op = Un_Asinh		then str := "asinh";
+		else if op = Un_Acosh		then str := "acosh";
+		else if op = Un_Atanh		then str := "atanh";
 	] else if typ = T_Bool then [
 		if op = Bin_And			then str := "and";
 		else if op = Bin_Or		then str := "or";
