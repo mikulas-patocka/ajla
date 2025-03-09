@@ -353,59 +353,94 @@ again:
 	return ctx;
 ]
 
-fn compare_local_types(ctx : context, src_rt dest_rt : int, src_visited dest_visited : var_set) : int
+fn compare_local_types(ctx : context, old_new : list(int), src_rt dest_rt : int, src_visited dest_visited : var_set) : (list(int), int)
 [
 	if src_rt = T_Undetermined, dest_rt = T_Undetermined then
-		return 0;
+		return old_new, 0;
 	if src_rt = T_Undetermined then
-		return 1;
+		return old_new, 1;
 	if dest_rt = T_Undetermined then
-		return -1;
+		return old_new, -1;
 	if src_rt = dest_rt then
-		return 0;
+		return old_new, 0;
 	if src_rt < 0 or dest_rt < 0 then
 		abort internal("mismatch between flat types " + ntos(src_rt) + ", " + ntos(dest_rt) + " in " + ctx.name);
 	if src_visited bt src_rt or dest_visited bt dest_rt then
-		return 0;
+		return old_new, 0;
 	src_visited bts= src_rt;
 	dest_visited bts= dest_rt;
 	var src_lt := ctx.local_types[src_rt];
 	var dest_lt := ctx.local_types[dest_rt];
-	if src_lt is rec and dest_lt is flat_rec then
-		return 1;
-	if src_lt is flat_rec and dest_lt is rec then
-		return -1;
-	if src_lt is arr and dest_lt is flat_array then
-		return 1;
-	if src_lt is flat_array and dest_lt is arr then
-		return -1;
+	if src_lt is rec and dest_lt is flat_rec then [
+		old_new[src_rt] := dest_rt;
+		return old_new, 1;
+	]
+	if src_lt is flat_rec and dest_lt is rec then [
+		old_new[dest_rt] := src_rt;
+		return old_new, -1;
+	]
+	if src_lt is arr and dest_lt is flat_array then [
+		old_new[src_rt] := dest_rt;
+		return old_new, 1;
+	]
+	if src_lt is flat_array and dest_lt is arr then [
+		old_new[dest_rt] := src_rt;
+		return old_new, -1;
+	]
 	if ord src_lt <> ord dest_lt then
 		abort internal("mismatch between local types " + ntos(ord src_lt) + ", " + ntos(ord dest_lt) + " in " + ctx.name);
-	if src_lt is flat_array or src_lt is flat_rec then
-		return 0;
-	if src_lt is arr then
-		return compare_local_types(ctx, src_lt.arr, dest_lt.arr, src_visited, dest_visited);
+	if src_lt is flat_array or src_lt is flat_rec then [
+		if src_rt >= dest_rt then
+			old_new[src_rt] := dest_rt;
+		else
+			old_new[dest_rt] := src_rt;
+		return old_new, 0;
+	]
+	if src_lt is arr then [
+		var c : int;
+		old_new, c := compare_local_types(ctx, old_new, src_lt.arr, dest_lt.arr, src_visited, dest_visited);
+		if c = 0 then [
+			if src_rt >= dest_rt then
+				old_new[src_rt] := dest_rt;
+			else
+				old_new[dest_rt] := src_rt;
+		] else if c > 0 then [
+			old_new[src_rt] := dest_rt;
+		] else [
+			old_new[dest_rt] := src_rt;
+		]
+		return old_new, c;
+	]
 	if src_lt.rec.opt <> dest_lt.rec.opt then
 		abort internal("mismatch between records and options " + select(src_lt.rec.opt, "record", "option") + ", " + select(dest_lt.rec.opt, "record", "option") + " in " + ctx.name);
 	if len(src_lt.rec.types) <> len(dest_lt.rec.types) then
 		abort internal("mismatch between " + select(src_lt.rec.opt, "record", "option") + " length: " + ntos(len(src_lt.rec.types)) + ", " + ntos(len(dest_lt.rec.types)) + " in " + ctx.name);
+	var c := 0;
 	for i := 0 to len(src_lt.rec.types) do [
-		if src_lt.rec.types[i] = T_Undetermined, dest_lt.rec.types[i] <> T_Undetermined then
-			return 1;
-		if src_lt.rec.types[i] <> T_Undetermined, dest_lt.rec.types[i] = T_Undetermined then
-			return -1;
+		var new_c : int;
+		old_new, new_c := compare_local_types(ctx, old_new, src_lt.rec.types[i], dest_lt.rec.types[i], src_visited, dest_visited);
+		if c = 0 then
+			c := new_c;
+		else if new_c <> 0 and c <> new_c then
+			abort internal("mismatch between " + select(src_lt.rec.opt, "record", "option") + " entries");
+		if c > 0 then
+			old_new[src_rt] := dest_rt;
+		else if c < 0 then
+			old_new[dest_rt] := src_rt;
 	]
-	for i := 0 to len(src_lt.rec.types) do [
-		var c := compare_local_types(ctx, src_lt.rec.types[i], dest_lt.rec.types[i], src_visited, dest_visited);
-		if c <> 0 then
-			return c;
+	if c = 0 then [
+		if src_rt >= dest_rt then
+			old_new[src_rt] := dest_rt;
+		else
+			old_new[dest_rt] := src_rt;
 	]
-	return 0;
+	return old_new, c;
 ]
 
 fn propagate_types(ctx : context) : context
 [
 	var did_something : bool;
+	var old_new := fill(T_InvalidType, len(ctx.local_types));
 again:
 	did_something := false;
 	var n_blocks := len(ctx.blocks);
@@ -426,7 +461,8 @@ again:
 					src_rt := T_TypeOfType;
 				if src_rt = dest_rt then
 					continue;
-				var c := compare_local_types(ctx, src_rt, dest_rt, 0, 0);
+				var c : int;
+				old_new, c := compare_local_types(ctx, old_new, src_rt, dest_rt, 0, 0);
 				if c = 0 then [
 					if dest_rt > src_rt then
 						c := -1;
@@ -443,6 +479,35 @@ again:
 	]
 	if did_something then
 		goto again;
+
+	for i := 0 to len(ctx.variables) do [
+		if ctx.variables[i].runtime_type < 0 then
+			continue;
+		if old_new[ctx.variables[i].runtime_type] <> T_InvalidType then [
+			ctx.variables[i].runtime_type := old_new[ctx.variables[i].runtime_type];
+		]
+	]
+	for i := 0 to len(ctx.local_types) do [
+		var lt := ctx.local_types[i];
+		if lt is rec then [
+			for j := 0 to len(lt.rec.types) do
+				if lt.rec.types[j] >= 0, old_new[lt.rec.types[j]] <> T_InvalidType then
+					ctx.local_types[i].rec.types[j] := old_new[lt.rec.types[j]];
+		] else if lt is arr then [
+			if lt.arr >= 0, old_new[lt.arr] <> T_InvalidType then
+				ctx.local_types[i].arr := old_new[lt.arr];
+		] else if lt is flat_rec then [
+			if lt.flat_rec.non_flat_record >= 0, old_new[lt.flat_rec.non_flat_record] <> T_InvalidType then
+				ctx.local_types[i].flat_rec.non_flat_record := old_new[lt.flat_rec.non_flat_record];
+			for j := 0 to len(lt.flat_rec.flat_types) do
+				if lt.flat_rec.flat_types[j] >= 0, old_new[lt.flat_rec.flat_types[j]] <> T_InvalidType then
+					ctx.local_types[i].flat_rec.flat_types[j] := old_new[lt.flat_rec.flat_types[j]];
+		] else if lt is flat_array then [
+			if lt.flat_array.flat_type >= 0, old_new[lt.flat_array.flat_type] <> T_InvalidType then
+				ctx.local_types[i].flat_array.flat_type := old_new[lt.flat_array.flat_type];
+		]
+	]
+
 	return ctx;
 ]
 
