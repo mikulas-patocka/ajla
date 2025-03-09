@@ -148,7 +148,34 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 		return ctx, ctx.op_map[-typ, op];
 	var str := "";
 	if typ <= T_SInt8, typ >= T_UInt128 then [
-
+		var us := T_SInt8 - typ bt 0;
+		if op = Bin_Add				then str := "bvadd";
+		else if op = Bin_Subtract		then str := "bvsub";
+		else if op = Bin_Multiply		then str := "bvmul";
+		else if op = Bin_Divide_Int, not us	then str := "bvsdiv";
+		else if op = Bin_Divide_Int, us		then str := "bvudiv";
+		else if op = Bin_Modulo, not us		then str := "bvsmod";
+		else if op = Bin_Modulo, us		then str := "bvumod";
+		else if op = Bin_And			then str := "bvand";
+		else if op = Bin_Or			then str := "bvor";
+		else if op = Bin_Xor			then str := "bvxor";
+		else if op = Bin_Shl			then str := "bvshl";
+		else if op = Bin_Shr, not us		then str := "bvashr";
+		else if op = Bin_Shr, us		then str := "bvlshr";
+		else if op = Bin_Rol			then str := "ext_rotate_left";
+		else if op = Bin_Ror			then str := "ext_rotate_right";
+		else if op = Bin_Equal			then str := "=";
+		else if op = Bin_NotEqual		then str := "distinct";
+		else if op = Bin_Less, not us		then str := "bvslt";
+		else if op = Bin_LessEqual, not us	then str := "bvsle";
+		else if op = Bin_Greater, not us	then str := "bvsgt";
+		else if op = Bin_GreaterEqual, not us	then str := "bvsge";
+		else if op = Bin_Less, us		then str := "bvult";
+		else if op = Bin_LessEqual, us		then str := "bvule";
+		else if op = Bin_Greater, us		then str := "bvugt";
+		else if op = Bin_GreaterEqual, us	then str := "bvuge";
+		else if op = Un_Not			then str := "bvnot";
+		else if op = Un_Neg			then str := "bvneg";
 	] else if typ <= T_Integer, typ >= T_Integer128 then [
 		if op = Bin_Add			then str := "+";
 		else if op = Bin_Subtract	then str := "-";
@@ -206,6 +233,14 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 	return ctx, str;
 ]
 
+fn get_bv_const(typ : int, num : int)
+[
+	var hex_width := 2 shl ((T_SInt8 - typ) shr 1);
+	if num < 0 then
+		num += 1 shl (hex_width shl 2);
+	return "#x" + list_left_pad(ntos_base(num, 16), hex_width, '0');
+]
+
 fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int, phi_node : int) : (z3_world, context)
 [
 	var var_name := ctx.variables[v].verifier_name[phi_node];
@@ -229,6 +264,8 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		] else [
 			if t = T_Bool then
 				var2 := select(ins.params[4] <> 0, "false", "true");
+			else if t <= T_SInt8, t >= T_UInt128 then
+				var2 := get_bv_const(t, ins.params[4]);
 			else
 				var2 := ntos(ins.params[4]);
 			gen_assert(var_name, "(" + op_z3 + " " + var1 + " " + var2 + ")");
@@ -262,6 +299,8 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		var t := ctx.variables[v].runtime_type;
 		if t = T_Bool then [
 			cnst := select(l <> 0, "false", "true");
+		] else if t <= T_SInt8, t >= T_UInt128 then [
+			cnst := get_bv_const(t, l);
 		] else if t <= T_Integer and t >= T_Integer128 then [
 			cnst := ntos(l);
 		] else if t >= 0, ctx.local_types[t] is rec, ctx.local_types[t].rec.opt then [
