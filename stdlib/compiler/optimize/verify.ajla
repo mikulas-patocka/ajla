@@ -162,6 +162,7 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 		else if op = Bin_LessEqual	then str := "<=";
 		else if op = Bin_Greater	then str := ">";
 		else if op = Bin_GreaterEqual	then str := ">=";
+		else if op = Un_Not		then [ z3_eval_smtlib2_string_noret("(define-fun int-not ((x Int)) Int (- (- x) 1))"); str := "int-not"; ]
 		else if op = Un_Neg		then str := "-";
 	] else if typ <= T_Real16, typ >= T_Real128 then [
 		if op = Bin_Add			then str := "+";
