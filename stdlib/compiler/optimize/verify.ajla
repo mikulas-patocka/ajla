@@ -307,6 +307,18 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 			cnst := get_bv_const(t, l);
 		] else if t <= T_Integer and t >= T_Integer128 then [
 			cnst := ntos(l);
+		] else if t <= T_Real16, t >= T_Real128 then [
+			var ex_bits sig_bits : int;
+			if t = T_Real16 then ex_bits, sig_bits := 5, 11;
+			else if t = T_Real32 then ex_bits, sig_bits := 8, 24;
+			else if t = T_Real64 then ex_bits, sig_bits := 11, 53;
+			else if t = T_Real80 then ex_bits, sig_bits := 15, 64;
+			else if t = T_Real128 then ex_bits, sig_bits := 15, 113;
+			else abort internal("assert_instruction: invalid real type " + ntos(t));
+			const eb, sb := ex_bits, sig_bits;
+			var f := floating_from_internal(eb, sb, l);
+			var r : rational := f;
+			cnst := "(/ " + ntos(r.num) + " " + ntos(r.den) + ")";
 		] else if t >= 0, ctx.local_types[t] is rec, ctx.local_types[t].rec.opt then [
 			cnst := "mk-"+ctx.local_type_names[t]+"-"+ntos(l);
 		] else [

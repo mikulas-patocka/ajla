@@ -42,6 +42,7 @@ type real := real64;
 
 type floating(ex_bits sig_bits : int);
 private fn floating_internal(const ex_bits sig_bits : int, f : floating(ex_bits, sig_bits)) : int;
+private fn floating_from_internal(const ex_bits sig_bits : int, f : int) : floating(ex_bits, sig_bits);
 
 record rational [
 	num den : int;
@@ -2127,6 +2128,12 @@ type sig_type := int128;
 type floating(ex_bits sig_bits : int) := floating_base;
 
 private fn floating_internal(const ex_bits sig_bits : int, f : floating(ex_bits, sig_bits)) : int
+[
+	var fb : floating_base := f;
+	return fb;
+]
+
+private fn floating_from_internal(const ex_bits sig_bits : int, f : int) : floating(ex_bits, sig_bits)
 [
 	var fb : floating_base := f;
 	return fb;
