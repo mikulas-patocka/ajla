@@ -340,6 +340,7 @@ IO_FFI_Poke_Array
 IO_FFI_Peek_Array
 IO_FFI_Handle_To_Number
 IO_FFI_Number_To_Handle
+IO_FFI_Open_Library
 IO_FFI_Create_Function
 IO_FFI_Call_Function
 IO_FFI_Encode_Real

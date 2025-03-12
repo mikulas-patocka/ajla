@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -18,8 +18,98 @@
 
 #define MAX_FFI_TYPE_SIZE	16
 
-struct resource_ffi {
+struct ffi_library {
+	struct list list_entry;
 	struct dl_handle_t *dlh;
+	uintptr_t refcount;
+	void (*destructor)(void);
+	bool hold;
+	char name[FLEXIBLE_ARRAY];
+};
+
+static mutex_t ffi_libraries_mutex;
+static struct list ffi_libraries;
+
+static void library_destroy(struct ffi_library *lib)
+{
+	if (lib->destructor)
+		lib->destructor();
+	os_dlclose(lib->dlh);
+	list_del(&lib->list_entry);
+	mem_free(lib);
+}
+
+static struct ffi_library *library_load(const char *name, bool hold, const char *destructor, ajla_error_t *err, char **err_msg)
+{
+	struct list *l;
+	struct ffi_library *lib;
+	void *sym;
+	*err_msg = NULL;
+	if (name) {
+		if (unlikely(!name[0])) {
+			fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_INVALID_OPERATION), err, "invalid library name");
+			return NULL;
+		}
+	} else {
+		name = "";
+	}
+	mutex_lock(&ffi_libraries_mutex);
+	list_for_each(l, &ffi_libraries) {
+		lib = get_struct(l, struct ffi_library, list_entry);
+		if (!strcmp(lib->name, name)) {
+			lib->refcount++;
+			if (hold)
+				lib->hold = true;
+			mutex_unlock(&ffi_libraries_mutex);
+			return lib;
+		}
+	}
+	lib = struct_alloc_array_mayfail(mem_alloc_mayfail, struct ffi_library, name, strlen(name) + 1, err);
+	if (unlikely(!lib)) {
+		mutex_unlock(&ffi_libraries_mutex);
+		return NULL;
+	}
+	lib->refcount = 1;
+	lib->hold = hold;
+	strcpy(lib->name, name);
+	lib->dlh = os_dlopen(name, err, err_msg);
+	if (unlikely(!lib->dlh)) {
+		mutex_unlock(&ffi_libraries_mutex);
+		mem_free(lib);
+		return NULL;
+	}
+	if (destructor && destructor[0]) {
+		if (unlikely(!os_dlsym(lib->dlh, destructor, &sym))) {
+			fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_SYMBOL_NOT_FOUND), err, "destructor symbol not found");
+			os_dlclose(lib->dlh);
+			mutex_unlock(&ffi_libraries_mutex);
+			mem_free(lib);
+			return NULL;
+		}
+		lib->destructor = cast_ptr(void (*)(void), sym);
+	} else {
+		lib->destructor = NULL;
+	}
+	list_add(&ffi_libraries, &lib->list_entry);
+	mutex_unlock(&ffi_libraries_mutex);
+	return lib;
+}
+
+static void library_unload(struct ffi_library *lib)
+{
+	mutex_lock(&ffi_libraries_mutex);
+	ajla_assert_lo(lib->refcount != 0, (file_line, "library_unload: refcount underflow"));
+	if (!--lib->refcount && !lib->hold)
+		library_destroy(lib);
+	mutex_unlock(&ffi_libraries_mutex);
+}
+
+struct resource_ffi_library {
+	struct ffi_library *lib;
+};
+
+struct resource_ffi {
+	struct resource_ffi_library *rfl;
 	void *sym;
 	ajla_option_t err_type;
 	ffi_type **args;
@@ -45,11 +135,18 @@ static void free_type(ffi_type *ft)
 	}
 }
 
+static void resource_ffi_library_close(struct data *d)
+{
+	struct resource_ffi_library *rfl = da_resource(d);
+	library_unload(rfl->lib);
+}
+
 static void resource_ffi_close(struct data *d)
 {
 	unsigned i;
 	struct resource_ffi *rf = da_resource(d);
-	os_dlclose(rf->dlh);
+	struct data *da = cast_ptr(struct data *, cast_ptr(char *, rf->rfl) - data_resource_offset);
+	pointer_dereference(pointer_data(da));
 	for (i = 0; i < rf->n_args; i++)
 		free_type(rf->args[i]);
 	mem_free(rf->args);
@@ -650,12 +747,67 @@ ret_err:
 	goto ret_test;
 }
 
+static void * attr_fastcall io_ffi_open_library_handler(struct io_ctx *ctx)
+{
+	void *test;
+	bool hold;
+	struct data *d;
+	struct resource_ffi_library *rfl;
+	char *err_msg;
+
+	ctx->str = NULL;
+	ctx->str2 = NULL;
+
+	if (ctx->n_inputs == 3) {
+		ajla_option_t opt;
+		test = io_deep_eval(ctx, "012", false);
+		if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+			goto ret_test;
+
+		io_get_bytes(ctx, get_input(ctx, 0));
+		io_get_option(ctx, get_input(ctx, 1), &opt, NULL);
+		hold = opt;
+		io_get_bytes2(ctx, get_input(ctx, 2));
+	} else {
+		hold = true;
+	}
+
+	d = data_alloc_resource_mayfail(sizeof(struct resource_ffi_library), resource_ffi_library_close, &ctx->err pass_file_line);
+	if (unlikely(!d))
+		goto ret_err;
+
+	rfl = da_resource(d);
+	rfl->lib = library_load(ctx->str, hold, ctx->str2, &ctx->err, &err_msg);
+	if (unlikely(!rfl->lib)) {
+		data_free_r1(d);
+		io_terminate_with_error(ctx, ctx->err, true, err_msg);
+		test = POINTER_FOLLOW_THUNK_EXCEPTION;
+		goto ret_test;
+	}
+
+	frame_set_pointer(ctx->fp, get_output(ctx, 0), pointer_data(d));
+	test = POINTER_FOLLOW_THUNK_GO;
+
+ret_test:
+	if (ctx->str)
+		mem_free(ctx->str);
+	if (ctx->str2)
+		mem_free(ctx->str2);
+	return test;
+
+ret_err:
+	io_terminate_with_error(ctx, ctx->err, true, NULL);
+	test = POINTER_FOLLOW_THUNK_EXCEPTION;
+	goto ret_test;
+}
+
 static void * attr_fastcall io_ffi_create_function_handler(struct io_ctx *ctx)
 {
 	void *test;
-	struct dl_handle_t *dlh = NULL;
+	pointer_t ptr;
+	struct resource_ffi_library *rfl;
 	void *sym;
-	struct data *d = NULL;
+	struct data *d;
 	struct resource_ffi *rf;
 	char *open_msg = NULL;
 	unsigned attr_unused nvargs;
@@ -668,19 +820,22 @@ static void * attr_fastcall io_ffi_create_function_handler(struct io_ctx *ctx)
 	ctx->args = NULL;
 	ctx->ptrs = NULL;
 	ctx->str = NULL;
-	ctx->str2 = NULL;
 
+	ptr = *frame_pointer(ctx->fp, get_input(ctx, 0));
+	d = pointer_get_data(ptr);
+	rfl = da_resource(d);
 	test = io_deep_eval(ctx, "012345", false);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 
-	io_get_bytes(ctx, get_input(ctx, 0));
-	io_get_bytes2(ctx, get_input(ctx, 1));
+	ptr = *frame_pointer(ctx->fp, get_input(ctx, 0));
+	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_create_function_handler: pointer is thunk"));
+	d = pointer_get_data(ptr);
+	rfl = da_resource(d);
 
-	dlh = os_dlopen(*ctx->str ? ctx->str : NULL, &ctx->err, &open_msg);
-	if (unlikely(!dlh))
-		goto ret_err;
-	if (unlikely(!os_dlsym(dlh, ctx->str2, &sym))) {
+	io_get_bytes(ctx, get_input(ctx, 1));
+
+	if (unlikely(!os_dlsym(rfl->lib->dlh, ctx->str, &sym))) {
 		ctx->err = error_ajla(EC_SYNC, AJLA_ERROR_SYMBOL_NOT_FOUND);
 		goto ret_err;
 	}
@@ -722,8 +877,7 @@ static void * attr_fastcall io_ffi_create_function_handler(struct io_ctx *ctx)
 	}
 #endif
 
-	rf->dlh = dlh;
-	dlh = NULL;
+	rf->rfl = rfl;
 	rf->sym = sym;
 	rf->err_type = err_type;
 	rf->ctx_args = ctx->args;
@@ -735,23 +889,18 @@ static void * attr_fastcall io_ffi_create_function_handler(struct io_ctx *ctx)
 	rf->ret_type = rtype;
 	ret = NULL;
 
+	pointer_reference_owned(ptr);
+
 	frame_set_pointer(ctx->fp, get_output(ctx, 0), pointer_data(d));
-	d = NULL;
 
 	test = POINTER_FOLLOW_THUNK_GO;
 
 ret_test:
-	if (d)
-		data_free_r1(d);
 	io_ffi_free_args(ctx, args);
 	if (ret)
 		free_type(ret);
-	if (dlh)
-		os_dlclose(dlh);
 	if (ctx->str)
 		mem_free(ctx->str);
-	if (ctx->str2)
-		mem_free(ctx->str2);
 	if (ctx->ptrs)
 		mem_free(ctx->ptrs);
 	if (ctx->args)

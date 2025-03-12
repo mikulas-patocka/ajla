@@ -317,15 +317,16 @@
 #define IO_FFI_Peek_Array		98
 #define IO_FFI_Handle_To_Number		99
 #define IO_FFI_Number_To_Handle		100
-#define IO_FFI_Create_Function		101
-#define IO_FFI_Call_Function		102
-#define IO_FFI_Encode_Real		103
-#define IO_FFI_Decode_Real		104
-#define IO_FFI_Destructor_New		105
-#define IO_FFI_Destructor_Allocate	106
-#define IO_FFI_Destructor_Free		107
-#define IO_FFI_Destructor_Call		108
-#define IO_N				109
+#define IO_FFI_Open_Library		101
+#define IO_FFI_Create_Function		102
+#define IO_FFI_Call_Function		103
+#define IO_FFI_Encode_Real		104
+#define IO_FFI_Decode_Real		105
+#define IO_FFI_Destructor_New		106
+#define IO_FFI_Destructor_Allocate	107
+#define IO_FFI_Destructor_Free		108
+#define IO_FFI_Destructor_Call		109
+#define IO_N				110
 
 #define IO_Open_Flag_Read		1
 #define IO_Open_Flag_Write		2

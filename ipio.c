@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -4688,6 +4688,7 @@ static void * attr_fastcall io_ffi_unsupported(struct io_ctx *ctx)
 #define io_ffi_peek_handler			io_ffi_unsupported
 #define io_ffi_poke_array_handler		io_ffi_unsupported
 #define io_ffi_peek_array_handler		io_ffi_unsupported
+#define io_ffi_open_library_handler		io_ffi_unsupported
 #define io_ffi_create_function_handler		io_ffi_unsupported
 #define io_ffi_call_function_handler		io_ffi_unsupported
 #define io_ffi_destructor_new_handler		io_ffi_unsupported
@@ -4886,6 +4887,7 @@ static const struct {
 	{ io_ffi_peek_array_handler },
 	{ io_ffi_handle_to_number_handler },
 	{ io_ffi_number_to_handle_handler },
+	{ io_ffi_open_library_handler },
 	{ io_ffi_create_function_handler },
 	{ io_ffi_call_function_handler },
 	{ io_ffi_encode_real_handler },
@@ -4925,6 +4927,11 @@ void name(ipio_init)(void)
 
 	mutex_init(&msgqueue_list_mutex);
 	list_init(&msgqueue_list);
+
+#if defined(SUPPORTS_FFI)
+	mutex_init(&ffi_libraries_mutex);
+	list_init(&ffi_libraries);
+#endif
 }
 
 void name(ipio_done)(void)
@@ -4944,6 +4951,16 @@ again:
 		}
 	}
 	mutex_done(&msgqueue_list_mutex);
+
+#if defined(SUPPORTS_FFI)
+	while (!list_is_empty(&ffi_libraries)) {
+		struct ffi_library *lib = get_struct(ffi_libraries.next, struct ffi_library, list_entry);
+		if (lib->refcount)
+			internal(file_line, "ipio_done: library %s leaked", lib->name);
+		library_destroy(lib);
+	}
+	mutex_done(&ffi_libraries_mutex);
+#endif
 
 	if (lib_path)
 		mem_free(lib_path);

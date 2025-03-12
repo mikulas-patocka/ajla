@@ -57,6 +57,7 @@ option ffi_error [
 	e_get_last_socket_error;
 ]
 
+type ffi_library;
 type ffi_function;
 type ffi_destructor;
 
@@ -80,7 +81,10 @@ fn ffi_peek_zstring(w : world, addr : int) : (world, bytes);
 fn ffi_handle_to_number(w : world, desc : ffi_destructor, h : handle) : (world, int);
 fn ffi_number_to_handle(w : world, n : int, sckt : bool) : (world, handle);
 
-fn ffi_create_function(filename : bytes, funcname : bytes, err_type : ffi_error, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : ffi_function;
+fn ffi_default_library : ffi_library;
+fn ffi_open_library(filename : bytes, hold : bool, destructor : bytes) : ffi_library;
+
+fn ffi_create_function(library : ffi_library, funcname : bytes, err_type : ffi_error, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : ffi_function;
 fn ffi_call_function(w : world, func : ffi_function, args : list(int)) : (world, int, int);
 
 fn ffi_encode_float(f : real32) : int;
@@ -99,6 +103,7 @@ fn ffi_destructor_call(w : world, fd : ffi_destructor, func : ffi_function, args
 implementation
 
 type ffi_structure := internal_type;
+type ffi_library := internal_type;
 type ffi_function := internal_type;
 
 fn ffi_unsafe_get_world : world
@@ -204,10 +209,24 @@ fn ffi_number_to_handle(w : world, n : int, sckt : bool) : (world, handle)
 	return w2, h;
 ]
 
-fn ffi_create_function(filename : bytes, funcname : bytes, err_type : ffi_error, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : ffi_function
+fn ffi_default_library : ffi_library
+[
+	var r : ffi_library;
+	pcode IO IO_FFI_Open_Library 1 0 0 =r;
+	return r;
+]
+
+fn ffi_open_library(filename : bytes, hold : bool, destructor : bytes) : ffi_library
+[
+	var r : ffi_library;
+	pcode IO IO_FFI_Open_Library 1 3 0 =r filename hold destructor;
+	return r;
+]
+
+fn ffi_create_function(library : ffi_library, funcname : bytes, err_type : ffi_error, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : ffi_function
 [
 	var r : ffi_function;
-	pcode IO IO_FFI_Create_Function 1 6 0 =r filename funcname err_type nvarargs rtype args;
+	pcode IO IO_FFI_Create_Function 1 6 0 =r library funcname err_type nvarargs rtype args;
 	return r;
 ]
 
