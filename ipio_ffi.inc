@@ -1526,7 +1526,7 @@ static void * attr_fastcall io_ffi_number_to_handle_handler(struct io_ctx *ctx)
 
 	io_get_number(ctx, get_input(ctx, 1), int_default_t, uintptr_t, n);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
-		goto ret_err;
+		goto ret_test;
 
 	io_get_option(ctx, get_input(ctx, 2), &sckt, NULL);
 
