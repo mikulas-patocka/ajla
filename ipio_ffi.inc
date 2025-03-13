@@ -921,9 +921,17 @@ static bool io_add_argument(struct io_ctx *ctx, void *ptr, size_t size)
 		memcpy_fast(ctx->str, ptr, size);
 		return true;
 	}
+#if defined(__x86_64__) && defined(__ILP32__)
+	/* ffi/x32 bug */
+	cpy = mem_alloc_mayfail(void *, maximum(size, 8), &ctx->err);
+	if (unlikely(!cpy))
+		return false;
+	memset(cpy, 0, 8);
+#else
 	cpy = mem_alloc_mayfail(void *, size, &ctx->err);
 	if (unlikely(!cpy))
 		return false;
+#endif
 	memcpy_fast(cpy, ptr, size);
 	if (unlikely(!array_add_mayfail(void *, &ctx->ptrs, &ctx->ptrs_l, cpy, &xerr, &ctx->err))) {
 		ctx->ptrs = xerr;
