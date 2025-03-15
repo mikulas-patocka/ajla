@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -20,6 +20,8 @@
 #define AJLA_CODEGEN_H
 
 #include "data.h"
+
+extern const char *dump_code;
 
 #ifdef HAVE_CODEGEN
 

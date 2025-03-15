@@ -28,6 +28,7 @@
 #include "os.h"
 #include "ipfn.h"
 #include "save.h"
+#include "codegen.h"
 
 #include "args.h"
 
@@ -78,6 +79,24 @@ next_param:
 	}
 }
 
+static void dump_select(const char *str)
+{
+	size_t l;
+	const char *fn;
+	l = strcspn(str, "=");
+	fn = &str[l];
+	if (fn[0])
+		fn++;
+	if (l == 4 && !strncmp(str, "code", l))
+		dump_code = fn;
+	/*else if (l == 5 && !strncmp(str, "pcode", l))
+		dump_pcode = fn;
+	else if (l == 2 && !strncmp(str, "z3", l))
+		dump_z3 = fn;*/
+	else
+		warning("invalid dump option %.*s", (int)l, str);
+}
+
 static void ipret_set_strict_calls(const char attr_unused *str)
 {
 	ipret_strict_calls = true;
@@ -120,6 +139,7 @@ static const struct arg args[] = {
 	{ "--compile",			ARG_SWITCH,	ipret_set_compile,		NULL,			0, 0 },
 	{ "--debug",			ARG_SWITCH,	debug_all,			NULL,			0, 0 },
 	{ "--debug=",			ARG_STRING,	debug_select,			NULL,			0, 0 },
+	{ "--dump-",			ARG_STRING,	dump_select,			NULL,			0, 0 },
 	{ "--nosave",			ARG_SWITCH,	set_nosave,			NULL,			0, 0 },
 	{ "--privileged",		ARG_SWITCH,	ipret_set_privileged,		NULL,			0, 0 },
 	{ "--profile",			ARG_SWITCH,	profile_all,			NULL,			0, 0 },

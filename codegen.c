@@ -33,6 +33,8 @@
 
 #include "codegen.h"
 
+shared_var const char *dump_code shared_init(NULL);
+
 #ifdef HAVE_CODEGEN
 
 #define flag_cache_chicken	0
@@ -60,10 +62,8 @@ code_return_t (*codegen_entry)(frame_s *, struct cg_upcall_vector_s *, tick_stam
 static void *codegen_ptr;
 static size_t codegen_size;
 
-#ifdef DEBUG_ENV
 static mutex_t dump_mutex;
 static uint64_t dump_seq = 0;
-#endif
 
 /*
  * insn:
@@ -2095,10 +2095,7 @@ jump_over_arguments_and_return:
 				goto unconditional_escape;
 			}
 			default: {
-#if 1
-				/*if (getenv("DUMP") && !strcmp(da(ctx->fn,function)->function_name, getenv("DUMP")))*/
-					warning("gen_function: %s: unknown opcode %04x, %s", da(ctx->fn,function)->function_name, *ctx->instr_start, decode_opcode(*ctx->instr_start, false));
-#endif
+				internal(file_line, "gen_function: %s: unknown opcode %04x, %s", da(ctx->fn,function)->function_name, *ctx->instr_start, decode_opcode(*ctx->instr_start, false));
 				return false;
 			}
 		}
@@ -2486,8 +2483,7 @@ again:
 
 	resolve_traps(ctx);
 
-#ifdef DEBUG_ENV
-	if ((getenv("DUMP") && !strcmp(getenv("DUMP"), da(ctx->fn,function)->function_name)) || getenv("DUMP_ALL")) {
+	if (dump_code && (!dump_code[0] || !strcmp(dump_code, da(ctx->fn,function)->function_name))) {
 		char *hex;
 		size_t hexl;
 		size_t i;
@@ -2520,7 +2516,6 @@ again:
 		mem_free(hex);
 		mutex_unlock(&dump_mutex);
 	}
-#endif
 
 	ctx->codegen = data_alloc_flexible(codegen, unoptimized_code, ctx->n_entries, &ctx->err);
 	if (unlikely(!ctx->codegen))
@@ -2656,9 +2651,8 @@ void name(codegen_init)(void)
 #endif
 	done_ctx(ctx);
 
-#ifdef DEBUG_ENV
 	mutex_init(&dump_mutex);
-	if (getenv("DUMP") || getenv("DUMP_ALL")) {
+	if (dump_code) {
 		size_t i;
 		char *hex;
 		size_t hexl;
@@ -2677,7 +2671,6 @@ void name(codegen_init)(void)
 		os_write_atomic(".", "dump.s", hex, hexl, NULL);
 		mem_free(hex);
 	}
-#endif
 
 	return;
 
@@ -2688,9 +2681,7 @@ fail:
 void name(codegen_done)(void)
 {
 	os_code_unmap(codegen_ptr, codegen_size);
-#ifdef DEBUG_ENV
 	mutex_done(&dump_mutex);
-#endif
 }
 
 #else
