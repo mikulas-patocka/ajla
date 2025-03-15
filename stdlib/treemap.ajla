@@ -41,7 +41,7 @@ fn treemap_delete(key : type, value : type, const implicit cls : class_ord(key),
 
 implicit fn instance_functor_treemap~inline(key : type, const cls : class_ord(key)) : class_functor(xtreemap(key, cls,));
 
-conversion fn treemap_iterator~type(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls)) : class_iterator :=
+conversion fn treemap_iterator~inline(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls)) : class_iterator :=
 	class_iterator.[
 		state : maybe(treemap_key_value(key, value)),
 		element : treemap_key_value(key, value),
@@ -51,7 +51,7 @@ conversion fn treemap_iterator~type(key : type, value : type, const cls : class_
 		increment : lambda(st : maybe(treemap_key_value(key, value))) [ return treemap_next(tm, st.j.k); ],
 	];
 
-fn treemap_iterator_reverse~type(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls)) : class_iterator :=
+fn treemap_iterator_reverse~inline(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls)) : class_iterator :=
 	class_iterator.[
 		state : maybe(treemap_key_value(key, value)),
 		element : treemap_key_value(key, value),
@@ -75,7 +75,7 @@ fn treeset_set(key : type, const cls : class_ord(key), ts : treeset(key, cls), k
 fn treeset_clear(key : type, const cls : class_ord(key), ts : treeset(key, cls), k : key) : treeset(key, cls);
 fn treeset_from_list(key : type, const cls : class_ord(key), l : list(key)) : treeset(key, cls);
 
-conversion fn treeset_iterator~type(key : type, const cls : class_ord(key), ts : treeset(key, cls)) : class_iterator :=
+conversion fn treeset_iterator~inline(key : type, const cls : class_ord(key), ts : treeset(key, cls)) : class_iterator :=
 	class_iterator.[
 		state : maybe(key),
 		element : key,
@@ -85,7 +85,7 @@ conversion fn treeset_iterator~type(key : type, const cls : class_ord(key), ts :
 		increment : lambda(st : maybe(key)) [ return treeset_next(ts, st.j); ],
 	];
 
-fn treeset_iterator_reverse~type(key : type, const cls : class_ord(key), ts : treeset(key, cls)) : class_iterator :=
+fn treeset_iterator_reverse~inline(key : type, const cls : class_ord(key), ts : treeset(key, cls)) : class_iterator :=
 	class_iterator.[
 		state : maybe(key),
 		element : key,

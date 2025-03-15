@@ -30,16 +30,16 @@ uses z3;
 uses compiler.common.blob;
 uses compiler.optimize.ssa;
 
-fn z3_eval(implicit w : z3_world, implicit z3ctx : z3_context, ctx : context, str : bytes) : (z3_world, bytes)
+fn z3_eval(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, str : bytes) : (z3_world, bytes)
 [
-	if ctx.dump_z3 then
+	if ctx.dump_z3, not is_exception z3w then
 		eval debug(str);
 	return z3_eval_smtlib2_string(str);
 ]
 
-fn z3_eval_noret(implicit w : z3_world, implicit z3ctx : z3_context, ctx : context, str : bytes) : z3_world
+fn z3_eval_noret(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, str : bytes) : z3_world
 [
-	if ctx.dump_z3 then
+	if ctx.dump_z3, not is_exception z3w then
 		eval debug(str);
 	return z3_eval_smtlib2_string_noret(str);
 ]

@@ -548,7 +548,7 @@ record class_iterator [
 
 private fn range_test~inline(t : type, implicit co : class_ord(t), j x : t) : bool := x < j;
 private fn range_increment~inline(t : type, implicit cm : class_magma(t), step x : t) : t := x + step;
-fn range~type(t : type, implicit cm : class_magma(t), implicit co : class_ord(t), i j step : t) : class_iterator :=
+fn range~inline(t : type, implicit cm : class_magma(t), implicit co : class_ord(t), i j step : t) : class_iterator :=
 	class_iterator.[
 		state : t,
 		element : t,
@@ -558,7 +558,7 @@ fn range~type(t : type, implicit cm : class_magma(t), implicit co : class_ord(t)
 		increment : range_increment(step,),
 	];
 
-fn list_iterator~type(t : type, l : list(t)) : class_iterator :=
+fn list_iterator~inline(t : type, l : list(t)) : class_iterator :=
 	class_iterator.[
 		state : int,
 		element : int,
@@ -568,7 +568,7 @@ fn list_iterator~type(t : type, l : list(t)) : class_iterator :=
 		increment : instance_number_int.add(1,),
 	];
 
-fn list_iterator_reverse~type(t : type, l : list(t)) : class_iterator :=
+fn list_iterator_reverse~inline(t : type, l : list(t)) : class_iterator :=
 	class_iterator.[
 		state : int,
 		element : int,
@@ -581,7 +581,7 @@ fn list_iterator_reverse~type(t : type, l : list(t)) : class_iterator :=
 private fn list_consumer_non_empty~inline(t : type, l : list(t)) : bool := len_greater_than(l, 0);
 private fn list_consumer_get_head~inline(t : type, l : list(t)) : t := l[0];
 private fn list_consumer_get_tail~inline(t : type, l : list(t)) : list(t) := l[1 .. ];
-conversion fn list_consumer~type(t : type, l : list(t)) : class_iterator :=
+conversion fn list_consumer~inline(t : type, l : list(t)) : class_iterator :=
 	class_iterator.[
 		state : list(t),
 		element : t,
