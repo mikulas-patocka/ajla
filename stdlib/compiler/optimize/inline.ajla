@@ -279,7 +279,7 @@ do_inline:
 						ctx.should_retry := true;
 						break;
 					]
-				] else if call_mode = Call_Mode_Unspecified then [
+				] else if call_mode = Call_Mode_Unspecified, sysprop(SystemProperty_NoInline) = 0 then [
 					var pc := function_pcode(ins.params[3 .. ]);
 					if pc[0] bt bsf Fn_AutoInline, not len_greater_than(pc, 1024) then [
 						//xeval debug("auto-inlining " + ctx.name + " -> " + function_name(ins.params[3 .. ]) + ", " + ntos(len(pc)));

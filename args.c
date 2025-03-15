@@ -118,6 +118,11 @@ static void ipret_set_verify(const char attr_unused *str)
 	ipret_verify = true;
 }
 
+static void set_noinline(const char attr_unused *str)
+{
+	ipret_noinline = true;
+}
+
 static void set_nosave(const char attr_unused *str)
 {
 	save_disable = true;
@@ -141,6 +146,7 @@ static const struct arg args[] = {
 	{ "--debug",			ARG_SWITCH,	debug_all,			NULL,			0, 0 },
 	{ "--debug=",			ARG_STRING,	debug_select,			NULL,			0, 0 },
 	{ "--dump-",			ARG_STRING,	dump_select,			NULL,			0, 0 },
+	{ "--noinline",			ARG_SWITCH,	set_noinline,			NULL,			0, 0 },
 	{ "--nosave",			ARG_SWITCH,	set_nosave,			NULL,			0, 0 },
 	{ "--privileged",		ARG_SWITCH,	ipret_set_privileged,		NULL,			0, 0 },
 	{ "--profile",			ARG_SWITCH,	profile_all,			NULL,			0, 0 },
