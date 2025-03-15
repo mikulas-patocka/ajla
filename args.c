@@ -29,6 +29,7 @@
 #include "ipfn.h"
 #include "save.h"
 #include "codegen.h"
+#include "ipio.h"
 
 #include "args.h"
 
@@ -89,10 +90,10 @@ static void dump_select(const char *str)
 		fn++;
 	if (l == 4 && !strncmp(str, "code", l))
 		dump_code = fn;
-	/*else if (l == 5 && !strncmp(str, "pcode", l))
+	else if (l == 5 && !strncmp(str, "pcode", l))
 		dump_pcode = fn;
 	else if (l == 2 && !strncmp(str, "z3", l))
-		dump_z3 = fn;*/
+		dump_z3 = fn;
 	else
 		warning("invalid dump option %.*s", (int)l, str);
 }

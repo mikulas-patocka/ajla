@@ -57,6 +57,9 @@
 extern char **environ;
 #endif
 
+shared_var const char *dump_pcode shared_init(NULL);
+shared_var const char *dump_z3 shared_init(NULL);
+
 struct resource_handle {
 	handle_t fd;
 	bool nonblocking;
@@ -4673,6 +4676,42 @@ static void * attr_fastcall io_trace_ctl_handler(struct io_ctx *ctx)
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
+static void * attr_fastcall io_get_dump_handler(struct io_ctx *ctx)
+{
+	void *test;
+	const char *str;
+	struct data *a;
+
+	test = io_deep_eval(ctx, "0", false);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
+
+	io_get_bytes(ctx, get_input(ctx, 0));
+
+	if (!strcmp(ctx->str, "pcode"))
+		str = dump_pcode;
+	else if (!strcmp(ctx->str, "z3"))
+		str = dump_z3;
+	else
+		internal(file_line, "io_get_dump_handler: invalid string '%s'", ctx->str);
+	mem_free(ctx->str);
+
+	if (likely(!str) || !strcmp(str, "*"))
+		str = "";
+	else if (!str[0])
+		str = "*";
+
+	a = array_from_flat_mem(type_get_fixed(0, true), str, strlen(str), &ctx->err);
+	if (unlikely(!a)) {
+		io_terminate_with_error(ctx, ctx->err, true, NULL);
+		return POINTER_FOLLOW_THUNK_EXCEPTION;
+	}
+
+	frame_set_pointer(ctx->fp, get_output(ctx, 0), pointer_data(a));
+
+	return POINTER_FOLLOW_THUNK_GO;
+}
+
 #if defined(SUPPORTS_FFI)
 #include "ipio_ffi.inc"
 #else
@@ -4878,6 +4917,7 @@ static const struct {
 	{ io_debug_handler },
 	{ io_stacktrace_handler },
 	{ io_trace_ctl_handler },
+	{ io_get_dump_handler },
 	{ io_ffi_get_size_alignment_handler },
 	{ io_ffi_create_structure_handler },
 	{ io_ffi_structure_offset_handler },

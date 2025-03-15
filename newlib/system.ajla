@@ -408,6 +408,7 @@ fn assert~inline(v : bool, b : bytes) : unit_type;
 fn stacktrace(t : type, v : t) : unit_type;
 fn trace_on : unit_type;
 fn trace_off : unit_type;
+private fn get_dump(b : bytes) : bytes;
 
 {-----------
  - GENERAL -
@@ -2777,6 +2778,13 @@ fn trace_off : unit_type
 	var b : unit_type;
 	pcode IO IO_TraceCtl 1 0 1 =b 0;
 	return b;
+]
+
+private fn get_dump(b : bytes) : bytes
+[
+	var r : bytes;
+	pcode IO IO_Get_Dump 1 1 0 =r b;
+	return r;
 ]
 
 {-----------

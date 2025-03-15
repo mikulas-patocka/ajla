@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -22,6 +22,9 @@
 #include "data.h"
 
 #define ipret_io				name(ipret_io)
+
+extern const char *dump_pcode;
+extern const char *dump_z3;
 
 void *ipret_io(frame_s *fp, const code_t *ip, unsigned char io_code, unsigned char n_outputs, unsigned char n_inputs, unsigned char n_params);
 

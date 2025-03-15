@@ -331,6 +331,7 @@ IO_Evaluate
 IO_Debug
 IO_StackTrace
 IO_TraceCtl
+IO_Get_Dump
 IO_FFI_Get_Size_Alignment
 IO_FFI_Create_Structure
 IO_FFI_Structure_Offset

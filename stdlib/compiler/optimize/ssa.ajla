@@ -2923,7 +2923,8 @@ retry_optimize:
 
 	//eval stop("ssa");
 
-	rpc += dump_basic_blocks(ctx, false);
+	var d := get_dump("pcode");
+	rpc += dump_basic_blocks(ctx, d = "*" or d = ctx.name);
 
 	if is_exception ctx then [
 		pc := exception_copy(list(pcode_t), ctx);
