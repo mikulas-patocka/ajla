@@ -1022,7 +1022,7 @@ static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned attr_unu
 	return true;
 }
 
-static bool attr_w gen_memcpy_raw(struct codegen_context *ctx, unsigned dest_base, int64_t dest_offset, unsigned src_base, int64_t src_offset, size_t size, size_t attr_unused align)
+static bool attr_w gen_memcpy_raw(struct codegen_context *ctx, unsigned dest_base, int64_t dest_offset, unsigned src_base, int64_t src_offset, size_t size, size_t align)
 {
 	if (!size)
 		return true;
@@ -1052,6 +1052,7 @@ do_explicit_copy:
 #endif
 	if (size <= INLINE_COPY_SIZE) {
 		while (size) {
+			unsigned reg;
 			unsigned this_step;
 			unsigned this_op_size;
 #if defined(ARCH_ARM)
@@ -1079,6 +1080,13 @@ do_explicit_copy:
 				continue;
 			}
 #endif
+			reg = R_SCRATCH_1;
+#if defined(ARCH_X86)
+			if (size >= 16 && align >= 16 && cpu_test_feature(CPU_FEATURE_sse)) {
+				this_step = 16;
+				reg = FR_SCRATCH_1;
+			} else
+#endif
 			if (size >= 8 && OP_SIZE_NATIVE >= OP_SIZE_8)
 				this_step = 8;
 			else if (size >= 4)
@@ -1093,13 +1101,13 @@ do_explicit_copy:
 
 			g(gen_address(ctx, src_base, src_offset, ARCH_PREFERS_SX(this_op_size) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, this_op_size));
 			gen_insn(ARCH_PREFERS_SX(this_op_size) ? INSN_MOVSX : INSN_MOV, this_op_size, 0, 0);
-			gen_one(R_SCRATCH_1);
+			gen_one(reg);
 			gen_address_offset();
 
 			g(gen_address(ctx, dest_base, dest_offset, IMM_PURPOSE_STR_OFFSET, this_op_size));
 			gen_insn(INSN_MOV, this_op_size, 0, 0);
 			gen_address_offset();
-			gen_one(R_SCRATCH_1);
+			gen_one(reg);
 
 			size -= this_step;
 			src_offset += this_step;
