@@ -956,7 +956,7 @@ static bool attr_w gen_spill_all(struct codegen_context *ctx)
 	return true;
 }
 
-static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned offset, unsigned args, bool spill)
+static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned offset, unsigned args, bool do_spill)
 {
 	unsigned idx;
 	size_t attr_unused i;
@@ -970,7 +970,7 @@ static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned offset
 	if (idx < 32 && (hacked_upcall_map >> idx) & 1)
 		ctx->upcall_hacked_abi = true;
 
-	if (spill) {
+	if (do_spill) {
 #if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI)
 		for (i = 0; i < ctx->need_spill_l; i++) {
 			unsigned reg = ctx->registers[ctx->need_spill[i]];
@@ -1002,14 +1002,14 @@ static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned offset
 	return true;
 }
 
-static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned attr_unused offset, unsigned attr_unused args, bool unspill)
+static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned attr_unused offset, unsigned attr_unused args, bool do_unspill)
 {
 	size_t attr_unused i;
 	int attr_unused reg_to_pop = -1;
 	ajla_assert_lo(ctx->upcall_args == (int)args, (file_line, "gen_upcall_end: gen_upcall_start args mismatch: %d != %d", ctx->upcall_args, (int)args));
 	ajla_assert_lo(ctx->upcall_offset == (int)offset, (file_line, "gen_upcall_end: gen_upcall_start offset mismatch: %d != %d", ctx->upcall_offset, (int)offset));
 
-	if (unspill) {
+	if (do_unspill) {
 #if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI)
 		if (ctx->n_pushes & 1) {
 			reg_to_pop = R_CX;

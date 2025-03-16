@@ -976,7 +976,7 @@ static unsigned alu_trap_purpose(unsigned alu)
 
 
 static bool attr_w gen_imm(struct codegen_context *ctx, int64_t imm, unsigned purpose, unsigned size);
-static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned offset, unsigned args, bool unspill);
+static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned offset, unsigned args, bool do_unspill);
 
 #define gen_address_offset()						\
 do {									\
