@@ -432,14 +432,14 @@ static bool attr_w gen_get_upcall_pointer(struct codegen_context *ctx, unsigned 
 	return true;
 }
 
-static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsigned n_args)
+static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsigned n_args, bool unspill)
 {
 	g(gen_get_upcall_pointer(ctx, offset, R_OFFSET_IMM));
 
 	gen_insn(INSN_CALL_INDIRECT, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_OFFSET_IMM);
 
-	g(gen_upcall_end(ctx, offset, n_args));
+	g(gen_upcall_end(ctx, offset, n_args, unspill));
 
 	return true;
 }

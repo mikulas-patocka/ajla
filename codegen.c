@@ -976,7 +976,7 @@ static unsigned alu_trap_purpose(unsigned alu)
 
 
 static bool attr_w gen_imm(struct codegen_context *ctx, int64_t imm, unsigned purpose, unsigned size);
-static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned offset, unsigned args);
+static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned offset, unsigned args, bool unspill);
 
 #define gen_address_offset()						\
 do {									\
@@ -1644,10 +1644,10 @@ unconditional_escape:
 				}
 				g(gen_test_1(ctx, R_FRAME, slot_1, 0, label_id, false, TEST_SET));
 do_take_borrowed:
-				g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1));
+				g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1, true));
 				g(gen_frame_load(ctx, OP_SIZE_SLOT, garbage, slot_1, 0, false, R_ARG0));
 				g(gen_upcall_argument(ctx, 0));
-				g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1));
+				g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1, true));
 				flag_set(ctx, slot_1, true);
 take_borrowed_done:
 				gen_label(label_id);
@@ -1670,10 +1670,10 @@ take_borrowed_done:
 					g(gen_set_1(ctx, R_FRAME, slot_1, 0, false));
 					label_id = 0;	/* avoid warning */
 				}
-				g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_dereference), 1));
+				g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_dereference), 1, true));
 				g(gen_frame_load(ctx, OP_SIZE_SLOT, garbage, slot_1, 0, false, R_ARG0));
 				g(gen_upcall_argument(ctx, 0));
-				g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_dereference), 1));
+				g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_dereference), 1, true));
 				if (need_bit_test)
 					gen_label(label_id);
 skip_dereference:

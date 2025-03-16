@@ -671,6 +671,12 @@ static bool attr_w gen_frame_store_imm(struct codegen_context *ctx, unsigned siz
 	return gen_frame_store_imm_raw(ctx, size, slot, offset, imm);
 }
 
+static bool attr_w gen_frame_clear_raw(struct codegen_context *ctx, unsigned size, frame_t slot)
+{
+	g(gen_frame_store_imm_raw(ctx, size, slot, 0, 0));
+	return true;
+}
+
 static bool attr_w gen_frame_clear(struct codegen_context *ctx, unsigned size, frame_t slot)
 {
 	g(gen_frame_store_imm(ctx, size, slot, 0, 0));
@@ -931,7 +937,7 @@ skip_opt:
 	return true;
 }
 
-static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned offset, unsigned args)
+static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned offset, unsigned args, bool spill)
 {
 	unsigned idx;
 	size_t attr_unused i;
@@ -945,71 +951,75 @@ static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned offset
 	if (idx < 32 && (hacked_upcall_map >> idx) & 1)
 		ctx->upcall_hacked_abi = true;
 
+	if (spill) {
 #if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI)
-	for (i = 0; i < ctx->need_spill_l; i++) {
-		unsigned reg = ctx->registers[ctx->need_spill[i]];
-		if (reg_is_fp(reg))
-			g(spill(ctx, ctx->need_spill[i]));
-	}
-	ctx->n_pushes = 0;
-	for (i = 0; i < ctx->need_spill_l; i++) {
-		unsigned reg = ctx->registers[ctx->need_spill[i]];
-		if (!reg_is_fp(reg)) {
-			if (ctx->upcall_hacked_abi && !reg_is_saved(reg))
-				continue;
-			if (reg_to_push < 0) {
-				reg_to_push = reg;
-			} else {
-				g(gen_x86_push2(ctx, reg_to_push, reg, true));
-				reg_to_push = -1;
-			}
-			ctx->n_pushes++;
+		for (i = 0; i < ctx->need_spill_l; i++) {
+			unsigned reg = ctx->registers[ctx->need_spill[i]];
+			if (reg_is_fp(reg))
+				g(spill(ctx, ctx->need_spill[i]));
 		}
-	}
-	if (ctx->n_pushes & 1) {
-		g(gen_x86_push2(ctx, reg_to_push, R_CX, true));
-	}
+		ctx->n_pushes = 0;
+		for (i = 0; i < ctx->need_spill_l; i++) {
+			unsigned reg = ctx->registers[ctx->need_spill[i]];
+			if (!reg_is_fp(reg)) {
+				if (ctx->upcall_hacked_abi && !reg_is_saved(reg))
+					continue;
+				if (reg_to_push < 0) {
+					reg_to_push = reg;
+				} else {
+					g(gen_x86_push2(ctx, reg_to_push, reg, true));
+					reg_to_push = -1;
+				}
+				ctx->n_pushes++;
+			}
+		}
+		if (ctx->n_pushes & 1) {
+			g(gen_x86_push2(ctx, reg_to_push, R_CX, true));
+		}
 #else
-	g(gen_spill_multiple(ctx, ctx->need_spill, ctx->need_spill_l, true));
+		g(gen_spill_multiple(ctx, ctx->need_spill, ctx->need_spill_l, true));
 #endif
+	}
 	return true;
 }
 
-static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned attr_unused offset, unsigned attr_unused args)
+static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned attr_unused offset, unsigned attr_unused args, bool unspill)
 {
 	size_t attr_unused i;
 	int attr_unused reg_to_pop = -1;
 	ajla_assert_lo(ctx->upcall_args == (int)args, (file_line, "gen_upcall_end: gen_upcall_start args mismatch: %d != %d", ctx->upcall_args, (int)args));
 	ajla_assert_lo(ctx->upcall_offset == (int)offset, (file_line, "gen_upcall_end: gen_upcall_start offset mismatch: %d != %d", ctx->upcall_offset, (int)offset));
 
+	if (unspill) {
 #if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI)
-	if (ctx->n_pushes & 1) {
-		reg_to_pop = R_CX;
-	}
-	for (i = ctx->need_spill_l; i;) {
-		unsigned reg;
-		i--;
-		reg = ctx->registers[ctx->need_spill[i]];
-		if (!reg_is_fp(reg)) {
-			if (ctx->upcall_hacked_abi && !reg_is_saved(reg))
-				continue;
-			if (reg_to_pop < 0) {
-				reg_to_pop = reg;
-			} else {
-				g(gen_x86_pop2(ctx, reg_to_pop, reg, true));
-				reg_to_pop = -1;
+		if (ctx->n_pushes & 1) {
+			reg_to_pop = R_CX;
+		}
+		for (i = ctx->need_spill_l; i;) {
+			unsigned reg;
+			i--;
+			reg = ctx->registers[ctx->need_spill[i]];
+			if (!reg_is_fp(reg)) {
+				if (ctx->upcall_hacked_abi && !reg_is_saved(reg))
+					continue;
+				if (reg_to_pop < 0) {
+					reg_to_pop = reg;
+				} else {
+					g(gen_x86_pop2(ctx, reg_to_pop, reg, true));
+					reg_to_pop = -1;
+				}
 			}
 		}
-	}
-	ajla_assert_lo(reg_to_pop == -1, (file_line, "gen_upcall_end: reg_to_pop mismatch"));
-	for (i = 0; i < ctx->need_spill_l; i++) {
-		unsigned reg = ctx->registers[ctx->need_spill[i]];
-		if (reg_is_fp(reg))
-			g(unspill(ctx, ctx->need_spill[i]));
-	}
+		ajla_assert_lo(reg_to_pop == -1, (file_line, "gen_upcall_end: reg_to_pop mismatch"));
+		for (i = 0; i < ctx->need_spill_l; i++) {
+			unsigned reg = ctx->registers[ctx->need_spill[i]];
+			if (reg_is_fp(reg))
+				g(unspill(ctx, ctx->need_spill[i]));
+		}
 #else
-	g(gen_unspill_multiple(ctx, ctx->need_spill, ctx->need_spill_l, true));
+		g(gen_unspill_multiple(ctx, ctx->need_spill, ctx->need_spill_l, true));
 #endif
+	}
 	ctx->upcall_args = -1;
 	ctx->upcall_offset = -1;
 	ctx->upcall_hacked_abi = false;
@@ -1111,7 +1121,7 @@ do_explicit_copy:
 	}
 
 call_memcpy:
-	g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, mem_copy), 3));
+	g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, mem_copy), 3, true));
 	if (unlikely(R_ARG0 == src_base)) {
 		if (unlikely(R_ARG1 == dest_base))
 			internal(file_line, "gen_memcpy_raw: swapped registers: %u, %u", src_base, dest_base);
@@ -1139,7 +1149,7 @@ call_memcpy:
 		gen_one(R_SI);
 		gen_eight(0);
 		gen_one(R_CX);
-		g(gen_upcall_end(ctx, offsetof(struct cg_upcall_vector_s, mem_copy), 3));
+		g(gen_upcall_end(ctx, offsetof(struct cg_upcall_vector_s, mem_copy), 3, true));
 		return true;
 	}
 #endif
@@ -1147,7 +1157,7 @@ call_memcpy:
 	g(gen_load_constant(ctx, R_ARG2, size));
 	g(gen_upcall_argument(ctx, 2));
 
-	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, mem_copy), 3));
+	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, mem_copy), 3, true));
 
 	return true;
 }
@@ -1325,7 +1335,7 @@ next_loop:
 		return true;
 	}
 #endif
-	g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, mem_clear), 2));
+	g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, mem_clear), 2, true));
 
 	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG0, dest_base, dest_offset, 0));
 	g(gen_upcall_argument(ctx, 0));
@@ -1333,7 +1343,7 @@ next_loop:
 	g(gen_load_constant(ctx, R_ARG1, (size_t)bitmap_slots * slot_size));
 	g(gen_upcall_argument(ctx, 1));
 
-	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, mem_clear), 2));
+	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, mem_clear), 2, true));
 
 	return true;
 }

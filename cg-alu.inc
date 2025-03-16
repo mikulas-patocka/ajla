@@ -26,7 +26,7 @@ static bool attr_w gen_alu_upcall(struct codegen_context *ctx, size_t upcall, un
 		g(spill(ctx, slot_2));
 	if (frame_t_is_const(slot_2)) {
 		size_t x_offs = offsetof(struct cg_upcall_vector_s, INT_binary_const_int8_t) + op_size * sizeof(void (*)(void));
-		g(gen_upcall_start(ctx, x_offs, 4));
+		g(gen_upcall_start(ctx, x_offs, 4, true));
 		g(gen_frame_address(ctx, slot_1, 0, R_ARG0));
 		g(gen_upcall_argument(ctx, 0));
 		g(gen_load_constant(ctx, R_ARG1, frame_t_get_const(slot_2)));
@@ -35,23 +35,23 @@ static bool attr_w gen_alu_upcall(struct codegen_context *ctx, size_t upcall, un
 		g(gen_upcall_argument(ctx, 2));
 		g(gen_get_upcall_pointer(ctx, upcall, R_ARG3));
 		g(gen_upcall_argument(ctx, 3));
-		g(gen_upcall(ctx, x_offs, 4));
+		g(gen_upcall(ctx, x_offs, 4, true));
 	} else if (slot_2 != NO_FRAME_T) {
-		g(gen_upcall_start(ctx, upcall, 3));
+		g(gen_upcall_start(ctx, upcall, 3, true));
 		g(gen_frame_address(ctx, slot_1, 0, R_ARG0));
 		g(gen_upcall_argument(ctx, 0));
 		g(gen_frame_address(ctx, slot_2, 0, R_ARG1));
 		g(gen_upcall_argument(ctx, 1));
 		g(gen_frame_address(ctx, slot_r, 0, R_ARG2));
 		g(gen_upcall_argument(ctx, 2));
-		g(gen_upcall(ctx, upcall, 3));
+		g(gen_upcall(ctx, upcall, 3, true));
 	} else {
-		g(gen_upcall_start(ctx, upcall, 2));
+		g(gen_upcall_start(ctx, upcall, 2, true));
 		g(gen_frame_address(ctx, slot_1, 0, R_ARG0));
 		g(gen_upcall_argument(ctx, 0));
 		g(gen_frame_address(ctx, slot_r, 0, R_ARG1));
 		g(gen_upcall_argument(ctx, 1));
-		g(gen_upcall(ctx, upcall, 2));
+		g(gen_upcall(ctx, upcall, 2, true));
 	}
 	if (slot_is_register(ctx, slot_r))
 		g(unspill(ctx, slot_r));
@@ -3642,12 +3642,12 @@ static bool attr_w gen_system_property(struct codegen_context *ctx, frame_t slot
 
 	g(gen_test_1_cached(ctx, slot_1, escape_label));
 
-	g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_system_property), 1));
+	g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_system_property), 1, true));
 
 	g(gen_frame_load(ctx, OP_SIZE_INT, garbage, slot_1, 0, false, R_ARG0));
 	g(gen_upcall_argument(ctx, 0));
 
-	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_system_property), 1));
+	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_system_property), 1, true));
 
 	g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, R_RET0));
 
