@@ -1019,57 +1019,137 @@ oom:
 #endif
 
 #ifdef DEBUG_MEMORY_POSSIBLE
+static int leaks_compare(const void *a1, const void *a2)
+{
+	struct alloc_header *ah1 = *cast_ptr(struct alloc_header **, a1);
+	struct alloc_header *ah2 = *cast_ptr(struct alloc_header **, a2);
+	if (ah1 < ah2)
+		return -1;
+	if (ah1 > ah2)
+		return 1;
+	return 0;
+}
+
+static size_t leak_find(struct alloc_header **leaked_array, size_t n_blocks, unsigned char *ptr)
+{
+	size_t result;
+	binary_search(size_t, n_blocks, result, AH_DATA(leaked_array[result]) == ptr, AH_DATA(leaked_array[result]) < ptr, return (size_t)-1);
+	return result;
+}
+
 static attr_noreturn attr_cold mem_dump_leaks(void)
 {
 	struct list leaked_list;
 	struct list *lv;
+	struct alloc_header **leaked_array;
+	bool *leaked_reached;
 	char *s;
 	size_t sl;
 	const char *head = "memory leak: ";
 	size_t strlen_head = strlen(head);
 	const char *first_pos = file_line;
-	uintmax_t n_blocks = 0;
-	uintmax_t n_bytes = 0;
+	size_t n_blocks;
+	size_t n_bytes;
+	size_t i;
+	int reach;
 
 	list_take(&leaked_list, &thread1.block_list);
-	str_init(&s, &sl);
 
+	n_blocks = 0;
 	list_for_each_back(lv, &leaked_list) {
-		struct alloc_header *ah;
-		const char *pos_str;
-		char *t;
-		size_t tl;
-
-		ah = get_struct(lv, struct alloc_header, entry);
-		pos_str = position_string(ah->position);
-
-		str_init(&t, &tl);
-		str_add_unsigned(&t, &tl, ptr_to_num((char *)ah + AH_SIZE), 16);
-		str_add_string(&t, &tl, ":");
-		str_add_unsigned(&t, &tl, ah->size, 10);
-		str_add_string(&t, &tl, " @ ");
-		str_add_string(&t, &tl, pos_str);
-		str_finish(&t, &tl);
-
-		if (sl && strlen_head + sl + 2 + tl > 174 - 15) {
-			str_finish(&s, &sl);
-			debug("memory leak: %s", s);
-			mem_free(s);
-			str_init(&s, &sl);
-		}
-
-		if (sl) str_add_string(&s, &sl, ", ");
-		else first_pos = pos_str;
-		str_add_string(&s, &sl, t);
-		mem_free(t);
-
 		n_blocks++;
+		if (!n_blocks)
+			internal(first_pos, "too many memory leaks");
+	}
+	leaked_array = mem_alloc_array_mayfail(mem_alloc_mayfail, struct alloc_header **, 0, 0, n_blocks, sizeof(struct alloc_header *), NULL);
+	leaked_reached = mem_alloc_array_mayfail(mem_calloc_mayfail, bool *, 0, 0, n_blocks, sizeof(bool), NULL);
+	n_blocks = 0;
+	n_bytes = 0;
+	list_for_each_back(lv, &leaked_list) {
+		struct alloc_header *ah = get_struct(lv, struct alloc_header, entry);
+		leaked_array[n_blocks] = ah;
 		n_bytes += ah->size;
+		n_blocks++;
+	}
+	qsort(leaked_array, n_blocks, sizeof(struct alloc_header *), leaks_compare);
+
+	for (i = 0; i < n_blocks; i++) {
+		struct alloc_header *ah = leaked_array[i];
+		unsigned char *ptr = AH_DATA(ah);
+		size_t s;
+		for (s = 0; s < ah->size; s += sizeof(void *)) {
+			size_t res;
+			uintptr_t ptr2 = *cast_ptr(uintptr_t *, ptr + s);
+			if (!pointer_compression_enabled) {
+#ifdef POINTER_TAG
+				ptr2 &= ~(uintptr_t)POINTER_TAG;
+#endif
+#ifdef POINTER_IGNORE_START
+				ptr2 &= ~POINTER_IGNORE_MASK;
+#endif
+			}
+			res = leak_find(leaked_array, n_blocks, num_to_ptr(ptr2));
+			if (res != (size_t)-1)
+				leaked_reached[res] = true;
+		}
+#ifdef POINTER_COMPRESSION_POSSIBLE
+		if (pointer_compression_enabled) {
+			for (s = 0; s < ah->size; s += sizeof(uint32_t)) {
+				size_t res;
+				uintptr_t ptr2 = *cast_ptr(uint32_t *, ptr + s);
+				ptr2 &= ~1;
+				ptr2 <<= POINTER_COMPRESSION_POSSIBLE;
+				res = leak_find(leaked_array, n_blocks, num_to_ptr(ptr2));
+				if (res != (size_t)-1)
+					leaked_reached[res] = true;
+			}
+		}
+#endif
 	}
 
-	str_finish(&s, &sl);
+	for (reach = 0; reach < 2; reach++) {
+		debug("%sreachable blocks:", !reach ? "un" : "");
+		str_init(&s, &sl);
+		for (i = 0; i < n_blocks; i++) {
+			struct alloc_header *ah;
+			const char *pos_str;
+			char *t;
+			size_t tl;
 
-	internal(first_pos, "memory leak (%"PRIuMAX" blocks, %"PRIuMAX" bytes): %s", n_blocks, n_bytes, s);
+			if ((int)leaked_reached[i] != reach)
+				continue;
+
+			ah = leaked_array[i];
+			pos_str = position_string(ah->position);
+
+			str_init(&t, &tl);
+			str_add_unsigned(&t, &tl, ptr_to_num((char *)ah + AH_SIZE), 16);
+			str_add_string(&t, &tl, ":");
+			str_add_unsigned(&t, &tl, ah->size, 10);
+			str_add_string(&t, &tl, " @ ");
+			str_add_string(&t, &tl, pos_str);
+			str_finish(&t, &tl);
+
+			if (sl && strlen_head + sl + 2 + tl > 174 - 15) {
+				str_finish(&s, &sl);
+				debug("memory leak: %s", s);
+				mem_free(s);
+				str_init(&s, &sl);
+			}
+
+			if (sl) str_add_string(&s, &sl, ", ");
+			else first_pos = pos_str;
+			str_add_string(&s, &sl, t);
+			mem_free(t);
+		}
+		if (sl) {
+			str_finish(&s, &sl);
+			debug("memory leak: %s", s);
+		}
+		mem_free(s);
+	}
+
+	internal(first_pos, "memory leak (%"PRIuMAX" blocks, %"PRIuMAX" bytes)", n_blocks, n_bytes);
 }
 #endif
 
