@@ -376,7 +376,6 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 	struct data *new_fn = ctx->local_directory[fn_idx];
 	frame_t required_slots = da(new_fn,function)->frame_slots;
 	frame_t bitmap_slots = da(new_fn,function)->n_bitmap_slots;
-	frame_t v;
 	uint32_t escape_label;
 	int64_t new_fp_offset;
 	uchar_efficient_t call_mode;
@@ -390,11 +389,7 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 	if (unlikely(!escape_label))
 		return false;
 
-	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
-		if (slot_is_register(ctx, v)) {
-			g(spill(ctx, v));
-		}
-	}
+	g(gen_spill_all(ctx));
 
 	g(gen_frame_load_raw(ctx, log_2(sizeof(stack_size_t)), native, 0, frame_offs(available_slots), false, R_SCRATCH_1));
 	g(gen_imm(ctx, required_slots, IMM_PURPOSE_SUB, i_size(log_2(sizeof(stack_size_t)))));

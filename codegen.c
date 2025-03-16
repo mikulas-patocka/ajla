@@ -2124,7 +2124,6 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 
 static bool attr_w gen_epilogues(struct codegen_context *ctx)
 {
-	frame_t v, n_vars, *vars;
 	ip_t ip;
 	uint32_t escape_label, nospill_label;
 	escape_label = alloc_label(ctx);
@@ -2164,18 +2163,7 @@ static bool attr_w gen_epilogues(struct codegen_context *ctx)
 	}
 	gen_label(escape_label);
 
-	vars = mem_alloc_array_mayfail(mem_alloc_mayfail, frame_t *, 0, 0, function_n_variables(ctx->fn), sizeof(frame_t), &ctx->err);
-	if (unlikely(!vars))
-		return false;
-	n_vars = 0;
-	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++)
-		if (slot_is_register(ctx, v))
-			vars[n_vars++] = v;
-	if (unlikely(!gen_spill_multiple(ctx, vars, n_vars, false))) {
-		mem_free(vars);
-		return false;
-	}
-	mem_free(vars);
+	g(gen_spill_all(ctx));
 
 	gen_label(nospill_label);
 	g(gen_escape(ctx));
