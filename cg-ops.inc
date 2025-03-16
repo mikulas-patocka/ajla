@@ -436,9 +436,10 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 		if (TYPE_IS_FLAT(t)) {
 			g(gen_test_1_cached(ctx, src_arg->slot, non_flat_label));
 			if (dest_arg->may_be_flat) {
-				g(gen_memcpy_from_slot(ctx, R_FRAME, new_fp_offset + (size_t)dest_arg->slot * slot_size, src_arg->slot));
+				const struct type *t = get_type_of_local(ctx, src_arg->slot);
+				g(gen_memcpy_raw(ctx, R_FRAME, new_fp_offset + (size_t)dest_arg->slot * slot_size, R_FRAME, (size_t)src_arg->slot * slot_size, t->size, t->align));
 			} else {
-				g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 2, true));
+				g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 2, false));
 
 				g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, R_FRAME));
 				g(gen_upcall_argument(ctx, 0));
@@ -446,7 +447,7 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 				g(gen_load_constant(ctx, R_ARG1, src_arg->slot));
 				g(gen_upcall_argument(ctx, 1));
 
-				g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 2, true));
+				g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 2, false));
 
 				g(gen_frame_store_raw(ctx, OP_SIZE_SLOT, dest_arg->slot, new_fp_offset, R_RET0));
 
