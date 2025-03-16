@@ -1147,7 +1147,7 @@ static attr_noreturn attr_cold mem_dump_leaks(void)
 		mem_free(s);
 	}
 
-	internal(file_line, "memory leak (%"PRIuMAX" blocks, %"PRIuMAX" bytes)", n_blocks, n_bytes);
+	internal(file_line, "memory leak (%"PRIuMAX" blocks, %"PRIuMAX" bytes)", (uintmax_t)n_blocks, (uintmax_t)n_bytes);
 }
 #endif
 
