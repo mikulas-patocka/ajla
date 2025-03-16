@@ -671,12 +671,6 @@ static bool attr_w gen_frame_store_imm(struct codegen_context *ctx, unsigned siz
 	return gen_frame_store_imm_raw(ctx, size, slot, offset, imm);
 }
 
-static bool attr_w gen_frame_clear_raw(struct codegen_context *ctx, unsigned size, frame_t slot)
-{
-	g(gen_frame_store_imm_raw(ctx, size, slot, 0, 0));
-	return true;
-}
-
 static bool attr_w gen_frame_clear(struct codegen_context *ctx, unsigned size, frame_t slot)
 {
 	g(gen_frame_store_imm(ctx, size, slot, 0, 0));
