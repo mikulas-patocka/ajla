@@ -1047,7 +1047,6 @@ static attr_noreturn attr_cold mem_dump_leaks(void)
 	size_t sl;
 	const char *head = "memory leak: ";
 	size_t strlen_head = strlen(head);
-	const char *first_pos = file_line;
 	size_t n_blocks;
 	size_t n_bytes;
 	size_t i;
@@ -1059,7 +1058,7 @@ static attr_noreturn attr_cold mem_dump_leaks(void)
 	list_for_each_back(lv, &leaked_list) {
 		n_blocks++;
 		if (!n_blocks)
-			internal(first_pos, "too many memory leaks");
+			internal(file_line, "too many memory leaks");
 	}
 	leaked_array = mem_alloc_array_mayfail(mem_alloc_mayfail, struct alloc_header **, 0, 0, n_blocks, sizeof(struct alloc_header *), NULL);
 	leaked_reached = mem_alloc_array_mayfail(mem_calloc_mayfail, bool *, 0, 0, n_blocks, sizeof(bool), NULL);
@@ -1138,7 +1137,6 @@ static attr_noreturn attr_cold mem_dump_leaks(void)
 			}
 
 			if (sl) str_add_string(&s, &sl, ", ");
-			else first_pos = pos_str;
 			str_add_string(&s, &sl, t);
 			mem_free(t);
 		}
@@ -1149,7 +1147,7 @@ static attr_noreturn attr_cold mem_dump_leaks(void)
 		mem_free(s);
 	}
 
-	internal(first_pos, "memory leak (%"PRIuMAX" blocks, %"PRIuMAX" bytes)", n_blocks, n_bytes);
+	internal(file_line, "memory leak (%"PRIuMAX" blocks, %"PRIuMAX" bytes)", n_blocks, n_bytes);
 }
 #endif
 
