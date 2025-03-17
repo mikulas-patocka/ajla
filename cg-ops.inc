@@ -421,6 +421,7 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 		const struct local_arg *dest_arg = &da(new_fn,function)->args[i];
 		const struct type *t = get_type_of_local(ctx, src_arg->slot);
 		uint32_t non_flat_label, thunk_label, incr_ref_label, next_arg_label;
+		unsigned reg;
 		non_flat_label = alloc_label(ctx);
 		if (unlikely(!non_flat_label))
 			return false;
@@ -463,16 +464,26 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 		gen_label(non_flat_label);
 
 		if (dest_arg->may_be_borrowed && src_arg->flags & OPCODE_CALL_MAY_LEND) {
-			g(gen_frame_load_slot(ctx, src_arg->slot, R_SCRATCH_1));
-			g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, src_arg->slot, thunk_label));
-			g(gen_frame_store_raw(ctx, OP_SIZE_SLOT, dest_arg->slot, new_fp_offset, R_SCRATCH_1));
+			if (slot_is_register(ctx, src_arg->slot) && reg_is_saved(ctx->registers[src_arg->slot])) {
+				reg = ctx->registers[src_arg->slot];
+			} else {
+				g(gen_frame_load_slot(ctx, src_arg->slot, R_SCRATCH_1));
+				reg = R_SCRATCH_1;
+			}
+			g(gen_ptr_is_thunk(ctx, reg, src_arg->slot, thunk_label));
+			g(gen_frame_store_raw(ctx, OP_SIZE_SLOT, dest_arg->slot, new_fp_offset, reg));
 			gen_insn(INSN_JMP, 0, 0, 0);
 			gen_four(next_arg_label);
 		} else if (dest_arg->may_be_borrowed && src_arg->flags & OPCODE_CALL_MAY_GIVE) {
 			g(gen_test_1_cached(ctx, src_arg->slot, thunk_label));
-			g(gen_frame_load_slot(ctx, src_arg->slot, R_SCRATCH_1));
-			g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, src_arg->slot, thunk_label));
-			g(gen_frame_store_raw(ctx, OP_SIZE_SLOT, dest_arg->slot, new_fp_offset, R_SCRATCH_1));
+			if (slot_is_register(ctx, src_arg->slot) && reg_is_saved(ctx->registers[src_arg->slot])) {
+				reg = ctx->registers[src_arg->slot];
+			} else {
+				g(gen_frame_load_slot(ctx, src_arg->slot, R_SCRATCH_1));
+				reg = R_SCRATCH_1;
+			}
+			g(gen_ptr_is_thunk(ctx, reg, src_arg->slot, thunk_label));
+			g(gen_frame_store_raw(ctx, OP_SIZE_SLOT, dest_arg->slot, new_fp_offset, reg));
 			g(gen_frame_clear_raw(ctx, OP_SIZE_SLOT, src_arg->slot));
 			gen_insn(INSN_JMP, 0, 0, 0);
 			gen_four(next_arg_label);
@@ -480,8 +491,13 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 
 		gen_label(thunk_label);
 		g(gen_set_1(ctx, R_FRAME, dest_arg->slot, new_fp_offset, true));
-		g(gen_frame_load_slot(ctx, src_arg->slot, R_SCRATCH_1));
-		g(gen_frame_store_raw(ctx, OP_SIZE_SLOT, dest_arg->slot, new_fp_offset, R_SCRATCH_1));
+		if (slot_is_register(ctx, src_arg->slot) && reg_is_saved(ctx->registers[src_arg->slot])) {
+			reg = ctx->registers[src_arg->slot];
+		} else {
+			g(gen_frame_load_slot(ctx, src_arg->slot, R_SCRATCH_1));
+			reg = R_SCRATCH_1;
+		}
+		g(gen_frame_store_raw(ctx, OP_SIZE_SLOT, dest_arg->slot, new_fp_offset, reg));
 		if (src_arg->flags & OPCODE_FLAG_FREE_ARGUMENT) {
 			g(gen_frame_clear_raw(ctx, OP_SIZE_SLOT, src_arg->slot));
 			if (flag_is_set(ctx, src_arg->slot)) {
@@ -500,7 +516,7 @@ do_reference:
 
 		g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1, false));
 
-		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, R_SCRATCH_1));
+		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, reg));
 		g(gen_upcall_argument(ctx, 0));
 
 		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1, false));
