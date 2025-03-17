@@ -464,6 +464,7 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 		gen_label(non_flat_label);
 
 		if (dest_arg->may_be_borrowed && src_arg->flags & OPCODE_CALL_MAY_LEND) {
+			bool bypass = test_ptr_is_not_thunk(ctx, src_arg->slot);
 			if (slot_is_register(ctx, src_arg->slot) && reg_is_saved(ctx->registers[src_arg->slot])) {
 				reg = ctx->registers[src_arg->slot];
 			} else {
@@ -472,9 +473,15 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 			}
 			g(gen_ptr_is_thunk(ctx, reg, src_arg->slot, thunk_label));
 			g(gen_frame_store_raw(ctx, OP_SIZE_SLOT, dest_arg->slot, new_fp_offset, reg));
+			if (bypass) {
+				gen_label(thunk_label);
+				gen_label(incr_ref_label);
+				goto skip_ref_argument;
+			}
 			gen_insn(INSN_JMP, 0, 0, 0);
 			gen_four(next_arg_label);
 		} else if (dest_arg->may_be_borrowed && src_arg->flags & OPCODE_CALL_MAY_GIVE) {
+			bool bypass = flag_is_clear(ctx, src_arg->slot) && test_ptr_is_not_thunk(ctx, src_arg->slot);
 			g(gen_test_1_cached(ctx, src_arg->slot, thunk_label));
 			if (slot_is_register(ctx, src_arg->slot) && reg_is_saved(ctx->registers[src_arg->slot])) {
 				reg = ctx->registers[src_arg->slot];
@@ -485,6 +492,11 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 			g(gen_ptr_is_thunk(ctx, reg, src_arg->slot, thunk_label));
 			g(gen_frame_store_raw(ctx, OP_SIZE_SLOT, dest_arg->slot, new_fp_offset, reg));
 			g(gen_frame_clear_raw(ctx, OP_SIZE_SLOT, src_arg->slot));
+			if (bypass) {
+				gen_label(thunk_label);
+				gen_label(incr_ref_label);
+				goto skip_ref_argument;
+			}
 			gen_insn(INSN_JMP, 0, 0, 0);
 			gen_four(next_arg_label);
 		}

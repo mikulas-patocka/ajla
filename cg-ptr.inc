@@ -26,10 +26,17 @@
 unsupported pointer mode
 #endif
 
+static bool test_ptr_is_not_thunk(struct codegen_context *ctx, frame_t slot)
+{
+	if (ctx->flag_cache[slot] & FLAG_CACHE_IS_NOT_THUNK || da(ctx->fn,function)->local_variables_flags[slot].must_be_data)
+		return true;
+	return false;
+}
+
 static bool attr_w gen_ptr_is_thunk(struct codegen_context *ctx, unsigned reg, frame_t slot, uint32_t label)
 {
 	if (slot != NO_FRAME_T) {
-		if (ctx->flag_cache[slot] & FLAG_CACHE_IS_NOT_THUNK || da(ctx->fn,function)->local_variables_flags[slot].must_be_data)
+		if (test_ptr_is_not_thunk(ctx, slot))
 			return true;
 		ctx->flag_cache[slot] |= FLAG_CACHE_IS_NOT_THUNK;
 	}
