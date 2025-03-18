@@ -162,7 +162,7 @@ static bool reg_is_fp(unsigned reg)
 	return reg >= 0x20 && reg < 0x40;
 }
 
-static const uint8_t regs_saved[] = { R_SAVED_7, R_SAVED_6, R_SAVED_5, R_SAVED_4, R_SAVED_3 };
+static const uint8_t regs_saved[] = { R_SAVED_7, R_SAVED_6, R_SAVED_5, R_SAVED_4, R_SAVED_3, R_FP };
 static const uint8_t regs_volatile[] = { R_4, R_5, R_6, R_7,
 #ifndef HAVE_BITWISE_FRAME
 	R_10,
@@ -364,10 +364,6 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_eight(-FRAME_SIZE);
 	gen_one(R_FP);
 	gen_one(R_LR);
-
-	gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
-	gen_one(R_FP);
-	gen_one(R_SP);
 
 	gen_insn(INSN_STP, OP_SIZE_8, 0, 0);
 	gen_one(ARG_ADDRESS_1);
