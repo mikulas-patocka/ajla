@@ -2181,6 +2181,7 @@ static bool attr_w cgen_entry(struct codegen_context *ctx)
 static bool attr_w cgen_label(struct codegen_context *ctx)
 {
 	uint32_t label_id = cget_four(ctx);
+	ajla_assert_lo(ctx->label_to_pos[label_id] == (size_t)-1, (file_line, "cgen_label: label already defined"));
 	ctx->label_to_pos[label_id] = ctx->mcode_size;
 	return true;
 }

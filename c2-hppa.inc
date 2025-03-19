@@ -735,7 +735,7 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 		mc |= PARISC_N;
 		g(add_relocation(ctx, JMP_SHORTEST, ctx->code_position - arg1, &known));
 		g(cgen_2reg(ctx, mc, arg1[0], arg3[0]));
-		if (unlikely(!known))
+		if (unlikely(known))
 			cgen_four(PARISC_NOP);
 		return true;
 	}
@@ -1256,7 +1256,7 @@ static bool attr_w cgen_cond_jmp(struct codegen_context *ctx, uint32_t mc, unsig
 		mc |= PARISC_N;
 		g(add_relocation(ctx, JMP_SHORTEST, reloc_offset, &known));
 		g(cgen_2reg(ctx, mc, reg2, reg1));
-		if (unlikely(!known))
+		if (unlikely(known))
 			cgen_four(PARISC_NOP);
 	} else if (length == JMP_SHORT) {
 		mc |= PARISC_N;
@@ -1482,6 +1482,8 @@ static bool attr_w resolve_relocation(struct codegen_context *ctx, struct reloca
 	switch (reloc->length) {
 		case JMP_SHORTEST:
 			if (unlikely(offs < -0x800) || unlikely(offs >= 0x800))
+				return false;
+			if (unlikely(offs == -1))
 				return false;
 			memcpy(&mc, ctx->mcode + reloc->position, 4);
 			mc &= ~0x00001ffdU;
