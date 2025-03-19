@@ -883,8 +883,8 @@ static bool attr_w gen_spill_multiple(struct codegen_context *ctx, frame_t *v, s
 	for (i = 0; i < l; i++) {
 #if defined(ARCH_ARM) || defined(ARCH_S390) || defined(ARCH_SPARC)
 		if (i + 1 < l) {
-			unsigned s;
-			int64_t offset;
+			unsigned s = 0;		/* avoid warning */
+			int64_t offset = 0;	/* avoid warning */
 			if (!spill_can_pair(ctx, v[i], v[i + 1], &s, &offset, can_be_smaller))
 				goto skip_opt;
 			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
@@ -913,8 +913,8 @@ static bool attr_w gen_unspill_multiple(struct codegen_context *ctx, frame_t *v,
 	for (i = 0; i < l; i++) {
 #if defined(ARCH_ARM) || defined(ARCH_S390) || defined(ARCH_SPARC)
 		if (i + 1 < l) {
-			unsigned s;
-			int64_t offset;
+			unsigned s = 0;		/* avoid warning */
+			int64_t offset = 0;	/* avoid warning */
 			if (!spill_can_pair(ctx, v[i], v[i + 1], &s, &offset, can_be_smaller))
 				goto skip_opt;
 			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
