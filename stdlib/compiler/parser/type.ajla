@@ -236,8 +236,10 @@ fn get_defined(cc : compare_context, typ : int) : instruction
 	return instr.j;
 ]
 
-fn is_non_const(cc : compare_context, typ : int) : bool
+fn is_non_const(ctx : function_context, cc : compare_context, typ : int) : bool
 [
+	if ctx.allow_vars then
+		return false;
 	if typ < 0 then
 		return false;
 	var va := cc.ctx.variables[typ];
@@ -390,8 +392,16 @@ restart:
 			return cc.return_redirect[idx].cc, cc.return_redirect[idx].idx;
 	]
 
-	if get_defined_maybe(cc, typ) is n then
+	if get_defined_maybe(cc, typ) is n then [
+		if ctx.allow_vars then [
+			if typ < len(cc.args) then [
+				cc, typ := cc.args[typ].cc, cc.args[typ].idx;
+				goto restart;
+			]
+			return cc, typ;
+		]
 		return fail_cc, fail_typ;
+	]
 
 	var def_at := cc_ctx.variables[typ].defined_at;
 
@@ -1289,8 +1299,8 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 		return ctx, typ;
 
 	if opcode = P_BinaryOp then [
-		if is_non_const(cc, pcode_BinaryOp_get_arg1(instr)) or
-		   is_non_const(cc, pcode_BinaryOp_get_arg2(instr)) then
+		if is_non_const(ctx, cc, pcode_BinaryOp_get_arg1(instr)) or
+		   is_non_const(ctx, cc, pcode_BinaryOp_get_arg2(instr)) then
 			goto uses_non_const;
 		var a1 a2 : int;
 		ctx, a1 := evaluate_type(ctx, cc, pcode_BinaryOp_get_arg1(instr), fn_stack, t);
@@ -1303,7 +1313,7 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 		return ctx, l;
 	]
 	if opcode = P_UnaryOp then [
-		if is_non_const(cc, pcode_UnaryOp_get_arg(instr)) then
+		if is_non_const(ctx, cc, pcode_UnaryOp_get_arg(instr)) then
 			goto uses_non_const;
 		var a1 : int;
 		ctx, a1 := evaluate_type(ctx, cc, pcode_UnaryOp_get_arg(instr), fn_stack, t);
@@ -1318,10 +1328,10 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 		var n_arguments := pcode_Fn_get_n_args(instr);
 		var n_return_values := pcode_Fn_get_n_return_values(instr);
 		for i := 0 to n_arguments do
-			if is_non_const(cc, pcode_Fn_get_argument(instr, i)) then
+			if is_non_const(ctx, cc, pcode_Fn_get_argument(instr, i)) then
 				goto uses_non_const;
 		for i := 0 to n_return_values do
-			if is_non_const(cc, pcode_Fn_get_return_value(instr, i)) then
+			if is_non_const(ctx, cc, pcode_Fn_get_return_value(instr, i)) then
 				goto uses_non_const;
 		var l : int;
 		ctx, l := alloc_local_variable(ctx, T_Type, true, false);
@@ -1368,10 +1378,10 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 	]
 	if opcode = P_Curry then [
 		var fnx := pcode_Curry_get_fn_variable(instr);
-		if is_non_const(cc, fnx) then
+		if is_non_const(ctx, cc, fnx) then
 			goto uses_non_const;
 		for i := 0 to pcode_Curry_get_n_curried_args(instr) do
-			if is_non_const(cc, pcode_Curry_get_arg(instr, i)) then
+			if is_non_const(ctx, cc, pcode_Curry_get_arg(instr, i)) then
 				goto uses_non_const;
 		var af : int;
 		ctx, af := evaluate_type(ctx, cc, fnx, fn_stack, t);
@@ -1399,7 +1409,7 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 		if pcode_Call_Indirect_get_n_args(instr) <> 0 then
 			abort internal("evaluate_type: Call_Indirect with arguments");
 		var fnx := pcode_Call_Indirect_get_fn_variable(instr);
-		if is_non_const(cc, fnx) then
+		if is_non_const(ctx, cc, fnx) then
 			goto uses_non_const;
 		var af : int;
 		ctx, af := evaluate_type(ctx, cc, fnx, fn_stack, t);
@@ -1410,7 +1420,7 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 	]
 	if opcode = P_Call then [
 		for i := 0 to pcode_Call_get_n_args(instr) do
-			if is_non_const(cc, pcode_Call_get_arg(instr, i)) then
+			if is_non_const(ctx, cc, pcode_Call_get_arg(instr, i)) then
 				goto uses_non_const;
 		var id := pcode_Call_get_unique_id(instr);
 		var fd := search_function_from_id(ctx, id);
@@ -1436,7 +1446,7 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 	]
 	if opcode = P_Record_Create then [
 		for i := 0 to pcode_Record_Create_get_n_args(instr) do
-			if is_non_const(cc, pcode_Record_Create_get_arg(instr, i)) then
+			if is_non_const(ctx, cc, pcode_Record_Create_get_arg(instr, i)) then
 				goto uses_non_const;
 		var def := get_record_or_option(ctx, cc, typ, false);
 		var type_idx := cc_ctx.variables[typ].type_idx;
@@ -1454,7 +1464,7 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 	if opcode = P_Record_Load then [
 		if cc.root, cc.ctx.variables[pcode_Record_Load_get_record(instr)].mut then
 			return ctx, typ;
-		if is_non_const(cc, pcode_Record_Load_get_record(instr)) then
+		if is_non_const(ctx, cc, pcode_Record_Load_get_record(instr)) then
 			goto uses_non_const;
 		var at : int;
 		ctx, at := evaluate_type(ctx, cc, pcode_Record_Load_get_record(instr), fn_stack, t);
@@ -1471,7 +1481,7 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 		return ctx, l;
 	]
 	if opcode = P_Option_Load then [
-		if is_non_const(cc, pcode_Option_Load_get_option(instr)) then
+		if is_non_const(ctx, cc, pcode_Option_Load_get_option(instr)) then
 			goto uses_non_const;
 		var at : int;
 		ctx, at := evaluate_type(ctx, cc, pcode_Option_Load_get_option(instr), fn_stack, t);
@@ -1480,7 +1490,7 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 		return ctx, l;
 	]
 	if opcode = P_Option_Test then [
-		if is_non_const(cc, pcode_Option_Test_get_option(instr)) then
+		if is_non_const(ctx, cc, pcode_Option_Test_get_option(instr)) then
 			goto uses_non_const;
 		var at : int;
 		ctx, at := evaluate_type(ctx, cc, pcode_Option_Test_get_option(instr), fn_stack, t);
@@ -1489,7 +1499,7 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 		return ctx, l;
 	]
 	if opcode = P_Option_Ord then [
-		if is_non_const(cc, pcode_Option_Ord_get_option(instr)) then
+		if is_non_const(ctx, cc, pcode_Option_Ord_get_option(instr)) then
 			goto uses_non_const;
 		var at l : int;
 		ctx, at := evaluate_type(ctx, cc, pcode_Option_Ord_get_option(instr), fn_stack, t);
@@ -1498,11 +1508,11 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 	]
 	if opcode = P_Array_Create then [
 		var type_idx := cc_ctx.variables[typ].type_idx;
-		if is_non_const(cc, type_idx) then
+		if is_non_const(ctx, cc, type_idx) then
 			goto uses_non_const;
 		var array_length := pcode_Array_Create_get_length(instr);
 		for i := 0 to array_length do
-			if is_non_const(cc, pcode_Array_Create_get_arg(instr, i)) then
+			if is_non_const(ctx, cc, pcode_Array_Create_get_arg(instr, i)) then
 				goto uses_non_const;
 		var at elem length l : int;
 		ctx, at := evaluate_type(ctx, cc, type_idx, fn_stack, t);
@@ -1526,8 +1536,8 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 	]
 	if opcode = P_Array_Load then [
 		var at ai l : int;
-		if is_non_const(cc, pcode_Array_Load_get_array(instr)) or
-		   is_non_const(cc, pcode_Array_Load_get_index(instr)) then
+		if is_non_const(ctx, cc, pcode_Array_Load_get_array(instr)) or
+		   is_non_const(ctx, cc, pcode_Array_Load_get_index(instr)) then
 			goto uses_non_const;
 		ctx, at := evaluate_type(ctx, cc, pcode_Array_Load_get_array(instr), fn_stack, t);
 		ctx, ai := evaluate_type(ctx, cc, pcode_Array_Load_get_index(instr), fn_stack, t);
@@ -1536,9 +1546,9 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 	]
 	if opcode = P_Array_Sub then [
 		var aa am an l : int;
-		if is_non_const(cc, pcode_Array_Sub_get_array(instr)) or
-		   is_non_const(cc, pcode_Array_Sub_get_start(instr)) or
-		   is_non_const(cc, pcode_Array_Sub_get_end(instr)) then
+		if is_non_const(ctx, cc, pcode_Array_Sub_get_array(instr)) or
+		   is_non_const(ctx, cc, pcode_Array_Sub_get_start(instr)) or
+		   is_non_const(ctx, cc, pcode_Array_Sub_get_end(instr)) then
 			goto uses_non_const;
 		ctx, aa := evaluate_type(ctx, cc, pcode_Array_Sub_get_array(instr), fn_stack, t);
 		ctx, am := evaluate_type(ctx, cc, pcode_Array_Sub_get_start(instr), fn_stack, t);
@@ -1548,8 +1558,8 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 	]
 	if opcode = P_Array_Skip then [
 		var aa am an l : int;
-		if is_non_const(cc, pcode_Array_Skip_get_array(instr)) or
-		   is_non_const(cc, pcode_Array_Skip_get_start(instr)) then
+		if is_non_const(ctx, cc, pcode_Array_Skip_get_array(instr)) or
+		   is_non_const(ctx, cc, pcode_Array_Skip_get_start(instr)) then
 			goto uses_non_const;
 		ctx, aa := evaluate_type(ctx, cc, pcode_Array_Skip_get_array(instr), fn_stack, t);
 		ctx, am := evaluate_type(ctx, cc, pcode_Array_Skip_get_start(instr), fn_stack, t);

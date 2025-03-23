@@ -451,7 +451,9 @@ fn generate_Call(ctx : function_context, call_mode : int, fd : function_definiti
 
 	for i := 0 to len(fd.signature.prereqs) do [
 		var l : int;
+		ctx.allow_vars := true;
 		ctx, l := evaluate_type(ctx, fn_cc, fd.signature.prereqs[i], empty(compare_fn_stack), t);
+		ctx.allow_vars := false;
 		ctx := generate_Claim(ctx, l);
 	]
 
@@ -487,7 +489,9 @@ fn generate_Call(ctx : function_context, call_mode : int, fd : function_definiti
 
 	for i := 0 to len(fd.signature.contracts) do [
 		var l : int;
+		ctx.allow_vars := true;
 		ctx, l := evaluate_type(ctx, fn_cc, fd.signature.contracts[i], empty(compare_fn_stack), t);
+		ctx.allow_vars := false;
 		ctx := generate_Assume(ctx, l);
 	]
 

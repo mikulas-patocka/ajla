@@ -150,6 +150,7 @@ record function_context [
 	gvn_seq : int;
 
 	inferred_base : int;
+	allow_vars : bool;
 
 	is_pattern_matched : bool;
 	pattern_matching_info : list(pattern_context);
@@ -445,6 +446,7 @@ fn new_function_context(dict : function_dictionary, parent_function : maybe(func
 		gvn_seq : 0,
 
 		inferred_base : T_InferredType,
+		allow_vars : false,
 
 		is_pattern_matched : false,
 		pattern_matching_info : empty(pattern_context),
@@ -459,7 +461,16 @@ fn function_context_is_privileged(ctx : function_context) : bool
 
 fn function_context_clear_temp_values(ctx : function_context) : function_context
 [
-	ctx.dict := exception_make(function_dictionary, ec_sync, error_record_field_not_initialized, 0, false);
+	ctx.dict.defs := exception_make(list(function_definition), ec_sync, error_record_field_not_initialized, 0, false);
+	ctx.dict.dict := exception_make(list(int), ec_sync, error_record_field_not_initialized, 0, false);
+	ctx.dict.macros := exception_make(list(macro), ec_sync, error_record_field_not_initialized, 0, false);
+	//ctx.dict.id := exception_make(module_unique_id, ec_sync, error_record_field_not_initialized, 0, false);
+	ctx.dict.impl := exception_make(list(int), ec_sync, error_record_field_not_initialized, 0, false);
+	ctx.dict.conv := exception_make(list(int), ec_sync, error_record_field_not_initialized, 0, false);
+	ctx.dict.name_prefix := exception_make(bytes, ec_sync, error_record_field_not_initialized, 0, false);
+	ctx.dict.priv := exception_make(bool, ec_sync, error_record_field_not_initialized, 0, false);
+	//ctx.dict.modules := exception_make(list(function_dictionary), ec_sync, error_record_field_not_initialized, 0, false);
+	//ctx.dict.modules_map := exception_make(list(int), ec_sync, error_record_field_not_initialized, 0, false);
 	return ctx;
 ]
 
