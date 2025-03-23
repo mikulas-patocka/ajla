@@ -449,6 +449,12 @@ fn generate_Call(ctx : function_context, call_mode : int, fd : function_definiti
 		//eval debug("gvn miss");
 	]
 
+	for i := 0 to len(fd.signature.prereqs) do [
+		var l : int;
+		ctx, l := evaluate_type(ctx, fn_cc, fd.signature.prereqs[i], empty(compare_fn_stack), t);
+		ctx := generate_Claim(ctx, l);
+	]
+
 	var my_cc := new_compare_context(ctx);
 
 	for i := 0 to n_return_values do [
@@ -477,6 +483,12 @@ fn generate_Call(ctx : function_context, call_mode : int, fd : function_definiti
 		// TODO: quadratic complexity
 		for j := 0 to i + 1 do
 			fn_cc.return_redirect[j].cc.ctx := ctx;
+	]
+
+	for i := 0 to len(fd.signature.contracts) do [
+		var l : int;
+		ctx, l := evaluate_type(ctx, fn_cc, fd.signature.contracts[i], empty(compare_fn_stack), t);
+		ctx := generate_Assume(ctx, l);
 	]
 
 	return ctx, return_vector;
