@@ -172,7 +172,7 @@ fn parse_function_type(ctx : function_context, vd : variable_dictionary, t : tok
 	]
 
 	ctx := set_defined_here(ctx, l);
-	ctx := generate_Fn(ctx, arguments, return_values, l);
+	ctx := generate_Fn(ctx, arguments, return_values, empty(int), empty(int), l);
 
 	return ctx, [ l ];
 ]

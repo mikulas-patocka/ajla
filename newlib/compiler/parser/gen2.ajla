@@ -189,7 +189,7 @@ fn generate_Load_Fn(ctx : function_context, fd : function_definition, t : tokens
 	]
 
 	ctx := set_defined_here(ctx, fn_def);
-	ctx := generate_Fn(ctx, args[ .. fd.signature.n_arguments], args[fd.signature.n_arguments .. ], fn_def);
+	ctx := generate_Fn(ctx, args[ .. fd.signature.n_arguments], args[fd.signature.n_arguments .. ], empty(int), empty(int), fn_def);
 
 	var fnx : int;
 	ctx, fnx := alloc_local_variable(ctx, fn_def, true, false);
@@ -267,7 +267,7 @@ fn generate_Curry(ctx : function_context, cc : compare_context, typ : int, af : 
 	]
 
 	ctx := set_defined_here(ctx, fn_def);
-	ctx := generate_Fn(ctx, type_args[provided_args .. n_args], type_args[n_args .. ], fn_def);
+	ctx := generate_Fn(ctx, type_args[provided_args .. n_args], type_args[n_args .. ], empty(int), empty(int), fn_def);
 
 	var fnx : int;
 	ctx, fnx := alloc_local_variable(ctx, fn_def, true, false);

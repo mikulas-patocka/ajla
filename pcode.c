@@ -2429,7 +2429,7 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 		pcode_t instr, instr_params;
 		pcode_get_instr(ctx, &instr, &instr_params);
 		switch (instr) {
-			pcode_t p, op, res, a1, a2, aa, flags, flags1, flags2, cnst;
+			pcode_t p, op, res, a1, a2, a3, a4, aa, flags, flags1, flags2, cnst;
 			const struct pcode_type *tr, *t1, *t2, *ta;
 			bool a1_deref, a2_deref;
 			arg_mode_t am;
@@ -2592,9 +2592,15 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				ajla_assert_lo(var_elided(res), (file_line, "P_Fn(%s): Fn result is not elided", function_name(ctx)));
 				a1 = u_pcode_get();
 				a2 = u_pcode_get();
+				a3 = u_pcode_get();
+				a4 = u_pcode_get();
 				for (p = 0; p < a1; p++)
 					pcode_get();
 				for (p = 0; p < a2; p++)
+					pcode_get();
+				for (p = 0; p < a3; p++)
+					pcode_get();
+				for (p = 0; p < a4; p++)
 					pcode_get();
 				break;
 			case P_Load_Local_Type:

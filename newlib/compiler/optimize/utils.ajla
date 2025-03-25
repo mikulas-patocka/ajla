@@ -169,11 +169,9 @@ fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instructi
 		xlen := 1;
 	] else if opcode = P_Fn then [
 		ins.write_set := 0 bts 0;
-		xlen := 3 + params[1] + params[2];
-		for i := 3 to xlen do [
-			var p := params[i];
-			if p >= 0 then
-				ins.read_set bts= i;
+		xlen := 5 + params[1] + params[2] + params[3] + params[4];
+		for i := 5 to xlen do [
+			ins.read_set bts= i;
 		]
 	] else if opcode = P_Load_Local_Type then [
 		ins.write_set := 0 bts 0;

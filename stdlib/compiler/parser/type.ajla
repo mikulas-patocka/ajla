@@ -917,7 +917,9 @@ fn verify_type_equality(ctx : function_context,
 
 	if opcode1 = P_Fn then [
 		if pcode_Fn_get_n_args(instr1) <> pcode_Fn_get_n_args(instr2) or
-		   pcode_Fn_get_n_return_values(instr1) <> pcode_Fn_get_n_return_values(instr2) then
+		   pcode_Fn_get_n_return_values(instr1) <> pcode_Fn_get_n_return_values(instr2) or
+		   pcode_Fn_get_n_prereqs(instr1) <> pcode_Fn_get_n_prereqs(instr2) or
+		   pcode_Fn_get_n_contracts(instr1) <> pcode_Fn_get_n_contracts(instr2) then
 			return teq.dont_know;
 		var new_fn_stack1 : compare_fn_stack := compare_fn_stack.[
 			cc : cc1,
@@ -943,6 +945,20 @@ fn verify_type_equality(ctx : function_context,
 		for i := 0 to pcode_Fn_get_n_return_values(instr1) do [
 			var a1 := pcode_Fn_get_return_value(instr1, i);
 			var a2 := pcode_Fn_get_return_value(instr2, i);
+			var x := verify_type_equality(ctx, cc1, a1, fn_stack1, cc2, a2, fn_stack2);
+			if not x is eq then
+				return teq_ret(x);
+		]
+		for i := 0 to pcode_Fn_get_n_prereqs(instr1) do [
+			var a1 := pcode_Fn_get_prereq(instr1, i);
+			var a2 := pcode_Fn_get_prereq(instr2, i);
+			var x := verify_type_equality(ctx, cc1, a1, fn_stack1, cc2, a2, fn_stack2);
+			if not x is eq then
+				return teq_ret(x);
+		]
+		for i := 0 to pcode_Fn_get_n_contracts(instr1) do [
+			var a1 := pcode_Fn_get_contract(instr1, i);
+			var a2 := pcode_Fn_get_contract(instr2, i);
 			var x := verify_type_equality(ctx, cc1, a1, fn_stack1, cc2, a2, fn_stack2);
 			if not x is eq then
 				return teq_ret(x);
@@ -1327,16 +1343,26 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 	if opcode = P_Fn then [
 		var n_arguments := pcode_Fn_get_n_args(instr);
 		var n_return_values := pcode_Fn_get_n_return_values(instr);
+		var n_prereqs := pcode_Fn_get_n_prereqs(instr);
+		var n_contracts := pcode_Fn_get_n_contracts(instr);
 		for i := 0 to n_arguments do
 			if is_non_const(ctx, cc, pcode_Fn_get_argument(instr, i)) then
 				goto uses_non_const;
 		for i := 0 to n_return_values do
 			if is_non_const(ctx, cc, pcode_Fn_get_return_value(instr, i)) then
 				goto uses_non_const;
+		for i := 0 to n_prereqs do
+			if is_non_const(ctx, cc, pcode_Fn_get_prereq(instr, i)) then
+				goto uses_non_const;
+		for i := 0 to n_contracts do
+			if is_non_const(ctx, cc, pcode_Fn_get_contract(instr, i)) then
+				goto uses_non_const;
 		var l : int;
 		ctx, l := alloc_local_variable(ctx, T_Type, true, false);
 		var args := empty(int);
 		var return_values := empty(int);
+		var prereqs := empty(int);
+		var contracts := empty(int);
 		var new_fn_stack : compare_fn_stack := compare_fn_stack.[
 			cc : cc,
 			main_def : pcode_Fn_get_result(instr),
@@ -1358,8 +1384,22 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 			return_values +<= a1;
 			fn_stack[len(fn_stack) - 1].dest_types +<= a1;
 		]
+		for i := 0 to n_prereqs do [
+			var arg := pcode_Fn_get_prereq(instr, i);
+			var a1 : int;
+			ctx, a1 := evaluate_type(ctx, cc, arg, fn_stack, t);
+			prereqs +<= a1;
+			fn_stack[len(fn_stack) - 1].dest_types +<= a1;
+		]
+		for i := 0 to n_contracts do [
+			var arg := pcode_Fn_get_contract(instr, i);
+			var a1 : int;
+			ctx, a1 := evaluate_type(ctx, cc, arg, fn_stack, t);
+			contracts +<= a1;
+			fn_stack[len(fn_stack) - 1].dest_types +<= a1;
+		]
 		ctx := set_defined_here(ctx, l);
-		ctx := generate_Fn(ctx, args, return_values, l);
+		ctx := generate_Fn(ctx, args, return_values, prereqs, contracts, l);
 		return ctx, l;
 	]
 	if opcode = P_Load_Local_Type then [

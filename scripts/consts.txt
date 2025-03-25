@@ -22,7 +22,7 @@ P_Copy_Type_Cast	; dest, ref_flag, src
 P_Free			; var
 P_Eval			; var
 P_Keep			; var
-P_Fn			; result, n_args, n_return_values, args..., return_values...
+P_Fn			; result, n_args, n_return_values, n_prereqs, n_contracts, args..., return_values...
 P_Load_Local_Type	; result, function var (-1 if we are referring to record entries), index
 P_Load_Fn		; result, n_curried_args, call_mode, [path_idx, fn_idx, n_unit_chars, (unit_name)], (ref_flag, arg_idx)
 P_Curry			; result, n_curried_args, ref_flag, function, (ref_flag, arg_idx)
