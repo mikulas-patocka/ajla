@@ -890,8 +890,8 @@ fn verify_type_equality(ctx : function_context,
 		var x := verify_type_equality(ctx, cc1, a1, fn_stack1, cc2, a2, fn_stack2);
 		if not x is eq then
 			return teq_ret(x);
-		a1 := pcode_BinaryOp_get_arg1(instr1);
-		a2 := pcode_BinaryOp_get_arg1(instr2);
+		a1 := pcode_BinaryOp_get_arg2(instr1);
+		a2 := pcode_BinaryOp_get_arg2(instr2);
 		x := verify_type_equality(ctx, cc1, a1, fn_stack1, cc2, a2, fn_stack2);
 		if not x is eq then
 			return teq_ret(x);

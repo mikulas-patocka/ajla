@@ -111,7 +111,7 @@ test_next:
 	return best_split, best_op_mode, best_string;
 ]
 
-fn parse_fn_arguments(ctx : function_context, vd : variable_dictionary, t : tokens, var_idx : int, offset : int, in_type : bool) : (function_context, variable_dictionary, list(int))
+fn parse_fn_arguments(ctx : function_context, vd : variable_dictionary, t : tokens, retval : bool, var_idx : int, offset : int, in_type : bool) : (function_context, variable_dictionary, list(int), list(int))
 [
 	if len_at_least(t, 2) then [
 		if t[0].t is left_paren and t[0].bracket_skip = len(t) - 1 then [
@@ -119,10 +119,20 @@ fn parse_fn_arguments(ctx : function_context, vd : variable_dictionary, t : toke
 		]
 	]
 	var vars := empty(int);
+	var prereqs_contracts := empty(int);
 
 	while len_greater_than(t, 0) do [
 		var decl : tokens;
 		decl, t := split_tokens(t, token_opt.comma);
+		if len(decl) > 0 then [
+			if not retval and decl[0].t is k_prereq or
+			   retval and decl[0].t is k_contract then [
+				var a : int;
+				ctx, a := parse_expression_bool(ctx, vd, decl[1 .. ]);
+				prereqs_contracts +<= a;
+				continue;
+			]
+		]
 		var colon := token_find_colon(decl);
 		if colon <> -1 then [
 			var expression := decl[colon + 1 .. ];
@@ -143,7 +153,7 @@ fn parse_fn_arguments(ctx : function_context, vd : variable_dictionary, t : toke
 		]
 	]
 
-	return ctx, vd, vars;
+	return ctx, vd, vars, prereqs_contracts;
 ]
 
 {=================
@@ -163,16 +173,16 @@ fn parse_function_type(ctx : function_context, vd : variable_dictionary, t : tok
 
 	var private_vd := new_variable_dictionary_chained(ctx, vd);
 
-	var arguments return_values : list(int);
-	ctx, private_vd, arguments := parse_fn_arguments(ctx, private_vd, argument_tokens, l, 0, in_type);
-	ctx, private_vd, return_values := parse_fn_arguments(ctx, private_vd, return_values_tokens, l, len(arguments), in_type);
+	var arguments return_values prereqs contracts : list(int);
+	ctx, private_vd, arguments, prereqs := parse_fn_arguments(ctx, private_vd, argument_tokens, false, l, 0, in_type);
+	ctx, private_vd, return_values, contracts := parse_fn_arguments(ctx, private_vd, return_values_tokens, true, l, len(arguments), in_type);
 
 	if len(arguments) = 0 or len(return_values) = 0 then [
 		abort compiler_error("Function must have at least one argument and one return value", t);
 	]
 
 	ctx := set_defined_here(ctx, l);
-	ctx := generate_Fn(ctx, arguments, return_values, empty(int), empty(int), l);
+	ctx := generate_Fn(ctx, arguments, return_values, prereqs, contracts, l);
 
 	return ctx, [ l ];
 ]
