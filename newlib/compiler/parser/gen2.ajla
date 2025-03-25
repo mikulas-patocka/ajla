@@ -187,9 +187,25 @@ fn generate_Load_Fn(ctx : function_context, fd : function_definition, t : tokens
 		for j := 0 to i + 1 do
 			cc.args[j].cc := my_cc;
 	]
+	var prereqs := empty(int);
+	for i := 0 to len(fd.signature.prereqs) do [
+		var typ : int;
+		ctx.allow_vars := true;
+		ctx, typ := evaluate_type(ctx, cc, fd.signature.prereqs[i], empty(compare_fn_stack), t);
+		ctx.allow_vars := false;
+		prereqs +<= typ;
+	]
+	var contracts := empty(int);
+	for i := 0 to len(fd.signature.contracts) do [
+		var typ : int;
+		ctx.allow_vars := true;
+		ctx, typ := evaluate_type(ctx, cc, fd.signature.contracts[i], empty(compare_fn_stack), t);
+		ctx.allow_vars := false;
+		contracts +<= typ;
+	]
 
 	ctx := set_defined_here(ctx, fn_def);
-	ctx := generate_Fn(ctx, args[ .. fd.signature.n_arguments], args[fd.signature.n_arguments .. ], empty(int), empty(int), fn_def);
+	ctx := generate_Fn(ctx, args[ .. fd.signature.n_arguments], args[fd.signature.n_arguments .. ], prereqs, contracts, fn_def);
 
 	var fnx : int;
 	ctx, fnx := alloc_local_variable(ctx, fn_def, true, false);
@@ -266,8 +282,27 @@ fn generate_Curry(ctx : function_context, cc : compare_context, typ : int, af : 
 		]
 	]
 
+	var prereqs := empty(int);
+	for i := 0 to pcode_Fn_get_n_prereqs(instr) do [
+		var type_arg_idx := pcode_Fn_get_prereq(instr, i);
+		var tp : int;
+		ctx.allow_vars := true;
+		ctx, tp := evaluate_type(ctx, cc, type_arg_idx, empty(compare_fn_stack), t);
+		ctx.allow_vars := false;
+		prereqs +<= tp;
+	]
+	var contracts := empty(int);
+	for i := 0 to pcode_Fn_get_n_contracts(instr) do [
+		var type_arg_idx := pcode_Fn_get_contract(instr, i);
+		var tp : int;
+		ctx.allow_vars := true;
+		ctx, tp := evaluate_type(ctx, cc, type_arg_idx, empty(compare_fn_stack), t);
+		ctx.allow_vars := false;
+		contracts +<= tp;
+	]
+
 	ctx := set_defined_here(ctx, fn_def);
-	ctx := generate_Fn(ctx, type_args[provided_args .. n_args], type_args[n_args .. ], empty(int), empty(int), fn_def);
+	ctx := generate_Fn(ctx, type_args[provided_args .. n_args], type_args[n_args .. ], prereqs, contracts, fn_def);
 
 	var fnx : int;
 	ctx, fnx := alloc_local_variable(ctx, fn_def, true, false);
@@ -341,6 +376,10 @@ fn generate_Call_Indirect(ctx : function_context, call_mode : int, fnx : int, t 
 		]
 	]
 
+	for i := 0 to pcode_Fn_get_n_prereqs(instr) do [
+		ctx := generate_Claim(ctx, pcode_Fn_get_prereq(instr, i));
+	]
+
 	var pcode_args := list(pcode_t).[ call_mode, n_return_values, n_args, 0, fnx ];
 
 	for i := 0 to n_return_values do [
@@ -368,6 +407,12 @@ fn generate_Call_Indirect(ctx : function_context, call_mode : int, fnx : int, t 
 		// TODO: quadratic complexity
 		for j := 0 to i + 1 do
 			cc.llt_redirect[j].cc.ctx := ctx;
+	]
+
+	for i := 0 to pcode_Fn_get_n_contracts(instr) do [
+		var l : int;
+		ctx, l := evaluate_type(ctx, cc, pcode_Fn_get_contract(instr, i), empty(compare_fn_stack), t);
+		ctx := generate_Assume(ctx, l);
 	]
 
 	return ctx, return_vector;
