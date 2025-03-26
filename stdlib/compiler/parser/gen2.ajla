@@ -190,17 +190,13 @@ fn generate_Load_Fn(ctx : function_context, fd : function_definition, t : tokens
 	var prereqs := empty(int);
 	for i := 0 to len(fd.signature.prereqs) do [
 		var typ : int;
-		ctx.allow_vars := true;
-		ctx, typ := evaluate_type(ctx, cc, fd.signature.prereqs[i], empty(compare_fn_stack), t);
-		ctx.allow_vars := false;
+		ctx, typ := evaluate_type_var(ctx, cc, fd.signature.prereqs[i], empty(compare_fn_stack), t);
 		prereqs +<= typ;
 	]
 	var contracts := empty(int);
 	for i := 0 to len(fd.signature.contracts) do [
 		var typ : int;
-		ctx.allow_vars := true;
-		ctx, typ := evaluate_type(ctx, cc, fd.signature.contracts[i], empty(compare_fn_stack), t);
-		ctx.allow_vars := false;
+		ctx, typ := evaluate_type_var(ctx, cc, fd.signature.contracts[i], empty(compare_fn_stack), t);
 		contracts +<= typ;
 	]
 
@@ -286,18 +282,14 @@ fn generate_Curry(ctx : function_context, cc : compare_context, typ : int, af : 
 	for i := 0 to pcode_Fn_get_n_prereqs(instr) do [
 		var type_arg_idx := pcode_Fn_get_prereq(instr, i);
 		var tp : int;
-		ctx.allow_vars := true;
-		ctx, tp := evaluate_type(ctx, cc, type_arg_idx, empty(compare_fn_stack), t);
-		ctx.allow_vars := false;
+		ctx, tp := evaluate_type_var(ctx, cc, type_arg_idx, empty(compare_fn_stack), t);
 		prereqs +<= tp;
 	]
 	var contracts := empty(int);
 	for i := 0 to pcode_Fn_get_n_contracts(instr) do [
 		var type_arg_idx := pcode_Fn_get_contract(instr, i);
 		var tp : int;
-		ctx.allow_vars := true;
-		ctx, tp := evaluate_type(ctx, cc, type_arg_idx, empty(compare_fn_stack), t);
-		ctx.allow_vars := false;
+		ctx, tp := evaluate_type_var(ctx, cc, type_arg_idx, empty(compare_fn_stack), t);
 		contracts +<= tp;
 	]
 
@@ -496,9 +488,7 @@ fn generate_Call(ctx : function_context, call_mode : int, fd : function_definiti
 
 	for i := 0 to len(fd.signature.prereqs) do [
 		var l : int;
-		ctx.allow_vars := true;
-		ctx, l := evaluate_type(ctx, fn_cc, fd.signature.prereqs[i], empty(compare_fn_stack), t);
-		ctx.allow_vars := false;
+		ctx, l := evaluate_type_var(ctx, fn_cc, fd.signature.prereqs[i], empty(compare_fn_stack), t);
 		ctx := generate_Claim(ctx, l);
 	]
 
@@ -534,9 +524,7 @@ fn generate_Call(ctx : function_context, call_mode : int, fd : function_definiti
 
 	for i := 0 to len(fd.signature.contracts) do [
 		var l : int;
-		ctx.allow_vars := true;
-		ctx, l := evaluate_type(ctx, fn_cc, fd.signature.contracts[i], empty(compare_fn_stack), t);
-		ctx.allow_vars := false;
+		ctx, l := evaluate_type_var(ctx, fn_cc, fd.signature.contracts[i], empty(compare_fn_stack), t);
 		ctx := generate_Assume(ctx, l);
 	]
 

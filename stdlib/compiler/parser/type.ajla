@@ -73,6 +73,7 @@ fn verify_type_equality(ctx : function_context,
 			cc2 : compare_context, typ2 : int, fn_stack2 : list(compare_fn_stack)) : teq;
 
 fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_stack : list(compare_fn_stack), t : tokens) : (function_context, int);
+fn evaluate_type_var(ctx : function_context, cc : compare_context, typ : int, fn_stack : list(compare_fn_stack), t : tokens) : (function_context, int);
 
 fn array_shape(ctx : function_context, cc : compare_context, a : int, t : tokens) : (bool, compare_context, list(int));
 fn list_type(ctx : function_context, cc : compare_context, a : int, err : bool, t : tokens) : (compare_context, int);
@@ -1625,6 +1626,16 @@ uses_non_const:
 		abort exception_make(int, ec_sync, error_user3, typ, false);
 	]
 	abort internal("evaluate_type: invalid opcode " + ntos(opcode));
+]
+
+fn evaluate_type_var(ctx : function_context, cc : compare_context, typ : int, fn_stack : list(compare_fn_stack), t : tokens) : (function_context, int)
+[
+	var a := ctx.allow_vars;
+	ctx.allow_vars := true;
+	var l : int;
+	ctx, l := evaluate_type(ctx, cc, typ, fn_stack, t);
+	ctx.allow_vars := a;
+	return ctx, l;
 ]
 
 fn array_shape(ctx : function_context, cc : compare_context, a : int, t : tokens) : (bool, compare_context, list(int))
