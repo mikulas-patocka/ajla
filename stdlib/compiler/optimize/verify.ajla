@@ -149,9 +149,13 @@ fn declare_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : 
 	var t : bytes;
 	ctx, t := get_z3_type(ctx, lt);
 	z3_eval_noret(ctx, "(declare-const " + n + " " + t + ")");
-	if lt >= 0, ctx.local_types[lt] is rec then [
-		if not ctx.local_types[lt].rec.opt then
-			z3_eval_noret(ctx, "(assert ((_ is mk-"+t+") "+n+"))");
+	if lt >= 0 then [
+		if ctx.local_types[lt] is rec then [
+			if not ctx.local_types[lt].rec.opt then
+				z3_eval_noret(ctx, "(assert ((_ is mk-"+t+") "+n+"))");
+		] else if ctx.local_types[lt] is arr or ctx.local_types[lt] is flat_array then [
+			z3_eval_noret(ctx, "(assert (>= (arr-len "+n+") 0))");
+		]
 	]
 	return ctx;
 ]
