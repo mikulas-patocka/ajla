@@ -58,6 +58,8 @@ record basic_block [
 	post_cut_nodes : int;
 	pre_cut_nodes : bool;
 	added_claims : list(bytes);
+	guards : var_set;
+	not_guards : var_set;
 ]
 
 fn new_basic_block : basic_block
@@ -82,6 +84,8 @@ fn new_basic_block : basic_block
 		post_cut_nodes : 0,
 		pre_cut_nodes : false,
 		added_claims : empty(bytes),
+		guards : 0,
+		not_guards : 0,
 	];
 ]
 
