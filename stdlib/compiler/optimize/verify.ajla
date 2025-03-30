@@ -80,6 +80,8 @@ fn get_array_subtype(lt : local_type) : int
 	return lt.arr;
 ]
 
+fn get_bv_width(runtime_type : int) := 8 shl ((T_SInt8 - runtime_type) shr 1);
+
 fn get_z3_type(ctx : context, runtime_type : int) : (context, bytes)
 [
 	if runtime_type = T_Bool then
@@ -91,8 +93,7 @@ fn get_z3_type(ctx : context, runtime_type : int) : (context, bytes)
 	if runtime_type = T_Undetermined then
 		return ctx, "Undetermined";
 	if runtime_type <= T_SInt8, runtime_type >= T_UInt128 then [
-		var v := 8 shl ((T_SInt8 - runtime_type) shr 1);
-		return ctx, "(_ BitVec " + ntos(v) + ")";
+		return ctx, "(_ BitVec " + ntos(get_bv_width(runtime_type)) + ")";
 	]
 	if runtime_type < 0 then
 		abort internal("get_z3_type: invalid type " + ntos(runtime_type));
@@ -194,6 +195,8 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 		else if op = Bin_GreaterEqual, us	then str := "bvuge";
 		else if op = Un_Not			then str := "bvnot";
 		else if op = Un_Neg			then str := "bvneg";
+		else if op = Un_ConvertToInt		then str := "bv2int";
+		else if op = Un_ConvertFromInt		then str := "(_ int2bv " + ntos(get_bv_width(typ)) + ")";
 	] else if typ <= T_Integer, typ >= T_Integer128 then [
 		if op = Bin_Add			then str := "+";
 		else if op = Bin_Subtract	then str := "-";
@@ -213,6 +216,8 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 		else if op = Bin_Bt		then str := "int-bt";
 		else if op = Un_Not		then str := "int-not";
 		else if op = Un_Neg		then str := "-";
+		else if op = Un_ConvertToInt	then str := "+";
+		else if op = Un_ConvertFromInt	then str := "+";
 	] else if typ <= T_Real16, typ >= T_Real128 then [
 		if op = Bin_Add			then str := "+";
 		else if op = Bin_Subtract	then str := "-";
@@ -239,6 +244,8 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 		else if op = Un_Asinh		then str := "asinh";
 		else if op = Un_Acosh		then str := "acosh";
 		else if op = Un_Atanh		then str := "atanh";
+		else if op = Un_ConvertToInt	then str := "to_int";
+		else if op = Un_ConvertFromInt	then str := "to_real";
 	] else if typ = T_Bool then [
 		if op = Bin_And			then str := "and";
 		else if op = Bin_Or		then str := "or";
