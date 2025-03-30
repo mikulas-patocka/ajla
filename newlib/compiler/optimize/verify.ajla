@@ -161,11 +161,12 @@ fn declare_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : 
 	return ctx;
 ]
 
-fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, typ : int, op : int) : (z3_world, context, bytes)
+fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, typ : int, op : int) : (z3_world, context, bytes, bool)
 [
 	if len(ctx.op_map[-typ, op]) <> 0 then
-		return ctx, ctx.op_map[-typ, op];
+		return ctx, ctx.op_map[-typ, op], ctx.unint_map[-typ, op];
 	var str := "";
+	var unint := false;
 	if typ <= T_SInt8, typ >= T_UInt128 then [
 		var us := T_SInt8 - typ bt 0;
 		if op = Bin_Add				then str := "bvadd";
@@ -203,17 +204,17 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 		else if op = Bin_Multiply	then str := "*";
 		else if op = Bin_Divide_Int	then str := "div";
 		else if op = Bin_Modulo		then str := "rem";
-		else if op = Bin_Power		then str := "int-power";
-		else if op = Bin_Bts		then str := "int-bts";
-		else if op = Bin_Btr		then str := "int-btr";
-		else if op = Bin_Btc		then str := "int-btc";
+		else if op = Bin_Power		then [ str := "int-power"; unint := true; ]
+		else if op = Bin_Bts		then [ str := "int-bts"; unint := true; ]
+		else if op = Bin_Btr		then [ str := "int-btr"; unint := true; ]
+		else if op = Bin_Btc		then [ str := "int-btc"; unint := true; ]
 		else if op = Bin_Equal		then str := "=";
 		else if op = Bin_NotEqual	then str := "distinct";
 		else if op = Bin_Less		then str := "<";
 		else if op = Bin_LessEqual	then str := "<=";
 		else if op = Bin_Greater	then str := ">";
 		else if op = Bin_GreaterEqual	then str := ">=";
-		else if op = Bin_Bt		then str := "int-bt";
+		else if op = Bin_Bt		then [ str := "int-bt"; unint := true; ]
 		else if op = Un_Not		then str := "int-not";
 		else if op = Un_Neg		then str := "-";
 		else if op = Un_ConvertToInt	then str := "+";
@@ -259,7 +260,8 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 	]
 
 	ctx.op_map[-typ, op] := str;
-	return ctx, str;
+	ctx.unint_map[-typ, op] := unint;
+	return ctx, str, unint;
 ]
 
 fn get_bv_const(typ : int, num : int)
@@ -277,7 +279,8 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 	if ins.opcode = P_BinaryOp or ins.opcode = P_BinaryConstOp then [
 		var t := ctx.variables[ins.params[3]].type_index;
 		var op_z3 : bytes;
-		ctx, op_z3 := get_z3_operator(ctx, t, ins.params[0]);
+		var unint : bool;
+		ctx, op_z3, unint := get_z3_operator(ctx, t, ins.params[0]);
 		if len(op_z3) = 0 then
 			return ctx;
 		var var1 var1v var2 var2v : bytes;
@@ -285,11 +288,18 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var1 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
 		if len(var1) = 0 then
 			return ctx;
+		var unint_str := "";
+		if unint then [
+			unint_str := "unint_" + ntos_base(ctx.unint_counter, 16);
+			ctx.unint_counter += 1;
+			ctx := declare_variable(ctx, unint_str, ctx.variables[v].runtime_type);
+			unint_str := " " + unint_str;
+		]
 		if ins.opcode = P_BinaryOp then [
 			ctx, var2 := allocate_variable_block(ctx, ins.params[5], phi_node, ins.bb);
 			if len(var2) = 0 then
 				return ctx;
-			gen_assert(ctx, var_name, "(" + op_z3 + " " + var1 + " " + var2 + ")");
+			gen_assert(ctx, var_name, "(" + op_z3 + " " + var1 + " " + var2 + unint_str + ")");
 		] else [
 			if t = T_Bool then
 				var2 := select(ins.params[4] <> 0, "false", "true");
@@ -297,21 +307,29 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				var2 := get_bv_const(t, ins.params[4]);
 			else
 				var2 := ntos(ins.params[4]);
-			gen_assert(ctx, var_name, "(" + op_z3 + " " + var1 + " " + var2 + ")");
+			gen_assert(ctx, var_name, "(" + op_z3 + " " + var1 + " " + var2 + unint_str + ")");
 		]
 		return ctx;
 	]
 	if ins.opcode = P_UnaryOp then [
 		var t := ctx.variables[v].type_index;
 		var op_z3 : bytes;
-		ctx, op_z3 := get_z3_operator(ctx, t, ins.params[0]);
+		var unint : bool;
+		ctx, op_z3, unint := get_z3_operator(ctx, t, ins.params[0]);
 		if len(op_z3) = 0 then
 			return ctx;
 		var var1 : bytes;
 		ctx, var1 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
 		if len(var1) = 0 then
 			return ctx;
-		gen_assert(ctx, var_name, "(" + op_z3 + " " + var1 + ")");
+		var unint_str := "";
+		if unint then [
+			unint_str := "unint_" + ntos_base(ctx.unint_counter, 16);
+			ctx.unint_counter += 1;
+			ctx := declare_variable(ctx, unint_str, ctx.variables[v].runtime_type);
+			unint_str := " " + unint_str;
+		]
+		gen_assert(ctx, var_name, "(" + op_z3 + " " + var1 + unint_str + ")");
 		return ctx;
 	]
 	if ins.opcode = P_Copy then [
@@ -695,6 +713,8 @@ fn verify_function(ctx : context) : unit_type
 	implicit var z3ctx := z3_mk_context();
 
 	ctx.op_map := array_fill("", [ -T_Bool + 1, Op_N ]);
+	ctx.unint_map := array_fill(false, [ -T_Bool + 1, Op_N ]);
+	ctx.unint_counter := 0;
 	var d := get_dump("z3");
 	ctx.dump_z3 := d = "*" or d = ctx.name;
 
@@ -755,11 +775,11 @@ fn verify_function(ctx : context) : unit_type
 	str += "))";
 	z3_eval_noret(ctx, str);
 
-	z3_eval_noret(ctx, "(define-fun int-power ((x Int) (y Int)) Int (to_int (^ x y)))");
-	z3_eval_noret(ctx, "(define-fun int-bt ((x Int) (b Int)) Bool (>= (mod x (^ 2 (+ b 1))) (^ 2 b)))");
-	z3_eval_noret(ctx, "(define-fun int-bts ((x Int) (y Int)) Int (ite (int-bt x y) x (+ x (to_int (^ 2 y)))))");
-	z3_eval_noret(ctx, "(define-fun int-btr ((x Int) (y Int)) Int (ite (int-bt x y) (- x (to_int (^ 2 y))) x))");
-	z3_eval_noret(ctx, "(define-fun int-btc ((x Int) (y Int)) Int (ite (int-bt x y) (- x (to_int (^ 2 y))) (+ x (to_int (^ 2 y)))))");
+	z3_eval_noret(ctx, "(define-fun int-power ((x Int) (y Int) (unint Int)) Int (ite (< y 0) unint (to_int (^ x y))))");
+	z3_eval_noret(ctx, "(define-fun int-bt ((x Int) (y Int) (unint Bool)) Bool (ite (< y 0) unint (>= (mod x (^ 2 (+ y 1))) (^ 2 y))))");
+	z3_eval_noret(ctx, "(define-fun int-bts ((x Int) (y Int) (unint Int)) Int (ite (< y 0) unint (ite (int-bt x y false) x (+ x (to_int (^ 2 y))))))");
+	z3_eval_noret(ctx, "(define-fun int-btr ((x Int) (y Int) (unint Int)) Int (ite (< y 0) unint (ite (int-bt x y false) (- x (to_int (^ 2 y))) x)))");
+	z3_eval_noret(ctx, "(define-fun int-btc ((x Int) (y Int) (unint Int)) Int (ite (< y 0) unint (ite (int-bt x y false) (- x (to_int (^ 2 y))) (+ x (to_int (^ 2 y))))))");
 	z3_eval_noret(ctx, "(define-fun int-not ((x Int)) Int (- (- x) 1))");
 
 	for bgi := 0 to len(ctx.blocks) do [
