@@ -581,6 +581,9 @@ fn parse_statement_for(ctx : function_context, vd : variable_dictionary, level :
 	var assign_idx := token_find(t, token_opt.assign, true);
 
 	var variable_decl := t[ .. assign_idx];
+	var type_decl := empty(token);
+	if len(variable_decl) > 1 then
+		type_decl := variable_decl[1 .. ];
 	var variable := t[0];
 	var assign_op := t[assign_idx];
 	var less_op := new_token(assign_op, token_opt.oper.(i_encode("<")));
@@ -622,10 +625,10 @@ fn parse_statement_for(ctx : function_context, vd : variable_dictionary, level :
 	do_vd.break_label := l_end;
 	do_vd.continue_label := l_continue;
 
-	var toks := [ lower_bound_var, assign_op ] + lower_bound;
+	var toks := [ lower_bound_var ] + type_decl + [ assign_op ] + lower_bound;
 	ctx, do_vd := parse_statement_var(ctx, do_vd, false, false, false, toks);
 
-	toks := [ upper_bound_var, assign_op ] + upper_bound;
+	toks := [ upper_bound_var ] + type_decl + [ assign_op ] + upper_bound;
 	ctx, do_vd := parse_statement_var(ctx, do_vd, false, false, false, toks);
 
 	toks := variable_decl + [ assign_op, lower_bound_var ];
