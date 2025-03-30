@@ -245,7 +245,7 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 		else if op = Un_Asinh		then str := "asinh";
 		else if op = Un_Acosh		then str := "acosh";
 		else if op = Un_Atanh		then str := "atanh";
-		else if op = Un_ConvertToInt	then str := "to_int";
+		else if op = Un_ConvertToInt	then str := "real-to-int";
 		else if op = Un_ConvertFromInt	then str := "to_real";
 	] else if typ = T_Bool then [
 		if op = Bin_And			then str := "and";
@@ -781,6 +781,8 @@ fn verify_function(ctx : context) : unit_type
 	z3_eval_noret(ctx, "(define-fun int-btr ((x Int) (y Int) (unint Int)) Int (ite (< y 0) unint (ite (int-bt x y false) (- x (to_int (^ 2 y))) x)))");
 	z3_eval_noret(ctx, "(define-fun int-btc ((x Int) (y Int) (unint Int)) Int (ite (< y 0) unint (ite (int-bt x y false) (- x (to_int (^ 2 y))) (+ x (to_int (^ 2 y))))))");
 	z3_eval_noret(ctx, "(define-fun int-not ((x Int)) Int (- (- x) 1))");
+
+	z3_eval_noret(ctx, "(define-fun real-to-int ((x Real)) Int (ite (>= x 0) (to_int x) (- (to_int (- x)))))");
 
 	for bgi := 0 to len(ctx.blocks) do [
 		if not ctx.blocks[bgi].active then
