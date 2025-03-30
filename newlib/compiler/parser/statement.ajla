@@ -75,7 +75,7 @@ fn parse_statement_var(ctx : function_context, vd : variable_dictionary, cnst mu
 		abort compiler_error("No declared variable", t);
 
 	while len(vardecl) > 0 do [
-		var groupdecl  : tokens;
+		var groupdecl : tokens;
 		groupdecl, vardecl := split_tokens(vardecl, token_opt.comma);
 		var colon := token_find_colon(groupdecl);
 		if colon = -1 then [
@@ -585,6 +585,7 @@ fn parse_statement_for(ctx : function_context, vd : variable_dictionary, level :
 	var assign_op := t[assign_idx];
 	var less_op := new_token(assign_op, token_opt.oper.(i_encode("<")));
 	var less_eq_op := new_token(assign_op, token_opt.oper.(i_encode("<=")));
+	var greater_eq_op := new_token(assign_op, token_opt.oper.(i_encode(">=")));
 	var plus_op := new_token(assign_op, token_opt.oper.(i_encode("+=")));
 	var one := new_token(assign_op, token_opt.number.("1"));
 	t := t[assign_idx + 1 .. ];
@@ -606,6 +607,8 @@ fn parse_statement_for(ctx : function_context, vd : variable_dictionary, level :
 	]
 	t := t[do_idx + 1 .. ];
 
+	var lower_bound_var := variable;
+	lower_bound_var.t.identifier := i_encode("/lbnd");
 	var upper_bound_var := variable;
 	upper_bound_var.t.identifier := i_encode("/bnd");
 
@@ -619,16 +622,23 @@ fn parse_statement_for(ctx : function_context, vd : variable_dictionary, level :
 	do_vd.break_label := l_end;
 	do_vd.continue_label := l_continue;
 
-	var toks := [ upper_bound_var, assign_op ] + upper_bound;
+	var toks := [ lower_bound_var, assign_op ] + lower_bound;
 	ctx, do_vd := parse_statement_var(ctx, do_vd, false, false, false, toks);
 
-	toks := variable_decl + [ assign_op ] + lower_bound;
+	toks := [ upper_bound_var, assign_op ] + upper_bound;
+	ctx, do_vd := parse_statement_var(ctx, do_vd, false, false, false, toks);
+
+	toks := variable_decl + [ assign_op, lower_bound_var ];
 	ctx, do_vd := parse_statement_var(ctx, do_vd, false, false, false, toks);
 
 	ctx := generate_Label(ctx, l_test_again);
 
 	if invr >= 0 then [
 		ctx := parse_statement_eval(ctx, do_vd, invr_tokens, token_opt.k_invariant);
+
+		toks := [ variable, greater_eq_op, lower_bound_var ];
+		ctx := parse_statement_eval(ctx, do_vd, toks, token_opt.k_invariant);
+
 		toks := [ variable, less_eq_op, upper_bound_var ];
 		ctx := parse_statement_eval(ctx, do_vd, toks, token_opt.k_invariant);
 	]
