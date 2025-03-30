@@ -161,6 +161,14 @@ fn declare_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : 
 	return ctx;
 ]
 
+fn get_bv_const(typ : int, num : int) : bytes
+[
+	var hex_width := 2 shl ((T_SInt8 - typ) shr 1);
+	if num < 0 then
+		num += 1 shl (hex_width shl 2);
+	return "#x" + list_left_pad(ntos_base(num, 16), hex_width, '0');
+]
+
 fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, typ : int, op : int) : (z3_world, context, bytes, bool)
 [
 	if len(ctx.op_map[-typ, op]) <> 0 then
@@ -196,7 +204,14 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 		else if op = Bin_GreaterEqual, us	then str := "bvuge";
 		else if op = Un_Not			then str := "bvnot";
 		else if op = Un_Neg			then str := "bvneg";
-		else if op = Un_ConvertToInt		then str := "bv2int";
+		else if op = Un_ConvertToInt, not us	then [
+								var width := get_bv_width(typ);
+								str := "bv-to-int-" + ntos(width);
+								var t : bytes;
+								ctx, t := get_z3_type(ctx, typ);
+								z3_eval_noret(ctx, "(define-fun "+str+" ((x "+t+")) Int (ite (bvsge x "+get_bv_const(typ, 0)+") (bv2int x) (- (bv2int x) "+ntos(0 bts width)+")))");
+							]
+		else if op = Un_ConvertToInt, us	then str := "bv2int";
 		else if op = Un_ConvertFromInt		then str := "(_ int2bv " + ntos(get_bv_width(typ)) + ")";
 	] else if typ <= T_Integer, typ >= T_Integer128 then [
 		if op = Bin_Add			then str := "+";
@@ -264,20 +279,12 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 	return ctx, str, unint;
 ]
 
-fn get_bv_const(typ : int, num : int)
-[
-	var hex_width := 2 shl ((T_SInt8 - typ) shr 1);
-	if num < 0 then
-		num += 1 shl (hex_width shl 2);
-	return "#x" + list_left_pad(ntos_base(num, 16), hex_width, '0');
-]
-
 fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int, phi_node : int) : (z3_world, context)
 [
 	var var_name := ctx.variables[v].verifier_name[phi_node];
 	var ins := ctx.instrs[ctx.variables[v].defining_instr];
 	if ins.opcode = P_BinaryOp or ins.opcode = P_BinaryConstOp then [
-		var t := ctx.variables[ins.params[3]].type_index;
+		var t := ctx.variables[ins.params[3]].runtime_type;
 		var op_z3 : bytes;
 		var unint : bool;
 		ctx, op_z3, unint := get_z3_operator(ctx, t, ins.params[0]);
@@ -312,7 +319,9 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		return ctx;
 	]
 	if ins.opcode = P_UnaryOp then [
-		var t := ctx.variables[v].type_index;
+		var t := ctx.variables[v].runtime_type;
+		if ins.params[0] = Un_ConvertToInt then
+			t := ctx.variables[ins.params[3]].runtime_type;
 		var op_z3 : bytes;
 		var unint : bool;
 		ctx, op_z3, unint := get_z3_operator(ctx, t, ins.params[0]);
