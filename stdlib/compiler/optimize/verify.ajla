@@ -212,7 +212,20 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 								z3_eval_noret(ctx, "(define-fun "+str+" ((x "+t+")) Int (ite (bvsge x "+get_bv_const(typ, 0)+") (bv2int x) (- (bv2int x) "+ntos(0 bts width)+")))");
 							]
 		else if op = Un_ConvertToInt, us	then str := "bv2int";
-		else if op = Un_ConvertFromInt		then str := "(_ int2bv " + ntos(get_bv_width(typ)) + ")";
+		else if op = Un_ConvertFromInt		then [
+								var width := get_bv_width(typ);
+								str := "bv-from-int-" + select(us, "s", "us") + ntos(width);
+								unint := true;
+								var t : bytes;
+								ctx, t := get_z3_type(ctx, typ);
+								var lb := 0;
+								var ub := 0 bts width;
+								if not us then [
+									lb -= 0 bts width - 1;
+									ub -= 0 bts width - 1;
+								]
+								z3_eval_noret(ctx, "(define-fun "+str+" ((x Int) (unint "+t+")) "+t+" (ite (and (>= x "+ntos(lb)+") (< x "+ntos(ub)+")) ((_ int2bv "+ntos(width)+") x) unint))");
+							]
 	] else if typ <= T_Integer, typ >= T_Integer128 then [
 		if op = Bin_Add			then str := "+";
 		else if op = Bin_Subtract	then str := "-";
