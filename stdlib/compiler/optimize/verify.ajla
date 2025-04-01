@@ -206,7 +206,7 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 		else if op = Un_Neg			then str := "bvneg";
 		else if op = Un_ConvertToInt, not us	then [
 								var width := get_bv_width(typ);
-								str := "bv-to-int-" + ntos(width);
+								str := "bv-to-int-s" + ntos(width);
 								var t : bytes;
 								ctx, t := get_z3_type(ctx, typ);
 								z3_eval_noret(ctx, "(define-fun "+str+" ((x "+t+")) Int (ite (bvsge x "+get_bv_const(typ, 0)+") (bv2int x) (- (bv2int x) "+ntos(0 bts width)+")))");
