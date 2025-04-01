@@ -117,6 +117,7 @@ struct resource_ffi {
 	unsigned n_args;
 	ffi_type *ret_ffi_type;
 	ajla_option_t ret_type;
+	bool interlocked;
 	ffi_cif cif;
 };
 
@@ -814,6 +815,7 @@ static void * attr_fastcall io_ffi_create_function_handler(struct io_ctx *ctx)
 	ajla_option_t err_type;
 	ajla_option_t rtype;
 	struct data *r_struc;
+	ajla_option_t interlocked;
 	ffi_type *ret = NULL;
 	ffi_type **args = NULL;
 
@@ -824,7 +826,7 @@ static void * attr_fastcall io_ffi_create_function_handler(struct io_ctx *ctx)
 	ptr = *frame_pointer(ctx->fp, get_input(ctx, 0));
 	d = pointer_get_data(ptr);
 	rfl = da_resource(d);
-	test = io_deep_eval(ctx, "012345", false);
+	test = io_deep_eval(ctx, "0123456", false);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 
@@ -856,6 +858,8 @@ static void * attr_fastcall io_ffi_create_function_handler(struct io_ctx *ctx)
 	if (unlikely(!ret))
 		goto ret_err;
 
+	io_get_option(ctx, get_input(ctx, 6), &interlocked, NULL);
+
 	d = data_alloc_resource_mayfail(sizeof(struct resource_ffi), resource_ffi_close, &ctx->err pass_file_line);
 	if (unlikely(!d))
 		goto ret_err;
@@ -865,12 +869,14 @@ static void * attr_fastcall io_ffi_create_function_handler(struct io_ctx *ctx)
 	if (!nvargs) {
 #endif
 		if (unlikely(ffi_prep_cif(&rf->cif, FFI_DEFAULT_ABI, ctx->args_l, ret, args) != FFI_OK)) {
+			data_free_r1(d);
 			ctx->err = error_ajla(EC_SYNC, AJLA_ERROR_INVALID_OPERATION);
 			goto ret_err;
 		}
 #ifdef HAVE_FFI_PREP_CIF_VAR
 	} else {
 		if (unlikely(ffi_prep_cif_var(&rf->cif, FFI_DEFAULT_ABI, ctx->args_l - nvargs, ctx->args_l, ret, args) != FFI_OK)) {
+			data_free_r1(d);
 			ctx->err = error_ajla(EC_SYNC, AJLA_ERROR_INVALID_OPERATION);
 			goto ret_err;
 		}
@@ -887,6 +893,7 @@ static void * attr_fastcall io_ffi_create_function_handler(struct io_ctx *ctx)
 	args = NULL;
 	rf->ret_ffi_type = ret;
 	rf->ret_type = rtype;
+	rf->interlocked = interlocked;
 	ret = NULL;
 
 	pointer_reference_owned(ptr);
@@ -1117,6 +1124,9 @@ static void * attr_fastcall io_ffi_call_function_handler(struct io_ctx *ctx)
 		goto ret_err;
 	}
 
+	if (unlikely(rf->interlocked))
+		mutex_lock(&ffi_libraries_mutex);
+
 	ffi_call(&rf->cif, rf->sym, &u.rc, ctx->ptrs);
 	store = true;
 
@@ -1128,6 +1138,9 @@ static void * attr_fastcall io_ffi_call_function_handler(struct io_ctx *ctx)
 		default:
 			internal(file_line, "io_ffi_call_function_handler: invalid error specifier %u", (unsigned)rf->err_type);
 	}
+
+	if (unlikely(rf->interlocked))
+		mutex_unlock(&ffi_libraries_mutex);
 
 	test = POINTER_FOLLOW_THUNK_GO;
 
@@ -1202,6 +1215,20 @@ static void resource_ffi_destructor_close(struct data *d)
 {
 	size_t i;
 	struct resource_ffi_destructor *rfd = da_resource(d);
+	bool interlocked = false;
+
+	for (i = 0; i < rfd->calls_l; i++) {
+		struct destructor_call *call = &rfd->calls[i];
+		struct resource_ffi *rf = da_resource(call->d);
+		if (rf->interlocked) {
+			interlocked = true;
+			break;
+		}
+	}
+
+	if (interlocked)
+		mutex_lock(&ffi_libraries_mutex);
+
 	i = rfd->calls_l;
 	while (i) {
 		size_t j;
@@ -1237,6 +1264,9 @@ static void resource_ffi_destructor_close(struct data *d)
 	for (i = 0; i < rfd->ptrs_l; i++)
 		mem_free_aligned(rfd->ptrs[i]);
 	mem_free(rfd->ptrs);
+
+	if (interlocked)
+		mutex_unlock(&ffi_libraries_mutex);
 }
 
 static void * attr_fastcall io_ffi_destructor_new_handler(struct io_ctx *ctx)
@@ -1287,7 +1317,7 @@ static void * attr_fastcall io_ffi_destructor_allocate_handler(struct io_ctx *ct
 {
 	void *test;
 	pointer_t ptr;
-	struct resource_ffi_destructor *rfd = NULL;
+	struct resource_ffi_destructor *rfd;
 	size_t size, align;
 	ajla_option_t z;
 	void *n;

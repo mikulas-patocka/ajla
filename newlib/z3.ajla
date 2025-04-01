@@ -51,13 +51,13 @@ fn z3_mk_context(implicit w : z3_world) : (z3_world, z3_context)
 	var v e : int;
 	var lib := ffi_open_library("libz3.so", true, "Z3_finalize_memory");
 	ctx.destr := ffi_destructor_new();
-	ctx.z3_set_error := ffi_create_function(lib, "Z3_set_error", ffi_error.e_none, 2, ffi_type.t_void, [ ffi_type.t_pointer, ffi_type.t_uint ]);
-	ctx.z3_get_error_code := ffi_create_function(lib, "Z3_get_error_code", ffi_error.e_none, 1, ffi_type.t_uint, [ ffi_type.t_pointer ]);
-	ctx.z3_get_error_msg := ffi_create_function(lib, "Z3_get_error_msg", ffi_error.e_none, 2, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_uint ]);
-	ctx.z3_eval_smtlib2_string := ffi_create_function(lib, "Z3_eval_smtlib2_string", ffi_error.e_none, 3, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_pointer ]);
-	var z3_mk_context := ffi_create_function(lib, "Z3_mk_context", ffi_error.e_none, 1, ffi_type.t_pointer, [ ffi_type.t_pointer ]);
-	var z3_del_context := ffi_create_function(lib, "Z3_del_context", ffi_error.e_none, 1, ffi_type.t_void, [ ffi_type.t_pointer ]);
-	var z3_set_error_handler := ffi_create_function(lib, "Z3_set_error_handler", ffi_error.e_none, 1, ffi_type.t_void, [ ffi_type.t_pointer, ffi_type.t_pointer ]);
+	ctx.z3_set_error := ffi_create_function(lib, "Z3_set_error", ffi_error.e_none, 2, ffi_type.t_void, [ ffi_type.t_pointer, ffi_type.t_uint ], false);
+	ctx.z3_get_error_code := ffi_create_function(lib, "Z3_get_error_code", ffi_error.e_none, 1, ffi_type.t_uint, [ ffi_type.t_pointer ], false);
+	ctx.z3_get_error_msg := ffi_create_function(lib, "Z3_get_error_msg", ffi_error.e_none, 2, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_uint ], false);
+	ctx.z3_eval_smtlib2_string := ffi_create_function(lib, "Z3_eval_smtlib2_string", ffi_error.e_none, 3, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_pointer ], false);
+	var z3_mk_context := ffi_create_function(lib, "Z3_mk_context", ffi_error.e_none, 1, ffi_type.t_pointer, [ ffi_type.t_pointer ], true);
+	var z3_del_context := ffi_create_function(lib, "Z3_del_context", ffi_error.e_none, 1, ffi_type.t_void, [ ffi_type.t_pointer ], true);
+	var z3_set_error_handler := ffi_create_function(lib, "Z3_set_error_handler", ffi_error.e_none, 1, ffi_type.t_void, [ ffi_type.t_pointer, ffi_type.t_pointer ], false);
 
 	atomic_enter();
 	ctx.ptr_z3_context, e := ffi_call_function(z3_mk_context, [ 0 ]);
