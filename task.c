@@ -116,12 +116,9 @@ void task_list_print(void)
 }
 #endif
 
-void attr_fastcall task_submit(struct execution_control *ex, bool can_allocate_memory)
+static void task_list_add(struct execution_control *ex, bool nonempty, bool can_allocate_memory)
 {
-	ajla_assert(ex == frame_execution_control(ex->current_frame), (file_line, "task_submit: submitting task with improper execution control: %p != %p", ex, frame_execution_control(ex->current_frame)));
-
-	cond_lock(&task_mutex);
-	if (!task_list_nonempty) {
+	if (!nonempty) {
 		task_list_stamp = tick_stamp;
 	} else {
 		if (tick_stamp - task_list_stamp >= 2 && likely(can_allocate_memory)) {
@@ -131,6 +128,14 @@ void attr_fastcall task_submit(struct execution_control *ex, bool can_allocate_m
 	}
 	list_add(&task_list, &ex->wait[0].wait_entry);
 	task_list_nonempty = 1;
+}
+
+void attr_fastcall task_submit(struct execution_control *ex, bool can_allocate_memory)
+{
+	ajla_assert(ex == frame_execution_control(ex->current_frame), (file_line, "task_submit: submitting task with improper execution control: %p != %p", ex, frame_execution_control(ex->current_frame)));
+
+	cond_lock(&task_mutex);
+	task_list_add(ex, task_list_nonempty, can_allocate_memory);
 	cond_unlock_signal(&task_mutex);
 }
 
@@ -161,12 +166,8 @@ void * attr_fastcall task_schedule(struct execution_control *old_ex)
 	new_ex = task_list_pop();
 	if (unlikely(!new_ex))
 		goto unlock_no_sched;
-
-	list_add(&task_list, &old_ex[0].wait->wait_entry);
-
 	ajla_assert(new_ex != old_ex, (file_line, "task_schedule: submitting already submitted task"));
-
-	task_list_nonempty = 1;
+	task_list_add(old_ex, true, true);
 	cond_unlock(&task_mutex);
 
 	if (unlikely(task_useless(new_ex)))
