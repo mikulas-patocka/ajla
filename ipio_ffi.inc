@@ -1231,7 +1231,6 @@ static void resource_ffi_destructor_close(struct data *d)
 
 	i = rfd->calls_l;
 	while (i) {
-		size_t j;
 		union {
 			ffi_arg rc;
 			ffi_sarg src;
@@ -1252,21 +1251,27 @@ static void resource_ffi_destructor_close(struct data *d)
 		struct destructor_call *call = &rfd->calls[--i];
 		struct resource_ffi *rf = da_resource(call->d);
 		ffi_call(&rf->cif, rf->sym, &u, call->args);
+	}
+
+	if (interlocked)
+		mutex_unlock(&ffi_libraries_mutex);
+
+	for (i = 0; i < rfd->calls_l; i++) {
+		size_t j;
+		struct destructor_call *call = &rfd->calls[i];
 		pointer_dereference(pointer_data(call->d));
 		for (j = 0; j < call->args_l; j++)
 			mem_free(call->args[j]);
 		mem_free(call->args);
 	}
 	mem_free(rfd->calls);
+
 	for (i = 0; i < rfd->handles_l; i++)
 		pointer_dereference(rfd->handles[i]);
 	mem_free(rfd->handles);
 	for (i = 0; i < rfd->ptrs_l; i++)
 		mem_free_aligned(rfd->ptrs[i]);
 	mem_free(rfd->ptrs);
-
-	if (interlocked)
-		mutex_unlock(&ffi_libraries_mutex);
 }
 
 static void * attr_fastcall io_ffi_destructor_new_handler(struct io_ctx *ctx)
