@@ -755,7 +755,7 @@ process_enter:
 			panel_reflow();
 			return;
 		]
-		if wev.set_property.prop = "mark-unselect" then [
+		if wev.set_property.prop = "mark-unselect-all" then [
 			st.marked := 0;
 			redraw_all := true;
 			goto reflow_redraw;

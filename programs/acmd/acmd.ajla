@@ -868,9 +868,9 @@ fn acmd_process_event(implicit w : world, implicit app : appstate, implicit com 
 			acmd_menu_rescan(st, 1, w, app, wid_none);
 			return;
 		]
-		if wev.set_property.prop = "mark-unselect" then [
+		if wev.set_property.prop = "mark-unselect-all" then [
 			widget_enqueue_event(st.panels[acmd_get_active_panel()], wevent.set_property.(event_set_property.[
-				prop : "mark-unselect",
+				prop : "mark-unselect-all",
 				val : property.n,
 			]));
 			return;

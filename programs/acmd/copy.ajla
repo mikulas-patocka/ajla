@@ -451,7 +451,7 @@ fn file_progress_dialog_layout(implicit app : appstate, ids : list(wid), offs_x 
 fn copy_start(implicit w : world, implicit app : appstate, ro : acmd_ro, op : operation, src_str : bytes, src_files : list(bytes), dest_str : bytes) : (world, appstate)
 [
 	if op is copy or op is move then [
-		widget_enqueue_event(widget_get_app(app), wevent.set_property.(event_set_property.[ prop : "mark-unselect", val : property.n ]));
+		widget_enqueue_event(widget_get_app(app), wevent.set_property.(event_set_property.[ prop : "mark-unselect-all", val : property.n ]));
 		var dest_s := property_get("copy-destination").s;
 		if dest_s <> locale_to_string(ro.loc, dest_str) then [
 			dest_str := string_to_locale(ro.loc, dest_s);
