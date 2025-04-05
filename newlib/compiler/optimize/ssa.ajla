@@ -2276,7 +2276,7 @@ fn insert_free(ctx : context) : context
 		var fused_variable := -1;
 		for post_idx := 0 to len(block.post_list) do [
 			var post := block.post_list[post_idx];
-			if post < bgi then [
+			if post <= bgi then [
 				needs_checkpoint := true;
 				break;
 			]
