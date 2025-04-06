@@ -1,5 +1,5 @@
 {*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -18,47 +18,47 @@
 
 unit treemap;
 
-private type xtreemap(key : type, cls : class_ord(key), value : type);
-type treemap(key : type, value : type, cls : class_ord(key)) := xtreemap(key, cls, value);
+private type xtreemap(key : type, cls : class_ord(key), val : type);
+type treemap(key : type, val : type, cls : class_ord(key)) := xtreemap(key, cls, val);
 
-record treemap_key_value(key : type, value : type) [
+record treemap_key_value(key : type, val : type) [
 	k : key;
-	v : value;
+	v : val;
 ]
 
-fn treemap_init(key : type, value : type, const cls : class_ord(key)) : treemap(key, value, cls);
-fn treemap_is_nonempty(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls)) : bool;
-fn treemap_test(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls), k : key) : bool;
-fn treemap_search(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls), k : key) : maybe(value);
-fn treemap_search_default(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls), k : key, def : value) : value;
-fn treemap_first(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls)) : maybe(treemap_key_value(key, value));
-fn treemap_last(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls)) : maybe(treemap_key_value(key, value));
-fn treemap_next(key : type, value : type, const implicit cls : class_ord(key), tm : treemap(key, value, cls), k : key) : maybe(treemap_key_value(key, value));
-fn treemap_prev(key : type, value : type, const implicit cls : class_ord(key), tm : treemap(key, value, cls), k : key) : maybe(treemap_key_value(key, value));
-fn treemap_size(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls)) : int;
-fn treemap_insert(key : type, value : type, const implicit cls : class_ord(key), tm : treemap(key, value, cls), k : key, v : value) : treemap(key, value, cls);
-fn treemap_delete(key : type, value : type, const implicit cls : class_ord(key), tm : treemap(key, value, cls), k : key) : treemap(key, value, cls);
+fn treemap_init(key : type, val : type, const cls : class_ord(key)) : treemap(key, val, cls);
+fn treemap_is_nonempty(key : type, val : type, const cls : class_ord(key), tm : treemap(key, val, cls)) : bool;
+fn treemap_test(key : type, val : type, const cls : class_ord(key), tm : treemap(key, val, cls), k : key) : bool;
+fn treemap_search(key : type, val : type, const cls : class_ord(key), tm : treemap(key, val, cls), k : key) : maybe(val);
+fn treemap_search_default(key : type, val : type, const cls : class_ord(key), tm : treemap(key, val, cls), k : key, def : val) : val;
+fn treemap_first(key : type, val : type, const cls : class_ord(key), tm : treemap(key, val, cls)) : maybe(treemap_key_value(key, val));
+fn treemap_last(key : type, val : type, const cls : class_ord(key), tm : treemap(key, val, cls)) : maybe(treemap_key_value(key, val));
+fn treemap_next(key : type, val : type, const implicit cls : class_ord(key), tm : treemap(key, val, cls), k : key) : maybe(treemap_key_value(key, val));
+fn treemap_prev(key : type, val : type, const implicit cls : class_ord(key), tm : treemap(key, val, cls), k : key) : maybe(treemap_key_value(key, val));
+fn treemap_size(key : type, val : type, const cls : class_ord(key), tm : treemap(key, val, cls)) : int;
+fn treemap_insert(key : type, val : type, const implicit cls : class_ord(key), tm : treemap(key, val, cls), k : key, v : val) : treemap(key, val, cls);
+fn treemap_delete(key : type, val : type, const implicit cls : class_ord(key), tm : treemap(key, val, cls), k : key) : treemap(key, val, cls);
 
 implicit fn instance_functor_treemap~inline(key : type, const cls : class_ord(key)) : class_functor(xtreemap(key, cls,));
 
-conversion fn treemap_iterator~inline(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls)) : class_iterator :=
+conversion fn treemap_iterator~inline(key : type, val : type, const cls : class_ord(key), tm : treemap(key, val, cls)) : class_iterator :=
 	class_iterator.[
-		state : maybe(treemap_key_value(key, value)),
-		element : treemap_key_value(key, value),
+		state : maybe(treemap_key_value(key, val)),
+		element : treemap_key_value(key, val),
 		init : treemap_first(tm),
-		test : lambda(st : maybe(treemap_key_value(key, value))) [ return st is j; ],
-		get_element : lambda(st : maybe(treemap_key_value(key, value))) [ return st.j; ],
-		increment : lambda(st : maybe(treemap_key_value(key, value))) [ return treemap_next(tm, st.j.k); ],
+		test : lambda(st : maybe(treemap_key_value(key, val))) [ return st is j; ],
+		get_element : lambda(st : maybe(treemap_key_value(key, val))) [ return st.j; ],
+		increment : lambda(st : maybe(treemap_key_value(key, val))) [ return treemap_next(tm, st.j.k); ],
 	];
 
-fn treemap_iterator_reverse~inline(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls)) : class_iterator :=
+fn treemap_iterator_reverse~inline(key : type, val : type, const cls : class_ord(key), tm : treemap(key, val, cls)) : class_iterator :=
 	class_iterator.[
-		state : maybe(treemap_key_value(key, value)),
-		element : treemap_key_value(key, value),
+		state : maybe(treemap_key_value(key, val)),
+		element : treemap_key_value(key, val),
 		init : treemap_last(tm),
-		test : lambda(st : maybe(treemap_key_value(key, value))) [ return st is j; ],
-		get_element : lambda(st : maybe(treemap_key_value(key, value))) [ return st.j; ],
-		increment : lambda(st : maybe(treemap_key_value(key, value))) [ return treemap_prev(tm, st.j.k); ],
+		test : lambda(st : maybe(treemap_key_value(key, val))) [ return st is j; ],
+		get_element : lambda(st : maybe(treemap_key_value(key, val))) [ return st.j; ],
+		increment : lambda(st : maybe(treemap_key_value(key, val))) [ return treemap_prev(tm, st.j.k); ],
 	];
 
 type treeset(key : type, cls : class_ord(key));
@@ -97,19 +97,19 @@ fn treeset_iterator_reverse~inline(key : type, const cls : class_ord(key), ts : 
 
 implementation
 
-record treemap_entry(key : type, value : type, cls : class_ord(key)) [
+record treemap_entry(key : type, val : type, cls : class_ord(key)) [
 	k : key;
-	v : value;
-	left : treemap(key, value, cls);
-	right : treemap(key, value, cls);
+	v : val;
+	left : treemap(key, val, cls);
+	right : treemap(key, val, cls);
 	balance : sint8;
 ]
 
-type xtreemap(key : type, cls : class_ord(key), value : type) := maybe(treemap_entry(key, value, cls));
+type xtreemap(key : type, cls : class_ord(key), val : type) := maybe(treemap_entry(key, val, cls));
 
 
 {
-fn treemap_verify(key : type, value : type, const implicit cls : class_ord(key), tm : treemap(key, value, cls)) : int
+fn treemap_verify(key : type, val : type, const implicit cls : class_ord(key), tm : treemap(key, val, cls)) : int
 [
 	if tm is n then
 		return 0;
@@ -122,17 +122,17 @@ fn treemap_verify(key : type, value : type, const implicit cls : class_ord(key),
 ]
 }
 
-fn treemap_init(key : type, value : type, const cls : class_ord(key)) : treemap(key, value, cls)
+fn treemap_init(key : type, val : type, const cls : class_ord(key)) : treemap(key, val, cls)
 [
-	return treemap(key, value, cls).n;
+	return treemap(key, val, cls).n;
 ]
 
-fn treemap_is_nonempty(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls)) : bool
+fn treemap_is_nonempty(key : type, val : type, const cls : class_ord(key), tm : treemap(key, val, cls)) : bool
 [
 	return tm is j;
 ]
 
-fn treemap_test(key : type, value : type, const implicit cls : class_ord(key), tm : treemap(key, value, cls), k : key) : bool
+fn treemap_test(key : type, val : type, const implicit cls : class_ord(key), tm : treemap(key, val, cls), k : key) : bool
 [
 again:
 	if tm is n then
@@ -146,13 +146,13 @@ again:
 	goto again;
 ]
 
-fn treemap_search(key : type, value : type, const implicit cls : class_ord(key), tm : treemap(key, value, cls), k : key) : maybe(value)
+fn treemap_search(key : type, val : type, const implicit cls : class_ord(key), tm : treemap(key, val, cls), k : key) : maybe(val)
 [
 again:
 	if tm is n then
-		return maybe(value).n;
+		return maybe(val).n;
 	if k = tm.j.k then
-		return maybe(value).j.(tm.j.v);
+		return maybe(val).j.(tm.j.v);
 	if k < tm.j.k then
 		tm := tm.j.left;
 	else
@@ -160,7 +160,7 @@ again:
 	goto again;
 ]
 
-fn treemap_search_default(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls), k : key, def : value) : value
+fn treemap_search_default(key : type, val : type, const cls : class_ord(key), tm : treemap(key, val, cls), k : key, def : val) : val
 [
 	var s := treemap_search(tm, k);
 	if s is j then
@@ -168,32 +168,32 @@ fn treemap_search_default(key : type, value : type, const cls : class_ord(key), 
 	return def;
 ]
 
-fn treemap_first(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls)) : maybe(treemap_key_value(key, value))
+fn treemap_first(key : type, val : type, const cls : class_ord(key), tm : treemap(key, val, cls)) : maybe(treemap_key_value(key, val))
 [
 	if tm is n then
-		return maybe(treemap_key_value(key, value)).n;
+		return maybe(treemap_key_value(key, val)).n;
 	while tm.j.left is j do
 		tm := tm.j.left;
-	return maybe(treemap_key_value(key, value)).j.(treemap_key_value(key, value).[ k : tm.j.k, v : tm.j.v ]);
+	return maybe(treemap_key_value(key, val)).j.(treemap_key_value(key, val).[ k : tm.j.k, v : tm.j.v ]);
 ]
 
-fn treemap_last(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls)) : maybe(treemap_key_value(key, value))
+fn treemap_last(key : type, val : type, const cls : class_ord(key), tm : treemap(key, val, cls)) : maybe(treemap_key_value(key, val))
 [
 	if tm is n then
-		return maybe(treemap_key_value(key, value)).n;
+		return maybe(treemap_key_value(key, val)).n;
 	while tm.j.right is j do
 		tm := tm.j.right;
-	return maybe(treemap_key_value(key, value)).j.(treemap_key_value(key, value).[ k : tm.j.k, v : tm.j.v ]);
+	return maybe(treemap_key_value(key, val)).j.(treemap_key_value(key, val).[ k : tm.j.k, v : tm.j.v ]);
 ]
 
-fn treemap_next(key : type, value : type, const implicit cls : class_ord(key), tm : treemap(key, value, cls), k : key) : maybe(treemap_key_value(key, value))
+fn treemap_next(key : type, val : type, const implicit cls : class_ord(key), tm : treemap(key, val, cls), k : key) : maybe(treemap_key_value(key, val))
 [
-	var result := maybe(treemap_key_value(key, value)).n;
+	var result := maybe(treemap_key_value(key, val)).n;
 again:
 	if tm is n then
 		return result;
 	if k < tm.j.k then [
-		result := maybe(treemap_key_value(key, value)).j.(treemap_key_value(key, value).[ k : tm.j.k, v : tm.j.v ]);
+		result := maybe(treemap_key_value(key, val)).j.(treemap_key_value(key, val).[ k : tm.j.k, v : tm.j.v ]);
 		tm := tm.j.left;
 	] else [
 		tm := tm.j.right;
@@ -201,14 +201,14 @@ again:
 	goto again;
 ]
 
-fn treemap_prev(key : type, value : type, const implicit cls : class_ord(key), tm : treemap(key, value, cls), k : key) : maybe(treemap_key_value(key, value))
+fn treemap_prev(key : type, val : type, const implicit cls : class_ord(key), tm : treemap(key, val, cls), k : key) : maybe(treemap_key_value(key, val))
 [
-	var result := maybe(treemap_key_value(key, value)).n;
+	var result := maybe(treemap_key_value(key, val)).n;
 again:
 	if tm is n then
 		return result;
 	if k > tm.j.k then [
-		result := maybe(treemap_key_value(key, value)).j.(treemap_key_value(key, value).[ k : tm.j.k, v : tm.j.v ]);
+		result := maybe(treemap_key_value(key, val)).j.(treemap_key_value(key, val).[ k : tm.j.k, v : tm.j.v ]);
 		tm := tm.j.right;
 	] else [
 		tm := tm.j.left;
@@ -216,16 +216,16 @@ again:
 	goto again;
 ]
 
-fn treemap_size(key : type, value : type, const cls : class_ord(key), tm : treemap(key, value, cls)) : int
+fn treemap_size(key : type, val : type, const cls : class_ord(key), tm : treemap(key, val, cls)) : int
 [
 	if tm is n then
 		return 0;
 	return 1 + treemap_size(tm.j.left) + treemap_size(tm.j.right);
 ]
 
-fn treemap_insert_internal(key : type, value : type, const implicit cls : class_ord(key), tm : treemap(key, value, cls), k : key, v : value) : (treemap(key, value, cls), bool)
+fn treemap_insert_internal(key : type, val : type, const implicit cls : class_ord(key), tm : treemap(key, val, cls), k : key, v : val) : (treemap(key, val, cls), bool)
 [
-	const te := treemap_entry(key, value);
+	const te := treemap_entry(key, val);
 	if tm is n then
 		return maybe(te).j.(te.[ k : k, v : v, left : maybe(te).n, right : maybe(te).n, balance : 0 ]), true;
 	if k = tm.j.k then [
@@ -309,16 +309,16 @@ fn treemap_insert_internal(key : type, value : type, const implicit cls : class_
 	return tm, height_changed;
 ]
 
-fn treemap_insert(key : type, value : type, const implicit cls : class_ord(key), tm : treemap(key, value, cls), k : key, v : value) : treemap(key, value, cls)
+fn treemap_insert(key : type, val : type, const implicit cls : class_ord(key), tm : treemap(key, val, cls), k : key, v : val) : treemap(key, val, cls)
 [
 	var tm, height_changed := treemap_insert_internal(tm, k, v);
 	//xeval treemap_verify(tm);
 	return tm;
 ]
 
-fn treemap_delete_internal(key : type, value : type, const implicit cls : class_ord(key), tm : treemap(key, value, cls), k : key) : (treemap(key, value, cls), bool)
+fn treemap_delete_internal(key : type, val : type, const implicit cls : class_ord(key), tm : treemap(key, val, cls), k : key) : (treemap(key, val, cls), bool)
 [
-	const te := treemap_entry(key, value);
+	const te := treemap_entry(key, val);
 	if tm is n then
 		return tm, false;
 	var height_changed : bool;
@@ -412,24 +412,24 @@ left:
 	return tm, height_changed;
 ]
 
-fn treemap_delete(key : type, value : type, const implicit cls : class_ord(key), tm : treemap(key, value, cls), k : key) : treemap(key, value, cls)
+fn treemap_delete(key : type, val : type, const implicit cls : class_ord(key), tm : treemap(key, val, cls), k : key) : treemap(key, val, cls)
 [
 	var tm, height_changed := treemap_delete_internal(tm, k);
 	//xeval treemap_verify(tm);
 	return tm;
 ]
 
-fn treemap_map(key : type, const implicit cls : class_ord(key), value : type, new_value : type, tm : treemap(key, value, cls), m : fn(value) : new_value) : treemap(key, new_value, cls)
+fn treemap_map(key : type, const implicit cls : class_ord(key), val : type, new_val : type, tm : treemap(key, val, cls), m : fn(val) : new_val) : treemap(key, new_val, cls)
 [
 	if tm is n then
-		return treemap_init(key, new_value, cls);
-	const te := treemap_entry(key, new_value);
+		return treemap_init(key, new_val, cls);
+	const te := treemap_entry(key, new_val);
 	return maybe(te).j.(te.[
 		k : tm.j.k,
 		v : m(tm.j.v),
 		balance : tm.j.balance,
-		left : treemap_map(key, cls, value, new_value, tm.j.left, m),
-		right : treemap_map(key, cls, value, new_value, tm.j.right, m),
+		left : treemap_map(key, cls, val, new_val, tm.j.left, m),
+		right : treemap_map(key, cls, val, new_val, tm.j.right, m),
 	]);
 ]
 

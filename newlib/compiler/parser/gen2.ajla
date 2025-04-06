@@ -158,11 +158,11 @@ fn length_of_function_id(p : list(pcode_t)) : int
 
 fn generate_Load_Fn(ctx : function_context, fd : function_definition, t : tokens) : (function_context, int)
 [
-	var value := -1;	// avoid uninitialized error
+	var val := -1;	// avoid uninitialized error
 	var gvn_args := list(pcode_t).[ ctx.gvn_seq, P_Load_Fn, fd.call_mode ] + generate_function_id(fd.signature.id);
-	value := gvn_encode(gvn_args);
-	if ctx.gvn[value] <> -1 then [
-		return ctx, ctx.gvn[value];
+	val := gvn_encode(gvn_args);
+	if ctx.gvn[val] <> -1 then [
+		return ctx, ctx.gvn[val];
 	]
 
 	var fn_def : int;
@@ -210,7 +210,7 @@ fn generate_Load_Fn(ctx : function_context, fd : function_definition, t : tokens
 	pcode_args += generate_function_id(fd.signature.id);
 	ctx := generate_instruction(ctx, P_Load_Fn, pcode_args);
 
-	ctx.gvn[value] := fnx;
+	ctx.gvn[val] := fnx;
 
 	return ctx, fnx;
 ]
@@ -230,7 +230,7 @@ fn pcode_Load_Fn_get_unique_id(ins : instruction) : function_unique_id
 fn generate_Curry(ctx : function_context, cc : compare_context, typ : int, af : int, args : list(int), t : tokens) : (function_context, int)
 [
 	var use_gvn := variable_is_suitable_for_gvn(ctx, af);
-	var value := -1;	// avoid uninitialized error
+	var val := -1;	// avoid uninitialized error
 	if use_gvn then [
 		var gvn_args := list(pcode_t).[ ctx.gvn_seq, P_Curry, af ];
 		for i := 0 to len(args) do [
@@ -238,9 +238,9 @@ fn generate_Curry(ctx : function_context, cc : compare_context, typ : int, af : 
 			use_gvn and= variable_is_suitable_for_gvn(ctx, args[i]);
 		]
 		if use_gvn then [
-			value := gvn_encode(gvn_args);
-			if ctx.gvn[value] <> -1 then [
-				return ctx, ctx.gvn[value];
+			val := gvn_encode(gvn_args);
+			if ctx.gvn[val] <> -1 then [
+				return ctx, ctx.gvn[val];
 			]
 		]
 	]
@@ -308,7 +308,7 @@ fn generate_Curry(ctx : function_context, cc : compare_context, typ : int, af : 
 	ctx := generate_instruction(ctx, P_Curry, pcode_args);
 
 	if use_gvn then [
-		ctx.gvn[value] := fnx;
+		ctx.gvn[val] := fnx;
 	]
 
 	return ctx, fnx;
@@ -351,15 +351,15 @@ fn generate_Call_Indirect(ctx : function_context, call_mode : int, fnx : int, t 
 	var return_vector := empty(int);
 
 	var use_gvn := variable_is_suitable_for_gvn(ctx, fnx);
-	var value := -1;	// avoid uninitialized error
+	var val := -1;	// avoid uninitialized error
 	var gvn_args := list(pcode_t).[ ctx.gvn_seq, P_Call_Indirect, fnx, call_mode ];
 	if use_gvn then [
-		value := gvn_encode(gvn_args +< 0);
-		if ctx.gvn[value] <> -1 then [
+		val := gvn_encode(gvn_args +< 0);
+		if ctx.gvn[val] <> -1 then [
 			for i := 0 to n_return_values do [
 				var v : int;
 				if i = 0 then
-					v := value;
+					v := val;
 				else
 					v := gvn_encode(gvn_args +< i);
 				return_vector +<= ctx.gvn[v];
@@ -383,7 +383,7 @@ fn generate_Call_Indirect(ctx : function_context, call_mode : int, fnx : int, t 
 		if use_gvn then [
 			var v : int;
 			if i = 0 then
-				v := value;
+				v := val;
 			else
 				v := gvn_encode(gvn_args +< i);
 			ctx.gvn[v] := l;
@@ -467,16 +467,16 @@ fn generate_Call(ctx : function_context, call_mode : int, fd : function_definiti
 		use_gvn and= variable_is_suitable_for_gvn(ctx, args[i]);
 	]
 
-	var value := -1;	// avoid uninitialized error
+	var val := -1;	// avoid uninitialized error
 	var gvn_args := list(pcode_t).[ ctx.gvn_seq, P_Call ] + pcode_args;
 	if use_gvn then [
-		value := gvn_encode(gvn_args +< 0);
-		if ctx.gvn[value] <> -1 then [
+		val := gvn_encode(gvn_args +< 0);
+		if ctx.gvn[val] <> -1 then [
 			//eval debug("gvn hit");
 			for i := 0 to n_return_values do [
 				var v : int;
 				if i = 0 then
-					v := value;
+					v := val;
 				else
 					v := gvn_encode(gvn_args +< i);
 				return_vector +<= ctx.gvn[v];
@@ -504,7 +504,7 @@ fn generate_Call(ctx : function_context, call_mode : int, fd : function_definiti
 		if use_gvn then [
 			var v : int;
 			if i = 0 then
-				v := value;
+				v := val;
 			else
 				v := gvn_encode(gvn_args +< i);
 			ctx.gvn[v] := l;

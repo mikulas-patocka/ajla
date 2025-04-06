@@ -1,5 +1,5 @@
 {*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -499,10 +499,10 @@ fn curses_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(
 			var i := 0;
 			while len_greater_than(str, i + 1) do [
 				var key := str[i];
-				var value := str[i + 1];
-				//eval debug("acs map: " + ntos(key) + ", " + ntos(value));
+				var val := str[i + 1];
+				//eval debug("acs map: " + ntos(key) + ", " + ntos(val));
 				if key < #80 then
-					altcharset_map[key] := value;
+					altcharset_map[key] := val;
 				i += 2;
 			]
 		]

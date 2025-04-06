@@ -65,8 +65,8 @@ fn env_string_to_map(b : bytes) : treemap(bytes, bytes)
 		if eq = -1 then
 			continue;
 		var name := l[ .. eq];
-		var value := l[eq + 1 .. ];
-		treemap_insert(name, value);
+		var val := l[eq + 1 .. ];
+		treemap_insert(name, val);
 	]
 ]
 

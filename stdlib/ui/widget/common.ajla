@@ -1,5 +1,5 @@
 {*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -132,7 +132,7 @@ fn widget_new_window(w : world, app : appstate, const cls : widget_class, init :
 fn widget_destroy_onclick(app : appstate, id : wid) : appstate;
 
 fn property_get(app : appstate, name : bytes) : property;
-fn property_set(app : appstate, name : bytes, value : property) : appstate;
+fn property_set(app : appstate, name : bytes, val : property) : appstate;
 fn property_observe(app : appstate, id : wid, name : bytes) : appstate;
 fn property_serialize(p : property) : bytes;
 fn property_deserialize(b : bytes) : property;
@@ -818,7 +818,7 @@ fn property_get(app : appstate, name : bytes) : property
 	return p;
 ]
 
-fn property_set(implicit app : appstate, name : bytes, value : property) : appstate
+fn property_set(implicit app : appstate, name : bytes, val : property) : appstate
 [
 	var n := property_to_id(name);
 	if is_uninitialized(app.properties[n]) then [
@@ -828,8 +828,8 @@ fn property_set(implicit app : appstate, name : bytes, value : property) : appst
 		];
 	]
 
-	if app.properties[n].val <> value then [
-		app.properties[n].val := value;
+	if app.properties[n].val <> val then [
+		app.properties[n].val := val;
 
 		var i := 0;
 		while i < len(app.properties[n].observers) do [
