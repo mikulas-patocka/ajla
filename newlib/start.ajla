@@ -1,5 +1,5 @@
 {*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -168,7 +168,7 @@ fn start : world
 	if len(args) = 0 then [
 		var loc := locale_console_init(env);
 		w := write(w, h[1], "Ajla " + uname(uname_flag_ajla_version)[0] + nl);
-		w := write(w, h[1], string_to_locale(loc, `Copyright (C) 2024 Mikuláš Patočka`) + nl);
+		w := write(w, h[1], string_to_locale(loc, `Copyright (C) 2024, 2025 Mikuláš Patočka`) + nl);
 		w := write(w, h[1], nl);
 		w := write(w, h[1], "Ajla is free software: you can redistribute it and/or modify it under the terms" + nl);
 		w := write(w, h[1], "of the GNU General Public License as published by the Free Software Foundation," + nl);
