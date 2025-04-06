@@ -532,8 +532,6 @@ fn load_function_context(pc : list(pcode_t)) : context
 	]
 	if ptr > len(pc) then
 		abort internal("load_function_context: " + ctx.name + ": pcode doesn't match");
-	if len(b.instrs) > 0 then
-		abort internal("load_function_context: " + ctx.name + ": the last basic block is not finished");
 
 	for i := 0 to len(ctx.blocks) do [
 again:

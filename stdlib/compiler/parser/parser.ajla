@@ -634,19 +634,6 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 		ctx.incomplete := true;
 		ctx.dict := dict;
 
-		if wh >= 0 then [
-			if ctx.n_return_values <> 1 then
-				abort compiler_error("The where clause may be used only on functions that return a single type", t);
-			var rv := ctx.variables[ctx.n_arguments];
-			if rv.type_idx <> T_Type then
-				abort compiler_error("The where clause may be used only on functions that return a single type", t);
-			var wh_var : int;
-			ctx.parsing_where := true;
-			ctx, wh_var := parse_expression_bool(ctx, vd, wh_expr);
-			ctx.parsing_where := false;
-			ctx.where_expr := wh_var;
-		]
-
 		ctx := generate_Line_Info(ctx, t[0].line);
 
 		if decl_type is k_fn or decl_type is k_type or decl_type is k_const or decl_type is k_operator then [
@@ -660,6 +647,21 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 			ctx := parse_record_definition(ctx, vd, true, t[b .. ]);
 		] else [
 			abort internal("invalid decl_type " + ntos(ord decl_type));
+		]
+
+		if wh >= 0 then [
+			if ctx.n_return_values <> 1 then
+				abort compiler_error("The where clause may be used only on functions that return a single type", wh_expr);
+			var rv := ctx.variables[ctx.n_arguments];
+			if rv.type_idx <> T_Type then
+				abort compiler_error("The where clause may be used only on functions that return a single type", wh_expr);
+			if not ctx.is_pattern_matched or len(ctx.pattern_matching_info) <> 1 then
+				abort compiler_error("The where clause may be used only on functions that are simple", wh_expr);
+			var wh_var : int;
+			ctx.parsing_where := true;
+			ctx, wh_var := parse_expression_bool(ctx, vd, wh_expr);
+			ctx.parsing_where := false;
+			ctx.where_expr := wh_var;
 		]
 
 		ctx := generate_local_types(ctx);
