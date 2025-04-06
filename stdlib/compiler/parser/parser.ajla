@@ -506,6 +506,17 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 	var op_mode : op_option;
 	var op_priority : int;
 	var post_hints : list(bytes);
+	var wh_expr := empty(token);
+	var wh := token_find(t, token_opt.k_where, false);
+	if wh >= 0 then [
+		wh_expr := t[wh + 1 .. len(t) - 1];
+		if len(wh_expr) = 0 then
+			abort compiler_error("Empty where clause", t);
+		var sc := t[len(t) - 1];
+		t := t[ .. wh];
+		if not t[wh - 1].t is right_bracket then
+			t +<= sc;
+	]
 	if decl_type is k_operator then [
 		op_mode := op_option.infix_op;
 		t := t[1 .. ];
@@ -623,6 +634,19 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 		ctx.incomplete := true;
 		ctx.dict := dict;
 
+		if wh >= 0 then [
+			if ctx.n_return_values <> 1 then
+				abort compiler_error("The where clause may be used only on functions that return a single type", t);
+			var rv := ctx.variables[ctx.n_arguments];
+			if rv.type_idx <> T_Type then
+				abort compiler_error("The where clause may be used only on functions that return a single type", t);
+			var wh_var : int;
+			ctx.parsing_where := true;
+			ctx, wh_var := parse_expression_bool(ctx, vd, wh_expr);
+			ctx.parsing_where := false;
+			ctx.where_expr := wh_var;
+		]
+
 		ctx := generate_Line_Info(ctx, t[0].line);
 
 		if decl_type is k_fn or decl_type is k_type or decl_type is k_const or decl_type is k_operator then [
@@ -649,6 +673,8 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 	] else [
 		if def.signature.inferred_return then
 			abort compiler_error("Function with inferred return type was not defined", t);
+		if wh >= 0 then
+			abort compiler_error("The where clause cannot be used on function prototypes", t);
 	]
 
 	// uncomment this to disable lazy evaluation of functions
@@ -1019,6 +1045,9 @@ fn parse_clause(w : world, d : list(bytes), dict : function_dictionary, t1 : tok
 	var f := token_find_3(t1, token_opt.assign, token_opt.semicolon, token_opt.right_bracket, true);
 	if t1[f].t is assign then [
 		f := token_find(t1, token_opt.semicolon, true);
+	] else if t1[f].t is right_bracket then [
+		if len_greater_than(t1, f + 1), t1[f + 1].t is k_where then
+			f := token_find(t1, token_opt.semicolon, true);
 	]
 	var t := t1[ .. f + 1];
 

@@ -154,6 +154,9 @@ record function_context [
 
 	is_pattern_matched : bool;
 	pattern_matching_info : list(pattern_context);
+
+	parsing_where : bool;
+	where_expr : int;
 ]
 
 record function_definition [
@@ -450,6 +453,9 @@ fn new_function_context(dict : function_dictionary, parent_function : maybe(func
 
 		is_pattern_matched : false,
 		pattern_matching_info : empty(pattern_context),
+
+		parsing_where : false,
+		where_expr : -1,
 	];
 	return ctx;
 ]
