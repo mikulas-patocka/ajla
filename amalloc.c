@@ -909,12 +909,19 @@ void *amalloc_run_alloc(size_t al, size_t length, bool attr_unused clr, bool att
 	if (unlikely((ptr_to_num(ptr) & (al - 1)) != 0))
 		fatal("os_mmap returned unaligned pointer: %p, required alignment %lx", ptr, (unsigned long)ARENA_SIZE);
 #else
+	if (likely(length == ARENA_SIZE) && likely(al == ARENA_SIZE)) {
+		ptr = os_mmap(base_address, length, PROT_HEAP, MAP_PRIVATE | MAP_ANONYMOUS, handle_none, 0, &sink);
+		if (unlikely(ptr == MAP_FAILED))
+			return NULL;
+		if (likely(!(ptr_to_num(ptr) & (al - 1))))
+			goto madvise_ret;
+		os_munmap(ptr, length, false);
+	}
+
 	extra_length = length + al - page_size;
 	if (unlikely(extra_length < length))
 		return NULL;
-
 	ptr = os_mmap(base_address, extra_length, PROT_HEAP, MAP_PRIVATE | MAP_ANONYMOUS, handle_none, 0, &sink);
-
 	if (unlikely(ptr == MAP_FAILED))
 		return NULL;
 
@@ -928,9 +935,8 @@ void *amalloc_run_alloc(size_t al, size_t length, bool attr_unused clr, bool att
 	ptr = num_to_ptr(aptr);
 #endif
 
-#ifdef POINTER_COMPRESSION_POSSIBLE
+	goto madvise_ret;
 madvise_ret:
-#endif
 
 #if !defined(AMALLOC_TRIM_MIDBLOCKS) && defined(HAVE_MADVISE) && defined(MADV_HUGEPAGE)
 	if (length == ARENA_SIZE) {
