@@ -40,6 +40,7 @@ fn pcode_Call_Indirect_get_return_value(ins : instruction, i : int) : int;
 fn pcode_Call_Indirect_find_return_index(ins : instruction, ret_var : int) : int;
 
 fn generate_Call(ctx : function_context, call_mode : int, fd : function_definition, args : list(int), t : tokens) : (function_context, list(int));
+fn generate_Call_self(ctx : function_context) : (function_context, int);
 fn pcode_Call_get_n_return_values(ins : instruction) : int;
 fn pcode_Call_get_n_args(ins : instruction) : int;
 fn pcode_Call_get_unique_id(ins : instruction) : function_unique_id;
@@ -531,6 +532,22 @@ fn generate_Call(ctx : function_context, call_mode : int, fd : function_definiti
 	]
 
 	return ctx, return_vector;
+]
+
+fn generate_Call_self(ctx : function_context) : (function_context, int)
+[
+	var pcode_args := list(pcode_t).[ Call_Mode_Normal, 1, ctx.n_arguments ];
+	pcode_args += generate_function_id(ctx.id);
+	for i := 0 to ctx.n_arguments do [
+		pcode_args += list(pcode_t).[ 0, i ];
+	]
+	var l : int;
+	ctx, l := alloc_local_variable(ctx, T_Type, true, false);
+	pcode_args +<= l;
+
+	ctx := generate_instruction(ctx, P_Call, pcode_args);
+
+	return ctx, l;
 ]
 
 fn pcode_Call_get_n_return_values(ins : instruction) : int

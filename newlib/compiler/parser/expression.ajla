@@ -721,8 +721,11 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 		if t[0].t is k_value then [
 			if not ctx.parsing_where then
 				abort compiler_error("The value keyword may be used only in the where clause", t);
-			var l : int;
 			var typ := ctx.n_arguments;
+			if ctx.record_def is j then [
+				ctx, typ := generate_Call_self(ctx);
+			]
+			var l : int;
 			ctx, l := generate_Value(ctx, typ);
 			return ctx, [ l ];
 		]
