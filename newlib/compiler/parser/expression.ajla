@@ -709,13 +709,21 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 		if o >= ord token_opt.k_type, o <= ord token_opt.k_real128 then [
 			return ctx, [ T_Type - (o - ord token_opt.k_type) ];
 		]
-		if o = ord token_opt.k_bool then [
+		if t[0].t is k_bool then [
 			return ctx, [ T_Bool ];
 		]
 		if t[0].t is k_false or t[0].t is k_true then [
 			var l : int;
 			var c := int_to_blob(select(t[0].t is k_true, 0, 1));
 			ctx, l := generate_Load_Const(ctx, T_Bool, c);
+			return ctx, [ l ];
+		]
+		if t[0].t is k_value then [
+			if not ctx.parsing_where then
+				abort compiler_error("The value keyword may be used only in the where clause", t);
+			var l : int;
+			var typ := ctx.n_arguments;
+			ctx, l := generate_Value(ctx, typ);
 			return ctx, [ l ];
 		]
 

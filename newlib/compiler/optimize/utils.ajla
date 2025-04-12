@@ -167,6 +167,9 @@ fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instructi
 	] else if opcode = P_Keep then [
 		ins.read_set := 0 bts 0;
 		xlen := 1;
+	] else if opcode = P_Value then [
+		ins.write_set := 0 bts 0;
+		xlen := 1;
 	] else if opcode = P_Fn then [
 		ins.write_set := 0 bts 0;
 		xlen := 5 + params[1] + params[2] + params[3] + params[4];

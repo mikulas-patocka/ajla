@@ -52,6 +52,8 @@ fn constant_to_blob(str : bytes) : (list(pcode_t), int);
 fn generate_Load_Const(ctx : function_context, typ : int, blob : list(pcode_t)) : (function_context, int);
 fn pcode_Load_Const_get_blob(ins : instruction) : list(pcode_t);
 
+fn generate_Value(ctx : function_context, typ : int) : (function_context, int);
+
 fn generate_Byte(ctx : function_context) : (function_context, int);
 fn generate_Bytes(ctx : function_context) : (function_context, int);
 fn generate_String(ctx : function_context) : (function_context, int);
@@ -673,6 +675,19 @@ fn pcode_Load_Const_get_blob(ins : instruction) : list(pcode_t)
 [
 	xeval assert(ins.opcode = P_Load_Const, "pcode_Load_Const_get_blob: invalid instruction");
 	return ins.args[1 .. ];
+]
+
+
+fn generate_Value(ctx : function_context, typ : int) : (function_context, int)
+[
+	var l : int;
+	ctx, l := alloc_local_variable(ctx, typ, true, false);
+
+	var pcode_args := list(pcode_t).[ l ];
+
+	ctx := generate_instruction(ctx, P_Value, pcode_args);
+
+	return ctx, l;
 ]
 
 

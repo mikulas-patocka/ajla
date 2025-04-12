@@ -655,8 +655,10 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 			var rv := ctx.variables[ctx.n_arguments];
 			if rv.type_idx <> T_Type then
 				abort compiler_error("The where clause may be used only on functions that return a single type", wh_expr);
-			if not ctx.is_pattern_matched or len(ctx.pattern_matching_info) <> 1 then
-				abort compiler_error("The where clause may be used only on functions that are simple", wh_expr);
+			if ctx.record_def is n then [
+				if not ctx.is_pattern_matched or len(ctx.pattern_matching_info) <> 1 then
+					abort compiler_error("The where clause may be used only on functions that are simple", wh_expr);
+			]
 			var wh_var : int;
 			ctx.parsing_where := true;
 			ctx, wh_var := parse_expression_bool(ctx, vd, wh_expr);
