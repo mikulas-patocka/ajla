@@ -297,7 +297,7 @@ fn parse_statement_assign(ctx : function_context, vd : variable_dictionary, can_
 				var index_ex := lvalue[1 .. skip];
 				lvalue := lvalue[skip + 1 .. ];
 
-				var cc_base, typ_base := get_base_definition(ctx, cc, typ, false);
+				var cc_base, typ_base, inv := get_base_definition(ctx, cc, typ, false, false);
 				cc, typ := list_type(ctx, cc_base, typ_base, true, index_ex);
 
 				var ai : int;
@@ -310,7 +310,7 @@ fn parse_statement_assign(ctx : function_context, vd : variable_dictionary, can_
 				xeval token_assert(lvalue[1 ..], token_opt.identifier.(0));
 				var field := lvalue[1].t.identifier;
 
-				var rec_cc, rec_typ := get_base_definition(ctx, cc, typ, true);
+				var rec_cc, rec_typ, inv := get_base_definition(ctx, cc, typ, true, false);
 				if rec_typ <> T_Record then
 					abort compiler_error("Record or option expected", lvalue);
 				var rec_def := rec_cc.ctx.record_def.j;
