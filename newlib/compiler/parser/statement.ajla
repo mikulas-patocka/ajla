@@ -156,6 +156,7 @@ inferred:
 			else
 				ctx.variables[v.idx].defined_at := defined_multiple;
 			ctx := generate_Copy(ctx, al[i], v.idx);
+			ctx := verify_variable(ctx, v.idx, true);
 		]
 	] else [
 		if cnst then

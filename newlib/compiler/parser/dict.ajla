@@ -159,6 +159,7 @@ record function_context [
 
 	parsing_where : bool;
 	where_expr : int;
+	this_value : int;
 ]
 
 record function_definition [
@@ -459,6 +460,7 @@ fn new_function_context(dict : function_dictionary, parent_function : maybe(func
 
 		parsing_where : false,
 		where_expr : -1,
+		this_value : -1,
 	];
 	return ctx;
 ]
@@ -470,7 +472,7 @@ fn function_context_is_privileged(ctx : function_context) : bool
 
 fn function_context_clear_temp_values(ctx : function_context) : function_context
 [
-	ctx.dict.defs := exception_make(list(function_definition), ec_sync, error_record_field_not_initialized, 0, false);
+	//ctx.dict.defs := exception_make(list(function_definition), ec_sync, error_record_field_not_initialized, 0, false);
 	ctx.dict.dict := exception_make(list(int), ec_sync, error_record_field_not_initialized, 0, false);
 	ctx.dict.macros := exception_make(list(macro), ec_sync, error_record_field_not_initialized, 0, false);
 	//ctx.dict.id := exception_make(module_unique_id, ec_sync, error_record_field_not_initialized, 0, false);
