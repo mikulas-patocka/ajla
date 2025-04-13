@@ -748,11 +748,8 @@ fn get_deep_type_of_var(ctx : function_context, v : int) : (compare_context, int
 	return cc, typ;
 ]
 
-fn get_type_invariants(ctx : function_context, v : int) : list(compare_argument)
+fn get_type_invariants(ctx : function_context, typ : int) : list(compare_argument)
 [
-	var typ := get_type_of_var(ctx, v);
-	if typ_is_const(typ) then
-		return empty(compare_argument);
 	var cc := new_compare_context(ctx);
 	var inv : list(compare_argument);
 	cc, typ, inv := get_base_definition(ctx, cc, typ, true, true);

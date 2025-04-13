@@ -25,6 +25,7 @@ uses compiler.parser.token;
 uses pcode;
 
 type compare_context;
+type compare_argument;
 
 fn unimplemented(m : bytes) : unit_type;
 
@@ -46,6 +47,7 @@ record local_variable [
 	mut : bool;
 	local_type : int;
 	name : istring;
+	inv : list(compare_argument);
 ]
 
 const defined_argument : int := 0;
@@ -288,6 +290,7 @@ fn new_variable(ctx : function_context, t def_at : int, mut : bool) : (function_
 		mut : mut,
 		local_type : T_NoLocalType,
 		name : 0,
+		inv : empty(compare_argument),
 	];
 ]
 

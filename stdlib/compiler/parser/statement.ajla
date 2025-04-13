@@ -88,10 +88,12 @@ fn parse_statement_var(ctx : function_context, vd : variable_dictionary, cnst mu
 			var expression := groupdecl[colon + 1 .. ];
 			var a : int;
 			ctx, a := parse_expression_type(ctx, vd, expression);
+			var inv := get_type_invariants(ctx, a);
 			for i := 0 to colon do [
 				var name := groupdecl[i].t.identifier;
 				var l : int;
 				ctx, l := alloc_local_variable(ctx, a, cnst, mut);
+				ctx.variables[l].inv := inv;
 				ctx, vd := add_variable(ctx, vd, name, l, impl, groupdecl[i .. ]);
 				variables +<= vardef.[ name : name, idx : l, impl_assign : false ];
 			]
