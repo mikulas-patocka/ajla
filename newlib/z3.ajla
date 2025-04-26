@@ -47,7 +47,7 @@ fn z3_mk_world := ffi_unsafe_get_world;
 
 fn z3_mk_context(implicit w : z3_world) : (z3_world, z3_context)
 [
-	var ctx := z3_context.[ ];
+	implicit var ctx := z3_context.[ ];
 	var v e : int;
 	var lib := ffi_open_library("libz3.so", true, "Z3_finalize_memory");
 	ctx.destr := ffi_destructor_new();
@@ -65,6 +65,9 @@ fn z3_mk_context(implicit w : z3_world) : (z3_world, z3_context)
 	atomic_exit();
 
 	v, e := ffi_call_function(z3_set_error_handler, [ ctx.ptr_z3_context, 0 ]);
+
+	eval z3_eval_smtlib2_string_noret("(set-option :ctrl_c false)");
+
 	return ctx;
 ]
 
