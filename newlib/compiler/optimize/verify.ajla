@@ -34,14 +34,19 @@ fn z3_eval(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, 
 [
 	if ctx.dump_z3, not is_exception z3w then
 		eval debug(str);
-	return z3_eval_smtlib2_string(str);
+	var b := z3_eval_smtlib2_string(str);
+	if is_exception z3w then
+		abort internal("z3 failed on line """ + str + """: """ + exception_string z3w + """");
+	return b;
 ]
 
 fn z3_eval_noret(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, str : bytes) : z3_world
 [
 	if ctx.dump_z3, not is_exception z3w then
 		eval debug(str);
-	return z3_eval_smtlib2_string_noret(str);
+	z3_eval_smtlib2_string_noret(str);
+	if is_exception z3w then
+		abort internal("z3 failed on line """ + str + """: """ + exception_string z3w + """");
 ]
 
 fn allocate_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int, phi_node : int) : (z3_world, context, bytes);
