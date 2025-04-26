@@ -88,6 +88,18 @@ fn parse_argument(ctx : function_context, vd : variable_dictionary, v n : int, t
 		var nv : local_variable;
 		ctx, nv := new_variable(ctx, a, defined, mut);
 		ctx.variables[v + i] := nv;
+		var t := ctx.this_value;
+	        ctx.this_value := v + i;
+		var inv := get_type_invariants(ctx, a);
+		for i := 0 to len(inv) do [
+			var l : int;
+			ctx, l := evaluate_type(ctx, inv[i].cc, inv[i].idx, empty(compare_fn_stack), empty(token));
+			if not retval then
+				ctx.prereqs +<= l;
+			else
+				ctx.contracts +<= l;
+		]
+		ctx.this_value := t;
 	]
 
 	return ctx;
