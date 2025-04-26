@@ -183,7 +183,7 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 		else if op = Bin_Divide_Int, not us	then str := "bvsdiv";
 		else if op = Bin_Divide_Int, us		then str := "bvudiv";
 		else if op = Bin_Modulo, not us		then str := "bvsmod";
-		else if op = Bin_Modulo, us		then str := "bvumod";
+		else if op = Bin_Modulo, us		then str := "bvurem";
 		else if op = Bin_And			then str := "bvand";
 		else if op = Bin_Or			then str := "bvor";
 		else if op = Bin_Xor			then str := "bvxor";
@@ -553,8 +553,8 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 			return ctx;
 		var index := ins.params[2];
 		var str : bytes;
-		var b : bytes;
-		ctx, b := get_z3_type(ctx, lt.rec.types[index]);
+		//var b : bytes;
+		//ctx, b := get_z3_type(ctx, lt.rec.types[index]);
 		//str := "(not (forall ((x "+b+")) (distinct "+var1+" (mk-"+ctx.local_type_names[t]+"-"+ntos(index)+" x))))";
 		str := "((_ is mk-"+ctx.local_type_names[t]+"-"+ntos(index)+") "+var1+")";
 		gen_assert(ctx, var_name, str);
@@ -739,6 +739,10 @@ fn verify_function(ctx : context) : unit_type
 	ctx.unint_counter := 0;
 	var d := get_dump("z3");
 	ctx.dump_z3 := d = "*" or d = ctx.name;
+
+	{if ctx.name = "dump_basic_blocks" or
+	   ctx.name = "menu_process_event" then
+		return unit_value;}
 
 	if ctx.dump_z3 then
 		eval debug("verify function " + ctx.name);
@@ -981,6 +985,8 @@ fn verify_function(ctx : context) : unit_type
 
 	z3_eval_noret(ctx, "(assert (not " + ctx.blocks[0].block_name + "))");
 	b := z3_eval(ctx, "(check-sat)");
+	if ctx.dump_z3 then
+		eval debug("end verify function " + ctx.name);
 	if list_begins_with(b, "unsat") then
 		return unit_value;
 	if list_begins_with(b, "sat") then [

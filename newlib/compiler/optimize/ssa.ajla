@@ -440,10 +440,13 @@ fn compare_local_types(ctx : context, old_new : list(int), src_rt dest_rt : int,
 fn remap_local_types(ctx : context, old_new : list(int)) : context
 [
 	for i := 0 to len(ctx.variables) do [
-		if ctx.variables[i].runtime_type < 0 then
-			continue;
-		if old_new[ctx.variables[i].runtime_type] <> T_InvalidType then [
-			ctx.variables[i].runtime_type := old_new[ctx.variables[i].runtime_type];
+		if ctx.variables[i].runtime_type >= 0 then [
+			if old_new[ctx.variables[i].runtime_type] <> T_InvalidType then
+				ctx.variables[i].runtime_type := old_new[ctx.variables[i].runtime_type];
+		]
+		if ctx.variables[i].local_type >= 0 then [
+			if old_new[ctx.variables[i].local_type] <> T_InvalidType then
+				ctx.variables[i].local_type := old_new[ctx.variables[i].local_type];
 		]
 	]
 	for i := 0 to len(ctx.local_types) do [
@@ -1786,8 +1789,11 @@ skip:
 		if typ < 0 then
 			continue;
 		var vt := ctx.variables[typ];
-		if vt.local_type >= 0 then
+		if vt.local_type >= 0 then [
 			ctx.variables[vgi].runtime_type := vt.local_type;
+			if vt.local_type >= len(ctx.local_types) then
+				abort internal("runtime type out of range: " + ntos(vt.local_type) + " >= " + ntos(len(ctx.local_types)));
+		]
 	]
 
 	return ctx;
@@ -1973,8 +1979,11 @@ fn dlte(ctx : context) : context
 [
 	var needed := fill(false, len(ctx.local_types));
 	for vgi := 0 to len(ctx.variables) do [
-		if ctx.variables[vgi].runtime_type >= 0 then
+		if ctx.variables[vgi].runtime_type >= 0 then [
+			if ctx.variables[vgi].runtime_type >= len(ctx.local_types) then
+				abort internal("runtime type out of range: " + ntos(ctx.variables[vgi].runtime_type) + " >= " + ntos(len(ctx.local_types)));
 			needed[ctx.variables[vgi].runtime_type] := true;
+		]
 	]
 
 	while true do [
@@ -2695,7 +2704,12 @@ fn check_consistency(ctx : context, msg : bytes, test_no_pred : bool) : context
 				abort internal(msg + ": basic block doesn't match");
 		]
 	]
-
+	for vgi := 0 to len(ctx.variables) do [
+		if ctx.variables[vgi].runtime_type >= len(ctx.local_types) then
+			abort internal(msg + ": runtime type out of range");
+		//if ctx.variables[vgi].local_type >= len(ctx.local_types) then
+		//	abort internal(msg + ": local type out of range");
+	]
 	return ctx;
 ]
 
@@ -2788,7 +2802,7 @@ retry_optimize:
 	if do_verify then [
 		if print_passes then [ eval ctx; eval debug("dlte"); if is_exception ctx then eval debug("ctx exception"); ]
 		ctx := dlte(ctx);
-		ctx := check_consistency(ctx, "dlte", true);
+		ctx := check_consistency(ctx, "dlte-verify", true);
 
 		for i := 0 to len(ctx.local_types) do [
 			var lt := ctx.local_types[i];
