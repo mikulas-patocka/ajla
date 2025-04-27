@@ -2725,6 +2725,9 @@ fn process_pcode(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcod
 		return pc;
 	]
 
+	if pc[0] bt bsf Fn_NoVerify then
+		verify := false;
+
 	var ctx := load_function_context(pc);
 	//eval debug("optimizing: " + ctx.name);
 

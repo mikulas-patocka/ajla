@@ -203,6 +203,8 @@ Fn_AutoInline
 Fn_IsFlatOption
 16
 Fn_AlwaysFlatOption
+32
+Fn_NoVerify
 
 0
 Local_Type_Record	; [path_idx, fn_idx, n_unit_chars, (unit_name)], n_entries, (type)

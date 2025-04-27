@@ -52,6 +52,8 @@ fn dump_function(def : function_definition) : list(pcode_t)
 		if ctx.record_def.j.always_flat_option then
 			result[0] or= Fn_AlwaysFlatOption;
 	]
+	if ctx.novfy_flag then
+		result[0] or= Fn_NoVerify;
 	result += blob_store(i_decode(ctx.name));
 
 	for i := 0 to len(ctx.lambdas) do [

@@ -1,5 +1,5 @@
 {*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -184,7 +184,7 @@ fn menu_click(implicit w : world, implicit app : appstate, com : widget_common, 
 		widget_destroy_onclick(com.self);
 ]
 
-fn menu_process_event(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : menu_state, wev : wevent) : (world, appstate, widget_common, menu_state)
+novfy fn menu_process_event(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : menu_state, wev : wevent) : (world, appstate, widget_common, menu_state)
 [
 	if wev is resize then [
 		var size_x := 0;

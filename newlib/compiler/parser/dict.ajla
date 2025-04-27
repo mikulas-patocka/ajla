@@ -157,6 +157,8 @@ record function_context [
 	is_pattern_matched : bool;
 	pattern_matching_info : list(pattern_context);
 
+	novfy_flag : bool;
+
 	parsing_where : bool;
 	where_expr : int;
 	this_value : int;
@@ -457,6 +459,8 @@ fn new_function_context(dict : function_dictionary, parent_function : maybe(func
 
 		is_pattern_matched : false,
 		pattern_matching_info : empty(pattern_context),
+
+		novfy_flag : false,
 
 		parsing_where : false,
 		where_expr : -1,

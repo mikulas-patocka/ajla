@@ -510,7 +510,7 @@ fn compare_function_signatures(c1 c2 : function_context) : bool
 	return true;
 ]
 
-fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_flag conversion_flag : bool) : function_dictionary
+fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_flag conversion_flag novfy_flag : bool) : function_dictionary
 [
 	var decl_type := t[0].t;
 	var name : istring;
@@ -592,6 +592,7 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 			ctx, vd := parse_function_header(dict, maybe(function_context).n, maybe(variable_dictionary).n, empty(promoted_variable), decl_type, t[ .. len(t) - 1], name, op_mode, op_priority, cnst);
 		]
 	]
+	ctx.novfy_flag or= novfy_flag;
 
 	if not is_uninitialized(def) then [
 		//eval debug(i_decode(name) + " exists");
@@ -645,6 +646,7 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 		ctx := def.signature;
 		ctx.incomplete := true;
 		ctx.dict := dict;
+		ctx.novfy_flag or= novfy_flag;
 
 		ctx := generate_Line_Info(ctx, t[0].line);
 
@@ -1070,6 +1072,7 @@ fn parse_clause(w : world, d : list(bytes), dict : function_dictionary, t1 : tok
 	var private_flag := false;
 	var implicit_flag := false;
 	var conversion_flag := false;
+	var novfy_flag := false;
 next_flag:
 	if len(t) = 0 then [
 		abort compiler_error("Empty clause", empty(token));
@@ -1089,8 +1092,13 @@ next_flag:
 		t := t[1 ..];
 		goto next_flag;
 	]
+	if t[0].t is k_novfy then [
+		novfy_flag := true;
+		t := t[1 ..];
+		goto next_flag;
+	]
 	if t[0].t is k_uses then [
-		if private_flag or implicit_flag or conversion_flag or not t[len(t) - 1].t is semicolon then
+		if private_flag or implicit_flag or conversion_flag or novfy_flag or not t[len(t) - 1].t is semicolon then
 			abort compiler_error("Invalid uses clause", t);
 		t := t[1 .. len(t) - 1];
 		while len(t) > 0 do [
@@ -1106,7 +1114,7 @@ next_flag:
 		  t[0].t is k_type or
 		  t[0].t is k_const or
 		  t[0].t is k_operator then [
-		dict := parse_function(dict, t, private_flag, implicit_flag, conversion_flag);
+		dict := parse_function(dict, t, private_flag, implicit_flag, conversion_flag, novfy_flag);
 	] else if t[0].t is identifier, not is_uninitialized(dict.macros[t[0].t.identifier]) then [
 		var m := dict.macros[t[0].t.identifier];
 		m := expand_macro(t, m);

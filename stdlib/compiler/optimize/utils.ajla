@@ -29,7 +29,7 @@ fn function_store(f : function) : list(pcode_t);
 
 fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instruction;
 fn load_function_context(pc : list(pcode_t)) : context;
-fn dump_basic_blocks(ctx : context, dump_it : bool) : list(pcode_t);
+novfy fn dump_basic_blocks(ctx : context, dump_it : bool) : list(pcode_t);
 
 implementation
 
