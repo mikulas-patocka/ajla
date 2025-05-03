@@ -880,7 +880,7 @@ fn property_serialize(p : property) : bytes
 		return r;
 	]
 	if p is l then [
-		var r:= "l:";
+		var r := "l:";
 		for x in p.l do
 			r += "(" + property_serialize(x) + ")";
 		return r;

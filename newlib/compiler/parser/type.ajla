@@ -777,7 +777,6 @@ fn verify_type_equality(ctx : function_context,
 			cc1 : compare_context, typ1 : int, fn_stack1 : list(compare_fn_stack),
 			cc2 : compare_context, typ2 : int, fn_stack2 : list(compare_fn_stack)) : teq
 [
-
 	if typ1 >= 0, typ1 = typ2, cc1.ctx.incomplete, cc2.ctx.incomplete, cc1.ctx.id = cc2.ctx.id, get_defined_maybe(cc1, typ1) is j then [
 		//eval debug("verify_type_equality bypass: " + ntos(typ1));
 		return teq.eq;
