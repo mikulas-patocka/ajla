@@ -101,7 +101,7 @@ fn get_z3_type(ctx : context, runtime_type : int) : bytes
 	if runtime_type <= T_Real16, runtime_type >= T_Real128 then
 		return "Real";
 	if runtime_type = T_Undetermined then
-		return "Undetermined";
+		return "Any";
 	if runtime_type <= T_SInt8, runtime_type >= T_UInt128 then [
 		return "(_ BitVec " + ntos(get_bv_width(runtime_type)) + ")";
 	]
@@ -758,17 +758,13 @@ fn verify_function(ctx : context) : unit_type
 	if ctx.dump_z3 then
 		eval debug("verify function " + ctx.name);
 
-	z3_eval_noret(ctx, "(declare-sort Undetermined 0)");
-
 	var str := "(declare-datatypes (";
-	var first := true;
+	str += "(Any 0)";
 	for lti := 0 to len(ctx.local_types) do [
 		var lt := ctx.local_types[lti];
 		if lt is flat_array or lt is flat_rec then
 			continue;
-		if not first then
-			str += " ";
-		first := false;
+		str += " ";
 		var name := "LT_" + ntos_base(lti, 16);
 		if lt is rec then
 			name += "-" + lt.rec.name;
@@ -777,14 +773,20 @@ fn verify_function(ctx : context) : unit_type
 		//eval debug("NAME: " + name);
 	]
 	str += ") (";
-	first := true;
+	str += "(Any";
+	for lti := T_Bool to len(ctx.local_types) do [
+		if lti = T_Type then
+			continue;
+		var name := get_z3_type(ctx, lti);
+		var num := ntos_base(lti, 16);
+		str += " (mk-any_" + num + " (any-entry-" + num + " " + name + "))";
+	]
+	str += ")";
 	for lti := 0 to len(ctx.local_types) do [
 		var lt := ctx.local_types[lti];
 		if lt is flat_array or lt is flat_rec then
 			continue;
-		if not first then
-			str += " ";
-		first := false;
+		str += " ";
 		var name := ctx.local_type_names[lti];
 		if lt is arr then [
 			str += "(" + name + " (mk-" + name + " (" + str_array_len(ctx, lti) + " Int) (" + str_array_content(ctx, lti) + " (Array Int ";
