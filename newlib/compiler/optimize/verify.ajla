@@ -70,11 +70,16 @@ fn get_z3_bb_name(ctx : context, bgi : int) : (context, bytes)
 	return ctx, str;
 ]
 
-fn get_nonflat_record(ctx : context, runtime_type : int) : int
+fn get_nonflat_lt(ctx : context, runtime_type : int) : int
 [
+	if runtime_type < 0 then
+		return runtime_type;
 	var lt := ctx.local_types[runtime_type];
 	if lt is flat_rec then
 		return lt.flat_rec.non_flat_record;
+	if lt is flat_array then [
+		abort;		// !!! TODO: flat array
+	]
 	return runtime_type;
 ]
 
@@ -105,23 +110,26 @@ fn get_z3_type(ctx : context, runtime_type : int) : (context, bytes)
 	if len_greater_than(ctx.local_type_names[runtime_type], 0) then
 		return ctx, ctx.local_type_names[runtime_type];
 	var lt := ctx.local_types[runtime_type];
-	if lt is arr or lt is flat_array then [
-		var a := get_array_subtype(lt);
-		var t1_str : bytes;
-		ctx, t1_str := get_z3_type(ctx, a);
-		if not len_greater_than(t1_str, 0) then
-			return ctx, "";
-		var str := "(Arr " + t1_str + ")";
-		ctx.local_type_names[runtime_type] := str;
-		return ctx, str;
-	]
-	if lt is flat_rec then [
-		var str : bytes;
-		ctx, str := get_z3_type(ctx, lt.flat_rec.non_flat_record);
-		ctx.local_type_names[runtime_type] := str;
-		return ctx, str;
-	]
+	if lt is flat_array then
+		return get_z3_type(ctx, lt.flat_array.flat_type);
+	if lt is flat_rec then
+		return get_z3_type(ctx, lt.flat_rec.non_flat_record);
 	abort internal("get_z3_type: invalid loacl type " + ntos(ord lt));
+]
+
+fn str_array_len(ctx : context, runtime_type : int) : bytes
+[
+	return "len-LT_" + ntos_base(runtime_type, 16);
+]
+
+fn str_array_content(ctx : context, runtime_type : int) : bytes
+[
+	return "content-LT_" + ntos_base(runtime_type, 16);
+]
+
+fn str_array_make(ctx : context, runtime_type : int) : bytes
+[
+	return "mk-LT_" + ntos_base(runtime_type, 16);
 ]
 
 fn get_array_type(ctx : context, v : int) : (context, bytes)
@@ -160,7 +168,7 @@ fn declare_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : 
 			if not ctx.local_types[lt].rec.opt then
 				z3_eval_noret(ctx, "(assert ((_ is mk-"+t+") "+n+"))");
 		] else if ctx.local_types[lt] is arr or ctx.local_types[lt] is flat_array then [
-			z3_eval_noret(ctx, "(assert (>= (arr-len "+n+") 0))");
+			z3_eval_noret(ctx, "(assert (>= ("+str_array_len(ctx, lt)+" "+n+") 0))");
 		]
 	]
 	return ctx;
@@ -403,7 +411,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var1 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
 		if len(var1) = 0 then
 			return ctx;
-		var lti := get_nonflat_record(ctx, ctx.variables[ins.params[3]].runtime_type);
+		var lti := get_nonflat_lt(ctx, ctx.variables[ins.params[3]].runtime_type);
 		var idx := 6;
 		var idxs := [ idx ];
 		var ltis := [ lti ];
@@ -436,10 +444,11 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				ctx, var2 := allocate_variable_block(ctx, ins.params[idx + 1], phi_node, ins.bb);
 				if len(var2) = 0 then
 					return ctx;
+				var olti := lti;
 				lti := get_array_subtype(ctx.local_types[lti]);
 				ctx := declare_variable(ctx, new_var, lti);
 				ctx := declare_variable(ctx, stored_var, lti);
-				var str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" (arr-len "+old_var+"))) (= "+new_var+" (select (arr "+old_var+") "+var2+"))))";
+				var str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" ("+str_array_len(ctx, olti)+" "+old_var+"))) (= "+new_var+" (select ("+str_array_content(ctx, olti)+" "+old_var+") "+var2+"))))";
 				z3_eval_noret(ctx, str);
 				idx += 2;
 			] else [
@@ -479,9 +488,9 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				ctx, var2 := allocate_variable_block(ctx, ins.params[idx + 1], phi_node, ins.bb);
 				if len(var2) = 0 then
 					return ctx;
-				var str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" (arr-len "+old_var+"))) (= (arr "+new_var+") (store (arr "+old_var+") "+var2+" "+svar+"))))";
+				var str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" ("+str_array_len(ctx, lti)+" "+old_var+"))) (= ("+str_array_content(ctx, lti)+" "+new_var+") (store ("+str_array_content(ctx, lti)+" "+old_var+") "+var2+" "+svar+"))))";
 				z3_eval_noret(ctx, str);
-				str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" (arr-len "+old_var+"))) (= (arr-len "+new_var+") (arr-len "+old_var+"))))";
+				str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" ("+str_array_len(ctx, lti)+" "+old_var+"))) (= ("+str_array_len(ctx, lti)+" "+new_var+") ("+str_array_len(ctx, lti)+" "+old_var+"))))";
 				z3_eval_noret(ctx, str);
 			] else [
 				abort internal("assert_instruction: invalid structured type " + ntos(ins.params[idx]));
@@ -496,7 +505,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		return ctx;
 	]
 	if ins.opcode = P_Record_Create then [
-		var lti := get_nonflat_record(ctx, ctx.variables[v].runtime_type);
+		var lti := get_nonflat_lt(ctx, ctx.variables[v].runtime_type);
 		var lt := ctx.local_types[lti];
 		var name := ctx.local_type_names[lti];
 		var str : bytes;
@@ -583,11 +592,10 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 	]
 	if ins.opcode = P_Array_Create then [
 		var ln := ins.params[1];
-		var t1 : bytes;
-		ctx, t1 := get_array_type(ctx, v);
-		var a := "(declare-const array-"+var_name+" (Array Int "+t1+"))";
+		var lt := get_nonflat_lt(ctx, ctx.variables[v].runtime_type);
+		var a := "(declare-const array-"+var_name+" LT_"+ntos_base(lt, 16)+")";
 		z3_eval_noret(ctx, a);
-		var str := "array-"+var_name;
+		var str := "("+str_array_content(ctx, lt)+" array-"+var_name+")";
 		for i := 0 to ln do [
 			var var1 : bytes;
 			ctx, var1 := allocate_variable_block(ctx, ins.params[4 + i * 2], phi_node, ins.bb);
@@ -595,7 +603,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				return ctx;
 			str := "(store "+str+" "+ntos(i)+" "+var1+")";
 		]
-		str := "(mk-arr "+ntos(ln)+" "+str+")";
+		str := "("+str_array_make(ctx, lt)+" "+ntos(ln)+" "+str+")";
 		gen_assert(ctx, var_name, str);
 		return ctx;
 	]
@@ -610,7 +618,8 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var2 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
 		if len(var2) = 0 then
 			return ctx;
-		gen_assert(ctx, var_name, "(mk-arr "+var2+" ((as const (Array Int "+t1+")) "+var1+"))");
+		var lt := get_nonflat_lt(ctx, ctx.variables[v].runtime_type);
+		gen_assert(ctx, var_name, "("+str_array_make(ctx, lt)+" "+var2+" ((as const (Array Int "+t1+")) "+var1+"))");
 		return ctx;
 	]
 	if ins.opcode = P_Array_Load then [
@@ -621,7 +630,8 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var2 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
 		if len(var2) = 0 then
 			return ctx;
-		var str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" (arr-len "+var1+"))) (= "+var_name+" (select (arr "+var1+") "+var2+"))))";
+		var lt := get_nonflat_lt(ctx, ctx.variables[ins.params[2]].runtime_type);
+		var str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" ("+str_array_len(ctx, lt)+" "+var1+"))) (= "+var_name+" (select ("+str_array_content(ctx, lt)+" "+var1+") "+var2+"))))";
 		z3_eval_noret(ctx, str);
 		return ctx;
 	]
@@ -630,7 +640,8 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var1 := allocate_variable_block(ctx, ins.params[1], phi_node, ins.bb);
 		if len(var1) = 0 then
 			return ctx;
-		gen_assert(ctx, var_name, "(arr-len "+var1+")");
+		var lt := get_nonflat_lt(ctx, ctx.variables[ins.params[1]].runtime_type);
+		gen_assert(ctx, var_name, "("+str_array_len(ctx, lt)+" "+var1+")");
 		return ctx;
 	]
 	if ins.opcode = P_Array_Len_Greater_Than then [
@@ -641,7 +652,8 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var2 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb);
 		if len(var2) = 0 then
 			return ctx;
-		gen_assert(ctx, var_name, "(> (arr-len "+var1+") "+var2+")");
+		var lt := get_nonflat_lt(ctx, ctx.variables[ins.params[1]].runtime_type);
+		gen_assert(ctx, var_name, "(> ("+str_array_len(ctx, lt)+" "+var1+") "+var2+")");
 		return ctx;
 	]
 	if ins.opcode = P_Array_Sub or ins.opcode = P_Array_Skip then [
@@ -652,14 +664,15 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var2 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
 		if len(var2) = 0 then
 			return ctx;
+		var lt := get_nonflat_lt(ctx, ctx.variables[ins.params[2]].runtime_type);
 		if ins.opcode = P_Array_Sub then [
 			ctx, var3 := allocate_variable_block(ctx, ins.params[4], phi_node, ins.bb);
 			if len(var3) = 0 then
 				return ctx;
 		] else [
-			var3 := "(arr-len "+var1+")";
+			var3 := "("+str_array_len(ctx, lt)+" "+var1+")";
 		]
-		var str := "(assert (=> (and (<= 0 "+var2+") (<= "+var2+" "+var3+") (<= "+var3+" (arr-len "+var1+"))) (and (= (arr-len "+var_name+") (- "+var3+" "+var2+")) (forall ((i Int)) (=> (and (>= i "+var2+") (< i "+var3+")) (= (select (arr "+var1+") i) (select (arr "+var_name+") (- i "+var2+"))))))))";
+		var str := "(assert (=> (and (<= 0 "+var2+") (<= "+var2+" "+var3+") (<= "+var3+" ("+str_array_len(ctx, lt)+" "+var1+"))) (and (= ("+str_array_len(ctx, lt)+" "+var_name+") (- "+var3+" "+var2+")) (forall ((i Int)) (=> (and (>= i "+var2+") (< i "+var3+")) (= (select ("+str_array_content(ctx, lt)+" "+var1+") i) (select ("+str_array_content(ctx, lt)+" "+var_name+") (- i "+var2+"))))))))";
 		z3_eval_noret(ctx, str);
 		return ctx;
 	]
@@ -671,11 +684,12 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var2 := allocate_variable_block(ctx, ins.params[4], phi_node, ins.bb);
 		if len(var2) = 0 then
 			return ctx;
-		var str := "(assert (= (arr-len "+var_name+") (+ (arr-len "+var1+") (arr-len "+var2+"))))";
+		var lt := get_nonflat_lt(ctx, ctx.variables[ins.params[2]].runtime_type);
+		var str := "(assert (= ("+str_array_len(ctx, lt)+" "+var_name+") (+ ("+str_array_len(ctx, lt)+" "+var1+") ("+str_array_len(ctx, lt)+" "+var2+"))))";
 		z3_eval_noret(ctx, str);
-		str := "(assert (forall ((i Int)) (=> (and (>= i 0) (< i (arr-len "+var1+"))) (= (select (arr "+var1+") i) (select (arr "+var_name+") i)))))";
+		str := "(assert (forall ((i Int)) (=> (and (>= i 0) (< i ("+str_array_len(ctx, lt)+" "+var1+"))) (= (select ("+str_array_content(ctx, lt)+" "+var1+") i) (select ("+str_array_content(ctx, lt)+" "+var_name+") i)))))";
 		z3_eval_noret(ctx, str);
-		str := "(assert (forall ((i Int)) (=> (and (>= i 0) (< i (arr-len "+var2+"))) (= (select (arr "+var2+") i) (select (arr "+var_name+") (+ i (arr-len "+var1+")))))))";
+		str := "(assert (forall ((i Int)) (=> (and (>= i 0) (< i ("+str_array_len(ctx, lt)+" "+var2+"))) (= (select ("+str_array_content(ctx, lt)+" "+var2+") i) (select ("+str_array_content(ctx, lt)+" "+var_name+") (+ i ("+str_array_len(ctx, lt)+" "+var1+")))))))";
 		z3_eval_noret(ctx, str);
 		return ctx;
 	]
@@ -687,9 +701,10 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var2 := allocate_variable_block(ctx, ins.params[4], phi_node, ins.bb);
 		if len(var2) = 0 then
 			return ctx;
-		var str := "(assert (= (arr-len "+var_name+") (+ (arr-len "+var1+") 1)))";
+		var lt := get_nonflat_lt(ctx, ctx.variables[ins.params[2]].runtime_type);
+		var str := "(assert (= ("+str_array_len(ctx, lt)+" "+var_name+") (+ ("+str_array_len(ctx, lt)+" "+var1+") 1)))";
 		z3_eval_noret(ctx, str);
-		str := "(assert (= (arr "+var_name+") (store (arr "+var1+") (arr-len "+var1+") "+var2+")))";
+		str := "(assert (= ("+str_array_content(ctx, lt)+" "+var_name+") (store ("+str_array_content(ctx, lt)+" "+var1+") ("+str_array_len(ctx, lt)+" "+var1+") "+var2+")))";
 		z3_eval_noret(ctx, str);
 		return ctx;
 	]
@@ -753,18 +768,19 @@ fn verify_function(ctx : context) : unit_type
 		eval debug("verify function " + ctx.name);
 
 	z3_eval_noret(ctx, "(declare-sort Undetermined 0)");
-	z3_eval_noret(ctx, "(declare-datatypes (T) ((Arr (mk-arr (arr-len Int) (arr (Array Int T))))))");
 
 	var str := "(declare-datatypes (";
 	var first := true;
 	for lti := 0 to len(ctx.local_types) do [
 		var lt := ctx.local_types[lti];
-		if lt is arr or lt is flat_array or lt is flat_rec then
+		if lt is flat_array or lt is flat_rec then
 			continue;
 		if not first then
 			str += " ";
 		first := false;
-		var name := "LT_" + ntos(lti) + "-" + lt.rec.name;
+		var name := "LT_" + ntos_base(lti, 16);
+		if lt is rec then
+			name += "-" + lt.rec.name;
 		ctx.local_type_names[lti] := name;
 		str += "(" + name + " 0)";
 		//eval debug("NAME: " + name);
@@ -773,13 +789,19 @@ fn verify_function(ctx : context) : unit_type
 	first := true;
 	for lti := 0 to len(ctx.local_types) do [
 		var lt := ctx.local_types[lti];
-		if lt is arr or lt is flat_array or lt is flat_rec then
+		if lt is flat_array or lt is flat_rec then
 			continue;
 		if not first then
 			str += " ";
 		first := false;
-		var ltr := lt.rec;
 		var name := ctx.local_type_names[lti];
+		if lt is arr then [
+			str += "(" + name + " (mk-" + name + " (" + str_array_len(ctx, lti) + " Int) (" + str_array_content(ctx, lti) + " (Array Int ";
+			ctx, b := get_z3_type(ctx, lt.arr);
+			str += b + "))))";
+			continue;
+		]
+		var ltr := lt.rec;
 		if not ltr.opt then [
 			str += "(" + name + " (mk-" + name;
 			for i := 0 to len(ltr.types) do [
