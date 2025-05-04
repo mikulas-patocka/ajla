@@ -3356,6 +3356,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 				tt = &def->type;
 				break;
 			case Local_Type_Flat_Array:
+				u_pcode_get();
 				base_idx = pcode_get();
 				n_elements = pcode_get();
 				tp = pcode_to_type(ctx, base_idx, NULL);

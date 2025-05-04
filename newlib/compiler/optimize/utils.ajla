@@ -467,8 +467,8 @@ fn load_function_context(pc : list(pcode_t)) : context
 			lt := local_type.arr.(pc[ptr]);
 			ptr += 1;
 		] else if ft = Local_Type_Flat_Array then [
-			lt := local_type.flat_array.(local_type_flat_array.[ flat_type : pc[ptr], number_of_elements : pc[ptr + 1] ]);
-			ptr += 2;
+			lt := local_type.flat_array.(local_type_flat_array.[ non_flat_array : pc[ptr], flat_entry_type : pc[ptr + 1], number_of_elements : pc[ptr + 2] ]);
+			ptr += 3;
 		] else [
 			abort internal("unknown local type " + ntos(ft));
 		]

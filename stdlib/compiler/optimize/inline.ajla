@@ -145,8 +145,9 @@ fn do_inline(ctx : context, bgi : int, ili : int, call_mode : pcode_t, get_inlin
 					lt.flat_rec.flat_types[j] += len(ctx.local_types);
 			]
 		] else if lt is flat_array then [
-			if lt.flat_array.flat_type >= 0 then
-				lt.flat_array.flat_type += len(ctx.local_types);
+			lt.flat_array.non_flat_array += len(ctx.local_types);
+			if lt.flat_array.flat_entry_type >= 0 then
+				lt.flat_array.flat_entry_type += len(ctx.local_types);
 		]
 		new_ctx.local_types[i] := lt;
 	]

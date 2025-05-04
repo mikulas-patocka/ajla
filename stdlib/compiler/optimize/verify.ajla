@@ -86,7 +86,7 @@ fn get_nonflat_lt(ctx : context, runtime_type : int) : int
 fn get_array_subtype(lt : local_type) : int
 [
 	if lt is flat_array then
-		return lt.flat_array.flat_type;
+		return lt.flat_array.flat_entry_type;
 	return lt.arr;
 ]
 
@@ -111,7 +111,7 @@ fn get_z3_type(ctx : context, runtime_type : int) : bytes
 		return ctx.local_type_names[runtime_type];
 	var lt := ctx.local_types[runtime_type];
 	if lt is flat_array then
-		return get_z3_type(ctx, lt.flat_array.flat_type);
+		return get_z3_type(ctx, lt.flat_array.non_flat_array);
 	if lt is flat_rec then
 		return get_z3_type(ctx, lt.flat_rec.non_flat_record);
 	abort internal("get_z3_type: invalid loacl type " + ntos(ord lt));

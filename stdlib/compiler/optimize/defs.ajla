@@ -151,7 +151,8 @@ record local_type_flat_record [
 ]
 
 record local_type_flat_array [
-	flat_type : int;
+	non_flat_array : int;
+	flat_entry_type : int;
 	number_of_elements : int;
 ]
 

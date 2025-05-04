@@ -1653,7 +1653,8 @@ retry:
 			did_something := true;
 		] else if ins.opcode = P_Array_Fixed then [
 			var ltfa := local_type_flat_array.[
-				flat_type : T_InvalidType,
+				non_flat_array : T_InvalidType,
+				flat_entry_type : T_InvalidType,
 				number_of_elements : 1,
 			];
 			var shape := ins.params[2];
@@ -1689,14 +1690,23 @@ retry:
 				goto skip;
 			]
 			if l < 0 then [
-				ltfa.flat_type := l;
+				ltfa.flat_entry_type := l;
 			] else if ctx.variables[l].local_type >= 0 then [
-				ltfa.flat_type := ctx.variables[l].local_type;
+				ltfa.flat_entry_type := ctx.variables[l].local_type;
 			] else [
 				need_retry := true;
 				goto skip;
 			]
 
+			for i := 0 to len(ctx.local_types) do [
+				if ctx.local_types[i] is arr, ctx.local_types[i].arr = l then [
+					ltfa.non_flat_array := i;
+					goto found;
+				]
+			]
+			goto skip;
+
+found:
 			ctx.variables[vgi].local_type := len(ctx.local_types);
 			ctx.local_types +<= local_type.flat_array.(ltfa);
 			did_something := true;
@@ -1903,8 +1913,10 @@ fn remap_local_types(ctx : context, old_new : list(int)) : context
 				if lt.flat_rec.flat_types[j] >= 0, old_new[lt.flat_rec.flat_types[j]] <> T_InvalidType then
 					ctx.local_types[i].flat_rec.flat_types[j] := old_new[lt.flat_rec.flat_types[j]];
 		] else if lt is flat_array then [
-			if lt.flat_array.flat_type >= 0, old_new[lt.flat_array.flat_type] <> T_InvalidType then
-				ctx.local_types[i].flat_array.flat_type := old_new[lt.flat_array.flat_type];
+			if old_new[lt.flat_array.non_flat_array] <> T_InvalidType then
+				ctx.local_types[i].flat_array.non_flat_array := old_new[lt.flat_array.non_flat_array];
+			if lt.flat_array.flat_entry_type >= 0, old_new[lt.flat_array.flat_entry_type] <> T_InvalidType then
+				ctx.local_types[i].flat_array.flat_entry_type := old_new[lt.flat_array.flat_entry_type];
 		]
 	]
 
@@ -1927,7 +1939,7 @@ fn encode_local_type(lt : local_type) : int
 			pc +<= lt.flat_rec.flat_types[i];
 		]
 	] else if lt is flat_array then [
-		pc := list(pcode_t).[ Local_Type_Flat_Array, lt.flat_array.flat_type, lt.flat_array.number_of_elements ];
+		pc := list(pcode_t).[ Local_Type_Flat_Array, lt.flat_array.non_flat_array, lt.flat_array.flat_entry_type, lt.flat_array.number_of_elements ];
 	] else [
 		abort internal("invalid local type");
 	]
@@ -1980,9 +1992,13 @@ fn dlte(ctx : context) : context
 						]
 					]
 				] else if lt is flat_array then [
-					if lt.flat_array.flat_type >= 0 then [
-						if not needed[lt.flat_array.flat_type] then [
-							needed[lt.flat_array.flat_type] := true;
+					if not needed[lt.flat_array.non_flat_array] then [
+						needed[lt.flat_array.non_flat_array] := true;
+						did_something := true;
+					]
+					if lt.flat_array.flat_entry_type >= 0 then [
+						if not needed[lt.flat_array.flat_entry_type] then [
+							needed[lt.flat_array.flat_entry_type] := true;
 							did_something := true;
 						]
 					]
@@ -2882,7 +2898,8 @@ retry_optimize:
 			]
 		] else if ctx.local_types[i] is flat_array then [
 			rpc +<= Local_Type_Flat_Array;
-			rpc +<= ctx.local_types[i].flat_array.flat_type;
+			rpc +<= ctx.local_types[i].flat_array.non_flat_array;
+			rpc +<= ctx.local_types[i].flat_array.flat_entry_type;
 			rpc +<= ctx.local_types[i].flat_array.number_of_elements;
 		] else [
 			abort internal("unknown local type");
