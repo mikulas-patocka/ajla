@@ -77,9 +77,8 @@ fn get_nonflat_lt(ctx : context, runtime_type : int) : int
 	var lt := ctx.local_types[runtime_type];
 	if lt is flat_rec then
 		return lt.flat_rec.non_flat_record;
-	if lt is flat_array then [
-		abort;		// !!! TODO: flat array
-	]
+	if lt is flat_array then
+		return lt.flat_array.non_flat_array;
 	return runtime_type;
 ]
 
@@ -119,16 +118,19 @@ fn get_z3_type(ctx : context, runtime_type : int) : bytes
 
 fn str_array_len(ctx : context, runtime_type : int) : bytes
 [
+	runtime_type := get_nonflat_lt(ctx, runtime_type);
 	return "len-LT_" + ntos_base(runtime_type, 16);
 ]
 
 fn str_array_content(ctx : context, runtime_type : int) : bytes
 [
+	runtime_type := get_nonflat_lt(ctx, runtime_type);
 	return "content-LT_" + ntos_base(runtime_type, 16);
 ]
 
 fn str_array_make(ctx : context, runtime_type : int) : bytes
 [
+	runtime_type := get_nonflat_lt(ctx, runtime_type);
 	return "mk-LT_" + ntos_base(runtime_type, 16);
 ]
 
