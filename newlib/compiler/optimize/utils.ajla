@@ -424,7 +424,6 @@ fn load_function_context(pc : list(pcode_t)) : context
 [
 	var ctx := context.[
 		local_types : empty(local_type),
-		local_type_names : infinite(""),
 		instrs : empty(instruction),
 		blocks : empty(basic_block),
 

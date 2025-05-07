@@ -91,7 +91,7 @@ fn get_array_subtype(lt : local_type) : int
 
 fn get_bv_width(runtime_type : int) := 8 shl ((T_SInt8 - runtime_type) shr 1);
 
-fn get_z3_type(ctx : context, runtime_type : int) : bytes
+fn get_z3_type(runtime_type : int) : bytes
 [
 	if runtime_type = T_Bool then
 		return "Bool";
@@ -99,47 +99,17 @@ fn get_z3_type(ctx : context, runtime_type : int) : bytes
 		return "Int";
 	if runtime_type <= T_Real16, runtime_type >= T_Real128 then
 		return "Real";
-	if runtime_type = T_Undetermined then
-		return "Any";
-	if runtime_type <= T_SInt8, runtime_type >= T_UInt128 then [
+	if runtime_type <= T_SInt8, runtime_type >= T_UInt128 then
 		return "(_ BitVec " + ntos(get_bv_width(runtime_type)) + ")";
+	return "Any";
+]
+
+fn cast_to_any(str : bytes, runtime_type : int) : bytes
+[
+	if runtime_type < T_Type, runtime_type >= T_Bool then [
+		return "(mk-any_" + ntos_base(runtime_type, 16) + " " + str + ")";
 	]
-	if runtime_type < 0 then
-		abort internal("get_z3_type: invalid type " + ntos(runtime_type));
-	if len_greater_than(ctx.local_type_names[runtime_type], 0) then
-		return ctx.local_type_names[runtime_type];
-	var lt := ctx.local_types[runtime_type];
-	if lt is flat_array then
-		return get_z3_type(ctx, lt.flat_array.non_flat_array);
-	if lt is flat_rec then
-		return get_z3_type(ctx, lt.flat_rec.non_flat_record);
-	abort internal("get_z3_type: invalid loacl type " + ntos(ord lt));
-]
-
-fn str_array_len(ctx : context, runtime_type : int) : bytes
-[
-	runtime_type := get_nonflat_lt(ctx, runtime_type);
-	return "len-LT_" + ntos_base(runtime_type, 16);
-]
-
-fn str_array_content(ctx : context, runtime_type : int) : bytes
-[
-	runtime_type := get_nonflat_lt(ctx, runtime_type);
-	return "content-LT_" + ntos_base(runtime_type, 16);
-]
-
-fn str_array_make(ctx : context, runtime_type : int) : bytes
-[
-	runtime_type := get_nonflat_lt(ctx, runtime_type);
-	return "mk-LT_" + ntos_base(runtime_type, 16);
-]
-
-fn get_array_type(ctx : context, v : int) : bytes
-[
-	var lt := ctx.local_types[ctx.variables[v].runtime_type];
-	if lt is arr or lt is flat_array then
-		return get_z3_type(ctx, get_array_subtype(lt));
-	abort internal("get_array_type: invalid type " + ntos(ord lt));
+	return str;
 ]
 
 fn gen_assert(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, var_name : bytes, ops : bytes) : z3_world
@@ -148,28 +118,39 @@ fn gen_assert(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : contex
 	z3_eval_noret(ctx, str);
 ]
 
-fn allocate_variable_block(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int, phi_node : int, bb : int) : (z3_world, context, bytes)
+fn allocate_variable_block(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int, phi_node : int, bb : int, a : bool) : (z3_world, context, bytes)
 [
+	var r : bytes;
 	var ins := ctx.instrs[ctx.variables[v].defining_instr];
 	if ins.bb = bb then [
 		if ins.opcode = P_Phi, phi_node > 0 then
-			return allocate_variable(ctx, ins.params[phi_node], 0);
-		return allocate_variable(ctx, v, phi_node);
+			ctx, r := allocate_variable(ctx, ins.params[phi_node], 0);
+		else
+			ctx, r := allocate_variable(ctx, v, phi_node);
 	] else [
-		return allocate_variable(ctx, v, 0);
+		ctx, r := allocate_variable(ctx, v, 0);
 	]
+	if a then
+		r := cast_to_any(r, ctx.variables[v].runtime_type);
+	return ctx, r;
 ]
 
 fn declare_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, n : bytes, lt : int) : (z3_world, context)
 [
-	var t := get_z3_type(ctx, lt);
+	var t := get_z3_type(lt);
 	z3_eval_noret(ctx, "(declare-const " + n + " " + t + ")");
-	if lt >= 0 then [
+	if lt = T_Type then [
+		z3_eval_noret(ctx, "(assert ((_ is mk-void) "+n+"))");
+	] else if lt >= 0 then [
+		if ctx.local_types[lt] is flat_rec then
+			lt := ctx.local_types[lt].flat_rec.non_flat_record;
 		if ctx.local_types[lt] is rec then [
 			if not ctx.local_types[lt].rec.opt then
-				z3_eval_noret(ctx, "(assert ((_ is mk-"+t+") "+n+"))");
+				z3_eval_noret(ctx, "(assert ((_ is mk-record_"+ntos_base(len(ctx.local_types[lt].rec.types), 16)+") "+n+"))");
+			else
+				z3_eval_noret(ctx, "(assert ((_ is mk-option) "+n+"))");
 		] else if ctx.local_types[lt] is arr or ctx.local_types[lt] is flat_array then [
-			z3_eval_noret(ctx, "(assert (>= ("+str_array_len(ctx, lt)+" "+n+") 0))");
+			z3_eval_noret(ctx, "(assert (>= (array-len "+n+") 0))");
 		]
 	]
 	return ctx;
@@ -221,7 +202,7 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 		else if op = Un_ConvertToInt, not us	then [
 								var width := get_bv_width(typ);
 								str := "bv-to-int-s" + ntos(width);
-								var t := get_z3_type(ctx, typ);
+								var t := get_z3_type(typ);
 								z3_eval_noret(ctx, "(define-fun "+str+" ((x "+t+")) Int (ite (bvsge x "+get_bv_const(typ, 0)+") (bv2int x) (- (bv2int x) "+ntos(0 bts width)+")))");
 							]
 		else if op = Un_ConvertToInt, us	then str := "bv2int";
@@ -229,7 +210,7 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 								var width := get_bv_width(typ);
 								str := "bv-from-int-" + select(us, "s", "us") + ntos(width);
 								unint := true;
-								var t := get_z3_type(ctx, typ);
+								var t := get_z3_type(typ);
 								var lb := 0;
 								var ub := 0 bts width;
 								if not us then [
@@ -317,7 +298,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 			return ctx;
 		var var1 var1v var2 var2v : bytes;
 		//eval debug("P_BinaryOp: " + ntos(ins.params[0]) + ", " + ntos(ins.params[1]) + ", " + ntos(ins.params[2]) + ", " + ntos(ins.params[3]) + ", " + ntos(ins.params[4]) + ", " + ntos(ins.params[5]));
-		ctx, var1 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
+		ctx, var1 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb, false);
 		if len(var1) = 0 then
 			return ctx;
 		var unint_str := "";
@@ -328,7 +309,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 			unint_str := " " + unint_str;
 		]
 		if ins.opcode = P_BinaryOp then [
-			ctx, var2 := allocate_variable_block(ctx, ins.params[5], phi_node, ins.bb);
+			ctx, var2 := allocate_variable_block(ctx, ins.params[5], phi_node, ins.bb, false);
 			if len(var2) = 0 then
 				return ctx;
 			gen_assert(ctx, var_name, "(" + op_z3 + " " + var1 + " " + var2 + unint_str + ")");
@@ -353,7 +334,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		if len(op_z3) = 0 then
 			return ctx;
 		var var1 : bytes;
-		ctx, var1 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
+		ctx, var1 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb, false);
 		if len(var1) = 0 then
 			return ctx;
 		var unint_str := "";
@@ -368,7 +349,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 	]
 	if ins.opcode = P_Copy then [
 		var var1 : bytes;
-		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb);
+		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb, false);
 		if len(var1) = 0 then
 			return ctx;
 		gen_assert(ctx, var_name, var1);
@@ -397,7 +378,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 			var r : rational := f;
 			cnst := "(/ " + ntos(r.num) + " " + ntos(r.den) + ")";
 		] else if t >= 0, ctx.local_types[t] is rec, ctx.local_types[t].rec.opt then [
-			cnst := "mk-"+ctx.local_type_names[t]+"-"+ntos(l);
+			cnst := "(mk-option "+ntos(l)+" mk-void)";
 		] else [
 			return ctx;
 		]
@@ -407,7 +388,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 	if ins.opcode = P_Structured_Write then [
 		var n_steps := ins.params[0];
 		var var1 : bytes;
-		ctx, var1 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
+		ctx, var1 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb, true);
 		if len(var1) = 0 then
 			return ctx;
 		var lti := get_nonflat_lt(ctx, ctx.variables[ins.params[3]].runtime_type);
@@ -416,36 +397,38 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		var ltis := [ lti ];
 		var old_var := var1;
 		for i := 0 to n_steps - 1 do [
-			var new_var := var_name + "-ld-" + ntos(i + 1);
-			var stored_var := var_name + "-st-" + ntos(i + 1);
+			var new_var := var_name + "-ld-" + ntos_base(i + 1, 16);
+			var stored_var := var_name + "-st-" + ntos_base(i + 1, 16);
 			if ins.params[idx] = Structured_Record then [
-				var t1 := get_z3_type(ctx, lti);
+				var lt := ctx.local_types[lti];
+				if lt is flat_rec then
+					lt := ctx.local_types[lt.flat_rec.non_flat_record];
 				var slot := ins.params[idx + 1];
 				lti := ctx.local_types[lti].rec.types[slot];
 				ctx := declare_variable(ctx, new_var, lti);
 				ctx := declare_variable(ctx, stored_var, lti);
-				var str := "(assert (= "+new_var+" (entry-"+t1+"-"+ntos(slot)+" "+old_var+")))";
+				var str := "(assert (= "+new_var+" (record_"+ntos_base(len(lt.rec.types), 16)+"-entry_"+ntos_base(slot, 16)+" "+old_var+")))";
 				z3_eval_noret(ctx, str);
 				idx += 2;
 			] else if ins.params[idx] = Structured_Option then [
-				var t1 := get_z3_type(ctx, lti);
+				var t1 := get_z3_type(lti);
 				var slot := ins.params[idx + 1];
 				lti := ctx.local_types[lti].rec.types[slot];
 				ctx := declare_variable(ctx, new_var, lti);
 				ctx := declare_variable(ctx, stored_var, lti);
-				var str := "(assert (= "+new_var+" (entry-"+t1+"-"+ntos(slot)+" "+old_var+")))";
+				var str := "(assert (=> (= (option-ord "+old_var+") "+ntos(slot)+") (= "+new_var+" (option-val "+old_var+"))))";
 				z3_eval_noret(ctx, str);
 				idx += 2;
 			] else if ins.params[idx] = Structured_Array then [
 				var var2 : bytes;
-				ctx, var2 := allocate_variable_block(ctx, ins.params[idx + 1], phi_node, ins.bb);
+				ctx, var2 := allocate_variable_block(ctx, ins.params[idx + 1], phi_node, ins.bb, false);
 				if len(var2) = 0 then
 					return ctx;
 				var olti := lti;
 				lti := get_array_subtype(ctx.local_types[lti]);
 				ctx := declare_variable(ctx, new_var, lti);
 				ctx := declare_variable(ctx, stored_var, lti);
-				var str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" ("+str_array_len(ctx, olti)+" "+old_var+"))) (= "+new_var+" (select ("+str_array_content(ctx, olti)+" "+old_var+") "+var2+"))))";
+				var str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" (array-len "+old_var+"))) (= "+new_var+" (select (array-content "+old_var+") "+var2+"))))";
 				z3_eval_noret(ctx, str);
 				idx += 2;
 			] else [
@@ -456,7 +439,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 			old_var := new_var;
 		]
 		var svar : bytes;
-		ctx, svar := allocate_variable_block(ctx, ins.params[5], phi_node, ins.bb);
+		ctx, svar := allocate_variable_block(ctx, ins.params[5], phi_node, ins.bb, true);
 		if len(svar) = 0 then
 			return ctx;
 		var i := n_steps - 1;
@@ -465,33 +448,35 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 			if i = 0 then
 				new_var := var_name;
 			else
-				new_var := var_name + "-st-" + ntos(i);
+				new_var := var_name + "-st-" + ntos_base(i, 16);
 			var idx := idxs[i];
 			var lti := ltis[i];
 			if ins.params[idx] = Structured_Record then [
-				var t1 := get_z3_type(ctx, lti);
+				var lt := ctx.local_types[lti];
+				if lt is flat_rec then
+					lt := ctx.local_types[lt.flat_rec.non_flat_record];
+				var a := len(lt.rec.types);
 				var slot := ins.params[idx + 1];
-				var str := "(assert (= "+new_var+" ((_ update-field entry-"+t1+"-"+ntos(slot)+") "+old_var+" "+svar+")))";
+				var str := "(assert (= "+new_var+" ((_ update-field record_"+ntos_base(a, 16)+"-entry_"+ntos_base(slot, 16)+") "+old_var+" "+svar+")))";
 				z3_eval_noret(ctx, str);
 			] else if ins.params[idx] = Structured_Option then [
-				var t1 := get_z3_type(ctx, lti);
 				var slot := ins.params[idx + 1];
-				var str := "(assert (= "+new_var+" (mk-"+t1+"-"+ntos(slot)+" "+svar+")))";
+				var str := "(assert (= "+new_var+" (mk-option "+ntos(slot)+" "+svar+")))";
 				z3_eval_noret(ctx, str);
 			] else if ins.params[idx] = Structured_Array then [
 				var var2 : bytes;
-				ctx, var2 := allocate_variable_block(ctx, ins.params[idx + 1], phi_node, ins.bb);
+				ctx, var2 := allocate_variable_block(ctx, ins.params[idx + 1], phi_node, ins.bb, false);
 				if len(var2) = 0 then
 					return ctx;
-				var str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" ("+str_array_len(ctx, lti)+" "+old_var+"))) (= ("+str_array_content(ctx, lti)+" "+new_var+") (store ("+str_array_content(ctx, lti)+" "+old_var+") "+var2+" "+svar+"))))";
+				var str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" (array-len "+old_var+"))) (= (array-content "+new_var+") (store (array-content "+old_var+") "+var2+" "+svar+"))))";
 				z3_eval_noret(ctx, str);
-				str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" ("+str_array_len(ctx, lti)+" "+old_var+"))) (= ("+str_array_len(ctx, lti)+" "+new_var+") ("+str_array_len(ctx, lti)+" "+old_var+"))))";
+				str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" (array-len "+old_var+"))) (= (array-len "+new_var+") (array-len "+old_var+"))))";
 				z3_eval_noret(ctx, str);
 			] else [
 				abort internal("assert_instruction: invalid structured type " + ntos(ins.params[idx]));
 			]
 			if i > 1 then
-				old_var := var_name + "-ld-" + ntos(i - 1);
+				old_var := var_name + "-ld-" + ntos_base(i - 1, 16);
 			else
 				old_var := var1;
 			svar := new_var;
@@ -502,15 +487,15 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 	if ins.opcode = P_Record_Create then [
 		var lti := get_nonflat_lt(ctx, ctx.variables[v].runtime_type);
 		var lt := ctx.local_types[lti];
-		var name := ctx.local_type_names[lti];
+		var name := ntos_base(len(lt.rec.types), 16);
 		var str : bytes;
 		if len(lt.rec.types) = 0 then [
-			str := "mk-"+name;
+			str := "mk-record_"+name;
 		] else [
-			str := "(mk-"+name;
+			str := "(mk-record_"+name;
 			for i := 0 to len(lt.rec.types) do [
 				var var1 : bytes;
-				ctx, var1 := allocate_variable_block(ctx, ins.params[3 + i * 2], phi_node, ins.bb);
+				ctx, var1 := allocate_variable_block(ctx, ins.params[3 + i * 2], phi_node, ins.bb, true);
 				if len(var1) = 0 then
 					return ctx;
 				str += " "+var1;
@@ -522,189 +507,178 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 	]
 	if ins.opcode = P_Record_Load then [
 		var var1 : bytes;
-		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb);
+		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb, true);
 		if len(var1) = 0 then
 			return ctx;
-		var t1 := get_z3_type(ctx, ctx.variables[ins.params[2]].runtime_type);
+		var lt := ctx.local_types[ctx.variables[ins.params[2]].runtime_type];
+		if lt is flat_rec then
+			lt := ctx.local_types[lt.flat_rec.non_flat_record];
 		var slot := ins.params[3];
-		var str := "(entry-"+t1+"-"+ntos(slot)+" "+var1+")";
+		var_name := cast_to_any(var_name, ctx.variables[v].runtime_type);
+		var str := "(record_"+ntos_base(len(lt.rec.types), 16)+"-entry_"+ntos_base(slot, 16)+" "+var1+")";
 		gen_assert(ctx, var_name, str);
 		return ctx;
 	]
 	if ins.opcode = P_Option_Create then [
 		var var1 : bytes;
-		ctx, var1 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
+		ctx, var1 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb, true);
 		if len(var1) = 0 then
 			return ctx;
-		var name := ctx.local_type_names[ctx.variables[v].runtime_type];
 		var index := ins.params[1];
-		var str := "(mk-"+name+"-"+ntos(index)+" "+var1+")";
+		var str := "(mk-option "+ntos(index)+" "+var1+")";
 		gen_assert(ctx, var_name, str);
 		return ctx;
 	]
 	if ins.opcode = P_Option_Load then [
 		var var1 : bytes;
-		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb);
+		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb, true);
 		if len(var1) = 0 then
 			return ctx;
-		var t1 := get_z3_type(ctx, ctx.variables[ins.params[2]].runtime_type);
 		var index := ins.params[3];
-		var str := "(entry-"+t1+"-"+ntos(index)+" "+var1+")";
-		gen_assert(ctx, var_name, str);
+		var_name := cast_to_any(var_name, ctx.variables[v].runtime_type);
+		var str := "(assert (=> (= (option-ord "+var1+") "+ntos(index)+") (= "+var_name+" (option-val "+var1+"))))";
+		z3_eval_noret(ctx, str);
 		return ctx;
 	]
 	if ins.opcode = P_Option_Test then [
-		var t := ctx.variables[ins.params[1]].runtime_type;
-		var lt := ctx.local_types[t];
 		var var1 : bytes;
-		ctx, var1 := allocate_variable_block(ctx, ins.params[1], phi_node, ins.bb);
+		ctx, var1 := allocate_variable_block(ctx, ins.params[1], phi_node, ins.bb, true);
 		if len(var1) = 0 then
 			return ctx;
 		var index := ins.params[2];
-		var str : bytes;
-		//var b := get_z3_type(ctx, lt.rec.types[index]);
-		//str := "(not (forall ((x "+b+")) (distinct "+var1+" (mk-"+ctx.local_type_names[t]+"-"+ntos(index)+" x))))";
-		str := "((_ is mk-"+ctx.local_type_names[t]+"-"+ntos(index)+") "+var1+")";
+		var str := "(= (option-ord "+var1+") "+ntos(index)+")";
 		gen_assert(ctx, var_name, str);
 		return ctx;
 	]
 	if ins.opcode = P_Option_Ord then [
-		var t := ctx.variables[ins.params[1]].runtime_type;
-		var lt := ctx.local_types[t];
 		var var1 : bytes;
-		ctx, var1 := allocate_variable_block(ctx, ins.params[1], phi_node, ins.bb);
+		ctx, var1 := allocate_variable_block(ctx, ins.params[1], phi_node, ins.bb, true);
 		if len(var1) = 0 then
 			return ctx;
-		var str := "";
-		for i := 0 to len(lt.rec.types) do [
-			str += "(ite ((_ is mk-"+ctx.local_type_names[t]+"-"+ntos(i)+") "+var1+") "+ntos(i)+" ";
-		]
-		str += "-1";
-		str += fill(byte, ')', len(lt.rec.types));
+		var str := "(option-ord "+var1+")";
 		gen_assert(ctx, var_name, str);
 		return ctx;
 	]
 	if ins.opcode = P_Array_Create then [
 		var ln := ins.params[1];
-		var lt := get_nonflat_lt(ctx, ctx.variables[v].runtime_type);
-		var a := "(declare-const array-"+var_name+" LT_"+ntos_base(lt, 16)+")";
+		var a := "(declare-const array-"+var_name+" (Array Int Any))";
 		z3_eval_noret(ctx, a);
-		var str := "("+str_array_content(ctx, lt)+" array-"+var_name+")";
+		var str := "array-"+var_name;
 		for i := 0 to ln do [
 			var var1 : bytes;
-			ctx, var1 := allocate_variable_block(ctx, ins.params[4 + i * 2], phi_node, ins.bb);
+			ctx, var1 := allocate_variable_block(ctx, ins.params[4 + i * 2], phi_node, ins.bb, true);
 			if len(var1) = 0 then
 				return ctx;
 			str := "(store "+str+" "+ntos(i)+" "+var1+")";
 		]
-		str := "("+str_array_make(ctx, lt)+" "+ntos(ln)+" "+str+")";
+		str := "(mk-array "+ntos(ln)+" "+str+")";
 		gen_assert(ctx, var_name, str);
 		return ctx;
 	]
 	if ins.opcode = P_Array_Fill then [
 		var var1 var2 : bytes;
-		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb);
+		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb, true);
 		if len(var1) = 0 then
 			return ctx;
-		var t1 := get_z3_type(ctx, ctx.variables[ins.params[2]].runtime_type);
+		var t1 := get_z3_type(ctx.variables[ins.params[2]].runtime_type);
 		if len(t1) = 0 then
 			return ctx;
-		ctx, var2 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
+		ctx, var2 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb, false);
 		if len(var2) = 0 then
 			return ctx;
-		var lt := get_nonflat_lt(ctx, ctx.variables[v].runtime_type);
-		gen_assert(ctx, var_name, "("+str_array_make(ctx, lt)+" "+var2+" ((as const (Array Int "+t1+")) "+var1+"))");
+		var str := "(mk-array "+var2+" ((as const (Array Int Any)) "+var1+"))";
+		gen_assert(ctx, var_name, str);
 		return ctx;
 	]
 	if ins.opcode = P_Array_Load then [
 		var var1 var2 : bytes;
-		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb);
+		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb, true);
 		if len(var1) = 0 then
 			return ctx;
-		ctx, var2 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
+		ctx, var2 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb, false);
 		if len(var2) = 0 then
 			return ctx;
-		var lt := get_nonflat_lt(ctx, ctx.variables[ins.params[2]].runtime_type);
-		var str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" ("+str_array_len(ctx, lt)+" "+var1+"))) (= "+var_name+" (select ("+str_array_content(ctx, lt)+" "+var1+") "+var2+"))))";
+		var_name := cast_to_any(var_name, ctx.variables[v].runtime_type);
+		var str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" (array-len "+var1+"))) (= "+var_name+" (select (array-content "+var1+") "+var2+"))))";
 		z3_eval_noret(ctx, str);
 		return ctx;
 	]
 	if ins.opcode = P_Array_Len then [
 		var var1 : bytes;
-		ctx, var1 := allocate_variable_block(ctx, ins.params[1], phi_node, ins.bb);
+		ctx, var1 := allocate_variable_block(ctx, ins.params[1], phi_node, ins.bb, true);
 		if len(var1) = 0 then
 			return ctx;
 		var lt := get_nonflat_lt(ctx, ctx.variables[ins.params[1]].runtime_type);
-		gen_assert(ctx, var_name, "("+str_array_len(ctx, lt)+" "+var1+")");
+		gen_assert(ctx, var_name, "(array-len "+var1+")");
 		return ctx;
 	]
 	if ins.opcode = P_Array_Len_Greater_Than then [
 		var var1 var2 : bytes;
-		ctx, var1 := allocate_variable_block(ctx, ins.params[1], phi_node, ins.bb);
+		ctx, var1 := allocate_variable_block(ctx, ins.params[1], phi_node, ins.bb, true);
 		if len(var1) = 0 then
 			return ctx;
-		ctx, var2 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb);
+		ctx, var2 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb, false);
 		if len(var2) = 0 then
 			return ctx;
 		var lt := get_nonflat_lt(ctx, ctx.variables[ins.params[1]].runtime_type);
-		gen_assert(ctx, var_name, "(> ("+str_array_len(ctx, lt)+" "+var1+") "+var2+")");
+		gen_assert(ctx, var_name, "(> (array-len "+var1+") "+var2+")");
 		return ctx;
 	]
 	if ins.opcode = P_Array_Sub or ins.opcode = P_Array_Skip then [
 		var var1 var2 var3 t1 : bytes;
-		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb);
+		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb, true);
 		if len(var1) = 0 then
 			return ctx;
-		ctx, var2 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb);
+		ctx, var2 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb, false);
 		if len(var2) = 0 then
 			return ctx;
 		var lt := get_nonflat_lt(ctx, ctx.variables[ins.params[2]].runtime_type);
 		if ins.opcode = P_Array_Sub then [
-			ctx, var3 := allocate_variable_block(ctx, ins.params[4], phi_node, ins.bb);
+			ctx, var3 := allocate_variable_block(ctx, ins.params[4], phi_node, ins.bb, false);
 			if len(var3) = 0 then
 				return ctx;
 		] else [
-			var3 := "("+str_array_len(ctx, lt)+" "+var1+")";
+			var3 := "(array-len "+var1+")";
 		]
-		var str := "(assert (=> (and (<= 0 "+var2+") (<= "+var2+" "+var3+") (<= "+var3+" ("+str_array_len(ctx, lt)+" "+var1+"))) (and (= ("+str_array_len(ctx, lt)+" "+var_name+") (- "+var3+" "+var2+")) (forall ((i Int)) (=> (and (>= i "+var2+") (< i "+var3+")) (= (select ("+str_array_content(ctx, lt)+" "+var1+") i) (select ("+str_array_content(ctx, lt)+" "+var_name+") (- i "+var2+"))))))))";
+		var str := "(assert (=> (and (<= 0 "+var2+") (<= "+var2+" "+var3+") (<= "+var3+" (array-len "+var1+"))) (and (= (array-len "+var_name+") (- "+var3+" "+var2+")) (forall ((i Int)) (=> (and (>= i "+var2+") (< i "+var3+")) (= (select (array-content "+var1+") i) (select (array-content "+var_name+") (- i "+var2+"))))))))";
 		z3_eval_noret(ctx, str);
 		return ctx;
 	]
 	if ins.opcode = P_Array_Append then [
 		var var1 var2 : bytes;
-		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb);
+		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb, true);
 		if len(var1) = 0 then
 			return ctx;
-		ctx, var2 := allocate_variable_block(ctx, ins.params[4], phi_node, ins.bb);
+		ctx, var2 := allocate_variable_block(ctx, ins.params[4], phi_node, ins.bb, true);
 		if len(var2) = 0 then
 			return ctx;
 		var lt := get_nonflat_lt(ctx, ctx.variables[ins.params[2]].runtime_type);
-		var str := "(assert (= ("+str_array_len(ctx, lt)+" "+var_name+") (+ ("+str_array_len(ctx, lt)+" "+var1+") ("+str_array_len(ctx, lt)+" "+var2+"))))";
+		var str := "(assert (= (array-len "+var_name+") (+ (array-len "+var1+") (array-len "+var2+"))))";
 		z3_eval_noret(ctx, str);
-		str := "(assert (forall ((i Int)) (=> (and (>= i 0) (< i ("+str_array_len(ctx, lt)+" "+var1+"))) (= (select ("+str_array_content(ctx, lt)+" "+var1+") i) (select ("+str_array_content(ctx, lt)+" "+var_name+") i)))))";
+		str := "(assert (forall ((i Int)) (=> (and (>= i 0) (< i (array-len "+var1+"))) (= (select (array-content "+var1+") i) (select (array-content "+var_name+") i)))))";
 		z3_eval_noret(ctx, str);
-		str := "(assert (forall ((i Int)) (=> (and (>= i 0) (< i ("+str_array_len(ctx, lt)+" "+var2+"))) (= (select ("+str_array_content(ctx, lt)+" "+var2+") i) (select ("+str_array_content(ctx, lt)+" "+var_name+") (+ i ("+str_array_len(ctx, lt)+" "+var1+")))))))";
+		str := "(assert (forall ((i Int)) (=> (and (>= i 0) (< i (array-len "+var2+"))) (= (select (array-content "+var2+") i) (select (array-content "+var_name+") (+ i (array-len "+var1+")))))))";
 		z3_eval_noret(ctx, str);
 		return ctx;
 	]
 	if ins.opcode = P_Array_Append_One then [
 		var var1 var2 : bytes;
-		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb);
+		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb, true);
 		if len(var1) = 0 then
 			return ctx;
-		ctx, var2 := allocate_variable_block(ctx, ins.params[4], phi_node, ins.bb);
+		ctx, var2 := allocate_variable_block(ctx, ins.params[4], phi_node, ins.bb, true);
 		if len(var2) = 0 then
 			return ctx;
 		var lt := get_nonflat_lt(ctx, ctx.variables[ins.params[2]].runtime_type);
-		var str := "(assert (= ("+str_array_len(ctx, lt)+" "+var_name+") (+ ("+str_array_len(ctx, lt)+" "+var1+") 1)))";
+		var str := "(assert (= (array-len "+var_name+") (+ (array-len "+var1+") 1)))";
 		z3_eval_noret(ctx, str);
-		str := "(assert (= ("+str_array_content(ctx, lt)+" "+var_name+") (store ("+str_array_content(ctx, lt)+" "+var1+") ("+str_array_len(ctx, lt)+" "+var1+") "+var2+")))";
+		str := "(assert (= (array-content "+var_name+") (store (array-content "+var1+") (array-len "+var1+") "+var2+")))";
 		z3_eval_noret(ctx, str);
 		return ctx;
 	]
 	if ins.opcode = P_Array_Flatten then [
 		var var1 : bytes;
-		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb);
+		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb, true);
 		if len(var1) = 0 then
 			return ctx;
 		gen_assert(ctx, var_name, var1);
@@ -721,7 +695,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		abort internal("P_Return_Vars parameter not found");
 found_new_v:
 		var var1 : bytes;
-		ctx, var1 := allocate_variable_block(ctx, new_v, phi_node, ins.bb);
+		ctx, var1 := allocate_variable_block(ctx, new_v, phi_node, ins.bb, false);
 		if len(var1) = 0 then
 			return ctx;
 		gen_assert(ctx, var_name, var1);
@@ -753,74 +727,39 @@ fn verify_function(ctx : context) : unit_type
 	var d := get_dump("z3");
 	ctx.dump_z3 := d = "*" or d = ctx.name;
 
-	{if ctx.name = "dump_basic_blocks" or
-	   ctx.name = "menu_process_event" then
-		return unit_value;}
-
 	if ctx.dump_z3 then
 		eval debug("verify function " + ctx.name);
 
-	var str := "(declare-datatypes (";
-	str += "(Any 0)";
+	var record_sizes := 0;
 	for lti := 0 to len(ctx.local_types) do [
-		var lt := ctx.local_types[lti];
-		if lt is flat_array or lt is flat_rec then
-			continue;
-		str += " ";
-		var name := "LT_" + ntos_base(lti, 16);
+		var lt := ctx.local_types[get_nonflat_lt(ctx, lti)];
 		if lt is rec then
-			name += "-" + lt.rec.name;
-		ctx.local_type_names[lti] := name;
-		str += "(" + name + " 0)";
-		//eval debug("NAME: " + name);
+			record_sizes bts= len(lt.rec.types);
 	]
-	str += ") (";
+
+	var str := "(declare-datatypes ((Any 0)) (";
 	str += "(Any";
-	for lti := T_Bool to len(ctx.local_types) do [
-		if lti = T_Type then
-			continue;
-		var name := get_z3_type(ctx, lti);
+	for lti := T_Bool to 0 do [
+		var name := get_z3_type(lti);
 		var num := ntos_base(lti, 16);
-		str += " (mk-any_" + num + " (any-entry-" + num + " " + name + "))";
+		str += " (mk-any_" + num + " (any-entry_" + num + " " + name + "))";
 	]
-	str += ")";
-	for lti := 0 to len(ctx.local_types) do [
-		var lt := ctx.local_types[lti];
-		if lt is flat_array or lt is flat_rec then
-			continue;
-		str += " ";
-		var name := ctx.local_type_names[lti];
-		if lt is arr then [
-			str += "(" + name + " (mk-" + name + " (" + str_array_len(ctx, lti) + " Int) (" + str_array_content(ctx, lti) + " (Array Int ";
-			var b := get_z3_type(ctx, lt.arr);
-			str += b + "))))";
-			continue;
+	str += " (mk-array (array-len Int) (array-content (Array Int Any)))";
+	while record_sizes <> 0 do [
+		var r := bsf record_sizes;
+		record_sizes btr= r;
+		var num := ntos_base(r, 16);
+		str += " (mk-record_" + num;
+		for i := 0 to r do [
+			var ni := ntos_base(i, 16);
+			str += " (record_" + num + "-entry_" + ni + " Any)";
 		]
-		var ltr := lt.rec;
-		if not ltr.opt then [
-			str += "(" + name + " (mk-" + name;
-			for i := 0 to len(ltr.types) do [
-				if ltr.types[i] = T_Type then
-					continue;
-				var b := get_z3_type(ctx, ltr.types[i]);
-				str += " (entry-" + name + "-" + ntos(i) + " " + b + ")";
-			]
-			str += "))";
-		] else [
-			str += "(" + name;
-			for i := 0 to len(ltr.types) do [
-				str += " (mk-" + name + "-" + ntos(i);
-				if ltr.types[i] <> T_EmptyOption then [
-					//eval debug("OPT: " + ntos(ltr.types[i]));
-					var b := get_z3_type(ctx, ltr.types[i]);
-					str += " (entry-" + name + "-" + ntos(i) + " " + b + ")";
-				]
-				str += ")";
-			]
-			str += ")";
-		]
+		str += ")";
 	]
-	str += "))";
+	str += " (mk-option (option-ord Int) (option-val Any))";
+	str += " (mk-void)";
+	str += ")))";
+
 	z3_eval_noret(ctx, str);
 
 	z3_eval_noret(ctx, "(define-fun int-power ((x Int) (y Int) (unint Int)) Int (ite (< y 0) unint (to_int (^ x y))))");

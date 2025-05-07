@@ -167,7 +167,6 @@ type conflict_map := list(var_set);
 
 record context [
 	local_types : list(local_type);
-	local_type_names : list(bytes);
 	instrs : list(instruction);
 	blocks : list(basic_block);
 	variables : list(variable);
