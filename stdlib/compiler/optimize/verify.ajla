@@ -142,8 +142,7 @@ fn declare_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : 
 	if lt = T_Type then [
 		z3_eval_noret(ctx, "(assert ((_ is mk-void) "+n+"))");
 	] else if lt >= 0 then [
-		if ctx.local_types[lt] is flat_rec then
-			lt := ctx.local_types[lt].flat_rec.non_flat_record;
+		lt := get_nonflat_lt(ctx, lt);
 		if ctx.local_types[lt] is rec then [
 			if not ctx.local_types[lt].rec.opt then
 				z3_eval_noret(ctx, "(assert ((_ is mk-record_"+ntos_base(len(ctx.local_types[lt].rec.types), 16)+") "+n+"))");
@@ -400,9 +399,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 			var new_var := var_name + "-ld-" + ntos_base(i + 1, 16);
 			var stored_var := var_name + "-st-" + ntos_base(i + 1, 16);
 			if ins.params[idx] = Structured_Record then [
-				var lt := ctx.local_types[lti];
-				if lt is flat_rec then
-					lt := ctx.local_types[lt.flat_rec.non_flat_record];
+				var lt := ctx.local_types[get_nonflat_lt(ctx, lti)];
 				var slot := ins.params[idx + 1];
 				lti := ctx.local_types[lti].rec.types[slot];
 				ctx := declare_variable(ctx, new_var, lti);
@@ -452,9 +449,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 			var idx := idxs[i];
 			var lti := ltis[i];
 			if ins.params[idx] = Structured_Record then [
-				var lt := ctx.local_types[lti];
-				if lt is flat_rec then
-					lt := ctx.local_types[lt.flat_rec.non_flat_record];
+				var lt := ctx.local_types[get_nonflat_lt(ctx, lti)];
 				var a := len(lt.rec.types);
 				var slot := ins.params[idx + 1];
 				var str := "(assert (= "+new_var+" ((_ update-field record_"+ntos_base(a, 16)+"-entry_"+ntos_base(slot, 16)+") "+old_var+" "+svar+")))";
@@ -510,9 +505,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb, true);
 		if len(var1) = 0 then
 			return ctx;
-		var lt := ctx.local_types[ctx.variables[ins.params[2]].runtime_type];
-		if lt is flat_rec then
-			lt := ctx.local_types[lt.flat_rec.non_flat_record];
+		var lt := ctx.local_types[get_nonflat_lt(ctx, ctx.variables[ins.params[2]].runtime_type)];
 		var slot := ins.params[3];
 		var_name := cast_to_any(var_name, ctx.variables[v].runtime_type);
 		var str := "(record_"+ntos_base(len(lt.rec.types), 16)+"-entry_"+ntos_base(slot, 16)+" "+var1+")";
@@ -608,7 +601,6 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var1 := allocate_variable_block(ctx, ins.params[1], phi_node, ins.bb, true);
 		if len(var1) = 0 then
 			return ctx;
-		var lt := get_nonflat_lt(ctx, ctx.variables[ins.params[1]].runtime_type);
 		gen_assert(ctx, var_name, "(array-len "+var1+")");
 		return ctx;
 	]
@@ -620,7 +612,6 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var2 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb, false);
 		if len(var2) = 0 then
 			return ctx;
-		var lt := get_nonflat_lt(ctx, ctx.variables[ins.params[1]].runtime_type);
 		gen_assert(ctx, var_name, "(> (array-len "+var1+") "+var2+")");
 		return ctx;
 	]
@@ -632,7 +623,6 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var2 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb, false);
 		if len(var2) = 0 then
 			return ctx;
-		var lt := get_nonflat_lt(ctx, ctx.variables[ins.params[2]].runtime_type);
 		if ins.opcode = P_Array_Sub then [
 			ctx, var3 := allocate_variable_block(ctx, ins.params[4], phi_node, ins.bb, false);
 			if len(var3) = 0 then
@@ -652,7 +642,6 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var2 := allocate_variable_block(ctx, ins.params[4], phi_node, ins.bb, true);
 		if len(var2) = 0 then
 			return ctx;
-		var lt := get_nonflat_lt(ctx, ctx.variables[ins.params[2]].runtime_type);
 		var str := "(assert (= (array-len "+var_name+") (+ (array-len "+var1+") (array-len "+var2+"))))";
 		z3_eval_noret(ctx, str);
 		str := "(assert (forall ((i Int)) (=> (and (>= i 0) (< i (array-len "+var1+"))) (= (select (array-content "+var1+") i) (select (array-content "+var_name+") i)))))";
@@ -669,7 +658,6 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var2 := allocate_variable_block(ctx, ins.params[4], phi_node, ins.bb, true);
 		if len(var2) = 0 then
 			return ctx;
-		var lt := get_nonflat_lt(ctx, ctx.variables[ins.params[2]].runtime_type);
 		var str := "(assert (= (array-len "+var_name+") (+ (array-len "+var1+") 1)))";
 		z3_eval_noret(ctx, str);
 		str := "(assert (= (array-content "+var_name+") (store (array-content "+var1+") (array-len "+var1+") "+var2+")))";
