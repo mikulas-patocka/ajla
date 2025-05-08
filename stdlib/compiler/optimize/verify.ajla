@@ -113,6 +113,14 @@ fn cast_to_any(str : bytes, runtime_type : int) : bytes
 	return str;
 ]
 
+fn cast_from_any(str : bytes, runtime_type : int) : bytes
+[
+	if runtime_type < T_Type, runtime_type >= T_Bool then [
+		return "(any-entry_" + ntos_base(runtime_type, 16) + " " + str + ")";
+	]
+	return str;
+]
+
 fn gen_assert(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, var_name : bytes, ops : bytes) : z3_world
 [
 	var str := "(assert (= " + var_name + " " + ops + "))";
@@ -515,8 +523,9 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 			return ctx;
 		var lt := ctx.local_types[get_nonflat_lt(ctx, ctx.variables[ins.params[2]].runtime_type)];
 		var slot := ins.params[3];
-		var_name := cast_to_any(var_name, ctx.variables[v].runtime_type);
+		//var_name := cast_to_any(var_name, ctx.variables[v].runtime_type);
 		var str := "(record_"+ntos_base(len(lt.rec.types), 16)+"-entry_"+ntos_base(slot, 16)+" "+var1+")";
+		str := cast_from_any(str, ctx.variables[v].runtime_type);
 		gen_assert(ctx, var_name, str);
 		return ctx;
 	]
@@ -536,8 +545,10 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		if len(var1) = 0 then
 			return ctx;
 		var index := ins.params[3];
-		var_name := cast_to_any(var_name, ctx.variables[v].runtime_type);
-		var str := "(assert (=> (= (option-ord "+var1+") "+ntos(index)+") (= "+var_name+" (option-val "+var1+"))))";
+		//var_name := cast_to_any(var_name, ctx.variables[v].runtime_type);
+		var res := "(option-val "+var1+")";
+		res := cast_from_any(res, ctx.variables[v].runtime_type);
+		var str := "(assert (=> (= (option-ord "+var1+") "+ntos(index)+") (= "+var_name+" "+res+")))";
 		z3_eval_noret(ctx, str);
 		return ctx;
 	]
@@ -599,8 +610,10 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var2 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb, false);
 		if len(var2) = 0 then
 			return ctx;
-		var_name := cast_to_any(var_name, ctx.variables[v].runtime_type);
-		var str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" (array-len "+var1+"))) (= "+var_name+" (select (array-content "+var1+") "+var2+"))))";
+		//var_name := cast_to_any(var_name, ctx.variables[v].runtime_type);
+		var res := "(select (array-content "+var1+") "+var2+")";
+		res := cast_from_any(res, ctx.variables[v].runtime_type);
+		var str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" (array-len "+var1+"))) (= "+var_name+" "+res+")))";
 		z3_eval_noret(ctx, str);
 		return ctx;
 	]
