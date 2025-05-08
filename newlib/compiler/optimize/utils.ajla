@@ -449,7 +449,7 @@ fn load_function_context(pc : list(pcode_t)) : context
 		if ft = Local_Type_Record or ft = Local_Type_Option then [
 			var n, f := function_load(pc[ptr .. ]);
 			ptr += n;
-			lt := local_type.rec.(local_type_record.[ opt : ft = Local_Type_Option, f : f, types : empty(int), name : "" ]);
+			lt := local_type.rec.(local_type_record.[ opt : ft = Local_Type_Option, f : f, types : empty(int) ]);
 			for j := 0 to pc[ptr] do
 				lt.rec.types +<= pc[ptr + 1 + j];
 			ptr += 1 + pc[ptr];
