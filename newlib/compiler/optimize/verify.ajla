@@ -805,17 +805,22 @@ fn verify_function(ctx : context) : unit_type
 		if not ctx.blocks[bgi].active then
 			continue;
 		var b := bgi;
+		var lb := empty(int);
 		while b <> 0 do [
+			lb +<= b;
 			var bb := ctx.blocks[b].idom;
 			if len(ctx.blocks[bb].post_list) = 2,
 			   ctx.blocks[bb].post_list[0] = b xor ctx.blocks[bb].post_list[1] = b then [
 				var ins := ctx.instrs[ctx.blocks[bb].instrs[len(ctx.blocks[bb].instrs) - 1]];
 				if ins.opcode <> P_Jmp_False then
 					abort internal("immediate dominator does not end with P_Jmp_False");
-				if ctx.blocks[bb].post_list[0] = b then
-					ctx.blocks[b].guards bts= ins.params[0];
-				else
-					ctx.blocks[b].not_guards bts= ins.params[0];
+				if ctx.blocks[bb].post_list[0] = b then [
+					for i := 0 to len(lb) do
+						ctx.blocks[lb[i]].guards bts= ins.params[0];
+				] else [
+					for i := 0 to len(lb) do
+						ctx.blocks[lb[i]].not_guards bts= ins.params[0];
+				]
 			]
 			b := bb;
 		]
