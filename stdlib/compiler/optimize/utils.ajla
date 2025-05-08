@@ -29,7 +29,7 @@ fn function_store(f : function) : list(pcode_t);
 
 fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instruction;
 fn load_function_context(pc : list(pcode_t)) : context;
-novfy fn dump_basic_blocks(ctx : context, dump_it : bool) : list(pcode_t);
+fn dump_basic_blocks(ctx : context, dump_it : bool) : list(pcode_t);
 
 implementation
 
@@ -583,14 +583,14 @@ fn dump_basic_blocks(ctx : context, dump_it : bool) : list(pcode_t)
 		if dump_it then
 			eval debug("process block from worklist " + ntos(bgi));
 
-		if bgi = 0 then
-			goto process_block_no_label;
 process_block:
-		rpc +<= P_Label;
-		rpc +<= 1;
-		rpc +<= bgi - 1;
-		if dump_it then
-			eval debug("generate label " + ntos(bgi - 1));
+		if bgi <> 0 then [
+			rpc +<= P_Label;
+			rpc +<= 1;
+			rpc +<= bgi - 1;
+			if dump_it then
+				eval debug("generate label " + ntos(bgi - 1));
+		]
 process_block_no_label:
 		worklist btr= bgi;
 
