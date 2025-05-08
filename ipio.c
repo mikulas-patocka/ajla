@@ -57,6 +57,7 @@
 extern char **environ;
 #endif
 
+shared_var const char *verify shared_init(NULL);
 shared_var const char *dump_pcode shared_init(NULL);
 shared_var const char *dump_z3 shared_init(NULL);
 
@@ -4688,7 +4689,9 @@ static void * attr_fastcall io_get_dump_handler(struct io_ctx *ctx)
 
 	io_get_bytes(ctx, get_input(ctx, 0));
 
-	if (!strcmp(ctx->str, "pcode"))
+	if (!strcmp(ctx->str, "verify"))
+		str = verify;
+	else if (!strcmp(ctx->str, "pcode"))
 		str = dump_pcode;
 	else if (!strcmp(ctx->str, "z3"))
 		str = dump_z3;

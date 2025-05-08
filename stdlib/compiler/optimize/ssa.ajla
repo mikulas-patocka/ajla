@@ -23,7 +23,7 @@ uses compiler.optimize.defs;
 fn deactivate_arrow(ctx : context, bgi : int, pidx : int) : context;
 fn prune_unreachable(ctx : context) : context;
 
-fn process_pcode(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t), verify : bool) : list(pcode_t);
+fn process_pcode(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t), verify_pattern : bytes) : list(pcode_t);
 
 
 implementation
@@ -2689,7 +2689,7 @@ fn check_consistency(ctx : context, msg : bytes, test_no_pred : bool) : context
 	return ctx;
 ]
 
-fn process_pcode(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t), verify : bool) : list(pcode_t)
+fn process_pcode(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t), verify_pattern : bytes) : list(pcode_t)
 [
 	//eval debug("process_pcode");
 
@@ -2701,11 +2701,12 @@ fn process_pcode(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcod
 		return pc;
 	]
 
-	if pc[0] bt bsf Fn_NoVerify then
-		verify := false;
-
 	var ctx := load_function_context(pc);
 	//eval debug("optimizing: " + ctx.name);
+
+	var verify := glob_bytes(ctx.name, verify_pattern, true);
+	if pc[0] bt bsf Fn_NoVerify then
+		verify := false;
 
 	var print_passes := false;
 

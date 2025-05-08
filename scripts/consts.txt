@@ -232,7 +232,6 @@ SystemProperty_Fixed
 SystemProperty_Real
 SystemProperty_Privileged
 SystemProperty_Compile
-SystemProperty_Verify
 SystemProperty_NoInline
 
 1

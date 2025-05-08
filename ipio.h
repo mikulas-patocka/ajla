@@ -23,6 +23,7 @@
 
 #define ipret_io				name(ipret_io)
 
+extern const char *verify;
 extern const char *dump_pcode;
 extern const char *dump_z3;
 

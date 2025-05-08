@@ -98,6 +98,16 @@ static void dump_select(const char *str)
 		warning("invalid dump option %.*s", (int)l, str);
 }
 
+static void verify_all(const char attr_unused *str)
+{
+	verify = "";
+}
+
+static void verify_select(const char *str)
+{
+	verify = str;
+}
+
 static void ipret_set_strict_calls(const char attr_unused *str)
 {
 	ipret_strict_calls = true;
@@ -111,11 +121,6 @@ static void ipret_set_privileged(const char attr_unused *str)
 static void ipret_set_compile(const char attr_unused *str)
 {
 	ipret_compile = true;
-}
-
-static void ipret_set_verify(const char attr_unused *str)
-{
-	ipret_verify = true;
 }
 
 static void set_noinline(const char attr_unused *str)
@@ -157,7 +162,8 @@ static const struct arg args[] = {
 	{ "--thread-tick",		ARG_SWITCH,	NULL,				&thread_tick,		0, 0 },
 	{ "--threads=",			ARG_NUMBER,	NULL,				&nr_cpus_override,	1, (unsigned)-1 },
 	{ "--tick=", 			ARG_NUMBER,	NULL,				&tick_us,		1, (uint32_t)-1 },
-	{ "--verify",			ARG_SWITCH,	ipret_set_verify,		NULL,			0, 0 },
+	{ "--verify",			ARG_SWITCH,	verify_all,			NULL,			0, 0 },
+	{ "--verify=",			ARG_STRING,	verify_select,			NULL,			0, 0 },
 };
 
 static void process_arg(const char *arg)
