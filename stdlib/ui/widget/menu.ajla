@@ -184,7 +184,7 @@ fn menu_click(implicit w : world, implicit app : appstate, com : widget_common, 
 		widget_destroy_onclick(com.self);
 ]
 
-novfy fn menu_process_event(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : menu_state, wev : wevent) : (world, appstate, widget_common, menu_state)
+fn menu_process_event(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : menu_state, wev : wevent) : (world, appstate, widget_common, menu_state)
 [
 	if wev is resize then [
 		var size_x := 0;
@@ -254,10 +254,9 @@ novfy fn menu_process_event(implicit w : world, implicit app : appstate, implici
 		]
 		if wev.keyboard.key = key_enter or wev.keyboard.key = ' ' then [
 do_click:
-			if len(st.entries) <> 0 then [
+			if len(st.entries) <> 0 then
 				menu_click();
-				return;
-			]
+			return;
 		]
 		if wev.keyboard.key = key_left or wev.keyboard.key = key_right then [
 			var u := widget_get_underlying(com.self);
