@@ -26,6 +26,7 @@ implementation
 
 uses exception;
 uses charset;
+uses glob;
 uses z3;
 uses compiler.common.blob;
 uses compiler.optimize.ssa;
@@ -55,8 +56,8 @@ fn get_z3_name(ctx : context, v : int, phi_node : int) : bytes
 [
 	var n := "var_";
 	if phi_node > 0 then
-		n += "phi_" + map(ntos_base(phi_node, 16), ascii_locase) + "_";
-	n += map(ntos_base(v, 16), ascii_locase);
+		n += "phi_" + bytes_locase(ntos_base(phi_node, 16)) + "_";
+	n += bytes_locase(ntos_base(v, 16));
 	if len_greater_than(ctx.variables[v].name, 0) then [
 		n += "_" + ctx.variables[v].name;
 	]
@@ -65,7 +66,7 @@ fn get_z3_name(ctx : context, v : int, phi_node : int) : bytes
 
 fn get_z3_bb_name(ctx : context, bgi : int) : (context, bytes)
 [
-	var str := "bb_" + map(ntos_base(bgi, 16), ascii_locase);
+	var str := "bb_" + bytes_locase(ntos_base(bgi, 16));
 	ctx.blocks[bgi].block_name := str;
 	return ctx, str;
 ]
@@ -713,7 +714,7 @@ fn verify_function(ctx : context) : unit_type
 	ctx.unint_map := array_fill(false, [ -T_Bool + 1, Op_N ]);
 	ctx.unint_counter := 0;
 	var d := get_dump("z3");
-	ctx.dump_z3 := d = "*" or d = ctx.name;
+	ctx.dump_z3 := glob_bytes(ctx.name, d, true);
 
 	if ctx.dump_z3 then
 		eval debug("verify function " + ctx.name);

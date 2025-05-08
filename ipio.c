@@ -4696,7 +4696,7 @@ static void * attr_fastcall io_get_dump_handler(struct io_ctx *ctx)
 		internal(file_line, "io_get_dump_handler: invalid string '%s'", ctx->str);
 	mem_free(ctx->str);
 
-	if (likely(!str) || !strcmp(str, "*"))
+	if (likely(!str))
 		str = "";
 	else if (!str[0])
 		str = "*";

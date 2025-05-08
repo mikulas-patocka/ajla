@@ -29,6 +29,7 @@ fn process_pcode(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcod
 implementation
 
 uses exception;
+uses glob;
 uses compiler.common.blob;
 uses compiler.common.gvn;
 uses compiler.common.evaluate;
@@ -2917,7 +2918,7 @@ retry_optimize:
 	//eval stop("ssa");
 
 	var d := get_dump("pcode");
-	rpc += dump_basic_blocks(ctx, d = "*" or d = ctx.name);
+	rpc += dump_basic_blocks(ctx, glob_bytes(ctx.name, d, true));
 
 	if is_exception ctx then [
 		pc := exception_copy(list(pcode_t), ctx);
