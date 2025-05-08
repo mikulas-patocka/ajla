@@ -48,6 +48,7 @@ implementation
 uses timezone;
 uses error;
 uses exception;
+uses glob;
 uses copy;
 
 record file_entry [
@@ -778,7 +779,7 @@ process_enter:
 					continue;
 				if files_only, st.files[i].tgttyp = stat_type_directory then
 					continue;
-				if glob(st.files[i].name, pattern, case_sensitive) then [
+				if glob_string(st.files[i].name, pattern, case_sensitive) then [
 					if sel then
 						st.marked bts= i;
 					else

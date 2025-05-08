@@ -38,6 +38,9 @@ fn string_locase(s : string) : string;
 
 fn ascii_upcase~inline(ascii : byte) : byte;
 fn ascii_locase~inline(ascii : byte) : byte;
+fn bytes_upcase(s : bytes) : bytes;
+fn bytes_locase(s : bytes) : bytes;
+
 fn ascii_to_string(ascii : bytes) : string;
 fn string_to_ascii(str : string) : bytes;
 
@@ -181,6 +184,20 @@ fn ascii_locase~inline(ascii : byte) : byte
 	if ascii >= 'A', ascii <= 'Z' then
 		return ascii + 32;
 	return ascii;
+]
+
+fn bytes_upcase(s : bytes) : bytes
+[
+	for i := 0 to len(s) do
+		s[i] := ascii_upcase~inline(s[i]);
+	return s;
+]
+
+fn bytes_locase(s : bytes) : bytes
+[
+	for i := 0 to len(s) do
+		s[i] := ascii_locase~inline(s[i]);
+	return s;
 ]
 
 fn ascii_to_string(ascii : bytes) : string

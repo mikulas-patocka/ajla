@@ -1,0 +1,86 @@
+{*
+ * Copyright (C) 2024, 2025 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit glob;
+
+fn glob_string(file pattern : string, case_sensitive : bool) : bool;
+fn glob_bytes(file pattern : bytes, case_sensitive : bool) : bool;
+
+implementation
+
+uses charset;
+
+fn glob_no_star(t : type, implicit cls : class_integer_number(t), file pattern : list(t)) : bool
+[
+	if len(file) <> len(pattern) then
+		return false;
+	for i := 0 to len(file) do [
+		if pattern[i] = '?' then
+			continue;
+		if file[i] <> pattern[i] then
+			return false;
+	]
+	return true;
+]
+
+fn glob_polymorphic(t : type, implicit cls : class_integer_number(t), file pattern : list(t)) : bool
+[
+	var star := list_search(pattern, '*');
+	if star = -1 then
+		return glob_no_star(file, pattern);
+	if len(file) < star then
+		return false;
+	if not glob_no_star(file[ .. star], pattern[ .. star]) then
+		return false;
+	file := file[star .. ];
+	pattern := pattern[star + 1 .. ];
+next_star:
+	var star2 := list_search(pattern, '*');
+	if star2 = -1 then [
+		if len(file) < len(pattern) then
+			return false;
+		return glob_no_star(file[len(file) - len(pattern) .. ], pattern);
+	]
+	var pattern_stars := pattern[ .. star2];
+	for i := 0 to len(file) - len(pattern_stars) do [
+		if glob_no_star(file[i .. i + len(pattern_stars)], pattern_stars) then [
+			file := file[i + len(pattern_stars) .. ];
+			pattern := pattern[star2 + 1 .. ];
+			goto next_star;
+		]
+	]
+	return false;
+]
+
+fn glob_string(file pattern : string, case_sensitive : bool) : bool
+[
+	if not case_sensitive then [
+		file := string_upcase(file);
+		pattern := string_upcase(pattern);
+	]
+	return glob_polymorphic(file, pattern);
+]
+
+fn glob_bytes(file pattern : bytes, case_sensitive : bool) : bool
+[
+	if not case_sensitive then [
+		file := bytes_upcase(file);
+		pattern := bytes_upcase(pattern);
+	]
+	return glob_polymorphic(file, pattern);
+]
