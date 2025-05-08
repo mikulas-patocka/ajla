@@ -121,6 +121,8 @@ fn gen_assert(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : contex
 
 fn allocate_variable_block(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int, phi_node : int, bb : int, a : bool) : (z3_world, context, bytes)
 [
+	if v < 0 then
+		return ctx, "mk-void";
 	var r : bytes;
 	var ins := ctx.instrs[ctx.variables[v].defining_instr];
 	if ins.bb = bb then [
@@ -145,11 +147,16 @@ fn declare_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : 
 	] else if lt >= 0 then [
 		lt := get_nonflat_lt(ctx, lt);
 		if ctx.local_types[lt] is rec then [
-			if not ctx.local_types[lt].rec.opt then
-				z3_eval_noret(ctx, "(assert ((_ is mk-record_"+ntos_base(len(ctx.local_types[lt].rec.types), 16)+") "+n+"))");
-			else
+			var ln := len(ctx.local_types[lt].rec.types);
+			if not ctx.local_types[lt].rec.opt then [
+				z3_eval_noret(ctx, "(assert ((_ is mk-record_"+ntos_base(ln, 16)+") "+n+"))");
+			] else [
 				z3_eval_noret(ctx, "(assert ((_ is mk-option) "+n+"))");
+				z3_eval_noret(ctx, "(assert (>= (option-ord "+n+") 0))");
+				z3_eval_noret(ctx, "(assert (< (option-ord "+n+") "+ntos(ln)+"))");
+			]
 		] else if ctx.local_types[lt] is arr or ctx.local_types[lt] is flat_array then [
+			z3_eval_noret(ctx, "(assert ((_ is mk-array) "+n+"))");
 			z3_eval_noret(ctx, "(assert (>= (array-len "+n+") 0))");
 		]
 	]
