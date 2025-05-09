@@ -704,9 +704,10 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		abort internal("P_Return_Vars parameter not found");
 found_new_v:
 		var var1 : bytes;
-		ctx, var1 := allocate_variable_block(ctx, new_v, phi_node, ins.bb, false);
+		ctx, var1 := allocate_variable_block(ctx, new_v, phi_node, ins.bb, true);
 		if len(var1) = 0 then
 			return ctx;
+		var1 := cast_from_any(var1, ctx.variables[v].runtime_type);
 		gen_assert(ctx, var_name, var1);
 		return ctx;
 	]
