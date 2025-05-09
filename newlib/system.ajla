@@ -430,7 +430,7 @@ private fn get_dump(b : bytes) : bytes;
 
 fn join(t : type, w1 w2 : t) : t;
 fn any~lazy(t1 t2 : type, w1 : t1, w2 : t2) : bool;
-fn any_list~lazy(t : type, wx : list(t)) : int;
+fn any_list~lazy(t : type, wx : list(t)) : nat;
 fn is_ready(t : type, v : t) : bool;
 fn never(t : type) : t;
 fn fork(t : type, w : t) : (t, t);
@@ -2823,10 +2823,13 @@ fn any~lazy(t1 t2 : type, w1 : t1, w2 : t2) : bool
 	return b;
 ]
 
-fn any_list~lazy(t : type, wx : list(t)) : int
+fn any_list~lazy(t : type, wx : list(t)) : nat
 [
-	if not len_greater_than(wx, 0) then
-		return never(int);
+	if not len_greater_than(wx, 0) then [
+		var r := never(int);
+		assume r >= 0;
+		return r;
+	]
 	var n := any_list~lazy(wx[1 .. ]);
 	var b := any(wx[0], n);
 	return select(b, 0, n + 1);
