@@ -771,7 +771,7 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 					if in_type then
 						if ctx.variables[v].defined_at = defined_multiple then
 							abort compiler_error("Only constants may be used in type definitions", t);
-					ctx := verify_variable(ctx, v, false);
+					//ctx := verify_variable(ctx, v, false);
 					return ctx, [ v ];
 				]
 			]

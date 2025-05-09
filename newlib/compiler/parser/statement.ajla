@@ -425,7 +425,7 @@ inferred:
 			ctx := generate_Copy(ctx, ax, av.v);
 			ctx := verify_variable(ctx, av.v, true);
 		] else [
-			ctx := verify_variable(ctx, av.v, false);
+			//ctx := verify_variable(ctx, av.v, false);
 			ctx := generate_Structured_Write(ctx, av.instr, ax);
 			ctx := verify_variable(ctx, av.v, true);
 		]
