@@ -270,9 +270,8 @@ fn generate_Args(ctx : function_context) : function_context
 fn generate_Return_Vars(ctx : function_context) : function_context
 [
 	var args := empty(pcode_t);
-	for i := ctx.n_arguments to ctx.n_arguments + ctx.n_return_values do [
+	for i := ctx.n_arguments to ctx.n_arguments + ctx.n_return_values do
 		args +<= i;
-	]
 	return generate_instruction(ctx, P_Return_Vars, args);
 ]
 

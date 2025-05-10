@@ -567,18 +567,6 @@ fn process_variables(ctx : context) : context
 		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
 			var igi := ctx.blocks[bgi].instrs[ili];
 			var ins := ctx.instrs[igi];
-		{
-			var rset := ins.read_set;
-			while rset <> 0 do [
-				var rd : int := bsr rset;
-				rset btr= rd;
-				var v := ins.params[rd];
-				if v >= 0 then [
-					//ctx.variables[v].reading_instrs bts= igi;
-					//ctx.variables[v].var_active := true;
-				]
-			]
-		}
 			var wset := ins.write_set;
 			while wset <> 0 do [
 				var wr : int := bsr wset;

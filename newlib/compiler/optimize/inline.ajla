@@ -81,10 +81,9 @@ fn do_inline(ctx : context, bgi : int, ili : int, call_mode : pcode_t, get_inlin
 	if ft <> Fn_Function and call_mode <> Call_Mode_Flat then
 		return ctx, false;
 
-	if ft = Fn_Option then [
-		var did_something := false;
-		return ctx, did_something;
-	]
+	if ft = Fn_Option then
+		return ctx, false;
+
 	//if ft <> Fn_Function then
 	//	return ctx, false;
 
