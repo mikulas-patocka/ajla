@@ -2480,10 +2480,10 @@ fn allocate_variables(ctx : context) : context
 	]
 	var color := 0;
 	var ra_color := empty(tuple2(int, int));
-	for t := 0 to len(type_to_var_set) do [
+	for t := 0 to len(type_to_var_set) invariant color >= 0 do [
 		var vs := type_to_var_set[t];
 		var vsl := vs;
-		while vsl <> 0 do [
+		while vsl <> 0 invariant color >= 0 do [
 			var vgi : int := bsf vsl;
 			vsl btr= vgi;
 			ctx.variables[vgi].color := color;
@@ -2521,12 +2521,12 @@ fn allocate_variables(ctx : context) : context
 	]
 	var new_idx := -1;
 	var old_new := fill(-1, len(ctx.variables));
-	for c := 0 to color do [
+	for c := 0 to color invariant new_idx >= -1 do [
 		var l := vars_for_color[c];
 		l := list_sort(instance_ord_type_index(ctx), l);
 		//if ctx.name = "tokenize_recursive" then for i := 0 to len(l) do eval debug("color " + ntos(c) + ": " + ntos(ctx.variables[l[i]].type_index));
 		var last := T_InvalidType;
-		for i := 0 to len(l) do [
+		for i := 0 to len(l) invariant new_idx >= -1 do [
 			var v := ctx.variables[l[i]];
 			if v.type_index <> last then [
 				last := v.type_index;
@@ -2535,7 +2535,7 @@ fn allocate_variables(ctx : context) : context
 			old_new[l[i]] := new_idx;
 		]
 	]
-	for vgi := 0 to len(ctx.variables) do [
+	for vgi := 0 to len(ctx.variables) invariant new_idx >= -1 do [
 		if old_new[vgi] = -1 then [
 			new_idx += 1;
 			old_new[vgi] := new_idx;
@@ -2694,7 +2694,12 @@ fn process_pcode(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcod
 	var ctx := load_function_context(pc);
 	//eval debug("optimizing: " + ctx.name);
 
-	var verify := glob_bytes(ctx.name, verify_pattern, true);
+	var verify : bool;
+	if verify_pattern = "@" then [
+		verify := pc[0] bt bsf Fn_VerifyTagged;
+	] else [
+		verify := glob_bytes(ctx.name, verify_pattern, true);
+	]
 	if pc[0] bt bsf Fn_NoVerify then
 		verify := false;
 

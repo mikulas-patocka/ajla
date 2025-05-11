@@ -186,6 +186,7 @@
 #define Fn_IsFlatOption			8
 #define Fn_AlwaysFlatOption		16
 #define Fn_NoVerify			32
+#define Fn_VerifyTagged			64
 
 #define Local_Type_Record		0
 #define Local_Type_Option		1

@@ -452,8 +452,8 @@ fn len~inline(t : type, a : list(t)) : nat;
 fn len_at_least~inline(t : type, a : list(t), l : int) : bool;
 fn len_greater_than~inline(t : type, a : list(t), l : int) : bool;
 fn empty~inline(t : type) : list(t);
-fn fill~inline(t : type, const x : t, const n : int) : list(t);
-fn sparse~inline(t : type, const x : t, const n : int) : list(t);
+fn fill~inline(t : type, const x : t, const n : nat) : list(t);
+fn sparse~inline(t : type, const x : t, const n : nat) : list(t);
 
 fn infinite(t : type, x : t) : list(t);
 fn infinite_repeat(t : type, x : list(t)) : list(t);
@@ -2888,14 +2888,14 @@ fn len_greater_than~inline(t : type, a : list(t), l : int) : bool
 
 fn empty~inline(t : type) : list(t) := list(t).[];
 
-fn fill~inline(t : type, const x : t, const n : int) : list(t)
+fn fill~inline(t : type, const x : t, const n : nat) : list(t)
 [
 	var l : list(t);
 	pcode Array_Fill =l 0 x n;
 	return l;
 ]
 
-fn sparse~inline(t : type, const x : t, const n : int) : list(t)
+fn sparse~inline(t : type, const x : t, const n : nat) : list(t)
 [
 	var l : list(t);
 	pcode Array_Fill =l Flag_Array_Fill_Sparse x n;
@@ -2904,6 +2904,7 @@ fn sparse~inline(t : type, const x : t, const n : int) : list(t)
 
 fn infinite_internal(t : type, x : t, step : int) : list(t)
 [
+	assume step >= 0;
 	return sparse(x, step) + infinite_internal~lazy(t, x, step shl bsr step);
 ]
 

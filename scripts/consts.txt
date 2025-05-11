@@ -205,6 +205,8 @@ Fn_IsFlatOption
 Fn_AlwaysFlatOption
 32
 Fn_NoVerify
+64
+Fn_VerifyTagged
 
 0
 Local_Type_Record	; [path_idx, fn_idx, n_unit_chars, (unit_name)], n_entries, (type)

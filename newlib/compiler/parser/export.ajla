@@ -54,6 +54,8 @@ fn dump_function(def : function_definition) : list(pcode_t)
 	]
 	if ctx.novfy_flag then
 		result[0] or= Fn_NoVerify;
+	if ctx.vfy_tagged then
+		result[0] or= Fn_VerifyTagged;
 	result += blob_store(i_decode(ctx.name));
 
 	for i := 0 to len(ctx.lambdas) do [
