@@ -133,6 +133,7 @@ fn parse_arguments(ctx : function_context, vd : variable_dictionary, t : tokens,
 					ctx.prereqs +<= a;
 				else
 					ctx.contracts +<= a;
+				ctx.vfy_tagged := true;
 				continue;
 			]
 		]
