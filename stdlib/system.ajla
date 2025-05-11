@@ -513,8 +513,8 @@ fn list_to_array(t : type, const dim : list(nat), v : list(t)) : array(t, dim);
 fn array_to_list(t : type, const dim : list(nat), v : array(t, dim)) : list(t);
 fn array_fill~inline(t : type, const x : t, const dim : list(nat)) : array(t, dim);
 fn array_sparse~inline(t : type, const x : t, const dim : list(nat)) : array(t, dim);
-fn array_read(t : type, const dim : list(nat), v : array(t, dim), idx : list(nat)) : t;
-fn array_write(t : type, const dim : list(nat), v : array(t, dim), idx : list(nat), val : t) : array(t, dim);
+fn array_read(t : type, const dim : list(nat), v : array(t, dim), idx : list(nat), prereq len(dim) = len(idx)) : t;
+fn array_write(t : type, const dim : list(nat), v : array(t, dim), idx : list(nat), val : t, prereq len(dim) = len(idx)) : array(t, dim);
 fn array_reverse(t : type, const ln : nat, implicit c : class_ord(t), v : array(t, [ln])) : array(t, [ln]);
 fn array_sort(t : type, const ln : nat, implicit c : class_ord(t), v : array(t, [ln])) : array(t, [ln]);
 fn array_flatten~inline(t : type, const dim : list(nat), v : array(t, dim)) : array(t, dim);
@@ -3541,7 +3541,7 @@ fn array_sparse~inline(t : type, const x : t, const dim : list(nat)) : array(t, 
 	return l;
 ]
 
-fn array_index(dim : list(nat), idx : list(nat)) : nat
+fn array_index(dim : list(nat), idx : list(nat), prereq len(dim) = len(idx)) : nat
 [
 	if len(dim) <> len(idx) then [
 		var r := exception_make(nat, ec_sync, error_invalid_operation, 0, true);
@@ -3568,13 +3568,13 @@ fn array_index(dim : list(nat), idx : list(nat)) : nat
 	return off;
 ]
 
-fn array_read(t : type, const dim : list(nat), v : array(t, dim), idx : list(nat)) : t
+fn array_read(t : type, const dim : list(nat), v : array(t, dim), idx : list(nat), prereq len(dim) = len(idx)) : t
 [
 	var off := array_index(dim, idx);
 	return array_to_list(v)[off];
 ]
 
-fn array_write(t : type, const dim : list(nat), v : array(t, dim), idx : list(nat), val : t) : array(t, dim)
+fn array_write(t : type, const dim : list(nat), v : array(t, dim), idx : list(nat), val : t, prereq len(dim) = len(idx)) : array(t, dim)
 [
 	var off := array_index(dim, idx);
 	var l := array_to_list(v);
