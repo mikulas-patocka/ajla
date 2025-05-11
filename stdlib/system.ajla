@@ -24,6 +24,16 @@ type bytes;
 type char;
 type string;
 type list(t : type);
+
+private fn is_positive~inline(n : int) : bool
+[
+	var r : bool;
+	pcode BinaryConstOp Bin_GreaterEqual =r 0 n 0;
+	return r;
+]
+
+type nat := int where is_positive(value);
+
 private type xarray~inline(dim : list(int), t : type);
 
 type array(t : type, dim : list(int)) := xarray(dim, t);
@@ -394,7 +404,6 @@ implicit fn instance_real_number_rational~inline : class_real_number(rational);
 
 implicit fn instance_real_number_fixed_point~inline(const base digits : int) : class_real_number(fixed_point(base, digits));
 
-type nat := int where value >= 0;
 type nat8 := int8 where value >= 0;
 type nat16 := int16 where value >= 0;
 type nat32 := int32 where value >= 0;
