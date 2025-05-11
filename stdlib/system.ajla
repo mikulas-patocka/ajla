@@ -34,9 +34,9 @@ private fn is_positive~inline(n : int) : bool
 
 type nat := int where is_positive(value);
 
-private type xarray~inline(dim : list(int), t : type);
+private type xarray~inline(dim : list(nat), t : type);
 
-type array(t : type, dim : list(int)) := xarray(dim, t);
+type array(t : type, dim : list(nat)) := xarray(dim, t);
 
 type unit_type;
 const unit_value~inline : unit_type;
@@ -277,9 +277,9 @@ implicit fn inherit_ord_list~inline(t : type, c : class_ord(t)) : class_ord(list
 implicit fn instance_monoid_list~inline(t : type) : class_monoid(list(t));
 implicit fn instance_functor_list~inline : class_functor(list);
 
-implicit fn inherit_eq_array~inline(t : type, c : class_eq(t), const dim : list(int)) : class_eq(array(t, dim));
-implicit fn inherit_ord_array~inline(t : type, c : class_ord(t), const dim : list(int)) : class_ord(array(t, dim));
-implicit fn instance_functor_array~inline(const dim : list(int)) : class_functor(xarray(dim,));
+implicit fn inherit_eq_array~inline(t : type, c : class_eq(t), const dim : list(nat)) : class_eq(array(t, dim));
+implicit fn inherit_ord_array~inline(t : type, c : class_ord(t), const dim : list(nat)) : class_ord(array(t, dim));
+implicit fn instance_functor_array~inline(const dim : list(nat)) : class_functor(xarray(dim,));
 
 implicit fn instance_logical_bool~inline : class_logical(bool);
 implicit fn instance_ord_bool~inline : class_ord(bool);
@@ -509,15 +509,15 @@ const nl : bytes;
  - ARRAY -
  ---------}
 
-fn list_to_array(t : type, const dim : list(int), v : list(t)) : array(t, dim);
-fn array_to_list(t : type, const dim : list(int), v : array(t, dim)) : list(t);
-fn array_fill~inline(t : type, const x : t, const dim : list(int)) : array(t, dim);
-fn array_sparse~inline(t : type, const x : t, const dim : list(int)) : array(t, dim);
-fn array_read(t : type, const dim : list(int), v : array(t, dim), idx : list(int)) : t;
-fn array_write(t : type, const dim : list(int), v : array(t, dim), idx : list(int), val : t) : array(t, dim);
-fn array_reverse(t : type, const ln : int, implicit c : class_ord(t), v : array(t, [ln])) : array(t, [ln]);
-fn array_sort(t : type, const ln : int, implicit c : class_ord(t), v : array(t, [ln])) : array(t, [ln]);
-fn array_flatten~inline(t : type, const dim : list(int), v : array(t, dim)) : array(t, dim);
+fn list_to_array(t : type, const dim : list(nat), v : list(t)) : array(t, dim);
+fn array_to_list(t : type, const dim : list(nat), v : array(t, dim)) : list(t);
+fn array_fill~inline(t : type, const x : t, const dim : list(nat)) : array(t, dim);
+fn array_sparse~inline(t : type, const x : t, const dim : list(nat)) : array(t, dim);
+fn array_read(t : type, const dim : list(nat), v : array(t, dim), idx : list(nat)) : t;
+fn array_write(t : type, const dim : list(nat), v : array(t, dim), idx : list(nat), val : t) : array(t, dim);
+fn array_reverse(t : type, const ln : nat, implicit c : class_ord(t), v : array(t, [ln])) : array(t, [ln]);
+fn array_sort(t : type, const ln : nat, implicit c : class_ord(t), v : array(t, [ln])) : array(t, [ln]);
+fn array_flatten~inline(t : type, const dim : list(nat), v : array(t, dim)) : array(t, dim);
 
 {---------
  - TUPLE -
@@ -846,7 +846,7 @@ implicit fn instance_functor_list~inline : class_functor(list) :=
 		map : list_map,
 	];
 
-fn array_equal(t : type, implicit c : class_eq(t), const dim : list(int), a1 a2 : array(t, dim)) : bool
+fn array_equal(t : type, implicit c : class_eq(t), const dim : list(nat), a1 a2 : array(t, dim)) : bool
 [
 	var l1 := array_to_list(a1);
 	var l2 := array_to_list(a2);
@@ -855,7 +855,7 @@ fn array_equal(t : type, implicit c : class_eq(t), const dim : list(int), a1 a2 
 			return false;
 	return true;
 ]
-fn array_less(t : type, implicit c : class_ord(t), const dim : list(int), a1 a2 : array(t, dim)) : bool
+fn array_less(t : type, implicit c : class_ord(t), const dim : list(nat), a1 a2 : array(t, dim)) : bool
 [
 	var l1 := array_to_list(a1);
 	var l2 := array_to_list(a2);
@@ -864,18 +864,18 @@ fn array_less(t : type, implicit c : class_ord(t), const dim : list(int), a1 a2 
 			return l1[i] < l2[i];
 	return false;
 ]
-implicit fn inherit_eq_array~inline(t : type, c : class_eq(t), const dim : list(int)) : class_eq(array(t, dim)) :=
+implicit fn inherit_eq_array~inline(t : type, c : class_eq(t), const dim : list(nat)) : class_eq(array(t, dim)) :=
 	class_eq(array(t, dim)).[
 		equal : array_equal(t, c, dim,,),
 	];
 
-implicit fn inherit_ord_array~inline(t : type, c : class_ord(t), const dim : list(int)) : class_ord(array(t, dim)) :=
+implicit fn inherit_ord_array~inline(t : type, c : class_ord(t), const dim : list(nat)) : class_ord(array(t, dim)) :=
 	class_ord(array(t, dim)).[
 		equal : array_equal(t, inherit_eq_ord(c), dim,,),
 		less : array_less(t, c, dim,,),
 	];
 
-fn array_map(const dim : list(int), t u : type, a : array(t, dim), m : fn(t) : u) : array(u, dim)
+fn array_map(const dim : list(nat), t u : type, a : array(t, dim), m : fn(t) : u) : array(u, dim)
 [
 	var tl := array_to_list(t, dim, a);
 	var ul := empty(u);
@@ -883,7 +883,7 @@ fn array_map(const dim : list(int), t u : type, a : array(t, dim), m : fn(t) : u
 		ul +<= m(tl[i]);
 	return list_to_array(u, dim, ul);
 ]
-implicit fn instance_functor_array~inline(const dim : list(int)) : class_functor(xarray(dim,)) :=
+implicit fn instance_functor_array~inline(const dim : list(nat)) : class_functor(xarray(dim,)) :=
 	class_functor(xarray(dim,)).[
 		map : array_map(dim,,,,),
 	];
@@ -3496,7 +3496,7 @@ fn native_to_int~inline(n : native, b : bytes) : int
  - ARRAY -
  ---------}
 
-fn array_size(dim : list(int)) : int
+fn array_size(dim : list(nat)) : int
 [
 	var prod := 1;
 	for i := 0 to len(dim) do [
@@ -3507,7 +3507,7 @@ fn array_size(dim : list(int)) : int
 	return prod;
 ]
 
-fn list_to_array(t : type, const dim : list(int), v : list(t)) : array(t, dim)
+fn list_to_array(t : type, const dim : list(nat), v : list(t)) : array(t, dim)
 [
 	var prod := array_size(dim);
 	if prod <> len(v) then
@@ -3517,14 +3517,14 @@ fn list_to_array(t : type, const dim : list(int), v : list(t)) : array(t, dim)
 	return l;
 ]
 
-fn array_to_list(t : type, const dim : list(int), v : array(t, dim)) : list(t)
+fn array_to_list(t : type, const dim : list(nat), v : array(t, dim)) : list(t)
 [
 	var l : list(t);
 	pcode Copy_Type_Cast =l 0 v;
 	return l;
 ]
 
-fn array_fill~inline(t : type, const x : t, const dim : list(int)) : array(t, dim)
+fn array_fill~inline(t : type, const x : t, const dim : list(nat)) : array(t, dim)
 [
 	var prod := array_size(dim);
 	var l : array(t, dim);
@@ -3532,7 +3532,7 @@ fn array_fill~inline(t : type, const x : t, const dim : list(int)) : array(t, di
 	return l;
 ]
 
-fn array_sparse~inline(t : type, const x : t, const dim : list(int)) : array(t, dim)
+fn array_sparse~inline(t : type, const x : t, const dim : list(nat)) : array(t, dim)
 [
 	var prod := array_size(dim);
 	var l : array(t, dim);
@@ -3540,31 +3540,40 @@ fn array_sparse~inline(t : type, const x : t, const dim : list(int)) : array(t, 
 	return l;
 ]
 
-fn array_index(dim : list(int), idx : list(int)) : int
+fn array_index(dim : list(nat), idx : list(nat)) : nat
 [
-	if len(dim) <> len(idx) then
-		return exception_make(int, ec_sync, error_invalid_operation, 0, true);
+	if len(dim) <> len(idx) then [
+		var r := exception_make(nat, ec_sync, error_invalid_operation, 0, true);
+		assume r >= 0;
+		return r;
+	]
 	var off := 0;
 	var l := len(dim);
-	for ii := 0 to l do [
+	for ii := 0 to l invariant off >= 0 do [
 		var i := l - 1 - ii;
-		if idx[i] < 0 then
-			return exception_make(int, ec_sync, error_negative_index, 0, true);
-		if idx[i] >= dim[i] then
-			return exception_make(int, ec_sync, error_index_out_of_range, 0, true);
+		if idx[i] < 0 then [
+			var r := exception_make(nat, ec_sync, error_negative_index, 0, true);
+			assume r >= 0;
+			return r;
+		]
+		if idx[i] >= dim[i] then [
+			var r := exception_make(nat, ec_sync, error_index_out_of_range, 0, true);
+			assume r >= 0;
+			return r;
+		]
 		off *= dim[i];
 		off += idx[i];
 	]
 	return off;
 ]
 
-fn array_read(t : type, const dim : list(int), v : array(t, dim), idx : list(int)) : t
+fn array_read(t : type, const dim : list(nat), v : array(t, dim), idx : list(nat)) : t
 [
 	var off := array_index(dim, idx);
 	return array_to_list(v)[off];
 ]
 
-fn array_write(t : type, const dim : list(int), v : array(t, dim), idx : list(int), val : t) : array(t, dim)
+fn array_write(t : type, const dim : list(nat), v : array(t, dim), idx : list(nat), val : t) : array(t, dim)
 [
 	var off := array_index(dim, idx);
 	var l := array_to_list(v);
@@ -3573,28 +3582,28 @@ fn array_write(t : type, const dim : list(int), v : array(t, dim), idx : list(in
 	return v;
 ]
 
-fn array_reverse(t : type, const ln : int, implicit c : class_ord(t), v : array(t, [ln])) : array(t, [ln])
+fn array_reverse(t : type, const ln : nat, implicit c : class_ord(t), v : array(t, [ln])) : array(t, [ln])
 [
 	var l := array_to_list(v);
 	l := list_reverse(l);
 	return list_to_array([ln], l);
 ]
 
-fn array_sort(t : type, const ln : int, implicit c : class_ord(t), v : array(t, [ln])) : array(t, [ln])
+fn array_sort(t : type, const ln : nat, implicit c : class_ord(t), v : array(t, [ln])) : array(t, [ln])
 [
 	var l := array_to_list(v);
 	l := list_sort(l);
 	return list_to_array([ln], l);
 ]
 
-fn array_flatten~inline(t : type, const dim : list(int), v : array(t, dim)) : array(t, dim)
+fn array_flatten~inline(t : type, const dim : list(nat), v : array(t, dim)) : array(t, dim)
 [
 	var l : array(t, dim);
 	pcode Array_Flatten =l 0 v;
 	return l;
 ]
 
-type xarray(dim : list(int), t : type)
+type xarray(dim : list(nat), t : type)
 [
 	var l : type;
 	pcode Array_Fixed =l t dim;
