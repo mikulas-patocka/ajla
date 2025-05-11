@@ -26,40 +26,8 @@ implementation
 
 uses compiler.optimize.utils;
 
-
-{fn dump_graph(ctx : context) : bool
-[
-	for i := 0 to len(ctx.blocks) do [
-		var str := empty(byte);
-		var block := ctx.blocks[i];
-		str += "******** block " + ntos(i);
-		if not block.active then [
-			str += " - inactive";
-			eval debug(str);
-			goto next;
-		]
-		str += nl;
-		str += "post_list:";
-		for j := 0 to len(block.post_list) do
-			str += " " + ntos(block.post_list[j]);
-		str += nl;
-		str += "pred_list:";
-		for j := 0 to len(block.pred_list) do
-			str += " " + ntos(block.pred_list[j]);
-		str += nl;
-		str += "pred_position:";
-		for j := 0 to len(block.pred_position) do
-			str += " " + ntos(block.pred_position[j]);
-		eval debug(str);
-next:
-	]
-	return true;
-]}
-
-
 fn do_inline(ctx : context, bgi : int, ili : int, call_mode : pcode_t, get_inline : fn(function, bool) : list(pcode_t)) : (context, bool)
 [
-	//eval dump_graph(ctx);
 	var block := ctx.blocks[bgi];
 	var igi := block.instrs[ili];
 	var ins := ctx.instrs[igi];
@@ -69,8 +37,6 @@ fn do_inline(ctx : context, bgi : int, ili : int, call_mode : pcode_t, get_inlin
 	var call_result := ins.params[	   l + ins.params[2] * 2 ..
 					   l + ins.params[2] * 2 + ins.params[1]];
 
-	//eval debug("considering inline " + ntos(f.path_idx) + " " + f.un + " " + ntos(f.fn_idx) + " in block " + ntos(bgi));
-	//var new_pc := load_optimized_pcode(f.path_idx, f.un, f.fn_idx);
 	var new_pc := get_inline~save(f, true);
 
 	var ft := new_pc[0] and Fn_Mask;
@@ -84,28 +50,7 @@ fn do_inline(ctx : context, bgi : int, ili : int, call_mode : pcode_t, get_inlin
 	if ft = Fn_Option then
 		return ctx, false;
 
-	//if ft <> Fn_Function then
-	//	return ctx, false;
-
 	var new_ctx := load_function_context(new_pc);
-
-	//eval debug("inlining " + new_ctx.name + " into " + ctx.name);
-
-	//eval dump_basic_blocks(new_ctx, true);
-
-	//eval dump_graph(new_ctx);
-
-	{
-	for i := 0 to ins.params[2] do [
-		var cp := call_params[i * 2 + 1];
-		var rt : int;
-		if cp >= 0 then rt := ctx.variables[cp].runtime_type; else rt := -1;
-		eval debug("caller arg " + ntos(i) + ": " + ntos(cp) + ", rt " + ntos(rt));
-		var instr_args := new_ctx.instrs[new_ctx.blocks[0].instrs[0]];
-		var arg := instr_args.params[i];
-		eval debug("callee arg " + ntos(i) + ": " + ntos(arg) + ", rt " + ntos(new_ctx.variables[arg].runtime_type));
-	]
-	}
 
 	var tail_block := new_basic_block;
 	var tail_block_bgi := len(ctx.blocks);

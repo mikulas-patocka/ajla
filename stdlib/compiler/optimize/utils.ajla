@@ -47,6 +47,7 @@ fn function_specifier_length(params : list(pcode_t)) : int
 fn function_load(params : list(pcode_t)) : (int, function)
 [
 	var bl := blob_length(params[1 .. ]);
+	assume params[1 + bl] >= 0;
 	var r := function.[
 		path_idx : params[0] shr 1,
 		program : (params[0] and 1) <> 0,
@@ -422,6 +423,9 @@ fn set_arrow(ctx : context, src : int, dst : int) : context
 
 fn load_function_context(pc : list(pcode_t)) : context
 [
+	assume pc[4] >= 0;
+	assume pc[8] >= 0;
+
 	var ctx := context.[
 		local_types : empty(local_type),
 		instrs : empty(instruction),
