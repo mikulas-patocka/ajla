@@ -313,7 +313,7 @@ fn parse_function_header(dict : function_dictionary, parent_function : maybe(fun
 	ctx, vd2 := parse_arguments(ctx, vd2, return_values, true, n_arguments, false);
 
 	for i := 0 to len(ctx.prereqs) do
-		ctx := generate_Assume(ctx, ctx.prereqs[i]);
+		ctx := generate_Assume(ctx, ctx.prereqs[i], true);
 
 	ctx.incomplete := false;
 
@@ -356,7 +356,7 @@ fn parse_function_body(ctx : function_context, vd : variable_dictionary, t : tok
 	ctx := generate_Label(ctx, lbl);
 
 	for i := 0 to len(ctx.contracts) do
-		ctx := generate_Claim(ctx, ctx.contracts[i]);
+		ctx := generate_Claim(ctx, ctx.contracts[i], true);
 
 	ctx := generate_Return(ctx);
 

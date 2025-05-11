@@ -62,8 +62,8 @@ fn generate_Return(ctx : function_context) : function_context;
 
 fn generate_IO_Exception_Make(ctx : function_context, class typ num v : int) : function_context;
 
-fn generate_Assume(ctx : function_context, l : int) : function_context;
-fn generate_Claim(ctx : function_context, l : int) : function_context;
+fn generate_Assume(ctx : function_context, l : int, tag : bool) : function_context;
+fn generate_Claim(ctx : function_context, l : int, tag : bool) : function_context;
 fn generate_Invariant(ctx : function_context, l : int) : function_context;
 
 implementation
@@ -294,14 +294,20 @@ fn generate_IO_Exception_Make(ctx : function_context, class typ num v : int) : f
 	return generate_instruction(ctx, P_IO, pcode_args);
 ]
 
-fn generate_Assume(ctx : function_context, l : int) : function_context
+fn generate_Assume(ctx : function_context, l : int, tag : bool) : function_context
 [
-	return generate_instruction(ctx, P_Assume, list(pcode_t).[ l ]);
+	var args := list(pcode_t).[ l ];
+	if tag then
+		args +<= 0;
+	return generate_instruction(ctx, P_Assume, args);
 ]
 
-fn generate_Claim(ctx : function_context, l : int) : function_context
+fn generate_Claim(ctx : function_context, l : int, tag : bool) : function_context
 [
-	return generate_instruction(ctx, P_Claim, list(pcode_t).[ l ]);
+	var args := list(pcode_t).[ l ];
+	if tag then
+		args +<= 0;
+	return generate_instruction(ctx, P_Claim, args);
 ]
 
 fn generate_Invariant(ctx : function_context, l : int) : function_context

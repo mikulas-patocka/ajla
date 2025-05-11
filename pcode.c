@@ -3065,7 +3065,8 @@ next_one:
 			case P_Assume:
 			case P_Claim:
 			case P_Invariant:
-				a1 = pcode_get();
+				for (p = 0; p < instr_params; p++)
+					pcode_get();
 				break;
 			case P_Checkpoint:
 				if (unlikely(!gen_checkpoint(ctx, ctx->pcode, instr_params, true)))

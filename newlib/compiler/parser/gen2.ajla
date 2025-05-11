@@ -372,7 +372,7 @@ fn generate_Call_Indirect(ctx : function_context, call_mode : int, fnx : int, t 
 	]
 
 	for i := 0 to pcode_Fn_get_n_prereqs(instr) do [
-		ctx := generate_Claim(ctx, pcode_Fn_get_prereq(instr, i));
+		ctx := generate_Claim(ctx, pcode_Fn_get_prereq(instr, i), false);
 	]
 
 	var pcode_args := list(pcode_t).[ call_mode, n_return_values, n_args, 0, fnx ];
@@ -407,7 +407,7 @@ fn generate_Call_Indirect(ctx : function_context, call_mode : int, fnx : int, t 
 	for i := 0 to pcode_Fn_get_n_contracts(instr) do [
 		var l : int;
 		ctx, l := evaluate_type(ctx, cc, pcode_Fn_get_contract(instr, i), empty(compare_fn_stack), t);
-		ctx := generate_Assume(ctx, l);
+		ctx := generate_Assume(ctx, l, false);
 	]
 
 	return ctx, return_vector;
@@ -492,7 +492,7 @@ fn generate_Call(ctx : function_context, call_mode : int, fd : function_definiti
 	for i := 0 to len(fd.signature.prereqs) do [
 		var l : int;
 		ctx, l := evaluate_type_var(ctx, fn_cc, fd.signature.prereqs[i], empty(compare_fn_stack), t);
-		ctx := generate_Claim(ctx, l);
+		ctx := generate_Claim(ctx, l, false);
 	]
 
 	var my_cc := new_compare_context(ctx);
@@ -528,7 +528,7 @@ fn generate_Call(ctx : function_context, call_mode : int, fd : function_definiti
 	for i := 0 to len(fd.signature.contracts) do [
 		var l : int;
 		ctx, l := evaluate_type_var(ctx, fn_cc, fd.signature.contracts[i], empty(compare_fn_stack), t);
-		ctx := generate_Assume(ctx, l);
+		ctx := generate_Assume(ctx, l, false);
 	]
 
 	return ctx, return_vector;

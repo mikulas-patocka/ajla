@@ -1746,9 +1746,9 @@ fn verify_variable(ctx : function_context, v : int, assign : bool) : function_co
 		var l : int;
 		ctx, l := evaluate_type(ctx, inv[i].cc, inv[i].idx, empty(compare_fn_stack), empty(token));
 		if assign then
-			ctx := generate_Claim(ctx, l);
+			ctx := generate_Claim(ctx, l, false);
 		else
-			ctx := generate_Assume(ctx, l);
+			ctx := generate_Assume(ctx, l, false);
 	]
 	ctx.this_value := t;
 	return ctx;

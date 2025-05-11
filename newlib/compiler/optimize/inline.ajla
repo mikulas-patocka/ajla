@@ -233,9 +233,10 @@ done_post_list:
 		var instrs := empty(int);
 		for j := 0 to len(new_ctx.blocks[i].instrs) do [
 			var ins := new_ctx.instrs[new_ctx.blocks[i].instrs[j]];
-			if ins.opcode = P_Claim or ins.opcode = P_Assume or ins.opcode = P_Line_Info then [
+			if ins.opcode = P_Line_Info then
 				continue;
-			]
+			if ins.opcode = P_Claim or ins.opcode = P_Assume, len(ins.params) > 1 then
+				continue;
 			instrs +<= new_ctx.blocks[i].instrs[j];
 		]
 		new_ctx.blocks[i].instrs := instrs;

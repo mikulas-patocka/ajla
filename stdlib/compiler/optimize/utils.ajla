@@ -367,10 +367,10 @@ fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instructi
 		xlen := len(params);
 	] else if opcode = P_Assume then [
 		ins.read_set := 0 bts 0;
-		xlen := 1;
+		xlen := len(params);
 	] else if opcode = P_Claim then [
 		ins.read_set := 0 bts 0;
-		xlen := 1;
+		xlen := len(params);
 	] else if opcode = P_Invariant then [
 		ins.read_set := 0 bts 0;
 		xlen := 1;

@@ -924,9 +924,9 @@ fn parse_statement_eval(ctx : function_context, vd : variable_dictionary, t : to
 		] else if x is k_keep then [
 			ctx := generate_Keep(ctx, al[i]);
 		] else if x is k_assume then [
-			ctx := generate_Assume(ctx, al[i]);
+			ctx := generate_Assume(ctx, al[i], false);
 		] else if x is k_claim then [
-			ctx := generate_Claim(ctx, al[i]);
+			ctx := generate_Claim(ctx, al[i], false);
 		] else if x is k_invariant then [
 			ctx := generate_Invariant(ctx, al[i]);
 		] else [
