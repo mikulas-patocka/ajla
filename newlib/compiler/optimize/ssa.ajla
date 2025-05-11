@@ -2679,6 +2679,8 @@ fn check_consistency(ctx : context, msg : bytes, test_no_pred : bool) : context
 
 fn process_pcode(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t), verify_pattern : bytes) : list(pcode_t)
 [
+	var ctx2 := exception_make(context, ec_sync, error_record_field_not_initialized, 0, false);
+
 	//eval debug("process_pcode");
 
 	var ft := pc[0] and Fn_Mask;
@@ -2774,6 +2776,9 @@ retry_optimize:
 
 		if print_passes then [ eval ctx; eval debug("verify_function"); if is_exception ctx then eval debug("ctx exception"); ]
 		xeval verify_function(ctx);
+
+		ctx := ctx2;
+		goto did_verify;
 	]
 
 	if print_passes then [ eval ctx; eval debug("dce"); if is_exception ctx then eval debug("ctx exception"); ]
@@ -2809,8 +2814,10 @@ retry_optimize:
 	if verify and not do_verify then [
 		do_verify := true;
 		num_retries += 1;
+		ctx2 := ctx;
 		goto retry_optimize;
 	]
+did_verify:
 
 	//eval debug("retries: " + ntos(num_retries));
 
