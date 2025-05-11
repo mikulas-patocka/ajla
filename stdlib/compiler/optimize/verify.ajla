@@ -755,6 +755,10 @@ fn verify_function(ctx : context) : unit_type
 	if ctx.dump_z3 then
 		eval debug("verify function " + ctx.name);
 
+	var timeout := sysprop(SystemProperty_Verify_Timeout);
+	if timeout > 0 then
+		z3_eval_noret(ctx, "(set-option :timeout " + ntos((timeout + 999) div 1000) + ")");
+
 	var record_sizes := 0;
 	for lti := 0 to len(ctx.local_types) do [
 		var lt := ctx.local_types[get_nonflat_lt(ctx, lti)];

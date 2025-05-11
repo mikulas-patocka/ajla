@@ -75,6 +75,7 @@ extern bool ipret_strict_calls;
 extern bool ipret_is_privileged;
 extern bool ipret_compile;
 extern bool ipret_noinline;
+extern uint32_t ipret_verify_timeout;
 
 void eval_both(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2);
 

@@ -37,6 +37,7 @@ shared_var bool ipret_strict_calls shared_init(false);
 shared_var bool ipret_is_privileged shared_init(false);
 shared_var bool ipret_compile shared_init(false);
 shared_var bool ipret_noinline shared_init(false);
+shared_var uint32_t ipret_verify_timeout shared_init(0);
 
 static const timestamp_t break_ticks = 1;
 
@@ -511,6 +512,9 @@ int_default_t ipret_system_property(int_default_t idx)
 			break;
 		case SystemProperty_NoInline:
 			result = ipret_noinline;
+			break;
+		case SystemProperty_Verify_Timeout:
+			result = ipret_verify_timeout;
 			break;
 		default:
 			return -1;

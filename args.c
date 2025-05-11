@@ -164,6 +164,7 @@ static const struct arg args[] = {
 	{ "--tick=", 			ARG_NUMBER,	NULL,				&tick_us,		1, (uint32_t)-1 },
 	{ "--verify",			ARG_SWITCH,	verify_all,			NULL,			0, 0 },
 	{ "--verify=",			ARG_STRING,	verify_select,			NULL,			0, 0 },
+	{ "--verify-timeout=",		ARG_NUMBER,	NULL,				&ipret_verify_timeout,	0, signed_maximum(int32_t) },
 };
 
 static void process_arg(const char *arg)

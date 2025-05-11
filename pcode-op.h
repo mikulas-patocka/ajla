@@ -211,6 +211,7 @@
 #define SystemProperty_Privileged	6
 #define SystemProperty_Compile		7
 #define SystemProperty_NoInline		8
+#define SystemProperty_Verify_Timeout	9
 
 #define SystemProperty_OS_Posix		1
 #define SystemProperty_OS_DOS		2
