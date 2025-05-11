@@ -879,8 +879,7 @@ fn verify_function(ctx : context) : unit_type
 	for bgi := 0 to len(ctx.blocks) do [
 		if not ctx.blocks[bgi].active then
 			continue;
-		var assumes := "";
-		var claims := "";
+		var assumes := " true";
 		var guards := "";
 		var all_phis := "";
 		for i := 0 to len(ctx.blocks[bgi].pred_list) do [
@@ -942,6 +941,7 @@ fn verify_function(ctx : context) : unit_type
 			assumes += " (or" + all_phis + ")";
 		if len_greater_than(guards, 0) then
 			assumes += " (or" + guards + ")";
+		var line := " true";
 		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
 			var igi := ctx.blocks[bgi].instrs[ili];
 			var ins := ctx.instrs[igi];
@@ -954,24 +954,20 @@ fn verify_function(ctx : context) : unit_type
 				var var1 : bytes;
 				ctx, var1 := allocate_variable(ctx, ins.params[0], 0);
 				if len_greater_than(var1, 0) then [
-					claims += " " + var1;
+					line += " (=> (and" + assumes + ") " + var1 + ")";
 				]
 			]
 		]
 		for i := 0 to len(ctx.blocks[bgi].added_claims) do [
-			claims += " " + ctx.blocks[bgi].added_claims[i];
+			line += " (=> (and" + assumes + ") " + ctx.blocks[bgi].added_claims[i] + ")";
 		]
 		for i := 0 to len(ctx.blocks[bgi].post_list) do [
 			if ctx.blocks[bgi].post_cut_nodes bt i then
 				continue;
 			var p := ctx.blocks[bgi].post_list[i];
-			claims += " " + ctx.blocks[p].block_name;
+			line += " (=> (and" + assumes + ") " + ctx.blocks[p].block_name + ")";
 		]
-		if len(assumes) = 0 then
-			assumes := " true";
-		if len(claims) = 0 then
-			claims := " true";
-		z3_eval_noret(ctx, "(assert (= " + ctx.blocks[bgi].block_name + " (=> (and" + assumes + ") (and" + claims + "))))");
+		z3_eval_noret(ctx, "(assert (= " + ctx.blocks[bgi].block_name + " (and" + line + ")))");
 	]
 
 	z3_eval_noret(ctx, "(assert (not " + ctx.blocks[0].block_name + "))");
