@@ -711,6 +711,9 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 			ctx := verify_variable_type(ctx, l, xcc, xtyp, false);
 		] else [
 			ctx, l := generate_Option_Load(ctx, a, idx, t);
+			var xcc := cc;
+			var xtyp := rec_def.entries[idx].type_idx;
+			ctx := verify_variable_type(ctx, l, xcc, xtyp, false);
 		]
 
 		return ctx, [ l ];
