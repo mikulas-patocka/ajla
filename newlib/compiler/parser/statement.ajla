@@ -88,7 +88,7 @@ fn parse_statement_var(ctx : function_context, vd : variable_dictionary, cnst mu
 			var expression := groupdecl[colon + 1 .. ];
 			var a : int;
 			ctx, a := parse_expression_type(ctx, vd, expression);
-			var inv := get_type_invariants(ctx, a);
+			var inv := get_type_invariants(ctx, new_compare_context(ctx), a);
 			for i := 0 to colon do [
 				var name := groupdecl[i].t.identifier;
 				var l : int;

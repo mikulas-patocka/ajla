@@ -90,7 +90,7 @@ fn parse_argument(ctx : function_context, vd : variable_dictionary, v n : int, t
 		ctx.variables[v + i] := nv;
 		var t := ctx.this_value;
 	        ctx.this_value := v + i;
-		var inv := get_type_invariants(ctx, a);
+		var inv := get_type_invariants(ctx, new_compare_context(ctx), a);
 		for i := 0 to len(inv) do [
 			var l : int;
 			ctx, l := evaluate_type(ctx, inv[i].cc, inv[i].idx, empty(compare_fn_stack), empty(token));

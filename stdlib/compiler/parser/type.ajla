@@ -67,7 +67,7 @@ const gbd_const_blob := 71;
 fn typ_is_const(typ : int) : bool;
 fn get_base_definition(ctx : function_context, cc : compare_context, typ : int, want_record want_invariants : bool) : (compare_context, int, list(compare_argument));
 fn get_deep_type_of_var(ctx : function_context, v : int) : (compare_context, int);
-fn get_type_invariants(ctx : function_context, v : int) : list(compare_argument);
+fn get_type_invariants(ctx : function_context, cc : compare_context, typ : int) : list(compare_argument);
 
 fn verify_type_equality(ctx : function_context,
 			cc1 : compare_context, typ1 : int, fn_stack1 : list(compare_fn_stack),
@@ -81,6 +81,7 @@ fn list_type(ctx : function_context, cc : compare_context, a : int, err : bool, 
 fn evaluate_list_type(ctx : function_context, a : int, t : tokens) : (function_context, int);
 fn get_list_id : function_unique_id;
 
+fn verify_variable_type(ctx : function_context, v : int, cc : compare_context, typ : int, assign : bool) : function_context;
 fn verify_variable(ctx : function_context, v : int, assign : bool) : function_context;
 
 implementation
@@ -751,7 +752,7 @@ fn get_deep_type_of_var(ctx : function_context, v : int) : (compare_context, int
 	return cc, typ;
 ]
 
-fn get_type_invariants(ctx : function_context, typ : int) : list(compare_argument)
+fn get_type_invariants(ctx : function_context, cc : compare_context, typ : int) : list(compare_argument)
 [
 	var cc := new_compare_context(ctx);
 	var inv : list(compare_argument);
@@ -1735,6 +1736,23 @@ fn get_list_id : function_unique_id
 		program : false,
 		function_index : [ predefined_list ],
 	];
+]
+
+fn verify_variable_type(ctx : function_context, v : int, cc : compare_context, typ : int, assign : bool) : function_context
+[
+	var t := ctx.this_value;
+	ctx.this_value := v;
+	var inv := get_type_invariants(ctx, cc, typ);
+	for i := 0 to len(inv) do [
+		var l : int;
+		ctx, l := evaluate_type(ctx, inv[i].cc, inv[i].idx, empty(compare_fn_stack), empty(token));
+		if assign then
+			ctx := generate_Claim(ctx, l, false);
+		else
+			ctx := generate_Assume(ctx, l, false);
+	]
+	ctx.this_value := t;
+	return ctx;
 ]
 
 fn verify_variable(ctx : function_context, v : int, assign : bool) : function_context

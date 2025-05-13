@@ -115,7 +115,7 @@ fn parse_fn_pc(ctx : function_context, a : int, lt : int) : (function_context, l
 [
 	var t := ctx.this_value;
 	ctx.this_value := lt;
-	var inv := get_type_invariants(ctx, a);
+	var inv := get_type_invariants(ctx, new_compare_context(ctx), a);
 	var pc := empty(int);
 	for i := 0 to len(inv) do [
 		var l : int;
@@ -432,6 +432,10 @@ fn list_load(ctx : function_context, vd : variable_dictionary, t t2 : tokens, in
 
 	var l : int;
 	ctx, l := generate_Array_Load(ctx, aa, ai, t);
+
+	var xcc, xtyp := list_type(ctx, cc, a, true, t);
+	ctx := verify_variable_type(ctx, l, xcc, xtyp, false);
+
 	return ctx, [ l ];
 ]
 
