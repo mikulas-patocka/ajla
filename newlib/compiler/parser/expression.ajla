@@ -270,6 +270,7 @@ fn record_list_create(ctx : function_context, vd : variable_dictionary, t : toke
 				ctx, l1 := parse_expression(ctx, vd, decls[idx], in_type);
 				var m : teq;
 				ctx, l, m := convert_type(ctx, vd, l1, cc, rec_def.entries[idx].type_idx, 0, true, decls[idx]);
+				ctx := verify_variable_type(ctx, l, cc, rec_def.entries[idx].type_idx, true);
 			]
 			fields[idx] := l;
 			cc.llt_redirect +<= new_compare_argument(my_cc, l);
