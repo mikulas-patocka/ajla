@@ -128,7 +128,7 @@ fn parse_arguments(ctx : function_context, vd : variable_dictionary, t : tokens,
 			if not retval and decl[0].t is k_prereq or
 			   retval and decl[0].t is k_contract then [
 				var a : int;
-				ctx, a := parse_expression_bool(ctx, vd, decl[1 .. ]);
+				ctx, a := parse_expression_bool(ctx, vd, decl[1 .. ], false);
 				if not retval then
 					ctx.prereqs +<= a;
 				else
@@ -676,7 +676,7 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 			]
 			var wh_var : int;
 			ctx.parsing_where := true;
-			ctx, wh_var := parse_expression_bool(ctx, vd, wh_expr);
+			ctx, wh_var := parse_expression_bool(ctx, vd, wh_expr, false);
 			ctx.parsing_where := false;
 			ctx.where_expr := wh_var;
 		]

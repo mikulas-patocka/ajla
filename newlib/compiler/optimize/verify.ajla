@@ -713,6 +713,10 @@ found_new_v:
 		gen_assert(ctx, var_name, var1);
 		return ctx;
 	]
+	if ins.opcode = P_ForAll then [
+		gen_assert(ctx, var_name, "true");
+		return ctx;
+	]
 	{if ins.opcode = P_Phi then [
 		var str := "(assert (or";
 		for i := 1 to len(ins.params) do [

@@ -56,10 +56,11 @@
 #define P_Assume			48
 #define P_Claim				49
 #define P_Invariant			50
-#define P_Checkpoint			51
-#define P_Line_Info			52
-#define P_Phi				53
-#define P_Pcode_N			54
+#define P_ForAll			51
+#define P_Checkpoint			52
+#define P_Line_Info			53
+#define P_Phi				54
+#define P_Pcode_N			55
 
 #define T_Type				-1
 #define T_SInt8				-2

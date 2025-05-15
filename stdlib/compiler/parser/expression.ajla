@@ -27,7 +27,7 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 fn parse_n_expressions(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool, n : int) : (function_context, list(int));
 fn parse_expression(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool) : (function_context, int);
 fn parse_expression_type(ctx : function_context, vd : variable_dictionary, t : tokens) : (function_context, int);
-fn parse_expression_bool(ctx : function_context, vd : variable_dictionary, t : tokens) : (function_context, int);
+fn parse_expression_bool(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool) : (function_context, int);
 
 implementation
 
@@ -143,7 +143,7 @@ fn parse_fn_arguments(ctx : function_context, vd : variable_dictionary, t : toke
 			if not retval and decl[0].t is k_prereq or
 			   retval and decl[0].t is k_contract then [
 				var a : int;
-				ctx, a := parse_expression_bool(ctx, vd, decl[1 .. ]);
+				ctx, a := parse_expression_bool(ctx, vd, decl[1 .. ], in_type);
 				prereqs_contracts +<= a;
 				continue;
 			]
@@ -211,6 +211,45 @@ fn parse_function_type(ctx : function_context, vd : variable_dictionary, t : tok
 	ctx := generate_Fn(ctx, arguments, return_values, prereqs, contracts, l);
 
 	return ctx, [ l ];
+]
+
+{==========
+ = FORALL =
+ ==========}
+
+fn parse_forall(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool) : (function_context, list(int))
+[
+	xeval token_assert(t, token_opt.left_paren);
+	xeval token_assert(t[len(t) - 1 ..], token_opt.right_paren);
+	t := t[1 .. len(t) - 1];
+	var comma := token_find(t, token_opt.comma, true);
+	var decl := t[ .. comma];
+	t := t[comma + 1 .. ];
+	var colon := token_find(decl, token_opt.colon, true);
+	if colon <> 1 or not decl[0].t is identifier then
+		abort compiler_error("Bad forall expression", t);
+
+	var l : int;
+	ctx, l := alloc_local_variable(ctx, T_Bool, true, false);
+
+	var expression := decl[colon + 1 .. ];
+	var at : int;
+	ctx, at := parse_expression_type(ctx, vd, expression);
+
+	var name := decl[0].t.identifier;
+	var ll : int;
+	ctx, ll := alloc_local_variable(ctx, at, true, false);
+	ctx := generate_Load_Local_Type(ctx, l, 0, ll);
+	ctx, vd := add_variable(ctx, vd, name, ll, false, decl);
+
+	var condition : int;
+	ctx, condition := parse_expression_bool(ctx, vd, t, in_type);
+
+	ctx := set_defined_here(ctx, l);
+	ctx := generate_ForAll(ctx, l, at, condition);
+
+	return ctx, [ l ];
+
 ]
 
 fn record_list_create(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool) : (function_context, list(int))
@@ -583,6 +622,10 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 	 = ORD =
 	 =======}
 
+	if t[0].t is k_forall then [
+		return parse_forall(ctx, vd, t[1 .. ], in_type);
+	]
+
 	if t[0].t is k_ord then [
 		var ar l : int;
 		ctx, ar := parse_expression(ctx, vd, t[1 .. ], in_type);
@@ -946,10 +989,10 @@ fn parse_expression_type(ctx : function_context, vd : variable_dictionary, t : t
 	return ctx, a;
 ]
 
-fn parse_expression_bool(ctx : function_context, vd : variable_dictionary, t : tokens) : (function_context, int)
+fn parse_expression_bool(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool) : (function_context, int)
 [
 	var a : int;
-	ctx, a := parse_expression(ctx, vd, t, false);
+	ctx, a := parse_expression(ctx, vd, t, in_type);
 	var cc, typ := get_deep_type_of_var(ctx, a);
 	if typ <> T_Bool then
 		abort compiler_error("Boolean value expected", t);

@@ -3068,6 +3068,12 @@ next_one:
 				for (p = 0; p < instr_params; p++)
 					pcode_get();
 				break;
+			case P_ForAll:
+				res = u_pcode_get();
+				ajla_assert_lo(var_elided(res), (file_line, "P_ForAll(%s): forall result is not elided", function_name(ctx)));
+				a1 = pcode_get();
+				a2 = u_pcode_get();
+				break;
 			case P_Checkpoint:
 				if (unlikely(!gen_checkpoint(ctx, ctx->pcode, instr_params, true)))
 					goto exception;

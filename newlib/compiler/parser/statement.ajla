@@ -470,7 +470,7 @@ fn evaluate_condition(ctx : function_context, vd : variable_dictionary, t : toke
 		t1, t := split_tokens(t, token_opt.comma);
 
 		var a : int;
-		ctx, a := parse_expression_bool(ctx, vd, t1);
+		ctx, a := parse_expression_bool(ctx, vd, t1, false);
 		if ctx.is_pattern_matched then
 			ctx.pattern_matching_info[len(ctx.pattern_matching_info) - 1].conditions +<= a;
 

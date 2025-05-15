@@ -1568,7 +1568,7 @@ fn dce2(ctx : context) : context
 		if not ctx.blocks[bgi].active then
 			continue;
 		var ili := 0;
-		while len_greater_than(int, ctx.blocks[bgi].instrs, ili) do [
+		while len_greater_than(ctx.blocks[bgi].instrs, ili) do [
 			var igi := ctx.blocks[bgi].instrs[ili];
 			var ins := ctx.instrs[igi];
 			if ins.opcode = P_Args then
@@ -2468,6 +2468,13 @@ fn allocate_variables(ctx : context) : context
 		var v := ctx.variables[vgi];
 		if v.color = -1 then
 			continue;
+		if v.defining_instr >= 0 then [
+			var ins := ctx.instrs[v.defining_instr];
+			if ins.opcode = P_ForAll then [
+				ctx := exception_make_str(context, ec_async, error_compiler_error, 0, false, "Forall is not elided in in " + ctx.name);
+				return ctx;
+			]
+		]
 		var rt := v.runtime_type;
 		if rt < T_Undetermined then
 			abort internal("allocate_variables: invalid runtime_type: " + ctx.name + ", " + ntos(vgi) + "(" + v.name + "): " + ntos(rt));

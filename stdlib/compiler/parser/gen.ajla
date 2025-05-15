@@ -65,6 +65,10 @@ fn generate_IO_Exception_Make(ctx : function_context, class typ num v : int) : f
 fn generate_Assume(ctx : function_context, l : int, tag : bool) : function_context;
 fn generate_Claim(ctx : function_context, l : int, tag : bool) : function_context;
 fn generate_Invariant(ctx : function_context, l : int) : function_context;
+fn generate_ForAll(ctx : function_context, l at ac : int) : function_context;
+fn pcode_ForAll_get_result(ins : instruction) : int;
+fn pcode_ForAll_get_type(ins : instruction) : int;
+fn pcode_ForAll_get_condition(ins : instruction) : int;
 
 implementation
 
@@ -313,4 +317,27 @@ fn generate_Claim(ctx : function_context, l : int, tag : bool) : function_contex
 fn generate_Invariant(ctx : function_context, l : int) : function_context
 [
 	return generate_instruction(ctx, P_Invariant, list(pcode_t).[ l ]);
+]
+
+fn generate_ForAll(ctx : function_context, l at ac : int) : function_context
+[
+	return generate_instruction(ctx, P_ForAll, list(pcode_t).[ l, at, ac ]);
+]
+
+fn pcode_ForAll_get_result(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_ForAll, "pcode_ForAll_get_result: invalid instruction");
+	return ins.args[0];
+]
+
+fn pcode_ForAll_get_type(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_ForAll, "pcode_ForAll_get_type: invalid instruction");
+	return ins.args[1];
+]
+
+fn pcode_ForAll_get_condition(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_ForAll, "pcode_ForAll_get_condition: invalid instruction");
+	return ins.args[2];
 ]

@@ -58,10 +58,11 @@ const P_Return := 47;
 const P_Assume := 48;
 const P_Claim := 49;
 const P_Invariant := 50;
-const P_Checkpoint := 51;
-const P_Line_Info := 52;
-const P_Phi := 53;
-const P_Pcode_N := 54;
+const P_ForAll := 51;
+const P_Checkpoint := 52;
+const P_Line_Info := 53;
+const P_Phi := 54;
+const P_Pcode_N := 55;
 
 const T_Type := -1;
 const T_SInt8 := -2;
@@ -483,6 +484,7 @@ fn pcode_name(p : int) : bytes
 	if p = P_Assume then return "Assume";
 	if p = P_Claim then return "Claim";
 	if p = P_Invariant then return "Invariant";
+	if p = P_ForAll then return "ForAll";
 	if p = P_Checkpoint then return "Checkpoint";
 	if p = P_Line_Info then return "Line_Info";
 	if p = P_Phi then return "Phi";
@@ -544,10 +546,11 @@ fn name_to_value~cache : list(int)
 	a[#20F3E7D76E5] := 48;							// Assume
 	a[#43D9874ED] := 49;							// Claim
 	a[#49DDDB0F2D387774] := 50;						// Invariant
-	a[#21E8CB8F5F0DFA7774] := 51;						// Checkpoint
-	a[#4CD3BB2DF93BB36F] := 52;						// Line_Info
-	a[#143469] := 53;							// Phi
-	a[#1431EFC996FCE] := 54;						// Pcode_N
+	a[#236FE50766C] := 51;							// ForAll
+	a[#21E8CB8F5F0DFA7774] := 52;						// Checkpoint
+	a[#4CD3BB2DF93BB36F] := 53;						// Line_Info
+	a[#143469] := 54;							// Phi
+	a[#1431EFC996FCE] := 55;						// Pcode_N
 
 	a[#A9E7865] := -1;							// Type
 	a[#5393BBA38] := -2;							// SInt8

@@ -93,6 +93,7 @@ option token_opt [
 	k_invariant;
 	k_where;
 	k_value;
+	k_forall;
 	k_is;
 	k_ord;
 	k_define;
@@ -231,6 +232,7 @@ fn token_opt_to_string(t : token_opt, us : bool) : bytes
 	else if t is k_invariant then str := "invariant";
 	else if t is k_where then str := "where";
 	else if t is k_value then str := "value";
+	else if t is k_forall then str := "forall";
 	else if t is k_is then str := "is";
 	else if t is k_ord then str := "ord";
 	else if t is k_define then str := "define";
@@ -361,6 +363,7 @@ fn get_kwmap~cache : list(token_opt)
 	result[i_encode("invariant")] := token_opt.k_invariant;
 	result[i_encode("where")] := token_opt.k_where;
 	result[i_encode("value")] := token_opt.k_value;
+	result[i_encode("forall")] := token_opt.k_forall;
 	result[i_encode("is")] := token_opt.k_is;
 	result[i_encode("ord")] := token_opt.k_ord;
 	result[i_encode("define")] := token_opt.k_define;
