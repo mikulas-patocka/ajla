@@ -471,6 +471,7 @@ fn non_empty_option_create(ctx : function_context, vd : variable_dictionary, t :
 	ctx, ar := parse_expression(ctx, vd, arg_tokens, in_type);
 	var m : teq;
 	ctx, ar, m := convert_type(ctx, vd, ar, cc, rec_def.entries[idx].type_idx, 0, true, t);
+	ctx := verify_variable_type(ctx, ar, cc, rec_def.entries[idx].type_idx, true);
 	var l : int;
 	ctx, l := generate_Option_Create(ctx, at, idx, ar);
 	return ctx, [ l ];
