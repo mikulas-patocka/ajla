@@ -300,6 +300,7 @@ fn record_list_create(ctx : function_context, vd : variable_dictionary, t : toke
 		ctx, a := parse_expression(ctx, vd, decl, in_type);
 		var m : teq;
 		ctx, a, m := convert_type(ctx, vd, a, type_cc, type_var, 0, true, decl);
+		ctx := verify_variable_type(ctx, a, type_cc, type_var, true);
 		fields +<= a;
 	]
 	var l : int;
