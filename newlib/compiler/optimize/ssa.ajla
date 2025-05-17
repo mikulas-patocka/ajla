@@ -1014,10 +1014,6 @@ fn operator_swap~inline(op : pcode_t) : pcode_t
 
 fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 [
-	if ins.opcode = P_Load_Local_Type then [
-		var params := list(pcode_t).[ IO_Exception_Make, 1, 0, 4, ins.params[0], ec_sync, error_optimizer_error, 0, 1 ];
-		return create_instr(P_IO, params, ins.bb), true;
-	]
 	if ins.opcode = P_Curry then [
 		var vgi := ins.params[3];
 		var v := ctx.variables[vgi];

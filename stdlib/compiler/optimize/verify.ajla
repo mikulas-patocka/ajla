@@ -714,7 +714,11 @@ found_new_v:
 		return ctx;
 	]
 	if ins.opcode = P_ForAll then [
-		gen_assert(ctx, var_name, "true");
+		var var1 : bytes;
+		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb, false);
+		if len(var1) = 0 then
+			return ctx;
+		gen_assert(ctx, var_name, var1);
 		return ctx;
 	]
 	{if ins.opcode = P_Phi then [
@@ -731,6 +735,7 @@ found_new_v:
 		return ctx;
 	]}
 	//eval debug("unknown opcode: " + ntos(ins.opcode) + " (" + ctx.variables[v].verifier_name[0] + ")");
+	//for i := 0 to len(ins.params) do eval debug("	" + ntos(ins.params[i]));
 	return ctx;
 ]
 
