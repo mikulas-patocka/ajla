@@ -1853,7 +1853,7 @@ again:
 	if (r >= n_entries) {
 		mem_free(buf);
 		n_entries *= 2U;
-		if (unlikely(n_entries < 0)) {
+		if (unlikely(n_entries <= 0)) {
 			fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_SIZE_OVERFLOW), err, "getfsstat buffer overflow");
 			return false;
 		}
