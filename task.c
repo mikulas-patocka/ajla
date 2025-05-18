@@ -86,6 +86,15 @@ static tls_decl(struct task_percpu *, task_tls);
 
 static bool spawn_another_cpu(struct node_state *node, ajla_error_t *err);
 
+static inline unsigned get_any_node(struct task_percpu *tpc)
+{
+	unsigned n = ++tpc->last_node;
+	if (likely(!(nr_nodes & (nr_nodes - 1))))
+		return n & (nr_nodes - 1);
+	else
+		return n % nr_nodes;
+}
+
 static bool task_is_useless(struct execution_control *ex)
 {
 	struct thunk *thunk = ex->thunk;
@@ -167,20 +176,20 @@ void attr_fastcall task_submit(struct execution_control *ex, bool can_allocate_m
 	if (node->public_state == STATE_ALL_BUSY && tpc) {
 		unsigned n;
 		for (n = 0; n < nr_nodes; n++) {
-			unsigned n = ++tpc->last_node % nr_nodes;
-			if (nodes[n]->public_state != STATE_ALL_BUSY) {
+			unsigned nn = get_any_node(tpc);
+			if (nodes[nn]->public_state != STATE_ALL_BUSY) {
 				node = nodes[n];
 				goto found;
 			}
 		}
 		/*for (n = 0; n < nr_nodes; n++) {
-			unsigned n = ++tpc->last_node % nr_nodes;
-			if (nodes[n]->public_state == STATE_SOME_BUSY) {
+			unsigned nn = get_any_node(tpc);
+			if (nodes[nn]->public_state == STATE_SOME_BUSY) {
 				node = nodes[n];
 				goto found;
 			}
 		}*/
-		node = nodes[++tpc->last_node % nr_nodes];
+		node = nodes[get_any_node(tpc)];
 	}
 
 found:
@@ -205,7 +214,7 @@ static struct execution_control *task_list_steal(void)
 	unsigned n;
 	struct task_percpu *tpc = tls_get(struct task_percpu *, task_tls);
 	for (n = 0; n < nr_nodes; n++) {
-		struct node_state *node = nodes[++tpc->last_node % nr_nodes];
+		struct node_state *node = nodes[get_any_node(tpc)];
 		if (node->public_state == STATE_ALL_BUSY) {
 			struct execution_control *ex;
 			if (!node->task_list_nonempty)
