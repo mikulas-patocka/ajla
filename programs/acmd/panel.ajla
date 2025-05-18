@@ -570,13 +570,21 @@ fn panel_redraw(implicit app : appstate, implicit curs : curses, com : widget_co
 
 	curses_restrict_viewport(1, com.size_x - 1, com.size_y - 2, com.size_y - 1, 1, com.size_y - 2);
 	if st.marked <> 0 then [
-		var marked_string := ascii_to_string(ntos(popcnt st.marked)) + ` files`;
+		var n_marked : int := popcnt st.marked;
+		var marked_string := ascii_to_string(ntos(n_marked)) + ` files`;
 		var size := 0;
-		var marked := st.marked;
-		while marked <> 0 do [
-			var idx : int := bsr marked;
-			marked btr= idx;
-			size += st.files[idx].size;
+		if n_marked >= len(st.files) shr 2 then [
+			for idx := 0 to len(st.files) do [
+				if st.marked bt idx then
+					size += st.files[idx].size;
+			]
+		] else [
+			var marked := st.marked;
+			while marked <> 0 do [
+				var idx : int := bsr marked;
+				marked btr= idx;
+				size += st.files[idx].size;
+			]
 		]
 		marked_string += `, ` + ntos_3(size) + ` bytes`;
 		property_set_attrib(property_get_attrib("acmd-panel-bottom-marked", #ffff, #ffff, #0000, #0000, #0000, #aaaa, 0, 0));
