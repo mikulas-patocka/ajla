@@ -286,10 +286,6 @@ static bool io_allow_sandbox(uchar_efficient_t io_code)
 		case IO_Exception_String:	return true;
 		case IO_Exception_Payload:	return true;
 		case IO_Exception_Stack:	return true;
-		case IO_N_Std_Handles:		return true;
-		case IO_Get_Std_Handle:		return true;
-		case IO_Get_Args:		return true;
-		case IO_Get_Environment:	return true;
 		case IO_Stream_Read_Partial:	return true;
 		case IO_Stream_Write:		return true;
 		case IO_Pipe:			return true;
