@@ -3704,6 +3704,28 @@ void os_numa_unbind(void)
 	}
 }
 
+void *os_numa_alloc(unsigned node, size_t size)
+{
+	unsigned n;
+	void *ptr;
+	if (n_valid_nodes == 1)
+		return mem_alloc(void *, size);
+	n = os_numa_find_node(node);
+	ptr = numa_alloc_onnode(size, n);
+	if (!ptr) {
+		int er = errno;
+		fatal("os_numa_alloc failed: %d, %s", er, error_decode(error_from_errno(EC_SYSCALL, er)));
+	}
+	return ptr;
+}
+
+void os_numa_free(void *ptr, size_t size)
+{
+	if (n_valid_nodes == 1)
+		return mem_free(ptr);
+	numa_free(ptr, size);
+}
+
 #endif
 
 void os_init(void)

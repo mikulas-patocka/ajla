@@ -538,7 +538,8 @@ void name(task_init)(void)
 #endif
 	nodes = mem_alloc_array_mayfail(mem_alloc_mayfail, struct node_state **, 0, 0, nr_nodes, sizeof(struct node_state *), NULL);
 	for (n = 0; n < nr_nodes; n++) {
-		struct node_state *node = nodes[n] = mem_calloc(struct node_state *, sizeof(struct node_state));
+		struct node_state *node = nodes[n] = os_numa_alloc(n * nr_real_nodes / nr_nodes, sizeof(struct node_state));
+		memset(node, 0, sizeof(struct node_state));
 		node->public_state = STATE_ALL_BUSY;
 		cond_init(&node->task_mutex);
 		list_init(&node->task_list);
@@ -559,18 +560,17 @@ void name(task_init)(void)
 	}
 
 	thread_pointers = mem_alloc_array_mayfail(mem_alloc_mayfail, struct thread_pointers *, 0, 0, nr_cpus, sizeof(struct thread_pointers), NULL);
+	n = 0;
 	for (c = 0; c < nr_cpus; c++) {
+		struct node_state *node = nodes[n];
 		struct task_percpu *tpc;
-		tpc = thread_pointers[c].tpc = mem_calloc(struct task_percpu *, sizeof(struct task_percpu));
+		tpc = thread_pointers[c].tpc = os_numa_alloc(n * nr_real_nodes / nr_nodes, sizeof(struct task_percpu));
 		list_init(&tpc->waiting_list);
 		mutex_init(&tpc->waiting_list_mutex);
-	}
-	for (n = 0; n < nr_nodes; n++) {
-		struct node_state *node = nodes[n];
-		for (c = node->starting_cpu; c < node->starting_cpu + node->nr_node_cpus; c++) {
-			struct task_percpu *tpc = thread_pointers[c].tpc;
-			tpc->node = nodes[n];
-		}
+		tpc->node = node;
+		tpc->last_node = 0;
+		if (c + 1 == node->starting_cpu + node->nr_node_cpus)
+			n++;
 	}
 	tls_init(struct task_percpu *, task_tls);
 }
@@ -585,13 +585,13 @@ void name(task_done)(void)
 	for (c = 0; c < nr_cpus; c++) {
 		struct task_percpu *tpc = thread_pointers[c].tpc;
 		mutex_done(&tpc->waiting_list_mutex);
-		mem_free(tpc);
+		os_numa_free(tpc, sizeof(struct task_percpu));
 	}
 	mem_free(thread_pointers);
 	for (n = 0; n < nr_nodes; n++) {
 		struct node_state *node = nodes[n];
 		cond_done(&node->task_mutex);
-		mem_free(node);
+		os_numa_free(node, sizeof(struct node_state));
 	}
 	mem_free(nodes);
 
