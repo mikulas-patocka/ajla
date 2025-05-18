@@ -501,6 +501,7 @@ fn list_map_fold(t v : type, ini : v, lst : list(t), mp : fn(t) : v, re : fn(v, 
 fn list_map_fold_monoid(t v : type, c : class_monoid(v), lst : list(t), mp : fn(t) : v) : v;
 fn list_reverse(t : type, l : list(t)) : list(t);
 fn list_sort(t : type, implicit c : class_ord(t), l : list(t)) : list(t);
+fn list_sort_unique(t : type, implicit c : class_ord(t), l : list(t)) : list(t);
 fn list_flatten~inline(t : type, a : list(t)) : list(t);
 
 const nl : bytes;
@@ -3298,6 +3299,19 @@ do_loop:
 	]
 
 	return l;
+]
+
+fn list_sort_unique(t : type, implicit c : class_ord(t), l : list(t)) : list(t)
+[
+	l := list_sort(l);
+	var result := empty(t);
+	for i := 0 to len(l) do [
+		if len(result) = 0 then
+			result +<= l[i];
+		else if l[i] <> result[len(result) - 1] then
+			result +<= l[i];
+	]
+	return result;
 ]
 
 fn list_flatten~inline(t : type, a : list(t)) : list(t)

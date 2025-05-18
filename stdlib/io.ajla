@@ -992,15 +992,18 @@ have_d:
 		if st[0] > 2 then
 			result +<= q;
 	]
-	result := list_sort(result);
-	return w, result;
+	goto sort_output;
 
 call_io_drives:
 	var w2 : world;
 	var drvs : bytes;
 	pcode IO IO_Drives 2 1 0 =w2 =drvs w;
 	w := w2;
-	return w, list_break(drvs, 0);
+	result := list_break(drvs, 0);
+
+sort_output:
+	result := list_sort_unique(result);
+	return w, result;
 ]
 
 
