@@ -784,8 +784,10 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 		ctx->code_position = arg3 + arg_size(*arg3);
 		if (unlikely(arg_size(*arg1) != arg_size(*arg2)))
 			internal(file_line, "cgen_alu: three-operand mode not supported");
-		if (!cpu_test_feature(CPU_FEATURE_apx) && unlikely(memcmp(arg1, arg2, arg_size(*arg1))))
-			internal(file_line, "cgen_alu: three-operand mode not supported");
+		if (!(alu == ALU_MUL && arg3[0] == ARG_IMM)) {
+			if (!cpu_test_feature(CPU_FEATURE_apx) && unlikely(memcmp(arg1, arg2, arg_size(*arg1))))
+				internal(file_line, "cgen_alu: three-operand mode not supported");
+		}
 	} else {
 		arg1 = ctx->code_position;
 		arg2 = arg1;
