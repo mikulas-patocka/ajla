@@ -73,6 +73,7 @@
 
 extern bool ipret_strict_calls;
 extern bool ipret_is_privileged;
+extern bool ipret_sandbox;
 extern bool ipret_compile;
 extern bool ipret_noinline;
 extern uint32_t ipret_verify_timeout;

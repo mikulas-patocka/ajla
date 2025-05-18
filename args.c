@@ -118,6 +118,11 @@ static void ipret_set_privileged(const char attr_unused *str)
 	ipret_is_privileged = true;
 }
 
+static void ipret_set_sandbox(const char attr_unused *str)
+{
+	ipret_sandbox = true;
+}
+
 static void ipret_set_compile(const char attr_unused *str)
 {
 	ipret_compile = true;
@@ -158,6 +163,7 @@ static const struct arg args[] = {
 	{ "--profile",			ARG_SWITCH,	profile_all,			NULL,			0, 0 },
 	{ "--profile=",			ARG_STRING,	profile_select,			NULL,			0, 0 },
 	{ "--ptrcomp",			ARG_SWITCH,	mem_al_set_ptrcomp,		NULL,			0, 0 },
+	{ "--sandbox",			ARG_SWITCH,	ipret_set_sandbox,		NULL,			0, 0 },
 	{ "--strict-calls",		ARG_SWITCH,	ipret_set_strict_calls,		NULL,			0, 0 },
 	{ "--system-malloc",		ARG_SWITCH,	mem_al_set_system_malloc,	NULL,			0, 0 },
 	{ "--thread-tick",		ARG_SWITCH,	NULL,				&thread_tick,		0, 0 },

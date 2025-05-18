@@ -234,6 +234,7 @@ SystemProperty_Charset_Console
 SystemProperty_Fixed
 SystemProperty_Real
 SystemProperty_Privileged
+SystemProperty_Sandbox
 SystemProperty_Compile
 SystemProperty_NoInline
 SystemProperty_Verify_Timeout
@@ -482,6 +483,7 @@ AJLA_ERROR_INFINITY
 AJLA_ERROR_SYSTEM_RETURNED_INVALID_DATA
 AJLA_ERROR_COMPILER_ERROR
 AJLA_ERROR_OPTIMIZER_ERROR
+AJLA_ERROR_SANDBOX_VIOLATION
 AJLA_ERROR_SYSTEM
 AJLA_ERROR_ERRNO
 AJLA_ERROR_OS2

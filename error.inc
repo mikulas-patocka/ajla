@@ -37,6 +37,7 @@ static const char * const error_codes[] = {
 	"System returned invalid data",
 	"Compiler error",
 	"Optimizer error",
+	"Sandbox violation",
 	"System error",
 	"Syscall error",
 	"OS/2 error",

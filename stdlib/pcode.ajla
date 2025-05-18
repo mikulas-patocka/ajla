@@ -213,9 +213,10 @@ const SystemProperty_Charset_Console := 3;
 const SystemProperty_Fixed := 4;
 const SystemProperty_Real := 5;
 const SystemProperty_Privileged := 6;
-const SystemProperty_Compile := 7;
-const SystemProperty_NoInline := 8;
-const SystemProperty_Verify_Timeout := 9;
+const SystemProperty_Sandbox := 7;
+const SystemProperty_Compile := 8;
+const SystemProperty_NoInline := 9;
+const SystemProperty_Verify_Timeout := 10;
 
 const SystemProperty_OS_Posix := 1;
 const SystemProperty_OS_DOS := 2;
@@ -422,7 +423,7 @@ const IO_Stty_Flag_NoCRLF := 8;
 const EC_N := 6;
 
 const AJLA_ERROR_BASE := 1;
-const AJLA_ERROR_N := 35;
+const AJLA_ERROR_N := 36;
 
 const SYSTEM_ERROR_BASE := 1;
 const SYSTEM_ERROR_N := 132;
@@ -701,9 +702,10 @@ fn name_to_value~cache : list(int)
 	a[#A7E79F4CBB6872DFC32F2E9E6FC6D3E32E4] := 4;				// SystemProperty_Fixed
 	a[#14FCF3E9976D0E5BF865E5D3CDFA5970EC] := 5;				// SystemProperty_Real
 	a[#53F3CFA65DB4396FE197974F37E872D3DB4ECCB9F2E4] := 6;			// SystemProperty_Privileged
-	a[#29F9E7D32EDA1CB7F0CBCBA79BF0F7EDE1A7665] := 7;			// SystemProperty_Compile
-	a[#14FCF3E9976D0E5BF865E5D3CDF9DBE4EED9A7765] := 8;			// SystemProperty_NoInline
-	a[#53F3CFA65DB4396FE197974F37EB65E5A7379BF534EDCBBFAF4] := 9;		// SystemProperty_Verify_Timeout
+	a[#29F9E7D32EDA1CB7F0CBCBA79BF4F0EEC98B7F8] := 7;			// SystemProperty_Sandbox
+	a[#29F9E7D32EDA1CB7F0CBCBA79BF0F7EDE1A7665] := 8;			// SystemProperty_Compile
+	a[#14FCF3E9976D0E5BF865E5D3CDF9DBE4EED9A7765] := 9;			// SystemProperty_NoInline
+	a[#53F3CFA65DB4396FE197974F37EB65E5A7379BF534EDCBBFAF4] := 10;		// SystemProperty_Verify_Timeout
 
 	a[#14FCF3E9976D0E5BF865E5D3CDF9F4EFD0DFCF4F8] := 1;			// SystemProperty_OS_Posix
 	a[#53F3CFA65DB4396FE197974F37E7D3BF127D3] := 2;				// SystemProperty_OS_DOS
@@ -936,21 +938,22 @@ fn name_to_value~cache : list(int)
 	a[#32F2E5BF95FE7E79F4CBB6FF2CBD3AF2DD9725FD3BBB61D9A725FC987A61] := 18;	// error_system_returned_invalid_data
 	a[#CBCB96FE57F1EFDBC34ECCBCAFE5E5CB7F2] := 19;				// error_compiler_error
 	a[#65E5CB7F2BFBF874D3B74FACBCAFE5E5CB7F2] := 20;			// error_optimizer_error
-	a[#CBCB96FE57F9F9E7D32ED] := 21;					// error_system
-	a[#197972DFCAFE5E5CB76F] := 22;						// error_errno
-	a[#65E5CB7F2BFBF9B2] := 23;						// error_os2
-	a[#CBCB96FE57F7F3657F9EFC7AF2F4] := 24;					// error_os2_socket
-	a[#197972DFCAFF7D3B99B2] := 25;						// error_win32
-	a[#65E5CB7F2BFA2FE5E5CB76F] := 26;					// error_h_errno
-	a[#65E5CB7F2BF9F0E9] := 27;						// error_gai
-	a[#CBCB96FE57F9F5C5C396FC7979F3] := 28;					// error_subprocess
-	a[#197972DFCAFECD38B961E5E6FEEDFD2FE6DFD7764] := 29;			// error_library_not_found
-	a[#32F2E5BF95FE7E76E2DFB2FEEDFD2FE6DFD7764] := 30;			// error_symbol_not_found
-	a[#32F2E5BF95FCBE34F4] := 31;						// error_exit
-	a[#32F2E5BF95FEBCF2F2] := 32;						// error_user
-	a[#197972DFCAFF5E797932] := 33;						// error_user2
-	a[#197972DFCAFF5E797933] := 34;						// error_user3
-	a[#832A641BF169529F4AFCE] := 35;					// AJLA_ERROR_N
+	a[#197972DFCAFF3C3BB262DFE2FF6D3BF661E9A77EE] := 21;			// error_sandbox_violation
+	a[#CBCB96FE57F9F9E7D32ED] := 22;					// error_system
+	a[#197972DFCAFE5E5CB76F] := 23;						// error_errno
+	a[#65E5CB7F2BFBF9B2] := 24;						// error_os2
+	a[#CBCB96FE57F7F3657F9EFC7AF2F4] := 25;					// error_os2_socket
+	a[#197972DFCAFF7D3B99B2] := 26;						// error_win32
+	a[#65E5CB7F2BFA2FE5E5CB76F] := 27;					// error_h_errno
+	a[#65E5CB7F2BF9F0E9] := 28;						// error_gai
+	a[#CBCB96FE57F9F5C5C396FC7979F3] := 29;					// error_subprocess
+	a[#197972DFCAFECD38B961E5E6FEEDFD2FE6DFD7764] := 30;			// error_library_not_found
+	a[#32F2E5BF95FE7E76E2DFB2FEEDFD2FE6DFD7764] := 31;			// error_symbol_not_found
+	a[#32F2E5BF95FCBE34F4] := 32;						// error_exit
+	a[#32F2E5BF95FEBCF2F2] := 33;						// error_user
+	a[#197972DFCAFF5E797932] := 34;						// error_user2
+	a[#197972DFCAFF5E797933] := 35;						// error_user3
+	a[#832A641BF169529F4AFCE] := 36;					// AJLA_ERROR_N
 
 	a[#53B34EA459B7E2D2A53E95F85069C5] := 1;				// SYSTEM_ERROR_BASE
 	a[#39F9E7D32EDBF97972DFCAFE5E19796D] := 1;				// system_error_eperm

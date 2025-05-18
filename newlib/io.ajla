@@ -28,6 +28,7 @@ type world;
 
 private fn unsafe_get_world : world;
 fn recover_world(w old_w : world) : world;
+fn sandbox_world(w : world) : world;
 fn atomic_enter~inline(w : world) : world;
 fn atomic_exit~inline(w : world) : world;
 fn wait_for_dereferenced(w : world) : world;
@@ -252,6 +253,7 @@ uses exception;
 
 option world [
 	world;
+	sandbox;
 ]
 
 fn unsafe_get_world : world
@@ -264,6 +266,12 @@ fn recover_world(w old_w : world) : world
 	if is_exception w then
 		return old_w;
 	return w;
+]
+
+fn sandbox_world(w : world) : world
+[
+	xeval w;
+	return world.sandbox;
 ]
 
 fn atomic_enter~inline(w : world) : world

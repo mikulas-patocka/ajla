@@ -277,6 +277,54 @@ static void io_terminate_with_error(struct io_ctx *ctx, ajla_error_t err, bool s
 	io_terminate_with_thunk(ctx, t);
 }
 
+static void io_get_option(struct io_ctx *ctx, frame_t slot, ajla_option_t *result, struct data **pointer);
+
+static bool io_allow_sandbox(uchar_efficient_t io_code)
+{
+	switch (io_code) {
+		case IO_Exception_Make:		return true;
+		case IO_Exception_String:	return true;
+		case IO_Exception_Payload:	return true;
+		case IO_Exception_Stack:	return true;
+		case IO_N_Std_Handles:		return true;
+		case IO_Get_Std_Handle:		return true;
+		case IO_Get_Args:		return true;
+		case IO_Get_Environment:	return true;
+		case IO_Stream_Read_Partial:	return true;
+		case IO_Stream_Write:		return true;
+		case IO_Pipe:			return true;
+		case IO_LSeek:			return true;
+		case IO_FTruncate:		return true;
+		case IO_FAllocate:		return true;
+		case IO_CloneRange:		return true;
+		case IO_FSync:			return true;
+		case IO_Sync:			return true;
+		case IO_FStat:			return true;
+		case IO_FStatFS:		return true;
+		case IO_UName:			return true;
+		case IO_GetHostName:		return true;
+		case IO_GetTime:		return true;
+		case IO_TimeToCalendar:		return true;
+		case IO_CalendarToTime:		return true;
+		case IO_Sleep:			return true;
+		case IO_Any:			return true;
+		case IO_Never:			return true;
+		case IO_Fork:			return true;
+		case IO_Atomic_Enter:		return true;
+		case IO_Atomic_Exit:		return true;
+		case IO_Wait_For_Dereferenced:	return true;
+		case IO_Int_To_Native:		return true;
+		case IO_Native_To_Int:		return true;
+		case IO_MsgQueue_New:		return true;
+		case IO_MsgQueue_Send:		return true;
+		case IO_MsgQueue_Receive:	return true;
+		case IO_MsgQueue_Wait:		return true;
+		case IO_MsgQueue_Is_Nonempty:	return true;
+		case IO_Consume_Parameters:	return true;
+	}
+	return false;
+}
+
 static void *io_deep_eval(struct io_ctx *ctx, const char *input_positions, bool copy_world)
 {
 	for (; *input_positions; input_positions++) {
@@ -293,7 +341,15 @@ static void *io_deep_eval(struct io_ctx *ctx, const char *input_positions, bool 
 	}
 
 	if (copy_world) {
+		ajla_option_t world_sandbox;
 		ajla_assert_lo(get_input(ctx, 0) != get_output(ctx, 0), (file_line, "io_deep_eval: input and output slot is the same"));
+		io_get_option(ctx, get_input(ctx, 0), &world_sandbox, NULL);
+		if (unlikely(world_sandbox)) {
+			if (unlikely(!io_allow_sandbox(ctx->code))) {
+				io_terminate_with_error(ctx, error_ajla(EC_SYNC, AJLA_ERROR_SANDBOX_VIOLATION), true, NULL);\
+				return POINTER_FOLLOW_THUNK_EXCEPTION;
+			}
+		}
 		frame_free(ctx->fp, get_output(ctx, 0));
 		ipret_copy_variable(ctx->fp, get_input(ctx, 0), ctx->fp, get_output(ctx, 0), false);
 	}
