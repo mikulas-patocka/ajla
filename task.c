@@ -36,12 +36,31 @@
 #endif
 
 shared_var unsigned nr_cpus;
-shared_var unsigned nr_active_cpus;
 shared_var uint32_t nr_cpus_override shared_init(0);
+
+#define STATE_ALL_BUSY	0
+#define STATE_SOME_BUSY	1
+#define STATE_ALL_IDLE	2
+
+struct node_state {
+	thread_volatile unsigned char public_state_[128];
+#define public_state	public_state_[0]
+	cond_t task_mutex;
+	struct list task_list;
+	thread_volatile sig_atomic_t task_list_nonempty;
+	unsigned num;
+	unsigned nr_deep_sleep;
+	unsigned nr_active_cpus;
+	unsigned starting_cpu;
+	unsigned nr_node_cpus;
+	tick_stamp_t task_list_stamp;
+};
 
 struct task_percpu {
 	mutex_t waiting_list_mutex;
 	struct list waiting_list;
+	struct node_state *node;
+	unsigned last_node;
 };
 
 struct thread_pointers {
@@ -51,19 +70,19 @@ struct thread_pointers {
 	struct task_percpu *tpc;
 };
 
+shared_var struct node_state **nodes;
+shared_var unsigned nr_nodes;
+shared_var unsigned nr_idle_nodes;
 shared_var struct thread_pointers *thread_pointers;
 
 shared_var refcount_t n_ex_controls;
 shared_var refcount_t n_programs;
-shared_var cond_t task_mutex;
-shared_var unsigned n_deep_sleep;
-shared_var struct list task_list;
-shared_var tick_stamp_t task_list_stamp;
-shared_var thread_volatile sig_atomic_t task_list_nonempty;
+
+shared_var mutex_t mutex_idle_nodes;
 
 static tls_decl(struct task_percpu *, task_tls);
 
-static void spawn_another_cpu(void);
+static bool spawn_another_cpu(struct node_state *node, ajla_error_t *err);
 
 static bool task_is_useless(struct execution_control *ex)
 {
@@ -116,59 +135,110 @@ void task_list_print(void)
 }
 #endif
 
-static void task_list_add(struct execution_control *ex, bool nonempty, bool can_allocate_memory)
+static void task_list_add(struct node_state *node, struct execution_control *ex, bool nonempty, bool can_allocate_memory)
 {
 	if (!nonempty) {
-		task_list_stamp = tick_stamp;
+		node->task_list_stamp = tick_stamp;
 	} else {
-		if (tick_stamp - task_list_stamp >= 2 && likely(can_allocate_memory)) {
-			spawn_another_cpu();
-			task_list_stamp = tick_stamp;
+		if (tick_stamp - node->task_list_stamp >= 2 && likely(can_allocate_memory)) {
+			ajla_error_t err;
+			spawn_another_cpu(node, &err);
+			node->task_list_stamp = tick_stamp;
 		}
 	}
-	list_add(&task_list, &ex->wait[0].wait_entry);
-	task_list_nonempty = 1;
+	list_add(&node->task_list, &ex->wait[0].wait_entry);
+	node->task_list_nonempty = 1;
 }
 
 void attr_fastcall task_submit(struct execution_control *ex, bool can_allocate_memory)
 {
+	struct task_percpu *tpc;
+	struct node_state *node;
+	if (can_allocate_memory && (tpc = tls_get(struct task_percpu *, task_tls))) {
+		node = tpc->node;
+	} else {
+		node = nodes[ex->numa_node];
+	}
+
 	ajla_assert(ex == frame_execution_control(ex->current_frame), (file_line, "task_submit: submitting task with improper execution control: %p != %p", ex, frame_execution_control(ex->current_frame)));
 
-	cond_lock(&task_mutex);
-	task_list_add(ex, task_list_nonempty, can_allocate_memory);
-	cond_unlock_signal(&task_mutex);
+	if (node->public_state == STATE_ALL_BUSY && tpc) {
+		unsigned n;
+		for (n = 0; n < nr_nodes; n++) {
+			unsigned n = ++tpc->last_node % nr_nodes;
+			if (nodes[n]->public_state != STATE_ALL_BUSY) {
+				node = nodes[n];
+				goto found;
+			}
+		}
+		/*for (n = 0; n < nr_nodes; n++) {
+			unsigned n = ++tpc->last_node % nr_nodes;
+			if (nodes[n]->public_state == STATE_SOME_BUSY) {
+				node = nodes[n];
+				goto found;
+			}
+		}*/
+		node = nodes[++tpc->last_node % nr_nodes];
+	}
+
+found:
+	cond_lock(&node->task_mutex);
+	task_list_add(node, ex, node->task_list_nonempty, can_allocate_memory);
+	cond_unlock_signal(&node->task_mutex);
 }
 
-static struct execution_control *task_list_pop(void)
+static struct execution_control *task_list_pop(struct node_state *node)
 {
 	struct execution_control *ex;
-	if (!task_list_nonempty)
+	if (!node->task_list_nonempty)
 		return NULL;
-	ex = get_struct(task_list.prev, struct execution_control, wait[0].wait_entry);
+	ex = get_struct(node->task_list.prev, struct execution_control, wait[0].wait_entry);
 	list_del(&ex->wait[0].wait_entry);
-	task_list_nonempty = !list_is_empty(&task_list);
+	node->task_list_nonempty = !list_is_empty(&node->task_list);
 	return ex;
+}
+
+static struct execution_control *task_list_steal(void)
+{
+	unsigned n;
+	struct task_percpu *tpc = tls_get(struct task_percpu *, task_tls);
+	for (n = 0; n < nr_nodes; n++) {
+		struct node_state *node = nodes[++tpc->last_node % nr_nodes];
+		if (node->public_state == STATE_ALL_BUSY) {
+			struct execution_control *ex;
+			if (!node->task_list_nonempty)
+				continue;
+			cond_lock(&node->task_mutex);
+			ex = task_list_pop(node);
+			cond_unlock(&node->task_mutex);
+			if (ex)
+				return ex;
+		}
+	}
+	return NULL;
 }
 
 void * attr_fastcall task_schedule(struct execution_control *old_ex)
 {
+	struct task_percpu *tpc = tls_get(struct task_percpu *, task_tls);
+	struct node_state *node = tpc->node;
 	struct execution_control *new_ex;
 
 	if (unlikely(task_useless(old_ex)))
 		return POINTER_FOLLOW_THUNK_EXIT;
 
 #ifndef THREAD_SANITIZER
-	if (!task_list_nonempty)
+	if (!node->task_list_nonempty)
 		goto no_sched;
 #endif
 
-	cond_lock(&task_mutex);
-	new_ex = task_list_pop();
+	cond_lock(&node->task_mutex);
+	new_ex = task_list_pop(node);
 	if (unlikely(!new_ex))
 		goto unlock_no_sched;
 	ajla_assert(new_ex != old_ex, (file_line, "task_schedule: submitting already submitted task"));
-	task_list_add(old_ex, true, true);
-	cond_unlock(&task_mutex);
+	task_list_add(node, old_ex, true, true);
+	cond_unlock(&node->task_mutex);
 
 	if (unlikely(task_useless(new_ex)))
 		return POINTER_FOLLOW_THUNK_EXIT;
@@ -176,7 +246,7 @@ void * attr_fastcall task_schedule(struct execution_control *old_ex)
 	return new_ex;
 
 unlock_no_sched:
-	cond_unlock(&task_mutex);
+	cond_unlock(&node->task_mutex);
 #ifndef THREAD_SANITIZER
 no_sched:
 #endif
@@ -246,60 +316,91 @@ again:
 
 static void task_worker_core(void)
 {
+	struct task_percpu *tpc = tls_get(struct task_percpu *, task_tls);
+	struct node_state *node = tpc->node;
 	if (unlikely(profiling))
 		profile_unblock();
-	cond_lock(&task_mutex);
+	cond_lock(&node->task_mutex);
 	while (likely(!refcount_is_one(&n_ex_controls))) {
 		struct execution_control *ex;
-		if (!(ex = task_list_pop())) {
+		if (!(ex = task_list_pop(node))) {
 			bool more;
-			cond_unlock(&task_mutex);
+			cond_unlock(&node->task_mutex);
+			ex = task_list_steal();
+			if (ex)
+				goto run_task;
 			more = waiting_list_break();
-			cond_lock(&task_mutex);
-			if (!(ex = task_list_pop())) {
+			cond_lock(&node->task_mutex);
+			if (!(ex = task_list_pop(node))) {
 				if (likely(refcount_is_one(&n_ex_controls))) {
 					break;
 				}
 #ifndef THREAD_NONE
 				if (!more) {
-					if (++n_deep_sleep == nr_active_cpus) {
-						tick_suspend();
+					bool full_idle = ++node->nr_deep_sleep == node->nr_active_cpus;
+					unsigned char new_public_state = full_idle ? STATE_ALL_IDLE : STATE_SOME_BUSY;
+					if (node->public_state != new_public_state)
+						node->public_state = new_public_state;
+					if (full_idle) {
+						if (nr_nodes > 1)
+							mutex_lock(&mutex_idle_nodes);
+						if (++nr_idle_nodes == nr_nodes)
+							tick_suspend();
+						if (nr_nodes > 1)
+							mutex_unlock(&mutex_idle_nodes);
 					}
-					cond_wait(&task_mutex);
-					if (n_deep_sleep-- == nr_active_cpus) {
-						tick_resume();
+					cond_wait(&node->task_mutex);
+					if (node->nr_deep_sleep-- == node->nr_active_cpus) {
+						if (nr_nodes > 1)
+							mutex_lock(&mutex_idle_nodes);
+						if (nr_idle_nodes-- == nr_nodes)
+							tick_resume();
+						if (nr_nodes > 1)
+							mutex_unlock(&mutex_idle_nodes);
+						node->public_state = STATE_SOME_BUSY;
 					}
+					if (!node->nr_deep_sleep)
+						node->public_state = STATE_ALL_BUSY;
 				} else {
-					cond_wait_us(&task_mutex, tick_us);
+					cond_wait_us(&node->task_mutex, tick_us);
 				}
 #else
-				cond_unlock(&task_mutex);
+				cond_unlock(&node->task_mutex);
 				if (!more)
 					tick_suspend();
 				iomux_check_all(more ? tick_us : IOMUX_INDEFINITE_WAIT);
 				if (!more)
 					tick_resume();
-				cond_lock(&task_mutex);
+				cond_lock(&node->task_mutex);
 #endif
 				if (unlikely(profiling))
 					profile_unblock();
 				continue;
 			}
 		}
-		cond_unlock(&task_mutex);
+		cond_unlock(&node->task_mutex);
+run_task:
 		if (likely(!task_useless(ex)))
 			run(ex->current_frame, ex->current_ip);
-		cond_lock(&task_mutex);
+		cond_lock(&node->task_mutex);
 	}
-	cond_unlock(&task_mutex);
+	cond_unlock(&node->task_mutex);
+	/*{
+		struct bitmask *bmp = numa_get_run_node_mask();
+		debug("mask: %lx", bmp->maskp[0]);
+	}*/
 }
 
 static void set_per_thread_data(struct thread_pointers *tp)
 {
 	struct task_percpu *tpc;
+	struct node_state *node;
 	thread_set_id((int)(tp - thread_pointers));
 	tpc = tp->tpc;
 	tls_set(struct task_percpu *, task_tls, tpc);
+	node = tpc->node;
+	node->task_list_stamp = tick_stamp;
+	os_numa_bind(node->num);
 }
 
 #ifndef THREAD_NONE
@@ -309,47 +410,68 @@ thread_function_decl(task_worker,
 )
 #endif
 
-static void spawn_another_cpu(void)
+static bool spawn_another_cpu(struct node_state *node, ajla_error_t *err)
 {
 #ifndef THREAD_NONE
-	if (nr_active_cpus < nr_cpus) {
-		ajla_error_t err;
-		/*debug("spawning cpu %d", nr_active_cpus);*/
-		if (unlikely(!thread_spawn(&thread_pointers[nr_active_cpus].thread, task_worker, &thread_pointers[nr_active_cpus], PRIORITY_COMPUTE, &err)))
-			return;
-		nr_active_cpus++;
+	if (node->nr_active_cpus < node->nr_node_cpus) {
+		unsigned c = node->starting_cpu + node->nr_active_cpus;
+		/*debug("spawning cpu %d", node->nr_active_cpus);*/
+		if (unlikely(!thread_spawn(&thread_pointers[c].thread, task_worker, &thread_pointers[c], PRIORITY_COMPUTE, err)))
+			return false;
+		node->nr_active_cpus++;
 	}
 #endif
+	return true;
 }
 
 void name(task_run)(void)
 {
-#ifndef THREAD_NONE
-	unsigned i;
-#endif
-	nr_active_cpus = 1;
+	unsigned n;
 	set_per_thread_data(&thread_pointers[0]);
+	nodes[0]->nr_active_cpus = 1;
+	for (n = 0; n < nr_nodes; n++) {
+		unsigned c;
+		struct node_state *node = nodes[n];
+		cond_lock(&node->task_mutex);
 #if 0
-	cond_lock(&task_mutex);
-	while (nr_active_cpus < nr_cpus)
-		spawn_another_cpu();
-	cond_unlock(&task_mutex);
+		for (c = 0; c < node->nr_node_cpus; c++)
+#else
+		for (c = 0; c < 1; c++)
 #endif
+		{
+			if (n == 0 && c == 0)
+				continue;
+			spawn_another_cpu(node, NULL);
+		}
+		cond_unlock(&node->task_mutex);
+	}
 	task_worker_core();
 #ifndef THREAD_NONE
-	cond_lock(&task_mutex);
-	for (i = 1; i < nr_active_cpus; i++) {
-		cond_unlock(&task_mutex);
-		thread_join(&thread_pointers[i].thread);
-		cond_lock(&task_mutex);
+	for (n = 0; n < nr_nodes; n++) {
+		unsigned c;
+		struct node_state *node = nodes[n];
+		cond_lock(&node->task_mutex);
+		for (c = 0; c < node->nr_active_cpus; c++) {
+			if (n == 0 && c == 0)
+				continue;
+			cond_unlock(&node->task_mutex);
+			thread_join(&thread_pointers[node->starting_cpu + c].thread);
+			cond_lock(&node->task_mutex);
+		}
+		cond_unlock(&node->task_mutex);
 	}
-	cond_unlock(&task_mutex);
 #endif
+	os_numa_unbind();
 }
 
-void task_ex_control_started(void)
+unsigned task_ex_control_started(void)
 {
+	struct task_percpu *tpc;
 	refcount_inc(&n_ex_controls);
+	tpc = tls_get(struct task_percpu *, task_tls);
+	if (unlikely(!tpc))
+		return 0;
+	return tpc->node->num;
 }
 
 void task_ex_control_exited(void)
@@ -357,8 +479,11 @@ void task_ex_control_exited(void)
 	ajla_assert_lo(!refcount_is_one(&n_ex_controls), (file_line, "task_ex_control_exit: n_ex_controls underflow"));
 	refcount_add(&n_ex_controls, -1);
 	if (unlikely(refcount_is_one(&n_ex_controls))) {
-		cond_lock(&task_mutex);
-		cond_unlock_broadcast(&task_mutex);
+		unsigned n;
+		for (n = 0; n < nr_nodes; n++) {
+			cond_lock(&nodes[n]->task_mutex);
+			cond_unlock_broadcast(&nodes[n]->task_mutex);
+		}
 	}
 }
 
@@ -376,14 +501,13 @@ void task_program_exited(void)
 
 void name(task_init)(void)
 {
-	unsigned i;
+	unsigned n, c;
 
 	refcount_init(&n_ex_controls);
 	refcount_init(&n_programs);
-	n_deep_sleep = 0;
-	cond_init(&task_mutex);
-	list_init(&task_list);
-	task_list_nonempty = 0;
+
+	mutex_init(&mutex_idle_nodes);
+	nr_idle_nodes = 0;
 
 	nr_cpus = thread_concurrency();
 #ifndef THREAD_NONE
@@ -394,31 +518,76 @@ void name(task_init)(void)
 	debug("concurrency: %u", nr_cpus);
 #endif
 
-	thread_pointers = mem_alloc_array_mayfail(mem_calloc_mayfail, struct thread_pointers *, 0, 0, nr_cpus, sizeof(struct thread_pointers), NULL);
-	for (i = 0; i < nr_cpus; i++) {
+	/*debug("available: %d", numa_available());
+	debug("max nodes: %d", numa_max_possible_node());
+	debug("num nodes: %d", numa_num_possible_nodes());
+	debug("cnf nodes: %d", numa_num_configured_nodes());
+	debug("cnf cpus: %d", numa_num_configured_cpus());*/
+
+	nr_nodes = os_numa_nodes();
+	if (unlikely(nr_nodes > nr_cpus))
+		nr_nodes = nr_cpus;
+#ifdef DEBUG_INFO
+	debug("numa nodes: %u", nr_nodes);
+#endif
+	nodes = mem_alloc_array_mayfail(mem_alloc_mayfail, struct node_state **, 0, 0, nr_nodes, sizeof(struct node_state *), NULL);
+	for (n = 0; n < nr_nodes; n++) {
+		struct node_state *node = nodes[n] = mem_calloc(struct node_state *, sizeof(struct node_state));
+		node->public_state = STATE_ALL_BUSY;
+		cond_init(&node->task_mutex);
+		list_init(&node->task_list);
+		node->num = n;
+		node->starting_cpu = !n ? 0 : nodes[n - 1]->starting_cpu + nodes[n - 1]->nr_node_cpus;
+		node->nr_node_cpus = os_numa_cpus_per_node(n);
+	}
+	if (nodes[nr_nodes - 1]->starting_cpu + nodes[nr_nodes - 1]->nr_node_cpus != nr_cpus) {
+		unsigned x1 = nr_cpus % nr_nodes;
+		unsigned y1 = nr_cpus / nr_nodes;
+		for (n = 0; n < nr_nodes; n++) {
+			struct node_state *node = nodes[n];
+			node->starting_cpu = !n ? 0 : nodes[n - 1]->starting_cpu + nodes[n - 1]->nr_node_cpus;
+			node->nr_node_cpus = y1 + (n < x1);
+		}
+	}
+
+	thread_pointers = mem_alloc_array_mayfail(mem_alloc_mayfail, struct thread_pointers *, 0, 0, nr_cpus, sizeof(struct thread_pointers), NULL);
+	for (c = 0; c < nr_cpus; c++) {
 		struct task_percpu *tpc;
-		tpc = thread_pointers[i].tpc = mem_alloc(struct task_percpu *, sizeof(struct task_percpu));
+		tpc = thread_pointers[c].tpc = mem_calloc(struct task_percpu *, sizeof(struct task_percpu));
 		list_init(&tpc->waiting_list);
 		mutex_init(&tpc->waiting_list_mutex);
+	}
+	for (n = 0; n < nr_nodes; n++) {
+		struct node_state *node = nodes[n];
+		for (c = node->starting_cpu; c < node->starting_cpu + node->nr_node_cpus; c++) {
+			struct task_percpu *tpc = thread_pointers[c].tpc;
+			tpc->node = nodes[n];
+		}
 	}
 	tls_init(struct task_percpu *, task_tls);
 }
 
 void name(task_done)(void)
 {
-	unsigned i;
+	unsigned n, c;
 
 	ajla_assert_lo(refcount_is_one(&n_programs), (file_line, "task_done: programs leaked: %"PRIuMAX"", (uintmax_t)refcount_get_nonatomic(&n_programs)));
 
 	tls_done(struct task_percpu *, task_tls);
-	for (i = 0; i < nr_cpus; i++) {
-		struct task_percpu *tpc = thread_pointers[i].tpc;
+	for (c = 0; c < nr_cpus; c++) {
+		struct task_percpu *tpc = thread_pointers[c].tpc;
 		mutex_done(&tpc->waiting_list_mutex);
 		mem_free(tpc);
 	}
 	mem_free(thread_pointers);
+	for (n = 0; n < nr_nodes; n++) {
+		struct node_state *node = nodes[n];
+		cond_done(&node->task_mutex);
+		mem_free(node);
+	}
+	mem_free(nodes);
 
-	cond_done(&task_mutex);
+	mutex_done(&mutex_idle_nodes);
 }
 
 #endif

@@ -69,6 +69,9 @@
 #if defined(HAVE_LINUX_FS_H) && !defined(__TINYC__)
 #include <linux/fs.h>
 #endif
+#ifdef OS_HAS_NUMA
+#include <numa.h>
+#endif
 
 #define SOCKADDR_MAX_LEN	65535
 #define SOCKADDR_ALIGN		16
@@ -2142,6 +2145,7 @@ static bool os_fork(dir_handle_t wd, const char *path, unsigned n_handles, handl
 #endif
 	if (!p) {
 		ajla_error_t sink;
+		os_numa_unbind();
 		if (unlikely(!os_set_cwd(wd, &sink)))
 			_exit(127);
 		if (unlikely(!spawn_process_handles(n_handles, src, target)))
@@ -3589,6 +3593,119 @@ try_more:
 #endif
 }
 
+#ifdef OS_HAS_NUMA
+
+static uint8_t *valid_nodes;
+size_t n_valid_nodes;
+
+static void os_numa_init(void)
+{
+	unsigned i;
+	struct bitmask *bm;
+	bool some_valid;
+	if (unlikely(numa_available()))
+		goto numa_unavailable;
+	n_valid_nodes = numa_max_possible_node() + 1;
+	valid_nodes = mem_alloc_array_mayfail(mem_calloc_mayfail, uint8_t *, 0, 0, n_valid_nodes, sizeof(uint8_t), NULL);
+	bm = numa_allocate_cpumask();
+	if (unlikely(!bm)) {
+		int er = errno;
+		fatal("numa_allocate_cpumask failed: %d, %s", er, error_decode(error_from_errno(EC_SYSCALL, er)));
+	}
+	some_valid = false;
+	for (i = 0; i < n_valid_nodes; i++) {
+		if (!numa_node_to_cpus(i, bm) && numa_bitmask_weight(bm) > 0) {
+			valid_nodes[i] = 1;
+			some_valid = true;
+		}
+		/*debug("numa valid[%d]: %d", i, valid_nodes[i]);*/
+	}
+	numa_free_cpumask(bm);
+	if (likely(some_valid))
+		return;
+	mem_free(valid_nodes);
+
+numa_unavailable:
+	n_valid_nodes = 1;
+	valid_nodes = mem_alloc_array_mayfail(mem_alloc_mayfail, uint8_t *, 0, 0, n_valid_nodes, sizeof(uint8_t), NULL);
+	valid_nodes[0] = 1;
+}
+
+static void os_numa_done(void)
+{
+	mem_free(valid_nodes);
+}
+
+static unsigned os_numa_find_node(unsigned node)
+{
+	unsigned i;
+	unsigned n = 0;
+	for (i = 0; i < n_valid_nodes; i++) {
+		if (valid_nodes[i]) {
+			if (n == node)
+				return i;
+			n++;
+		}
+	}
+	internal(file_line, "os_numa_find_node: invalid node %u", node);
+}
+
+unsigned os_numa_nodes(void)
+{
+	unsigned i;
+	unsigned n = 0;
+	for (i = 0; i < n_valid_nodes; i++)
+		n += valid_nodes[i];
+	return n;
+}
+
+unsigned os_numa_cpus_per_node(unsigned node)
+{
+	unsigned w, n;
+	struct bitmask *bm;
+	if (n_valid_nodes == 1)
+		return 1;
+	n = os_numa_find_node(node);
+	bm = numa_allocate_cpumask();
+	if (unlikely(!bm)) {
+		int er = errno;
+		fatal("numa_allocate_cpumask failed: %d, %s", er, error_decode(error_from_errno(EC_SYSCALL, er)));
+	}
+	if (unlikely(numa_node_to_cpus(n, bm))) {
+		int er = errno;
+		fatal("numa_node_to_cpus failed: %d, %s", er, error_decode(error_from_errno(EC_SYSCALL, er)));
+	}
+	w = numa_bitmask_weight(bm);
+	numa_free_cpumask(bm);
+	if (unlikely(!w))
+		w = 1;
+	return w;
+}
+
+void os_numa_bind(unsigned node)
+{
+	unsigned n;
+	if (n_valid_nodes == 1)
+		return;
+	n = os_numa_find_node(node);
+	if (unlikely(numa_run_on_node(n))) {
+		int er = errno;
+		warning("numa_run_on_node returned error: %d, %s", er, error_decode(error_from_errno(EC_SYSCALL, er)));
+	}
+}
+
+void os_numa_unbind(void)
+{
+	if (n_valid_nodes == 1)
+		return;
+	if (unlikely(numa_run_on_node(-1))) {
+		int er = errno;
+		warning("numa_run_on_node returned error: %d, %s", er, error_decode(error_from_errno(EC_SYSCALL, er)));
+	}
+}
+
+#endif
+
 void os_init(void)
 {
 	ajla_error_t sink;
@@ -3659,6 +3776,9 @@ skip_test:;
 #endif
 #endif
 	}
+#ifdef OS_HAS_NUMA
+	os_numa_init();
+#endif
 #endif
 }
 
@@ -3680,6 +3800,10 @@ void os_done(void)
 	}
 	mem_free(signal_states);
 	signal_states = NULL;
+#endif
+
+#ifdef OS_HAS_NUMA
+	os_numa_done();
 #endif
 
 #ifdef OS_HAVE_NOTIFY_PIPE

@@ -864,7 +864,7 @@ struct execution_control *execution_control_alloc(ajla_error_t *mayfail)
 	ex->atomic = 0;
 	ex->atomic_interrupted = false;
 
-	task_ex_control_started();
+	ex->numa_node = task_ex_control_started();
 
 	return ex;
 }

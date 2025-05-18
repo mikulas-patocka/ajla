@@ -367,6 +367,14 @@ bool os_dlsym(struct dl_handle_t *dlh, const char *symbol, void **result);
 #define os_getaddrinfo_is_thread_safe()		false
 #endif
 
+#ifdef HAVE_LIBNUMA
+#define OS_HAS_NUMA
+unsigned os_numa_nodes(void);
+unsigned os_numa_cpus_per_node(unsigned node);
+void os_numa_bind(unsigned node);
+void os_numa_unbind(void);
+#endif
+
 #endif
 
 
@@ -552,6 +560,13 @@ bool os_getsockopt(handle_t h, int level, int option, char **buffer, size_t *buf
 bool os_setsockopt(handle_t h, int level, int option, const char *buffer, size_t buffer_len, ajla_error_t *err);
 bool os_getaddrinfo(const char *host, int port, struct address **result, size_t *result_l, ajla_error_t *err);
 char *os_getnameinfo(unsigned char *addr, size_t addr_len, ajla_error_t *err);
+
+#ifndef OS_HAS_NUMA
+#define os_numa_nodes()			1
+#define os_numa_cpus_per_node(node)	1
+#define os_numa_bind(node)		do { } while (0)
+#define os_numa_unbind()		do { } while (0)
+#endif
 
 const char *os_decode_error(ajla_error_t error, char *(*tls_buffer)(void));
 
