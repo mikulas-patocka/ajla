@@ -32,6 +32,7 @@
 #define waiting_list_break	name(waiting_list_break)
 
 extern uint32_t nr_cpus_override;
+extern uint32_t nr_nodes_override;
 
 void attr_fastcall task_submit(struct execution_control *ex, bool can_allocate_memory);
 

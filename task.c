@@ -72,6 +72,8 @@ struct thread_pointers {
 
 shared_var struct node_state **nodes;
 shared_var unsigned nr_nodes;
+shared_var unsigned nr_real_nodes;
+shared_var uint32_t nr_nodes_override shared_init(0);
 shared_var unsigned nr_idle_nodes;
 shared_var struct thread_pointers *thread_pointers;
 
@@ -400,7 +402,8 @@ static void set_per_thread_data(struct thread_pointers *tp)
 	tls_set(struct task_percpu *, task_tls, tpc);
 	node = tpc->node;
 	node->task_list_stamp = tick_stamp;
-	os_numa_bind(node->num);
+	if (likely(!(nr_nodes % nr_real_nodes)))
+		os_numa_bind(node->num / (nr_nodes / nr_real_nodes));
 }
 
 #ifndef THREAD_NONE
@@ -461,7 +464,8 @@ void name(task_run)(void)
 		cond_unlock(&node->task_mutex);
 	}
 #endif
-	os_numa_unbind();
+	if (likely(!(nr_nodes % nr_real_nodes)))
+		os_numa_unbind();
 }
 
 unsigned task_ex_control_started(void)
@@ -511,7 +515,7 @@ void name(task_init)(void)
 
 	nr_cpus = thread_concurrency();
 #ifndef THREAD_NONE
-	if (nr_cpus_override)
+	if (unlikely(nr_cpus_override))
 		nr_cpus = nr_cpus_override;
 #endif
 #ifdef DEBUG_INFO
@@ -524,7 +528,9 @@ void name(task_init)(void)
 	debug("cnf nodes: %d", numa_num_configured_nodes());
 	debug("cnf cpus: %d", numa_num_configured_cpus());*/
 
-	nr_nodes = os_numa_nodes();
+	nr_nodes = nr_real_nodes = os_numa_nodes();
+	if (unlikely(nr_nodes_override != 0))
+		nr_nodes = nr_nodes_override;
 	if (unlikely(nr_nodes > nr_cpus))
 		nr_nodes = nr_cpus;
 #ifdef DEBUG_INFO
@@ -537,10 +543,12 @@ void name(task_init)(void)
 		cond_init(&node->task_mutex);
 		list_init(&node->task_list);
 		node->num = n;
-		node->starting_cpu = !n ? 0 : nodes[n - 1]->starting_cpu + nodes[n - 1]->nr_node_cpus;
-		node->nr_node_cpus = os_numa_cpus_per_node(n);
+		if (unlikely(!nr_nodes_override)) {
+			node->starting_cpu = !n ? 0 : nodes[n - 1]->starting_cpu + nodes[n - 1]->nr_node_cpus;
+			node->nr_node_cpus = os_numa_cpus_per_node(n);
+		}
 	}
-	if (nodes[nr_nodes - 1]->starting_cpu + nodes[nr_nodes - 1]->nr_node_cpus != nr_cpus) {
+	if (unlikely(nodes[nr_nodes - 1]->starting_cpu + nodes[nr_nodes - 1]->nr_node_cpus != nr_cpus)) {
 		unsigned x1 = nr_cpus % nr_nodes;
 		unsigned y1 = nr_cpus / nr_nodes;
 		for (n = 0; n < nr_nodes; n++) {

@@ -153,6 +153,7 @@ static const struct arg args[] = {
 	{ "--dump-",			ARG_STRING,	dump_select,			NULL,			0, 0 },
 	{ "--noinline",			ARG_SWITCH,	set_noinline,			NULL,			0, 0 },
 	{ "--nosave",			ARG_SWITCH,	set_nosave,			NULL,			0, 0 },
+	{ "--numa-nodes=",		ARG_NUMBER,	NULL,				&nr_nodes_override,	1, (unsigned)-1 },
 	{ "--privileged",		ARG_SWITCH,	ipret_set_privileged,		NULL,			0, 0 },
 	{ "--profile",			ARG_SWITCH,	profile_all,			NULL,			0, 0 },
 	{ "--profile=",			ARG_STRING,	profile_select,			NULL,			0, 0 },
