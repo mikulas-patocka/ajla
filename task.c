@@ -178,14 +178,14 @@ void attr_fastcall task_submit(struct execution_control *ex, bool can_allocate_m
 		for (n = 0; n < nr_nodes; n++) {
 			unsigned nn = get_any_node(tpc);
 			if (nodes[nn]->public_state != STATE_ALL_BUSY) {
-				node = nodes[n];
+				node = nodes[nn];
 				goto found;
 			}
 		}
 		/*for (n = 0; n < nr_nodes; n++) {
 			unsigned nn = get_any_node(tpc);
 			if (nodes[nn]->public_state == STATE_SOME_BUSY) {
-				node = nodes[n];
+				node = nodes[nn];
 				goto found;
 			}
 		}*/
