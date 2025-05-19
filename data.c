@@ -874,7 +874,7 @@ void execution_control_free(struct execution_control *ex)
 	if (ex->stack)
 		stack_free(ex->stack);
 
-	task_ex_control_exited();
+	task_ex_control_exited(ex->numa_node);
 
 	mem_free(ex);
 }

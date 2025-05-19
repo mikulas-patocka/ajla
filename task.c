@@ -54,6 +54,7 @@ struct node_state {
 	unsigned starting_cpu;
 	unsigned nr_node_cpus;
 	tick_stamp_t task_list_stamp;
+	atomic_type size_t n_ex_controls;
 };
 
 struct task_percpu {
@@ -77,7 +78,6 @@ shared_var uint32_t nr_nodes_override shared_init(0);
 shared_var unsigned nr_idle_nodes;
 shared_var struct thread_pointers *thread_pointers;
 
-shared_var refcount_t n_ex_controls;
 shared_var refcount_t n_programs;
 
 shared_var mutex_t mutex_idle_nodes;
@@ -93,6 +93,15 @@ static inline unsigned get_any_node(struct task_percpu *tpc)
 		return n & (nr_nodes - 1);
 	else
 		return n % nr_nodes;
+}
+
+static bool no_ex_controls(void)
+{
+	unsigned n;
+	for (n = 0; n < nr_nodes; n++)
+		if (likely(load_relaxed(&nodes[n]->n_ex_controls) != 0))
+			return false;
+	return true;
 }
 
 static bool task_is_useless(struct execution_control *ex)
@@ -332,7 +341,7 @@ static void task_worker_core(void)
 	if (unlikely(profiling))
 		profile_unblock();
 	cond_lock(&node->task_mutex);
-	while (likely(!refcount_is_one(&n_ex_controls))) {
+	while (true) {
 		struct execution_control *ex;
 		if (!(ex = task_list_pop(node))) {
 			bool more;
@@ -343,9 +352,8 @@ static void task_worker_core(void)
 			more = waiting_list_break();
 			cond_lock(&node->task_mutex);
 			if (!(ex = task_list_pop(node))) {
-				if (likely(refcount_is_one(&n_ex_controls))) {
+				if (likely(no_ex_controls()))
 					break;
-				}
 #ifndef THREAD_NONE
 				if (!more) {
 					bool full_idle = ++node->nr_deep_sleep == node->nr_active_cpus;
@@ -466,7 +474,7 @@ void name(task_run)(void)
 		for (c = 0; c < node->nr_active_cpus; c++) {
 			if (n == 0 && c == 0)
 				continue;
-			cond_unlock(&node->task_mutex);
+			cond_unlock_broadcast(&node->task_mutex);
 			thread_join(&thread_pointers[node->starting_cpu + c].thread);
 			cond_lock(&node->task_mutex);
 		}
@@ -480,22 +488,42 @@ void name(task_run)(void)
 unsigned task_ex_control_started(void)
 {
 	struct task_percpu *tpc;
-	refcount_inc(&n_ex_controls);
+	struct node_state *node;
 	tpc = tls_get(struct task_percpu *, task_tls);
 	if (unlikely(!tpc))
-		return 0;
-	return tpc->node->num;
+		node = nodes[0];
+	else
+		node = tpc->node;
+#ifdef HAVE_C11_ATOMICS
+	atomic_fetch_add_explicit(&node->n_ex_controls, 1, memory_order_relaxed);
+#else
+	cond_lock(&node->task_mutex);
+	node->n_ex_controls++;
+	cond_unlock(&node->task_mutex);
+#endif
+	return node->num;
 }
 
-void task_ex_control_exited(void)
+void task_ex_control_exited(unsigned n)
 {
-	ajla_assert_lo(!refcount_is_one(&n_ex_controls), (file_line, "task_ex_control_exit: n_ex_controls underflow"));
-	refcount_add(&n_ex_controls, -1);
-	if (unlikely(refcount_is_one(&n_ex_controls))) {
-		unsigned n;
-		for (n = 0; n < nr_nodes; n++) {
-			cond_lock(&nodes[n]->task_mutex);
-			cond_unlock_broadcast(&nodes[n]->task_mutex);
+	struct node_state *node = nodes[n];
+	ajla_assert_lo(load_relaxed(&node->n_ex_controls) != 0, (file_line, "task_ex_control_exit: n_ex_controls underflow"));
+#ifdef HAVE_C11_ATOMICS
+	if (likely(atomic_fetch_sub_explicit(&node->n_ex_controls, 1, memory_order_release) != 1))
+		return;
+#else
+	cond_lock(&node->task_mutex);
+	if (--node->n_ex_controls) {
+		cond_unlock(&node->task_mutex);
+		return;
+	}
+	cond_unlock(&node->task_mutex);
+#endif
+	if (no_ex_controls()) {
+		unsigned nn;
+		for (nn = 0; nn < nr_nodes; nn++) {
+			cond_lock(&nodes[nn]->task_mutex);
+			cond_unlock_broadcast(&nodes[nn]->task_mutex);
 		}
 	}
 }
@@ -516,7 +544,6 @@ void name(task_init)(void)
 {
 	unsigned n, c;
 
-	refcount_init(&n_ex_controls);
 	refcount_init(&n_programs);
 
 	mutex_init(&mutex_idle_nodes);
