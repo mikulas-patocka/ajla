@@ -3600,9 +3600,8 @@ size_t n_valid_nodes;
 
 static void os_numa_init(void)
 {
-	unsigned i;
+	unsigned i, max_valid;
 	struct bitmask *bm;
-	bool some_valid;
 	if (unlikely(numa_available()))
 		goto numa_unavailable;
 	n_valid_nodes = numa_max_possible_node() + 1;
@@ -3612,17 +3611,19 @@ static void os_numa_init(void)
 		int er = errno;
 		fatal("numa_allocate_cpumask failed: %d, %s", er, error_decode(error_from_errno(EC_SYSCALL, er)));
 	}
-	some_valid = false;
+	max_valid = 0;
 	for (i = 0; i < n_valid_nodes; i++) {
 		if (!numa_node_to_cpus(i, bm) && numa_bitmask_weight(bm) > 0) {
 			valid_nodes[i] = 1;
-			some_valid = true;
+			max_valid = i + 1;
 		}
 		/*debug("numa valid[%d]: %d", i, valid_nodes[i]);*/
 	}
 	numa_free_cpumask(bm);
-	if (likely(some_valid))
+	if (likely(max_valid != 0)) {
+		n_valid_nodes = max_valid;
 		return;
+	}
 	mem_free(valid_nodes);
 
 numa_unavailable:
