@@ -335,6 +335,33 @@ again:
 	return ret;
 }
 
+static inline bool enter_deep_sleep(void)
+{
+	bool ret = false;
+	if (nr_nodes > 1)
+		mutex_lock(&mutex_idle_nodes);
+	if (++nr_idle_nodes == nr_nodes) {
+		if (unlikely(no_ex_controls()) && !shutting_down) {
+			shutting_down = true;
+			ret = true;
+		}
+		tick_suspend();
+	}
+	if (nr_nodes > 1)
+		mutex_unlock(&mutex_idle_nodes);
+	return ret;
+}
+
+static inline void exit_deep_sleep(void)
+{
+	if (nr_nodes > 1)
+		mutex_lock(&mutex_idle_nodes);
+	if (nr_idle_nodes-- == nr_nodes)
+		tick_resume();
+	if (nr_nodes > 1)
+		mutex_unlock(&mutex_idle_nodes);
+}
+
 static void task_worker_core(void)
 {
 	struct task_percpu *tpc = tls_get(struct task_percpu *, task_tls);
@@ -361,29 +388,14 @@ static void task_worker_core(void)
 					if (node->public_state != new_public_state)
 						node->public_state = new_public_state;
 					if (full_idle) {
-						if (nr_nodes > 1)
-							mutex_lock(&mutex_idle_nodes);
-						if (++nr_idle_nodes == nr_nodes) {
-							if (unlikely(no_ex_controls()) && !shutting_down) {
-								shutting_down = true;
-								wake_all = true;
-							}
-							tick_suspend();
-						}
-						if (nr_nodes > 1)
-							mutex_unlock(&mutex_idle_nodes);
+						wake_all |= enter_deep_sleep();
 					}
 					if (likely(!shutting_down)) {
 						cond_wait(&node->task_mutex);
 						/*spawn_another_cpu(node, NULL);*/
 					}
 					if (node->nr_deep_sleep-- == node->nr_active_cpus) {
-						if (nr_nodes > 1)
-							mutex_lock(&mutex_idle_nodes);
-						if (nr_idle_nodes-- == nr_nodes)
-							tick_resume();
-						if (nr_nodes > 1)
-							mutex_unlock(&mutex_idle_nodes);
+						exit_deep_sleep();
 						node->public_state = STATE_SOME_BUSY;
 					}
 					if (!node->nr_deep_sleep)
@@ -460,12 +472,7 @@ static bool spawn_another_cpu(struct node_state attr_unused *node, ajla_error_t 
 		if (unlikely(!thread_spawn(&thread_pointers[c].thread, task_worker, &thread_pointers[c], PRIORITY_COMPUTE, err)))
 			return false;
 		if (node->nr_active_cpus++ == node->nr_deep_sleep && node->nr_active_cpus > 1) {
-			if (nr_nodes > 1)
-				mutex_lock(&mutex_idle_nodes);
-			if (nr_idle_nodes-- == nr_nodes)
-				tick_resume();
-			if (nr_nodes > 1)
-				mutex_unlock(&mutex_idle_nodes);
+			exit_deep_sleep();
 			node->public_state = STATE_SOME_BUSY;
 		}
 	}
