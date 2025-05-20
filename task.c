@@ -506,15 +506,11 @@ void name(task_run)(void)
 	for (n = 0; n < nr_nodes; n++) {
 		unsigned c;
 		struct node_state *node = nodes[n];
-		cond_lock(&node->task_mutex);
 		for (c = 0; c < node->nr_active_cpus; c++) {
 			if (n == 0 && c == 0)
 				continue;
-			cond_unlock_broadcast(&node->task_mutex);
 			thread_join(&thread_pointers[node->starting_cpu + c].thread);
-			cond_lock(&node->task_mutex);
 		}
-		cond_unlock(&node->task_mutex);
 	}
 #endif
 	if (likely(!(nr_nodes % nr_real_nodes)))
