@@ -37,6 +37,7 @@
 
 shared_var unsigned nr_cpus;
 shared_var uint32_t nr_cpus_override shared_init(0);
+shared_var uchar_efficient_t shutting_down;
 
 #define STATE_ALL_BUSY	0
 #define STATE_SOME_BUSY	1
@@ -338,10 +339,11 @@ static void task_worker_core(void)
 {
 	struct task_percpu *tpc = tls_get(struct task_percpu *, task_tls);
 	struct node_state *node = tpc->node;
+	bool wake_all = false;
 	if (unlikely(profiling))
 		profile_unblock();
 	cond_lock(&node->task_mutex);
-	while (true) {
+	while (likely(!shutting_down)) {
 		struct execution_control *ex;
 		if (!(ex = task_list_pop(node))) {
 			bool more;
@@ -352,8 +354,6 @@ static void task_worker_core(void)
 			more = waiting_list_break();
 			cond_lock(&node->task_mutex);
 			if (!(ex = task_list_pop(node))) {
-				if (likely(no_ex_controls()))
-					break;
 #ifndef THREAD_NONE
 				if (!more) {
 					bool full_idle = ++node->nr_deep_sleep == node->nr_active_cpus;
@@ -363,12 +363,18 @@ static void task_worker_core(void)
 					if (full_idle) {
 						if (nr_nodes > 1)
 							mutex_lock(&mutex_idle_nodes);
-						if (++nr_idle_nodes == nr_nodes)
+						if (++nr_idle_nodes == nr_nodes) {
+							if (unlikely(no_ex_controls()) && !shutting_down) {
+								shutting_down = true;
+								wake_all = true;
+							}
 							tick_suspend();
+						}
 						if (nr_nodes > 1)
 							mutex_unlock(&mutex_idle_nodes);
 					}
-					cond_wait(&node->task_mutex);
+					if (likely(!shutting_down))
+						cond_wait(&node->task_mutex);
 					if (node->nr_deep_sleep-- == node->nr_active_cpus) {
 						if (nr_nodes > 1)
 							mutex_lock(&mutex_idle_nodes);
@@ -385,9 +391,14 @@ static void task_worker_core(void)
 				}
 #else
 				cond_unlock(&node->task_mutex);
-				if (!more)
+				if (!more) {
+					if (unlikely(no_ex_controls()) && !shutting_down) {
+						shutting_down = true;
+						wake_all = true;
+					}
 					tick_suspend();
-				iomux_check_all(more ? tick_us : IOMUX_INDEFINITE_WAIT);
+				}
+				iomux_check_all(unlikely(shutting_down) ? 0 : more ? tick_us : IOMUX_INDEFINITE_WAIT);
 				if (!more)
 					tick_resume();
 				cond_lock(&node->task_mutex);
@@ -404,6 +415,14 @@ run_task:
 		cond_lock(&node->task_mutex);
 	}
 	cond_unlock(&node->task_mutex);
+	if (wake_all) {
+		unsigned nn;
+		for (nn = 0; nn < nr_nodes; nn++) {
+			struct node_state *nnode = nodes[nn];
+			cond_lock(&nnode->task_mutex);
+			cond_unlock_broadcast(&nnode->task_mutex);
+		}
+	}
 	/*{
 		struct bitmask *bmp = numa_get_run_node_mask();
 		debug("mask: %lx", bmp->maskp[0]);
@@ -430,7 +449,7 @@ thread_function_decl(task_worker,
 )
 #endif
 
-static bool spawn_another_cpu(struct node_state *node, ajla_error_t *err)
+static bool spawn_another_cpu(struct node_state attr_unused *node, ajla_error_t attr_unused *err)
 {
 #ifndef THREAD_NONE
 	if (node->nr_active_cpus < node->nr_node_cpus) {
@@ -519,13 +538,6 @@ void task_ex_control_exited(unsigned n)
 	}
 	cond_unlock(&node->task_mutex);
 #endif
-	if (no_ex_controls()) {
-		unsigned nn;
-		for (nn = 0; nn < nr_nodes; nn++) {
-			cond_lock(&nodes[nn]->task_mutex);
-			cond_unlock_broadcast(&nodes[nn]->task_mutex);
-		}
-	}
 }
 
 void task_program_started(void)
@@ -548,6 +560,7 @@ void name(task_init)(void)
 
 	mutex_init(&mutex_idle_nodes);
 	nr_idle_nodes = 0;
+	shutting_down = false;
 
 	nr_cpus = thread_concurrency();
 #ifndef THREAD_NONE
