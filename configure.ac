@@ -1038,3 +1038,10 @@ fi
 if test "$ac_cv_lib_gmp___gmpz_init2" != yes; then
 	AC_MSG_WARN([libgmp is not present, slow built-in emulation will be used])
 fi
+case $host_os in
+	linux*)
+		if test "$ac_cv_lib_numa_numa_bitmask_weight" != yes; then
+			AC_MSG_WARN([libnuma is not present, numa optimizations will be disabled])
+		fi
+		;;
+esac
