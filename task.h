@@ -49,8 +49,8 @@ do {								\
 	}							\
 } while (0)
 
-unsigned task_ex_control_started(void);
-void task_ex_control_exited(unsigned n);
+void task_ex_control_started(void);
+void task_ex_control_exited(void);
 void task_program_started(void);
 void task_program_exited(void);
 

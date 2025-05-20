@@ -1567,8 +1567,6 @@ struct execution_control {
 
 	uint64_t atomic;
 	bool atomic_interrupted;
-
-	unsigned numa_node;
 };
 
 bool are_there_dereferenced(void);

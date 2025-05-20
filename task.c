@@ -99,10 +99,10 @@ static inline unsigned get_any_node(struct task_percpu *tpc)
 static bool no_ex_controls(void)
 {
 	unsigned n;
+	size_t sum = 0;
 	for (n = 0; n < nr_nodes; n++)
-		if (likely(load_relaxed(&nodes[n]->n_ex_controls) != 0))
-			return false;
-	return true;
+		sum += load_relaxed(&nodes[n]->n_ex_controls);
+	return !sum;
 }
 
 static bool task_is_useless(struct execution_control *ex)
@@ -178,7 +178,7 @@ void attr_fastcall task_submit(struct execution_control *ex, bool can_allocate_m
 	if (can_allocate_memory && (tpc = tls_get(struct task_percpu *, task_tls))) {
 		node = tpc->node;
 	} else {
-		node = nodes[ex->numa_node];
+		node = nodes[0];
 	}
 
 	ajla_assert(ex == frame_execution_control(ex->current_frame), (file_line, "task_submit: submitting task with improper execution control: %p != %p", ex, frame_execution_control(ex->current_frame)));
@@ -504,7 +504,7 @@ void name(task_run)(void)
 		os_numa_unbind();
 }
 
-unsigned task_ex_control_started(void)
+void task_ex_control_started(void)
 {
 	struct task_percpu *tpc;
 	struct node_state *node;
@@ -520,22 +520,19 @@ unsigned task_ex_control_started(void)
 	node->n_ex_controls++;
 	cond_unlock(&node->task_mutex);
 #endif
-	return node->num;
 }
 
-void task_ex_control_exited(unsigned n)
+void task_ex_control_exited(void)
 {
-	struct node_state *node = nodes[n];
-	ajla_assert_lo(load_relaxed(&node->n_ex_controls) != 0, (file_line, "task_ex_control_exit: n_ex_controls underflow"));
+	struct task_percpu *tpc;
+	struct node_state *node;
+	tpc = tls_get(struct task_percpu *, task_tls);
+	node = tpc->node;
 #ifdef HAVE_C11_ATOMICS
-	if (likely(atomic_fetch_sub_explicit(&node->n_ex_controls, 1, memory_order_release) != 1))
-		return;
+	atomic_fetch_sub_explicit(&node->n_ex_controls, 1, memory_order_release);
 #else
 	cond_lock(&node->task_mutex);
-	if (--node->n_ex_controls) {
-		cond_unlock(&node->task_mutex);
-		return;
-	}
+	node->n_ex_controls--;
 	cond_unlock(&node->task_mutex);
 #endif
 }
