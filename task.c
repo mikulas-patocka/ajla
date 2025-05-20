@@ -373,8 +373,10 @@ static void task_worker_core(void)
 						if (nr_nodes > 1)
 							mutex_unlock(&mutex_idle_nodes);
 					}
-					if (likely(!shutting_down))
+					if (likely(!shutting_down)) {
 						cond_wait(&node->task_mutex);
+						/*spawn_another_cpu(node, NULL);*/
+					}
 					if (node->nr_deep_sleep-- == node->nr_active_cpus) {
 						if (nr_nodes > 1)
 							mutex_lock(&mutex_idle_nodes);
@@ -457,7 +459,15 @@ static bool spawn_another_cpu(struct node_state attr_unused *node, ajla_error_t 
 		/*debug("spawning cpu %d", node->nr_active_cpus);*/
 		if (unlikely(!thread_spawn(&thread_pointers[c].thread, task_worker, &thread_pointers[c], PRIORITY_COMPUTE, err)))
 			return false;
-		node->nr_active_cpus++;
+		if (node->nr_active_cpus++ == node->nr_deep_sleep && node->nr_active_cpus > 1) {
+			if (nr_nodes > 1)
+				mutex_lock(&mutex_idle_nodes);
+			if (nr_idle_nodes-- == nr_nodes)
+				tick_resume();
+			if (nr_nodes > 1)
+				mutex_unlock(&mutex_idle_nodes);
+			node->public_state = STATE_SOME_BUSY;
+		}
 	}
 #endif
 	return true;
