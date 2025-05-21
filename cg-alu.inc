@@ -1937,6 +1937,18 @@ do_undo_opcode:
 	 * NOT *
 	 *******/
 do_bool_not: {
+#if defined(ARCH_X86)
+		if (slot_1 == slot_r && !slot_is_register(ctx, slot_1)) {
+			int64_t offset = (size_t)slot_1 * slot_size;
+			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDR_OFFSET, i_size(op_size)));
+			g(gen_imm(ctx, 1, IMM_PURPOSE_XOR, i_size(op_size)));
+			gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(i_size(op_size)), i_size(op_size), ALU_XOR, ALU_WRITES_FLAGS(i_size(op_size), ALU_XOR, true, true, 1));
+			gen_address_offset();
+			gen_address_offset();
+			gen_imm_offset();
+			return true;
+		}
+#endif
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 		g(gen_frame_get(ctx, op_size, garbage, slot_1, target, &reg1));
 
