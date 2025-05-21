@@ -153,7 +153,7 @@ void function_evaluate_submit(struct execution_control *ex, pointer_t ptr, void 
 	ex->callback = callback;
 	ex->callback_cookie = callback_cookie;
 	frame_set_pointer(ex->current_frame, FUNCTION_RETURN_SLOT, ptr);
-	task_submit(ex, true);
+	task_submit(ex, CALL_MODE_NORMAL, true);
 }
 
 void function_init_common(struct data *fn)

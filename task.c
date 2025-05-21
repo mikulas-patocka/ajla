@@ -156,12 +156,12 @@ void task_list_print(void)
 }
 #endif
 
-static void task_list_add(struct node_state *node, struct execution_control *ex, bool nonempty, bool can_allocate_memory)
+static void task_list_add(struct node_state *node, struct execution_control *ex, bool nonempty, uchar_efficient_t call_mode, bool can_allocate_memory)
 {
 	if (!nonempty) {
 		node->task_list_stamp = tick_stamp;
 	} else {
-		if (tick_stamp - node->task_list_stamp >= 2 && likely(can_allocate_memory)) {
+		if ((tick_stamp - node->task_list_stamp >= 2 || call_mode == CALL_MODE_SPARK) && likely(can_allocate_memory)) {
 			ajla_error_t err;
 			spawn_another_cpu(node, &err);
 			node->task_list_stamp = tick_stamp;
@@ -171,7 +171,7 @@ static void task_list_add(struct node_state *node, struct execution_control *ex,
 	node->task_list_nonempty = 1;
 }
 
-void attr_fastcall task_submit(struct execution_control *ex, bool can_allocate_memory)
+void attr_fastcall task_submit(struct execution_control *ex, uchar_efficient_t call_mode, bool can_allocate_memory)
 {
 	struct task_percpu *tpc;
 	struct node_state *node;
@@ -204,7 +204,7 @@ void attr_fastcall task_submit(struct execution_control *ex, bool can_allocate_m
 
 found:
 	cond_lock(&node->task_mutex);
-	task_list_add(node, ex, node->task_list_nonempty, can_allocate_memory);
+	task_list_add(node, ex, node->task_list_nonempty, call_mode, can_allocate_memory);
 	cond_unlock_signal(&node->task_mutex);
 }
 
@@ -258,7 +258,7 @@ void * attr_fastcall task_schedule(struct execution_control *old_ex)
 	if (unlikely(!new_ex))
 		goto unlock_no_sched;
 	ajla_assert(new_ex != old_ex, (file_line, "task_schedule: submitting already submitted task"));
-	task_list_add(node, old_ex, true, true);
+	task_list_add(node, old_ex, true, CALL_MODE_NORMAL, true);
 	cond_unlock(&node->task_mutex);
 
 	if (unlikely(task_useless(new_ex)))

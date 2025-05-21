@@ -714,7 +714,7 @@ static void execution_control_unlink(struct execution_control *ex)
 void execution_control_unlink_and_submit(struct execution_control *ex, bool can_allocate_memory)
 {
 	execution_control_unlink(ex);
-	task_submit(ex, can_allocate_memory);
+	task_submit(ex, CALL_MODE_NORMAL, can_allocate_memory);
 }
 
 bool execution_control_acquire(struct execution_control *ex)
@@ -771,7 +771,7 @@ void wake_up_wait_list(struct list *wait_list, mutex_t *mutex_to_lock, bool can_
 {
 	void *ex = wake_up_wait_list_internal(wait_list, mutex_to_lock, can_allocate_memory);
 	if (ex != POINTER_FOLLOW_THUNK_EXIT)
-		task_submit(ex, can_allocate_memory);
+		task_submit(ex, CALL_MODE_NORMAL, can_allocate_memory);
 }
 
 void *thunk_terminate(struct thunk *t, arg_t n_return_values)
@@ -835,7 +835,7 @@ static void thunk_terminate_with_value(struct thunk *t, arg_t n_return_values, p
 	}
 	ex = thunk_terminate(t, n_return_values);
 	if (ex != POINTER_FOLLOW_THUNK_EXIT)
-		task_submit(ex, true);
+		task_submit(ex, CALL_MODE_NORMAL, true);
 }
 
 

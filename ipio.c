@@ -3300,7 +3300,7 @@ static void * attr_fastcall io_atomic_exit_handler(struct io_ctx *ctx)
 		ex->atomic_interrupted = false;
 		ex->current_frame = ctx->fp;
 		ex->current_ip = frame_ip(ctx->fp, ctx->ip);
-		task_submit(ex, true);
+		task_submit(ex, CALL_MODE_NORMAL, true);
 		return POINTER_FOLLOW_THUNK_EXIT;
 	}
 

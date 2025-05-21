@@ -34,7 +34,7 @@
 extern uint32_t nr_cpus_override;
 extern uint32_t nr_nodes_override;
 
-void attr_fastcall task_submit(struct execution_control *ex, bool can_allocate_memory);
+void attr_fastcall task_submit(struct execution_control *ex, uchar_efficient_t mode, bool can_allocate_memory);
 
 void * attr_fastcall task_schedule(struct execution_control *ex);
 
@@ -45,7 +45,7 @@ bool waiting_list_break(void);
 #define SUBMIT_EX(ex)						\
 do {								\
 	if ((ex) != POINTER_FOLLOW_THUNK_EXIT) {		\
-		task_submit(ex, true);				\
+		task_submit(ex, CALL_MODE_NORMAL, true);	\
 	}							\
 } while (0)
 

@@ -2798,12 +2798,14 @@ static void * attr_hot_fastcall ipret_break_the_chain(frame_s *fp, const code_t 
 		goto no_break;
 
 	while (1) {
+		uchar_efficient_t mode;
 		prev_fp = frame_up(fp);
 		if (frame_is_top(prev_fp))
 			break;
-		if (get_frame(fp)->mode == CALL_MODE_STRICT)
+		mode = get_frame(fp)->mode;
+		if (mode == CALL_MODE_STRICT)
 			goto skip_this;
-		if (get_frame(fp)->mode == CALL_MODE_SPARK || (likely(!ipret_strict_calls) && (timestamp_t)(t - get_frame(prev_fp)->timestamp) > break_ticks)) {
+		if (mode == CALL_MODE_SPARK || (likely(!ipret_strict_calls) && (timestamp_t)(t - get_frame(prev_fp)->timestamp) > break_ticks)) {
 			struct execution_control *low_ex, *high_ex;
 			frame_s *new_fp;
 			/*debug("break: %s - %s (%u - %u - %u)", da(get_frame(prev_fp)->function,function)->function_name, da(get_frame(fp)->function,function)->function_name, t, get_frame(prev_fp)->timestamp, get_frame(fp)->timestamp);*/
@@ -2816,7 +2818,7 @@ static void * attr_hot_fastcall ipret_break_the_chain(frame_s *fp, const code_t 
 				high_ex = frame_execution_control(new_fp);
 				high_ex->current_frame = new_fp;
 #if 0
-				task_submit(low_ex, true);
+				task_submit(low_ex, mode, true);
 				return NULL;
 #else
 				waiting = -1;
@@ -2824,14 +2826,14 @@ static void * attr_hot_fastcall ipret_break_the_chain(frame_s *fp, const code_t 
 #endif
 			}
 #if 0
-			task_submit(low_ex, true);
+			task_submit(low_ex, mode, true);
 			top_fp = new_fp;
 			break;
 #else
 			high_ex = frame_execution_control(new_fp);
 			high_ex->current_frame = new_fp;
 			high_ex->current_ip = frame_ip(new_fp, ip);
-			task_submit(high_ex, true);
+			task_submit(high_ex, mode, true);
 cont_with_low_ex:
 			prev_fp = top_fp = low_ex->current_frame;
 			ip = da(get_frame(top_fp)->function,function)->code + low_ex->current_ip;
@@ -2860,7 +2862,7 @@ bool attr_fastcall ipret_break_waiting_chain(frame_s *fp, ip_t ip)
 
 	ex = ipret_break_the_chain(fp, da(get_frame(fp)->function,function)->code + ip, 1, &something_breakable);
 	if (ex)
-		task_submit(ex, true);
+		task_submit(ex, CALL_MODE_NORMAL, true);
 
 	return something_breakable;
 }
