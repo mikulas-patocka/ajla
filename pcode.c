@@ -2605,9 +2605,19 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				break;
 			case P_Load_Local_Type:
 				res = u_pcode_get();
-				ajla_assert_lo(var_elided(res), (file_line, "P_Load_Local_Type(%s): Load_Local_Type result is not elided", function_name(ctx)));
 				pcode_get();
 				u_pcode_get();
+				if (!var_elided(res)) {
+					tr = get_var_type(ctx, res);
+					gen_code(OPCODE_IO);
+					gen_code(IO_Exception_Make | (1 << 8));
+					gen_code(0 | (4 << 8));
+					gen_uint32(tr->slot);
+					gen_uint32(EC_SYNC);
+					gen_uint32(AJLA_ERROR_OPTIMIZER_ERROR);
+					gen_uint32(0);
+					gen_uint32(1);
+				}
 				break;
 			case P_Load_Fn:
 			case P_Curry:
