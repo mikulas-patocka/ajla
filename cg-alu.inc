@@ -1625,10 +1625,8 @@ do_compare: {
 				case COND_E:
 				case COND_NE:
 					g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, slot_1, 0, R_SCRATCH_1, R_SCRATCH_2));
-					if (!(frame_t_is_const(slot_2) && get_constant(OP_SIZE_NATIVE, garbage, slot_2, lo_word(OP_SIZE_NATIVE), true) == 0))
-						g(gen_frame_load_op(ctx, OP_SIZE_NATIVE, garbage, ALU_XOR, 0, slot_2, lo_word(OP_SIZE_NATIVE), true, R_SCRATCH_1));
-					if (!(frame_t_is_const(slot_2) && get_constant(OP_SIZE_NATIVE, garbage, slot_2, hi_word(OP_SIZE_NATIVE), true) == 0))
-						g(gen_frame_load_op(ctx, OP_SIZE_NATIVE, garbage, ALU_XOR, 0, slot_2, hi_word(OP_SIZE_NATIVE), true, R_SCRATCH_2));
+					g(gen_frame_load_op(ctx, OP_SIZE_NATIVE, garbage, ALU_XOR, 0, slot_2, lo_word(OP_SIZE_NATIVE), true, R_SCRATCH_1));
+					g(gen_frame_load_op(ctx, OP_SIZE_NATIVE, garbage, ALU_XOR, 0, slot_2, hi_word(OP_SIZE_NATIVE), true, R_SCRATCH_2));
 #if defined(ARCH_ARM64)
 					g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_OR, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_2, 0));
 

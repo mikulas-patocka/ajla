@@ -332,7 +332,10 @@ static bool attr_w gen_frame_load_op(struct codegen_context *ctx, unsigned size,
 		return true;
 	}
 	if (frame_t_is_const(slot)) {
-		g(gen_imm(ctx, get_constant(size, ex, slot, offset, dual), alu_purpose(alu), i_size(size)));
+		int64_t cnst = get_constant(size, ex, slot, offset, dual);
+		if (!cnst && !writes_flags && (ARCH_PARTIAL_ALU(size) || i_size(size) == OP_SIZE_NATIVE) && (alu == ALU_ADD || alu == ALU_OR || alu == ALU_SUB || alu == ALU_XOR || alu == ALU_ANDN))
+			return true;
+		g(gen_imm(ctx, cnst, alu_purpose(alu), i_size(size)));
 		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), i_size(size), alu, ALU_WRITES_FLAGS(i_size(size), alu, false, is_imm(), ctx->const_imm) | writes_flags);
 		gen_one(reg);
 		gen_one(reg);
