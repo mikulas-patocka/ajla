@@ -875,10 +875,10 @@ do_divide: {
 			if (unlikely(!label_not_minus_1))
 				return false;
 
-			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, op_size, R_SCRATCH_3, -1, COND_NE, label_not_minus_1));
+			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, op_size, R_SCRATCH_3, -1, COND_NE, label_not_minus_1, R_SCRATCH_2));
 
 			val = -(uint64_t)0x80 << (((1 << op_size) - 1) * 8);
-			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, op_size, R_SCRATCH_1, val, COND_E, mode == MODE_INT ? label_ovf : label_skip2));
+			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, op_size, R_SCRATCH_1, val, COND_E, mode == MODE_INT ? label_ovf : label_skip2, R_SCRATCH_2));
 
 			gen_label(label_not_minus_1);
 		}
@@ -985,10 +985,10 @@ do_divide: {
 				if (unlikely(!label_not_minus_1))
 					return false;
 
-				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(op_size), reg2, -1, COND_NE, label_not_minus_1));
+				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(op_size), reg2, -1, COND_NE, label_not_minus_1, -1));
 
 				val = 0xFFFFFFFFFFFFFF80ULL << (((1 << op_size) - 1) * 8);
-				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(op_size), reg1, val, COND_E, label_ovf));
+				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(op_size), reg1, val, COND_E, label_ovf, -1));
 
 				gen_label(label_not_minus_1);
 			}
@@ -1007,7 +1007,7 @@ do_divide: {
 				if (unlikely(!label_not_minus_1))
 					return false;
 
-				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(op_size), reg2, -1, COND_NE, label_not_minus_1));
+				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(op_size), reg2, -1, COND_NE, label_not_minus_1, -1));
 
 				if (!mod) {
 					g(gen_mov(ctx, OP_SIZE_NATIVE, target, reg1));
@@ -1016,7 +1016,7 @@ do_divide: {
 				}
 
 				val = 0xFFFFFFFFFFFFFF80ULL << (((1 << op_size) - 1) * 8);
-				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(op_size), reg1, val, COND_E, label_end));
+				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(op_size), reg1, val, COND_E, label_end, -1));
 
 				gen_label(label_not_minus_1);
 			}
@@ -1108,7 +1108,7 @@ do_shift: {
 				g(gen_frame_load(ctx, op_size, garbage, slot_2, 0, false, R_SCRATCH_3));
 				if (mode == MODE_INT) {
 					int64_t imm = (8U << op_size) - 1;
-					g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, op_size, R_SCRATCH_3, imm, COND_A, label_ovf));
+					g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, op_size, R_SCRATCH_3, imm, COND_A, label_ovf, -1));
 				} else if ((alu != ROT_ROL && alu != ROT_ROR) && op_size < OP_SIZE_4) {
 					g(gen_3address_alu_imm(ctx, OP_SIZE_1, ALU_AND, R_SCRATCH_3, R_SCRATCH_3, (8U << op_size) - 1, 0));
 				}
@@ -1155,7 +1155,7 @@ do_shift: {
 					return true;
 				}
 			} else {
-				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg3, imm, COND_A, label_ovf));
+				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg3, imm, COND_A, label_ovf, -1));
 			}
 		} else {
 #if defined(ARCH_ARM)
@@ -1382,7 +1382,7 @@ do_bt: {
 			g(gen_frame_get(ctx, n_op_size, garbage, slot_2, R_SCRATCH_1, &reg2));
 			if (mode == MODE_INT) {
 				if (!c) {
-					g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, n_op_size, reg2, max_imm, alu == BTX_BT ? COND_A : COND_AE, label_ovf));
+					g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, n_op_size, reg2, max_imm, alu == BTX_BT ? COND_A : COND_AE, label_ovf, -1));
 					if (unlikely(op_size > OP_SIZE_NATIVE)) {
 						g(gen_address(ctx, R_FRAME, (size_t)slot_2 * slot_size + hi_word(OP_SIZE_NATIVE), IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
 						gen_insn(INSN_CMP, OP_SIZE_NATIVE, 0, 1);
@@ -1506,7 +1506,7 @@ do_bt: {
 		g(gen_frame_get(ctx, op_size, garbage, slot_2, R_SCRATCH_2, &reg2));
 		if (mode == MODE_INT) {
 			if (!c)
-				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg2, max_imm, alu == BTX_BT ? COND_A : COND_AE, label_ovf));
+				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg2, max_imm, alu == BTX_BT ? COND_A : COND_AE, label_ovf, -1));
 		}
 		if (alu != BTX_BT) {
 			if (!ARCH_HAS_BTX(alu, OP_SIZE_NATIVE, false))
@@ -1906,7 +1906,7 @@ do_undo_opcode:
 			if (op_size <= OP_SIZE_2 || (!arch_use_flags && !ARCH_SUPPORTS_TRAPS(op_size))) {
 				int64_t imm = (ARCH_PREFERS_SX(op_size) ? -0x80ULL : 0x80ULL) << (((1 << op_size) - 1) * 8);
 
-				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg1, imm, COND_E, label_ovf));
+				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg1, imm, COND_E, label_ovf, -1));
 
 				mode = MODE_FIXED;
 
@@ -3214,7 +3214,7 @@ do_cvt_to_int:
 		gen_one(target);
 		gen_one(reg1);
 
-		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, target, sign_bit(uint_default_t), COND_E, label_ovf));
+		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, target, sign_bit(uint_default_t), COND_E, label_ovf, R_SCRATCH_2));
 
 		g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, target));
 		return true;
@@ -3254,7 +3254,7 @@ do_cvt_to_int:
 		gen_one(target);
 		gen_imm_offset();
 
-		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, R_SCRATCH_2, 1, COND_BE, label_ovf));
+		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, R_SCRATCH_2, 1, COND_BE, label_ovf, -1));
 
 		g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, target));
 		return true;
@@ -3270,7 +3270,7 @@ do_cvt_to_int:
 			g(gen_extend(ctx, OP_SIZE_4, sign_x, R_SCRATCH_2, target));
 			g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, target, R_SCRATCH_2, COND_NE, label_ovf));
 		} else {
-			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, target, sign_bit(uint64_t), COND_E, label_ovf));
+			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, target, sign_bit(uint64_t), COND_E, label_ovf, -1));
 		}
 
 		g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, target));
@@ -3298,7 +3298,7 @@ do_cvt_to_int:
 		gen_one(target);
 		gen_imm_offset();
 
-		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, R_SCRATCH_2, 1, COND_BE, label_ovf));
+		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, R_SCRATCH_2, 1, COND_BE, label_ovf, -1));
 
 		return true;
 #endif
@@ -3393,7 +3393,7 @@ do_cvt_to_int:
 			g(unspill(ctx, slot_r));
 		g(gen_frame_load(ctx, OP_SIZE_INT, garbage, slot_r, 0, false, R_SCRATCH_1));
 
-		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, R_SCRATCH_1, sign_bit(int_default_t), COND_E, label_ovf));
+		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, R_SCRATCH_1, sign_bit(int_default_t), COND_E, label_ovf, R_SCRATCH_2));
 
 		return true;
 	}

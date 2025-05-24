@@ -46,11 +46,11 @@ static bool attr_w gen_ptr_is_thunk(struct codegen_context *ctx, unsigned reg, f
 		&& reg < 4
 #endif
 		) {
-		g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, OP_SIZE_1, reg, (uint64_t)1 << POINTER_THUNK_BIT, COND_NE, label));
+		g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, OP_SIZE_1, reg, (uint64_t)1 << POINTER_THUNK_BIT, COND_NE, label, -1));
 	} else
 #endif
 	{
-		g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, OP_SIZE_SLOT, reg, (uint64_t)1 << POINTER_THUNK_BIT, COND_NE, label));
+		g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, OP_SIZE_SLOT, reg, (uint64_t)1 << POINTER_THUNK_BIT, COND_NE, label, -1));
 	}
 	return true;
 }
@@ -148,7 +148,7 @@ static bool attr_w gen_compare_refcount(struct codegen_context *ctx, unsigned pt
 	gen_one(R_SCRATCH_2);
 	gen_address_offset();
 
-	g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, op_size, R_SCRATCH_2, val, cond, label));
+	g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, op_size, R_SCRATCH_2, val, cond, label, -1));
 #endif
 	return true;
 }
@@ -220,7 +220,7 @@ static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg
 		gen_address_offset();
 	}
 #endif
-	g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(OP_SIZE_4), tmp_reg, tag, cond, label));
+	g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(OP_SIZE_4), tmp_reg, tag, cond, label, -1));
 	return true;
 }
 

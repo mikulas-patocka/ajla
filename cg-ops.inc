@@ -659,7 +659,7 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 #else
 			g(gen_load_two(ctx, R_SCRATCH_1, R_SAVED_1, retval_offset + 2 + 2 * (ARG_MODE_N >= 3)));
 
-			g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, OP_SIZE_NATIVE, R_SCRATCH_1, OPCODE_MAY_RETURN_FLAT, COND_E, flat_to_data_label));
+			g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, OP_SIZE_NATIVE, R_SCRATCH_1, OPCODE_MAY_RETURN_FLAT, COND_E, flat_to_data_label, -1));
 #endif
 #if defined(ARCH_X86)
 			if (is_power_of_2(t->size) && t->size <= 2U << OP_SIZE_NATIVE) {
@@ -928,7 +928,7 @@ struct_zero:
 					flag_set(ctx, param_slot, false);
 					g(gen_frame_get(ctx, OP_SIZE_INT, native, param_slot, R_SCRATCH_1, &reg1));
 
-					g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, reg1, type_def(struct_type,flat_array)->n_elements, COND_AE, escape_label));
+					g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, reg1, type_def(struct_type,flat_array)->n_elements, COND_AE, escape_label, -1));
 
 					g(gen_scaled_array_address(ctx, type_def(struct_type,flat_array)->base->size, R_SAVED_1, R_SAVED_1, reg1, 0));
 
@@ -986,7 +986,7 @@ struct_zero:
 					gen_one(R_SCRATCH_2);
 					gen_address_offset();
 
-					g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(op_size), R_SCRATCH_2, param_slot, COND_NE, escape_label));
+					g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(op_size), R_SCRATCH_2, param_slot, COND_NE, escape_label, -1));
 #endif
 					g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_SAVED_1, R_SCRATCH_1, offsetof(struct data, u_.option.pointer), 0));
 					break;
@@ -2112,7 +2112,7 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 		g(gen_frame_get(ctx, OP_SIZE_INT, native, slot_idx, R_SCRATCH_2, &reg2));
 
 		if (!(flags & OPCODE_ARRAY_INDEX_IN_RANGE))
-			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, reg2, def->n_elements, COND_AE, escape_label));
+			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, reg2, def->n_elements, COND_AE, escape_label, -1));
 
 		g(gen_scaled_array_load(ctx, R_FRAME, reg2, (size_t)slot_1 * slot_size, slot_r));
 		return true;
@@ -2705,7 +2705,7 @@ static bool attr_w gen_io(struct codegen_context *ctx, frame_t code, frame_t slo
 
 	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_io), 3, true));
 	g(gen_sanitize_returned_pointer(ctx, R_RET0));
-	g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_ADDRESS, R_RET0, ptr_to_num(POINTER_FOLLOW_THUNK_GO), COND_NE, reload_label));
+	g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_ADDRESS, R_RET0, ptr_to_num(POINTER_FOLLOW_THUNK_GO), COND_NE, reload_label, -1));
 
 	for (i = 0; i < slot_1; i++) {
 		frame_t output_slot = ctx->var_aux[i];

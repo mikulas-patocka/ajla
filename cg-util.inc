@@ -504,7 +504,7 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 	return true;
 }
 
-static bool attr_w gen_cmp_test_imm_jmp(struct codegen_context *ctx, unsigned insn, unsigned attr_unused op_size, unsigned reg1, int64_t value, unsigned cond, uint32_t label)
+static bool attr_w gen_cmp_test_imm_jmp(struct codegen_context *ctx, unsigned insn, unsigned attr_unused op_size, unsigned reg1, int64_t value, unsigned cond, uint32_t label, int x86_scratch)
 {
 	if (insn == INSN_TEST && (cond == COND_E || cond == COND_NE) && is_power_of_2((uint64_t)value)) {
 #ifdef HAVE_BUILTIN_CTZ
@@ -577,10 +577,20 @@ static bool attr_w gen_cmp_test_imm_jmp(struct codegen_context *ctx, unsigned in
 
 		return true;
 	}
-	g(gen_imm(ctx, value, insn == INSN_CMP ? IMM_PURPOSE_CMP : IMM_PURPOSE_TEST, op_size));
-	gen_insn(insn, op_size, 0, 1);
-	gen_one(reg1);
-	gen_imm_offset();
+#if defined(ARCH_X86)
+	if (x86_scratch >= 0 && op_size == OP_SIZE_8 && unlikely(!is_direct_const(value, insn == INSN_CMP ? IMM_PURPOSE_CMP : IMM_PURPOSE_TEST, op_size))) {
+		g(gen_load_constant(ctx, x86_scratch, value));
+		gen_insn(insn, op_size, 0, 1);
+		gen_one(reg1);
+		gen_one(x86_scratch);
+	} else
+#endif
+	{
+		g(gen_imm(ctx, value, insn == INSN_CMP ? IMM_PURPOSE_CMP : IMM_PURPOSE_TEST, op_size));
+		gen_insn(insn, op_size, 0, 1);
+		gen_one(reg1);
+		gen_imm_offset();
+	}
 
 	gen_insn(INSN_JMP_COND, op_size, cond, 0);
 	gen_four(label);

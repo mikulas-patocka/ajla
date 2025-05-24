@@ -1005,7 +1005,7 @@ do {									\
 } while (0)
 #endif
 
-#if !defined(ARCH_X86_32)
+#if !defined(ARCH_X86)
 #define gen_imm_offset()						\
 do {									\
 	if (likely(!ctx->const_reg)) {					\
@@ -1089,9 +1089,10 @@ load_const:
 	g(gen_load_constant(ctx, R_CONST_IMM, imm));
 	ctx->const_reg = true;
 #else
-	internal(file_line, "gen_imm: R_CONST_IMM not defined");
+	/*internal(file_line, "gen_imm: R_CONST_IMM not defined: %"PRIxMAX"", (uintmax_t)imm);*/
+	/*warning("%s: gen_imm: R_CONST_IMM not defined", file_line);*/
+	return false;
 #endif
-	return true;
 }
 
 

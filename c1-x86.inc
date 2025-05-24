@@ -155,7 +155,6 @@ static uint8_t upcall_register = R_R15;
 #ifdef TIMESTAMP_IN_REGISTER
 #define R_TIMESTAMP	R_R14
 #endif
-#define R_CONST_IMM	R_R11
 #endif
 
 #if defined(ARCH_X86_32)
@@ -247,7 +246,7 @@ static const uint8_t regs_saved[] = { R_BX, R_R12, R_R13,
 	R_R14,
 #endif
 	};
-static const uint8_t regs_volatile[] = { R_R8, R_R9, R_R10 };
+static const uint8_t regs_volatile[] = { R_R8, R_R9, R_R10, R_R11 };
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved 0U
 static const uint8_t fp_volatile[] = { R_XMM2, R_XMM3, R_XMM4, R_XMM5 };
@@ -262,9 +261,9 @@ static const uint8_t regs_saved[] = { R_R13,
 	R_R15,
 	};
 #define n_regs_saved (n_array_elements(regs_saved) - !reg_is_segment(R_UPCALL))
-static const uint8_t regs_volatile[] = { R_SI, R_DI, R_R8, R_R9, R_R10,
+static const uint8_t regs_volatile[] = { R_SI, R_DI, R_R8, R_R9, R_R10, R_R11,
 	R_R16, R_R17, R_R18, R_R19, R_R20, R_R21, R_R22, R_R23, R_R24, R_R25, R_R26, R_R27, R_R28, R_R29, R_R30, R_R31 };
-#define n_regs_volatile	(cpu_test_feature(CPU_FEATURE_apx) ? n_array_elements(regs_volatile) : 5 )
+#define n_regs_volatile	(cpu_test_feature(CPU_FEATURE_apx) ? n_array_elements(regs_volatile) : 6 )
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved 0U
 static const uint8_t fp_volatile[] = {
