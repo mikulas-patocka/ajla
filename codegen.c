@@ -978,6 +978,7 @@ static unsigned alu_trap_purpose(unsigned alu)
 static bool attr_w gen_imm(struct codegen_context *ctx, int64_t imm, unsigned purpose, unsigned size);
 static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned offset, unsigned args, bool do_unspill);
 
+#if !defined(ARCH_X86)
 #define gen_address_offset()						\
 do {									\
 	if (likely(!ctx->offset_reg)) {					\
@@ -991,7 +992,20 @@ do {									\
 		gen_eight(0);						\
 	}								\
 } while (0)
+#else
+#define gen_address_offset()						\
+do {									\
+	if (likely(!ctx->offset_reg)) {					\
+		gen_one(ARG_ADDRESS_1);					\
+		gen_one(ctx->base_reg);					\
+		gen_eight(ctx->offset_imm);				\
+	} else {							\
+		internal(file_line, "gen_address_offset: R_OFFSET_IMM not defined");\
+	}								\
+} while (0)
+#endif
 
+#if !defined(ARCH_X86_32)
 #define gen_imm_offset()						\
 do {									\
 	if (likely(!ctx->const_reg)) {					\
@@ -1001,6 +1015,17 @@ do {									\
 		gen_one(R_CONST_IMM);					\
 	}								\
 } while (0)
+#else
+#define gen_imm_offset()						\
+do {									\
+	if (likely(!ctx->const_reg)) {					\
+		gen_one(ARG_IMM);					\
+		gen_eight(ctx->const_imm);				\
+	} else {							\
+		internal(file_line, "gen_imm_offset: R_CONST_IMM not defined");\
+	}								\
+} while (0)
+#endif
 
 #define is_imm()	(!ctx->const_reg)
 
@@ -1060,8 +1085,12 @@ static bool attr_w gen_imm(struct codegen_context *ctx, int64_t imm, unsigned pu
 	ctx->const_reg = false;
 	return true;
 load_const:
+#if defined(R_CONST_IMM)
 	g(gen_load_constant(ctx, R_CONST_IMM, imm));
 	ctx->const_reg = true;
+#else
+	internal(file_line, "gen_imm: R_CONST_IMM not defined");
+#endif
 	return true;
 }
 

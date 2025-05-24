@@ -411,9 +411,9 @@ static bool attr_w gen_frame_load_cmp(struct codegen_context *ctx, unsigned size
 			gen_one(reg);
 			gen_imm_offset();
 		} else {
-			g(gen_load_constant(ctx, R_CONST_IMM, get_constant(size, ex, slot, offset, dual)));
+			g(gen_load_constant(ctx, R_SCRATCH_3, get_constant(size, ex, slot, offset, dual)));
 			gen_insn(INSN_CMP, i_size_cmp(size), 0, 1 + logical);
-			gen_one(R_CONST_IMM);
+			gen_one(R_SCRATCH_3);
 			gen_one(reg);
 		}
 		return true;

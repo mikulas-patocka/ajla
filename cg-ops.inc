@@ -1894,6 +1894,7 @@ static bool attr_w gen_scaled_array_address(struct codegen_context *ctx, size_t 
 			gen_imm_offset();
 			reg_index = reg_dst;
 		} else {
+#if defined(R_CONST_IMM)
 			size_t e_size = element_size;
 			unsigned sh = 0;
 			bool first_match = true;
@@ -1929,6 +1930,9 @@ static bool attr_w gen_scaled_array_address(struct codegen_context *ctx, size_t 
 				sh += 1;
 				e_size >>= 1;
 			}
+#else
+			internal(file_line, "gen_scaled_array_address: R_CONST_IMM not defined");
+#endif
 		}
 	}
 #if defined(ARCH_S390)

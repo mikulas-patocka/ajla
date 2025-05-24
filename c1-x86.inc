@@ -156,10 +156,7 @@ static uint8_t upcall_register = R_R15;
 #define R_TIMESTAMP	R_R14
 #endif
 #define R_CONST_IMM	R_R11
-#else
-#define R_CONST_IMM	255	/* this should not be used */
 #endif
-#define R_OFFSET_IMM	255	/* this should not be used */
 
 #if defined(ARCH_X86_32)
 #define R_FRAME		R_BP

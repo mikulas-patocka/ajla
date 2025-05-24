@@ -198,6 +198,7 @@ static bool attr_w gen_3address_fp_alu(struct codegen_context *ctx, unsigned siz
 static bool attr_w attr_unused gen_load_two(struct codegen_context *ctx, unsigned dest, unsigned src, int64_t offset)
 {
 	if (!ARCH_HAS_BWX) {
+#if defined(R_OFFSET_IMM)
 		if (!(offset & 7)) {
 			g(gen_address(ctx, src, offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_8));
 			gen_insn(INSN_MOV_U, OP_SIZE_NATIVE, 0, 0);
@@ -220,6 +221,7 @@ static bool attr_w attr_unused gen_load_two(struct codegen_context *ctx, unsigne
 
 			g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_EXTWL, dest, dest, R_OFFSET_IMM, 0));
 		}
+#endif
 #if defined(ARCH_S390)
 	} else if (!cpu_test_feature(CPU_FEATURE_extended_imm)) {
 		g(gen_address(ctx, src, offset, IMM_PURPOSE_LDR_SX_OFFSET, OP_SIZE_2));
@@ -240,7 +242,7 @@ static bool attr_w attr_unused gen_load_two(struct codegen_context *ctx, unsigne
 
 static bool attr_w gen_load_code_32(struct codegen_context *ctx, unsigned dest, unsigned src, int64_t offset)
 {
-#if ARG_MODE_N == 3 && defined(ARCH_ALPHA) && !(defined(C_BIG_ENDIAN) ^ CODE_ENDIAN)
+#if ARG_MODE_N == 3 && defined(ARCH_ALPHA) && !(defined(C_BIG_ENDIAN) ^ CODE_ENDIAN) && defined(R_CONST_IMM)
 	if (!ARCH_HAS_BWX && UNALIGNED_TRAP) {
 		if (offset & 7) {
 			g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_ADD, R_OFFSET_IMM, src, offset, 0));
@@ -283,7 +285,7 @@ static bool attr_w gen_load_code_32(struct codegen_context *ctx, unsigned dest, 
 		return true;
 	}
 #endif
-#if ARG_MODE_N == 3
+#if ARG_MODE_N == 3 && defined(R_CONST_IMM)
 #if !(defined(C_BIG_ENDIAN) ^ CODE_ENDIAN)
 	if (UNALIGNED_TRAP)
 #endif
@@ -899,10 +901,7 @@ do {									\
 		gen_one(ctx->base_reg);					\
 		gen_eight(ctx->offset_imm);				\
 	} else {							\
-		gen_one(ARG_ADDRESS_2 + POINTER_COMPRESSION);		\
-		gen_one(R_OFFSET_IMM);					\
-		gen_one(ctx->base_reg);					\
-		gen_eight(0);						\
+		internal(file_line, "gen_address_offset_compressed: R_OFFSET_IMM not defined");\
 	}								\
 } while (0)
 #else
