@@ -1643,7 +1643,7 @@ do_compare: {
 					g(gen_frame_cmp_imm_set_cond_reg(ctx, OP_SIZE_NATIVE, R_SCRATCH_1, 0, alu, slot_r));
 #endif
 					return true;
-#if defined(ARCH_X86_64) || defined(ARCH_X86_X32) || defined(ARCH_ARM)
+#if defined(ARCH_X86) || defined(ARCH_ARM)
 				case COND_G:
 				case COND_A:
 					swap = slot_1; slot_1 = slot_2; slot_2 = swap;
