@@ -403,12 +403,6 @@ gen:
 						addr_size = 4;
 						mod = (mod & ~0xc0) | 0x80;
 					}
-					if (sib == -1) {
-						if (rex2 & X86_REX2_B4) {
-							rex2 &= ~X86_REX2_B4;
-							rex2 |= X86_REX2_X3;
-						}
-					}
 				}
 				cgen_one(X86_EVEX);
 				cgen_one(((~rex2 & (X86_REX2_R3 | X86_REX2_X3 | X86_REX2_B3)) << 5) | !(rex2 & X86_REX2_R4) << 4 | !!(rex2 & X86_REX2_B4) << 3 | prefix);
