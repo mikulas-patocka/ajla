@@ -1088,7 +1088,7 @@ static DWORD WINAPI win32_read_thread(LPVOID thr_)
 				if (likely(load_relaxed(&thr->is_packet_console)))
 					thr->packet_is_queued = true;
 			}
-			call(wake_up_wait_list)(&thr->h->wait_list[0], address_get_mutex(thr->h, DEPTH_THUNK), false);
+			call(wake_up_wait_list)(&thr->h->wait_list[0], address_get_mutex(thr->h, DEPTH_THUNK), TASK_SUBMIT_MUST_NOT_SPAWN);
 			if (unlikely(use_terminate_thread(thr)))
 				unlock_mutex(thr->terminate_mutex);
 		} else if (thr->buffer_len < WIN32_BUFFER_SIZE) {
@@ -1118,7 +1118,7 @@ static DWORD WINAPI win32_read_thread(LPVOID thr_)
 				if (!load_relaxed(&thr->is_packet_console))
 					thr->eof = true;
 			}
-			call(wake_up_wait_list)(&thr->h->wait_list[0], address_get_mutex(thr->h, DEPTH_THUNK), false);
+			call(wake_up_wait_list)(&thr->h->wait_list[0], address_get_mutex(thr->h, DEPTH_THUNK), TASK_SUBMIT_MUST_NOT_SPAWN);
 			if (unlikely(use_terminate_thread(thr)))
 				unlock_mutex(thr->terminate_mutex);
 		} else {
@@ -1180,7 +1180,7 @@ static DWORD WINAPI win32_write_thread(LPVOID thr_)
 				if (gle != ERROR_OPERATION_ABORTED)
 					thr->err = gle;
 			}
-			call(wake_up_wait_list)(&thr->h->wait_list[1], address_get_mutex(thr->h, DEPTH_THUNK), false);
+			call(wake_up_wait_list)(&thr->h->wait_list[1], address_get_mutex(thr->h, DEPTH_THUNK), TASK_SUBMIT_MUST_NOT_SPAWN);
 			if (unlikely(use_terminate_thread(thr)))
 				unlock_mutex(thr->terminate_mutex);
 		} else if (unlikely(thr->eof)) {
@@ -1378,7 +1378,7 @@ static void win32_close_read_thread(handle_t h)
 	}
 	thr = h->rd;
 	h->rd = NULL;
-	call(wake_up_wait_list)(&h->wait_list[0], address_get_mutex(h, DEPTH_THUNK), true);
+	call(wake_up_wait_list)(&h->wait_list[0], address_get_mutex(h, DEPTH_THUNK), TASK_SUBMIT_MAY_SPAWN);
 	win32_terminate_io_thread(thr);
 }
 
@@ -2973,7 +2973,7 @@ void iomux_register_wait(handle_t h, bool wr, mutex_t **mutex_to_lock, struct li
 	return;
 
 wake_up:
-	call(wake_up_wait_list)(&h->wait_list[wr], address_get_mutex(h, DEPTH_THUNK), true);
+	call(wake_up_wait_list)(&h->wait_list[wr], address_get_mutex(h, DEPTH_THUNK), TASK_SUBMIT_MAY_SPAWN);
 }
 
 bool iomux_test_handle(handle_t h, bool wr)
@@ -3202,7 +3202,7 @@ static void proc_wait_end(void *ph_)
 	if (unlikely(!GetExitCodeProcess(ph->process_handle, &ph->exit_code)))
 		internal(file_line, "GetExitCodeProcess failed: %u", GetLastError());
 	win32_close_handle(ph->process_handle);
-	call(wake_up_wait_list)(&ph->wait_list, &monitor_mutex, true);
+	call(wake_up_wait_list)(&ph->wait_list, &monitor_mutex, TASK_SUBMIT_MAY_SPAWN);
 }
 
 static bool proc_addstr(char **ptr, size_t *len, const char *str, bool cvt_slashes, ajla_error_t *err)
@@ -3496,7 +3496,7 @@ static BOOL WINAPI signal_handler(DWORD sig)
 		return FALSE;
 	}
 	signals[sig].seq++;
-	call(wake_up_wait_list)(&signals[sig].wait_list, &signal_mutex, false);
+	call(wake_up_wait_list)(&signals[sig].wait_list, &signal_mutex, TASK_SUBMIT_MUST_NOT_SPAWN);
 	return TRUE;
 }
 
@@ -3571,7 +3571,7 @@ static void iomux_directory_handle_wake_up(void *nh_)
 	struct win32_notify_handle *nh = nh_;
 	nh->fired = true;
 	win32_close_change_notification_handle(nh->h);
-	call(wake_up_wait_list)(&nh->wait_list, &monitor_mutex, true);
+	call(wake_up_wait_list)(&nh->wait_list, &monitor_mutex, TASK_SUBMIT_MAY_SPAWN);
 }
 
 bool iomux_directory_handle_alloc(dir_handle_t handle, notify_handle_t *h, uint64_t attr_unused *seq, ajla_error_t *err)
@@ -4442,7 +4442,7 @@ thread_function_decl(iomux_poll_thread,
 				if (p) {
 wake_up:
 					address_lock(h, DEPTH_THUNK);
-					call(wake_up_wait_list)(&h->wait_list[wr], address_get_mutex(h, DEPTH_THUNK), true);
+					call(wake_up_wait_list)(&h->wait_list[wr], address_get_mutex(h, DEPTH_THUNK), TASK_SUBMIT_MAY_SPAWN);
 				} else {
 					if (unlikely(h->connect_in_progress)) {
 						int e = get_socket_error(h);

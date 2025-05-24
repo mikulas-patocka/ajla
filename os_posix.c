@@ -77,8 +77,8 @@
 #define SOCKADDR_ALIGN		16
 
 #ifndef wake_up_wait_list
-void u_name(wake_up_wait_list)(struct list *wait_list, mutex_t *mutex_to_lock, bool can_allocate_memory);
-void c_name(wake_up_wait_list)(struct list *wait_list, mutex_t *mutex_to_lock, bool can_allocate_memory);
+void u_name(wake_up_wait_list)(struct list *wait_list, mutex_t *mutex_to_lock, unsigned spawn_mode);
+void c_name(wake_up_wait_list)(struct list *wait_list, mutex_t *mutex_to_lock, unsigned spawn_mode);
 #endif
 
 #if !defined(THREAD_NONE) && defined(USE_SIGPROCMASK) && defined(HAVE_PTHREAD) && defined(HAVE_PTHREAD_SIGMASK)
@@ -2317,7 +2317,7 @@ static void process_pid_and_status(pid_t pid, int status)
 	tree_delete(&ph->entry);
 
 	if (!ph->detached) {
-		call(wake_up_wait_list)(&ph->wait_list, &proc_tree_mutex, true);
+		call(wake_up_wait_list)(&ph->wait_list, &proc_tree_mutex, TASK_SUBMIT_MAY_SPAWN);
 	} else {
 		proc_handle_free(ph);
 		proc_unlock();
@@ -2654,7 +2654,7 @@ again:
 		signal_seq_t seq = s->sig_sequence;
 		if (unlikely(seq != s->last_sig_sequence)) {
 			s->last_sig_sequence = seq;
-			call(wake_up_wait_list)(&s->wait_list, &signal_state_mutex, true);
+			call(wake_up_wait_list)(&s->wait_list, &signal_state_mutex, TASK_SUBMIT_MAY_SPAWN);
 			sig++;
 			goto again;
 		}

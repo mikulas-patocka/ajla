@@ -34,8 +34,8 @@
 /*#include <sys/farptr.h>*/
 
 #ifndef wake_up_wait_list
-void u_name(wake_up_wait_list)(struct list *wait_list, mutex_t *mutex_to_lock, bool can_allocate_memory);
-void c_name(wake_up_wait_list)(struct list *wait_list, mutex_t *mutex_to_lock, bool can_allocate_memory);
+void u_name(wake_up_wait_list)(struct list *wait_list, mutex_t *mutex_to_lock, unsigned spawn_mode);
+void c_name(wake_up_wait_list)(struct list *wait_list, mutex_t *mutex_to_lock, unsigned spawn_mode);
 #endif
 
 static bool have_ntvdm;
@@ -170,7 +170,7 @@ bool dos_poll_devices(void)
 			have_pkt = true;
 			memmove(mouse_events, mouse_events + 1, (n_mouse_events - 1) * sizeof(struct console_read_packet));
 			n_mouse_events--;
-			call(wake_up_wait_list)(&packet_wait_list, &packet_mutex, true);
+			call(wake_up_wait_list)(&packet_wait_list, &packet_mutex, TASK_SUBMIT_MAY_SPAWN);
 			return true;
 		}
 
@@ -181,7 +181,7 @@ bool dos_poll_devices(void)
 			 */
 			if (have_ntvdm) {
 				mutex_lock(&packet_mutex);
-				call(wake_up_wait_list)(&packet_wait_list, &packet_mutex, true);
+				call(wake_up_wait_list)(&packet_wait_list, &packet_mutex, TASK_SUBMIT_MAY_SPAWN);
 			}
 			return false;
 		}
@@ -193,7 +193,7 @@ bool dos_poll_devices(void)
 		if (head == tail) {
 			__asm__("sti");
 			mutex_lock(&packet_mutex);
-			call(wake_up_wait_list)(&packet_wait_list, &packet_mutex, true);
+			call(wake_up_wait_list)(&packet_wait_list, &packet_mutex, TASK_SUBMIT_MAY_SPAWN);
 			return false;
 		}
 		k = _farpeekw(0x40, head);
@@ -211,7 +211,7 @@ bool dos_poll_devices(void)
 		pkt.u.k.key = k & 0xff;
 		pkt.u.k.cp = dos_charset;
 		have_pkt = true;
-		call(wake_up_wait_list)(&packet_wait_list, &packet_mutex, true);
+		call(wake_up_wait_list)(&packet_wait_list, &packet_mutex, TASK_SUBMIT_MAY_SPAWN);
 		return true;
 	}
 	return false;
@@ -239,7 +239,7 @@ void dos_wait_on_packet(mutex_t **mutex_to_lock, struct list *list_entry)
 	return;
 
 wake_up:
-	call(wake_up_wait_list)(&packet_wait_list, &packet_mutex, true);
+	call(wake_up_wait_list)(&packet_wait_list, &packet_mutex, TASK_SUBMIT_MAY_SPAWN);
 }
 
 ssize_t os_read_console_packet(handle_t attr_unused h, struct console_read_packet *result, ajla_error_t attr_unused *err)

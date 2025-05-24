@@ -207,12 +207,12 @@ void iomux_check_all(uint32_t us)
 
 		address_lock(iow, DEPTH_THUNK);
 		if (ev->filter == EVFILT_READ) {
-			call(wake_up_wait_list)(&iow->wait_list[0], address_get_mutex(iow, DEPTH_THUNK), true);
+			call(wake_up_wait_list)(&iow->wait_list[0], address_get_mutex(iow, DEPTH_THUNK), TASK_SUBMIT_MAY_SPAWN);
 		} else if (ev->filter == EVFILT_WRITE) {
-			call(wake_up_wait_list)(&iow->wait_list[1], address_get_mutex(iow, DEPTH_THUNK), true);
+			call(wake_up_wait_list)(&iow->wait_list[1], address_get_mutex(iow, DEPTH_THUNK), TASK_SUBMIT_MAY_SPAWN);
 		} else if (ev->filter == EVFILT_VNODE) {
 			iow->seq++;
-			call(wake_up_wait_list)(&iow->wait_list[2], address_get_mutex(iow, DEPTH_THUNK), true);
+			call(wake_up_wait_list)(&iow->wait_list[2], address_get_mutex(iow, DEPTH_THUNK), TASK_SUBMIT_MAY_SPAWN);
 		} else {
 			fatal("kevent returned unknown event %d", ev->filter);
 		}

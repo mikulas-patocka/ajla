@@ -3300,7 +3300,7 @@ static void * attr_fastcall io_atomic_exit_handler(struct io_ctx *ctx)
 		ex->atomic_interrupted = false;
 		ex->current_frame = ctx->fp;
 		ex->current_ip = frame_ip(ctx->fp, ctx->ip);
-		task_submit(ex, CALL_MODE_NORMAL, true);
+		task_submit(ex, TASK_SUBMIT_MAY_SPAWN);
 		return POINTER_FOLLOW_THUNK_EXIT;
 	}
 
@@ -4082,7 +4082,7 @@ free_ret_ex:
 	}
 	q->queue[q->queue_len] = qe;
 	q->queue_len++;
-	wake_up_wait_list(&q->wait_list, address_get_mutex(q, DEPTH_THUNK), true);
+	wake_up_wait_list(&q->wait_list, address_get_mutex(q, DEPTH_THUNK), TASK_SUBMIT_MAY_SPAWN);
 
 	if (to_free) {
 		size_t i;

@@ -162,7 +162,7 @@ again:
 		t = get_struct(e, struct timer, entry);
 		if (t->t <= m) {
 			tree_delete(&t->entry);
-			call(wake_up_wait_list)(&t->wait_list, &timer_tree_mutex, true);
+			call(wake_up_wait_list)(&t->wait_list, &timer_tree_mutex, TASK_SUBMIT_MAY_SPAWN);
 			mem_free(t);
 			goto again;
 		}

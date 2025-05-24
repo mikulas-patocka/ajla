@@ -1570,9 +1570,9 @@ struct execution_control {
 };
 
 bool are_there_dereferenced(void);
-void execution_control_unlink_and_submit(struct execution_control *ex, bool can_allocate_memory);
+void execution_control_unlink_and_submit(struct execution_control *ex, unsigned spawn_mode);
 bool execution_control_acquire(struct execution_control *ex);
-void wake_up_wait_list(struct list *wait_list, mutex_t *mutex_to_lock, bool can_allocate_memory);
+void wake_up_wait_list(struct list *wait_list, mutex_t *mutex_to_lock, unsigned spawn_mode);
 void *thunk_terminate(struct thunk *t, arg_t n_return_values);
 struct execution_control *execution_control_alloc(ajla_error_t *mayfail);
 void execution_control_free(struct execution_control *ex);

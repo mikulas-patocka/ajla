@@ -1237,7 +1237,7 @@ static void cache_evaluated(void *cookie, pointer_t ptr)
 	address_lock(c, DEPTH_THUNK);
 	/*debug("cache evaluated: %p, pending %u", c, c->n_pending);*/
 	if (likely(!--c->n_pending)) {
-		wake_up_wait_list(&c->wait_list, address_get_mutex(c, DEPTH_THUNK), true);
+		wake_up_wait_list(&c->wait_list, address_get_mutex(c, DEPTH_THUNK), TASK_SUBMIT_MAY_SPAWN);
 	} else {
 		address_unlock(c, DEPTH_THUNK);
 	}
@@ -2818,7 +2818,7 @@ static void * attr_hot_fastcall ipret_break_the_chain(frame_s *fp, const code_t 
 				high_ex = frame_execution_control(new_fp);
 				high_ex->current_frame = new_fp;
 #if 0
-				task_submit(low_ex, mode, true);
+				task_submit(low_ex, mode == CALL_MODE_SPARK ? TASK_SUBMIT_MUST_SPAWN : TASK_SUBMIT_MAY_SPAWN);
 				return NULL;
 #else
 				waiting = -1;
@@ -2826,14 +2826,14 @@ static void * attr_hot_fastcall ipret_break_the_chain(frame_s *fp, const code_t 
 #endif
 			}
 #if 0
-			task_submit(low_ex, mode, true);
+			task_submit(low_ex, mode == CALL_MODE_SPARK ? TASK_SUBMIT_MUST_SPAWN : TASK_SUBMIT_MAY_SPAWN);
 			top_fp = new_fp;
 			break;
 #else
 			high_ex = frame_execution_control(new_fp);
 			high_ex->current_frame = new_fp;
 			high_ex->current_ip = frame_ip(new_fp, ip);
-			task_submit(high_ex, mode, true);
+			task_submit(high_ex, mode == CALL_MODE_SPARK ? TASK_SUBMIT_MUST_SPAWN : TASK_SUBMIT_MAY_SPAWN);
 cont_with_low_ex:
 			prev_fp = top_fp = low_ex->current_frame;
 			ip = da(get_frame(top_fp)->function,function)->code + low_ex->current_ip;
@@ -2862,7 +2862,7 @@ bool attr_fastcall ipret_break_waiting_chain(frame_s *fp, ip_t ip)
 
 	ex = ipret_break_the_chain(fp, da(get_frame(fp)->function,function)->code + ip, 1, &something_breakable);
 	if (ex)
-		task_submit(ex, CALL_MODE_NORMAL, true);
+		task_submit(ex, TASK_SUBMIT_MAY_SPAWN);
 
 	return something_breakable;
 }

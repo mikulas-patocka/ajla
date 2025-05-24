@@ -711,10 +711,10 @@ static void execution_control_unlink(struct execution_control *ex)
 	refcount_set(&ex->wait_state, EXECUTION_CONTROL_NORMAL);
 }
 
-void execution_control_unlink_and_submit(struct execution_control *ex, bool can_allocate_memory)
+void execution_control_unlink_and_submit(struct execution_control *ex, unsigned spawn_mode)
 {
 	execution_control_unlink(ex);
-	task_submit(ex, CALL_MODE_NORMAL, can_allocate_memory);
+	task_submit(ex, spawn_mode);
 }
 
 bool execution_control_acquire(struct execution_control *ex)
@@ -730,7 +730,7 @@ static struct execution_control *execution_control_acquire_from_thunk(struct thu
 	return execution_control_acquire(ex) ? ex : NULL;
 }
 
-static void *wake_up_wait_list_internal(struct list *wait_list, mutex_t *mutex_to_lock, bool can_allocate_memory)
+static void *wake_up_wait_list_internal(struct list *wait_list, mutex_t *mutex_to_lock, unsigned spawn_mode)
 {
 	struct list ex_to_resume;
 	void *ret = POINTER_FOLLOW_THUNK_EXIT;
@@ -760,18 +760,18 @@ static void *wake_up_wait_list_internal(struct list *wait_list, mutex_t *mutex_t
 			execution_control_unlink(new_ex);
 			ret = new_ex;
 		} else {
-			execution_control_unlink_and_submit(new_ex, can_allocate_memory);
+			execution_control_unlink_and_submit(new_ex, spawn_mode);
 		}
 	}
 
 	return ret;
 }
 
-void wake_up_wait_list(struct list *wait_list, mutex_t *mutex_to_lock, bool can_allocate_memory)
+void wake_up_wait_list(struct list *wait_list, mutex_t *mutex_to_lock, unsigned spawn_mode)
 {
-	void *ex = wake_up_wait_list_internal(wait_list, mutex_to_lock, can_allocate_memory);
+	void *ex = wake_up_wait_list_internal(wait_list, mutex_to_lock, spawn_mode);
 	if (ex != POINTER_FOLLOW_THUNK_EXIT)
-		task_submit(ex, CALL_MODE_NORMAL, can_allocate_memory);
+		task_submit(ex, spawn_mode);
 }
 
 void *thunk_terminate(struct thunk *t, arg_t n_return_values)
@@ -817,7 +817,7 @@ return_dereference_unused:
 		}
 	}
 
-	ret = wake_up_wait_list_internal(&ex->wait_list, address_get_mutex(t, DEPTH_THUNK), true);
+	ret = wake_up_wait_list_internal(&ex->wait_list, address_get_mutex(t, DEPTH_THUNK), TASK_SUBMIT_MAY_SPAWN);
 
 	execution_control_free(ex);
 
@@ -835,7 +835,7 @@ static void thunk_terminate_with_value(struct thunk *t, arg_t n_return_values, p
 	}
 	ex = thunk_terminate(t, n_return_values);
 	if (ex != POINTER_FOLLOW_THUNK_EXIT)
-		task_submit(ex, CALL_MODE_NORMAL, true);
+		task_submit(ex, TASK_SUBMIT_MAY_SPAWN);
 }
 
 
@@ -1174,7 +1174,7 @@ static void * attr_hot_fastcall get_sub_blackhole(void *data)
 	ex = execution_control_acquire_from_thunk(t);
 	address_unlock(t, DEPTH_THUNK);
 	if (ex)
-		execution_control_unlink_and_submit(ex, true);
+		execution_control_unlink_and_submit(ex, TASK_SUBMIT_MAY_SPAWN);
 
 	return NULL;
 }
@@ -1189,7 +1189,7 @@ static void * attr_hot_fastcall get_sub_blackhole_some_dereferenced(void *data)
 	ex = execution_control_acquire_from_thunk(t);
 	address_unlock(t, DEPTH_THUNK);
 	if (ex)
-		execution_control_unlink_and_submit(ex, true);
+		execution_control_unlink_and_submit(ex, TASK_SUBMIT_MAY_SPAWN);
 
 	return NULL;
 }
@@ -1286,7 +1286,7 @@ static void * attr_hot_fastcall get_sub_multi_ret_reference(void *data)
 unlock_ret_false:
 	address_unlock(mt, DEPTH_THUNK);
 	if (ex)
-		execution_control_unlink_and_submit(ex, true);
+		execution_control_unlink_and_submit(ex, TASK_SUBMIT_MAY_SPAWN);
 	return NULL;
 }
 
@@ -1719,7 +1719,7 @@ void attr_fastcall pointer_follow_wait(frame_s *fp, const code_t *ip)
 	waiting_list_add(ex);
 
 	if (unlikely(refcount_dec(&ex->wait_state)))
-		execution_control_unlink_and_submit(ex, true);
+		execution_control_unlink_and_submit(ex, TASK_SUBMIT_MAY_SPAWN);
 }
 
 bool attr_fastcall data_is_nan(type_tag_t type, const unsigned char attr_unused *ptr)

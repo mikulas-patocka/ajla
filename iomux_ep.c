@@ -171,7 +171,7 @@ static void process_inotify(void)
 			struct inotify_wd *wd = get_struct(e, struct inotify_wd, entry);
 			/*debug("found seq %llx", (unsigned long long)wd->seq);*/
 			wd->seq++;
-			call(wake_up_wait_list)(&wd->wait_list, &inotify_wds_mutex, true);
+			call(wake_up_wait_list)(&wd->wait_list, &inotify_wds_mutex, TASK_SUBMIT_MAY_SPAWN);
 		}
 
 		offset += sizeof(struct inotify_event) + ptr->len;
@@ -331,7 +331,7 @@ void iomux_check_all(uint32_t us)
 		}
 #endif
 		iow->event.events = 0;
-		call(wake_up_wait_list)(&iow->wait_list, address_get_mutex(iow, DEPTH_THUNK), true);
+		call(wake_up_wait_list)(&iow->wait_list, address_get_mutex(iow, DEPTH_THUNK), TASK_SUBMIT_MAY_SPAWN);
 	}
 	rwlock_unlock_read(&iomux_rwlock);
 

@@ -207,7 +207,7 @@ void iomux_check_all(uint32_t us)
 			if (n >= 0) {
 				struct iomux_wait *iow = iowait_directory[h];
 				address_lock(iow, DEPTH_THUNK);
-				call(wake_up_wait_list)(&iow->wait_list[0], address_get_mutex(iow, DEPTH_THUNK), true);
+				call(wake_up_wait_list)(&iow->wait_list[0], address_get_mutex(iow, DEPTH_THUNK), TASK_SUBMIT_MAY_SPAWN);
 			}
 			FD_CLR(h, read_fd_set);
 #ifndef __EMX__
@@ -218,7 +218,7 @@ void iomux_check_all(uint32_t us)
 			if (n >= 0) {
 				struct iomux_wait *iow = iowait_directory[h];
 				address_lock(iow, DEPTH_THUNK);
-				call(wake_up_wait_list)(&iow->wait_list[1], address_get_mutex(iow, DEPTH_THUNK), true);
+				call(wake_up_wait_list)(&iow->wait_list[1], address_get_mutex(iow, DEPTH_THUNK), TASK_SUBMIT_MAY_SPAWN);
 			}
 			FD_CLR(h, write_fd_set);
 #ifndef __EMX__

@@ -75,8 +75,8 @@ void iomux_check_all(uint32_t us);
 #define IOMUX_INDEFINITE_WAIT	((uint32_t)-1)
 
 #ifndef wake_up_wait_list
-void u_name(wake_up_wait_list)(struct list *wait_list, mutex_t *mutex_to_lock, bool can_allocate_memory);
-void c_name(wake_up_wait_list)(struct list *wait_list, mutex_t *mutex_to_lock, bool can_allocate_memory);
+void u_name(wake_up_wait_list)(struct list *wait_list, mutex_t *mutex_to_lock, unsigned spawn_mode);
+void c_name(wake_up_wait_list)(struct list *wait_list, mutex_t *mutex_to_lock, unsigned spawn_mode);
 #endif
 
 void iomux_init(void);

@@ -49,8 +49,8 @@
 #define OS2_MAX_HANDLE			32768
 
 #ifndef wake_up_wait_list
-void u_name(wake_up_wait_list)(struct list *wait_list, mutex_t *mutex_to_lock, bool can_allocate_memory);
-void c_name(wake_up_wait_list)(struct list *wait_list, mutex_t *mutex_to_lock, bool can_allocate_memory);
+void u_name(wake_up_wait_list)(struct list *wait_list, mutex_t *mutex_to_lock, unsigned spawn_mode);
+void c_name(wake_up_wait_list)(struct list *wait_list, mutex_t *mutex_to_lock, unsigned spawn_mode);
 #endif
 
 struct os2_io_thread {
@@ -879,7 +879,7 @@ static void os2_read_thread(ULONG rd_)
 				rd->packet_is_queued = true;
 			else
 				rd->err = rc;
-			call(wake_up_wait_list)(&h->rd.wait_list, address_get_mutex(h, DEPTH_THUNK), false);
+			call(wake_up_wait_list)(&h->rd.wait_list, address_get_mutex(h, DEPTH_THUNK), TASK_SUBMIT_MUST_NOT_SPAWN);
 			os_unblock_signals(&s);
 		} else if (rd->buffer_len < OS2_BUFFER_SIZE) {
 			size_t ptr = (rd->buffer_pos + rd->buffer_len) % OS2_BUFFER_SIZE;
@@ -900,7 +900,7 @@ static void os2_read_thread(ULONG rd_)
 				rd->eof = true;
 			}
 			rd->buffer_len += rd_num;
-			call(wake_up_wait_list)(&h->rd.wait_list, address_get_mutex(h, DEPTH_THUNK), false);
+			call(wake_up_wait_list)(&h->rd.wait_list, address_get_mutex(h, DEPTH_THUNK), TASK_SUBMIT_MUST_NOT_SPAWN);
 			os_unblock_signals(&s);
 		} else {
 			ULONG count;
@@ -956,7 +956,7 @@ static void os2_write_thread(ULONG wr_)
 			wr->buffer_pos = (wr->buffer_pos + wr_num) % OS2_BUFFER_SIZE;
 			wr->buffer_len -= wr_num;
 
-			call(wake_up_wait_list)(&h->wr.wait_list, address_get_mutex(h, DEPTH_THUNK), false);
+			call(wake_up_wait_list)(&h->wr.wait_list, address_get_mutex(h, DEPTH_THUNK), TASK_SUBMIT_MUST_NOT_SPAWN);
 			os_unblock_signals(&s);
 		} else if (unlikely(wr->eof)) {
 eof:
@@ -1146,7 +1146,7 @@ static void os2_terminate_read_threads(handle_t h)
 		os2_terminate_io_thread(&h->ms);
 	os2_clear_thread_buffer(&h->rd);
 	os2_clear_thread_buffer(&h->ms);
-	call(wake_up_wait_list)(&h->rd.wait_list, address_get_mutex(h, DEPTH_THUNK), true);
+	call(wake_up_wait_list)(&h->rd.wait_list, address_get_mutex(h, DEPTH_THUNK), TASK_SUBMIT_MAY_SPAWN);
 }
 
 static ssize_t os_read_nonblock(handle_t h, char *buffer, int size, ajla_error_t *err)
@@ -2606,7 +2606,7 @@ void iomux_register_wait(handle_t h, bool wr, mutex_t **mutex_to_lock, struct li
 	return;
 
 wake_up:
-	call(wake_up_wait_list)(&thr->wait_list, address_get_mutex(h, DEPTH_THUNK), true);
+	call(wake_up_wait_list)(&thr->wait_list, address_get_mutex(h, DEPTH_THUNK), TASK_SUBMIT_MAY_SPAWN);
 }
 
 bool iomux_test_handle(handle_t h, bool wr)
@@ -2744,7 +2744,7 @@ lock_loop:
 		tree_delete(&ph->entry);
 
 		if (!ph->detached) {
-			call(wake_up_wait_list)(&ph->wait_list, &proc_tree_mutex, false);
+			call(wake_up_wait_list)(&ph->wait_list, &proc_tree_mutex, TASK_SUBMIT_MUST_NOT_SPAWN);
 			goto lock_loop;
 		} else {
 			os2_free_buffer(ph);
@@ -3058,7 +3058,7 @@ again:
 		signal_seq_t seq = signals[sig].sig_sequence;
 		if (signals[sig].last_sig_sequence != seq) {
 			signals[sig].last_sig_sequence = seq;
-			call(wake_up_wait_list)(&signals[sig].wait_list, &signal_mutex, true);
+			call(wake_up_wait_list)(&signals[sig].wait_list, &signal_mutex, TASK_SUBMIT_MAY_SPAWN);
 			sig++;
 			goto again;
 		}
@@ -3868,7 +3868,7 @@ thread_function_decl(iomux_poll_thread,
 					p = bsearch(&hndl, select_arg + select_arg_read, select_arg_n - select_arg_read, sizeof(int), compare_int);
 				if (p) {
 					address_lock(h, DEPTH_THUNK);
-					call(wake_up_wait_list)(&thr->wait_list, address_get_mutex(h, DEPTH_THUNK), true);
+					call(wake_up_wait_list)(&thr->wait_list, address_get_mutex(h, DEPTH_THUNK), TASK_SUBMIT_MAY_SPAWN);
 				}
 			}
 		}

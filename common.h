@@ -232,3 +232,7 @@ do {									\
 		}							\
 	}								\
 } while (0)
+
+#define TASK_SUBMIT_MUST_NOT_SPAWN	0
+#define TASK_SUBMIT_MAY_SPAWN		1
+#define TASK_SUBMIT_MUST_SPAWN		2

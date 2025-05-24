@@ -1919,7 +1919,7 @@ DEFINE_OPCODE_START(OPCODE_RETURN)
 		exx = thunk_terminate(t, n);
 #if 0
 		if (exx != POINTER_FOLLOW_THUNK_EXIT)
-			task_submit(exx, CALL_MODE_NORMAL, true);
+			task_submit(exx, TASK_SUBMIT_MAY_SPAWN);
 		goto exit_ipret;
 #else
 		RELOAD_EX_POSITION(exx);
