@@ -280,7 +280,7 @@ static bool attr_w cgen_rex2(struct codegen_context attr_unused *ctx, uint8_t re
 #define force_ndd			0x40000
 #define SSE_PREFIX_W			0x80000
 
-static bool attr_w cgen_rm_insn(struct codegen_context *ctx, int32_t sse_prefix, uint8_t prefix, uint8_t opcode, unsigned size, bool reg_is_reg, uint8_t reg, uint8_t *arg)
+static bool attr_w cgen_rm_insn(struct codegen_context *ctx, int32_t sse_prefix, uint8_t prefix, uint8_t opcode, unsigned size, unsigned real_size, bool reg_is_reg, uint8_t reg, uint8_t *arg)
 {
 	uint8_t rex2, mod, rm;
 	int16_t sib;
@@ -403,6 +403,14 @@ gen:
 						addr_size = 4;
 						mod = (mod & ~0xc0) | 0x80;
 					}
+					if (addr_size == 4 && imm && !(imm & ((1U << real_size) - 1))) {
+						int64_t ximm = imm / (1 << real_size);
+						if (ximm >= -0x80 && ximm <= 0x7f) {
+							imm = ximm;
+							addr_size = 1;
+							mod = (mod & ~0xc0) | 0x40;
+						}
+					}
 				}
 				cgen_one(X86_EVEX);
 				cgen_one(((~rex2 & (X86_REX2_R3 | X86_REX2_X3 | X86_REX2_B3)) << 5) | !(rex2 & X86_REX2_R4) << 4 | !!(rex2 & X86_REX2_B4) << 3 | prefix);
@@ -480,9 +488,9 @@ avx_done:
 	return true;
 }
 
-static bool attr_w cgen_sse_insn(struct codegen_context *ctx, unsigned sse_prefix, unsigned sse_op_map, uint8_t opcode, bool wide, uint8_t reg, uint8_t reg2, uint8_t *arg)
+static bool attr_w cgen_sse_insn(struct codegen_context *ctx, unsigned sse_prefix, unsigned sse_op_map, uint8_t opcode, bool wide, unsigned real_size, uint8_t reg, uint8_t reg2, uint8_t *arg)
 {
-	g(cgen_rm_insn(ctx, sse_prefix + (reg2 << 8), sse_op_map, opcode, !wide ? OP_SIZE_4 : OP_SIZE_8, true, reg, arg));
+	g(cgen_rm_insn(ctx, sse_prefix + (reg2 << 8), sse_op_map, opcode, !wide ? OP_SIZE_4 : OP_SIZE_8, real_size, true, reg, arg));
 	return true;
 }
 
@@ -522,7 +530,7 @@ static bool attr_w cgen_push(struct codegen_context *ctx, unsigned aux)
 			return true;
 		}
 	}
-	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_FF, OP_SIZE_4, false, X86_FF_PUSH, arg1));
+	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_FF, OP_SIZE_4, OP_SIZE_NATIVE, false, X86_FF_PUSH, arg1));
 	return true;
 }
 
@@ -547,7 +555,7 @@ static bool attr_w cgen_pop(struct codegen_context *ctx, unsigned aux)
 		cgen_one(X86_POP_R16 + (arg1[0] & 7));
 		return true;
 	}
-	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_8F, OP_SIZE_4, false, X86_8F_POP, arg1));
+	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_8F, OP_SIZE_4, OP_SIZE_NATIVE, false, X86_8F_POP, arg1));
 	return true;
 }
 
@@ -556,7 +564,7 @@ static bool attr_w cgen_push2(struct codegen_context *ctx, unsigned aux)
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
-	g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, X86_FF, !aux ? OP_SIZE_4 : OP_SIZE_8, false, X86_FF_PUSH, arg2));
+	g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, X86_FF, !aux ? OP_SIZE_4 : OP_SIZE_8, OP_SIZE_8, false, X86_FF_PUSH, arg2));
 	return true;
 }
 
@@ -565,7 +573,7 @@ static bool attr_w cgen_pop2(struct codegen_context *ctx, unsigned aux)
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
-	g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, X86_8F, !aux ? OP_SIZE_4 : OP_SIZE_8, false, X86_8F_POP, arg2));
+	g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, X86_8F, !aux ? OP_SIZE_4 : OP_SIZE_8, OP_SIZE_8, false, X86_8F_POP, arg2));
 	return true;
 }
 
@@ -603,7 +611,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size)
 			return true;
 		} else {
 			if (size < OP_SIZE_4) {
-				g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_MOV_RM8_IMM8 : X86_MOV_RM16_IMM16, size, false, X86_MOV_R16_IMM16_REG, arg1));
+				g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_MOV_RM8_IMM8 : X86_MOV_RM16_IMM16, size, size, false, X86_MOV_R16_IMM16_REG, arg1));
 				if (size == OP_SIZE_1)
 					cgen_one(imm);
 				else
@@ -613,7 +621,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size)
 mov_rm:
 			if (unlikely(!imm_is_32bit(imm)))
 				internal(file_line, "cgen_mov: immediate out of range: %"PRIxMAX"", (uintmax_t)imm);
-			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_MOV_RM16_IMM16, maximum(size, OP_SIZE_4), false, X86_MOV_R16_IMM16_REG, arg1));
+			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_MOV_RM16_IMM16, maximum(size, OP_SIZE_4), maximum(size, OP_SIZE_4), false, X86_MOV_R16_IMM16_REG, arg1));
 			cgen_four(imm);
 			return true;
 		}
@@ -642,49 +650,49 @@ mov_rm:
 	if (R_IS_XMM(arg1[0]) && ARG_IS_ADDRESS(arg2[0])) {
 		if (size == OP_SIZE_2) {
 			if (cpu_test_feature(CPU_FEATURE_fp16)) {
-				g(cgen_sse_insn(ctx, SSE_PREFIX_F3 | force_evex, PREFIX_MAP5, X86_MAP5_MOVSH_X128_M16, false, arg1[0], 0, arg2));
+				g(cgen_sse_insn(ctx, SSE_PREFIX_F3 | force_evex, PREFIX_MAP5, X86_MAP5_MOVSH_X128_M16, false, size, arg1[0], 0, arg2));
 				return true;
 			} else {
-				g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F, X86_0F_PINSRW_X128_RM16_IMM8, false, arg1[0], R_XMM7, arg2));
+				g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F, X86_0F_PINSRW_X128_RM16_IMM8, false, size, arg1[0], R_XMM7, arg2));
 				cgen_one(0x00);
 				return true;
 			}
 		}
 		if (size == OP_SIZE_16) {
-			g(cgen_sse_insn(ctx, SSE_PREFIX_NONE, PREFIX_0F, X86_0F_MOVAPS_X128_M128, false, arg1[0], 0, arg2));
+			g(cgen_sse_insn(ctx, SSE_PREFIX_NONE, PREFIX_0F, X86_0F_MOVAPS_X128_M128, false, size, arg1[0], 0, arg2));
 			return true;
 		}
-		g(cgen_sse_insn(ctx, size == OP_SIZE_4 ? SSE_PREFIX_F3 : SSE_PREFIX_F2 | SSE_PREFIX_W, PREFIX_0F, X86_0F_MOVSS_X128_M32, false, arg1[0], 0, arg2));
+		g(cgen_sse_insn(ctx, size == OP_SIZE_4 ? SSE_PREFIX_F3 : SSE_PREFIX_F2 | SSE_PREFIX_W, PREFIX_0F, X86_0F_MOVSS_X128_M32, false, size, arg1[0], 0, arg2));
 		return true;
 	}
 	if (ARG_IS_ADDRESS(arg1[0]) && R_IS_XMM(arg2[0])) {
 		if (size == OP_SIZE_2) {
 			if (cpu_test_feature(CPU_FEATURE_fp16)) {
-				g(cgen_sse_insn(ctx, SSE_PREFIX_F3 | force_evex, PREFIX_MAP5, X86_MAP5_MOVSH_M16_X128, false, arg2[0], 0, arg1));
+				g(cgen_sse_insn(ctx, SSE_PREFIX_F3 | force_evex, PREFIX_MAP5, X86_MAP5_MOVSH_M16_X128, false, size, arg2[0], 0, arg1));
 				return true;
 			} else {
-				g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F_3A, X86_0F_3A_PEXTRW_RM16_X128_IMM8, false, arg2[0], 0, arg1));
+				g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F_3A, X86_0F_3A_PEXTRW_RM16_X128_IMM8, false, size, arg2[0], 0, arg1));
 				cgen_one(0x00);
 				return true;
 			}
 		}
 		if (size == OP_SIZE_16) {
-			g(cgen_sse_insn(ctx, SSE_PREFIX_NONE, PREFIX_0F, X86_0F_MOVAPS_M128_X128, false, arg2[0], 0, arg1));
+			g(cgen_sse_insn(ctx, SSE_PREFIX_NONE, PREFIX_0F, X86_0F_MOVAPS_M128_X128, false, size, arg2[0], 0, arg1));
 			return true;
 		}
-		g(cgen_sse_insn(ctx, size == OP_SIZE_4 ? SSE_PREFIX_F3 : SSE_PREFIX_F2 | SSE_PREFIX_W, PREFIX_0F, X86_0F_MOVSS_M32_X128, false, arg2[0], 0, arg1));
+		g(cgen_sse_insn(ctx, size == OP_SIZE_4 ? SSE_PREFIX_F3 : SSE_PREFIX_F2 | SSE_PREFIX_W, PREFIX_0F, X86_0F_MOVSS_M32_X128, false, size, arg2[0], 0, arg1));
 		return true;
 	}
 	if (R_IS_XMM(arg1[0]) && R_IS_XMM(arg2[0])) {
-		g(cgen_sse_insn(ctx, SSE_PREFIX_NONE, PREFIX_0F, X86_0F_MOVAPS_X128_M128, false, arg1[0], 0, arg2));
+		g(cgen_sse_insn(ctx, SSE_PREFIX_NONE, PREFIX_0F, X86_0F_MOVAPS_X128_M128, false, size, arg1[0], 0, arg2));
 		return true;
 	}
 	if (R_IS_XMM(arg1[0]) && R_IS_GPR(arg2[0])) {
-		g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F, X86_0F_MOVD_X128_RM32, size == OP_SIZE_8, arg1[0], 0, arg2));
+		g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F, X86_0F_MOVD_X128_RM32, size == OP_SIZE_8, size, arg1[0], 0, arg2));
 		return true;
 	}
 	if (R_IS_GPR(arg1[0]) && R_IS_XMM(arg2[0])) {
-		g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F, X86_0F_MOVD_RM32_X128, size == OP_SIZE_8, arg2[0], 0, arg1));
+		g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F, X86_0F_MOVD_RM32_X128, size == OP_SIZE_8, size, arg2[0], 0, arg1));
 		return true;
 	}
 	if (!R_IS_GPR(arg1[0]) && unlikely(!R_IS_GPR(arg2[0]))) {
@@ -693,14 +701,14 @@ mov_rm:
 	}
 	if (!R_IS_GPR(arg1[0])) {
 		uint8_t code = size == OP_SIZE_1 ? X86_MOV_RM8_R8 : X86_MOV_RM16_R16;
-		g(cgen_rm_insn(ctx, -1, PREFIX_NONE, code, size, true, arg2[0], arg1));
+		g(cgen_rm_insn(ctx, -1, PREFIX_NONE, code, size, size, true, arg2[0], arg1));
 		return true;
 	} else if (size >= OP_SIZE_4) {
-		g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_MOV_R16_RM16, size, true, arg1[0], arg2));
+		g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_MOV_R16_RM16, size, size, true, arg1[0], arg2));
 		return true;
 	} else {
 		uint8_t code = size == OP_SIZE_1 ? X86_0F_MOVZX_R16_RM8 : X86_0F_MOVZX_R16_RM16;
-		g(cgen_rm_insn(ctx, -1, PREFIX_0F, code, OP_SIZE_4, false, arg1[0], arg2));
+		g(cgen_rm_insn(ctx, -1, PREFIX_0F, code, OP_SIZE_4, OP_SIZE_4, false, arg1[0], arg2));
 		return true;
 	}
 }
@@ -716,9 +724,9 @@ static bool attr_w cgen_movsx(struct codegen_context *ctx, unsigned size)
 	arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
 	if (size <= OP_SIZE_2) {
-		g(cgen_rm_insn(ctx, -1, PREFIX_0F, size == OP_SIZE_1 ? X86_0F_MOVSX_R16_RM8 : X86_0F_MOVSX_R16_RM16, OP_SIZE_NATIVE, true, arg1[0], arg2));
+		g(cgen_rm_insn(ctx, -1, PREFIX_0F, size == OP_SIZE_1 ? X86_0F_MOVSX_R16_RM8 : X86_0F_MOVSX_R16_RM16, OP_SIZE_NATIVE, OP_SIZE_NATIVE, true, arg1[0], arg2));
 	} else {
-		g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_MOVSXD, OP_SIZE_NATIVE, true, arg1[0], arg2));
+		g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_MOVSXD, OP_SIZE_NATIVE, OP_SIZE_NATIVE, true, arg1[0], arg2));
 	}
 	return true;
 }
@@ -764,7 +772,7 @@ static bool attr_w cgen_lea(struct codegen_context *ctx, unsigned size)
 invalid:
 		internal(file_line, "cgen_lea: invalid argument %u, %02x, %02x, %02x", size, arg1[0], arg2[0], arg3[0]);
 	}
-	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_LEA_R16_RM16, size, true, arg1[0], addr));
+	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_LEA_R16_RM16, size, size, true, arg1[0], addr));
 	return true;
 }
 
@@ -799,7 +807,7 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 			if (unlikely(size == OP_SIZE_1))
 				internal(file_line, "cgen_alu: byte mul with imm not supported");
 			code = imm_is_8bit(imm) ? X86_IMUL_R16_RM16_IMM8 : X86_IMUL_R16_RM16_IMM16;
-			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, code, size, true, arg1[0], arg2));
+			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, code, size, size, true, arg1[0], arg2));
 			if (code == X86_IMUL_R16_RM16_IMM8) {
 				cgen_one(imm);
 			} else if (size == OP_SIZE_2) {
@@ -812,15 +820,15 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 		if (unlikely(size == OP_SIZE_1)) {
 			if (unlikely(arg1[0] != R_AX))
 				internal(file_line, "cgen_alu: imul with unsupported register");
-			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_F6, size, false, X86_F6_IMUL_RM8, arg3));
+			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_F6, size, size, false, X86_F6_IMUL_RM8, arg3));
 			return true;
 		} else {
 			if (unlikely(!R_IS_GPR(arg1[0])))
 				internal(file_line, "cgen_alu: invalid multiply args");
 			if (arg1[0] == arg2[0] && !test_evex)
-				g(cgen_rm_insn(ctx, -1, PREFIX_0F, X86_0F_IMUL_R16_RM16, size, true, arg1[0], arg3));
+				g(cgen_rm_insn(ctx, -1, PREFIX_0F, X86_0F_IMUL_R16_RM16, size, size, true, arg1[0], arg3));
 			else
-				g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, X86_0F_IMUL_R16_RM16, size, true, arg2[0], arg3));
+				g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, X86_0F_IMUL_R16_RM16, size, size, true, arg2[0], arg3));
 			return true;
 		}
 	}
@@ -844,9 +852,9 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 				}
 #endif
 				if ((arg1[0] == arg2[0] && !test_evex) || !R_IS_GPR(arg1[0]))
-					g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_FE : X86_FF, size, false, X86_FE_INC_RM8, arg1));
+					g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_FE : X86_FF, size, size, false, X86_FE_INC_RM8, arg1));
 				else
-					g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, size == OP_SIZE_1 ? X86_FE : X86_FF, size, false, X86_FE_INC_RM8, arg2));
+					g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, size == OP_SIZE_1 ? X86_FE : X86_FF, size, size, false, X86_FE_INC_RM8, arg2));
 				return true;
 			}
 			if ((alu == ALU_ADD && imm == -1) || (alu == ALU_SUB && imm == 1)) {
@@ -859,9 +867,9 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 				}
 #endif
 				if ((arg1[0] == arg2[0] && !test_evex) || !R_IS_GPR(arg1[0]))
-					g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_FE : X86_FF, size, false, X86_FE_DEC_RM8, arg1));
+					g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_FE : X86_FF, size, size, false, X86_FE_DEC_RM8, arg1));
 				else
-					g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, size == OP_SIZE_1 ? X86_FE : X86_FF, size, false, X86_FE_DEC_RM8, arg2));
+					g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, size == OP_SIZE_1 ? X86_FE : X86_FF, size, size, false, X86_FE_DEC_RM8, arg2));
 				return true;
 			}
 		}
@@ -882,9 +890,9 @@ use_shorter:
 			bit8 = imm_is_8bit(imm);
 			code = size == OP_SIZE_1 ? X86_ALU_RM8_IMM8 : bit8 ? X86_ALU_RM16_IMM8 : X86_ALU_RM16_IMM16;
 			if (alu == 7 || (arg1[0] == arg2[0] && !test_evex) || !R_IS_GPR(arg1[0]) || 0)
-				g(cgen_rm_insn(ctx, -1, PREFIX_NONE, code, size, false, alu, arg1));
+				g(cgen_rm_insn(ctx, -1, PREFIX_NONE, code, size, size, false, alu, arg1));
 			else
-				g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, code, size, false, alu, arg2));
+				g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, code, size, size, false, alu, arg2));
 		}
 		if (bit8 || size == OP_SIZE_1) {
 			cgen_one(imm);
@@ -905,7 +913,7 @@ use_shorter:
 			case ALU_XOR:	code = X86_0F_XORPS_X128_M128; break;
 			default:	internal(file_line, "invalid sse alu: %u", alu);
 		}
-		g(cgen_sse_insn(ctx, SSE_PREFIX_NONE, PREFIX_0F, code, false, arg1[0], arg2[0], arg3));
+		g(cgen_sse_insn(ctx, SSE_PREFIX_NONE, PREFIX_0F, code, false, size, arg1[0], arg2[0], arg3));
 		return true;
 	}
 
@@ -915,15 +923,15 @@ use_shorter:
 	if (!R_IS_GPR(arg1[0])) {
 		uint8_t code = size == OP_SIZE_1 ? X86_ALU_RM8_R8 : X86_ALU_RM16_R16;
 		code += alu * 8;
-		g(cgen_rm_insn(ctx, -1, PREFIX_NONE, code, size, true, arg3[0], arg1));
+		g(cgen_rm_insn(ctx, -1, PREFIX_NONE, code, size, size, true, arg3[0], arg1));
 		return true;
 	} else {
 		uint8_t code = size == OP_SIZE_1 ? X86_ALU_R8_RM8 : X86_ALU_R16_RM16;
 		code += alu * 8;
 		if (alu == 7 || (arg1[0] == arg2[0] && !test_evex))
-			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, code, size, true, arg1[0], arg3));
+			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, code, size, size, true, arg1[0], arg3));
 		else
-			g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, code, size, true, arg2[0], arg3));
+			g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, code, size, size, true, arg2[0], arg3));
 		return true;
 	}
 }
@@ -941,15 +949,15 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 	switch (alu) {
 		case ALU1_NOT:
 			if ((arg1[0] == arg2[0] && !test_evex) || !R_IS_GPR(arg1[0]))
-				g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_F6 : X86_F7, size, false, X86_F6_NOT_RM8, arg1));
+				g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_F6 : X86_F7, size, size, false, X86_F6_NOT_RM8, arg1));
 			else
-				g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, size == OP_SIZE_1 ? X86_F6 : X86_F7, size, false, X86_F6_NOT_RM8, arg2));
+				g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, size == OP_SIZE_1 ? X86_F6 : X86_F7, size, size, false, X86_F6_NOT_RM8, arg2));
 			return true;
 		case ALU1_NEG:
 			if ((arg1[0] == arg2[0] && !test_evex) || !R_IS_GPR(arg1[0]))
-				g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_F6 : X86_F7, size, false, X86_F6_NEG_RM8, arg1));
+				g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_F6 : X86_F7, size, size, false, X86_F6_NEG_RM8, arg1));
 			else
-				g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, size == OP_SIZE_1 ? X86_F6 : X86_F7, size, false, X86_F6_NEG_RM8, arg2));
+				g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, size == OP_SIZE_1 ? X86_F6 : X86_F7, size, size, false, X86_F6_NEG_RM8, arg2));
 			return true;
 		case ALU1_BSWAP:
 			if (unlikely(size <= OP_SIZE_2))
@@ -979,7 +987,7 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 				internal(file_line, "cgen_alu1: bytes not supported with this operation");
 			if (alu == ALU1_POPCNT || alu == ALU1_LZCNT)
 				cgen_one(X86_REPE);
-			g(cgen_rm_insn(ctx, -1, PREFIX_0F, alu == ALU1_BSF ? X86_0F_BSF_R16_RM16 : alu == ALU1_BSR || alu == ALU1_LZCNT ? X86_0F_BSR_R16_RM16 : X86_0F_POPCNT_R16_RM16, size, true, arg1[0], arg2));
+			g(cgen_rm_insn(ctx, -1, PREFIX_0F, alu == ALU1_BSF ? X86_0F_BSF_R16_RM16 : alu == ALU1_BSR || alu == ALU1_LZCNT ? X86_0F_BSR_R16_RM16 : X86_0F_POPCNT_R16_RM16, size, size, true, arg1[0], arg2));
 			return true;
 		default:
 			internal(file_line, "cgen_alu1: invalid operation %u", alu);
@@ -1012,7 +1020,7 @@ static bool attr_w cgen_test(struct codegen_context *ctx, unsigned size)
 				cgen_one(X86_TEST_AX_IMM16);
 			}
 		} else {
-			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_F6 : X86_F7, size, false, X86_F6_TEST_RM8_IMM8, arg1));
+			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_F6 : X86_F7, size, size, false, X86_F6_TEST_RM8_IMM8, arg1));
 		}
 		if (size == OP_SIZE_1) {
 			cgen_one(imm);
@@ -1032,9 +1040,9 @@ static bool attr_w cgen_test(struct codegen_context *ctx, unsigned size)
 		internal(file_line, "cgen_test: two addresses not supported");
 
 	if (!R_IS_GPR(arg1[0])) {
-		g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_TEST_RM8_R8 : X86_TEST_RM16_R16, size, true, arg2[0], arg1));
+		g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_TEST_RM8_R8 : X86_TEST_RM16_R16, size, size, true, arg2[0], arg1));
 	} else {
-		g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_TEST_RM8_R8 : X86_TEST_RM16_R16, size, true, arg1[0], arg2));
+		g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_TEST_RM8_R8 : X86_TEST_RM16_R16, size, size, true, arg1[0], arg2));
 	}
 	return true;
 }
@@ -1058,7 +1066,7 @@ static bool attr_w cgen_lea3(struct codegen_context *ctx, unsigned size, unsigne
 	addr[2] = arg3[0];
 	memcpy(&addr[3], &arg4[1], 8);
 
-	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_LEA_R16_RM16, size, true, arg1[0], addr));
+	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_LEA_R16_RM16, size, size, true, arg1[0], addr));
 
 	return true;
 }
@@ -1078,7 +1086,7 @@ static bool attr_w cgen_rot(struct codegen_context *ctx, unsigned size, uint8_t 
 			case ROT_SHR:	sse_prefix = SSE_PREFIX_F2; break;
 			default:	internal(file_line, "cgen_rot: invalid rotation %x", rot);
 		}
-		g(cgen_sse_insn(ctx, sse_prefix + force_vex, PREFIX_0F_38, X86_0F_38_ROTX, size == OP_SIZE_8, arg1[0], arg3[0], arg2));
+		g(cgen_sse_insn(ctx, sse_prefix + force_vex, PREFIX_0F_38, X86_0F_38_ROTX, size == OP_SIZE_8, size, arg1[0], arg3[0], arg2));
 		return true;
 	}
 
@@ -1086,14 +1094,14 @@ static bool attr_w cgen_rot(struct codegen_context *ctx, unsigned size, uint8_t 
 		internal(file_line, "cgen_rot: invalid arguments: %x, %02x, %02x, %02x", rot, arg1[0], arg2[0], arg3[0]);
 
 	if (arg3[0] == R_CX) {
-		g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_ROT_RM8_CL : X86_ROT_RM16_CL, size, false, rot, arg1));
+		g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_ROT_RM8_CL : X86_ROT_RM16_CL, size, size, false, rot, arg1));
 	} else if (likely(arg3[0] == ARG_IMM)) {
 		int64_t imm;
 		imm = get_imm(&arg3[1]);
 		if (imm == 1) {
-			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_ROT_RM8_1 : X86_ROT_RM16_1, size, false, rot, arg1));
+			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_ROT_RM8_1 : X86_ROT_RM16_1, size, size, false, rot, arg1));
 		} else {
-			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_ROT_RM8_IMM8 : X86_ROT_RM16_IMM8, size, false, rot, arg1));
+			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_ROT_RM8_IMM8 : X86_ROT_RM16_IMM8, size, size, false, rot, arg1));
 			cgen_one(imm);
 		}
 	} else {
@@ -1105,10 +1113,10 @@ static bool attr_w cgen_rot(struct codegen_context *ctx, unsigned size, uint8_t 
 static bool attr_w cgen_btxt(struct codegen_context *ctx, unsigned size, uint8_t bt, uint8_t *arg1, uint8_t *arg2)
 {
 	if (arg2[0] == ARG_IMM) {
-		g(cgen_rm_insn(ctx, -1, PREFIX_0F, X86_0F_BTX_RM16_IMM8, size, false, X86_0F_BTX_BT_RM16_IMM8 + bt, arg1));
+		g(cgen_rm_insn(ctx, -1, PREFIX_0F, X86_0F_BTX_RM16_IMM8, size, size, false, X86_0F_BTX_BT_RM16_IMM8 + bt, arg1));
 		cgen_one(arg2[1]);
 	} else {
-		g(cgen_rm_insn(ctx, -1, PREFIX_0F, X86_0F_BT_RM16_R16 + bt * 8, size, true, arg2[0], arg1));
+		g(cgen_rm_insn(ctx, -1, PREFIX_0F, X86_0F_BT_RM16_R16 + bt * 8, size, size, true, arg2[0], arg1));
 	}
 	return true;
 }
@@ -1148,7 +1156,7 @@ static bool attr_w cgen_mul_l(struct codegen_context *ctx, unsigned size, bool s
 	if (unlikely(arg1[0] != R_AX) || unlikely(arg2[0] != reg_up) || unlikely(arg3[0] != R_AX) || unlikely(arg4[0] == ARG_IMM))
 		internal(file_line, "cgen_mul_l: invalid mul arguments");
 
-	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_F6 : X86_F7, size, false, !sgn ? X86_F6_MUL_RM8 : X86_F6_IMUL_RM8, arg4));
+	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_F6 : X86_F7, size, size, false, !sgn ? X86_F6_MUL_RM8 : X86_F6_IMUL_RM8, arg4));
 	return true;
 }
 
@@ -1166,7 +1174,7 @@ static bool attr_w cgen_div_l(struct codegen_context *ctx, unsigned size, bool s
 	if (unlikely(arg1[0] != R_AX) || unlikely(arg2[0] != reg_up) || unlikely(arg3[0] != R_AX) || unlikely(arg4[0] != reg_up) || unlikely(arg5[0] == ARG_IMM))
 		internal(file_line, "cgen_div_l: invalid div arguments");
 
-	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_F6 : X86_F7, size, false, !sgn ? X86_F6_DIV_RM8 : X86_F6_IDIV_RM8, arg5));
+	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_F6 : X86_F7, size, size, false, !sgn ? X86_F6_DIV_RM8 : X86_F6_IDIV_RM8, arg5));
 	return true;
 }
 
@@ -1178,7 +1186,7 @@ static bool attr_w cgen_cmov(struct codegen_context *ctx, unsigned size, unsigne
 	ctx->code_position = arg3 + arg_size(*arg3);
 	if (unlikely(arg1[0] != arg2[0]))
 		internal(file_line, "cgen_cmov: invalid arguments");
-	g(cgen_rm_insn(ctx, -1, PREFIX_0F, X86_0F_CMOVCC_R16_RM16 + cond, size, true, arg1[0], arg3));
+	g(cgen_rm_insn(ctx, -1, PREFIX_0F, X86_0F_CMOVCC_R16_RM16 + cond, size, size, true, arg1[0], arg3));
 	return true;
 }
 
@@ -1239,9 +1247,9 @@ static bool attr_w cgen_sse_cmp(struct codegen_context *ctx, unsigned size)
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
 	if (size == OP_SIZE_2) {
-		g(cgen_sse_insn(ctx, SSE_PREFIX_NONE | force_evex, PREFIX_MAP5, X86_MAP5_UCOMISH_X128_RM16, false, arg1[0], 0, arg2));
+		g(cgen_sse_insn(ctx, SSE_PREFIX_NONE | force_evex, PREFIX_MAP5, X86_MAP5_UCOMISH_X128_RM16, false, size, arg1[0], 0, arg2));
 	} else {
-		g(cgen_sse_insn(ctx, size == OP_SIZE_4 ? SSE_PREFIX_NONE : SSE_PREFIX_66 | SSE_PREFIX_W, PREFIX_0F, X86_0F_UCOMISS_X128_RM32, false, arg1[0], 0, arg2));
+		g(cgen_sse_insn(ctx, size == OP_SIZE_4 ? SSE_PREFIX_NONE : SSE_PREFIX_66 | SSE_PREFIX_W, PREFIX_0F, X86_0F_UCOMISS_X128_RM32, false, size, arg1[0], 0, arg2));
 	}
 	return true;
 }
@@ -1261,9 +1269,9 @@ static bool attr_w cgen_sse_alu(struct codegen_context *ctx, unsigned size, unsi
 		default:		internal(file_line, "cgen_sse_alu: invalid alu %u", alu);
 	}
 	if (size == OP_SIZE_2) {
-		g(cgen_sse_insn(ctx, SSE_PREFIX_F3 | force_evex, PREFIX_MAP5, opcode, false, arg1[0], arg2[0], arg3));
+		g(cgen_sse_insn(ctx, SSE_PREFIX_F3 | force_evex, PREFIX_MAP5, opcode, false, size, arg1[0], arg2[0], arg3));
 	} else {
-		g(cgen_sse_insn(ctx, size == OP_SIZE_4 ? SSE_PREFIX_F3 : SSE_PREFIX_F2 | SSE_PREFIX_W, PREFIX_0F, opcode, false, arg1[0], arg2[0], arg3));
+		g(cgen_sse_insn(ctx, size == OP_SIZE_4 ? SSE_PREFIX_F3 : SSE_PREFIX_F2 | SSE_PREFIX_W, PREFIX_0F, opcode, false, size, arg1[0], arg2[0], arg3));
 	}
 	return true;
 }
@@ -1310,7 +1318,7 @@ static bool attr_w cgen_sse_alu1(struct codegen_context *ctx, unsigned size, uns
 		fail:
 		default:		internal(file_line, "cgen_sse_alu1: invalid alu %u, %u", alu, size);
 	}
-	g(cgen_sse_insn(ctx, sse_pfx, sse_op_map, opcode, false, arg1[0], arg1[0], arg2));
+	g(cgen_sse_insn(ctx, sse_pfx, sse_op_map, opcode, false, size, arg1[0], arg1[0], arg2));
 	if (OP_IS_ROUND(alu))
 		cgen_one(alu - FP_ALU1_ROUND);
 	return true;
@@ -1322,9 +1330,9 @@ static bool attr_w cgen_sse_from_int(struct codegen_context *ctx, unsigned int_o
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
 	if (fp_op_size == OP_SIZE_2) {
-		g(cgen_sse_insn(ctx, SSE_PREFIX_F3 | force_evex, PREFIX_MAP5, X86_MAP5_CVTSI2SH_X128_RM16, int_op_size == OP_SIZE_8, arg1[0], R_XMM7, arg2));
+		g(cgen_sse_insn(ctx, SSE_PREFIX_F3 | force_evex, PREFIX_MAP5, X86_MAP5_CVTSI2SH_X128_RM16, int_op_size == OP_SIZE_8, int_op_size, arg1[0], R_XMM7, arg2));
 	} else {
-		g(cgen_sse_insn(ctx, fp_op_size == OP_SIZE_4 ? SSE_PREFIX_F3 : SSE_PREFIX_F2 | SSE_PREFIX_W, PREFIX_0F, X86_0F_CVTSI2SS_X128_RM32, int_op_size == OP_SIZE_8, arg1[0], R_XMM7, arg2));
+		g(cgen_sse_insn(ctx, fp_op_size == OP_SIZE_4 ? SSE_PREFIX_F3 : SSE_PREFIX_F2 | SSE_PREFIX_W, PREFIX_0F, X86_0F_CVTSI2SS_X128_RM32, int_op_size == OP_SIZE_8, int_op_size, arg1[0], R_XMM7, arg2));
 	}
 	return true;
 }
@@ -1335,9 +1343,9 @@ static bool attr_w cgen_sse_to_int(struct codegen_context *ctx, unsigned int_op_
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
 	if (fp_op_size == OP_SIZE_2) {
-		g(cgen_sse_insn(ctx, SSE_PREFIX_F3 | force_evex, PREFIX_MAP5, X86_MAP5_CVTTSH2SI_X128_RM16, int_op_size == OP_SIZE_8, arg1[0], 0, arg2));
+		g(cgen_sse_insn(ctx, SSE_PREFIX_F3 | force_evex, PREFIX_MAP5, X86_MAP5_CVTTSH2SI_X128_RM16, int_op_size == OP_SIZE_8, fp_op_size, arg1[0], 0, arg2));
 	} else {
-		g(cgen_sse_insn(ctx, fp_op_size == OP_SIZE_4 ? SSE_PREFIX_F3 : SSE_PREFIX_F2 | SSE_PREFIX_W, PREFIX_0F, X86_0F_CVTTSS2SI_X128_RM32, int_op_size == OP_SIZE_8, arg1[0], 0, arg2));
+		g(cgen_sse_insn(ctx, fp_op_size == OP_SIZE_4 ? SSE_PREFIX_F3 : SSE_PREFIX_F2 | SSE_PREFIX_W, PREFIX_0F, X86_0F_CVTTSS2SI_X128_RM32, int_op_size == OP_SIZE_8, fp_op_size, arg1[0], 0, arg2));
 	}
 	return true;
 }
@@ -1348,10 +1356,10 @@ static bool attr_w cgen_sse_cvt(struct codegen_context *ctx, unsigned from_op_si
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
 	if (from_op_size == OP_SIZE_2 && to_op_size == OP_SIZE_4) {
-		g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F_38, X86_0F_38_CVTPH2PS_X128_RM64, false, arg1[0], 0, arg2));
+		g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F_38, X86_0F_38_CVTPH2PS_X128_RM64, false, OP_SIZE_8, arg1[0], 0, arg2));
 		return true;
 	} else if (from_op_size == OP_SIZE_4 && to_op_size == OP_SIZE_2) {
-		g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F_3A, X86_0F_3A_CVTPS2PH_RM64_X128, false, arg2[0], 0, arg1));
+		g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F_3A, X86_0F_3A_CVTPS2PH_RM64_X128, false, OP_SIZE_16, arg2[0], 0, arg1));
 		cgen_one(0x04);
 		return true;
 	}
@@ -1376,7 +1384,7 @@ static bool attr_w cgen_x87_fld(struct codegen_context *ctx, unsigned size)
 		default:
 			internal(file_line, "cgen_x87_fld: invalid size %u", size);
 	}
-	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, c1, OP_SIZE_4, false, c2, arg1));
+	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, c1, OP_SIZE_4, size, false, c2, arg1));
 	return true;
 }
 
@@ -1395,7 +1403,7 @@ static bool attr_w cgen_x87_fild(struct codegen_context *ctx, unsigned size)
 		default:
 			internal(file_line, "cgen_x87_fild: invalid size %u", size);
 	}
-	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, c1, OP_SIZE_4, false, c2, arg1));
+	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, c1, OP_SIZE_4, size, false, c2, arg1));
 	return true;
 }
 
@@ -1416,7 +1424,7 @@ static bool attr_w cgen_x87_fstp(struct codegen_context *ctx, unsigned size)
 		default:
 			internal(file_line, "cgen_x87_fstp: invalid size %u", size);
 	}
-	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, c1, OP_SIZE_4, false, c2, arg1));
+	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, c1, OP_SIZE_4, size, false, c2, arg1));
 	return true;
 }
 
@@ -1435,7 +1443,7 @@ static bool attr_w cgen_x87_fistp(struct codegen_context *ctx, unsigned size)
 		default:
 			internal(file_line, "cgen_x87_fistp: invalid size %u", size);
 	}
-	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, c1, OP_SIZE_4, false, c2, arg1));
+	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, c1, OP_SIZE_4, size, false, c2, arg1));
 	return true;
 }
 
@@ -1454,7 +1462,7 @@ static bool attr_w cgen_x87_fisttp(struct codegen_context *ctx, unsigned size)
 		default:
 			internal(file_line, "cgen_x87_fisttp: invalid size %u", size);
 	}
-	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, c1, OP_SIZE_4, false, c2, arg1));
+	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, c1, OP_SIZE_4, size, false, c2, arg1));
 	return true;
 }
 
@@ -1474,7 +1482,7 @@ static bool attr_w cgen_x87_fcomp(struct codegen_context *ctx, unsigned size)
 			internal(file_line, "cgen_x87_fcomp: invalid size %u", size);
 	}
 	c2 = X87_ALU_FCOMP;
-	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, c1, OP_SIZE_4, false, c2, arg1));
+	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, c1, OP_SIZE_4, size, false, c2, arg1));
 	return true;
 }
 
@@ -1505,7 +1513,7 @@ static bool attr_w cgen_x87_alu(struct codegen_context *ctx, unsigned size, unsi
 		default:
 			internal(file_line, "cgen_x87_fst: invalid operation %u", aux);
 	}
-	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, c1, OP_SIZE_4, false, c2, arg1));
+	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, c1, OP_SIZE_4, size, false, c2, arg1));
 	return true;
 }
 
@@ -1526,7 +1534,7 @@ static bool attr_w cgen_x87_alup(struct codegen_context *ctx, unsigned aux)
 		default:
 			internal(file_line, "cgen_x87_fstp: invalid operation %u", aux);
 	}
-	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X87_FALUP_STi_ST0, OP_SIZE_4, false, c2, arg1));
+	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X87_FALUP_STi_ST0, OP_SIZE_4, OP_SIZE_10, false, c2, arg1));
 	return true;
 }
 
@@ -1590,7 +1598,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_pop2(ctx, insn_aux(insn)));
 			return true;
 		case INSN_CALL_INDIRECT:
-			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_FF, OP_SIZE_4, false, X86_FF_CALL_INDIRECT, ctx->code_position));
+			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_FF, OP_SIZE_4, OP_SIZE_NATIVE, false, X86_FF_CALL_INDIRECT, ctx->code_position));
 			ctx->code_position += arg_size(*ctx->code_position);
 			return true;
 		case INSN_MOV:
@@ -1718,9 +1726,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_SET_COND:
 			if (insn_op_size(insn) >= OP_SIZE_4) {
-				g(cgen_rm_insn(ctx, SSE_PREFIX_F2 | force_ndd, PREFIX_LEGACY_EVEX, X86_LEGACY_EVEX_SETCC_R64 + (insn_aux(insn) & 0xf), OP_SIZE_8, false, 0, ctx->code_position));
+				g(cgen_rm_insn(ctx, SSE_PREFIX_F2 | force_ndd, PREFIX_LEGACY_EVEX, X86_LEGACY_EVEX_SETCC_R64 + (insn_aux(insn) & 0xf), OP_SIZE_8, OP_SIZE_8, false, 0, ctx->code_position));
 			} else if (insn_op_size(insn) == OP_SIZE_1) {
-				g(cgen_rm_insn(ctx, -1, PREFIX_0F, X86_0F_SETCC_RM8 + (insn_aux(insn) & 0xf), OP_SIZE_1, false, 0, ctx->code_position));
+				g(cgen_rm_insn(ctx, -1, PREFIX_0F, X86_0F_SETCC_RM8 + (insn_aux(insn) & 0xf), OP_SIZE_1, OP_SIZE_1, false, 0, ctx->code_position));
 			} else {
 				goto invalid_insn;
 			}
@@ -1729,7 +1737,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		case INSN_SET_COND_PARTIAL:
 			if (unlikely(insn_op_size(insn) != OP_SIZE_1))
 				goto invalid_insn;
-			g(cgen_rm_insn(ctx, -1, PREFIX_0F, X86_0F_SETCC_RM8 + (insn_aux(insn) & 0xf), OP_SIZE_1, false, 0, ctx->code_position));
+			g(cgen_rm_insn(ctx, -1, PREFIX_0F, X86_0F_SETCC_RM8 + (insn_aux(insn) & 0xf), OP_SIZE_1, OP_SIZE_1, false, 0, ctx->code_position));
 			ctx->code_position += arg_size(*ctx->code_position);
 			ctx->code_position += arg_size(*ctx->code_position);
 			return true;
@@ -1819,7 +1827,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			cgen_one(X87_FNSTSW_2);
 			return true;
 		case INSN_X87_FLDCW:
-			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X87_FLDCW, OP_SIZE_4, false, X87_FLDCW_X, ctx->code_position));
+			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X87_FLDCW, OP_SIZE_4, OP_SIZE_2, false, X87_FLDCW_X, ctx->code_position));
 			ctx->code_position += arg_size(*ctx->code_position);
 			return true;
 		case INSN_JMP:
@@ -1850,7 +1858,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			}
 			return true;
 		case INSN_JMP_INDIRECT:
-			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_FF, OP_SIZE_4, false, X86_FF_JMP_INDIRECT, ctx->code_position));
+			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_FF, OP_SIZE_4, OP_SIZE_NATIVE, false, X86_FF_JMP_INDIRECT, ctx->code_position));
 			ctx->code_position += arg_size(*ctx->code_position);
 			return true;
 		default:
