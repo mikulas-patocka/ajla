@@ -41,7 +41,7 @@
 #endif
 
 extern uint32_t tick_us;
-extern uint32_t thread_tick;
+extern bool thread_tick;
 
 typedef unsigned tick_stamp_t;
 extern atomic_type tick_stamp_t *tick_stamp_ptr;

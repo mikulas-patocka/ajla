@@ -108,36 +108,6 @@ static void verify_select(const char *str)
 	verify = str;
 }
 
-static void ipret_set_strict_calls(const char attr_unused *str)
-{
-	ipret_strict_calls = true;
-}
-
-static void ipret_set_privileged(const char attr_unused *str)
-{
-	ipret_is_privileged = true;
-}
-
-static void ipret_set_sandbox(const char attr_unused *str)
-{
-	ipret_sandbox = true;
-}
-
-static void ipret_set_compile(const char attr_unused *str)
-{
-	ipret_compile = true;
-}
-
-static void set_noinline(const char attr_unused *str)
-{
-	ipret_noinline = true;
-}
-
-static void set_nosave(const char attr_unused *str)
-{
-	save_disable = true;
-}
-
 #define ARG_SWITCH	0
 #define ARG_STRING	1
 #define ARG_NUMBER	2
@@ -146,25 +116,25 @@ struct arg {
 	const char *str;
 	uchar_efficient_t mode;
 	void (*handler)(const char *str);
-	uint32_t *val;
+	void *val;
 	uint32_t min;
 	uint32_t max;
 };
 
 static const struct arg args[] = {
-	{ "--compile",			ARG_SWITCH,	ipret_set_compile,		NULL,			0, 0 },
+	{ "--compile",			ARG_SWITCH,	NULL,				&ipret_compile,		0, 0 },
 	{ "--debug",			ARG_SWITCH,	debug_all,			NULL,			0, 0 },
 	{ "--debug=",			ARG_STRING,	debug_select,			NULL,			0, 0 },
 	{ "--dump-",			ARG_STRING,	dump_select,			NULL,			0, 0 },
-	{ "--noinline",			ARG_SWITCH,	set_noinline,			NULL,			0, 0 },
-	{ "--nosave",			ARG_SWITCH,	set_nosave,			NULL,			0, 0 },
+	{ "--noinline",			ARG_SWITCH,	NULL,				&ipret_noinline,	0, 0 },
+	{ "--nosave",			ARG_SWITCH,	NULL,				&save_disable,		0, 0 },
 	{ "--numa-nodes=",		ARG_NUMBER,	NULL,				&nr_nodes_override,	1, (unsigned)-1 },
-	{ "--privileged",		ARG_SWITCH,	ipret_set_privileged,		NULL,			0, 0 },
+	{ "--privileged",		ARG_SWITCH,	NULL,				&ipret_is_privileged,	0, 0 },
 	{ "--profile",			ARG_SWITCH,	profile_all,			NULL,			0, 0 },
 	{ "--profile=",			ARG_STRING,	profile_select,			NULL,			0, 0 },
 	{ "--ptrcomp",			ARG_SWITCH,	mem_al_set_ptrcomp,		NULL,			0, 0 },
-	{ "--sandbox",			ARG_SWITCH,	ipret_set_sandbox,		NULL,			0, 0 },
-	{ "--strict-calls",		ARG_SWITCH,	ipret_set_strict_calls,		NULL,			0, 0 },
+	{ "--sandbox",			ARG_SWITCH,	NULL,				&ipret_sandbox,		0, 0 },
+	{ "--strict-calls",		ARG_SWITCH,	NULL,				&ipret_strict_calls,	0, 0 },
 	{ "--system-malloc",		ARG_SWITCH,	mem_al_set_system_malloc,	NULL,			0, 0 },
 	{ "--thread-tick",		ARG_SWITCH,	NULL,				&thread_tick,		0, 0 },
 	{ "--threads=",			ARG_NUMBER,	NULL,				&nr_cpus_override,	1, (unsigned)-1 },
@@ -185,7 +155,7 @@ static void process_arg(const char *arg)
 					if (a->handler)
 						a->handler(NULL);
 					else
-						*a->val = 1;
+						*cast_ptr(bool *, a->val) = true;
 					return;
 				}
 				break;
@@ -208,7 +178,7 @@ static void process_arg(const char *arg)
 						goto inv;
 					if ((uint32_t)num != num || num < a->min || num > a->max)
 						goto inv;
-					*a->val = num;
+					*cast_ptr(uint32_t *, a->val) = num;
 					return;
 				}
 				break;
