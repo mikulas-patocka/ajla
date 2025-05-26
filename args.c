@@ -235,6 +235,8 @@ void args_init(int argc, const char * const argv[])
 				program_name = p + 1;
 		}
 	}
+	if (unlikely(ipret_is_privileged) && unlikely(ipret_sandbox))
+		fatal("the flags '--privileged' and '--sandbox' contradict each other");
 }
 
 void args_done(void)
