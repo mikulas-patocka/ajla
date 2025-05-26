@@ -62,37 +62,45 @@ is one, it is mutated in place, if it is different from one, a copy of the array
 is created.
 
 <h3 id=unpacking>Unpacking Ajla</h3>
-Before compiling Ajla, install the packages libgmp-dev and libffi-dev. If
-libgmp-dev is not installed, Ajla will use slow built-in version. If libffi-dev
-is not installed, the possibility to call C functions from Ajla will be
-disabled.
+Before compiling Ajla, install the packages libgmp-dev, libffi-dev, libnuma-dev,
+libz3-dev. If libgmp-dev is not installed, Ajla will use slow built-in version.
+If libffi-dev is not installed, the possibility to call C functions from Ajla
+will be disabled. If libnuma-dev is not installed, the optimization for
+Non-uniform memory access (NUMA) will be disabled. If libz3-dev is not
+installed, it wouldn't be possible to statically verify Ajla functions with the
+z3 library.
 <br>
 <br>
 Download the newest Ajla version from the
 <a href="https://www.ajla-lang.cz/downloads/">downloads</a> directory. Unpack
-the tar.gz archive and compile it with <code>./configure && make</code>. Install
-it with <code>make install</code>.
+the tar.gz archive and compile it with <code>"./configure && make"</code>.
+Install it with <code>make install</code>.
 <br>
 <br>
-If you cloned the git repository, there is no <code>./configure</code> script.
-You can generate it with the <code>./rebuild</code> script. You need autoconf,
-automake and ed installed.
+Alternatively, you can download the current development version with <code>"git
+clone git://repo.or.cz/ajla.git"</code>. There is no <code>"./configure"</code>
+script in the git repository, you can create it by running
+<code>"./autogen.sh"</code>. You need autoconf, automake and ed installed.
 <br>
 <br>
 It is recommended to use gcc &mdash; the compilation will take several minutes
-and it will consume about 8GB memory when compiling the files ipret.c and
-ipretc.c. Compilation with clang works, but it may be very slow, it may take an
-hour or more to compile the files ipret.c and ipretc.c. If you want to reduce
-the compilation time and memory consumption, here are some tips:
+and it will require about 9GB memory when compiling the files ipret.c and
+ipretc.c in parallel. Compilation with clang works, but it may be very slow, it
+may take an hour or more to compile the files ipret.c and ipretc.c. If you want
+to reduce the compilation time and memory consumption, here are some tips:
 <ul>
 <li>Pass the flag <code>--disable-computed-goto</code> to
 <code>./configure</code> &mdash; this will make the interpreter use one big
 <code>switch</code> statement instead of a table of labels &mdash; it will
 degrade performance, but it will decrease compilation time and memory usage.
-<li>Don't compile the files <code>ipret.c</code> and <code>ipretc.c</code> in
-parallel &mdash; this will reduce memory consumption (compilation of each of
-these files consumes about 4GB RAM).
-<li>Use <code>CFLAGS=-O1</code>.
+<li>Pass the flag "-j1" to make, so that the files <code>ipret.c</code> and
+<code>ipretc.c</code> are not compiled in parallel &mdash; this will reduce
+memory consumption (compilation of each of these files consumes about 4GB RAM),
+but it will double compilation time.
+<li>Run "<code>CFLAGS=-O1 ./configure</code>" instead of
+<code>"./configure"</code> &mdash; this will reduce optimizations performed by
+the compiler &mdash; the resulting code will be slower, but the compilation will
+take less time and consume less memory.
 <li>If you are using <code>clang</code>, use version 19 or 20 &mdash; the older
 versions compile Ajla very slowly, it may take an hour or more.
 <li>If you are using <code>clang</code>, don't use the options
@@ -1950,8 +1958,10 @@ fn main
 	var destr := ffi_destructor_new();
 	var message := ffi_destructor_allocate(destr, len(str), 1, false);
 	ffi_poke_array(message, str);
-	var wrt := ffi_create_function("", "write", ffi_error.e_errno, 3,
-		ffi_type.t_ssize, [ffi_type.t_sint, ffi_type.t_pointer, ffi_type.t_usize ]);
+	var wrt := ffi_create_function(ffi_default_library, "write",
+			ffi_error.e_errno, 3, ffi_type.t_ssize,
+			[ffi_type.t_sint, ffi_type.t_pointer, ffi_type.t_usize],
+			false);
 	var xh := ffi_handle_to_number(destr, h[1]);
 	var r, e := ffi_call_function(wrt, [ xh, message, len(str) ]);
 	ffi_destructor_destroy(destr);
@@ -1987,17 +1997,21 @@ freed, the allocated memory is automatically freed as well.
 <dd>This copies the string to the pointer returned by the previous function.
 Note that the function <code>ffi_poke_array</code> may be used to overwrite
 arbitrary memory in the process.
-<dt><code>var wrt := ffi_create_function("", "write", ffi_error.e_errno, 3,
-ffi_type.t_ssize, [ffi_type.t_sint, ffi_type.t_pointer, ffi_type.t_usize
-]);</code>
+<dt><code>var wrt := ffi_create_function(ffi_default_library, "write",
+ffi_error.e_errno, 3, ffi_type.t_ssize, [ffi_type.t_sint, ffi_type.t_pointer,
+ffi_type.t_usize], false);</code>
 <dd>This statement loads a pointer to the function "<code>write</code>" from the
-standard library. The first argument is a library name (empty string for libc),
-the second argument is the name of the function, the third argument specifies
-that we are interested in the <code>errno</code> value returned by the function,
-the fourth argument is the number of fixed arguments, the fifth argument is the
-return type, the sixth argument is the list containing types for the three
-arguments &mdash; the first argument has type signed integer, the second
-argument has type pointer, the third argument has type unsigned size_t.
+standard library. The first argument is a reference to the library (use
+<code>ffi_default_library</code>) for standard libc, the second argument is the
+name of the function, the third argument specifies that we are interested in the
+<code>errno</code> value returned by the function, the fourth argument is the
+number of fixed arguments, the fifth argument is the return type, the sixth
+argument is the list containing types for the three arguments &mdash; the first
+argument has type signed integer, the second argument has type pointer, the
+third argument has type unsigned size_t. The seventh argument specifies whether
+the function should be protected by a mutex or not. We don't need to protect the
+<code>"write"</code> function against concurrent calls, so the argument is
+<code>false</code>.
 <dt><code>var xh := ffi_handle_to_number(destr, h[1]);</code>
 <dd>This statement converts an Ajla handle to a system handle. The result will
 be "1" because we are writing to the standard output. A reference to the handle
@@ -2078,9 +2092,17 @@ not reported.
 <dt><code>--nosave</code>
 <dd>Do not save and load compiled code. This option also inhibits saving and
 loading cache of functions with the <code>~save</code> specifier.
+<dt><code>--numa-nodes=<i>n</i></code>
+<dd>Use the specified number of numa nodes. By default, Ajla detects the number
+of numa nodes using the libnuma library. Selecting small value (such as 2 or 4)
+may increase performance even on non-numa machines.
 <dt><code>--ptrcomp</code>
 <dd>Use pointer compression &mdash; pointers will have only 32 bits and the
 maximum allocatable memory is 32GiB. It reduces memory consumption slightly.
+<dt><code>--sandbox</code>
+<dd>Sandbox the program, so that it can access only the standard handles passed
+in by the system. Any other file or network activity will be disabled. You can
+use it when running untrusted code.
 <dt><code>--strict-calls</code>
 <dd>Turn off auto-parallelization. It is useful if you want to get longer stack
 trace for debugging purposes. Normally, the stack trace is chopped at a point
@@ -2169,6 +2191,13 @@ exits. It will display a file and line of the allocation that leaked.
 <dd>Enable "mutex-errorcheck, mutex, cond, thread, tls, handles".
 <dt><code>--debug</code>
 <dd>Enable all debugging options.
+<dt><code>--dump-code</code>
+<dd>Dump the generated machine code to the file "dump.s". You can view it with
+the commands <code>"as dump.s && objdump -d | less"</code>.
+<dt><code>--dump-pcode</code>
+<dd>Dump the generated pcode to the standard error handle.
+<dt><code>--dump-z3</code>
+<dd>Dump the generated z3 assertions to the standard error handle.
 </dl>
 
 <h3>Rebuilding the standard library</h3>
