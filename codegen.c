@@ -1088,6 +1088,7 @@ load_const:
 #if defined(R_CONST_IMM)
 	g(gen_load_constant(ctx, R_CONST_IMM, imm));
 	ctx->const_reg = true;
+	return true;
 #else
 	/*internal(file_line, "gen_imm: R_CONST_IMM not defined: %"PRIxMAX"", (uintmax_t)imm);*/
 	/*warning("%s: gen_imm: R_CONST_IMM not defined", file_line);*/

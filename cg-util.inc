@@ -504,7 +504,7 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 	return true;
 }
 
-static bool attr_w gen_cmp_test_imm_jmp(struct codegen_context *ctx, unsigned insn, unsigned attr_unused op_size, unsigned reg1, int64_t value, unsigned cond, uint32_t label, int x86_scratch)
+static bool attr_w gen_cmp_test_imm_jmp(struct codegen_context *ctx, unsigned insn, unsigned attr_unused op_size, unsigned reg1, int64_t value, unsigned cond, uint32_t label, int attr_unused x86_scratch)
 {
 	if (insn == INSN_TEST && (cond == COND_E || cond == COND_NE) && is_power_of_2((uint64_t)value)) {
 #ifdef HAVE_BUILTIN_CTZ
