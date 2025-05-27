@@ -412,6 +412,8 @@ gen:
 						}
 					}
 				}
+				if (force_ndd && size == OP_SIZE_2)
+					sse_prefix |= SSE_PREFIX_66;
 				cgen_one(X86_EVEX);
 				cgen_one(((~rex2 & (X86_REX2_R3 | X86_REX2_X3 | X86_REX2_B3)) << 5) | !(rex2 & X86_REX2_R4) << 4 | !!(rex2 & X86_REX2_B4) << 3 | prefix);
 				cgen_one((rex2 & X86_REX2_W) << 4 | (~(sse_prefix >> 8) & 0xf) << 3 | !(rex2 & X86_REX2_X4) << 2 | (sse_prefix & 3));
@@ -1090,19 +1092,31 @@ static bool attr_w cgen_rot(struct codegen_context *ctx, unsigned size, uint8_t 
 		return true;
 	}
 
-	if (arg1[0] != arg2[0])
+	if (arg1[0] != arg2[0] && !cpu_test_feature(CPU_FEATURE_apx))
 		internal(file_line, "cgen_rot: invalid arguments: %x, %02x, %02x, %02x", rot, arg1[0], arg2[0], arg3[0]);
 
 	if (arg3[0] == R_CX) {
-		g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_ROT_RM8_CL : X86_ROT_RM16_CL, size, size, false, rot, arg1));
+		if ((arg1[0] == arg2[0] && !test_evex) || !R_IS_GPR(arg1[0]))
+			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_ROT_RM8_CL : X86_ROT_RM16_CL, size, size, false, rot, arg1));
+		else
+			g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, size == OP_SIZE_1 ? X86_ROT_RM8_CL : X86_ROT_RM16_CL, size, size, false, rot, arg2));
 	} else if (likely(arg3[0] == ARG_IMM)) {
 		int64_t imm;
 		imm = get_imm(&arg3[1]);
-		if (imm == 1) {
-			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_ROT_RM8_1 : X86_ROT_RM16_1, size, size, false, rot, arg1));
+		if ((arg1[0] == arg2[0] && !test_evex) || !R_IS_GPR(arg1[0])) {
+			if (imm == 1) {
+				g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_ROT_RM8_1 : X86_ROT_RM16_1, size, size, false, rot, arg1));
+			} else {
+				g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_ROT_RM8_IMM8 : X86_ROT_RM16_IMM8, size, size, false, rot, arg1));
+				cgen_one(imm);
+			}
 		} else {
-			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, size == OP_SIZE_1 ? X86_ROT_RM8_IMM8 : X86_ROT_RM16_IMM8, size, size, false, rot, arg1));
-			cgen_one(imm);
+			if (imm == 1) {
+				g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, size == OP_SIZE_1 ? X86_ROT_RM8_1 : X86_ROT_RM16_1, size, size, false, rot, arg2));
+			} else {
+				g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, size == OP_SIZE_1 ? X86_ROT_RM8_IMM8 : X86_ROT_RM16_IMM8, size, size, false, rot, arg2));
+				cgen_one(imm);
+			}
 		}
 	} else {
 		internal(file_line, "cgen_rot: invalid argument %02x", arg3[0]);
