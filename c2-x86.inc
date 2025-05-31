@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -260,7 +260,7 @@
 static bool attr_w cgen_rex2(struct codegen_context attr_unused *ctx, uint8_t rex2)
 {
 #ifdef ARCH_X86_32
-	internal(file_line, "cgen_rex: attempting to generate rex in 32-bit mode: %02x", rex2);
+	internal(file_line, "cgen_rex2: attempting to generate rex in 32-bit mode: %02x", rex2);
 	return false;
 #else
 	if (!(rex2 & 0xf0)) {
