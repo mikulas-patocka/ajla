@@ -19,6 +19,7 @@
 private unit compiler.optimize.defs;
 
 uses pcode;
+uses treemap;
 
 const check : bool := false;
 
@@ -179,4 +180,5 @@ record context [
 	op_map : array(bytes, [ -T_Bool + 1, Op_N ]);
 	unint_map : array(bool, [ -T_Bool + 1, Op_N ]);
 	unint_counter : int;
+	llt_defined : treeset(bytes);
 ]

@@ -362,6 +362,19 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		gen_assert(ctx, var_name, "(" + op_z3 + " " + var1 + unint_str + ")");
 		return ctx;
 	]
+	if ins.opcode = P_Load_Local_Type then [
+		var var1 : bytes;
+		ctx, var1 := allocate_variable_block(ctx, ins.params[1], phi_node, ins.bb, false);
+		if len(var1) = 0 then
+			return ctx;
+		var new_name := var1 + "-llt_" + ntos(ins.params[2]);
+		if not treeset_test(ctx.llt_defined, new_name) then [
+			ctx.llt_defined := treeset_set(ctx.llt_defined, new_name);
+			ctx := declare_variable(ctx, new_name, ctx.variables[v].runtime_type);
+		]
+		gen_assert(ctx, var_name, new_name);
+		return ctx;
+	]
 	if ins.opcode = P_Copy then [
 		var var1 : bytes;
 		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb, false);
@@ -758,6 +771,7 @@ fn verify_function(ctx : context) : unit_type
 	ctx.op_map := array_fill("", [ -T_Bool + 1, Op_N ]);
 	ctx.unint_map := array_fill(false, [ -T_Bool + 1, Op_N ]);
 	ctx.unint_counter := 0;
+	ctx.llt_defined := treeset_init(bytes);
 	var d := get_dump("z3");
 	ctx.dump_z3 := glob_bytes(ctx.name, d, true);
 
