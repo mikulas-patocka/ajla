@@ -111,15 +111,6 @@ fn do_conversion(ctx : function_context, vd : variable_dictionary, a a_typ : int
 	var my_cc := new_compare_context(ctx);
 	var cc1, deep_a_typ, inv1 := get_base_definition(ctx, my_cc, a_typ, true, false);
 	var cc2, deep_typ, inv2 := get_base_definition(ctx, cc, typ, true, false);
-	var instr_a := get_defined_maybe(cc1, deep_a_typ);
-	var instr := get_defined_maybe(cc2, deep_typ);
-	if instr_a is j, instr is j, instr_a.j.opcode = P_Fn, instr.j.opcode = P_Fn then [
-		var my_cc2 := my_cc;
-		my_cc2.quash_contracts bts= my_cc2.ctx.variables[a_typ].defined_at;
-		var match := verify_type_equality(ctx, my_cc2, a_typ, empty(compare_fn_stack), cc, typ, empty(compare_fn_stack));
-		if match is eq then
-			return ctx, a;
-	]
 	if deep_a_typ = T_Integer, deep_typ <= T_SInt8, deep_typ >= T_Integer128 then [
 		//eval debug("do_conversion 1: eligible for shortcut: " + ntos(a_typ) + ", " + ntos(deep_a_typ) + " - " + ntos(typ) + ", " + ntos(deep_typ));
 		var l : int;
@@ -133,6 +124,15 @@ fn do_conversion(ctx : function_context, vd : variable_dictionary, a a_typ : int
 		ctx, l := alloc_local_variable(ctx, deep_typ, true, false);
 		ctx := generate_UnaryOp(ctx, Un_ConvertToInt, a, l);
 		return ctx, l;
+	]
+	var instr_a := get_defined_maybe(cc1, deep_a_typ);
+	var instr := get_defined_maybe(cc2, deep_typ);
+	if instr_a is j, instr is j, instr_a.j.opcode = P_Fn, instr.j.opcode = P_Fn then [
+		var my_cc2 := my_cc;
+		my_cc2.quash_contracts bts= my_cc2.ctx.variables[a_typ].defined_at;
+		var match := verify_type_equality(ctx, my_cc2, a_typ, empty(compare_fn_stack), cc, typ, empty(compare_fn_stack));
+		if match is eq then
+			return ctx, a;
 	]
 	var conversions := get_implicits(ctx, true);
 	for im := 0 to len(conversions) do [
