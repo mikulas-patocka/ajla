@@ -264,6 +264,12 @@ static bool attr_w gen_frame_get(struct codegen_context *ctx, unsigned size, enu
 {
 	const struct type *t;
 	if (frame_t_is_const(slot)) {
+#if defined(R_ZERO)
+		if (!frame_t_get_const(slot)) {
+			*dest = R_ZERO;
+			return true;
+		}
+#endif
 		g(gen_frame_load(ctx, size, ex, slot, 0, false, reg));
 		*dest = reg;
 		return true;
