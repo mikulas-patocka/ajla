@@ -336,7 +336,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 		}
 		return cgen_ldr_str(ctx, ARM64_LDST_LD_UX | ARM64_LDST_FP, size, arg1[0] & 31, arg2);
 	}
-	if (arg2[0] < 31) {
+	if (arg2[0] < 32) {
 		return cgen_ldr_str(ctx, ARM64_LDST_ST, size, arg2[0], arg1);
 	}
 	if (reg_is_fp(arg2[0])) {

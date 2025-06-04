@@ -1073,6 +1073,18 @@ static bool attr_w gen_imm(struct codegen_context *ctx, int64_t imm, unsigned pu
 	ctx->const_reg = ARG_IMM;
 	return true;
 load_const:
+#if defined(R_ZERO)
+	if (!imm) {
+		ctx->const_reg = R_ZERO;
+		return true;
+	}
+#endif
+#if defined(ARCH_ARM64)
+	if (!imm && purpose != IMM_PURPOSE_ADD && purpose != IMM_PURPOSE_SUB && purpose != IMM_PURPOSE_CMP && purpose != IMM_PURPOSE_CMP_LOGICAL) {
+		ctx->const_reg = R_ZR;
+		return true;
+	}
+#endif
 #if defined(R_CONST_IMM)
 	g(gen_load_constant(ctx, R_CONST_IMM, imm));
 	ctx->const_reg = R_CONST_IMM;

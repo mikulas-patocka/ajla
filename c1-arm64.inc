@@ -85,6 +85,7 @@
 #define R_FP		0x1d
 #define R_LR		0x1e
 #define R_SP		0x1f
+#define R_ZR		0x1f
 
 #define FR_0		0x20
 #define FR_1		0x21
@@ -209,7 +210,7 @@ static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, 
 	if (code >= 0) {
 		gen_insn(INSN_ALU, OP_SIZE_4, ALU_OR, 0);
 		gen_one(reg);
-		gen_one(0x1f);
+		gen_one(R_ZR);
 		gen_one(ARG_IMM);
 		gen_eight(c);
 		return true;
@@ -219,7 +220,7 @@ static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, 
 	if (code >= 0) {
 		gen_insn(INSN_ALU, OP_SIZE_8, ALU_OR, 0);
 		gen_one(reg);
-		gen_one(0x1f);
+		gen_one(R_ZR);
 		gen_one(ARG_IMM);
 		gen_eight(c);
 		return true;
