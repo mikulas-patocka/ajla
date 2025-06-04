@@ -491,11 +491,11 @@ struct codegen_context {
 	frame_t *need_spill;
 	size_t need_spill_l;
 
-	unsigned base_reg;
+	uint8_t base_reg;
 	bool offset_reg;
 	int64_t offset_imm;
 
-	bool const_reg;
+	uint8_t const_reg;
 	int64_t const_imm;
 
 	struct data *codegen;
@@ -1005,29 +1005,17 @@ do {									\
 } while (0)
 #endif
 
-#if !defined(ARCH_X86)
 #define gen_imm_offset()						\
 do {									\
-	if (likely(!ctx->const_reg)) {					\
+	if (likely(ctx->const_reg == ARG_IMM)) {			\
 		gen_one(ARG_IMM);					\
 		gen_eight(ctx->const_imm);				\
 	} else {							\
-		gen_one(R_CONST_IMM);					\
+		gen_one(ctx->const_reg);				\
 	}								\
 } while (0)
-#else
-#define gen_imm_offset()						\
-do {									\
-	if (likely(!ctx->const_reg)) {					\
-		gen_one(ARG_IMM);					\
-		gen_eight(ctx->const_imm);				\
-	} else {							\
-		internal(file_line, "gen_imm_offset: R_CONST_IMM not defined");\
-	}								\
-} while (0)
-#endif
 
-#define is_imm()	(!ctx->const_reg)
+#define is_imm()	(ctx->const_reg == ARG_IMM)
 
 
 static inline bool slot_is_register(struct codegen_context *ctx, frame_t slot)
@@ -1082,12 +1070,12 @@ static bool attr_w gen_imm(struct codegen_context *ctx, int64_t imm, unsigned pu
 	if (purpose >> 8 && !is_direct_const(imm, purpose >> 8, size))
 		goto load_const;
 	ctx->const_imm = imm;
-	ctx->const_reg = false;
+	ctx->const_reg = ARG_IMM;
 	return true;
 load_const:
 #if defined(R_CONST_IMM)
 	g(gen_load_constant(ctx, R_CONST_IMM, imm));
-	ctx->const_reg = true;
+	ctx->const_reg = R_CONST_IMM;
 	return true;
 #else
 	/*internal(file_line, "gen_imm: R_CONST_IMM not defined: %"PRIxMAX"", (uintmax_t)imm);*/
