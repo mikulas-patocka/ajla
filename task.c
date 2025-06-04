@@ -406,15 +406,11 @@ static void task_worker_core(void)
 #else
 				cond_unlock(&node->task_mutex);
 				if (!more) {
-					if (unlikely(no_ex_controls()) && !shutting_down) {
-						shutting_down = true;
-						wake_all = true;
-					}
-					tick_suspend();
+					wake_all |= enter_deep_sleep();
 				}
 				iomux_check_all(unlikely(shutting_down) ? 0 : more ? tick_us : IOMUX_INDEFINITE_WAIT);
 				if (!more)
-					tick_resume();
+					exit_deep_sleep();
 				cond_lock(&node->task_mutex);
 #endif
 				if (unlikely(profiling))
