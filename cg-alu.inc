@@ -3751,7 +3751,7 @@ do_compare: {
 #else
 #if !defined(ARCH_IA64)
 		if (frame_t_is_const(slot_2) && !frame_t_get_const(slot_2)
-#if defined(ARCH_MIPS)
+#if defined(ARCH_LOONGARCH64) || defined(ARCH_MIPS)
 			&& alu != COND_B && alu != COND_BE && alu != COND_A && alu != COND_AE
 #endif
 			) {
