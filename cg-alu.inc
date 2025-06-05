@@ -3749,6 +3749,12 @@ do_compare: {
 		g(gen_frame_load_cmp(ctx, op_size, logical, ex, false, slot_2, 0, false, reg1));
 		g(gen_jump(ctx, jmp_offset, op_size, alu ^ 1, -1U, -1U));
 #else
+#if !defined(ARCH_IA64)
+		if (frame_t_is_const(slot_2) && !frame_t_get_const(slot_2)) {
+			g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, alu ^ 1, reg1, -1U));
+			return true;
+		}
+#endif
 		g(gen_frame_get(ctx, op_size, ex, slot_2, R_SCRATCH_2, &reg2));
 		g(gen_cmp_dest_reg(ctx, op_size, reg1, reg2, R_CMP_RESULT, 0, alu));
 		g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, COND_E, R_CMP_RESULT, -1U));
