@@ -3750,11 +3750,7 @@ do_compare: {
 		g(gen_jump(ctx, jmp_offset, op_size, alu ^ 1, -1U, -1U));
 #else
 #if !defined(ARCH_IA64)
-		if (frame_t_is_const(slot_2) && !frame_t_get_const(slot_2)
-#if defined(ARCH_LOONGARCH64) || defined(ARCH_MIPS)
-			&& alu != COND_B && alu != COND_BE && alu != COND_A && alu != COND_AE
-#endif
-			) {
+		if (frame_t_is_const(slot_2) && !frame_t_get_const(slot_2) && alu != COND_B && alu != COND_BE && alu != COND_A && alu != COND_AE) {
 			g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, alu ^ 1, reg1, -1U));
 			return true;
 		}
