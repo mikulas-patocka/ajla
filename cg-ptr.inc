@@ -153,16 +153,19 @@ static bool attr_w gen_compare_refcount(struct codegen_context *ctx, unsigned pt
 	return true;
 }
 
-static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg, unsigned tag, unsigned cond, uint32_t label, unsigned tmp_reg)
+static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg, unsigned tag, unsigned cond, uint32_t label, unsigned tmp_reg, bool subtract)
 {
+	if (subtract
 #if defined(ARCH_S390)
-	switch (cond) {
-		case COND_A:	cond = COND_G; break;
-		case COND_AE:	cond = COND_GE; break;
-		case COND_B:	cond = COND_L; break;
-		case COND_BE:	cond = COND_LE; break;
-	}
+		|| 1
 #endif
+		)
+		switch (cond) {
+			case COND_A:	cond = COND_G; break;
+			case COND_AE:	cond = COND_GE; break;
+			case COND_B:	cond = COND_L; break;
+			case COND_BE:	cond = COND_LE; break;
+		}
 #if defined(DATA_TAG_AT_ALLOC)
 	g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHR, tmp_reg, reg, POINTER_IGNORE_START, false));
 #elif defined(REFCOUNT_TAG)
@@ -171,16 +174,18 @@ static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg
 	offset += sizeof(refcount_int_t) - 1;
 #endif
 #if defined(ARCH_X86) && REFCOUNT_STEP == 256
-	g(gen_imm(ctx, tag, IMM_PURPOSE_CMP, OP_SIZE_4));
-	gen_insn(INSN_CMP, OP_SIZE_1, 0, 1);
-	gen_one(ARG_ADDRESS_1);
-	gen_one(reg);
-	gen_eight(offset);
-	gen_imm_offset();
+	if (!subtract) {
+		g(gen_imm(ctx, tag, IMM_PURPOSE_CMP, OP_SIZE_4));
+		gen_insn(INSN_CMP, OP_SIZE_1, 0, 1);
+		gen_one(ARG_ADDRESS_1);
+		gen_one(reg);
+		gen_eight(offset);
+		gen_imm_offset();
 
-	gen_insn(INSN_JMP_COND, OP_SIZE_1, cond, 0);
-	gen_four(label);
-	return true;
+		gen_insn(INSN_JMP_COND, OP_SIZE_1, cond, 0);
+		gen_four(label);
+		return true;
+	}
 #endif
 	if (ARCH_HAS_BWX && REFCOUNT_STEP == 256
 #if defined(ARCH_S390)
@@ -220,7 +225,12 @@ static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg
 		gen_address_offset();
 	}
 #endif
-	g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(OP_SIZE_4), tmp_reg, tag, cond, label, -1));
+	if (!subtract) {
+		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(OP_SIZE_4), tmp_reg, tag, cond, label, -1));
+	} else {
+		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_4), ALU_SUB, tmp_reg, tmp_reg, tag, 0));
+		g(gen_cmp_test_jmp(ctx, INSN_TEST, i_size(OP_SIZE_4), tmp_reg, tmp_reg, cond, label));
+	}
 	return true;
 }
 
@@ -255,10 +265,10 @@ static bool attr_w gen_compare_da_tag(struct codegen_context *ctx, unsigned reg,
 	} else {
 		g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, tmp_reg, reg, POINTER_COMPRESSION, false));
 	}
-	g(gen_compare_ptr_tag(ctx, tmp_reg, tag, cond, label, tmp_reg));
+	g(gen_compare_ptr_tag(ctx, tmp_reg, tag, cond, label, tmp_reg, false));
 	return true;
 #endif
-	g(gen_compare_ptr_tag(ctx, reg, tag, cond, label, tmp_reg));
+	g(gen_compare_ptr_tag(ctx, reg, tag, cond, label, tmp_reg, false));
 	return true;
 }
 
@@ -267,7 +277,7 @@ static bool attr_w gen_compare_tag_and_refcount(struct codegen_context *ctx, uns
 #if defined(REFCOUNT_TAG)
 	g(gen_compare_refcount(ctx, reg, tag, COND_NE, label));
 #else
-	g(gen_compare_ptr_tag(ctx, reg, tag, COND_NE, label, tmp_reg));
+	g(gen_compare_ptr_tag(ctx, reg, tag, COND_NE, label, tmp_reg, false));
 	g(gen_compare_refcount(ctx, reg, REFCOUNT_STEP, COND_AE, label));
 #endif
 	return true;

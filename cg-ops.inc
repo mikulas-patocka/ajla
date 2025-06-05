@@ -1002,7 +1002,7 @@ struct_zero:
 					g(gen_check_array_len(ctx, R_SCRATCH_1, false, reg2, COND_AE, escape_label));
 
 					if (!TYPE_IS_FLAT(e_type) || (e_type->tag == TYPE_TAG_flat_option && !(ctx->args[i].flags & OPCODE_STRUCTURED_FLAG_END))) {
-						g(gen_compare_ptr_tag(ctx, R_SCRATCH_1, DATA_TAG_array_pointers, COND_NE, escape_label, R_SCRATCH_3));
+						g(gen_compare_ptr_tag(ctx, R_SCRATCH_1, DATA_TAG_array_pointers, COND_NE, escape_label, R_SCRATCH_3, false));
 
 						g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.array_pointers.pointer), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 						gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
@@ -1011,7 +1011,7 @@ struct_zero:
 
 						g(gen_scaled_array_address(ctx, slot_size, R_SAVED_1, R_SCRATCH_1, reg2, 0));
 					} else {
-						g(gen_compare_ptr_tag(ctx, R_SCRATCH_1, DATA_TAG_array_flat, COND_NE, escape_label, R_SCRATCH_3));
+						g(gen_compare_ptr_tag(ctx, R_SCRATCH_1, DATA_TAG_array_flat, COND_NE, escape_label, R_SCRATCH_3, false));
 
 						g(gen_scaled_array_address(ctx, e_type->size, R_SAVED_1, R_SCRATCH_1, reg2, data_array_offset));
 
@@ -2129,7 +2129,11 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 
 	if (TYPE_IS_FLAT(tr)) {
 		uint32_t label;
-		g(gen_compare_ptr_tag(ctx, reg1, DATA_TAG_array_slice, COND_A, escape_label, R_SCRATCH_4));
+		bool subtract = false;
+#if !ARCH_HAS_FLAGS && !defined(ARCH_IA64) && !defined(ARCH_PARISC)
+		subtract = true;
+#endif
+		g(gen_compare_ptr_tag(ctx, reg1, DATA_TAG_array_slice, COND_A, escape_label, R_SCRATCH_4, subtract));
 		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SCRATCH_1, reg1));
 #if defined(ARCH_X86) || defined(ARCH_S390)
 #if defined(ARCH_X86)
@@ -2159,8 +2163,6 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 		gen_one(ARG_IMM);
 		gen_eight(DATA_TAG_array_slice);
 #elif defined(ARCH_LOONGARCH64) || defined(ARCH_MIPS) || defined(ARCH_RISCV64)
-		g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_XOR, R_SCRATCH_4, R_SCRATCH_4, DATA_TAG_array_slice, 0));
-
 		label = alloc_label(ctx);
 		if (unlikely(!label))
 			return false;
@@ -2194,17 +2196,25 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 		gen_one(R_SCRATCH_1);
 		gen_one(R_SCRATCH_3);
 #else
-		g(gen_imm(ctx, DATA_TAG_array_slice, IMM_PURPOSE_CMP, OP_SIZE_NATIVE));
-		gen_insn(INSN_CMP_DEST_REG, OP_SIZE_NATIVE, COND_E, 0);
-		gen_one(R_CMP_RESULT);
-		gen_one(R_SCRATCH_4);
-		gen_imm_offset();
+		if (!subtract) {
+			g(gen_imm(ctx, DATA_TAG_array_slice, IMM_PURPOSE_CMP, OP_SIZE_NATIVE));
+			gen_insn(INSN_CMP_DEST_REG, OP_SIZE_NATIVE, COND_E, 0);
+			gen_one(R_CMP_RESULT);
+			gen_one(R_SCRATCH_4);
+			gen_imm_offset();
 
-		gen_insn(INSN_MOVR, OP_SIZE_NATIVE, COND_NE, 0);
-		gen_one(R_SCRATCH_1);
-		gen_one(R_SCRATCH_1);
-		gen_one(R_CMP_RESULT);
-		gen_one(R_SCRATCH_3);
+			gen_insn(INSN_MOVR, OP_SIZE_NATIVE, COND_NE, 0);
+			gen_one(R_SCRATCH_1);
+			gen_one(R_SCRATCH_1);
+			gen_one(R_CMP_RESULT);
+			gen_one(R_SCRATCH_3);
+		} else {
+			gen_insn(INSN_MOVR, OP_SIZE_NATIVE, COND_E, 0);
+			gen_one(R_SCRATCH_1);
+			gen_one(R_SCRATCH_1);
+			gen_one(R_SCRATCH_4);
+			gen_one(R_SCRATCH_3);
+		}
 #endif
 #endif
 		if (0) {
@@ -2230,7 +2240,7 @@ no_cmov:
 			return true;
 		}
 
-		g(gen_compare_ptr_tag(ctx, reg1, DATA_TAG_array_pointers, COND_NE, escape_label, R_SCRATCH_3));
+		g(gen_compare_ptr_tag(ctx, reg1, DATA_TAG_array_pointers, COND_NE, escape_label, R_SCRATCH_3, false));
 
 		g(gen_address(ctx, reg1, offsetof(struct data, u_.array_pointers.pointer), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
@@ -2334,7 +2344,7 @@ static bool attr_w gen_array_len(struct codegen_context *ctx, frame_t slot_1, fr
 			return false;
 		}
 
-		g(gen_compare_ptr_tag(ctx, reg, DATA_TAG_array_pointers, COND_A, escape_label, R_SCRATCH_2));
+		g(gen_compare_ptr_tag(ctx, reg, DATA_TAG_array_pointers, COND_A, escape_label, R_SCRATCH_2, false));
 
 		if (slot_2 == NO_FRAME_T) {
 			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
