@@ -2135,11 +2135,13 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 #endif
 		g(gen_compare_ptr_tag(ctx, reg1, DATA_TAG_array_slice, COND_A, escape_label, R_SCRATCH_4, subtract));
 		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SCRATCH_1, reg1));
-#if defined(ARCH_X86) || defined(ARCH_S390)
+#if defined(ARCH_ARM32) || defined(ARCH_S390) || defined(ARCH_X86)
 #if defined(ARCH_X86)
 		if (unlikely(!cpu_test_feature(CPU_FEATURE_cmov)))
-#else
+#elif defined(ARCH_S390)
 		if (unlikely(!cpu_test_feature(CPU_FEATURE_misc_45)))
+#else
+		if (0)
 #endif
 		{
 			g(gen_address(ctx, reg1, offsetof(struct data, u_.array_slice.flat_data_minus_data_array_offset), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
