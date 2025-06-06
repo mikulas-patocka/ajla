@@ -114,7 +114,7 @@
 #define R_SCRATCH_1	R_3
 #define R_SCRATCH_2	R_2
 #define R_SCRATCH_3	R_5
-#define R_SCRATCH_4	R_4
+#define R_SCRATCH_4	R_11
 #define R_CONST_IMM	(cpu_test_feature(CPU_FEATURE_extended_imm) ? R_0 : R_9)
 #define R_OFFSET_IMM	R_14
 
@@ -154,13 +154,12 @@ static const uint8_t regs_saved[] = {
 #endif
 	R_8, R_9 };
 #define n_regs_saved (cpu_test_feature(CPU_FEATURE_extended_imm) ? n_array_elements(regs_saved) : n_array_elements(regs_saved) - 1)
-static const uint8_t regs_volatile[] = { 0 };
-#define n_regs_volatile 0U
+static const uint8_t regs_volatile[] = { R_4 };
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved 0U
 static const uint8_t fp_volatile[] = { FR_1, FR_3, FR_5, FR_7, FR_2, FR_6 };
 #define n_fp_volatile	(!uses_x ? 6U : 4U)
-#define reg_is_saved(r)	(!reg_is_fp(r))
+#define reg_is_saved(r)	((r) >= R_6 && (r) < R_14)
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
 {
