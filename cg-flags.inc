@@ -273,7 +273,7 @@ static bool attr_w gen_test_1(struct codegen_context *ctx, unsigned base, frame_
 		gen_one(R_SCRATCH_NA_2);
 	}
 #if defined(ARCH_ARM) || defined(ARCH_IA64) || defined(ARCH_LOONGARCH64) || defined(ARCH_PARISC) || defined(ARCH_POWER) || defined(ARCH_S390)
-	g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, i_size(OP_SIZE_BITMAP), R_SCRATCH_NA_1, (uintptr_t)1 << bit, !jz ? COND_NE : COND_E, label));
+	g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, i_size(OP_SIZE_BITMAP), R_SCRATCH_NA_1, (uintptr_t)1 << bit, !jz ? COND_NE : COND_E, label, -1));
 #else
 	g(gen_3address_rot_imm(ctx, i_size(OP_SIZE_BITMAP), ROT_SHL, R_SCRATCH_NA_3, R_SCRATCH_NA_1, (1U << (i_size(OP_SIZE_BITMAP) + 3)) - 1 - bit, false));
 
@@ -388,12 +388,12 @@ static bool attr_w gen_test_2(struct codegen_context *ctx, frame_t slot_1, frame
 	gen_address_offset();
 
 	if (is_direct_const(1ULL << bit1 | 1ULL << bit2, IMM_PURPOSE_TEST, OP_SIZE_BITMAP)) {
-		g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, i_size(OP_SIZE_BITMAP), R_SCRATCH_NA_1, 1ULL << bit1 | 1ULL << bit2, COND_NE, label));
+		g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, i_size(OP_SIZE_BITMAP), R_SCRATCH_NA_1, 1ULL << bit1 | 1ULL << bit2, COND_NE, label, -1));
 		return true;
 	}
 #if defined(ARCH_ARM) || defined(ARCH_IA64) || defined(ARCH_PARISC) || defined(ARCH_S390)
-	g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, i_size(OP_SIZE_BITMAP), R_SCRATCH_NA_1, (uintptr_t)1 << bit1, COND_NE, label));
-	g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, i_size(OP_SIZE_BITMAP), R_SCRATCH_NA_1, (uintptr_t)1 << bit2, COND_NE, label));
+	g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, i_size(OP_SIZE_BITMAP), R_SCRATCH_NA_1, (uintptr_t)1 << bit1, COND_NE, label, -1));
+	g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, i_size(OP_SIZE_BITMAP), R_SCRATCH_NA_1, (uintptr_t)1 << bit2, COND_NE, label, -1));
 
 	return true;
 #endif
@@ -569,7 +569,7 @@ static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *varia
 		gen_one(R_SCRATCH_NA_1);
 		gen_address_offset();
 
-		g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, i_size(OP_SIZE_BITMAP), R_SCRATCH_NA_1, mask, COND_NE, label));
+		g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, i_size(OP_SIZE_BITMAP), R_SCRATCH_NA_1, mask, COND_NE, label, -1));
 #endif
 	}
 	goto tested;
