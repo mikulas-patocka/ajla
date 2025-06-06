@@ -511,17 +511,10 @@ static bool attr_w gen_frame_load_2(struct codegen_context *ctx, unsigned size, 
 {
 	if (frame_t_is_const(slot))
 		goto skip_ldd;
-#if defined(ARCH_ARM64)
-	offset += (size_t)slot * slot_size;
-	g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, size));
-	gen_insn(INSN_LDP, size, 0, 0);
-	gen_one(reg1);
-	gen_one(reg2);
-	gen_address_offset();
-	return true;
-#endif
 #if defined(ARCH_ARM32)
 	if (likely(!(reg1 & 1)) && likely(reg2 == reg1 + 1) && likely(cpu_test_feature(CPU_FEATURE_armv6)))
+#elif defined(ARCH_ARM64)
+	if (1)
 #elif defined(ARCH_SPARC32)
 	if (likely(!(reg2 & 1)) && likely(reg1 == reg2 + 1))
 #elif defined(ARCH_S390)
@@ -609,17 +602,10 @@ static unsigned gen_frame_target(struct codegen_context *ctx, frame_t slot_r, fr
 
 static bool attr_w gen_frame_store_2(struct codegen_context *ctx, unsigned size, frame_t slot, int64_t offset, unsigned reg1, unsigned reg2)
 {
-#if defined(ARCH_ARM64)
-	offset += (size_t)slot * slot_size;
-	g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, size));
-	gen_insn(INSN_STP, size, 0, 0);
-	gen_address_offset();
-	gen_one(reg1);
-	gen_one(reg2);
-	return true;
-#endif
 #if defined(ARCH_ARM32)
 	if (likely(!(reg1 & 1)) && likely(reg2 == reg1 + 1) && likely(cpu_test_feature(CPU_FEATURE_armv6)))
+#elif defined(ARCH_ARM64)
+	if (1)
 #elif defined(ARCH_SPARC32)
 	if (likely(!(reg2 & 1)) && likely(reg1 == reg2 + 1))
 #elif defined(ARCH_S390)
