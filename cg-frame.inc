@@ -532,7 +532,7 @@ static bool attr_w gen_frame_load_2(struct codegen_context *ctx, unsigned size, 
 	{
 		offset += (size_t)slot * slot_size;
 		if (UNALIGNED_TRAP) {
-			if (unlikely((offset & ((2U << size) - 1)) != 0)) {
+			if (unlikely(((frame_offset + offset) & ((2U << size) - 1)) != 0)) {
 				offset -= (size_t)slot * slot_size;
 				goto skip_ldd;
 			}
@@ -630,7 +630,7 @@ static bool attr_w gen_frame_store_2(struct codegen_context *ctx, unsigned size,
 	{
 		offset += (size_t)slot * slot_size;
 		if (UNALIGNED_TRAP) {
-			if (unlikely((offset & ((2U << size) - 1)) != 0)) {
+			if (unlikely(((frame_offset + offset) & ((2U << size) - 1)) != 0)) {
 				offset -= (size_t)slot * slot_size;
 				goto skip_ldd;
 			}
