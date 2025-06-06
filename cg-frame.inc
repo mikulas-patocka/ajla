@@ -846,6 +846,9 @@ static bool spill_can_pair(struct codegen_context *ctx, frame_t slot1, frame_t s
 	const struct type *t2 = get_type_of_local(ctx, slot2);
 	unsigned s1 = spill_size(t1);
 	unsigned s2 = spill_size(t2);
+#if !defined(C_LITTLE_ENDIAN)
+	can_be_smaller = false;
+#endif
 	if (TYPE_TAG_IS_REAL(t1->tag) || TYPE_TAG_IS_REAL(t2->tag))
 		return false;
 	if (unlikely(s1 > OP_SIZE_NATIVE) || unlikely(s2 > OP_SIZE_NATIVE))
