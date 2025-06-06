@@ -104,7 +104,9 @@
 #define  ARM64_FCVT_FROM_DOUBLE		0x00400000U
 #define  ARM64_FCVT_FROM_HALF		0x00c00000U
 #define ARM64_FMOV		0x1e260000U
+#define  ARM64_FMOV_W_S			0x00000000U
 #define  ARM64_FMOV_S_W			0x00010000U
+#define  ARM64_FMOV_X_D			0x80400000U
 #define  ARM64_FMOV_D_X			0x80410000U
 #define ARM64_FCVTZS		0x1e380000U
 #define  ARM64_FCVTZS_SINGLE		0x00000000U
@@ -283,6 +285,15 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 			cgen_four(mc);
 			return true;
 		}
+		if (reg_is_fp(arg2[0])) {
+			if (size < OP_SIZE_4)
+				goto invalid;
+			mc = ARM64_FMOV | (size == OP_SIZE_4 ? ARM64_FMOV_W_S : ARM64_FMOV_X_D);
+			mc |= arg1[0];
+			mc |= (uint32_t)(arg2[0] & 31) << 5;
+			cgen_four(mc);
+			return true;
+		}
 		if (arg2[0] == ARG_IMM) {
 			if (unlikely(size < OP_SIZE_4))
 				internal(file_line, "cgen_mov: unsupported size %u", size);
@@ -348,7 +359,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 			return cgen_ldr_str(ctx, ARM64_LDST_ST, size, 0x1f, arg1);
 	}
 invalid:
-	internal(file_line, "cgen_mov: invalid arguments %02x, %02x", arg1[0], arg2[0]);
+	internal(file_line, "cgen_mov: invalid arguments %u, %02x, %02x", size, arg1[0], arg2[0]);
 	return false;
 }
 

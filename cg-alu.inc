@@ -2257,9 +2257,7 @@ x86_bsf_bsr_popcnt_finish:
 				gen_one(FR_SCRATCH_1);
 			}
 #endif
-			g(gen_frame_store(ctx, op_size, slot_r, 0, FR_SCRATCH_1));
-			if (slot_is_register(ctx, slot_r))
-				g(unspill(ctx, slot_r));
+			g(gen_frame_store(ctx, i_size(op_size), slot_r, 0, FR_SCRATCH_1));
 			return true;
 		}
 
