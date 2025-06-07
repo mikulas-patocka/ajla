@@ -3734,7 +3734,8 @@ void os_numa_free(void *ptr, size_t size)
 
 void os_numa_bind_memory(void *ptr, size_t size, unsigned node)
 {
-	numa_tonode_memory(ptr, size, node);
+	if (n_valid_nodes != 1)
+		numa_tonode_memory(ptr, size, node);
 }
 
 #endif
