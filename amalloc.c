@@ -1228,10 +1228,15 @@ static bool amalloc_per_thread_alloc(void)
 	return true;
 }
 
-static int arena_tree_compare(const struct tree_entry *entry, uintptr_t len)
+static int arena_tree_compare(const struct tree_entry *entry, uintptr_t a2_)
 {
 	struct arena *a = get_struct(entry, struct arena, arena_entry);
-	if (a->max_midblock_run < len)
+	struct arena *a2 = num_to_ptr(a2_);
+	if (unlikely(a->numa_node < a2->numa_node))
+		return -1;
+	if (unlikely(a->numa_node > a2->numa_node))
+		return 1;
+	if (a->max_midblock_run < a2->max_midblock_run)
 		return -1;
 	return 1;
 }
@@ -1245,7 +1250,7 @@ static void arena_insert_locked(struct arena *a)
 		amalloc_run_free(a, ARENA_SIZE);
 		return;
 	}
-	ee = tree_find_for_insert(&arena_tree, arena_tree_compare, a->max_midblock_run, &ins);
+	ee = tree_find_for_insert(&arena_tree, arena_tree_compare, ptr_to_num(a), &ins);
 	ajla_assert(ee == NULL, (file_line, "arena_insert_locked: entry for address %p is already present", a));
 	tree_insert_after_find(&a->arena_entry, &ins);
 }
@@ -1432,12 +1437,22 @@ static void arena_detach(struct arena *a)
 	arena_tree_unlock();
 }
 
-static int arena_tree_find(const struct tree_entry *entry, uintptr_t len)
+struct arena_tree_find_param {
+	unsigned midblocks;
+	int numa_node;
+};
+
+static int arena_tree_find(const struct tree_entry *entry, uintptr_t p_)
 {
 	struct arena *a = get_struct(entry, struct arena, arena_entry);
-	if (a->max_midblock_run < len)
+	struct arena_tree_find_param *p = num_to_ptr(p_);
+	if (unlikely(a->numa_node < p->numa_node))
 		return -1;
-	if (a->max_midblock_run > len)
+	if (unlikely(a->numa_node > p->numa_node))
+		return 1;
+	if (a->max_midblock_run < p->midblocks)
+		return -1;
+	if (a->max_midblock_run > p->midblocks)
 		return 1;
 	return 0;
 }
@@ -1446,8 +1461,13 @@ static struct arena *arena_attach(unsigned midblocks)
 {
 	struct arena *a;
 	struct tree_entry *ee;
+	struct arena_tree_find_param p;
 	arena_tree_lock();
-	ee = tree_find_best(&arena_tree, arena_tree_find, midblocks);
+	p.midblocks = midblocks;
+	p.numa_node = call(task_get_numa_node)();
+	if (p.numa_node < 0)
+		p.numa_node = 0;
+	ee = tree_find_best(&arena_tree, arena_tree_find, ptr_to_num(&p));
 	if (ee) {
 		a = get_struct(ee, struct arena, arena_entry);
 		a->attached = true;
