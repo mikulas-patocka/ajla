@@ -1921,6 +1921,7 @@ bool attr_fastcall aptr_is_huge(void *ptr)
 void amalloc_init(void)
 {
 	unsigned i;
+	os_numa_init();
 #if defined(DEBUG)
 	{
 		unsigned size;
@@ -2063,6 +2064,7 @@ os_done:
 	if (pointer_compression_enabled)
 		unreserve_memory();
 #endif
+	os_numa_done();
 }
 
 #endif

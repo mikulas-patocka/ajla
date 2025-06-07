@@ -369,6 +369,8 @@ bool os_dlsym(struct dl_handle_t *dlh, const char *symbol, void **result);
 
 #ifdef HAVE_LIBNUMA
 #define OS_HAS_NUMA
+void os_numa_init(void);
+void os_numa_done(void);
 unsigned os_numa_nodes(void);
 unsigned os_numa_cpus_per_node(unsigned node);
 void os_numa_bind(unsigned node);
@@ -565,6 +567,8 @@ bool os_getaddrinfo(const char *host, int port, struct address **result, size_t 
 char *os_getnameinfo(unsigned char *addr, size_t addr_len, ajla_error_t *err);
 
 #ifndef OS_HAS_NUMA
+#define os_numa_init()			do { } while (0)
+#define os_numa_done()			do { } while (0)
 #define os_numa_nodes()			1
 #define os_numa_cpus_per_node(node)	1
 #define os_numa_bind(node)		do { } while (0)

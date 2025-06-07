@@ -3598,7 +3598,7 @@ try_more:
 static uint8_t *valid_nodes;
 size_t n_valid_nodes;
 
-static void os_numa_init(void)
+void os_numa_init(void)
 {
 	unsigned i, max_valid;
 	struct bitmask *bm;
@@ -3637,7 +3637,7 @@ numa_unavailable:
 	valid_nodes[0] = 1;
 }
 
-static void os_numa_done(void)
+void os_numa_done(void)
 {
 	free(valid_nodes);
 }
@@ -3809,9 +3809,6 @@ skip_test:;
 #endif
 #endif
 	}
-#ifdef OS_HAS_NUMA
-	os_numa_init();
-#endif
 #endif
 }
 
@@ -3833,10 +3830,6 @@ void os_done(void)
 	}
 	mem_free(signal_states);
 	signal_states = NULL;
-#endif
-
-#ifdef OS_HAS_NUMA
-	os_numa_done();
 #endif
 
 #ifdef OS_HAVE_NOTIFY_PIPE
