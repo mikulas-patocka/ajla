@@ -3714,8 +3714,12 @@ void *os_numa_alloc(unsigned node, size_t size)
 {
 	unsigned n;
 	void *ptr;
-	if (n_valid_nodes == 1)
-		return malloc(size);
+	if (n_valid_nodes == 1) {
+		ptr = malloc(size);
+		if (!ptr)
+			fatal("malloc failed");
+		return ptr;
+	}
 	n = os_numa_find_node(node);
 	ptr = numa_alloc_onnode(size, n);
 	if (!ptr) {
@@ -3727,8 +3731,10 @@ void *os_numa_alloc(unsigned node, size_t size)
 
 void os_numa_free(void *ptr, size_t size)
 {
-	if (n_valid_nodes == 1)
-		return free(ptr);
+	if (n_valid_nodes == 1) {
+		free(ptr);
+		return;
+	}
 	numa_free(ptr, size);
 }
 
