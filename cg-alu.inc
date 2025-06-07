@@ -2277,8 +2277,12 @@ x86_bsf_bsr_popcnt_finish:
 		g(gen_2address_alu1(ctx, i_size(op_size), ALU1_LZCNT, target, reg1, 0));
 
 		if (alu == ALU1_BSR) {
-			g(gen_load_constant(ctx, R_SCRATCH_2, op_size == OP_SIZE_8 ? 63 : 31));
-			g(gen_3address_alu(ctx, i_size(op_size), ALU_SUB, target, R_SCRATCH_2, target, 0));
+			if (mode == MODE_INT) {
+				g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, target, target, op_size == OP_SIZE_8 ? 63 : 31, 0));
+			} else {
+				g(gen_load_constant(ctx, R_SCRATCH_2, op_size == OP_SIZE_8 ? 63 : 31));
+				g(gen_3address_alu(ctx, i_size(op_size), ALU_SUB, target, R_SCRATCH_2, target, 0));
+			}
 		}
 
 		if (mode == MODE_FIXED && alu == ALU1_BSF) {
@@ -2324,10 +2328,12 @@ x86_bsf_bsr_popcnt_finish:
 			}
 			if (alu == ALU1_BSR) {
 				g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_LZCNT, target, reg1, 0));
-
-				g(gen_load_constant(ctx, R_SCRATCH_3, OP_SIZE_NATIVE == OP_SIZE_8 ? 63 : 31));
-
-				g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_SUB, target, R_SCRATCH_3, target, 0));
+				if (mode == MODE_INT) {
+					g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, target, target, 63, 0));
+				} else {
+					g(gen_load_constant(ctx, R_SCRATCH_3, 63));
+					g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_SUB, target, R_SCRATCH_3, target, 0));
+				}
 			}
 			g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 			return true;
@@ -2347,11 +2353,12 @@ x86_bsf_bsr_popcnt_finish:
 				reg1 = R_SCRATCH_1;
 			}
 			g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_LZCNT, target, reg1, 0));
-
-			g(gen_load_constant(ctx, R_SCRATCH_3, OP_SIZE_NATIVE == OP_SIZE_8 ? 63 : 31));
-
-			g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_SUB, target, R_SCRATCH_3, target, 0));
-
+			if (mode == MODE_INT) {
+				g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_XOR, target, target, OP_SIZE_NATIVE == OP_SIZE_8 ? 63 : 31, 0));
+			} else {
+				g(gen_load_constant(ctx, R_SCRATCH_3, OP_SIZE_NATIVE == OP_SIZE_8 ? 63 : 31));
+				g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_SUB, target, R_SCRATCH_3, target, 0));
+			}
 			g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 			return true;
 		}
@@ -2384,10 +2391,12 @@ x86_bsf_bsr_popcnt_finish:
 		}
 		if (alu == ALU1_BSR) {
 			g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_LZCNT, target, reg1, 0));
-
-			g(gen_load_constant(ctx, R_SCRATCH_3, OP_SIZE_NATIVE == OP_SIZE_8 ? 63 : 31));
-
-			g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_SUB, target, R_SCRATCH_3, target, 0));
+			if (mode == MODE_INT) {
+				g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_XOR, target, target, OP_SIZE_NATIVE == OP_SIZE_8 ? 63 : 31, 0));
+			} else {
+				g(gen_load_constant(ctx, R_SCRATCH_3, OP_SIZE_NATIVE == OP_SIZE_8 ? 63 : 31));
+				g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_SUB, target, R_SCRATCH_3, target, 0));
+			}
 		}
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
@@ -2426,10 +2435,12 @@ x86_bsf_bsr_popcnt_finish:
 		}
 		if (alu == ALU1_BSR) {
 			g(gen_2address_alu1(ctx, maximum(OP_SIZE_4, op_size), ALU1_LZCNT, target, reg1, 0));
-
-			g(gen_load_constant(ctx, R_SCRATCH_3, op_size <= OP_SIZE_4 ? 31 : 63));
-
-			g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_SUB, target, R_SCRATCH_3, target, 0));
+			if (mode == MODE_INT) {
+				g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_XOR, target, target, op_size <= OP_SIZE_4 ? 31 : 63, 0));
+			} else {
+				g(gen_load_constant(ctx, R_SCRATCH_3, op_size <= OP_SIZE_4 ? 31 : 63));
+				g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_SUB, target, R_SCRATCH_3, target, 0));
+			}
 		}
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
