@@ -402,7 +402,7 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 {
 	bool arch_use_flags = ARCH_HAS_FLAGS;
 #if defined(ARCH_ARM64)
-	if (insn == INSN_TEST && reg1 == reg2 && (cond == COND_E || cond == COND_NE))
+	if (insn == INSN_TEST && reg1 == reg2 && (cond == COND_E || cond == COND_NE || cond == COND_S || cond == COND_NS))
 		arch_use_flags = false;
 #endif
 #if defined(ARCH_SPARC)
