@@ -1403,6 +1403,8 @@ static struct arena *arena_alloc(void)
 	a->map[ARENA_PREFIX - 1] = 0;
 	a->attached = true;
 	a->numa_node = call(task_get_numa_node)();
+	if (unlikely(a->numa_node < 0))
+		a->numa_node = 0;
 	arena_free_midblock(a, ARENA_PREFIX, ARENA_MIDBLOCKS - ARENA_PREFIX);
 	/*debug("allocating arena %p", a);*/
 	return a;
@@ -1678,7 +1680,7 @@ static attr_noinline void *amalloc_small_empty(struct per_thread *pt, size_t siz
 		} else {
 			if (test_count > best_count) {
 				struct arena *a = addr_to_arena(test);
-				if (node >= 0 && a->numa_node >= 0 && unlikely(node != a->numa_node))
+				if (node >= 0 && unlikely(node != a->numa_node))
 					continue;
 				best_idx = test_idx;
 				best_count = test_count;
