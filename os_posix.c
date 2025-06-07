@@ -3604,6 +3604,7 @@ static void os_numa_init(void)
 	struct bitmask *bm;
 	if (unlikely(numa_available()))
 		goto numa_unavailable;
+	numa_set_bind_policy(0);
 	n_valid_nodes = numa_max_possible_node() + 1;
 	valid_nodes = mem_alloc_array_mayfail(mem_calloc_mayfail, uint8_t *, 0, 0, n_valid_nodes, sizeof(uint8_t), NULL);
 	bm = numa_allocate_cpumask();
