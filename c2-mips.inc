@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -194,8 +194,6 @@
 #define MIPS_R6_BEQZC		0xd8000000U
 #define MIPS_R6_JIALC		0xf8000000U
 #define MIPS_R6_BNEZC		0xf8000000U
-#define MIPS_R6_BLTC		0x5c000000U
-#define MIPS_R6_BGEC		0x58000000U
 
 #define cgen_mips_3reg(mc, rd, rs, rt) \
 	cgen_four((mc) | ((uint32_t)(rd) << 11) | ((uint32_t)(rs) << 21) | ((uint32_t)(rt) << 16))
@@ -994,9 +992,7 @@ static bool attr_w cgen_jmp_2regs_mips_r6(struct codegen_context *ctx, unsigned 
 		case COND_NE:	mc = MIPS_BNE; break;
 		case COND_BE:	mc = MIPS_R6_BGEUC; swap = true; break;
 		case COND_A:	mc = MIPS_R6_BLTUC; swap = true; break;
-		case COND_S:
 		case COND_L:	mc = MIPS_R6_BLTC; break;
-		case COND_NS:
 		case COND_GE:	mc = MIPS_R6_BGEC; break;
 		case COND_LE:	mc = MIPS_R6_BGEC; swap = true; break;
 		case COND_G:	mc = MIPS_R6_BLTC; swap = true; break;

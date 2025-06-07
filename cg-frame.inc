@@ -264,7 +264,7 @@ static bool attr_w gen_frame_get(struct codegen_context *ctx, unsigned size, enu
 {
 	const struct type *t;
 	if (frame_t_is_const(slot)) {
-#if defined(R_ZERO)
+#if defined(R_ZERO) && (!defined(ARCH_MIPS) || !MIPS_R6)
 		if (!frame_t_get_const(slot)) {
 			*dest = R_ZERO;
 			return true;
