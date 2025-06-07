@@ -1020,20 +1020,30 @@ static bool attr_w cgen_jmp_cond(struct codegen_context *ctx, unsigned aux, unsi
 	}
 }
 
+static bool attr_w cgen_jmp_reg_bit(struct codegen_context *ctx, unsigned bit, bool jnz, unsigned length);
+
 static bool attr_w cgen_jmp_reg(struct codegen_context *ctx, unsigned size, unsigned aux, unsigned length)
 {
 	uint32_t mc = ARM64_CB;
 	mc |= ARM64_CBZ_SIZE * (size == OP_SIZE_8);
-	mc |= cget_one(ctx);
 	switch (aux) {
 		case COND_E:
 			break;
 		case COND_NE:
 			mc |= ARM64_CBZ_CBNZ;
 			break;
+		case COND_S:
+		case COND_L:
+			g(cgen_jmp_reg_bit(ctx, size == OP_SIZE_8 ? 63 : 31, true, length));
+			return true;
+		case COND_NS:
+		case COND_GE:
+			g(cgen_jmp_reg_bit(ctx, size == OP_SIZE_8 ? 63 : 31, false, length));
+			return true;
 		default:
 			internal(file_line, "cgen_jmp_reg: invalid condition %u", aux);
 	}
+	mc |= cget_one(ctx);
 	switch (length) {
 		case JMP_SHORTEST:
 		case JMP_SHORT:

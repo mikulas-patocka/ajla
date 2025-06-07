@@ -81,15 +81,17 @@ for a in $targets; do
 			$PFX ./ajla programs/test/test.ajla 100
 			$PFX ./ajla programs/test/test-fp.ajla 2
 			$PFX ./ajla programs/test/test-fp.ajla 50
+			if [ -f ~/ajla/advent-2023/test.sh ]; then (cd ~/ajla/advent-2023/; ./test.sh); fi
+			if [ -f ~/ajla/advent-2024/test.sh ]; then (cd ~/ajla/advent-2024/; ./test.sh); fi
 			if $do_ptrcomp; then
 				$PFX ./ajla --ptrcomp programs/test/empty.ajla
 				$PFX ./ajla --ptrcomp programs/test/test.ajla 2
 				$PFX ./ajla --ptrcomp programs/test/test.ajla 100
 				$PFX ./ajla --ptrcomp programs/test/test-fp.ajla 2
 				$PFX ./ajla --ptrcomp programs/test/test-fp.ajla 50
+				if [ -f ~/ajla/advent-2023/test.sh ]; then (cd ~/ajla/advent-2023/; ./test.sh --ptrcomp); fi
+				if [ -f ~/ajla/advent-2024/test.sh ]; then (cd ~/ajla/advent-2024/; ./test.sh --ptrcomp); fi
 			fi
-			if [ -f ~/ajla/advent-2023/test.sh ]; then (cd ~/ajla/advent-2023/; ./test.sh); fi
-			if [ -f ~/ajla/advent-2024/test.sh ]; then (cd ~/ajla/advent-2024/; ./test.sh); fi
 		done
 	done
 done
