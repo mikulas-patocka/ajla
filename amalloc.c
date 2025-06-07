@@ -74,6 +74,7 @@ struct arena {
 	struct tree_entry arena_entry;
 	ushort_efficient_t max_midblock_run;
 	uchar_efficient_t attached;
+	int numa_node;
 	ushort_efficient_t map[ARENA_MIDBLOCKS];
 };
 
@@ -109,6 +110,9 @@ struct per_thread {
 	union midblock *small_runs[N_CLASSES + 1];
 	tls_destructor_t destructor;
 };
+
+int u_name(task_get_numa_node)(void);
+int c_name(task_get_numa_node)(void);
 
 static union midblock full_midblock;
 
@@ -849,6 +853,7 @@ void *amalloc_run_alloc(size_t al, size_t length, bool attr_unused clr, bool att
 	void *ptr;
 	void attr_unused *base_address;
 	uintptr_t attr_unused nptr, aptr, fptr, eptr;
+	int node;
 #if !defined(OS_OS2)
 	ajla_error_t sink;
 #endif
@@ -937,6 +942,10 @@ void *amalloc_run_alloc(size_t al, size_t length, bool attr_unused clr, bool att
 
 	goto madvise_ret;
 madvise_ret:
+
+	node = call(task_get_numa_node)();
+	if (node >= 0)
+		os_numa_bind_memory(ptr, length, node);
 
 #if !defined(AMALLOC_TRIM_MIDBLOCKS) && defined(HAVE_MADVISE) && defined(MADV_HUGEPAGE)
 	if (length == ARENA_SIZE) {
@@ -1393,6 +1402,7 @@ static struct arena *arena_alloc(void)
 	a->map[0] = ARENA_PREFIX - 1;
 	a->map[ARENA_PREFIX - 1] = 0;
 	a->attached = true;
+	a->numa_node = call(task_get_numa_node)();
 	arena_free_midblock(a, ARENA_PREFIX, ARENA_MIDBLOCKS - ARENA_PREFIX);
 	/*debug("allocating arena %p", a);*/
 	return a;
@@ -1621,6 +1631,7 @@ static attr_noinline void *amalloc_small_empty(struct per_thread *pt, size_t siz
 	unsigned i, best_idx, best_count, bit, all_free;
 	union midblock *m = pt->small_runs[cls + 1];
 	struct small_block_cache *sbc = &small_block_cache[cls];
+	int node = call(task_get_numa_node)();
 	sbc_lock(sbc);
 	if (likely(m != &full_midblock)) {
 		if (unlikely(!amalloc_detach_small(sbc, m))) {
@@ -1666,6 +1677,9 @@ static attr_noinline void *amalloc_small_empty(struct per_thread *pt, size_t siz
 			}
 		} else {
 			if (test_count > best_count) {
+				struct arena *a = addr_to_arena(test);
+				if (node >= 0 && a->numa_node >= 0 && unlikely(node != a->numa_node))
+					continue;
 				best_idx = test_idx;
 				best_count = test_count;
 			}

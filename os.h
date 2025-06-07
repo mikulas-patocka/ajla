@@ -375,6 +375,7 @@ void os_numa_bind(unsigned node);
 void os_numa_unbind(void);
 void *os_numa_alloc(unsigned node, size_t size);
 void os_numa_free(void *ptr, size_t size);
+void os_numa_bind_memory(void *ptr, size_t size, unsigned node);
 #endif
 
 #endif
@@ -570,6 +571,7 @@ char *os_getnameinfo(unsigned char *addr, size_t addr_len, ajla_error_t *err);
 #define os_numa_unbind()		do { } while (0)
 #define os_numa_alloc(node, size)	mem_alloc(void *, size)
 #define os_numa_free(ptr, size)		mem_free(ptr)
+#define os_numa_bind_memory(start, size, node)	do { } while (0)
 #endif
 
 const char *os_decode_error(ajla_error_t error, char *(*tls_buffer)(void));

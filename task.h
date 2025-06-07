@@ -21,6 +21,7 @@
 
 #include "data.h"
 
+#define task_get_numa_node	name(task_get_numa_node)
 #define task_submit		name(task_submit)
 #define task_schedule		name(task_schedule)
 #define task_ex_control_started	name(task_ex_control_started)
@@ -33,6 +34,8 @@
 
 extern uint32_t nr_cpus_override;
 extern uint32_t nr_nodes_override;
+
+int task_get_numa_node(void);
 
 void attr_fastcall task_submit(struct execution_control *ex, unsigned spawn_mode);
 

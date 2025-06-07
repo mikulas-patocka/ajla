@@ -3728,6 +3728,11 @@ void os_numa_free(void *ptr, size_t size)
 	numa_free(ptr, size);
 }
 
+void os_numa_bind_memory(void *ptr, size_t size, unsigned node)
+{
+	numa_tonode_memory(ptr, size, node);
+}
+
 #endif
 
 void os_init(void)

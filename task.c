@@ -63,6 +63,7 @@ struct task_percpu {
 	struct list waiting_list;
 	struct node_state *node;
 	unsigned last_node;
+	int membind;
 };
 
 struct thread_pointers {
@@ -78,6 +79,7 @@ shared_var unsigned nr_real_nodes;
 shared_var uint32_t nr_nodes_override shared_init(0);
 shared_var unsigned nr_idle_nodes;
 shared_var struct thread_pointers *thread_pointers;
+shared_var bool task_initialized shared_init(false);
 
 shared_var refcount_t n_programs;
 
@@ -86,6 +88,16 @@ shared_var mutex_t mutex_idle_nodes;
 static tls_decl(struct task_percpu *, task_tls);
 
 static bool spawn_another_cpu(struct node_state *node, ajla_error_t *err);
+
+int task_get_numa_node(void)
+{
+	if (likely(task_initialized)) {
+		struct task_percpu *tpc = tls_get(struct task_percpu *, task_tls);
+		if (likely(tpc != NULL))
+			return tpc->membind;
+	}
+	return -1;
+}
 
 static inline unsigned get_any_node(struct task_percpu *tpc)
 {
@@ -448,8 +460,10 @@ static void set_per_thread_data(struct thread_pointers *tp)
 	tls_set(struct task_percpu *, task_tls, tpc);
 	node = tpc->node;
 	node->task_list_stamp = tick_stamp;
-	if (likely(!(nr_nodes % nr_real_nodes)))
-		os_numa_bind(node->num / (nr_nodes / nr_real_nodes));
+	if (likely(!(nr_nodes % nr_real_nodes))) {
+		tpc->membind = node->num / (nr_nodes / nr_real_nodes);
+		os_numa_bind(tpc->membind);
+	}
 }
 
 #ifndef THREAD_NONE
@@ -624,10 +638,12 @@ void name(task_init)(void)
 		mutex_init(&tpc->waiting_list_mutex);
 		tpc->node = node;
 		tpc->last_node = 0;
+		tpc->membind = -1;
 		if (c + 1 == node->starting_cpu + node->nr_node_cpus)
 			n++;
 	}
 	tls_init(struct task_percpu *, task_tls);
+	task_initialized = true;
 }
 
 void name(task_done)(void)
@@ -636,7 +652,9 @@ void name(task_done)(void)
 
 	ajla_assert_lo(refcount_is_one(&n_programs), (file_line, "task_done: programs leaked: %"PRIuMAX"", (uintmax_t)refcount_get_nonatomic(&n_programs)));
 
+	task_initialized = false;
 	tls_done(struct task_percpu *, task_tls);
+
 	for (c = 0; c < nr_cpus; c++) {
 		struct task_percpu *tpc = thread_pointers[c].tpc;
 		mutex_done(&tpc->waiting_list_mutex);
