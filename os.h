@@ -569,8 +569,8 @@ char *os_getnameinfo(unsigned char *addr, size_t addr_len, ajla_error_t *err);
 #define os_numa_cpus_per_node(node)	1
 #define os_numa_bind(node)		do { } while (0)
 #define os_numa_unbind()		do { } while (0)
-#define os_numa_alloc(node, size)	mem_alloc(void *, size)
-#define os_numa_free(ptr, size)		mem_free(ptr)
+#define os_numa_alloc(node, size)	malloc(size)
+#define os_numa_free(ptr, size)		free(ptr)
 #define os_numa_bind_memory(start, size, node)	do { } while (0)
 #endif
 

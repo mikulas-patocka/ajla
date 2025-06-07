@@ -3606,7 +3606,9 @@ static void os_numa_init(void)
 		goto numa_unavailable;
 	numa_set_bind_policy(0);
 	n_valid_nodes = numa_max_possible_node() + 1;
-	valid_nodes = mem_alloc_array_mayfail(mem_calloc_mayfail, uint8_t *, 0, 0, n_valid_nodes, sizeof(uint8_t), NULL);
+	valid_nodes = calloc(n_valid_nodes, sizeof(uint8_t));
+	if (unlikely(!valid_nodes))
+		fatal("calloc failed");
 	bm = numa_allocate_cpumask();
 	if (unlikely(!bm)) {
 		int er = errno;
@@ -3625,17 +3627,19 @@ static void os_numa_init(void)
 		n_valid_nodes = max_valid;
 		return;
 	}
-	mem_free(valid_nodes);
+	free(valid_nodes);
 
 numa_unavailable:
 	n_valid_nodes = 1;
-	valid_nodes = mem_alloc_array_mayfail(mem_alloc_mayfail, uint8_t *, 0, 0, n_valid_nodes, sizeof(uint8_t), NULL);
+	valid_nodes = malloc(sizeof(uint8_t));
+	if (unlikely(!valid_nodes))
+		fatal("malloc failed");
 	valid_nodes[0] = 1;
 }
 
 static void os_numa_done(void)
 {
-	mem_free(valid_nodes);
+	free(valid_nodes);
 }
 
 static unsigned os_numa_find_node(unsigned node)
@@ -3711,7 +3715,7 @@ void *os_numa_alloc(unsigned node, size_t size)
 	unsigned n;
 	void *ptr;
 	if (n_valid_nodes == 1)
-		return mem_alloc(void *, size);
+		return malloc(size);
 	n = os_numa_find_node(node);
 	ptr = numa_alloc_onnode(size, n);
 	if (!ptr) {
@@ -3724,7 +3728,7 @@ void *os_numa_alloc(unsigned node, size_t size)
 void os_numa_free(void *ptr, size_t size)
 {
 	if (n_valid_nodes == 1)
-		return mem_free(ptr);
+		return free(ptr);
 	numa_free(ptr, size);
 }
 
