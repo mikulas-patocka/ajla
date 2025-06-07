@@ -573,8 +573,16 @@ char *os_getnameinfo(unsigned char *addr, size_t addr_len, ajla_error_t *err);
 #define os_numa_cpus_per_node(node)	1
 #define os_numa_bind(node)		do { } while (0)
 #define os_numa_unbind()		do { } while (0)
-#define os_numa_alloc(node, size)	malloc(size)
+
+static inline void *os_numa_alloc(int attr_unused node, size_t size)
+{
+	void *ptr = malloc(size);
+	if (unlikely(!ptr))
+		fatal("malloc failed");
+	return ptr;
+}
 #define os_numa_free(ptr, size)		free(ptr)
+
 #define os_numa_bind_memory(start, size, node)	do { } while (0)
 #endif
 
