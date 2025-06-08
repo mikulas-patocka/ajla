@@ -60,6 +60,7 @@ for a in $targets; do
 		mipsisa64r6el-linux-gnuabi64)	PFX="qemu-mips64el -L /usr/mipsisa64r6el-linux-gnuabi64/";;
 		x86_64-linux-gnu)		MLIB="-m32 -mx32";;
 	esac
+	export PFX
 	for m in '' $MLIB; do
 		for b in '' --enable-bitwise-frame; do
 			CC="$a-gcc $m" CF='-O1 -DDEBUG_ENV' ./rebuild --host=$a $b
