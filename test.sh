@@ -44,6 +44,8 @@ targets=" 				\
 if [ "$#" -gt 0 ]; then
 	targets="$@"
 fi
+AJLA="`pwd`/ajla"
+export AJLA
 for a in $targets; do
 	if ! which $a-gcc; then
 		echo $a-gcc not found
