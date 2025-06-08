@@ -855,11 +855,9 @@ static bool attr_w cgen_sar(struct codegen_context *ctx, bool sar_complement, ui
 		mc |= (uint32_t)reg << 16;
 		cgen_four(mc);
 	} else {
-		mc = PARISC_LDO;
-		mc |= low_sign_ext_14(-1);
-		g(cgen_2reg(ctx, mc, 0, R_CG_SCRATCH));
-		mc = PARISC_XOR;
-		g(cgen_3reg(ctx, mc, R_CG_SCRATCH, reg, R_CG_SCRATCH));
+		mc = PARISC_SUBI;
+		mc |= low_sign_ext_11(-1);
+		g(cgen_2reg(ctx, mc, reg, R_CG_SCRATCH));
 		mc = PARISC_MTSAR;
 		mc |= (uint32_t)R_CG_SCRATCH << 16;
 		cgen_four(mc);
