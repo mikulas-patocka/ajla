@@ -29,8 +29,8 @@ endian not defined
 #endif
 
 
-static bool attr_w gen_frame_load_raw(struct codegen_context *ctx, unsigned size, enum extend ex, frame_t slot, int64_t offset, bool dual, unsigned reg);
-static bool attr_w gen_frame_store_raw(struct codegen_context *ctx, unsigned size, frame_t slot, int64_t offset, unsigned reg);
+static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum extend ex, unsigned base, frame_t slot, int64_t offset, bool dual, unsigned reg);
+static bool attr_w gen_store_raw(struct codegen_context *ctx, unsigned size, unsigned base, frame_t slot, int64_t offset, unsigned reg);
 
 
 static const struct type *get_type_of_local(struct codegen_context *ctx, frame_t pos)
@@ -71,7 +71,7 @@ static unsigned spill_size(const struct type *t)
 static bool attr_w spill(struct codegen_context *ctx, frame_t v)
 {
 	const struct type *t = get_type_of_local(ctx, v);
-	g(gen_frame_store_raw(ctx, spill_size(t), v, 0, ctx->registers[v]));
+	g(gen_store_raw(ctx, spill_size(t), R_FRAME, v, 0, ctx->registers[v]));
 	return true;
 }
 
@@ -83,7 +83,7 @@ static bool attr_w unspill(struct codegen_context *ctx, frame_t v)
 		ex = zero;
 	else if (!TYPE_IS_FLAT(t))
 		ex = native;
-	g(gen_frame_load_raw(ctx, spill_size(t), ex, v, 0, false, ctx->registers[v]));
+	g(gen_load_raw(ctx, spill_size(t), ex, R_FRAME, v, 0, false, ctx->registers[v]));
 	return true;
 }
 
@@ -122,7 +122,7 @@ crash:
 	return 0;
 }
 
-static bool attr_w gen_frame_load_raw(struct codegen_context *ctx, unsigned size, enum extend ex, frame_t slot, int64_t offset, bool dual, unsigned reg)
+static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum extend ex, unsigned base, frame_t slot, int64_t offset, bool dual, unsigned reg)
 {
 	int64_t x_offset;
 	if (frame_t_is_const(slot)) {
@@ -137,7 +137,7 @@ static bool attr_w gen_frame_load_raw(struct codegen_context *ctx, unsigned size
 	}
 	x_offset = offset + (size_t)slot * slot_size;
 	if (!ARCH_HAS_BWX && size < OP_SIZE_4) {
-		g(gen_address(ctx, R_FRAME, x_offset, reg_is_fp(reg) ? IMM_PURPOSE_VLDR_VSTR_OFFSET : IMM_PURPOSE_LDR_SX_OFFSET, OP_SIZE_4));
+		g(gen_address(ctx, base, x_offset, reg_is_fp(reg) ? IMM_PURPOSE_VLDR_VSTR_OFFSET : IMM_PURPOSE_LDR_SX_OFFSET, OP_SIZE_4));
 		gen_insn(INSN_MOVSX, OP_SIZE_4, 0, 0);
 		gen_one(reg);
 		gen_address_offset();
@@ -148,7 +148,7 @@ static bool attr_w gen_frame_load_raw(struct codegen_context *ctx, unsigned size
 	}
 #if defined(ARCH_ALPHA)
 	if (size < OP_SIZE_4) {
-		g(gen_address(ctx, R_FRAME, x_offset, reg_is_fp(reg) ? IMM_PURPOSE_VLDR_VSTR_OFFSET : IMM_PURPOSE_LDR_OFFSET, size));
+		g(gen_address(ctx, base, x_offset, reg_is_fp(reg) ? IMM_PURPOSE_VLDR_VSTR_OFFSET : IMM_PURPOSE_LDR_OFFSET, size));
 		gen_insn(INSN_MOV, size, 0, 0);
 		gen_one(reg);
 		gen_address_offset();
@@ -159,7 +159,7 @@ static bool attr_w gen_frame_load_raw(struct codegen_context *ctx, unsigned size
 		return true;
 	}
 	if (size == OP_SIZE_4 && !reg_is_fp(reg) && ex == zero_x) {
-		g(gen_frame_load_raw(ctx, size, sign_x, slot, offset, false, reg));
+		g(gen_load_raw(ctx, size, sign_x, base, slot, offset, false, reg));
 		g(gen_extend(ctx, size, ex, reg, reg));
 
 		return true;
@@ -168,18 +168,18 @@ static bool attr_w gen_frame_load_raw(struct codegen_context *ctx, unsigned size
 #if defined(ARCH_MIPS)
 	if (reg_is_fp(reg) && size == OP_SIZE_8 && !MIPS_HAS_LS_DOUBLE) {
 #if defined(C_LITTLE_ENDIAN)
-		g(gen_frame_load_raw(ctx, OP_SIZE_4, zero_x, slot, offset, true, reg));
-		g(gen_frame_load_raw(ctx, OP_SIZE_4, zero_x, slot, offset + 4, true, reg + 1));
+		g(gen_load_raw(ctx, OP_SIZE_4, zero_x, base, slot, offset, true, reg));
+		g(gen_load_raw(ctx, OP_SIZE_4, zero_x, base, slot, offset + 4, true, reg + 1));
 #else
-		g(gen_frame_load_raw(ctx, OP_SIZE_4, zero_x, slot, offset, true, reg + 1));
-		g(gen_frame_load_raw(ctx, OP_SIZE_4, zero_x, slot, offset + 4, true, reg));
+		g(gen_load_raw(ctx, OP_SIZE_4, zero_x, base, slot, offset, true, reg + 1));
+		g(gen_load_raw(ctx, OP_SIZE_4, zero_x, base, slot, offset + 4, true, reg));
 #endif
 		return true;
 	}
 #endif
 #if defined(ARCH_IA64) || defined(ARCH_PARISC)
 	if (ex == sign_x) {
-		g(gen_address(ctx, R_FRAME, x_offset, IMM_PURPOSE_LDR_OFFSET, size));
+		g(gen_address(ctx, base, x_offset, IMM_PURPOSE_LDR_OFFSET, size));
 		gen_insn(INSN_MOV, size, 0, 0);
 		gen_one(reg);
 		gen_address_offset();
@@ -191,7 +191,7 @@ static bool attr_w gen_frame_load_raw(struct codegen_context *ctx, unsigned size
 #endif
 #if defined(ARCH_POWER)
 	if (size == OP_SIZE_1 && ex == sign_x) {
-		g(gen_address(ctx, R_FRAME, x_offset, IMM_PURPOSE_LDR_OFFSET, size));
+		g(gen_address(ctx, base, x_offset, IMM_PURPOSE_LDR_OFFSET, size));
 		gen_insn(INSN_MOV, size, 0, 0);
 		gen_one(reg);
 		gen_address_offset();
@@ -203,7 +203,7 @@ static bool attr_w gen_frame_load_raw(struct codegen_context *ctx, unsigned size
 #endif
 #if defined(ARCH_S390)
 	if (size == OP_SIZE_1 && !cpu_test_feature(CPU_FEATURE_long_displacement)) {
-		g(gen_address(ctx, R_FRAME, x_offset, IMM_PURPOSE_LDR_OFFSET, size));
+		g(gen_address(ctx, base, x_offset, IMM_PURPOSE_LDR_OFFSET, size));
 		gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, MOV_MASK_0_8, 0);
 		gen_one(reg);
 		gen_one(reg);
@@ -214,13 +214,13 @@ static bool attr_w gen_frame_load_raw(struct codegen_context *ctx, unsigned size
 		return true;
 	}
 	if (size == OP_SIZE_16 && reg_is_fp(reg)) {
-		g(gen_frame_load_raw(ctx, OP_SIZE_8, zero_x, 0, x_offset, true, reg));
-		g(gen_frame_load_raw(ctx, OP_SIZE_8, zero_x, 0, x_offset + 8, true, reg + 2));
+		g(gen_load_raw(ctx, OP_SIZE_8, zero_x, base, 0, x_offset, true, reg));
+		g(gen_load_raw(ctx, OP_SIZE_8, zero_x, base, 0, x_offset + 8, true, reg + 2));
 
 		return true;
 	}
 #endif
-	g(gen_address(ctx, R_FRAME, x_offset, reg_is_fp(reg) ? IMM_PURPOSE_VLDR_VSTR_OFFSET : ex ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, size));
+	g(gen_address(ctx, base, x_offset, reg_is_fp(reg) ? IMM_PURPOSE_VLDR_VSTR_OFFSET : ex ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, size));
 	gen_insn(unlikely(ex == sign_x) ? INSN_MOVSX : INSN_MOV, size, 0, 0);
 	gen_one(reg);
 	gen_address_offset();
@@ -242,7 +242,7 @@ static bool attr_w gen_frame_load(struct codegen_context *ctx, unsigned size, en
 		goto ret;
 	}
 
-	g(gen_frame_load_raw(ctx, size, ex, slot, offset, dual, reg));
+	g(gen_load_raw(ctx, size, ex, R_FRAME, slot, offset, dual, reg));
 ret:
 #ifdef DEBUG_GARBAGE
 	if (size < OP_SIZE_NATIVE && ex == garbage) {
@@ -544,7 +544,7 @@ skip_ldd:
 	return true;
 }
 
-static bool attr_w gen_frame_store_raw(struct codegen_context *ctx, unsigned size, frame_t slot, int64_t offset, unsigned reg)
+static bool attr_w gen_store_raw(struct codegen_context *ctx, unsigned size, unsigned base, frame_t slot, int64_t offset, unsigned reg)
 {
 	offset += (size_t)slot * slot_size;
 	if (!ARCH_HAS_BWX)
@@ -552,23 +552,23 @@ static bool attr_w gen_frame_store_raw(struct codegen_context *ctx, unsigned siz
 #if defined(ARCH_MIPS)
 	if (reg_is_fp(reg) && size == OP_SIZE_8 && !MIPS_HAS_LS_DOUBLE) {
 #if defined(C_LITTLE_ENDIAN)
-		g(gen_frame_store_raw(ctx, OP_SIZE_4, 0, offset, reg));
-		g(gen_frame_store_raw(ctx, OP_SIZE_4, 0, offset + 4, reg + 1));
+		g(gen_store_raw(ctx, OP_SIZE_4, base, 0, offset, reg));
+		g(gen_store_raw(ctx, OP_SIZE_4, base, 0, offset + 4, reg + 1));
 #else
-		g(gen_frame_store_raw(ctx, OP_SIZE_4, 0, offset, reg + 1));
-		g(gen_frame_store_raw(ctx, OP_SIZE_4, 0, offset + 4, reg));
+		g(gen_store_raw(ctx, OP_SIZE_4, base, 0, offset, reg + 1));
+		g(gen_store_raw(ctx, OP_SIZE_4, base, 0, offset + 4, reg));
 #endif
 		return true;
 	}
 #endif
 #if defined(ARCH_S390)
 	if (size == OP_SIZE_16 && reg_is_fp(reg)) {
-		g(gen_frame_store_raw(ctx, OP_SIZE_8, 0, offset, reg));
-		g(gen_frame_store_raw(ctx, OP_SIZE_8, 0, offset + 8, reg + 2));
+		g(gen_store_raw(ctx, OP_SIZE_8, base, 0, offset, reg));
+		g(gen_store_raw(ctx, OP_SIZE_8, base, 0, offset + 8, reg + 2));
 		return true;
 	}
 #endif
-	g(gen_address(ctx, R_FRAME, offset, reg_is_fp(reg) ? IMM_PURPOSE_VLDR_VSTR_OFFSET : IMM_PURPOSE_STR_OFFSET, size));
+	g(gen_address(ctx, base, offset, reg_is_fp(reg) ? IMM_PURPOSE_VLDR_VSTR_OFFSET : IMM_PURPOSE_STR_OFFSET, size));
 	gen_insn(INSN_MOV, size, 0, 0);
 	gen_address_offset();
 	gen_one(reg);
@@ -584,7 +584,7 @@ static bool attr_w gen_frame_store(struct codegen_context *ctx, unsigned size, f
 		g(gen_mov(ctx, !reg_is_fp(reg) ? OP_SIZE_NATIVE : size, ctx->registers[slot], reg));
 		return true;
 	}
-	return gen_frame_store_raw(ctx, size, slot, offset, reg);
+	return gen_store_raw(ctx, size, R_FRAME, slot, offset, reg);
 }
 
 static unsigned gen_frame_target(struct codegen_context *ctx, frame_t slot_r, frame_t slot_na_1, frame_t slot_na_2, unsigned reg)
@@ -1378,7 +1378,7 @@ next_loop:
 
 static bool attr_w load_function_offset(struct codegen_context *ctx, unsigned dest, size_t fn_offset)
 {
-	g(gen_frame_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, 0, frame_offs(function), false, dest));
+	g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, dest));
 
 	g(gen_address(ctx, dest, fn_offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);

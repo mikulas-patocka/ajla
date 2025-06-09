@@ -2849,8 +2849,8 @@ do_cmp:
 		gen_four(label_ovf);
 
 		if (!ARCH_HAS_FP_GP_MOV) {
-			g(gen_frame_store_raw(ctx, OP_SIZE_4, slot_r, 0, FR_SCRATCH_3));
-			g(gen_frame_load_raw(ctx, OP_SIZE_4, sign_x, slot_r, 0, false, target));
+			g(gen_store_raw(ctx, OP_SIZE_4, R_FRAME, slot_r, 0, FR_SCRATCH_3));
+			g(gen_load_raw(ctx, OP_SIZE_4, R_FRAME, sign_x, slot_r, 0, false, target));
 		} else {
 			g(gen_mov(ctx, OP_SIZE_4, target, FR_SCRATCH_3));
 		}
@@ -3296,7 +3296,7 @@ do_cvt_to_int:
 		gen_one(FR_SCRATCH_1);
 		gen_one(reg1);
 
-		g(gen_frame_store_raw(ctx, OP_SIZE_INT, slot_r, 0, FR_SCRATCH_1));
+		g(gen_store_raw(ctx, OP_SIZE_INT, R_FRAME, slot_r, 0, FR_SCRATCH_1));
 		if (slot_is_register(ctx, slot_r))
 			g(unspill(ctx, slot_r));
 		g(gen_frame_load(ctx, OP_SIZE_INT, garbage, slot_r, 0, false, target));
@@ -3322,9 +3322,9 @@ do_cvt_to_int:
 			gen_one(FR_SCRATCH_3);
 			gen_one(FR_SCRATCH_2);
 			gen_four(label_ovf);
-			g(gen_frame_store_raw(ctx, OP_SIZE_INT, slot_r, 0, FR_SCRATCH_3));
+			g(gen_store_raw(ctx, OP_SIZE_INT, R_FRAME, slot_r, 0, FR_SCRATCH_3));
 		} else {
-			g(gen_frame_store_raw(ctx, OP_SIZE_INT, slot_r, 0, FR_SCRATCH_2));
+			g(gen_store_raw(ctx, OP_SIZE_INT, R_FRAME, slot_r, 0, FR_SCRATCH_2));
 		}
 		if (slot_is_register(ctx, slot_r))
 			g(unspill(ctx, slot_r));
@@ -3435,7 +3435,7 @@ do_from_int:
 #endif
 		if (slot_is_register(ctx, slot_1))
 			g(spill(ctx, slot_1));
-		g(gen_frame_load_raw(ctx, int_op_size, zero_x, slot_1, 0, false, FR_SCRATCH_1));
+		g(gen_load_raw(ctx, int_op_size, zero_x, R_FRAME, slot_1, 0, false, FR_SCRATCH_1));
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, FR_SCRATCH_2);
 #if defined(ARCH_ALPHA)
 		if (OP_SIZE_INT == OP_SIZE_4) {
@@ -3520,8 +3520,8 @@ do_is_exception:
 		gen_one(reg1);
 
 		if (!cpu_test_feature(CPU_FEATURE_fix)) {
-			g(gen_frame_store_raw(ctx, OP_SIZE_4, slot_r, 0, FR_SCRATCH_2));
-			g(gen_frame_load_raw(ctx, OP_SIZE_4, sign_x, slot_r, 0, false, target));
+			g(gen_store_raw(ctx, OP_SIZE_4, R_FRAME, slot_r, 0, FR_SCRATCH_2));
+			g(gen_load_raw(ctx, OP_SIZE_4, sign_x, R_FRAME, slot_r, 0, false, target));
 		} else {
 			g(gen_mov(ctx, OP_SIZE_4, target, FR_SCRATCH_2));
 		}
