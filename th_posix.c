@@ -584,7 +584,15 @@ void barrier_write_before_lock(void)
 #ifdef USE_PTHREAD_CONDATTR
 static bool pthread_condattr_try_clock(clockid_t c, bool mayfail)
 {
-	int r = pthread_condattr_setclock(cond_attr_p, c);
+	int r;
+	struct timespec ts;
+	r = clock_gettime(c, &ts);
+	if (r) {
+		if (unlikely(!mayfail))
+			fatal("clock_gettime (%d) failed: %d, %s", (int)c, r, error_decode(error_from_errno(EC_SYSCALL, r)));
+		return false;
+	}
+	r = pthread_condattr_setclock(cond_attr_p, c);
 	if (r) {
 		if (unlikely(!mayfail))
 			fatal("pthread_condattr_setclock(%d) failed: %d, %s", (int)c, r, error_decode(error_from_errno(EC_SYSCALL, r)));
