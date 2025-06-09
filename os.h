@@ -367,7 +367,7 @@ bool os_dlsym(struct dl_handle_t *dlh, const char *symbol, void **result);
 #define os_getaddrinfo_is_thread_safe()		false
 #endif
 
-#ifdef HAVE_LIBNUMA
+#ifdef HAVE_NUMA
 #define OS_HAS_NUMA
 void os_numa_init(void);
 void os_numa_done(void);

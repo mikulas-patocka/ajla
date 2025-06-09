@@ -391,7 +391,24 @@ if test "$ac_cv_header_ffi_h" = yes; then
 fi
 if test "$ac_cv_header_numa_h" = yes; then
 	if test "$enable_threads" != no -a "$ac_cv_have_emx" = no -a "$ac_cv_have_win32" = no; then
+		save_LIBS="$LIBS"
 		AC_CHECK_LIB(numa, numa_bitmask_weight)
+		if test "$ac_cv_lib_numa_numa_bitmask_weight" = yes; then
+			AC_CACHE_CHECK(if programs with numa may be run, ac_cv_numa_run,
+			AC_TRY_RUN([
+#include <numa.h>
+int main(void)
+{
+	numa_available();
+	return 0;
+}
+], ac_cv_numa_run=yes, ac_cv_numa_run=no, ac_cv_numa_run=yes))
+			if test "$ac_cv_numa_run" != yes; then
+				LIBS="$save_LIBS"
+			else
+				AC_DEFINE(HAVE_NUMA, 1, Have libnuma)
+			fi
+		fi
 	fi
 fi
 
