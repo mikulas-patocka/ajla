@@ -305,26 +305,8 @@ static bool attr_w gen_load_fn_or_curry(struct codegen_context *ctx, frame_t fn_
 					gen_one(ctx->registers[arg_slot]);
 					goto copied;
 				}
-#if defined(ARCH_S390)
-				if (copy_size == OP_SIZE_1 && !cpu_test_feature(CPU_FEATURE_long_displacement)) {
-					g(gen_address(ctx, R_FRAME, (size_t)arg_slot * slot_size, IMM_PURPOSE_LDR_OFFSET, copy_size));
-					gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, MOV_MASK_0_8, 0);
-					gen_one(R_SCRATCH_1);
-					gen_one(R_SCRATCH_1);
-					gen_address_offset();
-				} else
-#endif
-				{
-					g(gen_address(ctx, R_FRAME, (size_t)arg_slot * slot_size, ARCH_PREFERS_SX(copy_size) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, copy_size));
-					gen_insn(ARCH_PREFERS_SX(copy_size) ? INSN_MOVSX : INSN_MOV, copy_size, 0, 0);
-					gen_one(R_SCRATCH_1);
-					gen_address_offset();
-				}
-
-				g(gen_address(ctx, R_SAVED_1, arg_offset_slot, IMM_PURPOSE_STR_OFFSET, copy_size));
-				gen_insn(INSN_MOV, copy_size, 0, 0);
-				gen_address_offset();
-				gen_one(R_SCRATCH_1);
+				g(gen_load_raw(ctx, copy_size, native, R_FRAME, arg_slot, 0, false, R_SCRATCH_1));
+				g(gen_store_raw(ctx, copy_size, R_SAVED_1, 0, arg_offset_slot, R_SCRATCH_1));
 copied:
 				gen_insn(INSN_JMP, 0, 0, 0);
 				gen_four(next_arg_label);

@@ -207,23 +207,7 @@ static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg
 		g(gen_3address_alu_imm(ctx, log_2(sizeof(refcount_int_t)), ALU_AND, tmp_reg, tmp_reg, REFCOUNT_STEP - 1, 0));
 	}
 #else
-#if defined(ARCH_S390)
-	if (sizeof(tag_t) == 1 && !cpu_test_feature(CPU_FEATURE_extended_imm)) {
-		g(gen_address(ctx, reg, offsetof(struct data, tag), IMM_PURPOSE_LDR_OFFSET, log_2(sizeof(tag_t))));
-		gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, MOV_MASK_0_8, 0);
-		gen_one(tmp_reg);
-		gen_one(tmp_reg);
-		gen_address_offset();
-
-		g(gen_extend(ctx, log_2(sizeof(tag_t)), zero_x, tmp_reg, tmp_reg));
-	} else
-#endif
-	{
-		g(gen_address(ctx, reg, offsetof(struct data, tag), IMM_PURPOSE_LDR_OFFSET, log_2(sizeof(tag_t))));
-		gen_insn(INSN_MOV, log_2(sizeof(tag_t)), 0, 0);
-		gen_one(tmp_reg);
-		gen_address_offset();
-	}
+	g(gen_load_raw(ctx, log_2(sizeof(tag_t)), native, reg, 0, offsetof(struct data, tag), false, tmp_reg));
 #endif
 	if (!subtract) {
 		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(OP_SIZE_4), tmp_reg, tag, cond, label, -1));

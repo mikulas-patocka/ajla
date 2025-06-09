@@ -1196,26 +1196,7 @@ static bool attr_w gen_memcpy_to_slot(struct codegen_context *ctx, frame_t dest_
 	unsigned size = spill_size(t);
 	short dest_reg = ctx->registers[dest_slot];
 	if (dest_reg >= 0) {
-		if (ARCH_PREFERS_SX(size) && !reg_is_fp(dest_reg)) {
-#if defined(ARCH_S390)
-			if (size == OP_SIZE_1 && !cpu_test_feature(CPU_FEATURE_long_displacement)) {
-				g(gen_address(ctx, src_base, src_offset, IMM_PURPOSE_LDR_OFFSET, size));
-				gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, MOV_MASK_0_8, 0);
-				gen_one(dest_reg);
-				gen_one(dest_reg);
-				gen_address_offset();
-				g(gen_extend(ctx, size, sign_x, dest_reg, dest_reg));
-				return true;
-			}
-#endif
-			g(gen_address(ctx, src_base, src_offset, IMM_PURPOSE_LDR_SX_OFFSET, size));
-			gen_insn(INSN_MOVSX, size, 0, 0);
-		} else {
-			g(gen_address(ctx, src_base, src_offset, reg_is_fp(dest_reg) ? IMM_PURPOSE_VLDR_VSTR_OFFSET : IMM_PURPOSE_LDR_OFFSET, size));
-			gen_insn(INSN_MOV, size, 0, 0);
-		}
-		gen_one(dest_reg);
-		gen_address_offset();
+		g(gen_load_raw(ctx, size, native, src_base, 0, src_offset, false, dest_reg));
 		return true;
 	}
 	g(gen_memcpy_raw(ctx, R_FRAME, (size_t)dest_slot * slot_size, src_base, src_offset, t->size, t->align));
@@ -1228,10 +1209,7 @@ static bool attr_w gen_memcpy_from_slot(struct codegen_context *ctx, unsigned de
 	short src_reg = ctx->registers[src_slot];
 	if (src_reg >= 0) {
 		unsigned size = spill_size(t);
-		g(gen_address(ctx, dest_base, dest_offset, reg_is_fp(src_reg) ? IMM_PURPOSE_VLDR_VSTR_OFFSET : IMM_PURPOSE_STR_OFFSET, size));
-		gen_insn(INSN_MOV, size, 0, 0);
-		gen_address_offset();
-		gen_one(src_reg);
+		g(gen_store_raw(ctx, size, dest_base, 0, dest_offset, src_reg));
 		return true;
 	}
 	g(gen_memcpy_raw(ctx, dest_base, dest_offset, R_FRAME, (size_t)src_slot * slot_size, t->size, t->align));
