@@ -79,21 +79,21 @@ for a in $targets; do
 				powerpc-linux-gnu)	do_ptrcomp=false;;
 				x86_64-linux-gnu)	if [ "$m" = -m32 -o "$m" = -mx32 ]; then do_ptrcomp=false; fi;;
 			esac
-			$PFX ./ajla programs/test/empty.ajla
-			$PFX ./ajla programs/test/test.ajla 2
-			$PFX ./ajla programs/test/test.ajla 100
-			$PFX ./ajla programs/test/test-fp.ajla 2
-			$PFX ./ajla programs/test/test-fp.ajla 50
-			if [ -f ~/ajla/advent-2023/test.sh ]; then (cd ~/ajla/advent-2023/; ./test.sh); fi
-			if [ -f ~/ajla/advent-2024/test.sh ]; then (cd ~/ajla/advent-2024/; ./test.sh); fi
+			$PFX ./ajla $ARG programs/test/empty.ajla
+			$PFX ./ajla $ARG programs/test/test.ajla 2
+			$PFX ./ajla $ARG programs/test/test.ajla 100
+			$PFX ./ajla $ARG programs/test/test-fp.ajla 2
+			$PFX ./ajla $ARG programs/test/test-fp.ajla 50
+			if [ -f ~/ajla/advent-2023/test.sh ]; then (cd ~/ajla/advent-2023/; ./test.sh $ARG); fi
+			if [ -f ~/ajla/advent-2024/test.sh ]; then (cd ~/ajla/advent-2024/; ./test.sh $ARG); fi
 			if $do_ptrcomp; then
-				$PFX ./ajla --ptrcomp programs/test/empty.ajla
-				$PFX ./ajla --ptrcomp programs/test/test.ajla 2
-				$PFX ./ajla --ptrcomp programs/test/test.ajla 100
-				$PFX ./ajla --ptrcomp programs/test/test-fp.ajla 2
-				$PFX ./ajla --ptrcomp programs/test/test-fp.ajla 50
-				if [ -f ~/ajla/advent-2023/test.sh ]; then (cd ~/ajla/advent-2023/; ./test.sh --ptrcomp); fi
-				if [ -f ~/ajla/advent-2024/test.sh ]; then (cd ~/ajla/advent-2024/; ./test.sh --ptrcomp); fi
+				$PFX ./ajla $ARG --ptrcomp programs/test/empty.ajla
+				$PFX ./ajla $ARG --ptrcomp programs/test/test.ajla 2
+				$PFX ./ajla $ARG --ptrcomp programs/test/test.ajla 100
+				$PFX ./ajla $ARG --ptrcomp programs/test/test-fp.ajla 2
+				$PFX ./ajla $ARG --ptrcomp programs/test/test-fp.ajla 50
+				if [ -f ~/ajla/advent-2023/test.sh ]; then (cd ~/ajla/advent-2023/; ./test.sh $ARG --ptrcomp); fi
+				if [ -f ~/ajla/advent-2024/test.sh ]; then (cd ~/ajla/advent-2024/; ./test.sh $ARG --ptrcomp); fi
 			fi
 		done
 	done
