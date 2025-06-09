@@ -62,7 +62,7 @@ static ULONG dosallocmem_attrib = PAG_READ | PAG_WRITE |
 #define N_CLASSES	(DIRECT_LIMIT / MIN_ALLOC)
 #define SIZE_TO_INDEX(s) (((unsigned)(s) + MIN_ALLOC - 1) / MIN_ALLOC)
 #define INDEX_TO_CLASS(i) (!(i) ? 0 : (i) - 1)
-#define CLASS_TO_SIZE(c) (((c) + 1) * MIN_ALLOC)
+#define CLASS_TO_SIZE(c) (((size_t)(c) + 1) * MIN_ALLOC)
 
 #define ARENA_MIDBLOCKS	(ARENA_SIZE / MIDBLOCK_SIZE)
 
@@ -1120,6 +1120,16 @@ static int huge_tree_compare(const struct tree_entry *entry, uintptr_t addr)
 	return 0;
 }
 
+static attr_noinline struct huge_entry *huge_tree_find(void *ptr)
+{
+	struct tree_entry *entry;
+	huge_tree_lock();
+	entry = tree_find(&huge_tree, huge_tree_compare, ptr_to_num(ptr));
+	ajla_assert_lo(entry != NULL, (file_line, "huge_tree_find: entry for address %p not found", ptr));
+	huge_tree_unlock();
+	return get_struct(entry, struct huge_entry, entry);
+}
+
 static void huge_tree_insert(struct huge_entry *e)
 {
 	struct tree_insert_position ins;
@@ -1510,7 +1520,9 @@ do_alloc:
 static void *amalloc_huge(size_t al, size_t size, bool clr)
 {
 	struct huge_entry *e;
-	void *ptr = amalloc_run_alloc(al, size, clr, false);
+	void *ptr;
+	size = round_up(size, page_size);
+	ptr = amalloc_run_alloc(al, size, clr, false);
 	if (unlikely(!ptr))
 		return NULL;
 	e = malloc(sizeof(struct huge_entry));
@@ -1885,7 +1897,9 @@ static attr_noinline void *arealloc_huge(void *ptr, size_t size)
 {
 	struct huge_entry *e = huge_tree_delete(ptr);
 	if (likely(size >= page_size)) {
-		void *n = amalloc_run_realloc(ptr, e->len, size);
+		void *n;
+		size = round_up(size, page_size);
+		n = amalloc_run_realloc(ptr, e->len, size);
 		if (n) {
 			e->len = size;
 			e->ptr = n;
@@ -1909,7 +1923,7 @@ static attr_noinline void *arealloc_mid(struct arena *a, unsigned idx, size_t si
 		if (f)
 			return idx_to_midblock(a, idx);
 	}
-	return arealloc_malloc(idx_to_midblock(a, idx), existing_blocks << MIDBLOCK_BITS, size);
+	return arealloc_malloc(idx_to_midblock(a, idx), (size_t)existing_blocks << MIDBLOCK_BITS, size);
 }
 
 void * attr_fastcall arealloc(void *ptr, size_t size)
@@ -1929,6 +1943,24 @@ void * attr_fastcall arealloc(void *ptr, size_t size)
 		return arealloc_malloc(ptr, m->s.size, size);
 	}
 	return ptr;
+}
+
+size_t asize(void *ptr)
+{
+	unsigned idx;
+	union midblock *m;
+	struct arena *a = addr_to_arena(ptr);
+	if (unlikely((void *)a == ptr)) {
+		struct huge_entry *he = huge_tree_find(ptr);
+		return he->len;
+	}
+	idx = midblock_to_idx(a, ptr);
+	m = idx_to_midblock(a, a->map[idx]);
+	if (unlikely((void *)m >= ptr)) {
+		unsigned existing_blocks = a->map[idx] + 1 - idx;
+		return (size_t)existing_blocks << MIDBLOCK_BITS;
+	}
+	return CLASS_TO_SIZE(m->s.cls);
 }
 
 bool attr_fastcall aptr_is_huge(void *ptr)

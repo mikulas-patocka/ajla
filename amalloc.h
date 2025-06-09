@@ -27,6 +27,7 @@ void * attr_fastcall amemalign(size_t al, size_t size);
 void * attr_fastcall acmemalign(size_t al, size_t size);
 void attr_fastcall afree(void *ptr);
 void * attr_fastcall arealloc(void *ptr, size_t size);
+size_t asize(void *ptr);
 bool attr_fastcall aptr_is_huge(void *ptr);
 
 #ifdef POINTER_COMPRESSION_POSSIBLE

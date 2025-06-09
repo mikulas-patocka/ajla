@@ -78,6 +78,7 @@ static bool alloc_should_fail(ajla_error_t *mayfail)
 #define heap_memalign(al, sz)	(likely(amalloc_enabled) ? amemalign(al, sz) : do_memalign(al, sz))
 #define heap_cmemalign(al, sz)	(likely(amalloc_enabled) ? acmemalign(al, sz) : zmem(do_memalign(al, sz), sz))
 #define heap_free_aligned(x)	(likely(amalloc_enabled) ? afree(x) : do_free_aligned(x))
+#define heap_size_aligned(al, sz) (likely(amalloc_enabled) ? asize(al) : (sz))
 
 static void *zmem(void *ptr, size_t size)
 {
@@ -609,6 +610,19 @@ static attr_noinline void debug_mem_free(const void *ptr, unsigned vfy, position
 	heap_free(AH_MALLOC_BLOCK(ah));
 }
 
+static attr_noinline size_t debug_mem_size(const void *ptr, unsigned vfy, size_t size, position_t position)
+{
+	struct alloc_header *ah;
+
+	if (unlikely(!ptr))
+		internal(position_string(position), "debug_mem_size(NULL)");
+
+	ah = AH_FROM_PTR(ptr);
+	verify_block(ah, vfy, position, "debug_mem_size");
+
+	return size;
+}
+
 /* this should not be called concurrently */
 static attr_noinline void debug_mem_set_position(const void *ptr, position_t position)
 {
@@ -774,6 +788,16 @@ void attr_hot_fastcall mem_free_aligned_position(const void *ptr argument_positi
 	}
 #endif
 	heap_free_aligned((void *)ptr);
+}
+
+size_t mem_size_aligned_position(const void *ptr, size_t size argument_position)
+{
+#ifdef DEBUG_MEMORY_POSSIBLE
+	if (unlikely(memory_debug)) {
+		return debug_mem_size(ptr, VFY_ALIGNED, size, position_arg);
+	}
+#endif
+	return heap_size_aligned((void *)ptr, size);
 }
 
 #ifdef DEBUG_MEMORY_POSSIBLE

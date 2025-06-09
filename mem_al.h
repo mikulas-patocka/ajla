@@ -32,6 +32,7 @@ void * attr_fastcall mem_calign_position(size_t size, size_t alignment, ajla_err
 void * attr_fastcall mem_realloc_position(void *ptr, size_t size, ajla_error_t *mayfail argument_position);
 void attr_fastcall mem_free_position(const void *ptr argument_position);
 void attr_fastcall mem_free_aligned_position(const void *ptr argument_position);
+size_t mem_size_aligned_position(const void *ptr, size_t size argument_position);
 
 #define mem_alloc_fn(x, y)		mem_alloc_position(x, y pass_file_line)
 #define mem_calloc_fn(x, y)		mem_calloc_position(x, y pass_file_line)
@@ -40,6 +41,7 @@ void attr_fastcall mem_free_aligned_position(const void *ptr argument_position);
 #define mem_realloc_fn(x, y, z)		mem_realloc_position(x, y, z pass_file_line)
 #define mem_free(x)			mem_free_position(x pass_file_line)
 #define mem_free_aligned(x)		mem_free_aligned_position(x pass_file_line)
+#define mem_size_aligned(x, y)		mem_size_aligned_position(x, y pass_file_line)
 
 #define mem_alloc_mayfail(t, x, y)	cast_ptr(t, mem_alloc_fn(x, y))
 #define mem_calloc_mayfail(t, x, y)	cast_ptr(t, mem_calloc_fn(x, y))
