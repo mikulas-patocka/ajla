@@ -425,10 +425,18 @@ struct data * attr_fastcall data_alloc_array_slice_mayfail(struct data *base, un
 struct data * attr_fastcall data_alloc_array_pointers_mayfail(int_default_t n_allocated, int_default_t n_used, ajla_error_t *mayfail argument_position)
 {
 	struct data *d;
+	size_t real_size;
 	d = data_alloc_flexible(array_pointers, pointer_array, n_allocated, mayfail);
 	if (unlikely(!d))
 		return NULL;
 	mem_set_position(data_untag(d) pass_position);
+	real_size = mem_size_aligned(data_untag(d), 0);
+	if (likely(real_size != 0)) {
+		real_size -= offsetof(struct data, u_.array_pointers.pointer_array);
+		real_size /= sizeof(pointer_t);
+		if (likely(real_size <= signed_maximum(int_default_t)))
+			n_allocated = real_size;
+	}
 	da(d,array_pointers)->pointer = da(d,array_pointers)->pointer_array;
 	da(d,array_pointers)->n_allocated_entries = n_allocated;
 	da(d,array_pointers)->n_used_entries = n_used;
