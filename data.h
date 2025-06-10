@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -1805,7 +1805,7 @@ static attr_always_inline void attr_hot_fastcall frame_free(frame_s *fp, frame_t
 	if (frame_test_and_clear_flag(fp, slot)) {
 		pointer_dereference(*frame_pointer(fp, slot));
 		/* when the flag is not set, we must not clear the slot */
-		pointer_poison(frame_pointer(fp, slot));
+		*frame_pointer(fp, slot) = pointer_empty();
 	}
 }
 

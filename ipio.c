@@ -342,7 +342,7 @@ static void *io_deep_eval(struct io_ctx *ctx, const char *input_positions, bool 
 		io_get_option(ctx, get_input(ctx, 0), &world_sandbox, NULL);
 		if (unlikely(world_sandbox)) {
 			if (unlikely(!io_allow_sandbox(ctx->code))) {
-				io_terminate_with_error(ctx, error_ajla(EC_SYNC, AJLA_ERROR_SANDBOX_VIOLATION), true, NULL);\
+				io_terminate_with_error(ctx, error_ajla(EC_SYNC, AJLA_ERROR_SANDBOX_VIOLATION), true, NULL);
 				return POINTER_FOLLOW_THUNK_EXCEPTION;
 			}
 		}
