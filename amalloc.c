@@ -1155,10 +1155,19 @@ static struct huge_entry *huge_tree_delete(void *ptr)
 
 static attr_always_inline struct per_thread *amalloc_per_thread(void)
 {
+#ifdef HAVE___THREAD
+	struct per_thread *pt = tls_get(struct per_thread *, per_thread);
+	if (likely(pt != NULL))
+		return pt;
+	if (!amalloc_threads_initialized)
+		return &thread1;
+	return NULL;
+#else
 	if (unlikely(!amalloc_threads_initialized))
 		return &thread1;
 	else
 		return tls_get(struct per_thread *, per_thread);
+#endif
 }
 
 static void arena_detach(struct arena *a);
@@ -2059,6 +2068,7 @@ void amalloc_done_multithreaded(void)
 	for (i = 0; i < N_CLASSES; i++) {
 		mutex_done(&small_block_cache[i].mutex);
 	}
+	tls_set(struct per_thread *, per_thread, NULL);
 	tls_done(struct per_thread *, per_thread);
 	mutex_done(&arena_tree_mutex);
 	mutex_done(&huge_tree_mutex);
