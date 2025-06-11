@@ -65,7 +65,7 @@ for a in $targets; do
 	export PFX
 	for m in '' $MLIB; do
 		for b in '' --enable-bitwise-frame; do
-			CC="$a-gcc $m" CF='-O1 -DDEBUG_ENV' ./rebuild --host=$a $b
+			CC="$a-gcc $m" CF='-O1 -DDEBUG_ENV' ./rebuild --disable-rwx-mappings --host=$a $b
 			do_ptrcomp=true
 			case "$a" in
 				arm-linux-gnueabi |\
