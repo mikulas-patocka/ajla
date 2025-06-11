@@ -854,6 +854,11 @@ get_termcap:
 	ti := treemap_search(env, "TERMCAP");
 	if ti is j, path_is_absolute(ti.j) or len_greater_than(ti.j, 0) and path_is_dir_separator(ti.j[0]) then [
 		path +<= ti.j;
+	] else if ti is j then [
+		var tc := ti.j;
+		b, is_termcap := termcap_2_terminfo(tc, term);
+		if b <> "" then
+			goto got_termcap;
 	] else [
 		if home is j then
 			path +<= path_append(home.j, ".termcap");
