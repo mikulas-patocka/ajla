@@ -81,6 +81,8 @@ fi
 
 AC_ARG_ENABLE(computed-goto, [  --disable-computed-goto disable computed goto], enable_computed_goto="$enableval", enable_computed_goto=yes)
 
+AC_ARG_ENABLE(rwx-mappings, [  --disable-rwx-mappings  disable read+write+execute memory mappings], enable_rwx_mappings="$enableval", enable_rwx_mappings=yes)
+
 AC_ARG_ENABLE(bitwise-frame, [  --enable-bitwise-frame  use bitwise tags on the frame], enable_bitwise_frame="$enableval", enable_bitwise_frame=no)
 test "$enable_bitwise_frame" = yes && AC_DEFINE(HAVE_BITWISE_FRAME, 1, Use bitwise frame)
 
@@ -640,16 +642,20 @@ elif test "$ac_cv_little_endian" = yes; then
 	AC_DEFINE(CONFIG_LITTLE_ENDIAN, 1, Define if the system is little endian)
 fi
 
-AC_CACHE_CHECK([if rwx mappings work], ac_cv_rwx_mmap,
-	AC_TRY_RUN([
-#include <unistd.h>
-#include <sys/mman.h>
-	int main(void)
-	{
-		return mmap(NULL, getpagesize(), PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) == MAP_FAILED;
-	}
-	], ac_cv_rwx_mmap=yes, ac_cv_rwx_mmap=no, ac_cv_rwx_mmap=no))
-test "$ac_cv_func_mmap" = yes && test "$ac_cv_rwx_mmap" = no && AC_DEFINE(DISABLE_RWX_MAPPINGS, 1, Disable rwx mappings)
+if test "$ac_cv_func_mmap" = yes && test "$enable_rwx_mappings" = yes; then
+	AC_CACHE_CHECK([if rwx mappings work], ac_cv_rwx_mmap,
+		AC_TRY_RUN([
+		#include <unistd.h>
+		#include <sys/mman.h>
+		int main(void)
+		{
+			return mmap(NULL, getpagesize(), PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) == MAP_FAILED;
+		}
+		], ac_cv_rwx_mmap=yes, ac_cv_rwx_mmap=no, ac_cv_rwx_mmap=no))
+else
+	ac_cv_rwx_mmap=no
+fi
+test "$ac_cv_rwx_mmap" = no && AC_DEFINE(DISABLE_RWX_MAPPINGS, 1, Disable rwx mappings)
 
 AC_CACHE_CHECK([for pointer tags], ac_cv_pointer_tags,
 	AC_TRY_RUN([
