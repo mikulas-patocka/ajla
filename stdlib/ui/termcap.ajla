@@ -818,12 +818,21 @@ fn termcap_init(d : dhandle, env : treemap(bytes, bytes)) : termcap
 	]
 
 	var home := treemap_search(env, "HOME");
+	var tcap := treemap_search(env, "TERMCAP");
+	if tcap is j then [
+		if not (path_is_absolute(tcap.j) or len_greater_than(tcap.j, 0) and path_is_dir_separator(tcap.j[0])) then [
+			b, is_termcap := termcap_2_terminfo(tcap.j, term);
+			if b <> "" then
+				goto got_termcap;
+			tcap := maybe(bytes).n;
+		]
+	]
 
 	var ti := treemap_search(env, "TERMINFO");
 	if ti is j then [
 		path +<= ti.j;
 	] else [
-		if treemap_test(env, "TERMCAP") then
+		if tcap is j then
 			goto get_termcap;
 		if home is j then
 			path +<= path_append(home.j, ".terminfo");
@@ -851,14 +860,8 @@ fn termcap_init(d : dhandle, env : treemap(bytes, bytes)) : termcap
 
 get_termcap:
 	path := empty(bytes);
-	ti := treemap_search(env, "TERMCAP");
-	if ti is j, path_is_absolute(ti.j) or len_greater_than(ti.j, 0) and path_is_dir_separator(ti.j[0]) then [
+	if tcap is j then [
 		path +<= ti.j;
-	] else if ti is j then [
-		var tc := ti.j;
-		b, is_termcap := termcap_2_terminfo(tc, term);
-		if b <> "" then
-			goto got_termcap;
 	] else [
 		if home is j then
 			path +<= path_append(home.j, ".termcap");
