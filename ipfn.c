@@ -2704,8 +2704,10 @@ static attr_noinline frame_s *ipret_break(frame_s *top_fp, frame_s *high, frame_
 				continue;
 			slot = la->slot;
 			ptr = *frame_pointer(fp, slot);
-			if (!pointer_is_empty(ptr) && !frame_test_and_set_flag(fp, slot))
+			if (!pointer_is_empty(ptr) && !frame_test_and_set_flag(fp, slot)) {
+				ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "ipret_break: thunk doesn't have flag set: %s, %u", da(function,function)->function_name, (unsigned)ia));
 				pointer_reference_owned(ptr);
+			}
 		}
 	} while ((fp = frame_up(fp)) != low);
 
