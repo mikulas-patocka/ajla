@@ -2850,7 +2850,7 @@ do_cmp:
 
 		if (!ARCH_HAS_FP_GP_MOV) {
 			g(gen_store_raw(ctx, OP_SIZE_4, R_FRAME, slot_r, 0, FR_SCRATCH_3));
-			g(gen_load_raw(ctx, OP_SIZE_4, R_FRAME, sign_x, slot_r, 0, false, target));
+			g(gen_load_raw(ctx, OP_SIZE_4, sign_x, R_FRAME, slot_r, 0, false, target));
 		} else {
 			g(gen_mov(ctx, OP_SIZE_4, target, FR_SCRATCH_3));
 		}

@@ -729,6 +729,7 @@ enum extend {
 	sign_x,
 	native,
 	garbage,
+	max_x,
 };
 
 static bool attr_w gen_extend(struct codegen_context *ctx, unsigned op_size, enum extend ex, unsigned dest, unsigned src)

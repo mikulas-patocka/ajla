@@ -125,6 +125,7 @@ crash:
 static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum extend ex, unsigned base, frame_t slot, int64_t offset, bool dual, unsigned reg)
 {
 	int64_t x_offset;
+	ajla_assert_lo(ex < max_x, (file_line, "gen_load_raw: invalid extension %u", (unsigned)ex));
 	if (frame_t_is_const(slot)) {
 		g(gen_load_constant(ctx, reg, get_constant(size, ex, slot, offset, dual)));
 		return true;
@@ -230,6 +231,7 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 
 static bool attr_w gen_frame_load(struct codegen_context *ctx, unsigned size, enum extend ex, frame_t slot, int64_t offset, bool dual, unsigned reg)
 {
+	ajla_assert_lo(ex < max_x, (file_line, "gen_load_raw: invalid extension %u", (unsigned)ex));
 	ajla_assert_lo((slot >= MIN_USEABLE_SLOT && slot < function_n_variables(ctx->fn)) || frame_t_is_const(slot), (file_line, "gen_frame_load: invalid slot: %lu >= %lu", (unsigned long)slot, (unsigned long)function_n_variables(ctx->fn)));
 	if (slot_is_register(ctx, slot)) {
 		if (unlikely(offset != 0))
@@ -263,6 +265,7 @@ ret:
 static bool attr_w gen_frame_get(struct codegen_context *ctx, unsigned size, enum extend ex, frame_t slot, unsigned reg, unsigned *dest)
 {
 	const struct type *t;
+	ajla_assert_lo(ex < max_x, (file_line, "gen_load_raw: invalid extension %u", (unsigned)ex));
 	if (frame_t_is_const(slot)) {
 #if defined(R_ZERO) && (!defined(ARCH_MIPS) || !MIPS_R6)
 		if (!frame_t_get_const(slot)) {
