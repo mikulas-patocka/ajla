@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -466,6 +466,6 @@ typedef frame_t ajla_option_t;	/* some code casts ajla_option_t to frame_t */
 #define BTREE_MAX_SIZE			128
 #endif
 
-#define ARRAY_PREALLOC_SIZE		4
+#define ARRAY_PREALLOC_SIZE		1
 
 #define DEFAULT_TICK_US			10000
