@@ -136,7 +136,7 @@
 #define R_SCRATCH_1	R_0
 #define R_SCRATCH_2	R_1
 #define R_SCRATCH_3	R_2
-#define R_SCRATCH_4	R_3
+#define R_SCRATCH_4	R_SAVED_2
 #define R_SCRATCH_NA_1	R_8
 #define R_SCRATCH_NA_2	R_9
 #ifdef HAVE_BITWISE_FRAME
@@ -164,7 +164,7 @@ static bool reg_is_fp(unsigned reg)
 }
 
 static const uint8_t regs_saved[] = { R_SAVED_7, R_SAVED_6, R_SAVED_5, R_SAVED_4, R_SAVED_3, R_FP };
-static const uint8_t regs_volatile[] = { R_4, R_5, R_6, R_7,
+static const uint8_t regs_volatile[] = { R_3, R_4, R_5, R_6, R_7,
 #ifndef HAVE_BITWISE_FRAME
 	R_10,
 #endif
