@@ -132,7 +132,7 @@
 #define R_SCRATCH_1	R_A0
 #define R_SCRATCH_2	R_A1
 #define R_SCRATCH_3	R_A2
-#define R_SCRATCH_4	R_A3
+#define R_SCRATCH_4	R_SAVED_2
 #define R_SCRATCH_NA_1	R_T0
 #define R_SCRATCH_NA_2	R_T1
 #define R_SCRATCH_NA_3	R_T2
@@ -169,7 +169,7 @@ static const uint8_t regs_saved[] = {
 	R_S2,
 #endif
 	R_S5, R_FP };
-static const uint8_t regs_volatile[] = { R_T6, R_T7, R_A4, R_A5, R_T8, R_T9, R_T10, R_T11, R_RA, R_T12, R_AT, R_GP };
+static const uint8_t regs_volatile[] = { R_T6, R_T7, R_A3, R_A4, R_A5, R_T8, R_T9, R_T10, R_T11, R_RA, R_T12, R_AT, R_GP };
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved 0U
 static const uint8_t fp_volatile[] = { R_F11, R_F12, R_F13, R_F14, R_F15, R_F16, R_F17, R_F18, R_F19, R_F20, R_F21, R_F22, R_F23, R_F24, R_F25, R_F26, R_F27, R_F28, R_F29, R_F30 };
