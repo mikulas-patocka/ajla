@@ -240,7 +240,11 @@ static bool reg_is_vs(unsigned reg)
 }
 
 static const uint8_t regs_saved[] = { R_14, R_15, R_16, R_17, R_18, R_19, R_20, R_21, R_22, R_23, R_24, R_25 };
-static const uint8_t regs_volatile[] = { R_6, R_12 };
+static const uint8_t regs_volatile[] = {
+#if defined(ARCH_POWER64)
+	R_2,
+#endif
+	R_6, R_12 };
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved 0U
 static const uint8_t fp_volatile[] = { R_F3, R_F4, R_F5, R_F6, R_F7, R_F8, R_F9, R_F10, R_F11, R_F12, R_F13 };
