@@ -48,11 +48,13 @@ static size_t next_power_of_2(size_t len)
 			return 0;
 		return stdc_bit_ceil_ul(len + 1);
 	}
+#ifdef HAVE_LONG_LONG
 	if (sizeof(size_t) == sizeof(unsigned long long)) {
 		if (unlikely(!(len + 1)))
 			return 0;
 		return stdc_bit_ceil_ull(len + 1);
 	}
+#endif
 #endif
 #if defined(HAVE_BUILTIN_CLZ) && defined(HAVE_FAST_CLZ)
 	if (is_power_of_2(sizeof(size_t)) && sizeof(size_t) == sizeof(unsigned long)) {

@@ -147,6 +147,7 @@ static int_default_t array_align_alloc(int_default_t len)
 		else
 			return val;
 	}
+#ifdef HAVE_LONG_LONG
 	if (sizeof(int_default_t) == sizeof(unsigned long long)) {
 		val = stdc_bit_ceil_ull(val);
 		if (unlikely((int_default_t)val < 0))
@@ -154,6 +155,7 @@ static int_default_t array_align_alloc(int_default_t len)
 		else
 			return val;
 	}
+#endif
 #endif
 #if defined(HAVE_BUILTIN_CLZ) && defined(HAVE_FAST_CLZ)
 	if (is_power_of_2(sizeof(int_default_t)) && sizeof(int_default_t) == sizeof(unsigned)) {
