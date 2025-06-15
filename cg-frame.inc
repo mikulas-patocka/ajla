@@ -214,6 +214,16 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 
 		return true;
 	}
+	if (size <= OP_SIZE_2 && ex == zero_x && !cpu_test_feature(CPU_FEATURE_extended_imm)) {
+		g(gen_address(ctx, base, x_offset, IMM_PURPOSE_LDR_SX_OFFSET, size));
+		gen_insn(INSN_MOVSX, size, 0, 0);
+		gen_one(reg);
+		gen_address_offset();
+
+		g(gen_extend(ctx, size, ex, reg, reg));
+
+		return true;
+	}
 	if (size == OP_SIZE_16 && reg_is_fp(reg)) {
 		g(gen_load_raw(ctx, OP_SIZE_8, zero_x, base, 0, x_offset, true, reg));
 		g(gen_load_raw(ctx, OP_SIZE_8, zero_x, base, 0, x_offset + 8, true, reg + 2));
