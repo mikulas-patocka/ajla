@@ -68,6 +68,7 @@
 #define LOONG_MOD_D		0x00228000U
 #define LOONG_DIV_DU		0x00230000U
 #define LOONG_MOD_DU		0x00238000U
+#define LOONG_ALSL_D		0x002c0000U
 #define LOONG_SLLI_W		0x00408000U
 #define LOONG_SLLI_D		0x00410000U
 #define LOONG_SRLI_W		0x00448000U
@@ -418,6 +419,24 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	uint8_t *arg3 = arg2 + arg_size(*arg2);
 	ctx->code_position = arg3 + arg_size(*arg3);
+
+	if (alu == ALU_ADD && arg3[0] == ARG_SHIFTED_REGISTER) {
+		uint8_t *arg_swp = arg3;
+		arg3 = arg2;
+		arg2 = arg_swp;
+	}
+
+	if (arg2[0] == ARG_SHIFTED_REGISTER) {
+		uint32_t shift = arg2[1] & ARG_SHIFT_AMOUNT;
+		arg2 += 2;
+		if (!shift)
+			goto gen_add;
+		mc = LOONG_ALSL_D;
+		mc |= (shift - 1) << 15;
+		cgen_3r(mc, arg1[0], arg2[0], arg3[0]);
+		return true;
+	}
+gen_add:
 
 	if (arg3[0] == ARG_IMM) {
 		int64_t imm = get_imm(&arg3[1]);
