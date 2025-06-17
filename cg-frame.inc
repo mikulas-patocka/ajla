@@ -690,6 +690,24 @@ static bool attr_w gen_frame_store_imm(struct codegen_context *ctx, unsigned siz
 	return gen_frame_store_imm_raw(ctx, size, slot, offset, imm);
 }
 
+static bool attr_w gen_frame_store_imm_double(struct codegen_context *ctx, frame_t slot, uintbig_t c)
+{
+	unsigned shift = (8U << OP_SIZE_NATIVE) - 1;
+#if defined(ARCH_ARM64)
+	if (!c) {
+		g(gen_address(ctx, R_FRAME, (size_t)slot * slot_size, IMM_PURPOSE_LDP_STP_OFFSET, OP_SIZE_NATIVE));
+		gen_insn(INSN_STP, OP_SIZE_NATIVE, 0, 0);
+		gen_address_offset();
+		gen_one(R_ZR);
+		gen_one(R_ZR);
+		return true;
+	}
+#endif
+	g(gen_frame_store_imm_raw(ctx, OP_SIZE_NATIVE, slot, lo_word(OP_SIZE_NATIVE), c & (((uint64_t)2 << shift) - 1)));
+	g(gen_frame_store_imm_raw(ctx, OP_SIZE_NATIVE, slot, hi_word(OP_SIZE_NATIVE), c >> 1 >> shift));
+	return true;
+}
+
 static bool attr_w gen_frame_clear_raw(struct codegen_context *ctx, unsigned size, frame_t slot)
 {
 	g(gen_frame_store_imm_raw(ctx, size, slot, 0, 0));
