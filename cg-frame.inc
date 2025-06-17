@@ -690,7 +690,7 @@ static bool attr_w gen_frame_store_imm(struct codegen_context *ctx, unsigned siz
 	return gen_frame_store_imm_raw(ctx, size, slot, offset, imm);
 }
 
-static bool attr_w gen_frame_store_imm_double(struct codegen_context *ctx, frame_t slot, uintbig_t c)
+static bool attr_w gen_frame_store_imm_dual(struct codegen_context *ctx, frame_t slot, uintbig_t c)
 {
 	unsigned shift = (8U << OP_SIZE_NATIVE) - 1;
 	int64_t c_low = c & (((uint64_t)2 << shift) - 1);

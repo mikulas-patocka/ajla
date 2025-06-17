@@ -2650,7 +2650,7 @@ static bool attr_w gen_constant(struct codegen_context *ctx, bool real, unsigned
 			internal(file_line, "gen_constant: invalid type %u", op_size);
 	}
 	if (op_size > OP_SIZE_NATIVE) {
-		g(gen_frame_store_imm_double(ctx, slot_r, c));
+		g(gen_frame_store_imm_dual(ctx, slot_r, c));
 		if (real && slot_is_register(ctx, slot_r))
 			g(unspill(ctx, slot_r));
 		return true;
