@@ -709,11 +709,7 @@ static bool attr_w gen_frame_store_imm_double(struct codegen_context *ctx, frame
 		g(gen_load_constant(ctx, R_SCRATCH_NA_2, c_high));
 		reg_high = R_SCRATCH_NA_2;
 	}
-	g(gen_address(ctx, R_FRAME, (size_t)slot * slot_size, IMM_PURPOSE_LDP_STP_OFFSET, OP_SIZE_NATIVE));
-	gen_insn(INSN_STP, OP_SIZE_NATIVE, 0, 0);
-	gen_address_offset();
-	gen_one(reg_low);
-	gen_one(reg_high);
+	g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot, 0, reg_low, reg_high));
 	return true;
 #endif
 	g(gen_frame_store_imm_raw(ctx, OP_SIZE_NATIVE, slot, lo_word(OP_SIZE_NATIVE), c_low));
