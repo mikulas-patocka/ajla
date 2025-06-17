@@ -693,18 +693,31 @@ static bool attr_w gen_frame_store_imm(struct codegen_context *ctx, unsigned siz
 static bool attr_w gen_frame_store_imm_double(struct codegen_context *ctx, frame_t slot, uintbig_t c)
 {
 	unsigned shift = (8U << OP_SIZE_NATIVE) - 1;
+	int64_t c_low = c & (((uint64_t)2 << shift) - 1);
+	int64_t c_high = c >> 1 >> shift;
 #if defined(ARCH_ARM64)
-	if (!c) {
-		g(gen_address(ctx, R_FRAME, (size_t)slot * slot_size, IMM_PURPOSE_LDP_STP_OFFSET, OP_SIZE_NATIVE));
-		gen_insn(INSN_STP, OP_SIZE_NATIVE, 0, 0);
-		gen_address_offset();
-		gen_one(R_ZR);
-		gen_one(R_ZR);
-		return true;
+	unsigned reg_low, reg_high;
+	if (!c_low) {
+		reg_low = R_ZR;
+	} else {
+		g(gen_load_constant(ctx, R_SCRATCH_NA_1, c_low));
+		reg_low = R_SCRATCH_NA_1;
 	}
+	if (!c_high) {
+		reg_high = R_ZR;
+	} else {
+		g(gen_load_constant(ctx, R_SCRATCH_NA_2, c_high));
+		reg_high = R_SCRATCH_NA_2;
+	}
+	g(gen_address(ctx, R_FRAME, (size_t)slot * slot_size, IMM_PURPOSE_LDP_STP_OFFSET, OP_SIZE_NATIVE));
+	gen_insn(INSN_STP, OP_SIZE_NATIVE, 0, 0);
+	gen_address_offset();
+	gen_one(reg_low);
+	gen_one(reg_high);
+	return true;
 #endif
-	g(gen_frame_store_imm_raw(ctx, OP_SIZE_NATIVE, slot, lo_word(OP_SIZE_NATIVE), c & (((uint64_t)2 << shift) - 1)));
-	g(gen_frame_store_imm_raw(ctx, OP_SIZE_NATIVE, slot, hi_word(OP_SIZE_NATIVE), c >> 1 >> shift));
+	g(gen_frame_store_imm_raw(ctx, OP_SIZE_NATIVE, slot, lo_word(OP_SIZE_NATIVE), c_low));
+	g(gen_frame_store_imm_raw(ctx, OP_SIZE_NATIVE, slot, hi_word(OP_SIZE_NATIVE), c_high));
 	return true;
 }
 
