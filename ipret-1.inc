@@ -2184,7 +2184,7 @@ DEFINE_OPCODE_START(OPCODE_RECORD_CREATE)
 
 			var_slot = get_param(ip, 0);
 
-			if (unlikely(!frame_variable_is_flat(fp, var_slot))) {
+			if (unlikely(!data_to_flat(fp, var_slot))) {
 				ip = backup_ip;
 				goto cat(create_record_no_flat_,ARG_MODE);
 			}

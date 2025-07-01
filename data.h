@@ -81,6 +81,7 @@
 #define pointer_follow_wait		name(pointer_follow_wait)
 #define data_is_nan			name(data_is_nan)
 #define flat_to_data			name(flat_to_data)
+#define data_to_flat			name(data_to_flat)
 #define struct_clone			name(struct_clone)
 #define pointer_deep_eval		name(pointer_deep_eval)
 #define frame_pointer_deep_eval		name(frame_pointer_deep_eval)
@@ -1782,6 +1783,7 @@ do {									\
 
 bool attr_fastcall data_is_nan(type_tag_t type, const unsigned char *ptr);
 pointer_t flat_to_data(const struct type *type, const unsigned char *flat);
+bool attr_fastcall data_to_flat(frame_s *fp, frame_t slot);
 void attr_fastcall struct_clone(pointer_t *ptr);
 
 void * attr_fastcall pointer_deep_eval(pointer_t *ptr, frame_s *fp, const code_t *ip, struct thunk **thunk);

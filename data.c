@@ -1814,6 +1814,28 @@ fail:
 	return pointer_error(err, NULL, NULL pass_file_line);
 }
 
+bool attr_fastcall data_to_flat(frame_s *fp, frame_t slot)
+{
+	const struct type *type = frame_get_type_of_local(fp, slot);
+	pointer_t ptr;
+	struct data *da;
+	if (!TYPE_IS_FLAT(type))
+		return false;
+	if (likely(!frame_test_flag(fp, slot)))
+		return true;
+	ptr = *frame_pointer(fp, slot);
+	if (unlikely(pointer_is_thunk(ptr)))
+		return false;
+	da = pointer_get_data(ptr);
+	if (da_tag(da) == DATA_TAG_flat) {
+		memcpy_fast(frame_var(fp, slot), da_flat(da), type->size);
+		frame_clear_flag(fp, slot);
+		pointer_dereference(ptr);
+		return true;
+	}
+	return false;
+}
+
 
 void attr_fastcall struct_clone(pointer_t *ptr)
 {
