@@ -1821,11 +1821,18 @@ bool attr_fastcall data_to_flat(frame_s *fp, frame_t slot)
 	struct data *da;
 	if (!TYPE_IS_FLAT(type))
 		return false;
+again:
 	if (likely(!frame_test_flag(fp, slot)))
 		return true;
 	ptr = *frame_pointer(fp, slot);
-	if (unlikely(pointer_is_thunk(ptr)))
+	if (unlikely(pointer_is_thunk(ptr))) {
+		struct thunk *t = pointer_get_thunk(ptr);
+		if (thunk_is_finished(t)) {
+			pointer_follow_thunk_(frame_pointer(fp, slot), POINTER_FOLLOW_THUNK_NOEVAL);
+			goto again;
+		}
 		return false;
+	}
 	da = pointer_get_data(ptr);
 	if (da_tag(da) == DATA_TAG_flat) {
 		memcpy_fast(frame_var(fp, slot), da_flat(da), type->size);
