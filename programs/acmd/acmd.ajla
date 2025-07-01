@@ -767,6 +767,11 @@ fn acmd_process_event(implicit w : world, implicit app : appstate, implicit com 
 			acmd_swap(wid_none);
 			return;
 		]
+		{if wev.keyboard.key = key_f2 then [
+			eval report_memory_most("acmd");
+			eval report_memory_largest("acmd");
+			return;
+		]}
 		if wev.keyboard.key = key_f3 then [
 			acmd_view(com.self);
 			return;
