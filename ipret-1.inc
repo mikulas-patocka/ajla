@@ -1962,7 +1962,7 @@ DEFINE_OPCODE_START(OPCODE_STRUCTURED)
 	pointer_t thunk_ptr;
 
 	elem = get_i_param(1);
-	optimize_elem_is_flat = frame_variable_is_flat(fp, elem);
+	optimize_elem_is_flat = data_to_flat(fp, elem);
 
 cat(structured_retry_,ARG_MODE):
 	struc = get_i_param(0);
@@ -2508,9 +2508,9 @@ DEFINE_OPCODE_START(OPCODE_ARRAY_CREATE)
 		size_t n, i;
 		struct data *a;
 		const struct type *type = frame_get_type_of_local(fp, get_param(ip, 0));
-		bool flat = frame_variable_is_flat(fp, get_param(ip, 0));
+		bool flat = data_to_flat(fp, get_param(ip, 0));
 		for (n = 1; n < n_entries; n++) {
-			if (frame_variable_is_flat(fp, get_param(ip, n * 2)) != flat)
+			if (data_to_flat(fp, get_param(ip, n * 2)) != flat)
 				break;
 			if (unlikely((int_default_t)(n + 1) < zero))
 				break;
@@ -2611,7 +2611,7 @@ DEFINE_OPCODE_START(OPCODE_ARRAY_FILL)
 		RELOAD_EX_POSITION(ex);
 	}
 
-	if (!frame_variable_is_flat(fp, content_slot)) {
+	if (!data_to_flat(fp, content_slot)) {
 		pointer_t ptr = frame_get_pointer_reference(fp, content_slot, (content_flag & OPCODE_FLAG_FREE_ARGUMENT) != 0);
 		if (unlikely((content_flag & OPCODE_ARRAY_FILL_FLAG_SPARSE) != 0)) {
 			result_ptr = array_create_sparse(length, ptr);
