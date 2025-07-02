@@ -205,7 +205,7 @@ void name(function_init)(void)
 	da(int_fn,function)->local_directory_size = 0;
 #ifdef HAVE_CODEGEN
 	da(int_fn,function)->codegen = pointer_thunk(thunk_alloc_exception_error(error_ajla(EC_ASYNC, AJLA_ERROR_NOT_SUPPORTED), NULL, NULL, NULL pass_file_line));
-	store_relaxed(&da(int_fn,function)->codegen_failed, 0);
+	store_relaxed(&da(int_fn,function)->codegen_failed, 1);
 #endif
 	function_init_common(int_fn);
 	if (profiling_escapes)

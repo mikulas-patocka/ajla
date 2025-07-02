@@ -3234,10 +3234,6 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 	struct function_descriptor *sfd;
 	bool is_saved;
 
-#if defined(HAVE_CODEGEN)
-	union internal_arg ia[1];
-#endif
-
 	struct build_function_context ctx_;
 	struct build_function_context *ctx = &ctx_;
 
@@ -3645,9 +3641,15 @@ skip_codegen:
 	da(fn,function)->local_directory_size = ctx->ld_len;
 	mem_free(ctx->ld);
 #ifdef HAVE_CODEGEN
-	ia[0].ptr = fn;
-	da(fn,function)->codegen = function_build_internal_thunk(codegen_fn, 1, ia);
-	store_relaxed(&da(fn,function)->codegen_failed, 0);
+	if (md) {
+		union internal_arg ia[1];
+		ia[0].ptr = fn;
+		da(fn,function)->codegen = function_build_internal_thunk(codegen_fn, 1, ia);
+		store_relaxed(&da(fn,function)->codegen_failed, 0);
+	} else {
+		da(fn,function)->codegen = pointer_thunk(thunk_alloc_exception_error(error_ajla(EC_ASYNC, AJLA_ERROR_NOT_SUPPORTED), NULL, NULL, NULL pass_file_line));
+		store_relaxed(&da(fn,function)->codegen_failed, 1);
+	}
 #endif
 	function_init_common(fn);
 
