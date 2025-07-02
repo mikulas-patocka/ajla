@@ -1217,6 +1217,8 @@ static bool pcode_call(struct build_function_context *ctx, pcode_t instr)
 		case P_Call:
 			switch (call_mode) {
 				case Call_Mode_Unspecified:
+					code = unlikely(ipret_strict_calls) ? OPCODE_CALL_STRICT : OPCODE_CALL;
+					break;
 				case Call_Mode_Normal:
 					code = OPCODE_CALL;
 					break;
@@ -1244,6 +1246,8 @@ static bool pcode_call(struct build_function_context *ctx, pcode_t instr)
 		case P_Call_Indirect:
 			switch (call_mode) {
 				case Call_Mode_Unspecified:
+					code = unlikely(ipret_strict_calls) ? OPCODE_CALL_INDIRECT_STRICT : OPCODE_CALL_INDIRECT;
+					break;
 				case Call_Mode_Normal:
 					code = OPCODE_CALL_INDIRECT;
 					break;

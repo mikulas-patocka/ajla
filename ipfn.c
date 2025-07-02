@@ -2807,7 +2807,7 @@ static void * attr_hot_fastcall ipret_break_the_chain(frame_s *fp, const code_t 
 		mode = get_frame(fp)->mode;
 		if (mode == CALL_MODE_STRICT)
 			goto skip_this;
-		if (mode == CALL_MODE_SPARK || (likely(!ipret_strict_calls) && (timestamp_t)(t - get_frame(prev_fp)->timestamp) > break_ticks)) {
+		if (mode == CALL_MODE_SPARK || (timestamp_t)(t - get_frame(prev_fp)->timestamp) > break_ticks) {
 			struct execution_control *low_ex, *high_ex;
 			frame_s *new_fp;
 			/*debug("break: %s - %s (%u - %u - %u)", da(get_frame(prev_fp)->function,function)->function_name, da(get_frame(fp)->function,function)->function_name, t, get_frame(prev_fp)->timestamp, get_frame(fp)->timestamp);*/
