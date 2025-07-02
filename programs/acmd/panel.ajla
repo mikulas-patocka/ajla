@@ -321,14 +321,14 @@ fn panel_scan_finish(implicit w : world, implicit app : appstate, implicit st : 
 	restore_marked();
 	st.mouse_marking := 0;
 	xeval widget_send_async_event(st.self, wevent.set_property.(event_set_property.[ prop : "async-finished", val : property.i.(st.async_seq) ]));
-	st.change_monitor := widget_send_async_event~spark(st.change_monitor, app, st.self, wevent.set_property.(event_set_property.[ prop : "change-monitor", val : property.n ]));
+	st.change_monitor := widget_send_async_event~normal(st.change_monitor, app, st.self, wevent.set_property.(event_set_property.[ prop : "change-monitor", val : property.n ]));
 ]
 
 fn panel_scan(implicit w : world, implicit app : appstate, implicit st : panel_state, dir_name : bytes, set_cwd : bool) : (world, appstate, panel_state)
 [
 	save_marked(dir_name);
 	st.async_seq += 1;
-	st.change_monitor, st.async_files, st.async_freespace, st.async_error := panel_scan_async~spark();
+	st.change_monitor, st.async_files, st.async_freespace, st.async_error := panel_scan_async~normal();
 	var timer := sleep~lazy(unit_value, 20000);
 	if not any(st.async_files, timer) then [
 		panel_scan_finish();

@@ -886,7 +886,7 @@ fn view_format(implicit w : world, implicit app : appstate, implicit com : widge
 	st.async.highlight_pos := st.highlight_pos;
 	st.async.highlight_len := st.highlight_len;
 
-	st.async := view_format_async~spark(st.async, com.self, st.async_seq);
+	st.async := view_format_async~normal(st.async, com.self, st.async_seq);
 	var timer := sleep~lazy(unit_value, 20000);
 	if not any(st.async, timer) then [
 		view_format_finish();

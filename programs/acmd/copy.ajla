@@ -393,7 +393,7 @@ fn copy_init(ro : acmd_ro, op : operation, src_str : bytes, src_files : list(byt
 			property.r.(0),
 		]),
 	];
-	var copy_w := do_copy~spark(w, as, ro, src_str, src_files, dest_str);
+	var copy_w := do_copy~normal(w, as, ro, src_str, src_files, dest_str);
 	return copy_state.[
 		as : as,
 		copy_w : copy_w,

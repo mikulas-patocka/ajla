@@ -122,10 +122,10 @@ const key_to_termcap : list(int) := [
 	tc_s_key_b2,
 ];
 
-fn event_get_keyboard~spark(w : world, h : handle, tc : termcap, loc : locale, q : msgqueue(event)) : bottom_type;
-fn event_get_resize~spark(w : world, h : handle, q : msgqueue(event), x y ox oy : int) : bottom_type;
-fn event_get_suspend~spark(implicit w : world, q : msgqueue(event), sigtstp : shandle, stk : stoken) : bottom_type;
-fn event_get_mouse~spark(w : world, h : handle, q : msgqueue(event)) : bottom_type;
+fn event_get_keyboard~normal(w : world, h : handle, tc : termcap, loc : locale, q : msgqueue(event)) : bottom_type;
+fn event_get_resize~normal(w : world, h : handle, q : msgqueue(event), x y ox oy : int) : bottom_type;
+fn event_get_suspend~normal(implicit w : world, q : msgqueue(event), sigtstp : shandle, stk : stoken) : bottom_type;
+fn event_get_mouse~normal(w : world, h : handle, q : msgqueue(event)) : bottom_type;
 fn event_wait_for_any_key(w : world, h : handle) : world;
 fn event_reset_handle(w : world, h : handle) : world;
 
@@ -721,7 +721,7 @@ fn event_get_keyboard_internal(implicit w : world, h : handle, tc : termcap, loc
 	return event_get_keyboard_loop(ctx, b);
 ]
 
-fn event_get_keyboard~spark(implicit w : world, h : handle, tc : termcap, loc : locale, q : msgqueue(event)) : bottom_type
+fn event_get_keyboard~normal(implicit w : world, h : handle, tc : termcap, loc : locale, q : msgqueue(event)) : bottom_type
 [
 	var err := event_get_keyboard_internal(h, tc, loc, q);
 	eval err;
@@ -731,7 +731,7 @@ fn event_get_keyboard~spark(implicit w : world, h : handle, tc : termcap, loc : 
 	return err;
 ]
 
-fn event_get_resize~spark(implicit w : world, h : handle, q : msgqueue(event), x y ox oy : int) : bottom_type
+fn event_get_resize~normal(implicit w : world, h : handle, q : msgqueue(event), x y ox oy : int) : bottom_type
 [
 	var os := sysprop(SystemProperty_OS);
 	if os = SystemProperty_OS_DOS or os = SystemProperty_OS_OS2 then
@@ -760,7 +760,7 @@ fn event_get_resize~spark(implicit w : world, h : handle, q : msgqueue(event), x
 ]
 
 
-fn event_get_suspend~spark(implicit w : world, q : msgqueue(event), sigtstp : shandle, stk : stoken) : bottom_type
+fn event_get_suspend~normal(implicit w : world, q : msgqueue(event), sigtstp : shandle, stk : stoken) : bottom_type
 [
 	var os := sysprop(SystemProperty_OS);
 	if os = SystemProperty_OS_DOS or
@@ -784,7 +784,7 @@ fn event_get_suspend~spark(implicit w : world, q : msgqueue(event), sigtstp : sh
 ]
 
 
-fn event_get_mouse~spark(implicit w : world, h : handle, q : msgqueue(event)) : bottom_type
+fn event_get_mouse~normal(implicit w : world, h : handle, q : msgqueue(event)) : bottom_type
 [
 	var mouse := new_mouse_context;
 
