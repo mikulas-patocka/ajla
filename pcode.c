@@ -3544,13 +3544,14 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 	if (unlikely(!array_init_mayfail(struct line_position, &ctx->lp, &ctx->lp_size, ctx->err)))
 		goto exception;
 
-	if (unlikely(ctx->function_type == Fn_Record) || unlikely(ctx->function_type == Fn_Option)) {
+	if (unlikely(!ctx->n_real_return_values)) {
 		if (ctx->function_type == Fn_Record) {
 			if (unlikely(!pcode_generate_record(ctx)))
 				goto exception;
 		}
 		gen_code(OPCODE_UNREACHABLE);
 	} else {
+		/*debug("gen instr: %s", function_name(ctx));*/
 		if (unlikely(!pcode_generate_instructions(ctx)))
 			goto exception;
 	}
