@@ -262,6 +262,9 @@ lock_for_write:
 
 static void module_finish_function(struct module_function *mf)
 {
+	if (pointer_is_thunk(mf->function) && thunk_is_finished(pointer_get_thunk(mf->function))) {
+		pointer_follow_thunk_(&mf->function, POINTER_FOLLOW_THUNK_NOEVAL);
+	}
 	if (!pointer_is_thunk(mf->function)) {
 		struct data *d = pointer_get_data(mf->function);
 		struct tree_entry *e;
