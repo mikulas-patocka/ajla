@@ -842,6 +842,13 @@ struct function_descriptor *save_find_function_descriptor(const struct module_de
 		return NULL;
 	fn_descs = loaded_file_descriptor->fn_descs;
 	fn_descs_len = loaded_file_descriptor->fn_descs_len;
+	/*{
+		size_t i;
+		for (i = 0; i < fn_descs_len; i++)
+			if (!function_compare(md, fd, &fn_descs[i]))
+				return &fn_descs[i];
+		return NULL;
+	}*/
 	binary_search(size_t, fn_descs_len, result, !(cmp = function_compare(md, fd, &fn_descs[result])), cmp >= 0, return NULL);
 	return &fn_descs[result];
 }
