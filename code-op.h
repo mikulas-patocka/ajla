@@ -350,12 +350,14 @@ enum {
 	OPCODE_CALL,			/* n_arg, n_ret, fn_idx,		[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */
 	OPCODE_CALL_STRICT,		/* n_arg, n_ret, fn_idx,		[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */
 	OPCODE_CALL_SPARK,		/* n_arg, n_ret, fn_idx,		[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */
+	OPCODE_CALL_WEAKSPARK,		/* n_arg, n_ret, fn_idx,		[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */
 	OPCODE_CALL_LAZY,		/* n_arg, n_ret, fn_idx,		[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */
 	OPCODE_CALL_CACHE,		/* n_arg, n_ret, fn_idx,		[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */
 	OPCODE_CALL_SAVE,		/* n_arg, n_ret, fn_idx,		[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */
 	OPCODE_CALL_INDIRECT,		/* n_arg, n_ret, fn_thunk, fn_deref,	[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */
 	OPCODE_CALL_INDIRECT_STRICT,	/* n_arg, n_ret, fn_thunk, fn_deref,	[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */
 	OPCODE_CALL_INDIRECT_SPARK,	/* n_arg, n_ret, fn_thunk, fn_deref,	[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */
+	OPCODE_CALL_INDIRECT_WEAKSPARK,	/* n_arg, n_ret, fn_thunk, fn_deref,	[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */
 	OPCODE_CALL_INDIRECT_LAZY,	/* n_arg, n_ret, fn_thunk, fn_deref,	[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */
 	OPCODE_CALL_INDIRECT_CACHE,	/* n_arg, n_ret, fn_thunk, fn_deref,	[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */
 	OPCODE_CALL_INDIRECT_SAVE,	/* n_arg, n_ret, fn_thunk, fn_deref,	[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */

@@ -1380,7 +1380,8 @@ typedef unsigned timestamp_t;
 #define CALL_MODE_NORMAL	1
 #define CALL_MODE_STRICT	2
 #define CALL_MODE_SPARK		3
-#define CALL_MODE_VALID(v)	((v) >= 1 && (v) <= 3)
+#define CALL_MODE_WEAKSPARK	4
+#define CALL_MODE_VALID(v)	((v) >= 1 && (v) <= 4)
 
 struct frame_struct {
 	struct data *function;

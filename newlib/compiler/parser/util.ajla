@@ -32,6 +32,7 @@ fn get_call_mode(l : list(bytes), fn_def : bool) : int
 		if s = "normal" then call_mode := Call_Mode_Normal;
 		else if s = "strict" then call_mode := Call_Mode_Strict;
 		else if s = "spark" then call_mode := Call_Mode_Spark;
+		else if s = "weakspark" then call_mode := Call_Mode_Weakspark;
 		else if s = "lazy" then call_mode := Call_Mode_Lazy;
 		else if s = "inline" then call_mode := Call_Mode_Inline;
 		else if s = "cache" then call_mode := Call_Mode_Cache;

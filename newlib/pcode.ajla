@@ -201,11 +201,12 @@ const Call_Mode_Unspecified := 0;
 const Call_Mode_Normal := 1;
 const Call_Mode_Strict := 2;
 const Call_Mode_Spark := 3;
-const Call_Mode_Lazy := 4;
-const Call_Mode_Inline := 5;
-const Call_Mode_Cache := 6;
-const Call_Mode_Save := 7;
-const Call_Mode_Flat := 8;
+const Call_Mode_Weakspark := 4;
+const Call_Mode_Lazy := 5;
+const Call_Mode_Inline := 6;
+const Call_Mode_Cache := 7;
+const Call_Mode_Save := 8;
+const Call_Mode_Flat := 9;
 
 const SystemProperty_OS := 1;
 const SystemProperty_Charset := 2;
@@ -690,11 +691,12 @@ fn name_to_value~cache : list(int)
 	a[#878766CBF377E4CB7E76FE5B70EC] := 1;					// Call_Mode_Normal
 	a[#878766CBF377E4CB7E9F4E5A71F4] := 2;					// Call_Mode_Strict
 	a[#10F0ECD97E6EFC996FD3E18796B] := 3;					// Call_Mode_Spark
-	a[#21E1D9B2FCDDF932DF9987D79] := 4;					// Call_Mode_Lazy
-	a[#878766CBF377E4CB7E4EED9A7765] := 5;					// Call_Mode_Inline
-	a[#10F0ECD97E6EFC996FC3C38F465] := 6;					// Call_Mode_Cache
-	a[#21E1D9B2FCDDF932DFA787B65] := 7;					// Call_Mode_Save
-	a[#21E1D9B2FCDDF932DF8DB30F4] := 8;					// Call_Mode_Flat
+	a[#10F0ECD97E6EFC996FD7CB875F3E18796B] := 4;				// Call_Mode_Weakspark
+	a[#21E1D9B2FCDDF932DF9987D79] := 5;					// Call_Mode_Lazy
+	a[#878766CBF377E4CB7E4EED9A7765] := 6;					// Call_Mode_Inline
+	a[#10F0ECD97E6EFC996FC3C38F465] := 7;					// Call_Mode_Cache
+	a[#21E1D9B2FCDDF932DFA787B65] := 8;					// Call_Mode_Save
+	a[#21E1D9B2FCDDF932DF8DB30F4] := 9;					// Call_Mode_Flat
 
 	a[#53F3CFA65DB4396FE197974F37E7D3] := 1;				// SystemProperty_OS
 	a[#29F9E7D32EDA1CB7F0CBCBA79BF0F461E5CF2F4] := 2;			// SystemProperty_Charset

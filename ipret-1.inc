@@ -1548,7 +1548,7 @@ cat(call_copy_arguments_,ARG_MODE):
 		fp = new_fp;
 		ip = &da(function,function)->code[0];
 
-		if (unlikely(mode == CALL_MODE_SPARK)) {
+		if (unlikely(mode == CALL_MODE_SPARK) || unlikely(mode == CALL_MODE_WEAKSPARK)) {
 			ipret_checkpoint_forced;
 		}
 	}
@@ -1568,6 +1568,13 @@ DEFINE_OPCODE_START(OPCODE_CALL_SPARK)
 	goto cat(call_from_mode_,ARG_MODE);
 #endif
 DEFINE_OPCODE_END(OPCODE_CALL_SPARK)
+
+DEFINE_OPCODE_START(OPCODE_CALL_WEAKSPARK)
+#ifdef EMIT_CODE
+	mode = CALL_MODE_WEAKSPARK;
+	goto cat(call_from_mode_,ARG_MODE);
+#endif
+DEFINE_OPCODE_END(OPCODE_CALL_WEAKSPARK)
 
 DEFINE_OPCODE_START(OPCODE_CALL_INDIRECT)
 #ifdef EMIT_CODE
@@ -1642,6 +1649,13 @@ DEFINE_OPCODE_START(OPCODE_CALL_INDIRECT_SPARK)
 	goto cat(call_indirect_from_mode_,ARG_MODE);
 #endif
 DEFINE_OPCODE_END(OPCODE_CALL_INDIRECT_SPARK)
+
+DEFINE_OPCODE_START(OPCODE_CALL_INDIRECT_WEAKSPARK)
+#ifdef EMIT_CODE
+	mode = CALL_MODE_WEAKSPARK;
+	goto cat(call_indirect_from_mode_,ARG_MODE);
+#endif
+DEFINE_OPCODE_END(OPCODE_CALL_INDIRECT_WEAKSPARK)
 
 DEFINE_OPCODE_START(OPCODE_CALL_LAZY)
 #ifdef EMIT_CODE

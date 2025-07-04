@@ -221,6 +221,7 @@ Call_Mode_Unspecified
 Call_Mode_Normal
 Call_Mode_Strict
 Call_Mode_Spark
+Call_Mode_Weakspark
 Call_Mode_Lazy
 Call_Mode_Inline
 Call_Mode_Cache

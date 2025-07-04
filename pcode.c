@@ -1230,6 +1230,9 @@ static bool pcode_call(struct build_function_context *ctx, pcode_t instr)
 				case Call_Mode_Spark:
 					code = OPCODE_CALL_SPARK;
 					break;
+				case Call_Mode_Weakspark:
+					code = OPCODE_CALL_WEAKSPARK;
+					break;
 				case Call_Mode_Lazy:
 					code = OPCODE_CALL_LAZY;
 					break;
@@ -1258,6 +1261,9 @@ static bool pcode_call(struct build_function_context *ctx, pcode_t instr)
 					break;
 				case Call_Mode_Spark:
 					code = OPCODE_CALL_INDIRECT_SPARK;
+					break;
+				case Call_Mode_Weakspark:
+					code = OPCODE_CALL_INDIRECT_WEAKSPARK;
 					break;
 				case Call_Mode_Lazy:
 					code = OPCODE_CALL_INDIRECT_LAZY;

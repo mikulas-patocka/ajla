@@ -708,7 +708,7 @@ fn dmonitor(w : world, d : dhandle) : (world, world)
 	var h : mhandle;
 	var w2 w3 : world;
 	pcode IO IO_DMonitor_Prepare 2 2 0 =w2 =h w d;
-	w3 := dmonitor_wait~spark(w2, h);
+	w3 := dmonitor_wait~weakspark(w2, h);
 	return w2, w3;
 ]
 
