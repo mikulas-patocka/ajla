@@ -1147,13 +1147,13 @@ void attr_fastcall ipret_copy_variable(frame_s *src_fp, frame_t src_slot, frame_
 {
 	pointer_t ptr;
 	const struct type *src_type;
-	ajla_assert(!frame_test_flag(dst_fp, dst_slot), (file_line, "ipret_copy_variable: flag already set for destination slot %"PRIuMAX"", (uintmax_t)dst_slot));
 	src_type = frame_get_type_of_local(src_fp, src_slot);
 	if (!frame_variable_is_flat(src_fp, src_slot)) {
 		ptr = frame_get_pointer_reference(src_fp, src_slot, deref);
 	} else {
 		const struct type *dst_type = frame_get_type_of_local(dst_fp, dst_slot);
 		if (likely(TYPE_IS_FLAT(dst_type))) {
+			ajla_assert(!frame_test_flag(dst_fp, dst_slot), (file_line, "ipret_copy_variable: flag already set for destination slot %"PRIuMAX"", (uintmax_t)dst_slot));
 			ajla_assert(type_is_equal(src_type, dst_type), (file_line, "ipret_copy_variable: copying between different types (%u,%u,%u) -> (%u,%u,%u)", src_type->tag, src_type->size, src_type->align, dst_type->tag, dst_type->size, dst_type->align));
 			memcpy_fast(frame_var(dst_fp, dst_slot), frame_var(src_fp, src_slot), dst_type->size);
 			return;
@@ -1161,6 +1161,7 @@ void attr_fastcall ipret_copy_variable(frame_s *src_fp, frame_t src_slot, frame_
 			ptr = flat_to_data(src_type, frame_var(src_fp, src_slot));
 		}
 	}
+	ajla_assert(!frame_test_flag(dst_fp, dst_slot), (file_line, "ipret_copy_variable: flag already set for destination slot %"PRIuMAX"", (uintmax_t)dst_slot));
 	frame_set_pointer(dst_fp, dst_slot, ptr);
 }
 
