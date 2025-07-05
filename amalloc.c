@@ -1779,7 +1779,11 @@ static attr_always_inline void *amalloc_small(struct per_thread *pt, size_t size
 	return amalloc_small_empty(pt, size);
 found_bit:
 	bit = find_bit(m->s.map);
+#if defined(ARCH_X86) || (defined(ARCH_RISCV64) && defined(__riscv_zbs))
 	m->s.map &= ~((bitmap_t)1 << bit);
+#else
+	m->s.map &= m->s.map - 1;
+#endif
 	return cast_ptr(char *, m) + bit * m->s.size;
 }
 
