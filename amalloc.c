@@ -225,6 +225,12 @@ static attr_always_inline size_t find_bit(bitmap_t bitmap)
 #endif
 }
 
+#if defined(ARCH_X86) || (defined(ARCH_RISCV64) && defined(__riscv_zbs))
+#define reset_bit	m->s.map &= ~((bitmap_t)1 << bit)
+#else
+#define reset_bit	m->s.map &= m->s.map - 1
+#endif
+
 static attr_always_inline unsigned count_bits(bitmap_t bitmap)
 {
 #if defined(BITMAP_ASM_X86_SUFFIX) && defined(INLINE_ASM_GCC_X86) && defined(HAVE_X86_ASSEMBLER_POPCNT)
@@ -1750,7 +1756,7 @@ static attr_noinline void *amalloc_small_empty(struct per_thread *pt, size_t siz
 	}
 	set_small_run(pt, cls, m);
 	bit = find_bit(m->s.map);
-	m->s.map &= ~((bitmap_t)1 << bit);
+	reset_bit;
 	return cast_ptr(char *, m) + bit * m->s.size;
 }
 
@@ -1779,11 +1785,7 @@ static attr_always_inline void *amalloc_small(struct per_thread *pt, size_t size
 	return amalloc_small_empty(pt, size);
 found_bit:
 	bit = find_bit(m->s.map);
-#if defined(ARCH_X86) || (defined(ARCH_RISCV64) && defined(__riscv_zbs))
-	m->s.map &= ~((bitmap_t)1 << bit);
-#else
-	m->s.map &= m->s.map - 1;
-#endif
+	reset_bit;
 	return cast_ptr(char *, m) + bit * m->s.size;
 }
 
