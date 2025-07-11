@@ -2188,13 +2188,13 @@ write_result:
 		if (alu == ALU1_POPCNT && unlikely(!cpu_test_feature(CPU_FEATURE_popcnt)))
 			goto do_generic_bsf_bsr_popcnt;
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
-		if (op_size == OP_SIZE_1 || ((alu == ALU1_BSR || alu == ALU1_POPCNT) && mode == MODE_INT)) {
+		if (op_size == OP_SIZE_1 || mode == MODE_INT) {
 			g(gen_frame_get(ctx, op_size, zero_x, slot_1, target, &reg1));
-			if ((alu == ALU1_BSR || alu == ALU1_POPCNT) && mode == MODE_INT) {
-				g(gen_cmp_test_jmp(ctx, INSN_TEST, op_size, reg1, reg1, alu == ALU1_BSR ? COND_LE : COND_S, label_ovf));
+			if (mode == MODE_INT) {
+				g(gen_cmp_test_jmp(ctx, INSN_TEST, op_size, reg1, reg1, alu == ALU1_BSF ? COND_E : alu == ALU1_BSR ? COND_LE : COND_S, label_ovf));
 			}
 			g(gen_2address_alu1(ctx, maximum(op_size, OP_SIZE_2), alu, target, reg1, 1));
-			if ((alu == ALU1_BSR || alu == ALU1_POPCNT) && mode == MODE_INT)
+			if (mode == MODE_INT)
 				goto x86_bsf_bsr_popcnt_finish;
 		} else {
 			g(gen_frame_load_op1(ctx, op_size, alu, 1, slot_1, target));
@@ -2212,9 +2212,6 @@ write_result:
 			if (cmov_label)
 				gen_label(cmov_label);
 
-		} else {
-			gen_insn(INSN_JMP_COND, maximum(op_size, OP_SIZE_2), COND_E, 0);
-			gen_four(label_ovf);
 		}
 x86_bsf_bsr_popcnt_finish:
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
