@@ -210,7 +210,7 @@ typedef long double real80_t;
 #define REAL_MASK_3		(1 << 3)
 #endif
 
-#if defined(HAVE___FLOAT128) && \
+#if defined(HAVE___FLOAT128) && defined(HAVE_QUADMATH) && \
 	defined(FLT128_MIN_EXP) && FLT128_MIN_EXP <= -16381 && defined(FLT128_MAX_EXP) && FLT128_MAX_EXP >= 16384 && defined(FLT128_MANT_DIG) && FLT128_MANT_DIG >= 113 && \
 	defined(HAVE_FABSQ) && defined(HAVE_FREXPQ) && defined(HAVE_LDEXPQ) && defined(HAVE_POWQ) && defined(HAVE_SQRTQ)
 #define USEABLE___FLOAT128
