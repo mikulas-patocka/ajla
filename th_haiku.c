@@ -51,46 +51,47 @@ unsigned thread_concurrency(void)
 
 #define do_mutex_init(m)						\
 do {									\
-	int r;								\
-	r = pthread_mutex_init(m, NULL);				\
-	if (unlikely(r))						\
-		fatal("pthread_mutex_init failed at %s: %d, %s", position_string(position_arg), r, error_decode(error_from_errno(EC_SYSCALL, r)));\
+	*m = create_sem(1, NULL);					\
+	if (unlikely(*m < 0))						\
+		fatal("create_sem failed at %s: %x", position_string(position_arg), *m);\
 } while (0)
 
 #define do_mutex_done(m)						\
 do {									\
-	int r;								\
-	r = pthread_mutex_destroy(m);					\
-	if (unlikely(r))						\
-		internal(caller_file_line, "mutex_done: pthread_mutex_destroy failed: %d, %s", r, error_decode(error_from_errno(EC_SYSCALL, r)));\
+	status_t s = delete_sem(*m);					\
+	if (unlikely(s != B_NO_ERROR))					\
+		fatal("delete_sem failed at %s: %x", position_string(position_arg), s);\
 } while (0)
 
 #define do_mutex_lock(m)						\
 do {									\
-	int r;								\
-	r = pthread_mutex_lock(m);					\
-	if (unlikely(r))						\
-		internal(caller_file_line, "mutex_lock: pthread_mutex_lock failed: %d, %s", r, error_decode(error_from_errno(EC_SYSCALL, r)));\
+	status_t s;							\
+	do {								\
+		s = acquire_sem(*m);					\
+	} while (unlikely(s == B_INTERRUPTED));				\
+	if (unlikely(s != B_NO_ERROR))					\
+		fatal("acquire_sem failed at %s: %x", position_string(position_arg), s);\
 } while (0)
 
 #define do_mutex_trylock(m)						\
 do {									\
-	int r;								\
-	r = pthread_mutex_trylock(m);					\
-	if (unlikely(r)) {						\
-		if (unlikely(r != EBUSY) && unlikely(r != EDEADLK))	\
-			internal(caller_file_line, "mutex_trylock: pthread_mutex_trylock failed: %d, %s", r, error_decode(error_from_errno(EC_SYSCALL, r)));\
-		return false;						\
+	status_t s;							\
+	do {								\
+		s = acquire_sem_etc(*m, 1, B_RELATIVE_TIMEOUT, 0);	\
+	} while (unlikely(s == B_INTERRUPTED));				\
+	if (unlikely(s != B_NO_ERROR)) {				\
+		if (s == B_TIMED_OUT || s == B_WOULD_BLOCK)		\
+			return false;					\
+		fatal("acquire_sem failed at %s: %x", position_string(position_arg), s);\
 	}								\
 	return true;							\
 } while (0)
 
 #define do_mutex_unlock(m)						\
 do {									\
-	int r;								\
-	r = pthread_mutex_unlock(m);					\
-	if (unlikely(r))						\
-		internal(caller_file_line, "mutex_unlock: pthread_mutex_unlock failed: %d, %s", r, error_decode(error_from_errno(EC_SYSCALL, r)));\
+	status_t s = release_sem(*m);					\
+	if (unlikely(s != B_NO_ERROR))					\
+		fatal("release_sem failed at %s: %x", position_string(position_arg), s);\
 } while (0)
 
 
