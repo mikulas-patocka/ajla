@@ -33,7 +33,7 @@
 #ifdef IOMUX_KQUEUE
 
 #include <unistd.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <sys/event.h>
 
 #define KQUEUE_MAX_EVENTS		64

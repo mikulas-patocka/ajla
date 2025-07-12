@@ -35,7 +35,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <sys/epoll.h>
 #ifdef IOMUX_EPOLL_INOTIFY
 #include <sys/inotify.h>
