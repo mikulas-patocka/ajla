@@ -861,7 +861,7 @@ fn termcap_init(d : dhandle, env : treemap(bytes, bytes)) : termcap
 get_termcap:
 	path := empty(bytes);
 	if tcap is j then [
-		path +<= ti.j;
+		path +<= tcap.j;
 	] else [
 		if home is j then
 			path +<= path_append(home.j, ".termcap");
