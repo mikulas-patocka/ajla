@@ -185,7 +185,7 @@ static void task_list_add(struct node_state *node, struct execution_control *ex,
 
 void attr_fastcall task_submit(struct execution_control *ex, unsigned spawn_mode)
 {
-	struct task_percpu *tpc;
+	struct task_percpu *tpc = NULL;
 	struct node_state *node;
 	if (spawn_mode != TASK_SUBMIT_MUST_NOT_SPAWN && (tpc = tls_get(struct task_percpu *, task_tls))) {
 		node = tpc->node;
