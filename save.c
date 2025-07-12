@@ -1179,7 +1179,7 @@ skip_mmap:
 	}
 	os_close(h);
 #ifdef HAVE_CODEGEN
-#if defined(CODEGEN_USE_HEAP) || !defined(OS_HAS_MMAP)
+#if defined(CODEGEN_USE_HEAP) || !defined(USE_MMAP)
 	/*debug("adjusting pointers: %p, %p", loaded_data, loaded_data + loaded_data_len);*/
 	adjust_pointers(loaded_data, loaded_data_len, ptr_to_num(loaded_data) - ptr_to_num(loaded_file_descriptor->base));
 	os_code_invalidate_cache(cast_ptr(uint8_t *, loaded_data), loaded_data_len, true);
