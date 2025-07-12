@@ -102,7 +102,7 @@ float exp2f(float x);
 long double exp2l(long double x);
 #endif
 
-#if defined(HAVE___FLOAT128) && defined(HAVE_LIBQUADMATH) && defined(HAVE_QUADMATH_H) && !defined(HAVE_EXP2Q)
+#if defined(HAVE___FLOAT128) && defined(HAVE_QUADMATH) && defined(HAVE_QUADMATH_H) && !defined(HAVE_EXP2Q)
 __float128 exp2q(__float128 x);
 #endif
 
@@ -115,7 +115,7 @@ float exp10f(float x);
 #if defined(HAVE_LONG_DOUBLE) && !defined(HAVE_EXP10L)
 long double exp10l(long double x);
 #endif
-#if defined(HAVE___FLOAT128) && defined(HAVE_LIBQUADMATH) && defined(HAVE_QUADMATH_H) && !defined(HAVE_EXP10Q)
+#if defined(HAVE___FLOAT128) && defined(HAVE_QUADMATH) && defined(HAVE_QUADMATH_H) && !defined(HAVE_EXP10Q)
 __float128 exp10q(__float128 x);
 #endif
 

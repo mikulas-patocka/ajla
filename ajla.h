@@ -28,7 +28,7 @@
 #include <stddef.h>
 #include <float.h>
 #include <math.h>
-#ifdef HAVE_QUADMATH_H
+#ifdef HAVE_QUADMATH
 #include <quadmath.h>
 #endif
 #ifdef HAVE_STDLIB_H

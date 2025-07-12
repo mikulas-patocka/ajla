@@ -373,7 +373,26 @@ AC_CHECK_HEADERS(asm/prctl.h ffi.h gmp.h gmp/gmp.h linux/falloc.h linux/fs.h mal
 # Checks for libraries.
 AC_CHECK_LIB(m, frexp)
 if test "$ac_cv_have___float128" = yes && test "$ac_cv_header_quadmath_h" = yes; then
+	save_LIBS="$LIBS"
 	AC_CHECK_LIB(quadmath, frexpq)
+	if test "$ac_cv_lib_quadmath_frexpq" = yes; then
+		AC_CACHE_CHECK(for libquadmath, ac_cv_have_libquadmath,
+		AC_TRY_RUN([
+			#include <quadmath.h>
+		int main(void)
+		{
+			int e = 0;
+			volatile __float128 f = frexpq(0.0, &e);
+			f = f + 1;
+			return 0;
+		}
+		], ac_cv_have_libquadmath=yes, ac_cv_have_libquadmath=no, ac_cv_have_libquadmath=yes))
+		if test "$ac_cv_have_libquadmath" = yes; then
+			AC_DEFINE(HAVE_QUADMATH, 1, Have libquadmath)
+		else
+			LIBS="$save_LIBS"
+		fi
+	fi
 fi
 AC_ARG_WITH(gmp, [  --without-gmp           use built-in gmp])
 if test "$with_gmp" != "no"; then
