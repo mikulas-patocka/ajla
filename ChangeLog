@@ -1,4 +1,27 @@
-===RELEASE 0.2.0 ===
+=== RELEASE 0.2.1 ===
+
+Many bugfixes
+
+Introduce the ~weakspark specifier - it is like ~spark, but does not spawn a new
+thread immediatelly, the thread will be spawned at next tick
+
+Make Ajla Commander consume less memory
+
+Add a configure option "--disable-rwx-mappings" that works around QEMU bug
+
+Make it work with the MUSL libc
+
+Numa optimizations
+
+Introduce --dump-code, --dump-pcode and --dump-z3
+
+Some incompatible ffi changes - so that we can load and use the z3 library
+
+Support AVX512-FP16
+
+Support Intel APX
+
+=== RELEASE 0.2.0 ===
 
 Fix an internal error if we call dstatfs on a directory open with O_PATH.
 
@@ -14,7 +37,7 @@ Remember that a pointer is not thunk and do not test it for thunk repetitively.
 
 Implement register allocation in the code generator.
 
-Fix a bug on alpha that the code generator accidentally used saved register f2
+Fix a bug on alpha that the code generator accidentally used saved register f2.
 
 === RELEASE 0.1.5 ===
 
