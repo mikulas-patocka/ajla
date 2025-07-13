@@ -803,7 +803,7 @@ static HANDLE get_std_handle(unsigned u)
 
 static void win32_clean_up_handles(void)
 {
-	if (!list_is_empty(&deferred_closed_list)) {
+	if (likely(os_threads_initialized) && unlikely(!list_is_empty(&deferred_closed_list))) {
 		mutex_lock(&deferred_mutex);
 		while (!list_is_empty(&deferred_closed_list)) {
 			handle_t h = get_struct(deferred_closed_list.prev, struct win32_handle, deferred_entry);
