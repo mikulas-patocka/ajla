@@ -2081,6 +2081,15 @@ in_loop2:
 		var block := ctx.blocks[bgi];
 		for ili := 0 to len(block.instrs) do [
 			var instr := ctx.instrs[block.instrs[ili]];
+			if instr.opcode = P_Jmp_False and ili >= 1 then [
+				var instr1 := ctx.instrs[block.instrs[ili - 1]];
+				if instr1.opcode = P_BinaryOp, instr1.params[1] = instr.params[0] then
+					continue;
+				if instr1.opcode = P_UnaryOp, instr1.params[1] = instr.params[0] then
+					continue;
+				if instr1.opcode = P_Array_Len_Greater_Than, instr1.params[0] = instr.params[0] then
+					continue;
+			]
 			var read_mask := set_to_mask(instr, instr.read_set);
 			while read_mask <> 0 do [
 				var vgi : int := bsr read_mask;
