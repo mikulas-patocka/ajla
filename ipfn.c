@@ -1940,7 +1940,7 @@ void * attr_hot_fastcall ipret_array_len_greater_than(frame_s *fp, const code_t 
 	}
 	if (unlikely(neg)) {
 		result = 1;
-		goto ret_result;
+		goto ret_result_nofree;
 	}
 
 	type = frame_get_type_of_local(fp, slot_a);
@@ -1973,10 +1973,11 @@ void * attr_hot_fastcall ipret_array_len_greater_than(frame_s *fp, const code_t 
 	}
 
 ret_result:
+	index_free(&remaining_length);
+ret_result_nofree:
 	barrier_aliasing();
 	*frame_slot(fp, slot_r, ajla_flat_option_t) = result;
 	barrier_aliasing();
-	index_free(&remaining_length);
 	return POINTER_FOLLOW_THUNK_GO;
 
 err_free:
