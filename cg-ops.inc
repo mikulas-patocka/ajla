@@ -2699,18 +2699,21 @@ static bool attr_w gen_io(struct codegen_context *ctx, frame_t code, frame_t slo
 
 	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_io), 3, true));
 	g(gen_sanitize_returned_pointer(ctx, R_RET0));
-	g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_ADDRESS, R_RET0, ptr_to_num(POINTER_FOLLOW_THUNK_GO), COND_NE, reload_label, -1));
 
 	for (i = 0; i < slot_1; i++) {
 		frame_t output_slot = ctx->var_aux[i];
 		flag_set_unknown(ctx, output_slot);
+		if (slot_is_register(ctx, output_slot))
+			g(unspill(ctx, output_slot));
 	}
+
+	g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_ADDRESS, R_RET0, ptr_to_num(POINTER_FOLLOW_THUNK_GO), COND_NE, reload_label, -1));
 
 	escape_label = alloc_escape_label_for_ip(ctx, ctx->current_position);
 	if (unlikely(!escape_label))
 		return false;
 
-	g(gen_test_variables(ctx, ctx->var_aux, slot_1, escape_label));
+	g(gen_test_variables(ctx, ctx->var_aux, slot_1, false, escape_label));
 
 	return true;
 }

@@ -1737,7 +1737,7 @@ skip_dereference:
 					return false;
 				}
 
-				if (unlikely(!gen_test_variables(ctx, vars, n, escape_label))) {
+				if (unlikely(!gen_test_variables(ctx, vars, n, true, escape_label))) {
 					mem_free(vars);
 					return false;
 				}
@@ -1798,7 +1798,7 @@ skip_dereference:
 							return false;
 					}
 					if (!slot_1) {
-						g(gen_test_variables(ctx, ce->variables, ce->n_variables, ctx->escape_nospill_label));
+						g(gen_test_variables(ctx, ce->variables, ce->n_variables, true, ctx->escape_nospill_label));
 					}
 					entry_label = alloc_label(ctx);
 					if (unlikely(!entry_label))
@@ -2146,7 +2146,7 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 			gen_insn(INSN_ENTRY, 0, 0, 0);
 			gen_four(i);
 
-			g(gen_test_variables(ctx, ce->variables, ce->n_variables, ce->nonflat_label));
+			g(gen_test_variables(ctx, ce->variables, ce->n_variables, true, ce->nonflat_label));
 
 			gen_insn(INSN_JMP, 0, 0, 0);
 			gen_four(ce->entry_label);
@@ -2173,6 +2173,7 @@ static bool attr_w gen_epilogues(struct codegen_context *ctx)
 #endif
 	if (ctx->reload_label) {
 		gen_label(ctx->reload_label);
+		g(gen_spill_all(ctx));
 		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_FRAME, R_RET0));
 		g(gen_escape_arg(ctx, (ip_t)-1, nospill_label));
 	}
