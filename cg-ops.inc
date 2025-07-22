@@ -979,7 +979,7 @@ struct_zero:
 					g(gen_test_1_cached(ctx, param_slot, escape_label));
 					flag_set(ctx, param_slot, false);
 
-					g(gen_frame_get(ctx, OP_SIZE_INT, native, param_slot, R_SCRATCH_2, &reg2));
+					g(gen_frame_get(ctx, OP_SIZE_INT, i_size_cmp(OP_SIZE_INT) == OP_SIZE_INT ? garbage : native, param_slot, R_SCRATCH_2, &reg2));
 
 					g(gen_check_array_len(ctx, R_SCRATCH_1, false, reg2, COND_AE, escape_label));
 
@@ -2104,7 +2104,7 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 
 	g(gen_test_1_cached(ctx, slot_idx, escape_label));
 	flag_set(ctx, slot_idx, false);
-	g(gen_frame_get(ctx, OP_SIZE_INT, native, slot_idx, R_SCRATCH_2, &reg2));
+	g(gen_frame_get(ctx, OP_SIZE_INT, i_size_cmp(OP_SIZE_INT) == OP_SIZE_INT ? garbage : native, slot_idx, R_SCRATCH_2, &reg2));
 
 	if (!(flags & OPCODE_ARRAY_INDEX_IN_RANGE))
 		g(gen_check_array_len(ctx, reg1, false, reg2, COND_AE, escape_label));
