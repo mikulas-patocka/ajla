@@ -2067,7 +2067,7 @@ static bool attr_w gen_check_array_len(struct codegen_context *ctx, unsigned reg
 	gen_one(R_SCRATCH_3);
 	gen_address_offset();
 
-	g(gen_cmp_test_jmp(ctx, INSN_CMP, i_size(OP_SIZE_INT), reg_len, R_SCRATCH_3, cond, escape_label));
+	g(gen_cmp_test_jmp(ctx, INSN_CMP, i_size_cmp(OP_SIZE_INT), reg_len, R_SCRATCH_3, cond, escape_label));
 #endif
 	return true;
 }
