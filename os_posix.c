@@ -1410,7 +1410,7 @@ alloc_larger:
 		return NULL;
 
 #ifdef HAVE_AT_FUNCTIONS
-	if (likely(have_O_CLOEXEC_openat)) {
+	if (likely(have_O_CLOEXEC_openat) && dir_handle_is_valid(dir)) {
 		EINTR_LOOP(r, readlinkat(dir, path, buf, buf_size));
 		goto proc_r;
 	}
