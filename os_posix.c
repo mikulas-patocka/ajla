@@ -1106,6 +1106,10 @@ void os_dir_close(dir_handle_t h)
 #endif
 }
 
+#ifdef __linux__
+static bool broken_readlink = false;
+#endif
+
 char *os_dir_path(dir_handle_t h, ajla_error_t *err)
 {
 #ifndef NO_DIR_HANDLES
@@ -1113,6 +1117,8 @@ char *os_dir_path(dir_handle_t h, ajla_error_t *err)
 #ifdef __linux__
 	ajla_error_t sink;
 	char lnk[25];
+	if (unlikely(broken_readlink))
+		goto skip_optimization;
 	snprintf(lnk, sizeof(lnk), "/proc/self/fd/%u", h);
 	path = os_readlink(dir_none, lnk, &sink);
 	if (likely(path != NULL)) {
@@ -3801,6 +3807,16 @@ skip_test:;
 	}
 
 	os_init_path_to_exe();
+
+#ifdef __linux__
+	{
+		/* Workaround for a bug in the Android Userland app */
+		struct stat st;
+		bool b = os_stat(dir_none, "/support/common/droid_files_socket", false, &st, &sink);
+		if (b && S_ISSOCK(st.st_mode))
+			broken_readlink = true;
+	}
+#endif
 
 #ifdef OS_HAVE_NOTIFY_PIPE
 	os_pipe(os_notify_pipe, 3, NULL);
