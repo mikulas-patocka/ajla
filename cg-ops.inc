@@ -1945,21 +1945,22 @@ add_offset:
 static bool attr_w gen_scaled_array_load(struct codegen_context *ctx, unsigned reg_src, unsigned reg_idx, int64_t offset_src, frame_t slot_r)
 {
 	const struct type *t = get_type_of_local(ctx, slot_r);
-#if defined(ARCH_X86)
 	if (is_power_of_2(t->size)) {
-		unsigned shift = log_2(t->size);
-		if (shift <= 3 && shift <= OP_SIZE_NATIVE && imm_is_32bit(offset_src)) {
+		unsigned op_size = log_2(t->size);
+		if (op_size > OP_SIZE_NATIVE)
+			goto gen_memcpy;
+		if (ARCH_HAS_2REG_M(false, op_size, offset_src)) {
 			short reg = ctx->registers[slot_r];
-			gen_insn(INSN_MOV, shift, 0, 0);
+			gen_insn(ARCH_PREFERS_SX(op_size) ? INSN_MOVSX : INSN_MOV, op_size, 0, 0);
 			gen_one(reg >= 0 ? reg : R_SCRATCH_2);
-			gen_one(ARG_ADDRESS_2 + shift);
+			gen_one(ARG_ADDRESS_2 + op_size);
 			gen_one(reg_src);
 			gen_one(reg_idx);
 			gen_eight(offset_src);
 
 			if (reg < 0) {
-				g(gen_address(ctx, R_FRAME, (size_t)slot_r * slot_size, IMM_PURPOSE_STR_OFFSET, shift));
-				gen_insn(INSN_MOV, shift, 0, 0);
+				g(gen_address(ctx, R_FRAME, (size_t)slot_r * slot_size, IMM_PURPOSE_STR_OFFSET, op_size));
+				gen_insn(INSN_MOV, op_size, 0, 0);
 				gen_address_offset();
 				gen_one(R_SCRATCH_2);
 			}
@@ -1967,27 +1968,8 @@ static bool attr_w gen_scaled_array_load(struct codegen_context *ctx, unsigned r
 			return true;
 		}
 	}
-#endif
-#if defined(ARCH_S390)
-	if (t->size == 1 && s390_inline_address(offset_src) && cpu_test_feature(CPU_FEATURE_long_displacement) && cpu_test_feature(CPU_FEATURE_extended_imm)) {
-		short reg = ctx->registers[slot_r];
-		gen_insn(INSN_MOVSX, OP_SIZE_1, 0, 0);
-		gen_one(reg >= 0 ? reg : R_SCRATCH_2);
-		gen_one(ARG_ADDRESS_2);
-		gen_one(reg_src);
-		gen_one(reg_idx);
-		gen_eight(offset_src);
 
-		if (reg < 0) {
-			g(gen_address(ctx, R_FRAME, (size_t)slot_r * slot_size, IMM_PURPOSE_STR_OFFSET, OP_SIZE_1));
-			gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
-			gen_address_offset();
-			gen_one(R_SCRATCH_2);
-		}
-
-		return true;
-	}
-#endif
+gen_memcpy:
 	g(gen_scaled_array_address(ctx, t->size, R_SCRATCH_2, reg_src, reg_idx, 0));
 
 	g(gen_memcpy_to_slot(ctx, slot_r, R_SCRATCH_2, offset_src));
@@ -1998,21 +1980,22 @@ static bool attr_w gen_scaled_array_load(struct codegen_context *ctx, unsigned r
 static bool attr_w gen_scaled_array_store(struct codegen_context *ctx, unsigned reg_src, int64_t offset_src, frame_t slot_1)
 {
 	const struct type *t = get_type_of_local(ctx, slot_1);
-#if defined(ARCH_X86)
 	if (is_power_of_2(t->size)) {
-		unsigned shift = log_2(t->size);
-		if (shift <= 3 && shift <= OP_SIZE_NATIVE && imm_is_32bit(offset_src)) {
+		unsigned op_size = log_2(t->size);
+		if (op_size > OP_SIZE_NATIVE)
+			goto gen_memcpy;
+		if (ARCH_HAS_2REG_M(true, op_size, offset_src)) {
 			short reg = ctx->registers[slot_1];
 			if (reg < 0) {
-				g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_LDR_OFFSET, shift));
-				gen_insn(INSN_MOV, shift, 0, 0);
+				g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_LDR_OFFSET, op_size));
+				gen_insn(INSN_MOV, op_size, 0, 0);
 				gen_one(R_SCRATCH_3);
 				gen_address_offset();
 				reg = R_SCRATCH_3;
 			}
 
-			gen_insn(INSN_MOV, shift, 0, 0);
-			gen_one(ARG_ADDRESS_2 + shift);
+			gen_insn(INSN_MOV, op_size, 0, 0);
+			gen_one(ARG_ADDRESS_2 + op_size);
 			gen_one(reg_src);
 			gen_one(R_SCRATCH_2);
 			gen_eight(offset_src);
@@ -2021,28 +2004,8 @@ static bool attr_w gen_scaled_array_store(struct codegen_context *ctx, unsigned 
 			return true;
 		}
 	}
-#endif
-#if defined(ARCH_S390)
-	if (t->size == 1 && s390_inline_address(offset_src) && cpu_test_feature(CPU_FEATURE_long_displacement) && cpu_test_feature(CPU_FEATURE_extended_imm)) {
-		short reg = ctx->registers[slot_1];
-		if (reg < 0) {
-			g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_LDR_SX_OFFSET, OP_SIZE_1));
-			gen_insn(INSN_MOVSX, OP_SIZE_1, 0, 0);
-			gen_one(R_SCRATCH_3);
-			gen_address_offset();
-			reg = R_SCRATCH_3;
-		}
 
-		gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
-		gen_one(ARG_ADDRESS_2);
-		gen_one(reg_src);
-		gen_one(R_SCRATCH_2);
-		gen_eight(offset_src);
-		gen_one(reg);
-
-		return true;
-	}
-#endif
+gen_memcpy:
 	g(gen_scaled_array_address(ctx, t->size, R_SCRATCH_2, reg_src, R_SCRATCH_2, 0));
 
 	g(gen_memcpy_from_slot(ctx, R_SCRATCH_2, offset_src, slot_1));
