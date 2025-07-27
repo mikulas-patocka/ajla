@@ -1776,7 +1776,7 @@ dir_handle_t os_dir_cwd(ajla_error_t *err)
 {
 	ULONG disk, logical;
 	APIRET rc;
-	char *ptr, *p;
+	char *ptr;
 	size_t len;
 
 	char *buffer;
@@ -1823,9 +1823,6 @@ alloc_again:
 	}
 	mem_free(buffer);
 	array_finish(char, &ptr, &len);
-	p = ptr;
-	while ((p = strchr(p, '\\')))
-		*p++ = '/';
 	return ptr;
 }
 
