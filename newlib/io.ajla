@@ -246,6 +246,7 @@ implementation
 
 uses pcode;
 uses exception;
+uses charset;
 
 {---------
  - WORLD -
@@ -1136,23 +1137,23 @@ fn path_is_dir_separator(b : byte) : bool
 
 fn path_compare(a b : bytes) : bool
 [
+	if len(a) <> len(b) then
+		return false;
 	var os := sysprop(SystemProperty_OS);
 	if os = SystemProperty_OS_DOS or
 	   os = SystemProperty_OS_OS2 or
+	   os = SystemProperty_OS_Cygwin or
 	   os = SystemProperty_OS_Windows then [
-		if len(a) <> len(b) then
-			return false;
-		for i := 0 to len(a) do [
-			var a1 := a[i];
-			var b1 := b[i];
-			if a1 >= 'a', a1 <= 'z' then
-				a1 -= #20;
-			if b1 >= 'a', b1 <= 'z' then
-				b1 -= #20;
-			if a1 <> b1 then
-				return false;
+		if os <> SystemProperty_OS_Cygwin then [
+			a := bytes_upcase(a);
+			b := bytes_upcase(b);
 		]
-		return true;
+		for i := 0 to len(a) do [
+			if path_is_dir_separator(a[i]) then
+				a[i] := path_separator;
+			if path_is_dir_separator(b[i]) then
+				b[i] := path_separator;
+		]
 	]
 	return a = b;
 ]
