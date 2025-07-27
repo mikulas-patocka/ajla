@@ -1342,7 +1342,7 @@ fn path_shortcut_home(home : maybe(bytes), p : bytes) : bytes
 	if not path_is_absolute(home.j) then
 		return p;
 	var h := path_contract(home.j);
-	if h = p then
+	if path_compare(h, p) then
 		return "~";
 	if len(h) < len(p), path_compare(h, p[ .. len(h)]), path_is_dir_separator(p[len(h)]) then
 		return "~" + p[len(h) .. ];
