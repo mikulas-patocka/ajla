@@ -1947,13 +1947,17 @@ static bool attr_w gen_scaled_array_load(struct codegen_context *ctx, unsigned r
 	const struct type *t = get_type_of_local(ctx, slot_r);
 	if (is_power_of_2(t->size)) {
 		unsigned op_size = log_2(t->size);
+		unsigned addr_mode;
 		if (op_size > OP_SIZE_NATIVE)
 			goto gen_memcpy;
 		if (ARCH_HAS_2REG_M(false, op_size, offset_src)) {
-			short reg = ctx->registers[slot_r];
+			short reg;
+			addr_mode = ARG_ADDRESS_2 + op_size;
+do_op:
+			reg = ctx->registers[slot_r];
 			gen_insn(ARCH_PREFERS_SX(op_size) ? INSN_MOVSX : INSN_MOV, op_size, 0, 0);
 			gen_one(reg >= 0 ? reg : R_SCRATCH_2);
-			gen_one(ARG_ADDRESS_2 + op_size);
+			gen_one(addr_mode);
 			gen_one(reg_src);
 			gen_one(reg_idx);
 			gen_eight(offset_src);
@@ -1966,6 +1970,13 @@ static bool attr_w gen_scaled_array_load(struct codegen_context *ctx, unsigned r
 			}
 
 			return true;
+		}
+		if (ARCH_HAS_2REG_M(false, 0, offset_src)) {
+			g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_SCRATCH_2, reg_idx, op_size, 0));
+
+			addr_mode = ARG_ADDRESS_2;
+			reg_idx = R_SCRATCH_2;
+			goto do_op;
 		}
 	}
 
@@ -1982,10 +1993,14 @@ static bool attr_w gen_scaled_array_store(struct codegen_context *ctx, unsigned 
 	const struct type *t = get_type_of_local(ctx, slot_1);
 	if (is_power_of_2(t->size)) {
 		unsigned op_size = log_2(t->size);
+		unsigned addr_mode;
 		if (op_size > OP_SIZE_NATIVE)
 			goto gen_memcpy;
 		if (ARCH_HAS_2REG_M(true, op_size, offset_src)) {
-			short reg = ctx->registers[slot_1];
+			short reg;
+			addr_mode = ARG_ADDRESS_2 + op_size;
+do_op:
+			reg = ctx->registers[slot_1];
 			if (reg < 0) {
 				g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_LDR_OFFSET, op_size));
 				gen_insn(INSN_MOV, op_size, 0, 0);
@@ -1995,13 +2010,19 @@ static bool attr_w gen_scaled_array_store(struct codegen_context *ctx, unsigned 
 			}
 
 			gen_insn(INSN_MOV, op_size, 0, 0);
-			gen_one(ARG_ADDRESS_2 + op_size);
+			gen_one(addr_mode);
 			gen_one(reg_src);
 			gen_one(R_SCRATCH_2);
 			gen_eight(offset_src);
 			gen_one(reg);
 
 			return true;
+		}
+		if (ARCH_HAS_2REG_M(true, 0, offset_src)) {
+			g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_SCRATCH_2, R_SCRATCH_2, op_size, 0));
+
+			addr_mode = ARG_ADDRESS_2;
+			goto do_op;
 		}
 	}
 
