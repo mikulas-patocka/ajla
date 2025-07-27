@@ -1,3 +1,12 @@
+=== RELEASE 0.2.2 ===
+
+Make it work in the Userland Android app
+
+Fix a bug with register spilling in the code generator
+
+Fix a bug that Ajla would attempt to free invalid pointer if we passed
+negative number to len_at_least or len_greater_than
+
 === RELEASE 0.2.1 ===
 
 Many bugfixes
