@@ -1978,6 +1978,13 @@ do_op:
 			reg_idx = R_SCRATCH_2;
 			goto do_op;
 		}
+		if (ARCH_HAS_2REG_M(false, op_size, 0)) {
+			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_SCRATCH_3, reg_src, offset_src, 0));
+			addr_mode = ARG_ADDRESS_2 + op_size;
+			reg_src = R_SCRATCH_3;
+			offset_src = 0;
+			goto do_op;
+		}
 	}
 
 gen_memcpy:
