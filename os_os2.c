@@ -769,7 +769,7 @@ handle_t os_get_std_handle(unsigned p)
 
 static void os2_clean_up_handles(void)
 {
-	if (!list_is_empty(&deferred_closed_list)) {
+	if (likely(os_threads_initialized) && !list_is_empty(&deferred_closed_list)) {
 		mutex_lock(&deferred_mutex);
 		while (!list_is_empty(&deferred_closed_list)) {
 			handle_t h = get_struct(deferred_closed_list.prev, struct os2_handle, deferred_entry);
