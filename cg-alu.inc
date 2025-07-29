@@ -2638,6 +2638,21 @@ conv_uto_int: {
 	}
 
 conv_ufrom_int: {
+		unsigned dest_op_size;
+		const struct type *dest_type;
+		dest_type = get_type_of_local(ctx, slot_r);
+		dest_op_size = TYPE_TAG_IDX_FIXED(dest_type->tag) >> 1;
+		if (dest_op_size <= OP_SIZE_NATIVE) {
+			g(gen_frame_get(ctx, OP_SIZE_INT, sign_x, slot_1, R_SCRATCH_1, &reg1));
+			if (dest_op_size >= OP_SIZE_INT) {
+				g(gen_cmp_test_jmp(ctx, INSN_TEST, OP_SIZE_NATIVE, reg1, reg1, COND_S, label_ovf));
+			} else {
+				g(gen_extend(ctx, dest_op_size, zero_x, R_SCRATCH_2, reg1));
+				g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, reg1, R_SCRATCH_2, COND_NE, label_ovf));
+			}
+			g(gen_frame_store(ctx, dest_op_size, slot_r, 0, reg1));
+			return true;
+		}
 		return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, FIXED_ufrom_int_int8_t), op_size, slot_1, NO_FRAME_T, slot_r, label_ovf);
 	}
 }
