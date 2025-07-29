@@ -2623,6 +2623,17 @@ do_conv: {
 	}
 
 conv_uto_int: {
+		const struct type *src_type;
+		unsigned src_op_size;
+		src_type = get_type_of_local(ctx, slot_1);
+		src_op_size = TYPE_TAG_IDX_FIXED(src_type->tag) >> 1;
+		if (src_op_size <= OP_SIZE_INT) {
+			g(gen_frame_get(ctx, src_op_size, zero_x, slot_1, R_SCRATCH_1, &reg1));
+			if (src_op_size == OP_SIZE_INT)
+				g(gen_cmp_test_jmp(ctx, INSN_TEST, src_op_size, reg1, reg1, COND_S, label_ovf));
+			g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, reg1));
+			return true;
+		}
 		return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, FIXED_uto_int_int8_t), op_size, slot_1, NO_FRAME_T, slot_r, label_ovf);
 	}
 
