@@ -2644,7 +2644,8 @@ conv_uto_int: {
 			g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, reg1));
 			return true;
 		}
-		return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, FIXED_uto_int_int8_t), op_size, slot_1, NO_FRAME_T, slot_r, label_ovf);
+		g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(FIXED_uto_int_,TYPE_INT_MAX)), src_op_size, slot_1, NO_FRAME_T, slot_r, label_ovf));
+		return true;
 	}
 
 conv_ufrom_int: {
@@ -2663,7 +2664,8 @@ conv_ufrom_int: {
 			g(gen_frame_store(ctx, dest_op_size, slot_r, 0, reg1));
 			return true;
 		}
-		return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, FIXED_ufrom_int_int8_t), op_size, slot_1, NO_FRAME_T, slot_r, label_ovf);
+		g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(FIXED_ufrom_int_,TYPE_INT_MAX)), dest_op_size, slot_1, NO_FRAME_T, slot_r, label_ovf));
+		return true;
 	}
 }
 

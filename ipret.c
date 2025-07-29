@@ -1015,27 +1015,24 @@ static bool cat(INT_binary_const_,s)(const s *v1, int_default_t_upcall v2, s *r,
 for_all_int(f, for_all_empty)
 #undef f
 
-#define f(n, s, u, sz, bits)						\
-static bool cat(FIXED_uto_int_,s)(const u *v1, int_default_t *r)	\
-{									\
-	int_default_t ret;						\
-	ret = (int_default_t)*v1;					\
-	if (unlikely((u)ret != *v1) || unlikely(ret < 0))		\
-		return false;						\
-	*r = ret;							\
-	return true;							\
-}									\
-static bool cat(FIXED_ufrom_int_,s)(const int_default_t *v1, u *r)	\
-{									\
-	u ret;								\
-	ret = (u)*v1;							\
-	if (unlikely((int_default_t)ret != *v1) || unlikely(*v1 < 0))	\
-		return false;						\
-	*r = ret;							\
-	return true;							\
+static bool cat(FIXED_uto_int_,TYPE_INT_MAX)(const uintbig_t *v1, int_default_t *r)
+{
+	int_default_t ret;
+	ret = (int_default_t)*v1;
+	if (unlikely((uintbig_t)ret != *v1) || unlikely(ret < 0))
+		return false;
+	*r = ret;
+	return true;
 }
-for_all_fixed(f)
-#undef f
+static bool cat(FIXED_ufrom_int_,TYPE_INT_MAX)(const int_default_t *v1, uintbig_t *r)
+{
+	uintbig_t ret;
+	ret = (uintbig_t)*v1;
+	if (unlikely((int_default_t)ret != *v1) || unlikely(*v1 < 0))
+		return false;
+	*r = ret;
+	return true;
+}
 
 #ifdef DEBUG_UPCALL
 static void cg_upcall_debug(unsigned long x1, unsigned long x2, unsigned long x3, unsigned long x4)
@@ -1141,14 +1138,8 @@ struct cg_upcall_vector_s cg_upcall_vector = {
 	cat(FIXED_unary_popcnt_,s),
 	for_all_fixed(f)
 #undef f
-#define f(n, s, u, sz, bits) \
-	cat(FIXED_uto_int_,s),
-	for_all_fixed(f)
-#undef f
-#define f(n, s, u, sz, bits) \
-	cat(FIXED_ufrom_int_,s),
-	for_all_fixed(f)
-#undef f
+	cat(FIXED_uto_int_,TYPE_INT_MAX),
+	cat(FIXED_ufrom_int_,TYPE_INT_MAX),
 	cat(INT_binary_add_,TYPE_INT_MAX),
 	cat(INT_binary_subtract_,TYPE_INT_MAX),
 #define f(n, s, u, sz, bits) \

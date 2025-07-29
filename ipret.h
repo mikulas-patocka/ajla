@@ -132,14 +132,8 @@ struct cg_upcall_vector_s {
 	void (*cat(FIXED_unary_popcnt_,s))(const u *v1, u *r);
 	for_all_fixed(f)
 #undef f
-#define f(n, s, u, sz, bits) \
-	bool (*cat(FIXED_uto_int_,s))(const u *v1, int_default_t *r);
-	for_all_fixed(f)
-#undef f
-#define f(n, s, u, sz, bits) \
-	bool (*cat(FIXED_ufrom_int_,s))(const int_default_t *v1, u *r);
-	for_all_fixed(f)
-#undef f
+	bool (*cat(FIXED_uto_int_,TYPE_INT_MAX))(const uintbig_t *v1, int_default_t *r);
+	bool (*cat(FIXED_ufrom_int_,TYPE_INT_MAX))(const int_default_t *v1, uintbig_t *r);
 	bool (*cat(INT_binary_add_,TYPE_INT_MAX))(const intbig_t *v1, const intbig_t *v2, intbig_t *r);
 	bool (*cat(INT_binary_subtract_,TYPE_INT_MAX))(const intbig_t *v1, const intbig_t *v2, intbig_t *r);
 #define f(n, s, u, sz, bits) \
