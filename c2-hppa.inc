@@ -387,6 +387,8 @@ static bool attr_w cgen_ld_st(struct codegen_context *ctx, bool ld, unsigned siz
 			goto invalid;
 		mc = PARISC_LD_ST | PARISC_LD_ST_LD;
 		if (address[0] == ARG_ADDRESS_2) {
+		} else if (address[0] == ARG_ADDRESS_2_2 && size == OP_SIZE_2) {
+			mc |= PARISC_LD_SCALE;
 		} else if (address[0] == ARG_ADDRESS_2_4 && size == OP_SIZE_4) {
 			mc |= PARISC_LD_SCALE;
 		} else if (address[0] == ARG_ADDRESS_2_8 && size == OP_SIZE_8) {
