@@ -272,7 +272,7 @@ static bool attr_w cgen_ldr_str(struct codegen_context *ctx, bool ld, uint32_t c
 
 	imm = 0;
 invalid:
-	internal(file_line, "cgen_ldr_str: invalid address: %02x, %02x, %"PRIxMAX"", reg, address[0], (uintmax_t)imm);
+	internal(file_line, "cgen_ldr_str: invalid address: %u, %u, %u, %02x, %02x, %"PRIxMAX"", (unsigned)ld, size, (unsigned)sx, reg, address[0], (uintmax_t)imm);
 	return false;
 }
 
