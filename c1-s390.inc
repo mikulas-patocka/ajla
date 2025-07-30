@@ -54,7 +54,7 @@
 #define ARCH_HAS_DIV			1
 #define ARCH_HAS_ANDN			cpu_test_feature(CPU_FEATURE_misc_insn_ext_3)
 #define ARCH_HAS_SHIFTED_ADD(bits)	0
-#define ARCH_HAS_2REG_M(st, shift, imm)	(cpu_test_feature(CPU_FEATURE_long_displacement) && cpu_test_feature(CPU_FEATURE_extended_imm) && !(shift) && s390_inline_address(imm))
+#define ARCH_HAS_2REG_M(st, fp, sh, im)	(cpu_test_feature(CPU_FEATURE_long_displacement) && cpu_test_feature(CPU_FEATURE_extended_imm) && !(sh) && s390_inline_address(im))
 #define ARCH_HAS_BTX(btx, size, cnst)	0
 #define ARCH_SHIFT_SIZE			OP_SIZE_8
 #define ARCH_BOOL_SIZE			OP_SIZE_4

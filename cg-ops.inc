@@ -1945,18 +1945,27 @@ add_offset:
 static bool attr_w gen_scaled_array_load(struct codegen_context *ctx, unsigned reg_src, unsigned reg_idx, int64_t offset_src, frame_t slot_r)
 {
 	const struct type *t = get_type_of_local(ctx, slot_r);
+	bool fp = TYPE_TAG_IS_REAL(t->tag);
+	unsigned real_type = fp ? TYPE_TAG_IDX_REAL(t->tag) : -1;
 	if (is_power_of_2(t->size)) {
 		unsigned op_size = log_2(t->size);
 		unsigned addr_mode;
-		if (op_size > OP_SIZE_NATIVE)
+		if (!fp && op_size > OP_SIZE_NATIVE)
 			goto gen_memcpy;
-		if (ARCH_HAS_2REG_M(false, op_size, offset_src)) {
+		if (fp && !((SUPPORTED_FP >> real_type) & 1))
+			goto gen_memcpy;
+		if (ARCH_HAS_2REG_M(false, fp, op_size, offset_src)) {
 			short reg;
+			unsigned xreg;
 			addr_mode = ARG_ADDRESS_2 + op_size;
 do_op:
 			reg = ctx->registers[slot_r];
+			if (reg >= 0)
+				xreg = reg;
+			else
+				xreg = !fp ? R_SCRATCH_2 : FR_SCRATCH_1;
 			gen_insn(ARCH_PREFERS_SX(op_size) ? INSN_MOVSX : INSN_MOV, op_size, 0, 0);
-			gen_one(reg >= 0 ? reg : R_SCRATCH_2);
+			gen_one(xreg);
 			gen_one(addr_mode);
 			gen_one(reg_src);
 			gen_one(reg_idx);
@@ -1966,19 +1975,19 @@ do_op:
 				g(gen_address(ctx, R_FRAME, (size_t)slot_r * slot_size, IMM_PURPOSE_STR_OFFSET, op_size));
 				gen_insn(INSN_MOV, op_size, 0, 0);
 				gen_address_offset();
-				gen_one(R_SCRATCH_2);
+				gen_one(xreg);
 			}
 
 			return true;
 		}
-		if (ARCH_HAS_2REG_M(false, 0, offset_src)) {
+		if (ARCH_HAS_2REG_M(false, fp, 0, offset_src)) {
 			g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_SCRATCH_2, reg_idx, op_size, 0));
 
 			addr_mode = ARG_ADDRESS_2;
 			reg_idx = R_SCRATCH_2;
 			goto do_op;
 		}
-		if (ARCH_HAS_2REG_M(false, op_size, 0)) {
+		if (ARCH_HAS_2REG_M(false, fp, op_size, 0)) {
 			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_SCRATCH_3, reg_src, offset_src, 0));
 			addr_mode = ARG_ADDRESS_2 + op_size;
 			reg_src = R_SCRATCH_3;
@@ -1998,22 +2007,26 @@ gen_memcpy:
 static bool attr_w gen_scaled_array_store(struct codegen_context *ctx, unsigned reg_src, int64_t offset_src, frame_t slot_1)
 {
 	const struct type *t = get_type_of_local(ctx, slot_1);
+	bool fp = TYPE_TAG_IS_REAL(t->tag);
+	unsigned real_type = fp ? TYPE_TAG_IDX_REAL(t->tag) : -1;
 	if (is_power_of_2(t->size)) {
 		unsigned op_size = log_2(t->size);
 		unsigned addr_mode;
-		if (op_size > OP_SIZE_NATIVE)
+		if (!fp && op_size > OP_SIZE_NATIVE)
 			goto gen_memcpy;
-		if (ARCH_HAS_2REG_M(true, op_size, offset_src)) {
+		if (fp && !((SUPPORTED_FP >> real_type) & 1))
+			goto gen_memcpy;
+		if (ARCH_HAS_2REG_M(true, fp, op_size, offset_src)) {
 			short reg;
 			addr_mode = ARG_ADDRESS_2 + op_size;
 do_op:
 			reg = ctx->registers[slot_1];
 			if (reg < 0) {
+				reg = !fp ? R_SCRATCH_3 : FR_SCRATCH_1;
 				g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_LDR_OFFSET, op_size));
 				gen_insn(INSN_MOV, op_size, 0, 0);
-				gen_one(R_SCRATCH_3);
+				gen_one(reg);
 				gen_address_offset();
-				reg = R_SCRATCH_3;
 			}
 
 			gen_insn(INSN_MOV, op_size, 0, 0);
@@ -2025,13 +2038,13 @@ do_op:
 
 			return true;
 		}
-		if (ARCH_HAS_2REG_M(true, 0, offset_src)) {
+		if (ARCH_HAS_2REG_M(true, fp, 0, offset_src)) {
 			g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_SCRATCH_2, R_SCRATCH_2, op_size, 0));
 
 			addr_mode = ARG_ADDRESS_2;
 			goto do_op;
 		}
-		if (ARCH_HAS_2REG_M(true, op_size, 0)) {
+		if (ARCH_HAS_2REG_M(true, fp, op_size, 0)) {
 			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_SCRATCH_1, reg_src, offset_src, 0));
 			addr_mode = ARG_ADDRESS_2 + op_size;
 			reg_src = R_SCRATCH_1;

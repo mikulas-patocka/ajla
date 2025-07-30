@@ -140,10 +140,12 @@
 #define PARISC_DEPDI		0xf4000400U
 
 #define  PARISC_FP_DOUBLE		0x00000800U
-#define PARISC_FLDW		0x24001000U
-#define PARISC_FSTW		0x24001200U
-#define PARISC_FLDD		0x2c001000U
-#define PARISC_FSTD		0x2c001200U
+#define PARISC_FLDW		0x24000000U
+#define PARISC_FSTW		0x24000200U
+#define PARISC_FLDD		0x2c000000U
+#define PARISC_FSTD		0x2c000200U
+#define  PARISC_FLDST_IMM5		0x00001000U
+#define  PARISC_FLDST_SCALE		0x00002000U
 #define PARISC_FCMP		0x30000400U
 #define  PARISC_FCMP_P			0x02U
 #define  PARISC_FCMP_NE			0x04U
@@ -406,6 +408,7 @@ static bool attr_w cgen_ld_st(struct codegen_context *ctx, bool ld, unsigned siz
 		g(cgen_3reg(ctx, mc, address[2], address[1], reg));
 		return true;
 	}
+
 invalid:
 	internal(file_line, "cgen_ld_st: invalid address: %x, %02x, %02x, %"PRIxMAX"", size, reg, address[0], (uintmax_t)imm);
 	return false;
@@ -416,27 +419,46 @@ static bool attr_w cgen_fp_ld_st(struct codegen_context *ctx, bool ld, unsigned 
 	int64_t imm = 0;
 	uint32_t mc;
 
-	if (unlikely(address[0] != ARG_ADDRESS_1))
-		goto invalid;
-
-	imm = get_imm(&address[2]);
-	if (imm >= -0x10 && imm < 0x10) {
+	if (unlikely(address[0] == ARG_ADDRESS_1)) {
+		imm = get_imm(&address[2]);
+		if (imm >= -0x10 && imm < 0x10) {
+			if (ld)
+				mc = size == OP_SIZE_4 ? PARISC_FLDW : PARISC_FLDD;
+			else
+				mc = size == OP_SIZE_4 ? PARISC_FSTW : PARISC_FSTD;
+			mc |= PARISC_FLDST_IMM5;
+			mc |= low_sign_ext_5(imm) << 16;
+			mc |= reg & 0x1f;
+			mc |= (uint32_t)address[1] << 21;
+			cgen_four(mc);
+			return true;
+		} else {
+			if (ld)
+				mc = size == OP_SIZE_4 ? PARISC_FLDW_LONG : PARISC_FLDD_LONG;
+			else
+				mc = size == OP_SIZE_4 ? PARISC_FSTW_LONG : PARISC_FSTD_LONG;
+			mc |= low_sign_ext_14(imm);
+			g(cgen_2reg(ctx, mc, address[1], reg & 0x1f));
+			return true;
+		}
+	}
+	if (address[0] >= ARG_ADDRESS_2 && address[0] <= ARG_ADDRESS_2_8) {
+		imm = get_imm(&address[3]);
+		if (unlikely(imm != 0))
+			goto invalid;
 		if (ld)
 			mc = size == OP_SIZE_4 ? PARISC_FLDW : PARISC_FLDD;
 		else
 			mc = size == OP_SIZE_4 ? PARISC_FSTW : PARISC_FSTD;
-		mc |= low_sign_ext_5(imm) << 16;
-		mc |= reg & 0x1f;
-		mc |= (uint32_t)address[1] << 21;
-		cgen_four(mc);
-		return true;
-	} else {
-		if (ld)
-			mc = size == OP_SIZE_4 ? PARISC_FLDW_LONG : PARISC_FLDD_LONG;
-		else
-			mc = size == OP_SIZE_4 ? PARISC_FSTW_LONG : PARISC_FSTD_LONG;
-		mc |= low_sign_ext_14(imm);
-		g(cgen_2reg(ctx, mc, address[1], reg & 0x1f));
+		if (address[0] == ARG_ADDRESS_2) {
+		} else if (address[0] == ARG_ADDRESS_2_4 && size == OP_SIZE_4) {
+			mc |= PARISC_FLDST_SCALE;
+		} else if (address[0] == ARG_ADDRESS_2_8 && size == OP_SIZE_8) {
+			mc |= PARISC_FLDST_SCALE;
+		} else {
+			goto invalid;
+		}
+		g(cgen_3reg(ctx, mc, address[2], address[1], reg & 0x1f));
 		return true;
 	}
 
@@ -514,10 +536,10 @@ static bool attr_w cgen_mov_args(struct codegen_context *ctx, unsigned size, uin
 		return cgen_ld_st(ctx, false, size, R_ZERO, arg1);
 	}
 
-	if (reg_is_fp(arg1[0]) && arg2[0] == ARG_ADDRESS_1) {
+	if (reg_is_fp(arg1[0])) {
 		return cgen_fp_ld_st(ctx, true, size, arg1[0], arg2);
 	}
-	if (reg_is_fp(arg2[0]) && arg1[0] == ARG_ADDRESS_1) {
+	if (reg_is_fp(arg2[0])) {
 		return cgen_fp_ld_st(ctx, false, size, arg2[0], arg1);
 	}
 	if (reg_is_fp(arg1[0]) && reg_is_fp(arg2[0])) {

@@ -52,7 +52,7 @@
 #define ARCH_HAS_DIV			SPARC_9
 #define ARCH_HAS_ANDN			1
 #define ARCH_HAS_SHIFTED_ADD(bits)	0
-#define ARCH_HAS_2REG_M(st, shift, imm)	(!(shift) && !(imm))
+#define ARCH_HAS_2REG_M(st, fp, sh, im)	(!(sh) && !(im))
 #define ARCH_HAS_BTX(btx, size, cnst)	0
 #define ARCH_SHIFT_SIZE			OP_SIZE_4
 #define ARCH_BOOL_SIZE			OP_SIZE_NATIVE

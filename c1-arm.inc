@@ -47,7 +47,7 @@
 #define ARCH_HAS_DIV			cpu_test_feature(CPU_FEATURE_idiv)
 #define ARCH_HAS_ANDN			1
 #define ARCH_HAS_SHIFTED_ADD(bits)	1
-#define ARCH_HAS_2REG_M(st, shift, imm)	(((shift) == 0 || (shift) == 2) && !(imm))
+#define ARCH_HAS_2REG_M(st, fp, sh, im)	(!(fp) && ((sh) == 0 || (sh) == 2) && !(im))
 #define ARCH_HAS_BTX(btx, size, cnst)	0
 #define ARCH_SHIFT_SIZE			32
 #define ARCH_BOOL_SIZE			OP_SIZE_4
