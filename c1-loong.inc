@@ -43,7 +43,7 @@
 #define ARCH_HAS_DIV			1
 #define ARCH_HAS_ANDN			1
 #define ARCH_HAS_SHIFTED_ADD(bits)	((bits) <= 4)
-#define ARCH_HAS_2REG_M(st, fp, sh, im)	(!(fp) && !(sh) && !(im))
+#define ARCH_HAS_2REG_M(st, fp, sh, im)	(!(sh) && !(im))
 #define ARCH_HAS_BTX(btx, size, cnst)	(((btx) == BTX_BTR || (btx) == BTX_BTEXT) && (cnst))
 #define ARCH_SHIFT_SIZE			OP_SIZE_4
 #define ARCH_BOOL_SIZE			OP_SIZE_NATIVE
