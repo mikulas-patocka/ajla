@@ -1954,6 +1954,10 @@ static bool attr_w gen_scaled_array_load(struct codegen_context *ctx, unsigned r
 			goto gen_memcpy;
 		if (fp && !((SUPPORTED_FP >> real_type) & 1))
 			goto gen_memcpy;
+#if defined(ARCH_S390)
+		if (fp && op_size == OP_SIZE_16)
+			goto gen_memcpy;
+#endif
 		if (ARCH_HAS_2REG_M(false, fp, op_size, offset_src)) {
 			short reg;
 			unsigned xreg;
@@ -1964,7 +1968,7 @@ do_op:
 				xreg = reg;
 			else
 				xreg = !fp ? R_SCRATCH_2 : FR_SCRATCH_1;
-			gen_insn(ARCH_PREFERS_SX(op_size) ? INSN_MOVSX : INSN_MOV, op_size, 0, 0);
+			gen_insn(!fp && ARCH_PREFERS_SX(op_size) ? INSN_MOVSX : INSN_MOV, op_size, 0, 0);
 			gen_one(xreg);
 			gen_one(addr_mode);
 			gen_one(reg_src);
@@ -2016,6 +2020,10 @@ static bool attr_w gen_scaled_array_store(struct codegen_context *ctx, unsigned 
 			goto gen_memcpy;
 		if (fp && !((SUPPORTED_FP >> real_type) & 1))
 			goto gen_memcpy;
+#if defined(ARCH_S390)
+		if (fp && op_size == OP_SIZE_16)
+			goto gen_memcpy;
+#endif
 		if (ARCH_HAS_2REG_M(true, fp, op_size, offset_src)) {
 			short reg;
 			addr_mode = ARG_ADDRESS_2 + op_size;
