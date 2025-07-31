@@ -1952,6 +1952,8 @@ static bool attr_w gen_scaled_array_load(struct codegen_context *ctx, unsigned r
 		unsigned addr_mode;
 		if (!fp && op_size > OP_SIZE_NATIVE)
 			goto gen_memcpy;
+		if (!fp && !ARCH_HAS_BWX && op_size < OP_SIZE_4)
+			goto gen_memcpy;
 		if (fp && !((SUPPORTED_FP >> real_type) & 1))
 			goto gen_memcpy;
 #if defined(ARCH_S390)
@@ -2017,6 +2019,8 @@ static bool attr_w gen_scaled_array_store(struct codegen_context *ctx, unsigned 
 		unsigned op_size = log_2(t->size);
 		unsigned addr_mode;
 		if (!fp && op_size > OP_SIZE_NATIVE)
+			goto gen_memcpy;
+		if (!fp && !ARCH_HAS_BWX && op_size < OP_SIZE_4)
 			goto gen_memcpy;
 		if (fp && !((SUPPORTED_FP >> real_type) & 1))
 			goto gen_memcpy;
