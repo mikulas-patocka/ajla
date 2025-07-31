@@ -2258,16 +2258,17 @@ no_cmov:
 		gen_one(R_SCRATCH_1);
 		gen_address_offset();
 
-#if defined(ARCH_X86) || defined(ARCH_ARM)
-		gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
-		gen_one(R_SCRATCH_1);
-		gen_one(ARG_ADDRESS_2 + OP_SIZE_SLOT);
-		gen_one(R_SCRATCH_1);
-		gen_one(reg2);
-		gen_eight(0);
+		if (ARCH_HAS_2REG_M(false, false, OP_SIZE_SLOT, 0)) {
+			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
+			gen_one(R_SCRATCH_1);
+			gen_one(ARG_ADDRESS_2 + OP_SIZE_SLOT);
+			gen_one(R_SCRATCH_1);
+			gen_one(reg2);
+			gen_eight(0);
 
-		goto scaled_load_done;
-#endif
+			goto scaled_load_done;
+		}
+
 		if (ARCH_HAS_SHIFTED_ADD(OP_SIZE_SLOT)) {
 			gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(i_size(OP_SIZE_ADDRESS), ALU_ADD, false, false, 0));
 			gen_one(R_SCRATCH_2);
@@ -2284,18 +2285,19 @@ no_cmov:
 
 			goto scaled_load_done;
 		}
-#if defined(ARCH_LOONGARCH64) || defined(ARCH_PARISC) || defined(ARCH_POWER) || defined(ARCH_S390) || defined(ARCH_SPARC)
-		g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_SCRATCH_2, reg2, OP_SIZE_SLOT, false));
 
-		gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
-		gen_one(R_SCRATCH_1);
-		gen_one(ARG_ADDRESS_2);
-		gen_one(R_SCRATCH_1);
-		gen_one(R_SCRATCH_2);
-		gen_eight(0);
+		if (ARCH_HAS_2REG_M(false, false, 0, 0)) {
+			g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_SCRATCH_2, reg2, OP_SIZE_SLOT, false));
 
-		goto scaled_load_done;
-#endif
+			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
+			gen_one(R_SCRATCH_1);
+			gen_one(ARG_ADDRESS_2);
+			gen_one(R_SCRATCH_1);
+			gen_one(R_SCRATCH_2);
+			gen_eight(0);
+
+			goto scaled_load_done;
+		}
 
 		g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_SCRATCH_2, reg2, OP_SIZE_SLOT, false));
 
