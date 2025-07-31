@@ -1946,7 +1946,7 @@ static bool attr_w gen_scaled_array_load(struct codegen_context *ctx, unsigned r
 {
 	const struct type *t = get_type_of_local(ctx, slot_r);
 	bool fp = TYPE_TAG_IS_REAL(t->tag);
-	unsigned real_type = fp ? TYPE_TAG_IDX_REAL(t->tag) : -1;
+	unsigned real_type = fp ? (unsigned)TYPE_TAG_IDX_REAL(t->tag) : -1U;
 	if (is_power_of_2(t->size)) {
 		unsigned op_size = log_2(t->size);
 		unsigned addr_mode;
@@ -2012,7 +2012,7 @@ static bool attr_w gen_scaled_array_store(struct codegen_context *ctx, unsigned 
 {
 	const struct type *t = get_type_of_local(ctx, slot_1);
 	bool fp = TYPE_TAG_IS_REAL(t->tag);
-	unsigned real_type = fp ? TYPE_TAG_IDX_REAL(t->tag) : -1;
+	unsigned real_type = fp ? (unsigned)TYPE_TAG_IDX_REAL(t->tag) : -1U;
 	if (is_power_of_2(t->size)) {
 		unsigned op_size = log_2(t->size);
 		unsigned addr_mode;
