@@ -482,10 +482,14 @@ static attr_always_inline struct data *pointer_get_data_(pointer_t ptr argument_
  * The ldd/std instructions require 8-byte alignment.
  * Aligning the offset avoids offset-generating instructions.
  *
+ * The same applies on power with 16-byte fp instructions.
+ *
  * On alpha, we need this, so that we can access flags using the ldq
  * instruction.
  */
 #define slot_align		maximum(slot_size, 8)
+#elif defined(ARCH_POWER)
+#define slot_align		maximum(slot_size, 16)
 #else
 #define slot_align		slot_size
 #endif
