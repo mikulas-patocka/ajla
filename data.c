@@ -364,6 +364,8 @@ struct data * attr_fastcall data_alloc_array_flat_mayfail(const struct type *typ
 #if defined(HAVE_BUILTIN_ADD_SUB_OVERFLOW) && defined(HAVE_BUILTIN_MUL_OVERFLOW) && !defined(UNUSUAL)
 	if (unlikely(__builtin_mul_overflow((uint_default_t)n_allocated, type->size, &size)))
 		goto ovf;
+	if (size < sizeof(unsigned char *))
+		size = sizeof(unsigned char *);
 	if (unlikely(__builtin_add_overflow(size, data_array_offset, &size)))
 		goto ovf;
 #else
@@ -374,6 +376,8 @@ struct data * attr_fastcall data_alloc_array_flat_mayfail(const struct type *typ
 		if ((size_t)(size + data_array_offset) < size)
 			goto ovf;
 	}
+	if (size < sizeof(unsigned char *))
+		size = sizeof(unsigned char *);
 	size += data_array_offset;
 #endif
 	if (likely(!clear))
