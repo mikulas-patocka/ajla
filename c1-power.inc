@@ -201,7 +201,9 @@
 
 #define R_SCRATCH_NA_1			R_7
 #define R_SCRATCH_NA_2			R_8
+#ifdef HAVE_BITWISE_FRAME
 #define R_SCRATCH_NA_3			R_9
+#endif
 
 #define R_FRAME				R_31
 #define R_UPCALL			R_30
@@ -245,7 +247,11 @@ static const uint8_t regs_volatile[] = {
 #if defined(ARCH_POWER64)
 	R_2,
 #endif
-	R_6, R_12 };
+	R_6,
+#ifndef HAVE_BITWISE_FRAME
+	R_9,
+#endif
+	R_12 };
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved 0U
 static const uint8_t fp_volatile[] = { R_F3, R_F4, R_F5, R_F6, R_F7, R_F8, R_F9, R_F10, R_F11, R_F12, R_F13 };
@@ -418,7 +424,7 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(R_SP);
 
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-	gen_one(R_SCRATCH_NA_3);
+	gen_one(R_SCRATCH_NA_1);
 	gen_one(R_LR);
 
 	for (i = R_LOWEST_SAVED, offs = REGS_OFFSET; i <= R_31; i++, offs += 1 << OP_SIZE_ADDRESS) {
@@ -433,7 +439,7 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_SP);
 	gen_eight(LR_OFFSET);
-	gen_one(R_SCRATCH_NA_3);
+	gen_one(R_SCRATCH_NA_1);
 
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_ZERO);
