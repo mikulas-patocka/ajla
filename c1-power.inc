@@ -424,7 +424,7 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(R_SP);
 
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-	gen_one(R_SCRATCH_NA_1);
+	gen_one(R_SCRATCH_NA_2);
 	gen_one(R_LR);
 
 	for (i = R_LOWEST_SAVED, offs = REGS_OFFSET; i <= R_31; i++, offs += 1 << OP_SIZE_ADDRESS) {
@@ -439,7 +439,7 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_SP);
 	gen_eight(LR_OFFSET);
-	gen_one(R_SCRATCH_NA_1);
+	gen_one(R_SCRATCH_NA_2);
 
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_ZERO);
