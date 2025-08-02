@@ -363,6 +363,7 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 	uchar_efficient_t call_mode;
 	arg_t i;
 	bool arch_use_flags = ARCH_HAS_FLAGS;
+	unsigned stack_op_size = log_2(sizeof(stack_size_t));
 #if defined(ARCH_POWER)
 	arch_use_flags = false;
 #endif
@@ -373,23 +374,23 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 
 	g(gen_spill_all(ctx));
 
-	g(gen_load_raw(ctx, log_2(sizeof(stack_size_t)), native, R_FRAME, 0, frame_offs(available_slots), false, R_SCRATCH_1));
-	g(gen_imm(ctx, required_slots, IMM_PURPOSE_SUB, i_size(log_2(sizeof(stack_size_t)))));
-	gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(i_size(log_2(sizeof(stack_size_t)))), i_size(log_2(sizeof(stack_size_t))), ALU_SUB, arch_use_flags);
+	g(gen_load_raw(ctx, stack_op_size, native, R_FRAME, 0, frame_offs(available_slots), false, R_SCRATCH_1));
+	g(gen_imm(ctx, required_slots, IMM_PURPOSE_SUB, i_size(stack_op_size)));
+	gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(i_size(stack_op_size)), i_size(stack_op_size), ALU_SUB, arch_use_flags);
 	gen_one(R_SCRATCH_1);
 	gen_one(R_SCRATCH_1);
 	gen_imm_offset();
 
 	if (arch_use_flags) {
-		gen_insn(COND_IS_LOGICAL(COND_B) ? INSN_JMP_COND_LOGICAL : INSN_JMP_COND, log_2(sizeof(stack_size_t)), COND_B, 0);
+		gen_insn(COND_IS_LOGICAL(COND_B) ? INSN_JMP_COND_LOGICAL : INSN_JMP_COND, i_size(stack_op_size), COND_B, 0);
 		gen_four(escape_label);
 	} else {
-		g(gen_cmp_test_jmp(ctx, INSN_TEST, OP_SIZE_NATIVE, R_SCRATCH_1, R_SCRATCH_1, COND_S, escape_label));
+		g(gen_cmp_test_jmp(ctx, INSN_TEST, i_size(stack_op_size), R_SCRATCH_1, R_SCRATCH_1, COND_S, escape_label));
 	}
 
 	new_fp_offset = -(ssize_t)(required_slots * slot_size);
 
-	g(gen_store_raw(ctx, log_2(sizeof(stack_size_t)), R_FRAME, 0, new_fp_offset + frame_offs(available_slots), R_SCRATCH_1));
+	g(gen_store_raw(ctx, stack_op_size, R_FRAME, 0, new_fp_offset + frame_offs(available_slots), R_SCRATCH_1));
 	g(gen_frame_store_imm_raw(ctx, log_2(sizeof(ip_t)), 0, new_fp_offset + frame_offs(previous_ip), ctx->return_values - da(ctx->fn,function)->code));
 	g(gen_load_raw(ctx, log_2(sizeof(timestamp_t)), garbage, R_FRAME, 0, frame_offs(timestamp), false, R_SCRATCH_1));
 	g(gen_store_raw(ctx, log_2(sizeof(timestamp_t)), R_FRAME, 0, new_fp_offset + frame_offs(timestamp), R_SCRATCH_1));
