@@ -684,7 +684,11 @@ static bool attr_w gen_jmp_on_zero(struct codegen_context *ctx, unsigned attr_un
 
 		return true;
 	}
+#if defined(ARCH_POWER)
+	g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(op_size), reg, 0, cond, label, -1));
+#else
 	g(gen_cmp_test_jmp(ctx, INSN_TEST, i_size(op_size), reg, reg, cond, label));
+#endif
 
 	return true;
 }

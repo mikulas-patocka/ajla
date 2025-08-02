@@ -244,7 +244,7 @@ static const uint32_t alu_reg[0x45] = {
 static const uint32_t jmp_cond[0x2c] = {
 	POWER_BSO, POWER_BNS, 0, 0,
 	POWER_BEQ, POWER_BNE, 0, 0,
-	0, 0, 0, 0,
+	POWER_BLT, POWER_BGE, 0, 0,
 	POWER_BLT, POWER_BGE, POWER_BLE, POWER_BGT,
 	0, 0, 0, 0,
 	0, 0, 0, 0,
