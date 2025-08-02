@@ -385,7 +385,7 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 		gen_insn(COND_IS_LOGICAL(COND_B) ? INSN_JMP_COND_LOGICAL : INSN_JMP_COND, i_size(stack_op_size), COND_B, 0);
 		gen_four(escape_label);
 	} else {
-		g(gen_cmp_test_jmp(ctx, INSN_TEST, i_size(stack_op_size), R_SCRATCH_1, R_SCRATCH_1, COND_S, escape_label));
+		g(gen_jmp_on_zero(ctx, i_size(stack_op_size), R_SCRATCH_1, COND_S, escape_label));
 	}
 
 	new_fp_offset = -(ssize_t)(required_slots * slot_size);

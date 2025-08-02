@@ -215,7 +215,7 @@ static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg
 		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(OP_SIZE_4), tmp_reg, tag, cond, label, -1));
 	} else {
 		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_4), ALU_SUB, tmp_reg, tmp_reg, tag, 0));
-		g(gen_cmp_test_jmp(ctx, INSN_TEST, i_size(OP_SIZE_4), tmp_reg, tmp_reg, cond, label));
+		g(gen_jmp_on_zero(ctx, i_size(OP_SIZE_4), tmp_reg, cond, label));
 	}
 	return true;
 }
