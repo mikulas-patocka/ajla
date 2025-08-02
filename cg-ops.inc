@@ -855,6 +855,31 @@ scaled_jmp_done:
 
 static bool attr_w gen_scaled_array_address(struct codegen_context *ctx, size_t element_size, unsigned reg_dst, unsigned reg_src, unsigned reg_index, int64_t offset_src);
 static bool attr_w gen_check_array_len(struct codegen_context *ctx, unsigned reg_array, bool allocated, unsigned reg_len, unsigned cond, uint32_t escape_label);
+static bool attr_w gen_scaled_array_store(struct codegen_context *ctx, unsigned reg_src, int64_t offset_src, frame_t slot_1);
+
+static bool attr_w gen_array_store_flat(struct codegen_context *ctx, frame_t slot_struct, frame_t slot_elem, uint32_t escape_label)
+{
+	frame_t slot_idx = ctx->args[0].slot;
+	unsigned reg_struct, reg_idx;
+
+	g(gen_test_2_cached(ctx, slot_idx, slot_elem, escape_label));
+	flag_set(ctx, slot_idx, false);
+	flag_set(ctx, slot_elem, false);
+
+	g(gen_frame_decompress_slot(ctx, slot_struct, R_SCRATCH_1, &reg_struct, escape_label));
+
+	g(gen_compare_tag_and_refcount(ctx, reg_struct, DATA_TAG_array_flat, escape_label, R_SCRATCH_2));
+
+	g(gen_frame_get(ctx, OP_SIZE_INT, native, slot_idx, R_SCRATCH_2, &reg_idx));
+
+	g(gen_check_array_len(ctx, reg_struct, false, reg_idx, COND_AE, escape_label));
+
+	g(gen_mov(ctx, OP_SIZE_NATIVE, R_SCRATCH_2, reg_idx));
+
+	g(gen_scaled_array_store(ctx, reg_struct, data_array_offset, slot_elem));
+
+	return true;
+}
 
 static bool attr_w gen_structured(struct codegen_context *ctx, frame_t slot_struct, frame_t slot_elem)
 {
@@ -881,6 +906,14 @@ static bool attr_w gen_structured(struct codegen_context *ctx, frame_t slot_stru
 struct_zero:
 		g(gen_test_1_jz_cached(ctx, slot_struct, escape_label));
 		struct_type = NULL;
+	}
+
+	if (!struct_type && ctx->args_l == 1 && (ctx->args[0].flags & OPCODE_STRUCTURED_MASK) == OPCODE_STRUCTURED_ARRAY) {
+		const struct type *e_type = da_type(ctx->fn, ctx->args[0].type);
+		if (TYPE_IS_FLAT(e_type)) {
+			g(gen_array_store_flat(ctx, slot_struct, slot_elem, escape_label));
+			return true;
+		}
 	}
 
 	if (slot_is_register(ctx, slot_struct))
