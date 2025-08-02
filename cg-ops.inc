@@ -889,7 +889,7 @@ static bool attr_w gen_record_store_flat(struct codegen_context *ctx, frame_t sl
 
 	g(gen_frame_decompress_slot(ctx, slot_struct, R_SCRATCH_2, &reg_struct, escape_label));
 
-	g(gen_compare_refcount(ctx, reg_struct, DATA_TAG_record, COND_NE, escape_label));
+	g(gen_compare_refcount(ctx, reg_struct, minimum(REFCOUNT_STEP, TAG_END), COND_AE, escape_label));
 
 	g(gen_test_1(ctx, reg_struct, record_slot, data_record_offset, escape_label, false, TEST));
 
@@ -991,7 +991,7 @@ struct_zero:
 
 			g(gen_decompress_pointer(ctx, ARCH_PREFERS_SX(OP_SIZE_SLOT), R_SCRATCH_1, R_SCRATCH_1, 0));
 
-			g(gen_compare_refcount(ctx, R_SCRATCH_1, REFCOUNT_STEP, COND_AE, escape_label));
+			g(gen_compare_refcount(ctx, R_SCRATCH_1, minimum(REFCOUNT_STEP, TAG_END), COND_AE, escape_label));
 
 			switch (ctx->args[i].flags & OPCODE_STRUCTURED_MASK) {
 				case OPCODE_STRUCTURED_RECORD: {
