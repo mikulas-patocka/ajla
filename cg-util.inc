@@ -531,12 +531,14 @@ static bool attr_w gen_cmp_test_imm_jmp(struct codegen_context *ctx, unsigned in
 		return true;
 #endif
 #if defined(ARCH_POWER)
-		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_CONST_IMM, reg1, (8U << OP_SIZE_NATIVE) - 1 - bit, true));
+		if (!is_direct_const(value, IMM_PURPOSE_TEST, OP_SIZE_NATIVE)) {
+			g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_CONST_IMM, reg1, (8U << OP_SIZE_NATIVE) - 1 - bit, true));
 
-		gen_insn(INSN_JMP_COND, OP_SIZE_NATIVE, cond == COND_E ? COND_GE : COND_L, 0);
-		gen_four(label);
+			gen_insn(INSN_JMP_COND, OP_SIZE_NATIVE, cond == COND_E ? COND_GE : COND_L, 0);
+			gen_four(label);
 
-		return true;
+			return true;
+		}
 #endif
 #if defined(ARCH_IA64)
 		gen_insn(INSN_TEST_DEST_REG, OP_SIZE_NATIVE, bit | ((cond == COND_NE) << 6), 0);
