@@ -855,7 +855,7 @@ scaled_jmp_done:
 
 static bool attr_w gen_scaled_array_address(struct codegen_context *ctx, size_t element_size, unsigned reg_dst, unsigned reg_src, unsigned reg_index, int64_t offset_src);
 static bool attr_w gen_check_array_len(struct codegen_context *ctx, unsigned reg_array, bool allocated, unsigned reg_len, unsigned cond, uint32_t escape_label);
-static bool attr_w gen_scaled_array_store(struct codegen_context *ctx, unsigned reg_src, int64_t offset_src, frame_t slot_1);
+static bool attr_w gen_scaled_array_store(struct codegen_context *ctx, unsigned reg_src, unsigned reg_idx, int64_t offset_src, frame_t slot_1);
 
 static bool attr_w gen_array_store_flat(struct codegen_context *ctx, frame_t slot_struct, frame_t slot_elem, uint32_t escape_label)
 {
@@ -874,9 +874,7 @@ static bool attr_w gen_array_store_flat(struct codegen_context *ctx, frame_t slo
 
 	g(gen_check_array_len(ctx, reg_struct, false, reg_idx, COND_AE, escape_label));
 
-	g(gen_mov(ctx, OP_SIZE_NATIVE, R_SCRATCH_2, reg_idx));
-
-	g(gen_scaled_array_store(ctx, reg_struct, data_array_offset, slot_elem));
+	g(gen_scaled_array_store(ctx, reg_struct, reg_idx, data_array_offset, slot_elem));
 
 	return true;
 }
@@ -2046,7 +2044,7 @@ gen_memcpy:
 	return true;
 }
 
-static bool attr_w gen_scaled_array_store(struct codegen_context *ctx, unsigned reg_src, int64_t offset_src, frame_t slot_1)
+static bool attr_w gen_scaled_array_store(struct codegen_context *ctx, unsigned reg_src, unsigned reg_idx, int64_t offset_src, frame_t slot_1)
 {
 	const struct type *t = get_type_of_local(ctx, slot_1);
 	bool fp = TYPE_TAG_IS_REAL(t->tag);
@@ -2080,7 +2078,7 @@ do_op:
 			gen_insn(INSN_MOV, op_size, 0, 0);
 			gen_one(addr_mode);
 			gen_one(reg_src);
-			gen_one(R_SCRATCH_2);
+			gen_one(reg_idx);
 			gen_eight(offset_src);
 			gen_one(reg);
 
@@ -2089,8 +2087,8 @@ do_op:
 		if (ARCH_HAS_SHIFTED_ADD(op_size))
 			goto gen_memcpy;
 		if (ARCH_HAS_2REG_M(true, fp, 0, offset_src)) {
-			g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_SCRATCH_2, R_SCRATCH_2, op_size, 0));
-
+			g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_SCRATCH_2, reg_idx, op_size, 0));
+			reg_idx = R_SCRATCH_2;
 			addr_mode = ARG_ADDRESS_2;
 			goto do_op;
 		}
@@ -2104,7 +2102,7 @@ do_op:
 	}
 
 gen_memcpy:
-	g(gen_scaled_array_address(ctx, t->size, R_SCRATCH_2, reg_src, R_SCRATCH_2, 0));
+	g(gen_scaled_array_address(ctx, t->size, R_SCRATCH_2, reg_src, reg_idx, 0));
 
 	g(gen_memcpy_from_slot(ctx, R_SCRATCH_2, offset_src, slot_1));
 
@@ -2635,7 +2633,7 @@ static bool attr_w gen_array_append_one_flat(struct codegen_context *ctx, frame_
 	gen_address_offset();
 	gen_one(R_SCRATCH_1);
 
-	g(gen_scaled_array_store(ctx, reg, data_array_offset, slot_2));
+	g(gen_scaled_array_store(ctx, reg, R_SCRATCH_2, data_array_offset, slot_2));
 
 	if (slot_1 != slot_r) {
 #if !defined(POINTER_COMPRESSION)
