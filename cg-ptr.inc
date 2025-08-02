@@ -150,7 +150,11 @@ static bool attr_w gen_compare_refcount(struct codegen_context *ctx, unsigned pt
 	gen_one(R_SCRATCH_NA_1);
 	gen_address_offset();
 
-	g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, op_size, R_SCRATCH_NA_1, val, cond, label, -1));
+	if (val == 1 && cond == COND_AE) {
+		g(gen_jmp_on_zero(ctx, op_size, R_SCRATCH_NA_1, COND_NE, label));
+	} else {
+		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, op_size, R_SCRATCH_NA_1, val, cond, label, -1));
+	}
 #endif
 	return true;
 }
