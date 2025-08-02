@@ -673,8 +673,12 @@ gen_const:
 static bool attr_w gen_jmp_on_zero(struct codegen_context *ctx, unsigned attr_unused op_size, unsigned reg, unsigned cond, uint32_t label)
 {
 	bool jmp_reg = false;
-#if defined(ARCH_ALPHA) || defined(ARCH_ARM64) || defined(ARCH_LOONGARCH64) || defined(ARCH_RISCV64)
+#if defined(ARCH_ALPHA) || defined(ARCH_LOONGARCH64) || defined(ARCH_RISCV64)
 	jmp_reg = true;
+#endif
+#if defined(ARCH_ARM64)
+	if (cond == COND_E || cond == COND_NE || cond == COND_S || cond == COND_L || cond == COND_NS || cond == COND_GE)
+		jmp_reg = true;
 #endif
 #if defined(ARCH_SPARC)
 	jmp_reg |= SPARC_9;
