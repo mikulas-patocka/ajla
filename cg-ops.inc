@@ -879,6 +879,25 @@ static bool attr_w gen_array_store_flat(struct codegen_context *ctx, frame_t slo
 	return true;
 }
 
+static bool attr_w gen_record_store_flat(struct codegen_context *ctx, frame_t slot_struct, frame_t slot_elem, uint32_t escape_label)
+{
+	frame_t record_slot = ctx->args[0].slot;
+	unsigned reg_struct;
+
+	g(gen_test_1_cached(ctx, slot_elem, escape_label));
+	flag_set(ctx, slot_elem, false);
+
+	g(gen_frame_decompress_slot(ctx, slot_struct, R_SCRATCH_2, &reg_struct, escape_label));
+
+	g(gen_compare_refcount(ctx, reg_struct, DATA_TAG_record, COND_NE, escape_label));
+
+	g(gen_test_1(ctx, reg_struct, record_slot, data_record_offset, escape_label, false, TEST));
+
+	g(gen_memcpy_from_slot(ctx, reg_struct, data_record_offset + (size_t)record_slot * slot_size, slot_elem));
+
+	return true;
+}
+
 static bool attr_w gen_structured(struct codegen_context *ctx, frame_t slot_struct, frame_t slot_elem)
 {
 	uint32_t escape_label;
@@ -906,11 +925,19 @@ struct_zero:
 		struct_type = NULL;
 	}
 
-	if (!struct_type && ctx->args_l == 1 && (ctx->args[0].flags & OPCODE_STRUCTURED_MASK) == OPCODE_STRUCTURED_ARRAY) {
+	if (!struct_type && ctx->args_l == 1) {
 		const struct type *e_type = da_type(ctx->fn, ctx->args[0].type);
-		if (TYPE_IS_FLAT(e_type)) {
-			g(gen_array_store_flat(ctx, slot_struct, slot_elem, escape_label));
-			return true;
+		if ((ctx->args[0].flags & OPCODE_STRUCTURED_MASK) == OPCODE_STRUCTURED_ARRAY) {
+			if (TYPE_IS_FLAT(e_type)) {
+				g(gen_array_store_flat(ctx, slot_struct, slot_elem, escape_label));
+				return true;
+			}
+		} else if ((ctx->args[0].flags & OPCODE_STRUCTURED_MASK) == OPCODE_STRUCTURED_RECORD) {
+			e_type = type_def(e_type,record)->types[ctx->args[0].slot];
+			if (TYPE_IS_FLAT(e_type)) {
+				g(gen_record_store_flat(ctx, slot_struct, slot_elem, escape_label));
+				return true;
+			}
 		}
 	}
 
