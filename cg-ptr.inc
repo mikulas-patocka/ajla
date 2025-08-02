@@ -147,10 +147,10 @@ static bool attr_w gen_compare_refcount(struct codegen_context *ctx, unsigned pt
 #else
 	g(gen_address(ctx, ptr, offsetof(struct data, refcount_), IMM_PURPOSE_LDR_OFFSET, op_size));
 	gen_insn(INSN_MOV, op_size, 0, 0);
-	gen_one(R_SCRATCH_2);
+	gen_one(R_SCRATCH_NA_1);
 	gen_address_offset();
 
-	g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, op_size, R_SCRATCH_2, val, cond, label, -1));
+	g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, op_size, R_SCRATCH_NA_1, val, cond, label, -1));
 #endif
 	return true;
 }
