@@ -2107,6 +2107,10 @@ in_loop2:
 					ctx.variables[vgi].must_be_data := true;
 					ctx.variables[vgi].ra_priority += 1;
 				]
+				if rt >= 0, ctx.local_types[rt] is arr then [
+					ctx.variables[vgi].must_be_data := true;
+					ctx.variables[vgi].ra_priority += 1;
+				]
 				// TODO: allocate options that are always flat
 			]
 		]
