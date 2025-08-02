@@ -1340,7 +1340,7 @@ static bool attr_w cgen_jmp(struct codegen_context *ctx, unsigned length)
 static bool attr_w cgen_jmp_reg(struct codegen_context *ctx, unsigned size, unsigned cond, unsigned length)
 {
 	unsigned reg = cget_one(ctx);
-	return cgen_jmp_12regs(ctx, size, cond, length, reg, 0, 1);
+	return cgen_jmp_12regs(ctx, size, cond, length, reg, R_ZERO, 1);
 }
 
 static bool attr_w cgen_jmp_reg_bit(struct codegen_context *ctx, unsigned size, unsigned bit, bool jnz, unsigned length)
