@@ -349,11 +349,15 @@ do_undo_opcode:
 				}
 #endif
 			}
-#if defined(ARCH_X86)
+#if defined(ARCH_S390) || defined(ARCH_X86)
 			else {
 				unsigned reg2;
 				size_t m;
 				int64_t offset = (size_t)slot_1 * slot_size;
+#if defined(ARCH_S390)
+				if (!frame_t_is_const(slot_2) || op_size < OP_SIZE_4 || (alu != ALU_ADD && alu != ALU_SUB) || unlikely(frame_t_get_const(slot_2) < -0x7f) || unlikely(frame_t_get_const(slot_2) > 0x7f) || unlikely(!cpu_test_feature(CPU_FEATURE_general_insn_ext)))
+					goto skip_mem_modify;
+#endif
 				if (!frame_t_is_const(slot_2))
 					g(gen_frame_get(ctx, op_size, garbage, slot_2, R_SCRATCH_1, &reg2));
 				g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDR_OFFSET, i_size(op_size)));
@@ -386,6 +390,8 @@ do_undo_opcode:
 					gen_four(ce->undo_label);
 				}
 				return true;
+				goto skip_mem_modify;
+skip_mem_modify:;
 			}
 #endif
 		}
