@@ -235,6 +235,26 @@ static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int64
 		return true;
 
 load_cnst:
+	if (cpu_test_feature(CPU_FEATURE_misc_45) && imm >= -0x8000 && imm < 0x8000) {
+#if 0
+		gen_insn(INSN_LEA3, OP_SIZE_ADDRESS, 0, 0);
+		gen_one(R_OFFSET_IMM);
+		gen_one(R_0);
+		gen_one(base);
+		gen_one(ARG_IMM);
+		gen_eight(imm);
+#else
+		gen_insn(INSN_ALU, OP_SIZE_ADDRESS, ALU_ADD, ALU_WRITES_FLAGS(OP_SIZE_ADDRESS, ALU_ADD, false, true, imm));
+		gen_one(R_OFFSET_IMM);
+		gen_one(base);
+		gen_one(ARG_IMM);
+		gen_eight(imm);
+#endif
+		ctx->base_reg = R_OFFSET_IMM;
+		ctx->offset_imm = 0;
+		return true;
+	}
+
 	g(gen_load_constant(ctx, R_OFFSET_IMM, imm));
 
 	if (purpose == IMM_PURPOSE_MVI_CLI_OFFSET || purpose == IMM_PURPOSE_LDP_STP_OFFSET) {
