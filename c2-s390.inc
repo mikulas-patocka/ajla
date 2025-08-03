@@ -571,6 +571,8 @@ static bool attr_w cgen_rr_rx(struct codegen_context *ctx, unsigned size, uint8_
 	}
 	if (arg1[0] != arg2[0] && arg3[0] == ARG_IMM) {
 		imm = get_imm(&arg3[1]);
+		if (unlikely(!cpu_test_feature(CPU_FEATURE_misc_45)))
+			goto invl;
 		code = size != OP_SIZE_8 ? codes->rie : codes->rige;
 		if (code == (it)-1)
 			goto invl;
