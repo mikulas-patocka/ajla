@@ -620,7 +620,7 @@ void attr_hot_fastcall run(frame_s *fp_, ip_t ip_)
 		__asm__("ebx")
 #endif
 #if defined(INLINE_ASM_GCC_X86_64) && defined(__OPTIMIZE__) && defined(HAVE_REAL_GNUC)
-		/*__asm__("rbx")*/
+		__asm__("rbx")
 #endif
 #if defined(INLINE_ASM_GCC_ARM_THUMB2) && defined(__OPTIMIZE__) && defined(HAVE_REAL_GNUC)
 		/* peg this to a register in lower bank to reduce code size and improve performance */
