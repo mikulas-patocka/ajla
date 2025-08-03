@@ -166,6 +166,31 @@ do_alu: {
 		unsigned second_alu;
 		unsigned attr_unused op_size_flags;
 		bool c;
+#if defined(ARCH_S390)
+		if (!slot_is_register(ctx, slot_r) && slot_r * slot_size < 0x1000 &&
+		    !slot_is_register(ctx, slot_1) && !frame_t_is_const(slot_1) && (size_t)slot_1 * slot_size < 0x1000 &&
+		    !slot_is_register(ctx, slot_2) && !frame_t_is_const(slot_2) && (size_t)slot_2 * slot_size < 0x1000 &&
+		    (slot_r == slot_1 || slot_r == slot_2) &&
+		    (alu == ALU_AND || alu == ALU_OR || alu == ALU_XOR)) {
+			if (slot_r != slot_1) {
+				frame_t x;
+				x = slot_1;
+				slot_1 = slot_2;
+				slot_2 = x;
+			}
+			gen_insn(INSN_ALU, op_size, alu, ALU_WRITES_FLAGS(op_size, alu, true, false, 0));
+			gen_one(ARG_ADDRESS_1);
+			gen_one(R_FRAME);
+			gen_eight(slot_r * slot_size);
+			gen_one(ARG_ADDRESS_1);
+			gen_one(R_FRAME);
+			gen_eight(slot_1 * slot_size);
+			gen_one(ARG_ADDRESS_1);
+			gen_one(R_FRAME);
+			gen_eight(slot_2 * slot_size);
+			return true;
+		}
+#endif
 		if (unlikely(op_size > OP_SIZE_NATIVE)) {
 #if !defined(ARCH_X86) && !defined(ARCH_ARM) && !defined(ARCH_PARISC) && !defined(ARCH_POWER) && !defined(ARCH_SPARC32)
 			if (mode == MODE_FIXED) {
