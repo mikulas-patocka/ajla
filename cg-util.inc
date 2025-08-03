@@ -600,11 +600,7 @@ static bool attr_w gen_cmp_test_imm_jmp(struct codegen_context *ctx, unsigned in
 	if (insn == INSN_CMP) {
 #if defined(ARCH_LOONGARCH64) || defined(ARCH_PARISC) || defined(ARCH_RISCV64)
 		g(gen_imm(ctx, value, IMM_PURPOSE_JMP_2REGS, op_size));
-#if defined(ARCH_PARISC)
-		gen_insn(INSN_JMP_2REGS, op_size, cond, 0);
-#else
 		gen_insn(INSN_JMP_2REGS, i_size_cmp(op_size), cond, 0);
-#endif
 		gen_one(reg1);
 		gen_imm_offset();
 		gen_four(label);
