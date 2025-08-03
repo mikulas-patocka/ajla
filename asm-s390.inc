@@ -31,6 +31,11 @@
 #define dynamic_test			test_facility(21)
 #include "asm-1.inc"
 
+#define feature_name			general_insn_ext
+#define static_test_general_insn_ext	(__ARCH__ >= 8)
+#define dynamic_test			test_facility(34)
+#include "asm-1.inc"
+
 #define feature_name			misc_45
 #define static_test_misc_45		(__ARCH__ >= 9)
 #define dynamic_test			test_facility(45)

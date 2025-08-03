@@ -280,6 +280,9 @@ typedef uint64_t it;
 
 #define S390_MVI		0x920000000000ULL
 #define S390_MVIY		0xeb0000000052ULL
+#define S390_MVHHI		0xe54400000000ULL
+#define S390_MVHI		0xe54c00000000ULL
+#define S390_MVGHI		0xe54800000000ULL
 #define S390_CLI		0x950000000000ULL
 #define S390_CLIY		0xeb0000000055ULL
 
@@ -817,6 +820,42 @@ invl:
 	return false;
 }
 
+static bool attr_w cgen_xi16(struct codegen_context *ctx, uint8_t *arg1, uint8_t *arg2, it code)
+{
+	uint8_t b;
+	uint8_t *disp;
+	int64_t val, imm;
+	if (unlikely(arg1[0] == ARG_ADDRESS_0)) {
+		b = 0;
+		disp = &arg1[1];
+	} else if (likely(arg1[0] == ARG_ADDRESS_1) && likely(arg2[0] == ARG_IMM)) {
+		b = arg1[1];
+		disp = &arg1[2];
+	} else {
+		goto invl;
+	}
+
+	imm = get_imm(disp);
+	if (likely(arg2[0] == ARG_IMM)) {
+		val = get_imm(&arg2[1]);
+	} else {
+		goto invl;
+	}
+
+	if (unlikely(!(imm >= 0 && imm < 0x1000)))
+		goto invl;
+
+	code |= (it)b << 28;
+	code |= (it)(imm & 0xfff) << 16;
+	code |= (it)(val & 0xffff);
+
+	g(cgen_s390(ctx, code));
+	return true;
+invl:
+	internal(file_line, "cgen_xi16: invalid arguments %02x, %02x", *arg1, *arg2);
+	return false;
+}
+
 static bool attr_w cgen_lm_stm(struct codegen_context *ctx, unsigned size, uint8_t r_start, uint8_t r_end, uint8_t *arg1, it m, it my, it mg)
 {
 	it code;
@@ -941,9 +980,27 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size)
 		g(cgen_fp_mem(ctx, size, arg2, arg1, S390_STE, S390_STEY, S390_STD, S390_STDY));
 		return true;
 	}
-	if (size == OP_SIZE_1 && arg1[0] == ARG_ADDRESS_1 && arg2[0] == ARG_IMM) {
-		g(cgen_xi(ctx, arg1, arg2, S390_MVI, S390_MVIY));
-		return true;
+	if (arg1[0] == ARG_ADDRESS_1 && arg2[0] == ARG_IMM) {
+		switch (size) {
+			case OP_SIZE_1:
+				g(cgen_xi(ctx, arg1, arg2, S390_MVI, S390_MVIY));
+				return true;
+			case OP_SIZE_2:
+				if (!cpu_test_feature(CPU_FEATURE_general_insn_ext))
+					goto invl;
+				g(cgen_xi16(ctx, arg1, arg2, S390_MVHHI));
+				return true;
+			case OP_SIZE_4:
+				if (!cpu_test_feature(CPU_FEATURE_general_insn_ext))
+					goto invl;
+				g(cgen_xi16(ctx, arg1, arg2, S390_MVHI));
+				return true;
+			case OP_SIZE_8:
+				if (!cpu_test_feature(CPU_FEATURE_general_insn_ext))
+					goto invl;
+				g(cgen_xi16(ctx, arg1, arg2, S390_MVGHI));
+				return true;
+		}
 	}
 invl:
 	internal(file_line, "cgen_mov: invalid arguments %u, %02x, %02x", size, *arg1, *arg2);

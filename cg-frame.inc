@@ -650,21 +650,20 @@ skip_ldd:
 
 static bool attr_w gen_frame_store_imm_raw(struct codegen_context *ctx, unsigned size, frame_t slot, int64_t offset, int64_t imm)
 {
-	unsigned purpose = size == OP_SIZE_1 ? IMM_PURPOSE_MVI_CLI_OFFSET : IMM_PURPOSE_STR_OFFSET;
 	offset += (size_t)slot * slot_size;
 	if (!ARCH_HAS_BWX)
 		size = maximum(OP_SIZE_4, size);
 #if !defined(R_CONST_IMM)
-	if (!is_direct_const(imm, purpose, size)) {
+	if (!is_direct_const(imm, IMM_PURPOSE_MVI_CLI_OFFSET, size)) {
 		g(gen_load_constant(ctx, R_SCRATCH_3, imm));
-		g(gen_address(ctx, R_FRAME, offset, purpose, size));
+		g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_MVI_CLI_OFFSET, size));
 		gen_insn(INSN_MOV, size, 0, 0);
 		gen_address_offset();
 		gen_one(R_SCRATCH_3);
 		return true;
 	}
 #endif
-	g(gen_address(ctx, R_FRAME, offset, purpose, size));
+	g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_MVI_CLI_OFFSET, size));
 	g(gen_imm(ctx, imm, IMM_PURPOSE_STORE_VALUE, size));
 	gen_insn(INSN_MOV, size, 0, 0);
 	gen_address_offset();

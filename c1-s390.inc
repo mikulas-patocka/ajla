@@ -219,8 +219,11 @@ static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int64
 		case IMM_PURPOSE_LDR_SX_OFFSET:
 		case IMM_PURPOSE_STR_OFFSET:
 		case IMM_PURPOSE_VLDR_VSTR_OFFSET:
-		case IMM_PURPOSE_MVI_CLI_OFFSET:
 			break;
+		case IMM_PURPOSE_MVI_CLI_OFFSET:
+			if (size == OP_SIZE_1)
+				break;
+			/*-fallthrough*/
 		case IMM_PURPOSE_LDP_STP_OFFSET:
 			if (imm >= 0 && imm < 0x1000)
 				return true;
@@ -312,6 +315,10 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 		case IMM_PURPOSE_STORE_VALUE:
 			if (size == OP_SIZE_1)
 				return true;
+			if (cpu_test_feature(CPU_FEATURE_general_insn_ext)) {
+				if (imm >= -0x8000 && imm < 0x8000)
+					return true;
+			}
 			break;
 		default:
 			break;
