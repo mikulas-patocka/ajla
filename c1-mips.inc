@@ -413,6 +413,9 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 			if (likely((uint64_t)imm == (uint16_t)imm))
 				return true;
 			break;
+		case IMM_PURPOSE_JMP_2REGS:
+		case IMM_PURPOSE_JMP_2REGS_LOGICAL:
+			break;
 		case IMM_PURPOSE_MUL:
 			break;
 		case IMM_PURPOSE_ADD_TRAP:
