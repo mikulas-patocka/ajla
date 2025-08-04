@@ -506,7 +506,7 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 	return true;
 }
 
-static bool attr_w gen_cmp_test_imm_jmp(struct codegen_context *ctx, unsigned insn, unsigned attr_unused op_size, unsigned reg1, int64_t value, unsigned cond, uint32_t label, int attr_unused x86_scratch)
+static bool attr_w gen_cmp_test_imm_jmp_q_flags(struct codegen_context *ctx, unsigned insn, unsigned attr_unused op_size, unsigned reg1, int64_t value, unsigned cond, uint32_t label, int attr_unused x86_scratch, bool need_flags)
 {
 	if (insn == INSN_TEST && (cond == COND_E || cond == COND_NE) && is_power_of_2((uint64_t)value)) {
 #ifdef HAVE_BUILTIN_CTZ
@@ -569,8 +569,16 @@ static bool attr_w gen_cmp_test_imm_jmp(struct codegen_context *ctx, unsigned in
 		}
 #endif
 	}
+	if (!need_flags && insn == INSN_CMP && ARCH_HAS_JMP_2REGS(cond)) {
+		g(gen_imm(ctx, value, IMM_PURPOSE_JMP_2REGS, op_size));
+		gen_insn(INSN_JMP_2REGS, i_size_cmp(op_size), cond, 0);
+		gen_one(reg1);
+		gen_imm_offset();
+		gen_four(label);
+		return true;
+	}
 #if ARCH_HAS_FLAGS
-	if (unlikely(insn == INSN_CMP) && COND_IS_LOGICAL(cond)) {
+	if (insn == INSN_CMP && COND_IS_LOGICAL(cond)) {
 		g(gen_imm(ctx, value, IMM_PURPOSE_CMP_LOGICAL, op_size));
 		gen_insn(insn, op_size, 0, 2);
 		gen_one(reg1);
@@ -600,14 +608,6 @@ static bool attr_w gen_cmp_test_imm_jmp(struct codegen_context *ctx, unsigned in
 	gen_four(label);
 #else
 	if (insn == INSN_CMP) {
-		if (ARCH_HAS_JMP_2REGS(cond)) {
-			g(gen_imm(ctx, value, IMM_PURPOSE_JMP_2REGS, op_size));
-			gen_insn(INSN_JMP_2REGS, i_size_cmp(op_size), cond, 0);
-			gen_one(reg1);
-			gen_imm_offset();
-			gen_four(label);
-			return true;
-		}
 		unsigned final_cond = COND_NE;
 #if defined(ARCH_ALPHA)
 		if (cond == COND_AE || cond == COND_A || cond == COND_GE || cond == COND_G) {
@@ -653,7 +653,7 @@ gen_const:
 		gen_four(label);
 	} else if (insn == INSN_TEST) {
 #if defined(ARCH_IA64)
-		internal(file_line, "gen_cmp_test_imm_jmp: value %"PRIxMAX" not supported", (uintmax_t)value);
+		internal(file_line, "gen_cmp_test_imm_jmp_q_flags: value %"PRIxMAX" not supported", (uintmax_t)value);
 #endif
 		g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_AND, R_CMP_RESULT, reg1, value, 0));
 
@@ -661,10 +661,20 @@ gen_const:
 		gen_one(R_CMP_RESULT);
 		gen_four(label);
 	} else {
-		internal(file_line, "gen_cmp_test_imm_jmp: invalid insn");
+		internal(file_line, "gen_cmp_test_imm_jmp_q_flags: invalid insn");
 	}
 #endif
 	return true;
+}
+
+static bool attr_w gen_cmp_test_imm_jmp(struct codegen_context *ctx, unsigned insn, unsigned op_size, unsigned reg1, int64_t value, unsigned cond, uint32_t label, int x86_scratch)
+{
+	return gen_cmp_test_imm_jmp_q_flags(ctx, insn, op_size, reg1, value, cond, label, x86_scratch, false);
+}
+
+static bool attr_w gen_cmp_test_imm_jmp_flags(struct codegen_context *ctx, unsigned insn, unsigned op_size, unsigned reg1, int64_t value, unsigned cond, uint32_t label, int x86_scratch)
+{
+	return gen_cmp_test_imm_jmp_q_flags(ctx, insn, op_size, reg1, value, cond, label, x86_scratch, ARCH_HAS_FLAGS);
 }
 
 static bool attr_w gen_jmp_on_zero(struct codegen_context *ctx, unsigned attr_unused op_size, unsigned reg, unsigned cond, uint32_t label)
