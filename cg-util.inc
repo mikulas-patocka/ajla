@@ -457,6 +457,8 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 				gen_four(label);
 				return true;
 			}
+#endif
+#if defined(ARCH_LOONGARCH64) || defined(ARCH_MIPS)
 			if (cond == COND_AE || cond == COND_BE || cond == COND_LE || cond == COND_GE) {
 				cond ^= 1;
 				jmp_cond ^= 1;
@@ -613,11 +615,10 @@ static bool attr_w gen_cmp_test_imm_jmp_q_flags(struct codegen_context *ctx, uns
 		if (cond == COND_AE || cond == COND_A || cond == COND_GE || cond == COND_G) {
 			cond ^= 1;
 			final_cond ^= 1;
-			goto gen_const;
 		} else if (cond == COND_NE) {
 			g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_XOR, R_CMP_RESULT, reg1, value, 0));
-		} else
-gen_const:
+			goto jmp_reg;
+		}
 #endif
 #if defined(ARCH_MIPS)
 		if (cond == COND_E || cond == COND_NE) {
@@ -628,6 +629,8 @@ gen_const:
 			gen_four(label);
 			return true;
 		}
+#endif
+#if defined(ARCH_LOONGARCH64) || defined(ARCH_MIPS)
 		if (cond == COND_AE || cond == COND_BE || cond == COND_LE || cond == COND_GE) {
 			cond ^= 1;
 			final_cond ^= 1;
@@ -638,16 +641,16 @@ gen_const:
 			gen_one(R_CMP_RESULT);
 			gen_one(reg1);
 			gen_one(R_CONST_IMM);
-		} else
-#endif
-		{
-			g(gen_imm(ctx, value, IMM_PURPOSE_CMP, OP_SIZE_NATIVE));
-			gen_insn(INSN_CMP_DEST_REG, OP_SIZE_NATIVE, cond, 0);
-			gen_one(R_CMP_RESULT);
-			gen_one(reg1);
-			gen_imm_offset();
+			goto jmp_reg;
 		}
-
+#endif
+		g(gen_imm(ctx, value, IMM_PURPOSE_CMP, OP_SIZE_NATIVE));
+		gen_insn(INSN_CMP_DEST_REG, OP_SIZE_NATIVE, cond, 0);
+		gen_one(R_CMP_RESULT);
+		gen_one(reg1);
+		gen_imm_offset();
+		goto jmp_reg;
+jmp_reg:
 		gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, final_cond, 0);
 		gen_one(R_CMP_RESULT);
 		gen_four(label);
