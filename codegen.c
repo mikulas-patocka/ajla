@@ -1826,12 +1826,12 @@ skip_dereference:
 			}
 			case OPCODE_JMP: {
 				int32_t x = get_jump_offset(ctx);
-				g(gen_jump(ctx, x, OP_SIZE_NATIVE, COND_ALWAYS, -1U, -1U));
+				g(gen_jump(ctx, x, OP_SIZE_NATIVE, COND_ALWAYS, -1U, -1U, 0));
 				continue;
 			}
 			case OPCODE_JMP_BACK_16: {
 				int32_t x = get_code(ctx);
-				g(gen_jump(ctx, -x - (int)(2 * sizeof(code_t)), OP_SIZE_NATIVE, COND_ALWAYS, -1U, -1U));
+				g(gen_jump(ctx, -x - (int)(2 * sizeof(code_t)), OP_SIZE_NATIVE, COND_ALWAYS, -1U, -1U, 0));
 				continue;
 			}
 			case OPCODE_JMP_FALSE: {

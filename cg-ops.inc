@@ -156,7 +156,7 @@ static bool attr_w gen_eval(struct codegen_context *ctx, frame_t slot_1)
 	return true;
 }
 
-static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, unsigned op_size, unsigned cond, unsigned reg1, unsigned reg2)
+static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, unsigned op_size, unsigned cond, unsigned reg1, unsigned reg2, int64_t imm)
 {
 	ip_t ip = (ctx->current_position - da(ctx->fn,function)->code) + (jmp_offset / (int)sizeof(code_t));
 	if (likely(!ctx->code_labels[ip])) {
@@ -164,7 +164,9 @@ static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, uns
 		if (unlikely(!ctx->code_labels[ip]))
 			return false;
 	}
-	if (reg1 != -1U && reg2 != -1U) {
+	if (reg2 == -2U) {
+		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg1, imm, cond, ctx->code_labels[ip], R_SCRATCH_2));
+	} else if (reg1 != -1U && reg2 != -1U) {
 		g(gen_cmp_test_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg1, reg2, cond, ctx->code_labels[ip]));
 #if defined(ARCH_IA64)
 	} else if (reg_is_p(reg1)) {
@@ -209,13 +211,13 @@ static bool attr_w gen_cond_jump(struct codegen_context *ctx, frame_t slot, int3
 	gen_one(ARG_IMM);
 	gen_eight(0);
 
-	g(gen_jump(ctx, jmp_offset, size, COND_E, -1U, -1U));
+	g(gen_jump(ctx, jmp_offset, size, COND_E, -1U, -1U, 0));
 	return true;
 #endif
 	goto no_load_op;
 no_load_op:
 	g(gen_frame_get(ctx, size, i_size(size) == size ? garbage : native, slot, R_SCRATCH_1, &reg1));
-	g(gen_jump(ctx, jmp_offset, size, COND_E, reg1, -1U));
+	g(gen_jump(ctx, jmp_offset, size, COND_E, reg1, -1U, 0));
 	return true;
 }
 
@@ -2431,7 +2433,7 @@ static bool attr_w gen_array_len(struct codegen_context *ctx, frame_t slot_1, fr
 			gen_one(ctx->registers[slot_2]);
 			gen_address_offset();
 
-			g(gen_jump(ctx, offs_false, i_size_cmp(OP_SIZE_INT), COND_GE, -1U, -1U));
+			g(gen_jump(ctx, offs_false, i_size_cmp(OP_SIZE_INT), COND_GE, -1U, -1U, 0));
 			return true;
 		}
 #endif
@@ -2446,16 +2448,16 @@ do_fused:	{
 			unsigned reg2;
 			if (ARCH_HAS_JMP_2REGS(COND_LE)) {
 				g(gen_frame_get(ctx, OP_SIZE_INT, ex, slot_2, R_SCRATCH_2, &reg2));
-				g(gen_jump(ctx, offs_false, i_size_cmp(OP_SIZE_INT), COND_LE, target, reg2));
+				g(gen_jump(ctx, offs_false, i_size_cmp(OP_SIZE_INT), COND_LE, target, reg2, 0));
 				return true;
 			}
 #if ARCH_HAS_FLAGS
 			g(gen_frame_load_cmp(ctx, OP_SIZE_INT, COND_IS_LOGICAL(COND_LE), ex, false, slot_2, 0, false, target));
-			g(gen_jump(ctx, offs_false, i_size_cmp(OP_SIZE_INT), COND_LE, -1U, -1U));
+			g(gen_jump(ctx, offs_false, i_size_cmp(OP_SIZE_INT), COND_LE, -1U, -1U, 0));
 #else
 			g(gen_frame_get(ctx, OP_SIZE_INT, ex, slot_2, R_SCRATCH_2, &reg2));
 			g(gen_cmp_dest_reg(ctx, i_size_cmp(OP_SIZE_INT), target, reg2, R_CMP_RESULT, 0, COND_G));
-			g(gen_jump(ctx, offs_false, OP_SIZE_NATIVE, COND_E, R_CMP_RESULT, -1U));
+			g(gen_jump(ctx, offs_false, OP_SIZE_NATIVE, COND_E, R_CMP_RESULT, -1U, 0));
 #endif
 		} else if (slot_2 == NO_FRAME_T) {
 			g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, target));

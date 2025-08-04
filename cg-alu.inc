@@ -16,7 +16,7 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  */
 
-static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, unsigned op_size, unsigned cond, unsigned reg1, unsigned reg2);
+static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, unsigned op_size, unsigned cond, unsigned reg1, unsigned reg2, int64_t imm);
 
 static bool attr_w gen_alu_upcall(struct codegen_context *ctx, size_t upcall, unsigned op_size, frame_t slot_1, frame_t slot_2, frame_t slot_r, uint32_t label_ovf)
 {
@@ -3828,9 +3828,13 @@ do_compare: {
 		}
 		ex = op_size == i_size_cmp(op_size) + (unsigned)zero ? garbage : alu == COND_L || alu == COND_LE || alu == COND_G || alu == COND_GE || ARCH_PREFERS_SX(op_size) ? sign_x : zero_x;
 		g(gen_frame_get(ctx, op_size, ex, slot_1, R_SCRATCH_1, &reg1));
+		if (frame_t_is_const(slot_2)) {
+			g(gen_jump(ctx, jmp_offset, i_size_cmp(op_size), alu ^ 1, reg1, -2U, frame_t_get_const(slot_2)));
+			return true;
+		}
 		if (ARCH_HAS_JMP_2REGS(alu)) {
 			g(gen_frame_get(ctx, op_size, ex, slot_2, R_SCRATCH_2, &reg2));
-			g(gen_jump(ctx, jmp_offset, i_size_cmp(op_size), alu ^ 1, reg1, reg2));
+			g(gen_jump(ctx, jmp_offset, i_size_cmp(op_size), alu ^ 1, reg1, reg2, 0));
 			return true;
 		}
 #if (!ARCH_HAS_FLAGS && !defined(ARCH_IA64)) || defined(ARCH_ARM64)
@@ -3839,18 +3843,18 @@ do_compare: {
 			&& alu != COND_LE && alu != COND_G
 #endif
 			) {
-			g(gen_jump(ctx, jmp_offset, i_size(op_size), alu ^ 1, reg1, -1U));
+			g(gen_jump(ctx, jmp_offset, i_size(op_size), alu ^ 1, reg1, -1U, 0));
 			return true;
 		}
 #endif
 #if ARCH_HAS_FLAGS
 		logical = COND_IS_LOGICAL(alu ^ 1);
 		g(gen_frame_load_cmp(ctx, op_size, logical, ex, false, slot_2, 0, false, reg1));
-		g(gen_jump(ctx, jmp_offset, op_size, alu ^ 1, -1U, -1U));
+		g(gen_jump(ctx, jmp_offset, op_size, alu ^ 1, -1U, -1U, 0));
 #else
 		g(gen_frame_get(ctx, op_size, ex, slot_2, R_SCRATCH_2, &reg2));
 		g(gen_cmp_dest_reg(ctx, op_size, reg1, reg2, R_CMP_RESULT, 0, alu));
-		g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, COND_E, R_CMP_RESULT, -1U));
+		g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, COND_E, R_CMP_RESULT, -1U, 0));
 #endif
 		return true;
 	}
@@ -3868,7 +3872,7 @@ do_alu: {
 			gen_insn(INSN_TEST, i_size(op_size), 0, 1);
 			gen_one(reg1);
 			gen_address_offset();
-			g(gen_jump(ctx, jmp_offset, op_size, COND_E, -1U, -1U));
+			g(gen_jump(ctx, jmp_offset, op_size, COND_E, -1U, -1U, 0));
 			return true;
 		}
 #endif
@@ -3878,7 +3882,7 @@ do_alu: {
 			gen_insn(INSN_TEST, i_size(op_size), 0, 1);
 			gen_one(reg1);
 			gen_one(reg2);
-			g(gen_jump(ctx, jmp_offset, op_size, COND_E, -1U, -1U));
+			g(gen_jump(ctx, jmp_offset, op_size, COND_E, -1U, -1U, 0));
 			return true;
 		}
 #endif
@@ -3888,13 +3892,13 @@ do_alu: {
 #endif
 #if ARCH_HAS_FLAGS
 		g(gen_3address_alu(ctx, i_size(op_size), alu, R_SCRATCH_1, reg1, reg2, 1));
-		g(gen_jump(ctx, jmp_offset, i_size(op_size), COND_E, -1U, -1U));
+		g(gen_jump(ctx, jmp_offset, i_size(op_size), COND_E, -1U, -1U, 0));
 		return true;
 #endif
 		goto skip_flags;
 skip_flags:
 		g(gen_3address_alu(ctx, i_size(op_size), alu, R_SCRATCH_1, reg1, reg2, 0));
-		g(gen_jump(ctx, jmp_offset, i_size(op_size), COND_E, R_SCRATCH_1, -1U));
+		g(gen_jump(ctx, jmp_offset, i_size(op_size), COND_E, R_SCRATCH_1, -1U, 0));
 		return true;
 	}
 }
@@ -3946,9 +3950,9 @@ do_cmp:
 		g(gen_mov(ctx, OP_SIZE_4, target, FR_SCRATCH_3));
 
 		if (fp_alu == FP_COND_NE) {
-			g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, COND_NE, target, -1U));
+			g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, COND_NE, target, -1U, 0));
 		} else {
-			g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, COND_E, target, -1U));
+			g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, COND_E, target, -1U, 0));
 		}
 
 		return true;
@@ -3967,7 +3971,7 @@ do_cmp:
 		gen_one(reg1);
 		gen_one(reg2);
 
-		g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, COND_E, R_CMP_RESULT, -1U));
+		g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, COND_E, R_CMP_RESULT, -1U, 0));
 
 		return true;
 #elif defined(ARCH_LOONGARCH64) || defined(ARCH_MIPS) || defined(ARCH_PARISC)
@@ -3982,7 +3986,7 @@ do_cmp:
 		gen_one(reg1);
 		gen_one(reg2);
 
-		g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, fp_alu ^ 1, -1U, -1U));
+		g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, fp_alu ^ 1, -1U, -1U, 0));
 
 		return true;
 #elif defined(ARCH_RISCV64)
@@ -4006,9 +4010,9 @@ do_cmp:
 		gen_one(reg2);
 
 		if (fp_alu == FP_COND_NE) {
-			g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, COND_NE, target, -1U));
+			g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, COND_NE, target, -1U, 0));
 		} else {
-			g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, COND_E, target, -1U));
+			g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, COND_E, target, -1U, 0));
 		}
 		return true;
 #else
@@ -4020,7 +4024,7 @@ do_cmp:
 #endif
 		gen_insn(INSN_JMP_COND, op_size, FP_COND_P, 0);
 		gen_four(label_ovf);
-		g(gen_jump(ctx, jmp_offset, op_size, fp_alu ^ 1, -1U, -1U));
+		g(gen_jump(ctx, jmp_offset, op_size, fp_alu ^ 1, -1U, -1U, 0));
 		return true;
 #endif
 	}
