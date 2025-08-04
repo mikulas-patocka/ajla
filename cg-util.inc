@@ -409,6 +409,8 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 	if (insn == INSN_TEST && reg1 == reg2)
 		arch_use_flags = false;
 #endif
+	if (insn == INSN_CMP && ARCH_HAS_JMP_2REGS(cond))
+		arch_use_flags = false;
 	if (arch_use_flags) {
 		if (COND_IS_LOGICAL(cond)) {
 			gen_insn(insn, op_size, 0, 2);
@@ -437,15 +439,16 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 		gen_four(label);
 	} else {
 		if (insn == INSN_CMP) {
-#if defined(ARCH_LOONGARCH64) || defined(ARCH_PARISC) || defined(ARCH_RISCV64) || (defined(ARCH_MIPS) && MIPS_R6)
-			gen_insn(INSN_JMP_2REGS, op_size, cond, 0);
-			gen_one(reg1);
-			gen_one(reg2);
-			gen_four(label);
-			return true;
-#else
+			unsigned attr_unused jmp_cond;
+			if (ARCH_HAS_JMP_2REGS(cond)) {
+				gen_insn(INSN_JMP_2REGS, op_size, cond, 0);
+				gen_one(reg1);
+				gen_one(reg2);
+				gen_four(label);
+				return true;
+			}
 #ifdef R_CMP_RESULT
-			unsigned jmp_cond = COND_NE;
+			jmp_cond = COND_NE;
 #if defined(ARCH_MIPS)
 			if (cond == COND_E || cond == COND_NE) {
 				gen_insn(INSN_JMP_2REGS, op_size, cond, 0);
@@ -476,7 +479,6 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 			gen_four(label);
 #else
 			internal(file_line, "gen_cmp_test_jmp: R_CMP_RESULT not defined");
-#endif
 #endif
 		} else if (insn == INSN_TEST) {
 			if (reg1 != reg2) {

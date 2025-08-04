@@ -163,6 +163,7 @@ static uint64_t dump_seq = 0;
 #define COND_BLBC			0x10
 #define COND_BLBS			0x11
 #define COND_ALWAYS			0x12
+#define COND_NEVER			0x13
 
 #define COND_FP				0x20
 #define FP_COND_P			(COND_FP | COND_P)

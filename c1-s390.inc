@@ -34,6 +34,8 @@
 
 #define UNALIGNED_TRAP			0
 
+#define USE_BRCL			Z
+
 #define ALU_WRITES_FLAGS(size, alu, is_mem, is_imm, imm)	((alu) != ALU_MUL)
 #define ALU1_WRITES_FLAGS(alu)		1
 #define ROT_WRITES_FLAGS(alu, size, im)	((alu) == ROT_SAR || (alu) == ROT_SAL)
@@ -46,7 +48,7 @@
 #define ARCH_IS_3ADDRESS_ROT_IMM(alu)	0
 #define ARCH_IS_2ADDRESS(alu)		1
 #define ARCH_IS_3ADDRESS_FP		0
-#define ARCH_HAS_JMP_2REGS(cond)	0
+#define ARCH_HAS_JMP_2REGS(cond)	(cpu_test_feature(CPU_FEATURE_general_insn_ext) && USE_BRCL)
 #define ARCH_HAS_FLAGS			1
 #define ARCH_PREFERS_SX(size)		1
 #define ARCH_HAS_BWX			1
