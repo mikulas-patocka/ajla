@@ -1683,6 +1683,7 @@ static bool attr_w cgen_jmp_cond(struct codegen_context *ctx, bool lng, unsigned
 static bool attr_w cgen_jmp_2regs(struct codegen_context *ctx, bool lng, unsigned size, unsigned cond)
 {
 	it code;
+	uint8_t m;
 	int64_t imm;
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
@@ -1690,6 +1691,7 @@ static bool attr_w cgen_jmp_2regs(struct codegen_context *ctx, bool lng, unsigne
 	bool logical = COND_IS_LOGICAL(cond);
 	if (lng)
 		cond ^= 1;
+	m = get_jmp_cond(cond, logical) & 0xe;
 	if (arg1[0] < 0x10) {
 		if (arg2[0] < 0x10) {
 			if (size == OP_SIZE_4)
@@ -1702,12 +1704,12 @@ static bool attr_w cgen_jmp_2regs(struct codegen_context *ctx, bool lng, unsigne
 				g(add_relocation(ctx, JMP_SHORTEST, 2, NULL));
 				code |= (it)arg1[0] << 36;
 				code |= (it)arg2[0] << 32;
-				code |= (it)get_jmp_cond(cond, logical) << 12;
+				code |= (it)m << 12;
 				g(cgen_s390(ctx, code));
 			} else {
 				code |= (it)arg1[0] << 36;
 				code |= (it)arg2[0] << 32;
-				code |= (it)get_jmp_cond(cond, logical) << 12;
+				code |= (it)m << 12;
 				code |= (it)6 << 16;
 				g(cgen_s390(ctx, code));
 
@@ -1736,12 +1738,12 @@ static bool attr_w cgen_jmp_2regs(struct codegen_context *ctx, bool lng, unsigne
 			if (!lng) {
 				g(add_relocation(ctx, JMP_SHORTEST, 2, NULL));
 				code |= (it)arg1[0] << 36;
-				code |= (it)get_jmp_cond(cond, logical) << 32;
+				code |= (it)m << 32;
 				code |= (it)(imm & 0xff) << 8;
 				g(cgen_s390(ctx, code));
 			} else {
 				code |= (it)arg1[0] << 36;
-				code |= (it)get_jmp_cond(cond, logical) << 32;
+				code |= (it)m << 32;
 				code |= (it)(imm & 0xff) << 8;
 				code |= (it)6 << 16;
 				g(cgen_s390(ctx, code));
