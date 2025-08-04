@@ -48,7 +48,8 @@
 #define ARCH_IS_3ADDRESS_ROT_IMM(alu)	0
 #define ARCH_IS_2ADDRESS(alu)		1
 #define ARCH_IS_3ADDRESS_FP		0
-#define ARCH_HAS_JMP_2REGS(cond)	(cpu_test_feature(CPU_FEATURE_general_insn_ext) && USE_BRCL)
+#define ARCH_HAS_JMP_REG(cond)		(cpu_test_feature(CPU_FEATURE_general_insn_ext) && USE_BRCL)
+#define ARCH_HAS_JMP_2REGS(cond)	ARCH_HAS_JMP_REG(cond)
 #define ARCH_HAS_FLAGS			1
 #define ARCH_PREFERS_SX(size)		1
 #define ARCH_HAS_BWX			1

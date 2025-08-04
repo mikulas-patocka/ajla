@@ -44,6 +44,7 @@
 #define ARCH_IS_3ADDRESS_ROT_IMM(alu)	1
 #define ARCH_IS_2ADDRESS(alu)		1
 #define ARCH_IS_3ADDRESS_FP		1
+#define ARCH_HAS_JMP_REG(cond)		1
 #define ARCH_HAS_JMP_2REGS(cond)	((cond) == COND_E || (cond) == COND_NE || MIPS_R6)
 #define ARCH_HAS_FLAGS			0
 #define ARCH_SUPPORTS_TRAPS(size)	(OS_SUPPORTS_TRAPS && ((size) == OP_SIZE_4 || (size) == OP_SIZE_8))

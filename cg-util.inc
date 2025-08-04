@@ -600,14 +600,14 @@ static bool attr_w gen_cmp_test_imm_jmp(struct codegen_context *ctx, unsigned in
 	gen_four(label);
 #else
 	if (insn == INSN_CMP) {
-#if defined(ARCH_LOONGARCH64) || defined(ARCH_PARISC) || defined(ARCH_RISCV64)
-		g(gen_imm(ctx, value, IMM_PURPOSE_JMP_2REGS, op_size));
-		gen_insn(INSN_JMP_2REGS, i_size_cmp(op_size), cond, 0);
-		gen_one(reg1);
-		gen_imm_offset();
-		gen_four(label);
-		return true;
-#else
+		if (ARCH_HAS_JMP_2REGS(cond)) {
+			g(gen_imm(ctx, value, IMM_PURPOSE_JMP_2REGS, op_size));
+			gen_insn(INSN_JMP_2REGS, i_size_cmp(op_size), cond, 0);
+			gen_one(reg1);
+			gen_imm_offset();
+			gen_four(label);
+			return true;
+		}
 		unsigned final_cond = COND_NE;
 #if defined(ARCH_ALPHA)
 		if (cond == COND_AE || cond == COND_A || cond == COND_GE || cond == COND_G) {
@@ -651,7 +651,6 @@ gen_const:
 		gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, final_cond, 0);
 		gen_one(R_CMP_RESULT);
 		gen_four(label);
-#endif
 	} else if (insn == INSN_TEST) {
 #if defined(ARCH_IA64)
 		internal(file_line, "gen_cmp_test_imm_jmp: value %"PRIxMAX" not supported", (uintmax_t)value);
@@ -670,18 +669,7 @@ gen_const:
 
 static bool attr_w gen_jmp_on_zero(struct codegen_context *ctx, unsigned attr_unused op_size, unsigned reg, unsigned cond, uint32_t label)
 {
-	bool jmp_reg = false;
-#if defined(ARCH_ALPHA) || defined(ARCH_LOONGARCH64) || defined(ARCH_MIPS) || defined(ARCH_PARISC) || defined(ARCH_RISCV64)
-	jmp_reg = true;
-#endif
-#if defined(ARCH_ARM64)
-	if (cond == COND_E || cond == COND_NE || cond == COND_S || cond == COND_L || cond == COND_NS || cond == COND_GE)
-		jmp_reg = true;
-#endif
-#if defined(ARCH_SPARC)
-	jmp_reg |= SPARC_9;
-#endif
-	if (jmp_reg) {
+	if (ARCH_HAS_JMP_REG(cond)) {
 		gen_insn(INSN_JMP_REG, i_size(op_size), cond, 0);
 		gen_one(reg);
 		gen_four(label);

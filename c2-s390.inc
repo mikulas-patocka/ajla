@@ -1680,83 +1680,121 @@ static bool attr_w cgen_jmp_cond(struct codegen_context *ctx, bool lng, unsigned
 	return true;
 }
 
-static bool attr_w cgen_jmp_2regs(struct codegen_context *ctx, bool lng, unsigned size, unsigned cond)
+static bool attr_w jmp_reg_imm(struct codegen_context *ctx, bool lng, unsigned size, unsigned cond, unsigned offs, unsigned reg1, int64_t imm)
 {
 	it code;
 	uint8_t m;
-	int64_t imm;
-	uint8_t *arg1 = ctx->code_position;
-	uint8_t *arg2 = arg1 + arg_size(*arg1);
-	ctx->code_position = arg2 + arg_size(*arg2);
 	bool logical = COND_IS_LOGICAL(cond);
 	if (lng)
 		cond ^= 1;
 	m = get_jmp_cond(cond, logical) & 0xe;
+	if (size == OP_SIZE_4)
+		code = logical ? S300_CLIJ : S300_CIJ;
+	else if (size == OP_SIZE_8)
+		code = logical ? S300_CLGIJ : S300_CGIJ;
+	else
+		goto invl;
+	if (!logical) {
+		if (imm < -0x80 || imm >= 0x80)
+			goto invl;
+	} else {
+		if (imm < 0 || imm >= 0x100)
+			goto invl;
+	}
+	if (!lng) {
+		g(add_relocation(ctx, JMP_SHORTEST, offs, NULL));
+		code |= (it)reg1 << 36;
+		code |= (it)m << 32;
+		code |= (it)(imm & 0xff) << 8;
+		g(cgen_s390(ctx, code));
+	} else {
+		code |= (it)reg1 << 36;
+		code |= (it)m << 32;
+		code |= (it)(imm & 0xff) << 8;
+		code |= (it)6 << 16;
+		g(cgen_s390(ctx, code));
+
+		g(add_relocation(ctx, JMP_SHORT, offs, NULL));
+		code = S390_BRCL;
+		code |= (it)0xf << 36;
+		g(cgen_s390(ctx, code));
+	}
+	return true;
+invl:
+	internal(file_line, "jmp_reg_imm: invalid arguments %02x, %"PRIuMAX"", size, (uintmax_t)imm);
+	return false;
+}
+
+static bool attr_w jmp_2regs(struct codegen_context *ctx, bool lng, unsigned size, unsigned cond, unsigned offs, unsigned reg1, unsigned reg2)
+{
+	it code;
+	uint8_t m;
+	bool logical = COND_IS_LOGICAL(cond);
+	if (lng)
+		cond ^= 1;
+	m = get_jmp_cond(cond, logical) & 0xe;
+	if (size == OP_SIZE_4)
+		code = logical ? S300_CLRJ : S300_CRJ;
+	else if (size == OP_SIZE_8)
+		code = logical ? S300_CLGRJ : S300_CGRJ;
+	else
+		goto invl;
+	if (!lng) {
+		g(add_relocation(ctx, JMP_SHORTEST, offs, NULL));
+		code |= (it)reg1 << 36;
+		code |= (it)reg2 << 32;
+		code |= (it)m << 12;
+		g(cgen_s390(ctx, code));
+	} else {
+		code |= (it)reg1 << 36;
+		code |= (it)reg2 << 32;
+		code |= (it)m << 12;
+		code |= (it)6 << 16;
+		g(cgen_s390(ctx, code));
+
+		g(add_relocation(ctx, JMP_SHORT, offs, NULL));
+		code = S390_BRCL;
+		code |= (it)0xf << 36;
+		g(cgen_s390(ctx, code));
+	}
+	return true;
+invl:
+	internal(file_line, "jmp_2regs: invalid arguments %02x", size);
+	return false;
+}
+
+static bool attr_w cgen_jmp_reg(struct codegen_context *ctx, bool lng, unsigned size, unsigned cond)
+{
+	uint8_t *arg1 = ctx->code_position;
+	ctx->code_position = arg1 + arg_size(*arg1);
+	switch (cond) {
+		case COND_S:
+			cond = COND_L;
+			break;
+		case COND_NS:
+			cond = COND_GE;
+			break;
+	}
+	if (arg1[0] < 0x10)
+		return jmp_reg_imm(ctx, lng, size, cond, 1, arg1[0], 0);
+	internal(file_line, "cgen_jmp_reg: invalid argument %02x", arg1[0]);
+	return false;
+}
+
+static bool attr_w cgen_jmp_2regs(struct codegen_context *ctx, bool lng, unsigned size, unsigned cond)
+{
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
 	if (arg1[0] < 0x10) {
 		if (arg2[0] < 0x10) {
-			if (size == OP_SIZE_4)
-				code = logical ? S300_CLRJ : S300_CRJ;
-			else if (size == OP_SIZE_8)
-				code = logical ? S300_CLGRJ : S300_CGRJ;
-			else
-				goto invl;
-			if (!lng) {
-				g(add_relocation(ctx, JMP_SHORTEST, 2, NULL));
-				code |= (it)arg1[0] << 36;
-				code |= (it)arg2[0] << 32;
-				code |= (it)m << 12;
-				g(cgen_s390(ctx, code));
-			} else {
-				code |= (it)arg1[0] << 36;
-				code |= (it)arg2[0] << 32;
-				code |= (it)m << 12;
-				code |= (it)6 << 16;
-				g(cgen_s390(ctx, code));
-
-				g(add_relocation(ctx, JMP_SHORT, 2, NULL));
-				code = S390_BRCL;
-				code |= (it)0xf << 36;
-				g(cgen_s390(ctx, code));
-			}
-			return true;
+			return jmp_2regs(ctx, lng, size, cond, 2, arg1[0], arg2[0]);
 		}
 		if (arg2[0] == ARG_IMM) {
-			if (size == OP_SIZE_4)
-				code = logical ? S300_CLIJ : S300_CIJ;
-			else if (size == OP_SIZE_8)
-				code = logical ? S300_CLGIJ : S300_CGIJ;
-			else
-				goto invl;
-			imm = get_imm(&arg2[1]);
-			if (!logical) {
-				if (imm < -0x80 || imm >= 0x80)
-					goto invl;
-			} else {
-				if (imm < 0 || imm >= 0x100)
-					goto invl;
-			}
-			if (!lng) {
-				g(add_relocation(ctx, JMP_SHORTEST, 2, NULL));
-				code |= (it)arg1[0] << 36;
-				code |= (it)m << 32;
-				code |= (it)(imm & 0xff) << 8;
-				g(cgen_s390(ctx, code));
-			} else {
-				code |= (it)arg1[0] << 36;
-				code |= (it)m << 32;
-				code |= (it)(imm & 0xff) << 8;
-				code |= (it)6 << 16;
-				g(cgen_s390(ctx, code));
-
-				g(add_relocation(ctx, JMP_SHORT, 2, NULL));
-				code = S390_BRCL;
-				code |= (it)0xf << 36;
-				g(cgen_s390(ctx, code));
-			}
-			return true;
+			int64_t imm = get_imm(&arg2[1]);
+			return jmp_reg_imm(ctx, lng, size, cond, 10, arg1[0], imm);
 		}
 	}
-invl:
 	internal(file_line, "cgen_jmp_2regs: invalid arguments %02x, %02x", arg1[0], arg2[0]);
 	return false;
 }
@@ -1946,6 +1984,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_JMP_COND_LOGICAL:
 			g(cgen_jmp_cond(ctx, insn_jump_size(insn) == JMP_SHORT, insn_aux(insn), true));
+			return true;
+		case INSN_JMP_REG:
+			g(cgen_jmp_reg(ctx, insn_jump_size(insn) == JMP_SHORT, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_JMP_2REGS:
 			g(cgen_jmp_2regs(ctx, insn_jump_size(insn) == JMP_SHORT, insn_op_size(insn), insn_aux(insn)));
