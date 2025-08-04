@@ -672,11 +672,6 @@ static bool attr_w gen_cmp_test_imm_jmp(struct codegen_context *ctx, unsigned in
 	return gen_cmp_test_imm_jmp_q_flags(ctx, insn, op_size, reg1, value, cond, label, x86_scratch, false);
 }
 
-static bool attr_w gen_cmp_test_imm_jmp_flags(struct codegen_context *ctx, unsigned insn, unsigned op_size, unsigned reg1, int64_t value, unsigned cond, uint32_t label, int x86_scratch)
-{
-	return gen_cmp_test_imm_jmp_q_flags(ctx, insn, op_size, reg1, value, cond, label, x86_scratch, ARCH_HAS_FLAGS);
-}
-
 static bool attr_w gen_jmp_on_zero(struct codegen_context *ctx, unsigned attr_unused op_size, unsigned reg, unsigned cond, uint32_t label)
 {
 	if (ARCH_HAS_JMP_REG(cond)) {

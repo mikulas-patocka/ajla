@@ -1043,7 +1043,7 @@ struct_zero:
 					g(gen_check_array_len(ctx, R_SCRATCH_1, false, reg2, COND_AE, escape_label));
 
 					if (!TYPE_IS_FLAT(e_type) || (e_type->tag == TYPE_TAG_flat_option && !(ctx->args[i].flags & OPCODE_STRUCTURED_FLAG_END))) {
-						g(gen_compare_ptr_tag(ctx, R_SCRATCH_1, DATA_TAG_array_pointers, COND_NE, escape_label, R_SCRATCH_3, false));
+						g(gen_compare_ptr_tag(ctx, R_SCRATCH_1, DATA_TAG_array_pointers, COND_NE, escape_label, R_SCRATCH_3, false, false));
 
 						g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.array_pointers.pointer), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 						gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
@@ -1052,7 +1052,7 @@ struct_zero:
 
 						g(gen_scaled_array_address(ctx, slot_size, R_SAVED_1, R_SCRATCH_1, reg2, 0));
 					} else {
-						g(gen_compare_ptr_tag(ctx, R_SCRATCH_1, DATA_TAG_array_flat, COND_NE, escape_label, R_SCRATCH_3, false));
+						g(gen_compare_ptr_tag(ctx, R_SCRATCH_1, DATA_TAG_array_flat, COND_NE, escape_label, R_SCRATCH_3, false, false));
 
 						g(gen_scaled_array_address(ctx, e_type->size, R_SAVED_1, R_SCRATCH_1, reg2, data_array_offset));
 
@@ -2201,7 +2201,7 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 #if !ARCH_HAS_FLAGS && !defined(ARCH_IA64) && !defined(ARCH_PARISC)
 		subtract = true;
 #endif
-		g(gen_compare_ptr_tag(ctx, reg1, DATA_TAG_array_slice, COND_A, escape_label, R_SCRATCH_4, subtract));
+		g(gen_compare_ptr_tag(ctx, reg1, DATA_TAG_array_slice, COND_A, escape_label, R_SCRATCH_4, subtract, ARCH_HAS_FLAGS));
 		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SCRATCH_1, reg1));
 #if defined(ARCH_ARM32) || defined(ARCH_S390) || defined(ARCH_X86)
 #if defined(ARCH_X86)
@@ -2310,7 +2310,7 @@ no_cmov:
 			return true;
 		}
 
-		g(gen_compare_ptr_tag(ctx, reg1, DATA_TAG_array_pointers, COND_NE, escape_label, R_SCRATCH_3, false));
+		g(gen_compare_ptr_tag(ctx, reg1, DATA_TAG_array_pointers, COND_NE, escape_label, R_SCRATCH_3, false, false));
 
 		g(gen_address(ctx, reg1, offsetof(struct data, u_.array_pointers.pointer), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
@@ -2416,7 +2416,7 @@ static bool attr_w gen_array_len(struct codegen_context *ctx, frame_t slot_1, fr
 			return false;
 		}
 
-		g(gen_compare_ptr_tag(ctx, reg, DATA_TAG_array_pointers, COND_A, escape_label, R_SCRATCH_2, false));
+		g(gen_compare_ptr_tag(ctx, reg, DATA_TAG_array_pointers, COND_A, escape_label, R_SCRATCH_2, false, false));
 
 		if (slot_2 == NO_FRAME_T) {
 			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);

@@ -159,7 +159,7 @@ static bool attr_w gen_compare_refcount(struct codegen_context *ctx, unsigned pt
 	return true;
 }
 
-static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg, unsigned tag, unsigned cond, uint32_t label, unsigned tmp_reg, bool subtract)
+static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg, unsigned tag, unsigned cond, uint32_t label, unsigned tmp_reg, bool subtract, bool need_flags)
 {
 	if (subtract
 #if defined(ARCH_S390)
@@ -216,7 +216,7 @@ static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg
 	g(gen_load_raw(ctx, log_2(sizeof(tag_t)), native, reg, 0, offsetof(struct data, tag), false, tmp_reg));
 #endif
 	if (!subtract) {
-		g(gen_cmp_test_imm_jmp_flags(ctx, INSN_CMP, i_size(OP_SIZE_4), tmp_reg, tag, cond, label, -1));
+		g(gen_cmp_test_imm_jmp_q_flags(ctx, INSN_CMP, i_size(OP_SIZE_4), tmp_reg, tag, cond, label, -1, need_flags));
 	} else {
 		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_4), ALU_SUB, tmp_reg, tmp_reg, tag, 0));
 		g(gen_jmp_on_zero(ctx, i_size(OP_SIZE_4), tmp_reg, cond, label));
@@ -247,10 +247,10 @@ static bool attr_w gen_compare_da_tag(struct codegen_context *ctx, unsigned reg,
 	} else {
 		g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, tmp_reg, reg, POINTER_COMPRESSION, false));
 	}
-	g(gen_compare_ptr_tag(ctx, tmp_reg, tag, cond, label, tmp_reg, false));
+	g(gen_compare_ptr_tag(ctx, tmp_reg, tag, cond, label, tmp_reg, false, false));
 	return true;
 #endif
-	g(gen_compare_ptr_tag(ctx, reg, tag, cond, label, tmp_reg, false));
+	g(gen_compare_ptr_tag(ctx, reg, tag, cond, label, tmp_reg, false, false));
 	return true;
 }
 
@@ -259,7 +259,7 @@ static bool attr_w gen_compare_tag_and_refcount(struct codegen_context *ctx, uns
 #if defined(REFCOUNT_TAG)
 	g(gen_compare_refcount(ctx, reg, tag, COND_NE, label));
 #else
-	g(gen_compare_ptr_tag(ctx, reg, tag, COND_NE, label, tmp_reg, false));
+	g(gen_compare_ptr_tag(ctx, reg, tag, COND_NE, label, tmp_reg, false, false));
 	g(gen_compare_refcount(ctx, reg, REFCOUNT_STEP, COND_AE, label));
 #endif
 	return true;
