@@ -309,6 +309,7 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 		case IMM_PURPOSE_ANDN:
 			break;
 		case IMM_PURPOSE_JMP_2REGS:
+		case IMM_PURPOSE_JMP_2REGS_LOGICAL:
 			break;
 		case IMM_PURPOSE_MUL:
 			break;

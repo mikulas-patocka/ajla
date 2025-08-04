@@ -570,7 +570,7 @@ static bool attr_w gen_cmp_test_imm_jmp_q_flags(struct codegen_context *ctx, uns
 #endif
 	}
 	if (!need_flags && insn == INSN_CMP && ARCH_HAS_JMP_2REGS(cond)) {
-		g(gen_imm(ctx, value, IMM_PURPOSE_JMP_2REGS, op_size));
+		g(gen_imm(ctx, value, COND_IS_LOGICAL(cond) ? IMM_PURPOSE_JMP_2REGS_LOGICAL : IMM_PURPOSE_JMP_2REGS, op_size));
 		gen_insn(INSN_JMP_2REGS, i_size_cmp(op_size), cond, 0);
 		gen_one(reg1);
 		gen_imm_offset();

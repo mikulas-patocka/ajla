@@ -344,7 +344,11 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 			}
 			break;
 		case IMM_PURPOSE_JMP_2REGS:
-			if (imm >= 0 && imm < 0x80)
+			if (imm >= -0x80 && imm < 0x80)
+				return true;
+			break;
+		case IMM_PURPOSE_JMP_2REGS_LOGICAL:
+			if (imm >= 0 && imm < 0x100)
 				return true;
 			break;
 		default:

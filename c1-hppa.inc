@@ -371,6 +371,7 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 				return true;
 			break;
 		case IMM_PURPOSE_JMP_2REGS:
+		case IMM_PURPOSE_JMP_2REGS_LOGICAL:
 #ifdef ARCH_PARISC32
 			if (likely(imm >= -16) && likely(imm < 16))
 				return true;

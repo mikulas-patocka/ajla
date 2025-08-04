@@ -928,12 +928,13 @@ do {									\
 #define IMM_PURPOSE_ANDN		15
 #define IMM_PURPOSE_TEST		16
 #define IMM_PURPOSE_JMP_2REGS		17
-#define IMM_PURPOSE_MUL			18
-#define IMM_PURPOSE_CMOV		19
-#define IMM_PURPOSE_MOVR		20
-#define IMM_PURPOSE_BITWISE		21
-#define IMM_PURPOSE_ADD_TRAP		22
-#define IMM_PURPOSE_SUB_TRAP		23
+#define IMM_PURPOSE_JMP_2REGS_LOGICAL	18
+#define IMM_PURPOSE_MUL			19
+#define IMM_PURPOSE_CMOV		20
+#define IMM_PURPOSE_MOVR		21
+#define IMM_PURPOSE_BITWISE		22
+#define IMM_PURPOSE_ADD_TRAP		23
+#define IMM_PURPOSE_SUB_TRAP		24
 
 
 static unsigned alu_purpose(unsigned alu)
