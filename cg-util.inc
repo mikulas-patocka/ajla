@@ -635,6 +635,18 @@ static bool attr_w gen_cmp_test_imm_jmp_q_flags(struct codegen_context *ctx, uns
 			cond ^= 1;
 			final_cond ^= 1;
 		}
+		if (cond == COND_A && is_direct_const(value, IMM_PURPOSE_CMP_LOGICAL, OP_SIZE_NATIVE) && is_direct_const((uint64_t)value + 1, IMM_PURPOSE_CMP_LOGICAL, OP_SIZE_NATIVE)) {
+			cond = COND_AE;
+			value++;
+			cond ^= 1;
+			final_cond ^= 1;
+		}
+		if (cond == COND_G && is_direct_const(value, IMM_PURPOSE_CMP, OP_SIZE_NATIVE) && is_direct_const((uint64_t)value + 1, IMM_PURPOSE_CMP, OP_SIZE_NATIVE)) {
+			cond = COND_GE;
+			value++;
+			cond ^= 1;
+			final_cond ^= 1;
+		}
 		if (cond == COND_A || cond == COND_G) {
 			g(gen_load_constant(ctx, R_CONST_IMM, value));
 			gen_insn(INSN_CMP_DEST_REG, OP_SIZE_NATIVE, cond, 0);
