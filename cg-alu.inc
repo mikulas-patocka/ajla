@@ -3829,7 +3829,23 @@ do_compare: {
 		ex = op_size == i_size_cmp(op_size) + (unsigned)zero ? garbage : alu == COND_L || alu == COND_LE || alu == COND_G || alu == COND_GE || ARCH_PREFERS_SX(op_size) ? sign_x : zero_x;
 		g(gen_frame_get(ctx, op_size, ex, slot_1, R_SCRATCH_1, &reg1));
 		if (frame_t_is_const(slot_2)) {
-			g(gen_jump(ctx, jmp_offset, i_size_cmp(op_size), alu ^ 1, reg1, -2U, frame_t_get_const(slot_2)));
+			int64_t imm = frame_t_get_const(slot_2);
+			if (ex == sign_x) {
+				if (op_size == OP_SIZE_1)
+					imm = (int8_t)imm;
+				if (op_size == OP_SIZE_2)
+					imm = (int16_t)imm;
+				if (op_size == OP_SIZE_4)
+					imm = (int32_t)imm;
+			} else if (ex == zero_x) {
+				if (op_size == OP_SIZE_1)
+					imm = (uint8_t)imm;
+				if (op_size == OP_SIZE_2)
+					imm = (uint16_t)imm;
+				if (op_size == OP_SIZE_4)
+					imm = (uint32_t)imm;
+			}
+			g(gen_jump(ctx, jmp_offset, i_size_cmp(op_size), alu ^ 1, reg1, -2U, imm));
 			return true;
 		}
 		if (ARCH_HAS_JMP_2REGS(alu)) {
