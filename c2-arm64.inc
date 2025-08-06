@@ -367,7 +367,7 @@ static bool attr_w cgen_alu_args(struct codegen_context *ctx, unsigned size, uns
 {
 	uint32_t mc;
 	int64_t imm;
-	uint8_t z = 31;
+	uint8_t z = R_ZR;
 	if (unlikely(arg1[0] >= 32))
 		goto invalid;
 	if (unlikely(alu == ALU_MUL)) {
@@ -540,7 +540,7 @@ invalid:
 
 static bool attr_w cgen_cmp(struct codegen_context *ctx, unsigned size, bool cmn)
 {
-	uint8_t z = 31;
+	uint8_t z = R_ZR;
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
@@ -549,7 +549,7 @@ static bool attr_w cgen_cmp(struct codegen_context *ctx, unsigned size, bool cmn
 
 static bool attr_w cgen_test(struct codegen_context *ctx, unsigned size)
 {
-	uint8_t z = 31;
+	uint8_t z = R_ZR;
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
@@ -575,7 +575,7 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigned writes_flags, unsigned alu)
 {
 	uint32_t mc = 0;
-	uint8_t z = 31;
+	uint8_t z = R_ZR;
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
@@ -724,7 +724,7 @@ static bool attr_w cgen_csel(struct codegen_context *ctx, uint32_t insn, unsigne
 {
 	uint32_t mc;
 	int8_t cond;
-	uint8_t z = 31;
+	uint8_t z = R_ZR;
 	int64_t imm;
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
@@ -768,7 +768,7 @@ invalid:
 static bool attr_w cgen_ldp_stp(struct codegen_context *ctx, bool ldr, unsigned size)
 {
 	uint8_t *arg1, *arg2, *arg3;
-	uint8_t z = 31;
+	uint8_t z = R_ZR;
 	uint32_t mc;
 	int64_t imm;
 	if (!ldr) {
