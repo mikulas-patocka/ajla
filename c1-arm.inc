@@ -41,6 +41,7 @@
 #define ARCH_IS_3ADDRESS_FP		1
 #define ARCH_HAS_JMP_REG(cond)		0
 #define ARCH_HAS_JMP_2REGS(cond)	0
+#define ARCH_HAS_LDP_STP(r1, r2, s, o)	(cpu_test_feature(CPU_FEATURE_armv6) && (s) == OP_SIZE_4 && !((r1) & 1) && (r2) == (r1) + 1 && !((o) & 3))
 #define ARCH_HAS_FLAGS			1
 #define ARCH_PREFERS_SX(size)		0
 #define ARCH_HAS_BWX			1

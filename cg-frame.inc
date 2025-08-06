@@ -524,26 +524,8 @@ static bool attr_w gen_frame_load_2(struct codegen_context *ctx, unsigned size, 
 {
 	if (frame_t_is_const(slot))
 		goto skip_ldd;
-#if defined(ARCH_ARM32)
-	if (likely(!(reg1 & 1)) && likely(reg2 == reg1 + 1) && likely(cpu_test_feature(CPU_FEATURE_armv6)))
-#elif defined(ARCH_ARM64)
-	if (1)
-#elif defined(ARCH_SPARC32)
-	if (likely(!(reg2 & 1)) && likely(reg1 == reg2 + 1))
-#elif defined(ARCH_S390)
-	if (likely(reg1 == reg2 + 1))
-#else
-	if (0)
-#endif
-	{
-		offset += (size_t)slot * slot_size;
-		if (UNALIGNED_TRAP) {
-			if (unlikely(((frame_offset + offset) & ((2U << size) - 1)) != 0)) {
-				offset -= (size_t)slot * slot_size;
-				goto skip_ldd;
-			}
-		}
-		g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, size));
+	if (ARCH_HAS_LDP_STP(reg1, reg2, size, offset + (size_t)slot * slot_size)) {
+		g(gen_address(ctx, R_FRAME, offset + (size_t)slot * slot_size, IMM_PURPOSE_LDP_STP_OFFSET, size));
 		gen_insn(INSN_LDP, size, 0, 0);
 		gen_one(reg1);
 		gen_one(reg2);
@@ -615,26 +597,8 @@ static unsigned gen_frame_target(struct codegen_context *ctx, frame_t slot_r, fr
 
 static bool attr_w gen_frame_store_2(struct codegen_context *ctx, unsigned size, frame_t slot, int64_t offset, unsigned reg1, unsigned reg2)
 {
-#if defined(ARCH_ARM32)
-	if (likely(!(reg1 & 1)) && likely(reg2 == reg1 + 1) && likely(cpu_test_feature(CPU_FEATURE_armv6)))
-#elif defined(ARCH_ARM64)
-	if (1)
-#elif defined(ARCH_SPARC32)
-	if (likely(!(reg2 & 1)) && likely(reg1 == reg2 + 1))
-#elif defined(ARCH_S390)
-	if (likely(reg1 == reg2 + 1))
-#else
-	if (0)
-#endif
-	{
-		offset += (size_t)slot * slot_size;
-		if (UNALIGNED_TRAP) {
-			if (unlikely(((frame_offset + offset) & ((2U << size) - 1)) != 0)) {
-				offset -= (size_t)slot * slot_size;
-				goto skip_ldd;
-			}
-		}
-		g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, size));
+	if (ARCH_HAS_LDP_STP(reg1, reg2, size, offset + (size_t)slot * slot_size)) {
+		g(gen_address(ctx, R_FRAME, offset + (size_t)slot * slot_size, IMM_PURPOSE_LDP_STP_OFFSET, size));
 		gen_insn(INSN_STP, size, 0, 0);
 		gen_address_offset();
 		gen_one(reg1);
@@ -878,7 +842,6 @@ static bool attr_w gen_frame_load_cmp_imm_set_cond(struct codegen_context *ctx, 
 	return true;
 }
 
-#if defined(ARCH_ARM) || defined(ARCH_S390) || defined(ARCH_SPARC)
 static bool spill_can_pair(struct codegen_context *ctx, frame_t slot1, frame_t slot2, unsigned *s, int64_t *o, bool can_be_smaller)
 {
 	const struct type *t1 = get_type_of_local(ctx, slot1);
@@ -900,36 +863,17 @@ static bool spill_can_pair(struct codegen_context *ctx, frame_t slot1, frame_t s
 		return false;
 	if (slot1 + 1 + (s1 > OP_SIZE_SLOT) != slot2)
 		return false;
-#if defined(ARCH_ARM32)
-	if (unlikely(!cpu_test_feature(CPU_FEATURE_armv6)))
+	if (!ARCH_HAS_LDP_STP(ctx->registers[slot1], ctx->registers[slot2], s1, (slot1 * slot_size)))
 		return false;
-#endif
-#if defined(ARCH_ARM32) || defined(ARCH_SPARC)
-	if (ctx->registers[slot1] & 1 ||
-	    ctx->registers[slot2] != ctx->registers[slot1] + 1)
-		return false;
-#endif
-#if defined(ARCH_S390)
-	if (ctx->registers[slot2] != ctx->registers[slot1] + 1)
-		return false;
-#endif
-#if defined(ARCH_SPARC)
-	if (s1 != OP_SIZE_4)
-		return false;
-	if ((frame_offset + (slot1 * slot_size)) & 0x7)
-		return false;
-#endif
 	*s = s1;
 	*o = (size_t)slot1 * slot_size;
 	return true;
 }
-#endif
 
 static bool attr_w gen_spill_multiple(struct codegen_context *ctx, frame_t *v, size_t l, bool attr_unused can_be_smaller)
 {
 	size_t i;
 	for (i = 0; i < l; i++) {
-#if defined(ARCH_ARM) || defined(ARCH_S390) || defined(ARCH_SPARC)
 		if (i + 1 < l) {
 			unsigned s = 0;		/* avoid warning */
 			int64_t offset = 0;	/* avoid warning */
@@ -938,7 +882,7 @@ static bool attr_w gen_spill_multiple(struct codegen_context *ctx, frame_t *v, s
 			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
 			gen_insn(INSN_STP, s, 0, 0);
 			gen_address_offset();
-#if defined(ARCH_S390) || defined(ARCH_SPARC)
+#if defined(C_BIG_ENDIAN)
 			gen_one(ctx->registers[v[i + 1]]);
 			gen_one(ctx->registers[v[i]]);
 #else
@@ -949,7 +893,6 @@ static bool attr_w gen_spill_multiple(struct codegen_context *ctx, frame_t *v, s
 			continue;
 		}
 skip_opt:
-#endif
 		g(spill(ctx, v[i]));
 	}
 	return true;
@@ -959,7 +902,6 @@ static bool attr_w gen_unspill_multiple(struct codegen_context *ctx, frame_t *v,
 {
 	size_t i;
 	for (i = 0; i < l; i++) {
-#if defined(ARCH_ARM) || defined(ARCH_S390) || defined(ARCH_SPARC)
 		if (i + 1 < l) {
 			unsigned s = 0;		/* avoid warning */
 			int64_t offset = 0;	/* avoid warning */
@@ -967,7 +909,7 @@ static bool attr_w gen_unspill_multiple(struct codegen_context *ctx, frame_t *v,
 				goto skip_opt;
 			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
 			gen_insn(INSN_LDP, s, 0, 0);
-#if defined(ARCH_S390) || defined(ARCH_SPARC)
+#if defined(C_BIG_ENDIAN)
 			gen_one(ctx->registers[v[i + 1]]);
 			gen_one(ctx->registers[v[i]]);
 #else
@@ -979,7 +921,6 @@ static bool attr_w gen_unspill_multiple(struct codegen_context *ctx, frame_t *v,
 			continue;
 		}
 skip_opt:
-#endif
 		g(unspill(ctx, v[i]));
 	}
 	return true;

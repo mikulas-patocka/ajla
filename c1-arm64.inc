@@ -37,6 +37,7 @@
 #define ARCH_IS_3ADDRESS_FP		1
 #define ARCH_HAS_JMP_REG(cond)		((cond) == COND_E || (cond) == COND_NE || (cond) == COND_S || (cond) == COND_L || (cond) == COND_NS || (cond) == COND_GE)
 #define ARCH_HAS_JMP_2REGS(cond)	0
+#define ARCH_HAS_LDP_STP(r1, r2, s, o)	(((s) == OP_SIZE_4 || (s) == OP_SIZE_8))
 #define ARCH_HAS_FLAGS			1
 #define ARCH_PREFERS_SX(size)		0
 #define ARCH_HAS_BWX			1

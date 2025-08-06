@@ -141,6 +141,7 @@
 #define POWER_STFS		0xd0000000U
 #define POWER_LFD		0xc8000000U
 #define POWER_STFD		0xd8000000U
+#define POWER_LQ		0xe0000000U
 #define POWER_LXSD		0xe4000002U
 #define POWER_LD		0xe8000000U
 #define POWER_LWA		0xe8000002U
@@ -156,6 +157,7 @@
 #define POWER_STXV		0xf4000005U
 #define POWER_STD		0xf8000000U
 #define POWER_STDU		0xf8000001U
+#define POWER_STQ		0xf8000002U
 #define POWER_FCMPU		0xfc000000U
 #define POWER_XSADDQP		0xfc000008U
 #define POWER_FDIV		0xfc000024U
@@ -864,6 +866,34 @@ invl:
 	return false;
 }
 
+static bool attr_w cgen_ldp_stp(struct codegen_context *ctx, bool ldr)
+{
+	uint8_t *arg1, *arg2, *arg3;
+	uint32_t mc;
+	int64_t imm;
+	if (!ldr) {
+		arg1 = ctx->code_position;
+		arg2 = arg1 + arg_size(*arg1);
+		arg3 = arg2 + arg_size(*arg2);
+		ctx->code_position = arg3 + arg_size(*arg3);
+		mc = POWER_STQ;
+	} else {
+		arg2 = ctx->code_position;
+		arg3 = arg2 + arg_size(*arg2);
+		arg1 = arg3 + arg_size(*arg3);
+		ctx->code_position = arg1 + arg_size(*arg1);
+		mc = POWER_LQ;
+	}
+	if (unlikely(arg2[0] >= 32) || unlikely(arg3[0] >= 32))
+		goto invalid;
+	imm = get_imm(&arg1[2]);
+	cgen_dform(mc, arg3[0], arg1[1], imm & 0xfff0);
+	return true;
+invalid:
+	internal(file_line, "cgen_ldp_stp: invalid arguments %02x, %02x, %02x", arg1[0], arg2[0], arg3[0]);
+	return false;
+}
+
 static bool attr_w cgen_fp_cmp(struct codegen_context *ctx, unsigned attr_unused op_size)
 {
 	uint32_t mc;
@@ -1078,6 +1108,12 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			if (unlikely(insn_op_size(insn) != OP_SIZE_NATIVE))
 				goto invalid_insn;
 			g(cgen_cmov(ctx, insn_aux(insn)));
+			return true;
+		case INSN_STP:
+		case INSN_LDP:
+			if (unlikely(insn_op_size(insn) != OP_SIZE_8))
+				goto invalid_insn;
+			g(cgen_ldp_stp(ctx, insn_opcode(insn) == INSN_LDP));
 			return true;
 		case INSN_FP_CMP:
 			g(cgen_fp_cmp(ctx, insn_op_size(insn)));

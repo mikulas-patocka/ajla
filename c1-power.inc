@@ -72,6 +72,11 @@
 #define ARCH_IS_3ADDRESS_FP		1
 #define ARCH_HAS_JMP_REG(cond)		0
 #define ARCH_HAS_JMP_2REGS(cond)	0
+#if defined(C_LITTLE_ENDIAN)
+#define ARCH_HAS_LDP_STP(r1, r2, s, o)	(cpu_test_feature(CPU_FEATURE_lq) && (s) == OP_SIZE_8 && !((r2) & 1) && (r1) == (r2) + 1 && !((o) & 15))
+#else
+#define ARCH_HAS_LDP_STP(r1, r2, s, o)	(cpu_test_feature(CPU_FEATURE_lq) && (s) == OP_SIZE_8 && !((r1) & 1) && (r2) == (r1) + 1 && !((o) & 15))
+#endif
 #define ARCH_HAS_FLAGS			1
 #define ARCH_PREFERS_SX(size)		0
 #define ARCH_HAS_BWX			1
@@ -243,7 +248,11 @@ static bool reg_is_vs(unsigned reg)
 	return reg >= 0x60 && reg < 0x80;
 }
 
+#if defined(C_LITTLE_ENDIAN)
+static const uint8_t regs_saved[] = { R_25, R_24, R_23, R_22, R_21, R_20, R_19, R_18, R_17, R_16, R_15, R_14 };
+#else
 static const uint8_t regs_saved[] = { R_14, R_15, R_16, R_17, R_18, R_19, R_20, R_21, R_22, R_23, R_24, R_25 };
+#endif
 static const uint8_t regs_volatile[] = {
 #if defined(ARCH_POWER64)
 	R_2,
@@ -351,11 +360,26 @@ static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int64
 			if (likely(imm >= -0x8000) && likely(imm < 0x8000))
 				return true;
 			break;
+		case IMM_PURPOSE_LDP_STP_OFFSET:
+			if (imm & 15)
+				goto fail_x;
+			if (likely(imm >= -0x8000) && likely(imm < 0x8000))
+				return true;
+			goto fail_x;
 		default:
 			internal(file_line, "gen_address: invalid purpose %u (imm %"PRIxMAX", size %u)", purpose, (uintmax_t)imm, size);
 	}
 	g(gen_load_constant(ctx, R_OFFSET_IMM, imm));
 	ctx->offset_reg = true;
+	return true;
+fail_x:
+	g(gen_load_constant(ctx, R_OFFSET_IMM, imm));
+	gen_insn(INSN_ALU, OP_SIZE_ADDRESS, ALU_ADD, 0);
+	gen_one(R_OFFSET_IMM);
+	gen_one(R_OFFSET_IMM);
+	gen_one(base);
+	ctx->base_reg = R_OFFSET_IMM;
+	ctx->offset_imm = 0;
 	return true;
 }
 
