@@ -1076,10 +1076,16 @@ static bool attr_w gen_imm(struct codegen_context *ctx, int64_t imm, unsigned pu
 	return true;
 load_const:
 #if defined(R_ZERO)
+#if defined(ARCH_MIPS) && MIPS_R6
+	if (!imm && (purpose == IMM_PURPOSE_JMP_2REGS || purpose == IMM_PURPOSE_JMP_2REGS_LOGICAL))
+		goto no_zero;
+#endif
 	if (!imm) {
 		ctx->const_reg = R_ZERO;
 		return true;
 	}
+	goto no_zero;
+no_zero:
 #endif
 #if defined(ARCH_ARM64)
 	if (!imm && purpose != IMM_PURPOSE_ADD && purpose != IMM_PURPOSE_SUB && purpose != IMM_PURPOSE_CMP && purpose != IMM_PURPOSE_CMP_LOGICAL) {
