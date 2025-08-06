@@ -394,6 +394,8 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 		case IMM_PURPOSE_ANDN:
 			break;
 		case IMM_PURPOSE_ADD:
+			if (likely(imm >= -0x8000) && likely(imm < 0x8000))
+				return true;
 			if (imm & 0xffff)
 				break;
 			if (likely(imm >= -0x80000000L) && likely(imm < 0x80000000L))
