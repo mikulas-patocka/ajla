@@ -420,19 +420,19 @@ skip_mem_modify:;
 		op_size_flags = OP_SIZE_NATIVE;
 #endif
 		g(gen_frame_get(ctx, op_size, mode == MODE_INT && (op_size < op_size_flags || ARCH_SUPPORTS_TRAPS(op_size)) ? sign_x : garbage, slot_1, R_SCRATCH_1, &reg1));
-		if (frame_t_is_const(slot_2)
-#if defined(ARCH_POWER)
-			&& 0
-#endif
-			) {
+		if (frame_t_is_const(slot_2)) {
 			reg2 = 0xff;
 			c = true;
 		} else {
 			g(gen_frame_get(ctx, op_size, mode == MODE_INT && (op_size < op_size_flags || ARCH_SUPPORTS_TRAPS(op_size)) ? sign_x : garbage, slot_2, R_SCRATCH_2, &reg2));
 			c = false;
 		}
-#if !ARCH_HAS_FLAGS
-		if (mode == MODE_INT && op_size >= OP_SIZE_4) {
+#if !ARCH_HAS_FLAGS || defined(ARCH_POWER)
+		if (mode == MODE_INT && op_size >= OP_SIZE_4
+#if defined(ARCH_POWER)
+			&& c
+#endif
+			) {
 			if (ARCH_SUPPORTS_TRAPS(op_size)) {
 				target = gen_frame_target(ctx, slot_r, slot_1, slot_2, R_SCRATCH_1);
 				if (c)
