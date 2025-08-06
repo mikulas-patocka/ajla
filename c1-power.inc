@@ -453,11 +453,22 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(R_LR);
 
 	for (i = R_LOWEST_SAVED, offs = REGS_OFFSET; i <= R_31; i++, offs += 1 << OP_SIZE_ADDRESS) {
-		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-		gen_one(ARG_ADDRESS_1);
-		gen_one(R_SP);
-		gen_eight(offs);
-		gen_one(i);
+		if (i < R_31 && ARCH_HAS_LDP_STP(i, i + 1, OP_SIZE_ADDRESS, offs)) {
+			gen_insn(INSN_STP, OP_SIZE_ADDRESS, 0, 0);
+			gen_one(ARG_ADDRESS_1);
+			gen_one(R_SP);
+			gen_eight(offs);
+			gen_one(i + 1);
+			gen_one(i);
+			i++;
+			offs += 1 << OP_SIZE_ADDRESS;
+		} else {
+			gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+			gen_one(ARG_ADDRESS_1);
+			gen_one(R_SP);
+			gen_eight(offs);
+			gen_one(i);
+		}
 	}
 
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
@@ -556,11 +567,22 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_eight(LR_OFFSET);
 
 	for (i = R_LOWEST_SAVED, offs = REGS_OFFSET; i <= R_31; i++, offs += 1 << OP_SIZE_ADDRESS) {
-		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-		gen_one(i);
-		gen_one(ARG_ADDRESS_1);
-		gen_one(R_SP);
-		gen_eight(offs);
+		if (i < R_31 && ARCH_HAS_LDP_STP(i, i + 1, OP_SIZE_ADDRESS, offs)) {
+			gen_insn(INSN_LDP, OP_SIZE_ADDRESS, 0, 0);
+			gen_one(i + 1);
+			gen_one(i);
+			gen_one(ARG_ADDRESS_1);
+			gen_one(R_SP);
+			gen_eight(offs);
+			i++;
+			offs += 1 << OP_SIZE_ADDRESS;
+		} else {
+			gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+			gen_one(i);
+			gen_one(ARG_ADDRESS_1);
+			gen_one(R_SP);
+			gen_eight(offs);
+		}
 	}
 
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
