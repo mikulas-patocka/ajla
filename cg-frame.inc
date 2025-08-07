@@ -532,7 +532,6 @@ static bool attr_w gen_frame_load_2(struct codegen_context *ctx, unsigned size, 
 		gen_address_offset();
 		return true;
 	}
-	goto skip_ldd;
 skip_ldd:
 	g(gen_frame_load(ctx, size, garbage, slot, offset + lo_word(size), true, reg1));
 	g(gen_frame_load(ctx, size, garbage, slot, offset + hi_word(size), true, reg2));
@@ -605,8 +604,6 @@ static bool attr_w gen_frame_store_2(struct codegen_context *ctx, unsigned size,
 		gen_one(reg2);
 		return true;
 	}
-	goto skip_ldd;
-skip_ldd:
 	g(gen_frame_store(ctx, size, slot, offset + lo_word(size), reg1));
 	g(gen_frame_store(ctx, size, slot, offset + hi_word(size), reg2));
 	return true;
