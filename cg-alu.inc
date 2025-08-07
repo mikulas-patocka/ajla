@@ -166,6 +166,8 @@ do_alu: {
 		unsigned second_alu;
 		unsigned attr_unused op_size_flags;
 		bool c;
+		if ((alu == ALU_OR || alu == ALU_AND) && unlikely(slot_1 == slot_2) && slot_1 == slot_r)
+			return true;
 #if defined(ARCH_S390)
 		if (!slot_is_register(ctx, slot_r) && slot_r * slot_size < 0x1000 &&
 		    !slot_is_register(ctx, slot_1) && !frame_t_is_const(slot_1) && (size_t)slot_1 * slot_size < 0x1000 &&
