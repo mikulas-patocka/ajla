@@ -882,13 +882,8 @@ static bool attr_w gen_spill_multiple(struct codegen_context *ctx, frame_t *v, s
 			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
 			gen_insn(INSN_STP, s, 0, 0);
 			gen_address_offset();
-#if defined(C_BIG_ENDIAN)
-			gen_one(ctx->registers[v[i + 1]]);
-			gen_one(ctx->registers[v[i]]);
-#else
 			gen_one(ctx->registers[v[i]]);
 			gen_one(ctx->registers[v[i + 1]]);
-#endif
 			i++;
 			continue;
 		}
@@ -909,13 +904,8 @@ static bool attr_w gen_unspill_multiple(struct codegen_context *ctx, frame_t *v,
 				goto skip_opt;
 			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
 			gen_insn(INSN_LDP, s, 0, 0);
-#if defined(C_BIG_ENDIAN)
-			gen_one(ctx->registers[v[i + 1]]);
-			gen_one(ctx->registers[v[i]]);
-#else
 			gen_one(ctx->registers[v[i]]);
 			gen_one(ctx->registers[v[i + 1]]);
-#endif
 			gen_address_offset();
 			i++;
 			continue;
