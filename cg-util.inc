@@ -43,6 +43,9 @@ static bool alu_is_commutative(unsigned alu)
 
 static bool attr_w gen_3address_alu(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src1, unsigned src2, unsigned writes_flags)
 {
+	if ((alu == ALU_OR || alu == ALU_AND) && dest == src1 && src1 == src2 && !writes_flags) {
+		return true;
+	}
 	if (unlikely(dest == src2) && alu_is_commutative(alu)) {
 		unsigned swap = src1;
 		src1 = src2;
