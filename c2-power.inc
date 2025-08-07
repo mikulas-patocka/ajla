@@ -886,6 +886,8 @@ static bool attr_w cgen_ldp_stp(struct codegen_context *ctx, bool ldr)
 	}
 	if (unlikely(arg2[0] >= 32) || unlikely(arg3[0] >= 32))
 		goto invalid;
+	if (unlikely((arg3[0] & 1) != 0) || unlikely(arg2[0] != arg3[0] + 1))
+		goto invalid;
 	imm = get_imm(&arg1[2]);
 	cgen_dform(mc, arg3[0], arg1[1], imm & 0xfff0);
 	return true;
