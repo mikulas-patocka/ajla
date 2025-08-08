@@ -919,7 +919,7 @@ static bool attr_w gen_lea3(struct codegen_context *ctx, unsigned dest, unsigned
 #if !defined(POINTER_COMPRESSION)
 #define gen_pointer_compression(base)		do { } while (0)
 #define gen_address_offset_compressed()		gen_address_offset()
-#elif defined(ARCH_X86)
+#elif defined(ARCH_X86) && POINTER_COMPRESSION <= 3
 #define gen_pointer_compression(base)		do { } while (0)
 #define gen_address_offset_compressed()					\
 do {									\
