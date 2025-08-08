@@ -81,6 +81,11 @@ fi
 
 AC_ARG_ENABLE(computed-goto, [  --disable-computed-goto disable computed goto], enable_computed_goto="$enableval", enable_computed_goto=yes)
 
+AC_ARG_ENABLE(ptrcomp, [  --enable-ptrcomp        pointer compression bits (default 3)], enable_ptrcomp="$enableval", enable_ptrcomp=yes)
+if test "$enable_ptrcomp" = yes; then enable_ptrcomp=3; fi
+if test "$enable_ptrcomp" = no; then enable_ptrcomp=0; fi
+AC_DEFINE_UNQUOTED(HAVE_PTRCOMP, $enable_ptrcomp, Pointer compression bits)
+
 AC_ARG_ENABLE(rwx-mappings, [  --disable-rwx-mappings  disable read+write+execute memory mappings], enable_rwx_mappings="$enableval", enable_rwx_mappings=yes)
 
 AC_ARG_ENABLE(bitwise-frame, [  --enable-bitwise-frame  use bitwise tags on the frame], enable_bitwise_frame="$enableval", enable_bitwise_frame=no)

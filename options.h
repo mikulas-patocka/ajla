@@ -435,8 +435,12 @@ typedef frame_t ajla_option_t;	/* some code casts ajla_option_t to frame_t */
 #define USE_AMALLOC
 #endif
 
-#if defined(SIZEOF_VOID_P) && SIZEOF_VOID_P >= 8 && !defined(UNUSUAL_NO_POINTER_COMPRESSION) && defined(USE_AMALLOC) && !defined(__hpux) && !defined(__OpenBSD__)
-#define POINTER_COMPRESSION_POSSIBLE	3
+#ifndef HAVE_PTRCOMP
+#define HAVE_PTRCOMP	3
+#endif
+
+#if defined(HAVE_PTRCOMP) && HAVE_PTRCOMP > 0 && HAVE_PTRCOMP <= 8 && defined(SIZEOF_VOID_P) && SIZEOF_VOID_P >= 8 && !defined(UNUSUAL_NO_POINTER_COMPRESSION) && defined(USE_AMALLOC) && !defined(__hpux) && !defined(__OpenBSD__)
+#define POINTER_COMPRESSION_POSSIBLE	HAVE_PTRCOMP
 #endif
 
 #if defined(POINTER_COMPRESSION_POSSIBLE) && defined(HAVE_SYS_MMAN_H) && (defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__APPLE__))
