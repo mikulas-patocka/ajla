@@ -1820,7 +1820,7 @@ void * attr_fastcall amemalign(size_t al, size_t size)
 		size2 = round_up(size, al);
 		if (unlikely(size2 < size))
 			return NULL;
-		return amalloc(size);
+		return amalloc(size2);
 	}
 	return amemalign_mid_huge(al, size, false);
 }
@@ -1832,7 +1832,7 @@ void * attr_fastcall acmemalign(size_t al, size_t size)
 		size2 = round_up(size, al);
 		if (unlikely(size2 < size))
 			return NULL;
-		return acalloc(size);
+		return acalloc(size2);
 	}
 	return amemalign_mid_huge(al, size, true);
 }
