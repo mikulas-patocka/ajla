@@ -51,7 +51,7 @@ fn i_decode(i : istring) : bytes
 [
 	var result := empty(byte);
 	while i <> 0 do [
-		var code := i and 127;
+		var code : byte := i and 127;
 		if not (code >= ' ' and code <= 126) then
 			abort internal("i_decode: invalid istring #" + ntos_base(i, 16));
 		result := list(byte).[ code ] + result;
