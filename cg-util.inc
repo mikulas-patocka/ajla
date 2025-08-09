@@ -722,7 +722,7 @@ static bool attr_w gen_cmov(struct codegen_context *ctx, unsigned op_size, unsig
 {
 	if (unlikely(op_size < OP_SIZE_4))
 		internal(file_line, "gen_cmov: unsupported operand size");
-	if (likely(cpu_test_feature(CPU_FEATURE_cmov))) {
+	if (likely(ARCH_HAS_CMOV & 0x1)) {
 		gen_insn(INSN_CMOV, op_size, cond, 0);
 		gen_one(reg);
 		gen_one(reg);

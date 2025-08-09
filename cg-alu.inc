@@ -2415,7 +2415,7 @@ x86_bsf_bsr_popcnt_finish:
 		}
 #endif
 #if defined(ARCH_POWER)
-		if (alu == ALU1_BSF && (unlikely(!cpu_test_feature(CPU_FEATURE_v203)) || unlikely(!cpu_test_feature(CPU_FEATURE_v30))))
+		if (alu == ALU1_BSF && (unlikely(!(ARCH_HAS_CMOV & 0x1)) || unlikely(!cpu_test_feature(CPU_FEATURE_v30))))
 			goto do_generic_bsf_bsr_popcnt;
 		if (alu == ALU1_POPCNT && unlikely(!cpu_test_feature(CPU_FEATURE_v206)))
 			goto do_generic_bsf_bsr_popcnt;
@@ -2500,11 +2500,11 @@ x86_bsf_bsr_popcnt_finish:
 		if (alu == ALU1_BSF && !ARCH_HAS_ANDN)
 			goto do_generic_bsf_bsr_popcnt;
 #if defined(ARCH_S390)
-		if (!cpu_test_feature(CPU_FEATURE_misc_45) || !cpu_test_feature(CPU_FEATURE_misc_insn_ext_3))
+		if (!(ARCH_HAS_CMOV & 0x1) || !cpu_test_feature(CPU_FEATURE_misc_insn_ext_3))
 			goto do_generic_bsf_bsr_popcnt;
 #endif
 #if defined(ARCH_SPARC)
-		if (!SPARC_9)
+		if (!(ARCH_HAS_CMOV & 0x8))
 			goto do_generic_bsf_bsr_popcnt;
 #endif
 		g(gen_frame_get(ctx, op_size, mode == MODE_INT ? sign_x : zero_x, slot_1, R_SCRATCH_1, &reg1));
