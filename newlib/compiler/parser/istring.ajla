@@ -42,7 +42,7 @@ fn i_append(result : istring, b : bytes) : istring
 			code := c;
 		else
 			abort internal("i_encode: invalid byte " + ntos(c));
-		result := (result shl 7) + code;
+		result := (result shl 7) or code;
 	]
 	return result;
 ]
