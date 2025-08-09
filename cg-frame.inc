@@ -752,16 +752,7 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned attr
 static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned size, bool logical, unsigned cond, frame_t slot)
 {
 	unsigned target = gen_frame_target(ctx, slot, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
-#if defined(ARCH_POWER)
-	if (!cpu_test_feature(CPU_FEATURE_v203))
-#elif defined(ARCH_S390)
-	if (!cpu_test_feature(CPU_FEATURE_misc_45))
-#elif defined(ARCH_SPARC32)
-	if (!SPARC_9)
-#else
-	if (0)
-#endif
-	{
+	if (!(ARCH_HAS_CMOV & 0x1)) {
 		uint32_t label;
 		g(gen_load_constant(ctx, target, 1));
 		label = alloc_label(ctx);
