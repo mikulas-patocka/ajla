@@ -26,7 +26,7 @@ const check : bool := false;
 type node_set := int128;
 type var_set := int128;
 type instr_set := int128;
-type param_set := int;
+type param_set := int32;
 
 record instruction [
 	opcode : pcode_t;
