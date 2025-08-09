@@ -17,6 +17,7 @@
  */
 
 static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, unsigned op_size, unsigned cond, unsigned reg1, unsigned reg2, int64_t imm);
+static bool attr_w gen_copy(struct codegen_context *ctx, unsigned op_size, frame_t slot_1, frame_t slot_r);
 
 static bool attr_w gen_alu_upcall(struct codegen_context *ctx, size_t upcall, unsigned op_size, frame_t slot_1, frame_t slot_2, frame_t slot_r, uint32_t label_ovf)
 {
@@ -1409,10 +1410,10 @@ do_bt: {
 			cnst &= max_imm;
 		}
 #if defined(ARCH_X86)
-		if ((alu == BTX_BT || slot_1 == slot_r) && !slot_is_register(ctx, slot_1)) {
+		if (!frame_t_is_const(slot_1) && !slot_is_register(ctx, slot_1) && !slot_is_register(ctx, slot_r)) {
 			int64_t offset;
 			unsigned n_op_size = minimum(op_size, OP_SIZE_NATIVE);
-			g(gen_frame_get(ctx, n_op_size, garbage, slot_2, R_SCRATCH_1, &reg2));
+			g(gen_frame_get(ctx, n_op_size, garbage, slot_2, R_SCRATCH_3, &reg2));
 			if (mode == MODE_INT) {
 				if (!c) {
 					g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, n_op_size, reg2, max_imm, alu == BTX_BT ? COND_A : COND_AE, label_ovf, -1));
@@ -1428,9 +1429,13 @@ do_bt: {
 				}
 			} else {
 				if (!c) {
-					g(gen_3address_alu_imm(ctx, OP_SIZE_4, ALU_AND, R_SCRATCH_1, reg2, (8U << op_size) - 1, 0));
-					reg2 = R_SCRATCH_1;
+					g(gen_3address_alu_imm(ctx, OP_SIZE_4, ALU_AND, R_SCRATCH_3, reg2, (8U << op_size) - 1, 0));
+					reg2 = R_SCRATCH_3;
 				}
+			}
+			if (alu != BTX_BT && slot_1 != slot_r) {
+				g(gen_copy(ctx, op_size, slot_1, slot_r));
+				slot_1 = slot_r;
 			}
 			offset = (size_t)slot_1 * slot_size;
 			if (c && cnst >= 8U << OP_SIZE_NATIVE) {
