@@ -1383,8 +1383,12 @@ DEFINE_OPCODE_START(OPCODE_JMP_FALSE)
 	} else {
 		not_reached();
 	}
-	if (!val1)
+	if (!val1) {
+#if defined(HAVE_REAL_GNUC)
+		ASM_PREVENT_CSE;
+#endif
 		ip = cast_ptr(const code_t *, cast_ptr(const char *, ip) + offset);
+	}
 
 cat(jmp_false_exception_,ARG_MODE):;
 #endif
