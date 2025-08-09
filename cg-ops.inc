@@ -2204,101 +2204,93 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 		subtract = true;
 #endif
 		g(gen_compare_ptr_tag(ctx, reg1, DATA_TAG_array_slice, COND_A, escape_label, R_SCRATCH_4, subtract, ARCH_HAS_FLAGS));
-		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SCRATCH_1, reg1));
-#if defined(ARCH_ARM32) || defined(ARCH_S390) || defined(ARCH_X86)
-#if defined(ARCH_X86)
-		if (unlikely(!cpu_test_feature(CPU_FEATURE_cmov)))
-#elif defined(ARCH_S390)
-		if (unlikely(!cpu_test_feature(CPU_FEATURE_misc_45)))
-#else
-		if (0)
-#endif
-		{
+		if (ARCH_HAS_CMOV & 0x10) {		/* fused cmp-cmov */
+			g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SCRATCH_1, reg1));
+			g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.array_slice.flat_data_minus_data_array_offset), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+			gen_insn(INSN_CMP_CMOV, OP_SIZE_ADDRESS, COND_E, 0);
+			gen_one(R_SCRATCH_1);
+			gen_one(R_SCRATCH_1);
+			gen_address_offset();
+			gen_one(R_SCRATCH_4);
+			gen_one(ARG_IMM);
+			gen_eight(DATA_TAG_array_slice);
+		} else if (ARCH_HAS_CMOV & 0x4) {	/* 2-address memory */
+			g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SCRATCH_1, reg1));
+			g(gen_address(ctx, reg1, offsetof(struct data, u_.array_slice.flat_data_minus_data_array_offset), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+			gen_insn(INSN_CMOV, OP_SIZE_ADDRESS, COND_E, 0);
+			gen_one(R_SCRATCH_1);
+			gen_one(R_SCRATCH_1);
+			gen_address_offset();
+		} else if (ARCH_HAS_CMOV & 0x2) {	/* 3-address register */
 			g(gen_address(ctx, reg1, offsetof(struct data, u_.array_slice.flat_data_minus_data_array_offset), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 			gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 			gen_one(R_SCRATCH_3);
 			gen_address_offset();
-			goto no_cmov;
-		}
-		g(gen_address(ctx, reg1, offsetof(struct data, u_.array_slice.flat_data_minus_data_array_offset), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-		gen_insn(INSN_CMOV, OP_SIZE_ADDRESS, COND_E, 0);
-		gen_one(R_SCRATCH_1);
-		gen_one(R_SCRATCH_1);
-		gen_address_offset();
-#elif defined(ARCH_PARISC)
-		g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.array_slice.flat_data_minus_data_array_offset), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-		gen_insn(INSN_CMP_CMOV, OP_SIZE_ADDRESS, COND_E, 0);
-		gen_one(R_SCRATCH_1);
-		gen_one(R_SCRATCH_1);
-		gen_address_offset();
-		gen_one(R_SCRATCH_4);
-		gen_one(ARG_IMM);
-		gen_eight(DATA_TAG_array_slice);
-#elif defined(ARCH_LOONGARCH64) || defined(ARCH_MIPS) || defined(ARCH_RISCV64)
-		label = alloc_label(ctx);
-		if (unlikely(!label))
-			return false;
 
-		gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, COND_NE, 0);
-		gen_one(R_SCRATCH_4);
-		gen_four(label);
-
-		g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.array_slice.flat_data_minus_data_array_offset), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-		gen_one(R_SCRATCH_1);
-		gen_address_offset();
-
-		gen_label(label);
-#else
-		g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.array_slice.flat_data_minus_data_array_offset), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-		gen_one(R_SCRATCH_3);
-		gen_address_offset();
-#if ARCH_HAS_FLAGS
-#if defined(ARCH_POWER)
-		if (!cpu_test_feature(CPU_FEATURE_v203))
-			goto no_cmov;
-#endif
-#if defined(ARCH_SPARC)
-		if (!SPARC_9)
-			goto no_cmov;
-#endif
-		gen_insn(INSN_CMOV, i_size(OP_SIZE_ADDRESS), COND_E, 0);
-		gen_one(R_SCRATCH_1);
-		gen_one(R_SCRATCH_1);
-		gen_one(R_SCRATCH_3);
-#else
-		if (!subtract) {
-			g(gen_imm(ctx, DATA_TAG_array_slice, IMM_PURPOSE_CMP, OP_SIZE_NATIVE));
-			gen_insn(INSN_CMP_DEST_REG, OP_SIZE_NATIVE, COND_E, 0);
-			gen_one(R_CMP_RESULT);
-			gen_one(R_SCRATCH_4);
-			gen_imm_offset();
-
-			gen_insn(INSN_MOVR, OP_SIZE_NATIVE, COND_NE, 0);
+			gen_insn(INSN_CMOV, i_size(OP_SIZE_ADDRESS), COND_E, 0);
 			gen_one(R_SCRATCH_1);
-			gen_one(R_SCRATCH_1);
-			gen_one(R_CMP_RESULT);
+			gen_one(reg1);
 			gen_one(R_SCRATCH_3);
+		} else if (ARCH_HAS_CMOV & 0x1) {	/* 2-address register */
+			g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SCRATCH_1, reg1));
+			g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.array_slice.flat_data_minus_data_array_offset), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+			gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+			gen_one(R_SCRATCH_3);
+			gen_address_offset();
+
+			gen_insn(INSN_CMOV, i_size(OP_SIZE_ADDRESS), COND_E, 0);
+			gen_one(R_SCRATCH_1);
+			gen_one(R_SCRATCH_1);
+			gen_one(R_SCRATCH_3);
+		} else if (ARCH_HAS_CMOV & 0x8) {	/* register-dependent */
+			g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SCRATCH_1, reg1));
+			g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.array_slice.flat_data_minus_data_array_offset), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+			gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+			gen_one(R_SCRATCH_3);
+			gen_address_offset();
+			if (!subtract) {
+#if defined(R_CMP_RESULT)
+				g(gen_imm(ctx, DATA_TAG_array_slice, IMM_PURPOSE_CMP, OP_SIZE_NATIVE));
+				gen_insn(INSN_CMP_DEST_REG, OP_SIZE_NATIVE, COND_E, 0);
+				gen_one(R_CMP_RESULT);
+				gen_one(R_SCRATCH_4);
+				gen_imm_offset();
+
+				gen_insn(INSN_MOVR, OP_SIZE_NATIVE, COND_NE, 0);
+				gen_one(R_SCRATCH_1);
+				gen_one(R_SCRATCH_1);
+				gen_one(R_CMP_RESULT);
+				gen_one(R_SCRATCH_3);
+#else
+				internal(file_line, "gen_array_load: R_CMP_RESULT not defined");
+#endif
+			} else {
+				gen_insn(INSN_MOVR, OP_SIZE_NATIVE, COND_E, 0);
+				gen_one(R_SCRATCH_1);
+				gen_one(R_SCRATCH_1);
+				gen_one(R_SCRATCH_4);
+				gen_one(R_SCRATCH_3);
+			}
 		} else {
-			gen_insn(INSN_MOVR, OP_SIZE_NATIVE, COND_E, 0);
-			gen_one(R_SCRATCH_1);
-			gen_one(R_SCRATCH_1);
-			gen_one(R_SCRATCH_4);
-			gen_one(R_SCRATCH_3);
-		}
-#endif
-#endif
-		if (0) {
-			goto no_cmov;
-no_cmov:
+			g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SCRATCH_1, reg1));
+
 			label = alloc_label(ctx);
 			if (unlikely(!label))
 				return false;
-			gen_insn(INSN_JMP_COND, OP_SIZE_4, COND_NE, 0);
-			gen_four(label);
 
-			g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SCRATCH_1, R_SCRATCH_3));
+			if (ARCH_HAS_FLAGS) {
+				gen_insn(INSN_JMP_COND, OP_SIZE_4, COND_NE, 0);
+				gen_four(label);
+			} else {
+				gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, COND_NE, 0);
+				gen_one(R_SCRATCH_4);
+				gen_four(label);
+			}
+
+			g(gen_address(ctx, reg1, offsetof(struct data, u_.array_slice.flat_data_minus_data_array_offset), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+			gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+			gen_one(R_SCRATCH_1);
+			gen_address_offset();
 
 			gen_label(label);
 		}

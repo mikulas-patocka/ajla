@@ -59,9 +59,10 @@
 #define ARCH_HAS_MUL			0
 #define ARCH_HAS_DIV			0
 #define ARCH_HAS_ANDN			1
-#define ARCH_HAS_SHIFTED_ADD(bits)	((bits) <= 3)
 #define ARCH_HAS_2REG_M(st, fp, sh, im)	((!(st) || (fp)) && !(im))
 #define ARCH_HAS_BTX(btx, size, cnst)	(((btx) == BTX_BTS || (btx) == BTX_BTR || (btx) == BTX_BTEXT) && (((size) >= OP_SIZE_4)))
+#define ARCH_HAS_SHIFTED_ADD(bits)	((bits) <= 3)
+#define ARCH_HAS_CMOV			0x18
 #define ARCH_SHIFT_SIZE			OP_SIZE_4
 #define ARCH_BOOL_SIZE			OP_SIZE_NATIVE
 #define ARCH_HAS_FP_GP_MOV		0

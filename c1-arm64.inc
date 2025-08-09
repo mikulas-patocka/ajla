@@ -47,6 +47,7 @@
 #define ARCH_HAS_SHIFTED_ADD(bits)	1
 #define ARCH_HAS_2REG_M(st, fp, sh, im)	(!(im))
 #define ARCH_HAS_BTX(btx, size, cnst)	0
+#define ARCH_HAS_CMOV			0x3
 #define ARCH_SHIFT_SIZE			OP_SIZE_4
 #define ARCH_BOOL_SIZE			OP_SIZE_4
 #define ARCH_HAS_FP_GP_MOV		1

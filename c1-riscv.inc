@@ -44,9 +44,10 @@
 #define ARCH_HAS_MUL			1
 #define ARCH_HAS_DIV			1
 #define ARCH_HAS_ANDN			cpu_test_feature(CPU_FEATURE_zbb)
-#define ARCH_HAS_SHIFTED_ADD(bits)	((bits) <= 3 && cpu_test_feature(CPU_FEATURE_zba))
 #define ARCH_HAS_2REG_M(st, fp, sh, im)	(false)
 #define ARCH_HAS_BTX(btx, size, cnst)	(((size) == OP_SIZE_8 || (cnst)) && cpu_test_feature(CPU_FEATURE_zbs))
+#define ARCH_HAS_SHIFTED_ADD(bits)	((bits) <= 3 && cpu_test_feature(CPU_FEATURE_zba))
+#define ARCH_HAS_CMOV			0
 #define ARCH_SHIFT_SIZE			OP_SIZE_4
 #define ARCH_BOOL_SIZE			OP_SIZE_NATIVE
 #define ARCH_HAS_FP_GP_MOV		0
