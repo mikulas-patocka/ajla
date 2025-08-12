@@ -486,18 +486,14 @@ static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsi
 
 static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t escape_label)
 {
-	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
-	gen_one(R_SCRATCH_1);
+	g(gen_address(ctx, R_UPCALL, offsetof(struct cg_upcall_vector_s, ts), IMM_PURPOSE_LDP_STP_OFFSET, OP_SIZE_4));
+	gen_insn(INSN_CMP, OP_SIZE_4, 0, 2);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_SP);
 	gen_eight(FRAME_TIMESTAMP);
-
-	g(gen_address(ctx, R_UPCALL, offsetof(struct cg_upcall_vector_s, ts), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_4));
-	gen_insn(INSN_CMP, OP_SIZE_4, 0, 1);
-	gen_one(R_SCRATCH_1);
 	gen_address_offset();
 
-	gen_insn(INSN_JMP_COND, OP_SIZE_4, COND_NE, 0);
+	gen_insn(INSN_JMP_COND_LOGICAL, OP_SIZE_4, COND_NE, 0);
 	gen_four(escape_label);
 
 	return true;
