@@ -1229,6 +1229,29 @@ static bool attr_w gen_memcpy_slots(struct codegen_context *ctx, frame_t dest_sl
 
 static bool attr_w gen_clear_bitmap(struct codegen_context *ctx, unsigned additional_offset, unsigned dest_base, int64_t dest_offset, frame_t bitmap_slots)
 {
+#if defined(ARCH_S390)
+	if (bitmap_slots >= 3 && (size_t)bitmap_slots * slot_size <= 0x101) {
+		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_SCRATCH_1, dest_base, dest_offset, 0));
+
+		g(gen_address(ctx, R_SCRATCH_1, 0, IMM_PURPOSE_MVI_CLI_OFFSET, OP_SIZE_1));
+		g(gen_imm(ctx, 0, IMM_PURPOSE_STORE_VALUE, OP_SIZE_1));
+		gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
+		gen_address_offset();
+		gen_imm_offset();
+
+		gen_insn(INSN_MEMCPY, 0, 0, 0);
+		gen_one(ARG_ADDRESS_1);
+		gen_one(R_SCRATCH_1);
+		gen_eight(1);
+		gen_one(ARG_ADDRESS_1);
+		gen_one(R_SCRATCH_1);
+		gen_eight(0);
+		gen_one(ARG_IMM);
+		gen_eight((size_t)bitmap_slots * slot_size - 1);
+
+		return true;
+	}
+#endif
 	if (bitmap_slots <= INLINE_BITMAP_SLOTS) {
 		bool attr_unused scratch_2_zeroed = false;
 		size_t bitmap_length = (size_t)bitmap_slots * slot_size;
