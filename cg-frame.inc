@@ -1231,12 +1231,16 @@ static bool attr_w gen_clear_bitmap(struct codegen_context *ctx, unsigned additi
 {
 #if defined(ARCH_S390)
 	if (bitmap_slots * slot_size > 8 && (size_t)bitmap_slots * slot_size <= 0x100) {
-		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_SCRATCH_1, dest_base, dest_offset, 0));
+		if (likely(dest_offset < 0) || dest_offset >= 0x1000) {
+			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_SCRATCH_1, dest_base, dest_offset, 0));
+			dest_base = R_SCRATCH_1;
+			dest_offset = 0;
+		}
 
 		gen_insn(INSN_MEMSET, 0, 0, 0);
 		gen_one(ARG_ADDRESS_1);
-		gen_one(R_SCRATCH_1);
-		gen_eight(0);
+		gen_one(dest_base);
+		gen_eight(dest_offset);
 		gen_one(ARG_IMM);
 		gen_eight((size_t)bitmap_slots * slot_size);
 		gen_one(ARG_IMM);
