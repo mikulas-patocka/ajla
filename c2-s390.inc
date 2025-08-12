@@ -1536,6 +1536,32 @@ invl:
 	return false;
 }
 
+static bool attr_w cgen_memset(struct codegen_context *ctx)
+{
+	it code;
+	int64_t disp_dest, len;
+	uint8_t *arg1, *arg2, *arg3;
+	arg1 = ctx->code_position;
+	arg2 = arg1 + arg_size(*arg1);
+	arg3 = arg2 + arg_size(*arg2);
+	ctx->code_position = arg3 + arg_size(*arg3);
+	if (unlikely(arg1[0] != ARG_ADDRESS_1) || unlikely(arg2[0] != ARG_IMM) || unlikely(arg3[0] != ARG_IMM) || unlikely(get_imm(&arg3[1]) != 0))
+		goto invl;
+	disp_dest = get_imm(&arg1[2]);
+	len = get_imm(&arg2[1]);
+	code = S390_XC;
+	code |= (it)((len - 1) & 0xff) << 32;
+	code |= (it)arg1[1] << 28;
+	code |= (it)(disp_dest & 0xfff) << 16;
+	code |= (it)arg1[1] << 12;
+	code |= (it)(disp_dest & 0xfff) << 0;
+	g(cgen_s390(ctx, code));
+	return true;
+invl:
+	internal(file_line, "cgen_memset: invalid arguments %02x, %02x, %02x", *arg1, *arg2, *arg3);
+	return false;
+}
+
 static bool attr_w cgen_fp_cmp(struct codegen_context *ctx, unsigned size)
 {
 	uint8_t *arg1 = ctx->code_position;
@@ -1954,6 +1980,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_MEMCPY:
 			g(cgen_memcpy(ctx));
+			return true;
+		case INSN_MEMSET:
+			g(cgen_memset(ctx));
 			return true;
 		case INSN_FP_CMP:
 			g(cgen_fp_cmp(ctx, insn_op_size(insn)));
