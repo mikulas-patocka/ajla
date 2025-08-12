@@ -3814,6 +3814,22 @@ static bool attr_w gen_alu_jmp(struct codegen_context *ctx, unsigned mode, unsig
 	internal(file_line, "gen_alu_jmp: unsupported mode %u", mode);
 do_compare: {
 		bool attr_unused logical;
+#if defined(ARCH_S390)
+		if (!slot_is_register(ctx, slot_1) && !frame_t_is_const(slot_1) && (size_t)slot_1 * slot_size < 0x1000 &&
+		    !slot_is_register(ctx, slot_2) && !frame_t_is_const(slot_2) && (size_t)slot_2 * slot_size < 0x1000 &&
+		    (COND_IS_LOGICAL(alu) || alu == COND_E || alu == COND_NE)) {
+			gen_insn(INSN_CMP, op_size, 0, 2);
+			gen_one(ARG_ADDRESS_1);
+			gen_one(R_FRAME);
+			gen_eight(slot_1 * slot_size);
+			gen_one(ARG_ADDRESS_1);
+			gen_one(R_FRAME);
+			gen_eight(slot_2 * slot_size);
+
+			g(gen_jump(ctx, jmp_offset, op_size, alu ^ 1, -1U, -1U, 0));
+			return true;
+		}
+#endif
 		if (unlikely(op_size > OP_SIZE_NATIVE)) {
 			*failed = true;
 			return true;
