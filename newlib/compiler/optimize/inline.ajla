@@ -225,9 +225,9 @@ do_inline:
 						break;
 					]
 				] else if call_mode = Call_Mode_Unspecified, sysprop(SystemProperty_NoInline) = 0 then [
-					var pc := function_pcode(ins.params[3 .. ]);
-					if pc[0] bt bsf Fn_AutoInline, not len_greater_than(pc, 1024) then [
-						//xeval debug("auto-inlining " + ctx.name + " -> " + function_name(ins.params[3 .. ]) + ", " + ntos(len(pc)));
+					var pc := function_pcode(ins.params[3 .. ], get_inline);
+					if pc[0] bt bsf Fn_AutoInline, not len_greater_than(pc, 128) then [
+						//xeval debug("auto-inlining " + ctx.name + " -> " + function_name(ins.params[3 .. ], get_inline) + ", " + ntos(len(pc)));
 						goto do_inline;
 					]
 					//xeval function_name(ins.params[3 .. ]);

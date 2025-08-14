@@ -2928,7 +2928,7 @@ did_verify:
 	//eval stop("ssa");
 
 	var d := get_dump("pcode");
-	rpc += dump_basic_blocks(ctx, glob_bytes(ctx.name, d, true));
+	rpc += dump_basic_blocks(ctx, glob_bytes(ctx.name, d, true), get_inline);
 
 	if is_exception ctx then [
 		pc := exception_copy(list(pcode_t), ctx);
