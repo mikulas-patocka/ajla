@@ -335,6 +335,7 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 {
 	switch (purpose) {
 		case IMM_PURPOSE_STORE_VALUE:
+		case IMM_PURPOSE_ADC_SBB:
 			if (!imm)
 				return true;
 			break;

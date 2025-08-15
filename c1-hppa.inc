@@ -379,6 +379,7 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 				return true;
 #endif
 			break;
+		case IMM_PURPOSE_ADC_SBB:
 		case IMM_PURPOSE_AND:
 		case IMM_PURPOSE_OR:
 		case IMM_PURPOSE_XOR:
