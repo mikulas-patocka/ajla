@@ -174,7 +174,7 @@ static size_t save_range(const void *ptr, size_t align, size_t size, struct stac
 		return (size_t)-1;
 	payload_offset = save_len;
 
-	if (unlikely(!array_add_multiple_mayfail(char, &save_data, &save_len, ptr, size, NULL, &sink))) {
+	if (size && unlikely(!array_add_multiple_mayfail(char, &save_data, &save_len, ptr, size, NULL, &sink))) {
 		save_ok = false;
 		return (size_t)-1;
 	}
