@@ -469,6 +469,10 @@ reg_reg_reg_2:
 			mc |= ARM64_ADDSUB_IMM;
 			mc |= ARM64_ADCSBC_SET_FLAGS * (uint32_t)!!writes_flags;
 			imm = get_imm(&arg3[1]);
+			if (imm < 0) {
+				imm = -(uint64_t)imm;
+				mc ^= ARM64_ADDSUB_SUB;
+			}
 			if (likely(imm >= 0) && likely(imm < 0x1000)) {
 reg_reg_imm:
 				mc |= imm << 10;
