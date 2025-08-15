@@ -1720,7 +1720,19 @@ skip:
 
 fn append_copy(ctx : context, dest : int, src : int, bgi : int) : context
 [
-	var instr := create_instr(P_Copy, list(pcode_t).[dest, 0, src], bgi);
+	var instr : instruction;
+	if src >= 0 then [
+		var v1 := ctx.variables[src];
+		var v1_ins := ctx.instrs[v1.defining_instr];
+		if v1_ins.opcode = P_Load_Const then [
+			var params := v1_ins.params;
+			params[0] := dest;
+			instr := create_instr(P_Load_Const, params, bgi);
+			goto append_instr;
+		]
+	]
+	instr := create_instr(P_Copy, list(pcode_t).[dest, 0, src], bgi);
+append_instr:
 	var append_idx := len(ctx.blocks[bgi].instrs);
 	if append_idx <> 0, ctx.instrs[ctx.blocks[bgi].instrs[append_idx - 1]].opcode = P_Jmp_False then
 		append_idx -= 1;
@@ -1839,6 +1851,8 @@ fn dve(ctx : context) : context
 		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
 			var igi := ctx.blocks[bgi].instrs[ili];
 			var ins := ctx.instrs[igi];
+			if ins.opcode = P_Load_Const then
+				continue;
 			var s := ins.read_set or ins.write_set;
 			while s <> 0 do [
 				var p : int := bsr s;
@@ -1851,6 +1865,24 @@ fn dve(ctx : context) : context
 					typ := ctx.variables[typ].type_index;
 				]
 			]
+		]
+	]
+
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		var ili := 0;
+		while len_greater_than(ctx.blocks[bgi].instrs, ili) do [
+			var igi := ctx.blocks[bgi].instrs[ili];
+			var ins := ctx.instrs[igi];
+			if ins.opcode = P_Load_Const then [
+				var v := ins.params[0];
+				if not ctx.variables[v].needed then [
+					ctx.blocks[bgi].instrs := ctx.blocks[bgi].instrs[ .. ili ] + ctx.blocks[bgi].instrs[ ili + 1 .. ];
+					ili -= 1;
+				]
+			]
+			ili += 1;
 		]
 	]
 
