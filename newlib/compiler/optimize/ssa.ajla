@@ -35,6 +35,7 @@ uses compiler.common.gvn;
 uses compiler.common.evaluate;
 uses compiler.optimize.utils;
 uses compiler.optimize.inline;
+uses compiler.optimize.spec;
 uses compiler.optimize.verify;
 
 fn mtos(x : var_set) : bytes
@@ -1057,9 +1058,19 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 	if ins.opcode = P_Call then [
 		var pc := function_pcode(ins.params[3 .. ], ctx.get_inline);
 		if pc[0] bt bsf Fn_Specialize then [
+			var args_idx := 3 + function_specifier_length(ins.params[3 .. ]);
 			var new_ctx := load_function_context(pc, ctx.get_inline);
-			xeval new_ctx;
-			//eval debug("SPEC");
+			var bmp := new_ctx.specialize_args;
+			var spec_ctx := new_spec_context(popcnt bmp);
+			while bmp <> 0 do [
+				var a := bsf bmp;
+				bmp btr= a;
+				var v := ins.params[args_idx + 2 * a + 1];
+				spec_ctx := spec_add_variable(spec_ctx, ctx, v);
+				if is_exception spec_ctx, exception_type spec_ctx = error_user then
+					goto end;
+			]
+			xeval spec_ctx;
 		]
 		goto end;
 	]
