@@ -29,6 +29,7 @@ fn function_store(f : function) : list(pcode_t);
 
 fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instruction;
 fn load_function_context(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t)) : context;
+fn dump_local_type(lt : local_type) : list(pcode_t);
 fn dump_basic_blocks(ctx : context, dump_it : bool) : list(pcode_t);
 
 implementation
@@ -583,6 +584,36 @@ again:
 	]
 
 	return ctx;
+]
+
+fn dump_local_type(lt : local_type) : list(pcode_t)
+[
+	var rpc := empty(pcode_t);
+	if lt is rec then [
+		rpc +<= select(lt.rec.opt, Local_Type_Record, Local_Type_Option);
+		rpc += function_store(lt.rec.f);
+		rpc +<= len(lt.rec.types);
+		for j := 0 to len(lt.rec.types) do
+			rpc +<= lt.rec.types[j];
+	] else if lt is arr then [
+		rpc +<= Local_Type_Array;
+		rpc +<= lt.arr;
+	] else if lt is flat_rec then [
+		rpc +<= Local_Type_Flat_Record;
+		rpc +<= lt.flat_rec.non_flat_record;
+		rpc +<= len(lt.flat_rec.flat_types);
+		for t := 0 to len(lt.flat_rec.flat_types) do [
+			rpc +<= lt.flat_rec.flat_types[t];
+		]
+	] else if lt is flat_array then [
+		rpc +<= Local_Type_Flat_Array;
+		rpc +<= lt.flat_array.non_flat_array;
+		rpc +<= lt.flat_array.flat_entry_type;
+		rpc +<= lt.flat_array.number_of_elements;
+	] else [
+		abort internal("unknown local type");
+	]
+	return rpc;
 ]
 
 fn dump_basic_blocks(ctx : context, dump_it : bool) : list(pcode_t)

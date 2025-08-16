@@ -1070,7 +1070,9 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 				if is_exception spec_ctx, exception_type spec_ctx = error_user then
 					goto end;
 			]
-			xeval spec_ctx;
+			var pc := spec_extract_pcode(spec_ctx);
+			eval debug("spec len: " + ntos(len(pc)));
+			xeval pc;
 		]
 		goto end;
 	]
@@ -2943,30 +2945,7 @@ did_verify:
 	];
 	rpc += blob_store(ctx.name);
 	for i := 0 to len(ctx.local_types) do [
-		if ctx.local_types[i] is rec then [
-			rpc +<= select(ctx.local_types[i].rec.opt, Local_Type_Record, Local_Type_Option);
-			rpc += function_store(ctx.local_types[i].rec.f);
-			rpc +<= len(ctx.local_types[i].rec.types);
-			for j := 0 to len(ctx.local_types[i].rec.types) do
-				rpc +<= ctx.local_types[i].rec.types[j];
-		] else if ctx.local_types[i] is arr then [
-			rpc +<= Local_Type_Array;
-			rpc +<= ctx.local_types[i].arr;
-		] else if ctx.local_types[i] is flat_rec then [
-			rpc +<= Local_Type_Flat_Record;
-			rpc +<= ctx.local_types[i].flat_rec.non_flat_record;
-			rpc +<= len(ctx.local_types[i].flat_rec.flat_types);
-			for t := 0 to len(ctx.local_types[i].flat_rec.flat_types) do [
-				rpc +<= ctx.local_types[i].flat_rec.flat_types[t];
-			]
-		] else if ctx.local_types[i] is flat_array then [
-			rpc +<= Local_Type_Flat_Array;
-			rpc +<= ctx.local_types[i].flat_array.non_flat_array;
-			rpc +<= ctx.local_types[i].flat_array.flat_entry_type;
-			rpc +<= ctx.local_types[i].flat_array.number_of_elements;
-		] else [
-			abort internal("unknown local type");
-		]
+		rpc += dump_local_type(ctx.local_types[i]);
 	]
 	for i := 0 to len(ctx.variables) do [
 		var v := ctx.variables[i];

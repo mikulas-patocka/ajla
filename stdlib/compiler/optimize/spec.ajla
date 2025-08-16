@@ -30,9 +30,11 @@ implementation
 
 uses exception;
 uses compiler.common.blob;
+uses compiler.optimize.utils;
 
 record spec_variable [
 	runtime_type : int;
+	type_idx : int;
 ]
 
 record spec_context [
@@ -76,12 +78,16 @@ fn add_local_type(spec_ctx : spec_context, ctx : context, runtime_type : int) : 
 	return spec_ctx, r;
 ]
 
+fn spec_add_variable_recursive(spec_ctx : spec_context, ctx : context, v : int) : (spec_context, int);
+
 fn add_variable(spec_ctx : spec_context, ctx : context, w : int) : spec_context
 [
-	var runtime_type : int;
+	var runtime_type type_idx : int;
 	spec_ctx, runtime_type := add_local_type(spec_ctx, ctx, ctx.variables[w].runtime_type);
+	spec_ctx, type_idx := spec_add_variable_recursive(spec_ctx, ctx, ctx.variables[w].type_index);
 	var nv := spec_variable.[
 		runtime_type : runtime_type,
+		type_idx : type_idx,
 	];
 	spec_ctx.variables +<= nv;
 	return spec_ctx;
@@ -170,8 +176,8 @@ fn spec_extract_pcode(spec_ctx : spec_context) : list(pcode_t)
 	var real_returns := 0;
 	for i := 0 to len(spec_ctx.outputs) do [
 		var o := spec_ctx.outputs[i];
-		if spec_ctx.variables[o].runtime_type <> T_Type,
-		   spec_ctx.variables[o].runtime_type <> T_TypeOfType then
+		if o >= 0,
+		   spec_ctx.variables[o].type_idx <> T_Type then
 			real_returns += 1;
 	]
 	var rpc := list(pcode_t).[
@@ -186,5 +192,42 @@ fn spec_extract_pcode(spec_ctx : spec_context) : list(pcode_t)
 		0,
 	];
 	rpc += blob_store("*spec*");
+	for i := 0 to len(spec_ctx.local_types) do [
+		rpc += dump_local_type(spec_ctx.local_types[i]);
+	]
+	for i := 0 to len(spec_ctx.variables) do [
+		var v := spec_ctx.variables[i];
+		rpc += list(pcode_t).[
+			v.type_idx,
+			v.runtime_type,
+			-1,
+			0,
+		];
+		rpc += blob_store("");
+	]
+	var i1 := instruction.[
+		opcode : P_Args,
+		params : empty(pcode_t),
+	];
+	var i2 := instruction.[
+		opcode : P_Return_Vars,
+		params : empty(pcode_t),
+	];
+	var i3 := instruction.[
+		opcode : P_Return_Vars,
+		params : empty(pcode_t),
+	];
+	for i := 0 to len(spec_ctx.outputs) do [
+		i2.params +<= spec_ctx.outputs[i];
+		i3.params +<= 0;
+		i3.params +<= spec_ctx.outputs[i];
+	]
+	spec_ctx.instrs := [ i1, i2 ] + spec_ctx.instrs + [ i3 ];
+	for i := 0 to len(spec_ctx.instrs) do [
+		var instr := spec_ctx.instrs[i];
+		rpc +<= instr.opcode;
+		rpc +<= len(instr.params);
+		rpc += instr.params;
+	]
 	return rpc;
 ]
