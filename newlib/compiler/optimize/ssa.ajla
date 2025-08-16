@@ -2739,7 +2739,7 @@ fn process_pcode(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcod
 		return pc;
 	]
 
-	var ctx := load_function_context(pc);
+	var ctx := load_function_context(pc, get_inline);
 	//eval debug("optimizing: " + ctx.name);
 
 	var verify : bool;
@@ -2851,7 +2851,7 @@ retry_optimize:
 	ctx := check_consistency(ctx, "remove_phis", true);
 
 	if print_passes then [ eval ctx; eval debug("inline_functions"); if is_exception ctx then eval debug("ctx exception"); ]
-	ctx := inline_functions(ctx, get_inline);
+	ctx := inline_functions(ctx);
 	ctx := check_consistency(ctx, "inline_functions", false);
 
 	if print_passes then [ eval ctx; eval debug("dve"); if is_exception ctx then eval debug("ctx exception"); ]
@@ -2960,7 +2960,7 @@ did_verify:
 	//eval stop("ssa");
 
 	var d := get_dump("pcode");
-	rpc += dump_basic_blocks(ctx, glob_bytes(ctx.name, d, true), get_inline);
+	rpc += dump_basic_blocks(ctx, glob_bytes(ctx.name, d, true));
 
 	if is_exception ctx then [
 		pc := exception_copy(list(pcode_t), ctx);

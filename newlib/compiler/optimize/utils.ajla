@@ -28,8 +28,8 @@ fn function_load(params : list(pcode_t)) : (int, function);
 fn function_store(f : function) : list(pcode_t);
 
 fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instruction;
-fn load_function_context(pc : list(pcode_t)) : context;
-fn dump_basic_blocks(ctx : context, dump_it : bool, get_inline : fn(function, bool) : list(pcode_t)) : list(pcode_t);
+fn load_function_context(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t)) : context;
+fn dump_basic_blocks(ctx : context, dump_it : bool) : list(pcode_t);
 
 implementation
 
@@ -431,7 +431,7 @@ fn set_arrow(ctx : context, src : int, dst : int) : context
 	return ctx;
 ]
 
-fn load_function_context(pc : list(pcode_t)) : context
+fn load_function_context(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t)) : context
 [
 	assume pc[4] >= 0;
 	assume pc[8] >= 0;
@@ -448,6 +448,8 @@ fn load_function_context(pc : list(pcode_t)) : context
 		should_retry : exception_make(bool, ec_sync, error_record_field_not_initialized, 0, false),
 
 		name : blob_load(pc[9 .. ]),
+
+		get_inline : get_inline,
 	];
 
 	var ptr := 9 + blob_length(pc[9 .. ]);
@@ -581,7 +583,7 @@ again:
 	return ctx;
 ]
 
-fn dump_basic_blocks(ctx : context, dump_it : bool, get_inline : fn(function, bool) : list(pcode_t)) : list(pcode_t)
+fn dump_basic_blocks(ctx : context, dump_it : bool) : list(pcode_t)
 [
 	//dump_it := ctx.name = "main" or ctx.name = "fact";
 	if dump_it then [
@@ -656,7 +658,7 @@ process_block_no_label:
 					something_written := true;
 				]
 				if ins.opcode = P_Call or ins.opcode = P_Load_Fn then [
-					msg += " " + function_name(ins.params[3 .. ], get_inline);
+					msg += " " + function_name(ins.params[3 .. ], ctx.get_inline);
 				]
 				if read_elided and write_elided then
 					msg := bytes.[27] + "[31m" + msg +< 27 + "[0m";

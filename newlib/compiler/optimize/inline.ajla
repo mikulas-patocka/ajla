@@ -20,7 +20,7 @@ private unit compiler.optimize.inline;
 
 uses compiler.optimize.defs;
 
-fn inline_functions(ctx : context, get_inline : fn(function, bool) : list(pcode_t)) : context;
+fn inline_functions(ctx : context) : context;
 
 implementation
 
@@ -29,7 +29,7 @@ uses compiler.optimize.utils;
 const inline_unoptimized_limit := 128;
 const inline_optimized_limit := 512;
 
-fn do_inline(ctx : context, bgi : int, ili : int, call_mode : pcode_t, get_inline : fn(function, bool) : list(pcode_t), autoinline : bool) : (context, bool)
+fn do_inline(ctx : context, bgi : int, ili : int, call_mode : pcode_t, autoinline : bool) : (context, bool)
 [
 	var block := ctx.blocks[bgi];
 	var igi := block.instrs[ili];
@@ -40,7 +40,7 @@ fn do_inline(ctx : context, bgi : int, ili : int, call_mode : pcode_t, get_inlin
 	var call_result := ins.params[	   l + ins.params[2] * 2 ..
 					   l + ins.params[2] * 2 + ins.params[1]];
 
-	var new_pc := get_inline~save(f, true);
+	var new_pc := ctx.get_inline~save(f, true);
 
 	var ft := new_pc[0] and Fn_Mask;
 
@@ -56,7 +56,7 @@ fn do_inline(ctx : context, bgi : int, ili : int, call_mode : pcode_t, get_inlin
 	if autoinline, len_greater_than(new_pc, inline_optimized_limit) then
 		return ctx, false;
 
-	var new_ctx := load_function_context(new_pc);
+	var new_ctx := load_function_context(new_pc, ctx.get_inline);
 
 	var tail_block := new_basic_block;
 	var tail_block_bgi := len(ctx.blocks);
@@ -206,7 +206,7 @@ done_post_list:
 	return ctx, true;
 ]
 
-fn inline_functions(ctx : context, get_inline : fn(function, bool) : list(pcode_t)) : context
+fn inline_functions(ctx : context) : context
 [
 again:
 	var did_something := false;
@@ -225,16 +225,16 @@ again:
 				if call_mode = Call_Mode_Inline or call_mode = Call_Mode_Flat then [
 do_inline:
 					var progress : bool;
-					ctx, progress := do_inline(ctx, bgi, ili, call_mode, get_inline, autoinline);
+					ctx, progress := do_inline(ctx, bgi, ili, call_mode, autoinline);
 					if progress then [
 						did_something := true;
 						ctx.should_retry := true;
 						break;
 					]
 				] else if call_mode = Call_Mode_Unspecified, sysprop(SystemProperty_NoInline) = 0 then [
-					var pc := function_pcode(ins.params[3 .. ], get_inline);
+					var pc := function_pcode(ins.params[3 .. ], ctx.get_inline);
 					if pc[0] bt bsf Fn_AutoInline, not len_greater_than(pc, inline_unoptimized_limit) then [
-						//xeval debug("auto-inlining " + ctx.name + " -> " + function_name(ins.params[3 .. ], get_inline) + ", " + ntos(len(pc)));
+						//xeval debug("auto-inlining " + ctx.name + " -> " + function_name(ins.params[3 .. ], ctx.get_inline) + ", " + ntos(len(pc)));
 						autoinline := true;
 						goto do_inline;
 					]
