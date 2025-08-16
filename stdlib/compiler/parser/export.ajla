@@ -82,6 +82,8 @@ fn dump_function(def : function_definition) : list(pcode_t)
 			select(v.specialize, 0, VarFlag_Specialize),
 		];
 		result += blob_store(i_decode(v.name));
+		if v.specialize then
+			result[0] or= Fn_Specialize;
 	]
 	for i := 0 to len(ctx.instructions) do [
 		var ins := ctx.instructions[i];

@@ -1054,6 +1054,15 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 		]
 		goto end;
 	]
+	if ins.opcode = P_Call then [
+		var pc := function_pcode(ins.params[3 .. ], ctx.get_inline);
+		if pc[0] bt bsf Fn_Specialize then [
+			var new_ctx := load_function_context(pc, ctx.get_inline);
+			xeval new_ctx;
+			//eval debug("SPEC");
+		]
+		goto end;
+	]
 	if ins.opcode = P_BinaryOp then [
 		var vgi1 := ins.params[3];
 		var v1 := ctx.variables[vgi1];

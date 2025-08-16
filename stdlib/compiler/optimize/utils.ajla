@@ -492,7 +492,7 @@ fn load_function_context(pc : list(pcode_t), get_inline : fn(function, bool) : l
 
 	var n_variables := pc[4];
 	ctx.variables := fill(new_variable, n_variables);
-
+	ctx.specialize_args := 0;
 	ctx.label_to_block := fill(-1, pc[8]);
 
 	for i := 0 to n_variables do [
@@ -502,6 +502,8 @@ fn load_function_context(pc : list(pcode_t), get_inline : fn(function, bool) : l
 		ctx.variables[i].color := pc[ptr + 2];
 		ctx.variables[i].must_be_flat := pc[ptr + 3] bt bsf VarFlag_Must_Be_Flat;
 		ctx.variables[i].must_be_data := pc[ptr + 3] bt bsf VarFlag_Must_Be_Data;
+		if pc[ptr + 3] bt bsf VarFlag_Specialize then
+			ctx.specialize_args bts= i;
 		ptr += 4;
 		ctx.variables[i].name := blob_load(pc[ptr .. ]);
 		ptr += blob_length(pc[ptr .. ]);

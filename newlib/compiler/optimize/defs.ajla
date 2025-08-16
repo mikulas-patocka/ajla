@@ -170,6 +170,7 @@ record context [
 	instrs : list(instruction);
 	blocks : list(basic_block);
 	variables : list(variable);
+	specialize_args : var_set;
 	label_to_block : list(int);
 	var_map : list(int);
 	cm : conflict_map;
