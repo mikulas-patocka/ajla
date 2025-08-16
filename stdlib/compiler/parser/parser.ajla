@@ -173,6 +173,13 @@ next_flag:
 			for i := 0 to colon do [
 				var name := decl[i].t.identifier;
 				ctx, vd := add_variable(ctx, vd, name, v, impl, decl);
+				var post_hints := decl[i].post_hints;
+				for i := 0 to len(post_hints) do [
+					if post_hints[i] = "spec" then [
+						ctx.variables[v].specialize := true;
+						break;
+					]
+				]
 				v += 1;
 			]
 		] else [
@@ -486,6 +493,8 @@ fn compare_function_signatures(c1 c2 : function_context) : bool
 		if v1.mut <> v2.mut then
 			return false;
 		if v1.local_type <> v2.local_type then
+			return false;
+		if v1.specialize <> v2.specialize then
 			return false;
 	]
 

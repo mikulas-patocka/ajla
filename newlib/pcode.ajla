@@ -101,6 +101,7 @@ const Structured_Array := 3;
 
 const VarFlag_Must_Be_Flat := 1;
 const VarFlag_Must_Be_Data := 2;
+const VarFlag_Specialize := 4;
 
 const Flag_Free_Argument := 1;
 const Flag_Evaluate := 2;
@@ -591,6 +592,7 @@ fn name_to_value~cache : list(int)
 
 	a[#AD87946D9873DF9BD79F4BF0B2DF8DB30F4] := 1;				// VarFlag_Must_Be_Flat
 	a[#AD87946D9873DF9BD79F4BF0B2DF8987A61] := 2;				// VarFlag_Must_Be_Data
+	a[#2B61E51B661CF7E9F0CB8F4E1D9A7D65] := 4;				// VarFlag_Specialize
 
 	a[#236CC39EFC6E5972DF83CB3F5DB97774] := 1;				// Flag_Free_Argument
 	a[#46D9873DF8BDB0ECEB87A65] := 2;					// Flag_Evaluate

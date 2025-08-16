@@ -110,6 +110,7 @@ Structured_Array
 *
 VarFlag_Must_Be_Flat
 VarFlag_Must_Be_Data
+VarFlag_Specialize
 
 *
 Flag_Free_Argument

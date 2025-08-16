@@ -79,7 +79,7 @@ fn dump_function(def : function_definition) : list(pcode_t)
 			v.type_idx,
 			v.local_type,
 			color,
-			0,
+			select(v.specialize, 0, VarFlag_Specialize),
 		];
 		result += blob_store(i_decode(v.name));
 	]
