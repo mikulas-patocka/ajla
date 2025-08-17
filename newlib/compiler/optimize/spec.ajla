@@ -247,7 +247,6 @@ fn spec_extract_pcode(spec_ctx : spec_context) : list(pcode_t)
 fn spec_pcode(pc : list(pcode_t), spec_data : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t), verify_pattern : bytes) : list(pcode_t)
 [
 	eval debug("spec_pcode");
-	abort;
 	var n_args := spec_data[0];
 	var args := 0;
 	for i := 0 to n_args do
@@ -257,6 +256,24 @@ fn spec_pcode(pc : list(pcode_t), spec_data : list(pcode_t), get_inline : fn(fun
 	var new_ctx := load_function_context(spec_data[ptr .. ], get_inline);
 
 	var ctx := load_function_context(pc, get_inline);
+
+	pc[5] -= n_args;
+
+	var i0 := ctx.blocks[0].instrs[0];
+	var instr_args := ctx.instrs[i0];
+	if instr_args.opcode <> P_Args then
+		abort internal("The function doesn't start with P_Args");
+	var instr_args_params := empty(pcode_t);
+	for i := 0 to len(instr_args.params) do [
+		if not args bt i then
+			instr_args_params +<= instr_args.params[i];
+	]
+	ctx.instrs[i0].params := instr_args_params;
+
+	xeval new_ctx;
+	xeval ctx;
+
+	eval debug("evaluated");
 
 	abort;
 ]

@@ -2980,6 +2980,7 @@ did_verify:
 	var d := get_dump("pcode");
 	rpc += dump_basic_blocks(ctx, glob_bytes(ctx.name, d, true));
 
+	{
 	if is_exception ctx then [
 		pc := exception_copy(list(pcode_t), ctx);
 	] else if is_exception ctx.instrs then [
@@ -2991,6 +2992,7 @@ did_verify:
 	] else if is_exception rpc then [
 		pc := exception_copy(list(pcode_t), rpc);
 	]
+	}
 
 	//eval debug("optimized: " + ctx.name);
 
