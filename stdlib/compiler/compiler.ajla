@@ -24,6 +24,7 @@ uses compiler.optimize.defs;
 
 fn optimize_function(path_idx : int, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t);
 fn get_unoptimized_function(path_idx : int, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t);
+fn optimize_specialized_function(path_idx : int, file : bytes, program : bool, fn_idx : list(int), spec_data : list(pcode_t)) : list(pcode_t);
 fn compile_module(lp : bytes, path_idx : int, file : bytes, program : bool) : (list(list(pcode_t)), list(module_unique_id));
 
 implementation
@@ -77,4 +78,10 @@ fn get_unoptimized_function(path_idx : int, file : bytes, program : bool, fn_idx
 	var pc := pcod[fn_idx[0]];
 	pc := function_extract_nested(pc, fn_idx);
 	return pc;
+]
+
+fn optimize_specialized_function(path_idx : int, file : bytes, program : bool, fn_idx : list(int), spec_data : list(pcode_t)) : list(pcode_t)
+[
+	eval debug("optimize_specialized_function");
+	abort;
 ]

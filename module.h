@@ -30,6 +30,7 @@
 #define function_designator_alloc_single name(function_designator_alloc_single)
 #define function_designator_free	name(function_designator_free)
 #define function_designator_length	name(function_designator_length)
+#define function_designator_copy	name(function_designator_copy)
 #define function_designator_compare	name(function_designator_compare)
 #define module_load_function		name(module_load_function)
 
@@ -57,6 +58,7 @@ struct function_designator *function_designator_alloc(const pcode_t *p, ajla_err
 struct function_designator *function_designator_alloc_single(pcode_t idx, ajla_error_t *mayfail);
 void function_designator_free(struct function_designator *fd);
 size_t function_designator_length(const struct function_designator *fd);
+struct function_designator *function_designator_copy(const struct function_designator *fd, ajla_error_t *mayfail);
 int function_designator_compare(const struct function_designator *fd1, const struct function_designator *fd2);
 
 /* returns a pointer to pointer_t */

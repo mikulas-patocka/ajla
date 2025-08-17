@@ -37,6 +37,7 @@
 pointer_t *start_fn;
 shared_var pointer_t *optimizer_fn;
 shared_var pointer_t *parser_fn;
+shared_var pointer_t *specialize_fn;
 
 static struct tree modules;
 rwlock_decl(modules_mutex);
@@ -55,7 +56,13 @@ struct module {
 	struct module_designator md;
 };
 
-static pointer_t module_create_optimizer_reference(struct module *m, struct function_designator *fd, bool optimizer)
+static struct module_function *module_find_function(struct module *m, const struct function_designator *fd, bool create, ajla_error_t *mayfail);
+
+#define mode_nonopt	0
+#define mode_opt	1
+#define mode_spec	2
+
+static pointer_t module_create_optimizer_reference(struct module *m, struct function_designator *fd, unsigned mode)
 {
 	size_t i;
 	ajla_flat_option_t program;
@@ -63,6 +70,7 @@ static pointer_t module_create_optimizer_reference(struct module *m, struct func
 	struct data *filename;
 	int_default_t *np;
 	struct data *nesting_path;
+	struct data *spec_array;
 	struct data *fn_ref;
 	struct thunk *result;
 	ajla_error_t err;
@@ -100,19 +108,44 @@ static pointer_t module_create_optimizer_reference(struct module *m, struct func
 		return pointer_error(err, NULL, NULL pass_file_line);
 	}
 
-	fn_ref = data_alloc_function_reference_mayfail(4, &err pass_file_line);
+	if (mode == mode_spec) {
+		spec_array = array_from_flat_mem(type_get_fixed(2, false), cast_ptr(const char *, fd->entries + fd->n_entries), fd->n_spec_data, &err);
+		if (unlikely(!spec_array)) {
+			data_dereference(nesting_path);
+			data_dereference(filename);
+			return pointer_error(err, NULL, NULL pass_file_line);
+		}
+	}
+
+	fn_ref = data_alloc_function_reference_mayfail(mode == mode_spec ? 5 : 4, &err pass_file_line);
 	if (unlikely(!fn_ref)) {
-		data_dereference(filename);
+		if (mode == mode_spec)
+			data_dereference(spec_array);
 		data_dereference(nesting_path);
+		data_dereference(filename);
 		return pointer_error(err, NULL, NULL pass_file_line);
 	}
 	da(fn_ref,function_reference)->is_indirect = false;
-	da(fn_ref,function_reference)->u.direct = optimizer ? optimizer_fn : parser_fn;
+	switch (mode) {
+		case mode_nonopt:
+			da(fn_ref,function_reference)->u.direct = parser_fn;
+			break;
+		case mode_opt:
+			da(fn_ref,function_reference)->u.direct = optimizer_fn;
+			break;
+		case mode_spec:
+			da(fn_ref,function_reference)->u.direct = specialize_fn;
+			break;
+		default:
+			internal(file_line, "module_create_optimizer_reference: invalid mode");
+	}
 
 	data_fill_function_reference_flat(fn_ref, 0, type_get_int(INT_DEFAULT_N), cast_ptr(unsigned char *, &path_idx));
 	data_fill_function_reference(fn_ref, 1, pointer_data(filename));
 	data_fill_function_reference_flat(fn_ref, 2, type_get_flat_option(), cast_ptr(unsigned char *, &program));
 	data_fill_function_reference(fn_ref, 3, pointer_data(nesting_path));
+	if (mode == mode_spec)
+		data_fill_function_reference(fn_ref, 4, pointer_data(spec_array));
 
 	if (unlikely(!thunk_alloc_function_call(pointer_data(fn_ref), 1, &result, &err))) {
 		data_dereference(fn_ref);
@@ -126,9 +159,24 @@ static bool module_function_init(struct module *m, struct module_function *mf, a
 {
 	pointer_t ptr, optr, pptr;
 	union internal_arg ia[3];
-	if (m->md.path_idx > 0) {
-		optr = module_create_optimizer_reference(m, &mf->fd, true);
-		pptr = module_create_optimizer_reference(m, &mf->fd, false);
+	if (unlikely(mf->fd.n_spec_data != 0)) {
+		/*struct function_designator *base_fd;
+		struct module_function *base_mf;
+		base_fd = function_designator_copy(&mf->fd, mayfail);
+		if (unlikely(!base_fd))
+			return false;
+		base_fd->n_spec_data = 0;
+		base_mf = module_find_function(m, base_fd, false, NULL);
+		if (unlikely(!base_mf))
+			internal(file_line, "module_function_init: base function for specialization not found");
+		function_designator_free(base_fd);*/
+		optr = module_create_optimizer_reference(m, &mf->fd, mode_spec);
+		pptr = pointer_empty();
+		goto build_from_array;
+	} else if (m->md.path_idx > 0) {
+		optr = module_create_optimizer_reference(m, &mf->fd, mode_opt);
+		pptr = module_create_optimizer_reference(m, &mf->fd, mode_nonopt);
+build_from_array:
 		ia[0].ptr = &mf->optimizer;
 		ia[1].ptr = &m->md;
 		ia[2].ptr = &mf->fd;
@@ -318,7 +366,8 @@ static void module_free_function(struct module_function *mf)
 {
 	pointer_dereference(mf->function);
 	pointer_dereference(mf->optimizer);
-	pointer_dereference(mf->parser);
+	if (!pointer_is_empty(mf->parser))
+		pointer_dereference(mf->parser);
 }
 
 
@@ -404,6 +453,16 @@ size_t function_designator_length(const struct function_designator *fd)
 	return offsetof(struct function_designator, entries[fd->n_entries + fd->n_spec_data]);
 }
 
+struct function_designator *function_designator_copy(const struct function_designator *fd, ajla_error_t *mayfail)
+{
+	size_t len = function_designator_length(fd);
+	struct function_designator *new_fd = mem_alloc_mayfail(struct function_designator *, len, mayfail);
+	if (unlikely(!new_fd))
+		return NULL;
+	memcpy(new_fd, fd, len);
+	return new_fd;
+}
+
 int function_designator_compare(const struct function_designator *fd1, const struct function_designator *fd2)
 {
 	if (fd1->n_entries < fd2->n_entries)
@@ -450,8 +509,14 @@ void name(module_init)(void)
 	fd = function_designator_alloc_single(0, NULL);
 	optimizer_fn = module_load_function(md, fd, true, true, NULL);
 	function_designator_free(fd);
+
 	fd = function_designator_alloc_single(1, NULL);
 	parser_fn = module_load_function(md, fd, true, true, NULL);
+	function_designator_free(fd);
+	module_designator_free(md);
+
+	fd = function_designator_alloc_single(2, NULL);
+	specialize_fn = module_load_function(md, fd, true, true, NULL);
 	function_designator_free(fd);
 	module_designator_free(md);
 }
