@@ -228,7 +228,7 @@ fn spec_extract_pcode(spec_ctx : spec_context) : list(pcode_t)
 		params : empty(pcode_t),
 	];
 	var i3 := instruction.[
-		opcode : P_Return_Vars,
+		opcode : P_Return,
 		params : empty(pcode_t),
 	];
 	for i := 0 to len(spec_ctx.outputs) do [
@@ -273,13 +273,11 @@ fn spec_pcode(pc : list(pcode_t), spec_data : list(pcode_t), get_inline : fn(fun
 		else
 			call_result +<= instr_args.params[i];
 	]
-	ctx.instrs[i0].params := instr_args_params;
+	ctx.instrs[i0] := create_instr(P_Args, instr_args_params, 0);
 
 	ctx := do_inline_or_specialize(ctx, new_ctx, 0, 1, 0, empty(pcode_t), call_result);
 
 	pc := process_pcode_ctx(pc, ctx, verify_pattern);
-
-	eval debug("evaluated");
 
 	return pc;
 ]
