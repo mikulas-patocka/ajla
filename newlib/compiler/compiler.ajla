@@ -46,10 +46,13 @@ fn compile_module(lp : bytes, path_idx : int, file : bytes, program : bool) : (l
 fn get_inline(f : function, optimized : bool) : list(pcode_t)
 [
 	//return optimize_function(f.path_idx, f.un, f.program, f.fn_idx);
-	var pc := fill(pcode_t, 0, 1 + len(f.fn_idx));
-	pc[0] := len(f.fn_idx);
+	var pc := empty(pcode_t);
+	pc +<= len(f.fn_idx);
 	for i := 0 to len(f.fn_idx) do
-		pc[i + 1] := f.fn_idx[i];
+		pc +<= f.fn_idx[i];
+	pc +<= len(f.spec_data);
+	for i := 0 to len(f.spec_data) do
+		pc +<= f.spec_data[i];
 	return load_optimized_pcode(f.path_idx, f.un, f.program, pc, optimized);
 ]
 

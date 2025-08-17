@@ -42,21 +42,26 @@ uses compiler.parser.util;
 fn function_specifier_length(params : list(pcode_t)) : int
 [
 	var bl := blob_length(params[1 .. ]);
-	return 1 + bl + 1 + params[1 + bl];
+	var l1 := 1 + bl + 1 + params[1 + bl];
+	var l2 := l1 + 1 + params[l1];
+	return l2;
 ]
 
 fn function_load(params : list(pcode_t)) : (int, function)
 [
 	var bl := blob_length(params[1 .. ]);
-	assume params[1 + bl] >= 0;
+	var l1 := 1 + bl + 1 + params[1 + bl];
 	var r := function.[
 		path_idx : params[0] shr 1,
 		program : (params[0] and 1) <> 0,
 		un : blob_load(params[1 .. ]),
 		fn_idx : fill(0, params[1 + bl]),
+		spec_data : fill(pcode_t, 0, params[l1]),
 	];
 	for i := 0 to params[1 + bl] do
 		r.fn_idx[i] := params[1 + bl + 1 + i];
+	for i := 0 to params[l1] do
+		r.spec_data[i] := params[l1 + 1 + i];
 	return function_specifier_length(params), r;
 ]
 
@@ -67,21 +72,16 @@ fn function_store(f : function) : list(pcode_t)
 	pc += list(pcode_t).[ len(f.fn_idx) ];
 	for i := 0 to len(f.fn_idx) do
 		pc +<= f.fn_idx[i];
+	pc +<= len(f.spec_data);
+	for i := 0 to len(f.spec_data) do
+		pc +<= f.spec_data[i];
 	return pc;
 ]
 
 fn function_pcode(params : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t)) : list(pcode_t)
 [
 	var l, f := function_load(params);
-	{var fi := list(pcode_t).[ len(f.fn_idx) ];
-	for i := 0 to len(f.fn_idx) do
-		fi +<= f.fn_idx[i];
-	var pc1 := load_optimized_pcode(f.path_idx, f.un, f.program, fi, false);}
 	var pc2 := get_inline~save(f, false);
-	{var msg := "function_pcode(" + blob_load(pc1[9 .. ]) + "): " + ntos(len(pc1)) + ", " + ntos(len(pc2)) + nl;
-	for i := 0 to 9 do
-		msg += ntos(i) + ": " + ntos(pc1[i]) + ", " + ntos(pc2[i]) + nl;
-	eval debug(msg);}
 	return pc2;
 ]
 

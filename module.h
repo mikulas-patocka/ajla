@@ -49,6 +49,7 @@ int module_designator_compare(const struct module_designator *md1, const struct 
 
 struct function_designator {
 	size_t n_entries;
+	size_t n_spec_data;
 	pcode_t entries[FLEXIBLE_ARRAY];
 };
 

@@ -137,6 +137,7 @@ fn generate_function_id(id : function_unique_id) : list(pcode_t)
 	result +<= len(id.function_index);
 	for i := 0 to len(id.function_index) do
 		result +<= id.function_index[i];
+	result +<= 0;
 	return result;
 ]
 
@@ -156,7 +157,9 @@ fn decode_function_id(p : list(pcode_t)) : function_unique_id
 fn length_of_function_id(p : list(pcode_t)) : int
 [
 	var bl := blob_length(p[1 .. ]);
-	return 1 + bl + 1 + p[1 + bl];
+	var l1 := 1 + bl + 1 + p[1 + bl];
+	var l2 := l1 + 1 + p[l1];
+	return l2;
 ]
 
 fn generate_Load_Fn(ctx : function_context, fd : function_definition, t : tokens) : (function_context, int)

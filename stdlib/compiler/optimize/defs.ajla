@@ -137,6 +137,7 @@ record function [
 	un : bytes;
 	program : bool;
 	fn_idx : list(int);
+	spec_data : list(pcode_t);
 ]
 
 record local_type_record [

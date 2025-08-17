@@ -684,6 +684,7 @@ static pointer_t *pcode_module_load_function(struct build_function_context *ctx)
 	if (unlikely(!fd))
 		goto exception;
 	ctx->pcode += fd->n_entries + 1;
+	ctx->pcode += fd->n_spec_data + 1;
 
 	ptr = module_load_function(md, fd, true, false, ctx->err);
 	if (unlikely(!ptr))

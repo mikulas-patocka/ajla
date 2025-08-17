@@ -167,12 +167,13 @@ static struct module_function *module_find_function(struct module *m, const stru
 	if (!create)
 		return NULL;
 
-	mf = struct_alloc_array_mayfail(mem_alloc_mayfail, struct module_function, fd.entries, fd->n_entries, mayfail);
+	mf = struct_alloc_array_mayfail(mem_alloc_mayfail, struct module_function, fd.entries, fd->n_entries + fd->n_spec_data, mayfail);
 	if (unlikely(!mf))
 		return NULL;
 
 	mf->fd.n_entries = fd->n_entries;
-	memcpy(mf->fd.entries, fd->entries, fd->n_entries * sizeof(fd->entries[0]));
+	mf->fd.n_spec_data = fd->n_spec_data;
+	memcpy(mf->fd.entries, fd->entries, (fd->n_entries + fd->n_spec_data) * sizeof(fd->entries[0]));
 
 	if (unlikely(!module_function_init(m, mf, mayfail))) {
 		mem_free(mf);
@@ -361,23 +362,35 @@ int module_designator_compare(const struct module_designator *md1, const struct 
 struct function_designator *function_designator_alloc(const pcode_t *p, ajla_error_t *mayfail)
 {
 	size_t i;
-	size_t n_entries = p[0];
+	size_t n_entries, n_spec_data;
 	struct function_designator *fd;
-	ajla_assert_lo(p[0] > 0, (file_line, "function_designator_alloc: invalid lenfth %ld", (long)p[0]));
-	fd = struct_alloc_array_mayfail(mem_alloc_mayfail, struct function_designator, entries, n_entries, mayfail);
+	ajla_assert_lo(p[0] > 0, (file_line, "function_designator_alloc: invalid length %ld", (long)p[0]));
+	n_entries = *p++;
+	ajla_assert_lo(p[n_entries] >= 0, (file_line, "function_designator_alloc: invalid spec length %ld", (long)p[n_entries]));
+	n_spec_data = p[n_entries];
+	if (unlikely(n_entries + n_spec_data < n_entries)) {
+		fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED), mayfail, "function designator overflow");
+		return NULL;
+	}
+	fd = struct_alloc_array_mayfail(mem_alloc_mayfail, struct function_designator, entries, n_entries + n_spec_data, mayfail);
 	if (unlikely(!fd))
 		return NULL;
 	fd->n_entries = n_entries;
+	fd->n_spec_data = n_spec_data;
 	for (i = 0; i < n_entries; i++)
-		fd->entries[i] = p[1 + i];
+		fd->entries[i] = *p++;
+	p++;
+	for (i = 0; i < n_spec_data; i++)
+		fd->entries[n_entries + i] = *p++;
 	return fd;
 }
 
 struct function_designator *function_designator_alloc_single(pcode_t idx, ajla_error_t *mayfail)
 {
-	pcode_t p[2];
+	pcode_t p[3];
 	p[0] = 1;
 	p[1] = idx;
+	p[2] = 0;
 	return function_designator_alloc(p, mayfail);
 }
 
@@ -388,7 +401,7 @@ void function_designator_free(struct function_designator *fd)
 
 size_t function_designator_length(const struct function_designator *fd)
 {
-	return offsetof(struct function_designator, entries[fd->n_entries]);
+	return offsetof(struct function_designator, entries[fd->n_entries + fd->n_spec_data]);
 }
 
 int function_designator_compare(const struct function_designator *fd1, const struct function_designator *fd2)
@@ -397,10 +410,14 @@ int function_designator_compare(const struct function_designator *fd1, const str
 		return -1;
 	if (fd1->n_entries > fd2->n_entries)
 		return 1;
-	/*return memcmp(fd1->entries, fd2->entries, fd1->n_entries * sizeof(fd1->entries[0]));*/
+	if (fd1->n_spec_data < fd2->n_spec_data)
+		return -1;
+	if (fd1->n_spec_data > fd2->n_spec_data)
+		return 1;
+	/*return memcmp(fd1->entries, fd2->entries, (fd1->n_entries + fd1->n_spec_data) * sizeof(fd1->entries[0]));*/
 	{
 		size_t i;
-		for (i = 0; i < fd1->n_entries; i++) {
+		for (i = 0; i < fd1->n_entries + fd1->n_spec_data; i++) {
 			if (fd1->entries[i] < fd2->entries[i])
 				return -1;
 			if (fd1->entries[i] > fd2->entries[i])
