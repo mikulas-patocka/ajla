@@ -145,7 +145,7 @@ fn do_inline_or_specialize(ctx new_ctx : context, bgi : int, ili ili_n : int, ca
 				abort internal("the first instruction is not Args");
 			new_ctx.blocks[i].instrs := new_ctx.blocks[i].instrs[1 .. ];
 			if len(first_instr.params) * 2 <> len(call_params) then
-				abort internal("call mismatch when inlining " + new_ctx.name + " into " + ctx.name);
+				abort internal("call mismatch when inlining " + new_ctx.name + " into " + ctx.name + ": " + ntos(len(first_instr.params) * 2) + ", " + ntos(len(call_params)));
 			for j := 0 to len(first_instr.params) do [
 				var cp := call_params[j * 2 + 1];
 				var arg := first_instr.params[j];
