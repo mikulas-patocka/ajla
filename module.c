@@ -160,7 +160,7 @@ static bool module_function_init(struct module *m, struct module_function *mf, a
 	pointer_t ptr, optr, pptr;
 	union internal_arg ia[3];
 	if (unlikely(mf->fd.n_spec_data != 0)) {
-		/*struct function_designator *base_fd;
+		struct function_designator *base_fd;
 		struct module_function *base_mf;
 		base_fd = function_designator_copy(&mf->fd, mayfail);
 		if (unlikely(!base_fd))
@@ -169,9 +169,9 @@ static bool module_function_init(struct module *m, struct module_function *mf, a
 		base_mf = module_find_function(m, base_fd, false, NULL);
 		if (unlikely(!base_mf))
 			internal(file_line, "module_function_init: base function for specialization not found");
-		function_designator_free(base_fd);*/
+		function_designator_free(base_fd);
 		optr = module_create_optimizer_reference(m, &mf->fd, mode_spec);
-		pptr = pointer_empty();
+		pptr = module_create_optimizer_reference(m, &base_mf->fd, mode_nonopt);
 		goto build_from_array;
 	} else if (m->md.path_idx > 0) {
 		optr = module_create_optimizer_reference(m, &mf->fd, mode_opt);
@@ -366,8 +366,7 @@ static void module_free_function(struct module_function *mf)
 {
 	pointer_dereference(mf->function);
 	pointer_dereference(mf->optimizer);
-	if (!pointer_is_empty(mf->parser))
-		pointer_dereference(mf->parser);
+	pointer_dereference(mf->parser);
 }
 
 
