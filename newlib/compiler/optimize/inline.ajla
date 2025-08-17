@@ -20,6 +20,7 @@ private unit compiler.optimize.inline;
 
 uses compiler.optimize.defs;
 
+fn do_inline_or_specialize(ctx new_ctx : context, bgi : int, ili ili_n : int, call_params call_result : list(pcode_t)) : context;
 fn inline_functions(ctx : context) : context;
 
 implementation
@@ -58,6 +59,15 @@ fn do_inline(ctx : context, bgi : int, ili : int, call_mode : pcode_t, autoinlin
 
 	var new_ctx := load_function_context(new_pc, ctx.get_inline);
 
+	ctx := do_inline_or_specialize(ctx, new_ctx, bgi, ili, 1, call_params, call_result);
+
+	return ctx, true;
+]
+
+fn do_inline_or_specialize(ctx new_ctx : context, bgi : int, ili ili_n : int, call_params call_result : list(pcode_t)) : context
+[
+	var block := ctx.blocks[bgi];
+
 	var tail_block := new_basic_block;
 	var tail_block_bgi := len(ctx.blocks);
 	tail_block.post_list := block.post_list;
@@ -69,7 +79,7 @@ fn do_inline(ctx : context, bgi : int, ili : int, call_mode : pcode_t, autoinlin
 				ctx.blocks[post_bgi].pred_list[j] := tail_block_bgi;
 		]
 	]
-	tail_block.instrs := block.instrs[ ili + 1 .. ];
+	tail_block.instrs := block.instrs[ ili + ili_n .. ];
 	for i := 0 to len(tail_block.instrs) do [
 		var vgi := tail_block.instrs[i];
 		ctx.instrs[vgi].bb := tail_block_bgi;
@@ -203,7 +213,7 @@ done_post_list:
 
 	//eval dump_graph(ctx);
 
-	return ctx, true;
+	return ctx;
 ]
 
 fn inline_functions(ctx : context) : context

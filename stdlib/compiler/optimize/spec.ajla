@@ -32,6 +32,7 @@ implementation
 uses exception;
 uses compiler.common.blob;
 uses compiler.optimize.utils;
+uses compiler.optimize.inline;
 
 record spec_variable [
 	runtime_type : int;
@@ -264,11 +265,16 @@ fn spec_pcode(pc : list(pcode_t), spec_data : list(pcode_t), get_inline : fn(fun
 	if instr_args.opcode <> P_Args then
 		abort internal("The function doesn't start with P_Args");
 	var instr_args_params := empty(pcode_t);
+	var call_result := empty(pcode_t);
 	for i := 0 to len(instr_args.params) do [
 		if not args bt i then
 			instr_args_params +<= instr_args.params[i];
+		else
+			call_result +<= instr_args.params[i];
 	]
 	ctx.instrs[i0].params := instr_args_params;
+
+	ctx := do_inline_or_specialize(ctx, new_ctx, 0, 1, 0, empty(pcode_t), call_result);
 
 	xeval new_ctx;
 	xeval ctx;
