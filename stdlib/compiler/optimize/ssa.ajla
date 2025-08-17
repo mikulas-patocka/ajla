@@ -23,6 +23,7 @@ uses compiler.optimize.defs;
 fn deactivate_arrow(ctx : context, bgi : int, pidx : int) : context;
 fn prune_unreachable(ctx : context) : context;
 
+fn process_pcode_ctx(pc : list(pcode_t), ctx : context, verify_pattern : bytes) : list(pcode_t);
 fn process_pcode(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t), verify_pattern : bytes) : list(pcode_t);
 
 
@@ -2768,6 +2769,12 @@ fn check_consistency(ctx : context, msg : bytes, test_no_pred : bool) : context
 
 fn process_pcode(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t), verify_pattern : bytes) : list(pcode_t)
 [
+	var ctx := load_function_context(pc, get_inline);
+	return process_pcode_ctx(pc, ctx, verify_pattern);
+]
+
+fn process_pcode_ctx(pc : list(pcode_t), ctx : context, verify_pattern : bytes) : list(pcode_t)
+[
 	var ctx2 := exception_make(context, ec_sync, error_record_field_not_initialized, 0, false);
 
 	//eval debug("process_pcode");
@@ -2780,7 +2787,6 @@ fn process_pcode(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcod
 		return pc;
 	]
 
-	var ctx := load_function_context(pc, get_inline);
 	//eval debug("optimizing: " + ctx.name);
 
 	var verify : bool;

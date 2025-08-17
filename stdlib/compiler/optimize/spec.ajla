@@ -33,6 +33,7 @@ uses exception;
 uses compiler.common.blob;
 uses compiler.optimize.utils;
 uses compiler.optimize.inline;
+uses compiler.optimize.ssa;
 
 record spec_variable [
 	runtime_type : int;
@@ -276,10 +277,9 @@ fn spec_pcode(pc : list(pcode_t), spec_data : list(pcode_t), get_inline : fn(fun
 
 	ctx := do_inline_or_specialize(ctx, new_ctx, 0, 1, 0, empty(pcode_t), call_result);
 
-	xeval new_ctx;
-	xeval ctx;
+	pc := process_pcode_ctx(pc, ctx, verify_pattern);
 
 	eval debug("evaluated");
 
-	abort;
+	return pc;
 ]
