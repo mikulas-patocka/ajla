@@ -156,11 +156,10 @@ fn spec_add_variable_recursive(spec_ctx : spec_context, ctx : context, v : int) 
 		var widx : int := bsf ws;
 		ws btr= widx;
 		var w := ins.params[widx];
-		var nw := len(spec_ctx.variables);
-		if v = w then
-			result := nw;
-		ins.params[widx] := nw;
 		spec_ctx := add_variable(spec_ctx, ctx, w);
+		ins.params[widx] := len(spec_ctx.variables) - 1;
+		if v = w then
+			result := len(spec_ctx.variables) - 1;
 	]
 	if result = -1 then
 		abort internal("output variable not found in write set");
@@ -248,7 +247,6 @@ fn spec_extract_pcode(spec_ctx : spec_context) : list(pcode_t)
 
 fn spec_pcode(pc : list(pcode_t), spec_data : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t), verify_pattern : bytes) : list(pcode_t)
 [
-	eval debug("spec_pcode");
 	var n_args := spec_data[0];
 	var args := 0;
 	for i := 0 to n_args do

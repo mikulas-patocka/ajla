@@ -1080,7 +1080,7 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 					goto end;
 			]
 			var pc := spec_extract_pcode(spec_ctx);
-			eval debug("spec len: " + ntos(len(pc)));
+			//eval debug("spec len: " + ntos(len(pc)));
 			f.spec_data := pc;
 			var call_params := ins.params[ .. 3] + function_store(f);
 			call_params[2] := 0;

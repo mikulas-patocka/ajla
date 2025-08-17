@@ -81,7 +81,7 @@ fn get_unoptimized_function(path_idx : int, file : bytes, program : bool, fn_idx
 	return pc;
 ]
 
-fn optimize_specialized_function_saved~save(lp : bytes, path_idx : int, file : bytes, program : bool, fn_idx : list(int), spec_data : list(pcode_t), verify_pattern : bytes) : list(pcode_t)
+fn optimize_specialized_function_saved~save(path_idx : int, file : bytes, program : bool, fn_idx : list(int), spec_data : list(pcode_t), verify_pattern : bytes) : list(pcode_t)
 [
 	var pc := get_unoptimized_function(path_idx, file, program, fn_idx);
 	var func := spec_pcode(pc, spec_data, get_inline, verify_pattern);
@@ -91,5 +91,5 @@ fn optimize_specialized_function_saved~save(lp : bytes, path_idx : int, file : b
 fn optimize_specialized_function(path_idx : int, file : bytes, program : bool, fn_idx : list(int), spec_data : list(pcode_t)) : list(pcode_t)
 [
 	var verify_pattern := get_dump("verify");
-	return optimize_specialized_function_saved(libpath, path_idx, file, program, fn_idx, spec_data, verify_pattern);
+	return optimize_specialized_function_saved(path_idx, file, program, fn_idx, spec_data, verify_pattern);
 ]
