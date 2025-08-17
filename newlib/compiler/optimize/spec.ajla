@@ -22,6 +22,8 @@ uses compiler.optimize.defs;
 
 type spec_context;
 
+fn spec_get_arg_dependencies(ctx : context, n_args : int, args : int) : int;
+
 fn new_spec_context(n : int) : spec_context;
 fn spec_add_variable(spec_ctx : spec_context, ctx : context, a v : int) : spec_context;
 fn spec_extract_pcode(spec_ctx : spec_context) : list(pcode_t);
@@ -46,6 +48,85 @@ record spec_context [
 	variables : list(spec_variable);
 	instrs : list(instruction);
 	outputs : list(int);
+]
+
+const allowed_opcodes : int64 := 0
+	bts P_BinaryOp
+	bts P_BinaryConstOp
+	bts P_UnaryOp
+	bts P_Copy
+	bts P_Copy_Type_Cast
+	bts P_Fn
+	bts P_Load_Fn
+	bts P_Curry
+	bts P_Call
+	bts P_Call_Indirect
+	bts P_Load_Const
+	bts P_Structured_Write
+	bts P_Record_Create
+	bts P_Record_Load
+	bts P_Option_Create
+	bts P_Option_Load
+	bts P_Option_Test
+	bts P_Option_Ord
+	bts P_Array_Flexible
+	bts P_Array_Fixed
+	bts P_Array_Create
+	bts P_Array_Fill
+	bts P_Array_String
+	bts P_Array_Unicode
+	bts P_Array_Load
+	bts P_Array_Len
+	bts P_Array_Len_Greater_Than
+	bts P_Array_Sub
+	bts P_Array_Skip
+	bts P_Array_Append
+	bts P_Array_Append_One
+	bts P_Array_Flatten
+	;
+
+fn spec_get_arg_dependencies(ctx : context, n_args : int, args : int) : int
+[
+	var todo := args;
+	while todo <> 0 do [
+		var arg := bsr todo;
+		todo btr= arg;
+		var type_idx := ctx.variables[arg].type_index;
+		if type_idx >= 0 then [
+			if not args bt type_idx then [
+				args bts= type_idx;
+				todo bts= type_idx;
+			]
+		]
+		var ins : instruction;
+		for igi := 0 to len(ctx.instrs) do [
+			ins := ctx.instrs[igi];
+			var opcode := ins.opcode;
+			if not allowed_opcodes bt opcode then
+				continue;
+			var ws := ins.write_set;
+			while ws <> 0 do [
+				var widx : int := bsf ws;
+				ws btr= widx;
+				if ins.params[widx] = arg then
+					goto found_it;
+			]
+		]
+		continue;
+found_it:
+		var rs := ins.read_set;
+		while rs <> 0 do [
+			var ridx : int := bsf rs;
+			rs btr= ridx;
+			var r := ins.params[ridx];
+			if not args bt r then [
+				args bts= r;
+				todo bts= r;
+			]
+		]
+	]
+	args and= (0 bts n_args) - 1;
+	return args;
 ]
 
 fn new_spec_context(n : int) : spec_context
@@ -105,40 +186,6 @@ fn spec_add_variable_recursive(spec_ctx : spec_context, ctx : context, v : int) 
 	var igi := ctx.variables[v].defining_instr;
 	var ins := ctx.instrs[igi];
 	var opcode := ins.opcode;
-	var allowed_opcodes : int64 := 0
-		bts P_BinaryOp
-		bts P_BinaryConstOp
-		bts P_UnaryOp
-		bts P_Copy
-		bts P_Copy_Type_Cast
-		bts P_Fn
-		bts P_Load_Fn
-		bts P_Curry
-		bts P_Call
-		bts P_Call_Indirect
-		bts P_Load_Const
-		bts P_Structured_Write
-		bts P_Record_Create
-		bts P_Record_Load
-		bts P_Option_Create
-		bts P_Option_Load
-		bts P_Option_Test
-		bts P_Option_Ord
-		bts P_Array_Flexible
-		bts P_Array_Fixed
-		bts P_Array_Create
-		bts P_Array_Fill
-		bts P_Array_String
-		bts P_Array_Unicode
-		bts P_Array_Load
-		bts P_Array_Len
-		bts P_Array_Len_Greater_Than
-		bts P_Array_Sub
-		bts P_Array_Skip
-		bts P_Array_Append
-		bts P_Array_Append_One
-		bts P_Array_Flatten
-		;
 	if not allowed_opcodes bt opcode then
 		abort exception_make(int, ec_sync, error_user, 0, false);
 	var rs := ins.read_set;
