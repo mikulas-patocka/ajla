@@ -442,12 +442,6 @@ fn load_function_context(pc : list(pcode_t), get_inline : fn(function, bool) : l
 		instrs : empty(instruction),
 		blocks : empty(basic_block),
 
-		variables : exception_make(list(variable), ec_sync, error_record_field_not_initialized, 0, false),
-		label_to_block : exception_make(list(int), ec_sync, error_record_field_not_initialized, 0, false),
-		var_map : exception_make(list(int), ec_sync, error_record_field_not_initialized, 0, false),
-		cm : exception_make(conflict_map, ec_sync, error_record_field_not_initialized, 0, false),
-		should_retry : exception_make(bool, ec_sync, error_record_field_not_initialized, 0, false),
-
 		name : blob_load(pc[9 .. ]),
 
 		get_inline : get_inline,

@@ -1058,6 +1058,10 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 	if ins.opcode = P_Call then [
 		var pc := function_pcode(ins.params[3 .. ], ctx.get_inline);
 		if pc[0] bt bsf Fn_Specialize then [
+			if ctx.num_retries = 0 then [
+				ctx.should_retry := true;
+				goto end;
+			]
 			var args_idx := 3 + function_specifier_length(ins.params[3 .. ]);
 			var new_ctx := load_function_context(pc, ctx.get_inline);
 			var bmp := new_ctx.specialize_args;
@@ -2786,7 +2790,7 @@ fn process_pcode(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcod
 
 	ctx := check_consistency(ctx, "start", false);
 
-	var num_retries := 0;
+	ctx.num_retries := 0;
 	var do_verify := false;
 retry_optimize:
 	ctx.should_retry := false;
@@ -2882,19 +2886,19 @@ retry_optimize:
 
 	if ctx.should_retry then [
 		//eval debug("retrying optimize");
-		num_retries += 1;
+		ctx.num_retries += 1;
 		goto retry_optimize;
 	]
 
 	if verify and not do_verify then [
 		do_verify := true;
-		num_retries += 1;
+		ctx.num_retries += 1;
 		ctx2 := ctx;
 		goto retry_optimize;
 	]
 did_verify:
 
-	//eval debug("retries: " + ntos(num_retries));
+	//eval debug("retries: " + ntos(ctx.num_retries));
 
 	if print_passes then [ eval ctx; eval debug("join_adjacent"); if is_exception ctx then eval debug("ctx exception"); ]
 	ctx := join_adjacent(ctx);
