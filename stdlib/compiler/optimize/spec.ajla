@@ -101,9 +101,6 @@ fn spec_get_arg_dependencies(ctx : context, n_args : int, args : int) : int
 		var ins : instruction;
 		for igi := 0 to len(ctx.instrs) do [
 			ins := ctx.instrs[igi];
-			var opcode := ins.opcode;
-			if not allowed_opcodes bt opcode then
-				continue;
 			var ws := ins.write_set;
 			while ws <> 0 do [
 				var widx : int := bsf ws;

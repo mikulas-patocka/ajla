@@ -1069,7 +1069,9 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 			]
 			var new_ctx := load_function_context(pc, ctx.get_inline);
 			var bmp := new_ctx.specialize_args;
+			//eval debug("bmp 1: " + ntos(bmp));
 			bmp := spec_get_arg_dependencies(new_ctx, pc[5], bmp);
+			//eval debug("bmp 2: " + ntos(bmp));
 			var spec_ctx := new_spec_context(popcnt bmp);
 			var b := bmp;
 			while b <> 0 do [
