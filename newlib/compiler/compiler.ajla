@@ -33,6 +33,7 @@ uses io;
 uses compiler.parser.unit;
 uses compiler.optimize.utils;
 uses compiler.optimize.ssa;
+uses compiler.optimize.spec;
 
 fn compile_module(lp : bytes, path_idx : int, file : bytes, program : bool) : (list(list(pcode_t)), list(module_unique_id))
 [
@@ -80,8 +81,15 @@ fn get_unoptimized_function(path_idx : int, file : bytes, program : bool, fn_idx
 	return pc;
 ]
 
+fn optimize_specialized_function_saved~save(lp : bytes, path_idx : int, file : bytes, program : bool, fn_idx : list(int), spec_data : list(pcode_t), verify_pattern : bytes) : list(pcode_t)
+[
+	var pc := get_unoptimized_function(path_idx, file, program, fn_idx);
+	var func := spec_pcode(pc, spec_data, get_inline, verify_pattern);
+	return func;
+]
+
 fn optimize_specialized_function(path_idx : int, file : bytes, program : bool, fn_idx : list(int), spec_data : list(pcode_t)) : list(pcode_t)
 [
-	eval debug("optimize_specialized_function");
-	abort;
+	var verify_pattern := get_dump("verify");
+	return optimize_specialized_function_saved(libpath, path_idx, file, program, fn_idx, spec_data, verify_pattern);
 ]

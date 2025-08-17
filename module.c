@@ -513,11 +513,11 @@ void name(module_init)(void)
 	fd = function_designator_alloc_single(1, NULL);
 	parser_fn = module_load_function(md, fd, true, true, NULL);
 	function_designator_free(fd);
-	module_designator_free(md);
 
 	fd = function_designator_alloc_single(2, NULL);
 	specialize_fn = module_load_function(md, fd, true, true, NULL);
 	function_designator_free(fd);
+
 	module_designator_free(md);
 }
 

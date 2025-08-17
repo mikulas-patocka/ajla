@@ -1056,27 +1056,42 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 		goto end;
 	]
 	if ins.opcode = P_Call then [
+		var l, f := function_load(ins.params[3 .. ]);
+		l += 3;
+		if len_greater_than(f.spec_data, 0) then
+			goto end;
 		var pc := function_pcode(ins.params[3 .. ], ctx.get_inline);
 		if pc[0] bt bsf Fn_Specialize then [
 			if ctx.num_retries = 0 then [
 				ctx.should_retry := true;
 				goto end;
 			]
-			var args_idx := 3 + function_specifier_length(ins.params[3 .. ]);
 			var new_ctx := load_function_context(pc, ctx.get_inline);
 			var bmp := new_ctx.specialize_args;
 			var spec_ctx := new_spec_context(popcnt bmp);
-			while bmp <> 0 do [
-				var a := bsf bmp;
-				bmp btr= a;
-				var v := ins.params[args_idx + 2 * a + 1];
-				spec_ctx := spec_add_variable(spec_ctx, ctx, v);
+			var b := bmp;
+			while b <> 0 do [
+				var a := bsf b;
+				b btr= a;
+				var v := ins.params[l + 2 * a + 1];
+				spec_ctx := spec_add_variable(spec_ctx, ctx, a, v);
 				if is_exception spec_ctx, exception_type spec_ctx = error_user then
 					goto end;
 			]
 			var pc := spec_extract_pcode(spec_ctx);
 			eval debug("spec len: " + ntos(len(pc)));
-			xeval pc;
+			f.spec_data := pc;
+			var call_params := ins.params[ .. 3] + function_store(f);
+			call_params[2] := 0;
+			for i := 0 to ins.params[2] do [
+				if not bmp bt i then [
+					call_params += ins.params[l .. l + 2];
+					call_params[2] += 1;
+				]
+				l += 2;
+			]
+			call_params += ins.params[l .. ];
+			return create_instr(P_Call, call_params, ins.bb), true;
 		]
 		goto end;
 	]

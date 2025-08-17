@@ -23,8 +23,9 @@ uses compiler.optimize.defs;
 type spec_context;
 
 fn new_spec_context(n : int) : spec_context;
-fn spec_add_variable(spec_ctx : spec_context, ctx : context, v : int) : spec_context;
+fn spec_add_variable(spec_ctx : spec_context, ctx : context, a v : int) : spec_context;
 fn spec_extract_pcode(spec_ctx : spec_context) : list(pcode_t);
+fn spec_pcode(pc : list(pcode_t), spec_data : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t), verify_pattern : bytes) : list(pcode_t);
 
 implementation
 
@@ -38,6 +39,7 @@ record spec_variable [
 ]
 
 record spec_context [
+	arguments : int;
 	local_types : list(local_type);
 	variables : list(spec_variable);
 	instrs : list(instruction);
@@ -47,6 +49,7 @@ record spec_context [
 fn new_spec_context(n : int) : spec_context
 [
 	var spec_ctx := spec_context.[
+		arguments : 0,
 		local_types : empty(local_type),
 		variables : empty(spec_variable),
 		instrs : empty(instruction),
@@ -163,9 +166,10 @@ fn spec_add_variable_recursive(spec_ctx : spec_context, ctx : context, v : int) 
 	return spec_ctx, result;
 ]
 
-fn spec_add_variable(spec_ctx : spec_context, ctx : context, v : int) : spec_context
+fn spec_add_variable(spec_ctx : spec_context, ctx : context, a v : int) : spec_context
 [
 	var o : int;
+	spec_ctx.arguments bts= a;
 	spec_ctx, o := spec_add_variable_recursive(spec_ctx, ctx, v);
 	spec_ctx.outputs +<= o;
 	return spec_ctx;
@@ -180,7 +184,15 @@ fn spec_extract_pcode(spec_ctx : spec_context) : list(pcode_t)
 		   spec_ctx.variables[o].type_idx <> T_Type then
 			real_returns += 1;
 	]
-	var rpc := list(pcode_t).[
+	var rpc := empty(pcode_t);
+	rpc +<= popcnt spec_ctx.arguments;
+	var args := spec_ctx.arguments;
+	while args <> 0 do [
+		var a := bsf args;
+		args btr= a;
+		rpc +<= a;
+	]
+	rpc += list(pcode_t).[
 		Fn_Function,
 		Call_Mode_Inline,
 		0,
@@ -230,4 +242,21 @@ fn spec_extract_pcode(spec_ctx : spec_context) : list(pcode_t)
 		rpc += instr.params;
 	]
 	return rpc;
+]
+
+fn spec_pcode(pc : list(pcode_t), spec_data : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t), verify_pattern : bytes) : list(pcode_t)
+[
+	eval debug("spec_pcode");
+	abort;
+	var n_args := spec_data[0];
+	var args := 0;
+	for i := 0 to n_args do
+		args bts= spec_data[1 + i];
+	var ptr := 1 + n_args;
+
+	var new_ctx := load_function_context(spec_data[ptr .. ], get_inline);
+
+	var ctx := load_function_context(pc, get_inline);
+
+	abort;
 ]
