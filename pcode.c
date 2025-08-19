@@ -603,33 +603,6 @@ static struct pcode_type *get_var_type(struct build_function_context *ctx, pcode
 	return &ctx->pcode_types[v];
 }
 
-static bool pcode_load_blob(struct build_function_context *ctx, uint8_t **blob, size_t *l)
-{
-	pcode_t n, i, q;
-
-	if (blob) {
-		if (unlikely(!array_init_mayfail(uint8_t, blob, l, ctx->err)))
-			return false;
-	}
-
-	q = 0;		/* avoid warning */
-	n = u_pcode_get();
-	for (i = 0; i < n; i++) {
-		uint8_t val;
-		if (!(i & 3)) {
-			q = pcode_get();
-		}
-		val = q;
-		q >>= 8;
-		if (blob) {
-			if (unlikely(!array_add_mayfail(uint8_t, blob, l, (uint8_t)val, NULL, ctx->err)))
-				return false;
-		}
-	}
-
-	return true;
-}
-
 static bool pcode_generate_blob(uint8_t *str, size_t str_len, pcode_t **res_blob, size_t *res_len, ajla_error_t *err)
 {
 	size_t i;
@@ -656,35 +629,12 @@ static bool pcode_generate_blob(uint8_t *str, size_t str_len, pcode_t **res_blob
 
 static pointer_t *pcode_module_load_function(struct build_function_context *ctx)
 {
-	unsigned path_idx;
-	bool program;
 	pointer_t *ptr;
-	uint8_t *blob = NULL;
-	size_t l;
 	struct module_designator *md = NULL;
 	struct function_designator *fd = NULL;
-	pcode_t q;
 
-	q = u_pcode_get();
-	path_idx = (unsigned)q;
-	if (unlikely(q != (pcode_t)path_idx))
-		goto exception_overflow;
-	program = path_idx & 1;
-	path_idx >>= 1;
-	if (unlikely(!pcode_load_blob(ctx, &blob, &l)))
+	if (unlikely(!pcode_load_module_and_function_designator(&ctx->pcode, &md, &fd, ctx->err)))
 		goto exception;
-
-	md = module_designator_alloc(path_idx, blob, l, program, ctx->err);
-	if (unlikely(!md))
-		goto exception;
-
-	mem_free(blob), blob = NULL;
-
-	fd = function_designator_alloc(ctx->pcode, ctx->err);
-	if (unlikely(!fd))
-		goto exception;
-	ctx->pcode += fd->n_entries + 1;
-	ctx->pcode += fd->n_spec_data + 1;
 
 	ptr = module_load_function(md, fd, true, false, ctx->err);
 	if (unlikely(!ptr))
@@ -695,11 +645,7 @@ static pointer_t *pcode_module_load_function(struct build_function_context *ctx)
 
 	return ptr;
 
-exception_overflow:
-	fatal_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_SIZE_OVERFLOW), ctx->err, "pcode overflow");
 exception:
-	if (blob)
-		mem_free(blob);
 	if (md)
 		module_designator_free(md);
 	if (fd)
@@ -1813,7 +1759,7 @@ static bool pcode_load_constant(struct build_function_context *ctx)
 	const struct pcode_type *tr;
 
 	res = u_pcode_get();
-	if (unlikely(!pcode_load_blob(ctx, &blob, &l)))
+	if (unlikely(!pcode_load_blob(&ctx->pcode, &blob, &l, ctx->err)))
 		return false;
 
 	if (var_elided(res)) {
@@ -2103,7 +2049,7 @@ static bool pcode_array_string(struct build_function_context *ctx)
 
 	result = u_pcode_get();
 
-	if (!pcode_load_blob(ctx, &blob, &blob_len))
+	if (!pcode_load_blob(&ctx->pcode, &blob, &blob_len, ctx->err))
 		goto exception;
 	if (likely(var_elided(result))) {
 		mem_free(blob);
@@ -3282,7 +3228,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 
 	ctx->n_labels = u_pcode_get();
 
-	if (unlikely(!pcode_load_blob(ctx, &ctx->function_name, &is)))
+	if (unlikely(!pcode_load_blob(&ctx->pcode, &ctx->function_name, &is, ctx->err)))
 		goto exception;
 	if (unlikely(!array_add_mayfail(uint8_t, &ctx->function_name, &is, 0, NULL, ctx->err)))
 		goto exception;
@@ -3424,7 +3370,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 		typ = pcode_get();
 		color = pcode_get();
 		varflags = u_pcode_get();
-		pcode_load_blob(ctx, NULL, NULL);
+		pcode_load_blob(&ctx->pcode, NULL, NULL, ctx->err);
 		pt = &ctx->pcode_types[v];
 		pt->typ = typ;
 		pt->argument = NULL;

@@ -19,6 +19,7 @@
 #include "ajla.h"
 
 #include "mem_al.h"
+#include "str.h"
 
 #include "md.h"
 
@@ -134,3 +135,75 @@ int function_designator_compare(const struct function_designator *fd1, const str
 	return 0;
 }
 
+bool pcode_load_blob(const pcode_t **pc, uint8_t **blob, size_t *l, ajla_error_t *err)
+{
+	pcode_t n, i, q;
+
+	if (blob) {
+		if (unlikely(!array_init_mayfail(uint8_t, blob, l, err)))
+			return false;
+	}
+
+	q = 0;		/* avoid warning */
+	n = *(*pc)++;
+	for (i = 0; i < n; i++) {
+		uint8_t val;
+		if (!(i & 3)) {
+			q = *(*pc)++;
+		}
+		val = q;
+		q >>= 8;
+		if (blob) {
+			if (unlikely(!array_add_mayfail(uint8_t, blob, l, (uint8_t)val, NULL, err)))
+				return false;
+		}
+	}
+
+	return true;
+}
+
+bool pcode_load_module_and_function_designator(const pcode_t **pc, struct module_designator **md, struct function_designator **fd, ajla_error_t *err)
+{
+	unsigned path_idx;
+	bool program;
+	pcode_t q;
+	uint8_t *blob = NULL;
+	size_t l;
+
+	*md = NULL;
+	*fd = NULL;
+
+	q = *(*pc)++;
+	path_idx = (unsigned)q;
+	if (unlikely(q != (pcode_t)path_idx))
+		goto exception_overflow;
+	program = path_idx & 1;
+	path_idx >>= 1;
+	if (unlikely(!pcode_load_blob(pc, &blob, &l, err)))
+		goto exception;
+
+	*md = module_designator_alloc(path_idx, blob, l, program, err);
+	if (unlikely(!*md))
+		goto exception;
+
+	mem_free(blob), blob = NULL;
+
+	*fd = function_designator_alloc(*pc, err);
+	if (unlikely(!*fd))
+		goto exception;
+	*pc += (*fd)->n_entries + 1;
+	*pc += (*fd)->n_spec_data + 1;
+
+	return true;
+
+exception_overflow:
+	fatal_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_SIZE_OVERFLOW), err, "pcode overflow");
+exception:
+	if (blob)
+		mem_free(blob);
+	if (*md)
+		module_designator_free(*md), *md = NULL;
+	if (*fd)
+		function_designator_free(*fd), *fd = NULL;
+	return false;
+}
