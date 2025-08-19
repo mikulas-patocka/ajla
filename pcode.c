@@ -3650,7 +3650,7 @@ void *pcode_build_function_from_builtin(frame_s *fp, const code_t *ip, union int
 	size_t size;
 	struct module_designator *md = arguments[0].ptr;
 	struct function_designator *fd = arguments[1].ptr;
-	builtin_find_function(md->path, md->path_len, fd->n_entries, fd->entries, &start, &size);
+	builtin_find_function(md, fd, &start, &size);
 	return pcode_build_function(fp, ip, start, size, md, arguments[1].ptr);
 }
 
@@ -3703,7 +3703,7 @@ void *pcode_array_from_builtin(frame_s *fp, const code_t attr_unused *ip, union 
 	struct module_designator *md = arguments[0].ptr;
 	struct function_designator *fd = arguments[1].ptr;
 
-	builtin_find_function(md->path, md->path_len, fd->n_entries, fd->entries, &start, &size);
+	builtin_find_function(md, fd, &start, &size);
 
 	t = type_get_fixed(log_2(sizeof(pcode_t)), false);
 	d = data_alloc_array_flat_mayfail(t, size, size, false, &err pass_file_line);

@@ -341,7 +341,7 @@ fn spec_extract(pc : list(pcode_t)) : treeset(function)
 		] else if ft = Local_Type_Flat_Array then [
 			ptr += 3;
 		] else [
-			abort internal("extract_specs: unknown local type " + ntos(ft));
+			abort internal("spec_extract: unknown local type " + ntos(ft));
 		]
 	]
 	for i := 0 to pc[4] do [
@@ -359,6 +359,6 @@ fn spec_extract(pc : list(pcode_t)) : treeset(function)
 		ptr += 2 + pc[ptr + 1];
 	]
 	if ptr > len(pc) then
-		abort internal("extract_specs: pcode doesn't match");
+		abort internal("spec_extract: pcode doesn't match");
 	return specs;
 ]

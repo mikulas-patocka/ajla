@@ -788,7 +788,7 @@ implicit fn inherit_division_ring_real_number(t : type, c : class_real_number(t)
 		divide : c.divide,
 	];
 
-fn list_equal~inline(t : type, implicit c : class_eq(t), l1 l2 : list(t)) : bool
+fn list_equal(t : type, implicit c~spec : class_eq(t), l1 l2 : list(t)) : bool
 [
 	while len_greater_than(l1, 0) and len_greater_than(l2, 0) do [
 		if l1[0] <> l2[0] then
@@ -798,7 +798,7 @@ fn list_equal~inline(t : type, implicit c : class_eq(t), l1 l2 : list(t)) : bool
 	]
 	return len_greater_than(l1, 0) = len_greater_than(l2, 0);
 ]
-fn list_less~inline(t : type, implicit c : class_ord(t), l1 l2 : list(t)) : bool
+fn list_less(t : type, implicit c~spec : class_ord(t), l1 l2 : list(t)) : bool
 [
 	while len_greater_than(l1, 0) and len_greater_than(l2, 0) do [
 		if l1[0] <> l2[0] then

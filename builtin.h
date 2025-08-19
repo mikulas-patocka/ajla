@@ -23,7 +23,7 @@
 
 extern const char *builtin_lib_path;
 
-void builtin_find_function(const uint8_t *path, size_t path_len, size_t n_entries, const pcode_t *entries, const pcode_t **start, size_t *size);
+void builtin_find_function(struct module_designator *md, struct function_designator *fd, const pcode_t **start, size_t *size);
 bool builtin_find_spec_function(struct module_designator *md, struct function_designator *fd, const pcode_t **start, size_t *size);
 
 void builtin_init(void);

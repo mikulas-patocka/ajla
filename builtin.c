@@ -122,16 +122,22 @@ static void builtin_walk_nested(const pcode_t **start, size_t *size, size_t n_en
 	}
 }
 
-void builtin_find_function(const uint8_t *path, size_t path_len, size_t n_entries, const pcode_t *entries, const pcode_t **start, size_t *size)
+void builtin_find_function(struct module_designator *md, struct function_designator *fd, const pcode_t **start, size_t *size)
 {
 	const struct builtin_function_info *f;
-	const struct builtin_module_info *m = builtin_find_module(path, path_len);
-	ajla_assert_lo((size_t)entries[0] < m->n_functions, (file_line, "builtin_find_function: invalid index"));
+	const struct builtin_module_info *m = builtin_find_module(md->path, md->path_len);
+	if (unlikely(fd->n_spec_data != 0)) {
+		if (unlikely(!builtin_find_spec_function(md, fd, start, size)))
+			internal(file_line, "builtin_find_function: specialized function not found");
+		return;
+	}
+	m = builtin_find_module(md->path, md->path_len);
+	ajla_assert_lo((size_t)fd->entries[0] < m->n_functions, (file_line, "builtin_find_function: invalid index"));
 	f = cast_ptr(const struct builtin_function_info *, builtin_ptr + m->function_info);
-	f += entries[0];
+	f += fd->entries[0];
 	*start = cast_ptr(const pcode_t *, builtin_ptr + f->pcode);
 	*size = f->n_pcode;
-	builtin_walk_nested(start, size, n_entries, entries);
+	builtin_walk_nested(start, size, fd->n_entries, fd->entries);
 }
 
 static int spec_compare(size_t s, struct module_designator *md, struct function_designator *fd, const pcode_t **ptr)
@@ -144,12 +150,15 @@ static int spec_compare(size_t s, struct module_designator *md, struct function_
 	pcode_load_module_and_function_designator(&desc, &b_md, &b_fd, NULL);
 	c = module_designator_compare(b_md, md);
 	if (c)
-		return c;
+		goto ret_c;
 	c = function_designator_compare(b_fd, fd);
 	if (c)
-		return c;
+		goto ret_c;
 	*ptr = desc;
-	return 0;
+ret_c:
+	module_designator_free(b_md);
+	function_designator_free(b_fd);
+	return c;
 }
 
 bool builtin_find_spec_function(struct module_designator *md, struct function_designator *fd, const pcode_t **start, size_t *size)
@@ -158,13 +167,13 @@ bool builtin_find_spec_function(struct module_designator *md, struct function_de
 	size_t s;
 	int c;
 	binary_search(size_t, builtin_file->n_specs, s, !(c = spec_compare(s, md, fd, &ptr)), c < 0, goto not_found);
-	*start = ptr + 1;
-	*size = *ptr;
-	debug("spec found");
+	if (start)
+		*start = ptr + 1;
+	if (size)
+		*size = *ptr;
 	return true;
 
 not_found:
-	debug("spec not found");
 	return false;
 }
 
