@@ -134,6 +134,40 @@ void builtin_find_function(const uint8_t *path, size_t path_len, size_t n_entrie
 	builtin_walk_nested(start, size, n_entries, entries);
 }
 
+static int spec_compare(size_t s, struct module_designator *md, struct function_designator *fd, const pcode_t **ptr)
+{
+	int c;
+	struct module_designator *b_md;
+	struct function_designator *b_fd;
+	const pcode_t *specs = cast_ptr(const pcode_t *, builtin_ptr + builtin_file->spec_info);
+	const pcode_t *desc = cast_ptr(const pcode_t *, builtin_ptr + specs[s]);
+	pcode_load_module_and_function_designator(&desc, &b_md, &b_fd, NULL);
+	c = module_designator_compare(b_md, md);
+	if (c)
+		return c;
+	c = function_designator_compare(b_fd, fd);
+	if (c)
+		return c;
+	*ptr = desc;
+	return 0;
+}
+
+bool builtin_find_spec_function(struct module_designator *md, struct function_designator *fd, const pcode_t **start, size_t *size)
+{
+	const pcode_t *ptr;
+	size_t s;
+	int c;
+	binary_search(size_t, builtin_file->n_specs, s, !(c = spec_compare(s, md, fd, &ptr)), c < 0, goto not_found);
+	*start = ptr + 1;
+	*size = *ptr;
+	debug("spec found");
+	return true;
+
+not_found:
+	debug("spec not found");
+	return false;
+}
+
 void builtin_init(void)
 {
 	ajla_error_t sink;
