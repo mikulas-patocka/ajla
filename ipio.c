@@ -418,7 +418,7 @@ static unsigned char *io_get_flat_pointer(struct io_ctx *ctx, frame_t slot)
 static void io_get_pcode_t(struct io_ctx *ctx, frame_t slot, pcode_t *result)
 {
 	unsigned char *ptr;
-	ajla_assert(frame_get_type_of_local(ctx->fp, slot)->tag == type_get_fixed(2, false)->tag, (file_line, "io_get_pcode_t: invalid type %u", (unsigned)frame_get_type_of_local(ctx->fp, slot)->tag));
+	ajla_assert(frame_get_type_of_local(ctx->fp, slot)->tag == type_get_fixed(log_2(sizeof(pcode_t)), false)->tag, (file_line, "io_get_pcode_t: invalid type %u", (unsigned)frame_get_type_of_local(ctx->fp, slot)->tag));
 	ptr = io_get_flat_pointer(ctx, slot);
 	barrier_aliasing();
 	*result = *cast_ptr(pcode_t *, ptr);

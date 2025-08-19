@@ -80,12 +80,12 @@ fn get_inline(w : world, d : list(bytes), f : function, optimized : bool) : list
 	var pc, modules := compile_module_2~save(w, d, f.un, f.program);
 	var pcode1 := pc[f.fn_idx[0]];
 	pcode1 := function_extract_nested(pcode1, f.fn_idx);
+	if not optimized then
+		return pcode1;
 	if len_greater_than(f.spec_data, 0) then [
 		var pcode2 := spec_pcode(pcode1, f.spec_data, get_inline(w, d,,), verify_pattern);
 		return pcode2;
 	]
-	if not optimized then
-		return pcode1;
 	var pcode2 := process_pcode(pcode1, get_inline(w, d,,), verify_pattern);
 	return pcode2;
 ]

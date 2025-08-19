@@ -109,7 +109,7 @@ static pointer_t module_create_optimizer_reference(struct module *m, struct func
 	}
 
 	if (mode == mode_spec) {
-		spec_array = array_from_flat_mem(type_get_fixed(2, false), cast_ptr(const char *, fd->entries + fd->n_entries), fd->n_spec_data, &err);
+		spec_array = array_from_flat_mem(type_get_fixed(log_2(sizeof(pcode_t)), false), cast_ptr(const char *, fd->entries + fd->n_entries), fd->n_spec_data, &err);
 		if (unlikely(!spec_array)) {
 			data_dereference(nesting_path);
 			data_dereference(filename);
@@ -161,7 +161,13 @@ static bool module_function_init(struct module *m, struct module_function *mf, a
 	union internal_arg ia[3];
 	if (unlikely(mf->fd.n_spec_data != 0)) {
 		optr = module_create_optimizer_reference(m, &mf->fd, mode_spec);
-		pptr = module_create_optimizer_reference(m, &mf->fd, mode_nonopt);
+		if (!m->md.path_idx) {
+			ia[0].ptr = &m->md;
+			ia[1].ptr = &mf->fd;
+			pptr = function_build_internal_thunk(pcode_array_from_builtin, 2, ia);
+		} else {
+			pptr = module_create_optimizer_reference(m, &mf->fd, mode_nonopt);
+		}
 		goto build_from_array;
 	} else if (m->md.path_idx > 0) {
 		optr = module_create_optimizer_reference(m, &mf->fd, mode_opt);

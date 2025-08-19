@@ -37,7 +37,6 @@ uses compiler.optimize.spec;
 
 fn compile_module(lp : bytes, path_idx : int, file : bytes, program : bool) : (list(list(pcode_t)), list(module_unique_id))
 [
-	//eval debug("compile_module: " + ntos(path_idx) + ", " + file + ", " + select(program, "0", "1"));
 	var w := unsafe_get_world;
 
 	var d := list_break(lp, 0);
@@ -83,7 +82,17 @@ fn get_unoptimized_function(path_idx : int, file : bytes, program : bool, fn_idx
 
 fn optimize_specialized_function_saved~save(path_idx : int, file : bytes, program : bool, fn_idx : list(int), spec_data : list(pcode_t), verify_pattern : bytes) : list(pcode_t)
 [
-	var pc := get_unoptimized_function(path_idx, file, program, fn_idx);
+	var pc : list(pcode_t);
+	if path_idx > 0 then [
+		pc := get_unoptimized_function(path_idx, file, program, fn_idx);
+	] else [
+		pc := empty(pcode_t);
+		pc +<= len(fn_idx);
+		for i := 0 to len(fn_idx) do
+			pc +<= fn_idx[i];
+		pc +<= 0;
+		pc := load_optimized_pcode(path_idx, file, program, pc, false);
+	]
 	var func := spec_pcode(pc, spec_data, get_inline, verify_pattern);
 	return func;
 ]
@@ -91,5 +100,6 @@ fn optimize_specialized_function_saved~save(path_idx : int, file : bytes, progra
 fn optimize_specialized_function(path_idx : int, file : bytes, program : bool, fn_idx : list(int), spec_data : list(pcode_t)) : list(pcode_t)
 [
 	var verify_pattern := get_dump("verify");
-	return optimize_specialized_function_saved(path_idx, file, program, fn_idx, spec_data, verify_pattern);
+	var func := optimize_specialized_function_saved(path_idx, file, program, fn_idx, spec_data, verify_pattern);
+	return func;
 ]
