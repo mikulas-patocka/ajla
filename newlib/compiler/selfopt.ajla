@@ -158,6 +158,18 @@ fn self_optimize(implicit w : world, dir : dhandle) : world
 			a += int_to_native(native.n_int32, u.name[i]);
 		specs := join_specs(specs, u.specs);
 	]
+	var compiled_specs := treemap_init(function, list(pcode_t));
+	while treeset_is_nonempty(specs) do [
+		var first := treeset_first(specs);
+		specs := treeset_clear(specs, first.j);
+		var compiled := get_inline(d, first.j, true);
+		var new_specs := spec_extract(compiled);
+		compiled_specs := treemap_insert(compiled_specs, first.j, compiled);
+		for t in new_specs do
+			if not treemap_test(compiled_specs, t) then
+				specs := treeset_set(specs, t);
+	]
+	//eval debug("n_specs: " + ntos(treemap_size(compiled_specs)));
 	var file_info := empty(byte);
 	file_info += int_to_native(native.n_int32, len(a));
 	file_info += int_to_native(native.n_int32, len(units));
