@@ -169,12 +169,27 @@ fn self_optimize(implicit w : world, dir : dhandle) : world
 			if not treemap_test(compiled_specs, t) then
 				specs := treeset_set(specs, t);
 	]
+	var spec_data := empty(byte);
+	var spec_index := empty(byte);
+	for s in compiled_specs do [
+		spec_index += int_to_native(native.n_int32, len(a) + len(module_info) + len(spec_data));
+		var f := function_store(s.k);
+		for i := 0 to len(f) do
+			spec_data += int_to_native(native.n_int32, f[i]);
+		spec_data += int_to_native(native.n_int32, len(s.v));
+		for i := 0 to len(s.v) do
+			spec_data += int_to_native(native.n_int32, s.v[i]);
+	]
 	//eval debug("n_specs: " + ntos(treemap_size(compiled_specs)));
 	var file_info := empty(byte);
 	file_info += int_to_native(native.n_int32, len(a));
 	file_info += int_to_native(native.n_int32, len(units));
+	file_info += int_to_native(native.n_int32, len(a) + len(module_info) + len(spec_data));
+	file_info += int_to_native(native.n_int32, treemap_size(compiled_specs));
 	file_info += int_to_native(native.n_int32, #616C6A41);
 	a += module_info;
+	a += spec_data;
+	a += spec_index;
 	a += file_info;
 	h := wopen(dir, "builtin.tmp", open_flag_create, open_mode_default);
 	write(h, a);

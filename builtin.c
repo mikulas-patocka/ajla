@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -42,6 +42,8 @@ static bool builtin_mapped;
 struct builtin_file_info {
 	uint32_t module_info;
 	uint32_t n_modules;
+	uint32_t spec_info;
+	uint32_t n_specs;
 	uint32_t signature;
 };
 

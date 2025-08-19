@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -22,6 +22,7 @@
 extern const char *builtin_lib_path;
 
 void builtin_find_function(const uint8_t *path, size_t path_len, size_t n_entries, const pcode_t *entries, const pcode_t **start, size_t *size);
+bool builtin_find_spec_function(const uint8_t *path, size_t path_len, size_t n_entries, const pcode_t *entries, size_t n_specs, const pcode_t *specs, const pcode_t **start, size_t *size);
 
 void builtin_init(void);
 void builtin_done(void);
