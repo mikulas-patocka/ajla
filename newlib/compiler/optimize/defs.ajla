@@ -140,6 +140,45 @@ record function [
 	spec_data : list(pcode_t);
 ]
 
+fn function_equal(l1 l2 : function) : bool
+[
+	return
+		l1.path_idx = l2.path_idx and
+		l1.un = l2.un and
+		l1.program = l2.program and
+		l1.fn_idx = l2.fn_idx and
+		l1.spec_data = l2.spec_data;
+]
+
+fn function_less(l1 l2 : function) : bool
+[
+	if l1.path_idx <> l2.path_idx then
+		return l1.path_idx < l2.path_idx;
+	if l1.program <> l2.program then
+		return l1.program < l2.program;
+	if len(l1.un) <> len(l2.un) then
+		return len(l1.un) < len(l2.un);
+	if l1.un <> l2.un then
+		return l1.un < l2.un;
+
+	if len(l1.fn_idx) <> len(l2.fn_idx) then
+		return len(l1.fn_idx) < len(l2.fn_idx);
+	if len(l1.spec_data) <> len(l2.spec_data) then
+		return len(l1.spec_data) < len(l2.spec_data);
+	if l1.fn_idx <> l2.fn_idx then
+		return l1.fn_idx < l2.fn_idx;
+	if l1.spec_data <> l2.spec_data then
+		return l1.spec_data < l2.spec_data;
+
+	return false;
+]
+
+implicit fn instance_ord_function : class_ord(function) :=
+	class_ord(function).[
+		equal : function_equal,
+		less : function_less,
+	];
+
 record local_type_record [
 	opt : bool;
 	f : function;

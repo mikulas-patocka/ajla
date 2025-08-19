@@ -28,6 +28,7 @@ fn new_spec_context(n : int) : spec_context;
 fn spec_add_variable(spec_ctx : spec_context, ctx : context, a v : int) : spec_context;
 fn spec_extract_pcode(spec_ctx : spec_context) : list(pcode_t);
 fn spec_pcode(pc : list(pcode_t), spec_data : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t), verify_pattern : bytes) : list(pcode_t);
+fn spec_extract(pc : list(pcode_t)) : treeset(function);
 
 implementation
 
@@ -322,4 +323,42 @@ fn spec_pcode(pc : list(pcode_t), spec_data : list(pcode_t), get_inline : fn(fun
 	pc := process_pcode_ctx(pc, ctx, verify_pattern);
 
 	return pc;
+]
+
+fn spec_extract(pc : list(pcode_t)) : treeset(function)
+[
+	var ptr := 9 + blob_length(pc[9 .. ]);
+	for i := 0 to pc[3] do [
+		var ft := pc[ptr];
+		ptr += 1;
+		if ft = Local_Type_Record or ft = Local_Type_Option then [
+			ptr += function_specifier_length(pc[ptr .. ]);
+			ptr += 1 + pc[ptr];
+		] else if ft = Local_Type_Flat_Record then [
+			ptr += 2 + pc[ptr + 1];
+		] else if ft = Local_Type_Array then [
+			ptr += 1;
+		] else if ft = Local_Type_Flat_Array then [
+			ptr += 3;
+		] else [
+			abort internal("extract_specs: unknown local type " + ntos(ft));
+		]
+	]
+	for i := 0 to pc[4] do [
+		ptr += 4;
+		ptr += blob_length(pc[ptr .. ]);
+	]
+	var specs := treeset_init(function);
+	while ptr < len(pc) do [
+		var ins := pc[ptr];
+		if ins = P_Call then [
+			var l, f := function_load(pc[ptr + 5 .. ]);
+			if len_greater_than(f.spec_data, 0) then
+				specs := treeset_set(specs, f);
+		]
+		ptr += 2 + pc[ptr + 1];
+	]
+	if ptr > len(pc) then
+		abort internal("extract_specs: pcode doesn't match");
+	return specs;
 ]

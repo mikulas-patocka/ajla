@@ -460,6 +460,7 @@ struct function_designator *function_designator_copy(const struct function_desig
 
 int function_designator_compare(const struct function_designator *fd1, const struct function_designator *fd2)
 {
+	size_t i;
 	if (fd1->n_entries < fd2->n_entries)
 		return -1;
 	if (fd1->n_entries > fd2->n_entries)
@@ -468,17 +469,13 @@ int function_designator_compare(const struct function_designator *fd1, const str
 		return -1;
 	if (fd1->n_spec_data > fd2->n_spec_data)
 		return 1;
-	/*return memcmp(fd1->entries, fd2->entries, (fd1->n_entries + fd1->n_spec_data) * sizeof(fd1->entries[0]));*/
-	{
-		size_t i;
-		for (i = 0; i < fd1->n_entries + fd1->n_spec_data; i++) {
-			if (fd1->entries[i] < fd2->entries[i])
-				return -1;
-			if (fd1->entries[i] > fd2->entries[i])
-				return 1;
-		}
-		return 0;
+	for (i = 0; i < fd1->n_entries + fd1->n_spec_data; i++) {
+		if (fd1->entries[i] < fd2->entries[i])
+			return -1;
+		if (fd1->entries[i] > fd2->entries[i])
+			return 1;
 	}
+	return 0;
 }
 
 
