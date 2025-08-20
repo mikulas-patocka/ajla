@@ -249,7 +249,7 @@ fn spec_extract_pcode(spec_ctx : spec_context) : list(pcode_t)
 		real_returns,
 		0,
 	];
-	rpc += blob_store("*spec*");
+	rpc += blob_store("");
 	for i := 0 to len(spec_ctx.local_types) do [
 		rpc += dump_local_type(spec_ctx.local_types[i]);
 	]
@@ -301,6 +301,8 @@ fn spec_pcode(pc : list(pcode_t), spec_data : list(pcode_t), get_inline : fn(fun
 	var new_ctx := load_function_context(spec_data[ptr .. ], get_inline);
 
 	var ctx := load_function_context(pc, get_inline);
+
+	ctx.name += ".spec";
 
 	pc[5] -= n_args;
 
