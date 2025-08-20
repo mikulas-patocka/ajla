@@ -140,33 +140,40 @@ void builtin_find_function(struct module_designator *md, struct function_designa
 	builtin_walk_nested(start, size, fd->n_entries, fd->entries);
 }
 
-static int spec_compare(size_t s, struct module_designator *md, struct function_designator *fd, const pcode_t **ptr)
+static int spec_compare(size_t s, pcode_t *pc, size_t pcl, const pcode_t **ptr)
 {
-	int c;
-	struct module_designator *b_md;
-	struct function_designator *b_fd;
+	size_t i;
 	const pcode_t *specs = cast_ptr(const pcode_t *, builtin_ptr + builtin_file->spec_info);
 	const pcode_t *desc = cast_ptr(const pcode_t *, builtin_ptr + specs[s]);
-	pcode_load_module_and_function_designator(&desc, &b_md, &b_fd, NULL);
-	c = module_designator_compare(b_md, md);
-	if (c)
-		goto ret_c;
-	c = function_designator_compare(b_fd, fd);
-	if (c)
-		goto ret_c;
-	*ptr = desc;
-ret_c:
-	module_designator_free(b_md);
-	function_designator_free(b_fd);
-	return c;
+	size_t descl = pcode_designator_length(desc);
+	size_t minl = minimum(pcl, descl);
+	for (i = 0; i < minl; i++) {
+		if (desc[i] < pc[i])
+			return -1;
+		if (desc[i] > pc[i])
+			return 1;
+	}
+	if (descl < pcl)
+		return -1;
+	if (descl > pcl)
+		return 1;
+	*ptr = desc + descl;
+	return 0;
 }
 
 bool builtin_find_spec_function(struct module_designator *md, struct function_designator *fd, const pcode_t **start, size_t *size)
 {
 	const pcode_t *ptr;
-	size_t s;
+	pcode_t *pc;
+	size_t s, pcl;
 	int c;
-	binary_search(size_t, builtin_file->n_specs, s, !(c = spec_compare(s, md, fd, &ptr)), c < 0, goto not_found);
+
+	pc = pcode_store_module_and_function_designator(md, fd, NULL);
+	pcl = pcode_designator_length(pc);
+
+	binary_search(size_t, builtin_file->n_specs, s, !(c = spec_compare(s, pc, pcl, &ptr)), c < 0, goto not_found);
+
+	mem_free(pc);
 	if (start)
 		*start = ptr + 1;
 	if (size)
@@ -174,6 +181,7 @@ bool builtin_find_spec_function(struct module_designator *md, struct function_de
 	return true;
 
 not_found:
+	mem_free(pc);
 	return false;
 }
 

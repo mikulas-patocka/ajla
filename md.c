@@ -207,3 +207,77 @@ exception:
 		function_designator_free(*fd), *fd = NULL;
 	return false;
 }
+
+static bool pcode_store_blob(pcode_t **pc, size_t *l, uint8_t *blob, size_t len, ajla_error_t *err)
+{
+	pcode_t val;
+	size_t i;
+
+	val = len;
+	if (unlikely(val < 0) || unlikely((size_t)val != len)) {
+		fatal_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_SIZE_OVERFLOW), err, "blob overflow");
+		mem_free(*pc);
+		return false;
+	}
+	if (unlikely(!array_add_mayfail(pcode_t, pc, l, val, NULL, err)))
+		return false;
+
+	val = 0;
+	for (i = 0; i < len; i++) {
+		val |= (upcode_t)blob[i] << ((i & 3) * 8);
+		if ((i & 3) == 3) {
+			if (unlikely(!array_add_mayfail(pcode_t, pc, l, val, NULL, err)))
+				return false;
+			val = 0;
+		}
+	}
+	if ((len & 3) != 0) {
+		if (unlikely(!array_add_mayfail(pcode_t, pc, l, val, NULL, err)))
+			return false;
+	}
+
+	return true;
+}
+
+pcode_t *pcode_store_module_and_function_designator(struct module_designator *md, struct function_designator *fd, ajla_error_t *err)
+{
+	pcode_t *pc;
+	size_t l;
+	pcode_t val;
+
+	if (unlikely(!array_init_mayfail(pcode_t, &pc, &l, err)))
+		return NULL;
+
+	val = (md->path_idx << 1) + md->program;
+	if (unlikely(!array_add_mayfail(pcode_t, &pc, &l, val, NULL, err)))
+		return NULL;
+
+	if (unlikely(!pcode_store_blob(&pc, &l, md->path, md->path_len, err)))
+		return NULL;
+
+	val = fd->n_entries;
+	if (unlikely(!array_add_mayfail(pcode_t, &pc, &l, val, NULL, err)))
+		return NULL;
+
+	if (unlikely(!array_add_multiple_mayfail(pcode_t, &pc, &l, fd->entries, fd->n_entries, NULL, err)))
+		return NULL;
+
+	val = fd->n_spec_data;
+	if (unlikely(!array_add_mayfail(pcode_t, &pc, &l, val, NULL, err)))
+		return NULL;
+
+	if (unlikely(!array_add_multiple_mayfail(pcode_t, &pc, &l, fd->entries + fd->n_entries, fd->n_spec_data, NULL, err)))
+		return NULL;
+
+	ajla_assert_lo(pcode_designator_length(pc) == l, (file_line, "pcode_store_module_and_function_designator: length mismatch"));
+
+	return pc;
+}
+
+size_t pcode_designator_length(const pcode_t *pc)
+{
+	size_t l = 2 + (round_up((size_t)pc[1], 4) >> 2);
+	l += 1 + pc[l];
+	l += 1 + pc[l];
+	return l;
+}

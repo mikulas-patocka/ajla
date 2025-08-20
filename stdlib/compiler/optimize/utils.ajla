@@ -20,12 +20,13 @@ private unit compiler.optimize.utils;
 
 uses compiler.optimize.defs;
 
+fn function_specifier_length(params : list(pcode_t)) : int;
+fn function_specifier_is_spec(params : list(pcode_t)) : bool;
+fn function_load(params : list(pcode_t)) : (int, function);
+fn function_store(f : function) : list(pcode_t);
 fn function_pcode(params : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t)) : list(pcode_t);
 fn function_name(params : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t)) : bytes;
 fn function_extract_nested(pc : list(pcode_t), fn_idx : list(int)) : list(pcode_t);
-fn function_specifier_length(params : list(pcode_t)) : int;
-fn function_load(params : list(pcode_t)) : (int, function);
-fn function_store(f : function) : list(pcode_t);
 
 fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instruction;
 fn load_function_context(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t)) : context;
@@ -45,6 +46,13 @@ fn function_specifier_length(params : list(pcode_t)) : int
 	var l1 := 1 + bl + 1 + params[1 + bl];
 	var l2 := l1 + 1 + params[l1];
 	return l2;
+]
+
+fn function_specifier_is_spec(params : list(pcode_t)) : bool
+[
+	var bl := blob_length(params[1 .. ]);
+	var l1 := 1 + bl + 1 + params[1 + bl];
+	return params[l1] > 0;
 ]
 
 fn function_load(params : list(pcode_t)) : (int, function)

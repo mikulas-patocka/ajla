@@ -28,7 +28,7 @@ fn new_spec_context(n : int) : spec_context;
 fn spec_add_variable(spec_ctx : spec_context, ctx : context, a v : int) : spec_context;
 fn spec_extract_pcode(spec_ctx : spec_context) : list(pcode_t);
 fn spec_pcode(pc : list(pcode_t), spec_data : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t), verify_pattern : bytes) : list(pcode_t);
-fn spec_extract(pc : list(pcode_t)) : treeset(function);
+fn spec_extract(pc : list(pcode_t)) : treeset(list(pcode_t));
 
 implementation
 
@@ -327,7 +327,7 @@ fn spec_pcode(pc : list(pcode_t), spec_data : list(pcode_t), get_inline : fn(fun
 	return pc;
 ]
 
-fn spec_extract(pc : list(pcode_t)) : treeset(function)
+fn spec_extract(pc : list(pcode_t)) : treeset(list(pcode_t))
 [
 	var ptr := 9 + blob_length(pc[9 .. ]);
 	for i := 0 to pc[3] do [
@@ -350,13 +350,14 @@ fn spec_extract(pc : list(pcode_t)) : treeset(function)
 		ptr += 4;
 		ptr += blob_length(pc[ptr .. ]);
 	]
-	var specs := treeset_init(function);
+	var specs := treeset_init(list(pcode_t));
 	while ptr < len(pc) do [
 		var ins := pc[ptr];
 		if ins = P_Call then [
-			var l, f := function_load(pc[ptr + 5 .. ]);
-			if len_greater_than(f.spec_data, 0) then
-				specs := treeset_set(specs, f);
+			if function_specifier_is_spec(pc[ptr + 5 .. ]) then [
+				var l := function_specifier_length(pc[ptr + 5 .. ]);
+				specs := treeset_set(specs, pc[ptr + 5 .. ptr + 5 + l]);
+			]
 		]
 		ptr += 2 + pc[ptr + 1];
 	]

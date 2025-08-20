@@ -59,10 +59,10 @@ fn read_dir_recursive(d : dhandle) : list(bytes)
 record uni [
 	name : bytes;
 	functions : list(list(pcode_t));
-	specs : treeset(function);
+	specs : treeset(list(pcode_t));
 ]
 
-fn join_specs(a b : treeset(function)) : treeset(function)
+fn join_specs(a b : treeset(list(pcode_t))) : treeset(list(pcode_t))
 [
 	for t in b do
 		a := treeset_set(a, t);
@@ -85,7 +85,7 @@ fn get_inline(w : world, d : list(bytes), f : function, optimized : bool) : list
 	return pcode2;
 ]
 
-fn process_nested_functions(pcode1 : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t)) : (list(pcode_t), treeset(function))
+fn process_nested_functions(pcode1 : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t)) : (list(pcode_t), treeset(list(pcode_t)))
 [
 	var verify_pattern := get_dump("verify");
 	var pcode2 := process_pcode(pcode1, get_inline, verify_pattern);
@@ -93,7 +93,7 @@ fn process_nested_functions(pcode1 : list(pcode_t), get_inline : fn(function, bo
 	var ptr := 9 + blob_length(pcode1[9 .. ]);
 	var pcode_to_insert := empty(pcode_t);
 	for i := 0 to pcode1[2] do [
-		var new_specs : treeset(function);
+		var new_specs : treeset(list(pcode_t));
 		var sub_pcode := pcode1[ptr + 1 .. ptr + 1 + pcode1[ptr]];
 		sub_pcode, new_specs := process_nested_functions(sub_pcode, get_inline);
 		specs := join_specs(specs, new_specs);
@@ -130,7 +130,7 @@ fn self_optimize(implicit w : world, dir : dhandle) : world
 		for n := 0 to len(nm) do
 			if nm[n] = '\' then
 				nm[n] := '/';
-		var u : uni := uni.[ name : nm, functions : empty(list(pcode_t)), specs : treeset_init(function) ];
+		var u : uni := uni.[ name : nm, functions : empty(list(pcode_t)), specs : treeset_init(list(pcode_t)) ];
 		var pc, modules := compile_module_2(d, u.name, false);
 		u := optimize_module(d, u, pc);
 		units +<= u;
@@ -138,7 +138,7 @@ fn self_optimize(implicit w : world, dir : dhandle) : world
 
 	var a := empty(byte);
 	var module_info := empty(byte);
-	var specs := treeset_init(function);
+	var specs := treeset_init(list(pcode_t));
 	for i := 0 to len(units) do [
 		var u := units[i];
 		var function_info := empty(byte);
@@ -158,11 +158,12 @@ fn self_optimize(implicit w : world, dir : dhandle) : world
 			a += int_to_native(native.n_int32, u.name[i]);
 		specs := join_specs(specs, u.specs);
 	]
-	var compiled_specs := treemap_init(function, list(pcode_t));
+	var compiled_specs := treemap_init(list(pcode_t), list(pcode_t));
 	while treeset_is_nonempty(specs) do [
 		var first := treeset_first(specs);
 		specs := treeset_clear(specs, first.j);
-		var compiled := get_inline(d, first.j, true);
+		var l, f := function_load(first.j);
+		var compiled := get_inline(d, f, true);
 		var new_specs := spec_extract(compiled);
 		compiled_specs := treemap_insert(compiled_specs, first.j, compiled);
 		for t in new_specs do
@@ -173,7 +174,7 @@ fn self_optimize(implicit w : world, dir : dhandle) : world
 	var spec_index := empty(byte);
 	for s in compiled_specs do [
 		spec_index += int_to_native(native.n_int32, len(a) + len(module_info) + len(spec_data));
-		var f := function_store(s.k);
+		var f := s.k;
 		for i := 0 to len(f) do
 			spec_data += int_to_native(native.n_int32, f[i]);
 		spec_data += int_to_native(native.n_int32, len(s.v));

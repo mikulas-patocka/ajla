@@ -46,5 +46,7 @@ int function_designator_compare(const struct function_designator *fd1, const str
 
 bool pcode_load_blob(const pcode_t **pc, uint8_t **blob, size_t *l, ajla_error_t *err);
 bool pcode_load_module_and_function_designator(const pcode_t **pc, struct module_designator **md, struct function_designator **fd, ajla_error_t *err);
+pcode_t *pcode_store_module_and_function_designator(struct module_designator *md, struct function_designator *fd, ajla_error_t *err);
+size_t pcode_designator_length(const pcode_t *pc);
 
 #endif
