@@ -699,7 +699,7 @@ fn rename_variables_recursive(ctx : context, bgi : int) : context
 			write_set btr= wr_idx;
 			var v := instr.params[wr_idx];
 			if v = -1 then
-				abort internal("negative v: " + ntos(v));
+				abort internal("negative v: " + ntos(v) + " (opcode " + ntos(instr.opcode) + ")");
 
 			if is_noclone_variable(ctx, v) then [
 				ctx.variables[v].defining_block := bgi;
