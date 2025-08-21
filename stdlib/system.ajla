@@ -2868,6 +2868,13 @@ fn fork(t : type, w : t) : (t, t)
  - LIST FUNCTIONS -
  ------------------}
 
+fn list_is_finite~inline(t : type, a : list(t)) : bool
+[
+	var r : bool;
+	pcode Array_Is_Finite =r a;
+	return r;
+]
+
 fn len~inline(t : type, a : list(t)) : nat
 [
 	var l : int;

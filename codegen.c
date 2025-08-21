@@ -2125,6 +2125,11 @@ jump_over_arguments_and_return:
 				get_one(ctx, &slot_1);
 				goto unconditional_escape;
 			}
+			case OPCODE_ARRAY_IS_FINITE: {
+				get_two(ctx, &slot_r, &slot_1);
+				g(gen_array_is_finite(ctx, slot_1, slot_r));
+				continue;
+			}
 			case OPCODE_IO: {
 				get_two(ctx, &flags, &slot_1);
 				get_two(ctx, &slot_2, &slot_3);

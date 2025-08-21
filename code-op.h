@@ -394,6 +394,7 @@ enum {
 	OPCODE_ARRAY_APPEND_ONE_FLAT,	/* result, arg_deref1 | arg_deref2, arg1, arg2 */
 	OPCODE_ARRAY_APPEND_ONE,	/* result, arg_deref1 | arg_deref2, arg1, arg2 */
 	OPCODE_ARRAY_FLATTEN,		/* result, arg_deref1, arg1 */
+	OPCODE_ARRAY_IS_FINITE,		/* result, arg1 */
 	OPCODE_IO,			/* (code, n_outputs, n_inputs, n_params), 32-bit: outputs, inputs, params */
 	OPCODE_INTERNAL_FUNCTION,
 	OPCODE_EXIT_THREAD,

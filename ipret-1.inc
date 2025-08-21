@@ -2965,6 +2965,33 @@ DEFINE_OPCODE_START(OPCODE_ARRAY_FLATTEN)
 #endif
 DEFINE_OPCODE_END(OPCODE_ARRAY_FLATTEN)
 
+DEFINE_OPCODE_START(OPCODE_ARRAY_IS_FINITE)
+#ifdef EMIT_CODE
+	frame_t slot_r, slot_1;
+	pointer_t *ptr;
+	struct data *data;
+	bool finite;
+
+	slot_1 = get_i_param(1);
+
+	ptr = frame_pointer(fp, slot_1);
+	pointer_follow(ptr, true, data, PF_WAIT, fp, ip,
+		RELOAD_EX_POSITION(ex_),
+		finite = true; goto cat(array_is_finite_,ARG_MODE)
+	);
+	finite = da_tag(data) != DATA_TAG_array_incomplete;
+
+cat(array_is_finite_,ARG_MODE):
+	slot_r = get_i_param(0);
+	barrier_aliasing();
+	ajla_assert(!frame_test_flag(fp, slot_r), (file_line, "array is finite: flag already set for destination slot %"PRIuMAX"", (uintmax_t)slot_r));
+	*frame_slot(fp, slot_r, ajla_flat_option_t) = finite;
+	barrier_aliasing();
+
+	ADVANCE_I_PARAM(2);
+#endif
+DEFINE_OPCODE_END(OPCODE_ARRAY_IS_FINITE)
+
 
 #if ARG_MODE == 0
 DEFINE_OPCODE_START(OPCODE_IO)

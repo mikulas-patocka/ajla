@@ -2738,6 +2738,26 @@ static bool attr_w gen_array_append_one(struct codegen_context *ctx, frame_t slo
 	return true;
 }
 
+static bool attr_w gen_array_is_finite(struct codegen_context *ctx, frame_t slot_1, frame_t slot_r)
+{
+	uint32_t escape_label;
+	unsigned reg;
+
+	escape_label = alloc_escape_label(ctx);
+	if (unlikely(!escape_label))
+		return false;
+
+	g(gen_frame_decompress_slot(ctx, slot_1, R_SCRATCH_1, &reg, escape_label));
+
+	g(gen_compare_ptr_tag(ctx, reg, DATA_TAG_array_incomplete, COND_E, escape_label, R_SCRATCH_2, false, false));
+
+	flag_set(ctx, slot_r, false);
+	g(gen_frame_store_imm(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, 1));
+
+	return true;
+
+}
+
 static bool attr_w gen_io(struct codegen_context *ctx, frame_t code, frame_t slot_1, frame_t slot_2, frame_t slot_3)
 {
 	uint32_t reload_label, escape_label;

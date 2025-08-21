@@ -2975,6 +2975,19 @@ next_one:
 				gen_am_two(am, tr->slot, (a1_deref ? OPCODE_FLAG_FREE_ARGUMENT : 0));
 				gen_am(am, t1->slot);
 				break;
+			case P_Array_Is_Finite:
+				res = u_pcode_get();
+				a1 = u_pcode_get();
+				if (unlikely(var_elided(res)))
+					break;
+				tr = get_var_type(ctx, res);
+				t1 = get_var_type(ctx, a1);
+				am = INIT_ARG_MODE;
+				get_arg_mode(am, tr->slot);
+				get_arg_mode(am, t1->slot);
+				gen_code(OPCODE_ARRAY_IS_FINITE + am * OPCODE_MODE_MULT);
+				gen_am_two(am, tr->slot, t1->slot);
+				break;
 			case P_Jmp:
 				res = u_pcode_get();
 				ajla_assert_lo(res < ctx->n_labels, (file_line, "P_Jmp(%s): invalid label %"PRIdMAX"", function_name(ctx), (intmax_t)res));
