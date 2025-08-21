@@ -3191,7 +3191,7 @@ fn list_join(t~spec : type, lines : list(list(t)), bnd : list(t)) : list(t)
 [
 	if not list_is_finite(lines) then [
 		if len_greater_than(lines, 0) then
-			return lines[0] + bnd + list_join(lines[1 .. ], bnd);
+			return lines[0] + bnd + list_join~lazy(lines[1 .. ], bnd);
 		return empty(t);
 	]
 	var result := empty(t);
