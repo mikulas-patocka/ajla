@@ -2961,8 +2961,20 @@ fn is_uninitialized_record(t : type, v : t) : bool
 	return false;
 ]
 
+fn list_search_infinite~lazy(t : type, implicit c~spec : class_eq(t), x : list(t), v : t, offset : int) : int
+[
+	if len_greater_than(x, 0) then [
+		if x[0] = v then
+			return offset;
+		return list_search_infinite(x[1 .. ], v, offset + 1);
+	]
+	return -1;
+]
+
 fn list_search(t : type, implicit c~spec : class_eq(t), x : list(t), v : t) : int
 [
+	if not list_is_finite(x) then
+		return list_search_infinite(t, c, x, v, 0);
 	var i := 0;
 	while len_greater_than(x, i) do [
 		if x[i] = v then
@@ -2972,8 +2984,20 @@ fn list_search(t : type, implicit c~spec : class_eq(t), x : list(t), v : t) : in
 	return -1;
 ]
 
+fn list_search_fn_infinite~lazy(t~spec : type, x : list(t), f : fn(t) : bool, offset : int) : int
+[
+	if len_greater_than(x, 0) then [
+		if f(x[0]) then
+			return offset;
+		return list_search_fn_infinite(x[1 .. ], f, offset + 1);
+	]
+	return -1;
+]
+
 fn list_search_fn(t~spec : type, x : list(t), f : fn(t) : bool) : int
 [
+	if not list_is_finite(x) then
+		return list_search_fn_infinite(t, x, f, 0);
 	var i := 0;
 	while len_greater_than(x, i) do [
 		if f(x[i]) then
@@ -3009,21 +3033,26 @@ fn list_search_substring(t : type, implicit c~spec : class_eq(t), x v : list(t))
 [
 	var lv := len(v);
 	var i := 0;
+	var offset := 0;
 	while len_at_least(x, i + lv) do [
 		for j := 0 to lv do [
 			if x[i + j] <> v[j] then
 				goto mismatch;
 		]
-		return i;
+		return offset + i;
 mismatch:
-		i += 1;
+		if list_is_finite(x) then [
+			i += 1;
+		] else [
+			x := x[1 .. ];
+			offset += 1;
+		]
 	]
 	return -1;
 ]
 
 fn list_replace_substring(t : type, implicit c~spec : class_eq(t), x v r : list(t)) : list(t)
 [
-	var steps := 64;
 	var len_v := len(v);
 	var res := empty(t);
 again:
@@ -3033,8 +3062,7 @@ again:
 	res += x[ .. s];
 	res += r;
 	x := x[s + len_v .. ];
-	steps -= 1;
-	if steps > 0 then
+	if list_is_finite(x) then
 		goto again;
 	else
 		return res + list_replace_substring~lazy(x, v, r);
@@ -3042,14 +3070,14 @@ again:
 
 fn list_left_pad(t~spec : type, x : list(t), width : int, padding : t) : list(t)
 [
-	if len(x) < width then
+	if not len_at_least(x, width) then
 		x := fill(padding, width - len(x)) + x;
 	return x;
 ]
 
 fn list_right_pad(t~spec : type, x : list(t), width : int, padding : t) : list(t)
 [
-	if len(x) < width then
+	if not len_at_least(x, width) then
 		x += fill(padding, width - len(x));
 	return x;
 ]
@@ -3151,26 +3179,26 @@ fn list_break_whitespace(l : bytes) : list(bytes)
 		while len_greater_than(l, j), not is_whitespace(l[j]) do
 			j += 1;
 		r +<= l[i .. j];
-		i := j + 1;
+		if not list_is_finite(l) then
+			return r + list_break_whitespace~lazy(l[j + 1 .. ]);
+		else
+			i := j + 1;
 	]
 	return r;
 ]
 
 fn list_join(t~spec : type, lines : list(list(t)), bnd : list(t)) : list(t)
 [
-	const step := 64;
-	var l : int;
-	if len_greater_than(lines, step) then
-		l := step;
-	else
-		l := len(lines);
+	if not list_is_finite(lines) then [
+		if len_greater_than(lines, 0) then
+			return lines[0] + bnd + list_join(lines[1 .. ], bnd);
+		return empty(t);
+	]
 	var result := empty(t);
-	for i := 0 to l do [
+	for i := 0 to len(lines) do [
 		result += lines[i];
 		result += bnd;
 	]
-	if l = step then
-		return result + list_join~lazy(t, lines[l .. ], bnd);
 	return result;
 ]
 
@@ -3181,49 +3209,53 @@ fn list_join_lines(lines : list(bytes)) : bytes
 
 fn list_filter(t~spec : type, lst : list(t), test : fn(t) : bool) : list(t)
 [
-	const step := 64;
-	var l : int;
-	if len_greater_than(lst, step) then
-		l := step;
-	else
-		l := len(lst);
+	if not list_is_finite(lst) then [
+		if len_greater_than(lst, 0) then [
+			var r := select(test(lst[0]), empty(t), [ lst[0] ]);
+			return r + list_filter~lazy(lst[1 .. ], test);
+		]
+		return empty(t);
+	]
 	var result := empty(t);
-	for i := 0 to l do [
+	for i := 0 to len(lst) do [
 		if test(lst[i]) then
 			result +<= lst[i];
 	]
-	if l = step then
-		return result + list_filter~lazy(lst[l .. ], test);
 	return result;
 ]
 
-fn list_filter_idx_internal(t~spec : type, idx : int, lst : list(t), test : fn(int, t) : bool) : list(t)
+fn list_filter_idx_internal~lazy(t~spec : type, idx : int, lst : list(t), test : fn(int, t) : bool) : list(t)
 [
-	const step := 64;
-	var l : int;
-	if len_greater_than(lst, step) then
-		l := step;
-	else
-		l := len(lst);
-	var result := empty(t);
-	for i := 0 to l do [
-		if test(idx + i, lst[i]) then
-			result +<= lst[i];
+	if len_greater_than(lst, 0) then [
+		if len_greater_than(lst, 0) then [
+			var r := select(test(idx, lst[0]), empty(t), [ lst[0] ]);
+			return r + list_filter_idx_internal(idx + 1, lst[1 .. ], test);
+		]
 	]
-	if l = step then
-		return result + list_filter_idx_internal~lazy(idx + l, lst[l .. ], test);
-	return result;
+	return empty(t);
 ]
 
 fn list_filter_idx(t~spec : type, lst : list(t), test : fn(int, t) : bool) : list(t)
 [
-	return list_filter_idx_internal(0, lst, test);
+	if not list_is_finite(lst) then
+		return list_filter_idx_internal(0, lst, test);
+	var result := empty(t);
+	for i := 0 to len(lst) do [
+		if test(i, lst[i]) then
+			result +<= lst[i];
+	]
+	return result;
 ]
 
 fn list_fold(t~spec u~spec : type, ini : t, lst : list(u), fold : fn(t, u) : t) : t
 [
-	for val in list_consumer(lst) do
-		ini := fold(ini, val);
+	if not list_is_finite(lst) then [
+		for val in list_consumer(lst) do
+			ini := fold(ini, val);
+	] else [
+		for i := 0 to len(lst) do
+			ini := fold(ini, lst[i]);
+	]
 	return ini;
 ]
 
@@ -3255,7 +3287,7 @@ fn list_map_fold_monoid(t~spec u : type, c~spec : class_monoid(u), lst : list(t)
 fn list_reverse(t~spec : type, l : list(t)) : list(t)
 [
 	var ln := len(l);
-	for i := 0 to ln div 2 do
+	for i := 0 to ln shr 1 do
 		l[i], l[ln - 1 - i] := l[ln - 1 - i], l[i];
 	return l;
 ]
