@@ -256,7 +256,7 @@ record class_real_number(t : type) [
 record class_functor(f : fn(type) : type) [
 	map : fn (t u : type, l : f(t), m : fn(t) : u) : f(u);
 ]
-fn map(t u : type, const f : fn(type) : type, c : class_functor(f), l : f(t), m : fn(t) : u) : f(u);
+fn map(t u : type, const f : fn(type) : type, c~spec : class_functor(f), l : f(t), m~spec : fn(t) : u) : f(u);
 
 implicit fn inherit_eq_ord~inline(t : type, c : class_ord(t)) : class_eq(t);
 implicit fn inherit_magma_monoid~inline(t : type, c : class_monoid(t)) : class_magma(t);
@@ -476,32 +476,32 @@ fn abs~inline(t : type, implicit cg : class_group(t), implicit co : class_ord(t)
 fn sgn~inline(t : type, implicit cu : class_unit_ring(t), implicit co : class_ord(t), x : t) : t := select(x >= cu.zero, -cu.one, select(x = cu.zero, cu.one, x));
 
 
-fn list_search(t : type, c : class_eq(t), x : list(t), v : t) : int;
-fn list_search_fn(t : type, x : list(t), f : fn(t) : bool) : int;
-fn list_search_backwards(t : type, c : class_eq(t), x : list(t), v : t) : int;
-fn list_search_backwards_fn(t : type, x : list(t), f : fn(t) : bool) : int;
-fn list_search_substring(t : type, c : class_eq(t), x v : list(t)) : int;
-fn list_replace_substring(t : type, c : class_eq(t), x v r : list(t)) : list(t);
-fn list_left_pad(t : type, x : list(t), width : int, padding : t) : list(t);
-fn list_right_pad(t : type, x : list(t), width : int, padding : t) : list(t);
-fn list_repeat(t : type, x : list(t), num : int) : list(t);
-fn list_begins_with(t : type, c : class_eq(t), x y : list(t)) : bool;
-fn list_ends_with(t : type, c : class_eq(t), x y : list(t)) : bool;
-fn list_break(t : type, implicit c : class_eq(t), l : list(t), bnd : t) : list(list(t));
+fn list_search(t : type, c~spec : class_eq(t), x : list(t), v : t) : int;
+fn list_search_fn(t~spec : type, x : list(t), f : fn(t) : bool) : int;
+fn list_search_backwards(t : type, c~spec : class_eq(t), x : list(t), v : t) : int;
+fn list_search_backwards_fn(t~spec : type, x : list(t), f : fn(t) : bool) : int;
+fn list_search_substring(t : type, c~spec : class_eq(t), x v : list(t)) : int;
+fn list_replace_substring(t : type, c~spec : class_eq(t), x v r : list(t)) : list(t);
+fn list_left_pad(t~spec : type, x : list(t), width : int, padding : t) : list(t);
+fn list_right_pad(t~spec : type, x : list(t), width : int, padding : t) : list(t);
+fn list_repeat(t~spec : type, x : list(t), num : int) : list(t);
+fn list_begins_with(t : type, c~spec : class_eq(t), x y : list(t)) : bool;
+fn list_ends_with(t : type, c~spec : class_eq(t), x y : list(t)) : bool;
+fn list_break(t : type, implicit c~spec : class_eq(t), l : list(t), bnd : t) : list(list(t));
 fn list_break_to_lines(b : bytes) : list(bytes);
 fn list_string_break_to_lines(b : string) : list(string);
 fn list_break_whitespace(l : bytes) : list(bytes);
-fn list_join(t : type, lines : list(list(t)), bnd : list(t)) : list(t);
+fn list_join(t~spec : type, lines : list(list(t)), bnd : list(t)) : list(t);
 fn list_join_lines(lines : list(bytes)) : bytes;
-fn list_filter(t : type, lst : list(t), test : fn(t) : bool) : list(t);
-fn list_filter_idx(t : type, lst : list(t), test : fn(int, t) : bool) : list(t);
-fn list_fold(t v : type, ini : t, lst : list(v), fold : fn(t, v) : t) : t;
-fn list_fold_monoid(t : type, c : class_monoid(t), lst : list(t)) : t;
-fn list_map_fold(t v : type, ini : v, lst : list(t), mp : fn(t) : v, re : fn(v, v) : v) : v;
-fn list_map_fold_monoid(t v : type, c : class_monoid(v), lst : list(t), mp : fn(t) : v) : v;
-fn list_reverse(t : type, l : list(t)) : list(t);
-fn list_sort(t : type, implicit c : class_ord(t), l : list(t)) : list(t);
-fn list_sort_unique(t : type, implicit c : class_ord(t), l : list(t)) : list(t);
+fn list_filter(t~spec : type, lst : list(t), test : fn(t) : bool) : list(t);
+fn list_filter_idx(t~spec : type, lst : list(t), test : fn(int, t) : bool) : list(t);
+fn list_fold(t~spec v~spec : type, ini : t, lst : list(v), fold : fn(t, v) : t) : t;
+fn list_fold_monoid(t : type, c~spec : class_monoid(t), lst : list(t)) : t;
+fn list_map_fold(t~spec v~spec : type, ini : v, lst : list(t), mp : fn(t) : v, re : fn(v, v) : v) : v;
+fn list_map_fold_monoid(t~spec v : type, c~spec : class_monoid(v), lst : list(t), mp : fn(t) : v) : v;
+fn list_reverse(t~spec : type, l : list(t)) : list(t);
+fn list_sort(t : type, implicit c~spec : class_ord(t), l : list(t)) : list(t);
+fn list_sort_unique(t : type, implicit c~spec : class_ord(t), l : list(t)) : list(t);
 fn list_flatten~inline(t : type, a : list(t)) : list(t);
 
 const nl : bytes;
@@ -517,7 +517,7 @@ fn array_sparse~inline(t : type, const x : t, const dim : list(nat)) : array(t, 
 fn array_read(t : type, const dim : list(nat), v : array(t, dim), idx : list(nat), prereq len(dim) = len(idx)) : t;
 fn array_write(t : type, const dim : list(nat), v : array(t, dim), idx : list(nat), val : t, prereq len(dim) = len(idx)) : array(t, dim);
 fn array_reverse(t : type, const ln : nat, implicit c : class_ord(t), v : array(t, [ln])) : array(t, [ln]);
-fn array_sort(t : type, const ln : nat, implicit c : class_ord(t), v : array(t, [ln])) : array(t, [ln]);
+fn array_sort(t : type, const ln : nat, implicit c~spec : class_ord(t), v : array(t, [ln])) : array(t, [ln]);
 fn array_flatten~inline(t : type, const dim : list(nat), v : array(t, dim)) : array(t, dim);
 
 {---------
@@ -889,7 +889,7 @@ implicit fn instance_functor_array~inline(const dim : list(nat)) : class_functor
 		map : array_map(dim,,,,),
 	];
 
-fn map(t u : type, const f : fn(type) : type, c : class_functor(f), l : f(t), m : fn(t) : u) : f(u)
+fn map(t u : type, const f : fn(type) : type, c~spec : class_functor(f), l : f(t), m~spec : fn(t) : u) : f(u)
 [
 	return c.map(l, m);
 ]
@@ -2954,7 +2954,7 @@ fn is_uninitialized_record(t : type, v : t) : bool
 	return false;
 ]
 
-fn list_search(t : type, implicit c : class_eq(t), x : list(t), v : t) : int
+fn list_search(t : type, implicit c~spec : class_eq(t), x : list(t), v : t) : int
 [
 	var i := 0;
 	while len_greater_than(x, i) do [
@@ -2965,7 +2965,7 @@ fn list_search(t : type, implicit c : class_eq(t), x : list(t), v : t) : int
 	return -1;
 ]
 
-fn list_search_fn(t : type, x : list(t), f : fn(t) : bool) : int
+fn list_search_fn(t~spec : type, x : list(t), f : fn(t) : bool) : int
 [
 	var i := 0;
 	while len_greater_than(x, i) do [
@@ -2976,7 +2976,7 @@ fn list_search_fn(t : type, x : list(t), f : fn(t) : bool) : int
 	return -1;
 ]
 
-fn list_search_backwards(t : type, implicit c : class_eq(t), x : list(t), v : t) : int
+fn list_search_backwards(t : type, implicit c~spec : class_eq(t), x : list(t), v : t) : int
 [
 	var i := len(x) - 1;
 	while i >= 0 do [
@@ -2987,7 +2987,7 @@ fn list_search_backwards(t : type, implicit c : class_eq(t), x : list(t), v : t)
 	return -1;
 ]
 
-fn list_search_backwards_fn(t : type, x : list(t), f : fn(t) : bool) : int
+fn list_search_backwards_fn(t~spec : type, x : list(t), f : fn(t) : bool) : int
 [
 	var i := len(x) - 1;
 	while i >= 0 do [
@@ -2998,7 +2998,7 @@ fn list_search_backwards_fn(t : type, x : list(t), f : fn(t) : bool) : int
 	return -1;
 ]
 
-fn list_search_substring(t : type, implicit c : class_eq(t), x v : list(t)) : int
+fn list_search_substring(t : type, implicit c~spec : class_eq(t), x v : list(t)) : int
 [
 	var lv := len(v);
 	var i := 0;
@@ -3014,7 +3014,7 @@ mismatch:
 	return -1;
 ]
 
-fn list_replace_substring(t : type, implicit c : class_eq(t), x v r : list(t)) : list(t)
+fn list_replace_substring(t : type, implicit c~spec : class_eq(t), x v r : list(t)) : list(t)
 [
 	var steps := 64;
 	var len_v := len(v);
@@ -3033,21 +3033,21 @@ again:
 		return res + list_replace_substring~lazy(x, v, r);
 ]
 
-fn list_left_pad(t : type, x : list(t), width : int, padding : t) : list(t)
+fn list_left_pad(t~spec : type, x : list(t), width : int, padding : t) : list(t)
 [
 	if len(x) < width then
 		x := fill(padding, width - len(x)) + x;
 	return x;
 ]
 
-fn list_right_pad(t : type, x : list(t), width : int, padding : t) : list(t)
+fn list_right_pad(t~spec : type, x : list(t), width : int, padding : t) : list(t)
 [
 	if len(x) < width then
 		x += fill(padding, width - len(x));
 	return x;
 ]
 
-fn list_repeat(t : type, x : list(t), num : int) : list(t)
+fn list_repeat(t~spec : type, x : list(t), num : int) : list(t)
 [
 	const step := 64;
 	if num < 0 then
@@ -3061,7 +3061,7 @@ fn list_repeat(t : type, x : list(t), num : int) : list(t)
 	return r + list_repeat~lazy(x, num - l);
 ]
 
-fn list_begins_with(t : type, implicit c : class_eq(t), x y : list(t)) : bool
+fn list_begins_with(t : type, implicit c~spec : class_eq(t), x y : list(t)) : bool
 [
 	var ly := len(y);
 	if not len_at_least(x, ly) then
@@ -3069,7 +3069,7 @@ fn list_begins_with(t : type, implicit c : class_eq(t), x y : list(t)) : bool
 	return x[ .. ly] = y;
 ]
 
-fn list_ends_with(t : type, implicit c : class_eq(t), x y : list(t)) : bool
+fn list_ends_with(t : type, implicit c~spec : class_eq(t), x y : list(t)) : bool
 [
 	var lx := len(x);
 	var ly := len(y);
@@ -3082,7 +3082,7 @@ fn list_ends_with(t : type, implicit c : class_eq(t), x y : list(t)) : bool
 	return true;
 ]
 
-fn list_break(t : type, implicit c : class_eq(t), l : list(t), bnd : t) : list(list(t))
+fn list_break(t : type, implicit c~spec : class_eq(t), l : list(t), bnd : t) : list(list(t))
 [
 	var i := 0;
 	while len_greater_than(l, i) do [
@@ -3149,7 +3149,7 @@ fn list_break_whitespace(l : bytes) : list(bytes)
 	return r;
 ]
 
-fn list_join(t : type, lines : list(list(t)), bnd : list(t)) : list(t)
+fn list_join(t~spec : type, lines : list(list(t)), bnd : list(t)) : list(t)
 [
 	const step := 64;
 	var l : int;
@@ -3172,7 +3172,7 @@ fn list_join_lines(lines : list(bytes)) : bytes
 	return list_join(lines, nl);
 ]
 
-fn list_filter(t : type, lst : list(t), test : fn(t) : bool) : list(t)
+fn list_filter(t~spec : type, lst : list(t), test : fn(t) : bool) : list(t)
 [
 	const step := 64;
 	var l : int;
@@ -3190,7 +3190,7 @@ fn list_filter(t : type, lst : list(t), test : fn(t) : bool) : list(t)
 	return result;
 ]
 
-fn list_filter_idx_internal(t : type, idx : int, lst : list(t), test : fn(int, t) : bool) : list(t)
+fn list_filter_idx_internal(t~spec : type, idx : int, lst : list(t), test : fn(int, t) : bool) : list(t)
 [
 	const step := 64;
 	var l : int;
@@ -3208,24 +3208,24 @@ fn list_filter_idx_internal(t : type, idx : int, lst : list(t), test : fn(int, t
 	return result;
 ]
 
-fn list_filter_idx(t : type, lst : list(t), test : fn(int, t) : bool) : list(t)
+fn list_filter_idx(t~spec : type, lst : list(t), test : fn(int, t) : bool) : list(t)
 [
 	return list_filter_idx_internal(0, lst, test);
 ]
 
-fn list_fold(t u : type, ini : t, lst : list(u), fold : fn(t, u) : t) : t
+fn list_fold(t~spec u~spec : type, ini : t, lst : list(u), fold : fn(t, u) : t) : t
 [
 	for val in list_consumer(lst) do
 		ini := fold(ini, val);
 	return ini;
 ]
 
-fn list_fold_monoid(t : type, c : class_monoid(t), lst : list(t)) : t
+fn list_fold_monoid(t : type, c~spec : class_monoid(t), lst : list(t)) : t
 [
 	return list_fold(c.zero, lst, c.add);
 ]
 
-fn list_map_fold_internal(t u : type, lst : list(t), mp : fn(t) : u, re : fn(u, u) : u) : u
+fn list_map_fold_internal(t~spec u~spec : type, lst : list(t), mp : fn(t) : u, re : fn(u, u) : u) : u
 [
 	if len(lst) = 1 then
 		return mp(lst[0]);
@@ -3233,19 +3233,19 @@ fn list_map_fold_internal(t u : type, lst : list(t), mp : fn(t) : u, re : fn(u, 
 	return re(list_map_fold_internal(t, u, lst[ .. half], mp, re), list_map_fold_internal(t, u, lst[half .. ], mp, re));
 ]
 
-fn list_map_fold(t u : type, ini : u, lst : list(t), mp : fn(t) : u, re : fn(u, u) : u) : u
+fn list_map_fold(t~spec u~spec : type, ini : u, lst : list(t), mp : fn(t) : u, re : fn(u, u) : u) : u
 [
 	if len(lst) = 0 then
 		return ini;
 	return re(ini, list_map_fold_internal(t, u, lst, mp, re));
 ]
 
-fn list_map_fold_monoid(t u : type, c : class_monoid(u), lst : list(t), mp : fn(t) : u) : u
+fn list_map_fold_monoid(t~spec u : type, c~spec : class_monoid(u), lst : list(t), mp : fn(t) : u) : u
 [
 	return list_map_fold(c.zero, lst, mp, c.add);
 ]
 
-fn list_reverse(t : type, l : list(t)) : list(t)
+fn list_reverse(t~spec : type, l : list(t)) : list(t)
 [
 	var ln := len(l);
 	for i := 0 to ln div 2 do
@@ -3257,7 +3257,7 @@ fn heap_left~inline(i : int) : int := i + i + 1;
 fn heap_right~inline(i : int) : int := i + i + 2;
 fn heap_parent~inline(i : int) : int := (i - 1) shr 1;
 
-fn list_sort(t : type, implicit c : class_ord(t), l : list(t)) : list(t)
+fn list_sort(t : type, implicit c~spec : class_ord(t), l : list(t)) : list(t)
 [
 	var n := len(l);
 
@@ -3301,7 +3301,7 @@ do_loop:
 	return l;
 ]
 
-fn list_sort_unique(t : type, implicit c : class_ord(t), l : list(t)) : list(t)
+fn list_sort_unique(t : type, implicit c~spec : class_ord(t), l : list(t)) : list(t)
 [
 	l := list_sort(l);
 	var result := empty(t);
@@ -3604,7 +3604,7 @@ fn array_reverse(t : type, const ln : nat, implicit c : class_ord(t), v : array(
 	return list_to_array([ln], l);
 ]
 
-fn array_sort(t : type, const ln : nat, implicit c : class_ord(t), v : array(t, [ln])) : array(t, [ln])
+fn array_sort(t : type, const ln : nat, implicit c~spec : class_ord(t), v : array(t, [ln])) : array(t, [ln])
 [
 	var l := array_to_list(v);
 	l := list_sort(l);
