@@ -2892,7 +2892,7 @@ fn len_finite~inline(t : type, a : list(t)) : nat
 fn len_finite_positive(t : type, a : list(t)) : nat
 [
 	var l := len_finite(a);
-	if l = 0 then
+	if l = 0, len_greater_than(a, 0) then
 		l := 1;
 	return l;
 ]
@@ -2978,15 +2978,14 @@ fn is_uninitialized_record(t : type, v : t) : bool
 
 fn list_search_infinite~lazy(t : type, implicit c~spec : class_eq(t), x : list(t), v : t, offset : int) : int
 [
-	if len_greater_than(x, 0) then [
-		var l := len_finite_positive(x);
-		for i := 0 to l do [
-			if x[i] = v then
-				return offset + i;
-		]
-		return list_search_infinite(x[l .. ], v, offset + l);
+	var l := len_finite_positive(x);
+	if l = 0 then
+		return -1;
+	for i := 0 to l do [
+		if x[i] = v then
+			return offset + i;
 	]
-	return -1;
+	return list_search_infinite(x[l .. ], v, offset + l);
 ]
 
 fn list_search(t : type, implicit c~spec : class_eq(t), x : list(t), v : t) : int
@@ -3004,15 +3003,14 @@ fn list_search(t : type, implicit c~spec : class_eq(t), x : list(t), v : t) : in
 
 fn list_search_fn_infinite~lazy(t : type, x : list(t), f~spec : fn(t) : bool, offset : int) : int
 [
-	if len_greater_than(x, 0) then [
-		var l := len_finite_positive(x);
-		for i := 0 to l do [
-			if f(x[i]) then
-				return offset + i;
-		]
-		return list_search_fn_infinite(x[l .. ], f, offset + l);
+	var l := len_finite_positive(x);
+	if l = 0 then
+		return -1;
+	for i := 0 to l do [
+		if f(x[i]) then
+			return offset + i;
 	]
-	return -1;
+	return list_search_fn_infinite(x[l .. ], f, offset + l);
 ]
 
 fn list_search_fn(t : type, x : list(t), f~spec : fn(t) : bool) : int
@@ -3212,15 +3210,14 @@ fn list_break_whitespace(l : bytes) : list(bytes)
 
 fn list_join(t~spec : type, lines : list(list(t)), bnd : list(t)) : list(t)
 [
-	if not list_is_finite(lines) then [
-		if len_greater_than(lines, 0) then
-			return lines[0] + bnd + list_join~lazy(lines[1 .. ], bnd);
-		return empty(t);
-	]
 	var result := empty(t);
-	for i := 0 to len(lines) do [
+	var l := len_finite_positive(lines);
+	for i := 0 to l do [
 		result += lines[i];
 		result += bnd;
+	]
+	if len_greater_than(lines, l) then [
+		return result + list_join~lazy(lines[l .. ], bnd);
 	]
 	return result;
 ]
