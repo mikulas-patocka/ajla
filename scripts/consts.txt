@@ -48,6 +48,7 @@ P_Array_String		; result, n_chars, (chars)
 P_Array_Unicode		; result, (chars)
 P_Array_Load		; scalar, Flag_Evaluate | Flag_Borrow | Flag_Index_In_Range, array, index
 P_Array_Len		; result, array, Flag_Evaluate
+P_Array_Len_Finite	; result, array, Flag_Evaluate
 P_Array_Len_Greater_Than	; result, array, length, (Flag_Evaluate | Flag_Fused_Bin_Jmp)
 P_Array_Sub		; result, (ref_flag | Flag_Evaluate), array, start, end
 P_Array_Skip		; result, (ref_flag | Flag_Evaluate), array, start

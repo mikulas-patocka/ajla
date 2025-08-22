@@ -1676,14 +1676,14 @@ void * attr_hot_fastcall ipret_array_load_create_thunk(frame_s *fp, const code_t
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
-static attr_noinline void *array_len_create_thunk(frame_s *fp, const code_t *ip, frame_t array_slot, frame_t result_slot)
+static attr_noinline void *array_len_create_thunk(frame_s *fp, const code_t *ip, frame_t array_slot, frame_t result_slot, bool finite)
 {
 	pointer_t *fn_ptr;
 	void *ex;
 	struct data *function_reference;
 	struct thunk *result;
 
-	ex = pcode_find_array_len_function(fp, ip, &fn_ptr);
+	ex = pcode_find_array_len_function(finite, fp, ip, &fn_ptr);
 
 	if (unlikely(ex != POINTER_FOLLOW_THUNK_RETRY))
 		return ex;
@@ -1865,7 +1865,7 @@ void * attr_hot_fastcall ipret_array_len(frame_s *fp, const code_t *ip, frame_t 
 		pointer_follow(ptr, false, array_data, flags & OPCODE_OP_FLAG_STRICT ? PF_WAIT : PF_NOEVAL, fp, ip,
 			index_free(&idx_len);
 			if (!(flags & OPCODE_OP_FLAG_STRICT)) {
-				ex_ = array_len_create_thunk(fp, ip, slot_a, slot_r);
+				ex_ = array_len_create_thunk(fp, ip, slot_a, slot_r, !!(flags & OPCODE_FLAG_LEN_FINITE));
 			}
 			return ex_,
 			index_free(&idx_len);
@@ -1887,7 +1887,7 @@ void * attr_hot_fastcall ipret_array_len(frame_s *fp, const code_t *ip, frame_t 
 		}
 		index_free(&this_len);
 
-		if (da_tag(array_data) == DATA_TAG_array_incomplete) {
+		if (likely(!(flags & OPCODE_FLAG_LEN_FINITE)) && da_tag(array_data) == DATA_TAG_array_incomplete) {
 			ptr = &da(array_data,array_incomplete)->next;
 			continue;
 		}

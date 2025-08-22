@@ -1009,6 +1009,7 @@ struct data_codegen {
 union internal_arg {
 	void *ptr;
 	size_t i;
+	bool b;
 };
 
 struct data_internal {

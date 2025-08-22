@@ -36,6 +36,7 @@ typedef uint16_t code_t;
 #define FLAG_FIRST_EXCEPTION			0x0200	/* not used in code, used internally in ipret.c */
 #define FLAG_TESTING_FOR_EXCEPTION		0x0400	/* not used in code, used internally in ipret.c */
 #define OPCODE_MAY_RETURN_FLAT			0x0001
+#define OPCODE_FLAG_LEN_FINITE			0x0002
 
 #define OPCODE_FIXED_OP_MULT		1
 #define OPCODE_FIXED_OP_add			0

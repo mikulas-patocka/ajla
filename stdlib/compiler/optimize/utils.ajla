@@ -319,6 +319,10 @@ fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instructi
 		ins.read_set := 0 bts 1;
 		ins.write_set := 0 bts 0;
 		xlen := 3;
+	] else if opcode = P_Array_Len_Finite then [
+		ins.read_set := 0 bts 1;
+		ins.write_set := 0 bts 0;
+		xlen := 3;
 	] else if opcode = P_Array_Len_Greater_Than then [
 		ins.read_set := 0 bts 1 bts 2;
 		ins.write_set := 0 bts 0;

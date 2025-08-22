@@ -2832,6 +2832,7 @@ next_one:
 					ctx->local_variables_flags[tr->slot].may_be_borrowed = true;
 				break;
 			case P_Array_Len:
+			case P_Array_Len_Finite:
 				res = u_pcode_get();
 				a1 = u_pcode_get();
 				flags = u_pcode_get();
@@ -2852,7 +2853,7 @@ next_one:
 					get_arg_mode(am, tr->slot);
 					gen_code(OPCODE_ARRAY_LEN + am * OPCODE_MODE_MULT);
 					gen_am_two(am, t1->slot, tr->slot);
-					gen_am(am, flags & Flag_Evaluate ? OPCODE_OP_FLAG_STRICT : 0);
+					gen_am(am, (flags & Flag_Evaluate ? OPCODE_OP_FLAG_STRICT : 0) | (instr == P_Array_Len_Finite ? OPCODE_FLAG_LEN_FINITE : 0));
 				}
 				break;
 			case P_Array_Len_Greater_Than:
@@ -4187,7 +4188,7 @@ static void *pcode_build_array_len_function(frame_s *fp, const code_t *ip, union
 	*pc++ = 1;
 	*pc++ = 0;
 
-	*pc++ = P_Array_Len;
+	*pc++ = a[0].b ? P_Array_Len_Finite : P_Array_Len;
 	*pc++ = 3;
 	*pc++ = 1;
 	*pc++ = 0;
@@ -4208,10 +4209,13 @@ static void *pcode_build_array_len_function(frame_s *fp, const code_t *ip, union
 }
 
 static pointer_t array_len_thunk;
+static pointer_t array_len_finite_thunk;
 
-void * attr_fastcall pcode_find_array_len_function(frame_s *fp, const code_t *ip, pointer_t **result)
+void * attr_fastcall pcode_find_array_len_function(bool finite, frame_s *fp, const code_t *ip, pointer_t **result)
 {
-	return pcode_alloc_op_function(&array_len_thunk, fp, ip, pcode_build_array_len_function, 0, NULL, result);
+	union internal_arg ia[1];
+	ia[0].b = finite;
+	return pcode_alloc_op_function(!finite ? &array_len_thunk : &array_len_finite_thunk, fp, ip, pcode_build_array_len_function, 1, ia, result);
 }
 
 static void *pcode_build_array_len_greater_than_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
@@ -4784,6 +4788,7 @@ void name(pcode_done)(void)
 	thunk_free_run(bool_op_thunk, OPCODE_BOOL_OP_N);
 	thunk_free_run(&array_load_thunk, 1);
 	thunk_free_run(&array_len_thunk, 1);
+	thunk_free_run(&array_len_finite_thunk, 1);
 	thunk_free_run(&array_len_greater_than_thunk, 1);
 	thunk_free_run(&array_sub_thunk, 1);
 	thunk_free_run(&array_skip_thunk, 1);

@@ -58,7 +58,7 @@ void * attr_fastcall pcode_find_is_exception(frame_s *fp, const code_t *ip, poin
 void * attr_fastcall pcode_find_get_exception(unsigned mode, frame_s *fp, const code_t *ip, pointer_t **result);
 
 void * attr_fastcall pcode_find_array_load_function(frame_s *fp, const code_t *ip, pointer_t **result);
-void * attr_fastcall pcode_find_array_len_function(frame_s *fp, const code_t *ip, pointer_t **result);
+void * attr_fastcall pcode_find_array_len_function(bool finite, frame_s *fp, const code_t *ip, pointer_t **result);
 void * attr_fastcall pcode_find_array_len_greater_than_function(frame_s *fp, const code_t *ip, pointer_t **result);
 void * attr_fastcall pcode_find_array_sub_function(frame_s *fp, const code_t *ip, pointer_t **result);
 void * attr_fastcall pcode_find_array_skip_function(frame_s *fp, const code_t *ip, pointer_t **result);
