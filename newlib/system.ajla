@@ -493,8 +493,8 @@ fn list_string_break_to_lines(b : string) : list(string);
 fn list_break_whitespace(l : bytes) : list(bytes);
 fn list_join(t~spec : type, lines : list(list(t)), bnd : list(t)) : list(t);
 fn list_join_lines(lines : list(bytes)) : bytes;
-fn list_filter(t~spec : type, lst : list(t), test : fn(t) : bool) : list(t);
-fn list_filter_idx(t~spec : type, lst : list(t), test : fn(int, t) : bool) : list(t);
+fn list_filter(t : type, lst : list(t), test~spec : fn(t) : bool) : list(t);
+fn list_filter_idx(t : type, lst : list(t), test~spec : fn(int, t) : bool) : list(t);
 fn list_fold(t~spec v~spec : type, ini : t, lst : list(v), fold : fn(t, v) : t) : t;
 fn list_fold_monoid(t : type, c~spec : class_monoid(t), lst : list(t)) : t;
 fn list_map_fold(t~spec v~spec : type, ini : v, lst : list(t), mp : fn(t) : v, re : fn(v, v) : v) : v;
@@ -3216,9 +3216,8 @@ fn list_join(t~spec : type, lines : list(list(t)), bnd : list(t)) : list(t)
 		result += lines[i];
 		result += bnd;
 	]
-	if len_greater_than(lines, l) then [
+	if len_greater_than(lines, l) then
 		return result + list_join~lazy(lines[l .. ], bnd);
-	]
 	return result;
 ]
 
@@ -3227,44 +3226,35 @@ fn list_join_lines(lines : list(bytes)) : bytes
 	return list_join(lines, nl);
 ]
 
-fn list_filter(t~spec : type, lst : list(t), test : fn(t) : bool) : list(t)
+fn list_filter(t : type, lst : list(t), test~spec : fn(t) : bool) : list(t)
 [
-	if not list_is_finite(lst) then [
-		if len_greater_than(lst, 0) then [
-			var r := select(test(lst[0]), empty(t), [ lst[0] ]);
-			return r + list_filter~lazy(lst[1 .. ], test);
-		]
-		return empty(t);
-	]
 	var result := empty(t);
-	for i := 0 to len(lst) do [
+	var l := len_finite_positive(lst);
+	for i := 0 to l do [
 		if test(lst[i]) then
 			result +<= lst[i];
 	]
+	if len_greater_than(lst, l) then
+		return result + list_filter~lazy(lst[l .. ], test);
 	return result;
 ]
 
-fn list_filter_idx_internal~lazy(t~spec : type, idx : int, lst : list(t), test : fn(int, t) : bool) : list(t)
+fn list_filter_idx_internal(t : type, idx : int, lst : list(t), test~spec : fn(int, t) : bool) : list(t)
 [
-	if len_greater_than(lst, 0) then [
-		if len_greater_than(lst, 0) then [
-			var r := select(test(idx, lst[0]), empty(t), [ lst[0] ]);
-			return r + list_filter_idx_internal(idx + 1, lst[1 .. ], test);
-		]
-	]
-	return empty(t);
-]
-
-fn list_filter_idx(t~spec : type, lst : list(t), test : fn(int, t) : bool) : list(t)
-[
-	if not list_is_finite(lst) then
-		return list_filter_idx_internal(0, lst, test);
 	var result := empty(t);
-	for i := 0 to len(lst) do [
-		if test(i, lst[i]) then
+	var l := len_finite_positive(lst);
+	for i := 0 to l do [
+		if test(idx + i, lst[i]) then
 			result +<= lst[i];
 	]
+	if len_greater_than(lst, l) then
+		return result + list_filter_idx_internal~lazy(idx + l, lst[l .. ], test);
 	return result;
+]
+
+fn list_filter_idx(t : type, lst : list(t), test~spec : fn(int, t) : bool) : list(t)
+[
+	return list_filter_idx_internal(0, lst, test);
 ]
 
 fn list_fold(t~spec u~spec : type, ini : t, lst : list(u), fold : fn(t, u) : t) : t
