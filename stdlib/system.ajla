@@ -3062,11 +3062,13 @@ fn list_search_substring(t : type, implicit c~spec : class_eq(t), x v : list(t))
 		]
 		return offset + i;
 mismatch:
-		if list_is_finite(x) then [
-			i += 1;
-		] else [
-			x := x[1 .. ];
-			offset += 1;
+		i += 1;
+		if not list_is_finite(x) then [
+			if len_finite(x) >= i + lv then
+				continue;
+			x := x[i .. ];
+			offset += i;
+			i := 0;
 		]
 	]
 	return -1;
