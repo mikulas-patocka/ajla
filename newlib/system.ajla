@@ -477,9 +477,9 @@ fn sgn~inline(t : type, implicit cu : class_unit_ring(t), implicit co : class_or
 
 
 fn list_search(t : type, c~spec : class_eq(t), x : list(t), v : t) : int;
-fn list_search_fn(t~spec : type, x : list(t), f : fn(t) : bool) : int;
+fn list_search_fn(t : type, x : list(t), f~spec : fn(t) : bool) : int;
 fn list_search_backwards(t : type, c~spec : class_eq(t), x : list(t), v : t) : int;
-fn list_search_backwards_fn(t~spec : type, x : list(t), f : fn(t) : bool) : int;
+fn list_search_backwards_fn(t : type, x : list(t), f~spec : fn(t) : bool) : int;
 fn list_search_substring(t : type, c~spec : class_eq(t), x v : list(t)) : int;
 fn list_replace_substring(t : type, c~spec : class_eq(t), x v r : list(t)) : list(t);
 fn list_left_pad(t~spec : type, x : list(t), width : int, padding : t) : list(t);
@@ -2889,6 +2889,14 @@ fn len_finite~inline(t : type, a : list(t)) : nat
 	return l;
 ]
 
+fn len_finite_positive(t : type, a : list(t)) : nat
+[
+	var l := len_finite(a);
+	if l = 0 then
+		l := 1;
+	return l;
+]
+
 fn len_at_least~inline(t : type, a : list(t), l : int) : bool
 [
 	return len_greater_than(t, a, l - 1);
@@ -2971,9 +2979,12 @@ fn is_uninitialized_record(t : type, v : t) : bool
 fn list_search_infinite~lazy(t : type, implicit c~spec : class_eq(t), x : list(t), v : t, offset : int) : int
 [
 	if len_greater_than(x, 0) then [
-		if x[0] = v then
-			return offset;
-		return list_search_infinite(x[1 .. ], v, offset + 1);
+		var l := len_finite_positive(x);
+		for i := 0 to l do [
+			if x[i] = v then
+				return offset + i;
+		]
+		return list_search_infinite(x[l .. ], v, offset + l);
 	]
 	return -1;
 ]
@@ -2991,17 +3002,20 @@ fn list_search(t : type, implicit c~spec : class_eq(t), x : list(t), v : t) : in
 	return -1;
 ]
 
-fn list_search_fn_infinite~lazy(t~spec : type, x : list(t), f : fn(t) : bool, offset : int) : int
+fn list_search_fn_infinite~lazy(t : type, x : list(t), f~spec : fn(t) : bool, offset : int) : int
 [
 	if len_greater_than(x, 0) then [
-		if f(x[0]) then
-			return offset;
-		return list_search_fn_infinite(x[1 .. ], f, offset + 1);
+		var l := len_finite_positive(x);
+		for i := 0 to l do [
+			if f(x[i]) then
+				return offset + i;
+		]
+		return list_search_fn_infinite(x[l .. ], f, offset + l);
 	]
 	return -1;
 ]
 
-fn list_search_fn(t~spec : type, x : list(t), f : fn(t) : bool) : int
+fn list_search_fn(t : type, x : list(t), f~spec : fn(t) : bool) : int
 [
 	if not list_is_finite(x) then
 		return list_search_fn_infinite(t, x, f, 0);
@@ -3025,7 +3039,7 @@ fn list_search_backwards(t : type, implicit c~spec : class_eq(t), x : list(t), v
 	return -1;
 ]
 
-fn list_search_backwards_fn(t~spec : type, x : list(t), f : fn(t) : bool) : int
+fn list_search_backwards_fn(t : type, x : list(t), f~spec : fn(t) : bool) : int
 [
 	var i := len(x) - 1;
 	while i >= 0 do [
