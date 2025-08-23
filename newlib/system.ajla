@@ -831,12 +831,34 @@ implicit fn instance_monoid_list~inline(t : type) : class_monoid(list(t)) :=
 		add : list_add(t,,),
 		zero : empty(t),
 	];
+fn list_map_par(t u : type, lst : list(t), m~spec : fn(t) : u) : list(u)
+[
+	var v := empty(u);
+	for i := 0 to len(lst) do
+		v +<= m(lst[i]);
+	return v;
+]
+
 fn list_map(t u : type, lst : list(t), m~spec : fn(t) : u) : list(u)
 [
 	var v := empty(u);
 	if list_is_finite(lst) then [
-		for i := 0 to len(lst) do
+		var c1 c2 : uint32;
+		pcode Read_Clock =c1;
+		for i := 0 to len(lst) do [
 			v +<= m(lst[i]);
+			pcode Read_Clock =c2;
+			if c2 - c1 >= 2, i >= 1 then [
+				var step := i;
+				var pos := i;
+				while len_at_least(lst, pos + step) do [
+					v += list_map_par~spark(lst[pos .. pos + step], m);
+					pos += step;
+				]
+				v += list_map_par~spark(lst[pos .. ], m);
+				return v;
+			]
+		]
 		return v;
 	] else [
 		var l := len_finite(lst);
@@ -884,9 +906,7 @@ implicit fn inherit_ord_array~inline(t : type, c : class_ord(t), const dim : lis
 fn array_map(const dim : list(nat), t u : type, a : array(t, dim), m~spec : fn(t) : u) : array(u, dim)
 [
 	var tl := array_to_list(t, dim, a);
-	var ul := empty(u);
-	for i := 0 to len(tl) do
-		ul +<= m(tl[i]);
+	var ul := list_map(tl, m);
 	return list_to_array(u, dim, ul);
 ]
 implicit fn instance_functor_array~inline(const dim : list(nat)) : class_functor(xarray(dim,)) :=
