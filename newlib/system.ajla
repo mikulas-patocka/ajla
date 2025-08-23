@@ -831,7 +831,7 @@ implicit fn instance_monoid_list~inline(t : type) : class_monoid(list(t)) :=
 		add : list_add(t,,),
 		zero : empty(t),
 	];
-fn list_map(t u : type, lst : list(t), m : fn(t) : u) : list(u)
+fn list_map(t u : type, lst : list(t), m~spec : fn(t) : u) : list(u)
 [
 	var v := empty(u);
 	if list_is_finite(lst) then [
