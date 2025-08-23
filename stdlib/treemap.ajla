@@ -74,6 +74,8 @@ fn treeset_size(key : type, const cls : class_ord(key), ts : treeset(key, cls)) 
 fn treeset_set(key : type, const cls : class_ord(key), ts : treeset(key, cls), k : key) : treeset(key, cls);
 fn treeset_clear(key : type, const cls : class_ord(key), ts : treeset(key, cls), k : key) : treeset(key, cls);
 fn treeset_from_list(key : type, const cls : class_ord(key), l : list(key)) : treeset(key, cls);
+fn treeset_union(key : type, const cls : class_ord(key), ts1 ts2 : treeset(key, cls)) : treeset(key, cls);
+fn treeset_intersection(key : type, const cls : class_ord(key), ts1 ts2 : treeset(key, cls)) : treeset(key, cls);
 
 conversion fn treeset_iterator~inline(key : type, const cls : class_ord(key), ts : treeset(key, cls)) : class_iterator :=
 	class_iterator.[
@@ -485,4 +487,24 @@ fn treeset_from_list(key : type, const cls : class_ord(key), l : list(key)) : tr
 	for f in l do
 		ts := treeset_set(ts, f);
 	return ts;
+]
+
+fn treeset_union(key : type, const cls : class_ord(key), ts1 ts2 : treeset(key, cls)) : treeset(key, cls)
+[
+	if treeset_size(ts1) < treeset_size(ts2) then
+		ts1, ts2 := ts2, ts1;
+	for k in ts2 do
+		ts1 := treeset_set(ts1, k);
+	return ts1;
+]
+
+fn treeset_intersection(key : type, const cls : class_ord(key), ts1 ts2 : treeset(key, cls)) : treeset(key, cls)
+[
+	if treeset_size(ts1) < treeset_size(ts2) then
+		ts1, ts2 := ts2, ts1;
+	var r := treeset_init(key, cls);
+	for k in ts2 do
+		if treeset_test(ts1, k) then
+			r := treeset_set(r, k);
+	return r;
 ]

@@ -62,13 +62,6 @@ record uni [
 	specs : treeset(list(pcode_t));
 ]
 
-fn join_specs(a b : treeset(list(pcode_t))) : treeset(list(pcode_t))
-[
-	for t in b do
-		a := treeset_set(a, t);
-	return a;
-]
-
 fn get_inline(w : world, d : list(bytes), f : function, optimized : bool) : list(pcode_t)
 [
 	var verify_pattern := get_dump("verify");
@@ -96,7 +89,7 @@ fn process_nested_functions(pcode1 : list(pcode_t), get_inline : fn(function, bo
 		var new_specs : treeset(list(pcode_t));
 		var sub_pcode := pcode1[ptr + 1 .. ptr + 1 + pcode1[ptr]];
 		sub_pcode, new_specs := process_nested_functions(sub_pcode, get_inline);
-		specs := join_specs(specs, new_specs);
+		specs := treeset_union(specs, new_specs);
 		ptr += 1 + pcode1[ptr];
 		pcode_to_insert +<= len(sub_pcode);
 		pcode_to_insert += sub_pcode;
@@ -113,7 +106,7 @@ fn optimize_module(w : world, d : list(bytes), u : uni, pc : list(list(pcode_t))
 		var pcode1 := pc[idx];
 		var pcode2, new_specs := process_nested_functions(pcode1, get_inline(w, d,,));
 		u.functions +<= pcode2;
-		u.specs := join_specs(u.specs, new_specs);
+		u.specs := treeset_union(u.specs, new_specs);
 	]
 	return u;
 ]
@@ -156,7 +149,7 @@ fn self_optimize(implicit w : world, dir : dhandle) : world
 		a += int_to_native(native.n_int32, len(u.name));
 		for i := 0 to len(u.name) do
 			a += int_to_native(native.n_int32, u.name[i]);
-		specs := join_specs(specs, u.specs);
+		specs := treeset_union(specs, u.specs);
 	]
 	var compiled_specs := treemap_init(list(pcode_t), list(pcode_t));
 	while treeset_is_nonempty(specs) do [
