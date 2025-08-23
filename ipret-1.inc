@@ -1201,6 +1201,14 @@ DEFINE_OPCODE_START(OPCODE_ESCAPE_NONFLAT)
 #endif
 DEFINE_OPCODE_END(OPCODE_ESCAPE_NONFLAT)
 
+DEFINE_OPCODE_START(OPCODE_READ_CLOCK)
+#ifdef EMIT_CODE
+	frame_t slot = get_i_param(0);
+	*frame_slot(fp, slot, uint32_t) = cg_upcall_vector.ts;
+	ADVANCE_I_PARAM(1);
+#endif
+DEFINE_OPCODE_END(OPCODE_READ_CLOCK)
+
 DEFINE_OPCODE_START(OPCODE_CHECKPOINT)
 #ifdef EMIT_CODE
 	const code_t attr_unused *orig_ip = ip;

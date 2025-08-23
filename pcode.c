@@ -2989,6 +2989,16 @@ next_one:
 				gen_code(OPCODE_ARRAY_IS_FINITE + am * OPCODE_MODE_MULT);
 				gen_am_two(am, tr->slot, t1->slot);
 				break;
+			case P_Read_Clock:
+				res = u_pcode_get();
+				if (unlikely(var_elided(res)))
+					break;
+				tr = get_var_type(ctx, res);
+				am = INIT_ARG_MODE;
+				get_arg_mode(am, tr->slot);
+				gen_code(OPCODE_READ_CLOCK + am * OPCODE_MODE_MULT);
+				gen_am(am, tr->slot);
+				break;
 			case P_Jmp:
 				res = u_pcode_get();
 				ajla_assert_lo(res < ctx->n_labels, (file_line, "P_Jmp(%s): invalid label %"PRIdMAX"", function_name(ctx), (intmax_t)res));

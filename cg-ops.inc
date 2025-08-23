@@ -156,6 +156,22 @@ static bool attr_w gen_eval(struct codegen_context *ctx, frame_t slot_1)
 	return true;
 }
 
+static bool attr_w gen_read_clock(struct codegen_context *ctx, frame_t slot_r)
+{
+	unsigned target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
+
+	g(gen_address(ctx, R_UPCALL, offsetof(struct cg_upcall_vector_s, ts), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_4));
+	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
+	gen_one(target);
+	gen_address_offset();
+
+	g(gen_frame_store(ctx, OP_SIZE_4, slot_r, 0, target));
+
+	flag_set(ctx, slot_r, false);
+
+	return true;
+}
+
 static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, unsigned op_size, unsigned cond, unsigned reg1, unsigned reg2, int64_t imm)
 {
 	ip_t ip = (ctx->current_position - da(ctx->fn,function)->code) + (jmp_offset / (int)sizeof(code_t));

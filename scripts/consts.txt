@@ -56,6 +56,7 @@ P_Array_Append		; result, (ref_flag, arg1), (ref_flag, arg2)
 P_Array_Append_One	; result, (ref_flag, arg1), (ref_flag, arg2)
 P_Array_Flatten		; result, (ref_flag, arg1)
 P_Array_Is_Finite	; result, arg1
+P_Read_Clock		; result
 P_Jmp			; label
 P_Jmp_False		; variable, label if false, label if exception
 P_Label			; label

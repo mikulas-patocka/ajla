@@ -1754,6 +1754,11 @@ skip_dereference:
 
 				continue;
 			}
+			case OPCODE_READ_CLOCK: {
+				get_one(ctx, &slot_r);
+				g(gen_read_clock(ctx, slot_r));
+				continue;
+			}
 			case OPCODE_CHECKPOINT: {
 				frame_t n_vars;
 
