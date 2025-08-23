@@ -3149,38 +3149,44 @@ again:
 	return result;
 ]
 
+fn list_break_to_lines_polymorphic(t : type, implicit c~spec : class_integer_number(t), lst : list(t)) : list(list(t))
+[
+	var result := empty(list(t));
+	var f := len_finite(lst);
+again:
+	var idx := 0;
+	var fl : int;
+	while len_greater_than(lst, idx) do [
+		if lst[idx] = 13, len_greater_than(lst, idx + 1), lst[idx + 1] = 10 then [
+			fl := 2;
+			goto found_it;
+		]
+		if lst[idx] = 10 then [
+			fl := 1;
+			goto found_it;
+		]
+		idx += 1;
+	]
+	if len(lst) > 0 then
+		result +<= lst;
+	return result;
+found_it:
+	result +<= lst[ .. idx];
+	lst := lst[idx + fl .. ];
+	f -= idx + fl;
+	if f > 0 then
+		goto again;
+	return result + list_break_to_lines_polymorphic~lazy(lst);
+]
+
 fn list_break_to_lines(b : bytes) : list(bytes)
 [
-	var i := 0;
-	while len_greater_than(b, i) do [
-		if b[i] = 13, len_greater_than(b, i + 1), b[i + 1] = 10 then [
-			return [ b[ .. i ] ] + list_break_to_lines~lazy(b[ i + 2 .. ]);
-		]
-		if b[i] = 10 then [
-			return [ b[ .. i ] ] + list_break_to_lines~lazy(b[ i + 1 .. ]);
-		]
-		i += 1;
-	]
-	if i > 0 then
-		return [ b ];
-	return empty(bytes);
+	return list_break_to_lines_polymorphic(b);
 ]
 
 fn list_string_break_to_lines(b : string) : list(string)
 [
-	var i := 0;
-	while len_greater_than(b, i) do [
-		if b[i] = 13, len_greater_than(b, i + 1), b[i + 1] = 10 then [
-			return [ b[ .. i ] ] + list_string_break_to_lines~lazy(b[ i + 2 .. ]);
-		]
-		if b[i] = 10 then [
-			return [ b[ .. i ] ] + list_string_break_to_lines~lazy(b[ i + 1 .. ]);
-		]
-		i += 1;
-	]
-	if i > 0 then
-		return [ b ];
-	return empty(string);
+	return list_break_to_lines_polymorphic(b);
 ]
 
 fn is_whitespace~inline(c : byte) : bool := c = 9 or c = 10 or c = 13 or c = ' ';
