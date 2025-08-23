@@ -3132,27 +3132,20 @@ fn list_ends_with(t : type, implicit c~spec : class_eq(t), x y : list(t)) : bool
 
 fn list_break(t : type, implicit c~spec : class_eq(t), lst : list(t), bnd : t) : list(list(t))
 [
-	var tmp_result := empty(t);
 	var result := empty(list(t));
-	var l := len_finite(lst);
-	for i := 0 to l do [
-		if lst[i] = bnd then [
-			result +<= tmp_result;
-			tmp_result := empty(t);
-		] else [
-			tmp_result +<= lst[i];
-		]
-	]
-	lst := lst[l .. ];
+	var f := len_finite(lst);
+again:
 	var idx := list_search(lst, bnd);
 	if idx >= 0 then [
-		tmp_result += lst[ .. idx];
-		result +<= tmp_result;
-		return result + list_break~lazy(lst[idx + 1 .. ], bnd);
+		result +<= lst[ .. idx];
+		lst := lst[idx + 1 .. ];
+		f -= idx + 1;
+		if f > 0 then
+			goto again;
+		return result + list_break~lazy(lst, bnd);
 	]
-	tmp_result += lst;
-	if len_greater_than(tmp_result, 0) then
-		result +<= tmp_result;
+	if len(lst) > 0 then
+		result +<= lst;
 	return result;
 ]
 
