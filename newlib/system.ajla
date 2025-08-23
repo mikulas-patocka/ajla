@@ -488,9 +488,9 @@ fn list_repeat(t~spec : type, x : list(t), num : int) : list(t);
 fn list_begins_with(t : type, c~spec : class_eq(t), x y : list(t)) : bool;
 fn list_ends_with(t : type, c~spec : class_eq(t), x y : list(t)) : bool;
 fn list_break(t : type, implicit c~spec : class_eq(t), lst : list(t), bnd : t) : list(list(t));
-fn list_break_to_lines(b : bytes) : list(bytes);
-fn list_string_break_to_lines(b : string) : list(string);
-fn list_break_whitespace(l : bytes) : list(bytes);
+fn list_break_to_lines(lst : bytes) : list(bytes);
+fn list_string_break_to_lines(lst : string) : list(string);
+fn list_break_whitespace(lst : bytes) : list(bytes);
 fn list_join(t~spec : type, lines : list(list(t)), bnd : list(t)) : list(t);
 fn list_join_lines(lines : list(bytes)) : bytes;
 fn list_filter(t : type, lst : list(t), test~spec : fn(t) : bool) : list(t);
@@ -3130,26 +3130,7 @@ fn list_ends_with(t : type, implicit c~spec : class_eq(t), x y : list(t)) : bool
 	return true;
 ]
 
-fn list_break(t : type, implicit c~spec : class_eq(t), lst : list(t), bnd : t) : list(list(t))
-[
-	var result := empty(list(t));
-	var f := len_finite(lst);
-again:
-	var idx := list_search(lst, bnd);
-	if idx >= 0 then [
-		result +<= lst[ .. idx];
-		lst := lst[idx + 1 .. ];
-		f -= idx + 1;
-		if f > 0 then
-			goto again;
-		return result + list_break~lazy(lst, bnd);
-	]
-	if len(lst) > 0 then
-		result +<= lst;
-	return result;
-]
-
-fn list_break_to_lines_polymorphic(t : type, implicit c~spec : class_integer_number(t), lst : list(t)) : list(list(t))
+fn list_break_generic(t : type, implicit c~spec : class_eq(t), lst : list(t), bnd~spec : fn(list(t)) : int) : list(list(t))
 [
 	var result := empty(list(t));
 	var f := len_finite(lst);
@@ -3157,14 +3138,9 @@ again:
 	var idx := 0;
 	var fl : int;
 	while len_greater_than(lst, idx) do [
-		if lst[idx] = 13, len_greater_than(lst, idx + 1), lst[idx + 1] = 10 then [
-			fl := 2;
+		fl := bnd(lst[idx .. ]);
+		if fl > 0 then
 			goto found_it;
-		]
-		if lst[idx] = 10 then [
-			fl := 1;
-			goto found_it;
-		]
 		idx += 1;
 	]
 	if len(lst) > 0 then
@@ -3176,40 +3152,52 @@ found_it:
 	f -= idx + fl;
 	if f > 0 then
 		goto again;
-	return result + list_break_to_lines_polymorphic~lazy(lst);
+	return result + list_break_generic~lazy(lst, bnd);
 ]
 
-fn list_break_to_lines(b : bytes) : list(bytes)
+fn list_break(t : type, implicit c~spec : class_eq(t), lst : list(t), bnd : t) : list(list(t))
 [
-	return list_break_to_lines_polymorphic(b);
+	return list_break_generic(lst, lambda(x : list(t)) [ return select(x[0] = bnd, 0, 1); ]);
 ]
 
-fn list_string_break_to_lines(b : string) : list(string)
+fn list_break_to_lines(lst : bytes) : list(bytes)
 [
-	return list_break_to_lines_polymorphic(b);
+	return list_break_generic(lst, lambda(x : bytes) [
+		if x[0] = 13, len_greater_than(x, 1), x[1] = 10 then
+			return 2;
+		if x[0] = 10 then
+			return 1;
+		return 0;
+	]);
 ]
 
-fn is_whitespace~inline(c : byte) : bool := c = 9 or c = 10 or c = 13 or c = ' ';
-
-fn list_break_whitespace(l : bytes) : list(bytes)
+fn list_string_break_to_lines(lst : string) : list(string)
 [
-	var r := empty(bytes);
-	var i := 0;
-	while len_greater_than(l, i) do [
-		if is_whitespace(l[i]) then [
-			i += 1;
-			continue;
+	return list_break_generic(lst, lambda(x : string) [
+		if x[0] = 13, len_greater_than(x, 1), x[1] = 10 then
+			return 2;
+		if x[0] = 10 then
+			return 1;
+		return 0;
+	]);
+]
+
+fn list_break_whitespace(lst : bytes) : list(bytes)
+[
+	fn is_whitespace(lst : bytes)
+	[
+		var idx := 0;
+		while len_greater_than(lst, idx) do [
+			var c := lst[idx];
+			if not (c = 9 or c = 10 or c = 13 or c = ' ') then
+				break;
+			idx += 1;
 		]
-		var j := i + 1;
-		while len_greater_than(l, j), not is_whitespace(l[j]) do
-			j += 1;
-		r +<= l[i .. j];
-		if not list_is_finite(l) then
-			return r + list_break_whitespace~lazy(l[j + 1 .. ]);
-		else
-			i := j + 1;
+		return idx;
 	]
-	return r;
+
+	lst := lst[is_whitespace(lst) .. ];
+	return list_break_generic(lst, is_whitespace);
 ]
 
 fn list_join(t~spec : type, lines : list(list(t)), bnd : list(t)) : list(t)
