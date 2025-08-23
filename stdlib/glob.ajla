@@ -25,7 +25,7 @@ implementation
 
 uses charset;
 
-fn glob_no_star(t : type, implicit cls : class_integer_number(t), file pattern : list(t)) : bool
+fn glob_no_star(t : type, implicit cls~class : class_integer_number(t), file pattern : list(t)) : bool
 [
 	if len(file) <> len(pattern) then
 		return false;
@@ -38,7 +38,7 @@ fn glob_no_star(t : type, implicit cls : class_integer_number(t), file pattern :
 	return true;
 ]
 
-fn glob_polymorphic(t : type, implicit cls : class_integer_number(t), file pattern : list(t)) : bool
+fn glob_polymorphic~inline(t : type, implicit cls : class_integer_number(t), file pattern : list(t)) : bool
 [
 	var star := list_search(pattern, '*');
 	if star = -1 then
