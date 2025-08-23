@@ -2889,14 +2889,6 @@ fn len_finite~inline(t : type, a : list(t)) : nat
 	return l;
 ]
 
-fn len_finite_positive(t : type, a : list(t)) : nat
-[
-	var l := len_finite(a);
-	if l = 0, len_greater_than(a, 0) then
-		l := 1;
-	return l;
-]
-
 fn len_at_least~inline(t : type, a : list(t), l : int) : bool
 [
 	return len_greater_than(t, a, l - 1);
@@ -2978,7 +2970,7 @@ fn is_uninitialized_record(t : type, v : t) : bool
 
 fn list_search_infinite~lazy(t : type, implicit c~spec : class_eq(t), x : list(t), v : t, offset : int) : int
 [
-	var l := len_finite_positive(x);
+	var l := len_finite(x);
 	if l = 0 then
 		return -1;
 	for i := 0 to l do [
@@ -3003,7 +2995,7 @@ fn list_search(t : type, implicit c~spec : class_eq(t), x : list(t), v : t) : in
 
 fn list_search_fn_infinite~lazy(t : type, x : list(t), f~spec : fn(t) : bool, offset : int) : int
 [
-	var l := len_finite_positive(x);
+	var l := len_finite(x);
 	if l = 0 then
 		return -1;
 	for i := 0 to l do [
@@ -3211,7 +3203,7 @@ fn list_break_whitespace(l : bytes) : list(bytes)
 fn list_join(t~spec : type, lines : list(list(t)), bnd : list(t)) : list(t)
 [
 	var result := empty(t);
-	var l := len_finite_positive(lines);
+	var l := len_finite(lines);
 	for i := 0 to l do [
 		result += lines[i];
 		result += bnd;
@@ -3229,7 +3221,7 @@ fn list_join_lines(lines : list(bytes)) : bytes
 fn list_filter(t : type, lst : list(t), test~spec : fn(t) : bool) : list(t)
 [
 	var result := empty(t);
-	var l := len_finite_positive(lst);
+	var l := len_finite(lst);
 	for i := 0 to l do [
 		if test(lst[i]) then
 			result +<= lst[i];
@@ -3242,7 +3234,7 @@ fn list_filter(t : type, lst : list(t), test~spec : fn(t) : bool) : list(t)
 fn list_filter_idx_internal(t : type, idx : int, lst : list(t), test~spec : fn(int, t) : bool) : list(t)
 [
 	var result := empty(t);
-	var l := len_finite_positive(lst);
+	var l := len_finite(lst);
 	for i := 0 to l do [
 		if test(idx + i, lst[i]) then
 			result +<= lst[i];
@@ -3260,7 +3252,7 @@ fn list_filter_idx(t : type, lst : list(t), test~spec : fn(int, t) : bool) : lis
 fn list_fold(t v : type, ini : t, lst : list(v), fold~spec : fn(t, v) : t) : t
 [
 again:
-	var l := len_finite_positive(lst);
+	var l := len_finite(lst);
 	for i := 0 to l do
 		ini := fold(ini, lst[i]);
 	if len_greater_than(lst, l) then [

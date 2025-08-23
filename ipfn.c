@@ -1887,7 +1887,10 @@ void * attr_hot_fastcall ipret_array_len(frame_s *fp, const code_t *ip, frame_t 
 		}
 		index_free(&this_len);
 
-		if (likely(!(flags & OPCODE_FLAG_LEN_FINITE)) && da_tag(array_data) == DATA_TAG_array_incomplete) {
+		if (unlikely((flags & OPCODE_FLAG_LEN_FINITE) != 0) && likely(!index_eq_int(idx_len, 0)))
+			break;
+
+		if (da_tag(array_data) == DATA_TAG_array_incomplete) {
 			ptr = &da(array_data,array_incomplete)->next;
 			continue;
 		}
