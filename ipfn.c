@@ -1863,10 +1863,12 @@ void * attr_hot_fastcall ipret_array_len(frame_s *fp, const code_t *ip, frame_t 
 		array_index_t this_len;
 
 		pointer_follow(ptr, false, array_data, flags & OPCODE_OP_FLAG_STRICT ? PF_WAIT : PF_NOEVAL, fp, ip,
-			index_free(&idx_len);
 			if (!(flags & OPCODE_OP_FLAG_STRICT)) {
+				if (unlikely((flags & OPCODE_FLAG_LEN_FINITE) != 0) && likely(!index_eq_int(idx_len, 0)))
+					goto brk;
 				ex_ = array_len_create_thunk(fp, ip, slot_a, slot_r, !!(flags & OPCODE_FLAG_LEN_FINITE));
 			}
+			index_free(&idx_len);
 			return ex_,
 			index_free(&idx_len);
 			thunk_reference(thunk_);
@@ -1887,8 +1889,9 @@ void * attr_hot_fastcall ipret_array_len(frame_s *fp, const code_t *ip, frame_t 
 		}
 		index_free(&this_len);
 
-		if (unlikely((flags & OPCODE_FLAG_LEN_FINITE) != 0) && likely(!index_eq_int(idx_len, 0)))
-			break;
+		if (unlikely((flags & (OPCODE_OP_FLAG_STRICT | OPCODE_FLAG_LEN_FINITE)) == (OPCODE_OP_FLAG_STRICT | OPCODE_FLAG_LEN_FINITE)) && likely(!index_eq_int(idx_len, 0))) {
+			flags &= ~OPCODE_OP_FLAG_STRICT;
+		}
 
 		if (da_tag(array_data) == DATA_TAG_array_incomplete) {
 			ptr = &da(array_data,array_incomplete)->next;
@@ -1897,6 +1900,7 @@ void * attr_hot_fastcall ipret_array_len(frame_s *fp, const code_t *ip, frame_t 
 
 		break;
 	}
+brk:
 
 	if (likely(!index_is_mp(idx_len))) {
 		int_default_t len = index_to_int(idx_len);
