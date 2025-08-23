@@ -788,6 +788,9 @@ implicit fn inherit_division_ring_real_number(t : type, c : class_real_number(t)
 		divide : c.divide,
 	];
 
+fn list_is_finite~inline(t : type, a : list(t)) : bool;
+fn len_finite~inline(t : type, a : list(t)) : nat;
+
 fn list_equal(t : type, implicit c~spec : class_eq(t), l1 l2 : list(t)) : bool
 [
 	while len_greater_than(l1, 0) and len_greater_than(l2, 0) do [
@@ -828,17 +831,19 @@ implicit fn instance_monoid_list~inline(t : type) : class_monoid(list(t)) :=
 		add : list_add(t,,),
 		zero : empty(t),
 	];
-fn list_map(t u : type, l : list(t), m : fn(t) : u) : list(u)
+fn list_map(t u : type, lst : list(t), m : fn(t) : u) : list(u)
 [
-	var steps := 64;
 	var v := empty(u);
-	if len_greater_than(l, steps) then [
-		for i := 0 to steps do
-			v +<= m(l[i]);
-		return v + list_map~lazy(l[steps .. ], m);
+	if list_is_finite(lst) then [
+		for i := 0 to len(lst) do
+			v +<= m(lst[i]);
+		return v;
 	] else [
-		for i := 0 to len(l) do
-			v +<= m(l[i]);
+		var l := len_finite(lst);
+		for i := 0 to l do
+			v +<= m(lst[i]);
+		if len_greater_than(lst, l) then
+			return v + list_map~lazy(lst[l .. ], m);
 		return v;
 	]
 ]
