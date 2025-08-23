@@ -881,7 +881,7 @@ implicit fn inherit_ord_array~inline(t : type, c : class_ord(t), const dim : lis
 		less : array_less(t, c, dim,,),
 	];
 
-fn array_map(const dim : list(nat), t u : type, a : array(t, dim), m : fn(t) : u) : array(u, dim)
+fn array_map(const dim : list(nat), t u : type, a : array(t, dim), m~spec : fn(t) : u) : array(u, dim)
 [
 	var tl := array_to_list(t, dim, a);
 	var ul := empty(u);
