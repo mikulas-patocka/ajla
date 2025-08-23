@@ -31,7 +31,7 @@ static bool attr_w gen_flat_move_copy(struct codegen_context *ctx, frame_t slot_
 	flag_set(ctx, slot_1, false);
 	flag_set(ctx, slot_r, false);
 
-	return false;
+	return true;
 }
 
 static bool attr_w gen_ref_move_copy(struct codegen_context *ctx, code_t code, frame_t slot_1, frame_t slot_r)
