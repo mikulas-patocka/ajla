@@ -833,36 +833,36 @@ implicit fn instance_monoid_list~inline(t : type) : class_monoid(list(t)) :=
 	];
 fn list_map_par(t u : type, lst : list(t), m~spec : fn(t) : u) : list(u)
 [
-	var v := empty(u);
+	var result := empty(u);
 	for i := 0 to len(lst) do
-		v +<= m(lst[i]);
-	return v;
+		result +<= m(lst[i]);
+	return result;
 ]
 
 fn list_map(t u : type, lst : list(t), m~spec : fn(t) : u) : list(u)
 [
-	var v := empty(u);
+	var result := empty(u);
 	var l := len_finite(lst);
 	var c1 c2 : uint32;
 	pcode Read_Clock =c1;
 	for i := 0 to l do [
-		v +<= m(lst[i]);
+		result +<= m(lst[i]);
 		pcode Read_Clock =c2;
 		if c2 - c1 >= 2, i >= 1 then [
 			var step := i;
 			var pos := i;
 			while pos + step < l do [
-				v += list_map_par~spark(lst[pos .. pos + step], m);
+				result += list_map_par~spark(lst[pos .. pos + step], m);
 				pos += step;
 			]
-			v += list_map_par~spark(lst[pos .. l], m);
+			result += list_map_par~spark(lst[pos .. l], m);
 			goto ret;
 		]
 	]
 ret:
 	if len_greater_than(lst, l) then
-		return v + list_map~lazy(lst[l .. ], m);
-	return v;
+		return result + list_map~lazy(lst[l .. ], m);
+	return result;
 ]
 implicit fn instance_functor_list~inline : class_functor(list) :=
 	class_functor(list).[
@@ -3238,14 +3238,38 @@ fn list_join_lines(lines : list(bytes)) : bytes
 	return list_join(lines, nl);
 ]
 
+fn list_filter_par(t : type, lst : list(t), test~spec : fn(t) : bool) : list(t)
+[
+	var result := empty(t);
+	for i := 0 to len(lst) do [
+		if test(lst[i]) then
+			result +<= lst[i];
+	]
+	return result;
+]
+
 fn list_filter(t : type, lst : list(t), test~spec : fn(t) : bool) : list(t)
 [
 	var result := empty(t);
 	var l := len_finite(lst);
+	var c1 c2 : uint32;
+	pcode Read_Clock =c1;
 	for i := 0 to l do [
 		if test(lst[i]) then
 			result +<= lst[i];
+		pcode Read_Clock =c2;
+		if c2 - c1 >= 2, i >= 1 then [
+			var step := i;
+			var pos := i;
+			while pos + step < l do [
+				result += list_filter_par~spark(lst[pos .. pos + step], test);
+				pos += step;
+			]
+			result += list_filter_par~spark(lst[pos .. l], test);
+			goto ret;
+		]
 	]
+ret:
 	if len_greater_than(lst, l) then
 		return result + list_filter~lazy(lst[l .. ], test);
 	return result;
