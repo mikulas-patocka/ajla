@@ -842,32 +842,27 @@ fn list_map_par(t u : type, lst : list(t), m~spec : fn(t) : u) : list(u)
 fn list_map(t u : type, lst : list(t), m~spec : fn(t) : u) : list(u)
 [
 	var v := empty(u);
-	if list_is_finite(lst) then [
-		var c1 c2 : uint32;
-		pcode Read_Clock =c1;
-		for i := 0 to len(lst) do [
-			v +<= m(lst[i]);
-			pcode Read_Clock =c2;
-			if c2 - c1 >= 2, i >= 1 then [
-				var step := i;
-				var pos := i;
-				while len_at_least(lst, pos + step) do [
-					v += list_map_par~spark(lst[pos .. pos + step], m);
-					pos += step;
-				]
-				v += list_map_par~spark(lst[pos .. ], m);
-				return v;
+	var l := len_finite(lst);
+	var c1 c2 : uint32;
+	pcode Read_Clock =c1;
+	for i := 0 to l do [
+		v +<= m(lst[i]);
+		pcode Read_Clock =c2;
+		if c2 - c1 >= 2, i >= 1 then [
+			var step := i;
+			var pos := i;
+			while pos + step < l do [
+				v += list_map_par~spark(lst[pos .. pos + step], m);
+				pos += step;
 			]
+			v += list_map_par~spark(lst[pos .. l], m);
+			goto ret;
 		]
-		return v;
-	] else [
-		var l := len_finite(lst);
-		for i := 0 to l do
-			v +<= m(lst[i]);
-		if len_greater_than(lst, l) then
-			return v + list_map~lazy(lst[l .. ], m);
-		return v;
 	]
+ret:
+	if len_greater_than(lst, l) then
+		return v + list_map~lazy(lst[l .. ], m);
+	return v;
 ]
 implicit fn instance_functor_list~inline : class_functor(list) :=
 	class_functor(list).[
