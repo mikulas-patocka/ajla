@@ -833,22 +833,25 @@ fn gvn_recursive(ctx : context, bgi : int, vals : list(int)) : context
 			ctx.var_map[dest] := src;
 			continue;
 		]
-		if	ins.opcode = P_Free or
-			ins.opcode = P_Load_Local_Type or
-			ins.opcode = P_Eval or
-			ins.opcode = P_Keep or
-			ins.opcode = P_Assume or
-			ins.opcode = P_Claim or
-			ins.opcode = P_Invariant or
-			ins.opcode = P_Jmp or
-			ins.opcode = P_Jmp_False or
-			ins.opcode = P_Label or
-			ins.opcode = P_IO or
-			ins.opcode = P_Args or
-			ins.opcode = P_Return_Vars or
-			ins.opcode = P_Return or
-			ins.opcode = P_Line_Info
-				then continue;
+		const skipped_opcodes : int64 := 0
+			bts P_Free
+			bts P_Load_Local_Type
+			bts P_Eval
+			bts P_Keep
+			bts P_Assume
+			bts P_Claim
+			bts P_Invariant
+			bts P_Jmp
+			bts P_Jmp_False
+			bts P_Label
+			bts P_IO
+			bts P_Args
+			bts P_Return_Vars
+			bts P_Return
+			bts P_Line_Info
+			;
+		if skipped_opcodes bt ins.opcode then
+			continue;
 
 		var value_list := list(pcode_t).[ ins.opcode, len(ins.params) ];
 		for i := 0 to len(ins.params) do [
