@@ -36,8 +36,6 @@ fn rect_set_intersect(rs : rect_set, r : rect) : rect_set;
 fn rect_set_move(rs : rect_set, offset_x offset_y : int) : rect_set;
 fn rect_set_to_rect(rs : rect_set) : rect;
 
-implicit fn instance_eq_rect : class_eq(rect);
-
 implementation
 
 fn rect_is_valid~inline(r : rect) : bool
@@ -150,11 +148,3 @@ fn rect_set_to_rect(rs : rect_set) : rect
 		r := rect_unite(r, rs[i]);
 	return r;
 ]
-
-fn rect_equal(r1 r2 : rect) : bool :=
-	r1.x1 = r2.x1 and r1.x2 = r2.x2 and r1.y1 = r2.y1 and r1.y2 = r2.y2;
-
-implicit fn instance_eq_rect : class_eq(rect) :=
-	class_eq(rect).[
-		equal : rect_equal,
-	];
