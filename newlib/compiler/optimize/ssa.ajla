@@ -1067,15 +1067,18 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 		if len_greater_than(f.spec_data, 0) then
 			goto end;
 		var pc := function_pcode(ins.params[3 .. ], ctx.get_inline);
+		//eval debug("considering specialization: " + function_name(ins.params[3 .. ], ctx.get_inline) + " " + ctx.name);
+		//eval debug("pc[0] = " + ntos(pc[0]));
 		if pc[0] bt bsf Fn_Specialize then [
 			if ctx.num_retries = 0 then [
 				ctx.should_retry := true;
 				goto end;
 			]
 			var new_ctx := load_function_context(pc, ctx.get_inline);
+			//eval debug("specializing: " + new_ctx.name + ", " + ctx.name);
 			var bmp := new_ctx.specialize_args;
 			//eval debug("bmp 1: " + ntos(bmp));
-			bmp := spec_get_arg_dependencies(new_ctx, pc[5], bmp);
+			bmp := spec_get_arg_dependencies(new_ctx, bmp);
 			//eval debug("bmp 2: " + ntos(bmp));
 			var spec_ctx := new_spec_context(popcnt bmp);
 			var b := bmp;
@@ -1102,6 +1105,7 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 			call_params += ins.params[l .. ];
 			return create_instr(P_Call, call_params, ins.bb), true;
 		]
+		//eval debug("not considering specialization: " + function_name(ins.params[3 .. ], ctx.get_inline) + ", " + ctx.name);
 		goto end;
 	]
 	if ins.opcode = P_BinaryOp then [
@@ -2980,12 +2984,25 @@ did_verify:
 	for i := 0 to len(ctx.local_types) do [
 		rpc += dump_local_type(ctx.local_types[i]);
 	]
+
+	var first_instr_igi := ctx.blocks[0].instrs[0];
+	var first_instr := ctx.instrs[first_instr_igi];
+	if first_instr.opcode <> P_Args then
+		abort internal("the first instruction is not Args");
+	var specialized_vars : var_set := 0;
+	for i := 0 to len(first_instr.params) do [
+		if ctx.specialize_args bt i then [
+			specialized_vars bts= first_instr.params[i];
+			rpc[0] or= Fn_Specialize;
+		]
+	]
+
 	for i := 0 to len(ctx.variables) do [
 		var v := ctx.variables[i];
 		rpc +<= v.type_index;
 		rpc +<= v.runtime_type;
 		rpc +<= v.color;
-		rpc +<= select(v.must_be_flat, 0, VarFlag_Must_Be_Flat) or select(v.must_be_data, 0, VarFlag_Must_Be_Data);
+		rpc +<= select(v.must_be_flat, 0, VarFlag_Must_Be_Flat) or select(v.must_be_data, 0, VarFlag_Must_Be_Data) or select(specialized_vars bt i, 0, VarFlag_Specialize);
 		rpc += blob_store(v.name);
 	]
 

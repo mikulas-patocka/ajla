@@ -171,6 +171,7 @@ record context [
 	instrs : list(instruction);
 	blocks : list(basic_block);
 	variables : list(variable);
+	args : list(pcode_t);
 	specialize_args : int;
 	label_to_block : list(int);
 	var_map : list(int);

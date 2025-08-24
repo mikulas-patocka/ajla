@@ -515,9 +515,9 @@ fn load_function_context(pc : list(pcode_t), get_inline : fn(function, bool) : l
 
 	var n_variables := pc[4];
 	ctx.variables := fill(new_variable, n_variables);
-	ctx.specialize_args := 0;
 	ctx.label_to_block := fill(-1, pc[8]);
 
+	var specialize_vars := 0;
 	for i := 0 to n_variables do [
 		ctx.variables[i].type_index := pc[ptr];
 		ctx.variables[i].runtime_type := pc[ptr + 1];
@@ -526,7 +526,7 @@ fn load_function_context(pc : list(pcode_t), get_inline : fn(function, bool) : l
 		ctx.variables[i].must_be_flat := pc[ptr + 3] bt bsf VarFlag_Must_Be_Flat;
 		ctx.variables[i].must_be_data := pc[ptr + 3] bt bsf VarFlag_Must_Be_Data;
 		if pc[ptr + 3] bt bsf VarFlag_Specialize then
-			ctx.specialize_args bts= i;
+			specialize_vars bts= i;
 		ptr += 4;
 		ctx.variables[i].name := blob_load(pc[ptr .. ]);
 		ptr += blob_length(pc[ptr .. ]);
@@ -575,6 +575,17 @@ fn load_function_context(pc : list(pcode_t), get_inline : fn(function, bool) : l
 	]
 	if ptr > len(pc) then
 		abort internal("load_function_context: " + ctx.name + ": pcode doesn't match");
+
+	var first_instr_igi := ctx.blocks[0].instrs[0];
+	var first_instr := ctx.instrs[first_instr_igi];
+	if first_instr.opcode <> P_Args then
+		abort internal("the first instruction is not Args");
+	ctx.args := first_instr.params;
+	ctx.specialize_args := 0;
+	for i := 0 to len(ctx.args) do [
+		if specialize_vars bt ctx.args[i] then
+			ctx.specialize_args bts= i;
+	]
 
 	for i := 0 to len(ctx.blocks) do [
 again:

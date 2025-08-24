@@ -22,7 +22,7 @@ uses compiler.optimize.defs;
 
 type spec_context;
 
-fn spec_get_arg_dependencies(ctx : context, n_args : int, args : int) : int;
+fn spec_get_arg_dependencies(ctx : context, args : int) : int;
 
 fn new_spec_context(n : int) : spec_context;
 fn spec_add_variable(spec_ctx : spec_context, ctx : context, a v : int) : spec_context;
@@ -47,6 +47,7 @@ record spec_context [
 	arguments : int;
 	local_types : list(local_type);
 	variables : list(spec_variable);
+	lt_map : list(int);
 	instrs : list(instruction);
 	outputs : list(int);
 ]
@@ -86,16 +87,23 @@ const allowed_opcodes : int64 := 0
 	bts P_Array_Flatten
 	;
 
-fn spec_get_arg_dependencies(ctx : context, n_args : int, args : int) : int
+fn spec_get_arg_dependencies(ctx : context, args : int) : int
 [
-	var todo := args;
+	var vars : var_set := 0;
+	while args <> 0 do [
+		var arg : int := bsr args;
+		args btr= arg;
+		vars bts= ctx.args[arg];
+	]
+
+	var todo := vars;
 	while todo <> 0 do [
-		var arg := bsr todo;
-		todo btr= arg;
-		var type_idx := ctx.variables[arg].type_index;
+		var v : int := bsr todo;
+		todo btr= v;
+		var type_idx := ctx.variables[v].type_index;
 		if type_idx >= 0 then [
-			if not args bt type_idx then [
-				args bts= type_idx;
+			if not vars bt type_idx then [
+				vars bts= type_idx;
 				todo bts= type_idx;
 			]
 		]
@@ -106,7 +114,7 @@ fn spec_get_arg_dependencies(ctx : context, n_args : int, args : int) : int
 			while ws <> 0 do [
 				var widx : int := bsf ws;
 				ws btr= widx;
-				if ins.params[widx] = arg then
+				if ins.params[widx] = v then
 					goto found_it;
 			]
 		]
@@ -117,13 +125,18 @@ found_it:
 			var ridx : int := bsf rs;
 			rs btr= ridx;
 			var r := ins.params[ridx];
-			if not args bt r then [
-				args bts= r;
+			if not vars bt r then [
+				vars bts= r;
 				todo bts= r;
 			]
 		]
 	]
-	args and= (0 bts n_args) - 1;
+
+	args := 0;
+	for i := 0 to len(ctx.args) do [
+		if vars bt ctx.args[i] then
+			args bts= i;
+	]
 	return args;
 ]
 
@@ -133,6 +146,7 @@ fn new_spec_context(n : int) : spec_context
 		arguments : 0,
 		local_types : empty(local_type),
 		variables : empty(spec_variable),
+		lt_map : infinite(-1),
 		instrs : empty(instruction),
 		outputs : empty(int),
 	];
@@ -143,7 +157,12 @@ fn add_local_type(spec_ctx : spec_context, ctx : context, runtime_type : int) : 
 [
 	if runtime_type < 0 then
 		return spec_ctx, runtime_type;
+	if spec_ctx.lt_map[runtime_type] >= 0 then
+		return spec_ctx, spec_ctx.lt_map[runtime_type];
 	var lt := ctx.local_types[runtime_type];
+	var r := len(spec_ctx.local_types);
+	spec_ctx.local_types +<= lt;
+	spec_ctx.lt_map[runtime_type] := r;
 	if lt is rec then [
 		for i := 0 to len(lt.rec.types) do
 			spec_ctx, lt.rec.types[i] := add_local_type(spec_ctx, ctx, lt.rec.types[i]);
@@ -157,8 +176,7 @@ fn add_local_type(spec_ctx : spec_context, ctx : context, runtime_type : int) : 
 		spec_ctx, lt.flat_array.non_flat_array := add_local_type(spec_ctx, ctx, lt.flat_array.non_flat_array);
 		spec_ctx, lt.flat_array.flat_entry_type := add_local_type(spec_ctx, ctx, lt.flat_array.flat_entry_type);
 	]
-	var r := len(spec_ctx.local_types);
-	spec_ctx.local_types +<= lt;
+	spec_ctx.local_types[r] := lt;
 	return spec_ctx, r;
 ]
 
@@ -321,6 +339,8 @@ fn spec_pcode(pc : list(pcode_t), spec_data : list(pcode_t), get_inline : fn(fun
 	ctx.instrs[i0] := create_instr(P_Args, instr_args_params, 0);
 
 	ctx := do_inline_or_specialize(ctx, new_ctx, 0, 1, 0, empty(pcode_t), call_result);
+
+	ctx.specialize_args := 0;
 
 	pc := process_pcode_ctx(pc, ctx, verify_pattern);
 
