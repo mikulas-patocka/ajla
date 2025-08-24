@@ -128,6 +128,8 @@ record function_context [
 
 	n_returns : int;
 
+	implicits_used : int;
+
 	n_labels : int;
 	defined_labels : list(bool);
 	used_labels : list(int);
@@ -433,6 +435,8 @@ fn new_function_context(dict : function_dictionary, parent_function : maybe(func
 		lambdas : empty(function_definition),
 
 		n_returns : 0,
+
+		implicits_used : 0,
 
 		n_labels : 0,
 		defined_labels : infinite(false),

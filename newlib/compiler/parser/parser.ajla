@@ -44,6 +44,7 @@ record promoted_variable [
 	mut : bool;
 	impl : bool;
 	typ : int;
+	implicit_index : int;
 ]
 
 fn add_promoted_variable(ctx : function_context, cc : compare_context, vd : variable_dictionary, v : int, pv : promoted_variable) : (function_context, variable_dictionary)
@@ -713,9 +714,6 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 
 fn parse_lambda_function(ctx : function_context, parent_vd : variable_dictionary, t : tokens) : (function_context, list(int))
 [
-	var promoted_variables := empty(promoted_variable);
-	var pv : promoted_variable;
-
 	var variable : istring;
 	var variable_idx : int;
 
@@ -734,8 +732,16 @@ fn parse_lambda_function(ctx : function_context, parent_vd : variable_dictionary
 
 	var fn_name := i_decode(ctx.name) + "/" + ntos(len(ctx.lambdas));
 
+	var implicit_bitmap := (0 bts len(implicit_variables)) - 1;
+
+prune_implicits:
+	var promoted_variables := empty(promoted_variable);
+	var pv : promoted_variable;
+
 	for i := 0 to len(implicit_variables) do [
 promote_again:
+		if not implicit_bitmap bt i then
+			continue;
 		variable_idx := implicit_variables[i];
 		pv := promoted_variable.[
 			v : variable_idx,
@@ -744,6 +750,7 @@ promote_again:
 			mut : ctx.variables[variable_idx].mut,
 			impl : list_search(implicit_variables, variable_idx) >= 0,
 			typ : ctx.variables[variable_idx].type_idx,
+			implicit_index : i,
 		];
 		promoted_variables +<= pv;
 
@@ -773,6 +780,7 @@ promote_again:
 				mut : ctx.variables[variable_idx].mut,
 				impl : list_search(implicit_variables, variable_idx) >= 0,
 				typ : ctx.variables[variable_idx].type_idx,
+				implicit_index : -1,
 			];
 			promoted_variables +<= pv;
 			goto promote_again;
@@ -804,11 +812,28 @@ again:
 		goto add_variable_2;
 	]
 
+	var prune := false;
+	for i := 0 to len(promoted_variables) do [
+		var pv := promoted_variables[i];
+		if pv.implicit_index < 0 then
+			continue;
+		if not ctx_body.implicits_used bt i then [
+			implicit_bitmap btr= pv.implicit_index;
+			prune := true;
+		]
+	]
+	if prune then
+		goto prune_implicits;
+
 	ctx_body := generate_local_types(ctx_body);
 	ctx_body.incomplete := false;
 
 	if ctx_head.inferred_return then
 		ctx_head := ctx_body;
+
+	for i := 0 to len(promoted_variables) do
+		if promoted_variables[i].impl then
+			ctx.implicits_used bts= promoted_variables[i].v;
 
 	var fd : function_definition;
 	ctx, fd := add_lambda(ctx, ctx_head, ctx_body, call_mode);
@@ -864,6 +889,7 @@ add_variable:
 		mut : ctx.variables[variable_idx].mut,
 		impl : list_search(implicit_variables, variable_idx) >= 0,
 		typ : ctx.variables[variable_idx].type_idx,
+		implicit_index : -1,
 	];
 
 	promoted_variables +<= pv;
@@ -879,6 +905,7 @@ add_variable_2:
 		mut : ctx.variables[variable_idx].mut,
 		impl : list_search(implicit_variables, variable_idx) >= 0,
 		typ : ctx.variables[variable_idx].type_idx,
+		implicit_index : -1,
 	];
 	promoted_variables +<= pv;
 	goto again;

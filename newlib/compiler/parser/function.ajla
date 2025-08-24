@@ -41,6 +41,7 @@ fn infer_argument(ctx : function_context, implicits : list(function_definition),
 		var match := verify_type_equality(ctx, cc, cc_i, empty(compare_fn_stack), new_compare_context(ctx), get_type_of_var(ctx, v), empty(compare_fn_stack));
 		if not match is eq then
 			continue;
+		ctx.implicits_used bts= v;
 		return ctx, v;
 	]
 	for im := 0 to len(implicits) do [
