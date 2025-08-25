@@ -163,7 +163,12 @@ static bool module_function_init(struct module *m, struct module_function *mf, a
 		if (!m->md.path_idx && builtin_find_spec_function(&m->md, &mf->fd, NULL, NULL))
 			goto known_spec;
 		optr = module_create_optimizer_reference(m, &mf->fd, mode_spec);
-		pptr = module_create_optimizer_reference(m, &mf->fd, mode_nonopt);
+		if (!m->md.path_idx) {
+			pointer_reference_owned(optr);
+			pptr = optr;
+		} else {
+			pptr = module_create_optimizer_reference(m, &mf->fd, mode_nonopt);
+		}
 		goto build_from_array;
 	} else if (m->md.path_idx > 0) {
 		optr = module_create_optimizer_reference(m, &mf->fd, mode_opt);
