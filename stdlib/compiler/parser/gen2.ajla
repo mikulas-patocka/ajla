@@ -27,9 +27,10 @@ fn generate_Load_Fn(ctx : function_context, fd : function_definition, t : tokens
 fn pcode_Load_Fn_get_n_curried_args(ins : instruction) : int;
 fn pcode_Load_Fn_get_unique_id(ins : instruction) : function_unique_id;
 
-fn generate_Curry(ctx : function_context, cc : compare_context, typ : int, fnx : int, args : list(int), t : tokens) : (function_context, int);
+fn generate_Curry(ctx : function_context, cc : compare_context, typ : int, fnx : int, args : list(int), flags : list(int), t : tokens) : (function_context, int);
 fn pcode_Curry_get_n_curried_args(ins : instruction) : int;
 fn pcode_Curry_get_fn_variable(ins : instruction) : int;
+fn pcode_Curry_get_flag(ins : instruction, i : int) : int;
 fn pcode_Curry_get_arg(ins : instruction, i : int) : int;
 
 fn generate_Call_Indirect(ctx : function_context, call_mode : int, fnx : int, t : tokens) : (function_context, list(int));
@@ -39,11 +40,12 @@ fn pcode_Call_Indirect_get_fn_variable(ins : instruction) : int;
 fn pcode_Call_Indirect_get_return_value(ins : instruction, i : int) : int;
 fn pcode_Call_Indirect_find_return_index(ins : instruction, ret_var : int) : int;
 
-fn generate_Call(ctx : function_context, call_mode : int, fd : function_definition, args : list(int), t : tokens) : (function_context, list(int));
+fn generate_Call(ctx : function_context, call_mode : int, fd : function_definition, args : list(int), flags : list(int), t : tokens) : (function_context, list(int));
 fn generate_Call_self(ctx : function_context) : (function_context, int);
 fn pcode_Call_get_n_return_values(ins : instruction) : int;
 fn pcode_Call_get_n_args(ins : instruction) : int;
 fn pcode_Call_get_unique_id(ins : instruction) : function_unique_id;
+fn pcode_Call_get_flag(ins : instruction, i : int) : int;
 fn pcode_Call_get_arg(ins : instruction, i : int) : int;
 fn pcode_Call_get_return_value(ins : instruction, i : int) : int;
 fn pcode_Call_find_return_index(ins : instruction, ret_var : int) : int;
@@ -233,12 +235,12 @@ fn pcode_Load_Fn_get_unique_id(ins : instruction) : function_unique_id
 	return decode_function_id(ins.args[3 .. ]);
 ]
 
-fn generate_Curry(ctx : function_context, cc : compare_context, typ : int, af : int, args : list(int), t : tokens) : (function_context, int)
+fn generate_Curry(ctx : function_context, cc : compare_context, typ : int, fnx : int, args : list(int), flags : list(int), t : tokens) : (function_context, int)
 [
-	var use_gvn := variable_is_suitable_for_gvn(ctx, af);
+	var use_gvn := variable_is_suitable_for_gvn(ctx, fnx);
 	var val := -1;	// avoid uninitialized error
 	if use_gvn then [
-		var gvn_args := list(pcode_t).[ ctx.gvn_seq, P_Curry, af ];
+		var gvn_args := list(pcode_t).[ ctx.gvn_seq, P_Curry, fnx ];
 		for i := 0 to len(args) do [
 			gvn_args +<= args[i];
 			use_gvn and= variable_is_suitable_for_gvn(ctx, args[i]);
@@ -302,22 +304,24 @@ fn generate_Curry(ctx : function_context, cc : compare_context, typ : int, af : 
 	ctx := set_defined_here(ctx, fn_def);
 	ctx := generate_Fn(ctx, type_args[provided_args .. n_args], type_args[n_args .. ], prereqs, contracts, fn_def);
 
-	var fnx : int;
-	ctx, fnx := alloc_local_variable(ctx, fn_def, true, false);
+	var l : int;
+	ctx, l := alloc_local_variable(ctx, fn_def, true, false);
 
-	var pcode_args := list(pcode_t).[ fnx, provided_args, 0, af ];
+	var pcode_args := list(pcode_t).[ l, provided_args, 0, fnx ];
+	if len(args) <> len(flags) then
+		abort internal("generate_Curry: args and flags mismatch: " + ntos(len(args)) + " <> " + ntos(len(flags)));
 	for i := 0 to provided_args do [
-		pcode_args +<= 0;
+		pcode_args +<= flags[i];
 		pcode_args +<= args[i];
 	]
 
 	ctx := generate_instruction(ctx, P_Curry, pcode_args);
 
 	if use_gvn then [
-		ctx.gvn[val] := fnx;
+		ctx.gvn[val] := l;
 	]
 
-	return ctx, fnx;
+	return ctx, l;
 ]
 
 fn pcode_Curry_get_n_curried_args(ins : instruction) : int
@@ -330,6 +334,12 @@ fn pcode_Curry_get_fn_variable(ins : instruction) : int
 [
 	xeval assert(ins.opcode = P_Curry, "pcode_Curry_get_fn_variable: invalid instruction");
 	return ins.args[3];
+]
+
+fn pcode_Curry_get_flag(ins : instruction, i : int) : int
+[
+	xeval assert(ins.opcode = P_Curry, "pcode_Curry_get_flag: invalid instruction");
+	return ins.args[4 + i * 2];
 ]
 
 fn pcode_Curry_get_arg(ins : instruction, i : int) : int
@@ -450,7 +460,7 @@ fn pcode_Call_Indirect_find_return_index(ins : instruction, ret_var : int) : int
 	abort internal("Variable not found in return values");
 ]
 
-fn generate_Call(ctx : function_context, call_mode : int, fd : function_definition, args : list(int), t : tokens) : (function_context, list(int))
+fn generate_Call(ctx : function_context, call_mode : int, fd : function_definition, args : list(int), flags : list(int), t : tokens) : (function_context, list(int))
 [
 	if fd.call_mode = Call_Mode_Flat then
 		call_mode := fd.call_mode;
@@ -467,8 +477,11 @@ fn generate_Call(ctx : function_context, call_mode : int, fd : function_definiti
 
 	var use_gvn := true;
 	var fn_cc := new_compare_context_from_function(fd.signature);
+	if len(args) <> len(flags) then
+		abort internal("generate_Call: args and flags mismatch: " + ntos(len(args)) + " <> " + ntos(len(flags)));
 	for i := 0 to n_arguments do [
-		pcode_args += list(pcode_t).[ 0, args[i] ];
+		pcode_args +<= flags[i];
+		pcode_args +<= args[i];
 		fn_cc.args +<= new_compare_argument(new_compare_context(ctx), args[i]);
 		use_gvn and= variable_is_suitable_for_gvn(ctx, args[i]);
 	]
@@ -569,6 +582,12 @@ fn pcode_Call_get_unique_id(ins : instruction) : function_unique_id
 [
 	xeval assert(ins.opcode = P_Call, "pcode_Call_get_unique_id: invalid instruction");
 	return decode_function_id(ins.args[3 .. ]);
+]
+
+fn pcode_Call_get_flag(ins : instruction, i : int) : int
+[
+	xeval assert(ins.opcode = P_Call, "pcode_Call_get_flag: invalid instruction");
+	return ins.args[3 + length_of_function_id(ins.args[3 .. ]) + i * 2];
 ]
 
 fn pcode_Call_get_arg(ins : instruction, i : int) : int
@@ -717,7 +736,7 @@ fn generate_std(ctx : function_context, index : int) : (function_context, int)
 	var fd := search_function_from_id(ctx, f_id);
 
 	var q : list(int);
-	ctx, q := generate_Call(ctx, Call_Mode_Inline, fd, empty(int), empty(token));
+	ctx, q := generate_Call(ctx, Call_Mode_Inline, fd, empty(int), empty(int), empty(token));
 
 	if len(q) <> 1 then
 		abort compiler_error("bool returns multiple values", empty(token));

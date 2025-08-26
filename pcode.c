@@ -586,10 +586,10 @@ static pcode_t pcode_to_type_index(struct build_function_context *ctx, pcode_t q
 	return *result = (pcode_t)(ctx->types_len - 1);
 }
 
-#define pcode_get_var_deref(var, deref)					\
+#define pcode_get_var_deref(var, deref, mask)				\
 do {									\
 	pcode_t r_ = u_pcode_get();					\
-	ajla_assert_lo(!(r_ & ~(pcode_t)Flag_Free_Argument), (file_line, "pcode_get_ref(%s): invalid reference flag %"PRIdMAX"", function_name(ctx), (intmax_t)r_));\
+	ajla_assert_lo(!(r_ & ~(pcode_t)(Flag_Free_Argument | (mask))), (file_line, "pcode_get_ref(%s): invalid reference flag %"PRIdMAX"", function_name(ctx), (intmax_t)r_));\
 	*(deref) = !!(r_ & Flag_Free_Argument);				\
 	*(var) = pcode_get();						\
 } while (0)
@@ -949,7 +949,7 @@ static bool pcode_process_arguments(struct build_function_context *ctx, pcode_t 
 		pcode_t a1;
 		struct pcode_type *t1;
 		bool deref;
-		pcode_get_var_deref(&a1, &deref);
+		pcode_get_var_deref(&a1, &deref, Flag_Spec | Flag_NoSpec);
 		if (unlikely(var_elided(a1)))
 			continue;
 		t1 = get_var_type(ctx, a1);
@@ -984,7 +984,7 @@ static bool pcode_dereference_arguments(struct build_function_context *ctx, pcod
 	for (ai = 0; ai < n_arguments; ai++) {
 		pcode_t a1;
 		bool deref;
-		pcode_get_var_deref(&a1, &deref);
+		pcode_get_var_deref(&a1, &deref, Flag_Spec | Flag_NoSpec);
 		if (deref) {
 			if (unlikely(!pcode_free(ctx, a1)))
 				goto exception;
@@ -1113,7 +1113,7 @@ static bool pcode_call(struct build_function_context *ctx, pcode_t instr)
 		src_fn = ~sign_bit(pcode_t);		/* avoid warning */
 	}
 	if (instr == P_Curry || instr == P_Call_Indirect) {
-		pcode_get_var_deref(&src_fn, &src_deref);
+		pcode_get_var_deref(&src_fn, &src_deref, 0);
 	}
 
 	pcode_position_save(ctx, &saved);
@@ -1900,8 +1900,8 @@ static bool pcode_structured_write(struct build_function_context *ctx)
 	n_steps = u_pcode_get();
 	ajla_assert_lo(n_steps != 0, (file_line, "pcode_structured_write(%s): zero n_steps", function_name(ctx)));
 	structured = u_pcode_get();
-	pcode_get_var_deref(&structured_source, &structured_source_deref);
-	pcode_get_var_deref(&scalar, &scalar_deref);
+	pcode_get_var_deref(&structured_source, &structured_source_deref, 0);
+	pcode_get_var_deref(&scalar, &scalar_deref, 0);
 	if (scalar_deref)
 		extra_flags |= OPCODE_STRUCTURED_FREE_VARIABLE;
 
@@ -2514,7 +2514,7 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 			case P_Copy:
 			case P_Copy_Type_Cast:
 				res = u_pcode_get();
-				pcode_get_var_deref(&a1, &a1_deref);
+				pcode_get_var_deref(&a1, &a1_deref, 0);
 				if (unlikely(var_elided(res))) {
 					if (a1_deref) {
 						if (unlikely(!pcode_free(ctx, a1)))
@@ -2694,7 +2694,7 @@ next_one:
 			case P_Option_Create:
 				res = u_pcode_get();
 				op = u_pcode_get();
-				pcode_get_var_deref(&a1, &a1_deref);
+				pcode_get_var_deref(&a1, &a1_deref, 0);
 				if (unlikely(var_elided(res))) {
 					if (a1_deref) {
 						if (unlikely(!pcode_free(ctx, a1)))
@@ -2939,8 +2939,8 @@ next_one:
 			case P_Array_Append:
 			case P_Array_Append_One:
 				res = u_pcode_get();
-				pcode_get_var_deref(&a1, &a1_deref);
-				pcode_get_var_deref(&a2, &a2_deref);
+				pcode_get_var_deref(&a1, &a1_deref, 0);
+				pcode_get_var_deref(&a2, &a2_deref, 0);
 				if (unlikely(var_elided(res)))
 					break;
 				tr = get_var_type(ctx, res);
@@ -2964,7 +2964,7 @@ next_one:
 				break;
 			case P_Array_Flatten:
 				res = u_pcode_get();
-				pcode_get_var_deref(&a1, &a1_deref);
+				pcode_get_var_deref(&a1, &a1_deref, 0);
 				if (unlikely(var_elided(res)))
 					break;
 				tr = get_var_type(ctx, res);

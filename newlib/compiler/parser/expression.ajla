@@ -380,7 +380,7 @@ fn shortened_list_create(ctx : function_context, vd : variable_dictionary, t : t
 	var id := get_list_id;
 	var fd := search_function_from_id(ctx, id);
 	var at : list(int);
-	ctx, at := generate_Call(ctx, Call_Mode_Unspecified, fd, list(int).[ type_var ], t);
+	ctx, at := generate_Call(ctx, Call_Mode_Unspecified, fd, list(int).[ type_var ], list(int).[ 0 ], t);
 
 	var l : int;
 	ctx, l := generate_Array_Create(ctx, at[0], fields, t);
@@ -581,15 +581,15 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 			if best_op_mode is infix_op then [
 				ctx, x1 := parse_expression(ctx, vd, t[ .. best_split], in_type);
 				ctx, x2 := parse_expression(ctx, vd, t[best_split + 1 .. ], in_type);
-				return parse_and_process_function(ctx, vd, tk, call_mode, 2, list(int).[ x1, x2 ], in_type);
+				return parse_and_process_function(ctx, vd, tk, call_mode, 2, list(int).[ x1, x2 ], list(int).[ 0, 0 ], in_type);
 			]
 			if best_op_mode is prefix_op then [
 				ctx, x1 := parse_expression(ctx, vd, t[best_split + 1 .. ], in_type);
-				return parse_and_process_function(ctx, vd, tk, call_mode, 1, list(int).[ x1 ], in_type);
+				return parse_and_process_function(ctx, vd, tk, call_mode, 1, list(int).[ x1 ], list(int).[ 0 ], in_type);
 			]
 			if best_op_mode is postfix_op then [
 				ctx, x1 := parse_expression(ctx, vd, t[ .. best_split], in_type);
-				return parse_and_process_function(ctx, vd, tk, call_mode, 1, list(int).[ x1 ], in_type);
+				return parse_and_process_function(ctx, vd, tk, call_mode, 1, list(int).[ x1 ], list(int).[ 0 ], in_type);
 			]
 		]
 	]
@@ -850,7 +850,7 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 			var call_mode := get_call_mode(t[0].post_hints, false);
 			if fd.signature.n_arguments = 0 then [
 				var q : list(int);
-				ctx, q := generate_Call(ctx, call_mode, fd, empty(int), t);
+				ctx, q := generate_Call(ctx, call_mode, fd, empty(int), empty(int), t);
 				if len(q) <> fd.signature.n_return_values then
 					abort internal("parse_expressions: invalid number of return values");
 				return ctx, q;
@@ -938,17 +938,39 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 			total_args += 1;
 		]
 
-		var p : list(int);
-		if len(arg_tokens) = 0 then [
-			//abort compiler_error("No curried argument", t);
-			p := empty(int);
-		] else [
-			ctx, p := parse_expressions(ctx, vd, arg_tokens, in_type);
-			total_args += len(p);
+		var p := empty(int);
+		var flags := empty(int);
+
+		while len_greater_than(arg_tokens, 0) do [
+			var expr : tokens;
+			expr, arg_tokens := split_tokens(arg_tokens, token_opt.comma);
+			if not len_greater_than(expr, 0) then
+				abort compiler_error("Empty function argument", t);
+
+			var x : list(int);
+			ctx, x := parse_expressions(ctx, vd, expr, in_type);
+
+			var flag := 0;
+			var e := expr[len(expr) - 1];
+			var hints := e.post_hints;
+			for i := 0 to len(hints) do [
+				if hints[i] = "spec" then
+					flag or= Flag_Spec;
+				if hints[i] = "nospec" then
+					flag or= Flag_NoSpec;
+			]
+			if flag = (Flag_Spec or Flag_NoSpec) then
+				abort compiler_error("Conflicting spec and nospec flags", expr);
+			p += x;
+			flags += fill(flag, len(x));
 		]
+		total_args += len(p);
+
+		if len(p) <> len(flags) then
+			abort internal("parse_expressions: args and flags mismatch: " + ntos(len(p)) + " <> " + ntos(len(flags)));
 
 		var call_mode := get_call_mode(t[left_bracket].prev_hints, false);
-		return parse_and_process_function(ctx, vd, t[ .. left_bracket], call_mode, total_args, p, in_type);
+		return parse_and_process_function(ctx, vd, t[ .. left_bracket], call_mode, total_args, p, flags, in_type);
 	]
 
 	abort compiler_error("Invalid expression", t);

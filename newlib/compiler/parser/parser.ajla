@@ -840,7 +840,7 @@ again:
 
 	if fd.signature.n_arguments = 0 then [
 		var q : list(int);
-		ctx, q := generate_Call(ctx, call_mode, fd, empty(int), t);
+		ctx, q := generate_Call(ctx, call_mode, fd, empty(int), empty(int), t);
 		if len(q) <> fd.signature.n_return_values then
 			abort internal("parse_lambda_function: invalid number of return values");
 		return ctx, q;
@@ -856,7 +856,7 @@ again:
 		cc := set_llt_main(cc, typ);
 		for i := 0 to len(promoted_variables) do
 			cc.llt_redirect +<= new_compare_argument(new_compare_context(ctx), args[i]);
-		ctx, l := generate_Curry(ctx, cc, typ, l, args, t);
+		ctx, l := generate_Curry(ctx, cc, typ, l, args, fill(0, len(args)), t);
 		if len(promoted_variables) = fd.signature.n_arguments then [
 			var q : list(int);
 			ctx, q := generate_Call_Indirect(ctx, call_mode, l, t);

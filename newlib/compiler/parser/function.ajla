@@ -22,9 +22,9 @@ uses compiler.parser.dict;
 uses compiler.parser.type;
 
 fn infer_argument(ctx : function_context, implicits : list(function_definition), implicit_variables : list(int), cc : compare_context, cc_i : int, t : tokens) : (function_context, int);
-fn process_direct_function(ctx : function_context, vd : variable_dictionary, fd : function_definition, call_mode : int, p : list(int), r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int));
+fn process_direct_function(ctx : function_context, vd : variable_dictionary, fd : function_definition, call_mode : int, p : list(int), flags : list(int), r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int));
 
-fn parse_and_process_function(ctx : function_context, vd : variable_dictionary, t : tokens, call_mode : int, total_args : int, p : list(int), in_type : bool) : (function_context, list(int));
+fn parse_and_process_function(ctx : function_context, vd : variable_dictionary, t : tokens, call_mode : int, total_args : int, p : list(int), flags : list(int), in_type : bool) : (function_context, list(int));
 
 implementation
 
@@ -90,14 +90,14 @@ retry:
 		for i := 0 to def.signature.n_arguments do
 			args +<= fn_cc.args[i].idx;
 		var d : list(int);
-		ctx, d := generate_Call(ctx, Call_Mode_Unspecified, def, args, t);
+		ctx, d := generate_Call(ctx, Call_Mode_Unspecified, def, args, fill(0, len(args)), t);
 		return ctx, d[0];
 cont:
 	]
 	return ctx, T_InvalidType;
 ]
 
-fn try_process_function(ctx : function_context, vd : variable_dictionary, fnx : int, call_mode : int, total_args : int, p : list(int), arg_shift : int, r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
+fn try_process_function(ctx : function_context, vd : variable_dictionary, fnx : int, call_mode : int, total_args : int, p : list(int), flags : list(int), arg_shift : int, r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
 [
 	var provided_args := len(p);
 
@@ -113,6 +113,7 @@ fn try_process_function(ctx : function_context, vd : variable_dictionary, fnx : 
 
 	var inferred_args := pcode_Fn_get_n_args(instr) - total_args - arg_shift;
 	p := fill(T_InvalidType, inferred_args) + p + fill(T_InvalidType, arg_shift);
+	flags := fill(0, inferred_args) + flags + fill(0, arg_shift);
 
 	cc := set_llt_main(cc, typ);
 	for i := 0 to inferred_args do [
@@ -189,7 +190,7 @@ retry:
 	]
 
 	var l : int;
-	ctx, l := generate_Curry(ctx, cc, typ, fnx, p, t);
+	ctx, l := generate_Curry(ctx, cc, typ, fnx, p, flags, t);
 	if total_args = provided_args then [
 		var q : list(int);
 		ctx, q := generate_Call_Indirect(ctx, call_mode, l, t);
@@ -200,7 +201,7 @@ retry:
 	return ctx, list(int).[ l ];
 ]
 
-fn process_function(ctx : function_context, vd : variable_dictionary, fnx : int, call_mode : int, total_args : int, p : list(int), r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
+fn process_function(ctx : function_context, vd : variable_dictionary, fnx : int, call_mode : int, total_args : int, p : list(int), flags : list(int), r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
 [
 	var cc, typ := get_deep_type_of_var(ctx, fnx);
 	var ins := get_defined_maybe(cc, typ);
@@ -210,7 +211,7 @@ fn process_function(ctx : function_context, vd : variable_dictionary, fnx : int,
 	var arg_shift := 0;
 	var first_ex := exception_make(function_context, ec_sync, error_record_field_not_initialized, 0, false);
 retry:
-	var ctx2, l2 := try_process_function(ctx, vd, fnx, call_mode, total_args, p, arg_shift, r_cc, r_typ, do_convert, t);
+	var ctx2, l2 := try_process_function(ctx, vd, fnx, call_mode, total_args, p, flags, arg_shift, r_cc, r_typ, do_convert, t);
 	if is_exception ctx2, exception_type ctx2 = error_compiler_error then [
 		if arg_shift = 0 then
 			first_ex := ctx2;
@@ -223,7 +224,7 @@ retry:
 	return ctx2, l2;
 ]
 
-fn try_process_direct_function(ctx : function_context, vd : variable_dictionary, fd : function_definition, call_mode : int, p : list(int), arg_shift : int, r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
+fn try_process_direct_function(ctx : function_context, vd : variable_dictionary, fd : function_definition, call_mode : int, p : list(int), flags : list(int), arg_shift : int, r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
 [
 	var total_args := len(p);
 
@@ -235,6 +236,7 @@ fn try_process_direct_function(ctx : function_context, vd : variable_dictionary,
 
 	var inferred_args := fd.signature.n_arguments - total_args - arg_shift;
 	p := fill(T_InvalidType, inferred_args) + p + fill(T_InvalidType, arg_shift);
+	flags := fill(0, inferred_args) + flags + fill(0, arg_shift);
 
 	var fn_cc := new_compare_context_from_function(fd.signature);
 	for i := 0 to inferred_args do [
@@ -378,15 +380,15 @@ skip_bypass:
 		]
 	]
 
-	return generate_Call(ctx, call_mode, fd, p, t);
+	return generate_Call(ctx, call_mode, fd, p, flags, t);
 ]
 
-fn process_direct_function(ctx : function_context, vd : variable_dictionary, fd : function_definition, call_mode : int, p : list(int), r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
+fn process_direct_function(ctx : function_context, vd : variable_dictionary, fd : function_definition, call_mode : int, p : list(int), flags : list(int), r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
 [
 	var arg_shift := 0;
 	var first_ex := exception_make(function_context, ec_sync, error_record_field_not_initialized, 0, false);
 retry:
-	var ctx2, l2 := try_process_direct_function(ctx, vd, fd, call_mode, p, arg_shift, r_cc, r_typ, do_convert, t);
+	var ctx2, l2 := try_process_direct_function(ctx, vd, fd, call_mode, p, flags, arg_shift, r_cc, r_typ, do_convert, t);
 	if is_exception ctx2, exception_type ctx2 = error_compiler_error then [
 		if arg_shift = 0 then
 			first_ex := ctx2;
@@ -399,7 +401,7 @@ retry:
 	return ctx2, l2;
 ]
 
-fn parse_and_process_function(ctx : function_context, vd : variable_dictionary, t : tokens, call_mode : int, total_args : int, p : list(int), in_type : bool) : (function_context, list(int))
+fn parse_and_process_function(ctx : function_context, vd : variable_dictionary, t : tokens, call_mode : int, total_args : int, p : list(int), flags : list(int), in_type : bool) : (function_context, list(int))
 [
 	//goto slow_path;
 	if total_args = len(p), len(t) = 1, t[0].t is identifier or t[0].t is oper then [
@@ -416,12 +418,12 @@ fn parse_and_process_function(ctx : function_context, vd : variable_dictionary, 
 			goto slow_path;
 		if total_args > fd.signature.n_arguments then
 			goto slow_path;
-		return process_direct_function(ctx, vd, fd, call_mode, p, empty_compare_context, T_InvalidType, true, t);
+		return process_direct_function(ctx, vd, fd, call_mode, p, flags, empty_compare_context, T_InvalidType, true, t);
 	]
 
 slow_path:
 	var fnx : int;
 	ctx, fnx := parse_expression(ctx, vd, t, in_type);
 
-	return process_function(ctx, vd, fnx, call_mode, total_args, p, empty_compare_context, T_InvalidType, true, t);
+	return process_function(ctx, vd, fnx, call_mode, total_args, p, flags, empty_compare_context, T_InvalidType, true, t);
 ]

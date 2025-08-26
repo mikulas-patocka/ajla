@@ -124,6 +124,8 @@ Flag_Op_Strict
 Flag_Return_Elided
 Flag_Index_In_Range
 Flag_Fused_Bin_Jmp
+Flag_Spec
+Flag_NoSpec
 
 0
 Bin_Add

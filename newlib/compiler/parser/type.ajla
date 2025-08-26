@@ -143,7 +143,7 @@ fn do_conversion(ctx : function_context, vd : variable_dictionary, a a_typ : int
 			goto cont;
 
 		var result : list(int);
-		ctx, result := process_direct_function(ctx, vd, def, Call_Mode_Unspecified, list(int).[ a ], cc, typ, false, t);
+		ctx, result := process_direct_function(ctx, vd, def, Call_Mode_Unspecified, list(int).[ a ], list(int).[ 0 ], cc, typ, false, t);
 
 		if is_exception ctx, exception_type ctx = error_compiler_error then
 			goto cont;
@@ -871,13 +871,15 @@ fn verify_type_equality(ctx : function_context,
 				ctx, x_typ := generate_Load_Fn(ctx, fd1, empty(token));
 				if pcode_Call_get_n_args(instr1) > len(args2) then [
 					var iargs := empty(int);
+					var flags := empty(int);
 					for i := 0 to pcode_Call_get_n_args(instr1) - len(args2) do [
 						var iarg : int;
 						ctx, iarg := evaluate_type(ctx, cc1, pcode_Call_get_arg(instr1, i), empty(compare_fn_stack), empty(token));
 						iargs +<= iarg;
+						flags +<= pcode_Call_get_flag(instr1, i);
 					]
 					var cc, typ := get_deep_type_of_var(ctx, x_typ);
-					ctx, x_typ := generate_Curry(ctx, cc, typ, x_typ, iargs, empty(token));
+					ctx, x_typ := generate_Curry(ctx, cc, typ, x_typ, iargs, flags, empty(token));
 				]
 				var inferred := inferred_result.[ arg : ctx.inferred_base - typ2, ctx : ctx, typ : x_typ ];
 				return teq.inferred.(inferred);
@@ -1083,7 +1085,7 @@ fn verify_type_equality(ctx : function_context,
 					iargs := [ iarg ] + iargs;
 				]
 				var cc, typ := get_deep_type_of_var(ctx, x_typ);
-				ctx, x_typ := generate_Curry(ctx, cc, typ, x_typ, iargs, empty(token));
+				ctx, x_typ := generate_Curry(ctx, cc, typ, x_typ, iargs, fill(0, len(iargs)), empty(token));
 				var inferred := inferred_result.[ arg : ctx.inferred_base - typ2, ctx : ctx, typ : x_typ ];
 				return teq.inferred.(inferred);
 			]
@@ -1501,11 +1503,13 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 		fn_cc := set_llt_main(fn_cc, fn_typ);
 		var my_cc := new_compare_context(ctx);
 		var args_idx := empty(int);
+		var flags := empty(int);
 		for i := 0 to pcode_Curry_get_n_curried_args(instr) do [
 			var arg := pcode_Curry_get_arg(instr, i);
 			var a1 : int;
 			ctx, a1 := evaluate_type(ctx, cc, arg, fn_stack, t);
 			args_idx +<= a1;
+			flags +<= pcode_Curry_get_flag(instr, i);
 			fn_cc.llt_redirect +<= new_compare_argument(my_cc, a1);
 			// TODO: quadratic complexity
 			// is this really needed?
@@ -1514,7 +1518,7 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 			]
 		]
 		var l : int;
-		ctx, l := generate_Curry(ctx, fn_cc, fn_typ, af, args_idx, t);
+		ctx, l := generate_Curry(ctx, fn_cc, fn_typ, af, args_idx, flags, t);
 		return ctx, l;
 	]
 	if opcode = P_Call_Indirect then [
@@ -1537,14 +1541,16 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 		var id := pcode_Call_get_unique_id(instr);
 		var fd := search_function_from_id(ctx, id);
 		var args := empty(int);
+		var flags := empty(int);
 		for i := 0 to pcode_Call_get_n_args(instr) do [
 			var arg := pcode_Call_get_arg(instr, i);
 			var a1 : int;
 			ctx, a1 := evaluate_type(ctx, cc, arg, fn_stack, t);
 			args +<= a1;
+			flags +<= pcode_Call_get_flag(instr, i);
 		]
 		var rv : list(int);
-		ctx, rv := generate_Call(ctx, Call_Mode_Unspecified, fd, args, t);
+		ctx, rv := generate_Call(ctx, Call_Mode_Unspecified, fd, args, flags, t);
 		var ret_idx := pcode_Call_find_return_index(instr, typ);
 		return ctx, rv[ret_idx];
 	]
