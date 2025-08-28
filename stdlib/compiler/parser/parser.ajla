@@ -89,18 +89,6 @@ fn parse_argument(ctx : function_context, vd : variable_dictionary, v n : int, t
 		var nv : local_variable;
 		ctx, nv := new_variable(ctx, a, defined, mut);
 		ctx.variables[v + i] := nv;
-		var t := ctx.this_value;
-	        ctx.this_value := v + i;
-		var inv := get_type_invariants(ctx, new_compare_context(ctx), a);
-		for i := 0 to len(inv) do [
-			var l : int;
-			ctx, l := evaluate_type(ctx, inv[i].cc, inv[i].idx, empty(compare_fn_stack), empty(token));
-			if not retval then
-				ctx.prereqs +<= l;
-			else
-				ctx.contracts +<= l;
-		]
-		ctx.this_value := t;
 	]
 
 	return ctx;
@@ -529,17 +517,6 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 	var op_mode : op_option;
 	var op_priority : int;
 	var post_hints : list(bytes);
-	var wh_expr := empty(token);
-	var wh := token_find(t, token_opt.k_where, false);
-	if wh >= 0 then [
-		wh_expr := t[wh + 1 .. len(t) - 1];
-		if len(wh_expr) = 0 then
-			abort compiler_error("Empty where clause", t);
-		var sc := t[len(t) - 1];
-		t := t[ .. wh];
-		if not t[wh - 1].t is right_bracket then
-			t +<= sc;
-	]
 	if decl_type is k_operator then [
 		op_mode := op_option.infix_op;
 		t := t[1 .. ];
@@ -674,23 +651,6 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 			abort internal("invalid decl_type " + ntos(ord decl_type));
 		]
 
-		if wh >= 0 then [
-			if ctx.n_return_values <> 1 then
-				abort compiler_error("The where clause may be used only on functions that return a single type", wh_expr);
-			var rv := ctx.variables[ctx.n_arguments];
-			if rv.type_idx <> T_Type then
-				abort compiler_error("The where clause may be used only on functions that return a single type", wh_expr);
-			if ctx.record_def is n then [
-				if not ctx.is_pattern_matched or len(ctx.pattern_matching_info) <> 1 then
-					abort compiler_error("The where clause may be used only on functions that are simple", wh_expr);
-			]
-			var wh_var : int;
-			ctx.parsing_where := true;
-			ctx, wh_var := parse_expression_bool(ctx, vd, wh_expr, false);
-			ctx.parsing_where := false;
-			ctx.where_expr := wh_var;
-		]
-
 		ctx := generate_local_types(ctx);
 
 		ctx.incomplete := false;
@@ -702,8 +662,6 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 	] else [
 		if def.signature.inferred_return then
 			abort compiler_error("Function with inferred return type was not defined", t);
-		if wh >= 0 then
-			abort compiler_error("The where clause cannot be used on function prototypes", t);
 	]
 
 	// uncomment this to disable lazy evaluation of functions

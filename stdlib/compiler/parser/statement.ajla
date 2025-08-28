@@ -88,12 +88,10 @@ fn parse_statement_var(ctx : function_context, vd : variable_dictionary, cnst mu
 			var expression := groupdecl[colon + 1 .. ];
 			var a : int;
 			ctx, a := parse_expression_type(ctx, vd, expression);
-			var inv := get_type_invariants(ctx, new_compare_context(ctx), a);
 			for i := 0 to colon do [
 				var name := groupdecl[i].t.identifier;
 				var l : int;
 				ctx, l := alloc_local_variable(ctx, a, cnst, mut);
-				ctx.variables[l].inv := inv;
 				ctx, vd := add_variable(ctx, vd, name, l, impl, groupdecl[i .. ]);
 				variables +<= vardef.[ name : name, idx : l, impl_assign : false ];
 			]
@@ -157,7 +155,6 @@ inferred:
 			else
 				ctx.variables[v.idx].defined_at := defined_multiple;
 			ctx := generate_Copy(ctx, al[i], v.idx);
-			ctx := verify_variable(ctx, v.idx, true);
 		]
 	] else [
 		if cnst then
@@ -425,11 +422,9 @@ inferred:
 		ctx, ax, inferred := convert_type(ctx, vd, al[i], av.cc, av.typ, 0, true, expr);
 		if not av.deep_structured then [
 			ctx := generate_Copy(ctx, ax, av.v);
-			ctx := verify_variable(ctx, av.v, true);
 		] else [
 			//ctx := verify_variable(ctx, av.v, false);
 			ctx := generate_Structured_Write(ctx, av.instr, ax);
-			ctx := verify_variable(ctx, av.v, true);
 		]
 	]
 

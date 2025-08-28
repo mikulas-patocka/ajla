@@ -81,9 +81,6 @@ fn list_type(ctx : function_context, cc : compare_context, a : int, err : bool, 
 fn evaluate_list_type(ctx : function_context, a : int, t : tokens) : (function_context, int);
 fn get_list_id : function_unique_id;
 
-fn verify_variable_type(ctx : function_context, v : int, cc : compare_context, typ : int, assign : bool) : function_context;
-fn verify_variable(ctx : function_context, v : int, assign : bool) : function_context;
-
 implementation
 
 uses compiler.common.blob;
@@ -438,9 +435,6 @@ restart:
 		if not success then
 			return cc, typ, inv;
 
-		if ctx.parsing_where, want_record, ctx.record_def is j, ctx.id = fid then
-			return new_compare_context_from_function(ctx), T_Record, inv;
-
 		var f := search_function_from_id(ctx, fid);
 		//eval debug("get_base_definition: " + i_decode(f.signature.name));
 		//eval stacktrace(0 div 0);
@@ -452,10 +446,6 @@ restart:
 
 		var new_ctx := new_compare_context_from_function(body);
 		new_ctx.args := args;
-
-		if want_invariants, body.where_expr <> -1 then [
-			inv +<= compare_argument.[ cc : new_ctx, idx : body.where_expr ];
-		]
 
 		if body.record_def is j then [
 			if want_record then
@@ -1395,11 +1385,6 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 		var ctx := generate_UnaryOp(ctx, pcode_UnaryOp_get_op(instr), a1, l);
 		return ctx, l;
 	]
-	if opcode = P_Value then [
-		if ctx.this_value < 0 then
-			abort internal("evaluate_type: this_value is not set");
-		return ctx, ctx.this_value;
-	]
 	if opcode = P_Fn then [
 		var n_arguments := pcode_Fn_get_n_args(instr);
 		var n_return_values := pcode_Fn_get_n_return_values(instr);
@@ -1783,38 +1768,4 @@ fn get_list_id : function_unique_id
 		program : false,
 		function_index : [ predefined_list ],
 	];
-]
-
-fn verify_variable_type(ctx : function_context, v : int, cc : compare_context, typ : int, assign : bool) : function_context
-[
-	var t := ctx.this_value;
-	ctx.this_value := v;
-	var inv := get_type_invariants(ctx, cc, typ);
-	for i := 0 to len(inv) do [
-		var l : int;
-		ctx, l := evaluate_type(ctx, inv[i].cc, inv[i].idx, empty(compare_fn_stack), empty(token));
-		if assign then
-			ctx := generate_Claim(ctx, l, false);
-		else
-			ctx := generate_Assume(ctx, l, false);
-	]
-	ctx.this_value := t;
-	return ctx;
-]
-
-fn verify_variable(ctx : function_context, v : int, assign : bool) : function_context
-[
-	var t := ctx.this_value;
-	ctx.this_value := v;
-	var inv := ctx.variables[v].inv;
-	for i := 0 to len(inv) do [
-		var l : int;
-		ctx, l := evaluate_type(ctx, inv[i].cc, inv[i].idx, empty(compare_fn_stack), empty(token));
-		if assign then
-			ctx := generate_Claim(ctx, l, false);
-		else
-			ctx := generate_Assume(ctx, l, false);
-	]
-	ctx.this_value := t;
-	return ctx;
 ]

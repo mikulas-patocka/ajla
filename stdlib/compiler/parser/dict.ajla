@@ -47,7 +47,6 @@ record local_variable [
 	mut : bool;
 	local_type : int;
 	name : istring;
-	inv : list(compare_argument);
 	specialize : bool;
 ]
 
@@ -162,10 +161,6 @@ record function_context [
 
 	novfy_flag : bool;
 	vfy_tagged : bool;
-
-	parsing_where : bool;
-	where_expr : int;
-	this_value : int;
 ]
 
 record function_definition [
@@ -297,7 +292,6 @@ fn new_variable(ctx : function_context, t def_at : int, mut : bool) : (function_
 		mut : mut,
 		local_type : T_NoLocalType,
 		name : 0,
-		inv : empty(compare_argument),
 		specialize : false,
 	];
 ]
@@ -469,10 +463,6 @@ fn new_function_context(dict : function_dictionary, parent_function : maybe(func
 
 		novfy_flag : false,
 		vfy_tagged : false,
-
-		parsing_where : false,
-		where_expr : -1,
-		this_value : -1,
 	];
 	return ctx;
 ]

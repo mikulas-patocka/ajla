@@ -111,21 +111,6 @@ test_next:
 	return best_split, best_op_mode, best_string;
 ]
 
-fn parse_fn_pc(ctx : function_context, a : int, lt : int) : (function_context, list(int))
-[
-	var t := ctx.this_value;
-	ctx.this_value := lt;
-	var inv := get_type_invariants(ctx, new_compare_context(ctx), a);
-	var pc := empty(int);
-	for i := 0 to len(inv) do [
-		var l : int;
-		ctx, l := evaluate_type(ctx, inv[i].cc, inv[i].idx, empty(compare_fn_stack), empty(token));
-		pc +<= l;
-	]
-	ctx.this_value := t;
-	return ctx, pc;
-]
-
 fn parse_fn_arguments(ctx : function_context, vd : variable_dictionary, t : tokens, retval : bool, var_idx : int, offset : int, in_type : bool) : (function_context, variable_dictionary, list(int), list(int))
 [
 	if len_at_least(t, 2) then [
@@ -153,7 +138,6 @@ fn parse_fn_arguments(ctx : function_context, vd : variable_dictionary, t : toke
 			var expression := decl[colon + 1 .. ];
 			var a : int;
 			ctx, a := parse_expression_type(ctx, vd, expression);
-			var pc : list(int);
 			var llt := -1;
 			for i := 0 to colon do [
 				var name := decl[i].t.identifier;
@@ -164,18 +148,13 @@ fn parse_fn_arguments(ctx : function_context, vd : variable_dictionary, t : toke
 				ctx, vd := add_variable(ctx, vd, name, l, false, decl);
 				llt := l;
 			]
-			ctx, pc := parse_fn_pc(ctx, a, llt);
-			prereqs_contracts += pc;
 		] else [
 			var a : int;
 			ctx, a := parse_expression_type(ctx, vd, decl);
 			vars +<= a;
-			var pc : list(int);
 			var l : int;
 			ctx, l := alloc_local_variable(ctx, a, true, false);
 			ctx := generate_Load_Local_Type(ctx, var_idx, offset + len(vars) - 1, l);
-			ctx, pc := parse_fn_pc(ctx, a, l);
-			prereqs_contracts += pc;
 		]
 	]
 
@@ -309,7 +288,6 @@ fn record_list_create(ctx : function_context, vd : variable_dictionary, t : toke
 				ctx, l1 := parse_expression(ctx, vd, decls[idx], in_type);
 				var m : teq;
 				ctx, l, m := convert_type(ctx, vd, l1, cc, rec_def.entries[idx].type_idx, 0, true, decls[idx]);
-				ctx := verify_variable_type(ctx, l, cc, rec_def.entries[idx].type_idx, true);
 			]
 			fields[idx] := l;
 			cc.llt_redirect +<= new_compare_argument(my_cc, l);
@@ -339,7 +317,6 @@ fn record_list_create(ctx : function_context, vd : variable_dictionary, t : toke
 		ctx, a := parse_expression(ctx, vd, decl, in_type);
 		var m : teq;
 		ctx, a, m := convert_type(ctx, vd, a, type_cc, type_var, 0, true, decl);
-		ctx := verify_variable_type(ctx, a, type_cc, type_var, true);
 		fields +<= a;
 	]
 	var l : int;
@@ -474,9 +451,6 @@ fn list_load(ctx : function_context, vd : variable_dictionary, t t2 : tokens, in
 	var l : int;
 	ctx, l := generate_Array_Load(ctx, aa, ai, t);
 
-	var xcc, xtyp := list_type(ctx, cc, a, true, t);
-	ctx := verify_variable_type(ctx, l, xcc, xtyp, false);
-
 	return ctx, [ l ];
 ]
 
@@ -511,7 +485,6 @@ fn non_empty_option_create(ctx : function_context, vd : variable_dictionary, t :
 	ctx, ar := parse_expression(ctx, vd, arg_tokens, in_type);
 	var m : teq;
 	ctx, ar, m := convert_type(ctx, vd, ar, cc, rec_def.entries[idx].type_idx, 0, true, t);
-	ctx := verify_variable_type(ctx, ar, cc, rec_def.entries[idx].type_idx, true);
 	var l : int;
 	ctx, l := generate_Option_Create(ctx, at, idx, ar);
 	return ctx, [ l ];
@@ -751,15 +724,8 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 		var l : int;
 		if not rec_def.is_option then [
 			ctx, l := generate_Record_Load(ctx, a, idx, t);
-			var xcc : compare_context;
-			var xtyp : int;
-			ctx, xcc, xtyp := generate_record_entry_type(ctx, a, idx, cc, t);
-			ctx := verify_variable_type(ctx, l, xcc, xtyp, false);
 		] else [
 			ctx, l := generate_Option_Load(ctx, a, idx, t);
-			var xcc := cc;
-			var xtyp := rec_def.entries[idx].type_idx;
-			ctx := verify_variable_type(ctx, l, xcc, xtyp, false);
 		]
 
 		return ctx, [ l ];
@@ -799,17 +765,6 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 			var l : int;
 			var c := int_to_blob(select(t[0].t is k_true, 0, 1));
 			ctx, l := generate_Load_Const(ctx, T_Bool, c);
-			return ctx, [ l ];
-		]
-		if t[0].t is k_value then [
-			if not ctx.parsing_where then
-				abort compiler_error("The value keyword may be used only in the where clause", t);
-			var typ := ctx.n_arguments;
-			if ctx.record_def is j then [
-				ctx, typ := generate_Call_self(ctx);
-			]
-			var l : int;
-			ctx, l := generate_Value(ctx, typ);
 			return ctx, [ l ];
 		]
 
