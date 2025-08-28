@@ -537,6 +537,26 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 		return ctx, ret;
 	]
 
+	{=========
+	 = WHERE =
+	 =========}
+
+	var wh := token_find(t, token_opt.k_where, false);
+	if wh >= 0 then [
+		var typ : int;
+		ctx, typ := parse_expression_type(ctx, vd, t[ .. wh]);
+
+		var pw := ctx.parsing_where;
+		ctx.parsing_where := typ;
+		var w : int;
+		ctx, w := parse_expression_bool(ctx, vd, t[wh + 1 .. ], in_type);
+		ctx.parsing_where := pw;
+
+		var l : int;
+		ctx, l := generate_Where(ctx, typ, w);
+		return ctx, [ l ];
+	]
+
 	{============
 	 = OPERATOR =
 	 ============}
@@ -766,6 +786,15 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 			var c := int_to_blob(select(t[0].t is k_true, 0, 1));
 			ctx, l := generate_Load_Const(ctx, T_Bool, c);
 			return ctx, [ l ];
+		]
+
+		if t[0].t is k_value then [
+			if ctx.parsing_where = T_InvalidType then
+				abort compiler_error("The value keyword may be used only in the where clause", t);
+			var l : int;
+			ctx, l := generate_Value(ctx, ctx.parsing_where);
+			return ctx, [ l ];
+
 		]
 
 		if t[0].t is identifier or t[0].t is oper then [

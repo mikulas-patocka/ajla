@@ -22,6 +22,7 @@ P_Copy_Type_Cast	; dest, ref_flag, src
 P_Free			; var
 P_Eval			; var
 P_Keep			; var
+P_Where			; result_type, type, condition
 P_Value			; result
 P_Fn			; result, n_args, n_return_values, n_prereqs, n_contracts, args..., return_values..., prereqs..., contracts...
 P_Load_Local_Type	; result, function var (-1 if we are referring to record entries), index

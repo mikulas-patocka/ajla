@@ -161,6 +161,8 @@ record function_context [
 
 	novfy_flag : bool;
 	vfy_tagged : bool;
+
+	parsing_where : int;
 ]
 
 record function_definition [
@@ -463,6 +465,8 @@ fn new_function_context(dict : function_dictionary, parent_function : maybe(func
 
 		novfy_flag : false,
 		vfy_tagged : false,
+
+		parsing_where : T_InvalidType,
 	];
 	return ctx;
 ]

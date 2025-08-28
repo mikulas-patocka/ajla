@@ -711,6 +711,7 @@ ret_cnst:
 
 	if opcode = P_Copy_Type_Cast or
 	   opcode = P_Value or
+	   opcode = P_Where or
 	   opcode = P_Curry or
 	   opcode = P_Load_Fn or
 	   opcode = P_Fn or
@@ -931,6 +932,24 @@ fn verify_type_equality(ctx : function_context,
 		var a1 := pcode_UnaryOp_get_arg(instr1);
 		var a2 := pcode_UnaryOp_get_arg(instr2);
 		var x := verify_type_equality(ctx, cc1, a1, fn_stack1, cc2, a2, fn_stack2);
+		if not x is eq then
+			return teq_ret(x);
+		return teq.eq;
+	]
+
+	if opcode1 = P_Value then [
+		return teq.eq;
+	]
+
+	if opcode1 = P_Where then [
+		var ty1 := pcode_Where_get_type(instr1);
+		var ty2 := pcode_Where_get_type(instr2);
+		var x := verify_type_equality(ctx, cc1, ty1, fn_stack1, cc2, ty2, fn_stack2);
+		if not x is eq then
+			return teq_ret(x);
+		var cond1 := pcode_Where_get_condition(instr1);
+		var cond2 := pcode_Where_get_condition(instr2);
+		x := verify_type_equality(ctx, cc1, cond1, fn_stack1, cc2, cond2, fn_stack2);
 		if not x is eq then
 			return teq_ret(x);
 		return teq.eq;
@@ -1370,7 +1389,7 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 		ctx, rtyp := evaluate_type(ctx, cc, get_type_of_var(cc.ctx, pcode_BinaryOp_get_result(instr)), fn_stack, t);
 		var l : int;
 		ctx, l := alloc_local_variable(ctx, rtyp, true, false);
-		var ctx := generate_BinaryOp(ctx, pcode_BinaryOp_get_op(instr), a1, a2, l);
+		ctx := generate_BinaryOp(ctx, pcode_BinaryOp_get_op(instr), a1, a2, l);
 		return ctx, l;
 	]
 	if opcode = P_UnaryOp then [
@@ -1382,7 +1401,26 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 		ctx, rtyp := evaluate_type(ctx, cc, get_type_of_var(cc.ctx, pcode_UnaryOp_get_result(instr)), fn_stack, t);
 		var l : int;
 		ctx, l := alloc_local_variable(ctx, rtyp, true, false);
-		var ctx := generate_UnaryOp(ctx, pcode_UnaryOp_get_op(instr), a1, l);
+		ctx := generate_UnaryOp(ctx, pcode_UnaryOp_get_op(instr), a1, l);
+		return ctx, l;
+	]
+	if opcode = P_Where then [
+		var ty : int;
+		ctx, ty := evaluate_type(ctx, cc, pcode_Where_get_type(instr), fn_stack, t);
+		var cond : int;
+		var pw := ctx.parsing_where;
+		ctx.parsing_where := ty;
+		ctx, cond := evaluate_type(ctx, cc, pcode_Where_get_condition(instr), fn_stack, t);
+		ctx.parsing_where := pw;
+		var l : int;
+		ctx, l := generate_Where(ctx, ty, cond);
+		return ctx, l;
+	]
+	if opcode = P_Value then [
+		if ctx.parsing_where = T_InvalidType then
+			abort internal("Value out of where");
+		var l : int;
+		ctx, l := generate_Value(ctx, ctx.parsing_where);
 		return ctx, l;
 	]
 	if opcode = P_Fn then [
