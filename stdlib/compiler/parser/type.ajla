@@ -125,15 +125,6 @@ fn do_conversion(ctx : function_context, vd : variable_dictionary, a a_typ : int
 		ctx := generate_UnaryOp(ctx, Un_ConvertToInt, a, l);
 		return ctx, l;
 	]
-	var instr_a := get_defined_maybe(cc1, deep_a_typ);
-	var instr := get_defined_maybe(cc2, deep_typ);
-	if instr_a is j, instr is j, instr_a.j.opcode = P_Fn, instr.j.opcode = P_Fn then [
-		var my_cc2 := my_cc;
-		my_cc2.quash_contracts bts= my_cc2.ctx.variables[a_typ].defined_at;
-		var match := verify_type_equality(ctx, my_cc2, a_typ, empty(compare_fn_stack), cc, typ, empty(compare_fn_stack));
-		if match is eq then
-			return ctx, a;
-	]
 	var conversions := get_implicits(ctx, true);
 	for im := 0 to len(conversions) do [
 		var ctx2 := ctx;
@@ -199,7 +190,6 @@ fn new_compare_context(ctx : function_context) : compare_context
 		lambda_redirect : exception_make(list(int), ec_sync, error_record_field_not_initialized, 0, false),
 		no_pattern_match : false,
 		option_map : infinite(-1),
-		quash_contracts : 0,
 	];
 	return cc;
 ]
@@ -957,12 +947,10 @@ fn verify_type_equality(ctx : function_context,
 	]
 
 	if opcode1 = P_Fn then [
-		var qc1 := cc1.quash_contracts bt cc1.ctx.variables[typ1].defined_at;
-		var qc2 := cc2.quash_contracts bt cc2.ctx.variables[typ2].defined_at;
 		if pcode_Fn_get_n_args(instr1) <> pcode_Fn_get_n_args(instr2) or
 		   pcode_Fn_get_n_return_values(instr1) <> pcode_Fn_get_n_return_values(instr2) or
 		   pcode_Fn_get_n_prereqs(instr1) <> pcode_Fn_get_n_prereqs(instr2) or
-		   select(qc1, pcode_Fn_get_n_contracts(instr1), 0) <> select(qc2, pcode_Fn_get_n_contracts(instr2), 0) then
+		   pcode_Fn_get_n_contracts(instr1) <> pcode_Fn_get_n_contracts(instr2) then
 			return teq.dont_know;
 		var new_fn_stack1 : compare_fn_stack := compare_fn_stack.[
 			cc : cc1,
@@ -999,14 +987,12 @@ fn verify_type_equality(ctx : function_context,
 			if not x is eq then
 				return teq_ret(x);
 		]
-		if not qc1, not qc2 then [
-			for i := 0 to pcode_Fn_get_n_contracts(instr1) do [
-				var a1 := pcode_Fn_get_contract(instr1, i);
-				var a2 := pcode_Fn_get_contract(instr2, i);
-				var x := verify_type_equality(ctx, cc1, a1, fn_stack1, cc2, a2, fn_stack2);
-				if not x is eq then
-					return teq_ret(x);
-			]
+		for i := 0 to pcode_Fn_get_n_contracts(instr1) do [
+			var a1 := pcode_Fn_get_contract(instr1, i);
+			var a2 := pcode_Fn_get_contract(instr2, i);
+			var x := verify_type_equality(ctx, cc1, a1, fn_stack1, cc2, a2, fn_stack2);
+			if not x is eq then
+				return teq_ret(x);
 		]
 		return teq.eq;
 	]

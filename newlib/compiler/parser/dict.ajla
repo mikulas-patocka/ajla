@@ -210,7 +210,6 @@ record compare_context [
 	lambda_redirect : list(int);
 	no_pattern_match : bool;
 	option_map : list(int);
-	quash_contracts : int128;
 ]
 
 fn new_variable_dictionary(parent : maybe(variable_dictionary)) : variable_dictionary;
