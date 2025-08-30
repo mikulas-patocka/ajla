@@ -650,7 +650,7 @@ fn get_implicits(ctx : function_context, conv : bool) : list(function_definition
 	var result := this_unit;
 	i := max_path_index;
 	while i >= 0 do [
-		result += all_units[i];
+		result := all_units[i] + result;
 		i -= 1;
 	]
 
