@@ -2545,6 +2545,14 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 			case P_Keep:
 				a1 = pcode_get();
 				break;
+			case P_Where:
+				res = u_pcode_get();
+				a1 = pcode_get();
+				a2 = u_pcode_get();
+				break;
+			case P_Value:
+				res = u_pcode_get();
+				break;
 			case P_Fn:
 				res = u_pcode_get();
 				ajla_assert_lo(var_elided(res), (file_line, "P_Fn(%s): Fn result is not elided", function_name(ctx)));
