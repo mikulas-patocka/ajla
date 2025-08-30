@@ -65,9 +65,8 @@ const gbd_const_flag := 62;
 const gbd_const_type := 63;
 const gbd_const_blob := 71;
 fn typ_is_const(typ : int) : bool;
-fn get_base_definition(ctx : function_context, cc : compare_context, typ : int, want_record want_invariants : bool) : (compare_context, int, list(compare_argument));
+fn get_base_definition(ctx : function_context, cc : compare_context, typ : int, want_record : bool) : (compare_context, int);
 fn get_deep_type_of_var(ctx : function_context, v : int) : (compare_context, int);
-fn get_type_invariants(ctx : function_context, cc : compare_context, typ : int) : list(compare_argument);
 
 fn verify_type_equality(ctx : function_context,
 			cc1 : compare_context, typ1 : int, fn_stack1 : list(compare_fn_stack),
@@ -106,8 +105,8 @@ fn get_type_of_var(ctx : function_context, v : int) : int
 fn do_conversion(ctx : function_context, vd : variable_dictionary, a a_typ : int, cc : compare_context, typ : int, t : tokens) : (function_context, int)
 [
 	var my_cc := new_compare_context(ctx);
-	var cc1, deep_a_typ, inv1 := get_base_definition(ctx, my_cc, a_typ, true, false);
-	var cc2, deep_typ, inv2 := get_base_definition(ctx, cc, typ, true, false);
+	var cc1, deep_a_typ := get_base_definition(ctx, my_cc, a_typ, true);
+	var cc2, deep_typ := get_base_definition(ctx, cc, typ, true);
 	if deep_a_typ = T_Integer, deep_typ <= T_SInt8, deep_typ >= T_Integer128 then [
 		//eval debug("do_conversion 1: eligible for shortcut: " + ntos(a_typ) + ", " + ntos(deep_a_typ) + " - " + ntos(typ) + ", " + ntos(deep_typ));
 		var l : int;
@@ -296,7 +295,7 @@ fn decode_call(ctx : function_context, cc : compare_context, typ : int, instr : 
 next_fn:
 		var f_typ : int;
 		var inv : list(compare_argument);
-		fnn_cc, f_typ, inv := get_base_definition(ctx, fnn_cc, fnn, false, false);
+		fnn_cc, f_typ := get_base_definition(ctx, fnn_cc, fnn, false);
 		var f_instrm := get_defined_maybe(fnn_cc, f_typ);
 		if f_instrm is n then
 			goto fail;
@@ -368,7 +367,7 @@ record match_state [
 
 fn get_record_or_option(ctx : function_context, cc : compare_context, typ : int, want_option : bool) : record_definition
 [
-	var rec_cc, rec_typ, inv := get_base_definition(ctx, cc, cc.ctx.variables[typ].type_idx, true, false);
+	var rec_cc, rec_typ := get_base_definition(ctx, cc, cc.ctx.variables[typ].type_idx, true);
 	if rec_typ <> T_Record then
 		abort internal("No record or option definition");
 	var def := rec_cc.ctx.record_def.j;
@@ -377,24 +376,22 @@ fn get_record_or_option(ctx : function_context, cc : compare_context, typ : int,
 	return def;
 ]
 
-fn get_base_definition(ctx : function_context, cc : compare_context, typ : int, want_record want_invariants : bool) : (compare_context, int, list(compare_argument))
+fn get_base_definition(ctx : function_context, cc : compare_context, typ : int, want_record : bool) : (compare_context, int)
 [
-	var inv := empty(compare_argument);
-
 restart_fail:
 	var fail_cc := empty_compare_context;
 	var fail_typ := T_UnknownType;
 
 restart:
 	if typ_is_const(typ) then
-		return cc, typ, inv;
+		return cc, typ;
 
 	var cc_ctx := cc.ctx;
 
 	if typ >= cc_ctx.n_arguments, typ < cc_ctx.n_arguments + cc_ctx.n_return_values then [
 		var idx := typ - cc_ctx.n_arguments;
 		if idx < len(cc.return_redirect) then
-			return cc.return_redirect[idx].cc, cc.return_redirect[idx].idx, inv;
+			return cc.return_redirect[idx].cc, cc.return_redirect[idx].idx;
 	]
 
 	if get_defined_maybe(cc, typ) is n then [
@@ -403,9 +400,9 @@ restart:
 				cc, typ := cc.args[typ].cc, cc.args[typ].idx;
 				goto restart;
 			]
-			return cc, typ, inv;
+			return cc, typ;
 		]
-		return fail_cc, fail_typ, inv;
+		return fail_cc, fail_typ;
 	]
 
 	var def_at := cc_ctx.variables[typ].defined_at;
@@ -421,7 +418,7 @@ restart:
 	]
 
 	if def_at = defined_argument then
-		return cc, typ, inv;
+		return cc, typ;
 
 	var instr := cc_ctx.instructions[def_at];
 	var opcode := instr.opcode;
@@ -433,7 +430,7 @@ restart:
 	if opcode = P_Call or opcode = P_Call_Indirect then [
 		var success, fid, args, ret_idx := decode_call(ctx, cc, typ, instr);
 		if not success then
-			return cc, typ, inv;
+			return cc, typ;
 
 		var f := search_function_from_id(ctx, fid);
 		//eval debug("get_base_definition: " + i_decode(f.signature.name));
@@ -441,7 +438,7 @@ restart:
 		if f.signature.n_arguments <> len(args) then
 			abort internal("P_Call: the number of arguments doesn't match");
 		if f.body is n then
-			return cc, typ, inv;
+			return cc, typ;
 		var body := f.body.j;
 
 		var new_ctx := new_compare_context_from_function(body);
@@ -449,13 +446,13 @@ restart:
 
 		if body.record_def is j then [
 			if want_record then
-				return new_ctx, T_Record, inv;
+				return new_ctx, T_Record;
 			else
-				return cc, typ, inv;
+				return cc, typ;
 		]
 
 		if not body.is_pattern_matched then
-			return cc, typ, inv;
+			return cc, typ;
 
 		if len(body.pattern_matching_info) = 1 then [
 			cc, typ := new_ctx, body.pattern_matching_info[0].return_values[ret_idx];
@@ -463,7 +460,7 @@ restart:
 		]
 
 		if cc.no_pattern_match then
-			return cc, typ, inv;
+			return cc, typ;
 
 		new_ctx.no_pattern_match := true;
 		var cnst_true := encode_constant(T_Bool, int_to_blob(1));
@@ -484,14 +481,14 @@ restart:
 				option_vars +<= forced_options[i].v1;
 			]
 			for p := 0 to len(pi.conditions) do [
-				var gbd_cc, gbd_idx, gdb_inv := get_base_definition(ctx, new_ctx, pi.conditions[p], false, false);
+				var gbd_cc, gbd_idx := get_base_definition(ctx, new_ctx, pi.conditions[p], false);
 				var match := verify_type_equality(ctx, new_ctx, pi.conditions[p], empty(compare_fn_stack), empty_compare_context, cnst_true, empty(compare_fn_stack));
 				if match is noeq then
 					goto skip_cond;
 				else if match is dont_know then
 					dont_know := true;
 				else if not match is eq then
-					return cc, typ, inv;
+					return cc, typ;
 				var da := get_defined_maybe(new_ctx, pi.conditions[p]);
 				if da is j, da.j.opcode = P_Option_Test then [
 					var option_var := pcode_Option_Test_get_option(da.j);
@@ -514,7 +511,7 @@ restart:
 					option_vars +<= option_var;
 				]
 			]
-			states[m].cc, states[m].idx, inv := get_base_definition(ctx, new_ctx, body.pattern_matching_info[m].return_values[ret_idx], false, false);
+			states[m].cc, states[m].idx := get_base_definition(ctx, new_ctx, body.pattern_matching_info[m].return_values[ret_idx], false);
 			for i := 0 to len(option_vars) do
 				states[m].cc.option_map[option_vars[i]] := option_map[option_vars[i]];
 			possible_patterns bts= m;
@@ -531,7 +528,7 @@ skip_cond:
 			possible_patterns btr= p2;
 			var match := verify_type_equality(ctx, states[p1].cc, states[p1].idx, empty(compare_fn_stack), states[p2].cc, states[p2].idx, empty(compare_fn_stack));
 			if not match is eq then
-				return cc, typ, inv;
+				return cc, typ;
 		]
 		//new_ctx.option_map := states[p1].cc.option_map;
 		new_ctx.no_pattern_match := false;
@@ -544,22 +541,20 @@ skip_cond:
 			cc, typ := r.cc, r.idx;
 			goto restart_fail;
 		]
-		return cc, typ, inv;
+		return cc, typ;
 	]
-	if want_invariants then
-		return cc, typ, inv;
 	if opcode = P_Record_Load then [
 		var str_v := pcode_Record_Load_get_record(instr);
 		var idx := pcode_Record_Load_get_index(instr);
 
 		var def := get_record_or_option(ctx, cc, str_v, false);
 
-		var rv_cc, rv_typ, rv_inv := get_base_definition(ctx, cc, str_v, false, false);
+		var rv_cc, rv_typ := get_base_definition(ctx, cc, str_v, false);
 		var rv_instr := get_defined_maybe(rv_cc, rv_typ);
 		if rv_instr is n then
-			return cc, typ, inv;
+			return cc, typ;
 		if rv_instr.j.opcode <> P_Record_Create then
-			return cc, typ, inv;
+			return cc, typ;
 
 		var rv_var := pcode_Record_Create_get_arg(rv_instr.j, idx);
 		cc, typ := rv_cc, rv_var;
@@ -570,12 +565,12 @@ skip_cond:
 		var blob := pcode_Load_Const_get_blob(instr);
 		var t := get_type_of_var(cc_ctx, typ);
 		if not type_is_flat(t) then
-			return cc, typ, inv;
-		return cc, encode_constant(t, blob), inv;
+			return cc, typ;
+		return cc, encode_constant(t, blob);
 	]
 	fn get_constant(arg : int) : list(pcode_t)
 	[
-		var arg_cc, arg_typ, arg_inv := get_base_definition(ctx, cc, arg, false, false);
+		var arg_cc, arg_typ := get_base_definition(ctx, cc, arg, false);
 		if arg_typ < 0 or not arg_typ bt gbd_const_flag then
 			return empty(pcode_t);
 		var t, b := decode_constant(arg_typ);
@@ -626,15 +621,15 @@ skip_cond:
 			]
 		]
 		if not len_greater_than(arg1_blob, 0) or not len_greater_than(arg2_blob, 0) then
-			return cc, typ, inv;
+			return cc, typ;
 		var res := evaluate_binary(t1, t, op, arg1_blob, arg2_blob);
 		if is_exception res then
-			return cc, typ, inv;
-		return empty_compare_context, encode_constant(t, res), inv;
+			return cc, typ;
+		return empty_compare_context, encode_constant(t, res);
 ret_false:
-		return empty_compare_context, encode_constant(t, int_to_blob(0)), inv;
+		return empty_compare_context, encode_constant(t, int_to_blob(0));
 ret_true:
-		return empty_compare_context, encode_constant(t, int_to_blob(1)), inv;
+		return empty_compare_context, encode_constant(t, int_to_blob(1));
 	]
 	if opcode = P_UnaryOp then [
 		var ccx, t := get_deep_type_of_var(cc_ctx, typ);
@@ -647,66 +642,66 @@ ret_true:
 			abort internal("get_base_definition: invalid source type for unary operation: " + ntos(t1));
 		var arg1_blob := get_constant(arg1);
 		if not len_greater_than(arg1_blob, 0) then
-			return cc, typ, inv;
+			return cc, typ;
 		var res := evaluate_unary(t1, t, op, arg1_blob);
 		if is_exception res then
-			return cc, typ, inv;
-		return empty_compare_context, encode_constant(t, res), inv;
+			return cc, typ;
+		return empty_compare_context, encode_constant(t, res);
 	]
 	if opcode = P_Option_Load then [
 		var arg := pcode_Option_Load_get_option(instr);
 		var idx := pcode_Option_Load_get_index(instr);
-		var arg_cc, arg_typ, arg_inv := get_base_definition(ctx, cc, arg, false, false);
+		var arg_cc, arg_typ := get_base_definition(ctx, cc, arg, false);
 		var arg_instr := get_defined_maybe(arg_cc, arg_typ);
 		if arg_instr is n then
-			return cc, typ, inv;
+			return cc, typ;
 		if arg_instr.j.opcode <> P_Option_Create then
-			return cc, typ, inv;
+			return cc, typ;
 		if pcode_Option_Create_get_index(arg_instr.j) <> idx then
-			return cc, typ, inv;
+			return cc, typ;
 		cc, typ := arg_cc, pcode_Option_Create_get_arg(arg_instr.j);
 		goto restart;
 	]
 	if opcode = P_Option_Test then [
 		var arg := pcode_Option_Test_get_option(instr);
 		var idx := pcode_Option_Test_get_index(instr);
-		var arg_cc, arg_typ, arg_inv := get_base_definition(ctx, cc, arg, false, false);
+		var arg_cc, arg_typ := get_base_definition(ctx, cc, arg, false);
 		if not typ_is_const(arg_typ), arg_cc.option_map[arg_typ] >= 0 then [
-			return empty_compare_context, encode_constant(T_Bool, int_to_blob(select(arg_cc.option_map[arg_typ] = idx, 0, 1))), inv;
+			return empty_compare_context, encode_constant(T_Bool, int_to_blob(select(arg_cc.option_map[arg_typ] = idx, 0, 1)));
 		]
 		var arg_instr := get_defined_maybe(arg_cc, arg_typ);
 		if arg_instr is n then
-			return cc, typ, inv;
+			return cc, typ;
 		if arg_instr.j.opcode = P_Load_Const then [
 			var cnst := blob_to_int(pcode_Load_Const_get_blob(arg_instr.j));
-			return empty_compare_context, encode_constant(T_Bool, int_to_blob(select(cnst = idx, 0, 1))), inv;
+			return empty_compare_context, encode_constant(T_Bool, int_to_blob(select(cnst = idx, 0, 1)));
 		]
 		if arg_instr.j.opcode = P_Option_Create then [
 			var cnst := pcode_Option_Create_get_index(arg_instr.j);
-			return empty_compare_context, encode_constant(T_Bool, int_to_blob(select(cnst = idx, 0, 1))), inv;
+			return empty_compare_context, encode_constant(T_Bool, int_to_blob(select(cnst = idx, 0, 1)));
 		]
-		return cc, typ, inv;
+		return cc, typ;
 	]
 	if opcode = P_Option_Ord then [
 		var arg := pcode_Option_Ord_get_option(instr);
 		var cnst : int;
-		var arg_cc, arg_typ, arg_inv := get_base_definition(ctx, cc, arg, false, false);
+		var arg_cc, arg_typ := get_base_definition(ctx, cc, arg, false);
 		if not typ_is_const(arg_typ), arg_cc.option_map[arg_typ] >= 0 then [
 			cnst := arg_cc.option_map[arg_typ];
 			goto ret_cnst;
 		]
 		var arg_instr := get_defined_maybe(arg_cc, arg_typ);
 		if arg_instr is n then
-			return cc, typ, inv;
+			return cc, typ;
 		if arg_instr.j.opcode = P_Load_Const then [
 			cnst := blob_to_int(pcode_Load_Const_get_blob(arg_instr.j));
 		] else if arg_instr.j.opcode = P_Option_Create then [
 			cnst := pcode_Option_Create_get_index(arg_instr.j);
 		] else [
-			return cc, typ, inv;
+			return cc, typ;
 		]
 ret_cnst:
-		return empty_compare_context, encode_constant(T_Integer, int_to_blob(cnst)), inv;
+		return empty_compare_context, encode_constant(T_Integer, int_to_blob(cnst));
 	]
 
 	if opcode = P_Copy_Type_Cast or
@@ -728,7 +723,7 @@ ret_cnst:
 	   opcode = P_IO or
 	   opcode = P_ForAll or
 	   false then
-		return cc, typ, inv;
+		return cc, typ;
 
 	abort internal("get_base_definition: invalid opcode " + ntos(opcode));
 ]
@@ -739,16 +734,8 @@ fn get_deep_type_of_var(ctx : function_context, v : int) : (compare_context, int
 	if typ_is_const(typ) then
 		return empty_compare_context, typ;
 	var cc := new_compare_context(ctx);
-	var inv : list(compare_argument);
-	cc, typ, inv := get_base_definition(ctx, cc, typ, true, false);
+	cc, typ := get_base_definition(ctx, cc, typ, true);
 	return cc, typ;
-]
-
-fn get_type_invariants(ctx : function_context, cc : compare_context, typ : int) : list(compare_argument)
-[
-	var inv : list(compare_argument);
-	cc, typ, inv := get_base_definition(ctx, cc, typ, true, true);
-	return inv;
 ]
 
 fn teq_ret~inline(x : teq) : teq
@@ -774,10 +761,8 @@ fn verify_type_equality(ctx : function_context,
 		return teq.eq;
 	]
 
-	var inv : list(compare_argument);
-
-	cc1, typ1, inv := get_base_definition(ctx, cc1, typ1, false, false);
-	cc2, typ2, inv := get_base_definition(ctx, cc2, typ2, false, false);
+	cc1, typ1 := get_base_definition(ctx, cc1, typ1, false);
+	cc2, typ2 := get_base_definition(ctx, cc2, typ2, false);
 
 	if typ1 = T_UnknownType or typ2 = T_UnknownType then
 		return teq.dont_know;
@@ -831,7 +816,7 @@ fn verify_type_equality(ctx : function_context,
 
 		var args2 := empty(compare_argument);
 		var fn2 := pcode_Call_Indirect_get_fn_variable(instr2);
-		cc2, typ2, inv := get_base_definition(ctx, cc2, fn2, false, false);
+		cc2, typ2 := get_base_definition(ctx, cc2, fn2, false);
 		var ins := get_defined_maybe(cc2, typ2);
 		while ins is j, ins.j.opcode = P_Curry do [
 			instr2 := ins.j;
@@ -840,7 +825,7 @@ fn verify_type_equality(ctx : function_context,
 				var a := pcode_Curry_get_arg(instr2, i);
 				args2 +<= new_compare_argument(cc2, a);
 			]
-			cc2, typ2, inv := get_base_definition(ctx, cc2, pcode_Curry_get_fn_variable(instr2), false, false);
+			cc2, typ2 := get_base_definition(ctx, cc2, pcode_Curry_get_fn_variable(instr2), false);
 			ins := get_defined_maybe(cc2, typ2);
 		]
 
@@ -1033,7 +1018,7 @@ fn verify_type_equality(ctx : function_context,
 				var a := pcode_Curry_get_arg(instr1, i);
 				args1 +<= new_compare_argument(cc1, a);
 			]
-			cc1, typ1, inv := get_base_definition(ctx, cc1, pcode_Curry_get_fn_variable(instr1), false, false);
+			cc1, typ1 := get_base_definition(ctx, cc1, pcode_Curry_get_fn_variable(instr1), false);
 			var ins := get_defined_maybe(cc1, typ1);
 			if ins is j, ins.j.opcode = P_Curry then [
 				instr1 := ins.j;
@@ -1048,7 +1033,7 @@ fn verify_type_equality(ctx : function_context,
 				var a := pcode_Curry_get_arg(instr2, i);
 				args2 +<= new_compare_argument(cc2, a);
 			]
-			cc2, typ2, inv := get_base_definition(ctx, cc2, pcode_Curry_get_fn_variable(instr2), false, false);
+			cc2, typ2 := get_base_definition(ctx, cc2, pcode_Curry_get_fn_variable(instr2), false);
 			var ins := get_defined_maybe(cc2, typ2);
 			if ins is j, ins.j.opcode = P_Curry then [
 				instr2 := ins.j;
@@ -1330,8 +1315,7 @@ fn verify_type_equality(ctx : function_context,
 
 fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_stack : list(compare_fn_stack), t : tokens) : (function_context, int)
 [
-	var inv : list(compare_argument);
-	cc, typ, inv := get_base_definition(ctx, cc, typ, false, false);
+	cc, typ := get_base_definition(ctx, cc, typ, false);
 
 	if typ = T_UnknownType then
 		abort compiler_error("Only constants may be used in type definitions", t);
@@ -1753,7 +1737,7 @@ fn array_shape(ctx : function_context, cc : compare_context, a : int, t : tokens
 			var list_cc := args[0].cc;
 			var list_idx := args[0].idx;
 			var inv : list(compare_argument);
-			list_cc, list_idx, inv := get_base_definition(ctx, list_cc, list_idx, false, false);
+			list_cc, list_idx := get_base_definition(ctx, list_cc, list_idx, false);
 			var instrm_list := get_defined_maybe(list_cc, list_idx);
 			if instrm_list is j, instrm_list.j.opcode = P_Array_Create then [
 				var n_args := pcode_Array_Create_get_length(instrm_list.j);

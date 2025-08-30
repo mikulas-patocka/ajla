@@ -237,7 +237,7 @@ fn record_list_create(ctx : function_context, vd : variable_dictionary, t : toke
 	var at : int;
 	ctx, at := parse_expression_type(ctx, vd, t[ .. left_bracket - 1]);
 	var my_cc := new_compare_context(ctx);
-	var cc, typ, inv := get_base_definition(ctx, my_cc, at, true, false);
+	var cc, typ := get_base_definition(ctx, my_cc, at, true);
 	if typ = T_Record then [
 
 		{===================
@@ -470,7 +470,7 @@ fn non_empty_option_create(ctx : function_context, vd : variable_dictionary, t :
 	var at : int;
 	ctx, at := parse_expression_type(ctx, vd, t[ .. left_bracket - 3]);
 	var my_cc := new_compare_context(ctx);
-	var cc, typ, inv := get_base_definition(ctx, my_cc, at, true, false);
+	var cc, typ := get_base_definition(ctx, my_cc, at, true);
 	if typ <> T_Record then
 		abort compiler_error("Option expected", t);
 	var rec_def := cc.ctx.record_def.j;
@@ -689,7 +689,7 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 			 =========================}
 
 			var my_cc := new_compare_context(ctx);
-			var cc, typ, inv := get_base_definition(ctx, my_cc, a, true, false);
+			var cc, typ := get_base_definition(ctx, my_cc, a, true);
 			if typ <> T_Record then
 				abort compiler_error("Option type expected", t);
 			var rec_def := cc.ctx.record_def.j;
