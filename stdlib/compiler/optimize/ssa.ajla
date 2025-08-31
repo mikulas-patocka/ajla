@@ -1378,6 +1378,9 @@ next_dom:
 		]
 		goto end;
 	]
+	if ins.opcode = P_Where then [
+		return create_instr(P_Copy, list(pcode_t).[ ins.params[0], 0, ins.params[1] ], ins.bb), true;
+	]
 end:
 	if ins.borrow <> -1, (ins.params[ins.borrow - 1] and Flag_Borrow) = 0 then [
 		ins.params[ins.borrow - 1] or= Flag_Borrow;

@@ -27,6 +27,8 @@ implementation
 
 uses compiler.common.blob;
 uses compiler.parser.util;
+//uses compiler.parser.type;
+//uses compiler.parser.gen2;
 
 fn dump_function(def : function_definition) : list(pcode_t)
 [
@@ -75,6 +77,18 @@ fn dump_function(def : function_definition) : list(pcode_t)
 		var color := -1;
 		if (def.typ and Fn_Mask) = Fn_Record or (def.typ and Fn_Mask) = Fn_Option then
 			color := select(v.type_idx = T_Type, i, -1);
+		{var type_idx := v.type_idx;
+		while not typ_is_const(type_idx) do [
+			var def_at := ctx.variables[type_idx].defined_at;
+			if def_at >= 0 then [
+				var ins := ctx.instructions[def_at];
+				if ins.opcode = P_Where then [
+					type_idx := pcode_Where_get_type(ins);
+					continue;
+				]
+			]
+			break;
+		]}
 		result += list(pcode_t).[
 			v.type_idx,
 			v.local_type,

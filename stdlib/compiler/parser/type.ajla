@@ -179,9 +179,24 @@ fn convert_type(ctx : function_context, vd : variable_dictionary, a : int, cc : 
 	if match is eq then [
 		c := a;
 	] else [
-		ctx.inferred_base -= inferred_bias;
-		ctx, c := do_conversion(ctx, vd, a, a_typ, cc_to, typ_to, t);
-		ctx.inferred_base += inferred_bias;
+		var list_cc_from, list_typ_from := list_type(ctx, cc_from, typ_from, false, t);
+		var list_cc_to, list_typ_to := list_type(ctx, cc_to, typ_to, false, t);
+		if list_typ_from <> T_InvalidType, list_typ_to <> T_InvalidType then [
+			var ls_cc_from, ls_typ_from, ls_inv_from := get_type_invariants(ctx, list_cc_from, list_typ_from);
+			var ls_cc_to, ls_typ_to, ls_inv_to := get_type_invariants(ctx, list_cc_to, list_typ_to);
+			match := verify_type_equality(ctx, ls_cc_from, ls_typ_from, empty(compare_fn_stack), ls_cc_to, ls_typ_to, empty(compare_fn_stack));
+			if match is inferred then
+				return ctx, 0, match;
+			if not match is eq then
+				goto try_explicit_conversion;
+			// !!! FIXME: generate forall assumes and claims
+			c := a;
+		] else [
+try_explicit_conversion:
+			ctx.inferred_base -= inferred_bias;
+			ctx, c := do_conversion(ctx, vd, a, a_typ, cc_to, typ_to, t);
+			ctx.inferred_base += inferred_bias;
+		]
 	]
 
 	ctx := generate_assumes_or_claims(ctx, c, inv_to, true, t);
