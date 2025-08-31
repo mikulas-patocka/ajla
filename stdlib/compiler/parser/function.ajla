@@ -105,6 +105,29 @@ fn get_dependencies(ctx : function_context, cc : compare_context, arg : int, t :
 	return ctx.getting_dependencies;
 ]
 
+fn strip_invariants(ctx : function_context, pp : list(int), inferred_args : int, infer_bmp : int, t : tokens) : (function_context, list(int))
+[
+	while infer_bmp <> 0 do [
+		var a : int := bsf infer_bmp;
+		infer_bmp btr= a;
+		var aa := pp[a - inferred_args];
+
+		var acc, atyp := get_deep_type_of_var(ctx, aa);
+		var inv : list(compare_argument);
+		acc, atyp, inv := get_type_invariants(ctx, acc, atyp);
+
+		ctx := generate_assumes_or_claims(ctx, aa, inv, false, t);
+
+		var new_typ : int;
+		ctx, new_typ := evaluate_type(ctx, acc, atyp, empty(compare_fn_stack), t);
+		var new_p : int;
+		ctx, new_p := alloc_local_variable(ctx, new_typ, true, false);
+		ctx := generate_Copy(ctx, aa, new_p);
+		pp[a - inferred_args] := new_p;
+	]
+	return ctx, pp;
+]
+
 fn try_process_function(ctx : function_context, vd : variable_dictionary, fnx : int, call_mode : int, total_args : int, pp : list(int), pflags : list(int), arg_shift : int, r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
 [
 	var infer_bmp : int;
@@ -204,8 +227,11 @@ retry:
 						]
 					]
 				]
-				if infer_bmp <> 0 then
-					goto strip_invariants;
+				if infer_bmp <> 0 then [
+					ctx := ctx_backup;
+					ctx, pp := strip_invariants(ctx, pp, inferred_args, infer_bmp, t);
+					goto retry_after_stripping;
+				]
 				abort compiler_error("Argument " + ntos(i + 1) + " was not inferred", t);
 			]
 			if i >= len(cc.llt_redirect) then
@@ -228,28 +254,6 @@ retry:
 		return ctx, q;
 	]
 	return ctx, list(int).[ l ];
-
-strip_invariants:
-	ctx := ctx_backup;
-	while infer_bmp <> 0 do [
-		var a : int := bsf infer_bmp;
-		infer_bmp btr= a;
-		var aa := pp[a - inferred_args];
-
-		var acc, atyp := get_deep_type_of_var(ctx, aa);
-		var inv : list(compare_argument);
-		acc, atyp, inv := get_type_invariants(ctx, acc, atyp);
-
-		ctx := generate_assumes_or_claims(ctx, aa, inv, false, t);
-
-		var new_typ : int;
-		ctx, new_typ := evaluate_type(ctx, acc, atyp, empty(compare_fn_stack), t);
-		var new_p : int;
-		ctx, new_p := alloc_local_variable(ctx, new_typ, true, false);
-		ctx := generate_Copy(ctx, aa, new_p);
-		pp[a - inferred_args] := new_p;
-	]
-	goto retry_after_stripping;
 ]
 
 fn process_function(ctx : function_context, vd : variable_dictionary, fnx : int, call_mode : int, total_args : int, p : list(int), flags : list(int), r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
@@ -444,8 +448,11 @@ skip_bypass:
 						]
 					]
 				]
-				if infer_bmp <> 0 then
-					goto strip_invariants;
+				if infer_bmp <> 0 then [
+					ctx := ctx_backup;
+					ctx, pp := strip_invariants(ctx, pp, inferred_args, infer_bmp, t);
+					goto retry_after_stripping;
+				]
 				abort compiler_error("Argument " + ntos(i + 1) + " was not inferred", t);
 			]
 			if i >= len(fn_cc.args) then
@@ -459,28 +466,6 @@ skip_bypass:
 	]
 
 	return generate_Call(ctx, call_mode, fd, p, flags, t);
-
-strip_invariants:
-	ctx := ctx_backup;
-	while infer_bmp <> 0 do [
-		var a : int := bsf infer_bmp;
-		infer_bmp btr= a;
-		var aa := pp[a - inferred_args];
-
-		var acc, atyp := get_deep_type_of_var(ctx, aa);
-		var inv : list(compare_argument);
-		acc, atyp, inv := get_type_invariants(ctx, acc, atyp);
-
-		ctx := generate_assumes_or_claims(ctx, aa, inv, false, t);
-
-		var new_typ : int;
-		ctx, new_typ := evaluate_type(ctx, acc, atyp, empty(compare_fn_stack), t);
-		var new_p : int;
-		ctx, new_p := alloc_local_variable(ctx, new_typ, true, false);
-		ctx := generate_Copy(ctx, aa, new_p);
-		pp[a - inferred_args] := new_p;
-	]
-	goto retry_after_stripping;
 ]
 
 fn process_direct_function(ctx : function_context, vd : variable_dictionary, fd : function_definition, call_mode : int, p : list(int), flags : list(int), r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
