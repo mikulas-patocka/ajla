@@ -220,10 +220,10 @@ retry:
 			if p[i] = T_InvalidType then [
 				var deps := get_dependencies(ctx, cc, pcode_Fn_get_argument(instr, i), t);
 				infer_bmp := 0;
-				for i := 0 to inferred_args do [
-					if deps bt i then [
-						if have_type_invariants(ctx, new_compare_context(ctx), p[i]) then [
-							infer_bmp bts= inferred_by[i];
+				for j := 0 to inferred_args do [
+					if deps bt j then [
+						if have_type_invariants(ctx, new_compare_context(ctx), p[j]), inferred_by[j] >= 0  then [
+							infer_bmp bts= inferred_by[j];
 						]
 					]
 				]
@@ -441,10 +441,10 @@ skip_bypass:
 				l_cc := set_llt_main(l_cc, l_typ);
 				var deps := get_dependencies(ctx, l_cc, pcode_Fn_get_argument(l_instr, i), t);
 				infer_bmp := 0;
-				for i := 0 to inferred_args do [
-					if deps bt i then [
-						if have_type_invariants(ctx, new_compare_context(ctx), p[i]) then [
-							infer_bmp bts= inferred_by[i];
+				for j := 0 to inferred_args do [
+					if deps bt j then [
+						if have_type_invariants(ctx, new_compare_context(ctx), p[j]), inferred_by[j] >= 0 then [
+							infer_bmp bts= inferred_by[j];
 						]
 					]
 				]
