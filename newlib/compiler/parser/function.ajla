@@ -208,6 +208,7 @@ fn process_function(ctx : function_context, vd : variable_dictionary, fnx : int,
 	if ins is n or ins.j.opcode <> P_Fn then
 		abort compiler_error("Function expected", t);
 
+again:
 	var arg_shift := 0;
 	var first_ex := exception_make(function_context, ec_sync, error_record_field_not_initialized, 0, false);
 retry:
@@ -219,6 +220,21 @@ retry:
 		goto retry;
 	]
 	if is_exception ctx2, exception_type ctx2 = error_user then [
+		for i := 0 to len(p) do [
+			var cc, typ := get_deep_type_of_var(ctx, p[i]);
+			var inv : list(compare_argument);
+			cc, typ, inv := get_type_invariants(ctx, cc, typ);
+			if not len_greater_than(inv, 0) then
+				continue;
+			ctx := generate_assumes_or_claims(ctx, p[i], inv, false, t);
+			var new_typ : int;
+			ctx, new_typ := evaluate_type(ctx, cc, typ, empty(compare_fn_stack), t);
+			var new_p : int;
+			ctx, new_p := alloc_local_variable(ctx, new_typ, true, false);
+			ctx := generate_Copy(ctx, p[i], new_p);
+			p[i] := new_p;
+			goto again;
+		]
 		abort first_ex;
 	]
 	return ctx2, l2;
@@ -385,6 +401,7 @@ skip_bypass:
 
 fn process_direct_function(ctx : function_context, vd : variable_dictionary, fd : function_definition, call_mode : int, p : list(int), flags : list(int), r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
 [
+again:
 	var arg_shift := 0;
 	var first_ex := exception_make(function_context, ec_sync, error_record_field_not_initialized, 0, false);
 retry:
@@ -396,6 +413,21 @@ retry:
 		goto retry;
 	]
 	if is_exception ctx2, exception_type ctx2 = error_user then [
+		for i := 0 to len(p) do [
+			var cc, typ := get_deep_type_of_var(ctx, p[i]);
+			var inv : list(compare_argument);
+			cc, typ, inv := get_type_invariants(ctx, cc, typ);
+			if not len_greater_than(inv, 0) then
+				continue;
+			ctx := generate_assumes_or_claims(ctx, p[i], inv, false, t);
+			var new_typ : int;
+			ctx, new_typ := evaluate_type(ctx, cc, typ, empty(compare_fn_stack), t);
+			var new_p : int;
+			ctx, new_p := alloc_local_variable(ctx, new_typ, true, false);
+			ctx := generate_Copy(ctx, p[i], new_p);
+			p[i] := new_p;
+			goto again;
+		]
 		abort first_ex;
 	]
 	return ctx2, l2;
