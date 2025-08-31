@@ -620,6 +620,8 @@ skip_cond:
 		var arg1 := pcode_BinaryOp_get_arg1(instr);
 		var arg2 := pcode_BinaryOp_get_arg2(instr);
 		var ccx1, t1 := get_deep_type_of_var(cc_ctx, arg1);
+		var inv : list(compare_argument);
+		ccx1, t1, inv := get_type_invariants(ctx, ccx1, t1);
 		if not type_is_flat(t) then
 			abort internal("get_base_definition: invalid destination type for binary operation " + ntos(op) + ": " + ntos(t));
 		if not type_is_flat(t1) then
@@ -674,6 +676,8 @@ ret_true:
 		var op := pcode_UnaryOp_get_op(instr);
 		var arg1 := pcode_UnaryOp_get_arg(instr);
 		var ccx1, t1 := get_deep_type_of_var(cc_ctx, arg1);
+		var inv : list(compare_argument);
+		ccx1, t1, inv := get_type_invariants(ctx, ccx1, t1);
 		if not type_is_flat(t) then
 			abort internal("get_base_definition: invalid destination type for unary operation " + ntos(op) + ": " + ntos(t));
 		if not type_is_flat(t1) then

@@ -356,6 +356,8 @@ retry:
 	var op_bypass := fd.op_bypass;
 	if op_bypass >= 0 then [
 		var cc, typ := get_deep_type_of_var(ctx, p[2]);
+		var inv : list(compare_argument);
+		cc, typ, inv := get_type_invariants(ctx, cc, typ);
 		if typ = T_Bool then [
 			if op_bypass <> Bin_And and
 			   op_bypass <> Bin_Or and
