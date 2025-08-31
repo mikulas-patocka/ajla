@@ -102,8 +102,7 @@ fn try_process_function(ctx : function_context, vd : variable_dictionary, fnx : 
 	var provided_args := len(p);
 
 	var cc, typ := get_deep_type_of_var(ctx, fnx);
-	var ins := get_defined_maybe(cc, typ);
-	var instr := ins.j;
+	var instr := get_defined(cc, typ);
 
 	if arg_shift > 0, total_args <> provided_args or total_args + arg_shift > pcode_Fn_get_n_args(instr) then
 		abort exception_make(int, ec_sync, error_user, 0, false);
