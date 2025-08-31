@@ -180,7 +180,7 @@ fn convert_type(ctx : function_context, vd : variable_dictionary, a : int, cc : 
 		c := a;
 	] else [
 		ctx.inferred_base -= inferred_bias;
-		ctx, c := do_conversion(ctx, vd, a, a_typ, cc, typ, t);
+		ctx, c := do_conversion(ctx, vd, a, a_typ, cc_to, typ_to, t);
 		ctx.inferred_base += inferred_bias;
 	]
 
