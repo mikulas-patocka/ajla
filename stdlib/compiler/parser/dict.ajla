@@ -163,6 +163,7 @@ record function_context [
 	vfy_tagged : bool;
 
 	parsing_where : int;
+	getting_dependencies : int;
 ]
 
 record function_definition [
@@ -467,6 +468,7 @@ fn new_function_context(dict : function_dictionary, parent_function : maybe(func
 		vfy_tagged : false,
 
 		parsing_where : T_InvalidType,
+		getting_dependencies : -1,
 	];
 	return ctx;
 ]

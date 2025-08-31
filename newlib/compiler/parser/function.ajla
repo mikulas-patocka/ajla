@@ -97,9 +97,19 @@ cont:
 	return ctx, T_InvalidType;
 ]
 
-fn try_process_function(ctx : function_context, vd : variable_dictionary, fnx : int, call_mode : int, total_args : int, p : list(int), flags : list(int), arg_shift : int, r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
+fn get_dependencies(ctx : function_context, cc : compare_context, arg : int, t : tokens) : int
 [
-	var provided_args := len(p);
+	var v : int;
+	ctx.getting_dependencies := 0;
+	ctx, v := evaluate_type(ctx, cc, arg, empty(compare_fn_stack), t);
+	return ctx.getting_dependencies;
+]
+
+fn try_process_function(ctx : function_context, vd : variable_dictionary, fnx : int, call_mode : int, total_args : int, pp : list(int), pflags : list(int), arg_shift : int, r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
+[
+	var infer_bmp : int;
+
+	var provided_args := len(pp);
 
 	var cc, typ := get_deep_type_of_var(ctx, fnx);
 	var instr := get_defined(cc, typ);
@@ -111,8 +121,15 @@ fn try_process_function(ctx : function_context, vd : variable_dictionary, fnx : 
 		abort compiler_error("Too many arguments", t);
 
 	var inferred_args := pcode_Fn_get_n_args(instr) - total_args - arg_shift;
-	p := fill(T_InvalidType, inferred_args) + p + fill(T_InvalidType, arg_shift);
-	flags := fill(0, inferred_args) + flags + fill(0, arg_shift);
+
+retry_after_stripping:
+	cc, typ := get_deep_type_of_var(ctx, fnx);
+
+	var ctx_backup := ctx;
+	var inferred_by := fill(-1, inferred_args);
+
+	var p := fill(T_InvalidType, inferred_args) + pp + fill(T_InvalidType, arg_shift);
+	var flags := fill(0, inferred_args) + pflags + fill(0, arg_shift);
 
 	cc := set_llt_main(cc, typ);
 	for i := 0 to inferred_args do [
@@ -135,6 +152,7 @@ retry:
 				continue;
 
 			p[inf_idx] := pi;
+			inferred_by[inf_idx] := i;
 			cc.llt_redirect[inf_idx] := new_compare_argument(new_compare_context(ctx), p[inf_idx]);
 			cc.llt_redirect := cc.llt_redirect[ .. inferred_args];
 			goto retry;
@@ -176,8 +194,20 @@ retry:
 				implicits_initialized := true;
 			]
 			ctx, p[i] := infer_argument(ctx, implicits, implicit_variables, cc, pcode_Fn_get_argument(instr, i), t);
-			if p[i] = T_InvalidType then
+			if p[i] = T_InvalidType then [
+				var deps := get_dependencies(ctx, cc, pcode_Fn_get_argument(instr, i), t);
+				infer_bmp := 0;
+				for i := 0 to inferred_args do [
+					if deps bt i then [
+						if have_type_invariants(ctx, new_compare_context(ctx), p[i]) then [
+							infer_bmp bts= inferred_by[i];
+						]
+					]
+				]
+				if infer_bmp <> 0 then
+					goto strip_invariants;
 				abort compiler_error("Argument " + ntos(i + 1) + " was not inferred", t);
+			]
 			if i >= len(cc.llt_redirect) then
 				cc.llt_redirect +<= new_compare_argument(new_compare_context(ctx), p[i]);
 			else
@@ -198,26 +228,28 @@ retry:
 		return ctx, q;
 	]
 	return ctx, list(int).[ l ];
-]
 
-fn strip_invariants(ctx : function_context, p : list(int), t : tokens) : (function_context, list(int))
-[
-	for i := 0 to len(p) do [
-		var cc, typ := get_deep_type_of_var(ctx, p[i]);
+strip_invariants:
+	ctx := ctx_backup;
+	while infer_bmp <> 0 do [
+		var a : int := bsf infer_bmp;
+		infer_bmp btr= a;
+		var aa := pp[a - inferred_args];
+
+		var acc, atyp := get_deep_type_of_var(ctx, aa);
 		var inv : list(compare_argument);
-		cc, typ, inv := get_type_invariants(ctx, cc, typ);
-		if not len_greater_than(inv, 0) then
-			continue;
-		ctx := generate_assumes_or_claims(ctx, p[i], inv, false, t);
+		acc, atyp, inv := get_type_invariants(ctx, acc, atyp);
+
+		ctx := generate_assumes_or_claims(ctx, aa, inv, false, t);
+
 		var new_typ : int;
-		ctx, new_typ := evaluate_type(ctx, cc, typ, empty(compare_fn_stack), t);
+		ctx, new_typ := evaluate_type(ctx, acc, atyp, empty(compare_fn_stack), t);
 		var new_p : int;
 		ctx, new_p := alloc_local_variable(ctx, new_typ, true, false);
-		ctx := generate_Copy(ctx, p[i], new_p);
-		p[i] := new_p;
-		return ctx, p;
+		ctx := generate_Copy(ctx, aa, new_p);
+		pp[a - inferred_args] := new_p;
 	]
-	return ctx, empty(int);
+	goto retry_after_stripping;
 ]
 
 fn process_function(ctx : function_context, vd : variable_dictionary, fnx : int, call_mode : int, total_args : int, p : list(int), flags : list(int), r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
@@ -239,17 +271,16 @@ retry:
 		goto retry;
 	]
 	if is_exception ctx2, exception_type ctx2 = error_user then [
-		ctx, p := strip_invariants(ctx, p, t);
-		if len_greater_than(p, 0) then
-			goto again;
 		abort first_ex;
 	]
 	return ctx2, l2;
 ]
 
-fn try_process_direct_function(ctx : function_context, vd : variable_dictionary, fd : function_definition, call_mode : int, p : list(int), flags : list(int), arg_shift : int, r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
+fn try_process_direct_function(ctx : function_context, vd : variable_dictionary, fd : function_definition, call_mode : int, pp : list(int), pflags : list(int), arg_shift : int, r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
 [
-	var total_args := len(p);
+	var infer_bmp : int;
+
+	var total_args := len(pp);
 
 	if arg_shift > 0, total_args + arg_shift > fd.signature.n_arguments then
 		abort exception_make(int, ec_sync, error_user, 0, false);
@@ -258,8 +289,13 @@ fn try_process_direct_function(ctx : function_context, vd : variable_dictionary,
 		abort compiler_error("Too many arguments", t);
 
 	var inferred_args := fd.signature.n_arguments - total_args - arg_shift;
-	p := fill(T_InvalidType, inferred_args) + p + fill(T_InvalidType, arg_shift);
-	flags := fill(0, inferred_args) + flags + fill(0, arg_shift);
+
+retry_after_stripping:
+	var ctx_backup := ctx;
+	var inferred_by := fill(-1, inferred_args);
+
+	var p := fill(T_InvalidType, inferred_args) + pp + fill(T_InvalidType, arg_shift);
+	var flags := fill(0, inferred_args) + pflags + fill(0, arg_shift);
 
 	var fn_cc := new_compare_context_from_function(fd.signature);
 	for i := 0 to inferred_args do [
@@ -282,6 +318,7 @@ retry:
 				continue;
 
 			p[inf_idx] := pi;
+			inferred_by[inf_idx] := i;
 			fn_cc.args[inf_idx] := new_compare_argument(new_compare_context(ctx), p[inf_idx]);
 			fn_cc.args := fn_cc.args[ .. inferred_args];
 			goto retry;
@@ -391,8 +428,26 @@ skip_bypass:
 				implicits_initialized := true;
 			]
 			ctx, p[i] := infer_argument(ctx, implicits, implicit_variables, fn_cc, fn_cc.ctx.variables[i].type_idx, t);
-			if p[i] = T_InvalidType then
+			if p[i] = T_InvalidType then [
+				var l : int;
+				ctx, l := generate_Load_Fn(ctx, fd, t);
+				var l_typ := get_type_of_var(ctx, l);
+				var l_cc := new_compare_context(ctx);
+				var l_instr := get_defined(l_cc, l_typ);
+				l_cc := set_llt_main(l_cc, l_typ);
+				var deps := get_dependencies(ctx, l_cc, pcode_Fn_get_argument(l_instr, i), t);
+				infer_bmp := 0;
+				for i := 0 to inferred_args do [
+					if deps bt i then [
+						if have_type_invariants(ctx, new_compare_context(ctx), p[i]) then [
+							infer_bmp bts= inferred_by[i];
+						]
+					]
+				]
+				if infer_bmp <> 0 then
+					goto strip_invariants;
 				abort compiler_error("Argument " + ntos(i + 1) + " was not inferred", t);
+			]
 			if i >= len(fn_cc.args) then
 				fn_cc.args +<= new_compare_argument(new_compare_context(ctx), p[i]);
 			else
@@ -404,6 +459,28 @@ skip_bypass:
 	]
 
 	return generate_Call(ctx, call_mode, fd, p, flags, t);
+
+strip_invariants:
+	ctx := ctx_backup;
+	while infer_bmp <> 0 do [
+		var a : int := bsf infer_bmp;
+		infer_bmp btr= a;
+		var aa := pp[a - inferred_args];
+
+		var acc, atyp := get_deep_type_of_var(ctx, aa);
+		var inv : list(compare_argument);
+		acc, atyp, inv := get_type_invariants(ctx, acc, atyp);
+
+		ctx := generate_assumes_or_claims(ctx, aa, inv, false, t);
+
+		var new_typ : int;
+		ctx, new_typ := evaluate_type(ctx, acc, atyp, empty(compare_fn_stack), t);
+		var new_p : int;
+		ctx, new_p := alloc_local_variable(ctx, new_typ, true, false);
+		ctx := generate_Copy(ctx, aa, new_p);
+		pp[a - inferred_args] := new_p;
+	]
+	goto retry_after_stripping;
 ]
 
 fn process_direct_function(ctx : function_context, vd : variable_dictionary, fd : function_definition, call_mode : int, p : list(int), flags : list(int), r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
@@ -420,9 +497,6 @@ retry:
 		goto retry;
 	]
 	if is_exception ctx2, exception_type ctx2 = error_user then [
-		ctx, p := strip_invariants(ctx, p, t);
-		if len_greater_than(p, 0) then
-			goto again;
 		abort first_ex;
 	]
 	return ctx2, l2;

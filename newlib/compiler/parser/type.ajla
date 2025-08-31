@@ -67,6 +67,7 @@ const gbd_const_blob := 71;
 fn typ_is_const(typ : int) : bool;
 fn get_base_definition(ctx : function_context, cc : compare_context, typ : int, want_record : bool) : (compare_context, int);
 fn get_deep_type_of_var(ctx : function_context, v : int) : (compare_context, int);
+fn have_type_invariants(ctx : function_context, cc : compare_context, typ : int) : bool;
 fn get_type_invariants(ctx : function_context, cc : compare_context, typ : int) : (compare_context, int, list(compare_argument));
 
 fn verify_type_equality(ctx : function_context,
@@ -436,8 +437,9 @@ restart:
 		goto restart;
 	]
 
-	if def_at = defined_argument then
+	if def_at = defined_argument then [
 		return cc, typ;
+	]
 
 	var instr := cc_ctx.instructions[def_at];
 	var opcode := instr.opcode;
@@ -556,6 +558,8 @@ skip_cond:
 	]
 	if opcode = P_Load_Local_Type then [
 		if cc.llt_main is j, pcode_Load_Local_Type_get_function(instr) = cc.llt_main.j then [
+			if ctx.getting_dependencies >= 0 then
+				return cc, typ;
 			var r := cc.llt_redirect[pcode_Load_Local_Type_get_index(instr)];
 			cc, typ := r.cc, r.idx;
 			goto restart_fail;
@@ -755,6 +759,20 @@ fn get_deep_type_of_var(ctx : function_context, v : int) : (compare_context, int
 	var cc := new_compare_context(ctx);
 	cc, typ := get_base_definition(ctx, cc, typ, true);
 	return cc, typ;
+]
+
+fn have_type_invariants(ctx : function_context, cc : compare_context, typ : int) : bool
+[
+	cc, typ := get_base_definition(ctx, cc, typ, false);
+	if typ_is_const(typ) then
+		return false;
+
+	var instr := get_defined(cc, typ);
+	var opcode := instr.opcode;
+	if opcode = P_Where then
+		return true;
+
+	return false;
 ]
 
 fn get_type_invariants(ctx : function_context, cc : compare_context, typ : int) : (compare_context, int, list(compare_argument))
@@ -1395,7 +1413,7 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 	 * if we are called from generate_Load_Fn, we must shortcut local variables due to Load_Local_Type
 	 * if we are called from generate_Curry or generate_Call_Indirect, we must not shortcut local variables due to Load_Local_Type
 	 *}
-	if cc.root and cc.llt_main is n then
+	if cc.root and cc.llt_main is n and ctx.getting_dependencies < 0 then
 		return ctx, typ;
 
 	var instr := get_defined(cc, typ);
@@ -1512,6 +1530,10 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 		return ctx, l;
 	]
 	if opcode = P_Load_Local_Type then [
+		if cc.llt_main is j, pcode_Load_Local_Type_get_function(instr) = cc.llt_main.j, ctx.getting_dependencies >= 0 then [
+			ctx.getting_dependencies bts= pcode_Load_Local_Type_get_index(instr);
+			return ctx, T_Type;
+		]
 		var s, d := find_fn_stack_depth(fn_stack, cc, pcode_Load_Local_Type_get_function(instr));
 		if d = -1 then
 			abort internal("find_fn_stack_depth: Fn definition not found");
