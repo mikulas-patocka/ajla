@@ -201,6 +201,26 @@ retry:
 	return ctx, list(int).[ l ];
 ]
 
+fn strip_invariants(ctx : function_context, p : list(int), t : tokens) : (function_context, list(int))
+[
+	for i := 0 to len(p) do [
+		var cc, typ := get_deep_type_of_var(ctx, p[i]);
+		var inv : list(compare_argument);
+		cc, typ, inv := get_type_invariants(ctx, cc, typ);
+		if not len_greater_than(inv, 0) then
+			continue;
+		ctx := generate_assumes_or_claims(ctx, p[i], inv, false, t);
+		var new_typ : int;
+		ctx, new_typ := evaluate_type(ctx, cc, typ, empty(compare_fn_stack), t);
+		var new_p : int;
+		ctx, new_p := alloc_local_variable(ctx, new_typ, true, false);
+		ctx := generate_Copy(ctx, p[i], new_p);
+		p[i] := new_p;
+		return ctx, p;
+	]
+	return ctx, empty(int);
+]
+
 fn process_function(ctx : function_context, vd : variable_dictionary, fnx : int, call_mode : int, total_args : int, p : list(int), flags : list(int), r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
 [
 	var cc, typ := get_deep_type_of_var(ctx, fnx);
@@ -220,21 +240,9 @@ retry:
 		goto retry;
 	]
 	if is_exception ctx2, exception_type ctx2 = error_user then [
-		for i := 0 to len(p) do [
-			var cc, typ := get_deep_type_of_var(ctx, p[i]);
-			var inv : list(compare_argument);
-			cc, typ, inv := get_type_invariants(ctx, cc, typ);
-			if not len_greater_than(inv, 0) then
-				continue;
-			ctx := generate_assumes_or_claims(ctx, p[i], inv, false, t);
-			var new_typ : int;
-			ctx, new_typ := evaluate_type(ctx, cc, typ, empty(compare_fn_stack), t);
-			var new_p : int;
-			ctx, new_p := alloc_local_variable(ctx, new_typ, true, false);
-			ctx := generate_Copy(ctx, p[i], new_p);
-			p[i] := new_p;
+		ctx, p := strip_invariants(ctx, p, t);
+		if len_greater_than(p, 0) then
 			goto again;
-		]
 		abort first_ex;
 	]
 	return ctx2, l2;
@@ -413,21 +421,9 @@ retry:
 		goto retry;
 	]
 	if is_exception ctx2, exception_type ctx2 = error_user then [
-		for i := 0 to len(p) do [
-			var cc, typ := get_deep_type_of_var(ctx, p[i]);
-			var inv : list(compare_argument);
-			cc, typ, inv := get_type_invariants(ctx, cc, typ);
-			if not len_greater_than(inv, 0) then
-				continue;
-			ctx := generate_assumes_or_claims(ctx, p[i], inv, false, t);
-			var new_typ : int;
-			ctx, new_typ := evaluate_type(ctx, cc, typ, empty(compare_fn_stack), t);
-			var new_p : int;
-			ctx, new_p := alloc_local_variable(ctx, new_typ, true, false);
-			ctx := generate_Copy(ctx, p[i], new_p);
-			p[i] := new_p;
+		ctx, p := strip_invariants(ctx, p, t);
+		if len_greater_than(p, 0) then
 			goto again;
-		]
 		abort first_ex;
 	]
 	return ctx2, l2;
