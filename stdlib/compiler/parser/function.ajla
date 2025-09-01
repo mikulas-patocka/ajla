@@ -396,6 +396,9 @@ retry:
 		] else [
 			goto skip_bypass;
 		]
+		ctx := generate_assumes_or_claims(ctx, p[2], inv, false, t);
+		if fd.signature.n_arguments = 4 then
+			ctx := generate_assumes_or_claims(ctx, p[3], inv, false, t);
 		//eval debug("doing op bypass: " + i_decode(fd.signature.name) + ", " + ntos(op_bypass) + ", " + ntos(len(p)));
 		var rtype := typ;
 		if op_bypass = Bin_Bt or
