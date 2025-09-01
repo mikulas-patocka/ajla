@@ -1921,8 +1921,11 @@ fn generate_foreach_assumes_or_claims(ctx : function_context, a : int, inv : lis
 		function_index : [ predefined_len ],
 	];
 	var len_fd := search_function_from_id(ctx, len_id);
+	var list_cc, list_typ := list_type(ctx, new_compare_context(ctx), a, false, t);
+	var list_ev : int;
+	ctx, list_ev := evaluate_type(ctx, list_cc, list_typ, empty(compare_fn_stack), t);
 	var ln : list(int);
-	ctx, ln := generate_Call(ctx, Call_Mode_Unspecified, len_fd, [ a ], [ 0 ], t);
+	ctx, ln := generate_Call(ctx, Call_Mode_Unspecified, len_fd, [ list_ev, a ], [ 0, 0 ], t);
 
 	var ctx, lt := alloc_local_variable(ctx, T_Bool, true, false);
 	ctx := generate_BinaryOp(ctx, Bin_Greater, ln[0], li, lt);

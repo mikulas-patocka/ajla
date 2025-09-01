@@ -396,9 +396,21 @@ retry:
 		] else [
 			goto skip_bypass;
 		]
-		ctx := generate_assumes_or_claims(ctx, p[2], inv, false, t);
-		if fd.signature.n_arguments = 4 then
-			ctx := generate_assumes_or_claims(ctx, p[3], inv, false, t);
+		var strip_bmp := 0;
+		if len_greater_than(inv, 0) then
+			strip_bmp bts= 2;
+		if fd.signature.n_arguments = 4 then [
+			var cc2, typ2 := get_deep_type_of_var(ctx, p[3]);
+			var inv2 : list(compare_argument);
+			cc2, typ2, inv2 := get_type_invariants(ctx, cc2, typ2);
+			if len_greater_than(inv2, 0) then
+				strip_bmp bts=3;
+		]
+		if strip_bmp <> 0 then [
+			ctx := ctx_backup;
+			ctx, pp := strip_invariants(ctx, pp, inferred_args, strip_bmp, t);
+			goto retry_after_stripping;
+		]
 		//eval debug("doing op bypass: " + i_decode(fd.signature.name) + ", " + ntos(op_bypass) + ", " + ntos(len(p)));
 		var rtype := typ;
 		if op_bypass = Bin_Bt or
