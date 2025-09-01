@@ -36,6 +36,7 @@ type nat := int where is_positive(value);
 //type nat := int;
 
 private type xarray~inline(dim : list(nat), t : type);
+fn len~inline(t : type, a : list(t)) : nat;
 
 type array(t : type, dim : list(nat)) := xarray(dim, t);
 
@@ -449,7 +450,6 @@ fn fork(t : type, w : t) : (t, t);
  - LIST FUNCTIONS -
  ------------------}
 
-fn len~inline(t : type, a : list(t)) : nat;
 fn len_at_least~inline(t : type, a : list(t), l : int) : bool;
 fn len_greater_than~inline(t : type, a : list(t), l : int) : bool;
 fn empty~inline(t : type) : list(t);

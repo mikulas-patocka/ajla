@@ -20,12 +20,13 @@ private unit compiler.parser.type;
 
 uses compiler.parser.dict;
 
-const predefined_byte : int := 0;
-const predefined_bytes : int := 1;
-const predefined_char : int := 2;
-const predefined_string : int := 3;
-const predefined_list : int := 4;
-const predefined_xarray : int := 7;
+const predefined_byte := 0;
+const predefined_bytes := 1;
+const predefined_char := 2;
+const predefined_string := 3;
+const predefined_list := 4;
+const predefined_xarray := 7;
+const predefined_len := 8;
 
 fn type_is_flat(t : int) := t <= T_SInt8 and t >= T_Bool;
 
@@ -82,7 +83,8 @@ fn list_type(ctx : function_context, cc : compare_context, a : int, err : bool, 
 fn evaluate_list_type(ctx : function_context, a : int, t : tokens) : (function_context, int);
 fn get_list_id : function_unique_id;
 
-fn generate_assumes_or_claims(ctx : function_context, a : int, l : list(compare_argument), cl : bool, t : tokens) : function_context;
+fn generate_assumes_or_claims(ctx : function_context, a : int, inv : list(compare_argument), cl : bool, t : tokens) : function_context;
+fn generate_foreach_assumes_or_claims(ctx : function_context, a : int, inv : list(compare_argument), cl : bool, t : tokens) : function_context;
 
 implementation
 
@@ -189,8 +191,9 @@ fn convert_type(ctx : function_context, vd : variable_dictionary, a : int, cc : 
 				return ctx, 0, match;
 			if not match is eq then
 				goto try_explicit_conversion;
-			// !!! FIXME: generate forall assumes and claims
+			ctx := generate_foreach_assumes_or_claims(ctx, a, ls_inv_from, false, t);
 			c := a;
+			ctx := generate_foreach_assumes_or_claims(ctx, c, ls_inv_to, true, t);
 		] else [
 try_explicit_conversion:
 			ctx.inferred_base -= inferred_bias;
@@ -1875,18 +1878,87 @@ fn get_list_id : function_unique_id
 	];
 ]
 
-fn generate_assumes_or_claims(ctx : function_context, a : int, l : list(compare_argument), cl : bool, t : tokens) : function_context
+fn generate_assumes_or_claims(ctx : function_context, a : int, inv : list(compare_argument), cl : bool, t : tokens) : function_context
 [
 	var pw := ctx.parsing_where;
 	ctx.parsing_where := a;
-	for i := 0 to len(l) do [
+	for i := 0 to len(inv) do [
 		var v : int;
-		ctx, v := evaluate_type(ctx, l[i].cc, l[i].idx, empty(compare_fn_stack), t);
+		ctx, v := evaluate_type(ctx, inv[i].cc, inv[i].idx, empty(compare_fn_stack), t);
 		if not cl then
 			ctx := generate_Assume(ctx, v, false);
 		else
 			ctx := generate_Claim(ctx, v, false);
 	]
 	ctx.parsing_where := pw;
+	return ctx;
+]
+
+fn generate_foreach_assumes_or_claims(ctx : function_context, a : int, inv : list(compare_argument), cl : bool, t : tokens) : function_context
+[
+	//forall(i : int, i >= 0 and i < len(a) ==> inv1(a[i]) and inv2(a[i]) and inv3(a[i]);
+	if not len_greater_than(inv, 0) then
+		return ctx;
+	return ctx;
+
+	var l : int;
+	ctx, l := alloc_local_variable(ctx, T_Bool, true, false);
+
+	var li : int;
+	ctx, li := alloc_local_variable(ctx, T_Integer, true, false);
+	ctx := generate_Load_Local_Type(ctx, l, 0, li);
+
+	var z : int;
+	ctx, z := generate_Load_Const(ctx, T_Integer, int_to_blob(0));
+	var ge : int;
+	ctx, ge := alloc_local_variable(ctx, T_Bool, true, false);
+	ctx := generate_BinaryOp(ctx, Bin_GreaterEqual, li, z, ge);
+
+	var len_id := function_unique_id.[
+		path_index : 0,
+		unit_string : i_encode("system"),
+		program : false,
+		function_index : [ predefined_len ],
+	];
+	var len_fd := search_function_from_id(ctx, len_id);
+	var ln : list(int);
+	ctx, ln := generate_Call(ctx, Call_Mode_Unspecified, len_fd, [ a ], [ 0 ], t);
+
+	var ctx, lt := alloc_local_variable(ctx, T_Bool, true, false);
+	ctx := generate_BinaryOp(ctx, Bin_Greater, ln[0], li, lt);
+
+	var l_pre : int;
+	ctx, l_pre := alloc_local_variable(ctx, T_Bool, true, false);
+	ctx := generate_BinaryOp(ctx, Bin_And, ge, lt, l_pre);
+
+	var ai : int;
+	ctx, ai := generate_Array_Load(ctx, a, li, t);
+
+	var invs : int;
+	ctx, invs := generate_Load_Const(ctx, T_Bool, int_to_blob(1));
+	for i := 0 to len(inv) do [
+		var pw := ctx.parsing_where;
+		ctx.parsing_where := ai;
+
+		var v : int;
+		ctx, v := evaluate_type(ctx, inv[i].cc, inv[i].idx, empty(compare_fn_stack), t);
+
+		ctx.parsing_where := pw;
+
+		var invn : int;
+		ctx, invn := alloc_local_variable(ctx, T_Bool, true, false);
+		ctx := generate_BinaryOp(ctx, Bin_And, invs, v, invn);
+		invs := invn;
+	]
+
+	var im : int;
+	ctx, im := alloc_local_variable(ctx, T_Bool, true, false);
+	ctx := generate_BinaryOp(ctx, Bin_GreaterEqual, invs, l_pre, im);
+
+	if not cl then
+		ctx := generate_Assume(ctx, im, false);
+	else
+		ctx := generate_Claim(ctx, im, false);
+
 	return ctx;
 ]
