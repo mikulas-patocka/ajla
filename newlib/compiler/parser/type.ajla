@@ -1899,7 +1899,6 @@ fn generate_foreach_assumes_or_claims(ctx : function_context, a : int, inv : lis
 	//forall(i : int, i >= 0 and i < len(a) ==> inv1(a[i]) and inv2(a[i]) and inv3(a[i]);
 	if not len_greater_than(inv, 0) then
 		return ctx;
-	return ctx;
 
 	var l : int;
 	ctx, l := alloc_local_variable(ctx, T_Bool, true, false);
@@ -1958,10 +1957,14 @@ fn generate_foreach_assumes_or_claims(ctx : function_context, a : int, inv : lis
 	ctx, im := alloc_local_variable(ctx, T_Bool, true, false);
 	ctx := generate_BinaryOp(ctx, Bin_GreaterEqual, invs, l_pre, im);
 
+	ctx := set_defined_here(ctx, l);
+	ctx := generate_ForAll(ctx, l, T_Integer, im);
+
+	//eval debug("generating " + select(cl, "assume", "claim"));
 	if not cl then
-		ctx := generate_Assume(ctx, im, false);
+		ctx := generate_Assume(ctx, l, false);
 	else
-		ctx := generate_Claim(ctx, im, false);
+		ctx := generate_Claim(ctx, l, false);
 
 	return ctx;
 ]

@@ -1895,6 +1895,8 @@ fn remap_variables(ctx : context, old_new : list(int)) : context
 				continue;
 			]
 			var s := ins.read_set or ins.write_set;
+			if ins.opcode = P_Load_Local_Type, ins.params[1] >= 0 then
+				s bts= 1;
 			while s <> 0 do [
 				var p : int := bsr s;
 				s btr= p;
@@ -2902,7 +2904,12 @@ retry_optimize:
 		ctx := check_consistency(ctx, "dlte-verify", true);
 
 		if print_passes then [ eval ctx; eval debug("verify_function"); if is_exception ctx then eval debug("ctx exception"); ]
-		xeval verify_function(ctx);
+		var vf := verify_function(ctx);
+		if is_exception vf then [
+			var d := get_dump("pcode");
+			eval dump_basic_blocks(ctx, glob_bytes(ctx.name, d, true));
+			xeval vf;
+		]
 
 		ctx := ctx2;
 		goto did_verify;
