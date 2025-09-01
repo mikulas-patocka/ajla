@@ -289,7 +289,10 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 		else if op = Bin_Xor		then str := "distinct";
 		else if op = Bin_Equal		then str := "=";
 		else if op = Bin_NotEqual	then str := "distinct";
+		else if op = Bin_Less		then str := "bool-less";
 		else if op = Bin_LessEqual	then str := "=>";
+		else if op = Bin_Greater	then str := "bool-greater";
+		else if op = Bin_GreaterEqual	then str := "bool-greater-equal";
 		else if op = Un_Not		then str := "not";
 	] else [
 		abort internal("get_z3_operator: invalid type " + ntos(typ));
@@ -822,6 +825,10 @@ fn verify_function(ctx : context) : unit_type
 	z3_eval_noret(ctx, "(define-fun int-not ((x Int)) Int (- (- x) 1))");
 
 	z3_eval_noret(ctx, "(define-fun real-to-int ((x Real)) Int (ite (>= x 0) (to_int x) (- (to_int (- x)))))");
+
+	z3_eval_noret(ctx, "(define-fun bool-less ((x Bool) (y Bool)) Bool (and (not x) y))");
+	z3_eval_noret(ctx, "(define-fun bool-greater ((x Bool) (y Bool)) Bool (and x (not y)))");
+	z3_eval_noret(ctx, "(define-fun bool-greater-equal ((x Bool) (y Bool)) Bool (or x (not y)))");
 
 	for bgi := 0 to len(ctx.blocks) do [
 		if not ctx.blocks[bgi].active then
