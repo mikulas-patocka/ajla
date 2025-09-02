@@ -1435,7 +1435,7 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 	 * if we are called from generate_Load_Fn, we must shortcut local variables due to Load_Local_Type
 	 * if we are called from generate_Curry or generate_Call_Indirect, we must not shortcut local variables due to Load_Local_Type
 	 *}
-	if cc.root and cc.llt_main is n and ctx.getting_dependencies < 0 then
+	if cc.root and cc.llt_main is n and ctx.getting_dependencies < 0 and ctx.parsing_where = T_InvalidType then
 		return ctx, typ;
 
 	var instr := get_defined(cc, typ);
