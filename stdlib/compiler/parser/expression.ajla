@@ -546,11 +546,11 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 		var typ : int;
 		ctx, typ := parse_expression_type(ctx, vd, t[ .. wh]);
 
-		var pw := ctx.parsing_where;
-		ctx.parsing_where := typ;
+		var pwt := ctx.parsing_where_type;
+		ctx.parsing_where_type := typ;
 		var w : int;
 		ctx, w := parse_expression_bool(ctx, vd, t[wh + 1 .. ], in_type);
-		ctx.parsing_where := pw;
+		ctx.parsing_where_type := pwt;
 
 		var l : int;
 		ctx, l := generate_Where(ctx, typ, w);
@@ -789,10 +789,10 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 		]
 
 		if t[0].t is k_value then [
-			if ctx.parsing_where = T_InvalidType then
+			if ctx.parsing_where_type = T_InvalidType then
 				abort compiler_error("The value keyword may be used only in the where clause", t);
 			var l : int;
-			ctx, l := generate_Value(ctx, ctx.parsing_where);
+			ctx, l := generate_Value(ctx, ctx.parsing_where_type);
 			return ctx, [ l ];
 
 		]
