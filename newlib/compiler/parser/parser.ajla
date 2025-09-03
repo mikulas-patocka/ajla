@@ -517,6 +517,17 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 	var op_mode : op_option;
 	var op_priority : int;
 	var post_hints : list(bytes);
+	var wh_expr := empty(token);
+	if decl_type is k_record or decl_type is k_option then [
+		var wh := token_find(t, token_opt.k_where, false);
+		if wh >= 0 then [
+			wh_expr := t[wh + 1 .. len(t) - 1];
+			if not len_greater_than(wh_expr, 0) then
+				abort compiler_error("Empty where clause", t);
+			t := t[ .. wh];
+
+		]
+	]
 	if decl_type is k_operator then [
 		op_mode := op_option.infix_op;
 		t := t[1 .. ];
@@ -651,6 +662,17 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 			abort internal("invalid decl_type " + ntos(ord decl_type));
 		]
 
+		if len_greater_than(wh_expr, 0) then [
+			var typ : int;
+			ctx, typ := generate_Call_self(ctx);
+			var pwt := ctx.parsing_where_type;
+			ctx.parsing_where_type := typ;
+			var wh_var : int;
+			ctx, wh_var := parse_expression_bool(ctx, vd, wh_expr, false);
+			ctx.parsing_where_type := pwt;
+			ctx.record_where := wh_var;
+		]
+
 		ctx := generate_local_types(ctx);
 
 		ctx.incomplete := false;
@@ -660,6 +682,8 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 		if def.signature.inferred_return then
 			dict.defs[def.signature.id.function_index[0]].signature := ctx;
 	] else [
+		if decl_type is k_record or decl_type is k_option then
+			abort compiler_error("Record or option with no body", t);
 		if def.signature.inferred_return then
 			abort compiler_error("Function with inferred return type was not defined", t);
 	]

@@ -43,6 +43,13 @@ uses compiler.parser.function;
 uses compiler.parser.local_type;
 uses compiler.parser.parser;
 
+fn verify_created_variable(ctx : function_context, l : int, t : tokens) : function_context
+[
+	var cc, ty, inv := get_type_invariants(ctx, new_compare_context(ctx), get_type_of_var(ctx, l));
+	ctx := generate_assumes_or_claims(ctx, l, inv, true, t);
+	return ctx;
+]
+
 fn find_operator(ctx : function_context, vd : variable_dictionary, t : tokens) : (int, op_option, istring)
 [
 	var best_split := -1;
@@ -299,6 +306,7 @@ fn record_list_create(ctx : function_context, vd : variable_dictionary, t : toke
 
 		var l : int;
 		ctx, l := generate_Record_Create(ctx, at, fields);
+		ctx := verify_created_variable(ctx, l, t);
 		return ctx, [ l ];
 	]
 
@@ -487,6 +495,7 @@ fn non_empty_option_create(ctx : function_context, vd : variable_dictionary, t :
 	ctx, ar, m := convert_type(ctx, vd, ar, cc, rec_def.entries[idx].type_idx, 0, true, t);
 	var l : int;
 	ctx, l := generate_Option_Create(ctx, at, idx, ar);
+	ctx := verify_created_variable(ctx, l, t);
 	return ctx, [ l ];
 ]
 
@@ -703,6 +712,7 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 			]
 			var l : int;
 			ctx, l := generate_Load_Const(ctx, a, int_to_blob(idx));
+			ctx := verify_created_variable(ctx, l, t);
 			return ctx, [ l ];
 		]
 

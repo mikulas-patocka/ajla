@@ -471,6 +471,9 @@ restart:
 		if not success then
 			return cc, typ;
 
+		if ctx.parsing_where_type <> T_InvalidType, want_record, ctx.record_def is j, ctx.id = fid then
+			return new_compare_context_from_function(ctx), T_Record;
+
 		var f := search_function_from_id(ctx, fid);
 		//eval debug("get_base_definition: " + i_decode(f.signature.name));
 		//eval stacktrace(0 div 0);
@@ -815,6 +818,12 @@ again:
 		inv +<= compare_argument.[ cc : cc, idx : sub_cond ];
 		typ := sub_type;
 		goto again;
+	]
+
+	if opcode = P_Call or opcode = P_Call_Indirect then [
+		var rec_cc, rec_typ := get_base_definition(ctx, cc, typ, true);
+		if rec_typ = T_Record and rec_cc.ctx.record_where <> T_InvalidType then
+			inv +<= compare_argument.[ cc : rec_cc, idx : rec_cc.ctx.record_where ];
 	]
 
 	return cc, typ, inv;

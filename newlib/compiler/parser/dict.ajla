@@ -165,6 +165,8 @@ record function_context [
 	parsing_where : int;
 	parsing_where_type : int;
 	getting_dependencies : int;
+
+	record_where : int;
 ]
 
 record function_definition [
@@ -471,6 +473,8 @@ fn new_function_context(dict : function_dictionary, parent_function : maybe(func
 		parsing_where : T_InvalidType,
 		parsing_where_type : T_InvalidType,
 		getting_dependencies : -1,
+
+		record_where : T_InvalidType,
 	];
 	return ctx;
 ]

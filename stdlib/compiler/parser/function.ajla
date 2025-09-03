@@ -222,7 +222,7 @@ retry:
 				infer_bmp := 0;
 				for j := 0 to inferred_args do [
 					if deps bt j then [
-						if have_type_invariants(ctx, new_compare_context(ctx), p[j]), inferred_by[j] >= 0  then [
+						if have_type_invariants(ctx, new_compare_context(ctx), p[j]), inferred_by[j] >= 0 then [
 							infer_bmp bts= inferred_by[j];
 						]
 					]
