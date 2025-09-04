@@ -416,7 +416,7 @@ inferred:
 
 		if dst_vars bt al[i] then [
 			var l : int;
-			ctx, l := alloc_local_variable(ctx, get_type_of_var(ctx, al[i]), false, false);
+			ctx, l := alloc_local_variable(ctx, get_type_of_var(ctx, al[i]), true, false);
 			ctx := generate_Copy(ctx, al[i], l);
 			al[i] := l;
 		]
