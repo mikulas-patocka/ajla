@@ -379,7 +379,7 @@ fn parse_function_body(ctx : function_context, vd : variable_dictionary, t : tok
 	return ctx;
 ]
 
-fn parse_record_definition(ctx : function_context, orig_vd : variable_dictionary, is_option : bool, t : tokens) : function_context
+fn parse_record_definition(ctx : function_context, orig_vd : variable_dictionary, is_option : bool, wh_expr : tokens, t : tokens) : function_context
 [
 	var vd := orig_vd;
 	var def := new_record_definition(is_option);
@@ -454,6 +454,20 @@ next_flag:
 		ctx := generate_Option_Type(ctx, fields, ctx.n_arguments);
 	ctx := generate_Return(ctx);
 	ctx.record_def := maybe(record_definition).j.(def);
+
+	if len_greater_than(wh_expr, 0) then [
+		ctx.parsing_record_where := true;
+		var typ : int;
+		ctx, typ := generate_Call_self(ctx);
+		var pwt := ctx.parsing_where_type;
+		ctx.parsing_where_type := typ;
+		var wh_var : int;
+		ctx, wh_var := parse_expression_bool(ctx, vd, wh_expr, false);
+		ctx.parsing_where_type := pwt;
+		ctx.record_where := wh_var;
+		ctx.parsing_record_where := false;
+	]
+
 	return ctx;
 ]
 
@@ -654,23 +668,12 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 			ctx := parse_function_body(ctx, vd, t[b .. ]);
 		] else if decl_type is k_record then [
 			dict.defs[def.signature.id.function_index[0]].typ := Fn_Record;
-			ctx := parse_record_definition(ctx, vd, false, t[b .. ]);
+			ctx := parse_record_definition(ctx, vd, false, wh_expr, t[b .. ]);
 		] else if decl_type is k_option then [
 			dict.defs[def.signature.id.function_index[0]].typ := Fn_Option;
-			ctx := parse_record_definition(ctx, vd, true, t[b .. ]);
+			ctx := parse_record_definition(ctx, vd, true, wh_expr, t[b .. ]);
 		] else [
 			abort internal("invalid decl_type " + ntos(ord decl_type));
-		]
-
-		if len_greater_than(wh_expr, 0) then [
-			var typ : int;
-			ctx, typ := generate_Call_self(ctx);
-			var pwt := ctx.parsing_where_type;
-			ctx.parsing_where_type := typ;
-			var wh_var : int;
-			ctx, wh_var := parse_expression_bool(ctx, vd, wh_expr, false);
-			ctx.parsing_where_type := pwt;
-			ctx.record_where := wh_var;
 		]
 
 		ctx := generate_local_types(ctx);

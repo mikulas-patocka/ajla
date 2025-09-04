@@ -164,6 +164,7 @@ record function_context [
 
 	parsing_where : int;
 	parsing_where_type : int;
+	parsing_record_where : bool;
 	getting_dependencies : int;
 
 	record_where : int;
@@ -472,6 +473,7 @@ fn new_function_context(dict : function_dictionary, parent_function : maybe(func
 
 		parsing_where : T_InvalidType,
 		parsing_where_type : T_InvalidType,
+		parsing_record_where : false,
 		getting_dependencies : -1,
 
 		record_where : T_InvalidType,
