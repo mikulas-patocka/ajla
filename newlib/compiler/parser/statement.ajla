@@ -257,6 +257,22 @@ next_flag:
 	return ctx, term;
 ]
 
+fn verify_assignment(ctx : function_context, vd : variable_dictionary, statements : list(tokens), cl : bool, t : tokens) : function_context
+[
+	for i := 0 to len(statements) do [
+		var ctx_backup := ctx;
+		var l : int;
+		ctx, l := parse_expression(ctx, vd, statements[i], false);
+		var cc, ty, inv := get_type_invariants(ctx, new_compare_context(ctx), get_type_of_var(ctx, l));
+		if not len_greater_than(inv, 0) then [
+			ctx := ctx_backup;
+			continue;
+		]
+		ctx := generate_assumes_or_claims(ctx, l, inv, cl, t);
+	]
+	return ctx;
+]
+
 record assign_variable [
 	v : int;
 	cc : compare_context;
@@ -269,6 +285,8 @@ fn parse_statement_assign(ctx : function_context, vd : variable_dictionary, can_
 [
 	var dst_vars : int128 := 0;
 	var avs := empty(assign_variable);
+
+	var need_verify := empty(tokens);
 
 	while len(vars) > 0 do [
 		var lvalue : tokens;
@@ -289,14 +307,15 @@ fn parse_statement_assign(ctx : function_context, vd : variable_dictionary, can_
 			instr : start_Structured_Write(v),
 		];
 
-		lvalue := lvalue[1 .. ];
 		var cc := new_compare_context(ctx);
 		var typ := get_type_of_var(ctx, v);
-		while len(lvalue) > 0 do [
-			if lvalue[0].t is left_bracket then [
-				var skip := lvalue[0].bracket_skip;
-				var index_ex := lvalue[1 .. skip];
-				lvalue := lvalue[skip + 1 .. ];
+		var lv_index := 1;
+		while len_greater_than(lvalue, lv_index) do [
+			need_verify +<= lvalue[ .. lv_index];
+			if lvalue[lv_index].t is left_bracket then [
+				var skip := lvalue[lv_index].bracket_skip;
+				var index_ex := lvalue[lv_index + 1 .. lv_index + skip];
+				lv_index += skip + 1;
 
 				var cc_base, typ_base := get_base_definition(ctx, cc, typ, false);
 				cc, typ := list_type(ctx, cc_base, typ_base, true, index_ex);
@@ -314,38 +333,37 @@ fn parse_statement_assign(ctx : function_context, vd : variable_dictionary, can_
 				//var local_type : int;
 				//ctx, local_type := get_type_cc(ctx, cc, typ);
 				av.instr := append_Structured_Array(av.instr, ai);
-			] else if len(lvalue) >= 2, lvalue[0].t is dot then [
-				xeval token_assert(lvalue[1 ..], token_opt.identifier.(0));
-				var field := lvalue[1].t.identifier;
+			] else if len_at_least(lvalue, lv_index + 2), lvalue[lv_index].t is dot then [
+				xeval token_assert(lvalue[lv_index + 1 ..], token_opt.identifier.(0));
+				var field := lvalue[lv_index + 1].t.identifier;
 
 				var rec_cc, rec_typ := get_base_definition(ctx, cc, typ, true);
 				if rec_typ <> T_Record then
-					abort compiler_error("Record or option expected", lvalue);
+					abort compiler_error("Record or option expected", lvalue[lv_index .. ]);
 				var rec_def := rec_cc.ctx.record_def.j;
 				var idx := rec_def.dict[field];
 				if is_uninitialized(idx) then
-					abort compiler_error("Invalid field", lvalue);
+					abort compiler_error("Invalid field", lvalue[lv_index .. ]);
 				if rec_def.entries[idx].cnst then
-					abort compiler_error("A constant field may not be modified", lvalue);
+					abort compiler_error("A constant field may not be modified", lvalue[lv_index .. ]);
 				if rec_def.entries[idx].accessing_other, av.deep_structured then
-					abort compiler_error("Record field may not be modified here", lvalue);
+					abort compiler_error("Record field may not be modified here", lvalue[lv_index .. ]);
 				if not rec_def.is_option then [
 					//var lt : int;
 					//ctx, lt := get_record_option_type_cc(ctx, rec_cc, cc, typ);
 					av.instr := append_Structured_Record(av.instr, idx);
-					ctx, cc, typ := generate_record_entry_type(ctx, v, idx, rec_cc, lvalue);
+					ctx, cc, typ := generate_record_entry_type(ctx, v, idx, rec_cc, lvalue[lv_index .. ]);
 				] else [
 					if rec_def.entries[idx].type_idx = T_EmptyOption then
-						abort compiler_error("Option field doesn't have a value", lvalue);
+						abort compiler_error("Option field doesn't have a value", lvalue[lv_index .. ]);
 					//var lt : int;
 					//ctx, lt := get_record_option_type_cc(ctx, rec_cc, cc, typ);
 					av.instr := append_Structured_Option(av.instr, idx);
 					cc, typ := rec_cc, rec_def.entries[idx].type_idx;
 				]
-
-				lvalue := lvalue[2 .. ];
+				lv_index += 2;
 			] else [
-				abort compiler_error("invalid assigned variable", lvalue);
+				abort compiler_error("invalid assigned variable", lvalue[lv_index .. ]);
 			]
 			av.deep_structured := true;
 		]
@@ -422,6 +440,8 @@ inferred:
 		]
 	]
 
+	ctx := verify_assignment(ctx, vd, need_verify, false, expr);
+
 	for i := 0 to n do [
 		var av := avs[i];
 		var ax : int;
@@ -434,6 +454,8 @@ inferred:
 			ctx := generate_Structured_Write(ctx, av.instr, ax);
 		]
 	]
+
+	ctx := verify_assignment(ctx, vd, need_verify, true, expr);
 
 	return ctx;
 ]
