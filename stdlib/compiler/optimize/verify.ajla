@@ -622,6 +622,30 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		gen_assert(ctx, var_name, str);
 		return ctx;
 	]
+	if ins.opcode = P_Array_String then [
+		var blob := blob_load(ins.params[1 .. ]);
+		var a := "(declare-const array-"+var_name+" (Array Int Any))";
+		z3_eval_noret(ctx, a);
+		var str := "array-"+var_name;
+		for i := 0 to len(blob) do
+			str := "(store "+str+" "+ntos(i)+" "+cast_to_any(get_bv_const(T_UInt8, blob[i]), T_UInt8)+")";
+		str := "(mk-array "+ntos(len(blob))+" "+str+")";
+		gen_assert(ctx, var_name, str);
+		return ctx;
+	]
+	if ins.opcode = P_Array_Unicode then [
+		var lti := get_nonflat_lt(ctx, ctx.variables[ins.params[0]].runtime_type);
+		var lt := ctx.local_types[lti];
+		var blob := ins.params[1 .. ];
+		var a := "(declare-const array-"+var_name+" (Array Int Any))";
+		z3_eval_noret(ctx, a);
+		var str := "array-"+var_name;
+		for i := 0 to len(blob) do
+			str := "(store "+str+" "+ntos(i)+" "+cast_to_any(ntos(blob[i]), lt.arr)+")";
+		str := "(mk-array "+ntos(len(blob))+" "+str+")";
+		gen_assert(ctx, var_name, str);
+		return ctx;
+	]
 	if ins.opcode = P_Array_Load then [
 		var var1 var2 : bytes;
 		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb, true);
