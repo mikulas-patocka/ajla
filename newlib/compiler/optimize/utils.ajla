@@ -59,6 +59,8 @@ fn function_load(params : list(pcode_t)) : (int, function)
 [
 	var bl := blob_length(params[1 .. ]);
 	var l1 := 1 + bl + 1 + params[1 + bl];
+	assume params[1 + bl] >= 0;
+	assume params[l1] >= 0;
 	var r := function.[
 		path_idx : params[0] shr 1,
 		program : (params[0] and 1) <> 0,
