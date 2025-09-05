@@ -39,7 +39,7 @@ record event_keyboard [
 ]
 
 record event_resize [
-	x y : int;
+	x y : int where value >= 1;
 ]
 
 record event_redraw [
@@ -123,7 +123,7 @@ const key_to_termcap : list(int) := [
 ];
 
 fn event_get_keyboard~normal(w : world, h : handle, tc : termcap, loc : locale, q : msgqueue(event)) : bottom_type;
-fn event_get_resize~normal(w : world, h : handle, q : msgqueue(event), x y ox oy : int) : bottom_type;
+fn event_get_resize~normal(implicit w : world, h : handle, q : msgqueue(event), x y ox oy : int, prereq x > 0 and y > 0) : bottom_type;
 fn event_get_suspend~normal(implicit w : world, q : msgqueue(event), sigtstp : shandle, stk : stoken) : bottom_type;
 fn event_get_mouse~normal(w : world, h : handle, q : msgqueue(event)) : bottom_type;
 fn event_wait_for_any_key(w : world, h : handle) : world;
@@ -731,7 +731,7 @@ fn event_get_keyboard~normal(implicit w : world, h : handle, tc : termcap, loc :
 	return err;
 ]
 
-fn event_get_resize~normal(implicit w : world, h : handle, q : msgqueue(event), x y ox oy : int) : bottom_type
+fn event_get_resize~normal(implicit w : world, h : handle, q : msgqueue(event), x y ox oy : int, prereq x > 0 and y > 0) : bottom_type
 [
 	var os := sysprop(SystemProperty_OS);
 	if os = SystemProperty_OS_DOS or os = SystemProperty_OS_OS2 then

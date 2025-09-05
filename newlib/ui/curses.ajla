@@ -521,8 +521,8 @@ fn curses_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(
 		] else [
 			xx := termcap_query_number(tc, tc_n_columns);
 			yy := termcap_query_number(tc, tc_n_lines);
-			if xx < 0 then xx := 80;
-			if yy < 0 then yy := 24;
+			if xx < 1 then xx := 80;
+			if yy < 1 then yy := 24;
 		]
 	]
 	const x := xx;
@@ -701,7 +701,7 @@ fn curses_done(implicit w : world, implicit curs : curses) : world
 	]
 ]
 
-fn curses_resize(implicit w : world, curs : curses, const x y : int) : (world, curses)
+fn curses_resize(implicit w : world, curs : curses, const x y : nat, prereq x > 0 and y > 0) : (world, curses)
 [
 	var space := cchar.[ ch : ' ', fgcolor : default_fg_color(curs.cm), bgcolor : default_bg_color(curs.cm), attrib : 0 ];
 	var curs2 := curses.[
