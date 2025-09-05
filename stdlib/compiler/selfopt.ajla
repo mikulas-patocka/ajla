@@ -64,6 +64,8 @@ record uni [
 
 fn get_inline(w : world, d : list(bytes), f : function, optimized : bool) : list(pcode_t)
 [
+	if not len_greater_than(d, 0) then
+		abort internal("get_inline: empty libpath");
 	var pc, modules := compile_module_2~save(w, d, f.un, f.program);
 	var pcode1 := pc[f.fn_idx[0]];
 	pcode1 := function_extract_nested(pcode1, f.fn_idx);

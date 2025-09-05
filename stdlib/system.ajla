@@ -3195,13 +3195,13 @@ fn list_ends_with(t : type, implicit c~spec : class_eq(t), x y : list(t)) : bool
 	return true;
 ]
 
-fn list_break_generic(t : type, implicit c~spec : class_eq(t), lst : list(t), bnd~spec : fn(list(t)) : int) : list(list(t))
+fn list_break_generic(t : type, implicit c~spec : class_eq(t), lst : list(t), bnd~spec : fn(list(t)) : nat) : list(list(t))
 [
 	var result := empty(list(t));
-	var f := len_finite(lst);
+	var f : int := len_finite(lst);
 again:
-	var idx := 0;
-	var fl : int;
+	var idx : nat := 0;
+	var fl : nat;
 	while len_greater_than(lst, idx) do [
 		fl := bnd(lst[idx .. ]);
 		if fl > 0 then
@@ -3222,12 +3222,12 @@ found_it:
 
 fn list_break(t : type, implicit c~spec : class_eq(t), lst : list(t), bnd : t) : list(list(t))
 [
-	return list_break_generic(lst, lambda(x : list(t)) [ return select(x[0] = bnd, 0, 1); ]);
+	return list_break_generic(lst, lambda(x : list(t)) : nat [ return select(x[0] = bnd, 0, 1); ]);
 ]
 
 fn list_break_to_lines(lst : bytes) : list(bytes)
 [
-	return list_break_generic(lst, lambda(x : bytes) [
+	return list_break_generic(lst, lambda(x : bytes) : nat [
 		if x[0] = 13, len_greater_than(x, 1), x[1] = 10 then
 			return 2;
 		if x[0] = 10 then
@@ -3238,7 +3238,7 @@ fn list_break_to_lines(lst : bytes) : list(bytes)
 
 fn list_string_break_to_lines(lst : string) : list(string)
 [
-	return list_break_generic(lst, lambda(x : string) [
+	return list_break_generic(lst, lambda(x : string) : nat [
 		if x[0] = 13, len_greater_than(x, 1), x[1] = 10 then
 			return 2;
 		if x[0] = 10 then
@@ -3249,9 +3249,9 @@ fn list_string_break_to_lines(lst : string) : list(string)
 
 fn list_break_whitespace(lst : bytes) : list(bytes)
 [
-	fn is_whitespace(lst : bytes)
+	fn is_whitespace(lst : bytes) : nat
 	[
-		var idx := 0;
+		var idx : nat := 0;
 		while len_greater_than(lst, idx) do [
 			var c := lst[idx];
 			if not (c = 9 or c = 10 or c = 13 or c = ' ') then

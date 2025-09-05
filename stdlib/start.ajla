@@ -77,7 +77,7 @@ fn get_sub~spark(f : uint64) : list(uint64)
 	return sub_f;
 ]
 
-fn extract_modules(path_idx : int, file : bytes, program : bool) : list(tuple2(nat, istring))
+fn extract_modules(path_idx : nat, file : bytes, program : bool) : list(tuple2(nat, istring))
 [
 	//eval debug("preparsing: " + file);
 	var opt := empty(list(pcode_t));
@@ -101,6 +101,8 @@ fn preparse(w : world, file : bytes) : world
 	for i := 0 to len(lp) do
 		if lp[i] = 0 then
 			idx += 1;
+	if idx < 1 then
+		abort internal("empty libpath");
 	var queue := [ extract_modules~spark(idx - 1, file, true) ];
 	var mod_visited := treeset_from_list([ mktuple2(nat, istring, 1, i_encode(file)) ]);
 	while len_greater_than(queue, 0) do [

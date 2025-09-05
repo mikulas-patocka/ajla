@@ -21,14 +21,14 @@ unit compiler.parser.unit;
 uses io;
 uses compiler.parser.dict;
 
-private fn compile_module_2(w : world, d : list(bytes), file : bytes, program : bool) : (list(list(pcode_t)), list(module_unique_id));
+private fn compile_module_2(w : world, d : list(bytes), file : bytes, program : bool, prereq len_greater_than(d, 0)) : (list(list(pcode_t)), list(module_unique_id));
 
 implementation
 
 uses compiler.parser.parser;
 uses compiler.parser.export;
 
-fn compile_module_2(w : world, d : list(bytes), file : bytes, program : bool) : (list(list(pcode_t)), list(module_unique_id))
+fn compile_module_2(w : world, d : list(bytes), file : bytes, program : bool, prereq len_greater_than(d, 0)) : (list(list(pcode_t)), list(module_unique_id))
 [
 	// TODO: move the following test elsewhere ?
 	if list_ends_with(file, ".ajla") then

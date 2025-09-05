@@ -22,10 +22,10 @@ uses compiler.common.evaluate;
 uses compiler.parser.dict;
 uses compiler.optimize.defs;
 
-fn optimize_function(path_idx : int, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t);
-fn get_unoptimized_function(path_idx : int, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t);
-fn optimize_specialized_function(path_idx : int, file : bytes, program : bool, fn_idx : list(int), spec_data : list(pcode_t)) : list(pcode_t);
-fn compile_module(lp : bytes, path_idx : int, file : bytes, program : bool) : (list(list(pcode_t)), list(module_unique_id));
+fn optimize_function(path_idx : nat, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t);
+fn get_unoptimized_function(path_idx : nat, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t);
+fn optimize_specialized_function(path_idx : nat, file : bytes, program : bool, fn_idx : list(int), spec_data : list(pcode_t)) : list(pcode_t);
+fn compile_module(lp : bytes, path_idx : nat, file : bytes, program : bool) : (list(list(pcode_t)), list(module_unique_id));
 
 implementation
 
@@ -35,11 +35,13 @@ uses compiler.optimize.utils;
 uses compiler.optimize.ssa;
 uses compiler.optimize.spec;
 
-fn compile_module(lp : bytes, path_idx : int, file : bytes, program : bool) : (list(list(pcode_t)), list(module_unique_id))
+fn compile_module(lp : bytes, path_idx : nat, file : bytes, program : bool) : (list(list(pcode_t)), list(module_unique_id))
 [
 	var w := unsafe_get_world;
 
 	var d := list_break(lp, 0);
+	if not len_greater_than(d, path_idx) then
+		abort internal("libpath is too short");
 	d := d[ .. path_idx + 1];
 	return compile_module_2(w, d, file, program);
 ]
@@ -57,7 +59,7 @@ fn get_inline(f : function, optimized : bool) : list(pcode_t)
 	return load_optimized_pcode(f.path_idx, f.un, f.program, pc, optimized);
 ]
 
-fn optimize_function_saved~save(lp : bytes, path_idx : int, file : bytes, program : bool, fn_idx : list(int), verify_pattern : bytes) : list(pcode_t)
+fn optimize_function_saved~save(lp : bytes, path_idx : nat, file : bytes, program : bool, fn_idx : list(int), verify_pattern : bytes) : list(pcode_t)
 [
 	var pcod, modules := compile_module~save(lp, path_idx, file, program);
 	var pc := pcod[fn_idx[0]];
@@ -66,13 +68,13 @@ fn optimize_function_saved~save(lp : bytes, path_idx : int, file : bytes, progra
 	return func;
 ]
 
-fn optimize_function(path_idx : int, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t)
+fn optimize_function(path_idx : nat, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t)
 [
 	var verify_pattern := get_dump("verify");
 	return optimize_function_saved(libpath, path_idx, file, program, fn_idx, verify_pattern);
 ]
 
-fn get_unoptimized_function(path_idx : int, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t)
+fn get_unoptimized_function(path_idx : nat, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t)
 [
 	var pcod, modules := compile_module~save(libpath, path_idx, file, program);
 	var pc := pcod[fn_idx[0]];
@@ -80,7 +82,7 @@ fn get_unoptimized_function(path_idx : int, file : bytes, program : bool, fn_idx
 	return pc;
 ]
 
-fn optimize_specialized_function_saved~save(path_idx : int, file : bytes, program : bool, fn_idx : list(int), spec_data : list(pcode_t), verify_pattern : bytes) : list(pcode_t)
+fn optimize_specialized_function_saved~save(path_idx : nat, file : bytes, program : bool, fn_idx : list(int), spec_data : list(pcode_t), verify_pattern : bytes) : list(pcode_t)
 [
 	var pc : list(pcode_t);
 	if path_idx > 0 then [
@@ -97,7 +99,7 @@ fn optimize_specialized_function_saved~save(path_idx : int, file : bytes, progra
 	return func;
 ]
 
-fn optimize_specialized_function(path_idx : int, file : bytes, program : bool, fn_idx : list(int), spec_data : list(pcode_t)) : list(pcode_t)
+fn optimize_specialized_function(path_idx : nat, file : bytes, program : bool, fn_idx : list(int), spec_data : list(pcode_t)) : list(pcode_t)
 [
 	var verify_pattern := get_dump("verify");
 	var func := optimize_specialized_function_saved(path_idx, file, program, fn_idx, spec_data, verify_pattern);

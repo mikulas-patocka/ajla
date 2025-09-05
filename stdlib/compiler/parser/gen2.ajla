@@ -95,7 +95,7 @@ fn generate_Option_Ord(ctx : function_context, ar : int) : (function_context, in
 fn pcode_Option_Ord_get_option(ins : instruction) : int;
 
 fn generate_Array_Create(ctx : function_context, at : int, ae : list(int), t : tokens) : (function_context, int);
-fn pcode_Array_Create_get_length(ins : instruction) : int;
+fn pcode_Array_Create_get_length(ins : instruction) : nat;
 fn pcode_Array_Create_get_arg(ins : instruction, arg : int) : int;
 fn generate_Array_String(ctx : function_context, blob : list(pcode_t)) : (function_context, int);
 fn pcode_Array_String_get_blob(ins : instruction) : list(pcode_t);
@@ -1070,9 +1070,10 @@ fn generate_Array_Create(ctx : function_context, at : int, fields : list(int), t
 	return ctx, l;
 ]
 
-fn pcode_Array_Create_get_length(ins : instruction) : int
+fn pcode_Array_Create_get_length(ins : instruction) : nat
 [
 	xeval assert(ins.opcode = P_Array_Create, "pcode_Array_Create_get_length: invalid instruction");
+	assume ins.args[1] >= 0;
 	return ins.args[1];
 ]
 
