@@ -66,7 +66,7 @@ record local_type [
 ]
 
 record module_unique_id [
-	path_index : int;
+	path_index : nat;
 	unit_string : istring;
 	program : bool;
 ]

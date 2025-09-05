@@ -379,6 +379,33 @@ implicit fn instance_number_int32~inline : class_integer_number(int32);
 implicit fn instance_number_int64~inline : class_integer_number(int64);
 implicit fn instance_number_int128~inline : class_integer_number(int128);
 
+type nat8 := int8 where value >= 0;
+type nat16 := int16 where value >= 0;
+type nat32 := int32 where value >= 0;
+type nat64 := int64 where value >= 0;
+type nat128 := int128 where value >= 0;
+
+type finite(limit : nat) := nat where value < limit;
+type finite8(limit : nat8) := nat8 where value < limit;
+type finite16(limit : nat16) := nat16 where value < limit;
+type finite32(limit : nat32) := nat32 where value < limit;
+type finite64(limit : nat64) := nat64 where value < limit;
+type finite128(limit : nat128) := nat128 where value < limit;
+
+implicit fn instance_monoid_nat~inline : class_monoid(nat);
+implicit fn instance_monoid_nat8~inline : class_monoid(nat8);
+implicit fn instance_monoid_nat16~inline : class_monoid(nat16);
+implicit fn instance_monoid_nat32~inline : class_monoid(nat32);
+implicit fn instance_monoid_nat64~inline : class_monoid(nat64);
+implicit fn instance_monoid_nat128~inline : class_monoid(nat128);
+
+implicit fn instance_ord_nat~inline : class_ord(nat);
+implicit fn instance_ord_nat8~inline : class_ord(nat8);
+implicit fn instance_ord_nat16~inline : class_ord(nat16);
+implicit fn instance_ord_nat32~inline : class_ord(nat32);
+implicit fn instance_ord_nat64~inline : class_ord(nat64);
+implicit fn instance_ord_nat128~inline : class_ord(nat128);
+
 implicit fn instance_fixed_integer_number_sint8~inline : class_fixed_integer_number(sint8);
 implicit fn instance_fixed_integer_number_sint16~inline : class_fixed_integer_number(sint16);
 implicit fn instance_fixed_integer_number_sint32~inline : class_fixed_integer_number(sint32);
@@ -405,19 +432,6 @@ implicit fn instance_real_number_floating~inline(const ex_bits sig_bits : int) :
 implicit fn instance_real_number_rational~inline : class_real_number(rational);
 
 implicit fn instance_real_number_fixed_point~inline(const base digits : int) : class_real_number(fixed_point(base, digits));
-
-type nat8 := int8 where value >= 0;
-type nat16 := int16 where value >= 0;
-type nat32 := int32 where value >= 0;
-type nat64 := int64 where value >= 0;
-type nat128 := int128 where value >= 0;
-
-type finite(limit : nat) := nat where value < limit;
-type finite8(limit : nat8) := nat8 where value < limit;
-type finite16(limit : nat16) := nat16 where value < limit;
-type finite32(limit : nat32) := nat32 where value < limit;
-type finite64(limit : nat64) := nat64 where value < limit;
-type finite128(limit : nat128) := nat128 where value < limit;
 
 {---------
  - DEBUG -
@@ -1187,6 +1201,35 @@ int_instance(int16);
 int_instance(int32);
 int_instance(int64);
 int_instance(int128);
+
+{------------------
+ - NAT INSTANCE -
+ ------------------}
+
+define nat_instance [
+fn @1_add~inline(i1 i2 : @1) : @1 := i1 + i2;
+fn @1_zero~inline : @1 := 0;
+fn @1_equal~inline(i1 i2 : @1) : bool := i1 = i2;
+fn @1_less~inline(i1 i2 : @1) : bool := i1 < i2;
+implicit fn instance_monoid_@1~inline : class_monoid(@1) :=
+	class_monoid(@1).[
+		add : @1_add,
+		zero : @1_zero,
+	];
+implicit fn instance_ord_@1~inline : class_ord(@1) :=
+	class_ord(@1).[
+		equal : @1_equal,
+		less : @1_less,
+	];
+]
+
+nat_instance(nat);
+
+nat_instance(nat8);
+nat_instance(nat16);
+nat_instance(nat32);
+nat_instance(nat64);
+nat_instance(nat128);
 
 {------------------
  - FIXED INSTANCE -
