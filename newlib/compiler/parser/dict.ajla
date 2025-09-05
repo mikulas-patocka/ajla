@@ -114,8 +114,8 @@ record pattern_context [
 ]
 
 record function_context [
-	n_arguments : int;
-	n_return_values : int;
+	n_arguments : nat;
+	n_return_values : nat;
 	variables : list(local_variable);
 
 	prereqs : list(int);
@@ -225,8 +225,8 @@ fn search_break(vd : variable_dictionary) : int;
 fn search_continue(vd : variable_dictionary) : int;
 fn get_implicit_variables(vd : variable_dictionary) : list(int);
 
-fn new_function_dictionary(path_index : int, unit_string : istring, program : bool) : function_dictionary;
-fn new_function_context(dict : function_dictionary, parent_function : maybe(function_context), n_arguments n_return_values : int, name : istring) : function_context;
+fn new_function_dictionary(path_index : nat, unit_string : istring, program : bool) : function_dictionary;
+fn new_function_context(dict : function_dictionary, parent_function : maybe(function_context), n_arguments n_return_values : nat, name : istring) : function_context;
 fn function_context_is_privileged(ctx : function_context) : bool;
 fn function_context_clear_temp_values(ctx : function_context) : function_context;
 fn add_function(dict : function_dictionary, name : istring, ctx : function_context, vd : variable_dictionary, call_mode : int, op_bypass : int, op_bypass_reverse : bool, private_flag implicit_flag conversion_flag : bool) : (function_dictionary, function_definition);
@@ -387,7 +387,7 @@ fn get_implicit_variables(vd : variable_dictionary) : list(int)
 	return lst;
 ]
 
-fn new_function_dictionary(path_index : int, unit_string : istring, program : bool) : function_dictionary
+fn new_function_dictionary(path_index : nat, unit_string : istring, program : bool) : function_dictionary
 [
 	return function_dictionary.[
 		defs : empty(function_definition),
@@ -407,7 +407,7 @@ fn new_function_dictionary(path_index : int, unit_string : istring, program : bo
 	];
 ]
 
-fn new_function_context(dict : function_dictionary, parent_function : maybe(function_context), n_arguments n_return_values : int, name : istring) : function_context
+fn new_function_context(dict : function_dictionary, parent_function : maybe(function_context), n_arguments n_return_values : nat, name : istring) : function_context
 [
 	var function_index : list(int);
 	if parent_function is j then

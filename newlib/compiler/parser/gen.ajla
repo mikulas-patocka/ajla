@@ -41,8 +41,8 @@ fn generate_Keep(ctx : function_context, l : int) : function_context;
 
 fn generate_Fn(ctx : function_context, arguments return_values prereqs contracts : list(int), result : int) : function_context;
 fn pcode_Fn_get_result(ins : instruction) : int;
-fn pcode_Fn_get_n_args(ins : instruction) : int;
-fn pcode_Fn_get_n_return_values(ins : instruction) : int;
+fn pcode_Fn_get_n_args(ins : instruction) : nat;
+fn pcode_Fn_get_n_return_values(ins : instruction) : nat;
 fn pcode_Fn_get_n_prereqs(ins : instruction) : int;
 fn pcode_Fn_get_n_contracts(ins : instruction) : int;
 fn pcode_Fn_get_argument(ins : instruction, v : int) : int;
@@ -181,15 +181,17 @@ fn pcode_Fn_get_result(ins : instruction) : int
 	return ins.args[0];
 ]
 
-fn pcode_Fn_get_n_args(ins : instruction) : int
+fn pcode_Fn_get_n_args(ins : instruction) : nat
 [
 	xeval assert(ins.opcode = P_Fn, "pcode_Fn_get_n_args: invalid instruction");
+	assume ins.args[1] >= 0;
 	return ins.args[1];
 ]
 
-fn pcode_Fn_get_n_return_values(ins : instruction) : int
+fn pcode_Fn_get_n_return_values(ins : instruction) : nat
 [
 	xeval assert(ins.opcode = P_Fn, "pcode_Fn_get_n_return_values: invalid instruction");
+	assume ins.args[2] >= 0;
 	return ins.args[2];
 ]
 

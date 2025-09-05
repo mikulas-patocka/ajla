@@ -22,7 +22,7 @@ uses compiler.parser.token;
 uses compiler.parser.dict;
 
 fn parse_lambda_function(ctx : function_context, parent_vd : variable_dictionary, t : tokens) : (function_context, list(int));
-fn parse_file~cache(w : world, d : list(bytes), name : bytes, program : bool, parse_interface : bool) : function_dictionary;
+fn parse_file~cache(w : world, d : list(bytes), name : bytes, program : bool, parse_interface : bool, prereq len_greater_than(d, 0)) : function_dictionary;
 
 implementation
 
@@ -180,9 +180,9 @@ next_flag:
 	return ctx, vd;
 ]
 
-fn count_arguments(t : tokens, retval : bool) : int
+fn count_arguments(t : tokens, retval : bool) : nat
 [
-	var count := 0;
+	var count : nat := 0;
 	var in_parens := false;
 
 	if len(t) >= 2, t[0].t is left_paren and t[0].bracket_skip = len(t) - 1 then [
@@ -268,7 +268,7 @@ fn parse_function_header(dict : function_dictionary, parent_function : maybe(fun
 		return_values := tokenize("type", "_internal");
 	]
 
-	var n_arguments n_return_values : int;
+	var n_arguments n_return_values : nat;
 	n_arguments := count_arguments(arguments, false);
 	if not inferred_return then
 		n_return_values := count_arguments(return_values, true);
@@ -937,11 +937,11 @@ fn merge_interfaces(dict new_dict : function_dictionary) : function_dictionary
 	return dict;
 ]
 
-fn parse_uses(w : world, d : list(bytes), dict : function_dictionary, t : tokens) : function_dictionary
+fn parse_uses(w : world, d : list(bytes), dict : function_dictionary, t : tokens, prereq len_greater_than(d, 0)) : function_dictionary
 [
 	var file := parse_unit_name(t);
-	var i := len(d) - 1;
-	while i >= 0 do [
+	var i : int := len(d) - 1;
+	while i >= 0, invariant i < len(d) do [
 		var first := i = len(d) - 1;
 		var xfile := file;
 		if first then
@@ -962,7 +962,7 @@ fn parse_uses(w : world, d : list(bytes), dict : function_dictionary, t : tokens
 
 ]
 
-fn parse_system_unit(w : world, d : list(bytes), dict : function_dictionary) : function_dictionary
+fn parse_system_unit(w : world, d : list(bytes), dict : function_dictionary, prereq len_greater_than(d, 0)) : function_dictionary
 [
 	var new_dict := parse_file(w, d[ .. 1], "system", false, true);
 	dict := merge_interfaces(dict, new_dict);
@@ -1080,7 +1080,7 @@ paste_toks:
 	return result;
 ]
 
-fn parse_clause(w : world, d : list(bytes), dict : function_dictionary, t1 : tokens) : (function_dictionary, tokens)
+fn parse_clause(w : world, d : list(bytes), dict : function_dictionary, t1 : tokens, prereq len_greater_than(d, 0)) : (function_dictionary, tokens)
 [
 	var f := token_find_3(t1, token_opt.assign, token_opt.semicolon, token_opt.right_bracket, true);
 	if t1[f].t is assign then [
@@ -1149,7 +1149,7 @@ next_flag:
 	return dict, t1[f + 1 .. ];
 ]
 
-fn parse_tokens(w : world, d : list(bytes), t : tokens, name : bytes, program : bool, parse_interface : bool) : function_dictionary
+fn parse_tokens(w : world, d : list(bytes), t : tokens, name : bytes, program : bool, parse_interface : bool, prereq len_greater_than(d, 0)) : function_dictionary
 [
 	var path_index := len(d) - 1;
 	var dict := new_function_dictionary(path_index, i_encode(name), program);
@@ -1227,7 +1227,7 @@ fn unit_encode(un_name : bytes) : bytes
 	return result;
 ]
 
-fn parse_file~cache(w : world, d : list(bytes), name : bytes, program : bool, parse_interface : bool) : function_dictionary
+fn parse_file~cache(w : world, d : list(bytes), name : bytes, program : bool, parse_interface : bool, prereq len_greater_than(d, 0)) : function_dictionary
 [
 	var idx := len(d) - 1;
 	var dir := dopen_lazy(dnone(w), d[idx], 0);
