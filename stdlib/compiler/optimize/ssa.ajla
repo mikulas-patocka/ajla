@@ -2519,34 +2519,32 @@ skip_call:
 			var live_bottom := ctx.blocks[bgi].live_bottom;
 
 			var ili := len(ctx.blocks[bgi].instrs);
-			if ili > 0 then [
-				var instr := ctx.instrs[ctx.blocks[bgi].instrs[ili - 1]];
-				if instr.opcode = P_Jmp_False or instr.opcode = P_Return then
-					ili -= 1;
-				if fused_variable >= 0 then [
+			var instr := ctx.instrs[ctx.blocks[bgi].instrs[ili - 1]];
+			if instr.opcode = P_Jmp_False or instr.opcode = P_Return then
+				ili -= 1;
 skip_derefs:
-					ili -= 1;
-					var instr := ctx.instrs[ctx.blocks[bgi].instrs[ili]];
-					if instr.opcode = P_Free then [
-						goto skip_derefs;
-					]
-					if instr.opcode = P_BinaryOp, (instr.params[2] and Flag_Fused_Bin_Jmp) <> 0 then [
-						live_bottom bts= instr.params[3];
-						live_bottom bts= instr.params[5];
-						goto have_ili;
-					]
-					if instr.opcode = P_BinaryConstOp, (instr.params[2] and Flag_Fused_Bin_Jmp) <> 0 then [
-						live_bottom bts= instr.params[3];
-						goto have_ili;
-					]
-					if instr.opcode = P_Array_Len_Greater_Than, (instr.params[3] and Flag_Fused_Bin_Jmp) <> 0 then [
-						live_bottom bts= instr.params[1];
-						live_bottom bts= instr.params[2];
-						goto have_ili;
-					]
-					abort internal("insert_free: invalid opcode " + ntos(instr.opcode));
-have_ili:
+			if ili > 0, fused_variable >= 0 then [
+				ili -= 1;
+				var instr := ctx.instrs[ctx.blocks[bgi].instrs[ili]];
+				if instr.opcode = P_Free then [
+					goto skip_derefs;
 				]
+				if instr.opcode = P_BinaryOp, (instr.params[2] and Flag_Fused_Bin_Jmp) <> 0 then [
+					live_bottom bts= instr.params[3];
+					live_bottom bts= instr.params[5];
+					goto have_ili;
+				]
+				if instr.opcode = P_BinaryConstOp, (instr.params[2] and Flag_Fused_Bin_Jmp) <> 0 then [
+					live_bottom bts= instr.params[3];
+					goto have_ili;
+				]
+				if instr.opcode = P_Array_Len_Greater_Than, (instr.params[3] and Flag_Fused_Bin_Jmp) <> 0 then [
+					live_bottom bts= instr.params[1];
+					live_bottom bts= instr.params[2];
+					goto have_ili;
+				]
+				abort internal("insert_free: invalid opcode " + ntos(instr.opcode));
+have_ili:
 			]
 
 			var new_live_bottom : var_set := 0;
