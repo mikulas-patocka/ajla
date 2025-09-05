@@ -882,7 +882,7 @@ const languages~cache : list(language) := [
 fn find_language(loc_name : bytes) : language
 [
 	var lng := languages;
-	var start := 0;
+	var start : nat := 0;
 	var end := len(lng);
 	while start < end do [
 		var middle := (start + end) shr 1;

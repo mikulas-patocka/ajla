@@ -2990,7 +2990,7 @@ did_verify:
 
 	var n_blocks := len(ctx.blocks);
 
-	while not ctx.blocks[n_blocks - 1].active do
+	while n_blocks > 0, not ctx.blocks[n_blocks - 1].active do
 		n_blocks -= 1;
 
 	var rpc := list(pcode_t).[
