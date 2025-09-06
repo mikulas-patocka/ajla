@@ -2583,7 +2583,7 @@ fn allocate_variables(ctx : context) : context
 		if v.defining_instr >= 0 then [
 			var ins := ctx.instrs[v.defining_instr];
 			if ins.opcode = P_ForAll then [
-				ctx := exception_make_str(context, ec_async, error_compiler_error, 0, false, "Forall is not elided in in " + ctx.name);
+				ctx := exception_make_str(context, ec_async, error_compiler_error, 0, false, "Forall is not elided in " + ctx.name);
 				return ctx;
 			]
 		]
