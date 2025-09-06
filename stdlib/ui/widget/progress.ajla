@@ -1,5 +1,5 @@
 {*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -23,8 +23,8 @@ uses ui.widget.common;
 type progress_state;
 
 fn progress_init(progress_prop : bytes, color_scheme : bytes, w : world, app : appstate, id : wid) : (world, appstate, progress_state);
-fn progress_get_width(app : appstate, com : widget_common, st : progress_state, x : int) : int;
-fn progress_get_height(app : appstate, com : widget_common, st : progress_state, x : int) : int;
+fn progress_get_width(app : appstate, com : widget_common, st : progress_state, x : nat) : nat;
+fn progress_get_height(app : appstate, com : widget_common, st : progress_state, x : nat) : nat;
 fn progress_redraw(app : appstate, curs : curses, com : widget_common, st : progress_state) : curses;
 fn progress_process_event(w : world, app : appstate, com : widget_common, st : progress_state, wev : wevent) : (world, appstate, widget_common, progress_state);
 
@@ -54,12 +54,12 @@ fn progress_init(progress_prop : bytes, color_scheme : bytes, implicit w : world
 	];
 ]
 
-fn progress_get_width(app : appstate, com : widget_common, st : progress_state, x : int) : int
+fn progress_get_width(app : appstate, com : widget_common, st : progress_state, x : nat) : nat
 [
 	return max(x, 7);
 ]
 
-fn progress_get_height(app : appstate, com : widget_common, st : progress_state, x : int) : int
+fn progress_get_height(app : appstate, com : widget_common, st : progress_state, x : nat) : nat
 [
 	return 1;
 ]

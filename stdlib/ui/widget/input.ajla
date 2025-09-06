@@ -1,5 +1,5 @@
 {*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -23,8 +23,8 @@ uses ui.widget.common;
 type input_state;
 
 fn input_init(color_scheme : bytes, prop : bytes, delete_on_type : bool, w : world, app : appstate, id : wid) : (world, appstate, input_state);
-fn input_get_width(app : appstate, com : widget_common, st : input_state, x : int) : int;
-fn input_get_height(app : appstate, com : widget_common, st : input_state, x : int) : int;
+fn input_get_width(app : appstate, com : widget_common, st : input_state, x : nat) : nat;
+fn input_get_height(app : appstate, com : widget_common, st : input_state, x : nat) : nat;
 fn input_reflow(app : appstate, com : widget_common, st : input_state) : (appstate, widget_common, input_state);
 fn input_redraw(app : appstate, curs : curses, com : widget_common, st : input_state) : curses;
 fn input_get_cursor(app : appstate, com : widget_common, st : input_state) : (int, int);
@@ -84,12 +84,12 @@ fn input_init(color_scheme : bytes, prop : bytes, delete_on_type : bool, implici
 	];
 ]
 
-fn input_get_width(app : appstate, com : widget_common, st : input_state, x : int) : int
+fn input_get_width(app : appstate, com : widget_common, st : input_state, x : nat) : nat
 [
 	return x;
 ]
 
-fn input_get_height(app : appstate, com : widget_common, st : input_state, x : int) : int
+fn input_get_height(app : appstate, com : widget_common, st : input_state, x : nat) : nat
 [
 	return 1;
 ]

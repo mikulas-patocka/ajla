@@ -407,7 +407,7 @@ const copy_class ~flat := widget_class.[
 	process_event : copy_process_event,
 ];
 
-fn progress_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y min_x pref_x max_x : int) : (appstate, int, int)
+fn progress_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y : int, min_x pref_x max_x : nat) : (appstate, int, int)
 [
 	var xs := 0;
 	xs := max(xs, widget_get_width(ids[0], pref_x));
@@ -430,7 +430,7 @@ fn progress_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_
 	return xs, yp;
 ]
 
-fn file_progress_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y min_x pref_x max_x : int) : (appstate, int, int)
+fn file_progress_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y : int, min_x pref_x max_x : nat) : (appstate, int, int)
 [
 	var xs := 0;
 	xs := max(xs, widget_get_width(ids[0], pref_x));
@@ -497,7 +497,7 @@ fn copy_start(implicit w : world, implicit app : appstate, ro : acmd_ro, op : op
 	property_set("copy-dialog", property.w.(winid));
 ]
 
-fn copy_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y min_x pref_x max_x : int) : (appstate, int, int)
+fn copy_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y : int, min_x pref_x max_x : nat) : (appstate, int, int)
 [
 	var xs := 0;
 	xs := max(xs, widget_get_width(ids[0], pref_x));

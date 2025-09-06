@@ -985,7 +985,7 @@ fn view_send_goto(implicit app : appstate, implicit com : widget_common) : appst
 	]));
 ]
 
-fn view_goto_dialog_layout(srch : bool, implicit app : appstate, ids : list(wid), offs_x offs_y min_x pref_x max_x : int) : (appstate, int, int)
+fn view_goto_dialog_layout(srch : bool, implicit app : appstate, ids : list(wid), offs_x offs_y : int, min_x pref_x max_x : nat) : (appstate, int, int)
 [
 	var e := len(ids);
 	var xs := 0;
@@ -1048,7 +1048,7 @@ fn view_send_charset(chs : bytes, implicit app : appstate) : appstate
 fn view_charset(implicit w : world, app : appstate, st : view_state) : (world, appstate)
 [
 	var charsets := charset_list;
-	var init := 0;
+	var init : nat := 0;
 	var entries := empty(vselect_entry);
 	for i := 0 to len(charsets) do [
 		var label := charsets[i].label;
@@ -1143,7 +1143,7 @@ fn view_process_event(implicit w : world, implicit app : appstate, implicit com 
 		com.x := 0;
 		com.y := 0;
 		com.size_x := wev.resize.x;
-		com.size_y := wev.resize.y - 1;
+		com.size_y := max(wev.resize.y - 1, 0);
 		view_init_async_state();
 		st.whence := st.file_pos;
 		st.lines_delta := 0;

@@ -55,7 +55,7 @@ record widget_common [
 	self : wid;
 	parent : wid;
 	x y : int;
-	size_x size_y : int;
+	size_x size_y : nat;
 	off_x off_y : int;
 	flt : bool;
 	sub_widgets : list(wid);
@@ -82,8 +82,8 @@ record widget_class [
 	t : type;
 	name : bytes;
 	is_selectable : bool;
-	get_width : fn(appstate, widget_common, t, int) : int;
-	get_height : fn(appstate, widget_common, t, int) : int;
+	get_width : fn(appstate, widget_common, t, nat) : nat;
+	get_height : fn(appstate, widget_common, t, nat) : nat;
 	get_property : fn(appstate, widget_common, t, bytes) : property;
 	reflow : fn(appstate, widget_common, t) : (appstate, widget_common, t);
 	redraw : fn(appstate, curses, widget_common, t) : curses;
@@ -106,8 +106,8 @@ fn widget_get_common(app : appstate, id : wid) : widget_common;
 fn widget_get_class(app : appstate, id : wid) : bytes;
 fn widget_get_underlying(app : appstate, id : wid) : wid;
 fn widget_get_pivot(app : appstate, id : wid) : (int, int);
-fn widget_get_width(app : appstate, id : wid, pref_x : int) : int;
-fn widget_get_height(app : appstate, id : wid, x : int) : int;
+fn widget_get_width(app : appstate, id : wid, pref_x : nat) : nat;
+fn widget_get_height(app : appstate, id : wid, x : nat) : nat;
 fn widget_get_property(app : appstate, id : wid, prop : bytes) : property;
 fn widget_send_async_event(w : world, app : appstate, id : wid, wev : wevent) : world;
 fn widget_get_async_event_function(w : world, app : appstate, id : wid) : fn(ww : world, wev : wevent) : world;
@@ -116,10 +116,10 @@ fn widget_relative_mouse_coords(app : appstate, id : wid, m : event_mouse) : (in
 fn widget_enqueue_events(app : appstate, wev : list(wid_wevent)) : appstate;
 fn widget_enqueue_event(app : appstate, id : wid, wev : wevent) : appstate;
 fn widget_enqueue_event_to_underlying(app : appstate, id : wid, wev : wevent) : appstate;
-fn widget_move(app : appstate, id : wid, x y size_x size_y off_x off_y : int) : appstate;
-fn widget_place(app : appstate, id : wid, offs_x : int, size_x : int, yp : int) : (appstate, int);
-fn widgets_get_width(app : appstate, ids : list(wid), x_space : int, x : int) : int;
-fn widgets_place(app : appstate, ids : list(wid), align : widget_align, x_space y_space : int, offs_x : int, size_x : int, yp : int) : (appstate, int);
+fn widget_move(app : appstate, id : wid, x y : int, size_x size_y : nat, off_x off_y : int) : appstate;
+fn widget_place(app : appstate, id : wid, offs_x : int, size_x : nat, yp : int) : (appstate, int);
+fn widgets_get_width(app : appstate, ids : list(wid), x_space : nat, x : nat) : nat;
+fn widgets_place(app : appstate, ids : list(wid), align : widget_align, x_space y_space : nat, offs_x : int, size_x : nat, yp : int) : (appstate, int);
 fn widget_is_top(app : appstate, id : wid) : bool;
 fn widget_redraw_subwidgets(app : appstate, curs : curses, com : widget_common) : curses;
 fn widget_get_cursor(implicit app : appstate, id : wid) : (int, int);
@@ -234,7 +234,7 @@ fn widget_get_pivot(app : appstate, id : wid) : (int, int)
 	abort internal("widget_get_pivot: widget not found in the parent list");
 ]
 
-fn widget_get_width(app : appstate, id : wid, pref_x : int) : int
+fn widget_get_width(app : appstate, id : wid, pref_x : nat) : nat
 [
 	const wi := app.widgets[id];
 	if is_uninitialized_record(wi.cls.get_width) then
@@ -242,7 +242,7 @@ fn widget_get_width(app : appstate, id : wid, pref_x : int) : int
 	return wi.cls.get_width(app, wi.common, wi.state, pref_x);
 ]
 
-fn widget_get_height(app : appstate, id : wid, x : int) : int
+fn widget_get_height(app : appstate, id : wid, x : nat) : nat
 [
 	const wi := app.widgets[id];
 	if is_uninitialized_record(wi.cls.get_height) then
@@ -314,7 +314,7 @@ fn widget_enqueue_event_to_underlying(implicit app : appstate, id : wid, wev : w
 		widget_enqueue_event(u, wev);
 ]
 
-fn widget_move(implicit app : appstate, id : wid, x y size_x size_y off_x off_y : int) : appstate
+fn widget_move(implicit app : appstate, id : wid, x y : int, size_x size_y : nat, off_x off_y : int) : appstate
 [
 	app.widgets[id].common.x := x;
 	app.widgets[id].common.y := y;
@@ -329,7 +329,7 @@ fn widget_move(implicit app : appstate, id : wid, x y size_x size_y off_x off_y 
 	]
 ]
 
-fn widget_place(implicit app : appstate, id : wid, offs_x : int, size_x : int, yp : int) : (appstate, int)
+fn widget_place(implicit app : appstate, id : wid, offs_x : int, size_x : nat, yp : int) : (appstate, int)
 [
 	var ys := widget_get_height(id, size_x);
 	widget_move(id, offs_x, yp, size_x, ys, 0, 0);
@@ -338,21 +338,21 @@ fn widget_place(implicit app : appstate, id : wid, offs_x : int, size_x : int, y
 
 record widget_flow_line [
 	ids : list(wid);
-	x : list(int);
-	width : list(int);
-	x_size : int;
+	x : list(nat);
+	width : list(nat);
+	x_size : nat;
 ]
 
-fn widgets_flow(implicit app : appstate, ids : list(wid), x_space : int, pref_x : int) : list(widget_flow_line)
+fn widgets_flow(implicit app : appstate, ids : list(wid), x_space : nat, pref_x : nat) : list(widget_flow_line)
 [
 	var flow := empty(widget_flow_line);
-	var flow_line := widget_flow_line.[ ids : empty(wid), x : empty(int), width : empty(int), x_size : 0 ];
-	var x := 0;
+	var flow_line := widget_flow_line.[ ids : empty(wid), x : empty(nat), width : empty(nat), x_size : 0 ];
+	var x : nat := 0;
 	for i := 0 to len(ids) do [
 		var l := widget_get_width(ids[i], pref_x);
 		if x > 0, x + x_space + l > pref_x then [
 			flow +<= flow_line;
-			flow_line := widget_flow_line.[ ids : empty(wid), x : empty(int), width : empty(int), x_size : 0 ];
+			flow_line := widget_flow_line.[ ids : empty(wid), x : empty(nat), width : empty(nat), x_size : 0 ];
 			x := 0;
 		]
 		x += select(x > 0, 0, x_space);
@@ -367,11 +367,11 @@ fn widgets_flow(implicit app : appstate, ids : list(wid), x_space : int, pref_x 
 	return flow;
 ]
 
-fn widgets_get_width(implicit app : appstate, ids : list(wid), x_space : int, pref_x : int) : int
+fn widgets_get_width(implicit app : appstate, ids : list(wid), x_space : nat, pref_x : nat) : nat
 [
 	var flow := widgets_flow(ids, x_space, pref_x);
 
-	var max_x := 0;
+	var max_x : nat := 0;
 	for i := 0 to len(flow) do [
 		max_x := max(max_x, flow[i].x_size);
 	]
@@ -379,7 +379,7 @@ fn widgets_get_width(implicit app : appstate, ids : list(wid), x_space : int, pr
 	return max_x;
 ]
 
-fn widgets_place(implicit app : appstate, ids : list(wid), align : widget_align, x_space y_space : int, offs_x : int, size_x : int, yp : int) : (appstate, int)
+fn widgets_place(implicit app : appstate, ids : list(wid), align : widget_align, x_space y_space : nat, offs_x : int, size_x : nat, yp : int) : (appstate, int)
 [
 	var flow := widgets_flow(ids, x_space, size_x);
 	for i := 0 to len(flow) do [
@@ -391,7 +391,7 @@ fn widgets_place(implicit app : appstate, ids : list(wid), align : widget_align,
 			x_offset += size_x - flow_line.x_size shr 1;
 		if align is right then
 			x_offset += size_x - flow_line.x_size;
-		var y_size := 0;
+		var y_size : nat := 0;
 		for j := 0 to len(flow_line.ids) do [
 			var yh := widget_get_height(flow_line.ids[j], flow_line.width[j]);
 			widget_move(flow_line.ids[j], x_offset + flow_line.x[j], yp, flow_line.width[j], yh, 0, 0);

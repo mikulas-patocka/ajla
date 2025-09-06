@@ -1,5 +1,5 @@
 {*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -29,7 +29,7 @@ record dialog_entry [
 ]
 
 fn dialog_no_event(w : world, app : appstate, com : widget_common, wev : wevent, ids : list(wid)) : (world, appstate, widget_common, bool);
-fn dialog_init(label : string, entries : list(dialog_entry), selected : int, process_event : fn(world, appstate, widget_common, wevent, list(wid)) : (world, appstate, widget_common, bool), layout : fn(appstate, list(wid), int, int, int, int, int) : (appstate, int, int), color_scheme : bytes, w : world, app : appstate, id : wid) : (world, appstate, dialog_state);
+fn dialog_init(label : string, entries : list(dialog_entry), selected : int where value >= -1, process_event : fn(world, appstate, widget_common, wevent, list(wid)) : (world, appstate, widget_common, bool), layout : fn(appstate, list(wid), int, int, nat, nat, nat) : (appstate, int, int), color_scheme : bytes, w : world, app : appstate, id : wid) : (world, appstate, dialog_state);
 fn dialog_redraw(app : appstate, curs : curses, com : widget_common, st : dialog_state) : curses;
 fn dialog_get_cursor(implicit app : appstate, implicit com : widget_common, implicit st : dialog_state) : (int, int);
 fn dialog_process_event(w : world, app : appstate, com : widget_common, st : dialog_state, wev : wevent) : (world, appstate, widget_common, dialog_state);
@@ -58,7 +58,7 @@ record dialog_state [
 	entries : list(dialog_entry);
 	ids : list(wid);
 	process_event : fn(world, appstate, widget_common, wevent, list(wid)) : (world, appstate, widget_common, bool);
-	layout : fn(appstate, list(wid), int, int, int, int, int) : (appstate, int, int);
+	layout : fn(appstate, list(wid), int, int, nat, nat, nat) : (appstate, int, int);
 ]
 
 fn dialog_no_event(implicit w : world, implicit app : appstate, implicit com : widget_common, wev : wevent, ids : list(wid)) : (world, appstate, widget_common, bool)
@@ -66,7 +66,7 @@ fn dialog_no_event(implicit w : world, implicit app : appstate, implicit com : w
 	return false;
 ]
 
-fn dialog_init(label : string, entries : list(dialog_entry), selected : int, process_event : fn(world, appstate, widget_common, wevent, list(wid)) : (world, appstate, widget_common, bool), layout : fn(appstate, list(wid), int, int, int, int, int) : (appstate, int, int), color_scheme : bytes, implicit w : world, implicit app : appstate, id : wid) : (world, appstate, dialog_state)
+fn dialog_init(label : string, entries : list(dialog_entry), selected : int where value >= -1, process_event : fn(world, appstate, widget_common, wevent, list(wid)) : (world, appstate, widget_common, bool), layout : fn(appstate, list(wid), int, int, nat, nat, nat) : (appstate, int, int), color_scheme : bytes, implicit w : world, implicit app : appstate, id : wid) : (world, appstate, dialog_state)
 [
 	var no_controls := false;
 	if selected = -1 then [
@@ -148,10 +148,13 @@ fn dialog_process_event(implicit w : world, implicit app : appstate, implicit co
 	if wev is resize then [
 		var x_border := (horizontal_outer_border + 1 + horizontal_inner_border) * 2;
 		var pref_x := (wev.resize.x - x_border) * 9 div 10;
-		var xs, ys := st.layout(st.ids, x_border shr 1, vertical_outer_border + 1, string_length(st.label) - 2, pref_x, wev.resize.x - x_border);
+		var xs, ys := st.layout(st.ids, x_border shr 1, vertical_outer_border + 1, max(string_length(st.label) - 2, 0), max(pref_x, 0), max(wev.resize.x - x_border, 0));
+		xs := max(xs, 0);
+		ys := max(ys, 0);
 		com.size_x := xs + x_border;
 		com.size_y := ys + vertical_outer_border + 1;
-		com.size_y := min(com.size_y, wev.resize.y - 1);
+		if wev.resize.y >= 1 then
+			com.size_y := min(com.size_y, wev.resize.y - 1);
 		com.x := (wev.resize.x - com.size_x) shr 1;
 		com.y := (wev.resize.y - com.size_y) shr 1;
 		com.off_y := 0;

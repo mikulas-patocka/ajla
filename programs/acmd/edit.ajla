@@ -1,5 +1,5 @@
 {*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -188,7 +188,7 @@ fn edit_send_goto(implicit app : appstate, implicit com : widget_common) : appst
 	]));
 ]
 
-fn edit_goto_dialog_layout(srch : bool, implicit app : appstate, ids : list(wid), offs_x offs_y min_x pref_x max_x : int) : (appstate, int, int)
+fn edit_goto_dialog_layout(srch : bool, implicit app : appstate, ids : list(wid), offs_x offs_y : int, min_x pref_x max_x : nat) : (appstate, int, int)
 [
 	var e := len(ids);
 	var xs := 0;
@@ -473,7 +473,7 @@ fn edit_process_event(implicit w : world, implicit app : appstate, implicit com 
 		com.x := 0;
 		com.y := 0;
 		com.size_x := wev.resize.x;
-		com.size_y := wev.resize.y - 1;
+		com.size_y := max(wev.resize.y - 1, 0);
 		do_redraw := true;
 		goto set_view;
 	]

@@ -1,5 +1,5 @@
 {*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -23,8 +23,8 @@ uses ui.widget.common;
 type checkbox_state;
 
 fn checkbox_init(label : string, color_scheme : bytes, prop : bytes, radio : bool, val : int, w : world, app : appstate, id : wid) : (world, appstate, checkbox_state);
-fn checkbox_get_width(app : appstate, com : widget_common, st : checkbox_state, x : int) : int;
-fn checkbox_get_height(app : appstate, com : widget_common, st : checkbox_state, x : int) : int;
+fn checkbox_get_width(app : appstate, com : widget_common, st : checkbox_state, x : nat) : nat;
+fn checkbox_get_height(app : appstate, com : widget_common, st : checkbox_state, x : nat) : nat;
 fn checkbox_reflow(app : appstate, com : widget_common, st : checkbox_state) : (appstate, widget_common, checkbox_state);
 fn checkbox_redraw(app : appstate, curs : curses, com : widget_common, st : checkbox_state) : curses;
 fn checkbox_get_cursor(app : appstate, com : widget_common, st : checkbox_state) : (int, int);
@@ -69,14 +69,14 @@ fn checkbox_init(label : string, color_scheme : bytes, prop : bytes, radio : boo
 	];
 ]
 
-fn checkbox_get_width(implicit app : appstate, com : widget_common, st : checkbox_state, x : int) : int
+fn checkbox_get_width(implicit app : appstate, com : widget_common, st : checkbox_state, x : nat) : nat
 [
-	return widget_get_width(st.text_id, x - 4) + 4;
+	return widget_get_width(st.text_id, max(x - 4, 0)) + 4;
 ]
 
-fn checkbox_get_height(implicit app : appstate, com : widget_common, st : checkbox_state, x : int) : int
+fn checkbox_get_height(implicit app : appstate, com : widget_common, st : checkbox_state, x : nat) : nat
 [
-	return widget_get_height(st.text_id, x - 4);
+	return widget_get_height(st.text_id, max(x - 4, 0));
 ]
 
 fn checkbox_reflow(implicit app : appstate, implicit com : widget_common, implicit st : checkbox_state) : (appstate, widget_common, checkbox_state)
@@ -84,7 +84,7 @@ fn checkbox_reflow(implicit app : appstate, implicit com : widget_common, implic
 	var x := checkbox_get_width(com.size_x);
 	com.size_x := min(x, com.size_x);
 	var y := checkbox_get_height(com.size_x);
-	widget_move(st.text_id, 4, 0, com.size_x - 4, y, 0, 0);
+	widget_move(st.text_id, 4, 0, max(com.size_x - 4, 0), y, 0, 0);
 ]
 
 fn checkbox_is_checked(implicit app : appstate, st : checkbox_state) : bool

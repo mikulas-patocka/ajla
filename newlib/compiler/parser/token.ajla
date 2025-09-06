@@ -688,9 +688,7 @@ fn token_find(tl : tokens, t : token_opt, err : bool) : int
 		if tl[i].bracket_skip > 0 then [
 			i += tl[i].bracket_skip;
 			if not len_greater_than(tl, i) then
-			//if not len(tl) > i then
-			//if i >= len(tl) then
-				abort compiler_error_tk("Imbalanced bracket", tl[i]);
+				abort compiler_error_tk("Imbalanced bracket", tl[0]);
 			if ord tl[i].t = ord t then
 				return i;
 		]

@@ -1,5 +1,5 @@
 {*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -24,7 +24,7 @@ type button_state;
 
 fn button_no_action(w : world, app : appstate, id : wid) : (world, appstate);
 fn button_init(label : string, braces : bool, color_scheme : bytes, change_focus : fn(world, appstate, wid) : (world, appstate), click : fn(world, appstate, wid) : (world, appstate), w : world, app : appstate, id : wid) : (world, appstate, button_state);
-fn button_get_width(app : appstate, com : widget_common, st : button_state, x : int) : int;
+fn button_get_width(app : appstate, com : widget_common, st : button_state, x : nat) : nat;
 fn button_redraw(app : appstate, curs : curses, com : widget_common, st : button_state) : curses;
 fn button_get_cursor(app : appstate, com : widget_common, st : button_state) : (int, int);
 fn button_accepts_key(app : appstate, com : widget_common, st : button_state, k : event_keyboard) : bool;
@@ -66,7 +66,7 @@ fn button_init(label : string, braces : bool, color_scheme : bytes, change_focus
 	];
 ]
 
-fn button_get_width(app : appstate, com : widget_common, st : button_state, x : int) : int
+fn button_get_width(app : appstate, com : widget_common, st : button_state, x : nat) : nat
 [
 	if st.braces then
 		return string_length(`[ ` + st.label + ` ]`);

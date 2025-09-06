@@ -1,5 +1,5 @@
 {*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -29,11 +29,11 @@ record vselect_entry [
 	hotkeys : treeset(char);
 ]
 
-fn vselect_new(implicit w : world, implicit app : appstate, caption : string, color_scheme : bytes, handle_esc : bool, entries : list(vselect_entry), init : int) : (world, appstate, wid);
+fn vselect_new(implicit w : world, implicit app : appstate, caption : string, color_scheme : bytes, handle_esc : bool, entries : list(vselect_entry), init : nat) : (world, appstate, wid);
 
 implementation
 
-fn vselect_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y min_x pref_x max_x : int) : (appstate, int, int)
+fn vselect_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y : int, min_x pref_x max_x : nat) : (appstate, int, int)
 [
 	var e := len(ids);
 	var xs := min_x;
@@ -103,7 +103,7 @@ activate:
 	return true;
 ]
 
-fn vselect_new(implicit w : world, implicit app : appstate, caption : string, color_scheme : bytes, handle_esc : bool, entries : list(vselect_entry), init : int) : (world, appstate, wid)
+fn vselect_new(implicit w : world, implicit app : appstate, caption : string, color_scheme : bytes, handle_esc : bool, entries : list(vselect_entry), init : nat) : (world, appstate, wid)
 [
 	var winid : wid;
 	var de := empty(dialog_entry);
@@ -112,7 +112,7 @@ fn vselect_new(implicit w : world, implicit app : appstate, caption : string, co
 		m := max(m, string_length(entries[i].label));
 	for i := 0 to len(entries) do [
 		var label := entries[i].label;
-		var padding := m - string_length(label);
+		var padding := max(m - string_length(label), 0);
 		label += fill(char, ' ', padding);
 		var d := dialog_entry.[
 			cls : button_class,

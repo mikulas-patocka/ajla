@@ -403,10 +403,10 @@ fn acmd_menu_drive(implicit st : acmd_state, mp : list(bytes), panel : int, impl
 [
 	panel := widget_get_property(st.panels[panel], "property-index").i;
 	var cwd := widget_get_property(st.panels[panel], "cwd").b;
-	var init := 0;
+	var init : nat := 0;
 	var init_len := 0;
 	var entries := empty(vselect_entry);
-	for i := 0 to len(mp) do [
+	for i := 0 to len(mp) invariant i >= 0 do [
 		var c := locale_to_string(st.ro.loc, mp[i]);
 		if list_begins_with(cwd, mp[i]) then [
 			if len(mp[i]) > init_len then [
@@ -426,7 +426,7 @@ fn acmd_menu_drive(implicit st : acmd_state, mp : list(bytes), panel : int, impl
 	return app;
 ]
 
-fn sort_order_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y min_x pref_x max_x : int) : (appstate, int, int)
+fn sort_order_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y : int, min_x pref_x max_x : nat) : (appstate, int, int)
 [
 	var xs := 0;
 	for i := 0 to 9 do [
@@ -501,7 +501,7 @@ fn acmd_menu_rescan(implicit st : acmd_state, panel : int, implicit w : world, i
 	]));
 ]
 
-fn select_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y min_x pref_x max_x : int) : (appstate, int, int)
+fn select_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y : int, min_x pref_x max_x : nat) : (appstate, int, int)
 [
 	var xs := 0;
 	xs := max(xs, widget_get_width(ids[0], pref_x));
@@ -732,14 +732,14 @@ fn acmd_process_event(implicit w : world, implicit app : appstate, implicit com 
 [
 	if wev is resize then [
 		com.size_x := wev.resize.x;
-		com.size_y := wev.resize.y - 1;
-		widget_move(st.panels[0], 0, 0, com.size_x shr 1, com.size_y - 1, 0, 0);
-		widget_move(st.panels[1], com.size_x shr 1, 0, com.size_x - (com.size_x shr 1), com.size_y - 1, 0, 0);
+		com.size_y := max(wev.resize.y - 1, 0);
+		widget_move(st.panels[0], 0, 0, com.size_x shr 1, max(com.size_y - 1, 0), 0, 0);
+		widget_move(st.panels[1], com.size_x shr 1, 0, max(com.size_x - (com.size_x shr 1), 0), max(com.size_y - 1, 0), 0, 0);
 	]
 	if wev is resize or wev is property_changed then [
 		st.prompt := shell_expand_prompt(st.ro, st.ps1, property_get("cwd").b);
 		var l := string_length(acmd_prompt_trunc(st, com.size_x));
-		widget_move(st.input, l, com.size_y - 1, com.size_x - l, 1, 0, 0);
+		widget_move(st.input, l, max(com.size_y - 1, 0), max(com.size_x - l, 0), 1, 0, 0);
 		widget_enqueue_event(com.self, wevent.redraw.(event_redraw.[
 			x1 : 0,
 			x2 : com.size_x,
@@ -882,8 +882,8 @@ fn acmd_process_event(implicit w : world, implicit app : appstate, implicit com 
 		]
 		if wev.set_property.prop = "swap-panels" then [
 			st.panels[0], st.panels[1] := st.panels[1], st.panels[0];
-			widget_move(st.panels[0], 0, 0, com.size_x shr 1, com.size_y - 1, 0, 0);
-			widget_move(st.panels[1], com.size_x shr 1, 0, com.size_x - (com.size_x shr 1), com.size_y - 1, 0, 0);
+			widget_move(st.panels[0], 0, 0, com.size_x shr 1, max(com.size_y - 1, 0), 0, 0);
+			widget_move(st.panels[1], com.size_x shr 1, 0, max(com.size_x - (com.size_x shr 1), 0), max(com.size_y - 1, 0), 0, 0);
 			widget_enqueue_event(com.self, wevent.redraw.(event_redraw.[
 				x1 : 0,
 				x2 : com.size_x,

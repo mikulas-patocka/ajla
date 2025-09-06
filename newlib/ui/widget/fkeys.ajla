@@ -1,5 +1,5 @@
 {*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -22,7 +22,7 @@ uses ui.widget.common;
 
 type fkeys_state;
 
-fn fkeys_init(n_keys : int, color_scheme : bytes, w : world, app : appstate, id : wid) : (world, appstate, fkeys_state);
+fn fkeys_init(n_keys : nat, color_scheme : bytes, w : world, app : appstate, id : wid) : (world, appstate, fkeys_state);
 fn fkeys_redraw(app : appstate, curs : curses, com : widget_common, st : fkeys_state) : curses;
 fn fkeys_process_event(w : world, app : appstate, com : widget_common, st : fkeys_state, wev : wevent) : (world, appstate, widget_common, fkeys_state);
 
@@ -55,7 +55,7 @@ fn fkeys_load(implicit app : appstate, implicit st : fkeys_state) : fkeys_state
 	]
 ]
 
-fn fkeys_init(n_keys : int, color_scheme : bytes, implicit w : world, implicit app : appstate, id : wid) : (world, appstate, fkeys_state)
+fn fkeys_init(n_keys : nat, color_scheme : bytes, implicit w : world, implicit app : appstate, id : wid) : (world, appstate, fkeys_state)
 [
 	property_observe(id, "fkeys");
 	implicit st := fkeys_state.[

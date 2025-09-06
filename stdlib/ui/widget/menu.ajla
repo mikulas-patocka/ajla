@@ -187,7 +187,7 @@ fn menu_click(implicit w : world, implicit app : appstate, com : widget_common, 
 fn menu_process_event(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : menu_state, wev : wevent) : (world, appstate, widget_common, menu_state)
 [
 	if wev is resize then [
-		var size_x := 0;
+		var size_x : nat := 0;
 		for i := 0 to len(st.entries) do [
 			var s := string_length(st.entries[i].label);
 			if st.entries[i].label_right <> `` then
@@ -195,7 +195,7 @@ fn menu_process_event(implicit w : world, implicit app : appstate, implicit com 
 			size_x := max(size_x, s);
 		]
 		size_x += 4;
-		var size_y := 2 + len(st.entries);
+		var size_y : nat := 2 + len(st.entries);
 		size_x := min(size_x, wev.resize.x);
 		size_y := min(size_y, wev.resize.y);
 		var pivot_x, pivot_y := widget_get_pivot(com.self);

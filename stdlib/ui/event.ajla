@@ -39,7 +39,7 @@ record event_keyboard [
 ]
 
 record event_resize [
-	x y : int where value >= 1;
+	x y : nat;
 ]
 
 record event_redraw [
