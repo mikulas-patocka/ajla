@@ -185,5 +185,7 @@ record context [
 	unint_map : array(bool, [ -T_Bool + 1, Op_N ]);
 	unint_counter : int;
 	llt_defined : treeset(bytes);
+	var_names : treeset(bytes);
+	unint_functions : treeset(bytes);
 	get_inline : fn(function, bool) : list(pcode_t);
 ]
