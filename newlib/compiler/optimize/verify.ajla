@@ -56,12 +56,14 @@ fn z3_eval_noret(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : con
 
 fn allocate_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int, phi_node : int, fa : list(int)) : (z3_world, context, bytes);
 
+fn num2str(v : int) := bytes_locase(ntos_base(v, 16));
+
 fn get_z3_name(ctx : context, v : int, phi_node : int) : bytes
 [
 	var n := "var_";
 	if phi_node > 0 then
-		n += "phi_" + bytes_locase(ntos_base(phi_node, 16)) + "_";
-	n += bytes_locase(ntos_base(v, 16));
+		n += "phi_" + num2str(phi_node) + "_";
+	n += num2str(v);
 	if len_greater_than(ctx.variables[v].name, 0) then [
 		n += "_" + ctx.variables[v].name;
 	]
@@ -70,7 +72,7 @@ fn get_z3_name(ctx : context, v : int, phi_node : int) : bytes
 
 fn get_z3_bb_name(ctx : context, bgi : int) : (context, bytes)
 [
-	var str := "bb_" + bytes_locase(ntos_base(bgi, 16));
+	var str := "bb_" + num2str(bgi);
 	ctx.blocks[bgi].block_name := str;
 	return ctx, str;
 ]
@@ -165,7 +167,7 @@ fn gen_assert(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : contex
 		for i := 0 to len(fa) do [
 			if i > 0 then
 				str +<= ' ';
-			str += "(fa-"+bytes_locase(ntos_base(fa[i], 16))+" "+get_fa_type(ctx, fa[i])+")";
+			str += "(fa-"+num2str(fa[i])+" "+get_fa_type(ctx, fa[i])+")";
 		]
 		str += ") "+t+" "+ops+")";
 		z3_eval_noret(ctx, str);
@@ -193,7 +195,7 @@ fn allocate_variable_block(implicit z3w : z3_world, implicit z3ctx : z3_context,
 	if len_greater_than(fa, 0) then [
 		r := "("+r;
 		for i := 0 to len(fa) do [
-			r += " fa-"+bytes_locase(ntos_base(fa[i], 16));
+			r += " fa-"+num2str(fa[i]);
 		]
 		r += ")";
 	]
@@ -356,13 +358,13 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 
 fn declare_unint_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, lt : int, fa : list(int)) : (z3_world, context, bytes)
 [
-	var unint_str := "unint_" + bytes_locase(ntos_base(ctx.unint_counter, 16));
+	var unint_str := "unint_" + num2str(ctx.unint_counter);
 	ctx.unint_counter += 1;
 	declare_variable(ctx, unint_str, lt, fa);
 	if len_greater_than(fa, 0) then [
 		unint_str := "("+unint_str;
 		for i := 0 to len(fa) do
-			unint_str += " fa-"+bytes_locase(ntos_base(fa[i], 16));
+			unint_str += " fa-"+num2str(fa[i]);
 		unint_str +<= ')';
 	]
 	return ctx, unint_str;
@@ -430,7 +432,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		for i := 0 to len(fa) do [
 			for i := 0 to len(fa) do [
 				if fa[i] = ins.params[1] then [
-					gen_assert(ctx, v, phi_node, var_name, "fa-"+bytes_locase(ntos_base(fa[i], 16)), fa);
+					gen_assert(ctx, v, phi_node, var_name, "fa-"+num2str(fa[i]), fa);
 					return ctx;
 				]
 			]
@@ -836,7 +838,7 @@ found_new_v:
 		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb, fa +< v, false);
 		if len(var1) = 0 then
 			goto ret_undefined;
-		gen_assert(ctx, v, phi_node, var_name, "(forall ((fa-"+bytes_locase(ntos_base(v, 16))+" "+get_fa_type(ctx, v)+")) "+var1+")", fa);
+		gen_assert(ctx, v, phi_node, var_name, "(forall ((fa-"+num2str(v)+" "+get_fa_type(ctx, v)+")) "+var1+")", fa);
 		return ctx;
 	]
 	{if ins.opcode = P_Phi then [
@@ -898,10 +900,10 @@ found_self:
 			n_args += 1;
 			ins.params[rv] := 0;
 		]
-		var fn_name := "fn_" + bytes_locase(ntos_base(wv, 16));
+		var fn_name := "fn_" + num2str(wv);
 		for i := 0 to len(ins.params) do [
 			fn_name +<= '_';
-			fn_name += bytes_locase(ntos_base(ins.params[i], 16));
+			fn_name += num2str(ins.params[i]);
 		]
 		if not treeset_test(ctx.unint_functions, fn_name) then [
 			ctx.unint_functions := treeset_set(ctx.unint_functions, fn_name);
@@ -923,7 +925,7 @@ fn allocate_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx :
 		for i := 0 to len(fa) do [
 			if i > 0 then
 				n +<= '_';
-			n += bytes_locase(ntos_base(fa[i], 16));
+			n += num2str(fa[i]);
 		]
 		if treeset_test(ctx.var_names, n) then
 			return ctx, n;
