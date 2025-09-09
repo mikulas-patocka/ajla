@@ -761,8 +761,6 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		return ctx;
 	]
 	if ins.opcode = P_Array_Sub or ins.opcode = P_Array_Skip then [
-		if len_greater_than(fa, 0) then
-			goto ret_undefined;
 		var var1 var2 var3 t1 : bytes;
 		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb, fa, true);
 		if len(var1) = 0 then
@@ -777,9 +775,17 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		] else [
 			var3 := "(array-len "+var1+")";
 		]
-		declare_variable(ctx, var_name, ctx.variables[v].runtime_type, fa);
+		{declare_variable(ctx, var_name, ctx.variables[v].runtime_type, fa);
 		var str := "(assert (=> (and (<= 0 "+var2+") (<= "+var2+" "+var3+") (<= "+var3+" (array-len "+var1+"))) (and (= (array-len "+var_name+") (- "+var3+" "+var2+")) (forall ((i Int)) (=> (and (>= i "+var2+") (< i "+var3+")) (= (select (array-content "+var1+") i) (select (array-content "+var_name+") (- i "+var2+"))))))))";
-		z3_eval_noret(ctx, str);
+		z3_eval_noret(ctx, str);}
+
+		var unint_str : bytes;
+		ctx, unint_str := declare_unint_variable(ctx, ctx.variables[v].runtime_type, fa);
+		//var res := "(mk-array (- "+var3+" "+var2+") (lambda ((i Int)) (select (array-content "+var1+") (+ i "+var2+"))))";
+		//var res := "(mk-array (- "+var3+" "+var2+") (lambda ((i Int)) (ite (and (>= i 0) (< i (- "+var3+" "+var2+"))) (select (array-content "+var1+") (+ i "+var2+")) (select array-var i))))";
+		var res := "(mk-array (- "+var3+" "+var2+") (lambda ((i Int)) (ite (and (>= i 0) (< i (- "+var3+" "+var2+"))) (select (array-content "+var1+") (+ i "+var2+")) array-oob)))";
+		var str := "(ite (and (<= 0 "+var2+") (<= "+var2+" "+var3+") (<= "+var3+" (array-len "+var1+"))) "+res+" "+unint_str+")";
+		gen_assert(ctx, v, var_name, str, fa);
 		return ctx;
 	]
 	if ins.opcode = P_Array_Append then [
@@ -1004,11 +1010,13 @@ fn verify_function(ctx : context) : unit_type
 	]
 	str += " (mk-option (option-ord Int) (option-val Any))";
 	str += " (mk-void)";
+	str += " (mk-array-oob)";
 	str += ")))";
 
 	z3_eval_noret(ctx, str);
 
-	z3_eval_noret(ctx, "(declare-const array-var (Array Int Any))");
+	z3_eval_noret(ctx, "(define-const array-oob Any mk-array-oob)");
+	z3_eval_noret(ctx, "(define-const array-var (Array Int Any) ((as const (Array Int Any)) array-oob))");
 
 	z3_eval_noret(ctx, "(define-fun int-div ((x Int) (y Int) (unint Int)) Int (ite (= y 0) unint (ite (>= x 0) (div x y) (ite (>= y 0) (div (+ x (- y 1)) y) (div (- x (+ y 1)) y)))))");
 	z3_eval_noret(ctx, "(define-fun int-mod ((x Int) (y Int) (unint Int)) Int (ite (= y 0) unint (* (mod (abs x) (abs y)) (ite (>= x 0) 1 -1))))");
