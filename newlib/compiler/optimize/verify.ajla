@@ -120,7 +120,7 @@ fn get_fa_type(ctx : context, v : int) : bytes
 fn cast_to_any(str : bytes, runtime_type : int) : bytes
 [
 	if runtime_type < T_Type, runtime_type >= T_Bool then [
-		return "(mk-any_" + ntos_base(runtime_type, 16) + " " + str + ")";
+		return "(mk-any_" + num2str(runtime_type) + " " + str + ")";
 	]
 	return str;
 ]
@@ -128,7 +128,7 @@ fn cast_to_any(str : bytes, runtime_type : int) : bytes
 fn cast_from_any(str : bytes, runtime_type : int) : bytes
 [
 	if runtime_type < T_Type, runtime_type >= T_Bool then [
-		return "(any-entry_" + ntos_base(runtime_type, 16) + " " + str + ")";
+		return "(any-entry_" + num2str(runtime_type) + " " + str + ")";
 	]
 	return str;
 ]
@@ -146,7 +146,7 @@ fn assert_variable_type(implicit z3w : z3_world, implicit z3ctx : z3_context, ct
 		if ctx.local_types[lt] is rec then [
 			var ln := len(ctx.local_types[lt].rec.types);
 			if not ctx.local_types[lt].rec.opt then [
-				z3_eval_noret(ctx, "(assert ((_ is mk-record_"+ntos_base(ln, 16)+") "+n+"))");
+				z3_eval_noret(ctx, "(assert ((_ is mk-record_"+num2str(ln)+") "+n+"))");
 			] else [
 				z3_eval_noret(ctx, "(assert ((_ is mk-option) "+n+"))");
 				z3_eval_noret(ctx, "(assert (>= (option-ord "+n+") 0))");
@@ -227,7 +227,7 @@ fn get_bv_const(typ : int, num : int) : bytes
 	var hex_width := 2 shl ((T_SInt8 - typ) shr 1);
 	if num < 0 then
 		num += 1 shl (hex_width shl 2);
-	return "#x" + list_left_pad(ntos_base(num, 16), hex_width, '0');
+	return "#x" + list_left_pad(bytes_locase(ntos_base(num, 16)), hex_width, '0');
 ]
 
 fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, typ : int, op : int) : (z3_world, context, bytes, bool)
@@ -502,15 +502,15 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		var ltis := [ lti ];
 		var old_var := var1;
 		for i := 0 to n_steps - 1 do [
-			var new_var := var_name + "-ld-" + ntos_base(i + 1, 16);
-			var stored_var := var_name + "-st-" + ntos_base(i + 1, 16);
+			var new_var := var_name + "-ld-" + num2str(i + 1);
+			var stored_var := var_name + "-st-" + num2str(i + 1);
 			if ins.params[idx] = Structured_Record then [
 				var lt := ctx.local_types[get_nonflat_lt(ctx, lti)];
 				var slot := ins.params[idx + 1];
 				lti := ctx.local_types[lti].rec.types[slot];
 				declare_variable(ctx, new_var, lti, fa);
 				declare_variable(ctx, stored_var, lti, fa);
-				var str := "(assert (= "+new_var+" (record_"+ntos_base(len(lt.rec.types), 16)+"-entry_"+ntos_base(slot, 16)+" "+old_var+")))";
+				var str := "(assert (= "+new_var+" (record_"+num2str(len(lt.rec.types))+"-entry_"+num2str(slot)+" "+old_var+")))";
 				z3_eval_noret(ctx, str);
 				idx += 2;
 			] else if ins.params[idx] = Structured_Option then [
@@ -551,14 +551,14 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 			if i = 0 then
 				new_var := var_name;
 			else
-				new_var := var_name + "-st-" + ntos_base(i, 16);
+				new_var := var_name + "-st-" + num2str(i);
 			var idx := idxs[i];
 			var lti := ltis[i];
 			if ins.params[idx] = Structured_Record then [
 				var lt := ctx.local_types[get_nonflat_lt(ctx, lti)];
 				var a := len(lt.rec.types);
 				var slot := ins.params[idx + 1];
-				var str := "(assert (= "+new_var+" ((_ update-field record_"+ntos_base(a, 16)+"-entry_"+ntos_base(slot, 16)+") "+old_var+" "+svar+")))";
+				var str := "(assert (= "+new_var+" ((_ update-field record_"+num2str(a)+"-entry_"+num2str(slot)+") "+old_var+" "+svar+")))";
 				z3_eval_noret(ctx, str);
 			] else if ins.params[idx] = Structured_Option then [
 				var slot := ins.params[idx + 1];
@@ -577,7 +577,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				abort internal("assert_instruction: invalid structured type " + ntos(ins.params[idx]));
 			]
 			if i > 1 then
-				old_var := var_name + "-ld-" + ntos_base(i - 1, 16);
+				old_var := var_name + "-ld-" + num2str(i - 1);
 			else
 				old_var := var1;
 			svar := new_var;
@@ -588,7 +588,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 	if ins.opcode = P_Record_Create then [
 		var lti := get_nonflat_lt(ctx, ctx.variables[v].runtime_type);
 		var lt := ctx.local_types[lti];
-		var name := ntos_base(len(lt.rec.types), 16);
+		var name := num2str(len(lt.rec.types));
 		var str : bytes;
 		if len(lt.rec.types) = 0 then [
 			str := "mk-record_"+name;
@@ -614,7 +614,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		var lt := ctx.local_types[get_nonflat_lt(ctx, ctx.variables[ins.params[2]].runtime_type)];
 		var slot := ins.params[3];
 		//var_name := cast_to_any(var_name, ctx.variables[v].runtime_type);
-		var str := "(record_"+ntos_base(len(lt.rec.types), 16)+"-entry_"+ntos_base(slot, 16)+" "+var1+")";
+		var str := "(record_"+num2str(len(lt.rec.types))+"-entry_"+num2str(slot)+" "+var1+")";
 		str := cast_from_any(str, ctx.variables[v].runtime_type);
 		gen_assert(ctx, v, phi_node, var_name, str, fa);
 		return ctx;
@@ -973,17 +973,17 @@ fn verify_function(ctx : context) : unit_type
 	str += "(Any";
 	for lti := T_Bool to 0 do [
 		var name := get_z3_type(lti);
-		var num := ntos_base(lti, 16);
+		var num := num2str(lti);
 		str += " (mk-any_" + num + " (any-entry_" + num + " " + name + "))";
 	]
 	str += " (mk-array (array-len Int) (array-content (Array Int Any)))";
 	while record_sizes <> 0 do [
 		var r := bsf record_sizes;
 		record_sizes btr= r;
-		var num := ntos_base(r, 16);
+		var num := num2str(r);
 		str += " (mk-record_" + num;
 		for i := 0 to r do [
-			var ni := ntos_base(i, 16);
+			var ni := num2str(i);
 			str += " (record_" + num + "-entry_" + ni + " Any)";
 		]
 		str += ")";
