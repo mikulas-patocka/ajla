@@ -77,6 +77,8 @@ fn get_z3_bb_name(ctx : context, bgi : int) : (context, bytes)
 	return ctx, str;
 ]
 
+fn get_z3_fa_name(fa : int) := "fa_" + num2str(fa);
+
 fn get_nonflat_lt(ctx : context, runtime_type : int) : int
 [
 	if runtime_type < 0 then
@@ -167,7 +169,7 @@ fn gen_assert(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : contex
 		for i := 0 to len(fa) do [
 			if i > 0 then
 				str +<= ' ';
-			str += "(fa-"+num2str(fa[i])+" "+get_fa_type(ctx, fa[i])+")";
+			str += "("+get_z3_fa_name(fa[i])+" "+get_fa_type(ctx, fa[i])+")";
 		]
 		str += ") "+t+" "+ops+")";
 		z3_eval_noret(ctx, str);
@@ -195,7 +197,7 @@ fn allocate_variable_block(implicit z3w : z3_world, implicit z3ctx : z3_context,
 	if len_greater_than(fa, 0) then [
 		r := "("+r;
 		for i := 0 to len(fa) do [
-			r += " fa-"+num2str(fa[i]);
+			r += " "+get_z3_fa_name(fa[i]);
 		]
 		r += ")";
 	]
@@ -364,7 +366,7 @@ fn declare_unint_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, 
 	if len_greater_than(fa, 0) then [
 		unint_str := "("+unint_str;
 		for i := 0 to len(fa) do
-			unint_str += " fa-"+num2str(fa[i]);
+			unint_str += " "+get_z3_fa_name(fa[i]);
 		unint_str +<= ')';
 	]
 	return ctx, unint_str;
@@ -432,7 +434,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		for i := 0 to len(fa) do [
 			for i := 0 to len(fa) do [
 				if fa[i] = ins.params[1] then [
-					gen_assert(ctx, v, phi_node, var_name, "fa-"+num2str(fa[i]), fa);
+					gen_assert(ctx, v, phi_node, var_name, get_z3_fa_name(fa[i]), fa);
 					return ctx;
 				]
 			]
@@ -838,7 +840,7 @@ found_new_v:
 		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb, fa +< v, false);
 		if len(var1) = 0 then
 			goto ret_undefined;
-		gen_assert(ctx, v, phi_node, var_name, "(forall ((fa-"+num2str(v)+" "+get_fa_type(ctx, v)+")) "+var1+")", fa);
+		gen_assert(ctx, v, phi_node, var_name, "(forall (("+get_z3_fa_name(v)+" "+get_fa_type(ctx, v)+")) "+var1+")", fa);
 		return ctx;
 	]
 	{if ins.opcode = P_Phi then [
