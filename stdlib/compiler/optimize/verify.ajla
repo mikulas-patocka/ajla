@@ -636,13 +636,19 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb, fa, true);
 		if len(var1) = 0 then
 			goto ret_undefined;
-		declare_variable(ctx, var_name, ctx.variables[v].runtime_type, fa);
 		var index := ins.params[3];
-		//var_name := cast_to_any(var_name, ctx.variables[v].runtime_type);
+		{declare_variable(ctx, var_name, ctx.variables[v].runtime_type, fa);
 		var res := "(option-val "+var1+")";
 		res := cast_from_any(res, ctx.variables[v].runtime_type);
 		var str := "(assert (=> (= (option-ord "+var1+") "+ntos(index)+") (= "+var_name+" "+res+")))";
-		z3_eval_noret(ctx, str);
+		z3_eval_noret(ctx, str);}
+
+		var unint_str : bytes;
+		ctx, unint_str := declare_unint_variable(ctx, ctx.variables[v].runtime_type, fa);
+		var res := "(option-val "+var1+")";
+		res := cast_from_any(res, ctx.variables[v].runtime_type);
+		var str := "(ite (= (option-ord "+var1+") "+ntos(index)+") "+res+" "+unint_str+")";
+		gen_assert(ctx, v, phi_node, var_name, str, fa);
 		return ctx;
 	]
 	if ins.opcode = P_Option_Test then [
