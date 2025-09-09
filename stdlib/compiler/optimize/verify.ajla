@@ -820,11 +820,14 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, var2 := allocate_variable_block(ctx, ins.params[4], phi_node, ins.bb, fa, true);
 		if len(var2) = 0 then
 			goto ret_undefined;
-		declare_variable(ctx, var_name, ctx.variables[v].runtime_type, fa);
+		{declare_variable(ctx, var_name, ctx.variables[v].runtime_type, fa);
 		var str := "(assert (= (array-len "+var_name+") (+ (array-len "+var1+") 1)))";
 		z3_eval_noret(ctx, str);
 		str := "(assert (= (array-content "+var_name+") (store (array-content "+var1+") (array-len "+var1+") "+var2+")))";
-		z3_eval_noret(ctx, str);
+		z3_eval_noret(ctx, str);}
+
+		var str := "(mk-array (+ (array-len "+var1+") 1) (store (array-content "+var1+") (array-len "+var1+") "+var2+"))";
+		gen_assert(ctx, v, var_name, str, fa);
 		return ctx;
 	]
 	if ins.opcode = P_Array_Flatten then [
