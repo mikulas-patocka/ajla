@@ -761,6 +761,8 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		return ctx;
 	]
 	if ins.opcode = P_Array_Sub or ins.opcode = P_Array_Skip then [
+		if len_greater_than(fa, 0) then
+			goto ret_undefined;
 		var var1 var2 var3 t1 : bytes;
 		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb, fa, true);
 		if len(var1) = 0 then
@@ -781,6 +783,8 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		return ctx;
 	]
 	if ins.opcode = P_Array_Append then [
+		if len_greater_than(fa, 0) then
+			goto ret_undefined;
 		var var1 var2 : bytes;
 		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb, fa, true);
 		if len(var1) = 0 then
@@ -798,6 +802,8 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		return ctx;
 	]
 	if ins.opcode = P_Array_Append_One then [
+		if len_greater_than(fa, 0) then
+			goto ret_undefined;
 		var var1 var2 : bytes;
 		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb, fa, true);
 		if len(var1) = 0 then
