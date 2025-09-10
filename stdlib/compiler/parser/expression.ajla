@@ -217,9 +217,15 @@ fn parse_forall(ctx : function_context, vd : variable_dictionary, t : tokens, in
 	if colon <> 1 or not decl[0].t is identifier then
 		abort compiler_error("Bad " + select(ex, "forall", "exists") + " expression", t);
 
-	comma := token_find(t, token_opt.comma, true);
-	var cond := t[ .. comma];
-	t := t[comma + 1 .. ];
+	comma := token_find(t, token_opt.comma, false);
+	var cond : tokens;
+	if comma >= 0 then [
+		cond := t[ .. comma];
+		t := t[comma + 1 .. ];
+	] else [
+		cond := decl[ .. 1];
+		cond[0].t := token_opt.k_true;
+	]
 
 	var l : int;
 	ctx, l := alloc_local_variable(ctx, T_Bool, true, false);
