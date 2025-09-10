@@ -228,6 +228,8 @@ fn parse_forall(ctx : function_context, vd : variable_dictionary, t : tokens, in
 	var at : int;
 	ctx, at := parse_expression_type(ctx, vd, expression);
 
+	var cc, ty, inv := get_type_invariants(ctx, new_compare_context(ctx), at);
+
 	var name := decl[0].t.identifier;
 	var ll : int;
 	ctx, ll := alloc_local_variable(ctx, at, true, false);
@@ -239,6 +241,18 @@ fn parse_forall(ctx : function_context, vd : variable_dictionary, t : tokens, in
 
 	var predicate : int;
 	ctx, predicate := parse_expression_bool(ctx, vd, t, in_type);
+
+	for i := 0 to len(inv) do [
+		var v : int;
+		var pw := ctx.parsing_where;
+		ctx.parsing_where := ll;
+		ctx, v := evaluate_type(ctx, inv[i].cc, inv[i].idx, empty(compare_fn_stack), t);
+		ctx.parsing_where := pw;
+		var p : int;
+		ctx, p := alloc_local_variable(ctx, T_Bool, true, false);
+		ctx := generate_BinaryOp(ctx, Bin_And, condition, v, p);
+		condition := p;
+	]
 
 	if ex then [
 		var not_predicate : int;
