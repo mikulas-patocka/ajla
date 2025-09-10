@@ -205,6 +205,8 @@ fn parse_function_type(ctx : function_context, vd : variable_dictionary, t : tok
 
 fn parse_forall(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool) : (function_context, list(int))
 [
+	var ex := t[0].t is k_exists;
+	t := t[1 .. ];
 	xeval token_assert(t, token_opt.left_paren);
 	xeval token_assert(t[len(t) - 1 ..], token_opt.right_paren);
 	t := t[1 .. len(t) - 1];
@@ -213,7 +215,11 @@ fn parse_forall(ctx : function_context, vd : variable_dictionary, t : tokens, in
 	t := t[comma + 1 .. ];
 	var colon := token_find(decl, token_opt.colon, true);
 	if colon <> 1 or not decl[0].t is identifier then
-		abort compiler_error("Bad forall expression", t);
+		abort compiler_error("Bad " + select(ex, "forall", "exists") + " expression", t);
+
+	comma := token_find(t, token_opt.comma, true);
+	var cond := t[ .. comma];
+	t := t[comma + 1 .. ];
 
 	var l : int;
 	ctx, l := alloc_local_variable(ctx, T_Bool, true, false);
@@ -229,10 +235,31 @@ fn parse_forall(ctx : function_context, vd : variable_dictionary, t : tokens, in
 	ctx, vd := add_variable(ctx, vd, name, ll, false, decl);
 
 	var condition : int;
-	ctx, condition := parse_expression_bool(ctx, vd, t, in_type);
+	ctx, condition := parse_expression_bool(ctx, vd, cond, in_type);
+
+	var predicate : int;
+	ctx, predicate := parse_expression_bool(ctx, vd, t, in_type);
+
+	if ex then [
+		var not_predicate : int;
+		ctx, not_predicate := alloc_local_variable(ctx, T_Bool, true, false);
+		ctx := generate_UnaryOp(ctx, Un_Not, predicate, not_predicate);
+		predicate := not_predicate;
+	]
+
+	var p : int;
+	ctx, p := alloc_local_variable(ctx, T_Bool, true, false);
+	ctx := generate_BinaryOp(ctx, Bin_LessEqual, condition, predicate, p);
 
 	ctx := set_defined_here(ctx, l);
-	ctx := generate_ForAll(ctx, l, at, condition);
+	ctx := generate_ForAll(ctx, l, at, p);
+
+	if ex then [
+		var not_l : int;
+		ctx, not_l := alloc_local_variable(ctx, T_Bool, true, false);
+		ctx := generate_UnaryOp(ctx, Un_Not, l, not_l);
+		l := not_l;
+	]
 
 	return ctx, [ l ];
 
@@ -624,8 +651,8 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 	 = FORALL =
 	 ==========}
 
-	if t[0].t is k_forall then [
-		return parse_forall(ctx, vd, t[1 .. ], in_type);
+	if t[0].t is k_forall or t[0].t is k_exists then [
+		return parse_forall(ctx, vd, t, in_type);
 	]
 
 	{=======
