@@ -137,26 +137,37 @@ fn cast_from_any(str : bytes, runtime_type : int) : bytes
 
 fn assert_variable_type(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, n : bytes, lt : int, fa : list(int)) : z3_world
 [
+	var pfx := "(assert ";
+	var sfx := ")";
 	if len_greater_than(fa, 0) then [
-		// !!! FIXME
-		return;
+		pfx += "(forall (";
+		n := "("+n;
+		for i := 0 to len(fa) do [
+			if i > 0 then
+				pfx +<= ' ';
+			pfx += "("+get_z3_fa_name(fa[i])+" "+get_fa_type(ctx, fa[i])+")";
+			n += " "+get_z3_fa_name(fa[i]);
+		]
+		pfx += ") ";
+		n += ")";
+		sfx += ")";
 	]
 	if lt = T_Type then [
-		z3_eval_noret(ctx, "(assert ((_ is mk-void) "+n+"))");
+		z3_eval_noret(ctx, pfx+"((_ is mk-void) "+n+")"+sfx);
 	] else if lt >= 0 then [
 		lt := get_nonflat_lt(ctx, lt);
 		if ctx.local_types[lt] is rec then [
 			var ln := len(ctx.local_types[lt].rec.types);
 			if not ctx.local_types[lt].rec.opt then [
-				z3_eval_noret(ctx, "(assert ((_ is mk-record_"+num2str(ln)+") "+n+"))");
+				z3_eval_noret(ctx, pfx+"((_ is mk-record_"+num2str(ln)+") "+n+")"+sfx);
 			] else [
-				z3_eval_noret(ctx, "(assert ((_ is mk-option) "+n+"))");
-				z3_eval_noret(ctx, "(assert (>= (option-ord "+n+") 0))");
-				z3_eval_noret(ctx, "(assert (< (option-ord "+n+") "+ntos(ln)+"))");
+				z3_eval_noret(ctx, pfx+"((_ is mk-option) "+n+")"+sfx);
+				z3_eval_noret(ctx, pfx+"(>= (option-ord "+n+") 0)"+sfx);
+				z3_eval_noret(ctx, pfx+"(< (option-ord "+n+") "+ntos(ln)+")"+sfx);
 			]
 		] else if ctx.local_types[lt] is arr or ctx.local_types[lt] is flat_array then [
-			z3_eval_noret(ctx, "(assert ((_ is mk-array) "+n+"))");
-			z3_eval_noret(ctx, "(assert (>= (array-len "+n+") 0))");
+			z3_eval_noret(ctx, pfx+"((_ is mk-array) "+n+")"+sfx);
+			z3_eval_noret(ctx, pfx+"(>= (array-len "+n+") 0)"+sfx);
 		]
 	]
 ]
