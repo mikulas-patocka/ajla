@@ -847,7 +847,14 @@ found_new_v:
 ret_common:
 	//eval debug("unknown opcode: " + ntos(ins.opcode) + " (" + ctx.variables[v].verifier_name[0] + ")");
 	var allowed_codes : int64 := 0
+		bts P_BinaryOp
+		bts P_BinaryConstOp
+		bts P_UnaryOp
+		bts P_Load_Fn
+		bts P_Curry
 		bts P_Call
+		bts P_Call_Indirect
+		bts P_Load_Const
 		bts P_Args
 		bts P_Phi
 		;
