@@ -852,7 +852,7 @@ ret_common:
 		bts P_Load_Fn
 		bts P_Curry
 		bts P_Call
-		bts P_Call_Indirect
+		//bts P_Call_Indirect
 		bts P_Load_Const
 		bts P_Array_Flexible
 		bts P_Array_Fixed
@@ -899,7 +899,7 @@ found_self:
 			n_args += 1;
 			ins.params[rv] := 0;
 		]
-		var fn_name := "fn_" + num2str(wv);
+		var fn_name := "fn_"+num2str(ins.opcode)+"_"+num2str(wv);
 		for i := 0 to len(ins.params) do [
 			fn_name +<= '_';
 			fn_name += num2str(ins.params[i]);
