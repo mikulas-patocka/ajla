@@ -152,9 +152,7 @@ fn assert_variable_type(implicit z3w : z3_world, implicit z3ctx : z3_context, ct
 		n += ")";
 		sfx += ")";
 	]
-	if lt = T_Type then [
-		z3_eval_noret(ctx, pfx+"((_ is mk-void) "+n+")"+sfx);
-	] else if lt >= 0 then [
+	if lt >= 0 then [
 		lt := get_nonflat_lt(ctx, lt);
 		if ctx.local_types[lt] is rec then [
 			var ln := len(ctx.local_types[lt].rec.types);
@@ -194,7 +192,7 @@ fn gen_assert(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : contex
 fn allocate_variable_block(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int, phi_node : int, bb : int, fa : list(int), a : bool) : (z3_world, context, bytes)
 [
 	if v < 0 then
-		return ctx, "mk-void";
+		return ctx, "mk-type"+num2str(v);
 	var r : bytes;
 	var ins := ctx.instrs[ctx.variables[v].defining_instr];
 	if ins.bb = bb then [
@@ -990,6 +988,8 @@ fn verify_function(ctx : context) : unit_type
 	str += " (mk-option (option-ord Int) (option-val Any))";
 	str += " (mk-void)";
 	str += " (mk-array-oob)";
+	for i := T_Undetermined to 0 do
+		str += " (mk-type"+num2str(i)+")";
 	str += ")))";
 
 	z3_eval_noret(ctx, str);
