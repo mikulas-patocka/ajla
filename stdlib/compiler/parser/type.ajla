@@ -85,6 +85,7 @@ fn get_list_id : function_unique_id;
 
 fn generate_assumes_or_claims(ctx : function_context, a : int, inv : list(compare_argument), cl : bool, t : tokens) : function_context;
 fn generate_foreach_assumes_or_claims(ctx : function_context, a : int, inv : list(compare_argument), cl : bool, t : tokens) : function_context;
+fn generate_array_len_check(ctx : function_context, a ai : int, t : tokens) : function_context;
 
 implementation
 
@@ -1929,9 +1930,9 @@ fn generate_foreach_assumes_or_claims(ctx : function_context, a : int, inv : lis
 		function_index : [ predefined_len ],
 	];
 	var len_fd := search_function_from_id(ctx, len_id);
-	var list_cc, list_typ := list_type(ctx, new_compare_context(ctx), a, false, t);
 	var list_ev : int;
-	ctx, list_ev := evaluate_type(ctx, list_cc, list_typ, empty(compare_fn_stack), t);
+	ctx, list_ev := evaluate_list_type(ctx, a, t);
+
 	var ln : list(int);
 	ctx, ln := generate_Call(ctx, Call_Mode_Unspecified, len_fd, [ list_ev, a ], [ 0, 0 ], t);
 
@@ -1974,6 +1975,39 @@ fn generate_foreach_assumes_or_claims(ctx : function_context, a : int, inv : lis
 		ctx := generate_Assume(ctx, l, false);
 	else
 		ctx := generate_Claim(ctx, l, false);
+
+	return ctx;
+]
+
+fn generate_array_len_check(ctx : function_context, a ai : int, t : tokens) : function_context
+[
+	var z : int;
+	ctx, z := generate_Load_Const(ctx, T_Integer, int_to_blob(0));
+	var ge : int;
+	ctx, ge := alloc_local_variable(ctx, T_Bool, true, false);
+	ctx := generate_BinaryOp(ctx, Bin_GreaterEqual, ai, z, ge);
+
+	var len_id := function_unique_id.[
+		path_index : 0,
+		unit_string : i_encode("system"),
+		program : false,
+		function_index : [ predefined_len ],
+	];
+	var len_fd := search_function_from_id(ctx, len_id);
+	var list_ev : int;
+	ctx, list_ev := evaluate_list_type(ctx, a, t);
+	var ln : list(int);
+	ctx, ln := generate_Call(ctx, Call_Mode_Unspecified, len_fd, [ list_ev, a ], [ 0, 0 ], t);
+
+	var lt : int;
+	ctx, lt := alloc_local_variable(ctx, T_Bool, true, false);
+	ctx := generate_BinaryOp(ctx, Bin_Less, ai, ln[0], lt);
+
+	var l : int;
+	ctx, l := alloc_local_variable(ctx, T_Bool, true, false);
+	ctx := generate_BinaryOp(ctx, Bin_And, ge, lt, l);
+
+	ctx := generate_Claim(ctx, l, false);
 
 	return ctx;
 ]

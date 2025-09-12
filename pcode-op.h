@@ -223,7 +223,8 @@
 #define SystemProperty_Sandbox		7
 #define SystemProperty_Compile		8
 #define SystemProperty_NoInline		9
-#define SystemProperty_Verify_Timeout	10
+#define SystemProperty_Verify_Light	10
+#define SystemProperty_Verify_Timeout	11
 
 #define SystemProperty_OS_Posix		1
 #define SystemProperty_OS_DOS		2

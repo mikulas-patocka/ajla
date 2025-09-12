@@ -225,7 +225,8 @@ const SystemProperty_Privileged := 6;
 const SystemProperty_Sandbox := 7;
 const SystemProperty_Compile := 8;
 const SystemProperty_NoInline := 9;
-const SystemProperty_Verify_Timeout := 10;
+const SystemProperty_Verify_Light := 10;
+const SystemProperty_Verify_Timeout := 11;
 
 const SystemProperty_OS_Posix := 1;
 const SystemProperty_OS_DOS := 2;
@@ -727,7 +728,8 @@ fn name_to_value~cache : list(int)
 	a[#29F9E7D32EDA1CB7F0CBCBA79BF4F0EEC98B7F8] := 7;			// SystemProperty_Sandbox
 	a[#29F9E7D32EDA1CB7F0CBCBA79BF0F7EDE1A7665] := 8;			// SystemProperty_Compile
 	a[#14FCF3E9976D0E5BF865E5D3CDF9DBE4EED9A7765] := 9;			// SystemProperty_NoInline
-	a[#53F3CFA65DB4396FE197974F37EB65E5A7379BF534EDCBBFAF4] := 10;		// SystemProperty_Verify_Timeout
+	a[#14FCF3E9976D0E5BF865E5D3CDFAD97969CDE6FCCD39F474] := 10;		// SystemProperty_Verify_Light
+	a[#53F3CFA65DB4396FE197974F37EB65E5A7379BF534EDCBBFAF4] := 11;		// SystemProperty_Verify_Timeout
 
 	a[#14FCF3E9976D0E5BF865E5D3CDF9F4EFD0DFCF4F8] := 1;			// SystemProperty_OS_Posix
 	a[#53F3CFA65DB4396FE197974F37E7D3BF127D3] := 2;				// SystemProperty_OS_DOS

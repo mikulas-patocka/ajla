@@ -766,7 +766,7 @@ fn generate_std(ctx : function_context, index : int) : (function_context, int)
 	ctx, q := generate_Call(ctx, Call_Mode_Inline, fd, empty(int), empty(int), empty(token));
 
 	if len(q) <> 1 then
-		abort compiler_error("bool returns multiple values", empty(token));
+		abort compiler_error("std returns multiple values", empty(token));
 
 	return ctx, q[0];
 ]

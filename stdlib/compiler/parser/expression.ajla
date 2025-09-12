@@ -503,6 +503,10 @@ fn list_load(ctx : function_context, vd : variable_dictionary, t t2 : tokens, in
 	var cc, a := get_deep_type_of_var(ctx, aa);
 	ctx, ai := list_array_get_index(ctx, vd, cc, a, t2, in_type);
 
+	if sysprop(SystemProperty_Verify_Light) = 0 then [
+		ctx := generate_array_len_check(ctx, aa, ai, t2);
+	]
+
 	var l : int;
 	ctx, l := generate_Array_Load(ctx, aa, ai, t);
 
