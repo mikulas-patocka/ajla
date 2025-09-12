@@ -162,6 +162,8 @@ record function_context [
 	novfy_flag : bool;
 	vfy_tagged : bool;
 
+	parsing_assume_claim : int;
+
 	parsing_where : int;
 	parsing_where_type : int;
 	parsing_record_where : bool;
@@ -471,6 +473,7 @@ fn new_function_context(dict : function_dictionary, parent_function : maybe(func
 		novfy_flag : false,
 		vfy_tagged : false,
 
+		parsing_assume_claim : 0,
 		parsing_where : T_InvalidType,
 		parsing_where_type : T_InvalidType,
 		parsing_record_where : false,

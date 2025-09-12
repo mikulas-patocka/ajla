@@ -907,7 +907,7 @@ const acmd_class~flat := widget_class.[
 	process_event : acmd_process_event,
 ];
 
-fn main(implicit w : world, d : dhandle, h : list(handle), args : list(bytes), env : treemap(bytes, bytes)) : world
+fn main
 [
 	app_run(d, h, env, acmd_class, acmd_init(d, h, env,,,));
 ]

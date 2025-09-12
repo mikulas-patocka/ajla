@@ -18,7 +18,7 @@
 
 uses newcomp.compiler.selfopt;
 
-fn main(w : world, d : dhandle, h : list(handle), args : list(bytes), env : treemap(bytes, bytes)) : world
+fn main
 [
 	w := self_optimize(w, d);
 	return w;

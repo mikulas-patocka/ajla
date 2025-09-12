@@ -135,7 +135,9 @@ fn parse_fn_arguments(ctx : function_context, vd : variable_dictionary, t : toke
 			if not retval and decl[0].t is k_prereq or
 			   retval and decl[0].t is k_contract then [
 				var a : int;
+				ctx.parsing_assume_claim += 1;
 				ctx, a := parse_expression_bool(ctx, vd, decl[1 .. ], in_type);
+				ctx.parsing_assume_claim -= 1;
 				prereqs_contracts +<= a;
 				continue;
 			]
@@ -503,7 +505,7 @@ fn list_load(ctx : function_context, vd : variable_dictionary, t t2 : tokens, in
 	var cc, a := get_deep_type_of_var(ctx, aa);
 	ctx, ai := list_array_get_index(ctx, vd, cc, a, t2, in_type);
 
-	if sysprop(SystemProperty_Verify_Light) = 0 then [
+	if ctx.parsing_assume_claim = 0, ctx.parsing_where = T_InvalidType, sysprop(SystemProperty_Verify_Light) = 0 then [
 		ctx := generate_array_len_check(ctx, aa, ai, t2);
 	]
 

@@ -117,7 +117,9 @@ fn parse_arguments(ctx : function_context, vd : variable_dictionary, t : tokens,
 			if not retval and decl[0].t is k_prereq or
 			   retval and decl[0].t is k_contract then [
 				var a : int;
+				ctx.parsing_assume_claim += 1;
 				ctx, a := parse_expression_bool(ctx, vd, decl[1 .. ], false);
+				ctx.parsing_assume_claim -= 1;
 				if not retval then
 					ctx.prereqs +<= a;
 				else
@@ -1249,7 +1251,7 @@ fn parse_file~cache(w : world, d : list(bytes), name : bytes, program : bool, pa
 	var h := "";
 	if program then [
 		var un_dir, un_name := path_to_dir_file(name);
-		h := "unit " + unit_encode(un_name) + "; uses io, treemap; fn main(implicit w : world, d : dhandle, h : list(handle), args : list(bytes), env : treemap(bytes, bytes)) : world; implementation ";
+		h := "unit " + unit_encode(un_name) + "; uses io, treemap; fn main(implicit w : world, d : dhandle, h : list(handle), args : list(bytes), env : treemap(bytes, bytes), prereq len(h) >= 3) : world; implementation ";
 	]
 	h += read_lazy(f);
 	var t := tokenize(h, name);
