@@ -1195,10 +1195,13 @@ fn verify_function(ctx : context) : unit_type
 	z3_eval_noret(ctx, "(assert (not " + ctx.blocks[0].block_name + "))");
 
 	for typ := T_Integer128 to T_Integer + 1 do [
-		if len_greater_than(ctx.op_map[-typ, Un_Bsf], 0) or len_greater_than(ctx.op_map[-typ, Un_Bsr], 0) then [
+		if len_greater_than(ctx.op_map[-typ, Bin_Power], 0) or
+		   len_greater_than(ctx.op_map[-typ, Un_Bsf], 0) or
+		   len_greater_than(ctx.op_map[-typ, Un_Bsr], 0) then [
 			z3_eval_noret(ctx, "(assert (forall ((x Int)) (=> (> x 0) (and (>= (int-bsf x) 0) (>= x (to_int (^ 2 (int-bsf x))))))))");
 			z3_eval_noret(ctx, "(assert (forall ((x Int)) (=> (> x 0) (and (>= (int-bsr x) 0) (>= x (to_int (^ 2 (int-bsr x))))))))");
 			z3_eval_noret(ctx, "(assert (forall ((x Int) (y Int)) (! (= (< (^ 2 x) (^ 2 y)) (< x y)) :pattern ((^ 2 x) (^ 2 y)))))");
+			z3_eval_noret(ctx, "(assert (forall ((x Int) (y Int)) (! (=> (and (> x 0) (>= y 0)) (>= (^ x y) 1)) :pattern ((^ x y)))))");
 			break;
 		]
 	]
