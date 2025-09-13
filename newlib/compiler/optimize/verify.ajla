@@ -317,6 +317,8 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 		else if op = Bin_Bt		then [ str := "int-bt"; unint := true; ]
 		else if op = Un_Not		then str := "int-not";
 		else if op = Un_Neg		then str := "-";
+		else if op = Un_Bsf		then str := "int-bsf";
+		else if op = Un_Bsr		then str := "int-bsr";
 		else if op = Un_ConvertToInt	then str := "+";
 		else if op = Un_ConvertFromInt	then str := "+";
 	] else if typ <= T_Real16, typ >= T_Real128 then [
@@ -448,11 +450,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				]
 			]
 		]
-		var var1 : bytes;
-		ctx, var1 := allocate_variable_block(ctx, ins.params[1], phi_node, ins.bb, fa, false);
-		if len(var1) = 0 then
-			goto ret_undefined;
-		var new_name := var1 + "-llt_" + ntos(ins.params[2]);
+		var new_name := "llt_"+num2str(ins.params[1])+"_"+ntos(ins.params[2]);
 		if not treeset_test(ctx.llt_defined, new_name) then [
 			ctx.llt_defined := treeset_set(ctx.llt_defined, new_name);
 			declare_variable(ctx, new_name, ctx.variables[v].runtime_type, empty(int));
@@ -1011,6 +1009,9 @@ fn verify_function(ctx : context) : unit_type
 	z3_eval_noret(ctx, "(define-fun int-btc ((x Int) (y Int) (unint Int)) Int (ite (< y 0) unint (ite (int-bt x y false) (- x (to_int (^ 2 y))) (+ x (to_int (^ 2 y))))))");
 	z3_eval_noret(ctx, "(define-fun int-not ((x Int)) Int (- (- x) 1))");
 
+	z3_eval_noret(ctx, "(declare-fun int-bsf (Int) Int)");
+	z3_eval_noret(ctx, "(declare-fun int-bsr (Int) Int)");
+
 	z3_eval_noret(ctx, "(define-fun real-to-int ((x Real)) Int (ite (>= x 0) (to_int x) (- (to_int (- x)))))");
 
 	z3_eval_noret(ctx, "(define-fun bool-less ((x Bool) (y Bool)) Bool (and (not x) y))");
@@ -1192,6 +1193,16 @@ fn verify_function(ctx : context) : unit_type
 	]
 
 	z3_eval_noret(ctx, "(assert (not " + ctx.blocks[0].block_name + "))");
+
+	for typ := T_Integer128 to T_Integer + 1 do [
+		if len_greater_than(ctx.op_map[-typ, Un_Bsf], 0) or len_greater_than(ctx.op_map[-typ, Un_Bsr], 0) then [
+			z3_eval_noret(ctx, "(assert (forall ((x Int)) (=> (> x 0) (and (>= (int-bsf x) 0) (>= x (to_int (^ 2 (int-bsf x))))))))");
+			z3_eval_noret(ctx, "(assert (forall ((x Int)) (=> (> x 0) (and (>= (int-bsr x) 0) (>= x (to_int (^ 2 (int-bsr x))))))))");
+			z3_eval_noret(ctx, "(assert (forall ((x Int) (y Int)) (! (= (< (^ 2 x) (^ 2 y)) (< x y)) :pattern ((^ 2 x) (^ 2 y)))))");
+			break;
+		]
+	]
+
 	var b := z3_eval(ctx, "(check-sat)");
 	if ctx.dump_z3 then
 		eval debug("end verify function " + ctx.name);
