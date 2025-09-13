@@ -88,13 +88,13 @@ record panel_state [
 	view_offset : int;
 	selected : nat;
 
-	marked : int128;
+	marked : nat128;
 	mouse_marking : sint8;
 	mouse_marking_start : int;
 
 	saved_selected : bytes;
 	saved_marked : treeset(bytes);
-]
+] where ipower(2, len(files)) > marked;
 
 fn can_be_marked(st : panel_state, idx : int) : bool
 [
@@ -118,10 +118,9 @@ fn save_marked(implicit st : panel_state, dir_name : bytes) : panel_state
 	]
 	implicit var ts := treeset_init(bytes);
 	var marked := st.marked;
-	while marked <> 0 do [
+	while marked <> 0 invariant marked <= st.marked do [
 		var idx : int := bsr marked;
 		marked btr= idx;
-		assume idx >= 0 and idx < len(st.files);
 		treeset_set(st.files[idx].bname);
 	]
 	st.saved_marked := ts;
@@ -424,10 +423,9 @@ fn panel_get_property(app : appstate, com : widget_common, st : panel_state, pro
 				r := quote_file(st.files[st.selected].name) + ` `;
 		] else [
 			var m := st.marked;
-			while m <> 0 do [
+			while m <> 0 invariant m <= st.marked do [
 				var i : int := bsf m;
 				m btr= i;
-				assume i >= 0 and i < len(st.files);
 				r += quote_file(st.files[i].name);
 				r += ` `;
 			]
