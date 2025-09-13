@@ -86,7 +86,7 @@ record panel_state [
 	change_monitor : world;
 
 	view_offset : int;
-	selected : int;
+	selected : nat;
 
 	marked : int128;
 	mouse_marking : sint8;
@@ -107,15 +107,21 @@ fn can_be_marked(st : panel_state, idx : int) : bool
 
 fn save_marked(implicit st : panel_state, dir_name : bytes) : panel_state
 [
-	if dir_name = "" then
-		st.saved_selected := select(st.selected < len(st.files), "", st.files[st.selected].bname);
-	else
+	if dir_name = "" then [
+		if st.selected < len(st.files) then
+			st.saved_selected := st.files[st.selected].bname;
+		else
+			st.saved_selected := "";
+		//st.saved_selected := select(st.selected < len(st.files), "", st.files[st.selected].bname);
+	] else [
 		st.saved_selected := dir_name;
+	]
 	implicit var ts := treeset_init(bytes);
 	var marked := st.marked;
 	while marked <> 0 do [
 		var idx : int := bsr marked;
 		marked btr= idx;
+		assume idx >= 0 and idx < len(st.files);
 		treeset_set(st.files[idx].bname);
 	]
 	st.saved_marked := ts;
@@ -125,14 +131,15 @@ fn restore_marked(implicit st : panel_state) : panel_state
 [
 	implicit var ts := st.saved_marked;
 	var marked : int128 := 0;
-	st.selected := 0;
-	for idx := 0 to len(st.files) do [
+	var selected : nat := 0;
+	for idx := 0 to len(st.files) invariant selected >= 0 do [
 		if treeset_test(st.files[idx].bname) then
 			marked bts= idx;
 		if st.files[idx].bname = st.saved_selected then
-			st.selected := idx;
+			selected := idx;
 	]
 	st.marked := marked;
+	st.selected := selected;
 	st.mouse_marking := 0;
 	st.saved_marked := exception_make(treeset(bytes), ec_sync, error_record_field_not_initialized, 0, false);
 ]
@@ -418,8 +425,9 @@ fn panel_get_property(app : appstate, com : widget_common, st : panel_state, pro
 		] else [
 			var m := st.marked;
 			while m <> 0 do [
-				var i := bsf m;
+				var i : int := bsf m;
 				m btr= i;
+				assume i >= 0 and i < len(st.files);
 				r += quote_file(st.files[i].name);
 				r += ` `;
 			]
