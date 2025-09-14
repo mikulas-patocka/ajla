@@ -437,10 +437,24 @@ fn list_sub(ctx : function_context, vd : variable_dictionary, t t2 t3 : tokens, 
 	var m : teq;
 	ctx, am, m := convert_type(ctx, vd, am, empty_compare_context, T_Integer, 0, true, t2);
 
+	if ctx.parsing_assume_claim = 0, ctx.parsing_where = T_InvalidType, sysprop(SystemProperty_Verify_Light) = 0 then [
+		ctx := generate_array_len_check(ctx, aa, am, Bin_LessEqual, t2);
+	]
+
 	var l : int;
 	if len(t3) > 0 then [
 		ctx, an := parse_expression(ctx, vd, t3, in_type);
 		ctx, an, m := convert_type(ctx, vd, an, empty_compare_context, T_Integer, 0, true, t3);
+
+		if ctx.parsing_assume_claim = 0, ctx.parsing_where = T_InvalidType, sysprop(SystemProperty_Verify_Light) = 0 then [
+			ctx := generate_array_len_check(ctx, aa, an, Bin_LessEqual, t2);
+
+			var le : int;
+			ctx, le := alloc_local_variable(ctx, T_Bool, true, false);
+			ctx := generate_BinaryOp(ctx, Bin_LessEqual, am, an, le);
+			ctx := generate_Claim(ctx, le, false);
+		]
+
 		ctx, l := generate_Array_Sub(ctx, aa, am, an);
 	] else [
 		ctx, l := generate_Array_Skip(ctx, aa, am);
@@ -506,7 +520,7 @@ fn list_load(ctx : function_context, vd : variable_dictionary, t t2 : tokens, in
 	ctx, ai := list_array_get_index(ctx, vd, cc, a, t2, in_type);
 
 	if ctx.parsing_assume_claim = 0, ctx.parsing_where = T_InvalidType, sysprop(SystemProperty_Verify_Light) = 0 then [
-		ctx := generate_array_len_check(ctx, aa, ai, t2);
+		ctx := generate_array_len_check(ctx, aa, ai, Bin_Less, t2);
 	]
 
 	ctx := verify_variable(ctx, aa, false, t);

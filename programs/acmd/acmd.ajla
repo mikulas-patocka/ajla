@@ -56,14 +56,26 @@ record acmd_state [
 	last_key : event_keyboard;
 ] where len(panels) = 2;
 
-fn acmd_prompt_trunc(st : acmd_state, x : int) : string
+fn acmd_prompt_trunc(st : acmd_state, x : nat) : string
 [
-	var max := x * 3 shr 2;
+	var max : nat := x * 3 shr 2;
 	var l := string_length(st.prompt);
+	assume l >= len(st.prompt);
 	if l <= max then
 		return st.prompt;
-	var s := `...` + st.prompt[l - max .. ];
-	return s;
+	var i := len(st.prompt) - 1;
+	var s := ``;
+	l := 3;
+	while i >= 0 invariant i < len(st.prompt) do [
+		var cls := classify_character(st.prompt[i]);
+		if cls >= 1 then
+			l += cls;
+		if l > max then
+			break;
+		s := [ st.prompt[i] ] + s;
+		i -= 1;
+	]
+	return `...` + s;
 ]
 
 fn acmd_set_fkeys(implicit app : appstate) : appstate
@@ -435,7 +447,7 @@ fn sort_order_dialog_layout(implicit app : appstate, ids : list(wid), offs_x off
 	assume len(ids) = 11;
 
 	var xs := 0;
-	for i := 0 to 9 do [
+	for i := 0 to 9 invariant i <= 9 do [
 		xs := max(xs, widget_get_width(ids[i], pref_x));
 	]
 	xs := max(xs, widgets_get_width(ids[9 .. ], 2, pref_x));
@@ -444,7 +456,7 @@ fn sort_order_dialog_layout(implicit app : appstate, ids : list(wid), offs_x off
 	xs := max(xs, min_x);
 
 	var yp := offs_y + 1;
-	for i := 0 to 9 do [
+	for i := 0 to 9 invariant i <= 9 do [
 		yp := widget_place(ids[i], offs_x, xs, yp);
 	]
 	yp += 1;
@@ -834,6 +846,7 @@ fn acmd_process_event(implicit w : world, implicit app : appstate, implicit com 
 				var current_panel := st.panels[acmd_get_active_panel()];
 				var new_text := widget_get_property(current_panel, "selected-files").s;
 				var cpos := property_get("prompt-cpos").i;
+				assume cpos >= 0 and cpos <= len(s);
 				s := s[ .. cpos] + new_text + s[cpos .. ];
 				property_set("prompt", property.s.(s));
 				property_set("prompt-cpos", property.i.(cpos + len(new_text)));
