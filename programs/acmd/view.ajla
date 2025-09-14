@@ -674,13 +674,12 @@ fn view_do_find_line(implicit as : view_async_state) : view_async_state
 [
 	var n_lines := as.lines_offset;
 	as.lines_offset := 0;
-	var pos := as.file_pos;
+	var pos : int := as.file_pos;
 	if as.hex, not as.lines_offset_goto_line then [
 		pos += n_lines * as.hex_chars;
 		pos += as.x_offset;
 		as.x_offset := 0;
-		if pos > as.b_size then
-			pos -= (pos - as.b_size) div as.hex_chars * as.hex_chars;
+		pos -= (pos - as.b_size) div as.hex_chars * as.hex_chars;
 		pos := max(pos, 0);
 		as.file_pos := pos;
 		return;
