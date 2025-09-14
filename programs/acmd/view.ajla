@@ -94,8 +94,8 @@ record view_async_state [
 
 	srch : search_request;
 
-	highlight_pos : int;
-	highlight_len : int;
+	highlight_pos : nat;
+	highlight_len : nat;
 
 	w : world;
 	async_event_fn : fn(w : world, wev : wevent) : world;
@@ -127,8 +127,8 @@ record view_state [
 
 	srch : search_request;
 
-	highlight_pos : int;
-	highlight_len : int;
+	highlight_pos : nat;
+	highlight_len : nat;
 
 	last_key : event_keyboard;
 ] where whence >= -1;
@@ -414,7 +414,7 @@ next_ch:
 
 fn is_word~inline(c : char) := c >= '0' and c <= '9' or c = '_';
 
-fn as_set_pos(implicit as : view_async_state, p : int, l : int) : view_async_state
+fn as_set_pos(implicit as : view_async_state, p : nat, l : nat) : view_async_state
 [
 	if as.srch.whole_words then [
 		var after := view_read_cached(p + l);
@@ -446,7 +446,7 @@ fn as_set_pos(implicit as : view_async_state, p : int, l : int) : view_async_sta
 				if len_greater_than(before, prev) then
 					before := before[ .. prev];
 				var s := locale_to_string(as.loc, before);
-				if len_greater_than(s, 1) then [
+				if len_greater_than(s, 0) then [
 					var c := s[len(s) - 1];
 					if is_word(char_to_unicode(c)) or char_upcase(c) <> c or char_locase(c) <> c then
 						return;
