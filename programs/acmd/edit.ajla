@@ -49,17 +49,17 @@ record edit_state [
 	loading : bool;
 
 	lines : list(string);
-	xview : int;
-	yview : int;
-	x : int;
-	y : int;
+	xview : nat;
+	yview : nat;
+	x : nat;
+	y : nat;
 	modified : bool;
 
 	last_key : event_keyboard;
 
 	lines_async : list(string);
 	self : wid;
-]
+] where len(lines) > 0 and y < len(lines) and x <= len(lines[y]);
 
 fn edit_load(implicit w : world, implicit app : appstate, implicit st : edit_state, file : handle) : list(string)
 [

@@ -528,6 +528,8 @@ fn list_load(ctx : function_context, vd : variable_dictionary, t t2 : tokens, in
 	var l : int;
 	ctx, l := generate_Array_Load(ctx, aa, ai, t);
 
+	ctx := verify_variable(ctx, l, false, t);
+
 	return ctx, [ l ];
 ]
 
@@ -832,6 +834,8 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 		] else [
 			ctx, l := generate_Option_Load(ctx, a, idx, t);
 		]
+
+		ctx := verify_variable(ctx, l, false, t);
 
 		return ctx, [ l ];
 	]
