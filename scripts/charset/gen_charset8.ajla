@@ -20,7 +20,7 @@ uses charset;
 
 fn spctab(b : byte) : bool := b = ' ' or b = '	' or b = '-';
 
-fn main(implicit w : world, d : dhandle, h : list(handle), args : list(bytes), env : treemap(bytes, bytes)) : world
+fn main
 [
 	var dh := dopen(d, "scripts/charset", 0);
 	var lz := dread_lazy(dh);

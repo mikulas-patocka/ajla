@@ -391,6 +391,11 @@ fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instructi
 			if params[i] >= 0 then
 				ins.write_set bts= i;
 		xlen := len(params);
+	] else if opcode = P_Return_Vars_Inlined then [
+		for i := 0 to len(params) do
+			if params[i] >= 0 then
+				ins.write_set bts= i;
+		xlen := len(params);
 	] else if opcode = P_Return then [
 		var i := 1;
 		while i < len(params) do [

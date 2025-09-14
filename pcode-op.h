@@ -56,15 +56,16 @@
 #define P_IO				48
 #define P_Args				49
 #define P_Return_Vars			50
-#define P_Return			51
-#define P_Assume			52
-#define P_Claim				53
-#define P_Invariant			54
-#define P_ForAll			55
-#define P_Checkpoint			56
-#define P_Line_Info			57
-#define P_Phi				58
-#define P_Pcode_N			59
+#define P_Return_Vars_Inlined		51
+#define P_Return			52
+#define P_Assume			53
+#define P_Claim				54
+#define P_Invariant			55
+#define P_ForAll			56
+#define P_Checkpoint			57
+#define P_Line_Info			58
+#define P_Phi				59
+#define P_Pcode_N			60
 
 #define T_Type				-1
 #define T_SInt8				-2

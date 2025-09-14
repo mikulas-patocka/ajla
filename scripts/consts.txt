@@ -64,6 +64,7 @@ P_Label			; label
 P_IO			; io_type, n_outputs, n_inputs, n_params, outputs, inputs, params
 P_Args			; (arg ...)
 P_Return_Vars		; (ret ...)
+P_Return_Vars_Inlined	; (ret ...)
 P_Return		; ((ref_flag, arg) ...)
 P_Assume		; var
 P_Claim			; var

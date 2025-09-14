@@ -3055,6 +3055,7 @@ next_one:
 				ctx->pcode = ctx->pcode_instr_end;
 				break;
 			case P_Return_Vars:
+			case P_Return_Vars_Inlined:
 				for (p = 0; p < instr_params; p++)
 					pcode_get();
 				break;

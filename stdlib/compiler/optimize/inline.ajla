@@ -201,6 +201,8 @@ done_post_list:
 				continue;
 			if ins.opcode = P_Claim or ins.opcode = P_Assume, len(ins.params) > 1 then
 				continue;
+			if ins.opcode = P_Return_Vars then
+				new_ctx.instrs[new_ctx.blocks[i].instrs[j]].opcode := P_Return_Vars_Inlined;
 			instrs +<= new_ctx.blocks[i].instrs[j];
 		]
 		new_ctx.blocks[i].instrs := instrs;

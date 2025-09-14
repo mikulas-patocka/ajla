@@ -283,13 +283,13 @@ fn process_socket_txt(implicit w : world, implicit d : dhandle) : world
 	return w;
 ]
 
-fn main(implicit w : world, implicit d : dhandle, h : list(handle), args : list(bytes), env : treemap(bytes, bytes)) : world
+fn main
 [
-	process_consts_txt();
-	process_socket_txt();
-	replace_if_differ("pcode-op.h", "pcode-op.h.tmp");
-	replace_if_differ("newlib/ex_codes.ajla", "newlib/ex_codes.ajla.tmp");
-	replace_if_differ("newlib/pcode.ajla", "newlib/pcode.ajla.tmp");
-	replace_if_differ("newlib/socket_consts.ajla", "newlib/socket_consts.ajla.tmp");
-	replace_if_differ("os_pos_s.inc", "os_pos_s.inc.tmp");
+	process_consts_txt(d);
+	process_socket_txt(d);
+	replace_if_differ(d, "pcode-op.h", "pcode-op.h.tmp");
+	replace_if_differ(d, "newlib/ex_codes.ajla", "newlib/ex_codes.ajla.tmp");
+	replace_if_differ(d, "newlib/pcode.ajla", "newlib/pcode.ajla.tmp");
+	replace_if_differ(d, "newlib/socket_consts.ajla", "newlib/socket_consts.ajla.tmp");
+	replace_if_differ(d, "os_pos_s.inc", "os_pos_s.inc.tmp");
 ]

@@ -45,7 +45,7 @@ fn ascii_to_string(ascii : bytes) : string;
 fn string_to_ascii(str : string) : bytes;
 
 fn utf8_validate(utf8 : bytes) : bool;
-fn utf8_get_char(utf8 : bytes) : (char, int);
+fn utf8_get_char(utf8 : bytes) : (char, r : nat, contract r <= len(utf8));
 fn utf8_to_string(utf8 : bytes) : string;
 fn string_to_utf8(s : string) : bytes;
 
@@ -71,7 +71,7 @@ record charset_desc [
 fn locale_get_charset~inline(loc : locale) : charset_desc;
 fn locale_validate_character~inline(loc : locale, code : char) : bool;
 fn locale_validate~inline(loc : locale, b : bytes) : bool;
-fn locale_get_char(loc : locale, b : bytes) : (char, int);
+fn locale_get_char(loc : locale, b : bytes) : (char, r : nat, contract r <= len(b));
 fn locale_to_string~inline(loc : locale, b : bytes) : string;
 fn string_to_locale~inline(loc : locale, s : string) : bytes;
 fn charset_name_normalize(charset : bytes) : bytes;
@@ -276,7 +276,7 @@ fn utf8_validate(utf8 : bytes) : bool
 	return true;
 ]
 
-fn utf8_get_char(utf8 : bytes) : (char, int)
+fn utf8_get_char(utf8 : bytes) : (char, r : nat, contract r <= len(utf8))
 [
 	var i := 0;
 	var result : char := -1;
@@ -419,7 +419,7 @@ fn ch8_validate(ch8 : charset_8bit, ch : bytes) : bool
 	return true;
 ]
 
-fn ch8_get_char(ch8 : charset_8bit, ch : bytes) : (char, int)
+fn ch8_get_char(ch8 : charset_8bit, ch : bytes) : (char, r : nat, contract r <= len(ch))
 [
 	if not len_greater_than(ch, 0) then
 		return error_char, 0;
@@ -529,7 +529,7 @@ record locale [
 	charset : charset_desc;
 	locale_validate_character : fn(char) : bool;
 	locale_validate : fn(bytes) : bool;
-	locale_get_char : fn(bytes) : (char, int);
+	locale_get_char : fn(b : bytes) : (char, r : nat, contract r <= len(b));
 	locale_to_string : fn(bytes) : string;
 	string_to_locale : fn(string) : bytes;
 ]
@@ -914,7 +914,7 @@ fn locale_validate~inline(loc : locale, b : bytes) : bool
 	return loc.locale_validate(b);
 ]
 
-fn locale_get_char(loc : locale, b : bytes) : (char, int)
+fn locale_get_char(loc : locale, b : bytes) : (char, r : nat, contract r <= len(b))
 [
 	return loc.locale_get_char(b);
 ]
