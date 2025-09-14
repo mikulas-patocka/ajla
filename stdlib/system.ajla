@@ -491,10 +491,10 @@ fn abs~inline(t : type, implicit cg : class_group(t), implicit co : class_ord(t)
 fn sgn~inline(t : type, implicit cu : class_unit_ring(t), implicit co : class_ord(t), x : t) : t := select(x >= cu.zero, -cu.one, select(x = cu.zero, cu.one, x));
 
 
-fn list_search(t : type, c~spec : class_eq(t), x : list(t), v : t) : int;
-fn list_search_fn(t : type, x : list(t), f~spec : fn(t) : bool) : int;
-fn list_search_backwards(t : type, c~spec : class_eq(t), x : list(t), v : t) : int;
-fn list_search_backwards_fn(t : type, x : list(t), f~spec : fn(t) : bool) : int;
+fn list_search(t : type, c~spec : class_eq(t), x : list(t), v : t) : (r : int, contract r = -1 or r >= 0 and r < len(x));
+fn list_search_fn(t : type, x : list(t), f~spec : fn(t) : bool) : (r : int, contract r = -1 or r >= 0 and r < len(x));
+fn list_search_backwards(t : type, c~spec : class_eq(t), x : list(t), v : t) : (r : int, contract r = -1 or r >= 0 and r < len(x));
+fn list_search_backwards_fn(t : type, x : list(t), f~spec : fn(t) : bool) : (r : int, contract r = -1 or r >= 0 and r < len(x));
 fn list_search_substring(t : type, implicit c~spec : class_eq(t), x v : list(t)) : (r : int, contract r = -1 or r >= 0 and r <= len(x) - len(v));
 fn list_replace_substring(t : type, c~spec : class_eq(t), x v r : list(t)) : list(t);
 fn list_left_pad(t~spec : type, x : list(t), width : int, padding : t) : list(t);
@@ -3045,7 +3045,7 @@ fn list_search_infinite~lazy(t : type, implicit c~spec : class_eq(t), x : list(t
 	return list_search_infinite(x[l .. ], v, offset + l);
 ]
 
-fn list_search(t : type, implicit c~spec : class_eq(t), x : list(t), v : t) : int
+fn list_search(t : type, implicit c~spec : class_eq(t), x : list(t), v : t) : (r : int, contract r = -1 or r >= 0 and r < len(x))
 [
 	if not list_is_finite(x) then
 		return list_search_infinite(t, c, x, v, 0);
@@ -3070,7 +3070,7 @@ fn list_search_fn_infinite~lazy(t : type, x : list(t), f~spec : fn(t) : bool, of
 	return list_search_fn_infinite(x[l .. ], f, offset + l);
 ]
 
-fn list_search_fn(t : type, x : list(t), f~spec : fn(t) : bool) : int
+fn list_search_fn(t : type, x : list(t), f~spec : fn(t) : bool) : (r : int, contract r = -1 or r >= 0 and r < len(x))
 [
 	if not list_is_finite(x) then
 		return list_search_fn_infinite(t, x, f, 0);
@@ -3083,7 +3083,7 @@ fn list_search_fn(t : type, x : list(t), f~spec : fn(t) : bool) : int
 	return -1;
 ]
 
-fn list_search_backwards(t : type, implicit c~spec : class_eq(t), x : list(t), v : t) : int
+fn list_search_backwards(t : type, implicit c~spec : class_eq(t), x : list(t), v : t) : (r : int, contract r = -1 or r >= 0 and r < len(x))
 [
 	var i := len(x) - 1;
 	while i >= 0 do [
@@ -3094,7 +3094,7 @@ fn list_search_backwards(t : type, implicit c~spec : class_eq(t), x : list(t), v
 	return -1;
 ]
 
-fn list_search_backwards_fn(t : type, x : list(t), f~spec : fn(t) : bool) : int
+fn list_search_backwards_fn(t : type, x : list(t), f~spec : fn(t) : bool) : (r : int, contract r = -1 or r >= 0 and r < len(x))
 [
 	var i := len(x) - 1;
 	while i >= 0 do [

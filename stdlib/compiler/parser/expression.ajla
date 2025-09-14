@@ -905,7 +905,9 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 						var toks := [ t[0], t[0], t[0] ];
 						toks[0].t := token_opt.k_value;
 						toks[1].t := token_opt.dot;
-						return parse_expressions(ctx, vd, toks, in_type);
+						var ctx2, l2 := parse_expressions(ctx, vd, toks, in_type);
+						if not is_exception ctx2 then
+							return ctx2, l2;
 					]
 					return ctx, [ v ];
 				]

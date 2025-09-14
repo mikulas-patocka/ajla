@@ -82,7 +82,7 @@ record view_async_state [
 	line_cache : list(line_cache_entry);
 
 	file_pos_changed : bool;
-	file_pos : int;
+	file_pos : nat;
 	end_pos : int;
 	b_size : int;
 	lines : list(string);
@@ -348,7 +348,7 @@ fn view_get_line_hex(implicit as : view_async_state, b : bytes, file_pos : int) 
 	return line, highlight_map or highlight_map_2, b[i .. ], file_pos + i;
 ]
 
-fn view_get_line(implicit as : view_async_state, b : bytes, file_pos : int, wrap : bool, report : bool) : (view_async_state, string, int, bytes, int)
+fn view_get_line(implicit as : view_async_state, b : bytes, file_pos : int, wrap : bool, report : bool) : (view_async_state, string, int, bytes, nat)
 [
 	if as.hex then [
 		return view_get_line_hex(b, file_pos);
@@ -627,14 +627,19 @@ fn view_file_pos_changed(implicit as : view_async_state) : view_async_state
 	while pos > 0 do [
 		var bs := min(pos, buffer_size);
 		var str := view_read_cached(pos - bs);
+		if not len_at_least(str, bs) then
+			break;
 		str := str[ .. bs];
 		var i := bs - 1;
-		while i >= -1 do [
-			if (i = -1 and pos = bs) or (i >= 0 and str[i] = 10) then [
+		while i >= -1 invariant i <= bs - 1 do [
+			if (i = -1 and pos = bs) then
+				goto x;
+			if i >= 0, str[i] = 10 then [
+x:
 				if as.wrap then [
 have_line:
 					var fpos := pos - bs + i + 1;
-					var new_pos := fpos;
+					var new_pos : nat := fpos;
 					var fstr := view_read_cached(fpos);
 					while fpos < as.file_pos do [
 						var line_out : string;
@@ -649,8 +654,11 @@ have_line:
 					as.file_pos := pos - bs + i + 1;
 					return;
 				]
-			] else if as.wrap, not is_uninitialized(as.line_cache[pos - bs + i + 1]) then [
-				goto have_line;
+			] else [
+				assume pos - bs + i + 1 < len(as.line_cache);
+				if as.wrap, not is_uninitialized(as.line_cache[pos - bs + i + 1]) then [
+					goto have_line;
+				]
 			]
 			i -= 1;
 		]
