@@ -30,8 +30,8 @@ record acmd_ro [
 	tz : timezone;
 ]
 
-const months~cache := [ `Jan`, `Feb`, `Mar`, `Apr`, `May`, `Jun`, `Jul`, `Aug`, `Sep`, `Oct`, `Nov`, `Dec` ];
-const weekdays~cache := [ `Sun`, `Mon`, `Tue`, `Wed`, `Thu`, `Fri`, `Sat` ];
+const months~cache : (r : list(string), contract len(r) = 12) := [ `Jan`, `Feb`, `Mar`, `Apr`, `May`, `Jun`, `Jul`, `Aug`, `Sep`, `Oct`, `Nov`, `Dec` ];
+const weekdays~cache : (r : list(string), contract len(r) = 7) := [ `Sun`, `Mon`, `Tue`, `Wed`, `Thu`, `Fri`, `Sat` ];
 
 fn ex_str(t : type, e : t) : bytes;
 

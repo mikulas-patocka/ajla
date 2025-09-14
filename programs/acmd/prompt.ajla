@@ -51,7 +51,7 @@ fn shell_expand_prompt(implicit w : world, implicit ro : acmd_ro, p : bytes, d :
 [
 	var result := ``;
 	var ps := locale_to_string(ro.loc, p);
-	for i := 0 to len(ps) do [
+	for i := 0 to len(ps) invariant i <= len(ps) do [
 		if ps[i] = '\', i < len(ps) - 1 then [
 			var c := ps[i + 1];
 			if c = 'a' then [
@@ -106,17 +106,20 @@ fn shell_expand_prompt(implicit w : world, implicit ro : acmd_ro, p : bytes, d :
 					result +<= '$';
 			] else if c = '\' then [
 				result +<= '\';
-			] else if c = '[' then [
-				while i < len(ps) - 1, not(ps[i] = '\' and ps[i + 1] = ']') do
-					i += 1;
-			] else if c >= '0', c <= '7' then [
-				var oct := c - '0';
-				if i + 1 < len(ps), ps[i + 1] >= '0', ps[i + 1] <= '7' then [
-					oct := 8 * oct + (ps[i + 1] - '0');
+			{] else if c = '[' then [
+				while i + 2 < len(ps) invariant i + 2 <= len(ps) do [
+					if ps[i + 1] = '\' and ps[i + 2] = ']' then
+						break;
 					i += 1;
 				]
-				if i + 1 < len(ps), ps[i + 1] >= '0', ps[i + 1] <= '7' then [
-					oct := 8 * oct + (ps[i + 1] - '0');
+			}] else if c >= '0', c <= '7' then [
+				var oct := c - '0';
+				if i + 2 < len(ps), ps[i + 2] >= '0', ps[i + 2] <= '7' then [
+					oct := 8 * oct + (ps[i + 2] - '0');
+					i += 1;
+				]
+				if i + 2 < len(ps), ps[i + 2] >= '0', ps[i + 2] <= '7' then [
+					oct := 8 * oct + (ps[i + 2] - '0');
 					i += 1;
 				]
 				result +<= oct;

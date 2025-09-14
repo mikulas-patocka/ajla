@@ -27,14 +27,14 @@ fn timezone_gmt : timezone;
 
 record calendar [
 	year : int;
-	month : int;
-	day : int;
-	hour : int;
-	min : int;
-	sec : int;
-	usec : int;
-	yday : int;
-	wday : int;
+	month : finite(12);
+	day : finite(31);
+	hour : finite(24);
+	min : finite(60);
+	sec : finite(60);
+	usec : finite(1000000);
+	yday : finite(366);
+	wday : finite(7);
 	is_dst : int;
 ]
 
@@ -50,7 +50,7 @@ record timezone [
 fn timezone_init(d : dhandle, env : treemap(bytes, bytes)) : timezone := timezone.[ local : true ];
 fn timezone_gmt : timezone := timezone.[ local : false ];
 
-fn time_to_calendar(tz : timezone, t : int64) : calendar
+novfy fn time_to_calendar(tz : timezone, t : int64) : calendar
 [
 	var local := tz.local;
 	var year month day hour min sec usec yday wday is_dst : int;
