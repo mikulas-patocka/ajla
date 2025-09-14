@@ -59,7 +59,7 @@ option search_string [
 
 record search_request [
 	str : search_string;
-	pos : int;
+	pos : nat;
 	case_sensitive : bool;
 	backwards : bool;
 	whole_words : bool;
@@ -469,7 +469,7 @@ fn view_do_search_forward(implicit as : view_async_state) : view_async_state
 		var offs := 0;
 		var b := as.srch.str.b;
 		var ln := len(b);
-		while len_at_least(stream, ln) do [
+		while ln > 0, len_at_least(stream, ln) invariant offs >= 0 do [
 			if cs then [
 				for i := 0 to ln do [
 					if stream[i] <> b[i] then
@@ -494,8 +494,8 @@ next_b:
 		var b := as.srch.str.s;
 		var ln := len(b);
 		var cc := empty(char);
-		var ll := empty(int);
-		while true do [
+		var ll := empty(nat);
+		while ln > 0, invariant offs >= 0 do [
 			var c, l := locale_get_char(as.loc, stream);
 			if l = 0 then
 				break;
@@ -539,7 +539,7 @@ fn view_do_search_backward(implicit as : view_async_state) : view_async_state
 	if as.srch.str is b then [
 		var b := as.srch.str.b;
 		var ln := len(b);
-		while pos > 0 do [
+		while ln > 0, pos > 0 do [
 			var this_step := buffer_size;
 			this_step := max(this_step, ln);
 			this_step := min(this_step, pos);
@@ -572,7 +572,7 @@ next_b:
 		var b := as.srch.str.s;
 		var ln := len(b);
 		var bin_ln := len(string_to_locale(as.loc, b));
-		while pos > 0 do [
+		while bin_ln > 0, pos > 0 do [
 			var this_step := buffer_size;
 			this_step := max(this_step, bin_ln);
 			this_step := min(this_step, pos);
@@ -581,9 +581,9 @@ next_b:
 				break;
 			stream := stream[ .. this_step];
 			var cc := empty(char);
-			var ll := empty(int);
+			var ll := empty(nat);
 			var offs := 0;
-			while true do [
+			while true invariant offs >= 0 do [
 				var c, l := locale_get_char(as.loc, stream);
 				if l = 0 then
 					break;
