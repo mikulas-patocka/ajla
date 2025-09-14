@@ -2950,7 +2950,7 @@ fn len_finite~inline(t : type, a : list(t)) : nat
 [
 	var l : int;
 	pcode Array_Len_Finite =l a 0;
-	assume l >= 0;
+	assume l >= 0 and l < len(a);
 	return l;
 ]
 
