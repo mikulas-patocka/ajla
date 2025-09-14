@@ -1000,7 +1000,8 @@ fn verify_function(ctx : context) : unit_type
 
 	z3_eval_noret(ctx, "(define-fun int-div ((x Int) (y Int) (unint Int)) Int (ite (= y 0) unint (ite (>= x 0) (div x y) (ite (>= y 0) (div (+ x (- y 1)) y) (div (- x (+ y 1)) y)))))");
 	z3_eval_noret(ctx, "(define-fun int-mod ((x Int) (y Int) (unint Int)) Int (ite (= y 0) unint (* (mod (abs x) (abs y)) (ite (>= x 0) 1 -1))))");
-	z3_eval_noret(ctx, "(define-fun int-power ((x Int) (y Int) (unint Int)) Int (ite (< y 0) unint (to_int (^ x y))))");
+	//z3_eval_noret(ctx, "(define-fun int-power ((x Int) (y Int) (unint Int)) Int (ite (< y 0) unint (to_int (^ x y))))");
+	z3_eval_noret(ctx, "(define-fun int-power ((x Int) (y Int) (unint Int)) Int (ite (< y 0) unint (to_int (^ (^ (^ x y) 2) 0.5))))");
 	z3_eval_noret(ctx, "(define-fun int-shl ((x Int) (y Int) (unint Int)) Int (ite (< y 0) unint (* x (to_int (^ 2 y)))))");
 	z3_eval_noret(ctx, "(define-fun int-shr ((x Int) (y Int) (unint Int)) Int (ite (< y 0) unint (div x (to_int (^ 2 y)))))");
 	z3_eval_noret(ctx, "(define-fun int-bt ((x Int) (y Int) (unint Bool)) Bool (ite (< y 0) unint (>= (mod x (^ 2 (+ y 1))) (^ 2 y))))");

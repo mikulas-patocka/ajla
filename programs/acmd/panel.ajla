@@ -339,7 +339,7 @@ fn panel_scan(implicit w : world, implicit app : appstate, implicit st : panel_s
 	if not any(st.async_files, timer) then [
 		panel_scan_finish();
 	] else [
-		st.files := [ file_entry.[
+		st.marked, st.files := 0, [ file_entry.[
 			bname : "..",
 			name : `..`,
 			inode : 0,
@@ -353,7 +353,6 @@ fn panel_scan(implicit w : world, implicit app : appstate, implicit st : panel_s
 		] ];
 		st.freespace := ``;
 		st.async_active := true;
-		st.marked := 0;
 	]
 	if set_cwd then
 		property_set("cwd", property.b.(st.cwd));
