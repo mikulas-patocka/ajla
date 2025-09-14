@@ -1303,7 +1303,7 @@ fn view_process_event(implicit w : world, implicit app : appstate, implicit com 
 			goto do_scroll;
 		]
 		if k.key = 'n' or k.key = 'N' then [
-			//goto do_search;
+			goto do_search;
 		]
 		return;
 	]
