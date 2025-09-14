@@ -51,7 +51,7 @@ fn shell_expand_prompt(implicit w : world, implicit ro : acmd_ro, p : bytes, d :
 [
 	var result := ``;
 	var ps := locale_to_string(ro.loc, p);
-	for i := 0 to len(ps) invariant i <= len(ps) do [
+	for i := 0 to len(ps) do [
 		if ps[i] = '\', i < len(ps) - 1 then [
 			var c := ps[i + 1];
 			if c = 'a' then [

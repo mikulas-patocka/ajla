@@ -670,7 +670,9 @@ fn parse_statement_for(ctx : function_context, vd : variable_dictionary, level :
 
 	if invr >= 0 then [
 		ctx := parse_statement_eval(ctx, do_vd, invr_tokens, token_opt.k_invariant);
+	]
 
+	if invr >= 0 or sysprop(SystemProperty_Verify_Light) = 0 then [
 		toks := [ variable, greater_eq_op, lower_bound_var ];
 		ctx := parse_statement_eval(ctx, do_vd, toks, token_opt.k_invariant);
 
