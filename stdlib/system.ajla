@@ -495,7 +495,7 @@ fn list_search(t : type, c~spec : class_eq(t), x : list(t), v : t) : int;
 fn list_search_fn(t : type, x : list(t), f~spec : fn(t) : bool) : int;
 fn list_search_backwards(t : type, c~spec : class_eq(t), x : list(t), v : t) : int;
 fn list_search_backwards_fn(t : type, x : list(t), f~spec : fn(t) : bool) : int;
-fn list_search_substring(t : type, c~spec : class_eq(t), x v : list(t)) : int;
+fn list_search_substring(t : type, implicit c~spec : class_eq(t), x v : list(t)) : (r : int, contract r = -1 or r >= 0 and r <= len(x) - len(v));
 fn list_replace_substring(t : type, c~spec : class_eq(t), x v r : list(t)) : list(t);
 fn list_left_pad(t~spec : type, x : list(t), width : int, padding : t) : list(t);
 fn list_right_pad(t~spec : type, x : list(t), width : int, padding : t) : list(t);
@@ -3105,7 +3105,7 @@ fn list_search_backwards_fn(t : type, x : list(t), f~spec : fn(t) : bool) : int
 	return -1;
 ]
 
-fn list_search_substring(t : type, implicit c~spec : class_eq(t), x v : list(t)) : int
+fn list_search_substring(t : type, implicit c~spec : class_eq(t), x v : list(t)) : (r : int, contract r = -1 or r >= 0 and r <= len(x) - len(v))
 [
 	var lv := len(v);
 	var i := 0;
