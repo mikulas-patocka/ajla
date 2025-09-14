@@ -83,7 +83,7 @@ record view_async_state [
 
 	file_pos_changed : bool;
 	file_pos : nat;
-	end_pos : int;
+	end_pos : nat;
 	b_size : int;
 	lines : list(string);
 	lines_hi : list(int);
@@ -114,8 +114,8 @@ record view_state [
 	async_position_percent : int;
 	async : view_async_state;
 
-	file_pos : int;
-	end_pos : int;
+	file_pos : nat;
+	end_pos : nat;
 	lines : list(string);
 	lines_hi : list(int);
 	x_offset : int;
@@ -131,7 +131,7 @@ record view_state [
 	highlight_len : int;
 
 	last_key : event_keyboard;
-]
+] where whence >= -1;
 
 fn view_init_async_state(implicit st : view_state) : view_state
 [
@@ -202,10 +202,10 @@ fn view_init(implicit ro : acmd_ro, file_name : string, file : handle, implicit 
 	view_init_async_state();
 ]
 
-fn hex_chars_per_line(x : int) : int
+fn hex_chars_per_line(x : nat) : (r : nat, contract r > 0)
 [
 	var res := 4;
-	while true do [
+	while true invariant res > 0 do [
 		var n := res + 4;
 		var l := 8 + n * 3 + ((n shr 2) - 1) * 2 + 2 + n;
 		if l > x then
@@ -937,7 +937,7 @@ fn view_redraw(implicit app : appstate, implicit curs : curses, com : widget_com
 
 	property_set_attrib(property_get_attrib("acmd-viewer", #aaaa, #aaaa, #aaaa, #0000, #0000, #aaaa, 0, 0));
 	curses_fill_rect(0, com.size_x, 1, com.size_y, ' ');
-	for j := 0 to min(com.size_y - 1, len(st.lines)) do [
+	for j := 0 to max(min(com.size_y - 1, len(st.lines)), 0) do [
 		curses_set_pos(-st.x_offset, j + 1);
 		curses_print(st.lines[j]);
 		if hex then [
@@ -945,15 +945,17 @@ fn view_redraw(implicit app : appstate, implicit curs : curses, com : widget_com
 			curses_recolor_rect(-st.x_offset, -st.x_offset + 8, j + 1, j + 2);
 			property_set_attrib(property_get_attrib("acmd-viewer", #aaaa, #aaaa, #aaaa, #0000, #0000, #aaaa, 0, 0));
 		]
-		var hi := st.lines_hi[j];
-		if hi <> 0 then [
-			property_set_attrib(property_get_attrib("acmd-viewer-found", #ffff, #ffff, #0000, #0000, #aaaa, #aaaa, 0, 0));
-			while hi <> 0 do [
-				var h := bsr hi;
-				hi btr= h;
-				curses_recolor_rect(h - st.x_offset, h - st.x_offset + 1, j + 1, j + 2);
+		if j < len(st.lines_hi) then [
+			var hi := st.lines_hi[j];
+			if hi <> 0 then [
+				property_set_attrib(property_get_attrib("acmd-viewer-found", #ffff, #ffff, #0000, #0000, #aaaa, #aaaa, 0, 0));
+				while hi <> 0 do [
+					var h := bsr hi;
+					hi btr= h;
+					curses_recolor_rect(h - st.x_offset, h - st.x_offset + 1, j + 1, j + 2);
+				]
+				property_set_attrib(property_get_attrib("acmd-viewer", #aaaa, #aaaa, #aaaa, #0000, #0000, #aaaa, 0, 0));
 			]
-			property_set_attrib(property_get_attrib("acmd-viewer", #aaaa, #aaaa, #aaaa, #0000, #0000, #aaaa, 0, 0));
 		]
 	]
 ]
@@ -1246,9 +1248,12 @@ fn view_process_event(implicit w : world, implicit app : appstate, implicit com 
 			if k.rep = 0 then
 				return;
 			st.x_delta := -st.x_offset;
-			st.whence := bsize_lazy(st.file);
-			if property_get("view-hex").o then
-				st.whence -= st.whence mod hex_chars_per_line(com.size_x);
+			var wh := bsize_lazy(st.file);
+			if property_get("view-hex").o then [
+				var hx := hex_chars_per_line(com.size_x);
+				wh -= wh mod hx;
+			]
+			st.whence := wh;
 			if st.async_active, st.async_search_active then
 				view_init_async_state();
 			goto do_scroll;
@@ -1294,7 +1299,7 @@ fn view_process_event(implicit w : world, implicit app : appstate, implicit com 
 			goto do_scroll;
 		]
 		if k.key = 'n' or k.key = 'N' then [
-			goto do_search;
+			//goto do_search;
 		]
 		return;
 	]

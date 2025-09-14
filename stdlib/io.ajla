@@ -79,7 +79,7 @@ fn pipe(w : world) : (world, handle, handle);
 fn bopen(w : world, d : dhandle, f : bytes, flags : int, mode : int) : (world, handle);
 fn bread(w : world, h : handle, position : int64, size : int) : (world, bytes);
 fn bwrite(w : world, h : handle, position : int64, s : bytes) : world;
-fn bsize(w : world, h : handle) : (world, int64);
+fn bsize(w : world, h : handle) : (world, nat64);
 fn bdata(w : world, h : handle, off : int64) : (world, int64);
 fn bhole(w : world, h : handle, off : int64) : (world, int64);
 fn bsetsize(w : world, h : handle, size : int64) : world;
@@ -87,7 +87,7 @@ fn bcontiguous(w : world, h : handle, pos : int64, size : int64) : world;
 fn bclone(w : world, src_h : handle, src_pos : int64, dst_h : handle, dst_pos : int64, size : int64) : world;
 fn bopen_lazy(d : dhandle, f : bytes, flags : int) : handle;
 fn bread_lazy~lazy(h : handle, position : int64) : bytes;
-fn bsize_lazy(h : handle) : int64;
+fn bsize_lazy(h : handle) : nat64;
 fn bdata_lazy(h : handle, off : int64) : int64;
 fn bhole_lazy(h : handle, off : int64) : int64;
 
@@ -485,12 +485,13 @@ fn bwrite(w : world, h : handle, position : int64, s : bytes) : world
 	return w;
 ]
 
-fn bsize(w : world, h : handle) : (world, int64)
+fn bsize(w : world, h : handle) : (world, nat64)
 [
 	var sz : int64;
 	var w2 : world;
 	var off : int64 := 0;
 	pcode IO IO_LSeek 2 3 1 =w2 =sz w h off 2;
+	assume sz >= 0;
 	return w2, sz;
 ]
 
@@ -553,11 +554,12 @@ fn bread_lazy~lazy(h : handle, position : int64) : bytes
 	return b + bread_lazy(h, position + 16384);
 ]
 
-fn bsize_lazy(h : handle) : int64
+fn bsize_lazy(h : handle) : nat64
 [
 	var sz : int64;
 	var w := unsafe_get_world;
 	w, sz := bsize(w, h);
+	assume sz >= 0;
 	return sz;
 ]
 
