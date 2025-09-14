@@ -54,7 +54,7 @@ record acmd_state [
 	prompt : string;
 
 	last_key : event_keyboard;
-]
+] where len(panels) = 2;
 
 fn acmd_prompt_trunc(st : acmd_state, x : int) : string
 [
@@ -206,16 +206,17 @@ fn acmd_get_cursor(implicit app : appstate, com : widget_common, st : acmd_state
 	return widget_get_cursor(st.input);
 ]
 
-fn acmd_get_active_panel(implicit app : appstate, st : acmd_state) : int
+fn acmd_get_active_panel(implicit app : appstate, st : acmd_state) : finite(2)
 [
-	for p := 0 to len(st.panels) do [
+	for p := 0 to len(st.panels) invariant p <= len(st.panels) do [
 		if widget_is_top(st.panels[p]) then
 			return p;
 	]
-	abort internal("acmd_get_active_panel: no active panel");
+	eval internal("acmd_get_active_panel: no active panel");
+	return 0;
 ]
 
-fn acmd_chdir_panel(implicit w : world, implicit app : appstate, implicit st : acmd_state, p : int, s : bytes) : (world, appstate, acmd_state)
+fn acmd_chdir_panel(implicit w : world, implicit app : appstate, implicit st : acmd_state, p : finite(2), s : bytes) : (world, appstate, acmd_state)
 [
 	widget_enqueue_event(st.panels[p], wevent.set_property.(event_set_property.[
 		prop : "cwd",
@@ -348,7 +349,7 @@ fn acmd_edit(implicit st : acmd_state, implicit w : world, implicit app : appsta
 fn acmd_copy(mv : bool, implicit st : acmd_state, implicit w : world, implicit app : appstate, id : wid) : (world, appstate)
 [
 	var current_panel := st.panels[acmd_get_active_panel()];
-	var other_panel := st.panels[acmd_get_active_panel() xor 1];
+	var other_panel := st.panels[1 - acmd_get_active_panel()];
 	var target := widget_get_property(other_panel, "cwd").b;
 	widget_enqueue_event(current_panel, wevent.set_property.(event_set_property.[
 		prop : select(mv, "copy", "move"),
@@ -399,25 +400,28 @@ fn acmd_mount_points(implicit w : world) : (world, list(bytes))
 	return mp;
 ]
 
-fn acmd_menu_drive(implicit st : acmd_state, mp : list(bytes), panel : int, implicit w : world, implicit app : appstate, id : wid) : (world, appstate)
+fn acmd_menu_drive(implicit st : acmd_state, mp : list(bytes), panel : finite(2), implicit w : world, implicit app : appstate, id : wid) : (world, appstate)
 [
-	panel := widget_get_property(st.panels[panel], "property-index").i;
+	var p := widget_get_property(st.panels[panel], "property-index").i;
+	assume p >= 0 and p < 2;
+	panel := p;
 	var cwd := widget_get_property(st.panels[panel], "cwd").b;
 	var init : nat := 0;
 	var init_len := 0;
 	var entries := empty(vselect_entry);
-	for i := 0 to len(mp) invariant i >= 0 do [
-		var c := locale_to_string(st.ro.loc, mp[i]);
-		if list_begins_with(cwd, mp[i]) then [
-			if len(mp[i]) > init_len then [
-				init_len := len(mp[i]);
+	for i := 0 to len(mp) invariant i >= 0 and i <= len(mp) do [
+		var mpi := mp[i];
+		var c := locale_to_string(st.ro.loc, mpi);
+		if list_begins_with(cwd, mpi) then [
+			if len(mpi) > init_len then [
+				init_len := len(mpi);
 				init := i;
 			]
 		]
 		var de := vselect_entry.[
 			label : c,
 			change_focus : button_no_action,
-			click : lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ acmd_chdir_panel(panel, mp[i]); widget_destroy_onclick(id); ],
+			click : lambda (implicit w : world, implicit app : appstate, id : wid) : (world, appstate) [ acmd_chdir_panel(panel, mpi); widget_destroy_onclick(id); ],
 		];
 		entries +<= de;
 	]
@@ -428,6 +432,8 @@ fn acmd_menu_drive(implicit st : acmd_state, mp : list(bytes), panel : int, impl
 
 fn sort_order_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y : int, min_x pref_x max_x : nat) : (appstate, int, int)
 [
+	assume len(ids) = 11;
+
 	var xs := 0;
 	for i := 0 to 9 do [
 		xs := max(xs, widget_get_width(ids[i], pref_x));
@@ -447,9 +453,11 @@ fn sort_order_dialog_layout(implicit app : appstate, ids : list(wid), offs_x off
 	return xs, yp;
 ]
 
-fn acmd_menu_sort_order(implicit st : acmd_state, panel : int, implicit w : world, implicit app : appstate, id : wid) : (world, appstate)
+fn acmd_menu_sort_order(implicit st : acmd_state, panel : finite(2), implicit w : world, implicit app : appstate, id : wid) : (world, appstate)
 [
-	panel := widget_get_property(st.panels[panel], "property-index").i;
+	var p := widget_get_property(st.panels[panel], "property-index").i;
+	assume p >= 0 and p < 2;
+	panel := p;
 	var prop_sort := "panel-" + ntos(panel) + "-sort-order";
 	var prop_sort_flags := "panel-" + ntos(panel) + "-sort-order-flags";
 	properties_backup([ prop_sort, prop_sort_flags ]);
@@ -493,7 +501,7 @@ fn acmd_menu_sort_order(implicit st : acmd_state, panel : int, implicit w : worl
 	var winid := widget_new_window(dialog_class, dialog_init(`Sort Order`, entries, 0, dialog_no_event, sort_order_dialog_layout, "",,,), false);
 ]
 
-fn acmd_menu_rescan(implicit st : acmd_state, panel : int, implicit w : world, implicit app : appstate, id : wid) : (world, appstate)
+fn acmd_menu_rescan(implicit st : acmd_state, panel : finite(2), implicit w : world, implicit app : appstate, id : wid) : (world, appstate)
 [
 	widget_enqueue_event(st.panels[panel], wevent.set_property.(event_set_property.[
 		prop : "rescan",
@@ -503,6 +511,7 @@ fn acmd_menu_rescan(implicit st : acmd_state, panel : int, implicit w : world, i
 
 fn select_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y : int, min_x pref_x max_x : nat) : (appstate, int, int)
 [
+	assume len(ids) = 6;
 	var xs := 0;
 	xs := max(xs, widget_get_width(ids[0], pref_x));
 	//xs := max(xs, widget_get_width(ids[1], pref_x));
@@ -582,7 +591,7 @@ fn acmd_menu_save_setup(implicit st : acmd_state, implicit w : world, implicit a
 	]
 ]
 
-fn acmd_main_menu_panel(implicit st : acmd_state, panel : int, implicit w : world, implicit app : appstate, id : wid) : (world, appstate)
+fn acmd_main_menu_panel(implicit st : acmd_state, panel : finite(2), implicit w : world, implicit app : appstate, id : wid) : (world, appstate)
 [
 	var entries := empty(menu_entry);
 	var mp := acmd_mount_points();
@@ -812,6 +821,7 @@ fn acmd_process_event(implicit w : world, implicit app : appstate, implicit com 
 			if len(mp) > 0 then [
 				var panel := select(wev.keyboard.key = key_f12 or wev.keyboard.key = key_f2, 0, 1);
 				panel := widget_get_property(st.panels[panel], "property-index").i;
+				assume panel >= 0 and panel < 2;
 				acmd_menu_drive(st, mp, panel, w, app, com.self);
 			]
 			return;
