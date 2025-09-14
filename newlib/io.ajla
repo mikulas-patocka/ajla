@@ -135,13 +135,13 @@ const stat_type_chardev : int;
 const stat_type_blockdev : int;
 const stat_type_socket : int;
 
-fn stat(w : world, d : dhandle, f : bytes, flags : int) : (world, list(int64));
-fn lstat(w : world, d : dhandle, f : bytes, flags : int) : (world, list(int64));
-fn fstat(w : world, h : handle, flags : int) : (world, list(int64));
+fn stat(w : world, d : dhandle, f : bytes, flags : int) : (world, r : list(int64), contract len(r) = popcnt flags);
+fn lstat(w : world, d : dhandle, f : bytes, flags : int) : (world, r : list(int64), contract len(r) = popcnt flags);
+fn fstat(w : world, h : handle, flags : int) : (world, r : list(int64), contract len(r) = popcnt flags);
 
-fn stat_lazy(d : dhandle, f : bytes, flags : int) : list(int64);
-fn lstat_lazy(d : dhandle, f : bytes, flags : int) : list(int64);
-fn fstat_lazy(h : handle, flags : int) : list(int64);
+fn stat_lazy(d : dhandle, f : bytes, flags : int) : (r : list(int64), contract len(r) = popcnt flags);
+fn lstat_lazy(d : dhandle, f : bytes, flags : int) : (r : list(int64), contract len(r) = popcnt flags);
+fn fstat_lazy(h : handle, flags : int) : (r : list(int64), contract len(r) = popcnt flags);
 
 const statfs_flag_bsize : int;
 const statfs_flag_frsize : int;
@@ -165,8 +165,8 @@ const statfs_st_noatime : int;
 const statfs_st_nodiratime : int;
 const statfs_st_relatime : int;
 
-fn fstatfs(w : world, h : handle, flags : int) : (world, list(int64));
-fn dstatfs(w : world, d : dhandle, flags : int) : (world, list(int64));
+fn fstatfs(w : world, h : handle, flags : int) : (world, r : list(int64), contract len(r) = popcnt flags);
+fn dstatfs(w : world, d : dhandle, flags : int) : (world, r : list(int64), contract len(r) = popcnt flags);
 
 fn readlink(w : world, d : dhandle, f : bytes) : (world, bytes);
 fn readlink_lazy(d : dhandle, f : bytes) : bytes;
@@ -205,7 +205,7 @@ const uname_flag_release : int;
 const uname_flag_version : int;
 const uname_flag_machine : int;
 
-fn uname(flags : int) : list(bytes);
+fn uname(flags : int) : (r : list(bytes), contract len(r) = popcnt flags);
 fn get_host_name(w : world) : (world, bytes);
 
 fn get_real_time(w : world) : (world, int64);
@@ -738,7 +738,7 @@ const stat_type_chardev : int := IO_Stat_Type_CharDev;
 const stat_type_blockdev : int := IO_Stat_Type_BlockDev;
 const stat_type_socket : int := IO_Stat_Type_Socket;
 
-fn stat(w : world, d : dhandle, f : bytes, flags : int) : (world, list(int64))
+fn stat(w : world, d : dhandle, f : bytes, flags : int) : (world, r : list(int64), contract len(r) = popcnt flags)
 [
 	var res : list(int64);
 	var w2 : world;
@@ -746,7 +746,7 @@ fn stat(w : world, d : dhandle, f : bytes, flags : int) : (world, list(int64))
 	return w2, res;
 ]
 
-fn lstat(w : world, d : dhandle, f : bytes, flags : int) : (world, list(int64))
+fn lstat(w : world, d : dhandle, f : bytes, flags : int) : (world, r : list(int64), contract len(r) = popcnt flags)
 [
 	var res : list(int64);
 	var w2 : world;
@@ -754,7 +754,7 @@ fn lstat(w : world, d : dhandle, f : bytes, flags : int) : (world, list(int64))
 	return w2, res;
 ]
 
-fn fstat(w : world, h : handle, flags : int) : (world, list(int64))
+fn fstat(w : world, h : handle, flags : int) : (world, r : list(int64), contract len(r) = popcnt flags)
 [
 	var res : list(int64);
 	var w2 : world;
@@ -762,7 +762,7 @@ fn fstat(w : world, h : handle, flags : int) : (world, list(int64))
 	return w2, res;
 ]
 
-fn stat_lazy(d : dhandle, f : bytes, flags : int) : list(int64)
+fn stat_lazy(d : dhandle, f : bytes, flags : int) : (r : list(int64), contract len(r) = popcnt flags)
 [
 	var res : list(int64);
 	var w := unsafe_get_world;
@@ -770,7 +770,7 @@ fn stat_lazy(d : dhandle, f : bytes, flags : int) : list(int64)
 	return res;
 ]
 
-fn lstat_lazy(d : dhandle, f : bytes, flags : int) : list(int64)
+fn lstat_lazy(d : dhandle, f : bytes, flags : int) : (r : list(int64), contract len(r) = popcnt flags)
 [
 	var res : list(int64);
 	var w := unsafe_get_world;
@@ -778,7 +778,7 @@ fn lstat_lazy(d : dhandle, f : bytes, flags : int) : list(int64)
 	return res;
 ]
 
-fn fstat_lazy(h : handle, flags : int) : list(int64)
+fn fstat_lazy(h : handle, flags : int) : (r : list(int64), contract len(r) = popcnt flags)
 [
 	var res : list(int64);
 	var w := unsafe_get_world;
@@ -808,7 +808,7 @@ const statfs_st_noatime : int := IO_StatFS_ST_NoAtime;
 const statfs_st_nodiratime : int := IO_StatFS_ST_NoDirAtime;
 const statfs_st_relatime : int := IO_StatFS_ST_RelAtime;
 
-fn fstatfs(w : world, h : handle, flags : int) : (world, list(int64))
+fn fstatfs(w : world, h : handle, flags : int) : (world, r : list(int64), contract len(r) = popcnt flags)
 [
 	var res : list(int64);
 	var w2 : world;
@@ -816,7 +816,7 @@ fn fstatfs(w : world, h : handle, flags : int) : (world, list(int64))
 	return w2, res;
 ]
 
-fn dstatfs(w : world, d : dhandle, flags : int) : (world, list(int64))
+fn dstatfs(w : world, d : dhandle, flags : int) : (world, r : list(int64), contract len(r) = popcnt flags)
 [
 	var res : list(int64);
 	var w2 : world;
@@ -1052,7 +1052,7 @@ const uname_flag_release : int := IO_UName_Flag_Release;
 const uname_flag_version : int := IO_UName_Flag_Version;
 const uname_flag_machine : int := IO_UName_Flag_Machine;
 
-fn uname(flags : int) : list(bytes)
+fn uname(flags : int) : (r : list(bytes), contract len(r) = popcnt flags)
 [
 	var res : list(bytes);
 	pcode IO IO_UName 1 1 0 =res flags;

@@ -319,6 +319,7 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 		else if op = Un_Neg		then str := "-";
 		else if op = Un_Bsf		then str := "int-bsf";
 		else if op = Un_Bsr		then str := "int-bsr";
+		else if op = Un_Popcnt		then [ str := "int-popcnt"; unint := true; ]
 		else if op = Un_ConvertToInt	then str := "+";
 		else if op = Un_ConvertFromInt	then str := "+";
 	] else if typ <= T_Real16, typ >= T_Real128 then [
@@ -1009,9 +1010,9 @@ fn verify_function(ctx : context) : unit_type
 	z3_eval_noret(ctx, "(define-fun int-btr ((x Int) (y Int) (unint Int)) Int (ite (< y 0) unint (ite (int-bt x y false) (- x (to_int (^ 2 y))) x)))");
 	z3_eval_noret(ctx, "(define-fun int-btc ((x Int) (y Int) (unint Int)) Int (ite (< y 0) unint (ite (int-bt x y false) (- x (to_int (^ 2 y))) (+ x (to_int (^ 2 y))))))");
 	z3_eval_noret(ctx, "(define-fun int-not ((x Int)) Int (- (- x) 1))");
-
 	z3_eval_noret(ctx, "(declare-fun int-bsf (Int) Int)");
 	z3_eval_noret(ctx, "(declare-fun int-bsr (Int) Int)");
+	z3_eval_noret(ctx, "(define-fun-rec int-popcnt ((x Int) (unint Int)) Int (ite (< x 0) unint (ite (= x 0) 0 (+ (rem x 2) (int-popcnt (div x 2) unint)))))");
 
 	z3_eval_noret(ctx, "(define-fun real-to-int ((x Real)) Int (ite (>= x 0) (to_int x) (- (to_int (- x)))))");
 
