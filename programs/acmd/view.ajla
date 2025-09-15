@@ -47,9 +47,9 @@ uses exception;
 const buffer_size := 65536;
 
 record line_cache_entry [
-	length : int;
+	length : nat;
 	line : string;
-	highlight_map : int;
+	highlight_map : nat;
 ]
 
 option search_string [
@@ -275,7 +275,7 @@ no_cache:
 	return bread_lazy(as.file, pos);
 ]
 
-fn view_get_line_hex(implicit as : view_async_state, b : bytes, file_pos : int) : (view_async_state, string, int, bytes, int)
+fn view_get_line_hex(implicit as : view_async_state, b : bytes, file_pos : nat) : (view_async_state, string, nat, bytes, nat)
 [
 	var xpos := ntos_base(file_pos, 16);
 	if len(xpos) > 8 then
@@ -351,23 +351,25 @@ fn view_get_line_hex(implicit as : view_async_state, b : bytes, file_pos : int) 
 	return line, highlight_map or highlight_map_2, b[i .. ], file_pos + i;
 ]
 
-fn view_get_line(implicit as : view_async_state, b : bytes, file_pos : int, wrap : bool, report : bool) : (view_async_state, string, int, bytes, nat)
+fn view_get_line(implicit as : view_async_state, b : bytes, file_pos : nat, wrap : bool, report : bool) : (view_async_state, string, nat, bytes, nat)
 [
 	if as.hex then [
 		return view_get_line_hex(b, file_pos);
 	]
+	assume file_pos < len(as.line_cache);
 	var tm := as.line_cache[file_pos];
-	if not is_uninitialized(tm) then [
+	if not is_uninitialized(tm), tm.length <= len(b) then [
 		return tm.line, tm.highlight_map, b[tm.length .. ], file_pos + tm.length;
 	]
-	var bytes_processed := 0;
+	var bytes_processed : nat := 0;
 	var line_out := empty(char);
-	var line_pos := 0;
-	var highlight_map := 0;
+	var line_pos : nat := 0;
+	var highlight_map : nat := 0;
 	while len_greater_than(b, 0) do [
 		var c, i := locale_get_char(as.loc, b);
 		if c = 9 then [
 			var n := 8 - (line_pos and 7);
+			assume n > 0 and n <= 8;
 			if wrap, line_pos > 0, line_pos + n > as.size_x then
 				break;
 			line_out += list_repeat(` `, n);
@@ -641,12 +643,12 @@ fn view_file_pos_changed(implicit as : view_async_state) : view_async_state
 x:
 				if as.wrap then [
 have_line:
-					var fpos := pos - bs + i + 1;
+					var fpos : nat := pos - bs + i + 1;
 					var new_pos : nat := fpos;
 					var fstr := view_read_cached(fpos);
 					while fpos < as.file_pos do [
 						var line_out : string;
-						var highlight_map : int;
+						var highlight_map : nat;
 						line_out, highlight_map, fstr, fpos := view_get_line(fstr, fpos, true, true);
 						if fpos <= as.file_pos then
 							new_pos := fpos;
