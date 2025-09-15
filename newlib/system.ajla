@@ -3086,7 +3086,7 @@ fn list_search_fn(t : type, x : list(t), f~spec : fn(t) : bool) : (r : int, cont
 fn list_search_backwards(t : type, implicit c~spec : class_eq(t), x : list(t), v : t) : (r : int, contract r = -1 or r >= 0 and r < len(x))
 [
 	var i := len(x) - 1;
-	while i >= 0 do [
+	while i >= 0 invariant i < len(x) do [
 		if x[i] = v then
 			return i;
 		i -= 1;
@@ -3097,7 +3097,7 @@ fn list_search_backwards(t : type, implicit c~spec : class_eq(t), x : list(t), v
 fn list_search_backwards_fn(t : type, x : list(t), f~spec : fn(t) : bool) : (r : int, contract r = -1 or r >= 0 and r < len(x))
 [
 	var i := len(x) - 1;
-	while i >= 0 do [
+	while i >= 0 invariant i < len(x) do [
 		if f(x[i]) then
 			return i;
 		i -= 1;
