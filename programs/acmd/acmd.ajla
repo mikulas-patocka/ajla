@@ -98,6 +98,7 @@ fn acmd_set_fkeys(implicit app : appstate) : appstate
 
 fn acmd_init(d : dhandle, h : list(handle), env : treemap(bytes, bytes), implicit w : world, implicit app : appstate, id : wid) : (world, appstate, acmd_state)
 [
+	assume len(h) >= 3;
 	property_set("fkeys-number",			property.a.(new_property_attrib(#aaaa, #aaaa, #aaaa, #0000, #0000, #0000, 0, 0)));
 	property_set("fkeys-text",			property.a.(new_property_attrib(#0000, #0000, #0000, #0000, #aaaa, #aaaa, 0, curses_invert)));
 	property_set("dialog",				property.a.(new_property_attrib(#0000, #0000, #0000, #aaaa, #aaaa, #aaaa, 0, curses_invert)));
@@ -171,9 +172,9 @@ fn acmd_init(d : dhandle, h : list(handle), env : treemap(bytes, bytes), implici
 		],
 
 		self : id,
-		panels : empty(wid),
+		panels : [ wid_none, wid_none ],
 
-		last_key : event_keyboard. [ key : 0, flags : 0, rep : 1 ],
+		last_key : event_keyboard.[ key : 0, flags : 0, rep : 1 ],
 	];
 
 	property_observe(id, "cwd");
@@ -191,7 +192,7 @@ fn acmd_init(d : dhandle, h : list(handle), env : treemap(bytes, bytes), implici
 	st.input := widget_new(id, input_not_selectable_class, input_init("acmd-prompt-", "prompt", false,,,), false);
 	for i := 0 to 2 do [
 		var pid := widget_new(id, panel_class, panel_init(i, st.ro, cwd,,,), false);
-		st.panels +<= pid;
+		st.panels[i] := pid;
 	]
 
 	st.fkeys := widget_new_window(fkeys_class, fkeys_init(12, "",,,), true);

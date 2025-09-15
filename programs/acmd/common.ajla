@@ -28,7 +28,7 @@ record acmd_ro [
 	home : maybe(bytes);
 	loc : locale;
 	tz : timezone;
-] where len(h) = 3;
+] where len(h) >= 3;
 
 const months~cache : (r : list(string), contract len(r) = 12) := [ `Jan`, `Feb`, `Mar`, `Apr`, `May`, `Jun`, `Jul`, `Aug`, `Sep`, `Oct`, `Nov`, `Dec` ];
 const weekdays~cache : (r : list(string), contract len(r) = 7) := [ `Sun`, `Mon`, `Tue`, `Wed`, `Thu`, `Fri`, `Sat` ];
