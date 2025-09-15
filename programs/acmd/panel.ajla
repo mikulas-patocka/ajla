@@ -143,14 +143,16 @@ fn restore_marked(implicit st : panel_state) : panel_state
 	st.saved_marked := exception_make(treeset(bytes), ec_sync, error_record_field_not_initialized, 0, false);
 ]
 
-const suffixes~cache := [ "", "k", "M", "G", "T", "P", "E", "Z", "Y", "R", "Q" ];
+const suffixes~cache : (r : list(bytes), contract len(r) > 0) := [ "", "k", "M", "G", "T", "P", "E", "Z", "Y", "R", "Q" ];
 
 fn get_size(size : int, space : int) : bytes
 [
-	var idx := 0;
+	var idx : nat := 0;
+	claim idx < len(suffixes);
 next:
+	invariant idx < len(suffixes);
 	var str := ntos(size) + suffixes[idx];
-	if len(str) > space, idx < len(suffixes), size >= 1000 then [
+	if len(str) > space, idx + 1 < len(suffixes), size >= 1000 then [
 		size div= 1000;
 		idx += 1;
 		goto next;
