@@ -282,7 +282,7 @@ fn view_get_line_hex(implicit as : view_async_state, b : bytes, file_pos : nat) 
 		xpos := xpos[len(xpos) - 8 .. ];
 	var lline := ascii_to_string(list_left_pad(xpos, 8, '0'));
 	var rline := ``;
-	var i := 0;
+	var i : nat := 0;
 	var uni_pos := 0;
 	var skip_next_byte := false;
 	var highlight_map := 0;
@@ -348,7 +348,9 @@ fn view_get_line_hex(implicit as : view_async_state, b : bytes, file_pos : nat) 
 	var line := lline + `  `;
 	highlight_map_2 shl= len(line);
 	line += rline;
-	return line, highlight_map or highlight_map_2, b[i .. ], file_pos + i;
+	highlight_map or= highlight_map_2;
+	assume highlight_map >= 0;
+	return line, highlight_map, b[i .. ], file_pos + i;
 ]
 
 fn view_get_line(implicit as : view_async_state, b : bytes, file_pos : nat, wrap : bool, report : bool) : (view_async_state, string, nat, bytes, nat)
