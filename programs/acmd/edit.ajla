@@ -59,14 +59,15 @@ record edit_state [
 
 	lines_async : list(string);
 	self : wid;
-] where len(lines) > 0 and y < len(lines) and x <= len(lines[y]);
+] where len(lines) > 0 and y < len(lines) and x <= len(lines[y]) and len(lines_async) > 0;
 
-fn edit_load(implicit w : world, implicit app : appstate, implicit st : edit_state, file : handle) : list(string)
+fn edit_load(implicit w : world, implicit app : appstate, implicit st : edit_state, file : handle) : (r : list(string), contract len(r) > 0)
 [
 	var lines_bytes := list_break_to_lines(bread_lazy(file, 0));
 	var lines := empty(string);
 	if is_exception len(lines_bytes) then [
-		xeval widget_send_async_event(st.self, wevent.set_property.(event_set_property.[ prop : "async-finished", val : property.n ]));
+		eval widget_send_async_event(st.self, wevent.set_property.(event_set_property.[ prop : "async-finished", val : property.n ]));
+		assume false;
 		abort len(lines_bytes);
 	]
 	for l in lines_bytes do [
@@ -81,7 +82,7 @@ fn edit_load(implicit w : world, implicit app : appstate, implicit st : edit_sta
 	if len(lines) = 0 then
 		lines := [ `` ];
 	eval lines;
-	xeval widget_send_async_event(st.self, wevent.set_property.(event_set_property.[ prop : "async-finished", val : property.n ]));
+	eval widget_send_async_event(w, app, st.self, wevent.set_property.(event_set_property.[ prop : "async-finished", val : property.n ]));
 	return lines;
 ]
 
@@ -124,6 +125,7 @@ fn edit_init(ro : acmd_ro, file_name : string, file : handle, d : dhandle, cfile
 
 		last_key : event_keyboard. [ key : 0, flags : 0, rep : 1 ],
 
+		lines_async : [ `` ],
 		self : id,
 	];
 	var b := property_get(app, "view-charset").b;
@@ -353,9 +355,11 @@ fn edit_search(implicit w : world, implicit app : appstate, implicit com : widge
 ]
 
 
-fn edit_tab_step~inline(col : int) : int
+fn edit_tab_step(col : nat) : nat
 [
-	return (col + 8) and not 7;
+	var r := (col + 8) and not 7;
+	assume r >= 0;
+	return r;
 ]
 
 fn edit_redraw(implicit app : appstate, implicit curs : curses, com : widget_common, st : edit_state) : curses
@@ -408,9 +412,9 @@ fn edit_redraw(implicit app : appstate, implicit curs : curses, com : widget_com
 	]
 ]
 
-fn edit_get_column(st : edit_state) : int
+fn edit_get_column(st : edit_state) : nat
 [
-	var col := 0;
+	var col : nat := 0;
 	var ln := st.lines[st.y];
 	for i := 0 to st.x do [
 		var c := ln[i];
@@ -721,8 +725,10 @@ fn edit_process_event(implicit w : world, implicit app : appstate, implicit com 
 				widget_enqueue_event(com.self, wevent.close);
 				return;
 			]
+			st.x := 0;
+			st.y := 0;
 			st.lines := st.lines_async;
-			st.lines_async := empty(string);
+			st.lines_async := [ `` ];
 			st.loading := false;
 			do_redraw := true;
 			goto set_view;
@@ -757,8 +763,6 @@ set_view:
 	]
 	if col >= st.xview + com.size_x then [
 		st.xview := col - com.size_x + 1;
-		if st.xview < 0 then
-			st.xview := 0;
 		do_redraw := true;
 	]
 
