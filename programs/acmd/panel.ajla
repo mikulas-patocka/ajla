@@ -85,7 +85,7 @@ record panel_state [
 	async_error : unit_type;
 	change_monitor : world;
 
-	view_offset : int;
+	view_offset : nat;
 	selected : nat;
 
 	marked : nat128;
@@ -517,7 +517,7 @@ fn panel_redraw(implicit app : appstate, implicit curs : curses, com : widget_co
 	var prop_marked := property_get_attrib("acmd-panel-marked", #ffff, #ffff, #0000, #0000, #0000, #aaaa, curses_bold, curses_bold);
 
 	var selected_name := ``;
-	for i := 0 to com.size_y - 4 do [
+	if com.size_y >= 4 then for i := 0 to com.size_y - 4 do [
 		var idx := st.view_offset + i;
 		if idx < len(st.files) then [
 			if st.marked bt idx then [
@@ -578,7 +578,8 @@ fn panel_redraw(implicit app : appstate, implicit curs : curses, com : widget_co
 	curses_restrict_viewport(1, com.size_x - 1, com.size_y - 2, com.size_y - 1, 1, com.size_y - 2);
 	if curses_valid_viewport() then [
 		if st.marked <> 0 then [
-			var n_marked : int := popcnt st.marked;
+			var n_marked := popcnt st.marked;
+			assume n_marked >= 0;
 			var marked_string := ascii_to_string(ntos(n_marked)) + ` files`;
 			var size := 0;
 			if n_marked >= len(st.files) shr 2 then [
@@ -588,7 +589,7 @@ fn panel_redraw(implicit app : appstate, implicit curs : curses, com : widget_co
 				]
 			] else [
 				var marked := st.marked;
-				while marked <> 0 do [
+				while marked <> 0 invariant marked <= st.marked do [
 					var idx : int := bsr marked;
 					marked btr= idx;
 					size += st.files[idx].size;

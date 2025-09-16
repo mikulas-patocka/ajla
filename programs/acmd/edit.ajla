@@ -355,10 +355,10 @@ fn edit_search(implicit w : world, implicit app : appstate, implicit com : widge
 ]
 
 
-fn edit_tab_step(col : nat) : nat
+fn edit_tab_step(col : nat) : (r : nat, contract r > col)
 [
 	var r := (col + 8) and not 7;
-	assume r >= 0;
+	assume r >= 0 and r > col;
 	return r;
 ]
 
@@ -394,7 +394,7 @@ fn edit_redraw(implicit app : appstate, implicit curs : curses, com : widget_com
 		var prnt := st.lines[li];
 		if list_search(prnt, 9) >= 0 then [
 			var p2 := empty(char);
-			var col := 0;
+			var col : nat := 0;
 			for i := 0 to len(prnt) do [
 				var c := prnt[i];
 				if c = 9 then [
