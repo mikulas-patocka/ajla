@@ -247,24 +247,25 @@ fn test_word~inline(c : char) : bool
 	return char_upcase(c) <> c or char_locase(c) <> c;
 ]
 
-fn edit_search_line(line : string, text : string, mode : int, cursor : int) : int
+fn edit_search_line(line : string, text : string, mode : int, cursor : int) : (r : int, contract r >= -1 and r < len(line))
 [
+	if len(line) = 0 or len(text) = 0 then
+		return -1;
 	var len_text := len(text);
 	var st en step : int;
-	if not mode bt edit_search_flag_backwards then [
-		st := 0;
-		en := len(line) - len_text;
-		if en < 0 then
-			return -1;
-		step := 1;
-	] else [
+	st := 0;
+	en := len(line) - len_text;
+	if en < 0 then
+		return -1;
+	step := 1;
+	if mode bt edit_search_flag_backwards then [
 		st := len(line) - len_text;
 		if st < 0 then
 			return -1;
 		en := 0;
 		step := -1;
 	]
-	while true do [
+	while true invariant st >= 0 and st + len_text <= len(line) do [
 		if mode bt edit_search_flag_case_sensitive then  [
 			for i := 0 to len_text do [
 				if line[st + i] <> text[i] then
@@ -302,20 +303,18 @@ next_c:
 
 fn edit_do_search(implicit w : world, implicit app : appstate, implicit st : edit_state, text : string, mode : int) : (world, appstate, edit_state)
 [
-	var y := st.y;
-	var cursor := st.x;
+	var y : int := st.y;
+	var cursor : int := st.x;
 	var direction := select(mode bt edit_search_flag_backwards, 1, -1);
-again:
-	var found := edit_search_line(st.lines[y], text, mode, cursor);
-	if found >= 0 then [
-		st.x := found;
-		st.y := y;
-		return;
+	while y >= 0, y < len(st.lines) do [
+		var found := edit_search_line(st.lines[y], text, mode, cursor);
+		if found >= 0 then [
+			st.x, st.y := found, y;
+			return;
+		]
+		y += direction;
+		cursor := -1;
 	]
-	y += direction;
-	cursor := -1;
-	if y >= 0, y < len(st.lines) then
-		goto again;
 ]
 
 fn edit_send_search(implicit app : appstate, implicit com : widget_common) : appstate
