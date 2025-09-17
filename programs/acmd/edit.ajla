@@ -171,13 +171,13 @@ invl:
 		num -= 1;
 		if num >= len(st.lines) then
 			goto invl;
-		st.y := num - 1;
 		st.x := 0;
+		st.y := num;
 	] else if mode = edit_goto_mode_percents then [
 		if num > 100 then
 			goto invl;
-		st.y := (len(st.lines) - 1) * num div 100;
 		st.x := 0;
+		st.y := (len(st.lines) - 1) * num div 100;
 	]
 ]
 
@@ -193,6 +193,7 @@ fn edit_send_goto(implicit app : appstate, implicit com : widget_common) : appst
 fn edit_goto_dialog_layout(srch : bool, implicit app : appstate, ids : list(wid), offs_x offs_y : int, min_x pref_x max_x : nat) : (appstate, int, int)
 [
 	var e := len(ids);
+	assume e = 5;
 	var xs := 0;
 
 	if srch then
