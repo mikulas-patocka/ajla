@@ -838,11 +838,11 @@ fn gvn_recursive(ctx : context, bgi : int, vals : list(int)) : context
 			bts P_Load_Local_Type
 			bts P_Eval
 			bts P_Keep
-			bts P_Assume
 			bts P_Where
 			bts P_Value
 			bts P_Array_Len_Finite
 			bts P_Read_Clock
+			bts P_Assume
 			bts P_Claim
 			bts P_Invariant
 			bts P_Jmp

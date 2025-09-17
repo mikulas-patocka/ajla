@@ -427,7 +427,7 @@ fn edit_get_column(st : edit_state) : nat
 	return col;
 ]
 
-fn edit_column_to_offset(st : edit_state, col : int) : int
+fn edit_column_to_offset(st : edit_state, col : nat) : nat
 [
 	var xcol := 0;
 	var ln := st.lines[st.y];
@@ -522,13 +522,14 @@ fn edit_process_event(implicit w : world, implicit app : appstate, implicit com 
 		if k.key = key_left then [
 			if k.rep = 0 then
 				return;
-			st.x -= k.rep;
-			while st.x < 0 do [
+			var stx := st.x - k.rep;
+			while stx < 0 do [
 				if st.y = 0 then
 					break;
 				st.y -= 1;
-				st.x := len(st.lines[st.y]) + 1 - st.x;
+				stx := len(st.lines[st.y]) + 1 - stx;
 			]
+			st.x := max(stx, 0);
 			goto set_view;
 		]
 		if k.key = key_right then [
@@ -580,29 +581,25 @@ fn edit_process_event(implicit w : world, implicit app : appstate, implicit com 
 		]
 		if k.key = key_page_up or k.key = 'B' and k.flags = key_flag_ctrl, com.size_y > 0 then [
 			for i := 0 to k.rep do [
-				var col := edit_get_column(st);
-				st.y -= com.size_y - 1;
-				if st.y < 0 then
-					st.y := 0;
-				st.yview -= com.size_y - 1;
-				if st.yview < 0 then
-					st.yview := 0;
-				st.x := edit_column_to_offset(st, col);
+				if com.size_y > 0 then [
+					var col := edit_get_column(st);
+					st.y := max(st.y - (com.size_y - 1), 0);
+					st.yview := max(st.yview - (com.size_y - 1), 0);
+					st.x := edit_column_to_offset(st, col);
+				]
 				do_redraw := true;
 			]
 			goto set_view;
 		]
 		if k.key = key_page_down or k.key = 'F' and k.flags = key_flag_ctrl, com.size_y > 0 then [
 			for i := 0 to k.rep do [
-				var col := edit_get_column(st);
-				var oy := st.y;
-				st.y += com.size_y - 1;
-				if st.y > len(st.lines) - 1 then
-					st.y := len(st.lines) - 1;
-				st.yview += com.size_y - 1;
-				if st.yview >= len(st.lines) then
-					st.yview -= com.size_y - 1;
-				st.x := edit_column_to_offset(st, col);
+				if com.size_y > 0 then [
+					var col := edit_get_column(st);
+					var oy := st.y;
+					st.y := min(st.y + com.size_y - 1, len(st.lines) - 1);
+					st.yview := min(st.yview + com.size_y - 1, len(st.lines) - 1);
+					st.x := edit_column_to_offset(st, col);
+				]
 				do_redraw := true;
 			]
 			goto set_view;
