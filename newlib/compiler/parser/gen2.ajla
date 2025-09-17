@@ -948,6 +948,8 @@ fn generate_Record_Load(ctx : function_context, ar idx : int, t : tokens) : (fun
 	var l : int;
 	ctx, l := generate_record_option_load(ctx, P_Record_Load, at, ar, idx);
 
+	ctx := verify_variable(ctx, l, false, t);
+
 	return ctx, l;
 ]
 
@@ -997,6 +999,8 @@ fn generate_Option_Load(ctx : function_context, ar idx : int, t : tokens) : (fun
 
 	var l : int;
 	ctx, l := generate_record_option_load(ctx, P_Option_Load, at, ar, idx);
+
+	ctx := verify_variable(ctx, l, false, t);
 
 	return ctx, l;
 ]
@@ -1124,6 +1128,9 @@ fn generate_Array_Load(ctx : function_context, aa ai : int, t : tokens) : (funct
 	ctx, l := alloc_local_variable(ctx, at, true, false);
 	var pcode_args := list(pcode_t).[ l, 0, aa, ai ];
 	ctx := generate_instruction(ctx, P_Array_Load, pcode_args);
+
+	ctx := verify_variable(ctx, l, false, t);
+
 	return ctx, l;
 ]
 

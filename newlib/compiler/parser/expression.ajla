@@ -43,13 +43,6 @@ uses compiler.parser.function;
 uses compiler.parser.local_type;
 uses compiler.parser.parser;
 
-fn verify_variable(ctx : function_context, l : int, cl : bool, t : tokens) : function_context
-[
-	var cc, ty, inv := get_type_invariants(ctx, new_compare_context(ctx), get_type_of_var(ctx, l));
-	ctx := generate_assumes_or_claims(ctx, l, inv, cl, t);
-	return ctx;
-]
-
 fn find_operator(ctx : function_context, vd : variable_dictionary, t : tokens) : (int, op_option, istring)
 [
 	var best_split := -1;
@@ -528,8 +521,6 @@ fn list_load(ctx : function_context, vd : variable_dictionary, t t2 : tokens, in
 	var l : int;
 	ctx, l := generate_Array_Load(ctx, aa, ai, t);
 
-	ctx := verify_variable(ctx, l, false, t);
-
 	return ctx, [ l ];
 ]
 
@@ -834,8 +825,6 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 		] else [
 			ctx, l := generate_Option_Load(ctx, a, idx, t);
 		]
-
-		ctx := verify_variable(ctx, l, false, t);
 
 		return ctx, [ l ];
 	]

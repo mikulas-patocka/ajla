@@ -86,6 +86,7 @@ fn get_list_id : function_unique_id;
 fn generate_assumes_or_claims(ctx : function_context, a : int, inv : list(compare_argument), cl : bool, t : tokens) : function_context;
 fn generate_foreach_assumes_or_claims(ctx : function_context, a : int, inv : list(compare_argument), cl : bool, t : tokens) : function_context;
 fn generate_array_len_check(ctx : function_context, a ai : int, op : int, t : tokens) : function_context;
+fn verify_variable(ctx : function_context, l : int, cl : bool, t : tokens) : function_context;
 
 implementation
 
@@ -2009,5 +2010,12 @@ fn generate_array_len_check(ctx : function_context, a ai : int, op : int, t : to
 
 	ctx := generate_Claim(ctx, l, false);
 
+	return ctx;
+]
+
+fn verify_variable(ctx : function_context, l : int, cl : bool, t : tokens) : function_context
+[
+	var cc, ty, inv := get_type_invariants(ctx, new_compare_context(ctx), get_type_of_var(ctx, l));
+	ctx := generate_assumes_or_claims(ctx, l, inv, cl, t);
 	return ctx;
 ]
