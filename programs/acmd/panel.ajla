@@ -94,7 +94,7 @@ record panel_state [
 
 	saved_selected : bytes;
 	saved_marked : treeset(bytes);
-] where ipower(2, len(files)) > marked;
+] where len(files) >= 1 and len(async_files) >= 1 and selected < len(files) and marked < ipower(2, len(files));
 
 fn can_be_marked(st : panel_state, idx : int) : bool
 [
@@ -237,7 +237,7 @@ do_ret:
 	return list_sort(instance_ord_file_entry, files);
 ]
 
-fn panel_scan_async(implicit w : world, implicit app : appstate, implicit st : panel_state) : (world, list(file_entry), string, unit_type)
+fn panel_scan_async(implicit w : world, implicit app : appstate, implicit st : panel_state) : (world, r : list(file_entry), string, unit_type, contract len(r) > 0)
 [
 	var async_error := unit_value;
 	var now := get_real_time();
@@ -263,7 +263,7 @@ fn panel_scan_async(implicit w : world, implicit app : appstate, implicit st : p
 		//acmd_error(`Error reading the directory "` + locale_to_string(st.ro.loc, st.cwd) + `"`, locale_to_string(st.ro.loc, exception_string(ls)));
 		ls := empty(bytes);
 	]
-	if not path_is_root(st.cwd) then
+	if not path_is_root(st.cwd) or len(ls) = 0 then
 		ls := [".."] + ls;
 	for i := 0 to len(ls) do [
 		old_w := w;
@@ -323,6 +323,7 @@ fn panel_scan_async(implicit w : world, implicit app : appstate, implicit st : p
 fn panel_scan_finish(implicit w : world, implicit app : appstate, implicit st : panel_state) : (world, appstate, panel_state)
 [
 	st.async_active := false;
+	st.selected := 0;
 	st.marked := 0;
 	st.files := st.async_files;
 	st.freespace := st.async_freespace;
@@ -342,7 +343,8 @@ fn panel_scan(implicit w : world, implicit app : appstate, implicit st : panel_s
 	if not any(st.async_files, timer) then [
 		panel_scan_finish();
 	] else [
-		st.marked, st.files := 0, [ file_entry.[
+		st.selected := 0;
+		st.files, st.marked := [ file_entry.[
 			bname : "..",
 			name : `..`,
 			inode : 0,
@@ -353,7 +355,7 @@ fn panel_scan(implicit w : world, implicit app : appstate, implicit st : panel_s
 			time : ``,
 			typ : stat_type_directory,
 			tgttyp : stat_type_directory,
-		] ];
+		] ], 0;
 		st.freespace := ``;
 		st.async_active := true;
 	]
@@ -393,7 +395,30 @@ fn panel_init(panel : int, ro : acmd_ro, cwd : bytes, implicit w : world, implic
 		filesize_x : 0,
 		date_x : 0,
 		cwd : cwd,
-		files : empty(file_entry),
+		files : [ file_entry.[
+			bname : "..",
+			name : `..`,
+			inode : 0,
+			size : 0,
+			atime : 0,
+			mtime : 0,
+			ctime : 0,
+			time : ``,
+			typ : stat_type_directory,
+			tgttyp : stat_type_directory,
+		] ],
+		async_files : [ file_entry.[
+			bname : "..",
+			name : `..`,
+			inode : 0,
+			size : 0,
+			atime : 0,
+			mtime : 0,
+			ctime : 0,
+			time : ``,
+			typ : stat_type_directory,
+			tgttyp : stat_type_directory,
+		] ],
 		freespace : ``,
 		self : id,
 		async_active : false,
