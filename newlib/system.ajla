@@ -499,7 +499,7 @@ fn list_search_substring(t : type, implicit c~spec : class_eq(t), x v : list(t))
 fn list_replace_substring(t : type, c~spec : class_eq(t), x v r : list(t)) : list(t);
 fn list_left_pad(t~spec : type, x : list(t), width : int, padding : t) : list(t);
 fn list_right_pad(t~spec : type, x : list(t), width : int, padding : t) : list(t);
-fn list_repeat(t~spec : type, x : list(t), num : int) : list(t);
+fn list_repeat(t~spec : type, x : list(t), num : nat) : (r : list(t), contract len(r) = num * len(x));
 fn list_begins_with(t : type, c~spec : class_eq(t), x y : list(t)) : bool;
 fn list_ends_with(t : type, c~spec : class_eq(t), x y : list(t)) : bool;
 fn list_break(t : type, implicit c~spec : class_eq(t), lst : list(t), bnd : t) : list(list(t));
@@ -3160,7 +3160,7 @@ fn list_right_pad(t~spec : type, x : list(t), width : int, padding : t) : list(t
 	return x;
 ]
 
-fn list_repeat(t~spec : type, x : list(t), num : int) : list(t)
+fn list_repeat(t~spec : type, x : list(t), num : nat) : (r : list(t), contract len(r) = num * len(x))
 [
 	const step := 64;
 	if num < 0 then

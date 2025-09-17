@@ -34,8 +34,8 @@ const ev_tag_suspend := 6;
 
 record event_keyboard [
 	key : char;
-	flags : int;
-	rep : int;
+	flags : nat;
+	rep : nat;
 ]
 
 record event_resize [

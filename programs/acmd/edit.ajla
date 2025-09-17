@@ -427,9 +427,9 @@ fn edit_get_column(st : edit_state) : nat
 	return col;
 ]
 
-fn edit_column_to_offset(st : edit_state, col : nat) : nat
+fn edit_column_to_offset(st : edit_state, col : int) : (r : nat, contract r <= len(st.lines[st.y]))
 [
-	var xcol := 0;
+	var xcol : nat := 0;
 	var ln := st.lines[st.y];
 	for i := 0 to len(ln) do [
 		var c := ln[i];
@@ -523,26 +523,31 @@ fn edit_process_event(implicit w : world, implicit app : appstate, implicit com 
 			if k.rep = 0 then
 				return;
 			var stx := st.x - k.rep;
-			while stx < 0 do [
-				if st.y = 0 then
+			var sty := st.y;
+			while stx < 0 invariant sty <= st.y and stx <= len(st.lines[sty]) do [
+				if sty = 0 then
 					break;
-				st.y -= 1;
-				stx := len(st.lines[st.y]) + 1 - stx;
+				sty -= 1;
+				stx := len(st.lines[sty]) + 1 + stx;
 			]
-			st.x := max(stx, 0);
+			stx := max(stx, 0);
+			st.x, st.y := stx, sty;
 			goto set_view;
 		]
 		if k.key = key_right then [
 			if k.rep = 0 then
 				return;
-			st.x += k.rep;
-			while st.x > len(st.lines[st.y]) do [
-				var s := st.x - len(st.lines[st.y]);
-				if st.y = len(st.lines) - 1 then
+			var stx := st.x + k.rep;
+			var sty := st.y;
+			while stx > len(st.lines[sty]) invariant sty < len(st.lines) and stx >= 0 do [
+				var s := stx - len(st.lines[sty]);
+				if sty = len(st.lines) - 1 then
 					break;
-				st.y += 1;
-				st.x := s - 1;
+				sty += 1;
+				stx := s - 1;
 			]
+			stx := min(stx, len(st.lines[sty]));
+			st.x, st.y := stx, sty;
 			goto set_view;
 		]
 		if k.key = key_home or k.key = 'A' and k.flags = key_flag_ctrl then [
@@ -553,10 +558,11 @@ fn edit_process_event(implicit w : world, implicit app : appstate, implicit com 
 			goto set_view;
 		]
 		if k.key = key_end or k.key = 'E' and k.flags = key_flag_ctrl then [
+			var sty := st.y;
 			if lk.key = key_end or lk.key = 'E' and lk.flags = key_flag_ctrl then [
-				st.y := len(st.lines) - 1;
+				sty := len(st.lines) - 1;
 			]
-			st.x := len(st.lines[st.y]);
+			st.x, st.y := len(st.lines[sty]), sty;
 			goto set_view;
 		]
 		if k.key = key_up then [
@@ -564,6 +570,7 @@ fn edit_process_event(implicit w : world, implicit app : appstate, implicit com 
 				if st.y = 0 then
 					break;
 				var col := edit_get_column(st);
+				st.x := 0;
 				st.y -= 1;
 				st.x := edit_column_to_offset(st, col);
 			]
@@ -574,6 +581,7 @@ fn edit_process_event(implicit w : world, implicit app : appstate, implicit com 
 				if st.y = len(st.lines) - 1 then
 					break;
 				var col := edit_get_column(st);
+				st.x := 0;
 				st.y += 1;
 				st.x := edit_column_to_offset(st, col);
 			]
@@ -583,6 +591,7 @@ fn edit_process_event(implicit w : world, implicit app : appstate, implicit com 
 			for i := 0 to k.rep do [
 				if com.size_y > 0 then [
 					var col := edit_get_column(st);
+					st.x := 0;
 					st.y := max(st.y - (com.size_y - 1), 0);
 					st.yview := max(st.yview - (com.size_y - 1), 0);
 					st.x := edit_column_to_offset(st, col);
@@ -596,6 +605,7 @@ fn edit_process_event(implicit w : world, implicit app : appstate, implicit com 
 				if com.size_y > 0 then [
 					var col := edit_get_column(st);
 					var oy := st.y;
+					st.x := 0;
 					st.y := min(st.y + com.size_y - 1, len(st.lines) - 1);
 					st.yview := min(st.yview + com.size_y - 1, len(st.lines) - 1);
 					st.x := edit_column_to_offset(st, col);
@@ -608,15 +618,16 @@ fn edit_process_event(implicit w : world, implicit app : appstate, implicit com 
 			for i := 0 to k.rep do [
 				if st.x > 0 then [
 					var ln := st.lines[st.y];
-					st.lines[st.y] := ln[ .. st.x - 1] + ln[st.x .. ];
+					ln := ln[ .. st.x - 1] + ln[st.x .. ];
 					st.x -= 1;
+					st.lines[st.y] := ln;
 					st.modified := true;
 					do_redraw_line := true;
 				] else if st.y > 0 then [
-					st.x := len(st.lines[st.y - 1]);
+					var stx := len(st.lines[st.y - 1]);
 					st.lines[st.y - 1] += st.lines[st.y];
-					st.lines := st.lines[ .. st.y] + st.lines[st.y + 1 .. ];
-					st.y -= 1;
+					st.lines, st.y := st.lines[ .. st.y] + st.lines[st.y + 1 .. ], st.y - 1;
+					st.x := stx;
 					st.modified := true;
 					do_redraw := true;
 				]
@@ -644,9 +655,8 @@ fn edit_process_event(implicit w : world, implicit app : appstate, implicit com 
 				var ln1 := st.lines[st.y][ .. st.x];
 				var ln2 := st.lines[st.y][st.x .. ];
 				st.lines := st.lines[.. st.y] + [ ln1, ln2 ] + st.lines[st.y + 1 .. ];
-				st.y += 1;
 				st.x := 0;
-					st.modified := true;
+				st.y += 1;
 				do_redraw := true;
 			]
 			goto set_view;
@@ -657,7 +667,7 @@ fn edit_process_event(implicit w : world, implicit app : appstate, implicit com 
 			if k.rep > 0 then [
 				var ln := st.lines[st.y];
 				st.lines[st.y] := ln[ .. st.x] + list_repeat([ k.key ], k.rep) + ln[st.x .. ];
-				st.x += 1;
+				st.x += k.rep;
 				st.modified := true;
 				do_redraw_line := true;
 				goto set_view;
@@ -669,19 +679,17 @@ fn edit_process_event(implicit w : world, implicit app : appstate, implicit com 
 	if wev is mouse then [
 		var m := wev.mouse;
 		if m.wy <> 0 then [
-			st.yview += m.wy * 5;
-			if st.yview >= len(st.lines) then
-				st.yview := len(st.lines) - 1;
-			if st.yview < 0 then
-				st.yview := 0;
+			st.yview := min(max(st.yview + m.wy * 5, 0), len(st.lines) - 1);
 			if st.y < st.yview then [
-				st.y := st.yview;
 				st.x := 0;
+				st.y := st.yview;
 			]
-			if st.y >= st.yview + (com.size_y - 1) then
-				st.y := st.yview + (com.size_y - 1) - 1;
-			if st.y < 0 then
-				st.y := 0;
+			if com.size_y >= 2 then [
+				if st.y >= st.yview + (com.size_y - 1) then [
+					st.x := 0;
+					st.y := st.yview + (com.size_y - 1) - 1;
+				]
+			]
 			do_redraw := true;
 		]
 		var mx, my := widget_relative_mouse_coords(com.self, wev.mouse);
@@ -692,6 +700,7 @@ fn edit_process_event(implicit w : world, implicit app : appstate, implicit com 
 			var y := st.yview + my;
 			if y >= len(st.lines) then
 				y := len(st.lines) - 1;
+			st.x := 0;
 			st.y := y;
 			st.x := edit_column_to_offset(st, st.xview + mx);
 		]
@@ -734,33 +743,29 @@ fn edit_process_event(implicit w : world, implicit app : appstate, implicit com 
 	return;
 
 set_view:
-	if st.y < 0 then
-		st.y := 0;
-	if st.y >= len(st.lines) then
-		st.y := len(st.lines) - 1;
 	if st.y < st.yview then [
 		st.yview := st.y;
 		do_redraw :=true;
 	]
-	if st.y >= st.yview + (com.size_y - 1) then [
-		st.yview := st.y - (com.size_y - 1) + 1;
-		if st.yview < 0 then
-			st.yview := 0;
-		do_redraw := true;
+	if com.size_y >= 2 then [
+		if st.y >= st.yview + (com.size_y - 1) then [
+			st.yview := st.y - (com.size_y - 1) + 1;
+			if st.yview < 0 then
+				st.yview := 0;
+			do_redraw := true;
+		]
 	]
 
-	if st.x < 0 then
-		st.x := 0;
-	if st.x > len(st.lines[st.y]) then
-		st.x := len(st.lines[st.y]);
 	var col := edit_get_column();
 	if col < st.xview then [
 		st.xview := col;
 		do_redraw := true;
 	]
-	if col >= st.xview + com.size_x then [
-		st.xview := col - com.size_x + 1;
-		do_redraw := true;
+	if com.size_x >= 1 then [
+		if col >= st.xview + com.size_x then [
+			st.xview := col - com.size_x + 1;
+			do_redraw := true;
+		]
 	]
 
 	if not do_redraw then [
