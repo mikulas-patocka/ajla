@@ -350,6 +350,7 @@ fn copy_process_event(implicit w : world, implicit app : appstate, implicit com 
 	]
 	if wev is set_property then [
 		if wev.set_property.prop = "progress" then [
+			assume len(wev.set_property.val.l) >= 3;
 			var str := locale_to_string(st.as.ro.loc, wev.set_property.val.l[0].b);
 			property_set("copy-file", property.s.(str));
 			property_set("copy-progress", wev.set_property.val.l[1]);
@@ -409,6 +410,7 @@ const copy_class ~flat := widget_class.[
 
 fn progress_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y : int, min_x pref_x max_x : nat) : (appstate, int, int)
 [
+	assume len(ids) = 4;
 	var xs := 0;
 	xs := max(xs, widget_get_width(ids[0], pref_x));
 	xs := max(xs, widget_get_width(ids[1], pref_x));
@@ -432,6 +434,7 @@ fn progress_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_
 
 fn file_progress_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y : int, min_x pref_x max_x : nat) : (appstate, int, int)
 [
+	assume len(ids) = 2;
 	var xs := 0;
 	xs := max(xs, widget_get_width(ids[0], pref_x));
 	xs := max(xs, widgets_get_width(ids[1 ..], 2, pref_x));
@@ -499,6 +502,7 @@ fn copy_start(implicit w : world, implicit app : appstate, ro : acmd_ro, op : op
 
 fn copy_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y : int, min_x pref_x max_x : nat) : (appstate, int, int)
 [
+	assume len(ids) = 4;
 	var xs := 0;
 	xs := max(xs, widget_get_width(ids[0], pref_x));
 	xs := max(xs, widget_get_width(ids[1], pref_x));

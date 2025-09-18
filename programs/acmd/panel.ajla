@@ -96,7 +96,7 @@ record panel_state [
 	saved_marked : treeset(bytes);
 ] where len(files) >= 1 and len(async_files) >= 1 and view_offset < len(files) and selected < len(files) and marked < ipower(2, len(files));
 
-fn can_be_marked(st : panel_state, idx : int) : bool
+fn can_be_marked(st : panel_state, idx : nat) : bool
 [
 	if idx >= len(st.files) then
 		return false;
@@ -343,8 +343,10 @@ fn panel_scan(implicit w : world, implicit app : appstate, implicit st : panel_s
 	if not any(st.async_files, timer) then [
 		panel_scan_finish();
 	] else [
+		st.view_offset := 0;
 		st.selected := 0;
-		st.files, st.marked := [ file_entry.[
+		st.marked := 0;
+		st.files := [ file_entry.[
 			bname : "..",
 			name : `..`,
 			inode : 0,
@@ -355,7 +357,7 @@ fn panel_scan(implicit w : world, implicit app : appstate, implicit st : panel_s
 			time : ``,
 			typ : stat_type_directory,
 			tgttyp : stat_type_directory,
-		] ], 0;
+		] ];
 		st.freespace := ``;
 		st.async_active := true;
 	]
