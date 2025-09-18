@@ -131,7 +131,7 @@ fn restore_marked(implicit st : panel_state) : panel_state
 	implicit var ts := st.saved_marked;
 	var marked : nat128 := 0;
 	var selected : nat := 0;
-	for idx := 0 to len(st.files) do [
+	for idx := 0 to len(st.files) invariant selected < len(st.files) do [
 		if treeset_test(st.files[idx].bname) then
 			marked bts= idx;
 		if st.files[idx].bname = st.saved_selected then
@@ -186,7 +186,7 @@ fn get_time(implicit loc : locale, implicit tz : timezone, now : int64, time : i
 ]
 
 
-fn panel_sort(implicit app : appstate, implicit st : panel_state, files : list(file_entry)) : list(file_entry)
+fn panel_sort(implicit app : appstate, implicit st : panel_state, files : list(file_entry)) : (r : list(file_entry), contract len(r) = len(files))
 [
 	var sort_order := property_get("panel-" + ntos(st.panel) + "-sort-order").i;
 	var sort_order_flags := property_get("panel-" + ntos(st.panel) + "-sort-order-flags").i;
@@ -265,7 +265,7 @@ fn panel_scan_async(implicit w : world, implicit app : appstate, implicit st : p
 	]
 	if not path_is_root(st.cwd) or len(ls) = 0 then
 		ls := [".."] + ls;
-	for i := 0 to len(ls) do [
+	for i := 0 to len(ls) invariant len(files) = i do [
 		old_w := w;
 		var st1 := lstat(d, ls[i], stat_flag_inode or stat_flag_type or stat_flag_size or stat_flag_atime or stat_flag_mtime or stat_flag_ctime);
 		var inode := st1[0];
@@ -316,13 +316,14 @@ fn panel_scan_async(implicit w : world, implicit app : appstate, implicit st : p
 		freespace := ``;
 	eval files;
 	eval freespace;
-	xeval widget_send_async_event(st.self, wevent.set_property.(event_set_property.[ prop : "async-finished", val : property.i.(st.async_seq) ]));
+	eval widget_send_async_event(st.self, wevent.set_property.(event_set_property.[ prop : "async-finished", val : property.i.(st.async_seq) ]));
 	return w2, files, freespace, async_error;
 ]
 
 fn panel_scan_finish(implicit w : world, implicit app : appstate, implicit st : panel_state) : (world, appstate, panel_state)
 [
 	st.async_active := false;
+	st.view_offset := 0;
 	st.selected := 0;
 	st.marked := 0;
 	st.files := st.async_files;

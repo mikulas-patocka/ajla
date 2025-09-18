@@ -515,7 +515,7 @@ fn list_fold_monoid(t : type, c~spec : class_monoid(t), lst : list(t)) : t;
 fn list_map_fold(t~spec v~spec : type, ini : v, lst : list(t), mp : fn(t) : v, re : fn(v, v) : v) : v;
 fn list_map_fold_monoid(t~spec v : type, c~spec : class_monoid(v), lst : list(t), mp : fn(t) : v) : v;
 fn list_reverse(t~spec : type, l : list(t)) : list(t);
-fn list_sort(t : type, implicit c~spec : class_ord(t), l : list(t)) : list(t);
+fn list_sort(t : type, implicit c~spec : class_ord(t), l : list(t)) : (r : list(t), contract len(l) = len(r));
 fn list_sort_unique(t : type, implicit c~spec : class_ord(t), l : list(t)) : list(t);
 fn list_flatten~inline(t : type, a : list(t)) : list(t);
 
@@ -3388,7 +3388,7 @@ fn heap_left~inline(i : int) : int := i + i + 1;
 fn heap_right~inline(i : int) : int := i + i + 2;
 fn heap_parent~inline(i : int) : int := (i - 1) shr 1;
 
-fn list_sort(t : type, implicit c~spec : class_ord(t), l : list(t)) : list(t)
+fn list_sort(t : type, implicit c~spec : class_ord(t), l : list(t)) : (r : list(t), contract len(l) = len(r))
 [
 	var n := len(l);
 
