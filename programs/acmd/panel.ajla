@@ -94,7 +94,7 @@ record panel_state [
 
 	saved_selected : bytes;
 	saved_marked : treeset(bytes);
-] where len(files) >= 1 and len(async_files) >= 1 and selected < len(files) and marked < ipower(2, len(files));
+] where len(files) >= 1 and len(async_files) >= 1 and view_offset < len(files) and selected < len(files) and marked < ipower(2, len(files));
 
 fn can_be_marked(st : panel_state, idx : int) : bool
 [
@@ -661,29 +661,31 @@ fn panel_process_event(implicit w : world, implicit app : appstate, implicit com
 		if k.key = key_up then [
 			if k.rep = 0 then
 				return;
-			st.selected -= k.rep;
+			st.selected := max(st.selected - k.rep, 0);
 			goto reflow_redraw;
 		]
 		if k.key = key_down then [
 			if k.rep = 0 then
 				return;
-			st.selected += k.rep;
+			st.selected := min(st.selected + k.rep, len(st.files) - 1);
 			goto reflow_redraw;
 		]
 		if k.key = key_page_up then [
 			if k.rep = 0 then
 				return;
 			var ps := com.size_y - 4;
-			st.selected -= ps * k.rep;
-			st.view_offset -= ps * k.rep;
+			if ps <= 0 then
+				return;
+			st.selected, st.view_offset := max(st.selected - ps * k.rep, 0), max(st.view_offset - ps * k.rep, 0);
 			goto reflow_redraw;
 		]
 		if k.key = key_page_down then [
 			if k.rep = 0 then
 				return;
 			var ps := com.size_y - 4;
-			st.selected += ps * k.rep;
-			st.view_offset += ps * k.rep;
+			if ps <= 0 then
+				return;
+			st.selected, st.view_offset := min(st.selected + ps * k.rep, len(st.files) - 1), min(st.view_offset + ps * k.rep, len(st.files) - 1);
 			goto reflow_redraw;
 		]
 		if k.key = key_home then [
@@ -695,17 +697,20 @@ fn panel_process_event(implicit w : world, implicit app : appstate, implicit com
 		if k.key = key_end then [
 			if k.rep = 0 then
 				return;
-			st.selected := max(len(st.files) - 1, 0);
+			st.selected := len(st.files) - 1;
 			goto reflow_redraw;
 		]
 		if k.key = key_insert then [
 			if k.rep = 0 then
 				return;
+			var marked := st.marked;
 			for i := 0 to k.rep do [
 				if can_be_marked(st.selected) then
-					st.marked btc= st.selected;
-				st.selected += 1;
+					marked btc= st.selected;
+				st.selected := min(st.selected + 1, len(st.files) - 1);
 			]
+			assume marked < 1 shl len(st.files);
+			st.marked := marked;
 			if k.rep > 1 then
 				redraw_all := true;
 			redraw_selected := true;
@@ -713,7 +718,7 @@ fn panel_process_event(implicit w : world, implicit app : appstate, implicit com
 		]
 		if k.key = key_enter then [
 process_enter:
-			if st.selected < len(st.files), st.files[st.selected].tgttyp = stat_type_directory then [
+			if st.files[st.selected].tgttyp = stat_type_directory then [
 				panel_cd(st.files[st.selected].bname);
 				redraw_all := true;
 				goto reflow_redraw;
@@ -724,28 +729,32 @@ process_enter:
 	]
 	if wev is mouse then [
 		var m := wev.mouse;
-		st.selected += m.wy * 5;
-		st.view_offset += m.wy * 5;
+		st.selected := max(min(st.selected + m.wy * 5, len(st.files) - 1), 0);
+		st.view_offset := max(min(st.view_offset + m.wy * 5, len(st.files) - 1), 0);
 		var mx, my := widget_relative_mouse_coords(com.self, wev.mouse);
 		if m.buttons <> 0 then [
 			if my >= 1, my < com.size_y - 3 then [
-				st.selected := st.view_offset + my - 1;
-				if m.buttons bt 1, can_be_marked(st.selected) then [
+				var st_sel := st.view_offset + my - 1;
+				if m.buttons bt 1, can_be_marked(st_sel) then [
 					if not m.prev_buttons bt 1 then [
-						st.mouse_marking := select(st.marked bt st.selected, 1, -1);
-						st.mouse_marking_start := st.selected;
+						st.mouse_marking := select(st.marked bt st_sel, 1, -1);
+						st.mouse_marking_start := st_sel;
 					]
 					if st.mouse_marking <> 0 then [
-						var idx_from := min(st.mouse_marking_start, st.selected);
-						var idx_to := max(st.mouse_marking_start, st.selected);
+						var idx_from := min(st.mouse_marking_start, st_sel);
+						var idx_to := max(st.mouse_marking_start, st_sel);
 						var mask := (0 bts idx_to + 1) - (0 bts idx_from);
+						var marked : int128 := st.marked;
 						if st.mouse_marking = 1 then
-							st.marked or= mask;
+							marked or= mask;
 						else if st.mouse_marking = -1 then
-							st.marked and= not mask;
+							marked and= not mask;
+						assume marked >= 0 and marked < ipower(2, len(st.files));
+						st.marked := marked;
 						redraw_all := true;
 					]
 				]
+				st.selected := min(st_sel, len(st.files) - 1);
 				if m.double_buttons bt 0 then
 					goto process_enter;
 				goto reflow_redraw;
@@ -806,10 +815,13 @@ process_enter:
 			goto reflow_redraw;
 		]
 		if wev.set_property.prop = "mark-invert" then [
+			var marked := st.marked;
 			for i := 0 to len(st.files) do [
 				if st.files[i].tgttyp <> stat_type_directory then
-					st.marked btc= i;
+					marked btc= i;
 			]
+			assume marked >= 0 and marked < 1 shl len(st.files);
+			st.marked := marked;
 			redraw_all := true;
 			goto reflow_redraw;
 		]
@@ -818,18 +830,22 @@ process_enter:
 			var files_only := property_get("select-flags").i bt select_flag_files_only;
 			var case_sensitive := property_get("select-flags").i bt select_flag_case_sensitive;
 			var pattern := property_get("select-string").s;
+			var marked : int128 := st.marked;
 			for i := 0 to len(st.files) do [
 				if not can_be_marked(i) then
 					continue;
-				if files_only, st.files[i].tgttyp = stat_type_directory then
+				var f := st.files[i];
+				if files_only, f.tgttyp = stat_type_directory then
 					continue;
-				if glob_string(st.files[i].name, pattern, case_sensitive) then [
+				if glob_string(f.name, pattern, case_sensitive) then [
 					if sel then
-						st.marked bts= i;
+						marked bts= i;
 					else
-						st.marked btr= i;
+						marked btr= i;
 				]
 			]
+			assume marked >= 0 and marked < ipower(2, len(st.files));
+			st.marked := marked;
 			redraw_all := true;
 			goto reflow_redraw;
 		]
