@@ -26,7 +26,6 @@ const predefined_char := 2;
 const predefined_string := 3;
 const predefined_list := 4;
 const predefined_xarray := 7;
-const predefined_len := 8;
 
 fn type_is_flat(t : int) := t <= T_SInt8 and t >= T_Bool;
 
@@ -1938,6 +1937,7 @@ fn generate_foreach_assumes_or_claims(ctx : function_context, a : int, inv : lis
 	ctx, ge := alloc_local_variable(ctx, T_Bool, true, false);
 	ctx := generate_BinaryOp(ctx, Bin_GreaterEqual, li, z, ge);
 
+	{
 	var len_id := function_unique_id.[
 		path_index : 0,
 		unit_string : i_encode("system"),
@@ -1947,12 +1947,15 @@ fn generate_foreach_assumes_or_claims(ctx : function_context, a : int, inv : lis
 	var len_fd := search_function_from_id(ctx, len_id);
 	var list_ev : int;
 	ctx, list_ev := evaluate_list_type(ctx, a, t);
-
 	var ln : list(int);
 	ctx, ln := generate_Call(ctx, Call_Mode_Unspecified, len_fd, [ list_ev, a ], [ 0, 0 ], t);
+	}
+
+	var ln : int;
+	ctx, ln := generate_Array_Len(ctx, a);
 
 	var ctx, lt := alloc_local_variable(ctx, T_Bool, true, false);
-	ctx := generate_BinaryOp(ctx, Bin_Greater, ln[0], li, lt);
+	ctx := generate_BinaryOp(ctx, Bin_Greater, ln, li, lt);
 
 	var l_pre : int;
 	ctx, l_pre := alloc_local_variable(ctx, T_Bool, true, false);
