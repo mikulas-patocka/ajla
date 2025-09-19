@@ -412,6 +412,7 @@ next_ch:
 		if report then
 			view_report_position(file_pos + bytes_processed);
 	]
+	assume file_pos < len(as.line_cache);
 	as.line_cache[file_pos] := line_cache_entry.[ length : bytes_processed, line : line_out, highlight_map : highlight_map ];
 	return line_out, highlight_map, b, file_pos + bytes_processed;
 ]

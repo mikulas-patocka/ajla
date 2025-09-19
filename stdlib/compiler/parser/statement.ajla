@@ -311,7 +311,8 @@ fn parse_statement_assign(ctx : function_context, vd : variable_dictionary, can_
 		var typ := get_type_of_var(ctx, v);
 		var lv_index := 1;
 		while len_greater_than(lvalue, lv_index) do [
-			need_verify +<= lvalue[ .. lv_index];
+			var expression := lvalue[ .. lv_index];
+			need_verify +<= expression;
 			if lvalue[lv_index].t is left_bracket then [
 				var skip := lvalue[lv_index].bracket_skip;
 				var index_ex := lvalue[lv_index + 1 .. lv_index + skip];
@@ -333,6 +334,12 @@ fn parse_statement_assign(ctx : function_context, vd : variable_dictionary, can_
 				//var local_type : int;
 				//ctx, local_type := get_type_cc(ctx, cc, typ);
 				av.instr := append_Structured_Array(av.instr, ai);
+
+				if sysprop(SystemProperty_Verify_Light) = 0 then [
+					var ex : int;
+					ctx, ex := parse_expression(ctx, vd, expression, false);
+					ctx := generate_array_len_check(ctx, ex, ai, Bin_Less, lvalue);
+				]
 			] else if len_at_least(lvalue, lv_index + 2), lvalue[lv_index].t is dot then [
 				xeval token_assert(lvalue[lv_index + 1 ..], token_opt.identifier.(0));
 				var field := lvalue[lv_index + 1].t.identifier;

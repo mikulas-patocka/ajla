@@ -51,7 +51,7 @@ record copy_async_state [
 	processed_bytes : int64;
 	total_bytes : int64;
 	status : property;
-]
+] where status is l and len(status.l) = 3;
 
 fn send_status(implicit w : world, implicit as : copy_async_state) : (world, copy_async_state)
 [
