@@ -767,6 +767,7 @@ ret_cnst:
 	   opcode = P_Array_String or
 	   opcode = P_Array_Unicode or
 	   opcode = P_Array_Load or
+	   opcode = P_Array_Len or
 	   opcode = P_Array_Sub or
 	   opcode = P_Array_Skip or
 	   opcode = P_Array_Append or
@@ -1338,6 +1339,13 @@ fn verify_type_equality(ctx : function_context,
 			return teq_ret(x2);
 		return teq.eq;
 	]
+	if opcode1 = P_Array_Len then [
+		var x1 := verify_type_equality(ctx, cc1, pcode_Array_Len_get_array(instr1), fn_stack1,
+						    cc2, pcode_Array_Len_get_array(instr2), fn_stack2);
+		if not x1 is eq then
+			return teq_ret(x1);
+		return teq.eq;
+	]
 	if opcode1 = P_Array_Sub then [
 		var x1 := verify_type_equality(ctx, cc1, pcode_Array_Sub_get_array(instr1), fn_stack1,
 						    cc2, pcode_Array_Sub_get_array(instr2), fn_stack2);
@@ -1752,6 +1760,12 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 		ctx, l := generate_Array_Load(ctx, at, ai, t);
 		return ctx, l;
 	]
+	if opcode = P_Array_Len then [
+		var at l : int;
+		ctx, at := evaluate_type(ctx, cc, pcode_Array_Len_get_array(instr), fn_stack, t);
+		ctx, l := generate_Array_Len(ctx, at);
+		return ctx, l;
+	]
 	if opcode = P_Array_Sub then [
 		var aa am an l : int;
 		if is_non_const(ctx, cc, pcode_Array_Sub_get_array(instr)) or
@@ -1988,6 +2002,7 @@ fn generate_array_len_check(ctx : function_context, a ai : int, op : int, t : to
 	ctx, ge := alloc_local_variable(ctx, T_Bool, true, false);
 	ctx := generate_BinaryOp(ctx, Bin_GreaterEqual, ai, z, ge);
 
+	{
 	var len_id := function_unique_id.[
 		path_index : 0,
 		unit_string : i_encode("system"),
@@ -1999,10 +2014,14 @@ fn generate_array_len_check(ctx : function_context, a ai : int, op : int, t : to
 	ctx, list_ev := evaluate_list_type(ctx, a, t);
 	var ln : list(int);
 	ctx, ln := generate_Call(ctx, Call_Mode_Unspecified, len_fd, [ list_ev, a ], [ 0, 0 ], t);
+	}
+
+	var ln : int;
+	ctx, ln := generate_Array_Len(ctx, a);
 
 	var lt : int;
 	ctx, lt := alloc_local_variable(ctx, T_Bool, true, false);
-	ctx := generate_BinaryOp(ctx, op, ai, ln[0], lt);
+	ctx := generate_BinaryOp(ctx, op, ai, ln, lt);
 
 	var l : int;
 	ctx, l := alloc_local_variable(ctx, T_Bool, true, false);

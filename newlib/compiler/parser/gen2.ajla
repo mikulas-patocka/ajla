@@ -104,6 +104,8 @@ fn pcode_Array_Unicode_get_blob(ins : instruction) : list(pcode_t);
 fn generate_Array_Load(ctx : function_context, aa ai : int, t : tokens) : (function_context, int);
 fn pcode_Array_Load_get_array(ins : instruction) : int;
 fn pcode_Array_Load_get_index(ins : instruction) : int;
+fn generate_Array_Len(ctx : function_context, aa : int) : (function_context, int);
+fn pcode_Array_Len_get_array(ins : instruction) : int;
 fn generate_Array_Sub(ctx : function_context, aa am an : int) : (function_context, int);
 fn pcode_Array_Sub_get_array(ins : instruction) : int;
 fn pcode_Array_Sub_get_start(ins : instruction) : int;
@@ -1144,6 +1146,23 @@ fn pcode_Array_Load_get_index(ins : instruction) : int
 [
 	xeval assert(ins.opcode = P_Array_Load, "pcode_Array_Load_get_index: invalid instruction");
 	return ins.args[3];
+]
+
+fn generate_Array_Len(ctx : function_context, aa : int) : (function_context, int)
+[
+	var l : int;
+	ctx, l := alloc_local_variable(ctx, T_Integer, true, false);
+
+	var pcode_args := list(pcode_t).[ l, aa, 0 ];
+	ctx := generate_instruction(ctx, P_Array_Len, pcode_args);
+
+	return ctx, l;
+]
+
+fn pcode_Array_Len_get_array(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Array_Len, "pcode_Array_Len_get_array: invalid instruction");
+	return ins.args[1];
 ]
 
 fn generate_Array_Sub(ctx : function_context, aa am an : int) : (function_context, int)

@@ -859,6 +859,8 @@ ret_common:
 		bts P_Phi
 		;
 	if allowed_codes bt ins.opcode then [
+		if ins.opcode = P_UnaryOp and ins.params[0] = Un_IsException then
+			goto ret_undefined;
 		var wv : int;
 		var ws := ins.write_set;
 		while ws <> 0 do [
