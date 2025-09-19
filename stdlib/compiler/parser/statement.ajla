@@ -257,14 +257,19 @@ next_flag:
 	return ctx, term;
 ]
 
-fn verify_assignment(ctx : function_context, vd : variable_dictionary, statements : list(tokens), cl : bool, t : tokens) : function_context
+fn verify_assignment(ctx : function_context, vd : variable_dictionary, statements : list(tokens), indices : list(int), cl : bool, t : tokens) : function_context
 [
 	for i := 0 to len(statements) do [
 		var ctx_backup := ctx;
 		var l : int;
 		ctx, l := parse_expression(ctx, vd, statements[i], false);
+		var may_skip := true;
+		if not cl and indices[i] >= 0 then [
+			ctx := generate_array_len_check(ctx, l, indices[i], Bin_Less, t);
+			may_skip := false;
+		]
 		var cc, ty, inv := get_type_invariants(ctx, new_compare_context(ctx), get_type_of_var(ctx, l));
-		if not len_greater_than(inv, 0) then [
+		if may_skip, not len_greater_than(inv, 0) then [
 			ctx := ctx_backup;
 			continue;
 		]
@@ -287,6 +292,7 @@ fn parse_statement_assign(ctx : function_context, vd : variable_dictionary, can_
 	var avs := empty(assign_variable);
 
 	var need_verify := empty(tokens);
+	var need_verify_indices := empty(int);
 
 	while len(vars) > 0 do [
 		var lvalue : tokens;
@@ -313,6 +319,7 @@ fn parse_statement_assign(ctx : function_context, vd : variable_dictionary, can_
 		while len_greater_than(lvalue, lv_index) do [
 			var expression := lvalue[ .. lv_index];
 			need_verify +<= expression;
+			need_verify_indices +<= -1;
 			if lvalue[lv_index].t is left_bracket then [
 				var skip := lvalue[lv_index].bracket_skip;
 				var index_ex := lvalue[lv_index + 1 .. lv_index + skip];
@@ -330,16 +337,11 @@ fn parse_statement_assign(ctx : function_context, vd : variable_dictionary, can_
 					ctx := generate_Copy(ctx, ai, l);
 					ai := l;
 				]
+				need_verify_indices[len(need_verify_indices) - 1] := ai;
 
 				//var local_type : int;
 				//ctx, local_type := get_type_cc(ctx, cc, typ);
 				av.instr := append_Structured_Array(av.instr, ai);
-
-				if sysprop(SystemProperty_Verify_Light) = 0 then [
-					var ex : int;
-					ctx, ex := parse_expression(ctx, vd, expression, false);
-					ctx := generate_array_len_check(ctx, ex, ai, Bin_Less, lvalue);
-				]
 			] else if len_at_least(lvalue, lv_index + 2), lvalue[lv_index].t is dot then [
 				xeval token_assert(lvalue[lv_index + 1 ..], token_opt.identifier.(0));
 				var field := lvalue[lv_index + 1].t.identifier;
@@ -447,7 +449,7 @@ inferred:
 		]
 	]
 
-	ctx := verify_assignment(ctx, vd, need_verify, false, expr);
+	ctx := verify_assignment(ctx, vd, need_verify, need_verify_indices, false, expr);
 
 	for i := 0 to n do [
 		var av := avs[i];
@@ -462,7 +464,7 @@ inferred:
 		]
 	]
 
-	ctx := verify_assignment(ctx, vd, need_verify, true, expr);
+	ctx := verify_assignment(ctx, vd, need_verify, need_verify_indices, true, expr);
 
 	return ctx;
 ]
