@@ -288,7 +288,7 @@ fn view_get_line_hex(implicit as : view_async_state, b : bytes, file_pos : nat) 
 	var highlight_map := 0;
 	var highlight_map_2 := 0;
 	var prev_hl := false;
-	while len_greater_than(b, i), i < as.hex_chars do [
+	while len_greater_than(b, i), i < as.hex_chars invariant i <= len(b) do [
 		var hl := file_pos + i >= as.highlight_pos and file_pos + i < as.highlight_pos + as.highlight_len;
 		if i > 0, (i and 3) = 0 then [
 			if prev_hl and hl then [
