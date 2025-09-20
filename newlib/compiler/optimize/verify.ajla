@@ -1033,6 +1033,29 @@ fn verify_function(ctx : context) : unit_type
 	for bgi := 0 to len(ctx.blocks) do [
 		if not ctx.blocks[bgi].active then
 			continue;
+		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
+			var igi := ctx.blocks[bgi].instrs[ili];
+			var ins := ctx.instrs[igi];
+			if ins.opcode = P_Return then [
+				ctx.return_ins := ins;
+			]
+		]
+		for i := 0 to len(ctx.blocks[bgi].post_list) do [
+			var p := ctx.blocks[bgi].post_list[i];
+			// TODO: this doesn't eliminate all loops
+			if ctx.blocks[p].dominates bt bgi then [
+				ctx.blocks[bgi].post_cut_nodes bts= i;
+				ctx.blocks[p].pre_cut_nodes := true;
+			]
+		]
+		var str : bytes;
+		ctx, str := get_z3_bb_name(ctx, bgi);
+		z3_eval_noret(ctx, "(declare-const " + str + " Bool)");
+	]
+
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
 		var b := bgi;
 		var lb := empty(int);
 		while b <> 0 do [
@@ -1053,29 +1076,6 @@ fn verify_function(ctx : context) : unit_type
 			]
 			b := bb;
 		]
-	]
-
-	for bgi := 0 to len(ctx.blocks) do [
-		if not ctx.blocks[bgi].active then
-			continue;
-		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
-			var igi := ctx.blocks[bgi].instrs[ili];
-			var ins := ctx.instrs[igi];
-			if ins.opcode = P_Return then [
-				ctx.return_ins := ins;
-			]
-		]
-		for i := 0 to len(ctx.blocks[bgi].post_list) do [
-			var p := ctx.blocks[bgi].post_list[i];
-			// TODO: this doesn't eliminate all loops
-			if ctx.blocks[p].dominates bt bgi then [
-				ctx.blocks[bgi].post_cut_nodes bts= i;
-				ctx.blocks[p].pre_cut_nodes := true;
-			]
-		]
-		var str : bytes;
-		ctx, str := get_z3_bb_name(ctx, bgi);
-		z3_eval_noret(ctx, "(declare-const " + str + " Bool)");
 	]
 
 	for bgi := 0 to len(ctx.blocks) do [
