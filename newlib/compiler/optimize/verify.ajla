@@ -942,6 +942,28 @@ fn allocate_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx :
 	return ctx, ctx.variables[v].verifier_name[phi_node];
 ]
 
+fn flood_fill(ctx : context, src : int, dest : int) : bool
+[
+	var z : node_set := 0;
+	var todo := z bts src;
+	var done := z;
+	while todo <> 0 do [
+		if todo bt dest then
+			return true;
+		var n : int := bsr todo;
+		todo btr= n;
+		done bts= n;
+		for i := 0 to len(ctx.blocks[n].post_list) do [
+			if ctx.blocks[n].post_cut_nodes bt i then
+				continue;
+			var nn := ctx.blocks[n].post_list[i];
+			if not done bt nn then
+				todo bts= nn;
+		]
+	]
+	return false;
+]
+
 fn verify_function(ctx : context) : unit_type
 [
 	implicit var z3w := z3_mk_world;
@@ -1061,17 +1083,21 @@ fn verify_function(ctx : context) : unit_type
 		while b <> 0 do [
 			lb +<= b;
 			var bb := ctx.blocks[b].idom;
-			if len(ctx.blocks[bb].post_list) = 2,
-			   ctx.blocks[bb].post_list[0] = b xor ctx.blocks[bb].post_list[1] = b then [
-				var ins := ctx.instrs[ctx.blocks[bb].instrs[len(ctx.blocks[bb].instrs) - 1]];
-				if ins.opcode <> P_Jmp_False then
-					abort internal("immediate dominator does not end with P_Jmp_False");
-				if ctx.blocks[bb].post_list[0] = b then [
-					for i := 0 to len(lb) do
-						ctx.blocks[lb[i]].guards bts= ins.params[0];
-				] else [
-					for i := 0 to len(lb) do
-						ctx.blocks[lb[i]].not_guards bts= ins.params[0];
+			if len(ctx.blocks[bb].post_list) = 2 then [
+				var q0 := flood_fill(ctx, ctx.blocks[bb].post_list[0], b);
+				var q1 := flood_fill(ctx, ctx.blocks[bb].post_list[1], b);
+				//eval debug("node " + ntos(b) + ", idom " + ntos(bb) + ": " + select(q0, "0", "1") + " " + select(q1, "0", "1"));
+				if q0 xor q1 then [
+					var ins := ctx.instrs[ctx.blocks[bb].instrs[len(ctx.blocks[bb].instrs) - 1]];
+					if ins.opcode <> P_Jmp_False then
+						abort internal("immediate dominator does not end with P_Jmp_False");
+					if q0 then [
+						for i := 0 to len(lb) do
+							ctx.blocks[lb[i]].guards bts= ins.params[0];
+					] else [
+						for i := 0 to len(lb) do
+							ctx.blocks[lb[i]].not_guards bts= ins.params[0];
+					]
 				]
 			]
 			b := bb;
