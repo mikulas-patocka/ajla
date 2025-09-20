@@ -43,6 +43,7 @@
 <a href="#threads">Threads</a><br>
 <a href="#ffi">FFI</a><br>
 <a href="#performance_considerations">Performance considerations</a><br>
+<a href="#verifying_ajla_programs_with_z3">Verifying Ajla programs with Z3</a><br>
 <a href="#hacking_ajla">Hacking Ajla</a><br>
 
 <h2 id=introducton>Introduction</h2>
@@ -60,15 +61,16 @@ Ajla doesn't have garbage collection; it uses reference counts to track
 allocated memory. Ajla has mutable arrays &mdash; if the array reference count
 is one, it is mutated in place, if it is different from one, a copy of the array
 is created.
+<br>
+<br>
+Ajla has the possibility to verify program correctness using the Z3 library.
 
 <h3 id=unpacking>Unpacking Ajla</h3>
-Before compiling Ajla, install the packages libgmp-dev, libffi-dev, libnuma-dev,
-libz3-dev. If libgmp-dev is not installed, Ajla will use slow built-in version.
-If libffi-dev is not installed, the possibility to call C functions from Ajla
-will be disabled. If libnuma-dev is not installed, the optimization for
-Non-uniform memory access (NUMA) will be disabled. If libz3-dev is not
-installed, it wouldn't be possible to statically verify Ajla functions with the
-z3 library.
+Before compiling Ajla, install the packages libgmp-dev, libffi-dev, libnuma-dev.
+If libgmp-dev is not installed, Ajla will use slow built-in version.  If
+libffi-dev is not installed, the possibility to call C functions from Ajla will
+be disabled. If libnuma-dev is not installed, the optimization for Non-uniform
+memory access (NUMA) will be disabled.
 <br>
 <br>
 Download the newest Ajla version from the
@@ -146,7 +148,7 @@ World". Let's have look at "Hello World" in Ajla:
 
 <pre id=hw1>
 fn main(w : world, d : dhandle, h : list(handle), args : list(bytes),
-	env : treemap(bytes, bytes)) : world
+	env : treemap(bytes, bytes), prereq len(h) &gt;= 3) : world
 [
 	w := write(w, h[1], "Hello World!" + nl);
 	return w;
@@ -182,6 +184,10 @@ sequences of bytes.
 is represented as a tree that maps a sequence of bytes (i.e. the variable name)
 to another sequence of bytes (i.e. the variable content). This is implemented as
 an AVL tree, so that searching it is efficient.
+<dt><code>prereq len(h) &gt;= 3</code>
+<dd>This is not an argument &mdash; it is a precondition that says that the list
+"h" has at least three entries.  It is used when verification is enabled (it
+will be explained <a href="#verifying_ajla_programs_with_z3">later</a>).
 </dl>
 The function contains the following statements:
 <dl>
@@ -200,7 +206,7 @@ program to three write statements.
 
 <pre id=hw2>
 fn main(w : world, d : dhandle, h : list(handle), args : list(bytes),
-	env : treemap(bytes, bytes)) : world
+	env : treemap(bytes, bytes), prereq len(h) &gt;= 3) : world
 [
 	w := write(w, h[1], "Hello ");
 	w := write(w, h[1], "World!");
@@ -228,7 +234,7 @@ writes.
 
 <pre>
 fn main(<b>implicit</b> w : world, d : dhandle, h : list(handle), args : list(bytes),
-	env : treemap(bytes, bytes)) : world
+	env : treemap(bytes, bytes), prereq len(h) &gt;= 3) : world
 [
 	write(h[1], "Hello ");
 	write(h[1], "World!");
@@ -362,6 +368,12 @@ On 32-bit architectures, <code>int</code> is 32-bit. On 64-bit architectures,
 "<code>--ptrcomp</code>" switch is used, <code>int</code> is 32-bit. Note that
 these cases are semantically equivalent, because overflows are handled
 transparently.
+<dt><code>nat</code>
+<dd>A general unsigned integer number with arbitrary length. If we are not
+verifying (i.e. when not using the "<code>--verify</code>" switch), it is
+equivalent to <code>int</code>. If we are verifying, the verifier will assume
+that the value is non-negative when reading it and it will verify that the value
+is non-negative when assigning to it.
 <dt><code>int8</code>, <code>int16</code>, <code>int32</code>,
 <code>int64</code>, <code>int128</code>
 <dd>These types behave in the same way as the "int" type. The difference is in
@@ -371,6 +383,10 @@ if it overflows, long integers using the gmp library are used.
 the gmp library), etc. If the compiler that was used to build Ajla doesn't
 support 128-bit integers, <code>int128</code> is equivalent to
 <code>int64</code>.
+<dt><code>nat8</code>, <code>nat16</code>, <code>nat32</code>,
+<code>nat64</code>, <code>nat128</code>
+<dd>Unsigned equivalents of <code>int8</code>, <code>int16</code>,
+<code>int32</code>, <code>int64</code>, <code>int128</code>
 <dt><code>sint8</code>, <code>sint16</code>, <code>sint32</code>,
 <code>sint64</code>, <code>sint128</code>
 <dd>This is a signed integer with a given size. If some arithmetic operation
@@ -541,6 +557,7 @@ option bottom_type [
 <tr><td><code>and</code><td>8000<td>Logical and</tr>
 <tr><td><code>xor</code><td>9000<td>Logical exclusive or</tr>
 <tr><td><code>or</code><td>10000<td>Logical or</tr>
+<tr><td><code>==></code><td>11000<td>Logical implication</tr>
 </table>
 If we pass different types to an operator, the second argument is converted to a
 type of the first argument. For example <code>2.5 + 1</code> will return a
@@ -740,6 +757,18 @@ Ajla has the following function call specifiers:
 The specifiers may be specified either at function declaration or at function
 call. If different specifiers are specified at function declaration and at
 function call, the specifier from the function call wins.
+
+<dl>
+<dt><code>~spec</code>, <code>~nospec</code>
+<dd><code>~spec</code> can be specified in a function declaration after
+parameter name. It makes the function specialize on this parameter. If we pass a
+constant as this parameter, a new version of the function is created and the
+constant is inlined into it.
+<br>
+This can also be specified at a function call (after the argument expression),
+in order to specialize just this call. The <code>~nospec</code> specifier may be
+specified at a function call and it undoes the specialization.
+</dl>
 
 <h3>Nested functions</h3>
 Functions may be nested. The nested function has access to variables of the
@@ -1557,8 +1586,8 @@ What if we want to multiply matrices containing single-precision numbers? We
 could copy the code and replace <code>real64</code> with <code>real32</code>,
 but copying code is considered antipattern. Or, we can use type classes:
 <pre>
-fn matmult~inline(t : type, implicit cls : class_unit_ring(t), const n : int,
-		  a b : array(t, [n, n])) : array(t, [n, n])
+fn matmult(t : type, implicit cls~spec : class_unit_ring(t), const n : int,
+	   a b : array(t, [n, n])) : array(t, [n, n])
 [
 	var result := array_fill(cls.zero, [n, n]);
 	for i := 0 to n do
@@ -1595,10 +1624,11 @@ The function <code>matmult</code> can accept any type for which
 integers, rational numbers and fixed-point numbers. You can declare
 <code>class_unit_ring</code> for your own type and then, you can pass this type
 to the function <code>matmult</code> as well. In order to improve performance,
-we should define the function <code>matmult</code> with "<code>~inline</code>".
-Without "<code>~inline</code>", the compiler would do indirect function call
-through the <code>class_unit_ring</code> record for every multiplication and
-addition.
+we should use the specifier "<code>~spec</code>" on the type class. If the
+function is supplied a constant argument as a class, the argument will be
+inlined into the function and a new specialized version function will be
+created. This will avoid indirect function calls when calling the class
+methods.
 <br>
 <br>
 Note that if we pass less arguments than what was specified in the function
@@ -2122,6 +2152,296 @@ value is smaller that the time it takes to process a signal, the signal would be
 hammering the worker threads so heavily, that they can't make any progress.
 </dl>
 
+<h2 id=verifying_ajla_programs_with_z3>Verifying Ajla programs with Z3</h2>
+
+Ajla has the capability to verify programs using the Z3 library. For example, it
+can prove that there won't be access out of array or list boundaries.
+
+<h3>Installing Z3</h3>
+
+It is recommended to install the latest Z3 library from git because it contains
+some Ajla-related bugfixes. On Linux- or Unix-based systems, you can download it
+and install it with these commands:
+
+<ul>
+<li><code>git clone https://github.com/Z3Prover/z3</code>
+<li><code>cd z3</code>
+<li><code>python3 scripts/mk_make.py</code>
+<li><code>cd build</code>
+<li><code>make</code>
+<li><code>cp libz3.so /usr/local/lib</code>
+</ul>
+
+<h3>Summing numbers</h3>
+
+For example, let's have a look at this program. The function "<code>sum</code>"
+sums numbers from 0 to n (inclusive). The Z3 library can be used to prove that
+the output of the function is equal to "<code>n * (n + 1) / 2</code>".
+
+<pre>
+fn sum(n : int, prereq n >= 0) : (r : int, contract r = n * (n + 1) div 2)
+[
+	var sum := 0;
+	for i := 0 to n + 1 invariant sum = i * (i - 1) div 2 do [
+		sum += i;
+	]
+	return sum;
+]
+
+fn main
+[
+	if len(args) = 0 then [
+		write(h[2], "no arguments");
+		exit(1);
+		return;
+	]
+	var n := ston(args[0]);
+	if n &lt; 0 then [
+		write(h[2], "the argument must be positive");
+		exit(1);
+		return;
+	]
+	var f := sum(n);
+	claim f = (n * n + n) div 2;
+	write(h[1], ntos(f) + nl);
+]
+</pre>
+
+<br>
+The "<code>prereq</code>" keyword specifies precondition for the function. Here
+the precondition is that n is greater or equal than zero. The
+"<code>contract</code>" keyword specifies the postcondition for the function.
+The postcondition is that the result is equal to "<code>n * (n + 1) div
+2</code>". The Z3 library proves that if the precondition is true then the
+postcondition is true.
+<br>
+<br>
+You can verify all the functions in the program "<code>sum.ajla</code>" with the
+command "<code>ajla --nosave --compile --verify-timeout=5000000 --verify
+sum.ajla 10</code>". "<code>--nosave</code>" will prevent saving and loading the
+compiled program in the cache directory. "<code>--compile</code>" will compile
+the whole program rather than running it and compiling it incrementally.
+"<code>--verify-timeout=5000000</code>" sets timeout for the verification to 5
+seconds and "<code>--verify</code>" will enable the verifier. If there is no
+output, the verification is successful. If there is "exception: Compiler error
+(Verification of function inconclusive)", the verifier couldn't prove that the
+function is neither correct or incorrect. If there is "Verification of function
+failed" followed by a dump of variables, the verifier proved that the function
+is incorrect and produced a counterexample that violates the postconditions.
+<br>
+<br>
+Verification works in the scopes of functions. Every function is verified
+separately (the verification is done after inlining). When you call a function,
+the verifier will verify that the preconditions are met and it will assume that
+the postconditions are met when the called function returns. For example, in the
+above example, if you delete the branch "<code>if len(args) = 0</code>" or
+"<code>if n < 0</code>", then the verification of the function main fails
+because the verifier cannot prove that the argument n is greater or equal than
+zero (that is the precondition of the function sum).
+<br>
+<br>
+Loops are trickier to verify, most loops require a loop invariant. The invariant
+is a statement that is true before the loop, at the beginning of the loop body
+and at the end of the loop body. Here, we supplied the invariant "<code>sum = i
+* (i - 1) div 2</code>". Note that if invalid invariant is supplied to a loop,
+it makes the verification of the function fail, but it shouldn't cause
+successful verification of an incorrect function.
+
+<h3>Claims and assumes</h3>
+
+When verifying, you can use the statements "<code>claim</code>" and
+"<code>assume</code>" followed by a boolean expression. The claim statement will
+make the verifier verify the supplied expression, if the verification fails, the
+verification of the whole function fails. The "<code>assume</code>" statement is
+a big hammer &mdash; the verifier will assume that the expression is true
+without really verifying the expression. Incorrect use of the
+"<code>assume</code>" statement can make the verifier verify buggy program.
+<br>
+<br>
+Internally, the verifier works only with the concept of claims and assumes. The
+loop invariant is claimed before the loop, assumed at the start of the loop body
+and claimed at the end of the loop body. When you read or write an array, the
+verifier generates a "<code>claim</code>" that claims that the index is in
+range (this can be suppressed with the argument "<code>--verify-light</code>").
+<br>
+<br>
+The assume statement can be used to bypass logic that is not yet integrated in
+the verifier. For example, the verifier doesn't have the notion of infinite lists,
+so if you are modifying or reading an infinite list, you must use the assume
+statement before doing the access. For example:
+<pre>
+	assume i &lt; len(inf_list);
+	var x := inf_list[i]
+	inf_list[i] := 10;
+</pre>
+<br>
+Note that in mathematics, if we start with a false claim, we can prove any
+claim. If you write conflicting expressions to the "<code>assume</code>"
+statement (such as for example "<code>assume i < 5; assume i > 5;</code>), the
+verifier will assume that the affected branch in the function is always correct,
+regardless of other statements in it. "<code>assume false;</code>" may be used
+to suppress verification of a function or a function branch.
+
+<h3>Adding restrictions to types</h3>
+
+In order to avoid typing repetitive conditions, there's a "<code>where</code>"
+clause that allows adding restrictions to types. For example "<code>type month
+:= int where value >= 1 and value <= 12;</code>" declares a type with the
+allowed range 1&ndash;12. When we assign to a variable with this type, the
+verifier verifies that the assigned value is in the range. When we read a
+variable with this type, the verifier will assume that the value is in the
+range.  Internally, assignment generates the "<code>claim</code>" clause and
+reading generates the "<code>assume</code>" clause.
+<br>
+<br>
+The "<code>nat</code>" type is defined in the standard library &mdash; it is an
+integer that must be greater or equal than zero. It should be used on variables
+that are known to be non-negative. There is also a declaration of a "finite"
+type in the standard library: "<code>type finite(limit : nat) := nat where value
+&lt; limit</code>". It declares a "<code>finite</code>" type that takes one
+argument and that can hold numbers in the range 0 (inclusive) to limit
+(exclusive).
+<br>
+<br>
+The "<code>where</code>" clause can be used on records or options too. This is a
+piece of "<code>edit_state</code>" record from Ajla Commander:
+<pre>
+record edit_state [
+	lines : list(string);
+	x : nat;
+	y : nat;
+] len(lines) &gt; 0 and y &lt; len(lines) and x &lt;= len(lines[y]);
+</pre>
+"<code>lines</code>" is the buffer with the text, "<code>x</code>" is the
+x-coordinate of the cursor and "<code>y</code>" is the y-coordinate of the
+cursor. The "<code>where</code>" clause specifies that lines is non-empty (there
+is always at least one line in the buffer) and that "<code>y</code>" points to
+an existing line and that "<code>x</code>" points to an existing character on
+the line or one position after the last character. The verifier will verify that
+these conditions hold &mdash; if you make an assignment into the
+"<code>edit_state</code>" record and the assignment doesn't maintain these
+invariants, the verifier fails.
+
+<h3>Quantifiers</h3>
+
+We can use the "<code>forall</code>" and "<code>exists</code>" quantifiers. They
+take either two arguments or three arguments. The first argument is the name of
+the variable and the type of the variable. The next argument is optional &mdash;
+if it is present, it specifies the restrictions of the variable. The last
+argument is the expression that is the core of the quantifier. Using the
+quantifiers too much makes the verifier fail with "inconclusive" result. This is
+a function that calculates a maximum value from a list of non-negative numbers:
+
+<pre>
+fn maximum(const l : list(nat)) : (r : nat, contract
+			forall(x : finite(len(l)), r &gt;= l[x]) and
+			(len(l) &gt; 0 ==&gt; exists(x : finite(len(l)), r = l[x])) and
+			(len(l) = 0 ==&gt; r = 0))
+[
+	var m : nat := 0;
+	for i := 0 to len(l) invariant
+			(i = 0 ==&gt; m = 0) and
+			forall(x : nat, x &lt; i, m &gt;= l[x]) and
+			(i &gt; 0 ==&gt; exists(x : nat, x &lt; i, m = l[x])) do [
+		if l[i] &gt; m then [
+			m := l[i];
+		]
+	]
+	return m;
+]
+
+fn main
+[
+	var m := maximum([ 1, 7, 4, 5 ]);
+	claim m = 7;
+	write(h[1], ntos(m) + nl);
+]
+</pre>
+
+The contract says that:
+<ul>
+<li>The returned value is greater than or equal than any list member.
+<li>If the list is non-empty, then there exists at least one member that is
+equal to the returned value.
+<li>If the list is empty, the returned value is zero.
+</ul>
+The loop invariant says that:
+<ul>
+<li>In the first iteration, m is equal zero.
+<li>m is greater than or equal to all the variables that were iterated so far.
+<li>If we are not in the first iteration, there exists at least one array member
+that we iterated over and that is equal to m.
+</ul>
+<br>
+<br>
+Note that the contract of function "<code>maximum</code>" is treated as an
+assumption in the function "<code>main</code>". So, we can write "<code>claim m
+= 7</code>" into the main function and the verifier will prove this claim using
+the contract.
+
+<h3>What to do if verification fails</h3>
+
+The verifier translates the function to a set of claims, and tries to verify
+that the set is not satisfiable. If it is not satisfiable, the verification was
+successful. If it is satisfiable, the verifier found a counter-example. If the
+result was inconclusive, there is no counter-example and no proof. The verifier
+doesn't say which statement made the verification fail.
+<br>
+<br>
+If you need to pinpoint an actual statement (or statements) that made the
+verifier fail, the common practice is to comment-out parts of the functions
+until the verification succeeds. When the verification succeeds, uncomment
+statements in the function one-by-one until the verification fails &mdash; this
+way you can find out which statement made the verification fail.
+<br>
+<br>
+Another way how to debug verifier failures is to add "assumes" into the
+function. For example, if you have a statement "<code>x := a[i]</code>", you can
+prepend "<code>assume i >= 0 and i < len(a)</code>". If the "assume" statement
+fixes the verification, than you know that the verification failed because the
+verifier couldn't prove that the index is in range.
+<br>
+<br>
+You can use the "<code>--verify=function</code>" parameter to Ajla to verify
+only a single function. You can also use "<code>--verify-timeout</code>" to
+abort the verification after the specified time in microseconds. If the function
+takes too long to verify, you should split the function to several smaller
+functions.
+<br>
+<br>
+As an example of a bigger program that was verified, see the Ajla Commander (in
+the directory "<code>programs/acmd.ajla</code>". You can verify it with this
+command: "<code>./ajla --nosave --compile --verify
+programs/acmd/acmd.ajla</code>".
+
+<h3>Caveats</h3>
+
+The Z3 library doesn't understand all the operators that Ajla supports (for
+example, it doesn't understand bitwise operators (and, or, xor) on integer
+numbers with infinite precision. If you use them, the verification will fail
+(Ajla assumes that the unsupported operators may return any value). You can use
+the "<code>assume</code>" clause to get around these limitations. For example,
+at the end of a function "<code>view_get_line_hex</code>" in the file
+"<code>programs/acmd/view.ajla</code>", you can see:
+<pre>
+	highlight_map or= highlight_map_2;
+	assume highlight_map >= 0;
+	return line, highlight_map, b[i .. ], file_pos + i;
+</pre>
+Here, If we perform the "or" operation on two non-negative numbers, the result
+must be non-negative, but the Z3 library doesn't know it because it doesn't
+support the "or" operator on arithmetic integers. So, we can force this
+assumption with the "<code>assume</code>" claim.
+<br>
+<br>
+The verifier doesn't understand that infinite lists are infinite, so you need
+the "<code>assume</code>" claim when accessing them.
+<br>
+<br>
+In the function "<code>edit_load</code>" we want to return an exception on
+error, but this would violate the contract, so the verification of the whole
+error branch is disabled with "<code>assume false</code>".
+
 <h2 id=hacking_ajla>Hacking Ajla</h2>
 
 <h3>Configure options</h3>
@@ -2139,6 +2459,10 @@ supports it.
 <dd>Use bitwise tags on the stack rather than byte tags. It may or may not
 improve performance depending on the actual workload. By default, bitwise tags
 are disabled, because they perform slightly worse.
+<dt><code>--disable-ptrcomp</code>
+<dd>Disable pointer compression.
+<dt><code>--enable-ptrcomp=n</code>
+<dd>Enable pointer compression by <code>n</code> bits (the default is 3).
 <dt><code>--enable-debuglevel=0</code>
 <dd>No debugging at all.
 <dt><code>--enable-debuglevel=1</code>
