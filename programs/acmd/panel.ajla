@@ -494,10 +494,9 @@ fn panel_reflow(implicit app : appstate, implicit com : widget_common, implicit 
 		]
 	]
 
-	var vertical_space := com.size_y - 4;
+	var vertical_space := max(1, com.size_y - 4);
 	st.selected := max(0, min(len(st.files) - 1, st.selected));
-	st.view_offset := min(len(st.files) - vertical_space, st.view_offset);
-	st.view_offset := max(0, st.view_offset);
+	st.view_offset := max(0, min(len(st.files) - vertical_space, st.view_offset));
 	if vertical_space > 0 then [
 		if st.selected >= st.view_offset + vertical_space then
 			st.view_offset := st.selected - vertical_space + 1;
