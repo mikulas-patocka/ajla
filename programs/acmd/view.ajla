@@ -679,9 +679,8 @@ fn view_do_find_line(implicit as : view_async_state) : view_async_state
 [
 	var n_lines := as.lines_offset;
 	as.lines_offset := 0;
-	var pos : int := as.file_pos;
 	if as.hex, not as.lines_offset_goto_line then [
-		pos += n_lines * as.hex_chars;
+		var pos := as.file_pos + n_lines * as.hex_chars;
 		pos += as.x_offset;
 		as.x_offset := 0;
 		if pos > as.b_size then
@@ -691,12 +690,13 @@ fn view_do_find_line(implicit as : view_async_state) : view_async_state
 		return;
 	]
 	var wrap := as.wrap and not as.lines_offset_goto_line;
+	var pos : nat := as.file_pos;
 	if n_lines > 0 then [
 		if wrap then [
 			var str := view_read_cached(pos);
 			while n_lines > 0 do [
 				var line_out : string;
-				var highlight_map : int;
+				var highlight_map : nat;
 				line_out, highlight_map, str, pos := view_get_line(str, pos, true, true);
 				n_lines -= 1;
 			]
@@ -731,22 +731,26 @@ fn view_do_find_line(implicit as : view_async_state) : view_async_state
 		while pos > 0 do [
 			var bs := min(pos, buffer_size);
 			var str := view_read_cached(pos - bs);
+			if not len_at_least(str, bs) then
+				bs := len(str);
 			str := str[ .. bs];
 			var i := bs - 1;
-			while i >= -1 do [
-				if (i = -1 and pos = bs) or (i >= 0 and str[i] = 10) then [
-					if wrap then [
+			while i >= -1 invariant i < len(str) do [
+				if i = -1, pos = bs then
+					goto have_line;
+				if i >= 0, str[i] = 10 then [
 have_line:
-						var fpos := pos - bs + i + 1;
+					if wrap then [
+						var fpos : nat := pos - bs + i + 1;
 						var fstr := view_read_cached(fpos);
-						var line_positions := empty(int);
+						var line_positions := empty(nat);
 						while fpos < last_pos do [
 							var line_out : string;
 							var highlight_map : int;
 							line_positions +<= fpos;
 							line_out, highlight_map, fstr, fpos := view_get_line(fstr, fpos, true, false);
 						]
-						if len(line_positions) >= n_lines then [
+						if n_lines > 0, n_lines <= len(line_positions) then [
 							pos := line_positions[len(line_positions) - n_lines];
 							goto done;
 						]
@@ -759,8 +763,10 @@ have_line:
 						]
 						n_lines -= 1;
 					]
-				] else if wrap, not is_uninitialized(as.line_cache[pos - bs + i + 1]) then [
-					goto have_line;
+				] else [
+					assume pos - bs + i + 1 < len(as.line_cache);
+					if wrap, not is_uninitialized(as.line_cache[pos - bs + i + 1]) then
+						goto have_line;
 				]
 				i -= 1;
 			]
