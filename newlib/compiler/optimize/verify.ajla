@@ -1092,7 +1092,6 @@ fn verify_function(ctx : context) : unit_type
 					var ins := ctx.instrs[ctx.blocks[bb].instrs[len(ctx.blocks[bb].instrs) - 1]];
 					if ins.opcode <> P_Jmp_False then
 						abort internal("immediate dominator does not end with P_Jmp_False");
-					//eval debug("node " + ntos(b) + ", idom " + ntos(bb) + ": " + select(q0, "0", "1") + " " + select(q1, "0", "1") + ", guard var: " + ntos_base(ins.params[0], 16));
 					if q0 then [
 						for i := 0 to len(lb) do
 							ctx.blocks[lb[i]].guards bts= ins.params[0];
@@ -1135,7 +1134,6 @@ fn verify_function(ctx : context) : unit_type
 			continue;
 		var assumes := " true";
 		var guards := "";
-		var all_phis := "";
 		for i := 0 to len(ctx.blocks[bgi].pred_list) do [
 			var guard := "(and ";
 			var p := ctx.blocks[bgi].pred_list[i];
@@ -1157,9 +1155,7 @@ fn verify_function(ctx : context) : unit_type
 			] else [
 				guard += "true";
 			]
-			//eval debug("bgi: " + ntos(bgi) + ", pred: " + ntos(p) + ", guard: " + guard);
 			if not ctx.blocks[bgi].pre_cut_nodes then [
-				var phis := "";
 				for ili := 0 to len(ctx.blocks[bgi].instrs) do [
 					var igi := ctx.blocks[bgi].instrs[ili];
 					var ins := ctx.instrs[igi];
@@ -1187,16 +1183,9 @@ fn verify_function(ctx : context) : unit_type
 					ctx, varg := allocate_variable(ctx, g, 0, empty(int));
 					guard += " (not " + varg + ")";
 				]
-				if len_greater_than(phis, 0) then [
-					all_phis += " (and" + phis + ")";
-				]
 			]
 			guards += " " + guard + ")";
 		]
-		//eval debug("bgi: " + ntos(bgi) + ", all_phis: " + all_phis);
-		//eval debug("bgi: " + ntos(bgi) + ", guards: " + guards);
-		if len_greater_than(all_phis, 0) then
-			assumes += " (or" + all_phis + ")";
 		if len_greater_than(guards, 0) then
 			assumes += " (or" + guards + ")";
 		var line := " true";
@@ -1225,7 +1214,6 @@ fn verify_function(ctx : context) : unit_type
 			var p := ctx.blocks[bgi].post_list[i];
 			line += " (=> (and" + assumes + ") " + ctx.blocks[p].block_name + ")";
 		]
-		//eval debug("bgi(" + ntos(bgi) + "): " + line);
 		z3_eval_noret(ctx, "(assert (= " + ctx.blocks[bgi].block_name + " (and" + line + ")))");
 	]
 
