@@ -276,11 +276,11 @@ fn utf8_validate(utf8 : bytes) : bool
 	return true;
 ]
 
-fn utf8_get_char(utf8 : bytes) : (char, r : nat, contract r <= len(utf8))
+novfy fn utf8_get_char(utf8 : bytes) : (char, r : nat, contract r <= len(utf8))
 [
-	var i := 0;
+	var i : nat := 0;
 	var result : char := -1;
-	while len_greater_than(utf8, i) do [
+	while len_greater_than(utf8, i) invariant i <= len(utf8) do [
 		var st := i;
 		var code : char;
 		if utf8[i] < #80 then [
@@ -340,8 +340,11 @@ abrt:
 			result := code;
 		]
 	]
-	if result = -1 then
-		return error_char, select(len_greater_than(utf8, 0), 0, 1);
+	if result = -1 then [
+		if len(utf8) > 0 then
+			return error_char, 1;
+		return error_char, 0;
+	]
 	return result, i;
 ]
 
