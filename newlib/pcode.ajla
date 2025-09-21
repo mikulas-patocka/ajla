@@ -513,6 +513,8 @@ fn name_to_value~cache : list(int)
 [
 	var a := infinite_uninitialized(int);
 
+	assume len(a) > #32F2E5BF95FE7E79F4CBB6FF2CBD3AF2DD9725FD3BBB61D9A725FC987A61;
+
 	a[#85A7761E5E67F0] := 1;						// BinaryOp
 	a[#42D3BB0F2F30F7EEE7D27F0] := 2;					// BinaryConstOp
 	a[#157761E5E67F0] := 3;							// UnaryOp

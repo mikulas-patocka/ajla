@@ -59,6 +59,7 @@ fn process_consts_txt(implicit w : world, implicit d : dhandle) : world
 	var pcode_1 := empty(bytes);
 	var pcode_2 := empty(bytes);
 	var pcode_3 := empty(bytes);
+	var max_pcode_3 := 0;
 
 	var current_number := 0;
 	var stride := 0;
@@ -115,6 +116,7 @@ fn process_consts_txt(implicit w : world, implicit d : dhandle) : world
 		] else if list_begins_with(l, "T_") then [
 			l := l[2 .. ];
 		]
+		max_pcode_3 := max(i_encode(l), max_pcode_3);
 		var p3 := "	a[#" + ntos_base(i_encode(l), 16) + "] := " + ntos(current_number) + ";";
 		var n_tabs := (80 - len(p3)) div 8;
 		if n_tabs < 0 then
@@ -183,6 +185,8 @@ fn process_consts_txt(implicit w : world, implicit d : dhandle) : world
 	write(pcode, "fn name_to_value~cache : list(int)" + unl);
 	write(pcode, "[" + unl);
 	write(pcode, "	var a := infinite_uninitialized(int);" + unl);
+	write(pcode, unl);
+	write(pcode, "	assume len(a) > #" + ntos_base(max_pcode_3, 16) + ";" + unl);
 	write(pcode, unl);
 	write(pcode, list_join(pcode_3, unl));
 	write(pcode, unl);

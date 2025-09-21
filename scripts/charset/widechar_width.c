@@ -55,11 +55,11 @@ int main(void)
 	printf("\n");
 	printf("private unit uni_table;\n");
 	printf("\n");
-	printf("const uni_table~cache : list(char);\n");
+	printf("const uni_table~cache : (r : list(char), contract len(r) >= 2);\n");
 	printf("\n");
 	printf("implementation\n");
 	printf("\n");
-	printf("const uni_table~cache : list(char) := list(char).[\n");
+	printf("const uni_table~cache : (r : list(char), contract len(r) >= 2) := list(char).[\n");
 	last_cls = INT_MAX;
 	for (i = 0; i < 0x110000; i++) {
 		int cls = char_class(i);
