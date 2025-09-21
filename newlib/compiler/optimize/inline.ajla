@@ -59,7 +59,7 @@ fn do_inline(ctx : context, bgi : int, ili : int, call_mode : pcode_t, autoinlin
 		return ctx, false;
 	]
 
-	var new_ctx := load_function_context(new_pc, ctx.get_inline);
+	var new_ctx := load_function_context(new_pc, ctx.un, ctx.get_inline);
 	//eval debug("success: " + ctx.name + ", " + ntos(len(new_pc)));
 
 	ctx := do_inline_or_specialize(ctx, new_ctx, bgi, ili, 1, call_params, call_result);

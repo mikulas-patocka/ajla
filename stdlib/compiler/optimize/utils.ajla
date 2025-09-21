@@ -29,7 +29,7 @@ fn function_name(params : list(pcode_t), get_inline : fn(function, bool) : list(
 fn function_extract_nested(pc : list(pcode_t), fn_idx : list(int)) : list(pcode_t);
 
 fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instruction;
-fn load_function_context(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t)) : context;
+fn load_function_context(pc : list(pcode_t), un : bytes, get_inline : fn(function, bool) : list(pcode_t)) : context;
 fn dump_local_type(lt : local_type) : list(pcode_t);
 fn dump_basic_blocks(ctx : context, dump_it : bool) : list(pcode_t);
 
@@ -471,7 +471,7 @@ fn set_arrow(ctx : context, src : int, dst : int) : context
 	return ctx;
 ]
 
-fn load_function_context(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t)) : context
+fn load_function_context(pc : list(pcode_t), un : bytes, get_inline : fn(function, bool) : list(pcode_t)) : context
 [
 	assume pc[4] >= 0;
 	assume pc[8] >= 0;
@@ -481,6 +481,7 @@ fn load_function_context(pc : list(pcode_t), get_inline : fn(function, bool) : l
 		instrs : empty(instruction),
 		blocks : empty(basic_block),
 
+		un : un,
 		name : blob_load(pc[9 .. ]),
 
 		get_inline : get_inline,

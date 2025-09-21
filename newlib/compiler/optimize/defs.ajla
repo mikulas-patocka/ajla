@@ -178,6 +178,7 @@ record context [
 	cm : conflict_map;
 	should_retry : bool;
 	num_retries : int;
+	un : bytes;
 	name : bytes;
 	dump_z3 : bool;
 	return_ins : instruction;

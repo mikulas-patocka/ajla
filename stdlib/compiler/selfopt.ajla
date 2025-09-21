@@ -73,24 +73,24 @@ fn get_inline(w : world, d : list(bytes), f : function, optimized : bool) : list
 		return pcode1;
 	var verify_pattern := get_dump("verify");
 	if len_greater_than(f.spec_data, 0) then [
-		var pcode2 := spec_pcode(pcode1, f.spec_data, get_inline(w, d,,), verify_pattern);
+		var pcode2 := spec_pcode(pcode1, f.spec_data, f.un, get_inline(w, d,,), verify_pattern);
 		return pcode2;
 	]
-	var pcode2 := process_pcode(pcode1, get_inline(w, d,,), verify_pattern);
+	var pcode2 := process_pcode(pcode1, f.un, get_inline(w, d,,), verify_pattern);
 	return pcode2;
 ]
 
-fn process_nested_functions(pcode1 : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t)) : (list(pcode_t), treeset(list(pcode_t)))
+fn process_nested_functions(pcode1 : list(pcode_t), un : bytes, get_inline : fn(function, bool) : list(pcode_t)) : (list(pcode_t), treeset(list(pcode_t)))
 [
 	var verify_pattern := get_dump("verify");
-	var pcode2 := process_pcode(pcode1, get_inline, verify_pattern);
+	var pcode2 := process_pcode(pcode1, un, get_inline, verify_pattern);
 	var specs := spec_extract(pcode2);
 	var ptr := 9 + blob_length(pcode1[9 .. ]);
 	var pcode_to_insert := empty(pcode_t);
 	for i := 0 to pcode1[2] do [
 		var new_specs : treeset(list(pcode_t));
 		var sub_pcode := pcode1[ptr + 1 .. ptr + 1 + pcode1[ptr]];
-		sub_pcode, new_specs := process_nested_functions(sub_pcode, get_inline);
+		sub_pcode, new_specs := process_nested_functions(sub_pcode, un, get_inline);
 		specs := treeset_union(specs, new_specs);
 		ptr += 1 + pcode1[ptr];
 		pcode_to_insert +<= len(sub_pcode);
@@ -106,7 +106,7 @@ fn optimize_module(w : world, d : list(bytes), u : uni, pc : list(list(pcode_t))
 [
 	for idx := 0 to len(pc) do [
 		var pcode1 := pc[idx];
-		var pcode2, new_specs := process_nested_functions(pcode1, get_inline(w, d,,));
+		var pcode2, new_specs := process_nested_functions(pcode1, u.name, get_inline(w, d,,));
 		u.functions +<= pcode2;
 		u.specs := treeset_union(u.specs, new_specs);
 	]

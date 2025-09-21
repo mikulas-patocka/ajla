@@ -27,7 +27,7 @@ fn spec_get_arg_dependencies(ctx : context, args : int) : int;
 fn new_spec_context(n : int) : spec_context;
 fn spec_add_variable(spec_ctx : spec_context, ctx : context, a v : int) : spec_context;
 fn spec_extract_pcode(spec_ctx : spec_context) : list(pcode_t);
-fn spec_pcode(pc : list(pcode_t), spec_data : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t), verify_pattern : bytes) : list(pcode_t);
+fn spec_pcode(pc : list(pcode_t), spec_data : list(pcode_t), un : bytes, get_inline : fn(function, bool) : list(pcode_t), verify_pattern : bytes) : list(pcode_t);
 fn spec_extract(pc : list(pcode_t)) : treeset(list(pcode_t));
 
 implementation
@@ -308,7 +308,7 @@ fn spec_extract_pcode(spec_ctx : spec_context) : list(pcode_t)
 	return rpc;
 ]
 
-fn spec_pcode(pc : list(pcode_t), spec_data : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t), verify_pattern : bytes) : list(pcode_t)
+fn spec_pcode(pc : list(pcode_t), spec_data : list(pcode_t), un : bytes, get_inline : fn(function, bool) : list(pcode_t), verify_pattern : bytes) : list(pcode_t)
 [
 	var n_args := spec_data[0];
 	var args := 0;
@@ -316,9 +316,9 @@ fn spec_pcode(pc : list(pcode_t), spec_data : list(pcode_t), get_inline : fn(fun
 		args bts= spec_data[1 + i];
 	var ptr := 1 + n_args;
 
-	var new_ctx := load_function_context(spec_data[ptr .. ], get_inline);
+	var new_ctx := load_function_context(spec_data[ptr .. ], un, get_inline);
 
-	var ctx := load_function_context(pc, get_inline);
+	var ctx := load_function_context(pc, un, get_inline);
 
 	ctx.name += ".spec";
 

@@ -24,7 +24,7 @@ fn deactivate_arrow(ctx : context, bgi : int, pidx : int) : context;
 fn prune_unreachable(ctx : context) : context;
 
 fn process_pcode_ctx(pc : list(pcode_t), ctx : context, verify_pattern : bytes) : list(pcode_t);
-fn process_pcode(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t), verify_pattern : bytes) : list(pcode_t);
+fn process_pcode(pc : list(pcode_t), un : bytes, get_inline : fn(function, bool) : list(pcode_t), verify_pattern : bytes) : list(pcode_t);
 
 
 implementation
@@ -1086,7 +1086,7 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 				ctx.should_retry := true;
 				goto end;
 			]
-			var new_ctx := load_function_context(pc, ctx.get_inline);
+			var new_ctx := load_function_context(pc, ctx.un, ctx.get_inline);
 			//eval debug("specializing: " + new_ctx.name + ", " + ctx.name);
 			var bmp := (new_ctx.specialize_args or bmp_spec) and not bmp_nospec;
 			if bmp = 0 then
@@ -2796,9 +2796,9 @@ fn check_consistency(ctx : context, msg : bytes, test_no_pred : bool) : context
 	return ctx;
 ]
 
-fn process_pcode(pc : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t), verify_pattern : bytes) : list(pcode_t)
+fn process_pcode(pc : list(pcode_t), un : bytes, get_inline : fn(function, bool) : list(pcode_t), verify_pattern : bytes) : list(pcode_t)
 [
-	var ctx := load_function_context(pc, get_inline);
+	var ctx := load_function_context(pc, un, get_inline);
 	return process_pcode_ctx(pc, ctx, verify_pattern);
 ]
 
@@ -2816,7 +2816,7 @@ fn process_pcode_ctx(pc : list(pcode_t), ctx : context, verify_pattern : bytes) 
 		return pc;
 	]
 
-	//eval debug("optimizing: " + ctx.name);
+	//eval debug("optimizing: " + ctx.un + "-" + ctx.name);
 
 	var verify : bool;
 	if verify_pattern = "@" then [
