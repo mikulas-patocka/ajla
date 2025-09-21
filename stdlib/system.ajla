@@ -1525,7 +1525,7 @@ fn fx_mod~inline(n : int, uns : bool, i1 i2 : suint_base) : suint_base
 ]
 fn fx_power~inline(n : int, uns : bool, i1 i2 : suint_base) : suint_base
 [
-	var r := 1;
+	var r : suint_base := 1;
 	while i2 <> 0 do [
 		if i2 bt 0 then
 			r := fx_wrap(n, r * i1);
@@ -1581,7 +1581,7 @@ fn fx_ror~inline(n : int, i1 i2 : suint_base) : suint_base := fx_wrap(n, i1 shr 
 fn fx_bswap~inline(n : int, i1 : suint_base) : suint_base
 [
 	n := n shr 3;
-	var result := 0;
+	var result : suint_base := 0;
 	for i := 0 to n do [
 		result or= (i1 shr (i * 8) and #ff) shl (n - 1 - i) * 8;
 	]
@@ -1589,7 +1589,7 @@ fn fx_bswap~inline(n : int, i1 : suint_base) : suint_base
 ]
 fn fx_brev~inline(n : int, i1 : suint_base) : suint_base
 [
-	var result := 0;
+	var result : suint_base := 0;
 	for i := 0 to n do [
 		result or= (i1 shr i and 1) shl (n - 1 - i);
 	]
