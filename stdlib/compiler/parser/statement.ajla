@@ -669,13 +669,13 @@ fn parse_statement_for(ctx : function_context, vd : variable_dictionary, level :
 	var toks := [ lower_bound_var ] + type_decl + [ assign_op ] + lower_bound;
 	ctx, do_vd := parse_statement_var(ctx, do_vd, false, false, false, toks);
 
-	toks := [ upper_bound_var ] + type_decl + [ assign_op ] + upper_bound;
-	ctx, do_vd := parse_statement_var(ctx, do_vd, false, false, false, toks);
-
 	toks := variable_decl + [ assign_op, lower_bound_var ];
 	ctx, do_vd := parse_statement_var(ctx, do_vd, false, false, false, toks);
 
 	ctx := generate_Label(ctx, l_test_again);
+
+	toks := [ upper_bound_var ] + type_decl + [ assign_op ] + upper_bound;
+	ctx, do_vd := parse_statement_var(ctx, do_vd, false, false, false, toks);
 
 	if invr >= 0 then [
 		ctx := parse_statement_eval(ctx, do_vd, invr_tokens, token_opt.k_invariant);
