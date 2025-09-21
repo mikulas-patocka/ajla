@@ -264,7 +264,7 @@ fn verify_assignment(ctx : function_context, vd : variable_dictionary, statement
 		var l : int;
 		ctx, l := parse_expression(ctx, vd, statements[i], false);
 		var may_skip := true;
-		if not cl and indices[i] >= 0 then [
+		if not cl and indices[i] >= 0 and sysprop(SystemProperty_Verify_Light) = 0 then [
 			ctx := generate_array_len_check(ctx, l, indices[i], Bin_Less, t);
 			may_skip := false;
 		]
