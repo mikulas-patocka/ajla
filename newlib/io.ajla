@@ -399,10 +399,11 @@ fn wopen(w : world, d : dhandle, f : bytes, flags : int, mode : int) : (world, h
 
 fn write(w : world, h : handle, s : bytes) : world
 [
-	while len_greater_than(byte, s, 0) do [
-		var sz : int;
+	while len_greater_than(s, 0) do [
+		var sz : nat;
 		var w2 : world;
 		pcode IO IO_Stream_Write 2 3 0 =w2 =sz w h s;
+		assume sz <= len(s);
 		w := w2;
 		s := s[sz .. ];
 	]
@@ -474,12 +475,13 @@ fn bread(w : world, h : handle, position : int64, size : int) : (world, bytes)
 
 fn bwrite(w : world, h : handle, position : int64, s : bytes) : world
 [
-	while len_greater_than(byte, s, 0) do [
-		var sz : int;
+	while len_greater_than(s, 0) do [
+		var sz : nat;
 		var w2 : world;
 		pcode IO IO_Block_Write 2 4 0 =w2 =sz w h s position;
-		s := s[sz .. ];
+		assume sz <= len(s);
 		w := w2;
+		s := s[sz .. ];
 		position += sz;
 	]
 	return w;
@@ -745,6 +747,7 @@ fn stat(w : world, d : dhandle, f : bytes, flags : int) : (world, r : list(int64
 	var res : list(int64);
 	var w2 : world;
 	pcode IO IO_Stat 2 4 1 =w2 =res w d f flags 1;
+	assume len(res) = popcnt flags;
 	return w2, res;
 ]
 
@@ -753,6 +756,7 @@ fn lstat(w : world, d : dhandle, f : bytes, flags : int) : (world, r : list(int6
 	var res : list(int64);
 	var w2 : world;
 	pcode IO IO_Stat 2 4 1 =w2 =res w d f flags 2;
+	assume len(res) = popcnt flags;
 	return w2, res;
 ]
 
@@ -761,6 +765,7 @@ fn fstat(w : world, h : handle, flags : int) : (world, r : list(int64), contract
 	var res : list(int64);
 	var w2 : world;
 	pcode IO IO_FStat 2 3 0 =w2 =res w h flags;
+	assume len(res) = popcnt flags;
 	return w2, res;
 ]
 
@@ -769,6 +774,7 @@ fn stat_lazy(d : dhandle, f : bytes, flags : int) : (r : list(int64), contract l
 	var res : list(int64);
 	var w := unsafe_get_world;
 	w, res := stat(w, d, f, flags);
+	assume len(res) = popcnt flags;
 	return res;
 ]
 
@@ -777,6 +783,7 @@ fn lstat_lazy(d : dhandle, f : bytes, flags : int) : (r : list(int64), contract 
 	var res : list(int64);
 	var w := unsafe_get_world;
 	w, res := lstat(w, d, f, flags);
+	assume len(res) = popcnt flags;
 	return res;
 ]
 
@@ -785,6 +792,7 @@ fn fstat_lazy(h : handle, flags : int) : (r : list(int64), contract len(r) = pop
 	var res : list(int64);
 	var w := unsafe_get_world;
 	w, res := fstat(w, h, flags);
+	assume len(res) = popcnt flags;
 	return res;
 ]
 
@@ -815,6 +823,7 @@ fn fstatfs(w : world, h : handle, flags : int) : (world, r : list(int64), contra
 	var res : list(int64);
 	var w2 : world;
 	pcode IO IO_FStatFS 2 3 0 =w2 =res w h flags;
+	assume len(res) = popcnt flags;
 	return w2, res;
 ]
 
@@ -823,6 +832,7 @@ fn dstatfs(w : world, d : dhandle, flags : int) : (world, r : list(int64), contr
 	var res : list(int64);
 	var w2 : world;
 	pcode IO IO_DStatFS 2 3 0 =w2 =res w d flags;
+	assume len(res) = popcnt flags;
 	return w2, res;
 ]
 
@@ -974,14 +984,21 @@ have_d:
 	var mtab := read_full(d);
 	var lines := list_break_to_lines(mtab);
 	for l in lines do [
-		if len(l) = 0 or l[0] = '#' then
+		if len(l) = 0 then
+			continue;
+		if l[0] = '#' then
 			continue;
 		var brk := list_break_whitespace(l);
 		var q : bytes;
-		if is_minix then
+		if is_minix then [
+			if not len_greater_than(brk, 2) then
+				continue;
 			q := brk[2];
-		else
+		] else [
+			if not len_greater_than(brk, 1) then
+				continue;
 			q := brk[1];
+		]
 		if is_exception q then
 			continue;
 		var w2 := w;
@@ -1058,6 +1075,7 @@ fn uname(flags : int) : (r : list(bytes), contract len(r) = popcnt flags)
 [
 	var res : list(bytes);
 	pcode IO IO_UName 1 1 0 =res flags;
+	assume len(res) = popcnt flags;
 	return res;
 ]
 
@@ -1154,6 +1172,8 @@ fn path_compare(a b : bytes) : bool
 		for i := 0 to len(a) do [
 			if path_is_dir_separator(a[i]) then
 				a[i] := path_separator;
+		]
+		for i := 0 to len(b) do [
 			if path_is_dir_separator(b[i]) then
 				b[i] := path_separator;
 		]
@@ -1363,8 +1383,8 @@ fn path_expand_home(home : maybe(bytes), p : bytes) : bytes
 	if p = "~" then
 		return h;
 	if len(p) >= 2, p[0] = '~', path_is_dir_separator(p[1]) then [
-		var i := 2;
-		while len(p) > i, path_is_dir_separator(p[i]) do
+		var i : nat := 2;
+		while len(p) > i, path_is_dir_separator(p[i]) invariant i <= len(p) do
 			i += 1;
 		return path_append(h, p[i .. ]);
 	]
@@ -1390,7 +1410,7 @@ fn path_mkdir(implicit w : world, d : dhandle, f : bytes, mode : int) : world
 		return w;
 	recover_world(w1);
 
-	var i := 0;
+	var i : nat := 0;
 	while i < len(f), path_is_separator(f[i]) do
 		i += 1;
 	if i = 0, path_is_absolute(f) then [
@@ -1401,9 +1421,9 @@ fn path_mkdir(implicit w : world, d : dhandle, f : bytes, mode : int) : world
 	]
 
 	while i < len(f) do [
-		while i < len(f), not path_is_separator(f[i]) do
+		while i < len(f), not path_is_separator(f[i]) invariant i <= len(f) do
 			i += 1;
-		while i < len(f), path_is_separator(f[i]) do
+		while i < len(f), path_is_separator(f[i]) invariant i <= len(f) do
 			i += 1;
 		path_mkdir_step(d, f[ .. i], mode);
 		xeval w;
@@ -1460,7 +1480,7 @@ fn path_write_atomic(implicit w : world, d : dhandle, f : bytes, content : bytes
 	var w1 := w;
 	var tmp_file := f;
 	var i := len(tmp_file) - 1;
-	while i >= 0 do [
+	while i >= 0 invariant i >= -1 and i < len(tmp_file) do [
 		if path_is_separator(tmp_file[i]) then
 			break;
 		if tmp_file[i] = '.' then [

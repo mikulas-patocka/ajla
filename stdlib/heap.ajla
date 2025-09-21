@@ -1,5 +1,5 @@
 {*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -23,8 +23,8 @@ type heap(key : type, cls : class_ord(key));
 fn heap_init(key : type, const cls~spec : class_ord(key)) : heap(key, cls);
 fn heap_size(key : type, const cls~spec : class_ord(key), h : heap(key, cls)) : int;
 fn heap_is_nonempty(key : type, const cls~spec : class_ord(key), h : heap(key, cls)) : bool;
-fn heap_peek(key : type, const cls~spec : class_ord(key), h : heap(key, cls)) : key;
-fn heap_extract(key : type, const cls~spec : class_ord(key), h : heap(key, cls)) : (heap(key, cls), key);
+fn heap_peek(key : type, const cls~spec : class_ord(key), h : heap(key, cls), prereq heap_is_nonempty(h)) : key;
+fn heap_extract(key : type, const cls~spec : class_ord(key), h : heap(key, cls), prereq heap_is_nonempty(h)) : (heap(key, cls), key);
 fn heap_insert(key : type, const cls~spec : class_ord(key), h : heap(key, cls), k : key) : heap(key, cls);
 fn heap_from_list(key : type, const cls~spec : class_ord(key), l : list(key)) : heap(key, cls);
 
@@ -47,16 +47,16 @@ fn heap_is_nonempty(key : type, const cls~spec : class_ord(key), h : heap(key, c
 	return len_greater_than(h, 0);
 ]
 
-fn heap_peek(key : type, const cls~spec : class_ord(key), h : heap(key, cls)) : key
+fn heap_peek(key : type, const implicit cls~spec : class_ord(key), h : heap(key, cls), prereq heap_is_nonempty(h)) : key
 [
 	return h[0];
 ]
 
-fn heap_left~inline(i : int) : int := i + i + 1;
-fn heap_right~inline(i : int) : int := i + i + 2;
-fn heap_parent~inline(i : int) : int := (i - 1) shr 1;
+fn heap_left~inline(i : nat) : nat := i + i + 1;
+fn heap_right~inline(i : nat) : nat := i + i + 2;
+fn heap_parent~inline(i : nat, prereq i > 0) : nat := (i - 1) shr 1;
 
-fn heap_extract(key : type, const implicit cls~spec : class_ord(key), h : heap(key, cls)) : (heap(key, cls), key)
+fn heap_extract(key : type, const implicit cls~spec : class_ord(key), h : heap(key, cls), prereq heap_is_nonempty(h)) : (heap(key, cls), key)
 [
 	var val := h[0];
 	var ins := h[len(h) - 1];
@@ -64,7 +64,7 @@ fn heap_extract(key : type, const implicit cls~spec : class_ord(key), h : heap(k
 	if len(h) = 0 then
 		goto ret;
 	h[0] := ins;
-	var idx := 0;
+	var idx : nat := 0;
 again:
 	var left := heap_left(idx);
 	var right := heap_right(idx);
@@ -93,8 +93,8 @@ ret:
 fn heap_insert(key : type, const implicit cls~spec : class_ord(key), h : heap(key, cls), k : key) : heap(key, cls)
 [
 	h +<= k;
-	var idx := len(h) - 1;
-	while idx > 0 do [
+	var idx : nat := len(h) - 1;
+	while idx > 0 invariant idx < len(h) do [
 		var parent := heap_parent(idx);
 		if h[parent] < h[idx] then
 			break;

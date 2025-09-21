@@ -100,7 +100,7 @@ record charset_8bit [
 	label : string;
 	mime_name : bytes;
 	chr_to_unicode : array(char, [128]);
-	unicode_to_chr : list(byte);
+	unicode_to_chr : array(byte, [#110000]);
 ]
 
 fn n_combining_characters(code : char) : nat
@@ -455,7 +455,8 @@ fn ch8_to_string(ch8 : charset_8bit, ch : bytes) : string
 fn string_to_ch8(ch8 : charset_8bit, s : string) : bytes
 [
 	var result := empty(byte);
-	for i in list_iterator(s) do [
+	var i : nat := 0;
+	while len_greater_than(s, i) do [
 		if i >= lazy_buffer_size then
 			return result + string_to_ch8~lazy(ch8, s[i .. ]);
 		var uni := s[i];
@@ -482,6 +483,7 @@ recheck:
 		] else [
 			result +<= error_ascii;
 		]
+		i += 1;
 	]
 	return result;
 ]
@@ -891,9 +893,9 @@ fn find_language(loc_name : bytes) : language
 [
 	var lng := languages;
 	var start : nat := 0;
-	var end := len(lng);
-	while start < end do [
-		var middle := (start + end) shr 1;
+	var end : nat := len(lng);
+	while start < end invariant start <= end and start <= len(lng) and end <= len(lng) do [
+		var middle : nat := (start + end) shr 1;
 		var l := lng[middle];
 		if l.loc_name = loc_name then
 			return l;
@@ -968,13 +970,18 @@ fn charset_8bit_find~cache(nname : bytes) : charset_8bit
 		abort exception_make_str(charset_8bit, ec_sync, error_invalid_operation, 0, false, "Unknown charset");
 
 	var first_null := list_search(b, 0);
-	var second_null := first_null + 1 + list_search(b[first_null + 1 .. ], 0);
+	if first_null < 0 then
+		goto corrupted;
+	var sn := list_search(b[first_null + 1 .. ], 0);
+	if sn < 0 then
+		goto corrupted;
+	var second_null := first_null + 1 + sn;
 
 	var res := charset_8bit.[
 		label : utf8_to_string(b[ .. first_null]),
 		mime_name : b[first_null + 1 .. second_null],
 		chr_to_unicode : array_fill(char, 0, [128]),
-		unicode_to_chr : sparse(byte, 0, #110000),
+		unicode_to_chr : array_fill(byte, 0, [#110000]),
 	];
 
 	var normalized_name := charset_name_normalize(res.mime_name);
@@ -983,13 +990,21 @@ fn charset_8bit_find~cache(nname : bytes) : charset_8bit
 
 	b := b[second_null + 1 ..];
 
+	if len(b) < 128 * 3 then
+		goto corrupted;
+
 	for i := 0 to 128 do [
 		var uni := #10000 * b[i * 3 + 2] + #100 * b[i * 3 + 1] + b[i * 3];
+		if not validate_unicode(uni) then
+			goto corrupted;
 		res.chr_to_unicode[i] := uni;
 		res.unicode_to_chr[uni] := i + 128;
 	]
 
 	return res;
+
+corrupted:
+	abort exception_make_str(charset_8bit, ec_sync, error_invalid_operation, 0, false, "Charset file corrupted");
 ]
 
 fn locale_get~cache(lc : bytes) : locale

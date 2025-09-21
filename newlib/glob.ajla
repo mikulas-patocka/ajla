@@ -57,11 +57,13 @@ next_star:
 		return glob_no_star(file[len(file) - len(pattern) .. ], pattern);
 	]
 	var pattern_stars := pattern[ .. star2];
-	for i := 0 to len(file) - len(pattern_stars) do [
-		if glob_no_star(file[i .. i + len(pattern_stars)], pattern_stars) then [
-			file := file[i + len(pattern_stars) .. ];
-			pattern := pattern[star2 + 1 .. ];
-			goto next_star;
+	if len(file) - len(pattern_stars) > 0 then [
+		for i := 0 to len(file) - len(pattern_stars) do [
+			if glob_no_star(file[i .. i + len(pattern_stars)], pattern_stars) then [
+				file := file[i + len(pattern_stars) .. ];
+				pattern := pattern[star2 + 1 .. ];
+				goto next_star;
+			]
 		]
 	]
 	return false;
