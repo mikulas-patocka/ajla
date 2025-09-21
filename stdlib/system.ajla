@@ -3642,7 +3642,7 @@ fn native_to_int~inline(n : native, b : bytes) : int
  - ARRAY -
  ---------}
 
-fn array_size(dim : list(nat)) : int
+fn array_size(dim : list(nat)) : nat
 [
 	var prod := 1;
 	for i := 0 to len(dim) do [

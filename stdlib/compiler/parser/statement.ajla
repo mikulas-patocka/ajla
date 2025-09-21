@@ -329,7 +329,8 @@ fn parse_statement_assign(ctx : function_context, vd : variable_dictionary, can_
 				cc, typ := list_type(ctx, cc_base, typ_base, true, index_ex);
 
 				var ai : int;
-				ctx, ai := list_array_get_index(ctx, vd, cc_base, typ_base, index_ex, false);
+				var is_array : bool;
+				ctx, ai, is_array := list_array_get_index(ctx, vd, cc_base, typ_base, index_ex, false);
 
 				if ctx.variables[ai].defined_at = defined_multiple then [
 					var l : int;
@@ -337,7 +338,8 @@ fn parse_statement_assign(ctx : function_context, vd : variable_dictionary, can_
 					ctx := generate_Copy(ctx, ai, l);
 					ai := l;
 				]
-				need_verify_indices[len(need_verify_indices) - 1] := ai;
+				if not is_array then
+					need_verify_indices[len(need_verify_indices) - 1] := ai;
 
 				//var local_type : int;
 				//ctx, local_type := get_type_cc(ctx, cc, typ);

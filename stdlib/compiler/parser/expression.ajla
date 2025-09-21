@@ -21,7 +21,7 @@ private unit compiler.parser.expression;
 uses compiler.parser.dict;
 uses compiler.parser.type;
 
-fn list_array_get_index(ctx : function_context, vd : variable_dictionary, cc : compare_context, a : int, t2 : tokens, in_type : bool) : (function_context, int);
+fn list_array_get_index(ctx : function_context, vd : variable_dictionary, cc : compare_context, a : int, t2 : tokens, in_type : bool) : (function_context, int, bool);
 
 fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool) : (function_context, list(int));
 fn parse_n_expressions(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool, n : int) : (function_context, list(int));
@@ -456,7 +456,7 @@ fn list_sub(ctx : function_context, vd : variable_dictionary, t t2 t3 : tokens, 
 	return ctx, [ l ];
 ]
 
-fn list_array_get_index(ctx : function_context, vd : variable_dictionary, cc : compare_context, a : int, t2 : tokens, in_type : bool) : (function_context, int)
+fn list_array_get_index(ctx : function_context, vd : variable_dictionary, cc : compare_context, a : int, t2 : tokens, in_type : bool) : (function_context, int, bool)
 [
 	var ai : int;
 
@@ -487,6 +487,23 @@ fn list_array_get_index(ctx : function_context, vd : variable_dictionary, cc : c
 					index_expression +<= new_token(t2[0], token_opt.oper.(i_encode("+")));
 				]
 				index_expression +<= new_token(t2[0], token_opt.internal_variable.(idxs[i]));
+				if ctx.parsing_assume_claim = 0, ctx.parsing_where = T_InvalidType, sysprop(SystemProperty_Verify_Light) = 0 then [
+					var z : int;
+					ctx, z := generate_Load_Const(ctx, T_Integer, int_to_blob(0));
+					var ge : int;
+					ctx, ge := alloc_local_variable(ctx, T_Bool, true, false);
+					ctx := generate_BinaryOp(ctx, Bin_GreaterEqual, idxs[i], z, ge);
+
+					var lt : int;
+					ctx, lt := alloc_local_variable(ctx, T_Bool, true, false);
+					ctx := generate_BinaryOp(ctx, Bin_Less, idxs[i], shape[i], lt);
+
+					var l : int;
+					ctx, l := alloc_local_variable(ctx, T_Bool, true, false);
+					ctx := generate_BinaryOp(ctx, Bin_And, ge, lt, l);
+
+					ctx := generate_Claim(ctx, l, false);
+				]
 			]
 			ctx, ai := parse_expression(ctx, vd, index_expression, in_type);
 		]
@@ -496,7 +513,7 @@ fn list_array_get_index(ctx : function_context, vd : variable_dictionary, cc : c
 		ctx, ai, m := convert_type(ctx, vd, ai, empty_compare_context, T_Integer, 0, true, t2);
 	]
 
-	return ctx, ai;
+	return ctx, ai, is_array;
 ]
 
 fn list_load(ctx : function_context, vd : variable_dictionary, t t2 : tokens, in_type : bool) : (function_context, list(int))
@@ -507,12 +524,13 @@ fn list_load(ctx : function_context, vd : variable_dictionary, t t2 : tokens, in
 	 =============}
 
 	var aa ai : int;
+	var is_array : bool;
 	ctx, aa := parse_expression(ctx, vd, t, in_type);
 
 	var cc, a := get_deep_type_of_var(ctx, aa);
-	ctx, ai := list_array_get_index(ctx, vd, cc, a, t2, in_type);
+	ctx, ai, is_array := list_array_get_index(ctx, vd, cc, a, t2, in_type);
 
-	if ctx.parsing_assume_claim = 0, ctx.parsing_where = T_InvalidType, sysprop(SystemProperty_Verify_Light) = 0 then [
+	if not is_array, ctx.parsing_assume_claim = 0, ctx.parsing_where = T_InvalidType, sysprop(SystemProperty_Verify_Light) = 0 then [
 		ctx := generate_array_len_check(ctx, aa, ai, Bin_Less, t2);
 	]
 
