@@ -2821,6 +2821,14 @@ fn process_pcode_ctx(pc : list(pcode_t), ctx : context, verify_pattern : bytes) 
 	var verify : bool;
 	if verify_pattern = "@" then [
 		verify := pc[0] bt bsf Fn_VerifyTagged;
+	] else if len_greater_than(verify_pattern, 0), verify_pattern[0] = '/' then [
+		var un := ctx.un;
+		var ls := list_search_backwards(un, '/');
+		if ls >= 0 then
+			un := un[ .. ls];
+		else
+			un := "";
+		verify := glob_bytes(un, verify_pattern[1 .. ], true);
 	] else [
 		verify := glob_bytes(ctx.name, verify_pattern, true);
 	]
