@@ -50,6 +50,9 @@ fn z3_mk_context(implicit w : z3_world) : (z3_world, z3_context)
 	implicit var ctx := z3_context.[ ];
 	var v e : int;
 	var lib := ffi_open_library("z3", true, "Z3_finalize_memory");
+
+	xeval lib;
+
 	ctx.destr := ffi_destructor_new();
 	ctx.z3_set_error := ffi_create_function(lib, "Z3_set_error", ffi_error.e_none, 2, ffi_type.t_void, [ ffi_type.t_pointer, ffi_type.t_uint ], false);
 	ctx.z3_get_error_code := ffi_create_function(lib, "Z3_get_error_code", ffi_error.e_none, 1, ffi_type.t_uint, [ ffi_type.t_pointer ], false);
