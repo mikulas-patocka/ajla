@@ -418,8 +418,8 @@ implicit fn instance_fixed_integer_number_uint32~inline : class_fixed_integer_nu
 implicit fn instance_fixed_integer_number_uint64~inline : class_fixed_integer_number(uint64);
 implicit fn instance_fixed_integer_number_uint128~inline : class_fixed_integer_number(uint128);
 
-implicit fn instance_fixed_integer_number_sint~inline(const n : int) : class_fixed_integer_number(sint(n));
-implicit fn instance_fixed_integer_number_uint~inline(const n : int) : class_fixed_integer_number(uint(n));
+implicit fn instance_fixed_integer_number_sint~inline(const n : int, prereq n >= 0) : class_fixed_integer_number(sint(n));
+implicit fn instance_fixed_integer_number_uint~inline(const n : int, prereq n >= 0) : class_fixed_integer_number(uint(n));
 
 implicit fn instance_real_number_real16~inline : class_real_number(real16);
 implicit fn instance_real_number_real32~inline : class_real_number(real32);
@@ -1488,14 +1488,14 @@ type suint_base := int128;
 type sint(n : int) := suint_base;
 type uint(n : int) := suint_base;
 
-fn fx_wrap~inline(n : int, i : suint_base) : suint_base := i and ((1 shl n) - 1);
-fn fx_unwrap~inline(n : int, uns : bool, i : suint_base) : suint_base
+fn fx_wrap~inline(n : nat, i : suint_base) : suint_base := i and ((1 shl n) - 1);
+fn fx_unwrap~inline(n : nat, uns : bool, i : suint_base) : suint_base
 [
 	if uns or not i bt n - 1 then
 		return i;
 	return i - (1 shl n);
 ]
-fn fx_mod_n~inline(n : int, i : suint_base) : suint_base
+fn fx_mod_n~inline(n : nat, i : suint_base) : suint_base
 [
 	var r := i mod n;
 	if r < 0 then
@@ -1503,11 +1503,11 @@ fn fx_mod_n~inline(n : int, i : suint_base) : suint_base
 	return r;
 ]
 
-fn fx_add~inline(n : int, i1 i2 : suint_base) : suint_base := fx_wrap(n, i1 + i2);
-fn fx_neg~inline(n : int, i1 : suint_base) : suint_base := fx_wrap(n, -i1);
-fn fx_subtract~inline(n : int, i1 i2 : suint_base) : suint_base := fx_wrap(n, i1 - i2);
-fn fx_multiply~inline(n : int, i1 i2 : suint_base) : suint_base := fx_wrap(n, i1 * i2);
-fn fx_div~inline(n : int, uns : bool, i1 i2 : suint_base) : suint_base
+fn fx_add~inline(n : nat, i1 i2 : suint_base) : suint_base := fx_wrap(n, i1 + i2);
+fn fx_neg~inline(n : nat, i1 : suint_base) : suint_base := fx_wrap(n, -i1);
+fn fx_subtract~inline(n : nat, i1 i2 : suint_base) : suint_base := fx_wrap(n, i1 - i2);
+fn fx_multiply~inline(n : nat, i1 i2 : suint_base) : suint_base := fx_wrap(n, i1 * i2);
+fn fx_div~inline(n : nat, uns : bool, i1 i2 : suint_base) : suint_base
 [
 	i1 := fx_unwrap(n, uns, i1);
 	i2 := fx_unwrap(n, uns, i2);
@@ -1515,7 +1515,7 @@ fn fx_div~inline(n : int, uns : bool, i1 i2 : suint_base) : suint_base
 		return 0;
 	return fx_wrap(n, i1 div i2);
 ]
-fn fx_mod~inline(n : int, uns : bool, i1 i2 : suint_base) : suint_base
+fn fx_mod~inline(n : nat, uns : bool, i1 i2 : suint_base) : suint_base
 [
 	i1 := fx_unwrap(n, uns, i1);
 	i2 := fx_unwrap(n, uns, i2);
@@ -1523,7 +1523,7 @@ fn fx_mod~inline(n : int, uns : bool, i1 i2 : suint_base) : suint_base
 		return i1;
 	return fx_wrap(n, i1 mod i2);
 ]
-fn fx_power~inline(n : int, uns : bool, i1 i2 : suint_base) : suint_base
+fn fx_power~inline(n : nat, uns : bool, i1 i2 : suint_base) : suint_base
 [
 	var r : suint_base := 1;
 	while i2 <> 0 do [
@@ -1537,30 +1537,30 @@ fn fx_power~inline(n : int, uns : bool, i1 i2 : suint_base) : suint_base
 fn fx_and~inline(i1 i2 : suint_base) : suint_base := i1 and i2;
 fn fx_or~inline(i1 i2 : suint_base) : suint_base := i1 or i2;
 fn fx_xor~inline(i1 i2 : suint_base) : suint_base := i1 xor i2;
-fn fx_shl~inline(n : int, i1 i2 : suint_base) : suint_base := fx_wrap(n, i1 shl fx_mod_n(n, i2));
-fn fx_shr~inline(n : int, uns : bool, i1 i2 : suint_base) : suint_base := fx_wrap(n, fx_unwrap(n, uns, i1) shr fx_mod_n(n, i2));
-fn fx_bts~inline(n : int, i1 i2 : suint_base) : suint_base := i1 bts fx_mod_n(n, i2);
-fn fx_btr~inline(n : int, i1 i2 : suint_base) : suint_base := i1 btr fx_mod_n(n, i2);
-fn fx_btc~inline(n : int, i1 i2 : suint_base) : suint_base := i1 btc fx_mod_n(n, i2);
+fn fx_shl~inline(n : nat, i1 i2 : suint_base) : suint_base := fx_wrap(n, i1 shl fx_mod_n(n, i2));
+fn fx_shr~inline(n : nat, uns : bool, i1 i2 : suint_base) : suint_base := fx_wrap(n, fx_unwrap(n, uns, i1) shr fx_mod_n(n, i2));
+fn fx_bts~inline(n : nat, i1 i2 : suint_base) : suint_base := i1 bts fx_mod_n(n, i2);
+fn fx_btr~inline(n : nat, i1 i2 : suint_base) : suint_base := i1 btr fx_mod_n(n, i2);
+fn fx_btc~inline(n : nat, i1 i2 : suint_base) : suint_base := i1 btc fx_mod_n(n, i2);
 fn fx_equal~inline(i1 i2 : suint_base) : bool := i1 = i2;
-fn fx_less~inline(n : int, uns : bool, i1 i2 : suint_base) : bool := fx_unwrap(n, uns, i1) < fx_unwrap(n, uns, i2);
-fn fx_bt~inline(n : int, i1 i2 : suint_base) : bool := i1 bt fx_mod_n(n, i2);
-fn fx_not~inline(n : int, i1 : suint_base) : suint_base := fx_wrap(n, not i1);
-fn fx_bsf~inline(n : int, i1 : suint_base) : suint_base
+fn fx_less~inline(n : nat, uns : bool, i1 i2 : suint_base) : bool := fx_unwrap(n, uns, i1) < fx_unwrap(n, uns, i2);
+fn fx_bt~inline(n : nat, i1 i2 : suint_base) : bool := i1 bt fx_mod_n(n, i2);
+fn fx_not~inline(n : nat, i1 : suint_base) : suint_base := fx_wrap(n, not i1);
+fn fx_bsf~inline(n : nat, i1 : suint_base) : suint_base
 [
 	if i1 = 0 then
 		return (1 shl n) - 1;
 	return bsf i1;
 ]
-fn fx_bsr~inline(n : int, i1 : suint_base) : suint_base
+fn fx_bsr~inline(n : nat, i1 : suint_base) : suint_base
 [
 	if i1 = 0 then
 		return (1 shl n) - 1;
 	return bsr i1;
 ]
 fn fx_popcnt~inline(i1 : suint_base) : suint_base := popcnt i1;
-fn fx_to_int~inline(n : int, uns : bool, i1 : suint_base) : int := fx_unwrap(n, uns, i1);
-fn fx_from_int~inline(n : int, uns : bool, i1 : int) : suint_base
+fn fx_to_int~inline(n : nat, uns : bool, i1 : suint_base) : int := fx_unwrap(n, uns, i1);
+fn fx_from_int~inline(n : nat, uns : bool, i1 : int) : suint_base
 [
 	if uns then [
 		if i1 < 0 or i1 >= 1 shl n then
@@ -1572,13 +1572,13 @@ fn fx_from_int~inline(n : int, uns : bool, i1 : int) : suint_base
 		return fx_wrap(n, i1);
 	]
 ]
-fn fx_to_bytes~inline(n : int, uns : bool, i1 : suint_base) : bytes := int_to_bytes(fx_unwrap(n, uns, i1));
-fn fx_to_bytes_base~inline(n : int, uns : bool, i1 : suint_base, base : int) : bytes := int_to_bytes_base(fx_unwrap(n, uns, i1), base);
-fn fx_from_bytes~inline(n : int, uns : bool, a1 : bytes) : suint_base := fx_from_int(n, uns, int_from_bytes(a1));
-fn fx_from_bytes_base~inline(n : int, uns : bool, a1 : bytes, base : int) : suint_base := fx_from_int(n, uns, int_from_bytes_base(a1, base));
-fn fx_rol~inline(n : int, i1 i2 : suint_base) : suint_base := fx_wrap(n, i1 shl fx_mod_n(n, i2) or i1 shr fx_mod_n(n, n - i2));
-fn fx_ror~inline(n : int, i1 i2 : suint_base) : suint_base := fx_wrap(n, i1 shr fx_mod_n(n, i2) or i1 shl fx_mod_n(n, n - i2));
-fn fx_bswap~inline(n : int, i1 : suint_base) : suint_base
+fn fx_to_bytes~inline(n : nat, uns : bool, i1 : suint_base) : bytes := int_to_bytes(fx_unwrap(n, uns, i1));
+fn fx_to_bytes_base~inline(n : nat, uns : bool, i1 : suint_base, base : int) : bytes := int_to_bytes_base(fx_unwrap(n, uns, i1), base);
+fn fx_from_bytes~inline(n : nat, uns : bool, a1 : bytes) : suint_base := fx_from_int(n, uns, int_from_bytes(a1));
+fn fx_from_bytes_base~inline(n : nat, uns : bool, a1 : bytes, base : int) : suint_base := fx_from_int(n, uns, int_from_bytes_base(a1, base));
+fn fx_rol~inline(n : nat, i1 i2 : suint_base) : suint_base := fx_wrap(n, i1 shl fx_mod_n(n, i2) or i1 shr fx_mod_n(n, n - i2));
+fn fx_ror~inline(n : nat, i1 i2 : suint_base) : suint_base := fx_wrap(n, i1 shr fx_mod_n(n, i2) or i1 shl fx_mod_n(n, n - i2));
+fn fx_bswap~inline(n : nat, i1 : suint_base) : suint_base
 [
 	n := n shr 3;
 	var result : suint_base := 0;
@@ -1587,7 +1587,7 @@ fn fx_bswap~inline(n : int, i1 : suint_base) : suint_base
 	]
 	return result;
 ]
-fn fx_brev~inline(n : int, i1 : suint_base) : suint_base
+fn fx_brev~inline(n : nat, i1 : suint_base) : suint_base
 [
 	var result : suint_base := 0;
 	for i := 0 to n do [
@@ -1596,7 +1596,7 @@ fn fx_brev~inline(n : int, i1 : suint_base) : suint_base
 	return result;
 ]
 
-fn instance_fixed_integer_number_int~inline(n : int, uns : bool) : class_fixed_integer_number(suint_base) :=
+fn instance_fixed_integer_number_int~inline(n : nat, uns : bool) : class_fixed_integer_number(suint_base) :=
 	class_fixed_integer_number(suint_base).[
 		bits : n,
 		unsigned : uns,
@@ -1636,8 +1636,8 @@ fn instance_fixed_integer_number_int~inline(n : int, uns : bool) : class_fixed_i
 		brev : fx_brev(n,),
 	];
 
-implicit fn instance_fixed_integer_number_sint~inline(const n : int) : class_fixed_integer_number(sint(n)) := instance_fixed_integer_number_int(n, false);
-implicit fn instance_fixed_integer_number_uint~inline(const n : int) : class_fixed_integer_number(uint(n)) := instance_fixed_integer_number_int(n, true);
+implicit fn instance_fixed_integer_number_sint~inline(const n : int, prereq n >= 0) : class_fixed_integer_number(sint(n)) := instance_fixed_integer_number_int(n, false);
+implicit fn instance_fixed_integer_number_uint~inline(const n : int, prereq n >= 0) : class_fixed_integer_number(uint(n)) := instance_fixed_integer_number_int(n, true);
 
 {-----------------
  - REAL INSTANCE -
