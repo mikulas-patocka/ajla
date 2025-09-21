@@ -2090,6 +2090,12 @@ static bool pcode_array_unicode(struct build_function_context *ctx)
 
 	len = ctx->pcode_instr_end - ctx->pcode;
 
+	if (var_elided(result)) {
+		for (i = 0; i < len; i++)
+			pcode_get();
+		return true;
+	}
+
 	tr = get_var_type(ctx, result);
 	get_arg_mode(am, tr->slot);
 	get_arg_mode(am, len);
