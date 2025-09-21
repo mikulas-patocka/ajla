@@ -618,8 +618,8 @@ fn list_iterator_reverse~inline(t : type, l : list(t)) : class_iterator :=
 	];
 
 private fn list_consumer_non_empty~inline(t : type, l : list(t)) : bool := len_greater_than(l, 0);
-private fn list_consumer_get_head~inline(t : type, l : list(t)) : t := l[0];
-private fn list_consumer_get_tail~inline(t : type, l : list(t)) : list(t) := l[1 .. ];
+private novfy fn list_consumer_get_head~inline(t : type, l : list(t)) : t := l[0];
+private novfy fn list_consumer_get_tail~inline(t : type, l : list(t)) : list(t) := l[1 .. ];
 conversion fn list_consumer~inline(t : type, l : list(t)) : class_iterator :=
 	class_iterator.[
 		state : list(t),

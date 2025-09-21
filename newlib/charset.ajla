@@ -125,7 +125,8 @@ fn char_validate~inline(c : char) : bool
 		return false;
 	if not validate_unicode(c and unicode_mask) then
 		return false;
-	for i := 0 to n_combining_characters(c) do [
+	var nc := n_combining_characters(c);
+	for i := 0 to nc do [
 		var cc := (c shr (i + 1) * combining_shift);
 		if not validate_unicode(cc and unicode_mask) then
 			return false;
@@ -143,6 +144,7 @@ fn uplocase~inline(a : array(char, [#110000]), c : char) : char
 	if not char_validate(c) then
 		return c;
 	var u := c and unicode_mask;
+	assume u >= 0 and u < #110000;
 	var v := a[u];
 	if v = 0 then
 		return c;
@@ -229,7 +231,7 @@ fn string_to_ascii(str : string) : bytes
 
 fn utf8_validate(utf8 : bytes) : bool
 [
-	var i := 0;
+	var i : nat := 0;
 	while len_greater_than(utf8, i) do [
 		var st := i;
 		var code : char;
@@ -382,15 +384,17 @@ fn char_to_utf8~inline(code : char) : bytes
 fn string_to_utf8(s : string) : bytes
 [
 	var result := empty(byte);
-	for i in list_iterator(s) do [
+	var i : nat := 0;
+	while len_greater_than(s, i) do [
 		if i >= lazy_buffer_size then
 			return result + string_to_utf8~lazy(s[i .. ]);
 		var code := s[i];
 again:
 		result += char_to_utf8(code and unicode_mask);
 		code shr= combining_shift;
-		if code <> 0 then
+		if code > 0 then
 			goto again;
+		i += 1;
 	]
 	return result;
 ]
@@ -490,10 +494,10 @@ fn classify_character(code : char) : int
 		return class_one;
 
 	var table := uni_table;
-	var start := 0;
-	var end := len(table) shr 1;
+	var start : nat := 0;
+	var end : nat := len(table) shr 1;
 
-	while start < end - 1 do [
+	while start < end - 1 invariant start < len(table) shr 1 and end <= len(table) shr 1 do [
 		var mid := start + end shr 1;
 		if table[mid shl 1] > code then [
 			end := mid;
@@ -1093,7 +1097,12 @@ fn charset_list~cache : list(charset_desc)
 			continue;
 		var b := read_lazy(ropen_lazy(d, f, 0));
 		var first_null := list_search(b, 0);
-		var second_null := first_null + 1 + list_search(b[first_null + 1 .. ], 0);
+		if first_null < 0 then
+			continue;
+		var sn := list_search(b[first_null + 1 .. ], 0);
+		if sn < 0 then
+			continue;
+		var second_null := first_null + 1 + sn;
 		result +<= charset_desc.[
 			label : utf8_to_string(b[ .. first_null]),
 			mime_name : b[first_null + 1 .. second_null],

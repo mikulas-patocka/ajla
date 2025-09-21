@@ -5,11 +5,11 @@
 
 private unit uni_table;
 
-const uni_table~cache : list(char);
+const uni_table~cache : (r : list(char), contract len(r) >= 2);
 
 implementation
 
-const uni_table~cache : list(char) := list(char).[
+const uni_table~cache : (r : list(char), contract len(r) >= 2) := list(char).[
 	#0, 0,
 	#20, 1,
 	#7f, 0,
