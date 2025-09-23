@@ -3306,14 +3306,14 @@ fn list_filter(t : type, lst : list(t), test~spec : fn(t) : bool) : list(t)
 	var l := len_finite(lst);
 	var c1 c2 : uint32;
 	pcode Read_Clock =c1;
-	for i := 0 to l do [
+	for i : nat := 0 to l do [
 		if test(lst[i]) then
 			result +<= lst[i];
 		pcode Read_Clock =c2;
 		if c2 - c1 >= 2, i >= 1 then [
 			var step := i;
 			var pos := i;
-			while pos + step < l do [
+			while pos + step < l invariant pos < l do [
 				result += list_filter_par~spark(lst[pos .. pos + step], test);
 				pos += step;
 			]
@@ -3386,7 +3386,7 @@ fn list_map_fold_monoid(t~spec u : type, c~spec : class_monoid(u), lst : list(t)
 fn list_reverse(t~spec : type, l : list(t)) : list(t)
 [
 	var ln := len(l);
-	for i := 0 to ln shr 1 do
+	for i : nat := 0 to ln shr 1 invariant ln = len(l) and i <= len(l) shr 1 do
 		l[i], l[ln - 1 - i] := l[ln - 1 - i], l[i];
 	return l;
 ]
