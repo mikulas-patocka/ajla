@@ -3391,18 +3391,21 @@ fn list_reverse(t~spec : type, l : list(t)) : list(t)
 	return l;
 ]
 
-fn heap_left~inline(i : int) : int := i + i + 1;
-fn heap_right~inline(i : int) : int := i + i + 2;
-fn heap_parent~inline(i : int) : int := (i - 1) shr 1;
+fn heap_left~inline(i : nat) : nat := i + i + 1;
+fn heap_right~inline(i : nat) : nat := i + i + 2;
+fn heap_parent~inline(i : nat, prereq i >= 1) : nat := (i - 1) shr 1;
 
 fn list_sort(t : type, implicit c~spec : class_ord(t), l : list(t)) : (r : list(t), contract len(l) = len(r))
 [
 	var n := len(l);
 
-	for i := 1 to n do [
+	if n = 0 then
+		return l;
+
+	for i := 1 to n invariant n = len(l) do [
 		var p := l[i];
 		var j := i;
-		while j > 0, p > l[heap_parent(j)] do [
+		while j > 0, p > l[heap_parent(j)] invariant n = len(l) and j >= 0 and j < n do [
 			l[j] := l[heap_parent(j)];
 			j := heap_parent(j);
 		]
@@ -3410,12 +3413,13 @@ fn list_sort(t : type, implicit c~spec : class_ord(t), l : list(t)) : (r : list(
 	]
 
 	var i := n - 1;
-	while i >= 0 do [
+	while i >= 0 invariant n = len(l) and i >= -1 and i < n do [
 		var p := l[i];
 		l[i] := l[0];
 
-		var j := 0;
+		var j : nat := 0;
 continue_loop:
+		invariant n = len(l) and j <= i;
 		if heap_left(j) < i, l[heap_left(j)] > p then
 			goto do_loop;
 		if heap_right(j) < i, l[heap_right(j)] > p then
