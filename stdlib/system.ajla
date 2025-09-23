@@ -662,7 +662,7 @@ option native~flat [
 	n_uint64;
 ]
 
-fn int_to_native~inline(n : native, i : int) : bytes;
+fn int_to_native~inline(n : native, i : int) : (r : bytes, contract len(r) >= 4);
 fn native_to_int~inline(n : native, b : bytes) : int;
 
 
@@ -3624,10 +3624,11 @@ fn format(t : type, implicit c : class_show(t), b : bytes, a : list(t)) : bytes
  - NATIVE TYPES -
  ----------------}
 
-fn int_to_native~inline(n : native, i : int) : bytes
+fn int_to_native~inline(n : native, i : int) : (r : bytes, contract len(r) >= 4)
 [
 	var r : bytes;
 	pcode IO IO_Int_To_Native 1 2 0 =r n i;
+	assume len(r) >= 4;
 	return r;
 ]
 
