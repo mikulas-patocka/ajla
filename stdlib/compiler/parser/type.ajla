@@ -1865,8 +1865,14 @@ fn array_shape(ctx : function_context, cc : compare_context, a : int, t : tokens
 
 fn list_type(ctx : function_context, cc : compare_context, a : int, err : bool, t : tokens) : (compare_context, int)
 [
+processed_where:
 	var instrm := get_defined_maybe(cc, a);
 	if instrm is j then [
+		if instrm.j.opcode = P_Where then [
+			a := pcode_Where_get_type(instrm.j);
+			cc, a := get_base_definition(ctx, cc, a, true);
+			goto processed_where;
+		]
 		var success, fid, args, ret_idx := decode_call(ctx, cc, a, instrm.j);
 		if success, fid.path_index = 0, fid.unit_string = i_encode("system"), not fid.program, fid.function_index = [ predefined_list ] then [
 			if len(args) <> 1 then
@@ -1878,11 +1884,14 @@ fn list_type(ctx : function_context, cc : compare_context, a : int, err : bool, 
 				abort internal("list_type: array doesn't have two arguments: " + ntos(len(args)));
 			return args[1].cc, args[1].idx;
 		]
+		//if err then eval debug("call: " + i_decode(fid.unit_string) + ", " + ntos(fid.function_index[0]));
 	]
-	if err then
+	if err then [
+		//if instrm is j then eval debug("opcode: " + ntos(instrm.j.opcode));
 		abort compiler_error("List or array type expected", t);
-	else
+	] else [
 		return empty_compare_context, T_InvalidType;
+	]
 ]
 
 fn evaluate_list_type(ctx : function_context, a : int, t : tokens) : (function_context, int)

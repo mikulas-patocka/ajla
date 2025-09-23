@@ -21,7 +21,7 @@ unit socket;
 uses io;
 uses socket_consts;
 
-type address := bytes;
+type address := bytes where len(value) >= 2;
 
 fn address_family(a : address) : int;
 
@@ -130,7 +130,7 @@ fn sendto(w : world, s : handle, data : bytes, flags : int, addr : address) : (w
 	return w2, length;
 ]
 
-type sockopt := bytes;
+type sockopt := bytes where len(value) >= 1;
 
 conversion fn sockopt_int(s : sockopt) : int
 [
