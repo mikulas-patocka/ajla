@@ -1,5 +1,5 @@
 {*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -179,7 +179,7 @@ fn setsockopt(w : world, s : handle, l opt : int, data : sockopt) : world
 	return w2;
 ]
 
-fn getaddrinfo(w : world, name : bytes, port : int) : (world, list(address))
+novfy fn getaddrinfo(w : world, name : bytes, port : int) : (world, list(address))
 [
 	var h : handle;
 	var w2 : world;
@@ -214,7 +214,7 @@ fn getaddrinfo(w : world, name : bytes, port : int) : (world, list(address))
 	return w3, a;
 ]
 
-fn getnameinfo(w : world, addr : address) : (world, bytes)
+novfy fn getnameinfo(w : world, addr : address) : (world, bytes)
 [
 	var h : handle;
 	var w2 : world;
@@ -240,7 +240,7 @@ fn getnameinfo(w : world, addr : address) : (world, bytes)
 	return w3, s[2 .. ];
 ]
 
-fn connect_recursive(w : world, a : list(address)) : (world, handle)
+fn connect_recursive(w : world, a : list(address), prereq len(a) >= 1) : (world, handle)
 [
 	var w1 : world;
 	w, w1 := fork(w);

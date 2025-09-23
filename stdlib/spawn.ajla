@@ -27,7 +27,7 @@ fn spawn_raw(w : world, d : dhandle, lh : list(tuple2(int, handle)), f : bytes, 
 fn spawn(w : world, d : dhandle, h : list(handle), f : bytes, args : list(bytes), env : treemap(bytes, bytes)) : (world, phandle);
 fn spawn_command(cmdline : bytes, env : treemap(bytes, bytes)) : (bytes, list(bytes));
 fn wait(w : world, p : phandle) : (world, int);
-fn get_process_output(w : world, d : dhandle, h : list(handle), f : bytes, args : list(bytes), env : treemap(bytes, bytes)) : bytes;
+fn get_process_output(w : world, d : dhandle, h : list(handle), f : bytes, args : list(bytes), env : treemap(bytes, bytes), prereq len(h) >= 3) : bytes;
 
 type main_function_type := fn(world, dhandle, list(handle), list(bytes), treemap(bytes, bytes)) : world;
 fn load_program(w : world, f : bytes) : (world, main_function_type);
@@ -156,7 +156,7 @@ fn process_read_lazy(w : world, r : handle, ph : phandle) : bytes
 	return b + process_read_lazy~lazy(w, r, ph);
 ]
 
-fn get_process_output(w : world, d : dhandle, h : list(handle), f : bytes, args : list(bytes), env : treemap(bytes, bytes)) : bytes
+fn get_process_output(w : world, d : dhandle, h : list(handle), f : bytes, args : list(bytes), env : treemap(bytes, bytes), prereq len(h) >= 3) : bytes
 [
 	var rh wh : handle;
 	w, rh, wh := pipe(w);

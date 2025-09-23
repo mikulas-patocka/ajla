@@ -500,8 +500,8 @@ fn list_replace_substring(t : type, c~spec : class_eq(t), x v r : list(t)) : lis
 fn list_left_pad(t~spec : type, x : list(t), width : int, padding : t) : list(t);
 fn list_right_pad(t~spec : type, x : list(t), width : int, padding : t) : list(t);
 fn list_repeat(t~spec : type, x : list(t), num : nat) : (r : list(t), contract len(r) = num * len(x));
-fn list_begins_with(t : type, c~spec : class_eq(t), x y : list(t)) : bool;
-fn list_ends_with(t : type, c~spec : class_eq(t), x y : list(t)) : bool;
+fn list_begins_with(t : type, c~spec : class_eq(t), x y : list(t)) : (r : bool, contract r ==> len(x) >= len(y));
+fn list_ends_with(t : type, c~spec : class_eq(t), x y : list(t)) : (r : bool, contract r ==> len(x) >= len(y));
 fn list_break(t : type, implicit c~spec : class_eq(t), lst : list(t), bnd : t) : list(list(t));
 fn list_break_to_lines(lst : bytes) : list(bytes);
 fn list_string_break_to_lines(lst : string) : list(string);
@@ -3174,7 +3174,7 @@ fn list_repeat(t~spec : type, x : list(t), num : nat) : (r : list(t), contract l
 	return r + list_repeat~lazy(x, num - l);
 ]
 
-fn list_begins_with(t : type, implicit c~spec : class_eq(t), x y : list(t)) : bool
+fn list_begins_with(t : type, implicit c~spec : class_eq(t), x y : list(t)) : (r : bool, contract r ==> len(x) >= len(y))
 [
 	var ly := len(y);
 	if not len_at_least(x, ly) then
@@ -3182,7 +3182,7 @@ fn list_begins_with(t : type, implicit c~spec : class_eq(t), x y : list(t)) : bo
 	return x[ .. ly] = y;
 ]
 
-fn list_ends_with(t : type, implicit c~spec : class_eq(t), x y : list(t)) : bool
+fn list_ends_with(t : type, implicit c~spec : class_eq(t), x y : list(t)) : (r : bool, contract r ==> len(x) >= len(y))
 [
 	var lx := len(x);
 	var ly := len(y);
