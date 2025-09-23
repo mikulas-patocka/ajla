@@ -3107,10 +3107,13 @@ fn list_search_backwards_fn(t : type, x : list(t), f~spec : fn(t) : bool) : (r :
 
 fn list_search_substring(t : type, implicit c~spec : class_eq(t), x v : list(t)) : (r : int, contract r = -1 or r >= 0 and r <= len(x) - len(v))
 [
+	var orig_x := x;
 	var lv := len(v);
-	var i := 0;
-	var offset := 0;
-	while len_at_least(x, i + lv) do [
+	var i : nat := 0;
+	var offset : nat := 0;
+	if len(x) < lv then
+		return -1;
+	while len_at_least(x, i + lv) invariant offset = len(orig_x) - len(x) and offset + i <= len(orig_x) - lv + 1 do [
 		for j := 0 to lv do [
 			if x[i + j] <> v[j] then
 				goto mismatch;
