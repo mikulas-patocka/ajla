@@ -2950,7 +2950,7 @@ fn len_finite~inline(t : type, a : list(t)) : nat
 [
 	var l : int;
 	pcode Array_Len_Finite =l a 0;
-	assume l >= 0 and l < len(a);
+	assume l >= 0 and l <= len(a);
 	return l;
 ]
 
@@ -3033,7 +3033,7 @@ fn is_uninitialized_record(t : type, v : t) : bool
 	return false;
 ]
 
-fn list_search_infinite~lazy(t : type, implicit c~spec : class_eq(t), x : list(t), v : t, offset : int) : int
+fn list_search_infinite~lazy(t : type, implicit c~spec : class_eq(t), x : list(t), v : t, offset : int) : (r : int, contract r = -1 or r - offset >= 0 and r - offset < len(x))
 [
 	var l := len_finite(x);
 	if l = 0 then
@@ -3049,7 +3049,7 @@ fn list_search(t : type, implicit c~spec : class_eq(t), x : list(t), v : t) : (r
 [
 	if not list_is_finite(x) then
 		return list_search_infinite(t, c, x, v, 0);
-	var i := 0;
+	var i : nat := 0;
 	while len_greater_than(x, i) do [
 		if x[i] = v then
 			return i;
@@ -3058,7 +3058,7 @@ fn list_search(t : type, implicit c~spec : class_eq(t), x : list(t), v : t) : (r
 	return -1;
 ]
 
-fn list_search_fn_infinite~lazy(t : type, x : list(t), f~spec : fn(t) : bool, offset : int) : int
+fn list_search_fn_infinite~lazy(t : type, x : list(t), f~spec : fn(t) : bool, offset : int) : (r : int, contract r = -1 or r - offset >= 0 and r - offset < len(x))
 [
 	var l := len_finite(x);
 	if l = 0 then
@@ -3074,7 +3074,7 @@ fn list_search_fn(t : type, x : list(t), f~spec : fn(t) : bool) : (r : int, cont
 [
 	if not list_is_finite(x) then
 		return list_search_fn_infinite(t, x, f, 0);
-	var i := 0;
+	var i : nat := 0;
 	while len_greater_than(x, i) do [
 		if f(x[i]) then
 			return i;
