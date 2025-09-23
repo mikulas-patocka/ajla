@@ -30,14 +30,15 @@ uses pcode;
 uses charset;
 uses compiler.compiler;
 
-fn std_handles(w : world) : (world, list(handle))
+fn std_handles(w : world) : (world, h : list(handle), contract len(h) >= 3)
 [
 	var w2 : world;
 	var n : int;
 	pcode IO IO_N_Std_Handles 2 1 0 =w2 =n w;
+	assume n >= 3;
 	w := w2;
 	var h := empty(handle);
-	for i := 0 to n do [
+	for i := 0 to n invariant i = len(h) do [
 		var w3 : world;
 		var hndl : handle;
 		pcode IO IO_Get_Std_Handle 2 2 0 =w3 =hndl w i;
