@@ -822,7 +822,7 @@ fn event_get_mouse~normal(implicit w : world, h : handle, q : msgqueue(event)) :
 
 	var button_state := 0;
 
-	while true do [
+	while len_at_least(b, 28) do [
 		xeval b[ .. 28];
 		var x := native_to_int(native.short, b[8 .. 10]) - 1;
 		var y := native_to_int(native.short, b[10 .. 12]) - 1;
