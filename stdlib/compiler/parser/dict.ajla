@@ -614,10 +614,14 @@ fn search_function_from_id(ctx : function_context, id : function_unique_id) : fu
 	]
 	var nested_path := id.function_index[1 .. ];
 	for p in list_consumer(nested_path) do [
-		if fd.body is j then
+		//eval debug("making " + i_decode(ctx.name) + ", function " + i_decode(fd.signature.name) + ", index " + ntos(p) + ", " + select(fd.body is j, "head", "body"));
+		if fd.body is j then [
 			fd := fd.body.j.lambdas[p];
-		else
+		] else if fd.signature.id = ctx.id then [
+			fd := ctx.lambdas[p];
+		] else [
 			fd := fd.signature.lambdas[p];
+		]
 	]
 
 	return fd;
