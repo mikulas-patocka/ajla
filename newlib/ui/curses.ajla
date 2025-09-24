@@ -178,7 +178,7 @@ record curses [
 	underline_supported : bool;
 	blink_supported : bool;
 	bold_supported : bool;
-	altcharset_map : array(byte, [#80]);
+	altcharset_map : array(byte, [#100]);
 	have_set_attributes : bool;
 	have_right_bottom : bool;
 	tilde_glitch : bool;
@@ -281,7 +281,7 @@ fn curses_string_sgr(implicit curs : curses) : (curses, bytes)
 	return str;
 ]
 
-fn curses_string_color(implicit curs : curses, fg bg : ccolor, attributes : int) : (curses, bytes)
+fn curses_string_color(implicit curs : curses, fg bg : ccolor, attributes : int) : (c2 : curses, bytes, contract curs.x = c2.x and curs.y = c2.y)
 [
 	var str := "";
 	var s : bytes;
@@ -382,7 +382,7 @@ fn rgb_to_color(cm : color_mode, r g b : uint16) : ccolor
 fn default_fg_color(cm : color_mode) : ccolor := rgb_to_color(cm, #aaaa, #aaaa, #aaaa);
 fn default_bg_color(cm : color_mode) : ccolor := rgb_to_color(cm, 0, 0, 0);
 
-fn curses_string_setpos(implicit curs : curses, x y : int) : (curses, bytes, packets)
+fn curses_string_setpos(implicit curs : curses, x y : int) : (c2 : curses, bytes, packets, contract curs.x = c2.x and curs.y = c2.y)
 [
 	var s := "";
 	var pkt := packets.[];
@@ -401,9 +401,13 @@ ret:
 
 fn curses_prepare_for_redraw(implicit curs : curses) : curses
 [
-	for j := 0 to curs.y do
-		for i := 0 to curs.x do
-			curs.back_buffer[j, i].ch := -2;
+	for y := 0 to curs.y do [
+		const curs_x := curs.x;
+		const curs_y := curs.y;
+		for x := 0 to curs.x invariant curs_y = curs.y and curs_x = curs.x do [
+			curs.back_buffer[y, x].ch := -2;
+		]
+	]
 	curs.lines_redraw := -1;
 ]
 
@@ -451,7 +455,7 @@ fn curses_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(
 	var bold_supported := false;
 
 	var altcharset_supported := false;
-	var altcharset_map := array_fill(byte, 0, [#80]);
+	var altcharset_map := array_fill(byte, 0, [#100]);
 
 	var have_set_attributes := false;
 	var have_right_bottom := true;
@@ -504,8 +508,7 @@ fn curses_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(
 				var key := str[i];
 				var val := str[i + 1];
 				//eval debug("acs map: " + ntos(key) + ", " + ntos(val));
-				if key < #80 then
-					altcharset_map[key] := val;
+				altcharset_map[key] := val;
 				i += 2;
 			]
 		]
@@ -1115,7 +1118,7 @@ fn flip_color(c : ccolor) : ccolor
 	return color_216_offset + r * 36 + g * 6 + b;
 ]
 
-fn is_valid_pair(const curs : curses, x y : int) : bool
+fn is_valid_pair(const curs : curses, x : int, y : nat, prereq y < curs.y) : (r : bool, contract x < 0 or x + 1 >= curs.x ==> r = false)
 [
 	if x < 0 then
 		return false;
@@ -1130,7 +1133,7 @@ fn is_valid_pair(const curs : curses, x y : int) : bool
 	return false;
 ]
 
-fn curses_load_buffer~inline(implicit curs : curses, x y : int) : cchar
+fn curses_load_buffer~inline(implicit curs : curses, x y : nat, prereq x < curs.x and y < curs.y) : cchar
 [
 	var n := curs.buffer[y, x];
 	if curs.mouse_visible, y = curs.mouse_y then
@@ -1168,7 +1171,7 @@ fn curses_char_to_packet~inline(implicit curs : curses, n : cchar) : packets
 	return packets.[ n_ch, curses_packet_attribute(n) ];
 ]
 
-fn curses_update_char(implicit curs : curses, x y : int) : (curses, bytes, packets, int)
+fn curses_update_char(implicit curs : curses, x y : nat, prereq x < curs.x and y < curs.y) : (curses, bytes, packets, int)
 [
 	var str := "";
 	var s : bytes;
@@ -1192,7 +1195,7 @@ fn curses_update_char(implicit curs : curses, x y : int) : (curses, bytes, packe
 		return "", pstr, 1;
 	]
 
-	if not locale_validate_character(curs.loc, n.ch) or curs.prefer_acs_map, n.ch < #110000 then [
+	if not locale_validate_character(curs.loc, n.ch) or curs.prefer_acs_map, n.ch >= 0, n.ch < #110000 then [
 		var a := curs.acs_map[n.ch];
 		if a > 0 then [
 			var b := curs.altcharset_map[a];
