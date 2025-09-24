@@ -30,8 +30,8 @@ fn curses_done(implicit w : world, curs : curses) : world;
 
 fn curses_set_pos~inline(curs : curses, x y : int) : curses;
 fn curses_get_pos~inline(curs : curses) : (int, int);
-fn curses_restrict_viewport(curs : curses, x1 x2 y1 y2 : int, xo yo : int) : curses;
-fn curses_revert_viewport(curs : curses) : curses;
+fn curses_restrict_viewport(mutable curs : curses, x1 x2 y1 y2 : int, xo yo : int) : curses;
+fn curses_revert_viewport(mutable curs : curses) : curses;
 fn curses_get_scissors(curs : curses) : rect;
 fn curses_valid_viewport(curs : curses) : bool;
 fn curses_test_viewport(curs : curses, x1 x2 y1 y2 : int) : bool;
@@ -160,10 +160,10 @@ const acs_map~lazy : array(byte, [#110000])
 	return am;
 ]
 
-record viewport [
+record viewport(x y : nat) [
 	x1 x2 y1 y2 : int;
 	xo yo : int;
-]
+] where x1 >= 0 and x2 <= x and y1 >= 0 and y2 <= y;
 
 record curses [
 	packet_mode : bool;
@@ -173,7 +173,7 @@ record curses [
 	prefer_acs_map : bool;
 	frame_fallback : bool;
 
-	const x y : int;
+	const x y : nat;
 	cm : color_mode;
 	underline_supported : bool;
 	blink_supported : bool;
@@ -195,7 +195,7 @@ record curses [
 	scissors : rect;
 	xo : int;
 	yo : int;
-	old_viewport : list(viewport);
+	old_viewport : list(viewport(x, y));
 
 	cx : int;
 	cy : int;
@@ -225,7 +225,10 @@ record curses [
 	mouse_thread : bottom_type;
 
 	event_buffer : list(event);
-]
+] where
+	len(h) >= 2 and
+	scissors.x1 >= 0 and scissors.x2 <= x and scissors.y1 >= 0 and scissors.y2 <= y and
+	true;
 
 fn curses_hide_mouse(implicit curs : curses) : (curses, bytes, packets);
 
@@ -564,7 +567,7 @@ fn curses_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(
 		xo : 0,
 		yo : 0,
 		scissors : rect.[ x1 : 0, y1 : 0, x2 : x, y2 : y ],
-		old_viewport : empty(viewport),
+		old_viewport : empty(viewport(x, y)),
 		cx : 0,
 		cy : 0,
 		current_cx : -1,
@@ -732,7 +735,7 @@ fn curses_resize(implicit w : world, curs : curses, const x y : nat, prereq x > 
 		scissors : rect.[ x1 : 0, y1 : 0, x2 : x, y2 : y ],
 		xo : 0,
 		yo : 0,
-		old_viewport : curs.old_viewport,
+		old_viewport : empty(viewport(x, y)),
 		cx : curs.cx,
 		cy : curs.cy,
 		current_cx : -1,
@@ -781,9 +784,9 @@ fn curses_get_pos~inline(curs : curses) : (int, int)
 	return curs.px - curs.xo, curs.py - curs.yo;
 ]
 
-fn curses_restrict_viewport(curs : curses, x1 x2 y1 y2 : int, xo yo : int) : curses
+fn curses_restrict_viewport(mutable curs : curses, x1 x2 y1 y2 : int, xo yo : int) : curses
 [
-	var old := viewport.[
+	var old := viewport(curs.x, curs.y).[
 		x1 : curs.scissors.x1,
 		x2 : curs.scissors.x2,
 		y1 : curs.scissors.y1,
@@ -802,8 +805,10 @@ fn curses_restrict_viewport(curs : curses, x1 x2 y1 y2 : int, xo yo : int) : cur
 	return curs;
 ]
 
-fn curses_revert_viewport(curs : curses) : curses
+fn curses_revert_viewport(mutable curs : curses) : curses
 [
+	if len(curs.old_viewport) = 0 then
+		abort;
 	var old := curs.old_viewport[len(curs.old_viewport) - 1];
 	curs.old_viewport := curs.old_viewport[ .. len(curs.old_viewport) - 1];
 	curs.scissors.x1 := old.x1;
@@ -876,14 +881,19 @@ fn curses_print(curs : curses, str : string) : curses
 [
 	if curs.py >= curs.scissors.y1, curs.py < curs.scissors.y2 then [
 		var scx1, scx2 := curs.scissors.x1, curs.scissors.x2;
-		for i := 0 to len(str) do [
+		for i := 0 to len(str) invariant scx2 <= curs.x and curs.py >= curs.scissors.y1 and curs.py < curs.scissors.y2 do [
 			if curs.px >= scx2 then
 				break;
+			claim curs.px < scx2;
+			claim scx2 <= curs.x;
 			var ch := str[i];
 			var cls := classify_character(ch);
 			if cls <= 0 then
 				continue;
 			if curs.px >= scx1 then [
+				claim curs.px >= 0;
+				claim curs.px < curs.x;
+				claim curs.py >= 0;
 				if cls = 1 then [
 					curs.buffer[curs.py, curs.px] := cchar.[ ch : ch, fgcolor : curs.fgcolor, bgcolor : curs.bgcolor, attrib : curs.attributes ];
 				] else if curs.packet_mode then [
