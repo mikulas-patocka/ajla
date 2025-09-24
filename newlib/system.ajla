@@ -860,13 +860,13 @@ fn list_map(t u : type, lst : list(t), m~spec : fn(t) : u) : list(u)
 	var l := len_finite(lst);
 	var c1 c2 : uint32;
 	pcode Read_Clock =c1;
-	for i := 0 to l do [
+	for i : nat := 0 to l do [
 		result +<= m(lst[i]);
 		pcode Read_Clock =c2;
 		if c2 - c1 >= 2, i >= 1 then [
 			var step := i;
 			var pos := i;
-			while pos + step < l do [
+			while pos + step < l invariant pos <= l do [
 				result += list_map_par~spark(lst[pos .. pos + step], m);
 				pos += step;
 			]
@@ -888,6 +888,7 @@ fn array_equal(t : type, implicit c : class_eq(t), const dim : list(nat), a1 a2 
 [
 	var l1 := array_to_list(a1);
 	var l2 := array_to_list(a2);
+	assume len(l1) = len(l2);
 	for i := 0 to len(l1) do
 		if l1[i] <> l2[i] then
 			return false;
@@ -897,6 +898,7 @@ fn array_less(t : type, implicit c : class_ord(t), const dim : list(nat), a1 a2 
 [
 	var l1 := array_to_list(a1);
 	var l2 := array_to_list(a2);
+	assume len(l1) = len(l2);
 	for i := 0 to len(l1) do
 		if l1[i] <> l2[i] then
 			return l1[i] < l2[i];
@@ -3207,6 +3209,7 @@ again:
 	var fl : nat;
 	while len_greater_than(lst, idx) do [
 		fl := bnd(lst[idx .. ]);
+		assume fl <= len(lst[idx .. ]);
 		if fl > 0 then
 			goto found_it;
 		idx += 1;
@@ -3617,17 +3620,21 @@ fn ston~inline(b : bytes) : int
 fn format(t : type, implicit c : class_show(t), b : bytes, a : list(t)) : bytes
 [
 	var r := empty(byte);
-	var idx := 0;
+	var idx : nat := 0;
 	for i := 0 to len(b) do [
 		if b[i] = '%' then [
+			if idx >= len(a) then
+				goto ret_ex;
 			r += ntos(a[idx]);
 			idx += 1;
 		] else [
 			r +<= b[i];
 		]
 	]
-	if idx <> len(a) then
+	if idx <> len(a) then [
+ret_ex:
 		return exception_make(bytes, ec_sync, error_invalid_operation, 0, true);
+	]
 	return r;
 ]
 
@@ -3656,7 +3663,7 @@ fn native_to_int~inline(n : native, b : bytes) : int
 
 fn array_size(dim : list(nat)) : nat
 [
-	var prod := 1;
+	var prod : nat := 1;
 	for i := 0 to len(dim) do [
 		if dim[i] < 0 then
 			return exception_make(int, ec_sync, error_negative_index, 0, true);
@@ -3725,13 +3732,13 @@ fn array_index(dim : list(nat), idx : list(nat), prereq len(dim) = len(idx)) : n
 	return off;
 ]
 
-fn array_read(t : type, const dim : list(nat), v : array(t, dim), idx : list(nat), prereq len(dim) = len(idx)) : t
+novfy fn array_read(t : type, const dim : list(nat), v : array(t, dim), idx : list(nat), prereq len(dim) = len(idx)) : t
 [
 	var off := array_index(dim, idx);
 	return array_to_list(v)[off];
 ]
 
-fn array_write(t : type, const dim : list(nat), v : array(t, dim), idx : list(nat), val : t, prereq len(dim) = len(idx)) : array(t, dim)
+novfy fn array_write(t : type, const dim : list(nat), v : array(t, dim), idx : list(nat), val : t, prereq len(dim) = len(idx)) : array(t, dim)
 [
 	var off := array_index(dim, idx);
 	var l := array_to_list(v);

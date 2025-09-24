@@ -734,7 +734,12 @@ next_entry:
 	return tce;
 ]
 
-fn termcap_valid_line(b : bytes) : bool := len_greater_than(b, 0) and b[0] <> '#';
+fn termcap_valid_line(b : bytes) : bool
+[
+	if len_greater_than(b, 0) then
+		return b[0] <> '#';
+	return false;
+]
 
 fn termcap_2_terminfo~save(t : bytes, term : bytes) : (bytes, bool)
 [
