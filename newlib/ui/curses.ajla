@@ -942,11 +942,15 @@ fn curses_fill_rect(curs : curses, x1 x2 y1 y2 : int, ch : char) : curses
 	x2 := min(x2, curs.scissors.x2);
 	y1 := max(y1, curs.scissors.y1);
 	y2 := min(y2, curs.scissors.y2);
-	for y := y1 to y2 do [
-		for x := x1 to x2 do [
+	if x1 >= x2 or y1 >= y2 then
+		return curs;
+	const curs_y := curs.y;
+	for y := y1 to y2 invariant curs_y = curs.y and x2 <= curs.x do [
+		const curs_x := curs.x;
+		for x := x1 to x2 invariant curs_y = curs.y and curs_x = curs.x do [
 			curs.buffer[y, x] := cchar.[ ch : ch, fgcolor : curs.fgcolor, bgcolor : curs.bgcolor, attrib : curs.attributes ];
-			curs.lines_redraw bts= y;
 		]
+		curs.lines_redraw bts= y;
 	]
 	return curs;
 ]
@@ -961,13 +965,17 @@ fn curses_recolor_rect(curs : curses, x1 x2 y1 y2 : int) : curses
 	x2 := min(x2, curs.scissors.x2);
 	y1 := max(y1, curs.scissors.y1);
 	y2 := min(y2, curs.scissors.y2);
-	for y := y1 to y2 do [
-		for x := x1 to x2 do [
+	if x1 >= x2 or y1 >= y2 then
+		return curs;
+	const curs_y := curs.y;
+	for y := y1 to y2 invariant curs_y = curs.y and x2 <= curs.x do [
+		const curs_x := curs.x;
+		for x := x1 to x2 invariant curs_y = curs.y and curs_x = curs.x do [
 			curs.buffer[y, x].fgcolor := curs.fgcolor;
 			curs.buffer[y, x].bgcolor := curs.bgcolor;
 			curs.buffer[y, x].attrib := curs.attributes or curs.buffer[y, x].attrib and (curses_acs or curses_left_wide or curses_right_wide);
-			curs.lines_redraw bts= y;
 		]
+		curs.lines_redraw bts= y;
 	]
 	return curs;
 ]
