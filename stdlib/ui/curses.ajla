@@ -1179,7 +1179,7 @@ fn curses_char_to_packet~inline(implicit curs : curses, n : cchar) : packets
 	return packets.[ n_ch, curses_packet_attribute(n) ];
 ]
 
-fn curses_update_char(implicit curs : curses, x y : nat, prereq x < curs.x and y < curs.y) : (curses, bytes, packets, int)
+fn curses_update_char(implicit curs : curses, x y : nat, prereq x < curs.x and y < curs.y) : (c2 : curses, bytes, packets, nat, contract curs.x = c2.x and curs.y = c2.y)
 [
 	var str := "";
 	var s : bytes;
@@ -1291,13 +1291,14 @@ fn curses_update_string(implicit curs : curses) : (curses, bytes, packets)
 	var pstr := packets.[];
 	var s : bytes;
 	var pkt : packets;
-	for j := 0 to curs.y do [
+	var curs_y := curs.y;
+	for j : nat := 0 to curs.y invariant curs_y = curs.y do [
 		if not curs.lines_redraw bt j then
 			continue;
 		if curs.packet_mode then [
 			var first := -1;
 			var last := -1;
-			for i := 0 to curs.x do [
+			for i := 0 to curs.x invariant first < curs.x and last <= curs.x do [
 				var ch := curses_load_buffer(i, j);
 				var cb := curs.back_buffer[j, i];
 				if ch <> cb then [
@@ -1306,16 +1307,17 @@ fn curses_update_string(implicit curs : curses) : (curses, bytes, packets)
 					last := i + 1;
 				]
 			]
-			if first >= 0 then [
+			if first >= 0, first < last then [
 				pstr += packets.[ 2, first, j, last - first ];
-				for i := first to last do [
+				for i := first to last invariant curs_y = curs.y and last <= curs.x do [
 					var ch := curses_load_buffer(i, j);
 					curs.back_buffer[j, i] := ch;
 					pstr += curses_char_to_packet(ch);
 				]
 			]
 		] else [
-			for i := 0 to curs.x do [
+			var i : nat := 0;
+			while i < curs.x invariant curs_y = curs.y do [
 				var ch := curses_load_buffer(i, j);
 				var cb := curs.back_buffer[j, i];
 				if ch <> cb then [
@@ -1325,8 +1327,10 @@ fn curses_update_string(implicit curs : curses) : (curses, bytes, packets)
 					s, pkt, width := curses_update_char~inline(i, j);
 					str += s;
 					pstr += pkt;
-					i += width - 1;
+					i += width;
+					continue;
 				]
+				i += 1;
 			]
 		]
 	]
