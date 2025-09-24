@@ -121,10 +121,10 @@ exc:
 		abort exception_make(bytes, ec_sync, error_invalid_operation, 0, true);
 	]
 	var sign := 1;
-	if len_greater_than(a, 0) and a[0] = '-' then [
+	if len_greater_than(a, 0), a[0] = '-' then [
 		sign := -1;
 		a := a[1 .. ];
-	] else if len_greater_than(a, 0) and a[0] = '+' then [
+	] else if len_greater_than(a, 0), a[0] = '+' then [
 		a := a[1 .. ];
 	]
 	if not len_greater_than(a, 0) then

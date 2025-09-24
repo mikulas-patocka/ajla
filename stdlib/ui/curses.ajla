@@ -25,7 +25,7 @@ uses ui.rect;
 
 type curses;
 
-fn curses_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(bytes, bytes)) : (world, curses);
+fn curses_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(bytes, bytes), prereq len(h) >= 2) : (world, curses);
 fn curses_done(implicit w : world, curs : curses) : world;
 
 fn curses_set_pos~inline(curs : curses, x y : int) : curses;
@@ -432,7 +432,7 @@ fn curses_string_cls(implicit curs : curses) : (curses, bytes, packets)
 	return str, packets.[];
 ]
 
-fn curses_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(bytes, bytes)) : (world, curses)
+fn curses_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(bytes, bytes), prereq len(h) >= 2) : (world, curses)
 [
 	var sigtstp, stk := signal_handle("SIGTSTP");
 
@@ -496,7 +496,7 @@ fn curses_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(
 		]
 		if altcharset_supported then [
 			var str := termcap_query_string(tc, tc_s_acs_chars);
-			var i := 0;
+			var i : nat := 0;
 			while len_greater_than(str, i + 1) do [
 				var key := str[i];
 				var val := str[i + 1];
