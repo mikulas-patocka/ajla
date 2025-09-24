@@ -1179,7 +1179,7 @@ fn curses_char_to_packet~inline(implicit curs : curses, n : cchar) : packets
 	return packets.[ n_ch, curses_packet_attribute(n) ];
 ]
 
-fn curses_update_char(implicit curs : curses, x y : nat, prereq x < curs.x and y < curs.y) : (c2 : curses, bytes, packets, nat, contract curs.x = c2.x and curs.y = c2.y)
+novfy fn curses_update_char(implicit curs : curses, x y : nat, prereq x < curs.x and y < curs.y) : (c2 : curses, bytes, packets, nat, contract curs.x = c2.x and curs.y = c2.y)
 [
 	var str := "";
 	var s : bytes;
