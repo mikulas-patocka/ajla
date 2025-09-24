@@ -1179,17 +1179,19 @@ fn curses_char_to_packet~inline(implicit curs : curses, n : cchar) : packets
 	return packets.[ n_ch, curses_packet_attribute(n) ];
 ]
 
-novfy fn curses_update_char(implicit curs : curses, x y : nat, prereq x < curs.x and y < curs.y) : (c2 : curses, bytes, packets, nat, contract curs.x = c2.x and curs.y = c2.y)
+fn curses_update_char(implicit curs : curses, x y : nat, prereq x < curs.x and y < curs.y) : (c2 : curses, bytes, packets, nat, contract curs.x = c2.x and curs.y = c2.y)
 [
+	const c1 := curs;
 	var str := "";
 	var s : bytes;
-	var pkt : packets;
+	var pkt := packets.[];
+	var width : nat := 1;
 
 	if not curs.have_right_bottom, y = curs.y - 1 then
 		if x = curs.x - 1 then
-			return "", packets.[], 1;
+			goto ret;
 		else if x = curs.x - 2, is_valid_pair(x, y) then
-			return "", packets.[], 1;
+			goto ret;
 
 	var n := curses_load_buffer(curs, x, y);
 	if (n.attrib and curses_right_wide) <> 0, is_valid_pair(x - 1, y) then [
@@ -1199,8 +1201,8 @@ novfy fn curses_update_char(implicit curs : curses, x y : nat, prereq x < curs.x
 	curs.back_buffer[y, x] := n;
 
 	if curs.packet_mode then [
-		var pstr := packets.[ 2, x, y, 1, ] + curses_char_to_packet(n);
-		return "", pstr, 1;
+		pkt := packets.[ 2, x, y, 1, ] + curses_char_to_packet(n);
+		goto ret;
 	]
 
 	if not locale_validate_character(curs.loc, n.ch) or curs.prefer_acs_map, n.ch >= 0, n.ch < #110000 then [
@@ -1220,7 +1222,6 @@ novfy fn curses_update_char(implicit curs : curses, x y : nat, prereq x < curs.x
 	s := curses_string_color(n.fgcolor, n.bgcolor, n.attrib);
 	str += s;
 
-	var width := 1;
 	if (n.attrib and (curses_left_wide or curses_right_wide)) <> 0 then [
 		if is_valid_pair(x, y) then [
 			width := 2;
@@ -1244,7 +1245,10 @@ ok_wide:
 		str += string_to_locale(curs.loc, [ n.ch ]);
 	]
 	curs.current_cx += width;
-	return str, packets.[], width;
+ret:
+	assume c1.x = curs.x;
+	assume c1.y = curs.y;
+	return str, pkt, width;
 ]
 
 fn curses_finish_update(implicit curs : curses) : (curses, bytes, packets)
