@@ -1025,14 +1025,18 @@ fn curses_hline(curs : curses, x1 : int, x2 : int, y : int, width : int) : curse
 	var left_line := width shl 4;
 	var right_line := width shl 12;
 	var full_line := left_line or right_line;
+	x1 := max(x1, curs.scissors.x1);
+	x2 := min(x2, curs.scissors.x2);
+	if x1 >= x2 then
+		return curs;
 	if y >= curs.scissors.y1, y < curs.scissors.y2 then [
-		x1 := max(x1, curs.scissors.x1);
-		x2 := min(x2, curs.scissors.x2);
 		var new_ch := frame_to_uni(full_line, curs.frame_fallback);
-		for i := x1 to x2 do [
-			curs.buffer[y, i] := cchar.[ ch : new_ch, fgcolor : curs.fgcolor, bgcolor : curs.bgcolor, attrib : curs.attributes ];
-			curs.lines_redraw bts= y;
+		const curs_x := curs.x;
+		const curs_y := curs.y;
+		for x := x1 to x2 invariant curs_y = curs.y and curs_x = curs.x do [
+			curs.buffer[y, x] := cchar.[ ch : new_ch, fgcolor : curs.fgcolor, bgcolor : curs.bgcolor, attrib : curs.attributes ];
 		]
+		curs.lines_redraw bts= y;
 	]
 	return curs;
 ]
@@ -1047,13 +1051,17 @@ fn curses_vline(curs : curses, x : int, y1 : int, y2 : int, width : int) : curse
 	var up_line := width shl 8;
 	var down_line := width;
 	var full_line := up_line or down_line;
+	y1 := max(y1, curs.scissors.y1);
+	y2 := min(y2, curs.scissors.y2);
+	if y1 >= y2 then
+		return curs;
 	if x >= curs.scissors.x1, x < curs.scissors.x2 then [
-		y1 := max(y1, curs.scissors.y1);
-		y2 := min(y2, curs.scissors.y2);
 		var new_ch := frame_to_uni(full_line, curs.frame_fallback);
-		for j := y1 to y2 do [
-			curs.buffer[j, x] := cchar.[ ch : new_ch, fgcolor : curs.fgcolor, bgcolor : curs.bgcolor, attrib : curs.attributes ];
-			curs.lines_redraw bts= j;
+		const curs_x := curs.x;
+		const curs_y := curs.y;
+		for y := y1 to y2 invariant curs_y = curs.y and curs_x = curs.x do [
+			curs.buffer[y, x] := cchar.[ ch : new_ch, fgcolor : curs.fgcolor, bgcolor : curs.bgcolor, attrib : curs.attributes ];
+			curs.lines_redraw bts= y;
 		]
 	]
 	return curs;
