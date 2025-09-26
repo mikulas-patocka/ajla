@@ -444,11 +444,9 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 	]
 	if ins.opcode = P_Load_Local_Type then [
 		for i := 0 to len(fa) do [
-			for i := 0 to len(fa) do [
-				if fa[i] = ins.params[1] then [
-					gen_assert(ctx, v, var_name, get_z3_fa_name(fa[i]), fa);
-					return ctx;
-				]
+			if fa[i] = ins.params[1] then [
+				gen_assert(ctx, v, var_name, get_z3_fa_name(fa[i]), fa);
+				return ctx;
 			]
 		]
 		var new_name := "llt_"+num2str(ins.params[1])+"_"+ntos(ins.params[2]);
