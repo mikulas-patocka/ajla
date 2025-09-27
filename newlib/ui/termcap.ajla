@@ -25,10 +25,10 @@ type termcap;
 
 fn termcap_init(d : dhandle, env : treemap(bytes, bytes)) : termcap;
 
-fn termcap_query_bool(tc : termcap, entry : int) : bool;
-fn termcap_query_number(tc : termcap, entry : int) : int;
-fn termcap_query_string(tc : termcap, entry : int) : bytes;
-fn termcap_has_string(tc : termcap, entry : int) : bool;
+fn termcap_query_bool(tc : termcap, entry : nat) : bool;
+fn termcap_query_number(tc : termcap, entry : nat) : int;
+fn termcap_query_string(tc : termcap, entry : nat) : bytes;
+fn termcap_has_string(tc : termcap, entry : nat) : bool;
 fn termcap_get_term(tc : termcap) : bytes;
 fn termcap_has_mouse(tc : termcap) : bool;
 
@@ -37,7 +37,7 @@ option tc_param [
 	str : bytes;
 ]
 
-fn termcap_substitute_string(tc : termcap, entry : int, args : list(tc_param)) : (termcap, bytes);
+fn termcap_substitute_string(tc : termcap, entry : nat, args : list(tc_param)) : (termcap, bytes);
 
 const tc_b_auto_left_margin : int := 0;
 const tc_b_auto_right_margin : int := 1;
@@ -522,17 +522,19 @@ fn term_caps_map~cache : array(sint16, [16384])
 	var caps_string := "bwamxbxsxneognhckmhsindadbmimsosesxthzulxonx5iHCNRNPNDccuthlYAYBYCYDYEYFYGcoitlilmsgpbvtwsNllhlwmaMWCopaNCYaYbYcYdYeYfYgYhYiYjYkYlYmYnBTYoYpbtblcrcsctclcecdchCCcmdohovileCMvendllupvsdcdldshdasmbmdtidmmhimmkmpmrsousecaemeteedeiseuevbfffsi1isi3ificalipkbkakCktkDkLkdkMkEkSk0k1k;k2k3k4k5k6k7k8k9khkIkAklkHkNkPkrkFkRkTkukeksl0l1lal2l3l4l5l6l7l8l9mommnwpcDCDLDOICSFALLERISRUPpkplpxpspfporpr1r2r3rfrccvscsfsrsastwitatsuchuiPK1K3K2K4K5pOrPacpnkBSXRXSARAXNXFeALOLF@1@2@3@4@5@6@7@8@9@0%1%2%3%4%5%6%7%8%9%0&1&2&3&4&5&6&7&8&9&0*1*2*3*4*5*6*7*8*9*0#1#2#3#4%a%b%c%d%e%f%g%h%i%j!1!2!3RFF1F2F3F4F5F6F7F8F9FAFBFCFDFEFFFGFHFIFJFKFLFMFNFOFPFQFRFSFTFUFVFWFXFYFZFaFbFcFdFeFfFgFhFiFjFkFlFmFnFoFpFqFrcbMCMLMRLfSCDKRCCWWGHUDIQDTOPUfhPAWAu0u1u2u3u4u5u6u7u8u9opocIcIpspSfSbZAZBZCZDZEZFZGZHZIZJZKZLZMZNZOZPZQZRZSZTZUZVZWZXZYZZZaZbZcZdZeZfZgZhZiZjZkZlZmZnZoZpZqZrZsZtZuZvZwZxZyKmMiRQGmAFABxldvcis0s1s2s3MLMTXyZzYvYwYxYyYzYZS1S2S3S4S5S6S7S8XhXlXoXrXtXvsAYI";
 	var a := array_sparse(sint16, -1, [16384]);
 	for i := 0 to len(caps_string) shr 1 do [
-		var chr1 : int := caps_string[i shl 1];
-		var chr2 : int := caps_string[(i shl 1) + 1];
+		var chr1 : nat := caps_string[i shl 1];
+		var chr2 : nat := caps_string[(i shl 1) + 1];
+		assume chr1 < #80;
+		assume chr2 < #80;
 		a[(chr1 shl 7) + chr2] := i;
 	]
 	return a;
 ]
 
-fn tinfo_caps_map~cache : treemap(bytes, int)
+fn tinfo_caps_map~cache : treemap(bytes, nat)
 [
 	var caps_string := [ "bw", "am", "xsb", "xhp", "xenl", "eo", "gn", "hc", "km", "hs", "in", "da", "db", "mir", "msgr", "os", "eslok", "xt", "hz", "ul", "xon", "nxon", "mc5i", "chts", "nrrmc", "npc", "ndscr", "ccc", "bce", "hls", "xhpa", "crxm", "daisy", "xvpa", "sam", "cpix", "lpix", "cols", "it", "lines", "lm", "xmc", "pb", "vt", "wsl", "nlab", "lh", "lw", "ma", "wnum", "colors", "pairs", "ncv", "bufsz", "spinv", "spinh", "maddr", "mjump", "mcs", "mls", "npins", "orc", "orl", "orhi", "orvi", "cps", "widcs", "btns", "bitwin", "bitype", "cbt", "bel", "cr", "csr", "tbc", "clear", "el", "ed", "hpa", "cmdch", "cup", "cud1", "home", "civis", "cub1", "mrcup", "cnorm", "cuf1", "ll", "cuu1", "cvvis", "dch1", "dl1", "dsl", "hd", "smacs", "blink", "bold", "smcup", "smdc", "dim", "smir", "invis", "prot", "rev", "smso", "smul", "ech", "rmacs", "sgr0", "rmcup", "rmdc", "rmir", "rmso", "rmul", "flash", "ff", "fsl", "is1", "is2", "is3", "if", "ich1", "il1", "ip", "kbs", "ktbc", "kclr", "kctab", "kdch1", "kdl1", "kcud1", "krmir", "kel", "ked", "kf0", "kf1", "kf10", "kf2", "kf3", "kf4", "kf5", "kf6", "kf7", "kf8", "kf9", "khome", "kich1", "kil1", "kcub1", "kll", "knp", "kpp", "kcuf1", "kind", "kri", "khts", "kcuu1", "rmkx", "smkx", "lf0", "lf1", "lf10", "lf2", "lf3", "lf4", "lf5", "lf6", "lf7", "lf8", "lf9", "rmm", "smm", "nel", "pad", "dch", "dl", "cud", "ich", "indn", "il", "cub", "cuf", "rin", "cuu", "pfkey", "pfloc", "pfx", "mc0", "mc4", "mc5", "rep", "rs1", "rs2", "rs3", "rf", "rc", "vpa", "sc", "ind", "ri", "sgr", "hts", "wind", "ht", "tsl", "uc", "hu", "iprog", "ka1", "ka3", "kb2", "kc1", "kc3", "mc5p", "rmp", "acsc", "pln", "kcbt", "smxon", "rmxon", "smam", "rmam", "xonc", "xoffc", "enacs", "smln", "rmln", "kbeg", "kcan", "kclo", "kcmd", "kcpy", "kcrt", "kend", "kent", "kext", "kfnd", "khlp", "kmrk", "kmsg", "kmov", "knxt", "kopn", "kopt", "kprv", "kprt", "krdo", "kref", "krfr", "krpl", "krst", "kres", "ksav", "kspd", "kund", "kBEG", "kCAN", "kCMD", "kCPY", "kCRT", "kDC", "kDL", "kslt", "kEND", "kEOL", "kEXT", "kFND", "kHLP", "kHOM", "kIC", "kLFT", "kMSG", "kMOV", "kNXT", "kOPT", "kPRV", "kPRT", "kRDO", "kRPL", "kRIT", "kRES", "kSAV", "kSPD", "kUND", "rfi", "kf11", "kf12", "kf13", "kf14", "kf15", "kf16", "kf17", "kf18", "kf19", "kf20", "kf21", "kf22", "kf23", "kf24", "kf25", "kf26", "kf27", "kf28", "kf29", "kf30", "kf31", "kf32", "kf33", "kf34", "kf35", "kf36", "kf37", "kf38", "kf39", "kf40", "kf41", "kf42", "kf43", "kf44", "kf45", "kf46", "kf47", "kf48", "kf49", "kf50", "kf51", "kf52", "kf53", "kf54", "kf55", "kf56", "kf57", "kf58", "kf59", "kf60", "kf61", "kf62", "kf63", "el1", "mgc", "smgl", "smgr", "fln", "sclk", "dclk", "rmclk", "cwin", "wingo", "hup", "dial", "qdial", "tone", "pulse", "hook", "pause", "wait", "u0", "u1", "u2", "u3", "u4", "u5", "u6", "u7", "u8", "u9", "op", "oc", "initc", "initp", "scp", "setf", "setb", "cpi", "lpi", "chr", "cvr", "defc", "swidm", "sdrfq", "sitm", "slm", "smicm", "snlq", "snrmq", "sshm", "ssubm", "ssupm", "sum", "rwidm", "ritm", "rlm", "rmicm", "rshm", "rsubm", "rsupm", "rum", "mhpa", "mcud1", "mcub1", "mcuf1", "mvpa", "mcuu1", "porder", "mcud", "mcub", "mcuf", "mcuu", "scs", "smgb", "smgbp", "smglp", "smgrp", "smgt", "smgtp", "sbim", "scsd", "rbim", "rcsd", "subcs", "supcs", "docr", "zerom", "csnm", "kmous", "minfo", "reqmp", "getm", "setaf", "setab", "pfxl", "devt", "csin", "s0ds", "s1ds", "s2ds", "s3ds", "smglr", "smgtb", "birep", "binel", "bicr", "colornm", "defbi", "endbi", "setcolor", "slines", "dispc", "smpch", "rmpch", "smsc", "rmsc", "pctrm", "scesc", "scesa", "ehhlm", "elhlm", "elohlm", "erhlm", "ethlm", "evhlm", "sgr1", "slength" ];
-	var a := treemap_init(bytes, int);
+	var a := treemap_init(bytes, nat);
 	for i := 0 to len(caps_string) do
 		a := treemap_insert(a, caps_string[i], i);
 	return a;
@@ -543,20 +545,20 @@ record termcap [
 	b : bytes;
 	extended : bool;
 	is_termcap : bool;
-	terminal_names_bytes : int;
-	boolean_flags_bytes : int;
-	numbers_words : int;
-	strings_words : int;
-	boolean_flags_start : int;
-	numbers_start : int;
-	strings_start : int;
-	strings_table_start : int;
+	terminal_names_bytes : nat;
+	boolean_flags_bytes : nat;
+	numbers_words : nat;
+	strings_words : nat;
+	boolean_flags_start : nat;
+	numbers_start : nat;
+	strings_start : nat;
+	strings_table_start : nat;
 
 	static_vars : array(sint32, [num_vars]);
 	stack_num : array(sint32, [stack_size]);
 	stack_str : array(bytes, [stack_size]);
-	stack_ptr : int;
-]
+	stack_ptr : nat;
+] where stack_ptr <= stack_size;
 
 record termcap_entry [
 	tc_bool : array(bool, [tc_b_num]);
@@ -568,12 +570,13 @@ record termcap_entry [
 fn termcap_decode_escapes(s : bytes) : bytes
 [
 	var result := empty(byte);
-	for i := 0 to len(s) do [
+	var i : nat := 0;
+	while i < len(s) do [
 		var c := s[i];
-		if c = '^' then [
+		if c = '^', len_greater_than(s, i + 1) then [
 			i += 1;
 			result +<= (s[i] and #df) - #40;
-		] else if c = '\' then [
+		] else if c = '\', len_greater_than(s, i + 1) then [
 			i += 1;
 			var d := s[i];
 			if (d and #df) = 'A' then result +<= 7;
@@ -595,6 +598,7 @@ fn termcap_decode_escapes(s : bytes) : bytes
 		] else [
 			result +<= c;
 		]
+		i += 1;
 	]
 	return result;
 ]
@@ -602,12 +606,15 @@ fn termcap_decode_escapes(s : bytes) : bytes
 fn get_termcap_entry(tce : termcap_entry, lines : list(bytes), term : bytes) : termcap_entry
 [
 	var term_caps := term_caps_map;
-	var i := 0;
+	var i : nat := 0;
 	while len_greater_than(lines, i) do [
 		var line := lines[i];
 		var entries := list_break(line, ':');
+		if len(entries) = 0 then
+			goto cont;
 		var names := list_break(entries[0], '|');
-		names := names[ .. len(names) - 1];
+		if len(names) > 0 then
+			names := names[ .. len(names) - 1];
 		if list_search(names, term) >= 0 then [
 			entries := entries[1 .. ];
 			if len_greater_than(entries, 0) then [
@@ -623,34 +630,53 @@ fn get_termcap_entry(tce : termcap_entry, lines : list(bytes), term : bytes) : t
 				var entry := entries[j];
 				if len(entry) < 2 then
 					continue;
+				if entry[0] >= #80 or entry[1] >= #80 then
+					continue;
 				var key := 128 * entry[0] + entry[1];
 				var val := term_caps[key];
-				if val = -1 then
+				if val < 0 then
 					continue;
-				if len(entry) = 3 and entry[2] = '@' then [
-					if val < tc_b_num then
+				if len(entry) = 3, entry[2] = '@' then [
+					if val < tc_b_num then [
 						tce.tc_bool[val] := false;
-					else if val < tc_b_num + tc_n_num then
+						continue;
+					]
+					if val < tc_b_num + tc_n_num then [
 						tce.tc_num[val - tc_b_num] := #ffffffff;
-					else
+						continue;
+					]
+					if val < tc_b_num + tc_n_num + tc_s_num then [
 						tce.tc_string[val - tc_b_num - tc_n_num] := bytes.[ 0 ];
+						continue;
+					]
 				] else [
 					if val < tc_b_num then [
 						tce.tc_bool[val] := true;
-					] else if val < tc_b_num + tc_n_num then [
-						if not len_greater_than(entry, 2) or entry[2] <> '#' then
+						continue;
+					]
+					if val < tc_b_num + tc_n_num then [
+						if not len_greater_than(entry, 2) then
 							continue;
-						tce.tc_num[val - tc_b_num] := ston(entry[3 .. ]);
-					] else [
-						if not len_greater_than(entry, 2) or entry[2] <> '=' then
+						if entry[2] <> '#' then
+							continue;
+						var num := ston(entry[3 .. ]);
+						tce.tc_num[val - tc_b_num] := num;
+						continue;
+					]
+					if val < tc_b_num + tc_n_num + tc_s_num then [
+						if not len_greater_than(entry, 2) then
+							continue;
+						if entry[2] <> '=' then
 							continue;
 						tce.tc_string[val - tc_b_num - tc_n_num] := termcap_decode_escapes(entry[3 .. ]);
+						continue;
 					]
 				]
 			]
 			tce.valid := true;
 			return tce;
 		]
+cont:
 		i += 1;
 	]
 	return tce;
@@ -659,12 +685,12 @@ fn get_termcap_entry(tce : termcap_entry, lines : list(bytes), term : bytes) : t
 fn get_terminfo_entry(tce : termcap_entry, lines : list(bytes), term : bytes) : termcap_entry
 [
 	var term_caps := tinfo_caps_map;
-	var i := 0;
+	var i : nat := 0;
 	while len_greater_than(lines, i) do [
 		var line := lines[i];
 		var entries := empty(bytes);
 next_entry:
-		var l := 0;
+		var l : nat := 0;
 		while len_greater_than(line, l) do [
 			if line[l] = ',' then [
 				entries +<= line[ .. l];
@@ -678,8 +704,11 @@ next_entry:
 				l += 1;
 			]
 		]
+		if len(entries) = 0 then
+			goto cont;
 		var names := list_break(entries[0], '|');
-		names := names[ .. len(names) - 1];
+		if len(names) > 0 then
+			names := names[ .. len(names) - 1];
 		if list_search(names, term) >= 0 then [
 			entries := entries[1 .. ];
 			for j := 0 to len(entries) do [
@@ -695,8 +724,8 @@ next_entry:
 				//eval debug("processing '" + term + "' : " + entry);
 				if list_begins_with(entry, "use=") then
 					continue;
-				var k := 0;
-				while len_greater_than(entry, k) do [
+				var k : nat := 0;
+				while len_greater_than(entry, k) invariant k <= len(entry) do [
 					if entry[k] = '=' or entry[k] = '#' or entry[k] = '@' then
 						break;
 					k += 1;
@@ -706,29 +735,45 @@ next_entry:
 					continue;
 				var val := t_value.j;
 				if len_greater_than(entry, k), entry[k] = '@' then [
-					if val < tc_b_num then
+					if val < tc_b_num then [
 						tce.tc_bool[val] := false;
-					else if val < tc_b_num + tc_n_num then
+						continue;
+					]
+					if val < tc_b_num + tc_n_num then [
 						tce.tc_num[val - tc_b_num] := #ffffffff;
-					else
+						continue;
+					]
+					if val < tc_b_num + tc_n_num + tc_s_num then [
 						tce.tc_string[val - tc_b_num - tc_n_num] := bytes.[ 0 ];
+						continue;
+					]
 				] else [
 					if val < tc_b_num then [
 						tce.tc_bool[val] := true;
-					] else if val < tc_b_num + tc_n_num then [
-						if not len_greater_than(entry, k) or entry[k] <> '#' then
+						continue;
+					]
+					if val < tc_b_num + tc_n_num then [
+						if not len_greater_than(entry, k) then
+							continue;
+						if entry[k] <> '#' then
 							continue;
 						tce.tc_num[val - tc_b_num] := ston(entry[k + 1 .. ]);
-					] else [
-						if not len_greater_than(entry, k) or entry[k] <> '=' then
+						continue;
+					]
+					if val < tc_b_num + tc_n_num + tc_s_num then [
+						if not len_greater_than(entry, k) then
+							continue;
+						if entry[k] <> '=' then
 							continue;
 						tce.tc_string[val - tc_b_num - tc_n_num] := termcap_decode_escapes(entry[k + 1 .. ]);
+						continue;
 					]
 				]
 			]
 			tce.valid := true;
 			return tce;
 		]
+cont:
 		i += 1;
 	]
 	return tce;
@@ -758,7 +803,9 @@ fn termcap_2_terminfo~save(t : bytes, term : bytes) : (bytes, bool)
 		tc_string : array_fill(bytes.[ 0 ], [tc_s_num]),
 		valid : false,
 	];
-	var is_termcap := lines[0][len(lines[0]) - 1] <> ',';
+	var is_termcap := true;
+	if len(lines[0]) > 0, lines[0][len(lines[0]) - 1] = ',' then
+		is_termcap := false;
 	if is_termcap then
 		tce := get_termcap_entry(tce, lines, term);
 	else
@@ -818,19 +865,23 @@ fn termcap_init(d : dhandle, env : treemap(bytes, bytes)) : termcap
 		term := "";
 	else
 		term := t_term.j;
-	if term = "" then [
+	if len(term) = 0 then [
 		abort exception_make_str(int, ec_syscall, error_not_supported, 0, false, "the TERM variable is not set");
 	]
 
 	var home := treemap_search(env, "HOME");
 	var tcap := treemap_search(env, "TERMCAP");
 	if tcap is j then [
-		if not (path_is_absolute(tcap.j) or len_greater_than(tcap.j, 0) and path_is_dir_separator(tcap.j[0])) then [
-			b, is_termcap := termcap_2_terminfo(tcap.j, term);
-			if b <> "" then
-				goto got_termcap;
-			tcap := maybe(bytes).n;
-		]
+		if path_is_absolute(tcap.j) then
+			goto tcap_is_path;
+		if len_greater_than(tcap.j, 0), path_is_dir_separator(tcap.j[0]) then
+			goto tcap_is_path;
+
+		b, is_termcap := termcap_2_terminfo(tcap.j, term);
+		if b <> "" then
+			goto got_termcap;
+		tcap := maybe(bytes).n;
+tcap_is_path:
 	]
 
 	var ti := treemap_search(env, "TERMINFO");
@@ -906,6 +957,9 @@ got_termcap:
 		stack_ptr : 0,
 	];
 
+	if not len_at_least(b, 10) then
+		abort exception_make_str(int, ec_syscall, error_not_supported, 0, false, "truncated terminfo file");
+
 	tc.extended := false;
 	var magic := #100 * b[1] + b[0];
 	if magic <> #11a then [
@@ -922,10 +976,14 @@ got_termcap:
 	tc.boolean_flags_start := 12 + tc.terminal_names_bytes;
 	tc.numbers_start := tc.boolean_flags_start + tc.boolean_flags_bytes;
 	if not tc.extended then [
-		tc.numbers_start := tc.numbers_start + (-tc.numbers_start and 1);
+		var o := -tc.numbers_start and 1;
+		assume o >= 0;
+		tc.numbers_start := tc.numbers_start + o;
 		tc.strings_start := tc.numbers_start + 2 * tc.numbers_words;
 	] else [
-		tc.numbers_start := tc.numbers_start + (-tc.numbers_start and 3);
+		var o := -tc.numbers_start and 3;
+		assume o >= 0;
+		tc.numbers_start := tc.numbers_start + o;
 		tc.strings_start := tc.numbers_start + 4 * tc.numbers_words;
 	]
 	tc.strings_table_start := tc.strings_start + 2 * tc.strings_words;
@@ -933,14 +991,14 @@ got_termcap:
 	return tc;
 ]
 
-fn termcap_query_bool(tc : termcap, entry : int) : bool
+novfy fn termcap_query_bool(tc : termcap, entry : nat) : bool
 [
 	if entry >= tc.boolean_flags_bytes then
 		return false;
 	return tc.b[tc.boolean_flags_start + entry] <> 0;
 ]
 
-fn termcap_query_number(tc : termcap, entry : int) : int
+novfy fn termcap_query_number(tc : termcap, entry : nat) : int
 [
 	if entry >= tc.numbers_words then
 		return -1;
@@ -960,7 +1018,7 @@ fn termcap_query_number(tc : termcap, entry : int) : int
 	return num;
 ]
 
-fn termcap_query_string(tc : termcap, entry : int) : bytes
+novfy fn termcap_query_string(tc : termcap, entry : nat) : bytes
 [
 	if entry >= tc.strings_words then
 		return "";
@@ -974,7 +1032,7 @@ fn termcap_query_string(tc : termcap, entry : int) : bytes
 	return tc.b[start .. end];
 ]
 
-fn termcap_has_string(tc : termcap, entry : int) : bool
+novfy fn termcap_has_string(tc : termcap, entry : nat) : bool
 [
 	if entry >= tc.strings_words then
 		return false;
@@ -1000,18 +1058,24 @@ fn termcap_has_mouse(tc : termcap) : bool
 
 fn pop~inline(tc : termcap, args : list(tc_param)) : (termcap, sint32)
 [
+	if tc.stack_ptr = 0 then
+		return tc, 0;
 	tc.stack_ptr -= 1;
 	return tc, tc.stack_num[tc.stack_ptr];
 ]
 
 fn pop_str~inline(tc : termcap, args : list(tc_param)) : (termcap, bytes)
 [
+	if tc.stack_ptr = 0 then
+		return tc, "";
 	tc.stack_ptr -= 1;
 	return tc, tc.stack_str[tc.stack_ptr];
 ]
 
 fn push~inline(tc : termcap, num : sint32) : termcap
 [
+	if tc.stack_ptr = stack_size then
+		return tc;
 	tc.stack_num[tc.stack_ptr] := num;
 	tc.stack_ptr += 1;
 	return tc;
@@ -1019,12 +1083,14 @@ fn push~inline(tc : termcap, num : sint32) : termcap
 
 fn push_str~inline(tc : termcap, str : bytes) : termcap
 [
+	if tc.stack_ptr = stack_size then
+		return tc;
 	tc.stack_str[tc.stack_ptr] := str;
 	tc.stack_ptr += 1;
 	return tc;
 ]
 
-fn termcap_substitute_string(implicit tc : termcap, entry : int, implicit args : list(tc_param)) : (termcap, bytes)
+novfy fn termcap_substitute_string(implicit tc : termcap, entry : nat, implicit args : list(tc_param)) : (termcap, bytes)
 [
 	var dynamic_vars := array_fill(sint32, 0, [num_vars]);
 
@@ -1060,8 +1126,12 @@ fn termcap_substitute_string(implicit tc : termcap, entry : int, implicit args :
 					min_len := 3;
 				var str := ntos(args[0].num);
 				args := args[1 .. ];
-				while len(str) < min_len do
-					str := " " + str;
+				while len(str) < min_len do [
+					if str[0] = '-' then
+						str := "-0" + str[1 .. ];
+					else
+						str := "0" + str;
+				]
 				result += str;
 			] else if op = '.' then [
 				result +<= args[0].num and #ff;
