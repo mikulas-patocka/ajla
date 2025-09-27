@@ -429,7 +429,7 @@ fn kbd_is_partial_locale_character(ctx : kbd_context, b : bytes) : bool
 	return not locale_validate(ctx.loc, b);
 ]
 
-fn kbd_test_input(ctx : kbd_context, b : bytes) : (r : nat, contract len_at_least(b, r))
+novfy fn kbd_test_input(ctx : kbd_context, b : bytes) : (r : nat, contract len_at_least(b, r))
 [
 	var i : nat := 1;
 	while true do [
@@ -447,7 +447,7 @@ fn kbd_test_input(ctx : kbd_context, b : bytes) : (r : nat, contract len_at_leas
 		else
 			return i;
 	]
-	return i - 1;
+	abort;
 ]
 
 fn event_get_xterm_mouse(implicit w : world, ctx : kbd_context, mb mx my mm : int) : (world, kbd_context)
