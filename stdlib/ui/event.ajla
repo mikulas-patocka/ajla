@@ -432,7 +432,7 @@ fn kbd_is_partial_locale_character(ctx : kbd_context, b : bytes) : bool
 fn kbd_test_input(ctx : kbd_context, b : bytes) : (r : nat, contract len_at_least(b, r))
 [
 	var i : nat := 1;
-	while len_at_least(b, i) invariant len_at_least(b, i - 1) do [
+	while true do [
 		var test := treeset_test~lazy(ctx.partial_map, b[ .. i]) or kbd_is_partial_locale_character~lazy(ctx, b[ .. i]);
 		if i > 1 then [
 			var timer := sleep~lazy(unit_value, terminal_read_timeout);
