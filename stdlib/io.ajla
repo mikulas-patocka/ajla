@@ -71,7 +71,7 @@ fn wcontiguous(w : world, h : handle, size : int64) : world;
 fn ropen_lazy(d : dhandle, f : bytes, flags : int) : handle;
 fn read_lazy~lazy(r : handle) : bytes;
 
-private fn read_console_packet(w : world, h : handle) : (world, list(int32));
+private fn read_console_packet(w : world, h : handle) : (world, r : list(int32), contract len(r) = 8);
 private fn write_console_packet(w : world, h : handle, cp : list(int32)) : world;
 
 fn pipe(w : world) : (world, handle, handle);
@@ -434,11 +434,12 @@ fn read_lazy~lazy(r : handle) : bytes
 	return b + read_lazy(r);
 ]
 
-fn read_console_packet(w : world, h : handle) : (world, list(int32))
+fn read_console_packet(w : world, h : handle) : (world, r : list(int32), contract len(r) = 8)
 [
 	var cp : list(int32);
 	var w2 : world;
 	pcode IO IO_Read_Console_Packet 2 2 0 =w2 =cp w h;
+	assume len(cp) = 8;
 	return w2, cp;
 ]
 

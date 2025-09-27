@@ -47,7 +47,9 @@ record event_redraw [
 ]
 
 record event_mouse [
-	x y prev_buttons buttons double_buttons wx wy : int;
+	x y : int;
+	prev_buttons buttons double_buttons : nat;
+	wx wy : int;
 	soft_cursor : bool;
 ]
 
@@ -136,10 +138,14 @@ uses pcode;
 uses exception;
 
 const terminal_read_timeout : int64 := 100000;
+const double_click_timeout : int64 := 300000;
+const windows_resize_recheck : int64 := 3000000;
 
-fn os2_vkmap : list(char)
+type console_packet := list(int32) where len(value) = 8;
+
+fn os2_vkmap : array(char, [#100])
 [
-	var a := fill(char, 0, #100);
+	var a := array_fill(char, 0, [#100]);
 	a[1] := key_esc;
 	a[14] := key_backspace;
 	a[15] := key_tab;
@@ -227,7 +233,7 @@ fn os2_vkmap : list(char)
 	return a;
 ]
 
-fn os2_ctrlmap(p : list(int32)) : int
+fn os2_ctrlmap(p : console_packet) : int
 [
 	var result := 0;
 	var p3 := p[3];
@@ -240,7 +246,7 @@ fn os2_ctrlmap(p : list(int32)) : int
 	return result;
 ]
 
-fn dos_vkmap : list(char)
+fn dos_vkmap : array(char, [#100])
 [
 	var a := os2_vkmap;
 	a[2] := ' ';
@@ -298,7 +304,7 @@ fn dos_vkmap : list(char)
 	return a;
 ]
 
-fn dos_ctrlmap(p : list(int32)) : int
+fn dos_ctrlmap(p : console_packet) : int
 [
 	var result := 0;
 	if p[2] = #00 or p[2] = #e0 then [
@@ -334,9 +340,9 @@ fn dos_ctrlmap(p : list(int32)) : int
 	return result;
 ]
 
-fn win32_vkmap : list(char)
+fn win32_vkmap : array(char, [#100])
 [
-	var a := fill(char, 0, #80);
+	var a := array_fill(char, 0, [#100]);
 	a[#08] := key_backspace;
 	a[#09] := key_tab;
 	a[#0c] := key_num_5;
@@ -367,7 +373,7 @@ fn win32_vkmap : list(char)
 	return a;
 ]
 
-fn win32_ctrlmap(p : list(int32)) : int
+fn win32_ctrlmap(p : console_packet) : int
 [
 	var result := 0;
 	var p3 := p[3];
@@ -398,7 +404,8 @@ fn send_mouse_event(implicit w : world, implicit mouse : mouse_context, q : msgq
 		while button_down_mask <> 0 do [
 			var b := bsr button_down_mask;
 			button_down_mask btr= b;
-			if not is_uninitialized(mouse[b]), time - mouse[b] <= 300000 then
+			assume b >= 0 and b < len(mouse);
+			if not is_uninitialized(mouse[b]), time - mouse[b] <= double_click_timeout then
 				ev.double_buttons bts= b;
 			mouse[b] := time;
 		]
@@ -413,7 +420,7 @@ record kbd_context [
 	key_map : treemap(bytes, event_keyboard);
 	partial_map : treeset(bytes);
 	has_mouse : bool;
-	last_mouse_buttons : int;
+	last_mouse_buttons : nat;
 	mouse : mouse_context;
 ]
 
@@ -424,8 +431,8 @@ fn kbd_is_partial_locale_character(ctx : kbd_context, b : bytes) : bool
 
 fn kbd_test_input(ctx : kbd_context, b : bytes) : int
 [
-	var i := 1;
-	while true do [
+	var i : nat := 1;
+	while len_at_least(b, i) do [
 		var test := treeset_test~lazy(ctx.partial_map, b[ .. i]) or kbd_is_partial_locale_character~lazy(ctx, b[ .. i]);
 		if i > 1 then [
 			var timer := sleep~lazy(unit_value, terminal_read_timeout);
@@ -471,13 +478,15 @@ fn event_get_xterm_mouse(implicit w : world, ctx : kbd_context, mb mx my mm : in
 	if xm.wx <> 0 and mm = 0 then
 		return ctx;
 
-	if mm = -1 then
-		xm.buttons := buttons;
-	else if mm = 0 then
-		xm.buttons := ctx.last_mouse_buttons and not buttons;
-	else
-		xm.buttons := ctx.last_mouse_buttons or buttons;
+	if mm = -1 then [
+	] else if mm = 0 then [
+		buttons := ctx.last_mouse_buttons and not buttons;
+	] else [
+		buttons := ctx.last_mouse_buttons or buttons;
+	]
 
+	assume buttons >= 0;
+	xm.buttons := buttons;
 	xm.prev_buttons := ctx.last_mouse_buttons;
 
 	ctx.last_mouse_buttons := xm.buttons;
@@ -583,7 +592,7 @@ fn kbd_add_mapping(ctx : kbd_context, str : bytes, ev : event_keyboard) : kbd_co
 	return ctx;
 ]
 
-fn do_packet_console(implicit w : world, h : handle, q : msgqueue(event), os : int, vkmap : list(char), ctrlmap : fn (list(int32)) : int) : bottom_type
+fn do_packet_console(implicit w : world, h : handle, q : msgqueue(event), os : int, vkmap : list(char), ctrlmap : fn (console_packet) : int) : bottom_type
 [
 	var mouse := new_mouse_context;
 	var cached_cp := -1;
@@ -750,7 +759,7 @@ fn event_get_resize~normal(implicit w : world, h : handle, q : msgqueue(event), 
 			msgqueue_send(q, ev_tag_resize, ev);
 		]
 		if os = SystemProperty_OS_Windows then [
-			sleep(w, 3000000);
+			sleep(w, windows_resize_recheck);
 		] else [
 			signal_wait(sigwinch, stoken);
 		]
@@ -841,6 +850,8 @@ fn event_get_mouse~normal(implicit w : world, h : handle, q : msgqueue(event)) :
 			new_button_state and= not buttons;
 		var wx := -native_to_int(native.short, b[24 .. 26]);
 		var wy := -native_to_int(native.short, b[26 .. 28]);
+		assume button_state >= 0;
+		assume new_button_state >= 0;
 		var ev := event_mouse.[ x : x, y : y, prev_buttons : button_state, buttons : new_button_state, wx : wx, wy : wy, soft_cursor : true ];
 
 		mouse := send_mouse_event(mouse, q, ev);
@@ -860,7 +871,7 @@ fn event_wait_for_any_key(implicit w : world, h : handle) : world
 	   os = SystemProperty_OS_OS2 or
 	   os = SystemProperty_OS_Windows then [
 read_another:
-		var k := read_console_packet(h);
+		var k : console_packet := read_console_packet(h);
 		if k[0] <> 1 then
 			goto read_another;
 		xeval k;
