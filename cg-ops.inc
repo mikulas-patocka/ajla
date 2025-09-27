@@ -160,23 +160,8 @@ static bool attr_w gen_read_clock(struct codegen_context *ctx, frame_t slot_r)
 {
 	unsigned target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 
-#if defined(ARCH_X86_32)
-	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
-	gen_one(R_SCRATCH_2);
-	gen_one(ARG_ADDRESS_1);
-	gen_one(R_SP);
-	gen_eight(ARG_SPACE + ARG_OFFSET + 4);
+	g(gen_get_upcall_pointer(ctx, offsetof(struct cg_upcall_vector_s, ts), OP_SIZE_4, target));
 
-	g(gen_address(ctx, R_SCRATCH_2, offsetof(struct cg_upcall_vector_s, ts), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_4));
-	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
-	gen_one(target);
-	gen_address_offset();
-#else
-	g(gen_address(ctx, R_UPCALL, offsetof(struct cg_upcall_vector_s, ts), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_4));
-	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
-	gen_one(target);
-	gen_address_offset();
-#endif
 	g(gen_frame_store(ctx, OP_SIZE_4, slot_r, 0, target));
 
 	flag_set(ctx, slot_r, false);

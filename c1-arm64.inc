@@ -496,10 +496,10 @@ static bool attr_w gen_upcall_argument(struct codegen_context attr_unused *ctx, 
 	return true;
 }
 
-static bool attr_w gen_get_upcall_pointer(struct codegen_context *ctx, unsigned offset, unsigned reg)
+static bool attr_w gen_get_upcall_pointer(struct codegen_context *ctx, unsigned offset, unsigned op_size, unsigned reg)
 {
-	g(gen_address(ctx, R_UPCALL, offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_8));
-	gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+	g(gen_address(ctx, R_UPCALL, offset, IMM_PURPOSE_LDR_OFFSET, op_size));
+	gen_insn(INSN_MOV, op_size, 0, 0);
 	gen_one(reg);
 	gen_address_offset();
 
@@ -508,7 +508,7 @@ static bool attr_w gen_get_upcall_pointer(struct codegen_context *ctx, unsigned 
 
 static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsigned n_args, bool unspill)
 {
-	g(gen_get_upcall_pointer(ctx, offset, R_SCRATCH_NA_1));
+	g(gen_get_upcall_pointer(ctx, offset, OP_SIZE_ADDRESS, R_SCRATCH_NA_1));
 
 	gen_insn(INSN_CALL_INDIRECT, OP_SIZE_8, 0, 0);
 	gen_one(R_SCRATCH_NA_1);

@@ -596,7 +596,7 @@ static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsi
 	return true;
 }
 
-static bool attr_w gen_get_upcall_pointer(struct codegen_context *ctx, unsigned offset, unsigned reg)
+static bool attr_w gen_get_upcall_pointer(struct codegen_context *ctx, unsigned offset, unsigned op_size, unsigned reg)
 {
 #if defined(ARCH_X86_32)
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
@@ -605,13 +605,13 @@ static bool attr_w gen_get_upcall_pointer(struct codegen_context *ctx, unsigned 
 	gen_one(R_SP);
 	gen_eight(ARG_SPACE + ARG_OFFSET + 4);
 
-	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
+	gen_insn(INSN_MOV, op_size, 0, 0);
 	gen_one(reg);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(reg);
 	gen_eight(offset);
 #else
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_insn(INSN_MOV, op_size, 0, 0);
 	gen_one(reg);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_UPCALL);
