@@ -70,7 +70,7 @@ static pointer_t module_create_optimizer_reference(struct module *m, struct func
 	struct data *filename;
 	int_default_t *np;
 	struct data *nesting_path;
-	struct data *spec_array;
+	struct data *spec_array = NULL;		/* avoid warning */
 	struct data *fn_ref;
 	struct thunk *result;
 	ajla_error_t err;
