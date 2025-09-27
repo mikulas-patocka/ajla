@@ -652,9 +652,12 @@ prefer_char:
 			]
 			//eval debug("key=" + ntos(key) + ",flags=" + ntos(flags));
 have_key:
+			assume flags >= 0;
 			var ev := event.keyboard.(event_keyboard.[ key : key, flags : flags, rep : 1 ] );
 			msgqueue_send(q, ev_tag_key, ev);
 		] else if packet[0] = 2 then [
+			if packet[3] < 0 or packet[4] < 0 then
+				abort;
 			var ev := event_mouse.[ x : packet[1], y : packet[2], prev_buttons : packet[3], buttons : packet[4], wx : packet[5], wy : packet[6], soft_cursor : select(packet[7] <> 0, false, true) ];
 			mouse := send_mouse_event(mouse, q, ev);
 		]
