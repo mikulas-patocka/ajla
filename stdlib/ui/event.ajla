@@ -429,25 +429,25 @@ fn kbd_is_partial_locale_character(ctx : kbd_context, b : bytes) : bool
 	return not locale_validate(ctx.loc, b);
 ]
 
-fn kbd_test_input(ctx : kbd_context, b : bytes) : int
+fn kbd_test_input(ctx : kbd_context, b : bytes) : (r : nat, contract len_at_least(b, r))
 [
 	var i : nat := 1;
-	while len_at_least(b, i) do [
+	while len_at_least(b, i) invariant len_at_least(b, i - 1) do [
 		var test := treeset_test~lazy(ctx.partial_map, b[ .. i]) or kbd_is_partial_locale_character~lazy(ctx, b[ .. i]);
 		if i > 1 then [
 			var timer := sleep~lazy(unit_value, terminal_read_timeout);
 			if any(test, timer) then [
 				//eval debug("timeout " + ntos(i));
 				i -= 1;
-				break;
+				return i;
 			]
 		]
 		if test then
 			i += 1;
 		else
-			break;
+			return i;
 	]
-	return i;
+	return i - 1;
 ]
 
 fn event_get_xterm_mouse(implicit w : world, ctx : kbd_context, mb mx my mm : int) : (world, kbd_context)
@@ -502,11 +502,11 @@ fn event_get_keyboard_loop(implicit w : world, ctx : kbd_context, b : bytes) : b
 		if not len_greater_than(b, 0) then
 			abort;
 		var i := kbd_test_input(ctx, b);
-		while i >= 1 do [
+		while i >= 1 invariant len_at_least(b, i) do [
 			if ctx.has_mouse, i >= 3 then [
 				var xm : list(event);
 				var timer := sleep~lazy(unit_value, terminal_read_timeout);
-				if b[ .. 3] = bytes.[ 27, 91, 77 ] then [
+				if b[ .. 3] = bytes.[ 27, 91, 77 ], len_at_least(b, 6) then [
 					var mb := b[3] - ' ';
 					var mx := b[4] - ' ';
 					var my := b[5] - ' ';
@@ -522,12 +522,16 @@ fn event_get_keyboard_loop(implicit w : world, ctx : kbd_context, b : bytes) : b
 				if b[ .. 3] = bytes.[ 27, 91, 60 ] then [
 					fn mM(b : byte) : bool := b = 'm' or b = 'M';
 					var end := list_search_fn(b, mM);
-					if any(end, timer) then [
+					if any(end, timer) or end < 3 then [
 						b := b[3 .. ];
 						goto cont;
 					]
 					//eval debug(b[3 .. end + 1]);
 					var mbs := list_break(b[3 .. end], ';');
+					if not len_at_least(mbs, 3) then [
+						b := b[end + 1 .. ];
+						goto cont;
+					]
 					var mb := ston(mbs[0]);
 					var mx := ston(mbs[1]);
 					var my := ston(mbs[2]);
@@ -552,8 +556,11 @@ fn event_get_keyboard_loop(implicit w : world, ctx : kbd_context, b : bytes) : b
 			if start = 1, i = 2 then [
 				xk := treemap_search(ctx.key_map, b[start .. i]);
 				if xk is j then [
-					if xk.j.key <> key_esc then
-						xk.j.flags or= key_flag_alt;
+					if xk.j.key <> key_esc then [
+						var flags := xk.j.flags or key_flag_alt;
+						assume flags >= 0;
+						xk.j.flags := flags;
+					]
 					//return [ event.keyboard.(xk.j) ] + event_get_keyboard_lazy(ctx, b[i .. ]);
 					msgqueue_send(ctx.q, ev_tag_key, event.keyboard.(xk.j));
 					b := b[i .. ];
@@ -562,10 +569,13 @@ fn event_get_keyboard_loop(implicit w : world, ctx : kbd_context, b : bytes) : b
 			]
 			if locale_validate(ctx.loc, b[start .. i]) then [
 				var uc := locale_to_string(ctx.loc, b[start .. i]);
-				if len_at_least(uc, 1) and classify_character(uc[0]) >= class_one then [
+				if len_at_least(uc, 1), classify_character(uc[0]) >= class_one then [
 					xk := maybe(event_keyboard).j.(event_keyboard.[ key : uc[0], flags : 0, rep : 1 ]);
-					if start = 1 then
-						xk.j.flags or= key_flag_alt;
+					if start = 1 then [
+						var flags := xk.j.flags or key_flag_alt;
+						assume flags >= 0;
+						xk.j.flags := flags;
+					]
 					msgqueue_send(ctx.q, ev_tag_key, event.keyboard.(xk.j));
 					b := b[i .. ];
 					goto cont;
