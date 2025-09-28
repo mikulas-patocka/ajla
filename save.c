@@ -1244,6 +1244,8 @@ verify_ret:
 
 void name(save_init)(void)
 {
+	if (verify && verify[0])
+		save_disable = true;
 	loaded_data = NULL;
 #ifdef USE_MMAP
 	loaded_data_mapped = false;
