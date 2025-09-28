@@ -1946,20 +1946,6 @@ fn generate_foreach_assumes_or_claims(ctx : function_context, a : int, inv : lis
 	ctx, ge := alloc_local_variable(ctx, T_Bool, true, false);
 	ctx := generate_BinaryOp(ctx, Bin_GreaterEqual, li, z, ge);
 
-	{
-	var len_id := function_unique_id.[
-		path_index : 0,
-		unit_string : i_encode("system"),
-		program : false,
-		function_index : [ predefined_len ],
-	];
-	var len_fd := search_function_from_id(ctx, len_id);
-	var list_ev : int;
-	ctx, list_ev := evaluate_list_type(ctx, a, t);
-	var ln : list(int);
-	ctx, ln := generate_Call(ctx, Call_Mode_Unspecified, len_fd, [ list_ev, a ], [ 0, 0 ], t);
-	}
-
 	var ln : int;
 	ctx, ln := generate_Array_Len(ctx, a);
 
@@ -2014,20 +2000,6 @@ fn generate_array_len_check(ctx : function_context, a ai : int, op : int, t : to
 	ctx, ge := alloc_local_variable(ctx, T_Bool, true, false);
 	ctx := generate_BinaryOp(ctx, Bin_GreaterEqual, ai, z, ge);
 
-	{
-	var len_id := function_unique_id.[
-		path_index : 0,
-		unit_string : i_encode("system"),
-		program : false,
-		function_index : [ predefined_len ],
-	];
-	var len_fd := search_function_from_id(ctx, len_id);
-	var list_ev : int;
-	ctx, list_ev := evaluate_list_type(ctx, a, t);
-	var ln : list(int);
-	ctx, ln := generate_Call(ctx, Call_Mode_Unspecified, len_fd, [ list_ev, a ], [ 0, 0 ], t);
-	}
-
 	var ln : int;
 	ctx, ln := generate_Array_Len(ctx, a);
 
@@ -2046,6 +2018,8 @@ fn generate_array_len_check(ctx : function_context, a ai : int, op : int, t : to
 
 fn verify_variable(ctx : function_context, l : int, cl : bool, t : tokens) : function_context
 [
+	if sysprop(SystemProperty_Verify) = 0 then
+		return ctx;
 	var cc, ty, inv := get_type_invariants(ctx, new_compare_context(ctx), get_type_of_var(ctx, l));
 	ctx := generate_assumes_or_claims(ctx, l, inv, cl, t);
 	return ctx;

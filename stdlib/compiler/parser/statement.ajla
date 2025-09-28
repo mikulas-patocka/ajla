@@ -960,11 +960,15 @@ fn parse_statement_eval(ctx : function_context, vd : variable_dictionary, t : to
 		return generate_abort(ctx);
 
 	var al : list(int);
-	if x is k_assume or x is k_claim or x is k_invariant then
+	if x is k_assume or x is k_claim or x is k_invariant then [
+		if sysprop(SystemProperty_Verify) = 0 then
+			return ctx;
 		ctx.parsing_assume_claim += 1;
+	]
 	ctx, al := parse_expressions(ctx, vd, t, false);
-	if x is k_assume or x is k_claim or x is k_invariant then
+	if x is k_assume or x is k_claim or x is k_invariant then [
 		ctx.parsing_assume_claim -= 1;
+	]
 
 	for i := 0 to len(al) do [
 		var cc, typ := get_deep_type_of_var(ctx, al[i]);

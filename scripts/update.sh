@@ -33,10 +33,10 @@ if $ALL; then
 	rm -rf newcomp
 	mkdir newcomp
 	cp -a newlib/compiler newlib/pcode.ajla newlib/ex_codes.ajla newcomp
-	./ajla --nosave --privileged "$@" selfopt-all.ajla
+	./ajla --nosave --verify=. --privileged "$@" selfopt-all.ajla
 	rm -rf newcomp
 else
-	./ajla --nosave --privileged "$@" selfopt.ajla
+	./ajla --nosave --verify=. --privileged "$@" selfopt.ajla
 fi
 rm -rf stdlib
 cp -r newlib stdlib
