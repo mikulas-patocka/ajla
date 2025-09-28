@@ -2819,9 +2819,7 @@ fn process_pcode_ctx(pc : list(pcode_t), ctx : context, verify_pattern : bytes) 
 	//eval debug("optimizing: " + ctx.un + "-" + ctx.name);
 
 	var verify : bool;
-	if verify_pattern = "@" then [
-		verify := pc[0] bt bsf Fn_VerifyTagged;
-	] else if len_greater_than(verify_pattern, 0), verify_pattern[0] = '/' then [
+	if list_begins_with(verify_pattern, "/") then [
 		var un := ctx.un;
 		var ls := list_search_backwards(un, '/');
 		if ls >= 0 then

@@ -215,8 +215,6 @@ Fn_AlwaysFlatOption
 32
 Fn_NoVerify
 64
-Fn_VerifyTagged
-128
 Fn_Specialize
 
 0
