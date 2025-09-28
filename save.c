@@ -29,6 +29,7 @@
 #include "amalloc.h"
 #include "thread.h"
 #include "ipfn.h"
+#include "ipio.h"
 
 #include "save.h"
 
@@ -73,6 +74,7 @@ struct file_descriptor {
 	unsigned char privileged;
 	unsigned char profiling;
 	unsigned char strict_calls;
+	unsigned char verifying;
 	char ajla_id[sizeof(id)];
 };
 
@@ -778,6 +780,7 @@ static void save_finish_file(void)
 	file_desc.privileged = ipret_is_privileged;
 	file_desc.profiling = profiling;
 	file_desc.strict_calls = ipret_strict_calls;
+	file_desc.verifying = verify != NULL;
 	memcpy(file_desc.ajla_id, id, sizeof(id));
 
 	subptrs = mem_alloc_mayfail(struct stack_entry *, sizeof(struct stack_entry) * 3, &sink);
@@ -1122,6 +1125,7 @@ static void save_load_cache(void)
 	    unlikely(file_desc.privileged != ipret_is_privileged) ||
 	    unlikely(file_desc.profiling != profiling) ||
 	    unlikely(file_desc.strict_calls != ipret_strict_calls) ||
+	    unlikely(file_desc.verifying != (verify != NULL)) ||
 	    unlikely(memcmp(file_desc.ajla_id, id, sizeof(id)))) {
 		os_close(h);
 		return;
