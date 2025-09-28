@@ -23,10 +23,6 @@
 
 #define ipret_io				name(ipret_io)
 
-extern const char *verify;
-extern const char *dump_pcode;
-extern const char *dump_z3;
-
 void *ipret_io(frame_s *fp, const code_t *ip, unsigned char io_code, unsigned char n_outputs, unsigned char n_inputs, unsigned char n_params);
 
 #endif

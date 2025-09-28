@@ -246,6 +246,7 @@ SystemProperty_Privileged
 SystemProperty_Sandbox
 SystemProperty_Compile
 SystemProperty_NoInline
+SystemProperty_Verify
 SystemProperty_Verify_Light
 SystemProperty_Verify_Timeout
 

@@ -76,6 +76,9 @@ extern bool ipret_is_privileged;
 extern bool ipret_sandbox;
 extern bool ipret_compile;
 extern bool ipret_noinline;
+extern const char *dump_pcode;
+extern const char *dump_z3;
+extern const char *verify;
 extern bool ipret_verify_light;
 extern uint32_t ipret_verify_timeout;
 

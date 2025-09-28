@@ -518,6 +518,9 @@ int_default_t ipret_system_property(int_default_t idx)
 		case SystemProperty_NoInline:
 			result = ipret_noinline;
 			break;
+		case SystemProperty_Verify:
+			result = verify != NULL;
+			break;
 		case SystemProperty_Verify_Light:
 			result = ipret_verify_light;
 			break;
