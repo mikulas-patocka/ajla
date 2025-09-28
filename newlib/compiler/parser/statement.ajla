@@ -264,7 +264,7 @@ fn verify_assignment(ctx : function_context, vd : variable_dictionary, statement
 		var l : int;
 		ctx, l := parse_expression(ctx, vd, statements[i], false);
 		var may_skip := true;
-		if not cl and indices[i] >= 0 and sysprop(SystemProperty_Verify_Light) = 0 then [
+		if not cl and indices[i] >= 0 and sysprop(SystemProperty_Verify) >= 2 then [
 			ctx := generate_array_len_check(ctx, l, indices[i], Bin_Less, t);
 			may_skip := false;
 		]
@@ -674,7 +674,7 @@ fn parse_statement_for(ctx : function_context, vd : variable_dictionary, level :
 	toks := variable_decl + [ assign_op, lower_bound_var ];
 	ctx, do_vd := parse_statement_var(ctx, do_vd, false, false, false, toks);
 
-	if invr >= 0 or sysprop(SystemProperty_Verify_Light) = 0 then [
+	if invr >= 0 or sysprop(SystemProperty_Verify) >= 2 then [
 		var upper_bound_var_test := variable;
 		upper_bound_var_test.t.identifier := i_encode("/bnd_test");
 
@@ -694,7 +694,7 @@ fn parse_statement_for(ctx : function_context, vd : variable_dictionary, level :
 		ctx := parse_statement_eval(ctx, do_vd, invr_tokens, token_opt.k_invariant);
 	]
 
-	if invr >= 0 or sysprop(SystemProperty_Verify_Light) = 0 then [
+	if invr >= 0 or sysprop(SystemProperty_Verify) >= 2 then [
 		toks := [ variable, greater_eq_op, lower_bound_var ];
 		ctx := parse_statement_eval(ctx, do_vd, toks, token_opt.k_invariant);
 
