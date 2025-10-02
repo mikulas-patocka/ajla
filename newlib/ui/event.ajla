@@ -480,12 +480,12 @@ fn event_get_xterm_mouse(implicit w : world, ctx : kbd_context, mb mx my mm : in
 
 	if mm = -1 then [
 	] else if mm = 0 then [
+		claim buttons >= 0;
 		buttons := ctx.last_mouse_buttons and not buttons;
 	] else [
 		buttons := ctx.last_mouse_buttons or buttons;
 	]
 
-	assume buttons >= 0;
 	xm.buttons := buttons;
 	xm.prev_buttons := ctx.last_mouse_buttons;
 
@@ -558,7 +558,6 @@ fn event_get_keyboard_loop(implicit w : world, ctx : kbd_context, b : bytes) : b
 				if xk is j then [
 					if xk.j.key <> key_esc then [
 						var flags := xk.j.flags or key_flag_alt;
-						assume flags >= 0;
 						xk.j.flags := flags;
 					]
 					//return [ event.keyboard.(xk.j) ] + event_get_keyboard_lazy(ctx, b[i .. ]);
@@ -573,7 +572,6 @@ fn event_get_keyboard_loop(implicit w : world, ctx : kbd_context, b : bytes) : b
 					xk := maybe(event_keyboard).j.(event_keyboard.[ key : uc[0], flags : 0, rep : 1 ]);
 					if start = 1 then [
 						var flags := xk.j.flags or key_flag_alt;
-						assume flags >= 0;
 						xk.j.flags := flags;
 					]
 					msgqueue_send(ctx.q, ev_tag_key, event.keyboard.(xk.j));
@@ -842,14 +840,14 @@ fn event_get_mouse~normal(implicit w : world, h : handle, q : msgqueue(event)) :
 
 	var b := read_lazy(s);
 
-	var button_state := 0;
+	var button_state : nat := 0;
 
 	while len_at_least(b, 28) do [
 		xeval b[ .. 28];
 		var x := native_to_int(native.short, b[8 .. 10]) - 1;
 		var y := native_to_int(native.short, b[10 .. 12]) - 1;
 		var etype := native_to_int(native.integer, b[12 .. 16]);
-		var buttons := 0;
+		var buttons : nat := 0;
 		var gpmb := b[0];
 		if gpmb bt 0 then buttons bts= 1;
 		if gpmb bt 1 then buttons bts= 2;
@@ -863,8 +861,6 @@ fn event_get_mouse~normal(implicit w : world, h : handle, q : msgqueue(event)) :
 			new_button_state and= not buttons;
 		var wx := -native_to_int(native.short, b[24 .. 26]);
 		var wy := -native_to_int(native.short, b[26 .. 28]);
-		assume button_state >= 0;
-		assume new_button_state >= 0;
 		var ev := event_mouse.[ x : x, y : y, prev_buttons : button_state, buttons : new_button_state, wx : wx, wy : wy, soft_cursor : true ];
 
 		mouse := send_mouse_event(mouse, q, ev);
