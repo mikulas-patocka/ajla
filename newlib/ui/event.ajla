@@ -233,7 +233,7 @@ fn os2_vkmap : array(char, [#100])
 	return a;
 ]
 
-fn os2_ctrlmap(p : console_packet) : int
+fn os2_ctrlmap(p : console_packet) : nat
 [
 	var result := 0;
 	var p3 := p[3];
@@ -304,7 +304,7 @@ fn dos_vkmap : array(char, [#100])
 	return a;
 ]
 
-fn dos_ctrlmap(p : console_packet) : int
+fn dos_ctrlmap(p : console_packet) : nat
 [
 	var result := 0;
 	if p[2] = #00 or p[2] = #e0 then [
@@ -373,7 +373,7 @@ fn win32_vkmap : array(char, [#100])
 	return a;
 ]
 
-fn win32_ctrlmap(p : console_packet) : int
+fn win32_ctrlmap(p : console_packet) : nat
 [
 	var result := 0;
 	var p3 := p[3];
@@ -600,7 +600,7 @@ fn kbd_add_mapping(ctx : kbd_context, str : bytes, ev : event_keyboard) : kbd_co
 	return ctx;
 ]
 
-fn do_packet_console(implicit w : world, h : handle, q : msgqueue(event), os : int, vkmap : list(char), ctrlmap : fn (console_packet) : int) : bottom_type
+fn do_packet_console(implicit w : world, h : handle, q : msgqueue(event), os : int, vkmap : list(char), ctrlmap : fn (console_packet) : nat) : bottom_type
 [
 	var mouse := new_mouse_context;
 	var cached_cp := -1;
@@ -610,7 +610,7 @@ fn do_packet_console(implicit w : world, h : handle, q : msgqueue(event), os : i
 		//xeval debug("got packet: " + ntos(packet[0]) + ", " + ntos(packet[1]) + ", " + ntos(packet[2]) + ", " + ntos(packet[3]) + ", " + ntos(packet[4]));
 		if packet[0] = 1 then [
 			var key : char;
-			var flags : int := ctrlmap(packet);
+			var flags : nat := ctrlmap(packet);
 			if os = SystemProperty_OS_DOS or os = SystemProperty_OS_OS2 then [
 				if packet[1] = 224 and packet[2] = 13 then [
 					key := key_enter;
@@ -650,7 +650,6 @@ prefer_char:
 			]
 			//eval debug("key=" + ntos(key) + ",flags=" + ntos(flags));
 have_key:
-			assume flags >= 0;
 			var ev := event.keyboard.(event_keyboard.[ key : key, flags : flags, rep : 1 ] );
 			msgqueue_send(q, ev_tag_key, ev);
 		] else if packet[0] = 2 then [
