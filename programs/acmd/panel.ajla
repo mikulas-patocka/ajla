@@ -708,7 +708,7 @@ fn panel_process_event_key(implicit w : world, implicit app : appstate, implicit
 	if k.key = key_insert then [
 		if k.rep = 0 then
 			return action.none;
-		var marked : int := st.marked;
+		var marked : int128 := st.marked;
 		for i := 0 to k.rep do [
 			if can_be_marked(st.selected) then
 				marked btc= st.selected;
