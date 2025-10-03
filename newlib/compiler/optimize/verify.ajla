@@ -1040,8 +1040,6 @@ fn verify_function(ctx : context) : unit_type
 	z3_eval_noret(ctx, "(define-fun-rec int-bts ((x Int) (y Int) (unint Int)) Int (ite (< y 0) unint (ite (int-bt x y false) x (+ x (to_int (^ 2 y))))))");
 	z3_eval_noret(ctx, "(define-fun-rec int-btr ((x Int) (y Int) (unint Int)) Int (ite (< y 0) unint (ite (int-bt x y false) (- x (to_int (^ 2 y))) x)))");
 	z3_eval_noret(ctx, "(define-fun-rec int-btc ((x Int) (y Int) (unint Int)) Int (ite (< y 0) unint (ite (int-bt x y false) (- x (to_int (^ 2 y))) (+ x (to_int (^ 2 y))))))");
-	z3_eval_noret(ctx, "(declare-fun int-bsf (Int) Int)");
-	z3_eval_noret(ctx, "(declare-fun int-bsr (Int) Int)");
 	z3_eval_noret(ctx, "(define-fun-rec int-bsf ((x Int) (unint Int)) Int (ite (= x 0) unint (ite (= (rem x 2) 1) 0 (+ 1 (int-bsf (div x 2) unint)))))");
 	z3_eval_noret(ctx, "(define-fun-rec int-bsr ((x Int) (unint Int)) Int (ite (<= x 0) unint (ite (= x 1) 0 (+ 1 (int-bsr (div x 2) unint)))))");
 	z3_eval_noret(ctx, "(define-fun-rec int-popcnt ((x Int) (unint Int)) Int (ite (< x 0) unint (ite (= x 0) 0 (+ (rem x 2) (int-popcnt (div x 2) unint)))))");
