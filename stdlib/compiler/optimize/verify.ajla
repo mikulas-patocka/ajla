@@ -320,8 +320,8 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 		else if op = Bin_Bt		then [ str := "int-bt"; unint := true; ]
 		else if op = Un_Not		then str := "int-not";
 		else if op = Un_Neg		then str := "-";
-		else if op = Un_Bsf		then str := "int-bsf";
-		else if op = Un_Bsr		then str := "int-bsr";
+		else if op = Un_Bsf		then [ str := "int-bsf"; unint := true; ]
+		else if op = Un_Bsr		then [ str := "int-bsr"; unint := true; ]
 		else if op = Un_Popcnt		then [ str := "int-popcnt"; unint := true; ]
 		else if op = Un_ConvertToInt	then str := "+";
 		else if op = Un_ConvertFromInt	then str := "+";
@@ -1042,6 +1042,8 @@ fn verify_function(ctx : context) : unit_type
 	z3_eval_noret(ctx, "(define-fun-rec int-btc ((x Int) (y Int) (unint Int)) Int (ite (< y 0) unint (ite (int-bt x y false) (- x (to_int (^ 2 y))) (+ x (to_int (^ 2 y))))))");
 	z3_eval_noret(ctx, "(declare-fun int-bsf (Int) Int)");
 	z3_eval_noret(ctx, "(declare-fun int-bsr (Int) Int)");
+	z3_eval_noret(ctx, "(define-fun-rec int-bsf ((x Int) (unint Int)) Int (ite (= x 0) unint (ite (= (rem x 2) 1) 0 (+ 1 (int-bsf (div x 2) unint)))))");
+	z3_eval_noret(ctx, "(define-fun-rec int-bsr ((x Int) (unint Int)) Int (ite (<= x 0) unint (ite (= x 1) 0 (+ 1 (int-bsr (div x 2) unint)))))");
 	z3_eval_noret(ctx, "(define-fun-rec int-popcnt ((x Int) (unint Int)) Int (ite (< x 0) unint (ite (= x 0) 0 (+ (rem x 2) (int-popcnt (div x 2) unint)))))");
 
 	z3_eval_noret(ctx, "(define-fun real-to-int ((x Real)) Int (ite (>= x 0) (to_int x) (- (to_int (- x)))))");
@@ -1243,8 +1245,10 @@ fn verify_function(ctx : context) : unit_type
 			z3_eval_noret(ctx, "(assert (forall ((x Int) (y Int) (z Int)) (! (= (< x 0) (< (int-bts x y z) 0)) :pattern ((int-bts x y z)))))");
 			z3_eval_noret(ctx, "(assert (forall ((x Int) (y Int) (z Int)) (! (= (< x 0) (< (int-btr x y z) 0)) :pattern ((int-btr x y z)))))");
 			z3_eval_noret(ctx, "(assert (forall ((x Int) (y Int) (z Int)) (! (= (< x 0) (< (int-btc x y z) 0)) :pattern ((int-btc x y z)))))");
-			z3_eval_noret(ctx, "(assert (forall ((x Int)) (=> (> x 0) (and (>= (int-bsf x) 0) (>= x (to_int (^ 2 (int-bsf x))))))))");
-			z3_eval_noret(ctx, "(assert (forall ((x Int)) (=> (> x 0) (and (>= (int-bsr x) 0) (>= x (to_int (^ 2 (int-bsr x))))))))");
+			z3_eval_noret(ctx, "(assert (forall ((x Int) (y Int)) (! (=> (distinct x 0) (>= (int-bsf x y) 0)) :pattern ((int-bsf x y)))))");
+			z3_eval_noret(ctx, "(assert (forall ((x Int) (y Int)) (! (=> (> x 0) (>= (int-bsr x y) 0)) :pattern ((int-bsr x y)))))");
+			z3_eval_noret(ctx, "(assert (forall ((x Int) (y Int)) (! (=> (> x 0) (<= (to_int (^ 2 (int-bsf x y))) x)) :pattern ((int-bsf x y)))))");
+			z3_eval_noret(ctx, "(assert (forall ((x Int) (y Int)) (! (=> (> x 0) (<= (to_int (^ 2 (int-bsr x y))) x)) :pattern ((int-bsr x y)))))");
 			break;
 		]
 	]
