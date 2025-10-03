@@ -708,13 +708,12 @@ fn panel_process_event_key(implicit w : world, implicit app : appstate, implicit
 	if k.key = key_insert then [
 		if k.rep = 0 then
 			return action.none;
-		var marked : int128 := st.marked;
+		var marked := st.marked;
 		for i := 0 to k.rep do [
 			if can_be_marked(st.selected) then
 				marked btc= st.selected;
 			st.selected := min(st.selected + 1, len(st.files) - 1);
 		]
-		assume marked >= 0;
 		assume marked < 1 shl len(st.files);
 		st.marked := marked;
 		if k.rep > 1 then
@@ -749,14 +748,15 @@ fn panel_process_event_mouse(implicit w : world, implicit app : appstate, implic
 				if st.mouse_marking <> 0 then [
 					var idx_from := min(st.mouse_marking_start, st_sel);
 					var idx_to := max(st.mouse_marking_start, st_sel);
-					var z : int128 := 0;
-					var mask := (z bts idx_to + 1) - (z bts idx_from);
+					var z : nat128 := 0;
+					var mask : int128 := (z bts idx_to + 1) - (z bts idx_from);
 					var marked : int128 := st.marked;
 					if st.mouse_marking = 1 then
 						marked or= mask;
 					else if st.mouse_marking = -1 then
 						marked and= not mask;
-					assume marked >= 0 and marked < ipower(2, len(st.files));
+					assume marked >= 0;
+					assume marked < ipower(2, len(st.files));
 					st.marked := marked;
 					redraw_all := true;
 				]
@@ -810,7 +810,7 @@ fn panel_process_event_property_1(implicit w : world, implicit app : appstate, i
 			if st.files[i].tgttyp <> stat_type_directory then
 				marked btc= i;
 		]
-		assume marked >= 0 and marked < 1 shl len(st.files);
+		assume marked < 1 shl len(st.files);
 		st.marked := marked;
 		return action.redraw_all;
 	]
@@ -819,7 +819,7 @@ fn panel_process_event_property_1(implicit w : world, implicit app : appstate, i
 		var files_only := property_get("select-flags").i bt select_flag_files_only;
 		var case_sensitive := property_get("select-flags").i bt select_flag_case_sensitive;
 		var pattern := property_get("select-string").s;
-		var marked : int128 := st.marked;
+		var marked := st.marked;
 		for i := 0 to len(st.files) do [
 			if not can_be_marked(i) then
 				continue;
@@ -833,7 +833,7 @@ fn panel_process_event_property_1(implicit w : world, implicit app : appstate, i
 					marked btr= i;
 			]
 		]
-		assume marked >= 0 and marked < ipower(2, len(st.files));
+		assume marked < ipower(2, len(st.files));
 		st.marked := marked;
 		return action.redraw_all;
 	]
