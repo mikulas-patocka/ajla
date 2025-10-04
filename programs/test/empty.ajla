@@ -16,7 +16,7 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  *}
 
-fn main(implicit w : world, d : dhandle, h : list(handle), args : list(bytes), env : treemap(bytes, bytes)) : world
+fn main
 [
 	return;
 ]

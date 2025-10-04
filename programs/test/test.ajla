@@ -337,7 +337,7 @@ fn eval_fixed_number(implicit w : world, implicit h : handle, t : type, implicit
 	return p;
 ]
 
-fn main(implicit w : world, d : dhandle, h : list(handle), args : list(bytes), env : treemap(bytes, bytes)) : world
+fn main
 [
 	implicit var p := prng_init(0);
 	var limit := 1000000000000000000;

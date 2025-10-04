@@ -861,7 +861,6 @@ fn list_map(t u : type, lst : list(t), m~spec : fn(t) : u) : list(u)
 	var c1 c2 : uint32;
 	pcode Read_Clock =c1;
 	for i : nat := 0 to l do [
-		result +<= m(lst[i]);
 		pcode Read_Clock =c2;
 		if c2 - c1 >= 2, i >= 1 then [
 			var step := i;
@@ -873,6 +872,7 @@ fn list_map(t u : type, lst : list(t), m~spec : fn(t) : u) : list(u)
 			result += list_map_par~spark(lst[pos .. l], m);
 			goto ret;
 		]
+		result +<= m(lst[i]);
 	]
 ret:
 	if len_greater_than(lst, l) then
