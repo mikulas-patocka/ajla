@@ -1209,10 +1209,30 @@ int_instance(int128);
  ------------------}
 
 define nat_instance [
-fn @1_add~inline(i1 i2 : @1) : @1 := i1 + i2;
-fn @1_zero~inline : @1 := 0;
-fn @1_equal~inline(i1 i2 : @1) : bool := i1 = i2;
-fn @1_less~inline(i1 i2 : @1) : bool := i1 < i2;
+fn @1_add~inline(i1 i2 : @1) : @1
+[
+	var r : @1;
+	pcode BinaryOp Bin_Add =r 0 i1 0 i2;
+	return r;
+]
+fn @1_zero~inline : @1
+[
+	var r : @1;
+	pcode Load_Const =r 0;
+	return r;
+]
+fn @1_equal~inline(i1 i2 : @1) : bool
+[
+	var r : bool;
+	pcode BinaryOp Bin_Equal =r 0 i1 0 i2;
+	return r;
+]
+fn @1_less~inline(i1 i2 : @1) : bool
+[
+	var r : bool;
+	pcode BinaryOp Bin_Less =r 0 i1 0 i2;
+	return r;
+]
 implicit fn instance_monoid_@1~inline : class_monoid(@1) :=
 	class_monoid(@1).[
 		add : @1_add,
