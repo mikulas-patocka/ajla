@@ -1147,7 +1147,7 @@ fn curses_load_buffer~inline(implicit curs : curses, x y : nat, prereq x < curs.
 	if curs.mouse_visible, y = curs.mouse_y then
 		if x = curs.mouse_x then
 			goto flip;
-		else if x = curs.mouse_x - 1, (n.attrib and curses_left_wide) <> 0, is_valid_pair(x, y) then
+		else if curs.mouse_x - 1 = x, (n.attrib and curses_left_wide) <> 0, is_valid_pair(x, y) then
 			goto flip;
 	return n;
 flip:

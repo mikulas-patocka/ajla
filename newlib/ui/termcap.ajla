@@ -633,9 +633,10 @@ fn get_termcap_entry(tce : termcap_entry, lines : list(bytes), term : bytes) : t
 				if entry[0] >= #80 or entry[1] >= #80 then
 					continue;
 				var key := 128 * entry[0] + entry[1];
-				var val := term_caps[key];
-				if val < 0 then
+				var va := term_caps[key];
+				if va < 0 then
 					continue;
+				var val : nat := va;
 				if len(entry) = 3, entry[2] = '@' then [
 					if val < tc_b_num then [
 						tce.tc_bool[val] := false;
@@ -646,7 +647,7 @@ fn get_termcap_entry(tce : termcap_entry, lines : list(bytes), term : bytes) : t
 						continue;
 					]
 					if val < tc_b_num + tc_n_num + tc_s_num then [
-						tce.tc_string[val - tc_b_num - tc_n_num] := bytes.[ 0 ];
+						tce.tc_string[val - (tc_b_num + tc_n_num)] := bytes.[ 0 ];
 						continue;
 					]
 				] else [
@@ -668,7 +669,7 @@ fn get_termcap_entry(tce : termcap_entry, lines : list(bytes), term : bytes) : t
 							continue;
 						if entry[2] <> '=' then
 							continue;
-						tce.tc_string[val - tc_b_num - tc_n_num] := termcap_decode_escapes(entry[3 .. ]);
+						tce.tc_string[val - (tc_b_num + tc_n_num)] := termcap_decode_escapes(entry[3 .. ]);
 						continue;
 					]
 				]

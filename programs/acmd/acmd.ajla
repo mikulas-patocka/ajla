@@ -420,7 +420,7 @@ fn acmd_menu_drive(implicit st : acmd_state, mp : list(bytes), panel : finite(2)
 	panel := p;
 	var cwd := widget_get_property(st.panels[panel], "cwd").b;
 	var init : nat := 0;
-	var init_len := 0;
+	var init_len : nat := 0;
 	var entries := empty(vselect_entry);
 	for i := 0 to len(mp) do [
 		var mpi := mp[i];

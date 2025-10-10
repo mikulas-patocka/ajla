@@ -499,7 +499,7 @@ fn classify_character(code : char) : int
 	var start : nat := 0;
 	var end : nat := len(table) shr 1;
 
-	while start < end - 1 invariant start < len(table) shr 1 and end <= len(table) shr 1 do [
+	while end - 1 > start invariant start < len(table) shr 1 and end <= len(table) shr 1 do [
 		var mid := start + end shr 1;
 		if table[mid shl 1] > code then [
 			end := mid;

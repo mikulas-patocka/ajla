@@ -153,7 +153,7 @@ fn get_size(size : int, space : int) : bytes
 next:
 	invariant idx < len(suffixes);
 	var str := ntos(size) + suffixes[idx];
-	if len(str) > space, idx + 1 < len(suffixes), size >= 1000 then [
+	if space < len(str), idx + 1 < len(suffixes), size >= 1000 then [
 		size div= 1000;
 		idx += 1;
 		goto next;
@@ -265,7 +265,7 @@ fn panel_scan_async(implicit w : world, implicit app : appstate, implicit st : p
 	]
 	if not path_is_root(st.cwd) or len(ls) = 0 then
 		ls := [".."] + ls;
-	for i := 0 to len(ls) invariant len(files) = i do [
+	for i : nat := 0 to len(ls) invariant len(files) = i do [
 		old_w := w;
 		var st1 := lstat(d, ls[i], stat_flag_inode or stat_flag_type or stat_flag_size or stat_flag_atime or stat_flag_mtime or stat_flag_ctime);
 		var inode := st1[0];
@@ -326,7 +326,7 @@ fn panel_scan_finish(implicit w : world, implicit app : appstate, implicit st : 
 	st.view_offset := 0;
 	st.selected := 0;
 	st.marked := 0;
-	claim len(st.async_files) >= 1;
+	claim 1 <= len(st.async_files);
 	st.files := st.async_files;
 	st.freespace := st.async_freespace;
 	if is_exception st.async_error then
@@ -455,7 +455,7 @@ fn panel_get_property(app : appstate, com : widget_common, st : panel_state, pro
 		] else [
 			var m := st.marked;
 			while m <> 0 invariant m <= st.marked do [
-				var i : int := bsf m;
+				var i : nat := bsf m;
 				m btr= i;
 				r += quote_file(st.files[i].name);
 				r += ` `;
@@ -734,8 +734,8 @@ fn panel_process_event_mouse(implicit w : world, implicit app : appstate, implic
 [
 	var redraw_all := false;
 	var m := wev.mouse;
-	st.selected := max(min(st.selected + m.wy * 5, len(st.files) - 1), 0);
-	st.view_offset := max(min(st.view_offset + m.wy * 5, len(st.files) - 1), 0);
+	st.selected := max(min(m.wy * 5 + st.selected, len(st.files) - 1), 0);
+	st.view_offset := max(min(m.wy * 5 + st.view_offset, len(st.files) - 1), 0);
 	var mx, my := widget_relative_mouse_coords(com.self, wev.mouse);
 	if m.buttons <> 0 then [
 		if my >= 1, my < com.size_y - 3 then [

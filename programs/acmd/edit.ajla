@@ -438,7 +438,7 @@ fn edit_column_to_offset(st : edit_state, col : int) : (r : nat, contract r <= l
 		] else [
 			xcol += char_length(c);
 		]
-		if xcol > col then
+		if col < xcol then
 			return i;
 	]
 	return len(ln);
@@ -528,7 +528,7 @@ fn edit_process_event(implicit w : world, implicit app : appstate, implicit com 
 				if sty = 0 then
 					break;
 				sty -= 1;
-				stx := len(st.lines[sty]) + 1 + stx;
+				stx := stx + len(st.lines[sty]) + 1;
 			]
 			stx := max(stx, 0);
 			st.x, st.y := stx, sty;
@@ -679,7 +679,7 @@ fn edit_process_event(implicit w : world, implicit app : appstate, implicit com 
 	if wev is mouse then [
 		var m := wev.mouse;
 		if m.wy <> 0 then [
-			st.yview := min(max(st.yview + m.wy * 5, 0), len(st.lines) - 1);
+			st.yview := min(max(m.wy * 5 + st.yview, 0), len(st.lines) - 1);
 			if st.y < st.yview then [
 				st.x := 0;
 				st.y := st.yview;
@@ -702,7 +702,7 @@ fn edit_process_event(implicit w : world, implicit app : appstate, implicit com 
 				y := len(st.lines) - 1;
 			st.x := 0;
 			st.y := y;
-			st.x := edit_column_to_offset(st, st.xview + mx);
+			st.x := edit_column_to_offset(st, mx + st.xview);
 		]
 		goto set_view;
 	]

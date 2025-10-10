@@ -283,7 +283,7 @@ fn view_get_line_hex(implicit as : view_async_state, b : bytes, file_pos : nat) 
 	var lline := ascii_to_string(list_left_pad(xpos, 8, '0'));
 	var rline := ``;
 	var i : nat := 0;
-	var uni_pos := 0;
+	var uni_pos : nat := 0;
 	var skip_next_byte := false;
 	var highlight_map := 0;
 	var highlight_map_2 := 0;
@@ -372,7 +372,7 @@ fn view_get_line(implicit as : view_async_state, b : bytes, file_pos : nat, wrap
 		if c = 9 then [
 			var n := 8 - (line_pos and 7);
 			assume n > 0 and n <= 8;
-			if wrap, line_pos > 0, line_pos + n > as.size_x then
+			if wrap, line_pos > 0, as.size_x < line_pos + n then
 				break;
 			line_out += list_repeat(` `, n);
 			line_pos += n;
@@ -397,7 +397,7 @@ fn view_get_line(implicit as : view_async_state, b : bytes, file_pos : nat, wrap
 		var cl := char_length(c);
 		if cl = 0 then
 			goto next_ch;
-		if wrap, line_pos > 0, line_pos + cl > as.size_x then
+		if wrap, line_pos > 0, as.size_x < line_pos + cl then
 			break;
 		if as.highlight_len <> 0 then [
 			if file_pos + bytes_processed >= as.highlight_pos, file_pos + bytes_processed + i <= as.highlight_pos + as.highlight_len then
@@ -680,7 +680,7 @@ fn view_do_find_line(implicit as : view_async_state) : view_async_state
 	var n_lines := as.lines_offset;
 	as.lines_offset := 0;
 	if as.hex, not as.lines_offset_goto_line then [
-		var pos := as.file_pos + n_lines * as.hex_chars;
+		var pos := n_lines * as.hex_chars + as.file_pos;
 		pos += as.x_offset;
 		as.x_offset := 0;
 		if pos > as.b_size then
@@ -786,7 +786,7 @@ re_format:
 	var result := empty(string);
 	var result_hi := empty(int);
 
-	while len_greater_than(b, 0), len(result) < as.size_y - 1 do [
+	while len_greater_than(b, 0), as.size_y - 1 > len(result) do [
 		var line_out : string;
 		var highlight_map : int;
 		line_out, highlight_map, b, file_pos := view_get_line(b, file_pos, as.wrap, true);
@@ -794,7 +794,7 @@ re_format:
 		result_hi +<= highlight_map;
 	]
 
-	if len(result) < as.size_y - 1, as.file_pos > 0 then [
+	if as.size_y - 1 > len(result), as.file_pos > 0 then [
 		as.lines_offset := -(as.size_y - 1 - len(result));
 		view_do_find_line();
 		goto re_format;
