@@ -25,6 +25,8 @@ const predefined_bytes := 1;
 const predefined_char := 2;
 const predefined_string := 3;
 const predefined_list := 4;
+const predefined_is_positive := 5;
+const predefined_nat := 6;
 const predefined_xarray := 7;
 
 fn type_is_flat(t : int) := t <= T_SInt8 and t >= T_Bool;

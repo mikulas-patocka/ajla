@@ -280,6 +280,27 @@ retry:
 	return ctx2, l2;
 ]
 
+fn is_nat(inv : list(compare_argument)) : bool
+[
+	if len(inv) <> 1 then
+		return false;
+	var fid := inv[0].cc.ctx.id;
+	var r := fid.path_index = 0 and fid.unit_string = i_encode("system") and not fid.program and fid.function_index = [ predefined_nat ];
+	if r then
+		return true;
+	var instr := get_defined_maybe(inv[0].cc, inv[0].idx);
+	if instr is n then
+		return false;
+	if instr.j.opcode = P_Call then [
+		fid := pcode_Call_get_unique_id(instr.j);
+		r := fid.path_index = 0 and fid.unit_string = i_encode("system") and not fid.program and fid.function_index = [ predefined_is_positive ];
+		if r then
+			return true;
+	]
+	//eval debug("opcode: " + ntos(instr.j.opcode) + ", fid: " + i_decode(inv[0].cc.ctx.name) + ", " + ntos(fid.path_index) + ", " + i_decode(fid.unit_string) + ", " + ntos(fid.function_index[0]));
+	return false;
+]
+
 fn try_process_direct_function(ctx : function_context, vd : variable_dictionary, fd : function_definition, call_mode : int, pp : list(int), pflags : list(int), arg_shift : int, r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
 [
 	var infer_bmp : int;
@@ -355,9 +376,15 @@ retry:
 
 	var op_bypass := fd.op_bypass;
 	if op_bypass >= 0 then [
+		var strip_bmp := 0;
 		var cc, typ := get_deep_type_of_var(ctx, p[2]);
 		var inv : list(compare_argument);
 		cc, typ, inv := get_type_invariants(ctx, cc, typ);
+		if len_greater_than(inv, 0) then [
+			if not is_nat(inv) then
+				goto skip_bypass;
+			strip_bmp bts= 2;
+		]
 		if typ = T_Bool then [
 			if op_bypass <> Bin_And and
 			   op_bypass <> Bin_Or and
@@ -396,24 +423,29 @@ retry:
 		] else [
 			goto skip_bypass;
 		]
-		var strip_bmp := 0;
-		if len_greater_than(inv, 0) then
-			strip_bmp bts= 2;
 		if fd.signature.n_arguments = 4 then [
 			var cc2, typ2 := get_deep_type_of_var(ctx, p[3]);
 			var inv2 : list(compare_argument);
 			cc2, typ2, inv2 := get_type_invariants(ctx, cc2, typ2);
-			if len_greater_than(inv2, 0) then
-				strip_bmp bts=3;
+			if len_greater_than(inv2, 0) then [
+				if not is_nat(inv2) then
+					goto skip_bypass;
+				strip_bmp bts= 3;
+			]
 		]
 		if strip_bmp <> 0 then [
 			if typ >= T_Integer128 and typ <= T_Integer,
-			   op_bypass = Bin_Add or op_bypass >= Bin_Equal and op_bypass <= Bin_GreaterEqual then
-				goto skip_bypass;
+			   op_bypass = Bin_Add or op_bypass >= Bin_Equal and op_bypass <= Bin_GreaterEqual,
+			   strip_bmp = 4 then [
+				ctx := generate_assumes_or_claims(ctx, p[3], inv, true, t);
+				typ := get_type_of_var(ctx, p[2]);
+				goto do_op;
+			]
 			ctx := ctx_backup;
 			ctx, pp := strip_invariants(ctx, pp, inferred_args, strip_bmp, t);
 			goto retry_after_stripping;
 		]
+do_op:
 		//eval debug("doing op bypass: " + i_decode(fd.signature.name) + ", " + ntos(op_bypass) + ", " + ntos(len(p)));
 		var rtype := typ;
 		if op_bypass = Bin_Bt or
