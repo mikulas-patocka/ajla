@@ -278,6 +278,14 @@ fn generate_Curry(ctx : function_context, cc : compare_context, typ : int, fnx :
 	ctx, fn_def := alloc_local_variable(ctx, T_Type, false, false);
 
 	var type_args := fill(T_InvalidType, n_args + n_return_values);
+	var cf := [
+		compare_fn_stack.[
+			cc : new_compare_context(ctx),
+			main_def : fn_def,
+			dest_def : fn_def,
+			dest_types : empty(int),
+		]
+	];
 
 	for i := provided_args to n_args + n_return_values do [
 		var type_arg_idx : int;
@@ -287,8 +295,9 @@ fn generate_Curry(ctx : function_context, cc : compare_context, typ : int, fnx :
 			type_arg_idx := pcode_Fn_get_return_value(instr, i - n_args);
 		]
 		var tp : int;
-		ctx, tp := evaluate_type(ctx, cc, type_arg_idx, empty(compare_fn_stack), t);
+		ctx, tp := evaluate_type(ctx, cc, type_arg_idx, cf, t);
 		type_args[i] := tp;
+		cf[0].dest_types +<= tp;
 
 		var l : int;
 		ctx, l := alloc_local_variable(ctx, tp, true, false);
