@@ -184,11 +184,20 @@ fn generate_Load_Fn(ctx : function_context, fd : function_definition, t : tokens
 	var cc := new_compare_context_from_function(fd.signature);
 
 	var args := fill(T_InvalidType, fd.signature.n_arguments + fd.signature.n_return_values);
+	var cf := [
+		compare_fn_stack.[
+			cc : new_compare_context(ctx),
+			main_def : fn_def,
+			dest_def : fn_def,
+			dest_types : empty(int),
+		]
+	];
 
 	for i := 0 to fd.signature.n_arguments + fd.signature.n_return_values do [
 		var typ : int;
-		ctx, typ := evaluate_type(ctx, cc, fd.signature.variables[i].type_idx, empty(compare_fn_stack), t);
+		ctx, typ := evaluate_type(ctx, cc, fd.signature.variables[i].type_idx, cf, t);
 		args[i] := typ;
+		cf[0].dest_types +<= typ;
 
 		var l : int;
 		ctx, l := alloc_local_variable(ctx, typ, true, false);
