@@ -238,7 +238,7 @@ next_flag:
 	return count;
 ]
 
-fn parse_function_header(dict : function_dictionary, parent_function : maybe(function_context), parent_vd : maybe(variable_dictionary), promoted_variables : list(promoted_variable), decl_type : token_opt, t : tokens, name : istring, op_mode : op_option, op_priority : int, cnst : bool) : (function_context, variable_dictionary)
+fn parse_function_header(def : function_definition, dict : function_dictionary, parent_function : maybe(function_context), parent_vd : maybe(variable_dictionary), promoted_variables : list(promoted_variable), decl_type : token_opt, t : tokens, name : istring, op_mode : op_option, op_priority : int, cnst : bool) : (function_context, variable_dictionary)
 [
 	var inferred_return := false;
 	var arguments : tokens;
@@ -287,6 +287,8 @@ fn parse_function_header(dict : function_dictionary, parent_function : maybe(fun
 	ctx.inferred_return := inferred_return;
 	ctx.op_mode := op_mode;
 	ctx.op_priority := op_priority;
+	if not is_uninitialized(def) then
+		ctx.id := def.signature.id;
 
 	ctx := generate_Args(ctx);
 
@@ -314,6 +316,7 @@ fn parse_function_header(dict : function_dictionary, parent_function : maybe(fun
 		ctx := generate_Assume(ctx, ctx.prereqs[i], true);
 
 	ctx.incomplete := false;
+	ctx.parsing_header := false;
 
 	return ctx, vd;
 ]
@@ -595,7 +598,7 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 			vd := def.vd;
 			//eval debug("implicit args 1: " + i_decode(name));
 		] else [
-			ctx, vd := parse_function_header(dict, maybe(function_context).n, maybe(variable_dictionary).n, empty(promoted_variable), decl_type, t[ .. b], name, op_mode, op_priority, cnst);
+			ctx, vd := parse_function_header(def, dict, maybe(function_context).n, maybe(variable_dictionary).n, empty(promoted_variable), decl_type, t[ .. b], name, op_mode, op_priority, cnst);
 		]
 	] else [
 		b := token_find(t, token_opt.assign, false);
@@ -605,9 +608,9 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 			//eval debug("implicit args 2: " + i_decode(name));
 		] else if b >= 0 then [
 			cnst := true;
-			ctx, vd := parse_function_header(dict, maybe(function_context).n, maybe(variable_dictionary).n, empty(promoted_variable), decl_type, t[ .. b], name, op_mode, op_priority, cnst);
+			ctx, vd := parse_function_header(def, dict, maybe(function_context).n, maybe(variable_dictionary).n, empty(promoted_variable), decl_type, t[ .. b], name, op_mode, op_priority, cnst);
 		] else [
-			ctx, vd := parse_function_header(dict, maybe(function_context).n, maybe(variable_dictionary).n, empty(promoted_variable), decl_type, t[ .. len(t) - 1], name, op_mode, op_priority, cnst);
+			ctx, vd := parse_function_header(def, dict, maybe(function_context).n, maybe(variable_dictionary).n, empty(promoted_variable), decl_type, t[ .. len(t) - 1], name, op_mode, op_priority, cnst);
 		]
 	]
 	ctx.novfy_flag or= novfy_flag;
@@ -663,6 +666,7 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 
 		ctx := def.signature;
 		ctx.incomplete := true;
+		ctx.def_offset := len(dict.defs);
 		ctx.dict := dict;
 		ctx.novfy_flag or= novfy_flag;
 
@@ -778,7 +782,7 @@ promote_again:
 	]
 
 again:
-	var ctx_head, vd := parse_function_header(ctx.dict, maybe(function_context).j.(ctx), maybe(variable_dictionary).j.(parent_vd), promoted_variables, token_opt.k_fn, t[ .. b], i_encode(fn_name), op_option.function, -1, false);
+	var ctx_head, vd := parse_function_header(uninitialized(function_definition), ctx.dict, maybe(function_context).j.(ctx), maybe(variable_dictionary).j.(parent_vd), promoted_variables, token_opt.k_fn, t[ .. b], i_encode(fn_name), op_option.function, -1, false);
 	if is_exception ctx_head, exception_type ctx_head = error_user2 then [
 		variable := i_encode(exception_payload ctx_head);
 		goto add_variable;

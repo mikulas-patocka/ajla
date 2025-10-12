@@ -135,6 +135,8 @@ record function_context [
 	list_of_used_labels : list(istring);
 
 	incomplete : bool;
+	parsing_header : bool;
+	def_offset : int;
 	inferred_return : bool;
 	name : istring;
 
@@ -445,6 +447,8 @@ fn new_function_context(dict : function_dictionary, parent_function : maybe(func
 		list_of_used_labels : empty(istring),
 
 		incomplete : true,
+		parsing_header : true,
+		def_offset : -1,
 		inferred_return : false,
 		name : name,
 
