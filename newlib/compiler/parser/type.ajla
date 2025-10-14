@@ -489,8 +489,10 @@ restart:
 		   body.id.path_index = ctx.id.path_index,
 		   body.id.unit_string = ctx.id.unit_string,
 		   body.id.program = ctx.id.program,
-		   body.def_offset >= ctx.id.function_index[0] then
+		   body.def_offset >= ctx.id.function_index[0] then [
+			//eval debug("de: " + i_decode(ctx.name) + ": " + ntos(body.def_offset) + ", " + ntos(ctx.id.function_index[0]));
 			return cc, typ;
+		]
 
 		var new_ctx := new_compare_context_from_function(body);
 		new_ctx.args := args;

@@ -634,6 +634,8 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 		// propagate the "const" flags from ctx
 		dict.defs[dict.dict[name]].signature.variables := ctx.variables;
 		def.signature.variables := ctx.variables;
+		if b <> -1 then
+			def.signature.def_offset := len(dict.defs);
 	] else [
 		//eval debug(i_decode(name) + " doesn't exist");
 		var op_bypass := -1;
@@ -658,6 +660,8 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 		]
 
 		dict, def := add_function(dict, name, ctx, vd, call_mode, op_bypass, op_bypass_reverse, private_flag, implicit_flag, conversion_flag);
+		if b <> -1 then
+			def.signature.def_offset := len(dict.defs) - 1;
 	]
 
 	if b <> -1 then [
@@ -666,7 +670,6 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 
 		ctx := def.signature;
 		ctx.incomplete := true;
-		ctx.def_offset := len(dict.defs);
 		ctx.dict := dict;
 		ctx.novfy_flag or= novfy_flag;
 
