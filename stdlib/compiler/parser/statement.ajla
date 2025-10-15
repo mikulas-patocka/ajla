@@ -62,6 +62,9 @@ record vardef [
 
 fn parse_statement_var(ctx : function_context, vd : variable_dictionary, cnst mut impl : bool, t : tokens) : (function_context, variable_dictionary)
 [
+	if not cnst then
+		ctx.is_pattern_matched := false;
+
 	var assign := token_find(t, token_opt.assign, false);
 	var vardecl : tokens;
 	if assign = -1 then
