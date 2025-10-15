@@ -452,7 +452,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				return ctx;
 			]
 		]
-		var new_name := "llt_"+num2str(ins.params[1])+"_"+ntos(ins.params[2]);
+		var new_name := "llt_"+num2str(ins.params[0])+"_"+num2str(ins.params[1])+"_"+ntos(ins.params[2]);
 		if not treeset_test(ctx.llt_defined, new_name) then [
 			ctx.llt_defined := treeset_set(ctx.llt_defined, new_name);
 			declare_variable(ctx, new_name, ctx.variables[v].runtime_type, empty(int));
