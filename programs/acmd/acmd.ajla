@@ -54,6 +54,8 @@ record acmd_state [
 	prompt : string;
 
 	last_key : event_keyboard;
+
+	initialized : bool;
 ] where len(panels) = 2;
 
 fn acmd_prompt_trunc(st : acmd_state, x : nat) : string
@@ -175,6 +177,8 @@ fn acmd_init(d : dhandle, h : list(handle), env : treemap(bytes, bytes), implici
 		panels : [ wid_none, wid_none ],
 
 		last_key : event_keyboard.[ key : 0, flags : 0, rep : 1 ],
+
+		initialized : false,
 	];
 
 	property_observe(id, "cwd");
@@ -753,12 +757,15 @@ fn acmd_main_menu(implicit w : world, implicit app : appstate, implicit com : wi
 fn acmd_process_event(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : acmd_state, wev : wevent) : (world, appstate, widget_common, acmd_state)
 [
 	if wev is resize then [
+		st.initialized := true;
 		com.size_x := wev.resize.x;
 		com.size_y := max(wev.resize.y - 1, 0);
 		widget_move(st.panels[0], 0, 0, com.size_x shr 1, max(com.size_y - 1, 0), 0, 0);
 		widget_move(st.panels[1], com.size_x shr 1, 0, max(com.size_x - (com.size_x shr 1), 0), max(com.size_y - 1, 0), 0, 0);
 	]
 	if wev is resize or wev is property_changed then [
+		if not st.initialized then
+			return;
 		st.prompt := shell_expand_prompt(st.ro, st.ps1, property_get("cwd").b);
 		var l := string_length(acmd_prompt_trunc(st, com.size_x));
 		widget_move(st.input, l, max(com.size_y - 1, 0), max(com.size_x - l, 0), 1, 0, 0);
