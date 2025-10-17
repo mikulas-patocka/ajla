@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -38,7 +38,7 @@
 
 #define feature_name		lq
 #define static_test_lq		0
-#define dynamic_test		trap_insn("e0810000")	/* lq */
+#define dynamic_test		(0 && trap_insn("e0810000"))	/* lq */
 #include "asm-1.inc"
 
 #define feature_name		v30
