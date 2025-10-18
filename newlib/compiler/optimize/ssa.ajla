@@ -2263,6 +2263,16 @@ fn liveness(ctx : context) : context
 			var read_mask := set_to_mask(instr, instr.read_set);
 			var write_mask := set_to_mask(instr, instr.write_set);
 
+			var wm := write_mask;
+			while wm <> 0 do [
+				var w : int := bsr wm;
+				wm btr= w;
+				if ctx.variables[w].color <> -1 then
+					goto used;
+			]
+			read_mask := 0;
+used:
+
 			live and= not write_mask;
 			live or= read_mask;
 
@@ -2378,6 +2388,7 @@ fn insert_free(ctx : context) : context
 				var bvar := instr2.params[0];
 				var post0 := block.post_list[0];
 				var post1 := block.post_list[1];
+				//if ctx.name = "i_encode" then eval debug("Bvar: " + ntos(bvar) + ", Opcode: " + ntos(instr1.opcode) + ", " + select(ctx.blocks[post0].live_top bt bvar, "false", "true") + ", " + select(ctx.blocks[post1].live_top bt bvar, "false", "true"));
 				if not ctx.blocks[post0].live_top bt bvar,
 				   not ctx.blocks[post1].live_top bt bvar then [
 					if instr1.opcode = P_BinaryOp, instr1.params[1] = bvar then [
