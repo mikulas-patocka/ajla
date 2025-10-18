@@ -469,7 +469,7 @@ static bool attr_w gen_upcall_argument(struct codegen_context attr_unused *ctx, 
 static bool attr_w gen_get_upcall_pointer(struct codegen_context *ctx, unsigned offset, unsigned op_size, unsigned reg)
 {
 	g(gen_address(ctx, R_UPCALL, offset, IMM_PURPOSE_LDR_OFFSET, op_size));
-	gen_insn(INSN_MOV, op_size, 0, 0);
+	gen_insn(ARCH_PREFERS_SX(op_size) ? INSN_MOVSX : INSN_MOV, op_size, 0, 0);
 	gen_one(reg);
 	gen_address_offset();
 
