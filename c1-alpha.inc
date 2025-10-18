@@ -492,10 +492,7 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 
 static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t escape_label)
 {
-	g(gen_address(ctx, R_UPCALL, offsetof(struct cg_upcall_vector_s, ts), IMM_PURPOSE_LDR_SX_OFFSET, OP_SIZE_4));
-	gen_insn(INSN_MOVSX, OP_SIZE_4, 0, 0);
-	gen_one(R_SCRATCH_1);
-	gen_address_offset();
+	g(gen_get_upcall_pointer(ctx, offsetof(struct cg_upcall_vector_s, ts), OP_SIZE_4, R_SCRATCH_1));
 
 #ifdef TIMESTAMP_IN_REGISTER
 	g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, R_SCRATCH_1, R_TIMESTAMP, COND_NE, escape_label));

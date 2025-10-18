@@ -415,10 +415,7 @@ static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsi
 
 static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t escape_label)
 {
-	g(gen_address(ctx, R_UPCALL, offsetof(struct cg_upcall_vector_s, ts), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_4));
-	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
-	gen_one(R_SCRATCH_1);
-	gen_address_offset();
+	g(gen_get_upcall_pointer(ctx, offsetof(struct cg_upcall_vector_s, ts), OP_SIZE_4, R_SCRATCH_1));
 
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
 	gen_one(R_SCRATCH_2);
