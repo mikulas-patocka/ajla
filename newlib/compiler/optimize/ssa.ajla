@@ -453,8 +453,7 @@ fn set_to_mask(ins : instruction, s : param_set) : var_set
 	while s <> 0 do [
 		var q : int := bsr s;
 		s btr= q;
-		if ins.params[q] >= 0 then
-			r bts= ins.params[q];
+		r bts= ins.params[q];
 	]
 	return r;
 ]
@@ -791,8 +790,13 @@ fn remap_instruction(ins : instruction, var_map : list(int), test_write : bool) 
 		var idx : int := bsr rs;
 		rs btr= idx;
 		var param := ins.params[idx];
-		if param >= 0 then
+		if param >= 0 then [
 			ins.params[idx] := var_map[param];
+			if var_map[param] < 0 then [
+				ins.read_set btr= idx;
+				ins.free_set btr= idx;
+			]
+		]
 	]
 	if test_write then [
 		var ws := ins.write_set;
@@ -1903,8 +1907,13 @@ fn remap_variables(ctx : context, old_new : list(int)) : context
 				var p : int := bsr s;
 				s btr= p;
 				var parm := ctx.instrs[igi].params[p];
-				if parm >= 0 then
+				if parm >= 0 then [
 					ctx.instrs[igi].params[p] := old_new[parm];
+					if old_new[parm] < 0 then [
+						ctx.instrs[igi].read_set btr= p;
+						ctx.instrs[igi].free_set btr= p;
+					]
+				]
 			]
 		]
 	]
