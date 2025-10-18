@@ -129,6 +129,8 @@ typedef uint64_t it;
 #define S390_AGHIK		0xec00000000d9ULL
 #define S390_ASI		0xeb000000006aULL
 #define S390_AGSI		0xeb000000007aULL
+#define S390_ALCR		0xb99800000000ULL
+#define S390_ALCGR		0xb98800000000ULL
 
 #define S390_SR			0x1b0000000000ULL
 #define S390_SRK		0xb9f900000000ULL
@@ -410,7 +412,7 @@ static const struct codes codes_alu[] = {
 static const struct codes codes_alu_log[] = {
 	{ S390_ALR, S390_ALRK, S390_AL, S390_ALY, S390_ALGR, S390_ALGRK, S390_ALG, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0 },
 	{ -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0 },
-	{ -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0 },
+	{ S390_ALCR, -1, -1, -1, S390_ALCGR, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0 },
 	{ -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0 },
 	{ -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0 },
 	{ S390_SLR, S390_SLRK, S390_SL, S390_SLY, S390_SLGR, S390_SLGRK, S390_SLG, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0 },
@@ -1214,7 +1216,7 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 	return true;
 invl:
 	/*debug("%s", da(ctx->fn,function)->function_name);*/
-	internal(file_line, "cgen_alu: invalid arguments %u, %u, %02x, %02x, %02x", size, alu, *arg1, *arg2, *arg3);
+	internal(file_line, "cgen_alu: invalid arguments %u, %u, %u, %02x, %02x, %02x", size, alu, writes_flags, *arg1, *arg2, *arg3);
 	return false;
 }
 

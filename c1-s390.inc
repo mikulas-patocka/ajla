@@ -36,7 +36,7 @@
 
 #define USE_BRCL			Z
 
-#define ALU_WRITES_FLAGS(size, alu, is_mem, is_imm, imm)	((alu) != ALU_MUL)
+#define ALU_WRITES_FLAGS(size, alu, is_mem, is_imm, imm)	((alu) == ALU_ADC ? 2 : (alu) == ALU_MUL ? 0 : 1)
 #define ALU1_WRITES_FLAGS(alu)		1
 #define ROT_WRITES_FLAGS(alu, size, im)	((alu) == ROT_SAR || (alu) == ROT_SAL)
 #define COND_IS_LOGICAL(cond)		((cond) == COND_B || (cond) == COND_AE || (cond) == COND_BE || (cond) == COND_A)

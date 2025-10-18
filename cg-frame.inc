@@ -752,6 +752,13 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned attr
 static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned size, bool logical, unsigned cond, frame_t slot)
 {
 	unsigned target = gen_frame_target(ctx, slot, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
+#if defined(ARCH_S390)
+	if (cond == COND_A || cond == COND_G) {
+		g(gen_load_constant(ctx, target, 0));
+		g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ADC, target, target, target, 0));
+		goto do_store;
+	}
+#endif
 	if (!(ARCH_HAS_CMOV & 0x1)) {
 		uint32_t label;
 		g(gen_load_constant(ctx, target, 1));
