@@ -656,8 +656,8 @@ static bool attr_w gen_cmp_test_imm_jmp_q_flags(struct codegen_context *ctx, uns
 			goto jmp_reg;
 		}
 #endif
-		g(gen_imm(ctx, value, IMM_PURPOSE_CMP, OP_SIZE_NATIVE));
-		gen_insn(INSN_CMP_DEST_REG, OP_SIZE_NATIVE, cond, 0);
+		g(gen_imm(ctx, value, IMM_PURPOSE_CMP, i_size_cmp(op_size)));
+		gen_insn(INSN_CMP_DEST_REG, i_size_cmp(op_size), cond, 0);
 		gen_one(R_CMP_RESULT);
 		gen_one(reg1);
 		gen_imm_offset();
