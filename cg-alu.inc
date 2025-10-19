@@ -21,6 +21,8 @@ static bool attr_w gen_copy(struct codegen_context *ctx, unsigned op_size, frame
 
 static bool attr_w gen_alu_upcall(struct codegen_context *ctx, size_t upcall, unsigned op_size, frame_t slot_1, frame_t slot_2, frame_t slot_r, uint32_t label_ovf)
 {
+	if (unlikely(frame_t_is_const(slot_1)))
+		internal(file_line, "gen_alu_upcall: the first argument is constant");
 	if (slot_is_register(ctx, slot_1))
 		g(spill(ctx, slot_1));
 	if (slot_2 != NO_FRAME_T && slot_is_register(ctx, slot_2))
@@ -1656,8 +1658,20 @@ do_generic_bt:
 	 * COMPARE *
 	 ***********/
 do_compare: {
+		frame_t attr_unused x1;
 #if defined(ARCH_S390)
-		bool swap;
+		if (!frame_t_is_const(slot_2) || op_size <= OP_SIZE_NATIVE) {
+			bool swap = false;
+			if (alu == COND_AE) alu = COND_BE, swap = true;
+			if (alu == COND_GE) alu = COND_LE, swap = true;
+			if (alu == COND_B) alu = COND_A, swap = true;
+			if (alu == COND_L) alu = COND_G, swap = true;
+			if (swap) {
+				x1 = slot_1;
+				slot_1 = slot_2;
+				slot_2 = x1;
+			}
+		}
 		if (!slot_is_register(ctx, slot_1) && !frame_t_is_const(slot_1) && (size_t)slot_1 * slot_size < 0x1000 &&
 		    !slot_is_register(ctx, slot_2) && !frame_t_is_const(slot_2) && (size_t)slot_2 * slot_size < 0x1000 &&
 		    (COND_IS_LOGICAL(alu) || alu == COND_E || alu == COND_NE)) {
@@ -1675,7 +1689,6 @@ do_compare: {
 #endif
 		if (unlikely(op_size > OP_SIZE_NATIVE)) {
 			size_t attr_unused upcall;
-			frame_t attr_unused swap;
 			switch (alu) {
 				case COND_E:
 				case COND_NE:
@@ -1701,7 +1714,7 @@ do_compare: {
 #if defined(ARCH_X86) || defined(ARCH_ARM)
 				case COND_G:
 				case COND_A:
-					swap = slot_1; slot_1 = slot_2; slot_2 = swap;
+					x1 = slot_1; slot_1 = slot_2; slot_2 = x1;
 					alu = alu == COND_G ? COND_L : COND_B;
 					/*-fallthrough*/
 				case COND_L:
@@ -1714,7 +1727,7 @@ do_compare: {
 					return true;
 				case COND_GE:
 				case COND_AE:
-					swap = slot_1; slot_1 = slot_2; slot_2 = swap;
+					x1 = slot_1; slot_1 = slot_2; slot_2 = x1;
 					alu = alu == COND_GE ? COND_LE : COND_BE;
 					/*-fallthrough*/
 				case COND_LE:
@@ -1746,18 +1759,6 @@ do_compare: {
 		g(gen_frame_get(ctx, op_size, garbage, slot_1, R_SCRATCH_1, &reg1));
 		g(gen_frame_load_cmp_set_cond(ctx, op_size, garbage, slot_2, reg1, alu, slot_r));
 #else
-#if defined(ARCH_S390)
-		swap = false;
-		if (alu == COND_AE) alu = COND_BE, swap = true;
-		if (alu == COND_GE) alu = COND_LE, swap = true;
-		if (alu == COND_B) alu = COND_A, swap = true;
-		if (alu == COND_L) alu = COND_G, swap = true;
-		if (swap) {
-			frame_t x1 = slot_1;
-			slot_1 = slot_2;
-			slot_2 = x1;
-		}
-#endif
 		g(gen_frame_get(ctx, op_size, op_size == i_size_cmp(op_size) + (unsigned)zero ? garbage : alu == COND_L || alu == COND_LE || alu == COND_G || alu == COND_GE || ARCH_PREFERS_SX(op_size) ? sign_x : zero_x, slot_1, R_SCRATCH_1, &reg1));
 		g(gen_frame_load_cmp_set_cond(ctx, op_size, alu == COND_L || alu == COND_LE || alu == COND_G || alu == COND_GE || ARCH_PREFERS_SX(op_size) ? sign_x : zero_x, slot_2, reg1, alu, slot_r));
 #endif
