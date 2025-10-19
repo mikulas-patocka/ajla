@@ -1657,6 +1657,7 @@ do_generic_bt:
 	 ***********/
 do_compare: {
 #if defined(ARCH_S390)
+		bool swap;
 		if (!slot_is_register(ctx, slot_1) && !frame_t_is_const(slot_1) && (size_t)slot_1 * slot_size < 0x1000 &&
 		    !slot_is_register(ctx, slot_2) && !frame_t_is_const(slot_2) && (size_t)slot_2 * slot_size < 0x1000 &&
 		    (COND_IS_LOGICAL(alu) || alu == COND_E || alu == COND_NE)) {
@@ -1745,6 +1746,18 @@ do_compare: {
 		g(gen_frame_get(ctx, op_size, garbage, slot_1, R_SCRATCH_1, &reg1));
 		g(gen_frame_load_cmp_set_cond(ctx, op_size, garbage, slot_2, reg1, alu, slot_r));
 #else
+#if defined(ARCH_S390)
+		swap = false;
+		if (alu == COND_AE) alu = COND_BE, swap = true;
+		if (alu == COND_GE) alu = COND_LE, swap = true;
+		if (alu == COND_B) alu = COND_A, swap = true;
+		if (alu == COND_L) alu = COND_G, swap = true;
+		if (swap) {
+			frame_t x1 = slot_1;
+			slot_1 = slot_2;
+			slot_2 = x1;
+		}
+#endif
 		g(gen_frame_get(ctx, op_size, op_size == i_size_cmp(op_size) + (unsigned)zero ? garbage : alu == COND_L || alu == COND_LE || alu == COND_G || alu == COND_GE || ARCH_PREFERS_SX(op_size) ? sign_x : zero_x, slot_1, R_SCRATCH_1, &reg1));
 		g(gen_frame_load_cmp_set_cond(ctx, op_size, alu == COND_L || alu == COND_LE || alu == COND_G || alu == COND_GE || ARCH_PREFERS_SX(op_size) ? sign_x : zero_x, slot_2, reg1, alu, slot_r));
 #endif
