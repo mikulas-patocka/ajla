@@ -2328,7 +2328,10 @@ static int8_t resolve_relocs(struct codegen_context *ctx)
 		if (!ctx->used_labels[reloc->label_id]) {
 			ctx->used_labels[reloc->label_id] = true;
 			status = RELOCS_RETRY;
+			continue;
 		}
+		if (ctx->label_to_pos[reloc->label_id] == (size_t)-1)
+			continue;
 #endif
 		if (!resolve_relocation(ctx, reloc)) {
 			uint8_t *jmp_instr;

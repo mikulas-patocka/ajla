@@ -1372,16 +1372,14 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_LABEL:
 			lbl = cget_four(ctx);
-			ctx->code_position -= 4;
 			if (ctx->used_labels[lbl]) {
+				ctx->code_position -= 4;
 				full = ia64_fill_bundle(ctx);
 				if (full)
 					ctx->mcode_size += 16;
 				g(cgen_label(ctx));
 				if (full)
 					ctx->mcode_size -= 16;
-			} else {
-				g(cgen_label(ctx));
 			}
 			return true;
 		case INSN_RET:
