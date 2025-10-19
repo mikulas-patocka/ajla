@@ -758,6 +758,11 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned size
 		g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ADC, target, target, target, 0));
 		goto do_store;
 	}
+	if (cond == COND_BE || cond == COND_LE) {
+		g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_SBB, target, target, target, 0));
+		g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_NEG, target, target, 0));
+		goto do_store;
+	}
 #endif
 	if (!(ARCH_HAS_CMOV & 0x1)) {
 		uint32_t label;

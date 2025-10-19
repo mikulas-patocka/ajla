@@ -129,8 +129,6 @@ typedef uint64_t it;
 #define S390_AGHIK		0xec00000000d9ULL
 #define S390_ASI		0xeb000000006aULL
 #define S390_AGSI		0xeb000000007aULL
-#define S390_ALCR		0xb99800000000ULL
-#define S390_ALCGR		0xb98800000000ULL
 
 #define S390_SR			0x1b0000000000ULL
 #define S390_SRK		0xb9f900000000ULL
@@ -167,6 +165,8 @@ typedef uint64_t it;
 #define S390_ALGR		0xb90a00000000ULL
 #define S390_ALGRK		0xb9ea00000000ULL
 #define S390_ALG		0xe3000000000aULL
+#define S390_ALCR		0xb99800000000ULL
+#define S390_ALCGR		0xb98800000000ULL
 
 #define S390_SLR		0x1f0000000000ULL
 #define S390_SLRK		0xb9fb00000000ULL
@@ -175,6 +175,8 @@ typedef uint64_t it;
 #define S390_SLGR		0xb90b00000000ULL
 #define S390_SLGRK		0xb9eb00000000ULL
 #define S390_SLG		0xe3000000000bULL
+#define S390_SLBR		0xb99900000000ULL
+#define S390_SLBGR		0xb98900000000ULL
 
 #define S390_LER		0x380000000000ULL
 #define S390_LDR		0x280000000000ULL
@@ -413,7 +415,7 @@ static const struct codes codes_alu_log[] = {
 	{ S390_ALR, S390_ALRK, S390_AL, S390_ALY, S390_ALGR, S390_ALGRK, S390_ALG, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0 },
 	{ -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0 },
 	{ S390_ALCR, -1, -1, -1, S390_ALCGR, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0 },
-	{ -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0 },
+	{ S390_SLBR, -1, -1, -1, S390_SLBGR, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0 },
 	{ -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0 },
 	{ S390_SLR, S390_SLRK, S390_SL, S390_SLY, S390_SLGR, S390_SLGRK, S390_SLG, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0 },
 };
