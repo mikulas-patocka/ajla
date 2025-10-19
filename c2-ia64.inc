@@ -1360,6 +1360,7 @@ static bool attr_w resolve_relocation(struct codegen_context *ctx, struct reloca
 static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 {
 	bool full;
+	uint32_t lbl;
 	switch (insn_opcode(insn)) {
 		case INSN_ENTRY:
 			full = ia64_fill_bundle(ctx);
@@ -1370,12 +1371,18 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 				ctx->mcode_size -= 16;
 			return true;
 		case INSN_LABEL:
-			full = ia64_fill_bundle(ctx);
-			if (full)
-				ctx->mcode_size += 16;
-			g(cgen_label(ctx));
-			if (full)
-				ctx->mcode_size -= 16;
+			lbl = cget_four(ctx);
+			ctx->code_position -= 4;
+			if (ctx->used_labels[lbl]) {
+				full = ia64_fill_bundle(ctx);
+				if (full)
+					ctx->mcode_size += 16;
+				g(cgen_label(ctx));
+				if (full)
+					ctx->mcode_size -= 16;
+			} else {
+				g(cgen_label(ctx));
+			}
 			return true;
 		case INSN_RET:
 			g(cgen_ia64_ret(ctx));

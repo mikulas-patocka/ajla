@@ -382,6 +382,7 @@ do {									\
 	bool insn_stops[3];						\
 	uint64_t wr_mask[4];						\
 }
+#define CODEGEN_TRIM_LABELS
 #endif
 
 #define gen_insn(opcode, op_size, aux, writes_flags)			\
@@ -477,6 +478,7 @@ struct codegen_context {
 	size_t mcode_size;
 
 	size_t *label_to_pos;
+	bool *used_labels;
 	struct relocation *reloc;
 	size_t reloc_size;
 
@@ -528,6 +530,7 @@ static void init_ctx(struct codegen_context *ctx)
 	ctx->reload_label = 0;
 	ctx->mcode = NULL;
 	ctx->label_to_pos = NULL;
+	ctx->used_labels = NULL;
 	ctx->reloc = NULL;
 	ctx->trap_records = NULL;
 	ctx->args = NULL;
@@ -571,6 +574,8 @@ static void done_ctx(struct codegen_context *ctx)
 		mem_free(ctx->mcode);
 	if (ctx->label_to_pos)
 		mem_free(ctx->label_to_pos);
+	if (ctx->used_labels)
+		mem_free(ctx->used_labels);
 	if (ctx->reloc)
 		mem_free(ctx->reloc);
 	if (ctx->trap_records)
@@ -2319,6 +2324,12 @@ static int8_t resolve_relocs(struct codegen_context *ctx)
 	int8_t status = RELOCS_OK;
 	for (i = 0; i < ctx->reloc_size; i++) {
 		struct relocation *reloc = &ctx->reloc[i];
+#ifdef CODEGEN_TRIM_LABELS
+		if (!ctx->used_labels[reloc->label_id]) {
+			ctx->used_labels[reloc->label_id] = true;
+			status = RELOCS_RETRY;
+		}
+#endif
 		if (!resolve_relocation(ctx, reloc)) {
 			uint8_t *jmp_instr;
 			uint32_t insn;
@@ -2487,6 +2498,10 @@ next_one:;
 		goto fail;
 	if (unlikely(!(ctx->label_to_pos = mem_alloc_array_mayfail(mem_alloc_mayfail, size_t *, 0, 0, ctx->label_id + 1, sizeof(size_t), &ctx->err))))
 		goto fail;
+#ifdef CODEGEN_TRIM_LABELS
+	if (unlikely(!(ctx->used_labels = mem_alloc_array_mayfail(mem_calloc_mayfail, bool *, 0, 0, ctx->label_id + 1, sizeof(bool), &ctx->err))))
+		goto fail;
+#endif
 
 again:
 	for (l = 0; l < ctx->label_id + 1; l++)
