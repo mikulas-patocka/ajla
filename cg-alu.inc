@@ -2975,6 +2975,8 @@ do_cmp:
 		gen_one(reg1);
 		gen_one(reg2);
 
+		gen_insn(INSN_STOP_BIT, 0, 0, 0);
+
 		gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, COND_NE, 0);
 		gen_one(R_CMP_RESULT);
 		gen_four(label_ovf);
@@ -4015,6 +4017,8 @@ do_cmp:
 		gen_one(reg1);
 		gen_one(reg2);
 
+		gen_insn(INSN_STOP_BIT, 0, 0, 0);
+
 		gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, COND_NE, 0);
 		gen_one(R_CMP_RESULT);
 		gen_four(label_ovf);
@@ -4023,6 +4027,8 @@ do_cmp:
 		gen_one(R_CMP_RESULT);
 		gen_one(reg1);
 		gen_one(reg2);
+
+		gen_insn(INSN_STOP_BIT, 0, 0, 0);
 
 		g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, COND_E, R_CMP_RESULT, -1U, 0));
 

@@ -314,6 +314,7 @@ enum {
 	INSN_JMP_FP_TEST,
 	INSN_JMP_INDIRECT,
 	INSN_MB,
+	INSN_STOP_BIT,
 	INSN_CALL_MILLICODE,
 };
 
@@ -380,6 +381,7 @@ do {									\
 	uint64_t insns[3];						\
 	uint8_t insn_units[3];						\
 	bool insn_stops[3];						\
+	bool need_stop;							\
 	uint64_t wr_mask[4];						\
 }
 #define CODEGEN_TRIM_LABELS

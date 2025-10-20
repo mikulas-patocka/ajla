@@ -187,6 +187,7 @@ static void init_arch_context(struct codegen_context *ctx)
 {
 	new_bundle(ctx);
 	clear_wr_mask(ctx);
+	ctx->a.need_stop = false;
 }
 
 static bool test_mask(uint64_t mask[4], uint8_t bit)
@@ -296,7 +297,8 @@ static bool ia64_fill_bundle(struct codegen_context *ctx)
 static bool attr_w ia64_insn(struct codegen_context *ctx, uint8_t unit, uint64_t mc, uint8_t wr1, uint8_t wr2, uint8_t rd1, uint8_t rd2, uint8_t rd3)
 {
 	unsigned slot = get_free_slot(ctx);
-	bool need_stop = false;
+	bool need_stop = ctx->a.need_stop;
+	ctx->a.need_stop = false;
 	need_stop |= test_mask(ctx->a.wr_mask, wr1);
 	need_stop |= test_mask(ctx->a.wr_mask, wr2);
 	need_stop |= test_mask(ctx->a.wr_mask, rd1);
@@ -306,7 +308,7 @@ static bool attr_w ia64_insn(struct codegen_context *ctx, uint8_t unit, uint64_t
 	if (slot > 0) {
 		if (need_stop) {
 try_stop_in_next_slot:
-			ctx->a.insn_stops[slot - 1] = need_stop;
+			ctx->a.insn_stops[slot - 1] = true;
 			if (!get_possible_templates(ctx)) {
 				ctx->a.insn_stops[slot - 1] = false;
 				slot++;
@@ -314,13 +316,11 @@ try_stop_in_next_slot:
 					internal(file_line, "ia64_insn: can't set stop at the end of the bundle");
 				goto try_stop_in_next_slot;
 			}
+			clear_wr_mask(ctx);
 		}
 		if (slot == 3) {
 			g(ia64_purge_bundle(ctx));
 			slot = 0;
-		}
-		if (need_stop) {
-			clear_wr_mask(ctx);
 		}
 	}
 try_next_slot:
@@ -1257,13 +1257,13 @@ static bool attr_w cgen_jmp_reg(struct codegen_context *ctx, unsigned aux, unsig
 	if (likely(length == JMP_SHORTEST)) {
 		mc = IA64_B_BR21 | IA64_BR_DPNT;
 		mc |= bits_p(reg);
-		g(ia64_insn(ctx, UNIT_B, mc, ACCESS_NOTHING, ACCESS_NOTHING, reg, ACCESS_NOTHING, ACCESS_NOTHING));
+		g(ia64_insn(ctx, UNIT_B, mc, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING));
 		bundle = get_free_slot(ctx) - 1;
 		ctx->mcode_size += bundle;
 		g(add_relocation(ctx, JMP_SHORTEST, 1, NULL));
 		ctx->mcode_size -= bundle;
 	} else {
-		g(ia64_insn(ctx, UNIT_L, 0, ACCESS_NOTHING, ACCESS_NOTHING, reg, ACCESS_NOTHING, ACCESS_NOTHING));
+		g(ia64_insn(ctx, UNIT_L, 0, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING));
 		mc = IA64_X_BRL | IA64_BR_DPNT;
 		mc |= bits_p(reg);
 		g(ia64_insn(ctx, UNIT_X, mc, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING));
@@ -1459,6 +1459,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_JMP_INDIRECT:
 			g(cgen_jmp_indirect(ctx));
+			return true;
+		case INSN_STOP_BIT:
+			ctx->a.need_stop = true;
 			return true;
 		default:
 		invalid_insn:
