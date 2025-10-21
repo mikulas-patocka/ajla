@@ -2272,7 +2272,7 @@ fn liveness(ctx : context) : context
 			var read_mask := set_to_mask(instr, instr.read_set);
 			var write_mask := set_to_mask(instr, instr.write_set);
 
-			if instr.opcode = P_Eval or instr.opcode = P_Keep then
+			if instr.opcode = P_Eval or instr.opcode = P_Keep or instr.opcode = P_Return then
 				goto used;
 
 			var wm := write_mask;
