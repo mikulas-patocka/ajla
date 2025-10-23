@@ -1906,7 +1906,7 @@ static bool attr_w gen_array_string(struct codegen_context *ctx, type_tag_t tag,
 
 	offset = string - cast_ptr(uint8_t *, da(ctx->fn,function)->code);
 	type = type_get_from_tag(tag);
-	g(gen_memcpy_raw(ctx, R_SAVED_1, data_array_offset, R_SCRATCH_3, offset, (size_t)len * type->size, minimum(type->align, align_of(code_t))));
+	g(gen_memcpy_raw(ctx, R_SAVED_1, data_array_offset, R_SCRATCH_3, offset, (size_t)len * type->size, align_of(code_t)));
 
 	return true;
 }
