@@ -1881,6 +1881,11 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_FF, OP_SIZE_4, OP_SIZE_NATIVE, false, X86_FF_JMP_INDIRECT, ctx->code_position));
 			ctx->code_position += arg_size(*ctx->code_position);
 			return true;
+		case INSN_VZEROUPPER:
+			cgen_one(0xc5);
+			cgen_one(0xf8);
+			cgen_one(0x77);
+			return true;
 		default:
 		invalid_insn:
 			internal(file_line, "cgen_insn: invalid insn %08lx", (unsigned long)insn);

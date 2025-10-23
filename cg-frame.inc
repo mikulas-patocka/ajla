@@ -1056,6 +1056,7 @@ static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned attr_unu
 static bool attr_w gen_memcpy_raw(struct codegen_context *ctx, unsigned dest_base, int64_t dest_offset, unsigned src_base, int64_t src_offset, size_t size, size_t align)
 {
 	unsigned step_bits;
+	bool need_vzeroupper = false;
 	if (!size)
 		return true;
 	if (!ARCH_HAS_BWX) {
@@ -1131,6 +1132,7 @@ do_explicit_copy:
 				x86_unaligned = align < 32;
 				this_step = 32;
 				reg = FR_SCRATCH_1;
+				need_vzeroupper = true;
 			} else if (size >= 16 && cpu_test_feature(CPU_FEATURE_sse)) {
 				x86_unaligned = align < 16;
 				this_step = 16;
@@ -1163,6 +1165,8 @@ do_explicit_copy:
 			src_offset += this_step;
 			dest_offset += this_step;
 		}
+		if (need_vzeroupper)
+			gen_insn(INSN_VZEROUPPER, 0, 0, 0);
 		return true;
 	}
 
