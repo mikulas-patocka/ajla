@@ -1114,7 +1114,11 @@ do_explicit_copy:
 #endif
 			reg = R_SCRATCH_1;
 #if defined(ARCH_X86)
-			if (size >= 16 && cpu_test_feature(CPU_FEATURE_sse)) {
+			if (size >= 32 && cpu_test_feature(CPU_FEATURE_avx)) {
+				x86_unaligned = align < 32;
+				this_step = 32;
+				reg = FR_SCRATCH_1;
+			} else if (size >= 16 && cpu_test_feature(CPU_FEATURE_sse)) {
 				x86_unaligned = align < 16;
 				this_step = 16;
 				reg = FR_SCRATCH_1;

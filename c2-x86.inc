@@ -277,10 +277,11 @@ static bool attr_w cgen_rex2(struct codegen_context attr_unused *ctx, uint8_t re
 #endif
 }
 
-#define force_vex			0x10000
-#define force_evex			0x20000
-#define force_ndd			0x40000
-#define SSE_PREFIX_W			0x80000
+#define force_vex			0x010000
+#define force_evex			0x020000
+#define force_ndd			0x040000
+#define SSE_PREFIX_W			0x080000
+#define SSE_PREFIX_L			0x100000
 
 static bool attr_w cgen_rm_insn(struct codegen_context *ctx, int32_t sse_prefix, uint8_t prefix, uint8_t opcode, unsigned size, unsigned real_size, bool reg_is_reg, uint8_t reg, uint8_t *arg)
 {
@@ -290,6 +291,9 @@ static bool attr_w cgen_rm_insn(struct codegen_context *ctx, int32_t sse_prefix,
 	uint8_t addr_size;
 	uint8_t arg_reg;
 	bool need_rex;
+
+	if (real_size == OP_SIZE_32)
+		sse_prefix |= SSE_PREFIX_L;
 
 	if (unlikely(R_IS_XMM(reg)))
 		reg -= R_XMM0;
@@ -422,11 +426,11 @@ gen:
 				cgen_one(!!(sse_prefix & force_ndd) << 4 | !((sse_prefix >> 8) & 0x10) << 3);
 			} else if ((rex2 & (X86_REX2_X3 | X86_REX2_B3 | X86_REX2_W)) == 0 && prefix == PREFIX_0F) {
 				cgen_one(X86_VEX_2);
-				cgen_one((~rex2 & X86_REX2_R3) << 5 | (~(sse_prefix >> 8) & 0xf) << 3 | (sse_prefix & 3));
+				cgen_one((~rex2 & X86_REX2_R3) << 5 | (~(sse_prefix >> 8) & 0xf) << 3 | (sse_prefix & SSE_PREFIX_L ? 4 : 0) | (sse_prefix & 3));
 			} else {
 				cgen_one(X86_VEX_3);
 				cgen_one((~rex2 & (X86_REX2_R3 | X86_REX2_X3 | X86_REX2_B3)) << 5 | prefix);
-				cgen_one((rex2 & X86_REX2_W) << 4 | (~(sse_prefix >> 8) & 0xf) << 3 | (sse_prefix & 3));
+				cgen_one((rex2 & X86_REX2_W) << 4 | (~(sse_prefix >> 8) & 0xf) << 3 | (sse_prefix & SSE_PREFIX_L ? 4 : 0) | (sse_prefix & 3));
 			}
 			goto avx_done;
 		}
@@ -662,7 +666,7 @@ mov_rm:
 				return true;
 			}
 		}
-		if (size == OP_SIZE_16) {
+		if (size >= OP_SIZE_16) {
 			g(cgen_sse_insn(ctx, SSE_PREFIX_NONE, PREFIX_0F, unaligned ? X86_0F_MOVUPS_X128_M128 : X86_0F_MOVAPS_X128_M128, false, size, arg1[0], 0, arg2));
 			return true;
 		}
@@ -680,7 +684,7 @@ mov_rm:
 				return true;
 			}
 		}
-		if (size == OP_SIZE_16) {
+		if (size >= OP_SIZE_16) {
 			g(cgen_sse_insn(ctx, SSE_PREFIX_NONE, PREFIX_0F, unaligned ? X86_0F_MOVUPS_M128_X128 : X86_0F_MOVAPS_M128_X128, false, size, arg2[0], 0, arg1));
 			return true;
 		}
