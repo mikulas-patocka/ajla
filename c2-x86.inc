@@ -123,7 +123,9 @@
 #define  X86_FF_JMP_INDIRECT			0x4
 #define  X86_FF_PUSH				0x6
 
+#define X86_0F_MOVUPS_X128_M128		0x10
 #define X86_0F_MOVSS_X128_M32		0x10
+#define X86_0F_MOVUPS_M128_X128		0x11
 #define X86_0F_MOVSS_M32_X128		0x11
 #define X86_0F_MOVAPS_X128_M128		0x28
 #define X86_0F_MOVAPS_M128_X128		0x29
@@ -579,7 +581,7 @@ static bool attr_w cgen_pop2(struct codegen_context *ctx, unsigned aux)
 	return true;
 }
 
-static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size)
+static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool unaligned)
 {
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
@@ -661,7 +663,7 @@ mov_rm:
 			}
 		}
 		if (size == OP_SIZE_16) {
-			g(cgen_sse_insn(ctx, SSE_PREFIX_NONE, PREFIX_0F, X86_0F_MOVAPS_X128_M128, false, size, arg1[0], 0, arg2));
+			g(cgen_sse_insn(ctx, SSE_PREFIX_NONE, PREFIX_0F, unaligned ? X86_0F_MOVUPS_X128_M128 : X86_0F_MOVAPS_X128_M128, false, size, arg1[0], 0, arg2));
 			return true;
 		}
 		g(cgen_sse_insn(ctx, size == OP_SIZE_4 ? SSE_PREFIX_F3 : SSE_PREFIX_F2 | SSE_PREFIX_W, PREFIX_0F, X86_0F_MOVSS_X128_M32, false, size, arg1[0], 0, arg2));
@@ -679,7 +681,7 @@ mov_rm:
 			}
 		}
 		if (size == OP_SIZE_16) {
-			g(cgen_sse_insn(ctx, SSE_PREFIX_NONE, PREFIX_0F, X86_0F_MOVAPS_M128_X128, false, size, arg2[0], 0, arg1));
+			g(cgen_sse_insn(ctx, SSE_PREFIX_NONE, PREFIX_0F, unaligned ? X86_0F_MOVUPS_M128_X128 : X86_0F_MOVAPS_M128_X128, false, size, arg2[0], 0, arg1));
 			return true;
 		}
 		g(cgen_sse_insn(ctx, size == OP_SIZE_4 ? SSE_PREFIX_F3 : SSE_PREFIX_F2 | SSE_PREFIX_W, PREFIX_0F, X86_0F_MOVSS_M32_X128, false, size, arg2[0], 0, arg1));
@@ -719,7 +721,7 @@ static bool attr_w cgen_movsx(struct codegen_context *ctx, unsigned size)
 {
 	uint8_t *arg1, *arg2;
 	if (unlikely(size == OP_SIZE_NATIVE)) {
-		g(cgen_mov(ctx, size));
+		g(cgen_mov(ctx, size, false));
 		return true;
 	}
 	arg1 = ctx->code_position;
@@ -1616,7 +1618,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			ctx->code_position += arg_size(*ctx->code_position);
 			return true;
 		case INSN_MOV:
-			g(cgen_mov(ctx, insn_op_size(insn)));
+			g(cgen_mov(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_MOVSX:
 			g(cgen_movsx(ctx, insn_op_size(insn)));

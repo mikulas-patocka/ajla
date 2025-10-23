@@ -1086,6 +1086,7 @@ do_explicit_copy:
 			unsigned reg;
 			unsigned this_step;
 			unsigned this_op_size;
+			bool x86_unaligned = false;
 #if defined(ARCH_ARM)
 			if (size >= 2U << OP_SIZE_NATIVE
 #if defined(ARCH_ARM32)
@@ -1113,7 +1114,8 @@ do_explicit_copy:
 #endif
 			reg = R_SCRATCH_1;
 #if defined(ARCH_X86)
-			if (size >= 16 && align >= 16 && cpu_test_feature(CPU_FEATURE_sse)) {
+			if (size >= 16 && cpu_test_feature(CPU_FEATURE_sse)) {
+				x86_unaligned = align < 16;
 				this_step = 16;
 				reg = FR_SCRATCH_1;
 			} else
@@ -1131,12 +1133,12 @@ do_explicit_copy:
 			this_op_size = log_2(this_step);
 
 			g(gen_address(ctx, src_base, src_offset, ARCH_PREFERS_SX(this_op_size) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, this_op_size));
-			gen_insn(ARCH_PREFERS_SX(this_op_size) ? INSN_MOVSX : INSN_MOV, this_op_size, 0, 0);
+			gen_insn(ARCH_PREFERS_SX(this_op_size) ? INSN_MOVSX : INSN_MOV, this_op_size, x86_unaligned, 0);
 			gen_one(reg);
 			gen_address_offset();
 
 			g(gen_address(ctx, dest_base, dest_offset, IMM_PURPOSE_STR_OFFSET, this_op_size));
-			gen_insn(INSN_MOV, this_op_size, 0, 0);
+			gen_insn(INSN_MOV, this_op_size, x86_unaligned, 0);
 			gen_address_offset();
 			gen_one(reg);
 
