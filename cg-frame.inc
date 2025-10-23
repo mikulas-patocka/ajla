@@ -1055,6 +1055,7 @@ static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned attr_unu
 
 static bool attr_w gen_memcpy_raw(struct codegen_context *ctx, unsigned dest_base, int64_t dest_offset, unsigned src_base, int64_t src_offset, size_t size, size_t align)
 {
+	unsigned step_bits;
 	if (!size)
 		return true;
 	if (!ARCH_HAS_BWX) {
@@ -1081,7 +1082,19 @@ static bool attr_w gen_memcpy_raw(struct codegen_context *ctx, unsigned dest_bas
 	goto call_memcpy;
 do_explicit_copy:
 #endif
-	if (size <= INLINE_COPY_SIZE) {
+	step_bits = OP_SIZE_NATIVE;
+	if (UNALIGNED_TRAP)
+		step_bits = minimum(step_bits, log_2(align));
+#if defined(ARCH_ARM64)
+	step_bits = OP_SIZE_16;
+#endif
+#if defined(ARCH_X86)
+	if (cpu_test_feature(CPU_FEATURE_sse))
+		step_bits = OP_SIZE_16;
+	if (cpu_test_feature(CPU_FEATURE_avx))
+		step_bits = OP_SIZE_32;
+#endif
+	if (size >> step_bits <= INLINE_COPY_STEPS) {
 		while (size) {
 			unsigned reg;
 			unsigned this_step;
