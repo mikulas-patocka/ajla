@@ -1107,7 +1107,7 @@ do_explicit_copy:
 			bool x86_unaligned = false;
 #if defined(ARCH_ARM)
 #if defined(ARCH_ARM64)
-			if (size >= 2U << OP_SIZE_16) {
+			if (size >= 2U << OP_SIZE_16 && cpu_test_feature(CPU_FEATURE_neon)) {
 				g(gen_address(ctx, src_base, src_offset, IMM_PURPOSE_LDP_STP_OFFSET, OP_SIZE_16));
 				gen_insn(INSN_LDP, OP_SIZE_16, 0, 0);
 				gen_one(FR_SCRATCH_1);
