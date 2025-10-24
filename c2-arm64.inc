@@ -119,6 +119,10 @@
 #define  ARM64_LDPSTP_IMM		0x01000000U
 #define  ARM64_LDPSTP_PRE_INDEX		0x01800000U
 #define  ARM64_LDPSTP_SIZE		0x80000000U
+#define ARM64_LDPSTP_NEON	0x2c000000U
+#define  ARM64_LDPSTP_NEON_32		0x00000000U
+#define  ARM64_LDPSTP_NEON_64		0x40000000U
+#define  ARM64_LDPSTP_NEON_128		0x80000000U
 #define ARM64_MOV		0x2a0003e0U
 #define  ARM64_MOV_SIZE			0x80000000U
 #define ARM64_CB		0x34000000U
@@ -798,9 +802,25 @@ static bool attr_w cgen_ldp_stp(struct codegen_context *ctx, bool ldr, unsigned 
 		arg1 = arg3 + arg_size(*arg3);
 		ctx->code_position = arg1 + arg_size(*arg1);
 	}
-	mc = ARM64_LDPSTP;
+	if (!reg_is_fp(arg2[0])) {
+		if (unlikely(arg2[0] >= 32) || unlikely(arg3[0] >= 32))
+			goto invalid;
+		mc = ARM64_LDPSTP;
+		mc |= ARM64_LDPSTP_SIZE * (size == OP_SIZE_8);
+	} else {
+		if (!reg_is_fp(arg3[0]))
+			goto invalid;
+		mc = ARM64_LDPSTP_NEON;
+		if (size == OP_SIZE_4)
+			mc |= ARM64_LDPSTP_NEON_32;
+		else if (size == OP_SIZE_8)
+			mc |= ARM64_LDPSTP_NEON_64;
+		else if (size == OP_SIZE_16)
+			mc |= ARM64_LDPSTP_NEON_128;
+		else
+			goto invalid;
+	}
 	mc |= ARM64_LDPSTP_LD * (uint32_t)ldr;
-	mc |= ARM64_LDPSTP_SIZE * (size == OP_SIZE_8);
 	if (arg1[0] == ARG_ADDRESS_1) {
 		mc |= ARM64_LDPSTP_IMM;
 	} else if (arg1[0] == ARG_ADDRESS_1_PRE_I) {
@@ -810,10 +830,8 @@ static bool attr_w cgen_ldp_stp(struct codegen_context *ctx, bool ldr, unsigned 
 	} else {
 		goto invalid;
 	}
-	if (unlikely(arg2[0] >= 32) || unlikely(arg3[0] >= 32))
-		goto invalid;
-	mc |= arg2[0];
-	mc |= (uint32_t)arg3[0] << 10;
+	mc |= arg2[0] & 31;
+	mc |= (uint32_t)(arg3[0] & 31) << 10;
 	mc |= (uint32_t)arg1[1] << 5;
 	imm = get_imm(&arg1[2]);
 	if (unlikely((imm & ((1 << size) - 1)) != 0))
@@ -826,7 +844,7 @@ static bool attr_w cgen_ldp_stp(struct codegen_context *ctx, bool ldr, unsigned 
 	return true;
 
 invalid:
-	internal(file_line, "cgen_ldp_stp: invalid arguments %02x, %02x, %02x", arg1[0], arg2[0], arg3[0]);
+	internal(file_line, "cgen_ldp_stp: invalid arguments %u, %02x, %02x, %02x", size, arg1[0], arg2[0], arg3[0]);
 	return false;
 }
 

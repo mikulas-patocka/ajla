@@ -1088,6 +1088,8 @@ do_explicit_copy:
 		step_bits = minimum(step_bits, log_2(align));
 #if defined(ARCH_ARM64)
 	step_bits = OP_SIZE_16;
+	if (likely(cpu_test_feature(CPU_FEATURE_neon)))
+		step_bits = OP_SIZE_32;
 #endif
 #if defined(ARCH_X86)
 	if (cpu_test_feature(CPU_FEATURE_sse))
@@ -1104,6 +1106,27 @@ do_explicit_copy:
 			unsigned this_op_size;
 			bool x86_unaligned = false;
 #if defined(ARCH_ARM)
+#if defined(ARCH_ARM64)
+			if (size >= 2U << OP_SIZE_16) {
+				g(gen_address(ctx, src_base, src_offset, IMM_PURPOSE_LDP_STP_OFFSET, OP_SIZE_16));
+				gen_insn(INSN_LDP, OP_SIZE_16, 0, 0);
+				gen_one(FR_SCRATCH_1);
+				gen_one(FR_SCRATCH_2);
+				gen_address_offset();
+
+				g(gen_address(ctx, dest_base, dest_offset, IMM_PURPOSE_LDP_STP_OFFSET, OP_SIZE_16));
+				gen_insn(INSN_STP, OP_SIZE_16, 0, 0);
+				gen_address_offset();
+				gen_one(FR_SCRATCH_1);
+				gen_one(FR_SCRATCH_2);
+
+				size -= 2U << OP_SIZE_16;
+				src_offset += 2U << OP_SIZE_16;
+				dest_offset += 2U << OP_SIZE_16;
+
+				continue;
+			}
+#endif
 			if (size >= 2U << OP_SIZE_NATIVE
 #if defined(ARCH_ARM32)
 				&& align >= 1U << OP_SIZE_NATIVE
