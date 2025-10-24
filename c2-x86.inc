@@ -426,14 +426,14 @@ gen:
 				cgen_one(X86_EVEX);
 				cgen_one(((~rex2 & (X86_REX2_R3 | X86_REX2_X3 | X86_REX2_B3)) << 5) | !(rex2 & X86_REX2_R4) << 4 | !!(rex2 & X86_REX2_B4) << 3 | prefix);
 				cgen_one((rex2 & X86_REX2_W) << 4 | (~(sse_prefix >> 8) & 0xf) << 3 | !(rex2 & X86_REX2_X4) << 2 | (sse_prefix & 3));
-				cgen_one(!!(sse_prefix & force_ndd) << 4 | (sse_prefix & SSE_PREFIX_LL ? 0x40 : 0) | (sse_prefix & SSE_PREFIX_L ? 0x20 : 0) | !((sse_prefix >> 8) & 0x10) << 3);
+				cgen_one(!!(sse_prefix & SSE_PREFIX_LL) << 6 | !!(sse_prefix & SSE_PREFIX_L) << 5 | !!(sse_prefix & force_ndd) << 4 | !((sse_prefix >> 8) & 0x10) << 3);
 			} else if ((rex2 & (X86_REX2_X3 | X86_REX2_B3 | X86_REX2_W)) == 0 && prefix == PREFIX_0F) {
 				cgen_one(X86_VEX_2);
-				cgen_one((~rex2 & X86_REX2_R3) << 5 | (~(sse_prefix >> 8) & 0xf) << 3 | (sse_prefix & SSE_PREFIX_L ? 4 : 0) | (sse_prefix & 3));
+				cgen_one((~rex2 & X86_REX2_R3) << 5 | (~(sse_prefix >> 8) & 0xf) << 3 | !!(sse_prefix & SSE_PREFIX_L) << 2 | (sse_prefix & 3));
 			} else {
 				cgen_one(X86_VEX_3);
 				cgen_one((~rex2 & (X86_REX2_R3 | X86_REX2_X3 | X86_REX2_B3)) << 5 | prefix);
-				cgen_one((rex2 & X86_REX2_W) << 4 | (~(sse_prefix >> 8) & 0xf) << 3 | (sse_prefix & SSE_PREFIX_L ? 4 : 0) | (sse_prefix & 3));
+				cgen_one((rex2 & X86_REX2_W) << 4 | (~(sse_prefix >> 8) & 0xf) << 3 | !!(sse_prefix & SSE_PREFIX_L) << 2 | (sse_prefix & 3));
 			}
 			goto avx_done;
 		}
