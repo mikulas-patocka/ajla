@@ -282,6 +282,7 @@ static bool attr_w cgen_rex2(struct codegen_context attr_unused *ctx, uint8_t re
 #define force_ndd			0x040000
 #define SSE_PREFIX_W			0x080000
 #define SSE_PREFIX_L			0x100000
+#define SSE_PREFIX_LL			0x200000
 
 static bool attr_w cgen_rm_insn(struct codegen_context *ctx, int32_t sse_prefix, uint8_t prefix, uint8_t opcode, unsigned size, unsigned real_size, bool reg_is_reg, uint8_t reg, uint8_t *arg)
 {
@@ -294,6 +295,8 @@ static bool attr_w cgen_rm_insn(struct codegen_context *ctx, int32_t sse_prefix,
 
 	if (real_size == OP_SIZE_32)
 		sse_prefix |= SSE_PREFIX_L;
+	if (real_size == OP_SIZE_64)
+		sse_prefix |= SSE_PREFIX_LL;
 
 	if (unlikely(R_IS_XMM(reg)))
 		reg -= R_XMM0;
@@ -400,7 +403,7 @@ address_0:
 gen:
 	if (unlikely(sse_prefix >= 0)) {
 		if (likely(cpu_test_feature(CPU_FEATURE_avx)) || (sse_prefix & (force_vex | force_evex | force_ndd))) {
-			if (rex2 & 0xf0 || sse_prefix & 0x1000 || sse_prefix & (force_evex | force_ndd) || test_evex) {
+			if (rex2 & 0xf0 || sse_prefix & 0x1000 || sse_prefix & SSE_PREFIX_LL || sse_prefix & (force_evex | force_ndd) || test_evex) {
 				/*debug("evex: %02x, %02x, %02x", reg, (sse_prefix >> 8) & 0x1f, arg[0]);*/
 				if (!(sse_prefix & (force_vex | force_ndd))) {
 					if (sse_prefix & SSE_PREFIX_W)
@@ -423,7 +426,7 @@ gen:
 				cgen_one(X86_EVEX);
 				cgen_one(((~rex2 & (X86_REX2_R3 | X86_REX2_X3 | X86_REX2_B3)) << 5) | !(rex2 & X86_REX2_R4) << 4 | !!(rex2 & X86_REX2_B4) << 3 | prefix);
 				cgen_one((rex2 & X86_REX2_W) << 4 | (~(sse_prefix >> 8) & 0xf) << 3 | !(rex2 & X86_REX2_X4) << 2 | (sse_prefix & 3));
-				cgen_one(!!(sse_prefix & force_ndd) << 4 | !((sse_prefix >> 8) & 0x10) << 3);
+				cgen_one(!!(sse_prefix & force_ndd) << 4 | (sse_prefix & SSE_PREFIX_LL ? 0x40 : 0) | (sse_prefix & SSE_PREFIX_L ? 0x20 : 0) | !((sse_prefix >> 8) & 0x10) << 3);
 			} else if ((rex2 & (X86_REX2_X3 | X86_REX2_B3 | X86_REX2_W)) == 0 && prefix == PREFIX_0F) {
 				cgen_one(X86_VEX_2);
 				cgen_one((~rex2 & X86_REX2_R3) << 5 | (~(sse_prefix >> 8) & 0xf) << 3 | (sse_prefix & SSE_PREFIX_L ? 4 : 0) | (sse_prefix & 3));

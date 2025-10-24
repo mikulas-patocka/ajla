@@ -196,6 +196,7 @@ static uint64_t dump_seq = 0;
 #define OP_SIZE_8			3
 #define OP_SIZE_16			4
 #define OP_SIZE_32			5
+#define OP_SIZE_64			6
 #define OP_SIZE_10			7
 
 #define MOV_MASK_0_16			0x0

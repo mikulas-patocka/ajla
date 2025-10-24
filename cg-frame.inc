@@ -1094,6 +1094,8 @@ do_explicit_copy:
 		step_bits = OP_SIZE_16;
 	if (cpu_test_feature(CPU_FEATURE_avx))
 		step_bits = OP_SIZE_32;
+	if (cpu_test_feature(CPU_FEATURE_avx512))
+		step_bits = OP_SIZE_64;
 #endif
 	if (size >> step_bits <= INLINE_COPY_STEPS) {
 		while (size) {
@@ -1128,7 +1130,19 @@ do_explicit_copy:
 #endif
 			reg = R_SCRATCH_1;
 #if defined(ARCH_X86)
-			if (size >= 32 && cpu_test_feature(CPU_FEATURE_avx)) {
+			if (size >= 64 && cpu_test_feature(CPU_FEATURE_avx512)) {
+				x86_unaligned = align < 64;
+				this_step = 64;
+				reg = FR_SCRATCH_16;
+				if (reg < R_XMM16)
+					need_vzeroupper = true;
+			} else if (size >= 32 && (cpu_test_feature(CPU_FEATURE_avx512vl) || cpu_test_feature(CPU_FEATURE_avx10))) {
+				x86_unaligned = align < 32;
+				this_step = 32;
+				reg = FR_SCRATCH_16;
+				if (reg < R_XMM16)
+					need_vzeroupper = true;
+			} else if (size >= 32 && cpu_test_feature(CPU_FEATURE_avx)) {
 				x86_unaligned = align < 32;
 				this_step = 32;
 				reg = FR_SCRATCH_1;
