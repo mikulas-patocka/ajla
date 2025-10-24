@@ -915,7 +915,7 @@ use_shorter:
 		return true;
 	}
 
-	if (R_IS_XMM(arg1[0]) && size == OP_SIZE_16) {
+	if (R_IS_XMM(arg1[0]) && size >= OP_SIZE_16) {
 		uint8_t code;
 		switch (alu) {
 			case ALU_AND:	code = X86_0F_ANDPS_X128_M128; break;
