@@ -1127,7 +1127,7 @@ static void * attr_fastcall io_ffi_call_function_handler(struct io_ctx *ctx)
 	if (unlikely(rf->interlocked))
 		mutex_lock(&ffi_libraries_mutex);
 
-	ffi_call(&rf->cif, rf->sym, &u.rc, ctx->ptrs);
+	ffi_call(&rf->cif, (void (*)(void))rf->sym, &u.rc, ctx->ptrs);
 	store = true;
 
 	switch (rf->err_type) {
@@ -1250,7 +1250,7 @@ static void resource_ffi_destructor_close(struct data *d)
 		} u;
 		struct destructor_call *call = &rfd->calls[--i];
 		struct resource_ffi *rf = da_resource(call->d);
-		ffi_call(&rf->cif, rf->sym, &u, call->args);
+		ffi_call(&rf->cif, (void (*)(void))rf->sym, &u, call->args);
 	}
 
 	if (interlocked)
