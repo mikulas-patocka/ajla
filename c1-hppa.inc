@@ -16,7 +16,11 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#if defined(ARCH_PARISC64)
+#define PA_20				1
+#else
 #define PA_20				cpu_test_feature(CPU_FEATURE_pa20)
+#endif
 
 #if defined(ARCH_PARISC64)
 #define ARCH_PARISC_USE_STUBS
