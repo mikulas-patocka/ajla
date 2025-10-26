@@ -120,6 +120,8 @@ fn do_inline_or_specialize(ctx new_ctx : context, bgi : int, ili ili_n : int, ca
 			new_ctx.instrs[i].params[2] and= not Flag_Fused_Bin_Jmp;
 		if new_ctx.instrs[i].opcode = P_BinaryConstOp then
 			new_ctx.instrs[i].params[2] and= not Flag_Fused_Bin_Jmp;
+		if new_ctx.instrs[i].opcode = P_Array_Len_Greater_Than then
+			new_ctx.instrs[i].params[3] and= not Flag_Fused_Bin_Jmp;
 		var s := new_ctx.instrs[i].read_set or new_ctx.instrs[i].write_set;
 		while s <> 0 do [
 			var p : int := bsr s;

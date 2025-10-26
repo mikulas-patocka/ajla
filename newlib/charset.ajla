@@ -350,7 +350,7 @@ abrt:
 	return result, i;
 ]
 
-fn utf8_to_string(utf8 : bytes) : string
+novfy fn utf8_to_string(utf8 : bytes) : string
 [
 	var s := empty(char);
 	var processed := 0;
