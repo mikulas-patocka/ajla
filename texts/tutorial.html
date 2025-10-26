@@ -67,7 +67,7 @@ Ajla has the possibility to verify program correctness using the Z3 library.
 
 <h3 id=unpacking>Unpacking Ajla</h3>
 Before compiling Ajla, install the packages libgmp-dev, libffi-dev, libnuma-dev.
-If libgmp-dev is not installed, Ajla will use slow built-in version.  If
+If libgmp-dev is not installed, Ajla will use slow built-in version. If
 libffi-dev is not installed, the possibility to call C functions from Ajla will
 be disabled. If libnuma-dev is not installed, the optimization for Non-uniform
 memory access (NUMA) will be disabled.
@@ -186,8 +186,8 @@ to another sequence of bytes (i.e. the variable content). This is implemented as
 an AVL tree, so that searching it is efficient.
 <dt><code>prereq len(h) &gt;= 3</code>
 <dd>This is not an argument &mdash; it is a precondition that says that the list
-"h" has at least three entries.  It is used when verification is enabled (it
-will be explained <a href="#verifying_ajla_programs_with_z3">later</a>).
+"h" has at least three entries. It is used when verification is enabled (it will
+be explained <a href="#verifying_ajla_programs_with_z3">later</a>).
 </dl>
 The function contains the following statements:
 <dl>
@@ -2155,7 +2155,11 @@ hammering the worker threads so heavily, that they can't make any progress.
 <h2 id=verifying_ajla_programs_with_z3>Verifying Ajla programs with Z3</h2>
 
 Ajla has the capability to verify programs using the Z3 library. For example, it
-can prove that there won't be access out of array or list boundaries.
+can prove that there won't be access out of array or list boundaries. The
+standard library and the Ajla Commander were verified with Z3 and Z3
+found a few bugs in them. For example, Z3 found a bug in the function
+"get_size" that it would read beyond the end of the array "suffixes" if
+it was given too big value.
 
 <h3>Installing Z3</h3>
 
@@ -2169,7 +2173,7 @@ and install it with these commands:
 <li><code>python3 scripts/mk_make.py</code>
 <li><code>cd build</code>
 <li><code>make</code>
-<li><code>cp libz3.so /usr/local/lib</code>
+<li><code>sudo cp libz3.so /usr/local/lib</code>
 </ul>
 
 <h3>Summing numbers</h3>
@@ -2290,7 +2294,7 @@ clause that allows adding restrictions to types. For example "<code>type month
 allowed range 1&ndash;12. When we assign to a variable with this type, the
 verifier verifies that the assigned value is in the range. When we read a
 variable with this type, the verifier will assume that the value is in the
-range.  Internally, assignment generates the "<code>claim</code>" clause and
+range. Internally, assignment generates the "<code>claim</code>" clause and
 reading generates the "<code>assume</code>" clause.
 <br>
 <br>
@@ -2360,7 +2364,7 @@ fn main
 
 The contract says that:
 <ul>
-<li>The returned value is greater than or equal than any list member.
+<li>The returned value is greater or equal than any list member.
 <li>If the list is non-empty, then there exists at least one member that is
 equal to the returned value.
 <li>If the list is empty, the returned value is zero.
@@ -2418,20 +2422,10 @@ programs/acmd/acmd.ajla</code>".
 
 The Z3 library doesn't understand all the operators that Ajla supports (for
 example, it doesn't understand bitwise operators (and, or, xor) on integer
-numbers with infinite precision. If you use them, the verification will fail
-(Ajla assumes that the unsupported operators may return any value). You can use
-the "<code>assume</code>" clause to get around these limitations. For example,
-at the end of a function "<code>view_get_line_hex</code>" in the file
-"<code>programs/acmd/view.ajla</code>", you can see:
-<pre>
-	highlight_map or= highlight_map_2;
-	assume highlight_map >= 0;
-	return line, highlight_map, b[i .. ], file_pos + i;
-</pre>
-Here, If we perform the "or" operation on two non-negative numbers, the result
-must be non-negative, but the Z3 library doesn't know it because it doesn't
-support the "or" operator on arithmetic integers. So, we can force this
-assumption with the "<code>assume</code>" claim.
+numbers with infinite precision. Ajla defines them as recursive functions, but
+the Z3 library can't reason about the recursive functions well. So if you rely
+on these operators returning specific values, the verification will fail. You
+can use the "<code>assume</code>" clause to get around these limitations.
 <br>
 <br>
 The verifier doesn't understand that infinite lists are infinite, so you need
@@ -2441,6 +2435,35 @@ the "<code>assume</code>" claim when accessing them.
 In the function "<code>edit_load</code>" we want to return an exception on
 error, but this would violate the contract, so the verification of the whole
 error branch is disabled with "<code>assume false</code>".
+<br>
+<br>
+The "<code>nat</code>" type has defined type class for class_monoid and
+class_ord. The result is that when you use the "+" operator or comparison
+operators, the second parameter is converted to the type of the first parameter.
+This example will not verify because the verifier tries to cast the value
+"<code>-5"</code> to the "<code>nat</code>" type and fails because the value is
+negative.
+<pre>
+fn main
+[
+	var a : nat := 10;
+	var b := a + -5;
+	claim b = 5;
+]
+</pre>
+It can be fixed by reversing the arguments to "+": "<code>var b := -5 +
+a;</code>". A similar behavior exists with comparison operators:
+<pre>
+fn main
+[
+	var a : nat := 10;
+	var b := a &gt; -5;
+	claim b;
+]
+</pre>
+This will also not verify, because the value <code>"-5"</code> is cast to
+"<code>nat</code>". It can be fixed by changing the condition to "<code>var b :=
+-5 &lt; a;</code>".
 
 <h2 id=hacking_ajla>Hacking Ajla</h2>
 
