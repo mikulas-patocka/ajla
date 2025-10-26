@@ -437,8 +437,9 @@ retry:
 			if typ >= T_Integer128 and typ <= T_Integer,
 			   op_bypass = Bin_Add or op_bypass >= Bin_Equal and op_bypass <= Bin_GreaterEqual,
 			   strip_bmp = 4 then [
+				if op_bypass = Bin_Add then
+					goto skip_bypass;
 				ctx := generate_assumes_or_claims(ctx, p[3], inv, true, t);
-				typ := get_type_of_var(ctx, p[2]);
 				goto do_op;
 			]
 			ctx := ctx_backup;
