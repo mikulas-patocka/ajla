@@ -376,6 +376,7 @@ retry:
 
 	var op_bypass := fd.op_bypass;
 	if op_bypass >= 0 then [
+		var target_typ := T_InvalidType;
 		var strip_bmp := 0;
 		var cc, typ := get_deep_type_of_var(ctx, p[2]);
 		var inv : list(compare_argument);
@@ -435,8 +436,12 @@ retry:
 		]
 		if strip_bmp <> 0 then [
 			if typ >= T_Integer128 and typ <= T_Integer,
-			   op_bypass = Bin_Add, strip_bmp bt 2 then
-				goto skip_bypass;
+			   op_bypass = Bin_Add, strip_bmp bt 2 then [
+				if strip_bmp = 4 then
+					ctx := generate_assumes_or_claims(ctx, p[3], inv, true, t);
+				target_typ := get_type_of_var(ctx, p[2]);
+				goto do_op;
+			]
 			if typ >= T_Integer128 and typ <= T_Integer,
 			   op_bypass >= Bin_Equal and op_bypass <= Bin_GreaterEqual,
 			   strip_bmp = 4 then [
@@ -470,6 +475,13 @@ do_op:
 			ctx := generate_UnaryOp(ctx, op_bypass, p[2], l);
 		] else [
 			abort internal("invalid number of arguments for op bypass: " + ntos(fd.signature.n_arguments));
+		]
+		if target_typ <> T_InvalidType then [
+			var ll : int;
+			ctx, ll := alloc_local_variable(ctx, target_typ, true, false);
+			ctx := generate_Copy(ctx, l, ll);
+			ctx := generate_assumes_or_claims(ctx, ll, inv, false, t);
+			return ctx, list(int).[ ll ];
 		]
 		return ctx, list(int).[ l ];
 	]
