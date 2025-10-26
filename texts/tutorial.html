@@ -2221,10 +2221,9 @@ postcondition is true.
 <br>
 <br>
 You can verify all the functions in the program "<code>sum.ajla</code>" with the
-command "<code>ajla --nosave --compile --verify-timeout=5000000 --verify
-sum.ajla 10</code>". "<code>--nosave</code>" will prevent saving and loading the
-compiled program in the cache directory. "<code>--compile</code>" will compile
-the whole program rather than running it and compiling it incrementally.
+command "<code>ajla --compile --verify-timeout=5000000 --verify sum.ajla
+10</code>". "<code>--compile</code>" will compile the whole program rather than
+running it and compiling it incrementally.
 "<code>--verify-timeout=5000000</code>" sets timeout for the verification to 5
 seconds and "<code>--verify</code>" will enable the verifier. If there is no
 output, the verification is successful. If there is "exception: Compiler error
@@ -2415,8 +2414,7 @@ functions.
 <br>
 As an example of a bigger program that was verified, see the Ajla Commander (in
 the directory "<code>programs/acmd.ajla</code>". You can verify it with this
-command: "<code>./ajla --nosave --compile --verify
-programs/acmd/acmd.ajla</code>".
+command: "<code>./ajla --compile --verify programs/acmd/acmd.ajla</code>".
 
 <h3>Caveats</h3>
 
