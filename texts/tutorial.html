@@ -2175,6 +2175,15 @@ and install it with these commands:
 <li><code>make</code>
 <li><code>sudo cp libz3.so /usr/local/lib</code>
 </ul>
+<br>
+<br>
+On Windows, download the file "<code>z3-*-x64-win.zip</code>" from the Z3 site.
+Extract the file "<code>libz3.dll</code>" from the archive and put it into the
+same directory as "<code>ajla.exe</code>". If you use Cygwin, set the file
+"<code>libz3.dll</code>" as executable with:
+<ul>
+<li><code>chmod +x libz3.dll</code>
+</ul>
 
 <h3>Summing numbers</h3>
 
@@ -2221,9 +2230,9 @@ postcondition is true.
 <br>
 <br>
 You can verify all the functions in the program "<code>sum.ajla</code>" with the
-command "<code>ajla --compile --verify-timeout=5000000 --verify sum.ajla
-10</code>". "<code>--compile</code>" will compile the whole program rather than
-running it and compiling it incrementally.
+command "<code>ajla --compile --verify-timeout=5000000 --verify
+sum.ajla</code>". "<code>--compile</code>" will compile the whole program rather
+than running it and compiling it incrementally.
 "<code>--verify-timeout=5000000</code>" sets timeout for the verification to 5
 seconds and "<code>--verify</code>" will enable the verifier. If there is no
 output, the verification is successful. If there is "exception: Compiler error
@@ -2413,8 +2422,8 @@ functions.
 <br>
 <br>
 As an example of a bigger program that was verified, see the Ajla Commander (in
-the directory "<code>programs/acmd.ajla</code>". You can verify it with this
-command: "<code>./ajla --compile --verify programs/acmd/acmd.ajla</code>".
+the directory "<code>programs/acmd/acmd.ajla</code>". You can verify it with
+this command: "<code>./ajla --compile --verify programs/acmd/acmd.ajla</code>".
 
 <h3>Caveats</h3>
 
