@@ -2322,7 +2322,7 @@ record edit_state [
 	lines : list(string);
 	x : nat;
 	y : nat;
-] len(lines) &gt; 0 and y &lt; len(lines) and x &lt;= len(lines[y]);
+] where len(lines) &gt; 0 and y &lt; len(lines) and x &lt;= len(lines[y]);
 </pre>
 "<code>lines</code>" is the buffer with the text, "<code>x</code>" is the
 x-coordinate of the cursor and "<code>y</code>" is the y-coordinate of the
