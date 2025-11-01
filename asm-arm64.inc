@@ -16,36 +16,12 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifdef ARCH_ALPHA
-#include "asm-alph.inc"
-#endif
-#ifdef ARCH_ARM32
-#include "asm-arm.inc"
-#endif
-#ifdef ARCH_ARM64
-#include "asm-arm64.inc"
-#endif
-#ifdef ARCH_IA64
-#include "asm-ia64.inc"
-#endif
-#ifdef ARCH_LOONGARCH64
-#include "asm-loon.inc"
-#endif
-#ifdef ARCH_PARISC
-#include "asm-hppa.inc"
-#endif
-#ifdef ARCH_POWER
-#include "asm-ppc.inc"
-#endif
-#ifdef ARCH_RISCV64
-#include "asm-rv.inc"
-#endif
-#ifdef ARCH_S390
-#include "asm-s390.inc"
-#endif
-#ifdef ARCH_SPARC
-#include "asm-spar.inc"
-#endif
-#ifdef ARCH_X86
-#include "asm-x86.inc"
-#endif
+#define feature_name		neon
+#define static_test_neon	(__ARM_NEON)
+#define dynamic_test		(elf_hwcap & (1 << 1))
+#include "asm-1.inc"
+
+#define feature_name		fphp
+#define static_test_fphp	(__ARM_FEATURE_FP16_SCALAR_ARITHMETIC)
+#define dynamic_test		(elf_hwcap & (1 << 9))
+#include "asm-1.inc"
