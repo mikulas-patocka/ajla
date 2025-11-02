@@ -47,6 +47,71 @@ fn opencl_abort_msg(b : bytes) : cl_world
 	abort exception_make_str(cl_world, ec_library, error_invalid_operation, 0, true, "OpenCL failed: " + b);
 ]
 
+fn probe_device(implicit w : cl_world, lib : ffi_library, d : int) : (cl_world, bool)
+[
+	var ret err : int;
+	implicit var destr := ffi_destructor_new();
+
+	var clCreateContext := ffi_create_function(lib, "clCreateContext", ffi_error.e_none, 6, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+	var clReleaseContext := ffi_create_function(lib, "clReleaseContext", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
+
+	var ptr_devices := ffi_destructor_allocate(ffi_get_size(ffi_type.t_pointer), ffi_get_alignment(ffi_type.t_pointer), false);
+	ffi_poke(ptr_devices, ffi_type.t_pointer, d);
+	var pk := ffi_peek(ptr_devices, ffi_type.t_pointer);
+	var ptr_err_s32 := ffi_destructor_allocate(ffi_get_size(ffi_type.t_sint32), ffi_get_alignment(ffi_type.t_sint32), false);
+
+	atomic_enter();
+	ret, err := ffi_call_function(clCreateContext, [ 0, 1, ptr_devices, 0, 0, ptr_err_s32 ]);
+	if ret = 0 then [
+		atomic_exit();
+		return false;
+	]
+	var ctx := ret;
+	ffi_destructor_call(destr, clReleaseContext, [ ctx ]);
+	atomic_exit();
+
+	var clCreateProgramWithSource := ffi_create_function(lib, "clCreateProgramWithSource", ffi_error.e_none, 5, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+	var clReleaseProgram := ffi_create_function(lib, "clReleaseProgram", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
+
+	var code := "__kernel void render(void) { }";
+
+	var ptr_string := ffi_destructor_allocate(len(code), 1, false);
+	ffi_poke_array(ptr_string, code);
+	var ptr_strings := ffi_destructor_allocate(ffi_get_size(ffi_type.t_pointer), ffi_get_alignment(ffi_type.t_pointer), false);
+	ffi_poke(ptr_strings, ffi_type.t_pointer, ptr_string);
+	var ptr_sizes := ffi_destructor_allocate(ffi_get_size(ffi_type.t_usize), ffi_get_alignment(ffi_type.t_usize), false);
+	ffi_poke(ptr_sizes, ffi_type.t_usize, len(code));
+
+	atomic_enter();
+	ret, err := ffi_call_function(clCreateProgramWithSource, [ ctx, 1, ptr_strings, ptr_sizes, ptr_err_s32 ]);
+	if ret = 0 then [
+		//var e := ffi_peek(ptr_err_s32, ffi_type.t_sint32);
+		//eval debug("returned 1: " + ntos(e));
+		atomic_exit();
+		return false;
+	]
+	var prog := ret;
+	ffi_destructor_call(destr, clReleaseProgram, [ prog ]);
+	atomic_exit();
+	ffi_destructor_free(ptr_string);
+	ffi_destructor_free(ptr_strings);
+	ffi_destructor_free(ptr_sizes);
+
+	var clBuildProgram := ffi_create_function(lib, "clBuildProgram", ffi_error.e_none, 6, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+
+	ret, err := ffi_call_function(clBuildProgram, [ prog, 1, ptr_devices, 0, 0, 0 ]);
+	if ret <> 0 then [
+		//eval debug("returned 2: " + ntos(ret));
+		return false;
+	]
+
+	ffi_destructor_free(ptr_devices);
+	ffi_destructor_free(ptr_err_s32);
+	ffi_destructor_destroy();
+
+	return true;
+]
+
 fn cl_mk_context(implicit w : cl_world) : cl_context
 [
 	var ret err : int;
@@ -111,6 +176,8 @@ fn cl_mk_context(implicit w : cl_world) : cl_context
 		]
 	]
 
+	ffi_destructor_free(ptr_n_u32);
+
 	if len(devices) = 0 then
 		abort opencl_abort_msg("No devices");
 
@@ -118,9 +185,18 @@ fn cl_mk_context(implicit w : cl_world) : cl_context
 		eval debug("device: " + ntos_base(devices[i], 16));
 	]
 
-	ffi_destructor_free(ptr_n_u32);
-
 	implicit var ctx := cl_context.[ ];
 
+	for i := 0 to len(devices) do [
+		var b := probe_device(lib, devices[i]);
+		if b then [
+			eval debug("valid device: " + ntos_base(devices[i], 16));
+			goto found;
+		]
+	]
+	abort opencl_abort_msg("No working devices");
+
+found:
+	ffi_destructor_destroy();
 	return ctx;
 ]
