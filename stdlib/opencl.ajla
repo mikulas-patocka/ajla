@@ -20,9 +20,22 @@ unit opencl;
 
 type cl_world;
 type cl_context;
+type cl_buffer;
 
 fn cl_mk_world : cl_world;
 fn cl_mk_context(implicit w : cl_world) : (cl_world, cl_context);
+fn cl_get_device_info_string(implicit w : cl_world, ctx : cl_context, param : int) : (cl_world, bytes);
+
+const CL_MEM_READ_WRITE :=	1 shl 0;
+const CL_MEM_WRITE_ONLY :=	1 shl 1;
+const CL_MEM_READ_ONLY :=	1 shl 2;
+const CL_MEM_USE_HOST_PTR :=	1 shl 3;
+const CL_MEM_ALLOC_HOST_PTR :=	1 shl 4;
+const CL_MEM_COPY_HOST_PTR :=	1 shl 5;
+const CL_MEM_HOST_WRITE_ONLY :=	1 shl 7;
+const CL_MEM_HOST_READ_ONLY :=	1 shl 8;
+const CL_MEM_HOST_NO_ACCESS :=	1 shl 9;
+fn cl_mk_buffer(implicit w : cl_world, ctx : cl_context, access : int, size : int, host_ptr : int) : (cl_world, cl_context, cl_buffer);
 
 implementation
 
@@ -32,12 +45,20 @@ uses ffi;
 record cl_context [
 	destr : ffi_destructor;
 
+	version : int;
+
 	device : int;
 	context : int;
 	command_queue : int;
+
+	clGetDeviceInfo : ffi_function;
+	clCreateBuffer : ffi_function;
+	clReleaseMemObject : ffi_function;
 ]
 
 type cl_world := world;
+
+type cl_buffer := int;
 
 fn cl_mk_world := unsafe_get_world;
 
@@ -114,6 +135,32 @@ fn probe_device(implicit w : cl_world, lib : ffi_library, d : int) : (cl_world, 
 	ffi_destructor_destroy();
 
 	return true;
+]
+
+fn cl_get_device_info_string(implicit w : cl_world, ctx : cl_context, param : int) : (cl_world, bytes)
+[
+	var ret err : int;
+	implicit var destr := ffi_destructor_new();
+
+	var ptr_n_size := ffi_destructor_allocate(ffi_get_size(ffi_type.t_usize), ffi_get_alignment(ffi_type.t_usize), false);
+	ret, err := ffi_call_function(ctx.clGetDeviceInfo, [ ctx.device, param, 0, 0, ptr_n_size ]);
+	if ret <> 0 then
+		return "";
+	var l := ffi_peek(ptr_n_size, ffi_type.t_usize);
+
+	var buffer := ffi_destructor_allocate(l, 1, false);
+	ret, err := ffi_call_function(ctx.clGetDeviceInfo, [ ctx.device, param, l, buffer, ptr_n_size ]);
+	var l2 := ffi_peek(ptr_n_size, ffi_type.t_usize);
+	if l <> l2 then
+		abort opencl_abort_msg("Parameter " + ntos(param) + " length mismatch: " + ntos(l) + " <> " + ntos(l2));
+	//var result := ffi_peek_array(buffer, l, ffi_type.t_uchar, byte);
+	var result := ffi_peek_zstring(buffer);
+
+	ffi_destructor_free(ptr_n_size);
+	ffi_destructor_free(buffer);
+	ffi_destructor_destroy();
+
+	return result;
 ]
 
 fn cl_mk_context(implicit w : cl_world) : (cl_world, cl_context)
@@ -205,6 +252,20 @@ found:
 	ffi_destructor_destroy();
 	destr := ffi_destructor_new();
 
+	ctx.clGetDeviceInfo := ffi_create_function(lib, "clGetDeviceInfo", ffi_error.e_none, 5, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+
+	var version := cl_get_device_info_string(ctx, #102F);
+	var wh_version := list_break_whitespace(version);
+	if len(wh_version) < 2 then
+		abort opencl_abort_msg("Invalid version: " + version);
+	if wh_version[0] <> "OpenCL" then
+		abort opencl_abort_msg("Not OpenCL: " + version);
+	var mm_version := list_break(wh_version[1], '.');
+	ctx.version := ston(mm_version[0]) * 100 + ston(mm_version[1]);
+	if is_exception ctx.version then
+		abort opencl_abort_msg("Invalid version: " + version);
+	eval debug("version: " + ntos(ctx.version));
+
 	var clCreateContext := ffi_create_function(lib, "clCreateContext", ffi_error.e_none, 6, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ], false);
 	var clReleaseContext := ffi_create_function(lib, "clReleaseContext", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
 
@@ -241,7 +302,16 @@ found:
 	atomic_exit();
 
 	ffi_destructor_free(ptr_err_s32);
+
+	ctx.clCreateBuffer := ffi_create_function(lib, "clCreateBuffer", ffi_error.e_none, 5, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_ulong, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+	ctx.clReleaseMemObject := ffi_create_function(lib, "clReleaseMemObject", ffi_error.e_none, 5, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
+
 	ctx.destr := destr;
 
 	return ctx;
+]
+
+fn cl_mk_buffer(implicit w : cl_world, ctx : cl_context, access : int, size : int, host_ptr : int) : (cl_world, cl_context, cl_buffer)
+[
+	abort;
 ]

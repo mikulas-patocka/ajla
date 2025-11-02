@@ -225,6 +225,10 @@ static const struct type *ajla_type_to_type(ajla_option_t a)
 		return type_get_real(2);
 #endif
 	}
+	if (a == 13)
+		return type_get_fixed(0, true);
+	if (a == 14)
+		return type_get_fixed(0, false);
 	return NULL;
 }
 
