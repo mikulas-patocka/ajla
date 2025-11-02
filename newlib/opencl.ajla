@@ -22,7 +22,7 @@ type cl_world;
 type cl_context;
 
 fn cl_mk_world : cl_world;
-fn cl_mk_context(implicit w : cl_world) : cl_context;
+fn cl_mk_context(implicit w : cl_world) : (cl_world, cl_context);
 
 implementation
 
@@ -31,6 +31,10 @@ uses ffi;
 
 record cl_context [
 	destr : ffi_destructor;
+
+	device : int;
+	context : int;
+	command_queue : int;
 ]
 
 type cl_world := world;
@@ -57,7 +61,6 @@ fn probe_device(implicit w : cl_world, lib : ffi_library, d : int) : (cl_world, 
 
 	var ptr_devices := ffi_destructor_allocate(ffi_get_size(ffi_type.t_pointer), ffi_get_alignment(ffi_type.t_pointer), false);
 	ffi_poke(ptr_devices, ffi_type.t_pointer, d);
-	var pk := ffi_peek(ptr_devices, ffi_type.t_pointer);
 	var ptr_err_s32 := ffi_destructor_allocate(ffi_get_size(ffi_type.t_sint32), ffi_get_alignment(ffi_type.t_sint32), false);
 
 	atomic_enter();
@@ -86,6 +89,7 @@ fn probe_device(implicit w : cl_world, lib : ffi_library, d : int) : (cl_world, 
 	ret, err := ffi_call_function(clCreateProgramWithSource, [ ctx, 1, ptr_strings, ptr_sizes, ptr_err_s32 ]);
 	if ret = 0 then [
 		//var e := ffi_peek(ptr_err_s32, ffi_type.t_sint32);
+		//ffi_destructor_destroy();
 		//eval debug("returned 1: " + ntos(e));
 		atomic_exit();
 		return false;
@@ -112,7 +116,7 @@ fn probe_device(implicit w : cl_world, lib : ffi_library, d : int) : (cl_world, 
 	return true;
 ]
 
-fn cl_mk_context(implicit w : cl_world) : cl_context
+fn cl_mk_context(implicit w : cl_world) : (cl_world, cl_context)
 [
 	var ret err : int;
 	implicit var destr := ffi_destructor_new();
@@ -190,7 +194,8 @@ fn cl_mk_context(implicit w : cl_world) : cl_context
 	for i := 0 to len(devices) do [
 		var b := probe_device(lib, devices[i]);
 		if b then [
-			eval debug("valid device: " + ntos_base(devices[i], 16));
+			eval debug("valid device: " + ntos(i));
+			ctx.device := devices[i];
 			goto found;
 		]
 	]
@@ -198,5 +203,45 @@ fn cl_mk_context(implicit w : cl_world) : cl_context
 
 found:
 	ffi_destructor_destroy();
+	destr := ffi_destructor_new();
+
+	var clCreateContext := ffi_create_function(lib, "clCreateContext", ffi_error.e_none, 6, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+	var clReleaseContext := ffi_create_function(lib, "clReleaseContext", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
+
+	var ptr_devices := ffi_destructor_allocate(ffi_get_size(ffi_type.t_pointer), ffi_get_alignment(ffi_type.t_pointer), false);
+	ffi_poke(ptr_devices, ffi_type.t_pointer, ctx.device);
+	var ptr_err_s32 := ffi_destructor_allocate(ffi_get_size(ffi_type.t_sint32), ffi_get_alignment(ffi_type.t_sint32), false);
+
+	atomic_enter();
+	ret, err := ffi_call_function(clCreateContext, [ 0, 1, ptr_devices, 0, 0, ptr_err_s32 ]);
+	if ret = 0 then [
+		atomic_exit();
+		var e := ffi_peek(ptr_err_s32, ffi_type.t_sint32);
+		ffi_destructor_destroy();
+		abort opencl_abort("clCreateContext", e);
+	]
+	ctx.context := ret;
+	ffi_destructor_call(destr, clReleaseContext, [ ctx.context ]);
+	atomic_exit();
+	ffi_destructor_free(ptr_devices);
+
+	var clCreateCommandQueue := ffi_create_function(lib, "clCreateCommandQueue", ffi_error.e_none, 4, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+	var clReleaseCommandQueue := ffi_create_function(lib, "clReleaseCommandQueue", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
+
+	atomic_enter();
+	ret, err := ffi_call_function(clCreateCommandQueue, [ ctx.context, ctx.device, 0, ptr_err_s32 ]);
+	if ret = 0 then [
+		atomic_exit();
+		var e := ffi_peek(ptr_err_s32, ffi_type.t_sint32);
+		ffi_destructor_destroy();
+		abort opencl_abort("clCreateCommandQueue", e);
+	]
+	ctx.command_queue := ret;
+	ffi_destructor_call(destr, clReleaseCommandQueue, [ ctx.command_queue ]);
+	atomic_exit();
+
+	ffi_destructor_free(ptr_err_s32);
+	ctx.destr := destr;
+
 	return ctx;
 ]
