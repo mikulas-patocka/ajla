@@ -1,0 +1,126 @@
+{*
+ * Copyright (C) 2025 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit opencl;
+
+type cl_world;
+type cl_context;
+
+fn cl_mk_world : cl_world;
+fn cl_mk_context(implicit w : cl_world) : cl_context;
+
+implementation
+
+uses exception;
+uses ffi;
+
+record cl_context [
+	destr : ffi_destructor;
+]
+
+type cl_world := world;
+
+fn cl_mk_world := unsafe_get_world;
+
+fn opencl_abort(func : bytes, retval : int) : cl_world
+[
+	abort exception_make_str(cl_world, ec_library, error_invalid_operation, -retval, true, "function " + func + " failed: " + ntos(retval));
+]
+
+fn opencl_abort_msg(b : bytes) : cl_world
+[
+	abort exception_make_str(cl_world, ec_library, error_invalid_operation, 0, true, "OpenCL failed: " + b);
+]
+
+fn cl_mk_context(implicit w : cl_world) : cl_context
+[
+	var ret err : int;
+	implicit var destr := ffi_destructor_new();
+
+	var lib := ffi_open_library("OpenCL", true, "");
+	xeval lib;
+
+	var clGetPlatformIDs := ffi_create_function(lib, "clGetPlatformIDs", ffi_error.e_none, 3, ffi_type.t_sint32, [ ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+	var ptr_n_u32 := ffi_destructor_allocate(ffi_get_size(ffi_type.t_uint32), ffi_get_alignment(ffi_type.t_uint32), false);
+	ret, err := ffi_call_function(clGetPlatformIDs, [ 0, 0, ptr_n_u32 ]);
+	if ret <> 0 then
+		abort opencl_abort("clGetPlatformIDs", ret);
+	var n_platforms := ffi_peek(ptr_n_u32, ffi_type.t_uint32);
+	if n_platforms = 0 then
+		abort opencl_abort_msg("No platforms");
+
+	var ptr_platforms := ffi_destructor_allocate(ffi_get_size(ffi_type.t_pointer) * n_platforms, ffi_get_alignment(ffi_type.t_pointer), false);
+	ret, err := ffi_call_function(clGetPlatformIDs, [ n_platforms, ptr_platforms, ptr_n_u32 ]);
+	if ret <> 0 then
+		abort opencl_abort("clGetPlatformIDs", ret);
+
+	var n2 := ffi_peek(ptr_n_u32, ffi_type.t_uint32);
+	n_platforms := min(n_platforms, n2);
+	if n_platforms = 0 then
+		abort opencl_abort_msg("No platforms");
+	var platforms := ffi_peek_int_array(ptr_platforms, n_platforms, ffi_type.t_pointer);
+
+	ffi_destructor_free(ptr_platforms);
+
+	eval debug("n_platforms: " + ntos(n_platforms));
+	for i := 0 to len(platforms) do
+		eval debug("platform: " + ntos_base(platforms[i], 16));
+
+	var device_types := [ 4, 8, 2 ];	// GPU, accelerator, CPU
+
+	var clGetDeviceIDs := ffi_create_function(lib, "clGetDeviceIDs", ffi_error.e_none, 5, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_ulong, ffi_type.t_uint, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+
+	var devices := empty(int);
+
+	for dt in device_types do [
+		for p := 0 to len(platforms) do [
+			ret, err := ffi_call_function(clGetDeviceIDs, [ platforms[p], dt, 0, 0, ptr_n_u32 ]);
+			if ret <> 0 then
+				continue;
+			var n_devices := ffi_peek(ptr_n_u32, ffi_type.t_uint32);
+			if n_devices = 0 then
+				continue;
+
+			var ptr_devices := ffi_destructor_allocate(ffi_get_size(ffi_type.t_pointer) * n_devices, ffi_get_alignment(ffi_type.t_pointer), false);
+			ret, err := ffi_call_function(clGetDeviceIDs, [ platforms[p], dt, n_devices, ptr_devices, ptr_n_u32 ]);
+			if ret <> 0 then [
+				ffi_destructor_free(ptr_devices);
+				continue;
+			]
+
+			n2 := ffi_peek(ptr_n_u32, ffi_type.t_uint32);
+			n_devices := min(n_devices, n2);
+			var devs := ffi_peek_int_array(ptr_devices, n_devices, ffi_type.t_pointer);
+			devices += devs;
+			ffi_destructor_free(ptr_devices);
+		]
+	]
+
+	if len(devices) = 0 then
+		abort opencl_abort_msg("No devices");
+
+	for i := 0 to len(devices) do [
+		eval debug("device: " + ntos_base(devices[i], 16));
+	]
+
+	ffi_destructor_free(ptr_n_u32);
+
+	implicit var ctx := cl_context.[ ];
+
+	return ctx;
+]
