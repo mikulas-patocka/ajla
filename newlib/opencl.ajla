@@ -24,7 +24,7 @@ type cl_buffer;
 
 fn cl_mk_world : cl_world;
 fn cl_mk_context(implicit w : cl_world) : (cl_world, cl_context);
-fn cl_get_device_info_string(implicit w : cl_world, ctx : cl_context, param : int) : (cl_world, bytes);
+fn cl_get_device_info_string(implicit w : cl_world, ctx : cl_context, param : nat) : (cl_world, bytes);
 
 const CL_MEM_READ_WRITE :=	1 shl 0;
 const CL_MEM_WRITE_ONLY :=	1 shl 1;
@@ -35,17 +35,21 @@ const CL_MEM_COPY_HOST_PTR :=	1 shl 5;
 const CL_MEM_HOST_WRITE_ONLY :=	1 shl 7;
 const CL_MEM_HOST_READ_ONLY :=	1 shl 8;
 const CL_MEM_HOST_NO_ACCESS :=	1 shl 9;
-fn cl_mk_buffer(implicit w : cl_world, ctx : cl_context, access : int, size : int, host_ptr : int) : (cl_world, cl_context, cl_buffer);
+fn cl_mk_buffer(implicit w : cl_world, ctx : cl_context, access : nat, size : nat, host_ptr : int) : (cl_world, cl_buffer);
+fn cl_read_buffer(implicit w : cl_world, ctx : cl_context, buf : cl_buffer, offset size : nat) : (cl_world, bytes);
+fn cl_write_buffer(implicit w : cl_world, ctx : cl_context, buf : cl_buffer, offset : nat, data : bytes) : cl_world;
 
 implementation
 
 uses exception;
 uses ffi;
 
+type cl_world := world;
+
 record cl_context [
 	destr : ffi_destructor;
 
-	version : int;
+	version : nat;
 
 	device : int;
 	context : int;
@@ -54,11 +58,17 @@ record cl_context [
 	clGetDeviceInfo : ffi_function;
 	clCreateBuffer : ffi_function;
 	clReleaseMemObject : ffi_function;
+	clEnqueueReadBuffer : ffi_function;
+	clEnqueueWriteBuffer : ffi_function;
 ]
 
-type cl_world := world;
+record cl_buffer [
+	destr : ffi_destructor;
 
-type cl_buffer := int;
+	context : int;
+
+	buffer : int;
+]
 
 fn cl_mk_world := unsafe_get_world;
 
@@ -137,7 +147,7 @@ fn probe_device(implicit w : cl_world, lib : ffi_library, d : int) : (cl_world, 
 	return true;
 ]
 
-fn cl_get_device_info_string(implicit w : cl_world, ctx : cl_context, param : int) : (cl_world, bytes)
+fn cl_get_device_info_string(implicit w : cl_world, ctx : cl_context, param : nat) : (cl_world, bytes)
 [
 	var ret err : int;
 	implicit var destr := ffi_destructor_new();
@@ -305,13 +315,69 @@ found:
 
 	ctx.clCreateBuffer := ffi_create_function(lib, "clCreateBuffer", ffi_error.e_none, 5, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_ulong, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_pointer ], false);
 	ctx.clReleaseMemObject := ffi_create_function(lib, "clReleaseMemObject", ffi_error.e_none, 5, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
+	ctx.clEnqueueReadBuffer := ffi_create_function(lib, "clEnqueueReadBuffer", ffi_error.e_none, 9, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_usize, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+	ctx.clEnqueueWriteBuffer := ffi_create_function(lib, "clEnqueueWriteBuffer", ffi_error.e_none, 9, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_usize, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer ], false);
 
 	ctx.destr := destr;
 
 	return ctx;
 ]
 
-fn cl_mk_buffer(implicit w : cl_world, ctx : cl_context, access : int, size : int, host_ptr : int) : (cl_world, cl_context, cl_buffer)
+fn cl_mk_buffer(implicit w : cl_world, ctx : cl_context, access : nat, size : nat, host_ptr : int) : (cl_world, cl_buffer)
 [
-	abort;
+	var ret err : int;
+	implicit var destr := ffi_destructor_new();
+
+	if ctx.version < 102 then [
+		access and= not (CL_MEM_HOST_WRITE_ONLY or CL_MEM_HOST_READ_ONLY or CL_MEM_HOST_NO_ACCESS);
+	]
+
+	var ptr_err_s32 := ffi_destructor_allocate(ffi_get_size(ffi_type.t_sint32), ffi_get_alignment(ffi_type.t_sint32), false);
+
+	atomic_enter();
+	ret, err := ffi_call_function(ctx.clCreateBuffer, [ ctx.context, access, size, host_ptr, ptr_err_s32 ]);
+	if ret = 0 then [
+		atomic_exit();
+		var e := ffi_peek(ptr_err_s32, ffi_type.t_sint32);
+		ffi_destructor_destroy();
+		abort opencl_abort("clCreateBuffer", e);
+	]
+	ffi_destructor_call(destr, ctx.clReleaseMemObject, [ ret ]);
+	atomic_exit();
+
+	ffi_destructor_free(ptr_err_s32);
+
+	var buf := cl_buffer.[
+		destr : destr,
+		context : ctx.context,
+		buffer : ret,
+	];
+	return buf;
+]
+
+fn cl_read_buffer(implicit w : cl_world, ctx : cl_context, buf : cl_buffer, offset size : nat) : (cl_world, bytes)
+[
+	var ret err : int;
+	implicit var destr := ffi_destructor_new();
+
+	var mem := ffi_destructor_allocate(size, 1, false);
+	eval debug("mem: " + ntos_base(mem, 16));
+	ret, err := ffi_call_function(ctx.clEnqueueReadBuffer, [ ctx.command_queue, buf.buffer, 1, offset, size, mem, 0, 0, 0 ]);
+	var data := ffi_peek_array(mem, size, ffi_type.t_uint8, byte);
+
+	ffi_destructor_destroy(destr);
+	return data;
+]
+
+fn cl_write_buffer(implicit w : cl_world, ctx : cl_context, buf : cl_buffer, offset : nat, data : bytes) : cl_world
+[
+	var ret err : int;
+	implicit var destr := ffi_destructor_new();
+	var size := len(data);
+
+	var mem := ffi_destructor_allocate(size, 1, false);
+	ffi_poke_array(mem, data);
+	ret, err := ffi_call_function(ctx.clEnqueueWriteBuffer, [ ctx.command_queue, buf.buffer, 1, offset, size, mem, 0, 0, 0 ]);
+
+	ffi_destructor_destroy(destr);
 ]
