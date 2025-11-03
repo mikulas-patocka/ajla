@@ -21,7 +21,7 @@ unit opencl;
 type cl_context;
 type cl_buffer;
 
-fn cl_mk_context : cl_context;
+fn cl_mk_context(num : nat) : cl_context;
 fn cl_get_device_info_string(ctx : cl_context, param : nat) : (cl_context, bytes);
 
 const CL_MEM_READ_WRITE :=	1 shl 0;
@@ -173,7 +173,7 @@ ret:
 	return ctx, result;
 ]
 
-fn cl_mk_context : cl_context
+fn cl_mk_context(num : nat) : cl_context
 [
 	implicit var w := unsafe_get_world;
 	implicit var destr := ffi_destructor_new();
@@ -254,12 +254,16 @@ fn cl_mk_context : cl_context
 	for i := 0 to len(devices) do [
 		var b := probe_device(lib, devices[i]);
 		if b then [
+			if num > 0 then [
+				num -= 1;
+				continue;
+			]
 			eval debug("valid device: " + ntos(i));
 			ctx.device := devices[i];
 			goto found;
 		]
 	]
-	abort opencl_abort_msg("No working devices");
+	abort opencl_abort_msg("No more devices");
 
 found:
 	ffi_destructor_destroy();
