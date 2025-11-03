@@ -21,6 +21,7 @@ unit opencl;
 type cl_context;
 type cl_buffer;
 type cl_program;
+type cl_kernel;
 
 fn cl_mk_context(num : nat) : cl_context;
 fn cl_get_device_info_string(ctx : cl_context, param : nat) : (cl_context, bytes);
@@ -39,6 +40,7 @@ fn cl_read_buffer(ctx : cl_context, buf : cl_buffer, offset size : nat) : (cl_co
 fn cl_write_buffer(ctx : cl_context, buf : cl_buffer, offset : nat, data : bytes) : cl_context;
 
 fn cl_mk_program(ctx : cl_context, code : bytes, options : bytes) : (cl_context, cl_program);
+fn cl_mk_kernel(ctx : cl_context, program : cl_program, func : bytes) : (cl_context, cl_kernel);
 
 implementation
 
@@ -62,6 +64,8 @@ record cl_context [
 	clCreateProgramWithSource : ffi_function;
 	clReleaseProgram : ffi_function;
 	clBuildProgram : ffi_function;
+	clCreateKernel : ffi_function;
+	clReleaseKernel : ffi_function;
 ]
 
 record cl_buffer [
@@ -74,6 +78,12 @@ record cl_program [
 	destr : ffi_destructor;
 	context : int;
 	program : int;
+]
+
+record cl_kernel [
+	destr : ffi_destructor;
+	context : int;
+	kernel : int;
 ]
 
 fn opencl_abort(func : bytes, retval : int) : cl_context
@@ -304,6 +314,7 @@ found:
 		atomic_exit();
 		var e := ffi_peek(ptr_err_s32, ffi_type.t_sint32);
 		ffi_destructor_destroy();
+		xeval w;
 		abort opencl_abort("clCreateContext", e);
 	]
 	ctx.context := ret;
@@ -320,6 +331,7 @@ found:
 		atomic_exit();
 		var e := ffi_peek(ptr_err_s32, ffi_type.t_sint32);
 		ffi_destructor_destroy();
+		xeval w;
 		abort opencl_abort("clCreateCommandQueue", e);
 	]
 	ctx.command_queue := ret;
@@ -329,12 +341,14 @@ found:
 	ffi_destructor_free(ptr_err_s32);
 
 	ctx.clCreateBuffer := ffi_create_function(lib, "clCreateBuffer", ffi_error.e_none, 5, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_ulong, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_pointer ], false);
-	ctx.clReleaseMemObject := ffi_create_function(lib, "clReleaseMemObject", ffi_error.e_none, 5, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
+	ctx.clReleaseMemObject := ffi_create_function(lib, "clReleaseMemObject", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
 	ctx.clEnqueueReadBuffer := ffi_create_function(lib, "clEnqueueReadBuffer", ffi_error.e_none, 9, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_usize, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer ], false);
 	ctx.clEnqueueWriteBuffer := ffi_create_function(lib, "clEnqueueWriteBuffer", ffi_error.e_none, 9, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_usize, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer ], false);
 	ctx.clCreateProgramWithSource := ffi_create_function(lib, "clCreateProgramWithSource", ffi_error.e_none, 5, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ], false);
-	ctx.clReleaseProgram := ffi_create_function(lib, "clReleaseProgram", ffi_error.e_none, 5, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
+	ctx.clReleaseProgram := ffi_create_function(lib, "clReleaseProgram", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
 	ctx.clBuildProgram := ffi_create_function(lib, "clBuildProgram", ffi_error.e_none, 6, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+	ctx.clCreateKernel := ffi_create_function(lib, "clCreateKernel", ffi_error.e_none, 3, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+	ctx.clReleaseKernel := ffi_create_function(lib, "clReleaseKernel", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
 
 	ctx.destr := destr;
 
@@ -359,6 +373,7 @@ fn cl_mk_buffer(ctx : cl_context, access : nat, size : nat, host_ptr : int) : (c
 		atomic_exit();
 		var e := ffi_peek(ptr_err_s32, ffi_type.t_sint32);
 		ffi_destructor_destroy();
+		xeval w;
 		abort opencl_abort("clCreateBuffer", e);
 	]
 	ffi_destructor_call(destr, ctx.clReleaseMemObject, [ ret ]);
@@ -435,6 +450,7 @@ fn cl_mk_program(ctx : cl_context, code : bytes, options : bytes) : (cl_context,
 		atomic_exit();
 		var e := ffi_peek(ptr_err_s32, ffi_type.t_sint32);
 		ffi_destructor_destroy();
+		xeval w;
 		abort opencl_abort("clCreateProgramWithSource", e);
 	]
 	var prog := ret;
@@ -455,6 +471,7 @@ fn cl_mk_program(ctx : cl_context, code : bytes, options : bytes) : (cl_context,
 	ret, err := ffi_call_function(ctx.clBuildProgram, [ prog, 1, ptr_devices, ptr_options, 0, 0 ]);
 	if ret <> 0 then [
 		ffi_destructor_destroy();
+		xeval w;
 		abort opencl_abort("clBuildProgram", ret);
 	]
 
@@ -469,4 +486,45 @@ fn cl_mk_program(ctx : cl_context, code : bytes, options : bytes) : (cl_context,
 
 	ctx.w := w;
 	return ctx, program;
+]
+
+fn cl_mk_kernel(ctx : cl_context, program : cl_program, func : bytes) : (cl_context, cl_kernel)
+[
+	implicit var w := ctx.w;
+	implicit var destr := ffi_destructor_new();
+	var ret err : int;
+
+	if ctx.context <> program.context then
+		abort opencl_abort_msg("The program doesn't match the context");
+
+	var ptr_func := ffi_destructor_allocate(len(func) + 1, 1, false);
+	ffi_poke_array(ptr_func, func);
+	ffi_poke(ptr_func + len(func), ffi_type.t_schar, 0);
+	var ptr_err_s32 := ffi_destructor_allocate(ffi_get_size(ffi_type.t_sint32), ffi_get_alignment(ffi_type.t_sint32), false);
+
+	atomic_enter();
+	ret, err := ffi_call_function(ctx.clCreateKernel, [ program.program, ptr_func, ptr_err_s32 ]);
+	if ret = 0 then [
+		atomic_exit();
+		var e := ffi_peek(ptr_err_s32, ffi_type.t_sint32);
+		ffi_destructor_destroy();
+		xeval w;
+		abort opencl_abort("clCreateKernel", e);
+	]
+	var kern := ret;
+	ffi_destructor_call(destr, ctx.clReleaseKernel, [ kern ]);
+	atomic_exit();
+	xeval program;
+
+	ffi_destructor_free(ptr_func);
+	ffi_destructor_free(ptr_err_s32);
+
+	var kernel := cl_kernel.[
+		destr : destr,
+		context : ctx.context,
+		kernel : kern,
+	];
+
+	ctx.w := w;
+	return ctx, kernel;
 ]
