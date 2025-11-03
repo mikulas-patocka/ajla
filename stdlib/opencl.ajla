@@ -20,6 +20,7 @@ unit opencl;
 
 type cl_context;
 type cl_buffer;
+type cl_program;
 
 fn cl_mk_context(num : nat) : cl_context;
 fn cl_get_device_info_string(ctx : cl_context, param : nat) : (cl_context, bytes);
@@ -37,6 +38,8 @@ fn cl_mk_buffer(ctx : cl_context, access : nat, size : nat, host_ptr : int) : (c
 fn cl_read_buffer(ctx : cl_context, buf : cl_buffer, offset size : nat) : (cl_context, bytes);
 fn cl_write_buffer(ctx : cl_context, buf : cl_buffer, offset : nat, data : bytes) : cl_context;
 
+fn cl_mk_program(ctx : cl_context, code : bytes, options : bytes) : (cl_context, cl_program);
+
 implementation
 
 uses exception;
@@ -44,11 +47,9 @@ uses ffi;
 
 record cl_context [
 	w : world;
-
 	destr : ffi_destructor;
 
 	version : nat;
-
 	device : int;
 	context : int;
 	command_queue : int;
@@ -58,14 +59,21 @@ record cl_context [
 	clReleaseMemObject : ffi_function;
 	clEnqueueReadBuffer : ffi_function;
 	clEnqueueWriteBuffer : ffi_function;
+	clCreateProgramWithSource : ffi_function;
+	clReleaseProgram : ffi_function;
+	clBuildProgram : ffi_function;
 ]
 
 record cl_buffer [
 	destr : ffi_destructor;
-
 	context : int;
-
 	buffer : int;
+]
+
+record cl_program [
+	destr : ffi_destructor;
+	context : int;
+	program : int;
 ]
 
 fn opencl_abort(func : bytes, retval : int) : cl_context
@@ -324,6 +332,9 @@ found:
 	ctx.clReleaseMemObject := ffi_create_function(lib, "clReleaseMemObject", ffi_error.e_none, 5, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
 	ctx.clEnqueueReadBuffer := ffi_create_function(lib, "clEnqueueReadBuffer", ffi_error.e_none, 9, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_usize, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer ], false);
 	ctx.clEnqueueWriteBuffer := ffi_create_function(lib, "clEnqueueWriteBuffer", ffi_error.e_none, 9, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_usize, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+	ctx.clCreateProgramWithSource := ffi_create_function(lib, "clCreateProgramWithSource", ffi_error.e_none, 5, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+	ctx.clReleaseProgram := ffi_create_function(lib, "clReleaseProgram", ffi_error.e_none, 5, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
+	ctx.clBuildProgram := ffi_create_function(lib, "clBuildProgram", ffi_error.e_none, 6, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ], false);
 
 	ctx.destr := destr;
 
@@ -371,6 +382,9 @@ fn cl_read_buffer(ctx : cl_context, buf : cl_buffer, offset size : nat) : (cl_co
 	implicit var destr := ffi_destructor_new();
 	var ret err : int;
 
+	if ctx.context <> buf.context then
+		abort opencl_abort_msg("The buffer doesn't match the context");
+
 	var mem := ffi_destructor_allocate(size, 1, false);
 	ret, err := ffi_call_function(ctx.clEnqueueReadBuffer, [ ctx.command_queue, buf.buffer, 1, offset, size, mem, 0, 0, 0 ]);
 	xeval buf;
@@ -388,6 +402,9 @@ fn cl_write_buffer(ctx : cl_context, buf : cl_buffer, offset : nat, data : bytes
 	var ret err : int;
 	var size := len(data);
 
+	if ctx.context <> buf.context then
+		abort opencl_abort_msg("The buffer doesn't match the context");
+
 	var mem := ffi_destructor_allocate(size, 1, false);
 	ffi_poke_array(mem, data);
 	ret, err := ffi_call_function(ctx.clEnqueueWriteBuffer, [ ctx.command_queue, buf.buffer, 1, offset, size, mem, 0, 0, 0 ]);
@@ -396,4 +413,60 @@ fn cl_write_buffer(ctx : cl_context, buf : cl_buffer, offset : nat, data : bytes
 	ffi_destructor_destroy(destr);
 	ctx.w := w;
 	return ctx;
+]
+
+fn cl_mk_program(ctx : cl_context, code : bytes, options : bytes) : (cl_context, cl_program)
+[
+	implicit var w := ctx.w;
+	implicit var destr := ffi_destructor_new();
+	var ret err : int;
+
+	var ptr_string := ffi_destructor_allocate(len(code), 1, false);
+	ffi_poke_array(ptr_string, code);
+	var ptr_strings := ffi_destructor_allocate(ffi_get_size(ffi_type.t_pointer), ffi_get_alignment(ffi_type.t_pointer), false);
+	ffi_poke(ptr_strings, ffi_type.t_pointer, ptr_string);
+	var ptr_sizes := ffi_destructor_allocate(ffi_get_size(ffi_type.t_usize), ffi_get_alignment(ffi_type.t_usize), false);
+	ffi_poke(ptr_sizes, ffi_type.t_usize, len(code));
+	var ptr_err_s32 := ffi_destructor_allocate(ffi_get_size(ffi_type.t_sint32), ffi_get_alignment(ffi_type.t_sint32), false);
+
+	atomic_enter();
+	ret, err := ffi_call_function(ctx.clCreateProgramWithSource, [ ctx.context, 1, ptr_strings, ptr_sizes, ptr_err_s32 ]);
+	if ret = 0 then [
+		atomic_exit();
+		var e := ffi_peek(ptr_err_s32, ffi_type.t_sint32);
+		ffi_destructor_destroy();
+		abort opencl_abort("clCreateProgramWithSource", e);
+	]
+	var prog := ret;
+	ffi_destructor_call(destr, ctx.clReleaseProgram, [ prog ]);
+	atomic_exit();
+
+	ffi_destructor_free(ptr_string);
+	ffi_destructor_free(ptr_strings);
+	ffi_destructor_free(ptr_sizes);
+	ffi_destructor_free(ptr_err_s32);
+
+	var ptr_devices := ffi_destructor_allocate(ffi_get_size(ffi_type.t_pointer), ffi_get_alignment(ffi_type.t_pointer), false);
+	ffi_poke(ptr_devices, ffi_type.t_pointer, ctx.device);
+	var ptr_options := ffi_destructor_allocate(len(options) + 1, 1, false);
+	ffi_poke_array(ptr_string, options);
+	ffi_poke(ptr_options + len(options), ffi_type.t_schar, 0);
+
+	ret, err := ffi_call_function(ctx.clBuildProgram, [ prog, 1, ptr_devices, ptr_options, 0, 0 ]);
+	if ret <> 0 then [
+		ffi_destructor_destroy();
+		abort opencl_abort("clBuildProgram", ret);
+	]
+
+	ffi_destructor_free(ptr_devices);
+	ffi_destructor_free(ptr_options);
+
+	var program := cl_program.[
+		destr : destr,
+		context : ctx.context,
+		program : prog,
+	];
+
+	ctx.w := w;
+	return ctx, program;
 ]
