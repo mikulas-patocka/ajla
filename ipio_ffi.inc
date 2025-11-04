@@ -819,7 +819,7 @@ static void * attr_fastcall io_ffi_create_function_handler(struct io_ctx *ctx)
 	ajla_option_t err_type;
 	ajla_option_t rtype;
 	struct data *r_struc;
-	ajla_option_t interlocked;
+	unsigned flags;
 	ffi_type *ret = NULL;
 	ffi_type **args = NULL;
 
@@ -862,7 +862,9 @@ static void * attr_fastcall io_ffi_create_function_handler(struct io_ctx *ctx)
 	if (unlikely(!ret))
 		goto ret_err;
 
-	io_get_option(ctx, get_input(ctx, 6), &interlocked, NULL);
+	io_get_positive_number(ctx, ctx->fp, get_input(ctx, 6), unsigned, flags);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 
 	d = data_alloc_resource_mayfail(sizeof(struct resource_ffi), resource_ffi_close, &ctx->err pass_file_line);
 	if (unlikely(!d))
@@ -897,7 +899,7 @@ static void * attr_fastcall io_ffi_create_function_handler(struct io_ctx *ctx)
 	args = NULL;
 	rf->ret_ffi_type = ret;
 	rf->ret_type = rtype;
-	rf->interlocked = interlocked;
+	rf->interlocked = (flags & 1) != 0;
 	ret = NULL;
 
 	pointer_reference_owned(ptr);

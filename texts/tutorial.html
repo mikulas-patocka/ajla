@@ -1990,8 +1990,8 @@ fn main
 	ffi_poke_array(message, str);
 	var wrt := ffi_create_function(ffi_default_library, "write",
 			ffi_error.e_errno, 3, ffi_type.t_ssize,
-			[ffi_type.t_sint, ffi_type.t_pointer, ffi_type.t_usize],
-			false);
+			[ffi_type.t_sint, ffi_type.t_pointer,
+			ffi_type.t_usize]);
 	var xh := ffi_handle_to_number(destr, h[1]);
 	var r, e := ffi_call_function(wrt, [ xh, message, len(str) ]);
 	ffi_destructor_destroy(destr);
@@ -2029,7 +2029,7 @@ Note that the function <code>ffi_poke_array</code> may be used to overwrite
 arbitrary memory in the process.
 <dt><code>var wrt := ffi_create_function(ffi_default_library, "write",
 ffi_error.e_errno, 3, ffi_type.t_ssize, [ffi_type.t_sint, ffi_type.t_pointer,
-ffi_type.t_usize], false);</code>
+ffi_type.t_usize]);</code>
 <dd>This statement loads a pointer to the function "<code>write</code>" from the
 standard library. The first argument is a reference to the library (use
 <code>ffi_default_library</code>) for standard libc, the second argument is the
@@ -2038,10 +2038,7 @@ name of the function, the third argument specifies that we are interested in the
 number of fixed arguments, the fifth argument is the return type, the sixth
 argument is the list containing types for the three arguments &mdash; the first
 argument has type signed integer, the second argument has type pointer, the
-third argument has type unsigned size_t. The seventh argument specifies whether
-the function should be protected by a mutex or not. We don't need to protect the
-<code>"write"</code> function against concurrent calls, so the argument is
-<code>false</code>.
+third argument has type unsigned size_t.
 <dt><code>var xh := ffi_handle_to_number(destr, h[1]);</code>
 <dd>This statement converts an Ajla handle to a system handle. The result will
 be "1" because we are writing to the standard output. A reference to the handle

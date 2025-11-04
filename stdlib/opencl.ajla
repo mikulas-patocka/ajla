@@ -111,8 +111,8 @@ fn probe_device(implicit w : world, lib : ffi_library, d : int) : (world, bool)
 	implicit var destr := ffi_destructor_new();
 	var ret err : int;
 
-	var clCreateContext := ffi_create_function(lib, "clCreateContext", ffi_error.e_none, 6, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ], false);
-	var clReleaseContext := ffi_create_function(lib, "clReleaseContext", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
+	var clCreateContext := ffi_create_function(lib, "clCreateContext", ffi_error.e_none, 6, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ]);
+	var clReleaseContext := ffi_create_function(lib, "clReleaseContext", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ]);
 
 	var ptr_devices := ffi_destructor_allocate(ffi_get_size(ffi_type.t_pointer), ffi_get_alignment(ffi_type.t_pointer), false);
 	ffi_poke(ptr_devices, ffi_type.t_pointer, d);
@@ -128,8 +128,8 @@ fn probe_device(implicit w : world, lib : ffi_library, d : int) : (world, bool)
 	ffi_destructor_call(destr, clReleaseContext, [ ctx ]);
 	atomic_exit();
 
-	var clCreateProgramWithSource := ffi_create_function(lib, "clCreateProgramWithSource", ffi_error.e_none, 5, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ], false);
-	var clReleaseProgram := ffi_create_function(lib, "clReleaseProgram", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
+	var clCreateProgramWithSource := ffi_create_function(lib, "clCreateProgramWithSource", ffi_error.e_none, 5, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ]);
+	var clReleaseProgram := ffi_create_function(lib, "clReleaseProgram", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ]);
 
 	var code := "__kernel void render(void) { }";
 
@@ -156,7 +156,7 @@ fn probe_device(implicit w : world, lib : ffi_library, d : int) : (world, bool)
 	ffi_destructor_free(ptr_strings);
 	ffi_destructor_free(ptr_sizes);
 
-	var clBuildProgram := ffi_create_function(lib, "clBuildProgram", ffi_error.e_none, 6, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+	var clBuildProgram := ffi_create_function(lib, "clBuildProgram", ffi_error.e_none, 6, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ]);
 
 	ret, err := ffi_call_function(clBuildProgram, [ prog, 1, ptr_devices, 0, 0, 0 ]);
 	if ret <> 0 then [
@@ -210,7 +210,7 @@ fn cl_mk_context(num : nat) : cl_context
 	var lib := ffi_open_library("OpenCL", true, "");
 	xeval lib;
 
-	var clGetPlatformIDs := ffi_create_function(lib, "clGetPlatformIDs", ffi_error.e_none, 3, ffi_type.t_sint32, [ ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+	var clGetPlatformIDs := ffi_create_function(lib, "clGetPlatformIDs", ffi_error.e_none, 3, ffi_type.t_sint32, [ ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer ]);
 	var ptr_n_u32 := ffi_destructor_allocate(ffi_get_size(ffi_type.t_uint32), ffi_get_alignment(ffi_type.t_uint32), false);
 	ret, err := ffi_call_function(clGetPlatformIDs, [ 0, 0, ptr_n_u32 ]);
 	if ret <> 0 then
@@ -238,7 +238,7 @@ fn cl_mk_context(num : nat) : cl_context
 
 	var device_types := [ 4, 8, 2 ];	// GPU, accelerator, CPU
 
-	var clGetDeviceIDs := ffi_create_function(lib, "clGetDeviceIDs", ffi_error.e_none, 5, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_ulong, ffi_type.t_uint, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+	var clGetDeviceIDs := ffi_create_function(lib, "clGetDeviceIDs", ffi_error.e_none, 5, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_ulong, ffi_type.t_uint, ffi_type.t_pointer, ffi_type.t_pointer ]);
 
 	var devices := empty(int);
 
@@ -297,7 +297,7 @@ found:
 	ffi_destructor_destroy();
 	destr := ffi_destructor_new();
 
-	ctx.clGetDeviceInfo := ffi_create_function(lib, "clGetDeviceInfo", ffi_error.e_none, 5, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+	ctx.clGetDeviceInfo := ffi_create_function(lib, "clGetDeviceInfo", ffi_error.e_none, 5, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_pointer ]);
 
 	var version := cl_get_device_info_string(ctx, #102F);
 	var wh_version := list_break_whitespace(version);
@@ -311,8 +311,8 @@ found:
 		abort opencl_abort_msg("Invalid version: " + version);
 	eval debug("version: " + ntos(ctx.version));
 
-	var clCreateContext := ffi_create_function(lib, "clCreateContext", ffi_error.e_none, 6, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ], false);
-	var clReleaseContext := ffi_create_function(lib, "clReleaseContext", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
+	var clCreateContext := ffi_create_function(lib, "clCreateContext", ffi_error.e_none, 6, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ]);
+	var clReleaseContext := ffi_create_function(lib, "clReleaseContext", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ]);
 
 	var ptr_devices := ffi_destructor_allocate(ffi_get_size(ffi_type.t_pointer), ffi_get_alignment(ffi_type.t_pointer), false);
 	ffi_poke(ptr_devices, ffi_type.t_pointer, ctx.device);
@@ -332,8 +332,8 @@ found:
 	atomic_exit();
 	ffi_destructor_free(ptr_devices);
 
-	var clCreateCommandQueue := ffi_create_function(lib, "clCreateCommandQueue", ffi_error.e_none, 4, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ], false);
-	var clReleaseCommandQueue := ffi_create_function(lib, "clReleaseCommandQueue", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
+	var clCreateCommandQueue := ffi_create_function(lib, "clCreateCommandQueue", ffi_error.e_none, 4, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ]);
+	var clReleaseCommandQueue := ffi_create_function(lib, "clReleaseCommandQueue", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ]);
 
 	atomic_enter();
 	ret, err := ffi_call_function(clCreateCommandQueue, [ ctx.context, ctx.device, 0, ptr_err_s32 ]);
@@ -350,24 +350,24 @@ found:
 
 	ffi_destructor_free(ptr_err_s32);
 
-	ctx.clCreateBuffer := ffi_create_function(lib, "clCreateBuffer", ffi_error.e_none, 5, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_ulong, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_pointer ], false);
-	ctx.clReleaseMemObject := ffi_create_function(lib, "clReleaseMemObject", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
-	ctx.clEnqueueReadBuffer := ffi_create_function(lib, "clEnqueueReadBuffer", ffi_error.e_none, 9, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_usize, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer ], false);
-	ctx.clEnqueueWriteBuffer := ffi_create_function(lib, "clEnqueueWriteBuffer", ffi_error.e_none, 9, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_usize, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+	ctx.clCreateBuffer := ffi_create_function(lib, "clCreateBuffer", ffi_error.e_none, 5, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_ulong, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_pointer ]);
+	ctx.clReleaseMemObject := ffi_create_function(lib, "clReleaseMemObject", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ]);
+	ctx.clEnqueueReadBuffer := ffi_create_function(lib, "clEnqueueReadBuffer", ffi_error.e_none, 9, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_usize, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer ]);
+	ctx.clEnqueueWriteBuffer := ffi_create_function(lib, "clEnqueueWriteBuffer", ffi_error.e_none, 9, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_usize, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer ]);
 
-	ctx.clCreateProgramWithSource := ffi_create_function(lib, "clCreateProgramWithSource", ffi_error.e_none, 5, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ], false);
-	ctx.clReleaseProgram := ffi_create_function(lib, "clReleaseProgram", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
-	ctx.clBuildProgram := ffi_create_function(lib, "clBuildProgram", ffi_error.e_none, 6, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+	ctx.clCreateProgramWithSource := ffi_create_function(lib, "clCreateProgramWithSource", ffi_error.e_none, 5, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ]);
+	ctx.clReleaseProgram := ffi_create_function(lib, "clReleaseProgram", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ]);
+	ctx.clBuildProgram := ffi_create_function(lib, "clBuildProgram", ffi_error.e_none, 6, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ]);
 
-	ctx.clCreateKernel := ffi_create_function(lib, "clCreateKernel", ffi_error.e_none, 3, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ], false);
-	ctx.clReleaseKernel := ffi_create_function(lib, "clReleaseKernel", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
-	ctx.clSetKernelArg := ffi_create_function(lib, "clSetKernelArg", ffi_error.e_none, 4, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_usize, ffi_type.t_pointer ], false);
+	ctx.clCreateKernel := ffi_create_function(lib, "clCreateKernel", ffi_error.e_none, 3, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ]);
+	ctx.clReleaseKernel := ffi_create_function(lib, "clReleaseKernel", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ]);
+	ctx.clSetKernelArg := ffi_create_function(lib, "clSetKernelArg", ffi_error.e_none, 4, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_usize, ffi_type.t_pointer ]);
 
-	ctx.clEnqueueNDRangeKernel := ffi_create_function(lib, "clEnqueueNDRangeKernel", ffi_error.e_none, 9, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+	ctx.clEnqueueNDRangeKernel := ffi_create_function(lib, "clEnqueueNDRangeKernel", ffi_error.e_none, 9, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer ]);
 
-	ctx.clReleaseEvent := ffi_create_function(lib, "clReleaseEvent", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
-	ctx.clWaitForEvents := ffi_create_function(lib, "clWaitForEvents", ffi_error.e_none, 2, ffi_type.t_sint32, [ ffi_type.t_uint32, ffi_type.t_pointer ], false);
-	ctx.clGetEventInfo := ffi_create_function(lib, "clGetEventInfo", ffi_error.e_none, 5, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+	ctx.clReleaseEvent := ffi_create_function(lib, "clReleaseEvent", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ]);
+	ctx.clWaitForEvents := ffi_create_function(lib, "clWaitForEvents", ffi_error.e_none, 2, ffi_type.t_sint32, [ ffi_type.t_uint32, ffi_type.t_pointer ]);
+	ctx.clGetEventInfo := ffi_create_function(lib, "clGetEventInfo", ffi_error.e_none, 5, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_pointer ]);
 
 	ctx.destr := destr;
 
@@ -567,6 +567,7 @@ fn cl_kernel_arg(ctx : cl_context, kernel : cl_kernel, arg : nat, ft : ffi_type,
 		xeval w;
 		abort opencl_abort("clSetKernelArg", ret);
 	]
+	xeval kernel;
 
 	ffi_destructor_destroy();
 
@@ -638,8 +639,8 @@ fn cl_enqueue_kernel(ctx : cl_context, kernel : cl_kernel, dim : nat, gwo gws lw
 		abort opencl_abort(kernel.func, ret);
 	];
 
-	ffi_destructor_destroy();
 	xeval kernel;
+	ffi_destructor_destroy();
 
 	ctx.w := w;
 	return ctx;
