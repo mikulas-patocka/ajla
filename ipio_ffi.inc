@@ -118,6 +118,7 @@ struct resource_ffi {
 	ffi_type *ret_ffi_type;
 	ajla_option_t ret_type;
 	bool interlocked;
+	bool block_signals;
 	ffi_cif cif;
 };
 
@@ -900,6 +901,7 @@ static void * attr_fastcall io_ffi_create_function_handler(struct io_ctx *ctx)
 	rf->ret_ffi_type = ret;
 	rf->ret_type = rtype;
 	rf->interlocked = (flags & 1) != 0;
+	rf->block_signals = (flags & 2) != 0;
 	ret = NULL;
 
 	pointer_reference_owned(ptr);
@@ -1103,6 +1105,7 @@ static void * attr_fastcall io_ffi_call_function_handler(struct io_ctx *ctx)
 	size_t i;
 	uint32_t e = 0;		/* avoid warning */
 	bool store = false;
+	sig_state_t set;
 
 	ctx->ptrs = NULL;
 	ctx->ptrs_l = 0;
@@ -1133,6 +1136,9 @@ static void * attr_fastcall io_ffi_call_function_handler(struct io_ctx *ctx)
 	if (unlikely(rf->interlocked))
 		mutex_lock(&ffi_libraries_mutex);
 
+	if (rf->block_signals)
+		os_block_signals(&set);
+
 	ffi_call(&rf->cif, (void (*)(void))rf->sym, &u.rc, ctx->ptrs);
 	store = true;
 
@@ -1144,6 +1150,9 @@ static void * attr_fastcall io_ffi_call_function_handler(struct io_ctx *ctx)
 		default:
 			internal(file_line, "io_ffi_call_function_handler: invalid error specifier %u", (unsigned)rf->err_type);
 	}
+
+	if (rf->block_signals)
+		os_unblock_signals(&set);
 
 	if (unlikely(rf->interlocked))
 		mutex_unlock(&ffi_libraries_mutex);
@@ -1222,18 +1231,23 @@ static void resource_ffi_destructor_close(struct data *d)
 	size_t i;
 	struct resource_ffi_destructor *rfd = da_resource(d);
 	bool interlocked = false;
+	bool block_signals = false;
+	sig_state_t set;
 
 	for (i = 0; i < rfd->calls_l; i++) {
 		struct destructor_call *call = &rfd->calls[i];
 		struct resource_ffi *rf = da_resource(call->d);
-		if (rf->interlocked) {
+		if (rf->interlocked)
 			interlocked = true;
-			break;
-		}
+		if (rf->block_signals)
+			block_signals = true;
 	}
 
 	if (interlocked)
 		mutex_lock(&ffi_libraries_mutex);
+
+	if (block_signals)
+		os_block_signals(&set);
 
 	i = rfd->calls_l;
 	while (i) {
@@ -1258,6 +1272,9 @@ static void resource_ffi_destructor_close(struct data *d)
 		struct resource_ffi *rf = da_resource(call->d);
 		ffi_call(&rf->cif, (void (*)(void))rf->sym, &u, call->args);
 	}
+
+	if (block_signals)
+		os_unblock_signals(&set);
 
 	if (interlocked)
 		mutex_unlock(&ffi_libraries_mutex);

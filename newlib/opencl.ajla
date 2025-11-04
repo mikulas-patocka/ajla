@@ -26,6 +26,7 @@ type cl_program;
 type cl_kernel;
 
 fn cl_mk_context(num : nat) : cl_context;
+fn cl_get_device_info_value(ctx : cl_context, param : nat, ft : ffi_type) : (cl_context, int);
 fn cl_get_device_info_string(ctx : cl_context, param : nat) : (cl_context, bytes);
 
 const CL_MEM_READ_WRITE :=	1 shl 0;
@@ -171,6 +172,27 @@ fn probe_device(implicit w : world, lib : ffi_library, d : int) : (world, bool)
 	return true;
 ]
 
+fn cl_get_device_info_value(ctx : cl_context, param : nat, ft : ffi_type) : (cl_context, int)
+[
+	implicit var w := ctx.w;
+	implicit var destr := ffi_destructor_new();
+	var ret err : int;
+	var result : int;
+
+	var ptr_value := ffi_destructor_allocate(ffi_get_size(ft), ffi_get_alignment(ft), false);
+	ret, err := ffi_call_function(ctx.clGetDeviceInfo, [ ctx.device, param, ffi_get_size(ft), ptr_value, 0 ]);
+	if ret <> 0 then [
+		result := -1;
+	] else [
+		result := ffi_peek(ptr_value, ft);
+	]
+
+	ffi_destructor_destroy();
+
+	ctx.w := w;
+	return ctx, result;
+]
+
 fn cl_get_device_info_string(ctx : cl_context, param : nat) : (cl_context, bytes)
 [
 	implicit var w := ctx.w;
@@ -186,13 +208,13 @@ fn cl_get_device_info_string(ctx : cl_context, param : nat) : (cl_context, bytes
 	]
 	var l := ffi_peek(ptr_n_size, ffi_type.t_usize);
 
-	var buffer := ffi_destructor_allocate(l, 1, false);
-	ret, err := ffi_call_function(ctx.clGetDeviceInfo, [ ctx.device, param, l, buffer, ptr_n_size ]);
+	var ptr_string := ffi_destructor_allocate(l, 1, false);
+	ret, err := ffi_call_function(ctx.clGetDeviceInfo, [ ctx.device, param, l, ptr_string, ptr_n_size ]);
 	var l2 := ffi_peek(ptr_n_size, ffi_type.t_usize);
 	if l <> l2 then
 		abort opencl_abort_msg("Parameter " + ntos(param) + " length mismatch: " + ntos(l) + " <> " + ntos(l2));
-	//var result := ffi_peek_array(buffer, l, ffi_type.t_uchar, byte);
-	result := ffi_peek_zstring(buffer);
+	//var result := ffi_peek_array(ptr_string, l, ffi_type.t_uchar, byte);
+	result := ffi_peek_zstring(ptr_string);
 
 ret:
 	ffi_destructor_destroy();
@@ -210,7 +232,7 @@ fn cl_mk_context(num : nat) : cl_context
 	var lib := ffi_open_library("OpenCL", true, "");
 	xeval lib;
 
-	var clGetPlatformIDs := ffi_create_function(lib, "clGetPlatformIDs", ffi_error.e_none, 3, ffi_type.t_sint32, [ ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer ]);
+	var clGetPlatformIDs := ffi_create_function_with_flags(lib, "clGetPlatformIDs", ffi_error.e_none, 3, ffi_type.t_sint32, [ ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer ], ffi_flag_block_signals);
 	var ptr_n_u32 := ffi_destructor_allocate(ffi_get_size(ffi_type.t_uint32), ffi_get_alignment(ffi_type.t_uint32), false);
 	ret, err := ffi_call_function(clGetPlatformIDs, [ 0, 0, ptr_n_u32 ]);
 	if ret <> 0 then
@@ -238,7 +260,7 @@ fn cl_mk_context(num : nat) : cl_context
 
 	var device_types := [ 4, 8, 2 ];	// GPU, accelerator, CPU
 
-	var clGetDeviceIDs := ffi_create_function(lib, "clGetDeviceIDs", ffi_error.e_none, 5, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_ulong, ffi_type.t_uint, ffi_type.t_pointer, ffi_type.t_pointer ]);
+	var clGetDeviceIDs := ffi_create_function_with_flags(lib, "clGetDeviceIDs", ffi_error.e_none, 5, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_ulong, ffi_type.t_uint, ffi_type.t_pointer, ffi_type.t_pointer ], ffi_flag_block_signals);
 
 	var devices := empty(int);
 
@@ -311,6 +333,13 @@ found:
 		abort opencl_abort_msg("Invalid version: " + version);
 	eval debug("version: " + ntos(ctx.version));
 
+	var ooo_queue := false;
+	var queue_flags := cl_get_device_info_value(ctx, #102A, ffi_type.t_ulong);
+	if queue_flags >= 0 then [
+		ooo_queue := queue_flags bt 0;
+		eval debug("ooo_queue: " + select(ooo_queue, "0", "1"));
+	]
+
 	var clCreateContext := ffi_create_function(lib, "clCreateContext", ffi_error.e_none, 6, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ]);
 	var clReleaseContext := ffi_create_function(lib, "clReleaseContext", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ]);
 
@@ -336,7 +365,7 @@ found:
 	var clReleaseCommandQueue := ffi_create_function(lib, "clReleaseCommandQueue", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ]);
 
 	atomic_enter();
-	ret, err := ffi_call_function(clCreateCommandQueue, [ ctx.context, ctx.device, 0, ptr_err_s32 ]);
+	ret, err := ffi_call_function(clCreateCommandQueue, [ ctx.context, ctx.device, select(ooo_queue, 0, 1), ptr_err_s32 ]);
 	if ret = 0 then [
 		atomic_exit();
 		var e := ffi_peek(ptr_err_s32, ffi_type.t_sint32);

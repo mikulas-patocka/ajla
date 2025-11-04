@@ -89,6 +89,7 @@ fn ffi_open_library_raw_name(filename : bytes, hold : bool, destructor : bytes) 
 fn ffi_open_library(filename : bytes, hold : bool, destructor : bytes) : ffi_library;
 
 const ffi_flag_interlocked : int;
+const ffi_flag_block_signals : int;
 
 fn ffi_create_function(library : ffi_library, funcname : bytes, err_type : ffi_error, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : ffi_function;
 fn ffi_create_function_with_flags(library : ffi_library, funcname : bytes, err_type : ffi_error, nvarargs : int, rtype : ffi_type, args : list(ffi_type), flags : int) : ffi_function;
@@ -281,6 +282,7 @@ fn ffi_open_library(filename : bytes, hold : bool, destructor : bytes) : ffi_lib
 ]
 
 const ffi_flag_interlocked := 1;
+const ffi_flag_block_signals := 2;
 
 fn ffi_create_function(library : ffi_library, funcname : bytes, err_type : ffi_error, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : ffi_function
 [
