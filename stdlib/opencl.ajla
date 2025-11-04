@@ -254,9 +254,8 @@ fn cl_mk_context(num : nat) : cl_context
 
 	ffi_destructor_free(ptr_platforms);
 
-	eval debug("n_platforms: " + ntos(n_platforms));
-	for i := 0 to len(platforms) do
-		eval debug("platform: " + ntos_base(platforms[i], 16));
+	//eval debug("n_platforms: " + ntos(n_platforms));
+	//for i := 0 to len(platforms) do eval debug("platform: " + ntos_base(platforms[i], 16));
 
 	var device_types := [ 4, 8, 2 ];	// GPU, accelerator, CPU
 
@@ -293,9 +292,7 @@ fn cl_mk_context(num : nat) : cl_context
 	if len(devices) = 0 then
 		abort opencl_abort_msg("No devices");
 
-	for i := 0 to len(devices) do [
-		eval debug("device: " + ntos_base(devices[i], 16));
-	]
+	//for i := 0 to len(devices) do eval debug("device: " + ntos_base(devices[i], 16));
 
 	implicit var ctx := cl_context.[
 		w : w,
@@ -308,7 +305,7 @@ fn cl_mk_context(num : nat) : cl_context
 				num -= 1;
 				continue;
 			]
-			eval debug("valid device: " + ntos(i));
+			//eval debug("valid device: " + ntos(i));
 			ctx.device := devices[i];
 			goto found;
 		]
@@ -331,13 +328,13 @@ found:
 	ctx.version := ston(mm_version[0]) * 100 + ston(mm_version[1]);
 	if is_exception ctx.version then
 		abort opencl_abort_msg("Invalid version: " + version);
-	eval debug("version: " + ntos(ctx.version));
+	//eval debug("version: " + ntos(ctx.version));
 
 	var ooo_queue := false;
 	var queue_flags := cl_get_device_info_value(ctx, #102A, ffi_type.t_ulong);
 	if queue_flags >= 0 then [
 		ooo_queue := queue_flags bt 0;
-		eval debug("ooo_queue: " + select(ooo_queue, "0", "1"));
+		//eval debug("ooo_queue: " + select(ooo_queue, "0", "1"));
 	]
 
 	var clCreateContext := ffi_create_function(lib, "clCreateContext", ffi_error.e_none, 6, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ]);
