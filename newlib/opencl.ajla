@@ -18,6 +18,8 @@
 
 unit opencl;
 
+uses ffi;
+
 type cl_context;
 type cl_buffer;
 type cl_program;
@@ -41,11 +43,12 @@ fn cl_write_buffer(ctx : cl_context, buf : cl_buffer, offset : nat, data : bytes
 
 fn cl_mk_program(ctx : cl_context, code : bytes, options : bytes) : (cl_context, cl_program);
 fn cl_mk_kernel(ctx : cl_context, program : cl_program, func : bytes) : (cl_context, cl_kernel);
+fn cl_kernel_arg(ctx : cl_context, kernel : cl_kernel, arg : nat, ft : ffi_type, val : int) : cl_context;
+fn cl_kernel_arg_buffer(ctx : cl_context, kernel : cl_kernel, arg : nat, buffer : cl_buffer) : cl_context;
 
 implementation
 
 uses exception;
-uses ffi;
 
 record cl_context [
 	w : world;
@@ -66,6 +69,7 @@ record cl_context [
 	clBuildProgram : ffi_function;
 	clCreateKernel : ffi_function;
 	clReleaseKernel : ffi_function;
+	clSetKernelArg : ffi_function;
 ]
 
 record cl_buffer [
@@ -344,11 +348,14 @@ found:
 	ctx.clReleaseMemObject := ffi_create_function(lib, "clReleaseMemObject", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
 	ctx.clEnqueueReadBuffer := ffi_create_function(lib, "clEnqueueReadBuffer", ffi_error.e_none, 9, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_usize, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer ], false);
 	ctx.clEnqueueWriteBuffer := ffi_create_function(lib, "clEnqueueWriteBuffer", ffi_error.e_none, 9, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_usize, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+
 	ctx.clCreateProgramWithSource := ffi_create_function(lib, "clCreateProgramWithSource", ffi_error.e_none, 5, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ], false);
 	ctx.clReleaseProgram := ffi_create_function(lib, "clReleaseProgram", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
 	ctx.clBuildProgram := ffi_create_function(lib, "clBuildProgram", ffi_error.e_none, 6, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+
 	ctx.clCreateKernel := ffi_create_function(lib, "clCreateKernel", ffi_error.e_none, 3, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ], false);
 	ctx.clReleaseKernel := ffi_create_function(lib, "clReleaseKernel", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
+	ctx.clSetKernelArg := ffi_create_function(lib, "clSetKernelArg", ffi_error.e_none, 4, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_usize, ffi_type.t_pointer ], false);
 
 	ctx.destr := destr;
 
@@ -405,7 +412,7 @@ fn cl_read_buffer(ctx : cl_context, buf : cl_buffer, offset size : nat) : (cl_co
 	xeval buf;
 	var data := ffi_peek_array(mem, size, ffi_type.t_uint8, byte);
 
-	ffi_destructor_destroy(destr);
+	ffi_destructor_destroy();
 	ctx.w := w;
 	return ctx, data;
 ]
@@ -425,7 +432,7 @@ fn cl_write_buffer(ctx : cl_context, buf : cl_buffer, offset : nat, data : bytes
 	ret, err := ffi_call_function(ctx.clEnqueueWriteBuffer, [ ctx.command_queue, buf.buffer, 1, offset, size, mem, 0, 0, 0 ]);
 	xeval buf;
 
-	ffi_destructor_destroy(destr);
+	ffi_destructor_destroy();
 	ctx.w := w;
 	return ctx;
 ]
@@ -527,4 +534,37 @@ fn cl_mk_kernel(ctx : cl_context, program : cl_program, func : bytes) : (cl_cont
 
 	ctx.w := w;
 	return ctx, kernel;
+]
+
+fn cl_kernel_arg(ctx : cl_context, kernel : cl_kernel, arg : nat, ft : ffi_type, val : int) : cl_context
+[
+	implicit var w := ctx.w;
+	implicit var destr := ffi_destructor_new();
+	var ret err : int;
+
+	if ctx.context <> kernel.context then
+		abort opencl_abort_msg("The kernel doesn't match the context");
+
+	var ptr_buffer := ffi_destructor_allocate(ffi_get_size(ft), ffi_get_alignment(ft), false);
+	ffi_poke(ptr_buffer, ft, val);
+
+	ret, err := ffi_call_function(ctx.clSetKernelArg, [ kernel.kernel, arg, ffi_get_size(ft), ptr_buffer ]);
+	if ret <> 0 then [
+		ffi_destructor_destroy();
+		xeval w;
+		abort opencl_abort("clSetKernelArg", ret);
+	]
+
+	ffi_destructor_destroy();
+
+	ctx.w := w;
+	return ctx;
+]
+
+fn cl_kernel_arg_buffer(ctx : cl_context, kernel : cl_kernel, arg : nat, buffer : cl_buffer) : cl_context
+[
+	if ctx.context <> buffer.context then
+		abort opencl_abort_msg("The kernel doesn't match the context");
+
+	return cl_kernel_arg(ctx, kernel, arg, ffi_type.t_pointer, buffer.buffer);
 ]
