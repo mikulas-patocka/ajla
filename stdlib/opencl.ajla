@@ -45,6 +45,7 @@ fn cl_mk_program(ctx : cl_context, code : bytes, options : bytes) : (cl_context,
 fn cl_mk_kernel(ctx : cl_context, program : cl_program, func : bytes) : (cl_context, cl_kernel);
 fn cl_kernel_arg(ctx : cl_context, kernel : cl_kernel, arg : nat, ft : ffi_type, val : int) : cl_context;
 fn cl_kernel_arg_buffer(ctx : cl_context, kernel : cl_kernel, arg : nat, buffer : cl_buffer) : cl_context;
+fn cl_enqueue_kernel(ctx : cl_context, kernel : cl_kernel, dim : nat, gwo gws lws : list(nat)) : cl_context;
 
 implementation
 
@@ -70,6 +71,10 @@ record cl_context [
 	clCreateKernel : ffi_function;
 	clReleaseKernel : ffi_function;
 	clSetKernelArg : ffi_function;
+	clEnqueueNDRangeKernel : ffi_function;
+	clReleaseEvent : ffi_function;
+	clWaitForEvents : ffi_function;
+	clGetEventInfo : ffi_function;
 ]
 
 record cl_buffer [
@@ -88,6 +93,7 @@ record cl_kernel [
 	destr : ffi_destructor;
 	context : int;
 	kernel : int;
+	func : bytes;
 ]
 
 fn opencl_abort(func : bytes, retval : int) : cl_context
@@ -357,6 +363,12 @@ found:
 	ctx.clReleaseKernel := ffi_create_function(lib, "clReleaseKernel", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
 	ctx.clSetKernelArg := ffi_create_function(lib, "clSetKernelArg", ffi_error.e_none, 4, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_usize, ffi_type.t_pointer ], false);
 
+	ctx.clEnqueueNDRangeKernel := ffi_create_function(lib, "clEnqueueNDRangeKernel", ffi_error.e_none, 9, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+
+	ctx.clReleaseEvent := ffi_create_function(lib, "clReleaseEvent", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ], false);
+	ctx.clWaitForEvents := ffi_create_function(lib, "clWaitForEvents", ffi_error.e_none, 2, ffi_type.t_sint32, [ ffi_type.t_uint32, ffi_type.t_pointer ], false);
+	ctx.clGetEventInfo := ffi_create_function(lib, "clGetEventInfo", ffi_error.e_none, 5, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_pointer ], false);
+
 	ctx.destr := destr;
 
 	return ctx;
@@ -530,6 +542,7 @@ fn cl_mk_kernel(ctx : cl_context, program : cl_program, func : bytes) : (cl_cont
 		destr : destr,
 		context : ctx.context,
 		kernel : kern,
+		func : func,
 	];
 
 	ctx.w := w;
@@ -567,4 +580,67 @@ fn cl_kernel_arg_buffer(ctx : cl_context, kernel : cl_kernel, arg : nat, buffer 
 		abort opencl_abort_msg("The kernel doesn't match the context");
 
 	return cl_kernel_arg(ctx, kernel, arg, ffi_type.t_pointer, buffer.buffer);
+]
+
+fn cl_enqueue_kernel(ctx : cl_context, kernel : cl_kernel, dim : nat, gwo gws lws : list(nat)) : cl_context
+[
+	implicit var w := ctx.w;
+	implicit var destr := ffi_destructor_new();
+	var ret err : int;
+
+	if ctx.context <> kernel.context then
+		abort opencl_abort_msg("The kernel doesn't match the context");
+
+	if dim <> len(gwo) or dim <> len(gws) or dim <> len(lws) then
+		abort opencl_abort_msg("Invalid dimension");
+
+	var ptr_gwo := ffi_destructor_allocate(ffi_get_size(ffi_type.t_usize) * dim, ffi_get_alignment(ffi_type.t_usize), false);
+	ffi_poke_int_array(ptr_gwo, ffi_type.t_usize, gwo);
+	var ptr_gws := ffi_destructor_allocate(ffi_get_size(ffi_type.t_usize) * dim, ffi_get_alignment(ffi_type.t_usize), false);
+	ffi_poke_int_array(ptr_gws, ffi_type.t_usize, gws);
+	var ptr_lws := ffi_destructor_allocate(ffi_get_size(ffi_type.t_usize) * dim, ffi_get_alignment(ffi_type.t_usize), false);
+	ffi_poke_int_array(ptr_lws, ffi_type.t_usize, lws);
+
+	var ptr_event := ffi_destructor_allocate(ffi_get_size(ffi_type.t_pointer), ffi_get_alignment(ffi_type.t_pointer), false);
+
+	atomic_enter();
+	ret, err := ffi_call_function(ctx.clEnqueueNDRangeKernel, [ ctx.command_queue, kernel.kernel, dim, ptr_gwo, ptr_gws, ptr_lws, 0, 0, ptr_event ]);
+	if ret <> 0 then [
+		atomic_exit();
+		ffi_destructor_destroy();
+		xeval w;
+		abort opencl_abort("clEnqueueNDRangeKernel", ret);
+	]
+	var event := ffi_peek(ptr_event, ffi_type.t_pointer);
+	ffi_destructor_call(destr, ctx.clReleaseEvent, [ event ]);
+	atomic_exit();
+
+	ret, err := ffi_call_function(ctx.clWaitForEvents, [ 1, ptr_event ]);
+	if ret <> 0 then [
+		ffi_destructor_destroy();
+		xeval w;
+		abort opencl_abort("clWaitForEvents", ret);
+	]
+
+	var ptr_status := ffi_destructor_allocate(ffi_get_size(ffi_type.t_sint32), ffi_get_alignment(ffi_type.t_sint32), false);
+
+	ret, err := ffi_call_function(ctx.clGetEventInfo, [ event, #11D3, ffi_get_size(ffi_type.t_sint32), ptr_status, 0 ]);
+	if ret <> 0 then [
+		ffi_destructor_destroy();
+		xeval w;
+		abort opencl_abort("clGetEventInfo", ret);
+	]
+
+	var status := ffi_peek(ptr_status, ffi_type.t_sint32);
+	if status < 0 then [
+		ffi_destructor_destroy();
+		xeval w;
+		abort opencl_abort(kernel.func, ret);
+	];
+
+	ffi_destructor_destroy();
+	xeval kernel;
+
+	ctx.w := w;
+	return ctx;
 ]
