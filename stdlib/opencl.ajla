@@ -332,7 +332,7 @@ found:
 	atomic_exit();
 	ffi_destructor_free(ptr_devices);
 
-	var clCreateCommandQueue := ffi_create_function(lib, "clCreateCommandQueue", ffi_error.e_none, 4, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ]);
+	var clCreateCommandQueue := ffi_create_function(lib, "clCreateCommandQueue", ffi_error.e_none, 4, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_ulong, ffi_type.t_pointer ]);
 	var clReleaseCommandQueue := ffi_create_function(lib, "clReleaseCommandQueue", ffi_error.e_none, 1, ffi_type.t_sint32, [ ffi_type.t_pointer ]);
 
 	atomic_enter();
