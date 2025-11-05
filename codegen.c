@@ -2202,7 +2202,6 @@ static bool attr_w gen_epilogues(struct codegen_context *ctx)
 #endif
 	if (ctx->reload_label) {
 		gen_label(ctx->reload_label);
-		g(gen_spill_all(ctx));
 		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_FRAME, R_RET0));
 		g(gen_escape_arg(ctx, (ip_t)-1, nospill_label));
 	}

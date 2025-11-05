@@ -2790,24 +2790,22 @@ static bool attr_w gen_io(struct codegen_context *ctx, frame_t code, frame_t slo
 		mem_free(ctx->var_aux);
 		ctx->var_aux = NULL;
 	}
-	ctx->var_aux = mem_alloc_array_mayfail(mem_alloc_mayfail, frame_t *, 0, 0, slot_1 + slot_2, sizeof(frame_t), &ctx->err);
+	ctx->var_aux = mem_alloc_array_mayfail(mem_alloc_mayfail, frame_t *, 0, 0, slot_1, sizeof(frame_t), &ctx->err);
 	if (unlikely(!ctx->var_aux))
 		return false;
 
-	for (i = 0; i < slot_1 + slot_2; i++)
+	for (i = 0; i < slot_1; i++)
 		ctx->var_aux[i] = get_uint32(ctx);
+	for (i = 0; i < slot_2; i++)
+		get_uint32(ctx);
 	for (i = 0; i < slot_3; i++)
 		get_uint32(ctx);
 
-	for (i = 0; i < slot_2; i++) {
-		frame_t input_slot = ctx->var_aux[slot_1 + i];
-		if (slot_is_register(ctx, input_slot))
-			g(spill(ctx, input_slot));
-	}
+	g(gen_spill_all(ctx));
 
 	/*gen_insn(INSN_JMP, 0, 0, 0); gen_four(alloc_escape_label(ctx));*/
 
-	g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_io), 3, true));
+	g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_io), 3, false));
 	g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, R_FRAME));
 	g(gen_upcall_argument(ctx, 0));
 
@@ -2818,17 +2816,15 @@ static bool attr_w gen_io(struct codegen_context *ctx, frame_t code, frame_t slo
 	g(gen_upcall_argument(ctx, 2));
 	/*debug("arg2: %08x", ((uint32_t)code << 24) | ((uint32_t)slot_1 << 16) | ((uint32_t)slot_2 << 8) | slot_3);*/
 
-	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_io), 3, true));
+	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_io), 3, false));
 	g(gen_sanitize_returned_pointer(ctx, R_RET0));
 
-	for (i = 0; i < slot_1; i++) {
-		frame_t output_slot = ctx->var_aux[i];
-		flag_set_unknown(ctx, output_slot);
-		if (slot_is_register(ctx, output_slot))
-			g(unspill(ctx, output_slot));
-	}
-
 	g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_ADDRESS, R_RET0, ptr_to_num(POINTER_FOLLOW_THUNK_GO), COND_NE, reload_label, -1));
+
+	g(gen_unspill_all(ctx));
+
+	for (i = 0; i < slot_1; i++)
+		flag_set_unknown(ctx, ctx->var_aux[i]);
 
 	escape_label = alloc_escape_label_for_ip(ctx, ctx->current_position);
 	if (unlikely(!escape_label))
