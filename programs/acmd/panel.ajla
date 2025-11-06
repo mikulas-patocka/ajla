@@ -320,7 +320,7 @@ fn panel_scan_async(implicit w : world, implicit app : appstate, implicit st : p
 	return w2, files, freespace, async_error;
 ]
 
-fn x_files~normal(implicit st : panel_state) : panel_state
+fn x_files~strict(implicit st : panel_state) : panel_state
 [
 	st.async_active := false;
 	st.view_offset := 0;
@@ -337,7 +337,7 @@ fn panel_scan_finish(implicit w : world, implicit app : appstate, implicit st : 
 		acmd_error(`Error reading the directory "` + locale_to_string(st.ro.loc, st.cwd) + `"`, locale_to_string(st.ro.loc, exception_string(st.async_error)));
 	restore_marked();
 	eval widget_send_async_event(st.self, wevent.set_property.(event_set_property.[ prop : "async-finished", val : property.i.(st.async_seq) ]));
-	st.change_monitor := widget_send_async_event~normal(st.change_monitor, app, st.self, wevent.set_property.(event_set_property.[ prop : "change-monitor", val : property.n ]));
+	st.change_monitor := widget_send_async_event~weakspark(st.change_monitor, app, st.self, wevent.set_property.(event_set_property.[ prop : "change-monitor", val : property.n ]));
 ]
 
 fn panel_scan(implicit w : world, implicit app : appstate, implicit st : panel_state, dir_name : bytes, set_cwd : bool) : (world, appstate, panel_state)
