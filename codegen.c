@@ -497,6 +497,7 @@ struct codegen_context {
 	uint8_t *flag_cache;
 	short *registers;
 	frame_t *var_aux;
+	frame_t *var_aux_2;
 	frame_t *need_spill;
 	size_t need_spill_l;
 
@@ -542,6 +543,7 @@ static void init_ctx(struct codegen_context *ctx)
 	ctx->flag_cache = NULL;
 	ctx->registers = NULL;
 	ctx->var_aux = NULL;
+	ctx->var_aux_2 = NULL;
 	ctx->need_spill = NULL;
 	ctx->codegen = NULL;
 	ctx->upcall_offset = -1;
@@ -593,6 +595,8 @@ static void done_ctx(struct codegen_context *ctx)
 		mem_free(ctx->registers);
 	if (ctx->var_aux)
 		mem_free(ctx->var_aux);
+	if (ctx->var_aux_2)
+		mem_free(ctx->var_aux_2);
 	if (ctx->need_spill)
 		mem_free(ctx->need_spill);
 	if (ctx->codegen)

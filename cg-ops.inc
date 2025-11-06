@@ -2777,23 +2777,63 @@ static bool attr_w gen_array_is_finite(struct codegen_context *ctx, frame_t slot
 
 }
 
+static int compare_frame_t(const void *p1, const void *p2)
+{
+	frame_t f1 = *cast_ptr(const frame_t *, p1);
+	frame_t f2 = *cast_ptr(const frame_t *, p2);
+	if (f1 < f2)
+		return -1;
+	if (f1 > f2)
+		return 1;
+	return 0;
+}
+
 static bool attr_w gen_io(struct codegen_context *ctx, frame_t code, frame_t slot_1, frame_t slot_2, frame_t slot_3)
 {
 	uint32_t reload_label, escape_label;
-	frame_t i;
+	frame_t n_unspill, n_test_duplicate;
+	frame_t i, j;
+	size_t idx;
 
 	reload_label = alloc_reload_label(ctx);
 	if (unlikely(!reload_label))
 		return false;
 
-	for (i = 0; i < slot_1; i++)
-		ctx->var_aux[i] = get_uint32(ctx);
-	for (i = 0; i < slot_2; i++)
-		get_uint32(ctx);
-	for (i = 0; i < slot_3; i++)
-		get_uint32(ctx);
-
 	g(gen_spill_all(ctx));
+
+	if (ctx->var_aux_2) {
+		mem_free(ctx->var_aux_2);
+		ctx->var_aux_2 = NULL;
+	}
+	ctx->var_aux_2 = mem_alloc_array_mayfail(mem_alloc_mayfail, frame_t *, 0, 0, slot_1, sizeof(frame_t), &ctx->err);
+	if (unlikely(!ctx->var_aux_2))
+		return false;
+
+	n_unspill = 0;
+	for (i = 0; i < slot_1; i++) {
+		frame_t v = get_uint32(ctx);
+		ctx->var_aux_2[i] = v;
+		if (!slot_is_register(ctx, v))
+			continue;
+		for (j = 0; j < n_unspill; j++)
+			if (ctx->var_aux[j] == v)
+				goto duplicate;
+		ctx->var_aux[n_unspill++] = v;
+duplicate:;
+	}
+	n_test_duplicate = n_unspill;
+	for (idx = 0; idx < ctx->need_spill_l; idx++) {
+		frame_t v = ctx->need_spill[idx];
+		for (j = 0; j < n_test_duplicate; j++)
+			if (ctx->var_aux[j] == v)
+				goto duplicate2;
+		ctx->var_aux[n_unspill++] = v;
+duplicate2:;
+	}
+	qsort(ctx->var_aux, n_unspill, sizeof(frame_t), compare_frame_t);
+
+	for (i = 0; i < slot_2 + slot_3; i++)
+		get_uint32(ctx);
 
 	/*gen_insn(INSN_JMP, 0, 0, 0); gen_four(alloc_escape_label(ctx));*/
 
@@ -2813,16 +2853,16 @@ static bool attr_w gen_io(struct codegen_context *ctx, frame_t code, frame_t slo
 
 	g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_ADDRESS, R_RET0, ptr_to_num(POINTER_FOLLOW_THUNK_GO), COND_NE, reload_label, -1));
 
-	g(gen_unspill_all(ctx));
+	g(gen_unspill_multiple(ctx, ctx->var_aux, n_unspill, false));
 
 	for (i = 0; i < slot_1; i++)
-		flag_set_unknown(ctx, ctx->var_aux[i]);
+		flag_set_unknown(ctx, ctx->var_aux_2[i]);
 
 	escape_label = alloc_escape_label_for_ip(ctx, ctx->current_position);
 	if (unlikely(!escape_label))
 		return false;
 
-	g(gen_test_variables(ctx, ctx->var_aux, slot_1, false, escape_label));
+	g(gen_test_variables(ctx, ctx->var_aux_2, slot_1, false, escape_label));
 
 	return true;
 }
