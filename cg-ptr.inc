@@ -79,24 +79,16 @@ static bool attr_w gen_test_multiple_thunks(struct codegen_context *ctx, frame_t
 static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *variables, size_t n_variables, bool do_unspill, uint32_t label)
 {
 	size_t i;
-	frame_t n_vars, *vars;
-
-	vars = mem_alloc_array_mayfail(mem_alloc_mayfail, frame_t *, 0, 0, n_variables, sizeof(frame_t), &ctx->err);
-	if (unlikely(!vars))
-		return false;
-
-	n_vars = 0;
-	for (i = 0; i < n_variables; i++) {
-		frame_t v = variables[i];
-		if (slot_is_register(ctx, v))
-			vars[n_vars++] = v;
-	}
 
 	if (do_unspill) {
-		if (unlikely(!gen_unspill_multiple(ctx, vars, n_vars, false))) {
-			mem_free(vars);
-			return false;
+		size_t n_vars = 0;
+		for (i = 0; i < n_variables; i++) {
+			frame_t v = variables[i];
+			if (slot_is_register(ctx, v))
+				ctx->var_aux[n_vars++] = v;
 		}
+
+		g(gen_unspill_multiple(ctx, ctx->var_aux, n_vars, false));
 	}
 
 	for (i = 0; i < 2; i++) {
@@ -105,22 +97,15 @@ static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *vari
 		for (n = 0; n < n_variables; n++) {
 			frame_t v = variables[n];
 			if (!i ? da(ctx->fn,function)->local_variables_flags[v].must_be_flat : da(ctx->fn,function)->local_variables_flags[v].must_be_data)
-				vars[n_vars++] = v;
+				ctx->var_aux[n_vars++] = v;
 		}
 		if (!i) {
-			if (!gen_test_multiple(ctx, vars, n_vars, label)) {
-				mem_free(vars);
-				return false;
-			}
+			g(gen_test_multiple(ctx, ctx->var_aux, n_vars, label));
 		} else {
-			if (!gen_test_multiple_thunks(ctx, vars, n_vars, label)) {
-				mem_free(vars);
-				return false;
-			}
+			g(gen_test_multiple_thunks(ctx, ctx->var_aux, n_vars, label));
 		}
 	}
 
-	mem_free(vars);
 	return true;
 }
 
