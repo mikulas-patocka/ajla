@@ -496,6 +496,7 @@ struct codegen_context {
 
 	uint8_t *flag_cache;
 	short *registers;
+	frame_t *var_aux;
 	frame_t *need_spill;
 	size_t need_spill_l;
 
@@ -512,7 +513,6 @@ struct codegen_context {
 	int8_t upcall_args;
 	uint8_t n_pushes;
 	bool upcall_hacked_abi;
-	frame_t *var_aux;
 
 	ajla_error_t err;
 
@@ -541,12 +541,12 @@ static void init_ctx(struct codegen_context *ctx)
 	ctx->args = NULL;
 	ctx->flag_cache = NULL;
 	ctx->registers = NULL;
+	ctx->var_aux = NULL;
 	ctx->need_spill = NULL;
 	ctx->codegen = NULL;
 	ctx->upcall_offset = -1;
 	ctx->upcall_args = -1;
 	ctx->upcall_hacked_abi = false;
-	ctx->var_aux = NULL;
 }
 
 static void done_ctx(struct codegen_context *ctx)
@@ -591,12 +591,12 @@ static void done_ctx(struct codegen_context *ctx)
 		mem_free(ctx->flag_cache);
 	if (ctx->registers)
 		mem_free(ctx->registers);
+	if (ctx->var_aux)
+		mem_free(ctx->var_aux);
 	if (ctx->need_spill)
 		mem_free(ctx->need_spill);
 	if (ctx->codegen)
 		data_free(ctx->codegen);
-	if (ctx->var_aux)
-		mem_free(ctx->var_aux);
 }
 
 
@@ -2484,6 +2484,10 @@ next_one:;
 
 	ctx->registers = mem_alloc_array_mayfail(mem_alloc_mayfail, short *, 0, 0, function_n_variables(ctx->fn), sizeof(short), &ctx->err);
 	if (unlikely(!ctx->registers))
+		goto fail;
+
+	ctx->var_aux = mem_alloc_array_mayfail(mem_alloc_mayfail, frame_t *, 0, 0, function_n_variables(ctx->fn), sizeof(frame_t), &ctx->err);
+	if (unlikely(!ctx->var_aux))
 		goto fail;
 
 	if (unlikely(!array_init_mayfail(frame_t, &ctx->need_spill, &ctx->need_spill_l, &ctx->err)))

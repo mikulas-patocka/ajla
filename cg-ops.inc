@@ -2786,14 +2786,6 @@ static bool attr_w gen_io(struct codegen_context *ctx, frame_t code, frame_t slo
 	if (unlikely(!reload_label))
 		return false;
 
-	if (ctx->var_aux) {
-		mem_free(ctx->var_aux);
-		ctx->var_aux = NULL;
-	}
-	ctx->var_aux = mem_alloc_array_mayfail(mem_alloc_mayfail, frame_t *, 0, 0, slot_1, sizeof(frame_t), &ctx->err);
-	if (unlikely(!ctx->var_aux))
-		return false;
-
 	for (i = 0; i < slot_1; i++)
 		ctx->var_aux[i] = get_uint32(ctx);
 	for (i = 0; i < slot_2; i++)
