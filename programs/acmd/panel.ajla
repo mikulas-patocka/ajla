@@ -344,7 +344,7 @@ fn panel_scan(implicit w : world, implicit app : appstate, implicit st : panel_s
 [
 	save_marked(dir_name);
 	st.async_seq += 1;
-	st.change_monitor, st.async_files, st.async_freespace, st.async_error := panel_scan_async~normal();
+	st.change_monitor, st.async_files, st.async_freespace, st.async_error := panel_scan_async~spark();
 	var timer := sleep~lazy(unit_value, 20000);
 	if not any(st.async_files, timer) then [
 		panel_scan_finish();
