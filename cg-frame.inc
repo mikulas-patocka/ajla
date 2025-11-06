@@ -947,20 +947,14 @@ skip_opt:
 
 static bool attr_w gen_spill_all(struct codegen_context *ctx)
 {
-	frame_t v, n_vars, *vars;
+	frame_t v, n_vars;
 
-	vars = mem_alloc_array_mayfail(mem_alloc_mayfail, frame_t *, 0, 0, function_n_variables(ctx->fn), sizeof(frame_t), &ctx->err);
-	if (unlikely(!vars))
-		return false;
 	n_vars = 0;
 	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++)
 		if (slot_is_register(ctx, v))
-			vars[n_vars++] = v;
-	if (unlikely(!gen_spill_multiple(ctx, vars, n_vars, false))) {
-		mem_free(vars);
+			ctx->var_aux[n_vars++] = v;
+	if (unlikely(!gen_spill_multiple(ctx, ctx->var_aux, n_vars, false)))
 		return false;
-	}
-	mem_free(vars);
 	return true;
 }
 
