@@ -417,8 +417,13 @@ fn acmd_mount_points(implicit w : world) : (world, list(bytes))
 	return mp;
 ]
 
-fn acmd_menu_drive(implicit st : acmd_state, mp : list(bytes), panel : finite(2), implicit w : world, implicit app : appstate, id : wid) : (world, appstate)
+fn acmd_menu_drive(implicit st : acmd_state, panel : finite(2), implicit w : world, implicit app : appstate, id : wid) : (world, appstate)
 [
+	var mp := acmd_mount_points();
+	if len(mp) = 0 then [
+		acmd_error(`No drives found`, ``);
+		return;
+	]
 	var p := widget_get_property(st.panels[panel], "property-index").i;
 	assume p >= 0 and p < 2;
 	panel := p;
@@ -444,7 +449,6 @@ fn acmd_menu_drive(implicit st : acmd_state, mp : list(bytes), panel : finite(2)
 	]
 	var winid : wid;
 	app, winid := vselect_new(app, `Select Drive`, "", true, entries, init);
-	return app;
 ]
 
 fn sort_order_dialog_layout(implicit app : appstate, ids : list(wid), offs_x offs_y : int, min_x pref_x max_x : nat) : (appstate, int, int)
@@ -610,21 +614,15 @@ fn acmd_menu_save_setup(implicit st : acmd_state, implicit w : world, implicit a
 
 fn acmd_main_menu_panel(implicit st : acmd_state, panel : finite(2), implicit w : world, implicit app : appstate, id : wid) : (world, appstate)
 [
-	var entries := empty(menu_entry);
-	var mp := acmd_mount_points();
-	if len(mp) > 0 then [
-		entries += [ menu_entry.[
-				label : `~Drive`,
-				label_right : select(panel = 1, `F11`, `F12`),
-				click : acmd_menu_drive(mp, panel,,,),
-				close_onclick : true,
-			], menu_entry.[
-				label : ``,
-				label_right : ``,
-			]
-		];
-	]
-	entries += [ menu_entry.[
+	var entries := [ menu_entry.[
+			label : `~Drive`,
+			label_right : select(panel = 1, `F11`, `F12`),
+			click : acmd_menu_drive(panel,,,),
+			close_onclick : true,
+		], menu_entry.[
+			label : ``,
+			label_right : ``,
+		], menu_entry.[
 			label : `~Sort order`,
 			label_right : ``,
 			click : acmd_menu_sort_order(panel,,,),
@@ -837,13 +835,10 @@ fn acmd_process_event(implicit w : world, implicit app : appstate, implicit com 
 		   wev.keyboard.key = key_f12 or
 		   wev.keyboard.key = key_f1 and wev.keyboard.flags = key_flag_alt or
 		   wev.keyboard.key = key_f2 and wev.keyboard.flags = key_flag_alt then [
-			var mp := acmd_mount_points();
-			if len(mp) > 0 then [
-				var panel := select(wev.keyboard.key = key_f12 or wev.keyboard.key = key_f2, 0, 1);
-				panel := widget_get_property(st.panels[panel], "property-index").i;
-				assume panel >= 0 and panel < 2;
-				acmd_menu_drive(st, mp, panel, w, app, com.self);
-			]
+			var panel := select(wev.keyboard.key = key_f12 or wev.keyboard.key = key_f2, 0, 1);
+			panel := widget_get_property(st.panels[panel], "property-index").i;
+			assume panel >= 0 and panel < 2;
+			acmd_menu_drive(st, panel, w, app, com.self);
 			return;
 		]
 		if wev.keyboard.key = key_home or wev.keyboard.key = key_end then
