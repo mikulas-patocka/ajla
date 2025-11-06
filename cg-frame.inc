@@ -953,8 +953,7 @@ static bool attr_w gen_spill_all(struct codegen_context *ctx)
 	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++)
 		if (slot_is_register(ctx, v))
 			ctx->var_aux[n_vars++] = v;
-	if (unlikely(!gen_spill_multiple(ctx, ctx->var_aux, n_vars, false)))
-		return false;
+	g(gen_spill_multiple(ctx, ctx->var_aux, n_vars, false));
 	return true;
 }
 
