@@ -73,7 +73,7 @@ static inline bool type_is_equal(const struct type *t1, const struct type *t2)
 		t1->align == t2->align);
 }
 
-#define type_def(t, def)	(ajla_assert_lo((t)->tag == cat(TYPE_TAG_,def), (file_line, "type_def: invalid type tag %u, expected %u", (t)->tag, cat(TYPE_TAG_,def))), get_struct(t, struct cat(def,_definition), type))
+#define type_def(t, def)	(ajla_assert((t)->tag == cat(TYPE_TAG_,def), (file_line, "type_def: invalid type tag %u, expected %u", (t)->tag, cat(TYPE_TAG_,def))), get_struct(t, struct cat(def,_definition), type))
 
 const struct type *type_get_fixed(unsigned bits, bool uns);
 const struct type *type_get_int(unsigned idx);
