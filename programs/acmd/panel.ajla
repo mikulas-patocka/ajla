@@ -773,11 +773,7 @@ fn panel_process_event_mouse(implicit w : world, implicit app : appstate, implic
 				if st.files[st.selected].tgttyp = stat_type_directory then [
 					panel_cd(st.files[st.selected].bname);
 					redraw_all := true;
-					return action.reflow_redraw;
 				]
-				if redraw_all then
-					return action.redraw_all;
-				return action.none;
 			]
 			if redraw_all then
 				return action.redraw_all;
