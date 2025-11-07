@@ -104,6 +104,7 @@ fn edit_save(implicit w : world, implicit app : appstate, implicit st : edit_sta
 	] else [
 		st.modified := false;
 	]
+	widget_enqueue_event(widget_get_app(app), wevent.set_property.(event_set_property.[ prop : "rescan-panels", val : property.n ]));
 ]
 
 fn edit_init(ro : acmd_ro, file_name : string, file : handle, d : dhandle, cfile : bytes, implicit w : world, implicit app : appstate, id : wid) : (world, appstate, edit_state)
