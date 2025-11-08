@@ -1,3 +1,14 @@
+=== RELEASE 0.3.1 ===
+
+Fix a bug that Ajla Commander didn't redraw after a double-click and some other
+fixes
+
+Fix a race condition that caused crashes in Ajla Commander
+
+A simple binding for OpenCL
+
+Support half-precision calculations on arm64
+
 === RELEASE 0.3.0 ===
 
 Implement verification of programs using the z3 library
