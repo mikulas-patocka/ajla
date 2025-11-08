@@ -1205,6 +1205,15 @@ fn curses_update_char(implicit curs : curses, x y : nat, prereq x < curs.x and y
 		goto ret;
 	]
 
+test_again:
+	if not curs.prefer_acs_map, not locale_validate_character(curs.loc, n.ch) then [
+		var f := char_fallback(n.ch);
+		if f >= #80, char_length(f) = char_length(n.ch) then [
+			n.ch := f;
+			goto test_again;
+		]
+	]
+
 	if not locale_validate_character(curs.loc, n.ch) or curs.prefer_acs_map, n.ch >= 0, n.ch < #110000 then [
 		var a := curs.acs_map[n.ch];
 		if a > 0 then [

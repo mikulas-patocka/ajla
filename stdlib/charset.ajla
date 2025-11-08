@@ -56,6 +56,7 @@ const class_two : int := 2;
 fn classify_character(code : char) : int;
 fn char_length~inline(c : char) : nat;
 fn string_length(s : string) : nat;
+fn char_fallback(c : char) : char;
 
 type locale;
 option locale_mode [
@@ -531,6 +532,13 @@ fn string_length(s : string) : nat
 			l += cls;
 	]
 	return l;
+]
+
+fn char_fallback(c : char) : char
+[
+	if c < 0 or c >= #110000 then
+		return 0;
+	return uni_fallback[c];
 ]
 
 
