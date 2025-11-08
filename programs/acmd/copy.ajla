@@ -192,6 +192,7 @@ fn copy_file(implicit w : world, implicit as : copy_async_state, dest_dir : dhan
 	recover_world(old_w);
 
 	if as.op is move then [
+		update_file(src_file);
 		if st[0] = stat_type_directory then [
 			rmdir(src_dir, src_file);
 		] else [
@@ -258,6 +259,7 @@ fn delete_recursive(implicit w : world, implicit as : copy_async_state, src_dir 
 			delete_recursive(src_d, sf[i]);
 			xeval w;
 		]
+		update_file(src_file);
 		rmdir(src_dir, src_file);
 	]
 ]
