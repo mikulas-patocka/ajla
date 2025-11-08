@@ -1233,7 +1233,7 @@ fn path_to_dir_file(p : bytes) : (bytes, bytes)
 	]
 	if dir = "" then
 		dir := "." + bytes.[ path_separator ];
-	if len(dir) > 1 then
+	if not path_is_root(dir) then
 		dir := dir[ .. len(dir) - 1];
 	return dir, file;
 ]
