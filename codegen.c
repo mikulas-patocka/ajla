@@ -59,8 +59,6 @@ shared_var const char *dump_code shared_init(NULL);
 #endif
 
 code_return_t (*codegen_entry)(frame_s *, struct cg_upcall_vector_s *, tick_stamp_t, void *);
-static void *codegen_ptr;
-static size_t codegen_size;
 
 static mutex_t dump_mutex;
 static uint64_t dump_seq = 0;
@@ -2632,25 +2630,74 @@ void codegen_free(struct data *codegen)
 	os_code_unmap(da(codegen,codegen)->unoptimized_code_base, da(codegen,codegen)->unoptimized_code_size);
 }
 
-#if defined(ARCH_IA64)
-static uintptr_t ia64_stub[2];
-#endif
-#if defined(ARCH_PARISC32) && defined(ARCH_PARISC_USE_STUBS)
-static uintptr_t parisc_stub[2];
-#endif
-#if defined(ARCH_PARISC64) && defined(ARCH_PARISC_USE_STUBS)
-static uintptr_t parisc_stub[4];
-#endif
-#if defined(ARCH_POWER) && defined(AIX_CALL)
-static uintptr_t ppc_stub[3];
-#endif
-
-void name(codegen_init)(void)
+static bool codegen_callback_init(struct codegen_callback *cb, ajla_error_t *err)
 {
 	struct codegen_context ctx_;
 	struct codegen_context *ctx = &ctx_;
-	void *ptr;
 
+	init_ctx(ctx);
+	ctx->fn = NULL;
+
+	array_init(uint8_t, &ctx->code, &ctx->code_size);
+
+	if (unlikely(!gen_entry(ctx)))
+		goto fail;
+
+	array_init(uint8_t, &ctx->mcode, &ctx->mcode_size);
+
+#ifdef ARCH_CONTEXT
+	init_arch_context(ctx);
+#endif
+
+	if (unlikely(!gen_mcode(ctx)))
+		goto fail;
+
+	array_finish(uint8_t, &ctx->mcode, &ctx->mcode_size);
+	cb->code = os_code_map(ctx->mcode, ctx->mcode_size, &ctx->err);
+	if (unlikely(!cb->code))
+		goto fail;
+	cb->code_size = ctx->mcode_size;
+	ctx->mcode = NULL;
+#if defined(ARCH_IA64)
+	cb->stub[0] = ptr_to_num(cb->code);
+	cb->stub[1] = 0;
+	cb->fn = cb->stub;
+#elif defined(ARCH_PARISC32) && defined(ARCH_PARISC_USE_STUBS)
+	cb->stub[0] = ptr_to_num(cb->code);
+	cb->stub[1] = 0;
+	cb->fn = cast_ptr(char *, cb->stub) + 2;
+#elif defined(ARCH_PARISC64) && defined(ARCH_PARISC_USE_STUBS)
+	cb->stub[0] = 0;
+	cb->stub[1] = 0;
+	cb->stub[2] = ptr_to_num(cb->code);
+	cb->stub[3] = 0;
+	cb->fn = cb->stub;
+#elif defined(ARCH_POWER) && defined(AIX_CALL)
+	cb->stub[0] = ptr_to_num(cb->code);
+	cb->stub[1] = 0;
+	cb->stub[2] = 0;
+	cb->fn = cb->stub;
+#else
+	cb->fn = cb->code;
+#endif
+	done_ctx(ctx);
+	return true;
+
+fail:
+	fatal_mayfail(ctx->err, err, "couldn't compile global entry");
+	done_ctx(ctx);
+	return false;
+}
+
+static void codegen_callback_done(struct codegen_callback *cb)
+{
+	os_code_unmap(cb->code, cb->code_size);
+}
+
+static struct codegen_callback codegen_entry_callback;
+
+void name(codegen_init)(void)
+{
 #if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI)
 #if defined(HAVE_SYSCALL) && defined(HAVE_ASM_PRCTL_H) && defined(HAVE_SYS_SYSCALL_H)
 	if (!dll) {
@@ -2677,51 +2724,8 @@ void name(codegen_init)(void)
 #endif
 #endif
 
-	init_ctx(ctx);
-	ctx->fn = NULL;
-
-	array_init(uint8_t, &ctx->code, &ctx->code_size);
-
-	if (unlikely(!gen_entry(ctx)))
-		goto fail;
-
-	array_init(uint8_t, &ctx->mcode, &ctx->mcode_size);
-
-#ifdef ARCH_CONTEXT
-	init_arch_context(ctx);
-#endif
-
-	if (unlikely(!gen_mcode(ctx)))
-		goto fail;
-
-	array_finish(uint8_t, &ctx->mcode, &ctx->mcode_size);
-	ptr = os_code_map(ctx->mcode, ctx->mcode_size, NULL);
-	codegen_ptr = ptr;
-	codegen_size = ctx->mcode_size;
-	ctx->mcode = NULL;
-#if defined(ARCH_IA64)
-	ia64_stub[0] = ptr_to_num(ptr);
-	ia64_stub[1] = 0;
-	codegen_entry = cast_ptr(codegen_type, ia64_stub);
-#elif defined(ARCH_PARISC32) && defined(ARCH_PARISC_USE_STUBS)
-	parisc_stub[0] = ptr_to_num(ptr);
-	parisc_stub[1] = 0;
-	codegen_entry = cast_ptr(codegen_type, cast_ptr(char *, parisc_stub) + 2);
-#elif defined(ARCH_PARISC64) && defined(ARCH_PARISC_USE_STUBS)
-	parisc_stub[0] = 0;
-	parisc_stub[1] = 0;
-	parisc_stub[2] = ptr_to_num(ptr);
-	parisc_stub[3] = 0;
-	codegen_entry = cast_ptr(codegen_type, parisc_stub);
-#elif defined(ARCH_POWER) && defined(AIX_CALL)
-	ppc_stub[0] = ptr_to_num(ptr);
-	ppc_stub[1] = 0;
-	ppc_stub[2] = 0;
-	codegen_entry = cast_ptr(codegen_type, ppc_stub);
-#else
-	codegen_entry = ptr;
-#endif
-	done_ctx(ctx);
+	codegen_callback_init(&codegen_entry_callback, NULL);
+	codegen_entry = cast_ptr(codegen_type, codegen_entry_callback.fn);
 
 	mutex_init(&dump_mutex);
 	if (dump_code) {
@@ -2735,8 +2739,8 @@ void name(codegen_init)(void)
 #if defined(ARCH_RISCV64)
 		str_add_string(&hex, &hexl, "	.attribute arch, \"rv64i2p1_m2p0_a2p1_f2p2_d2p2_c2p0_zicsr2p0_zifencei2p0_zba1p0_zbb1p0_zbc1p0_zbs1p0\"\n");
 #endif
-		for (i = 0; i < codegen_size; i++) {
-			uint8_t a = cast_ptr(uint8_t *, codegen_ptr)[i];
+		for (i = 0; i < codegen_entry_callback.code_size; i++) {
+			uint8_t a = cast_ptr(uint8_t *, codegen_entry_callback.code)[i];
 			str_add_string(&hex, &hexl, "	.byte	0x");
 			if (a < 16)
 				str_add_char(&hex, &hexl, '0');
@@ -2746,16 +2750,11 @@ void name(codegen_init)(void)
 		os_write_atomic(".", "dump.s", hex, hexl, NULL);
 		mem_free(hex);
 	}
-
-	return;
-
-fail:
-	fatal("couldn't compile global entry");
 }
 
 void name(codegen_done)(void)
 {
-	os_code_unmap(codegen_ptr, codegen_size);
+	codegen_callback_done(&codegen_entry_callback);
 	mutex_done(&dump_mutex);
 }
 

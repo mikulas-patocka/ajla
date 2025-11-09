@@ -29,6 +29,13 @@ extern const char *dump_code;
 #define codegen_free			name(codegen_free)
 #define codegen_entry			name(codegen_entry)
 
+struct codegen_callback {
+	void *code;
+	size_t code_size;
+	void *fn;
+	uintptr_t stub[4];
+};
+
 void *codegen_fn(frame_s *fp, const code_t *ip, union internal_arg ia[]);
 void codegen_free(struct data *codegen);
 typedef code_return_t (*codegen_type)(frame_s *, struct cg_upcall_vector_s *, tick_stamp_t, void *);
