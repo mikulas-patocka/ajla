@@ -1672,6 +1672,7 @@ static void * attr_fastcall io_ffi_callback_create(struct io_ctx *ctx)
 	return POINTER_FOLLOW_THUNK_GO;
 
 free_d_ret_thunk:
+	c->fired = true;
 	data_free_r1(d);
 ret_thunk:
 	io_terminate_with_error(ctx, ctx->err, true, NULL);
