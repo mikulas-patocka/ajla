@@ -2706,6 +2706,14 @@ fail:
 	return false;
 }
 
+/*#define TEST_CALLBACKS*/
+#ifdef TEST_CALLBACKS
+static void test_callback_fn(void *ptr)
+{
+	debug("callback called: %p", ptr);
+}
+#endif
+
 void codegen_callback_done(struct codegen_callback *cb)
 {
 	os_code_unmap(cb->code, cb->code_size);
@@ -2775,6 +2783,17 @@ void name(codegen_init)(void)
 		os_write_atomic(".", "dump.s", hex, hexl, NULL);
 		mem_free(hex);
 	}
+#ifdef TEST_CALLBACKS
+	{
+		struct codegen_callback test_callback;
+		debug("X1");
+		codegen_callback_init(&test_callback, test_callback_fn, num_to_ptr(3), NULL);
+		debug("X2");
+		((void (*)(void))test_callback.fn)();
+		debug("X3");
+		codegen_callback_done(&test_callback);
+	}
+#endif
 }
 
 void name(codegen_done)(void)
