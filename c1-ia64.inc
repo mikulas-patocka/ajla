@@ -513,8 +513,12 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(R_SAVED_B0);
 	gen_one(B_0);
 
-	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_SCRATCH_B);
 	gen_one(R_ENTRY);
+
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(R_SCRATCH_B);
 
 	gen_insn(INSN_RET, 0, 0, 0);
 

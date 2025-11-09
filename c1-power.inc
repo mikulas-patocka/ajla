@@ -229,6 +229,8 @@
 #define R_OFFSET_IMM			R_10
 #define R_CONST_IMM			R_11
 
+#define R_SCRATCH_B			R_CTR
+
 #define FR_SCRATCH_1			(real_type == 4 ? R_VS32 : R_F0)
 #define FR_SCRATCH_2			(real_type == 4 ? R_VS33 : R_F1)
 #define FR_SCRATCH_3			(real_type == 4 ? R_VS34 : R_F2)

@@ -385,7 +385,7 @@ static bool attr_w cgen_call_indirect(struct codegen_context *ctx)
 	mc = IA64_B_BR_CALL_INDIRECT;
 	mc |= bits_b(B_0) << 6;
 	mc |= bits_b(reg) << 13;
-	g(ia64_insn(ctx, UNIT_B, mc, B_0, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING));
+	g(ia64_insn(ctx, UNIT_B, mc, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING));
 	return true;
 }
 
@@ -1279,13 +1279,8 @@ static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx)
 	uint64_t mc;
 	unsigned reg = cget_one(ctx);
 
-	mc = IA64_I_MOVE_TO_BR;
-	mc |= bits_gr(reg) << 13;
-	mc |= bits_b(R_SCRATCH_B) << 6;
-	g(ia64_insn(ctx, UNIT_I, mc, R_SCRATCH_B, ACCESS_NOTHING, reg, ACCESS_NOTHING, ACCESS_NOTHING));
-
 	mc = IA64_B_BR_JMP_INDIRECT;
-	mc |= bits_b(R_SCRATCH_B) << 13;
+	mc |= bits_b(reg) << 13;
 	g(ia64_insn(ctx, UNIT_B, mc, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING));
 	return true;
 }
