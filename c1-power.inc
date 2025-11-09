@@ -265,9 +265,8 @@ static const uint8_t fp_volatile[] = { R_F3, R_F4, R_F5, R_F6, R_F7, R_F8, R_F9,
 static const uint8_t vector_volatile[] = { R_VS35, R_VS36, R_VS37, R_VS38, R_VS39, R_VS40, R_VS41, R_VS42, R_VS43, R_VS44, R_VS45, R_VS46, R_VS47, R_VS48, R_VS49, R_VS50, R_VS51 };
 #define reg_is_saved(r)	(((r) >= R_14 && (r) <= R_31) || ((r) >= R_F14 && (r) <= R_F31) || ((r) >= R_VS52 && (r) <= R_VS63))
 
-static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
+static bool attr_w gen_load_constant_rz(struct codegen_context *ctx, unsigned reg, uint64_t c, unsigned xreg)
 {
-	unsigned xreg = R_ZERO;
 	if (OP_SIZE_NATIVE == OP_SIZE_4)
 		c = (int32_t)c;
 	if (c == (uint64_t)(int32_t)c) {
@@ -331,6 +330,12 @@ static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, 
 		gen_one(ARG_IMM);
 		gen_eight(0);
 	}
+	return true;
+}
+
+static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
+{
+	g(gen_load_constant_rz(ctx, reg, c, R_ZERO));
 	return true;
 }
 
@@ -675,6 +680,45 @@ static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t esca
 
 	gen_insn(INSN_JMP_COND, OP_SIZE_4, COND_NE, 0);
 	gen_four(escape_label);
+
+	return true;
+}
+
+static bool attr_w gen_callback(struct codegen_context *ctx, void (*callback)(void *ptr), void *ptr)
+{
+	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+	gen_one(R_ARG1);
+	gen_one(ARG_IMM);
+	gen_eight(0);
+
+	g(gen_load_constant_rz(ctx, R_12, ptr_to_num(callback), R_ARG1));
+	g(gen_load_constant_rz(ctx, R_ARG0, ptr_to_num(ptr), R_ARG1));
+
+#ifndef AIX_CALL
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(R_12);
+#else
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_SCRATCH_NA_1);
+	gen_one(ARG_ADDRESS_1);
+	gen_one(R_12);
+	gen_eight(0);
+
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_2);
+	gen_one(ARG_ADDRESS_1);
+	gen_one(R_12);
+	gen_eight(1 << OP_SIZE_ADDRESS);
+
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_11);
+	gen_one(ARG_ADDRESS_1);
+	gen_one(R_12);
+	gen_eight(2 << OP_SIZE_ADDRESS);
+
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(R_SCRATCH_NA_1);
+#endif
 
 	return true;
 }
