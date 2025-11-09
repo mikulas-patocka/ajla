@@ -345,7 +345,11 @@ const IO_FFI_Destructor_New := 107;
 const IO_FFI_Destructor_Allocate := 108;
 const IO_FFI_Destructor_Free := 109;
 const IO_FFI_Destructor_Call := 110;
-const IO_N := 111;
+const IO_FFI_Callback_Supported := 111;
+const IO_FFI_Callback_Create := 112;
+const IO_FFI_Callback_Wait := 113;
+const IO_FFI_Callback_Cancel := 114;
+const IO_N := 115;
 
 const IO_Open_Flag_Read := 1;
 const IO_Open_Flag_Write := 2;
@@ -851,7 +855,11 @@ fn name_to_value~cache : list(int)
 	a[#24CFBF1A349BF132F3E9CBAE3E9BF95F83B366FC787A65] := 108;		// IO_FFI_Destructor_Allocate
 	a[#24CFBF1A349BF132F3E9CBAE3E9BF95F8DCB2E5] := 109;			// IO_FFI_Destructor_Free
 	a[#24CFBF1A349BF132F3E9CBAE3E9BF95F878766C] := 110;			// IO_FFI_Destructor_Call
-	a[#933EFCE] := 111;							// IO_N
+	a[#499F7E346937E1E1D9B3161C7AEFD3EBC386FE5D32E4] := 111;		// IO_FFI_Callback_Supported
+	a[#24CFBF1A349BF0F0ECD98B0E3D77E1F2CB87A65] := 112;			// IO_FFI_Callback_Create
+	a[#933EFC68D26FC3C3B3662C38F5DFAF874F4] := 113;				// IO_FFI_Callback_Wait
+	a[#24CFBF1A349BF0F0ECD98B0E3D77E1E1DD8F2EC] := 114;			// IO_FFI_Callback_Cancel
+	a[#933EFCE] := 115;							// IO_N
 
 	a[#499F7E7F0CBBAFC6D9873DFA5970E4] := 1;				// IO_Open_Flag_Read
 	a[#24CFBF3F865DD7E36CC39EFD7E5A7A65] := 2;				// IO_Open_Flag_Write

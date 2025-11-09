@@ -2630,7 +2630,7 @@ void codegen_free(struct data *codegen)
 	os_code_unmap(da(codegen,codegen)->unoptimized_code_base, da(codegen,codegen)->unoptimized_code_size);
 }
 
-static bool codegen_callback_init(struct codegen_callback *cb, ajla_error_t *err)
+bool codegen_callback_init(struct codegen_callback *cb, void (*callback)(void *ptr), void attr_unused *ptr, ajla_error_t *err)
 {
 	struct codegen_context ctx_;
 	struct codegen_context *ctx = &ctx_;
@@ -2640,8 +2640,17 @@ static bool codegen_callback_init(struct codegen_callback *cb, ajla_error_t *err
 
 	array_init(uint8_t, &ctx->code, &ctx->code_size);
 
-	if (unlikely(!gen_entry(ctx)))
-		goto fail;
+	if (!callback) {
+		if (unlikely(!gen_entry(ctx)))
+			goto fail;
+	} else {
+#ifdef HAVE_CODEGEN_CALLBACK
+		if (unlikely(!gen_callback(ctx, callback, ptr)))
+			goto fail;
+#else
+		internal(file_line, "codegen_callback_init: callback not supported on this architecture");
+#endif
+	}
 
 	array_init(uint8_t, &ctx->mcode, &ctx->mcode_size);
 
@@ -2689,7 +2698,7 @@ fail:
 	return false;
 }
 
-static void codegen_callback_done(struct codegen_callback *cb)
+void codegen_callback_done(struct codegen_callback *cb)
 {
 	os_code_unmap(cb->code, cb->code_size);
 }
@@ -2724,7 +2733,7 @@ void name(codegen_init)(void)
 #endif
 #endif
 
-	codegen_callback_init(&codegen_entry_callback, NULL);
+	codegen_callback_init(&codegen_entry_callback, NULL, NULL, NULL);
 	codegen_entry = cast_ptr(codegen_type, codegen_entry_callback.fn);
 
 	mutex_init(&dump_mutex);

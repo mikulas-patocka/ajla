@@ -343,7 +343,11 @@
 #define IO_FFI_Destructor_Allocate	108
 #define IO_FFI_Destructor_Free		109
 #define IO_FFI_Destructor_Call		110
-#define IO_N				111
+#define IO_FFI_Callback_Supported	111
+#define IO_FFI_Callback_Create		112
+#define IO_FFI_Callback_Wait		113
+#define IO_FFI_Callback_Cancel		114
+#define IO_N				115
 
 #define IO_Open_Flag_Read		1
 #define IO_Open_Flag_Write		2

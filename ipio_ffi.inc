@@ -1614,3 +1614,131 @@ ret_err:
 	test = POINTER_FOLLOW_THUNK_EXCEPTION;
 	goto ret_test;
 }
+
+#if defined(HAVE_CODEGEN_CALLBACK)
+
+struct resource_callback {
+	struct list wait_list;
+	bool fired;
+	struct codegen_callback cb;
+};
+
+static void callback_close(struct data *d)
+{
+	struct resource_callback *c = da_resource(d);
+	if (unlikely(!c->fired))
+		fatal("Freeing callback that wasn't called");
+	codegen_callback_done(&c->cb);
+}
+
+static void callback_call(void *c_)
+{
+	struct resource_callback *c = c_;
+	address_lock(c, DEPTH_THUNK);
+	if (unlikely(c->fired))
+		fatal("Callback was called multiple times");
+	c->fired = true;
+	wake_up_wait_list(&c->wait_list, address_get_mutex(c, DEPTH_THUNK), TASK_SUBMIT_MUST_NOT_SPAWN);
+}
+
+static void * attr_fastcall io_ffi_callback_create(struct io_ctx *ctx)
+{
+	void *test;
+	struct data *d;
+	struct resource_callback *c;
+
+	test = io_deep_eval(ctx, "0", true);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
+
+	d = data_alloc_resource_mayfail(sizeof(struct resource_callback), callback_close, &ctx->err pass_file_line);
+	if (unlikely(!d))
+		goto ret_thunk;
+
+	c = da_resource(d);
+	list_init(&c->wait_list);
+	c->fired = false;
+	if (unlikely(!codegen_callback_init(&c->cb, callback_call, c, &ctx->err)))
+		goto free_d_ret_thunk;
+
+	io_store_typed_number(ctx, get_output(ctx, 2), int_default_t, INT_DEFAULT_N, uintptr_t, ptr_to_num(c->cb.fn));
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO)) {
+		codegen_callback_done(&c->cb);
+		data_free_r1(d);
+		return test;
+	}
+	frame_set_pointer(ctx->fp, get_output(ctx, 1), pointer_data(d));
+
+	return POINTER_FOLLOW_THUNK_GO;
+
+free_d_ret_thunk:
+	data_free_r1(d);
+ret_thunk:
+	io_terminate_with_error(ctx, ctx->err, true, NULL);
+	return POINTER_FOLLOW_THUNK_GO;
+}
+
+static void * attr_fastcall io_ffi_callback_wait(struct io_ctx *ctx)
+{
+	void *test;
+	pointer_t ptr;
+	struct resource_callback *c;
+
+	test = io_deep_eval(ctx, "01", true);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
+
+	ptr = *frame_pointer(ctx->fp, get_input(ctx, 1));
+	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_callback_wait: pointer is thunk"));
+	c = da_resource(pointer_get_data(ptr));
+
+	address_lock(c, DEPTH_THUNK);
+	if (unlikely(!c->fired)) {
+		struct execution_control *ex = frame_execution_control(ctx->fp);
+		ex->wait[0].mutex_to_lock = address_get_mutex(c, DEPTH_THUNK);
+		list_add(&c->wait_list, &ex->wait[0].wait_entry);
+		address_unlock(c, DEPTH_THUNK);
+		pointer_follow_wait(ctx->fp, ctx->ip);
+		return POINTER_FOLLOW_THUNK_EXIT;
+	}
+	address_unlock(c, DEPTH_THUNK);
+
+	return POINTER_FOLLOW_THUNK_GO;
+}
+
+static void * attr_fastcall io_ffi_callback_cancel(struct io_ctx *ctx)
+{
+	void *test;
+	pointer_t ptr;
+	struct resource_callback *c;
+
+	test = io_deep_eval(ctx, "01", true);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
+
+	ptr = *frame_pointer(ctx->fp, get_input(ctx, 1));
+	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_callback_cancel: pointer is thunk"));
+	c = da_resource(pointer_get_data(ptr));
+
+	address_lock(c, DEPTH_THUNK);
+	if (unlikely(c->fired))
+		fatal("Canceling callback that was already called");
+	c->fired = true;
+	wake_up_wait_list(&c->wait_list, address_get_mutex(c, DEPTH_THUNK), TASK_SUBMIT_MAY_SPAWN);
+
+	return POINTER_FOLLOW_THUNK_GO;
+}
+
+#else
+
+static void * attr_fastcall io_ffi_unsupported(struct io_ctx *ctx)
+{
+	io_terminate_with_error(ctx, error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED), true, NULL);
+	return POINTER_FOLLOW_THUNK_EXCEPTION;
+}
+
+#define io_ffi_callback_create			io_ffi_unsupported
+#define io_ffi_callback_wait			io_ffi_unsupported
+#define io_ffi_callback_cancel			io_ffi_unsupported
+
+#endif

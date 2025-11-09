@@ -368,6 +368,10 @@ IO_FFI_Destructor_New
 IO_FFI_Destructor_Allocate
 IO_FFI_Destructor_Free
 IO_FFI_Destructor_Call
+IO_FFI_Callback_Supported
+IO_FFI_Callback_Create
+IO_FFI_Callback_Wait
+IO_FFI_Callback_Cancel
 IO_N
 
 *

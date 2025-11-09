@@ -41,6 +41,7 @@
 #include "save.h"
 #include "task.h"
 #include "ipret.h"
+#include "codegen.h"
 
 #include "ipio.h"
 
@@ -4767,6 +4768,16 @@ static void * attr_fastcall io_get_dump_handler(struct io_ctx *ctx)
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
+static void * attr_fastcall io_ffi_callback_supported(struct io_ctx *ctx)
+{
+	bool supported = false;
+#if defined(HAVE_CODEGEN_CALLBACK) && defined(SUPPORTS_FFI)
+	supported = true;
+#endif
+	io_store_flat_option(ctx, get_output(ctx, 0), supported);
+	return POINTER_FOLLOW_THUNK_GO;
+}
+
 #if defined(SUPPORTS_FFI)
 #include "ipio_ffi.inc"
 #else
@@ -4791,6 +4802,9 @@ static void * attr_fastcall io_ffi_unsupported(struct io_ctx *ctx)
 #define io_ffi_destructor_call_handler		io_ffi_unsupported
 #define io_ffi_handle_to_number_handler		io_ffi_unsupported
 #define io_ffi_number_to_handle_handler		io_ffi_unsupported
+#define io_ffi_callback_create			io_ffi_unsupported
+#define io_ffi_callback_wait			io_ffi_unsupported
+#define io_ffi_callback_cancel			io_ffi_unsupported
 #endif
 
 static void * attr_fastcall io_ffi_encode_real_handler(struct io_ctx *ctx)
@@ -4991,6 +5005,10 @@ static const struct {
 	{ io_ffi_destructor_allocate_handler },
 	{ io_ffi_destructor_free_handler },
 	{ io_ffi_destructor_call_handler },
+	{ io_ffi_callback_supported },
+	{ io_ffi_callback_create },
+	{ io_ffi_callback_wait },
+	{ io_ffi_callback_cancel },
 };
 
 void *ipret_io(frame_s *fp, const code_t *ip, unsigned char io_code, unsigned char n_outputs, unsigned char n_inputs, unsigned char n_params)

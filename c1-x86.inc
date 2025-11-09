@@ -675,3 +675,14 @@ static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t esca
 
 	return true;
 }
+
+#if !defined(ARCH_X86_32)
+static bool attr_w gen_callback(struct codegen_context *ctx, void (*callback)(void *ptr), void *ptr)
+{
+	g(gen_load_constant(ctx, R_AX, ptr_to_num(callback)));
+	g(gen_load_constant(ctx, R_ARG0, ptr_to_num(ptr)));
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(R_AX);
+	return true;
+}
+#endif
