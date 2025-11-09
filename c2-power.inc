@@ -1013,21 +1013,6 @@ invl:
 	return false;
 }
 
-static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx)
-{
-	uint32_t mc;
-	unsigned reg = cget_one(ctx);
-
-	mc = POWER_MTCTR;
-	mc |= (uint32_t)reg << 21;
-	cgen_four(mc);
-
-	mc = POWER_BCTR;
-	cgen_four(mc);
-
-	return true;
-}
-
 static bool attr_w resolve_relocation(struct codegen_context *ctx, struct relocation *reloc)
 {
 	uint32_t mc;
@@ -1143,7 +1128,10 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_jmp_cond(ctx, insn_jump_size(insn) == JMP_SHORT, insn_aux(insn), true));
 			return true;
 		case INSN_JMP_INDIRECT:
-			g(cgen_jmp_indirect(ctx));
+			reg = cget_one(ctx);
+			if (unlikely(reg != R_CTR))
+				goto invalid_insn;
+			cgen_four(POWER_BCTR);
 			return true;
 		invalid_insn:
 		default:

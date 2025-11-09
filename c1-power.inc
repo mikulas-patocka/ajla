@@ -503,8 +503,12 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(R_TIMESTAMP);
 	gen_one(R_ARG2);
 
-	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_CTR);
 	gen_one(R_ARG3);
+
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(R_CTR);
 #else
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(ARG_ADDRESS_1);
@@ -524,8 +528,12 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(R_TIMESTAMP);
 	gen_one(R_ARG3);
 
-	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_CTR);
 	gen_one(R_ARG4);
+
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(R_CTR);
 #endif
 
 	return true;
@@ -695,8 +703,12 @@ static bool attr_w gen_callback(struct codegen_context *ctx, void (*callback)(vo
 	g(gen_load_constant_rz(ctx, R_ARG0, ptr_to_num(ptr), R_ARG1));
 
 #ifndef AIX_CALL
-	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_CTR);
 	gen_one(R_12);
+
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(R_CTR);
 #else
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_SCRATCH_NA_1);
@@ -716,8 +728,12 @@ static bool attr_w gen_callback(struct codegen_context *ctx, void (*callback)(vo
 	gen_one(R_12);
 	gen_eight(2 << OP_SIZE_ADDRESS);
 
-	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_CTR);
 	gen_one(R_SCRATCH_NA_1);
+
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(R_CTR);
 #endif
 
 	return true;
