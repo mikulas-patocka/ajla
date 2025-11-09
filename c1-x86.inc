@@ -690,7 +690,7 @@ static bool attr_w gen_callback_trampoline(struct codegen_context *ctx)
 	gen_one(ARG_IMM);
 	gen_eight(8);
 
-	g(gen_x86_push(ctx, R_DX, true));
+	g(gen_x86_push(ctx, R_DX, false));
 	gen_insn(INSN_CALL_INDIRECT, 0, 0, 0);
 	gen_one(R_AX);
 
