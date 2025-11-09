@@ -57,6 +57,9 @@
 #define i_size_rot(size)		OP_SIZE_NATIVE
 #define i_size_cmp(size)		maximum(size, OP_SIZE_4)
 
+#define CALLBACK_NEEDS_TRAMPOLINE
+static void *callback_trampoline;
+
 #define N_SAVED_REGS	0x40
 
 #define R_ZERO		0x00
@@ -509,7 +512,7 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(ARG_IMM);
 	gen_eight(N_SAVED_REGS - 4);
 
-	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_SAVED_B0);
 	gen_one(B_0);
 
@@ -541,7 +544,7 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_one(R_RET0);
 	gen_one(R_FRAME);
 
-	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(B_0);
 	gen_one(R_SAVED_B0);
 
@@ -601,6 +604,63 @@ static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t esca
 	g(gen_get_upcall_pointer(ctx, offsetof(struct cg_upcall_vector_s, ts), OP_SIZE_4, R_SCRATCH_1));
 
 	g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_4, R_SCRATCH_1, R_TIMESTAMP, COND_NE, escape_label));
+
+	return true;
+}
+
+static bool attr_w gen_callback_trampoline(struct codegen_context *ctx)
+{
+	gen_insn(INSN_IA64_ALLOC, OP_SIZE_NATIVE, 0, 0);
+	gen_one(R_33);
+	gen_one(ARG_IMM);
+	gen_eight(3);
+	gen_one(ARG_IMM);
+	gen_eight(3 - 1);
+
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_32);
+	gen_one(B_0);
+
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_34);
+	gen_one(R_SCRATCH_2);
+
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_SCRATCH_B);
+	gen_one(R_SCRATCH_1);
+
+	gen_insn(INSN_CALL_INDIRECT, 0, 0, 0);
+	gen_one(R_SCRATCH_B);
+
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(B_0);
+	gen_one(R_32);
+
+	gen_insn(INSN_IA64_DEALLOC, OP_SIZE_NATIVE, 0, 0);
+	gen_one(R_33);
+
+	gen_insn(INSN_RET, 0, 0, 0);
+
+	return true;
+}
+
+static bool attr_w gen_callback(struct codegen_context *ctx, void (*callback)(void *ptr), void *ptr)
+{
+	const uint64_t *tr_desc = cast_ptr(const uint64_t *, callback_trampoline);
+	const uint64_t *desc = cast_ptr(const uint64_t *, callback);
+	g(gen_load_constant(ctx, R_SCRATCH_1, desc[0]));
+	g(gen_load_constant(ctx, R_GP, desc[1]));
+	g(gen_load_constant(ctx, R_SCRATCH_2, ptr_to_num(ptr)));
+	g(gen_load_constant(ctx, R_SCRATCH_3, tr_desc[0]));
+
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_SCRATCH_B);
+	gen_one(R_SCRATCH_3);
+
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(R_SCRATCH_B);
+
+	gen_insn(INSN_RET, 0, 0, 0);
 
 	return true;
 }
