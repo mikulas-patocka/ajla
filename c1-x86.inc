@@ -66,6 +66,11 @@
 #define i_size_rot(size)		(size)
 #define i_size_cmp(size)		(size)
 
+#ifdef ARCH_X86_32
+#define CALLBACK_NEEDS_TRAMPOLINE
+static void *callback_trampoline;
+#endif
+
 #define R_AX		0x0
 #define R_CX		0x1
 #define R_DX		0x2
@@ -676,13 +681,50 @@ static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t esca
 	return true;
 }
 
-#if !defined(ARCH_X86_32)
+#if defined(ARCH_X86_32)
+static bool attr_w gen_callback_trampoline(struct codegen_context *ctx)
+{
+	gen_insn(INSN_ALU, OP_SIZE_4, ALU_SUB, 1);
+	gen_one(R_SP);
+	gen_one(R_SP);
+	gen_one(ARG_IMM);
+	gen_eight(8);
+
+	g(gen_x86_push(ctx, R_DX, true));
+	gen_insn(INSN_CALL_INDIRECT, 0, 0, 0);
+	gen_one(R_AX);
+
+	gen_insn(INSN_ALU, OP_SIZE_4, ALU_ADD, 1);
+	gen_one(R_SP);
+	gen_one(R_SP);
+	gen_one(ARG_IMM);
+	gen_eight(12);
+
+	gen_insn(INSN_RET, 0, 0, 0);
+
+	return true;
+}
+
+static bool attr_w gen_callback(struct codegen_context *ctx, void (*callback)(void *ptr), void *ptr)
+{
+	g(gen_load_constant(ctx, R_AX, ptr_to_num(callback)));
+	g(gen_load_constant(ctx, R_DX, ptr_to_num(ptr)));
+	g(gen_load_constant(ctx, R_CX, ptr_to_num(callback_trampoline)));
+
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(R_CX);
+
+	return true;
+}
+#else
 static bool attr_w gen_callback(struct codegen_context *ctx, void (*callback)(void *ptr), void *ptr)
 {
 	g(gen_load_constant(ctx, R_AX, ptr_to_num(callback)));
 	g(gen_load_constant(ctx, R_ARG0, ptr_to_num(ptr)));
+
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 	gen_one(R_AX);
+
 	return true;
 }
 #endif

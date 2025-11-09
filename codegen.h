@@ -31,7 +31,7 @@ extern const char *dump_code;
 #define codegen_callback_init		name(codegen_callback_init)
 #define codegen_callback_done		name(codegen_callback_done)
 
-#if defined(ARCH_X86) && !defined(ARCH_X86_32)
+#if defined(ARCH_X86)
 #define HAVE_CODEGEN_CALLBACK
 #endif
 

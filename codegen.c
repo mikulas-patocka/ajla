@@ -2641,8 +2641,16 @@ bool codegen_callback_init(struct codegen_callback *cb, void (*callback)(void *p
 	array_init(uint8_t, &ctx->code, &ctx->code_size);
 
 	if (!callback) {
-		if (unlikely(!gen_entry(ctx)))
-			goto fail;
+#ifdef CALLBACK_NEEDS_TRAMPOLINE
+		if (ptr_to_num(ptr) == 1) {
+			if (unlikely(!gen_callback_trampoline(ctx)))
+				goto fail;
+		} else
+#endif
+		{
+			if (unlikely(!gen_entry(ctx)))
+				goto fail;
+		}
 	} else {
 #ifdef HAVE_CODEGEN_CALLBACK
 		if (unlikely(!gen_callback(ctx, callback, ptr)))
@@ -2704,6 +2712,9 @@ void codegen_callback_done(struct codegen_callback *cb)
 }
 
 static struct codegen_callback codegen_entry_callback;
+#ifdef CALLBACK_NEEDS_TRAMPOLINE
+static struct codegen_callback codegen_trampoline_callback;
+#endif
 
 void name(codegen_init)(void)
 {
@@ -2736,6 +2747,11 @@ void name(codegen_init)(void)
 	codegen_callback_init(&codegen_entry_callback, NULL, NULL, NULL);
 	codegen_entry = cast_ptr(codegen_type, codegen_entry_callback.fn);
 
+#ifdef CALLBACK_NEEDS_TRAMPOLINE
+	codegen_callback_init(&codegen_trampoline_callback, NULL, num_to_ptr(1), NULL);
+	callback_trampoline = codegen_trampoline_callback.fn;
+#endif
+
 	mutex_init(&dump_mutex);
 	if (dump_code) {
 		size_t i;
@@ -2764,6 +2780,9 @@ void name(codegen_init)(void)
 void name(codegen_done)(void)
 {
 	codegen_callback_done(&codegen_entry_callback);
+#ifdef CALLBACK_NEEDS_TRAMPOLINE
+	codegen_callback_done(&codegen_trampoline_callback);
+#endif
 	mutex_done(&dump_mutex);
 }
 
