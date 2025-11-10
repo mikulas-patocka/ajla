@@ -463,6 +463,11 @@ fn cl_read_buffer(ctx : cl_context, buf : cl_buffer, offset size : nat) : (cl_co
 
 	var mem := ffi_destructor_allocate(size, 1, false);
 	ret, err := ffi_function_call(ctx.clEnqueueReadBuffer, [ ctx.command_queue, buf.buffer, 1, offset, size, mem, 0, 0, 0 ]);
+	if ret <> 0 then [
+		ffi_destructor_destroy();
+		xeval w;
+		abort opencl_abort("clEnqueueReadBuffer", ret);
+	]
 	xeval buf;
 	var data := ffi_peek_array(mem, size, ffi_type.t_uint8, byte);
 
@@ -484,6 +489,11 @@ fn cl_write_buffer(ctx : cl_context, buf : cl_buffer, offset : nat, data : bytes
 	var mem := ffi_destructor_allocate(size, 1, false);
 	ffi_poke_array(mem, data);
 	ret, err := ffi_function_call(ctx.clEnqueueWriteBuffer, [ ctx.command_queue, buf.buffer, 1, offset, size, mem, 0, 0, 0 ]);
+	if ret <> 0 then [
+		ffi_destructor_destroy();
+		xeval w;
+		abort opencl_abort("clEnqueueWriteBuffer", ret);
+	]
 	xeval buf;
 
 	ffi_destructor_destroy();
