@@ -1989,7 +1989,7 @@ fn main
 	var message := ffi_destructor_allocate(destr, len(str), 1, false);
 	ffi_poke_array(message, str);
 	var wrt := ffi_create_function(ffi_default_library, "write",
-			ffi_error.e_errno, 3, ffi_type.t_ssize,
+			ffi_error.e_errno, 0, ffi_type.t_ssize,
 			[ffi_type.t_sint, ffi_type.t_pointer,
 			ffi_type.t_usize]);
 	var xh := ffi_handle_to_number(destr, h[1]);
@@ -2035,7 +2035,7 @@ standard library. The first argument is a reference to the library (use
 <code>ffi_default_library</code>) for standard libc, the second argument is the
 name of the function, the third argument specifies that we are interested in the
 <code>errno</code> value returned by the function, the fourth argument is the
-number of fixed arguments, the fifth argument is the return type, the sixth
+number of variadic arguments, the fifth argument is the return type, the sixth
 argument is the list containing types for the three arguments &mdash; the first
 argument has type signed integer, the second argument has type pointer, the
 third argument has type unsigned size_t.

@@ -867,6 +867,11 @@ static void * attr_fastcall io_ffi_create_function_handler(struct io_ctx *ctx)
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 
+	if (unlikely(nvargs > ctx->args_l)) {
+		ctx->err = error_ajla(EC_SYNC, AJLA_ERROR_INVALID_OPERATION);
+		goto ret_err;
+	}
+
 	d = data_alloc_resource_mayfail(sizeof(struct resource_ffi), resource_ffi_close, &ctx->err pass_file_line);
 	if (unlikely(!d))
 		goto ret_err;
