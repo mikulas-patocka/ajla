@@ -335,8 +335,8 @@
 #define IO_FFI_Handle_To_Number		100
 #define IO_FFI_Number_To_Handle		101
 #define IO_FFI_Open_Library		102
-#define IO_FFI_Create_Function		103
-#define IO_FFI_Call_Function		104
+#define IO_FFI_Function_Create		103
+#define IO_FFI_Function_Call		104
 #define IO_FFI_Encode_Real		105
 #define IO_FFI_Decode_Real		106
 #define IO_FFI_Destructor_New		107

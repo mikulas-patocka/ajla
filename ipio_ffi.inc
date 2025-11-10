@@ -807,7 +807,7 @@ ret_err:
 	goto ret_test;
 }
 
-static void * attr_fastcall io_ffi_create_function_handler(struct io_ctx *ctx)
+static void * attr_fastcall io_ffi_function_create_handler(struct io_ctx *ctx)
 {
 	void *test;
 	pointer_t ptr;
@@ -836,7 +836,7 @@ static void * attr_fastcall io_ffi_create_function_handler(struct io_ctx *ctx)
 		goto ret_test;
 
 	ptr = *frame_pointer(ctx->fp, get_input(ctx, 0));
-	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_create_function_handler: pointer is thunk"));
+	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_function_create_handler: pointer is thunk"));
 	d = pointer_get_data(ptr);
 	rfl = da_resource(d);
 
@@ -1083,7 +1083,7 @@ static int_default_t io_get_argument_callback(unsigned char *flat, const struct 
 	return n_elements;
 }
 
-static void * attr_fastcall io_ffi_call_function_handler(struct io_ctx *ctx)
+static void * attr_fastcall io_ffi_function_call_handler(struct io_ctx *ctx)
 {
 	void *test;
 	pointer_t ptr;
@@ -1120,7 +1120,7 @@ static void * attr_fastcall io_ffi_call_function_handler(struct io_ctx *ctx)
 		goto ret_test;
 
 	ptr = *frame_pointer(ctx->fp, get_input(ctx, 1));
-	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_call_function_handler: pointer is thunk"));
+	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_function_call_handler: pointer is thunk"));
 	d = pointer_get_data(ptr);
 	ctx->rf = rf = da_resource(d);
 
@@ -1153,7 +1153,7 @@ static void * attr_fastcall io_ffi_call_function_handler(struct io_ctx *ctx)
 		case 2:	e = os_get_last_error(); break;
 		case 3:	e = os_get_last_socket_error(); break;
 		default:
-			internal(file_line, "io_ffi_call_function_handler: invalid error specifier %u", (unsigned)rf->err_type);
+			internal(file_line, "io_ffi_function_call_handler: invalid error specifier %u", (unsigned)rf->err_type);
 	}
 
 	if (rf->block_signals)

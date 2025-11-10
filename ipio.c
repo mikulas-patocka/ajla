@@ -4794,8 +4794,8 @@ static void * attr_fastcall io_ffi_unsupported(struct io_ctx *ctx)
 #define io_ffi_poke_array_handler		io_ffi_unsupported
 #define io_ffi_peek_array_handler		io_ffi_unsupported
 #define io_ffi_open_library_handler		io_ffi_unsupported
-#define io_ffi_create_function_handler		io_ffi_unsupported
-#define io_ffi_call_function_handler		io_ffi_unsupported
+#define io_ffi_function_create_handler		io_ffi_unsupported
+#define io_ffi_function_call_handler		io_ffi_unsupported
 #define io_ffi_destructor_new_handler		io_ffi_unsupported
 #define io_ffi_destructor_allocate_handler	io_ffi_unsupported
 #define io_ffi_destructor_free_handler		io_ffi_unsupported
@@ -4997,8 +4997,8 @@ static const struct {
 	{ io_ffi_handle_to_number_handler },
 	{ io_ffi_number_to_handle_handler },
 	{ io_ffi_open_library_handler },
-	{ io_ffi_create_function_handler },
-	{ io_ffi_call_function_handler },
+	{ io_ffi_function_create_handler },
+	{ io_ffi_function_call_handler },
 	{ io_ffi_encode_real_handler },
 	{ io_ffi_decode_real_handler },
 	{ io_ffi_destructor_new_handler },

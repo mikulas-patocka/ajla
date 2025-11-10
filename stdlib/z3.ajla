@@ -54,20 +54,20 @@ fn z3_mk_context(implicit w : z3_world) : (z3_world, z3_context)
 	xeval lib;
 
 	ctx.destr := ffi_destructor_new();
-	ctx.z3_set_error := ffi_create_function(lib, "Z3_set_error", ffi_error.e_none, 0, ffi_type.t_void, [ ffi_type.t_pointer, ffi_type.t_uint ]);
-	ctx.z3_get_error_code := ffi_create_function(lib, "Z3_get_error_code", ffi_error.e_none, 0, ffi_type.t_uint, [ ffi_type.t_pointer ]);
-	ctx.z3_get_error_msg := ffi_create_function(lib, "Z3_get_error_msg", ffi_error.e_none, 0, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_uint ]);
-	ctx.z3_eval_smtlib2_string := ffi_create_function(lib, "Z3_eval_smtlib2_string", ffi_error.e_none, 0, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_pointer ]);
-	var z3_mk_context := ffi_create_function_with_flags(lib, "Z3_mk_context", ffi_error.e_none, 0, ffi_type.t_pointer, [ ffi_type.t_pointer ], ffi_flag_interlocked);
-	var z3_del_context := ffi_create_function_with_flags(lib, "Z3_del_context", ffi_error.e_none, 0, ffi_type.t_void, [ ffi_type.t_pointer ], ffi_flag_interlocked);
-	var z3_set_error_handler := ffi_create_function(lib, "Z3_set_error_handler", ffi_error.e_none, 0, ffi_type.t_void, [ ffi_type.t_pointer, ffi_type.t_pointer ]);
+	ctx.z3_set_error := ffi_function_create(lib, "Z3_set_error", ffi_error.e_none, 0, ffi_type.t_void, [ ffi_type.t_pointer, ffi_type.t_uint ]);
+	ctx.z3_get_error_code := ffi_function_create(lib, "Z3_get_error_code", ffi_error.e_none, 0, ffi_type.t_uint, [ ffi_type.t_pointer ]);
+	ctx.z3_get_error_msg := ffi_function_create(lib, "Z3_get_error_msg", ffi_error.e_none, 0, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_uint ]);
+	ctx.z3_eval_smtlib2_string := ffi_function_create(lib, "Z3_eval_smtlib2_string", ffi_error.e_none, 0, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_pointer ]);
+	var z3_mk_context := ffi_function_create_with_flags(lib, "Z3_mk_context", ffi_error.e_none, 0, ffi_type.t_pointer, [ ffi_type.t_pointer ], ffi_flag_interlocked);
+	var z3_del_context := ffi_function_create_with_flags(lib, "Z3_del_context", ffi_error.e_none, 0, ffi_type.t_void, [ ffi_type.t_pointer ], ffi_flag_interlocked);
+	var z3_set_error_handler := ffi_function_create(lib, "Z3_set_error_handler", ffi_error.e_none, 0, ffi_type.t_void, [ ffi_type.t_pointer, ffi_type.t_pointer ]);
 
 	atomic_enter();
-	ctx.ptr_z3_context, e := ffi_call_function(z3_mk_context, [ 0 ]);
+	ctx.ptr_z3_context, e := ffi_function_call(z3_mk_context, [ 0 ]);
 	ffi_destructor_call(ctx.destr, z3_del_context, [ ctx.ptr_z3_context ]);
 	atomic_exit();
 
-	v, e := ffi_call_function(z3_set_error_handler, [ ctx.ptr_z3_context, 0 ]);
+	v, e := ffi_function_call(z3_set_error_handler, [ ctx.ptr_z3_context, 0 ]);
 
 	eval z3_eval_smtlib2_string_noret("(set-option :ctrl_c false)");
 
@@ -78,13 +78,13 @@ fn z3_eval_smtlib2_string(implicit w : z3_world, ctx : z3_context, str : bytes) 
 [
 	//if not is_exception w then eval debug("Z3: " + str);
 	var r e ec es : int;
-	r, e := ffi_call_function(ctx.z3_set_error, [ ctx.ptr_z3_context, 0 ]);
+	r, e := ffi_function_call(ctx.z3_set_error, [ ctx.ptr_z3_context, 0 ]);
 	var mem_str := ffi_poke_zstring(ctx.destr, str);
-	r, e := ffi_call_function(ctx.z3_eval_smtlib2_string, [ ctx.ptr_z3_context, mem_str ]);
+	r, e := ffi_function_call(ctx.z3_eval_smtlib2_string, [ ctx.ptr_z3_context, mem_str ]);
 	ffi_destructor_free(ctx.destr, mem_str);
-	ec, e := ffi_call_function(ctx.z3_get_error_code, [ ctx.ptr_z3_context ]);
+	ec, e := ffi_function_call(ctx.z3_get_error_code, [ ctx.ptr_z3_context ]);
 	if ec <> 0 then [
-		es, e := ffi_call_function(ctx.z3_get_error_msg, [ ctx.ptr_z3_context, ec ]);
+		es, e := ffi_function_call(ctx.z3_get_error_msg, [ ctx.ptr_z3_context, ec ]);
 		var b := ffi_peek_zstring(es);
 		b := list_join(list_break_to_lines(b), "");
 		xeval ffi_destructor_destroy(ctx.destr);

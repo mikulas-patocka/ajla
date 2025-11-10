@@ -360,8 +360,8 @@ IO_FFI_Peek_Array
 IO_FFI_Handle_To_Number
 IO_FFI_Number_To_Handle
 IO_FFI_Open_Library
-IO_FFI_Create_Function
-IO_FFI_Call_Function
+IO_FFI_Function_Create
+IO_FFI_Function_Call
 IO_FFI_Encode_Real
 IO_FFI_Decode_Real
 IO_FFI_Destructor_New

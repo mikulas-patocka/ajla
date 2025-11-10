@@ -1988,12 +1988,12 @@ fn main
 	var destr := ffi_destructor_new();
 	var message := ffi_destructor_allocate(destr, len(str), 1, false);
 	ffi_poke_array(message, str);
-	var wrt := ffi_create_function(ffi_default_library, "write",
+	var wrt := ffi_function_create(ffi_default_library, "write",
 			ffi_error.e_errno, 0, ffi_type.t_ssize,
 			[ffi_type.t_sint, ffi_type.t_pointer,
 			ffi_type.t_usize]);
 	var xh := ffi_handle_to_number(destr, h[1]);
-	var r, e := ffi_call_function(wrt, [ xh, message, len(str) ]);
+	var r, e := ffi_function_call(wrt, [ xh, message, len(str) ]);
 	ffi_destructor_destroy(destr);
 	if r = -1 then [
 		write(h[2], "error " + ntos(e) + " occurred" + nl);
@@ -2027,7 +2027,7 @@ freed, the allocated memory is automatically freed as well.
 <dd>This copies the string to the pointer returned by the previous function.
 Note that the function <code>ffi_poke_array</code> may be used to overwrite
 arbitrary memory in the process.
-<dt><code>var wrt := ffi_create_function(ffi_default_library, "write",
+<dt><code>var wrt := ffi_function_create(ffi_default_library, "write",
 ffi_error.e_errno, 3, ffi_type.t_ssize, [ffi_type.t_sint, ffi_type.t_pointer,
 ffi_type.t_usize]);</code>
 <dd>This statement loads a pointer to the function "<code>write</code>" from the
@@ -2044,7 +2044,7 @@ third argument has type unsigned size_t.
 be "1" because we are writing to the standard output. A reference to the handle
 is stored in the destructor, so that it will be dropped when the destructor is
 dropped.
-<dt><code>var r, e := ffi_call_function(wrt, [ xh, message, len(str)
+<dt><code>var r, e := ffi_function_call(wrt, [ xh, message, len(str)
 ]);</code>
 <dd>Call the "<code>write</code>" function, <code>r</code> is the return value,
 <code>e</code> is the <code>errno</code> value.
@@ -2053,7 +2053,7 @@ dropped.
 at this point. If we didn't use <code>ffi_destructor_destroy(destr)</code>, the
 <code>destr</code> variable would be freed when it goes out of scope (i.e. after
 the call to <code>ffi_handle_to_number</code>) and the function
-<code>ffi_call_function</code> would access invalid memory and invalid handle.
+<code>ffi_function_call</code> would access invalid memory and invalid handle.
 <dt>if r = -1 then ...
 <dd>The rest of the program prints an error if the write failed.
 </dl>
