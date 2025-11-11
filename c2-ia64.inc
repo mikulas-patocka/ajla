@@ -250,13 +250,15 @@ static unsigned get_free_slot(struct codegen_context *ctx)
 	return slot;
 }
 
-static bool attr_w ia64_purge_bundle(struct codegen_context *ctx)
+static bool attr_w ia64_purge_bundle(struct codegen_context *ctx, bool need_stop)
 {
 	uint32_t tmpls;
 	unsigned tmpl, i;
 	uint64_t low, high;
 	if (!get_free_slot(ctx))
 		return true;
+	if (need_stop)
+		ctx->a.insn_stops[2] = true;
 	tmpls = get_possible_templates(ctx);
 	if (unlikely(!tmpls))
 		internal(file_line, "ia64_purge_bundle: no possible templates");
@@ -319,7 +321,7 @@ try_stop_in_next_slot:
 			clear_wr_mask(ctx);
 		}
 		if (slot == 3) {
-			g(ia64_purge_bundle(ctx));
+			g(ia64_purge_bundle(ctx, false));
 			slot = 0;
 		}
 	}
@@ -329,7 +331,7 @@ try_next_slot:
 		ctx->a.insn_units[slot] = 0xff;
 		slot++;
 		if (unlikely(slot == 3)) {
-			g(ia64_purge_bundle(ctx));
+			g(ia64_purge_bundle(ctx, false));
 			slot = 0;
 		}
 		goto try_next_slot;
@@ -347,8 +349,6 @@ static bool attr_w cgen_ia64_ret(struct codegen_context *ctx)
 	mc |= bits_b(B_0) << 13;
 	g(ia64_insn(ctx, UNIT_B, mc, ACCESS_MEMORY, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING));
 	ctx->a.need_stop = true;
-	mc = IA64_B_NOP;
-	g(ia64_insn(ctx, UNIT_B, mc, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_MEMORY, ACCESS_NOTHING, ACCESS_NOTHING));
 	return true;
 }
 
@@ -1382,7 +1382,6 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_RET:
 			g(cgen_ia64_ret(ctx));
-			g(ia64_purge_bundle(ctx));
 			return true;
 		case INSN_IA64_ALLOC:
 			g(cgen_ia64_alloc(ctx));

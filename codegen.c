@@ -2316,7 +2316,9 @@ static bool attr_w gen_mcode(struct codegen_context *ctx)
 		insn = cget_four(ctx);
 		g(cgen_insn(ctx, insn));
 	}
-
+#if defined(ARCH_IA64)
+	g(ia64_purge_bundle(ctx, true));
+#endif
 	return true;
 }
 

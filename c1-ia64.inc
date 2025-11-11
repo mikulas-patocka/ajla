@@ -523,8 +523,6 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 	gen_one(R_SCRATCH_B);
 
-	gen_insn(INSN_RET, 0, 0, 0);
-
 	return true;
 }
 
@@ -659,8 +657,6 @@ static bool attr_w gen_callback(struct codegen_context *ctx, void (*callback)(vo
 
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 	gen_one(R_SCRATCH_B);
-
-	gen_insn(INSN_RET, 0, 0, 0);
 
 	return true;
 }
