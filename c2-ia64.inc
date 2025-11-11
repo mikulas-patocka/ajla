@@ -1236,6 +1236,7 @@ static bool attr_w cgen_jmp(struct codegen_context *ctx, unsigned length)
 		mc = IA64_X_BRL;
 		g(ia64_insn(ctx, UNIT_X, mc, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING));
 		g(add_relocation(ctx, JMP_SHORT, 0, NULL));
+		ctx->a.need_stop = true;
 	}
 	return true;
 }
@@ -1270,6 +1271,7 @@ static bool attr_w cgen_jmp_reg(struct codegen_context *ctx, unsigned aux, unsig
 		mc |= bits_p(reg);
 		g(ia64_insn(ctx, UNIT_X, mc, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING));
 		g(add_relocation(ctx, JMP_SHORT, 1, NULL));
+		ctx->a.need_stop = true;
 	}
 	return true;
 invalid:
@@ -1322,8 +1324,7 @@ static void insert_bundle(uint8_t *ptr, unsigned bundle, uint64_t instr)
 
 static bool attr_w resolve_relocation(struct codegen_context *ctx, struct relocation *reloc)
 {
-	uint64_t mc;
-	unsigned imm41;
+	uint64_t mc, imm41;
 	unsigned bundle = reloc->position & 3;
 	size_t position = reloc->position & ~3;
 	int64_t offs = (int64_t)(ctx->label_to_pos[reloc->label_id] >> 4) - (int64_t)(position >> 4);
@@ -1344,7 +1345,7 @@ static bool attr_w resolve_relocation(struct codegen_context *ctx, struct reloca
 			mc &= ~0x011ffffe000ULL;
 			mc |= (offs & 0xfffffULL) << 13;
 			imm41 &= ~0x1fffffffffcULL;
-			imm41 |= (offs >> 20 << 2) & 0x1fffffffffcULL;
+			imm41 |= ((uint64_t)offs >> 20 << 2) & 0x1fffffffffcULL;
 			mc |= ((uint64_t)offs >> 59 & 1) << 36;
 			insert_bundle(ctx->mcode + position, 1, imm41);
 			insert_bundle(ctx->mcode + position, 2, mc);
