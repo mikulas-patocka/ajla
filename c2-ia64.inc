@@ -346,6 +346,7 @@ static bool attr_w cgen_ia64_ret(struct codegen_context *ctx)
 	mc = IA64_B_BR_RET;
 	mc |= bits_b(B_0) << 13;
 	g(ia64_insn(ctx, UNIT_B, mc, ACCESS_MEMORY, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING));
+	ctx->a.need_stop = true;
 	mc = IA64_B_NOP;
 	g(ia64_insn(ctx, UNIT_B, mc, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_MEMORY, ACCESS_NOTHING, ACCESS_NOTHING));
 	return true;
@@ -386,6 +387,7 @@ static bool attr_w cgen_call_indirect(struct codegen_context *ctx)
 	mc |= bits_b(B_0) << 6;
 	mc |= bits_b(reg) << 13;
 	g(ia64_insn(ctx, UNIT_B, mc, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING));
+	ctx->a.need_stop = true;
 	return true;
 }
 
@@ -1282,6 +1284,7 @@ static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx)
 	mc = IA64_B_BR_JMP_INDIRECT;
 	mc |= bits_b(reg) << 13;
 	g(ia64_insn(ctx, UNIT_B, mc, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING, ACCESS_NOTHING));
+	ctx->a.need_stop = true;
 	return true;
 }
 
