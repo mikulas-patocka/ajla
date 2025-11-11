@@ -461,21 +461,20 @@ skip_mem_modify:;
 					g(gen_3address_alu(ctx, i_size(op_size), alu, target, reg1, reg2, 0));
 #if defined(ARCH_IA64)
 				if (c) {
-					g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_1, reg1, frame_t_get_const(slot_2), 0));
-					g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_2, target, frame_t_get_const(slot_2), 0));
+					g(gen_cmp_test_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg1, target, (frame_t_get_const(slot_2) >= 0) ^ (alu != ALU_ADD) ? COND_G : COND_L, label_ovf));
 				} else {
 					g(gen_3address_alu(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_1, reg1, reg2, 0));
 					g(gen_3address_alu(ctx, i_size(op_size), ALU_XOR, R_SCRATCH_2, target, reg2, 0));
+					if (alu == ALU_ADD) {
+						g(gen_3address_alu(ctx, i_size(op_size), ALU_ANDN, R_SCRATCH_1, R_SCRATCH_2, R_SCRATCH_1, 0));
+					} else {
+						g(gen_3address_alu(ctx, i_size(op_size), ALU_ANDN, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_2, 0));
+					}
+					g(gen_jmp_on_zero(ctx, i_size(op_size), R_SCRATCH_1, COND_S, label_ovf));
 				}
-				if (alu == ALU_ADD) {
-					g(gen_3address_alu(ctx, i_size(op_size), ALU_ANDN, R_SCRATCH_1, R_SCRATCH_2, R_SCRATCH_1, 0));
-				} else {
-					g(gen_3address_alu(ctx, i_size(op_size), ALU_ANDN, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_2, 0));
-				}
-				g(gen_jmp_on_zero(ctx, i_size(op_size), R_SCRATCH_1, COND_S, label_ovf));
 #else
 				if (c) {
-					g(gen_cmp_test_jmp(ctx, INSN_CMP, i_size(op_size), reg1, target, (frame_t_get_const(slot_2) >= 0) ^ (alu != ALU_ADD) ? COND_G : COND_L, label_ovf));
+					g(gen_cmp_test_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg1, target, (frame_t_get_const(slot_2) >= 0) ^ (alu != ALU_ADD) ? COND_G : COND_L, label_ovf));
 				} else {
 					gen_insn(INSN_CMP_DEST_REG, i_size(op_size), COND_L, 0);
 					gen_one(R_SCRATCH_1);
