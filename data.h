@@ -811,7 +811,7 @@ struct data_array_pointers {
 	pointer_t pointer_array[FLEXIBLE_ARRAY_GCC];
 };
 
-#if !defined(DEBUG_ARRAY_INDICES) && !defined(UNUSUAL)
+#if !defined(DEBUG_ARRAY_INDICES)
 #if !defined(POINTER_COMPRESSION) && defined(SIZEOF_VOID_P) && SIZEOF_VOID_P && SIZEOF_VOID_P * 8 <= INT_DEFAULT_BITS
 #define SCALAR_ARRAY_INDEX_T
 #elif defined(POINTER_COMPRESSION) && 32 <= INT_DEFAULT_BITS

@@ -100,12 +100,12 @@ typedef unsigned long uintmax_t;
 #endif
 
 
-#if defined(SIZEOF_UNSIGNED___INT128) && SIZEOF_UNSIGNED___INT128 > 8
+#if defined(SIZEOF_UNSIGNED___INT128) && SIZEOF_UNSIGNED___INT128 == 16 && !defined(UNUSUAL_DISABLE_INT128_T)
 typedef __int128 intbig_t;
 typedef unsigned __int128 uintbig_t;
 #else
-typedef intmax_t intbig_t;
-typedef uintmax_t uintbig_t;
+typedef int64_t intbig_t;
+typedef uint64_t uintbig_t;
 #endif
 
 
@@ -826,7 +826,7 @@ typedef uint16_t ushort_efficient_t;
 #endif
 
 
-#if !defined(UNUSUAL_NO_TAGGED_POINTERS)
+#if !defined(UNUSUAL_NO_TAGGED_POINTERS) && !defined(DEBUG_ARRAY_INDICES) && !defined(UNUSUAL_REFCOUNTS) && (defined(C_LITTLE_ENDIAN) || defined(C_BIG_ENDIAN))
 #if defined(HAVE_MMAP) || defined(OS_DOS) || defined(OS_OS2) || defined(OS_WIN32)
 #if defined(ARCH_ALPHA)
 #define HAVE_CODEGEN
@@ -945,11 +945,11 @@ typedef uint16_t ushort_efficient_t;
 #define SPECIAL_POINTER_1	BAD_POINTER_1
 #define SPECIAL_POINTER_2	BAD_POINTER_2
 #define SPECIAL_POINTER_3	BAD_POINTER_3
-#if !defined(UNUSUAL_NO_TAGGED_POINTERS) && !defined(UNUSUAL_NO_ARCH_TAGGED_POINTERS)
-#if defined(HAVE_POINTER_TAGS) && defined(__aarch64__) && !defined(__ILP32__)
+#if !defined(UNUSUAL_NO_TAGGED_POINTERS)
+#if defined(HAVE_POINTER_TAGS) && defined(__aarch64__) && !defined(__ILP32__) && !defined(UNUSUAL_NO_ARCH_TAGGED_POINTERS)
 #define POINTER_IGNORE_START	56
 #define POINTER_IGNORE_BITS	8
-#elif defined(HAVE_POINTER_TAGS) && defined(__s390__) && !defined(__LP64__)
+#elif defined(HAVE_POINTER_TAGS) && defined(__s390__) && !defined(__LP64__) && !defined(UNUSUAL_NO_ARCH_TAGGED_POINTERS)
 #define POINTER_IGNORE_START	31
 #define POINTER_IGNORE_BITS	1
 #else

@@ -19,12 +19,10 @@
 #define MINIMUM_STACK_SIZE		0x100000
 
 
-#ifndef UNUSUAL_DISABLE_INT128_T
-#if defined(SIZEOF_UNSIGNED___INT128) && SIZEOF_UNSIGNED___INT128 == 16
+#if defined(SIZEOF_UNSIGNED___INT128) && SIZEOF_UNSIGNED___INT128 == 16 && !defined(UNUSUAL_DISABLE_INT128_T)
 #define TYPE_FIXED_N	5
 typedef signed __int128 int128_t;
 typedef unsigned __int128 uint128_t;
-#endif
 #endif
 
 #ifndef TYPE_FIXED_N
@@ -451,7 +449,7 @@ typedef frame_t ajla_option_t;	/* some code casts ajla_option_t to frame_t */
 #endif
 
 
-#if defined(C_BIG_ENDIAN) ^ defined(UNUSUAL)
+#if defined(C_BIG_ENDIAN)
 #define CODE_ENDIAN	1
 #else
 #define CODE_ENDIAN	0
