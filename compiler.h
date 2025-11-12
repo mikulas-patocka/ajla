@@ -826,7 +826,7 @@ typedef uint16_t ushort_efficient_t;
 #endif
 
 
-#if !defined(UNUSUAL_NO_TAGGED_POINTERS) && !defined(DEBUG_ARRAY_INDICES) && !defined(UNUSUAL_REFCOUNTS) && (defined(C_LITTLE_ENDIAN) || defined(C_BIG_ENDIAN))
+#if !defined(UNUSUAL_NO_TAGGED_POINTERS) && !defined(DEBUG_ARRAY_INDICES) && (defined(C_LITTLE_ENDIAN) || defined(C_BIG_ENDIAN))
 #if defined(HAVE_MMAP) || defined(OS_DOS) || defined(OS_OS2) || defined(OS_WIN32)
 #if defined(ARCH_ALPHA)
 #define HAVE_CODEGEN

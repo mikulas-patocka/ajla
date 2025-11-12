@@ -62,7 +62,7 @@
 
 #endif
 
-#if defined(REFCOUNT_ATOMIC) || defined(REFCOUNT_WIN32) || defined(POINTERS_ARE_ATOMIC)
+#if !defined(REFCOUNT_LOCK)
 #define REFCOUNTS_ARE_ATOMIC
 #endif
 
