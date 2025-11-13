@@ -2396,6 +2396,41 @@ static bool attr_w codegen_map(struct codegen_context *ctx)
 	return true;
 }
 
+static void dump_code_ctx(struct codegen_context *ctx)
+{
+	char *hex;
+	size_t hexl;
+	size_t i;
+	handle_t h;
+
+	mutex_lock(&dump_mutex);
+	str_init(&hex, &hexl);
+	str_add_string(&hex, &hexl, "_");
+	str_add_unsigned(&hex, &hexl, dump_seq++, 10);
+	str_add_string(&hex, &hexl, "_");
+	if (ctx->fn)
+		str_add_string(&hex, &hexl, da(ctx->fn,function)->function_name);
+	str_add_string(&hex, &hexl, ":");
+	for (i = 0; i < hexl; i++)
+		if (hex[i] == '/')
+			hex[i] = '_';
+	for (i = 0; i < ctx->mcode_size; i++) {
+		uint8_t a = ctx->mcode[i];
+		if (!(i & 0xff))
+			str_add_string(&hex, &hexl, "\n	.byte	0x");
+		else
+			str_add_string(&hex, &hexl, ",0x");
+		if (a < 16)
+			str_add_char(&hex, &hexl, '0');
+		str_add_unsigned(&hex, &hexl, a, 16);
+	}
+	str_add_string(&hex, &hexl, "\n");
+	h = os_open(os_cwd, "dump.s", O_WRONLY | O_APPEND, 0600, NULL);
+	os_write_all(h, hex, hexl, NULL);
+	os_close(h);
+	mem_free(hex);
+	mutex_unlock(&dump_mutex);
+}
 
 void *codegen_fn(frame_s *fp, const code_t *ip, union internal_arg ia[])
 {
@@ -2555,39 +2590,8 @@ again:
 
 	resolve_traps(ctx);
 
-	if (dump_code && (!dump_code[0] || !strcmp(dump_code, da(ctx->fn,function)->function_name))) {
-		char *hex;
-		size_t hexl;
-		size_t i;
-		handle_t h;
-
-		mutex_lock(&dump_mutex);
-		str_init(&hex, &hexl);
-		str_add_string(&hex, &hexl, "_");
-		str_add_unsigned(&hex, &hexl, dump_seq++, 10);
-		str_add_string(&hex, &hexl, "_");
-		str_add_string(&hex, &hexl, da(ctx->fn,function)->function_name);
-		str_add_string(&hex, &hexl, ":");
-		for (i = 0; i < hexl; i++)
-			if (hex[i] == '/')
-				hex[i] = '_';
-		for (i = 0; i < ctx->mcode_size; i++) {
-			uint8_t a = ctx->mcode[i];
-			if (!(i & 0xff))
-				str_add_string(&hex, &hexl, "\n	.byte	0x");
-			else
-				str_add_string(&hex, &hexl, ",0x");
-			if (a < 16)
-				str_add_char(&hex, &hexl, '0');
-			str_add_unsigned(&hex, &hexl, a, 16);
-		}
-		str_add_string(&hex, &hexl, "\n");
-		h = os_open(os_cwd, "dump.s", O_WRONLY | O_APPEND, 0600, NULL);
-		os_write_all(h, hex, hexl, NULL);
-		os_close(h);
-		mem_free(hex);
-		mutex_unlock(&dump_mutex);
-	}
+	if (dump_code && (!dump_code[0] || !strcmp(dump_code, da(ctx->fn,function)->function_name)))
+		dump_code_ctx(ctx);
 
 	ctx->codegen = data_alloc_flexible(codegen, unoptimized_code, ctx->n_entries, &ctx->err);
 	if (unlikely(!ctx->codegen))
@@ -2672,6 +2676,11 @@ bool codegen_callback_init(struct codegen_callback *cb, void (*callback)(void *p
 		goto fail;
 
 	array_finish(uint8_t, &ctx->mcode, &ctx->mcode_size);
+
+
+	if (dump_code)
+		dump_code_ctx(ctx);
+
 	cb->code = os_code_map(ctx->mcode, ctx->mcode_size, &ctx->err);
 	if (unlikely(!cb->code))
 		goto fail;
@@ -2708,8 +2717,7 @@ fail:
 	return false;
 }
 
-/*#define TEST_CALLBACKS*/
-#ifdef TEST_CALLBACKS
+#ifdef DEBUG_ENV
 static void test_callback_fn(void *ptr)
 {
 	debug("callback called: %p", ptr);
@@ -2728,6 +2736,20 @@ static struct codegen_callback codegen_trampoline_callback;
 
 void name(codegen_init)(void)
 {
+	if (dump_code) {
+		char *hex;
+		size_t hexl;
+		str_init(&hex, &hexl);
+#if defined(ARCH_ARM32)
+		str_add_string(&hex, &hexl, "	.cpu cortex-a15\n	.fpu neon-vfpv4\n");
+#endif
+#if defined(ARCH_RISCV64)
+		str_add_string(&hex, &hexl, "	.attribute arch, \"rv64i2p1_m2p0_a2p1_f2p2_d2p2_c2p0_zicsr2p0_zifencei2p0_zba1p0_zbb1p0_zbc1p0_zbs1p0\"\n");
+#endif
+		os_write_atomic(".", "dump.s", hex, hexl, NULL);
+		mem_free(hex);
+	}
+
 #if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI)
 #if defined(HAVE_SYSCALL) && defined(HAVE_ASM_PRCTL_H) && defined(HAVE_SYS_SYSCALL_H)
 	if (!dll) {
@@ -2754,6 +2776,8 @@ void name(codegen_init)(void)
 #endif
 #endif
 
+	mutex_init(&dump_mutex);
+
 	codegen_callback_init(&codegen_entry_callback, NULL, NULL, NULL);
 	codegen_entry = cast_ptr(codegen_type, codegen_entry_callback.fn);
 
@@ -2762,37 +2786,11 @@ void name(codegen_init)(void)
 	callback_trampoline = codegen_trampoline_callback.fn;
 #endif
 
-	mutex_init(&dump_mutex);
-	if (dump_code) {
-		size_t i;
-		char *hex;
-		size_t hexl;
-		str_init(&hex, &hexl);
-#if defined(ARCH_ARM32)
-		str_add_string(&hex, &hexl, "	.cpu cortex-a15\n	.fpu neon-vfpv4\n");
-#endif
-#if defined(ARCH_RISCV64)
-		str_add_string(&hex, &hexl, "	.attribute arch, \"rv64i2p1_m2p0_a2p1_f2p2_d2p2_c2p0_zicsr2p0_zifencei2p0_zba1p0_zbb1p0_zbc1p0_zbs1p0\"\n");
-#endif
-		for (i = 0; i < codegen_entry_callback.code_size; i++) {
-			uint8_t a = cast_ptr(uint8_t *, codegen_entry_callback.code)[i];
-			str_add_string(&hex, &hexl, "	.byte	0x");
-			if (a < 16)
-				str_add_char(&hex, &hexl, '0');
-			str_add_unsigned(&hex, &hexl, a, 16);
-			str_add_char(&hex, &hexl, '\n');
-		}
-		os_write_atomic(".", "dump.s", hex, hexl, NULL);
-		mem_free(hex);
-	}
-#ifdef TEST_CALLBACKS
-	{
+#ifdef DEBUG_ENV
+	if (getenv("TEST_CALLBACK")) {
 		struct codegen_callback test_callback;
-		debug("X1");
-		codegen_callback_init(&test_callback, test_callback_fn, num_to_ptr(3), NULL);
-		debug("X2");
+		codegen_callback_init(&test_callback, test_callback_fn, num_to_ptr(0x12345678), NULL);
 		((void (*)(void))test_callback.fn)();
-		debug("X3");
 		codegen_callback_done(&test_callback);
 	}
 #endif
