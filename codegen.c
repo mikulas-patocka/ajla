@@ -2789,7 +2789,7 @@ void name(codegen_init)(void)
 #ifdef DEBUG_ENV
 	if (getenv("TEST_CALLBACK")) {
 		struct codegen_callback test_callback;
-		codegen_callback_init(&test_callback, test_callback_fn, num_to_ptr(0x12345678), NULL);
+		codegen_callback_init(&test_callback, test_callback_fn, num_to_ptr(strtoul(getenv("TEST_CALLBACK"), NULL, 16)), NULL);
 		((void (*)(void))test_callback.fn)();
 		codegen_callback_done(&test_callback);
 	}
