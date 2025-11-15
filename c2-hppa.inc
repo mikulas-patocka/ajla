@@ -1421,7 +1421,7 @@ static bool attr_w cgen_jmp_fp_test(struct codegen_context *ctx, unsigned length
 	return true;
 }
 
-static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, unsigned reg, bool attr_unused from_millicode)
+static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, unsigned reg, bool delay_slot)
 {
 	uint32_t mc;
 #ifdef ARCH_PARISC32
@@ -1429,18 +1429,14 @@ static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, unsigned reg, 
 		if (PA_SPACES) {
 			mc = PARISC_BVE_RET;
 			mc |= (uint32_t)reg << 21;
-			if (!from_millicode)
+			if (!delay_slot)
 				mc |= PARISC_N;
 			cgen_four(mc);
-			if (from_millicode) {
-				mc = PARISC_STW_LONG;
-				mc |= low_sign_ext_14(-0x18);
-				g(cgen_2reg(ctx, mc, R_SP, R_RP));
-			}
 		} else {
 			mc = PARISC_BVE_RET;
 			mc |= (uint32_t)reg << 21;
-			mc |= PARISC_N;
+			if (!delay_slot)
+				mc |= PARISC_N;
 			cgen_four(mc);
 		}
 	} else {
@@ -1454,29 +1450,28 @@ static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, unsigned reg, 
 			cgen_four(mc);
 			mc = PARISC_BE;
 			mc |= (uint32_t)reg << 21;
-			if (!from_millicode)
+			if (!delay_slot)
 				mc |= PARISC_N;
 			cgen_four(mc);
-			if (from_millicode) {
-				mc = PARISC_STW_LONG;
-				mc |= low_sign_ext_14(-0x18);
-				g(cgen_2reg(ctx, mc, R_SP, R_RP));
-			}
 		} else {
 			mc = PARISC_BV;
 			mc |= (uint32_t)reg << 21;
-			mc |= PARISC_N;
+			if (!delay_slot)
+				mc |= PARISC_N;
 			cgen_four(mc);
 		}
 	}
 #else
 	mc = PARISC_BVE_RET;
 	mc |= (uint32_t)reg << 21;
-	mc |= PARISC_N;
+	if (!delay_slot)
+		mc |= PARISC_N;
 	cgen_four(mc);
 #endif
-	if (unlikely(!ctx->fn))
-		cgen_four(PARISC_NOP);
+	if (!delay_slot) {
+		if (unlikely(!ctx->fn))
+			cgen_four(PARISC_NOP);
+	}
 	return true;
 }
 
@@ -1500,7 +1495,12 @@ static bool attr_w cgen_call_millicode(struct codegen_context attr_unused *ctx)
 	g(cgen_3reg(ctx, mc, low_sign_ext_5(2), reg, R_19));
 	g(cgen_3reg(ctx, mc, low_sign_ext_5(-2), reg, reg));
 
-	g(cgen_jmp_indirect(ctx, reg, true));
+	g(cgen_jmp_indirect(ctx, reg, PA_SPACES));
+	if (PA_SPACES) {
+		mc = PARISC_STW_LONG;
+		mc |= low_sign_ext_14(-0x18);
+		g(cgen_2reg(ctx, mc, R_SP, R_RP));
+	}
 #endif
 	return true;
 }
