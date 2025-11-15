@@ -133,6 +133,7 @@
 #define PARISC_BV		0xe800c000U
 #define PARISC_BVE_RET		0xe800d000U
 #define PARISC_BVE_CALL		0xe800f000U
+#define  PARISC_BVE_STACK		0x00000001U
 #define PARISC_CMPIB_64		0xec000000U
 #define PARISC_DEPD_Z		0xf0001000U
 #define PARISC_DEPD		0xf0001400U
@@ -284,7 +285,7 @@ static bool attr_w cgen_ret(struct codegen_context *ctx)
 		mc |= PARISC_N;
 		cgen_four(mc);
 	} else {
-		mc = PA_20 ? PARISC_BVE_RET : PARISC_BV;
+		mc = PA_20 ? PARISC_BVE_RET | PARISC_BVE_STACK : PARISC_BV;
 		mc |= (uint32_t)R_RP << 21;
 		mc |= PARISC_N;
 		cgen_four(mc);
@@ -322,7 +323,7 @@ static bool attr_w cgen_call_indirect(struct codegen_context *ctx)
 	mc = PARISC_LDD | low_sign_ext_14(0x10);
 	g(cgen_2reg(ctx, mc, reg, R_31));
 
-	cgen_four(PARISC_BVE_CALL | ((uint32_t)R_31 << 21));
+	cgen_four(PARISC_BVE_CALL | PARISC_BVE_STACK | ((uint32_t)R_31 << 21));
 
 	mc = PARISC_LDD | low_sign_ext_14(0x18);
 	g(cgen_2reg(ctx, mc, reg, R_DP));
@@ -1461,7 +1462,7 @@ static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, unsigned reg)
 		}
 	}
 #else
-	mc = PARISC_BV;
+	mc = PARISC_BVE_RET;
 	mc |= (uint32_t)reg << 21;
 	mc |= PARISC_N;
 	cgen_four(mc);
