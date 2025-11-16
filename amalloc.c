@@ -904,7 +904,9 @@ void *amalloc_run_alloc(size_t al, size_t length, bool attr_unused clr, bool att
 
 	base_address = NULL;
 	if (unlikely(saved)) {
+#if !defined(__ia64)
 		base_address = num_to_ptr(round_down(ptr_to_num(&saved) / 2, page_size));
+#endif
 	}
 
 #if defined(OS_OS2)
