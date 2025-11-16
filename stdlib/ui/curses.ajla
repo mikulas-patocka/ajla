@@ -1082,8 +1082,15 @@ fn curses_box(implicit curs : curses, x1 x2 y1 y2 : int, width : int) : curses
 [
 	if width <> 1, width <> 2 then
 		return;
-	if x1 >= x2 or y1 >= y2 then
+	if x1 >= x2 or y1 >= y2 then [
+		if x1 < x2, y1 = y2 then
+			curses_hline(x1, x2 + 1, y1, width);
+		else if x1 = x2, y1 < y2 then
+			curses_vline(x1, y1, y2 + 1, width);
+		else
+			curses_fill_rect(x1, x2 + 1, y1, y2 + 1, ' ');
 		return;
+	]
 	curses_hline(x1 + 1, x2, y1, width);
 	curses_hline(x1 + 1, x2, y2, width);
 	curses_vline(x1, y1 + 1, y2, width);
