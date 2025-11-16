@@ -1424,21 +1424,12 @@ static bool attr_w cgen_jmp_fp_test(struct codegen_context *ctx, unsigned length
 static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, unsigned reg, bool delay_slot)
 {
 	uint32_t mc;
-#ifdef ARCH_PARISC32
 	if (PA_20) {
-		if (PA_SPACES) {
-			mc = PARISC_BVE_RET;
-			mc |= (uint32_t)reg << 21;
-			if (!delay_slot)
-				mc |= PARISC_N;
-			cgen_four(mc);
-		} else {
-			mc = PARISC_BVE_RET;
-			mc |= (uint32_t)reg << 21;
-			if (!delay_slot)
-				mc |= PARISC_N;
-			cgen_four(mc);
-		}
+		mc = PARISC_BVE_RET;
+		mc |= (uint32_t)reg << 21;
+		if (!delay_slot)
+			mc |= PARISC_N;
+		cgen_four(mc);
 	} else {
 		if (PA_SPACES) {
 			mc = PARISC_LDSID;
@@ -1461,13 +1452,6 @@ static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, unsigned reg, 
 			cgen_four(mc);
 		}
 	}
-#else
-	mc = PARISC_BVE_RET;
-	mc |= (uint32_t)reg << 21;
-	if (!delay_slot)
-		mc |= PARISC_N;
-	cgen_four(mc);
-#endif
 	if (!delay_slot) {
 		if (unlikely(!ctx->fn))
 			cgen_four(PARISC_NOP);
