@@ -1732,6 +1732,7 @@ static bool pcode_generate_option_from_blob(struct build_function_context *ctx, 
 
 	am = INIT_ARG_MODE;
 	get_arg_mode(am, tr->slot);
+	get_arg_mode(am, opt);
 	if (likely(opt == (ajla_option_t)(ajla_flat_option_t)opt) && tr->type->tag == TYPE_TAG_flat_option) {
 		code = OPCODE_OPTION_CREATE_EMPTY_FLAT;
 	} else {
