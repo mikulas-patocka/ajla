@@ -63,9 +63,10 @@
 #define P_Invariant			55
 #define P_ForAll			56
 #define P_Checkpoint			57
-#define P_Line_Info			58
-#define P_Phi				59
-#define P_Pcode_N			60
+#define P_Offload			58
+#define P_Line_Info			59
+#define P_Phi				60
+#define P_Pcode_N			61
 
 #define T_Type				-1
 #define T_SInt8				-2

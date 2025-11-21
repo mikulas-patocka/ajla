@@ -856,6 +856,7 @@ fn gvn_recursive(ctx : context, bgi : int, vals : list(int)) : context
 			bts P_Args
 			bts P_Return_Vars
 			bts P_Return
+			bts P_Offload
 			bts P_Line_Info
 			;
 		if skipped_opcodes bt ins.opcode then
@@ -1387,6 +1388,9 @@ next_dom:
 	if ins.opcode = P_Where then [
 		return create_instr(P_Copy, list(pcode_t).[ ins.params[0], 0, ins.params[1] ], ins.bb), true;
 	]
+	if ins.opcode = P_Offload, ctx.do_offload, len(ins.params) = 1 then [
+		goto end;
+	]
 end:
 	if ins.borrow <> -1, (ins.params[ins.borrow - 1] and Flag_Borrow) = 0 then [
 		ins.params[ins.borrow - 1] or= Flag_Borrow;
@@ -1475,6 +1479,8 @@ again:
 			ins := remap_instruction(ins, ctx.var_map, false);
 			var did_something : bool;
 			//eval debug("simplify_instr: bb " + ntos(bgi) + ", idx " + ntos(ili));
+			if ins.opcode = P_Offload, not ctx.do_offload then
+				ctx.need_offload := true;
 			ins, did_something := simplify_instr(ctx, ins);
 			if did_something then
 				again := true;
@@ -2872,6 +2878,8 @@ fn process_pcode_ctx(pc : list(pcode_t), ctx : context, verify_pattern : bytes) 
 	ctx := check_consistency(ctx, "start", false);
 
 	ctx.num_retries := 0;
+	ctx.need_offload := false;
+	ctx.do_offload := false;
 	var do_verify := false;
 retry_optimize:
 	ctx.should_retry := false;
@@ -2972,6 +2980,13 @@ retry_optimize:
 
 	if ctx.should_retry then [
 		//eval debug("retrying optimize");
+		ctx.num_retries += 1;
+		goto retry_optimize;
+	]
+
+	if ctx.need_offload then [
+		ctx.need_offload := false;
+		ctx.do_offload := true;
 		ctx.num_retries += 1;
 		goto retry_optimize;
 	]

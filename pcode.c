@@ -3088,6 +3088,19 @@ next_one:
 				for (p = 0; p < instr_params; p++)
 					u_pcode_get();
 				break;
+			case P_Offload:
+				res = u_pcode_get();
+				tr = get_var_type(ctx, res);
+				ajla_assert_lo(type_is_equal(tr->type, type_get_flat_option()), (file_line, "P_Offload(%s): invalid type for bool variable: %u", function_name(ctx), tr->type->tag));
+				am = INIT_ARG_MODE;
+				get_arg_mode(am, tr->slot);
+				get_arg_mode(am, 1);
+				code = OPCODE_OPTION_CREATE_EMPTY_FLAT;
+				code += am * OPCODE_MODE_MULT;
+				gen_code(code);
+				gen_am_two(am, tr->slot, 1);
+				ctx->pcode = ctx->pcode_instr_end;
+				break;
 			case P_Line_Info:
 				lp.line = u_pcode_get();
 				lp.ip = ctx->code_len;

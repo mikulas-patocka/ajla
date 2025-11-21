@@ -114,6 +114,8 @@ fn generate_Array_Skip(ctx : function_context, aa am : int) : (function_context,
 fn pcode_Array_Skip_get_array(ins : instruction) : int;
 fn pcode_Array_Skip_get_start(ins : instruction) : int;
 
+fn generate_Offload(ctx : function_context) : (function_context, int);
+
 fn generate_Line_Info(ctx : function_context, line : int) : function_context;
 
 implementation
@@ -1235,6 +1237,15 @@ fn pcode_Array_Skip_get_start(ins : instruction) : int
 [
 	xeval assert(ins.opcode = P_Array_Skip, "pcode_Array_Skip_get_index: invalid instruction");
 	return ins.args[3];
+]
+
+fn generate_Offload(ctx : function_context) : (function_context, int)
+[
+	var l : int;
+	ctx, l := alloc_local_variable(ctx, T_Bool, true, false);
+	var pcode_args := list(pcode_t).[ l ];
+	ctx := generate_instruction(ctx, P_Offload, pcode_args);
+	return ctx, l;
 ]
 
 fn generate_Line_Info(ctx : function_context, line : int) : function_context

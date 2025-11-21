@@ -419,6 +419,9 @@ fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instructi
 		xlen := 3;
 	] else if opcode = P_Checkpoint then [
 		xlen := len(params);
+	] else if opcode = P_Offload then [
+		ins.write_set := 0 bts 0;
+		xlen := 1;
 	] else if opcode = P_Line_Info then [
 		if params[0] < 0 then
 			abort internal("P_Line_Info: negative line info");

@@ -624,6 +624,12 @@ fn parse_statement_for(ctx : function_context, vd : variable_dictionary, level :
 	   not (t[1].t is colon or t[1].t is assign) then
 		abort compiler_error("Invalid for statement", t);
 
+	var offload := false;
+	for i := 0 to len(t[0].prev_hints) do [
+		if t[0].prev_hints[i] = "offload" then
+			offload := true;
+	]
+
 	var assign_idx := token_find(t, token_opt.assign, true);
 
 	var variable_decl := t[ .. assign_idx];
@@ -666,6 +672,14 @@ fn parse_statement_for(ctx : function_context, vd : variable_dictionary, level :
 	ctx, l_continue := alloc_local_label(ctx);
 	ctx, l_exception := alloc_local_label(ctx);
 	ctx, l_end := alloc_local_label(ctx);
+
+	if offload then [
+		var l_begin l : int;
+		ctx, l_begin := alloc_local_label(ctx);
+		ctx, l := generate_Offload(ctx);
+		ctx := generate_Jmp_False(ctx, l, l_end, l_begin);
+		ctx := generate_Label(ctx, l_begin);
+	]
 
 	var do_vd := new_variable_dictionary_chained(ctx, vd);
 	do_vd.break_label := l_end;
