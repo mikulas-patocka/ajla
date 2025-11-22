@@ -1,0 +1,152 @@
+{*
+ * Copyright (C) 2025 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+private unit compiler.optimize.offload;
+
+uses compiler.optimize.defs;
+
+fn offload(ctx : context) : context;
+
+implementation
+
+uses compiler.optimize.utils;
+
+fn skip_empty(ctx : context, bgi : int) : int
+[
+again:
+	var block := ctx.blocks[bgi];
+	if not len_greater_than(block.instrs, 0) then [
+		bgi := block.post_list[0];
+		goto again;
+	]
+	return bgi;
+]
+
+fn test_loop(ctx : context, loop_bgi end_bgi : int) : list(int)
+[
+	end_bgi := skip_empty(ctx, end_bgi);
+
+	var loop_block := ctx.blocks[loop_bgi];
+	eval debug("loop_block: " + ntos(len(loop_block.instrs)));
+	if len(loop_block.instrs) <> 1 then
+		return empty(int);
+	var low_bound_insn := ctx.instrs[loop_block.instrs[0]];
+	if low_bound_insn.opcode <> P_Load_Const or len(low_bound_insn.params) <> 2 then
+		return empty(int);
+	var loop_variable := low_bound_insn.params[0];
+
+	var test_bgi := loop_block.post_list[0];
+	var test_block := ctx.blocks[test_bgi];
+
+	if len(test_block.post_list) <> 3 then
+		return empty(int);
+	if skip_empty(ctx, test_block.post_list[1]) <> skip_empty(ctx, end_bgi) then
+		return empty(int);
+	//eval debug("test_bgi: " + ntos(test_bgi));
+	//eval debug("post_list: " + ntos(test_block.post_list[0]) + ", " + ntos(test_block.post_list[1]) + ", " + ntos(test_block.post_list[2]) + ", " + ntos(end_bgi));
+	//var test_insn := ctx.instrs[test_block.instrs[len(test_block.instrs) - 1]];
+	//eval debug("last insn: " + ntos(test_insn.opcode) + ", " + ntos(test_insn.params[0]) + ", " + ntos(test_insn.params[1]) + ", " + ntos(test_insn.params[2]));
+
+	if len(test_block.pred_list) <> 2 then
+		return empty(int);
+	var loop_block_idx := select(test_block.pred_list[0] = loop_bgi, 1, 0);
+
+	var test_loop_variable incremented_loop_variable : int;
+	for ili := 0 to len(test_block.instrs) do [
+		var phi := ctx.instrs[test_block.instrs[ili]];
+		if phi.opcode <> P_Phi then
+			break;
+		if phi.params[1 + loop_block_idx] = loop_variable then [
+			test_loop_variable := phi.params[0];
+			incremented_loop_variable := phi.params[2 - loop_block_idx];
+			goto found;
+		]
+	]
+	return empty(int);
+found:
+	var add_insn := ctx.instrs[ctx.variables[incremented_loop_variable].defining_instr];
+	if add_insn.opcode <> P_BinaryConstOp then
+		return empty(int);
+	if add_insn.params[0] <> Bin_Add or
+	   add_insn.params[3] <> test_loop_variable or
+	   add_insn.params[4] <> 1 then
+		return empty(int);
+
+	var add_block := ctx.blocks[add_insn.bb];
+	if len(add_block.post_list) <> 1 then
+		return empty(int);
+	if add_block.post_list[0] <> test_bgi then
+		return empty(int);
+
+	return list(int).[ loop_variable ];
+]
+
+fn offload_instruction(ctx : context, ili : int, ins : instruction) : instruction
+[
+	var decision_bgi := ins.bb;
+	var decision_block := ctx.blocks[decision_bgi];
+	if ili <> len(decision_block.instrs) - 2 then [
+		eval debug(ctx.name + ": decision block contains other instructions");
+		goto fail;
+	]
+	var decision_insn := ctx.instrs[decision_block.instrs[len(decision_block.instrs) - 1]];
+	if decision_insn.opcode <> P_Jmp_False then [
+		eval debug(ctx.name + ": decision block doesn't end with conditional jump");
+		goto fail;
+	]
+	if decision_insn.params[0] <> ins.params[0] then [
+		eval debug(ctx.name + ": decision block end doesn't correspond with offload instruction");
+		goto fail;
+	]
+	var loop_bgi := decision_block.post_list[0];
+	var end_bgi := decision_block.post_list[1];
+
+	var dims := test_loop(ctx, loop_bgi, end_bgi);
+	if len(dims) = 0 then [
+		eval debug(ctx.name + ": loop doesn't have appropriate shape");
+		goto fail;
+	]
+	if len(dims) > 3 then [
+		eval debug(ctx.name + ": more than 3 dimensions");
+		goto fail;
+	]
+
+fail:
+	return ins;
+]
+
+fn offload(ctx : context) : context
+[
+	//eval dump_basic_blocks(ctx, true);
+	var n_blocks := len(ctx.blocks);
+	for bgi := 0 to n_blocks do [
+		var block := ctx.blocks[bgi];
+		if not block.active then
+			continue;
+		var l := len(block.instrs);
+		for ili := 0 to l do [
+			var igi := ctx.blocks[bgi].instrs[ili];
+			var ins := ctx.instrs[igi];
+			if ins.opcode = P_Offload then [
+				ins := offload_instruction(ctx, ili, ins);
+				ctx.instrs[igi] := ins;
+			]
+		]
+	]
+	return ctx;
+]
