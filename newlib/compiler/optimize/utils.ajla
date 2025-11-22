@@ -530,7 +530,7 @@ fn load_function_context(pc : list(pcode_t), un : bytes, get_inline : fn(functio
 
 	var n_variables := pc[4];
 	ctx.variables := fill(new_variable, n_variables);
-	ctx.label_to_block := fill(-1, pc[8]);
+	var label_to_block := fill(-1, pc[8]);
 
 	var specialize_vars := 0;
 	for i := 0 to n_variables do [
@@ -574,9 +574,9 @@ fn load_function_context(pc : list(pcode_t), un : bytes, get_inline : fn(functio
 				b := new_basic_block;
 				ins.bb += 1;
 			]
-			if ctx.label_to_block[ins.params[0]] >= 0 then
+			if label_to_block[ins.params[0]] >= 0 then
 				abort internal("load_function_context: label already defined");
-			ctx.label_to_block[ins.params[0]] := len(ctx.blocks);
+			label_to_block[ins.params[0]] := len(ctx.blocks);
 			b.instrs +<= len(ctx.instrs);
 			ctx.instrs +<= ins;
 		] else if ins.opcode = P_Free then [
@@ -618,14 +618,14 @@ again:
 
 		if last.opcode = P_Jmp then [
 			var target := last.params[0];
-			ctx := set_arrow(ctx, i, ctx.label_to_block[target]);
+			ctx := set_arrow(ctx, i, label_to_block[target]);
 			ctx.blocks[i].instrs := block.instrs[ .. len(block.instrs) - 1];
 		] else if last.opcode = P_Jmp_False then [
 			var target1 := last.params[1];
 			var target2 := last.params[2];
 			ctx := set_arrow(ctx, i, i + 1);
-			ctx := set_arrow(ctx, i, ctx.label_to_block[target1]);
-			ctx := set_arrow(ctx, i, ctx.label_to_block[target2]);
+			ctx := set_arrow(ctx, i, label_to_block[target1]);
+			ctx := set_arrow(ctx, i, label_to_block[target2]);
 		] else if last.opcode <> P_Return then [
 			ctx := set_arrow(ctx, i, i + 1);
 		]

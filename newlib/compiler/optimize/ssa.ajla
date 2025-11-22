@@ -277,7 +277,6 @@ again:
 			var post := ctx.blocks[bgi].post_list[0];
 			if len(ctx.blocks[post].pred_list) = 1 then [
 				//eval debug("joining nodes " + ntos(bgi) + " -> " + ntos(post));
-				var lbl := -1;
 				var instrs1 := ctx.blocks[bgi].instrs;
 				var instrs2 := ctx.blocks[post].instrs;
 				for n := 0 to len(instrs2) do [
@@ -292,13 +291,6 @@ again:
 						instrs1 := instrs1[ .. len(instrs1) - 1];
 					]
 				]
-				if len_greater_than(instrs2, 0) then [
-					var first2 := ctx.instrs[instrs2[0]].opcode;
-					if first2 = P_Label then [
-						lbl := ctx.instrs[instrs2[0]].params[0];
-						instrs2 := instrs2[1 .. ];
-					]
-				]
 				ctx.blocks[bgi].instrs := instrs1 + instrs2;
 				ctx.blocks[bgi].post_list := ctx.blocks[post].post_list;
 				for pl := 0 to len(ctx.blocks[bgi].post_list) do [
@@ -309,11 +301,6 @@ again:
 				]
 				ctx.blocks[post].pred_list := empty(int);
 				ctx := deactivate_node(ctx, post);
-				if lbl >= 0 then [
-					if ctx.label_to_block[lbl] <> post then
-						abort internal("label doesn't match");
-					ctx.label_to_block[lbl] := -1;
-				]
 				did_something := true;
 			]
 		]
@@ -331,6 +318,8 @@ again:
 		if len(block.post_list) <> 1 then
 			abort internal("empty block should have just one follower");
 		var post_bgi := block.post_list[0];
+		if bgi = post_bgi then
+			goto skip_nonempty;
 		for pi := 0 to len(block.pred_list) do [
 			var pred_bgi := block.pred_list[pi];
 			var pred_pos := block.pred_position[pi];
