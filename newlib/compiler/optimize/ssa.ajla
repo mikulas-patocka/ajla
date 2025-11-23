@@ -708,12 +708,9 @@ fn rename_variables_recursive(ctx : context, bgi : int) : context
 
 	for p := 0 to len(ctx.blocks[bgi].post_list) do [
 		var bbb := ctx.blocks[bgi].post_list[p];
-		for i := 0 to p do
-			if ctx.blocks[bgi].post_list[i] = bbb then
-				goto already_done;
 		var post_block := ctx.blocks[bbb];
 		for idx := 0 to len(post_block.pred_list) do [
-			if post_block.pred_list[idx] = bgi then [
+			if post_block.pred_list[idx] = bgi, post_block.pred_position[idx] = p then [
 				//eval debug("bgi: " + ntos(bgi) + " p:" + ntos(idx) + " bbb:" + ntos(bbb));
 				for ili := 0 to len(ctx.blocks[bbb].instrs) do [
 					var igi := ctx.blocks[bbb].instrs[ili];
@@ -730,7 +727,6 @@ fn rename_variables_recursive(ctx : context, bgi : int) : context
 				]
 			]
 		]
-already_done:
 	]
 
 	var is_idom_of := ctx.blocks[bgi].is_idom_of;
