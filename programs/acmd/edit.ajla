@@ -249,7 +249,7 @@ fn test_word~inline(c : char) : bool
 	return char_upcase(c) <> c or char_locase(c) <> c;
 ]
 
-fn edit_search_line(line : string, text : string, mode : int, cursor : int) : (r : int, contract r >= -1 and r < len(line))
+novfy fn edit_search_line(line : string, text : string, mode : int, cursor : int) : (r : int, contract r >= -1 and r < len(line))
 [
 	if len(line) = 0 or len(text) = 0 then
 		return -1;

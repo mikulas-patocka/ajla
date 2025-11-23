@@ -76,7 +76,7 @@ fn ffi_poke_array(t : type, w : world, ptr : int, a : list(t)) : world;
 fn ffi_peek_array(w : world, ptr : int, l : int, ft : ffi_type, t : type) : (world, list(t));
 
 fn ffi_poke_int_array(w : world, ptr : int, ft : ffi_type, a : list(int)) : world;
-fn ffi_peek_int_array(w : world, ptr : int, l : int, ft : ffi_type) : (world, list(int));
+fn ffi_peek_int_array(w : world, ptr : int, l : nat, ft : ffi_type) : (world, list(int));
 
 fn ffi_poke_zstring(w : world, destr : ffi_destructor, str : bytes) : (world, int);
 fn ffi_peek_zstring(w : world, addr : int) : (world, bytes);
@@ -198,11 +198,11 @@ fn ffi_poke_int_array(w : world, ptr : int, ft : ffi_type, a : list(int)) : worl
 	return w;
 ]
 
-fn ffi_peek_int_array(w : world, ptr : int, l : int, ft : ffi_type) : (world, list(int))
+fn ffi_peek_int_array(w : world, ptr : int, l : nat, ft : ffi_type) : (world, list(int))
 [
 	var result := fill(0, l);
 	var sz := ffi_get_size(ft);
-	for i := 0 to l do [
+	for i := 0 to l invariant l = len(result) do [
 		w, result[i] := ffi_peek~inline(w, ptr, ft);
 		ptr += sz;
 	]
