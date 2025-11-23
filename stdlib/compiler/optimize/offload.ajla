@@ -49,9 +49,21 @@ fn get_instrs(ctx : context, bgi : int) : list(instruction)
 	return ret;
 ]
 
-fn test_loop(ctx : context, start_bgi end_bgi : int) : list(int)
+option loop_limit [
+	v : int;
+	c : int;
+]
+
+record loop_status [
+	control_variable : int;
+	limit : loop_limit;
+	body_bb : int;
+	end_bb : int;
+]
+
+fn test_loop(ctx : context, start_bgi end_bgi : int) : list(loop_status)
 [
-	eval debug("test_loop: " + ntos(start_bgi) + ", " + ntos(end_bgi));
+	//eval debug("test_loop: " + ntos(start_bgi) + ", " + ntos(end_bgi));
 	start_bgi := skip_empty(ctx, start_bgi);
 	end_bgi := skip_empty(ctx, end_bgi);
 
@@ -66,30 +78,33 @@ fn test_loop(ctx : context, start_bgi end_bgi : int) : list(int)
 	var test_block := ctx.blocks[loop_bgi];
 
 	if len(test_block.pred_list) <> 2 then
-		return empty(int);
+		return empty(loop_status);
 	if len(instrs) < 3 then
-		return empty(int);
+		return empty(loop_status);
 	var bool_var control_var : int;
+	var lim : loop_limit;
 	if instrs[len(instrs) - 2].opcode = P_BinaryOp then [
 		control_var := instrs[len(instrs) - 2].params[3];
 		bool_var := instrs[len(instrs) - 2].params[1];
+		lim := loop_limit.v.(instrs[len(instrs) - 2].params[5]);
 	] else if instrs[len(instrs) - 2].opcode = P_BinaryConstOp then [
 		control_var := instrs[len(instrs) - 2].params[3];
 		bool_var := instrs[len(instrs) - 2].params[1];
+		lim := loop_limit.c.(instrs[len(instrs) - 2].params[4]);
 	] else [
-		return empty(int);
+		return empty(loop_status);
 	]
 	if instrs[len(instrs) - 1].opcode <> P_Jmp_False then
-		return empty(int);
+		return empty(loop_status);
 	if instrs[len(instrs) - 1].params[0] <> bool_var then
-		return empty(int);
+		return empty(loop_status);
 	if skip_empty(ctx, ctx.blocks[loop_bgi].post_list[1]) <> end_bgi then
-		return empty(int);
+		return empty(loop_status);
 
 	var var0, var1 := -1, -1;
 	for i := 0 to len(instrs) - 2 do [
 		if instrs[i].opcode <> P_Phi then
-			return empty(int);
+			return empty(loop_status);
 		if instrs[i].params[0] = control_var then [
 			var0 := instrs[i].params[1];
 			var1 := instrs[i].params[2];
@@ -100,36 +115,42 @@ fn test_loop(ctx : context, start_bgi end_bgi : int) : list(int)
 				var0, var1 := var1, var0;
 				def0, def1 := def1, def0;
 			] else [
-				return empty(int);
+				return empty(loop_status);
 			]
 			if start_bgi <> loop_bgi, def0.bb <> start_bgi then
-				return empty(int);
+				return empty(loop_status);
 		]
 	]
 	if var1 = -1 then
-		return empty(int);
+		return empty(loop_status);
 	var def1 := ctx.instrs[ctx.variables[var1].defining_instr];
 	if def1.opcode <> P_BinaryConstOp then
-		return empty(int);
+		return empty(loop_status);
 	if def1.params[0] <> Bin_Add or
 	   def1.params[3] <> control_var or
 	   def1.params[4] <> 1 then
-		return empty(int);
+		return empty(loop_status);
 
 	var last_bb := def1.bb;
 	if len(ctx.blocks[last_bb].post_list) <> 1 then
-		return empty(int);
+		return empty(loop_status);
 	if ctx.blocks[last_bb].post_list[0] <> loop_bgi then
-		return empty(int);
+		return empty(loop_status);
 	var last_instrs := get_instrs(ctx, last_bb);
+	var qq := empty(loop_status);
 	if len(last_instrs) = 1, len(ctx.blocks[last_bb].pred_list) = 1 then [
-		eval debug("trying recursion, last_bb: " + ntos(last_bb));
-		var q := test_loop(ctx, test_block.post_list[0], last_bb);
-		eval debug("result: " + ntos(len(q)));
+		//eval debug("trying recursion, last_bb: " + ntos(last_bb));
+		qq := test_loop(ctx, test_block.post_list[0], last_bb);
+		//eval debug("result: " + ntos(len(qq)));
 	]
 
-	eval debug("OK");
-	return list(int).[ control_var ];
+	//eval debug("OK");
+	return [ loop_status.[
+		control_variable : control_var,
+		limit : lim,
+		body_bb : skip_empty(ctx, test_block.post_list[0]),
+		end_bb : last_bb,
+	] ] + qq;
 ]
 
 fn offload_instruction(ctx : context, ili : int, ins : instruction) : instruction
@@ -152,15 +173,16 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : instructio
 	var loop_bgi := decision_block.post_list[0];
 	var end_bgi := decision_block.post_list[1];
 
-	var dims := test_loop(ctx, loop_bgi, end_bgi);
-	if len(dims) = 0 then [
+	var shape := test_loop(ctx, loop_bgi, end_bgi);
+	if len(shape) = 0 then [
 		eval debug(ctx.name + ": loop doesn't have appropriate shape");
 		goto fail;
 	]
-	if len(dims) > 3 then [
+	if len(shape) > 3 then [
 		eval debug(ctx.name + ": more than 3 dimensions");
 		goto fail;
 	]
+	eval debug("loop recognized, dim: " + ntos(len(shape)));
 
 fail:
 	return ins;
@@ -168,7 +190,7 @@ fail:
 
 fn offload(ctx : context) : context
 [
-	eval dump_basic_blocks(ctx, true);
+	//eval dump_basic_blocks(ctx, true);
 	var n_blocks := len(ctx.blocks);
 	for bgi := 0 to n_blocks do [
 		var block := ctx.blocks[bgi];
