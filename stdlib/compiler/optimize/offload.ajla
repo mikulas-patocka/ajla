@@ -30,67 +30,106 @@ fn skip_empty(ctx : context, bgi : int) : int
 [
 again:
 	var block := ctx.blocks[bgi];
-	if not len_greater_than(block.instrs, 0) then [
-		bgi := block.post_list[0];
-		goto again;
-	]
-	return bgi;
+	for i := 0 to len(block.instrs) do
+		if ctx.instrs[block.instrs[i]].opcode <> P_Line_Info then
+			return bgi;
+	bgi := block.post_list[0];
+	goto again;
 ]
 
-fn test_loop(ctx : context, loop_bgi end_bgi : int) : list(int)
+fn get_instrs(ctx : context, bgi : int) : list(instruction)
 [
-	loop_bgi := skip_empty(ctx, loop_bgi);
+	var ret := empty(instruction);
+	var block := ctx.blocks[bgi];
+	for i := 0 to len(block.instrs) do [
+		var ins := ctx.instrs[block.instrs[i]];
+		if ins.opcode <> P_Line_Info then
+			ret +<= ins;
+	]
+	return ret;
+]
+
+fn test_loop(ctx : context, start_bgi end_bgi : int) : list(int)
+[
+	eval debug("test_loop: " + ntos(start_bgi) + ", " + ntos(end_bgi));
+	start_bgi := skip_empty(ctx, start_bgi);
 	end_bgi := skip_empty(ctx, end_bgi);
 
-	var loop_block := ctx.blocks[loop_bgi];
-	eval debug("loop_block: " + ntos(len(loop_block.instrs)));
-	if len(loop_block.instrs) <> 1 then
-		return empty(int);
-	var low_bound_insn := ctx.instrs[loop_block.instrs[0]];
-	if low_bound_insn.opcode <> P_Load_Const or len(low_bound_insn.params) <> 2 then
-		return empty(int);
-	var loop_variable := low_bound_insn.params[0];
-
-	var test_bgi := skip_empty(ctx, loop_block.post_list[0]);
-	var test_block := ctx.blocks[test_bgi];
-
-	if len(test_block.post_list) <> 3 then
-		return empty(int);
-	if skip_empty(ctx, test_block.post_list[1]) <> end_bgi then
-		return empty(int);
+	var instrs := get_instrs(ctx, start_bgi);
+	var loop_bgi : int;
+	if len(instrs) = 1, instrs[0].opcode = P_Load_Const, len(instrs[0].params) = 2 then [
+		loop_bgi := skip_empty(ctx, ctx.blocks[start_bgi].post_list[0]);
+		instrs := get_instrs(ctx, loop_bgi);
+	] else [
+		loop_bgi := start_bgi;
+	]
+	var test_block := ctx.blocks[loop_bgi];
 
 	if len(test_block.pred_list) <> 2 then
 		return empty(int);
-	var loop_block_idx := select(skip_empty(ctx, test_block.pred_list[0]) = loop_bgi, 1, 0);
+	if len(instrs) < 3 then
+		return empty(int);
+	var bool_var control_var : int;
+	if instrs[len(instrs) - 2].opcode = P_BinaryOp then [
+		control_var := instrs[len(instrs) - 2].params[3];
+		bool_var := instrs[len(instrs) - 2].params[1];
+	] else if instrs[len(instrs) - 2].opcode = P_BinaryConstOp then [
+		control_var := instrs[len(instrs) - 2].params[3];
+		bool_var := instrs[len(instrs) - 2].params[1];
+	] else [
+		return empty(int);
+	]
+	if instrs[len(instrs) - 1].opcode <> P_Jmp_False then
+		return empty(int);
+	if instrs[len(instrs) - 1].params[0] <> bool_var then
+		return empty(int);
+	if skip_empty(ctx, ctx.blocks[loop_bgi].post_list[1]) <> end_bgi then
+		return empty(int);
 
-	var test_loop_variable incremented_loop_variable : int;
-	for ili := 0 to len(test_block.instrs) do [
-		var phi := ctx.instrs[test_block.instrs[ili]];
-		if phi.opcode <> P_Phi then
-			break;
-		if phi.params[1 + loop_block_idx] = loop_variable then [
-			test_loop_variable := phi.params[0];
-			incremented_loop_variable := phi.params[2 - loop_block_idx];
-			goto found;
+	var var0, var1 := -1, -1;
+	for i := 0 to len(instrs) - 2 do [
+		if instrs[i].opcode <> P_Phi then
+			return empty(int);
+		if instrs[i].params[0] = control_var then [
+			var0 := instrs[i].params[1];
+			var1 := instrs[i].params[2];
+			var def0 := ctx.instrs[ctx.variables[var0].defining_instr];
+			var def1 := ctx.instrs[ctx.variables[var1].defining_instr];
+			if def0.opcode = P_Load_Const, len(def0.params) = 2 then [
+			] else if def1.opcode = P_Load_Const, len(def1.params) = 2 then [
+				var0, var1 := var1, var0;
+				def0, def1 := def1, def0;
+			] else [
+				return empty(int);
+			]
+			if start_bgi <> loop_bgi, def0.bb <> start_bgi then
+				return empty(int);
 		]
 	]
-	return empty(int);
-found:
-	var add_insn := ctx.instrs[ctx.variables[incremented_loop_variable].defining_instr];
-	if add_insn.opcode <> P_BinaryConstOp then
+	if var1 = -1 then
 		return empty(int);
-	if add_insn.params[0] <> Bin_Add or
-	   add_insn.params[3] <> test_loop_variable or
-	   add_insn.params[4] <> 1 then
+	var def1 := ctx.instrs[ctx.variables[var1].defining_instr];
+	if def1.opcode <> P_BinaryConstOp then
 		return empty(int);
-
-	var add_block := ctx.blocks[add_insn.bb];
-	if len(add_block.post_list) <> 1 then
-		return empty(int);
-	if skip_empty(ctx, add_block.post_list[0]) <> test_bgi then
+	if def1.params[0] <> Bin_Add or
+	   def1.params[3] <> control_var or
+	   def1.params[4] <> 1 then
 		return empty(int);
 
-	return list(int).[ loop_variable ];
+	var last_bb := def1.bb;
+	if len(ctx.blocks[last_bb].post_list) <> 1 then
+		return empty(int);
+	if ctx.blocks[last_bb].post_list[0] <> loop_bgi then
+		return empty(int);
+	var last_instrs := get_instrs(ctx, last_bb);
+	if len(last_instrs) = 1, len(ctx.blocks[last_bb].pred_list) = 1 then [
+		eval debug("trying recursion, last_bb: " + ntos(last_bb));
+		var q := test_loop(ctx, test_block.post_list[0], last_bb);
+		eval debug("result: " + ntos(len(q)));
+	]
+
+	eval debug("OK");
+	return list(int).[ control_var ];
 ]
 
 fn offload_instruction(ctx : context, ili : int, ins : instruction) : instruction
@@ -129,7 +168,7 @@ fail:
 
 fn offload(ctx : context) : context
 [
-	//eval dump_basic_blocks(ctx, true);
+	eval dump_basic_blocks(ctx, true);
 	var n_blocks := len(ctx.blocks);
 	for bgi := 0 to n_blocks do [
 		var block := ctx.blocks[bgi];
