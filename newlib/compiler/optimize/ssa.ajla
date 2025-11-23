@@ -287,7 +287,7 @@ again:
 				]
 				if len_greater_than(instrs1, 0) then [
 					var last1 := ctx.instrs[instrs1[len(instrs1) - 1]].opcode;
-					if last1 = P_Jmp or last1 = P_Jmp_False then [
+					if last1 = P_Jmp_False then [
 						instrs1 := instrs1[ .. len(instrs1) - 1];
 					]
 				]
@@ -837,9 +837,7 @@ fn gvn_recursive(ctx : context, bgi : int, vals : list(int)) : context
 			bts P_Assume
 			bts P_Claim
 			bts P_Invariant
-			bts P_Jmp
 			bts P_Jmp_False
-			bts P_Label
 			bts P_IO
 			bts P_Args
 			bts P_Return_Vars

@@ -39,6 +39,7 @@ again:
 
 fn test_loop(ctx : context, loop_bgi end_bgi : int) : list(int)
 [
+	loop_bgi := skip_empty(ctx, loop_bgi);
 	end_bgi := skip_empty(ctx, end_bgi);
 
 	var loop_block := ctx.blocks[loop_bgi];
@@ -50,21 +51,17 @@ fn test_loop(ctx : context, loop_bgi end_bgi : int) : list(int)
 		return empty(int);
 	var loop_variable := low_bound_insn.params[0];
 
-	var test_bgi := loop_block.post_list[0];
+	var test_bgi := skip_empty(ctx, loop_block.post_list[0]);
 	var test_block := ctx.blocks[test_bgi];
 
 	if len(test_block.post_list) <> 3 then
 		return empty(int);
-	if skip_empty(ctx, test_block.post_list[1]) <> skip_empty(ctx, end_bgi) then
+	if skip_empty(ctx, test_block.post_list[1]) <> end_bgi then
 		return empty(int);
-	//eval debug("test_bgi: " + ntos(test_bgi));
-	//eval debug("post_list: " + ntos(test_block.post_list[0]) + ", " + ntos(test_block.post_list[1]) + ", " + ntos(test_block.post_list[2]) + ", " + ntos(end_bgi));
-	//var test_insn := ctx.instrs[test_block.instrs[len(test_block.instrs) - 1]];
-	//eval debug("last insn: " + ntos(test_insn.opcode) + ", " + ntos(test_insn.params[0]) + ", " + ntos(test_insn.params[1]) + ", " + ntos(test_insn.params[2]));
 
 	if len(test_block.pred_list) <> 2 then
 		return empty(int);
-	var loop_block_idx := select(test_block.pred_list[0] = loop_bgi, 1, 0);
+	var loop_block_idx := select(skip_empty(ctx, test_block.pred_list[0]) = loop_bgi, 1, 0);
 
 	var test_loop_variable incremented_loop_variable : int;
 	for ili := 0 to len(test_block.instrs) do [
@@ -90,7 +87,7 @@ found:
 	var add_block := ctx.blocks[add_insn.bb];
 	if len(add_block.post_list) <> 1 then
 		return empty(int);
-	if add_block.post_list[0] <> test_bgi then
+	if skip_empty(ctx, add_block.post_list[0]) <> test_bgi then
 		return empty(int);
 
 	return list(int).[ loop_variable ];
