@@ -1927,17 +1927,19 @@ fn get_list_id : function_unique_id
 
 fn generate_assumes_or_claims(ctx : function_context, a : int, inv : list(compare_argument), cl : bool, t : tokens) : function_context
 [
-	var pw := ctx.parsing_where;
-	ctx.parsing_where := a;
-	for i := 0 to len(inv) do [
-		var v : int;
-		ctx, v := evaluate_type(ctx, inv[i].cc, inv[i].idx, empty(compare_fn_stack), t);
-		if not cl then
-			ctx := generate_Assume(ctx, v, false);
-		else
-			ctx := generate_Claim(ctx, v, false);
+	if sysprop(SystemProperty_Verify) <> 0 then [
+		var pw := ctx.parsing_where;
+		ctx.parsing_where := a;
+		for i := 0 to len(inv) do [
+			var v : int;
+			ctx, v := evaluate_type(ctx, inv[i].cc, inv[i].idx, empty(compare_fn_stack), t);
+			if not cl then
+				ctx := generate_Assume(ctx, v, false);
+			else
+				ctx := generate_Claim(ctx, v, false);
+		]
+		ctx.parsing_where := pw;
 	]
-	ctx.parsing_where := pw;
 	return ctx;
 ]
 

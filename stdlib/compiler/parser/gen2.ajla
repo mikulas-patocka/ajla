@@ -570,10 +570,12 @@ fn generate_Call(ctx : function_context, call_mode : int, fd : function_definiti
 			fn_cc.return_redirect[j].cc.ctx := ctx;
 	]
 
-	for i := 0 to len(fd.signature.contracts) do [
-		var l : int;
-		ctx, l := evaluate_type_var(ctx, fn_cc, fd.signature.contracts[i], empty(compare_fn_stack), t);
-		ctx := generate_Assume(ctx, l, false);
+	if sysprop(SystemProperty_Verify) <> 0 then [
+		for i := 0 to len(fd.signature.contracts) do [
+			var l : int;
+			ctx, l := evaluate_type_var(ctx, fn_cc, fd.signature.contracts[i], empty(compare_fn_stack), t);
+			ctx := generate_Assume(ctx, l, false);
+		]
 	]
 
 	return ctx, return_vector;

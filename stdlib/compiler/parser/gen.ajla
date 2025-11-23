@@ -302,6 +302,8 @@ fn generate_IO_Exception_Make(ctx : function_context, class typ num v : int) : f
 
 fn generate_Assume(ctx : function_context, l : int, tag : bool) : function_context
 [
+	if sysprop(SystemProperty_Verify) = 0 then
+		return ctx;
 	var args := list(pcode_t).[ l ];
 	if tag then
 		args +<= 0;
@@ -310,6 +312,8 @@ fn generate_Assume(ctx : function_context, l : int, tag : bool) : function_conte
 
 fn generate_Claim(ctx : function_context, l : int, tag : bool) : function_context
 [
+	if sysprop(SystemProperty_Verify) = 0 then
+		return ctx;
 	var args := list(pcode_t).[ l ];
 	if tag then
 		args +<= 0;
@@ -318,6 +322,8 @@ fn generate_Claim(ctx : function_context, l : int, tag : bool) : function_contex
 
 fn generate_Invariant(ctx : function_context, l : int) : function_context
 [
+	if sysprop(SystemProperty_Verify) = 0 then
+		return ctx;
 	return generate_instruction(ctx, P_Invariant, list(pcode_t).[ l ]);
 ]
 

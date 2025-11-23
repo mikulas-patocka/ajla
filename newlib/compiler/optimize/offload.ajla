@@ -52,10 +52,12 @@ fn get_instrs(ctx : context, bgi : int) : list(instruction)
 option loop_limit [
 	v : int;
 	c : int;
+	a : int;
 ]
 
 record loop_status [
 	control_variable : int;
+	added_control_variable : int;
 	limit : loop_limit;
 	body_bb : int;
 	end_bb : int;
@@ -83,14 +85,19 @@ fn test_loop(ctx : context, start_bgi end_bgi : int) : list(loop_status)
 		return empty(loop_status);
 	var bool_var control_var : int;
 	var lim : loop_limit;
-	if instrs[len(instrs) - 2].opcode = P_BinaryOp then [
-		control_var := instrs[len(instrs) - 2].params[3];
-		bool_var := instrs[len(instrs) - 2].params[1];
-		lim := loop_limit.v.(instrs[len(instrs) - 2].params[5]);
-	] else if instrs[len(instrs) - 2].opcode = P_BinaryConstOp then [
-		control_var := instrs[len(instrs) - 2].params[3];
-		bool_var := instrs[len(instrs) - 2].params[1];
-		lim := loop_limit.c.(instrs[len(instrs) - 2].params[4]);
+	var cmp_instr := instrs[len(instrs) - 2];
+	if cmp_instr.opcode = P_BinaryOp then [
+		control_var := cmp_instr.params[3];
+		bool_var := cmp_instr.params[1];
+		lim := loop_limit.v.(cmp_instr.params[5]);
+	] else if cmp_instr.opcode = P_BinaryConstOp then [
+		control_var := cmp_instr.params[3];
+		bool_var := cmp_instr.params[1];
+		lim := loop_limit.c.(cmp_instr.params[4]);
+	] else if cmp_instr.opcode = P_Array_Len_Greater_Than then [
+		control_var := cmp_instr.params[2];
+		bool_var := cmp_instr.params[0];
+		lim := loop_limit.a.(cmp_instr.params[1]);
 	] else [
 		return empty(loop_status);
 	]
@@ -147,6 +154,7 @@ fn test_loop(ctx : context, start_bgi end_bgi : int) : list(loop_status)
 	//eval debug("OK");
 	return [ loop_status.[
 		control_variable : control_var,
+		added_control_variable : var1,
 		limit : lim,
 		body_bb : skip_empty(ctx, test_block.post_list[0]),
 		end_bb : last_bb,
@@ -190,7 +198,7 @@ fail:
 
 fn offload(ctx : context) : context
 [
-	//eval dump_basic_blocks(ctx, true);
+	eval dump_basic_blocks(ctx, true);
 	var n_blocks := len(ctx.blocks);
 	for bgi := 0 to n_blocks do [
 		var block := ctx.blocks[bgi];
