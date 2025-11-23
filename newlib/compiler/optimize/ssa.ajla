@@ -306,7 +306,7 @@ again:
 		]
 	]
 
-	{for bgi := 0 to n_blocks do [
+	for bgi := 0 to n_blocks do [
 		var block := ctx.blocks[bgi];
 		if not block.active then
 			continue;
@@ -328,10 +328,11 @@ again:
 			ctx.blocks[post_bgi].pred_position +<= pred_pos;
 		]
 		ctx.blocks[bgi].pred_list := empty(int);
+		ctx.blocks[bgi].pred_position := empty(int);
 		ctx := deactivate_node(ctx, bgi);
 		did_something := true;
 skip_nonempty:
-	]}
+	]
 
 	if did_something then
 		goto again;
@@ -707,6 +708,9 @@ fn rename_variables_recursive(ctx : context, bgi : int) : context
 
 	for p := 0 to len(ctx.blocks[bgi].post_list) do [
 		var bbb := ctx.blocks[bgi].post_list[p];
+		for i := 0 to p do
+			if ctx.blocks[bgi].post_list[i] = bbb then
+				goto already_done;
 		var post_block := ctx.blocks[bbb];
 		for idx := 0 to len(post_block.pred_list) do [
 			if post_block.pred_list[idx] = bgi then [
@@ -726,6 +730,7 @@ fn rename_variables_recursive(ctx : context, bgi : int) : context
 				]
 			]
 		]
+already_done:
 	]
 
 	var is_idom_of := ctx.blocks[bgi].is_idom_of;

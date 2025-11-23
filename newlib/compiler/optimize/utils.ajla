@@ -678,7 +678,7 @@ fn dump_basic_blocks(ctx : context, dump_it : bool) : list(pcode_t)
 		var bgi : int := bsr worklist;
 
 		if dump_it then
-			eval debug("process block from worklist " + ntos(bgi));
+			eval debug("process worklist block " + ntos(bgi));
 
 process_block:
 		if bgi <> 0 then [

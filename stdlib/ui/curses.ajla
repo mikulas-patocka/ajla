@@ -283,7 +283,7 @@ fn curses_string_sgr(implicit curs : curses) : (c2 : curses, bytes, contract cur
 	return str;
 ]
 
-fn curses_string_color(implicit curs : curses, fg bg : ccolor, attributes : int) : (c2 : curses, bytes, contract curs.x = c2.x and curs.y = c2.y)
+fn curses_string_color(implicit curs : curses, fg bg : ccolor, attributes : uint8) : (c2 : curses, bytes, contract curs.x = c2.x and curs.y = c2.y)
 [
 	var str := "";
 	var s : bytes;
