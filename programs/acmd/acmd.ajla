@@ -933,7 +933,16 @@ const acmd_class~flat := widget_class.[
 	process_event : acmd_process_event,
 ];
 
-fn main
+fn xmain~strict(implicit w : world, d : dhandle, h : list(handle), args : list(bytes), env : treemap(bytes, bytes), prereq len(h) >= 3) : world
 [
 	app_run(d, h, env, acmd_class, acmd_init(d, h, env,,,));
+]
+
+fn main
+[
+	fn f := acmd_init;
+	var a := any(is_exception f, true);
+	if a then
+		write(h[2], "compiling, please wait..." + nl);
+	xmain(w, d, h, args, env);
 ]
