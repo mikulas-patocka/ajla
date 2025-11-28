@@ -940,7 +940,7 @@ fn xmain~strict(implicit w : world, d : dhandle, h : list(handle), args : list(b
 
 fn main
 [
-	fn f := acmd_init;
+	fn f~lazy := acmd_init;
 	if not is_ready(f) then
 		write(h[2], "compiling, please wait..." + nl);
 	xmain(w, d, h, args, env);
