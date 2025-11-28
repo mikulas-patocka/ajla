@@ -941,8 +941,7 @@ fn xmain~strict(implicit w : world, d : dhandle, h : list(handle), args : list(b
 fn main
 [
 	fn f := acmd_init;
-	var a := any(is_exception f, true);
-	if a then
+	if not is_ready(f) then
 		write(h[2], "compiling, please wait..." + nl);
 	xmain(w, d, h, args, env);
 ]
