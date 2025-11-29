@@ -16,17 +16,18 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  *}
 
-uses main1;
+unit main1;
 
-fn xxxmain~strict(implicit w : world, d : dhandle, h : list(handle), args : list(bytes), env : treemap(bytes, bytes), prereq len(h) >= 3) : world
-[
-	xxmain(w, d, h, args, env);
-]
+uses io;
+uses treemap;
 
-fn main
+fn xxmain~strict(implicit w : world, d : dhandle, h : list(handle), args : list(bytes), env : treemap(bytes, bytes), prereq len(h) >= 3) : world;
+
+implementation
+
+uses main;
+
+fn xxmain~strict(implicit w : world, d : dhandle, h : list(handle), args : list(bytes), env : treemap(bytes, bytes), prereq len(h) >= 3) : world
 [
-	fn f~weakspark := xxmain;
-	if not is_ready(f) then
-		write(h[2], "compiling, please wait..." + nl);
-	xxxmain(w, d, h, args, env);
+	return xmain(w, d, h, args, env);
 ]

@@ -1241,6 +1241,14 @@ fn unit_encode(un_name : bytes) : bytes
 
 fn parse_file~cache(w : world, d : list(bytes), name : bytes, program : bool, parse_interface : bool, prereq len_greater_than(d, 0)) : function_dictionary
 [
+	{var tm : int64;
+	w, tm := get_monotonic_time(w);
+	var td : decimal(6) := tm;
+	td /= 1000000;
+	if parse_interface then
+		eval debug(ntos(td) + " parsing interface: " + name);
+	else
+		eval debug(ntos(td) + " parsing: " + name);}
 	var idx := len(d) - 1;
 	var dir := dopen_lazy(dnone(w), d[idx], 0);
 
@@ -1273,5 +1281,12 @@ fn parse_file~cache(w : world, d : list(bytes), name : bytes, program : bool, pa
 			dict.defs[i].pcode := dump_function(dict.defs[i]);
 		]
 	]
+	{w, tm := get_monotonic_time(w);
+	var td2 : decimal(6) := tm;
+	td2 /= 1000000;
+	if parse_interface then
+		eval debug(ntos(td2) + " parsed interface: " + name + " - " + ntos(td2 - td));
+	else
+		eval debug(ntos(td2) + " parsed: " + name + " - " + ntos(td2 - td));}
 	return dict;
 ]
