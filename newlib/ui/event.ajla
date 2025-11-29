@@ -833,6 +833,7 @@ fn event_get_mouse~weakspark(implicit w : world, h : handle, q : msgqueue(event)
 	else
 		abort;
 	cdata += int_to_native(native.integer, vc);
+	cdata := list_flatten(cdata);
 	write(s, cdata);
 
 	xeval w;
