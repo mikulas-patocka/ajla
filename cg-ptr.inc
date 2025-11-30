@@ -58,11 +58,11 @@ static bool attr_w gen_ptr_is_thunk(struct codegen_context *ctx, unsigned reg, f
 static bool attr_w gen_test_multiple_thunks(struct codegen_context *ctx, frame_t *variables, size_t n_variables, uint32_t label)
 {
 	if (n_variables >= 2 && slot_is_register(ctx, variables[0]) && slot_is_register(ctx, variables[1])) {
-		g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_OR, R_SCRATCH_1, ctx->registers[variables[0]], ctx->registers[variables[1]], 0));
+		g(gen_3address_alu(ctx, i_size(OP_SIZE_SLOT), ALU_OR, R_SCRATCH_1, ctx->registers[variables[0]], ctx->registers[variables[1]], 0));
 		variables += 2;
 		n_variables -= 2;
 		while (n_variables && slot_is_register(ctx, variables[0])) {
-			g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_OR, R_SCRATCH_1, R_SCRATCH_1, ctx->registers[variables[0]], 0));
+			g(gen_3address_alu(ctx, i_size(OP_SIZE_SLOT), ALU_OR, R_SCRATCH_1, R_SCRATCH_1, ctx->registers[variables[0]], 0));
 			variables++;
 			n_variables--;
 		}
