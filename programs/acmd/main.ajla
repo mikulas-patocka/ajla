@@ -20,13 +20,12 @@ unit main;
 
 uses io;
 uses treemap;
-uses ui.widget;
-
-type acmd_state;
 
 fn xmain~strict(implicit w : world, d : dhandle, h : list(handle), args : list(bytes), env : treemap(bytes, bytes), prereq len(h) >= 3) : world;
 
 implementation
+
+uses ui.widget;
 
 uses spawn;
 
