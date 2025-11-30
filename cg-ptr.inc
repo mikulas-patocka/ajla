@@ -57,21 +57,42 @@ static bool attr_w gen_ptr_is_thunk(struct codegen_context *ctx, unsigned reg, f
 
 static bool attr_w gen_test_multiple_thunks(struct codegen_context *ctx, frame_t *variables, size_t n_variables, uint32_t label)
 {
-	size_t n;
+	if (n_variables >= 2 && slot_is_register(ctx, variables[0]) && slot_is_register(ctx, variables[1])) {
+		g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_OR, R_SCRATCH_1, ctx->registers[variables[0]], ctx->registers[variables[1]], 0));
+		variables += 2;
+		n_variables -= 2;
+		while (n_variables && slot_is_register(ctx, variables[0])) {
+			g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_OR, R_SCRATCH_1, R_SCRATCH_1, ctx->registers[variables[0]], 0));
+			variables++;
+			n_variables--;
+		}
+#if defined(ARCH_X86) || defined(ARCH_S390)
+		goto test_load_op;
+#else
+		g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, NO_FRAME_T, label));
+#endif
+	}
 #if defined(ARCH_X86) || defined(ARCH_S390)
 	if (n_variables >= 2) {
 		g(gen_frame_load(ctx, OP_SIZE_SLOT, garbage, variables[0], 0, false, R_SCRATCH_1));
-		for (n = 1; n < n_variables; n++) {
-			g(gen_frame_load_op(ctx, OP_SIZE_SLOT, garbage, ALU_OR, 0, variables[n], 0, false, R_SCRATCH_1));
+		variables++;
+		n_variables--;
+test_load_op:
+		while (n_variables) {
+			g(gen_frame_load_op(ctx, OP_SIZE_SLOT, garbage, ALU_OR, 0, variables[0], 0, false, R_SCRATCH_1));
+			variables++;
+			n_variables--;
 		}
 		g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, NO_FRAME_T, label));
 		return true;
 	}
 #endif
-	for (n = 0; n < n_variables; n++) {
+	while (n_variables) {
 		unsigned reg;
-		g(gen_frame_get(ctx, OP_SIZE_SLOT, garbage, variables[n], R_SCRATCH_1, &reg));
+		g(gen_frame_get(ctx, OP_SIZE_SLOT, garbage, variables[0], R_SCRATCH_1, &reg));
 		g(gen_ptr_is_thunk(ctx, reg, NO_FRAME_T, label));
+		variables++;
+		n_variables--;
 	}
 	return true;
 }
