@@ -16,7 +16,12 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  *}
 
-uses main1;
+uses main;
+
+fn xxmain~strict(implicit w : world, d : dhandle, h : list(handle), args : list(bytes), env : treemap(bytes, bytes), prereq len(h) >= 3) : world
+[
+	xmain(w, d, h, args, env);
+]
 
 fn xxxmain~strict(implicit w : world, d : dhandle, h : list(handle), args : list(bytes), env : treemap(bytes, bytes), prereq len(h) >= 3) : world
 [
