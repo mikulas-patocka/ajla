@@ -1563,9 +1563,9 @@ static bool attr_w cgen_x87_alup(struct codegen_context *ctx, unsigned aux)
 
 static bool attr_w resolve_relocation(struct codegen_context *ctx, struct relocation *reloc)
 {
-	int64_t offs = (int64_t)ctx->label_to_pos[reloc->label_id] - (int64_t)(reloc->position + (reloc->length == JMP_SHORT ? 1 : 4));
+	int64_t offs = (int64_t)ctx->label_to_pos[reloc->label_id] - (int64_t)(reloc->position + (reloc->length == JMP_SHORTEST ? 1 : 4));
 	switch (reloc->length) {
-		case JMP_SHORT: {
+		case JMP_SHORTEST: {
 			int8_t i8;
 			if (!imm_is_8bit(offs))
 				return false;
@@ -1573,7 +1573,7 @@ static bool attr_w resolve_relocation(struct codegen_context *ctx, struct reloca
 			memcpy(ctx->mcode + reloc->position, &i8, 1);
 			return true;
 		}
-		case JMP_LONG: {
+		case JMP_SHORT: {
 			int32_t i32;
 			if (!imm_is_32bit(offs))
 				return false;
@@ -1854,27 +1854,27 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			ctx->code_position += arg_size(*ctx->code_position);
 			return true;
 		case INSN_JMP:
-			if (insn_jump_size(insn) == JMP_SHORT || insn_jump_size(insn) == JMP_SHORTEST) {
+			if (insn_jump_size(insn) == JMP_SHORTEST) {
 				cgen_one(X86_JMP_8);
-				g(add_relocation(ctx, JMP_SHORT, 0, NULL));
+				g(add_relocation(ctx, JMP_SHORTEST, 0, NULL));
 				cgen_one(0);
-			} else if (likely(insn_jump_size(insn) == JMP_LONG)) {
+			} else if (likely(insn_jump_size(insn) == JMP_SHORT)) {
 				cgen_one(X86_JMP_16);
-				g(add_relocation(ctx, JMP_LONG, 0, NULL));
+				g(add_relocation(ctx, JMP_SHORT, 0, NULL));
 				cgen_four(0);
 			} else {
 				goto invalid_insn;
 			}
 			return true;
 		case INSN_JMP_COND:
-			if (insn_jump_size(insn) == JMP_SHORT || insn_jump_size(insn) == JMP_SHORTEST) {
+			if (insn_jump_size(insn) == JMP_SHORTEST) {
 				cgen_one(X86_JCC_8 + (insn_aux(insn) & 0xf));
-				g(add_relocation(ctx, JMP_SHORT, 0, NULL));
+				g(add_relocation(ctx, JMP_SHORTEST, 0, NULL));
 				cgen_one(0);
-			} else if (likely(insn_jump_size(insn) == JMP_LONG)) {
+			} else if (likely(insn_jump_size(insn) == JMP_SHORT)) {
 				cgen_one(X86_0F);
 				cgen_one(X86_0F_JCC_16 + (insn_aux(insn) & 0xf));
-				g(add_relocation(ctx, JMP_LONG, 0, NULL));
+				g(add_relocation(ctx, JMP_SHORT, 0, NULL));
 				cgen_four(0);
 			} else {
 				goto invalid_insn;

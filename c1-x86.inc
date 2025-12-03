@@ -28,7 +28,7 @@
 #define OP_SIZE_ADDRESS			OP_SIZE_8
 #endif
 
-#define JMP_LIMIT			JMP_LONG
+#define JMP_LIMIT			JMP_SHORT
 
 #define UNALIGNED_TRAP			0
 
