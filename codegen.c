@@ -1774,6 +1774,7 @@ skip_dereference:
 				frame_t n_vars, i;
 				uint32_t entry_label, nonflat_label;
 				struct cg_entry *ce;
+				bool non_empty;
 
 				g(clear_flag_cache(ctx));
 
@@ -1827,19 +1828,17 @@ skip_dereference:
 				gen_label(entry_label);
 				ce->entry_label = entry_label;
 
+				g(gen_test_variables(ctx, ce->variables, ce->n_variables, true, 0, &non_empty));
+				if (non_empty) {
+					nonflat_label = alloc_escape_label_for_ip(ctx, ctx->current_position);
+					if (unlikely(!nonflat_label))
+						return false;
+					ce->nonflat_label = nonflat_label;
+				}
+
 				if (unlikely(!slot_1)) {
 					g(gen_timestamp_test(ctx, ctx->escape_nospill_label));
 				} else {
-					bool non_empty;
-					g(gen_test_variables(ctx, ce->variables, ce->n_variables, true, 0, &non_empty));
-
-					if (non_empty) {
-						nonflat_label = alloc_escape_label_for_ip(ctx, ctx->current_position);
-						if (unlikely(!nonflat_label))
-							return false;
-						ce->nonflat_label = nonflat_label;
-					}
-
 					g(gen_timestamp_test(ctx, escape_label));
 				}
 				continue;
