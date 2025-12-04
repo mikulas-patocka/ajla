@@ -1757,7 +1757,7 @@ skip_dereference:
 					return false;
 				}
 
-				if (unlikely(!gen_test_variables(ctx, vars, n, true, escape_label, NULL))) {
+				if (unlikely(!gen_test_variables(ctx, vars, n, true, escape_label))) {
 					mem_free(vars);
 					return false;
 				}
@@ -1774,7 +1774,6 @@ skip_dereference:
 				frame_t n_vars, i;
 				uint32_t entry_label, nonflat_label;
 				struct cg_entry *ce;
-				bool non_empty;
 
 				g(clear_flag_cache(ctx));
 
@@ -1828,8 +1827,7 @@ skip_dereference:
 				gen_label(entry_label);
 				ce->entry_label = entry_label;
 
-				g(gen_test_variables(ctx, ce->variables, ce->n_variables, true, 0, &non_empty));
-				if (non_empty) {
+				if (ce->n_variables) {
 					nonflat_label = alloc_escape_label_for_ip(ctx, ctx->current_position);
 					if (unlikely(!nonflat_label))
 						return false;
@@ -2175,7 +2173,7 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 				gen_insn(INSN_LABEL, 0, 0, 0);
 				gen_four(ce->test_and_entry_label);
 
-				g(gen_test_variables(ctx, ce->variables, ce->n_variables, true, ce->nonflat_label, NULL));
+				g(gen_test_variables(ctx, ce->variables, ce->n_variables, true, ce->nonflat_label));
 
 				gen_insn(INSN_JMP, 0, 0, 0);
 				gen_four(ce->entry_label);

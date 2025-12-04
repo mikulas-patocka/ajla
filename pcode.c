@@ -787,10 +787,12 @@ static bool gen_checkpoint(struct build_function_context *ctx, const pcode_t *pa
 		if (var_elided(var))
 			continue;
 		tv = get_var_type(ctx, var);
-		get_arg_mode(am, tv->slot);
-		if (!processed_variables[tv->slot]) {
-			processed_variables[tv->slot] = true;
-			n_used_params++;
+		if (ctx->local_variables_flags[tv->slot].must_be_flat || ctx->local_variables_flags[tv->slot].must_be_data) {
+			get_arg_mode(am, tv->slot);
+			if (!processed_variables[tv->slot]) {
+				processed_variables[tv->slot] = true;
+				n_used_params++;
+			}
 		}
 	}
 
@@ -800,10 +802,12 @@ static bool gen_checkpoint(struct build_function_context *ctx, const pcode_t *pa
 			const struct local_arg *la = &ctx->args[ia];
 			if (!la->may_be_borrowed)
 				continue;
-			get_arg_mode(am, la->slot);
-			if (!processed_variables[la->slot]) {
-				processed_variables[la->slot] = true;
-				n_used_params++;
+			if (ctx->local_variables_flags[la->slot].must_be_flat || ctx->local_variables_flags[la->slot].must_be_data) {
+				get_arg_mode(am, la->slot);
+				if (!processed_variables[la->slot]) {
+					processed_variables[la->slot] = true;
+					n_used_params++;
+				}
 			}
 		}
 	}
