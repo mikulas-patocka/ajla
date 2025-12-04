@@ -1361,14 +1361,6 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 	bool full;
 	uint32_t lbl;
 	switch (insn_opcode(insn)) {
-		case INSN_ENTRY:
-			full = ia64_fill_bundle(ctx);
-			if (full)
-				ctx->mcode_size += 16;
-			g(cgen_entry(ctx));
-			if (full)
-				ctx->mcode_size -= 16;
-			return true;
 		case INSN_LABEL:
 			lbl = cget_four(ctx);
 			if (ctx->used_labels[lbl]) {

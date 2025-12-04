@@ -900,9 +900,6 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		goto invalid_insn;
 	/*debug("insn: %08x", (unsigned)insn);*/
 	switch (insn_opcode(insn)) {
-		case INSN_ENTRY:
-			g(cgen_entry(ctx));
-			return true;
 		case INSN_LABEL:
 			g(cgen_label(ctx));
 			return true;

@@ -211,7 +211,6 @@ static uint64_t dump_seq = 0;
 #define JMP_EXTRA_LONG			0x0003
 
 enum {
-	INSN_ENTRY,
 	INSN_LABEL,
 	INSN_RET,
 	INSN_RET_IMM,
@@ -432,11 +431,11 @@ struct code_arg {
 };
 
 struct cg_entry {
-	size_t entry_to_pos;
 	frame_t *variables;
 	size_t n_variables;
 	uint32_t entry_label;
 	uint32_t nonflat_label;
+	uint32_t test_and_entry_label;
 };
 
 struct cg_exit {
@@ -1772,7 +1771,9 @@ skip_dereference:
 				continue;
 			}
 			case OPCODE_CHECKPOINT: {
-				frame_t n_vars;
+				frame_t n_vars, i;
+				uint32_t entry_label, nonflat_label;
+				struct cg_entry *ce;
 
 				g(clear_flag_cache(ctx));
 
@@ -1810,43 +1811,34 @@ skip_dereference:
 						return false;
 				}
 
-				if (n_vars || !slot_1) {
-					frame_t i;
-					uint32_t entry_label, nonflat_label;
-					struct cg_entry *ce = &ctx->entries[slot_1];
+				ce = &ctx->entries[slot_1];
 
-					if (unlikely(!array_init_mayfail(frame_t, &ce->variables, &ce->n_variables, &ctx->err)))
+				if (unlikely(!array_init_mayfail(frame_t, &ce->variables, &ce->n_variables, &ctx->err)))
+					return false;
+				for (i = 0; i < n_vars; i++) {
+					frame_t v;
+					get_one(ctx, &v);
+					if (unlikely(!array_add_mayfail(frame_t, &ce->variables, &ce->n_variables, v, NULL, &ctx->err)))
 						return false;
-					for (i = 0; i < n_vars; i++) {
-						frame_t v;
-						get_one(ctx, &v);
-						if (unlikely(!array_add_mayfail(frame_t, &ce->variables, &ce->n_variables, v, NULL, &ctx->err)))
-							return false;
-					}
-					if (!slot_1) {
-						g(gen_test_variables(ctx, ce->variables, ce->n_variables, true, ctx->escape_nospill_label, NULL));
-					}
-					entry_label = alloc_label(ctx);
-					if (unlikely(!entry_label))
-						return false;
-					gen_label(entry_label);
-					ce->entry_label = entry_label;
-
-					nonflat_label = alloc_escape_label_for_ip(ctx, ctx->current_position);
-					if (unlikely(!nonflat_label))
-						return false;
-					ce->nonflat_label = nonflat_label;
-
-					if (unlikely(!slot_1))
-						g(gen_timestamp_test(ctx, ctx->escape_nospill_label));
-					else
-						g(gen_timestamp_test(ctx, escape_label));
-				} else {
-					g(gen_timestamp_test(ctx, escape_label));
-
-					gen_insn(INSN_ENTRY, 0, 0, 0);
-					gen_four(slot_1);
 				}
+				if (!slot_1) {
+					g(gen_test_variables(ctx, ce->variables, ce->n_variables, true, ctx->escape_nospill_label, NULL));
+				}
+				entry_label = alloc_label(ctx);
+				if (unlikely(!entry_label))
+					return false;
+				gen_label(entry_label);
+				ce->entry_label = entry_label;
+
+				nonflat_label = alloc_escape_label_for_ip(ctx, ctx->current_position);
+				if (unlikely(!nonflat_label))
+					return false;
+				ce->nonflat_label = nonflat_label;
+
+				if (unlikely(!slot_1))
+					g(gen_timestamp_test(ctx, ctx->escape_nospill_label));
+				else
+					g(gen_timestamp_test(ctx, escape_label));
 				continue;
 			}
 			case OPCODE_JMP: {
@@ -2175,20 +2167,25 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 		struct cg_entry *ce = &ctx->entries[i];
 		if (ce->entry_label) {
 			bool non_empty;
-#ifdef CODEGEN_TRIM_LABELS
-			ctx->used_labels[ce->entry_label] = true;
-#endif
 			g(gen_test_variables(ctx, ce->variables, ce->n_variables, true, ce->nonflat_label, &non_empty));
 
 			if (non_empty) {
-				gen_insn(INSN_ENTRY, 0, 0, 0);
-				gen_four(i);
+				ce->test_and_entry_label = alloc_label(ctx);
+				if (unlikely(!ce->test_and_entry_label))
+					return false;
+				gen_insn(INSN_LABEL, 0, 0, 0);
+				gen_four(ce->test_and_entry_label);
 
 				g(gen_test_variables(ctx, ce->variables, ce->n_variables, true, ce->nonflat_label, NULL));
 
 				gen_insn(INSN_JMP, 0, 0, 0);
 				gen_four(ce->entry_label);
+			} else {
+				ce->test_and_entry_label = ce->entry_label;
 			}
+#ifdef CODEGEN_TRIM_LABELS
+			ctx->used_labels[ce->test_and_entry_label] = true;
+#endif
 		}
 	}
 	return true;
@@ -2239,14 +2236,6 @@ static bool attr_w gen_epilogues(struct codegen_context *ctx)
 
 	gen_label(nospill_label);
 	g(gen_escape(ctx));
-	return true;
-}
-
-static bool attr_w cgen_entry(struct codegen_context *ctx)
-{
-	uint32_t entry_id = cget_four(ctx);
-	ajla_assert_lo(entry_id < ctx->n_entries, (file_line, "cgen_entry: invalid entry %lx", (unsigned long)entry_id));
-	ctx->entries[entry_id].entry_to_pos = ctx->mcode_size;
 	return true;
 }
 
@@ -2394,11 +2383,7 @@ static bool attr_w codegen_map(struct codegen_context *ctx)
 		return false;
 	}
 	for (i = 0; i < ctx->n_entries; i++) {
-		size_t entry_pos;
-		if (ctx->entries[i].entry_to_pos)
-			entry_pos = ctx->entries[i].entry_to_pos;
-		else
-			entry_pos = ctx->label_to_pos[ctx->entries[i].entry_label];
+		size_t entry_pos = ctx->label_to_pos[ctx->entries[i].test_and_entry_label];
 		char *entry = cast_ptr(char *, ptr) + entry_pos;
 		da(ctx->codegen,codegen)->unoptimized_code[i] = entry;
 		da(ctx->codegen,codegen)->n_entries++;
