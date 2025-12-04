@@ -97,9 +97,12 @@ test_load_op:
 	return true;
 }
 
-static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *variables, size_t n_variables, bool do_unspill, uint32_t label)
+static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *variables, size_t n_variables, bool do_unspill, uint32_t label, bool *generated_something)
 {
 	size_t i;
+
+	if (generated_something)
+		*generated_something = false;
 
 	if (do_unspill) {
 		size_t n_vars = 0;
@@ -109,6 +112,10 @@ static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *vari
 				ctx->var_aux[n_vars++] = v;
 		}
 
+		if (n_vars && generated_something) {
+			*generated_something = true;
+			return true;
+		}
 		g(gen_unspill_multiple(ctx, ctx->var_aux, n_vars, false));
 	}
 
@@ -119,6 +126,10 @@ static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *vari
 			frame_t v = variables[n];
 			if (!i ? da(ctx->fn,function)->local_variables_flags[v].must_be_flat : da(ctx->fn,function)->local_variables_flags[v].must_be_data)
 				ctx->var_aux[n_vars++] = v;
+		}
+		if (n_vars && generated_something) {
+			*generated_something = true;
+			return true;
 		}
 		if (!i) {
 			g(gen_test_multiple(ctx, ctx->var_aux, n_vars, label));

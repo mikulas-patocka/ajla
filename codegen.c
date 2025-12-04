@@ -1758,7 +1758,7 @@ skip_dereference:
 					return false;
 				}
 
-				if (unlikely(!gen_test_variables(ctx, vars, n, true, escape_label))) {
+				if (unlikely(!gen_test_variables(ctx, vars, n, true, escape_label, NULL))) {
 					mem_free(vars);
 					return false;
 				}
@@ -1824,7 +1824,7 @@ skip_dereference:
 							return false;
 					}
 					if (!slot_1) {
-						g(gen_test_variables(ctx, ce->variables, ce->n_variables, true, ctx->escape_nospill_label));
+						g(gen_test_variables(ctx, ce->variables, ce->n_variables, true, ctx->escape_nospill_label, NULL));
 					}
 					entry_label = alloc_label(ctx);
 					if (unlikely(!entry_label))
@@ -2174,13 +2174,21 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 	for (i = 0; i < ctx->n_entries; i++) {
 		struct cg_entry *ce = &ctx->entries[i];
 		if (ce->entry_label) {
-			gen_insn(INSN_ENTRY, 0, 0, 0);
-			gen_four(i);
+			bool non_empty;
+#ifdef CODEGEN_TRIM_LABELS
+			ctx->used_labels[ce->entry_label] = true;
+#endif
+			g(gen_test_variables(ctx, ce->variables, ce->n_variables, true, ce->nonflat_label, &non_empty));
 
-			g(gen_test_variables(ctx, ce->variables, ce->n_variables, true, ce->nonflat_label));
+			if (non_empty) {
+				gen_insn(INSN_ENTRY, 0, 0, 0);
+				gen_four(i);
 
-			gen_insn(INSN_JMP, 0, 0, 0);
-			gen_four(ce->entry_label);
+				g(gen_test_variables(ctx, ce->variables, ce->n_variables, true, ce->nonflat_label, NULL));
+
+				gen_insn(INSN_JMP, 0, 0, 0);
+				gen_four(ce->entry_label);
+			}
 		}
 	}
 	return true;
@@ -2386,7 +2394,12 @@ static bool attr_w codegen_map(struct codegen_context *ctx)
 		return false;
 	}
 	for (i = 0; i < ctx->n_entries; i++) {
-		char *entry = cast_ptr(char *, ptr) + ctx->entries[i].entry_to_pos;
+		size_t entry_pos;
+		if (ctx->entries[i].entry_to_pos)
+			entry_pos = ctx->entries[i].entry_to_pos;
+		else
+			entry_pos = ctx->label_to_pos[ctx->entries[i].entry_label];
+		char *entry = cast_ptr(char *, ptr) + entry_pos;
 		da(ctx->codegen,codegen)->unoptimized_code[i] = entry;
 		da(ctx->codegen,codegen)->n_entries++;
 	}
