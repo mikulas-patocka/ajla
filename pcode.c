@@ -798,11 +798,8 @@ static bool gen_checkpoint(struct build_function_context *ctx, const pcode_t *pa
 		arg_t ia;
 		for (ia = 0; ia < ctx->n_real_arguments; ia++) {
 			const struct local_arg *la = &ctx->args[ia];
-			if (ctx->local_variables_flags[la->slot].must_be_flat && ia < 4 && 0)
-				goto x;
 			if (!la->may_be_borrowed)
 				continue;
-x:
 			get_arg_mode(am, la->slot);
 			if (!processed_variables[la->slot]) {
 				processed_variables[la->slot] = true;
