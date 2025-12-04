@@ -1821,9 +1821,6 @@ skip_dereference:
 					if (unlikely(!array_add_mayfail(frame_t, &ce->variables, &ce->n_variables, v, NULL, &ctx->err)))
 						return false;
 				}
-				if (!slot_1) {
-					g(gen_test_variables(ctx, ce->variables, ce->n_variables, true, ctx->escape_nospill_label, NULL));
-				}
 				entry_label = alloc_label(ctx);
 				if (unlikely(!entry_label))
 					return false;
@@ -2172,10 +2169,7 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 	for (i = 0; i < ctx->n_entries; i++) {
 		struct cg_entry *ce = &ctx->entries[i];
 		if (ce->entry_label) {
-			bool non_empty;
-			g(gen_test_variables(ctx, ce->variables, ce->n_variables, true, 0, &non_empty));
-
-			if (non_empty) {
+			if (ce->nonflat_label) {
 				ce->test_and_entry_label = alloc_label(ctx);
 				if (unlikely(!ce->test_and_entry_label))
 					return false;
