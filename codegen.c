@@ -2166,7 +2166,7 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 	for (i = 0; i < ctx->n_entries; i++) {
 		struct cg_entry *ce = &ctx->entries[i];
 		if (ce->entry_label) {
-			if (ce->nonflat_label) {
+			if (ce->n_variables) {
 				ce->test_and_entry_label = alloc_label(ctx);
 				if (unlikely(!ce->test_and_entry_label))
 					return false;
