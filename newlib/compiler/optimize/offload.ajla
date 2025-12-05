@@ -64,12 +64,21 @@ option loop_limit [
 	a : int;
 ]
 
+record array_info [
+	typ : int;
+	dims : list(int);
+	var_phi : int;
+	var_in : int;
+	var_mod : int;
+]
+
 record loop_status [
 	control_variable : int;
 	added_control_variable : int;
 	limit : loop_limit;
 	body_bb : int;
 	end_bb : int;
+	arrays : list(array_info);
 ]
 
 fn test_loop(ctx : context, start_bgi end_bgi : int) : list(loop_status)
@@ -117,6 +126,7 @@ fn test_loop(ctx : context, start_bgi end_bgi : int) : list(loop_status)
 
 	var test_phis := get_phis(ctx, test_bgi);
 
+	var idx_input : int;
 	var var0, var1 := -1, -1;
 	for i := 0 to len(test_phis) do [
 		if test_phis[i].params[0] = control_var then [
@@ -125,16 +135,20 @@ fn test_loop(ctx : context, start_bgi end_bgi : int) : list(loop_status)
 			var def0 := ctx.instrs[ctx.variables[var0].defining_instr];
 			var def1 := ctx.instrs[ctx.variables[var1].defining_instr];
 			if def0.opcode = P_Load_Const, len(def0.params) = 2 then [
+				idx_input := 1;
 			] else if def1.opcode = P_Load_Const, len(def1.params) = 2 then [
+				idx_input := 2;
 				var0, var1 := var1, var0;
 				def0, def1 := def1, def0;
 			] else [
 				return empty(loop_status);
 			]
+			test_phis := test_phis[ .. i] + test_phis[i + 1 .. ];
+			goto found_control_var;
 		]
 	]
-	if var1 = -1 then
-		return empty(loop_status);
+	return empty(loop_status);
+found_control_var:
 	var def1 := ctx.instrs[ctx.variables[var1].defining_instr];
 	if def1.opcode <> P_BinaryConstOp then
 		return empty(loop_status);
@@ -149,6 +163,43 @@ fn test_loop(ctx : context, start_bgi end_bgi : int) : list(loop_status)
 	if ctx.blocks[last_bb].post_list[0] <> test_bgi then
 		return empty(loop_status);
 
+	if len(test_phis) = 0 then
+		return empty(loop_status);
+
+	var ais := empty(array_info);
+	for i := 0 to len(test_phis) do [
+		var v := test_phis[i].params[0];
+		xeval debug("type_idx: " + ntos(ctx.variables[v].type_index));
+		var type_idx := ctx.variables[v].type_index;
+		if type_idx < 0 then
+			return empty(loop_status);
+		var def_instr := ctx.instrs[ctx.variables[type_idx].defining_instr];
+		xeval debug("opcode: " + ntos(def_instr.opcode));
+		if def_instr.opcode <> P_Array_Fixed then
+			return empty(loop_status);
+		if def_instr.params[1] > T_SInt8 or def_instr.params[1] < T_Bool then
+			return empty(loop_status);
+		var ai := array_info.[
+			typ : def_instr.params[1],
+			dims : empty(int),
+			var_phi : v,
+			var_in : test_phis[i].params[idx_input],
+			var_mod : test_phis[i].params[3 - idx_input],
+		];
+		var shape_idx := def_instr.params[2];
+		var shape_instr := ctx.instrs[ctx.variables[shape_idx].defining_instr];
+		if shape_instr.opcode <> P_Array_Create then
+			abort internal("shape isn't P_Array_Create");
+		var n_dims := shape_instr.params[1];
+		if n_dims = 0 then
+			return empty(loop_status);
+		for j := 0 to n_dims do [
+			var dim_var := shape_instr.params[4 + 2 * j];
+			ai.dims +<= dim_var;
+		]
+		ais +<= ai;
+	]
+
 	var qq := test_loop(ctx, test_block.post_list[0], last_bb);
 
 	return [ loop_status.[
@@ -157,6 +208,7 @@ fn test_loop(ctx : context, start_bgi end_bgi : int) : list(loop_status)
 		limit : lim,
 		body_bb : test_block.post_list[0],
 		end_bb : last_bb,
+		arrays : ais,
 	] ] + qq;
 ]
 
@@ -187,13 +239,71 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : instructio
 	]
 	eval debug("loop recognized, dim: " + ntos(len(shape)));
 
+	var in_arrays := shape[0].arrays;
+	for j := 0 to len(in_arrays) do [
+		var arr := in_arrays[j];
+		var vi := arr.var_in;
+		var def_instr := ctx.instrs[ctx.variables[vi].defining_instr];
+		if def_instr.opcode <> P_Array_Fill then [
+			eval debug(ctx.name + ": array not created immediatelly before the loop");
+			goto fail;
+		]
+	]
+	for i := 1 to len(shape) do [
+		var prev_sh := shape[i - 1];
+		var sh := shape[i];
+		if len(sh.arrays) <> len(in_arrays) then [
+			eval debug(ctx.name + ": array inconsistency");
+			goto fail;
+		]
+		var sorted_arrays := empty(array_info);
+		for j := 0 to len(in_arrays) do [
+			var a1 := prev_sh.arrays[j];
+			for k := 0 to len(in_arrays) do [
+				var a2 := sh.arrays[k];
+				if a1.var_phi = a2.var_in, a1.var_mod = a2.var_phi then [
+					sorted_arrays +<= a2;
+					goto found_array;
+				]
+			]
+			eval debug(ctx.name + ": array inconsistency");
+			goto fail;
+found_array:
+		]
+		shape[i].arrays := sorted_arrays;
+	]
+
+	var sh := shape[len(shape) - 1];
+	var sh_arrays := sh.arrays;
+	for j := 0 to len(sh_arrays) do [
+		var a := sh_arrays[j];
+		var var_mod := a.var_mod;
+		//eval debug("a(" + ntos(j) + "): var_mod: " + ntos(a.var_mod) + ", var_in: " + ntos(a.var_in) + ", var_phi: " + ntos(a.var_phi));
+		var def_var_mod := ctx.instrs[ctx.variables[var_mod].defining_instr];
+		if def_var_mod.opcode <> P_Structured_Write then [
+			eval debug(ctx.name + ": array must be modified unconditionally");
+			goto fail;
+		]
+		if def_var_mod.params[3] <> a.var_phi then [
+			eval debug(ctx.name + ": array must be modified just once");
+			goto fail;
+		]
+		if def_var_mod.params[0] <> 1 then [
+			eval debug(ctx.name + ": array must be fully modified");
+			goto fail;
+		]
+		// FIXME: verify array indices here
+	]
+
+	eval debug("arrays verified");
+
 fail:
 	return ins;
 ]
 
 fn offload(ctx : context) : context
 [
-	eval dump_basic_blocks(ctx, true);
+	//eval dump_basic_blocks(ctx, true);
 	var n_blocks := len(ctx.blocks);
 	for bgi := 0 to n_blocks do [
 		var block := ctx.blocks[bgi];
