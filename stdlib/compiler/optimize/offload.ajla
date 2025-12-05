@@ -292,6 +292,7 @@ found_array:
 			eval debug(ctx.name + ": array must be fully modified");
 			goto fail;
 		]
+		var shape_idxs := empty(int);
 		var var_idx := def_var_mod.params[7];
 		var used_shapes := 0;
 		for k := 1 to len(shape) do [
@@ -322,6 +323,7 @@ found_cv:
 				goto fail;
 			]
 			used_shapes bts= ll;
+			shape_idxs +<= ll;
 			var def_var_mult := ctx.instrs[ctx.variables[op2].defining_instr];
 			if def_var_mult.opcode = P_BinaryOp, def_var_mult.params[0] = Bin_Multiply then [
 				var m1 := def_var_mult.params[3];
@@ -343,7 +345,6 @@ found_x:
 					goto mult_ok;
 				if shape[ll].limit is a then [
 					var def_var_m2 := ctx.instrs[ctx.variables[m2].defining_instr];
-					eval debug("X");
 					if def_var_m2.opcode = P_Array_Len, def_var_m2.params[1] = shape[ll].limit.a then
 						goto mult_ok;
 				]
@@ -368,6 +369,24 @@ mult_ok:
 found_cv2:
 		if used_shapes bt ll then [
 			eval debug(ctx.name + ": invalid array indices");
+			goto fail;
+		]
+		shape_idxs +<= ll;
+
+		for k := 0 to len(shape_idxs) do [
+			var shape_limit := shape[shape_idxs[k]].limit;
+			var a_def := ctx.instrs[ctx.variables[a.dims[k]].defining_instr];
+			if shape_limit is v then [
+				if a.dims[k] = shape_limit.v then
+					continue;
+			] else if shape_limit is c then [
+				if a_def.opcode = P_Load_Const, a_def.params[1] = 1, a_def.params[2] = shape_limit.c then
+					continue;
+			] else if shape_limit is a then [
+				if a_def.opcode = P_Array_Len, a_def.params[1] = shape_limit.a then
+					continue;
+			]
+			eval debug(ctx.name + ": invalid array size");
 			goto fail;
 		]
 	]
