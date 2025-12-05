@@ -292,7 +292,83 @@ found_array:
 			eval debug(ctx.name + ": array must be fully modified");
 			goto fail;
 		]
-		// FIXME: verify array indices here
+		var var_idx := def_var_mod.params[7];
+		var used_shapes := 0;
+		for k := 1 to len(shape) do [
+			var def_var_idx := ctx.instrs[ctx.variables[var_idx].defining_instr];
+			if def_var_idx.opcode <> P_BinaryOp or def_var_idx.params[0] <> Bin_Add then [
+				eval debug(ctx.name + ": invalid array indices");
+				goto fail;
+			]
+			var op1 := def_var_idx.params[3];
+			var op2 := def_var_idx.params[5];
+			var ll : int;
+			for l := 0 to len(shape) do [
+				if shape[l].control_variable = op1 then [
+					ll := l;
+					goto found_cv;
+				]
+				if shape[l].control_variable = op2 then [
+					op1, op2 := op2, op1;
+					ll := l;
+					goto found_cv;
+				]
+			]
+			eval debug(ctx.name + ": invalid array indices");
+			goto fail;
+found_cv:
+			if used_shapes bt ll then [
+				eval debug(ctx.name + ": invalid array indices");
+				goto fail;
+			]
+			used_shapes bts= ll;
+			var def_var_mult := ctx.instrs[ctx.variables[op2].defining_instr];
+			if def_var_mult.opcode = P_BinaryOp, def_var_mult.params[0] = Bin_Multiply then [
+				var m1 := def_var_mult.params[3];
+				var m2 := def_var_mult.params[5];
+				for l := 0 to len(shape) do [
+					if shape[l].control_variable = m1 then [
+						goto found_x;
+					]
+					if shape[l].control_variable = m2 then [
+						m1, m2 := m2, m1;
+						goto found_x;
+					]
+				]
+				eval debug(ctx.name + ": invalid array indices");
+				goto fail;
+found_x:
+				var_idx := m1;
+				if shape[ll].limit is v, shape[ll].limit.v = m2 then
+					goto mult_ok;
+				if shape[ll].limit is a then [
+					var def_var_m2 := ctx.instrs[ctx.variables[m2].defining_instr];
+					if def_var_m2.opcode = P_Array_Len, def_var_m2.params[1] = shape[ll].limit.a then
+						goto mult_ok;
+				]
+			] else if def_var_mult.opcode = P_BinaryConstOp, def_var_mult.params[0] = Bin_Multiply then [
+				var_idx := def_var_mult.params[3];
+				if shape[ll].limit is c, shape[ll].limit.c = def_var_mult.params[4] then
+					goto mult_ok;
+			]
+			eval debug(ctx.name + ": invalid array indices");
+			goto fail;
+mult_ok:
+		]
+		var ll : int;
+		for l := 0 to len(shape) do [
+			if shape[l].control_variable = var_idx then [
+				ll := l;
+				goto found_cv2;
+			]
+		]
+		eval debug(ctx.name + ": invalid array indices");
+		goto fail;
+found_cv2:
+		if used_shapes bt ll then [
+			eval debug(ctx.name + ": invalid array indices");
+			goto fail;
+		]
 	]
 
 	eval debug("arrays verified");
