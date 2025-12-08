@@ -200,7 +200,7 @@ found_control_var:
 		ais +<= ai;
 	]
 
-	var qq, sub_error := test_loop(ctx, test_block.post_list[0], last_bb);
+	var qq, err := test_loop(ctx, test_block.post_list[0], last_bb);
 
 	return [ loop_status.[
 		control_variable : control_var,
@@ -210,6 +210,141 @@ found_control_var:
 		end_bb : last_bb,
 		arrays : ais,
 	] ] + qq, "";
+]
+
+fn verify_arrays(ctx : context, shape : list(loop_status)) : bytes
+[
+	var in_arrays := shape[0].arrays;
+	for j := 0 to len(in_arrays) do [
+		var arr := in_arrays[j];
+		var vi := arr.var_in;
+		var def_instr := ctx.instrs[ctx.variables[vi].defining_instr];
+		if def_instr.opcode <> P_Array_Fill then
+			return "array not created immediatelly before the loop";
+	]
+	for i := 1 to len(shape) do [
+		var prev_sh := shape[i - 1];
+		var sh := shape[i];
+		if len(sh.arrays) <> len(in_arrays) then
+			return "array inconsistency";
+		var sorted_arrays := empty(array_info);
+		for j := 0 to len(in_arrays) do [
+			var a1 := prev_sh.arrays[j];
+			for k := 0 to len(in_arrays) do [
+				var a2 := sh.arrays[k];
+				if a1.var_phi = a2.var_in, a1.var_mod = a2.var_phi then [
+					sorted_arrays +<= a2;
+					goto found_array;
+				]
+			]
+			return "array inconsistency";
+found_array:
+		]
+		shape[i].arrays := sorted_arrays;
+	]
+
+	var sh := shape[len(shape) - 1];
+	var sh_arrays := sh.arrays;
+	for j := 0 to len(sh_arrays) do [
+		var a := sh_arrays[j];
+		var var_mod := a.var_mod;
+		//eval debug("a(" + ntos(j) + "): var_mod: " + ntos(a.var_mod) + ", var_in: " + ntos(a.var_in) + ", var_phi: " + ntos(a.var_phi));
+		var def_var_mod := ctx.instrs[ctx.variables[var_mod].defining_instr];
+		if def_var_mod.opcode <> P_Structured_Write then
+			return "array must be modified unconditionally";
+		if def_var_mod.params[3] <> a.var_phi then
+			return "array must be modified just once";
+		if def_var_mod.params[0] <> 1 then
+			return "array must be fully modified";
+		var shape_idxs := empty(int);
+		var var_idx := def_var_mod.params[7];
+		var used_shapes := 0;
+		for k := 1 to len(shape) do [
+			var def_var_idx := ctx.instrs[ctx.variables[var_idx].defining_instr];
+			if def_var_idx.opcode <> P_BinaryOp or def_var_idx.params[0] <> Bin_Add then
+				return "invalid array indices";
+			var op1 := def_var_idx.params[3];
+			var op2 := def_var_idx.params[5];
+			var ll : int;
+			for l := 0 to len(shape) do [
+				if shape[l].control_variable = op1 then [
+					ll := l;
+					goto found_cv;
+				]
+				if shape[l].control_variable = op2 then [
+					op1, op2 := op2, op1;
+					ll := l;
+					goto found_cv;
+				]
+			]
+			return "invalid array indices";
+found_cv:
+			if used_shapes bt ll then
+				return "invalid array indices";
+			used_shapes bts= ll;
+			shape_idxs +<= ll;
+			var def_var_mult := ctx.instrs[ctx.variables[op2].defining_instr];
+			if def_var_mult.opcode = P_BinaryOp, def_var_mult.params[0] = Bin_Multiply then [
+				var m1 := def_var_mult.params[3];
+				var m2 := def_var_mult.params[5];
+				for l := 0 to len(shape) do [
+					if shape[l].control_variable = m1 then [
+						goto found_x;
+					]
+					if shape[l].control_variable = m2 then [
+						m1, m2 := m2, m1;
+						goto found_x;
+					]
+				]
+				return "invalid array indices";
+found_x:
+				var_idx := m1;
+				if shape[ll].limit is v, shape[ll].limit.v = m2 then
+					goto mult_ok;
+				if shape[ll].limit is a then [
+					var def_var_m2 := ctx.instrs[ctx.variables[m2].defining_instr];
+					if def_var_m2.opcode = P_Array_Len, def_var_m2.params[1] = shape[ll].limit.a then
+						goto mult_ok;
+				]
+			] else if def_var_mult.opcode = P_BinaryConstOp, def_var_mult.params[0] = Bin_Multiply then [
+				var_idx := def_var_mult.params[3];
+				if shape[ll].limit is c, shape[ll].limit.c = def_var_mult.params[4] then
+					goto mult_ok;
+			]
+			return "invalid array indices";
+mult_ok:
+		]
+		var ll : int;
+		for l := 0 to len(shape) do [
+			if shape[l].control_variable = var_idx then [
+				ll := l;
+				goto found_cv2;
+			]
+		]
+		return "invalid array indices";
+found_cv2:
+		if used_shapes bt ll then
+			return "invalid array indices";
+		shape_idxs +<= ll;
+
+		for k := 0 to len(shape_idxs) do [
+			var shape_limit := shape[shape_idxs[k]].limit;
+			var a_def := ctx.instrs[ctx.variables[a.dims[k]].defining_instr];
+			if shape_limit is v then [
+				if a.dims[k] = shape_limit.v then
+					continue;
+			] else if shape_limit is c then [
+				if a_def.opcode = P_Load_Const, a_def.params[1] = 1, a_def.params[2] = shape_limit.c then
+					continue;
+			] else if shape_limit is a then [
+				if a_def.opcode = P_Array_Len, a_def.params[1] = shape_limit.a then
+					continue;
+			]
+			return "invalid array size";
+		]
+	]
+
+	return "";
 ]
 
 fn offload_instruction(ctx : context, ili : int, ins : instruction) : instruction
@@ -228,9 +363,9 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : instructio
 	var loop_bgi := decision_block.post_list[0];
 	var end_bgi := decision_block.post_list[1];
 
-	var shape, sub_error := test_loop(ctx, loop_bgi, end_bgi);
+	var shape, err := test_loop(ctx, loop_bgi, end_bgi);
 	if len(shape) = 0 then [
-		eval debug(ctx.name + ": " + sub_error);
+		eval debug(ctx.name + ": " + err);
 		goto fail;
 	]
 	if len(shape) > 3 then [
@@ -239,156 +374,10 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : instructio
 	]
 	eval debug("loop recognized, dim: " + ntos(len(shape)));
 
-	var in_arrays := shape[0].arrays;
-	for j := 0 to len(in_arrays) do [
-		var arr := in_arrays[j];
-		var vi := arr.var_in;
-		var def_instr := ctx.instrs[ctx.variables[vi].defining_instr];
-		if def_instr.opcode <> P_Array_Fill then [
-			eval debug(ctx.name + ": array not created immediatelly before the loop");
-			goto fail;
-		]
-	]
-	for i := 1 to len(shape) do [
-		var prev_sh := shape[i - 1];
-		var sh := shape[i];
-		if len(sh.arrays) <> len(in_arrays) then [
-			eval debug(ctx.name + ": array inconsistency");
-			goto fail;
-		]
-		var sorted_arrays := empty(array_info);
-		for j := 0 to len(in_arrays) do [
-			var a1 := prev_sh.arrays[j];
-			for k := 0 to len(in_arrays) do [
-				var a2 := sh.arrays[k];
-				if a1.var_phi = a2.var_in, a1.var_mod = a2.var_phi then [
-					sorted_arrays +<= a2;
-					goto found_array;
-				]
-			]
-			eval debug(ctx.name + ": array inconsistency");
-			goto fail;
-found_array:
-		]
-		shape[i].arrays := sorted_arrays;
-	]
-
-	var sh := shape[len(shape) - 1];
-	var sh_arrays := sh.arrays;
-	for j := 0 to len(sh_arrays) do [
-		var a := sh_arrays[j];
-		var var_mod := a.var_mod;
-		//eval debug("a(" + ntos(j) + "): var_mod: " + ntos(a.var_mod) + ", var_in: " + ntos(a.var_in) + ", var_phi: " + ntos(a.var_phi));
-		var def_var_mod := ctx.instrs[ctx.variables[var_mod].defining_instr];
-		if def_var_mod.opcode <> P_Structured_Write then [
-			eval debug(ctx.name + ": array must be modified unconditionally");
-			goto fail;
-		]
-		if def_var_mod.params[3] <> a.var_phi then [
-			eval debug(ctx.name + ": array must be modified just once");
-			goto fail;
-		]
-		if def_var_mod.params[0] <> 1 then [
-			eval debug(ctx.name + ": array must be fully modified");
-			goto fail;
-		]
-		var shape_idxs := empty(int);
-		var var_idx := def_var_mod.params[7];
-		var used_shapes := 0;
-		for k := 1 to len(shape) do [
-			var def_var_idx := ctx.instrs[ctx.variables[var_idx].defining_instr];
-			if def_var_idx.opcode <> P_BinaryOp or def_var_idx.params[0] <> Bin_Add then [
-				eval debug(ctx.name + ": invalid array indices");
-				goto fail;
-			]
-			var op1 := def_var_idx.params[3];
-			var op2 := def_var_idx.params[5];
-			var ll : int;
-			for l := 0 to len(shape) do [
-				if shape[l].control_variable = op1 then [
-					ll := l;
-					goto found_cv;
-				]
-				if shape[l].control_variable = op2 then [
-					op1, op2 := op2, op1;
-					ll := l;
-					goto found_cv;
-				]
-			]
-			eval debug(ctx.name + ": invalid array indices");
-			goto fail;
-found_cv:
-			if used_shapes bt ll then [
-				eval debug(ctx.name + ": invalid array indices");
-				goto fail;
-			]
-			used_shapes bts= ll;
-			shape_idxs +<= ll;
-			var def_var_mult := ctx.instrs[ctx.variables[op2].defining_instr];
-			if def_var_mult.opcode = P_BinaryOp, def_var_mult.params[0] = Bin_Multiply then [
-				var m1 := def_var_mult.params[3];
-				var m2 := def_var_mult.params[5];
-				for l := 0 to len(shape) do [
-					if shape[l].control_variable = m1 then [
-						goto found_x;
-					]
-					if shape[l].control_variable = m2 then [
-						m1, m2 := m2, m1;
-						goto found_x;
-					]
-				]
-				eval debug(ctx.name + ": invalid array indices");
-				goto fail;
-found_x:
-				var_idx := m1;
-				if shape[ll].limit is v, shape[ll].limit.v = m2 then
-					goto mult_ok;
-				if shape[ll].limit is a then [
-					var def_var_m2 := ctx.instrs[ctx.variables[m2].defining_instr];
-					if def_var_m2.opcode = P_Array_Len, def_var_m2.params[1] = shape[ll].limit.a then
-						goto mult_ok;
-				]
-			] else if def_var_mult.opcode = P_BinaryConstOp, def_var_mult.params[0] = Bin_Multiply then [
-				var_idx := def_var_mult.params[3];
-				if shape[ll].limit is c, shape[ll].limit.c = def_var_mult.params[4] then
-					goto mult_ok;
-			]
-			eval debug(ctx.name + ": invalid array indices");
-			goto fail;
-mult_ok:
-		]
-		var ll : int;
-		for l := 0 to len(shape) do [
-			if shape[l].control_variable = var_idx then [
-				ll := l;
-				goto found_cv2;
-			]
-		]
-		eval debug(ctx.name + ": invalid array indices");
+	err := verify_arrays(ctx, shape);
+	if len_greater_than(err, 0) then [
+		eval debug(ctx.name + ": " + err);
 		goto fail;
-found_cv2:
-		if used_shapes bt ll then [
-			eval debug(ctx.name + ": invalid array indices");
-			goto fail;
-		]
-		shape_idxs +<= ll;
-
-		for k := 0 to len(shape_idxs) do [
-			var shape_limit := shape[shape_idxs[k]].limit;
-			var a_def := ctx.instrs[ctx.variables[a.dims[k]].defining_instr];
-			if shape_limit is v then [
-				if a.dims[k] = shape_limit.v then
-					continue;
-			] else if shape_limit is c then [
-				if a_def.opcode = P_Load_Const, a_def.params[1] = 1, a_def.params[2] = shape_limit.c then
-					continue;
-			] else if shape_limit is a then [
-				if a_def.opcode = P_Array_Len, a_def.params[1] = shape_limit.a then
-					continue;
-			]
-			eval debug(ctx.name + ": invalid array size");
-			goto fail;
-		]
 	]
 
 	eval debug("arrays verified");
