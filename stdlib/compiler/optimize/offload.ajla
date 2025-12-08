@@ -81,7 +81,7 @@ record loop_status [
 	arrays : list(array_info);
 ]
 
-fn test_loop(ctx : context, start_bgi end_bgi : int) : list(loop_status)
+fn test_loop(ctx : context, start_bgi end_bgi : int) : (list(loop_status), bytes)
 [
 	eval debug("test_loop: " + ntos(start_bgi) + ", " + ntos(end_bgi));
 
@@ -92,36 +92,36 @@ fn test_loop(ctx : context, start_bgi end_bgi : int) : list(loop_status)
 	] else if len(start_block.post_list) = 3 then [
 		test_bgi := start_bgi;
 	] else [
-		return empty(loop_status);
+		return empty(loop_status), "invalid post_list";
 	]
 	var test_block := ctx.blocks[test_bgi];
 
 	if len(test_block.pred_list) <> 2 then
-		return empty(loop_status);
+		return empty(loop_status), "invalid pred_list";
 	if len(test_block.post_list) <> 3 then
-		return empty(loop_status);
+		return empty(loop_status), "invalid post_list";
 	if skip_empty(ctx, test_block.post_list[1]) <> skip_empty(ctx, end_bgi) then
-		return empty(loop_status);
+		return empty(loop_status), "post_list doesn't match end_bgi";
 
 	var skip_instr := last_instr(ctx, test_bgi);
 	var bool_var := ctx.variables[skip_instr.params[0]];
 	var cmp_instr := ctx.instrs[bool_var.defining_instr];
 	if cmp_instr.bb <> test_bgi then
-		return empty(loop_status);
+		return empty(loop_status), "cmp instruction isn't in test_bgi";
 
 	var control_var : int;
 	var lim : loop_limit;
-	if cmp_instr.opcode = P_BinaryOp then [
+	if cmp_instr.opcode = P_BinaryOp, cmp_instr.params[0] = Bin_Less then [
 		control_var := cmp_instr.params[3];
 		lim := loop_limit.v.(cmp_instr.params[5]);
-	] else if cmp_instr.opcode = P_BinaryConstOp then [
+	] else if cmp_instr.opcode = P_BinaryConstOp, cmp_instr.params[0] = Bin_Less then [
 		control_var := cmp_instr.params[3];
 		lim := loop_limit.c.(cmp_instr.params[4]);
 	] else if cmp_instr.opcode = P_Array_Len_Greater_Than then [
 		control_var := cmp_instr.params[2];
 		lim := loop_limit.a.(cmp_instr.params[1]);
 	] else [
-		return empty(loop_status);
+		return empty(loop_status), "unsupported loop condition";
 	]
 
 	var test_phis := get_phis(ctx, test_bgi);
@@ -141,44 +141,44 @@ fn test_loop(ctx : context, start_bgi end_bgi : int) : list(loop_status)
 				var0, var1 := var1, var0;
 				def0, def1 := def1, def0;
 			] else [
-				return empty(loop_status);
+				return empty(loop_status), "unsupported loop start";
 			]
 			test_phis := test_phis[ .. i] + test_phis[i + 1 .. ];
 			goto found_control_var;
 		]
 	]
-	return empty(loop_status);
+	return empty(loop_status), "unsupported loop start";
 found_control_var:
 	var def1 := ctx.instrs[ctx.variables[var1].defining_instr];
 	if def1.opcode <> P_BinaryConstOp then
-		return empty(loop_status);
+		return empty(loop_status), "unsupported loop increment";
 	if def1.params[0] <> Bin_Add or
 	   def1.params[3] <> control_var or
 	   def1.params[4] <> 1 then
-		return empty(loop_status);
+		return empty(loop_status), "unsupported loop increment";
 
 	var last_bb := def1.bb;
 	if len(ctx.blocks[last_bb].post_list) <> 1 then
-		return empty(loop_status);
+		return empty(loop_status), "loop exits to multiple basic blocks";
 	if ctx.blocks[last_bb].post_list[0] <> test_bgi then
-		return empty(loop_status);
+		return empty(loop_status), "loop exits to a different basic block";
 
 	if len(test_phis) = 0 then
-		return empty(loop_status);
+		return empty(loop_status), "loop doesn't have any modified variables";
 
 	var ais := empty(array_info);
 	for i := 0 to len(test_phis) do [
 		var v := test_phis[i].params[0];
-		xeval debug("type_idx: " + ntos(ctx.variables[v].type_index));
+		//xeval debug("type_idx: " + ntos(ctx.variables[v].type_index));
 		var type_idx := ctx.variables[v].type_index;
 		if type_idx < 0 then
-			return empty(loop_status);
+			return empty(loop_status), "type of modified variable is not array";
 		var def_instr := ctx.instrs[ctx.variables[type_idx].defining_instr];
-		xeval debug("opcode: " + ntos(def_instr.opcode));
+		//xeval debug("opcode: " + ntos(def_instr.opcode));
 		if def_instr.opcode <> P_Array_Fixed then
-			return empty(loop_status);
+			return empty(loop_status), "type of modified variable is not array";
 		if def_instr.params[1] > T_SInt8 or def_instr.params[1] < T_Bool then
-			return empty(loop_status);
+			return empty(loop_status), "type of modified variable is not array of primitive type";
 		var ai := array_info.[
 			typ : def_instr.params[1],
 			dims : empty(int),
@@ -192,7 +192,7 @@ found_control_var:
 			abort internal("shape isn't P_Array_Create");
 		var n_dims := shape_instr.params[1];
 		if n_dims = 0 then
-			return empty(loop_status);
+			return empty(loop_status), "array has zero dimensions";
 		for j := 0 to n_dims do [
 			var dim_var := shape_instr.params[4 + 2 * j];
 			ai.dims +<= dim_var;
@@ -200,7 +200,7 @@ found_control_var:
 		ais +<= ai;
 	]
 
-	var qq := test_loop(ctx, test_block.post_list[0], last_bb);
+	var qq, sub_error := test_loop(ctx, test_block.post_list[0], last_bb);
 
 	return [ loop_status.[
 		control_variable : control_var,
@@ -209,7 +209,7 @@ found_control_var:
 		body_bb : test_block.post_list[0],
 		end_bb : last_bb,
 		arrays : ais,
-	] ] + qq;
+	] ] + qq, "";
 ]
 
 fn offload_instruction(ctx : context, ili : int, ins : instruction) : instruction
@@ -228,9 +228,9 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : instructio
 	var loop_bgi := decision_block.post_list[0];
 	var end_bgi := decision_block.post_list[1];
 
-	var shape := test_loop(ctx, loop_bgi, end_bgi);
+	var shape, sub_error := test_loop(ctx, loop_bgi, end_bgi);
 	if len(shape) = 0 then [
-		eval debug(ctx.name + ": loop doesn't have appropriate shape");
+		eval debug(ctx.name + ": " + sub_error);
 		goto fail;
 	]
 	if len(shape) > 3 then [
