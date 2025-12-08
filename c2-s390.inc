@@ -961,15 +961,15 @@ invl:
 	return false;
 }
 
-static bool attr_w cgen_s390_push_pop(struct codegen_context *ctx, unsigned size, bool push)
+static bool attr_w cgen_s390_push_pop(struct codegen_context *ctx, unsigned size, unsigned reg, bool push)
 {
 	uint8_t *arg1;
 	arg1 = ctx->code_position;
 	ctx->code_position = arg1 + arg_size(*arg1);
 	if (!push)
-		g(cgen_lm_stm(ctx, size, R_6, R_15, arg1, S390_LM, S390_LMY, S390_LMG));
+		g(cgen_lm_stm(ctx, size, reg, R_15, arg1, S390_LM, S390_LMY, S390_LMG));
 	else
-		g(cgen_lm_stm(ctx, size, R_6, R_15, arg1, S390_STM, S390_STMY, S390_STMG));
+		g(cgen_lm_stm(ctx, size, reg, R_15, arg1, S390_STM, S390_STMY, S390_STMG));
 	return true;
 }
 
@@ -1887,10 +1887,10 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_s390(ctx, S390_BCR | ((it)(S390_BRC_OVF | S390_BRC_GREATER | S390_BRC_LESS | S390_BRC_EQ) << 36) | ((it)R_14 << 32)));
 			return true;
 		case INSN_S390_PUSH:
-			g(cgen_s390_push_pop(ctx, insn_op_size(insn), true));
+			g(cgen_s390_push_pop(ctx, insn_op_size(insn), insn_aux(insn), true));
 			return true;
 		case INSN_S390_POP:
-			g(cgen_s390_push_pop(ctx, insn_op_size(insn), false));
+			g(cgen_s390_push_pop(ctx, insn_op_size(insn), insn_aux(insn), false));
 			return true;
 		case INSN_CALL_INDIRECT:
 			g(cgen_call_indirect(ctx));

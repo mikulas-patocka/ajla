@@ -70,6 +70,8 @@
 #define i_size_rot(size)		maximum(size, OP_SIZE_4)
 #define i_size_cmp(size)		maximum(size, OP_SIZE_4)
 
+/*#define OMIT_R_UPCALL*/
+
 #define R_0		0x00
 #define R_1		0x01
 #define R_2		0x02
@@ -105,11 +107,13 @@
 #define FR_15		0x1f
 
 #define R_FRAME		R_12
-#define R_UPCALL	R_13
+#ifndef OMIT_R_UPCALL
+#define R_UPCALL	R_10
+#endif
 
 #define R_SP		R_15
 
-#define R_SAVED_1	R_10
+#define R_SAVED_1	R_13
 #define R_SAVED_2	R_11
 
 #define R_SCRATCH_NA_1	R_1
@@ -140,7 +144,7 @@
 #define FRAME_SIZE	160
 #define FRAME_REGS	48
 #define FRAME_RETPTR	(FRAME_SIZE + 16)
-#define FRAME_TIMESTAMP	(FRAME_SIZE + 40)
+#define FRAME_TIMESTAMP	(FRAME_SIZE + 44)
 #else
 #define FRAME_SIZE	96
 #define FRAME_REGS	24
@@ -158,7 +162,11 @@ static const uint8_t regs_saved[] = {
 #ifndef HAVE_BITWISE_FRAME
 	R_6, R_7,
 #endif
-	R_8, R_9 };
+	R_8, R_9,
+#ifdef OMIT_R_UPCALL
+	R_10,
+#endif
+	};
 #define n_regs_saved (cpu_test_feature(CPU_FEATURE_extended_imm) ? n_array_elements(regs_saved) : n_array_elements(regs_saved) - 1)
 static const uint8_t regs_volatile[] = { R_4 };
 static const uint8_t fp_saved[] = { 0 };
@@ -361,10 +369,10 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 
 static bool attr_w gen_entry(struct codegen_context *ctx)
 {
-	gen_insn(INSN_S390_PUSH, OP_SIZE_ADDRESS, 0, 0);
+	gen_insn(INSN_S390_PUSH, OP_SIZE_ADDRESS, R_2, 0);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_SP);
-	gen_eight(FRAME_REGS);
+	gen_eight(FRAME_REGS - (4 << OP_SIZE_ADDRESS));
 #if defined(ARCH_S390_32)
 	gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
 	gen_one(ARG_ADDRESS_1);
@@ -384,26 +392,14 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(ARG_IMM);
 	gen_eight(-FRAME_SIZE);
 
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-	gen_one(ARG_ADDRESS_1);
-	gen_one(R_SP);
-	gen_eight(FRAME_RETPTR);
-	gen_one(R_ARG0);
-
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_FRAME);
 	gen_one(R_ARG1);
-
+#ifndef OMIT_R_UPCALL
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_UPCALL);
 	gen_one(R_ARG2);
-
-	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
-	gen_one(ARG_ADDRESS_1);
-	gen_one(R_SP);
-	gen_eight(FRAME_TIMESTAMP);
-	gen_one(R_ARG3);
-
+#endif
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 	gen_one(R_ARG4);
 
@@ -412,7 +408,7 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 
 static bool attr_w gen_escape_arg(struct codegen_context *ctx, ip_t ip, uint32_t escape_label)
 {
-	g(gen_load_constant(ctx, R_UPCALL, ip));
+	g(gen_load_constant(ctx, R_SAVED_1, ip));
 
 	gen_insn(INSN_JMP, 0, 0, 0);
 	gen_four(escape_label);
@@ -445,10 +441,10 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_ARG0);
 	gen_eight(0);
-	gen_one(R_UPCALL);
+	gen_one(R_SAVED_1);
 	gen_one(R_FRAME);
 
-	gen_insn(INSN_S390_POP, OP_SIZE_ADDRESS, 0, 0);
+	gen_insn(INSN_S390_POP, OP_SIZE_ADDRESS, R_6, 0);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_SP);
 	gen_eight(FRAME_SIZE + FRAME_REGS);
@@ -464,7 +460,16 @@ static bool attr_w gen_upcall_argument(struct codegen_context attr_unused *ctx, 
 
 static bool attr_w gen_get_upcall_pointer(struct codegen_context *ctx, unsigned offset, unsigned op_size, unsigned reg)
 {
+#ifdef OMIT_R_UPCALL
+	g(gen_address(ctx, R_SP, FRAME_SIZE + FRAME_REGS - (2 << OP_SIZE_ADDRESS), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_SCRATCH_NA_1);
+	gen_address_offset();
+
+	g(gen_address(ctx, R_SCRATCH_NA_1, offset, IMM_PURPOSE_LDR_OFFSET, op_size));
+#else
 	g(gen_address(ctx, R_UPCALL, offset, IMM_PURPOSE_LDR_OFFSET, op_size));
+#endif
 	gen_insn(INSN_MOV, op_size, 0, 0);
 	gen_one(reg);
 	gen_address_offset();
@@ -486,7 +491,16 @@ static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsi
 
 static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t escape_label)
 {
+#ifdef OMIT_R_UPCALL
+	g(gen_address(ctx, R_SP, FRAME_SIZE + FRAME_REGS - (2 << OP_SIZE_ADDRESS), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_SCRATCH_NA_1);
+	gen_address_offset();
+
+	g(gen_address(ctx, R_SCRATCH_NA_1, offsetof(struct cg_upcall_vector_s, ts), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_4));
+#else
 	g(gen_address(ctx, R_UPCALL, offsetof(struct cg_upcall_vector_s, ts), IMM_PURPOSE_LDP_STP_OFFSET, OP_SIZE_4));
+#endif
 	gen_insn(INSN_CMP, OP_SIZE_4, 0, 2);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_SP);
