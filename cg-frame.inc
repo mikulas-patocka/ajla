@@ -866,14 +866,14 @@ static bool spill_can_pair(struct codegen_context *ctx, frame_t slot1, frame_t s
 #if defined(C_LITTLE_ENDIAN)
 	if (slot1 + 1 + (s1 > OP_SIZE_SLOT) != slot2)
 		return false;
-	if (!ARCH_HAS_LDP_STP(ctx->registers[slot1], ctx->registers[slot2], s1, (slot1 * slot_size)))
+	if (!ARCH_HAS_LDP_STP(ctx->registers[slot1], ctx->registers[slot2], s1, slot1 * slot_size))
 		return false;
 	*s = s1;
 	*o = (size_t)slot1 * slot_size;
 #else
 	if (slot2 + 1 + (s2 > OP_SIZE_SLOT) != slot1)
 		return false;
-	if (!ARCH_HAS_LDP_STP(ctx->registers[slot1], ctx->registers[slot2], s1, (slot2 * slot_size)))
+	if (!ARCH_HAS_LDP_STP(ctx->registers[slot1], ctx->registers[slot2], s1, slot2 * slot_size))
 		return false;
 	*s = s2;
 	*o = (size_t)slot2 * slot_size;

@@ -37,7 +37,7 @@
 #define ARCH_IS_3ADDRESS_FP		1
 #define ARCH_HAS_JMP_REG(cond)		((cond) == COND_E || (cond) == COND_NE || (cond) == COND_S || (cond) == COND_L || (cond) == COND_NS || (cond) == COND_GE)
 #define ARCH_HAS_JMP_2REGS(cond)	0
-#define ARCH_HAS_LDP_STP(r1, r2, s, o)	(((s) == OP_SIZE_4 || (s) == OP_SIZE_8))
+#define ARCH_HAS_LDP_STP(r1, r2, s, o)	(((s) == OP_SIZE_4 || (s) == OP_SIZE_8) && (is_address_direct(o, IMM_PURPOSE_LDP_STP_OFFSET, s) || !is_address_direct(o, IMM_PURPOSE_LDR_OFFSET, s)))
 #define ARCH_HAS_FLAGS			1
 #define ARCH_PREFERS_SX(size)		0
 #define ARCH_HAS_BWX			1
@@ -287,11 +287,8 @@ skip_lookup:
 	return true;
 }
 
-static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int64_t imm, unsigned purpose, unsigned size)
+static bool is_address_direct(int64_t imm, unsigned purpose, unsigned size)
 {
-	ctx->base_reg = base;
-	ctx->offset_imm = imm;
-	ctx->offset_reg = false;
 	switch (purpose) {
 		case IMM_PURPOSE_LDR_OFFSET:
 		case IMM_PURPOSE_LDR_SX_OFFSET:
@@ -316,6 +313,16 @@ static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int64
 		default:
 			internal(file_line, "gen_address: invalid purpose %d", purpose);
 	}
+	return false;
+}
+
+static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int64_t imm, unsigned purpose, unsigned size)
+{
+	ctx->base_reg = base;
+	ctx->offset_imm = imm;
+	ctx->offset_reg = false;
+	if (is_address_direct(imm, purpose, size))
+		return true;
 	g(gen_load_constant(ctx, R_OFFSET_IMM, imm));
 	if (purpose == IMM_PURPOSE_LDP_STP_OFFSET) {
 		gen_insn(INSN_ALU, OP_SIZE_ADDRESS, ALU_ADD, 0);
