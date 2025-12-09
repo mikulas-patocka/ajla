@@ -327,7 +327,7 @@ static void init_ctx(struct build_function_context *ctx)
 	ctx->lp = NULL;
 	ctx->lp_size = 0;
 	ctx->escape_data = NULL;
-	ctx->checkpoint_num = 0;
+	ctx->checkpoint_num = checkpoint_num_offset;
 	ctx->leaf = true;
 	for (i = 0; i < n_array_elements(ctx->builtin_type_indices); i++)
 		ctx->builtin_type_indices[i] = no_type_index;

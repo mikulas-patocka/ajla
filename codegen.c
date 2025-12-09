@@ -1778,9 +1778,9 @@ skip_dereference:
 				g(clear_flag_cache(ctx));
 
 				if (SIZEOF_IP_T == 2) {
-					slot_1 = get_code(ctx) / sizeof(char *);
+					slot_1 = (get_code(ctx) - checkpoint_num_offset) / sizeof(char *);
 				} else if (SIZEOF_IP_T == 4) {
-					slot_1 = get_uint32(ctx) / sizeof(char *);
+					slot_1 = (get_uint32(ctx) - checkpoint_num_offset) / sizeof(char *);
 				} else {
 					not_reached();
 					continue;

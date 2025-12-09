@@ -825,7 +825,7 @@ scaled_store_done:
 	gen_one(ARG_ADDRESS_2);
 	gen_one(R_SCRATCH_1);
 	gen_one(R_SCRATCH_2);
-	gen_eight(offsetof(struct data, u_.codegen.unoptimized_code));
+	gen_eight(0);
 
 	goto scaled_jmp_done;
 #endif
@@ -835,7 +835,7 @@ scaled_store_done:
 	gen_one(ARG_ADDRESS_2);
 	gen_one(R_SCRATCH_1);
 	gen_one(R_SCRATCH_2);
-	gen_eight(offsetof(struct data, u_.codegen.unoptimized_code));
+	gen_eight(0);
 
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 	gen_one(R_SCRATCH_1);
@@ -848,7 +848,7 @@ scaled_store_done:
 		gen_one(ARG_ADDRESS_2);
 		gen_one(R_SCRATCH_1);
 		gen_one(R_SCRATCH_2);
-		gen_eight(offsetof(struct data, u_.codegen.unoptimized_code));
+		gen_eight(0);
 
 		goto scaled_jmp_done;
 	}
@@ -859,7 +859,7 @@ scaled_store_done:
 	gen_one(R_SCRATCH_1);
 	gen_one(R_SCRATCH_2);
 
-	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+	g(gen_address(ctx, R_SCRATCH_1, 0, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 	gen_address_offset();
 
@@ -867,7 +867,7 @@ scaled_store_done:
 #endif
 	g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ADD, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_2, 0));
 
-	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+	g(gen_address(ctx, R_SCRATCH_1, 0, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_SCRATCH_1);
 	gen_address_offset();
