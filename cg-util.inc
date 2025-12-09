@@ -150,9 +150,10 @@ static bool attr_w gen_2address_alu1(struct codegen_context *ctx, unsigned size,
 {
 #if defined(ARCH_S390)
 	if (alu == ALU1_NOT) {
-		g(gen_3address_alu_imm(ctx, size, ALU_XOR, dest, src, -1, writes_flags));
-
-		return true;
+		if (!cpu_test_feature(CPU_FEATURE_misc_insn_ext_3)) {
+			g(gen_3address_alu_imm(ctx, size, ALU_XOR, dest, src, -1, writes_flags));
+			return true;
+		}
 	}
 #endif
 	if (!ARCH_IS_2ADDRESS(alu) && dest != src) {

@@ -41,6 +41,10 @@ typedef uint64_t it;
 #define S390_NILF		0xc00b00000000ULL
 #define S390_NIHF		0xc00a00000000ULL
 #define S390_NC			0xd40000000000ULL
+#define S390_NCRK		0xb9f500000000ULL
+#define S390_NCGRK		0xb9e500000000ULL
+#define S390_NNRK		0xb97400000000ULL
+#define S390_NNGRK		0xb96400000000ULL
 
 #define S390_CLR		0x150000000000ULL
 #define S390_CL			0x550000000000ULL
@@ -317,8 +321,6 @@ typedef uint64_t it;
 #define S390_POPCNT		0xb9e180000000ULL
 #define S390_LOCR		0xb9f200000000ULL
 #define S390_LOCGR		0xb9e200000000ULL
-#define S390_NCRK		0xb9f500000000ULL
-#define S390_NCGRK		0xb9e500000000ULL
 #define S390_LOC		0xeb00000000f2ULL
 #define S390_LOCG		0xeb00000000e2ULL
 #define S390_BRCL		0xc00400000000ULL
@@ -1244,6 +1246,20 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 			} else {
 				goto invl;
 			}
+			break;
+		case ALU1_NOT:
+			if (unlikely(writes_flags != 1))
+				goto invl;
+			if (size == OP_SIZE_4) {
+				code = S390_NNRK;
+			} else if (size == OP_SIZE_8) {
+				code = S390_NNGRK;
+			} else {
+				goto invl;
+			}
+			code |= (it)arg1[0] << 20;
+			code |= (it)arg2[0] << 16;
+			code |= (it)arg2[0] << 28;
 			break;
 		case ALU1_BSWAP:
 			if (size == OP_SIZE_4) {
