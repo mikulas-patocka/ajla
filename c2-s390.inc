@@ -322,6 +322,7 @@ typedef uint64_t it;
 #define S390_LOC		0xeb00000000f2ULL
 #define S390_LOCG		0xeb00000000e2ULL
 #define S390_BRCL		0xc00400000000ULL
+#define S390_BIC		0xe30000000047ULL
 #define  S390_BRC_OVF			0x1ULL
 #define  S390_BRC_GREATER		0x2ULL
 #define  S390_BRC_LESS			0x4ULL
@@ -1831,10 +1832,26 @@ static bool attr_w cgen_jmp_2regs(struct codegen_context *ctx, bool lng, unsigne
 
 static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx)
 {
-	uint8_t reg = cget_one(ctx);
-	it code = S390_BCR;
-	code |= (it)(S390_BRC_OVF | S390_BRC_GREATER | S390_BRC_LESS | S390_BRC_EQ) << 36;
-	code |= (it)reg << 32;
+	it code;
+	int64_t imm;
+	uint8_t *arg1 = ctx->code_position;
+	ctx->code_position = arg1 + arg_size(*arg1);
+	if (arg1[0] < 0x10) {
+		code = S390_BCR;
+		code |= (it)(S390_BRC_OVF | S390_BRC_GREATER | S390_BRC_LESS | S390_BRC_EQ) << 36;
+		code |= (it)arg1[0] << 32;
+	} else if (arg1[0] == ARG_ADDRESS_1) {
+		code = S390_BIC;
+		code |= (it)(S390_BRC_OVF | S390_BRC_GREATER | S390_BRC_LESS | S390_BRC_EQ) << 36;
+		imm = get_imm(&arg1[2]);
+		if (imm < -0x80000 || imm >= 0x80000)
+			internal(file_line, "cgen_jmp_indirect: invalid offset");
+		code |= (it)arg1[1] << 28;
+		code |= (it)(imm & 0xfff) << 16;
+		code |= (it)(imm & 0xff000) >> 4;
+	} else {
+		internal(file_line, "cgen_jmp_indirect: invalid argument: %02x", arg1[0]);
+	}
 	g(cgen_s390(ctx, code));
 	return true;
 }

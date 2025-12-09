@@ -561,27 +561,39 @@ skip_ref_argument:
 	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_base), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 	gen_address_offset_compressed();
-#elif defined(R_SCRATCH_B)
-	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_base), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-	gen_one(R_SCRATCH_1);
-	gen_address_offset_compressed();
-
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-	gen_one(R_SCRATCH_B);
-	gen_one(R_SCRATCH_1);
-
-	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
-	gen_one(R_SCRATCH_B);
-#else
-	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_base), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-	gen_one(R_SCRATCH_1);
-	gen_address_offset_compressed();
-
-	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
-	gen_one(R_SCRATCH_1);
+	goto jmp_done;
 #endif
+#if defined(ARCH_S390_64)
+	if (likely(cpu_test_feature(CPU_FEATURE_misc_insn_ext_2))) {
+		g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_base), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+		gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+		gen_address_offset_compressed();
+		goto jmp_done;
+	}
+#endif
+#if defined(R_SCRATCH_B)
+	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_base), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_SCRATCH_1);
+	gen_address_offset_compressed();
+
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_SCRATCH_B);
+	gen_one(R_SCRATCH_1);
+
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(R_SCRATCH_B);
+	goto jmp_done;
+#endif
+	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_base), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_SCRATCH_1);
+	gen_address_offset_compressed();
+
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(R_SCRATCH_1);
+	goto jmp_done;
+jmp_done:
 	g(clear_flag_cache(ctx));
 
 	return true;
