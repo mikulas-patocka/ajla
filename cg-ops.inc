@@ -829,19 +829,6 @@ scaled_store_done:
 
 	goto scaled_jmp_done;
 #endif
-#if defined(ARCH_X86)
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-	gen_one(R_SCRATCH_1);
-	gen_one(ARG_ADDRESS_2);
-	gen_one(R_SCRATCH_1);
-	gen_one(R_SCRATCH_2);
-	gen_eight(0);
-
-	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
-	gen_one(R_SCRATCH_1);
-
-	goto scaled_jmp_done;
-#endif
 #if defined(ARCH_S390_64)
 	if (likely(cpu_test_feature(CPU_FEATURE_misc_insn_ext_2))) {
 		gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
@@ -865,12 +852,21 @@ scaled_store_done:
 
 	goto scaled_jmp_done;
 #endif
-	g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ADD, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_2, 0));
+	if (ARCH_HAS_2REG_M(false, false, OP_SIZE_ADDRESS, 0)) {
+		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+		gen_one(R_SCRATCH_1);
+		gen_one(ARG_ADDRESS_2);
+		gen_one(R_SCRATCH_1);
+		gen_one(R_SCRATCH_2);
+		gen_eight(0);
+	} else {
+		g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ADD, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_2, 0));
 
-	g(gen_address(ctx, R_SCRATCH_1, 0, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-	gen_one(R_SCRATCH_1);
-	gen_address_offset();
+		g(gen_address(ctx, R_SCRATCH_1, 0, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+		gen_one(R_SCRATCH_1);
+		gen_address_offset();
+	}
 
 #if defined(R_SCRATCH_B)
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
