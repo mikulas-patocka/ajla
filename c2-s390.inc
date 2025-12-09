@@ -1849,6 +1849,16 @@ static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx)
 		code |= (it)arg1[1] << 28;
 		code |= (it)(imm & 0xfff) << 16;
 		code |= (it)(imm & 0xff000) >> 4;
+	} else if (arg1[0] == ARG_ADDRESS_2) {
+		code = S390_BIC;
+		code |= (it)(S390_BRC_OVF | S390_BRC_GREATER | S390_BRC_LESS | S390_BRC_EQ) << 36;
+		imm = get_imm(&arg1[3]);
+		if (imm < -0x80000 || imm >= 0x80000)
+			internal(file_line, "cgen_jmp_indirect: invalid offset");
+		code |= (it)arg1[1] << 28;
+		code |= (it)arg1[2] << 32;
+		code |= (it)(imm & 0xfff) << 16;
+		code |= (it)(imm & 0xff000) >> 4;
 	} else {
 		internal(file_line, "cgen_jmp_indirect: invalid argument: %02x", arg1[0]);
 	}

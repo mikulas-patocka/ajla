@@ -842,6 +842,19 @@ scaled_store_done:
 
 	goto scaled_jmp_done;
 #endif
+#if defined(ARCH_S390_64)
+	if (likely(cpu_test_feature(CPU_FEATURE_misc_insn_ext_2))) {
+		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_SCRATCH_2, R_SCRATCH_2, OP_SIZE_ADDRESS, false));
+
+		gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+		gen_one(ARG_ADDRESS_2);
+		gen_one(R_SCRATCH_1);
+		gen_one(R_SCRATCH_2);
+		gen_eight(offsetof(struct data, u_.codegen.unoptimized_code));
+
+		goto scaled_jmp_done;
+	}
+#endif
 #if defined(ARCH_ARM32)
 	gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(i_size(OP_SIZE_ADDRESS), ALU_ADD, false, false, 0));
 	gen_one(R_SCRATCH_1);
