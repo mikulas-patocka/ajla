@@ -820,7 +820,7 @@ scaled_store_done:
 
 	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_FRAME, R_FRAME, new_fp_offset, 0));
 
-#if defined(ARCH_X86) && !defined(ARCH_X86_X32)
+#if (defined(ARCH_X86) && !defined(ARCH_X86_X32)) || defined(ARCH_ARM32)
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 	gen_one(ARG_ADDRESS_2);
 	gen_one(R_SCRATCH_1);
@@ -839,18 +839,6 @@ scaled_store_done:
 
 		goto scaled_jmp_done;
 	}
-#endif
-#if defined(ARCH_ARM32)
-	gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(i_size(OP_SIZE_ADDRESS), ALU_ADD, false, false, 0));
-	gen_one(R_SCRATCH_1);
-	gen_one(R_SCRATCH_1);
-	gen_one(R_SCRATCH_2);
-
-	g(gen_address(ctx, R_SCRATCH_1, 0, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
-	gen_address_offset();
-
-	goto scaled_jmp_done;
 #endif
 	if (ARCH_HAS_2REG_M(false, false, OP_SIZE_ADDRESS, 0)) {
 		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
