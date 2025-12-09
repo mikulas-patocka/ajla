@@ -840,7 +840,7 @@ scaled_store_done:
 		goto scaled_jmp_done;
 	}
 #endif
-	if (ARCH_HAS_2REG_M(false, false, OP_SIZE_ADDRESS, 0)) {
+	if (ARCH_HAS_2REG_M(false, false, 0, 0)) {
 		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 		gen_one(R_SCRATCH_1);
 		gen_one(ARG_ADDRESS_2);
