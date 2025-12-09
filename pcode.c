@@ -828,7 +828,7 @@ static bool gen_checkpoint(struct build_function_context *ctx, const pcode_t *pa
 	mem_free(processed_variables);
 	processed_variables = NULL;
 
-	ctx->checkpoint_num++;
+	ctx->checkpoint_num += sizeof(char *);
 	if (unlikely(!ctx->checkpoint_num)) {
 		fatal_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_SIZE_OVERFLOW), ctx->err, "checkpoint number overflow");
 		goto exception;

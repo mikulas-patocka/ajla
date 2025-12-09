@@ -1778,16 +1778,14 @@ skip_dereference:
 				g(clear_flag_cache(ctx));
 
 				if (SIZEOF_IP_T == 2) {
-					slot_1 = get_code(ctx);
+					slot_1 = get_code(ctx) / sizeof(char *);
 				} else if (SIZEOF_IP_T == 4) {
-					slot_1 = get_uint32(ctx);
+					slot_1 = get_uint32(ctx) / sizeof(char *);
 				} else {
 					not_reached();
 					continue;
 				}
 
-				if (unlikely(!(slot_1 + 1)))
-					return false;
 				while (slot_1 >= ctx->n_entries) {
 					void *err_entries;
 					struct cg_entry e;

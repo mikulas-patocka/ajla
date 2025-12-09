@@ -1215,10 +1215,10 @@ DEFINE_OPCODE_START(OPCODE_CHECKPOINT)
 	frame_t attr_unused id;
 	ip_t len;
 	if (SIZEOF_IP_T == 2) {
-		id = ip[1];
+		id = ip[1] / sizeof(char *);
 		ADVANCE_IP(2);
 	} else if (SIZEOF_IP_T == 4) {
-		id = get_unaligned_32(&ip[1]);
+		id = get_unaligned_32(&ip[1]) / sizeof(char *);
 		ADVANCE_IP(3);
 	} else {
 		not_reached();
