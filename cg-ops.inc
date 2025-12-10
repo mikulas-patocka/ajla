@@ -571,12 +571,11 @@ skip_ref_argument:
 		goto jmp_done;
 	}
 #endif
-#if defined(R_SCRATCH_B)
 	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_base), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_SCRATCH_1);
 	gen_address_offset_compressed();
-
+#if defined(R_SCRATCH_B)
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_SCRATCH_B);
 	gen_one(R_SCRATCH_1);
@@ -585,11 +584,6 @@ skip_ref_argument:
 	gen_one(R_SCRATCH_B);
 	goto jmp_done;
 #endif
-	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_base), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-	gen_one(R_SCRATCH_1);
-	gen_address_offset_compressed();
-
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 	gen_one(R_SCRATCH_1);
 	goto jmp_done;
