@@ -1152,7 +1152,7 @@ fn pcode_Array_Unicode_get_blob(ins : instruction) : list(pcode_t)
 fn generate_Array_Load(ctx : function_context, aa ai : int, t : tokens) : (function_context, int)
 [
 	var at l : int;
-	ctx, at := evaluate_list_type(ctx, aa, t);
+	ctx, at := evaluate_list_type(ctx, aa, true, t);
 	ctx, l := alloc_local_variable(ctx, at, true, false);
 	var pcode_args := list(pcode_t).[ l, 0, aa, ai ];
 	ctx := generate_instruction(ctx, P_Array_Load, pcode_args);

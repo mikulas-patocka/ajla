@@ -669,17 +669,17 @@ fn event_get_keyboard_internal(implicit w : world, h : handle, tc : termcap, loc
 	if os = SystemProperty_OS_DOS then [
 		var vkmap := dos_vkmap;
 		var ctrlmap := dos_ctrlmap;
-		return do_packet_console(h, q, os, vkmap, ctrlmap);
+		return do_packet_console(h, q, os, array_to_list(vkmap), ctrlmap);
 	]
 	if os = SystemProperty_OS_OS2 then [
 		var vkmap := os2_vkmap;
 		var ctrlmap := os2_ctrlmap;
-		return do_packet_console(h, q, os, vkmap, ctrlmap);
+		return do_packet_console(h, q, os, array_to_list(vkmap), ctrlmap);
 	]
 	if os = SystemProperty_OS_Windows then [
 		var vkmap := win32_vkmap;
 		var ctrlmap := win32_ctrlmap;
-		return do_packet_console(h, q, os, vkmap, ctrlmap);
+		return do_packet_console(h, q, os, array_to_list(vkmap), ctrlmap);
 	]
 	stty(h, stty_flag_raw or stty_flag_noecho);
 	var ctx := kbd_context.[

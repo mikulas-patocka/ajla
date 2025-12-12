@@ -356,7 +356,7 @@ fn record_list_create(ctx : function_context, vd : variable_dictionary, t : toke
 	 = LIST CREATION =
 	 =================}
 
-	var type_cc, type_var := list_type(ctx, cc, typ, true, t);
+	var type_cc, type_var, shape_cc, shape_typ := list_type(ctx, cc, typ, true, t);
 
 	var content := t[left_bracket + 1 .. len(t) - 1];
 	var fields := empty(int);
@@ -424,7 +424,7 @@ fn list_sub(ctx : function_context, vd : variable_dictionary, t t2 t3 : tokens, 
 	var aa am an ax : int;
 	ctx, aa := parse_expression(ctx, vd, t, in_type);
 
-	ctx, ax := evaluate_list_type(ctx, aa, t);
+	ctx, ax := evaluate_list_type(ctx, aa, false, t);
 
 	ctx, am := parse_expression(ctx, vd, t2, in_type);
 	var m : teq;

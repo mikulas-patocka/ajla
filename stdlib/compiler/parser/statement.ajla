@@ -329,7 +329,9 @@ fn parse_statement_assign(ctx : function_context, vd : variable_dictionary, can_
 				lv_index += skip + 1;
 
 				var cc_base, typ_base := get_base_definition(ctx, cc, typ, false);
-				cc, typ := list_type(ctx, cc_base, typ_base, true, index_ex);
+				var shape_cc : compare_context;
+				var shape_typ : int;
+				cc, typ, shape_cc, shape_typ := list_type(ctx, cc_base, typ_base, true, index_ex);
 
 				var ai : int;
 				var is_array : bool;

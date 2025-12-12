@@ -80,8 +80,8 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 fn evaluate_type_var(ctx : function_context, cc : compare_context, typ : int, fn_stack : list(compare_fn_stack), t : tokens) : (function_context, int);
 
 fn array_shape(ctx : function_context, cc : compare_context, a : int, t : tokens) : (bool, compare_context, list(int));
-fn list_type(ctx : function_context, cc : compare_context, a : int, err : bool, t : tokens) : (compare_context, int);
-fn evaluate_list_type(ctx : function_context, a : int, t : tokens) : (function_context, int);
+fn list_type(ctx : function_context, cc : compare_context, a : int, err : bool, t : tokens) : (compare_context, int, compare_context, int);
+fn evaluate_list_type(ctx : function_context, a : int, accept_array : bool, t : tokens) : (function_context, int);
 fn get_list_id : function_unique_id;
 
 fn generate_assumes_or_claims(ctx : function_context, a : int, inv : list(compare_argument), cl : bool, t : tokens) : function_context;
@@ -182,9 +182,18 @@ fn convert_type(ctx : function_context, vd : variable_dictionary, a : int, cc : 
 	if match is eq then [
 		c := a;
 	] else [
-		var list_cc_from, list_typ_from := list_type(ctx, cc_from, typ_from, false, t);
-		var list_cc_to, list_typ_to := list_type(ctx, cc_to, typ_to, false, t);
+		var list_cc_from, list_typ_from, shape_cc_from, shape_typ_from := list_type(ctx, cc_from, typ_from, false, t);
+		var list_cc_to, list_typ_to, shape_cc_to, shape_typ_to := list_type(ctx, cc_to, typ_to, false, t);
 		if list_typ_from <> T_InvalidType, list_typ_to <> T_InvalidType then [
+			if shape_typ_from <> T_InvalidType or shape_typ_to <> T_InvalidType then [
+				if shape_typ_from = T_InvalidType or shape_typ_to = T_InvalidType then
+					goto try_explicit_conversion;
+				match := verify_type_equality(ctx, shape_cc_from, shape_typ_from, empty(compare_fn_stack), shape_cc_to, shape_typ_to, empty(compare_fn_stack));
+				if match is inferred then
+					return ctx, 0, match;
+				if not match is eq then
+					goto try_explicit_conversion;
+			]
 			var ls_cc_from, ls_typ_from, ls_inv_from := get_type_invariants(ctx, list_cc_from, list_typ_from);
 			var ls_cc_to, ls_typ_to, ls_inv_to := get_type_invariants(ctx, list_cc_to, list_typ_to);
 			match := verify_type_equality(ctx, ls_cc_from, ls_typ_from, empty(compare_fn_stack), ls_cc_to, ls_typ_to, empty(compare_fn_stack));
@@ -1877,7 +1886,7 @@ fn array_shape(ctx : function_context, cc : compare_context, a : int, t : tokens
 	return false, empty_compare_context, empty(int);
 ]
 
-fn list_type(ctx : function_context, cc : compare_context, a : int, err : bool, t : tokens) : (compare_context, int)
+fn list_type(ctx : function_context, cc : compare_context, a : int, err : bool, t : tokens) : (compare_context, int, compare_context, int)
 [
 processed_where:
 	var instrm := get_defined_maybe(cc, a);
@@ -1891,12 +1900,12 @@ processed_where:
 		if success, fid.path_index = 0, fid.unit_string = i_encode("system"), not fid.program, fid.function_index = [ predefined_list ] then [
 			if len(args) <> 1 then
 				abort internal("list_type: list doesn't have one argument: " + ntos(len(args)));
-			return args[0].cc, args[0].idx;
+			return args[0].cc, args[0].idx, empty_compare_context, T_InvalidType;
 		]
 		if success, fid.path_index = 0, fid.unit_string = i_encode("system"), not fid.program, fid.function_index = [ predefined_xarray ] then [
 			if len(args) <> 2 then
 				abort internal("list_type: array doesn't have two arguments: " + ntos(len(args)));
-			return args[1].cc, args[1].idx;
+			return args[1].cc, args[1].idx, args[0].cc, args[0].idx;
 		]
 		//if err then eval debug("call: " + i_decode(fid.unit_string) + ", " + ntos(fid.function_index[0]));
 	]
@@ -1904,15 +1913,17 @@ processed_where:
 		//if instrm is j then eval debug("opcode: " + ntos(instrm.j.opcode));
 		abort compiler_error("List or array type expected", t);
 	] else [
-		return empty_compare_context, T_InvalidType;
+		return empty_compare_context, T_InvalidType, empty_compare_context, T_InvalidType;
 	]
 ]
 
-fn evaluate_list_type(ctx : function_context, a : int, t : tokens) : (function_context, int)
+fn evaluate_list_type(ctx : function_context, a : int, accept_array : bool, t : tokens) : (function_context, int)
 [
 	var cc, typ := get_deep_type_of_var(ctx, a);
-	cc, typ := list_type(ctx, cc, typ, true, t);
-	return evaluate_type(ctx, cc, typ, empty(compare_fn_stack), t);
+	var cc2, typ2, shape_cc, shape_typ := list_type(ctx, cc, typ, true, t);
+	if not accept_array and shape_typ <> T_InvalidType then
+		abort compiler_error("List type expected", t);
+	return evaluate_type(ctx, cc2, typ2, empty(compare_fn_stack), t);
 ]
 
 fn get_list_id : function_unique_id

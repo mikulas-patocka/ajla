@@ -33,7 +33,6 @@ private fn is_positive~inline(n : int) : bool
 ]
 
 type nat := int where is_positive(value);
-//type nat := int;
 
 private type xarray~inline(dim : list(nat), t : type);
 fn len~inline(t : type, a : list(t)) : nat;

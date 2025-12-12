@@ -60,7 +60,7 @@ fn get_array_type_cc(ctx : function_context, cc : compare_context, typ : int) : 
 	cc, typ := get_base_definition(ctx, cc, typ, false);
 	if typ < 0 and typ <> T_UnknownType then
 		return ctx, typ;
-	var list_cc, list_typ := list_type(ctx, cc, typ, false, empty(token));
+	var list_cc, list_typ, shape_cc, shape_typ := list_type(ctx, cc, typ, false, empty(token));
 	if list_typ <> T_InvalidType then [
 		//return ctx, T_Undetermined;
 		var sub_lt : int;
