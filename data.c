@@ -49,6 +49,8 @@ static refcount_t n_dereferenced;
  * FRAME *
  *********/
 
+struct data top_frame_marker;
+
 static struct stack_bottom *stack_alloc_space(size_t needed_size, bool leaf, ajla_error_t *mayfail)
 {
 	const size_t additional_space = SIZEOF_STACK_BOTTOM + SIZEOF_FRAME_STRUCT;
@@ -88,7 +90,7 @@ exact:
 			return NULL;
 	}
 	stack_end = cast_ptr(struct frame_struct *, cast_ptr(char *, stack) + SIZEOF_STACK_BOTTOM + extra_space + needed_size);
-	stack_end->function = NULL;
+	stack_end->function = &top_frame_marker;
 	stack_end->available_slots = stack->useable_slots = (stack_size_t)slots;
 	return stack;
 }
@@ -3387,6 +3389,9 @@ void name(data_init)(void)
 
 	oom = thunk_alloc_exception_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_OUT_OF_MEMORY), NULL pass_file_line);
 	out_of_memory_thunk = pointer_thunk(oom);
+#ifdef HAVE_CODEGEN
+	da(&top_frame_marker,function)->codegen = out_of_memory_thunk;
+#endif
 
 #ifdef HAVE_CODEGEN_TRAPS
 	rwmutex_init(&traps_lock);

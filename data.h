@@ -33,6 +33,7 @@
 #include "profile.h"
 
 
+#define top_frame_marker		name(top_frame_marker)
 #define stack_alloc			name(stack_alloc)
 #define stack_expand			name(stack_expand)
 #define stack_split			name(stack_split)
@@ -1450,9 +1451,11 @@ static inline frame_s * attr_fastcall frame_up(frame_s *fp)
 	return cast_ptr(frame_s *, next);
 }
 
+extern struct data top_frame_marker;
+
 static inline bool frame_is_top(frame_s *fp)
 {
-	return get_frame(fp)->function == NULL;
+	return get_frame(fp)->function == &top_frame_marker;
 }
 
 static inline struct stack_bottom *frame_stack_bottom(frame_s *fp)
