@@ -609,12 +609,26 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 
 	g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, new_fp_offset + frame_offs(function), false, R_SCRATCH_2));
 
-	g(gen_address(ctx, R_SCRATCH_2, offsetof(struct data, u_.function.codegen), ARCH_PREFERS_SX(OP_SIZE_SLOT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_SLOT));
-	gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, 0);
-	gen_one(R_SCRATCH_1);
-	gen_address_offset();
+#if defined(ARCH_X86)
+	if (POINTER_THUNK_BIT < 8) {
+		g(gen_address(ctx, R_SCRATCH_2, offsetof(struct data, u_.function.codegen), ARCH_PREFERS_SX(OP_SIZE_SLOT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
+		g(gen_imm(ctx, 1ULL << POINTER_THUNK_BIT, IMM_PURPOSE_TEST, OP_SIZE_1));
+		gen_insn(INSN_TEST, OP_SIZE_1, 0, 1);
+		gen_address_offset();
+		gen_imm_offset();
 
-	g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, NO_FRAME_T, escape_label));
+		gen_insn(INSN_JMP_COND, OP_SIZE_1, COND_NE, 0);
+		gen_four(escape_label);
+	} else
+#endif
+	{
+		g(gen_address(ctx, R_SCRATCH_2, offsetof(struct data, u_.function.codegen), ARCH_PREFERS_SX(OP_SIZE_SLOT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_SLOT));
+		gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, 0);
+		gen_one(R_SCRATCH_1);
+		gen_address_offset();
+
+		g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, NO_FRAME_T, escape_label));
+	}
 	g(gen_barrier(ctx));
 
 	g(gen_load_raw(ctx, log_2(sizeof(timestamp_t)), garbage, R_FRAME, 0, frame_offs(timestamp), false, R_SCRATCH_1));
