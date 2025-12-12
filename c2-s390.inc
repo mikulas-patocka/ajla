@@ -309,6 +309,8 @@ typedef uint64_t it;
 #define S390_CLI		0x950000000000ULL
 #define S390_CLIY		0xeb0000000055ULL
 
+#define S390_TM			0x910000000000ULL
+#define S390_TMY		0xeb0000000051ULL
 #define S390_TMLL		0xa70100000000ULL
 #define S390_TMLH		0xa70000000000ULL
 #define S390_TMHL		0xa70300000000ULL
@@ -1182,6 +1184,22 @@ static bool attr_w cgen_test(struct codegen_context *ctx, unsigned size)
 		} else {
 			goto invl;
 		}
+		g(cgen_s390(ctx, code));
+		return true;
+	}
+	if (arg1[0] == ARG_ADDRESS_1 && arg2[0] == ARG_IMM && size == OP_SIZE_1) {
+		uint8_t b = arg1[1];
+		int64_t immt = get_imm(&arg2[1]);;
+		int64_t imm = get_imm(&arg1[2]);;
+		if (imm >= 0 && imm < 0x1000) {
+			code = S390_TM;
+		} else {
+			code = S390_TMY;
+			code |= (it)(imm & 0xff000) >> 4;
+		}
+		code |= (it)(imm & 0xfff) << 16;
+		code |= (it)b << 28;
+		code |= (it)(immt & 0xff) << 32;
 		g(cgen_s390(ctx, code));
 		return true;
 	}

@@ -609,13 +609,17 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 
 	g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, new_fp_offset + frame_offs(function), false, R_SCRATCH_2));
 
-#if defined(ARCH_X86)
+#if defined(ARCH_X86) || defined(ARCH_S390)
 	if (POINTER_THUNK_BIT < 8) {
-		g(gen_address(ctx, R_SCRATCH_2, offsetof(struct data, u_.function.codegen), ARCH_PREFERS_SX(OP_SIZE_SLOT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
-		g(gen_imm(ctx, 1ULL << POINTER_THUNK_BIT, IMM_PURPOSE_TEST, OP_SIZE_1));
+#if defined(C_LITTLE_ENDIAN)
+		g(gen_address(ctx, R_SCRATCH_2, offsetof(struct data, u_.function.codegen), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
+#else
+		g(gen_address(ctx, R_SCRATCH_2, offsetof(struct data, u_.function.codegen) + sizeof(pointer_t) - 1, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
+#endif
 		gen_insn(INSN_TEST, OP_SIZE_1, 0, 1);
 		gen_address_offset();
-		gen_imm_offset();
+		gen_one(ARG_IMM);
+		gen_eight(1ULL << POINTER_THUNK_BIT);
 
 		gen_insn(INSN_JMP_COND, OP_SIZE_1, COND_NE, 0);
 		gen_four(escape_label);
