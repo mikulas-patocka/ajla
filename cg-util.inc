@@ -309,6 +309,28 @@ static bool attr_w gen_load_code_32(struct codegen_context *ctx, unsigned dest, 
 	return true;
 }
 
+#if defined(ARCH_X86) || defined(ARCH_S390)
+static bool attr_w gen_test_bit(struct codegen_context *ctx, unsigned attr_unused size, unsigned reg_base, int64_t offset, unsigned bit, unsigned cond, uint32_t label)
+{
+#if defined(C_LITTLE_ENDIAN)
+	offset += bit >> 3;
+#else
+	offset += (1U << size) - 1 - (bit >> 3);
+#endif
+	bit &= 7;
+	g(gen_address(ctx, reg_base, offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
+	gen_insn(INSN_TEST, OP_SIZE_1, 0, 1);
+	gen_address_offset();
+	gen_one(ARG_IMM);
+	gen_eight(1U << bit);
+
+	gen_insn(INSN_JMP_COND, OP_SIZE_1, cond, 0);
+	gen_four(label);
+
+	return true;
+}
+#endif
+
 static bool attr_w attr_unused gen_cmp_dest_reg(struct codegen_context *ctx, unsigned attr_unused size, unsigned reg1, unsigned reg2, unsigned reg_dest, int64_t imm, unsigned cond)
 {
 	unsigned neg_result = false;

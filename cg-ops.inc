@@ -610,29 +610,15 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 	g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, new_fp_offset + frame_offs(function), false, R_SCRATCH_2));
 
 #if defined(ARCH_X86) || defined(ARCH_S390)
-	if (POINTER_THUNK_BIT < 8) {
-#if defined(C_LITTLE_ENDIAN)
-		g(gen_address(ctx, R_SCRATCH_2, offsetof(struct data, u_.function.codegen), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
+	g(gen_test_bit(ctx, OP_SIZE_SLOT, R_SCRATCH_2, offsetof(struct data, u_.function.codegen), POINTER_THUNK_BIT, COND_NE, escape_label));
 #else
-		g(gen_address(ctx, R_SCRATCH_2, offsetof(struct data, u_.function.codegen) + sizeof(pointer_t) - 1, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
-#endif
-		gen_insn(INSN_TEST, OP_SIZE_1, 0, 1);
-		gen_address_offset();
-		gen_one(ARG_IMM);
-		gen_eight(1ULL << POINTER_THUNK_BIT);
+	g(gen_address(ctx, R_SCRATCH_2, offsetof(struct data, u_.function.codegen), ARCH_PREFERS_SX(OP_SIZE_SLOT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_SLOT));
+	gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, 0);
+	gen_one(R_SCRATCH_1);
+	gen_address_offset();
 
-		gen_insn(INSN_JMP_COND, OP_SIZE_1, COND_NE, 0);
-		gen_four(escape_label);
-	} else
+	g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, NO_FRAME_T, escape_label));
 #endif
-	{
-		g(gen_address(ctx, R_SCRATCH_2, offsetof(struct data, u_.function.codegen), ARCH_PREFERS_SX(OP_SIZE_SLOT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_SLOT));
-		gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, 0);
-		gen_one(R_SCRATCH_1);
-		gen_address_offset();
-
-		g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, NO_FRAME_T, escape_label));
-	}
 	g(gen_barrier(ctx));
 
 	g(gen_load_raw(ctx, log_2(sizeof(timestamp_t)), garbage, R_FRAME, 0, frame_offs(timestamp), false, R_SCRATCH_1));
@@ -680,27 +666,12 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 				return false;
 
 #if defined(ARCH_X86) || defined(ARCH_S390)
-			if (OPCODE_MAY_RETURN_FLAT < 0x100) {
-#if defined(C_LITTLE_ENDIAN)
-				g(gen_address(ctx, R_SAVED_1, retval_offset + 2 + 2 * (ARG_MODE_N >= 3), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
+			g(gen_test_bit(ctx, OP_SIZE_2, R_SAVED_1, retval_offset + 2 + 2 * (ARG_MODE_N >= 3), log_2(OPCODE_MAY_RETURN_FLAT), COND_E, flat_to_data_label));
 #else
-				g(gen_address(ctx, R_SAVED_1, retval_offset + 2 + 2 * (ARG_MODE_N >= 3) + 1, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
-#endif
-				g(gen_imm(ctx, OPCODE_MAY_RETURN_FLAT, IMM_PURPOSE_TEST, OP_SIZE_1));
-				gen_insn(INSN_TEST, OP_SIZE_1, 0, 1);
-				gen_address_offset();
-				gen_one(ARG_IMM);
-				gen_eight(OPCODE_MAY_RETURN_FLAT);
+			g(gen_load_two(ctx, R_SCRATCH_1, R_SAVED_1, retval_offset + 2 + 2 * (ARG_MODE_N >= 3)));
 
-				gen_insn(INSN_JMP_COND, OP_SIZE_1, COND_E, 0);
-				gen_four(flat_to_data_label);
-			} else
+			g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, OP_SIZE_NATIVE, R_SCRATCH_1, OPCODE_MAY_RETURN_FLAT, COND_E, flat_to_data_label, -1));
 #endif
-			{
-				g(gen_load_two(ctx, R_SCRATCH_1, R_SAVED_1, retval_offset + 2 + 2 * (ARG_MODE_N >= 3)));
-
-				g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, OP_SIZE_NATIVE, R_SCRATCH_1, OPCODE_MAY_RETURN_FLAT, COND_E, flat_to_data_label, -1));
-			}
 #if defined(ARCH_X86)
 			if (is_power_of_2(t->size) && t->size <= 2U << OP_SIZE_NATIVE) {
 				if (t->size == 2U << OP_SIZE_NATIVE) {
