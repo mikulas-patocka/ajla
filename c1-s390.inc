@@ -45,7 +45,7 @@
 #define ARCH_IS_3ADDRESS(alu, f)	cpu_test_feature(CPU_FEATURE_misc_45)
 #define ARCH_IS_3ADDRESS_IMM(alu, f)	(cpu_test_feature(CPU_FEATURE_misc_45) && ((alu) == ALU_ADD || (alu) == ALU_SUB))
 #define ARCH_IS_3ADDRESS_ROT(alu, size)	cpu_test_feature(CPU_FEATURE_misc_45)
-#define ARCH_IS_3ADDRESS_ROT_IMM(alu)	0
+#define ARCH_IS_3ADDRESS_ROT_IMM(alu)	cpu_test_feature(CPU_FEATURE_misc_45)
 #define ARCH_IS_2ADDRESS(alu)		1
 #define ARCH_IS_3ADDRESS_FP		0
 #define ARCH_HAS_JMP_REG(cond)		(cpu_test_feature(CPU_FEATURE_general_insn_ext) && USE_BRCL)
