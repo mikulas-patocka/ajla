@@ -679,16 +679,20 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 			if (unlikely(!flat_to_data_label))
 				return false;
 
-#if defined(ARCH_X86)
+#if defined(ARCH_X86) || defined(ARCH_S390)
 			if (OPCODE_MAY_RETURN_FLAT < 0x100) {
+#if defined(C_LITTLE_ENDIAN)
 				g(gen_address(ctx, R_SAVED_1, retval_offset + 2 + 2 * (ARG_MODE_N >= 3), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
+#else
+				g(gen_address(ctx, R_SAVED_1, retval_offset + 2 + 2 * (ARG_MODE_N >= 3) + 1, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
+#endif
 				g(gen_imm(ctx, OPCODE_MAY_RETURN_FLAT, IMM_PURPOSE_TEST, OP_SIZE_1));
 				gen_insn(INSN_TEST, OP_SIZE_1, 0, 1);
 				gen_address_offset();
 				gen_one(ARG_IMM);
 				gen_eight(OPCODE_MAY_RETURN_FLAT);
 
-				gen_insn(INSN_JMP_COND, log_2(sizeof(code_t)), COND_E, 0);
+				gen_insn(INSN_JMP_COND, OP_SIZE_1, COND_E, 0);
 				gen_four(flat_to_data_label);
 			} else
 #endif
