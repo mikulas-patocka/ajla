@@ -703,9 +703,9 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 			} else
 #endif
 			{
-				g(gen_lea3(ctx, R_SCRATCH_2, R_FRAME, R_SAVED_2, OP_SIZE_SLOT, new_fp_offset));
+				g(gen_lea3(ctx, R_SCRATCH_2, R_FRAME, R_SAVED_2, OP_SIZE_SLOT, 0));
 
-				g(gen_memcpy_from_slot(ctx, R_SCRATCH_2, 0, src_arg->slot));
+				g(gen_memcpy_from_slot(ctx, R_SCRATCH_2, new_fp_offset, src_arg->slot));
 			}
 
 			gen_insn(INSN_JMP, 0, 0, 0);
