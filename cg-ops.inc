@@ -755,15 +755,15 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 skip_ref_argument:
 		gen_label(write_ptr_label);
 
-#if defined(ARCH_X86)
-		gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
-		gen_one(ARG_ADDRESS_2 + OP_SIZE_SLOT);
-		gen_one(R_FRAME);
-		gen_one(R_SAVED_2);
-		gen_eight(new_fp_offset);
-		gen_one(R_RET0);
-		goto scaled_store_done;
-#endif
+		if (ARCH_HAS_2REG_M(true, false, OP_SIZE_SLOT, new_fp_offset)) {
+			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
+			gen_one(ARG_ADDRESS_2 + OP_SIZE_SLOT);
+			gen_one(R_FRAME);
+			gen_one(R_SAVED_2);
+			gen_eight(new_fp_offset);
+			gen_one(R_RET0);
+			goto scaled_store_done;
+		}
 		if (ARCH_HAS_SHIFTED_ADD(OP_SIZE_SLOT)) {
 			gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(i_size(OP_SIZE_ADDRESS), ALU_ADD, false, false, 0));
 			gen_one(R_SCRATCH_3);
@@ -781,12 +781,21 @@ skip_ref_argument:
 
 		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_SCRATCH_3, R_SAVED_2, OP_SIZE_SLOT, false));
 
-		g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ADD, R_SCRATCH_3, R_SCRATCH_3, R_FRAME, 0));
+		if (ARCH_HAS_2REG_M(true, false, 0, new_fp_offset)) {
+			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
+			gen_one(ARG_ADDRESS_2);
+			gen_one(R_FRAME);
+			gen_one(R_SCRATCH_3);
+			gen_eight(new_fp_offset);
+			gen_one(R_RET0);
+		} else {
+			g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ADD, R_SCRATCH_3, R_SCRATCH_3, R_FRAME, 0));
 
-		g(gen_address(ctx, R_SCRATCH_3, new_fp_offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_SLOT));
-		gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
-		gen_address_offset();
-		gen_one(R_RET0);
+			g(gen_address(ctx, R_SCRATCH_3, new_fp_offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_SLOT));
+			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
+			gen_address_offset();
+			gen_one(R_RET0);
+		}
 
 scaled_store_done:
 		g(gen_set_1_variable(ctx, R_SAVED_2, new_fp_offset, true));
