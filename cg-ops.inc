@@ -1925,7 +1925,7 @@ static bool attr_w gen_scaled_array_address(struct codegen_context *ctx, size_t 
 	if (is_power_of_2(element_size)) {
 		unsigned shift = log_2(element_size);
 #if defined(ARCH_X86)
-		if (shift <= 3 && imm_is_32bit(offset_src)) {
+		if (shift <= 3 && is_direct_offset(offset_src)) {
 			gen_insn(INSN_LEA3, i_size(OP_SIZE_ADDRESS), shift, 0);
 			gen_one(reg_dst);
 			gen_one(reg_src);
@@ -2001,7 +2001,7 @@ static bool attr_w gen_scaled_array_address(struct codegen_context *ctx, size_t 
 		}
 	}
 #if defined(ARCH_S390)
-	if (offset_src && s390_inline_address(offset_src)) {
+	if (offset_src && is_direct_offset(offset_src)) {
 		gen_insn(INSN_LEA3, i_size(OP_SIZE_ADDRESS), 0, 0);
 		gen_one(reg_dst);
 		gen_one(reg_index);

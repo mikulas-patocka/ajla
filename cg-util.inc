@@ -898,15 +898,22 @@ static bool attr_w gen_cmp_extended(struct codegen_context *ctx, unsigned cmp_op
 
 static bool attr_w gen_lea3(struct codegen_context *ctx, unsigned dest, unsigned base, unsigned shifted, unsigned shift, int64_t offset)
 {
-#if defined(ARCH_X86)
+#if defined(ARCH_X86) || defined(ARCH_S390)
+#if defined(ARCH_S390)
+	if (shift) {
+		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, dest, shifted, shift, false));
+		shifted = dest;
+		shift = 0;
+	}
+#endif
 	gen_insn(INSN_LEA3, i_size(OP_SIZE_ADDRESS), shift, 0);
 	gen_one(dest);
 	gen_one(base);
 	gen_one(shifted);
 	gen_one(ARG_IMM);
-	gen_eight(likely(imm_is_32bit(offset)) ? offset : 0);
+	gen_eight(likely(is_direct_offset(offset)) ? offset : 0);
 
-	if (unlikely(!imm_is_32bit(offset)))
+	if (unlikely(!is_direct_offset(offset)))
 		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, dest, dest, offset, 0));
 
 	return true;

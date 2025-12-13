@@ -326,7 +326,7 @@ static bool attr_w cgen_rm_insn(struct codegen_context *ctx, int32_t sse_prefix,
 	} else {
 		uint8_t *imm_ptr = arg + arg_size(arg[0]) - 8;
 		imm = get_imm(imm_ptr);
-		if (unlikely(!imm_is_32bit(imm)))
+		if (unlikely(!is_direct_offset(imm)))
 			internal(file_line, "cgen_rm_insn: immediate out of range: %"PRIxMAX"", (uintmax_t)imm);
 		if (arg[0] == ARG_ADDRESS_0) {
 address_0:
@@ -529,7 +529,7 @@ static bool attr_w cgen_push(struct codegen_context *ctx, unsigned aux)
 	if (arg1[0] == ARG_IMM) {
 		int64_t imm;
 		imm = get_imm(&arg1[1]);
-		if (unlikely(!imm_is_32bit(imm)))
+		if (unlikely(!is_direct_offset(imm)))
 			internal(file_line, "cgen_push: immediate out of range: %"PRIxMAX"", (uintmax_t)imm);
 		if (imm >= -0x80 && imm <= 0x7f) {
 			cgen_one(X86_PUSH_IMM8);
@@ -630,7 +630,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool una
 				return true;
 			}
 mov_rm:
-			if (unlikely(!imm_is_32bit(imm)))
+			if (unlikely(!is_direct_offset(imm)))
 				internal(file_line, "cgen_mov: immediate out of range: %"PRIxMAX"", (uintmax_t)imm);
 			g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X86_MOV_RM16_IMM16, maximum(size, OP_SIZE_4), maximum(size, OP_SIZE_4), false, X86_MOV_R16_IMM16_REG, arg1));
 			cgen_four(imm);
@@ -813,7 +813,7 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 			uint8_t code;
 			int64_t imm;
 			imm = get_imm(&arg3[1]);
-			if (unlikely(!imm_is_32bit(imm)))
+			if (unlikely(!is_direct_offset(imm)))
 				internal(file_line, "cgen_alu: immediate out of range: %"PRIxMAX"", (uintmax_t)imm);
 			if (unlikely(size == OP_SIZE_1))
 				internal(file_line, "cgen_alu: byte mul with imm not supported");
@@ -849,7 +849,7 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 		bool bit8;
 		int64_t imm;
 		imm = get_imm(&arg3[1]);
-		if (unlikely(!imm_is_32bit(imm)))
+		if (unlikely(!is_direct_offset(imm)))
 			internal(file_line, "cgen_alu: immediate out of range: %"PRIxMAX"", (uintmax_t)imm);
 
 		if (!(writes_flags & 2)) {
@@ -1025,7 +1025,7 @@ static bool attr_w cgen_test(struct codegen_context *ctx, unsigned size)
 			} else if (size == OP_SIZE_4) {
 				cgen_one(X86_TEST_AX_IMM16);
 			} else {
-				if (unlikely(!imm_is_32bit(imm)))
+				if (unlikely(!is_direct_offset(imm)))
 					internal(file_line, "cgen_test: immediate out of range: %"PRIxMAX"", (uintmax_t)imm);
 				g(cgen_rex2(ctx, X86_REX2_W));
 				cgen_one(X86_TEST_AX_IMM16);
@@ -1040,7 +1040,7 @@ static bool attr_w cgen_test(struct codegen_context *ctx, unsigned size)
 		} else if (size == OP_SIZE_4) {
 			cgen_four(imm);
 		} else {
-			if (unlikely(!imm_is_32bit(imm)))
+			if (unlikely(!is_direct_offset(imm)))
 				internal(file_line, "cgen_test: immediate out of range: %"PRIxMAX"", (uintmax_t)imm);
 			cgen_four(imm);
 		}
@@ -1575,7 +1575,7 @@ static bool attr_w resolve_relocation(struct codegen_context *ctx, struct reloca
 		}
 		case JMP_SHORT: {
 			int32_t i32;
-			if (!imm_is_32bit(offs))
+			if (!is_direct_offset(offs))
 				return false;
 			i32 = offs;
 			memcpy(ctx->mcode + reloc->position, &i32, 4);

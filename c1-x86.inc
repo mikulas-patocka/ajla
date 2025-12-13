@@ -53,7 +53,7 @@
 #define ARCH_HAS_MUL			1
 #define ARCH_HAS_DIV			1
 #define ARCH_HAS_ANDN			0
-#define ARCH_HAS_2REG_M(st, fp, sh, im)	(imm_is_32bit(im))
+#define ARCH_HAS_2REG_M(st, fp, sh, im)	(is_direct_offset(im))
 #define ARCH_HAS_BTX(btx, size, cnst)	((btx) != BTX_BTEXT && (size) >= OP_SIZE_2)
 #define ARCH_HAS_SHIFTED_ADD(bits)	((bits) <= 3)
 #define ARCH_HAS_CMOV			(cpu_test_feature(CPU_FEATURE_cmov) * 0x5)
@@ -296,7 +296,7 @@ static bool attr_w imm_is_8bit(int64_t imm)
 	return imm >= -0x80 && imm < 0x80;
 }
 
-static bool attr_w imm_is_32bit(int64_t attr_unused imm)
+static bool attr_w is_direct_offset(int64_t attr_unused imm)
 {
 #ifdef ARCH_X86_32
 	return true;
@@ -331,20 +331,14 @@ static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int64
 		default:
 			internal(file_line, "gen_address: invalid purpose %d", purpose);
 	}
-#ifndef ARCH_X86_32
-	if (unlikely(!imm_is_32bit(imm)))
+	if (unlikely(!is_direct_offset(imm)))
 		return false;
-#endif
 	return true;
 }
 
 static bool is_direct_const(int64_t attr_unused imm, unsigned attr_unused purpose, unsigned attr_unused size)
 {
-#ifdef ARCH_X86_32
-	return true;
-#else
-	return imm_is_32bit(imm);
-#endif
+	return is_direct_offset(imm);
 }
 
 static bool attr_w attr_unused gen_x86_push(struct codegen_context *ctx, unsigned reg, bool forwarding)

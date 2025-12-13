@@ -57,7 +57,7 @@
 #define ARCH_HAS_MUL			1
 #define ARCH_HAS_DIV			1
 #define ARCH_HAS_ANDN			cpu_test_feature(CPU_FEATURE_misc_insn_ext_3)
-#define ARCH_HAS_2REG_M(st, fp, sh, im)	(cpu_test_feature(CPU_FEATURE_long_displacement) && cpu_test_feature(CPU_FEATURE_extended_imm) && !(sh) && s390_inline_address(im))
+#define ARCH_HAS_2REG_M(st, fp, sh, im)	(cpu_test_feature(CPU_FEATURE_long_displacement) && cpu_test_feature(CPU_FEATURE_extended_imm) && !(sh) && is_direct_offset(im))
 #define ARCH_HAS_BTX(btx, size, cnst)	0
 #define ARCH_HAS_SHIFTED_ADD(bits)	0
 #define ARCH_HAS_CMOV			(cpu_test_feature(CPU_FEATURE_misc_45) * 0x5)
@@ -211,7 +211,7 @@ static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, 
 	}
 }
 
-static bool attr_w s390_inline_address(int64_t imm)
+static bool attr_w is_direct_offset(int64_t imm)
 {
 	if (likely(cpu_test_feature(CPU_FEATURE_long_displacement))) {
 		if (likely(imm >= -0x80000) && likely(imm < 0x80000))
@@ -244,7 +244,7 @@ static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int64
 		default:
 			internal(file_line, "gen_address: invalid purpose %d", purpose);
 	}
-	if (s390_inline_address(imm))
+	if (is_direct_offset(imm))
 		return true;
 
 load_cnst:
