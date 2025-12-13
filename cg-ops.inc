@@ -680,19 +680,23 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 				return false;
 
 #if defined(ARCH_X86)
-			g(gen_address(ctx, R_SAVED_1, retval_offset + 2 + 2 * (ARG_MODE_N >= 3), IMM_PURPOSE_LDR_OFFSET, log_2(sizeof(code_t))));
-			g(gen_imm(ctx, OPCODE_MAY_RETURN_FLAT, IMM_PURPOSE_TEST, log_2(sizeof(code_t))));
-			gen_insn(INSN_TEST, log_2(sizeof(code_t)), 0, 1);
-			gen_address_offset();
-			gen_imm_offset();
+			if (OPCODE_MAY_RETURN_FLAT < 0x100) {
+				g(gen_address(ctx, R_SAVED_1, retval_offset + 2 + 2 * (ARG_MODE_N >= 3), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
+				g(gen_imm(ctx, OPCODE_MAY_RETURN_FLAT, IMM_PURPOSE_TEST, OP_SIZE_1));
+				gen_insn(INSN_TEST, OP_SIZE_1, 0, 1);
+				gen_address_offset();
+				gen_one(ARG_IMM);
+				gen_eight(OPCODE_MAY_RETURN_FLAT);
 
-			gen_insn(INSN_JMP_COND, log_2(sizeof(code_t)), COND_E, 0);
-			gen_four(flat_to_data_label);
-#else
-			g(gen_load_two(ctx, R_SCRATCH_1, R_SAVED_1, retval_offset + 2 + 2 * (ARG_MODE_N >= 3)));
-
-			g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, OP_SIZE_NATIVE, R_SCRATCH_1, OPCODE_MAY_RETURN_FLAT, COND_E, flat_to_data_label, -1));
+				gen_insn(INSN_JMP_COND, log_2(sizeof(code_t)), COND_E, 0);
+				gen_four(flat_to_data_label);
+			} else
 #endif
+			{
+				g(gen_load_two(ctx, R_SCRATCH_1, R_SAVED_1, retval_offset + 2 + 2 * (ARG_MODE_N >= 3)));
+
+				g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, OP_SIZE_NATIVE, R_SCRATCH_1, OPCODE_MAY_RETURN_FLAT, COND_E, flat_to_data_label, -1));
+			}
 #if defined(ARCH_X86)
 			if (is_power_of_2(t->size) && t->size <= 2U << OP_SIZE_NATIVE) {
 				if (t->size == 2U << OP_SIZE_NATIVE) {
