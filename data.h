@@ -1395,7 +1395,7 @@ typedef unsigned timestamp_t;
 
 struct frame_struct {
 	struct data *function;
-	ip_t previous_ip;
+	ip_t previous_ip_bytes;
 	timestamp_t timestamp;
 	stack_size_t available_slots;
 	uchar_efficient_t mode;

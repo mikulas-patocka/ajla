@@ -406,7 +406,7 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 	new_fp_offset = -(ssize_t)(required_slots * slot_size);
 
 	g(gen_store_raw(ctx, stack_op_size, R_FRAME, 0, new_fp_offset + frame_offs(available_slots), R_SCRATCH_1));
-	g(gen_frame_store_imm_raw(ctx, log_2(sizeof(ip_t)), 0, new_fp_offset + frame_offs(previous_ip), ctx->return_values - da(ctx->fn,function)->code));
+	g(gen_frame_store_imm_raw(ctx, log_2(sizeof(ip_t)), 0, new_fp_offset + frame_offs(previous_ip_bytes), (ctx->return_values - da(ctx->fn,function)->code) * sizeof(code_t)));
 	g(gen_load_raw(ctx, log_2(sizeof(timestamp_t)), garbage, R_FRAME, 0, frame_offs(timestamp), false, R_SCRATCH_1));
 	g(gen_store_raw(ctx, log_2(sizeof(timestamp_t)), R_FRAME, 0, new_fp_offset + frame_offs(timestamp), R_SCRATCH_1));
 	call_mode = code == OPCODE_CALL ? CALL_MODE_NORMAL : code == OPCODE_CALL_STRICT ? CALL_MODE_STRICT : CALL_MODE_SPARK;
@@ -624,14 +624,14 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 	g(gen_load_raw(ctx, log_2(sizeof(timestamp_t)), garbage, R_FRAME, 0, frame_offs(timestamp), false, R_SCRATCH_1));
 	g(gen_store_raw(ctx, log_2(sizeof(timestamp_t)), R_FRAME, 0, new_fp_offset + frame_offs(timestamp), R_SCRATCH_1));
 
-	g(gen_load_raw(ctx, log_2(sizeof(ip_t)), native, R_FRAME, 0, frame_offs(previous_ip), false, R_SCRATCH_1));
+	g(gen_load_raw(ctx, log_2(sizeof(ip_t)), native, R_FRAME, 0, frame_offs(previous_ip_bytes), false, R_SCRATCH_1));
 
 	g(gen_address(ctx, R_SCRATCH_2, offsetof(struct data, u_.function.code), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_SCRATCH_2);
 	gen_address_offset();
 
-	g(gen_lea3(ctx, R_SAVED_1, R_SCRATCH_2, R_SCRATCH_1, log_2(sizeof(code_t)), 0));
+	g(gen_3address_alu(ctx, OP_SIZE_ADDRESS, ALU_ADD, R_SAVED_1, R_SCRATCH_2, R_SCRATCH_1, 0));
 
 	retval_offset = 0;
 	for (i = 0; i < ctx->args_l; i++) {

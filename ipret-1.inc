@@ -1555,7 +1555,7 @@ cat(call_copy_arguments_,ARG_MODE):
 			}
 			ADVANCE_IP(param_size(2));
 		}
-		get_frame(new_fp)->previous_ip = frame_ip(fp, ip);
+		get_frame(new_fp)->previous_ip_bytes = frame_ip(fp, ip) * sizeof(code_t);
 
 		fp = new_fp;
 		ip = &da(function,function)->code[0];
@@ -1953,7 +1953,7 @@ DEFINE_OPCODE_START(OPCODE_RETURN)
 	}
 
 	get_frame(previous_fp)->timestamp = get_frame(fp)->timestamp;
-	previous_ip = &da(get_frame(previous_fp)->function,function)->code[get_frame(fp)->previous_ip];
+	previous_ip = &da(get_frame(previous_fp)->function,function)->code[get_frame(fp)->previous_ip_bytes / sizeof(code_t)];
 
 	n = da(function,function)->n_return_values;
 	i = 0;

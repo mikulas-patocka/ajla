@@ -2759,7 +2759,7 @@ static attr_noinline frame_s *ipret_break(frame_s *top_fp, frame_s *high, frame_
 		goto err3;
 
 	low_function = get_frame(low)->function;
-	ip = da(low_function,function)->code + get_frame(high)->previous_ip;
+	ip = da(low_function,function)->code + get_frame(high)->previous_ip_bytes / sizeof(code_t);
 	low_ex->current_frame = low;
 
 	ia = 0;

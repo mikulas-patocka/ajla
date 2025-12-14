@@ -245,7 +245,7 @@ go_up:
 		goto ret;
 
 skip_this_frame:
-	previous_ip = get_frame(fp)->previous_ip;
+	previous_ip = get_frame(fp)->previous_ip_bytes / sizeof(code_t);
 	fp = frame_up(fp);
 	if (!frame_is_top(fp)) {
 		ip = da(get_frame(fp)->function,function)->code + previous_ip;
