@@ -368,6 +368,46 @@ copied:
 	return true;
 }
 
+static bool test_quick_return(struct codegen_context *ctx, frame_t *ret_vars, arg_t n_ret, uint8_t *regs)
+{
+	arg_t i;
+	size_t index_saved = 0;
+	size_t index_volatile = 0;
+	size_t index_fp_saved = 0;
+	size_t index_fp_volatile = 0;
+	for (i = 0; i < n_ret; i++) {
+		frame_t v = ret_vars[i];
+		const struct type *t = get_type_of_local(ctx, v);
+		if (!ARCH_HAS_BWX && t->size < 1U << OP_SIZE_4)
+			return false;
+		if (TYPE_TAG_IS_FIXED(t->tag) || TYPE_TAG_IS_INT(t->tag) || t->tag == TYPE_TAG_flat_option || t->tag == TYPE_TAG_unknown || t->tag == TYPE_TAG_record) {
+			if (TYPE_TAG_IS_BUILTIN(t->tag)) {
+				if (!is_power_of_2(t->size) || t->size > 1U << OP_SIZE_NATIVE)
+					return false;
+			}
+			if (index_saved < n_regs_saved + zero) {
+				regs[i] = regs_saved[index_saved++];
+			} else if (index_volatile < n_regs_volatile + zero) {
+				regs[i] = regs_volatile[index_volatile++];
+			} else {
+				return false;
+			}
+		} else if (TYPE_TAG_IS_REAL(t->tag)) {
+			unsigned real_type = TYPE_TAG_IDX_REAL(t->tag);
+			if (!((SUPPORTED_FP >> real_type) & 1) || real_type == 4)
+				return false;
+			if (index_fp_saved < n_fp_saved + zero) {
+				regs[i] = regs_saved[index_fp_saved++];
+			} else if (index_fp_volatile < n_fp_volatile + zero) {
+				regs[i] = regs_volatile[index_fp_volatile++];
+			} else {
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
 static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn_idx, arg_t n_ret)
 {
 	struct data *new_fn = ctx->local_directory[fn_idx];
@@ -590,14 +630,28 @@ skip_ref_argument:
 jmp_done:
 	g(clear_flag_cache(ctx));
 
-	get_code(ctx);
-	for (i = 0; i < n_ret; i++) {
+	ctx->flat_mask = get_code(ctx);
+	if (n_ret > sizeof(code_t) * 8) {
+		for (i = 0; i < n_ret; i++) {
 #if ARG_MODE_N >= 3
-		get_uint32(ctx);
+			get_uint32(ctx);
 #else
-		get_code(ctx);
+			get_code(ctx);
 #endif
-		get_code(ctx);
+			get_code(ctx);
+		}
+	} else {
+		for (i = 0; i < n_ret; i++) {
+#if ARG_MODE_N >= 3
+			ctx->ret_vars[i] = get_uint32(ctx);
+#else
+			ctx->ret_vars[i] = get_code(ctx);
+#endif
+			get_code(ctx);
+		}
+		ctx->n_ret = n_ret;
+		if (test_quick_return(ctx, ctx->ret_vars, n_ret, ctx->regs))
+			ctx->checkpoint_quick_entry = true;
 	}
 
 	return true;

@@ -511,7 +511,14 @@ struct codegen_context {
 	uint8_t n_pushes;
 	bool upcall_hacked_abi;
 
+	bool checkpoint_quick_entry;
+
 	ajla_error_t err;
+
+	code_t flat_mask;
+	arg_t n_ret;
+	frame_t ret_vars[sizeof(code_t) * 8];
+	uint8_t regs[sizeof(code_t) * 8];
 
 #ifdef ARCH_CONTEXT
 	ARCH_CONTEXT a;
@@ -1818,6 +1825,35 @@ skip_dereference:
 					if (unlikely(!array_add_mayfail(frame_t, &ce->variables, &ce->n_variables, v, NULL, &ctx->err)))
 						return false;
 				}
+
+				if (ctx->checkpoint_quick_entry) {
+					uint32_t fastret_label = alloc_label(ctx);
+					if (unlikely(!fastret_label))
+						return false;
+					gen_label(fastret_label);
+					ajla_assert_lo(!ce[-1].entry_label, (file_line, "gen_function: entry label for call not allocated"));
+					ce[-1].entry_label = fastret_label;
+					for (i = 0; i < ctx->n_ret; i++) {
+						bool flat = (ctx->flat_mask >> i) & 1;
+						const struct type *t = get_type_of_local(ctx, ctx->ret_vars[i]);
+						unsigned size = flat ? log_2(t->size) : OP_SIZE_SLOT;
+						g(gen_store_raw(ctx, size, R_FRAME, ctx->ret_vars[i], 0, ctx->regs[i]));
+						if (!flat)
+							g(gen_set_1(ctx, R_FRAME, ctx->ret_vars[i], 0, true));
+					}
+
+					if (ce->n_variables) {
+						uint32_t test_and_entry_label;
+						test_and_entry_label = alloc_label(ctx);
+						if (unlikely(!test_and_entry_label))
+							return false;
+						ce->test_and_entry_label = test_and_entry_label;
+						gen_insn(INSN_JMP, 0, 0, 0);
+						gen_four(test_and_entry_label);
+					}
+					ctx->checkpoint_quick_entry = false;
+				}
+
 				entry_label = alloc_label(ctx);
 				if (unlikely(!entry_label))
 					return false;
@@ -2157,9 +2193,11 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 		struct cg_entry *ce = &ctx->entries[i];
 		if (ce->entry_label) {
 			if (ce->n_variables) {
-				ce->test_and_entry_label = alloc_label(ctx);
-				if (unlikely(!ce->test_and_entry_label))
-					return false;
+				if (!ce->test_and_entry_label) {
+					ce->test_and_entry_label = alloc_label(ctx);
+					if (unlikely(!ce->test_and_entry_label))
+						return false;
+				}
 				gen_insn(INSN_LABEL, 0, 0, 0);
 				gen_four(ce->test_and_entry_label);
 
