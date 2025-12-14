@@ -1001,8 +1001,18 @@ static bool pcode_finish_call(struct build_function_context *ctx, const struct p
 {
 	size_t i;
 	frame_t *vars = NULL;
+	code_t flat_mask;
 
 	ctx->leaf = false;
+
+	flat_mask = 0;
+	if (rets_l <= sizeof(code_t) * 8) {
+		for (i = 0; i < rets_l; i++) {
+			const struct pcode_type *tv = rets[i];
+			flat_mask |= 1U << TYPE_IS_FLAT(tv->type);
+		}
+	}
+	gen_code(flat_mask);
 
 	for (i = 0; i < rets_l; i++) {
 		const struct pcode_type *tv = rets[i];

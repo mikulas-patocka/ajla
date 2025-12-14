@@ -1527,6 +1527,7 @@ cat(call_set_error_,ARG_MODE):
 		ip = cat(free_parameters_,ARG_MODE)(fp, ip, n_arguments);
 		pointer_reference_owned_multiple(pointer_thunk(function_error), n_return_values - 1);
 		i = n_return_values;
+		ADVANCE_IP(1);
 		while (1) {
 			frame_t slot_r = get_max_param(ip, 0);
 			ADVANCE_IP(max_param_size(1) + 1);
@@ -1718,6 +1719,7 @@ cat(call_lazy_copy_arguments_,ARG_MODE):
 		ADVANCE_IP(param_size(2));
 	}
 
+	ADVANCE_IP(1);
 	for (i = 0; i < n_return_values; i++) {
 		frame_t slot_r = get_max_param(ip, 0);
 		frame_set_pointer(fp, slot_r, pointer_thunk(results[i]));
@@ -1789,6 +1791,7 @@ cat(call_cache_,ARG_MODE):
 		ADVANCE_IP(param_size(2));
 	}
 
+	ADVANCE_IP(1);
 	for (i = 0; i < n_return_values; i++) {
 		frame_t slot_r = get_max_param(ip, 0);
 		return_values[i] = slot_r;
@@ -1891,6 +1894,7 @@ cat(call_indirect_cache_,ARG_MODE):
 		ADVANCE_IP(param_size(2));
 	}
 
+	ADVANCE_IP(1);
 	for (i = 0; i < n_return_values; i++) {
 		frame_t slot_r = get_max_param(ip, 0);
 		return_values[i] = slot_r;
@@ -1953,7 +1957,7 @@ DEFINE_OPCODE_START(OPCODE_RETURN)
 	}
 
 	get_frame(previous_fp)->timestamp = get_frame(fp)->timestamp;
-	previous_ip = &da(get_frame(previous_fp)->function,function)->code[get_frame(fp)->previous_ip_bytes / sizeof(code_t)];
+	previous_ip = &da(get_frame(previous_fp)->function,function)->code[get_frame(fp)->previous_ip_bytes / sizeof(code_t)] + 1;
 
 	n = da(function,function)->n_return_values;
 	i = 0;

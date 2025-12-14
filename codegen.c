@@ -1908,6 +1908,7 @@ jump_over_arguments_and_return:
 					g(gen_call(ctx, code, fn_idx, n_ret));
 					continue;
 				}
+				get_code(ctx);
 				for (i_arg = 0; i_arg < n_ret; i_arg++) {
 #if ARG_MODE_N >= 3
 					get_uint32(ctx);
