@@ -1920,11 +1920,6 @@ jump_over_arguments_and_return:
 					g(gen_call(ctx, code, fn_idx));
 					continue;
 				}
-				/*if (code == OPCODE_CALL_INDIRECT || code == OPCODE_CALL_INDIRECT_STRICT) {
-					if (unlikely(!gen_call_indirect(ctx, code, slot_1, flags)))
-						return false;
-					continue;
-				}*/
 				goto unconditional_escape;
 			}
 			case OPCODE_CALL_INDIRECT:

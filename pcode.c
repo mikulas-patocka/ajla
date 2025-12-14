@@ -2599,23 +2599,6 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 			case P_Call:
 				if (unlikely(!pcode_call(ctx, instr)))
 					goto exception;
-#if 0
-				if (instr == P_Call || instr == P_Call_Indirect) {
-					pcode_t next, next_params;
-					pcode_position_save_t s;
-					pcode_position_save(ctx, &s);
-next_one:
-					pcode_get_instr(ctx, &next, &next_params);
-					if (next == P_Line_Info) {
-						ctx->pcode = ctx->pcode_instr_end;
-						goto next_one;
-					}
-					pcode_position_restore(ctx, &s);
-					//ajla_assert_lo(next == P_Checkpoint, (file_line, "%s: is followed by %"PRIdMAX"", instr == P_Call ? "P_Call" : "P_Call_Indirect", (intmax_t)next));
-					debug("%d", next);
-					ctx->pcode_instr_end = ctx->pcode;
-				}
-#endif
 				break;
 			case P_Load_Const:
 				if (unlikely(!pcode_load_constant(ctx)))
@@ -3500,18 +3483,6 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 	}
 
 	layout_free(ctx->layout), ctx->layout = NULL;
-
-#if 0
-	{
-		unsigned n_elided = 0;
-		for (v = 0; v < ctx->n_local_variables; v++) {
-			struct pcode_type *pt = &ctx->pcode_types[v];
-			if (!pt->type)
-				n_elided++;
-		}
-		debug("function, elided %d/%d", n_elided, ctx->n_local_variables);
-	}
-#endif
 
 	if (unlikely(!array_init_mayfail(pointer_t *, &ctx->ld, &ctx->ld_len, ctx->err)))
 		goto exception;
@@ -4525,12 +4496,6 @@ static void *pcode_build_array_append_function(frame_s *fp, const code_t *ip, un
 	*pc++ = P_Eval;
 	*pc++ = 1;
 	*pc++ = 0;
-
-#if 0
-	*pc++ = P_Eval;
-	*pc++ = 1;
-	*pc++ = 1;
-#endif
 
 	*pc++ = P_Array_Append;
 	*pc++ = 5;
