@@ -489,7 +489,6 @@ struct codegen_context {
 
 	struct code_arg *args;
 	size_t args_l;
-	const code_t *return_values;
 
 	uint8_t *flag_cache;
 	short *registers;
@@ -1905,7 +1904,10 @@ do {									\
 				get_one(ctx, &fn_idx);
 jump_over_arguments_and_return:
 				load_args;
-				ctx->return_values = ctx->current_position;
+				if (likely(!profiling) && (likely(code == OPCODE_CALL) || code == OPCODE_CALL_STRICT)) {
+					g(gen_call(ctx, code, fn_idx, n_ret));
+					continue;
+				}
 				for (i_arg = 0; i_arg < n_ret; i_arg++) {
 #if ARG_MODE_N >= 3
 					get_uint32(ctx);
@@ -1913,12 +1915,6 @@ jump_over_arguments_and_return:
 					get_code(ctx);
 #endif
 					get_code(ctx);
-				}
-				if (unlikely(profiling))
-					goto unconditional_escape;
-				if (code == OPCODE_CALL || code == OPCODE_CALL_STRICT) {
-					g(gen_call(ctx, code, fn_idx));
-					continue;
 				}
 				goto unconditional_escape;
 			}

@@ -368,7 +368,7 @@ copied:
 	return true;
 }
 
-static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn_idx)
+static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn_idx, arg_t n_ret)
 {
 	struct data *new_fn = ctx->local_directory[fn_idx];
 	frame_t required_slots = da(new_fn,function)->frame_slots;
@@ -406,7 +406,7 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 	new_fp_offset = -(ssize_t)(required_slots * slot_size);
 
 	g(gen_store_raw(ctx, stack_op_size, R_FRAME, 0, new_fp_offset + frame_offs(available_slots), R_SCRATCH_1));
-	g(gen_frame_store_imm_raw(ctx, log_2(sizeof(ip_t)), 0, new_fp_offset + frame_offs(previous_ip_bytes), (ctx->return_values - da(ctx->fn,function)->code) * sizeof(code_t)));
+	g(gen_frame_store_imm_raw(ctx, log_2(sizeof(ip_t)), 0, new_fp_offset + frame_offs(previous_ip_bytes), (ctx->current_position - da(ctx->fn,function)->code) * sizeof(code_t)));
 	g(gen_load_raw(ctx, log_2(sizeof(timestamp_t)), garbage, R_FRAME, 0, frame_offs(timestamp), false, R_SCRATCH_1));
 	g(gen_store_raw(ctx, log_2(sizeof(timestamp_t)), R_FRAME, 0, new_fp_offset + frame_offs(timestamp), R_SCRATCH_1));
 	call_mode = code == OPCODE_CALL ? CALL_MODE_NORMAL : code == OPCODE_CALL_STRICT ? CALL_MODE_STRICT : CALL_MODE_SPARK;
@@ -589,6 +589,15 @@ skip_ref_argument:
 	goto jmp_done;
 jmp_done:
 	g(clear_flag_cache(ctx));
+
+	for (i = 0; i < n_ret; i++) {
+#if ARG_MODE_N >= 3
+		get_uint32(ctx);
+#else
+		get_code(ctx);
+#endif
+		get_code(ctx);
+	}
 
 	return true;
 }
