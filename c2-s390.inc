@@ -308,6 +308,7 @@ typedef uint64_t it;
 #define S390_MVGHI		0xe54800000000ULL
 #define S390_CLI		0x950000000000ULL
 #define S390_CLIY		0xeb0000000055ULL
+#define S390_CHHSI		0xe55400000000ULL
 
 #define S390_TM			0x910000000000ULL
 #define S390_TMY		0xeb0000000051ULL
@@ -1128,6 +1129,18 @@ static bool attr_w cgen_cmp(struct codegen_context *ctx, unsigned size, unsigned
 	arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
 	if (writes_flags == 1) {
+		if (size == OP_SIZE_2 && arg1[0] == ARG_ADDRESS_1 && arg2[0] == ARG_IMM) {
+			it code = S390_CHHSI;
+			int64_t offset = get_imm(&arg1[2]);
+			int64_t imm = get_imm(&arg2[1]);
+			if (offset < 0 || offset >= 0x1000)
+				goto invl;
+			code |= (it)arg1[1] << 28;
+			code |= (it)(offset & 0xfff) << 16;
+			code |= imm & 0xffff;
+			g(cgen_s390(ctx, code));
+			return true;
+		}
 		g(cgen_rr_rx(ctx, size, arg1, arg1, arg2, &codes_cmp));
 		return true;
 	} else if (writes_flags == 2) {
@@ -1138,6 +1151,7 @@ static bool attr_w cgen_cmp(struct codegen_context *ctx, unsigned size, unsigned
 		g(cgen_rr_rx(ctx, size, arg1, arg1, arg2, &codes_cmp_log));
 		return true;
 	}
+invl:
 	internal(file_line, "cgen_cmp: invalid arguments %u, %02x, %02x, %u", size, *arg1, *arg2, writes_flags);
 	return false;
 }
