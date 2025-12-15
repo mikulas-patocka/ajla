@@ -375,6 +375,9 @@ static bool test_quick_return(struct codegen_context *ctx, frame_t *ret_vars, ar
 	size_t index_volatile = 0;
 	size_t index_fp_saved = 0;
 	size_t index_fp_volatile = 0;
+#ifdef ARCH_S390
+	bool uses_x = false;
+#endif
 	for (i = 0; i < n_ret; i++) {
 		frame_t v = ret_vars[i];
 		const struct type *t = get_type_of_local(ctx, v);
@@ -397,18 +400,20 @@ static bool test_quick_return(struct codegen_context *ctx, frame_t *ret_vars, ar
 			if (!((SUPPORTED_FP >> real_type) & 1) || real_type == 4)
 				return false;
 			if (index_fp_saved < n_fp_saved + zero) {
-				regs[i] = regs_saved[index_fp_saved++];
+				regs[i] = fp_saved[index_fp_saved++];
 			} else if (index_fp_volatile < n_fp_volatile + zero) {
-				regs[i] = regs_volatile[index_fp_volatile++];
+				regs[i] = fp_volatile[index_fp_volatile++];
 			} else {
 				return false;
 			}
+		} else {
+			return false;
 		}
 	}
 	return true;
 }
 
-static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn_idx, arg_t n_ret)
+static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn_idx)
 {
 	struct data *new_fn = ctx->local_directory[fn_idx];
 	frame_t required_slots = da(new_fn,function)->frame_slots;
@@ -628,6 +633,13 @@ skip_ref_argument:
 	gen_one(R_SCRATCH_1);
 	goto jmp_done;
 jmp_done:
+	return true;
+}
+
+static bool attr_w gen_call_end(struct codegen_context *ctx, arg_t n_ret)
+{
+	arg_t i;
+
 	g(clear_flag_cache(ctx));
 
 	ctx->flat_mask = get_code(ctx);
@@ -653,6 +665,59 @@ jmp_done:
 		if (test_quick_return(ctx, ctx->ret_vars, n_ret, ctx->regs))
 			ctx->checkpoint_quick_entry = true;
 	}
+	return true;
+}
+
+static bool attr_w gen_jmp_indirect(struct codegen_context *ctx, unsigned reg1, unsigned reg2, int64_t offset)
+{
+#if (defined(ARCH_X86) && !defined(ARCH_X86_X32))
+	if (is_direct_offset(offset))
+		goto direct_jmp;
+#endif
+#if defined(ARCH_ARM32)
+	if (!offset)
+		goto direct_jmp;
+#endif
+#if defined(ARCH_S390_64)
+	if (likely(cpu_test_feature(CPU_FEATURE_misc_insn_ext_2)) && is_direct_offset(offset))
+		goto direct_jmp;
+#endif
+	if (ARCH_HAS_2REG_M(false, false, 0, offset)) {
+		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+		gen_one(reg1);
+		gen_one(ARG_ADDRESS_2);
+		gen_one(reg1);
+		gen_one(reg2);
+		gen_eight(offset);
+	} else {
+		g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ADD, reg1, reg1, reg2, 0));
+
+		g(gen_address(ctx, reg1, offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+		gen_one(reg1);
+		gen_address_offset();
+	}
+
+#if defined(R_SCRATCH_B)
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_SCRATCH_B);
+	gen_one(reg1);
+
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(R_SCRATCH_B);
+#else
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(reg1);
+#endif
+	return true;
+
+	goto direct_jmp;
+direct_jmp:
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(ARG_ADDRESS_2);
+	gen_one(reg1);
+	gen_one(reg2);
+	gen_eight(offset);
 
 	return true;
 }
@@ -673,15 +738,15 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 
 	g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, new_fp_offset + frame_offs(function), false, R_SCRATCH_2));
 
-#if defined(ARCH_X86) || defined(ARCH_S390)
+#if (defined(ARCH_X86) || defined(ARCH_S390)) && 0
 	g(gen_test_bit(ctx, OP_SIZE_SLOT, R_SCRATCH_2, offsetof(struct data, u_.function.codegen), POINTER_THUNK_BIT, COND_NE, escape_label));
 #else
 	g(gen_address(ctx, R_SCRATCH_2, offsetof(struct data, u_.function.codegen), ARCH_PREFERS_SX(OP_SIZE_SLOT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_SLOT));
 	gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, 0);
-	gen_one(R_SCRATCH_1);
+	gen_one(R_SCRATCH_3);
 	gen_address_offset();
 
-	g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, NO_FRAME_T, escape_label));
+	g(gen_ptr_is_thunk(ctx, R_SCRATCH_3, NO_FRAME_T, escape_label));
 #endif
 	g(gen_barrier(ctx));
 
@@ -695,9 +760,60 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 	gen_one(R_SCRATCH_2);
 	gen_address_offset();
 
-	g(gen_lea3(ctx, R_SAVED_1, R_SCRATCH_2, R_SCRATCH_1, 0, sizeof(code_t)));
+	g(gen_lea3(ctx, R_SAVED_1, R_SCRATCH_2, R_SCRATCH_1, 0, 0));
 
-	retval_offset = 0;
+	if (ctx->args_l <= sizeof(code_t) * 8) {
+		code_t flat_mask = 0;
+		frame_t ret_vars[sizeof(code_t) * 8];
+		uint8_t regs[sizeof(code_t) * 8];
+		frame_t test_vars[sizeof(code_t) * 8];
+		arg_t n_test_vars = 0;
+		for (i = 0; i < ctx->args_l; i++) {
+			const struct type *t = get_type_of_local(ctx, ctx->args[i].slot);
+			ret_vars[i] = ctx->args[i].slot;
+			flat_mask |= (code_t)TYPE_IS_FLAT(t) << i;
+			if (!(ctx->args[i].flags & OPCODE_FLAG_FREE_ARGUMENT))
+				goto skip_quickret;
+			if (TYPE_IS_FLAT(t)) {
+				if (!da(ctx->fn,function)->local_variables_flags[ret_vars[i]].must_be_flat)
+					test_vars[n_test_vars++] = ret_vars[i];
+			} else {
+				if (da(ctx->fn,function)->local_variables_flags[ret_vars[i]].may_be_borrowed && !flag_is_set(ctx, ret_vars[i]))
+					goto skip_quickret;
+			}
+		}
+		if (test_quick_return(ctx, ret_vars, ctx->args_l, regs)) {
+			uint32_t label_skip_quick_ret = alloc_label(ctx);
+			if (unlikely(!label_skip_quick_ret))
+				return false;
+
+			g(gen_test_multiple(ctx, test_vars, n_test_vars, label_skip_quick_ret));
+
+			g(gen_load_two(ctx, R_SCRATCH_1, R_SAVED_1, 0));
+
+			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(log_2(sizeof(code_t))), R_SCRATCH_1, flat_mask, COND_NE, label_skip_quick_ret, -1));
+
+			for (i = 0; i < ctx->args_l; i++) {
+				bool flat = (flat_mask >> i) & 1;
+				const struct type *t = get_type_of_local(ctx, ret_vars[i]);
+				unsigned size = flat ? log_2(t->size) : OP_SIZE_SLOT;
+				g(gen_load_raw(ctx, size, garbage, R_FRAME, ret_vars[i], 0, false, regs[i]));
+			}
+
+			retval_offset = sizeof(code_t) + (4 + 2 * (ARG_MODE_N >= 3)) * ctx->args_l;
+
+			g(gen_load_code_32(ctx, R_SCRATCH_2, R_SAVED_1, retval_offset + 2));
+
+			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_FRAME, R_FRAME, new_fp_offset, 0));
+
+			g(gen_jmp_indirect(ctx, R_SCRATCH_3, R_SCRATCH_2, -sizeof(char *)));
+
+			gen_label(label_skip_quick_ret);
+		}
+	}
+skip_quickret:
+
+	retval_offset = sizeof(code_t);
 	for (i = 0; i < ctx->args_l; i++) {
 		const struct code_arg *src_arg = &ctx->args[i];
 		const struct type *t = get_type_of_local(ctx, src_arg->slot);
@@ -882,56 +998,8 @@ scaled_store_done:
 
 	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_FRAME, R_FRAME, new_fp_offset, 0));
 
-#if (defined(ARCH_X86) && !defined(ARCH_X86_X32)) || defined(ARCH_ARM32)
-	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
-	gen_one(ARG_ADDRESS_2);
-	gen_one(R_SCRATCH_1);
-	gen_one(R_SCRATCH_2);
-	gen_eight(0);
+	g(gen_jmp_indirect(ctx, R_SCRATCH_1, R_SCRATCH_2, 0));
 
-	goto scaled_jmp_done;
-#endif
-#if defined(ARCH_S390_64)
-	if (likely(cpu_test_feature(CPU_FEATURE_misc_insn_ext_2))) {
-		gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
-		gen_one(ARG_ADDRESS_2);
-		gen_one(R_SCRATCH_1);
-		gen_one(R_SCRATCH_2);
-		gen_eight(0);
-
-		goto scaled_jmp_done;
-	}
-#endif
-	if (ARCH_HAS_2REG_M(false, false, 0, 0)) {
-		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-		gen_one(R_SCRATCH_1);
-		gen_one(ARG_ADDRESS_2);
-		gen_one(R_SCRATCH_1);
-		gen_one(R_SCRATCH_2);
-		gen_eight(0);
-	} else {
-		g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ADD, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_2, 0));
-
-		g(gen_address(ctx, R_SCRATCH_1, 0, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-		gen_one(R_SCRATCH_1);
-		gen_address_offset();
-	}
-
-#if defined(R_SCRATCH_B)
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-	gen_one(R_SCRATCH_B);
-	gen_one(R_SCRATCH_1);
-
-	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
-	gen_one(R_SCRATCH_B);
-#else
-	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
-	gen_one(R_SCRATCH_1);
-#endif
-
-	goto scaled_jmp_done;
-scaled_jmp_done:
 	return true;
 }
 

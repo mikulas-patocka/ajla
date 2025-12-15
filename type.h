@@ -31,7 +31,6 @@ typedef uchar_efficient_t type_tag_t;
 #define TYPE_TAG_val			(TYPE_TAG_real + TYPE_REAL_N)
 
 #define TYPE_TAG_flat_option		(TYPE_TAG_val + 0)
-#define TYPE_TAG_builtin_N		(TYPE_TAG_val + 1)
 #define TYPE_TAG_unknown		(TYPE_TAG_val + 1)
 #define TYPE_TAG_record			(TYPE_TAG_val + 2)
 #define TYPE_TAG_flat_record		(TYPE_TAG_val + 3)

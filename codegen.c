@@ -552,6 +552,7 @@ static void init_ctx(struct codegen_context *ctx)
 	ctx->upcall_offset = -1;
 	ctx->upcall_args = -1;
 	ctx->upcall_hacked_abi = false;
+	ctx->checkpoint_quick_entry = false;
 }
 
 static void done_ctx(struct codegen_context *ctx)
@@ -1083,6 +1084,27 @@ static inline bool slot_is_register(struct codegen_context *ctx, frame_t slot)
 #endif
 
 
+#ifndef n_regs_saved
+#define n_regs_saved n_array_elements(regs_saved)
+#endif
+
+#ifndef n_regs_volatile
+#define n_regs_volatile n_array_elements(regs_volatile)
+#endif
+
+#ifndef n_fp_saved
+#define n_fp_saved n_array_elements(fp_saved)
+#endif
+
+#ifndef n_fp_volatile
+#define n_fp_volatile n_array_elements(fp_volatile)
+#endif
+
+#ifndef n_vector_volatile
+#define n_vector_volatile n_array_elements(vector_volatile)
+#endif
+
+
 static bool attr_w gen_imm(struct codegen_context *ctx, int64_t imm, unsigned purpose, unsigned size)
 {
 	if (!is_direct_const(imm, purpose & 0xff, size))
@@ -1153,26 +1175,6 @@ no_zero:
 
 #define insn_file		0
 
-
-#ifndef n_regs_saved
-#define n_regs_saved n_array_elements(regs_saved)
-#endif
-
-#ifndef n_regs_volatile
-#define n_regs_volatile n_array_elements(regs_volatile)
-#endif
-
-#ifndef n_fp_saved
-#define n_fp_saved n_array_elements(fp_saved)
-#endif
-
-#ifndef n_fp_volatile
-#define n_fp_volatile n_array_elements(fp_volatile)
-#endif
-
-#ifndef n_vector_volatile
-#define n_vector_volatile n_array_elements(vector_volatile)
-#endif
 
 static bool attr_w gen_registers(struct codegen_context *ctx)
 {
@@ -1831,7 +1833,7 @@ skip_dereference:
 					if (unlikely(!fastret_label))
 						return false;
 					gen_label(fastret_label);
-					ajla_assert_lo(!ce[-1].entry_label, (file_line, "gen_function: entry label for call not allocated"));
+					ajla_assert_lo(!ce[-1].entry_label, (file_line, "gen_function: entry label for call not allocated (%s)", da(ctx->fn,function)->function_name));
 					ce[-1].entry_label = fastret_label;
 					for (i = 0; i < ctx->n_ret; i++) {
 						bool flat = (ctx->flat_mask >> i) & 1;
@@ -1941,18 +1943,11 @@ do {									\
 jump_over_arguments_and_return:
 				load_args;
 				if (likely(!profiling) && (likely(code == OPCODE_CALL) || code == OPCODE_CALL_STRICT)) {
-					g(gen_call(ctx, code, fn_idx, n_ret));
+					g(gen_call(ctx, code, fn_idx));
+					g(gen_call_end(ctx, n_ret));
 					continue;
 				}
-				get_code(ctx);
-				for (i_arg = 0; i_arg < n_ret; i_arg++) {
-#if ARG_MODE_N >= 3
-					get_uint32(ctx);
-#else
-					get_code(ctx);
-#endif
-					get_code(ctx);
-				}
+				g(gen_call_end(ctx, n_ret));
 				goto unconditional_escape;
 			}
 			case OPCODE_CALL_INDIRECT:
@@ -2410,6 +2405,7 @@ static bool attr_w codegen_map(struct codegen_context *ctx)
 	for (i = 0; i < ctx->n_entries; i++) {
 		size_t entry_pos = ctx->label_to_pos[ctx->entries[i].test_and_entry_label];
 		char *entry = cast_ptr(char *, ptr) + entry_pos;
+		/*debug("entry_pos: %s, %u: %zx (%x)", da(ctx->fn,function)->function_name, i, entry_pos, ctx->entries[i].test_and_entry_label);*/
 		da(ctx->codegen,codegen)->unoptimized_code[i] = entry;
 		da(ctx->codegen,codegen)->n_entries++;
 	}
