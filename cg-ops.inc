@@ -760,7 +760,7 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 	gen_one(R_SCRATCH_2);
 	gen_address_offset();
 
-	g(gen_lea3(ctx, R_SAVED_1, R_SCRATCH_2, R_SCRATCH_1, 0, 0));
+	g(gen_3address_alu(ctx, OP_SIZE_ADDRESS, ALU_ADD, R_SAVED_1, R_SCRATCH_2, R_SCRATCH_1, 0));
 
 	if (ctx->args_l <= MAX_QUICKRET_VALUES) {
 		code_t flat_mask = 0;
