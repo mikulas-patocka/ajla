@@ -829,6 +829,8 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 
 			retval_offset = sizeof(code_t) + (4 + 2 * (ARG_MODE_N >= 3)) * ctx->args_l;
 
+			g(gen_decompress_pointer(ctx, ARCH_PREFERS_SX(OP_SIZE_SLOT), R_SCRATCH_3, R_SCRATCH_3, 0));
+
 			g(gen_load_code_32(ctx, R_SCRATCH_2, R_SAVED_1, retval_offset + 2));
 
 			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_FRAME, R_FRAME, new_fp_offset, 0));
