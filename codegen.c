@@ -436,6 +436,10 @@ struct cg_entry {
 	uint32_t entry_label;
 	uint32_t nonflat_label;
 	uint32_t test_and_entry_label;
+
+	arg_t n_ret;
+	frame_t ret_vars[sizeof(code_t) * 8];
+	uint8_t regs[sizeof(code_t) * 8];
 };
 
 struct cg_exit {
@@ -513,11 +517,11 @@ struct codegen_context {
 
 	bool checkpoint_quick_entry;
 
-	ajla_error_t err;
-
 	arg_t n_ret;
 	frame_t ret_vars[sizeof(code_t) * 8];
 	uint8_t regs[sizeof(code_t) * 8];
+
+	ajla_error_t err;
 
 #ifdef ARCH_CONTEXT
 	ARCH_CONTEXT a;
@@ -1828,28 +1832,24 @@ skip_dereference:
 				}
 
 				if (ctx->checkpoint_quick_entry) {
-					uint32_t fastret_label = alloc_label(ctx);
-					if (unlikely(!fastret_label))
-						return false;
-					gen_label(fastret_label);
 					ajla_assert_lo(!ce[-1].entry_label, (file_line, "gen_function: entry label for call not allocated (%s)", da(ctx->fn,function)->function_name));
-					ce[-1].entry_label = fastret_label;
-					for (i = 0; i < ctx->n_ret; i++) {
-						const struct type *t = get_type_of_local(ctx, ctx->ret_vars[i]);
-						unsigned size = spill_size(t);
-						g(gen_store_raw(ctx, size, R_FRAME, ctx->ret_vars[i], 0, ctx->regs[i]));
-						if (!TYPE_IS_FLAT(t))
-							g(gen_set_1(ctx, R_FRAME, ctx->ret_vars[i], 0, true));
-					}
-
-					if (ce->n_variables) {
-						uint32_t test_and_entry_label;
-						test_and_entry_label = alloc_label(ctx);
-						if (unlikely(!test_and_entry_label))
+					if (!ce->n_variables) {
+						uint32_t fastret_label = alloc_label(ctx);
+						if (unlikely(!fastret_label))
 							return false;
-						ce->test_and_entry_label = test_and_entry_label;
-						gen_insn(INSN_JMP, 0, 0, 0);
-						gen_four(test_and_entry_label);
+						gen_label(fastret_label);
+						ce[-1].entry_label = fastret_label;
+						for (i = 0; i < ctx->n_ret; i++) {
+							const struct type *t = get_type_of_local(ctx, ctx->ret_vars[i]);
+							unsigned size = spill_size(t);
+							g(gen_store_raw(ctx, size, R_FRAME, ctx->ret_vars[i], 0, ctx->regs[i]));
+							if (!TYPE_IS_FLAT(t))
+								g(gen_set_1(ctx, R_FRAME, ctx->ret_vars[i], 0, true));
+						}
+					} else {
+						ce[-1].n_ret = ctx->n_ret;
+						memcpy(&ce[-1].ret_vars, ctx->ret_vars, sizeof(ctx->ret_vars));
+						memcpy(&ce[-1].regs, ctx->regs, sizeof(ctx->regs));
 					}
 					ctx->checkpoint_quick_entry = false;
 				}
@@ -2184,15 +2184,25 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 	size_t i;
 	for (i = 0; i < ctx->n_entries; i++) {
 		struct cg_entry *ce = &ctx->entries[i];
-		if (ce->entry_label) {
+		if (ce->n_ret) {
+			arg_t j;
+			ce->test_and_entry_label = alloc_label(ctx);
+			if (unlikely(!ce->test_and_entry_label))
+				return false;
+			gen_label(ce->test_and_entry_label);
+			for (j = 0; j < ce->n_ret; j++) {
+				const struct type *t = get_type_of_local(ctx, ce->ret_vars[j]);
+				unsigned size = spill_size(t);
+				g(gen_store_raw(ctx, size, R_FRAME, ce->ret_vars[j], 0, ce->regs[j]));
+				if (!TYPE_IS_FLAT(t))
+					g(gen_set_1(ctx, R_FRAME, ce->ret_vars[j], 0, true));
+			}
+		} else if (ce->entry_label) {
 			if (ce->n_variables) {
-				if (!ce->test_and_entry_label) {
-					ce->test_and_entry_label = alloc_label(ctx);
-					if (unlikely(!ce->test_and_entry_label))
-						return false;
-				}
-				gen_insn(INSN_LABEL, 0, 0, 0);
-				gen_four(ce->test_and_entry_label);
+				ce->test_and_entry_label = alloc_label(ctx);
+				if (unlikely(!ce->test_and_entry_label))
+					return false;
+				gen_label(ce->test_and_entry_label);
 
 				g(gen_test_variables(ctx, ce->variables, ce->n_variables, true, ce->nonflat_label));
 
@@ -2201,10 +2211,11 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 			} else {
 				ce->test_and_entry_label = ce->entry_label;
 			}
+		}
 #ifdef CODEGEN_TRIM_LABELS
+		if (ce->test_and_entry_label)
 			ctx->used_labels[ce->test_and_entry_label] = true;
 #endif
-		}
 	}
 	return true;
 }
