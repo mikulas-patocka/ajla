@@ -795,7 +795,7 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 			if (!(ctx->args[i].flags & OPCODE_FLAG_FREE_ARGUMENT))
 				goto skip_quickret;
 			if (TYPE_IS_FLAT(t)) {
-				if (!da(ctx->fn,function)->local_variables_flags[ret_vars[i]].must_be_flat)
+				if (!flag_is_clear(ctx, ret_vars[i]))
 					test_vars[n_test_vars++] = ret_vars[i];
 			} else {
 				if (da(ctx->fn,function)->local_variables_flags[ret_vars[i]].may_be_borrowed)

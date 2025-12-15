@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024, 2025 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -18,12 +18,12 @@
 
 static bool attr_w clear_flag_cache(struct codegen_context *ctx)
 {
-	memset(ctx->flag_cache, 0, function_n_variables(ctx->fn) * sizeof(int8_t));
+	memset(ctx->flag_cache, 0, function_n_variables(ctx->fn) * sizeof(uint8_t));
 	return true;
 }
 
 /*#define clear_flag_cache(ctx)	\
-	(debug("clearing flag cache @ %d", __LINE__), memset((ctx)->flag_cache, 0, function_n_variables(ctx->fn) * sizeof(int8_t)), true)*/
+	(debug("clearing flag cache @ %d", __LINE__), memset((ctx)->flag_cache, 0, function_n_variables(ctx->fn) * sizeof(uint8_t)), true)*/
 
 static inline void flag_set(struct codegen_context *ctx, frame_t slot, bool val)
 {
