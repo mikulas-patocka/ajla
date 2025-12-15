@@ -50,7 +50,7 @@
 #define ARCH_IS_3ADDRESS_FP		0
 #define ARCH_HAS_JMP_REG(cond)		(cpu_test_feature(CPU_FEATURE_general_insn_ext) && USE_BRCL)
 #define ARCH_HAS_JMP_2REGS(cond)	ARCH_HAS_JMP_REG(cond)
-#define ARCH_HAS_LDP_STP(r1, r2, s, o)	((s) == OP_SIZE_NATIVE && (r1) == (r2) + 1)
+#define ARCH_HAS_LDP_STP(st, r1, r2, s, o)	((!(st) ? (s) == OP_SIZE_NATIVE : (s) == OP_SIZE_4 || (s) == OP_SIZE_8) && (r1) == (r2) + 1)
 #define ARCH_HAS_FLAGS			1
 #define ARCH_PREFERS_SX(size)		(!Z || !cpu_test_feature(CPU_FEATURE_long_displacement) || !cpu_test_feature(CPU_FEATURE_extended_imm))
 #define ARCH_HAS_BWX			1

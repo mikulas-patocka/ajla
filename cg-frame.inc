@@ -524,7 +524,7 @@ static bool attr_w gen_frame_load_2(struct codegen_context *ctx, unsigned size, 
 {
 	if (frame_t_is_const(slot))
 		goto skip_ldd;
-	if (ARCH_HAS_LDP_STP(reg1, reg2, size, offset + (size_t)slot * slot_size)) {
+	if (ARCH_HAS_LDP_STP(false, reg1, reg2, size, offset + (size_t)slot * slot_size)) {
 		g(gen_address(ctx, R_FRAME, offset + (size_t)slot * slot_size, IMM_PURPOSE_LDP_STP_OFFSET, size));
 		gen_insn(INSN_LDP, size, 0, 0);
 		gen_one(reg1);
@@ -596,7 +596,7 @@ static unsigned gen_frame_target(struct codegen_context *ctx, frame_t slot_r, fr
 
 static bool attr_w gen_frame_store_2(struct codegen_context *ctx, unsigned size, frame_t slot, int64_t offset, unsigned reg1, unsigned reg2)
 {
-	if (ARCH_HAS_LDP_STP(reg1, reg2, size, offset + (size_t)slot * slot_size)) {
+	if (ARCH_HAS_LDP_STP(true, reg1, reg2, size, offset + (size_t)slot * slot_size)) {
 		g(gen_address(ctx, R_FRAME, offset + (size_t)slot * slot_size, IMM_PURPOSE_LDP_STP_OFFSET, size));
 		gen_insn(INSN_STP, size, 0, 0);
 		gen_address_offset();
@@ -844,7 +844,7 @@ static bool attr_w gen_frame_load_cmp_imm_set_cond(struct codegen_context *ctx, 
 	return true;
 }
 
-static bool spill_can_pair(struct codegen_context *ctx, frame_t slot1, frame_t slot2, unsigned *s, int64_t *o, bool can_be_smaller)
+static bool spill_can_pair(struct codegen_context *ctx, bool attr_unused store, frame_t slot1, frame_t slot2, unsigned *s, int64_t *o, bool can_be_smaller)
 {
 	const struct type *t1 = get_type_of_local(ctx, slot1);
 	const struct type *t2 = get_type_of_local(ctx, slot2);
@@ -866,14 +866,14 @@ static bool spill_can_pair(struct codegen_context *ctx, frame_t slot1, frame_t s
 #if defined(C_LITTLE_ENDIAN)
 	if (slot1 + 1 + (s1 > OP_SIZE_SLOT) != slot2)
 		return false;
-	if (!ARCH_HAS_LDP_STP(ctx->registers[slot1], ctx->registers[slot2], s1, slot1 * slot_size))
+	if (!ARCH_HAS_LDP_STP(store, ctx->registers[slot1], ctx->registers[slot2], s1, slot1 * slot_size))
 		return false;
 	*s = s1;
 	*o = (size_t)slot1 * slot_size;
 #else
 	if (slot2 + 1 + (s2 > OP_SIZE_SLOT) != slot1)
 		return false;
-	if (!ARCH_HAS_LDP_STP(ctx->registers[slot1], ctx->registers[slot2], s1, slot2 * slot_size))
+	if (!ARCH_HAS_LDP_STP(store, ctx->registers[slot1], ctx->registers[slot2], s1, slot2 * slot_size))
 		return false;
 	*s = s2;
 	*o = (size_t)slot2 * slot_size;
@@ -889,7 +889,7 @@ static bool attr_w gen_spill_multiple(struct codegen_context *ctx, frame_t *v, s
 			unsigned s = 0;		/* avoid warning */
 			int64_t offset = 0;	/* avoid warning */
 #if defined(C_LITTLE_ENDIAN)
-			if (!spill_can_pair(ctx, v[i], v[i + 1], &s, &offset, can_be_smaller))
+			if (!spill_can_pair(ctx, true, v[i], v[i + 1], &s, &offset, can_be_smaller))
 				goto skip_opt;
 			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
 			gen_insn(INSN_STP, s, 0, 0);
@@ -897,7 +897,7 @@ static bool attr_w gen_spill_multiple(struct codegen_context *ctx, frame_t *v, s
 			gen_one(ctx->registers[v[i]]);
 			gen_one(ctx->registers[v[i + 1]]);
 #else
-			if (!spill_can_pair(ctx, v[i + 1], v[i], &s, &offset, can_be_smaller))
+			if (!spill_can_pair(ctx, true, v[i + 1], v[i], &s, &offset, can_be_smaller))
 				goto skip_opt;
 			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
 			gen_insn(INSN_STP, s, 0, 0);
@@ -922,7 +922,7 @@ static bool attr_w gen_unspill_multiple(struct codegen_context *ctx, frame_t *v,
 			unsigned s = 0;		/* avoid warning */
 			int64_t offset = 0;	/* avoid warning */
 #if defined(C_LITTLE_ENDIAN)
-			if (!spill_can_pair(ctx, v[i], v[i + 1], &s, &offset, can_be_smaller))
+			if (!spill_can_pair(ctx, false, v[i], v[i + 1], &s, &offset, can_be_smaller))
 				goto skip_opt;
 			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
 			gen_insn(INSN_LDP, s, 0, 0);
@@ -930,7 +930,7 @@ static bool attr_w gen_unspill_multiple(struct codegen_context *ctx, frame_t *v,
 			gen_one(ctx->registers[v[i + 1]]);
 			gen_address_offset();
 #else
-			if (!spill_can_pair(ctx, v[i + 1], v[i], &s, &offset, can_be_smaller))
+			if (!spill_can_pair(ctx, false, v[i + 1], v[i], &s, &offset, can_be_smaller))
 				goto skip_opt;
 			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
 			gen_insn(INSN_LDP, s, 0, 0);
