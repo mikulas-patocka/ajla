@@ -806,7 +806,7 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 
 			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_FRAME, R_FRAME, new_fp_offset, 0));
 
-			g(gen_jmp_indirect(ctx, R_SCRATCH_3, R_SCRATCH_2, -sizeof(char *)));
+			g(gen_jmp_indirect(ctx, R_SCRATCH_3, R_SCRATCH_2, offsetof(struct data, u_.codegen.unoptimized_code) - checkpoint_num_offset - sizeof(char *)));
 
 			gen_label(label_skip_quick_ret);
 		}
@@ -998,7 +998,7 @@ scaled_store_done:
 
 	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_FRAME, R_FRAME, new_fp_offset, 0));
 
-	g(gen_jmp_indirect(ctx, R_SCRATCH_1, R_SCRATCH_2, 0));
+	g(gen_jmp_indirect(ctx, R_SCRATCH_1, R_SCRATCH_2, offsetof(struct data, u_.codegen.unoptimized_code) - checkpoint_num_offset));
 
 	return true;
 }
