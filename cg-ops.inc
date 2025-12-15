@@ -836,7 +836,10 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 			} else {
 				g(gen_load_two(ctx, R_SCRATCH_1, R_SAVED_1, 0));
 
-				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(log_2(sizeof(code_t))), R_SCRATCH_1, flat_mask, COND_NE, label_skip_quick_ret, -1));
+				if (!flat_mask)
+					g(gen_jmp_on_zero(ctx, i_size(log_2(sizeof(code_t))), R_SCRATCH_1, COND_NE, label_skip_quick_ret));
+				else
+					g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(log_2(sizeof(code_t))), R_SCRATCH_1, flat_mask, COND_NE, label_skip_quick_ret, -1));
 			}
 
 			for (i = 0; i < ctx->args_l; i++) {
