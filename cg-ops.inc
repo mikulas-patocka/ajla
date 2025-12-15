@@ -703,7 +703,14 @@ static bool attr_w gen_jmp_indirect(struct codegen_context *ctx, unsigned reg1, 
 		gen_eight(offset);
 	} else {
 		g(gen_lea3(ctx, reg1, reg1, reg2, shift, 0));
+#if defined(ARCH_ARM32)
+		gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+		gen_one(ARG_ADDRESS_1);
+		gen_one(reg1);
+		gen_eight(offset);
 
+		return true;
+#endif
 		g(gen_address(ctx, reg1, offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 		gen_one(reg1);
