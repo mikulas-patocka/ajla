@@ -789,9 +789,21 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 
 			g(gen_test_multiple(ctx, test_vars, n_test_vars, label_skip_quick_ret));
 
+#if defined(ARCH_X86)
+			gen_insn(INSN_CMP, OP_SIZE_2, 0, 1);
+			gen_one(ARG_ADDRESS_1);
+			gen_one(R_SAVED_1);
+			gen_eight(0);
+			gen_one(ARG_IMM);
+			gen_eight(flat_mask);
+
+			gen_insn(INSN_JMP_COND, OP_SIZE_2, COND_NE, 0);
+			gen_four(label_skip_quick_ret);
+#else
 			g(gen_load_two(ctx, R_SCRATCH_1, R_SAVED_1, 0));
 
 			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(log_2(sizeof(code_t))), R_SCRATCH_1, flat_mask, COND_NE, label_skip_quick_ret, -1));
+#endif
 
 			for (i = 0; i < ctx->args_l; i++) {
 				bool flat = (flat_mask >> i) & 1;
