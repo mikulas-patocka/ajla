@@ -670,8 +670,16 @@ static bool attr_w gen_call_end(struct codegen_context *ctx, arg_t n_ret)
 
 static bool attr_w gen_jmp_indirect(struct codegen_context *ctx, unsigned reg1, unsigned reg2, int64_t offset)
 {
+#if !defined(POINTER_COMPRESSION)
+	unsigned shift = 0;
+#else
+	unsigned shift = POINTER_COMPRESSION;
+	unsigned regx = reg1;
+	reg1 = reg2;
+	reg2 = regx;
+#endif
 #if (defined(ARCH_X86) && !defined(ARCH_X86_X32))
-	if (is_direct_offset(offset))
+	if (is_direct_offset(offset) && shift <= 3)
 		goto direct_jmp;
 #endif
 #if defined(ARCH_ARM32)
@@ -679,18 +687,22 @@ static bool attr_w gen_jmp_indirect(struct codegen_context *ctx, unsigned reg1, 
 		goto direct_jmp;
 #endif
 #if defined(ARCH_S390_64)
-	if (likely(cpu_test_feature(CPU_FEATURE_misc_insn_ext_2)) && is_direct_offset(offset))
+	if (shift) {
+		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, reg2, reg2, shift, false));
+		shift = 0;
+	}
+	if (likely(cpu_test_feature(CPU_FEATURE_misc_insn_ext_2)) && is_direct_offset(offset) && !shift)
 		goto direct_jmp;
 #endif
-	if (ARCH_HAS_2REG_M(false, false, 0, offset)) {
+	if ((!shift || shift == OP_SIZE_ADDRESS) && ARCH_HAS_2REG_M(false, false, shift, offset)) {
 		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 		gen_one(reg1);
-		gen_one(ARG_ADDRESS_2);
+		gen_one(ARG_ADDRESS_2 + shift);
 		gen_one(reg1);
 		gen_one(reg2);
 		gen_eight(offset);
 	} else {
-		g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ADD, reg1, reg1, reg2, 0));
+		g(gen_lea3(ctx, reg1, reg1, reg2, shift, 0));
 
 		g(gen_address(ctx, reg1, offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
@@ -714,7 +726,7 @@ static bool attr_w gen_jmp_indirect(struct codegen_context *ctx, unsigned reg1, 
 	goto direct_jmp;
 direct_jmp:
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
-	gen_one(ARG_ADDRESS_2);
+	gen_one(ARG_ADDRESS_2 + shift);
 	gen_one(reg1);
 	gen_one(reg2);
 	gen_eight(offset);
@@ -738,17 +750,16 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 
 	g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, new_fp_offset + frame_offs(function), false, R_SCRATCH_2));
 
-#if (defined(ARCH_X86) || defined(ARCH_S390)) && 0
-	g(gen_test_bit(ctx, OP_SIZE_SLOT, R_SCRATCH_2, offsetof(struct data, u_.function.codegen), POINTER_THUNK_BIT, COND_NE, escape_label));
-#else
 	g(gen_address(ctx, R_SCRATCH_2, offsetof(struct data, u_.function.codegen), ARCH_PREFERS_SX(OP_SIZE_SLOT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_SLOT));
 	gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, 0);
 	gen_one(R_SCRATCH_3);
 	gen_address_offset();
 
 	g(gen_ptr_is_thunk(ctx, R_SCRATCH_3, NO_FRAME_T, escape_label));
-#endif
 	g(gen_barrier(ctx));
+
+	if (OP_SIZE_SLOT < OP_SIZE_NATIVE && ARCH_PREFERS_SX(OP_SIZE_SLOT))
+		g(gen_extend(ctx, OP_SIZE_SLOT, zero_x, R_SCRATCH_3, R_SCRATCH_3));
 
 	g(gen_load_raw(ctx, log_2(sizeof(timestamp_t)), garbage, R_FRAME, 0, frame_offs(timestamp), false, R_SCRATCH_1));
 	g(gen_store_raw(ctx, log_2(sizeof(timestamp_t)), R_FRAME, 0, new_fp_offset + frame_offs(timestamp), R_SCRATCH_1));
@@ -828,8 +839,6 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 			}
 
 			retval_offset = sizeof(code_t) + (4 + 2 * (ARG_MODE_N >= 3)) * ctx->args_l;
-
-			g(gen_decompress_pointer(ctx, ARCH_PREFERS_SX(OP_SIZE_SLOT), R_SCRATCH_3, R_SCRATCH_3, 0));
 
 			g(gen_load_code_32(ctx, R_SCRATCH_2, R_SAVED_1, retval_offset + 2));
 
@@ -1020,8 +1029,8 @@ scaled_store_done:
 	gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, 0);
 	gen_one(R_SCRATCH_1);
 	gen_address_offset();
-
-	g(gen_decompress_pointer(ctx, ARCH_PREFERS_SX(OP_SIZE_SLOT), R_SCRATCH_1, R_SCRATCH_1, 0));
+	if (OP_SIZE_SLOT < OP_SIZE_NATIVE && ARCH_PREFERS_SX(OP_SIZE_SLOT))
+		g(gen_extend(ctx, OP_SIZE_SLOT, zero_x, R_SCRATCH_1, R_SCRATCH_1));
 
 	g(gen_load_code_32(ctx, R_SCRATCH_2, R_SAVED_1, retval_offset + 2));
 

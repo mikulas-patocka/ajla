@@ -898,14 +898,17 @@ static bool attr_w gen_cmp_extended(struct codegen_context *ctx, unsigned cmp_op
 
 static bool attr_w gen_lea3(struct codegen_context *ctx, unsigned dest, unsigned base, unsigned shifted, unsigned shift, int64_t offset)
 {
-#if defined(ARCH_X86) || defined(ARCH_S390)
+#if defined(ARCH_X86)
+	if (unlikely(shift > 3))
+		goto skip_direct_shift;
+#endif
 #if defined(ARCH_S390)
 	if (shift) {
-		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, dest, shifted, shift, false));
-		shifted = dest;
+		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, shifted, shifted, shift, false));
 		shift = 0;
 	}
 #endif
+#if defined(ARCH_X86) || defined(ARCH_S390)
 	gen_insn(INSN_LEA3, i_size(OP_SIZE_ADDRESS), shift, 0);
 	gen_one(dest);
 	gen_one(base);
@@ -918,6 +921,8 @@ static bool attr_w gen_lea3(struct codegen_context *ctx, unsigned dest, unsigned
 
 	return true;
 #endif
+	goto skip_direct_shift;
+skip_direct_shift:
 	if (shift && ARCH_HAS_SHIFTED_ADD(shift)) {
 		gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(i_size(OP_SIZE_ADDRESS), ALU_ADD, false, false, 0));
 		gen_one(dest);
@@ -938,8 +943,7 @@ static bool attr_w gen_lea3(struct codegen_context *ctx, unsigned dest, unsigned
 	}
 
 	if (shift) {
-		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, dest, shifted, shift, false));
-		shifted = dest;
+		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, shifted, shifted, shift, false));
 	}
 
 	g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ADD, dest, shifted, base, 0));
