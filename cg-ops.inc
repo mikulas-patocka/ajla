@@ -768,6 +768,8 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 		uint8_t regs[sizeof(code_t) * 8];
 		frame_t test_vars[sizeof(code_t) * 8];
 		arg_t n_test_vars = 0;
+		frame_t test_borrowed[sizeof(code_t) * 8];
+		arg_t n_test_borrowed = 0;
 		for (i = 0; i < ctx->args_l; i++) {
 			const struct type *t = get_type_of_local(ctx, ctx->args[i].slot);
 			ret_vars[i] = ctx->args[i].slot;
@@ -778,8 +780,8 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 				if (!da(ctx->fn,function)->local_variables_flags[ret_vars[i]].must_be_flat)
 					test_vars[n_test_vars++] = ret_vars[i];
 			} else {
-				if (da(ctx->fn,function)->local_variables_flags[ret_vars[i]].may_be_borrowed && !flag_is_set(ctx, ret_vars[i]))
-					goto skip_quickret;
+				if (da(ctx->fn,function)->local_variables_flags[ret_vars[i]].may_be_borrowed)
+					test_borrowed[n_test_borrowed++] = ret_vars[i];
 			}
 		}
 		if (test_quick_return(ctx, ret_vars, ctx->args_l, regs)) {
@@ -788,6 +790,9 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 				return false;
 
 			g(gen_test_multiple(ctx, test_vars, n_test_vars, label_skip_quick_ret));
+
+			for (i = 0; i < n_test_borrowed; i++)
+				g(gen_test_1(ctx, R_FRAME, test_borrowed[i], 0, label_skip_quick_ret, true, TEST));
 
 #if defined(ARCH_X86)
 			if (1)
