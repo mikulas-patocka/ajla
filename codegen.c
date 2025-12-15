@@ -515,7 +515,6 @@ struct codegen_context {
 
 	ajla_error_t err;
 
-	code_t flat_mask;
 	arg_t n_ret;
 	frame_t ret_vars[sizeof(code_t) * 8];
 	uint8_t regs[sizeof(code_t) * 8];
@@ -1836,11 +1835,10 @@ skip_dereference:
 					ajla_assert_lo(!ce[-1].entry_label, (file_line, "gen_function: entry label for call not allocated (%s)", da(ctx->fn,function)->function_name));
 					ce[-1].entry_label = fastret_label;
 					for (i = 0; i < ctx->n_ret; i++) {
-						bool flat = (ctx->flat_mask >> i) & 1;
 						const struct type *t = get_type_of_local(ctx, ctx->ret_vars[i]);
 						unsigned size = spill_size(t);
 						g(gen_store_raw(ctx, size, R_FRAME, ctx->ret_vars[i], 0, ctx->regs[i]));
-						if (!flat)
+						if (!TYPE_IS_FLAT(t))
 							g(gen_set_1(ctx, R_FRAME, ctx->ret_vars[i], 0, true));
 					}
 

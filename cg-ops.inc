@@ -642,7 +642,7 @@ static bool attr_w gen_call_end(struct codegen_context *ctx, arg_t n_ret)
 
 	g(clear_flag_cache(ctx));
 
-	ctx->flat_mask = get_code(ctx);
+	get_code(ctx);
 	if (n_ret > sizeof(code_t) * 8) {
 		for (i = 0; i < n_ret; i++) {
 #if ARG_MODE_N >= 3
