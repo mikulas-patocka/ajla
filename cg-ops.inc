@@ -818,9 +818,8 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 			}
 
 			for (i = 0; i < ctx->args_l; i++) {
-				bool flat = (flat_mask >> i) & 1;
 				const struct type *t = get_type_of_local(ctx, ret_vars[i]);
-				unsigned size = flat ? log_2(t->size) : OP_SIZE_SLOT;
+				unsigned size = spill_size(t);
 				g(gen_load_raw(ctx, size, garbage, R_FRAME, ret_vars[i], 0, false, regs[i]));
 			}
 

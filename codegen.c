@@ -1838,7 +1838,7 @@ skip_dereference:
 					for (i = 0; i < ctx->n_ret; i++) {
 						bool flat = (ctx->flat_mask >> i) & 1;
 						const struct type *t = get_type_of_local(ctx, ctx->ret_vars[i]);
-						unsigned size = flat ? log_2(t->size) : OP_SIZE_SLOT;
+						unsigned size = spill_size(t);
 						g(gen_store_raw(ctx, size, R_FRAME, ctx->ret_vars[i], 0, ctx->regs[i]));
 						if (!flat)
 							g(gen_set_1(ctx, R_FRAME, ctx->ret_vars[i], 0, true));
