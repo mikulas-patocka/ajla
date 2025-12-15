@@ -438,8 +438,8 @@ struct cg_entry {
 	uint32_t test_and_entry_label;
 
 	arg_t n_ret;
-	frame_t ret_vars[sizeof(code_t) * 8];
-	uint8_t regs[sizeof(code_t) * 8];
+	frame_t ret_vars[MAX_QUICKRET_VALUES];
+	uint8_t regs[MAX_QUICKRET_VALUES];
 };
 
 struct cg_exit {
@@ -518,8 +518,8 @@ struct codegen_context {
 	bool checkpoint_quick_entry;
 
 	arg_t n_ret;
-	frame_t ret_vars[sizeof(code_t) * 8];
-	uint8_t regs[sizeof(code_t) * 8];
+	frame_t ret_vars[MAX_QUICKRET_VALUES];
+	uint8_t regs[MAX_QUICKRET_VALUES];
 
 	ajla_error_t err;
 

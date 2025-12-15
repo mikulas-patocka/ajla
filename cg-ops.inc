@@ -643,7 +643,7 @@ static bool attr_w gen_call_end(struct codegen_context *ctx, arg_t n_ret)
 	g(clear_flag_cache(ctx));
 
 	get_code(ctx);
-	if (n_ret > sizeof(code_t) * 8) {
+	if (n_ret > MAX_QUICKRET_VALUES) {
 		for (i = 0; i < n_ret; i++) {
 #if ARG_MODE_N >= 3
 			get_uint32(ctx);
@@ -762,13 +762,13 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 
 	g(gen_lea3(ctx, R_SAVED_1, R_SCRATCH_2, R_SCRATCH_1, 0, 0));
 
-	if (ctx->args_l <= sizeof(code_t) * 8) {
+	if (ctx->args_l <= MAX_QUICKRET_VALUES) {
 		code_t flat_mask = 0;
-		frame_t ret_vars[sizeof(code_t) * 8];
-		uint8_t regs[sizeof(code_t) * 8];
-		frame_t test_vars[sizeof(code_t) * 8];
+		frame_t ret_vars[MAX_QUICKRET_VALUES];
+		uint8_t regs[MAX_QUICKRET_VALUES];
+		frame_t test_vars[MAX_QUICKRET_VALUES];
 		arg_t n_test_vars = 0;
-		frame_t test_borrowed[sizeof(code_t) * 8];
+		frame_t test_borrowed[MAX_QUICKRET_VALUES];
 		arg_t n_test_borrowed = 0;
 		for (i = 0; i < ctx->args_l; i++) {
 			const struct type *t = get_type_of_local(ctx, ctx->args[i].slot);

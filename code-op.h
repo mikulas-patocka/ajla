@@ -23,6 +23,8 @@ typedef uint16_t code_t;
 
 #define OPCODE_MASK		0xffff
 
+#define MAX_QUICKRET_VALUES	8
+
 #define OPCODE_OP_FLAG_STRICT			0x0001
 #define OPCODE_FLAG_FREE_ARGUMENT		0x0002
 #define OPCODE_FLAG_FREE_ARGUMENT_2		0x0004

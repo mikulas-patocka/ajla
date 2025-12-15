@@ -1006,7 +1006,7 @@ static bool pcode_finish_call(struct build_function_context *ctx, const struct p
 	ctx->leaf = false;
 
 	flat_mask = 0;
-	if (rets_l <= sizeof(code_t) * 8) {
+	if (rets_l <= MAX_QUICKRET_VALUES) {
 		for (i = 0; i < rets_l; i++) {
 			const struct pcode_type *tv = rets[i];
 			flat_mask |= (code_t)TYPE_IS_FLAT(tv->type) << i;
