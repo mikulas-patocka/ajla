@@ -23,14 +23,14 @@ fn integer_to_bytes(n : int) : bytes;
 fn bytes_to_integer_base(a : bytes, b : int) : int;
 fn bytes_to_integer(a : bytes) : int;
 
-fn real_to_bytes_base_precision(t : type, c : class_real_number(t), n : t, b : int, digits : int) : bytes;
-fn real_to_bytes(t : type, c : class_real_number(t), n : t) : bytes;
-fn bytes_to_real_base(t : type, implicit c : class_real_number(t), a : bytes, b : int) : t;
-fn bytes_to_real_hex(t : type, implicit c : class_real_number(t), a : bytes) : t;
-fn bytes_to_real(t : type, c : class_real_number(t), a : bytes) : t;
+fn real_to_bytes_base_precision(t : type, c~spec : class_real_number(t), n : t, b : int, digits : int) : bytes;
+fn real_to_bytes(t : type, c~spec : class_real_number(t), n : t) : bytes;
+fn bytes_to_real_base(t : type, implicit c~spec : class_real_number(t), a : bytes, b : int) : t;
+fn bytes_to_real_hex(t : type, implicit c~spec : class_real_number(t), a : bytes) : t;
+fn bytes_to_real(t : type, c~spec : class_real_number(t), a : bytes) : t;
 
-fn real_to_rational(t : type, implicit c : class_real_number(t), n : t) : rational;
-fn rational_to_real(t : type, implicit c : class_real_number(t), a : rational) : t;
+fn real_to_rational(t : type, implicit c~spec : class_real_number(t), n : t) : rational;
+fn rational_to_real(t : type, implicit c~spec : class_real_number(t), a : rational) : t;
 
 implementation
 
@@ -144,7 +144,7 @@ fn bytes_to_integer(a : bytes) : int
 ]
 
 
-fn real_to_bytes_base_precision(t : type, implicit c : class_real_number(t), n : t, b : int, digits : int) : bytes
+fn real_to_bytes_base_precision(t : type, implicit c~spec : class_real_number(t), n : t, b : int, digits : int) : bytes
 [
 	if b < 2 or b > 36 or digits < 0 then
 		abort exception_make(bytes, ec_sync, error_invalid_operation, 0, true);
@@ -187,12 +187,12 @@ fn real_to_bytes_base_precision(t : type, implicit c : class_real_number(t), n :
 	return result;
 ]
 
-fn real_to_bytes(t : type, implicit c : class_real_number(t), n : t) : bytes
+fn real_to_bytes(t : type, implicit c~spec : class_real_number(t), n : t) : bytes
 [
 	return real_to_bytes_base_precision~inline(t, c, n, 10, 10);
 ]
 
-fn bytes_to_real_base(t : type, implicit c : class_real_number(t), a : bytes, b : int) : t
+fn bytes_to_real_base(t : type, implicit c~spec : class_real_number(t), a : bytes, b : int) : t
 [
 	if b < 2 or b > 36 then
 		abort exception_make(bytes, ec_sync, error_invalid_operation, 0, true);
@@ -267,7 +267,7 @@ ret:
 	return r;
 ]
 
-fn bytes_to_real_hex(t : type, implicit c : class_real_number(t), a : bytes) : t
+fn bytes_to_real_hex(t : type, implicit c~spec : class_real_number(t), a : bytes) : t
 [
 	var b := empty(byte);
 	for i := 0 to len(a) do [
@@ -289,12 +289,12 @@ fn bytes_to_real_hex(t : type, implicit c : class_real_number(t), a : bytes) : t
 	return bytes_to_real_base(t, c, b, 2);
 ]
 
-fn bytes_to_real(t : type, implicit c : class_real_number(t), a : bytes) : t
+fn bytes_to_real(t : type, implicit c~spec : class_real_number(t), a : bytes) : t
 [
 	return bytes_to_real_base(t, c, a, 10);
 ]
 
-fn real_to_rational(t : type, implicit c : class_real_number(t), n : t) : rational
+fn real_to_rational(t : type, implicit c~spec : class_real_number(t), n : t) : rational
 [
 	if is_infinity n then [
 		if not is_negative n then [
@@ -331,7 +331,7 @@ fn real_to_rational(t : type, implicit c : class_real_number(t), n : t) : ration
 	return instance_real_number_rational.from_int(num) / instance_real_number_rational.from_int(den);
 ]
 
-fn int_to_real(t : type, implicit c : class_real_number(t), i : int) : (t, int)
+fn int_to_real(t : type, implicit c~spec : class_real_number(t), i : int) : (t, int)
 [
 	var num := c.from_int(i);
 	if not is_infinity num then
@@ -358,7 +358,7 @@ fn int_to_real(t : type, implicit c : class_real_number(t), i : int) : (t, int)
 	return num, q;
 ]
 
-fn rational_to_real(t : type, implicit c : class_real_number(t), a : rational) : t
+fn rational_to_real(t : type, implicit c~spec : class_real_number(t), a : rational) : t
 [
 	var num := a.num;
 	var den := a.den;
