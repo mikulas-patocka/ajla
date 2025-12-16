@@ -373,16 +373,6 @@ fn get_kwmap~cache : list(token_opt)
 	return result;
 ]
 
-fn get_opmap~cache : list(token_opt)
-[
-	var result := infinite_uninitialized(token_opt);
-	result[i_encode(".")] := token_opt.dot;
-	result[i_encode("..")] := token_opt.range;
-	result[i_encode(":")] := token_opt.colon;
-	result[i_encode(":=")] := token_opt.assign;
-	return result;
-]
-
 fn token_location(t : token) : bytes
 [
 	return t.file + ":" + ntos(t.line) + ":" + ntos(t.column) + ": ";
@@ -426,7 +416,7 @@ const operator_bitmap : int128 :=
 
 { " # ' ( ) , : ; @ [ ] { } ~ }
 
-fn tokenize_recursive(str : bytes, filename : bytes, line : int, column : int, kwmap : list(token_opt), opmap : list(token_opt)) : tokens
+fn tokenize_recursive(str : bytes, filename : bytes, line : int, column : int, kwmap : list(token_opt)) : tokens
 [
 	var i := 0;
 	var line_start := -1;
@@ -522,8 +512,28 @@ invalid_number:
 			result +<= tk;
 			next_hints := empty(bytes);
 			if tk.t is k_implementation and len(bracket_stack_pos) = 0 then [
-				return result + tokenize_recursive~lazy(str[i .. ], filename, line, column, kwmap, opmap);
+				return result + tokenize_recursive~lazy(str[i .. ], filename, line, column, kwmap);
 			]
+		] else if c = ':' then [
+			i += 1;
+			if len_greater_than(str, i), str[i] = '=' then [
+				tk.t := token_opt.assign;
+				i += 1;
+			] else [
+				tk.t := token_opt.colon;
+			]
+			result +<= tk;
+			next_hints := empty(bytes);
+		] else if c = '.' then [
+			i += 1;
+			if len_greater_than(str, i), str[i] = '.' then [
+				tk.t := token_opt.range;
+				i += 1;
+			] else [
+				tk.t := token_opt.dot;
+			]
+			result +<= tk;
+			next_hints := empty(bytes);
 		] else if operator_bitmap bt c then [
 			var was_slash := 0;
 			if c = '/' then
@@ -542,11 +552,7 @@ invalid_number:
 			]
 			if start < i then [
 				var id := i_encode(str[start .. i]);
-				var op := opmap[id];
-				if is_uninitialized(op) then
-					tk.t := token_opt.oper.(id);
-				else
-					tk.t := op;
+				tk.t := token_opt.oper.(id);
 				result +<= tk;
 				next_hints := empty(bytes);
 			]
@@ -671,15 +677,13 @@ invalid_hint:
 fn tokenize_string(str : bytes, t : tokens) : tokens
 [
 	var kwmap := get_kwmap;
-	var opmap := get_opmap;
-	return tokenize_recursive(str, t[0].file, t[0].line, t[0].column, kwmap, opmap);
+	return tokenize_recursive(str, t[0].file, t[0].line, t[0].column, kwmap);
 ]
 
 fn tokenize(str : bytes, filename : bytes) : tokens
 [
 	var kwmap := get_kwmap;
-	var opmap := get_opmap;
-	return tokenize_recursive(str, filename, 1, 1, kwmap, opmap);
+	return tokenize_recursive(str, filename, 1, 1, kwmap);
 ]
 
 fn token_find(tl : tokens, t : token_opt, err : bool) : int
