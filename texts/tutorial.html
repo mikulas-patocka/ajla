@@ -27,7 +27,7 @@
 <a href="#hello_world">Hello World</a><br>
 <a href="#fizz_buzz">Fizz-buzz</a><br>
 <a href="#statements">Statements</a><br>
-<a href="#types">Types</a><br>
+<a href="#data_types">Data types</a><br>
 <a href="#operators">Operators</a><br>
 <a href="#clauses">Clauses</a><br>
 <a href="#automatic_parallelization">Automatic parallelization</a><br>
@@ -178,7 +178,8 @@ standard output and the third for standard error.
 <dt><code>args : list(bytes)</code>
 <dd>The arguments that were passed to the program. The type "<code>bytes</code>"
 represents a sequence of bytes, so <code>list(bytes)</code> is a list of
-sequences of bytes.
+sequences of bytes. "<code>args[0]</code>" is the first argument,
+"<code>args[1]</code>" is the second argument, etc.
 <dt><code>env : treemap(bytes, bytes)</code>
 <dd>This represents the environment variables for the program. The environment
 is represented as a tree that maps a sequence of bytes (i.e. the variable name)
@@ -318,10 +319,20 @@ Ajla has the following statements:
 <dt><code>var x := 10;</code>
 <dd>Creates a variable and assigns a value to it. The type is inferred, if we
 don't want to infer the type, we use "<code>var x : int := 10;</code>"
+<dt><code>var x, y := 10, 20;</code>
+<dd>Creates two variable and assigns values to it. The type is inferred, if we
+don't want to infer the type, we use "<code>var x : int, y : real64 := 10,
+20;</code>"
 <dt><code>x := 20;</code>
 <dd>Modifies the variable.
+<dt><code>x, y := 10, 20;</code>
+<dd>Modifies two variables. For example, we can swap variables with "<code>x, y
+:= y, x</code>".
 <dt><code>const x := 10;</code>
 <dd>Creates a constant and assigns a value to it. A constant can't be modified.
+<dt><code>x += 10;</code>
+<dd>Equivalent to "<code>x := x + 10;</code>". All the binary operators can be
+used in this way.
 <dt>
 <code>if condition then statement;</code>
 <br>
@@ -353,7 +364,7 @@ not taken.
 The assignment also accepts multiple expressions &mdash; for example, "<code>x,
 y := y, x</code>" will swap the variables <code>x</code> and <code>y</code>.
 
-<h2 id=types>Types</h2>
+<h2 id=data_types>Data types</h2>
 
 Ajla has the following primitive types:
 <dl>
@@ -519,6 +530,8 @@ option bottom_type [
 </dl>
 
 <h2 id=operators>Operators</h2>
+
+Ajla has the following operators. All binary operators have left associativity.
 
 <table border=1>
 <tr><th>Operator<th>Priority<th>Description</tr>
