@@ -34,7 +34,7 @@
 <a href="#automatic_parallelization">Automatic parallelization</a><br>
 <a href="#caching">Caching</a><br>
 <a href="#functions">Functions</a><br>
-<a href="#floating_point_arithmetics">Floating-point arithmetics</a><br>
+<a href="#floating_point_arithmetic">Floating-point arithmetic</a><br>
 <a href="#lists">Lists</a><br>
 <a href="#arrays">Arrays</a><br>
 <a href="#strings">Strings</a><br>
@@ -48,7 +48,7 @@
 <a href="#verifying_ajla_programs_with_z3">Verifying Ajla programs with Z3</a><br>
 <a href="#hacking_ajla">Hacking Ajla</a><br>
 
-<h2 id=introducton>Introduction</h2>
+<h2 id=introduction>Introduction</h2>
 
 Ajla is a purely functional programming language that has look-and-feel like
 traditional imperative languages. The return value of every function in Ajla
@@ -121,7 +121,8 @@ it will scan all the source code units and look for syntax errors.
 The standard library is placed in the <code>stdlib</code> subdirectory, you can
 read it to find out what types and functions are there. The
 <code>system.ajla</code> file is implicitly included before compiling any Ajla
-source file.
+source file. The list of all available functions is in this <a
+href="all-funcs.txt">file</a>.
 <br>
 <br>
 In "<code>programs/acmd/</code>" there's Ajla Commander &mdash; a Midnight
@@ -572,6 +573,16 @@ If we pass different types to an operator, the second argument is converted to a
 type of the first argument. For example <code>2.5 + 1</code> will return a
 floating point value <code>3.5</code>. <code>1 + 2.5</code> will return an
 integer value <code>3</code>.
+<br>
+<br>
+The user can define his own operators with the <code>operator</code> keyword.
+Search the file "<code>stdlib/system.ajla</code>" for the "operator" word to see
+an example how to do it.
+<br>
+<br>
+Note that if there are two adjacent operators, you must put space between them.
+For example, "<code>10*-3</code>" will not compile because the parser finds
+unknown operator "<code>*-</code>". You must write "<code>10* -3</code>".
 
 <h2 id=clauses>Clauses</h2>
 
@@ -856,7 +867,7 @@ function that takes one argument and adds the value 10 to the argument. We
 assign this new function to the variable "<code>add_ten</code>". Finally, we
 call "<code>add_ten(20)</code>", which returns the value 30.
 
-<h2 id=floating_point_arithmetics>Floating-point arithmetics</h2>
+<h2 id=floating_point_arithmetic>Floating-point arithmetic</h2>
 
 Ajla has the following primitive floating point types - <code>real16</code>,
 <code>real32</code>, <code>real64</code>, <code>real80</code>,
@@ -872,7 +883,7 @@ the type of the constant &mdash; <code>h</code> for <code>real16</code>,
 <br>
 Ajla also has hexadecimal floating point constants, they are prefixed with '#'
 and they have <code>p</code> instead of <code>e</code> as an exponent marker.
-The exponent for hexadecimal floating point constants is in bit (not 16-bit
+The exponent for hexadecimal floating point constants is in bits (not 4-bit
 digits). For example, this is the &pi; constant in <code>real128</code>
 precision: <code>#1.921fb54442d18469898cc51701b8p+1q</code>.
 <br>
@@ -881,6 +892,8 @@ The following functions or operators may be used on floating point numbers (for
 operator precedence, see the table in the section <a
 href="#operators">Operators</a>):
 <table border=1>
+<tr><td><code>+ x</code><td>Returns <code>x</code></tr>
+<tr><td><code>- x</code><td>Returns negative value</tr>
 <tr><td><code>x + y</code><td>Addition</tr>
 <tr><td><code>x - y</code><td>Subtraction</tr>
 <tr><td><code>x * y</code><td>Multiplication</tr>
