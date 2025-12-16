@@ -1,0 +1,54 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <title>Install Ajla from binaries</title>
+  </head>
+  <body>
+
+<h4>1. Copy Ajla and set path</h4>
+
+<table border=1>
+<tr>
+<th>Operating System
+<th>Download link
+<th>Action after downloading
+
+<tr><td>OS/2
+<td align="center"><a href="https://ajla-lang.cz/downloads/binaries/ajla-0.3.1-os2.zip">ajla-0.3.1-os2.zip</a>
+<td>Unpack and move and rename the resulting directory so that it becomes C:\AJLA. Edit C:\CONFIG.SYS and add <code>;C:\AJLA</code> to the end of the SET
+PATH line (do not put a space before the semicolon). Reboot.
+
+<tr><td>64-bit Windows Vista, 7
+<td align="center"><a href="https://ajla-lang.cz/downloads/binaries/ajla-0.3.1-win64.zip">ajla-0.3.1-win64.zip</a>
+<td><p>Unpack and move and rename the resulting directory so that it becomes C:\Ajla.
+<p>Start Menu, right click Computer, select Properties, Advanced System Settings in the left column. In the System
+Properties window, click the Advanced tab, then the Environment Variables button. Highglight the Path variable in the System
+Variables section and click Edit. There
+will be a list of paths separated by a semicolon. Add <code>;C:\Ajla</code> to the end. Do not add a space before the semicolon.
+Click as many OK buttons as it takes. Restart the computer.
+
+<tr><td>64-bit Windows 8,10,11
+<td align="center"><a href="https://ajla-lang.cz/downloads/binaries/ajla-0.3.1-win64.zip">ajla-0.3.1-win64.zip</a>
+<td>
+<p>Unpack and move and rename the resulting directory so that it becomes C:\Ajla.
+<p>Hold the [Windows logo] key and press X to show the Power User Task Menu. Select System; Advanced System Settings. In the System
+Properties window, select the Advanced tab, then click the Environment Variables button. Go to the System Variables section, find “Path”, click “Edit” and check
+if there is an entry containing C:\Ajla . If not, add it. Click as many OK buttons as it takes. Close all open command shells.
+<tr><td>other
+<td colspan=2 align="center">Installation from binaries is not supported.
+
+</table>
+
+<h4>2. Test Ajla</h4>
+<a href="test.html">Test Ajla</a>. If it fails, check that you didn't make a mistake during the installation and if not, then the
+installation procedure is defective and contact support at
+<a href="mailto:mikulas@twibright.com">mikulas@twibright.com</a>.
+You can also optionally mention the problem at the mailing list <a moz-do-not-send="true"
+            href="https://www.freelists.org/list/ajla">https://www.freelists.org/list/ajla</a>.
+
+<h4>3. Clean up</h4>
+You can optionally delete the ajla-*.zip that was downloaded. Saves 2-5 MB.
+
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <title>Uninstall Ajla</title>
+  </head>
+  <body>
+
+<h2>How to uninstall Ajla</h2>
+
+<p>If you have Windows with Cygwin, please perform both the Cygwin with Windows and Windows outside Cygwin headings.
+
+<h3>Cygwin in Windows and other systems than Windows or OS/2</h3>
+<ol>
+<li>Run <code>`which ajla`</code> . If it prints where the executable is, delete it.
+<li>Search for all files named <code>ajla</code> in the following directories, and delete all copies found: You may use this command
+to find them:
+<pre>find /bin /sbin /usr/bin /usr/sbin /usr/local/bin /opt/bin ~/bin ~/.local/bin /data/data/com.termux/files/usr/bin -maxdepth 1 -type f -name ajla 2&gt;/dev/null</pre>
+<li>Search for all subdirectories named <code>ajla-*</code> in the following directories, and delete all of them.
+You may use this command to list them:
+<pre>find /lib /usr/lib /usr/local/lib /opt/lib ~/lib ~/.local/lib /data/data/com.termux/files/usr/lib -maxdepth 1 -type d -iname 'ajla-*' 2&gt;/dev/null</pre>
+<li><code>echo $PATH</code> and look for all Ajla-related paths. Use them as a hint to delete the <code>ajla</code> file and
+<code>ajla-*</code> directory which is inside a directory where you have to replace /bin in the path with /lib.
+<li>Edit ~/.profile and remove all those Ajla-related paths from the PATH= variable.
+<li>If you removed any PATH= entries from ~/.profile, try these actions one by one until the Ajla-related paths disappear from
+<code>echo $PATH</code> :
+<ol>
+<li>Log out from all consoles, terminal emulators (xterm,...), and SSH's and log in again
+<li>Reboot the system
+</ol>
+</ol>
+
+<h3>OS/2</h3>
+<ol>
+<li>Remove the C:\AJLA directory.
+<li>Edit C:\CONFIG.SYS and remove C:\AJLA and separating semicolon from the SET PATH line (don't leave double semicolon ;;).
+<li>Reboot.
+</ol>
+
+<h3>(64-bit Windows Vista or 7) outside Cygwin</h3>
+<ol>
+<li>Remove the <code>C:\Ajla</code> and <code>C:\Program Files\Ajla</code> directories if they exist.
+<li>Start Menu, right click Computer, select Properties, Advanced System Settings in the left column. In the System Properties
+window, click the Advanced tab, then the Environment Variables button. Highglight the Path variable in the System Variables section and click Edit. There will be a
+list of paths separated by a semicolon. Remove all Ajla-related ones and their separating semicolons (don't leave double semicolons ;;). Click as many OK buttons
+as it takes. If you did any change, restart the computer.
+</ol>
+
+<h3>(64-bit Windows 8, 10 or 11) outside Cygwin</h3>
+<ol>
+<li>Remove the <code>C:\Ajla</code> and <code>C:\Program Files\Ajla directories</code> if they exist.
+<li>Hold the [Windows logo] key and press X to show the Power User Task Menu. Select System; Advanced System Settings. In the System
+Properties window, select the Advanced tab, then click the Environment Variables button. Go to the System Variables section, find
+“Path”, click “Edit” and remove all Ajla-related entries and their separating semicolons (don't leave double semicolons ;;). Click as many OK buttons as it takes. If you did any change, close
+all open command shells.
+</ol>
+
+	</body>
+</html>

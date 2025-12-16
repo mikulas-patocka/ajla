@@ -1,0 +1,299 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <title>Install Ajla from current working source code</title>
+  </head>
+  <body>
+<h1>Install Ajla from current working source code</h1>
+<h2>1. Determine operating system</h2>
+<ol>
+<li><code>echo $HOME</code> , if it prints /data/data/com.termux/files/home, then it's Termux in Android.
+<li><code>lsb_release -a</code>
+<li><code>cat /etc/issue</code>
+<li><code>uname -a</code>
+</ol>
+
+<h2>2. Prevent failure on lengthy activities</h2>
+If on a phone, remember to keep the compilation running in the foreground and prevent the display from turning off:
+<ul>
+<li>iOS iSH: go to cogwheel (settings) inside iSH and turn on Keep Screen Turned On.
+<li>Android Termux: press long on the terminal text window; MORE; turn on Keep screen on.
+</ul>
+
+
+<h2>3. Install required and recommended software</h2>
+
+<h3>3.1 Packages which have to be installed before the others</h3>
+<p>If you are on Termux on Android, install the tur-repo package (<code>pkg in tur-repo</code>).
+
+<h3>3.2 Install main prerequisities</h3>
+<h4>Consequences of missing packages</h4>
+<ul>
+<li>If Ed and Sed are required but not installed, ./configure will crash with errors that don't make sense.
+<li>If GCC is required and not installed and the system uses Clang instead, compilation will take one or more hours.
+<li>If GMP/libgmp-dev/gmp-dev/gmp-devel is not installed, Ajla will be slower on complicated math calculations.
+<li>If Libffi/libffi-dev/libffi-devel is not installed, Ajla will not allow calling external libraries.
+<li>If libnuma-dev/numactl-dev/numactl-devel/libnuma-devel is not installed, Ajla will be slower on expensive PC's with <a
+href="https://en.wikipedia.org/wiki/Non-uniform_memory_access">NUMA</a>.
+<li>If libz3-dev/z3-dev/z3-devel is nost installed, Ajla will not help catch certain sophisticated errors in programs.
+<li>If Screen is missing and you are installing over SSH and network disconnect occurs, you have to rerun the lenghty command again.
+</ul>
+
+<table border=1>
+<tr>
+<th>Operating System
+<th>Package names required
+<th>Package names recommended
+
+<tr><td>Alma, CentOS, Oracle Linux, Red Hat Enterprise Linux (RHEL), Rocky
+<td>gcc make autoconf automake git
+<td>gmp-devel libffi-devel numactl-devel screen (if available)
+
+<tr><td>Alpine
+<td>gcc make autoconf automake git
+<td>gmp-dev libffi-dev numactl-dev z3-dev screen (if available)
+
+<tr><td>Android with Termux
+<td>gcc-15 ldd make autoconf automake git
+<td>libffi libgmp screen z3
+
+<tr><td>Arch, Manjaro
+<td>gcc make autoconf automake git
+<td>gmp numactl screen z3
+
+<tr><td>Debian, Edubuntu, Kali, Kubuntu, Lite, MX, Lubuntu, Mint, Trisquel, Ubuntu, Xubuntu, Zorin
+<td>gcc make autoconf automake git
+<td>libffi-dev libgmp-dev libnuma-dev libz3-dev screen
+
+<tr><td>Fedora
+<td>gcc make autoconf automake git
+<td>gmp-devel libffi-devel numactl-devel screen z3-devel
+
+<tr><td>FreeBSD
+<td>gcc8 autoconf automake git
+<td>libffi gmp linux-c7-numactl-libs screen z3
+
+<tr><td>GeckoLinux, OpenSUSE
+<td>gcc make autoconf automake git
+<td>gmp-devel libffi-devel libnuma-devel screen z3-devel
+
+<tr><td>Gentoo
+<td>autoconf automake git
+<td>libffi gmp numactl screen z3
+
+<tr><td>iOS with iSH
+<td>autoconf automake ed gcc git make sed
+<td>libffi-dev gmp-dev numactl-dev screen z3-dev
+
+<tr><td>Linux From Scratch, Linux without a distribution
+<td>
+<a href="https://www.linuxfromscratch.org/lfs/view/stable/chapter08/autoconf.html">Autoconf</a>
+<a href="https://www.linuxfromscratch.org/lfs/view/stable/chapter08/automake.html">Automake</a>
+<a href="https://www.linuxfromscratch.org/blfs/view/stable/general/git.html">Git</a>
+<td>
+<a href="https://www.linuxfromscratch.org/lfs/view/stable/chapter08/gmp.html">GMP</a>
+<a href="https://www.linuxfromscratch.org/lfs/view/stable/chapter08/libffi.html">Libffi</a>
+<a href="https://www.linuxfromscratch.org/blfs/view/stable/general/screen.html">Screen</a>
+
+<tr><td>NetBSD
+<td>gcc autoconf automake git
+<td>libffi gmp screen z3
+
+<tr><td>OpenBSD
+<td>egcc gmake autoconf automake git
+<td>libffi libgmp screen z3
+
+<tr><td>Other
+<td>
+<a href="https://gcc.gnu.org/install/">GCC</a>
+<a href="https://www.gnu.org/software/make/#download">GNU Make</a>
+<a href="https://www.gnu.org/software/autoconf/#downloading">autoconf</a>
+<a href="https://www.gnu.org/software/automake/#downloading">automake</a>
+<a href="https://git-scm.com/downloads">Git</a>
+<td>
+<a href="https://gmplib.org/#DOWNLOAD">GMP</a>
+<a href="https://sourceware.org/libffi/">Libffi</a>
+<a href="https://github.com/numactl/numactl">numactl</a>
+<a href="https://www.gnu.org/software/screen/">GNU Screen</a>
+<a href="https://github.com/Z3Prover/z3">Z3</a>
+
+<tr><td>Slackware, Zenwalk
+<td>gcc make autoconf automake git
+<td>libffi gmp screen
+
+<tr><td>Windows with Cygwin
+<td>gcc-core make autoconf automake git
+<td>libffi-devel libgmp-devel screen
+
+
+</table>
+
+<h2>4. Download Ajla</h2>
+<ol>
+<li>If your system allows it, make sure you are logged in as ordinary user and not root/administrator.
+<li>If on SSH, iOS iSH or Android Termux, start the command <a href="https://www.gnu.org/software/screen/"><code>screen</code></a>
+(if available). If network disconnects, reattach with <code>screen -dr</code>. It also helps with lack of terminals.
+<li>
+Go to a directory which you have write access to and doesn't contain an <code>ajla</code> subdirectory and
+run:
+<pre>git clone git://repo.or.cz/ajla.git</pre>
+</ol>
+
+<h2>5. Compile Ajla</h2>
+<ol>
+<li>Enter the subdirectory <code>ajla</code> that was created by the git command above.
+<li><code>./clean &amp;&amp; ./autogen.sh</code>
+<li>Determine the major version of GCC by running this command
+<table border=1>
+<tr><th>Operating System<th>Command to print GCC major version
+<tr><td>Android with Termux<td><code>gcc-15 -v</code>
+<tr><td>FreeBSD<td><code>gcc8 -v</code>
+<tr><td>OpenBSD<td><code>egcc -v</code>
+<tr><td>Other<td><code>gcc -v</code>
+</table> and take the first number after “gcc version”. If it fails, assume major version 12.
+<li>Determine RAM size of your computer/phone by MemTotal from /proc/meminfo or from the <code>top</code> command and if that
+doesn't exist, web search technical spec of your
+device. If you can't figure it out, assume 1 GB.
+<li>Remember to replace <code>CC=gcc</code> depending on your operating system:
+<table border=1>
+<tr><th>Operating System<th>Replace <code>CC=gcc</code> with
+<tr><td>Android with Termux<td><code>CC=gcc-15</code>
+<tr><td>FreeBSD<td><code>CC=gcc8</code>
+<tr><td>OpenBSD<td><code>CC=egcc</code>
+<tr><td>Other<td><code>CC=gcc</code>
+</table>
+<li>Determine what to replace <code>./configure</code> with. Take one row of the table after another until it tells you what:
+<table border=1>
+<tr><th>Step<th>Test<th>Replace <code>./configure</code> with
+<tr><td align="center">1<td>Are you on Termux in Android?<td><code>./configure --prefix=/data/data/com.termux/files/usr</code>
+<tr><td align="center">2<td>Do you know the root or administrator password?<td><code>./configure</code>
+<tr><td align="center">3<td>Are you entitled to run sudo?<td><code>./configure</code>
+<tr><td align="center">4<td>Are you already running as root or administrator?<td><code>./configure</code>
+<tr><td align="center">5<td>Otherwise<td><code>./configure --prefix="$HOME"/.local</code>
+</table>
+<li>According to your GCC version, select column 1-4 in the table below. Then, according to your RAM size, select the appropriate
+row.
+If you take a lower row, your computer may become
+unresponsive for long time, or the installation even fails with an error. If you take a higher row, Ajla will run or install
+unnnecessarily slower.
+<li>Optionally determine max. CPU GHz from /proc/cpuinfo, lscpu, cpufreq-info or technical specs and estimate compilation time:
+minutes=GHz_minutes / CPU_GHz. If on iOS iSH, additionally multiply by 6.8.
+<li>If on battery powered device, plan enough runtime for that time.
+<li>Make sure you will have 100 MB disk space available
+<li>Close unneeded memory-hungry Firefox or Chromium tabs and similar stuff.
+<li>Copy-paste the corresponding command, replace <code>CC=gcc</code> according to point 5.,
+replace <code>./configure</code> according to point 6. and run it. If your computer becomes unresponsive, close more memory hungry
+Firefox or Chromium tabs or other programs.
+<table border=1><tr>
+<th>RAM size for GCC &lt;=11
+<th>RAM size for GCC 12-14 or a compiler different from GCC
+<th>RAM size for GCC &gt;= 15 on systems different from Debian, Edubuntu, Kali, Kubuntu, Lite, MX, Lubuntu, Mint, Trisquel, Ubuntu, Xubuntu, Zorin
+<th>RAM size for GCC &gt;= 15 on Debian, Edubuntu, Kali, Kubuntu, Lite, MX, Lubuntu, Mint, Trisquel, Ubuntu, Xubuntu, Zorin
+<th>Command to run
+
+<tr>
+<td align="center">&gt;=640&nbsp;MB&nbsp;&lt;&nbsp;680&nbsp;MB<br>19.6 GHz_minutes
+<td align="center">&gt;=670&nbsp;MB&nbsp;&lt;&nbsp;710&nbsp;MB<br>16.4 GHz_minutes
+<td align="center">&gt;=875&nbsp;MB&nbsp;&lt;&nbsp;1&nbsp;GB<br>10.5 GHz_minutes
+<td align="center">&gt;=1&nbsp;GB&nbsp;&lt;&nbsp;1.3&nbsp;GB<br>17 GHz_minutes
+<td>
+<pre>
+CC=gcc CFLAGS="-O1 --param ggc-min-expand=1 --param ggc-min-heapsize=1024" ./configure --disable-computed-goto &amp;&amp; make -j1 ipret.o ipretc.o &amp;&amp; make -j2
+</pre>
+
+<tr>
+<td align="center">&gt;=680 MB &lt; 3 GB<br>14.5 GHz_minutes
+<td align="center">&gt;=710 MB &lt; 2.5 GB<br>12.7 GHz_minutes
+<td align="center">&gt;=1 GB &lt; 3 GB<br>7.5 GHz_minutes
+<td align="center">&gt;=1.3 GB &lt; 4 GB<br>12.1 GHz_minutes
+<td>
+<pre>
+CC=gcc CFLAGS="-O1 --param ggc-min-expand=20 --param ggc-min-heapsize=16384" ./configure --disable-computed-goto &amp;&amp; make -j1 ipret.o ipretc.o &amp;&amp; make -j2
+</pre>
+
+<tr>
+<td align="center">&gt;=3 GB &lt; 4 GB<br>33.8 GHz_minutes
+<td align="center">&gt;=2.5 GB &lt; 4 GB<br>32.2 GHz_minutes
+<td align="center">&gt;=3 GB &lt; 5 GB<br>10.7 GHz_minutes
+<td align="center">&gt;=4 GB &lt; 7 GB<br>17.3 GHz_minutes
+<td>
+<pre>
+CC=gcc CFLAGS=-O2 ./configure --disable-computed-goto &amp;&amp; make -j1 ipret.o ipretc.o &amp;&amp; make -j2
+</pre>
+
+<tr>
+<td align="center">&gt;=4 GB &lt; 8 GB<br>38.4 GHz_minutes
+<td align="center">&gt;=4 GB &lt; 8 GB<br>36.7 GHz_minutes
+<td align="center">&gt;=5 GB &lt; 9 GB<br>24.4 GHz_minutes
+<td align="center">&gt;=7 GB &lt; 12 GB<br>39.5 GHz_minutes
+<td>
+<pre>
+CC=gcc CFLAGS=-O2 ./configure &amp;&amp; make -j1 ipret.o ipretc.o &amp;&amp; make -j8
+</pre>
+
+<tr>
+<td align="center">&gt;=8 GB &lt; 12 GB<br>25.9 GHz_minutes
+<td align="center">&gt;=8 GB &lt; 12 GB<br>24.2 GHz_minutes
+<td align="center">&gt;=9 GB &lt; 13 GB<br>16.1 GHz_minutes
+<td align="center">&gt;=12 GB &lt; 16 GB<br>26 GHz_minutes
+<td>
+<pre>
+CC=gcc CFLAGS=-O2 ./configure &amp;&amp; make -j2 ipret.o ipretc.o &amp;&amp; make -j8
+</pre>
+
+<tr>
+<td align="center">&gt;=12 GB<br>24.3 GHz_minutes
+<td align="center">&gt;=12 GB<br>24.1 GHz_minutes
+<td align="center">&gt;=13 GB<br>14.9 GHz_minutes
+<td align="center">&gt;=16 GB<br>24.1 GHz_minutes
+<td>
+<pre>
+CC=gcc CFLAGS=-O2 ./configure &amp;&amp; make -j8
+</pre>
+
+</table>
+</ol>
+
+<h2>6. Copy Ajla to permanent location</h2>
+<table border=1>
+<tr><th>What did you replace <code>./configure</code> with?<th>Action to do
+<tr><td><code>./configure</code><td> Run <code>sudo make install</code> . If it says “sudo: (command) not found”, run
+<code>su root -c "make install"</code>
+<tr><td><code>./configure --prefix="$HOME"/.local</code><td>Run <code>make install</code>
+<tr><td><code>./configure --prefix=/data/data/com.termux/files/usr</code><td>Run <code>make install</code>
+</table>
+
+<h2>7. Set search path for the ajla command</h2>
+<h3>7.1 Determine the search path</h3>
+<table border=1>
+<tr><th>What did you replace <code>./configure</code> with?<th>Search path
+<tr><td><code>./configure</code><td>Skip to 8. Test Ajla
+<tr><td><code>./configure --prefix="$HOME"/.local</code><td><code>/home/user/.local/bin</code>, where “user“ is
+your username
+<tr><td><code>./configure --prefix=/data/data/com.termux/files/usr</code><td><code>/data/data/com.termux/files/usr/bin</code>
+</table>
+<h3>7.2 Set the search path</h3>
+Run <code>echo $PATH</code> and check whether it already contains the search path. If not, do this procedure:
+Apped this line to ~/.profile:
+<pre>PATH=~/.local/bin:"$PATH"</pre>
+and try these actions
+one by one until what <code>echo $PATH</code> prints contains the search path:
+<ol>
+<li>Log out from all consoles, terminal emulators (xterm,...), and SSH's and log in again
+<li>Reboot the system
+</ol>
+
+<h2>8. Test Ajla</h2>
+<a href="test.html">Test Ajla</a>. If it fails, check that you didn't make a mistake during the installation and if not, then the
+installation procedure is defective and contact support at
+<a href="mailto:mikulas@twibright.com">mikulas@twibright.com</a>.
+You can also optionally mention the problem at the mailing list <a moz-do-not-send="true"
+            href="https://www.freelists.org/list/ajla">https://www.freelists.org/list/ajla</a>.
+
+<h2>9. Clean up</h2>
+You can optionally delete the ajla directory that was created by the git command, you just used to compile Ajla, and you are
+currently in. It saves about 60 MB.
+
+</body>
+</html>
