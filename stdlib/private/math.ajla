@@ -18,44 +18,44 @@
 
 private unit private.math;
 
-fn math_modulo(t : type, implicit cls : class_real_number(t), x y : t) : t;
-fn math_power(t : type, implicit cls : class_real_number(t), x y : t) : t;
-fn math_ldexp(t : type, implicit cls : class_real_number(t), x y : t) : t;
-fn math_atan2(t : type, implicit cls : class_real_number(t), x y : t) : t;
-fn math_pi(t : type, implicit cls : class_real_number(t)) : t;
-fn math_sqrt(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_cbrt(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_sin(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_cos(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_tan(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_asin(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_acos(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_atan(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_sinh(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_cosh(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_tanh(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_asinh(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_acosh(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_atanh(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_exp2(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_exp(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_exp10(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_log2(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_log(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_log10(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_round(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_ceil(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_floor(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_trunc(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_fract(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_mantissa(t : type, implicit cls : class_real_number(t), x : t) : t;
-fn math_exponent(t : type, implicit cls : class_real_number(t), x : t) : t;
+fn math_modulo(t : type, implicit cls~spec : class_real_number(t), x y : t) : t;
+fn math_power(t : type, implicit cls~spec : class_real_number(t), x y : t) : t;
+fn math_ldexp(t : type, implicit cls~spec : class_real_number(t), x y : t) : t;
+fn math_atan2(t : type, implicit cls~spec : class_real_number(t), x y : t) : t;
+fn math_pi(t : type, implicit cls~spec : class_real_number(t)) : t;
+fn math_sqrt(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_cbrt(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_sin(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_cos(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_tan(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_asin(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_acos(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_atan(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_sinh(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_cosh(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_tanh(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_asinh(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_acosh(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_atanh(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_exp2(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_exp(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_exp10(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_log2(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_log(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_log10(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_round(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_ceil(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_floor(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_trunc(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_fract(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_mantissa(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
+fn math_exponent(t : type, implicit cls~spec : class_real_number(t), x : t) : t;
 
 implementation
 
 uses exception;
 
-fn math_modulo(t : type, implicit cls : class_real_number(t), x y : t) : t
+fn math_modulo(t : type, implicit cls~spec : class_real_number(t), x y : t) : t
 [
 	if is_infinity x or y = 0 then
 		return 0./0.;
@@ -86,7 +86,7 @@ fn math_modulo(t : type, implicit cls : class_real_number(t), x y : t) : t
 	return x * neg;
 ]
 
-fn math_power(t : type, implicit cls : class_real_number(t), x y : t) : t
+fn math_power(t : type, implicit cls~spec : class_real_number(t), x y : t) : t
 [
 	if x = 1 then [
 		xeval y;
@@ -131,7 +131,7 @@ fn math_power(t : type, implicit cls : class_real_number(t), x y : t) : t
 ]
 
 // warning: this logic is duplicated in floating_ldexp
-fn math_ldexp(t : type, implicit cls : class_real_number(t), x y : t) : t
+fn math_ldexp(t : type, implicit cls~spec : class_real_number(t), x y : t) : t
 [
 	xeval x, y;
 	var yi : int := y;
@@ -155,7 +155,7 @@ fn math_ldexp(t : type, implicit cls : class_real_number(t), x y : t) : t
 	return x * math_exp2(y);
 ]
 
-fn math_atan2(t : type, implicit cls : class_real_number(t), x y : t) : t
+fn math_atan2(t : type, implicit cls~spec : class_real_number(t), x y : t) : t
 [
 	if x = 0, y = 0 then [
 		y := select(is_negative y, 1, -1);
@@ -179,7 +179,7 @@ fn math_atan2(t : type, implicit cls : class_real_number(t), x y : t) : t
 	return math_atan(x / y);
 ]
 
-fn math_pi(t : type, implicit cls : class_real_number(t)) : t
+fn math_pi(t : type, implicit cls~spec : class_real_number(t)) : t
 [
 	//return math_atan(cls.one) * 4;
 	var k : int := 0;
@@ -202,7 +202,7 @@ fn math_pi(t : type, implicit cls : class_real_number(t)) : t
 	return sum;
 ]
 
-fn math_sqrt(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_sqrt(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	if x <= 0 then [
 		if x < 0 then
@@ -221,7 +221,7 @@ fn math_sqrt(t : type, implicit cls : class_real_number(t), x : t) : t
 	return guess;
 ]
 
-fn math_cbrt(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_cbrt(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	if x = 0 then
 		return x;
@@ -237,7 +237,7 @@ fn math_cbrt(t : type, implicit cls : class_real_number(t), x : t) : t
 	return guess;
 ]
 
-fn math_sin(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_sin(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	var m : t := 1;
 	if x <= 0 then [
@@ -275,29 +275,29 @@ fn math_sin(t : type, implicit cls : class_real_number(t), x : t) : t
 	return sum * m;
 ]
 
-fn math_cos(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_cos(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	return math_sin(x + math_pi(t, cls) / 2);
 ]
 
-fn math_tan(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_tan(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	return math_sin(x) / math_cos(x);
 ]
 
-fn math_asin(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_asin(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	if x = -1 or x = 1 then
 		return math_pi(t, cls) / 2 * x;
 	return math_atan(x / math_sqrt(cls.one - x * x));
 ]
 
-fn math_acos(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_acos(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	return math_pi(t, cls) / 2 - math_asin(x);
 ]
 
-fn math_atan(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_atan(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	var m := cls.one;
 	if x <= 0 then [
@@ -336,17 +336,17 @@ fn math_atan(t : type, implicit cls : class_real_number(t), x : t) : t
 	return (a * f + sum) * m;
 ]
 
-fn math_sinh(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_sinh(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	return (math_exp(x) - math_exp(-x)) / 2;
 ]
 
-fn math_cosh(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_cosh(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	return (math_exp(x) + math_exp(-x)) / 2;
 ]
 
-fn math_tanh(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_tanh(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	var val1 := math_exp(x) - math_exp(-x);
 	var val2 := math_exp(x) + math_exp(-x);
@@ -355,30 +355,30 @@ fn math_tanh(t : type, implicit cls : class_real_number(t), x : t) : t
 	return val1 / val2;
 ]
 
-fn math_asinh(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_asinh(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	if is_infinity x then
 		return x;
 	return math_log(x + math_sqrt(x * x + 1));
 ]
 
-fn math_acosh(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_acosh(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	return math_log(x + math_sqrt(x * x - 1));
 ]
 
-fn math_atanh(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_atanh(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	return math_log((cls.one + x) / (cls.one - x)) / 2;
 ]
 
-fn math_exp2(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_exp2(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	var c2 : t := 2;
 	return math_exp(x * math_log(c2));
 ]
 
-fn math_exp(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_exp(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	var neg := false;
 	if is_infinity x then [
@@ -420,19 +420,19 @@ fn math_exp(t : type, implicit cls : class_real_number(t), x : t) : t
 		return cls.recip(sum);
 ]
 
-fn math_exp10(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_exp10(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	var c2 : t := 10;
 	return math_exp(x * math_log(c2));
 ]
 
-fn math_log2(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_log2(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	var c2 : t := 2;
 	return math_log(x) / math_log(c2);
 ]
 
-fn math_log(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_log(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	if x <= 0 then [
 		if x = 0 then
@@ -466,13 +466,13 @@ fn math_log(t : type, implicit cls : class_real_number(t), x : t) : t
 	return sum * f;
 ]
 
-fn math_log10(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_log10(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	var c10 : t := 10;
 	return math_log(x) / math_log(c10);
 ]
 
-fn math_round(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_round(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	var i : int := x;
 	if is_exception i then
@@ -490,7 +490,7 @@ fn math_round(t : type, implicit cls : class_real_number(t), x : t) : t
 		return fl;
 ]
 
-fn math_ceil(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_ceil(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	var i : int := x;
 	if is_exception i then
@@ -502,7 +502,7 @@ fn math_ceil(t : type, implicit cls : class_real_number(t), x : t) : t
 	return i;
 ]
 
-fn math_floor(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_floor(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	var i : int := x;
 	if is_exception i then
@@ -514,7 +514,7 @@ fn math_floor(t : type, implicit cls : class_real_number(t), x : t) : t
 	return i;
 ]
 
-fn math_trunc(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_trunc(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	var i : int := x;
 	if is_exception i then
@@ -524,7 +524,7 @@ fn math_trunc(t : type, implicit cls : class_real_number(t), x : t) : t
 	return i;
 ]
 
-fn math_fract(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_fract(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	var i : int := x;
 	if is_exception i then
@@ -535,7 +535,7 @@ fn math_fract(t : type, implicit cls : class_real_number(t), x : t) : t
 	return r;
 ]
 
-fn math_mantissa(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_mantissa(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	if is_infinity x then
 		return x;
@@ -555,7 +555,7 @@ fn math_mantissa(t : type, implicit cls : class_real_number(t), x : t) : t
 	return x * m;
 ]
 
-fn math_exponent(t : type, implicit cls : class_real_number(t), x : t) : t
+fn math_exponent(t : type, implicit cls~spec : class_real_number(t), x : t) : t
 [
 	if is_infinity x then
 		return 0;
