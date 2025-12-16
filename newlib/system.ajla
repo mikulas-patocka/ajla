@@ -1991,7 +1991,7 @@ implicit fn instance_real_number_@1~inline : class_real_number(@1) :=
 		power : @1_power,
 		ldexp : @1_ldexp,
 		atan2 : @1_atan2,
-		pi : @1_pi~lazy,
+		pi : @1_pi,
 		sqrt : @1_sqrt,
 		cbrt : @1_cbrt,
 		sin : @1_sin,
