@@ -879,15 +879,36 @@ dot (<code>.</code>) or if it ends with the character <code>h</code>,
 the type of the constant &mdash; <code>h</code> for <code>real16</code>,
 <code>s</code> for <code>real32</code>, no suffix for <code>real64</code>,
 <code>l</code> for <code>real80</code>, <code>q</code> for
-<code>real128</code>.
+<code>real128</code>. <code>real</code> is an alias for <code>real64</code>.
 <br>
 <br>
-Ajla also has hexadecimal floating point constants, they are prefixed with '#'
+Ajla has also hexadecimal floating point constants, they are prefixed with '#'
 and they have <code>p</code> instead of <code>e</code> as an exponent marker.
 The exponent for hexadecimal floating point constants is in bits (not 4-bit
 digits). For example, this is the &pi; constant in <code>real128</code>
 precision: <code>#1.921fb54442d18469898cc51701b8p+1q</code>.
 <br>
+<br>
+There are other data types which behave as floating point numbers and floating
+point mathermatical functions can be used on them. These types do not have a
+format for constants, if you need to create constants with large number of
+digits for these types, use the type class and the "<code>from_bytes</code>"
+method of it (see below).
+<dl>
+<dt><code>floating(ex_bits, sig_bits)</code>
+<dd>An arbitrary-precision floating-point number. The exponent has
+<code>ex_bits</code> and the mantissa has <code>sig_bits</code>.
+<dt><code>fixed_point(base, digits)</code>
+<dd>A fixed point number with the specified base and the specified number of
+digits after the dot. The number of digits before the dot may be large &mdash;
+if it doesn't fit, the gmp library is used.
+decimal(digits)</code> is an alias for <code>fixed_point(10, digits)</code>.
+<dt><code>rational</code>
+<dd>A rational number &mdash; with an integer numerator and denominator. If we
+perform mathematical functions on it (such as sine), the calculation is done in
+the <code>real64</code> type (and the result is converted back to a rational
+number).
+</dl>
 <br>
 The following functions or operators may be used on floating point numbers (for
 operator precedence, see the table in the section <a
@@ -955,14 +976,20 @@ digits)</code>. The <code>"base"</code> represents a target base (typically 10),
 <br>
 To convert a byte string to a floating point number, you must use the type class
 (because Ajla cannot infer the type in this case) - for example "<code>var r :=
-instance_real_number_real64.from_bytes(b)</code>".  If you need different
+instance_real_number_real64.from_bytes("1.234")</code>". If you need different
 floating point type than real64, replace "<code>real64</code>" with the type
-name.
+name. You can also use the method <code>from_bytes_base</code> that takes the
+byte string as the first argument and the base as the second argument.
+<br>
+<br>
+If you need to convert a byte string to a type with parameters, append the
+parameters to the type class, for example "<code>var r :=
+instance_real_number_fixed_point(10, 2).from_bytes("1.23")</code>".
 <br>
 <br>
 Conversion between integers and floating point or between floating point of
 different types can be done through assignments. When converting a floating
-point to an integer, Ajla rounds to zero. For example:
+point value to an integer, Ajla rounds to zero. For example:
 <pre>
 var fp := 10.7;
 var i : int := fp;
