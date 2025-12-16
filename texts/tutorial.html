@@ -26,6 +26,7 @@
 <a href="#introduction">Introduction</a><br>
 <a href="#hello_world">Hello World</a><br>
 <a href="#fizz_buzz">Fizz-buzz</a><br>
+<a href="#comments">Comments</a><br>
 <a href="#statements">Statements</a><br>
 <a href="#data_types">Data types</a><br>
 <a href="#operators">Operators</a><br>
@@ -33,6 +34,7 @@
 <a href="#automatic_parallelization">Automatic parallelization</a><br>
 <a href="#caching">Caching</a><br>
 <a href="#functions">Functions</a><br>
+<a href="#floating_point_arithmetics">Floating-point arithmetics</a><br>
 <a href="#lists">Lists</a><br>
 <a href="#arrays">Arrays</a><br>
 <a href="#strings">Strings</a><br>
@@ -312,6 +314,19 @@ to a string.
 
 You can see that it looks very much like a procedural language.
 
+<h2 id=comments>Comments</h2>
+
+Comments in Ajla are enclosed with curly brackets &mdash; for example "<code>{
+This is a comment }</code>".
+<br>
+<br>
+One-line comments can be prefixed with two slashes &mdash; for example
+"<code>// This is a comment<code>".
+<br>
+<br>
+Comments may be nested &mdash; for example "<code>{ { This is a nested comment }
+}</code>".
+
 <h2 id=statements>Statements</h2>
 
 Ajla has the following statements:
@@ -359,10 +374,6 @@ expressions separated by a comma &mdash; in this case, the expressions are
 evaluated from the first to the last and if one of them is evaluated as
 <code>false</code>, the evaluation is terminated and the conditional branch is
 not taken.
-<br>
-<br>
-The assignment also accepts multiple expressions &mdash; for example, "<code>x,
-y := y, x</code>" will swap the variables <code>x</code> and <code>y</code>.
 
 <h2 id=data_types>Data types</h2>
 
@@ -859,6 +870,107 @@ and returns their sum. If we write "<code>sum(10,)</code>", we create a new
 function that takes one argument and adds the value 10 to the argument. We
 assign this new function to the variable "<code>add_ten</code>". Finally, we
 call "<code>add_ten(20)</code>", which returns the value 30.
+
+<h2 id=floating_point_arithmetics>Floating-point arithmetics</h2>
+
+Ajla has the following primitive floating point types - <code>real16</code>,
+<code>real32</code>, <code>real64</code>, <code>real80</code>,
+<code>real128</code>. A constant is considered floating-point if it contains a
+dot (<code>.</code>) or if it ends with the character <code>h</code>,
+<code>s</code>, <code>l</code>, <code>q</code> (or <code>H</code>,
+<code>S</code>, <code>L</code>, <code>Q</code>). The ending character determines
+the type of the constant &mdash; <code>h</code> for <code>real16</code>,
+<code>s</code> for <code>real32</code>, no suffix for <code>real64</code>,
+<code>l</code> for <code>real80</code>, <code>q</code> for
+<code>real128</code>.
+<br>
+<br>
+Ajla also has hexadecimal floating point constants, they are prefixed with '#'
+and they have <code>p</code> instead of <code>e</code> as an exponent marker.
+The exponent for hexadecimal floating point constants is in bit (not 16-bit
+digits). For example, this is the &pi; constant in <code>real128</code>
+precision: <code>#1.921fb54442d18469898cc51701b8p+1q</code>.
+<br>
+<br>
+The following functions or operators may be used on floating point numbers (for
+operator precedence, see the table in the section <a
+href="#operators">Operators</a>):
+<table border=1>
+<tr><td><code>x + y</code><td>Addition</tr>
+<tr><td><code>x - y</code><td>Subtraction</tr>
+<tr><td><code>x * y</code><td>Multiplication</tr>
+<tr><td><code>x / y</code><td>Division</tr>
+<tr><td><code>x = y</code><td>Test for equality</tr>
+<tr><td><code>x <> y</code><td>Test for non-equality</tr>
+<tr><td><code>x > y</code><td>Test if <code>x</code> is greater</tr>
+<tr><td><code>x >= y</code><td>Test if <code>x</code> is greater or equal</tr>
+<tr><td><code>x < y</code><td>Test if <code>x</code> is less</tr>
+<tr><td><code>x <= y</code><td>Test if <code>x</code> is less or equal</tr>
+<tr><td><code>is_negative x</code><td>Test if <code>x</code> is negative</tr>
+<tr><td><code>is_infinity x</code><td>Test if <code>x</code> is infinite</tr>
+<tr><td><code>is_exception x</code><td>Test if <code>x</code> contains an
+exception or a NaN value</tr>
+<tr><td><code>fmod(x, y)</code><td>Floating point modulo</tr>
+<tr><td><code>power(x, y)</code><td>Floating point power</tr>
+<tr><td><code>ldexp(x, y)</code><td><code>x * power(2, y)</code></tr>
+<tr><td><code>atan(x, y)</code><td><code>atan(y / x)</code> without
+error if x is zero</tr>
+<tr><td><code>sqrt(x)</code><td>Square root</tr>
+<tr><td><code>cbrt(x)</code><td>Cube root</tr>
+<tr><td><code>sin(x)</code><td>Sine (<code>x</code> is in radians)</tr>
+<tr><td><code>cos(x)</code><td>Cosine (<code>x</code> is in radians)</tr>
+<tr><td><code>tan(x)</code><td>Tangent (<code>x</code> is in radians)</tr>
+<tr><td><code>asin(x)</code><td>Arc sine (the result is in radians)</tr>
+<tr><td><code>acos(x)</code><td>Arc cosine (the result is in radians)</tr>
+<tr><td><code>atan(x)</code><td>Arc tangent (the result is in radians)</tr>
+<tr><td><code>sinh(x)</code><td>The hyperbolic sine</tr>
+<tr><td><code>cosh(x)</code><td>The hyperbolic cosine</tr>
+<tr><td><code>tanh(x)</code><td>The hyperbolic tangent</tr>
+<tr><td><code>asinh(x)</code><td>The hyperbolic arc sine</tr>
+<tr><td><code>acosh(x)</code><td>The hyperbolic arc cosine</tr>
+<tr><td><code>atanh(x)</code><td>The hyperbolic arc tangent</tr>
+<tr><td><code>exp2(x)</code><td><code>power(2, x)</code></tr>
+<tr><td><code>exp(x)</code><td><code>power(e, x)</code></tr>
+<tr><td><code>exp10(x)</code><td><code>power(10, x)</code></tr>
+<tr><td><code>log2(x)</code><td>Base-2 logarithm</tr>
+<tr><td><code>log(x)</code><td>Natural logarithm</tr>
+<tr><td><code>log10(x)</code><td>Base-10 logarithm</tr>
+<tr><td><code>round(x)</code><td>Rounds <code>x</code> to the nearest integer,
+rounds halfway cases away from zero</tr>
+<tr><td><code>ceil(x)</code><td>Round <code>x</code> to integer, upwards</tr>
+<tr><td><code>floor(x)</code><td>Round <code>x</code> to integer, downwards</tr>
+<tr><td><code>trunc(x)</code><td>Round <code>x</code> to integer, towards zero</tr>
+<tr><td><code>fract(x)</code><td>Returns the mantissa of <code>x</code></tr>
+<tr><td><code>exponent(x)</code><td>Returns the exponent of <code>x</code></tr>
+<tr><td><code>next_number(x)</code><td>Returns the smallest number that is
+greater than <code>x</code> (or +infinity if <code>x</code> is +infinity)</tr>
+<tr><td><code>prev_number(x)</code><td>Returns the largest number that is
+less than <code>x</code> (or -infinity if <code>x</code> is -infinity)</tr>
+</table>
+<br>
+To convert a floating point number to a byte string, use the functions
+<code>ntos(number)</code> or <code>ntos_base_precision(number, base,
+digits)</code>. The <code>"base"</code> represents a target base (typically 10),
+<code>precision</code> is the number of digits after the decimal point.
+<br>
+<br>
+To convert a byte string to a floating point number, you must use the type class
+(because Ajla cannot infer the type in this case) - for example "<code>var r :=
+instance_real_number_real64.from_bytes(b)</code>".  If you need different
+floating point type than real64, replace "<code>real64</code>" with the type
+name.
+<br>
+<br>
+Conversion between integers and floating point or between floating point of
+different types can be done through assignments. When converting a floating
+point to an integer, Ajla rounds to zero. For example:
+<pre>
+var fp := 10.7;
+var i : int := fp;
+</pre>
+<br>
+The &pi; constant can be obtained from type classes too &mdash; for example
+"<code>instance_real_number_real64.pi</code>".
 
 <h2 id=lists>Lists</h2>
 
