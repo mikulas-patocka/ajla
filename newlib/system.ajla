@@ -1712,7 +1712,7 @@ fn @1_recip~inline(i1 : @1) : @1
 ]
 fn @1_pi : @1
 [
-	return #1.921fb54442d18469898cc51701b8p+1;
+	return @2;
 ]
 fn @1_divide~inline(i1 i2 : @1) : @1
 [
@@ -2036,11 +2036,11 @@ implicit fn instance_real_number_@1~inline : class_real_number(@1) :=
 	];
 ]
 
-real_instance(real16);
-real_instance(real32);
-real_instance(real64);
-real_instance(real80);
-real_instance(real128);
+real_instance(real16, #1.921fb54442d18469898cc51701b8p+1h);
+real_instance(real32, #1.921fb54442d18469898cc51701b8p+1s);
+real_instance(real64, #1.921fb54442d18469898cc51701b8p+1);
+real_instance(real80, #1.921fb54442d18469898cc51701b8p+1l);
+real_instance(real128, #1.921fb54442d18469898cc51701b8p+1q);
 
 {---------------------
  - FLOATING INSTANCE -
