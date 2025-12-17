@@ -789,17 +789,18 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 		frame_t test_borrowed[MAX_QUICKRET_VALUES];
 		arg_t n_test_borrowed = 0;
 		for (i = 0; i < ctx->args_l; i++) {
-			const struct type *t = get_type_of_local(ctx, ctx->args[i].slot);
-			ret_vars[i] = ctx->args[i].slot;
+			const struct code_arg *src_arg = &ctx->args[i];
+			const struct type *t = get_type_of_local(ctx, src_arg->slot);
+			ret_vars[i] = src_arg->slot;
 			flat_mask |= (code_t)TYPE_IS_FLAT(t) << i;
-			if (!(ctx->args[i].flags & OPCODE_FLAG_FREE_ARGUMENT))
+			if (!(src_arg->flags & OPCODE_FLAG_FREE_ARGUMENT))
 				goto skip_quickret;
 			if (TYPE_IS_FLAT(t)) {
-				if (!flag_is_clear(ctx, ret_vars[i]))
-					test_vars[n_test_vars++] = ret_vars[i];
+				if (!flag_is_clear(ctx, src_arg->slot))
+					test_vars[n_test_vars++] = src_arg->slot;
 			} else {
-				if (da(ctx->fn,function)->local_variables_flags[ret_vars[i]].may_be_borrowed)
-					test_borrowed[n_test_borrowed++] = ret_vars[i];
+				if (da(ctx->fn,function)->local_variables_flags[src_arg->slot].may_be_borrowed)
+					test_borrowed[n_test_borrowed++] = src_arg->slot;
 			}
 		}
 		if (test_quick_return(ctx, ret_vars, ctx->args_l, regs)) {
@@ -843,9 +844,10 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 			}
 
 			for (i = 0; i < ctx->args_l; i++) {
-				const struct type *t = get_type_of_local(ctx, ret_vars[i]);
+				const struct code_arg *src_arg = &ctx->args[i];
+				const struct type *t = get_type_of_local(ctx, src_arg->slot);
 				unsigned size = spill_size(t);
-				g(gen_load_raw(ctx, size, garbage, R_FRAME, ret_vars[i], 0, false, regs[i]));
+				g(gen_load_raw(ctx, size, garbage, R_FRAME, src_arg->slot, 0, false, regs[i]));
 			}
 
 			retval_offset = sizeof(code_t) + (4 + 2 * (ARG_MODE_N >= 3)) * ctx->args_l;
