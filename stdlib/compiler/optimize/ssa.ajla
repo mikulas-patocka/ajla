@@ -2772,6 +2772,27 @@ fn remove_redundant_frees(ctx : context) : context
 	return ctx;
 ]
 
+fn find_generate_asm(ctx : context) : context
+[
+	var worklist : node_set := 0 bts 0;
+	ctx.blocks[0].generate_asm := true;
+
+	while worklist <> 0 do [
+		var w : int := bsr worklist;
+		worklist btr= w;
+
+		for post_idx := 0 to min(len(ctx.blocks[w].post_list), 2) do [
+			var p := ctx.blocks[w].post_list[post_idx];
+			if not ctx.blocks[p].generate_asm then [
+				ctx.blocks[p].generate_asm := true;
+				worklist bts= p;
+			]
+		]
+	]
+
+	return ctx;
+]
+
 fn check_consistency(ctx : context, msg : bytes, test_no_pred : bool) : context
 [
 	if not check then
@@ -3037,6 +3058,10 @@ did_verify:
 	if print_passes then [ eval ctx; eval debug("remove_redundant_frees"); if is_exception ctx then eval debug("ctx exception"); ]
 	ctx := remove_redundant_frees(ctx);
 	ctx := check_consistency(ctx, "remove_redundant_frees", true);
+
+	if print_passes then [ eval ctx; eval debug("find_generate_asm"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := find_generate_asm(ctx);
+	ctx := check_consistency(ctx, "identify_reachability", true);
 
 	if print_passes then [ eval ctx; eval debug("check_consistency"); if is_exception ctx then eval debug("ctx exception"); ]
 	ctx := check_consistency(ctx, "end", true);

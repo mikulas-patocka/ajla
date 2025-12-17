@@ -436,6 +436,7 @@ struct cg_entry {
 	uint32_t entry_label;
 	uint32_t nonflat_label;
 	uint32_t test_and_entry_label;
+	bool unreachable;
 
 	arg_t n_ret;
 	frame_t ret_vars[MAX_QUICKRET_VALUES];
@@ -464,6 +465,7 @@ struct codegen_context {
 	const code_t *instr_start;
 	const code_t *current_position;
 	uchar_efficient_t arg_mode;
+	bool unreachable;
 
 	uint32_t label_id;
 	struct cg_entry *entries;
@@ -531,6 +533,7 @@ struct codegen_context {
 static void init_ctx(struct codegen_context *ctx)
 {
 	ctx->local_directory = NULL;
+	ctx->unreachable = false;
 	ctx->label_id = 0;
 	ctx->entries = NULL;
 	ctx->n_entries = 0;
@@ -762,6 +765,8 @@ do {									\
 #define gen_one(byte)							\
 do {									\
 	/*debug("gen %d: %02x", __LINE__, (uint8_t)(byte))*/;		\
+	if (unlikely(ctx->unreachable))					\
+		break;							\
 	if (unlikely(!array_add_mayfail(uint8_t, &ctx->code, &ctx->code_size, byte, NULL, &ctx->err)))\
 		return false;						\
 } while (0)
@@ -771,6 +776,8 @@ do {									\
 do {									\
 	uint16_t word_ = (word);					\
 	/*debug("gen %d: %04x", __LINE__, (uint16_t)(word_));*/		\
+	if (unlikely(ctx->unreachable))					\
+		break;							\
 	if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->code, &ctx->code_size, cast_ptr(uint8_t *, &word_), 2, NULL, &ctx->err)))\
 		return false;						\
 } while (0)
@@ -778,6 +785,8 @@ do {									\
 do {									\
 	uint32_t dword_ = (dword);					\
 	/*debug("gen %d: %08x", __LINE__, (uint32_t)(dword_));*/	\
+	if (unlikely(ctx->unreachable))					\
+		break;							\
 	if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->code, &ctx->code_size, cast_ptr(uint8_t *, &dword_), 4, NULL, &ctx->err)))\
 		return false;						\
 } while (0)
@@ -785,6 +794,8 @@ do {									\
 do {									\
 	uint64_t qword_ = (qword);					\
 	/*debug("gen %d: %016lx", __LINE__, (uint64_t)(qword_));*/	\
+	if (unlikely(ctx->unreachable))					\
+		break;							\
 	if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->code, &ctx->code_size, cast_ptr(uint8_t *, &qword_), 8, NULL, &ctx->err)))\
 		return false;						\
 } while (0)
@@ -1768,7 +1779,11 @@ skip_dereference:
 					return false;
 				}
 
-				if (unlikely(!gen_test_variables(ctx, vars, n, true, escape_label))) {
+				if (unlikely(!gen_unspill_variables(ctx, vars, n))) {
+					mem_free(vars);
+					return false;
+				}
+				if (unlikely(!gen_test_variables(ctx, vars, n, escape_label))) {
 					mem_free(vars);
 					return false;
 				}
@@ -1833,7 +1848,7 @@ skip_dereference:
 
 				if (ctx->checkpoint_quick_entry) {
 					ajla_assert_lo(!ce[-1].entry_label, (file_line, "gen_function: entry label for call not allocated (%s)", da(ctx->fn,function)->function_name));
-					if (!ce->n_variables) {
+					if (!ce->n_variables && !ctx->unreachable) {
 						uint32_t fastret_label = alloc_label(ctx);
 						if (unlikely(!fastret_label))
 							return false;
@@ -1860,11 +1875,12 @@ skip_dereference:
 				gen_label(entry_label);
 				ce->entry_label = entry_label;
 
-				if (ce->n_variables) {
+				if (ce->n_variables || ctx->unreachable) {
 					nonflat_label = alloc_escape_label_for_ip(ctx, ctx->current_position);
 					if (unlikely(!nonflat_label))
 						return false;
 					ce->nonflat_label = nonflat_label;
+					ce->unreachable = ctx->unreachable;
 				}
 
 				if (unlikely(!slot_1)) {
@@ -1899,6 +1915,12 @@ skip_dereference:
 			}
 			case OPCODE_LABEL: {
 				g(clear_flag_cache(ctx));
+				ctx->unreachable = false;
+				continue;
+			}
+			case OPCODE_LABEL_UNREACHABLE: {
+				g(clear_flag_cache(ctx));
+				ctx->unreachable = true;
 				continue;
 			}
 #define init_args							\
@@ -2176,6 +2198,8 @@ jump_over_arguments_and_return:
 		}
 	}
 
+	ctx->unreachable = false;
+
 	return true;
 }
 
@@ -2197,6 +2221,16 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 				if (!TYPE_IS_FLAT(t))
 					g(gen_set_1(ctx, R_FRAME, ce->ret_vars[j], 0, true));
 			}
+		} else if (ce->unreachable) {
+			ce->test_and_entry_label = alloc_label(ctx);
+			if (unlikely(!ce->test_and_entry_label))
+				return false;
+			gen_label(ce->test_and_entry_label);
+
+			g(gen_unspill_variables(ctx, ce->variables, ce->n_variables));
+
+			gen_insn(INSN_JMP, 0, 0, 0);
+			gen_four(ce->nonflat_label);
 		} else if (ce->entry_label) {
 			if (ce->n_variables) {
 				ce->test_and_entry_label = alloc_label(ctx);
@@ -2204,7 +2238,8 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 					return false;
 				gen_label(ce->test_and_entry_label);
 
-				g(gen_test_variables(ctx, ce->variables, ce->n_variables, true, ce->nonflat_label));
+				g(gen_unspill_variables(ctx, ce->variables, ce->n_variables));
+				g(gen_test_variables(ctx, ce->variables, ce->n_variables, ce->nonflat_label));
 
 				gen_insn(INSN_JMP, 0, 0, 0);
 				gen_four(ce->entry_label);
@@ -2412,8 +2447,12 @@ static bool attr_w codegen_map(struct codegen_context *ctx)
 		return false;
 	}
 	for (i = 0; i < ctx->n_entries; i++) {
+		char *entry;
 		size_t entry_pos = ctx->label_to_pos[ctx->entries[i].test_and_entry_label];
-		char *entry = cast_ptr(char *, ptr) + entry_pos;
+		if (unlikely(entry_pos == (size_t)-1))
+			entry = NULL;
+		else
+			entry = cast_ptr(char *, ptr) + entry_pos;
 		/*debug("entry_pos: %s, %u: %zx (%x)", da(ctx->fn,function)->function_name, i, entry_pos, ctx->entries[i].test_and_entry_label);*/
 		da(ctx->codegen,codegen)->unoptimized_code[i] = entry;
 		da(ctx->codegen,codegen)->n_entries++;

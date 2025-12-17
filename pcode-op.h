@@ -118,6 +118,7 @@
 #define Flag_Fused_Bin_Jmp		256
 #define Flag_Spec			512
 #define Flag_NoSpec			1024
+#define Flag_Unreachable_Label		2048
 
 #define Bin_Add				0
 #define Bin_Subtract			1

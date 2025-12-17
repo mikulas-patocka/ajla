@@ -120,6 +120,7 @@ const Flag_Escape_On_Slice := 128;
 const Flag_Fused_Bin_Jmp := 256;
 const Flag_Spec := 512;
 const Flag_NoSpec := 1024;
+const Flag_Unreachable_Label := 2048;
 
 const Bin_Add := 0;
 const Bin_Subtract := 1;
@@ -633,6 +634,7 @@ fn name_to_value~cache : list(int)
 	a[#236CC39EFC6EBCF2E4BF0B4EEBF2B6F0] := 256;				// Flag_Fused_Bin_Jmp
 	a[#46D9873DFA7C32E3] := 512;						// Flag_Spec
 	a[#11B661CF7E76FA7C32E3] := 1024;					// Flag_NoSpec
+	a[#236CC39EFD5DDCB2E1C7A30E2D996FCCC38B2EC] := 2048;			// Flag_Unreachable_Label
 
 	a[#10B4EEBF07264] := 0;							// Bin_Add
 	a[#85A775FA7D7174E5871F4] := 1;						// Bin_Subtract

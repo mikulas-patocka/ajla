@@ -371,7 +371,7 @@ fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instructi
 		ins.read_set := 0 bts 0;
 		xlen := 3;
 	] else if opcode = P_Label then [
-		xlen := 1;
+		xlen := 2;
 	] else if opcode = P_IO then [
 		for i := 0 to params[1] do [
 			ins.write_set bts= 4 + i;
@@ -683,8 +683,9 @@ fn dump_basic_blocks(ctx : context, dump_it : bool) : list(pcode_t)
 process_block:
 		if bgi <> 0 then [
 			rpc +<= P_Label;
-			rpc +<= 1;
+			rpc +<= 2;
 			rpc +<= bgi - 1;
+			rpc +<= select(ctx.blocks[bgi].generate_asm, Flag_Unreachable_Label, 0);
 			if dump_it then
 				eval debug("generate label " + ntos(bgi - 1));
 		]

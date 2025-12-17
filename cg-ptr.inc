@@ -97,20 +97,25 @@ test_load_op:
 	return true;
 }
 
-static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *variables, size_t n_variables, bool do_unspill, uint32_t label)
+static bool attr_w gen_unspill_variables(struct codegen_context *ctx, frame_t *variables, size_t n_variables)
 {
 	size_t i;
+	size_t n_vars = 0;
 
-	if (do_unspill) {
-		size_t n_vars = 0;
-		for (i = 0; i < n_variables; i++) {
-			frame_t v = variables[i];
-			if (slot_is_register(ctx, v))
-				ctx->var_aux[n_vars++] = v;
-		}
-
-		g(gen_unspill_multiple(ctx, ctx->var_aux, n_vars, false));
+	for (i = 0; i < n_variables; i++) {
+		frame_t v = variables[i];
+		if (slot_is_register(ctx, v))
+			ctx->var_aux[n_vars++] = v;
 	}
+
+	g(gen_unspill_multiple(ctx, ctx->var_aux, n_vars, false));
+
+	return true;
+}
+
+static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *variables, size_t n_variables, uint32_t label)
+{
+	size_t i;
 
 	for (i = 0; i < 2; i++) {
 		size_t n_vars = 0;

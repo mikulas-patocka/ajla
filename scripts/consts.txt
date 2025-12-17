@@ -60,7 +60,7 @@ P_Array_Is_Finite	; result, arg1
 P_Read_Clock		; result
 P_Jmp			; label
 P_Jmp_False		; variable, label if false, label if exception
-P_Label			; label
+P_Label			; label, flag_unreachable_label
 P_IO			; io_type, n_outputs, n_inputs, n_params, outputs, inputs, params
 P_Args			; (arg ...)
 P_Return_Vars		; (ret ...)
@@ -130,6 +130,7 @@ Flag_Escape_On_Slice
 Flag_Fused_Bin_Jmp
 Flag_Spec
 Flag_NoSpec
+Flag_Unreachable_Label
 
 0
 Bin_Add

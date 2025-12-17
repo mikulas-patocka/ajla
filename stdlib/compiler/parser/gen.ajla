@@ -261,7 +261,7 @@ fn generate_Jmp_False(ctx : function_context, cond lbl_false lbl_exception : int
 
 fn generate_Label(ctx : function_context, lbl : int) : function_context
 [
-	return generate_instruction(ctx, P_Label, list(pcode_t).[ lbl ]);
+	return generate_instruction(ctx, P_Label, list(pcode_t).[ lbl, 0 ]);
 ]
 
 fn generate_Args(ctx : function_context) : function_context
