@@ -791,9 +791,11 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 		for (i = 0; i < ctx->args_l; i++) {
 			const struct code_arg *src_arg = &ctx->args[i];
 			const struct type *t = get_type_of_local(ctx, src_arg->slot);
+			if (unlikely(slot_is_register(ctx, src_arg->slot)))
+				goto skip_quickret;
 			ret_vars[i] = src_arg->slot;
 			flat_mask |= (code_t)TYPE_IS_FLAT(t) << i;
-			if (!(src_arg->flags & OPCODE_FLAG_FREE_ARGUMENT))
+			if (unlikely(!(src_arg->flags & OPCODE_FLAG_FREE_ARGUMENT)))
 				goto skip_quickret;
 			if (TYPE_IS_FLAT(t)) {
 				if (!flag_is_clear(ctx, src_arg->slot))
