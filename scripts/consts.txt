@@ -131,6 +131,7 @@ Flag_Fused_Bin_Jmp
 Flag_Spec
 Flag_NoSpec
 Flag_Unreachable_Label
+Flag_Label_With_One_Entry
 
 0
 Bin_Add

@@ -3053,7 +3053,9 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				flags = u_pcode_get();
 				ajla_assert_lo(res < ctx->n_labels, (file_line, "P_Label(%s): invalid label %"PRIdMAX"", function_name(ctx), (intmax_t)res));
 				ajla_assert_lo(ctx->labels[res] == no_label, (file_line, "P_Label(%s): label %"PRIdMAX" already defined", function_name(ctx), (intmax_t)res));
-				gen_code(flags & Flag_Unreachable_Label ? OPCODE_LABEL_UNREACHABLE : OPCODE_LABEL);
+				gen_code(flags & Flag_Unreachable_Label ? OPCODE_LABEL_UNREACHABLE :
+					 flags & Flag_Label_With_One_Entry ? OPCODE_LABEL_1ENTRY :
+					 OPCODE_LABEL);
 				ctx->labels[res] = ctx->code_len;
 				break;
 			case P_IO:

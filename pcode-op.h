@@ -119,6 +119,7 @@
 #define Flag_Spec			512
 #define Flag_NoSpec			1024
 #define Flag_Unreachable_Label		2048
+#define Flag_Label_With_One_Entry	4096
 
 #define Bin_Add				0
 #define Bin_Subtract			1

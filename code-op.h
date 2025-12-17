@@ -351,6 +351,7 @@ enum {
 	OPCODE_JMP_FALSE,		/* var, false_offset*2, exception_offset*2 */
 	OPCODE_LABEL,
 	OPCODE_LABEL_UNREACHABLE,
+	OPCODE_LABEL_1ENTRY,
 	OPCODE_LOAD_FN,			/* n_arg, result, fn_idx,		[arg_var, arg_deref] */
 	OPCODE_CURRY,			/* n_arg, result, fn_thunk, fn_deref,	[arg_var, arg_deref] */
 	OPCODE_CALL,			/* n_arg, n_ret, fn_idx,		[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */

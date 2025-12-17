@@ -1923,6 +1923,10 @@ skip_dereference:
 				ctx->unreachable = true;
 				continue;
 			}
+			case OPCODE_LABEL_1ENTRY: {
+				ctx->unreachable = false;
+				continue;
+			}
 #define init_args							\
 do {									\
 	if (ctx->args != NULL)						\

@@ -674,6 +674,7 @@ fn dump_basic_blocks(ctx : context, dump_it : bool) : list(pcode_t)
 	var rpc := empty(pcode_t);
 	var worklist : node_set := 1;
 	var done : node_set := 0;
+	var gen_1entry_label := false;
 	while worklist <> 0 do [
 		var bgi : int := bsr worklist;
 
@@ -685,7 +686,9 @@ process_block:
 			rpc +<= P_Label;
 			rpc +<= 2;
 			rpc +<= bgi - 1;
-			rpc +<= select(ctx.blocks[bgi].generate_asm, Flag_Unreachable_Label, 0);
+			rpc +<= select(ctx.blocks[bgi].generate_asm, Flag_Unreachable_Label, 0) or
+				select(gen_1entry_label, 0, Flag_Label_With_One_Entry);
+			gen_1entry_label := false;
 			if dump_it then
 				eval debug("generate label " + ntos(bgi - 1));
 		]
@@ -773,11 +776,21 @@ process_block_no_label:
 				eval debug("generating jump to label " + ntos(next_bgi - 1));
 			continue;
 		]
-		bgi := next_bgi;
 		if dump_it then
-			eval debug("process following block " + ntos(bgi));
-		if len(ctx.blocks[bgi].pred_list) <= 1 then
+			eval debug("process following block " + ntos(next_bgi));
+		if len(ctx.blocks[next_bgi].pred_list) <= 1 then [
+			bgi := next_bgi;
 			goto process_block_no_label;
+		]
+		for i := 0 to len(ctx.blocks[next_bgi].pred_list) do [
+			var p := ctx.blocks[next_bgi].pred_list[i];
+			if p <> bgi, ctx.blocks[p].generate_asm then [
+				bgi := next_bgi;
+				goto process_block;
+			]
+		]
+		bgi := next_bgi;
+		gen_1entry_label := true;
 		goto process_block;
 	]
 	return rpc;
