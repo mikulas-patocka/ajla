@@ -2247,10 +2247,6 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 				ce->test_and_entry_label = ce->entry_label;
 			}
 		}
-#ifdef CODEGEN_TRIM_LABELS
-		if (ce->test_and_entry_label)
-			ctx->used_labels[ce->test_and_entry_label] = true;
-#endif
 	}
 	return true;
 }
@@ -2618,6 +2614,10 @@ next_one:;
 #ifdef CODEGEN_TRIM_LABELS
 	if (unlikely(!(ctx->used_labels = mem_alloc_array_mayfail(mem_calloc_mayfail, bool *, 0, 0, ctx->label_id + 1, sizeof(bool), &ctx->err))))
 		goto fail;
+	for (i = 0; i < ctx->n_entries; i++) {
+		struct cg_entry *ce = &ctx->entries[i];
+		ctx->used_labels[ce->test_and_entry_label] = true;
+	}
 #endif
 
 again:
