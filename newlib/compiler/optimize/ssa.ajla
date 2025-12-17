@@ -1315,10 +1315,34 @@ skip_bool:
 					goto next_dom;
 				var vgic := lins.params[0];
 				var dins := ctx.instrs[ctx.variables[vgic].defining_instr];
-				if dins.opcode <> P_Array_Len_Greater_Than then
+				if dins.opcode = P_Array_Len_Greater_Than then [
+					if dins.params[1] <> vgis or dins.params[2] <> vgii then
+						goto next_dom;
+				] else if dins.opcode = P_BinaryConstOp then [
+					if dins.params[0] <> Bin_Less or dins.params[3] <> vgii then
+						goto next_dom;
+					var array_type := ctx.variables[vgis].type_index;
+					if array_type < 0 then
+						goto next_dom;
+					var array_def := ctx.instrs[ctx.variables[array_type].defining_instr];
+					if array_def.opcode <> P_Array_Fixed then
+						goto next_dom;
+					var shape_def := ctx.instrs[ctx.variables[array_def.params[2]].defining_instr];
+					if shape_def.opcode <> P_Array_Create then
+						goto next_dom;
+					if shape_def.params[1] <> 1 then
+						goto next_dom;
+					if shape_def.params[4] < 0 then
+						goto next_dom;
+					var dim_def := ctx.instrs[ctx.variables[shape_def.params[4]].defining_instr];
+					if dim_def.opcode <> P_Load_Const then
+						goto next_dom;
+					if blob_to_int(dim_def.params[1 .. ]) < dins.params[4] then
+						goto next_dom;
+					//eval debug("def: " + ctx.name + ", " + ntos(blob_to_int(dim_def.params[1 .. ])) + ", " + ntos(dins.params[4]));
+				] else [
 					goto next_dom;
-				if dins.params[1] <> vgis or dins.params[2] <> vgii then
-					goto next_dom;
+				]
 			]
 			if not verify_positive(ctx, vgii) then
 				goto next_dom;
