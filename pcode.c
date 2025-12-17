@@ -2842,7 +2842,8 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				gen_am_two(am, tr->slot,
 					(flags & Flag_Evaluate ? OPCODE_OP_FLAG_STRICT : 0) |
 					(flags & Flag_Borrow ? OPCODE_STRUCT_MAY_BORROW : 0) |
-					(flags & Flag_Index_In_Range ? OPCODE_ARRAY_INDEX_IN_RANGE : 0));
+					(flags & Flag_Index_In_Range ? OPCODE_ARRAY_INDEX_IN_RANGE : 0) |
+					(flags & Flag_Escape_On_Slice ? OPCODE_ARRAY_ESCAPE_ON_SLICE : 0));
 				if (flags & Flag_Borrow)
 					ctx->local_variables_flags[tr->slot].may_be_borrowed = true;
 				break;

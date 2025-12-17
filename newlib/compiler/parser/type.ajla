@@ -1779,7 +1779,7 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 			goto uses_non_const;
 		ctx, at := evaluate_type(ctx, cc, pcode_Array_Load_get_array(instr), fn_stack, t);
 		ctx, ai := evaluate_type(ctx, cc, pcode_Array_Load_get_index(instr), fn_stack, t);
-		ctx, l := generate_Array_Load(ctx, at, ai, t);
+		ctx, l := generate_Array_Load(ctx, at, ai, pcode_Array_Load_get_flags(instr), t);
 		return ctx, l;
 	]
 	if opcode = P_Array_Len then [
@@ -1984,7 +1984,7 @@ fn generate_foreach_assumes_or_claims(ctx : function_context, a : int, inv : lis
 	ctx := generate_BinaryOp(ctx, Bin_And, ge, lt, l_pre);
 
 	var ai : int;
-	ctx, ai := generate_Array_Load(ctx, a, li, t);
+	ctx, ai := generate_Array_Load(ctx, a, li, 0, t);
 
 	var invs : int;
 	ctx, invs := generate_Load_Const(ctx, T_Bool, int_to_blob(1));

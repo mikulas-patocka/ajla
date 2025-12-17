@@ -101,7 +101,8 @@ fn generate_Array_String(ctx : function_context, blob : list(pcode_t)) : (functi
 fn pcode_Array_String_get_blob(ins : instruction) : list(pcode_t);
 fn generate_Array_Unicode(ctx : function_context, blob : list(pcode_t)) : (function_context, int);
 fn pcode_Array_Unicode_get_blob(ins : instruction) : list(pcode_t);
-fn generate_Array_Load(ctx : function_context, aa ai : int, t : tokens) : (function_context, int);
+fn generate_Array_Load(ctx : function_context, aa ai flags : int, t : tokens) : (function_context, int);
+fn pcode_Array_Load_get_flags(ins : instruction) : int;
 fn pcode_Array_Load_get_array(ins : instruction) : int;
 fn pcode_Array_Load_get_index(ins : instruction) : int;
 fn generate_Array_Len(ctx : function_context, aa : int) : (function_context, int);
@@ -1149,17 +1150,23 @@ fn pcode_Array_Unicode_get_blob(ins : instruction) : list(pcode_t)
 	return ins.args[1 .. ];
 ]
 
-fn generate_Array_Load(ctx : function_context, aa ai : int, t : tokens) : (function_context, int)
+fn generate_Array_Load(ctx : function_context, aa ai flags : int, t : tokens) : (function_context, int)
 [
 	var at l : int;
 	ctx, at := evaluate_list_type(ctx, aa, true, t);
 	ctx, l := alloc_local_variable(ctx, at, true, false);
-	var pcode_args := list(pcode_t).[ l, 0, aa, ai ];
+	var pcode_args := list(pcode_t).[ l, flags, aa, ai ];
 	ctx := generate_instruction(ctx, P_Array_Load, pcode_args);
 
 	ctx := verify_variable(ctx, l, false, t);
 
 	return ctx, l;
+]
+
+fn pcode_Array_Load_get_flags(ins : instruction) : int
+[
+	xeval assert(ins.opcode = P_Array_Load, "pcode_Array_Load_get_array: invalid instruction");
+	return ins.args[1];
 ]
 
 fn pcode_Array_Load_get_array(ins : instruction) : int

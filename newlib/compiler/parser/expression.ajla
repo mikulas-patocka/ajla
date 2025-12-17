@@ -537,7 +537,7 @@ fn list_load(ctx : function_context, vd : variable_dictionary, t t2 : tokens, in
 	ctx := verify_variable(ctx, aa, false, t);
 
 	var l : int;
-	ctx, l := generate_Array_Load(ctx, aa, ai, t);
+	ctx, l := generate_Array_Load(ctx, aa, ai, select(is_array, 0, Flag_Escape_On_Slice), t);
 
 	return ctx, [ l ];
 ]

@@ -2409,6 +2409,11 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 #if !ARCH_HAS_FLAGS && !defined(ARCH_IA64) && !defined(ARCH_PARISC)
 		subtract = true;
 #endif
+		if (flags & OPCODE_ARRAY_ESCAPE_ON_SLICE) {
+			g(gen_compare_ptr_tag(ctx, reg1, DATA_TAG_array_flat, COND_NE, escape_label, R_SCRATCH_4, false, false));
+			g(gen_scaled_array_load(ctx, reg1, reg2, data_array_offset, slot_r));
+			goto skip_slice;
+		}
 		g(gen_compare_ptr_tag(ctx, reg1, DATA_TAG_array_slice, COND_A, escape_label, R_SCRATCH_4, subtract, ARCH_HAS_FLAGS));
 		if (ARCH_HAS_CMOV & 0x10) {		/* fused cmp-cmov */
 			g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SCRATCH_1, reg1));
@@ -2501,6 +2506,7 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 			gen_label(label);
 		}
 		g(gen_scaled_array_load(ctx, R_SCRATCH_1, reg2, data_array_offset, slot_r));
+skip_slice:
 		flag_set(ctx, slot_r, false);
 		return true;
 	} else {

@@ -34,6 +34,7 @@ typedef uint16_t code_t;
 #define OPCODE_ARRAY_FILL_FLAG_SPARSE		0x0004
 #define OPCODE_ARRAY_INDEX_IN_RANGE		0x0004
 #define OPCODE_STRUCT_MAY_BORROW		0x0008
+#define OPCODE_ARRAY_ESCAPE_ON_SLICE		0x0010
 #define FLAG_NEED_BOTH_EXCEPTIONS_TO_FAIL	0x0100	/* not used in code, used internally in ipret.c */
 #define FLAG_FIRST_EXCEPTION			0x0200	/* not used in code, used internally in ipret.c */
 #define FLAG_TESTING_FOR_EXCEPTION		0x0400	/* not used in code, used internally in ipret.c */
