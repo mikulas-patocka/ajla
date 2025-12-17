@@ -524,6 +524,7 @@ const nl : bytes;
  - ARRAY -
  ---------}
 
+fn array_len~inline(t : type, const dim : list(nat), v : array(t, dim)) : int;
 fn list_to_array(t : type, const dim : list(nat), v : list(t)) : array(t, dim);
 fn array_to_list(t : type, const dim : list(nat), v : array(t, dim)) : list(t);
 fn array_fill~inline(t : type, const x : t, const dim : list(nat)) : array(t, dim);
@@ -3687,6 +3688,13 @@ fn array_size(dim : list(nat)) : nat
 		prod *= dim[i];
 	]
 	return prod;
+]
+
+fn array_len~inline(t : type, const dim : list(nat), v : array(t, dim)) : int
+[
+	var l : int;
+	pcode Array_Len =l v 0;
+	return l;
 ]
 
 fn list_to_array(t : type, const dim : list(nat), v : list(t)) : array(t, dim)
