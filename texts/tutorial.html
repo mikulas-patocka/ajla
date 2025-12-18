@@ -889,6 +889,10 @@ digits). For example, this is the &pi; constant in <code>real128</code>
 precision: <code>#1.921fb54442d18469898cc51701b8p+1q</code>.
 <br>
 <br>
+Positive infinity can be created with <code>1. / 0.</code>, negative infinity
+with <code>-1. / 0.</code>.
+<br>
+<br>
 There are other data types which behave as floating point numbers and floating
 point mathermatical functions can be used on them. These types do not have a
 format for constants, if you need to create constants with large number of
@@ -987,12 +991,15 @@ parameters to the type class, for example "<code>var r :=
 instance_real_number_fixed_point(10, 2).from_bytes("1.23")</code>".
 <br>
 <br>
-Conversion between integers and floating point or between floating point of
-different types can be done through assignments. When converting a floating
+Conversion between integers and floating points, between floating points of
+different types or between integers of different types can be done through
+assignments or with the <code>cast</code> keyword. When converting a floating
 point value to an integer, Ajla rounds to zero. For example:
 <pre>
 var fp := 10.7;
-var i : int := fp;
+var i : int := fp;		// i will be 10
+var j := cast(real16, 12345);	// j will be 12344
+// (the last bit will be chopped off because real16 has limited precision)
 </pre>
 <br>
 The &pi; constant can be obtained from type classes too &mdash; for example
@@ -1097,6 +1104,11 @@ with the function <code>is_uninitialized</code>.
 <code>array(t, shape)</code> represents an array type whose elements have a type
 of <code>t</code>. <code>shape</code> is a list of integers that represents
 dimensions of the array.
+<br>
+<br>
+Arrays have fixed length that is specified when the array is created. Unlike
+lists, arrays can't be sliced or appended (but you can convert an array to a
+list and slice or append the list).
 <dl>
 <dt><code>var a := array_fill(1, [ 3, 3, 3 ]);</code>
 <dd>Creates a three-dimensional array and fill it with value 1.

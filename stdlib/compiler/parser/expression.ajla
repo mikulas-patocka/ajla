@@ -542,6 +542,30 @@ fn list_load(ctx : function_context, vd : variable_dictionary, t t2 : tokens, in
 	return ctx, [ l ];
 ]
 
+fn parse_cast(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool) : (function_context, list(int))
+[
+
+	{========
+	 = CAST =
+	 ========}
+
+	var x : list(int);
+	ctx, x := parse_expressions(ctx, vd, t, in_type);
+
+	if len(x) <> 2 then
+		abort compiler_error("Cast must have two arguments", t);
+
+	var cc, typ := get_deep_type_of_var(ctx, x[0]);
+	if typ <> T_Type then
+		abort compiler_error("Type expected", t);
+
+	var l : int;
+	var inferred : teq;
+	ctx, l, inferred := convert_type(ctx, vd, x[1], new_compare_context(ctx), x[0], 0, true, t);
+
+	return ctx, [ l ];
+]
+
 fn non_empty_option_create(ctx : function_context, vd : variable_dictionary, t : tokens, in_type : bool) : (function_context, list(int))
 [
 
@@ -1006,6 +1030,16 @@ fn parse_expressions(ctx : function_context, vd : variable_dictionary, t : token
 	if t[len(t) - 1].t is right_paren then [
 		var left_bracket := len(t) + t[len(t) - 1].bracket_skip - 1;
 		var arg_tokens := t[left_bracket + 1 .. len(t) - 1];
+
+		if t[0].t is k_cast, left_bracket = 1, len(arg_tokens) >= 3 then [
+
+			{========
+			 = CAST =
+			 ========}
+
+			return parse_cast(ctx, vd, arg_tokens, in_type);
+		]
+
 		if left_bracket >= 3 and t[left_bracket - 1].t is dot then [
 
 			{=============================
