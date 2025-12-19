@@ -309,10 +309,29 @@ static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, 
 {
 	if (OP_SIZE_NATIVE == OP_SIZE_4)
 		c = (int32_t)c;
-	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
-	gen_one(reg);
-	gen_one(ARG_IMM);
-	gen_eight(c);
+	if (unlikely(!c)) {
+		gen_insn(INSN_ALU, OP_SIZE_4, ALU_XOR, 1);
+		gen_one(reg);
+		gen_one(reg);
+		gen_one(reg);
+	} else if (c == (uint64_t)-1) {
+		gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_OR, 1);
+		gen_one(reg);
+		gen_one(reg);
+		gen_one(ARG_IMM);
+		gen_eight(-1);
+	} else if (c == (uint32_t)-1) {
+		gen_insn(INSN_ALU, OP_SIZE_4, ALU_OR, 1);
+		gen_one(reg);
+		gen_one(reg);
+		gen_one(ARG_IMM);
+		gen_eight(-1);
+	} else {
+		gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+		gen_one(reg);
+		gen_one(ARG_IMM);
+		gen_eight(c);
+	}
 	return true;
 }
 
@@ -473,15 +492,9 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 static bool attr_w gen_escape_arg(struct codegen_context *ctx, ip_t ip, uint32_t escape_label)
 {
 #if defined(ARCH_X86_32) || defined(ARCH_X86_64)
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-	gen_one(R_DX);
-	gen_one(ARG_IMM);
-	gen_eight(ip);
+	g(gen_load_constant(ctx, R_DX, ip));
 #else
-	gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
-	gen_one(R_AX);
-	gen_one(ARG_IMM);
-	gen_eight((uint64_t)ip << 32);
+	g(gen_load_constant(ctx, R_AX, (uint64_t)ip << 32));
 #endif
 	gen_insn(INSN_JMP, 0, 0, 0);
 	gen_four(escape_label);
