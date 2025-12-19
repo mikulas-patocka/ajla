@@ -183,12 +183,12 @@ static uint8_t upcall_register = R_R15;
 #define R_SAVED_1	R_SI
 #define R_SAVED_2	R_DI
 #else
-#define R_FRAME		R_BX
+#define R_FRAME		R_BP
 #define R_SCRATCH_1	R_AX
 #define R_SCRATCH_2	R_DX
 #define R_SCRATCH_3	R_CX
 #define R_SCRATCH_4	R_SAVED_2
-#define R_SAVED_1	R_BP
+#define R_SAVED_1	R_BX
 #define R_SAVED_2	R_R12
 #endif
 
@@ -271,11 +271,12 @@ static const uint8_t fp_volatile[] = { R_XMM2, R_XMM3, R_XMM4, R_XMM5,
 
 #else
 
-static const uint8_t regs_saved[] = { R_R13,
+static const uint8_t regs_saved[] = {
 #ifndef TIMESTAMP_IN_REGISTER
 	R_R14,
 #endif
 	R_R15,
+	R_R13,
 	};
 #define n_regs_saved (n_array_elements(regs_saved) - !reg_is_segment(R_UPCALL))
 static const uint8_t regs_volatile[] = { R_SI, R_DI, R_R8, R_R9, R_R10, R_R11,
