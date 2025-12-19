@@ -1520,7 +1520,11 @@ next_num:
 
 fn register_dependence(implicit w : world, d : dhandle, p : bytes) : world
 [
-	var cp := path_canonical(d, p);
+	var cp : bytes;
+	if path_is_absolute(p) then
+		cp := p;
+	else
+		cp := path_canonical(d, p);
 	var w2 : world;
 	pcode IO IO_Register_Dependence 1 2 0 =w2 w cp;
 	return w2;

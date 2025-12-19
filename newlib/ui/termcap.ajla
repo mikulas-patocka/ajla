@@ -843,49 +843,46 @@ fn locase(str : bytes) : bytes
 	return str;
 ]
 
-fn termcap_init(d : dhandle, env : treemap(bytes, bytes)) : termcap
+fn termcap_init_cached~save(env_term env_home env_termcap env_terminfo env_terminfo_dirs env_termpath : maybe(bytes)) : termcap
 [
+	implicit var w := unsafe_get_world;
+	var d := dnone();
 	var is_termcap := false;
 	var path := empty(bytes);
 	var fh : handle;
 	var b : bytes;
 
 	var term : bytes;
-	var t_term := treemap_search(env, "TERM");
-	if t_term is n then
+	if env_term is n then
 		term := "";
 	else
-		term := t_term.j;
+		term := env_term.j;
 	if len(term) = 0 then [
 		abort exception_make_str(int, ec_syscall, error_not_supported, 0, false, "the TERM variable is not set");
 	]
 
-	var home := treemap_search(env, "HOME");
-	var tcap := treemap_search(env, "TERMCAP");
-	if tcap is j then [
-		if path_is_absolute(tcap.j) then
+	if env_termcap is j then [
+		if path_is_absolute(env_termcap.j) then
 			goto tcap_is_path;
-		if len_greater_than(tcap.j, 0), path_is_dir_separator(tcap.j[0]) then
+		if len_greater_than(env_termcap.j, 0), path_is_dir_separator(env_termcap.j[0]) then
 			goto tcap_is_path;
 
-		b, is_termcap := termcap_2_terminfo(tcap.j, term);
+		b, is_termcap := termcap_2_terminfo(env_termcap.j, term);
 		if b <> "" then
 			goto got_termcap;
-		tcap := maybe(bytes).n;
+		env_termcap := maybe(bytes).n;
 tcap_is_path:
 	]
 
-	var ti := treemap_search(env, "TERMINFO");
-	if ti is j then [
-		path +<= ti.j;
+	if env_terminfo is j then [
+		path +<= env_terminfo.j;
 	] else [
-		if tcap is j then
+		if env_termcap is j then
 			goto get_termcap;
-		if home is j then
-			path +<= path_append(home.j, ".terminfo");
-		var dirs := treemap_search(env, "TERMINFO_DIRS");
-		if dirs is j then
-			path += list_break(dirs.j, ':');
+		if env_home is j then
+			path +<= path_append(env_home.j, ".terminfo");
+		if env_terminfo_dirs is j then
+			path += list_break(env_terminfo_dirs.j, ':');
 		path +<= "/etc/terminfo";
 		path +<= "/lib/terminfo";
 		path +<= "/usr/share/terminfo";
@@ -896,10 +893,12 @@ tcap_is_path:
 	for i := 0 to len(path) do [
 		var file : bytes;
 		file := path_append(path_append(path[i], term[ .. 1]), term);
+		eval register_dependence(d, file);
 		fh := ropen_lazy(d, file, 0);
 		if not is_exception fh then
 			goto got_tinfo;
 		file := path_append(path_append(path[i], locase(ntos_base(term[0], 16))), term);
+		eval register_dependence(d, file);
 		fh := ropen_lazy(d, file, 0);
 		if not is_exception fh then
 			goto got_tinfo;
@@ -907,14 +906,13 @@ tcap_is_path:
 
 get_termcap:
 	path := empty(bytes);
-	if tcap is j then [
-		path +<= tcap.j;
+	if env_termcap is j then [
+		path +<= env_termcap.j;
 	] else [
-		if home is j then
-			path +<= path_append(home.j, ".termcap");
-		var dirs := treemap_search(env, "TERMPATH");
-		if dirs is j then
-			path += list_break(dirs.j, ':');
+		if env_home is j then
+			path +<= path_append(env_home.j, ".termcap");
+		if env_termpath is j then
+			path += list_break(env_termpath.j, ':');
 		path +<= "/usr/share/misc/terminfo";
 		path +<= "/usr/share/terminfo/terminfo";
 		path +<= "/etc/termcap";
@@ -923,6 +921,7 @@ get_termcap:
 	]
 
 	for i := 0 to len(path) do [
+		eval register_dependence(d, path[i]);
 		fh := ropen_lazy(d, path[i], 0);
 		if not is_exception fh then [
 			var t := read_lazy(fh);
@@ -980,6 +979,17 @@ got_termcap:
 	tc.strings_table_start := tc.strings_start + 2 * tc.strings_words;
 
 	return tc;
+]
+
+fn termcap_init(d : dhandle, env : treemap(bytes, bytes)) : termcap
+[
+	var env_term := treemap_search(env, "TERM");
+	var env_home := treemap_search(env, "HOME");
+	var env_termcap := treemap_search(env, "TERMCAP");
+	var env_terminfo := treemap_search(env, "TERMINFO");
+	var env_terminfo_dirs := treemap_search(env, "TERMINFO_DIRS");
+	var env_termpath := treemap_search(env, "TERMPATH");
+	return termcap_init_cached(env_term, env_home, env_termcap, env_terminfo, env_terminfo_dirs, env_termpath);
 ]
 
 novfy fn termcap_query_bool(tc : termcap, entry : nat) : bool
