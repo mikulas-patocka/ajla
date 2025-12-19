@@ -1321,10 +1321,7 @@ static bool attr_w gen_clear_bitmap(struct codegen_context *ctx, unsigned additi
 		size_t bitmap_length = (size_t)bitmap_slots * slot_size;
 		size_t clear_offset = 0;
 		additional_offset += (unsigned)dest_offset;
-#if defined(ARCH_X86)
-		g(gen_3address_alu(ctx, OP_SIZE_4, ALU_XOR, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_1, 0));
-#endif
-#if defined(ARCH_ARM32) || defined(ARCH_S390)
+#if defined(ARCH_ARM32) || defined(ARCH_S390) || defined(ARCH_X86)
 		g(gen_load_constant(ctx, R_SCRATCH_1, 0));
 #endif
 		while (clear_offset < bitmap_length) {
