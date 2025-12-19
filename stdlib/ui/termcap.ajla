@@ -916,7 +916,7 @@ get_termcap:
 		path +<= "/usr/share/terminfo/terminfo";
 		path +<= "/etc/termcap";
 		path +<= "/usr/share/misc/termcap";
-		path +<= path_append(dpath_lazy(dlib(unsafe_get_world)), "terminfo");
+		path +<= path_append(dpath_lazy(dlib(w)), "terminfo");
 	]
 
 	for i := 0 to len(path) do [
