@@ -23,7 +23,7 @@ uses treemap;
 
 type termcap;
 
-fn termcap_init(d : dhandle, env : treemap(bytes, bytes)) : termcap;
+fn termcap_init(w : world, env : treemap(bytes, bytes)) : termcap;
 
 fn termcap_query_bool(tc : termcap, entry : nat) : bool;
 fn termcap_query_number(tc : termcap, entry : nat) : int;
@@ -843,9 +843,8 @@ fn locase(str : bytes) : bytes
 	return str;
 ]
 
-fn termcap_init_cached~save(env_term env_home env_termcap env_terminfo env_terminfo_dirs env_termpath : maybe(bytes)) : termcap
+fn termcap_init_cached~save(implicit w : world, env_term env_home env_termcap env_terminfo env_terminfo_dirs env_termpath : maybe(bytes)) : termcap
 [
-	implicit var w := unsafe_get_world;
 	var d := dnone();
 	var is_termcap := false;
 	var path := empty(bytes);
@@ -981,7 +980,7 @@ got_termcap:
 	return tc;
 ]
 
-fn termcap_init(d : dhandle, env : treemap(bytes, bytes)) : termcap
+fn termcap_init(w : world, env : treemap(bytes, bytes)) : termcap
 [
 	var env_term := treemap_search(env, "TERM");
 	var env_home := treemap_search(env, "HOME");
@@ -989,7 +988,7 @@ fn termcap_init(d : dhandle, env : treemap(bytes, bytes)) : termcap
 	var env_terminfo := treemap_search(env, "TERMINFO");
 	var env_terminfo_dirs := treemap_search(env, "TERMINFO_DIRS");
 	var env_termpath := treemap_search(env, "TERMPATH");
-	return termcap_init_cached(env_term, env_home, env_termcap, env_terminfo, env_terminfo_dirs, env_termpath);
+	return termcap_init_cached(w, env_term, env_home, env_termcap, env_terminfo, env_terminfo_dirs, env_termpath);
 ]
 
 novfy fn termcap_query_bool(tc : termcap, entry : nat) : bool

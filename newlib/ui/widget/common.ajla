@@ -1054,7 +1054,7 @@ fn app_suspend(implicit w : world, implicit app : appstate) : (world, appstate)
 
 fn app_resume(implicit w : world, implicit app : appstate) : (world, appstate)
 [
-	app.curs := curses_init(app.d, app.h, app.env);
+	app.curs := curses_init(w, app.h, app.env);
 ]
 
 fn app_run(implicit w : world, d : dhandle, h : list(handle), env : treemap(bytes, bytes), const cls : widget_class, init : fn(world, appstate, wid) : (world, appstate, cls.t)) : world
