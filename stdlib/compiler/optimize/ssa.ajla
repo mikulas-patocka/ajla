@@ -2240,12 +2240,18 @@ in_loop2:
 	]
 	{for vgi := 0 to len(ctx.variables) do [
 		var rt := ctx.variables[vgi].runtime_type;
-		if rt < 0, rt >= T_Bool then
+		if rt < 0, rt >= T_Bool then [
 			ctx.variables[vgi].must_be_flat := true;
-		if rt = T_Undetermined then
+		]
+		if rt = T_Undetermined then [
 			ctx.variables[vgi].must_be_data := true;
-		if rt >= 0, ctx.local_types[rt] is rec then
+		]
+		if rt >= 0, ctx.local_types[rt] is rec, not ctx.local_types[rt].rec.opt then [
 			ctx.variables[vgi].must_be_data := true;
+		]
+		if rt >= 0, ctx.local_types[rt] is arr then [
+			ctx.variables[vgi].must_be_data := true;
+		]
 	]}
 
 	return ctx;
