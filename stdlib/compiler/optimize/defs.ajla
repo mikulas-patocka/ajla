@@ -55,14 +55,14 @@ record basic_block [
 	live_top : var_set;
 	live_bottom : var_set;
 
+	generate_asm : bool;
+
 	block_name : bytes;
 	post_cut_nodes : int;
 	pre_cut_nodes : bool;
 	added_claims : list(bytes);
 	guards : var_set;
 	not_guards : var_set;
-
-	generate_asm : bool;
 ]
 
 fn new_basic_block : basic_block
@@ -83,14 +83,14 @@ fn new_basic_block : basic_block
 		live_top : -1,
 		live_bottom : -1,
 
+		generate_asm : false,
+
 		block_name : "",
 		post_cut_nodes : 0,
 		pre_cut_nodes : false,
 		added_claims : empty(bytes),
 		guards : 0,
 		not_guards : 0,
-
-		generate_asm : false,
 	];
 ]
 
@@ -114,6 +114,8 @@ record variable [
 	ra_priority : int;
 
 	verifier_name : list(bytes);
+
+	offload_name : bytes;
 ]
 
 fn new_variable : variable
@@ -132,7 +134,9 @@ fn new_variable : variable
 		color : -1,
 		needed : false,
 		ra_priority : 0,
+
 		verifier_name : infinite(""),
+		offload_name : "",
 	];
 ]
 
@@ -185,6 +189,8 @@ record context [
 	do_offload : bool;
 	un : bytes;
 	name : bytes;
+	get_inline : fn(function, bool) : list(pcode_t);
+
 	dump_z3 : bool;
 	return_ins : instruction;
 	op_map : array(bytes, [ -T_Bool + 1, Op_N ]);
@@ -193,5 +199,9 @@ record context [
 	llt_defined : treeset(bytes);
 	var_names : treeset(bytes);
 	unint_functions : treeset(bytes);
-	get_inline : fn(function, bool) : list(pcode_t);
+
+	imported_variables : var_set;
+	local_variables : var_set;
+	output_array_variables : var_set;
+	loop_controls : var_set;
 ]

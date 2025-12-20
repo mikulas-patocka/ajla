@@ -24,6 +24,7 @@ fn offload(ctx : context) : context;
 
 implementation
 
+uses charset;
 uses compiler.optimize.utils;
 
 fn skip_empty(ctx : context, bgi : int) : int
@@ -347,6 +348,77 @@ found_cv2:
 	return "";
 ]
 
+fn num2str(v : int) := bytes_locase(ntos_base(v, 16));
+
+fn get_variable_type(ctx : context, v : int) : bytes
+[
+	var t := ctx.variables[v].type_index;
+	if t = T_Integer then [
+		var s := sysprop(SystemProperty_Int_Size);
+		if s = 1 then t := T_Integer8;
+		else if s = 2 then t := T_Integer16;
+		else if s = 4 then t := T_Integer32;
+		else if s = 8 then t := T_Integer64;
+		else abort internal("unknown integer size: " + ntos(s));
+	]
+	if t = T_Bool then [
+		var s := sysprop(SystemProperty_Bool_Size);
+		if s = 1 then t := T_UInt8;
+		else if s = 2 then t := T_UInt16;
+		else if s = 4 then t := T_UInt32;
+		else if s = 8 then t := T_UInt64;
+		else abort internal("unknown bool size: " + ntos(s));
+	]
+	if t = T_SInt8 then return "char";
+	if t = T_UInt8 then return "uchar";
+	if t = T_SInt16 then return "short";
+	if t = T_UInt16 then return "ushort";
+	if t = T_SInt32 then return "int";
+	if t = T_UInt32 then return "uint";
+	if t = T_SInt64 then return "long";
+	if t = T_UInt64 then return "ulong";
+	if t = T_Integer8 then return "char";
+	if t = T_Integer16 then return "short";
+	if t = T_Integer32 then return "int";
+	if t = T_Integer64 then return "long";
+	if t = T_Real16 then return "half";
+	if t = T_Real32 then return "float";
+	if t = T_Real64 then return "double";
+	return "";
+]
+
+fn process_binary_operator(ctx : context, ins : instruction) : (context, bytes)
+[
+	return ctx, "	"+nl;
+]
+
+fn process_basic_block(ctx : context, bgi : int, last : bool) : (context, bytes)
+[
+	var output := "";
+	var bb := ctx.blocks[bgi];
+	output += bb.block_name+":"+nl;
+	for ili := 0 to len(bb.instrs) do [
+		var s : bytes;
+		var ins := ctx.instrs[bb.instrs[ili]];
+		var ws := ins.write_set;
+		if popcnt ws <> 1 then
+			continue;
+		var wr := ins.params[bsf ws];
+		if not ctx.local_variables bt wr then
+			continue;
+		eval debug("opcode: " + ntos(ins.opcode));
+		if ins.opcode = P_BinaryOp then [
+			ctx, s := process_binary_operator(ctx, ins);
+			if not len_greater_than(s, 0) then
+				return ctx, "";
+			output += s;
+		]
+	]
+	if last then
+		output += "	return;"+nl;
+	return ctx, output;
+]
+
 fn offload_instruction(ctx : context, ili : int, ins : instruction) : instruction
 [
 	var decision_bgi := ins.bb;
@@ -368,11 +440,9 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : instructio
 		eval debug(ctx.name + ": " + err);
 		goto fail;
 	]
-	if len(shape) > 3 then [
-		eval debug(ctx.name + ": more than 3 dimensions");
-		goto fail;
-	]
 	eval debug("loop recognized, dim: " + ntos(len(shape)));
+	if len(shape) > 3 then
+		shape := shape[ .. 3];
 
 	err := verify_arrays(ctx, shape);
 	if len_greater_than(err, 0) then [
@@ -380,7 +450,136 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : instructio
 		goto fail;
 	]
 
-	eval debug("arrays verified");
+	var inner_shape := shape[len(shape) - 1];
+
+	eval debug("arrays verified: " + ntos(inner_shape.body_bb) + " - " + ntos(inner_shape.end_bb));
+
+	var bbs := cast(node_set, 0) bts inner_shape.body_bb;
+	var worklist := bbs;
+	ctx.blocks[inner_shape.body_bb].block_name := "bb_"+num2str(inner_shape.body_bb);
+	while worklist <> 0 do [
+		var b : int := bsr worklist;
+		worklist btr= b;
+		if b = inner_shape.end_bb then
+			continue;
+		var bb := ctx.blocks[b];
+		for i := 0 to len(bb.post_list) do [
+			var p := bb.post_list[i];
+			if bbs bt p then
+				continue;
+			if not ctx.blocks[inner_shape.body_bb].dominates bt p then
+				continue;
+			bbs bts= p;
+			ctx.blocks[p].block_name := "bb_"+num2str(p);
+			worklist bts= p;
+		]
+	]
+
+	var imported_variables : var_set := 0;
+	var local_variables : var_set := 0;
+	var output_array_variables : var_set := 0;
+	var loop_controls : var_set := 0;
+	var var_worklist : var_set := 0;
+	for i := 0 to len(inner_shape.arrays) do [
+		var_worklist bts= inner_shape.arrays[i].var_mod;
+		output_array_variables bts= inner_shape.arrays[i].var_mod;
+		output_array_variables bts= inner_shape.arrays[i].var_phi;
+	]
+	for i := 0 to len(shape) do [
+		var cv := shape[i].control_variable;
+		loop_controls bts= cv;
+		var t := get_variable_type(ctx, cv);
+		if not len_greater_than(t, 0) then [
+			eval debug(ctx.name + ": loop control variable has unsupported type");
+			goto fail;
+		]
+		ctx.variables[cv].offload_name := "("+t+")get_global_id("+ntos(i)+")";
+		eval debug("control variable " + ctx.variables[cv].offload_name);
+	]
+	while var_worklist <> 0 do [
+		var v : int := bsr var_worklist;
+		var_worklist btr= v;
+		var def_instr := ctx.instrs[ctx.variables[v].defining_instr];
+		if not bbs bt def_instr.bb then [
+			imported_variables bts= v;
+			ctx.variables[v].offload_name := "arg_"+num2str(v);
+			//eval debug("imported variable: " + ntos(v) + ", " + ctx.variables[v].name);
+			continue;
+		]
+		if def_instr.opcode = P_Call or def_instr.opcode = P_Call_Indirect then [
+			eval debug(ctx.name + ": uninlined call instruction");
+			goto fail;
+		]
+		if popcnt def_instr.write_set <> 1 then [
+			eval debug(ctx.name + ": unsupported instruction");
+			goto fail;
+		]
+		if not output_array_variables bt v then [
+			local_variables bts= v;
+			ctx.variables[v].offload_name := "var_"+num2str(v);
+			//eval debug("local variable: " + ntos(v) + ", " + ctx.variables[v].name);
+		]
+		var s := def_instr.read_set;
+		while s <> 0 do [
+			var q : int := bsr s;
+			s btr= q;
+			var vv := def_instr.params[q];
+			if (imported_variables or local_variables or output_array_variables or loop_controls) bt vv then
+				continue;
+			var_worklist bts= vv;
+		]
+	]
+	ctx.imported_variables := imported_variables;
+	ctx.local_variables := local_variables;
+	ctx.output_array_variables := output_array_variables;
+	ctx.loop_controls := loop_controls;
+
+	var output := "__kernel void offload(__global char *err";
+	var_worklist := imported_variables;
+	while var_worklist <> 0 do [
+		var v : int := bsf var_worklist;
+		var_worklist btr= v;
+		var t := get_variable_type(ctx, v);
+		if not len_greater_than(t, 0) then [
+			eval debug(ctx.name + ": imported variable has unsupported type");
+			//goto fail;
+		]
+		output += ", "+t+" "+ctx.variables[v].offload_name;
+	]
+	output += ")"+nl;
+	output += "{"+nl;
+
+	var_worklist := local_variables;
+	while var_worklist <> 0 do [
+		var v : int := bsf var_worklist;
+		var_worklist btr= v;
+		var t := get_variable_type(ctx, v);
+		if not len_greater_than(t, 0) then [
+			eval debug(ctx.name + ": local variable has unsupported type");
+			goto fail;
+		]
+		output += "	"+t+" "+ctx.variables[v].offload_name+";"+nl;
+	]
+
+	output += "	goto "+ctx.blocks[inner_shape.body_bb].block_name+";"+nl;
+
+	worklist := bbs;
+	while worklist <> 0 do [
+		var b : int := bsf worklist;
+		worklist btr= b;
+		var s : bytes;
+		ctx, s := process_basic_block(ctx, b, b = inner_shape.end_bb);
+		if not len_greater_than(s, 0) then
+			goto fail;
+		output += s;
+	]
+
+	output += "exception:"+nl;
+	output += "	*err = 1;"+nl;
+	output += "	return;"+nl;
+	output += "}";
+
+	eval debug(output);
 
 fail:
 	return ins;
@@ -388,7 +587,6 @@ fail:
 
 fn offload(ctx : context) : context
 [
-	//eval dump_basic_blocks(ctx, true);
 	var n_blocks := len(ctx.blocks);
 	for bgi := 0 to n_blocks do [
 		var block := ctx.blocks[bgi];
@@ -401,6 +599,7 @@ fn offload(ctx : context) : context
 			if ins.opcode = P_Offload then [
 				ins := offload_instruction(ctx, ili, ins);
 				ctx.instrs[igi] := ins;
+				eval dump_basic_blocks(ctx, true);
 			]
 		]
 	]

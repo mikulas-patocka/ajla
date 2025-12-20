@@ -506,6 +506,12 @@ int_default_t ipret_system_property(int_default_t idx)
 		case SystemProperty_Real:
 			result = REAL_MASK;
 			break;
+		case SystemProperty_Int_Size:
+			result = sizeof(int_default_t);
+			break;
+		case SystemProperty_Bool_Size:
+			result = sizeof(ajla_flat_option_t);
+			break;
 		case SystemProperty_Privileged:
 			result = ipret_is_privileged;
 			break;

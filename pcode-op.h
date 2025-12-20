@@ -223,12 +223,14 @@
 #define SystemProperty_Charset_Console	3
 #define SystemProperty_Fixed		4
 #define SystemProperty_Real		5
-#define SystemProperty_Privileged	6
-#define SystemProperty_Sandbox		7
-#define SystemProperty_Compile		8
-#define SystemProperty_NoInline		9
-#define SystemProperty_Verify		10
-#define SystemProperty_Verify_Timeout	11
+#define SystemProperty_Int_Size		6
+#define SystemProperty_Bool_Size	7
+#define SystemProperty_Privileged	8
+#define SystemProperty_Sandbox		9
+#define SystemProperty_Compile		10
+#define SystemProperty_NoInline		11
+#define SystemProperty_Verify		12
+#define SystemProperty_Verify_Timeout	13
 
 #define SystemProperty_OS_Posix		1
 #define SystemProperty_OS_DOS		2
