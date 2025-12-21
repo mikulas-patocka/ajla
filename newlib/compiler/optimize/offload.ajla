@@ -350,9 +350,30 @@ found_cv2:
 
 fn num2str(v : int) := bytes_locase(ntos_base(v, 16));
 
-fn get_variable_type(ctx : context, v : int) : bytes
+option ocl_type [
+	fixed;
+	integer;
+	fp;
+	boolean;
+	invalid;
+]
+
+fn get_variable_type(ctx : context, v : int) : (bytes, ocl_type, int)
 [
 	var t := ctx.variables[v].type_index;
+	var ot : ocl_type;
+	if t <= T_SInt8, t >= T_UInt128 then
+		ot := ocl_type.fixed;
+	else if t <= T_Integer, t >= T_Integer128 then
+		ot := ocl_type.integer;
+	else if t <= T_Real16, t >= T_Real128 then
+		ot := ocl_type.fp;
+	else if t = T_Bool then
+		ot := ocl_type.boolean;
+	else
+		return "", ocl_type.invalid, 0;
+	var integer := t <= T_Integer and t >= T_Integer128;
+	var fp := t <= T_Real16 and t >= T_Real128;
 	if t = T_Integer then [
 		var s := sysprop(SystemProperty_Int_Size);
 		if s = 1 then t := T_Integer8;
@@ -369,27 +390,89 @@ fn get_variable_type(ctx : context, v : int) : bytes
 		else if s = 8 then t := T_UInt64;
 		else abort internal("unknown bool size: " + ntos(s));
 	]
-	if t = T_SInt8 then return "char";
-	if t = T_UInt8 then return "uchar";
-	if t = T_SInt16 then return "short";
-	if t = T_UInt16 then return "ushort";
-	if t = T_SInt32 then return "int";
-	if t = T_UInt32 then return "uint";
-	if t = T_SInt64 then return "long";
-	if t = T_UInt64 then return "ulong";
-	if t = T_Integer8 then return "char";
-	if t = T_Integer16 then return "short";
-	if t = T_Integer32 then return "int";
-	if t = T_Integer64 then return "long";
-	if t = T_Real16 then return "half";
-	if t = T_Real32 then return "float";
-	if t = T_Real64 then return "double";
-	return "";
+	if t = T_SInt8 then return "char", ot, 8;
+	if t = T_UInt8 then return "uchar", ot, 8;
+	if t = T_SInt16 then return "short", ot, 16;
+	if t = T_UInt16 then return "ushort", ot, 16;
+	if t = T_SInt32 then return "int", ot, 32;
+	if t = T_UInt32 then return "uint", ot, 32;
+	if t = T_SInt64 then return "long", ot, 64;
+	if t = T_UInt64 then return "ulong", ot, 64;
+	if t = T_Integer8 then return "char", ot, 8;
+	if t = T_Integer16 then return "short", ot, 16;
+	if t = T_Integer32 then return "int", ot, 32;
+	if t = T_Integer64 then return "long", ot, 64;
+	if t = T_Real16 then return "half", ot, 2;
+	if t = T_Real32 then return "float", ot, 4;
+	if t = T_Real64 then return "double", ot, 8;
+	return "", ot, 0;
 ]
 
 fn process_binary_operator(ctx : context, ins : instruction) : (context, bytes)
 [
-	return ctx, "	"+nl;
+	var cnst := ins.opcode = P_BinaryConstOp;
+	var unary := ins.opcode = P_UnaryOp;
+	var t, ot, bits := get_variable_type(ctx, ins.params[1]);
+	var op := ins.params[0];
+	var op1_name op2_name : bytes;
+	op1_name := ctx.variables[ins.params[3]].offload_name;
+	if unary then
+		op2_name := "";
+	else if not cnst then
+		op2_name := ctx.variables[ins.params[5]].offload_name;
+	else
+		op2_name := "("+t+")"+ntos(ins.params[4]);
+	var output := "	{"+nl;
+	if op = Un_ConvertToInt then [
+		var ti, oti, bitsi := get_variable_type(ctx, T_Integer);
+		output += "		"+ti+" result;"+nl;
+	] else [
+		output += "		"+t+" result;"+nl;
+	]
+	if op = Bin_Add then [
+		output += "		result = "+op1_name+" + "+op2_name+";"+nl;
+		if ot is integer then [
+			output += "		if ((~("+op1_name+" ^ "+op2_name+") & ("+op2_name+" ^ result)) < 0)"+nl;
+			output += "			goto exception;"+nl;
+		]
+	] else if op = Bin_Subtract then [
+		output += "		result = "+op1_name+" - "+op2_name+";"+nl;
+		if ot is integer then [
+			output += "		if ((~("+op2_name+" ^ result) & ("+op1_name+" ^ result)) < 0)"+nl;
+			output += "			goto exception;"+nl;
+		]
+	] else if op = Bin_Multiply then [
+		output += "		result = "+op1_name+" * "+op2_name+";"+nl;
+		if ot is integer then [
+			output += "		if ((result >> "+ntos(bits-1)+") != mul_hi("+op1_name+", "+op2_name+"))"+nl;
+			output += "			goto exception;"+nl;
+		]
+	] else if op = Bin_Divide_Int then [
+		output += "		if ("+op2_name+" == 0)"+nl;
+		if ot is integer then
+			output += "			goto exception;"+nl;
+		else
+			output += "			result = 0;"+nl;
+		if t[0] <> 'u' then [
+			output += "		else if ("+op2_name+" == -1 && "+op1_name+" == ("+t+")1 << "+ntos(bits-1)+")"+nl;
+			if ot is integer then
+				output += "			goto exception;"+nl;
+			else
+				output += "			result = ("+t+")1 << "+ntos(bits-1)+";"+nl;
+		]
+		output += "		else"+nl;
+		output += "			result = "+op1_name+" / "+op2_name+";"+nl;
+	] else if op = Un_ConvertToInt or op = Un_ConvertFromInt then [
+		output += "		result = "+op1_name+";"+nl;
+		output += "		if (result != "+op1_name+")"+nl;
+		output += "			goto exception;"+nl;
+	] else [
+		eval debug(ctx.name + ": unsupported operator " + ntos(op));
+		return ctx, "";
+	]
+	output += "		"+ctx.variables[ins.params[1]].offload_name+" = result;"+nl;
+	output += "	}"+nl;
+	return ctx, output;
 ]
 
 fn process_basic_block(ctx : context, bgi : int, last : bool) : (context, bytes)
@@ -407,11 +490,13 @@ fn process_basic_block(ctx : context, bgi : int, last : bool) : (context, bytes)
 		if not ctx.local_variables bt wr then
 			continue;
 		eval debug("opcode: " + ntos(ins.opcode));
-		if ins.opcode = P_BinaryOp then [
+		if ins.opcode = P_BinaryOp or ins.opcode = P_BinaryConstOp or ins.opcode = P_UnaryOp then [
 			ctx, s := process_binary_operator(ctx, ins);
 			if not len_greater_than(s, 0) then
 				return ctx, "";
 			output += s;
+		] else [
+			eval debug("UNKNOWN OPCODE " + ntos(ins.opcode));
 		]
 	]
 	if last then
@@ -488,7 +573,7 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : instructio
 	for i := 0 to len(shape) do [
 		var cv := shape[i].control_variable;
 		loop_controls bts= cv;
-		var t := get_variable_type(ctx, cv);
+		var t, ot, bits := get_variable_type(ctx, cv);
 		if not len_greater_than(t, 0) then [
 			eval debug(ctx.name + ": loop control variable has unsupported type");
 			goto fail;
@@ -539,7 +624,7 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : instructio
 	while var_worklist <> 0 do [
 		var v : int := bsf var_worklist;
 		var_worklist btr= v;
-		var t := get_variable_type(ctx, v);
+		var t, ot, bits := get_variable_type(ctx, v);
 		if not len_greater_than(t, 0) then [
 			eval debug(ctx.name + ": imported variable has unsupported type");
 			//goto fail;
@@ -553,7 +638,7 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : instructio
 	while var_worklist <> 0 do [
 		var v : int := bsf var_worklist;
 		var_worklist btr= v;
-		var t := get_variable_type(ctx, v);
+		var t, ot, bits := get_variable_type(ctx, v);
 		if not len_greater_than(t, 0) then [
 			eval debug(ctx.name + ": local variable has unsupported type");
 			goto fail;
