@@ -84,7 +84,7 @@ record loop_status [
 
 fn test_loop(ctx : context, start_bgi end_bgi : int) : (list(loop_status), bytes)
 [
-	eval debug("test_loop: " + ntos(start_bgi) + ", " + ntos(end_bgi));
+	//eval debug("test_loop: " + ntos(start_bgi) + ", " + ntos(end_bgi));
 
 	var start_block := ctx.blocks[start_bgi];
 	var test_bgi : int;
@@ -358,9 +358,8 @@ option ocl_type [
 	invalid;
 ]
 
-fn get_variable_type(ctx : context, v : int) : (bytes, ocl_type, int)
+fn get_type(ctx : context, t : int) : (bytes, ocl_type, int)
 [
-	var t := ctx.variables[v].type_index;
 	var ot : ocl_type;
 	if t <= T_SInt8, t >= T_UInt128 then
 		ot := ocl_type.fixed;
@@ -370,6 +369,8 @@ fn get_variable_type(ctx : context, v : int) : (bytes, ocl_type, int)
 		ot := ocl_type.fp;
 	else if t = T_Bool then
 		ot := ocl_type.boolean;
+	else if t >= 0 then
+		goto arr;
 	else
 		return "", ocl_type.invalid, 0;
 	var integer := t <= T_Integer and t >= T_Integer128;
@@ -406,6 +407,39 @@ fn get_variable_type(ctx : context, v : int) : (bytes, ocl_type, int)
 	if t = T_Real32 then return "float", ot, 4;
 	if t = T_Real64 then return "double", ot, 8;
 	return "", ot, 0;
+arr:
+	var def_instr := ctx.instrs[ctx.variables[t].defining_instr];
+	if def_instr.opcode <> P_Array_Flexible and def_instr.opcode <> P_Array_Fixed then
+		return "", ocl_type.invalid, 0;
+	if def_instr.params[1] > T_SInt8 or def_instr.params[1] < T_Bool then
+		return "", ocl_type.invalid, 0;
+
+	var str : bytes;
+	var bits : int;
+	str, ot, bits := get_type(ctx, def_instr.params[1]);
+
+	return str+" *", ot, bits;
+]
+
+fn get_variable_type(ctx : context, v : int) : (bytes, ocl_type, int)
+[
+	return get_type(ctx, ctx.variables[v].type_index);
+]
+
+fn get_integer_type(ctx : context)
+[
+	var t, ot, bits := get_type(ctx, T_Integer);
+	return t;
+]
+
+fn process_structured_write(ctx : context, ins : instruction) : (context, bytes)
+[
+	if ins.params[0] <> 1 or ins.params[6] <> Structured_Array then [
+		eval debug(ctx.name + ": invalid structured write");
+		return ctx, "";
+	]
+	var output := "	"+ctx.variables[ins.params[1]].offload_name+"["+ctx.variables[ins.params[7]].offload_name+"] = "+ctx.variables[ins.params[5]].offload_name+";"+nl;
+	return ctx, output;
 ]
 
 fn process_binary_operator(ctx : context, ins : instruction) : (context, bytes)
@@ -424,7 +458,7 @@ fn process_binary_operator(ctx : context, ins : instruction) : (context, bytes)
 		op2_name := "("+t+")"+ntos(ins.params[4]);
 	var output := "	{"+nl;
 	if op = Un_ConvertToInt then [
-		var ti, oti, bitsi := get_variable_type(ctx, T_Integer);
+		var ti := get_integer_type(ctx);
 		output += "		"+ti+" result;"+nl;
 	] else [
 		output += "		"+t+" result;"+nl;
@@ -475,6 +509,29 @@ fn process_binary_operator(ctx : context, ins : instruction) : (context, bytes)
 	return ctx, output;
 ]
 
+fn process_array_load(ctx : context, ins : instruction) : (context, bytes)
+[
+	var output := "	{"+nl;
+	var rv := ins.params[0];
+	var av := ins.params[2];
+	var iv := ins.params[3];
+	if not ctx.imported_variables bt av then [
+		eval debug(ctx.name + ": unsupported array");
+		return ctx, "";
+	]
+	var rname := ctx.variables[rv].offload_name;
+	var aname := ctx.variables[av].offload_name;
+	var iname := ctx.variables[iv].offload_name;
+	var ti := get_integer_type(ctx);
+	if (ins.params[1] and Flag_Index_In_Range) = 0 then [
+		output += "		if ((u"+ti+")"+iname+" >= (u"+ti+")"+aname+"_len)"+nl;
+		output += "			goto exception;"+nl;
+	]
+	output += "		"+rname+" = "+aname+"["+iname+"];" + nl;
+	output += "	}"+nl;
+	return ctx, output;
+]
+
 fn process_basic_block(ctx : context, bgi : int, last : bool) : (context, bytes)
 [
 	var output := "";
@@ -487,17 +544,31 @@ fn process_basic_block(ctx : context, bgi : int, last : bool) : (context, bytes)
 		if popcnt ws <> 1 then
 			continue;
 		var wr := ins.params[bsf ws];
+		if ins.opcode = P_Structured_Write and ctx.output_array_variables bt wr then [
+			ctx, s := process_structured_write(ctx, ins);
+			if not len_greater_than(s, 0) then
+				return ctx, "";
+			output += s;
+			continue;
+		]
 		if not ctx.local_variables bt wr then
 			continue;
-		eval debug("opcode: " + ntos(ins.opcode));
 		if ins.opcode = P_BinaryOp or ins.opcode = P_BinaryConstOp or ins.opcode = P_UnaryOp then [
 			ctx, s := process_binary_operator(ctx, ins);
 			if not len_greater_than(s, 0) then
 				return ctx, "";
 			output += s;
-		] else [
-			eval debug("UNKNOWN OPCODE " + ntos(ins.opcode));
+			continue;
 		]
+		if ins.opcode = P_Array_Load then [
+			ctx, s := process_array_load(ctx, ins);
+			if not len_greater_than(s, 0) then
+				return ctx, "";
+			output += s;
+			continue;
+		]
+		eval debug(ctx.name + ": unsupported opcode " + ntos(ins.opcode));
+		return ctx, "";
 	]
 	if last then
 		output += "	return;"+nl;
@@ -525,7 +596,7 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : instructio
 		eval debug(ctx.name + ": " + err);
 		goto fail;
 	]
-	eval debug("loop recognized, dim: " + ntos(len(shape)));
+	//eval debug("loop recognized, dim: " + ntos(len(shape)));
 	if len(shape) > 3 then
 		shape := shape[ .. 3];
 
@@ -537,7 +608,7 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : instructio
 
 	var inner_shape := shape[len(shape) - 1];
 
-	eval debug("arrays verified: " + ntos(inner_shape.body_bb) + " - " + ntos(inner_shape.end_bb));
+	//eval debug("arrays verified: " + ntos(inner_shape.body_bb) + " - " + ntos(inner_shape.end_bb));
 
 	var bbs := cast(node_set, 0) bts inner_shape.body_bb;
 	var worklist := bbs;
@@ -569,6 +640,7 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : instructio
 		var_worklist bts= inner_shape.arrays[i].var_mod;
 		output_array_variables bts= inner_shape.arrays[i].var_mod;
 		output_array_variables bts= inner_shape.arrays[i].var_phi;
+		ctx.variables[inner_shape.arrays[i].var_mod].offload_name := "out_"+ntos(i);
 	]
 	for i := 0 to len(shape) do [
 		var cv := shape[i].control_variable;
@@ -579,7 +651,7 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : instructio
 			goto fail;
 		]
 		ctx.variables[cv].offload_name := "("+t+")get_global_id("+ntos(i)+")";
-		eval debug("control variable " + ctx.variables[cv].offload_name);
+		//eval debug("control variable " + ctx.variables[cv].offload_name);
 	]
 	while var_worklist <> 0 do [
 		var v : int := bsr var_worklist;
@@ -619,7 +691,11 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : instructio
 	ctx.output_array_variables := output_array_variables;
 	ctx.loop_controls := loop_controls;
 
-	var output := "__kernel void offload(__global char *err";
+	var output := "__kernel void offload(__write_only __global char * err";
+	for i := 0 to len(inner_shape.arrays) do [
+		var t, ot, bits := get_variable_type(ctx, inner_shape.arrays[i].var_mod);
+		output += ", __write_only __global "+t+" "+ctx.variables[inner_shape.arrays[i].var_mod].offload_name;
+	]
 	var_worklist := imported_variables;
 	while var_worklist <> 0 do [
 		var v : int := bsf var_worklist;
@@ -627,9 +703,14 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : instructio
 		var t, ot, bits := get_variable_type(ctx, v);
 		if not len_greater_than(t, 0) then [
 			eval debug(ctx.name + ": imported variable has unsupported type");
-			//goto fail;
+			goto fail;
 		]
-		output += ", "+t+" "+ctx.variables[v].offload_name;
+		if t[len(t) - 1] = '*' then [
+			output += ", __constant "+t+" "+ctx.variables[v].offload_name;
+			output += ", u"+get_integer_type(ctx)+" "+ctx.variables[v].offload_name+"_len";
+		] else [
+			output += ", "+t+" "+ctx.variables[v].offload_name;
+		]
 	]
 	output += ")"+nl;
 	output += "{"+nl;
@@ -664,7 +745,7 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : instructio
 	output += "	return;"+nl;
 	output += "}";
 
-	eval debug(output);
+	xeval debug(output);
 
 fail:
 	return ins;
@@ -684,7 +765,7 @@ fn offload(ctx : context) : context
 			if ins.opcode = P_Offload then [
 				ins := offload_instruction(ctx, ili, ins);
 				ctx.instrs[igi] := ins;
-				eval dump_basic_blocks(ctx, true);
+				//eval dump_basic_blocks(ctx, true);
 			]
 		]
 	]
