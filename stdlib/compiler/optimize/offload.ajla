@@ -432,17 +432,17 @@ fn get_integer_type(ctx : context)
 	return t;
 ]
 
-fn process_structured_write(ctx : context, ins : instruction) : (context, bytes)
+fn process_structured_write(ctx : context, ins : instruction) : bytes
 [
 	if ins.params[0] <> 1 or ins.params[6] <> Structured_Array then [
 		eval debug(ctx.name + ": invalid structured write");
-		return ctx, "";
+		return "";
 	]
 	var output := "	"+ctx.variables[ins.params[1]].offload_name+"["+ctx.variables[ins.params[7]].offload_name+"] = "+ctx.variables[ins.params[5]].offload_name+";"+nl;
-	return ctx, output;
+	return output;
 ]
 
-fn process_binary_operator(ctx : context, ins : instruction) : (context, bytes)
+fn process_binary_operator(ctx : context, ins : instruction) : bytes
 [
 	var cnst := ins.opcode = P_BinaryConstOp;
 	var unary := ins.opcode = P_UnaryOp;
@@ -502,14 +502,14 @@ fn process_binary_operator(ctx : context, ins : instruction) : (context, bytes)
 		output += "			goto exception;"+nl;
 	] else [
 		eval debug(ctx.name + ": unsupported operator " + ntos(op));
-		return ctx, "";
+		return "";
 	]
 	output += "		"+ctx.variables[ins.params[1]].offload_name+" = result;"+nl;
 	output += "	}"+nl;
-	return ctx, output;
+	return output;
 ]
 
-fn process_array_load(ctx : context, ins : instruction) : (context, bytes)
+fn process_array_load(ctx : context, ins : instruction) : bytes
 [
 	var output := "	{"+nl;
 	var rv := ins.params[0];
@@ -517,7 +517,7 @@ fn process_array_load(ctx : context, ins : instruction) : (context, bytes)
 	var iv := ins.params[3];
 	if not ctx.imported_variables bt av then [
 		eval debug(ctx.name + ": unsupported array");
-		return ctx, "";
+		return "";
 	]
 	var rname := ctx.variables[rv].offload_name;
 	var aname := ctx.variables[av].offload_name;
@@ -529,10 +529,10 @@ fn process_array_load(ctx : context, ins : instruction) : (context, bytes)
 	]
 	output += "		"+rname+" = "+aname+"["+iname+"];" + nl;
 	output += "	}"+nl;
-	return ctx, output;
+	return output;
 ]
 
-fn process_basic_block(ctx : context, bgi : int, last : bool) : (context, bytes)
+fn process_basic_block(ctx : context, bgi : int, last : bool) : bytes
 [
 	var output := "";
 	var bb := ctx.blocks[bgi];
@@ -545,34 +545,34 @@ fn process_basic_block(ctx : context, bgi : int, last : bool) : (context, bytes)
 			continue;
 		var wr := ins.params[bsf ws];
 		if ins.opcode = P_Structured_Write and ctx.output_array_variables bt wr then [
-			ctx, s := process_structured_write(ctx, ins);
+			s := process_structured_write(ctx, ins);
 			if not len_greater_than(s, 0) then
-				return ctx, "";
+				return "";
 			output += s;
 			continue;
 		]
 		if not ctx.local_variables bt wr then
 			continue;
 		if ins.opcode = P_BinaryOp or ins.opcode = P_BinaryConstOp or ins.opcode = P_UnaryOp then [
-			ctx, s := process_binary_operator(ctx, ins);
+			s := process_binary_operator(ctx, ins);
 			if not len_greater_than(s, 0) then
-				return ctx, "";
+				return "";
 			output += s;
 			continue;
 		]
 		if ins.opcode = P_Array_Load then [
-			ctx, s := process_array_load(ctx, ins);
+			s := process_array_load(ctx, ins);
 			if not len_greater_than(s, 0) then
-				return ctx, "";
+				return "";
 			output += s;
 			continue;
 		]
 		eval debug(ctx.name + ": unsupported opcode " + ntos(ins.opcode));
-		return ctx, "";
+		return "";
 	]
 	if last then
 		output += "	return;"+nl;
-	return ctx, output;
+	return output;
 ]
 
 fn offload_instruction(ctx : context, ili : int, ins : instruction) : instruction
@@ -734,7 +734,7 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : instructio
 		var b : int := bsf worklist;
 		worklist btr= b;
 		var s : bytes;
-		ctx, s := process_basic_block(ctx, b, b = inner_shape.end_bb);
+		s := process_basic_block(ctx, b, b = inner_shape.end_bb);
 		if not len_greater_than(s, 0) then
 			goto fail;
 		output += s;
