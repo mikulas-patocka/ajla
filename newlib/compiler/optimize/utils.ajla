@@ -421,7 +421,29 @@ fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instructi
 		xlen := len(params);
 	] else if opcode = P_Offload then [
 		ins.write_set := 0 bts 0;
-		xlen := 1;
+		if len(params) > 1 then [
+			var n_dims := params[1];
+			var n_args := params[2];
+			var n_results := params[3];
+			var idx := 4;
+			for i := 0 to n_dims do [
+				var dim_mode := params[idx];
+				var dim_size := params[idx + 1];
+				if dim_mode <> 2 then
+					ins.read_set bts= idx + 1;
+				idx += 2;
+			]
+			for i := 0 to n_args do [
+				ins.read_set bts= idx;
+				idx += 1;
+			]
+			for i := 0 to n_results do [
+				ins.read_set bts= idx;
+				ins.write_set bts= idx + 1;
+				idx += 2;
+			]
+		]
+		xlen := len(params);
 	] else if opcode = P_Line_Info then [
 		if params[0] < 0 then
 			abort internal("P_Line_Info: negative line info");

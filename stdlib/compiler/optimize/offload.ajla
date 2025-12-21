@@ -26,6 +26,7 @@ implementation
 
 uses charset;
 uses compiler.optimize.utils;
+uses compiler.common.blob;
 
 fn skip_empty(ctx : context, bgi : int) : int
 [
@@ -745,7 +746,34 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : instructio
 	output += "	return;"+nl;
 	output += "}";
 
+	var params := list(pcode_t).[
+		ins.params[0],
+		len(shape),
+		popcnt imported_variables,
+		len(inner_shape.arrays),
+	];
+	for i := 0 to len(shape) do [
+		if shape[i].limit is v then
+			params += list(pcode_t).[ 1, shape[i].limit.v ];
+		if shape[i].limit is c then
+			params += list(pcode_t).[ 2, shape[i].limit.c ];
+		if shape[i].limit is a then
+			params += list(pcode_t).[ 3, shape[i].limit.a ];
+	]
+	var_worklist := imported_variables;
+	while var_worklist <> 0 do [
+		var v : int := bsf var_worklist;
+		var_worklist btr= v;
+		params += list(pcode_t).[ v ];
+	]
+	for i := 0 to len(shape[0].arrays) do [
+		params += list(pcode_t).[ shape[0].arrays[i].var_in, shape[0].arrays[i].var_phi ];
+		//eval debug("shape: " + ntos(shape[0].arrays[i].var_in) + ", " + ntos(shape[0].arrays[i].var_phi));
+	]
+	params += blob_store(output);
 	xeval debug(output);
+
+	return create_instr(P_Offload, params, ins.bb);
 
 fail:
 	return ins;
@@ -762,7 +790,7 @@ fn offload(ctx : context) : context
 		for ili := 0 to l do [
 			var igi := ctx.blocks[bgi].instrs[ili];
 			var ins := ctx.instrs[igi];
-			if ins.opcode = P_Offload then [
+			if ins.opcode = P_Offload, len(ins.params) = 1 then [
 				ins := offload_instruction(ctx, ili, ins);
 				ctx.instrs[igi] := ins;
 				//eval dump_basic_blocks(ctx, true);

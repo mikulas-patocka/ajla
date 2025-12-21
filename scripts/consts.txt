@@ -71,7 +71,7 @@ P_Claim			; var
 P_Invariant		; var
 P_ForAll		; result, type, condition
 P_Checkpoint		; (must-be-flat-var ...)
-P_Offload		; bool_status, n_dims, n_args, n_results, (dim_size), (arg_var), (result_in, result_out), program_blob
+P_Offload		; bool_status, n_dims, n_args, n_results, (dim_mode, dim_size), (arg_var), (result_in, result_out), program_blob
 P_Line_Info		; line_number
 P_Phi			; result, (arg ...)
 P_Pcode_N
