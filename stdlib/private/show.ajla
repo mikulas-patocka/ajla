@@ -35,6 +35,7 @@ fn rational_to_real(t : type, implicit c~spec : class_real_number(t), a : ration
 implementation
 
 uses exception;
+uses charset;
 
 fn byte_to_num(c : byte, b : int) : int
 [
@@ -204,8 +205,12 @@ fn bytes_to_real_base(t : type, implicit c~spec : class_real_number(t), a : byte
 	] else if len_greater_than(a, 0), a[0] = '+' then [
 		a := a[1 .. ];
 	]
-	if a = "inf" then [
+	if bytes_locase(a) = "inf" then [
 		r := 1. / 0.;
+		goto ret;
+	]
+	if bytes_locase(a) = "nan" then [
+		r := 0. / 0.;
 		goto ret;
 	]
 
