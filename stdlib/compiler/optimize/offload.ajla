@@ -576,7 +576,7 @@ fn process_basic_block(ctx : context, bgi : int, last : bool) : bytes
 	return output;
 ]
 
-fn offload_instruction(ctx : context, ili : int, ins : instruction) : instruction
+fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 [
 	var decision_bgi := ins.bb;
 	var decision_block := ctx.blocks[decision_bgi];
@@ -773,10 +773,11 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : instructio
 	params += blob_store(output);
 	xeval debug(output);
 
-	return create_instr(P_Offload, params, ins.bb);
+	var igi := ctx.blocks[ins.bb].instrs[ili];
+	ctx.instrs[igi] := create_instr(P_Offload, params, ins.bb);
 
 fail:
-	return ins;
+	return ctx;
 ]
 
 fn offload(ctx : context) : context
@@ -791,8 +792,7 @@ fn offload(ctx : context) : context
 			var igi := ctx.blocks[bgi].instrs[ili];
 			var ins := ctx.instrs[igi];
 			if ins.opcode = P_Offload, len(ins.params) = 1 then [
-				ins := offload_instruction(ctx, ili, ins);
-				ctx.instrs[igi] := ins;
+				ctx := offload_instruction(ctx, ili, ins);
 				//eval dump_basic_blocks(ctx, true);
 			]
 		]
