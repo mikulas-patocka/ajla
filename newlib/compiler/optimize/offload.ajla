@@ -766,14 +766,35 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 		var_worklist btr= v;
 		params += list(pcode_t).[ v ];
 	]
+	var cloned := empty(int);
+	var igi := ctx.blocks[ins.bb].instrs[ili];
 	for i := 0 to len(shape[0].arrays) do [
-		params += list(pcode_t).[ shape[0].arrays[i].var_in, shape[0].arrays[i].var_phi ];
+		var to_clone := shape[0].arrays[i].var_in;
+		var clone, clone_idx := clone_variable(ctx, to_clone);
+		clone.defining_block := ins.bb;
+		clone.defining_instr := igi;
+		ctx.variables +<= clone;
+		params += list(pcode_t).[ to_clone, clone_idx ];
 		//eval debug("shape: " + ntos(shape[0].arrays[i].var_in) + ", " + ntos(shape[0].arrays[i].var_phi));
+		{for bgi := 0 to len(ctx.blocks) do [
+			var b := ctx.blocks[bgi];
+			if decision_block.dominates bt bgi then [
+				for i := 0 to len(b.instrs) do [
+					var instr := ctx.instrs[b.instrs[i]];
+					if instr.opcode <> P_Phi then
+						break;
+					for p := 1 to len(instr.params) do [
+						if instr.params[p] = to_clone then
+							instr.params[p] := clone_idx;
+					]
+					ctx.instrs[b.instrs[i]] := instr;
+				]
+			]
+		]}
 	]
 	params += blob_store(output);
 	xeval debug(output);
 
-	var igi := ctx.blocks[ins.bb].instrs[ili];
 	ctx.instrs[igi] := create_instr(P_Offload, params, ins.bb);
 
 fail:
@@ -793,7 +814,7 @@ fn offload(ctx : context) : context
 			var ins := ctx.instrs[igi];
 			if ins.opcode = P_Offload, len(ins.params) = 1 then [
 				ctx := offload_instruction(ctx, ili, ins);
-				//eval dump_basic_blocks(ctx, true);
+				eval dump_basic_blocks(ctx, true);
 			]
 		]
 	]

@@ -29,6 +29,7 @@ fn function_name(params : list(pcode_t), get_inline : fn(function, bool) : list(
 fn function_extract_nested(pc : list(pcode_t), fn_idx : list(int)) : list(pcode_t);
 
 fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instruction;
+fn clone_variable(ctx : context, vgi : int) : (variable, int);
 fn load_function_context(pc : list(pcode_t), un : bytes, get_inline : fn(function, bool) : list(pcode_t)) : context;
 fn dump_local_type(lt : local_type) : list(pcode_t);
 fn dump_basic_blocks(ctx : context, dump_it : bool) : list(pcode_t);
@@ -480,6 +481,20 @@ fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instructi
 	]}
 
 	return ins;
+]
+
+fn clone_variable(ctx : context, vgi : int) : (variable, int)
+[
+	var v1_idx := len(ctx.variables);
+	var v1 := new_variable;
+
+	v1.type_index := ctx.variables[vgi].type_index;
+	v1.runtime_type := ctx.variables[vgi].runtime_type;
+	v1.local_type := ctx.variables[vgi].local_type;
+	v1.color := ctx.variables[vgi].color;
+	v1.name := ctx.variables[vgi].name;
+
+	return v1, v1_idx;
 ]
 
 
