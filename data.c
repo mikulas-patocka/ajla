@@ -3390,7 +3390,7 @@ void name(data_init)(void)
 	oom = thunk_alloc_exception_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_OUT_OF_MEMORY), NULL pass_file_line);
 	out_of_memory_thunk = pointer_thunk(oom);
 #ifdef HAVE_CODEGEN
-	da(&top_frame_marker,function)->codegen = out_of_memory_thunk;
+	top_frame_marker.u_.function.codegen = out_of_memory_thunk;
 #endif
 
 #ifdef HAVE_CODEGEN_TRAPS
