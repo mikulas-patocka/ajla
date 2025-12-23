@@ -16,8 +16,8 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef AJLA_IPUNALGN_H
-#define AJLA_IPUNALGN_H
+#ifndef AJLA_IPUNALG_H
+#define AJLA_IPUNALG_H
 
 #include "code-op.h"
 
