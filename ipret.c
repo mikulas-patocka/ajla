@@ -32,6 +32,7 @@
 #include "task.h"
 #include "ipfn.h"
 #include "ipio.h"
+#include "offload.h"
 #include "util.h"
 #include "os.h"
 #include "codegen.h"

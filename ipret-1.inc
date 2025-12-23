@@ -3043,6 +3043,23 @@ DEFINE_OPCODE_END(OPCODE_IO)
 #endif
 
 #if ARG_MODE == 0
+DEFINE_OPCODE_START(OPCODE_OFFLOAD_PREPARE)
+#ifdef EMIT_CODE
+	void *ex;
+
+	ex = ipret_offload(fp, ip);
+
+	if (ex != POINTER_FOLLOW_THUNK_GO) {
+		RELOAD_EX_POSITION(ex);
+	} else {
+		ip_t a = 7 + get_unaligned_32(ip + 5) * 2;
+		ADVANCE_IP(a);
+	}
+#endif
+DEFINE_OPCODE_END(OPCODE_OFFLOAD_PREPARE)
+#endif
+
+#if ARG_MODE == 0
 DEFINE_OPCODE_START(OPCODE_INTERNAL_FUNCTION)
 #ifdef EMIT_CODE
 	void *ex = function_call_internal(fp, ip);

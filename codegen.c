@@ -2190,6 +2190,15 @@ jump_over_arguments_and_return:
 				g(gen_io(ctx, flags, slot_1, slot_2, slot_3));
 				continue;
 			}
+			case OPCODE_OFFLOAD_PREPARE: {
+				uint32_t count;
+				get_uint32(ctx);
+				get_uint32(ctx);
+				count = get_uint32(ctx);
+				while (count--)
+					get_uint32(ctx);
+				goto unconditional_escape;
+			}
 			case OPCODE_INTERNAL_FUNCTION:
 			case OPCODE_EXIT_THREAD:
 			case OPCODE_UNREACHABLE: {

@@ -1024,6 +1024,12 @@ static bool pcode_finish_call(struct build_function_context *ctx, const struct p
 		gen_code(TYPE_IS_FLAT(tv->type) ? OPCODE_MAY_RETURN_FLAT : 0);
 	}
 
+	ctx->checkpoint_num += sizeof(char *);
+	if (unlikely(!ctx->checkpoint_num)) {
+		fatal_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_SIZE_OVERFLOW), ctx->err, "checkpoint number overflow");
+		goto exception;
+	}
+
 	if (unlikely(test_flat)) {
 		arg_mode_t am;
 		frame_t slot;
@@ -1056,12 +1062,6 @@ static bool pcode_finish_call(struct build_function_context *ctx, const struct p
 		}
 		mem_free(vars);
 		vars = NULL;
-	}
-
-	ctx->checkpoint_num += sizeof(char *);
-	if (unlikely(!ctx->checkpoint_num)) {
-		fatal_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_SIZE_OVERFLOW), ctx->err, "checkpoint number overflow");
-		goto exception;
 	}
 
 	return true;
@@ -1292,13 +1292,41 @@ skip_instr:
 	return true;
 }
 
+static size_t pcode_load_explicit(struct build_function_context *ctx, const char *module, unsigned fn, bool preload)
+{
+	struct module_designator *md = NULL;
+	struct function_designator *fd = NULL;
+	pointer_t *ptr;
+	size_t fn_idx;
+
+	md = module_designator_alloc(0, cast_ptr(const uint8_t *, module), strlen(module), false, ctx->err);
+	if (unlikely(!md))
+		goto exception;
+	fd = function_designator_alloc_single(fn, ctx->err);
+	if (unlikely(!fd))
+		goto exception;
+	ptr = module_load_function(md, fd, true, false, ctx->err);
+	if (unlikely(!ptr))
+		goto exception;
+	module_designator_free(md), md = NULL;
+	function_designator_free(fd), fd = NULL;
+	fn_idx = pcode_module_load_function_idx(ctx, ptr, !preload);
+	if (unlikely(fn_idx == no_function_idx))
+		goto exception;
+	return fn_idx;
+
+exception:
+	if (md)
+		module_designator_free(md);
+	if (fd)
+		function_designator_free(fd);
+	return no_function_idx;
+}
+
 static bool pcode_op_to_call(struct build_function_context *ctx, pcode_t op, const struct pcode_type *tr, const struct pcode_type *t1, pcode_t flags1, const struct pcode_type *t2, pcode_t flags2, bool preload)
 {
 	const char *module;
-	struct module_designator *md = NULL;
-	struct function_designator *fd = NULL;
 	unsigned fn;
-	pointer_t *ptr;
 	size_t fn_idx;
 	arg_mode_t am;
 	code_t code;
@@ -1316,18 +1344,7 @@ static bool pcode_op_to_call(struct build_function_context *ctx, pcode_t op, con
 	}
 	fn += op;
 
-	md = module_designator_alloc(0, cast_ptr(const uint8_t *, module), strlen(module), false, ctx->err);
-	if (unlikely(!md))
-		goto exception;
-	fd = function_designator_alloc_single(fn, ctx->err);
-	if (unlikely(!fd))
-		goto exception;
-	ptr = module_load_function(md, fd, true, false, ctx->err);
-	if (unlikely(!ptr))
-		goto exception;
-	module_designator_free(md), md = NULL;
-	function_designator_free(fd), fd = NULL;
-	fn_idx = pcode_module_load_function_idx(ctx, ptr, !preload);
+	fn_idx = pcode_load_explicit(ctx, module, fn, preload);
 	if (unlikely(fn_idx == no_function_idx))
 		goto exception;
 
@@ -1354,10 +1371,6 @@ static bool pcode_op_to_call(struct build_function_context *ctx, pcode_t op, con
 	return true;
 
 exception:
-	if (md)
-		module_designator_free(md);
-	if (fd)
-		function_designator_free(fd);
 	return false;
 }
 
@@ -2187,6 +2200,70 @@ exception:
 }
 
 
+static bool pcode_offload(struct build_function_context *ctx, bool preload)
+{
+	pcode_t res;
+	const struct pcode_type *tr;
+	arg_mode_t am;
+	code_t code;
+
+	res = u_pcode_get();
+	tr = get_var_type(ctx, res);
+	ajla_assert_lo(type_is_equal(tr->type, type_get_flat_option()), (file_line, "P_Offload(%s): invalid type for bool variable: %u", function_name(ctx), tr->type->tag));
+	if (ctx->pcode == ctx->pcode_instr_end) {
+		if (preload)
+			return true;
+		am = INIT_ARG_MODE;
+		get_arg_mode(am, tr->slot);
+		get_arg_mode(am, 1);
+		code = OPCODE_OPTION_CREATE_EMPTY_FLAT;
+		code += am * OPCODE_MODE_MULT;
+		gen_code(code);
+		gen_am_two(am, tr->slot, 1);
+	} else {
+		size_t record_idx, fn_idx;
+
+		record_idx = pcode_load_explicit(ctx, "opencl_offload", 0, preload);
+		if (unlikely(record_idx == no_function_idx))
+			goto exception;
+
+		fn_idx = pcode_load_explicit(ctx, "opencl_offload", 1, preload);
+		if (unlikely(fn_idx == no_function_idx))
+			goto exception;
+
+		if (preload)
+			return true;
+
+		code = OPCODE_OFFLOAD_PREPARE;
+		gen_code(code);
+		gen_uint32(tr->slot);
+		gen_uint32(record_idx);
+		gen_uint32((uint32_t)(ctx->pcode_instr_end - ctx->pcode));
+		while (ctx->pcode != ctx->pcode_instr_end) {
+			res = pcode_get();
+			gen_uint32((uint32_t)res);
+		}
+
+		am = INIT_ARG_MODE;
+		get_arg_mode(am, fn_idx);
+		get_arg_mode(am, tr->slot);
+
+		code = OPCODE_CALL + am * OPCODE_MODE_MULT;
+		gen_code(code);
+		gen_am_two(am, 1, 1);
+		gen_am(am, fn_idx);
+		gen_am_two(am, tr->slot, OPCODE_FLAG_FREE_ARGUMENT);
+
+		if (unlikely(!pcode_finish_call(ctx, &tr, 1, true)))
+			goto exception;
+	}
+	return true;
+
+exception:
+	return false;
+}
+
+
 static bool pcode_args(struct build_function_context *ctx)
 {
 	const struct pcode_type *tr;
@@ -2344,6 +2421,10 @@ static bool pcode_preload_ld(struct build_function_context *ctx)
 					goto exception;
 				break;
 			}
+			case P_Offload:
+				if (unlikely(!pcode_offload(ctx, true)))
+					goto exception;
+				break;
 		}
 		ctx->pcode = ctx->pcode_instr_end;
 	}
@@ -3093,17 +3174,8 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 					u_pcode_get();
 				break;
 			case P_Offload:
-				res = u_pcode_get();
-				tr = get_var_type(ctx, res);
-				ajla_assert_lo(type_is_equal(tr->type, type_get_flat_option()), (file_line, "P_Offload(%s): invalid type for bool variable: %u", function_name(ctx), tr->type->tag));
-				am = INIT_ARG_MODE;
-				get_arg_mode(am, tr->slot);
-				get_arg_mode(am, 1);
-				code = OPCODE_OPTION_CREATE_EMPTY_FLAT;
-				code += am * OPCODE_MODE_MULT;
-				gen_code(code);
-				gen_am_two(am, tr->slot, 1);
-				ctx->pcode = ctx->pcode_instr_end;
+				if (unlikely(!pcode_offload(ctx, false)))
+					goto exception;
 				break;
 			case P_Line_Info:
 				lp.line = u_pcode_get();
