@@ -2220,8 +2220,12 @@ static bool pcode_offload(struct build_function_context *ctx, bool preload)
 		code += am * OPCODE_MODE_MULT;
 		gen_code(code);
 		gen_am_two(am, tr->slot, 1);
+
+		/*while (ctx->pcode != ctx->pcode_instr_end)
+			pcode_get();*/
 	} else {
 		size_t record_idx, fn_idx;
+		pcode_t n_dims, n_args, n_results, i;
 
 		record_idx = pcode_load_explicit(ctx, "opencl_offload", 0, preload);
 		if (unlikely(record_idx == no_function_idx))
@@ -2239,6 +2243,43 @@ static bool pcode_offload(struct build_function_context *ctx, bool preload)
 		gen_uint32(tr->slot);
 		gen_uint32(record_idx);
 		gen_uint32((uint32_t)(ctx->pcode_instr_end - ctx->pcode));
+		n_dims = u_pcode_get();
+		n_args = u_pcode_get();
+		n_results = u_pcode_get();
+		gen_uint32(n_dims);
+		gen_uint32(n_args);
+		gen_uint32(n_results);
+		for (i = 0; i < n_dims; i++) {
+			pcode_t dim_mode = u_pcode_get();
+			pcode_t dim_size = pcode_get();
+			const struct pcode_type *t1;
+			gen_uint32(dim_mode);
+			switch (dim_mode) {
+				case 1:
+				case 3:
+					t1 = get_var_type(ctx, dim_size);
+					gen_uint32(t1->slot);
+					break;
+				case 2:
+					gen_uint32(dim_size);
+					break;
+				default:
+					internal(file_line, "pcode_offload: invalid dim mode %lu", (unsigned long)dim_mode);
+			}
+		}
+		for (i = 0; i < n_args; i++) {
+			pcode_t arg_var = u_pcode_get();
+			const struct pcode_type *t1 = get_var_type(ctx, arg_var);
+			gen_uint32(t1->slot);
+		}
+		for (i = 0; i < n_results; i++) {
+			pcode_t result_in = u_pcode_get();
+			pcode_t result_out = u_pcode_get();
+			const struct pcode_type *t_in = get_var_type(ctx, result_in);
+			const struct pcode_type *t_out = get_var_type(ctx, result_out);
+			gen_uint32(t_in->slot);
+			gen_uint32(t_out->slot);
+		}
 		while (ctx->pcode != ctx->pcode_instr_end) {
 			res = pcode_get();
 			gen_uint32((uint32_t)res);
