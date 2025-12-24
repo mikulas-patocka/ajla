@@ -776,7 +776,7 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 		ctx.variables +<= clone;
 		params += list(pcode_t).[ 0, to_clone, clone_idx ];
 		//eval debug("shape: " + ntos(shape[0].arrays[i].var_in) + ", " + ntos(shape[0].arrays[i].var_phi));
-		{for bgi := 0 to len(ctx.blocks) do [
+		for bgi := 0 to len(ctx.blocks) do [
 			var b := ctx.blocks[bgi];
 			if decision_block.dominates bt bgi then [
 				for i := 0 to len(b.instrs) do [
@@ -790,7 +790,7 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 					ctx.instrs[b.instrs[i]] := instr;
 				]
 			]
-		]}
+		]
 	]
 	params += blob_store(output);
 	xeval debug(output);
