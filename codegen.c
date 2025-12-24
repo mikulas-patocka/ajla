@@ -451,6 +451,7 @@ struct cg_exit {
 	uint8_t undo_writes_flags;
 	uint8_t undo_parameters[35];
 	uint8_t undo_parameters_len;
+	bool nospill;
 	uint32_t escape_label;
 };
 
@@ -1848,7 +1849,7 @@ skip_dereference:
 
 				if (ctx->checkpoint_quick_entry) {
 					ajla_assert_lo(!ce[-1].entry_label, (file_line, "gen_function: entry label for call not allocated (%s)", da(ctx->fn,function)->function_name));
-					if (!ce->n_variables && !ctx->unreachable) {
+					if (!n_vars && !ctx->unreachable) {
 						uint32_t fastret_label = alloc_label(ctx);
 						if (unlikely(!fastret_label))
 							return false;
@@ -1875,7 +1876,7 @@ skip_dereference:
 				gen_label(entry_label);
 				ce->entry_label = entry_label;
 
-				if (ce->n_variables || ctx->unreachable) {
+				if (n_vars || ctx->unreachable) {
 					nonflat_label = alloc_escape_label_for_ip(ctx, ctx->current_position);
 					if (unlikely(!nonflat_label))
 						return false;
@@ -1886,6 +1887,12 @@ skip_dereference:
 				if (unlikely(!slot_1)) {
 					g(gen_timestamp_test(ctx, ctx->escape_nospill_label));
 				} else {
+					if (!n_vars) {
+						struct cg_exit *ce = alloc_cg_exit_for_ip(ctx, ctx->instr_start);
+						if (unlikely(!ce))
+							return false;
+						ce->nospill = true;
+					}
 					g(gen_timestamp_test(ctx, escape_label));
 				}
 				continue;
@@ -2300,7 +2307,7 @@ static bool attr_w gen_epilogues(struct codegen_context *ctx)
 			if (ce->escape_label) {
 				gen_label(ce->escape_label);
 			}
-			g(gen_escape_arg(ctx, ip, escape_label));
+			g(gen_escape_arg(ctx, ip, ce->nospill ? nospill_label : escape_label));
 		}
 	}
 	gen_label(escape_label);
