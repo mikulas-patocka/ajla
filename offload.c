@@ -22,6 +22,7 @@
 
 #include "ipunalg.h"
 #include "data.h"
+#include "array.h"
 #include "ipfn.h"
 #include "arindex.h"
 
@@ -52,6 +53,7 @@ void *ipret_offload(frame_s *fp, const code_t *ip)
 	struct data *record_fn;
 	const struct record_definition *record_definition;
 	struct data *record = NULL;
+	struct data *shape;
 	pointer_t result_ptr;
 	uint32_t n_dims, n_args, n_results;
 	ip_t offset;
@@ -62,9 +64,6 @@ void *ipret_offload(frame_s *fp, const code_t *ip)
 	n_dims = get_unaligned_32(ip + 7);
 	n_args = get_unaligned_32(ip + 9);
 	n_results = get_unaligned_32(ip + 11);
-
-	err = error_ajla(EC_SYNC, AJLA_ERROR_SIZE_OVERFLOW);
-	goto set_err;
 
 	record_ptr = da(get_frame(fp)->function,function)->local_directory[record_idx];
 	pointer_follow(record_ptr, false, record_fn, PF_WAIT, fp, ip,
@@ -80,12 +79,19 @@ void *ipret_offload(frame_s *fp, const code_t *ip)
 		goto set_err;
 	memset(da_record_frame(record), 0, bitmap_slots(record_definition->n_slots) * slot_size);
 
-	debug("XXXXXXXXXXXXXXXX: %x %x %x", n_dims, n_args, n_results);
+	debug("OFFLOADING: %x %x %x", n_dims, n_args, n_results);
+
+	shape = data_alloc_array_flat_mayfail(type_get_int(INT_DEFAULT_N), n_dims, n_dims, false, &err pass_file_line);
+	if (unlikely(!shape))
+		goto set_err;
+	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[0], pointer_data(shape));
 
 	offset = 13;
-	/*for (i = 0; i < n_dims; i++) {
+	for (i = 0; i < n_dims; i++) {
 		int_default_t len;
 		array_index_t idx;
+		pointer_t *ptr;
+		struct data *array_data;
 		uint32_t dim_mode = get_unaligned_32(ip + offset);
 		uint32_t dim_size = get_unaligned_32(ip + offset + 2);
 		offset += 4;
@@ -98,6 +104,7 @@ void *ipret_offload(frame_s *fp, const code_t *ip)
 				if (unlikely(ex != POINTER_FOLLOW_THUNK_GO)) {
 					goto return_ex;
 				}
+process_idx:
 				if (index_is_int(idx)) {
 					len = index_to_int(idx);
 					index_free(&idx);
@@ -111,11 +118,31 @@ void *ipret_offload(frame_s *fp, const code_t *ip)
 				len = (int32_t)dim_size;
 				break;
 			case 3:
+				ptr = frame_pointer(fp, dim_size);
+				pointer_follow(ptr, true, array_data, PF_WAIT, fp, ip,
+					ex = ex_;
+					goto return_ex,
+					thunk_reference(thunk_);
+					result_ptr = pointer_thunk(thunk_);
+					goto set_result;
+				);
+				if (unlikely(da_tag(array_data) == DATA_TAG_array_incomplete)) {
+					err = error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED);
+					goto set_err;
+				}
+				idx = array_len(array_data);
+				goto process_idx;
 				break;
 			default:
 				internal(file_line, "ipret_offload: invalid dim mode %lu", (unsigned long)dim_mode);
 		}
-	}*/
+		if (unlikely(len < 0)) {
+			err = error_ajla(EC_SYNC, AJLA_ERROR_NEGATIVE_INDEX);
+			goto set_err;
+		}
+		cast_ptr(int_default_t *, da_array_flat(shape))[i] = len;
+		debug("dim %u, len %lx", (int)i, (long)len);
+	}
 
 	frame_set_pointer(fp, result_slot, pointer_data(record));
 	copy_results(fp, ip, n_dims, n_args, n_results);
