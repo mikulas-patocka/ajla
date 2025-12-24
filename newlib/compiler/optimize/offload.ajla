@@ -774,7 +774,7 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 		clone.defining_block := ins.bb;
 		clone.defining_instr := igi;
 		ctx.variables +<= clone;
-		params += list(pcode_t).[ to_clone, clone_idx ];
+		params += list(pcode_t).[ 0, to_clone, clone_idx ];
 		//eval debug("shape: " + ntos(shape[0].arrays[i].var_in) + ", " + ntos(shape[0].arrays[i].var_phi));
 		{for bgi := 0 to len(ctx.blocks) do [
 			var b := ctx.blocks[bgi];

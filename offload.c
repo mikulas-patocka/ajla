@@ -34,11 +34,12 @@ static void copy_results(frame_s *fp, const code_t *ip, uint32_t n_dims, uint32_
 	debug("n_results: %x", n_results);
 	for (i = 0; i < n_results; i++) {
 		uint32_t result_in = get_unaligned_32(ip + offset);
-		uint32_t result_out = get_unaligned_32(ip + offset + 2);
-		offset += 4;
+		bool deref = !!(get_unaligned_32(ip + offset + 2) & OPCODE_FLAG_FREE_ARGUMENT);
+		uint32_t result_out = get_unaligned_32(ip + offset + 4);
+		offset += 6;
 		debug("result: %x - %x", result_in, result_out);
 		if (result_in != result_out)
-			ipret_copy_variable(fp, result_in, fp, result_out, false);
+			ipret_copy_variable(fp, result_in, fp, result_out, deref);
 	}
 }
 

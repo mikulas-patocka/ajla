@@ -439,9 +439,10 @@ fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instructi
 				idx += 1;
 			]
 			for i := 0 to n_results do [
-				ins.read_set bts= idx;
-				ins.write_set bts= idx + 1;
-				idx += 2;
+				ins.read_set bts= idx + 1;
+				ins.free_set bts= idx + 1;
+				ins.write_set bts= idx + 2;
+				idx += 3;
 			]
 		]
 		xlen := len(params);
