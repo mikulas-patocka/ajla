@@ -113,7 +113,7 @@ static bool attr_w gen_unspill_variables(struct codegen_context *ctx, frame_t *v
 	return true;
 }
 
-static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *variables, size_t n_variables, uint32_t label)
+static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *variables, size_t n_variables, bool test_flag_on_thunks, uint32_t label)
 {
 	size_t i;
 
@@ -125,10 +125,26 @@ static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *vari
 			if (!i ? da(ctx->fn,function)->local_variables_flags[v].must_be_flat : da(ctx->fn,function)->local_variables_flags[v].must_be_data)
 				ctx->var_aux[n_vars++] = v;
 		}
-		if (!i)
+		if (!i) {
 			g(gen_test_multiple(ctx, ctx->var_aux, n_vars, label));
-		else
-			g(gen_test_multiple_thunks(ctx, ctx->var_aux, n_vars, label));
+		} else {
+			if (!test_flag_on_thunks) {
+				g(gen_test_multiple_thunks(ctx, ctx->var_aux, n_vars, label));
+			} else {
+				size_t v;
+				for (v = 0; v < n_vars; v++) {
+					unsigned reg;
+					uint32_t skip_label;
+					skip_label = alloc_label(ctx);
+					if (unlikely(!skip_label))
+						return false;
+					g(gen_test_1(ctx, R_FRAME, ctx->var_aux[v], 0, skip_label, true, TEST));
+					g(gen_frame_get(ctx, OP_SIZE_SLOT, garbage, ctx->var_aux[v], R_SCRATCH_1, &reg));
+					g(gen_ptr_is_thunk(ctx, reg, NO_FRAME_T, label));
+					gen_label(skip_label);
+				}
+			}
+		}
 	}
 
 	return true;

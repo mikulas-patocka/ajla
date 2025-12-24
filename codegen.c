@@ -1784,7 +1784,7 @@ skip_dereference:
 					mem_free(vars);
 					return false;
 				}
-				if (unlikely(!gen_test_variables(ctx, vars, n, escape_label))) {
+				if (unlikely(!gen_test_variables(ctx, vars, n, true, escape_label))) {
 					mem_free(vars);
 					return false;
 				}
@@ -2259,7 +2259,7 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 				gen_label(ce->test_and_entry_label);
 
 				g(gen_unspill_variables(ctx, ce->variables, ce->n_variables));
-				g(gen_test_variables(ctx, ce->variables, ce->n_variables, ce->nonflat_label));
+				g(gen_test_variables(ctx, ce->variables, ce->n_variables, false, ce->nonflat_label));
 
 				gen_insn(INSN_JMP, 0, 0, 0);
 				gen_four(ce->entry_label);
