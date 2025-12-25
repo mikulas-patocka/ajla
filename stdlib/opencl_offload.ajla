@@ -25,6 +25,9 @@ record offload_request [
 	args : list(int);
 	arg_types : list(ffi_type);
 	arg_lengths : list(int);
+	results_in : list(int);
+	results_out : list(int);
+	results_lengths : list(int);
 	kernel : bytes;
 ]
 
@@ -39,12 +42,18 @@ fn do_offload(rq : offload_request) : bool
 	eval debug(rq.kernel);
 	eval debug("no offload so far");
 	for i := 0 to len(rq.shape) do
-		eval debug("dim "+ntos(i)+": "+ntos(rq.shape[i]));
+		eval debug("dim "+ntos(i)+": "+ntos_base(rq.shape[i], 16));
 	for i := 0 to len(rq.args) do
-		eval debug("arg "+ntos(i)+": "+ntos(rq.args[i]));
+		eval debug("arg "+ntos(i)+": "+ntos_base(rq.args[i], 16));
 	for i := 0 to len(rq.arg_types) do
-		eval debug("arg_type "+ntos(i)+": "+ntos(ord rq.arg_types[i]));
+		eval debug("arg_type "+ntos(i)+": "+ntos_base(ord rq.arg_types[i], 16));
 	for i := 0 to len(rq.arg_lengths) do
-		eval debug("arg_length "+ntos(i)+": "+ntos(rq.arg_lengths[i]));
+		eval debug("arg_length "+ntos(i)+": "+ntos_base(rq.arg_lengths[i], 16));
+	for i := 0 to len(rq.results_in) do
+		eval debug("results_in "+ntos(i)+": "+ntos_base(rq.results_in[i], 16));
+	for i := 0 to len(rq.results_out) do
+		eval debug("results_out "+ntos(i)+": "+ntos_base(rq.results_out[i], 16));
+	for i := 0 to len(rq.results_lengths) do
+		eval debug("results_lengths "+ntos(i)+": "+ntos_base(rq.results_lengths[i], 16));
 	return true;
 ]

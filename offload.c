@@ -97,7 +97,11 @@ void *ipret_offload(frame_s *fp, const code_t *ip)
 	struct data *args;
 	struct data *arg_types;
 	struct data *arg_lengths;
+	struct data *results_in;
+	struct data *results_out;
+	struct data *results_lengths;
 	struct data *blob;
+	struct data *results = NULL;
 	pointer_t result_ptr;
 	uint32_t n_dims, n_args, n_results, blob_len;
 	ip_t offset;
@@ -149,6 +153,27 @@ void *ipret_offload(frame_s *fp, const code_t *ip)
 	for (i = 0; i < n_args; i++)
 		da(arg_lengths,array_pointers)->pointer[i] = pointer_empty();
 	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[3], pointer_data(arg_lengths));
+
+	results_in = data_alloc_array_pointers_mayfail(n_results, n_results, &err pass_file_line);
+	if (unlikely(!results_in))
+		goto set_err;
+	for (i = 0; i < n_results; i++)
+		da(results_in,array_pointers)->pointer[i] = pointer_empty();
+	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[4], pointer_data(results_in));
+
+	results_out = data_alloc_array_pointers_mayfail(n_results, n_results, &err pass_file_line);
+	if (unlikely(!results_out))
+		goto set_err;
+	for (i = 0; i < n_results; i++)
+		da(results_out,array_pointers)->pointer[i] = pointer_empty();
+	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[5], pointer_data(results_out));
+
+	results_lengths = data_alloc_array_pointers_mayfail(n_results, n_results, &err pass_file_line);
+	if (unlikely(!results_lengths))
+		goto set_err;
+	for (i = 0; i < n_results; i++)
+		da(results_lengths,array_pointers)->pointer[i] = pointer_empty();
+	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[6], pointer_data(results_lengths));
 
 	offset = 13;
 	for (i = 0; i < n_dims; i++) {
@@ -288,13 +313,75 @@ set_ptr:
 		}
 	}
 
+	results = data_alloc_array_pointers_mayfail(n_results, n_results, &err pass_file_line);
+	if (unlikely(!results))
+		goto set_err;
+	for (i = 0; i < n_results; i++)
+		da(results,array_pointers)->pointer[i] = pointer_empty();
+
+	for (i = 0; i < n_results; i++) {
+		pointer_t *ptr;
+		struct data *in_d, *out_d;
+		uintptr_t in_flat, out_flat;
+		size_t len;
+		const struct type *type;
+		struct data *d;
+		uint32_t in_slot = get_unaligned_32(ip + offset);
+		offset += 6;
+
+		if (unlikely(frame_variable_is_flat(fp, in_slot)))
+			goto set_unsupp;
+
+		ptr = frame_pointer(fp, in_slot);
+		pointer_follow(ptr, true, in_d, PF_WAIT, fp, ip,
+			ex = ex_;
+			goto return_ex,
+			thunk_reference(thunk_);
+			result_ptr = pointer_thunk(thunk_);
+			goto set_result;
+		);
+
+		if (likely(da_tag(in_d) == DATA_TAG_array_flat)) {
+			type = da(in_d,array_flat)->type;
+			in_flat = ptr_to_num(da_array_flat(in_d));
+			len = (size_t)da(in_d,array_flat)->n_used_entries * type->size;
+		} else if (da_tag(in_d) == DATA_TAG_array_slice) {
+			type = da(in_d,array_slice)->type;
+			in_flat = ptr_to_num(da_array_flat(in_d));
+			len = (size_t)da(in_d,array_slice)->n_entries * type->size;
+		} else {
+			goto set_unsupp;
+		}
+
+		out_d = data_alloc_array_flat_mayfail(type, len, len, false, &err pass_file_line);
+		if (unlikely(!out_d))
+			goto set_err;
+		da(results,array_pointers)->pointer[i] = pointer_data(out_d);
+		out_flat = ptr_to_num(da_array_flat(out_d));
+
+		d = type_to_mpint(type_get_fixed(log_2(sizeof(uintptr_t)), true), cast_ptr(const unsigned char *, &in_flat), &err);
+		if (unlikely(!d))
+			goto set_err;
+		da(results_in,array_pointers)->pointer[i] = pointer_data(d);
+
+		d = type_to_mpint(type_get_fixed(log_2(sizeof(uintptr_t)), true), cast_ptr(const unsigned char *, &out_flat), &err);
+		if (unlikely(!d))
+			goto set_err;
+		da(results_out,array_pointers)->pointer[i] = pointer_data(d);
+
+		d = type_to_mpint(type_get_fixed(log_2(sizeof(size_t)), true), cast_ptr(const unsigned char *, &len), &err);
+		if (unlikely(!d))
+			goto set_err;
+		da(results_lengths,array_pointers)->pointer[i] = pointer_data(d);
+	}
+
 	offset = 13 + 4 * n_dims + 2 * n_args + 6 * n_results;
 	blob_len = get_unaligned_32(ip + offset);
 	offset += 2;
 	blob = data_alloc_array_flat_mayfail(type_get_fixed(0, true), blob_len, blob_len, false, &err pass_file_line);
 	if (unlikely(!blob))
 		goto set_err;
-	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[4], pointer_data(blob));
+	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[7], pointer_data(blob));
 	q = 0;
 	for (i = 0; i < blob_len; i++) {
 		uint8_t val;
@@ -307,6 +394,8 @@ set_ptr:
 		da_array_flat(blob)[i] = val;
 	}
 
+	if (results)
+		pointer_dereference(pointer_data(results));
 	frame_set_pointer(fp, result_slot, pointer_data(record));
 	copy_results(fp, ip, n_dims, n_args, n_results);
 	return POINTER_FOLLOW_THUNK_GO;
@@ -314,6 +403,8 @@ set_ptr:
 set_result:
 	if (record)
 		pointer_dereference(pointer_data(record));
+	if (results)
+		pointer_dereference(pointer_data(results));
 	frame_set_pointer(fp, result_slot, result_ptr);
 	copy_results(fp, ip, n_dims, n_args, n_results);
 	return POINTER_FOLLOW_THUNK_GO;
@@ -323,6 +414,8 @@ set_unsupp:
 set_err:
 	if (record)
 		pointer_dereference(pointer_data(record));
+	if (results)
+		pointer_dereference(pointer_data(results));
 	frame_set_pointer(fp, result_slot, pointer_error(err, fp, ip pass_file_line));
 	copy_results(fp, ip, n_dims, n_args, n_results);
 	return POINTER_FOLLOW_THUNK_GO;
@@ -330,6 +423,8 @@ set_err:
 return_ex:
 	if (record)
 		pointer_dereference(pointer_data(record));
+	if (results)
+		pointer_dereference(pointer_data(results));
 	return ex;
 }
 
