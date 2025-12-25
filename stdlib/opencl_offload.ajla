@@ -55,5 +55,7 @@ fn do_offload(rq : offload_request) : bool
 		eval debug("results_out "+ntos(i)+": "+ntos_base(rq.results_out[i], 16));
 	for i := 0 to len(rq.results_lengths) do
 		eval debug("results_lengths "+ntos(i)+": "+ntos_base(rq.results_lengths[i], 16));
+	for i := 0 to len(rq.results_in) do
+		xeval ffi_poke_array(unsafe_get_world, rq.results_out[i], rq.results_in[i]);
 	return true;
 ]
