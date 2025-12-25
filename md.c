@@ -137,7 +137,8 @@ int function_designator_compare(const struct function_designator *fd1, const str
 
 bool pcode_load_blob(const pcode_t **pc, uint8_t **blob, size_t *l, ajla_error_t *err)
 {
-	pcode_t n, i, q;
+	pcode_t n, i;
+	upcode_t q;
 
 	if (blob) {
 		if (unlikely(!array_init_mayfail(uint8_t, blob, l, err)))
