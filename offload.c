@@ -322,10 +322,11 @@ set_ptr:
 	for (i = 0; i < n_results; i++) {
 		pointer_t *ptr;
 		struct data *in_d, *out_d;
-		uintptr_t in_flat, out_flat;
+		uintptr_t out_flat;
 		size_t len;
 		const struct type *type;
 		struct data *d;
+		size_t new_size;
 		uint32_t in_slot = get_unaligned_32(ip + offset);
 		offset += 6;
 
@@ -343,12 +344,7 @@ set_ptr:
 
 		if (likely(da_tag(in_d) == DATA_TAG_array_flat)) {
 			type = da(in_d,array_flat)->type;
-			in_flat = ptr_to_num(da_array_flat(in_d));
-			len = (size_t)da(in_d,array_flat)->n_used_entries * type->size;
-		} else if (da_tag(in_d) == DATA_TAG_array_slice) {
-			type = da(in_d,array_slice)->type;
-			in_flat = ptr_to_num(da_array_flat(in_d));
-			len = (size_t)da(in_d,array_slice)->n_entries * type->size;
+			len = (size_t)da(in_d,array_flat)->n_used_entries;
 		} else {
 			goto set_unsupp;
 		}
@@ -359,9 +355,14 @@ set_ptr:
 		da(results,array_pointers)->pointer[i] = pointer_data(out_d);
 		out_flat = ptr_to_num(da_array_flat(out_d));
 
-		d = type_to_mpint(type_get_fixed(log_2(sizeof(uintptr_t)), true), cast_ptr(const unsigned char *, &in_flat), &err);
+		d = data_alloc_array_slice_mayfail(in_d, da_array_flat(in_d), 0, len, &err pass_file_line);
 		if (unlikely(!d))
 			goto set_err;
+		new_size = (size_t)da(d,array_slice)->n_entries * type->size;
+		if (unlikely((int_default_t)new_size < 0) || unlikely((size_t)(int_default_t)new_size != new_size))
+			goto set_unsupp;
+		da(d,array_slice)->type = type_get_fixed(0, true);
+		da(d,array_slice)->n_entries = new_size;
 		da(results_in,array_pointers)->pointer[i] = pointer_data(d);
 
 		d = type_to_mpint(type_get_fixed(log_2(sizeof(uintptr_t)), true), cast_ptr(const unsigned char *, &out_flat), &err);
@@ -369,6 +370,7 @@ set_ptr:
 			goto set_err;
 		da(results_out,array_pointers)->pointer[i] = pointer_data(d);
 
+		len *= type->size;
 		d = type_to_mpint(type_get_fixed(log_2(sizeof(size_t)), true), cast_ptr(const unsigned char *, &len), &err);
 		if (unlikely(!d))
 			goto set_err;
