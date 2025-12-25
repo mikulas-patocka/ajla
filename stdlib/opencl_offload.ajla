@@ -36,6 +36,7 @@ uses opencl;
 
 fn do_offload(rq : offload_request) : bool
 [
+	eval debug(rq.kernel);
 	eval debug("no offload so far");
 	for i := 0 to len(rq.shape) do
 		eval debug("dim "+ntos(i)+": "+ntos(rq.shape[i]));

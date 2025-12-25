@@ -26,6 +26,7 @@
 #include "ipfn.h"
 #include "ipio.h"
 #include "arindex.h"
+#include "md.h"
 
 #include "offload.h"
 
@@ -96,10 +97,12 @@ void *ipret_offload(frame_s *fp, const code_t *ip)
 	struct data *args;
 	struct data *arg_types;
 	struct data *arg_lengths;
+	struct data *blob;
 	pointer_t result_ptr;
-	uint32_t n_dims, n_args, n_results;
+	uint32_t n_dims, n_args, n_results, blob_len;
 	ip_t offset;
 	size_t i;
+	uint32_t q;
 
 	result_slot = get_unaligned_32(ip + 1);
 	record_idx = get_unaligned_32(ip + 3);
@@ -283,6 +286,25 @@ set_ptr:
 				goto set_err;
 			da(arg_lengths,array_pointers)->pointer[i] = pointer_data(d);
 		}
+	}
+
+	offset = 13 + 4 * n_dims + 2 * n_args + 6 * n_results;
+	blob_len = get_unaligned_32(ip + offset);
+	offset += 2;
+	blob = data_alloc_array_flat_mayfail(type_get_fixed(0, true), blob_len, blob_len, false, &err pass_file_line);
+	if (unlikely(!blob))
+		goto set_err;
+	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[4], pointer_data(blob));
+	q = 0;
+	for (i = 0; i < blob_len; i++) {
+		uint8_t val;
+		if (!(i & 3)) {
+			q = get_unaligned_32(ip + offset);
+			offset += 2;
+		}
+		val = q;
+		q >>= 8;
+		da_array_flat(blob)[i] = val;
 	}
 
 	frame_set_pointer(fp, result_slot, pointer_data(record));
