@@ -209,6 +209,24 @@ static const struct {
 	{ sizeof(bool) == 1 ? &ffi_type_uint8 : sizeof(bool) == 4 ? &ffi_type_uint32 : NULL,		sizeof(bool),	T_UNSIGNED, },
 };
 
+int io_ffi_get_ffi_type(const struct type *type)
+{
+	size_t i;
+	type_tag_t tag = type->tag;
+	flat_size_t size = type->size;
+	unsigned char sign =	TYPE_TAG_IS_REAL(tag) ? T_REAL :
+				TYPE_TAG_IS_INT(tag) ? T_SIGNED :
+				TYPE_TAG_IS_FIXED(tag) ? TYPE_TAG_FIXED_IS_UNSIGNED(tag) ? T_UNSIGNED : T_SIGNED :
+				T_VOID;
+	if (unlikely(sign == T_VOID))
+		return -1;
+	for (i = 0; i < n_array_elements(ajla_type_to_ffi_type_table); i++) {
+		if (ajla_type_to_ffi_type_table[i].size == size && ajla_type_to_ffi_type_table[i].sign == sign)
+			return (int)i;
+	}
+	return -1;
+}
+
 static const struct type *ajla_type_to_type(ajla_option_t a)
 {
 	if (a >= 1 && a < 9) {

@@ -18,8 +18,14 @@
 
 private unit opencl_offload;
 
+uses ffi;
+
 record offload_request [
 	shape : list(int);
+	args : list(int);
+	arg_types : list(ffi_type);
+	arg_lengths : list(int);
+	kernel : bytes;
 ]
 
 fn do_offload(rq : offload_request) : bool;
@@ -33,5 +39,11 @@ fn do_offload(rq : offload_request) : bool
 	eval debug("no offload so far");
 	for i := 0 to len(rq.shape) do
 		eval debug("dim "+ntos(i)+": "+ntos(rq.shape[i]));
+	for i := 0 to len(rq.args) do
+		eval debug("arg "+ntos(i)+": "+ntos(rq.args[i]));
+	for i := 0 to len(rq.arg_types) do
+		eval debug("arg_type "+ntos(i)+": "+ntos(ord rq.arg_types[i]));
+	for i := 0 to len(rq.arg_lengths) do
+		eval debug("arg_length "+ntos(i)+": "+ntos(rq.arg_lengths[i]));
 	return true;
 ]

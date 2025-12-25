@@ -21,7 +21,12 @@
 
 #include "data.h"
 
+#define io_ffi_get_ffi_type			name(io_ffi_get_ffi_type)
+#define io_ffi_encode_real			name(io_ffi_encode_real)
 #define ipret_io				name(ipret_io)
+
+int io_ffi_get_ffi_type(const struct type *type);
+struct data *io_ffi_encode_real(const struct type *type, const unsigned char *var, ajla_error_t *err);
 
 void *ipret_io(frame_s *fp, const code_t *ip, unsigned char io_code, unsigned char n_outputs, unsigned char n_inputs, unsigned char n_params);
 

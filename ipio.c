@@ -4805,7 +4805,21 @@ static void * attr_fastcall io_ffi_unsupported(struct io_ctx *ctx)
 #define io_ffi_callback_create			io_ffi_unsupported
 #define io_ffi_callback_wait			io_ffi_unsupported
 #define io_ffi_callback_cancel			io_ffi_unsupported
+int io_ffi_get_ffi_type(const struct type *type)
+{
+	return -1;
+}
 #endif
+
+struct data *io_ffi_encode_real(const struct type *type, const unsigned char *var, ajla_error_t *err)
+{
+	struct data *d;
+	d = data_alloc_longint_mayfail(type->size * 8, err pass_file_line);
+	if (unlikely(!d))
+		return NULL;
+	mpz_import(&da(d,longint)->mp, type->size, -1, 1, 0, 0, var);
+	return d;
+}
 
 static void * attr_fastcall io_ffi_encode_real_handler(struct io_ctx *ctx)
 {
@@ -4824,10 +4838,9 @@ static void * attr_fastcall io_ffi_encode_real_handler(struct io_ctx *ctx)
 
 	var = io_get_flat_pointer(ctx, slot);
 
-	d = data_alloc_longint_mayfail(type->size * 8, &ctx->err pass_file_line);
+	d = io_ffi_encode_real(type, var, &ctx->err);
 	if (unlikely(!d))
 		goto ret_err;
-	mpz_import(&da(d,longint)->mp, type->size, -1, 1, 0, 0, var);
 	frame_set_pointer(ctx->fp, get_output(ctx, 0), pointer_data(d));
 
 	test = POINTER_FOLLOW_THUNK_GO;
