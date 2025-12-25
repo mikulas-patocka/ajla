@@ -394,10 +394,18 @@ set_ptr:
 		da_array_flat(blob)[i] = val;
 	}
 
-	if (results)
-		pointer_dereference(pointer_data(results));
+	offset = 13 + 4 * n_dims + 2 * n_args;
+	for (i = 0; i < n_results; i++) {
+		uint32_t result_in = get_unaligned_32(ip + offset);
+		bool deref = !!(get_unaligned_32(ip + offset + 2) & OPCODE_FLAG_FREE_ARGUMENT);
+		uint32_t result_out = get_unaligned_32(ip + offset + 4);
+		offset += 6;
+		if (deref)
+			frame_free(fp, result_in);
+		frame_set_pointer(fp, result_out, da(results,array_pointers)->pointer[i]);
+	}
+	data_free_r1(results);
 	frame_set_pointer(fp, result_slot, pointer_data(record));
-	copy_results(fp, ip, n_dims, n_args, n_results);
 	return POINTER_FOLLOW_THUNK_GO;
 
 set_result:
