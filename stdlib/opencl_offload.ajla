@@ -25,6 +25,7 @@ record offload_request [
 	args : list(int);
 	arg_types : list(ffi_type);
 	arg_lengths : list(int);
+	arg_n_entries : list(int);
 	results_in : list(bytes);
 	results_out : list(int);
 	results_lengths : list(int);
@@ -49,6 +50,8 @@ fn do_offload(rq : offload_request) : bool
 		eval debug("arg_type "+ntos(i)+": "+ntos_base(ord rq.arg_types[i], 16));
 	for i := 0 to len(rq.arg_lengths) do
 		eval debug("arg_length "+ntos(i)+": "+ntos_base(rq.arg_lengths[i], 16));
+	for i := 0 to len(rq.arg_n_entries) do
+		eval debug("arg_n_entries "+ntos(i)+": "+ntos_base(rq.arg_n_entries[i], 16));
 	for i := 0 to len(rq.results_in) do
 		eval debug("results_in "+ntos(i)+": "+rq.results_in[i]+".");
 	for i := 0 to len(rq.results_out) do
