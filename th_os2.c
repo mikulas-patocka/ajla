@@ -384,6 +384,7 @@ static void os2_thread_function(void *tcb_)
 	if (unlikely(r != 0))
 		warning("DosSetPriority(%ld,%lu) failed: %lu", cls, del, r);
 	asm_setup_thread();
+	obj_registry_init_thread();
 	tcb->function(tcb->arg);
 	tls_destructor_call();
 	r = DosPostEventSem(tcb->terminate);

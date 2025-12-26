@@ -281,6 +281,7 @@ static int32 haiku_thread_function(void *tcb_)
 	struct haiku_thread *tcb = cast_cpp(struct haiku_thread *, tcb_);
 	tls_set(struct haiku_thread *, current_tcb, tcb);
 	asm_setup_thread();
+	obj_registry_init_thread();
 	tcb->function(tcb->arg);
 	tls_destructor_call();
 	return 0;

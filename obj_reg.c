@@ -46,6 +46,7 @@ static struct registry registry[N_OBJ_TYPES];
 static bool registry_threads_initialized;
 
 static unsigned obj_registry_recursion_singlethreaded = 0;
+static tls_decl(uchar_efficient_t, obj_registry_thread_known);
 static tls_decl(unsigned, obj_registry_recursion);
 
 rwlock_decl(obj_registry_rwlock);
@@ -58,7 +59,7 @@ bool obj_registry_start_recursion(void)
 	}
 	recursion = tls_get_nocheck(unsigned, obj_registry_recursion);
 	tls_set_nocheck(unsigned, obj_registry_recursion, recursion + 1);
-	return recursion != 0;
+	return recursion != 0 || !tls_get_nocheck(uchar_efficient_t, obj_registry_thread_known);
 }
 
 void obj_registry_end_recursion(void)
@@ -262,6 +263,11 @@ static attr_noreturn attr_cold obj_registry_dump_leaks(void)
 	internal(first_pos, "%s", s);
 }
 
+void obj_registry_init_thread(void)
+{
+	tls_set(uchar_efficient_t, obj_registry_thread_known, 1);
+}
+
 void obj_registry_init(void)
 {
 	obj_id t;
@@ -275,6 +281,8 @@ void obj_registry_init_multithreaded(void)
 	if (unlikely(registry_threads_initialized))
 		internal(file_line, "obj_registry_init_multithreaded: registry_threads_initialized already set");
 	tls_init(unsigned, obj_registry_recursion);
+	tls_init(uchar_efficient_t, obj_registry_thread_known);
+	tls_set(uchar_efficient_t, obj_registry_thread_known, 1);
 	rwlock_init(&obj_registry_rwlock);
 	registry_threads_initialized = true;
 }
@@ -286,6 +294,7 @@ void obj_registry_done_multithreaded(void)
 	registry_threads_initialized = false;
 	rwlock_done(&obj_registry_rwlock);
 	tls_done(unsigned, obj_registry_recursion);
+	tls_done(uchar_efficient_t, obj_registry_thread_known);
 }
 
 void obj_registry_done(void)

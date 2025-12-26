@@ -21,6 +21,7 @@
 
 #include "list.h"
 #include "asm.h"
+#include "obj_reg.h"
 
 #if defined(__BIONIC__) || defined(__minix__) || defined(UNUSUAL_THREAD)
 #undef HAVE___THREAD
@@ -145,7 +146,7 @@ typedef struct {
 } cond_t;
 typedef pthread_t thread_t;
 typedef void *thread_function_t(void *arg);
-#define thread_function_decl(name, content)	static void *name(void attr_unused *arg) { asm_setup_thread(); { content } tls_destructor_call(); return NULL; }
+#define thread_function_decl(name, content)	static void *name(void attr_unused *arg) { asm_setup_thread(); obj_registry_init_thread(); { content } tls_destructor_call(); return NULL; }
 
 #if !defined(HAVE___THREAD)
 #ifdef HAVE_PTHREAD_KEY_T_ASSIGN

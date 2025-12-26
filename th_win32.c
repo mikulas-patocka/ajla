@@ -270,6 +270,7 @@ static inline void win32_thread_common(struct win32_thread *tcb)
 	}
 	tls_set(struct win32_thread *, current_tcb, tcb);
 	asm_setup_thread();
+	obj_registry_init_thread();
 	tcb->function(tcb->arg);
 	tls_destructor_call();
 }

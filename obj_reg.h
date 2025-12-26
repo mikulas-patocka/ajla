@@ -42,6 +42,8 @@ bool obj_registry_enable_debugging_option(const char *option, size_t l);
 #define obj_registry_remove(type, id, pos)	do { } while (0)
 #define obj_registry_verify(type, id, pos)	do { obj_type avoid_warning = (id); avoid_warning = avoid_warning + 1; } while (0)
 
+#define obj_registry_init_thread()		do { } while (0)
+
 #define obj_registry_init()			do { } while (0)
 #define obj_registry_init_multithreaded()	do { } while (0)
 #define obj_registry_done_multithreaded()	do { } while (0)
@@ -55,6 +57,8 @@ void obj_registry_verify(obj_type type, obj_id id, position_t position);
 
 bool obj_registry_start_recursion(void);
 void obj_registry_end_recursion(void);
+
+void obj_registry_init_thread(void);
 
 void obj_registry_init(void);
 void obj_registry_init_multithreaded(void);
