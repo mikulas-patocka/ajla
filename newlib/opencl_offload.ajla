@@ -118,7 +118,10 @@ fn do_offload(rq : offload_request) : bool
 	]
 
 	var exc := cl_read_buffer(err_buf, 0, 1);
-	eval debug("exception: " + ntos(exc[0]));
+	if exc[0] <> 0 then [
+		eval debug("exception: " + ntos(exc[0]));
+		goto failed;
+	]
 
 	for i := 0 to len(rq.results_lengths) do [
 		var buf := results[i];
@@ -128,6 +131,7 @@ fn do_offload(rq : offload_request) : bool
 	xeval err_buf;
 	xeval results;
 	xeval arg_buffers;
+	xeval ctx;
 
 	eval debug("program finished");
 
