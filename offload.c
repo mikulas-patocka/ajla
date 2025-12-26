@@ -349,8 +349,12 @@ set_ptr:
 		uint32_t in_slot = get_unaligned_32(ip + offset);
 		offset += 6;
 
-		if (unlikely(frame_variable_is_flat(fp, in_slot)))
-			goto set_unsupp;
+		if (unlikely(frame_variable_is_flat(fp, in_slot))) {
+			pointer_t non_flat_ptr;
+			type = frame_get_type_of_local(fp, in_slot);
+			non_flat_ptr = flat_to_data(type, frame_var(fp, in_slot));
+			frame_set_pointer(fp, in_slot, non_flat_ptr);
+		}
 
 		ptr = frame_pointer(fp, in_slot);
 		pointer_follow(ptr, true, in_d, PF_WAIT, fp, ip,

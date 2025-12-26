@@ -40,6 +40,10 @@ uses opencl;
 
 fn do_offload(rq : offload_request) : bool
 [
+	if is_exception rq then [
+		eval debug("failed to generate request");
+		return true;
+	]
 	eval debug(rq.kernel);
 	{
 	for i := 0 to len(rq.shape) do
@@ -110,7 +114,6 @@ fn do_offload(rq : offload_request) : bool
 
 	var gwo := fill(0, len(rq.shape));
 	var lws := fill(1, len(rq.shape));
-	eval debug("START EXEC: " + ntos(len(rq.shape)) + ", " + ntos(rq.shape[0]));
 	cl_enqueue_kernel(kernel, len(rq.shape), gwo, rq.shape, lws);
 	if is_exception ctx then [
 		eval debug("kernel failed");
