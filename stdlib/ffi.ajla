@@ -63,6 +63,8 @@ type ffi_destructor;
 
 fn ffi_unsafe_get_world : world;
 
+fn ffi_integer_type(uns : bool) : ffi_type;
+
 fn ffi_get_size(ft : ffi_type) : int;
 fn ffi_get_alignment(ft : ffi_type) : int;
 
@@ -118,6 +120,7 @@ fn ffi_callback_cancel(w : world, f : ffi_callback) : world;
 implementation
 
 uses exception;
+uses pcode;
 
 type ffi_structure := internal_type;
 type ffi_library := internal_type;
@@ -127,6 +130,16 @@ type ffi_callback := internal_type;
 fn ffi_unsafe_get_world : world
 [
 	return unsafe_get_world;
+]
+
+fn ffi_integer_type(uns : bool) : ffi_type
+[
+	var s := sysprop(SystemProperty_Int_Size);
+	if s = 1 then return select(uns, ffi_type.t_sint8, ffi_type.t_uint8);
+	if s = 2 then return select(uns, ffi_type.t_sint16, ffi_type.t_uint16);
+	if s = 4 then return select(uns, ffi_type.t_sint32, ffi_type.t_uint32);
+	if s = 8 then return select(uns, ffi_type.t_sint64, ffi_type.t_uint64);
+	abort internal("unknown integer size: " + ntos(s));
 ]
 
 fn ffi_get_size(ft : ffi_type) : int

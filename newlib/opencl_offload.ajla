@@ -66,6 +66,46 @@ fn do_offload(rq : offload_request) : bool
 		goto failed;
 	]
 
+	var kernel := cl_mk_kernel(prog, "offload");
+	if is_exception kernel then [
+		eval debug("kernel failed");
+		goto failed;
+	]
+
+	var arg_idx := 0;
+
+	var err_buf := cl_mk_buffer(CL_MEM_WRITE_ONLY, 1, 0);
+	cl_write_buffer(err_buf, 0, bytes.[ 0 ]);
+	cl_kernel_arg_buffer(kernel, arg_idx, err_buf);
+	arg_idx += 1;
+
+	var results := empty(cl_buffer);
+	for i := 0 to len(rq.results_lengths) do [
+		var l := rq.results_lengths[i];
+		var buf := cl_mk_buffer(CL_MEM_WRITE_ONLY, l, 0);
+		results +<= buf;
+
+		cl_kernel_arg_buffer(kernel, arg_idx, buf);
+		arg_idx += 1;
+	]
+
+	for i := 0 to len(rq.args) do [
+		var typ := rq.arg_types[i];
+		if typ is t_void then [
+			var buf := cl_mk_buffer(CL_MEM_READ_ONLY, rq.arg_lengths[i], 0);
+			cl_write_buffer_raw(buf, 0, rq.args[i], rq.arg_lengths[i]);
+
+			cl_kernel_arg_buffer(kernel, arg_idx, buf);
+			arg_idx += 1;
+
+			cl_kernel_arg(kernel, arg_idx, ffi_integer_type(true), rq.arg_n_entries[i]);
+			arg_idx += 1;
+		] else [
+			cl_kernel_arg(kernel, arg_idx, typ, rq.args[i]);
+			arg_idx += 1;
+		]
+	]
+
 	eval debug("program created");
 
 failed:

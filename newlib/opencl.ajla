@@ -40,7 +40,9 @@ const CL_MEM_HOST_WRITE_ONLY :=	1 shl 7;
 const CL_MEM_HOST_READ_ONLY :=	1 shl 8;
 const CL_MEM_HOST_NO_ACCESS :=	1 shl 9;
 fn cl_mk_buffer(ctx : cl_context, access : nat, size : nat, host_ptr : int) : (cl_context, cl_buffer);
+fn cl_read_buffer_raw(ctx : cl_context, buf : cl_buffer, offset ptr size : nat) : cl_context;
 fn cl_read_buffer(ctx : cl_context, buf : cl_buffer, offset size : nat) : (cl_context, bytes);
+fn cl_write_buffer_raw(ctx : cl_context, buf : cl_buffer, offset ptr size : nat) : cl_context;
 fn cl_write_buffer(ctx : cl_context, buf : cl_buffer, offset : nat, data : bytes) : cl_context;
 
 fn cl_mk_program(ctx : cl_context, code : bytes, options : bytes) : (cl_context, cl_program);
@@ -454,7 +456,7 @@ fn cl_mk_buffer(ctx : cl_context, access : nat, size : nat, host_ptr : int) : (c
 	return ctx, buf;
 ]
 
-fn cl_read_buffer(ctx : cl_context, buf : cl_buffer, offset size : nat) : (cl_context, bytes)
+fn cl_read_buffer_raw(ctx : cl_context, buf : cl_buffer, offset ptr size : nat) : cl_context
 [
 	implicit var w := ctx.w;
 	implicit var destr := ffi_destructor_new();
@@ -463,9 +465,8 @@ fn cl_read_buffer(ctx : cl_context, buf : cl_buffer, offset size : nat) : (cl_co
 	if ctx.context <> buf.context then
 		abort opencl_abort_msg("The buffer doesn't match the context");
 
-	var mem := ffi_destructor_allocate(size, 1, false);
 	if not ctx.callbacks then [
-		ret, err := ffi_function_call(ctx.clEnqueueReadBuffer, [ ctx.command_queue, buf.buffer, 1, offset, size, mem, 0, 0, 0 ]);
+		ret, err := ffi_function_call(ctx.clEnqueueReadBuffer, [ ctx.command_queue, buf.buffer, 1, offset, size, ptr, 0, 0, 0 ]);
 		if ret <> 0 then [
 			ffi_destructor_destroy();
 			xeval w;
@@ -474,7 +475,7 @@ fn cl_read_buffer(ctx : cl_context, buf : cl_buffer, offset size : nat) : (cl_co
 	] else [
 		var ptr_event := ffi_destructor_allocate(ffi_get_size(ffi_type.t_pointer), ffi_get_alignment(ffi_type.t_pointer), false);
 		atomic_enter();
-		ret, err := ffi_function_call(ctx.clEnqueueReadBuffer, [ ctx.command_queue, buf.buffer, 0, offset, size, mem, 0, 0, ptr_event ]);
+		ret, err := ffi_function_call(ctx.clEnqueueReadBuffer, [ ctx.command_queue, buf.buffer, 0, offset, size, ptr, 0, 0, ptr_event ]);
 		if ret <> 0 then [
 			atomic_exit();
 			ffi_destructor_destroy();
@@ -498,62 +499,90 @@ fn cl_read_buffer(ctx : cl_context, buf : cl_buffer, offset size : nat) : (cl_co
 		atomic_exit();
 	]
 	xeval buf;
-	var data := ffi_peek_array(mem, size, ffi_type.t_uint8, byte);
 
 	ffi_destructor_destroy();
 	ctx.w := w;
+	return ctx;
+]
+
+fn cl_read_buffer(ctx : cl_context, buf : cl_buffer, offset size : nat) : (cl_context, bytes)
+[
+	implicit var w := ffi_unsafe_get_world;
+	implicit var destr := ffi_destructor_new();
+
+	var mem := ffi_destructor_allocate(size, 1, false);
+	ctx := cl_read_buffer_raw(ctx, buf, offset, mem, size);
+	var data := ffi_peek_array(mem, size, ffi_type.t_uint8, byte);
+
+	ffi_destructor_destroy();
+
+	xeval w;
 	return ctx, data;
+]
+
+fn cl_write_buffer_raw(ctx : cl_context, buf : cl_buffer, offset ptr size : nat) : cl_context
+[
+	implicit var w := ctx.w;
+	implicit var destr := ffi_destructor_new();
+	var ret err : int;
+
+	if ctx.context <> buf.context then
+		abort opencl_abort_msg("The buffer doesn't match the context");
+
+	if not ctx.callbacks then [
+		ret, err := ffi_function_call(ctx.clEnqueueWriteBuffer, [ ctx.command_queue, buf.buffer, 1, offset, size, ptr, 0, 0, 0 ]);
+		if ret <> 0 then [
+			ffi_destructor_destroy();
+			xeval w;
+			abort opencl_abort("clEnqueueWriteBuffer", ret);
+		]
+	] else [
+		var ptr_event := ffi_destructor_allocate(ffi_get_size(ffi_type.t_pointer), ffi_get_alignment(ffi_type.t_pointer), false);
+		atomic_enter();
+		ret, err := ffi_function_call(ctx.clEnqueueWriteBuffer, [ ctx.command_queue, buf.buffer, 0, offset, size, ptr, 0, 0, ptr_event ]);
+		if ret <> 0 then [
+			atomic_exit();
+			ffi_destructor_destroy();
+			xeval w;
+			abort opencl_abort("clEnqueueWriteBuffer", ret);
+		]
+
+		var event := ffi_peek(ptr_event, ffi_type.t_pointer);
+		ffi_destructor_call(destr, ctx.clReleaseEvent, [ event ]);
+
+		var callback, callback_ptr := ffi_callback_create();
+		ret, err := ffi_function_call(ctx.clSetEventCallback, [ event, 0, callback_ptr, 0 ]);
+		if ret <> 0 then [
+			ffi_callback_cancel(callback);
+			atomic_exit();
+			ffi_destructor_destroy();
+			xeval w;
+			abort opencl_abort("clSetEventCallback", ret);
+		]
+		ffi_callback_wait(callback);
+		atomic_exit();
+	]
+	xeval buf;
+
+	ffi_destructor_destroy();
+	ctx.w := w;
+	return ctx;
 ]
 
 fn cl_write_buffer(ctx : cl_context, buf : cl_buffer, offset : nat, data : bytes) : cl_context
 [
-	implicit var w := ctx.w;
+	implicit var w := ffi_unsafe_get_world;
 	implicit var destr := ffi_destructor_new();
-	var ret err : int;
 	var size := len(data);
-
-	if ctx.context <> buf.context then
-		abort opencl_abort_msg("The buffer doesn't match the context");
 
 	var mem := ffi_destructor_allocate(size, 1, false);
 	ffi_poke_array(mem, data);
-	if not ctx.callbacks then [
-		ret, err := ffi_function_call(ctx.clEnqueueWriteBuffer, [ ctx.command_queue, buf.buffer, 1, offset, size, mem, 0, 0, 0 ]);
-		if ret <> 0 then [
-			ffi_destructor_destroy();
-			xeval w;
-			abort opencl_abort("clEnqueueWriteBuffer", ret);
-		]
-	] else [
-		var ptr_event := ffi_destructor_allocate(ffi_get_size(ffi_type.t_pointer), ffi_get_alignment(ffi_type.t_pointer), false);
-		atomic_enter();
-		ret, err := ffi_function_call(ctx.clEnqueueWriteBuffer, [ ctx.command_queue, buf.buffer, 0, offset, size, mem, 0, 0, ptr_event ]);
-		if ret <> 0 then [
-			atomic_exit();
-			ffi_destructor_destroy();
-			xeval w;
-			abort opencl_abort("clEnqueueWriteBuffer", ret);
-		]
 
-		var event := ffi_peek(ptr_event, ffi_type.t_pointer);
-		ffi_destructor_call(destr, ctx.clReleaseEvent, [ event ]);
-
-		var callback, callback_ptr := ffi_callback_create();
-		ret, err := ffi_function_call(ctx.clSetEventCallback, [ event, 0, callback_ptr, 0 ]);
-		if ret <> 0 then [
-			ffi_callback_cancel(callback);
-			atomic_exit();
-			ffi_destructor_destroy();
-			xeval w;
-			abort opencl_abort("clSetEventCallback", ret);
-		]
-		ffi_callback_wait(callback);
-		atomic_exit();
-	]
-	xeval buf;
+	ctx := cl_write_buffer_raw(ctx, buf, offset, mem, size);
 
 	ffi_destructor_destroy();
-	ctx.w := w;
+	xeval w;
+
 	return ctx;
 ]
 
