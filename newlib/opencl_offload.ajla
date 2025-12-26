@@ -41,7 +41,7 @@ uses opencl;
 fn do_offload(rq : offload_request) : bool
 [
 	eval debug(rq.kernel);
-	eval debug("no offload so far");
+	{
 	for i := 0 to len(rq.shape) do
 		eval debug("dim "+ntos(i)+": "+ntos_base(rq.shape[i], 16));
 	for i := 0 to len(rq.args) do
@@ -58,6 +58,7 @@ fn do_offload(rq : offload_request) : bool
 		eval debug("results_out "+ntos(i)+": "+ntos_base(rq.results_out[i], 16));
 	for i := 0 to len(rq.results_lengths) do
 		eval debug("results_lengths "+ntos(i)+": "+ntos_base(rq.results_lengths[i], 16));
+	}
 
 	implicit var ctx := cl_mk_context(0);
 	var prog := cl_mk_program(rq.kernel, "");
@@ -89,14 +90,15 @@ fn do_offload(rq : offload_request) : bool
 		arg_idx += 1;
 	]
 
+	var arg_buffers := empty(cl_buffer);
 	for i := 0 to len(rq.args) do [
 		var typ := rq.arg_types[i];
 		if typ is t_void then [
 			var buf := cl_mk_buffer(CL_MEM_READ_ONLY, rq.arg_lengths[i], 0);
 			cl_write_buffer_raw(buf, 0, rq.args[i], rq.arg_lengths[i]);
-
 			cl_kernel_arg_buffer(kernel, arg_idx, buf);
 			arg_idx += 1;
+			arg_buffers +<= buf;
 
 			cl_kernel_arg(kernel, arg_idx, ffi_integer_type(true), rq.arg_n_entries[i]);
 			arg_idx += 1;
@@ -106,7 +108,30 @@ fn do_offload(rq : offload_request) : bool
 		]
 	]
 
-	eval debug("program created");
+	var gwo := fill(0, len(rq.shape));
+	var lws := fill(1, len(rq.shape));
+	eval debug("START EXEC: " + ntos(len(rq.shape)) + ", " + ntos(rq.shape[0]));
+	cl_enqueue_kernel(kernel, len(rq.shape), gwo, rq.shape, lws);
+	if is_exception ctx then [
+		eval debug("kernel failed");
+		goto failed;
+	]
+
+	var exc := cl_read_buffer(err_buf, 0, 1);
+	eval debug("exception: " + ntos(exc[0]));
+
+	for i := 0 to len(rq.results_lengths) do [
+		var buf := results[i];
+		cl_read_buffer_raw(buf, 0, rq.results_out[i], rq.results_lengths[i]);
+	]
+
+	xeval err_buf;
+	xeval results;
+	xeval arg_buffers;
+
+	eval debug("program finished");
+
+	return false;
 
 failed:
 	for i := 0 to len(rq.results_in) do

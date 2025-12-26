@@ -761,7 +761,7 @@ static void *wake_up_wait_list_internal(struct list *wait_list, mutex_t *mutex_t
 
 	while (!list_is_empty(wait_list)) {
 		struct execution_control_wait *w = get_struct(wait_list->prev, struct execution_control_wait, wait_entry);
-		ajla_assert_lo(w->mutex_to_lock == mutex_to_lock, (file_line, "wake_up_wait_list: mutex_to_lock pointer does not match: %p != %p", w->mutex_to_lock, mutex_to_lock));
+		ajla_assert_lo(w->mutex_to_lock == mutex_to_lock, (file_line, "wake_up_wait_list_internal: mutex_to_lock pointer does not match: %p != %p", w->mutex_to_lock, mutex_to_lock));
 		list_del(&w->wait_entry);
 		if (likely(refcount_xchgcmp(&w->execution_control->wait_state, EXECUTION_CONTROL_FIRED, EXECUTION_CONTROL_ARMED))) {
 			w->mutex_to_lock = NULL;
