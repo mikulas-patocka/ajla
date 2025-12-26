@@ -72,6 +72,7 @@ record cl_context [
 	clCreateProgramWithSource : ffi_function;
 	clReleaseProgram : ffi_function;
 	clBuildProgram : ffi_function;
+	clGetProgramBuildInfo : ffi_function;
 	clCreateKernel : ffi_function;
 	clReleaseKernel : ffi_function;
 	clSetKernelArg : ffi_function;
@@ -395,6 +396,7 @@ found:
 	ctx.clCreateProgramWithSource := ffi_function_create(lib, "clCreateProgramWithSource", ffi_error.e_none, 0, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ]);
 	ctx.clReleaseProgram := ffi_function_create(lib, "clReleaseProgram", ffi_error.e_none, 0, ffi_type.t_sint32, [ ffi_type.t_pointer ]);
 	ctx.clBuildProgram := ffi_function_create(lib, "clBuildProgram", ffi_error.e_none, 0, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ]);
+	ctx.clGetProgramBuildInfo := ffi_function_create(lib, "clGetProgramBuildInfo", ffi_error.e_none, 0, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_pointer ]);
 
 	ctx.clCreateKernel := ffi_function_create(lib, "clCreateKernel", ffi_error.e_none, 0, ffi_type.t_pointer, [ ffi_type.t_pointer, ffi_type.t_pointer, ffi_type.t_pointer ]);
 	ctx.clReleaseKernel := ffi_function_create(lib, "clReleaseKernel", ffi_error.e_none, 0, ffi_type.t_sint32, [ ffi_type.t_pointer ]);
@@ -595,6 +597,24 @@ fn cl_mk_program(ctx : cl_context, code : bytes, options : bytes) : (cl_context,
 
 	ret, err := ffi_function_call(ctx.clBuildProgram, [ prog, 1, ptr_devices, ptr_options, 0, 0 ]);
 	if ret <> 0 then [
+		ffi_destructor_free(ptr_devices);
+		ffi_destructor_free(ptr_options);
+
+		eval debug("BUILD PROGRAM FAILED: " + ntos(ret));
+		var ptr_size := ffi_destructor_allocate(ffi_get_size(ffi_type.t_usize), ffi_get_alignment(ffi_type.t_usize), true);
+		var ret2 : int;
+		ret2, err := ffi_function_call(ctx.clGetProgramBuildInfo, [ prog, ctx.device, #1183, 0, 0, ptr_size ]);
+		var size := ffi_peek(ptr_size, ffi_type.t_usize);
+
+		if size > 0 then [
+			var ptr_log := ffi_destructor_allocate(size, 1, false);
+			ret2, err := ffi_function_call(ctx.clGetProgramBuildInfo, [ prog, ctx.device, #1183, size, ptr_log, ptr_size ]);
+			if ret2 = 0 then [
+				var log := ffi_peek_array(ptr_log, size, ffi_type.t_uchar, byte);
+				eval debug("LOG: " + log);
+			]
+		]
+
 		ffi_destructor_destroy();
 		xeval w;
 		abort opencl_abort("clBuildProgram", ret);

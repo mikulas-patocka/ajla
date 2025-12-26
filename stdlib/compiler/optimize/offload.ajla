@@ -692,10 +692,10 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 	ctx.output_array_variables := output_array_variables;
 	ctx.loop_controls := loop_controls;
 
-	var output := "__kernel void offload(__write_only __global char * err";
+	var output := "__kernel void offload(__global char * err";
 	for i := 0 to len(inner_shape.arrays) do [
 		var t, ot, bits := get_variable_type(ctx, inner_shape.arrays[i].var_mod);
-		output += ", __write_only __global "+t+" "+ctx.variables[inner_shape.arrays[i].var_mod].offload_name;
+		output += ", __global "+t+" "+ctx.variables[inner_shape.arrays[i].var_mod].offload_name;
 	]
 	var_worklist := imported_variables;
 	while var_worklist <> 0 do [
