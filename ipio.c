@@ -4665,19 +4665,22 @@ static void * attr_fastcall io_debug_handler(struct io_ctx *ctx)
 		debug("%u: %s", tick_stamp, ctx->str);
 #endif
 	} else if (p == 1) {
+		if (unlikely(ipret_warnings))
+			warning("%s", ctx->str);
+	} else if (p == 2) {
 		struct stack_trace st;
 		stack_trace_capture(&st, ctx->fp, ctx->ip, 20);
 		stack_trace_print(&st);
 		stack_trace_free(&st);
 		internal(file_line, "%s", ctx->str);
-	} else if (p == 2) {
+	} else if (p == 3) {
 		debug("stop at %s", ctx->str);
 		os_stop();
-	} else if (p == 3) {
-		mem_report_usage(MR_SUMMARY, ctx->str);
 	} else if (p == 4) {
-		mem_report_usage(MR_MOST_ALLOCATED, ctx->str);
+		mem_report_usage(MR_SUMMARY, ctx->str);
 	} else if (p == 5) {
+		mem_report_usage(MR_MOST_ALLOCATED, ctx->str);
+	} else if (p == 6) {
 		mem_report_usage(MR_LARGEST_BLOCKS, ctx->str);
 	} else {
 		internal(file_line, "io_debug_handler: invalid parameter %u", p);

@@ -437,6 +437,7 @@ implicit fn instance_real_number_fixed_point~inline(const base digits : int) : c
  ---------}
 
 fn debug(m : bytes) : unit_type;
+fn warning(m : bytes) : unit_type;
 fn internal(m : bytes) : unit_type;
 fn stop(m : bytes) : unit_type;
 fn report_memory_summary(m : bytes) : unit_type;
@@ -2827,38 +2828,45 @@ fn debug(m : bytes) : unit_type
 	return b;
 ]
 
-fn internal(m : bytes) : unit_type
+fn warning(m : bytes) : unit_type
 [
 	var b : unit_type;
 	pcode IO IO_Debug 1 1 1 =b m 1;
 	return b;
 ]
 
-fn stop(m : bytes) : unit_type
+fn internal(m : bytes) : unit_type
 [
 	var b : unit_type;
 	pcode IO IO_Debug 1 1 1 =b m 2;
 	return b;
 ]
 
-fn report_memory_summary(m : bytes) : unit_type
+fn stop(m : bytes) : unit_type
 [
 	var b : unit_type;
 	pcode IO IO_Debug 1 1 1 =b m 3;
 	return b;
 ]
 
-fn report_memory_most(m : bytes) : unit_type
+fn report_memory_summary(m : bytes) : unit_type
 [
 	var b : unit_type;
 	pcode IO IO_Debug 1 1 1 =b m 4;
 	return b;
 ]
 
-fn report_memory_largest(m : bytes) : unit_type
+fn report_memory_most(m : bytes) : unit_type
 [
 	var b : unit_type;
 	pcode IO IO_Debug 1 1 1 =b m 5;
+	return b;
+]
+
+fn report_memory_largest(m : bytes) : unit_type
+[
+	var b : unit_type;
+	pcode IO IO_Debug 1 1 1 =b m 6;
 	return b;
 ]
 

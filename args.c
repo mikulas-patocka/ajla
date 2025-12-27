@@ -143,6 +143,7 @@ static const struct arg args[] = {
 	{ "--verify=",			ARG_STRING,	verify_select,			NULL,			0, 0 },
 	{ "--verify-light",		ARG_SWITCH,	NULL,				&ipret_verify_light,	0, 0 },
 	{ "--verify-timeout=",		ARG_NUMBER,	NULL,				&ipret_verify_timeout,	0, signed_maximum(int32_t) },
+	{ "--warnings",			ARG_SWITCH,	NULL,				&ipret_warnings,	0, 0 },
 };
 
 static void process_arg(const char *arg)

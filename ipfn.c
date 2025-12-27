@@ -40,6 +40,7 @@ shared_var bool ipret_compile shared_init(false);
 shared_var bool ipret_noinline shared_init(false);
 shared_var bool ipret_verify_light shared_init(false);
 shared_var uint32_t ipret_verify_timeout shared_init(0);
+shared_var bool ipret_warnings shared_init(false);
 
 static const timestamp_t break_ticks = 1;
 
