@@ -1597,21 +1597,21 @@ static inline rtype cat(strto_,rtype)(const unsigned char *d, size_t dl)\
 for_all_real(re, for_all_empty)
 #undef re
 
-static bool pcode_decode_real(struct build_function_context *ctx, const struct type *type, const char attr_unused *blob, size_t attr_unused blob_l, code_t attr_unused **result, size_t attr_unused *result_len)
+bool pcode_decode_real(const struct type *type, const char attr_unused *blob, size_t attr_unused blob_l, code_t attr_unused **result, size_t attr_unused *result_len, ajla_error_t *err)
 {
 	switch (type->tag) {
 #define re(n, rtype, ntype, pack, unpack)				\
 		case TYPE_TAG_real + n: {				\
 			rtype val = cat(strto_,rtype)((const unsigned char *)blob, blob_l);\
 			*result_len = round_up(sizeof(rtype), sizeof(code_t)) / sizeof(code_t);\
-			if (unlikely(!(*result = mem_alloc_array_mayfail(mem_calloc_mayfail, code_t *, 0, 0, *result_len, sizeof(code_t), ctx->err))))\
+			if (unlikely(!(*result = mem_alloc_array_mayfail(mem_calloc_mayfail, code_t *, 0, 0, *result_len, sizeof(code_t), err))))\
 				goto err;				\
 			memcpy(*result, &val, sizeof(rtype));		\
 			break;						\
 		}
 		for_all_real(re, for_all_empty);
 		default:
-			internal(file_line, "pcode_decode_real(%s): invalid type tag %u", function_name(ctx), type->tag);
+			internal(file_line, "pcode_decode_real: invalid type tag %u", type->tag);
 #undef re
 	}
 	return true;
@@ -1663,7 +1663,7 @@ static bool pcode_generate_constant_from_blob(struct build_function_context *ctx
 		else
 			requested_size = round_up(l, sizeof(code_t));
 	} else if (TYPE_TAG_IS_REAL(type->tag)) {
-		if (!unlikely(pcode_decode_real(ctx, type, cast_ptr(const char *, blob), l, &raw_result, &requested_size)))
+		if (!unlikely(pcode_decode_real(type, cast_ptr(const char *, blob), l, &raw_result, &requested_size, ctx->err)))
 			return false;
 	} else {
 		internal(file_line, "pcode_generate_constant_from_blob(%s): unknown type %u", function_name(ctx), type->tag);

@@ -4523,6 +4523,58 @@ static void * attr_fastcall io_deep_eval_handler(struct io_ctx *ctx)
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
+static void * attr_fastcall io_real_to_int_handler(struct io_ctx *ctx)
+{
+	int typ;
+	const struct type *type;
+	bool ret;
+	uint64_t v;
+	code_t *result;
+	size_t result_len;
+	void *test;
+	union {
+		uint16_t u16;
+		uint32_t u32;
+		uint64_t u64;
+	} u;
+	test = io_deep_eval(ctx, "01", false);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
+
+	io_get_number(ctx, get_input(ctx, 0), int_default_t, int, typ);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
+
+	io_get_bytes(ctx, get_input(ctx, 1));
+	ctx->str_l--;
+
+	type = pcode_get_type(typ);
+	ret = pcode_decode_real(type, ctx->str, ctx->str_l, &result, &result_len, &ctx->err);
+	mem_free(ctx->str);
+	if (unlikely(!ret)) {
+		io_terminate_with_error(ctx, ctx->err, true, NULL);
+		return POINTER_FOLLOW_THUNK_EXCEPTION;
+	}
+	if (unlikely(type->size > sizeof(u)))
+		internal(file_line, "io_real_to_int_handler: invalid type size %u", type->size);
+	memcpy(&u, result, type->size);
+	mem_free(result);
+	if (type->size == 2)
+		v = u.u16;
+	else if (type->size == 4)
+		v = u.u32;
+	else if (type->size == 8)
+		v = u.u64;
+	else
+		internal(file_line, "io_real_to_int_handler: invalid type size %u", type->size);
+
+	barrier_aliasing();
+	*frame_slot(ctx->fp, get_output(ctx, 0), uint64_t) = v;
+	barrier_aliasing();
+
+	return POINTER_FOLLOW_THUNK_GO;
+}
+
 static void * attr_fastcall io_evaluate_handler(struct io_ctx *ctx)
 {
 	void *test;
@@ -4998,6 +5050,7 @@ static const struct {
 	{ io_load_optimized_pcode_handler },
 	{ io_register_dependence_handler },
 	{ io_deep_eval_handler },
+	{ io_real_to_int_handler },
 	{ io_evaluate_handler },
 	{ io_debug_handler },
 	{ io_stacktrace_handler },

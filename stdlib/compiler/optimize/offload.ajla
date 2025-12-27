@@ -404,9 +404,9 @@ fn get_type(ctx : context, t : int) : (bytes, ocl_type, int)
 	if t = T_Integer16 then return "short", ot, 16;
 	if t = T_Integer32 then return "int", ot, 32;
 	if t = T_Integer64 then return "long", ot, 64;
-	if t = T_Real16 then return "half", ot, 2;
-	if t = T_Real32 then return "float", ot, 4;
-	if t = T_Real64 then return "double", ot, 8;
+	if t = T_Real16 then return "half", ot, 16;
+	if t = T_Real32 then return "float", ot, 32;
+	if t = T_Real64 then return "double", ot, 64;
 	return "", ocl_type.invalid, 0;
 arr:
 	var def_instr := ctx.instrs[ctx.variables[t].defining_instr];
@@ -513,16 +513,34 @@ fn process_binary_operator(ctx : context, ins : instruction) : bytes
 fn process_load_const(ctx : context, ins : instruction) : bytes
 [
 	var t, ot, bits := get_variable_type(ctx, ins.params[0]);
-	var l := blob_to_int(ins.params[1 .. ]);
+	var blob := ins.params[1 .. ];
+	if ot is fp then [
+		var typ := ctx.variables[ins.params[0]].type_index;
+		var b := blob_load(blob);
+		var itype : bytes;
+		if typ = T_Real16 then
+			itype := "ushort";
+		else if typ = T_Real32 then
+			itype := "uint";
+		else if typ = T_Real64 then
+			itype := "ulong";
+		else
+			abort internal("process_load_const: invalid type " + ntos(typ));
+		var val : uint64;
+		pcode IO IO_Real_To_Int 1 2 0 =val typ b;
+		var output := "	{"+nl;
+		output += "		"+itype+" i = "+ntos(val)+";"+nl;
+		output += "		"+ctx.variables[ins.params[0]].offload_name+" = as_"+t+"(i);"+nl;
+		output += "	}"+nl;
+		return output;
+	]
+	var l := blob_to_int(blob);
 	if ot is integer then [
 		var limit := 0 bts (bits - 1);
 		if l < -limit or l >= limit then [
 			eval warning(ctx.name + ": too large constant");
 			return "";
 		]
-	]
-	if ot is fp then [
-		return "";
 	]
 	var output := "	"+ctx.variables[ins.params[0]].offload_name+" = "+ntos(l)+";"+nl;
 	return output;

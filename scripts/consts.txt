@@ -351,6 +351,7 @@ IO_Get_SubFunctions
 IO_Load_Optimized_Pcode
 IO_Register_Dependence
 IO_Deep_Eval
+IO_Real_To_Int
 IO_Evaluate
 IO_Debug
 IO_StackTrace
