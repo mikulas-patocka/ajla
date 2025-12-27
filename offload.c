@@ -91,6 +91,7 @@ void *ipret_offload(frame_s *fp, const code_t *ip)
 	struct data *record_fn;
 	const struct record_definition *record_definition;
 	struct data *record = NULL;
+	struct data *function_name;
 	struct data *shape;
 	struct data *args;
 	struct data *arg_types;
@@ -103,6 +104,8 @@ void *ipret_offload(frame_s *fp, const code_t *ip)
 	struct data *results = NULL;
 	pointer_t result_ptr;
 	uint32_t n_dims, n_args, n_results, blob_len;
+	const char *name;
+	size_t name_len;
 	ip_t offset;
 	size_t i;
 	uint32_t q;
@@ -127,59 +130,66 @@ void *ipret_offload(frame_s *fp, const code_t *ip)
 		goto set_err;
 	memset(da_record_frame(record), 0, bitmap_slots(record_definition->n_slots) * slot_size);
 
-	debug("OFFLOADING: %x %x %x", n_dims, n_args, n_results);
+	name = da(get_frame(fp)->function,function)->function_name;
+	debug("OFFLOADING: %s: %x %x %x", name, n_dims, n_args, n_results);
+	name_len = strlen(name);
+	function_name = data_alloc_array_flat_mayfail(type_get_fixed(0, true), name_len, name_len, false, &err pass_file_line);
+	if (unlikely(!function_name))
+		goto set_err;
+	memcpy(da_array_flat(function_name), name, name_len);
+	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[0], pointer_data(function_name));
 
 	shape = data_alloc_array_flat_mayfail(type_get_int(INT_DEFAULT_N), n_dims, n_dims, false, &err pass_file_line);
 	if (unlikely(!shape))
 		goto set_err;
-	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[0], pointer_data(shape));
+	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[1], pointer_data(shape));
 
 	args = data_alloc_array_pointers_mayfail(n_args, n_args, &err pass_file_line);
 	if (unlikely(!args))
 		goto set_err;
 	for (i = 0; i < n_args; i++)
 		da(args,array_pointers)->pointer[i] = pointer_empty();
-	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[1], pointer_data(args));
+	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[2], pointer_data(args));
 
 	arg_types = data_alloc_array_flat_mayfail(type_get_flat_option(), n_args, n_args, false, &err pass_file_line);
 	if (unlikely(!arg_types))
 		goto set_err;
-	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[2], pointer_data(arg_types));
+	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[3], pointer_data(arg_types));
 
 	arg_lengths = data_alloc_array_pointers_mayfail(n_args, n_args, &err pass_file_line);
 	if (unlikely(!arg_lengths))
 		goto set_err;
 	for (i = 0; i < n_args; i++)
 		da(arg_lengths,array_pointers)->pointer[i] = pointer_empty();
-	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[3], pointer_data(arg_lengths));
+	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[4], pointer_data(arg_lengths));
 
 	arg_n_entries = data_alloc_array_pointers_mayfail(n_args, n_args, &err pass_file_line);
 	if (unlikely(!arg_n_entries))
 		goto set_err;
 	for (i = 0; i < n_args; i++)
 		da(arg_n_entries,array_pointers)->pointer[i] = pointer_empty();
-	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[4], pointer_data(arg_n_entries));
+	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[5], pointer_data(arg_n_entries));
 
 	results_in = data_alloc_array_pointers_mayfail(n_results, n_results, &err pass_file_line);
 	if (unlikely(!results_in))
 		goto set_err;
 	for (i = 0; i < n_results; i++)
 		da(results_in,array_pointers)->pointer[i] = pointer_empty();
-	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[5], pointer_data(results_in));
+	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[6], pointer_data(results_in));
 
 	results_out = data_alloc_array_pointers_mayfail(n_results, n_results, &err pass_file_line);
 	if (unlikely(!results_out))
 		goto set_err;
 	for (i = 0; i < n_results; i++)
 		da(results_out,array_pointers)->pointer[i] = pointer_empty();
-	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[6], pointer_data(results_out));
+	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[7], pointer_data(results_out));
 
 	results_lengths = data_alloc_array_pointers_mayfail(n_results, n_results, &err pass_file_line);
 	if (unlikely(!results_lengths))
 		goto set_err;
 	for (i = 0; i < n_results; i++)
 		da(results_lengths,array_pointers)->pointer[i] = pointer_empty();
-	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[7], pointer_data(results_lengths));
+	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[8], pointer_data(results_lengths));
 
 	offset = 13;
 	for (i = 0; i < n_dims; i++) {
@@ -406,7 +416,7 @@ set_ptr:
 	blob = data_alloc_array_flat_mayfail(type_get_fixed(0, true), blob_len, blob_len, false, &err pass_file_line);
 	if (unlikely(!blob))
 		goto set_err;
-	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[8], pointer_data(blob));
+	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[9], pointer_data(blob));
 	q = 0;
 	for (i = 0; i < blob_len; i++) {
 		uint8_t val;

@@ -21,6 +21,7 @@ private unit opencl_offload;
 uses ffi;
 
 record offload_request [
+	function_name : bytes;
 	shape : list(int);
 	args : list(int);
 	arg_types : list(ffi_type);
@@ -67,13 +68,13 @@ fn do_offload(rq : offload_request) : bool
 	implicit var ctx := cl_mk_context(0);
 	var prog := cl_mk_program(rq.kernel, "");
 	if is_exception prog then [
-		eval warning("program failed");
+		eval warning(rq.function_name + ": failed to create a program");
 		goto failed;
 	]
 
 	var kernel := cl_mk_kernel(prog, "offload");
 	if is_exception kernel then [
-		eval warning("kernel failed");
+		eval warning(rq.function_name + ": failed to create a kernel");
 		goto failed;
 	]
 
@@ -116,13 +117,13 @@ fn do_offload(rq : offload_request) : bool
 	var lws := fill(1, len(rq.shape));
 	cl_enqueue_kernel(kernel, len(rq.shape), gwo, rq.shape, lws);
 	if is_exception ctx then [
-		eval warning("kernel failed");
+		eval warning(rq.function_name + ": failed to execute kernel");
 		goto failed;
 	]
 
 	var exc := cl_read_buffer(err_buf, 0, 1);
 	if exc[0] <> 0 then [
-		eval warning("exception: " + ntos(exc[0]));
+		eval warning(rq.function_name + ": the kernel returned an exception");
 		goto failed;
 	]
 
@@ -136,7 +137,7 @@ fn do_offload(rq : offload_request) : bool
 	xeval arg_buffers;
 	xeval ctx;
 
-	eval debug("program finished");
+	eval debug("program finished (" + rq.function_name + ")");
 
 	return false;
 

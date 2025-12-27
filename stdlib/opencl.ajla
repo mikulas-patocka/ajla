@@ -629,7 +629,6 @@ fn cl_mk_program(ctx : cl_context, code : bytes, options : bytes) : (cl_context,
 		ffi_destructor_free(ptr_devices);
 		ffi_destructor_free(ptr_options);
 
-		eval debug("BUILD PROGRAM FAILED: " + ntos(ret));
 		var ptr_size := ffi_destructor_allocate(ffi_get_size(ffi_type.t_usize), ffi_get_alignment(ffi_type.t_usize), true);
 		var ret2 : int;
 		ret2, err := ffi_function_call(ctx.clGetProgramBuildInfo, [ prog, ctx.device, #1183, 0, 0, ptr_size ]);
@@ -640,7 +639,7 @@ fn cl_mk_program(ctx : cl_context, code : bytes, options : bytes) : (cl_context,
 			ret2, err := ffi_function_call(ctx.clGetProgramBuildInfo, [ prog, ctx.device, #1183, size, ptr_log, ptr_size ]);
 			if ret2 = 0 then [
 				var log := ffi_peek_array(ptr_log, size, ffi_type.t_uchar, byte);
-				eval debug("LOG: " + log);
+				eval warning(log);
 			]
 		]
 
