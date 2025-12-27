@@ -436,7 +436,7 @@ fn get_integer_type(ctx : context)
 fn process_structured_write(ctx : context, ins : instruction) : bytes
 [
 	if ins.params[0] <> 1 or ins.params[6] <> Structured_Array then [
-		eval debug(ctx.name + ": invalid structured write");
+		eval warning(ctx.name + ": invalid structured write");
 		return "";
 	]
 	var output := "	"+ctx.variables[ins.params[1]].offload_name+"["+ctx.variables[ins.params[7]].offload_name+"] = "+ctx.variables[ins.params[5]].offload_name+";"+nl;
@@ -502,7 +502,7 @@ fn process_binary_operator(ctx : context, ins : instruction) : bytes
 		output += "		if (result != "+op1_name+")"+nl;
 		output += "			goto exception;"+nl;
 	] else [
-		eval debug(ctx.name + ": unsupported operator " + ntos(op));
+		eval warning(ctx.name + ": unsupported operator " + ntos(op));
 		return "";
 	]
 	output += "		"+ctx.variables[ins.params[1]].offload_name+" = result;"+nl;
@@ -517,7 +517,7 @@ fn process_array_load(ctx : context, ins : instruction) : bytes
 	var av := ins.params[2];
 	var iv := ins.params[3];
 	if not ctx.imported_variables bt av then [
-		eval debug(ctx.name + ": unsupported array");
+		eval warning(ctx.name + ": unsupported array");
 		return "";
 	]
 	var rname := ctx.variables[rv].offload_name;
@@ -568,7 +568,7 @@ fn process_basic_block(ctx : context, bgi : int, last : bool) : bytes
 			output += s;
 			continue;
 		]
-		eval debug(ctx.name + ": unsupported opcode " + ntos(ins.opcode));
+		eval warning(ctx.name + ": unsupported opcode " + ntos(ins.opcode));
 		return "";
 	]
 	if last then
@@ -582,11 +582,11 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 	var decision_block := ctx.blocks[decision_bgi];
 	var decision_insn := ctx.instrs[decision_block.instrs[len(decision_block.instrs) - 1]];
 	if decision_insn.opcode <> P_Jmp_False then [
-		eval debug(ctx.name + ": decision block doesn't end with conditional jump");
+		eval warning(ctx.name + ": decision block doesn't end with conditional jump");
 		goto fail;
 	]
 	if decision_insn.params[0] <> ins.params[0] then [
-		eval debug(ctx.name + ": decision block end doesn't correspond with offload instruction");
+		eval warning(ctx.name + ": decision block end doesn't correspond with offload instruction");
 		goto fail;
 	]
 	var loop_bgi := decision_block.post_list[0];
@@ -594,7 +594,7 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 
 	var shape, err := test_loop(ctx, loop_bgi, end_bgi);
 	if len(shape) = 0 then [
-		eval debug(ctx.name + ": " + err);
+		eval warning(ctx.name + ": " + err);
 		goto fail;
 	]
 	//eval debug("loop recognized, dim: " + ntos(len(shape)));
@@ -603,7 +603,7 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 
 	err := verify_arrays(ctx, shape);
 	if len_greater_than(err, 0) then [
-		eval debug(ctx.name + ": " + err);
+		eval warning(ctx.name + ": " + err);
 		goto fail;
 	]
 
@@ -648,7 +648,7 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 		loop_controls bts= cv;
 		var t, ot, bits := get_variable_type(ctx, cv);
 		if not len_greater_than(t, 0) then [
-			eval debug(ctx.name + ": loop control variable has unsupported type");
+			eval warning(ctx.name + ": loop control variable has unsupported type");
 			goto fail;
 		]
 		ctx.variables[cv].offload_name := "("+t+")get_global_id("+ntos(i)+")";
@@ -665,11 +665,11 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 			continue;
 		]
 		if def_instr.opcode = P_Call or def_instr.opcode = P_Call_Indirect then [
-			eval debug(ctx.name + ": uninlined call instruction");
+			eval warning(ctx.name + ": uninlined call instruction");
 			goto fail;
 		]
 		if popcnt def_instr.write_set <> 1 then [
-			eval debug(ctx.name + ": unsupported instruction");
+			eval warning(ctx.name + ": unsupported instruction");
 			goto fail;
 		]
 		if not output_array_variables bt v then [
@@ -703,7 +703,7 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 		var_worklist btr= v;
 		var t, ot, bits := get_variable_type(ctx, v);
 		if not len_greater_than(t, 0) then [
-			eval debug(ctx.name + ": imported variable has unsupported type");
+			eval warning(ctx.name + ": imported variable has unsupported type");
 			goto fail;
 		]
 		if t[len(t) - 1] = '*' then [
@@ -722,7 +722,7 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 		var_worklist btr= v;
 		var t, ot, bits := get_variable_type(ctx, v);
 		if not len_greater_than(t, 0) then [
-			eval debug(ctx.name + ": local variable has unsupported type");
+			eval warning(ctx.name + ": local variable has unsupported type");
 			goto fail;
 		]
 		output += "	"+t+" "+ctx.variables[v].offload_name+";"+nl;
@@ -793,7 +793,7 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 		]
 	]
 	params += blob_store(output);
-	xeval debug(output);
+	//xeval debug(output);
 
 	ctx.instrs[igi] := create_instr(P_Offload, params, ins.bb);
 
