@@ -59,7 +59,7 @@ fn insert_instr(ctx : context, ins : instruction, pos : int) : context
 	var id := len(ctx.instrs);
 	ctx.instrs +<= ins;
 	var block := ctx.blocks[ins.bb];
-	var new_list := block.instrs[.. pos] +< id + block.instrs[pos ..];
+	var new_list := block.instrs[.. pos] +< id + block.instrs[pos .. ];
 	ctx.blocks[ins.bb].instrs := new_list;
 	return ctx;
 ]
@@ -75,13 +75,13 @@ fn deactivate_arrow(ctx : context, bgi : int, pidx : int) : context
 again:
 	for j := 0 to len(ctx.blocks[p].pred_list) do [
 		if ctx.blocks[p].pred_list[j] = bgi and ctx.blocks[p].pred_position[j] = pidx then [
-			ctx.blocks[p].pred_list := ctx.blocks[p].pred_list[ .. j] + ctx.blocks[p].pred_list[j + 1 ..];
-			ctx.blocks[p].pred_position := ctx.blocks[p].pred_position[ .. j] + ctx.blocks[p].pred_position[j + 1 ..];
+			ctx.blocks[p].pred_list := ctx.blocks[p].pred_list[ .. j] + ctx.blocks[p].pred_list[j + 1 .. ];
+			ctx.blocks[p].pred_position := ctx.blocks[p].pred_position[ .. j] + ctx.blocks[p].pred_position[j + 1 .. ];
 			for lidx := 0 to len(ctx.blocks[p].instrs) do [
 				var ins := ctx.instrs[ctx.blocks[p].instrs[lidx]];
 				if ins.opcode <> P_Phi then
 					break;
-				ins.params := ins.params[.. j + 1] + ins.params[j + 2 ..];
+				ins.params := ins.params[.. j + 1] + ins.params[j + 2 .. ];
 				ins.read_set := ins.read_set shr 1 btc 0;
 				ctx.instrs[ctx.blocks[p].instrs[lidx]] := ins;
 			]
@@ -957,7 +957,7 @@ fn verify_positive(ctx : context, vgii : int) : bool
 				todo bts= p;
 			continue;
 		] else if ins.opcode = P_Load_Const then [
-			var l := blob_to_int(ins.params[1 ..]);
+			var l := blob_to_int(ins.params[1 .. ]);
 			if l < 0 then
 				return false;
 		] else [
@@ -1110,7 +1110,7 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 			//var str : bytes;
 			//str := "v1: (" + ntos(vgi1) + ")"; for i := 0 to len(v1_ins.params) do [ str += " " + ntos(v1_ins.params[i]); ]; eval debug(str);
 			//str := "v2: (" + ntos(vgi2) + ")"; for i := 0 to len(v2_ins.params) do [ str += " " + ntos(v2_ins.params[i]); ]; eval debug(str);
-			var c := evaluate_binary(v1.runtime_type, vr.runtime_type, ins.params[0], v1_ins.params[1 ..], v2_ins.params[1 ..]);
+			var c := evaluate_binary(v1.runtime_type, vr.runtime_type, ins.params[0], v1_ins.params[1 .. ], v2_ins.params[1 .. ]);
 			if is_exception c then
 				return ins, false;
 			var params := list(pcode_t).[ ins.params[1] ] + c;
@@ -1204,7 +1204,7 @@ skip_bool:
 		var vr := ctx.variables[vgir];
 		if v1_ins.opcode = P_Load_Const then [
 			var cnst := ins.params[4];
-			var c := evaluate_binary(v1.runtime_type, vr.runtime_type, ins.params[0], v1_ins.params[1 ..], int_to_blob(cnst));
+			var c := evaluate_binary(v1.runtime_type, vr.runtime_type, ins.params[0], v1_ins.params[1 .. ], int_to_blob(cnst));
 			if is_exception c then
 				return ins, false;
 			var params := list(pcode_t).[ ins.params[1] ] + c;
@@ -1229,7 +1229,7 @@ skip_bool:
 		if v1_ins.opcode = P_Load_Const then [
 			//var str : bytes;
 			//str := "v1: (" + ntos(vgi1) + ")"; for i := 0 to len(v1_ins.params) do [ str += " " + ntos(v1_ins.params[i]); ]; eval debug(str);
-			var c := evaluate_unary(v1.runtime_type, vr.runtime_type, ins.params[0], v1_ins.params[1 ..]);
+			var c := evaluate_unary(v1.runtime_type, vr.runtime_type, ins.params[0], v1_ins.params[1 .. ]);
 			if is_exception c then
 				return ins, false;
 			var params := list(pcode_t).[ ins.params[1] ] + c;
@@ -1263,7 +1263,7 @@ skip_bool:
 		if vs_ins.opcode = P_Option_Create then [
 			is_idx := vs_ins.params[1];
 		] else if vs_ins.opcode = P_Load_Const then [
-			is_idx := blob_to_int(vs_ins.params[1 ..]);
+			is_idx := blob_to_int(vs_ins.params[1 .. ]);
 		]
 		if is_idx >= 0 then [
 			var res : int;
@@ -1356,7 +1356,7 @@ next_dom:
 		var vi := ctx.variables[vgii];
 		var vi_ins := ctx.instrs[vi.defining_instr];
 		if vs_ins.opcode = P_Array_Create and vi_ins.opcode = P_Load_Const then [
-			var l := blob_to_int(vi_ins.params[1 ..]);
+			var l := blob_to_int(vi_ins.params[1 .. ]);
 			if l >= 0 then [
 				var v : int;
 				if vs_ins.params[1] > l then
@@ -1428,7 +1428,7 @@ fn substitute_variable(ctx : context, ins : instruction) : (int, int)
 		var vs := ctx.variables[vgis];
 		var vs_ins := ctx.instrs[vs.defining_instr];
 		if vi_ins.opcode = P_Load_Const and vs_ins.opcode = P_Array_Create then [
-			var idx := blob_to_int(vi_ins.params[1 ..]);
+			var idx := blob_to_int(vi_ins.params[1 .. ]);
 			if idx >= 0 and idx < vs_ins.params[1] then [
 				return ins.params[0], vs_ins.params[4 + idx * 2];
 			]
@@ -1438,8 +1438,8 @@ fn substitute_variable(ctx : context, ins : instruction) : (int, int)
 			var vl := ctx.variables[vgll];
 			var vl_ins := ctx.instrs[vl.defining_instr];
 			if vl_ins.opcode = P_Load_Const then [
-				var idx := blob_to_int(vi_ins.params[1 ..]);
-				var length := blob_to_int(vl_ins.params[1 ..]);
+				var idx := blob_to_int(vi_ins.params[1 .. ]);
+				var length := blob_to_int(vl_ins.params[1 .. ]);
 				if idx >= 0 and idx < length then [
 					return ins.params[0], vs_ins.params[2];
 				]
@@ -1488,7 +1488,7 @@ again:
 				var vgir := ins.params[1];
 				var vr := ctx.variables[vgir];
 				if v1_ins.opcode = P_Load_Const then [
-					var const_int := blob_to_int(v1_ins.params[1 ..]);
+					var const_int := blob_to_int(v1_ins.params[1 .. ]);
 					ctx.blocks[bgi].instrs := ctx.blocks[bgi].instrs[ .. l - 1];
 					if const_int = 0 then [
 						ctx := deactivate_arrow(ctx, bgi, 2);

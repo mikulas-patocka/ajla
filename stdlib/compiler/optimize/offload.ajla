@@ -407,7 +407,7 @@ fn get_type(ctx : context, t : int) : (bytes, ocl_type, int)
 	if t = T_Real16 then return "half", ot, 2;
 	if t = T_Real32 then return "float", ot, 4;
 	if t = T_Real64 then return "double", ot, 8;
-	return "", ot, 0;
+	return "", ocl_type.invalid, 0;
 arr:
 	var def_instr := ctx.instrs[ctx.variables[t].defining_instr];
 	if def_instr.opcode <> P_Array_Flexible and def_instr.opcode <> P_Array_Fixed then
@@ -510,6 +510,24 @@ fn process_binary_operator(ctx : context, ins : instruction) : bytes
 	return output;
 ]
 
+fn process_load_const(ctx : context, ins : instruction) : bytes
+[
+	var t, ot, bits := get_variable_type(ctx, ins.params[0]);
+	var l := blob_to_int(ins.params[1 .. ]);
+	if ot is integer then [
+		var limit := 0 bts (bits - 1);
+		if l < -limit or l >= limit then [
+			eval warning(ctx.name + ": too large constant");
+			return "";
+		]
+	]
+	if ot is fp then [
+		return "";
+	]
+	var output := "	"+ctx.variables[ins.params[0]].offload_name+" = "+ntos(l)+";"+nl;
+	return output;
+]
+
 fn process_array_load(ctx : context, ins : instruction) : bytes
 [
 	var output := "	{"+nl;
@@ -556,6 +574,13 @@ fn process_basic_block(ctx : context, bgi : int, last : bool) : bytes
 			continue;
 		if ins.opcode = P_BinaryOp or ins.opcode = P_BinaryConstOp or ins.opcode = P_UnaryOp then [
 			s := process_binary_operator(ctx, ins);
+			if not len_greater_than(s, 0) then
+				return "";
+			output += s;
+			continue;
+		]
+		if ins.opcode = P_Load_Const then [
+			s := process_load_const(ctx, ins);
 			if not len_greater_than(s, 0) then
 				return "";
 			output += s;
