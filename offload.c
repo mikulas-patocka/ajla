@@ -231,8 +231,11 @@ process_idx:
 					result_ptr = pointer_thunk(thunk_);
 					goto set_result;
 				);
-				if (unlikely(da_tag(array_data) == DATA_TAG_array_incomplete))
+				if (unlikely(da_tag(array_data) == DATA_TAG_array_incomplete)) {
+					if (ipret_warnings)
+						warning("%s: incomplete array", name);
 					goto set_unsupp;
+				}
 				idx = array_len(array_data);
 				goto process_idx;
 			default:
@@ -281,8 +284,11 @@ set_ptr:
 			da(args,array_pointers)->pointer[i] = pointer_data(d);
 
 			ffi_type = io_ffi_get_ffi_type(type);
-			if (unlikely(ffi_type == -1))
+			if (unlikely(ffi_type == -1)) {
+				if (ipret_warnings)
+					warning("%s: unknown type", name);
 				goto set_unsupp;
+			}
 			cast_ptr(ajla_flat_option_t *, da_array_flat(arg_types))[i] = ffi_type;
 
 			d = type_to_mpint(type_get_fixed(log_2(sizeof(size_t)), true), cast_ptr(const unsigned char *, &len), &err);
@@ -301,8 +307,13 @@ set_ptr:
 			size_t len;
 			int_default_t n_entries;
 			struct data *d;
-			if (TYPE_IS_FLAT(type) && !frame_test_flag(fp, slot))
-				goto set_unsupp;
+			if (unlikely(frame_variable_is_flat(fp, slot))) {
+				pointer_t non_flat_ptr;
+				type = frame_get_type_of_local(fp, slot);
+				non_flat_ptr = flat_to_data(type, frame_var(fp, slot));
+				frame_set_pointer(fp, slot, non_flat_ptr);
+			}
+
 			ptr = frame_pointer(fp, slot);
 			pointer_follow(ptr, true, d, PF_WAIT, fp, ip,
 				ex = ex_;
@@ -320,6 +331,8 @@ set_ptr:
 				len = (size_t)da(d,array_slice)->n_entries * da(d,array_slice)->type->size;
 				n_entries = da(d,array_slice)->n_entries;
 			} else {
+				if (ipret_warnings)
+					warning("%s: array is not flat", name);
 				goto set_unsupp;
 			}
 
@@ -379,6 +392,8 @@ set_ptr:
 			type = da(in_d,array_flat)->type;
 			len = (size_t)da(in_d,array_flat)->n_used_entries;
 		} else {
+			if (ipret_warnings)
+				warning("%s: output array is not flat", name);
 			goto set_unsupp;
 		}
 
@@ -392,8 +407,11 @@ set_ptr:
 		if (unlikely(!d))
 			goto set_err;
 		new_size = (size_t)da(d,array_slice)->n_entries * type->size;
-		if (unlikely((int_default_t)new_size < 0) || unlikely((size_t)(int_default_t)new_size != new_size))
+		if (unlikely((int_default_t)new_size < 0) || unlikely((size_t)(int_default_t)new_size != new_size)) {
+			if (ipret_warnings)
+				warning("%s: array size overflow", name);
 			goto set_unsupp;
+		}
 		da(d,array_slice)->type = type_get_fixed(0, true);
 		da(d,array_slice)->n_entries = new_size;
 		da(results_in,array_pointers)->pointer[i] = pointer_data(d);
