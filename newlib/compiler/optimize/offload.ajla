@@ -465,12 +465,7 @@ fn process_binary_operator(ctx : context, ins : instruction) : bytes
 	else
 		op2_name := "("+t+")"+ntos(ins.params[4]);
 	var output := "	{"+nl;
-	if op = Un_ConvertToInt then [
-		var ti := get_integer_type(ctx);
-		output += "		"+ti+" result;"+nl;
-	] else [
-		output += "		"+t+" result;"+nl;
-	]
+	output += "		"+t+" result;"+nl;
 	if op = Bin_Add then [
 		output += "		result = "+op1_name+" + "+op2_name+";"+nl;
 		if ot is integer then [
@@ -504,10 +499,152 @@ fn process_binary_operator(ctx : context, ins : instruction) : bytes
 		]
 		output += "		else"+nl;
 		output += "			result = "+op1_name+" / "+op2_name+";"+nl;
-	] else if op = Un_ConvertToInt or op = Un_ConvertFromInt then [
+	] else if op = Bin_Divide_Real then [
+		output += "		result = "+op1_name+" / "+op2_name+";"+nl;
+	] else if op = Bin_Modulo then [
+		output += "		if ("+op2_name+" == 0)"+nl;
+		if ot is integer then
+			output += "			goto exception;"+nl;
+		else
+			output += "			result = "+op1_name+";"+nl;
+		if t[0] <> 'u' then [
+			output += "		else if ("+op2_name+" == -1 && "+op1_name+" == ("+t+")1 << "+ntos(bits-1)+")"+nl;
+			if ot is integer then
+				output += "			goto exception;"+nl;
+			else
+				output += "			result = 0;"+nl;
+		]
+		output += "		else"+nl;
+		output += "			result = "+op1_name+" % "+op2_name+";"+nl;
+	] else if op = Bin_And then [
+		output += "		result = "+op1_name+" & "+op2_name+";"+nl;
+	] else if op = Bin_Or then [
+		output += "		result = "+op1_name+" | "+op2_name+";"+nl;
+	] else if op = Bin_Xor then [
+		output += "		result = "+op1_name+" ^ "+op2_name+";"+nl;
+	] else if op = Bin_Shl then [
+		if ot is integer then [
+			output += "		if ((u"+t+")"+op2_name+" >= "+ntos(bits)+")"+nl;
+			output += "			goto exception;"+nl;
+			output += "		result = "+op1_name+" << "+op2_name+";"+nl;
+			output += "		if (result >> "+op2_name+" != "+op1_name+")"+nl;
+			output += "			goto exception;"+nl;
+		] else [
+			output += "		result = "+op1_name+" << ("+op2_name+" & "+ntos(bits - 1)+");"+nl;
+		]
+	] else if op = Bin_Shr then [
+		if ot is integer then [
+			output += "		if ((u"+t+")"+op2_name+" >= "+ntos(bits)+")"+nl;
+			output += "			goto exception;"+nl;
+			output += "		result = "+op1_name+" >> "+op2_name+";"+nl;
+		] else [
+			output += "		result = "+op1_name+" >> ("+op2_name+" & "+ntos(bits - 1)+");"+nl;
+		]
+	] else if op = Bin_Rol then [
+		output += "		result = rotate("+op1_name+", "+op2_name+");"+nl;
+	] else if op = Bin_Ror then [
+		output += "		result = rotate("+op1_name+", -"+op2_name+");"+nl;
+	] else if op = Bin_Bts then [
+		if ot is integer then [
+			output += "		if ((u"+t+")"+op2_name+" >= "+ntos(bits - 1)+")"+nl;
+			output += "			goto exception;"+nl;
+		]
+		output += "		"+t+" one = 1;"+nl;
+		output += "		result = "+op1_name+" | one << ("+op2_name+" & "+ntos(bits - 1)+");"+nl;
+	] else if op = Bin_Btr then [
+		if ot is integer then [
+			output += "		if ((u"+t+")"+op2_name+" >= "+ntos(bits - 1)+")"+nl;
+			output += "			goto exception;"+nl;
+		]
+		output += "		"+t+" one = 1;"+nl;
+		output += "		result = "+op1_name+" & ~(one << ("+op2_name+" & "+ntos(bits - 1)+"));"+nl;
+	] else if op = Bin_Btc then [
+		if ot is integer then [
+			output += "		if ((u"+t+")"+op2_name+" >= "+ntos(bits - 1)+")"+nl;
+			output += "			goto exception;"+nl;
+		]
+		output += "		"+t+" one = 1;"+nl;
+		output += "		result = "+op1_name+" ^ one << ("+op2_name+" & "+ntos(bits - 1)+");"+nl;
+	] else if op = Bin_Equal then [
+		output += "		result = "+op1_name+" == "+op2_name+";"+nl;
+	] else if op = Bin_NotEqual then [
+		output += "		result = "+op1_name+" != "+op2_name+";"+nl;
+	] else if op = Bin_Less then [
+		output += "		result = "+op1_name+" < "+op2_name+";"+nl;
+	] else if op = Bin_LessEqual then [
+		output += "		result = "+op1_name+" <= "+op2_name+";"+nl;
+	] else if op = Bin_Greater then [
+		output += "		result = "+op1_name+" > "+op2_name+";"+nl;
+	] else if op = Bin_GreaterEqual then [
+		output += "		result = "+op1_name+" >= "+op2_name+";"+nl;
+	] else if op = Bin_Bt then [
+		if ot is integer then [
+			output += "		if ((u"+t+")"+op2_name+" >= "+ntos(bits)+")"+nl;
+			output += "			goto exception;"+nl;
+		]
+		output += "		result = "+op1_name+" >> ("+op2_name+" & "+ntos(bits - 1)+") & 1;"+nl;
+	] else if op = Un_Not then [
+		output += "		result = ~"+op1_name+";"+nl;
+	] else if op = Un_Neg then [
+		output += "		result = -"+op1_name+";"+nl;
+		if ot is integer then [
+			output += "		if ((result & "+op1_name+") < 0)"+nl;
+			output += "			goto exception;"+nl;
+		]
+	] else if op = Un_Bsf then [
+		output += "		if (!"+op1_name+")"+nl;
+		if ot is integer then
+			output += "			goto exception;"+nl;
+		else
+			output += "			result = -1;"+nl;
+		output += "		else"+nl;
+		output += "			result = ctz("+op1_name+");"+nl;
+	] else if op = Un_Bsr then [
+		if ot is integer then
+			output += "		if ("+op1_name+" <= 0)"+nl;
+			output += "			goto exception;"+nl;
+		output += "		result = "+ntos(bits - 1)+" - clz("+op1_name+");"+nl;
+	] else if op = Un_Popcnt then [
+		if ot is integer then
+			output += "		if ("+op1_name+" < 0)"+nl;
+			output += "			goto exception;"+nl;
+		output += "		result = popcount("+op1_name+");"+nl;
+	] else if op = Un_ConvertToInt then [
+		var ft, fot, fbits := get_variable_type(ctx, ins.params[3]);
+		if fot is fixed, ft[0] = 'u' then [
+			if fbits >= bits then [
+				output += "		if ("+op1_name+" > "+ntos((1 shl bits - 1) - 1)+")"+nl;
+				output += "			goto exception;"+nl;
+			]
+			output += "		result = "+op1_name+";"+nl;
+		] else if fot is fixed or fot is integer then [
+			output += "		result = "+op1_name+";"+nl;
+			if fbits > bits then [
+				output += "		if (result != "+op1_name+")"+nl;
+				output += "			goto exception;"+nl;
+			]
+		] else if fot is fp then [
+			output += "		if ("+op1_name+" != "+op1_name+")"+nl;
+			output += "			goto exception;"+nl;
+			output += "		if ("+op1_name+" <= "+ntos(-(1 shl bits - 1))+")"+nl;
+			output += "			goto exception;"+nl;
+			output += "		if ("+op1_name+" >= "+ntos((1 shl bits - 1) - 1)+")"+nl;
+			output += "			goto exception;"+nl;
+			output += "		result = "+op1_name+";"+nl;
+		] else [
+			abort internal("Un_ConvertToInt: invalid type " + ntos(ord fot));
+		]
+	] else if op = Un_ConvertFromInt then [
+		var ft, fot, fbits := get_variable_type(ctx, ins.params[3]);
+		if ot is fixed, t[0] = 'u' then [
+			output += "		if ("+op1_name+" < 0)"+nl;
+			output += "			goto exception;"+nl;
+		]
 		output += "		result = "+op1_name+";"+nl;
-		output += "		if (result != "+op1_name+")"+nl;
-		output += "			goto exception;"+nl;
+		if fot is fixed or fot is integer, fbits > bits then [
+			output += "		if (result != "+op1_name+")"+nl;
+			output += "			goto exception;"+nl;
+		]
 	] else [
 		eval warning(ctx.name + ": unsupported operator " + ntos(op));
 		return "";
