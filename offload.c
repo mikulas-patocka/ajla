@@ -257,9 +257,10 @@ process_idx:
 		type = frame_get_type_of_local(fp, slot);
 
 		if (TYPE_TAG_IS_BUILTIN(type->tag)) {
+			float flt;
 			unsigned char *flat;
 			int ffi_type;
-			size_t len = type->size;
+			size_t len;
 			if (frame_test_flag(fp, slot)) {
 				pointer_t *ptr = frame_pointer(fp, slot);
 				pointer_follow(ptr, true, d, PF_WAIT, fp, ip,
@@ -277,6 +278,11 @@ process_idx:
 			} else {
 				flat = frame_var(fp, slot);
 			}
+			if (TYPE_TAG_IS_REAL(type->tag) && !TYPE_TAG_IDX_REAL(type->tag)) {
+				type = type_get_real(1);
+				flt = half_to_float(*cast_ptr(uint16_t *, flat));
+				flat = cast_ptr(unsigned char *, &flt);
+			}
 			d = type_to_mpint(type, flat, &err);
 			if (unlikely(!d))
 				goto set_err;
@@ -291,6 +297,7 @@ set_ptr:
 			}
 			cast_ptr(ajla_flat_option_t *, da_array_flat(arg_types))[i] = ffi_type;
 
+			len = type->size;
 			d = type_to_mpint(type_get_fixed(log_2(sizeof(size_t)), true), cast_ptr(const unsigned char *, &len), &err);
 			if (unlikely(!d))
 				goto set_err;

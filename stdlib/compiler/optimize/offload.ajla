@@ -359,7 +359,7 @@ option ocl_type [
 	invalid;
 ]
 
-fn get_type(ctx : context, t : int) : (bytes, ocl_type, int)
+fn get_type(ctx : context, t : int, half : bool) : (bytes, ocl_type, int)
 [
 	var ot : ocl_type;
 	if t <= T_SInt8, t >= T_UInt128 then
@@ -404,8 +404,8 @@ fn get_type(ctx : context, t : int) : (bytes, ocl_type, int)
 	if t = T_Integer16 then return "short", ot, 16;
 	if t = T_Integer32 then return "int", ot, 32;
 	if t = T_Integer64 then return "long", ot, 64;
-	if t = T_Real16 then return "half", ot, 16;
-	if t = T_Real32 then return "float", ot, 32;
+	if t = T_Real16, half then return "half", ot, 16;
+	if t = T_Real16 or t = T_Real32 then return "float", ot, 32;
 	if t = T_Real64 then return "double", ot, 64;
 	return "", ocl_type.invalid, 0;
 arr:
@@ -417,27 +417,34 @@ arr:
 
 	var str : bytes;
 	var bits : int;
-	str, ot, bits := get_type(ctx, def_instr.params[1]);
+	str, ot, bits := get_type(ctx, def_instr.params[1], true);
+	if not len_greater_than(str, 0) then
+		return "", ocl_type.invalid, 0;
 
 	return str+" *", ot, bits;
 ]
 
 fn get_variable_type(ctx : context, v : int) : (bytes, ocl_type, int)
 [
-	return get_type(ctx, ctx.variables[v].type_index);
+	return get_type(ctx, ctx.variables[v].type_index, false);
 ]
 
 fn get_integer_type(ctx : context)
 [
-	var t, ot, bits := get_type(ctx, T_Integer);
+	var t, ot, bits := get_type(ctx, T_Integer, false);
 	return t;
 ]
 
 fn process_structured_write(ctx : context, ins : instruction) : bytes
 [
 	if ins.params[0] <> 1 or ins.params[6] <> Structured_Array then [
-		eval warning(ctx.name + ": invalid structured write");
+		eval warning(ctx.name + ": unsupported structured write");
 		return "";
+	]
+	var t, ot, bits := get_type(ctx, ctx.variables[ins.params[5]].type_index, true);
+	if ot is fp, bits = 16 then [
+		var output := "	vstore_half("+ctx.variables[ins.params[5]].offload_name+", "+ctx.variables[ins.params[7]].offload_name+", "+ctx.variables[ins.params[1]].offload_name+");"+nl;
+		return output;
 	]
 	var output := "	"+ctx.variables[ins.params[1]].offload_name+"["+ctx.variables[ins.params[7]].offload_name+"] = "+ctx.variables[ins.params[5]].offload_name+";"+nl;
 	return output;
@@ -517,20 +524,24 @@ fn process_load_const(ctx : context, ins : instruction) : bytes
 	if ot is fp then [
 		var typ := ctx.variables[ins.params[0]].type_index;
 		var b := blob_load(blob);
-		var itype : bytes;
-		if typ = T_Real16 then
+		var itype as : bytes;
+		if typ = T_Real16 then [
 			itype := "ushort";
-		else if typ = T_Real32 then
+			as := "as_half";
+		] else if typ = T_Real32 then [
 			itype := "uint";
-		else if typ = T_Real64 then
+			as := "as_float";
+		] else if typ = T_Real64 then [
 			itype := "ulong";
-		else
+			as := "as_double";
+		] else [
 			abort internal("process_load_const: invalid type " + ntos(typ));
+		]
 		var val : uint64;
 		pcode IO IO_Real_To_Int 1 2 0 =val typ b;
 		var output := "	{"+nl;
 		output += "		"+itype+" i = "+ntos(val)+";"+nl;
-		output += "		"+ctx.variables[ins.params[0]].offload_name+" = as_"+t+"(i);"+nl;
+		output += "		"+ctx.variables[ins.params[0]].offload_name+" = "+as+"(i);"+nl;
 		output += "	}"+nl;
 		return output;
 	]
@@ -564,7 +575,13 @@ fn process_array_load(ctx : context, ins : instruction) : bytes
 		output += "		if ((u"+ti+")"+iname+" >= (u"+ti+")"+aname+"_len)"+nl;
 		output += "			goto exception;"+nl;
 	]
-	output += "		"+rname+" = "+aname+"["+iname+"];" + nl;
+
+	var t, ot, bits := get_type(ctx, ctx.variables[rv].type_index, true);
+	if ot is fp, bits = 16 then [
+		output += "		"+rname+" = vload_half("+iname+", "+aname+");"+nl;
+	] else [
+		output += "		"+rname+" = "+aname+"["+iname+"];"+nl;
+	]
 	output += "	}"+nl;
 	return output;
 ]
