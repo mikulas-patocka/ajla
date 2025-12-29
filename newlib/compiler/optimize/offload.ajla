@@ -975,6 +975,8 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 		//eval debug("shape: " + ntos(shape[0].arrays[i].var_in) + ", " + ntos(shape[0].arrays[i].var_phi));
 		for bgi := 0 to len(ctx.blocks) do [
 			var b := ctx.blocks[bgi];
+			if not b.active then
+				continue;
 			if decision_block.dominates bt bgi then [
 				for i := 0 to len(b.instrs) do [
 					var instr := ctx.instrs[b.instrs[i]];
@@ -984,7 +986,8 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 						if instr.params[p] = to_clone then
 							instr.params[p] := clone_idx;
 					]
-					ctx.instrs[b.instrs[i]] := instr;
+					//ctx.instrs[b.instrs[i]] := instr;
+					ctx.instrs[b.instrs[i]] := create_instr(P_Phi, instr.params, instr.bb);
 				]
 			]
 		]

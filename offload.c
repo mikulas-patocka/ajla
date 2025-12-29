@@ -32,15 +32,37 @@
 
 static void copy_results(frame_s *fp, const code_t *ip, uint32_t n_dims, uint32_t n_args, uint32_t n_results)
 {
-	ip_t offset = 13 + 4 * n_dims + 2 * n_args;
+	ajla_error_t err;
+	pointer_t *buffer;
+	pointer_t ptr;
 	uint32_t i;
+	ip_t offset;
+	buffer = mem_alloc_array_mayfail(mem_alloc_mayfail, pointer_t *, 0, 0, n_results, sizeof(pointer_t), &err);
+	offset = 13 + 4 * n_dims + 2 * n_args;
 	for (i = 0; i < n_results; i++) {
 		uint32_t result_in = get_unaligned_32(ip + offset);
 		bool deref = !!(get_unaligned_32(ip + offset + 2) & OPCODE_FLAG_FREE_ARGUMENT);
+		offset += 6;
+		ptr = ipret_copy_variable_to_pointer(fp, result_in, deref);
+		if (likely(buffer != NULL)) {
+			buffer[i] = ptr;
+		} else {
+			pointer_dereference(ptr);
+		}
+	}
+	offset = 13 + 4 * n_dims + 2 * n_args;
+	for (i = 0; i < n_results; i++) {
 		uint32_t result_out = get_unaligned_32(ip + offset + 4);
 		offset += 6;
-		ipret_copy_variable(fp, result_in, fp, result_out, deref);
+		if (likely(buffer != NULL)) {
+			frame_set_pointer(fp, result_out, buffer[i]);
+		} else {
+			struct thunk *t = thunk_alloc_exception_error(err, NULL, NULL, NULL pass_file_line);
+			frame_set_pointer(fp, result_out, pointer_thunk(t));
+		}
 	}
+	if (likely(buffer != NULL))
+		mem_free(buffer);
 }
 
 static struct data *type_to_mpint(const struct type *type, const unsigned char *flat, ajla_error_t *err)
@@ -270,10 +292,8 @@ process_idx:
 					result_ptr = pointer_thunk(thunk_);
 					goto set_result;
 				);
-				if (da_tag(d) == DATA_TAG_longint) {
-					pointer_reference_owned(pointer_data(d));
-					goto set_ptr;
-				}
+				if (da_tag(d) == DATA_TAG_longint)
+					goto set_unsupp;
 				flat = da_flat(d);
 			} else {
 				flat = frame_var(fp, slot);
@@ -286,7 +306,6 @@ process_idx:
 			d = type_to_mpint(type, flat, &err);
 			if (unlikely(!d))
 				goto set_err;
-set_ptr:
 			da(args,array_pointers)->pointer[i] = pointer_data(d);
 
 			ffi_type = io_ffi_get_ffi_type(type);
@@ -458,10 +477,14 @@ set_ptr:
 	for (i = 0; i < n_results; i++) {
 		uint32_t result_in = get_unaligned_32(ip + offset);
 		bool deref = !!(get_unaligned_32(ip + offset + 2) & OPCODE_FLAG_FREE_ARGUMENT);
-		uint32_t result_out = get_unaligned_32(ip + offset + 4);
 		offset += 6;
 		if (deref)
 			frame_free(fp, result_in);
+	}
+	offset = 13 + 4 * n_dims + 2 * n_args;
+	for (i = 0; i < n_results; i++) {
+		uint32_t result_out = get_unaligned_32(ip + offset + 4);
+		offset += 6;
 		frame_set_pointer(fp, result_out, da(results,array_pointers)->pointer[i]);
 	}
 	data_free_r1(results);
