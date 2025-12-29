@@ -330,7 +330,7 @@ found:
 
 	ctx.clGetDeviceInfo := ffi_function_create(lib, "clGetDeviceInfo", ffi_error.e_none, 0, ffi_type.t_sint32, [ ffi_type.t_pointer, ffi_type.t_uint32, ffi_type.t_usize, ffi_type.t_pointer, ffi_type.t_pointer ]);
 
-	var name := cl_get_device_info_string(ctx, #102B);
+	//var name := cl_get_device_info_string(ctx, #102B);
 	//eval debug("using device " + name);
 
 	var version := cl_get_device_info_string(ctx, #102F);
