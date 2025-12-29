@@ -417,6 +417,7 @@ found:
 
 	ctx.destr := destr;
 
+	ctx.w := w;
 	return ctx;
 ]
 

@@ -1014,7 +1014,7 @@ fn offload(ctx : context) : context
 			var ins := ctx.instrs[igi];
 			if ins.opcode = P_Offload, len(ins.params) = 1 then [
 				ctx := offload_instruction(ctx, ili, ins);
-				eval dump_basic_blocks(ctx, true);
+				//eval dump_basic_blocks(ctx, true);
 			]
 		]
 	]
