@@ -971,6 +971,7 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 	var cloned := empty(int);
 	var igi := ctx.blocks[ins.bb].instrs[ili];
 	for i := 0 to len(shape[0].arrays) do [
+		var modified := shape[0].arrays[i].var_phi;
 		var to_clone := shape[0].arrays[i].var_in;
 		var clone, clone_idx := clone_variable(ctx, to_clone);
 		clone.defining_block := ins.bb;
@@ -979,18 +980,30 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 		params += list(pcode_t).[ 0, to_clone, clone_idx ];
 		//eval debug("shape: " + ntos(shape[0].arrays[i].var_in) + ", " + ntos(shape[0].arrays[i].var_phi));
 		var b := ctx.blocks[hack_bgi];
-		for i := 0 to len(b.instrs) do [
-			var instr := ctx.instrs[b.instrs[i]];
+		for j := 0 to len(b.instrs) do [
+			var instr := ctx.instrs[b.instrs[j]];
 			if instr.opcode <> P_Phi then
 				break;
 			for p := 1 to len(instr.params) do [
+				if instr.params[p] = modified then
+					goto found;
+			]
+			continue;
+found:
+			for p := 1 to len(instr.params) do [
 				if instr.params[p] = to_clone then [
 					instr.params[p] := clone_idx;
+					goto found2;
 				]
 			]
-			//ctx.instrs[b.instrs[i]] := instr;
-			ctx.instrs[b.instrs[i]] := create_instr(P_Phi, instr.params, instr.bb);
+			abort internal("output array was not found in a phi instruction");
+found2:
+			//ctx.instrs[b.instrs[j]] := instr;
+			ctx.instrs[b.instrs[j]] := create_instr(P_Phi, instr.params, instr.bb);
+			goto found3;
 		]
+		abort internal("output array was not found");
+found3:
 	]
 	params += blob_store(output);
 	//xeval debug(output);
