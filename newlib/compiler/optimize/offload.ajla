@@ -963,6 +963,11 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 		var_worklist btr= v;
 		params += list(pcode_t).[ v ];
 	]
+	if len_greater_than(ctx.blocks[end_bgi].instrs, 0) then [
+		eval warning(ctx.name + ": end_bgi is not empty");
+		goto fail;
+	]
+	var hack_bgi := ctx.blocks[end_bgi].post_list[0];
 	var cloned := empty(int);
 	var igi := ctx.blocks[ins.bb].instrs[ili];
 	for i := 0 to len(shape[0].arrays) do [
@@ -973,23 +978,18 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 		ctx.variables +<= clone;
 		params += list(pcode_t).[ 0, to_clone, clone_idx ];
 		//eval debug("shape: " + ntos(shape[0].arrays[i].var_in) + ", " + ntos(shape[0].arrays[i].var_phi));
-		for bgi := 0 to len(ctx.blocks) do [
-			var b := ctx.blocks[bgi];
-			if not b.active then
-				continue;
-			if decision_block.dominates bt bgi then [
-				for i := 0 to len(b.instrs) do [
-					var instr := ctx.instrs[b.instrs[i]];
-					if instr.opcode <> P_Phi then
-						break;
-					for p := 1 to len(instr.params) do [
-						if instr.params[p] = to_clone then
-							instr.params[p] := clone_idx;
-					]
-					//ctx.instrs[b.instrs[i]] := instr;
-					ctx.instrs[b.instrs[i]] := create_instr(P_Phi, instr.params, instr.bb);
+		var b := ctx.blocks[hack_bgi];
+		for i := 0 to len(b.instrs) do [
+			var instr := ctx.instrs[b.instrs[i]];
+			if instr.opcode <> P_Phi then
+				break;
+			for p := 1 to len(instr.params) do [
+				if instr.params[p] = to_clone then [
+					instr.params[p] := clone_idx;
 				]
 			]
+			//ctx.instrs[b.instrs[i]] := instr;
+			ctx.instrs[b.instrs[i]] := create_instr(P_Phi, instr.params, instr.bb);
 		]
 	]
 	params += blob_store(output);
