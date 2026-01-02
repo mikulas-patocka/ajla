@@ -1,5 +1,5 @@
 {*
- * Copyright (C) 2025 Mikulas Patocka
+ * Copyright (C) 2025, 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -39,13 +39,20 @@ implementation
 
 uses opencl;
 
+fn get_context~cache(kernel : bytes) : (cl_context, cl_program)
+[
+	eval debug(kernel);
+	implicit var ctx := cl_mk_context(0);
+	var prog := cl_mk_program(kernel, "");
+	return ctx, prog;
+]
+
 fn do_offload(rq : offload_request) : bool
 [
 	if is_exception rq then [
 		eval warning("failed to generate offload request: " + exception_string rq);
 		return true;
 	]
-	eval debug(rq.kernel);
 	{
 	for i := 0 to len(rq.shape) do
 		eval debug("dim "+ntos(i)+": "+ntos_base(rq.shape[i], 16));
@@ -64,9 +71,9 @@ fn do_offload(rq : offload_request) : bool
 	for i := 0 to len(rq.results_lengths) do
 		eval debug("results_lengths "+ntos(i)+": "+ntos_base(rq.results_lengths[i], 16));
 	}
+	implicit var ctx : cl_context;
+	var prog := get_context(rq.kernel);
 
-	implicit var ctx := cl_mk_context(0);
-	var prog := cl_mk_program(rq.kernel, "");
 	if is_exception prog then [
 		eval warning(rq.function_name + ": failed to create a program");
 		goto failed;
