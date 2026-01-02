@@ -1,0 +1,305 @@
+{*
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+uses prng;
+
+fn get_random(implicit p : prng_state) : (prng_state, int)
+[
+	var r : int;
+	r := prng_get_uint32();
+	var result := prng_get_int(r mod 64);
+	if (r and #80000000) <> 0 then
+		result := not result;
+	return result;
+]
+
+fn num_to_str(n : int) : bytes
+[
+	if is_exception n then
+		return "exception: " + ntos(exception_class n) + ", " + ntos(exception_type n) + ", " + ntos(exception_aux n);
+	else
+		return ntos_base(n, 16);
+]
+
+fn xlate_exception(n : int) : int
+[
+	if is_exception n then
+		return #12345678 + exception_class n + #10 * exception_type n + #100 * exception_aux n;
+	return n;
+]
+
+fn eval_number(implicit w : world, implicit h : handle, t : type, implicit c~spec : class_integer_number(t), s : bytes, a : t, b : t) : (world, int)
+[
+	var p1 := array_fill(t, c.zero, [ 1 ]);
+	var p2 := array_fill(t, c.zero, [ 1 ]);
+	var p3 := array_fill(t, c.zero, [ 1 ]);
+	var p4 := array_fill(t, c.zero, [ 1 ]);
+	var p5 := array_fill(t, c.zero, [ 1 ]);
+	var p6 := array_fill(t, c.zero, [ 1 ]);
+	var p7 := array_fill(t, c.zero, [ 1 ]);
+	var p8 := array_fill(t, c.zero, [ 1 ]);
+	var p9 := array_fill(t, c.zero, [ 1 ]);
+	var p10 := array_fill(t, c.zero, [ 1 ]);
+	var p11 := array_fill(t, c.zero, [ 1 ]);
+	var p12 := array_fill(t, c.zero, [ 1 ]);
+	var p13 := array_fill(t, c.zero, [ 1 ]);
+	var p14 := array_fill(t, c.zero, [ 1 ]);
+	var p15 := array_fill(t, c.zero, [ 1 ]);
+	var p16 := array_fill(t, c.zero, [ 1 ]);
+	var p17 := array_fill(t, c.zero, [ 1 ]);
+	var p18 := array_fill(t, c.zero, [ 1 ]);
+	for~offload i := 0 to 1 do [
+		p1[i] := a + b;
+		p2[i] := a - b;
+		p3[i] := a * b;
+	]
+	for~offload i := 0 to 1 do [
+		p4[i] := a div b;
+		p5[i] := a mod b;
+	]
+	for~offload i := 0 to 1 do [
+		p6[i] := a and b;
+		p7[i] := a or b;
+		p8[i] := a xor b;
+	]
+	for~offload i := 0 to 1 do [
+		p9[i] := a shl (b and 127);
+		p10[i] := a shr b;
+		p11[i] := a bts (b and 127);
+		p12[i] := a btr (b and 127);
+		p13[i] := a btc (b and 127);
+	]
+	for~offload i := 0 to 1 do [
+		p14[i] := not a;
+		p15[i] := -a;
+	]
+	for~offload i := 0 to 1 do [
+		p16[i] := bsf a;
+	]
+	for~offload i := 0 to 1 do [
+		p17[i] := bsr a;
+	]
+	for~offload i := 0 to 1 do [
+		p18[i] := popcnt a;
+	]
+
+	write(s + " plus: " + num_to_str(p1[0]) + nl);
+	write(s + " minus: " + num_to_str(p2[0]) + nl);
+	write(s + " multiply: " + num_to_str(p3[0]) + nl);
+	write(s + " divide: " + num_to_str(p4[0]) + nl);
+	write(s + " modulo: " + num_to_str(p5[0]) + nl);
+	write(s + " and: " + num_to_str(p6[0]) + nl);
+	write(s + " or: " + num_to_str(p7[0]) + nl);
+	write(s + " xor: " + num_to_str(p8[0]) + nl);
+	write(s + " shl: " + num_to_str(p9[0]) + nl);
+	write(s + " shr: " + num_to_str(p10[0]) + nl);
+	write(s + " bts: " + num_to_str(p11[0]) + nl);
+	write(s + " btr: " + num_to_str(p12[0]) + nl);
+	write(s + " btc: " + num_to_str(p13[0]) + nl);
+	write(s + " not: " + num_to_str(p14[0]) + nl);
+	write(s + " neg: " + num_to_str(p15[0]) + nl);
+	write(s + " bsf: " + num_to_str(p16[0]) + nl);
+	write(s + " bsr: " + num_to_str(p17[0]) + nl);
+	write(s + " popcnt: " + num_to_str(p18[0]) + nl);
+
+	p1[0] := xlate_exception(p1[0]);
+	p2[0] := xlate_exception(p2[0]);
+	p3[0] := xlate_exception(p3[0]);
+	p4[0] := xlate_exception(p4[0]);
+	p5[0] := xlate_exception(p5[0]);
+	p6[0] := xlate_exception(p6[0]);
+	p7[0] := xlate_exception(p7[0]);
+	p8[0] := xlate_exception(p8[0]);
+	p9[0] := xlate_exception(p9[0]);
+	p10[0] := xlate_exception(p10[0]);
+	p11[0] := xlate_exception(p11[0]);
+	p12[0] := xlate_exception(p12[0]);
+	p13[0] := xlate_exception(p13[0]);
+	p14[0] := xlate_exception(p14[0]);
+	p15[0] := xlate_exception(p15[0]);
+	p16[0] := xlate_exception(p16[0]);
+	p17[0] := xlate_exception(p17[0]);
+	p18[0] := xlate_exception(p18[0]);
+
+	var p := p1[0] + p2[0] + p3[0] + p4[0] + p5[0] + p6[0] + p7[0] + p8[0] + p9[0] + p10[0] + p11[0] + p12[0] + p13[0] + p14[0] + p15[0] + p16[0] + p17[0] + p18[0];
+	if is_exception p then
+		eval internal("Integer operation generated an exception");
+	return p;
+]
+
+fn eval_fixed_number(implicit w : world, implicit h : handle, t : type, implicit c~spec : class_fixed_integer_number(t), s : bytes, aa bb : int) : (world, int)
+[
+	//write("testing fixed: " + ntos(c.bits) + ", " + select(c.unsigned, "signed", "unsigned") + nl);
+
+	var cvt1 : t := aa;
+	if is_exception cvt1 then
+		cvt1 := #12;
+
+	aa and= (1 shl c.bits) - 1;
+	bb and= (1 shl c.bits) - 1;
+
+	if not c.unsigned then [
+		if aa bt c.bits - 1 then
+			aa -= 1 shl c.bits;
+		if bb bt c.bits - 1 then
+			bb -= 1 shl c.bits;
+	]
+
+	var a : t := aa;
+	var b : t := bb;
+
+	var cvt2 : int := a;
+	if is_exception cvt2 then
+		cvt2 := #34;
+
+	var p1 := array_fill(t, c.zero, [ 1 ]);
+	var p2 := array_fill(t, c.zero, [ 1 ]);
+	var p3 := array_fill(t, c.zero, [ 1 ]);
+	var p4 := array_fill(t, c.zero, [ 1 ]);
+	var p5 := array_fill(t, c.zero, [ 1 ]);
+	var p6 := array_fill(t, c.zero, [ 1 ]);
+	var p7 := array_fill(t, c.zero, [ 1 ]);
+	var p8 := array_fill(t, c.zero, [ 1 ]);
+	var p9 := array_fill(t, c.zero, [ 1 ]);
+	var p10 := array_fill(t, c.zero, [ 1 ]);
+	var p11 := array_fill(t, c.zero, [ 1 ]);
+	var p12 := array_fill(t, c.zero, [ 1 ]);
+	var p13 := array_fill(t, c.zero, [ 1 ]);
+	var p14 := array_fill(t, c.zero, [ 1 ]);
+	var p15 := array_fill(t, c.zero, [ 1 ]);
+	var p16 := array_fill(t, c.zero, [ 1 ]);
+	var p17 := array_fill(t, c.zero, [ 1 ]);
+	var p18 := array_fill(t, c.zero, [ 1 ]);
+	var p19 := array_fill(t, c.zero, [ 1 ]);
+	var p20 := array_fill(t, c.zero, [ 1 ]);
+	for~offload i := 0 to 1 do [
+		p1[i] := a + b;
+		p2[i] := a - b;
+		p3[i] := a * b;
+	]
+	for~offload i := 0 to 1 do [
+		p4[i] := a div b;
+		p5[i] := a mod b;
+	]
+	for~offload i := 0 to 1 do [
+		p6[i] := a and b;
+		p7[i] := a or b;
+		p8[i] := a xor b;
+	]
+	for~offload i := 0 to 1 do [
+		p9[i] := a shl (b and 127);
+		p10[i] := a shr b;
+		p11[i] := a bts (b and 127);
+		p12[i] := a btr (b and 127);
+		p13[i] := a btc (b and 127);
+	]
+	for~offload i := 0 to 1 do [
+		p14[i] := not a;
+		p15[i] := -a;
+	]
+	for~offload i := 0 to 1 do [
+		p16[i] := bsf a;
+	]
+	for~offload i := 0 to 1 do [
+		p17[i] := bsr a;
+	]
+	for~offload i := 0 to 1 do [
+		p18[i] := popcnt a;
+	]
+	for~offload i := 0 to 1 do [
+		p19[i] := a rol b;
+		p20[i] := a ror b;
+	]
+
+	write(s + " plus: " + num_to_str(p1[0]) + nl);
+	write(s + " minus: " + num_to_str(p2[0]) + nl);
+	write(s + " multiply: " + num_to_str(p3[0]) + nl);
+	write(s + " divide: " + num_to_str(p4[0]) + nl);
+	write(s + " modulo: " + num_to_str(p5[0]) + nl);
+	write(s + " and: " + num_to_str(p6[0]) + nl);
+	write(s + " or: " + num_to_str(p7[0]) + nl);
+	write(s + " xor: " + num_to_str(p8[0]) + nl);
+	write(s + " shl: " + num_to_str(p9[0]) + nl);
+	write(s + " shr: " + num_to_str(p10[0]) + nl);
+	write(s + " bts: " + num_to_str(p11[0]) + nl);
+	write(s + " btr: " + num_to_str(p12[0]) + nl);
+	write(s + " btc: " + num_to_str(p13[0]) + nl);
+	write(s + " not: " + num_to_str(p14[0]) + nl);
+	write(s + " neg: " + num_to_str(p15[0]) + nl);
+	write(s + " bsf: " + num_to_str(p16[0]) + nl);
+	write(s + " bsr: " + num_to_str(p17[0]) + nl);
+	write(s + " popcnt: " + num_to_str(p18[0]) + nl);
+	write(s + " rol: " + num_to_str(p19[0]) + nl);
+	write(s + " ror: " + num_to_str(p20[0]) + nl);
+
+	var p := p1[0] + p2[0] + p3[0] + p4[0] + p5[0] + p6[0] + p7[0] + p8[0] + p9[0] + p10[0] + p11[0] + p12[0] + p13[0] + p14[0] + p15[0] + p16[0] + p17[0] + p18[0] + p19[0] + p20[0];
+	if is_exception p then [
+		eval internal("Fixed operation generated an exception");
+	]
+	return p;
+]
+
+fn main
+[
+	implicit var p := prng_init(0);
+	var limit := 1000000000000000000;
+	if len(args) > 0 then
+		limit := ston(args[0]);
+	for i := 0 to limit do [
+		write(h[1], "iteration: " + ntos(i) + nl);
+		var a := get_random();
+		var b := get_random();
+		write(h[1], "a = " + ntos_base(a, 16) + ", b = " + ntos_base(b, 16) + nl);
+		var i1 := eval_number(h[1], int, instance_number_int, "int   ", a, b);
+		var i2 := eval_number(h[1], int8, instance_number_int8, "int8  ", a, b);
+		var i3 := eval_number(h[1], int16, instance_number_int16, "int16 ", a, b);
+		var i4 := eval_number(h[1], int32, instance_number_int32, "int32 ", a, b);
+		var i5 := eval_number(h[1], int64, instance_number_int64, "int64 ", a, b);
+		var i6 := eval_number(h[1], int128, instance_number_int128, "int128", a, b);
+		if i1 <> i2 or i1 <> i3 or i1 <> i4 or i1 <> i5 then [
+			abort internal("Mismatch between int operations");
+		]
+		var s1 := eval_fixed_number(h[1], sint8, instance_fixed_integer_number_sint8, "sint8", a, b);
+		var s2 := eval_fixed_number(h[1], sint16, instance_fixed_integer_number_sint16, "sint16", a, b);
+		var s3 := eval_fixed_number(h[1], sint32, instance_fixed_integer_number_sint32, "sint32", a, b);
+		var s4 := eval_fixed_number(h[1], sint64, instance_fixed_integer_number_sint64, "sint64", a, b);
+		var u1 := eval_fixed_number(h[1], uint8, instance_fixed_integer_number_uint8, "uint8", a, b);
+		var u2 := eval_fixed_number(h[1], uint16, instance_fixed_integer_number_uint16, "uint16", a, b);
+		var u3 := eval_fixed_number(h[1], uint32, instance_fixed_integer_number_uint32, "uint32", a, b);
+		var u4 := eval_fixed_number(h[1], uint64, instance_fixed_integer_number_uint64, "uint64", a, b);
+
+		var sx1 := eval_fixed_number(h[1], sint(8), instance_fixed_integer_number_sint(8), "si(8)", a, b);
+		var sx2 := eval_fixed_number(h[1], sint(16), instance_fixed_integer_number_sint(16), "si(16)", a, b);
+		var sx3 := eval_fixed_number(h[1], sint(32), instance_fixed_integer_number_sint(32), "si(32)", a, b);
+		var sx4 := eval_fixed_number(h[1], sint(64), instance_fixed_integer_number_sint(64), "si(64)", a, b);
+		var ux1 := eval_fixed_number(h[1], uint(8), instance_fixed_integer_number_uint(8), "ui(8)", a, b);
+		var ux2 := eval_fixed_number(h[1], uint(16), instance_fixed_integer_number_uint(16), "ui(16)", a, b);
+		var ux3 := eval_fixed_number(h[1], uint(32), instance_fixed_integer_number_uint(32), "ui(32)", a, b);
+		var ux4 := eval_fixed_number(h[1], uint(64), instance_fixed_integer_number_uint(64), "ui(64)", a, b);
+
+		if s1 <> sx1 or s2 <> sx2 or s3 <> sx3 or s4 <> sx4 then [
+			abort internal("Mismatch between signed fixed operations");
+		]
+		if u1 <> ux1 or u2 <> ux2 or u3 <> ux3 or u4 <> ux4 then [
+			abort internal("Mismatch between unsigned fixed operations");
+		]
+
+		if is_exception w then
+			break;
+	]
+]
