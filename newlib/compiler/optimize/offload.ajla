@@ -462,12 +462,14 @@ fn process_binary_operator(ctx : context, ins : instruction) : bytes
 	var op := ins.params[0];
 	var op1_name op2_name : bytes;
 	op1_name := ctx.variables[ins.params[3]].offload_name;
-	if unary then
+	if unary then [
 		op2_name := "";
-	else if not cnst then
+	] else if not cnst then [
 		op2_name := ctx.variables[ins.params[5]].offload_name;
-	else
-		op2_name := "("+t+")"+ntos(ins.params[4]);
+	] else [
+		var ft, fot, fbits := get_variable_type(ctx, ins.params[3]);
+		op2_name := "("+ft+")"+ntos(ins.params[4]);
+	]
 	var output := "	{"+nl;
 	output += "		"+t+" result;"+nl;
 	if op = Bin_Add then [
