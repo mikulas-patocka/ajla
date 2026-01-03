@@ -78,6 +78,8 @@ record loop_status [
 	control_variable : int;
 	added_control_variable : int;
 	limit : loop_limit;
+	start_bb : int;
+	test_bb : int;
 	body_bb : int;
 	end_bb : int;
 	arrays : list(array_info);
@@ -91,10 +93,8 @@ fn test_loop(ctx : context, start_bgi end_bgi : int) : (list(loop_status), bytes
 	var test_bgi : int;
 	if len(start_block.post_list) = 1 then [
 		test_bgi := start_block.post_list[0];
-	] else if len(start_block.post_list) = 3 then [
-		test_bgi := start_bgi;
 	] else [
-		return empty(loop_status), "invalid post_list";
+		return empty(loop_status), "unexpected condition";
 	]
 	var test_block := ctx.blocks[test_bgi];
 
@@ -208,6 +208,8 @@ found_control_var:
 		control_variable : control_var,
 		added_control_variable : var1,
 		limit : lim,
+		start_bb : start_bgi,
+		test_bb : test_bgi,
 		body_bb : test_block.post_list[0],
 		end_bb : last_bb,
 		arrays : ais,
@@ -746,11 +748,12 @@ found:
 	return output;
 ]
 
-fn process_basic_block(ctx : context, bgi : int, last : bool) : bytes
+fn process_basic_block(ctx : context, bgi : int, test last : bool) : bytes
 [
 	var output := "";
 	var bb := ctx.blocks[bgi];
-	output += bb.block_name+":"+nl;
+	if not test then
+		output += bb.block_name+":"+nl;
 	for ili := 0 to len(bb.instrs) do [
 		var s : bytes;
 		var ins := ctx.instrs[bb.instrs[ili]];
@@ -798,7 +801,10 @@ fn process_basic_block(ctx : context, bgi : int, last : bool) : bytes
 		eval warning(ctx.name + ": unsupported opcode " + ntos(ins.opcode));
 		return "";
 	]
-	if last then [
+	if test then [
+		if not len_greater_than(output, 0) then
+			output += nl;
+	] else if last then [
 		output += "	return;"+nl;
 	] else [
 		if len(bb.post_list) = 1 then [
@@ -909,7 +915,7 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 		var v : int := bsr var_worklist;
 		var_worklist btr= v;
 		var def_instr := ctx.instrs[ctx.variables[v].defining_instr];
-		if not bbs bt def_instr.bb then [
+		if not bbs bt def_instr.bb, ctx.blocks[def_instr.bb].dominates bt decision_bgi then [
 			imported_variables bts= v;
 			ctx.variables[v].offload_name := "arg_"+num2str(v);
 			//eval debug("imported variable: " + ntos(v) + ", " + ctx.variables[v].name);
@@ -979,6 +985,18 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 		output += "	"+t+" "+ctx.variables[v].offload_name+";"+nl;
 	]
 
+	for i := 0 to len(shape) do [
+		var s : bytes;
+		s := process_basic_block(ctx, shape[i].start_bb, true, false);
+		if not len_greater_than(s, 0) then
+			goto fail;
+		output += s;
+		s := process_basic_block(ctx, shape[i].test_bb, true, false);
+		if not len_greater_than(s, 0) then
+			goto fail;
+		output += s;
+	]
+
 	output += "	goto "+ctx.blocks[inner_shape.body_bb].block_name+";"+nl;
 
 	worklist := bbs;
@@ -986,7 +1004,7 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 		var b : int := bsf worklist;
 		worklist btr= b;
 		var s : bytes;
-		s := process_basic_block(ctx, b, b = inner_shape.end_bb);
+		s := process_basic_block(ctx, b, false, b = inner_shape.end_bb);
 		if not len_greater_than(s, 0) then
 			goto fail;
 		output += s;
