@@ -757,6 +757,10 @@ fn process_basic_block(ctx : context, bgi : int, test last : bool) : bytes
 	for ili := 0 to len(bb.instrs) do [
 		var s : bytes;
 		var ins := ctx.instrs[bb.instrs[ili]];
+		if ins.opcode = P_Copy_Type_Cast then [
+			output += "	goto exception;" + nl;
+			goto ret_output;
+		]
 		var ws := ins.write_set;
 		if popcnt ws <> 1 then
 			continue;
@@ -775,10 +779,6 @@ fn process_basic_block(ctx : context, bgi : int, test last : bool) : bytes
 			if not len_greater_than(s, 0) then
 				return "";
 			output += s;
-			continue;
-		]
-		if ins.opcode = P_Copy_Type_Cast then [
-			output += "	goto exception;" + nl;
 			continue;
 		]
 		if ins.opcode = P_Load_Const then [
@@ -824,6 +824,7 @@ fn process_basic_block(ctx : context, bgi : int, test last : bool) : bytes
 			output += "	}"+nl;
 		]
 	]
+ret_output:
 	return output;
 ]
 
