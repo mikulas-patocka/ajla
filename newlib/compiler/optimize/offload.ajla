@@ -723,6 +723,29 @@ fn process_array_load(ctx : context, ins : instruction) : bytes
 	return output;
 ]
 
+fn adjust_phis(ctx : context, pfx : bytes, bgi_from idx_from bgi_to : int) : bytes
+[
+	var output := "";
+	var bb_to := ctx.blocks[bgi_to];
+	var position : int;
+	for i := 0 to len(bb_to.pred_position) do [
+		if bb_to.pred_list[i] = bgi_from,
+		   bb_to.pred_position[i] = idx_from then [
+			position := i;
+			goto found;
+		]
+	]
+	abort internal("previous block not found");
+found:
+	for ili := 0 to len(bb_to.instrs) do [
+		var ins := ctx.instrs[bb_to.instrs[ili]];
+		if ins.opcode <> P_Phi then
+			break;
+		output += pfx+ctx.variables[ins.params[0]].offload_name+" = "+ctx.variables[ins.params[position + 1]].offload_name+";"+nl;
+	]
+	return output;
+]
+
 fn process_basic_block(ctx : context, bgi : int, last : bool) : bytes
 [
 	var output := "";
@@ -751,6 +774,10 @@ fn process_basic_block(ctx : context, bgi : int, last : bool) : bytes
 			output += s;
 			continue;
 		]
+		if ins.opcode = P_Copy_Type_Cast then [
+			output += "	goto exception;" + nl;
+			continue;
+		]
 		if ins.opcode = P_Load_Const then [
 			s := process_load_const(ctx, ins);
 			if not len_greater_than(s, 0) then
@@ -765,11 +792,32 @@ fn process_basic_block(ctx : context, bgi : int, last : bool) : bytes
 			output += s;
 			continue;
 		]
+		if ins.opcode = P_Phi then [
+			continue;
+		]
 		eval warning(ctx.name + ": unsupported opcode " + ntos(ins.opcode));
 		return "";
 	]
-	if last then
+	if last then [
 		output += "	return;"+nl;
+	] else [
+		if len(bb.post_list) = 1 then [
+			output += adjust_phis(ctx, "	", bgi, 0, bb.post_list[0]);
+			var post_bb := ctx.blocks[bb.post_list[0]];
+			output += "	goto "+post_bb.block_name+";"+nl;
+		] else [
+			var last_instr := ctx.instrs[bb.instrs[len(bb.instrs) - 1]];
+			if last_instr.opcode <> P_Jmp_False then
+				abort internal("the last instruction is not P_Jmp_False");
+			output += "	if ("+ctx.variables[last_instr.params[0]].offload_name+") {"+nl;
+			output += adjust_phis(ctx, "		", bgi, 0, bb.post_list[0]);
+			output += "		goto "+ctx.blocks[bb.post_list[0]].block_name+";"+nl;
+			output += "	} else {"+nl;
+			output += adjust_phis(ctx, "		", bgi, 1, bb.post_list[1]);
+			output += "		goto "+ctx.blocks[bb.post_list[1]].block_name+";"+nl;
+			output += "	}"+nl;
+		]
+	]
 	return output;
 ]
 
@@ -808,6 +856,7 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 
 	//eval debug("arrays verified: " + ntos(inner_shape.body_bb) + " - " + ntos(inner_shape.end_bb));
 
+	var var_worklist : var_set := 0;
 	var bbs := cast(node_set, 0) bts inner_shape.body_bb;
 	var worklist := bbs;
 	ctx.blocks[inner_shape.body_bb].block_name := "bb_"+num2str(inner_shape.body_bb);
@@ -817,6 +866,12 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 		if b = inner_shape.end_bb then
 			continue;
 		var bb := ctx.blocks[b];
+		if len_greater_than(bb.post_list, 1) then [
+			var last_instr := ctx.instrs[bb.instrs[len(bb.instrs) - 1]];
+			if last_instr.opcode <> P_Jmp_False then
+				abort internal("the last instruction is not P_Jmp_False");
+			var_worklist bts= last_instr.params[0];
+		]
 		for i := 0 to len(bb.post_list) do [
 			var p := bb.post_list[i];
 			if bbs bt p then
@@ -833,7 +888,6 @@ fn offload_instruction(ctx : context, ili : int, ins : instruction) : context
 	var local_variables : var_set := 0;
 	var output_array_variables : var_set := 0;
 	var loop_controls : var_set := 0;
-	var var_worklist : var_set := 0;
 	for i := 0 to len(inner_shape.arrays) do [
 		var_worklist bts= inner_shape.arrays[i].var_mod;
 		output_array_variables bts= inner_shape.arrays[i].var_mod;
