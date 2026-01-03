@@ -459,6 +459,7 @@ fn process_binary_operator(ctx : context, ins : instruction) : bytes
 	var cnst := ins.opcode = P_BinaryConstOp;
 	var unary := ins.opcode = P_UnaryOp;
 	var t, ot, bits := get_variable_type(ctx, ins.params[1]);
+	var ft, fot, fbits := get_variable_type(ctx, ins.params[3]);
 	var op := ins.params[0];
 	var op1_name op2_name : bytes;
 	op1_name := ctx.variables[ins.params[3]].offload_name;
@@ -467,11 +468,14 @@ fn process_binary_operator(ctx : context, ins : instruction) : bytes
 	] else if not cnst then [
 		op2_name := ctx.variables[ins.params[5]].offload_name;
 	] else [
-		var ft, fot, fbits := get_variable_type(ctx, ins.params[3]);
 		op2_name := "("+ft+")"+ntos(ins.params[4]);
 	]
 	var output := "	{"+nl;
 	output += "		"+t+" result;"+nl;
+	if not unary, ot is boolean, fot is fp then [
+		output += "		if ("+op1_name+" != "+op1_name+" || "+op2_name+" != "+op2_name+")"+nl;
+		output += "			goto exception;"+nl;
+	]
 	if op = Bin_Add then [
 		output += "		result = "+op1_name+" + "+op2_name+";"+nl;
 		if ot is integer then [
@@ -616,7 +620,6 @@ fn process_binary_operator(ctx : context, ins : instruction) : bytes
 			output += "			goto exception;"+nl;
 		output += "		result = popcount("+op1_name+");"+nl;
 	] else if op = Un_ConvertToInt then [
-		var ft, fot, fbits := get_variable_type(ctx, ins.params[3]);
 		if fot is fixed, ft[0] = 'u' then [
 			if fbits >= bits then [
 				output += "		if ("+op1_name+" > "+ntos((1 shl bits - 1) - 1)+")"+nl;
@@ -641,7 +644,6 @@ fn process_binary_operator(ctx : context, ins : instruction) : bytes
 			abort internal("Un_ConvertToInt: invalid type " + ntos(ord fot));
 		]
 	] else if op = Un_ConvertFromInt then [
-		var ft, fot, fbits := get_variable_type(ctx, ins.params[3]);
 		if ot is fixed, t[0] = 'u' then [
 			output += "		if ("+op1_name+" < 0)"+nl;
 			output += "			goto exception;"+nl;
