@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 Mikulas Patocka
+ * Copyright (C) 2025, 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -280,6 +280,7 @@ process_idx:
 
 		if (TYPE_TAG_IS_BUILTIN(type->tag)) {
 			float flt;
+			ajla_flat_option_t fo;
 			unsigned char *flat;
 			int ffi_type;
 			size_t len;
@@ -292,9 +293,16 @@ process_idx:
 					result_ptr = pointer_thunk(thunk_);
 					goto set_result;
 				);
-				if (da_tag(d) == DATA_TAG_longint)
+				if (da_tag(d) == DATA_TAG_option) {
+					fo = da(d,option)->option;
+					if (unlikely(fo != da(d,option)->option))
+						goto set_unsupp;
+					flat = cast_ptr(unsigned char *, &fo);
+				} else if (da_tag(d) == DATA_TAG_longint) {
 					goto set_unsupp;
-				flat = da_flat(d);
+				} else {
+					flat = da_flat(d);
+				}
 			} else {
 				flat = frame_var(fp, slot);
 			}
@@ -302,6 +310,9 @@ process_idx:
 				type = type_get_real(1);
 				flt = half_to_float(*cast_ptr(uint16_t *, flat));
 				flat = cast_ptr(unsigned char *, &flt);
+			}
+			if (type->tag == TYPE_TAG_flat_option) {
+				type = type_get_fixed(log_2(sizeof(ajla_flat_option_t)), true);
 			}
 			d = type_to_mpint(type, flat, &err);
 			if (unlikely(!d))
