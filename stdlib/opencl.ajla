@@ -625,7 +625,7 @@ fn cl_mk_program(ctx : cl_context, code : bytes, options : bytes) : (cl_context,
 	var ptr_devices := ffi_destructor_allocate(ffi_get_size(ffi_type.t_pointer), ffi_get_alignment(ffi_type.t_pointer), false);
 	ffi_poke(ptr_devices, ffi_type.t_pointer, ctx.device);
 	var ptr_options := ffi_destructor_allocate(len(options) + 1, 1, false);
-	ffi_poke_array(ptr_string, options);
+	ffi_poke_array(ptr_options, options);
 	ffi_poke(ptr_options + len(options), ffi_type.t_schar, 0);
 
 	ret, err := ffi_function_call(ctx.clBuildProgram, [ prog, 1, ptr_devices, ptr_options, 0, 0 ]);
