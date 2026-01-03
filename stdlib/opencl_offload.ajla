@@ -41,7 +41,7 @@ uses opencl;
 
 fn get_context~cache(kernel : bytes) : (cl_context, cl_program)
 [
-	eval debug(kernel);
+	//eval debug(kernel);
 	implicit var ctx := cl_mk_context(0);
 	var prog := cl_mk_program(kernel, "");
 	return ctx, prog;
@@ -148,7 +148,7 @@ fn do_offload(rq : offload_request) : bool
 	xeval arg_buffers;
 	xeval ctx;
 
-	eval debug("program finished (" + rq.function_name + ")");
+	//eval debug("program finished (" + rq.function_name + ")");
 
 	return false;
 

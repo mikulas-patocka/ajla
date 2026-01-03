@@ -153,7 +153,7 @@ void *ipret_offload(frame_s *fp, const code_t *ip)
 	memset(da_record_frame(record), 0, bitmap_slots(record_definition->n_slots) * slot_size);
 
 	name = da(get_frame(fp)->function,function)->function_name;
-	debug("OFFLOADING: %s: %x %x %x", name, n_dims, n_args, n_results);
+	/*debug("OFFLOADING: %s: %x %x %x", name, n_dims, n_args, n_results);*/
 	name_len = strlen(name);
 	function_name = data_alloc_array_flat_mayfail(type_get_fixed(0, true), name_len, name_len, false, &err pass_file_line);
 	if (unlikely(!function_name))
