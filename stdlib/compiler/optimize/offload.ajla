@@ -24,6 +24,7 @@ fn offload(ctx : context) : context;
 
 implementation
 
+//uses io;
 uses charset;
 uses compiler.optimize.utils;
 uses compiler.common.blob;
@@ -1084,6 +1085,8 @@ found2:
 		abort internal("output array was not found");
 found3:
 	]
+	//var h := ropen_lazy(droot(unsafe_get_world), "/home/mikulas/c/ajla/mandelbrot.cl", 0);
+	//output := read_lazy(h);
 	params += blob_store(output);
 	//xeval debug(output);
 

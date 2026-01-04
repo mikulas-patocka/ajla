@@ -121,8 +121,7 @@ fn do_offload(rq : offload_request) : bool
 	]
 
 	var gwo := fill(0, len(rq.shape));
-	var lws := fill(1, len(rq.shape));
-	cl_enqueue_kernel(kernel, len(rq.shape), gwo, rq.shape, lws);
+	cl_enqueue_kernel(kernel, len(rq.shape), gwo, rq.shape, empty(nat));
 	if is_exception ctx then [
 		eval warning(rq.function_name + ": failed to execute kernel");
 		goto failed;

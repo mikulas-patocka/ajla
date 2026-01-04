@@ -750,15 +750,18 @@ fn cl_enqueue_kernel(ctx : cl_context, kernel : cl_kernel, dim : nat, gwo gws lw
 	if ctx.context <> kernel.context then
 		abort opencl_abort_msg("The kernel doesn't match the context");
 
-	if dim <> len(gwo) or dim <> len(gws) or dim <> len(lws) then
+	if dim <= 0 or dim <> len(gwo) or dim <> len(gws) or (len(lws) > 0 and dim <> len(lws)) then
 		abort opencl_abort_msg("Invalid dimension");
 
 	var ptr_gwo := ffi_destructor_allocate(ffi_get_size(ffi_type.t_usize) * dim, ffi_get_alignment(ffi_type.t_usize), false);
 	ffi_poke_int_array(ptr_gwo, ffi_type.t_usize, gwo);
 	var ptr_gws := ffi_destructor_allocate(ffi_get_size(ffi_type.t_usize) * dim, ffi_get_alignment(ffi_type.t_usize), false);
 	ffi_poke_int_array(ptr_gws, ffi_type.t_usize, gws);
-	var ptr_lws := ffi_destructor_allocate(ffi_get_size(ffi_type.t_usize) * dim, ffi_get_alignment(ffi_type.t_usize), false);
-	ffi_poke_int_array(ptr_lws, ffi_type.t_usize, lws);
+	var ptr_lws := 0;
+	if len(lws) > 0 then [
+		ptr_lws := ffi_destructor_allocate(ffi_get_size(ffi_type.t_usize) * dim, ffi_get_alignment(ffi_type.t_usize), false);
+		ffi_poke_int_array(ptr_lws, ffi_type.t_usize, lws);
+	]
 
 	var ptr_event := ffi_destructor_allocate(ffi_get_size(ffi_type.t_pointer), ffi_get_alignment(ffi_type.t_pointer), false);
 
