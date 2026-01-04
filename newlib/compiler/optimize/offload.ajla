@@ -473,7 +473,7 @@ fn process_binary_operator(ctx : context, ins : instruction) : bytes
 	var output := "	{"+nl;
 	output += "		"+t+" result;"+nl;
 	if not unary, ot is boolean, fot is fp then [
-		output += "		if ("+op1_name+" != "+op1_name+" || "+op2_name+" != "+op2_name+")"+nl;
+		output += "		if (isunordered("+op1_name+", "+op2_name+"))"+nl;
 		output += "			goto exception;"+nl;
 	]
 	if op = Bin_Add then [
@@ -633,7 +633,7 @@ fn process_binary_operator(ctx : context, ins : instruction) : bytes
 				output += "			goto exception;"+nl;
 			]
 		] else if fot is fp then [
-			output += "		if ("+op1_name+" != "+op1_name+")"+nl;
+			output += "		if (isnan("+op1_name+"))"+nl;
 			output += "			goto exception;"+nl;
 			output += "		if ("+op1_name+" <= "+ntos(-(1 shl bits - 1))+")"+nl;
 			output += "			goto exception;"+nl;
