@@ -41,6 +41,7 @@ shared_var bool ipret_noinline shared_init(false);
 shared_var bool ipret_verify_light shared_init(false);
 shared_var uint32_t ipret_verify_timeout shared_init(0);
 shared_var bool ipret_warnings shared_init(false);
+shared_var uint32_t ipret_opencl_device shared_init(0);
 
 static const timestamp_t break_ticks = 1;
 
@@ -530,6 +531,9 @@ int_default_t ipret_system_property(int_default_t idx)
 			break;
 		case SystemProperty_Verify_Timeout:
 			result = ipret_verify_timeout;
+			break;
+		case SystemProperty_OpenCL_Device:
+			result = ipret_opencl_device;
 			break;
 		default:
 			return -1;

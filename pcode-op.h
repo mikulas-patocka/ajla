@@ -231,6 +231,7 @@
 #define SystemProperty_NoInline		11
 #define SystemProperty_Verify		12
 #define SystemProperty_Verify_Timeout	13
+#define SystemProperty_OpenCL_Device	14
 
 #define SystemProperty_OS_Posix		1
 #define SystemProperty_OS_DOS		2

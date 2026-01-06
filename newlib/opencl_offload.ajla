@@ -42,7 +42,7 @@ uses opencl;
 fn get_context~cache(kernel : bytes) : (cl_context, cl_program)
 [
 	//eval debug(kernel);
-	implicit var ctx := cl_mk_context(0);
+	implicit var ctx := cl_mk_context(-1);
 	var prog := cl_mk_program(kernel, "");
 	return ctx, prog;
 ]

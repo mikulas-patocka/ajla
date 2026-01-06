@@ -25,7 +25,7 @@ type cl_buffer;
 type cl_program;
 type cl_kernel;
 
-fn cl_mk_context(num : nat) : cl_context;
+fn cl_mk_context(num : int) : cl_context;
 fn cl_get_device_info_value(ctx : cl_context, param : nat, ft : ffi_type) : (cl_context, int);
 fn cl_get_device_info_string(ctx : cl_context, param : nat) : (cl_context, bytes);
 fn cl_get_version(ctx : cl_context) : nat;
@@ -54,6 +54,7 @@ fn cl_enqueue_kernel(ctx : cl_context, kernel : cl_kernel, dim : nat, gwo gws lw
 implementation
 
 uses exception;
+uses pcode;
 
 record cl_context [
 	w : world;
@@ -235,11 +236,14 @@ ret:
 	return ctx, result;
 ]
 
-fn cl_mk_context(num : nat) : cl_context
+fn cl_mk_context(num : int) : cl_context
 [
 	implicit var w := unsafe_get_world;
 	implicit var destr := ffi_destructor_new();
 	var ret err : int;
+
+	if num < 0 then
+		num := sysprop(SystemProperty_OpenCL_Device);
 
 	var lib := ffi_open_library("OpenCL", true, "");
 	xeval lib;

@@ -129,6 +129,7 @@ static const struct arg args[] = {
 	{ "--noinline",			ARG_SWITCH,	NULL,				&ipret_noinline,	0, 0 },
 	{ "--nosave",			ARG_SWITCH,	NULL,				&save_disable,		0, 0 },
 	{ "--numa-nodes=",		ARG_NUMBER,	NULL,				&nr_nodes_override,	1, (unsigned)-1 },
+	{ "--opencl-device=",		ARG_NUMBER,	NULL,				&ipret_opencl_device,	0, signed_maximum(uint32_t) },
 	{ "--privileged",		ARG_SWITCH,	NULL,				&ipret_is_privileged,	0, 0 },
 	{ "--profile",			ARG_SWITCH,	profile_all,			NULL,			0, 0 },
 	{ "--profile=",			ARG_STRING,	profile_select,			NULL,			0, 0 },

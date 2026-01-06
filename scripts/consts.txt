@@ -254,6 +254,7 @@ SystemProperty_Compile
 SystemProperty_NoInline
 SystemProperty_Verify
 SystemProperty_Verify_Timeout
+SystemProperty_OpenCL_Device
 
 1
 SystemProperty_OS_Posix

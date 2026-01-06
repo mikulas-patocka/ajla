@@ -82,6 +82,7 @@ extern const char *verify;
 extern bool ipret_verify_light;
 extern uint32_t ipret_verify_timeout;
 extern bool ipret_warnings;
+extern uint32_t ipret_opencl_device;
 
 void eval_both(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2);
 
