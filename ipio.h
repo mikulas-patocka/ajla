@@ -25,6 +25,11 @@
 #define io_ffi_encode_real			name(io_ffi_encode_real)
 #define ipret_io				name(ipret_io)
 
+extern const char *dump_opencl;
+extern const char *dump_pcode;
+extern const char *dump_z3;
+extern const char *verify;
+
 int io_ffi_get_ffi_type(const struct type *type);
 struct data *io_ffi_encode_real(const struct type *type, const unsigned char *var, ajla_error_t *err);
 

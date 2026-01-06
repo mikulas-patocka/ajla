@@ -90,6 +90,8 @@ static void dump_select(const char *str)
 		fn++;
 	if (l == 4 && !strncmp(str, "code", l))
 		dump_code = fn;
+	else if (l == 6 && !strncmp(str, "opencl", l))
+		dump_opencl = fn;
 	else if (l == 5 && !strncmp(str, "pcode", l))
 		dump_pcode = fn;
 	else if (l == 2 && !strncmp(str, "z3", l))

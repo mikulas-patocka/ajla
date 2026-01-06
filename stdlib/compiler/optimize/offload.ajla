@@ -26,6 +26,7 @@ implementation
 
 //uses io;
 uses charset;
+uses glob;
 uses compiler.optimize.utils;
 uses compiler.common.blob;
 
@@ -1085,10 +1086,14 @@ found2:
 		abort internal("output array was not found");
 found3:
 	]
+
+	var dump_pattern := get_dump("opencl");
+	if glob_bytes(ctx.name, dump_pattern, true) then
+		eval debug(output);
+
 	//var h := ropen_lazy(droot(unsafe_get_world), "/home/mikulas/c/ajla/mandelbrot.cl", 0);
 	//output := read_lazy(h);
 	params += blob_store(output);
-	//xeval debug(output);
 
 	ctx.instrs[igi] := create_instr(P_Offload, params, ins.bb);
 

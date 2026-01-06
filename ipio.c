@@ -58,9 +58,10 @@
 extern char **environ;
 #endif
 
-shared_var const char *verify shared_init(NULL);
+shared_var const char *dump_opencl shared_init(NULL);
 shared_var const char *dump_pcode shared_init(NULL);
 shared_var const char *dump_z3 shared_init(NULL);
+shared_var const char *verify shared_init(NULL);
 
 struct resource_handle {
 	handle_t fd;
@@ -4799,6 +4800,8 @@ static void * attr_fastcall io_get_dump_handler(struct io_ctx *ctx)
 
 	if (!strcmp(ctx->str, "verify"))
 		str = verify;
+	else if (!strcmp(ctx->str, "opencl"))
+		str = dump_opencl;
 	else if (!strcmp(ctx->str, "pcode"))
 		str = dump_pcode;
 	else if (!strcmp(ctx->str, "z3"))
