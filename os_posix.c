@@ -745,7 +745,7 @@ void os_close_handle(handle_t h)
 	int r;
 	if (unlikely(h < 0))
 		internal(file_line, "os_close: attempting to close invalid handle %d", h);
-	EINTR_LOOP(r, close(h));
+	r = close(h);
 	if (unlikely(r == -1) && errno == EBADF)
 		internal(file_line, "os_close: closing invalid handle %d", h);
 }
