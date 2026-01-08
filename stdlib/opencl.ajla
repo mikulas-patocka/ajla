@@ -515,17 +515,18 @@ fn cl_read_buffer_raw(ctx : cl_context, buf : cl_buffer, offset ptr size : nat) 
 
 fn cl_read_buffer(ctx : cl_context, buf : cl_buffer, offset size : nat) : (cl_context, bytes)
 [
-	implicit var w := ffi_unsafe_get_world;
-	implicit var destr := ffi_destructor_new();
+	var destr : ffi_destructor;
+	ctx.w, destr := ffi_destructor_new(ctx.w);
 
-	var mem := ffi_destructor_allocate(size, 1, false);
+	var mem : int;
+	ctx.w, mem := ffi_destructor_allocate(ctx.w, destr, size, 1, false);
 	ctx := cl_read_buffer_raw(ctx, buf, offset, mem, size);
-	xeval ctx;
-	var data := ffi_peek_array(mem, size, ffi_type.t_uint8, byte);
+	var data : bytes;
+	ctx.w, data := ffi_peek_array(ctx.w, mem, size, ffi_type.t_uint8, byte);
 
-	ffi_destructor_destroy();
+	ctx.w := ffi_destructor_destroy(ctx.w, destr);
 
-	xeval w;
+	xeval ctx.w;
 	return ctx, data;
 ]
 
@@ -580,18 +581,19 @@ fn cl_write_buffer_raw(ctx : cl_context, buf : cl_buffer, offset ptr size : nat)
 
 fn cl_write_buffer(ctx : cl_context, buf : cl_buffer, offset : nat, data : bytes) : cl_context
 [
-	implicit var w := ffi_unsafe_get_world;
-	implicit var destr := ffi_destructor_new();
+	var destr : ffi_destructor;
+	ctx.w, destr := ffi_destructor_new(ctx.w);
 	var size := len(data);
 
-	var mem := ffi_destructor_allocate(size, 1, false);
-	ffi_poke_array(mem, data);
+	var mem : int;
+	ctx.w, mem := ffi_destructor_allocate(ctx.w, destr, size, 1, false);
+	ctx.w := ffi_poke_array(ctx.w, mem, data);
 
 	ctx := cl_write_buffer_raw(ctx, buf, offset, mem, size);
 
-	ffi_destructor_destroy();
-	xeval w;
+	ctx.w := ffi_destructor_destroy(ctx.w, destr);
 
+	xeval ctx.w;
 	return ctx;
 ]
 
