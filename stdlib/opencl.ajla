@@ -349,7 +349,7 @@ found:
 		abort opencl_abort_msg("Invalid version: " + version);
 	//eval debug("version: " + ntos(ctx.version));
 
-	ctx.callbacks := ctx.version >= 101;
+	ctx.callbacks := ctx.version >= 101 and ffi_callback_supported;
 
 	var ooo_queue := false;
 	var queue_flags := cl_get_device_info_value(ctx, #102A, ffi_type.t_ulong);
