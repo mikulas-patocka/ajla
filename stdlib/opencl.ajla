@@ -520,6 +520,7 @@ fn cl_read_buffer(ctx : cl_context, buf : cl_buffer, offset size : nat) : (cl_co
 
 	var mem := ffi_destructor_allocate(size, 1, false);
 	ctx := cl_read_buffer_raw(ctx, buf, offset, mem, size);
+	xeval ctx;
 	var data := ffi_peek_array(mem, size, ffi_type.t_uint8, byte);
 
 	ffi_destructor_destroy();
@@ -632,7 +633,25 @@ fn cl_mk_program(ctx : cl_context, code : bytes, options : bytes) : (cl_context,
 	ffi_poke_array(ptr_options, options);
 	ffi_poke(ptr_options + len(options), ffi_type.t_schar, 0);
 
-	ret, err := ffi_function_call(ctx.clBuildProgram, [ prog, 1, ptr_devices, ptr_options, 0, 0 ]);
+	if not ctx.callbacks then [
+		ret, err := ffi_function_call(ctx.clBuildProgram, [ prog, 1, ptr_devices, ptr_options, 0, 0 ]);
+	] else [
+		var callback, callback_ptr := ffi_callback_create();
+		ret, err := ffi_function_call(ctx.clBuildProgram, [ prog, 1, ptr_devices, ptr_options, callback_ptr, 0 ]);
+		ffi_callback_wait(callback);
+		if ret = 0 then [
+			var ptr_status := ffi_destructor_allocate(ffi_get_size(ffi_type.t_sint32), ffi_get_alignment(ffi_type.t_sint32), false);
+			var ret2 : int;
+			ret2, err := ffi_function_call(ctx.clGetProgramBuildInfo, [ prog, ctx.device, #1181, ffi_get_size(ffi_type.t_sint32), ptr_status, 0 ]);
+			if ret2 <> 0 then [
+				ffi_destructor_destroy();
+				xeval w;
+				abort opencl_abort("clGetProgramBuildInfo", ret2);
+			]
+			ret := ffi_peek(ptr_status, ffi_type.t_sint32);
+			ffi_destructor_free(ptr_status);
+		]
+	]
 	if ret <> 0 then [
 		ffi_destructor_free(ptr_devices);
 		ffi_destructor_free(ptr_options);
