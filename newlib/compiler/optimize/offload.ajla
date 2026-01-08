@@ -555,7 +555,7 @@ fn process_binary_operator(ctx : context, ins : instruction) : bytes
 	] else if op = Bin_Rol then [
 		output += "		result = rotate("+op1_name+", "+op2_name+");"+nl;
 	] else if op = Bin_Ror then [
-		output += "		result = rotate("+op1_name+", -"+op2_name+");"+nl;
+		output += "		result = rotate("+op1_name+", ("+t+")-"+op2_name+");"+nl;
 	] else if op = Bin_Bts then [
 		if ot is integer then [
 			output += "		if ((u"+t+")"+op2_name+" >= "+ntos(bits - 1)+")"+nl;
