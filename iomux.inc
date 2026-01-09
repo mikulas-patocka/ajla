@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -109,7 +109,6 @@ thread_function_decl(iomux_poll_thread,
 	sig_state_t set;
 	if (iomux_block_signals)
 		os_block_signals(&set);
-	thread_set_id(-1);
 	while (likely(!os_drain_notify_pipe())) {
 		do_timer_check_all;
 		os_proc_check_all();

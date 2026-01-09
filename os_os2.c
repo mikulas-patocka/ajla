@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -3806,7 +3806,6 @@ static int compare_int(const void *x1, const void *x2)
 static thread_t iomux_thread;
 
 thread_function_decl(iomux_poll_thread,
-	thread_set_id(-1);
 	while (likely(!os2_drain_notify_pipe())) {
 		int *select_arg;
 		size_t select_arg_n;

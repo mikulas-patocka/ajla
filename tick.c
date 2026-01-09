@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -87,7 +87,6 @@ static uchar_efficient_t tick_suspended;
 /*#include <sys/time.h>*/
 
 thread_function_decl(tick_thread_function,
-	thread_set_id(-2);
 	cond_lock(&tick_cond);
 	while (!tick_end) {
 		/*struct timeval tv;

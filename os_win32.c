@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -4375,8 +4375,6 @@ static int compare_socket(const void *x1, const void *x2)
 thread_function_decl(iomux_poll_thread,
 	u_int fdx_size;
 	struct fdx_set *fdx[2];
-
-	thread_set_id(-1);
 
 	fdx_size = 1;
 	fdx[0] = mem_alloc(struct fdx_set *, sizeof(struct fdx_set));
