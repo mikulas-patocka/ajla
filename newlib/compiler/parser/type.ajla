@@ -1,5 +1,5 @@
 {*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -543,7 +543,7 @@ restart:
 				option_vars +<= forced_options[i].v1;
 			]
 			for p := 0 to len(pi.conditions) do [
-				var gbd_cc, gbd_idx := get_base_definition(ctx, new_ctx, pi.conditions[p], false);
+				//var gbd_cc, gbd_idx := get_base_definition(ctx, new_ctx, pi.conditions[p], false);
 				var match := verify_type_equality(ctx, new_ctx, pi.conditions[p], empty(compare_fn_stack), empty_compare_context, cnst_true, empty(compare_fn_stack));
 				if match is noeq then
 					goto skip_cond;
