@@ -1807,10 +1807,9 @@ static bool pcode_load_constant(struct build_function_context *ctx)
 	}
 }
 
-static bool pcode_structured_loop(struct build_function_context *ctx, pcode_t structured, pcode_t n_steps, code_t extra_flags, arg_mode_t *am, bool gen)
+static bool pcode_structured_loop(struct build_function_context *ctx, pcode_t n_steps, code_t extra_flags, arg_mode_t *am, bool gen)
 {
 	pcode_t i = 0;
-	pcode_t local_type = ctx->pcode_types[structured].typ;
 	do {
 		pcode_t type;
 		if (i == n_steps - 1)
@@ -1820,12 +1819,12 @@ static bool pcode_structured_loop(struct build_function_context *ctx, pcode_t st
 		switch (type) {
 			case Structured_Record: {
 				arg_t idx;
-				pcode_t q, type_idx;
+				pcode_t q, local_type, type_idx;
 				const struct record_definition *def;
 				frame_t slot;
 
 				q = u_pcode_get();
-				pcode_get();
+				local_type = pcode_get();
 
 				idx = (arg_t)q;
 				if (unlikely(q != (pcode_t)idx))
@@ -1853,7 +1852,6 @@ static bool pcode_structured_loop(struct build_function_context *ctx, pcode_t st
 					gen_am(*am, type_idx);
 				}
 c1:
-				local_type = ctx->local_types[local_type].elements[idx];
 				break;
 			}
 			case Structured_Option: {
@@ -1874,17 +1872,14 @@ c1:
 					gen_am(*am, 0);
 				}
 
-				local_type = ctx->local_types[local_type].elements[opt];
 				break;
 			}
 			case Structured_Array: {
-				pcode_t var, local_idx;
+				pcode_t var, local_type, local_idx;
 				const struct pcode_type *var_type;
 
 				var = u_pcode_get();
-				pcode_get();
-
-				local_type = ctx->local_types[local_type].array_element;
+				local_type = pcode_get();
 
 				if (var_elided(var)) {
 					ajla_assert_lo(!gen, (file_line, "pcode_structured_loop(%s): elided array index in the second pass", function_name(ctx)));
@@ -1942,7 +1937,7 @@ static bool pcode_structured_write(struct build_function_context *ctx)
 
 	pcode_position_save(ctx, &saved);
 
-	if (!pcode_structured_loop(ctx, structured, n_steps, extra_flags, &am, false))
+	if (!pcode_structured_loop(ctx, n_steps, extra_flags, &am, false))
 		goto exception;
 
 	if (unlikely(var_elided(structured)) || unlikely(var_elided(scalar)))
@@ -1961,7 +1956,7 @@ static bool pcode_structured_write(struct build_function_context *ctx)
 	gen_code(OPCODE_STRUCTURED + am * OPCODE_MODE_MULT);
 	gen_am_two(am, structured_type->slot, scalar_type->slot);
 
-	if (!pcode_structured_loop(ctx, structured, n_steps, extra_flags, &am, true))
+	if (!pcode_structured_loop(ctx, n_steps, extra_flags, &am, true))
 		goto exception;
 
 	return true;
