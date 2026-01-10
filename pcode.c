@@ -3460,10 +3460,6 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 					ctx->local_types[p].elements[q] = pcode_get();
 				tt = type_get_flat_option();
 				break;
-			case Local_Type_Array:
-				base_idx = pcode_get();
-				tt = type_get_unknown();
-				break;
 			case Local_Type_Flat_Record:
 				base_idx = u_pcode_get();
 				ajla_assert_lo(base_idx < p, (file_line, "pcode_build_function_core(%s): invalid base record index: %"PRIdMAX" >= %"PRIdMAX"", function_name(ctx), (intmax_t)base_idx, (intmax_t)p));

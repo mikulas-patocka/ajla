@@ -203,9 +203,8 @@
 
 #define Local_Type_Record		0
 #define Local_Type_Option		1
-#define Local_Type_Array		2
-#define Local_Type_Flat_Record		3
-#define Local_Type_Flat_Array		4
+#define Local_Type_Flat_Record		2
+#define Local_Type_Flat_Array		3
 
 #define Call_Mode_Unspecified		0
 #define Call_Mode_Normal		1

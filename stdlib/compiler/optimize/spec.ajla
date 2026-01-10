@@ -355,8 +355,6 @@ fn spec_extract(pc : list(pcode_t)) : treeset(list(pcode_t))
 			ptr += 1 + pc[ptr];
 		] else if ft = Local_Type_Flat_Record then [
 			ptr += 2 + pc[ptr + 1];
-		] else if ft = Local_Type_Array then [
-			ptr += 1;
 		] else if ft = Local_Type_Flat_Array then [
 			ptr += 2;
 		] else [
