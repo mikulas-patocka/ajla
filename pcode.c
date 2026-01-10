@@ -1825,6 +1825,7 @@ static bool pcode_structured_loop(struct build_function_context *ctx, pcode_t st
 				frame_t slot;
 
 				q = u_pcode_get();
+				pcode_get();
 
 				idx = (arg_t)q;
 				if (unlikely(q != (pcode_t)idx))
@@ -1860,6 +1861,8 @@ c1:
 				pcode_t q;
 
 				q = u_pcode_get();
+				pcode_get();
+
 				opt = (ajla_option_t)q;
 				if (unlikely(q != (pcode_t)opt))
 					goto exception_overflow;
@@ -1879,6 +1882,7 @@ c1:
 				const struct pcode_type *var_type;
 
 				var = u_pcode_get();
+				pcode_get();
 
 				local_type = ctx->local_types[local_type].array_element;
 

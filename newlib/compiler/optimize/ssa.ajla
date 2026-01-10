@@ -2013,7 +2013,20 @@ fn remap_local_types(ctx : context, old_new : list(int)) : context
 				ctx.local_types[i].flat_array.flat_entry_type := old_new[lt.flat_array.flat_entry_type];
 		]
 	]
-
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
+			var igi := ctx.blocks[bgi].instrs[ili];
+			var ins := ctx.instrs[igi];
+			var s := ins.lt_set;
+			while s <> 0 do [
+				var p : int := bsr s;
+				s btr= p;
+				ctx.instrs[igi].params[p] := old_new[ins.params[p]];
+			]
+		]
+	]
 	return ctx;
 ]
 
@@ -2048,6 +2061,20 @@ fn dlte(ctx : context) : context
 			if ctx.variables[vgi].runtime_type >= len(ctx.local_types) then
 				abort internal("runtime type out of range: " + ntos(ctx.variables[vgi].runtime_type) + " >= " + ntos(len(ctx.local_types)));
 			needed[ctx.variables[vgi].runtime_type] := true;
+		]
+	]
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
+			var igi := ctx.blocks[bgi].instrs[ili];
+			var ins := ctx.instrs[igi];
+			var s := ins.lt_set;
+			while s <> 0 do [
+				var p : int := bsr s;
+				s btr= p;
+				needed[ins.params[p]] := true;
+			]
 		]
 	]
 

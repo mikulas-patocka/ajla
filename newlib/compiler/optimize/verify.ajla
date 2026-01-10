@@ -523,7 +523,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				declare_variable(ctx, stored_var, lti, fa);
 				var str := "(assert (= "+new_var+" (record_"+num2str(len(lt.rec.types))+"-entry_"+num2str(slot)+" "+old_var+")))";
 				z3_eval_noret(ctx, str);
-				idx += 2;
+				idx += 3;
 			] else if ins.params[idx] = Structured_Option then [
 				var t1 := get_z3_type(lti);
 				var slot := ins.params[idx + 1];
@@ -532,7 +532,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				declare_variable(ctx, stored_var, lti, fa);
 				var str := "(assert (=> (= (option-ord "+old_var+") "+ntos(slot)+") (= "+new_var+" (option-val "+old_var+"))))";
 				z3_eval_noret(ctx, str);
-				idx += 2;
+				idx += 3;
 			] else if ins.params[idx] = Structured_Array then [
 				var var2 : bytes;
 				ctx, var2 := allocate_variable_block(ctx, ins.params[idx + 1], phi_node, ins.bb, fa, false);
@@ -544,7 +544,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				declare_variable(ctx, stored_var, lti, fa);
 				var str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" (array-len "+old_var+"))) (= "+new_var+" (select (array-content "+old_var+") "+var2+"))))";
 				z3_eval_noret(ctx, str);
-				idx += 2;
+				idx += 3;
 			] else [
 				abort internal("assert_instruction: invalid structured type " + ntos(ins.params[idx]));
 			]
