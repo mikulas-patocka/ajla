@@ -716,12 +716,10 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		return ctx;
 	]
 	if ins.opcode = P_Array_Unicode then [
-		var lti := get_nonflat_lt(ctx, ctx.variables[ins.params[0]].runtime_type);
-		var lt := ctx.local_types[lti];
 		var blob := ins.params[1 .. ];
 		var str := "array-var";
 		for i := 0 to len(blob) do
-			str := "(store "+str+" "+ntos(i)+" "+cast_to_any(ntos(blob[i]), lt.arr)+")";
+			str := "(store "+str+" "+ntos(i)+" "+cast_to_any(ntos(blob[i]), T_Integer32)+")";
 		str := "(mk-array "+ntos(len(blob))+" "+str+")";
 		gen_assert(ctx, v, var_name, str, fa);
 		return ctx;
