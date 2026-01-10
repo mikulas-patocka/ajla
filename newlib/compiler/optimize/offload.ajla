@@ -200,7 +200,7 @@ found_control_var:
 		if n_dims = 0 then
 			return empty(loop_status), "array has zero dimensions";
 		for j := 0 to n_dims do [
-			var dim_var := shape_instr.params[4 + 2 * j];
+			var dim_var := shape_instr.params[5 + 2 * j];
 			ai.dims +<= dim_var;
 		]
 		ais +<= ai;

@@ -2010,7 +2010,7 @@ exception:
 
 static bool pcode_array_create(struct build_function_context *ctx)
 {
-	pcode_t result, length, n_real_arguments;
+	pcode_t result, length, n_real_arguments, local_type;
 	pcode_position_save_t saved;
 	const struct pcode_type *tr;
 	arg_mode_t am = INIT_ARG_MODE;
@@ -2018,6 +2018,7 @@ static bool pcode_array_create(struct build_function_context *ctx)
 	result = u_pcode_get();
 	length = u_pcode_get();
 	pcode_get();
+	local_type = pcode_get();
 
 	pcode_position_save(ctx, &saved);
 
@@ -2037,17 +2038,11 @@ static bool pcode_array_create(struct build_function_context *ctx)
 	get_arg_mode(am, tr->slot);
 
 	if (!length) {
-		struct local_type *lt;
 		pcode_t type_idx;
-		if (tr->typ == T_Undetermined)
-			goto create_nonflat;
-		lt = &ctx->local_types[tr->typ];
-		ajla_assert_lo(lt->mode == Local_Type_Array || lt->mode == Local_Type_Flat_Array, (file_line, "pcode_array_create: invalid local type %u", lt->mode));
-		type_idx = pcode_to_type_index(ctx, lt->array_element, true);
+		type_idx = pcode_to_type_index(ctx, local_type, true);
 		if (unlikely(type_idx == error_type_index))
 			goto exception;
 		if (type_idx == no_type_index) {
-create_nonflat:
 			gen_code(OPCODE_ARRAY_CREATE_EMPTY + am * OPCODE_MODE_MULT);
 			gen_am(am, tr->slot);
 		} else {

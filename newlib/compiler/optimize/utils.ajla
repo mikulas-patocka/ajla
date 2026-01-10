@@ -308,10 +308,10 @@ fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instructi
 		ins.read_set := 0 bts 2;
 		ins.write_set := 0 bts 0;
 		for i := 0 to params[1] do [
-			ins.read_set bts= 3 + i * 2 + 1;
-			ins.free_set bts= 3 + i * 2 + 1;
+			ins.read_set bts= 5 + i * 2;
+			ins.free_set bts= 5 + i * 2;
 		]
-		xlen := 3 + params[1] * 2;
+		xlen := 4 + params[1] * 2;
 	] else if opcode = P_Array_Fill then [
 		ins.read_set := 0 bts 2 bts 3;
 		ins.free_set := 0 bts 2;

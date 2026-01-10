@@ -1749,6 +1749,7 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 		if is_non_const(ctx, cc, type_idx) then
 			goto uses_non_const;
 		var array_length := pcode_Array_Create_get_length(instr);
+		var local_type := pcode_Array_Create_get_local_type(instr);
 		for i := 0 to array_length do
 			if is_non_const(ctx, cc, pcode_Array_Create_get_arg(instr, i)) then
 				goto uses_non_const;
@@ -1757,7 +1758,7 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 		var fields := fill(-1, array_length);
 		for i := 0 to array_length do
 			ctx, fields[i] := evaluate_type(ctx, cc, pcode_Array_Create_get_arg(instr, i), fn_stack, t);
-		ctx, l := generate_Array_Create(ctx, at, fields, t);
+		ctx, l := generate_Array_Create(ctx, at, local_type, fields, t);
 		return ctx, l;
 	]
 	if opcode = P_Array_String then [

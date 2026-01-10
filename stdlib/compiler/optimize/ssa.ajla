@@ -1312,9 +1312,9 @@ skip_bool:
 						goto next_dom;
 					if shape_def.params[1] <> 1 then
 						goto next_dom;
-					if shape_def.params[4] < 0 then
+					if shape_def.params[5] < 0 then
 						goto next_dom;
-					var dim_def := ctx.instrs[ctx.variables[shape_def.params[4]].defining_instr];
+					var dim_def := ctx.instrs[ctx.variables[shape_def.params[5]].defining_instr];
 					if dim_def.opcode <> P_Load_Const then
 						goto next_dom;
 					if blob_to_int(dim_def.params[1 .. ]) < dins.params[4] then
@@ -1367,7 +1367,7 @@ next_dom:
 		var vs2 := ctx.variables[vgi2];
 		var vs2_ins := ctx.instrs[vs2.defining_instr];
 		if vs2_ins.opcode = P_Array_Create, vs2_ins.params[1] = 1 then [
-			return create_instr(P_Array_Append_One, ins.params[ .. 4] +< vs2_ins.params[4], ins.bb), true;
+			return create_instr(P_Array_Append_One, ins.params[ .. 4] +< vs2_ins.params[5], ins.bb), true;
 		]
 		goto end;
 	]
@@ -1424,7 +1424,7 @@ fn substitute_variable(ctx : context, ins : instruction) : (int, int)
 		if vi_ins.opcode = P_Load_Const and vs_ins.opcode = P_Array_Create then [
 			var idx := blob_to_int(vi_ins.params[1 .. ]);
 			if idx >= 0 and idx < vs_ins.params[1] then [
-				return ins.params[0], vs_ins.params[4 + idx * 2];
+				return ins.params[0], vs_ins.params[5 + idx * 2];
 			]
 		]
 		if vi_ins.opcode = P_Load_Const and vs_ins.opcode = P_Array_Fill then [
@@ -1715,7 +1715,7 @@ retry:
 				goto skip;
 			]
 			for i := 0 to in2.params[1] do [
-				var d := in2.params[4 + 2 * i];
+				var d := in2.params[5 + 2 * i];
 				var vt3 := ctx.variables[d];
 				if vt3.defining_instr < 0 then [
 					goto skip;
