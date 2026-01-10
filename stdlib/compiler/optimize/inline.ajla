@@ -27,8 +27,8 @@ implementation
 
 uses compiler.optimize.utils;
 
-const inline_unoptimized_limit := 512;
-const inline_optimized_limit := 512;
+const inline_unoptimized_limit := 256;
+const inline_optimized_limit := 256;
 
 fn do_inline(ctx : context, bgi : int, ili : int, call_mode : pcode_t, autoinline : bool) : (context, bool)
 [
@@ -98,9 +98,6 @@ fn do_inline_or_specialize(ctx new_ctx : context, bgi : int, ili ili_n : int, ca
 				if lt.rec.types[i] >= 0 then
 					lt.rec.types[i] += len(ctx.local_types);
 			]
-		] else if lt is arr then [
-			if lt.arr >= 0 then
-				lt.arr += len(ctx.local_types);
 		] else if lt is flat_rec then [
 			lt.flat_rec.non_flat_record += len(ctx.local_types);
 			for j := 0 to len(lt.flat_rec.flat_types) do [
@@ -108,7 +105,6 @@ fn do_inline_or_specialize(ctx new_ctx : context, bgi : int, ili ili_n : int, ca
 					lt.flat_rec.flat_types[j] += len(ctx.local_types);
 			]
 		] else if lt is flat_array then [
-			lt.flat_array.non_flat_array += len(ctx.local_types);
 			if lt.flat_array.flat_entry_type >= 0 then
 				lt.flat_array.flat_entry_type += len(ctx.local_types);
 		]

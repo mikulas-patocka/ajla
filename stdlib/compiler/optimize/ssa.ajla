@@ -362,16 +362,10 @@ fn compare_local_types(ctx : context, src_rt dest_rt : int, src_visited dest_vis
 		return 1;
 	if src_lt is flat_rec and dest_lt is rec then
 		return -1;
-	if src_lt is arr and dest_lt is flat_array then
-		return 1;
-	if src_lt is flat_array and dest_lt is arr then
-		return -1;
 	if ord src_lt <> ord dest_lt then
 		abort internal("mismatch between local types " + ntos(ord src_lt) + ", " + ntos(ord dest_lt) + " in " + ctx.name);
 	if src_lt is flat_array or src_lt is flat_rec then
 		return 0;
-	if src_lt is arr then
-		return compare_local_types(ctx, src_lt.arr, dest_lt.arr, src_visited, dest_visited);
 	if src_lt.rec.opt <> dest_lt.rec.opt then
 		abort internal("mismatch between records and options " + select(src_lt.rec.opt, "record", "option") + ", " + select(dest_lt.rec.opt, "record", "option") + " in " + ctx.name);
 	if len(src_lt.rec.types) <> len(dest_lt.rec.types) then
@@ -1708,7 +1702,6 @@ retry:
 			did_something := true;
 		] else if ins.opcode = P_Array_Fixed then [
 			var ltfa := local_type_flat_array.[
-				non_flat_array : T_InvalidType,
 				flat_entry_type : T_InvalidType,
 				number_of_elements : 1,
 			];
@@ -1753,15 +1746,6 @@ retry:
 				goto skip;
 			]
 
-			for i := 0 to len(ctx.local_types) do [
-				if ctx.local_types[i] is arr, ctx.local_types[i].arr = l then [
-					ltfa.non_flat_array := i;
-					goto found;
-				]
-			]
-			goto skip;
-
-found:
 			ctx.variables[vgi].local_type := len(ctx.local_types);
 			ctx.local_types +<= local_type.flat_array.(ltfa);
 			did_something := true;
@@ -1997,9 +1981,6 @@ fn remap_local_types(ctx : context, old_new : list(int)) : context
 			for j := 0 to len(lt.rec.types) do
 				if lt.rec.types[j] >= 0, old_new[lt.rec.types[j]] <> T_InvalidType then
 					ctx.local_types[i].rec.types[j] := old_new[lt.rec.types[j]];
-		] else if lt is arr then [
-			if lt.arr >= 0, old_new[lt.arr] <> T_InvalidType then
-				ctx.local_types[i].arr := old_new[lt.arr];
 		] else if lt is flat_rec then [
 			if lt.flat_rec.non_flat_record >= 0, old_new[lt.flat_rec.non_flat_record] <> T_InvalidType then
 				ctx.local_types[i].flat_rec.non_flat_record := old_new[lt.flat_rec.non_flat_record];
@@ -2007,8 +1988,6 @@ fn remap_local_types(ctx : context, old_new : list(int)) : context
 				if lt.flat_rec.flat_types[j] >= 0, old_new[lt.flat_rec.flat_types[j]] <> T_InvalidType then
 					ctx.local_types[i].flat_rec.flat_types[j] := old_new[lt.flat_rec.flat_types[j]];
 		] else if lt is flat_array then [
-			if old_new[lt.flat_array.non_flat_array] <> T_InvalidType then
-				ctx.local_types[i].flat_array.non_flat_array := old_new[lt.flat_array.non_flat_array];
 			if lt.flat_array.flat_entry_type >= 0, old_new[lt.flat_array.flat_entry_type] <> T_InvalidType then
 				ctx.local_types[i].flat_array.flat_entry_type := old_new[lt.flat_array.flat_entry_type];
 		]
@@ -2038,15 +2017,13 @@ fn encode_local_type(lt : local_type) : int
 		pc +<= len(lt.rec.types);
 		for i := 0 to len(lt.rec.types) do
 			pc +<= lt.rec.types[i];
-	] else if lt is arr then [
-		pc := list(pcode_t).[ Local_Type_Array, lt.arr ];
 	] else if lt is flat_rec then [
 		pc := list(pcode_t).[ Local_Type_Flat_Record, lt.flat_rec.non_flat_record, len(lt.flat_rec.flat_types) ];
 		for i := 0 to len(lt.flat_rec.flat_types) do [
 			pc +<= lt.flat_rec.flat_types[i];
 		]
 	] else if lt is flat_array then [
-		pc := list(pcode_t).[ Local_Type_Flat_Array, lt.flat_array.non_flat_array, lt.flat_array.flat_entry_type, lt.flat_array.number_of_elements ];
+		pc := list(pcode_t).[ Local_Type_Flat_Array, lt.flat_array.flat_entry_type, lt.flat_array.number_of_elements ];
 	] else [
 		abort internal("invalid local type");
 	]
@@ -2092,13 +2069,6 @@ fn dlte(ctx : context) : context
 							]
 						]
 					]
-				] else if lt is arr then [
-					if lt.arr >= 0 then [
-						if not needed[lt.arr] then [
-							needed[lt.arr] := true;
-							did_something := true;
-						]
-					]
 				] else if lt is flat_rec then [
 					if not needed[lt.flat_rec.non_flat_record] then [
 						needed[lt.flat_rec.non_flat_record] := true;
@@ -2113,10 +2083,6 @@ fn dlte(ctx : context) : context
 						]
 					]
 				] else if lt is flat_array then [
-					if not needed[lt.flat_array.non_flat_array] then [
-						needed[lt.flat_array.non_flat_array] := true;
-						did_something := true;
-					]
 					if lt.flat_array.flat_entry_type >= 0 then [
 						if not needed[lt.flat_array.flat_entry_type] then [
 							needed[lt.flat_array.flat_entry_type] := true;
@@ -2243,10 +2209,6 @@ in_loop2:
 					ctx.variables[vgi].must_be_data := true;
 					ctx.variables[vgi].ra_priority += 1;
 				]
-				if rt >= 0, ctx.local_types[rt] is arr then [
-					ctx.variables[vgi].must_be_data := true;
-					ctx.variables[vgi].ra_priority += 1;
-				]
 				// TODO: allocate options that are always flat
 			]
 		]
@@ -2260,9 +2222,6 @@ in_loop2:
 			ctx.variables[vgi].must_be_data := true;
 		]
 		if rt >= 0, ctx.local_types[rt] is rec, not ctx.local_types[rt].rec.opt then [
-			ctx.variables[vgi].must_be_data := true;
-		]
-		if rt >= 0, ctx.local_types[rt] is arr then [
 			ctx.variables[vgi].must_be_data := true;
 		]
 	]}
@@ -2643,8 +2602,6 @@ fn allocate_variables(ctx : context) : context
 		var rt := v.runtime_type;
 		if rt < T_Undetermined then
 			abort internal("allocate_variables: invalid runtime_type: " + ctx.name + ", " + ntos(vgi) + "(" + v.name + "): " + ntos(rt));
-		if rt >= 0, ctx.local_types[rt] is arr then
-			rt := T_Undetermined;
 		type_to_var_set[(rt - T_Undetermined) * 4 + select(v.must_be_flat, 0, 1) + select(v.must_be_data, 0, 2)] bts= vgi;
 		if not ctx.cm[vgi] bt vgi then
 			abort internal("self-bit not set for variable " + ntos(vgi));

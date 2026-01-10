@@ -899,7 +899,7 @@ fn panel_process_event_property_2(implicit w : world, implicit app : appstate, i
 	return action.none;
 ]
 
-fn panel_process_event(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : panel_state, wev : wevent) : (world, appstate, widget_common, panel_state)
+novfy fn panel_process_event(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : panel_state, wev : wevent) : (world, appstate, widget_common, panel_state)
 [
 	var redraw_all := false;
 	var redraw_selected := false;

@@ -87,7 +87,7 @@ fn get_nonflat_lt(ctx : context, runtime_type : int) : int
 	if lt is flat_rec then
 		return lt.flat_rec.non_flat_record;
 	if lt is flat_array then
-		return lt.flat_array.non_flat_array;
+		return T_Undetermined;
 	return runtime_type;
 ]
 
@@ -147,7 +147,7 @@ fn assert_variable_type(implicit z3w : z3_world, implicit z3ctx : z3_context, ct
 	]
 	if lt >= 0 then [
 		lt := get_nonflat_lt(ctx, lt);
-		if ctx.local_types[lt] is rec then [
+		if lt >= 0, ctx.local_types[lt] is rec then [
 			var ln := len(ctx.local_types[lt].rec.types);
 			if not ctx.local_types[lt].rec.opt then [
 				z3_eval_noret(ctx, pfx+"((_ is mk-record_"+num2str(ln)+") "+n+")"+sfx);
@@ -991,9 +991,12 @@ fn verify_function(ctx : context) : unit_type
 
 	var record_sizes := 0;
 	for lti := 0 to len(ctx.local_types) do [
-		var lt := ctx.local_types[get_nonflat_lt(ctx, lti)];
-		if lt is rec then
-			record_sizes bts= len(lt.rec.types);
+		var l := get_nonflat_lt(ctx, lti);
+		if l >= 0 then [
+			var lt := ctx.local_types[l];
+			if lt is rec then
+				record_sizes bts= len(lt.rec.types);
+		]
 	]
 
 	var str := "(declare-datatypes ((Any 0)) (";
