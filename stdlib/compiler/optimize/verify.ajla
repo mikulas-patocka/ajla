@@ -164,7 +164,7 @@ fn assert_variable_type(implicit z3w : z3_world, implicit z3ctx : z3_context, ct
 				z3_eval_noret(ctx, pfx+"(< (option-ord "+n+") "+ntos(ln)+")"+sfx);
 			]
 		] else if ctx.local_types[lt] is arr or ctx.local_types[lt] is flat_array then [
-			z3_eval_noret(ctx, pfx+"((_ is mk-array) "+n+")"+sfx);
+			//z3_eval_noret(ctx, pfx+"((_ is mk-array) "+n+")"+sfx);
 			z3_eval_noret(ctx, pfx+"(>= (array-len "+n+") 0)"+sfx);
 		]
 	]
