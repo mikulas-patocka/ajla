@@ -135,7 +135,7 @@ fn cast_from_any(str : bytes, runtime_type : int) : bytes
 	return str;
 ]
 
-fn assert_variable_type(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, n : bytes, lt : int, fa : list(int)) : z3_world
+fn assert_variable_type(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, n : bytes, lt : int, is_array : bool, fa : list(int)) : z3_world
 [
 	var pfx := "(assert ";
 	var sfx := ")";
@@ -163,11 +163,22 @@ fn assert_variable_type(implicit z3w : z3_world, implicit z3ctx : z3_context, ct
 				z3_eval_noret(ctx, pfx+"(>= (option-ord "+n+") 0)"+sfx);
 				z3_eval_noret(ctx, pfx+"(< (option-ord "+n+") "+ntos(ln)+")"+sfx);
 			]
-		] else if ctx.local_types[lt] is arr or ctx.local_types[lt] is flat_array then [
-			//z3_eval_noret(ctx, pfx+"((_ is mk-array) "+n+")"+sfx);
-			z3_eval_noret(ctx, pfx+"(>= (array-len "+n+") 0)"+sfx);
 		]
 	]
+	if is_array then [
+		//z3_eval_noret(ctx, pfx+"((_ is mk-array) "+n+")"+sfx);
+		z3_eval_noret(ctx, pfx+"(>= (array-len "+n+") 0)"+sfx);
+	]
+]
+
+fn var_is_array(ctx : context, v : int) : bool
+[
+	var type_idx := ctx.variables[v].type_index;
+	if type_idx >= 0 then [
+		var ins := ctx.instrs[ctx.variables[type_idx].defining_instr];
+		return ins.opcode = P_Array_Flexible or ins.opcode = P_Array_Fixed;
+	]
+	return false;
 ]
 
 fn gen_assert(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int, var_name : bytes, ops : bytes, fa : list(int)) : z3_world
@@ -186,7 +197,7 @@ fn gen_assert(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : contex
 		var str := "(define-const "+var_name+" "+t+" "+ops+")";
 		z3_eval_noret(ctx, str);
 	]
-	assert_variable_type(ctx, var_name, ctx.variables[v].runtime_type, fa);
+	assert_variable_type(ctx, var_name, ctx.variables[v].runtime_type, var_is_array(ctx, v), fa);
 ]
 
 fn allocate_variable_block(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, v : int, phi_node : int, bb : int, fa : list(int), a : bool) : (z3_world, context, bytes)
@@ -215,7 +226,7 @@ fn allocate_variable_block(implicit z3w : z3_world, implicit z3ctx : z3_context,
 	return ctx, r;
 ]
 
-fn declare_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, n : bytes, lt : int, fa : list(int)) : z3_world
+fn declare_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, n : bytes, lt : int, is_array : bool, fa : list(int)) : z3_world
 [
 	var t := get_z3_type(lt);
 	if len_greater_than(fa, 0) then [
@@ -230,7 +241,7 @@ fn declare_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : 
 	] else [
 		z3_eval_noret(ctx, "(declare-const "+n+" "+t+")");
 	]
-	assert_variable_type(ctx, n, lt, fa);
+	assert_variable_type(ctx, n, lt, is_array, fa);
 ]
 
 fn get_bv_const(typ : int, num : int) : bytes
@@ -377,7 +388,7 @@ fn declare_unint_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, 
 [
 	var unint_str := "unint_" + num2str(ctx.unint_counter);
 	ctx.unint_counter += 1;
-	declare_variable(ctx, unint_str, lt, fa);
+	declare_variable(ctx, unint_str, lt, false, fa);
 	if len_greater_than(fa, 0) then [
 		unint_str := "("+unint_str;
 		for i := 0 to len(fa) do
@@ -455,7 +466,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		var new_name := "llt_"+num2str(ins.params[0])+"_"+num2str(ins.params[1])+"_"+ntos(ins.params[2]);
 		if not treeset_test(ctx.llt_defined, new_name) then [
 			ctx.llt_defined := treeset_set(ctx.llt_defined, new_name);
-			declare_variable(ctx, new_name, ctx.variables[v].runtime_type, empty(int));
+			declare_variable(ctx, new_name, ctx.variables[v].runtime_type, var_is_array(ctx, v), empty(int));
 		]
 		gen_assert(ctx, v, var_name, new_name, fa);
 		return ctx;
@@ -501,7 +512,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 	if ins.opcode = P_Structured_Write then [
 		if len_greater_than(fa, 0) then
 			goto ret_undefined;
-		declare_variable(ctx, var_name, ctx.variables[v].runtime_type, fa);
+		declare_variable(ctx, var_name, ctx.variables[v].runtime_type, var_is_array(ctx, v), fa);
 		var n_steps := ins.params[0];
 		var var1 : bytes;
 		ctx, var1 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb, fa, true);
@@ -519,8 +530,8 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				var lt := ctx.local_types[get_nonflat_lt(ctx, lti)];
 				var slot := ins.params[idx + 1];
 				lti := ctx.local_types[lti].rec.types[slot];
-				declare_variable(ctx, new_var, lti, fa);
-				declare_variable(ctx, stored_var, lti, fa);
+				declare_variable(ctx, new_var, T_Undetermined, false, fa);
+				declare_variable(ctx, stored_var, T_Undetermined, false, fa);
 				var str := "(assert (= "+new_var+" (record_"+num2str(len(lt.rec.types))+"-entry_"+num2str(slot)+" "+old_var+")))";
 				z3_eval_noret(ctx, str);
 				idx += 3;
@@ -528,8 +539,8 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				var t1 := get_z3_type(lti);
 				var slot := ins.params[idx + 1];
 				lti := ctx.local_types[lti].rec.types[slot];
-				declare_variable(ctx, new_var, lti, fa);
-				declare_variable(ctx, stored_var, lti, fa);
+				declare_variable(ctx, new_var, T_Undetermined, false, fa);
+				declare_variable(ctx, stored_var, T_Undetermined, false, fa);
 				var str := "(assert (=> (= (option-ord "+old_var+") "+ntos(slot)+") (= "+new_var+" (option-val "+old_var+"))))";
 				z3_eval_noret(ctx, str);
 				idx += 3;
@@ -538,10 +549,9 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				ctx, var2 := allocate_variable_block(ctx, ins.params[idx + 1], phi_node, ins.bb, fa, false);
 				if len(var2) = 0 then
 					goto ret_undefined;
-				var olti := lti;
 				lti := get_array_subtype(ctx.local_types[lti]);
-				declare_variable(ctx, new_var, lti, fa);
-				declare_variable(ctx, stored_var, lti, fa);
+				declare_variable(ctx, new_var, T_Undetermined, false, fa);
+				declare_variable(ctx, stored_var, T_Undetermined, false, fa);
 				var str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" (array-len "+old_var+"))) (= "+new_var+" (select (array-content "+old_var+") "+var2+"))))";
 				z3_eval_noret(ctx, str);
 				idx += 3;
@@ -915,7 +925,7 @@ found_self:
 		return ctx;
 	]
 ret_undefined:
-	declare_variable(ctx, var_name, ctx.variables[v].runtime_type, fa);
+	declare_variable(ctx, var_name, ctx.variables[v].runtime_type, var_is_array(ctx, v), fa);
 	return ctx;
 ]
 
