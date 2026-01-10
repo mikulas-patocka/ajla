@@ -91,13 +91,6 @@ fn get_nonflat_lt(ctx : context, runtime_type : int) : int
 	return runtime_type;
 ]
 
-fn get_array_subtype(lt : local_type) : int
-[
-	if lt is flat_array then
-		return lt.flat_array.flat_entry_type;
-	return lt.arr;
-]
-
 fn get_bv_width(runtime_type : int) := 8 shl ((T_SInt8 - runtime_type) shr 1);
 
 fn get_z3_type(runtime_type : int) : bytes
@@ -549,7 +542,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				ctx, var2 := allocate_variable_block(ctx, ins.params[idx + 1], phi_node, ins.bb, fa, false);
 				if len(var2) = 0 then
 					goto ret_undefined;
-				lti := get_array_subtype(ctx.local_types[lti]);
+				lti := ins.params[idx + 2];
 				declare_variable(ctx, new_var, T_Undetermined, false, fa);
 				declare_variable(ctx, stored_var, T_Undetermined, false, fa);
 				var str := "(assert (=> (and (>= "+var2+" 0) (< "+var2+" (array-len "+old_var+"))) (= "+new_var+" (select (array-content "+old_var+") "+var2+"))))";
