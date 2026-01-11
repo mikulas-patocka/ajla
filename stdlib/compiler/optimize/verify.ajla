@@ -148,7 +148,7 @@ fn assert_variable_type(implicit z3w : z3_world, implicit z3ctx : z3_context, ct
 	if lt >= 0 then [
 		lt := get_nonflat_lt(ctx, lt);
 		if lt >= 0, ctx.local_types[lt] is rec then [
-			var ln := len(ctx.local_types[lt].rec.types);
+			var ln := ctx.local_types[lt].rec.n_entries;
 			if not ctx.local_types[lt].rec.opt then [
 				z3_eval_noret(ctx, pfx+"((_ is mk-record_"+num2str(ln)+") "+n+")"+sfx);
 			] else [
@@ -523,7 +523,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				var slot := ins.params[idx + 1];
 				declare_variable(ctx, new_var, T_Undetermined, false, fa);
 				declare_variable(ctx, stored_var, T_Undetermined, false, fa);
-				var str := "(assert (= "+new_var+" (record_"+num2str(len(lt.rec.types))+"-entry_"+num2str(slot)+" "+old_var+")))";
+				var str := "(assert (= "+new_var+" (record_"+num2str(lt.rec.n_entries)+"-entry_"+num2str(slot)+" "+old_var+")))";
 				z3_eval_noret(ctx, str);
 				idx += 3;
 			] else if ins.params[idx] = Structured_Option then [
@@ -566,7 +566,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 			if ins.params[idx] = Structured_Record then [
 				var lti := ins.params[idx + 2];
 				var lt := ctx.local_types[get_nonflat_lt(ctx, lti)];
-				var a := len(lt.rec.types);
+				var a := lt.rec.n_entries;
 				var slot := ins.params[idx + 1];
 				var str := "(assert (= "+new_var+" ((_ update-field record_"+num2str(a)+"-entry_"+num2str(slot)+") "+old_var+" "+svar+")))";
 				z3_eval_noret(ctx, str);
@@ -598,13 +598,13 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 	if ins.opcode = P_Record_Create then [
 		var lti := get_nonflat_lt(ctx, ctx.variables[v].runtime_type);
 		var lt := ctx.local_types[lti];
-		var name := num2str(len(lt.rec.types));
+		var name := num2str(lt.rec.n_entries);
 		var str : bytes;
-		if len(lt.rec.types) = 0 then [
+		if lt.rec.n_entries = 0 then [
 			str := "mk-record_"+name;
 		] else [
 			str := "(mk-record_"+name;
-			for i := 0 to len(lt.rec.types) do [
+			for i := 0 to lt.rec.n_entries do [
 				var var1 : bytes;
 				ctx, var1 := allocate_variable_block(ctx, ins.params[3 + i * 2], phi_node, ins.bb, fa, true);
 				if len(var1) = 0 then
@@ -624,7 +624,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		var lt := ctx.local_types[get_nonflat_lt(ctx, ctx.variables[ins.params[2]].runtime_type)];
 		var slot := ins.params[3];
 		//var_name := cast_to_any(var_name, ctx.variables[v].runtime_type);
-		var str := "(record_"+num2str(len(lt.rec.types))+"-entry_"+num2str(slot)+" "+var1+")";
+		var str := "(record_"+num2str(lt.rec.n_entries)+"-entry_"+num2str(slot)+" "+var1+")";
 		str := cast_from_any(str, ctx.variables[v].runtime_type);
 		gen_assert(ctx, v, var_name, str, fa);
 		return ctx;
@@ -991,7 +991,7 @@ fn verify_function(ctx : context) : unit_type
 		if l >= 0 then [
 			var lt := ctx.local_types[l];
 			if lt is rec then
-				record_sizes bts= len(lt.rec.types);
+				record_sizes bts= lt.rec.n_entries;
 		]
 	]
 

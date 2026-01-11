@@ -1694,7 +1694,7 @@ retry:
 
 			var n, f := function_load(ins.params[2 + ins.params[1] .. ]);
 			ltfr.non_flat_record := len(ctx.local_types);
-			var lt := local_type.rec.(local_type_record.[ opt : false, f : f, types : list_of_types ]);
+			var lt := local_type.rec.(local_type_record.[ opt : false, f : f, types : list_of_types, n_entries : len(list_of_types) ]);
 			ctx.local_types +<= lt;
 
 			ctx.variables[vgi].local_type := len(ctx.local_types);
