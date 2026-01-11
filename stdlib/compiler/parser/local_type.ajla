@@ -21,7 +21,7 @@ private unit compiler.parser.local_type;
 uses compiler.parser.dict;
 uses compiler.parser.type;
 
-fn get_record_option_type_cc(ctx : function_context, cc : compare_context, typ_cc : compare_context, typ_idx : int) : (function_context, int);
+fn get_record_option_type_cc(ctx : function_context, cc : compare_context) : (function_context, int);
 fn get_type_cc(ctx : function_context, cc : compare_context, typ : int) : (function_context, int);
 fn generate_local_types(ctx : function_context) : function_context;
 
@@ -30,56 +30,53 @@ implementation
 uses compiler.common.gvn;
 uses compiler.parser.gen2;
 
+fn local_type_to_int(lt : local_type) : int
+[
+	return gvn_encode(list(pcode_t).[ lt.mode ] + lt.args);
+]
+
 fn local_type_idx(ctx : function_context, lt : local_type) : (function_context, int)
 [
-	for i := 0 to len(ctx.local_types) do [
-		var match := verify_type_equality(ctx, ctx.local_types[i].cc, ctx.local_types[i].typ, empty(compare_fn_stack), lt.cc, lt.typ, empty(compare_fn_stack));
-		if match is eq then
-			return ctx, i;
-	]
+	var r := local_type_to_int(lt);
+	var m := ctx.local_types_map[r];
+	if not is_uninitialized(m) then
+		return ctx, m;
 	var idx := len(ctx.local_types);
+	ctx.local_types_map[r] := idx;
 	ctx.local_types +<= lt;
 	return ctx, idx;
 ]
 
-fn get_record_option_type_cc(ctx : function_context, cc : compare_context, typ_cc : compare_context, typ_idx : int) : (function_context, int)
+fn get_record_option_type_cc(ctx : function_context, cc : compare_context) : (function_context, int)
 [
 	var rec_ctx := cc.ctx;
 	var lt := local_type.[
 		mode : select(rec_ctx.record_def.j.is_option, Local_Type_Record, Local_Type_Option),
 		args : generate_function_id(rec_ctx.id) +< len(rec_ctx.record_def.j.entries),
-		cc : typ_cc,
-		typ : typ_idx,
 	];
 	return local_type_idx(ctx, lt);
-]
-
-fn get_array_type_cc(ctx : function_context, cc : compare_context, typ : int) : (function_context, int)
-[
-	cc, typ := get_base_definition(ctx, cc, typ, false);
-	if typ < 0 and typ <> T_UnknownType then
-		return ctx, typ;
-	return ctx, T_Undetermined;
 ]
 
 fn get_type_cc(ctx : function_context, cc : compare_context, typ : int) : (function_context, int)
 [
 	var content_cc, content_typ := get_base_definition(ctx, cc, typ, true);
 	if content_typ = T_Record then [
-		return get_record_option_type_cc(ctx, content_cc, cc, typ);
-	] else [
-		return get_array_type_cc(ctx, cc, typ);
+		return get_record_option_type_cc(ctx, content_cc);
 	]
+	if content_typ = T_UnknownType or content_typ >= 0 then
+		content_typ := T_Undetermined;
+	return ctx, content_typ;
 ]
 
 fn get_local_type(ctx : function_context, i : int) : (function_context, int)
 [
 	var cc, typ := get_deep_type_of_var(ctx, i);
 	if typ = T_Record then [
-		var cc1 := new_compare_context(ctx);
-		return get_record_option_type_cc(ctx, cc, cc1, get_type_of_var(ctx, i));
+		return get_record_option_type_cc(ctx, cc);
 	]
-	return get_array_type_cc(ctx, cc, typ);
+	if typ = T_UnknownType or typ >= 0 then
+		typ := T_Undetermined;
+	return ctx, typ;
 ]
 
 fn generate_local_types(ctx : function_context) : function_context
