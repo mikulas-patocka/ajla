@@ -30,14 +30,9 @@ implementation
 uses compiler.common.gvn;
 uses compiler.parser.gen2;
 
-fn local_type_to_int~inline(lt : local_type) : int
-[
-	return gvn_encode(lt);
-]
-
 fn local_type_idx(ctx : function_context, lt : local_type) : (function_context, int)
 [
-	var r := local_type_to_int(lt);
+	var r := gvn_encode(lt);
 	var m := ctx.local_types_map[r];
 	if not is_uninitialized(m) then
 		return ctx, m;
