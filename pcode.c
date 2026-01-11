@@ -3473,6 +3473,8 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 				ajla_assert_lo(n_elements == (pcode_t)def->n_entries, (file_line, "pcode_build_function_core(%s): the number of entries doesn't match: %"PRIdMAX" != %"PRIuMAX"", function_name(ctx), (intmax_t)n_elements, (uintmax_t)def->n_entries));
 				flat_rec = type_prepare_flat_record(&def->type, ctx->err);
 				if (unlikely(!flat_rec))
+					goto exception;
+				if (unlikely(flat_rec == SPECIAL_POINTER_1))
 					goto record_not_flattened;
 				for (q = 0; q < n_elements; q++) {
 					tp = pcode_to_type(ctx, ctx->local_types[p].elements[q], NULL);
@@ -3484,6 +3486,8 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 				}
 				tt = type_get_flat_record(flat_rec, ctx->err);
 				if (unlikely(!tt))
+					goto exception;
+				if (unlikely(tt == SPECIAL_POINTER_1))
 					goto record_not_flattened;
 				break;
 			record_not_flattened:
@@ -3499,6 +3503,8 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 					goto array_not_flattened;
 				tt = type_get_flat_array(tp, n_elements, ctx->err);
 				if (unlikely(!tt))
+					goto exception;
+				if (unlikely(tt == SPECIAL_POINTER_1))
 					goto array_not_flattened;
 				break;
 			array_not_flattened:

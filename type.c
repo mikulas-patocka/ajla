@@ -204,8 +204,7 @@ struct type_entry *type_prepare_flat_record(const struct type *base, ajla_error_
 	return def;
 
 err_overflow:
-	fatal_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_SIZE_OVERFLOW), mayfail, "flat record too deep");
-	return NULL;
+	return SPECIAL_POINTER_1;
 }
 
 static frame_t flat_record_slot(struct type_entry *def, arg_t idx)
@@ -222,7 +221,7 @@ void type_set_flat_record_entry(struct type_entry *def, arg_t idx, const struct 
 		def->u.flat_record_definition.type.extra_compare = 1;
 }
 
-static bool type_flat_record_allocate(struct type_entry *def, ajla_error_t *mayfail)
+static struct type_entry *type_flat_record_allocate(struct type_entry *def, ajla_error_t *mayfail)
 {
 	arg_t i;
 	struct layout *l;
@@ -280,14 +279,18 @@ static bool type_flat_record_allocate(struct type_entry *def, ajla_error_t *mayf
 	mem_free(usemap);
 
 	layout_free(l);
-	return true;
+	return def;
 
 err_overflow:
-	fatal_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_SIZE_OVERFLOW), mayfail, "flat record too large");
+	layout_free(l);
+	type_free_flat_record(def);
+	return SPECIAL_POINTER_1;
+
 err_free_layout:
 	layout_free(l);
 err:
-	return false;
+	type_free_flat_record(def);
+	return NULL;
 }
 
 const struct type *type_get_flat_record(struct type_entry *def, ajla_error_t *mayfail)
@@ -304,9 +307,9 @@ const struct type *type_get_flat_record(struct type_entry *def, ajla_error_t *ma
 	}
 	rwlock_unlock_read(&type_tree_mutex);
 
-	if (unlikely(!type_flat_record_allocate(def, mayfail))) {
-		type_free_flat_record(def);
-		return NULL;
+	def = type_flat_record_allocate(def, mayfail);
+	if (unlikely(!def) || unlikely(def == SPECIAL_POINTER_1)) {
+		return cast_ptr(const struct type *, def);
 	}
 
 	rwlock_lock_write(&type_tree_mutex);
@@ -382,8 +385,7 @@ const struct type *type_get_flat_array(const struct type *base, pcode_t n_elemen
 	return &ap->u.flat_array_definition.type;
 
 err_overflow:
-	fatal_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_SIZE_OVERFLOW), mayfail, "flat array too large");
-	return NULL;
+	return SPECIAL_POINTER_1;
 }
 
 
