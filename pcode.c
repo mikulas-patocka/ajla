@@ -3431,11 +3431,8 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 				if (unlikely(!ptr))
 					goto exception;
 				n_elements = u_pcode_get();
-				ctx->local_types[p].elements = mem_alloc_array_mayfail(mem_alloc_mayfail, pcode_t *, 0, 0, n_elements, sizeof(pcode_t), ctx->err);
-				if (unlikely(!ctx->local_types[p].elements))
-					goto exception;
 				for (q = 0; q < n_elements; q++)
-					ctx->local_types[p].elements[q] = pcode_get();
+					pcode_get();
 				pointer_follow(ptr, false, rec_fn, PF_WAIT, fp, ip,
 					*ret_ex = ex_;
 					ctx->ret_val = pointer_empty();
@@ -3453,11 +3450,8 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 				if (unlikely(!ptr))
 					goto exception;
 				n_elements = u_pcode_get();
-				ctx->local_types[p].elements = mem_alloc_array_mayfail(mem_alloc_mayfail, pcode_t *, 0, 0, n_elements, sizeof(pcode_t), ctx->err);
-				if (unlikely(!ctx->local_types[p].elements))
-					goto exception;
 				for (q = 0; q < n_elements; q++)
-					ctx->local_types[p].elements[q] = pcode_get();
+					pcode_get();
 				tt = type_get_flat_option();
 				break;
 			case Local_Type_Flat_Record:
