@@ -58,10 +58,7 @@ record instruction [
 	args : list(pcode_t);
 ]
 
-record local_type [
-	mode : pcode_t;
-	args : list(pcode_t);
-]
+type local_type := list(pcode_t);
 
 record module_unique_id [
 	path_index : nat;

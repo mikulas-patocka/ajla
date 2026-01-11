@@ -30,9 +30,9 @@ implementation
 uses compiler.common.gvn;
 uses compiler.parser.gen2;
 
-fn local_type_to_int(lt : local_type) : int
+fn local_type_to_int~inline(lt : local_type) : int
 [
-	return gvn_encode(list(pcode_t).[ lt.mode ] + lt.args);
+	return gvn_encode(lt);
 ]
 
 fn local_type_idx(ctx : function_context, lt : local_type) : (function_context, int)
@@ -50,10 +50,9 @@ fn local_type_idx(ctx : function_context, lt : local_type) : (function_context, 
 fn get_record_option_type_cc(ctx : function_context, cc : compare_context) : (function_context, int)
 [
 	var rec_ctx := cc.ctx;
-	var lt := local_type.[
-		mode : select(rec_ctx.record_def.j.is_option, Local_Type_Record, Local_Type_Option),
-		args : generate_function_id(rec_ctx.id) +< len(rec_ctx.record_def.j.entries),
-	];
+	var lt := list(pcode_t).[ select(rec_ctx.record_def.j.is_option, Local_Type_Record, Local_Type_Option) ]
+		+ generate_function_id(rec_ctx.id)
+		+< len(rec_ctx.record_def.j.entries);
 	return local_type_idx(ctx, lt);
 ]
 
