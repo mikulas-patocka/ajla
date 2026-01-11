@@ -47,7 +47,7 @@ fn get_record_option_type_cc(ctx : function_context, cc : compare_context, typ_c
 	var rec_ctx := cc.ctx;
 	var lt := local_type.[
 		mode : select(rec_ctx.record_def.j.is_option, Local_Type_Record, Local_Type_Option),
-		args : generate_function_id(rec_ctx.id),
+		args : generate_function_id(rec_ctx.id) +< len(rec_ctx.record_def.j.entries),
 		cc : typ_cc,
 		typ : typ_idx,
 	];
@@ -88,39 +88,6 @@ fn generate_local_types(ctx : function_context) : function_context
 		var lt : int;
 		ctx, lt := get_local_type(ctx, i);
 		ctx.variables[i].local_type := lt;
-	]
-	var i := 0;
-	while i < len(ctx.local_types) do [
-		var lt := ctx.local_types[i];
-		if lt.mode = Local_Type_Record then [
-			var rec_cc, rec_typ := get_base_definition(ctx, lt.cc, lt.typ, true);
-			if rec_typ <> T_Record then
-				abort internal("generate_local_types: expecting record");
-			var rec := rec_cc.ctx.record_def.j;
-			var l := empty(pcode_t);
-			var cc, types := generate_record_entry_types(ctx, rec_cc);
-			for j := 0 to len(types) do [
-				var lt_idx : int;
-				ctx, lt_idx := get_type_cc(ctx, cc, types[j]);
-				l +<= lt_idx;
-			]
-			ctx.local_types[i].args +<= len(l);
-			ctx.local_types[i].args += l;
-		] else if lt.mode = Local_Type_Option then [
-			var rec_cc, rec_typ := get_base_definition(ctx, lt.cc, lt.typ, true);
-			if rec_typ <> T_Record then
-				abort internal("generate_local_types: expecting record");
-			var rec := rec_cc.ctx.record_def.j;
-			var l := empty(pcode_t);
-			for j := 0 to len(rec.entries) do [
-				var lt_idx : int;
-				ctx, lt_idx := get_type_cc(ctx, rec_cc, rec.entries[j].type_idx);
-				l +<= lt_idx;
-			]
-			ctx.local_types[i].args +<= len(l);
-			ctx.local_types[i].args += l;
-		]
-		i += 1;
 	]
 	return ctx;
 ]

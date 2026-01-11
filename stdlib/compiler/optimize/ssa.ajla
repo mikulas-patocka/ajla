@@ -368,17 +368,9 @@ fn compare_local_types(ctx : context, src_rt dest_rt : int, src_visited dest_vis
 		return 0;
 	if src_lt.rec.opt <> dest_lt.rec.opt then
 		abort internal("mismatch between records and options " + select(src_lt.rec.opt, "record", "option") + ", " + select(dest_lt.rec.opt, "record", "option") + " in " + ctx.name);
-	if len(src_lt.rec.types) <> len(dest_lt.rec.types) then
-		abort internal("mismatch between " + select(src_lt.rec.opt, "record", "option") + " length: " + ntos(len(src_lt.rec.types)) + ", " + ntos(len(dest_lt.rec.types)) + " in " + ctx.name);
-	var c := 0;
-	for i := 0 to len(src_lt.rec.types) do [
-		var new_c := compare_local_types(ctx, src_lt.rec.types[i], dest_lt.rec.types[i], src_visited, dest_visited);
-		if c = 0 then
-			c := new_c;
-		else if new_c <> 0 and c <> new_c then
-			abort internal("mismatch between " + select(src_lt.rec.opt, "record", "option") + " entries");
-	]
-	return c;
+	if src_lt.rec.n_entries <> dest_lt.rec.n_entries then
+		abort internal("mismatch between " + select(src_lt.rec.opt, "record", "option") + " length: " + ntos(src_lt.rec.n_entries) + ", " + ntos(dest_lt.rec.n_entries) + " in " + ctx.name);
+	return 0;
 ]
 
 fn propagate_types(ctx : context) : context
@@ -1675,10 +1667,8 @@ retry:
 				non_flat_record : -1,
 				flat_types : empty(int),
 			];
-			var list_of_types := empty(int);
 			for i := 0 to ins.params[1] do [
 				var l := ins.params[2 + i];
-				list_of_types +<= l;
 				if l = T_Undetermined then [
 					goto skip;
 				]
@@ -1694,7 +1684,7 @@ retry:
 
 			var n, f := function_load(ins.params[2 + ins.params[1] .. ]);
 			ltfr.non_flat_record := len(ctx.local_types);
-			var lt := local_type.rec.(local_type_record.[ opt : false, f : f, types : list_of_types, n_entries : len(list_of_types) ]);
+			var lt := local_type.rec.(local_type_record.[ opt : false, f : f, n_entries : ins.params[1] ]);
 			ctx.local_types +<= lt;
 
 			ctx.variables[vgi].local_type := len(ctx.local_types);
@@ -1977,11 +1967,7 @@ fn remap_local_types(ctx : context, old_new : list(int)) : context
 	]
 	for i := 0 to len(ctx.local_types) do [
 		var lt := ctx.local_types[i];
-		if lt is rec then [
-			for j := 0 to len(lt.rec.types) do
-				if lt.rec.types[j] >= 0, old_new[lt.rec.types[j]] <> T_InvalidType then
-					ctx.local_types[i].rec.types[j] := old_new[lt.rec.types[j]];
-		] else if lt is flat_rec then [
+		if lt is flat_rec then [
 			if lt.flat_rec.non_flat_record >= 0, old_new[lt.flat_rec.non_flat_record] <> T_InvalidType then
 				ctx.local_types[i].flat_rec.non_flat_record := old_new[lt.flat_rec.non_flat_record];
 			for j := 0 to len(lt.flat_rec.flat_types) do
@@ -2014,9 +2000,7 @@ fn encode_local_type(lt : local_type) : int
 	var pc : list(pcode_t);
 	if lt is rec then [
 		pc := list(pcode_t).[ select(lt.rec.opt, Local_Type_Record, Local_Type_Option) ] + function_store(lt.rec.f);
-		pc +<= len(lt.rec.types);
-		for i := 0 to len(lt.rec.types) do
-			pc +<= lt.rec.types[i];
+		pc +<= lt.rec.n_entries;
 	] else if lt is flat_rec then [
 		pc := list(pcode_t).[ Local_Type_Flat_Record, lt.flat_rec.non_flat_record, len(lt.flat_rec.flat_types) ];
 		for i := 0 to len(lt.flat_rec.flat_types) do [
@@ -2060,16 +2044,7 @@ fn dlte(ctx : context) : context
 		for lti := 0 to len(ctx.local_types) do [
 			if needed[lti] then [
 				var lt := ctx.local_types[lti];
-				if lt is rec then [
-					for i := 0 to len(lt.rec.types) do [
-						if lt.rec.types[i] >= 0 then [
-							if not needed[lt.rec.types[i]] then [
-								needed[lt.rec.types[i]] := true;
-								did_something := true;
-							]
-						]
-					]
-				] else if lt is flat_rec then [
+				if lt is flat_rec then [
 					if not needed[lt.flat_rec.non_flat_record] then [
 						needed[lt.flat_rec.non_flat_record] := true;
 						did_something := true;

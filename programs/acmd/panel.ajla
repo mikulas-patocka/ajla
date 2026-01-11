@@ -346,7 +346,7 @@ fn panel_scan_async_(implicit w : world, implicit app : appstate, implicit st : 
 	return panel_scan_async~inline();
 ]
 
-fn panel_scan(implicit w : world, implicit app : appstate, implicit st : panel_state, dir_name : bytes, set_cwd : bool) : (world, appstate, panel_state)
+novfy fn panel_scan(implicit w : world, implicit app : appstate, implicit st : panel_state, dir_name : bytes, set_cwd : bool) : (world, appstate, panel_state)
 [
 	save_marked(dir_name);
 	st.async_seq += 1;
@@ -367,12 +367,9 @@ fn panel_scan(implicit w : world, implicit app : appstate, implicit st : panel_s
 			mtime : 0,
 			ctime : 0,
 			time : ``,
-			// z3 verification quirk
-			//typ : stat_type_directory,
-			//tgttyp : stat_type_directory,
+			typ : stat_type_directory,
+			tgttyp : stat_type_directory,
 		] ];
-		st.files[0].typ := stat_type_directory;
-		st.files[0].tgttyp := stat_type_directory;
 		st.freespace := ``;
 		st.async_active := true;
 	]

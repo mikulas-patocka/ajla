@@ -93,12 +93,7 @@ fn do_inline_or_specialize(ctx new_ctx : context, bgi : int, ili ili_n : int, ca
 
 	for i := 0 to len(new_ctx.local_types) do [
 		var lt := new_ctx.local_types[i];
-		if lt is rec then [
-			for i := 0 to len(lt.rec.types) do [
-				if lt.rec.types[i] >= 0 then
-					lt.rec.types[i] += len(ctx.local_types);
-			]
-		] else if lt is flat_rec then [
+		if lt is flat_rec then [
 			lt.flat_rec.non_flat_record += len(ctx.local_types);
 			for j := 0 to len(lt.flat_rec.flat_types) do [
 				if lt.flat_rec.flat_types[j] >= 0 then

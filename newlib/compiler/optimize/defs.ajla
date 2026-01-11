@@ -152,7 +152,6 @@ record function [
 record local_type_record [
 	opt : bool;
 	f : function;
-	types : list(int);
 	n_entries : int;
 ]
 
