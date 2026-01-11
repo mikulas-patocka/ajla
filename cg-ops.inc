@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -2131,17 +2131,13 @@ static bool attr_w gen_scaled_array_address(struct codegen_context *ctx, size_t 
 		}
 
 		if (shift) {
-			g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, reg_dst, reg_index, shift, 0));
-			reg_index = reg_dst;
+			g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_SCRATCH_4, reg_index, shift, 0));
+			reg_index = R_SCRATCH_4;
 		}
 	} else {
 		if (ARCH_HAS_MUL) {
-			g(gen_imm(ctx, element_size, IMM_PURPOSE_MUL, i_size(OP_SIZE_ADDRESS)));
-			gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_MUL, ALU_WRITES_FLAGS(i_size(OP_SIZE_ADDRESS), ALU_MUL, false, is_imm(), ctx->const_imm));
-			gen_one(reg_dst);
-			gen_one(reg_index);
-			gen_imm_offset();
-			reg_index = reg_dst;
+			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_MUL, R_SCRATCH_4, reg_index, element_size, 0));
+			reg_index = R_SCRATCH_4;
 		} else {
 #if defined(R_CONST_IMM)
 			size_t e_size = element_size;
@@ -2149,8 +2145,8 @@ static bool attr_w gen_scaled_array_address(struct codegen_context *ctx, size_t 
 			bool first_match = true;
 
 			g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_CONST_IMM, reg_index));
-			g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), reg_dst, reg_index));
-			reg_index = reg_dst;
+			g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SCRATCH_4, reg_index));
+			reg_index = R_SCRATCH_4;
 
 			if (!e_size)
 				g(gen_load_constant(ctx, reg_index, 0));
