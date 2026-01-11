@@ -359,6 +359,8 @@ const struct type *type_get_flat_array(const struct type *base, pcode_t n_elemen
 		goto err_overflow;
 
 	ap = mem_alloc_mayfail(struct type_entry *, partial_sizeof(struct type_entry, u.flat_array_definition), mayfail);
+	if (unlikely(!ap))
+		return NULL;
 	ap->u.flat_array_definition.type.tag = TYPE_TAG_flat_array;
 	ap->u.flat_array_definition.type.depth = base->depth + 1;
 	ap->u.flat_array_definition.type.extra_compare = base->extra_compare;
