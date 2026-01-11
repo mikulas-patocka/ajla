@@ -340,39 +340,6 @@ skip_nonempty:
 	return ctx;
 ]
 
-fn compare_local_types(ctx : context, src_rt dest_rt : int, src_visited dest_visited : var_set) : int
-[
-	if src_rt = T_Undetermined, dest_rt = T_Undetermined then
-		return 0;
-	if src_rt = T_Undetermined then
-		return 1;
-	if dest_rt = T_Undetermined then
-		return -1;
-	if src_rt = dest_rt then
-		return 0;
-	if src_rt < 0 or dest_rt < 0 then
-		abort internal("mismatch between flat types " + ntos(src_rt) + ", " + ntos(dest_rt) + " in " + ctx.name);
-	if src_visited bt src_rt or dest_visited bt dest_rt then
-		return 0;
-	src_visited bts= src_rt;
-	dest_visited bts= dest_rt;
-	var src_lt := ctx.local_types[src_rt];
-	var dest_lt := ctx.local_types[dest_rt];
-	if src_lt is rec and dest_lt is flat_rec then
-		return 1;
-	if src_lt is flat_rec and dest_lt is rec then
-		return -1;
-	if ord src_lt <> ord dest_lt then
-		abort internal("mismatch between local types " + ntos(ord src_lt) + ", " + ntos(ord dest_lt) + " in " + ctx.name);
-	if src_lt is flat_array or src_lt is flat_rec then
-		return 0;
-	if src_lt.rec.opt <> dest_lt.rec.opt then
-		abort internal("mismatch between records and options " + select(src_lt.rec.opt, "record", "option") + ", " + select(dest_lt.rec.opt, "record", "option") + " in " + ctx.name);
-	if src_lt.rec.n_entries <> dest_lt.rec.n_entries then
-		abort internal("mismatch between " + select(src_lt.rec.opt, "record", "option") + " length: " + ntos(src_lt.rec.n_entries) + ", " + ntos(dest_lt.rec.n_entries) + " in " + ctx.name);
-	return 0;
-]
-
 fn propagate_types(ctx : context) : context
 [
 	var did_something : bool;
@@ -396,17 +363,15 @@ again:
 					src_rt := T_TypeOfType;
 				if src_rt = dest_rt then
 					continue;
-				var c := compare_local_types(ctx, src_rt, dest_rt, 0, 0);
-				if c = 0 then [
-					if dest_rt > src_rt then
-						c := -1;
-					else
-						c := 1;
-				]
-				if c < 0 then
-					ctx.variables[dest].runtime_type := src_rt;
-				else
+				if src_rt = T_Undetermined then
 					ctx.variables[src].runtime_type := dest_rt;
+				else if dest_rt = T_Undetermined then
+					ctx.variables[dest].runtime_type := src_rt;
+				else [
+					if src_rt >= 0, dest_rt >= 0 then
+						continue;
+					abort internal("copying between variables '" + ctx.variables[src].name + "', '" + ctx.variables[dest].name + "' with types " + ntos(src_rt) + " and " + ntos(dest_rt));
+				]
 				did_something := true;
 			]
 		]
