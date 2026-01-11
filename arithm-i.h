@@ -48,24 +48,6 @@ static maybe_inline bool attr_unused cat4(INT_binary_,fn,_,type)(const type *op1
 	return true;							\
 }
 
-#define gen_generic_inc_dec(type, utype)				\
-static maybe_inline bool attr_unused cat(INT_unary_inc_,type)(const type *op, type *res)\
-{									\
-	type r;								\
-	if (unlikely(__builtin_add_overflow(*op, 1, &r)))		\
-		return false;						\
-	*res = r;							\
-	return true;							\
-}									\
-static maybe_inline bool attr_unused cat(INT_unary_dec_,type)(const type *op, type *res)\
-{									\
-	type r;								\
-	if (unlikely(__builtin_sub_overflow(*op, 1, &r)))		\
-		return false;						\
-	*res = r;							\
-	return true;							\
-}
-
 #else
 
 #define gen_generic_addsub(fn, type, utype, mode)			\
@@ -107,24 +89,6 @@ static maybe_inline bool attr_unused cat4(INT_binary_,fn,_,type)(const type *op1
 		}							\
 	}								\
 	*res = r;							\
-	return true;							\
-}
-
-#define gen_generic_inc_dec(type, utype)				\
-static maybe_inline bool attr_unused cat(INT_unary_inc_,type)(const type *op, type *res)\
-{									\
-	type o = *op;							\
-	if (unlikely(o == signed_maximum(type)))			\
-		return false;						\
-	*res = (utype)o + 1;						\
-	return true;							\
-}									\
-static maybe_inline bool attr_unused cat(INT_unary_dec_,type)(const type *op, type *res)\
-{									\
-	type o = *op;							\
-	if (unlikely(o == sign_bit(type)))				\
-		return false;						\
-	*res = (utype)o - 1;						\
 	return true;							\
 }
 
@@ -484,21 +448,6 @@ static ipret_inline bool attr_unused cat(INT_unary_neg_,type)(const type *op, ty
 	" : : "A"(o),							\
 		"m"(*res), "m"(*(cast_ptr(char *, res) + sizeof(type) / 2))\
 		: "memory", "cc" : overflow);				\
-	return true;							\
-overflow:								\
-	return false;							\
-}
-
-#define gen_x86_inc_dec(fn, type, utype, suffix, constr)		\
-static ipret_inline bool attr_unused cat4(INT_unary_,fn,_,type)(const type *op, type *res)\
-{									\
-	type o;								\
-	asm_copy(o, *op);						\
-	__asm__ goto ("							\n\
-		"#fn""#suffix"		%0				\n\
-		jo			%l[overflow]			\n\
-		mov"#suffix"		%0, %1				\n\
-	" : : constr(o), "m"(*res) : "memory", "cc" : overflow);	\
 	return true;							\
 overflow:								\
 	return false;							\

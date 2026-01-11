@@ -126,29 +126,18 @@ gen_generic_not(type, utype)
 
 #if TYPE_MASK == 1
 gen_x86_neg(type, utype, b, "q")
-gen_x86_inc_dec(inc, type, utype, b, "q")
-gen_x86_inc_dec(dec, type, utype, b, "q")
 #elif TYPE_MASK == 2
 gen_x86_neg(type, utype, w, "r")
-gen_x86_inc_dec(inc, type, utype, w, "r")
-gen_x86_inc_dec(dec, type, utype, w, "r")
 #elif TYPE_MASK == 4
 gen_x86_neg(type, utype, l, "r")
-gen_x86_inc_dec(inc, type, utype, l, "r")
-gen_x86_inc_dec(dec, type, utype, l, "r")
 #elif TYPE_MASK == 8 && defined(INLINE_ASM_GCC_I386)
 gen_x86_neg_2reg(type, utype, l, e)
-gen_generic_inc_dec(type, utype)
 #elif TYPE_MASK == 8
 gen_x86_neg(type, utype, q, "r")
-gen_x86_inc_dec(inc, type, utype, q, "r")
-gen_x86_inc_dec(dec, type, utype, q, "r")
 #elif TYPE_MASK == 16 && !defined(INLINE_ASM_GCC_I386) && defined(HAVE_ASSEMBLER___INT128)
 gen_x86_neg_2reg(type, utype, q, r)
-gen_generic_inc_dec(type, utype)
 #else
 gen_generic_neg(type, utype)
-gen_generic_inc_dec(type, utype)
 #endif
 
 #elif defined(INLINE_ASM_GCC_ARM) && defined(INLINE_ASM_GCC_LABELS)
@@ -160,7 +149,6 @@ gen_arm_neg_2reg(type, utype)
 #else
 gen_generic_neg(type, utype)
 #endif
-gen_generic_inc_dec(type, utype)
 
 #elif defined(INLINE_ASM_GCC_ARM64) && defined(INLINE_ASM_GCC_LABELS)
 
@@ -173,12 +161,10 @@ gen_arm_neg_2reg(type, utype)
 #else
 gen_generic_neg(type, utype)
 #endif
-gen_generic_inc_dec(type, utype)
 
 #else
 
 gen_generic_neg(type, utype)
-gen_generic_inc_dec(type, utype)
 
 #endif
 
