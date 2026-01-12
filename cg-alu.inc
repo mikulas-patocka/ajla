@@ -2328,9 +2328,8 @@ x86_bsf_bsr_popcnt_finish:
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 		if (mode == MODE_FIXED && alu == ALU1_BSF) {
 			gen_insn(INSN_TEST, i_size(op_size), 0, 1);
-			gen_one(target);
 			gen_one(reg1);
-			reg1 = target;
+			gen_one(reg1);
 		}
 
 		if (alu == ALU1_BSF) {
