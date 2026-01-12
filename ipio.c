@@ -4863,7 +4863,7 @@ static void * attr_fastcall io_ffi_unsupported(struct io_ctx *ctx)
 #define io_ffi_callback_create			io_ffi_unsupported
 #define io_ffi_callback_wait			io_ffi_unsupported
 #define io_ffi_callback_cancel			io_ffi_unsupported
-int io_ffi_get_ffi_type(const struct type *type)
+int io_ffi_get_ffi_type(const struct type attr_unused *type)
 {
 	return -1;
 }
