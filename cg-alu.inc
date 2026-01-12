@@ -2543,7 +2543,7 @@ x86_bsf_bsr_popcnt_finish:
 			g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_POPCNT, target, target, 0));
 
 			if (mode == MODE_FIXED) {
-				unsigned attr_unused test_reg = R_SCRATCH_1;
+				unsigned attr_unused test_reg = reg1;
 #if defined(ARCH_S390)
 				g(gen_imm(ctx, 0, COND_IS_LOGICAL(COND_E) ? IMM_PURPOSE_CMP_LOGICAL : IMM_PURPOSE_CMP, OP_SIZE_NATIVE));
 				gen_insn(INSN_CMP, OP_SIZE_NATIVE, 0, 1 + COND_IS_LOGICAL(COND_E));
