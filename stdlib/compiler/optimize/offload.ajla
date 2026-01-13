@@ -503,11 +503,11 @@ fn process_binary_operator(ctx : context, ins : instruction) : bytes
 		else
 			output += "			result = 0;"+nl;
 		if t[0] <> 'u' then [
-			output += "		else if ("+op2_name+" == -1 && "+op1_name+" == ("+t+")1 << "+ntos(bits-1)+")"+nl;
+			output += "		else if ("+op2_name+" == -1 && "+op1_name+" == ("+t+")((u"+t+")1 << "+ntos(bits-1)+"))"+nl;
 			if ot is integer then
 				output += "			goto exception;"+nl;
 			else
-				output += "			result = ("+t+")1 << "+ntos(bits-1)+";"+nl;
+				output += "			result = ("+t+")((u"+t+")1 << "+ntos(bits-1)+");"+nl;
 		]
 		output += "		else"+nl;
 		output += "			result = "+op1_name+" / "+op2_name+";"+nl;
@@ -520,7 +520,7 @@ fn process_binary_operator(ctx : context, ins : instruction) : bytes
 		else
 			output += "			result = "+op1_name+";"+nl;
 		if t[0] <> 'u' then [
-			output += "		else if ("+op2_name+" == -1 && "+op1_name+" == ("+t+")1 << "+ntos(bits-1)+")"+nl;
+			output += "		else if ("+op2_name+" == -1 && "+op1_name+" == ("+t+")((u"+t+")1 << "+ntos(bits-1)+"))"+nl;
 			if ot is integer then
 				output += "			goto exception;"+nl;
 			else

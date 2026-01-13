@@ -76,6 +76,7 @@ fn do_offload(rq : offload_request) : bool
 
 	if is_exception prog then [
 		eval warning(rq.function_name + ": failed to create a program");
+		eval warning(rq.kernel);
 		goto failed;
 	]
 
