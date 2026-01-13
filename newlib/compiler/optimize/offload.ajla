@@ -462,6 +462,7 @@ fn process_binary_operator(ctx : context, ins : instruction) : bytes
 	var unary := ins.opcode = P_UnaryOp;
 	var t, ot, bits := get_variable_type(ctx, ins.params[1]);
 	var ft, fot, fbits := get_variable_type(ctx, ins.params[3]);
+	var tx := ctx.variables[ins.params[3]].type_index;
 	var op := ins.params[0];
 	var op1_name op2_name : bytes;
 	op1_name := ctx.variables[ins.params[3]].offload_name;
@@ -623,6 +624,77 @@ fn process_binary_operator(ctx : context, ins : instruction) : bytes
 			output += "			goto exception;"+nl;
 		]
 		output += "		result = popcount("+op1_name+");"+nl;
+	] else if op = Un_Sqrt then [
+		output += "		result = sqrt("+op1_name+");"+nl;
+	] else if op = Un_Cbrt then [
+		output += "		result = cbrt("+op1_name+");"+nl;
+	] else if op = Un_Sin then [
+		output += "		result = sin("+op1_name+");"+nl;
+	] else if op = Un_Cos then [
+		output += "		result = cos("+op1_name+");"+nl;
+	] else if op = Un_Tan then [
+		output += "		result = tan("+op1_name+");"+nl;
+	] else if op = Un_Asin then [
+		output += "		result = asin("+op1_name+");"+nl;
+	] else if op = Un_Acos then [
+		output += "		result = acos("+op1_name+");"+nl;
+	] else if op = Un_Atan then [
+		output += "		result = atan("+op1_name+");"+nl;
+	] else if op = Un_Sinh then [
+		output += "		result = sinh("+op1_name+");"+nl;
+	] else if op = Un_Cosh then [
+		output += "		result = cosh("+op1_name+");"+nl;
+	] else if op = Un_Tanh then [
+		output += "		result = tanh("+op1_name+");"+nl;
+	] else if op = Un_Asinh then [
+		output += "		result = asinh("+op1_name+");"+nl;
+	] else if op = Un_Acosh then [
+		output += "		result = acosh("+op1_name+");"+nl;
+	] else if op = Un_Atanh then [
+		output += "		result = atanh("+op1_name+");"+nl;
+	] else if op = Un_Exp2 then [
+		output += "		result = exp2("+op1_name+");"+nl;
+	] else if op = Un_Exp then [
+		output += "		result = exp("+op1_name+");"+nl;
+	] else if op = Un_Exp10 then [
+		output += "		result = exp10("+op1_name+");"+nl;
+	] else if op = Un_Log2 then [
+		output += "		result = log2("+op1_name+");"+nl;
+	] else if op = Un_Log then [
+		output += "		result = log("+op1_name+");"+nl;
+	] else if op = Un_Log10 then [
+		output += "		result = log10("+op1_name+");"+nl;
+	] else if op = Un_Round then [
+		output += "		result = round("+op1_name+");"+nl;
+	] else if op = Un_Floor then [
+		output += "		result = floor("+op1_name+");"+nl;
+	] else if op = Un_Ceil then [
+		output += "		result = ceil("+op1_name+");"+nl;
+	] else if op = Un_Trunc then [
+		output += "		result = trunc("+op1_name+");"+nl;
+	] else if op = Un_Fract then [
+		output += "		"+t+" i;"+nl;
+		output += "		result = modf("+op1_name+", &i);"+nl;
+	] else if op = Un_Mantissa then [
+		output += "		int i;"+nl;
+		output += "		result = frexp("+op1_name+", &i);"+nl;
+	] else if op = Un_Exponent then [
+		output += "		int i;"+nl;
+		output += "		"+t+" f;"+nl;
+		output += "		f = frexp("+op1_name+", &i);"+nl;
+		output += "		if (!isfinite(f))"+nl;
+		output += "			goto exception;"+nl;
+		output += "		result = ("+t+")i;"+nl;
+	] else if op = Un_NextNumber then [
+		if tx = T_Real16 then
+			output += "		goto exception;"+nl;
+		else
+			output += "		result = nextafter("+op1_name+", ("+t+")HUGE_VALF);"+nl;
+	] else if op = Un_PrevNumber then [
+		if tx = T_Real16 then
+			output += "		goto exception;"+nl;
+		else
+			output += "		result = nextafter("+op1_name+", -("+t+")HUGE_VALF);"+nl;
 	] else if op = Un_ConvertToInt then [
 		if fot is fixed, ft[0] = 'u' then [
 			if fbits >= bits then [
