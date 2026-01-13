@@ -612,9 +612,10 @@ fn process_binary_operator(ctx : context, ins : instruction) : bytes
 		output += "		else"+nl;
 		output += "			result = ctz("+op1_name+");"+nl;
 	] else if op = Un_Bsr then [
-		if ot is integer then
+		if ot is integer then [
 			output += "		if ("+op1_name+" <= 0)"+nl;
 			output += "			goto exception;"+nl;
+		]
 		output += "		result = "+ntos(bits - 1)+" - clz("+op1_name+");"+nl;
 	] else if op = Un_Popcnt then [
 		if ot is integer then
