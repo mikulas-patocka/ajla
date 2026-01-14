@@ -4526,7 +4526,7 @@ static void * attr_fastcall io_deep_eval_handler(struct io_ctx *ctx)
 
 static void * attr_fastcall io_real_to_int_handler(struct io_ctx *ctx)
 {
-	int typ;
+	int typ = 0;		/* avoid warning */
 	const struct type *type;
 	bool ret;
 	uint64_t v;

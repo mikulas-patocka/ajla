@@ -483,7 +483,7 @@ static void * attr_fastcall io_ffi_structure_offset_handler(struct io_ctx *ctx)
 	void *test;
 	pointer_t ptr;
 	struct resource_ffi_structure *s;
-	unsigned n;
+	unsigned n = 0;		/* avoid warning */
 	size_t off;
 
 	test = io_deep_eval(ctx, "01", false);
@@ -525,7 +525,7 @@ static void * attr_fastcall io_ffi_poke_handler(struct io_ctx *ctx)
 {
 	void *test;
 	frame_t slot;
-	uintptr_t addr;
+	uintptr_t addr = 0;	/* avoid warning */
 	ajla_option_t a;
 	struct data *struc;
 
@@ -580,7 +580,7 @@ static void * attr_fastcall io_ffi_peek_handler(struct io_ctx *ctx)
 {
 	void *test;
 	frame_t slot;
-	uintptr_t addr;
+	uintptr_t addr = 0;	/* avoid warning */
 	void *ad;
 	ajla_option_t a;
 	struct data *struc;
@@ -686,7 +686,7 @@ static int_default_t io_ffi_poke_array_callback(unsigned char *flat, const struc
 static void * attr_fastcall io_ffi_poke_array_handler(struct io_ctx *ctx)
 {
 	void *test;
-	uintptr_t addr;
+	uintptr_t addr = 0;	/* avoid warning */
 	frame_t slot;
 	array_index_t idx;
 	bool ret;
@@ -723,11 +723,11 @@ ret_err:
 static void * attr_fastcall io_ffi_peek_array_handler(struct io_ctx *ctx)
 {
 	void *test;
-	uintptr_t addr;
+	uintptr_t addr = 0;	/* avoid warning */
 	ajla_option_t a;
 	struct data *struc;
 	const struct type *type;
-	int_default_t size;
+	int_default_t size = 0;	/* avoid warning */
 	struct data *d;
 
 	test = io_deep_eval(ctx, "0123", true);
@@ -1369,7 +1369,8 @@ static void * attr_fastcall io_ffi_destructor_allocate_handler(struct io_ctx *ct
 	void *test;
 	pointer_t ptr;
 	struct resource_ffi_destructor *rfd;
-	size_t size, align;
+	size_t size = 0;	/* avoid warning */
+	size_t align = 0;	/* avoid warning */
 	ajla_option_t z;
 	void *n;
 	void *old;
@@ -1433,7 +1434,7 @@ static void * attr_fastcall io_ffi_destructor_free_handler(struct io_ctx *ctx)
 	void *test;
 	pointer_t ptr;
 	struct resource_ffi_destructor *rfd = NULL;
-	uintptr_t nn;
+	uintptr_t nn = 0;	/* avoid warning */
 	void *n;
 	size_t i;
 
