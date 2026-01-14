@@ -290,21 +290,26 @@ static bool attr_w gen_frame_get(struct codegen_context *ctx, unsigned size, enu
 	t = get_type_of_local(ctx, slot);
 	ajla_assert_lo(slot >= MIN_USEABLE_SLOT && slot < function_n_variables(ctx->fn), (file_line, "gen_frame_get: invalid slot: %lu >= %lu", (unsigned long)slot, (unsigned long)function_n_variables(ctx->fn)));
 	if (slot_is_register(ctx, slot)) {
-		unsigned reg = ctx->registers[slot];
-		if (ex != garbage && size < OP_SIZE_NATIVE && !reg_is_fp(reg)) {
+		unsigned sreg = ctx->registers[slot];
+		if (ex != garbage && size < OP_SIZE_NATIVE && !reg_is_fp(sreg)) {
 			if (t->tag == TYPE_TAG_flat_option && size <= ARCH_BOOL_SIZE)
 				goto skip_extend;
-			g(gen_extend(ctx, size, ex, reg, reg));
+			g(gen_extend(ctx, size, ex, sreg, sreg));
 		}
 skip_extend:
-		*dest = reg;
+		if (reg_is_fp(reg) != reg_is_fp(sreg)) {
+			g(gen_mov(ctx, size, reg, sreg));
+			*dest = reg;
+			goto ret;
+		}
+		*dest = sreg;
 		goto ret;
 	}
 	*dest = reg;
 	g(gen_frame_load(ctx, size, ex, slot, 0, false, reg));
 ret:
 #ifdef DEBUG_GARBAGE
-	if (size < OP_SIZE_NATIVE && ex == garbage && t->tag != TYPE_TAG_flat_option) {
+	if (!reg_is_fp(*dest) && size < OP_SIZE_NATIVE && ex == garbage && t->tag != TYPE_TAG_flat_option) {
 		uint64_t mask;
 		g(gen_extend(ctx, size, zero_x, *dest, *dest));
 		mask = (rand()) | ((uint64_t)rand() << 31) | ((uint64_t)rand() << 62);
