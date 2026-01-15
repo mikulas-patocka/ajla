@@ -3484,8 +3484,6 @@ void os_shutdown_notify_pipe(void)
 #endif
 
 
-#if defined(HAVE_SYS_UTSNAME_H) && defined(HAVE_UNAME)
-
 const char *os_get_flavor(void)
 {
 #if defined(OS_DOS)
@@ -3496,6 +3494,8 @@ const char *os_get_flavor(void)
 	return "Unix";
 #endif
 }
+
+#if defined(HAVE_SYS_UTSNAME_H) && defined(HAVE_UNAME)
 
 void os_get_uname(os_utsname_t *un)
 {
