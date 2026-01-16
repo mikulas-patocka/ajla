@@ -254,7 +254,7 @@ fn pcode_Load_Fn_get_n_curried_args(ins : instruction) : int
 
 fn pcode_Load_Fn_get_string(ins : instruction) : list(pcode_t)
 [
-	xeval assert(ins.opcode = P_Load_Fn, "pcode_Load_Fn_get_unique_id: invalid instruction");
+	xeval assert(ins.opcode = P_Load_Fn, "pcode_Load_Fn_get_string: invalid instruction");
 	var s := ins.args[3 .. ];
 	return s[ .. length_of_function_id(s)];
 ]
@@ -613,7 +613,7 @@ fn generate_Call_self(ctx : function_context) : (function_context, int)
 
 fn pcode_Call_get_n_return_values(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Call, "pcode_Call_get_n_args: invalid instruction");
+	xeval assert(ins.opcode = P_Call, "pcode_Call_get_n_return_values: invalid instruction");
 	return ins.args[1];
 ]
 
@@ -625,7 +625,7 @@ fn pcode_Call_get_n_args(ins : instruction) : int
 
 fn pcode_Call_get_string(ins : instruction) : list(pcode_t)
 [
-	xeval assert(ins.opcode = P_Call, "pcode_Call_get_unique_id: invalid instruction");
+	xeval assert(ins.opcode = P_Call, "pcode_Call_get_string: invalid instruction");
 	var s := ins.args[3 .. ];
 	return s[ .. length_of_function_id(s)];
 ]
