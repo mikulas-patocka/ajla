@@ -475,6 +475,7 @@ fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instructi
 		rs btr= s;
 		if ins.params[s] < 0 then [
 			ins.read_set btr= s;
+			ins.free_set btr= s;
 			ins.conflict_1 btr= s;
 			ins.conflict_2 btr= s;
 		]
