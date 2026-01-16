@@ -248,20 +248,20 @@ fn generate_Load_Fn(ctx : function_context, fd : function_definition, t : tokens
 
 fn pcode_Load_Fn_get_n_curried_args(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Load_Fn, "pcode_Load_Fn_get_n_curried_args: invalid instruction");
+	//xeval assert(ins.opcode = P_Load_Fn, "pcode_Load_Fn_get_n_curried_args: invalid instruction");
 	return ins.args[1];
 ]
 
 fn pcode_Load_Fn_get_string(ins : instruction) : list(pcode_t)
 [
-	xeval assert(ins.opcode = P_Load_Fn, "pcode_Load_Fn_get_string: invalid instruction");
+	//xeval assert(ins.opcode = P_Load_Fn, "pcode_Load_Fn_get_string: invalid instruction");
 	var s := ins.args[3 .. ];
 	return s[ .. length_of_function_id(s)];
 ]
 
 fn pcode_Load_Fn_get_unique_id(ins : instruction) : function_unique_id
 [
-	xeval assert(ins.opcode = P_Load_Fn, "pcode_Load_Fn_get_unique_id: invalid instruction");
+	//xeval assert(ins.opcode = P_Load_Fn, "pcode_Load_Fn_get_unique_id: invalid instruction");
 	return decode_function_id(ins.args[3 .. ]);
 ]
 
@@ -365,25 +365,25 @@ fn generate_Curry(ctx : function_context, cc : compare_context, typ : int, fnx :
 
 fn pcode_Curry_get_n_curried_args(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Curry, "pcode_Curry_get_n_curried_args: invalid instruction");
+	//xeval assert(ins.opcode = P_Curry, "pcode_Curry_get_n_curried_args: invalid instruction");
 	return ins.args[1];
 ]
 
 fn pcode_Curry_get_fn_variable(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Curry, "pcode_Curry_get_fn_variable: invalid instruction");
+	//xeval assert(ins.opcode = P_Curry, "pcode_Curry_get_fn_variable: invalid instruction");
 	return ins.args[3];
 ]
 
 fn pcode_Curry_get_flag(ins : instruction, i : int) : int
 [
-	xeval assert(ins.opcode = P_Curry, "pcode_Curry_get_flag: invalid instruction");
+	//xeval assert(ins.opcode = P_Curry, "pcode_Curry_get_flag: invalid instruction");
 	return ins.args[4 + i * 2];
 ]
 
 fn pcode_Curry_get_arg(ins : instruction, i : int) : int
 [
-	xeval assert(ins.opcode = P_Curry, "pcode_Curry_get_arg: invalid instruction");
+	//xeval assert(ins.opcode = P_Curry, "pcode_Curry_get_arg: invalid instruction");
 	return ins.args[5 + i * 2];
 ]
 
@@ -471,31 +471,31 @@ fn generate_Call_Indirect(ctx : function_context, call_mode : int, fnx : int, t 
 
 fn pcode_Call_Indirect_get_n_return_values(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Call_Indirect, "pcode_Call_Indirect_get_n_args: invalid instruction");
+	//xeval assert(ins.opcode = P_Call_Indirect, "pcode_Call_Indirect_get_n_args: invalid instruction");
 	return ins.args[1];
 ]
 
 fn pcode_Call_Indirect_get_n_args(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Call_Indirect, "pcode_Call_Indirect_get_n_args: invalid instruction");
+	//xeval assert(ins.opcode = P_Call_Indirect, "pcode_Call_Indirect_get_n_args: invalid instruction");
 	return ins.args[2];
 ]
 
 fn pcode_Call_Indirect_get_fn_variable(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Call_Indirect, "pcode_Call_Indirect_get_fn_variable: invalid instruction");
+	//xeval assert(ins.opcode = P_Call_Indirect, "pcode_Call_Indirect_get_fn_variable: invalid instruction");
 	return ins.args[4];
 ]
 
 fn pcode_Call_Indirect_get_return_value(ins : instruction, i : int) : int
 [
-	xeval assert(ins.opcode = P_Call_Indirect, "pcode_Call_Indirect_get_return_value: invalid instruction");
+	//xeval assert(ins.opcode = P_Call_Indirect, "pcode_Call_Indirect_get_return_value: invalid instruction");
 	return ins.args[5 + pcode_Call_Indirect_get_n_args(ins) * 2 + i];
 ]
 
 fn pcode_Call_Indirect_find_return_index(ins : instruction, ret_var : int) : int
 [
-	xeval assert(ins.opcode = P_Call_Indirect, "pcode_Call_Indirect_get_return_value: invalid instruction");
+	//xeval assert(ins.opcode = P_Call_Indirect, "pcode_Call_Indirect_get_return_value: invalid instruction");
 	for i := 0 to pcode_Call_Indirect_get_n_return_values(ins) do [
 		if pcode_Call_Indirect_get_return_value(ins, i) = ret_var then
 			return i;
@@ -613,57 +613,57 @@ fn generate_Call_self(ctx : function_context) : (function_context, int)
 
 fn pcode_Call_get_n_return_values(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Call, "pcode_Call_get_n_return_values: invalid instruction");
+	//xeval assert(ins.opcode = P_Call, "pcode_Call_get_n_return_values: invalid instruction");
 	return ins.args[1];
 ]
 
 fn pcode_Call_get_n_args(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Call, "pcode_Call_get_n_args: invalid instruction");
+	//xeval assert(ins.opcode = P_Call, "pcode_Call_get_n_args: invalid instruction");
 	return ins.args[2];
 ]
 
 fn pcode_Call_get_string(ins : instruction) : list(pcode_t)
 [
-	xeval assert(ins.opcode = P_Call, "pcode_Call_get_string: invalid instruction");
+	//xeval assert(ins.opcode = P_Call, "pcode_Call_get_string: invalid instruction");
 	var s := ins.args[3 .. ];
 	return s[ .. length_of_function_id(s)];
 ]
 
 fn pcode_Call_get_unique_id(ins : instruction) : function_unique_id
 [
-	xeval assert(ins.opcode = P_Call, "pcode_Call_get_unique_id: invalid instruction");
+	//xeval assert(ins.opcode = P_Call, "pcode_Call_get_unique_id: invalid instruction");
 	return decode_function_id(ins.args[3 .. ]);
 ]
 
 fn pcode_Call_get_flag(ins : instruction, i : int) : int
 [
-	xeval assert(ins.opcode = P_Call, "pcode_Call_get_flag: invalid instruction");
+	//xeval assert(ins.opcode = P_Call, "pcode_Call_get_flag: invalid instruction");
 	return ins.args[3 + length_of_function_id(ins.args[3 .. ]) + i * 2];
 ]
 
 fn pcode_Call_get_arg(ins : instruction, i : int) : int
 [
-	xeval assert(ins.opcode = P_Call, "pcode_Call_get_arg: invalid instruction");
+	//xeval assert(ins.opcode = P_Call, "pcode_Call_get_arg: invalid instruction");
 	return ins.args[3 + length_of_function_id(ins.args[3 .. ]) + 1 + i * 2];
 ]
 
 fn pcode_Call_get_return_value(ins : instruction, i : int) : int
 [
-	xeval assert(ins.opcode = P_Call, "pcode_Call_get_return_value: invalid instruction");
+	//xeval assert(ins.opcode = P_Call, "pcode_Call_get_return_value: invalid instruction");
 	return ins.args[3 + length_of_function_id(ins.args[3 .. ]) + pcode_Call_get_n_args(ins) * 2 + i];
 ]
 
 fn pcode_Call_quick_compare(in1 in2 : instruction) : bool
 [
-	xeval assert(in1.opcode = P_Call, "pcode_Call_quick_compare: invalid instruction");
-	xeval assert(in2.opcode = P_Call, "pcode_Call_quick_compare: invalid instruction");
+	//xeval assert(in1.opcode = P_Call, "pcode_Call_quick_compare: invalid instruction");
+	//xeval assert(in2.opcode = P_Call, "pcode_Call_quick_compare: invalid instruction");
 	return in1.args[3] <> in2.args[3] or in1.args[4] <> in2.args[4];
 ]
 
 fn pcode_Call_find_return_index(ins : instruction, ret_var : int) : int
 [
-	xeval assert(ins.opcode = P_Call, "pcode_Call_get_return_value: invalid instruction");
+	//xeval assert(ins.opcode = P_Call, "pcode_Call_get_return_value: invalid instruction");
 	for i := 0 to pcode_Call_get_n_return_values(ins) do [
 		if pcode_Call_get_return_value(ins, i) = ret_var then
 			return i;
@@ -764,7 +764,7 @@ fn generate_Load_Const(ctx : function_context, typ : int, blob : list(pcode_t)) 
 
 fn pcode_Load_Const_get_blob(ins : instruction) : list(pcode_t)
 [
-	xeval assert(ins.opcode = P_Load_Const, "pcode_Load_Const_get_blob: invalid instruction");
+	//xeval assert(ins.opcode = P_Load_Const, "pcode_Load_Const_get_blob: invalid instruction");
 	return ins.args[1 .. ];
 ]
 
@@ -783,13 +783,13 @@ fn generate_Where(ctx : function_context, typ cond : int) : (function_context, i
 
 fn pcode_Where_get_type(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Where, "pcode_Load_Const_get_blob: invalid instruction");
+	//xeval assert(ins.opcode = P_Where, "pcode_Load_Const_get_blob: invalid instruction");
 	return ins.args[1];
 ]
 
 fn pcode_Where_get_condition(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Where, "pcode_Load_Const_get_blob: invalid instruction");
+	//xeval assert(ins.opcode = P_Where, "pcode_Load_Const_get_blob: invalid instruction");
 	return ins.args[2];
 ]
 
@@ -909,13 +909,13 @@ fn generate_Record_Create(ctx : function_context, at : int, fields : list(int)) 
 
 fn pcode_Record_Create_get_n_args(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Record_Create, "pcode_Record_Create_get_n_args: invalid instruction");
+	//xeval assert(ins.opcode = P_Record_Create, "pcode_Record_Create_get_n_args: invalid instruction");
 	return ins.args[1];
 ]
 
 fn pcode_Record_Create_get_arg(ins : instruction, arg : int) : int
 [
-	xeval assert(ins.opcode = P_Record_Create, "pcode_Record_Create_get_arg: invalid instruction");
+	//xeval assert(ins.opcode = P_Record_Create, "pcode_Record_Create_get_arg: invalid instruction");
 	return ins.args[2 + arg * 2 + 1];
 ]
 
@@ -1004,13 +1004,13 @@ fn generate_Record_Load(ctx : function_context, ar idx : int, t : tokens) : (fun
 
 fn pcode_Record_Load_get_record(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Record_Load, "pcode_Record_Load_get_record: invalid instruction");
+	//xeval assert(ins.opcode = P_Record_Load, "pcode_Record_Load_get_record: invalid instruction");
 	return ins.args[2];
 ]
 
 fn pcode_Record_Load_get_index(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Record_Load, "pcode_Record_Load_get_index: invalid instruction");
+	//xeval assert(ins.opcode = P_Record_Load, "pcode_Record_Load_get_index: invalid instruction");
 	return ins.args[3];
 ]
 
@@ -1028,13 +1028,13 @@ fn generate_Option_Create(ctx : function_context, at idx ar : int) : (function_c
 
 fn pcode_Option_Create_get_index(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Option_Create, "pcode_Option_Create_get_index: invalid instruction");
+	//xeval assert(ins.opcode = P_Option_Create, "pcode_Option_Create_get_index: invalid instruction");
 	return ins.args[1];
 ]
 
 fn pcode_Option_Create_get_arg(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Option_Create, "pcode_Option_Create_get_arg: invalid instruction");
+	//xeval assert(ins.opcode = P_Option_Create, "pcode_Option_Create_get_arg: invalid instruction");
 	return ins.args[3];
 ]
 
@@ -1056,13 +1056,13 @@ fn generate_Option_Load(ctx : function_context, ar idx : int, t : tokens) : (fun
 
 fn pcode_Option_Load_get_option(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Option_Load, "pcode_Option_Load_get_option: invalid instruction");
+	//xeval assert(ins.opcode = P_Option_Load, "pcode_Option_Load_get_option: invalid instruction");
 	return ins.args[2];
 ]
 
 fn pcode_Option_Load_get_index(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Option_Load, "pcode_Option_Load_get_index: invalid instruction");
+	//xeval assert(ins.opcode = P_Option_Load, "pcode_Option_Load_get_index: invalid instruction");
 	return ins.args[3];
 ]
 
@@ -1077,13 +1077,13 @@ fn generate_Option_Test(ctx : function_context, ar idx : int) : (function_contex
 
 fn pcode_Option_Test_get_option(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Option_Test, "pcode_Option_Test_option: invalid instruction");
+	//xeval assert(ins.opcode = P_Option_Test, "pcode_Option_Test_option: invalid instruction");
 	return ins.args[1];
 ]
 
 fn pcode_Option_Test_get_index(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Option_Test, "pcode_Option_Test_idx: invalid instruction");
+	//xeval assert(ins.opcode = P_Option_Test, "pcode_Option_Test_idx: invalid instruction");
 	return ins.args[2];
 ]
 
@@ -1098,7 +1098,7 @@ fn generate_Option_Ord(ctx : function_context, ar : int) : (function_context, in
 
 fn pcode_Option_Ord_get_option(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Option_Ord, "pcode_Option_Ord_get_option: invalid instruction");
+	//xeval assert(ins.opcode = P_Option_Ord, "pcode_Option_Ord_get_option: invalid instruction");
 	return ins.args[1];
 ]
 
@@ -1125,20 +1125,20 @@ fn generate_Array_Create(ctx : function_context, at : int, local_type : int, fie
 
 fn pcode_Array_Create_get_length(ins : instruction) : nat
 [
-	xeval assert(ins.opcode = P_Array_Create, "pcode_Array_Create_get_length: invalid instruction");
+	//xeval assert(ins.opcode = P_Array_Create, "pcode_Array_Create_get_length: invalid instruction");
 	assume ins.args[1] >= 0;
 	return ins.args[1];
 ]
 
 fn pcode_Array_Create_get_local_type(ins : instruction) : nat
 [
-	xeval assert(ins.opcode = P_Array_Create, "pcode_Array_Create_get_local_type: invalid instruction");
+	//xeval assert(ins.opcode = P_Array_Create, "pcode_Array_Create_get_local_type: invalid instruction");
 	return ins.args[3];
 ]
 
 fn pcode_Array_Create_get_arg(ins : instruction, arg : int) : int
 [
-	xeval assert(ins.opcode = P_Array_Create, "pcode_Array_Create_get_arg: invalid instruction");
+	//xeval assert(ins.opcode = P_Array_Create, "pcode_Array_Create_get_arg: invalid instruction");
 	return ins.args[5 + arg * 2];
 ]
 
@@ -1155,7 +1155,7 @@ fn generate_Array_String(ctx : function_context, blob : list(pcode_t)) : (functi
 
 fn pcode_Array_String_get_blob(ins : instruction) : list(pcode_t)
 [
-	xeval assert(ins.opcode = P_Array_String, "pcode_Array_String_get_blob: invalid instruction");
+	//xeval assert(ins.opcode = P_Array_String, "pcode_Array_String_get_blob: invalid instruction");
 	return ins.args[1 .. ];
 ]
 
@@ -1172,7 +1172,7 @@ fn generate_Array_Unicode(ctx : function_context, blob : list(pcode_t)) : (funct
 
 fn pcode_Array_Unicode_get_blob(ins : instruction) : list(pcode_t)
 [
-	xeval assert(ins.opcode = P_Array_Unicode, "pcode_Array_Unicode_get_blob: invalid instruction");
+	//xeval assert(ins.opcode = P_Array_Unicode, "pcode_Array_Unicode_get_blob: invalid instruction");
 	return ins.args[1 .. ];
 ]
 
@@ -1191,19 +1191,19 @@ fn generate_Array_Load(ctx : function_context, aa ai flags : int, t : tokens) : 
 
 fn pcode_Array_Load_get_flags(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Array_Load, "pcode_Array_Load_get_array: invalid instruction");
+	//xeval assert(ins.opcode = P_Array_Load, "pcode_Array_Load_get_array: invalid instruction");
 	return ins.args[1];
 ]
 
 fn pcode_Array_Load_get_array(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Array_Load, "pcode_Array_Load_get_array: invalid instruction");
+	//xeval assert(ins.opcode = P_Array_Load, "pcode_Array_Load_get_array: invalid instruction");
 	return ins.args[2];
 ]
 
 fn pcode_Array_Load_get_index(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Array_Load, "pcode_Array_Load_get_index: invalid instruction");
+	//xeval assert(ins.opcode = P_Array_Load, "pcode_Array_Load_get_index: invalid instruction");
 	return ins.args[3];
 ]
 
@@ -1220,7 +1220,7 @@ fn generate_Array_Len(ctx : function_context, aa : int) : (function_context, int
 
 fn pcode_Array_Len_get_array(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Array_Len, "pcode_Array_Len_get_array: invalid instruction");
+	//xeval assert(ins.opcode = P_Array_Len, "pcode_Array_Len_get_array: invalid instruction");
 	return ins.args[1];
 ]
 
@@ -1236,19 +1236,19 @@ fn generate_Array_Sub(ctx : function_context, aa am an : int) : (function_contex
 
 fn pcode_Array_Sub_get_array(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Array_Sub, "pcode_Array_Sub_get_array: invalid instruction");
+	//xeval assert(ins.opcode = P_Array_Sub, "pcode_Array_Sub_get_array: invalid instruction");
 	return ins.args[2];
 ]
 
 fn pcode_Array_Sub_get_start(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Array_Sub, "pcode_Array_Sub_get_start: invalid instruction");
+	//xeval assert(ins.opcode = P_Array_Sub, "pcode_Array_Sub_get_start: invalid instruction");
 	return ins.args[3];
 ]
 
 fn pcode_Array_Sub_get_end(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Array_Sub, "pcode_Array_Sub_get_end: invalid instruction");
+	//xeval assert(ins.opcode = P_Array_Sub, "pcode_Array_Sub_get_end: invalid instruction");
 	return ins.args[3];
 ]
 
@@ -1264,13 +1264,13 @@ fn generate_Array_Skip(ctx : function_context, aa am : int) : (function_context,
 
 fn pcode_Array_Skip_get_array(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Array_Skip, "pcode_Array_Skip_get_array: invalid instruction");
+	//xeval assert(ins.opcode = P_Array_Skip, "pcode_Array_Skip_get_array: invalid instruction");
 	return ins.args[2];
 ]
 
 fn pcode_Array_Skip_get_start(ins : instruction) : int
 [
-	xeval assert(ins.opcode = P_Array_Skip, "pcode_Array_Skip_get_index: invalid instruction");
+	//xeval assert(ins.opcode = P_Array_Skip, "pcode_Array_Skip_get_index: invalid instruction");
 	return ins.args[3];
 ]
 
