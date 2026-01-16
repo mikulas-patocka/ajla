@@ -25,6 +25,7 @@ fn generate_function_id(id : function_unique_id) : list(pcode_t);
 
 fn generate_Load_Fn(ctx : function_context, fd : function_definition, t : tokens) : (function_context, int);
 fn pcode_Load_Fn_get_n_curried_args(ins : instruction) : int;
+fn pcode_Load_Fn_get_string(ins : instruction) : list(pcode_t);
 fn pcode_Load_Fn_get_unique_id(ins : instruction) : function_unique_id;
 
 fn generate_Curry(ctx : function_context, cc : compare_context, typ : int, fnx : int, args : list(int), flags : list(int), t : tokens) : (function_context, int);
@@ -44,6 +45,7 @@ fn generate_Call(ctx : function_context, call_mode : int, fd : function_definiti
 fn generate_Call_self(ctx : function_context) : (function_context, int);
 fn pcode_Call_get_n_return_values(ins : instruction) : int;
 fn pcode_Call_get_n_args(ins : instruction) : int;
+fn pcode_Call_get_string(ins : instruction) : list(pcode_t);
 fn pcode_Call_get_unique_id(ins : instruction) : function_unique_id;
 fn pcode_Call_get_flag(ins : instruction, i : int) : int;
 fn pcode_Call_get_arg(ins : instruction, i : int) : int;
@@ -168,7 +170,7 @@ fn decode_function_id(p : list(pcode_t)) : function_unique_id
 	return fui;
 ]
 
-fn length_of_function_id(p : list(pcode_t)) : int
+fn length_of_function_id~inline(p : list(pcode_t)) : int
 [
 	var bl := blob_length(p[1 .. ]);
 	var l1 := 1 + bl + 1 + p[1 + bl];
@@ -248,6 +250,13 @@ fn pcode_Load_Fn_get_n_curried_args(ins : instruction) : int
 [
 	xeval assert(ins.opcode = P_Load_Fn, "pcode_Load_Fn_get_n_curried_args: invalid instruction");
 	return ins.args[1];
+]
+
+fn pcode_Load_Fn_get_string(ins : instruction) : list(pcode_t)
+[
+	xeval assert(ins.opcode = P_Load_Fn, "pcode_Load_Fn_get_unique_id: invalid instruction");
+	var s := ins.args[3 .. ];
+	return s[ .. length_of_function_id(s)];
 ]
 
 fn pcode_Load_Fn_get_unique_id(ins : instruction) : function_unique_id
@@ -612,6 +621,13 @@ fn pcode_Call_get_n_args(ins : instruction) : int
 [
 	xeval assert(ins.opcode = P_Call, "pcode_Call_get_n_args: invalid instruction");
 	return ins.args[2];
+]
+
+fn pcode_Call_get_string(ins : instruction) : list(pcode_t)
+[
+	xeval assert(ins.opcode = P_Call, "pcode_Call_get_unique_id: invalid instruction");
+	var s := ins.args[3 .. ];
+	return s[ .. length_of_function_id(s)];
 ]
 
 fn pcode_Call_get_unique_id(ins : instruction) : function_unique_id

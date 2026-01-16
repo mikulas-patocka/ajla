@@ -970,8 +970,8 @@ fn verify_type_equality(ctx : function_context,
 		]
 		instr2 := ins.j;
 
-		var fid1 := pcode_Call_get_unique_id(instr1);
-		var fid2 := pcode_Load_Fn_get_unique_id(instr2);
+		var fid1 := pcode_Call_get_string(instr1);
+		var fid2 := pcode_Load_Fn_get_string(instr2);
 		if fid1 <> fid2 then
 			return teq.dont_know;
 
@@ -1120,8 +1120,8 @@ fn verify_type_equality(ctx : function_context,
 	]
 
 	if opcode1 = P_Load_Fn then [
-		var id1 := pcode_Load_Fn_get_unique_id(instr1);
-		var id2 := pcode_Load_Fn_get_unique_id(instr2);
+		var id1 := pcode_Load_Fn_get_string(instr1);
+		var id2 := pcode_Load_Fn_get_string(instr2);
 		if id1 <> id2 then
 			return teq.noeq;
 		return teq.eq;
@@ -1216,8 +1216,8 @@ fn verify_type_equality(ctx : function_context,
 	if opcode1 = P_Call then [
 		if pcode_Call_quick_compare(instr1, instr2) then
 			return teq.dont_know;
-		var fid1 := pcode_Call_get_unique_id(instr1);
-		var fid2 := pcode_Call_get_unique_id(instr2);
+		var fid1 := pcode_Call_get_string(instr1);
+		var fid2 := pcode_Call_get_string(instr2);
 		if fid1 <> fid2 then
 			return teq.dont_know;
 		var ret_idx1 := pcode_Call_find_return_index(instr1, typ1);
