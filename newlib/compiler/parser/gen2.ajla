@@ -154,14 +154,17 @@ fn generate_function_id(id : function_unique_id) : list(pcode_t)
 
 fn decode_function_id(p : list(pcode_t)) : function_unique_id
 [
+	var bl := blob_length(p[1 .. ]);
+	var fl := p[1 + bl];
+	var fi := fill(0, fl);
+	for i := 0 to fl do
+		fi[i] := p[1 + bl + 1 + i];
 	var fui := function_unique_id.[
 		path_index : p[0] shr 1,
 		program : (p[0] and 1) <> 0,
 		unit_string : i_encode(blob_load(p[1 .. ])),
-		function_index : fill(0, p[1 + blob_length(p[1 .. ])]),
+		function_index : fi,
 	];
-	for i := 0 to len(fui.function_index) do
-		fui.function_index[i] := p[1 + blob_length(p[1 .. ]) + 1 + i];
 	return fui;
 ]
 
