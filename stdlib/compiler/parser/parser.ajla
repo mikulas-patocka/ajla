@@ -939,7 +939,7 @@ invalid:
 
 fn merge_interfaces(dict new_dict : function_dictionary) : function_dictionary
 [
-	var m_id := encode_module_id(new_dict.id);
+	var m_id := encode_module_id(new_dict.id.path_index, new_dict.id.unit_string);
 	if not is_uninitialized(dict.modules_map[m_id]) then
 		return dict;
 	dict.modules_map[m_id] := len(dict.modules);

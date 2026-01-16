@@ -236,7 +236,7 @@ fn search_function_from_id(ctx : function_context, id : function_unique_id) : fu
 fn get_implicits(ctx : function_context, conv : bool) : list(function_definition);
 fn new_record_definition(is_option : bool) : record_definition;
 
-fn encode_module_id~inline(id : module_unique_id) : int;
+fn encode_module_id~inline(path_index : nat, unit_string : istring) : int;
 
 fn dump_function_context(ctx : function_context) : unit_type;
 
@@ -604,7 +604,7 @@ fn search_function_from_id(ctx : function_context, id : function_unique_id) : fu
 	if ctx.dict.id.path_index = id.path_index, ctx.dict.id.unit_string = id.unit_string, ctx.dict.id.program = id.program then [
 		fd := ctx.dict.defs[id.function_index[0]];
 	] else [
-		var m_id := encode_module_id(module_unique_id.[ path_index : id.path_index, unit_string : id.unit_string, program : id.program ]);
+		var m_id := encode_module_id(id.path_index, id.unit_string);
 
 		var m_idx := ctx.dict.modules_map[m_id];
 		var m := ctx.dict.modules[m_idx];
@@ -685,12 +685,12 @@ fn new_record_definition(is_option : bool) : record_definition
 ]
 
 
-fn encode_module_id~inline(id : module_unique_id) : int
+fn encode_module_id~inline(path_index : nat, unit_string : istring) : int
 [
-	if id.path_index <= 7 then
-		return id.path_index shl 1 or id.unit_string shl 4;
+	if path_index <= 7 then
+		return path_index shl 1 or unit_string shl 4;
 	else
-		return 1 or id.path_index shl 1 or id.unit_string shl 32;
+		return 1 or path_index shl 1 or unit_string shl 32;
 ]
 
 fn dump_function_context(ctx : function_context) : unit_type
