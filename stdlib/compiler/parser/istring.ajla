@@ -36,13 +36,7 @@ fn i_encode(b : bytes) : istring
 fn i_append(result : istring, b : bytes) : istring
 [
 	for i := 0 to len(b) do [
-		var c := b[i];
-		var code : byte;
-		if c >= ' ' and c <= 126 then
-			code := c;
-		else
-			abort internal("i_encode: invalid byte " + ntos(c));
-		result := (result shl 7) or code;
+		result := (result shl 7) or b[i];
 	]
 	return result;
 ]
