@@ -711,12 +711,10 @@ fn remap_instruction(ins : instruction, var_map : list(int), test_write : bool) 
 		var idx : int := bsr rs;
 		rs btr= idx;
 		var param := ins.params[idx];
-		if param >= 0 then [
-			ins.params[idx] := var_map[param];
-			if var_map[param] < 0 then [
-				ins.read_set btr= idx;
-				ins.free_set btr= idx;
-			]
+		ins.params[idx] := var_map[param];
+		if var_map[param] < 0 then [
+			ins.read_set btr= idx;
+			ins.free_set btr= idx;
 		]
 	]
 	if test_write then [
