@@ -350,24 +350,6 @@ bool attr_fastcall mpint_neg(const mpint_t *s, mpint_t *r, ajla_error_t *err)
 	return true;
 }
 
-bool attr_fastcall mpint_inc(const mpint_t *s, mpint_t *r, ajla_error_t *err)
-{
-	mpz_add_ui(r, s, 1);
-	if (unlikely(!mpint_size_ok(r, err))) {
-		return false;
-	}
-	return true;
-}
-
-bool attr_fastcall mpint_dec(const mpint_t *s, mpint_t *r, ajla_error_t *err)
-{
-	mpz_sub_ui(r, s, 1);
-	if (unlikely(!mpint_size_ok(r, err))) {
-		return false;
-	}
-	return true;
-}
-
 bool attr_fastcall mpint_bsf(const mpint_t *s, mpint_t *r, ajla_error_t *err)
 {
 	mp_bitcnt_t b;

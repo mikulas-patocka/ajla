@@ -94,9 +94,7 @@ int mpz_cmp (const mpz_t, const mpz_t);
 
 void mpz_neg (mpz_t, const mpz_t);
 
-void mpz_add_ui (mpz_t, const mpz_t, unsigned long);
 void mpz_add (mpz_t, const mpz_t, const mpz_t);
-void mpz_sub_ui (mpz_t, const mpz_t, unsigned long);
 void mpz_sub (mpz_t, const mpz_t, const mpz_t);
 
 void mpz_mul (mpz_t, const mpz_t, const mpz_t);

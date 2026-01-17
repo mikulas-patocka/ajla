@@ -241,8 +241,6 @@ bool attr_fastcall mpint_bt(const mpint_t *s1, const mpint_t *s2, ajla_flat_opti
 
 bool attr_fastcall mpint_not(const mpint_t *s, mpint_t *r, ajla_error_t *err);
 bool attr_fastcall mpint_neg(const mpint_t *s, mpint_t *r, ajla_error_t *err);
-bool attr_fastcall mpint_inc(const mpint_t *s, mpint_t *r, ajla_error_t *err);
-bool attr_fastcall mpint_dec(const mpint_t *s, mpint_t *r, ajla_error_t *err);
 bool attr_fastcall mpint_bsf(const mpint_t *s, mpint_t *r, ajla_error_t *err);
 bool attr_fastcall mpint_bsr(const mpint_t *s, mpint_t *r, ajla_error_t *err);
 bool attr_fastcall mpint_popcnt(const mpint_t *s, mpint_t *r, ajla_error_t *err);

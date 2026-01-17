@@ -1367,7 +1367,7 @@ mpz_swap (mpz_t u, mpz_t v)
 /* MPZ addition and subtraction */
 
 
-void
+static void
 mpz_add_ui (mpz_t r, const mpz_t a, unsigned long b)
 {
   mpz_t bb;
@@ -1379,7 +1379,7 @@ mpz_add_ui (mpz_t r, const mpz_t a, unsigned long b)
 static void
 mpz_ui_sub (mpz_t r, unsigned long a, const mpz_t b);
 
-void
+static void
 mpz_sub_ui (mpz_t r, const mpz_t a, unsigned long b)
 {
   mpz_ui_sub (r, b, a);
