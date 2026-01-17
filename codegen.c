@@ -905,7 +905,6 @@ do {									\
 		return false;						\
 } while (0)
 
-#if defined(C_LITTLE_ENDIAN) || 1
 #define cgen_two(word)							\
 do {									\
 	uint16_t word_ = (word);					\
@@ -915,7 +914,6 @@ do {									\
 #define cgen_four(dword)						\
 do {									\
 	uint32_t dword_ = (dword);					\
-	/*if (dword_ == 0x1ee02000) internal(file_line, "invalid instruction");*/\
 	if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->mcode, &ctx->mcode_size, cast_ptr(uint8_t *, &dword_), 4, NULL, &ctx->err)))\
 		return false;						\
 } while (0)
@@ -925,23 +923,6 @@ do {									\
 	if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->mcode, &ctx->mcode_size, cast_ptr(uint8_t *, &qword_), 8, NULL, &ctx->err)))\
 		return false;						\
 } while (0)
-#else
-#define cgen_two(word)							\
-do {									\
-	cgen_one((word) & 0xff);					\
-	cgen_one((word) >> 8);						\
-} while (0)
-#define cgen_four(dword)						\
-do {									\
-	cgen_two((dword) & 0xffff);					\
-	cgen_two((dword) >> 15 >> 1);					\
-} while (0)
-#define cgen_eight(qword)						\
-do {									\
-	cgen_four((qword) & 0xffffffff);				\
-	cgen_four((qword) >> 15 >> 15 >> 2);				\
-} while (0)
-#endif
 
 
 #define IMM_PURPOSE_LDR_OFFSET		1
