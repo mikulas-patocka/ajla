@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -446,7 +446,7 @@ static bool attr_w gen_escape_arg(struct codegen_context *ctx, ip_t ip, uint32_t
 	g(gen_load_constant(ctx, R_SCRATCH_1, ip));
 
 	gen_insn(INSN_JMP, 0, 0, 0);
-	gen_four(escape_label);
+	gen_label_ref(escape_label);
 
 	return true;
 }
@@ -514,7 +514,7 @@ static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsi
 	g(gen_get_upcall_pointer(ctx, offset, OP_SIZE_ADDRESS, R_SCRATCH_NA_1));
 
 	gen_insn(INSN_CALL, 0, 0, 0);
-	gen_four(label);
+	gen_label_ref(label);
 #else
 	g(gen_get_upcall_pointer(ctx, offset, OP_SIZE_ADDRESS, R_DP));
 

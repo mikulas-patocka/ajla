@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -169,7 +169,7 @@ static bool attr_w gen_compare_refcount(struct codegen_context *ctx, unsigned pt
 	gen_imm_offset();
 
 	gen_insn(!logical ? INSN_JMP_COND : INSN_JMP_COND_LOGICAL, op_size, cond, 0);
-	gen_four(label);
+	gen_label_ref(label);
 #else
 	g(gen_address(ctx, ptr, offsetof(struct data, refcount_), IMM_PURPOSE_LDR_OFFSET, op_size));
 	gen_insn(INSN_MOV, op_size, 0, 0);
@@ -215,7 +215,7 @@ static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg
 		gen_imm_offset();
 
 		gen_insn(INSN_JMP_COND, OP_SIZE_1, cond, 0);
-		gen_four(label);
+		gen_label_ref(label);
 		return true;
 	}
 #endif
@@ -262,7 +262,7 @@ static bool attr_w gen_compare_da_tag(struct codegen_context *ctx, unsigned reg,
 	gen_imm_offset();
 
 	gen_insn(INSN_JMP_COND, OP_SIZE_4, cond, 0);
-	gen_four(label);
+	gen_label_ref(label);
 
 	return true;
 #endif

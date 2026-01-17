@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -384,7 +384,6 @@ do {									\
 	bool need_stop;							\
 	uint64_t wr_mask[4];						\
 }
-#define CODEGEN_TRIM_LABELS
 #endif
 
 #define gen_insn(opcode, op_size, aux, writes_flags)			\
@@ -468,7 +467,9 @@ struct codegen_context {
 	uchar_efficient_t arg_mode;
 	bool unreachable;
 
-	uint32_t label_id;
+	bool *label_used;
+	size_t label_used_size;
+
 	struct cg_entry *entries;
 	frame_t n_entries;
 
@@ -487,7 +488,6 @@ struct codegen_context {
 	size_t mcode_size;
 
 	size_t *label_to_pos;
-	bool *used_labels;
 	struct relocation *reloc;
 	size_t reloc_size;
 
@@ -535,7 +535,7 @@ static void init_ctx(struct codegen_context *ctx)
 {
 	ctx->local_directory = NULL;
 	ctx->unreachable = false;
-	ctx->label_id = 0;
+	ctx->label_used = NULL;
 	ctx->entries = NULL;
 	ctx->n_entries = 0;
 	ctx->code = NULL;
@@ -546,7 +546,6 @@ static void init_ctx(struct codegen_context *ctx)
 	ctx->reload_label = 0;
 	ctx->mcode = NULL;
 	ctx->label_to_pos = NULL;
-	ctx->used_labels = NULL;
 	ctx->reloc = NULL;
 	ctx->trap_records = NULL;
 	ctx->args = NULL;
@@ -566,6 +565,8 @@ static void done_ctx(struct codegen_context *ctx)
 {
 	if (ctx->local_directory)
 		mem_free(ctx->local_directory);
+	if (ctx->label_used)
+		mem_free(ctx->label_used);
 	if (ctx->entries) {
 		size_t i;
 		for (i = 0; i < ctx->n_entries; i++) {
@@ -592,8 +593,6 @@ static void done_ctx(struct codegen_context *ctx)
 		mem_free(ctx->mcode);
 	if (ctx->label_to_pos)
 		mem_free(ctx->label_to_pos);
-	if (ctx->used_labels)
-		mem_free(ctx->used_labels);
 	if (ctx->reloc)
 		mem_free(ctx->reloc);
 	if (ctx->trap_records)
@@ -683,7 +682,12 @@ static inline void get_two(struct codegen_context *ctx, frame_t *v1, frame_t *v2
 
 static uint32_t alloc_label(struct codegen_context *ctx)
 {
-	return ++ctx->label_id;
+	uint32_t l = ctx->label_used_size;
+	if (unlikely(!l))
+		return 0;
+	if (unlikely(!array_add_mayfail(bool, &ctx->label_used, &ctx->label_used_size, false, NULL, &ctx->err)))
+		return 0;
+	return l;
 }
 
 static struct cg_exit *alloc_cg_exit_for_ip(struct codegen_context *ctx, const code_t *code)
@@ -820,6 +824,12 @@ do {									\
 	gen_four(qword_ >> 15 >> 15 >> 2);				\
 } while (0)
 #endif
+
+#define gen_label_ref(label_id)						\
+do {									\
+	(ctx)->label_used[label_id] = true;				\
+	gen_four(label_id);						\
+} while (0)
 
 #define gen_label(label_id)						\
 do {									\
@@ -1644,7 +1654,7 @@ unconditional_escape:
 				if (unlikely(!escape_label))
 					return false;
 				gen_insn(INSN_JMP, 0, 0, 0);
-				gen_four(escape_label);
+				gen_label_ref(escape_label);
 				continue;
 			}
 			case OPCODE_IS_EXCEPTION: {
@@ -2231,7 +2241,7 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 			g(gen_unspill_variables(ctx, ce->variables, ce->n_variables));
 
 			gen_insn(INSN_JMP, 0, 0, 0);
-			gen_four(ce->nonflat_label);
+			gen_label_ref(ce->nonflat_label);
 		} else if (ce->entry_label) {
 			if (ce->n_variables) {
 				ce->test_and_entry_label = alloc_label(ctx);
@@ -2243,11 +2253,12 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 				g(gen_test_variables(ctx, ce->variables, ce->n_variables, false, ce->nonflat_label));
 
 				gen_insn(INSN_JMP, 0, 0, 0);
-				gen_four(ce->entry_label);
+				gen_label_ref(ce->entry_label);
 			} else {
 				ce->test_and_entry_label = ce->entry_label;
 			}
 		}
+		ctx->label_used[ce->test_and_entry_label] = true;
 	}
 	return true;
 }
@@ -2390,15 +2401,6 @@ static int8_t resolve_relocs(struct codegen_context *ctx)
 	int8_t status = RELOCS_OK;
 	for (i = 0; i < ctx->reloc_size; i++) {
 		struct relocation *reloc = &ctx->reloc[i];
-#ifdef CODEGEN_TRIM_LABELS
-		if (!ctx->used_labels[reloc->label_id]) {
-			ctx->used_labels[reloc->label_id] = true;
-			status = RELOCS_RETRY;
-			continue;
-		}
-		if (ctx->label_to_pos[reloc->label_id] == (size_t)-1)
-			continue;
-#endif
 		if (!resolve_relocation(ctx, reloc)) {
 			uint8_t *jmp_instr;
 			uint32_t insn;
@@ -2569,6 +2571,12 @@ next_one:;
 		}
 	}
 
+	if (unlikely(!array_init_mayfail(bool, &ctx->label_used, &ctx->label_used_size, &ctx->err)))
+		goto fail;
+
+	if (unlikely(!array_add_mayfail(bool, &ctx->label_used, &ctx->label_used_size, false, NULL, &ctx->err)))
+		goto fail;
+
 	/*debug("trying: %s", da(ctx->fn,function)->function_name);*/
 	if (unlikely(!array_init_mayfail(uint8_t, &ctx->code, &ctx->code_size, &ctx->err)))
 		goto fail;
@@ -2608,21 +2616,11 @@ next_one:;
 	if (unlikely(!gen_epilogues(ctx)))
 		goto fail;
 
-	if (unlikely(!(ctx->label_id + 1)))
+	if (unlikely(!(ctx->label_to_pos = mem_alloc_array_mayfail(mem_alloc_mayfail, size_t *, 0, 0, ctx->label_used_size, sizeof(size_t), &ctx->err))))
 		goto fail;
-	if (unlikely(!(ctx->label_to_pos = mem_alloc_array_mayfail(mem_alloc_mayfail, size_t *, 0, 0, ctx->label_id + 1, sizeof(size_t), &ctx->err))))
-		goto fail;
-#ifdef CODEGEN_TRIM_LABELS
-	if (unlikely(!(ctx->used_labels = mem_alloc_array_mayfail(mem_calloc_mayfail, bool *, 0, 0, ctx->label_id + 1, sizeof(bool), &ctx->err))))
-		goto fail;
-	for (i = 0; i < ctx->n_entries; i++) {
-		struct cg_entry *ce = &ctx->entries[i];
-		ctx->used_labels[ce->test_and_entry_label] = true;
-	}
-#endif
 
 again:
-	for (l = 0; l < ctx->label_id + 1; l++)
+	for (l = 0; l < ctx->label_used_size; l++)
 		ctx->label_to_pos[l] = (size_t)-1;
 
 	if (unlikely(!array_init_mayfail(uint8_t, &ctx->mcode, &ctx->mcode_size, &ctx->err)))

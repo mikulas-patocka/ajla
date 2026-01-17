@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -325,7 +325,7 @@ static bool attr_w gen_test_bit(struct codegen_context *ctx, unsigned attr_unuse
 	gen_eight(1U << bit);
 
 	gen_insn(INSN_JMP_COND, OP_SIZE_1, cond, 0);
-	gen_four(label);
+	gen_label_ref(label);
 
 	return true;
 }
@@ -441,7 +441,7 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 			gen_one(reg2);
 
 			gen_insn(INSN_JMP_COND_LOGICAL, op_size, cond, 0);
-			gen_four(label);
+			gen_label_ref(label);
 
 			return true;
 		}
@@ -459,7 +459,7 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 		}
 #endif
 		gen_insn(INSN_JMP_COND, op_size, cond, 0);
-		gen_four(label);
+		gen_label_ref(label);
 	} else {
 		if (insn == INSN_CMP) {
 			unsigned attr_unused jmp_cond;
@@ -467,7 +467,7 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 				gen_insn(INSN_JMP_2REGS, op_size, cond, 0);
 				gen_one(reg1);
 				gen_one(reg2);
-				gen_four(label);
+				gen_label_ref(label);
 				return true;
 			}
 #ifdef R_CMP_RESULT
@@ -477,7 +477,7 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 				gen_insn(INSN_JMP_2REGS, op_size, cond, 0);
 				gen_one(reg1);
 				gen_one(reg2);
-				gen_four(label);
+				gen_label_ref(label);
 				return true;
 			}
 #endif
@@ -501,7 +501,7 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 
 			gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, jmp_cond, 0);
 			gen_one(R_CMP_RESULT);
-			gen_four(label);
+			gen_label_ref(label);
 #else
 			internal(file_line, "gen_cmp_test_jmp: R_CMP_RESULT not defined");
 #endif
@@ -525,7 +525,7 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 #endif
 			gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, cond, 0);
 			gen_one(reg1);
-			gen_four(label);
+			gen_label_ref(label);
 		}
 	}
 	return true;
@@ -546,14 +546,14 @@ static bool attr_w gen_cmp_test_imm_jmp_q_flags(struct codegen_context *ctx, uns
 		if (value == 1 && (cond == COND_E || cond == COND_NE)) {
 			gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, cond == COND_E ? COND_BLBC : COND_BLBS, 0);
 			gen_one(reg1);
-			gen_four(label);
+			gen_label_ref(label);
 			return true;
 		}
 #endif
 #if defined(ARCH_ARM64) || defined(ARCH_PARISC)
 		gen_insn(INSN_JMP_REG_BIT, OP_SIZE_NATIVE, bit | ((cond == COND_NE) << 6), 0);
 		gen_one(reg1);
-		gen_four(label);
+		gen_label_ref(label);
 
 		return true;
 #endif
@@ -562,7 +562,7 @@ static bool attr_w gen_cmp_test_imm_jmp_q_flags(struct codegen_context *ctx, uns
 			g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_CONST_IMM, reg1, (8U << OP_SIZE_NATIVE) - 1 - bit, 1));
 
 			gen_insn(INSN_JMP_COND, OP_SIZE_NATIVE, cond == COND_E ? COND_GE : COND_L, 0);
-			gen_four(label);
+			gen_label_ref(label);
 
 			return true;
 		}
@@ -574,7 +574,7 @@ static bool attr_w gen_cmp_test_imm_jmp_q_flags(struct codegen_context *ctx, uns
 
 		gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, COND_NE, 0);
 		gen_one(R_CMP_RESULT);
-		gen_four(label);
+		gen_label_ref(label);
 
 		return true;
 #endif
@@ -588,7 +588,7 @@ static bool attr_w gen_cmp_test_imm_jmp_q_flags(struct codegen_context *ctx, uns
 
 			gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, cond, 0);
 			gen_one(R_CMP_RESULT);
-			gen_four(label);
+			gen_label_ref(label);
 
 			return true;
 		}
@@ -599,7 +599,7 @@ static bool attr_w gen_cmp_test_imm_jmp_q_flags(struct codegen_context *ctx, uns
 		gen_insn(INSN_JMP_2REGS, i_size_cmp(op_size), cond, 0);
 		gen_one(reg1);
 		gen_imm_offset();
-		gen_four(label);
+		gen_label_ref(label);
 		return true;
 	}
 #if ARCH_HAS_FLAGS
@@ -610,7 +610,7 @@ static bool attr_w gen_cmp_test_imm_jmp_q_flags(struct codegen_context *ctx, uns
 		gen_imm_offset();
 
 		gen_insn(INSN_JMP_COND_LOGICAL, op_size, cond, 0);
-		gen_four(label);
+		gen_label_ref(label);
 
 		return true;
 	}
@@ -630,7 +630,7 @@ static bool attr_w gen_cmp_test_imm_jmp_q_flags(struct codegen_context *ctx, uns
 	}
 
 	gen_insn(INSN_JMP_COND, op_size, cond, 0);
-	gen_four(label);
+	gen_label_ref(label);
 #else
 	if (insn == INSN_CMP) {
 		unsigned final_cond = COND_NE;
@@ -649,7 +649,7 @@ static bool attr_w gen_cmp_test_imm_jmp_q_flags(struct codegen_context *ctx, uns
 			gen_insn(INSN_JMP_2REGS, OP_SIZE_NATIVE, cond, 0);
 			gen_one(reg1);
 			gen_one(R_CONST_IMM);
-			gen_four(label);
+			gen_label_ref(label);
 			return true;
 		}
 #endif
@@ -688,7 +688,7 @@ static bool attr_w gen_cmp_test_imm_jmp_q_flags(struct codegen_context *ctx, uns
 jmp_reg:
 		gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, final_cond, 0);
 		gen_one(R_CMP_RESULT);
-		gen_four(label);
+		gen_label_ref(label);
 	} else if (insn == INSN_TEST) {
 #if defined(ARCH_IA64)
 		internal(file_line, "gen_cmp_test_imm_jmp_q_flags: value %"PRIxMAX" not supported", (uintmax_t)value);
@@ -697,7 +697,7 @@ jmp_reg:
 
 		gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, cond, 0);
 		gen_one(R_CMP_RESULT);
-		gen_four(label);
+		gen_label_ref(label);
 	} else {
 		internal(file_line, "gen_cmp_test_imm_jmp_q_flags: invalid insn");
 	}
@@ -715,7 +715,7 @@ static bool attr_w gen_jmp_on_zero(struct codegen_context *ctx, unsigned attr_un
 	if (ARCH_HAS_JMP_REG(cond)) {
 		gen_insn(INSN_JMP_REG, i_size(op_size), cond, 0);
 		gen_one(reg);
-		gen_four(label);
+		gen_label_ref(label);
 
 		return true;
 	}
@@ -733,7 +733,7 @@ static bool attr_w gen_jmp_if_negative(struct codegen_context *ctx, unsigned reg
 #if defined(ARCH_ARM64) || defined(ARCH_PARISC)
 	gen_insn(INSN_JMP_REG_BIT, OP_SIZE_NATIVE, (INT_DEFAULT_BITS - 1) | ((uint32_t)1 << 6), 0);
 	gen_one(reg);
-	gen_four(label);
+	gen_label_ref(label);
 #else
 	g(gen_jmp_on_zero(ctx, OP_SIZE_INT, reg, COND_S, label));
 #endif
@@ -755,7 +755,7 @@ static bool attr_w gen_cmov(struct codegen_context *ctx, unsigned op_size, unsig
 		if (unlikely(!*label))
 			return false;
 		gen_insn(INSN_JMP_COND, op_size, cond ^ 1, 0);
-		gen_four(*label);
+		gen_label_ref(*label);
 		gen_insn(INSN_MOV, op_size, 0, 0);
 		gen_one(reg);
 	}
@@ -887,7 +887,7 @@ static bool attr_w gen_cmp_extended(struct codegen_context *ctx, unsigned cmp_op
 	gen_one(reg);
 
 	gen_insn(INSN_JMP_COND, cmp_op_size, COND_NE, 0);
-	gen_four(label_ovf);
+	gen_label_ref(label_ovf);
 #else
 	g(gen_extend(ctx, sub_op_size, sign_x, tmp_reg, reg));
 

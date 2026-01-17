@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -388,7 +388,7 @@ static bool attr_w gen_escape_arg(struct codegen_context *ctx, ip_t ip, uint32_t
 	g(gen_load_constant(ctx, R_SCRATCH_1, (int32_t)ip));
 
 	gen_insn(INSN_JMP, 0, 0, 0);
-	gen_four(escape_label);
+	gen_label_ref(escape_label);
 
 	return true;
 }

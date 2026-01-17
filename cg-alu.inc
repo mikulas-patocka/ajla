@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -232,7 +232,7 @@ do_alu: {
 				gen_one(R_SCRATCH_2);
 				gen_one(R_SCRATCH_2);
 				gen_one(R_SCRATCH_4);
-				gen_four(label_ovf);
+				gen_label_ref(label_ovf);
 			} else
 #endif
 			{
@@ -245,7 +245,7 @@ do_alu: {
 #if !defined(ARCH_PARISC)
 			if (mode == MODE_INT) {
 				gen_insn(INSN_JMP_COND, OP_SIZE_NATIVE, COND_O, 0);
-				gen_four(label_ovf);
+				gen_label_ref(label_ovf);
 			}
 #endif
 			g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, R_SCRATCH_1, R_SCRATCH_2));
@@ -283,13 +283,13 @@ do_alu: {
 						else
 							gen_one(reg2);
 						if (ARCH_TRAP_BEFORE) {
-							gen_four(label_ovf);
+							gen_label_ref(label_ovf);
 							return true;
 						} else {
 							ce = alloc_undo_label(ctx);
 							if (unlikely(!ce))
 								return false;
-							gen_four(ce->undo_label);
+							gen_label_ref(ce->undo_label);
 							goto do_undo_opcode;
 						}
 					}
@@ -308,7 +308,7 @@ do_alu: {
 						if (unlikely(!ce))
 							return false;
 						gen_insn(INSN_JMP_COND, i_size_cmp(op_size), COND_O, 0);
-						gen_four(ce->undo_label);
+						gen_label_ref(ce->undo_label);
 do_undo_opcode:
 						ce->undo_opcode = INSN_ALU + ARCH_PARTIAL_ALU(i_size(op_size));
 						ce->undo_op_size = i_size(op_size);
@@ -348,7 +348,7 @@ do_undo_opcode:
 						gen_address_offset();
 						copy_params(ctx, ce, m);
 						gen_insn(INSN_JMP_COND, i_size_cmp(op_size), COND_O, 0);
-						gen_four(ce->undo_label);
+						gen_label_ref(ce->undo_label);
 					}
 					return true;
 				}
@@ -392,7 +392,7 @@ do_undo_opcode:
 						gen_one(reg2);
 					copy_params(ctx, ce, m);
 					gen_insn(INSN_JMP_COND, i_size_cmp(op_size), COND_O, 0);
-					gen_four(ce->undo_label);
+					gen_label_ref(ce->undo_label);
 				}
 				return true;
 				goto skip_mem_modify;
@@ -449,7 +449,7 @@ skip_mem_modify:;
 					gen_imm_offset();
 				else
 					gen_one(reg2);
-				gen_four(label_ovf);
+				gen_label_ref(label_ovf);
 				g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 				return true;
 			}
@@ -519,7 +519,7 @@ skip_mem_modify:;
 check_ovf_store:
 		if (mode == MODE_INT) {
 			gen_insn(INSN_JMP_COND, op_size, COND_O, 0);
-			gen_four(label_ovf);
+			gen_label_ref(label_ovf);
 		}
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
@@ -629,7 +629,7 @@ do_multiply: {
 				ce->undo_parameters[1] = R_SCRATCH_1;
 				ce->undo_parameters_len = 2;
 				gen_insn(INSN_JMP_COND, op_size, COND_O, 0);
-				gen_four(ce->undo_label);
+				gen_label_ref(ce->undo_label);
 				return true;
 			}
 			target = gen_frame_target(ctx, slot_r, slot_1, slot_2, R_SCRATCH_1);
@@ -650,7 +650,7 @@ do_multiply: {
 		}
 		if (mode == MODE_INT) {
 			gen_insn(INSN_JMP_COND, op_size, COND_O, 0);
-			gen_four(label_ovf);
+			gen_label_ref(label_ovf);
 		}
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
@@ -665,7 +665,7 @@ do_multiply: {
 			gen_one(target);
 			gen_one(reg1);
 			gen_one(reg2);
-			gen_four(label_ovf);
+			gen_label_ref(label_ovf);
 			g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 
 			return true;
@@ -690,7 +690,7 @@ do_multiply: {
 			gen_one(target);
 
 			gen_insn(INSN_JMP_COND, OP_SIZE_NATIVE, COND_NE, 0);
-			gen_four(label_ovf);
+			gen_label_ref(label_ovf);
 
 			g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 
@@ -718,7 +718,7 @@ do_multiply: {
 			gen_one(target);
 
 			gen_insn(INSN_JMP_COND, OP_SIZE_8, COND_NE, 0);
-			gen_four(label_ovf);
+			gen_label_ref(label_ovf);
 
 			g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 
@@ -739,7 +739,7 @@ do_multiply: {
 			gen_one(target);
 
 			gen_insn(INSN_JMP_COND, OP_SIZE_8, COND_NE, 0);
-			gen_four(label_ovf);
+			gen_label_ref(label_ovf);
 
 			g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 
@@ -755,7 +755,7 @@ do_multiply: {
 			g(gen_3address_alu(ctx, op_size, ALU_MUL, target, reg1, reg2, 1));
 
 			gen_insn(INSN_JMP_COND, op_size, COND_O, 0);
-			gen_four(label_ovf);
+			gen_label_ref(label_ovf);
 
 			g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 
@@ -788,7 +788,7 @@ do_multiply: {
 			g(gen_frame_load_op(ctx, op_size, sign_x, ALU_MUL, 1, slot_2, 0, false, target));
 
 			gen_insn(INSN_JMP_COND, op_size, COND_O, 0);
-			gen_four(label_ovf);
+			gen_label_ref(label_ovf);
 
 			g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 			return true;
@@ -959,7 +959,7 @@ do_divide: {
 		}
 		if (mode == MODE_FIXED) {
 			gen_insn(INSN_JMP, 0, 0, 0);
-			gen_four(label_end);
+			gen_label_ref(label_end);
 
 			if (sgn) {
 				gen_label(label_skip2);
@@ -970,7 +970,7 @@ do_divide: {
 					g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_1));
 
 				gen_insn(INSN_JMP, 0, 0, 0);
-				gen_four(label_end);
+				gen_label_ref(label_end);
 			}
 
 			gen_label(label_skip);
@@ -1127,7 +1127,7 @@ do_shift: {
 				if (mode == MODE_INT) {
 					if ((uint64_t)cnst > (8U << op_size) - 1) {
 						gen_insn(INSN_JMP, 0, 0, 0);
-						gen_four(label_ovf);
+						gen_label_ref(label_ovf);
 						return true;
 					}
 				} else {
@@ -1186,7 +1186,7 @@ do_shift: {
 			if (c) {
 				if ((uint64_t)cnst > (uint64_t)imm) {
 					gen_insn(INSN_JMP, 0, 0, 0);
-					gen_four(label_ovf);
+					gen_label_ref(label_ovf);
 					return true;
 				}
 			} else {
@@ -1355,7 +1355,7 @@ do_generic_shift:
 					g(gen_3address_rot(ctx, op_size, ROT_SAL, target, reg1, reg3));
 
 				gen_insn(INSN_JMP_COND, op_size, COND_O, 0);
-				gen_four(label_ovf);
+				gen_label_ref(label_ovf);
 			} else
 #endif
 			if (op_size <= OP_SIZE_NATIVE - 1) {
@@ -1404,7 +1404,7 @@ do_bt: {
 			if (mode == MODE_INT) {
 				if (alu == BTX_BT ? (uint64_t)cnst > (uint64_t)max_imm : (uint64_t)cnst >= (uint64_t)max_imm) {
 					gen_insn(INSN_JMP, 0, 0, 0);
-					gen_four(label_ovf);
+					gen_label_ref(label_ovf);
 					return true;
 				}
 			}
@@ -1425,7 +1425,7 @@ do_bt: {
 						gen_one(ARG_IMM);
 						gen_eight(0);
 						gen_insn(INSN_JMP_COND, OP_SIZE_NATIVE, COND_NE, 0);
-						gen_four(label_ovf);
+						gen_label_ref(label_ovf);
 					}
 				}
 			} else {
@@ -1845,7 +1845,7 @@ do_alu: {
 			}
 			if (mode == MODE_INT) {
 				gen_insn(INSN_JMP_COND, OP_SIZE_NATIVE, COND_O, 0);
-				gen_four(label_ovf);
+				gen_label_ref(label_ovf);
 			}
 			g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, R_SCRATCH_1, R_SCRATCH_2));
 			return true;
@@ -1860,13 +1860,13 @@ do_alu: {
 					gen_one(reg);
 					gen_one(reg);
 					if (ARCH_TRAP_BEFORE || alu == undo_alu) {
-						gen_four(label_ovf);
+						gen_label_ref(label_ovf);
 						return true;
 					} else {
 						ce = alloc_undo_label(ctx);
 						if (unlikely(!ce))
 							return false;
-						gen_four(ce->undo_label);
+						gen_label_ref(ce->undo_label);
 						goto do_undo_opcode;
 					}
 				}
@@ -1877,7 +1877,7 @@ do_alu: {
 						if (unlikely(!ce))
 							return false;
 						gen_insn(INSN_JMP_COND, i_size_cmp(op_size), COND_O, 0);
-						gen_four(ce->undo_label);
+						gen_label_ref(ce->undo_label);
 do_undo_opcode:
 						ce->undo_opcode = INSN_ALU1 + ARCH_PARTIAL_ALU(op_size);
 						ce->undo_op_size = i_size(op_size);
@@ -1888,7 +1888,7 @@ do_undo_opcode:
 						ce->undo_parameters_len = 2;
 					} else {
 						gen_insn(INSN_JMP_COND, i_size_cmp(op_size), COND_O, 0);
-						gen_four(label_ovf);
+						gen_label_ref(label_ovf);
 					}
 				}
 				return true;
@@ -1915,10 +1915,10 @@ do_undo_opcode:
 						gen_address_offset();
 						copy_params(ctx, ce, m);
 						gen_insn(INSN_JMP_COND, i_size_cmp(op_size), COND_O, 0);
-						gen_four(ce->undo_label);
+						gen_label_ref(ce->undo_label);
 					} else {
 						gen_insn(INSN_JMP_COND, i_size_cmp(op_size), COND_O, 0);
-						gen_four(label_ovf);
+						gen_label_ref(label_ovf);
 					}
 				}
 				return true;
@@ -1947,7 +1947,7 @@ do_undo_opcode:
 					g(gen_3address_alu(ctx, i_size(op_size), ALU_AND, R_CG_SCRATCH, target, reg1, 1));
 				}
 				gen_insn(INSN_JMP_COND, op_size, COND_L, 0);
-				gen_four(label_ovf);
+				gen_label_ref(label_ovf);
 
 				g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 
@@ -1985,7 +1985,7 @@ do_undo_opcode:
 			gen_insn(INSN_ALU1_TRAP, op_size, alu, ALU1_WRITES_FLAGS(alu));
 			gen_one(target);
 			gen_one(reg1);
-			gen_four(label_ovf);
+			gen_label_ref(label_ovf);
 			g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 			return true;
 		}
@@ -1994,7 +1994,7 @@ do_undo_opcode:
 #endif
 		if (mode == MODE_INT) {
 			gen_insn(INSN_JMP_COND, i_size_cmp(op_size), COND_O, 0);
-			gen_four(label_ovf);
+			gen_label_ref(label_ovf);
 		}
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
@@ -2145,7 +2145,7 @@ do_bsf_bsr_popcnt: {
 					gen_imm_offset();
 
 					gen_insn(INSN_JMP_COND, OP_SIZE_NATIVE, COND_S, 0);
-					gen_four(label_ovf);
+					gen_label_ref(label_ovf);
 				}
 			}
 			if (alu == ALU1_BSF) {
@@ -2159,7 +2159,7 @@ do_bsf_bsr_popcnt: {
 				gen_address_offset();
 
 				gen_insn(INSN_JMP_COND, OP_SIZE_NATIVE, COND_NE, 0);
-				gen_four(label_finish);
+				gen_label_ref(label_finish);
 
 				g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size + hi_word(OP_SIZE_NATIVE), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
 				gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_BSF, ALU1_WRITES_FLAGS(ALU1_BSF));
@@ -2181,7 +2181,7 @@ do_bsf_bsr_popcnt: {
 				g(gen_3address_alu_imm(ctx, OP_SIZE_4, ALU_ADD, R_SCRATCH_1, R_SCRATCH_1, 8U << OP_SIZE_NATIVE, 0));
 
 				gen_insn(INSN_JMP_COND, OP_SIZE_NATIVE, COND_NE, 0);
-				gen_four(label_finish);
+				gen_label_ref(label_finish);
 
 				g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size + lo_word(OP_SIZE_NATIVE), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
 				gen_insn(INSN_ALU1, OP_SIZE_NATIVE, ALU1_BSR, ALU1_WRITES_FLAGS(ALU1_BSR));
@@ -2191,10 +2191,10 @@ do_bsf_bsr_popcnt: {
 			if (alu == ALU1_BSF || alu == ALU1_BSR) {
 				if (mode == MODE_INT) {
 					gen_insn(INSN_JMP_COND, OP_SIZE_NATIVE, COND_E, 0);
-					gen_four(label_ovf);
+					gen_label_ref(label_ovf);
 				} else {
 					gen_insn(INSN_JMP_COND, OP_SIZE_NATIVE, COND_NE, 0);
-					gen_four(label_finish);
+					gen_label_ref(label_finish);
 
 					g(gen_load_constant(ctx, R_SCRATCH_1, -1));
 				}
@@ -2657,7 +2657,7 @@ do_conv: {
 				gen_one(R_SCRATCH_1);
 
 				gen_insn(INSN_JMP_COND, OP_SIZE_NATIVE, COND_NE, 0);
-				gen_four(label_ovf);
+				gen_label_ref(label_ovf);
 #elif defined(ARCH_X86)
 				if (R_SCRATCH_1 != R_AX || R_SCRATCH_2 != R_DX)
 					internal(file_line, "gen_alu1: bad scratch registers");
@@ -2671,7 +2671,7 @@ do_conv: {
 				gen_address_offset();
 
 				gen_insn(INSN_JMP_COND, OP_SIZE_NATIVE, COND_NE, 0);
-				gen_four(label_ovf);
+				gen_label_ref(label_ovf);
 #else
 				g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, R_SCRATCH_2, R_SCRATCH_1, (1U << (OP_SIZE_NATIVE + 3)) - 1, 0));
 
@@ -2945,7 +2945,7 @@ do_cmp:
 		gen_one(FR_SCRATCH_3);
 		gen_one(reg1);
 		gen_one(reg2);
-		gen_four(label_ovf);
+		gen_label_ref(label_ovf);
 
 		if (!ARCH_HAS_FP_GP_MOV) {
 			g(gen_store_raw(ctx, OP_SIZE_4, R_FRAME, slot_r, 0, FR_SCRATCH_3));
@@ -2977,7 +2977,7 @@ do_cmp:
 
 		gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, COND_NE, 0);
 		gen_one(R_CMP_RESULT);
-		gen_four(label_ovf);
+		gen_label_ref(label_ovf);
 
 		gen_insn(INSN_FP_CMP_DEST_REG, op_size, fp_alu, 0);
 		gen_one(R_CMP_RESULT);
@@ -2995,7 +2995,7 @@ do_cmp:
 		gen_one(reg2);
 
 		gen_insn(INSN_JMP_FP_TEST, 0, FP_COND_P, 0);
-		gen_four(label_ovf);
+		gen_label_ref(label_ovf);
 
 		gen_insn(INSN_FP_CMP_COND, op_size, fp_alu, 1);
 		gen_one(reg1);
@@ -3045,7 +3045,7 @@ do_cmp:
 		gen_insn(INSN_FP_TO_INT_FLAGS, 0, 0, 1);
 #endif
 		gen_insn(INSN_JMP_COND, op_size, FP_COND_P, 0);
-		gen_four(label_ovf);
+		gen_label_ref(label_ovf);
 		g(gen_frame_set_cond(ctx, op_size, false, fp_alu, slot_r));
 		return true;
 #endif
@@ -3060,7 +3060,7 @@ do_cmp:
 			gen_insn(INSN_X87_FSTP, op_size, 0, 0);
 			gen_one(R_ST0);
 			gen_insn(INSN_JMP_COND, op_size, COND_P, 0);
-			gen_four(label_ovf);
+			gen_label_ref(label_ovf);
 			g(gen_frame_set_cond(ctx, op_size, false, fp_alu & 0xf, slot_r));
 			return true;
 		}
@@ -3084,7 +3084,7 @@ do_cmp:
 		gen_eight(0x0400);
 
 		gen_insn(INSN_JMP_COND, OP_SIZE_2, COND_NE, 0);
-		gen_four(label_ovf);
+		gen_label_ref(label_ovf);
 
 		switch (fp_alu) {
 			case FP_COND_E:
@@ -3152,7 +3152,7 @@ do_cmp:
 		gen_insn(INSN_FP_TO_INT_FLAGS, 0, 0, 1);
 #endif
 		gen_insn(INSN_JMP_COND, op_size, FP_COND_P, 0);
-		gen_four(label_ovf);
+		gen_label_ref(label_ovf);
 		g(gen_frame_set_cond(ctx, op_size, false, fp_alu, slot_r));
 		return true;
 	}
@@ -3338,14 +3338,14 @@ do_cvt_to_int:
 		gen_insn(INSN_FP_TO_INT_FLAGS, 0, 0, 1);
 #endif
 		gen_insn(INSN_JMP_COND, op_size, FP_COND_P, 0);
-		gen_four(label_ovf);
+		gen_label_ref(label_ovf);
 #else
 		gen_insn(INSN_FP_CMP_COND, op_size, FP_COND_P, 1);
 		gen_one(reg1);
 		gen_one(reg1);
 
 		gen_insn(INSN_JMP_FP_TEST, 0, FP_COND_P, 0);
-		gen_four(label_ovf);
+		gen_label_ref(label_ovf);
 #endif
 #if defined(ARCH_ARM32) || defined(ARCH_LOONGARCH64) || defined(ARCH_MIPS)
 		gen_insn(OP_SIZE_INT == OP_SIZE_4 ? INSN_FP_TO_INT32 : INSN_FP_TO_INT64, op_size, 0, 0);
@@ -3416,13 +3416,13 @@ do_cvt_to_int:
 		gen_insn(INSN_FP_TO_INT64_TRAP, op_size, 0, 0);
 		gen_one(FR_SCRATCH_2);
 		gen_one(reg1);
-		gen_four(label_ovf);
+		gen_label_ref(label_ovf);
 
 		if (OP_SIZE_INT == OP_SIZE_4) {
 			gen_insn(INSN_FP_INT64_TO_INT32_TRAP, 0, 0, 0);
 			gen_one(FR_SCRATCH_3);
 			gen_one(FR_SCRATCH_2);
-			gen_four(label_ovf);
+			gen_label_ref(label_ovf);
 			g(gen_store_raw(ctx, OP_SIZE_INT, R_FRAME, slot_r, 0, FR_SCRATCH_3));
 		} else {
 			g(gen_store_raw(ctx, OP_SIZE_INT, R_FRAME, slot_r, 0, FR_SCRATCH_2));
@@ -3437,7 +3437,7 @@ do_cvt_to_int:
 		gen_one(reg1);
 
 		gen_insn(INSN_JMP_COND, op_size, FP_COND_P, 0);
-		gen_four(label_ovf);
+		gen_label_ref(label_ovf);
 
 		g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, target));
 		return true;
@@ -3998,7 +3998,7 @@ do_cmp:
 		gen_one(FR_SCRATCH_3);
 		gen_one(reg1);
 		gen_one(reg2);
-		gen_four(label_ovf);
+		gen_label_ref(label_ovf);
 
 		g(gen_mov(ctx, OP_SIZE_4, target, FR_SCRATCH_3));
 
@@ -4019,7 +4019,7 @@ do_cmp:
 
 		gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, COND_NE, 0);
 		gen_one(R_CMP_RESULT);
-		gen_four(label_ovf);
+		gen_label_ref(label_ovf);
 
 		gen_insn(INSN_FP_CMP_DEST_REG, op_size, fp_alu, 0);
 		gen_one(R_CMP_RESULT);
@@ -4037,7 +4037,7 @@ do_cmp:
 		gen_one(reg2);
 
 		gen_insn(INSN_JMP_FP_TEST, 0, FP_COND_P, 0);
-		gen_four(label_ovf);
+		gen_label_ref(label_ovf);
 
 		gen_insn(INSN_FP_CMP_COND, op_size, fp_alu ^ 1, 1);
 		gen_one(reg1);
@@ -4080,7 +4080,7 @@ do_cmp:
 		gen_insn(INSN_FP_TO_INT_FLAGS, 0, 0, 1);
 #endif
 		gen_insn(INSN_JMP_COND, op_size, FP_COND_P, 0);
-		gen_four(label_ovf);
+		gen_label_ref(label_ovf);
 		g(gen_jump(ctx, jmp_offset, op_size, fp_alu ^ 1, -1U, -1U, 0));
 		return true;
 #endif

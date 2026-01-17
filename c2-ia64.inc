@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -1363,7 +1363,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 	switch (insn_opcode(insn)) {
 		case INSN_LABEL:
 			lbl = cget_four(ctx);
-			if (ctx->used_labels[lbl]) {
+			if (ctx->label_used[lbl]) {
 				ctx->code_position -= 4;
 				full = ia64_fill_bundle(ctx);
 				if (full)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -778,7 +778,7 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned size
 		if (unlikely(!label))
 			return false;
 		gen_insn(!logical ? INSN_JMP_COND : INSN_JMP_COND_LOGICAL, i_size_cmp(size), cond, 0);
-		gen_four(label);
+		gen_label_ref(label);
 		g(gen_load_constant(ctx, target, 0));
 		gen_label(label);
 		goto do_store;

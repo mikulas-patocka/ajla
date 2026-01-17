@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -228,7 +228,7 @@ static bool attr_w gen_test_1(struct codegen_context *ctx, unsigned base, frame_
 			gen_imm_offset();
 
 			gen_insn(INSN_JMP_COND, OP_SIZE_BITMAP, jz ? COND_E : COND_NE, 0);
-			gen_four(label);
+			gen_label_ref(label);
 
 			return true;
 		}
@@ -247,7 +247,7 @@ static bool attr_w gen_test_1(struct codegen_context *ctx, unsigned base, frame_
 	}
 
 	gen_insn(INSN_JMP_COND, OP_SIZE_1, jz ? COND_AE : COND_B, 0);
-	gen_four(label);
+	gen_label_ref(label);
 #else
 	g(gen_address(ctx, base, offset, ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_BITMAP));
 	gen_insn(ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? INSN_MOVSX : INSN_MOV, OP_SIZE_BITMAP, 0, 0);
@@ -279,7 +279,7 @@ static bool attr_w gen_test_1(struct codegen_context *ctx, unsigned base, frame_
 
 	gen_insn(INSN_JMP_REG, i_size(OP_SIZE_BITMAP), !jz ? COND_S : COND_NS, 0);
 	gen_one(R_SCRATCH_NA_3);
-	gen_four(label);
+	gen_label_ref(label);
 #endif
 	if (!jz ? test == TEST_SET : test == TEST_CLEAR) {
 		if (!is_direct_const(test == TEST_CLEAR ? ~(1ULL << bit) : 1ULL << bit, test == TEST_CLEAR ? IMM_PURPOSE_XOR : IMM_PURPOSE_OR, OP_SIZE_NATIVE) && ARCH_HAS_BTX(test == TEST_CLEAR ? BTX_BTR : BTX_BTS, OP_SIZE_NATIVE, true)) {
@@ -315,7 +315,7 @@ static bool attr_w gen_test_1(struct codegen_context *ctx, unsigned base, frame_
 	}
 
 	gen_insn(INSN_JMP_COND, OP_SIZE_1, jz ? COND_E : COND_NE, 0);
-	gen_four(label);
+	gen_label_ref(label);
 
 	if (!jz ? test == TEST_SET : test == TEST_CLEAR) {
 		g(gen_set_1(ctx, base, slot_1, offset, test == TEST_SET));
@@ -378,7 +378,7 @@ static bool attr_w gen_test_2(struct codegen_context *ctx, frame_t slot_1, frame
 	gen_imm_offset();
 
 	gen_insn(INSN_JMP_COND, OP_SIZE_BITMAP, COND_NE, 0);
-	gen_four(label);
+	gen_label_ref(label);
 
 	return true;
 #else
@@ -414,7 +414,7 @@ static bool attr_w gen_test_2(struct codegen_context *ctx, frame_t slot_1, frame
 
 		gen_insn(INSN_JMP_REG, i_size(OP_SIZE_NATIVE), COND_NE, 0);
 		gen_one(R_SCRATCH_NA_1);
-		gen_four(label);
+		gen_label_ref(label);
 
 		return true;
 	}
@@ -424,13 +424,13 @@ static bool attr_w gen_test_2(struct codegen_context *ctx, frame_t slot_1, frame
 	g(gen_3address_alu(ctx, i_size(OP_SIZE_BITMAP), ALU_OR, R_SCRATCH_NA_1, R_SCRATCH_NA_1, R_SCRATCH_NA_2, 1));
 
 	gen_insn(INSN_JMP_COND, i_size(OP_SIZE_BITMAP), COND_L, 0);
-	gen_four(label);
+	gen_label_ref(label);
 #else
 	g(gen_3address_alu(ctx, i_size(OP_SIZE_BITMAP), ALU_OR, R_SCRATCH_NA_1, R_SCRATCH_NA_1, R_SCRATCH_NA_2, 0));
 
 	gen_insn(INSN_JMP_REG, i_size(OP_SIZE_BITMAP), COND_S, 0);
 	gen_one(R_SCRATCH_NA_1);
-	gen_four(label);
+	gen_label_ref(label);
 #endif
 	return true;
 #endif
@@ -451,7 +451,7 @@ dont_optimize:
 	gen_address_offset();
 
 	gen_insn(INSN_JMP_COND, OP_SIZE_1, COND_NE, 0);
-	gen_four(label);
+	gen_label_ref(label);
 #else
 	if (!ARCH_HAS_BWX || !ARCH_HAS_FLAGS
 #if defined(ARCH_S390)
@@ -489,7 +489,7 @@ dont_optimize:
 		g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_OR, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_2, 1));
 #endif
 		gen_insn(INSN_JMP_COND, OP_SIZE_NATIVE, COND_NE, 0);
-		gen_four(label);
+		gen_label_ref(label);
 	}
 #endif
 #endif
@@ -562,7 +562,7 @@ static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *varia
 		gen_imm_offset();
 
 		gen_insn(INSN_JMP_COND, OP_SIZE_BITMAP, COND_NE, 0);
-		gen_four(label);
+		gen_label_ref(label);
 #else
 		g(gen_address(ctx, R_FRAME, addr, ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_BITMAP));
 		gen_insn(ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? INSN_MOVSX : INSN_MOV, OP_SIZE_BITMAP, 0, 0);
@@ -589,7 +589,7 @@ static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *varia
 	}
 
 	gen_insn(INSN_JMP_COND, OP_SIZE_1, COND_NE, 0);
-	gen_four(label);
+	gen_label_ref(label);
 
 	goto tested;
 #endif
