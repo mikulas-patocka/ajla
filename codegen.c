@@ -473,9 +473,11 @@ struct codegen_context {
 	struct cg_entry *entries;
 	frame_t n_entries;
 
+	uint8_t *new_code;
+	size_t new_code_size;
+
 	uint8_t *code;
 	size_t code_size;
-
 	uint8_t *code_position;
 
 	uint32_t *code_labels;
@@ -538,6 +540,7 @@ static void init_ctx(struct codegen_context *ctx)
 	ctx->label_used = NULL;
 	ctx->entries = NULL;
 	ctx->n_entries = 0;
+	ctx->new_code = NULL;
 	ctx->code = NULL;
 	ctx->code_labels = NULL;
 	ctx->code_exits = NULL;
@@ -576,6 +579,8 @@ static void done_ctx(struct codegen_context *ctx)
 		}
 		mem_free(ctx->entries);
 	}
+	if (ctx->new_code)
+		mem_free(ctx->new_code);
 	if (ctx->code)
 		mem_free(ctx->code);
 	if (ctx->code_labels)
@@ -749,16 +754,16 @@ static uint32_t alloc_reload_label(struct codegen_context *ctx)
 
 static size_t attr_unused mark_params(struct codegen_context *ctx)
 {
-	return ctx->code_size;
+	return ctx->new_code_size;
 }
 
 static void attr_unused copy_params(struct codegen_context *ctx, struct cg_exit *ce, size_t mark)
 {
-	if (ctx->code_size - mark > n_array_elements(ce->undo_parameters))
-		internal(file_line, "undo_parameters is too small: %"PRIuMAX" > %"PRIuMAX"", (uintmax_t)(ctx->code_size - mark), (uintmax_t)n_array_elements(ce->undo_parameters));
-	memcpy(ce->undo_parameters, ctx->code + mark, ctx->code_size - mark);
-	ce->undo_parameters_len = ctx->code_size - mark;
-	ctx->code_size = mark;
+	if (ctx->new_code_size - mark > n_array_elements(ce->undo_parameters))
+		internal(file_line, "undo_parameters is too small: %"PRIuMAX" > %"PRIuMAX"", (uintmax_t)(ctx->new_code_size - mark), (uintmax_t)n_array_elements(ce->undo_parameters));
+	memcpy(ce->undo_parameters, ctx->new_code + mark, ctx->new_code_size - mark);
+	ce->undo_parameters_len = ctx->new_code_size - mark;
+	ctx->new_code_size = mark;
 }
 
 #define g(call)								\
@@ -772,7 +777,7 @@ do {									\
 	/*debug("gen %d: %02x", __LINE__, (uint8_t)(byte))*/;		\
 	if (unlikely(ctx->unreachable))					\
 		break;							\
-	if (unlikely(!array_add_mayfail(uint8_t, &ctx->code, &ctx->code_size, byte, NULL, &ctx->err)))\
+	if (unlikely(!array_add_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, byte, NULL, &ctx->err)))\
 		return false;						\
 } while (0)
 
@@ -783,7 +788,7 @@ do {									\
 	/*debug("gen %d: %04x", __LINE__, (uint16_t)(word_));*/		\
 	if (unlikely(ctx->unreachable))					\
 		break;							\
-	if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->code, &ctx->code_size, cast_ptr(uint8_t *, &word_), 2, NULL, &ctx->err)))\
+	if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, cast_ptr(uint8_t *, &word_), 2, NULL, &ctx->err)))\
 		return false;						\
 } while (0)
 #define gen_four(dword)							\
@@ -792,7 +797,7 @@ do {									\
 	/*debug("gen %d: %08x", __LINE__, (uint32_t)(dword_));*/	\
 	if (unlikely(ctx->unreachable))					\
 		break;							\
-	if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->code, &ctx->code_size, cast_ptr(uint8_t *, &dword_), 4, NULL, &ctx->err)))\
+	if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, cast_ptr(uint8_t *, &dword_), 4, NULL, &ctx->err)))\
 		return false;						\
 } while (0)
 #define gen_eight(qword)						\
@@ -801,7 +806,7 @@ do {									\
 	/*debug("gen %d: %016lx", __LINE__, (uint64_t)(qword_));*/	\
 	if (unlikely(ctx->unreachable))					\
 		break;							\
-	if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->code, &ctx->code_size, cast_ptr(uint8_t *, &qword_), 8, NULL, &ctx->err)))\
+	if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, cast_ptr(uint8_t *, &qword_), 8, NULL, &ctx->err)))\
 		return false;						\
 } while (0)
 #else
@@ -2578,7 +2583,7 @@ next_one:;
 		goto fail;
 
 	/*debug("trying: %s", da(ctx->fn,function)->function_name);*/
-	if (unlikely(!array_init_mayfail(uint8_t, &ctx->code, &ctx->code_size, &ctx->err)))
+	if (unlikely(!array_init_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, &ctx->err)))
 		goto fail;
 
 	ctx->code_labels = mem_alloc_array_mayfail(mem_calloc_mayfail, uint32_t *, 0, 0, da(ctx->fn,function)->code_size, sizeof(uint32_t), &ctx->err);
@@ -2615,6 +2620,10 @@ next_one:;
 
 	if (unlikely(!gen_epilogues(ctx)))
 		goto fail;
+
+	ctx->code = ctx->new_code;
+	ctx->code_size = ctx->new_code_size;
+	ctx->new_code = NULL;
 
 	if (unlikely(!(ctx->label_to_pos = mem_alloc_array_mayfail(mem_alloc_mayfail, size_t *, 0, 0, ctx->label_used_size, sizeof(size_t), &ctx->err))))
 		goto fail;
@@ -2710,7 +2719,7 @@ bool codegen_callback_init(struct codegen_callback *cb, void (*callback)(void *p
 	init_ctx(ctx);
 	ctx->fn = NULL;
 
-	array_init(uint8_t, &ctx->code, &ctx->code_size);
+	array_init(uint8_t, &ctx->new_code, &ctx->new_code_size);
 
 	if (!callback) {
 #ifdef CALLBACK_NEEDS_TRAMPOLINE
@@ -2731,6 +2740,10 @@ bool codegen_callback_init(struct codegen_callback *cb, void (*callback)(void *p
 		internal(file_line, "codegen_callback_init: callback not supported on this architecture");
 #endif
 	}
+
+	ctx->code = ctx->new_code;
+	ctx->code_size = ctx->new_code_size;
+	ctx->new_code = NULL;
 
 	array_init(uint8_t, &ctx->mcode, &ctx->mcode_size);
 
