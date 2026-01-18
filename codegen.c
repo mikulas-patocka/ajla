@@ -523,6 +523,7 @@ struct codegen_context {
 
 	struct insn_details *basic_block;
 	size_t basic_block_size;
+	size_t basic_block_position;
 
 	arg_t n_ret;
 	frame_t ret_vars[MAX_QUICKRET_VALUES];

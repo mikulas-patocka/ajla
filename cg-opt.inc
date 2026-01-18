@@ -419,12 +419,12 @@ static void attr_unused identify_insn(struct codegen_context *ctx, uint8_t *ptr,
 static bool attr_w process_basic_block(struct codegen_context *ctx)
 {
 	size_t i;
-	for (i = 0; i < ctx->basic_block_size; i++) {
+	for (i = 0; i < ctx->basic_block_position; i++) {
 		struct insn_details *d = &ctx->basic_block[i];
 		if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, d->start, d->length, NULL, &ctx->err)))
 			return false;
 	}
-	ctx->basic_block_size = 0;
+	ctx->basic_block_position = 0;
 	return true;
 }
 
@@ -432,25 +432,40 @@ static bool attr_w cg_optimize(struct codegen_context *ctx)
 {
 	if (unlikely(!array_init_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, &ctx->err)))
 		return false;
+
 	if (unlikely(!array_init_mayfail(struct insn_details, &ctx->basic_block, &ctx->basic_block_size, &ctx->err)))
 		return false;
+	ctx->basic_block_position = 0;
 
 	ctx->code_position = ctx->code;
 
 	while (ctx->code_position != ctx->code + ctx->code_size) {
-		struct insn_details d;
+		struct insn_details *d;
+		uint8_t *start;
+		unsigned length;
+
 		ajla_assert_lo(ctx->code_position < ctx->code + ctx->code_size, (file_line, "cg_optimize: ran out of code"));
-		identify_insn(ctx, ctx->code_position, &d);
-		/*debug("insn: %08x, %u", oget_four(ctx->code_position), d.length);*/
-		if (d.barrier) {
-			g(process_basic_block(ctx));
-			if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, ctx->code_position, d.length, NULL, &ctx->err)))
-				return false;
-		} else {
-			if (!unlikely(array_add_mayfail(struct insn_details, &ctx->basic_block, &ctx->basic_block_size, d, NULL, &ctx->err)))
+
+		if (unlikely(ctx->basic_block_position == ctx->basic_block_size)) {
+			struct insn_details dc;
+			if (!unlikely(array_add_mayfail(struct insn_details, &ctx->basic_block, &ctx->basic_block_size, dc, NULL, &ctx->err)))
 				return false;
 		}
-		ctx->code_position += d.length;
+		d = &ctx->basic_block[ctx->basic_block_position];
+
+		identify_insn(ctx, ctx->code_position, d);
+
+		start = d->start;
+		length = d->length;
+
+		if (d->barrier) {
+			g(process_basic_block(ctx));
+			if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, start, length, NULL, &ctx->err)))
+				return false;
+		} else {
+			ctx->basic_block_position++;
+		}
+		ctx->code_position += length;
 	}
 
 	g(process_basic_block(ctx));
