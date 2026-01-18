@@ -139,6 +139,8 @@
 #define R_F30		0x3e
 #define R_F31		0x3f
 
+#define R_MAX		0x40
+
 #define R_FRAME		R_3
 #define R_UPCALL	R_4
 #define R_TIMESTAMP	R_5

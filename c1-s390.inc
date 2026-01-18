@@ -106,6 +106,8 @@
 #define FR_14		0x1e
 #define FR_15		0x1f
 
+#define R_MAX		0x20
+
 #define R_FRAME		R_12
 #ifndef OMIT_R_UPCALL
 #define R_UPCALL	R_10

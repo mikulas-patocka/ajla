@@ -193,6 +193,8 @@
 #define R_VS62				0x7e
 #define R_VS63				0x7f
 
+#define R_MAX				0x80
+
 #define R_CG_SCRATCH			R_0
 
 #define R_SP				R_1

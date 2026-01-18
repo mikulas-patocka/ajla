@@ -153,6 +153,8 @@ static void *callback_trampoline;
 #define R_XMM30		0x5e
 #define R_XMM31		0x5f
 
+#define R_MAX		0x60
+
 #define R_IS_GPR(r)	((r) < 0x20)
 #define R_IS_XMM(r)	((r) >= R_XMM0 && (r) <= R_XMM31)
 

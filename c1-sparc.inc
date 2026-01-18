@@ -184,6 +184,8 @@
 #define FQR_56		0x39
 #define FQR_60		0x3d
 
+#define R_MAX		0x40
+
 #define R_ZERO		0x00
 #define R_SP		R_O6
 

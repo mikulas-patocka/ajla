@@ -145,6 +145,8 @@
 #define FQR_28		0x3c
 #define FQR_30		0x3e
 
+#define R_MAX		0x40
+
 #define R_FRAME		R_4
 #define R_UPCALL	R_5
 

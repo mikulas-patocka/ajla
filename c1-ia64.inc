@@ -242,6 +242,8 @@ static void *callback_trampoline;
 #define B_6		0xb6
 #define B_7		0xb7
 
+#define R_MAX		0xb8
+
 #define R_FRAME		R_32
 #define R_UPCALL	R_33
 #define R_TIMESTAMP	R_34

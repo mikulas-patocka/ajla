@@ -125,6 +125,8 @@
 #define R_FS6		0x3e
 #define R_FS7		0x3f
 
+#define R_MAX		0x40
+
 #define R_FRAME		R_S0
 #define R_UPCALL	R_S1
 #ifdef TIMESTAMP_IN_REGISTER
