@@ -61,7 +61,8 @@ static uint64_t attr_unused oget_eight(uint8_t *ptr)
 }
 
 #define R_FLAGS		(R_MAX + 0)
-#define R_MEMORY	(R_MAX + 1)
+#define R_X87		(R_MAX + 1)
+#define R_MEMORY	(R_MAX + 2)
 
 #if R_MAX < 0x78 && TYPE_FIXED_N >= 5
 
@@ -468,32 +469,45 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 		case INSN_X87_FLD:
 		case INSN_X87_FILD:
 			ptr += arg_read(d, ptr);
+			reg_map_set(&d->rd, R_X87);
+			reg_map_set(&d->wr, R_X87);
 			break;
 		case INSN_X87_FSTP:
 		case INSN_X87_FISTP:
 		case INSN_X87_FISTTP:
 			ptr += arg_read(d, ptr);
+			reg_map_set(&d->rd, R_X87);
+			reg_map_set(&d->wr, R_X87);
 			break;
 		case INSN_X87_FCOMP:
 		case INSN_X87_FCOMPP:
 		case INSN_X87_FCOMIP:
 			ptr += arg_read(d, ptr);
+			reg_map_set(&d->rd, R_X87);
+			reg_map_set(&d->wr, R_X87);
 			break;
 		case INSN_X87_ALU:
 		case INSN_X87_ALUP:
 			ptr += arg_read(d, ptr);
+			reg_map_set(&d->rd, R_X87);
+			reg_map_set(&d->wr, R_X87);
 			break;
 		case INSN_X87_FCHS:
 		case INSN_X87_FSQRT:
 		case INSN_X87_FRNDINT:
+			reg_map_set(&d->rd, R_X87);
+			reg_map_set(&d->wr, R_X87);
 			break;
 		case INSN_X87_FNSTSW:
 			reg_map_set(&d->rd, R_FLAGS);
 			ptr += arg_write(d, ptr);
 			ptr += arg_read(d, ptr);
+			reg_map_set(&d->rd, R_X87);
 			break;
 		case INSN_X87_FLDCW:
 			ptr += arg_read(d, ptr);
+			reg_map_set(&d->rd, R_X87);
+			reg_map_set(&d->wr, R_X87);
 			break;
 		case INSN_JMP:
 			ptr += 4;
