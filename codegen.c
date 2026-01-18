@@ -521,6 +521,9 @@ struct codegen_context {
 
 	bool checkpoint_quick_entry;
 
+	struct insn_details *basic_block;
+	size_t basic_block_size;
+
 	arg_t n_ret;
 	frame_t ret_vars[MAX_QUICKRET_VALUES];
 	uint8_t regs[MAX_QUICKRET_VALUES];
@@ -561,6 +564,7 @@ static void init_ctx(struct codegen_context *ctx)
 	ctx->upcall_args = -1;
 	ctx->upcall_hacked_abi = false;
 	ctx->checkpoint_quick_entry = false;
+	ctx->basic_block = NULL;
 }
 
 static void done_ctx(struct codegen_context *ctx)
@@ -615,6 +619,8 @@ static void done_ctx(struct codegen_context *ctx)
 		mem_free(ctx->need_spill);
 	if (ctx->codegen)
 		data_free(ctx->codegen);
+	if (ctx->basic_block)
+		mem_free(ctx->basic_block);
 }
 
 
@@ -840,6 +846,15 @@ do {									\
 	gen_insn(INSN_LABEL, 0, 0, 0);					\
 	gen_four(label_id);						\
 } while (0)
+
+static void flip_buffers(struct codegen_context *ctx)
+{
+	if (ctx->code)
+		mem_free(ctx->code);
+	ctx->code = ctx->new_code;
+	ctx->code_size = ctx->new_code_size;
+	ctx->new_code = NULL;
+}
 
 
 static uint8_t attr_unused cget_one(struct codegen_context *ctx)
@@ -2468,15 +2483,6 @@ static bool attr_w codegen_map(struct codegen_context *ctx)
 	da(ctx->codegen,codegen)->unoptimized_code_size = ctx->mcode_size;
 
 	return true;
-}
-
-static void flip_buffers(struct codegen_context *ctx)
-{
-	if (ctx->code)
-		mem_free(ctx->code);
-	ctx->code = ctx->new_code;
-	ctx->code_size = ctx->new_code_size;
-	ctx->new_code = NULL;
 }
 
 static void dump_code_ctx(struct codegen_context *ctx)

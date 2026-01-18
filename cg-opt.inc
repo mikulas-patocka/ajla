@@ -61,6 +61,7 @@ static uint64_t attr_unused oget_eight(uint8_t *ptr)
 }
 
 struct insn_details {
+	uint8_t *start;
 	unsigned length;
 	bool barrier;
 };
@@ -71,6 +72,7 @@ static void attr_unused identify_insn(struct codegen_context *ctx, uint8_t *ptr,
 	uint32_t insn;
 	insn = oget_four(ptr);
 	ptr += 4;
+	d->start = orig_ptr;
 	d->barrier = false;
 	switch (insn_opcode(insn)) {
 		uint32_t label_id;
@@ -414,22 +416,49 @@ static void attr_unused identify_insn(struct codegen_context *ctx, uint8_t *ptr,
 	d->length = ptr - orig_ptr;
 }
 
+static bool attr_w process_basic_block(struct codegen_context *ctx)
+{
+	size_t i;
+	for (i = 0; i < ctx->basic_block_size; i++) {
+		struct insn_details *d = &ctx->basic_block[i];
+		if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, d->start, d->length, NULL, &ctx->err)))
+			return false;
+	}
+	ctx->basic_block_size = 0;
+	return true;
+}
+
 static bool attr_w cg_optimize(struct codegen_context *ctx)
 {
 	if (unlikely(!array_init_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, &ctx->err)))
 		return false;
+	if (unlikely(!array_init_mayfail(struct insn_details, &ctx->basic_block, &ctx->basic_block_size, &ctx->err)))
+		return false;
 
 	ctx->code_position = ctx->code;
 
-#if 0
 	while (ctx->code_position != ctx->code + ctx->code_size) {
 		struct insn_details d;
 		ajla_assert_lo(ctx->code_position < ctx->code + ctx->code_size, (file_line, "cg_optimize: ran out of code"));
 		identify_insn(ctx, ctx->code_position, &d);
 		/*debug("insn: %08x, %u", oget_four(ctx->code_position), d.length);*/
+		if (d.barrier) {
+			g(process_basic_block(ctx));
+			if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, ctx->code_position, d.length, NULL, &ctx->err)))
+				return false;
+		} else {
+			if (!unlikely(array_add_mayfail(struct insn_details, &ctx->basic_block, &ctx->basic_block_size, d, NULL, &ctx->err)))
+				return false;
+		}
 		ctx->code_position += d.length;
 	}
-#endif
+
+	g(process_basic_block(ctx));
+
+	mem_free(ctx->basic_block);
+	ctx->basic_block = NULL;
+
+	flip_buffers(ctx);
 
 	return true;
 }
