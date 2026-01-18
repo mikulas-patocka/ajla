@@ -60,6 +60,9 @@ static uint64_t attr_unused oget_eight(uint8_t *ptr)
 #endif
 }
 
+#define R_FLAGS		(R_MAX + 0)
+#define R_MEMORY	(R_MAX + 1)
+
 #if R_MAX < 0x78 && TYPE_FIXED_N >= 5
 
 typedef uint128_t reg_map;
@@ -86,12 +89,8 @@ struct insn_details {
 	reg_map wr;
 };
 
-static unsigned arg_read(struct insn_details *d, uint8_t *ptr)
+static unsigned arg_common(struct insn_details *d, uint8_t *ptr)
 {
-	if (ptr[0] < ARG_REGS_MAX) {
-		reg_map_set(&d->rd, ptr[0]);
-		return 1;
-	}
 	if (ptr[0] >= ARG_SHIFTED_REGISTER && ptr[0] <= ARG_EXTENDED_REGISTER) {
 		reg_map_set(&d->rd, ptr[2]);
 		return 1;
@@ -116,7 +115,19 @@ static unsigned arg_read(struct insn_details *d, uint8_t *ptr)
 	if (ptr[0] == ARG_IMM) {
 		return 9;
 	}
-	internal(file_line, "arg_read: invalid argument %02x", ptr[0]);
+	internal(file_line, "arg_common: invalid argument %02x", ptr[0]);
+	return 0;
+}
+
+static unsigned arg_read(struct insn_details *d, uint8_t *ptr)
+{
+	if (ptr[0] < ARG_REGS_MAX) {
+		reg_map_set(&d->rd, ptr[0]);
+		return 1;
+	}
+	if (ptr[0] != ARG_IMM)
+		reg_map_set(&d->rd, R_MEMORY);
+	return arg_common(d, ptr);
 }
 
 static unsigned arg_write(struct insn_details *d, uint8_t *ptr)
@@ -125,19 +136,29 @@ static unsigned arg_write(struct insn_details *d, uint8_t *ptr)
 		reg_map_set(&d->wr, ptr[0]);
 		return 1;
 	}
-	return arg_read(d, ptr);
+	reg_map_set(&d->wr, R_MEMORY);
+	return arg_common(d, ptr);
 }
 
 static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn_details *d)
 {
 	uint8_t *orig_ptr = ptr;
 	uint32_t insn;
+	unsigned i;
+
+#ifdef DEBUG_INSNS
+	ptr += 4;
+#endif
 	insn = oget_four(ptr);
 	ptr += 4;
+
 	d->start = orig_ptr;
 	d->barrier = false;
 	reg_map_init(&d->rd);
 	reg_map_init(&d->wr);
+
+	if (insn_writes_flags(insn))
+		reg_map_set(&d->wr, R_FLAGS);
 
 	switch (insn_opcode(insn)) {
 		uint32_t label_id;
@@ -151,6 +172,8 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 			break;
 		case INSN_ARM_PUSH:
 		case INSN_ARM_POP:
+			d->barrier = true;
+			break;
 		case INSN_S390_PUSH:
 		case INSN_S390_POP:
 			ptr += arg_size(*ptr);
@@ -166,24 +189,34 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 			ptr += arg_size(*ptr);
 			d->barrier = true;
 			break;
+#if defined(ARCH_X86)
 		case INSN_PUSH:
 			ptr += arg_read(d, ptr);
-			d->barrier = true;
+			reg_map_set(&d->rd, R_SP);
+			reg_map_set(&d->wr, R_SP);
+			reg_map_set(&d->wr, R_MEMORY);
 			break;
 		case INSN_PUSH2:
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
-			d->barrier = true;
+			reg_map_set(&d->rd, R_SP);
+			reg_map_set(&d->wr, R_SP);
+			reg_map_set(&d->wr, R_MEMORY);
 			break;
 		case INSN_POP:
 			ptr += arg_write(d, ptr);
-			d->barrier = true;
+			reg_map_set(&d->rd, R_SP);
+			reg_map_set(&d->wr, R_SP);
+			reg_map_set(&d->rd, R_MEMORY);
 			break;
 		case INSN_POP2:
 			ptr += arg_write(d, ptr);
 			ptr += arg_write(d, ptr);
-			d->barrier = true;
+			reg_map_set(&d->rd, R_SP);
+			reg_map_set(&d->wr, R_SP);
+			reg_map_set(&d->rd, R_MEMORY);
 			break;
+#endif
 		case INSN_CALL:
 			ptr += 4;
 			d->barrier = true;
@@ -228,25 +261,31 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
-		case INSN_ALU:
 		case INSN_ALU_FLAGS:
-		case INSN_ALU_PARTIAL:
 		case INSN_ALU_FLAGS_PARTIAL:
+			reg_map_set(&d->rd, R_FLAGS);
+			/*-fallthrough*/
+		case INSN_ALU:
+		case INSN_ALU_PARTIAL:
 			ptr += arg_write(d, ptr);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
-		case INSN_ALU_TRAP:
 		case INSN_ALU_FLAGS_TRAP:
+			reg_map_set(&d->rd, R_FLAGS);
+			/*-fallthrough*/
+		case INSN_ALU_TRAP:
 			ptr += arg_write(d, ptr);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			ptr += 4;
 			break;
-		case INSN_ALU1:
 		case INSN_ALU1_FLAGS:
-		case INSN_ALU1_PARTIAL:
 		case INSN_ALU1_FLAGS_PARTIAL:
+			reg_map_set(&d->rd, R_FLAGS);
+			/*-fallthrough*/
+		case INSN_ALU1:
+		case INSN_ALU1_PARTIAL:
 			ptr += arg_write(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
@@ -310,14 +349,17 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_SET_COND:
+			reg_map_set(&d->rd, R_FLAGS);
 			ptr += arg_write(d, ptr);
 			break;
 		case INSN_SET_COND_PARTIAL:
+			reg_map_set(&d->rd, R_FLAGS);
 			ptr += arg_write(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_CMOV:
 		case INSN_CMOV_XCC:
+			reg_map_set(&d->rd, R_FLAGS);
 			ptr += arg_write(d, ptr);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
@@ -339,6 +381,7 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 		case INSN_CSEL_INC:
 		case INSN_CSEL_INV:
 		case INSN_CSEL_NEG:
+			reg_map_set(&d->rd, R_FLAGS);
 			ptr += arg_write(d, ptr);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
@@ -390,9 +433,11 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_FP_TEST_REG:
+			reg_map_set(&d->rd, R_FLAGS);
 			ptr += arg_write(d, ptr);
 			break;
 		case INSN_FP_TO_INT_FLAGS:
+			reg_map_set(&d->rd, R_FLAGS);
 			break;
 		case INSN_FP_ALU:
 			ptr += arg_write(d, ptr);
@@ -443,6 +488,7 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 		case INSN_X87_FRNDINT:
 			break;
 		case INSN_X87_FNSTSW:
+			reg_map_set(&d->rd, R_FLAGS);
 			ptr += arg_write(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
@@ -470,18 +516,26 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 			ptr += 4;
 			break;
 		case INSN_JMP_FP_TEST:
+			reg_map_set(&d->rd, R_FLAGS);
 			ptr += 4;
 			break;
 		case INSN_JMP_INDIRECT:
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_VZEROUPPER:
+			for (i = 0; i < 16; i++) {
+				reg_map_set(&d->rd, R_XMM0 + i);
+				reg_map_set(&d->wr, R_XMM0 + i);
+			}
 			break;
 		case INSN_MB:
+			reg_map_set(&d->rd, R_MEMORY);
+			reg_map_set(&d->wr, R_MEMORY);
 			break;
 		case INSN_STOP_BIT:
 			break;
 		case INSN_CALL_MILLICODE:
+			d->barrier = true;
 			break;
 		default:
 			internal(file_line, "identify_insn: invalid insn %08lx", (unsigned long)insn);
