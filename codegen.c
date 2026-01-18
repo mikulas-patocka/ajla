@@ -213,7 +213,6 @@ static uint64_t dump_seq = 0;
 enum {
 	INSN_LABEL,
 	INSN_RET,
-	INSN_RET_IMM,
 	INSN_ARM_PUSH,
 	INSN_ARM_POP,
 	INSN_S390_PUSH,

@@ -1591,7 +1591,6 @@ static bool attr_w resolve_relocation(struct codegen_context *ctx, struct reloca
 static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 {
 	uint8_t imm8;
-	uint16_t imm16;
 	/*debug("insn: %08x", insn);*/
 	switch (insn_opcode(insn)) {
 		case INSN_LABEL:
@@ -1599,11 +1598,6 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_RET:
 			cgen_one(X86_RET);
-			return true;
-		case INSN_RET_IMM:
-			imm16 = cget_two(ctx);
-			cgen_one(X86_RET_IMM16);
-			cgen_two(imm16);
 			return true;
 		case INSN_PUSH:
 			g(cgen_push(ctx, insn_aux(insn)));
