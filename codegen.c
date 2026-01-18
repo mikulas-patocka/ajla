@@ -858,7 +858,7 @@ static uint16_t attr_unused cget_two(struct codegen_context *ctx)
 	return r;
 #else
 	uint16_t r = cget_one(ctx);
-	r |= cget_one(ctx) << 8;
+	r |= (uint16_t)cget_one(ctx) << 8;
 	return r;
 #endif
 }
@@ -1181,6 +1181,10 @@ no_zero:
 
 #define insn_file		8
 #include "cg-ops.inc"
+#undef insn_file
+
+#define insn_file		9
+#include "cg-opt.inc"
 #undef insn_file
 
 #define insn_file		0
@@ -2466,6 +2470,15 @@ static bool attr_w codegen_map(struct codegen_context *ctx)
 	return true;
 }
 
+static void flip_buffers(struct codegen_context *ctx)
+{
+	if (ctx->code)
+		mem_free(ctx->code);
+	ctx->code = ctx->new_code;
+	ctx->code_size = ctx->new_code_size;
+	ctx->new_code = NULL;
+}
+
 static void dump_code_ctx(struct codegen_context *ctx)
 {
 	char *hex;
@@ -2620,9 +2633,10 @@ next_one:;
 	if (unlikely(!gen_epilogues(ctx)))
 		goto fail;
 
-	ctx->code = ctx->new_code;
-	ctx->code_size = ctx->new_code_size;
-	ctx->new_code = NULL;
+	flip_buffers(ctx);
+
+	if (unlikely(!cg_optimize(ctx)))
+		goto fail;
 
 	if (unlikely(!(ctx->label_to_pos = mem_alloc_array_mayfail(mem_alloc_mayfail, size_t *, 0, 0, ctx->label_used_size, sizeof(size_t), &ctx->err))))
 		goto fail;
@@ -2740,9 +2754,7 @@ bool codegen_callback_init(struct codegen_callback *cb, void (*callback)(void *p
 #endif
 	}
 
-	ctx->code = ctx->new_code;
-	ctx->code_size = ctx->new_code_size;
-	ctx->new_code = NULL;
+	flip_buffers(ctx);
 
 	array_init(uint8_t, &ctx->mcode, &ctx->mcode_size);
 

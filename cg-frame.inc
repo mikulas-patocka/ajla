@@ -328,7 +328,7 @@ ret:
 static bool attr_w gen_frame_load_x87(struct codegen_context *ctx, unsigned insn, unsigned size, unsigned alu, frame_t slot)
 {
 	if (slot_is_register(ctx, slot))
-		g(spill(ctx,slot));
+		g(spill(ctx, slot));
 	g(gen_address(ctx, R_FRAME, (size_t)slot * slot_size, IMM_PURPOSE_LDR_OFFSET, size));
 	gen_insn(insn, size, alu, 0);
 	gen_address_offset();
@@ -341,7 +341,7 @@ static bool attr_w gen_frame_store_x87(struct codegen_context *ctx, unsigned ins
 	gen_insn(insn, size, 0, 0);
 	gen_address_offset();
 	if (slot_is_register(ctx, slot))
-		g(unspill(ctx,slot));
+		g(unspill(ctx, slot));
 	return true;
 }
 #endif
