@@ -571,6 +571,9 @@ static bool attr_w process_basic_block(struct codegen_context *ctx)
 
 static bool attr_w cg_optimize(struct codegen_context *ctx)
 {
+	if (optimize_chicken)
+		return true;
+
 	if (unlikely(!array_init_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, &ctx->err)))
 		return false;
 

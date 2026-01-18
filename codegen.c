@@ -40,6 +40,7 @@ shared_var const char *dump_code shared_init(NULL);
 #define flag_cache_chicken	0
 #define must_be_flat_chicken	0
 #define ra_chicken		0
+#define optimize_chicken	0
 
 #define INLINE_BITMAP_SLOTS		32
 #define INLINE_COPY_STEPS		8
