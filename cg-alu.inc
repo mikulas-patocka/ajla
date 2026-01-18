@@ -3617,7 +3617,7 @@ do_is_exception:
 #if defined(ARCH_ALPHA)
 		gen_insn(INSN_FP_CMP_UNORDERED_DEST_REG, op_size, 0, 0);
 		gen_one(FR_SCRATCH_2);
-		gen_one(FR_SCRATCH_1);
+		gen_one(reg1);
 		gen_one(reg1);
 
 		if (!cpu_test_feature(CPU_FEATURE_fix)) {
