@@ -42,6 +42,7 @@
 #define POWER_BCTRL		0x4e800421U
 #define POWER_RLWINM		0x54000000U
 #define POWER_RLWNM		0x5c000000U
+#define POWER_NOP		0x60000000U
 #define POWER_ORI		0x60000000U
 #define POWER_ORIS		0x64000000U
 #define POWER_XORI		0x68000000U
@@ -1046,6 +1047,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 	switch (insn_opcode(insn)) {
 		case INSN_LABEL:
 			g(cgen_label(ctx));
+			return true;
+		case INSN_NOP:
+			cgen_four(POWER_NOP);
 			return true;
 		case INSN_RET:
 			cgen_four(POWER_BLR);

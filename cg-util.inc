@@ -43,6 +43,7 @@ static bool alu_is_commutative(unsigned alu)
 
 static bool attr_w gen_3address_alu(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src1, unsigned src2, unsigned writes_flags)
 {
+	unsigned insn = alu == ALU_ADC || alu == ALU_SBB ? INSN_ALU_FLAGS : INSN_ALU;
 	if (unlikely(dest == src2) && alu_is_commutative(alu)) {
 		unsigned swap = src1;
 		src1 = src2;
@@ -54,14 +55,14 @@ static bool attr_w gen_3address_alu(struct codegen_context *ctx, unsigned size, 
 	if (!ARCH_IS_3ADDRESS(alu, writes_flags) && dest != src1) {
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src1));
 
-		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(size, alu, false, false, 0) | writes_flags);
+		gen_insn(insn + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(size, alu, false, false, 0) | writes_flags);
 		gen_one(dest);
 		gen_one(dest);
 		gen_one(src2);
 
 		return true;
 	}
-	gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(size, alu, false, false, 0) | writes_flags);
+	gen_insn(insn + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(size, alu, false, false, 0) | writes_flags);
 	gen_one(dest);
 	gen_one(src1);
 	gen_one(src2);
@@ -70,12 +71,13 @@ static bool attr_w gen_3address_alu(struct codegen_context *ctx, unsigned size, 
 
 static bool attr_w gen_3address_alu_imm(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src, int64_t imm, unsigned writes_flags)
 {
+	unsigned insn = alu == ALU_ADC || alu == ALU_SBB ? INSN_ALU_FLAGS : INSN_ALU;
 	unsigned purpose = alu_purpose(alu);
 	if (!ARCH_IS_3ADDRESS_IMM(alu, writes_flags) && dest != src) {
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src));
 
 		g(gen_imm(ctx, imm, purpose, i_size(OP_SIZE_ADDRESS)));
-		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(size, alu, false, is_imm(), ctx->const_imm) | writes_flags);
+		gen_insn(insn + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(size, alu, false, is_imm(), ctx->const_imm) | writes_flags);
 		gen_one(dest);
 		gen_one(dest);
 		gen_imm_offset();
@@ -83,7 +85,7 @@ static bool attr_w gen_3address_alu_imm(struct codegen_context *ctx, unsigned si
 		return true;
 	}
 	g(gen_imm(ctx, imm, purpose, i_size(OP_SIZE_ADDRESS)));
-	gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(size, alu, false, is_imm(), ctx->const_imm) | writes_flags);
+	gen_insn(insn + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(size, alu, false, is_imm(), ctx->const_imm) | writes_flags);
 	gen_one(dest);
 	gen_one(src);
 	gen_imm_offset();
@@ -148,6 +150,7 @@ static bool attr_w gen_3address_rot_imm(struct codegen_context *ctx, unsigned si
 
 static bool attr_w gen_2address_alu1(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src, unsigned writes_flags)
 {
+	unsigned insn = alu == ALU1_NGC ? INSN_ALU1_FLAGS : INSN_ALU1;
 #if defined(ARCH_S390)
 	if (alu == ALU1_NOT) {
 		if (!cpu_test_feature(CPU_FEATURE_misc_insn_ext_3)) {
@@ -159,13 +162,13 @@ static bool attr_w gen_2address_alu1(struct codegen_context *ctx, unsigned size,
 	if (!ARCH_IS_2ADDRESS(alu) && dest != src) {
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src));
 
-		gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(size), size, alu, ALU1_WRITES_FLAGS(alu) | writes_flags);
+		gen_insn(insn + ARCH_PARTIAL_ALU(size), size, alu, ALU1_WRITES_FLAGS(alu) | writes_flags);
 		gen_one(dest);
 		gen_one(dest);
 
 		return true;
 	}
-	gen_insn(INSN_ALU1 + ARCH_PARTIAL_ALU(size), size, alu, ALU1_WRITES_FLAGS(alu) | writes_flags);
+	gen_insn(insn + ARCH_PARTIAL_ALU(size), size, alu, ALU1_WRITES_FLAGS(alu) | writes_flags);
 	gen_one(dest);
 	gen_one(src);
 

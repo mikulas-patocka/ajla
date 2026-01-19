@@ -348,6 +348,7 @@ static bool attr_w gen_frame_store_x87(struct codegen_context *ctx, unsigned ins
 
 static bool attr_w gen_frame_load_op(struct codegen_context *ctx, unsigned size, enum extend ex, unsigned alu, unsigned writes_flags, frame_t slot, int64_t offset, bool dual, unsigned reg)
 {
+	unsigned insn = alu == ALU_ADC || alu == ALU_SBB ? INSN_ALU_FLAGS : INSN_ALU;
 	ajla_assert_lo((slot >= MIN_USEABLE_SLOT && slot < function_n_variables(ctx->fn)) || frame_t_is_const(slot), (file_line, "gen_frame_load_op: invalid slot: %lu >= %lu", (unsigned long)slot, (unsigned long)function_n_variables(ctx->fn)));
 	if (slot_is_register(ctx, slot)) {
 		if (size != i_size(size) + (unsigned)zero && ex != garbage)
@@ -360,7 +361,7 @@ static bool attr_w gen_frame_load_op(struct codegen_context *ctx, unsigned size,
 		if (!cnst && !writes_flags && (ARCH_PARTIAL_ALU(size) || i_size(size) == OP_SIZE_NATIVE) && (alu == ALU_ADD || alu == ALU_OR || alu == ALU_SUB || alu == ALU_XOR || alu == ALU_ANDN))
 			return true;
 		g(gen_imm(ctx, cnst, alu_purpose(alu), i_size(size)));
-		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), i_size(size), alu, ALU_WRITES_FLAGS(i_size(size), alu, false, is_imm(), ctx->const_imm) | writes_flags);
+		gen_insn(insn + ARCH_PARTIAL_ALU(size), i_size(size), alu, ALU_WRITES_FLAGS(i_size(size), alu, false, is_imm(), ctx->const_imm) | writes_flags);
 		gen_one(reg);
 		gen_one(reg);
 		gen_imm_offset();
@@ -373,7 +374,7 @@ static bool attr_w gen_frame_load_op(struct codegen_context *ctx, unsigned size,
 	{
 		offset += (size_t)slot * slot_size;
 		g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDR_OFFSET, size));
-		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(size, alu, true, false, 0) | writes_flags);
+		gen_insn(insn + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(size, alu, true, false, 0) | writes_flags);
 		gen_one(reg);
 		gen_one(reg);
 		gen_address_offset();

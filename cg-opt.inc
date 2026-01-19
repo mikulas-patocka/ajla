@@ -86,7 +86,7 @@ typedef struct {
 
 static inline void reg_map_init(reg_map *rm) { memset(rm, 0, sizeof(reg_map)); }
 static inline void reg_map_set(reg_map *rm, unsigned reg) { rm->map[reg / map_bits] |= (uint32_t)1 << (reg % map_bits); }
-static inline reg_map reg_map_insersection(reg_map rm1, reg_map rm2)
+static inline reg_map reg_map_intersection(reg_map rm1, reg_map rm2)
 {
 	unsigned i;
 	reg_map result;
@@ -550,16 +550,21 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 		case INSN_X87_FSTP:
 		case INSN_X87_FISTP:
 		case INSN_X87_FISTTP:
-			ptr += arg_read(d, ptr);
+			ptr += arg_write(d, ptr);
 			reg_map_set(&d->rd, R_X87);
 			reg_map_set(&d->wr, R_X87);
 			break;
 		case INSN_X87_FCOMP:
 		case INSN_X87_FCOMPP:
+			ptr += arg_read(d, ptr);
+			reg_map_set(&d->rd, R_X87);
+			reg_map_set(&d->wr, R_X87);
+			break;
 		case INSN_X87_FCOMIP:
 			ptr += arg_read(d, ptr);
 			reg_map_set(&d->rd, R_X87);
 			reg_map_set(&d->wr, R_X87);
+			reg_map_set(&d->wr, R_FLAGS);
 			break;
 		case INSN_X87_ALU:
 		case INSN_X87_ALUP:
@@ -655,12 +660,10 @@ static bool attr_w process_basic_block(struct codegen_context *ctx, bool op_boun
 				live_registers = reg_map_union(live_registers, ctx->opt_status->all_used_regs);
 			}
 		} else if (reg_map_is_empty(reg_map_intersection(d->wr, live_registers))) {
-			/*
-			unsigned opc = insn_opcode(d->insn);
+			/*unsigned opc = insn_opcode(d->insn);
 			if (opc != INSN_LABEL)
 				debug("pointless instruction: %x", oget_four(d->start));
-			d->quash = true;
-			*/
+			d->quash = true;*/
 			continue;
 		}
 		live_registers = reg_map_intersection(live_registers, reg_map_neg(d->wr));
@@ -668,8 +671,10 @@ static bool attr_w process_basic_block(struct codegen_context *ctx, bool op_boun
 	}
 	for (i = 0; i < ctx->basic_block_position; i++) {
 		struct insn_details *d = &ctx->basic_block[i];
-		if (d->quash)
-			continue;
+		if (d->quash) {
+			/*if (insn_opcode(d->insn) != INSN_LABEL) gen_insn(INSN_NOP, 0, 0, 0);*/
+			/*continue;*/
+		}
 		if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, d->start, d->length, NULL, &ctx->err)))
 			return false;
 	}
@@ -697,6 +702,7 @@ static bool attr_w cg_optimize(struct codegen_context *ctx)
 		return false;
 
 	reg_map_init(&ctx->opt_status->regs_common);
+	reg_map_set(&ctx->opt_status->regs_common, R_X87);
 	reg_map_set(&ctx->opt_status->regs_common, R_MEMORY);
 	reg_map_set(&ctx->opt_status->regs_common, R_FRAME);
 #ifdef R_UPCALL

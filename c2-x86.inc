@@ -60,6 +60,7 @@
 #define X86_LEA_R16_RM16		0x8d
 #define X86_8F				0x8f
 #define  X86_8F_POP				0x0
+#define X86_NOP				0x90
 #define X86_CBW				0x98
 #define X86_CWD				0x99
 #define X86_MOV_AL_M16			0xa0
@@ -1595,6 +1596,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 	switch (insn_opcode(insn)) {
 		case INSN_LABEL:
 			g(cgen_label(ctx));
+			return true;
+		case INSN_NOP:
+			cgen_one(X86_NOP);
 			return true;
 		case INSN_RET:
 			cgen_one(X86_RET);
