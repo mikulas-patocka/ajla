@@ -233,9 +233,13 @@
 
 #define R_SCRATCH_B			R_CTR
 
-#define FR_SCRATCH_1			(real_type == 4 ? R_VS32 : R_F0)
-#define FR_SCRATCH_2			(real_type == 4 ? R_VS33 : R_F1)
-#define FR_SCRATCH_3			(real_type == 4 ? R_VS34 : R_F2)
+#define FR_SCRATCH_1			R_F0
+#define FR_SCRATCH_2			R_F1
+#define FR_SCRATCH_3			R_F2
+
+#define FR_SCRATCH_128_1		R_VS32
+#define FR_SCRATCH_128_2		R_VS33
+#define FR_SCRATCH_128_3		R_VS34
 
 #define SUPPORTED_FP			(cpu_test_feature(CPU_FEATURE_ppc) * 0x2 + 0x4 + cpu_test_feature(CPU_FEATURE_v30) * 0x10)
 

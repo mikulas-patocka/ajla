@@ -151,7 +151,7 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 {
 	uint8_t *orig_ptr = ptr;
 	uint32_t insn;
-	unsigned i;
+	unsigned attr_unused i;
 
 #ifdef DEBUG_INSNS
 	ptr += 4;
@@ -544,12 +544,14 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 		case INSN_JMP_INDIRECT:
 			ptr += arg_read(d, ptr);
 			break;
+#if defined(ARCH_X86)
 		case INSN_VZEROUPPER:
 			for (i = 0; i < 16; i++) {
 				reg_map_set(&d->rd, R_XMM0 + i);
 				reg_map_set(&d->wr, R_XMM0 + i);
 			}
 			break;
+#endif
 		case INSN_MB:
 			reg_map_set(&d->rd, R_MEMORY);
 			reg_map_set(&d->wr, R_MEMORY);
@@ -626,6 +628,14 @@ static bool attr_w cg_optimize(struct codegen_context *ctx)
 #endif
 #ifdef R_SCRATCH_NA_3
 	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_NA_3);
+#endif
+	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_1);
+	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_2);
+#ifdef FR_SCRATCH_3
+	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_3);
+#endif
+#ifdef FR_SCRATCH_16
+	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_16);
 #endif
 
 	ctx->code_position = ctx->code;
