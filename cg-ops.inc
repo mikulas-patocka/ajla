@@ -176,6 +176,7 @@ static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, uns
 		ctx->code_labels[ip] = alloc_label(ctx);
 		if (unlikely(!ctx->code_labels[ip]))
 			return false;
+		ctx->label_flags[ctx->code_labels[ip]] |= LABEL_OP_BOUNDARY;
 	}
 	if (reg2 == -2U) {
 		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg1, imm, cond, ctx->code_labels[ip], R_SCRATCH_2));

@@ -459,6 +459,7 @@ struct cg_exit {
 #define FLAG_CACHE_IS_NOT_THUNK	0x04
 
 #define LABEL_USED		0x01
+#define LABEL_OP_BOUNDARY	0x02
 
 struct codegen_context {
 	struct data *fn;
@@ -1405,6 +1406,7 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 			ctx->code_labels[ip] = alloc_label(ctx);
 			if (unlikely(!ctx->code_labels[ip]))
 				return false;
+			ctx->label_flags[ctx->code_labels[ip]] |= LABEL_OP_BOUNDARY;
 		}
 		gen_label(ctx->code_labels[ip]);
 
