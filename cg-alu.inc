@@ -1414,7 +1414,8 @@ do_bt: {
 		if (!frame_t_is_const(slot_1) && !slot_is_register(ctx, slot_1) && !slot_is_register(ctx, slot_r)) {
 			int64_t offset;
 			unsigned n_op_size = minimum(op_size, OP_SIZE_NATIVE);
-			g(gen_frame_get(ctx, n_op_size, garbage, slot_2, R_SCRATCH_3, &reg2));
+			if (!c)
+				g(gen_frame_get(ctx, n_op_size, garbage, slot_2, R_SCRATCH_3, &reg2));
 			if (mode == MODE_INT) {
 				if (!c) {
 					g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, n_op_size, reg2, max_imm, alu == BTX_BT ? COND_A : COND_AE, label_ovf, -1));
