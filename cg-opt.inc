@@ -90,6 +90,11 @@ struct insn_details {
 	reg_map wr;
 };
 
+struct opt_status {
+	reg_map all_used_regs;
+	reg_map op_boundary_regs;
+};
+
 static unsigned arg_common(struct insn_details *d, uint8_t *ptr)
 {
 	if (ptr[0] >= ARG_SHIFTED_REGISTER && ptr[0] <= ARG_EXTENDED_REGISTER) {
@@ -137,6 +142,7 @@ static unsigned arg_write(struct insn_details *d, uint8_t *ptr)
 		reg_map_set(&d->wr, ptr[0]);
 		return 1;
 	}
+	reg_map_set(&d->rd, R_MEMORY);
 	reg_map_set(&d->wr, R_MEMORY);
 	return arg_common(d, ptr);
 }
@@ -195,6 +201,7 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 			ptr += arg_read(d, ptr);
 			reg_map_set(&d->rd, R_SP);
 			reg_map_set(&d->wr, R_SP);
+			reg_map_set(&d->rd, R_MEMORY);
 			reg_map_set(&d->wr, R_MEMORY);
 			break;
 		case INSN_PUSH2:
@@ -202,6 +209,7 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 			ptr += arg_read(d, ptr);
 			reg_map_set(&d->rd, R_SP);
 			reg_map_set(&d->wr, R_SP);
+			reg_map_set(&d->rd, R_MEMORY);
 			reg_map_set(&d->wr, R_MEMORY);
 			break;
 		case INSN_POP:
@@ -547,6 +555,7 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 			reg_map_set(&d->wr, R_MEMORY);
 			break;
 		case INSN_STOP_BIT:
+			d->barrier = true;
 			break;
 		case INSN_CALL_MILLICODE:
 			d->barrier = true;
@@ -571,6 +580,8 @@ static bool attr_w process_basic_block(struct codegen_context *ctx)
 
 static bool attr_w cg_optimize(struct codegen_context *ctx)
 {
+	frame_t v;
+
 	if (optimize_chicken)
 		return true;
 
@@ -580,6 +591,42 @@ static bool attr_w cg_optimize(struct codegen_context *ctx)
 	if (unlikely(!array_init_mayfail(struct insn_details, &ctx->basic_block, &ctx->basic_block_size, &ctx->err)))
 		return false;
 	ctx->basic_block_position = 0;
+
+	ctx->opt_status = mem_alloc_mayfail(struct opt_status *, sizeof(struct opt_status), &ctx->err);
+	if (unlikely(!ctx->opt_status))
+		return false;
+
+	reg_map_init(&ctx->opt_status->op_boundary_regs);
+	reg_map_set(&ctx->opt_status->op_boundary_regs, R_FRAME);
+#ifdef R_UPCALL
+	reg_map_set(&ctx->opt_status->op_boundary_regs, R_UPCALL);
+#endif
+#ifdef R_TIMESTAMP
+	reg_map_set(&ctx->opt_status->op_boundary_regs, R_TIMESTAMP);
+#endif
+#ifdef R_ZERO
+	reg_map_set(&ctx->opt_status->op_boundary_regs, R_ZERO);
+#endif
+	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
+		if (slot_is_register(ctx, v))
+			reg_map_set(&ctx->opt_status->op_boundary_regs, ctx->registers[v]);
+	}
+	ctx->opt_status->all_used_regs = ctx->opt_status->op_boundary_regs;
+	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_1);
+	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_2);
+	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_3);
+	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_4);
+	reg_map_set(&ctx->opt_status->all_used_regs, R_SAVED_1);
+	reg_map_set(&ctx->opt_status->all_used_regs, R_SAVED_2);
+#ifdef R_SCRATCH_NA_1
+	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_NA_1);
+#endif
+#ifdef R_SCRATCH_NA_2
+	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_NA_2);
+#endif
+#ifdef R_SCRATCH_NA_3
+	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_NA_3);
+#endif
 
 	ctx->code_position = ctx->code;
 
@@ -617,6 +664,9 @@ static bool attr_w cg_optimize(struct codegen_context *ctx)
 
 	mem_free(ctx->basic_block);
 	ctx->basic_block = NULL;
+
+	mem_free(ctx->opt_status);
+	ctx->opt_status = NULL;
 
 	flip_buffers(ctx);
 

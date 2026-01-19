@@ -528,6 +528,7 @@ struct codegen_context {
 	struct insn_details *basic_block;
 	size_t basic_block_size;
 	size_t basic_block_position;
+	struct opt_status *opt_status;
 
 	arg_t n_ret;
 	frame_t ret_vars[MAX_QUICKRET_VALUES];
@@ -570,6 +571,7 @@ static void init_ctx(struct codegen_context *ctx)
 	ctx->upcall_hacked_abi = false;
 	ctx->checkpoint_quick_entry = false;
 	ctx->basic_block = NULL;
+	ctx->opt_status = NULL;
 }
 
 static void done_ctx(struct codegen_context *ctx)
@@ -626,6 +628,8 @@ static void done_ctx(struct codegen_context *ctx)
 		data_free(ctx->codegen);
 	if (ctx->basic_block)
 		mem_free(ctx->basic_block);
+	if (ctx->opt_status)
+		mem_free(ctx->opt_status);
 }
 
 
