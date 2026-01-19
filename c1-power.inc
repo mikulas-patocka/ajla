@@ -235,11 +235,9 @@
 
 #define FR_SCRATCH_1			R_F0
 #define FR_SCRATCH_2			R_F1
-#define FR_SCRATCH_3			R_F2
 
 #define FR_SCRATCH_128_1		R_VS32
 #define FR_SCRATCH_128_2		R_VS33
-#define FR_SCRATCH_128_3		R_VS34
 
 #define SUPPORTED_FP			(cpu_test_feature(CPU_FEATURE_ppc) * 0x2 + 0x4 + cpu_test_feature(CPU_FEATURE_v30) * 0x10)
 
@@ -269,8 +267,8 @@ static const uint8_t regs_volatile[] = {
 	R_12 };
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved 0U
-static const uint8_t fp_volatile[] = { R_F3, R_F4, R_F5, R_F6, R_F7, R_F8, R_F9, R_F10, R_F11, R_F12, R_F13 };
-static const uint8_t vector_volatile[] = { R_VS35, R_VS36, R_VS37, R_VS38, R_VS39, R_VS40, R_VS41, R_VS42, R_VS43, R_VS44, R_VS45, R_VS46, R_VS47, R_VS48, R_VS49, R_VS50, R_VS51 };
+static const uint8_t fp_volatile[] = { R_F2, R_F3, R_F4, R_F5, R_F6, R_F7, R_F8, R_F9, R_F10, R_F11, R_F12, R_F13 };
+static const uint8_t vector_volatile[] = { R_VS34, R_VS35, R_VS36, R_VS37, R_VS38, R_VS39, R_VS40, R_VS41, R_VS42, R_VS43, R_VS44, R_VS45, R_VS46, R_VS47, R_VS48, R_VS49, R_VS50, R_VS51 };
 #define reg_is_saved(r)	(((r) >= R_14 && (r) <= R_31) || ((r) >= R_F14 && (r) <= R_F31) || ((r) >= R_VS52 && (r) <= R_VS63))
 
 static bool attr_w gen_load_constant_rz(struct codegen_context *ctx, unsigned reg, uint64_t c, unsigned xreg)

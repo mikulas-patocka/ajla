@@ -2804,8 +2804,7 @@ static bool attr_w gen_copy(struct codegen_context *ctx, unsigned op_size, frame
 #if defined(FR_SCRATCH_128_1)
 #define setup_fr_scratch						\
 	unsigned attr_unused fr_scratch_1 = unlikely(real_type == 4) ? FR_SCRATCH_128_1 : FR_SCRATCH_1;\
-	unsigned attr_unused fr_scratch_2 = unlikely(real_type == 4) ? FR_SCRATCH_128_2 : FR_SCRATCH_2;\
-	unsigned attr_unused fr_scratch_3 = unlikely(real_type == 4) ? FR_SCRATCH_128_3 : FR_SCRATCH_3
+	unsigned attr_unused fr_scratch_2 = unlikely(real_type == 4) ? FR_SCRATCH_128_2 : FR_SCRATCH_2
 #elif defined(FR_SCRATCH_3)
 #define setup_fr_scratch						\
 	unsigned attr_unused fr_scratch_1 = FR_SCRATCH_1;		\
