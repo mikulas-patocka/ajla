@@ -458,6 +458,8 @@ struct cg_exit {
 #define FLAG_CACHE_IS_NOT_FLAT	0x02
 #define FLAG_CACHE_IS_NOT_THUNK	0x04
 
+#define LABEL_USED		0x01
+
 struct codegen_context {
 	struct data *fn;
 	struct data **local_directory;
@@ -467,8 +469,8 @@ struct codegen_context {
 	uchar_efficient_t arg_mode;
 	bool unreachable;
 
-	bool *label_used;
-	size_t label_used_size;
+	uint8_t *label_flags;
+	size_t label_flags_size;
 
 	struct cg_entry *entries;
 	frame_t n_entries;
@@ -541,7 +543,7 @@ static void init_ctx(struct codegen_context *ctx)
 {
 	ctx->local_directory = NULL;
 	ctx->unreachable = false;
-	ctx->label_used = NULL;
+	ctx->label_flags = NULL;
 	ctx->entries = NULL;
 	ctx->n_entries = 0;
 	ctx->new_code = NULL;
@@ -573,8 +575,8 @@ static void done_ctx(struct codegen_context *ctx)
 {
 	if (ctx->local_directory)
 		mem_free(ctx->local_directory);
-	if (ctx->label_used)
-		mem_free(ctx->label_used);
+	if (ctx->label_flags)
+		mem_free(ctx->label_flags);
 	if (ctx->entries) {
 		size_t i;
 		for (i = 0; i < ctx->n_entries; i++) {
@@ -694,10 +696,10 @@ static inline void get_two(struct codegen_context *ctx, frame_t *v1, frame_t *v2
 
 static uint32_t alloc_label(struct codegen_context *ctx)
 {
-	uint32_t l = ctx->label_used_size;
+	uint32_t l = ctx->label_flags_size;
 	if (unlikely(!l))
 		return 0;
-	if (unlikely(!array_add_mayfail(bool, &ctx->label_used, &ctx->label_used_size, false, NULL, &ctx->err)))
+	if (unlikely(!array_add_mayfail(uint8_t, &ctx->label_flags, &ctx->label_flags_size, 0, NULL, &ctx->err)))
 		return 0;
 	return l;
 }
@@ -839,7 +841,7 @@ do {									\
 
 #define gen_label_ref(label_id)						\
 do {									\
-	(ctx)->label_used[label_id] = true;				\
+	(ctx)->label_flags[label_id] |= LABEL_USED;			\
 	gen_four(label_id);						\
 } while (0)
 
@@ -2283,7 +2285,7 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 				ce->test_and_entry_label = ce->entry_label;
 			}
 		}
-		ctx->label_used[ce->test_and_entry_label] = true;
+		ctx->label_flags[ce->test_and_entry_label] |= LABEL_USED;
 	}
 	return true;
 }
@@ -2596,10 +2598,10 @@ next_one:;
 		}
 	}
 
-	if (unlikely(!array_init_mayfail(bool, &ctx->label_used, &ctx->label_used_size, &ctx->err)))
+	if (unlikely(!array_init_mayfail(uint8_t, &ctx->label_flags, &ctx->label_flags_size, &ctx->err)))
 		goto fail;
 
-	if (unlikely(!array_add_mayfail(bool, &ctx->label_used, &ctx->label_used_size, false, NULL, &ctx->err)))
+	if (unlikely(!array_add_mayfail(uint8_t, &ctx->label_flags, &ctx->label_flags_size, 0, NULL, &ctx->err)))
 		goto fail;
 
 	/*debug("trying: %s", da(ctx->fn,function)->function_name);*/
@@ -2646,11 +2648,11 @@ next_one:;
 	if (unlikely(!cg_optimize(ctx)))
 		goto fail;
 
-	if (unlikely(!(ctx->label_to_pos = mem_alloc_array_mayfail(mem_alloc_mayfail, size_t *, 0, 0, ctx->label_used_size, sizeof(size_t), &ctx->err))))
+	if (unlikely(!(ctx->label_to_pos = mem_alloc_array_mayfail(mem_alloc_mayfail, size_t *, 0, 0, ctx->label_flags_size, sizeof(size_t), &ctx->err))))
 		goto fail;
 
 again:
-	for (l = 0; l < ctx->label_used_size; l++)
+	for (l = 0; l < ctx->label_flags_size; l++)
 		ctx->label_to_pos[l] = (size_t)-1;
 
 	if (unlikely(!array_init_mayfail(uint8_t, &ctx->mcode, &ctx->mcode_size, &ctx->err)))

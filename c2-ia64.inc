@@ -1363,7 +1363,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 	switch (insn_opcode(insn)) {
 		case INSN_LABEL:
 			lbl = cget_four(ctx);
-			if (ctx->label_used[lbl]) {
+			if (ctx->label_flags[lbl] & LABEL_USED) {
 				ctx->code_position -= 4;
 				full = ia64_fill_bundle(ctx);
 				if (full)

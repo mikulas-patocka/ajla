@@ -166,7 +166,7 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 		case INSN_LABEL:
 			label_id = oget_four(ptr);
 			ptr += 4;
-			d->barrier = ctx->label_used[label_id];
+			d->barrier = !!(ctx->label_flags[label_id] & LABEL_USED);
 			break;
 		case INSN_RET:
 			d->barrier = true;
