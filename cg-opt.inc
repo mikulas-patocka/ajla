@@ -144,16 +144,16 @@ static unsigned arg_common(struct insn_details *d, uint8_t *ptr)
 {
 	if (ptr[0] >= ARG_SHIFTED_REGISTER && ptr[0] <= ARG_EXTENDED_REGISTER) {
 		reg_map_set(&d->rd, ptr[2]);
-		return 1;
+		return 3;
 	}
 	if (ptr[0] == ARG_ADDRESS_0) {
 		return 9;
 	}
-	if (ptr[0] == ARG_ADDRESS_1 && ptr[0] <= ARG_ADDRESS_1_8) {
+	if (ptr[0] >= ARG_ADDRESS_1 && ptr[0] <= ARG_ADDRESS_1_8) {
 		reg_map_set(&d->rd, ptr[1]);
 		return 10;
 	}
-	if (ptr[0] == ARG_ADDRESS_1_PRE_I && ptr[0] <= ARG_ADDRESS_1_POST_I) {
+	if (ptr[0] >= ARG_ADDRESS_1_PRE_I && ptr[0] <= ARG_ADDRESS_1_POST_I) {
 		reg_map_set(&d->rd, ptr[1]);
 		reg_map_set(&d->wr, ptr[1]);
 		return 10;
@@ -205,6 +205,8 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 	unsigned attr_unused i;
 
 #ifdef DEBUG_INSNS
+	insn = oget_four(ptr);
+	debug("line: %u/%u", insn >> 24, insn & 0x00FFFFFFU);
 	ptr += 4;
 #endif
 	insn = oget_four(ptr);

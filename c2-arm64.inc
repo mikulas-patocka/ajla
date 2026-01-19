@@ -170,6 +170,7 @@
 #define  ARM64_SMADDSUBL_U		0x00800000U
 #define ARM64_SUMULH		0x9b407c00U
 #define  ARM64_SUMULH_U			0x00800000U
+#define ARM64_NOP		0xd503201fU
 #define ARM64_BR		0xd61f0000U
 #define ARM64_BLR		0xd63f0000U
 #define ARM64_RET		0xd65f03c0U
@@ -1149,6 +1150,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 	switch (insn_opcode(insn)) {
 		case INSN_LABEL:
 			g(cgen_label(ctx));
+			return true;
+		case INSN_NOP:
+			cgen_four(ARM64_NOP);
 			return true;
 		case INSN_RET:
 			cgen_four(ARM64_RET);
