@@ -637,6 +637,12 @@ static bool attr_w cg_optimize(struct codegen_context *ctx)
 #ifdef FR_SCRATCH_16
 	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_16);
 #endif
+#ifdef FR_SCRATCH_128_1
+	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_128_1);
+#endif
+#ifdef FR_SCRATCH_128_2
+	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_128_2);
+#endif
 
 	ctx->code_position = ctx->code;
 
