@@ -233,8 +233,13 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 		reg_map_set(&all_regs, regs_volatile[i]);
 	for (i = 0; i < n_fp_saved + zero; i++)
 		reg_map_set(&all_regs, fp_saved[i]);
-	for (i = 0; i < n_fp_volatile + zero; i++)
+	for (i = 0; i < n_fp_volatile + zero; i++) {
 		reg_map_set(&all_regs, fp_volatile[i]);
+#if defined(ARCH_390)
+		if (ctx->a.uses_x)
+			reg_map_set(&all_regs, fp_volatile[i] ^ 2);
+#endif
+	}
 #ifdef FR_SCRATCH_128_1
 	for (i = 0; i < n_vector_volatile + zero; i++)
 		reg_map_set(&all_regs, vector_volatile[i]);
@@ -272,8 +277,13 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 
 	ctx->opt_status->op_boundary_regs = ctx->opt_status->regs_common;
 	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
-		if (slot_is_register(ctx, v))
+		if (slot_is_register(ctx, v)) {
 			reg_map_set(&ctx->opt_status->op_boundary_regs, ctx->registers[v]);
+#ifdef ARCH_S390
+			if (ctx->a.uses_x && reg_is_fp(ctx->registers[v]))
+				reg_map_set(&ctx->opt_status->op_boundary_regs, ctx->registers[v] ^ 2);
+#endif
+		}
 	}
 	ctx->opt_status->all_used_regs = ctx->opt_status->op_boundary_regs;
 	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_1);
@@ -293,6 +303,12 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 #endif
 	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_1);
 	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_2);
+#ifdef ARCH_S390
+	if (ctx->a.uses_x) {
+		reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_1 + 2);
+		reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_2 + 2);
+	}
+#endif
 #ifdef FR_SCRATCH_3
 	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_3);
 #endif
@@ -364,6 +380,10 @@ static unsigned arg_read(struct insn_details *d, uint8_t *ptr)
 {
 	if (ptr[0] < ARG_REGS_MAX) {
 		reg_map_set(&d->rd, ptr[0]);
+#ifdef ARCH_S390
+		if (reg_is_fp(ptr[0]) && insn_op_size(d->insn) == OP_SIZE_16)
+			reg_map_set(&d->rd, ptr[0] + 2);
+#endif
 		return 1;
 	}
 	if (ptr[0] != ARG_IMM)
@@ -375,6 +395,10 @@ static unsigned arg_write(struct insn_details *d, uint8_t *ptr)
 {
 	if (ptr[0] < ARG_REGS_MAX) {
 		reg_map_set(&d->wr, ptr[0]);
+#ifdef ARCH_S390
+		if (reg_is_fp(ptr[0]) && insn_op_size(d->insn) == OP_SIZE_16)
+			reg_map_set(&d->wr, ptr[0] + 2);
+#endif
 		return 1;
 	}
 	reg_map_set(&d->rd, R_MEMORY);
