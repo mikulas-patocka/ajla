@@ -462,11 +462,22 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 			d->barrier = true;
 			break;
 #endif
-		case INSN_S390_PUSH:
-		case INSN_S390_POP:
-			ptr += arg_size(*ptr);
-			d->barrier = true;
+#ifdef ARCH_S390
+		case INSN_S390_PUSH: {
+			unsigned r;
+			ptr += arg_write(d, ptr);
+			for (r = insn_aux(insn); r <= R_15; r++)
+				reg_map_set(&d->rd, r);
 			break;
+		}
+		case INSN_S390_POP: {
+			unsigned r;
+			ptr += arg_read(d, ptr);
+			for (r = insn_aux(insn); r <= R_15; r++)
+				reg_map_set(&d->wr, r);
+			break;
+		}
+#endif
 		case INSN_IA64_ALLOC:
 			ptr += arg_size(*ptr);
 			ptr += arg_size(*ptr);

@@ -20,6 +20,7 @@ typedef uint64_t it;
 
 #define S390_BCR		0x070000000000ULL
 #define S390_BASR		0x0d0000000000ULL
+#define S390_BC			0x470000000000ULL
 
 #define S390_LTR		0x120000000000ULL
 #define S390_LTGR		0xb90200000000ULL
@@ -511,6 +512,11 @@ static const struct fp_alu fp_mov = {
 static const struct fp_alu fp_cmp = {
 	S390_CEBR, S390_CDBR, S390_CXBR, S390_CEB, S390_CDB
 };
+
+static void init_arch_context(struct codegen_context *ctx)
+{
+	ctx->a.uses_x = false;
+}
 
 static uint8_t get_jmp_cond(unsigned cond, bool logical)
 {
@@ -1958,6 +1964,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		case INSN_LABEL:
 			g(cgen_label(ctx));
 			return true;
+		case INSN_NOP:
+			g(cgen_s390(ctx, S390_BC));
+			return true;
 		case INSN_RET:
 			g(cgen_s390(ctx, S390_BCR | ((it)(S390_BRC_OVF | S390_BRC_GREATER | S390_BRC_LESS | S390_BRC_EQ) << 36) | ((it)R_14 << 32)));
 			return true;
@@ -1985,19 +1994,23 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_test(ctx, insn_op_size(insn)));
 			return true;
 		case INSN_ALU:
+		case INSN_ALU_FLAGS:
 			g(cgen_alu(ctx, insn_op_size(insn), insn_aux(insn), insn_writes_flags(insn)));
 			return true;
 		case INSN_ALU_PARTIAL:
+		case INSN_ALU_FLAGS_PARTIAL:
 			if (unlikely(insn_op_size(insn) <= OP_SIZE_2) || unlikely(insn_op_size(insn) >= OP_SIZE_NATIVE))
 				goto invalid_insn;
 			g(cgen_alu(ctx, insn_op_size(insn), insn_aux(insn), insn_writes_flags(insn)));
 			return true;
 		case INSN_ALU1:
+		case INSN_ALU1_FLAGS:
 			if (unlikely(insn_op_size(insn) != OP_SIZE_NATIVE))
 				goto invalid_insn;
 			g(cgen_alu1(ctx, insn_op_size(insn), insn_aux(insn), insn_writes_flags(insn)));
 			return true;
 		case INSN_ALU1_PARTIAL:
+		case INSN_ALU1_FLAGS_PARTIAL:
 			if (unlikely(insn_op_size(insn) <= OP_SIZE_2) || unlikely(insn_op_size(insn) >= OP_SIZE_NATIVE))
 				goto invalid_insn;
 			g(cgen_alu1(ctx, insn_op_size(insn), insn_aux(insn), insn_writes_flags(insn)));

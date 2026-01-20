@@ -376,9 +376,6 @@ static bool test_quick_return(struct codegen_context *ctx, frame_t *ret_vars, ar
 	size_t index_volatile = 0;
 	size_t index_fp_saved = 0;
 	size_t index_fp_volatile = 0;
-#ifdef ARCH_S390
-	bool uses_x = false;
-#endif
 	for (i = 0; i < n_ret; i++) {
 		frame_t v = ret_vars[i];
 		const struct type *t = get_type_of_local(ctx, v);
