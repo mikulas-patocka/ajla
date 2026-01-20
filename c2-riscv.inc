@@ -28,6 +28,7 @@
 #define  RISCV_FSL_W			0x00002000U
 #define  RISCV_FSL_D			0x00003000U
 #define  RISCV_FSL_Q			0x00004000U
+#define RISCV_NOP		0x00000013U
 #define RISCV_ADDI		0x00000013U
 #define RISCV_BSETI		0x28001013U
 #define RISCV_BCLRI		0x48001013U
@@ -902,6 +903,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 	switch (insn_opcode(insn)) {
 		case INSN_LABEL:
 			g(cgen_label(ctx));
+			return true;
+		case INSN_NOP:
+			cgen_rv(RISCV_NOP);
 			return true;
 		case INSN_RET:
 			cgen_rv(RISCV_JALR | ((uint32_t)R_LR << 15));
