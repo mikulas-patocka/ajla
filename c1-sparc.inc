@@ -245,6 +245,7 @@ static const uint8_t fp_volatile[] = { FDR_8, FDR_12, FDR_16, FDR_20, FDR_24, FD
 #else
 static const uint8_t fp_volatile[] = { FDR_4, FDR_6, FDR_8, FDR_10, FDR_12, FDR_14, FDR_16, FDR_18, FDR_20, FDR_22, FDR_24, FDR_26, FDR_28, FDR_30 };
 #endif
+
 #define reg_is_saved(r)	((r) >= R_L0 && (r) <= R_I7)
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)

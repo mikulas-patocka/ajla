@@ -436,7 +436,16 @@ static const uint8_t fp_volatile[] = {
 	FR_62,
 	FR_63,
 };
-#define reg_is_saved(r)	((r) >= R_32 && (r) <= R_95)
+
+#define reg_is_saved(r)	(			\
+	((r) >= R_4 && (r) <= R_7) ||		\
+	(r) == R_12 ||				\
+	((r) >= R_32 && (r) <= R_95) ||		\
+	((r) >= FR_2 && (r) <= FR_5) ||		\
+	((r) >= FR_16 && (r) <= FR_31) ||	\
+	((r) >= P_1 && (r) <= P_5) ||		\
+	((r) >= B_1 && (r) <= B_5) ||		\
+	0)
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
 {
