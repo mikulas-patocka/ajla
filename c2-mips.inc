@@ -1161,6 +1161,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		case INSN_LABEL:
 			g(cgen_label(ctx));
 			return true;
+		case INSN_NOP:
+			cgen_four(MIPS_AND);
+			return true;
 		case INSN_RET:
 			g(cgen_jmp_call_indirect(ctx, R_LR, false));
 			if (MIPS_R6)
