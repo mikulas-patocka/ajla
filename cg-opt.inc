@@ -144,6 +144,174 @@ struct opt_status {
 	reg_map jmp_indirect_regs;
 };
 
+static bool attr_w setup_register_maps(struct codegen_context *ctx)
+{
+	frame_t v;
+	size_t i;
+	unsigned r;
+	reg_map all_regs;
+
+	reg_map_init(&all_regs);
+	reg_map_set(&all_regs, R_SP);
+	reg_map_set(&all_regs, R_FRAME);
+#ifdef R_UPCALL
+	reg_map_set(&all_regs, R_UPCALL);
+#endif
+#ifdef R_TIMESTAMP
+	reg_map_set(&all_regs, R_TIMESTAMP);
+#endif
+#ifdef R_ZERO
+	reg_map_set(&all_regs, R_ZERO);
+#endif
+	reg_map_set(&all_regs, R_SCRATCH_1);
+	reg_map_set(&all_regs, R_SCRATCH_2);
+	reg_map_set(&all_regs, R_SCRATCH_3);
+	reg_map_set(&all_regs, R_SCRATCH_4);
+	reg_map_set(&all_regs, R_SAVED_1);
+	reg_map_set(&all_regs, R_SAVED_2);
+#ifdef R_SCRATCH_NA_1
+	reg_map_set(&all_regs, R_SCRATCH_NA_1);
+#endif
+#ifdef R_SCRATCH_NA_2
+	reg_map_set(&all_regs, R_SCRATCH_NA_2);
+#endif
+#ifdef R_SCRATCH_NA_3
+	reg_map_set(&all_regs, R_SCRATCH_NA_3);
+#endif
+	reg_map_set(&all_regs, R_ARG0);
+	reg_map_set(&all_regs, R_ARG1);
+	reg_map_set(&all_regs, R_ARG2);
+	reg_map_set(&all_regs, R_ARG3);
+#ifdef R_ARG4
+	reg_map_set(&all_regs, R_ARG4);
+#endif
+	reg_map_set(&all_regs, R_RET0);
+#ifdef R_RET1
+	reg_map_set(&all_regs, R_RET1);
+#endif
+#ifdef R_OFFSET_IMM
+	reg_map_set(&all_regs, R_OFFSET_IMM);
+#endif
+#ifdef R_CONST_IMM
+	reg_map_set(&all_regs, R_CONST_IMM);
+#endif
+#ifdef R_CMP_RESULT
+	reg_map_set(&all_regs, R_CMP_RESULT);
+#endif
+#ifdef R_SCRATCH_B
+	reg_map_set(&all_regs, R_SCRATCH_B);
+#endif
+	reg_map_set(&all_regs, FR_SCRATCH_1);
+	reg_map_set(&all_regs, FR_SCRATCH_2);
+#ifdef FR_SCRATCH_3
+	reg_map_set(&all_regs, FR_SCRATCH_3);
+#endif
+#ifdef FR_SCRATCH_128_1
+	reg_map_set(&all_regs, FR_SCRATCH_128_1);
+#endif
+#ifdef FR_SCRATCH_128_2
+	reg_map_set(&all_regs, FR_SCRATCH_128_2);
+#endif
+#ifdef FR_SCRATCH_16
+	reg_map_set(&all_regs, FR_SCRATCH_16);
+#endif
+	for (i = 0; i < n_regs_saved + zero; i++)
+		reg_map_set(&all_regs, regs_saved[i]);
+	for (i = 0; i < n_regs_volatile + zero; i++)
+		reg_map_set(&all_regs, regs_volatile[i]);
+	for (i = 0; i < n_fp_saved + zero; i++)
+		reg_map_set(&all_regs, fp_saved[i]);
+	for (i = 0; i < n_fp_volatile + zero; i++)
+		reg_map_set(&all_regs, fp_volatile[i]);
+#ifdef FR_SCRATCH_128_1
+	for (i = 0; i < n_vector_volatile + zero; i++)
+		reg_map_set(&all_regs, vector_volatile[i]);
+#endif
+	reg_map_init(&ctx->opt_status->regs_volatile);
+	reg_map_init(&ctx->opt_status->regs_saved);
+	for (r = 0; r < R_MAX; r++) {
+		if (reg_map_is_set(all_regs, r)) {
+			if (!reg_is_saved(r))
+				reg_map_set(&ctx->opt_status->regs_volatile, r);
+			else
+				reg_map_set(&ctx->opt_status->regs_saved, r);
+		}
+	}
+
+	reg_map_init(&ctx->opt_status->regs_common);
+	reg_map_set(&ctx->opt_status->regs_common, R_X87);
+	reg_map_set(&ctx->opt_status->regs_common, R_MEMORY);
+	reg_map_set(&ctx->opt_status->regs_common, R_FRAME);
+#ifdef R_UPCALL
+	reg_map_set(&ctx->opt_status->regs_common, R_UPCALL);
+#endif
+#ifdef R_TIMESTAMP
+	reg_map_set(&ctx->opt_status->regs_common, R_TIMESTAMP);
+#endif
+#ifdef R_ZERO
+	reg_map_set(&ctx->opt_status->regs_common, R_ZERO);
+#endif
+
+	ctx->opt_status->op_boundary_regs = ctx->opt_status->regs_common;
+	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
+		if (slot_is_register(ctx, v))
+			reg_map_set(&ctx->opt_status->op_boundary_regs, ctx->registers[v]);
+	}
+	ctx->opt_status->all_used_regs = ctx->opt_status->op_boundary_regs;
+	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_1);
+	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_2);
+	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_3);
+	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_4);
+	reg_map_set(&ctx->opt_status->all_used_regs, R_SAVED_1);
+	reg_map_set(&ctx->opt_status->all_used_regs, R_SAVED_2);
+#ifdef R_SCRATCH_NA_1
+	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_NA_1);
+#endif
+#ifdef R_SCRATCH_NA_2
+	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_NA_2);
+#endif
+#ifdef R_SCRATCH_NA_3
+	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_NA_3);
+#endif
+	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_1);
+	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_2);
+#ifdef FR_SCRATCH_3
+	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_3);
+#endif
+#ifdef FR_SCRATCH_16
+	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_16);
+#endif
+#ifdef FR_SCRATCH_128_1
+	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_128_1);
+#endif
+#ifdef FR_SCRATCH_128_2
+	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_128_2);
+#endif
+	reg_map_set(&ctx->opt_status->all_used_regs, R_ARG0);
+	reg_map_set(&ctx->opt_status->all_used_regs, R_ARG1);
+	reg_map_set(&ctx->opt_status->all_used_regs, R_ARG2);
+	reg_map_set(&ctx->opt_status->all_used_regs, R_ARG3);
+#ifdef R_ARG4
+	reg_map_set(&ctx->opt_status->all_used_regs, R_ARG4);
+#endif
+	reg_map_set(&ctx->opt_status->all_used_regs, R_RET0);
+#ifdef R_RET1
+	reg_map_set(&ctx->opt_status->all_used_regs, R_RET1);
+#endif
+
+	ctx->opt_status->jmp_indirect_regs = ctx->opt_status->regs_common;
+	for (i = 0; i < n_regs_saved + zero; i++)
+		reg_map_set(&ctx->opt_status->jmp_indirect_regs, regs_saved[i]);
+	for (i = 0; i < n_regs_volatile + zero; i++)
+		reg_map_set(&ctx->opt_status->jmp_indirect_regs, regs_volatile[i]);
+	for (i = 0; i < n_fp_saved + zero; i++)
+		reg_map_set(&ctx->opt_status->jmp_indirect_regs, fp_saved[i]);
+	for (i = 0; i < n_fp_volatile + zero; i++)
+		reg_map_set(&ctx->opt_status->jmp_indirect_regs, fp_volatile[i]);
+
+	return true;
+}
+
 static unsigned arg_common(struct insn_details *d, uint8_t *ptr)
 {
 	if (ptr[0] >= ARG_SHIFTED_REGISTER && ptr[0] <= ARG_EXTENDED_REGISTER) {
@@ -690,11 +858,6 @@ static bool attr_w process_basic_block(struct codegen_context *ctx, bool op_boun
 
 static bool attr_w cg_optimize(struct codegen_context *ctx)
 {
-	frame_t v;
-	size_t i;
-	unsigned r;
-	reg_map all_regs;
-
 	if (optimize_chicken)
 		return true;
 
@@ -709,163 +872,7 @@ static bool attr_w cg_optimize(struct codegen_context *ctx)
 	if (unlikely(!ctx->opt_status))
 		return false;
 
-	reg_map_init(&all_regs);
-	reg_map_set(&all_regs, R_SP);
-	reg_map_set(&all_regs, R_FRAME);
-#ifdef R_UPCALL
-	reg_map_set(&all_regs, R_UPCALL);
-#endif
-#ifdef R_TIMESTAMP
-	reg_map_set(&all_regs, R_TIMESTAMP);
-#endif
-#ifdef R_ZERO
-	reg_map_set(&all_regs, R_ZERO);
-#endif
-	reg_map_set(&all_regs, R_SCRATCH_1);
-	reg_map_set(&all_regs, R_SCRATCH_2);
-	reg_map_set(&all_regs, R_SCRATCH_3);
-	reg_map_set(&all_regs, R_SCRATCH_4);
-	reg_map_set(&all_regs, R_SAVED_1);
-	reg_map_set(&all_regs, R_SAVED_2);
-#ifdef R_SCRATCH_NA_1
-	reg_map_set(&all_regs, R_SCRATCH_NA_1);
-#endif
-#ifdef R_SCRATCH_NA_2
-	reg_map_set(&all_regs, R_SCRATCH_NA_2);
-#endif
-#ifdef R_SCRATCH_NA_3
-	reg_map_set(&all_regs, R_SCRATCH_NA_3);
-#endif
-	reg_map_set(&all_regs, R_ARG0);
-	reg_map_set(&all_regs, R_ARG1);
-	reg_map_set(&all_regs, R_ARG2);
-	reg_map_set(&all_regs, R_ARG3);
-#ifdef R_ARG4
-	reg_map_set(&all_regs, R_ARG4);
-#endif
-	reg_map_set(&all_regs, R_RET0);
-#ifdef R_RET1
-	reg_map_set(&all_regs, R_RET1);
-#endif
-#ifdef R_OFFSET_IMM
-	reg_map_set(&all_regs, R_OFFSET_IMM);
-#endif
-#ifdef R_CONST_IMM
-	reg_map_set(&all_regs, R_CONST_IMM);
-#endif
-#ifdef R_CMP_RESULT
-	reg_map_set(&all_regs, R_CMP_RESULT);
-#endif
-#ifdef R_SCRATCH_B
-	reg_map_set(&all_regs, R_SCRATCH_B);
-#endif
-	reg_map_set(&all_regs, FR_SCRATCH_1);
-	reg_map_set(&all_regs, FR_SCRATCH_2);
-#ifdef FR_SCRATCH_3
-	reg_map_set(&all_regs, FR_SCRATCH_3);
-#endif
-#ifdef FR_SCRATCH_128_1
-	reg_map_set(&all_regs, FR_SCRATCH_128_1);
-#endif
-#ifdef FR_SCRATCH_128_2
-	reg_map_set(&all_regs, FR_SCRATCH_128_2);
-#endif
-#ifdef FR_SCRATCH_16
-	reg_map_set(&all_regs, FR_SCRATCH_16);
-#endif
-	for (i = 0; i < n_regs_saved + zero; i++)
-		reg_map_set(&all_regs, regs_saved[i]);
-	for (i = 0; i < n_regs_volatile + zero; i++)
-		reg_map_set(&all_regs, regs_volatile[i]);
-	for (i = 0; i < n_fp_saved + zero; i++)
-		reg_map_set(&all_regs, fp_saved[i]);
-	for (i = 0; i < n_fp_volatile + zero; i++)
-		reg_map_set(&all_regs, fp_volatile[i]);
-#ifdef FR_SCRATCH_128_1
-	for (i = 0; i < n_vector_volatile + zero; i++)
-		reg_map_set(&all_regs, vector_volatile[i]);
-#endif
-	reg_map_init(&ctx->opt_status->regs_volatile);
-	reg_map_init(&ctx->opt_status->regs_saved);
-	for (r = 0; r < R_MAX; r++) {
-		if (reg_map_is_set(all_regs, r)) {
-			if (!reg_is_saved(r))
-				reg_map_set(&ctx->opt_status->regs_volatile, r);
-			else
-				reg_map_set(&ctx->opt_status->regs_saved, r);
-		}
-	}
-
-	reg_map_init(&ctx->opt_status->regs_common);
-	reg_map_set(&ctx->opt_status->regs_common, R_X87);
-	reg_map_set(&ctx->opt_status->regs_common, R_MEMORY);
-	reg_map_set(&ctx->opt_status->regs_common, R_FRAME);
-#ifdef R_UPCALL
-	reg_map_set(&ctx->opt_status->regs_common, R_UPCALL);
-#endif
-#ifdef R_TIMESTAMP
-	reg_map_set(&ctx->opt_status->regs_common, R_TIMESTAMP);
-#endif
-#ifdef R_ZERO
-	reg_map_set(&ctx->opt_status->regs_common, R_ZERO);
-#endif
-
-	ctx->opt_status->op_boundary_regs = ctx->opt_status->regs_common;
-	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
-		if (slot_is_register(ctx, v))
-			reg_map_set(&ctx->opt_status->op_boundary_regs, ctx->registers[v]);
-	}
-	ctx->opt_status->all_used_regs = ctx->opt_status->op_boundary_regs;
-	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_1);
-	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_2);
-	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_3);
-	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_4);
-	reg_map_set(&ctx->opt_status->all_used_regs, R_SAVED_1);
-	reg_map_set(&ctx->opt_status->all_used_regs, R_SAVED_2);
-#ifdef R_SCRATCH_NA_1
-	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_NA_1);
-#endif
-#ifdef R_SCRATCH_NA_2
-	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_NA_2);
-#endif
-#ifdef R_SCRATCH_NA_3
-	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_NA_3);
-#endif
-	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_1);
-	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_2);
-#ifdef FR_SCRATCH_3
-	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_3);
-#endif
-#ifdef FR_SCRATCH_16
-	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_16);
-#endif
-#ifdef FR_SCRATCH_128_1
-	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_128_1);
-#endif
-#ifdef FR_SCRATCH_128_2
-	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_128_2);
-#endif
-	reg_map_set(&ctx->opt_status->all_used_regs, R_ARG0);
-	reg_map_set(&ctx->opt_status->all_used_regs, R_ARG1);
-	reg_map_set(&ctx->opt_status->all_used_regs, R_ARG2);
-	reg_map_set(&ctx->opt_status->all_used_regs, R_ARG3);
-#ifdef R_ARG4
-	reg_map_set(&ctx->opt_status->all_used_regs, R_ARG4);
-#endif
-	reg_map_set(&ctx->opt_status->all_used_regs, R_RET0);
-#ifdef R_RET1
-	reg_map_set(&ctx->opt_status->all_used_regs, R_RET1);
-#endif
-
-	ctx->opt_status->jmp_indirect_regs = ctx->opt_status->regs_common;
-	for (i = 0; i < n_regs_saved + zero; i++)
-		reg_map_set(&ctx->opt_status->jmp_indirect_regs, regs_saved[i]);
-	for (i = 0; i < n_regs_volatile + zero; i++)
-		reg_map_set(&ctx->opt_status->jmp_indirect_regs, regs_volatile[i]);
-	for (i = 0; i < n_fp_saved + zero; i++)
-		reg_map_set(&ctx->opt_status->jmp_indirect_regs, fp_saved[i]);
-	for (i = 0; i < n_fp_volatile + zero; i++)
-		reg_map_set(&ctx->opt_status->jmp_indirect_regs, fp_volatile[i]);
+	g(setup_register_maps(ctx));
 
 	ctx->code_position = ctx->code;
 
