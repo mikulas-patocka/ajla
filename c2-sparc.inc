@@ -676,6 +676,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		case INSN_LABEL:
 			g(cgen_label(ctx));
 			return true;
+		case INSN_NOP:
+			cgen_four(SPARC_AND);
+			return true;
 		case INSN_RET:
 			cgen_four(SPARC_RETURN | ((uint32_t)R_I7 << 14) | SPARC_IMM_BIT | 8);
 			cgen_four(SPARC_NOP);
