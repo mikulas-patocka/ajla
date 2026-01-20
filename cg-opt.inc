@@ -434,10 +434,31 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 #endif
 			d->barrier = true;
 			break;
+#ifdef ARCH_ARM32
 		case INSN_ARM_PUSH:
+			reg_map_set(&d->rd, R_2);
+			reg_map_set(&d->rd, R_4);
+			reg_map_set(&d->rd, R_5);
+			reg_map_set(&d->rd, R_6);
+			reg_map_set(&d->rd, R_7);
+			reg_map_set(&d->rd, R_8);
+			reg_map_set(&d->rd, R_9);
+			reg_map_set(&d->rd, R_10);
+			reg_map_set(&d->rd, R_FP);
+			reg_map_set(&d->rd, R_LR);
+			reg_map_set(&d->rd, R_SP);
+			reg_map_set(&d->wr, R_SP);
+			reg_map_set(&d->rd, R_MEMORY);
+			reg_map_set(&d->wr, R_MEMORY);
+			break;
 		case INSN_ARM_POP:
+			reg_map_set(&d->rd, R_RET0);
+			reg_map_set(&d->rd, R_RET1);
+			reg_map_set(&d->rd, R_SP);
+			reg_map_set(&d->rd, R_MEMORY);
 			d->barrier = true;
 			break;
+#endif
 		case INSN_S390_PUSH:
 		case INSN_S390_POP:
 			ptr += arg_size(*ptr);

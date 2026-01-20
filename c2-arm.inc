@@ -58,6 +58,7 @@
 #define ARM_CMN			0x01700000U
 #define ARM_ORR			0x01800000U
 #define ARM_MOV			0x01a00000U
+#define ARM_NOP			0x01a00000U
 #define ARM_BIC			0x01c00000U
 #define ARM_MVN			0x01e00000U
 
@@ -927,6 +928,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 	switch (insn_opcode(insn)) {
 		case INSN_LABEL:
 			g(cgen_label(ctx));
+			return true;
+		case INSN_NOP:
+			cgen_four(ARM_ALWAYS | ARM_NOP);
 			return true;
 		case INSN_ARM_PUSH:
 		case INSN_ARM_POP:
