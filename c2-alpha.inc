@@ -64,6 +64,7 @@
 #define ALPHA_ORNOT		0x44000500U
 #define ALPHA_XOR		0x44000800U
 #define ALPHA_EQV		0x44000900U
+#define ALPHA_NOP		0x47ff041fU
 #define ALPHA_MSKBL		0x48000040U
 #define ALPHA_EXTBL		0x480000c0U
 #define ALPHA_INSBL		0x48000160U
@@ -815,6 +816,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 	switch (insn_opcode(insn)) {
 		case INSN_LABEL:
 			g(cgen_label(ctx));
+			return true;
+		case INSN_NOP:
+			cgen_four(ALPHA_NOP);
 			return true;
 		case INSN_RET:
 			cgen_four(ALPHA_RETURN);
