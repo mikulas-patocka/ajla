@@ -271,7 +271,7 @@ static const uint8_t fp_volatile[] = { R_XMM2, R_XMM3, R_XMM4, R_XMM5,
 	};
 #define n_fp_volatile (likely(cpu_test_feature(CPU_FEATURE_avx512vl)) || likely(cpu_test_feature(CPU_FEATURE_avx10)) ? n_array_elements(fp_volatile) : 4)
 
-#define reg_is_saved(r)	(((r) >= R_BX && (r) <= R_DI) || ((r) >= R_R12 && ((r) <= R_R15)))
+#define reg_is_saved(r)	(((r) >= R_BX && (r) <= R_DI) || ((r) >= R_R12 && (r) <= R_R15))
 
 #else
 
@@ -294,7 +294,7 @@ static const uint8_t fp_volatile[] = {
 	};
 #define n_fp_volatile (likely(cpu_test_feature(CPU_FEATURE_avx512vl)) || likely(cpu_test_feature(CPU_FEATURE_avx10)) ? n_array_elements(fp_volatile) : 14)
 
-#define reg_is_saved(r)	(((r) >= R_BX && (r) <= R_BP) || (r) >= R_R12 && (r) <= R_R15)
+#define reg_is_saved(r)	(((r) >= R_BX && (r) <= R_BP) || ((r) >= R_R12 && (r) <= R_R15))
 
 #endif
 
@@ -613,7 +613,7 @@ static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsi
 	gen_insn(INSN_CALL_INDIRECT, OP_SIZE_8, 0, 0);
 	gen_one(R_AX);
 #else
-	gen_insn(INSN_CALL_INDIRECT, OP_SIZE_8, 0, 0);
+	gen_insn(INSN_CALL_INDIRECT, OP_SIZE_8, ctx->upcall_hacked_abi, 0);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_UPCALL);
 	gen_eight(offset);

@@ -16,6 +16,10 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#define QUASH_INSNS		0
+#define MARK_QUASHED_INSNS	0
+#define REPORT_QUASHED_INSNS	0
+
 static uint8_t attr_unused oget_one(uint8_t *ptr)
 {
 	return *ptr;
@@ -70,6 +74,7 @@ typedef uint128_t reg_map;
 
 static inline void reg_map_init(reg_map *rm) { *rm = 0; }
 static inline void reg_map_set(reg_map *rm, unsigned reg) { *rm |= (reg_map)1 << reg; }
+static inline void reg_map_clear(reg_map *rm, unsigned reg) { *rm &= ~((reg_map)1 << reg); }
 static inline bool reg_map_is_set(reg_map rm, unsigned reg) { return (rm >> reg) & 1; }
 static inline reg_map reg_map_intersection(reg_map rm1, reg_map rm2) { return rm1 & rm2; }
 static inline reg_map reg_map_union(reg_map rm1, reg_map rm2) { return rm1 | rm2; }
@@ -81,12 +86,15 @@ static inline bool reg_map_is_empty(reg_map rm) { return !rm; }
 #define map_bits	32
 #define map_len		8
 
+#define map_typ		cat4(uint,map_bits,_,t)
+
 typedef struct {
-	cat4(uint,map_bits,_,t) map[map_len];
+	map_typ map[map_len];
 } reg_map;
 
 static inline void reg_map_init(reg_map *rm) { memset(rm, 0, sizeof(reg_map)); }
-static inline void reg_map_set(reg_map *rm, unsigned reg) { rm->map[reg / map_bits] |= (uint32_t)1 << (reg % map_bits); }
+static inline void reg_map_set(reg_map *rm, unsigned reg) { rm->map[reg / map_bits] |= (map_typ)1 << (reg % map_bits); }
+static inline void reg_map_clear(reg_map *rm, unsigned reg) { rm->map[reg / map_bits] &= ~((map_typ)1 << (reg % map_bits)); }
 static inline bool reg_map_is_set(reg_map rm, unsigned reg) { return (rm->map[reg / map_bits] >> (reg % map_bits)) & 1; }
 static inline reg_map reg_map_intersection(reg_map rm1, reg_map rm2)
 {
@@ -128,7 +136,6 @@ struct insn_details {
 	unsigned length;
 	uint32_t insn;
 	bool barrier;
-	bool op_boundary;
 	bool quash;
 	reg_map rd;
 	reg_map wr;
@@ -137,6 +144,7 @@ struct insn_details {
 
 struct opt_status {
 	reg_map regs_volatile;
+	reg_map regs_volatile_hacked;
 	reg_map regs_saved;
 	reg_map regs_common;
 	reg_map op_boundary_regs;
@@ -228,6 +236,8 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 		reg_map_set(&all_regs, vector_volatile[i]);
 #endif
 	reg_map_init(&ctx->opt_status->regs_volatile);
+	reg_map_set(&ctx->opt_status->regs_volatile, R_FLAGS);
+	reg_map_set(&ctx->opt_status->regs_volatile, R_X87);
 	reg_map_init(&ctx->opt_status->regs_saved);
 	for (r = 0; r < R_MAX; r++) {
 		if (reg_map_is_set(all_regs, r)) {
@@ -237,11 +247,15 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 				reg_map_set(&ctx->opt_status->regs_saved, r);
 		}
 	}
+	ctx->opt_status->regs_volatile_hacked = ctx->opt_status->regs_volatile;
+	for (i = 0; i < n_regs_volatile + zero; i++)
+		reg_map_clear(&ctx->opt_status->regs_volatile_hacked, regs_volatile[i]);
 
 	reg_map_init(&ctx->opt_status->regs_common);
 	reg_map_set(&ctx->opt_status->regs_common, R_X87);
 	reg_map_set(&ctx->opt_status->regs_common, R_MEMORY);
 	reg_map_set(&ctx->opt_status->regs_common, R_FRAME);
+	reg_map_set(&ctx->opt_status->regs_common, R_SP);
 #ifdef R_UPCALL
 	reg_map_set(&ctx->opt_status->regs_common, R_UPCALL);
 #endif
@@ -387,7 +401,6 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 	d->start = orig_ptr;
 	d->insn = insn;
 	d->barrier = false;
-	d->op_boundary = false;
 	d->quash = false;
 	reg_map_init(&d->rd);
 	reg_map_init(&d->wr);
@@ -402,9 +415,19 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 			label_id = oget_four(ptr);
 			ptr += 4;
 			d->barrier = !!(ctx->label_flags[label_id] & LABEL_USED);
-			d->op_boundary = !!(ctx->label_flags[label_id] & LABEL_OP_BOUNDARY);
+			if (d->barrier) {
+				if (ctx->label_flags[label_id] & LABEL_OP_BOUNDARY)
+					d->rd = ctx->opt_status->op_boundary_regs;
+				else
+					d->rd = ctx->opt_status->all_used_regs;
+			}
 			break;
 		case INSN_RET:
+			d->rd = ctx->opt_status->regs_saved;
+			reg_map_set(&d->rd, R_RET0);
+#ifdef R_RET1
+			reg_map_set(&d->rd, R_RET1);
+#endif
 			d->barrier = true;
 			break;
 		case INSN_ARM_PUSH:
@@ -426,7 +449,6 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 			ptr += arg_size(*ptr);
 			d->barrier = true;
 			break;
-#if defined(ARCH_X86)
 		case INSN_PUSH:
 			ptr += arg_read(d, ptr);
 			reg_map_set(&d->rd, R_SP);
@@ -455,24 +477,33 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 			reg_map_set(&d->wr, R_SP);
 			reg_map_set(&d->rd, R_MEMORY);
 			break;
-#endif
 		case INSN_CALL:
 			ptr += 4;
 			d->barrier = true;
 			break;
 		case INSN_CALL_INDIRECT:
 			ptr += arg_read(d, ptr);
-			reg_map_set(&d->rd, R_ARG0);
-			reg_map_set(&d->rd, R_ARG1);
-			reg_map_set(&d->rd, R_ARG2);
-			reg_map_set(&d->rd, R_ARG3);
-#if defined(ARCH_X86)
+			if (insn_aux(insn)) {
+#ifdef ARCH_X86
+				reg_map_set(&d->rd, R_DX);
+				reg_map_set(&d->rd, R_CX);
+				reg_map_set(&d->rd, R_AX);
+#endif
+			} else {
+				reg_map_set(&d->rd, R_ARG0);
+				reg_map_set(&d->rd, R_ARG1);
+				reg_map_set(&d->rd, R_ARG2);
+				reg_map_set(&d->rd, R_ARG3);
+			}
 			reg_map_set(&d->rd, R_SP);
 			reg_map_set(&d->wr, R_SP);
-#endif
 			reg_map_set(&d->wr, R_RET0);
 			reg_map_set(&d->rd, R_MEMORY);
 			reg_map_set(&d->wr, R_MEMORY);
+			if (insn_aux(insn))
+				d->wr = reg_map_union(d->wr, ctx->opt_status->regs_volatile_hacked);
+			else
+				d->wr = reg_map_union(d->wr, ctx->opt_status->regs_volatile);
 			break;
 		case INSN_MOV:
 		case INSN_MOVSX:
@@ -767,7 +798,10 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 			label_id = oget_four(ptr);
 			ptr += 4;
 			d->barrier = true;
-			d->op_boundary = !!(ctx->label_flags[label_id] & LABEL_OP_BOUNDARY);
+			if (ctx->label_flags[label_id] & LABEL_OP_BOUNDARY)
+				d->rd = ctx->opt_status->op_boundary_regs;
+			else
+				d->rd = ctx->opt_status->all_used_regs;
 			break;
 		case INSN_JMP_COND:
 		case INSN_JMP_COND_LOGICAL:
@@ -821,9 +855,8 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 	d->length = ptr - orig_ptr;
 }
 
-static bool attr_w process_basic_block(struct codegen_context *ctx, bool op_boundary)
+static bool attr_w process_basic_block(struct codegen_context *ctx, reg_map live_registers)
 {
-	reg_map live_registers = op_boundary ? ctx->opt_status->op_boundary_regs : ctx->opt_status->all_used_regs;
 	size_t i;
 	for (i = ctx->basic_block_position; i--; ) {
 		struct insn_details *d = &ctx->basic_block[i];
@@ -834,10 +867,16 @@ static bool attr_w process_basic_block(struct codegen_context *ctx, bool op_boun
 				live_registers = reg_map_union(live_registers, ctx->opt_status->all_used_regs);
 			}
 		} else if (reg_map_is_empty(reg_map_intersection(d->wr, live_registers))) {
-			/*unsigned opc = insn_opcode(d->insn);
-			if (opc != INSN_LABEL)
+			unsigned opc = insn_opcode(d->insn);
+			if (opc != INSN_LABEL && REPORT_QUASHED_INSNS) {
+#ifdef DEBUG_INSNS
+				uint32_t insn = oget_four(d->start);
+				debug("pointless instruction at %u/%u: %x", insn >> 24, insn & 0x00FFFFFFU, oget_four(d->start + 4));
+#else
 				debug("pointless instruction: %x", oget_four(d->start));
-			d->quash = true;*/
+#endif
+			}
+			d->quash = true;
 			continue;
 		}
 		live_registers = reg_map_intersection(live_registers, reg_map_neg(d->wr));
@@ -846,8 +885,10 @@ static bool attr_w process_basic_block(struct codegen_context *ctx, bool op_boun
 	for (i = 0; i < ctx->basic_block_position; i++) {
 		struct insn_details *d = &ctx->basic_block[i];
 		if (d->quash) {
-			/*if (insn_opcode(d->insn) != INSN_LABEL) gen_insn(INSN_NOP, 0, 0, 0);*/
-			/*continue;*/
+			if (insn_opcode(d->insn) != INSN_LABEL && MARK_QUASHED_INSNS)
+				gen_insn(INSN_NOP, 0, 0, 0);
+			if (QUASH_INSNS)
+				continue;
 		}
 		if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, d->start, d->length, NULL, &ctx->err)))
 			return false;
@@ -897,7 +938,7 @@ static bool attr_w cg_optimize(struct codegen_context *ctx)
 		length = d->length;
 
 		if (d->barrier) {
-			g(process_basic_block(ctx, d->op_boundary));
+			g(process_basic_block(ctx, d->rd));
 			if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, start, length, NULL, &ctx->err)))
 				return false;
 		} else {
