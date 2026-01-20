@@ -60,7 +60,7 @@
 /*#define TIMESTAMP_IN_REGISTER*/
 
 #define R_ZERO		0x00
-#define R_RA		0x01
+#define R_LR		0x01
 #define R_TP		0x02
 #define R_SP		0x03
 #define R_A0		0x04
@@ -172,7 +172,7 @@ static const uint8_t regs_saved[] = {
 	R_S4,
 #endif
 	R_S5, R_S6, R_S7, R_S8, R_FP };
-static const uint8_t regs_volatile[] = { R_RA, R_A3, R_A7, R_T3, R_T4, R_T5, R_T6, R_T7, R_T8 };
+static const uint8_t regs_volatile[] = { R_LR, R_A3, R_A7, R_T3, R_T4, R_T5, R_T6, R_T7, R_T8 };
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved 0U
 static const uint8_t fp_volatile[] = { R_FA2, R_FA3, R_FA4, R_FA5, R_FA6, R_FA7, R_FT0, R_FT1, R_FT2, R_FT3, R_FT4, R_FT5, R_FT6, R_FT7, R_FT8, R_FT9, R_FT10, R_FT11, R_FT12, R_FT13, R_FT14, R_FT15 };
@@ -333,7 +333,7 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x08, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_address_offset();
-	gen_one(R_RA);
+	gen_one(R_LR);
 	offset -= 1 << OP_SIZE_NATIVE;
 
 	for (i = R_FP; i <= R_S8; i++) {
@@ -393,7 +393,7 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 
 	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x08, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
-	gen_one(R_RA);
+	gen_one(R_LR);
 	gen_address_offset();
 	offset -= 1 << OP_SIZE_NATIVE;
 

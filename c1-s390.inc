@@ -108,6 +108,7 @@
 
 #define R_MAX		0x20
 
+#define R_LR		R_14
 #define R_FRAME		R_12
 #ifndef OMIT_R_UPCALL
 #define R_UPCALL	R_10

@@ -67,6 +67,7 @@ static uint64_t attr_unused oget_eight(uint8_t *ptr)
 #define R_FLAGS		(R_MAX + 0)
 #define R_X87		(R_MAX + 1)
 #define R_MEMORY	(R_MAX + 2)
+#define R_TOP		(R_MAX + 3)
 
 #if R_MAX < 0x78 && TYPE_FIXED_N >= 5
 
@@ -83,8 +84,8 @@ static inline bool reg_map_is_empty(reg_map rm) { return !rm; }
 
 #else
 
-#define map_bits	32
-#define map_len		8
+#define map_bits	EFFICIENT_WORD_SIZE
+#define map_len		((R_TOP + map_bits - 1) / map_bits)
 
 #define map_typ		cat4(uint,map_bits,_,t)
 
@@ -95,7 +96,7 @@ typedef struct {
 static inline void reg_map_init(reg_map *rm) { memset(rm, 0, sizeof(reg_map)); }
 static inline void reg_map_set(reg_map *rm, unsigned reg) { rm->map[reg / map_bits] |= (map_typ)1 << (reg % map_bits); }
 static inline void reg_map_clear(reg_map *rm, unsigned reg) { rm->map[reg / map_bits] &= ~((map_typ)1 << (reg % map_bits)); }
-static inline bool reg_map_is_set(reg_map rm, unsigned reg) { return (rm->map[reg / map_bits] >> (reg % map_bits)) & 1; }
+static inline bool reg_map_is_set(reg_map rm, unsigned reg) { return (rm.map[reg / map_bits] >> (reg % map_bits)) & 1; }
 static inline reg_map reg_map_intersection(reg_map rm1, reg_map rm2)
 {
 	unsigned i;
@@ -109,7 +110,7 @@ static inline reg_map reg_map_union(reg_map rm1, reg_map rm2)
 	unsigned i;
 	reg_map result;
 	for (i = 0; i < map_len; i++)
-		result.map[i] = rm1.map[i] ^ rm2.map[i];
+		result.map[i] = rm1.map[i] | rm2.map[i];
 	return result;
 }
 static inline reg_map reg_map_neg(reg_map rm)
@@ -427,6 +428,9 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 			reg_map_set(&d->rd, R_RET0);
 #ifdef R_RET1
 			reg_map_set(&d->rd, R_RET1);
+#endif
+#ifdef R_LR
+			reg_map_set(&d->rd, R_LR);
 #endif
 			d->barrier = true;
 			break;
@@ -947,7 +951,7 @@ static bool attr_w cg_optimize(struct codegen_context *ctx)
 		ctx->code_position += length;
 	}
 
-	g(process_basic_block(ctx, true));
+	ajla_assert_lo(!ctx->basic_block_position, (file_line, "cg_optimize: the code doesn't end with barrier"));
 
 	mem_free(ctx->basic_block);
 	ctx->basic_block = NULL;

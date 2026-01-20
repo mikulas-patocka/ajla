@@ -192,7 +192,7 @@ static bool attr_w cgen_jmp_call_indirect(struct codegen_context *ctx, bool call
 	uint32_t mc;
 	mc = RISCV_JALR;
 	if (call)
-		mc |= (uint32_t)R_RA << 7;
+		mc |= (uint32_t)R_LR << 7;
 	mc |= (uint32_t)reg << 15;
 	cgen_rv(mc);
 	return true;
@@ -904,7 +904,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_label(ctx));
 			return true;
 		case INSN_RET:
-			cgen_rv(RISCV_JALR | ((uint32_t)R_RA << 15));
+			cgen_rv(RISCV_JALR | ((uint32_t)R_LR << 15));
 			return true;
 		case INSN_CALL_INDIRECT:
 			g(cgen_jmp_call_indirect(ctx, true));

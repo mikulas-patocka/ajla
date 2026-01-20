@@ -196,7 +196,7 @@
 static bool attr_w cgen_jmp_call_indirect(struct codegen_context *ctx, bool call)
 {
 	uint8_t reg = cget_one(ctx);
-	uint8_t save = call ? R_RA : R_ZERO;
+	uint8_t save = call ? R_LR : R_ZERO;
 	cgen_2ri16(LOONG_JIRL, save, reg, 0);
 	return true;
 }
@@ -909,7 +909,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_label(ctx));
 			return true;
 		case INSN_RET:
-			cgen_2ri16(LOONG_JIRL, R_ZERO, R_RA, 0);
+			cgen_2ri16(LOONG_JIRL, R_ZERO, R_LR, 0);
 			return true;
 		case INSN_CALL_INDIRECT:
 			g(cgen_jmp_call_indirect(ctx, true));

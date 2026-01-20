@@ -844,7 +844,7 @@ static bool attr_w cgen_jmp_extra_long(struct codegen_context *ctx)
 	cgen_mips_imm(MIPS_LUI, R_AT, 0, 0);
 	cgen_mips_imm(MIPS_BGEZAL, 0, R_ZERO, 1);
 	cgen_mips_imm(MIPS_ORI, R_AT, R_AT, 0);
-	cgen_mips_3reg(OP_SIZE_ADDRESS == OP_SIZE_8 ? MIPS_DADDU : MIPS_ADDU, R_AT, R_AT, R_RA);
+	cgen_mips_3reg(OP_SIZE_ADDRESS == OP_SIZE_8 ? MIPS_DADDU : MIPS_ADDU, R_AT, R_AT, R_LR);
 	if (!MIPS_R6) {
 		cgen_mips_3reg(MIPS_JR, 0, R_AT, 0);
 		cgen_four(MIPS_NOP);
@@ -1086,7 +1086,7 @@ static bool attr_w cgen_jmp_call_indirect(struct codegen_context *ctx, unsigned 
 		}
 	} else {
 		if (!MIPS_R6) {
-			cgen_mips_3reg(MIPS_JALR, R_RA, reg, 0);
+			cgen_mips_3reg(MIPS_JALR, R_LR, reg, 0);
 			cgen_four(MIPS_NOP);
 		} else {
 			cgen_mips_imm(MIPS_R6_JIALC, reg, 0, 0);
@@ -1162,7 +1162,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_label(ctx));
 			return true;
 		case INSN_RET:
-			g(cgen_jmp_call_indirect(ctx, R_RA, false));
+			g(cgen_jmp_call_indirect(ctx, R_LR, false));
 			if (MIPS_R6)
 				cgen_four(MIPS_NOP);
 			return true;

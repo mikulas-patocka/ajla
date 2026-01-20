@@ -78,7 +78,7 @@
 
 #define R_ZERO		0x00
 #define R_1		0x01
-#define R_RP		0x02
+#define R_LR		0x02
 #define R_3		0x03
 #define R_4		0x04
 #define R_5		0x05
@@ -168,7 +168,7 @@
 #define R_ARG3		R_23
 
 #define R_CONST_IMM	R_1
-#define R_OFFSET_IMM	R_RP
+#define R_OFFSET_IMM	R_LR
 
 #define FR_SCRATCH_1	R_F4
 #define FR_SCRATCH_2	R_F5
@@ -409,7 +409,7 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_SP);
 	gen_eight(RP_OFFS);
-	gen_one(R_RP);
+	gen_one(R_LR);
 
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(ARG_ADDRESS_1_POST_I);
@@ -467,7 +467,7 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_one(R_SCRATCH_1);
 
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-	gen_one(R_RP);
+	gen_one(R_LR);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_SP);
 	gen_eight(-FRAME_SIZE + RP_OFFS);

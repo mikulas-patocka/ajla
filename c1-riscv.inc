@@ -58,7 +58,7 @@
 #define i_size_cmp(size)		OP_SIZE_NATIVE
 
 #define R_ZERO		0x00
-#define R_RA		0x01
+#define R_LR		0x01
 #define R_SP		0x02
 #define R_GP		0x03
 #define R_TP		0x04
@@ -167,7 +167,7 @@ static bool reg_is_fp(unsigned reg)
 }
 
 static const uint8_t regs_saved[] = { R_S5, R_S6, R_S7, R_S8, R_S9, R_S10, R_S11 };
-static const uint8_t regs_volatile[] = { R_RA, R_A3,
+static const uint8_t regs_volatile[] = { R_LR, R_A3,
 #ifndef HAVE_BITWISE_FRAME
 	R_A6,
 #endif
@@ -337,7 +337,7 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x08, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_address_offset();
-	gen_one(R_RA);
+	gen_one(R_LR);
 
 	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x10, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
@@ -435,7 +435,7 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 
 	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x08, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
-	gen_one(R_RA);
+	gen_one(R_LR);
 	gen_address_offset();
 
 	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x10, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));

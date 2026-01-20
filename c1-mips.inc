@@ -141,7 +141,7 @@
 #define R_GP		0x1c
 #define R_SP		0x1d
 #define R_FP		0x1e
-#define R_RA		0x1f
+#define R_LR		0x1f
 
 #define R_F0		0x20
 #define R_F1		0x21
@@ -483,7 +483,7 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	g(gen_address(ctx, R_SP, save_offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_address_offset();
-	gen_one(R_RA);
+	gen_one(R_LR);
 
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_FRAME);
@@ -554,7 +554,7 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 
 	g(gen_address(ctx, R_SP, save_offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
-	gen_one(R_RA);
+	gen_one(R_LR);
 	gen_address_offset();
 
 	gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_ADD, 0);

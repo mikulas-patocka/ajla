@@ -186,7 +186,8 @@
 
 #define R_MAX		0x40
 
-#define R_ZERO		0x00
+#define R_ZERO		R_G0
+#define R_LR		R_I7
 #define R_SP		R_O6
 
 #define R_FRAME		R_I0

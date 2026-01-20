@@ -274,19 +274,19 @@ static bool attr_w cgen_ret(struct codegen_context *ctx)
 	uint32_t mc;
 	if (!PA_20 && PA_SPACES) {
 		mc = PARISC_LDSID;
-		mc |= (uint32_t)R_RP << 21;
+		mc |= (uint32_t)R_LR << 21;
 		mc |= R_CG_SCRATCH;
 		cgen_four(mc);
 		mc = PARISC_MTSP;
 		mc |= (uint32_t)R_CG_SCRATCH << 16;
 		cgen_four(mc);
 		mc = PARISC_BE;
-		mc |= (uint32_t)R_RP << 21;
+		mc |= (uint32_t)R_LR << 21;
 		mc |= PARISC_N;
 		cgen_four(mc);
 	} else {
 		mc = PA_20 ? PARISC_BVE_RET | PARISC_BVE_STACK : PARISC_BV;
-		mc |= (uint32_t)R_RP << 21;
+		mc |= (uint32_t)R_LR << 21;
 		mc |= PARISC_N;
 		cgen_four(mc);
 	}
@@ -298,7 +298,7 @@ static bool attr_w cgen_call(struct codegen_context *ctx, unsigned length)
 {
 	if (length <= JMP_SHORT) {
 		g(add_relocation(ctx, JMP_SHORT, 0, NULL));
-		cgen_four(PARISC_BL | ((uint32_t)R_RP << 21) | PARISC_N);
+		cgen_four(PARISC_BL | ((uint32_t)R_LR << 21) | PARISC_N);
 		cgen_four(PARISC_NOP);
 	} else if (length == JMP_LONG && PA_20) {
 		g(add_relocation(ctx, JMP_LONG, 0, NULL));
@@ -308,8 +308,8 @@ static bool attr_w cgen_call(struct codegen_context *ctx, unsigned length)
 		g(add_relocation(ctx, JMP_EXTRA_LONG, 0, NULL));
 		cgen_four(PARISC_LDIL | ((uint32_t)R_CG_SCRATCH << 21));
 		g(cgen_2reg(ctx, PARISC_LDO, R_CG_SCRATCH, R_CG_SCRATCH));
-		g(cgen_2reg(ctx, PARISC_BLR | PARISC_N, R_RP, R_CG_SCRATCH));
-		g(cgen_2reg(ctx, PARISC_BLR | PARISC_N, R_RP, R_CG_SCRATCH));
+		g(cgen_2reg(ctx, PARISC_BLR | PARISC_N, R_LR, R_CG_SCRATCH));
+		g(cgen_2reg(ctx, PARISC_BLR | PARISC_N, R_LR, R_CG_SCRATCH));
 		cgen_four(PARISC_NOP);
 	}
 	return true;
@@ -1483,7 +1483,7 @@ static bool attr_w cgen_call_millicode(struct codegen_context attr_unused *ctx)
 	if (PA_SPACES) {
 		mc = PARISC_STW_LONG;
 		mc |= low_sign_ext_14(-0x18);
-		g(cgen_2reg(ctx, mc, R_SP, R_RP));
+		g(cgen_2reg(ctx, mc, R_SP, R_LR));
 	}
 #endif
 	return true;
