@@ -172,6 +172,9 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 #ifdef R_ZERO
 	reg_map_set(&all_regs, R_ZERO);
 #endif
+#ifdef R_LR
+	reg_map_set(&all_regs, R_LR);
+#endif
 	reg_map_set(&all_regs, R_SCRATCH_1);
 	reg_map_set(&all_regs, R_SCRATCH_2);
 	reg_map_set(&all_regs, R_SCRATCH_3);
@@ -504,10 +507,15 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 			break;
 		case INSN_CALL:
 			ptr += 4;
-			d->barrier = true;
-			break;
+#ifdef ARCH_PARISC
+			reg_map_set(&d->rd, R_22);
+			reg_map_set(&d->wr, R_22);
+			reg_map_set(&d->wr, R_19);
+#endif
+			goto do_call;
 		case INSN_CALL_INDIRECT:
 			ptr += arg_read(d, ptr);
+do_call:
 			if (insn_aux(insn)) {
 #ifdef ARCH_X86
 				reg_map_set(&d->rd, R_DX);
