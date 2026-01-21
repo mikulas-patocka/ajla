@@ -1160,7 +1160,7 @@ skip_bool:
 			return create_instr(P_Load_Const, params, ins.bb), true;
 		]
 		if vr.runtime_type <= T_SInt8, vr.runtime_type >= T_Integer128 then [
-			if ins.params[0] = Bin_Add, ins.params[4] = 0 then [
+			if ins.params[4] = 0, 0 bts Bin_Add bts Bin_Subtract bts Bin_Or bts Bin_Xor bts Bin_Shl bts Bin_Shr bts Bin_Rol bts Bin_Ror bt ins.params[0] then [
 				return create_instr(P_Copy, list(pcode_t).[ ins.params[1], 0, ins.params[3] ], ins.bb), true;
 			]
 			if ins.params[0] = Bin_Multiply, ins.params[4] = 1 then [
