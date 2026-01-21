@@ -733,7 +733,7 @@ static struct cg_exit *alloc_undo_label(struct codegen_context *ctx)
 	if (unlikely(!ce))
 		return NULL;
 	if (unlikely(ce->undo_label != 0))
-		internal(file_line, "alloc_cg_exit: undo label already allocated");
+		internal(file_line, "alloc_undo_label: undo label already allocated");
 	ce->undo_label = alloc_label(ctx);
 	if (unlikely(!ce->undo_label))
 		return NULL;
@@ -745,8 +745,12 @@ static uint32_t alloc_escape_label_for_ip(struct codegen_context *ctx, const cod
 	struct cg_exit *ce = alloc_cg_exit_for_ip(ctx, code);
 	if (!ce)
 		return 0;
-	if (!ce->escape_label)
+	if (!ce->escape_label) {
 		ce->escape_label = alloc_label(ctx);
+		if (!ce->escape_label)
+			return 0;
+		ctx->label_flags[ce->escape_label] |= LABEL_OP_BOUNDARY;
+	}
 	return ce->escape_label;
 }
 
