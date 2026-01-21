@@ -1323,13 +1323,11 @@ static bool attr_w gen_clear_bitmap(struct codegen_context *ctx, unsigned additi
 	}
 #endif
 	if (bitmap_slots <= INLINE_BITMAP_SLOTS) {
+		bool attr_unused scratch_1_zeroed = false;
 		bool attr_unused scratch_2_zeroed = false;
 		size_t bitmap_length = (size_t)bitmap_slots * slot_size;
 		size_t clear_offset = 0;
 		additional_offset += (unsigned)dest_offset;
-#if defined(ARCH_ARM32) || defined(ARCH_S390) || defined(ARCH_X86)
-		g(gen_load_constant(ctx, R_SCRATCH_1, 0));
-#endif
 		while (clear_offset < bitmap_length) {
 			size_t len = bitmap_length - clear_offset;
 			if (len > frame_align)
@@ -1339,6 +1337,10 @@ static bool attr_w gen_clear_bitmap(struct codegen_context *ctx, unsigned additi
 #if defined(ARCH_ARM32) || defined(ARCH_S390)
 			len = minimum(len, 2U << OP_SIZE_NATIVE);
 			if (len == 2U << OP_SIZE_NATIVE) {
+				if (!scratch_1_zeroed) {
+					g(gen_load_constant(ctx, R_SCRATCH_1, 0));
+					scratch_1_zeroed = true;
+				}
 				if (!scratch_2_zeroed) {
 					g(gen_load_constant(ctx, R_SCRATCH_2, 0));
 					scratch_2_zeroed = true;
@@ -1377,7 +1379,11 @@ static bool attr_w gen_clear_bitmap(struct codegen_context *ctx, unsigned additi
 #endif
 			len = minimum(len, 1U << OP_SIZE_NATIVE);
 			len = (size_t)1 << high_bit(len);
-#if defined(ARCH_X86) || defined(ARCH_ARM32) || defined(ARCH_S390)
+#if defined(ARCH_ARM32) || defined(ARCH_S390) || defined(ARCH_X86)
+			if (!scratch_1_zeroed) {
+				g(gen_load_constant(ctx, R_SCRATCH_1, 0));
+				scratch_1_zeroed = true;
+			}
 			g(gen_address(ctx, dest_base, dest_offset + clear_offset, IMM_PURPOSE_STR_OFFSET, log_2(len)));
 			gen_insn(INSN_MOV, log_2(len), 0, 0);
 			gen_address_offset();
