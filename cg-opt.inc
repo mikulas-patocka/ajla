@@ -150,7 +150,7 @@ struct opt_status {
 	reg_map regs_common;
 	reg_map op_boundary_regs;
 	reg_map all_used_regs;
-	reg_map jmp_indirect_regs;
+	reg_map jmp_quickret_regs;
 };
 
 static bool attr_w setup_register_maps(struct codegen_context *ctx)
@@ -333,15 +333,11 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 	reg_map_set(&ctx->opt_status->all_used_regs, R_RET1);
 #endif
 
-	ctx->opt_status->jmp_indirect_regs = ctx->opt_status->regs_common;
-	for (i = 0; i < n_regs_saved + zero; i++)
-		reg_map_set(&ctx->opt_status->jmp_indirect_regs, regs_saved[i]);
-	for (i = 0; i < n_regs_volatile + zero; i++)
-		reg_map_set(&ctx->opt_status->jmp_indirect_regs, regs_volatile[i]);
-	for (i = 0; i < n_fp_saved + zero; i++)
-		reg_map_set(&ctx->opt_status->jmp_indirect_regs, fp_saved[i]);
-	for (i = 0; i < n_fp_volatile + zero; i++)
-		reg_map_set(&ctx->opt_status->jmp_indirect_regs, fp_volatile[i]);
+	ctx->opt_status->jmp_quickret_regs = ctx->opt_status->regs_common;
+	if (ctx->quickret_regs_valid) {
+		for (i = 0; i < da(ctx->fn,function)->n_return_values; i++)
+			reg_map_set(&ctx->opt_status->jmp_quickret_regs, ctx->quickret_regs[i]);
+	}
 
 	return true;
 }
@@ -901,9 +897,12 @@ do_call:
 			break;
 		case INSN_JMP_INDIRECT:
 			ptr += arg_read(d, ptr);
-			d->rd = reg_map_union(d->rd, ctx->opt_status->jmp_indirect_regs);
 			reg_map_set(&d->rd, R_MEMORY);
-			reg_map_set(&d->wr, R_MEMORY);
+			if (insn_aux(insn))
+				d->rd = reg_map_union(d->rd, ctx->opt_status->jmp_quickret_regs);
+			else
+				d->rd = reg_map_union(d->rd, ctx->opt_status->regs_common);
+			d->barrier = true;
 			break;
 #if defined(ARCH_X86)
 		case INSN_VZEROUPPER:

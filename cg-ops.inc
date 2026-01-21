@@ -666,7 +666,7 @@ static bool attr_w gen_call_end(struct codegen_context *ctx, arg_t n_ret)
 	return true;
 }
 
-static bool attr_w gen_jmp_indirect(struct codegen_context *ctx, unsigned reg1, unsigned reg2, int64_t offset)
+static bool attr_w gen_jmp_indirect(struct codegen_context *ctx, unsigned reg1, unsigned reg2, int64_t offset, unsigned aux)
 {
 #if !defined(POINTER_COMPRESSION)
 	unsigned shift = 0;
@@ -702,7 +702,7 @@ static bool attr_w gen_jmp_indirect(struct codegen_context *ctx, unsigned reg1, 
 	} else {
 		g(gen_lea3(ctx, reg1, reg1, reg2, shift, 0));
 #if defined(ARCH_ARM32)
-		gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+		gen_insn(INSN_JMP_INDIRECT, 0, aux, 0);
 		gen_one(ARG_ADDRESS_1);
 		gen_one(reg1);
 		gen_eight(offset);
@@ -720,17 +720,17 @@ static bool attr_w gen_jmp_indirect(struct codegen_context *ctx, unsigned reg1, 
 	gen_one(R_SCRATCH_B);
 	gen_one(reg1);
 
-	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_insn(INSN_JMP_INDIRECT, 0, aux, 0);
 	gen_one(R_SCRATCH_B);
 #else
-	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_insn(INSN_JMP_INDIRECT, 0, aux, 0);
 	gen_one(reg1);
 #endif
 	return true;
 
 	goto direct_jmp;
 direct_jmp:
-	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_insn(INSN_JMP_INDIRECT, 0, aux, 0);
 	gen_one(ARG_ADDRESS_2 + shift);
 	gen_one(reg1);
 	gen_one(reg2);
@@ -781,7 +781,6 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 	if (ctx->args_l <= MAX_QUICKRET_VALUES) {
 		code_t flat_mask = 0;
 		frame_t ret_vars[MAX_QUICKRET_VALUES];
-		uint8_t regs[MAX_QUICKRET_VALUES];
 		frame_t test_vars[MAX_QUICKRET_VALUES];
 		arg_t n_test_vars = 0;
 		frame_t test_borrowed[MAX_QUICKRET_VALUES];
@@ -803,8 +802,11 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 					test_borrowed[n_test_borrowed++] = src_arg->slot;
 			}
 		}
-		if (test_quick_return(ctx, ret_vars, ctx->args_l, regs)) {
-			uint32_t label_skip_quick_ret = alloc_label(ctx);
+		if (test_quick_return(ctx, ret_vars, ctx->args_l, ctx->quickret_regs)) {
+			uint32_t label_skip_quick_ret;
+			ctx->quickret_regs_valid = true;
+
+			label_skip_quick_ret = alloc_label(ctx);
 			if (unlikely(!label_skip_quick_ret))
 				return false;
 
@@ -847,7 +849,7 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 				const struct code_arg *src_arg = &ctx->args[i];
 				const struct type *t = get_type_of_local(ctx, src_arg->slot);
 				unsigned size = spill_size(t);
-				g(gen_load_raw(ctx, size, garbage, R_FRAME, src_arg->slot, 0, false, regs[i]));
+				g(gen_load_raw(ctx, size, garbage, R_FRAME, src_arg->slot, 0, false, ctx->quickret_regs[i]));
 			}
 
 			retval_offset = sizeof(code_t) + (4 + 2 * (ARG_MODE_N >= 3)) * ctx->args_l;
@@ -856,7 +858,7 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 
 			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_FRAME, R_FRAME, new_fp_offset, 0));
 
-			g(gen_jmp_indirect(ctx, R_SCRATCH_3, R_SCRATCH_2, offsetof(struct data, u_.codegen.unoptimized_code) - checkpoint_num_offset - sizeof(char *)));
+			g(gen_jmp_indirect(ctx, R_SCRATCH_3, R_SCRATCH_2, offsetof(struct data, u_.codegen.unoptimized_code) - checkpoint_num_offset - sizeof(char *), 1));
 
 			gen_label(label_skip_quick_ret);
 		}
@@ -1048,7 +1050,7 @@ scaled_store_done:
 
 	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_FRAME, R_FRAME, new_fp_offset, 0));
 
-	g(gen_jmp_indirect(ctx, R_SCRATCH_1, R_SCRATCH_2, offsetof(struct data, u_.codegen.unoptimized_code) - checkpoint_num_offset));
+	g(gen_jmp_indirect(ctx, R_SCRATCH_1, R_SCRATCH_2, offsetof(struct data, u_.codegen.unoptimized_code) - checkpoint_num_offset, 0));
 
 	return true;
 }

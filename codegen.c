@@ -540,6 +540,9 @@ struct codegen_context {
 	frame_t ret_vars[MAX_QUICKRET_VALUES];
 	uint8_t regs[MAX_QUICKRET_VALUES];
 
+	bool quickret_regs_valid;
+	uint8_t quickret_regs[MAX_QUICKRET_VALUES];
+
 	ajla_error_t err;
 
 #ifdef ARCH_CONTEXT
@@ -578,6 +581,7 @@ static void init_ctx(struct codegen_context *ctx)
 	ctx->checkpoint_quick_entry = false;
 	ctx->basic_block = NULL;
 	ctx->opt_status = NULL;
+	ctx->quickret_regs_valid = false;
 }
 
 static void done_ctx(struct codegen_context *ctx)
