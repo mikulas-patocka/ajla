@@ -1457,18 +1457,18 @@ static bool attr_w gen_record_load(struct codegen_context *ctx, frame_t slot_1, 
 	}
 	entry_type = type_def(rec_type,record)->types[rec_slot];
 
+	if (!TYPE_IS_FLAT(entry_type) && flag_must_be_flat(ctx, slot_r)) {
+		gen_insn(INSN_JMP, 0, 0, 0);
+		gen_label_ref(escape_label);
+		return true;
+	}
+
 	g(gen_frame_decompress_slot(ctx, slot_1, R_SCRATCH_2, &reg, escape_label));
 
 	if (TYPE_IS_FLAT(entry_type)) {
 		g(gen_test_1(ctx, reg, rec_slot, data_record_offset, escape_label, false, TEST));
 		g(gen_memcpy_to_slot(ctx, slot_r, reg, (size_t)rec_slot * slot_size + data_record_offset));
 		flag_set(ctx, slot_r, false);
-		return true;
-	}
-
-	if (flag_must_be_flat(ctx, slot_r)) {
-		gen_insn(INSN_JMP, 0, 0, 0);
-		gen_label_ref(escape_label);
 		return true;
 	}
 
