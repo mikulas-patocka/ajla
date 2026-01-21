@@ -3754,6 +3754,9 @@ static bool attr_w gen_is_exception(struct codegen_context *ctx, frame_t slot_1,
 	if (unlikely(!escape_label))
 		return false;
 
+	if (test_ptr_is_not_thunk(ctx, slot_1) && TYPE_IS_FLAT(type))
+		goto not_thunk;
+
 	if (TYPE_IS_FLAT(type))
 		g(gen_test_1_jz_cached(ctx, slot_1, no_ex_label));
 
@@ -3764,6 +3767,7 @@ static bool attr_w gen_is_exception(struct codegen_context *ctx, frame_t slot_1,
 		g(gen_compare_da_tag(ctx, R_SCRATCH_1, DATA_TAG_flat, COND_E, escape_label, R_SCRATCH_1));
 	}
 
+not_thunk:
 	gen_label(no_ex_label);
 	g(gen_frame_clear(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r));
 
