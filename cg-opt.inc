@@ -619,7 +619,7 @@ do_call:
 			ptr += arg_write(d, ptr);
 			r1 = ptr[0];
 			r2 = ptr[1];
-			if (r1 < ARG_REGS_MAX && r2 < ARG_REGS_MAX && r1 == r2 && (insn_aux(insn) == ALU_XOR || unlikely(insn_aux(insn) == ALU_SUB))) {
+			if (insn_opcode(insn) == INSN_ALU && r1 < ARG_REGS_MAX && r2 < ARG_REGS_MAX && r1 == r2 && (insn_aux(insn) == ALU_XOR || unlikely(insn_aux(insn) == ALU_SUB))) {
 				ptr += 2;
 				goto skip_reads;
 			}
