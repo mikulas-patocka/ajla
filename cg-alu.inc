@@ -228,7 +228,7 @@ do_alu: {
 			g(gen_3address_alu(ctx, OP_SIZE_NATIVE, alu, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_3, first_flags));
 #if defined(ARCH_PARISC)
 			if (mode == MODE_INT) {
-				gen_insn(INSN_ALU_FLAGS_TRAP, OP_SIZE_NATIVE, second_alu, ALU_WRITES_FLAGS(OP_SIZE_NATIVE, second_alu, false, false, 0));
+				gen_insn(INSN_ALU_TRAP, OP_SIZE_NATIVE, second_alu, ALU_WRITES_FLAGS(OP_SIZE_NATIVE, second_alu, false, false, 0));
 				gen_one(R_SCRATCH_2);
 				gen_one(R_SCRATCH_2);
 				gen_one(R_SCRATCH_4);
@@ -236,7 +236,7 @@ do_alu: {
 			} else
 #endif
 			{
-				gen_insn(first_flags ? INSN_ALU_FLAGS : INSN_ALU, OP_SIZE_NATIVE, second_alu, second_flags | ALU_WRITES_FLAGS(OP_SIZE_NATIVE, second_alu, false, false, 0));
+				gen_insn(INSN_ALU, OP_SIZE_NATIVE, second_alu, second_flags | ALU_WRITES_FLAGS(OP_SIZE_NATIVE, second_alu, false, false, 0));
 				gen_one(R_SCRATCH_2);
 				gen_one(R_SCRATCH_2);
 				gen_one(R_SCRATCH_4);
@@ -1836,7 +1836,7 @@ do_alu: {
 				g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_NOT, R_SCRATCH_2, R_SCRATCH_2, 0));
 
 				g(gen_imm(ctx, -1, IMM_PURPOSE_SUB, OP_SIZE_NATIVE));
-				gen_insn(INSN_ALU_FLAGS, OP_SIZE_NATIVE, ALU_SBB, ALU_WRITES_FLAGS(OP_SIZE_NATIVE, ALU_SBB, false, is_imm(), ctx->const_imm));
+				gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_SBB, ALU_WRITES_FLAGS(OP_SIZE_NATIVE, ALU_SBB, false, is_imm(), ctx->const_imm));
 				gen_one(R_SCRATCH_2);
 				gen_one(R_SCRATCH_2);
 				gen_imm_offset();

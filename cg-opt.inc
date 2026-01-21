@@ -611,35 +611,32 @@ do_call:
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
-		case INSN_ALU_FLAGS:
-		case INSN_ALU_FLAGS_PARTIAL:
-			reg_map_set(&d->rd, R_FLAGS);
-			/*-fallthrough*/
 		case INSN_ALU:
 		case INSN_ALU_PARTIAL:
+			if (unlikely(insn_aux(insn) == ALU_ADC) || unlikely(insn_aux(insn) == ALU_SBB))
+				reg_map_set(&d->rd, R_FLAGS);
 			ptr += arg_write(d, ptr);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
-		case INSN_ALU_FLAGS_TRAP:
-			reg_map_set(&d->rd, R_FLAGS);
-			/*-fallthrough*/
 		case INSN_ALU_TRAP:
+			if (unlikely(insn_aux(insn) == ALU_ADC) || unlikely(insn_aux(insn) == ALU_SBB))
+				reg_map_set(&d->rd, R_FLAGS);
 			ptr += arg_write(d, ptr);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			ptr += 4;
 			break;
-		case INSN_ALU1_FLAGS:
-		case INSN_ALU1_FLAGS_PARTIAL:
-			reg_map_set(&d->rd, R_FLAGS);
-			/*-fallthrough*/
 		case INSN_ALU1:
 		case INSN_ALU1_PARTIAL:
+			if (unlikely(insn_aux(insn) == ALU1_NGC))
+				reg_map_set(&d->rd, R_FLAGS);
 			ptr += arg_write(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_ALU1_TRAP:
+			if (unlikely(insn_aux(insn) == ALU1_NGC))
+				reg_map_set(&d->rd, R_FLAGS);
 			ptr += arg_write(d, ptr);
 			ptr += arg_read(d, ptr);
 			ptr += 4;

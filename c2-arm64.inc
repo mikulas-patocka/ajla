@@ -1183,13 +1183,11 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_test(ctx, insn_op_size(insn)));
 			return true;
 		case INSN_ALU:
-		case INSN_ALU_FLAGS:
 			if (unlikely(insn_op_size(insn) < OP_SIZE_4))
 				goto invalid_insn;
 			g(cgen_alu(ctx, insn_op_size(insn), insn_writes_flags(insn), insn_aux(insn)));
 			return true;
 		case INSN_ALU1:
-		case INSN_ALU1_FLAGS:
 			if (unlikely(insn_op_size(insn) < OP_SIZE_4))
 				goto invalid_insn;
 			g(cgen_alu1(ctx, insn_op_size(insn), insn_writes_flags(insn), insn_aux(insn)));
