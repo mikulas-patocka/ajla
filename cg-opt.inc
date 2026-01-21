@@ -435,6 +435,7 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 
 	switch (insn_opcode(insn)) {
 		uint32_t label_id;
+		unsigned r1, r2;
 		case INSN_LABEL:
 			label_id = oget_four(ptr);
 			ptr += 4;
@@ -616,8 +617,15 @@ do_call:
 			if (unlikely(insn_aux(insn) == ALU_ADC) || unlikely(insn_aux(insn) == ALU_SBB))
 				reg_map_set(&d->rd, R_FLAGS);
 			ptr += arg_write(d, ptr);
+			r1 = ptr[0];
+			r2 = ptr[1];
+			if (r1 < ARG_REGS_MAX && r2 < ARG_REGS_MAX && r1 == r2 && (insn_aux(insn) == ALU_XOR || unlikely(insn_aux(insn) == ALU_SUB))) {
+				ptr += 2;
+				goto skip_reads;
+			}
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
+skip_reads:
 			break;
 		case INSN_ALU_TRAP:
 			if (unlikely(insn_aux(insn) == ALU_ADC) || unlikely(insn_aux(insn) == ALU_SBB))
