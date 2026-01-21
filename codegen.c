@@ -367,7 +367,8 @@ do {									\
 } while (0)
 
 #ifdef DEBUG_INSNS
-#define gen_line()	gen_four(__LINE__ + (insn_file << 24))
+static atomic_type uint32_t seq = 0;
+#define gen_line()	do { gen_four(__LINE__ + (insn_file << 24)); gen_four(seq++); } while (0)
 #else
 #define gen_line()	do { } while (0)
 #endif
@@ -2421,7 +2422,7 @@ static bool attr_w gen_mcode(struct codegen_context *ctx)
 		ajla_assert_lo(ctx->code_position < ctx->code + ctx->code_size, (file_line, "gen_mcode: ran out of code"));
 #ifdef DEBUG_INSNS
 		insn = cget_four(ctx);
-		debug("line: %u/%u", insn >> 24, insn & 0x00FFFFFFU);
+		debug("line: %u/%u (seq %x)", insn >> 24, insn & 0x00FFFFFFU, cget_four(ctx));
 #endif
 		insn = cget_four(ctx);
 		g(cgen_insn(ctx, insn));

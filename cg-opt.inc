@@ -416,8 +416,8 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 
 #ifdef DEBUG_INSNS
 	insn = oget_four(ptr);
-	debug("line: %u/%u", insn >> 24, insn & 0x00FFFFFFU);
-	ptr += 4;
+	debug("line: %u/%u (seq %x)", insn >> 24, insn & 0x00FFFFFFU, oget_four(ptr + 4));
+	ptr += 8;
 #endif
 	insn = oget_four(ptr);
 	ptr += 4;
@@ -946,7 +946,8 @@ static bool attr_w process_basic_block(struct codegen_context *ctx, reg_map live
 			if (opc != INSN_LABEL && REPORT_QUASHED_INSNS) {
 #ifdef DEBUG_INSNS
 				uint32_t insn = oget_four(d->start);
-				debug("pointless instruction at %u/%u: %x", insn >> 24, insn & 0x00FFFFFFU, oget_four(d->start + 4));
+				uint32_t seq = oget_four(d->start + 4);
+				debug("pointless instruction at %u/%u (seq %x): %x", insn >> 24, insn & 0x00FFFFFFU, seq, oget_four(d->start + 8));
 #else
 				debug("pointless instruction: %x", oget_four(d->start));
 #endif
