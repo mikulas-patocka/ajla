@@ -908,6 +908,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		case INSN_LABEL:
 			g(cgen_label(ctx));
 			return true;
+		case INSN_NOP:
+			cgen_2ri12(LOONG_ANDI, R_ZERO, R_ZERO, 0);
+			return true;
 		case INSN_RET:
 			cgen_2ri16(LOONG_JIRL, R_ZERO, R_LR, 0);
 			return true;
