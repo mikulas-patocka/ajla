@@ -1163,13 +1163,13 @@ skip_bool:
 			if ins.params[4] = 0, 0 bts Bin_Add bts Bin_Subtract bts Bin_Or bts Bin_Xor bts Bin_Shl bts Bin_Shr bts Bin_Rol bts Bin_Ror bt ins.params[0] then [
 				return create_instr(P_Copy, list(pcode_t).[ ins.params[1], 0, ins.params[3] ], ins.bb), true;
 			]
-			if ins.params[0] = Bin_Multiply, ins.params[4] = 1 then [
+			if ins.params[4] = 1, 0 bts Bin_Multiply bts Bin_Power bt ins.params[0] then [
 				return create_instr(P_Copy, list(pcode_t).[ ins.params[1], 0, ins.params[3] ], ins.bb), true;
 			]
-			if ins.params[0] = Bin_Multiply, ins.params[4] = 2 then [
+			if ins.params[4] = 2, ins.params[0] = Bin_Multiply then [
 				return create_instr(P_BinaryOp, list(pcode_t).[ Bin_Add, ins.params[1], ins.params[2], ins.params[3], ins.params[2], ins.params[3] ], ins.bb), true;
 			]
-			if ins.params[0] = Bin_Shl, ins.params[4] = 1 then [
+			if ins.params[4] = 1, ins.params[0] = Bin_Shl then [
 				return create_instr(P_BinaryOp, list(pcode_t).[ Bin_Add, ins.params[1], ins.params[2], ins.params[3], ins.params[2], ins.params[3] ], ins.bb), true;
 			]
 		]
