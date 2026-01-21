@@ -503,14 +503,20 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 		}
 #endif
 		case INSN_IA64_ALLOC:
-			ptr += arg_size(*ptr);
-			ptr += arg_size(*ptr);
-			ptr += arg_size(*ptr);
-			d->barrier = true;
+			ptr += arg_write(d, ptr);
+			ptr += arg_read(d, ptr);
+			ptr += arg_read(d, ptr);
+			d->rd = reg_map_union(d->rd, ctx->opt_status->regs_volatile);
+			d->wr = reg_map_union(d->wr, ctx->opt_status->regs_volatile);
+			d->rd = reg_map_union(d->rd, ctx->opt_status->regs_saved);
+			d->wr = reg_map_union(d->wr, ctx->opt_status->regs_saved);
 			break;
 		case INSN_IA64_DEALLOC:
-			ptr += arg_size(*ptr);
-			d->barrier = true;
+			ptr += arg_read(d, ptr);
+			d->rd = reg_map_union(d->rd, ctx->opt_status->regs_volatile);
+			d->wr = reg_map_union(d->wr, ctx->opt_status->regs_volatile);
+			d->rd = reg_map_union(d->rd, ctx->opt_status->regs_saved);
+			d->wr = reg_map_union(d->wr, ctx->opt_status->regs_saved);
 			break;
 		case INSN_PUSH:
 			ptr += arg_read(d, ptr);
@@ -912,7 +918,12 @@ do_call:
 			reg_map_set(&d->wr, R_MEMORY);
 			break;
 		case INSN_STOP_BIT:
-			d->barrier = true;
+			reg_map_set(&d->rd, R_MEMORY);
+			reg_map_set(&d->wr, R_MEMORY);
+			d->rd = reg_map_union(d->rd, ctx->opt_status->regs_volatile);
+			d->wr = reg_map_union(d->wr, ctx->opt_status->regs_volatile);
+			d->rd = reg_map_union(d->rd, ctx->opt_status->regs_saved);
+			d->wr = reg_map_union(d->wr, ctx->opt_status->regs_saved);
 			break;
 		case INSN_CALL_MILLICODE:
 			d->barrier = true;

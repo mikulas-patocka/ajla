@@ -244,7 +244,7 @@ static void *callback_trampoline;
 
 #define R_MAX		0xb8
 
-#define R_LR		R_B0
+#define R_LR		B_0
 #define R_FRAME		R_32
 #define R_UPCALL	R_33
 #define R_TIMESTAMP	R_34
@@ -440,7 +440,7 @@ static const uint8_t fp_volatile[] = {
 
 #define reg_is_saved(r)	(			\
 	((r) >= R_4 && (r) <= R_7) ||		\
-	(r) == R_12 ||				\
+	(r) == R_SP ||				\
 	((r) >= R_32 && (r) <= R_95) ||		\
 	((r) >= FR_2 && (r) <= FR_5) ||		\
 	((r) >= FR_16 && (r) <= FR_31) ||	\
