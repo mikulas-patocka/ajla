@@ -16,7 +16,7 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#define QUASH_INSNS		0
+#define QUASH_INSNS		1
 #define MARK_QUASHED_INSNS	0
 #define REPORT_QUASHED_INSNS	0
 
