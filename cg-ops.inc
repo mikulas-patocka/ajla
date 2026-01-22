@@ -686,7 +686,7 @@ static bool attr_w gen_jmp_indirect(struct codegen_context *ctx, unsigned reg1, 
 #endif
 #if defined(ARCH_S390_64)
 	if (shift) {
-		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, reg2, reg2, shift, false));
+		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, reg2, reg2, shift, 0));
 		shift = 0;
 	}
 	if (likely(cpu_test_feature(CPU_FEATURE_misc_insn_ext_2)) && is_direct_offset(offset) && !shift)
@@ -1011,7 +1011,7 @@ skip_ref_argument:
 			goto scaled_store_done;
 		}
 
-		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_SCRATCH_3, R_SAVED_2, OP_SIZE_SLOT, false));
+		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_SCRATCH_3, R_SAVED_2, OP_SIZE_SLOT, 0));
 
 		if (ARCH_HAS_2REG_M(true, false, 0, new_fp_offset)) {
 			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
@@ -2159,7 +2159,7 @@ static bool attr_w gen_scaled_array_address(struct codegen_context *ctx, size_t 
 				if (e_size & 1) {
 					if (first_match) {
 						if (sh)
-							g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, reg_index, reg_index, sh, false));
+							g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, reg_index, reg_index, sh, 0));
 						first_match = false;
 					} else if (ARCH_HAS_SHIFTED_ADD(sh)) {
 						gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(i_size(OP_SIZE_ADDRESS), ALU_ADD, false, false, 0));
@@ -2170,7 +2170,7 @@ static bool attr_w gen_scaled_array_address(struct codegen_context *ctx, size_t 
 						gen_one(R_CONST_IMM);
 					} else {
 						if (sh) {
-							g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_CONST_IMM, R_CONST_IMM, sh, false));
+							g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_CONST_IMM, R_CONST_IMM, sh, 0));
 							sh = 0;
 						}
 						g(gen_3address_alu(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, reg_index, reg_index, R_CONST_IMM, 0));
@@ -2552,7 +2552,7 @@ skip_slice:
 		}
 
 		if (ARCH_HAS_2REG_M(false, false, 0, 0)) {
-			g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_SCRATCH_2, reg2, OP_SIZE_SLOT, false));
+			g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_SCRATCH_2, reg2, OP_SIZE_SLOT, 0));
 
 			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
 			gen_one(R_SCRATCH_1);
@@ -2564,7 +2564,7 @@ skip_slice:
 			goto scaled_load_done;
 		}
 
-		g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_SCRATCH_2, reg2, OP_SIZE_SLOT, false));
+		g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_SCRATCH_2, reg2, OP_SIZE_SLOT, 0));
 
 		g(gen_3address_alu(ctx, OP_SIZE_ADDRESS, ALU_ADD, R_SCRATCH_2, R_SCRATCH_2, R_SCRATCH_1, 0));
 

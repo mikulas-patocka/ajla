@@ -199,7 +199,7 @@ static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg
 			case COND_BE:	cond = COND_LE; break;
 		}
 #if defined(DATA_TAG_AT_ALLOC)
-	g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHR, tmp_reg, reg, POINTER_IGNORE_START, false));
+	g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHR, tmp_reg, reg, POINTER_IGNORE_START, 0));
 #elif defined(REFCOUNT_TAG)
 	size_t offset = offsetof(struct data, refcount_);
 #if defined(C_BIG_ENDIAN)
@@ -269,9 +269,9 @@ static bool attr_w gen_compare_da_tag(struct codegen_context *ctx, unsigned reg,
 	if (ARCH_PREFERS_SX(OP_SIZE_4)) {
 		g(gen_extend(ctx, OP_SIZE_4, zero_x, tmp_reg, reg));
 
-		g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, tmp_reg, tmp_reg, POINTER_COMPRESSION, false));
+		g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, tmp_reg, tmp_reg, POINTER_COMPRESSION, 0));
 	} else {
-		g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, tmp_reg, reg, POINTER_COMPRESSION, false));
+		g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, tmp_reg, reg, POINTER_COMPRESSION, 0));
 	}
 	g(gen_compare_ptr_tag(ctx, tmp_reg, tag, cond, label, tmp_reg, false, false));
 	return true;
@@ -310,7 +310,7 @@ static bool attr_w gen_decompress_pointer(struct codegen_context *ctx, bool attr
 		g(gen_extend(ctx, OP_SIZE_4, zero_x, dest, src));
 		src = dest;
 	}
-	g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, dest, src, POINTER_COMPRESSION, false));
+	g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, dest, src, POINTER_COMPRESSION, 0));
 	src = dest;
 #endif
 	if (offset)
@@ -321,7 +321,7 @@ static bool attr_w gen_decompress_pointer(struct codegen_context *ctx, bool attr
 static bool attr_w gen_compress_pointer(struct codegen_context attr_unused *ctx, unsigned dest, unsigned src)
 {
 #ifdef POINTER_COMPRESSION
-	g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHR, dest, src, POINTER_COMPRESSION, false));
+	g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHR, dest, src, POINTER_COMPRESSION, 0));
 #else
 	g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), dest, src));
 #endif

@@ -106,7 +106,7 @@ static bool attr_w gen_set_1_variable(struct codegen_context *ctx, unsigned slot
 	gen_address_offset();
 	gen_one(slot_reg);
 #else
-	g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHR, R_SCRATCH_NA_1, slot_reg, OP_SIZE_BITMAP + 3, false));
+	g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHR, R_SCRATCH_NA_1, slot_reg, OP_SIZE_BITMAP + 3, 0));
 
 	if (ARCH_HAS_SHIFTED_ADD(OP_SIZE_BITMAP)) {
 		gen_insn(INSN_ALU, i_size(OP_SIZE_ADDRESS), ALU_ADD, ALU_WRITES_FLAGS(i_size(OP_SIZE_ADDRESS), ALU_ADD, false, false, 0));
@@ -116,7 +116,7 @@ static bool attr_w gen_set_1_variable(struct codegen_context *ctx, unsigned slot
 		gen_one(ARG_SHIFT_LSL | OP_SIZE_BITMAP);
 		gen_one(R_SCRATCH_NA_1);
 	} else {
-		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_SCRATCH_NA_1, R_SCRATCH_NA_1, OP_SIZE_BITMAP, false));
+		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_SCRATCH_NA_1, R_SCRATCH_NA_1, OP_SIZE_BITMAP, 0));
 
 		g(gen_3address_alu(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_SCRATCH_NA_1, R_SCRATCH_NA_1, R_FRAME, 0));
 	}
@@ -275,7 +275,7 @@ static bool attr_w gen_test_1(struct codegen_context *ctx, unsigned base, frame_
 #if defined(ARCH_ARM) || defined(ARCH_IA64) || defined(ARCH_LOONGARCH64) || defined(ARCH_PARISC) || defined(ARCH_POWER) || defined(ARCH_S390)
 	g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, i_size(OP_SIZE_BITMAP), R_SCRATCH_NA_1, (uintptr_t)1 << bit, !jz ? COND_NE : COND_E, label, -1));
 #else
-	g(gen_3address_rot_imm(ctx, i_size(OP_SIZE_BITMAP), ROT_SHL, R_SCRATCH_NA_3, R_SCRATCH_NA_1, (1U << (i_size(OP_SIZE_BITMAP) + 3)) - 1 - bit, false));
+	g(gen_3address_rot_imm(ctx, i_size(OP_SIZE_BITMAP), ROT_SHL, R_SCRATCH_NA_3, R_SCRATCH_NA_1, (1U << (i_size(OP_SIZE_BITMAP) + 3)) - 1 - bit, 0));
 
 	gen_insn(INSN_JMP_REG, i_size(OP_SIZE_BITMAP), !jz ? COND_S : COND_NS, 0);
 	gen_one(R_SCRATCH_NA_3);
@@ -418,8 +418,8 @@ static bool attr_w gen_test_2(struct codegen_context *ctx, frame_t slot_1, frame
 
 		return true;
 	}
-	g(gen_3address_rot_imm(ctx, i_size(OP_SIZE_BITMAP), ROT_SHL, R_SCRATCH_NA_2, R_SCRATCH_NA_1, (1U << (i_size(OP_SIZE_BITMAP) + 3)) - 1 - bit1, false));
-	g(gen_3address_rot_imm(ctx, i_size(OP_SIZE_BITMAP), ROT_SHL, R_SCRATCH_NA_1, R_SCRATCH_NA_1, (1U << (i_size(OP_SIZE_BITMAP) + 3)) - 1 - bit2, false));
+	g(gen_3address_rot_imm(ctx, i_size(OP_SIZE_BITMAP), ROT_SHL, R_SCRATCH_NA_2, R_SCRATCH_NA_1, (1U << (i_size(OP_SIZE_BITMAP) + 3)) - 1 - bit1, 0));
+	g(gen_3address_rot_imm(ctx, i_size(OP_SIZE_BITMAP), ROT_SHL, R_SCRATCH_NA_1, R_SCRATCH_NA_1, (1U << (i_size(OP_SIZE_BITMAP) + 3)) - 1 - bit2, 0));
 #if defined(ARCH_POWER)
 	g(gen_3address_alu(ctx, i_size(OP_SIZE_BITMAP), ALU_OR, R_SCRATCH_NA_1, R_SCRATCH_NA_1, R_SCRATCH_NA_2, 1));
 

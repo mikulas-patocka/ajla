@@ -294,9 +294,9 @@ static bool attr_w gen_load_code_32(struct codegen_context *ctx, unsigned dest, 
 		g(gen_load_two(ctx, dest, src, offset));
 		g(gen_load_two(ctx, R_CONST_IMM, src, offset + 2));
 #if CODE_ENDIAN
-		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, dest, dest, 16, false));
+		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, dest, dest, 16, 0));
 #else
-		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_CONST_IMM, R_CONST_IMM, 16, false));
+		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_CONST_IMM, R_CONST_IMM, 16, 0));
 #endif
 		g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_OR, dest, dest, R_CONST_IMM, 0));
 		return true;
@@ -870,8 +870,8 @@ default_extend:
 			return true;
 		}
 	}
-	g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, dest, src, shift, false));
-	g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ex == sign_x ? ROT_SAR : ROT_SHR, dest, dest, shift, false));
+	g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, dest, src, shift, 0));
+	g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ex == sign_x ? ROT_SAR : ROT_SHR, dest, dest, shift, 0));
 	return true;
 }
 
@@ -904,7 +904,7 @@ static bool attr_w gen_lea3(struct codegen_context *ctx, unsigned dest, unsigned
 #endif
 #if defined(ARCH_S390)
 	if (shift) {
-		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, shifted, shifted, shift, false));
+		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, shifted, shifted, shift, 0));
 		shift = 0;
 	}
 #endif
@@ -943,7 +943,7 @@ skip_direct_shift:
 	}
 
 	if (shift) {
-		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, shifted, shifted, shift, false));
+		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, shifted, shifted, shift, 0));
 	}
 
 	g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ADD, dest, shifted, base, 0));

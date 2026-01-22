@@ -819,7 +819,7 @@ do_multiply: {
 			gen_one(reg1);
 			gen_one(reg2);
 
-			g(gen_3address_rot_imm(ctx, op_size, ROT_SAR, R_SCRATCH_4, target, (8U << op_size) - 1, false));
+			g(gen_3address_rot_imm(ctx, op_size, ROT_SAR, R_SCRATCH_4, target, (8U << op_size) - 1, 0));
 
 			g(gen_cmp_test_jmp(ctx, INSN_CMP, op_size, R_SCRATCH_2, R_SCRATCH_4, COND_NE, label_ovf));
 
@@ -940,7 +940,7 @@ do_divide: {
 		if (!sgn) {
 			g(gen_load_constant(ctx, R_SCRATCH_2, 0));
 		} else if (op_size <= OP_SIZE_4) {
-			g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, R_SCRATCH_2, R_SCRATCH_1, (1U << (OP_SIZE_NATIVE + 3)) - 1, false));
+			g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, R_SCRATCH_2, R_SCRATCH_1, (1U << (OP_SIZE_NATIVE + 3)) - 1, 0));
 		}
 		gen_insn(INSN_DIV_L, i_size(op_size), sgn, 1);
 		gen_one(R_SCRATCH_2);
@@ -1092,6 +1092,38 @@ do_shift: {
 		bool c = frame_t_is_const(slot_2);
 		if (unlikely(op_size > OP_SIZE_NATIVE)) {
 			size_t upcall;
+			if (c) {
+				cnst = frame_t_get_const(slot_2);
+				if (unlikely(cnst < 0) || unlikely(cnst >= 8 << OP_SIZE_NATIVE))
+					goto shift_skip;
+				if (!cnst) {
+					g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, slot_1, 0, R_SCRATCH_1, R_SCRATCH_2));
+					g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, R_SCRATCH_1, R_SCRATCH_2));
+					return true;
+				}
+				if (mode == MODE_FIXED && alu == ROT_SHL) {
+					g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, slot_1, 0, R_SCRATCH_1, R_SCRATCH_2));
+					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_SCRATCH_2, R_SCRATCH_2, cnst, 0));
+					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHR, R_SCRATCH_3, R_SCRATCH_1, (8U << OP_SIZE_NATIVE) - cnst, 0));
+					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_SCRATCH_1, R_SCRATCH_1, cnst, 0));
+					g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_OR, R_SCRATCH_2, R_SCRATCH_2, R_SCRATCH_3, 0));
+					g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, R_SCRATCH_1, R_SCRATCH_2));
+					return true;
+				}
+				if (mode == MODE_INT && alu == ROT_SHL) {
+					g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, slot_1, 0, R_SCRATCH_1, R_SCRATCH_2));
+					g(gen_mov(ctx, OP_SIZE_NATIVE, R_SCRATCH_4, R_SCRATCH_2));
+					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_SCRATCH_2, R_SCRATCH_2, cnst, 0));
+					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, R_SCRATCH_3, R_SCRATCH_2, cnst, 0));
+					g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, R_SCRATCH_3, R_SCRATCH_4, COND_NE, label_ovf));
+					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHR, R_SCRATCH_3, R_SCRATCH_1, (8U << OP_SIZE_NATIVE) - cnst, 0));
+					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_SCRATCH_1, R_SCRATCH_1, cnst, 0));
+					g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_OR, R_SCRATCH_2, R_SCRATCH_2, R_SCRATCH_3, 0));
+					g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, R_SCRATCH_1, R_SCRATCH_2));
+					return true;
+				}
+			}
+shift_skip:
 			if (mode == MODE_FIXED) {
 				switch (alu) {
 					case ROT_SHL:	upcall = offsetof(struct cg_upcall_vector_s, cat(FIXED_binary_shl_,TYPE_INT_MAX));
@@ -2641,7 +2673,7 @@ do_conv: {
 						gen_one(R_AX);
 					} else
 #endif
-					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, R_SCRATCH_2, reg1, (1U << (OP_SIZE_NATIVE + 3)) - 1, false));
+					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, R_SCRATCH_2, reg1, (1U << (OP_SIZE_NATIVE + 3)) - 1, 0));
 					g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, reg1, R_SCRATCH_2));
 				} else {
 					g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, reg1, R_SCRATCH_3));
