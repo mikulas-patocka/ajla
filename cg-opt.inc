@@ -948,6 +948,8 @@ skip_reads:
 				reg_map_set(&d->rd, R_XMM0 + i);
 				reg_map_set(&d->wr, R_XMM0 + i);
 			}
+			reg_map_set(&d->rd, R_X87);
+			reg_map_set(&d->wr, R_X87);
 			break;
 #endif
 		case INSN_MB:
