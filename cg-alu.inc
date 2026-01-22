@@ -1122,6 +1122,15 @@ do_shift: {
 					g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, R_SCRATCH_1, R_SCRATCH_2));
 					return true;
 				}
+				if (alu == ROT_SAR || alu == ROT_SHR) {
+					g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, slot_1, 0, R_SCRATCH_1, R_SCRATCH_2));
+					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHR, R_SCRATCH_1, R_SCRATCH_1, cnst, 0));
+					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_SCRATCH_3, R_SCRATCH_2, (8U << OP_SIZE_NATIVE) - cnst, 0));
+					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, alu, R_SCRATCH_2, R_SCRATCH_2, cnst, 0));
+					g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_OR, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_3, 0));
+					g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, R_SCRATCH_1, R_SCRATCH_2));
+					return true;
+				}
 			}
 shift_skip:
 			if (mode == MODE_FIXED) {
