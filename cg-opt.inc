@@ -20,6 +20,12 @@
 #define MARK_QUASHED_INSNS	0
 #define REPORT_QUASHED_INSNS	0
 
+#ifdef DEBUG_INSNS
+#define debug_offset		8
+#else
+#define debug_offset		0
+#endif
+
 static uint8_t attr_unused oget_one(uint8_t *ptr)
 {
 	return *ptr;
@@ -141,6 +147,7 @@ struct insn_details {
 	reg_map rd;
 	reg_map wr;
 	uint32_t target_label;
+	struct value write_frame;
 };
 
 struct opt_status {
@@ -387,7 +394,7 @@ static unsigned arg_read(struct insn_details *d, uint8_t *ptr)
 	return arg_common(d, ptr);
 }
 
-static unsigned arg_write(struct insn_details *d, uint8_t *ptr)
+static unsigned arg_write(struct insn_details *d, uint8_t *ptr, unsigned size)
 {
 	if (ptr[0] < ARG_REGS_MAX) {
 		reg_map_set(&d->wr, ptr[0]);
@@ -396,6 +403,11 @@ static unsigned arg_write(struct insn_details *d, uint8_t *ptr)
 			reg_map_set(&d->wr, ptr[0] + 2);
 #endif
 		return 1;
+	}
+	if (ptr[0] == ARG_ADDRESS_1 && ptr[1] == R_FRAME && size <= 255) {
+		d->write_frame.tag = VALUE_TAG_FRAME;
+		d->write_frame.size = size;
+		d->write_frame.value = oget_eight(ptr + 2);
 	}
 	reg_map_set(&d->rd, R_MEMORY);
 	reg_map_set(&d->wr, R_MEMORY);
@@ -408,27 +420,34 @@ static unsigned arg_jmp(struct insn_details *d, uint8_t *ptr)
 	return 4;
 }
 
+static unsigned op_size_to_size(unsigned op_size)
+{
+	if (op_size == OP_SIZE_10)
+		return 10;
+	else
+		return 1U << op_size;
+}
+
 static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn_details *d)
 {
-	uint8_t *orig_ptr = ptr;
 	uint32_t insn;
 	unsigned attr_unused i;
+	unsigned size;
 
 #ifdef DEBUG_INSNS
 	insn = oget_four(ptr);
 	debug("line: %u/%u (seq %x)", insn >> 24, insn & 0x00FFFFFFU, oget_four(ptr + 4));
 	ptr += 8;
 #endif
+	memset(d, 0, sizeof(struct insn_details));
 	insn = oget_four(ptr);
+
+	d->start = ptr;
+	d->insn = insn;
+
 	ptr += 4;
 
-	d->start = orig_ptr;
-	d->insn = insn;
-	d->barrier = false;
-	d->quash = false;
-	reg_map_init(&d->rd);
-	reg_map_init(&d->wr);
-	d->target_label = 0;
+	size = op_size_to_size(insn_op_size(insn));
 
 	if (insn_writes_flags(insn))
 		reg_map_set(&d->wr, R_FLAGS);
@@ -486,7 +505,7 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 #ifdef ARCH_S390
 		case INSN_S390_PUSH: {
 			unsigned r;
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size * (R_15 - insn_aux(insn) + 1));
 			for (r = insn_aux(insn); r <= R_15; r++)
 				reg_map_set(&d->rd, r);
 			break;
@@ -500,7 +519,7 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 		}
 #endif
 		case INSN_IA64_ALLOC:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			d->rd = reg_map_union(d->rd, ctx->opt_status->regs_volatile);
@@ -531,14 +550,14 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 			reg_map_set(&d->wr, R_MEMORY);
 			break;
 		case INSN_POP:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			reg_map_set(&d->rd, R_SP);
 			reg_map_set(&d->wr, R_SP);
 			reg_map_set(&d->rd, R_MEMORY);
 			break;
 		case INSN_POP2:
-			ptr += arg_write(d, ptr);
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
+			ptr += arg_write(d, ptr, size);
 			reg_map_set(&d->rd, R_SP);
 			reg_map_set(&d->wr, R_SP);
 			reg_map_set(&d->rd, R_MEMORY);
@@ -578,15 +597,15 @@ do_call:
 			break;
 		case INSN_MOV:
 		case INSN_MOVSX:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_MOV_U:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_MOV_LR:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
@@ -595,7 +614,7 @@ do_call:
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_CMP_DEST_REG:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, 1U << OP_SIZE_NATIVE);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
@@ -608,7 +627,7 @@ do_call:
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_TEST_DEST_REG:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, 1U << OP_SIZE_NATIVE);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
@@ -616,10 +635,14 @@ do_call:
 		case INSN_ALU_PARTIAL:
 			if (unlikely(insn_aux(insn) == ALU_ADC) || unlikely(insn_aux(insn) == ALU_SBB))
 				reg_map_set(&d->rd, R_FLAGS);
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			r1 = ptr[0];
 			r2 = ptr[1];
-			if (insn_opcode(insn) == INSN_ALU && r1 < ARG_REGS_MAX && r2 < ARG_REGS_MAX && r1 == r2 && (insn_aux(insn) == ALU_XOR || unlikely(insn_aux(insn) == ALU_SUB))) {
+			if (insn_opcode(insn) == INSN_ALU && r1 < ARG_REGS_MAX && r2 < ARG_REGS_MAX && r1 == r2 && (
+					insn_aux(insn) == ALU_XOR ||
+					unlikely(insn_aux(insn) == ALU_SUB) ||
+					unlikely(insn_aux(insn) == ALU_SBB) ||
+					unlikely(insn_aux(insn) == ALU_ANDN))) {
 				ptr += 2;
 				goto skip_reads;
 			}
@@ -630,7 +653,7 @@ skip_reads:
 		case INSN_ALU_TRAP:
 			if (unlikely(insn_aux(insn) == ALU_ADC) || unlikely(insn_aux(insn) == ALU_SBB))
 				reg_map_set(&d->rd, R_FLAGS);
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			ptr += 4;
@@ -639,25 +662,25 @@ skip_reads:
 		case INSN_ALU1_PARTIAL:
 			if (unlikely(insn_aux(insn) == ALU1_NGC))
 				reg_map_set(&d->rd, R_FLAGS);
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_ALU1_TRAP:
 			if (unlikely(insn_aux(insn) == ALU1_NGC))
 				reg_map_set(&d->rd, R_FLAGS);
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			ptr += 4;
 			break;
 		case INSN_LEA3:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_ROT:
 		case INSN_ROT_PARTIAL:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
@@ -666,68 +689,68 @@ skip_reads:
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_BTX:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, -1);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_MUL_L:
-			ptr += arg_write(d, ptr);
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_DIV_L:
-			ptr += arg_write(d, ptr);
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_MADD:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_CBW:
 		case INSN_CBW_PARTIAL:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_CWD:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_CWD_PARTIAL:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_SET_COND:
 			reg_map_set(&d->rd, R_FLAGS);
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			break;
 		case INSN_SET_COND_PARTIAL:
 			reg_map_set(&d->rd, R_FLAGS);
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_CMOV:
 		case INSN_CMOV_XCC:
 			reg_map_set(&d->rd, R_FLAGS);
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_CMP_CMOV:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_MOVR:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
@@ -737,22 +760,22 @@ skip_reads:
 		case INSN_CSEL_INV:
 		case INSN_CSEL_NEG:
 			reg_map_set(&d->rd, R_FLAGS);
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_STP:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size * 2);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_LDP:
-			ptr += arg_write(d, ptr);
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_MOV_MASK:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
@@ -769,18 +792,18 @@ skip_reads:
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_FP_CMP_DEST_REG:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, 1U << OP_SIZE_NATIVE);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_FP_CMP_DEST_REG_TRAP:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, 1U << OP_SIZE_NATIVE);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			ptr += 4;
 			break;
 		case INSN_FP_CMP_UNORDERED_DEST_REG:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, 1U << OP_SIZE_NATIVE);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
@@ -790,35 +813,45 @@ skip_reads:
 			break;
 		case INSN_FP_TEST_REG:
 			reg_map_set(&d->rd, R_FLAGS);
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			break;
 		case INSN_FP_TO_INT_FLAGS:
 			reg_map_set(&d->rd, R_FLAGS);
 			break;
 		case INSN_FP_ALU:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_FP_ALU1:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_FP_TO_INT32:
+			ptr += arg_write(d, ptr, 4);
+			ptr += arg_read(d, ptr);
+			break;
 		case INSN_FP_TO_INT64:
+			ptr += arg_write(d, ptr, 8);
+			ptr += arg_read(d, ptr);
+			break;
 		case INSN_FP_FROM_INT32:
 		case INSN_FP_FROM_INT64:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_FP_TO_INT64_TRAP:
+			ptr += arg_write(d, ptr, 8);
+			ptr += arg_read(d, ptr);
+			ptr += 4;
+			break;
 		case INSN_FP_INT64_TO_INT32_TRAP:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, 4);
 			ptr += arg_read(d, ptr);
 			ptr += 4;
 			break;
 		case INSN_FP_CVT:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			ptr += arg_read(d, ptr);
 			break;
 		case INSN_X87_FLD:
@@ -830,7 +863,7 @@ skip_reads:
 		case INSN_X87_FSTP:
 		case INSN_X87_FISTP:
 		case INSN_X87_FISTTP:
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, size);
 			reg_map_set(&d->rd, R_X87);
 			reg_map_set(&d->wr, R_X87);
 			break;
@@ -860,7 +893,7 @@ skip_reads:
 			break;
 		case INSN_X87_FNSTSW:
 			reg_map_set(&d->rd, R_FLAGS);
-			ptr += arg_write(d, ptr);
+			ptr += arg_write(d, ptr, 2);
 			ptr += arg_read(d, ptr);
 			reg_map_set(&d->rd, R_X87);
 			break;
@@ -935,14 +968,152 @@ skip_reads:
 		default:
 			internal(file_line, "identify_insn: invalid insn %08lx", (unsigned long)insn);
 	}
-	d->length = ptr - orig_ptr;
+	d->length = ptr - d->start;
 }
 
-static bool attr_w process_basic_block(struct codegen_context *ctx, reg_map live_registers)
+static bool arg_to_val(struct insn_details *d, uint8_t *ptr, struct value *value)
+{
+	if (ptr[0] < ARG_REGS_MAX) {
+		value->tag = VALUE_TAG_REGISTER;
+		value->size = 1U << OP_SIZE_NATIVE;
+		value->value = ptr[0];
+		return true;
+	}
+	if (ptr[0] == ARG_ADDRESS_1 && ptr[1] == R_FRAME) {
+		value->tag = VALUE_TAG_FRAME;
+		value->size = op_size_to_size(insn_op_size(d->insn));
+		value->value = oget_eight(ptr + 2);
+		return true;
+	}
+	if (ptr[0] == ARG_IMM) {
+		value->tag = VALUE_TAG_CONSTANT;
+		value->size = 1U << OP_SIZE_NATIVE;
+		value->value = oget_eight(ptr + 1);
+		return true;
+	}
+	return false;
+}
+
+static bool compare_values(const struct value *v1, const struct value *v2)
+{
+	return v1->tag == v2->tag && v1->size == v2->size && v1->value == v2->value;
+}
+
+static bool search_equalities(struct codegen_context *ctx, const struct equality *eq)
+{
+	size_t i;
+	for (i = 0; i < ctx->equalities_used; i++) {
+		struct equality *e = &ctx->equalities[i];
+		if (compare_values(&e->v1, &eq->v1) && compare_values(&e->v2, &eq->v2))
+			return true;
+		if (compare_values(&e->v1, &eq->v2) && compare_values(&e->v2, &eq->v1))
+			return true;
+	}
+	return false;
+}
+
+static bool check_interference(struct insn_details *d, struct value *v)
+{
+	uintptr_t s1, e1, s2, e2;
+	switch (v->tag) {
+		case VALUE_TAG_NONE:
+			return false;
+		case VALUE_TAG_REGISTER:
+			return reg_map_is_set(d->wr, v->value);
+		case VALUE_TAG_FRAME:
+			if (!reg_map_is_set(d->wr, R_MEMORY))
+				return false;
+			if (unlikely(d->write_frame.tag != VALUE_TAG_FRAME))
+				return true;
+			s1 = (uintptr_t)d->write_frame.value;
+			e1 = (uintptr_t)d->write_frame.value + d->write_frame.size;
+			s2 = (uintptr_t)v->value;
+			e2 = (uintptr_t)v->value + v->size;
+			return !(s1 >= e2 || s2 >= e1);
+		case VALUE_TAG_CONSTANT:
+			return false;
+		case VALUE_TAG_FLAGS:
+			return reg_map_is_set(d->wr, R_FLAGS);
+		default:
+			internal(file_line, "check_interference: invalid tag %u", v->tag);
+	}
+}
+
+static void quash_equalities(struct codegen_context *ctx, struct insn_details *d)
+{
+	size_t i;
+	for (i = 0; i < ctx->equalities_used; i++) {
+		struct equality *e = &ctx->equalities[i];
+		if (check_interference(d, &e->v1) ||
+		    check_interference(d, &e->v2)) {
+			e->v1.tag = VALUE_TAG_NONE;
+			e->v2.tag = VALUE_TAG_NONE;
+			continue;
+		}
+	}
+}
+
+static bool attr_w insert_equality(struct codegen_context *ctx, struct equality *eq)
+{
+	size_t i;
+	for (i = 0; i < ctx->equalities_used; i++) {
+		if (ctx->equalities[i].v1.tag == VALUE_TAG_NONE) {
+			ctx->equalities[i] = *eq;
+			return true;
+		}
+	}
+	if (likely(ctx->equalities_used < ctx->equalities_size)) {
+		ctx->equalities[ctx->equalities_used++] = *eq;
+		return true;
+	}
+	if (!unlikely(array_add_mayfail(struct equality, &ctx->equalities, &ctx->equalities_size, *eq, NULL, &ctx->err)))
+		return false;
+	ctx->equalities_used = ctx->equalities_size;
+	return true;
+}
+
+static bool attr_w equality_analysis(struct codegen_context *ctx)
+{
+	size_t i;
+	ctx->equalities_used = 0;
+	for (i = 0; i < ctx->basic_block_position; i++) {
+		struct insn_details *d = &ctx->basic_block[i];
+		if (insn_opcode(d->insn) == INSN_MOV) {
+			struct equality eq;
+			uint8_t *pd = d->start + 4;
+			uint8_t *ps = pd + arg_size(*pd);
+			bool is_fp = reg_is_fp(*pd) || reg_is_fp(*ps);
+			if (likely(!is_fp) && insn_op_size(d->insn) != OP_SIZE_NATIVE)
+				goto movzx;
+			if (!arg_to_val(d, pd, &eq.v1))
+				goto skip;
+			if (!arg_to_val(d, ps, &eq.v2))
+				goto skip;
+			if (search_equalities(ctx, &eq)) {
+				d->quash = true;
+				if (REPORT_QUASHED_INSNS)
+					debug("quashing mov due to equality");
+				continue;
+			}
+			quash_equalities(ctx, d);
+			g(insert_equality(ctx, &eq));
+			continue;
+		}
+movzx:
+skip:
+		quash_equalities(ctx, d);
+	}
+
+	return true;
+}
+
+static bool attr_w live_register_analysis(struct codegen_context *ctx, reg_map live_registers)
 {
 	size_t i;
 	for (i = ctx->basic_block_position; i--; ) {
 		struct insn_details *d = &ctx->basic_block[i];
+		if (unlikely(d->quash))
+			continue;
 		if (d->target_label) {
 			if (ctx->label_flags[d->target_label] & LABEL_OP_BOUNDARY) {
 				live_registers = reg_map_union(live_registers, ctx->opt_status->op_boundary_regs);
@@ -953,9 +1124,9 @@ static bool attr_w process_basic_block(struct codegen_context *ctx, reg_map live
 			unsigned opc = insn_opcode(d->insn);
 			if (opc != INSN_LABEL && REPORT_QUASHED_INSNS) {
 #ifdef DEBUG_INSNS
-				uint32_t insn = oget_four(d->start);
-				uint32_t seq = oget_four(d->start + 4);
-				debug("pointless instruction at %u/%u (seq %x): %x", insn >> 24, insn & 0x00FFFFFFU, seq, oget_four(d->start + 8));
+				uint32_t insn = oget_four(d->start - 8);
+				uint32_t seq = oget_four(d->start - 4);
+				debug("pointless instruction at %u/%u (seq %x): %x", insn >> 24, insn & 0x00FFFFFFU, seq, oget_four(d->start));
 #else
 				debug("pointless instruction: %x", oget_four(d->start));
 #endif
@@ -966,15 +1137,27 @@ static bool attr_w process_basic_block(struct codegen_context *ctx, reg_map live
 		live_registers = reg_map_intersection(live_registers, reg_map_neg(d->wr));
 		live_registers = reg_map_union(live_registers, d->rd);
 	}
+	return true;
+}
+
+static bool attr_w process_basic_block(struct codegen_context *ctx, reg_map live_bottom)
+{
+	size_t i;
+
+	g(equality_analysis(ctx));
+	g(live_register_analysis(ctx, live_bottom));
+
 	for (i = 0; i < ctx->basic_block_position; i++) {
 		struct insn_details *d = &ctx->basic_block[i];
 		if (d->quash) {
-			if (insn_opcode(d->insn) != INSN_LABEL && MARK_QUASHED_INSNS)
+			if (likely(insn_opcode(d->insn) == INSN_LABEL))
+				continue;
+			if (MARK_QUASHED_INSNS)
 				gen_insn(INSN_NOP, 0, 0, 0);
 			if (QUASH_INSNS)
 				continue;
 		}
-		if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, d->start, d->length, NULL, &ctx->err)))
+		if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, d->start - debug_offset, d->length + debug_offset, NULL, &ctx->err)))
 			return false;
 	}
 	ctx->basic_block_position = 0;
@@ -989,12 +1172,15 @@ static bool attr_w cg_optimize(struct codegen_context *ctx)
 	if (unlikely(!array_init_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, &ctx->err)))
 		return false;
 
+	ctx->opt_status = mem_alloc_mayfail(struct opt_status *, sizeof(struct opt_status), &ctx->err);
+	if (unlikely(!ctx->opt_status))
+		return false;
+
 	if (unlikely(!array_init_mayfail(struct insn_details, &ctx->basic_block, &ctx->basic_block_size, &ctx->err)))
 		return false;
 	ctx->basic_block_position = 0;
 
-	ctx->opt_status = mem_alloc_mayfail(struct opt_status *, sizeof(struct opt_status), &ctx->err);
-	if (unlikely(!ctx->opt_status))
+	if (unlikely(!array_init_mayfail(struct equality, &ctx->equalities, &ctx->equalities_size, &ctx->err)))
 		return false;
 
 	g(setup_register_maps(ctx));
@@ -1023,21 +1209,24 @@ static bool attr_w cg_optimize(struct codegen_context *ctx)
 
 		if (d->barrier) {
 			g(process_basic_block(ctx, d->rd));
-			if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, start, length, NULL, &ctx->err)))
+			if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, start - debug_offset, length + debug_offset, NULL, &ctx->err)))
 				return false;
 		} else {
 			ctx->basic_block_position++;
 		}
-		ctx->code_position += length;
+		ctx->code_position += debug_offset + length;
 	}
 
 	ajla_assert_lo(!ctx->basic_block_position, (file_line, "cg_optimize: the code doesn't end with barrier"));
 
+	mem_free(ctx->opt_status);
+	ctx->opt_status = NULL;
+
 	mem_free(ctx->basic_block);
 	ctx->basic_block = NULL;
 
-	mem_free(ctx->opt_status);
-	ctx->opt_status = NULL;
+	mem_free(ctx->equalities);
+	ctx->equalities = NULL;
 
 	flip_buffers(ctx);
 

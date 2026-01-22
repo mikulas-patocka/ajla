@@ -456,6 +456,23 @@ struct cg_exit {
 	uint32_t escape_label;
 };
 
+#define VALUE_TAG_NONE		0
+#define VALUE_TAG_REGISTER	1
+#define VALUE_TAG_FRAME		2
+#define VALUE_TAG_CONSTANT	3
+#define VALUE_TAG_FLAGS		4
+
+struct value {
+	uint8_t tag;
+	uint8_t size;
+	uint64_t value;
+};
+
+struct equality {
+	struct value v1;
+	struct value v2;
+};
+
 #define FLAG_CACHE_IS_FLAT	0x01
 #define FLAG_CACHE_IS_NOT_FLAT	0x02
 #define FLAG_CACHE_IS_NOT_THUNK	0x04
@@ -527,10 +544,15 @@ struct codegen_context {
 
 	bool checkpoint_quick_entry;
 
+	struct opt_status *opt_status;
+
 	struct insn_details *basic_block;
 	size_t basic_block_size;
 	size_t basic_block_position;
-	struct opt_status *opt_status;
+
+	struct equality *equalities;
+	size_t equalities_size;
+	size_t equalities_used;
 
 	arg_t n_ret;
 	frame_t ret_vars[MAX_QUICKRET_VALUES];
@@ -575,8 +597,9 @@ static void init_ctx(struct codegen_context *ctx)
 	ctx->upcall_args = -1;
 	ctx->upcall_hacked_abi = false;
 	ctx->checkpoint_quick_entry = false;
-	ctx->basic_block = NULL;
 	ctx->opt_status = NULL;
+	ctx->basic_block = NULL;
+	ctx->equalities = NULL;
 	ctx->quickret_regs_valid = false;
 }
 
@@ -632,10 +655,12 @@ static void done_ctx(struct codegen_context *ctx)
 		mem_free(ctx->need_spill);
 	if (ctx->codegen)
 		data_free(ctx->codegen);
-	if (ctx->basic_block)
-		mem_free(ctx->basic_block);
 	if (ctx->opt_status)
 		mem_free(ctx->opt_status);
+	if (ctx->basic_block)
+		mem_free(ctx->basic_block);
+	if (ctx->equalities)
+		mem_free(ctx->equalities);
 }
 
 
