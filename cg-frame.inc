@@ -232,7 +232,7 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 	}
 #endif
 	g(gen_address(ctx, base, x_offset, reg_is_fp(reg) ? IMM_PURPOSE_VLDR_VSTR_OFFSET : ex ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, size));
-	gen_insn(unlikely(ex == sign_x) ? INSN_MOVSX : INSN_MOV, size, 0, 0);
+	gen_insn(unlikely(ex == sign_x) && size < OP_SIZE_NATIVE ? INSN_MOVSX : INSN_MOV, size, 0, 0);
 	gen_one(reg);
 	gen_address_offset();
 
