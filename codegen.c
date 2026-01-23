@@ -480,6 +480,7 @@ struct equality {
 
 #define LABEL_USED		0x01
 #define LABEL_OP_BOUNDARY	0x02
+#define LABEL_ESCAPE		0x04
 
 struct codegen_context {
 	struct data *fn;
@@ -555,6 +556,10 @@ struct codegen_context {
 	size_t equalities_size;
 	size_t equalities_used;
 
+	uint8_t **new_insns;
+	size_t new_insns_size;
+	size_t new_insn_mark;
+
 	arg_t n_ret;
 	frame_t ret_vars[MAX_QUICKRET_VALUES];
 	uint8_t regs[MAX_QUICKRET_VALUES];
@@ -601,17 +606,18 @@ static void init_ctx(struct codegen_context *ctx)
 	ctx->opt_status = NULL;
 	ctx->basic_block = NULL;
 	ctx->equalities = NULL;
+	ctx->new_insns = NULL;
 	ctx->quickret_regs_valid = false;
 }
 
 static void done_ctx(struct codegen_context *ctx)
 {
+	size_t i;
 	if (ctx->local_directory)
 		mem_free(ctx->local_directory);
 	if (ctx->label_flags)
 		mem_free(ctx->label_flags);
 	if (ctx->entries) {
-		size_t i;
 		for (i = 0; i < ctx->n_entries; i++) {
 			struct cg_entry *ce = &ctx->entries[i];
 			if (ce->variables)
@@ -662,6 +668,11 @@ static void done_ctx(struct codegen_context *ctx)
 		mem_free(ctx->basic_block);
 	if (ctx->equalities)
 		mem_free(ctx->equalities);
+	if (ctx->new_insns) {
+		for (i = 0; i < ctx->new_insns_size; i++)
+			mem_free(ctx->new_insns[i]);
+		mem_free(ctx->new_insns);
+	}
 }
 
 
@@ -776,7 +787,7 @@ static uint32_t alloc_escape_label_for_ip(struct codegen_context *ctx, const cod
 		ce->escape_label = alloc_label(ctx);
 		if (!ce->escape_label)
 			return 0;
-		ctx->label_flags[ce->escape_label] |= LABEL_OP_BOUNDARY;
+		ctx->label_flags[ce->escape_label] |= LABEL_OP_BOUNDARY | LABEL_ESCAPE;
 	}
 	return ce->escape_label;
 }

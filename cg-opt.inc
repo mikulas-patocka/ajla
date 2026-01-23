@@ -973,6 +973,37 @@ skip_reads:
 	d->length = ptr - d->start;
 }
 
+static bool attr_w prepare_new_insn(struct codegen_context *ctx)
+{
+	ctx->new_insn_mark = ctx->new_code_size;
+
+	return true;
+}
+
+static bool attr_w finish_new_insn(struct codegen_context *ctx, struct insn_details *d)
+{
+	size_t len = ctx->new_code_size - ctx->new_insn_mark;
+	uint8_t *new_insn;
+	void *err_ptr;
+
+	new_insn = mem_alloc_mayfail(uint8_t *, len, &ctx->err);
+	if (unlikely(!new_insn))
+		return false;
+
+	memcpy(new_insn, ctx->new_code + ctx->new_insn_mark, len);
+	ctx->new_code_size = ctx->new_insn_mark;
+
+	if (!unlikely(array_add_mayfail(uint8_t *, &ctx->new_insns, &ctx->new_insns_size, new_insn, &err_ptr, &ctx->err))) {
+		ctx->new_insns = err_ptr;
+		mem_free(new_insn);
+		return false;
+	}
+
+	identify_insn(ctx, new_insn, d);
+
+	return true;
+}
+
 static bool arg_to_val(struct insn_details *d, uint8_t *ptr, struct value *value)
 {
 	if (ptr[0] < ARG_REGS_MAX) {
@@ -1142,18 +1173,44 @@ static bool attr_w live_register_analysis(struct codegen_context *ctx, reg_map l
 	return true;
 }
 
+static bool attr_w peephole(struct codegen_context *ctx)
+{
+	size_t i;
+	ctx->equalities_used = 0;
+	for (i = 0; i + 1 < ctx->basic_block_position; i++) {
+		struct insn_details *d1 = &ctx->basic_block[i];
+		struct insn_details *d2 = &ctx->basic_block[i + 1];
+		if (d1->quash || d2->quash)
+			continue;
+		if ((insn_opcode(d1->insn) == INSN_JMP_COND || insn_opcode(d1->insn) == INSN_JMP_COND_LOGICAL) && insn_opcode(d2->insn) == INSN_JMP) {
+			uint32_t label1 = d1->target_label;
+			uint32_t label2 = d2->target_label;
+			if (ctx->label_flags[label1] & LABEL_ESCAPE && !(ctx->label_flags[label2] & LABEL_ESCAPE)) {
+				g(prepare_new_insn(ctx));
+				gen_insn(insn_opcode(d1->insn), insn_op_size(d1->insn), insn_aux(d1->insn) ^ 1, 0);
+				gen_four(label2);
+				g(finish_new_insn(ctx, d1));
+				g(prepare_new_insn(ctx));
+				gen_insn(INSN_JMP, 0, 0, 0);
+				gen_four(label1);
+				g(finish_new_insn(ctx, d2));
+			}
+		}
+	}
+	return true;
+}
+
 static bool attr_w process_basic_block(struct codegen_context *ctx, reg_map live_bottom)
 {
 	size_t i;
 
 	g(equality_analysis(ctx));
 	g(live_register_analysis(ctx, live_bottom));
+	g(peephole(ctx));
 
 	for (i = 0; i < ctx->basic_block_position; i++) {
 		struct insn_details *d = &ctx->basic_block[i];
 		if (d->quash) {
-			if (likely(insn_opcode(d->insn) == INSN_LABEL))
-				continue;
 			if (MARK_QUASHED_INSNS)
 				gen_insn(INSN_NOP, 0, 0, 0);
 			if (QUASH_INSNS)
@@ -1162,7 +1219,11 @@ static bool attr_w process_basic_block(struct codegen_context *ctx, reg_map live
 		if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, d->start - debug_offset, d->length + debug_offset, NULL, &ctx->err)))
 			return false;
 	}
+
 	ctx->basic_block_position = 0;
+	for (i = 0; i < ctx->new_insns_size; i++)
+		mem_free(ctx->new_insns[i]);
+	ctx->new_insns_size = 0;
 	return true;
 }
 
@@ -1183,6 +1244,9 @@ static bool attr_w cg_optimize(struct codegen_context *ctx)
 	ctx->basic_block_position = 0;
 
 	if (unlikely(!array_init_mayfail(struct equality, &ctx->equalities, &ctx->equalities_size, &ctx->err)))
+		return false;
+
+	if (unlikely(!array_init_mayfail(uint8_t *, &ctx->new_insns, &ctx->new_insns_size, &ctx->err)))
 		return false;
 
 	g(setup_register_maps(ctx));
@@ -1214,8 +1278,11 @@ static bool attr_w cg_optimize(struct codegen_context *ctx)
 			if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, start - debug_offset, length + debug_offset, NULL, &ctx->err)))
 				return false;
 		} else {
+			if (unlikely(insn_opcode(d->insn) == INSN_LABEL))
+				goto skip_insn;
 			ctx->basic_block_position++;
 		}
+skip_insn:
 		ctx->code_position += debug_offset + length;
 	}
 
@@ -1229,6 +1296,9 @@ static bool attr_w cg_optimize(struct codegen_context *ctx)
 
 	mem_free(ctx->equalities);
 	ctx->equalities = NULL;
+
+	mem_free(ctx->new_insns);
+	ctx->new_insns = NULL;
 
 	flip_buffers(ctx);
 
