@@ -219,6 +219,27 @@ do_alu: {
 			first_flags = alu == ALU_ADD || alu == ALU_SUB ? 2 : 0;
 			second_flags = mode == MODE_INT ? 1 : 0;
 			second_alu = alu == ALU_ADD ? ALU_ADC : alu == ALU_SUB ? ALU_SBB : alu;
+#if defined(ARCH_X86)
+			if (slot_2 == slot_r && !first_flags && !second_flags) {
+				frame_t v = slot_1;
+				slot_1 = slot_2;
+				slot_2 = v;
+			}
+			if (slot_1 == slot_r && !first_flags && !second_flags) {
+				g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, slot_2, 0, R_SCRATCH_1, R_SCRATCH_2));
+				g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
+				gen_insn(INSN_ALU, OP_SIZE_NATIVE, alu, ALU_WRITES_FLAGS(OP_SIZE_NATIVE, alu, true, false, 0));
+				gen_address_offset();
+				gen_address_offset();
+				gen_one(R_SCRATCH_1);
+				g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size + (1U << OP_SIZE_NATIVE), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
+				gen_insn(INSN_ALU, OP_SIZE_NATIVE, second_alu, ALU_WRITES_FLAGS(OP_SIZE_NATIVE, second_alu, true, false, 0));
+				gen_address_offset();
+				gen_address_offset();
+				gen_one(R_SCRATCH_2);
+				return true;
+			}
+#endif
 			g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, slot_1, 0, R_SCRATCH_1, R_SCRATCH_2));
 #if defined(ARCH_X86)
 			g(gen_frame_load_op(ctx, OP_SIZE_NATIVE, garbage, alu, first_flags, slot_2, lo_word(OP_SIZE_NATIVE), true, R_SCRATCH_1));
