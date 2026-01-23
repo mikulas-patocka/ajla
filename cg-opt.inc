@@ -909,13 +909,7 @@ skip_reads:
 			reg_map_set(&d->wr, R_X87);
 			break;
 		case INSN_JMP:
-			label_id = oget_four(ptr);
-			ptr += 4;
-			d->barrier = true;
-			if (ctx->label_flags[label_id] & LABEL_OP_BOUNDARY)
-				d->rd = ctx->opt_status->op_boundary_regs;
-			else
-				d->rd = ctx->opt_status->all_used_regs;
+			ptr += arg_jmp(d, ptr);
 			break;
 		case INSN_JMP_COND:
 		case INSN_JMP_COND_LOGICAL:
