@@ -150,11 +150,11 @@
 #define X86_0F_JCC_16			0x80
 #define X86_0F_SETCC_RM8		0x90
 #define X86_0F_BT_RM16_R16		0xa3
-#define X86_OF_SHLD_IMM8		0xa4
-#define X86_OF_SHLD_CL			0xa5
+#define X86_0F_SHLD_IMM8		0xa4
+#define X86_0F_SHLD_CL			0xa5
 #define X86_0F_BTS_RM16_R16		0xab
-#define X86_OF_SHRD_IMM8		0xac
-#define X86_OF_SHRD_CL			0xad
+#define X86_0F_SHRD_IMM8		0xac
+#define X86_0F_SHRD_CL			0xad
 #define X86_0F_BTR_RM16_R16		0xb3
 #define X86_0F_BTX_RM16_IMM8		0xba
 #define  X86_0F_BTX_BT_RM16_IMM8		0x4
@@ -182,6 +182,8 @@
 #define X86_0F_3A_PEXTRW_RM16_X128_IMM8	0x15
 #define X86_0F_3A_CVTPS2PH_RM64_X128	0x1d
 
+#define X86_LEGACY_EVEX_SHLD_IMM8	0x24
+#define X86_LEGACY_EVEX_SHRD_IMM8	0x2c
 #define X86_LEGACY_EVEX_SETCC_R64	0x40
 
 #define X86_MAP5_MOVSH_X128_M16		0x10
@@ -1151,17 +1153,17 @@ static bool attr_w cgen_shd(struct codegen_context *ctx, unsigned size, uint8_t 
 
 	if (arg4[0] == R_CX) {
 		if ((arg1[0] == arg2[0] && !test_evex) || !R_IS_GPR(arg1[0]))
-			g(cgen_rm_insn(ctx, -1, PREFIX_0F, rot == ROT_SHL ? X86_OF_SHLD_CL : X86_OF_SHRD_CL, size, size, true, arg3[0], arg1));
+			g(cgen_rm_insn(ctx, -1, PREFIX_0F, rot == ROT_SHL ? X86_0F_SHLD_CL : X86_0F_SHRD_CL, size, size, true, arg3[0], arg1));
 		else
-			g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_0F, rot == ROT_SHL ? X86_OF_SHLD_CL : X86_OF_SHRD_CL, size, size, true, arg3[0], arg2));
+			g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, rot == ROT_SHL ? X86_0F_SHLD_CL : X86_0F_SHRD_CL, size, size, true, arg3[0], arg2));
 	} else if (likely(arg4[0] == ARG_IMM)) {
 		int64_t imm;
 		imm = get_imm(&arg4[1]);
 		if ((arg1[0] == arg2[0] && !test_evex) || !R_IS_GPR(arg1[0])) {
-			g(cgen_rm_insn(ctx, -1, PREFIX_0F, rot == ROT_SHL ? X86_OF_SHLD_IMM8 : X86_OF_SHRD_IMM8, size, size, true, arg3[0], arg1));
+			g(cgen_rm_insn(ctx, -1, PREFIX_0F, rot == ROT_SHL ? X86_0F_SHLD_IMM8 : X86_0F_SHRD_IMM8, size, size, true, arg3[0], arg1));
 			cgen_one(imm);
 		} else {
-			g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_0F, rot == ROT_SHL ? X86_OF_SHLD_IMM8 : X86_OF_SHRD_IMM8, size, size, true, arg3[0], arg2));
+			g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_LEGACY_EVEX, rot == ROT_SHL ? X86_LEGACY_EVEX_SHLD_IMM8 : X86_LEGACY_EVEX_SHRD_IMM8, size, size, true, arg3[0], arg2));
 			cgen_one(imm);
 		}
 	} else {
