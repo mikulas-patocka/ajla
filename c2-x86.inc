@@ -150,7 +150,11 @@
 #define X86_0F_JCC_16			0x80
 #define X86_0F_SETCC_RM8		0x90
 #define X86_0F_BT_RM16_R16		0xa3
+#define X86_OF_SHLD_IMM8		0xa4
+#define X86_OF_SHLD_CL			0xa5
 #define X86_0F_BTS_RM16_R16		0xab
+#define X86_OF_SHRD_IMM8		0xac
+#define X86_OF_SHRD_CL			0xad
 #define X86_0F_BTR_RM16_R16		0xb3
 #define X86_0F_BTX_RM16_IMM8		0xba
 #define  X86_0F_BTX_BT_RM16_IMM8		0x4
@@ -1134,6 +1138,38 @@ static bool attr_w cgen_rot(struct codegen_context *ctx, unsigned size, uint8_t 
 	return true;
 }
 
+static bool attr_w cgen_shd(struct codegen_context *ctx, unsigned size, uint8_t rot)
+{
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	uint8_t *arg4 = arg3 + arg_size(*arg3);
+	ctx->code_position = arg4 + arg_size(*arg4);
+
+	if (arg1[0] != arg2[0] && !cpu_test_feature(CPU_FEATURE_apx))
+		internal(file_line, "cgen_shd: invalid arguments: %x, %02x, %02x, %02x, %02x", rot, arg1[0], arg2[0], arg3[0], arg4[0]);
+
+	if (arg4[0] == R_CX) {
+		if ((arg1[0] == arg2[0] && !test_evex) || !R_IS_GPR(arg1[0]))
+			g(cgen_rm_insn(ctx, -1, PREFIX_0F, rot == ROT_SHL ? X86_OF_SHLD_CL : X86_OF_SHRD_CL, size, size, true, arg3[0], arg1));
+		else
+			g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_0F, rot == ROT_SHL ? X86_OF_SHLD_CL : X86_OF_SHRD_CL, size, size, true, arg3[0], arg2));
+	} else if (likely(arg4[0] == ARG_IMM)) {
+		int64_t imm;
+		imm = get_imm(&arg4[1]);
+		if ((arg1[0] == arg2[0] && !test_evex) || !R_IS_GPR(arg1[0])) {
+			g(cgen_rm_insn(ctx, -1, PREFIX_0F, rot == ROT_SHL ? X86_OF_SHLD_IMM8 : X86_OF_SHRD_IMM8, size, size, true, arg3[0], arg1));
+			cgen_one(imm);
+		} else {
+			g(cgen_rm_insn(ctx, (arg1[0] << 8) | force_ndd, PREFIX_0F, rot == ROT_SHL ? X86_OF_SHLD_IMM8 : X86_OF_SHRD_IMM8, size, size, true, arg3[0], arg2));
+			cgen_one(imm);
+		}
+	} else {
+		internal(file_line, "cgen_shd: invalid argument %02x", arg4[0]);
+	}
+	return true;
+}
+
 static bool attr_w cgen_btxt(struct codegen_context *ctx, unsigned size, uint8_t bt, uint8_t *arg1, uint8_t *arg2)
 {
 	if (arg2[0] == ARG_IMM) {
@@ -1677,6 +1713,11 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			if (unlikely(insn_op_size(insn) >= OP_SIZE_4))
 				goto invalid_insn;
 			g(cgen_rot(ctx, insn_op_size(insn), insn_aux(insn), insn_writes_flags(insn)));
+			return true;
+		case INSN_SHD:
+			if (unlikely(insn_op_size(insn) < OP_SIZE_4))
+				goto invalid_insn;
+			g(cgen_shd(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_BT:
 			if (unlikely(insn_op_size(insn) == OP_SIZE_1) || unlikely(!insn_writes_flags(insn)))

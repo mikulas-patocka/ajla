@@ -1097,21 +1097,45 @@ do_shift: {
 				if (unlikely(cnst < 0) || unlikely(cnst >= 8 << OP_SIZE_NATIVE))
 					goto shift_skip;
 				if (!cnst) {
+					if (slot_1 == slot_r)
+						return true;
 					g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, slot_1, 0, R_SCRATCH_1, R_SCRATCH_2));
 					g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, R_SCRATCH_1, R_SCRATCH_2));
 					return true;
 				}
 				if (mode == MODE_FIXED && alu == ROT_SHL) {
 					g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, slot_1, 0, R_SCRATCH_1, R_SCRATCH_2));
+#if defined(ARCH_X86)
+					gen_insn(INSN_SHD, OP_SIZE_NATIVE, ROT_SHL, 1);
+					gen_one(R_SCRATCH_2);
+					gen_one(R_SCRATCH_2);
+					gen_one(R_SCRATCH_1);
+					gen_one(ARG_IMM);
+					gen_eight(cnst);
+					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_SCRATCH_1, R_SCRATCH_1, cnst, 0));
+#else
 					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_SCRATCH_2, R_SCRATCH_2, cnst, 0));
 					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHR, R_SCRATCH_3, R_SCRATCH_1, (8U << OP_SIZE_NATIVE) - cnst, 0));
 					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_SCRATCH_1, R_SCRATCH_1, cnst, 0));
 					g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_OR, R_SCRATCH_2, R_SCRATCH_2, R_SCRATCH_3, 0));
+#endif
 					g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, R_SCRATCH_1, R_SCRATCH_2));
 					return true;
 				}
 				if (mode == MODE_INT && alu == ROT_SHL) {
 					g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, slot_1, 0, R_SCRATCH_1, R_SCRATCH_2));
+#if defined(ARCH_X86)
+					g(gen_mov(ctx, OP_SIZE_NATIVE, R_SCRATCH_4, R_SCRATCH_2));
+					gen_insn(INSN_SHD, OP_SIZE_NATIVE, ROT_SHL, 1);
+					gen_one(R_SCRATCH_2);
+					gen_one(R_SCRATCH_2);
+					gen_one(R_SCRATCH_1);
+					gen_one(ARG_IMM);
+					gen_eight(cnst);
+					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, R_SCRATCH_3, R_SCRATCH_2, cnst, 0));
+					g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, R_SCRATCH_3, R_SCRATCH_4, COND_NE, label_ovf));
+					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_SCRATCH_1, R_SCRATCH_1, cnst, 0));
+#else
 					g(gen_mov(ctx, OP_SIZE_NATIVE, R_SCRATCH_4, R_SCRATCH_2));
 					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_SCRATCH_2, R_SCRATCH_2, cnst, 0));
 					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, R_SCRATCH_3, R_SCRATCH_2, cnst, 0));
@@ -1119,15 +1143,26 @@ do_shift: {
 					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHR, R_SCRATCH_3, R_SCRATCH_1, (8U << OP_SIZE_NATIVE) - cnst, 0));
 					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_SCRATCH_1, R_SCRATCH_1, cnst, 0));
 					g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_OR, R_SCRATCH_2, R_SCRATCH_2, R_SCRATCH_3, 0));
+#endif
 					g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, R_SCRATCH_1, R_SCRATCH_2));
 					return true;
 				}
 				if (alu == ROT_SAR || alu == ROT_SHR) {
 					g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, slot_1, 0, R_SCRATCH_1, R_SCRATCH_2));
+#if defined(ARCH_X86)
+					gen_insn(INSN_SHD, OP_SIZE_NATIVE, ROT_SHR, 1);
+					gen_one(R_SCRATCH_1);
+					gen_one(R_SCRATCH_1);
+					gen_one(R_SCRATCH_2);
+					gen_one(ARG_IMM);
+					gen_eight(cnst);
+					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, alu, R_SCRATCH_2, R_SCRATCH_2, cnst, 0));
+#else
 					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHR, R_SCRATCH_1, R_SCRATCH_1, cnst, 0));
 					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_SCRATCH_3, R_SCRATCH_2, (8U << OP_SIZE_NATIVE) - cnst, 0));
 					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, alu, R_SCRATCH_2, R_SCRATCH_2, cnst, 0));
 					g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_OR, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_3, 0));
+#endif
 					g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, R_SCRATCH_1, R_SCRATCH_2));
 					return true;
 				}

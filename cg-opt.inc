@@ -684,6 +684,12 @@ skip_reads:
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
 			break;
+		case INSN_SHD:
+			ptr += arg_write(d, ptr, size);
+			ptr += arg_read(d, ptr);
+			ptr += arg_read(d, ptr);
+			ptr += arg_read(d, ptr);
+			break;
 		case INSN_BT:
 			ptr += arg_read(d, ptr);
 			ptr += arg_read(d, ptr);
