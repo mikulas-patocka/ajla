@@ -1147,15 +1147,17 @@ static bool attr_w equality_analysis(struct codegen_context *ctx)
 	ctx->equalities_used = 0;
 	for (i = 0; i < ctx->basic_block_position; i++) {
 		struct insn_details *d = &ctx->basic_block[i];
-		if (insn_opcode(d->insn) == INSN_MOV || insn_opcode(d->insn) == INSN_MOVSX) {
+		switch (insn_opcode(d->insn)) {
+		case INSN_MOV:
+		case INSN_MOVSX: {
+			bool eq_valid = false;
 			bool rng_valid = false;
 			uint8_t *pd = d->start + 4;
 			uint8_t *ps = pd + arg_size(*pd);
 			bool is_fp = reg_is_fp(*pd) || reg_is_fp(*ps);
 			if (!arg_to_val(d, pd, &eq.v1))
 				goto skip;
-			if (!arg_to_val(d, ps, &eq.v2))
-				goto skip;
+			eq_valid = arg_to_val(d, ps, &eq.v2);
 			if (likely(!is_fp) && insn_op_size(d->insn) != OP_SIZE_NATIVE && eq.v1.tag == VALUE_TAG_REGISTER) {
 				rng.v1 = eq.v1;
 				rng.v1.size = OP_SIZE_NATIVE;
@@ -1170,10 +1172,18 @@ static bool attr_w equality_analysis(struct codegen_context *ctx)
 					rng.v2.value = ~eq.v2.value_hi;
 				}
 				rng_valid = true;
-				if (!is_in_range(ctx, &rng.v1, &rng.v2))
+				if (is_in_range(ctx, &rng.v1, &rng.v2)) {
+					if (*pd < ARG_REGS_MAX && *ps == *pd) {
+						d->quash = true;
+						if (REPORT_QUASHED_INSNS)
+							debug("quashing extension");
+						continue;
+					}
+				} else {
 					goto dont_quash_mov;
+				}
 			}
-			if (search_equalities(ctx, &eq)) {
+			if (eq_valid && search_equalities(ctx, &eq)) {
 				d->quash = true;
 				if (REPORT_QUASHED_INSNS)
 					debug("quashing mov due to equality");
@@ -1181,12 +1191,13 @@ static bool attr_w equality_analysis(struct codegen_context *ctx)
 			}
 dont_quash_mov:
 			quash_equalities(ctx, d);
-			g(insert_equality(ctx, &eq));
+			if (eq_valid)
+				g(insert_equality(ctx, &eq));
 			if (rng_valid)
 				g(insert_equality(ctx, &rng));
 			continue;
 		}
-		if (insn_opcode(d->insn) == INSN_SET_COND) {
+		case INSN_SET_COND: {
 			uint8_t *pd = d->start + 4;
 			if (!arg_to_val(d, pd, &rng.v1))
 				goto skip;
@@ -1201,8 +1212,11 @@ dont_quash_mov:
 			g(insert_equality(ctx, &rng));
 			continue;
 		}
+		default: {
 skip:
-		quash_equalities(ctx, d);
+			quash_equalities(ctx, d);
+		}
+		}
 	}
 
 	return true;
