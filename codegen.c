@@ -548,6 +548,7 @@ struct codegen_context {
 
 	bool checkpoint_quick_entry;
 
+	frame_t min_slot;
 	struct opt_status *opt_status;
 
 	struct insn_details *basic_block;
@@ -605,6 +606,7 @@ static void init_ctx(struct codegen_context *ctx)
 	ctx->upcall_args = -1;
 	ctx->upcall_hacked_abi = false;
 	ctx->checkpoint_quick_entry = false;
+	ctx->min_slot = 0;
 	ctx->opt_status = NULL;
 	ctx->basic_block = NULL;
 	ctx->equalities = NULL;
@@ -1281,13 +1283,15 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 	}
 #endif
 	/*for (v = function_n_variables(ctx->fn) - 1; v >= MIN_USEABLE_SLOT; v--)*/
-	for (v = 0; v < function_n_variables(ctx->fn); v++) {
+	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
 		const struct type *t;
 		ctx->registers[v] = -1;
-		if (ra_chicken)
-			continue;
 		t = get_type_of_local(ctx, v);
 		if (unlikely(!t))
+			continue;
+		if (unlikely(!ctx->min_slot))
+			ctx->min_slot = v;
+		if (ra_chicken)
 			continue;
 		if (!da(ctx->fn,function)->local_variables_flags[v].must_be_flat &&
 		    !da(ctx->fn,function)->local_variables_flags[v].must_be_data)
