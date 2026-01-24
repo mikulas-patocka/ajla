@@ -1142,12 +1142,12 @@ static bool attr_w insert_equality(struct codegen_context *ctx, struct equality 
 
 static bool attr_w equality_analysis(struct codegen_context *ctx)
 {
+	struct equality eq, rng;
 	size_t i;
 	ctx->equalities_used = 0;
 	for (i = 0; i < ctx->basic_block_position; i++) {
 		struct insn_details *d = &ctx->basic_block[i];
 		if (insn_opcode(d->insn) == INSN_MOV || insn_opcode(d->insn) == INSN_MOVSX) {
-			struct equality eq, rng;
 			bool rng_valid = false;
 			uint8_t *pd = d->start + 4;
 			uint8_t *ps = pd + arg_size(*pd);
@@ -1184,6 +1184,21 @@ dont_quash_mov:
 			g(insert_equality(ctx, &eq));
 			if (rng_valid)
 				g(insert_equality(ctx, &rng));
+			continue;
+		}
+		if (insn_opcode(d->insn) == INSN_SET_COND) {
+			uint8_t *pd = d->start + 4;
+			if (!arg_to_val(d, pd, &rng.v1))
+				goto skip;
+			if (*pd < ARG_REGS_MAX)
+				rng.v1.size = OP_SIZE_NATIVE;
+			rng.v2.tag = VALUE_TAG_RANGE;
+			rng.v2.size = rng.v1.size;
+			rng.v2.range_signed = false;
+			rng.v2.value = 0;
+			rng.v2.value = 1;
+			quash_equalities(ctx, d);
+			g(insert_equality(ctx, &rng));
 			continue;
 		}
 skip:
