@@ -563,6 +563,8 @@ struct codegen_context {
 	size_t new_insns_size;
 	size_t new_insn_mark;
 
+	char *live_frame;
+
 	arg_t n_ret;
 	frame_t ret_vars[MAX_QUICKRET_VALUES];
 	uint8_t regs[MAX_QUICKRET_VALUES];
@@ -611,6 +613,7 @@ static void init_ctx(struct codegen_context *ctx)
 	ctx->basic_block = NULL;
 	ctx->equalities = NULL;
 	ctx->new_insns = NULL;
+	ctx->live_frame = NULL;
 	ctx->quickret_regs_valid = false;
 }
 
@@ -677,6 +680,8 @@ static void done_ctx(struct codegen_context *ctx)
 			mem_free(ctx->new_insns[i]);
 		mem_free(ctx->new_insns);
 	}
+	if (ctx->live_frame)
+		mem_free(ctx->live_frame);
 }
 
 

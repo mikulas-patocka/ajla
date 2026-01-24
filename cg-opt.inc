@@ -1296,11 +1296,7 @@ skip:
 static bool attr_w live_register_analysis(struct codegen_context *ctx, reg_map live_registers)
 {
 	size_t i;
-	bool *live_frame;
-	live_frame = mem_alloc_array_mayfail(mem_alloc_mayfail, bool *, 0, 0, function_n_variables(ctx->fn), sizeof(bool), &ctx->err);
-	if (unlikely(!live_frame))
-		return false;
-	memset(live_frame, true, function_n_variables(ctx->fn));
+	memset(ctx->live_frame, 1, function_n_variables(ctx->fn));
 	for (i = ctx->basic_block_position; i--; ) {
 		struct insn_details *d = &ctx->basic_block[i];
 		if (unlikely(d->quash))
@@ -1311,7 +1307,7 @@ static bool attr_w live_register_analysis(struct codegen_context *ctx, reg_map l
 			} else {
 				live_registers = reg_map_union(live_registers, ctx->opt_status->all_used_regs);
 			}
-			memset(live_frame, true, function_n_variables(ctx->fn));
+			memset(ctx->live_frame, 1, function_n_variables(ctx->fn));
 		} else if (reg_map_is_empty(reg_map_intersection(d->wr, live_registers))) {
 			unsigned opc = insn_opcode(d->insn);
 			if (opc != INSN_LABEL && REPORT_QUASHED_INSNS) {
@@ -1327,7 +1323,7 @@ static bool attr_w live_register_analysis(struct codegen_context *ctx, reg_map l
 			continue;
 		}
 		if (d->wr_frame) {
-			if (!live_frame[d->wr_frame]) {
+			if (!ctx->live_frame[d->wr_frame]) {
 				reg_map dwr = d->wr;
 				reg_map_clear(&dwr, R_MEMORY_FRAME);
 				if (reg_map_is_empty(reg_map_intersection(dwr, live_registers))) {
@@ -1344,17 +1340,16 @@ static bool attr_w live_register_analysis(struct codegen_context *ctx, reg_map l
 					continue;
 				}
 			}
-			live_frame[d->wr_frame] = false;
+			ctx->live_frame[d->wr_frame] = 0;
 		}
 		if (d->rd_frame) {
-			live_frame[d->rd_frame] = true;
+			ctx->live_frame[d->rd_frame] = 1;
 		}
 		live_registers = reg_map_intersection(live_registers, reg_map_neg(d->wr));
 		live_registers = reg_map_union(live_registers, d->rd);
 		if (reg_map_is_set(d->rd, R_MEMORY))
-			memset(live_frame, true, function_n_variables(ctx->fn));
+			memset(ctx->live_frame, 1, function_n_variables(ctx->fn));
 	}
-	mem_free(live_frame);
 	return true;
 }
 
@@ -1436,6 +1431,10 @@ static bool attr_w cg_optimize(struct codegen_context *ctx)
 	if (unlikely(!array_init_mayfail(uint8_t *, &ctx->new_insns, &ctx->new_insns_size, &ctx->err)))
 		return false;
 
+	ctx->live_frame = mem_alloc_array_mayfail(mem_alloc_mayfail, char *, 0, 0, function_n_variables(ctx->fn), sizeof(bool), &ctx->err);
+	if (unlikely(!ctx->live_frame))
+		return false;
+
 	g(setup_register_maps(ctx));
 
 	ctx->code_position = ctx->code;
@@ -1486,6 +1485,9 @@ skip_insn:
 
 	mem_free(ctx->new_insns);
 	ctx->new_insns = NULL;
+
+	mem_free(ctx->live_frame);
+	ctx->live_frame = NULL;
 
 	flip_buffers(ctx);
 
