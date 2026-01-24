@@ -149,9 +149,10 @@ struct insn_details {
 	reg_map rd;
 	reg_map wr;
 	uint32_t target_label;
+	struct value write_frame;
 	frame_t rd_frame;
 	frame_t wr_frame;
-	struct value write_frame;
+	reg_map live_after;
 };
 
 struct opt_status {
@@ -1301,6 +1302,7 @@ static bool attr_w live_register_analysis(struct codegen_context *ctx, reg_map l
 		struct insn_details *d = &ctx->basic_block[i];
 		if (unlikely(d->quash))
 			continue;
+		d->live_after = live_registers;
 		if (d->target_label) {
 			if (ctx->label_flags[d->target_label] & LABEL_OP_BOUNDARY) {
 				live_registers = reg_map_union(live_registers, ctx->opt_status->op_boundary_regs);
@@ -1355,13 +1357,22 @@ static bool attr_w live_register_analysis(struct codegen_context *ctx, reg_map l
 
 static bool attr_w peephole(struct codegen_context *ctx)
 {
-	size_t i;
+	size_t i, j;
 	ctx->equalities_used = 0;
-	for (i = 0; i + 1 < ctx->basic_block_position; i++) {
-		struct insn_details *d1 = &ctx->basic_block[i];
-		struct insn_details *d2 = &ctx->basic_block[i + 1];
-		if (d1->quash || d2->quash)
+	for (i = 0; i < ctx->basic_block_position; i++) {
+		struct insn_details *d1, *d2;
+		d1 = &ctx->basic_block[i];
+		if (unlikely(d1->quash))
 			continue;
+		j = i + 1;
+new_d2:
+		if (unlikely(!j) || unlikely(j >= ctx->basic_block_position))
+			break;
+		d2 = &ctx->basic_block[j];
+		if (unlikely(d2->quash)) {
+			j++;
+			goto new_d2;
+		}
 		if ((insn_opcode(d1->insn) == INSN_JMP_COND || insn_opcode(d1->insn) == INSN_JMP_COND_LOGICAL) && insn_opcode(d2->insn) == INSN_JMP) {
 			uint32_t label1 = d1->target_label;
 			uint32_t label2 = d2->target_label;
@@ -1374,8 +1385,33 @@ static bool attr_w peephole(struct codegen_context *ctx)
 				gen_insn(INSN_JMP, 0, 0, 0);
 				gen_four(label1);
 				g(finish_new_insn(ctx, d2));
+				continue;
 			}
 		}
+		if ((insn_opcode(d1->insn) == INSN_SET_COND || insn_opcode(d1->insn) == INSN_SET_COND_PARTIAL) && insn_opcode(d2->insn) == INSN_ALU && insn_aux(d2->insn) == ALU_XOR) {
+			uint8_t *dw1, *dw2, *dr2, *dc2;
+			if (unlikely(reg_map_is_set(d2->live_after, R_FLAGS)) && unlikely(insn_writes_flags(d2->insn)))
+				goto skip_cc_xor;
+			dw1 = d1->start + 4;
+			dw2 = d2->start + 4;
+			dr2 = dw2 + arg_size(*dw2);
+			dc2 = dr2 + arg_size(*dr2);
+			if (*dc2 != ARG_IMM || oget_eight(dc2 + 1) != 1)
+				goto skip_cc_xor;
+			if (!arg_equal(dw1, dw2) || !arg_equal(dw2, dr2))
+				goto skip_cc_xor;
+			g(prepare_new_insn(ctx));
+			gen_insn(insn_opcode(d1->insn), insn_op_size(d1->insn), insn_aux(d1->insn) ^ 1, insn_writes_flags(d1->insn));
+			gen_stream(dw1, arg_size(*dw1));
+			if (insn_opcode(d1->insn) == INSN_SET_COND_PARTIAL) {
+				uint8_t *dr1 = dw1 + arg_size(*dw1);
+				gen_stream(dr1, arg_size(*dr1));
+			}
+			g(finish_new_insn(ctx, d1));
+			d2->quash = true;
+			continue;
+		}
+skip_cc_xor:;
 	}
 	return true;
 }

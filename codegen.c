@@ -401,7 +401,7 @@ do {									\
 	gen_four(dword);						\
 } while (0)
 
-static size_t arg_size(uint8_t arg)
+static size_t arg_size(const uint8_t arg)
 {
 	if (arg < ARG_REGS_MAX)
 		return 1;
@@ -417,6 +417,19 @@ static size_t arg_size(uint8_t arg)
 		return 9;
 	internal(file_line, "arg_size: invalid argument %02x", arg);
 	return 0;
+}
+
+static bool arg_equal(const uint8_t *arg1, const uint8_t *arg2)
+{
+	size_t l1 = arg_size(*arg1);
+	size_t l2 = arg_size(*arg2);
+	if (l1 != l2)
+		return false;
+	if (*arg1 == ARG_ADDRESS_1_PRE_I || *arg1 == ARG_ADDRESS_1_POST_I)
+		return false;
+	if (*arg2 == ARG_ADDRESS_1_PRE_I || *arg2 == ARG_ADDRESS_1_POST_I)
+		return false;
+	return !memcmp(arg1, arg2, l1);
 }
 
 struct relocation {
@@ -899,6 +912,13 @@ do {									\
 	gen_four(qword_ >> 15 >> 15 >> 2);				\
 } while (0)
 #endif
+#define gen_stream(ptr, len)						\
+do {									\
+	if (unlikely(ctx->unreachable))					\
+		break;							\
+	if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, (ptr), (len), NULL, &ctx->err)))\
+		return false;						\
+} while (0)
 
 #define gen_label_ref(label_id)						\
 do {									\
