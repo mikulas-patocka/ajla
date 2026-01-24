@@ -326,16 +326,17 @@ static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int64
 	ctx->offset_reg = false;
 	if (is_address_direct(imm, purpose, size))
 		return true;
-	g(gen_load_constant(ctx, R_OFFSET_IMM, imm));
 	if (purpose == IMM_PURPOSE_LDP_STP_OFFSET) {
+		g(gen_imm(ctx, imm, alu_purpose(ALU_ADD), i_size(OP_SIZE_ADDRESS)));
 		gen_insn(INSN_ALU, OP_SIZE_ADDRESS, ALU_ADD, 0);
 		gen_one(R_OFFSET_IMM);
-		gen_one(R_OFFSET_IMM);
 		gen_one(base);
+		gen_imm_offset();
 		ctx->base_reg = R_OFFSET_IMM;
 		ctx->offset_imm = 0;
 		return true;
 	}
+	g(gen_load_constant(ctx, R_OFFSET_IMM, imm));
 	ctx->offset_reg = true;
 	return true;
 
