@@ -1388,7 +1388,7 @@ new_d2:
 				continue;
 			}
 		}
-		if ((insn_opcode(d1->insn) == INSN_SET_COND || insn_opcode(d1->insn) == INSN_SET_COND_PARTIAL) && insn_opcode(d2->insn) == INSN_ALU && insn_aux(d2->insn) == ALU_XOR) {
+		if ((insn_opcode(d1->insn) == INSN_SET_COND || insn_opcode(d1->insn) == INSN_SET_COND_PARTIAL) && (insn_opcode(d2->insn) == INSN_ALU || insn_opcode(d2->insn) == INSN_ALU_PARTIAL) && insn_aux(d2->insn) == ALU_XOR) {
 			uint8_t *dw1, *dw2, *dr2, *dc2;
 			if (unlikely(reg_map_is_set(d2->live_after, R_FLAGS)) && unlikely(insn_writes_flags(d2->insn)))
 				goto skip_cc_xor;
