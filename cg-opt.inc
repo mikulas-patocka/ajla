@@ -493,6 +493,8 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 					d->rd = ctx->opt_status->all_used_regs;
 			}
 			break;
+		case INSN_NOP:
+			break;
 		case INSN_RET:
 			d->rd = ctx->opt_status->regs_saved;
 			reg_map_set(&d->rd, R_RET0);
@@ -1357,17 +1359,17 @@ static bool attr_w live_register_analysis(struct codegen_context *ctx, reg_map l
 
 static bool attr_w peephole(struct codegen_context *ctx)
 {
-	size_t i, j;
+	size_t i, j, k;
 	ctx->equalities_used = 0;
 	for (i = 0; i < ctx->basic_block_position; i++) {
-		struct insn_details *d1, *d2;
+		struct insn_details *d1, *d2, *d3;
 		d1 = &ctx->basic_block[i];
 		if (unlikely(d1->quash))
 			continue;
 		j = i + 1;
 new_d2:
 		if (unlikely(!j) || unlikely(j >= ctx->basic_block_position))
-			break;
+			continue;
 		d2 = &ctx->basic_block[j];
 		if (unlikely(d2->quash)) {
 			j++;
@@ -1388,30 +1390,70 @@ new_d2:
 				continue;
 			}
 		}
-		if ((insn_opcode(d1->insn) == INSN_SET_COND || insn_opcode(d1->insn) == INSN_SET_COND_PARTIAL) && (insn_opcode(d2->insn) == INSN_ALU || insn_opcode(d2->insn) == INSN_ALU_PARTIAL) && insn_aux(d2->insn) == ALU_XOR) {
-			uint8_t *dw1, *dw2, *dr2, *dc2;
+
+		if ((insn_opcode(d1->insn) == INSN_SET_COND || insn_opcode(d1->insn) == INSN_SET_COND_PARTIAL) &&
+		    (insn_opcode(d2->insn) == INSN_ALU || insn_opcode(d2->insn) == INSN_ALU_PARTIAL) && insn_aux(d2->insn) == ALU_XOR) {
+			uint8_t *d1w, *d2w, *d2r, *d2c;
 			if (unlikely(reg_map_is_set(d2->live_after, R_FLAGS)) && unlikely(insn_writes_flags(d2->insn)))
-				goto skip_cc_xor;
-			dw1 = d1->start + 4;
-			dw2 = d2->start + 4;
-			dr2 = dw2 + arg_size(*dw2);
-			dc2 = dr2 + arg_size(*dr2);
-			if (*dc2 != ARG_IMM || oget_eight(dc2 + 1) != 1)
-				goto skip_cc_xor;
-			if (!arg_equal(dw1, dw2) || !arg_equal(dw2, dr2))
-				goto skip_cc_xor;
+				goto skip_setc_xor;
+			d1w = d1->start + 4;
+			d2w = d2->start + 4;
+			d2r = d2w + arg_size(*d2w);
+			d2c = d2r + arg_size(*d2r);
+			if (*d2c != ARG_IMM || oget_eight(d2c + 1) != 1)
+				goto skip_setc_xor;
+			if (!arg_equal(d1w, d2w) || !arg_equal(d2w, d2r))
+				goto skip_setc_xor;
 			g(prepare_new_insn(ctx));
 			gen_insn(insn_opcode(d1->insn), insn_op_size(d1->insn), insn_aux(d1->insn) ^ 1, insn_writes_flags(d1->insn));
-			gen_stream(dw1, arg_size(*dw1));
+			gen_stream(d1w, arg_size(*d1w));
 			if (insn_opcode(d1->insn) == INSN_SET_COND_PARTIAL) {
-				uint8_t *dr1 = dw1 + arg_size(*dw1);
+				uint8_t *dr1 = d1w + arg_size(*d1w);
 				gen_stream(dr1, arg_size(*dr1));
 			}
 			g(finish_new_insn(ctx, d1));
 			d2->quash = true;
+			goto retry;
+		}
+skip_setc_xor:
+
+		k = j + 1;
+new_d3:
+		if (unlikely(!k) || unlikely(k >= ctx->basic_block_position))
+			continue;
+		d3 = &ctx->basic_block[k];
+		if (unlikely(d3->quash)) {
+			k++;
+			goto new_d3;
+		}
+		if ((insn_opcode(d1->insn) == INSN_SET_COND || insn_opcode(d1->insn) == INSN_SET_COND_PARTIAL) &&
+		    insn_opcode(d2->insn) == INSN_CMP &&
+		    insn_opcode(d3->insn) == INSN_JMP_COND && (insn_aux(d3->insn) == COND_E || insn_aux(d3->insn) == COND_NE)) {
+			uint8_t *d1w, *d2r, *d2c;
+			if (insn_op_size(d1->insn) != insn_op_size(d2->insn) || insn_op_size(d1->insn) != insn_op_size(d3->insn))
+				goto skip_setc_cmp_jmp;
+			if (unlikely(reg_map_is_set(d3->live_after, R_FLAGS)))
+				goto skip_setc_cmp_jmp;
+			d1w = d1->start + 4;
+			d2r = d2->start + 4;
+			d2c = d2r + arg_size(*d2r);
+			if (*d2c != ARG_IMM || oget_eight(d2c + 1) != 0)
+				goto skip_setc_cmp_jmp;
+			if (!arg_equal(d1w, d2r))
+				goto skip_setc_cmp_jmp;
+			d2->quash = true;
+
+			g(prepare_new_insn(ctx));
+			gen_insn(insn_opcode(d3->insn), insn_op_size(d3->insn), insn_aux(d1->insn) ^ (insn_aux(d3->insn) == COND_E), insn_writes_flags(d3->insn));
+			gen_four(d3->target_label);
+			g(finish_new_insn(ctx, d3));
 			continue;
 		}
-skip_cc_xor:;
+skip_setc_cmp_jmp:
+
+		if (false)
+retry:
+			i--;
 	}
 	return true;
 }
