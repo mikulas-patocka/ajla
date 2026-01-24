@@ -460,13 +460,15 @@ struct cg_exit {
 #define VALUE_TAG_NONE		0
 #define VALUE_TAG_REGISTER	1
 #define VALUE_TAG_FRAME		2
-#define VALUE_TAG_CONSTANT	3
+#define VALUE_TAG_RANGE		3
 #define VALUE_TAG_FLAGS		4
 
 struct value {
 	uint8_t tag;
 	uint8_t size;
+	bool range_signed;
 	uint64_t value;
+	uint64_t value_hi;
 };
 
 struct equality {

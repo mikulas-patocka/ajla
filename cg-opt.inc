@@ -144,6 +144,7 @@ struct insn_details {
 	uint32_t insn;
 	bool barrier;
 	bool quash;
+	bool mark;
 	reg_map rd;
 	reg_map wr;
 	uint32_t target_label;
@@ -1008,20 +1009,23 @@ static bool arg_to_val(struct insn_details *d, uint8_t *ptr, struct value *value
 {
 	if (ptr[0] < ARG_REGS_MAX) {
 		value->tag = VALUE_TAG_REGISTER;
-		value->size = 1U << OP_SIZE_NATIVE;
+		value->size = op_size_to_size(insn_op_size(d->insn));
 		value->value = ptr[0];
+		value->value_hi = value->value;
 		return true;
 	}
 	if (ptr[0] == ARG_ADDRESS_1 && ptr[1] == R_FRAME) {
 		value->tag = VALUE_TAG_FRAME;
 		value->size = op_size_to_size(insn_op_size(d->insn));
 		value->value = oget_eight(ptr + 2);
+		value->value_hi = value->value;
 		return true;
 	}
 	if (ptr[0] == ARG_IMM) {
-		value->tag = VALUE_TAG_CONSTANT;
-		value->size = 1U << OP_SIZE_NATIVE;
+		value->tag = VALUE_TAG_RANGE;
+		value->size = op_size_to_size(insn_op_size(d->insn));
 		value->value = oget_eight(ptr + 1);
+		value->value_hi = value->value;
 		return true;
 	}
 	return false;
@@ -1029,7 +1033,7 @@ static bool arg_to_val(struct insn_details *d, uint8_t *ptr, struct value *value
 
 static bool compare_values(const struct value *v1, const struct value *v2)
 {
-	return v1->tag == v2->tag && v1->size == v2->size && v1->value == v2->value;
+	return v1->tag == v2->tag && v1->size == v2->size && v1->value == v2->value && v1->value_hi == v2->value_hi;
 }
 
 static bool search_equalities(struct codegen_context *ctx, const struct equality *eq)
@@ -1041,6 +1045,37 @@ static bool search_equalities(struct codegen_context *ctx, const struct equality
 			return true;
 		if (compare_values(&e->v1, &eq->v2) && compare_values(&e->v2, &eq->v1))
 			return true;
+	}
+	return false;
+}
+
+static bool test_subrange(struct value *v1, struct value *v2)
+{
+	if ((int64_t)v1->value >= 0 && (int64_t)v2->value >= 0) {
+		return v1->value >= v2->value && v1->value_hi <= v2->value_hi;
+	}
+	if (v1->range_signed && v2->range_signed) {
+		return (int64_t)v1->value >= (int64_t)v2->value && (int64_t)v1->value_hi <= (int64_t)v2->value_hi;
+	}
+	if (!v1->range_signed && !v2->range_signed) {
+		return v1->value >= v2->value && v1->value_hi <= v2->value_hi;
+	}
+	return false;
+}
+
+static bool is_in_range(struct codegen_context *ctx, struct value *reg, struct value *range)
+{
+	size_t i;
+	for (i = 0; i < ctx->equalities_used; i++) {
+		struct equality *e = &ctx->equalities[i];
+		if (compare_values(&e->v1, reg)) {
+			if (test_subrange(&e->v2, range))
+				return true;
+		}
+		if (compare_values(&e->v2, reg)) {
+			if (test_subrange(&e->v1, range))
+				return true;
+		}
 	}
 	return false;
 }
@@ -1063,7 +1098,7 @@ static bool check_interference(struct insn_details *d, struct value *v)
 			s2 = (uintptr_t)v->value;
 			e2 = (uintptr_t)v->value + v->size;
 			return !(s1 >= e2 || s2 >= e1);
-		case VALUE_TAG_CONSTANT:
+		case VALUE_TAG_RANGE:
 			return false;
 		case VALUE_TAG_FLAGS:
 			return reg_map_is_set(d->wr, R_FLAGS);
@@ -1111,28 +1146,46 @@ static bool attr_w equality_analysis(struct codegen_context *ctx)
 	ctx->equalities_used = 0;
 	for (i = 0; i < ctx->basic_block_position; i++) {
 		struct insn_details *d = &ctx->basic_block[i];
-		if (insn_opcode(d->insn) == INSN_MOV) {
-			struct equality eq;
+		if (insn_opcode(d->insn) == INSN_MOV || insn_opcode(d->insn) == INSN_MOVSX) {
+			struct equality eq, rng;
+			bool rng_valid = false;
 			uint8_t *pd = d->start + 4;
 			uint8_t *ps = pd + arg_size(*pd);
 			bool is_fp = reg_is_fp(*pd) || reg_is_fp(*ps);
-			if (likely(!is_fp) && insn_op_size(d->insn) != OP_SIZE_NATIVE)
-				goto movzx;
 			if (!arg_to_val(d, pd, &eq.v1))
 				goto skip;
 			if (!arg_to_val(d, ps, &eq.v2))
 				goto skip;
+			if (likely(!is_fp) && insn_op_size(d->insn) != OP_SIZE_NATIVE && eq.v1.tag == VALUE_TAG_REGISTER) {
+				rng.v1 = eq.v1;
+				rng.v1.size = OP_SIZE_NATIVE;
+				rng.v2.tag = VALUE_TAG_RANGE;
+				rng.v2.size = OP_SIZE_NATIVE;
+				rng.v2.range_signed = false;
+				rng.v2.value = 0;
+				rng.v2.value_hi = ((uint64_t)1 << (8 << insn_op_size(d->insn))) - 1;
+				if (insn_opcode(d->insn) == INSN_MOVSX) {
+					rng.v2.range_signed = true;
+					rng.v2.value_hi >>= 1;
+					rng.v2.value = ~eq.v2.value_hi;
+				}
+				rng_valid = true;
+				if (!is_in_range(ctx, &rng.v1, &rng.v2))
+					goto dont_quash_mov;
+			}
 			if (search_equalities(ctx, &eq)) {
 				d->quash = true;
 				if (REPORT_QUASHED_INSNS)
 					debug("quashing mov due to equality");
 				continue;
 			}
+dont_quash_mov:
 			quash_equalities(ctx, d);
 			g(insert_equality(ctx, &eq));
+			if (rng_valid)
+				g(insert_equality(ctx, &rng));
 			continue;
 		}
-movzx:
 skip:
 		quash_equalities(ctx, d);
 	}
@@ -1211,9 +1264,9 @@ static bool attr_w process_basic_block(struct codegen_context *ctx, reg_map live
 	for (i = 0; i < ctx->basic_block_position; i++) {
 		struct insn_details *d = &ctx->basic_block[i];
 		if (d->quash) {
-			if (MARK_QUASHED_INSNS)
+			if (MARK_QUASHED_INSNS || d->mark)
 				gen_insn(INSN_NOP, 0, 0, 0);
-			if (QUASH_INSNS)
+			if (QUASH_INSNS && !d->mark)
 				continue;
 		}
 		if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, d->start - debug_offset, d->length + debug_offset, NULL, &ctx->err)))
