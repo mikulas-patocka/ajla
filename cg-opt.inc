@@ -1121,6 +1121,17 @@ static void quash_equalities(struct codegen_context *ctx, struct insn_details *d
 	}
 }
 
+static struct value *find_range(struct codegen_context *ctx, struct value *v1)
+{
+	size_t i;
+	for (i = 0; i < ctx->equalities_used; i++) {
+		struct equality *e = &ctx->equalities[i];
+		if (e->v2.tag == VALUE_TAG_RANGE && compare_values(&e->v1, v1))
+			return &e->v2;
+	}
+	return NULL;
+}
+
 static bool attr_w insert_equality(struct codegen_context *ctx, struct equality *eq)
 {
 	size_t i;
@@ -1197,6 +1208,30 @@ dont_quash_mov:
 				g(insert_equality(ctx, &rng));
 			continue;
 		}
+		case INSN_ALU: {
+			uint8_t *pd = d->start + 4;
+			uint8_t *ps1 = pd + arg_size(*pd);
+			uint8_t *ps2 = ps1 + arg_size(*ps1);
+			if (insn_aux(d->insn) == ALU_XOR && *ps2 == ARG_IMM && oget_eight(ps2 + 1) == 1) {
+				struct value *rp;
+				if (!arg_to_val(d, pd, &eq.v1))
+					goto skip;
+				if (!arg_to_val(d, ps1, &eq.v2))
+					goto skip;
+				if (eq.v1.tag == VALUE_TAG_REGISTER)
+					eq.v1.size = OP_SIZE_NATIVE;
+				if (eq.v2.tag == VALUE_TAG_REGISTER)
+					eq.v2.size = OP_SIZE_NATIVE;
+				rp = find_range(ctx, &eq.v2);
+				if (rp && !(rp->value & 1) && (rp->value_hi & 1)) {
+					eq.v2 = *rp;
+					quash_equalities(ctx, d);
+					g(insert_equality(ctx, &eq));
+					continue;
+				}
+			}
+			goto skip;
+		}
 		case INSN_SET_COND: {
 			uint8_t *pd = d->start + 4;
 			if (!arg_to_val(d, pd, &rng.v1))
@@ -1207,7 +1242,7 @@ dont_quash_mov:
 			rng.v2.size = rng.v1.size;
 			rng.v2.range_signed = false;
 			rng.v2.value = 0;
-			rng.v2.value = 1;
+			rng.v2.value_hi = 1;
 			quash_equalities(ctx, d);
 			g(insert_equality(ctx, &rng));
 			continue;
@@ -1313,6 +1348,8 @@ static bool attr_w cg_optimize(struct codegen_context *ctx)
 {
 	if (optimize_chicken)
 		return true;
+
+	/*debug("%lu : %s", function_n_variables(ctx->fn), da(ctx->fn,function)->function_name);*/
 
 	if (unlikely(!array_init_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, &ctx->err)))
 		return false;
