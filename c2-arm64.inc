@@ -1151,6 +1151,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		case INSN_LABEL:
 			g(cgen_label(ctx));
 			return true;
+		case INSN_CLAIM_RANGE:
+			g(cgen_claim_range(ctx));
+			return true;
 		case INSN_NOP:
 			cgen_four(ARM64_NOP);
 			return true;

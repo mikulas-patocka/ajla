@@ -493,6 +493,11 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 					d->rd = ctx->opt_status->all_used_regs;
 			}
 			break;
+		case INSN_CLAIM_RANGE:
+			ptr += arg_size(*ptr);
+			ptr += arg_size(*ptr);
+			ptr += arg_size(*ptr);
+			break;
 		case INSN_NOP:
 			break;
 		case INSN_RET:
@@ -1099,6 +1104,9 @@ static bool test_subrange(struct value *v1, struct value *v2)
 	if (!v1->range_signed && !v2->range_signed) {
 		return v1->value >= v2->value && v1->value_hi <= v2->value_hi;
 	}
+	if (!v1->range_signed && v2->range_signed && (int64_t)v2->value_hi >= 0) {
+		return v1->value_hi <= v2->value_hi;
+	}
 	return false;
 }
 
@@ -1198,6 +1206,26 @@ static bool attr_w equality_analysis(struct codegen_context *ctx)
 	for (i = 0; i < ctx->basic_block_position; i++) {
 		struct insn_details *d = &ctx->basic_block[i];
 		switch (insn_opcode(d->insn)) {
+		case INSN_CLAIM_RANGE: {
+			uint8_t *pd = d->start + 4;
+			uint8_t *low = pd + arg_size(*pd);
+			uint8_t *high = low + arg_size(*low);
+			if (!arg_to_val(d, pd, &rng.v1))
+				goto skip;
+			if (*low != ARG_IMM || *high != ARG_IMM)
+				goto skip;
+			if (!arg_to_val(d, low, &eq.v1))
+				goto skip;
+			if (!arg_to_val(d, high, &eq.v2))
+				goto skip;
+			rng.v2.tag = VALUE_TAG_RANGE;
+			rng.v2.size = op_size_to_size(insn_op_size(d->insn));
+			rng.v2.range_signed = false;
+			rng.v2.value = eq.v1.value;
+			rng.v2.value_hi = eq.v2.value;
+			g(insert_equality(ctx, &rng));
+			continue;
+		}
 		case INSN_MOV:
 		case INSN_MOVSX: {
 			bool eq_valid = false;
@@ -1210,16 +1238,16 @@ static bool attr_w equality_analysis(struct codegen_context *ctx)
 			eq_valid = arg_to_val(d, ps, &eq.v2);
 			if (likely(!is_fp) && insn_op_size(d->insn) != OP_SIZE_NATIVE && eq.v1.tag == VALUE_TAG_REGISTER) {
 				rng.v1 = eq.v1;
-				rng.v1.size = OP_SIZE_NATIVE;
+				rng.v1.size = op_size_to_size(OP_SIZE_NATIVE);
 				rng.v2.tag = VALUE_TAG_RANGE;
-				rng.v2.size = OP_SIZE_NATIVE;
+				rng.v2.size = op_size_to_size(OP_SIZE_NATIVE);
 				rng.v2.range_signed = false;
 				rng.v2.value = 0;
 				rng.v2.value_hi = ((uint64_t)1 << (8 << insn_op_size(d->insn))) - 1;
 				if (insn_opcode(d->insn) == INSN_MOVSX) {
 					rng.v2.range_signed = true;
 					rng.v2.value_hi >>= 1;
-					rng.v2.value = ~eq.v2.value_hi;
+					rng.v2.value = ~rng.v2.value_hi;
 				}
 				rng_valid = true;
 				if (is_in_range(ctx, &rng.v1, &rng.v2)) {
@@ -1258,9 +1286,9 @@ dont_quash_mov:
 				if (!arg_to_val(d, ps1, &eq.v2))
 					goto skip;
 				if (eq.v1.tag == VALUE_TAG_REGISTER)
-					eq.v1.size = OP_SIZE_NATIVE;
+					eq.v1.size = op_size_to_size(OP_SIZE_NATIVE);
 				if (eq.v2.tag == VALUE_TAG_REGISTER)
-					eq.v2.size = OP_SIZE_NATIVE;
+					eq.v2.size = op_size_to_size(OP_SIZE_NATIVE);
 				rp = find_range(ctx, &eq.v2);
 				if (rp && !(rp->value & 1) && (rp->value_hi & 1)) {
 					eq.v2 = *rp;
@@ -1276,7 +1304,7 @@ dont_quash_mov:
 			if (!arg_to_val(d, pd, &rng.v1))
 				goto skip;
 			if (*pd < ARG_REGS_MAX)
-				rng.v1.size = OP_SIZE_NATIVE;
+				rng.v1.size = op_size_to_size(OP_SIZE_NATIVE);
 			rng.v2.tag = VALUE_TAG_RANGE;
 			rng.v2.size = rng.v1.size;
 			rng.v2.range_signed = false;

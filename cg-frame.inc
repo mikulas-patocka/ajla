@@ -1447,3 +1447,43 @@ static bool attr_w load_function_offset(struct codegen_context *ctx, unsigned de
 
 	return true;
 }
+
+static bool attr_w gen_claim_range(struct codegen_context *ctx, unsigned size, frame_t slot, unsigned target, uint64_t low, uint64_t high)
+{
+	unsigned size_reg;
+	ajla_assert_lo(slot >= MIN_USEABLE_SLOT && slot < function_n_variables(ctx->fn), (file_line, "gen_claim_range: invalid slot: %lu >= %lu", (unsigned long)slot, (unsigned long)function_n_variables(ctx->fn)));
+
+	size_reg = size;
+	if (!ARCH_PARTIAL_ALU(size_reg))
+		size_reg = OP_SIZE_NATIVE;
+
+	gen_insn(INSN_CLAIM_RANGE, size_reg, 0, 0);
+	gen_one(target);
+	gen_one(ARG_IMM);
+	gen_eight(low);
+	gen_one(ARG_IMM);
+	gen_eight(high);
+
+	if (slot_is_register(ctx, slot)) {
+		if (unlikely(target != (uint8_t)ctx->registers[slot])) {
+			gen_insn(INSN_CLAIM_RANGE, size_reg, 0, 0);
+			gen_one(ctx->registers[slot]);
+			gen_one(ARG_IMM);
+			gen_eight(low);
+			gen_one(ARG_IMM);
+			gen_eight(high);
+		}
+		return true;
+	}
+
+	gen_insn(INSN_CLAIM_RANGE, size, 0, 0);
+	gen_one(ARG_ADDRESS_1);
+	gen_one(R_FRAME);
+	gen_eight((size_t)slot * slot_size);
+	gen_one(ARG_IMM);
+	gen_eight(low);
+	gen_one(ARG_IMM);
+	gen_eight(high);
+
+	return true;
+}

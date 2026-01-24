@@ -213,6 +213,7 @@ static uint64_t dump_seq = 0;
 
 enum {
 	INSN_LABEL,
+	INSN_CLAIM_RANGE,
 	INSN_NOP,
 	INSN_RET,
 	INSN_ARM_PUSH,
@@ -2426,6 +2427,16 @@ static bool attr_w cgen_label(struct codegen_context *ctx)
 	uint32_t label_id = cget_four(ctx);
 	ajla_assert_lo(ctx->label_to_pos[label_id] == (size_t)-1, (file_line, "cgen_label: label already defined"));
 	ctx->label_to_pos[label_id] = ctx->mcode_size;
+	return true;
+}
+
+static bool attr_w cgen_claim_range(struct codegen_context *ctx)
+{
+	uint8_t *arg1, *arg2, *arg3;
+	arg1 = ctx->code_position;
+	arg2 = arg1 + arg_size(*arg1);
+	arg3 = arg2 + arg_size(*arg2);
+	ctx->code_position = arg3 + arg_size(*arg3);
 	return true;
 }
 

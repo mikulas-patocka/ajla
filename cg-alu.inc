@@ -2344,7 +2344,8 @@ write_result:
 				gen_address_offset();
 				gen_imm_offset();
 
-				return true;
+				target = R_SCRATCH_1;
+				goto bsf_bsr_popcnt_claim;
 			}
 #endif
 			goto do_generic_bsf_bsr_popcnt;
@@ -2360,12 +2361,12 @@ write_result:
 			}
 			g(gen_2address_alu1(ctx, maximum(op_size, OP_SIZE_2), alu, target, reg1, 1));
 			if (mode == MODE_INT)
-				goto x86_bsf_bsr_popcnt_finish;
+				goto bsf_bsr_popcnt_finish;
 		} else {
 			g(gen_frame_load_op1(ctx, op_size, alu, 1, slot_1, target));
 		}
 		if (alu == ALU1_POPCNT)
-			goto x86_bsf_bsr_popcnt_finish;
+			goto bsf_bsr_popcnt_finish;
 		if (mode == MODE_FIXED) {
 			uint32_t cmov_label;
 			gen_insn(INSN_MOV, maximum(op_size, OP_SIZE_4), 0, 0);
@@ -2378,9 +2379,6 @@ write_result:
 				gen_label(cmov_label);
 
 		}
-x86_bsf_bsr_popcnt_finish:
-		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
-		return true;
 #endif
 #if defined(ARCH_ARM)
 #if defined(ARCH_ARM32)
@@ -2420,7 +2418,7 @@ x86_bsf_bsr_popcnt_finish:
 			}
 #endif
 			g(gen_frame_store(ctx, i_size(op_size), slot_r, 0, FR_SCRATCH_1));
-			return true;
+			goto bsf_bsr_popcnt_claim;
 		}
 
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
@@ -2462,8 +2460,7 @@ x86_bsf_bsr_popcnt_finish:
 #endif
 		}
 
-		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
-		return true;
+		goto bsf_bsr_popcnt_finish;
 #endif
 #if defined(ARCH_ALPHA)
 		if (likely(cpu_test_feature(CPU_FEATURE_cix))) {
@@ -2496,8 +2493,7 @@ x86_bsf_bsr_popcnt_finish:
 					g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_SUB, target, R_SCRATCH_3, target, 0));
 				}
 			}
-			g(gen_frame_store(ctx, op_size, slot_r, 0, target));
-			return true;
+			goto bsf_bsr_popcnt_finish;
 		}
 #endif
 #if defined(ARCH_MIPS)
@@ -2520,8 +2516,7 @@ x86_bsf_bsr_popcnt_finish:
 				g(gen_load_constant(ctx, R_SCRATCH_3, OP_SIZE_NATIVE == OP_SIZE_8 ? 63 : 31));
 				g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_SUB, target, R_SCRATCH_3, target, 0));
 			}
-			g(gen_frame_store(ctx, op_size, slot_r, 0, target));
-			return true;
+			goto bsf_bsr_popcnt_finish;
 		}
 #endif
 #if defined(ARCH_POWER)
@@ -2559,8 +2554,7 @@ x86_bsf_bsr_popcnt_finish:
 				g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_SUB, target, R_SCRATCH_3, target, 0));
 			}
 		}
-		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
-		return true;
+		goto bsf_bsr_popcnt_finish;
 #endif
 #if defined(ARCH_LOONGARCH64) || defined(ARCH_RISCV64)
 #if defined(ARCH_LOONGARCH64)
@@ -2603,8 +2597,7 @@ x86_bsf_bsr_popcnt_finish:
 				g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_SUB, target, R_SCRATCH_3, target, 0));
 			}
 		}
-		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
-		return true;
+		goto bsf_bsr_popcnt_finish;
 #endif
 #if defined(ARCH_IA64) || defined(ARCH_S390) || defined(ARCH_SPARC)
 		if (alu == ALU1_BSF && !ARCH_HAS_ANDN)
@@ -2628,9 +2621,8 @@ x86_bsf_bsr_popcnt_finish:
 			}
 		}
 		if (alu == ALU1_POPCNT) {
-			g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_POPCNT, R_SCRATCH_1, reg1, 0));
-			g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_1));
-			return true;
+			g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_POPCNT, target, reg1, 0));
+			goto bsf_bsr_popcnt_finish;
 		}
 		if (alu == ALU1_BSF) {
 			g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_SUB, target, reg1, 1, 0));
@@ -2666,8 +2658,7 @@ x86_bsf_bsr_popcnt_finish:
 #endif
 			}
 
-			g(gen_frame_store(ctx, op_size, slot_r, 0, target));
-			return true;
+			goto bsf_bsr_popcnt_finish;
 		}
 #endif
 do_generic_bsf_bsr_popcnt:
@@ -2689,6 +2680,17 @@ do_generic_bsf_bsr_popcnt:
 			else
 				return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, INT_unary_popcnt_int8_t), op_size, slot_1, NO_FRAME_T, slot_r, label_ovf);
 		}
+bsf_bsr_popcnt_finish:
+		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
+		goto bsf_bsr_popcnt_claim;
+bsf_bsr_popcnt_claim:
+		if (alu == ALU1_BSR && mode == MODE_INT)
+			g(gen_claim_range(ctx, minimum(op_size, OP_SIZE_NATIVE), slot_r, target, 0, (8U << op_size) - 2));
+		else if (alu == ALU1_BSF && mode == MODE_INT)
+			g(gen_claim_range(ctx, minimum(op_size, OP_SIZE_NATIVE), slot_r, target, 0, (8U << op_size) - 1));
+		else if (alu == ALU1_POPCNT)
+			g(gen_claim_range(ctx, minimum(op_size, OP_SIZE_NATIVE), slot_r, target, 0, 8U << op_size));
+		return true;
 	}
 	/**************
 	 * CONVERSION *
