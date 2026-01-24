@@ -1961,6 +1961,8 @@ fn generate_foreach_assumes_or_claims(ctx : function_context, a : int, inv : lis
 	if not len_greater_than(inv, 0) then
 		return ctx;
 
+	ctx.parsing_assume_claim += 1;
+
 	var l : int;
 	ctx, l := alloc_local_variable(ctx, T_Bool, true, false);
 
@@ -2017,12 +2019,17 @@ fn generate_foreach_assumes_or_claims(ctx : function_context, a : int, inv : lis
 	else
 		ctx := generate_Claim(ctx, l, false);
 
+	ctx.parsing_assume_claim -= 1;
+
 	return ctx;
 ]
 
 fn generate_array_len_check(ctx : function_context, a ai : int, op : int, t : tokens) : function_context
 [
 	var z : int;
+
+	ctx.parsing_assume_claim += 1;
+
 	ctx, z := generate_Load_Const(ctx, T_Integer, int_to_blob(0));
 	var ge : int;
 	ctx, ge := alloc_local_variable(ctx, T_Bool, true, false);
@@ -2040,6 +2047,8 @@ fn generate_array_len_check(ctx : function_context, a ai : int, op : int, t : to
 	ctx := generate_BinaryOp(ctx, Bin_And, ge, lt, l);
 
 	ctx := generate_Claim(ctx, l, false);
+
+	ctx.parsing_assume_claim -= 1;
 
 	return ctx;
 ]

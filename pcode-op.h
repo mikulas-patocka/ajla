@@ -106,6 +106,7 @@
 #define VarFlag_Must_Be_Flat		1
 #define VarFlag_Must_Be_Data		2
 #define VarFlag_Specialize		4
+#define VarFlag_NoGVN			8
 
 #define Flag_Free_Argument		1
 #define Flag_Evaluate			2

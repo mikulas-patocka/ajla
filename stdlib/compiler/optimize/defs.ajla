@@ -101,6 +101,7 @@ record variable [
 	local_type : int;
 	must_be_flat : bool;
 	must_be_data : bool;
+	nogvn : bool;
 	name : bytes;
 
 	//reading_instrs : instr_set;
@@ -127,6 +128,7 @@ fn new_variable : variable
 		local_type : -1,
 		must_be_flat : false,
 		must_be_data : false,
+		nogvn : false,
 		name : "",
 		writing_instrs : -1,
 		reaching_def : -1,

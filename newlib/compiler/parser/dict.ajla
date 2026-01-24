@@ -48,6 +48,7 @@ record local_variable [
 	local_type : int;
 	name : istring;
 	specialize : bool;
+	nogvn : bool;
 ]
 
 const defined_argument : int := 0;
@@ -299,6 +300,7 @@ fn new_variable(ctx : function_context, t def_at : int, mut : bool) : (function_
 		local_type : T_NoLocalType,
 		name : 0,
 		specialize : false,
+		nogvn : false,
 	];
 ]
 

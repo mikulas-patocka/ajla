@@ -781,8 +781,13 @@ fn gvn_recursive(ctx : context, bgi : int, vals : list(int)) : context
 
 		var value_list := list(pcode_t).[ ins.opcode, len(ins.params) ];
 		for i := 0 to len(ins.params) do [
-			if ins.write_set bt i then
+			if ins.write_set bt i then [
+				var vw := ins.params[i];
+				if ctx.variables[vw].nogvn then [
+					goto cont;
+				]
 				continue;
+			]
 			var v := ins.params[i];
 			if ins.free_set bt i + 1 then
 				v and= not Flag_Free_Argument;
@@ -824,6 +829,7 @@ fn gvn_recursive(ctx : context, bgi : int, vals : list(int)) : context
 				abort internal("variable was already remapped");
 			ctx.var_map[new_result] := prev_result;
 		]
+cont:
 	]
 
 	var is_idom_of := ctx.blocks[bgi].is_idom_of;
@@ -3024,7 +3030,10 @@ did_verify:
 		rpc +<= v.type_index;
 		rpc +<= v.runtime_type;
 		rpc +<= v.color;
-		rpc +<= select(v.must_be_flat, 0, VarFlag_Must_Be_Flat) or select(v.must_be_data, 0, VarFlag_Must_Be_Data) or select(specialized_vars bt i, 0, VarFlag_Specialize);
+		rpc +<= select(v.must_be_flat, 0, VarFlag_Must_Be_Flat) or
+			select(v.must_be_data, 0, VarFlag_Must_Be_Data) or
+			select(v.nogvn, 0, VarFlag_NoGVN) or
+			select(specialized_vars bt i, 0, VarFlag_Specialize);
 		rpc += blob_store(v.name);
 	]
 

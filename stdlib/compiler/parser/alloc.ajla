@@ -46,6 +46,8 @@ fn alloc_local_variable(ctx : function_context, typ : int, cnst mut : bool) : (f
 		defined := defined_multiple;
 
 	ctx, v := new_variable(ctx, typ, defined, mut);
+	if ctx.parsing_assume_claim <> 0 then
+		v.nogvn := true;
 
 	ctx.variables +<= v;
 
