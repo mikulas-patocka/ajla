@@ -74,7 +74,7 @@ static bool attr_w gen_3address_alu_imm(struct codegen_context *ctx, unsigned si
 	if (!ARCH_IS_3ADDRESS_IMM(alu, writes_flags) && dest != src) {
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src));
 
-		g(gen_imm(ctx, imm, purpose, i_size(OP_SIZE_ADDRESS)));
+		g(gen_imm(ctx, imm, purpose, size));
 		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(size, alu, false, is_imm(), ctx->const_imm) | writes_flags);
 		gen_one(dest);
 		gen_one(dest);
@@ -82,7 +82,7 @@ static bool attr_w gen_3address_alu_imm(struct codegen_context *ctx, unsigned si
 
 		return true;
 	}
-	g(gen_imm(ctx, imm, purpose, i_size(OP_SIZE_ADDRESS)));
+	g(gen_imm(ctx, imm, purpose, size));
 	gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(size, alu, false, is_imm(), ctx->const_imm) | writes_flags);
 	gen_one(dest);
 	gen_one(src);
