@@ -1391,6 +1391,7 @@ new_d2:
 			}
 		}
 
+#if defined(ARCH_ARM64) || defined(ARCH_X86)
 		if ((insn_opcode(d1->insn) == INSN_SET_COND || insn_opcode(d1->insn) == INSN_SET_COND_PARTIAL) &&
 		    (insn_opcode(d2->insn) == INSN_ALU || insn_opcode(d2->insn) == INSN_ALU_PARTIAL) && insn_aux(d2->insn) == ALU_XOR) {
 			uint8_t *d1w, *d2w, *d2r, *d2c;
@@ -1416,6 +1417,7 @@ new_d2:
 			goto retry;
 		}
 skip_setc_xor:
+#endif
 
 		k = j + 1;
 new_d3:
@@ -1426,6 +1428,7 @@ new_d3:
 			k++;
 			goto new_d3;
 		}
+#if defined(ARCH_X86)
 		if ((insn_opcode(d1->insn) == INSN_SET_COND || insn_opcode(d1->insn) == INSN_SET_COND_PARTIAL) &&
 		    insn_opcode(d2->insn) == INSN_CMP &&
 		    insn_opcode(d3->insn) == INSN_JMP_COND && (insn_aux(d3->insn) == COND_E || insn_aux(d3->insn) == COND_NE)) {
@@ -1450,10 +1453,13 @@ new_d3:
 			continue;
 		}
 skip_setc_cmp_jmp:
+#endif
 
-		if (false)
+		if (false) {
+			goto retry;
 retry:
 			i--;
+		}
 	}
 	return true;
 }
