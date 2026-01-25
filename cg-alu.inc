@@ -2418,6 +2418,7 @@ write_result:
 			}
 #endif
 			g(gen_frame_store(ctx, i_size(op_size), slot_r, 0, FR_SCRATCH_1));
+			target = FR_SCRATCH_1;
 			goto bsf_bsr_popcnt_claim;
 		}
 
