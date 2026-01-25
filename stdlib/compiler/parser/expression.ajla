@@ -476,9 +476,9 @@ fn list_array_get_index(ctx : function_context, vd : variable_dictionary, cc : c
 			ctx, ai := generate_Load_Const(ctx, T_Integer, int_to_blob(0));
 		] else [
 			// [ a, b, c ] -> ((c) * ib + b) * ia + a
-			for ii := 0 to n_idxs do [
-				var i := n_idxs - 1 - ii;
-				if i < n_idxs - 1 then [
+			// [ a, b, c ] -> ((a) * ib + b) * ic + c
+			for i := 0 to n_idxs do [
+				if i > 0 then [
 					index_expression := [ new_token(t2[0], token_opt.left_paren) ] + index_expression + [ new_token(t2[0], token_opt.right_paren) ];
 					index_expression[0].bracket_skip := len(index_expression) - 1;
 					index_expression[len(index_expression) - 1].bracket_skip := -(len(index_expression) - 1);

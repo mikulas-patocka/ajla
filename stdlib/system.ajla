@@ -3748,8 +3748,7 @@ fn array_index(dim : list(nat), idx : list(nat), prereq len(dim) = len(idx)) : n
 	]
 	var off := 0;
 	var l := len(dim);
-	for ii := 0 to l invariant off >= 0 do [
-		var i := l - 1 - ii;
+	for i := 0 to l invariant off >= 0 do [
 		if idx[i] < 0 then [
 			var r := exception_make(nat, ec_sync, error_negative_index, 0, true);
 			assume r >= 0;
