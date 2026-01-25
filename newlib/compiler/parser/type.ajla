@@ -1987,7 +1987,7 @@ fn generate_foreach_assumes_or_claims(ctx : function_context, a : int, inv : lis
 	ctx := generate_BinaryOp(ctx, Bin_And, ge, lt, l_pre);
 
 	var ai : int;
-	ctx, ai := generate_Array_Load(ctx, a, li, 0, t);
+	ctx, ai := generate_Array_Load(ctx, a, li, Flag_Evaluate, t);
 
 	var invs : int;
 	ctx, invs := generate_Load_Const(ctx, T_Bool, int_to_blob(1));
