@@ -1242,11 +1242,11 @@ static bool attr_w equality_analysis(struct codegen_context *ctx)
 {
 	struct equality eq, rng;
 	struct value value;
-	size_t i, j;
+	struct value *rp;
+	size_t i;
 	ctx->equalities_used = 0;
 	for (i = 0; i < ctx->basic_block_position; i++) {
 		struct insn_details *d = &ctx->basic_block[i];
-		struct insn_details *d2;
 		if (d->quash)
 			continue;
 		switch (insn_opcode(d->insn)) {
@@ -1332,17 +1332,17 @@ dont_quash_mov:
 				goto skip;
 			quash_equalities(ctx, d);
 			if (search_equalities(ctx, &eq)) {
-				j = i + 1;
-new_d2:
-				if (unlikely(!j) || unlikely(j >= ctx->basic_block_position))
-					continue;
-				d2 = &ctx->basic_block[j];
-				if (unlikely(d2->quash)) {
-					j++;
-					goto new_d2;
-				}
-				if (insn_opcode(d2->insn) == INSN_JMP_COND && insn_op_size(d2->insn) == insn_op_size(d->insn) && insn_aux(d2->insn) == COND_NE)
-					d2->quash = true;
+				rng.v1.tag = VALUE_TAG_FLAGS;
+				rng.v1.size = 0;
+				rng.v1.range_signed = false;
+				rng.v1.value = 0;
+				rng.v1.value_hi = 0;
+				rng.v2.tag = VALUE_TAG_RANGE;
+				rng.v2.size = 0;
+				rng.v2.range_signed = false;
+				rng.v2.value = (1ULL << COND_E) | (1ULL << COND_NE);
+				rng.v2.value_hi = 1ULL << COND_E;
+				g(insert_equality(ctx, &rng));
 			}
 			continue;
 		}
@@ -1351,7 +1351,6 @@ new_d2:
 			uint8_t *ps1 = pd + arg_size(*pd);
 			uint8_t *ps2 = ps1 + arg_size(*ps1);
 			if (insn_aux(d->insn) == ALU_XOR && *ps2 == ARG_IMM && oget_eight(ps2 + 1) == 1) {
-				struct value *rp;
 				if (!arg_to_val(d, pd, &eq.v1))
 					goto skip;
 				if (!arg_to_val(d, ps1, &eq.v2))
@@ -1383,6 +1382,24 @@ new_d2:
 			rng.v2.value_hi = 1;
 			quash_equalities(ctx, d);
 			g(insert_equality(ctx, &rng));
+			continue;
+		}
+		case INSN_JMP_COND:
+		case INSN_JMP_COND_LOGICAL: {
+			rng.v1.tag = VALUE_TAG_FLAGS;
+			rng.v1.size = 0;
+			rng.v1.range_signed = false;
+			rng.v1.value = 0;
+			rng.v1.value_hi = 0;
+			rp = find_range(ctx, &rng.v1);
+			if (rp) {
+				unsigned cond = insn_aux(d->insn);
+				if (rp->value & (1ULL << cond) && !(rp->value_hi & (1ULL << cond))) {
+					d->quash = true;
+					continue;
+				}
+			}
+			quash_equalities(ctx, d);
 			continue;
 		}
 		default: {
