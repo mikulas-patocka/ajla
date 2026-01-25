@@ -1142,7 +1142,7 @@ static bool is_in_range(struct codegen_context *ctx, struct value *reg, struct v
 	/*debug("is_in_range(%u) %x %x %x %lx-%lx - %x %x %x %lx-%lx", depth, reg->tag, reg->size, reg->range_signed, reg->value, reg->value_hi, range->tag, range->size, range->range_signed, range->value, range->value_hi);*/
 	for (i = 0; i < ctx->equalities_used; i++) {
 		struct equality *eq = &ctx->equalities[i];
-	/*	debug("testing equality %x %x %x %lx-%lx - %x %x %x %lx-%lx", eq->v1.tag, eq->v1.size, eq->v1.range_signed, eq->v1.value, eq->v1.value_hi, eq->v2.tag, eq->v2.size, eq->v2.range_signed, eq->v2.value, eq->v2.value_hi);*/
+		/*debug("testing equality %x %x %x %lx-%lx - %x %x %x %lx-%lx", eq->v1.tag, eq->v1.size, eq->v1.range_signed, eq->v1.value, eq->v1.value_hi, eq->v2.tag, eq->v2.size, eq->v2.range_signed, eq->v2.value, eq->v2.value_hi);*/
 		if (compare_values(&eq->v1, reg)) {
 			if (depth < 1 && eq->v2.tag == VALUE_TAG_REGISTER) {
 				if (is_in_range(ctx, &eq->v2, range, depth + 1))
@@ -1328,6 +1328,33 @@ dont_quash_mov:
 			uint8_t *ps2 = ps1 + arg_size(*ps1);
 			if (!arg_to_val(d, ps1, &eq.v1))
 				goto skip;
+			if (*ps2 == ARG_IMM) {
+				uint64_t val = oget_eight(ps2 + 1);
+				if (!val)
+					goto skip;
+				if (eq.v1.tag == VALUE_TAG_REGISTER)
+					eq.v1.size = op_size_to_size(OP_SIZE_NATIVE);
+				rng.v2.tag = VALUE_TAG_RANGE;
+				rng.v2.size = eq.v1.size;
+				rng.v2.range_signed = false;
+				rng.v2.value = 0;
+				rng.v2.value_hi = val - 1;
+				if (is_in_range(ctx, &eq.v1, &rng.v2, 0)) {
+					quash_equalities(ctx, d);
+					rng.v1.tag = VALUE_TAG_FLAGS;
+					rng.v1.size = 0;
+					rng.v1.range_signed = false;
+					rng.v1.value = 0;
+					rng.v1.value_hi = 0;
+					rng.v2.tag = VALUE_TAG_RANGE;
+					rng.v2.size = 0;
+					rng.v2.range_signed = false;
+					rng.v2.value = (1ULL << COND_B) | (1ULL << COND_AE);
+					rng.v2.value_hi = 1ULL << COND_B;
+					g(insert_equality(ctx, &rng));
+					continue;
+				}
+			}
 			if (!arg_to_val(d, ps2, &eq.v2))
 				goto skip;
 			quash_equalities(ctx, d);
