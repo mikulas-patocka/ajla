@@ -125,6 +125,7 @@ struct arg {
 
 static const struct arg args[] = {
 	{ "--compile",			ARG_SWITCH,	NULL,				&ipret_compile,		0, 0 },
+	{ "--compile-run",		ARG_SWITCH,	NULL,				&ipret_compile_run,	0, 0 },
 	{ "--debug",			ARG_SWITCH,	debug_all,			NULL,			0, 0 },
 	{ "--debug=",			ARG_STRING,	debug_select,			NULL,			0, 0 },
 	{ "--dump-",			ARG_STRING,	dump_select,			NULL,			0, 0 },

@@ -198,7 +198,9 @@ fn start : world
 		var w1 := preparse~spark(w, program);
 		var w2 := precompile~spark(w, main);
 		w := join(w1, w2);
-		return w;
+		if sysprop(SystemProperty_Compile) = 1 then
+			return w;
+		xeval w;
 	]
 
 	if sysprop(SystemProperty_Sandbox) <> 0 then [
