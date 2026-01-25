@@ -471,25 +471,6 @@ struct cg_exit {
 	uint32_t escape_label;
 };
 
-#define VALUE_TAG_NONE		0
-#define VALUE_TAG_REGISTER	1
-#define VALUE_TAG_FRAME		2
-#define VALUE_TAG_RANGE		3
-#define VALUE_TAG_FLAGS		4
-
-struct value {
-	uint8_t tag;
-	uint8_t size;
-	bool range_signed;
-	uint64_t value;
-	uint64_t value_hi;
-};
-
-struct equality {
-	struct value v1;
-	struct value v2;
-};
-
 #define FLAG_CACHE_IS_FLAT	0x01
 #define FLAG_CACHE_IS_NOT_FLAT	0x02
 #define FLAG_CACHE_IS_NOT_THUNK	0x04
