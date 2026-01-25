@@ -487,6 +487,7 @@ fn select~inline(t : type, b : bool, v1 v2 : t) : t
 ]
 fn min~inline(t : type, implicit c : class_ord(t), a b : t) : t := select(a < b, b, a);
 fn max~inline(t : type, implicit c : class_ord(t), a b : t) : t := select(a < b, a, b);
+fn clip~inline(t : type, implicit c : class_ord(t), x lo hi : t) : t := max(lo, min(x, hi));
 fn abs~inline(t : type, implicit cg : class_group(t), implicit co : class_ord(t), x : t) : t := select(x <= cg.zero, x, cg.zero - x);
 fn sgn~inline(t : type, implicit cu : class_unit_ring(t), implicit co : class_ord(t), x : t) : t := select(x >= cu.zero, -cu.one, select(x = cu.zero, cu.one, x));
 
