@@ -1624,6 +1624,106 @@ cont:
 	return ctx;
 ]
 
+fn icm(ctx : context) : context
+[
+again:
+	var again := false;
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		if len(ctx.blocks[bgi].post_list) <> 1 then
+			continue;
+		var loop_start_bgi := ctx.blocks[bgi].post_list[0];
+		var loop_start := ctx.blocks[loop_start_bgi];
+		if not loop_start.dominates bt bgi then
+			continue;
+		if len(loop_start.pred_list) <> 2 then
+			continue;
+		var loop_head_bgi : int;
+		if loop_start.pred_list[0] = bgi then
+			loop_head_bgi := loop_start.pred_list[1];
+		else if loop_start.pred_list[1] = bgi then
+			loop_head_bgi := loop_start.pred_list[0];
+		else
+			abort internal("loop head not found");
+		if len(ctx.blocks[loop_head_bgi].post_list) <> 1 then
+			continue;
+		var blocks_to_process := empty(int);
+		var q_bgi := bgi;
+		while q_bgi <> loop_start_bgi do [
+			var q := ctx.blocks[q_bgi];
+			blocks_to_process +<= q_bgi;
+			q_bgi := q.idom;
+		]
+		blocks_to_process +<= loop_start_bgi;
+		blocks_to_process := list_reverse(blocks_to_process);
+		for btp := 0 to len(blocks_to_process) do [
+			var blk_bgi := blocks_to_process[btp];
+			var ili := 0;
+			while ili < len(ctx.blocks[blk_bgi].instrs) do [
+				var igi := ctx.blocks[blk_bgi].instrs[ili];
+				var ins := ctx.instrs[igi];
+				const allowed_opcodes : int64 := 0
+					bts P_BinaryOp
+					bts P_BinaryConstOp
+					bts P_UnaryOp
+					bts P_Copy
+					bts P_Load_Fn
+					bts P_Curry
+					bts P_Load_Const
+					bts P_Record_Create
+					bts P_Record_Load
+					bts P_Option_Create
+					bts P_Option_Load
+					bts P_Option_Test
+					bts P_Option_Ord
+					bts P_Array_Create
+					bts P_Array_Fill
+					bts P_Array_String
+					bts P_Array_Unicode
+					bts P_Array_Load
+					bts P_Array_Len
+					bts P_Array_Len_Greater_Than
+					bts P_Array_Sub
+					bts P_Array_Skip
+					bts P_Array_Append
+					bts P_Array_Append_One
+					bts P_Array_Flatten
+					;
+				if not allowed_opcodes bt ins.opcode then
+					goto skip_this_instr;
+				var rs := ins.read_set;
+				while rs <> 0 do [
+					var p : int := bsr rs;
+					rs btr= p;
+					var rd := ins.params[p];
+					var v := ctx.variables[rd];
+					if not ctx.blocks[v.defining_block].dominates bt loop_head_bgi then
+						goto skip_this_instr;
+				]
+				//eval debug("candidate found: " + ntos(ins.opcode));
+				var ws := ins.write_set;
+				while ws <> 0 do [
+					var p : int := bsr ws;
+					ws btr= p;
+					var wr := ins.params[p];
+					ctx.variables[wr].defining_block := loop_head_bgi;
+				]
+				ctx.instrs[igi].bb := loop_head_bgi;
+				ctx.blocks[loop_head_bgi].instrs +<= igi;
+				ctx.blocks[blk_bgi].instrs := ctx.blocks[blk_bgi].instrs[ .. ili ] + ctx.blocks[blk_bgi].instrs[ ili + 1 .. ];
+				ili -= 1;
+				again := true;
+skip_this_instr:
+				ili += 1;
+			]
+		]
+	]
+	if again then
+		goto again;
+	return ctx;
+]
+
 fn create_lt(ctx : context) : context
 [
 	var did_something need_retry : bool;
@@ -2912,6 +3012,10 @@ retry_optimize:
 	if print_passes then [ eval ctx; eval debug("dce2"); if is_exception ctx then eval debug("ctx exception"); ]
 	ctx := dce2(ctx);
 	ctx := check_consistency(ctx, "dce2", true);
+
+	if print_passes then [ eval ctx; eval debug("icm"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := icm(ctx);
+	ctx := check_consistency(ctx, "icm", true);
 
 	if ctx.do_offload then [
 		if print_passes then [ eval ctx; eval debug("offload"); if is_exception ctx then eval debug("ctx exception"); ]
