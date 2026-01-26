@@ -378,7 +378,7 @@ address_0:
 		}
 		if (arg[0] >= ARG_ADDRESS_1_2 && arg[0] <= ARG_ADDRESS_1_8) {
 			if (unlikely(arg[1] == R_SP))
-				internal(file_line, "cgen_rm_insn: attemptint to scale SP");
+				internal(file_line, "cgen_rm_insn: attempting to scale SP");
 			if (arg[1] & 8)
 				rex2 |= X86_REX2_X3;
 			if (arg[1] & 16)
@@ -426,6 +426,10 @@ gen:
 							addr_size = 1;
 							mod = (mod & ~0xc0) | 0x40;
 						}
+					}
+					if (sib < 0 && rex2 & X86_REX2_B4) {
+						rex2 &= ~X86_REX2_B4;
+						rex2 |= X86_REX2_X3;
 					}
 				}
 				if (force_ndd && size == OP_SIZE_2)
