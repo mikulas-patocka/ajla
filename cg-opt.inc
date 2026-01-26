@@ -404,6 +404,29 @@ static unsigned arg_common(struct insn_details *d, uint8_t *ptr)
 	return 0;
 }
 
+static frame_t is_slot(struct codegen_context *ctx, uint8_t *ptr, unsigned size)
+{
+	if (unlikely(size > 1U << OP_SIZE_SLOT))
+		return 0;
+	if (ptr[0] == ARG_ADDRESS_1 && ptr[1] == R_FRAME) {
+		const struct type *type;
+		uint64_t off, slot;
+		off = oget_eight(ptr + 2);
+		if (unlikely(off & ((1U << OP_SIZE_SLOT) - 1)))
+			return 0;
+		slot = off >> OP_SIZE_SLOT;
+		if (unlikely(slot < ctx->min_slot) || unlikely(slot >= function_n_variables(ctx->fn)))
+			return 0;
+		type = da(ctx->fn,function)->local_variables[slot].type;
+		if (unlikely(!type))
+			return 0;
+		if (unlikely(type->size != size))
+			return 0;
+		return slot;
+	}
+	return 0;
+}
+
 static unsigned arg_read(struct codegen_context *ctx, struct insn_details *d, uint8_t *ptr, unsigned size)
 {
 	if (ptr[0] < ARG_REGS_MAX) {
@@ -415,13 +438,11 @@ static unsigned arg_read(struct codegen_context *ctx, struct insn_details *d, ui
 		return 1;
 	}
 	if (ptr[0] != ARG_IMM) {
-		if (ptr[0] == ARG_ADDRESS_1 && ptr[1] == R_FRAME) {
-			uint64_t slot = oget_eight(ptr + 2) >> OP_SIZE_SLOT;
-			if (size <= 1U << OP_SIZE_SLOT && slot >= ctx->min_slot && slot < function_n_variables(ctx->fn)) {
-				ajla_assert_lo(!d->rd_frame, (file_line, "arg_read: rd_frame is not zero"));
-				d->rd_frame = slot;
-				goto just_frame;
-			}
+		frame_t slot = is_slot(ctx, ptr, size);
+		if (slot) {
+			ajla_assert_lo(!d->rd_frame, (file_line, "arg_read: rd_frame is not zero"));
+			d->rd_frame = slot;
+			goto just_frame;
 		}
 		reg_map_set(&d->rd, R_MEMORY);
 just_frame:
@@ -441,12 +462,12 @@ static unsigned arg_write(struct codegen_context *ctx, struct insn_details *d, u
 		return 1;
 	}
 	if (ptr[0] == ARG_ADDRESS_1 && ptr[1] == R_FRAME && size <= 255) {
-		uint64_t slot;
+		frame_t slot;
 		d->write_frame.tag = VALUE_TAG_FRAME;
 		d->write_frame.size = size;
 		d->write_frame.value = oget_eight(ptr + 2);
-		slot = oget_eight(ptr + 2) >> OP_SIZE_SLOT;
-		if (size <= 1U << OP_SIZE_SLOT && slot >= ctx->min_slot && slot < function_n_variables(ctx->fn)) {
+		slot = is_slot(ctx, ptr, size);
+		if (slot) {
 			ajla_assert_lo(!d->wr_frame, (file_line, "arg_write: wr_frame is not zero"));
 			d->wr_frame = slot;
 			goto just_frame;
