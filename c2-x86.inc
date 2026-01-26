@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -427,10 +427,10 @@ gen:
 							mod = (mod & ~0xc0) | 0x40;
 						}
 					}
-					if (sib < 0 && rex2 & X86_REX2_B4) {
-						rex2 &= ~X86_REX2_B4;
-						rex2 |= X86_REX2_X3;
-					}
+				}
+				if (arg == &arg_reg && rex2 & X86_REX2_B4) {
+					rex2 &= ~X86_REX2_B4;
+					rex2 |= X86_REX2_X3;
 				}
 				if (force_ndd && size == OP_SIZE_2)
 					sse_prefix |= SSE_PREFIX_66;
