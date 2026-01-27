@@ -101,7 +101,7 @@
 #define ALPHA_DIVT_SU		0x5800b460U
 #define ALPHA_CVTQS		0x5be01780U
 #define ALPHA_CVTQT		0x5be017c0U
-#define ALPHA_CVTTQ_V		0x5be035e0U
+#define ALPHA_CVTTQ_VC		0x5be025e0U
 
 #define ALPHA_CPYS		0x5c000400U
 #define ALPHA_CPYSN		0x5c000420U
@@ -715,7 +715,7 @@ static bool attr_w cgen_fp_to_int64_trap(struct codegen_context *ctx)
 	ctx->code_position = arg2 + arg_size(*arg2);
 	trap_label = cget_four(ctx);
 
-	mc = ALPHA_CVTTQ_V;
+	mc = ALPHA_CVTTQ_VC;
 	g(cgen_fp_operate(ctx, mc, 0x31, arg2[0], arg1[0]));
 	g(cgen_trap(ctx, trap_label));
 	if (!cpu_test_feature(CPU_FEATURE_precise_trap))
