@@ -740,7 +740,7 @@ fn panel_process_event_key(implicit w : world, implicit app : appstate, implicit
 	return action.none;
 ]
 
-fn panel_process_event_mouse(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : panel_state, wev : wevent) : (world, appstate, widget_common, panel_state, action)
+novfy fn panel_process_event_mouse(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : panel_state, wev : wevent) : (world, appstate, widget_common, panel_state, action)
 [
 	var redraw_all := false;
 	var m := wev.mouse;
