@@ -165,10 +165,11 @@ static const uint8_t regs_saved[] = {
 #ifndef HAVE_BITWISE_FRAME
 	R_6, R_7,
 #endif
-	R_8, R_9,
+	R_8,
 #ifdef OMIT_R_UPCALL
 	R_10,
 #endif
+	R_9,
 	};
 #define n_regs_saved (cpu_test_feature(CPU_FEATURE_extended_imm) ? n_array_elements(regs_saved) : n_array_elements(regs_saved) - 1)
 static const uint8_t regs_volatile[] = { R_4 };
