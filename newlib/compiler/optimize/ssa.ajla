@@ -1592,7 +1592,7 @@ fn rematerialize(ctx : context) : context
 				var value_number := gvn_encode(value_list);
 				if consts[value_number] <> -1 then
 					continue;
-				consts[value_number] := igi;
+				consts[value_number] := ins.params[0];
 				consts_nonempty := true;
 				continue;
 			]
@@ -1610,10 +1610,8 @@ fn rematerialize(ctx : context) : context
 					var value_list := def_ins.params[1 .. ];
 					value_list +<= ctx.variables[def_ins.params[0]].runtime_type;
 					var value_number := gvn_encode(value_list);
-					if consts[value_number] <> -1 then [
-						var c_igi := consts[value_number];
-						ctx.instrs[igi].params[p] := ctx.instrs[c_igi].params[0];
-					]
+					if consts[value_number] <> -1 then
+						ctx.instrs[igi].params[p] := consts[value_number];
 				]
 			]
 		]
