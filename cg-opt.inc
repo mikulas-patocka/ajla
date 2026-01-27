@@ -439,8 +439,7 @@ static unsigned arg_read(struct codegen_context *ctx, struct insn_details *d, ui
 	}
 	if (ptr[0] != ARG_IMM) {
 		frame_t slot = is_slot(ctx, ptr, size);
-		if (slot) {
-			ajla_assert_lo(!d->rd_frame, (file_line, "arg_read: rd_frame is not zero"));
+		if (slot && !d->rd_frame) {
 			d->rd_frame = slot;
 			goto just_frame;
 		}
@@ -467,8 +466,7 @@ static unsigned arg_write(struct codegen_context *ctx, struct insn_details *d, u
 		d->write_frame.size = size;
 		d->write_frame.value = oget_eight(ptr + 2);
 		slot = is_slot(ctx, ptr, size);
-		if (slot) {
-			ajla_assert_lo(!d->wr_frame, (file_line, "arg_write: wr_frame is not zero"));
+		if (slot && !d->wr_frame) {
 			d->wr_frame = slot;
 			goto just_frame;
 		}
@@ -1490,7 +1488,7 @@ static bool attr_w live_register_analysis(struct codegen_context *ctx, reg_map l
 			d->quash = true;
 			continue;
 		}
-		if (d->wr_frame) {
+		if (d->wr_frame && !reg_map_is_set(d->wr, R_MEMORY)) {
 			if (!ctx->live_frame[d->wr_frame]) {
 				reg_map dwr = d->wr;
 				reg_map_clear(&dwr, R_MEMORY_FRAME);
@@ -1510,7 +1508,7 @@ static bool attr_w live_register_analysis(struct codegen_context *ctx, reg_map l
 			}
 			ctx->live_frame[d->wr_frame] = 0;
 		}
-		if (d->rd_frame) {
+		if (d->rd_frame && !reg_map_is_set(d->rd, R_MEMORY)) {
 			ctx->live_frame[d->rd_frame] = 1;
 		}
 		live_registers = reg_map_intersection(live_registers, reg_map_neg(d->wr));
