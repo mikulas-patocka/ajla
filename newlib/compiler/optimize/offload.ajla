@@ -688,12 +688,12 @@ fn process_binary_operator(ctx : context, ins : instruction) : bytes
 		output += "		result = ("+t+")i;"+nl;
 	] else if op = Un_NextNumber then [
 		if tx = T_Real16 then
-			output += "		goto exception;"+nl;
+			goto unsup_op;
 		else
 			output += "		result = nextafter("+op1_name+", ("+t+")HUGE_VALF);"+nl;
 	] else if op = Un_PrevNumber then [
 		if tx = T_Real16 then
-			output += "		goto exception;"+nl;
+			goto unsup_op;
 		else
 			output += "		result = nextafter("+op1_name+", -("+t+")HUGE_VALF);"+nl;
 	] else if op = Un_ConvertToInt then [
@@ -731,6 +731,7 @@ fn process_binary_operator(ctx : context, ins : instruction) : bytes
 			output += "			goto exception;"+nl;
 		]
 	] else [
+unsup_op:
 		eval warning(ctx.name + ": unsupported operator " + ntos(op));
 		return "";
 	]
