@@ -337,7 +337,7 @@ fn rescan_panels(implicit app : appstate) : appstate
 	widget_enqueue_event(widget_get_app(app), wevent.set_property.(event_set_property.[ prop : "rescan-panels", val : property.n ]));
 ]
 
-fn copy_process_event(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : copy_state, wev : wevent) : (world, appstate, widget_common, copy_state)
+novfy fn copy_process_event(implicit w : world, implicit app : appstate, implicit com : widget_common, implicit st : copy_state, wev : wevent) : (world, appstate, widget_common, copy_state)
 [
 	if wev is resize then [
 		com.x := 0;
