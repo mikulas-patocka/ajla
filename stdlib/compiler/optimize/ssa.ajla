@@ -1582,6 +1582,7 @@ fn rematerialize(ctx : context) : context
 		if not ctx.blocks[bgi].active then
 			continue;
 		var consts := infinite(-1);
+		var consts_nonempty := false;
 		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
 			var igi := ctx.blocks[bgi].instrs[ili];
 			var ins := ctx.instrs[igi];
@@ -1590,8 +1591,11 @@ fn rematerialize(ctx : context) : context
 				value_list +<= ctx.variables[ins.params[0]].runtime_type;
 				var value_number := gvn_encode(value_list);
 				consts[value_number] := igi;
+				consts_nonempty := true;
 				continue;
 			]
+			if not consts_nonempty then
+				continue;
 			var rs := ins.read_set;
 			while rs <> 0 do [
 				var p : int := bsr rs;
