@@ -420,7 +420,7 @@ static size_t arg_size(const uint8_t arg)
 	return 0;
 }
 
-static bool arg_equal(const uint8_t *arg1, const uint8_t *arg2)
+static bool attr_unused arg_equal(const uint8_t *arg1, const uint8_t *arg2)
 {
 	size_t l1 = arg_size(*arg1);
 	size_t l2 = arg_size(*arg2);
