@@ -2681,6 +2681,8 @@ do_generic_bsf_bsr_popcnt:
 			else
 				return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, INT_unary_popcnt_int8_t), op_size, slot_1, NO_FRAME_T, slot_r, label_ovf);
 		}
+		return false;	/* this shouldn't be reached */
+		goto bsf_bsr_popcnt_finish;
 bsf_bsr_popcnt_finish:
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		goto bsf_bsr_popcnt_claim;
