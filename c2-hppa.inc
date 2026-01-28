@@ -148,14 +148,14 @@
 #define  PARISC_FLDST_IMM5		0x00001000U
 #define  PARISC_FLDST_SCALE		0x00002000U
 #define PARISC_FCMP		0x30000400U
-#define  PARISC_FCMP_P			0x02U
+#define  PARISC_FCMP_NP			0x02U
 #define  PARISC_FCMP_NE			0x04U
 #define  PARISC_FCMP_AE			0x08U
 #define  PARISC_FCMP_A			0x0cU
 #define  PARISC_FCMP_BE			0x10U
 #define  PARISC_FCMP_B			0x14U
 #define  PARISC_FCMP_E			0x18U
-#define  PARISC_FCMP_NP			0x1cU
+#define  PARISC_FCMP_P			0x1cU
 #define PARISC_FADD		0x30000600U
 #define PARISC_FTEST		0x30002420U
 #define PARISC_FSUB		0x30002600U
@@ -1171,7 +1171,7 @@ static bool attr_w cgen_fp_cmp_cond(struct codegen_context *ctx, unsigned op_siz
 	mc = PARISC_FCMP;
 	if (op_size == OP_SIZE_8)
 		mc |= PARISC_FP_DOUBLE;
-	g(cgen_3reg(ctx, mc, arg1[0] & 0x1f, arg2[0] & 0x1f, cond));
+	g(cgen_3reg(ctx, mc, arg2[0] & 0x1f, arg1[0] & 0x1f, cond));
 	return true;
 }
 
@@ -1181,13 +1181,13 @@ static bool attr_w cgen_fp_test_reg(struct codegen_context *ctx)
 	uint32_t mc;
 
 	mc = PARISC_LDO;
-	mc |= low_sign_ext_14(1);
+	mc |= low_sign_ext_14(0);
 	g(cgen_2reg(ctx, mc, R_ZERO, reg));
 
 	cgen_four(PARISC_FTEST);
 
 	mc = PARISC_LDO;
-	mc |= low_sign_ext_14(0);
+	mc |= low_sign_ext_14(1);
 	g(cgen_2reg(ctx, mc, R_ZERO, reg));
 
 	return true;
