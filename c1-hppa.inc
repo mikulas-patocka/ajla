@@ -200,7 +200,7 @@
 
 static bool reg_is_fp(unsigned reg)
 {
-	return reg >= R_FSTATUS && reg < R_F31;
+	return reg >= R_FSTATUS && reg <= R_F31;
 }
 
 static const uint8_t regs_saved[] = {

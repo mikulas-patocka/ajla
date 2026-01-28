@@ -537,12 +537,6 @@ static bool attr_w cgen_mov_args(struct codegen_context *ctx, unsigned size, uin
 		return cgen_ld_st(ctx, false, size, R_ZERO, arg1);
 	}
 
-	if (reg_is_fp(arg1[0])) {
-		return cgen_fp_ld_st(ctx, true, size, arg1[0], arg2);
-	}
-	if (reg_is_fp(arg2[0])) {
-		return cgen_fp_ld_st(ctx, false, size, arg2[0], arg1);
-	}
 	if (reg_is_fp(arg1[0]) && reg_is_fp(arg2[0])) {
 		mc = PARISC_FCPY;
 		switch (size) {
@@ -552,6 +546,12 @@ static bool attr_w cgen_mov_args(struct codegen_context *ctx, unsigned size, uin
 		}
 		g(cgen_3reg(ctx, mc, 0, arg2[0] & 0x1f, arg1[0] & 0x1f));
 		return true;
+	}
+	if (reg_is_fp(arg1[0])) {
+		return cgen_fp_ld_st(ctx, true, size, arg1[0], arg2);
+	}
+	if (reg_is_fp(arg2[0])) {
+		return cgen_fp_ld_st(ctx, false, size, arg2[0], arg1);
 	}
 
 invalid:
