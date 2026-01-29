@@ -1007,7 +1007,11 @@ struct data_codegen {
 };
 #endif
 
+#ifdef HAVE_CODEGEN
 #define checkpoint_num_offset	(offsetof(struct data, u_.codegen.unoptimized_code) - sizeof(char *))
+#else
+#define checkpoint_num_offset	0
+#endif
 
 union internal_arg {
 	void *ptr;
