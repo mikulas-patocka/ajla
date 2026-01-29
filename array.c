@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -21,6 +21,7 @@
 #ifndef FILE_OMIT
 
 #include "data.h"
+#include "ipfn.h"
 
 #include "array.h"
 
@@ -1967,6 +1968,7 @@ pointer_t array_create(array_index_t length, const struct type *flat_type, const
 	struct data *array;
 	unsigned char *flat_ptr;
 	ajla_error_t err, *err_ptr;
+	int_default_t warn = -1;
 
 try_again:
 	est = estimate_length(length);
@@ -1989,8 +1991,11 @@ oom:
 		bool cnst = data_element_is_const(flat, flat_type->size);
 		bool clear = cnst && !flat[0];
 		array = data_alloc_array_flat_mayfail(flat_type, est, est, clear, err_ptr pass_file_line);
-		if (unlikely(!array))
+		if (unlikely(!array)) {
+			if (warn == -1)
+				warn = est;
 			goto oom;
+		}
 		if (!clear) {
 			flat_ptr = da_array_flat(array);
 			element_size = flat_type->size;
@@ -2010,8 +2015,11 @@ oom:
 		}
 	} else {
 		array = data_alloc_array_pointers_mayfail(est, est, err_ptr pass_file_line);
-		if (unlikely(!array))
+		if (unlikely(!array)) {
+			if (warn == -1)
+				warn = est;
 			goto oom;
+		}
 		pointer_reference_owned_multiple(ptr, est);
 		for (i = 0; i < est; i++) {
 			da(array,array_pointers)->pointer[i] = ptr;
@@ -2033,6 +2041,16 @@ oom:
 	index_sub_int(&length, est);
 	if (unlikely(index_ge_int(length, 1)))
 		goto try_again;
+
+	if (unlikely(warn != -1) && ipret_warnings) {
+		size_t s = flat_type ? flat_type->size : sizeof(pointer_t);
+		size_t pfx = flat_type ? data_array_offset : offsetof(struct data, u_.array_pointers.pointer_array);
+		if (!mem_check_overflow(pfx, (size_t)warn, s, &err)) {
+			warning("overflow when attempting to allocate %s array with %"PRIuMAX" elements (element size %u), falling back to b+tree", flat_type ? "flat" : "pointer", (uintmax_t)warn, (unsigned)s);
+		} else {
+			warning("couldn't allocate %s array with %"PRIuMAX" bytes (element size %u), falling back to b+tree", flat_type ? "flat" : "pointer", (uintmax_t)pfx + (uintmax_t)warn * s, (unsigned)s);
+		}
+	}
 
 ret_result:
 	if (!pointer_is_empty(ptr))
