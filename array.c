@@ -740,7 +740,7 @@ static struct data *alloc_one_ptr(pointer_t target, ajla_error_t *err)
 	return pointer;
 }
 
-static bool leaf_prepend_ptr(struct walk_context *w, array_index_t existing_size, pointer_t ptr, pointer_t **result_ptr, ajla_error_t *err)
+static int leaf_prepend_ptr(struct walk_context *w, array_index_t existing_size, pointer_t ptr, pointer_t **result_ptr, ajla_error_t *err)
 {
 	struct btree_level *split;
 	array_index_t prev_idx;
@@ -763,27 +763,27 @@ static bool leaf_prepend_ptr(struct walk_context *w, array_index_t existing_size
 				new_size = SCALAR_SPLIT_SIZE;
 			sibling = array_clone_pointers(sibling_pointer, (int_default_t)new_size, err);
 			if (unlikely(!sibling))
-				return false;
+				return 0;
 		}
 		sibling = get_writable(sibling_pointer, err);
 		if (unlikely(!sibling))
-			return false;
+			return 0;
 		da(sibling,array_pointers)->pointer[da(sibling,array_pointers)->n_used_entries] = ptr;
 		*result_ptr = &da(sibling,array_pointers)->pointer[da(sibling,array_pointers)->n_used_entries];
 		da(sibling,array_pointers)->n_used_entries++;
 		index_add_int(&get_struct(sibling_pointer, struct btree_level, node)->end_index, 1);
-		return true;
+		return 1;
 	}
 
 expand:
 	sibling = alloc_one_ptr(ptr, err);
 	if (unlikely(!sibling))
-		return false;
+		return 0;
 	*result_ptr = &da(sibling,array_pointers)->pointer[0];
 	split = expand_parent(w, 2, &prev_idx, err);
 	if (unlikely(!split)) {
 		data_free_r1(sibling);
-		return false;
+		return 0;
 	}
 	index_copy(&split[0].end_index, prev_idx);
 	index_add_int(&split[0].end_index, 1);
@@ -791,7 +791,7 @@ expand:
 	split[1].end_index = prev_idx;
 	index_add(&split[1].end_index, existing_size);
 	split[1].node = orig;
-	return true;
+	return 2;
 }
 
 static bool leaf_append_ptr(struct walk_context *w, array_index_t existing_size, pointer_t ptr, pointer_t **result_ptr, ajla_error_t *err)
@@ -973,14 +973,57 @@ static bool flat_to_ptr(struct walk_context *w, pointer_t **result_ptr, ajla_err
 		return true;
 	} else if (!index_to_int(w->idx)) {
 		array_index_t existing_size;
-		bool ret;
+		int ret;
 		index_from_int(&existing_size, da(array,array_flat)->n_used_entries);
 		ret = leaf_prepend_ptr(w, existing_size, ptr, result_ptr, err);
 		index_free(&existing_size);
 		if (unlikely(!ret))
 			goto ret_err;
-		memmove(da_array_flat(array), da_array_flat(array) + da_array_flat_element_size(array), (da(array,array_flat)->n_used_entries - 1) * da_array_flat_element_size(array));
-		da(array,array_flat)->n_used_entries--;
+		/*debug("moving: %lx", (long)(da(array,array_flat)->n_used_entries - 1));*/
+		if (ret == 1 && da(array,array_flat)->n_used_entries >= SCALAR_SPLIT_SIZE) {
+			struct btree_level *split;
+			struct data *a1, *a2;
+			array_index_t x, prev_idx;
+			int_default_t full = da(array,array_flat)->n_used_entries;
+			int_default_t half = full >> 1;
+alloc_less:
+			a1 = data_alloc_array_flat_mayfail(da(array,array_flat)->type, half, half, false, err pass_file_line);
+			if (unlikely(!a1)) {
+				if (half > 1) {
+					half >>= 1;
+					goto alloc_less;
+				}
+				goto inefficient_copy;
+			}
+			split = expand_parent(w, 2, &prev_idx, err);
+			if (unlikely(!split)) {
+				data_free_r1(a1);
+				goto inefficient_copy;
+			}
+			memcpy(da_array_flat(a1), da_array_flat(array) + da_array_flat_element_size(array), half * da_array_flat_element_size(array));
+			a2 = data_alloc_array_flat_mayfail(da(array,array_flat)->type, full - half - 1, full - half - 1, false, err pass_file_line);
+			if (a2) {
+				memcpy(da_array_flat(a2), da_array_flat(array) + (half + 1) * da_array_flat_element_size(array), (full - half - 1) * da_array_flat_element_size(array));
+				data_free_r1(array);
+				array = a2;
+			} else {
+				memmove(da_array_flat(array), da_array_flat(array) + (half + 1) * da_array_flat_element_size(array), (full - half - 1) * da_array_flat_element_size(array));
+				da(array,array_flat)->n_used_entries = full - half - 1;
+			}
+			split[0].node = pointer_data(a1);
+			index_from_int(&x, half);
+			index_add3(&split[0].end_index, prev_idx, x);
+			index_free(&x);
+			split[1].node = pointer_data(array);
+			index_from_int(&x, full - 1);
+			index_add3(&split[1].end_index, prev_idx, x);
+			index_free(&x);
+			index_free(&prev_idx);
+		} else {
+inefficient_copy:
+			da(array,array_flat)->n_used_entries--;
+			memmove(da_array_flat(array), da_array_flat(array) + da_array_flat_element_size(array), da(array,array_flat)->n_used_entries * da_array_flat_element_size(array));
+		}
 		return true;
 	} else if (index_to_int(w->idx) == da(array,array_flat)->n_used_entries - 1) {
 		array_index_t existing_size;
@@ -1325,7 +1368,7 @@ static bool same_to_ptr(struct walk_context *w, pointer_t **result_ptr, ajla_err
 		try_join_both_siblings_ptr(w, result_ptr);
 		return true;
 	} else if (!index_ge_int(w->idx, 1)) {
-		bool ret;
+		int ret;
 		ret = leaf_prepend_ptr(w, da(array,array_same)->n_entries, ptr, result_ptr, err);
 		if (unlikely(!ret))
 			goto ret_err;
