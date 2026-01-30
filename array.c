@@ -980,7 +980,7 @@ static bool flat_to_ptr(struct walk_context *w, pointer_t **result_ptr, ajla_err
 		if (unlikely(!ret))
 			goto ret_err;
 		/*debug("moving: %lx", (long)(da(array,array_flat)->n_used_entries - 1));*/
-		if (ret == 1 && da(array,array_flat)->n_used_entries >= SCALAR_SPLIT_SIZE) {
+		if (ret == 1 && da(array,array_flat)->n_used_entries > SCALAR_SPLIT_SIZE) {
 			struct btree_level *split;
 			struct data *a1, *a2;
 			array_index_t x, prev_idx;
