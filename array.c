@@ -956,7 +956,7 @@ static void try_join_both_siblings_ptr(struct walk_context *w, pointer_t **resul
 
 static bool flat_to_ptr(struct walk_context *w, pointer_t **result_ptr, ajla_error_t *err)
 {
-	struct data *array, *right, *single;
+	struct data *array, *left, *right, *single;
 	pointer_t ptr;
 
 	array = pointer_get_data(*w->ptr);
@@ -1038,12 +1038,17 @@ inefficient_copy:
 	} else {
 		struct btree_level *split;
 		array_index_t prev_idx;
-		int_default_t n_allocated = da(array,array_flat)->n_used_entries - 1 - index_to_int(w->idx);
+		int_default_t n_total = da(array,array_flat)->n_used_entries;
+		int_default_t n_allocated = n_total - 1 - index_to_int(w->idx);
 
-		right = data_alloc_array_flat_mayfail(da(array,array_flat)->type, n_allocated, da(array,array_flat)->n_used_entries - 1 - index_to_int(w->idx), false, err pass_file_line);
-		if (unlikely(!right))
+		left = data_alloc_array_flat_mayfail(da(array,array_flat)->type, index_to_int(w->idx), index_to_int(w->idx), false, err pass_file_line);
+		if (unlikely(!left))
 			goto ret_err;
-		memcpy(da_array_flat(right), da_array_flat(array) + (index_to_int(w->idx) + 1) * da_array_flat_element_size(array), da(right,array_flat)->n_used_entries * da_array_flat_element_size(array));
+		memcpy(da_array_flat(left), da_array_flat(array), index_to_int(w->idx) * da_array_flat_element_size(array));
+		right = data_alloc_array_flat_mayfail(da(array,array_flat)->type, n_allocated, n_allocated, false, err pass_file_line);
+		if (unlikely(!right))
+			goto free_left_ret_err;
+		memcpy(da_array_flat(right), da_array_flat(array) + (index_to_int(w->idx) + 1) * da_array_flat_element_size(array), n_allocated * da_array_flat_element_size(array));
 
 		single = alloc_one_ptr(ptr, err);
 		if (unlikely(!single))
@@ -1052,26 +1057,28 @@ inefficient_copy:
 
 		split = expand_parent(w, 3, &prev_idx, err);
 		if (unlikely(!split))
-			goto free_single_right_ret_err;
+			goto free_single_ret_err;
 
-		split[0].node = pointer_data(array);
+		data_free_r1(array);
+
+		split[0].node = pointer_data(left);
 		index_add3(&split[0].end_index, prev_idx, w->idx);
 		split[1].node = pointer_data(single);
 		index_add3(&split[1].end_index, prev_idx, w->idx);
 		index_add_int(&split[1].end_index, 1);
 		split[2].node = pointer_data(right);
 		split[2].end_index = prev_idx;
-		index_add_int(&split[2].end_index, da(array,array_flat)->n_used_entries);
-
-		da(array,array_flat)->n_used_entries = index_to_int(w->idx);
+		index_add_int(&split[2].end_index, n_total);
 
 		return true;
 	}
 
-free_single_right_ret_err:
+free_single_ret_err:
 	data_free_r1(single);
 free_right_ret_err:
 	data_free_r1(right);
+free_left_ret_err:
+	data_free_r1(left);
 ret_err:
 	pointer_dereference(ptr);
 	return false;
