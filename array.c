@@ -479,14 +479,15 @@ static struct btree_level *expand_parent(struct walk_context *w, btree_entries_t
 {
 	struct btree_level *ret;
 	if (unlikely(!w->upper_level)) {
+		size_t n_allocated = n + BTREE_MAX_NODE_EXPAND;
 		struct data *root;
 		index_from_int(prev_idx, 0);
-		w->upper_level = root = data_alloc_flexible(array_btree, btree, n + BTREE_MAX_NODE_EXPAND, err);
+		w->upper_level = root = data_alloc_flexible(array_btree, btree, n_allocated, err);
 		if (unlikely(!root)) {
 			index_free(prev_idx);
 			return NULL;
 		}
-		da(root,array_btree)->n_allocated_btree_entries = n + BTREE_MAX_NODE_EXPAND;
+		da(root,array_btree)->n_allocated_btree_entries = n_allocated;
 		da(root,array_btree)->n_used_btree_entries = n;
 		da(root,array_btree)->depth = da_array_depth(pointer_get_data(*w->root)) + 1;
 		*w->root = pointer_data(root);
@@ -696,19 +697,18 @@ static bool walk_for_write(struct walk_context *w, ajla_error_t *err)
 
 	array = pointer_get_data(*w->ptr);
 
-	if (unlikely(da(array,array_btree)->n_allocated_btree_entries - da(array,array_btree)->n_used_btree_entries < BTREE_MAX_NODE_EXPAND)) {
-		array = get_writable(w->ptr, err);
-		if (unlikely(!array))
-			return false;
-		array = expand_btree_node(w, err);
-		if (unlikely(!array))
-			return false;
-	}
 	if (w->upper_level && unlikely(da(array,array_btree)->n_used_btree_entries < BTREE_MIN_SIZE + BTREE_MAX_NODE_COLLAPSE)) {
 		array = get_writable(w->ptr, err);
 		if (unlikely(!array))
 			return false;
 		array = rebalance_btree_nodes(w, err);
+		if (unlikely(!array))
+			return false;
+	} else if (unlikely(da(array,array_btree)->n_allocated_btree_entries - da(array,array_btree)->n_used_btree_entries < BTREE_MAX_NODE_EXPAND)) {
+		array = get_writable(w->ptr, err);
+		if (unlikely(!array))
+			return false;
+		array = expand_btree_node(w, err);
 		if (unlikely(!array))
 			return false;
 	}
