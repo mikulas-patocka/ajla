@@ -37,7 +37,7 @@
 #define array_from_flat_mem		name(array_from_flat_mem)
 
 
-#define BTREE_MAX_NODE_EXPAND	2
+#define BTREE_MAX_NODE_EXPAND	4
 #define BTREE_MAX_NODE_COLLAPSE	2
 #define BTREE_MIN_SIZE		((BTREE_MAX_SIZE - BTREE_MAX_NODE_EXPAND) / 2 - BTREE_MAX_NODE_COLLAPSE)
 #define SCALAR_SPLIT_SIZE	minimum(BTREE_MAX_SIZE, signed_maximum(int_default_t))

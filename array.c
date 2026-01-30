@@ -956,7 +956,7 @@ static void try_join_both_siblings_ptr(struct walk_context *w, pointer_t **resul
 
 static bool flat_to_ptr(struct walk_context *w, pointer_t **result_ptr, ajla_error_t *err)
 {
-	struct data *array, *left, *right, *single;
+	struct data *array, *single;
 	pointer_t ptr;
 
 	array = pointer_get_data(*w->ptr);
@@ -1038,47 +1038,89 @@ inefficient_copy:
 	} else {
 		struct btree_level *split;
 		array_index_t prev_idx;
-		int_default_t n_total = da(array,array_flat)->n_used_entries;
-		int_default_t n_allocated = n_total - 1 - index_to_int(w->idx);
+		struct data *a;
+		struct data *arrays[5];
+		unsigned arrays_used = 0;
+		unsigned i;
+		int_default_t offset = 0;
+		int_default_t remaining;
+		if (index_to_int(w->idx) <= SCALAR_SPLIT_SIZE) {
+			a = data_alloc_array_flat_mayfail(da(array,array_flat)->type, index_to_int(w->idx), index_to_int(w->idx), false, err pass_file_line);
+			if (unlikely(!a))
+				goto cleanup;
+			memcpy(da_array_flat(a), da_array_flat(array) + offset * da_array_flat_element_size(array), index_to_int(w->idx) * da_array_flat_element_size(array));
+			offset += index_to_int(w->idx);
+			arrays[arrays_used++] = a;
+		} else {
+			int_default_t half = index_to_int(w->idx) >> 1;
+			a = data_alloc_array_flat_mayfail(da(array,array_flat)->type, half, half, false, err pass_file_line);
+			if (unlikely(!a))
+				goto cleanup;
+			memcpy(da_array_flat(a), da_array_flat(array) + offset * da_array_flat_element_size(array), half * da_array_flat_element_size(array));
+			offset += half;
+			arrays[arrays_used++] = a;
+			half = index_to_int(w->idx) - half;
+			a = data_alloc_array_flat_mayfail(da(array,array_flat)->type, half, half, false, err pass_file_line);
+			if (unlikely(!a))
+				goto cleanup;
+			memcpy(da_array_flat(a), da_array_flat(array) + offset * da_array_flat_element_size(array), half * da_array_flat_element_size(array));
+			offset += half;
+			arrays[arrays_used++] = a;
+		}
+		a = alloc_one_ptr(ptr, err);
+		if (unlikely(!a))
+			goto cleanup;
+		*result_ptr = &da(a,array_pointers)->pointer[0];
+		offset += 1;
+		arrays[arrays_used++] = a;
+		remaining = da(array,array_flat)->n_used_entries - offset;
+		if (remaining <= SCALAR_SPLIT_SIZE) {
+			a = data_alloc_array_flat_mayfail(da(array,array_flat)->type, remaining, remaining, false, err pass_file_line);
+			if (unlikely(!a))
+				goto cleanup;
+			memcpy(da_array_flat(a), da_array_flat(array) + offset * da_array_flat_element_size(array), remaining * da_array_flat_element_size(array));
+			offset += remaining;
+			arrays[arrays_used++] = a;
+		} else {
+			int_default_t half = remaining >> 1;
+			a = data_alloc_array_flat_mayfail(da(array,array_flat)->type, half, half, false, err pass_file_line);
+			if (unlikely(!a))
+				goto cleanup;
+			memcpy(da_array_flat(a), da_array_flat(array) + offset * da_array_flat_element_size(array), half * da_array_flat_element_size(array));
+			offset += half;
+			arrays[arrays_used++] = a;
+			half = remaining - half;
+			a = data_alloc_array_flat_mayfail(da(array,array_flat)->type, half, half, false, err pass_file_line);
+			if (unlikely(!a))
+				goto cleanup;
+			memcpy(da_array_flat(a), da_array_flat(array) + offset * da_array_flat_element_size(array), half * da_array_flat_element_size(array));
+			offset += half;
+			arrays[arrays_used++] = a;
+		}
+		ajla_assert_lo(offset == da(array,array_flat)->n_used_entries, (file_line, "flat_to_ptr: array was not fully processed: %"PRIdMAX" != %"PRIdMAX"", (intmax_t)offset, (intmax_t)da(array,array_flat)->n_used_entries));
 
-		left = data_alloc_array_flat_mayfail(da(array,array_flat)->type, index_to_int(w->idx), index_to_int(w->idx), false, err pass_file_line);
-		if (unlikely(!left))
-			goto ret_err;
-		memcpy(da_array_flat(left), da_array_flat(array), index_to_int(w->idx) * da_array_flat_element_size(array));
-		right = data_alloc_array_flat_mayfail(da(array,array_flat)->type, n_allocated, n_allocated, false, err pass_file_line);
-		if (unlikely(!right))
-			goto free_left_ret_err;
-		memcpy(da_array_flat(right), da_array_flat(array) + (index_to_int(w->idx) + 1) * da_array_flat_element_size(array), n_allocated * da_array_flat_element_size(array));
-
-		single = alloc_one_ptr(ptr, err);
-		if (unlikely(!single))
-			goto free_right_ret_err;
-		*result_ptr = &da(single,array_pointers)->pointer[0];
-
-		split = expand_parent(w, 3, &prev_idx, err);
+		split = expand_parent(w, arrays_used, &prev_idx, err);
 		if (unlikely(!split))
-			goto free_single_ret_err;
+			goto cleanup;
 
 		data_free_r1(array);
 
-		split[0].node = pointer_data(left);
-		index_add3(&split[0].end_index, prev_idx, w->idx);
-		split[1].node = pointer_data(single);
-		index_add3(&split[1].end_index, prev_idx, w->idx);
-		index_add_int(&split[1].end_index, 1);
-		split[2].node = pointer_data(right);
-		split[2].end_index = prev_idx;
-		index_add_int(&split[2].end_index, n_total);
+		for (i = 0; i < arrays_used; i++) {
+			array_index_t len;
+			split[i].node = pointer_data(arrays[i]);
+			len = array_len(arrays[i]);
+			index_add(&prev_idx, len);
+			index_free(&len);
+			index_copy(&split[i].end_index, prev_idx);
+		}
+		index_free(&prev_idx);
 
 		return true;
+cleanup:
+		for (i = 0; i < arrays_used; i++)
+			data_free_r1(arrays[i]);
 	}
 
-free_single_ret_err:
-	data_free_r1(single);
-free_right_ret_err:
-	data_free_r1(right);
-free_left_ret_err:
-	data_free_r1(left);
 ret_err:
 	pointer_dereference(ptr);
 	return false;

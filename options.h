@@ -461,9 +461,9 @@ typedef frame_t ajla_option_t;	/* some code casts ajla_option_t to frame_t */
 #define STACK_INITIAL_SIZE		1
 #endif
 
-/* valid values: 16 - 128 */
+/* valid values: 18 - 128 */
 #if !defined(UNUSUAL)
-#define BTREE_MAX_SIZE			16
+#define BTREE_MAX_SIZE			18
 #else
 #define BTREE_MAX_SIZE			128
 #endif
