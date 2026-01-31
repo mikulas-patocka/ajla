@@ -156,16 +156,8 @@ static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *vari
 			for (j = 0; j < n_vars; j++) {
 				frame_t v = ctx->var_aux[j];
 				unsigned reg;
-				arg_t ia;
 				uint32_t skip_label = 0;	/* avoid warning */
-				bool is_arg = false;
-				for (ia = 0; ia < da(ctx->fn,function)->n_arguments; ia++) {
-					const struct local_arg *arg = da(ctx->fn,function)->args + ia;
-					if (arg->slot == v) {
-						is_arg = true;
-						break;
-					}
-				}
+				bool is_arg = da(ctx->fn,function)->local_variables_flags[v].is_argument;
 				if (is_arg) {
 					skip_label = alloc_label(ctx);
 					if (unlikely(!skip_label))

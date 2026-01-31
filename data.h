@@ -898,6 +898,7 @@ struct local_variable_flags {
 	bool may_be_borrowed;
 	bool must_be_flat;
 	unsigned char must_be_data;	/* 0 - not, 1 - non-thunk, 2 - array_flat, 3 - array_flat with refcount 1 */
+	bool is_argument;
 };
 
 struct local_arg {

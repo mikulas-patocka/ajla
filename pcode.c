@@ -2333,6 +2333,7 @@ static bool pcode_args(struct build_function_context *ctx)
 		ctx->colors[tr->color].is_argument = true;
 		if (!TYPE_IS_FLAT(tr->type))
 			ctx->local_variables_flags[tr->slot].may_be_borrowed = true;
+		ctx->local_variables_flags[tr->slot].is_argument = true;
 		vv++;
 	}
 	ctx->n_real_arguments = vv;
@@ -3608,6 +3609,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 				debug("non-flat variable in %s", function_name(ctx));*/
 			ctx->local_variables_flags[pt->slot].must_be_flat = !!(pt->varflags & VarFlag_Must_Be_Flat);
 			ctx->local_variables_flags[pt->slot].must_be_data = !!(pt->varflags & VarFlag_Must_Be_Data) + !!(pt->varflags & VarFlag_Must_Be_Array) + !!(pt->varflags & VarFlag_Must_Be_Writable_Array);
+			ctx->local_variables_flags[pt->slot].is_argument = false;
 		}
 	}
 
