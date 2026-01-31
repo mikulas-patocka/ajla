@@ -156,11 +156,17 @@ static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *vari
 			for (j = 0; j < n_vars; j++) {
 				frame_t v = ctx->var_aux[j];
 				unsigned reg;
+				uint32_t skip_label;
+				skip_label = alloc_label(ctx);
+				if (unlikely(!skip_label))
+					return false;
 				g(gen_frame_decompress_slot(ctx, v, R_SCRATCH_1, &reg, 0));
+				g(gen_cmp_test_jmp(ctx, INSN_TEST, OP_SIZE_ADDRESS, reg, reg, COND_E, skip_label));
 				if (da(ctx->fn,function)->local_variables_flags[v].must_be_data == 2)
 					g(gen_compare_ptr_tag(ctx, reg, DATA_TAG_array_flat, COND_NE, label, R_SCRATCH_2, false, false));
 				else
 					g(gen_compare_tag_and_refcount(ctx, reg, DATA_TAG_array_flat, label, R_SCRATCH_2));
+				gen_label(skip_label);
 			}
 		}
 	}

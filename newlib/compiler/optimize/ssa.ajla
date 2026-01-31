@@ -2335,6 +2335,35 @@ in_loop2:
 		]
 	]}
 
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		var block := ctx.blocks[bgi];
+		for ili := 0 to len(block.instrs) do [
+			var instr := ctx.instrs[block.instrs[ili]];
+			if instr.opcode = P_Copy then [
+				var dst := instr.params[0];
+				var src := instr.params[2];
+				if src >= 0 then [
+					var v_src := ctx.variables[src];
+					var v_dst := ctx.variables[dst];
+
+					ctx.variables[src].must_be_flat := v_src.must_be_flat or v_dst.must_be_flat;
+					ctx.variables[dst].must_be_flat := v_src.must_be_flat or v_dst.must_be_flat;
+
+					ctx.variables[src].must_be_data := v_src.must_be_data or v_dst.must_be_data;
+					ctx.variables[dst].must_be_data := v_src.must_be_data or v_dst.must_be_data;
+
+					ctx.variables[src].must_be_array := v_src.must_be_array or v_dst.must_be_array;
+					ctx.variables[dst].must_be_array := v_src.must_be_array or v_dst.must_be_array;
+
+					ctx.variables[src].must_be_writable_array := v_src.must_be_writable_array or v_dst.must_be_writable_array;
+					ctx.variables[dst].must_be_writable_array := v_src.must_be_writable_array or v_dst.must_be_writable_array;
+				]
+			]
+		]
+	]
+
 	return ctx;
 ]
 

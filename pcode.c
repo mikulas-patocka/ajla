@@ -1046,6 +1046,14 @@ static bool pcode_finish_call(struct build_function_context *ctx, const struct p
 		n_vars = 0;
 		for (slot = MIN_USEABLE_SLOT; slot < ctx->n_slots; slot++) {
 			if (ctx->local_variables_flags[slot].must_be_flat || ctx->local_variables_flags[slot].must_be_data) {
+				/*
+				 * This is a hack - we are going to check all
+				 * the variables (live or not), so we must not
+				 * check them for tag because we would access
+				 * invalid memory.
+				 */
+				if (ctx->local_variables_flags[slot].must_be_data >= 2)
+					ctx->local_variables_flags[slot].must_be_data = 1;
 				vars[n_vars++] = slot;
 				get_arg_mode(am, slot);
 			}
