@@ -2318,6 +2318,7 @@ in_loop2:
 				if rt = T_Undetermined then [
 					ctx.variables[vgi].must_be_array := true;
 					ctx.variables[vgi].must_be_writable_array := true;
+					ctx.variables[vgi].ra_priority += 1;
 				]
 			]
 		]
