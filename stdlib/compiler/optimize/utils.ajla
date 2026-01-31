@@ -582,6 +582,7 @@ fn load_function_context(pc : list(pcode_t), un : bytes, get_inline : fn(functio
 		ctx.variables[i].color := pc[ptr + 2];
 		ctx.variables[i].must_be_flat := pc[ptr + 3] bt bsf VarFlag_Must_Be_Flat;
 		ctx.variables[i].must_be_data := pc[ptr + 3] bt bsf VarFlag_Must_Be_Data;
+		ctx.variables[i].must_be_array := pc[ptr + 3] bt bsf VarFlag_Must_Be_Array;
 		ctx.variables[i].nogvn := pc[ptr + 3] bt bsf VarFlag_NoGVN;
 		if pc[ptr + 3] bt bsf VarFlag_Specialize then
 			specialize_vars bts= i;

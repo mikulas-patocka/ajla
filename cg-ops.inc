@@ -54,6 +54,21 @@ static bool attr_w gen_ref_move_copy(struct codegen_context *ctx, code_t code, f
 		g(gen_ptr_is_thunk(ctx, reg, slot_1, escape_label));
 		ctx->flag_cache[slot_r] |= FLAG_CACHE_IS_NOT_THUNK;
 	}
+	if (da(ctx->fn,function)->local_variables_flags[slot_1].must_be_data <
+	    da(ctx->fn,function)->local_variables_flags[slot_r].must_be_data &&
+	    da(ctx->fn,function)->local_variables_flags[slot_r].must_be_data >= 2) {
+		unsigned reg2;
+		uint32_t escape_label = alloc_escape_label(ctx);
+		if (unlikely(!escape_label))
+			return false;
+#ifdef POINTER_COMPRESSION
+		g(gen_decompress_pointer(ctx, ARCH_PREFERS_SX(OP_SIZE_SLOT), R_SCRATCH_3, reg, 0));
+		reg2 = R_SCRATCH_3;
+#else
+		reg2 = reg;
+#endif
+		g(gen_compare_ptr_tag(ctx, reg2, DATA_TAG_array_flat, COND_NE, escape_label, R_SCRATCH_2, false, false));
+	}
 	g(gen_frame_store(ctx, OP_SIZE_SLOT, slot_r, 0, reg));
 	g(gen_set_1(ctx, R_FRAME, slot_r, 0, true));
 	flag_set(ctx, slot_r, true);
@@ -2410,7 +2425,8 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 		subtract = true;
 #endif
 		if (flags & OPCODE_ARRAY_ESCAPE_ON_SLICE) {
-			g(gen_compare_ptr_tag(ctx, reg1, DATA_TAG_array_flat, COND_NE, escape_label, R_SCRATCH_4, false, false));
+			if (da(ctx->fn,function)->local_variables_flags[slot_1].must_be_data < 2)
+				g(gen_compare_ptr_tag(ctx, reg1, DATA_TAG_array_flat, COND_NE, escape_label, R_SCRATCH_4, false, false));
 			g(gen_scaled_array_load(ctx, reg1, reg2, data_array_offset, slot_r));
 			goto skip_slice;
 		}

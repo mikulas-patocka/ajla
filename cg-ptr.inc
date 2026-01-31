@@ -26,6 +26,9 @@
 unsupported pointer mode
 #endif
 
+static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg, unsigned tag, unsigned cond, uint32_t label, unsigned tmp_reg, bool subtract, bool need_flags);
+static bool attr_w gen_frame_decompress_slot(struct codegen_context *ctx, frame_t slot, unsigned reg, unsigned *dest, uint32_t escape_label);
+
 static bool test_ptr_is_not_thunk(struct codegen_context *ctx, frame_t slot)
 {
 	if (ctx->flag_cache[slot] & FLAG_CACHE_IS_NOT_THUNK || da(ctx->fn,function)->local_variables_flags[slot].must_be_data)
@@ -117,32 +120,43 @@ static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *vari
 {
 	size_t i;
 
-	for (i = 0; i < 2; i++) {
+	for (i = 0; i < 3; i++) {
 		size_t n_vars = 0;
 		size_t n;
 		for (n = 0; n < n_variables; n++) {
 			frame_t v = variables[n];
-			if (!i ? da(ctx->fn,function)->local_variables_flags[v].must_be_flat : da(ctx->fn,function)->local_variables_flags[v].must_be_data)
+			if (!i ? da(ctx->fn,function)->local_variables_flags[v].must_be_flat :
+			     i == 1 ? da(ctx->fn,function)->local_variables_flags[v].must_be_data :
+			     da(ctx->fn,function)->local_variables_flags[v].must_be_data >= 2)
 				ctx->var_aux[n_vars++] = v;
 		}
 		if (!i) {
 			g(gen_test_multiple(ctx, ctx->var_aux, n_vars, label));
-		} else {
+		} else if (i == 1) {
 			if (!test_flag_on_thunks) {
 				g(gen_test_multiple_thunks(ctx, ctx->var_aux, n_vars, label));
 			} else {
-				size_t v;
-				for (v = 0; v < n_vars; v++) {
+				size_t j;
+				for (j = 0; j < n_vars; j++) {
+					frame_t v = ctx->var_aux[j];
 					unsigned reg;
 					uint32_t skip_label;
 					skip_label = alloc_label(ctx);
 					if (unlikely(!skip_label))
 						return false;
-					g(gen_test_1(ctx, R_FRAME, ctx->var_aux[v], 0, skip_label, true, TEST));
-					g(gen_frame_get(ctx, OP_SIZE_SLOT, garbage, ctx->var_aux[v], R_SCRATCH_1, &reg));
+					g(gen_test_1(ctx, R_FRAME, v, 0, skip_label, true, TEST));
+					g(gen_frame_get(ctx, OP_SIZE_SLOT, garbage, v, R_SCRATCH_1, &reg));
 					g(gen_ptr_is_thunk(ctx, reg, NO_FRAME_T, label));
 					gen_label(skip_label);
 				}
+			}
+		} else {
+			size_t j;
+			for (j = 0; j < n_vars; j++) {
+				frame_t v = ctx->var_aux[j];
+				unsigned reg;
+				g(gen_frame_decompress_slot(ctx, v, R_SCRATCH_1, &reg, 0));
+				g(gen_compare_ptr_tag(ctx, reg, DATA_TAG_array_flat, COND_NE, label, R_SCRATCH_2, false, false));
 			}
 		}
 	}
@@ -313,8 +327,11 @@ static bool attr_w gen_decompress_pointer(struct codegen_context *ctx, bool attr
 	g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, dest, src, POINTER_COMPRESSION, 0));
 	src = dest;
 #endif
-	if (offset)
+	if (offset) {
 		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, dest, src, offset, 0));
+	} else {
+		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src));
+	}
 	return true;
 }
 
@@ -429,7 +446,8 @@ static bool attr_w gen_frame_decompress_slot(struct codegen_context *ctx, frame_
 {
 	if (slot_is_register(ctx, slot)) {
 		unsigned creg = ctx->registers[slot];
-		g(gen_ptr_is_thunk(ctx, creg, slot, escape_label));
+		if (escape_label)
+			g(gen_ptr_is_thunk(ctx, creg, slot, escape_label));
 #if !defined(POINTER_COMPRESSION)
 		*dest = creg;
 #else
@@ -439,7 +457,8 @@ static bool attr_w gen_frame_decompress_slot(struct codegen_context *ctx, frame_
 		return true;
 	}
 	g(gen_frame_load(ctx, OP_SIZE_SLOT, native, slot, 0, false, reg));
-	g(gen_ptr_is_thunk(ctx, reg, slot, escape_label));
+	if (escape_label)
+		g(gen_ptr_is_thunk(ctx, reg, slot, escape_label));
 	g(gen_decompress_pointer(ctx, ARCH_PREFERS_SX(OP_SIZE_SLOT), reg, reg, 0));
 	*dest = reg;
 	return true;

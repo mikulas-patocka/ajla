@@ -537,6 +537,10 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 			ptr += arg_size(*ptr);
 			break;
 		case INSN_NOP:
+			reg_map_set(&d->rd, R_MEMORY);
+			reg_map_set(&d->wr, R_MEMORY);
+			reg_map_set(&d->rd, R_MEMORY_FRAME);
+			reg_map_set(&d->wr, R_MEMORY_FRAME);
 			break;
 		case INSN_RET:
 			d->rd = ctx->opt_status->regs_saved;
