@@ -423,19 +423,47 @@ static bool attr_w gen_frame_set_pointer(struct codegen_context *ctx, frame_t sl
 			return false;
 		g(gen_ptr_is_thunk(ctx, src, NO_FRAME_T, nondata_label));
 	}
+	if (da(ctx->fn,function)->local_variables_flags[slot].must_be_data >= 2) {
+		unsigned reg2;
+		uint32_t nondata_label = alloc_escape_label_for_ip(ctx, ctx->current_position);
+		if (unlikely(!nondata_label))
+			return false;
+#ifdef POINTER_COMPRESSION
+		g(gen_decompress_pointer(ctx, ARCH_PREFERS_SX(OP_SIZE_SLOT), R_SCRATCH_3, src, 0));
+		reg2 = R_SCRATCH_3;
+#else
+		reg2 = src;
+#endif
+		if (da(ctx->fn,function)->local_variables_flags[slot].must_be_data == 2)
+			g(gen_compare_ptr_tag(ctx, reg2, DATA_TAG_array_flat, COND_NE, nondata_label, R_SCRATCH_4, false, false));
+		else
+			g(gen_compare_tag_and_refcount(ctx, reg2, DATA_TAG_array_flat, nondata_label, R_SCRATCH_4));
+	}
 	return true;
 }
 
-static bool attr_w gen_frame_set_pointer_2(struct codegen_context *ctx, frame_t slot_r, unsigned src, unsigned flags, uint32_t escape_label)
+static bool attr_w gen_frame_set_pointer_2(struct codegen_context *ctx, frame_t slot, unsigned src, unsigned flags, uint32_t escape_label)
 {
 	g(gen_ptr_is_thunk(ctx, src, NO_FRAME_T, escape_label));
 	g(gen_barrier(ctx));
-
 	if (flags & OPCODE_STRUCT_MAY_BORROW) {
-		g(gen_frame_store(ctx, OP_SIZE_SLOT, slot_r, 0, src));
-		flag_set(ctx, slot_r, false);
+		if (da(ctx->fn,function)->local_variables_flags[slot].must_be_data >= 2) {
+			unsigned reg2;
+#ifdef POINTER_COMPRESSION
+			g(gen_decompress_pointer(ctx, ARCH_PREFERS_SX(OP_SIZE_SLOT), R_SCRATCH_3, src, 0));
+			reg2 = R_SCRATCH_3;
+#else
+			reg2 = src;
+#endif
+			if (da(ctx->fn,function)->local_variables_flags[slot].must_be_data == 2)
+				g(gen_compare_ptr_tag(ctx, reg2, DATA_TAG_array_flat, COND_NE, escape_label, R_SCRATCH_4, false, false));
+			else
+				g(gen_compare_tag_and_refcount(ctx, reg2, DATA_TAG_array_flat, escape_label, R_SCRATCH_4));
+		}
+		g(gen_frame_store(ctx, OP_SIZE_SLOT, slot, 0, src));
+		flag_set(ctx, slot, false);
 	} else {
-		g(gen_frame_set_pointer(ctx, slot_r, src, true, true));
+		g(gen_frame_set_pointer(ctx, slot, src, true, true));
 	}
 	return true;
 }
