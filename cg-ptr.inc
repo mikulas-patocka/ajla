@@ -27,6 +27,7 @@ unsupported pointer mode
 #endif
 
 static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg, unsigned tag, unsigned cond, uint32_t label, unsigned tmp_reg, bool subtract, bool need_flags);
+static bool attr_w gen_compare_tag_and_refcount(struct codegen_context *ctx, unsigned reg, unsigned tag, uint32_t label, unsigned attr_unused tmp_reg);
 static bool attr_w gen_frame_decompress_slot(struct codegen_context *ctx, frame_t slot, unsigned reg, unsigned *dest, uint32_t escape_label);
 
 static bool test_ptr_is_not_thunk(struct codegen_context *ctx, frame_t slot)
@@ -156,7 +157,10 @@ static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *vari
 				frame_t v = ctx->var_aux[j];
 				unsigned reg;
 				g(gen_frame_decompress_slot(ctx, v, R_SCRATCH_1, &reg, 0));
-				g(gen_compare_ptr_tag(ctx, reg, DATA_TAG_array_flat, COND_NE, label, R_SCRATCH_2, false, false));
+				if (da(ctx->fn,function)->local_variables_flags[v].must_be_data == 2)
+					g(gen_compare_ptr_tag(ctx, reg, DATA_TAG_array_flat, COND_NE, label, R_SCRATCH_2, false, false));
+				else
+					g(gen_compare_tag_and_refcount(ctx, reg, DATA_TAG_array_flat, label, R_SCRATCH_2));
 			}
 		}
 	}
