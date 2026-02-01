@@ -1353,10 +1353,31 @@ dont_quash_mov:
 				goto skip;
 			if (*ps2 == ARG_IMM) {
 				uint64_t val = oget_eight(ps2 + 1);
-				if (!val)
-					goto skip;
 				if (eq.v1.tag == VALUE_TAG_REGISTER)
 					eq.v1.size = op_size_to_size(OP_SIZE_NATIVE);
+				if (!val) {
+					rng.v2.tag = VALUE_TAG_RANGE;
+					rng.v2.size = eq.v1.size;
+					rng.v2.range_signed = false;
+					rng.v2.value = 0;
+					rng.v2.value_hi = 0;
+					if (is_in_range(ctx, &eq.v1, &rng.v2, 0)) {
+						quash_equalities(ctx, d);
+						rng.v1.tag = VALUE_TAG_FLAGS;
+						rng.v1.size = 0;
+						rng.v1.range_signed = false;
+						rng.v1.value = 0;
+						rng.v1.value_hi = 0;
+						rng.v2.tag = VALUE_TAG_RANGE;
+						rng.v2.size = 0;
+						rng.v2.range_signed = false;
+						rng.v2.value = (1ULL << COND_E) | (1ULL << COND_NE);
+						rng.v2.value_hi = 1ULL << COND_E;
+						g(insert_equality(ctx, &rng));
+						continue;
+					}
+					goto skip;
+				}
 				rng.v2.tag = VALUE_TAG_RANGE;
 				rng.v2.size = eq.v1.size;
 				rng.v2.range_signed = false;
@@ -1418,6 +1439,29 @@ dont_quash_mov:
 				}
 			}
 			goto skip;
+		}
+		case INSN_CWD: {
+			bool must_be_zero = false;
+			uint8_t *pd = d->start + 4;
+			uint8_t *ps = pd + arg_size(*pd);
+			if (!arg_to_val(d, pd, &rng.v1))
+				goto skip;
+			if (!arg_to_val(d, ps, &rng.v2))
+				goto skip;
+			rp = find_range(ctx, &rng.v2);
+			if (rp && !rp->range_signed && rp->value_hi <= ((uint64_t)1 << (rng.v1.size * 8 - 1)) - 1) {
+				must_be_zero = true;
+			}
+			quash_equalities(ctx, d);
+			if (must_be_zero) {
+				rng.v2.tag = VALUE_TAG_RANGE;
+				rng.v2.size = rng.v1.size;
+				rng.v2.range_signed = false;
+				rng.v2.value = 0;
+				rng.v2.value_hi = 0;
+				g(insert_equality(ctx, &rng));
+			}
+			continue;
 		}
 		case INSN_SET_COND: {
 			uint8_t *pd = d->start + 4;
