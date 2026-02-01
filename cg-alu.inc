@@ -1528,7 +1528,7 @@ do_bt: {
 				}
 			} else {
 				if (!c) {
-					g(gen_3address_alu_imm(ctx, OP_SIZE_4, ALU_AND, R_SCRATCH_3, reg2, (8U << op_size) - 1, 0));
+					g(gen_3address_alu_imm(ctx, OP_SIZE_4, ALU_AND, R_SCRATCH_3, reg2, max_imm, 0));
 					reg2 = R_SCRATCH_3;
 				}
 			}
@@ -3903,7 +3903,7 @@ static bool attr_w gen_system_property(struct codegen_context *ctx, frame_t slot
 	return true;
 }
 
-static bool attr_w gen_alu_jmp(struct codegen_context *ctx, unsigned mode, unsigned op_size, unsigned op, frame_t slot_1, frame_t slot_2, int32_t jmp_offset, bool *failed)
+static bool attr_w gen_alu_jmp(struct codegen_context *ctx, unsigned mode, unsigned op_size, unsigned op, uint32_t attr_unused label_ovf, frame_t slot_1, frame_t slot_2, int32_t jmp_offset, bool *failed)
 {
 	unsigned alu;
 	enum extend ex;
@@ -3924,7 +3924,7 @@ static bool attr_w gen_alu_jmp(struct codegen_context *ctx, unsigned mode, unsig
 			case OPCODE_FIXED_OP_uless_equal:	alu = COND_BE; goto do_compare;
 			case OPCODE_FIXED_OP_ugreater:		alu = COND_A; goto do_compare;
 			case OPCODE_FIXED_OP_ugreater_equal:	alu = COND_AE; goto do_compare;
-			case OPCODE_FIXED_OP_bt:		*failed = true; return true;
+			case OPCODE_FIXED_OP_bt:		goto do_bt;
 			default:				internal(file_line, "gen_alu_jmp: unsupported fixed operation %u", op);
 		}
 		case MODE_INT: switch (op) {
@@ -3934,7 +3934,7 @@ static bool attr_w gen_alu_jmp(struct codegen_context *ctx, unsigned mode, unsig
 			case OPCODE_INT_OP_less_equal:		alu = COND_LE; goto do_compare;
 			case OPCODE_INT_OP_greater:		alu = COND_G; goto do_compare;
 			case OPCODE_INT_OP_greater_equal:	alu = COND_GE; goto do_compare;
-			case OPCODE_INT_OP_bt:			*failed = true; return true;
+			case OPCODE_INT_OP_bt:			goto do_bt;
 			default:				internal(file_line, "gen_alu_jmp: unsupported int operation %u", op);
 		}
 		case MODE_BOOL: switch (op) {
@@ -4076,6 +4076,73 @@ do_alu: {
 skip_flags:
 		g(gen_3address_alu(ctx, i_size(op_size), alu, R_SCRATCH_1, reg1, reg2, 0));
 		g(gen_jump(ctx, jmp_offset, i_size(op_size), COND_E, R_SCRATCH_1, -1U, 0));
+		return true;
+	}
+do_bt:	{
+#if defined(ARCH_X86)
+		bool c = frame_t_is_const(slot_2);
+		int64_t cnst = !c ? 0 : frame_t_get_const(slot_2);
+		unsigned n_op_size = minimum(op_size, OP_SIZE_NATIVE);
+		int64_t max_imm = (8U << op_size) - 1;
+		if (c) {
+			if (mode == MODE_INT) {
+				if ((uint64_t)cnst >= (uint64_t)max_imm) {
+					*failed = true;
+					return true;
+				}
+			} else {
+				cnst &= max_imm;
+			}
+		} else {
+			g(gen_frame_get(ctx, n_op_size, garbage, slot_2, R_SCRATCH_3, &reg2));
+			if (mode == MODE_INT) {
+				g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, n_op_size, reg2, max_imm, COND_A, label_ovf, -1));
+				if (unlikely(op_size > OP_SIZE_NATIVE)) {
+					g(gen_address(ctx, R_FRAME, (size_t)slot_2 * slot_size + hi_word(OP_SIZE_NATIVE), IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
+					gen_insn(INSN_CMP, OP_SIZE_NATIVE, 0, 1);
+					gen_address_offset();
+					gen_one(ARG_IMM);
+					gen_eight(0);
+					gen_insn(INSN_JMP_COND, OP_SIZE_NATIVE, COND_NE, 0);
+					gen_label_ref(label_ovf);
+				}
+			} else {
+				if (op_size == OP_SIZE_1) {
+					g(gen_3address_alu_imm(ctx, OP_SIZE_4, ALU_AND, R_SCRATCH_3, reg2, max_imm, 0));
+					reg2 = R_SCRATCH_3;
+				}
+			}
+		}
+		if (!slot_is_register(ctx, slot_1)) {
+			int64_t offset = (size_t)slot_1 * slot_size;
+			if (c && cnst >= 8U << OP_SIZE_NATIVE) {
+				offset += 1U << OP_SIZE_NATIVE;
+				cnst -= 8U << OP_SIZE_NATIVE;
+			}
+			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_STR_OFFSET, maximum(n_op_size, OP_SIZE_2)));
+			gen_insn(INSN_BT, maximum(n_op_size, OP_SIZE_2), 0, 1);
+			gen_address_offset();
+			if (c) {
+				gen_one(ARG_IMM);
+				gen_eight(cnst);
+			} else {
+				gen_one(reg2);
+			}
+		} else {
+			g(gen_frame_get(ctx, n_op_size, garbage, slot_1, R_SCRATCH_1, &reg1));
+			gen_insn(INSN_BT, maximum(n_op_size, OP_SIZE_2), 0, 1);
+			gen_one(reg1);
+			if (c) {
+				gen_one(ARG_IMM);
+				gen_eight(cnst);
+			} else {
+				gen_one(reg2);
+			}
+		}
+		g(gen_jump(ctx, jmp_offset, i_size(n_op_size), COND_AE, -1U, -1U, 0));
+		return true;
+#endif
+		*failed = true;
 		return true;
 	}
 }

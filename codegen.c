@@ -1430,7 +1430,7 @@ next_code:
 	} else if (mode == MODE_REAL) {
 		g(gen_fp_alu_jmp(ctx, op_size, op, escape_label, slot_1, slot_2, offs_false, failed));
 	} else {
-		g(gen_alu_jmp(ctx, mode, op_size, op, slot_1, slot_2, offs_false, failed));
+		g(gen_alu_jmp(ctx, mode, op_size, op, escape_label, slot_1, slot_2, offs_false, failed));
 	}
 
 fail:
