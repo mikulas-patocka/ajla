@@ -1356,6 +1356,11 @@ static bool attr_w resolve_relocation(struct codegen_context *ctx, struct reloca
 	return false;
 }
 
+static bool validate_insn(const struct insn_details attr_unused *d)
+{
+	return false;
+}
+
 static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 {
 	bool full;

@@ -1143,6 +1143,68 @@ static bool attr_w resolve_relocation(struct codegen_context *ctx, struct reloca
 	return false;
 }
 
+static bool validate_gr(uint8_t reg)
+{
+	return reg < 0x20;
+}
+
+static bool validate_address(const uint8_t *arg, unsigned size)
+{
+	if ((arg[0] == ARG_ADDRESS_1 || arg[0] == ARG_ADDRESS_1_PRE_I || arg[0] == ARG_ADDRESS_1_POST_I) && validate_gr(arg[1])) {
+		int64_t imm = get_imm(&arg[2]);
+		if (imm >= -256 && imm <= 255)
+			return true;
+		if (arg[0] != ARG_ADDRESS_1)
+			return false;
+		if (unlikely((imm & ((1 << size) - 1)) != 0) || unlikely(imm < 0))
+			return false;
+		imm >>= size;
+		return imm < 0x1000;
+	}
+	if ((arg[0] == ARG_ADDRESS_2 || (unsigned)arg[0] - ARG_ADDRESS_2 == size || arg[0] == ARG_ADDRESS_2_UXTW || arg[0] == ARG_ADDRESS_2_SXTW) && validate_gr(arg[1]) && validate_gr(arg[2])) {
+		int64_t imm = get_imm(&arg[3]);
+		return !imm;
+	}
+	return false;
+}
+
+static bool validate_mov(const struct insn_details *d)
+{
+	const uint8_t *arg1 = d->start + 4;
+	const uint8_t *arg2 = arg1 + arg_size(*arg1);
+	unsigned size = insn_op_size(d->insn);
+	bool sx = insn_opcode(d->insn) == INSN_MOVSX;
+	if (validate_gr(arg1[0]) && validate_gr(arg2[0])) {
+		return true;
+	}
+	if (validate_gr(arg1[0]) && arg2[0] == ARG_IMM && size >= OP_SIZE_4 && !sx) {
+		int64_t imm = get_imm(&arg2[1]);
+		if (imm >= 0 && imm < 0x10000)
+			return true;
+		if (~imm >= 0 && ~imm < 0x10000)
+			return true;
+		return false;
+	}
+	if (validate_gr(arg1[0]) && validate_address(arg2, size)) {
+		return true;
+	}
+	if (validate_address(arg1, size) && validate_gr(arg2[0])) {
+		return true;
+	}
+	return false;
+}
+
+static bool validate_insn(const struct insn_details *d)
+{
+	switch (insn_opcode(d->insn)) {
+		case INSN_MOV:
+		case INSN_MOVSX: {
+			return validate_mov(d);
+		}
+	}
+	return false;
+}
+
 static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 {
 	uint32_t reg;

@@ -1631,6 +1631,83 @@ static bool attr_w resolve_relocation(struct codegen_context *ctx, struct reloca
 	}
 }
 
+static bool validate_gr(uint8_t reg)
+{
+#if defined(ARCH_X86_32)
+	return reg < 0x08;
+#else
+	if (!cpu_test_feature(CPU_FEATURE_apx))
+		return reg < 0x10;
+	else
+		return reg < 0x20;
+#endif
+}
+
+static bool validate_arg(const uint8_t *arg)
+{
+	int64_t imm;
+	if (validate_gr(arg[0]))
+		return true;
+	if (arg[0] == ARG_ADDRESS_0) {
+		imm = get_imm(&arg[1]);
+		goto vfy_v;
+	}
+	if (arg[0] == ARG_ADDRESS_1 ||
+	    arg[0] == ARG_ADDRESS_1_2 ||
+	    arg[0] == ARG_ADDRESS_1_4 ||
+	    arg[0] == ARG_ADDRESS_1_8) {
+		if (unlikely(!validate_gr(arg[1])))
+			return false;
+		imm = get_imm(&arg[2]);
+		goto vfy_v;
+	}
+	if (arg[0] == ARG_ADDRESS_2 ||
+	    arg[0] == ARG_ADDRESS_2_2 ||
+	    arg[0] == ARG_ADDRESS_2_4 ||
+	    arg[0] == ARG_ADDRESS_2_8) {
+		if (unlikely(!validate_gr(arg[1])))
+			return false;
+		if (unlikely(!validate_gr(arg[2])))
+			return false;
+		imm = get_imm(&arg[3]);
+		goto vfy_v;
+	}
+	return false;
+vfy_v:
+	if (unlikely(imm != (int32_t)imm))
+		return false;
+	return true;
+}
+
+static bool validate_rm(const uint8_t *arg1, const uint8_t *arg2)
+{
+	return validate_gr(arg1[0]) && validate_arg(arg2);
+}
+
+static bool validate_insn(const struct insn_details *d)
+{
+	switch (insn_opcode(d->insn)) {
+		case INSN_MOV:
+		validate_mov: {
+			const uint8_t *arg1 = d->start + 4;
+			const uint8_t *arg2 = arg1 + arg_size(*arg1);
+			if (unlikely(!validate_arg(arg1)) || unlikely(!(validate_arg(arg2) || arg2[0] == ARG_IMM)))
+				return false;
+			if (arg1[0] >= ARG_REGS_MAX && arg2[0] >= ARG_REGS_MAX && arg2[0] != ARG_IMM)
+				return false;
+			return true;
+		}
+		case INSN_MOVSX: {
+			const uint8_t *arg1 = d->start + 4;
+			const uint8_t *arg2 = arg1 + arg_size(*arg1);
+			if (insn_op_size(d->insn) == OP_SIZE_NATIVE)
+				goto validate_mov;
+			return validate_rm(arg1, arg2);
+		}
+	}
+	return false;
+}
+
 static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 {
 	uint8_t imm8;

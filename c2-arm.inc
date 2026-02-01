@@ -332,6 +332,7 @@ static bool attr_w cgen_mov_args(struct codegen_context *ctx, uint32_t cond, uns
 				switch (size) {
 					case OP_SIZE_1:	mc = cond | ARM_SXTB; break;
 					case OP_SIZE_2:	mc = cond | ARM_SXTH; break;
+					case OP_SIZE_4:	mc = cond | ARM_MOV; break;
 					default:	internal(file_line, "cgen_mov_args: invalid sign extend size");
 				}
 			} else {
@@ -918,6 +919,58 @@ static bool attr_w resolve_relocation(struct codegen_context *ctx, struct reloca
 			return true;
 		default:
 			internal(file_line, "resolve_relocation: invalid relocation length %u", reloc->length);
+	}
+	return false;
+}
+
+static bool validate_gr(uint8_t reg)
+{
+	return reg < 0x10;
+}
+
+static bool validate_address(const uint8_t *arg, int64_t limit)
+{
+	if (arg[0] == ARG_ADDRESS_1 && validate_gr(arg[1])) {
+		int64_t imm = get_imm(&arg[2]);
+		return imm >= -limit && imm <= limit;
+	}
+	if (arg[0] == ARG_ADDRESS_2 && validate_gr(arg[1]) && validate_gr(arg[2])) {
+		int64_t imm = get_imm(&arg[3]);
+		return !imm;
+	}
+	return false;
+}
+
+static bool validate_mov(const struct insn_details attr_unused *d)
+{
+	const uint8_t *arg1 = d->start + 4;
+	const uint8_t *arg2 = arg1 + arg_size(*arg1);
+	unsigned size = insn_op_size(d->insn);
+	bool sx = d->insn == INSN_MOVSX;
+	if (validate_gr(arg1[0]) && validate_gr(arg2[0])) {
+		return size == OP_SIZE_4 || (size <= OP_SIZE_2 && cpu_test_feature(CPU_FEATURE_armv6));
+	}
+	if (validate_gr(arg1[0]) && arg2[0] == ARG_IMM && !sx && size == OP_SIZE_4) {
+		int64_t imm;
+		memcpy(&imm, &arg2[1], 8);
+		return is_direct_const(imm, IMM_PURPOSE_CMOV, size);
+	}
+	if (validate_gr(arg1[0]) && validate_address(arg2, sx || size == OP_SIZE_2 ? 255 : 4095)) {
+		return true;
+	}
+	if (validate_address(arg1, sx || size == OP_SIZE_2 ? 255 : 4095) && validate_gr(arg2[0])) {
+		return true;
+	}
+	return false;
+}
+
+static bool validate_insn(const struct insn_details *d)
+{
+	switch (insn_opcode(d->insn)) {
+		case INSN_MOV:
+		case INSN_MOVSX: {
+			return validate_mov(d);
+		}
 	}
 	return false;
 }

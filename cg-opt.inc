@@ -26,6 +26,8 @@
 #define debug_offset		0
 #endif
 
+static bool validate_insn(const struct insn_details *d);
+
 static uint8_t attr_unused oget_one(uint8_t *ptr)
 {
 	return *ptr;
@@ -1120,6 +1122,28 @@ static bool arg_to_val(struct insn_details *d, uint8_t *ptr, struct value *value
 	return false;
 }
 
+static bool attr_w val_to_arg(struct codegen_context *ctx, struct value *v)
+{
+	switch (v->tag) {
+		case VALUE_TAG_REGISTER:
+			gen_one(v->value);
+			return true;
+		case VALUE_TAG_FRAME:
+			gen_one(ARG_ADDRESS_1);
+			gen_one(R_FRAME);
+			gen_eight(v->value);
+			return true;
+		case VALUE_TAG_RANGE:
+			if (unlikely(v->value != v->value_hi))
+				internal(file_line, "val_to_arg: invalid range");
+			gen_one(ARG_IMM);
+			gen_eight(v->value);
+			return true;
+	}
+	internal(file_line, "val_to_arg: invalid tag %u", v->tag);
+	return false;
+}
+
 static bool compare_values(const struct value *v1, const struct value *v2)
 {
 	/*if (v1->tag == v2->tag && v1->size != v2->size && v1->value == v2->value && v1->value_hi == v2->value_hi) debug("size: %u, %u", v1->size, v2->size);*/
@@ -1239,6 +1263,27 @@ static struct value *find_range(struct codegen_context *ctx, struct value *v1)
 	return NULL;
 }
 
+static struct value *find_equality(struct codegen_context *ctx, struct value *v1)
+{
+	size_t i;
+	struct value *val;
+	for (i = 0; i < ctx->equalities_used; i++) {
+		struct equality *e = &ctx->equalities[i];
+		if (e->v2.tag != VALUE_TAG_NONE && compare_values(&e->v1, v1)) {
+			val = &e->v2;
+			goto found;
+		}
+		if (e->v1.tag != VALUE_TAG_NONE && compare_values(&e->v2, v1)) {
+			val = &e->v1;
+found:
+			if (val->tag == VALUE_TAG_RANGE && val->value != val->value_hi)
+				continue;
+			return val;
+		}
+	}
+	return NULL;
+}
+
 static bool attr_w insert_equality(struct codegen_context *ctx, struct equality *eq)
 {
 	size_t i;
@@ -1339,6 +1384,21 @@ static bool attr_w equality_analysis(struct codegen_context *ctx)
 				continue;
 			}
 dont_quash_mov:
+			if (eq_valid) {
+				rp = find_equality(ctx, &eq.v2);
+				if (rp) {
+					struct insn_details nd;
+					g(prepare_new_insn(ctx));
+					gen_insn(insn_opcode(d->insn), insn_op_size(d->insn), 0, 0);
+					gen_stream(pd, arg_size(*pd));
+					g(val_to_arg(ctx, rp));
+					/*g(val_to_arg(ctx, &eq.v2));*/
+					g(finish_new_insn(ctx, &nd));
+					if (nd.length <= d->length && validate_insn(&nd)) {
+						*d = nd;
+					}
+				}
+			}
 			quash_equalities(ctx, d);
 			if (eq_valid)
 				g(insert_equality(ctx, &eq));

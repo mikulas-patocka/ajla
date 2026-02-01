@@ -975,7 +975,7 @@ static uint64_t attr_unused cget_eight(struct codegen_context *ctx)
 #endif
 }
 
-static int64_t get_imm(uint8_t *ptr)
+static int64_t get_imm(const uint8_t *ptr)
 {
 #if defined(C_LITTLE_ENDIAN)
 	int64_t r;

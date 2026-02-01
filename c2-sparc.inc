@@ -189,7 +189,7 @@ static bool attr_w cgen_ld_st(struct codegen_context *ctx, uint32_t mc, uint8_t 
 	imm = 0;
 
 invalid:
-	internal(file_line, "cgen_ld_st: invalid address: %02x, %02x, %"PRIxMAX"", reg, address[0], (uintmax_t)imm);
+	internal(file_line, "cgen_ld_st: invalid address: %08x, %02x, %02x, %"PRIxMAX"", mc, reg, address[0], (uintmax_t)imm);
 	return false;
 }
 
@@ -210,6 +210,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 			imm = get_imm(&arg2[1]);
 			if (imm >= -4096 && imm < 4096) {
 				cgen_sparc_imm(SPARC_OR, arg1[0], R_ZERO, imm);
+				return true;
 			} else {
 				if (imm & ~0xfffffc00ULL)
 					internal(file_line, "cgen_mov: invalid imm");
@@ -664,6 +665,60 @@ static bool attr_w resolve_relocation(struct codegen_context *ctx, struct reloca
 			return true;
 		default:
 			internal(file_line, "resolve_relocation: invalid relocation length %u", reloc->length);
+	}
+	return false;
+}
+
+static bool validate_gr(uint8_t reg)
+{
+	return reg < 0x20;
+}
+
+static bool validate_address(const uint8_t *arg)
+{
+	if (arg[0] == ARG_ADDRESS_1 && validate_gr(arg[1])) {
+		int64_t imm = get_imm(&arg[2]);
+		return likely(imm >= -4096) && likely(imm < 4096);
+	}
+	if (arg[0] == ARG_ADDRESS_2 && validate_gr(arg[1]) && validate_gr(arg[2])) {
+		int64_t imm = get_imm(&arg[3]);
+		return !imm;
+	}
+	return false;
+}
+
+static bool validate_mov(const struct insn_details *d)
+{
+	const uint8_t *arg1 = d->start + 4;
+	const uint8_t *arg2 = arg1 + arg_size(*arg1);
+	unsigned size = insn_op_size(d->insn);
+	if (validate_gr(arg1[0]) && validate_gr(arg2[0])) {
+		return size == OP_SIZE_NATIVE;
+	}
+	if (validate_gr(arg1[0]) && arg2[0] == ARG_IMM && size == OP_SIZE_NATIVE) {
+		int64_t imm = get_imm(&arg2[1]);
+		if (likely(imm >= -4096) && likely(imm < 4096))
+			return true;
+		if (!(imm & ~0xfffffc00ULL))
+			return true;
+		return false;
+	}
+	if (validate_gr(arg1[0]) && validate_address(arg2)) {
+		return true;
+	}
+	if (validate_address(arg1) && validate_gr(arg2[0])) {
+		return true;
+	}
+	return false;
+}
+
+static bool validate_insn(const struct insn_details attr_unused *d)
+{
+	switch (insn_opcode(d->insn)) {
+		case INSN_MOV:
+		case INSN_MOVSX: {
+			return validate_mov(d);
+		}
 	}
 	return false;
 }
