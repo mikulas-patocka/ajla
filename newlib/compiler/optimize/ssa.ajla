@@ -1646,10 +1646,11 @@ fn dce(ctx : context) : context
 			var igi_first := block.instrs[0];
 			ins := ctx.instrs[igi_first];
 			if ins.opcode = P_Args then [
-				var write_mask := set_to_mask(ins, ins.write_set);
-				while write_mask <> 0 do [
-					var vgi : int := bsr write_mask;
-					write_mask btr= vgi;
+				var wset := ins.write_set;
+				while wset <> 0 do [
+					var wr : int := bsr wset;
+					wset btr= wr;
+					var vgi := ins.params[wr];
 					if ctx.variables[vgi].type_index <> T_Type then [
 						ctx.variables[vgi].color := vgi;
 					]
@@ -2229,10 +2230,11 @@ fn identify_loops(ctx : context) : context
 		for ili := 0 to len(block.instrs) do [
 			var instr := ctx.instrs[block.instrs[ili]];
 			if instr.opcode = P_Call or instr.opcode = P_Call_Indirect then [
-				var output := set_to_mask(instr, instr.write_set);
-				while output <> 0 do [
-					var o : int := bsr output;
-					output btr= o;
+				var wset := instr.write_set;
+				while wset <> 0 do [
+					var wr : int := bsr wset;
+					wset btr= wr;
+					var o := instr.params[wr];
 					if ctx.variables[o].color <> -1 then
 						goto skip;
 				]
@@ -2286,10 +2288,11 @@ in_loop2:
 				if instr1.opcode = P_Array_Len_Greater_Than, instr1.params[0] = instr.params[0] then
 					continue;
 			]
-			var read_mask := set_to_mask(instr, instr.read_set);
-			while read_mask <> 0 do [
-				var vgi : int := bsr read_mask;
-				read_mask btr= vgi;
+			var rset := instr.read_set;
+			while rset <> 0 do [
+				var rd : int := bsr rset;
+				rset btr= rd;
+				var vgi := instr.params[rd];
 				var rt := ctx.variables[vgi].runtime_type;
 				if rt < 0, rt >= T_Bool then [
 					ctx.variables[vgi].must_be_flat := true;
