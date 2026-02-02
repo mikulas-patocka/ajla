@@ -559,14 +559,52 @@ invl:
 	return true;
 }
 
-static bool attr_w cgen_rr_rx(struct codegen_context *ctx, unsigned size, uint8_t *arg1, uint8_t *arg2, uint8_t *arg3, const struct codes *codes)
+static bool args_equal(const uint8_t *arg1, const uint8_t *arg2)
+{
+	size_t size;
+	if (arg1[0] != arg2[0])
+		return false;
+	size = arg_size(arg1[0]);
+	return !memcmp(arg1, arg2, size);
+}
+
+static bool validate_gr(uint8_t reg)
+{
+	return reg < 0x10;
+}
+
+static bool validate_short_disp(const uint8_t *arg)
+{
+	int64_t imm;
+	if (unlikely(arg[0] != ARG_ADDRESS_1) || unlikely(!validate_gr(arg[1])) || unlikely(!arg[1]))
+		return false;
+	imm = get_imm(&arg[2]);
+	return imm >= 0 && imm < 4096;
+}
+
+static bool validate_disp(const uint8_t *arg)
+{
+	int64_t imm;
+	if (unlikely(arg[0] != ARG_ADDRESS_1) || unlikely(!validate_gr(arg[1])) || unlikely(!arg[1]))
+		return false;
+	imm = get_imm(&arg[2]);
+	if (likely(cpu_test_feature(CPU_FEATURE_long_displacement)))
+		return imm >= -0x80000 && imm < 0x80000;
+	return imm >= 0 && imm < 4096;
+}
+
+static bool attr_w cgen_rr_rx(struct codegen_context *ctx, unsigned size, const uint8_t *arg1, const uint8_t *arg2, const uint8_t *arg3, const struct codes *codes)
 {
 	it code;
 	uint8_t b, x;
-	uint8_t *disp;
+	const uint8_t *disp;
 	int64_t imm;
 	if (unlikely(arg1[0] == ARG_ADDRESS_1) && unlikely(arg2[0] == ARG_ADDRESS_1) && unlikely(arg3[0] == ARG_ADDRESS_1)) {
 		int64_t disp_dest, disp_src;
+		if (unlikely(!args_equal(arg1, arg2)))
+			goto invl;
+		if (!validate_short_disp(arg1) || !validate_short_disp(arg3))
+			goto invl;
 		code = codes->xx;
 		if (unlikely(code == (it)-1))
 			goto invl;
@@ -577,6 +615,8 @@ static bool attr_w cgen_rr_rx(struct codegen_context *ctx, unsigned size, uint8_
 		code |= (it)(disp_dest & 0xfff) << 16;
 		code |= (it)arg3[1] << 12;
 		code |= (it)(disp_src & 0xfff) << 0;
+		if (!ctx)
+			return true;
 		g(cgen_s390(ctx, code));
 		return true;
 	}
@@ -584,6 +624,10 @@ static bool attr_w cgen_rr_rx(struct codegen_context *ctx, unsigned size, uint8_
 		goto invl;
 	if (unlikely(arg1[0] == ARG_ADDRESS_1) && unlikely(arg2[0] == ARG_ADDRESS_1) && unlikely(arg3[0] == ARG_IMM)) {
 		int64_t val;
+		if (unlikely(!args_equal(arg1, arg2)))
+			goto invl;
+		if (unlikely(!validate_disp(arg1)))
+			goto invl;
 		code = size != OP_SIZE_8 ? codes->xi : codes->xig;
 		if (unlikely(code == (it)-1))
 			goto invl;
@@ -593,12 +637,12 @@ static bool attr_w cgen_rr_rx(struct codegen_context *ctx, unsigned size, uint8_
 			val = -(uint64_t)val;
 		if (val < -0x80 || val >= 0x80)
 			goto invl;
-		if (imm < -0x80000 || imm >= 0x80000)
-			goto invl;
 		code |= (it)(val & 0xff) << 32;
 		code |= (it)arg1[1] << 28;
 		code |= (it)(imm & 0xfff) << 16;
 		code |= (it)(imm & 0xff000) >> 4;
+		if (!ctx)
+			return true;
 		g(cgen_s390(ctx, code));
 		return true;
 	}
@@ -620,6 +664,10 @@ static bool attr_w cgen_rr_rx(struct codegen_context *ctx, unsigned size, uint8_
 				k = true;
 			}
 		}
+		if (unlikely(code == (it)-1))
+			goto invl;
+		if (k && !cpu_test_feature(CPU_FEATURE_misc_45))
+			goto invl;
 		sz = code >> 46;
 		if (k) {
 			code |= (it)arg1[0] << 20;
@@ -634,6 +682,8 @@ static bool attr_w cgen_rr_rx(struct codegen_context *ctx, unsigned size, uint8_
 		} else {
 			goto invl;
 		}
+		if (!ctx)
+			return true;
 		g(cgen_s390(ctx, code));
 		return true;
 	}
@@ -650,6 +700,8 @@ static bool attr_w cgen_rr_rx(struct codegen_context *ctx, unsigned size, uint8_
 			code |= (it)arg1[0] << 36;
 			code |= (it)arg2[0] << 32;
 			code |= (it)(imm & 0xffff) << 16;
+			if (!ctx)
+				return true;
 			g(cgen_s390(ctx, code));
 			return true;
 		}
@@ -676,6 +728,8 @@ static bool attr_w cgen_rr_rx(struct codegen_context *ctx, unsigned size, uint8_
 		} else {
 			goto log_op;
 		}
+		if (!ctx)
+			return true;
 		g(cgen_s390(ctx, code));
 		return true;
 log_op:
@@ -715,6 +769,8 @@ log_op:
 			goto invl;
 		}
 		code |= (it)arg1[0] << 36;
+		if (!ctx)
+			return true;
 		g(cgen_s390(ctx, code));
 		return true;
 	} else if (arg3[0] == ARG_ADDRESS_0) {
@@ -722,10 +778,14 @@ log_op:
 		x = 0;
 		disp = &arg3[1];
 	} else if (arg3[0] == ARG_ADDRESS_1) {
+		if (unlikely(!arg3[1]))
+			goto invl;
 		b = arg3[1];
 		x = 0;
 		disp = &arg3[2];
 	} else if (arg3[0] == ARG_ADDRESS_2) {
+		if (unlikely(!arg3[1]) || unlikely(!arg3[2]))
+			goto invl;
 		b = arg3[1];
 		x = arg3[2];
 		disp = &arg3[3];
@@ -734,6 +794,13 @@ log_op:
 	}
 
 	imm = get_imm(disp);
+	if (likely(cpu_test_feature(CPU_FEATURE_long_displacement))) {
+		if (unlikely(!(imm >= -0x80000 && imm < 0x80000)))
+			goto invl;
+	} else {
+		if (unlikely(!(imm >= 0 && imm < 4096)))
+			goto invl;
+	}
 	if (size != OP_SIZE_8) {
 		if (imm >= 0 && imm < 0x1000 && codes->rx != (it)-1) {
 			code = codes->rx;
@@ -761,10 +828,13 @@ rxya:
 		}
 
 	}
+	if (!ctx)
+		return true;
 	g(cgen_s390(ctx, code));
 	return true;
 invl:
-	internal(file_line, "cgen_rr_rx: invalid arguments %u, %02x, %02x, %02x", size, *arg1, *arg2, *arg3);
+	if (ctx)
+		internal(file_line, "cgen_rr_rx: invalid arguments %u, %02x, %02x, %02x", size, *arg1, *arg2, *arg3);
 	return false;
 }
 
@@ -866,16 +936,18 @@ invl:
 	return false;
 }
 
-static bool attr_w cgen_xi(struct codegen_context *ctx, uint8_t *arg1, uint8_t *arg2, it xi, it xiy)
+static bool attr_w cgen_xi(struct codegen_context *ctx, const uint8_t *arg1, const uint8_t *arg2, it xi, it xiy)
 {
 	it code;
 	uint8_t b;
-	uint8_t *disp;
+	const uint8_t *disp;
 	int64_t val, imm;
 	if (unlikely(arg1[0] == ARG_ADDRESS_0)) {
 		b = 0;
 		disp = &arg1[1];
 	} else if (likely(arg1[0] == ARG_ADDRESS_1) && likely(arg2[0] == ARG_IMM)) {
+		if (unlikely(!validate_disp(arg1)))
+			goto invl;
 		b = arg1[1];
 		disp = &arg1[2];
 	} else {
@@ -885,6 +957,8 @@ static bool attr_w cgen_xi(struct codegen_context *ctx, uint8_t *arg1, uint8_t *
 	imm = get_imm(disp);
 	if (likely(arg2[0] == ARG_IMM)) {
 		val = get_imm(&arg2[1]);
+		if (unlikely(val < -0x80) || unlikely(val >= 0x80))
+			goto invl;
 	} else {
 		goto invl;
 	}
@@ -906,19 +980,22 @@ static bool attr_w cgen_xi(struct codegen_context *ctx, uint8_t *arg1, uint8_t *
 	g(cgen_s390(ctx, code));
 	return true;
 invl:
-	internal(file_line, "cgen_xi: invalid arguments %02x, %02x", *arg1, *arg2);
+	if (ctx)
+		internal(file_line, "cgen_xi: invalid arguments %02x, %02x", *arg1, *arg2);
 	return false;
 }
 
-static bool attr_w cgen_xi16(struct codegen_context *ctx, uint8_t *arg1, uint8_t *arg2, it code)
+static bool attr_w cgen_xi16(struct codegen_context *ctx, const uint8_t *arg1, const uint8_t *arg2, it code)
 {
 	uint8_t b;
-	uint8_t *disp;
+	const uint8_t *disp;
 	int64_t val, imm;
 	if (unlikely(arg1[0] == ARG_ADDRESS_0)) {
 		b = 0;
 		disp = &arg1[1];
 	} else if (likely(arg1[0] == ARG_ADDRESS_1) && likely(arg2[0] == ARG_IMM)) {
+		if (unlikely(!validate_short_disp(arg1)))
+			goto invl;
 		b = arg1[1];
 		disp = &arg1[2];
 	} else {
@@ -928,6 +1005,8 @@ static bool attr_w cgen_xi16(struct codegen_context *ctx, uint8_t *arg1, uint8_t
 	imm = get_imm(disp);
 	if (likely(arg2[0] == ARG_IMM)) {
 		val = get_imm(&arg2[1]);
+		if (unlikely(val < -0x8000) || unlikely(val >= 0x8000))
+			goto invl;
 	} else {
 		goto invl;
 	}
@@ -942,7 +1021,8 @@ static bool attr_w cgen_xi16(struct codegen_context *ctx, uint8_t *arg1, uint8_t
 	g(cgen_s390(ctx, code));
 	return true;
 invl:
-	internal(file_line, "cgen_xi16: invalid arguments %02x, %02x", *arg1, *arg2);
+	if (ctx)
+		internal(file_line, "cgen_xi16: invalid arguments %02x, %02x", *arg1, *arg2);
 	return false;
 }
 
@@ -1962,8 +2042,93 @@ static bool attr_w resolve_relocation(struct codegen_context *ctx, struct reloca
 	}
 }
 
-static bool validate_insn(const struct insn_details attr_unused *d)
+static bool validate_mov(const struct insn_details *d)
 {
+	const uint8_t *arg1 = d->start + 4;
+	const uint8_t *arg2 = arg1 + arg_size(*arg1);
+	unsigned size = insn_op_size(d->insn);
+	if (arg1[0] < 0x10) {
+		if (unlikely(size != OP_SIZE_NATIVE)) {
+			switch (size) {
+				case OP_SIZE_1:
+					if (unlikely(!cpu_test_feature(CPU_FEATURE_extended_imm)))
+						return false;
+					return cgen_rr_rx(NULL, OP_SIZE_NATIVE, arg1, arg1, arg2, &codes_load_8_unsigned);
+				case OP_SIZE_2:
+					if (unlikely(!cpu_test_feature(CPU_FEATURE_extended_imm)))
+						return false;
+					return cgen_rr_rx(NULL, OP_SIZE_NATIVE, arg1, arg1, arg2, &codes_load_16_unsigned);
+				case OP_SIZE_4:
+					return cgen_rr_rx(NULL, OP_SIZE_NATIVE, arg1, arg1, arg2, &codes_load_32_unsigned);
+				default:
+					return false;
+			}
+		}
+		if (!cpu_test_feature(CPU_FEATURE_extended_imm) && arg2[0] == ARG_IMM) {
+			int64_t imm = get_imm(&arg2[1]);
+			if (imm < -0x8000 || imm >= 0x8000)
+				return true;
+		}
+		return cgen_rr_rx(NULL, size, arg1, arg1, arg2, &codes_load);
+	}
+	if (arg2[0] < 0x10) {
+		return cgen_rr_rx(NULL, size, arg2, arg2, arg1, size == OP_SIZE_1 ? &codes_store_8 : size == OP_SIZE_2 ? &codes_store_16 : &codes_store);
+	}
+	if (arg1[0] == ARG_ADDRESS_1 && arg2[0] == ARG_IMM) {
+		switch (size) {
+			case OP_SIZE_1:
+				return cgen_xi(NULL, arg1, arg2, S390_MVI, S390_MVIY);
+			case OP_SIZE_2:
+				if (!cpu_test_feature(CPU_FEATURE_general_insn_ext))
+					return false;
+				return cgen_xi16(NULL, arg1, arg2, S390_MVHHI);
+			case OP_SIZE_4:
+				if (!cpu_test_feature(CPU_FEATURE_general_insn_ext))
+					return false;
+				return cgen_xi16(NULL, arg1, arg2, S390_MVHI);
+			case OP_SIZE_8:
+				if (!cpu_test_feature(CPU_FEATURE_general_insn_ext))
+					return false;
+				return cgen_xi16(NULL, arg1, arg2, S390_MVGHI);
+		}
+	}
+	if (arg1[0] == ARG_ADDRESS_1 && arg2[0] == ARG_ADDRESS_1) {
+		return cgen_rr_rx(NULL, size, arg1, arg1, arg2, &codes_mvc);
+	}
+	return false;
+}
+
+static bool validate_movsx(const struct insn_details *d)
+{
+	const uint8_t *arg1 = d->start + 4;
+	const uint8_t *arg2 = arg1 + arg_size(*arg1);
+	if (insn_op_size(d->insn) == OP_SIZE_NATIVE)
+		return validate_mov(d);
+	switch (insn_op_size(d->insn)) {
+		case OP_SIZE_1:
+			if (arg2[0] >= 0x10 ? !cpu_test_feature(CPU_FEATURE_long_displacement) : !cpu_test_feature(CPU_FEATURE_extended_imm))
+				return false;
+			return cgen_rr_rx(NULL, OP_SIZE_NATIVE, arg1, arg1, arg2, &codes_load_8);
+		case OP_SIZE_2:
+			if (arg2[0] < 0x10 && !cpu_test_feature(CPU_FEATURE_extended_imm))
+				return false;
+			return cgen_rr_rx(NULL, OP_SIZE_NATIVE, arg1, arg1, arg2, &codes_load_16);
+		case OP_SIZE_4:
+			return cgen_rr_rx(NULL, OP_SIZE_NATIVE, arg1, arg1, arg2, &codes_load_32);
+	}
+	return false;
+}
+
+static bool validate_insn(const struct insn_details *d)
+{
+	switch (insn_opcode(d->insn)) {
+		case INSN_MOV: {
+			return validate_mov(d);
+		}
+		case INSN_MOVSX: {
+			return validate_movsx(d);
+		}
+	}
 	return false;
 }
 
