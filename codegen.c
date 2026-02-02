@@ -37,11 +37,6 @@ shared_var const char *dump_code shared_init(NULL);
 
 #ifdef HAVE_CODEGEN
 
-#define flag_cache_chicken	0
-#define must_be_flat_chicken	0
-#define ra_chicken		0
-#define optimize_chicken	0
-
 #define INLINE_BITMAP_SLOTS		32
 #define INLINE_COPY_STEPS		8
 
@@ -1298,7 +1293,7 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 			continue;
 		if (unlikely(!ctx->min_slot))
 			ctx->min_slot = v;
-		if (ra_chicken)
+		if (unlikely((chicken & CHICKEN_CG_RA) != 0))
 			continue;
 		if (!da(ctx->fn,function)->local_variables_flags[v].must_be_flat &&
 		    !da(ctx->fn,function)->local_variables_flags[v].must_be_data)
@@ -2611,6 +2606,9 @@ void *codegen_fn(frame_s *fp, const code_t *ip, union internal_arg ia[])
 
 	init_ctx(ctx);
 	ctx->fn = ia[0].ptr;
+
+	if (unlikely((chicken & CHICKEN_CG) != 0))
+		goto fail;
 
 #ifdef DEBUG_ENV
 	if (getenv("CG") && strcmp(da(ctx->fn,function)->function_name, getenv("CG")))

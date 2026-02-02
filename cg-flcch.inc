@@ -28,7 +28,7 @@ static bool attr_w clear_flag_cache(struct codegen_context *ctx)
 static inline void flag_set(struct codegen_context *ctx, frame_t slot, bool val)
 {
 	unsigned c;
-	if (val && !must_be_flat_chicken && da(ctx->fn,function)->local_variables_flags[slot].must_be_flat) {
+	if (val && likely(!(chicken & CHICKEN_CG_MUST_BE_FLAT)) && da(ctx->fn,function)->local_variables_flags[slot].must_be_flat) {
 		internal(file_line, "flag_set: %s: setting slot %lu as not flat", da(ctx->fn,function)->function_name, (unsigned long)slot);
 	}
 	c = ctx->flag_cache[slot] & ~(FLAG_CACHE_IS_FLAT | FLAG_CACHE_IS_NOT_FLAT);
@@ -42,7 +42,7 @@ static inline void flag_set_unknown(struct codegen_context *ctx, frame_t slot)
 
 static inline bool flag_must_be_flat(struct codegen_context *ctx, frame_t slot)
 {
-	if (!must_be_flat_chicken && da(ctx->fn,function)->local_variables_flags[slot].must_be_flat) {
+	if (likely(!(chicken & CHICKEN_CG_MUST_BE_FLAT)) && da(ctx->fn,function)->local_variables_flags[slot].must_be_flat) {
 		if (unlikely((ctx->flag_cache[slot] & FLAG_CACHE_IS_NOT_FLAT) != 0))
 			internal(file_line, "flag_must_be_flat: %s: must_be_flat slot %lu is not flat", da(ctx->fn,function)->function_name, (unsigned long)slot);
 		return true;
@@ -52,7 +52,7 @@ static inline bool flag_must_be_flat(struct codegen_context *ctx, frame_t slot)
 
 static inline bool flag_is_clear(struct codegen_context *ctx, frame_t slot)
 {
-	if (!flag_cache_chicken && ctx->flag_cache[slot] & FLAG_CACHE_IS_FLAT)
+	if (likely(!(chicken & CHICKEN_CG_FLAG_CACHE)) && ctx->flag_cache[slot] & FLAG_CACHE_IS_FLAT)
 		return true;
 	if (flag_must_be_flat(ctx, slot))
 		return true;
@@ -61,7 +61,7 @@ static inline bool flag_is_clear(struct codegen_context *ctx, frame_t slot)
 
 static inline bool flag_is_set(struct codegen_context *ctx, frame_t slot)
 {
-	if (!flag_cache_chicken && ctx->flag_cache[slot] & FLAG_CACHE_IS_NOT_FLAT)
+	if (likely(!(chicken & CHICKEN_CG_FLAG_CACHE)) && ctx->flag_cache[slot] & FLAG_CACHE_IS_NOT_FLAT)
 		return true;
 	return false;
 }

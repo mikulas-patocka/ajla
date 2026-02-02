@@ -33,10 +33,35 @@
 
 #include "args.h"
 
+chicken_mask_t chicken;
+
 const char * const * args_left;
 int n_args_left;
 const char *program_name;
 const char *arg0;
+
+static void chicken_select(const char *str)
+{
+	size_t l;
+next_param:
+	l = strcspn(str, ",");
+	if (l == 2 && !strncmp(str, "cg", l))
+		chicken |= CHICKEN_CG;
+	else if (l == 13 && !strncmp(str, "cg-flag-cache", l))
+		chicken |= CHICKEN_CG_FLAG_CACHE;
+	else if (l == 15 && !strncmp(str, "cg-must-be-flat", l))
+		chicken |= CHICKEN_CG_MUST_BE_FLAT;
+	else if (l == 5 && !strncmp(str, "cg-ra", l))
+		chicken |= CHICKEN_CG_RA;
+	else if (l == 11 && !strncmp(str, "cg-optimize", l))
+		chicken |= CHICKEN_CG_OPTIMIZE;
+	else
+		warning("invalid chicken option %.*s", (int)l, str);
+	if (str[l] == ',') {
+		str += l + 1;
+		goto next_param;
+	}
+}
 
 static void debug_all(const char attr_unused *str)
 {
@@ -124,6 +149,7 @@ struct arg {
 };
 
 static const struct arg args[] = {
+	{ "--chicken=",			ARG_STRING,	chicken_select,			NULL,			0, 0 },
 	{ "--compile",			ARG_SWITCH,	NULL,				&ipret_compile,		0, 0 },
 	{ "--compile-run",		ARG_SWITCH,	NULL,				&ipret_compile_run,	0, 0 },
 	{ "--debug",			ARG_SWITCH,	debug_all,			NULL,			0, 0 },

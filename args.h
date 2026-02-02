@@ -19,6 +19,14 @@
 #ifndef AJLA_ARGS_H
 #define AJLA_ARGS_H
 
+#define CHICKEN_CG		0x00000001
+#define CHICKEN_CG_FLAG_CACHE	0x00000002
+#define CHICKEN_CG_MUST_BE_FLAT	0x00000004
+#define CHICKEN_CG_RA		0x00000008
+#define CHICKEN_CG_OPTIMIZE	0x00000010
+typedef uint8_t chicken_mask_t;
+extern chicken_mask_t chicken;
+
 extern const char * const * args_left;
 extern int n_args_left;
 extern const char *program_name;

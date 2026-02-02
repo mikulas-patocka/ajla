@@ -1763,7 +1763,7 @@ static bool attr_w process_basic_block(struct codegen_context *ctx, reg_map live
 
 static bool attr_w cg_optimize(struct codegen_context *ctx)
 {
-	if (optimize_chicken)
+	if (unlikely((chicken & CHICKEN_CG_OPTIMIZE) != 0))
 		return true;
 
 	/*debug("%lu : %s", function_n_variables(ctx->fn), da(ctx->fn,function)->function_name);*/
