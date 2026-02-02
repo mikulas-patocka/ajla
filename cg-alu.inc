@@ -2892,6 +2892,19 @@ static bool attr_w gen_real_constant(struct codegen_context *ctx, const struct t
 static bool attr_w gen_copy(struct codegen_context *ctx, unsigned op_size, frame_t slot_1, frame_t slot_r)
 {
 	unsigned reg1;
+#if defined(ARCH_S390)
+	if (!slot_is_register(ctx, slot_r) && slot_r * slot_size < 0x1000 &&
+	    !slot_is_register(ctx, slot_1) && !frame_t_is_const(slot_1) && (size_t)slot_1 * slot_size < 0x1000) {
+		gen_insn(INSN_MOV, op_size, 0, 0);
+		gen_one(ARG_ADDRESS_1);
+		gen_one(R_FRAME);
+		gen_eight(slot_r * slot_size);
+		gen_one(ARG_ADDRESS_1);
+		gen_one(R_FRAME);
+		gen_eight(slot_1 * slot_size);
+		return true;
+	}
+#endif
 	if (unlikely(op_size > OP_SIZE_NATIVE)) {
 		g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, slot_1, 0, R_SCRATCH_1, R_SCRATCH_2));
 		g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, R_SCRATCH_1, R_SCRATCH_2));

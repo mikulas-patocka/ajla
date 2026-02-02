@@ -377,6 +377,7 @@ static const struct codes codes_load = { S390_LR, -1, S390_L, S390_LY, S390_LGR,
 static const struct codes codes_store_8 = { -1, -1, S390_STC, S390_STCY, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0 };
 static const struct codes codes_store_16 = { -1, -1, S390_STH, S390_STHY, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0 };
 static const struct codes codes_store = { -1, -1, S390_ST, S390_STY, -1, -1, S390_STG, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0 };
+static const struct codes codes_mvc = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, S390_MVC, -1, -1, 0 };
 
 static const struct codes codes_alu_no_flags[] = {
 	{ -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0 },
@@ -1090,6 +1091,10 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size)
 				g(cgen_xi16(ctx, arg1, arg2, S390_MVGHI));
 				return true;
 		}
+	}
+	if (arg1[0] == ARG_ADDRESS_1 && arg2[0] == ARG_ADDRESS_1) {
+		g(cgen_rr_rx(ctx, size, arg1, arg1, arg2, &codes_mvc));
+		return true;
 	}
 invl:
 	internal(file_line, "cgen_mov: invalid arguments %u, %02x, %02x", size, *arg1, *arg2);
