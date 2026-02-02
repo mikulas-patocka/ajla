@@ -71,17 +71,6 @@
 #define get_max_i_param(ip, n)	get_max_param(ip + 1, n)
 
 
-extern bool ipret_strict_calls;
-extern bool ipret_is_privileged;
-extern bool ipret_sandbox;
-extern bool ipret_compile;
-extern bool ipret_compile_run;
-extern bool ipret_noinline;
-extern bool ipret_verify_light;
-extern uint32_t ipret_verify_timeout;
-extern bool ipret_warnings;
-extern uint32_t ipret_opencl_device;
-
 void eval_both(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2);
 
 void attr_hot_fastcall ipret_fill_function_reference_from_slot(struct data *function_reference, arg_t a, frame_s *fp, frame_t slot, bool deref);

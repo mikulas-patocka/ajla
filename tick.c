@@ -19,13 +19,12 @@
 #include "ajla.h"
 
 #include "thread.h"
+#include "args.h"
 
 #include "tick.h"
 
 #include <time.h>
 
-uint32_t tick_us = DEFAULT_TICK_US;
-bool thread_tick = 0;
 atomic_type tick_stamp_t *tick_stamp_ptr;
 
 static attr_always_inline void increment_stamp(void)

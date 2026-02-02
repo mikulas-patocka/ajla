@@ -58,11 +58,6 @@
 extern char **environ;
 #endif
 
-shared_var const char *dump_opencl shared_init(NULL);
-shared_var const char *dump_pcode shared_init(NULL);
-shared_var const char *dump_z3 shared_init(NULL);
-shared_var const char *verify shared_init(NULL);
-
 struct resource_handle {
 	handle_t fd;
 	bool nonblocking;

@@ -27,6 +27,30 @@
 typedef uint8_t chicken_mask_t;
 extern chicken_mask_t chicken;
 
+extern const char *dump_code;
+extern const char *dump_opencl;
+extern const char *dump_pcode;
+extern const char *dump_z3;
+extern const char *verify;
+
+extern bool ipret_strict_calls;
+extern bool ipret_is_privileged;
+extern bool ipret_sandbox;
+extern bool ipret_compile;
+extern bool ipret_compile_run;
+extern bool ipret_noinline;
+extern bool ipret_verify_light;
+extern uint32_t ipret_verify_timeout;
+extern bool ipret_warnings;
+extern uint32_t ipret_opencl_device;
+
+extern bool save_disable;
+extern bool thread_tick;
+extern uint32_t tick_us;
+
+extern uint32_t nr_cpus_override;
+extern uint32_t nr_nodes_override;
+
 extern const char * const * args_left;
 extern int n_args_left;
 extern const char *program_name;

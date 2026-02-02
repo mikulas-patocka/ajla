@@ -40,9 +40,6 @@
 #undef USEABLE_SIGNAL
 #endif
 
-extern uint32_t tick_us;
-extern bool thread_tick;
-
 typedef uint32_t tick_stamp_t;
 extern atomic_type tick_stamp_t *tick_stamp_ptr;
 #define tick_start(state)	(*(state) = load_relaxed(&tick_stamp))

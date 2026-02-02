@@ -39,8 +39,6 @@
 #define USE_MMAP
 #endif
 
-shared_var bool save_disable shared_init(false);
-
 static const char id[] = "AJLA" " " __DATE__ " " __TIME__;
 
 static bool save_ok;

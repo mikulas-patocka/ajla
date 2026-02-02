@@ -19,21 +19,36 @@
 #include "ajla.h"
 
 #include "mem_al.h"
-#include "obj_reg.h"
-#include "thread.h"
 #include "profile.h"
-#include "funct.h"
-#include "tick.h"
-#include "task.h"
 #include "os.h"
-#include "ipfn.h"
-#include "save.h"
-#include "codegen.h"
-#include "ipio.h"
 
 #include "args.h"
 
-chicken_mask_t chicken;
+chicken_mask_t chicken = 0;
+
+const char *dump_code = NULL;
+const char *dump_opencl = NULL;
+const char *dump_pcode = NULL;
+const char *dump_z3 = NULL;
+const char *verify = NULL;
+
+bool ipret_strict_calls = false;
+bool ipret_is_privileged = false;
+bool ipret_sandbox = false;
+bool ipret_compile = false;
+bool ipret_compile_run = false;
+bool ipret_noinline = false;
+bool ipret_verify_light = false;
+uint32_t ipret_verify_timeout = 0;
+bool ipret_warnings = false;
+uint32_t ipret_opencl_device = 0;
+
+bool save_disable = false;
+bool thread_tick = false;
+uint32_t tick_us = DEFAULT_TICK_US;
+
+uint32_t nr_cpus_override = 0;
+uint32_t nr_nodes_override = 0;
 
 const char * const * args_left;
 int n_args_left;

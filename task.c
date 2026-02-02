@@ -36,7 +36,6 @@
 #endif
 
 shared_var unsigned nr_cpus;
-shared_var uint32_t nr_cpus_override shared_init(0);
 shared_var uchar_efficient_t shutting_down;
 
 #define STATE_ALL_BUSY	0
@@ -76,7 +75,6 @@ struct thread_pointers {
 shared_var struct node_state **nodes;
 shared_var unsigned nr_nodes;
 shared_var unsigned nr_real_nodes;
-shared_var uint32_t nr_nodes_override shared_init(0);
 shared_var unsigned nr_idle_nodes;
 shared_var struct thread_pointers *thread_pointers;
 shared_var bool task_initialized shared_init(false);

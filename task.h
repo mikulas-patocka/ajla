@@ -32,9 +32,6 @@
 #define waiting_list_remove	name(waiting_list_remove)
 #define waiting_list_break	name(waiting_list_break)
 
-extern uint32_t nr_cpus_override;
-extern uint32_t nr_nodes_override;
-
 int task_get_numa_node(void);
 
 void attr_fastcall task_submit(struct execution_control *ex, unsigned spawn_mode);

@@ -33,17 +33,6 @@
 
 #include "ipfn.h"
 
-shared_var bool ipret_strict_calls shared_init(false);
-shared_var bool ipret_is_privileged shared_init(false);
-shared_var bool ipret_sandbox shared_init(false);
-shared_var bool ipret_compile shared_init(false);
-shared_var bool ipret_compile_run shared_init(false);
-shared_var bool ipret_noinline shared_init(false);
-shared_var bool ipret_verify_light shared_init(false);
-shared_var uint32_t ipret_verify_timeout shared_init(0);
-shared_var bool ipret_warnings shared_init(false);
-shared_var uint32_t ipret_opencl_device shared_init(0);
-
 static const timestamp_t break_ticks = 1;
 
 void eval_both(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2)

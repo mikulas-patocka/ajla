@@ -33,8 +33,6 @@
 
 #include "codegen.h"
 
-shared_var const char *dump_code shared_init(NULL);
-
 #ifdef HAVE_CODEGEN
 
 #define INLINE_BITMAP_SLOTS		32
