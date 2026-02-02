@@ -420,8 +420,8 @@ static bool attr_w gen_test_tag(struct codegen_context *ctx, frame_t slot, unsig
 
 static bool attr_w gen_frame_set_pointer(struct codegen_context *ctx, frame_t slot, unsigned src, bool reference, bool not_thunk)
 {
-	uint32_t nondata_label;
 	bool escape_on_thunk = !not_thunk && da(ctx->fn,function)->local_variables_flags[slot].must_be_data;
+	bool escape_on_tag = da(ctx->fn,function)->local_variables_flags[slot].must_be_data >= 2;
 	g(gen_set_1(ctx, R_FRAME, slot, 0, true));
 	flag_set_unknown(ctx, slot);
 	if (not_thunk)
@@ -429,21 +429,24 @@ static bool attr_w gen_frame_set_pointer(struct codegen_context *ctx, frame_t sl
 	flag_set(ctx, slot, true);
 	g(gen_frame_store(ctx, OP_SIZE_SLOT, slot, 0, src));
 	if (reference) {
-		if (escape_on_thunk)
+		if (escape_on_thunk || escape_on_tag)
 			g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SAVED_1, src));
 		g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1, true));
 		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, src));
 		g(gen_upcall_argument(ctx, 0));
 		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1, true));
-		if (escape_on_thunk)
+		if (escape_on_thunk || escape_on_tag)
 			src = R_SAVED_1;
 	}
-	nondata_label = alloc_escape_label_for_ip(ctx, ctx->current_position);
-	if (unlikely(!nondata_label))
-		return false;
-	if (escape_on_thunk)
-		g(gen_ptr_is_thunk(ctx, src, NO_FRAME_T, nondata_label));
-	g(gen_test_tag(ctx, slot, src, nondata_label));
+	if (escape_on_thunk || escape_on_tag) {
+		uint32_t nondata_label = alloc_escape_label_for_ip(ctx, ctx->current_position);
+		if (unlikely(!nondata_label))
+			return false;
+		if (escape_on_thunk)
+			g(gen_ptr_is_thunk(ctx, src, NO_FRAME_T, nondata_label));
+		if (escape_on_tag)
+			g(gen_test_tag(ctx, slot, src, nondata_label));
+	}
 	return true;
 }
 
