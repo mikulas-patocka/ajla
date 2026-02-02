@@ -66,6 +66,8 @@ next_param:
 		chicken |= CHICKEN_CG_FLAG_CACHE;
 	else if (l == 15 && !strncmp(str, "cg-must-be-flat", l))
 		chicken |= CHICKEN_CG_MUST_BE_FLAT;
+	else if (l == 15 && !strncmp(str, "cg-must-be-data", l))
+		chicken |= CHICKEN_CG_MUST_BE_DATA;
 	else if (l == 5 && !strncmp(str, "cg-ra", l))
 		chicken |= CHICKEN_CG_RA;
 	else if (l == 11 && !strncmp(str, "cg-optimize", l))
