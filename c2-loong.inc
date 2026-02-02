@@ -256,6 +256,9 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 					case OP_SIZE_4:
 						cgen_2ri8(LOONG_SLLI_W, arg1[0], arg2[0], 0);
 						return true;
+					case OP_SIZE_8:
+						cgen_3r(LOONG_OR, arg1[0], arg2[0], R_ZERO);
+						return true;
 					default:
 						goto invalid;
 				}
@@ -897,8 +900,76 @@ static bool attr_w resolve_relocation(struct codegen_context *ctx, struct reloca
 	return false;
 }
 
-static bool validate_insn(const struct insn_details attr_unused *d)
+static bool validate_gr(uint8_t reg)
 {
+	return reg < 0x20;
+}
+
+static bool validate_address(const uint32_t table[10], unsigned size, const uint8_t *arg)
+{
+	if (arg[0] == ARG_ADDRESS_1 && validate_gr(arg[1])) {
+		int64_t imm = get_imm(&arg[2]);
+		if (!(imm & 3) && imm >= -0x8000 && imm < 0x8000 && (size == OP_SIZE_4 || size == OP_SIZE_8)) {
+			if (table[8 + size - OP_SIZE_4] != -1U)
+				return true;
+		}
+		return likely(imm >= -0x800) && likely(imm < 0x800);
+	}
+	if (arg[0] == ARG_ADDRESS_2 && validate_gr(arg[1]) && validate_gr(arg[2])) {
+		int64_t imm = get_imm(&arg[3]);
+		return !imm;
+	}
+	return false;
+}
+
+
+static bool validate_mov(const struct insn_details *d)
+{
+	const uint8_t *arg1 = d->start + 4;
+	const uint8_t *arg2 = arg1 + arg_size(*arg1);
+	bool sx = insn_opcode(d->insn) == INSN_MOVSX;
+	unsigned size = insn_op_size(d->insn);
+	if (validate_gr(arg1[0]) && validate_gr(arg2[0])) {
+		return true;
+	}
+	if (validate_gr(arg1[0]) && arg2[0] == ARG_IMM) {
+		int64_t imm = get_imm(&arg2[1]);
+		if (imm >= 0 && imm < 0x1000)
+			return true;
+		if (imm >= -0x800 && imm < 0x800)
+			return true;
+		if (!(imm & 0xfff) && imm == (int32_t)imm)
+			return true;
+		if (!(imm & 0x000fffffffffffffLL))
+			return true;
+		return false;
+	}
+	if (arg2[0] == ARG_ADDRESS_1 || arg2[0] == ARG_ADDRESS_2) {
+		if (validate_gr(arg1[0])) {
+			return validate_address(!sx ? ld_unsigned : ld_signed, size, arg2);
+		}
+	}
+	if (arg1[0] == ARG_ADDRESS_1 || arg1[0] == ARG_ADDRESS_2) {
+		if (validate_gr(arg2[0]))
+			return validate_address(st, size, arg1);
+		if (arg2[0] == ARG_IMM) {
+			int64_t imm = get_imm(&arg2[1]);
+			if (unlikely(imm != 0))
+				return false;
+			return validate_address(st, size, arg1);
+		}
+	}
+	return false;
+}
+
+static bool validate_insn(const struct insn_details *d)
+{
+	switch (insn_opcode(d->insn)) {
+		case INSN_MOV:
+		case INSN_MOVSX: {
+			return validate_mov(d);
+		}
+	}
 	return false;
 }
 
