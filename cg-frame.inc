@@ -68,22 +68,32 @@ static unsigned spill_size(const struct type *t)
 	}
 }
 
-static bool attr_w spill(struct codegen_context *ctx, frame_t v)
+static bool attr_w spill(struct codegen_context *ctx, frame_t v, bool attr_unused can_be_smaller)
 {
 	const struct type *t = get_type_of_local(ctx, v);
-	g(gen_store_raw(ctx, spill_size(t), R_FRAME, v, 0, ctx->registers[v]));
+	unsigned size = spill_size(t);
+#if defined(C_LITTLE_ENDIAN)
+	if (can_be_smaller)
+		size = maximum(OP_SIZE_SLOT, size);
+#endif
+	g(gen_store_raw(ctx, size, R_FRAME, v, 0, ctx->registers[v]));
 	return true;
 }
 
-static bool attr_w unspill(struct codegen_context *ctx, frame_t v)
+static bool attr_w unspill(struct codegen_context *ctx, frame_t v, bool attr_unused can_be_smaller)
 {
 	const struct type *t = get_type_of_local(ctx, v);
+	unsigned size = spill_size(t);
 	enum extend ex = garbage;
+#if defined(C_LITTLE_ENDIAN)
+	if (can_be_smaller)
+		size = maximum(OP_SIZE_SLOT, size);
+#endif
 	if (t->tag == TYPE_TAG_flat_option)
 		ex = zero;
 	else if (!TYPE_IS_FLAT(t))
 		ex = native;
-	g(gen_load_raw(ctx, spill_size(t), ex, R_FRAME, v, 0, false, ctx->registers[v]));
+	g(gen_load_raw(ctx, size, ex, R_FRAME, v, 0, false, ctx->registers[v]));
 	return true;
 }
 
@@ -328,7 +338,7 @@ ret:
 static bool attr_w gen_frame_load_x87(struct codegen_context *ctx, unsigned insn, unsigned size, unsigned alu, frame_t slot)
 {
 	if (slot_is_register(ctx, slot))
-		g(spill(ctx, slot));
+		g(spill(ctx, slot, false));
 	g(gen_address(ctx, R_FRAME, (size_t)slot * slot_size, IMM_PURPOSE_LDR_OFFSET, size));
 	gen_insn(insn, size, alu, 0);
 	gen_address_offset();
@@ -341,7 +351,7 @@ static bool attr_w gen_frame_store_x87(struct codegen_context *ctx, unsigned ins
 	gen_insn(insn, size, 0, 0);
 	gen_address_offset();
 	if (slot_is_register(ctx, slot))
-		g(unspill(ctx, slot));
+		g(unspill(ctx, slot, false));
 	return true;
 }
 #endif
@@ -527,17 +537,6 @@ fallback:
 
 static bool attr_w gen_frame_load_2(struct codegen_context *ctx, unsigned size, frame_t slot, int64_t offset, unsigned reg1, unsigned reg2)
 {
-	if (frame_t_is_const(slot))
-		goto skip_ldd;
-	if (ARCH_HAS_LDP_STP(false, reg1, reg2, size, offset + (size_t)slot * slot_size)) {
-		g(gen_address(ctx, R_FRAME, offset + (size_t)slot * slot_size, IMM_PURPOSE_LDP_STP_OFFSET, size));
-		gen_insn(INSN_LDP, size, 0, 0);
-		gen_one(reg1);
-		gen_one(reg2);
-		gen_address_offset();
-		return true;
-	}
-skip_ldd:
 	g(gen_frame_load(ctx, size, garbage, slot, offset + lo_word(size), true, reg1));
 	g(gen_frame_load(ctx, size, garbage, slot, offset + hi_word(size), true, reg2));
 	return true;
@@ -601,14 +600,6 @@ static unsigned gen_frame_target(struct codegen_context *ctx, frame_t slot_r, fr
 
 static bool attr_w gen_frame_store_2(struct codegen_context *ctx, unsigned size, frame_t slot, int64_t offset, unsigned reg1, unsigned reg2)
 {
-	if (ARCH_HAS_LDP_STP(true, reg1, reg2, size, offset + (size_t)slot * slot_size)) {
-		g(gen_address(ctx, R_FRAME, offset + (size_t)slot * slot_size, IMM_PURPOSE_LDP_STP_OFFSET, size));
-		gen_insn(INSN_STP, size, 0, 0);
-		gen_address_offset();
-		gen_one(reg1);
-		gen_one(reg2);
-		return true;
-	}
 	g(gen_frame_store(ctx, size, slot, offset + lo_word(size), reg1));
 	g(gen_frame_store(ctx, size, slot, offset + hi_word(size), reg2));
 	return true;
@@ -692,7 +683,7 @@ static bool attr_w gen_frame_clear(struct codegen_context *ctx, unsigned size, f
 {
 	g(gen_frame_store_imm(ctx, size, slot, 0, 0));
 	if (slot_is_register(ctx, slot))
-		g(spill(ctx, slot));
+		g(spill(ctx, slot, false));
 	return true;
 }
 
@@ -849,72 +840,11 @@ static bool attr_w gen_frame_load_cmp_imm_set_cond(struct codegen_context *ctx, 
 	return true;
 }
 
-static bool spill_can_pair(struct codegen_context *ctx, bool attr_unused store, frame_t slot1, frame_t slot2, unsigned *s, int64_t *o, bool can_be_smaller)
-{
-	const struct type *t1 = get_type_of_local(ctx, slot1);
-	const struct type *t2 = get_type_of_local(ctx, slot2);
-	unsigned s1 = spill_size(t1);
-	unsigned s2 = spill_size(t2);
-#if !defined(C_LITTLE_ENDIAN)
-	can_be_smaller = false;
-#endif
-	if (TYPE_TAG_IS_REAL(t1->tag) || TYPE_TAG_IS_REAL(t2->tag))
-		return false;
-	if (unlikely(s1 > OP_SIZE_NATIVE) || unlikely(s2 > OP_SIZE_NATIVE))
-		return false;
-	if (!can_be_smaller && (s1 < OP_SIZE_SLOT || s2 < OP_SIZE_SLOT))
-		return false;
-	s1 = maximum(s1, OP_SIZE_SLOT);
-	s2 = maximum(s2, OP_SIZE_SLOT);
-	if (unlikely(s1 != s2))
-		return false;
-#if defined(C_LITTLE_ENDIAN)
-	if (slot1 + 1 + (s1 > OP_SIZE_SLOT) != slot2)
-		return false;
-	if (!ARCH_HAS_LDP_STP(store, ctx->registers[slot1], ctx->registers[slot2], s1, slot1 * slot_size))
-		return false;
-	*s = s1;
-	*o = (size_t)slot1 * slot_size;
-#else
-	if (slot2 + 1 + (s2 > OP_SIZE_SLOT) != slot1)
-		return false;
-	if (!ARCH_HAS_LDP_STP(store, ctx->registers[slot1], ctx->registers[slot2], s1, slot2 * slot_size))
-		return false;
-	*s = s2;
-	*o = (size_t)slot2 * slot_size;
-#endif
-	return true;
-}
-
 static bool attr_w gen_spill_multiple(struct codegen_context *ctx, frame_t *v, size_t l, bool attr_unused can_be_smaller)
 {
 	size_t i;
 	for (i = 0; i < l; i++) {
-		if (i + 1 < l) {
-			unsigned s = 0;		/* avoid warning */
-			int64_t offset = 0;	/* avoid warning */
-#if defined(C_LITTLE_ENDIAN)
-			if (!spill_can_pair(ctx, true, v[i], v[i + 1], &s, &offset, can_be_smaller))
-				goto skip_opt;
-			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
-			gen_insn(INSN_STP, s, 0, 0);
-			gen_address_offset();
-			gen_one(ctx->registers[v[i]]);
-			gen_one(ctx->registers[v[i + 1]]);
-#else
-			if (!spill_can_pair(ctx, true, v[i + 1], v[i], &s, &offset, can_be_smaller))
-				goto skip_opt;
-			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
-			gen_insn(INSN_STP, s, 0, 0);
-			gen_address_offset();
-			gen_one(ctx->registers[v[i + 1]]);
-			gen_one(ctx->registers[v[i]]);
-#endif
-			i++;
-			continue;
-		}
-skip_opt:
-		g(spill(ctx, v[i]));
+		g(spill(ctx, v[i], can_be_smaller));
 	}
 	return true;
 }
@@ -923,31 +853,7 @@ static bool attr_w gen_unspill_multiple(struct codegen_context *ctx, frame_t *v,
 {
 	size_t i;
 	for (i = 0; i < l; i++) {
-		if (i + 1 < l) {
-			unsigned s = 0;		/* avoid warning */
-			int64_t offset = 0;	/* avoid warning */
-#if defined(C_LITTLE_ENDIAN)
-			if (!spill_can_pair(ctx, false, v[i], v[i + 1], &s, &offset, can_be_smaller))
-				goto skip_opt;
-			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
-			gen_insn(INSN_LDP, s, 0, 0);
-			gen_one(ctx->registers[v[i]]);
-			gen_one(ctx->registers[v[i + 1]]);
-			gen_address_offset();
-#else
-			if (!spill_can_pair(ctx, false, v[i + 1], v[i], &s, &offset, can_be_smaller))
-				goto skip_opt;
-			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_LDP_STP_OFFSET, s));
-			gen_insn(INSN_LDP, s, 0, 0);
-			gen_one(ctx->registers[v[i + 1]]);
-			gen_one(ctx->registers[v[i]]);
-			gen_address_offset();
-#endif
-			i++;
-			continue;
-		}
-skip_opt:
-		g(unspill(ctx, v[i]));
+		g(unspill(ctx, v[i], can_be_smaller));
 	}
 	return true;
 }
@@ -983,7 +889,7 @@ static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned offset
 		for (i = 0; i < ctx->need_spill_l; i++) {
 			unsigned reg = ctx->registers[ctx->need_spill[i]];
 			if (reg_is_fp(reg))
-				g(spill(ctx, ctx->need_spill[i]));
+				g(spill(ctx, ctx->need_spill[i], false));
 		}
 		ctx->n_pushes = 0;
 		for (i = 0; i < ctx->need_spill_l; i++) {
@@ -1041,7 +947,7 @@ static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned attr_unu
 		for (i = 0; i < ctx->need_spill_l; i++) {
 			unsigned reg = ctx->registers[ctx->need_spill[i]];
 			if (reg_is_fp(reg))
-				g(unspill(ctx, ctx->need_spill[i]));
+				g(unspill(ctx, ctx->need_spill[i], false));
 		}
 #else
 		g(gen_unspill_multiple(ctx, ctx->need_spill, ctx->need_spill_l, true));

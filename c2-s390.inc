@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -1603,12 +1603,12 @@ static bool attr_w cgen_ldp_stp(struct codegen_context *ctx, unsigned size, bool
 	}
 	if (unlikely(arg2[0] >= 0x10) || unlikely(arg3[0] >= 0x10))
 		goto invl;
-	if (unlikely(arg2[0] != arg3[0] + 1))
+	if (unlikely(arg3[0] != arg2[0] + 1))
 		goto invl;
 	if (!st)
-		g(cgen_lm_stm(ctx, size, arg3[0], arg2[0], arg1, S390_LM, S390_LMY, S390_LMG));
+		g(cgen_lm_stm(ctx, size, arg2[0], arg3[0], arg1, S390_LM, S390_LMY, S390_LMG));
 	else
-		g(cgen_lm_stm(ctx, size, arg3[0], arg2[0], arg1, S390_STM, S390_STMY, S390_STMG));
+		g(cgen_lm_stm(ctx, size, arg2[0], arg3[0], arg1, S390_STM, S390_STMY, S390_STMG));
 	return true;
 invl:
 	internal(file_line, "cgen_ldp_stp: invalid arguments %u, %u, %02x, %02x, %02x", (unsigned)st, size, *arg1, *arg2, *arg3);
@@ -2119,6 +2119,19 @@ static bool validate_movsx(const struct insn_details *d)
 	return false;
 }
 
+static bool validate_ldp_stp(unsigned size, const uint8_t *mem, const uint8_t *reg1, const uint8_t *reg2)
+{
+	int64_t imm;
+	if (mem[0] != ARG_ADDRESS_1 || !validate_gr(mem[1]) || unlikely(!mem[1]))
+		return false;
+	imm = get_imm(&mem[2]);
+	if (!is_direct_offset(imm))
+		return false;
+	if (validate_gr(reg1[0]) && validate_gr(reg2[0]) && reg2[0] == reg1[0] + 1 && size >= OP_SIZE_4 && size <= OP_SIZE_NATIVE)
+		return true;
+	return false;
+}
+
 static bool validate_insn(const struct insn_details *d)
 {
 	switch (insn_opcode(d->insn)) {
@@ -2127,6 +2140,20 @@ static bool validate_insn(const struct insn_details *d)
 		}
 		case INSN_MOVSX: {
 			return validate_movsx(d);
+		}
+		case INSN_STP: {
+			const uint8_t *arg1 = d->start + 4;
+			const uint8_t *arg2 = arg1 + arg_size(*arg1);
+			const uint8_t *arg3 = arg2 + arg_size(*arg2);
+			return validate_ldp_stp(insn_op_size(d->insn), arg1, arg2, arg3);
+		}
+		case INSN_LDP: {
+			const uint8_t *arg1 = d->start + 4;
+			const uint8_t *arg2 = arg1 + arg_size(*arg1);
+			const uint8_t *arg3 = arg2 + arg_size(*arg2);
+			if (unlikely(insn_op_size(d->insn) != OP_SIZE_NATIVE))
+				return false;
+			return validate_ldp_stp(insn_op_size(d->insn), arg3, arg1, arg2);
 		}
 	}
 	return false;

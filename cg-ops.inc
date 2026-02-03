@@ -120,7 +120,7 @@ static bool attr_w gen_box_move_copy(struct codegen_context *ctx, code_t code, f
 	}
 
 	if (slot_is_register(ctx, slot_1))
-		g(spill(ctx, slot_1));
+		g(spill(ctx, slot_1, false));
 
 	if (code != OPCODE_BOX_MOVE_CLEAR) {
 		g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_ipret_copy_variable_to_pointer_noderef), 2, true));
@@ -346,7 +346,7 @@ copied:
 				gen_label_ref(next_arg_label);
 			} else {
 				if (slot_is_register(ctx, arg_slot))
-					g(spill(ctx, arg_slot));
+					g(spill(ctx, arg_slot, false));
 
 				g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 2, true));
 
@@ -964,7 +964,7 @@ skip_quickret:
 			gen_label(flat_to_data_label);
 
 			if (slot_is_register(ctx, src_arg->slot))
-				g(spill(ctx, src_arg->slot));
+				g(spill(ctx, src_arg->slot, false));
 
 			g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 2, true));
 
@@ -1165,7 +1165,7 @@ struct_zero:
 	}
 
 	if (slot_is_register(ctx, slot_struct))
-		g(spill(ctx, slot_struct));
+		g(spill(ctx, slot_struct, false));
 	g(gen_frame_address(ctx, slot_struct, 0, R_SAVED_1));
 
 	for (i = 0; i < ctx->args_l; i++) {
@@ -1414,7 +1414,7 @@ static bool attr_w gen_record_create(struct codegen_context *ctx, frame_t slot_r
 				gen_label_ref(next_arg_label);
 			} else {
 				if (slot_is_register(ctx, var_slot))
-					g(spill(ctx, var_slot));
+					g(spill(ctx, var_slot, false));
 
 				g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 2, true));
 
@@ -1593,7 +1593,7 @@ static bool attr_w gen_option_create(struct codegen_context *ctx, ajla_option_t 
 		g(gen_test_1_cached(ctx, slot_1, get_pointer_label));
 
 		if (slot_is_register(ctx, slot_1))
-			g(spill(ctx, slot_1));
+			g(spill(ctx, slot_1, false));
 
 		g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_flat_to_data), 2, true));
 
@@ -1989,7 +1989,7 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 	}
 
 	if (slot_is_register(ctx, slot_1))
-		g(spill(ctx, slot_1));
+		g(spill(ctx, slot_1, false));
 
 	if (unlikely((flags & OPCODE_ARRAY_FILL_FLAG_SPARSE) != 0)) {
 		uint32_t get_ptr_label, got_ptr_label;
@@ -2058,7 +2058,7 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_array_create_flat), 3, true));
 	} else {
 		if (slot_is_register(ctx, slot_2))
-			g(spill(ctx, slot_2));
+			g(spill(ctx, slot_2, false));
 
 		g(gen_frame_get_pointer(ctx, slot_1, (flags & OPCODE_FLAG_FREE_ARGUMENT) != 0, R_SCRATCH_1));
 
@@ -2715,11 +2715,11 @@ static bool attr_w gen_array_sub(struct codegen_context *ctx, frame_t slot_array
 	g(gen_test_2_cached(ctx, slot_from, slot_to, escape_label));
 
 	if (slot_is_register(ctx, slot_array))
-		g(spill(ctx, slot_array));
+		g(spill(ctx, slot_array, false));
 	if (slot_is_register(ctx, slot_from))
-		g(spill(ctx, slot_from));
+		g(spill(ctx, slot_from, false));
 	if (slot_is_register(ctx, slot_to))
-		g(spill(ctx, slot_to));
+		g(spill(ctx, slot_to, false));
 
 	g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_array_sub), 4, true));
 
@@ -2779,9 +2779,9 @@ static bool attr_w gen_array_skip(struct codegen_context *ctx, frame_t slot_arra
 	g(gen_test_1_cached(ctx, slot_from, escape_label));
 
 	if (slot_is_register(ctx, slot_array))
-		g(spill(ctx, slot_array));
+		g(spill(ctx, slot_array, false));
 	if (slot_is_register(ctx, slot_from))
-		g(spill(ctx, slot_from));
+		g(spill(ctx, slot_from, false));
 
 	g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_array_skip), 3, true));
 

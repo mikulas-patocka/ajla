@@ -72,7 +72,7 @@
 #define ARCH_IS_3ADDRESS_FP		1
 #define ARCH_HAS_JMP_REG(cond)		0
 #define ARCH_HAS_JMP_2REGS(cond)	0
-#define ARCH_HAS_LDP_STP(st, r1, r2, s, o)	(OP_SIZE_ADDRESS == OP_SIZE_8 && cpu_test_feature(CPU_FEATURE_lq) && (s) == OP_SIZE_8 && !((r2) & 1) && (r1) == (r2) + 1 && !((o) & 15))
+#define ARCH_HAS_FUSED_MEMORY_ACCESSES	0
 #define ARCH_HAS_FLAGS			1
 #define ARCH_PREFERS_SX(size)		0
 #define ARCH_HAS_BWX			1
@@ -466,7 +466,7 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 
 	for (i = R_LOWEST_SAVED, offs = REGS_OFFSET; i <= R_31; i++, offs += 1 << OP_SIZE_ADDRESS) {
 #if defined(C_BIG_ENDIAN)
-		if (i < R_31 && ARCH_HAS_LDP_STP(true, i + 1, i, OP_SIZE_ADDRESS, offs)) {
+		if (i < R_31 && 0) {
 			gen_insn(INSN_STP, OP_SIZE_ADDRESS, 0, 0);
 			gen_one(ARG_ADDRESS_1);
 			gen_one(R_SP);
@@ -591,7 +591,7 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 
 	for (i = R_LOWEST_SAVED, offs = REGS_OFFSET; i <= R_31; i++, offs += 1 << OP_SIZE_ADDRESS) {
 #if defined(C_BIG_ENDIAN)
-		if (i < R_31 && ARCH_HAS_LDP_STP(false, i + 1, i, OP_SIZE_ADDRESS, offs)) {
+		if (i < R_31 && 0) {
 			gen_insn(INSN_LDP, OP_SIZE_ADDRESS, 0, 0);
 			gen_one(i + 1);
 			gen_one(i);

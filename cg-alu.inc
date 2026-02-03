@@ -24,9 +24,9 @@ static bool attr_w gen_alu_upcall(struct codegen_context *ctx, size_t upcall, un
 	if (unlikely(frame_t_is_const(slot_1)))
 		internal(file_line, "gen_alu_upcall: the first argument is constant");
 	if (slot_is_register(ctx, slot_1))
-		g(spill(ctx, slot_1));
+		g(spill(ctx, slot_1, false));
 	if (slot_2 != NO_FRAME_T && slot_is_register(ctx, slot_2))
-		g(spill(ctx, slot_2));
+		g(spill(ctx, slot_2, false));
 	if (frame_t_is_const(slot_2)) {
 		size_t x_offs = offsetof(struct cg_upcall_vector_s, INT_binary_const_int8_t) + op_size * sizeof(void (*)(void));
 		g(gen_upcall_start(ctx, x_offs, 4, true));
@@ -57,7 +57,7 @@ static bool attr_w gen_alu_upcall(struct codegen_context *ctx, size_t upcall, un
 		g(gen_upcall(ctx, upcall, 2, true));
 	}
 	if (slot_is_register(ctx, slot_r))
-		g(unspill(ctx, slot_r));
+		g(unspill(ctx, slot_r, false));
 	if (label_ovf)
 		g(gen_jmp_on_zero(ctx, OP_SIZE_1, R_RET0, COND_E, label_ovf));
 	return true;
@@ -2856,7 +2856,7 @@ static bool attr_w gen_constant(struct codegen_context *ctx, bool real, unsigned
 	if (op_size > OP_SIZE_NATIVE) {
 		g(gen_frame_store_imm_dual(ctx, slot_r, c));
 		if (real && slot_is_register(ctx, slot_r))
-			g(unspill(ctx, slot_r));
+			g(unspill(ctx, slot_r, false));
 		return true;
 	} else if (real && slot_is_register(ctx, slot_r)) {
 		if (ARCH_HAS_FP_GP_MOV) {
@@ -2864,7 +2864,7 @@ static bool attr_w gen_constant(struct codegen_context *ctx, bool real, unsigned
 			g(gen_mov(ctx, op_size, ctx->registers[slot_r], R_SCRATCH_1));
 		} else {
 			g(gen_frame_store_imm_raw(ctx, op_size, slot_r, 0, c));
-			g(unspill(ctx, slot_r));
+			g(unspill(ctx, slot_r, false));
 		}
 	} else {
 		g(gen_frame_store_imm(ctx, op_size, slot_r, 0, c));
@@ -2884,7 +2884,7 @@ static bool attr_w gen_real_constant(struct codegen_context *ctx, const struct t
 
 	g(gen_memcpy_raw(ctx, R_FRAME, (size_t)slot_r * slot_size, R_SCRATCH_3, offset, t->size, minimum(t->align, sizeof(code_t))));
 	if (slot_is_register(ctx, slot_r))
-		g(unspill(ctx, slot_r));
+		g(unspill(ctx, slot_r, false));
 
 	return true;
 }
@@ -3532,7 +3532,7 @@ do_cvt_to_int:
 
 		g(gen_store_raw(ctx, OP_SIZE_INT, R_FRAME, slot_r, 0, fr_scratch_1));
 		if (slot_is_register(ctx, slot_r))
-			g(unspill(ctx, slot_r));
+			g(unspill(ctx, slot_r, false));
 		g(gen_frame_load(ctx, OP_SIZE_INT, garbage, slot_r, 0, false, target));
 
 		g(gen_imm(ctx, sign_bit(uint_default_t) + 1, IMM_PURPOSE_ADD, OP_SIZE_INT));
@@ -3561,7 +3561,7 @@ do_cvt_to_int:
 			g(gen_store_raw(ctx, OP_SIZE_INT, R_FRAME, slot_r, 0, fr_scratch_2));
 		}
 		if (slot_is_register(ctx, slot_r))
-			g(unspill(ctx, slot_r));
+			g(unspill(ctx, slot_r, false));
 		return true;
 #endif
 #if defined(ARCH_S390)
@@ -3633,7 +3633,7 @@ do_cvt_to_int:
 			gen_eight(1 << OP_SIZE_NATIVE);
 		}
 		if (slot_is_register(ctx, slot_r))
-			g(unspill(ctx, slot_r));
+			g(unspill(ctx, slot_r, false));
 		g(gen_frame_load(ctx, OP_SIZE_INT, garbage, slot_r, 0, false, R_SCRATCH_1));
 
 		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, R_SCRATCH_1, sign_bit(int_default_t), COND_E, label_ovf, R_SCRATCH_2));
@@ -3668,7 +3668,7 @@ do_from_int:
 			goto do_upcall;
 #endif
 		if (slot_is_register(ctx, slot_1))
-			g(spill(ctx, slot_1));
+			g(spill(ctx, slot_1, false));
 		g(gen_load_raw(ctx, int_op_size, zero_x, R_FRAME, slot_1, 0, false, fr_scratch_1));
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_2);
 #if defined(ARCH_ALPHA)
@@ -3713,7 +3713,7 @@ do_from_int:
 #ifdef SUPPORTED_FP_X87
 	if ((SUPPORTED_FP_X87 >> real_type) & 1) {
 		if (slot_is_register(ctx, slot_1))
-			g(spill(ctx, slot_1));
+			g(spill(ctx, slot_1, false));
 		g(gen_frame_load_x87(ctx, INSN_X87_FILD, OP_SIZE_INT, 0, slot_1));
 		g(gen_frame_store_x87(ctx, INSN_X87_FSTP, op_size, slot_r));
 		return true;

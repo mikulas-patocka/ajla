@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -450,13 +450,13 @@ static bool attr_w cgen_ldp_stp(struct codegen_context *ctx, bool ldr)
 	}
 	if (unlikely(arg2[0] >= 32) || unlikely(arg3[0] >= 32))
 		goto invalid;
-	if (unlikely((arg3[0] & 1) != 0) || unlikely(arg2[0] != arg3[0] + 1))
+	if (unlikely((arg2[0] & 1) != 0) || unlikely(arg3[0] != arg2[0] + 1))
 		goto invalid;
 
 	if (ldr)
-		return cgen_ld_st(ctx, SPARC_LDD, arg3[0], arg1);
+		return cgen_ld_st(ctx, SPARC_LDD, arg2[0], arg1);
 	else
-		return cgen_ld_st(ctx, SPARC_STD, arg3[0], arg1);
+		return cgen_ld_st(ctx, SPARC_STD, arg2[0], arg1);
 
 invalid:
 	internal(file_line, "cgen_ldp_stp: invalid arguments %02x, %02x, %02x", arg1[0], arg2[0], arg3[0]);
@@ -712,12 +712,43 @@ static bool validate_mov(const struct insn_details *d)
 	return false;
 }
 
+static bool validate_ldp_stp(unsigned size, const uint8_t *mem, const uint8_t *reg1, const uint8_t *reg2)
+{
+	int64_t imm;
+	if (size != OP_SIZE_4)
+		return false;
+	if (mem[0] != ARG_ADDRESS_1 || mem[1] != R_FRAME)
+		return false;
+	imm = get_imm(&mem[2]);
+	if (unlikely((imm & 7) != 0))
+		return false;
+	if (unlikely(imm < -4096) || unlikely(imm >= 4096))
+		return false;
+	if (!validate_gr(reg1[0]))
+		return false;
+	if (reg1[0] & 1 || reg2[0] != reg1[0] + 1)
+		return false;
+	return true;
+}
+
 static bool validate_insn(const struct insn_details attr_unused *d)
 {
 	switch (insn_opcode(d->insn)) {
 		case INSN_MOV:
 		case INSN_MOVSX: {
 			return validate_mov(d);
+		}
+		case INSN_STP: {
+			const uint8_t *arg1 = d->start + 4;
+			const uint8_t *arg2 = arg1 + arg_size(*arg1);
+			const uint8_t *arg3 = arg2 + arg_size(*arg2);
+			return validate_ldp_stp(insn_op_size(d->insn), arg1, arg2, arg3);
+		}
+		case INSN_LDP: {
+			const uint8_t *arg1 = d->start + 4;
+			const uint8_t *arg2 = arg1 + arg_size(*arg1);
+			const uint8_t *arg3 = arg2 + arg_size(*arg2);
+			return validate_ldp_stp(insn_op_size(d->insn), arg3, arg1, arg2);
 		}
 	}
 	return false;

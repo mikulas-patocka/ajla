@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -1194,12 +1194,52 @@ static bool validate_mov(const struct insn_details *d)
 	return false;
 }
 
+static bool validate_gr_or_zero(const uint8_t *reg)
+{
+	if (likely(validate_gr(reg[0])))
+		return true;
+	return reg[0] == ARG_IMM && !get_imm(&reg[1]);
+}
+
+static bool validate_ldp_stp(unsigned size, const uint8_t *mem, const uint8_t *reg1, const uint8_t *reg2)
+{
+	int64_t imm;
+	if (mem[0] != ARG_ADDRESS_1 || !validate_gr(mem[1])) {
+		return false;
+	}
+	imm = get_imm(&mem[2]);
+	if (unlikely((imm & ((1 << size) - 1)) != 0)) {
+		return false;
+	}
+	imm /= 1 << size;
+	if (unlikely(imm < -64) || unlikely(imm > 63)) {
+		return false;
+	}
+	if (validate_gr_or_zero(reg1) && validate_gr_or_zero(reg2) && size >= OP_SIZE_4 && size <= OP_SIZE_8)
+		return true;
+	if (reg_is_fp(reg1[0]) && reg_is_fp(reg2[0]) && size >= OP_SIZE_4 && size <= OP_SIZE_16)
+		return true;
+	return false;
+}
+
 static bool validate_insn(const struct insn_details *d)
 {
 	switch (insn_opcode(d->insn)) {
 		case INSN_MOV:
 		case INSN_MOVSX: {
 			return validate_mov(d);
+		}
+		case INSN_STP: {
+			const uint8_t *arg1 = d->start + 4;
+			const uint8_t *arg2 = arg1 + arg_size(*arg1);
+			const uint8_t *arg3 = arg2 + arg_size(*arg2);
+			return validate_ldp_stp(insn_op_size(d->insn), arg1, arg2, arg3);
+		}
+		case INSN_LDP: {
+			const uint8_t *arg1 = d->start + 4;
+			const uint8_t *arg2 = arg1 + arg_size(*arg1);
+			const uint8_t *arg3 = arg2 + arg_size(*arg2);
+			return validate_ldp_stp(insn_op_size(d->insn), arg3, arg1, arg2);
 		}
 	}
 	return false;

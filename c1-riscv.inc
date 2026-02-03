@@ -37,7 +37,7 @@
 #define ARCH_IS_3ADDRESS_FP		1
 #define ARCH_HAS_JMP_REG(cond)		1
 #define ARCH_HAS_JMP_2REGS(cond)	1
-#define ARCH_HAS_LDP_STP(st, r1, r2, s, o)	0
+#define ARCH_HAS_FUSED_MEMORY_ACCESSES	0
 #define ARCH_HAS_FLAGS			0
 #define ARCH_PREFERS_SX(size)		0
 #define ARCH_HAS_BWX			1

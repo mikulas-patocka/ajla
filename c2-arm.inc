@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -964,12 +964,45 @@ static bool validate_mov(const struct insn_details attr_unused *d)
 	return false;
 }
 
+static bool validate_ldp_stp(unsigned size, const uint8_t *mem, const uint8_t *reg1, const uint8_t *reg2)
+{
+	int64_t imm;
+	if (unlikely(!cpu_test_feature(CPU_FEATURE_armv6)))
+		return false;
+	if (size != OP_SIZE_4)
+		return false;
+	if (mem[0] != ARG_ADDRESS_1 || mem[1] != R_FRAME)
+		return false;
+	imm = get_imm(&mem[2]);
+	if (unlikely((imm & 3) != 0))
+		return false;
+	if (!(imm >= -255 && imm <= 255))
+		return false;
+	if (!validate_gr(reg1[0]))
+		return false;
+	if (reg1[0] & 1 || reg2[0] != reg1[0] + 1)
+		return false;
+	return true;
+}
+
 static bool validate_insn(const struct insn_details *d)
 {
 	switch (insn_opcode(d->insn)) {
 		case INSN_MOV:
 		case INSN_MOVSX: {
 			return validate_mov(d);
+		}
+		case INSN_STP: {
+			const uint8_t *arg1 = d->start + 4;
+			const uint8_t *arg2 = arg1 + arg_size(*arg1);
+			const uint8_t *arg3 = arg2 + arg_size(*arg2);
+			return validate_ldp_stp(insn_op_size(d->insn), arg1, arg2, arg3);
+		}
+		case INSN_LDP: {
+			const uint8_t *arg1 = d->start + 4;
+			const uint8_t *arg2 = arg1 + arg_size(*arg1);
+			const uint8_t *arg3 = arg2 + arg_size(*arg2);
+			return validate_ldp_stp(insn_op_size(d->insn), arg3, arg1, arg2);
 		}
 	}
 	return false;

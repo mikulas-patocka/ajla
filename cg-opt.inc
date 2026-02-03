@@ -1627,6 +1627,22 @@ static bool attr_w live_register_analysis(struct codegen_context *ctx, reg_map l
 	return true;
 }
 
+static bool fuse_mem_accesses(const uint8_t *r1, const uint8_t *r2, const uint8_t *a1, const uint8_t *a2, unsigned op_size)
+{
+	int64_t imm1, imm2;
+	if (r1[0] >= ARG_REGS_MAX || r2[0] >= ARG_REGS_MAX) {
+		if (!(r1[0] == ARG_IMM && r2[0] == ARG_IMM && !get_imm(&r1[1]) && !get_imm(&r2[1])))
+			return false;
+	}
+	if (a1[0] != ARG_ADDRESS_1 || a2[0] != ARG_ADDRESS_1)
+		return false;
+	if (a1[1] != a2[1])
+		return false;
+	imm1 = get_imm(&a1[2]);
+	imm2 = get_imm(&a2[2]);
+	return (uint64_t)imm1 + op_size_to_size(op_size) == (uint64_t)imm2;
+}
+
 static bool attr_w peephole(struct codegen_context *ctx)
 {
 	size_t i, j, k;
@@ -1688,6 +1704,58 @@ new_d2:
 		}
 skip_setc_xor:
 #endif
+
+		if (ARCH_HAS_FUSED_MEMORY_ACCESSES && insn_opcode(d1->insn) == INSN_MOV && insn_opcode(d2->insn) == INSN_MOV && insn_op_size(d1->insn) == insn_op_size(d2->insn)) {
+			struct insn_details nd;
+			const uint8_t *d1w = d1->start + 4;
+			const uint8_t *d1r = d1w + arg_size(*d1w);
+			const uint8_t *d2w = d2->start + 4;
+			const uint8_t *d2r = d2w + arg_size(*d2w);
+			if (fuse_mem_accesses(d1w, d2w, d1r, d2r, insn_op_size(d1->insn))) {
+				g(prepare_new_insn(ctx));
+				gen_insn(INSN_LDP, insn_op_size(d1->insn), 0, 0);
+				gen_stream(d1w, arg_size(d1w[0]));
+				gen_stream(d2w, arg_size(d2w[0]));
+				gen_stream(d1r, arg_size(d1r[0]));
+				g(finish_new_insn(ctx, &nd));
+				goto gen_nd;
+			}
+			if (fuse_mem_accesses(d2w, d1w, d2r, d1r, insn_op_size(d1->insn))) {
+				g(prepare_new_insn(ctx));
+				gen_insn(INSN_LDP, insn_op_size(d1->insn), 0, 0);
+				gen_stream(d2w, arg_size(d2w[0]));
+				gen_stream(d1w, arg_size(d1w[0]));
+				gen_stream(d2r, arg_size(d2r[0]));
+				g(finish_new_insn(ctx, &nd));
+				goto gen_nd;
+			}
+			if (fuse_mem_accesses(d1r, d2r, d1w, d2w, insn_op_size(d1->insn))) {
+				g(prepare_new_insn(ctx));
+				gen_insn(INSN_STP, insn_op_size(d1->insn), 0, 0);
+				gen_stream(d1w, arg_size(d1w[0]));
+				gen_stream(d1r, arg_size(d1r[0]));
+				gen_stream(d2r, arg_size(d2r[0]));
+				g(finish_new_insn(ctx, &nd));
+				goto gen_nd;
+			}
+			if (fuse_mem_accesses(d2r, d1r, d2w, d1w, insn_op_size(d1->insn))) {
+				g(prepare_new_insn(ctx));
+				gen_insn(INSN_STP, insn_op_size(d1->insn), 0, 0);
+				gen_stream(d2w, arg_size(d2w[0]));
+				gen_stream(d2r, arg_size(d2r[0]));
+				gen_stream(d1r, arg_size(d1r[0]));
+				g(finish_new_insn(ctx, &nd));
+				goto gen_nd;
+			}
+			if (false) {
+gen_nd:
+				if (validate_insn(&nd)) {
+					*d1 = nd;
+					d2->quash = true;
+					continue;
+				}
+			}
+		}
 
 		k = j + 1;
 new_d3:

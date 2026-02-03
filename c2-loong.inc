@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
