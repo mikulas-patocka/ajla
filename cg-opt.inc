@@ -1064,6 +1064,33 @@ skip_reads:
 	d->length = ptr - d->start;
 }
 
+static bool can_be_in_delay_slot(const struct insn_details *d)
+{
+	switch (insn_opcode(d->insn)) {
+		case INSN_LABEL:
+		case INSN_CLAIM_RANGE:
+		case INSN_RET:
+		case INSN_CALL:
+		case INSN_CALL_INDIRECT:
+		case INSN_ALU_TRAP:
+		case INSN_ALU1_TRAP:
+		case INSN_FP_CMP_DEST_REG_TRAP:
+		case INSN_FP_TO_INT64_TRAP:
+		case INSN_FP_INT64_TO_INT32_TRAP:
+		case INSN_JMP:
+		case INSN_JMP_COND:
+		case INSN_JMP_COND_LOGICAL:
+		case INSN_JMP_REG:
+		case INSN_JMP_REG_BIT:
+		case INSN_JMP_2REGS:
+		case INSN_JMP_FP_TEST:
+		case INSN_JMP_INDIRECT:
+		case INSN_CALL_MILLICODE:
+			return false;
+	}
+	return true;
+}
+
 static bool attr_w prepare_new_insn(struct codegen_context *ctx)
 {
 	ctx->new_insn_mark = ctx->new_code_size;

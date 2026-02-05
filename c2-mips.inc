@@ -1210,25 +1210,6 @@ static bool validate_insn(const struct insn_details *d)
 	return false;
 }
 
-static bool can_be_in_delay_slot(const struct insn_details *d)
-{
-	switch (insn_opcode(d->insn)) {
-		case INSN_LABEL:
-		case INSN_CLAIM_RANGE:
-		case INSN_RET:
-		case INSN_CALL_INDIRECT:
-		case INSN_ALU_TRAP:
-		case INSN_ALU1_TRAP:
-		case INSN_JMP:
-		case INSN_JMP_REG:
-		case INSN_JMP_2REGS:
-		case INSN_JMP_FP_TEST:
-		case INSN_JMP_INDIRECT:
-			return false;
-	}
-	return true;
-}
-
 static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 {
 	if (unlikely(insn_writes_flags(insn))) {
