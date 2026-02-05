@@ -27,6 +27,7 @@
 #endif
 
 static bool validate_insn(const struct insn_details *d);
+static bool can_be_in_delay_slot(const struct insn_details *d);
 
 static uint8_t attr_unused oget_one(uint8_t *ptr)
 {
@@ -174,6 +175,7 @@ struct insn_details {
 	frame_t rd_frame;
 	frame_t wr_frame;
 	reg_map live_after;
+	reg_map live_before;
 };
 
 struct opt_status {
@@ -1623,6 +1625,7 @@ static bool attr_w live_register_analysis(struct codegen_context *ctx, reg_map l
 		live_registers = reg_map_union(live_registers, d->rd);
 		if (reg_map_is_set(d->rd, R_MEMORY))
 			memset(ctx->live_frame, 1, function_n_variables(ctx->fn));
+		d->live_before = live_registers;
 	}
 	return true;
 }
@@ -1673,6 +1676,19 @@ new_d2:
 				gen_insn(INSN_JMP, 0, 0, 0);
 				gen_four(label1);
 				g(finish_new_insn(ctx, d2));
+				continue;
+			}
+		}
+
+		if (ARCH_HAS_DELAY_SLOTS(insn_opcode(d1->insn)) && can_be_in_delay_slot(d2)) {
+			reg_map live_registers;
+			live_registers = reg_map_intersection(d1->live_before, d2->wr);
+			if (reg_map_is_empty(live_registers) && !reg_map_is_set(d2->rd, R_MEMORY)) {
+				g(prepare_new_insn(ctx));
+				gen_insn(insn_opcode(d1->insn) | INSN_DELAY_SLOT, insn_op_size(d1->insn), insn_aux(d1->insn), 0);
+				gen_stream(d1->start + 4, d1->length - 4);
+				g(finish_new_insn(ctx, d1));
+				i = j;
 				continue;
 			}
 		}

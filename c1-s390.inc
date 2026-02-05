@@ -50,6 +50,7 @@
 #define ARCH_IS_3ADDRESS_FP		0
 #define ARCH_HAS_JMP_REG(cond)		(cpu_test_feature(CPU_FEATURE_general_insn_ext) && USE_BRCL)
 #define ARCH_HAS_JMP_2REGS(cond)	ARCH_HAS_JMP_REG(cond)
+#define ARCH_HAS_DELAY_SLOTS(insn)	0
 #define ARCH_HAS_FUSED_MEMORY_ACCESSES	1
 #define ARCH_HAS_FLAGS			1
 #define ARCH_PREFERS_SX(size)		(!Z || !cpu_test_feature(CPU_FEATURE_long_displacement) || !cpu_test_feature(CPU_FEATURE_extended_imm))

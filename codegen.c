@@ -71,18 +71,21 @@ static uint64_t dump_seq = 0;
 #define INSN_AUX			0x03f80000UL
 #define INSN_WRITES_FLAGS		0x0c000000UL
 #define INSN_JUMP_SIZE			0x30000000UL
+#define INSN_DELAY_SLOT			0x40000000UL
 
 #define INSN_OPCODE_SHIFT		0
 #define INSN_OP_SIZE_SHIFT		16
 #define INSN_AUX_SHIFT			19
 #define INSN_WRITES_FLAGS_SHIFT		26
 #define INSN_JUMP_SIZE_SHIFT		28
+#define INSN_DELAY_SLOT_SHIFT		30
 
 #define insn_opcode(insn)		(((insn) >> INSN_OPCODE_SHIFT) & (INSN_OPCODE >> INSN_OPCODE_SHIFT))
 #define insn_op_size(insn)		(((insn) >> INSN_OP_SIZE_SHIFT) & (INSN_OP_SIZE >> INSN_OP_SIZE_SHIFT))
 #define insn_aux(insn)			(((insn) >> INSN_AUX_SHIFT) & (INSN_AUX >> INSN_AUX_SHIFT))
 #define insn_writes_flags(insn)		(((insn) >> INSN_WRITES_FLAGS_SHIFT) & (INSN_WRITES_FLAGS >> INSN_WRITES_FLAGS_SHIFT))
 #define insn_jump_size(insn)		(((insn) >> INSN_JUMP_SIZE_SHIFT) & (INSN_JUMP_SIZE >> INSN_JUMP_SIZE_SHIFT))
+#define insn_delay_slot(insn)		(((insn) >> INSN_DELAY_SLOT_SHIFT) & (INSN_DELAY_SLOT >> INSN_DELAY_SLOT_SHIFT))
 
 #define ALU_ADD				0x00
 #define ALU_OR				0x01

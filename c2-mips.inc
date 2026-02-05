@@ -875,7 +875,7 @@ static bool attr_w cgen_jmp(struct codegen_context *ctx, unsigned length)
 	return true;
 }
 
-static bool attr_w cgen_jmp_reg(struct codegen_context *ctx, unsigned cond, unsigned length)
+static bool attr_w cgen_jmp_reg(struct codegen_context *ctx, unsigned cond, unsigned length, bool delay_slot)
 {
 	uint32_t mc;
 	uint8_t *arg1 = ctx->code_position;
@@ -889,7 +889,8 @@ static bool attr_w cgen_jmp_reg(struct codegen_context *ctx, unsigned cond, unsi
 		g(cgen_jump_not_last(ctx, 1));
 		g(add_relocation(ctx, JMP_SHORT, 1, NULL));
 		cgen_four(mc | ((uint32_t)arg1[0] << 21));
-		cgen_four(MIPS_NOP);
+		if (!delay_slot)
+			cgen_four(MIPS_NOP);
 		return true;
 	}
 
@@ -912,7 +913,8 @@ static bool attr_w cgen_jmp_reg(struct codegen_context *ctx, unsigned cond, unsi
 		g(cgen_jump_not_last(ctx, 1));
 		g(add_relocation(ctx, JMP_SHORTEST, 1, NULL));
 		cgen_mips_imm(mc, 0, arg1[0], 0);
-		cgen_four(MIPS_NOP);
+		if (!delay_slot)
+			cgen_four(MIPS_NOP);
 		return true;
 	}
 	if (MIPS_R6 && length <= JMP_LONG) {
@@ -934,7 +936,7 @@ invalid:
 	return false;
 }
 
-static bool attr_w cgen_jmp_2regs(struct codegen_context *ctx, unsigned cond, unsigned length)
+static bool attr_w cgen_jmp_2regs(struct codegen_context *ctx, unsigned cond, unsigned length, bool delay_slot)
 {
 	uint32_t mc;
 	uint8_t *arg1 = ctx->code_position;
@@ -952,7 +954,8 @@ static bool attr_w cgen_jmp_2regs(struct codegen_context *ctx, unsigned cond, un
 		g(cgen_jump_not_last(ctx, 1));
 		g(add_relocation(ctx, JMP_SHORTEST, 2, NULL));
 		cgen_mips_imm(mc, arg1[0], arg2[0], 0);
-		cgen_four(MIPS_NOP);
+		if (!delay_slot)
+			cgen_four(MIPS_NOP);
 		return true;
 	}
 	g(cgen_jump_not_last(ctx, cgen_jmp_extra_long_length() + 1));
@@ -966,7 +969,7 @@ invalid:
 	return false;
 }
 
-static bool attr_w cgen_jmp_2regs_mips_r6(struct codegen_context *ctx, unsigned cond, unsigned length)
+static bool attr_w cgen_jmp_2regs_mips_r6(struct codegen_context *ctx, unsigned cond, unsigned length, bool delay_slot)
 {
 	uint32_t mc;
 	bool swap = false;
@@ -1007,7 +1010,8 @@ static bool attr_w cgen_jmp_2regs_mips_r6(struct codegen_context *ctx, unsigned 
 	if (length == JMP_SHORTEST) {
 		g(add_relocation(ctx, JMP_SHORTEST, 2, NULL));
 		cgen_mips_imm(mc, arg1[0], arg2[0], 0);
-		cgen_four(MIPS_NOP);
+		if (!delay_slot)
+			cgen_four(MIPS_NOP);
 		return true;
 	}
 	if (length <= JMP_LONG) {
@@ -1027,7 +1031,7 @@ invalid:
 	return false;
 }
 
-static bool attr_w cgen_jmp_fp_test(struct codegen_context *ctx, unsigned aux, unsigned length)
+static bool attr_w cgen_jmp_fp_test(struct codegen_context *ctx, unsigned aux, unsigned length, bool delay_slot)
 {
 	uint32_t mc;
 	bool t = true;
@@ -1041,7 +1045,8 @@ static bool attr_w cgen_jmp_fp_test(struct codegen_context *ctx, unsigned aux, u
 			g(cgen_jump_not_last(ctx, 1));
 			g(add_relocation(ctx, JMP_SHORTEST, 0, NULL));
 			cgen_mips_imm(mc, FR_CMP_RESULT & 31, 0, 0);
-			cgen_four(MIPS_NOP);
+			if (!delay_slot)
+				cgen_four(MIPS_NOP);
 			return true;
 		}
 		if (length <= JMP_LONG) {
@@ -1063,7 +1068,8 @@ static bool attr_w cgen_jmp_fp_test(struct codegen_context *ctx, unsigned aux, u
 			g(cgen_jump_not_last(ctx, 1));
 			g(add_relocation(ctx, JMP_SHORTEST, 0, NULL));
 			cgen_mips_imm(mc, 0, 0, 0);
-			cgen_four(MIPS_NOP);
+			if (!delay_slot)
+				cgen_four(MIPS_NOP);
 			return true;
 		}
 		g(cgen_jump_not_last(ctx, cgen_jmp_extra_long_length() + 1));
@@ -1202,6 +1208,25 @@ static bool validate_insn(const struct insn_details *d)
 	return false;
 }
 
+static bool can_be_in_delay_slot(const struct insn_details *d)
+{
+	switch (insn_opcode(d->insn)) {
+		case INSN_LABEL:
+		case INSN_CLAIM_RANGE:
+		case INSN_RET:
+		case INSN_CALL_INDIRECT:
+		case INSN_ALU_TRAP:
+		case INSN_ALU1_TRAP:
+		case INSN_JMP:
+		case INSN_JMP_REG:
+		case INSN_JMP_2REGS:
+		case INSN_JMP_FP_TEST:
+		case INSN_JMP_INDIRECT:
+			return false;
+	}
+	return true;
+}
+
 static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 {
 	if (unlikely(insn_writes_flags(insn))) {
@@ -1294,16 +1319,16 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_jmp(ctx, insn_jump_size(insn)));
 			return true;
 		case INSN_JMP_REG:
-			g(cgen_jmp_reg(ctx, insn_aux(insn), insn_jump_size(insn)));
+			g(cgen_jmp_reg(ctx, insn_aux(insn), insn_jump_size(insn), insn_delay_slot(insn)));
 			return true;
 		case INSN_JMP_2REGS:
 			if (!MIPS_R6)
-				g(cgen_jmp_2regs(ctx, insn_aux(insn), insn_jump_size(insn)));
+				g(cgen_jmp_2regs(ctx, insn_aux(insn), insn_jump_size(insn), insn_delay_slot(insn)));
 			else
-				g(cgen_jmp_2regs_mips_r6(ctx, insn_aux(insn), insn_jump_size(insn)));
+				g(cgen_jmp_2regs_mips_r6(ctx, insn_aux(insn), insn_jump_size(insn), insn_delay_slot(insn)));
 			return true;
 		case INSN_JMP_FP_TEST:
-			g(cgen_jmp_fp_test(ctx, insn_aux(insn), insn_jump_size(insn)));
+			g(cgen_jmp_fp_test(ctx, insn_aux(insn), insn_jump_size(insn), insn_delay_slot(insn)));
 			return true;
 		case INSN_JMP_INDIRECT:
 			g(cgen_jmp_call_indirect(ctx, cget_one(ctx), false));
