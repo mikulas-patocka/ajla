@@ -1680,17 +1680,31 @@ new_d2:
 			}
 		}
 
-		if (ARCH_HAS_DELAY_SLOTS(insn_opcode(d1->insn)) && can_be_in_delay_slot(d2)) {
+		if (insn_opcode(d1->insn) != INSN_JMP && ARCH_HAS_DELAY_SLOTS(insn_opcode(d1->insn)) && can_be_in_delay_slot(d2)) {
 			reg_map live_registers;
 			live_registers = reg_map_intersection(d1->live_before, d2->wr);
 			if (reg_map_is_empty(live_registers) && !reg_map_is_set(d2->rd, R_MEMORY)) {
 				g(prepare_new_insn(ctx));
-				gen_insn(insn_opcode(d1->insn) | INSN_DELAY_SLOT, insn_op_size(d1->insn), insn_aux(d1->insn), 0);
+				gen_insn(insn_opcode(d1->insn) | INSN_DELAY_SLOT, insn_op_size(d1->insn), insn_aux(d1->insn), insn_writes_flags(d1->insn));
 				gen_stream(d1->start + 4, d1->length - 4);
 				g(finish_new_insn(ctx, d1));
 				i = j;
 				continue;
 			}
+		}
+		if (insn_opcode(d2->insn) == INSN_JMP && ARCH_HAS_DELAY_SLOTS(insn_opcode(d2->insn)) && can_be_in_delay_slot(d1)) {
+			struct insn_details jmp_d;
+			g(prepare_new_insn(ctx));
+			gen_insn(insn_opcode(d2->insn) | INSN_DELAY_SLOT, insn_op_size(d2->insn), insn_aux(d2->insn), insn_writes_flags(d2->insn));
+			gen_stream(d2->start + 4, d2->length - 4);
+			g(finish_new_insn(ctx, &jmp_d));
+			g(prepare_new_insn(ctx));
+			gen_insn(insn_opcode(d1->insn), insn_op_size(d1->insn), insn_aux(d1->insn), insn_writes_flags(d1->insn));
+			gen_stream(d1->start + 4, d1->length - 4);
+			g(finish_new_insn(ctx, d2));
+			*d1 = jmp_d;
+			i = j;
+			continue;
 		}
 
 #if defined(ARCH_ARM64) || defined(ARCH_X86)

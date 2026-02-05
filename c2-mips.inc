@@ -834,12 +834,12 @@ static bool attr_w cgen_fp_from_int(struct codegen_context *ctx, unsigned int_op
 	return true;
 }
 
-static unsigned cgen_jmp_extra_long_length(void)
+static unsigned cgen_jmp_extra_long_length(bool delay_slot)
 {
-	return !MIPS_R6 ? 6 : 5;
+	return !MIPS_R6 && !delay_slot ? 6 : 5;
 }
 
-static bool attr_w cgen_jmp_extra_long(struct codegen_context *ctx)
+static bool attr_w cgen_jmp_extra_long(struct codegen_context *ctx, bool delay_slot)
 {
 	cgen_mips_imm(MIPS_LUI, R_AT, 0, 0);
 	cgen_mips_imm(MIPS_BGEZAL, 0, R_ZERO, 1);
@@ -847,14 +847,15 @@ static bool attr_w cgen_jmp_extra_long(struct codegen_context *ctx)
 	cgen_mips_3reg(OP_SIZE_ADDRESS == OP_SIZE_8 ? MIPS_DADDU : MIPS_ADDU, R_AT, R_AT, R_LR);
 	if (!MIPS_R6) {
 		cgen_mips_3reg(MIPS_JR, 0, R_AT, 0);
-		cgen_four(MIPS_NOP);
+		if (!delay_slot)
+			cgen_four(MIPS_NOP);
 	} else {
 		cgen_mips_imm(MIPS_R6_JIC, R_AT, 0, 0);
 	}
 	return true;
 }
 
-static bool attr_w cgen_jmp(struct codegen_context *ctx, unsigned length)
+static bool attr_w cgen_jmp(struct codegen_context *ctx, unsigned length, bool delay_slot)
 {
 	if (MIPS_R6 && length <= JMP_LONG) {
 		g(cgen_jump_not_last(ctx, 1));
@@ -866,12 +867,13 @@ static bool attr_w cgen_jmp(struct codegen_context *ctx, unsigned length)
 		g(cgen_jump_not_last(ctx, 1));
 		g(add_relocation(ctx, JMP_SHORTEST, 0, NULL));
 		cgen_mips_imm(MIPS_BEQ, R_ZERO, R_ZERO, 0);
-		cgen_four(MIPS_NOP);
+		if (!delay_slot)
+			cgen_four(MIPS_NOP);
 		return true;
 	}
-	g(cgen_jump_not_last(ctx, cgen_jmp_extra_long_length()));
+	g(cgen_jump_not_last(ctx, cgen_jmp_extra_long_length(delay_slot)));
 	g(add_relocation(ctx, JMP_EXTRA_LONG, 0, NULL));
-	g(cgen_jmp_extra_long(ctx));
+	g(cgen_jmp_extra_long(ctx, delay_slot));
 	return true;
 }
 
@@ -925,10 +927,10 @@ static bool attr_w cgen_jmp_reg(struct codegen_context *ctx, unsigned cond, unsi
 		cgen_four(MIPS_R6_BC);
 		return true;
 	}
-	g(cgen_jump_not_last(ctx, cgen_jmp_extra_long_length() + 1));
-	cgen_mips_imm(mc, 0, arg1[0], cgen_jmp_extra_long_length());
+	g(cgen_jump_not_last(ctx, cgen_jmp_extra_long_length(delay_slot) + 1));
+	cgen_mips_imm(mc, 0, arg1[0], cgen_jmp_extra_long_length(delay_slot));
 	g(add_relocation(ctx, JMP_EXTRA_LONG, 1, NULL));
-	g(cgen_jmp_extra_long(ctx));
+	g(cgen_jmp_extra_long(ctx, delay_slot));
 	return true;
 
 invalid:
@@ -958,10 +960,10 @@ static bool attr_w cgen_jmp_2regs(struct codegen_context *ctx, unsigned cond, un
 			cgen_four(MIPS_NOP);
 		return true;
 	}
-	g(cgen_jump_not_last(ctx, cgen_jmp_extra_long_length() + 1));
-	cgen_mips_imm(mc, arg1[0], arg2[0], cgen_jmp_extra_long_length());
+	g(cgen_jump_not_last(ctx, cgen_jmp_extra_long_length(delay_slot) + 1));
+	cgen_mips_imm(mc, arg1[0], arg2[0], cgen_jmp_extra_long_length(delay_slot));
 	g(add_relocation(ctx, JMP_EXTRA_LONG, 2, NULL));
-	g(cgen_jmp_extra_long(ctx));
+	g(cgen_jmp_extra_long(ctx, delay_slot));
 	return true;
 
 invalid:
@@ -1021,9 +1023,9 @@ static bool attr_w cgen_jmp_2regs_mips_r6(struct codegen_context *ctx, unsigned 
 		cgen_four(MIPS_R6_BC);
 		return true;
 	}
-	cgen_mips_imm(mc, arg1[0], arg2[0], cgen_jmp_extra_long_length());
+	cgen_mips_imm(mc, arg1[0], arg2[0], cgen_jmp_extra_long_length(delay_slot));
 	g(add_relocation(ctx, JMP_EXTRA_LONG, 2, NULL));
-	g(cgen_jmp_extra_long(ctx));
+	g(cgen_jmp_extra_long(ctx, delay_slot));
 	return true;
 
 invalid:
@@ -1057,10 +1059,10 @@ static bool attr_w cgen_jmp_fp_test(struct codegen_context *ctx, unsigned aux, u
 			cgen_four(MIPS_R6_BC);
 			return true;
 		}
-		g(cgen_jump_not_last(ctx, cgen_jmp_extra_long_length() + 1));
-		cgen_mips_imm(mc, FR_CMP_RESULT & 31, 0, cgen_jmp_extra_long_length());
+		g(cgen_jump_not_last(ctx, cgen_jmp_extra_long_length(delay_slot) + 1));
+		cgen_mips_imm(mc, FR_CMP_RESULT & 31, 0, cgen_jmp_extra_long_length(delay_slot));
 		g(add_relocation(ctx, JMP_EXTRA_LONG, 0, NULL));
-		g(cgen_jmp_extra_long(ctx));
+		g(cgen_jmp_extra_long(ctx, delay_slot));
 		return true;
 	} else {
 		mc = t ? MIPS_BC1T : MIPS_BC1F;
@@ -1072,10 +1074,10 @@ static bool attr_w cgen_jmp_fp_test(struct codegen_context *ctx, unsigned aux, u
 				cgen_four(MIPS_NOP);
 			return true;
 		}
-		g(cgen_jump_not_last(ctx, cgen_jmp_extra_long_length() + 1));
-		cgen_mips_imm(mc, 0, 0, cgen_jmp_extra_long_length());
+		g(cgen_jump_not_last(ctx, cgen_jmp_extra_long_length(delay_slot) + 1));
+		cgen_mips_imm(mc, 0, 0, cgen_jmp_extra_long_length(delay_slot));
 		g(add_relocation(ctx, JMP_EXTRA_LONG, 0, NULL));
-		g(cgen_jmp_extra_long(ctx));
+		g(cgen_jmp_extra_long(ctx, delay_slot));
 		return true;
 	}
 }
@@ -1316,7 +1318,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_fp_from_int(ctx, insn_opcode(insn) == INSN_FP_FROM_INT32 ? OP_SIZE_4 : OP_SIZE_8, insn_op_size(insn)));
 			return true;
 		case INSN_JMP:
-			g(cgen_jmp(ctx, insn_jump_size(insn)));
+			g(cgen_jmp(ctx, insn_jump_size(insn), insn_delay_slot(insn)));
 			return true;
 		case INSN_JMP_REG:
 			g(cgen_jmp_reg(ctx, insn_aux(insn), insn_jump_size(insn), insn_delay_slot(insn)));
