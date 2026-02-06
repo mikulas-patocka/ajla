@@ -18,13 +18,12 @@
 
 #define SPARC_IMM_BIT		0x00002000U
 #define SPARC_CC_BIT		0x00800000U
+#define SPARC_A_BIT		0x20000000U
 
 #define SPARC_BPCC		0x00400000U
 #define  SPARC_BPCC_P			0x00080000U
 #define  SPARC_BPCC_64			0x00200000U
-#define  SPARC_BPCC_A			0x20000000U
 #define SPARC_BCC		0x00800000U
-#define  SPARC_BCC_A			0x20000000U
 #define SPARC_BR		0x00c00000U
 #define  SPARC_BR_BRZ			0x02000000U
 #define  SPARC_BR_BRLEZ			0x04000000U
@@ -32,16 +31,13 @@
 #define  SPARC_BR_BRNZ			0x0a000000U
 #define  SPARC_BR_GZ			0x0c000000U
 #define  SPARC_BR_GEZ			0x0e000000U
-#define  SPARC_BR_A			0x20000000U
 #define SPARC_NOP		0x01000000U
 #define SPARC_SETHI		0x01000000U
 #define SPARC_FBPCC		0x01400000U
 #define  SPARC_FBPCC_P			0x00080000U
 #define  SPARC_FBPCC_CC0		0x00100000U
 #define  SPARC_FBPCC_CC1		0x00200000U
-#define  SPARC_FBPCC_A			0x20000000U
 #define SPARC_FBCC		0x01800000U
-#define  SPARC_FBCC_A			0x20000000U
 
 #define SPARC_ADD		0x80000000U
 #define SPARC_AND		0x80080000U
@@ -168,6 +164,8 @@ static const uint32_t alu_map[24] = {
 	cgen_four((mc) | ((uint32_t)(rd) << 25) | ((uint32_t)((rs1) << 14)) | (rs2))
 #define cgen_sparc_imm(mc, rd, rs1, imm) \
 	cgen_four((mc) | SPARC_IMM_BIT | ((uint32_t)(rd) << 25) | ((uint32_t)((rs1) << 14)) | ((imm) & 8191))
+
+#define sparc_a(delay_slot)	((delay_slot) ? 0 : SPARC_A_BIT)
 
 static bool attr_w cgen_ld_st(struct codegen_context *ctx, uint32_t mc, uint8_t reg, uint8_t *address)
 {
@@ -569,7 +567,7 @@ static bool attr_w cgen_fp_from_int(struct codegen_context *ctx, unsigned int_op
 	return true;
 }
 
-static bool attr_w cgen_jmp_cond(struct codegen_context *ctx, unsigned size, unsigned aux, unsigned length)
+static bool attr_w cgen_jmp_cond(struct codegen_context *ctx, unsigned size, unsigned aux, unsigned length, bool delay_slot)
 {
 	int8_t cond;
 	cond = jmp_cond[aux];
@@ -589,16 +587,18 @@ static bool attr_w cgen_jmp_cond(struct codegen_context *ctx, unsigned size, uns
 			cgen_four(SPARC_BPCC | SPARC_BPCC_64 | ((uint32_t)(cond ^ 0x8) << 25) | 3);
 			cgen_four(SPARC_NOP);
 			g(add_relocation(ctx, JMP_LONG, 0, NULL));
-			cgen_four(SPARC_BCC | SPARC_BCC_A | 0x8 << 25);
+			cgen_four(SPARC_BCC | sparc_a(delay_slot) | 0x8 << 25);
+			return true;
 		}
 	} else {
 		internal(file_line, "cgen_jmp_cond: invalid size %u", size);
 	}
-	cgen_four(SPARC_NOP);
+	if (!delay_slot)
+		cgen_four(SPARC_NOP);
 	return true;
 }
 
-static bool attr_w cgen_jmp_reg(struct codegen_context *ctx, unsigned aux, unsigned length)
+static bool attr_w cgen_jmp_reg(struct codegen_context *ctx, unsigned aux, unsigned length, bool delay_slot)
 {
 	uint32_t mc = SPARC_BR;
 	mc |= (uint32_t)cget_one(ctx) << 14;
@@ -618,14 +618,15 @@ static bool attr_w cgen_jmp_reg(struct codegen_context *ctx, unsigned aux, unsig
 		case JMP_SHORTEST:
 			g(add_relocation(ctx, JMP_SHORTEST, 1, NULL));
 			cgen_four(mc);
-			cgen_four(SPARC_NOP);
+			if (!delay_slot)
+				cgen_four(SPARC_NOP);
 			return true;
 		case JMP_SHORT:
 		case JMP_LONG:
 			cgen_four((mc ^ 0x08000000U) | 3);
 			cgen_four(SPARC_NOP);
 			g(add_relocation(ctx, JMP_LONG, 1, NULL));
-			cgen_four(SPARC_BCC | SPARC_BCC_A | 0x8 << 25);
+			cgen_four(SPARC_BCC | sparc_a(delay_slot) | 0x8 << 25);
 			return true;
 		default:
 			internal(file_line, "cgen_jmp_reg: invalid length %u", length);
@@ -865,17 +866,17 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_JMP:
 			g(add_relocation(ctx, JMP_LONG, 0, NULL));
-			cgen_four(SPARC_BCC | SPARC_BCC_A | 0x8 << 25);
+			cgen_four(SPARC_BCC | sparc_a(insn_delay_slot(insn)) | 0x8 << 25);
 			return true;
 		case INSN_JMP_COND:
-			g(cgen_jmp_cond(ctx, insn_op_size(insn), insn_aux(insn), insn_jump_size(insn)));
+			g(cgen_jmp_cond(ctx, insn_op_size(insn), insn_aux(insn), insn_jump_size(insn), insn_delay_slot(insn)));
 			return true;
 		case INSN_JMP_REG:
 			if (unlikely(!SPARC_9))
 				goto invalid_insn;
 			if (unlikely(insn_op_size(insn) != OP_SIZE_NATIVE))
 				goto invalid_insn;
-			g(cgen_jmp_reg(ctx, insn_aux(insn), insn_jump_size(insn)));
+			g(cgen_jmp_reg(ctx, insn_aux(insn), insn_jump_size(insn), insn_delay_slot(insn)));
 			return true;
 		case INSN_JMP_INDIRECT:
 			reg = cget_one(ctx);

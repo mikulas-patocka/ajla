@@ -46,7 +46,7 @@
 #define ARCH_IS_3ADDRESS_FP		1
 #define ARCH_HAS_JMP_REG(cond)		SPARC_9
 #define ARCH_HAS_JMP_2REGS(cond)	0
-#define ARCH_HAS_DELAY_SLOTS(insn)	0
+#define ARCH_HAS_DELAY_SLOTS(insn)	((insn) == INSN_JMP || (insn) == INSN_JMP_COND || (insn) == INSN_JMP_REG)
 #define ARCH_HAS_FUSED_MEMORY_ACCESSES	1
 #define ARCH_HAS_FLAGS			1
 #define ARCH_PREFERS_SX(size)		0
