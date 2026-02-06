@@ -1725,10 +1725,7 @@ new_d2:
 			gen_insn(insn_opcode(d2->insn) | INSN_DELAY_SLOT, insn_op_size(d2->insn), insn_aux(d2->insn), insn_writes_flags(d2->insn));
 			gen_stream(d2->start + 4, d2->length - 4);
 			g(finish_new_insn(ctx, &jmp_d));
-			g(prepare_new_insn(ctx));
-			gen_insn(insn_opcode(d1->insn), insn_op_size(d1->insn), insn_aux(d1->insn), insn_writes_flags(d1->insn));
-			gen_stream(d1->start + 4, d1->length - 4);
-			g(finish_new_insn(ctx, d2));
+			*d2 = *d1;
 			*d1 = jmp_d;
 			i = j;
 			continue;
