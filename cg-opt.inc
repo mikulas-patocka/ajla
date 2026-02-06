@@ -1691,12 +1691,14 @@ new_d2:
 			j++;
 			goto new_d2;
 		}
-		if ((insn_opcode(d1->insn) == INSN_JMP_COND || insn_opcode(d1->insn) == INSN_JMP_COND_LOGICAL) && insn_opcode(d2->insn) == INSN_JMP) {
+#if !defined(ARCH_PARISC)	/* this transformation increases code size on parisc */
+		if ((insn_opcode(d1->insn) == INSN_JMP_COND || insn_opcode(d1->insn) == INSN_JMP_COND_LOGICAL || insn_opcode(d1->insn) == INSN_JMP_REG || insn_opcode(d1->insn) == INSN_JMP_2REGS) && insn_opcode(d2->insn) == INSN_JMP) {
 			uint32_t label1 = d1->target_label;
 			uint32_t label2 = d2->target_label;
 			if (ctx->label_flags[label1] & LABEL_ESCAPE && !(ctx->label_flags[label2] & LABEL_ESCAPE)) {
 				g(prepare_new_insn(ctx));
 				gen_insn(insn_opcode(d1->insn), insn_op_size(d1->insn), insn_aux(d1->insn) ^ 1, 0);
+				gen_stream(d1->start + 4, d1->length - 8);
 				gen_four(label2);
 				g(finish_new_insn(ctx, d1));
 				g(prepare_new_insn(ctx));
@@ -1706,6 +1708,7 @@ new_d2:
 				continue;
 			}
 		}
+#endif
 
 		if (insn_opcode(d1->insn) != INSN_JMP && ARCH_HAS_DELAY_SLOTS(insn_opcode(d1->insn)) && can_be_in_delay_slot(d2)) {
 			reg_map live_registers;
