@@ -20,6 +20,10 @@
 #define MARK_QUASHED_INSNS	0
 #define REPORT_QUASHED_INSNS	0
 
+#if 1
+#define QUASH_REPETITIVE_INSNS
+#endif
+
 #ifdef DEBUG_INSNS
 #define debug_offset		8
 #else
@@ -79,14 +83,19 @@ static uint64_t attr_unused oget_eight(uint8_t *ptr)
 #define R_MEMORY_FRAME	(R_MAX + 3)
 #define R_TOP		(R_MAX + 4)
 
-#if R_TOP <= 0x80 && TYPE_FIXED_N >= 5
+#if R_TOP <= 0x40 || (R_TOP <= 0x80 && TYPE_FIXED_N >= 5)
 
+#if R_TOP <= 0x40
+typedef uint64_t reg_map;
+#else
 typedef uint128_t reg_map;
+#endif
 
 static inline void reg_map_init(reg_map *rm) { *rm = 0; }
 static inline void reg_map_set(reg_map *rm, unsigned reg) { *rm |= (reg_map)1 << reg; }
 static inline void reg_map_clear(reg_map *rm, unsigned reg) { *rm &= ~((reg_map)1 << reg); }
 static inline bool reg_map_is_set(reg_map rm, unsigned reg) { return (rm >> reg) & 1; }
+static inline bool reg_map_is_equal(reg_map rm1, reg_map rm2) { return rm1 == rm2; }
 static inline reg_map reg_map_intersection(reg_map rm1, reg_map rm2) { return rm1 & rm2; }
 static inline reg_map reg_map_union(reg_map rm1, reg_map rm2) { return rm1 | rm2; }
 static inline reg_map reg_map_neg(reg_map rm) { return ~rm; }
@@ -107,6 +116,14 @@ static inline void reg_map_init(reg_map *rm) { memset(rm, 0, sizeof(reg_map)); }
 static inline void reg_map_set(reg_map *rm, unsigned reg) { rm->map[reg / map_bits] |= (map_typ)1 << (reg % map_bits); }
 static inline void reg_map_clear(reg_map *rm, unsigned reg) { rm->map[reg / map_bits] &= ~((map_typ)1 << (reg % map_bits)); }
 static inline bool reg_map_is_set(reg_map rm, unsigned reg) { return (rm.map[reg / map_bits] >> (reg % map_bits)) & 1; }
+static inline bool reg_map_is_equal(reg_map rm1, reg_map rm2)
+{
+	unsigned i;
+	for (i = 0; i < map_len; i++)
+		if (rm1.map[i] != rm2.map[i])
+			return false;
+	return true;
+}
 static inline reg_map reg_map_intersection(reg_map rm1, reg_map rm2)
 {
 	unsigned i;
@@ -170,6 +187,9 @@ struct insn_details {
 	bool mark;
 	reg_map rd;
 	reg_map wr;
+#ifdef QUASH_REPETITIVE_INSNS
+	uint8_t wr_reg;
+#endif
 	uint32_t target_label;
 	struct value write_frame;
 	frame_t rd_frame;
@@ -177,6 +197,8 @@ struct insn_details {
 	reg_map live_after;
 	reg_map live_before;
 };
+
+typedef uint8_t defined_at_t;
 
 struct opt_status {
 	reg_map regs_volatile;
@@ -186,6 +208,9 @@ struct opt_status {
 	reg_map op_boundary_regs;
 	reg_map all_used_regs;
 	reg_map jmp_quickret_regs;
+#ifdef QUASH_REPETITIVE_INSNS
+	defined_at_t defined_at[R_TOP];
+#endif
 };
 
 static bool attr_w setup_register_maps(struct codegen_context *ctx)
@@ -462,6 +487,9 @@ static unsigned arg_write(struct codegen_context *ctx, struct insn_details *d, u
 		if (reg_is_fp(ptr[0]) && insn_op_size(d->insn) == OP_SIZE_16)
 			reg_map_set(&d->wr, ptr[0] + 2);
 #endif
+#ifdef QUASH_REPETITIVE_INSNS
+		d->wr_reg = ptr[0];
+#endif
 		return 1;
 	}
 	if (ptr[0] == ARG_ADDRESS_1 && ptr[1] == R_FRAME && size <= 255) {
@@ -509,6 +537,9 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 	ptr += 8;
 #endif
 	memset(d, 0, sizeof(struct insn_details));
+#ifdef QUASH_REPETITIVE_INSNS
+	d->wr_reg = (uint8_t)-1;
+#endif
 	insn = oget_four(ptr);
 
 	d->start = ptr;
@@ -1682,6 +1713,55 @@ static bool attr_w peephole(struct codegen_context *ctx)
 		d1 = &ctx->basic_block[i];
 		if (unlikely(d1->quash))
 			continue;
+
+#ifdef QUASH_REPETITIVE_INSNS
+		if (d1->wr_reg != (uint8_t)-1) {
+			reg_map wr = d1->wr;
+			reg_map wrx;
+			reg_map_clear(&wr, R_FLAGS);
+			reg_map_init(&wrx);
+			reg_map_set(&wrx, d1->wr_reg);
+			if (reg_map_is_equal(wr, wrx)) {
+				size_t def_at = ctx->opt_status->defined_at[d1->wr_reg];
+				if (def_at < (defined_at_t)-1 && def_at < i) {
+					struct insn_details *da = &ctx->basic_block[def_at];
+					if (!da->quash && da->length == d1->length && !memcmp(da->start, d1->start, da->length)) {
+						size_t c;
+						/*debug("found equal %x in %s", da->insn, da(ctx->fn,function)->function_name);*/
+						for (c = def_at; c < i; c++) {
+							struct insn_details *dc = &ctx->basic_block[c];
+							if (unlikely(dc->quash))
+								continue;
+							if (!reg_map_is_empty(reg_map_intersection(dc->wr, da->rd))) {
+								goto cant_elide;
+							}
+							if (c > def_at) {
+								reg_map is = reg_map_intersection(dc->wr, da->wr);
+								is = reg_map_intersection(is, d1->live_after);
+								if (!reg_map_is_empty(is)) {
+									goto cant_elide;
+								}
+							}
+						}
+						if (REPORT_QUASHED_INSNS)
+							debug("quashing repetitive instruction in %s", da(ctx->fn,function)->function_name);
+						d1->quash = true;
+						/*d1->mark = true;*/
+						/*g(prepare_new_insn(ctx));
+						gen_insn(INSN_NOP, 0, 0, 0);
+						g(finish_new_insn(ctx, d1));*/
+						continue;
+					}
+				}
+cant_elide:
+				if (i < (defined_at_t)-1)
+					ctx->opt_status->defined_at[d1->wr_reg] = i;
+				else
+					ctx->opt_status->defined_at[d1->wr_reg] = -1;
+			}
+		}
+#endif
+
 		j = i + 1;
 new_d2:
 		if (unlikely(!j) || unlikely(j >= ctx->basic_block_position))
@@ -1862,6 +1942,10 @@ retry:
 static bool attr_w process_basic_block(struct codegen_context *ctx, reg_map live_bottom)
 {
 	size_t i;
+
+#ifdef QUASH_REPETITIVE_INSNS
+	memset(ctx->opt_status->defined_at, 0xff, sizeof(ctx->opt_status->defined_at));
+#endif
 
 	g(equality_analysis(ctx));
 	g(live_register_analysis(ctx, live_bottom));
