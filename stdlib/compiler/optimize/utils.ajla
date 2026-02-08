@@ -761,7 +761,7 @@ process_block_no_label:
 					read_set btr= x;
 					var v := ins.params[x];
 					var va := ctx.variables[v];
-					msg += " r(" + ntos(v) + "," + ntos(va.type_index) + "," + ntos(va.runtime_type) + ":" + ntos(va.color) + ")";
+					msg += " r(" + ntos(v) + "," + ntos(va.type_index) + "," + ntos(va.runtime_type) + ":" + ntos(va.color) + "," + ntos(va.ra_priority) + ")";
 					if v < 0 or ctx.variables[v].color = -1 then
 						msg += "el";
 					else
@@ -774,7 +774,7 @@ process_block_no_label:
 					write_set btr= x;
 					var v := ins.params[x];
 					var va := ctx.variables[v];
-					msg += " w(" + ntos(v) + "," + ntos(va.type_index) + "," + ntos(va.runtime_type) + ":" + ntos(va.color) + ")";
+					msg += " w(" + ntos(v) + "," + ntos(va.type_index) + "," + ntos(va.runtime_type) + ":" + ntos(va.color) + "," + ntos(va.ra_priority) + ")";
 					if ctx.variables[v].color = -1 then
 						msg += "el";
 					else

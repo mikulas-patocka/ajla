@@ -2273,10 +2273,30 @@ in_loop2:
 			break;
 	]
 
+	var nest := fill(0, len(ctx.blocks));
+	var l := loops;
+	while l <> 0 do [
+		var bgi : int := bsr l;
+		l btr= bgi;
+		var block := ctx.blocks[bgi];
+		if len(block.post_list) = 1 then [
+			var top := ctx.blocks[block.post_list[0]];
+			var d := top.dominates;
+			if d bt bgi then [
+				while d <> 0 do [
+					var bgi_d : int := bsr d;
+					d btr= bgi_d;
+					nest[bgi_d] += 1;
+				]
+			]
+		]
+	]
+
 	while loops <> 0 do [
 		var bgi : int := bsr loops;
 		loops btr= bgi;
 		var block := ctx.blocks[bgi];
+		var add := 1 + 100 * nest[bgi];
 		for ili := 0 to len(block.instrs) do [
 			var instr := ctx.instrs[block.instrs[ili]];
 			if instr.opcode = P_Jmp_False and ili >= 1 then [
@@ -2296,7 +2316,7 @@ in_loop2:
 				var rt := ctx.variables[vgi].runtime_type;
 				if rt < 0, rt >= T_Bool then [
 					ctx.variables[vgi].must_be_flat := true;
-					ctx.variables[vgi].ra_priority += 1;
+					ctx.variables[vgi].ra_priority += add;
 				]
 				if rt = T_Undetermined then [
 					ctx.variables[vgi].must_be_data := true;
@@ -2307,11 +2327,11 @@ in_loop2:
 						ctx.variables[vgi].must_be_array := true;
 						ctx.variables[vgi].must_be_writable_array := true;
 					]
-					ctx.variables[vgi].ra_priority += 1;
+					ctx.variables[vgi].ra_priority += add;
 				]
 				if rt >= 0, ctx.local_types[rt] is rec, not ctx.local_types[rt].rec.opt then [
 					ctx.variables[vgi].must_be_data := true;
-					ctx.variables[vgi].ra_priority += 1;
+					ctx.variables[vgi].ra_priority += add;
 				]
 				// TODO: allocate options that are always flat
 			]
@@ -2321,7 +2341,7 @@ in_loop2:
 				if rt = T_Undetermined then [
 					ctx.variables[vgi].must_be_array := true;
 					ctx.variables[vgi].must_be_writable_array := true;
-					ctx.variables[vgi].ra_priority += 1;
+					ctx.variables[vgi].ra_priority += add;
 				]
 			]
 		]
@@ -2787,8 +2807,8 @@ fn allocate_variables(ctx : context) : context
 		if v.color = -1 then
 			continue;
 		//eval debug(ctx.name + ": " + ntos(v.color) + " -> " + ntos(cmap[v.color]));
-		v.color := cmap[v.color];
-		vars_for_color[v.color] +<= vgi;
+		ctx.variables[vgi].color := cmap[v.color];
+		vars_for_color[ctx.variables[vgi].color] +<= vgi;
 	]
 	var new_idx := -1;
 	var old_new := fill(-1, len(ctx.variables));
@@ -2849,12 +2869,14 @@ fn remove_redundant_frees(ctx : context) : context
 			freed_vars bts= v;
 			i += 1;
 		]
-		while i < len(ctx.blocks[bgi].instrs), ctx.instrs[ctx.blocks[bgi].instrs[i]].opcode = P_Copy do [
-			var v1 := ctx.instrs[ctx.blocks[bgi].instrs[i]].params[0];
-			var v2 := ctx.instrs[ctx.blocks[bgi].instrs[i]].params[2];
-			if v1 = v2 then [
-				ctx.blocks[bgi].instrs := ctx.blocks[bgi].instrs[ .. i] + ctx.blocks[bgi].instrs[i + 1 .. ];
-				continue;
+		while i < len(ctx.blocks[bgi].instrs) do [
+			if ctx.instrs[ctx.blocks[bgi].instrs[i]].opcode = P_Copy then [
+				var v1 := ctx.instrs[ctx.blocks[bgi].instrs[i]].params[0];
+				var v2 := ctx.instrs[ctx.blocks[bgi].instrs[i]].params[2];
+				if v1 = v2 then [
+					ctx.blocks[bgi].instrs := ctx.blocks[bgi].instrs[ .. i] + ctx.blocks[bgi].instrs[i + 1 .. ];
+					continue;
+				]
 			]
 			i += 1;
 		]
