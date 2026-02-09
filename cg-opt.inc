@@ -1714,54 +1714,6 @@ static bool attr_w peephole(struct codegen_context *ctx)
 		if (unlikely(d1->quash))
 			continue;
 
-#ifdef QUASH_REPETITIVE_INSNS
-		if (d1->wr_reg != (uint8_t)-1) {
-			reg_map wr = d1->wr;
-			reg_map wrx;
-			reg_map_clear(&wr, R_FLAGS);
-			reg_map_init(&wrx);
-			reg_map_set(&wrx, d1->wr_reg);
-			if (reg_map_is_equal(wr, wrx)) {
-				size_t def_at = ctx->opt_status->defined_at[d1->wr_reg];
-				if (def_at < (defined_at_t)-1 && def_at < i) {
-					struct insn_details *da = &ctx->basic_block[def_at];
-					if (!da->quash && da->length == d1->length && !memcmp(da->start, d1->start, da->length)) {
-						size_t c;
-						/*debug("found equal %x in %s", da->insn, da(ctx->fn,function)->function_name);*/
-						for (c = def_at; c < i; c++) {
-							struct insn_details *dc = &ctx->basic_block[c];
-							if (unlikely(dc->quash))
-								continue;
-							if (!reg_map_is_empty(reg_map_intersection(dc->wr, da->rd))) {
-								goto cant_elide;
-							}
-							if (c > def_at) {
-								reg_map is = reg_map_intersection(dc->wr, da->wr);
-								is = reg_map_intersection(is, d1->live_after);
-								if (!reg_map_is_empty(is)) {
-									goto cant_elide;
-								}
-							}
-						}
-						if (REPORT_QUASHED_INSNS)
-							debug("quashing repetitive instruction in %s", da(ctx->fn,function)->function_name);
-						d1->quash = true;
-						/*d1->mark = true;*/
-						/*g(prepare_new_insn(ctx));
-						gen_insn(INSN_NOP, 0, 0, 0);
-						g(finish_new_insn(ctx, d1));*/
-						continue;
-					}
-				}
-cant_elide:
-				if (i < (defined_at_t)-1)
-					ctx->opt_status->defined_at[d1->wr_reg] = i;
-				else
-					ctx->opt_status->defined_at[d1->wr_reg] = -1;
-			}
-		}
-#endif
-
 		j = i + 1;
 new_d2:
 		if (unlikely(!j) || unlikely(j >= ctx->basic_block_position))
@@ -1771,6 +1723,56 @@ new_d2:
 			j++;
 			goto new_d2;
 		}
+
+#ifdef QUASH_REPETITIVE_INSNS
+		if (d1->wr_reg != (uint8_t)-1) {
+			if (i < (defined_at_t)-1)
+				ctx->opt_status->defined_at[d1->wr_reg] = i;
+			else
+				ctx->opt_status->defined_at[d1->wr_reg] = -1;
+		}
+		if (d2->wr_reg != (uint8_t)-1) {
+			reg_map wr = d2->wr;
+			reg_map wrx;
+			reg_map_clear(&wr, R_FLAGS);
+			reg_map_init(&wrx);
+			reg_map_set(&wrx, d2->wr_reg);
+			if (reg_map_is_equal(wr, wrx)) {
+				size_t def_at = ctx->opt_status->defined_at[d2->wr_reg];
+				if (def_at < (defined_at_t)-1 && def_at < j) {
+					struct insn_details *da = &ctx->basic_block[def_at];
+					if (!da->quash && da->length == d2->length && !memcmp(da->start, d2->start, da->length)) {
+						size_t c;
+						for (c = def_at; c < j; c++) {
+							struct insn_details *dc = &ctx->basic_block[c];
+							if (unlikely(dc->quash))
+								continue;
+							if (!reg_map_is_empty(reg_map_intersection(dc->wr, da->rd))) {
+								goto cant_elide;
+							}
+							if (c > def_at) {
+								reg_map is = reg_map_intersection(dc->wr, da->wr);
+								is = reg_map_intersection(is, d2->live_after);
+								if (!reg_map_is_empty(is)) {
+									goto cant_elide;
+								}
+							}
+						}
+						if (REPORT_QUASHED_INSNS)
+							debug("quashing repetitive instruction in %s", da(ctx->fn,function)->function_name);
+						d2->quash = true;
+						/*d2->mark = true;*/
+						/*g(prepare_new_insn(ctx));
+						gen_insn(INSN_NOP, 0, 0, 0);
+						g(finish_new_insn(ctx, d2));*/
+						goto retry;
+					}
+				}
+			}
+		}
+cant_elide:
+#endif
+
 #if !defined(ARCH_PARISC)	/* this transformation increases code size on parisc */
 		if ((insn_opcode(d1->insn) == INSN_JMP_COND || insn_opcode(d1->insn) == INSN_JMP_COND_LOGICAL || insn_opcode(d1->insn) == INSN_JMP_REG || insn_opcode(d1->insn) == INSN_JMP_2REGS) && insn_opcode(d2->insn) == INSN_JMP) {
 			uint32_t label1 = d1->target_label;
@@ -1798,6 +1800,14 @@ new_d2:
 				gen_insn(insn_opcode(d1->insn) | INSN_DELAY_SLOT, insn_op_size(d1->insn), insn_aux(d1->insn), insn_writes_flags(d1->insn));
 				gen_stream(d1->start + 4, d1->length - 4);
 				g(finish_new_insn(ctx, d1));
+#ifdef QUASH_REPETITIVE_INSNS
+				if (d2->wr_reg != (uint8_t)-1) {
+					if (j < (defined_at_t)-1)
+						ctx->opt_status->defined_at[d2->wr_reg] = j;
+					else
+						ctx->opt_status->defined_at[d2->wr_reg] = -1;
+				}
+#endif
 				i = j;
 				continue;
 			}
