@@ -1729,13 +1729,24 @@ quash_after_i:
 		}
 
 #ifdef QUASH_REPETITIVE_INSNS
-		if (insn_opcode(d1->insn) == INSN_JMP_COND || insn_opcode(d1->insn) == INSN_JMP_COND_LOGICAL) {
+		if (insn_opcode(d1->insn) == INSN_JMP_COND || insn_opcode(d1->insn) == INSN_JMP_COND_LOGICAL || insn_opcode(d1->insn) == INSN_JMP_REG || insn_opcode(d1->insn) == INSN_JMP_REG_BIT || insn_opcode(d1->insn) == INSN_JMP_2REGS) {
 			size_t c;
+			reg_map mask;
+			reg_map_init(&mask);
+			if (insn_opcode(d1->insn) == INSN_JMP_COND || insn_opcode(d1->insn) == INSN_JMP_COND_LOGICAL)
+				reg_map_set(&mask, R_FLAGS);
+			if (insn_opcode(d1->insn) == INSN_JMP_REG || insn_opcode(d1->insn) == INSN_JMP_REG_BIT) {
+				reg_map_set(&mask, d1->start[4]);
+			}
+			if (insn_opcode(d1->insn) == INSN_JMP_2REGS) {
+				reg_map_set(&mask, d1->start[4]);
+				reg_map_set(&mask, d1->start[5]);
+			}
 			for (c = i; c--; ) {
 				struct insn_details *dc = &ctx->basic_block[c];
 				if (dc->quash)
 					continue;
-				if (reg_map_is_set(dc->wr, R_FLAGS))
+				if (!reg_map_is_empty(reg_map_intersection(dc->wr, mask)))
 					break;
 				if (d1->length == dc->length && !memcmp(d1->start, dc->start, d1->length - 4)) {
 					if (REPORT_QUASHED_INSNS)
