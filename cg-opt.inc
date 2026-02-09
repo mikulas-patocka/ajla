@@ -1714,6 +1714,15 @@ static bool attr_w peephole(struct codegen_context *ctx)
 		if (unlikely(d1->quash))
 			continue;
 
+		if (insn_opcode(d1->insn) == INSN_JMP) {
+quash_after_i:
+			for (i++; i < ctx->basic_block_position; i++) {
+				d1 = &ctx->basic_block[i];
+				d1->quash = true;
+				break;
+			}
+		}
+
 		j = i + 1;
 new_d2:
 		if (unlikely(!j) || unlikely(j >= ctx->basic_block_position))
@@ -1822,7 +1831,7 @@ cant_elide:
 			*d2 = *d1;
 			*d1 = jmp_d;
 			i = j;
-			continue;
+			goto quash_after_i;
 		}
 
 #if defined(ARCH_ARM64) || defined(ARCH_X86)
