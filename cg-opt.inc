@@ -1728,6 +1728,28 @@ quash_after_i:
 			}
 		}
 
+#ifdef QUASH_REPETITIVE_INSNS
+		if (insn_opcode(d1->insn) == INSN_JMP_COND || insn_opcode(d1->insn) == INSN_JMP_COND_LOGICAL) {
+			size_t c;
+			for (c = i; c--; ) {
+				struct insn_details *dc = &ctx->basic_block[c];
+				if (dc->quash)
+					continue;
+				if (reg_map_is_set(dc->wr, R_FLAGS))
+					break;
+				if (d1->length == dc->length && !memcmp(d1->start, dc->start, d1->length - 4)) {
+					if (REPORT_QUASHED_INSNS)
+						debug("quashing repetitive conditional jmp in %s", da(ctx->fn,function)->function_name);
+					d1->quash = true;
+					/*d1->mark = true;*/
+					while (i && ctx->basic_block[i].quash)
+						i--;
+					goto retry;
+				}
+			}
+		}
+#endif
+
 		j = i + 1;
 new_d2:
 		if (unlikely(!j) || unlikely(j >= ctx->basic_block_position))
