@@ -537,10 +537,10 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 	ptr += 8;
 #endif
 	memset(d, 0, sizeof(struct insn_details));
-#ifdef QUASH_REPETITIVE_INSNS
-	d->wr_reg = (uint8_t)-1;
-#endif
 	insn = oget_four(ptr);
+#ifdef QUASH_REPETITIVE_INSNS
+	d->wr_reg = insn_writes_flags(insn) ? R_FLAGS : (uint8_t)-1;
+#endif
 
 	d->start = ptr;
 	d->insn = insn;
@@ -1734,7 +1734,8 @@ new_d2:
 		if (d2->wr_reg != (uint8_t)-1) {
 			reg_map wr = d2->wr;
 			reg_map wrx;
-			reg_map_clear(&wr, R_FLAGS);
+			if (d2->wr_reg != R_FLAGS)
+				reg_map_clear(&wr, R_FLAGS);
 			reg_map_init(&wrx);
 			reg_map_set(&wrx, d2->wr_reg);
 			if (reg_map_is_equal(wr, wrx)) {
