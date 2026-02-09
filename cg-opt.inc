@@ -31,7 +31,6 @@
 #endif
 
 static bool validate_insn(const struct insn_details *d);
-static bool can_be_in_delay_slot(const struct insn_details *d);
 
 static uint8_t attr_unused oget_one(uint8_t *ptr)
 {
@@ -436,24 +435,26 @@ static unsigned arg_common(struct insn_details *d, uint8_t *ptr)
 static frame_t is_slot(struct codegen_context *ctx, uint8_t *ptr, unsigned size)
 {
 	if (unlikely(size > 1U << OP_SIZE_SLOT))
-		return 0;
+		return NO_FRAME_T;
 	if (ptr[0] == ARG_ADDRESS_1 && ptr[1] == R_FRAME) {
 		const struct type *type;
 		uint64_t off, slot;
 		off = oget_eight(ptr + 2);
-		if (unlikely(off & ((1U << OP_SIZE_SLOT) - 1)))
-			return 0;
 		slot = off >> OP_SIZE_SLOT;
-		if (unlikely(slot < ctx->min_slot) || unlikely(slot >= function_n_variables(ctx->fn)))
+		if (slot < ctx->min_slot)
 			return 0;
+		if (unlikely(off & ((1U << OP_SIZE_SLOT) - 1)))
+			return NO_FRAME_T;
+		if (unlikely(slot >= function_n_variables(ctx->fn)))
+			return NO_FRAME_T;
 		type = da(ctx->fn,function)->local_variables[slot].type;
 		if (unlikely(!type))
-			return 0;
+			return NO_FRAME_T;
 		if (unlikely(type->size != size))
-			return 0;
+			return NO_FRAME_T;
 		return slot;
 	}
-	return 0;
+	return NO_FRAME_T;
 }
 
 static unsigned arg_read(struct codegen_context *ctx, struct insn_details *d, uint8_t *ptr, unsigned size)
@@ -468,8 +469,9 @@ static unsigned arg_read(struct codegen_context *ctx, struct insn_details *d, ui
 	}
 	if (ptr[0] != ARG_IMM) {
 		frame_t slot = is_slot(ctx, ptr, size);
-		if (slot && !d->rd_frame) {
-			d->rd_frame = slot;
+		if (slot != NO_FRAME_T && d->rd_frame == NO_FRAME_T) {
+			if (slot)
+				d->rd_frame = slot;
 			goto just_frame;
 		}
 		reg_map_set(&d->rd, R_MEMORY);
@@ -498,8 +500,9 @@ static unsigned arg_write(struct codegen_context *ctx, struct insn_details *d, u
 		d->write_frame.size = size;
 		d->write_frame.value = oget_eight(ptr + 2);
 		slot = is_slot(ctx, ptr, size);
-		if (slot && !d->wr_frame) {
-			d->wr_frame = slot;
+		if (slot != NO_FRAME_T && d->wr_frame == NO_FRAME_T) {
+			if (slot)
+				d->wr_frame = slot;
 			goto just_frame;
 		}
 	}
@@ -537,6 +540,8 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 	ptr += 8;
 #endif
 	memset(d, 0, sizeof(struct insn_details));
+	d->rd_frame = NO_FRAME_T;
+	d->wr_frame = NO_FRAME_T;
 	insn = oget_four(ptr);
 #ifdef QUASH_REPETITIVE_INSNS
 	d->wr_reg = insn_writes_flags(insn) ? R_FLAGS : (uint8_t)-1;
@@ -1656,7 +1661,7 @@ static bool attr_w live_register_analysis(struct codegen_context *ctx, reg_map l
 			d->quash = true;
 			continue;
 		}
-		if (d->wr_frame && !reg_map_is_set(d->wr, R_MEMORY)) {
+		if (d->wr_frame != NO_FRAME_T && !reg_map_is_set(d->wr, R_MEMORY)) {
 			if (!ctx->live_frame[d->wr_frame]) {
 				reg_map dwr = d->wr;
 				reg_map_clear(&dwr, R_MEMORY_FRAME);
@@ -1676,7 +1681,7 @@ static bool attr_w live_register_analysis(struct codegen_context *ctx, reg_map l
 			}
 			ctx->live_frame[d->wr_frame] = 0;
 		}
-		if (d->rd_frame && !reg_map_is_set(d->rd, R_MEMORY)) {
+		if (d->rd_frame != NO_FRAME_T && !reg_map_is_set(d->rd, R_MEMORY)) {
 			ctx->live_frame[d->rd_frame] = 1;
 		}
 		live_registers = reg_map_intersection(live_registers, reg_map_neg(d->wr));
