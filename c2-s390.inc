@@ -2170,7 +2170,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_claim_range(ctx));
 			return true;
 		case INSN_NOP:
-			g(cgen_s390(ctx, S390_BC));
+			g(cgen_s390(ctx, S390_BCR));
 			return true;
 		case INSN_RET:
 			g(cgen_s390(ctx, S390_BCR | ((it)(S390_BRC_OVF | S390_BRC_GREATER | S390_BRC_LESS | S390_BRC_EQ) << 36) | ((it)R_14 << 32)));
