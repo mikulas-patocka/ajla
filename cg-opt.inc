@@ -1724,8 +1724,8 @@ quash_after_i:
 			for (i++; i < ctx->basic_block_position; i++) {
 				d1 = &ctx->basic_block[i];
 				d1->quash = true;
-				break;
 			}
+			break;
 		}
 
 #ifdef QUASH_REPETITIVE_INSNS
