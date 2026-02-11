@@ -3981,11 +3981,8 @@ do_compare: {
 			return true;
 		}
 #endif
-		if (unlikely(op_size > OP_SIZE_NATIVE)) {
-			*failed = true;
-			return true;
-		}
-		if (slot_is_register(ctx, slot_2) && !slot_is_register(ctx, slot_1)) {
+		if ((slot_is_register(ctx, slot_2) && !slot_is_register(ctx, slot_1)) ||
+		    (!frame_t_is_const(slot_2) && frame_t_is_const(slot_1))) {
 			frame_t s = slot_1;
 			slot_1 = slot_2;
 			slot_2 = s;
@@ -3999,6 +3996,31 @@ do_compare: {
 				case COND_A:	alu = COND_B; break;
 				case COND_AE:	alu = COND_BE; break;
 			}
+		}
+		if (unlikely(op_size > OP_SIZE_NATIVE)) {
+			if (!frame_t_is_const(slot_1) && frame_t_is_const(slot_2) && !frame_t_get_const(slot_2) && (alu == COND_E || alu == COND_NE)) {
+				g(gen_frame_load(ctx, OP_SIZE_NATIVE, garbage, slot_1, lo_word(OP_SIZE_NATIVE), false, R_SCRATCH_1));
+				if (ARCH_HAS_JMP_REG(alu ^ 1)) {
+					g(gen_frame_load_op(ctx, OP_SIZE_NATIVE, garbage, ALU_OR, 0, slot_1, hi_word(OP_SIZE_NATIVE), false, R_SCRATCH_1));
+					g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, alu ^ 1, R_SCRATCH_1, -1U, 0));
+#ifdef R_CMP_RESULT
+				} else if (!ARCH_HAS_FLAGS) {
+					g(gen_frame_load_op(ctx, OP_SIZE_NATIVE, garbage, ALU_OR, 0, slot_1, hi_word(OP_SIZE_NATIVE), false, R_SCRATCH_1));
+					g(gen_imm(ctx, 0, IMM_PURPOSE_CMP, OP_SIZE_NATIVE));
+					gen_insn(INSN_CMP_DEST_REG, OP_SIZE_NATIVE, alu ^ 1, 0);
+					gen_one(R_CMP_RESULT);
+					gen_one(R_SCRATCH_1);
+					gen_imm_offset();
+					g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, COND_NE, R_CMP_RESULT, -1U, 0));
+#endif
+				} else {
+					g(gen_frame_load_op(ctx, OP_SIZE_NATIVE, garbage, ALU_OR, 1, slot_1, hi_word(OP_SIZE_NATIVE), false, R_SCRATCH_1));
+					g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, alu ^ 1, -1U, -1U, 0));
+				}
+				return true;
+			}
+			*failed = true;
+			return true;
 		}
 		ex = op_size == i_size_cmp(op_size) + (unsigned)zero ? garbage : alu == COND_L || alu == COND_LE || alu == COND_G || alu == COND_GE || ARCH_PREFERS_SX(op_size) ? sign_x : zero_x;
 		g(gen_frame_get(ctx, op_size, ex, slot_1, R_SCRATCH_1, &reg1));
