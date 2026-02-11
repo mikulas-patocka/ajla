@@ -16,8 +16,6 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#define QUASH_INSNS		1
-#define MARK_QUASHED_INSNS	0
 #define REPORT_QUASHED_INSNS	0
 
 #if 1
@@ -2012,9 +2010,9 @@ static bool attr_w process_basic_block(struct codegen_context *ctx, reg_map live
 	for (i = 0; i < ctx->basic_block_position; i++) {
 		struct insn_details *d = &ctx->basic_block[i];
 		if (d->quash) {
-			if (MARK_QUASHED_INSNS || d->mark)
+			if (unlikely(d->mark))
 				gen_insn(INSN_NOP, 0, 0, 0);
-			if (QUASH_INSNS && !d->mark)
+			if (likely(!d->mark))
 				continue;
 		}
 		if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->new_code, &ctx->new_code_size, d->start - debug_offset, d->length + debug_offset, NULL, &ctx->err)))
