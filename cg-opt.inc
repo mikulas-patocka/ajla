@@ -1373,7 +1373,7 @@ static bool attr_w equality_analysis(struct codegen_context *ctx)
 {
 	struct equality eq, rng;
 	struct value value;
-	struct value *rp;
+	struct value *rp, *eq1, *eq2;
 	size_t i;
 	ctx->equalities_used = 0;
 	for (i = 0; i < ctx->basic_block_position; i++) {
@@ -1525,7 +1525,9 @@ dont_quash_mov:
 			if (!arg_to_val(d, ps2, &eq.v2))
 				goto skip;
 			quash_equalities(ctx, d);
-			if (search_equalities(ctx, &eq)) {
+			eq1 = find_equality(ctx, &eq.v1);
+			eq2 = find_equality(ctx, &eq.v2);
+			if ((eq1 && eq2 && eq1->tag == VALUE_TAG_RANGE && eq2->tag == VALUE_TAG_RANGE && eq1->value == eq2->value) || search_equalities(ctx, &eq)) {
 				rng.v1.tag = VALUE_TAG_FLAGS;
 				rng.v1.size = 0;
 				rng.v1.range_signed = false;
