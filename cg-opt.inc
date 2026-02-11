@@ -1527,7 +1527,7 @@ dont_quash_mov:
 			quash_equalities(ctx, d);
 			eq1 = find_equality(ctx, &eq.v1);
 			eq2 = find_equality(ctx, &eq.v2);
-			if ((eq1 && eq2 && eq1->tag == VALUE_TAG_RANGE && eq2->tag == VALUE_TAG_RANGE && eq1->value == eq2->value) || search_equalities(ctx, &eq)) {
+			if ((eq1 && eq2 && eq1->tag == eq2->tag && eq1->value == eq2->value) || search_equalities(ctx, &eq)) {
 				rng.v1.tag = VALUE_TAG_FLAGS;
 				rng.v1.size = 0;
 				rng.v1.range_signed = false;
