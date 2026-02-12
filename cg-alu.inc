@@ -4000,11 +4000,15 @@ do_compare: {
 		if (unlikely(op_size > OP_SIZE_NATIVE)) {
 			if (!frame_t_is_const(slot_1) && frame_t_is_const(slot_2) && !frame_t_get_const(slot_2) && (alu == COND_E || alu == COND_NE)) {
 				g(gen_frame_load(ctx, OP_SIZE_NATIVE, garbage, slot_1, lo_word(OP_SIZE_NATIVE), false, R_SCRATCH_1));
+#if !defined(ARCH_S390)
 				if (ARCH_HAS_JMP_REG(alu ^ 1)) {
 					g(gen_frame_load_op(ctx, OP_SIZE_NATIVE, garbage, ALU_OR, 0, slot_1, hi_word(OP_SIZE_NATIVE), false, R_SCRATCH_1));
 					g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, alu ^ 1, R_SCRATCH_1, -1U, 0));
+					return true;
+				}
+#endif
 #ifdef R_CMP_RESULT
-				} else if (!ARCH_HAS_FLAGS) {
+				if (!ARCH_HAS_FLAGS) {
 					g(gen_frame_load_op(ctx, OP_SIZE_NATIVE, garbage, ALU_OR, 0, slot_1, hi_word(OP_SIZE_NATIVE), false, R_SCRATCH_1));
 					g(gen_imm(ctx, 0, IMM_PURPOSE_CMP, OP_SIZE_NATIVE));
 					gen_insn(INSN_CMP_DEST_REG, OP_SIZE_NATIVE, alu ^ 1, 0);
@@ -4012,11 +4016,11 @@ do_compare: {
 					gen_one(R_SCRATCH_1);
 					gen_imm_offset();
 					g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, COND_NE, R_CMP_RESULT, -1U, 0));
-#endif
-				} else {
-					g(gen_frame_load_op(ctx, OP_SIZE_NATIVE, garbage, ALU_OR, 1, slot_1, hi_word(OP_SIZE_NATIVE), false, R_SCRATCH_1));
-					g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, alu ^ 1, -1U, -1U, 0));
+					return true;
 				}
+#endif
+				g(gen_frame_load_op(ctx, OP_SIZE_NATIVE, garbage, ALU_OR, 1, slot_1, hi_word(OP_SIZE_NATIVE), false, R_SCRATCH_1));
+				g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, alu ^ 1, -1U, -1U, 0));
 				return true;
 			}
 			*failed = true;
