@@ -775,7 +775,7 @@ skip_reads:
 			ptr += arg_write(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, size);
-			ptr += 4;
+			ptr += arg_jmp(d, ptr);
 			break;
 		case INSN_ALU1:
 		case INSN_ALU1_PARTIAL:
@@ -789,7 +789,7 @@ skip_reads:
 				reg_map_set(&d->rd, R_FLAGS);
 			ptr += arg_write(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, size);
-			ptr += 4;
+			ptr += arg_jmp(d, ptr);
 			break;
 		case INSN_LEA3:
 			ptr += arg_write(ctx, d, ptr, size);
@@ -927,7 +927,7 @@ skip_reads:
 			ptr += arg_write(ctx, d, ptr, 1U << OP_SIZE_NATIVE);
 			ptr += arg_read(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, size);
-			ptr += 4;
+			ptr += arg_jmp(d, ptr);
 			break;
 		case INSN_FP_CMP_UNORDERED_DEST_REG:
 			ptr += arg_write(ctx, d, ptr, 1U << OP_SIZE_NATIVE);
@@ -973,12 +973,12 @@ skip_reads:
 		case INSN_FP_TO_INT64_TRAP:
 			ptr += arg_write(ctx, d, ptr, 8);
 			ptr += arg_read(ctx, d, ptr, size);
-			ptr += 4;
+			ptr += arg_jmp(d, ptr);
 			break;
 		case INSN_FP_INT64_TO_INT32_TRAP:
 			ptr += arg_write(ctx, d, ptr, 4);
 			ptr += arg_read(ctx, d, ptr, 8);
-			ptr += 4;
+			ptr += arg_jmp(d, ptr);
 			break;
 		case INSN_FP_CVT:
 			ptr += arg_write(ctx, d, ptr, size);
