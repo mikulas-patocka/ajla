@@ -1457,8 +1457,14 @@ dont_quash_mov:
 					g(val_to_arg(ctx, rp));
 					g(finish_new_insn(ctx, &nd));
 					if (nd.length <= d->length && validate_insn(&nd)) {
-						*d = nd;
 						eq.v2 = *rp;
+						if (search_equalities(ctx, &eq)) {
+							d->quash = true;
+							if (REPORT_QUASHED_INSNS)
+								debug("quashing mov due to equality");
+							continue;
+						}
+						*d = nd;
 					}
 				}
 			}
