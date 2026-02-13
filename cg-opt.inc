@@ -1450,7 +1450,14 @@ dont_quash_mov:
 			if (eq_valid) {
 				rp = find_equality(ctx, &eq.v2);
 				if (rp) {
+					struct value *rp1 = find_equality(ctx, &eq.v1);
 					struct insn_details nd;
+					if (rp1 && compare_values(rp, rp1) && rp->value == rp->value_hi) {
+						d->quash = true;
+						if (REPORT_QUASHED_INSNS)
+							debug("quashing mov due to equality");
+						continue;
+					}
 					g(prepare_new_insn(ctx));
 					gen_insn(insn_opcode(d->insn), insn_op_size(d->insn), 0, 0);
 					gen_stream(pd, arg_size(*pd));
