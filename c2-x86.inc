@@ -408,6 +408,13 @@ address_0:
 	}
 
 gen:
+	if (cpu_test_feature(CPU_FEATURE_avx512vl)) {
+		if (sse_prefix >= 0 && !(sse_prefix & (force_vex | force_evex | force_ndd)) && addr_size == 4 && imm && !(imm & ((1U << real_size) - 1))) {
+			int64_t ximm = imm / (1 << real_size);
+			if (ximm >= -0x80 && ximm <= 0x7f)
+				sse_prefix |= force_evex;
+		}
+	}
 	if (unlikely(sse_prefix >= 0)) {
 		if (likely(cpu_test_feature(CPU_FEATURE_avx)) || (sse_prefix & (force_vex | force_evex | force_ndd))) {
 			if (rex2 & 0xf0 || sse_prefix & 0x1000 || sse_prefix & SSE_PREFIX_LL || sse_prefix & (force_evex | force_ndd) || test_evex) {
