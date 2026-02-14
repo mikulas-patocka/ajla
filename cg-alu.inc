@@ -2859,6 +2859,12 @@ static bool attr_w gen_constant(struct codegen_context *ctx, bool real, unsigned
 			g(unspill(ctx, slot_r, false));
 		return true;
 	} else if (real && slot_is_register(ctx, slot_r)) {
+#if defined(ARCH_X86)
+		if (!c && cpu_test_feature(CPU_FEATURE_sse)) {
+			g(gen_3address_alu(ctx, OP_SIZE_16, ALU_XOR, ctx->registers[slot_r], ctx->registers[slot_r], ctx->registers[slot_r], 0));
+			return true;
+		}
+#endif
 		if (ARCH_HAS_FP_GP_MOV) {
 			g(gen_load_constant(ctx, R_SCRATCH_1, c));
 			g(gen_mov(ctx, op_size, ctx->registers[slot_r], R_SCRATCH_1));
