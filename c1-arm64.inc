@@ -127,7 +127,11 @@
 
 #define R_MAX		0x40
 
+#ifndef HAVE_PRESERVE_NONE
 #define FRAME_SIZE	0x60
+#else
+#define FRAME_SIZE	0x10
+#endif
 
 #define R_FRAME		R_28
 #define R_UPCALL	R_27
@@ -176,11 +180,15 @@ static const uint8_t regs_volatile[] = { R_3, R_4, R_5, R_6, R_7,
 	R_10,
 #endif
 	R_11, R_12, R_13, R_14, R_15, R_LR };
+#ifndef HAVE_PRESERVE_NONE
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved 0U
+#else
+static const uint8_t fp_saved[] = { FR_8, FR_9, FR_10, FR_11, FR_12, FR_13, FR_14, FR_15 };
+#endif
 static const uint8_t fp_volatile[] = { FR_2, FR_3, FR_4, FR_5, FR_6, FR_7, FR_16, FR_17, FR_18, FR_19, FR_20, FR_21, FR_22, FR_23, FR_24, FR_25, FR_26, FR_27, FR_28, FR_29, FR_30, FR_31 };
 
-#define reg_is_saved(r)		(((r) >= R_19 && (r) <= R_FP) || (r) == R_SP)
+#define reg_is_saved(r)		(((r) >= R_19 && (r) <= R_FP) || (r) == R_SP || ((r) >= FR_8 && (r) <= FR_15))
 
 struct logical_imm {
 	uint64_t value;
@@ -386,7 +394,7 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_eight(-FRAME_SIZE);
 	gen_one(R_FP);
 	gen_one(R_LR);
-
+#ifndef HAVE_PRESERVE_NONE
 	gen_insn(INSN_STP, OP_SIZE_8, 0, 0);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_SP);
@@ -436,7 +444,22 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 	gen_one(R_ARG3);
+#else
+	gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+	gen_one(R_FRAME);
+	gen_one(R_20);
 
+	gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+	gen_one(R_UPCALL);
+	gen_one(R_21);
+
+	gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+	gen_one(R_TIMESTAMP);
+	gen_one(R_22);
+
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(R_23);
+#endif
 	return true;
 }
 
@@ -455,7 +478,7 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
 	gen_one(R_RET0);
 	gen_one(R_FRAME);
-
+#ifndef HAVE_PRESERVE_NONE
 	gen_insn(INSN_LDP, OP_SIZE_8, 0, 0);
 	gen_one(R_SAVED_7);
 	gen_one(R_SAVED_6);
@@ -490,7 +513,7 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_SP);
 	gen_eight(0x10);
-
+#endif
 	gen_insn(INSN_LDP, OP_SIZE_8, 0, 0);
 	gen_one(R_FP);
 	gen_one(R_LR);

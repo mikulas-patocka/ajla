@@ -25,6 +25,13 @@ extern const char *dump_code;
 
 #ifdef HAVE_CODEGEN
 
+#if defined(ARCH_ARM64) && (CLANG_ATLEAST(19,1,0) || (defined(HAVE_REAL_GNUC) && GNUC_ATLEAST(16,0,1)))
+#define codegen_type_attr		__attribute__((preserve_none))
+#define HAVE_PRESERVE_NONE
+#else
+#define codegen_type_attr
+#endif
+
 #define codegen_fn			name(codegen_fn)
 #define codegen_free			name(codegen_free)
 #define codegen_entry			name(codegen_entry)
@@ -42,7 +49,7 @@ struct codegen_callback {
 
 void *codegen_fn(frame_s *fp, const code_t *ip, union internal_arg ia[]);
 void codegen_free(struct data *codegen);
-typedef code_return_t (*codegen_type)(frame_s *, struct cg_upcall_vector_s *, tick_stamp_t, void *);
+typedef code_return_t codegen_type_attr (*codegen_type)(frame_s *, struct cg_upcall_vector_s *, tick_stamp_t, void *);
 extern codegen_type codegen_entry;
 
 bool codegen_callback_init(struct codegen_callback *cb, void (*callback)(void *ptr), void *ptr, ajla_error_t *err);

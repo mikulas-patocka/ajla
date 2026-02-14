@@ -52,7 +52,7 @@
 #endif
 #endif
 
-code_return_t (*codegen_entry)(frame_s *, struct cg_upcall_vector_s *, tick_stamp_t, void *);
+codegen_type codegen_entry;
 
 static mutex_t dump_mutex;
 static uint64_t dump_seq = 0;
