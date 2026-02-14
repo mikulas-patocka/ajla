@@ -497,6 +497,9 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 	gen_one(R_ARG3);
 
+	if (MIPS_R6)
+		gen_insn(INSN_NOP, 0, 0, 0);
+
 	return true;
 }
 
