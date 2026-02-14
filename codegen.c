@@ -380,6 +380,11 @@ static atomic_type uint32_t seq = 0;
 	uint64_t wr_mask[4];						\
 }
 #endif
+#if defined(ARCH_MIPS)
+#define ARCH_CONTEXT struct {						\
+	bool last_cond_jmp;						\
+}
+#endif
 #ifdef ARCH_S390
 #define ARCH_CONTEXT struct {						\
 	bool uses_x;							\
