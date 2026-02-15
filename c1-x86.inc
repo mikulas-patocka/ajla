@@ -472,11 +472,15 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(R_SP);
 	gen_eight(ARG_OFFSET);
 #else
+#ifndef HAVE_PRESERVE_NONE
 	g(gen_x86_push(ctx, R_BX, true));
 	g(gen_x86_push2(ctx, R_BP, R_R12, true));
 	g(gen_x86_push2(ctx, R_R13, R_R14, true));
 	g(gen_x86_push2(ctx, R_R15, R_ARG2, false));
-
+#else
+	g(gen_x86_push(ctx, R_BP, true));
+	g(gen_x86_push2(ctx, R_CX, R_ARG2, false));
+#endif
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_FRAME);
 	gen_one(R_ARG0);
@@ -568,10 +572,15 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_one(R_AX);
 	gen_one(R_FRAME);
 #endif
+#ifndef HAVE_PRESERVE_NONE
 	g(gen_x86_pop2(ctx, R_CX, R_R15, false));
 	g(gen_x86_pop2(ctx, R_R14, R_R13, true));
 	g(gen_x86_pop2(ctx, R_R12, R_BP, true));
 	g(gen_x86_pop(ctx, R_BX, true));
+#else
+	g(gen_x86_pop2(ctx, R_SI, R_CX, false));
+	g(gen_x86_pop(ctx, R_BP, true));
+#endif
 
 	gen_insn(INSN_RET, 0, 0, 0);
 #endif
