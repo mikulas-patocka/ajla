@@ -421,11 +421,30 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_RET0);
 	gen_one(R_FRAME);
+#ifdef OPTIMIZE_FOR_FP
+	for (reg = R_FS11; reg >= R_FS2; reg--) {
+		g(gen_address(ctx, R_SP, FRAME_SIZE - 0x80 - 8 * (reg - R_FS2), IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_8));
+		gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+		gen_one(reg);
+		gen_address_offset();
+	}
 
-	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x08, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
-	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
-	gen_one(R_LR);
+	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x78, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_8));
+	gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+	gen_one(R_FS1);
 	gen_address_offset();
+
+	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x70, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_8));
+	gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+	gen_one(R_FS0);
+	gen_address_offset();
+#endif
+	for (reg = R_S11; reg >= R_S2; reg--) {
+		g(gen_address(ctx, R_SP, FRAME_SIZE - 0x20 - 8 * (reg - R_S2), IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
+		gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+		gen_one(reg);
+		gen_address_offset();
+	}
 
 	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x10, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
@@ -437,30 +456,11 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_one(R_S1);
 	gen_address_offset();
 
-	for (reg = R_S2; reg <= R_S11; reg++) {
-		g(gen_address(ctx, R_SP, FRAME_SIZE - 0x20 - 8 * (reg - R_S2), IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
-		gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
-		gen_one(reg);
-		gen_address_offset();
-	}
-#ifdef OPTIMIZE_FOR_FP
-	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x70, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_8));
-	gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
-	gen_one(R_FS0);
+	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x08, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
+	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+	gen_one(R_LR);
 	gen_address_offset();
 
-	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x78, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_8));
-	gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
-	gen_one(R_FS1);
-	gen_address_offset();
-
-	for (reg = R_FS2; reg <= R_FS11; reg++) {
-		g(gen_address(ctx, R_SP, FRAME_SIZE - 0x80 - 8 * (reg - R_FS2), IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_8));
-		gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
-		gen_one(reg);
-		gen_address_offset();
-	}
-#endif
 	g(gen_imm(ctx, FRAME_SIZE, IMM_PURPOSE_ADD, OP_SIZE_NATIVE));
 	gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_ADD, 0);
 	gen_one(R_SP);
