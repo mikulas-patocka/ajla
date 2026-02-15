@@ -145,7 +145,8 @@
 #define SUPPORTED_FP	0x16
 
 #ifdef ARCH_S390_64
-#define FRAME_SIZE	160
+#define FRAME_SIZE	(optimize_int ? 160 : 224)
+#define FRAME_FP_REGS	(FRAME_SIZE - 64)
 #define FRAME_REGS	48
 #define FRAME_RETPTR	(FRAME_SIZE + 16)
 #define FRAME_TIMESTAMP	(FRAME_SIZE + 44)
@@ -174,12 +175,19 @@ static const uint8_t regs_saved[] = {
 	};
 #define n_regs_saved (cpu_test_feature(CPU_FEATURE_extended_imm) ? n_array_elements(regs_saved) : n_array_elements(regs_saved) - 1)
 static const uint8_t regs_volatile[] = { R_4 };
-static const uint8_t fp_saved[] = { 0 };
-#define n_fp_saved 0U
+
+#ifdef ARCH_S390_64
+static const uint8_t fp_saved[] = { FR_8, FR_10, FR_12, FR_14, FR_9, FR_11, FR_13, FR_15 };
+#define n_fp_saved (optimize_int ? 0 : n_array_elements(fp_saved))
 static const uint8_t fp_volatile[] = { FR_1, FR_3, FR_5, FR_7, FR_2, FR_6 };
 #define n_fp_volatile	(!ctx->a.uses_x ? 6U : 4U)
-
-#define reg_is_saved(r)	(((r) >= R_6 && (r) <= R_13) || (r) == R_SP)
+#define reg_is_saved(r)	(((r) >= R_6 && (r) <= R_13) || (r) == R_SP || ((r) >= FR_8 && (r) <= FR_15))
+#else
+static const uint8_t fp_saved[] = { FR_6 }
+#define n_fp_saved	(!ctx->a.uses_x ? 1 : 0)
+static const uint8_t fp_volatile[] = { FR_1, FR_3, FR_5, FR_7, FR_8, FR_10, FR_12, FR_14, FR_9, FR_11, FR_13, FR_15 };
+#define reg_is_saved(r)	(((r) >= R_6 && (r) <= R_13) || (r) == R_SP || (r) == FR_4 && (r) == FR_6)
+#endif
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
 {
@@ -398,6 +406,17 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(ARG_IMM);
 	gen_eight(-FRAME_SIZE);
 
+	if (!optimize_int) {
+		unsigned i;
+		for (i = 0; i < n_fp_saved; i++) {
+			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+			gen_one(ARG_ADDRESS_1);
+			gen_one(R_SP);
+			gen_eight(FRAME_FP_REGS + i * 8);
+			gen_one(fp_saved[i]);
+		}
+	}
+
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_FRAME);
 	gen_one(R_ARG1);
@@ -437,6 +456,17 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_one(R_SP);
 	gen_eight(FRAME_SIZE + FRAME_FP_REGS + 8);
 #endif
+	if (!optimize_int) {
+		unsigned i;
+		for (i = 0; i < n_fp_saved; i++) {
+			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+			gen_one(fp_saved[i]);
+			gen_one(ARG_ADDRESS_1);
+			gen_one(R_SP);
+			gen_eight(FRAME_FP_REGS + i * 8);
+		}
+	}
+
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_ARG0);
 	gen_one(ARG_ADDRESS_1);
