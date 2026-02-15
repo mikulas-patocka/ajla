@@ -25,11 +25,13 @@
 #define OP_SIZE_NATIVE			OP_SIZE_4
 #define OP_SIZE_ADDRESS			OP_SIZE_4
 #ifdef AIX_CALL
-#define FRAME_SIZE			128
+#define FRAME_SIZE			(optimize_int ? 128 : 272)
+#define FP_REGS_OFFSET			128
 #define REGS_OFFSET			56
 #define LR_OFFSET			(FRAME_SIZE + 8)
 #else
-#define FRAME_SIZE			80
+#define FRAME_SIZE			(optimize_int ? 80 : 224)
+#define FP_REGS_OFFSET			80
 #define REGS_OFFSET			8
 #define LR_OFFSET			(FRAME_SIZE + 4)
 #endif
@@ -39,12 +41,14 @@
 #define OP_SIZE_NATIVE			OP_SIZE_8
 #define OP_SIZE_ADDRESS			OP_SIZE_8
 #ifdef AIX_CALL
-#define FRAME_SIZE			256
+#define FRAME_SIZE			(optimize_int ? 256 : 400)
+#define FP_REGS_OFFSET			256
 #define REGS_OFFSET			112
 #define LR_OFFSET			(FRAME_SIZE + 16)
-#define STRUCT_RET_OFFSET		304
+#define STRUCT_RET_OFFSET		(FRAME_SIZE + 48)
 #else
-#define FRAME_SIZE			176
+#define FRAME_SIZE			(optimize_int ? 176 : 320)
+#define FP_REGS_OFFSET			176
 #define REGS_OFFSET			32
 #define LR_OFFSET			(FRAME_SIZE + 16)
 #endif
@@ -220,6 +224,7 @@
 #define R_ZERO				R_26
 
 #define R_LOWEST_SAVED			R_14
+#define R_LOWEST_FP_SAVED		R_F14
 
 #define R_ARG0				R_3
 #define R_ARG1				R_4
@@ -266,8 +271,8 @@ static const uint8_t regs_volatile[] = {
 	R_9,
 #endif
 	R_12 };
-static const uint8_t fp_saved[] = { 0 };
-#define n_fp_saved 0U
+static const uint8_t fp_saved[] = { R_F14, R_F15, R_F16, R_F17, R_F18, R_F19, R_F20, R_F21, R_F22, R_F23, R_F24, R_F25, R_F26, R_F27, R_F28, R_F29, R_F30, R_F31 };
+#define n_fp_saved (optimize_int ? 0 : n_array_elements(fp_saved))
 static const uint8_t fp_volatile[] = { R_F2, R_F3, R_F4, R_F5, R_F6, R_F7, R_F8, R_F9, R_F10, R_F11, R_F12, R_F13 };
 static const uint8_t vector_volatile[] = { R_VS34, R_VS35, R_VS36, R_VS37, R_VS38, R_VS39, R_VS40, R_VS41, R_VS42, R_VS43, R_VS44, R_VS45, R_VS46, R_VS47, R_VS48, R_VS49, R_VS50, R_VS51 };
 
@@ -486,6 +491,15 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 			gen_one(i);
 		}
 	}
+	if (!optimize_int) {
+		for (i = R_LOWEST_FP_SAVED, offs = FP_REGS_OFFSET; i <= R_F31; i++, offs += 1 << OP_SIZE_8) {
+			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+			gen_one(ARG_ADDRESS_1);
+			gen_one(R_SP);
+			gen_eight(offs);
+			gen_one(i);
+		}
+	}
 
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(ARG_ADDRESS_1);
@@ -605,6 +619,15 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 #endif
 		{
 			gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+			gen_one(i);
+			gen_one(ARG_ADDRESS_1);
+			gen_one(R_SP);
+			gen_eight(offs);
+		}
+	}
+	if (!optimize_int) {
+		for (i = R_LOWEST_FP_SAVED, offs = FP_REGS_OFFSET; i <= R_F31; i++, offs += 1 << OP_SIZE_8) {
+			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
 			gen_one(i);
 			gen_one(ARG_ADDRESS_1);
 			gen_one(R_SP);
