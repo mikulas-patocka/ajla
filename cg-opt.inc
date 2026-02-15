@@ -702,6 +702,16 @@ do_call:
 				reg_map_set(&d->rd, R_ARG2);
 				reg_map_set(&d->rd, R_ARG3);
 			}
+#if defined(ARCH_IA64)
+			reg_map_set(&d->rd, R_GP);
+#endif
+#if defined(ARCH_PARISC64)
+			reg_map_set(&d->rd, R_DP);
+#endif
+#if defined(ARCH_POWER) && defined(AIX_CALL)
+			reg_map_set(&d->rd, R_2);
+			reg_map_set(&d->rd, R_11);
+#endif
 			reg_map_set(&d->rd, R_SP);
 			reg_map_set(&d->wr, R_SP);
 			reg_map_set(&d->wr, R_RET0);
