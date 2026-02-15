@@ -69,6 +69,7 @@ struct file_descriptor {
 	size_t dependencies_l;
 	void *base;
 	cpu_feature_mask_t cpu_feature_flags;
+	unsigned char optimize_int;
 	unsigned char privileged;
 	unsigned char profiling;
 	unsigned char strict_calls;
@@ -776,6 +777,7 @@ static void save_finish_file(void)
 
 	file_desc.base = num_to_ptr(0);
 	file_desc.cpu_feature_flags = cpu_feature_flags;
+	file_desc.optimize_int = optimize_int;
 	file_desc.privileged = ipret_is_privileged;
 	file_desc.profiling = profiling;
 	file_desc.strict_calls = ipret_strict_calls;
@@ -1122,6 +1124,7 @@ static void save_load_cache(void)
 		return;
 	}
 	if (unlikely(file_desc.cpu_feature_flags != cpu_feature_flags) ||
+	    unlikely(file_desc.optimize_int != optimize_int) ||
 	    unlikely(file_desc.privileged != ipret_is_privileged) ||
 	    unlikely(file_desc.profiling != profiling) ||
 	    unlikely(file_desc.strict_calls != ipret_strict_calls) ||

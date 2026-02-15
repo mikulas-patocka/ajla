@@ -16,8 +16,6 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#define OPTIMIZE_FOR_FP
-
 #define OP_SIZE_NATIVE			OP_SIZE_8
 #define OP_SIZE_ADDRESS			OP_SIZE_8
 
@@ -131,10 +129,8 @@
 
 #if defined(HAVE_PRESERVE_NONE)
 #define FRAME_SIZE	0x10
-#elif defined(OPTIMIZE_FOR_FP)
-#define FRAME_SIZE	0xa0
 #else
-#define FRAME_SIZE	0x60
+#define FRAME_SIZE	(optimize_int ? 0x60 : 0xa0)
 #endif
 
 #define R_FRAME		R_28
@@ -184,11 +180,11 @@ static const uint8_t regs_volatile[] = { R_3, R_4, R_5, R_6, R_7,
 	R_10,
 #endif
 	R_11, R_12, R_13, R_14, R_15, R_LR };
-#if defined(HAVE_PRESERVE_NONE) || defined(OPTIMIZE_FOR_FP)
 static const uint8_t fp_saved[] = { FR_8, FR_9, FR_10, FR_11, FR_12, FR_13, FR_14, FR_15 };
+#if defined(HAVE_PRESERVE_NONE)
+#define n_fp_saved	n_array_elements(fp_saved)
 #else
-static const uint8_t fp_saved[] = { 0 };
-#define n_fp_saved 0U
+#define n_fp_saved	(optimize_int ? 0 : n_array_elements(fp_saved))
 #endif
 static const uint8_t fp_volatile[] = { FR_2, FR_3, FR_4, FR_5, FR_6, FR_7, FR_16, FR_17, FR_18, FR_19, FR_20, FR_21, FR_22, FR_23, FR_24, FR_25, FR_26, FR_27, FR_28, FR_29, FR_30, FR_31 };
 
@@ -433,35 +429,36 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_eight(0x50);
 	gen_one(R_SAVED_7);
 	gen_one(R_SAVED_6);
-#ifdef OPTIMIZE_FOR_FP
-	gen_insn(INSN_STP, OP_SIZE_8, 0, 0);
-	gen_one(ARG_ADDRESS_1);
-	gen_one(R_SP);
-	gen_eight(0x60);
-	gen_one(FR_14);
-	gen_one(FR_15);
 
-	gen_insn(INSN_STP, OP_SIZE_8, 0, 0);
-	gen_one(ARG_ADDRESS_1);
-	gen_one(R_SP);
-	gen_eight(0x70);
-	gen_one(FR_13);
-	gen_one(FR_12);
+	if (!optimize_int) {
+		gen_insn(INSN_STP, OP_SIZE_8, 0, 0);
+		gen_one(ARG_ADDRESS_1);
+		gen_one(R_SP);
+		gen_eight(0x60);
+		gen_one(FR_14);
+		gen_one(FR_15);
 
-	gen_insn(INSN_STP, OP_SIZE_8, 0, 0);
-	gen_one(ARG_ADDRESS_1);
-	gen_one(R_SP);
-	gen_eight(0x80);
-	gen_one(FR_10);
-	gen_one(FR_11);
+		gen_insn(INSN_STP, OP_SIZE_8, 0, 0);
+		gen_one(ARG_ADDRESS_1);
+		gen_one(R_SP);
+		gen_eight(0x70);
+		gen_one(FR_13);
+		gen_one(FR_12);
 
-	gen_insn(INSN_STP, OP_SIZE_8, 0, 0);
-	gen_one(ARG_ADDRESS_1);
-	gen_one(R_SP);
-	gen_eight(0x90);
-	gen_one(FR_8);
-	gen_one(FR_9);
-#endif
+		gen_insn(INSN_STP, OP_SIZE_8, 0, 0);
+		gen_one(ARG_ADDRESS_1);
+		gen_one(R_SP);
+		gen_eight(0x80);
+		gen_one(FR_10);
+		gen_one(FR_11);
+
+		gen_insn(INSN_STP, OP_SIZE_8, 0, 0);
+		gen_one(ARG_ADDRESS_1);
+		gen_one(R_SP);
+		gen_eight(0x90);
+		gen_one(FR_8);
+		gen_one(FR_9);
+	}
 	gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
 	gen_one(R_FRAME);
 	gen_one(R_ARG0);
@@ -511,35 +508,35 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_one(R_RET0);
 	gen_one(R_FRAME);
 #ifndef HAVE_PRESERVE_NONE
-#ifdef OPTIMIZE_FOR_FP
-	gen_insn(INSN_LDP, OP_SIZE_8, 0, 0);
-	gen_one(FR_8);
-	gen_one(FR_9);
-	gen_one(ARG_ADDRESS_1);
-	gen_one(R_SP);
-	gen_eight(0x90);
+	if (!optimize_int) {
+		gen_insn(INSN_LDP, OP_SIZE_8, 0, 0);
+		gen_one(FR_8);
+		gen_one(FR_9);
+		gen_one(ARG_ADDRESS_1);
+		gen_one(R_SP);
+		gen_eight(0x90);
 
-	gen_insn(INSN_LDP, OP_SIZE_8, 0, 0);
-	gen_one(FR_10);
-	gen_one(FR_11);
-	gen_one(ARG_ADDRESS_1);
-	gen_one(R_SP);
-	gen_eight(0x80);
+		gen_insn(INSN_LDP, OP_SIZE_8, 0, 0);
+		gen_one(FR_10);
+		gen_one(FR_11);
+		gen_one(ARG_ADDRESS_1);
+		gen_one(R_SP);
+		gen_eight(0x80);
 
-	gen_insn(INSN_LDP, OP_SIZE_8, 0, 0);
-	gen_one(FR_12);
-	gen_one(FR_13);
-	gen_one(ARG_ADDRESS_1);
-	gen_one(R_SP);
-	gen_eight(0x70);
+		gen_insn(INSN_LDP, OP_SIZE_8, 0, 0);
+		gen_one(FR_12);
+		gen_one(FR_13);
+		gen_one(ARG_ADDRESS_1);
+		gen_one(R_SP);
+		gen_eight(0x70);
 
-	gen_insn(INSN_LDP, OP_SIZE_8, 0, 0);
-	gen_one(FR_14);
-	gen_one(FR_15);
-	gen_one(ARG_ADDRESS_1);
-	gen_one(R_SP);
-	gen_eight(0x60);
-#endif
+		gen_insn(INSN_LDP, OP_SIZE_8, 0, 0);
+		gen_one(FR_14);
+		gen_one(FR_15);
+		gen_one(ARG_ADDRESS_1);
+		gen_one(R_SP);
+		gen_eight(0x60);
+	}
 	gen_insn(INSN_LDP, OP_SIZE_8, 0, 0);
 	gen_one(R_SAVED_7);
 	gen_one(R_SAVED_6);

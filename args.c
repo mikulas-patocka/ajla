@@ -43,6 +43,8 @@ uint32_t ipret_verify_timeout = 0;
 bool ipret_warnings = false;
 uint32_t ipret_opencl_device = 0;
 
+bool optimize_int = false;
+
 bool save_disable = false;
 bool thread_tick = false;
 uint32_t tick_us = DEFAULT_TICK_US;
@@ -153,8 +155,9 @@ static void verify_select(const char *str)
 }
 
 #define ARG_SWITCH	0
-#define ARG_STRING	1
-#define ARG_NUMBER	2
+#define ARG_SWITCH_OFF	1
+#define ARG_STRING	2
+#define ARG_NUMBER	3
 
 struct arg {
 	const char *str;
@@ -176,6 +179,8 @@ static const struct arg args[] = {
 	{ "--nosave",			ARG_SWITCH,	NULL,				&save_disable,		0, 0 },
 	{ "--numa-nodes=",		ARG_NUMBER,	NULL,				&nr_nodes_override,	1, (unsigned)-1 },
 	{ "--opencl-device=",		ARG_NUMBER,	NULL,				&ipret_opencl_device,	0, signed_maximum(uint32_t) },
+	{ "--optimize-fp",		ARG_SWITCH_OFF,	NULL,				&optimize_int,		0, 0 },
+	{ "--optimize-int",		ARG_SWITCH,	NULL,				&optimize_int,		0, 0 },
 	{ "--privileged",		ARG_SWITCH,	NULL,				&ipret_is_privileged,	0, 0 },
 	{ "--profile",			ARG_SWITCH,	profile_all,			NULL,			0, 0 },
 	{ "--profile=",			ARG_STRING,	profile_select,			NULL,			0, 0 },
@@ -200,11 +205,12 @@ static void process_arg(const char *arg)
 		size_t sl = strlen(a->str);
 		switch (a->mode) {
 			case ARG_SWITCH:
+			case ARG_SWITCH_OFF:
 				if (!strcmp(arg, a->str)) {
 					if (a->handler)
 						a->handler(NULL);
 					else
-						*cast_ptr(bool *, a->val) = true;
+						*cast_ptr(bool *, a->val) = a->mode == ARG_SWITCH;
 					return;
 				}
 				break;
