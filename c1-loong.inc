@@ -161,7 +161,7 @@
 
 #define SUPPORTED_FP	0x6
 
-#define FRAME_SIZE	0x60
+#define FRAME_SIZE	(optimize_int ? 0x60 : 0xa0)
 
 static bool reg_is_fp(unsigned reg)
 {
@@ -174,8 +174,8 @@ static const uint8_t regs_saved[] = {
 #endif
 	R_S5, R_S6, R_S7, R_S8, R_FP };
 static const uint8_t regs_volatile[] = { R_LR, R_A3, R_A7, R_T3, R_T4, R_T5, R_T6, R_T7, R_T8 };
-static const uint8_t fp_saved[] = { 0 };
-#define n_fp_saved 0U
+static const uint8_t fp_saved[] = { R_FS0, R_FS1, R_FS2, R_FS3, R_FS4, R_FS5, R_FS6, R_FS7 };
+#define n_fp_saved (optimize_int ? 0 : n_array_elements(fp_saved))
 static const uint8_t fp_volatile[] = { R_FA2, R_FA3, R_FA4, R_FA5, R_FA6, R_FA7, R_FT0, R_FT1, R_FT2, R_FT3, R_FT4, R_FT5, R_FT6, R_FT7, R_FT8, R_FT9, R_FT10, R_FT11, R_FT12, R_FT13, R_FT14, R_FT15 };
 
 #define reg_is_saved(r)	((r) == R_SP || ((r) >= R_FP && (r) <= R_S8) || ((r) >= R_FS0 && (r) <= R_FS7))
@@ -345,6 +345,16 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 		offset -= 1 << OP_SIZE_NATIVE;
 	}
 
+	if (!optimize_int) {
+		for (i = R_FS0; i <= R_FS7; i++) {
+			g(gen_address(ctx, R_SP, offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_8));
+			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+			gen_address_offset();
+			gen_one(i);
+			offset -= 1 << OP_SIZE_8;
+		}
+	}
+
 #ifndef TIMESTAMP_IN_REGISTER
 	g(gen_address(ctx, R_SP, offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
@@ -405,6 +415,17 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 		gen_address_offset();
 		offset -= 1 << OP_SIZE_NATIVE;
 	}
+
+	if (!optimize_int) {
+		for (i = R_FS0; i <= R_FS7; i++) {
+			g(gen_address(ctx, R_SP, offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_8));
+			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+			gen_one(i);
+			gen_address_offset();
+			offset -= 1 << OP_SIZE_8;
+		}
+	}
+
 
 	g(gen_imm(ctx, FRAME_SIZE, IMM_PURPOSE_ADD, OP_SIZE_NATIVE));
 	gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_ADD, 0);
