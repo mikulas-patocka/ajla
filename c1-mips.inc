@@ -233,7 +233,7 @@ static const uint8_t regs_saved[] = { R_S4, R_S5, R_S6, R_S7,
 	R_FP };
 static const uint8_t regs_volatile[] = { R_A3, R_T6, R_T7, R_T8, R_T9 };
 static const uint8_t fp_saved[] = { 0 };
-#define n_fp_saved 0U
+#define n_fp_saved(real_type) 0U
 static const uint8_t fp_volatile[] = { R_F8, R_F10, R_F12, R_F14, R_F16, R_F18 };
 
 #define reg_is_saved(r)	(((r) >= R_S0 && (r) <= R_S7) || (r) == R_GP || (r) == R_SP || (r) == R_FP)

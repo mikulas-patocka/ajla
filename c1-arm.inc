@@ -129,6 +129,24 @@
 #define FDR_28		0x3c
 #define FDR_30		0x3e
 
+#define FDR_1		0x21
+#define FDR_3		0x23
+#define FDR_5		0x25
+#define FDR_7		0x27
+#define FDR_9		0x29
+#define FDR_11		0x2b
+#define FDR_13		0x2d
+#define FDR_15		0x2f
+#define FDR_17		0x31
+#define FDR_19		0x33
+#define FDR_21		0x35
+#define FDR_23		0x37
+#define FDR_25		0x39
+#define FDR_27		0x3b
+#define FDR_29		0x3d
+#define FDR_31		0x3f
+
+
 #define FQR_0		0x20
 #define FQR_2		0x22
 #define FQR_4		0x24
@@ -179,7 +197,7 @@
 #define FR_SCRATCH_2	FDR_2
 
 #define SUPPORTED_FP		(cpu_test_feature(CPU_FEATURE_vfp) * 0x6)
-#define SUPPORTED_FP_HALF_CVT	(cpu_test_feature(CPU_FEATURE_half) * 0x1)
+#define SUPPORTED_FP_HALF_CVT	((cpu_test_feature(CPU_FEATURE_vfp) && cpu_test_feature(CPU_FEATURE_half)) * 0x1)
 #define FP_REGISTERS(real_type) ((real_type) == 2 ? 2 : 1)
 
 static bool reg_is_fp(unsigned reg)
@@ -194,8 +212,9 @@ static const uint8_t regs_saved[] = {
 	R_9 };
 static const uint8_t regs_volatile[] = { R_3 };
 static const uint8_t fp_saved[] = { FSR_16, FSR_17, FSR_18, FSR_19, FSR_20, FSR_21, FSR_22, FSR_23, FSR_24, FSR_25, FSR_26, FSR_27, FSR_28, FSR_29, FSR_30, FSR_31 };
-#define n_fp_saved (optimize_int ? 0 : n_array_elements(fp_saved))
-static const uint8_t fp_volatile[] = { FSR_4, FSR_5, FSR_6, FSR_7, FSR_8, FSR_9, FSR_10, FSR_11, FSR_12, FSR_13, FSR_14, FSR_15 };
+#define n_fp_saved(real_type) (optimize_int ? 0 : n_array_elements(fp_saved))
+static const uint8_t fp_volatile[] = { FSR_4, FSR_5, FSR_6, FSR_7, FSR_8, FSR_9, FSR_10, FSR_11, FSR_12, FSR_13, FSR_14, FSR_15, FDR_1, FDR_1, FDR_3, FDR_3, FDR_5, FDR_5, FDR_7, FDR_7, FDR_9, FDR_9, FDR_11, FDR_11, FDR_13, FDR_13, FDR_15, FDR_15, FDR_17, FDR_17, FDR_19, FDR_19, FDR_21, FDR_21, FDR_23, FDR_23, FDR_25, FDR_25, FDR_27, FDR_27, FDR_29, FDR_29, FDR_31, FDR_31 };
+#define n_fp_volatile(real_type) (real_type == 1 || !cpu_test_feature(CPU_FEATURE_vfpd32) ? 12 : n_array_elements(fp_volatile))
 
 #define reg_is_saved(r)	(((r) >= R_4 && (r) <= R_FP) || (r) == R_SP || ((r) >= FSR_16 && (r) <= FSR_31))
 
@@ -362,9 +381,9 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 		gen_one(R_SP);
 		gen_one(R_SP);
 		gen_one(ARG_IMM);
-		gen_eight(n_fp_saved * 4);
-		offs = n_fp_saved * 4;
-		for (i = 0; i < (int)n_fp_saved; i += 2) {
+		gen_eight(n_fp_saved(2) * 4);
+		offs = n_fp_saved(2) * 4;
+		for (i = 0; i < (int)n_fp_saved(2); i += 2) {
 			offs -= 8;
 			g(gen_address(ctx, R_SP, offs, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_8));
 			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
@@ -407,7 +426,7 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 		int i;
 		unsigned offs;
 		offs = 0;
-		for (i = (int)n_fp_saved - 2; i >= 0; i -= 2) {
+		for (i = (int)n_fp_saved(2) - 2; i >= 0; i -= 2) {
 			g(gen_address(ctx, R_SP, offs, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_8));
 			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
 			gen_one(fp_saved[i]);
@@ -418,7 +437,7 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 		gen_one(R_SP);
 		gen_one(R_SP);
 		gen_one(ARG_IMM);
-		gen_eight(n_fp_saved * 4);
+		gen_eight(n_fp_saved(2) * 4);
 	}
 
 	gen_insn(INSN_ARM_POP, OP_SIZE_NATIVE, 0, 0);
@@ -463,7 +482,10 @@ static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t esca
 	gen_one(R_SCRATCH_2);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_SP);
-	gen_eight(n_fp_saved * 4);
+	if (SUPPORTED_FP != 0)
+		gen_eight(n_fp_saved(2) * 4);
+	else
+		gen_eight(0);
 
 	gen_insn(INSN_CMP, OP_SIZE_4, 0, 1);
 	gen_one(R_SCRATCH_1);

@@ -179,13 +179,13 @@ static const uint8_t regs_volatile[] = { R_4 };
 
 #ifdef ARCH_S390_64
 static const uint8_t fp_saved[] = { FR_8, FR_10, FR_12, FR_14, FR_9, FR_11, FR_13, FR_15 };
-#define n_fp_saved (optimize_int ? 0 : n_array_elements(fp_saved))
+#define n_fp_saved(real_type) (optimize_int ? 0 : n_array_elements(fp_saved))
 static const uint8_t fp_volatile[] = { FR_1, FR_3, FR_5, FR_7, FR_2, FR_6 };
-#define n_fp_volatile	(!ctx->a.uses_x ? 6U : 4U)
+#define n_fp_volatile(real_type)	(!ctx->a.uses_x ? 6U : 4U)
 #define reg_is_saved(r)	(((r) >= R_6 && (r) <= R_13) || (r) == R_SP || ((r) >= FR_8 && (r) <= FR_15))
 #else
 static const uint8_t fp_saved[] = { FR_6 }
-#define n_fp_saved	(!ctx->a.uses_x ? 1 : 0)
+#define n_fp_saved(real_type)	(!ctx->a.uses_x ? 1 : 0)
 static const uint8_t fp_volatile[] = { FR_1, FR_3, FR_5, FR_7, FR_8, FR_10, FR_12, FR_14, FR_9, FR_11, FR_13, FR_15 };
 #define reg_is_saved(r)	(((r) >= R_6 && (r) <= R_13) || (r) == R_SP || (r) == FR_4 && (r) == FR_6)
 #endif
@@ -409,7 +409,7 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 
 	if (!optimize_int) {
 		unsigned i;
-		for (i = 0; i < n_fp_saved; i++) {
+		for (i = 0; i < n_fp_saved(2); i++) {
 			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
 			gen_one(ARG_ADDRESS_1);
 			gen_one(R_SP);
@@ -459,7 +459,7 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 #endif
 	if (!optimize_int) {
 		unsigned i;
-		for (i = 0; i < n_fp_saved; i++) {
+		for (i = 0; i < n_fp_saved(2); i++) {
 			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
 			gen_one(fp_saved[i]);
 			gen_one(ARG_ADDRESS_1);

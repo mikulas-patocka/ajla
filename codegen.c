@@ -1186,11 +1186,11 @@ static inline bool slot_is_register(struct codegen_context *ctx, frame_t slot)
 #endif
 
 #ifndef n_fp_saved
-#define n_fp_saved n_array_elements(fp_saved)
+#define n_fp_saved(real_type) n_array_elements(fp_saved)
 #endif
 
 #ifndef n_fp_volatile
-#define n_fp_volatile n_array_elements(fp_volatile)
+#define n_fp_volatile(real_type) n_array_elements(fp_volatile)
 #endif
 
 #ifndef n_vector_volatile
@@ -1337,13 +1337,13 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 #endif
 				n_fp_registers = FP_REGISTERS(real_type);
 				idx = round_up(index_fp_saved, n_fp_registers);
-				if (idx + n_fp_registers <= n_fp_saved) {
+				if (idx + n_fp_registers <= n_fp_saved(real_type)) {
 					ctx->registers[v] = fp_saved[idx];
 					index_fp_saved = idx + n_fp_registers;
 					goto success;
 				}
 				idx = round_up(index_fp_volatile, n_fp_registers);
-				if (idx + n_fp_registers <= n_fp_volatile) {
+				if (idx + n_fp_registers <= n_fp_volatile(real_type)) {
 					ctx->registers[v] = fp_volatile[idx];
 					index_fp_volatile = idx + n_fp_registers;
 					goto success;

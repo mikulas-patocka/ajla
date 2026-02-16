@@ -183,9 +183,9 @@ static const uint8_t regs_volatile[] = { R_3, R_4, R_5, R_6, R_7,
 	R_11, R_12, R_13, R_14, R_15, R_LR };
 static const uint8_t fp_saved[] = { FR_8, FR_9, FR_10, FR_11, FR_12, FR_13, FR_14, FR_15 };
 #if defined(HAVE_PRESERVE_NONE)
-#define n_fp_saved	n_array_elements(fp_saved)
+#define n_fp_saved(real_type)	n_array_elements(fp_saved)
 #else
-#define n_fp_saved	(optimize_int ? 0 : n_array_elements(fp_saved))
+#define n_fp_saved(real_type)	(optimize_int ? 0 : n_array_elements(fp_saved))
 #endif
 static const uint8_t fp_volatile[] = { FR_2, FR_3, FR_4, FR_5, FR_6, FR_7, FR_16, FR_17, FR_18, FR_19, FR_20, FR_21, FR_22, FR_23, FR_24, FR_25, FR_26, FR_27, FR_28, FR_29, FR_30, FR_31 };
 

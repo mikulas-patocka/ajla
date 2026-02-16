@@ -40,6 +40,11 @@
 #define dynamic_test		(elf_hwcap & (1 << 6))
 #include "asm-1.inc"
 
+#define feature_name		vfpd32
+#define static_test_vfpd32	0
+#define dynamic_test		(elf_hwcap & (1 << 19))
+#include "asm-1.inc"
+
 #define feature_name		half
 #define static_test_half	(__ARM_FP & 2)
 #if static_test_half

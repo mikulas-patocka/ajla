@@ -243,7 +243,7 @@ static const uint8_t regs_volatile[] = { R_G4, R_G5,
 #endif
 	};
 static const uint8_t fp_saved[] = { 0 };
-#define n_fp_saved 0U
+#define n_fp_saved(real_type) 0U
 #ifdef SUPPORT_QUAD_PRECISION
 static const uint8_t fp_volatile[] = { FDR_8, FDR_12, FDR_16, FDR_20, FDR_24, FDR_28 };
 #else

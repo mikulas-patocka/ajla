@@ -396,7 +396,7 @@ static const uint8_t regs_volatile[] = {
 	R_31,
 };
 static const uint8_t fp_saved[] = { 0 };
-#define n_fp_saved 0U
+#define n_fp_saved(real_type) 0U
 static const uint8_t fp_volatile[] = {
 	FR_8,
 	FR_9,

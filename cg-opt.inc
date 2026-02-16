@@ -215,6 +215,7 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 	frame_t v;
 	size_t i;
 	unsigned r;
+	unsigned real_type;
 	reg_map all_regs;
 
 	reg_map_init(&all_regs);
@@ -288,14 +289,19 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 		reg_map_set(&all_regs, regs_saved[i]);
 	for (i = 0; i < n_regs_volatile + zero; i++)
 		reg_map_set(&all_regs, regs_volatile[i]);
-	for (i = 0; i < n_fp_saved + zero; i++)
-		reg_map_set(&all_regs, fp_saved[i]);
-	for (i = 0; i < n_fp_volatile + zero; i++) {
-		reg_map_set(&all_regs, fp_volatile[i]);
-#if defined(ARCH_390)
-		if (ctx->a.uses_x)
-			reg_map_set(&all_regs, fp_volatile[i] ^ 2);
-#endif
+	for (real_type = 0; real_type <= 4; real_type++) {
+		unsigned n_fp_registers, j;
+		if (!(SUPPORTED_FP >> real_type) & 1)
+			continue;
+		n_fp_registers = FP_REGISTERS(real_type);
+		for (i = 0; i + n_fp_registers <= n_fp_saved(real_type); i += n_fp_registers) {
+			for (j = 0; j < n_fp_registers; j++)
+				reg_map_set(&all_regs, fp_saved[i + j]);
+		}
+		for (i = 0; i + n_fp_registers <= n_fp_volatile(real_type); i += n_fp_registers) {
+			for (j = 0; j < n_fp_registers; j++)
+				reg_map_set(&all_regs, fp_volatile[i + j]);
+		}
 	}
 #ifdef FR_SCRATCH_128_1
 	for (i = 0; i < n_vector_volatile + zero; i++)

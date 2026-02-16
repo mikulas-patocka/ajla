@@ -392,8 +392,8 @@ static bool test_quick_return(struct codegen_context *ctx, frame_t *ret_vars, ar
 	arg_t i;
 	size_t index_saved = 0;
 	size_t index_volatile = 0;
-	size_t index_fp_saved = 0;
-	size_t index_fp_volatile = 0;
+	/*size_t index_fp_saved = 0;*/
+	/*size_t index_fp_volatile = 0;*/
 	for (i = 0; i < n_ret; i++) {
 		frame_t v = ret_vars[i];
 		const struct type *t = get_type_of_local(ctx, v);
@@ -411,7 +411,7 @@ static bool test_quick_return(struct codegen_context *ctx, frame_t *ret_vars, ar
 			} else {
 				return false;
 			}
-		} else if (TYPE_TAG_IS_REAL(t->tag)) {
+		/*} else if (TYPE_TAG_IS_REAL(t->tag)) {
 			unsigned real_type = TYPE_TAG_IDX_REAL(t->tag);
 			if (!((SUPPORTED_FP >> real_type) & 1) || real_type == 4)
 				return false;
@@ -421,7 +421,7 @@ static bool test_quick_return(struct codegen_context *ctx, frame_t *ret_vars, ar
 				regs[i] = fp_volatile[index_fp_volatile++];
 			} else {
 				return false;
-			}
+			}*/
 		} else {
 			return false;
 		}

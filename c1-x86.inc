@@ -253,7 +253,7 @@ static const uint8_t regs_saved[] = { R_BX };
 static const uint8_t regs_volatile[] = { 0 };
 #define n_regs_volatile 0U
 static const uint8_t fp_saved[] = { 0 };
-#define n_fp_saved 0U
+#define n_fp_saved(real_type) 0U
 static const uint8_t fp_volatile[] = { R_XMM2, R_XMM3, R_XMM4, R_XMM5, R_XMM6, R_XMM7 };
 
 #define reg_is_saved(r)	((r) >= R_BX && (r) <= R_DI)
@@ -267,11 +267,11 @@ static const uint8_t regs_saved[] = { R_BX, R_R12, R_R13,
 	};
 static const uint8_t regs_volatile[] = { R_R8, R_R9, R_R10, R_R11 };
 static const uint8_t fp_saved[] = { 0 };
-#define n_fp_saved 0U
+#define n_fp_saved(real_type) 0U
 static const uint8_t fp_volatile[] = { R_XMM2, R_XMM3, R_XMM4, R_XMM5,
 	R_XMM17, R_XMM18, R_XMM19, R_XMM20, R_XMM21, R_XMM22, R_XMM23, R_XMM24, R_XMM25, R_XMM26, R_XMM27, R_XMM28, R_XMM29, R_XMM30, R_XMM31,
 	};
-#define n_fp_volatile (likely(cpu_test_feature(CPU_FEATURE_avx512vl)) || likely(cpu_test_feature(CPU_FEATURE_avx10)) ? n_array_elements(fp_volatile) : 4)
+#define n_fp_volatile(real_type) (likely(cpu_test_feature(CPU_FEATURE_avx512vl)) || likely(cpu_test_feature(CPU_FEATURE_avx10)) ? n_array_elements(fp_volatile) : 4)
 
 #define reg_is_saved(r)	(((r) >= R_BX && (r) <= R_DI) || ((r) >= R_R12 && (r) <= R_R15))
 
@@ -289,12 +289,12 @@ static const uint8_t regs_volatile[] = { R_SI, R_DI, R_R8, R_R9, R_R10, R_R11,
 	R_R16, R_R17, R_R18, R_R19, R_R20, R_R21, R_R22, R_R23, R_R24, R_R25, R_R26, R_R27, R_R28, R_R29, R_R30, R_R31 };
 #define n_regs_volatile	(cpu_test_feature(CPU_FEATURE_apx) ? n_array_elements(regs_volatile) : 6 )
 static const uint8_t fp_saved[] = { 0 };
-#define n_fp_saved 0U
+#define n_fp_saved(real_type) 0U
 static const uint8_t fp_volatile[] = {
 	R_XMM2, R_XMM3, R_XMM4, R_XMM5, R_XMM6, R_XMM7, R_XMM8, R_XMM9, R_XMM10, R_XMM11, R_XMM12, R_XMM13, R_XMM14, R_XMM15,
 	R_XMM17, R_XMM18, R_XMM19, R_XMM20, R_XMM21, R_XMM22, R_XMM23, R_XMM24, R_XMM25, R_XMM26, R_XMM27, R_XMM28, R_XMM29, R_XMM30, R_XMM31,
 	};
-#define n_fp_volatile (likely(cpu_test_feature(CPU_FEATURE_avx512vl)) || likely(cpu_test_feature(CPU_FEATURE_avx10)) ? n_array_elements(fp_volatile) : 14)
+#define n_fp_volatile(real_type) (likely(cpu_test_feature(CPU_FEATURE_avx512vl)) || likely(cpu_test_feature(CPU_FEATURE_avx10)) ? n_array_elements(fp_volatile) : 14)
 
 #define reg_is_saved(r)	(((r) >= R_BX && (r) <= R_BP) || ((r) >= R_R12 && (r) <= R_R15))
 
