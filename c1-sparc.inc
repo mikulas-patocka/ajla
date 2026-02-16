@@ -151,22 +151,22 @@
 #define FDR_26		0x3a
 #define FDR_28		0x3c
 #define FDR_30		0x3e
-#define FDR_32		0x21
-#define FDR_34		0x23
-#define FDR_36		0x25
-#define FDR_38		0x27
-#define FDR_40		0x29
-#define FDR_42		0x2b
-#define FDR_44		0x2d
-#define FDR_46		0x2f
-#define FDR_48		0x31
-#define FDR_50		0x33
-#define FDR_52		0x35
-#define FDR_54		0x37
-#define FDR_56		0x39
-#define FDR_58		0x3b
-#define FDR_60		0x3d
-#define FDR_62		0x3f
+#define FDR_32		0x41
+#define FDR_34		0x43
+#define FDR_36		0x45
+#define FDR_38		0x47
+#define FDR_40		0x49
+#define FDR_42		0x4b
+#define FDR_44		0x4d
+#define FDR_46		0x4f
+#define FDR_48		0x51
+#define FDR_50		0x53
+#define FDR_52		0x55
+#define FDR_54		0x57
+#define FDR_56		0x59
+#define FDR_58		0x5b
+#define FDR_60		0x5d
+#define FDR_62		0x5f
 
 #define FQR_0		0x20
 #define FQR_4		0x24
@@ -176,16 +176,16 @@
 #define FQR_20		0x34
 #define FQR_24		0x38
 #define FQR_28		0x3c
-#define FQR_32		0x21
-#define FQR_36		0x25
-#define FQR_40		0x29
-#define FQR_44		0x2d
-#define FQR_48		0x31
-#define FQR_52		0x35
-#define FQR_56		0x39
-#define FQR_60		0x3d
+#define FQR_32		0x41
+#define FQR_36		0x45
+#define FQR_40		0x49
+#define FQR_44		0x4d
+#define FQR_48		0x51
+#define FQR_52		0x55
+#define FQR_56		0x59
+#define FQR_60		0x5d
 
-#define R_MAX		0x40
+#define R_MAX		0x60
 
 #define R_ZERO		R_G0
 #define R_LR		R_I7
@@ -223,17 +223,19 @@
 #define FR_SCRATCH_1	FDR_0
 #define FR_SCRATCH_2	FDR_4
 #define SUPPORTED_FP	0x16
-#define FP_REGISTERS(real_type) 1
+#define FP_REGISTERS(real_type) ((real_type) == 4 ? 4 : (real_type) == 2 ? 2 : 1)
+#define FP_ALIASES(real_type, reg, idx) (!((reg) & 1) ? (reg) + (idx) : (reg) + ((idx) & ~1))
 #else
 #define FR_SCRATCH_1	FDR_0
 #define FR_SCRATCH_2	FDR_2
 #define SUPPORTED_FP	0x6
-#define FP_REGISTERS(real_type) 1
+#define FP_REGISTERS(real_type) ((real_type) == 2 ? 2 : 1)
+#define FP_ALIASES(real_type, reg, idx) (!((reg) & 1) ? (reg) + (idx) : (reg))
 #endif
 
 static bool reg_is_fp(unsigned reg)
 {
-	return reg >= 0x20 && reg < 0x40;
+	return reg >= 0x20 && reg < 0x60;
 }
 
 static const uint8_t regs_saved[] = { R_L2, R_L3, R_L4, R_L5, R_L6, R_L7, R_I3, R_I4, R_I5 };
@@ -244,11 +246,13 @@ static const uint8_t regs_volatile[] = { R_G4, R_G5,
 	};
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved(real_type) 0U
-#ifdef SUPPORT_QUAD_PRECISION
-static const uint8_t fp_volatile[] = { FDR_8, FDR_12, FDR_16, FDR_20, FDR_24, FDR_28 };
-#else
-static const uint8_t fp_volatile[] = { FDR_4, FDR_6, FDR_8, FDR_10, FDR_12, FDR_14, FDR_16, FDR_18, FDR_20, FDR_22, FDR_24, FDR_26, FDR_28, FDR_30 };
+static const uint8_t fp_volatile[] = {
+#ifndef SUPPORT_QUAD_PRECISION
+	FSR_4, FSR_5, FSR_6, FSR_7,
 #endif
+	FSR_8, FSR_9, FSR_10, FSR_11, FSR_12, FSR_13, FSR_14, FSR_15, FSR_16, FSR_17, FSR_18, FSR_19, FSR_20, FSR_21, FSR_22, FSR_23, FSR_24, FSR_25, FSR_26, FSR_27, FSR_28, FSR_29, FSR_30, FSR_31,
+	FDR_32, FDR_32, FDR_34, FDR_34, FDR_36, FDR_36, FDR_38, FDR_38, FDR_40, FDR_40, FDR_42, FDR_42, FDR_44, FDR_44, FDR_46, FDR_46, FDR_48, FDR_48, FDR_50, FDR_50, FDR_52, FDR_52, FDR_54, FDR_54, FDR_56, FDR_56, FDR_58, FDR_58, FDR_60, FDR_60, FDR_62, FDR_62 };
+#define n_fp_volatile(real_type) (n_array_elements(fp_volatile) - (real_type == 1 || !SPARC_9 ? 32 : 0))
 
 #define reg_is_saved(r)	((r) >= R_L0 && (r) <= R_I7)
 
