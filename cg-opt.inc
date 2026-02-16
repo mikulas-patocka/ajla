@@ -611,6 +611,7 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 			reg_map_set(&d->wr, R_MEMORY);
 			break;
 		case INSN_ARM_POP:
+			d->rd = ctx->opt_status->regs_saved;
 			reg_map_set(&d->rd, R_RET0);
 			reg_map_set(&d->rd, R_RET1);
 			reg_map_set(&d->rd, R_SP);

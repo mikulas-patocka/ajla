@@ -193,11 +193,11 @@ static const uint8_t regs_saved[] = {
 #endif
 	R_9 };
 static const uint8_t regs_volatile[] = { R_3 };
-static const uint8_t fp_saved[] = { 0 };
-#define n_fp_saved 0U
+static const uint8_t fp_saved[] = { FSR_16, FSR_17, FSR_18, FSR_19, FSR_20, FSR_21, FSR_22, FSR_23, FSR_24, FSR_25, FSR_26, FSR_27, FSR_28, FSR_29, FSR_30, FSR_31 };
+#define n_fp_saved (optimize_int ? 0 : n_array_elements(fp_saved))
 static const uint8_t fp_volatile[] = { FSR_4, FSR_5, FSR_6, FSR_7, FSR_8, FSR_9, FSR_10, FSR_11, FSR_12, FSR_13, FSR_14, FSR_15 };
 
-#define reg_is_saved(r)	(((r) >= R_4 && (r) <= R_FP) || (r) == R_SP)
+#define reg_is_saved(r)	(((r) >= R_4 && (r) <= R_FP) || (r) == R_SP || ((r) >= FSR_16 && (r) <= FSR_31))
 
 static int gen_imm12(uint32_t c)
 {
@@ -355,6 +355,24 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 {
 	gen_insn(INSN_ARM_PUSH, OP_SIZE_NATIVE, 0, 0);
 
+	if (!optimize_int && SUPPORTED_FP != 0) {
+		int i;
+		unsigned offs;
+		gen_insn(INSN_ALU, OP_SIZE_ADDRESS, ALU_SUB, 0);
+		gen_one(R_SP);
+		gen_one(R_SP);
+		gen_one(ARG_IMM);
+		gen_eight(n_fp_saved * 4);
+		offs = n_fp_saved * 4;
+		for (i = 0; i < (int)n_fp_saved; i += 2) {
+			offs -= 8;
+			g(gen_address(ctx, R_SP, offs, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_8));
+			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+			gen_address_offset();
+			gen_one(fp_saved[i]);
+		}
+	}
+
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_FRAME);
 	gen_one(R_ARG0);
@@ -384,6 +402,24 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_ARG0);
 	gen_one(R_FRAME);
+
+	if (!optimize_int && SUPPORTED_FP != 0) {
+		int i;
+		unsigned offs;
+		offs = 0;
+		for (i = (int)n_fp_saved - 2; i >= 0; i -= 2) {
+			g(gen_address(ctx, R_SP, offs, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_8));
+			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+			gen_one(fp_saved[i]);
+			gen_address_offset();
+			offs += 8;
+		}
+		gen_insn(INSN_ALU, OP_SIZE_ADDRESS, ALU_ADD, 0);
+		gen_one(R_SP);
+		gen_one(R_SP);
+		gen_one(ARG_IMM);
+		gen_eight(n_fp_saved * 4);
+	}
 
 	gen_insn(INSN_ARM_POP, OP_SIZE_NATIVE, 0, 0);
 
@@ -427,7 +463,7 @@ static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t esca
 	gen_one(R_SCRATCH_2);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_SP);
-	gen_eight(0);
+	gen_eight(n_fp_saved * 4);
 
 	gen_insn(INSN_CMP, OP_SIZE_4, 0, 1);
 	gen_one(R_SCRATCH_1);
