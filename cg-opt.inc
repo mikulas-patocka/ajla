@@ -226,6 +226,8 @@ static inline unsigned size_to_real_type(unsigned size)
 		case 8:		return 2;
 		case 10:	return 3;
 		case 16:	return 4;
+		case 32:	return 4;
+		case 64:	return 4;
 	}
 	internal(file_line, "size_to_real_type: invalid size: %u", size);
 	return 0;
