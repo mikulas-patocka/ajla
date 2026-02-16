@@ -223,10 +223,12 @@
 #define FR_SCRATCH_1	FDR_0
 #define FR_SCRATCH_2	FDR_4
 #define SUPPORTED_FP	0x16
+#define FP_REGISTERS(real_type) 1
 #else
 #define FR_SCRATCH_1	FDR_0
 #define FR_SCRATCH_2	FDR_2
 #define SUPPORTED_FP	0x6
+#define FP_REGISTERS(real_type) 1
 #endif
 
 static bool reg_is_fp(unsigned reg)

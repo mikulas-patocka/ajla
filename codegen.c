@@ -1325,6 +1325,7 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 		} else if (TYPE_TAG_IS_REAL(t->tag)) {
 			unsigned real_type = TYPE_TAG_IDX_REAL(t->tag);
 			if ((SUPPORTED_FP >> real_type) & 1) {
+				unsigned n_fp_registers, idx;
 #ifdef ARCH_POWER
 				if (real_type == 4) {
 					if (index_vector_volatile < n_vector_volatile + zero) {
@@ -1334,40 +1335,20 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 					continue;
 				}
 #endif
-#ifdef ARCH_S390
-				if (real_type == 4) {
-					if (!(index_fp_saved & 1) && index_fp_saved + 1 < n_fp_saved + zero) {
-						ctx->registers[v] = fp_saved[index_fp_saved++];
-						index_fp_saved++;
-						goto success;
-					}
-					if (index_fp_saved & 1 && index_fp_saved + 2 < n_fp_saved + zero) {
-						index_fp_saved++;
-						ctx->registers[v] = fp_saved[index_fp_saved++];
-						index_fp_saved++;
-						goto success;
-					}
-					if (!(index_fp_volatile & 1) && index_fp_volatile + 1 < n_fp_volatile + zero) {
-						ctx->registers[v] = fp_volatile[index_fp_volatile++];
-						index_fp_volatile++;
-						goto success;
-					}
-					if (index_fp_volatile & 1 && index_fp_volatile + 2 < n_fp_volatile + zero) {
-						index_fp_volatile++;
-						ctx->registers[v] = fp_volatile[index_fp_volatile++];
-						index_fp_volatile++;
-						goto success;
-					}
-					continue;
+				n_fp_registers = FP_REGISTERS(real_type);
+				idx = round_up(index_fp_saved, n_fp_registers);
+				if (idx + n_fp_registers <= n_fp_saved) {
+					ctx->registers[v] = fp_saved[idx];
+					index_fp_saved = idx + n_fp_registers;
+					goto success;
 				}
-#endif
-				if (index_fp_saved < n_fp_saved + zero) {
-					ctx->registers[v] = fp_saved[index_fp_saved++];
-				} else if (index_fp_volatile < n_fp_volatile + zero) {
-					ctx->registers[v] = fp_volatile[index_fp_volatile++];
-				} else {
-					continue;
+				idx = round_up(index_fp_volatile, n_fp_registers);
+				if (idx + n_fp_registers <= n_fp_volatile) {
+					ctx->registers[v] = fp_volatile[idx];
+					index_fp_volatile = idx + n_fp_registers;
+					goto success;
 				}
+				continue;
 			} else {
 				continue;
 			}

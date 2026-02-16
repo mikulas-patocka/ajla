@@ -246,6 +246,7 @@
 #define FR_SCRATCH_128_2		R_VS33
 
 #define SUPPORTED_FP			(cpu_test_feature(CPU_FEATURE_ppc) * 0x2 + 0x4 + cpu_test_feature(CPU_FEATURE_v30) * 0x10)
+#define FP_REGISTERS(real_type)		1
 
 static bool reg_is_fp(unsigned reg)
 {
