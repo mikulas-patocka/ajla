@@ -2401,18 +2401,18 @@ write_result:
 			gen_one(FR_SCRATCH_1);
 #if defined(ARCH_ARM32)
 			if (op_size > OP_SIZE_1) {
-				gen_insn(INSN_FP_ALU1, OP_SIZE_1, FP_ALU1_VPADDL, 0);
+				gen_insn(INSN_FP_ALU1, OP_SIZE_8, FP_ALU1_VPADDL1, 0);
 				gen_one(FR_SCRATCH_1);
 				gen_one(FR_SCRATCH_1);
 			}
 			if (op_size > OP_SIZE_2) {
-				gen_insn(INSN_FP_ALU1, OP_SIZE_2, FP_ALU1_VPADDL, 0);
+				gen_insn(INSN_FP_ALU1, OP_SIZE_8, FP_ALU1_VPADDL2, 0);
 				gen_one(FR_SCRATCH_1);
 				gen_one(FR_SCRATCH_1);
 			}
 #else
 			if (op_size > OP_SIZE_1) {
-				gen_insn(INSN_FP_ALU1, OP_SIZE_1, FP_ALU1_ADDV, 0);
+				gen_insn(INSN_FP_ALU1, OP_SIZE_8, FP_ALU1_ADDV, 0);
 				gen_one(FR_SCRATCH_1);
 				gen_one(FR_SCRATCH_1);
 			}

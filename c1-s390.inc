@@ -144,6 +144,7 @@
 
 #define SUPPORTED_FP	0x16
 #define FP_REGISTERS(real_type)	((real_type) == 4 ? 2 : 1)
+#define FP_ALIASES(real_type, reg, idx)	((reg) + 2 * (idx))
 
 #ifdef ARCH_S390_64
 #define FRAME_SIZE	(optimize_int ? 160 : 224)

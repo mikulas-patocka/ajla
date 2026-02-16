@@ -129,42 +129,24 @@
 #define FDR_28		0x3c
 #define FDR_30		0x3e
 
-#define FDR_1		0x21
-#define FDR_3		0x23
-#define FDR_5		0x25
-#define FDR_7		0x27
-#define FDR_9		0x29
-#define FDR_11		0x2b
-#define FDR_13		0x2d
-#define FDR_15		0x2f
-#define FDR_17		0x31
-#define FDR_19		0x33
-#define FDR_21		0x35
-#define FDR_23		0x37
-#define FDR_25		0x39
-#define FDR_27		0x3b
-#define FDR_29		0x3d
-#define FDR_31		0x3f
+#define FDR_1		0x41
+#define FDR_3		0x43
+#define FDR_5		0x45
+#define FDR_7		0x47
+#define FDR_9		0x49
+#define FDR_11		0x4b
+#define FDR_13		0x4d
+#define FDR_15		0x4f
+#define FDR_17		0x51
+#define FDR_19		0x53
+#define FDR_21		0x55
+#define FDR_23		0x57
+#define FDR_25		0x59
+#define FDR_27		0x5b
+#define FDR_29		0x5d
+#define FDR_31		0x5f
 
-
-#define FQR_0		0x20
-#define FQR_2		0x22
-#define FQR_4		0x24
-#define FQR_6		0x26
-#define FQR_8		0x28
-#define FQR_10		0x2a
-#define FQR_12		0x2c
-#define FQR_14		0x2e
-#define FQR_16		0x30
-#define FQR_18		0x32
-#define FQR_20		0x34
-#define FQR_22		0x36
-#define FQR_24		0x38
-#define FQR_26		0x3a
-#define FQR_28		0x3c
-#define FQR_30		0x3e
-
-#define R_MAX		0x40
+#define R_MAX		0x60
 
 #define R_FRAME		R_4
 #define R_UPCALL	R_5
@@ -199,10 +181,11 @@
 #define SUPPORTED_FP		(cpu_test_feature(CPU_FEATURE_vfp) * 0x6)
 #define SUPPORTED_FP_HALF_CVT	((cpu_test_feature(CPU_FEATURE_vfp) && cpu_test_feature(CPU_FEATURE_half)) * 0x1)
 #define FP_REGISTERS(real_type) ((real_type) == 2 ? 2 : 1)
+#define FP_ALIASES(real_type, reg, idx)	(!((reg) & 1) ? (reg) + (idx) : (reg))
 
 static bool reg_is_fp(unsigned reg)
 {
-	return reg >= 0x20 && reg < 0x40;
+	return reg >= 0x20 && reg < 0x60;
 }
 
 static const uint8_t regs_saved[] = {

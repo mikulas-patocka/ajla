@@ -136,8 +136,10 @@ static uint64_t dump_seq = 0;
 #define FP_ALU1_CEIL			4
 #define FP_ALU1_TRUNC			5
 #define FP_ALU1_VCNT8			6
-#define FP_ALU1_VPADDL			7
-#define FP_ALU1_ADDV			8
+#define FP_ALU1_VPADDL1			7
+#define FP_ALU1_VPADDL2			8
+#define FP_ALU1_VPADDL4			9
+#define FP_ALU1_ADDV			10
 
 #define COND_O				0x0
 #define COND_NO				0x1

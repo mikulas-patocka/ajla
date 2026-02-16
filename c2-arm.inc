@@ -794,16 +794,14 @@ static bool attr_w cgen_fp_alu1(struct codegen_context *ctx, unsigned op_size, u
 		case FP_ALU1_NEG:	mc = ARM_ALWAYS | ARM_VNEG; break;
 		case FP_ALU1_SQRT:	mc = ARM_ALWAYS | ARM_VSQRT; break;
 		case FP_ALU1_VCNT8:	mc = ARM_VCNT_8; goto do_regs;
-		case FP_ALU1_VPADDL:	mc = op_size == OP_SIZE_1 ? ARM_VPADDL_U8 : op_size == OP_SIZE_2 ? ARM_VPADDL_U16 : op_size == OP_SIZE_4 ? ARM_VPADDL_U32 : 0;
-					if (!mc)
-						goto invalid_size;
-					goto do_regs;
+		case FP_ALU1_VPADDL1:	mc = ARM_VPADDL_U8; goto do_regs;
+		case FP_ALU1_VPADDL2:	mc = ARM_VPADDL_U16; goto do_regs;
+		case FP_ALU1_VPADDL4:	mc = ARM_VPADDL_U32; goto do_regs;
 		default:		internal(file_line, "cgen_fp_alu1: invalid alu %u", aux);
 	}
 	switch (op_size) {
 		case OP_SIZE_4:		break;
 		case OP_SIZE_8:		mc |= ARM_V_D; break;
-invalid_size:
 		default:		internal(file_line, "cgen_fp_alu1: invalid size %u", op_size);
 	}
 do_regs:

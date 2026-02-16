@@ -210,15 +210,50 @@ struct opt_status {
 #endif
 };
 
+static unsigned op_size_to_size(unsigned op_size)
+{
+	if (op_size == OP_SIZE_10)
+		return 10;
+	else
+		return 1U << op_size;
+}
+
+static inline unsigned size_to_real_type(unsigned size)
+{
+	switch (size) {
+		case 2:		return 0;
+		case 4:		return 1;
+		case 8:		return 2;
+		case 10:	return 3;
+		case 16:	return 4;
+	}
+	internal(file_line, "size_to_real_type: invalid size: %u", size);
+	return 0;
+}
+
+static void set_fp_reg(reg_map *regs, unsigned attr_unused real_type, unsigned reg)
+{
+	reg_map_set(regs, reg);
+#ifdef FP_ALIASES
+	{
+		unsigned i;
+		for (i = 1; i < FP_REGISTERS(real_type); i++)
+			reg_map_set(regs, FP_ALIASES(real_type, reg, i));
+	}
+#endif
+}
+
 static bool attr_w setup_register_maps(struct codegen_context *ctx)
 {
 	frame_t v;
 	size_t i;
 	unsigned r;
 	unsigned real_type;
+	reg_map scratch_regs;
 	reg_map all_regs;
 
 	reg_map_init(&all_regs);
+	reg_map_init(&scratch_regs);
 	reg_map_set(&all_regs, R_SP);
 	reg_map_set(&all_regs, R_FRAME);
 #ifdef R_UPCALL
@@ -233,65 +268,70 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 #ifdef R_LR
 	reg_map_set(&all_regs, R_LR);
 #endif
-	reg_map_set(&all_regs, R_SCRATCH_1);
-	reg_map_set(&all_regs, R_SCRATCH_2);
-	reg_map_set(&all_regs, R_SCRATCH_3);
-	reg_map_set(&all_regs, R_SCRATCH_4);
-	reg_map_set(&all_regs, R_SAVED_1);
-	reg_map_set(&all_regs, R_SAVED_2);
+	reg_map_set(&scratch_regs, R_SCRATCH_1);
+	reg_map_set(&scratch_regs, R_SCRATCH_2);
+	reg_map_set(&scratch_regs, R_SCRATCH_3);
+	reg_map_set(&scratch_regs, R_SCRATCH_4);
+	reg_map_set(&scratch_regs, R_SAVED_1);
+	reg_map_set(&scratch_regs, R_SAVED_2);
 #ifdef R_SCRATCH_NA_1
-	reg_map_set(&all_regs, R_SCRATCH_NA_1);
+	reg_map_set(&scratch_regs, R_SCRATCH_NA_1);
 #endif
 #ifdef R_SCRATCH_NA_2
-	reg_map_set(&all_regs, R_SCRATCH_NA_2);
+	reg_map_set(&scratch_regs, R_SCRATCH_NA_2);
 #endif
 #ifdef R_SCRATCH_NA_3
-	reg_map_set(&all_regs, R_SCRATCH_NA_3);
+	reg_map_set(&scratch_regs, R_SCRATCH_NA_3);
 #endif
-	reg_map_set(&all_regs, R_ARG0);
-	reg_map_set(&all_regs, R_ARG1);
-	reg_map_set(&all_regs, R_ARG2);
-	reg_map_set(&all_regs, R_ARG3);
+	reg_map_set(&scratch_regs, R_ARG0);
+	reg_map_set(&scratch_regs, R_ARG1);
+	reg_map_set(&scratch_regs, R_ARG2);
+	reg_map_set(&scratch_regs, R_ARG3);
 #ifdef R_ARG4
-	reg_map_set(&all_regs, R_ARG4);
+	reg_map_set(&scratch_regs, R_ARG4);
 #endif
-	reg_map_set(&all_regs, R_RET0);
+	reg_map_set(&scratch_regs, R_RET0);
 #ifdef R_RET1
-	reg_map_set(&all_regs, R_RET1);
+	reg_map_set(&scratch_regs, R_RET1);
 #endif
 #ifdef R_OFFSET_IMM
-	reg_map_set(&all_regs, R_OFFSET_IMM);
+	reg_map_set(&scratch_regs, R_OFFSET_IMM);
 #endif
 #ifdef R_CONST_IMM
-	reg_map_set(&all_regs, R_CONST_IMM);
+	reg_map_set(&scratch_regs, R_CONST_IMM);
 #endif
 #ifdef R_CMP_RESULT
-	reg_map_set(&all_regs, R_CMP_RESULT);
+	reg_map_set(&scratch_regs, R_CMP_RESULT);
 #endif
 #ifdef R_SCRATCH_B
-	reg_map_set(&all_regs, R_SCRATCH_B);
+	reg_map_set(&scratch_regs, R_SCRATCH_B);
 #endif
-	reg_map_set(&all_regs, FR_SCRATCH_1);
-	reg_map_set(&all_regs, FR_SCRATCH_2);
+	for (real_type = 0; real_type < TYPE_REAL_N; real_type++) {
+		if (!((SUPPORTED_FP >> real_type) & 1))
+			continue;
+		set_fp_reg(&scratch_regs, real_type, FR_SCRATCH_1);
+		set_fp_reg(&scratch_regs, real_type, FR_SCRATCH_2);
 #ifdef FR_SCRATCH_3
-	reg_map_set(&all_regs, FR_SCRATCH_3);
+		set_fp_reg(&scratch_regs, real_type, FR_SCRATCH_3);
 #endif
 #ifdef FR_SCRATCH_128_1
-	reg_map_set(&all_regs, FR_SCRATCH_128_1);
+		set_fp_reg(&scratch_regs, real_type, FR_SCRATCH_128_1);
 #endif
 #ifdef FR_SCRATCH_128_2
-	reg_map_set(&all_regs, FR_SCRATCH_128_2);
+		set_fp_reg(&scratch_regs, real_type, FR_SCRATCH_128_2);
 #endif
 #ifdef FR_SCRATCH_16
-	reg_map_set(&all_regs, FR_SCRATCH_16);
+		set_fp_reg(&scratch_regs, real_type, FR_SCRATCH_16);
 #endif
+	}
+	all_regs = reg_map_union(all_regs, scratch_regs);
 	for (i = 0; i < n_regs_saved + zero; i++)
 		reg_map_set(&all_regs, regs_saved[i]);
 	for (i = 0; i < n_regs_volatile + zero; i++)
 		reg_map_set(&all_regs, regs_volatile[i]);
-	for (real_type = 0; real_type <= 4; real_type++) {
+	for (real_type = 0; real_type < TYPE_REAL_N; real_type++) {
 		unsigned n_fp_registers, j;
-		if (!(SUPPORTED_FP >> real_type) & 1)
+		if (!((SUPPORTED_FP >> real_type) & 1))
 			continue;
 		n_fp_registers = FP_REGISTERS(real_type);
 		for (i = 0; i + n_fp_registers <= n_fp_saved(real_type); i += n_fp_registers) {
@@ -342,60 +382,16 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 	ctx->opt_status->op_boundary_regs = ctx->opt_status->regs_common;
 	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
 		if (slot_is_register(ctx, v)) {
-			reg_map_set(&ctx->opt_status->op_boundary_regs, ctx->registers[v]);
-#ifdef ARCH_S390
-			if (ctx->a.uses_x && reg_is_fp(ctx->registers[v]))
-				reg_map_set(&ctx->opt_status->op_boundary_regs, ctx->registers[v] ^ 2);
-#endif
+			if (reg_is_fp(ctx->registers[v])) {
+				const struct type *type = get_type_of_local(ctx, v);
+				set_fp_reg(&ctx->opt_status->op_boundary_regs, TYPE_TAG_IDX_REAL(type->tag), ctx->registers[v]);
+			} else {
+				reg_map_set(&ctx->opt_status->op_boundary_regs, ctx->registers[v]);
+			}
 		}
 	}
 	ctx->opt_status->all_used_regs = ctx->opt_status->op_boundary_regs;
-	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_1);
-	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_2);
-	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_3);
-	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_4);
-	reg_map_set(&ctx->opt_status->all_used_regs, R_SAVED_1);
-	reg_map_set(&ctx->opt_status->all_used_regs, R_SAVED_2);
-#ifdef R_SCRATCH_NA_1
-	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_NA_1);
-#endif
-#ifdef R_SCRATCH_NA_2
-	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_NA_2);
-#endif
-#ifdef R_SCRATCH_NA_3
-	reg_map_set(&ctx->opt_status->all_used_regs, R_SCRATCH_NA_3);
-#endif
-	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_1);
-	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_2);
-#ifdef ARCH_S390
-	if (ctx->a.uses_x) {
-		reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_1 + 2);
-		reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_2 + 2);
-	}
-#endif
-#ifdef FR_SCRATCH_3
-	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_3);
-#endif
-#ifdef FR_SCRATCH_16
-	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_16);
-#endif
-#ifdef FR_SCRATCH_128_1
-	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_128_1);
-#endif
-#ifdef FR_SCRATCH_128_2
-	reg_map_set(&ctx->opt_status->all_used_regs, FR_SCRATCH_128_2);
-#endif
-	reg_map_set(&ctx->opt_status->all_used_regs, R_ARG0);
-	reg_map_set(&ctx->opt_status->all_used_regs, R_ARG1);
-	reg_map_set(&ctx->opt_status->all_used_regs, R_ARG2);
-	reg_map_set(&ctx->opt_status->all_used_regs, R_ARG3);
-#ifdef R_ARG4
-	reg_map_set(&ctx->opt_status->all_used_regs, R_ARG4);
-#endif
-	reg_map_set(&ctx->opt_status->all_used_regs, R_RET0);
-#ifdef R_RET1
-	reg_map_set(&ctx->opt_status->all_used_regs, R_RET1);
-#endif
+	ctx->opt_status->all_used_regs = reg_map_union(ctx->opt_status->all_used_regs, scratch_regs);
 
 	ctx->opt_status->jmp_quickret_regs = ctx->opt_status->regs_common;
 	if (ctx->quickret_regs_valid) {
@@ -464,11 +460,10 @@ static frame_t is_slot(struct codegen_context *ctx, uint8_t *ptr, unsigned size)
 static unsigned arg_read(struct codegen_context *ctx, struct insn_details *d, uint8_t *ptr, unsigned size)
 {
 	if (ptr[0] < ARG_REGS_MAX) {
-		reg_map_set(&d->rd, ptr[0]);
-#ifdef ARCH_S390
-		if (reg_is_fp(ptr[0]) && insn_op_size(d->insn) == OP_SIZE_16)
-			reg_map_set(&d->rd, ptr[0] + 2);
-#endif
+		if (reg_is_fp(ptr[0]))
+			set_fp_reg(&d->rd, size_to_real_type(size), ptr[0]);
+		else
+			reg_map_set(&d->rd, ptr[0]);
 		return 1;
 	}
 	if (ptr[0] != ARG_IMM) {
@@ -488,11 +483,10 @@ just_frame:
 static unsigned arg_write(struct codegen_context *ctx, struct insn_details *d, uint8_t *ptr, unsigned size)
 {
 	if (ptr[0] < ARG_REGS_MAX) {
-		reg_map_set(&d->wr, ptr[0]);
-#ifdef ARCH_S390
-		if (reg_is_fp(ptr[0]) && insn_op_size(d->insn) == OP_SIZE_16)
-			reg_map_set(&d->wr, ptr[0] + 2);
-#endif
+		if (reg_is_fp(ptr[0]))
+			set_fp_reg(&d->wr, size_to_real_type(size), ptr[0]);
+		else
+			reg_map_set(&d->wr, ptr[0]);
 #ifdef QUASH_REPETITIVE_INSNS
 		d->wr_reg = ptr[0];
 #endif
@@ -522,14 +516,6 @@ static unsigned arg_jmp(struct insn_details *d, uint8_t *ptr)
 {
 	d->target_label = oget_four(ptr);
 	return 4;
-}
-
-static unsigned op_size_to_size(unsigned op_size)
-{
-	if (op_size == OP_SIZE_10)
-		return 10;
-	else
-		return 1U << op_size;
 }
 
 static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn_details *d)
