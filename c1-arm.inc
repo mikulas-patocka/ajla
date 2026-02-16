@@ -180,7 +180,7 @@
 
 #define SUPPORTED_FP		(cpu_test_feature(CPU_FEATURE_vfp) * 0x6)
 #define SUPPORTED_FP_HALF_CVT	(cpu_test_feature(CPU_FEATURE_half) * 0x1)
-#define FP_REGISTERS(real_type) 1
+#define FP_REGISTERS(real_type) ((real_type) == 2 ? 2 : 1)
 
 static bool reg_is_fp(unsigned reg)
 {
@@ -195,7 +195,7 @@ static const uint8_t regs_saved[] = {
 static const uint8_t regs_volatile[] = { R_3 };
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved 0U
-static const uint8_t fp_volatile[] = { FDR_4, FDR_6, FDR_8, FDR_10, FDR_12, FDR_14 };
+static const uint8_t fp_volatile[] = { FSR_4, FSR_5, FSR_6, FSR_7, FSR_8, FSR_9, FSR_10, FSR_11, FSR_12, FSR_13, FSR_14, FSR_15 };
 
 #define reg_is_saved(r)	(((r) >= R_4 && (r) <= R_FP) || (r) == R_SP)
 
