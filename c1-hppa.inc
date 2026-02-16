@@ -178,14 +178,14 @@
 #define FP_REGISTERS(real_type) 1
 
 #ifdef ARCH_PARISC32
-#define FRAME_SIZE	0x80
+#define FRAME_SIZE	(optimize_int ? 0x80 : 0x100)
 /*
  * 0-64		- register save area
  * 64-96	- outgoing parameters
  * 96-128	- frame marker
  */
 #else
-#define FRAME_SIZE	0xd0
+#define FRAME_SIZE	(optimize_int ? 0xd0 : 0x120)
 /*
  * 0-128	- register save area
  * 128-128	- unused
@@ -218,11 +218,11 @@ static const uint8_t regs_volatile[] = { R_23, R_RET1,
 	R_20,
 #endif
 };
-static const uint8_t fp_saved[] = { 0 };
-#define n_fp_saved 0U
+static const uint8_t fp_saved[] = { R_F12, R_F13, R_F14, R_F15, R_F16, R_F17, R_F18, R_F19, R_F20, R_F21 };
+#define n_fp_saved (optimize_int ? 0 : n_array_elements(fp_saved))
 static const uint8_t fp_volatile[] = { R_F6, R_F7, R_F8, R_F9, R_F10, R_F11, R_F22, R_F23, R_F24, R_F25, R_F26, R_F27, R_F28, R_F29, R_F30, R_F31 };
 
-#define reg_is_saved(r)	(((r) >= R_3 && (r) <= R_18) || (r) == R_SP)
+#define reg_is_saved(r)	(((r) >= R_3 && (r) <= R_18) || (r) == R_SP || ((r) >= R_F12 && (r) <= R_F21))
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
 {
@@ -405,7 +405,7 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 
 static bool attr_w gen_entry(struct codegen_context *ctx)
 {
-	int i;
+	int i, offs;
 
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(ARG_ADDRESS_1);
@@ -419,13 +419,23 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_eight(FRAME_SIZE);
 	gen_one(R_3);
 
+	offs = -FRAME_SIZE + (1 << OP_SIZE_ADDRESS);
 	for (i = R_4; i <= R_18; i++) {
-		int offs = -FRAME_SIZE + ((i - R_3) << OP_SIZE_ADDRESS);
 		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 		gen_one(ARG_ADDRESS_1);
 		gen_one(R_SP);
 		gen_eight(offs);
 		gen_one(i);
+		offs += 1 << OP_SIZE_ADDRESS;
+	}
+	if (!optimize_int) {
+		for (i = R_F12; i <= R_F21; i++) {
+			g(gen_address(ctx, R_SP, offs, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_8));
+			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+			gen_address_offset();
+			gen_one(i);
+			offs += 1 << OP_SIZE_8;
+		}
 	}
 
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
@@ -458,7 +468,7 @@ static bool attr_w gen_escape_arg(struct codegen_context *ctx, ip_t ip, uint32_t
 
 static bool attr_w gen_escape(struct codegen_context *ctx)
 {
-	int i;
+	int i, offs;
 
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_RET0);
@@ -468,20 +478,30 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_one(R_RET1);
 	gen_one(R_SCRATCH_1);
 
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-	gen_one(R_LR);
-	gen_one(ARG_ADDRESS_1);
-	gen_one(R_SP);
-	gen_eight(-FRAME_SIZE + RP_OFFS);
-
+	offs = -FRAME_SIZE + (1 << OP_SIZE_ADDRESS);
 	for (i = R_4; i <= R_18; i++) {
-		int offs = -FRAME_SIZE + ((i - R_3) << OP_SIZE_ADDRESS);
 		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 		gen_one(i);
 		gen_one(ARG_ADDRESS_1);
 		gen_one(R_SP);
 		gen_eight(offs);
+		offs += 1 << OP_SIZE_ADDRESS;
 	}
+	if (!optimize_int) {
+		for (i = R_F12; i <= R_F21; i++) {
+			g(gen_address(ctx, R_SP, offs, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_8));
+			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+			gen_address_offset();
+			gen_one(i);
+			offs += 1 << OP_SIZE_8;
+		}
+	}
+
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_LR);
+	gen_one(ARG_ADDRESS_1);
+	gen_one(R_SP);
+	gen_eight(-FRAME_SIZE + RP_OFFS);
 
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_3);
