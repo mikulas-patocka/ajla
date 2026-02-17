@@ -1278,11 +1278,11 @@ no_zero:
 static bool attr_w gen_registers(struct codegen_context *ctx)
 {
 	frame_t v;
-	size_t index_saved = 0;
-	size_t index_volatile = 0;
-	size_t index_fp_saved = 0;
-	size_t index_fp_volatile = 0;
-	size_t attr_unused index_vector_volatile = 0;
+	unsigned index_saved = 0;
+	unsigned index_volatile = 0;
+	unsigned index_fp_saved = 0;
+	unsigned index_fp_volatile = 0;
+	unsigned index_vector_volatile = 0;
 #ifdef ARCH_S390
 	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
 		const struct type *t = get_type_of_local(ctx, v);
@@ -1295,6 +1295,7 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 	/*for (v = function_n_variables(ctx->fn) - 1; v >= MIN_USEABLE_SLOT; v--)*/
 	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
 		const struct type *t;
+		int reg;
 		ctx->registers[v] = -1;
 		t = get_type_of_local(ctx, v);
 		if (unlikely(!t))
@@ -1306,62 +1307,13 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 		if (!da(ctx->fn,function)->local_variables_flags[v].must_be_flat &&
 		    !da(ctx->fn,function)->local_variables_flags[v].must_be_data)
 			continue;
-		if (!ARCH_HAS_BWX && t->size < 1U << OP_SIZE_4)
-			continue;
-		if (TYPE_TAG_IS_FIXED(t->tag) || TYPE_TAG_IS_INT(t->tag) || t->tag == TYPE_TAG_flat_option || t->tag == TYPE_TAG_unknown || t->tag == TYPE_TAG_record) {
-			if (TYPE_TAG_IS_BUILTIN(t->tag)) {
-				if (!is_power_of_2(t->size) || t->size > 1U << OP_SIZE_NATIVE)
-					continue;
+		reg = allocate_register(ctx, &index_saved, &index_volatile, &index_fp_saved, &index_fp_volatile, &index_vector_volatile, t);
+		if (reg >= 0) {
+			ctx->registers[v] = reg;
+			if (!reg_is_saved(reg)) {
+				if (unlikely(!array_add_mayfail(frame_t, &ctx->need_spill, &ctx->need_spill_l, v, NULL, &ctx->err)))
+					return false;
 			}
-			if (index_saved < n_regs_saved + zero
-#if defined(ARCH_PARISC) || defined(ARCH_SPARC)
-				&& t->size <= 1U << OP_SIZE_ADDRESS
-#endif
-			     ) {
-				ctx->registers[v] = regs_saved[index_saved++];
-			} else if (index_volatile < n_regs_volatile + zero) {
-				ctx->registers[v] = regs_volatile[index_volatile++];
-			} else {
-				continue;
-			}
-		} else if (TYPE_TAG_IS_REAL(t->tag)) {
-			unsigned real_type = TYPE_TAG_IDX_REAL(t->tag);
-			if ((SUPPORTED_FP >> real_type) & 1) {
-				unsigned n_fp_registers, idx;
-#ifdef ARCH_POWER
-				if (real_type == 4) {
-					if (index_vector_volatile < n_vector_volatile + zero) {
-						ctx->registers[v] = vector_volatile[index_vector_volatile++];
-						goto success;
-					}
-					continue;
-				}
-#endif
-				n_fp_registers = FP_REGISTERS(t->size);
-				idx = round_up(index_fp_saved, n_fp_registers);
-				if (idx + n_fp_registers <= n_fp_saved(real_type)) {
-					ctx->registers[v] = fp_saved[idx];
-					index_fp_saved = idx + n_fp_registers;
-					goto success;
-				}
-				idx = round_up(index_fp_volatile, n_fp_registers);
-				if (idx + n_fp_registers <= n_fp_volatile(real_type)) {
-					ctx->registers[v] = fp_volatile[idx];
-					index_fp_volatile = idx + n_fp_registers;
-					goto success;
-				}
-				continue;
-			} else {
-				continue;
-			}
-		} else {
-			continue;
-		}
-		goto success;
-success:
-		if (!reg_is_saved(ctx->registers[v])) {
-			if (unlikely(!array_add_mayfail(frame_t, &ctx->need_spill, &ctx->need_spill_l, v, NULL, &ctx->err)))
-				return false;
 		}
 	}
 

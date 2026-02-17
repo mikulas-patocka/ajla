@@ -387,6 +387,54 @@ copied:
 	return true;
 }
 
+static int allocate_register(struct codegen_context *ctx, unsigned *index_saved, unsigned *index_volatile, unsigned *index_fp_saved, unsigned *index_fp_volatile, unsigned attr_unused *index_vector_volatile, const struct type *t)
+{
+	if (!ARCH_HAS_BWX && t->size < 1U << OP_SIZE_4)
+		return -1;
+	if (TYPE_TAG_IS_FIXED(t->tag) || TYPE_TAG_IS_INT(t->tag) || t->tag == TYPE_TAG_flat_option || t->tag == TYPE_TAG_unknown || t->tag == TYPE_TAG_record) {
+		if (TYPE_TAG_IS_BUILTIN(t->tag)) {
+			if (!is_power_of_2(t->size) || t->size > 1U << OP_SIZE_NATIVE)
+				return -1;
+		}
+		if (*index_saved < n_regs_saved + zero
+#if defined(ARCH_PARISC) || defined(ARCH_SPARC)
+			&& t->size <= 1U << OP_SIZE_ADDRESS
+#endif
+		) {
+			return regs_saved[(*index_saved)++];
+		} else if (*index_volatile < n_regs_volatile + zero) {
+			return regs_volatile[(*index_volatile)++];
+		} else {
+			return -1;
+		}
+	} else if (TYPE_TAG_IS_REAL(t->tag)) {
+		unsigned real_type = TYPE_TAG_IDX_REAL(t->tag);
+		unsigned n_fp_registers, idx;
+		if (!((SUPPORTED_FP >> real_type) & 1))
+			return -1;
+#ifdef ARCH_POWER
+		if (real_type == 4) {
+			if (*index_vector_volatile < n_vector_volatile + zero) {
+				return vector_volatile[(*index_vector_volatile)++];
+			}
+			return -1;
+		}
+#endif
+		n_fp_registers = FP_REGISTERS(t->size);
+		idx = round_up(*index_fp_saved, n_fp_registers);
+		if (idx + n_fp_registers <= n_fp_saved(real_type)) {
+			*index_fp_saved = idx + n_fp_registers;
+			return fp_saved[idx];
+		}
+		idx = round_up(*index_fp_volatile, n_fp_registers);
+		if (idx + n_fp_registers <= n_fp_volatile(real_type)) {
+			*index_fp_volatile = idx + n_fp_registers;
+			return fp_volatile[idx];
+		}
+	}
+	return -1;
+}
+
 static bool test_quick_return(struct codegen_context *ctx, frame_t *ret_vars, arg_t n_ret, uint8_t *regs)
 {
 	arg_t i;
