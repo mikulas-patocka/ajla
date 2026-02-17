@@ -514,11 +514,6 @@ static const struct fp_alu fp_cmp = {
 	S390_CEBR, S390_CDBR, S390_CXBR, S390_CEB, S390_CDB
 };
 
-static void init_arch_context(struct codegen_context *ctx)
-{
-	ctx->a.uses_x = false;
-}
-
 static uint8_t get_jmp_cond(unsigned cond, bool logical)
 {
 	int8_t c;

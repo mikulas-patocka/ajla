@@ -387,7 +387,7 @@ copied:
 	return true;
 }
 
-static int allocate_register(struct codegen_context *ctx, unsigned *index_saved, unsigned *index_volatile, unsigned *index_fp_saved, unsigned *index_fp_volatile, unsigned attr_unused *index_vector_volatile, const struct type *t)
+static int allocate_register(unsigned *index_saved, unsigned *index_volatile, unsigned *index_fp_saved, unsigned *index_fp_volatile, unsigned attr_unused *index_vector_volatile, const struct type *t)
 {
 	if (!ARCH_HAS_BWX && t->size < 1U << OP_SIZE_4)
 		return -1;
@@ -449,7 +449,7 @@ static bool test_quick_return(struct codegen_context *ctx, frame_t *ret_vars, ar
 		int reg;
 		if (TYPE_TAG_IS_REAL(t->tag) && TYPE_TAG_IDX_REAL(t->tag) == 4)
 			return false;
-		reg = allocate_register(ctx, &index_saved, &index_volatile, &index_fp_saved, &index_fp_volatile, &index_vector_volatile, t);
+		reg = allocate_register(&index_saved, &index_volatile, &index_fp_saved, &index_fp_volatile, &index_vector_volatile, t);
 		if (reg < 0)
 			return false;
 		regs[i] = reg;

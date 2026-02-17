@@ -387,11 +387,6 @@ static atomic_type uint32_t seq = 0;
 	bool last_cond_jmp;						\
 }
 #endif
-#ifdef ARCH_S390
-#define ARCH_CONTEXT struct {						\
-	bool uses_x;							\
-}
-#endif
 
 #define gen_insn(opcode, op_size, aux, writes_flags)			\
 do {									\
@@ -1283,16 +1278,6 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 	unsigned index_fp_saved = 0;
 	unsigned index_fp_volatile = 0;
 	unsigned index_vector_volatile = 0;
-#ifdef ARCH_S390
-	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
-		const struct type *t = get_type_of_local(ctx, v);
-		if (t && TYPE_TAG_IS_REAL(t->tag) && TYPE_TAG_IDX_REAL(t->tag) == 4) {
-			ctx->a.uses_x = true;
-			break;
-		}
-	}
-#endif
-	ctx->a.uses_x = true;
 	/*for (v = function_n_variables(ctx->fn) - 1; v >= MIN_USEABLE_SLOT; v--)*/
 	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
 		const struct type *t;
@@ -1308,7 +1293,7 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 		if (!da(ctx->fn,function)->local_variables_flags[v].must_be_flat &&
 		    !da(ctx->fn,function)->local_variables_flags[v].must_be_data)
 			continue;
-		reg = allocate_register(ctx, &index_saved, &index_volatile, &index_fp_saved, &index_fp_volatile, &index_vector_volatile, t);
+		reg = allocate_register(&index_saved, &index_volatile, &index_fp_saved, &index_fp_volatile, &index_vector_volatile, t);
 		if (reg >= 0) {
 			ctx->registers[v] = reg;
 			if (!reg_is_saved(reg)) {

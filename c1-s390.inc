@@ -181,12 +181,11 @@ static const uint8_t regs_volatile[] = { R_4 };
 #ifdef ARCH_S390_64
 static const uint8_t fp_saved[] = { FR_8, FR_10, FR_12, FR_14, FR_9, FR_11, FR_13, FR_15 };
 #define n_fp_saved(real_type) (optimize_int ? 0 : n_array_elements(fp_saved))
-static const uint8_t fp_volatile[] = { FR_1, FR_3, FR_5, FR_7, FR_2, FR_6 };
-#define n_fp_volatile(real_type)	(!ctx->a.uses_x ? 6U : 4U)
+static const uint8_t fp_volatile[] = { FR_1, FR_3, FR_5, FR_7 };
 #define reg_is_saved(r)	(((r) >= R_6 && (r) <= R_13) || (r) == R_SP || ((r) >= FR_8 && (r) <= FR_15))
 #else
-static const uint8_t fp_saved[] = { FR_6 }
-#define n_fp_saved(real_type)	(!ctx->a.uses_x ? 1 : 0)
+static const uint8_t fp_saved[] = { 0 }
+#define n_fp_saved(real_type)	0U
 static const uint8_t fp_volatile[] = { FR_1, FR_3, FR_5, FR_7, FR_8, FR_10, FR_12, FR_14, FR_9, FR_11, FR_13, FR_15 };
 #define reg_is_saved(r)	(((r) >= R_6 && (r) <= R_13) || (r) == R_SP || (r) == FR_4 && (r) == FR_6)
 #endif
