@@ -1074,7 +1074,8 @@ static bool attr_w cgen_jmp_fp_test(struct codegen_context *ctx, unsigned aux, u
 			g(cgen_jump_not_last(ctx, 1));
 			g(add_relocation(ctx, JMP_SHORTEST, 0, NULL));
 			cgen_mips_imm(mc, FR_CMP_RESULT & 31, 0, 0);
-			ctx->a.last_cond_jmp = true;
+			if (!delay_slot)
+				cgen_mips(MIPS_NOP);
 			return true;
 		}
 		if (length <= JMP_LONG) {
