@@ -505,12 +505,22 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	save_offset += 1 << OP_SIZE_NATIVE;
 
 	if (!optimize_int) {
-		for (reg = R_F20; reg <= R_F31; reg += FP_STRIDE) if (fp_reg_is_saved(reg)) {
-			g(gen_address(ctx, R_SP, save_offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_8));
-			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
-			gen_address_offset();
-			gen_one(reg);
-			save_offset += 1 << OP_SIZE_8;
+		if (!MIPS_HAS_LS_DOUBLE) {
+			for (reg = R_F20; reg <= R_F31; reg += 1) if (fp_reg_is_saved(reg)) {
+				g(gen_address(ctx, R_SP, save_offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_4));
+				gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
+				gen_address_offset();
+				gen_one(reg);
+				save_offset += 1 << OP_SIZE_4;
+			}
+		} else {
+			for (reg = R_F20; reg <= R_F31; reg += FP_STRIDE) if (fp_reg_is_saved(reg)) {
+				g(gen_address(ctx, R_SP, save_offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_8));
+				gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+				gen_address_offset();
+				gen_one(reg);
+				save_offset += 1 << OP_SIZE_8;
+			}
 		}
 	}
 
@@ -591,12 +601,22 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	save_offset += 1 << OP_SIZE_NATIVE;
 
 	if (!optimize_int) {
-		for (reg = R_F20; reg <= R_F31; reg += FP_STRIDE) if (fp_reg_is_saved(reg)) {
-			g(gen_address(ctx, R_SP, save_offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_8));
-			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
-			gen_one(reg);
-			gen_address_offset();
-			save_offset += 1 << OP_SIZE_8;
+		if (!MIPS_HAS_LS_DOUBLE) {
+			for (reg = R_F20; reg <= R_F31; reg += 1) if (fp_reg_is_saved(reg)) {
+				g(gen_address(ctx, R_SP, save_offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_4));
+				gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
+				gen_one(reg);
+				gen_address_offset();
+				save_offset += 1 << OP_SIZE_4;
+			}
+		} else {
+			for (reg = R_F20; reg <= R_F31; reg += FP_STRIDE) if (fp_reg_is_saved(reg)) {
+				g(gen_address(ctx, R_SP, save_offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_8));
+				gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+				gen_one(reg);
+				gen_address_offset();
+				save_offset += 1 << OP_SIZE_8;
+			}
 		}
 	}
 
