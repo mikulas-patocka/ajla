@@ -438,41 +438,21 @@ static int allocate_register(struct codegen_context *ctx, unsigned *index_saved,
 static bool test_quick_return(struct codegen_context *ctx, frame_t *ret_vars, arg_t n_ret, uint8_t *regs)
 {
 	arg_t i;
-	size_t index_saved = 0;
-	size_t index_volatile = 0;
-	/*size_t index_fp_saved = 0;*/
-	/*size_t index_fp_volatile = 0;*/
+	unsigned index_saved = 0;
+	unsigned index_volatile = 0;
+	unsigned index_fp_saved = 0;
+	unsigned index_fp_volatile = 0;
+	unsigned index_vector_volatile = 0;
 	for (i = 0; i < n_ret; i++) {
 		frame_t v = ret_vars[i];
 		const struct type *t = get_type_of_local(ctx, v);
-		if (!ARCH_HAS_BWX && t->size < 1U << OP_SIZE_4)
+		int reg;
+		if (TYPE_TAG_IS_REAL(t->tag) && TYPE_TAG_IDX_REAL(t->tag) == 4)
 			return false;
-		if (TYPE_TAG_IS_FIXED(t->tag) || TYPE_TAG_IS_INT(t->tag) || t->tag == TYPE_TAG_flat_option || t->tag == TYPE_TAG_unknown || t->tag == TYPE_TAG_record) {
-			if (TYPE_TAG_IS_BUILTIN(t->tag)) {
-				if (!is_power_of_2(t->size) || t->size > 1U << OP_SIZE_NATIVE)
-					return false;
-			}
-			if (index_saved < n_regs_saved + zero) {
-				regs[i] = regs_saved[index_saved++];
-			} else if (index_volatile < n_regs_volatile + zero) {
-				regs[i] = regs_volatile[index_volatile++];
-			} else {
-				return false;
-			}
-		/*} else if (TYPE_TAG_IS_REAL(t->tag)) {
-			unsigned real_type = TYPE_TAG_IDX_REAL(t->tag);
-			if (!((SUPPORTED_FP >> real_type) & 1) || real_type == 4)
-				return false;
-			if (index_fp_saved < n_fp_saved + zero) {
-				regs[i] = fp_saved[index_fp_saved++];
-			} else if (index_fp_volatile < n_fp_volatile + zero) {
-				regs[i] = fp_volatile[index_fp_volatile++];
-			} else {
-				return false;
-			}*/
-		} else {
+		reg = allocate_register(ctx, &index_saved, &index_volatile, &index_fp_saved, &index_fp_volatile, &index_vector_volatile, t);
+		if (reg < 0)
 			return false;
-		}
+		regs[i] = reg;
 	}
 	return true;
 }

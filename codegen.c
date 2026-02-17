@@ -1292,6 +1292,7 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 		}
 	}
 #endif
+	ctx->a.uses_x = true;
 	/*for (v = function_n_variables(ctx->fn) - 1; v >= MIN_USEABLE_SLOT; v--)*/
 	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
 		const struct type *t;
