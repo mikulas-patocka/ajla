@@ -235,9 +235,18 @@ static const uint8_t regs_saved[] = { R_S4, R_S5, R_S6, R_S7,
 static const uint8_t regs_volatile[] = { R_A3, R_T6, R_T7, R_T8, R_T9 };
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved(real_type) 0U
-static const uint8_t fp_volatile[] = { R_F8, R_F9, R_F10, R_F11, R_F12, R_F13, R_F14, R_F15, R_F16, R_F17, R_F18, R_F19 };
+static const uint8_t fp_volatile[] = { R_F8, R_F9, R_F10, R_F11, R_F12, R_F13, R_F14, R_F15, R_F16, R_F17, R_F18, R_F19,
+#ifndef ARCH_MIPS_O32
+	R_F20, R_F21, R_F22, R_F23,
+#endif
+};
 
-#define reg_is_saved(r)	(((r) >= R_S0 && (r) <= R_S7) || (r) == R_GP || (r) == R_SP || (r) == R_FP)
+#ifdef ARCH_MIPS_O32
+#define fp_reg_is_saved(r)	((r) >= R_F20 && (r) <= R_F31)
+#else
+#define fp_reg_is_saved(r)	((r) >= R_F24 && (r) <= R_F31)
+#endif
+#define reg_is_saved(r)	(((r) >= R_S0 && (r) <= R_S7) || (r) == R_GP || (r) == R_SP || (r) == R_FP || fp_reg_is_saved(r))
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
 {
