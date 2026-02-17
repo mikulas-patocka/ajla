@@ -312,6 +312,9 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 #ifdef FR_SCRATCH_16
 		set_reg_and_aliases(&scratch_regs, size, FR_SCRATCH_16);
 #endif
+#ifdef FR_CMP_RESULT
+		set_reg_and_aliases(&scratch_regs, size, FR_CMP_RESULT);
+#endif
 	}
 	all_regs = reg_map_union(all_regs, scratch_regs);
 	for (i = 0; i < n_regs_saved + zero; i++)
