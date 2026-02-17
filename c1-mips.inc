@@ -211,7 +211,8 @@
 #define FR_CMP_RESULT	R_F6
 
 #define SUPPORTED_FP	0x6
-#define FP_REGISTERS(real_size) 1
+#define FP_REGISTERS(real_size)	((real_size) >= 8 ? 2 : 1)
+#define FP_ALIASES(real_size, reg, idx)	((reg) + (idx))
 
 #ifdef ARCH_MIPS_O32
 #define FRAME_SIZE	64
@@ -234,7 +235,7 @@ static const uint8_t regs_saved[] = { R_S4, R_S5, R_S6, R_S7,
 static const uint8_t regs_volatile[] = { R_A3, R_T6, R_T7, R_T8, R_T9 };
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved(real_type) 0U
-static const uint8_t fp_volatile[] = { R_F8, R_F10, R_F12, R_F14, R_F16, R_F18 };
+static const uint8_t fp_volatile[] = { R_F8, R_F9, R_F10, R_F11, R_F12, R_F13, R_F14, R_F15, R_F16, R_F17, R_F18, R_F19 };
 
 #define reg_is_saved(r)	(((r) >= R_S0 && (r) <= R_S7) || (r) == R_GP || (r) == R_SP || (r) == R_FP)
 
