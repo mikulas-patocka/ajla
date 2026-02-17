@@ -218,29 +218,14 @@ static unsigned op_size_to_size(unsigned op_size)
 		return 1U << op_size;
 }
 
-static inline unsigned size_to_real_type(unsigned size)
-{
-	switch (size) {
-		case 2:		return 0;
-		case 4:		return 1;
-		case 8:		return 2;
-		case 10:	return 3;
-		case 16:	return 4;
-		case 32:	return 4;
-		case 64:	return 4;
-	}
-	internal(file_line, "size_to_real_type: invalid size: %u", size);
-	return 0;
-}
-
-static void set_fp_reg(reg_map *regs, unsigned attr_unused real_type, unsigned reg)
+static void set_fp_reg(reg_map *regs, unsigned attr_unused size, unsigned reg)
 {
 	reg_map_set(regs, reg);
 #ifdef FP_ALIASES
 	{
 		unsigned i;
-		for (i = 1; i < FP_REGISTERS(real_type); i++)
-			reg_map_set(regs, FP_ALIASES(real_type, reg, i));
+		for (i = 1; i < FP_REGISTERS(size); i++)
+			reg_map_set(regs, FP_ALIASES(size, reg, i));
 	}
 #endif
 }
@@ -309,21 +294,23 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 	reg_map_set(&scratch_regs, R_SCRATCH_B);
 #endif
 	for (real_type = 0; real_type < TYPE_REAL_N; real_type++) {
+		unsigned size;
 		if (!((SUPPORTED_FP >> real_type) & 1))
 			continue;
-		set_fp_reg(&scratch_regs, real_type, FR_SCRATCH_1);
-		set_fp_reg(&scratch_regs, real_type, FR_SCRATCH_2);
+		size = type_get_real(real_type)->size;
+		set_fp_reg(&scratch_regs, size, FR_SCRATCH_1);
+		set_fp_reg(&scratch_regs, size, FR_SCRATCH_2);
 #ifdef FR_SCRATCH_3
-		set_fp_reg(&scratch_regs, real_type, FR_SCRATCH_3);
+		set_fp_reg(&scratch_regs, size, FR_SCRATCH_3);
 #endif
 #ifdef FR_SCRATCH_128_1
-		set_fp_reg(&scratch_regs, real_type, FR_SCRATCH_128_1);
+		set_fp_reg(&scratch_regs, size, FR_SCRATCH_128_1);
 #endif
 #ifdef FR_SCRATCH_128_2
-		set_fp_reg(&scratch_regs, real_type, FR_SCRATCH_128_2);
+		set_fp_reg(&scratch_regs, size, FR_SCRATCH_128_2);
 #endif
 #ifdef FR_SCRATCH_16
-		set_fp_reg(&scratch_regs, real_type, FR_SCRATCH_16);
+		set_fp_reg(&scratch_regs, size, FR_SCRATCH_16);
 #endif
 	}
 	all_regs = reg_map_union(all_regs, scratch_regs);
@@ -335,7 +322,7 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 		unsigned n_fp_registers, j;
 		if (!((SUPPORTED_FP >> real_type) & 1))
 			continue;
-		n_fp_registers = FP_REGISTERS(real_type);
+		n_fp_registers = FP_REGISTERS(type_get_real(real_type)->size);
 		for (i = 0; i + n_fp_registers <= n_fp_saved(real_type); i += n_fp_registers) {
 			for (j = 0; j < n_fp_registers; j++)
 				reg_map_set(&all_regs, fp_saved[i + j]);
@@ -386,7 +373,7 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 		if (slot_is_register(ctx, v)) {
 			if (reg_is_fp(ctx->registers[v])) {
 				const struct type *type = get_type_of_local(ctx, v);
-				set_fp_reg(&ctx->opt_status->op_boundary_regs, TYPE_TAG_IDX_REAL(type->tag), ctx->registers[v]);
+				set_fp_reg(&ctx->opt_status->op_boundary_regs, type->size, ctx->registers[v]);
 			} else {
 				reg_map_set(&ctx->opt_status->op_boundary_regs, ctx->registers[v]);
 			}
@@ -463,7 +450,7 @@ static unsigned arg_read(struct codegen_context *ctx, struct insn_details *d, ui
 {
 	if (ptr[0] < ARG_REGS_MAX) {
 		if (reg_is_fp(ptr[0]))
-			set_fp_reg(&d->rd, size_to_real_type(size), ptr[0]);
+			set_fp_reg(&d->rd, size, ptr[0]);
 		else
 			reg_map_set(&d->rd, ptr[0]);
 		return 1;
@@ -486,7 +473,7 @@ static unsigned arg_write(struct codegen_context *ctx, struct insn_details *d, u
 {
 	if (ptr[0] < ARG_REGS_MAX) {
 		if (reg_is_fp(ptr[0]))
-			set_fp_reg(&d->wr, size_to_real_type(size), ptr[0]);
+			set_fp_reg(&d->wr, size, ptr[0]);
 		else
 			reg_map_set(&d->wr, ptr[0]);
 #ifdef QUASH_REPETITIVE_INSNS

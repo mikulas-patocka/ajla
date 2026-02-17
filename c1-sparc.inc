@@ -223,14 +223,14 @@
 #define FR_SCRATCH_1	FDR_0
 #define FR_SCRATCH_2	FDR_4
 #define SUPPORTED_FP	0x16
-#define FP_REGISTERS(real_type) ((real_type) == 4 ? 4 : (real_type) == 2 ? 2 : 1)
-#define FP_ALIASES(real_type, reg, idx) (!((reg) & 1) ? (reg) + (idx) : (reg) + ((idx) & ~1))
+#define FP_REGISTERS(real_size) ((real_size) == 16 ? 4 : (real_size) == 8 ? 2 : 1)
+#define FP_ALIASES(real_size, reg, idx) (!((reg) & 1) ? (reg) + (idx) : (reg) + ((idx) & ~1))
 #else
 #define FR_SCRATCH_1	FDR_0
 #define FR_SCRATCH_2	FDR_2
 #define SUPPORTED_FP	0x6
-#define FP_REGISTERS(real_type) ((real_type) == 2 ? 2 : 1)
-#define FP_ALIASES(real_type, reg, idx) (!((reg) & 1) ? (reg) + (idx) : (reg))
+#define FP_REGISTERS(real_size) ((real_size) == 8 ? 2 : 1)
+#define FP_ALIASES(real_size, reg, idx) (!((reg) & 1) ? (reg) + (idx) : (reg))
 #endif
 
 static bool reg_is_fp(unsigned reg)

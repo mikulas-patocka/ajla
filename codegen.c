@@ -1337,7 +1337,7 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 					continue;
 				}
 #endif
-				n_fp_registers = FP_REGISTERS(real_type);
+				n_fp_registers = FP_REGISTERS(t->size);
 				idx = round_up(index_fp_saved, n_fp_registers);
 				if (idx + n_fp_registers <= n_fp_saved(real_type)) {
 					ctx->registers[v] = fp_saved[idx];
