@@ -218,11 +218,11 @@ static unsigned op_size_to_size(unsigned op_size)
 		return 1U << op_size;
 }
 
-static void set_fp_reg(reg_map *regs, unsigned attr_unused size, unsigned reg)
+static void set_reg_and_aliases(reg_map *regs, unsigned attr_unused size, unsigned reg)
 {
 	reg_map_set(regs, reg);
 #ifdef FP_ALIASES
-	{
+	if (reg_is_fp(reg)) {
 		unsigned i;
 		for (i = 1; i < FP_REGISTERS(size); i++)
 			reg_map_set(regs, FP_ALIASES(size, reg, i));
@@ -298,19 +298,19 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 		if (!((SUPPORTED_FP >> real_type) & 1))
 			continue;
 		size = type_get_real(real_type)->size;
-		set_fp_reg(&scratch_regs, size, FR_SCRATCH_1);
-		set_fp_reg(&scratch_regs, size, FR_SCRATCH_2);
+		set_reg_and_aliases(&scratch_regs, size, FR_SCRATCH_1);
+		set_reg_and_aliases(&scratch_regs, size, FR_SCRATCH_2);
 #ifdef FR_SCRATCH_3
-		set_fp_reg(&scratch_regs, size, FR_SCRATCH_3);
+		set_reg_and_aliases(&scratch_regs, size, FR_SCRATCH_3);
 #endif
 #ifdef FR_SCRATCH_128_1
-		set_fp_reg(&scratch_regs, size, FR_SCRATCH_128_1);
+		set_reg_and_aliases(&scratch_regs, size, FR_SCRATCH_128_1);
 #endif
 #ifdef FR_SCRATCH_128_2
-		set_fp_reg(&scratch_regs, size, FR_SCRATCH_128_2);
+		set_reg_and_aliases(&scratch_regs, size, FR_SCRATCH_128_2);
 #endif
 #ifdef FR_SCRATCH_16
-		set_fp_reg(&scratch_regs, size, FR_SCRATCH_16);
+		set_reg_and_aliases(&scratch_regs, size, FR_SCRATCH_16);
 #endif
 	}
 	all_regs = reg_map_union(all_regs, scratch_regs);
@@ -371,12 +371,8 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 	ctx->opt_status->op_boundary_regs = ctx->opt_status->regs_common;
 	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
 		if (slot_is_register(ctx, v)) {
-			if (reg_is_fp(ctx->registers[v])) {
-				const struct type *type = get_type_of_local(ctx, v);
-				set_fp_reg(&ctx->opt_status->op_boundary_regs, type->size, ctx->registers[v]);
-			} else {
-				reg_map_set(&ctx->opt_status->op_boundary_regs, ctx->registers[v]);
-			}
+			const struct type *type = get_type_of_local(ctx, v);
+			set_reg_and_aliases(&ctx->opt_status->op_boundary_regs, type->size, ctx->registers[v]);
 		}
 	}
 	ctx->opt_status->all_used_regs = ctx->opt_status->op_boundary_regs;
@@ -449,10 +445,7 @@ static frame_t is_slot(struct codegen_context *ctx, uint8_t *ptr, unsigned size)
 static unsigned arg_read(struct codegen_context *ctx, struct insn_details *d, uint8_t *ptr, unsigned size)
 {
 	if (ptr[0] < ARG_REGS_MAX) {
-		if (reg_is_fp(ptr[0]))
-			set_fp_reg(&d->rd, size, ptr[0]);
-		else
-			reg_map_set(&d->rd, ptr[0]);
+		set_reg_and_aliases(&d->rd, size, ptr[0]);
 		return 1;
 	}
 	if (ptr[0] != ARG_IMM) {
@@ -472,10 +465,7 @@ just_frame:
 static unsigned arg_write(struct codegen_context *ctx, struct insn_details *d, uint8_t *ptr, unsigned size)
 {
 	if (ptr[0] < ARG_REGS_MAX) {
-		if (reg_is_fp(ptr[0]))
-			set_fp_reg(&d->wr, size, ptr[0]);
-		else
-			reg_map_set(&d->wr, ptr[0]);
+		set_reg_and_aliases(&d->wr, size, ptr[0]);
 #ifdef QUASH_REPETITIVE_INSNS
 		d->wr_reg = ptr[0];
 #endif
