@@ -211,15 +211,15 @@
 #define FR_CMP_RESULT	R_F6
 
 #define SUPPORTED_FP	0x6
-#define FP_REGISTERS(real_size)	((real_size) >= 8 ? 2 : 1)
-#define FP_ALIASES(real_size, reg, idx)	((reg) + (idx))
 
 #ifdef ARCH_MIPS_O32
-#define FRAME_SIZE	64
+#define FRAME_SIZE	(optimize_int ? 0x40 : 0x70)
 #define SAVE_OFFSET	20
+#define FP_STRIDE	2
 #else
-#define FRAME_SIZE	96
+#define FRAME_SIZE	(optimize_int ? 0x60 : 0xa0)
 #define SAVE_OFFSET	0
+#define FP_STRIDE	1
 #endif
 
 static bool reg_is_fp(unsigned reg)
@@ -233,19 +233,25 @@ static const uint8_t regs_saved[] = { R_S4, R_S5, R_S6, R_S7,
 #endif
 	R_FP };
 static const uint8_t regs_volatile[] = { R_A3, R_T6, R_T7, R_T8, R_T9 };
-static const uint8_t fp_saved[] = { 0 };
-#define n_fp_saved(real_type) 0U
-static const uint8_t fp_volatile[] = { R_F8, R_F9, R_F10, R_F11, R_F12, R_F13, R_F14, R_F15, R_F16, R_F17, R_F18, R_F19,
-#ifndef ARCH_MIPS_O32
-	R_F20, R_F21, R_F22, R_F23,
-#endif
-};
 
 #ifdef ARCH_MIPS_O32
+
+#define FP_REGISTERS(real_size)	1
+static const uint8_t fp_saved[] = { R_F20, R_F22, R_F24, R_F26, R_F28, R_F30 };
+#define n_fp_saved(real_type) (optimize_int ? 0 : n_array_elements(fp_saved))
+static const uint8_t fp_volatile[] = { R_F8, R_F10, R_F12, R_F14, R_F16, R_F18, R_F20, R_F22 };
 #define fp_reg_is_saved(r)	((r) >= R_F20 && (r) <= R_F31)
+
 #else
+
+#define FP_REGISTERS(real_size)	1
+static const uint8_t fp_saved[] = { R_F24, R_F25, R_F26, R_F27, R_F28, R_F29, R_F30, R_F31 };
+#define n_fp_saved(real_type) (optimize_int ? 0 : n_array_elements(fp_saved))
+static const uint8_t fp_volatile[] = { R_F1, R_F3, R_F5, R_F7, R_F8, R_F9, R_F10, R_F11, R_F12, R_F13, R_F14, R_F15, R_F16, R_F17, R_F18, R_F19, R_F20, R_F21, R_F22, R_F23 };
 #define fp_reg_is_saved(r)	((r) >= R_F24 && (r) <= R_F31)
+
 #endif
+
 #define reg_is_saved(r)	(((r) >= R_S0 && (r) <= R_S7) || (r) == R_GP || (r) == R_SP || (r) == R_FP || fp_reg_is_saved(r))
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
@@ -496,6 +502,17 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_address_offset();
 	gen_one(R_LR);
+	save_offset += 1 << OP_SIZE_NATIVE;
+
+	if (!optimize_int) {
+		for (reg = R_F20; reg <= R_F31; reg += FP_STRIDE) if (fp_reg_is_saved(reg)) {
+			g(gen_address(ctx, R_SP, save_offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_8));
+			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+			gen_address_offset();
+			gen_one(reg);
+			save_offset += 1 << OP_SIZE_8;
+		}
+	}
 
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_FRAME);
@@ -571,6 +588,17 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_LR);
 	gen_address_offset();
+	save_offset += 1 << OP_SIZE_NATIVE;
+
+	if (!optimize_int) {
+		for (reg = R_F20; reg <= R_F31; reg += FP_STRIDE) if (fp_reg_is_saved(reg)) {
+			g(gen_address(ctx, R_SP, save_offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_8));
+			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+			gen_one(reg);
+			gen_address_offset();
+			save_offset += 1 << OP_SIZE_8;
+		}
+	}
 
 	gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_ADD, 0);
 	gen_one(R_SP);
