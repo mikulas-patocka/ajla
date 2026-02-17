@@ -211,7 +211,7 @@
 #define FR_CMP_RESULT	R_F6
 
 #define SUPPORTED_FP	0x6
-#define FP_REGISTERS(real_type) 1
+#define FP_REGISTERS(real_size) 1
 
 #ifdef ARCH_MIPS_O32
 #define FRAME_SIZE	64

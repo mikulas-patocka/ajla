@@ -175,7 +175,7 @@
 #define FR_SCRATCH_2	R_F5
 
 #define SUPPORTED_FP	0x6
-#define FP_REGISTERS(real_type) 1
+#define FP_REGISTERS(real_size) 1
 
 #ifdef ARCH_PARISC32
 #define FRAME_SIZE	(optimize_int ? 0x80 : 0x100)

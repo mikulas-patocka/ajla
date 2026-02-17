@@ -168,7 +168,7 @@
 
 #define SUPPORTED_FP		(cpu_test_feature(CPU_FEATURE_fphp) + 0x6)
 #define SUPPORTED_FP_HALF_CVT	0x1
-#define FP_REGISTERS(real_type) 1
+#define FP_REGISTERS(real_size) 1
 
 static bool reg_is_fp(unsigned reg)
 {
