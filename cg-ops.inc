@@ -447,8 +447,10 @@ static bool test_quick_return(struct codegen_context *ctx, frame_t *ret_vars, ar
 		frame_t v = ret_vars[i];
 		const struct type *t = get_type_of_local(ctx, v);
 		int reg;
+#if defined(ARCH_S390)
 		if (TYPE_TAG_IS_REAL(t->tag) && TYPE_TAG_IDX_REAL(t->tag) == 4)
 			return false;
+#endif
 		reg = allocate_register(&index_saved, &index_volatile, &index_fp_saved, &index_fp_volatile, &index_vector_volatile, t);
 		if (reg < 0)
 			return false;
