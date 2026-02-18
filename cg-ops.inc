@@ -435,7 +435,7 @@ static int allocate_register(unsigned *index_saved, unsigned *index_volatile, un
 	return -1;
 }
 
-static bool test_quick_return(struct codegen_context *ctx, frame_t *ret_vars, arg_t n_ret, uint8_t *regs)
+static bool test_quick_return(struct codegen_context *ctx, frame_t *ret_vars, arg_t n_ret, uint8_t *regs, uint8_t *sizes)
 {
 	arg_t i;
 	unsigned index_saved = 0;
@@ -447,18 +447,12 @@ static bool test_quick_return(struct codegen_context *ctx, frame_t *ret_vars, ar
 		frame_t v = ret_vars[i];
 		const struct type *t = get_type_of_local(ctx, v);
 		int reg;
-#if defined(ARCH_S390)
-		if (TYPE_TAG_IS_REAL(t->tag) && TYPE_TAG_IDX_REAL(t->tag) == 4)
-			return false;
-#endif
-#if defined(ARCH_MIPS)
-		if (TYPE_TAG_IS_REAL(t->tag) && TYPE_TAG_IDX_REAL(t->tag) == 2 && !MIPS_HAS_LS_DOUBLE)
-			return false;
-#endif
 		reg = allocate_register(&index_saved, &index_volatile, &index_fp_saved, &index_fp_volatile, &index_vector_volatile, t);
 		if (reg < 0)
 			return false;
 		regs[i] = reg;
+		if (sizes)
+			sizes[i] = t->size;
 	}
 	return true;
 }
@@ -712,7 +706,7 @@ static bool attr_w gen_call_end(struct codegen_context *ctx, arg_t n_ret)
 			get_code(ctx);
 		}
 		ctx->n_ret = n_ret;
-		if (test_quick_return(ctx, ctx->ret_vars, n_ret, ctx->regs))
+		if (test_quick_return(ctx, ctx->ret_vars, n_ret, ctx->regs, NULL))
 			ctx->checkpoint_quick_entry = true;
 	}
 	return true;
@@ -854,7 +848,7 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 					test_borrowed[n_test_borrowed++] = src_arg->slot;
 			}
 		}
-		if (test_quick_return(ctx, ret_vars, ctx->args_l, ctx->quickret_regs)) {
+		if (test_quick_return(ctx, ret_vars, ctx->args_l, ctx->quickret_regs, ctx->quickret_sizes)) {
 			uint32_t label_skip_quick_ret;
 			ctx->quickret_regs_valid = true;
 

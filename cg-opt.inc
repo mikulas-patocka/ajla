@@ -384,7 +384,7 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 	ctx->opt_status->jmp_quickret_regs = ctx->opt_status->regs_common;
 	if (ctx->quickret_regs_valid) {
 		for (i = 0; i < da(ctx->fn,function)->n_return_values; i++)
-			reg_map_set(&ctx->opt_status->jmp_quickret_regs, ctx->quickret_regs[i]);
+			set_reg_and_aliases(&ctx->opt_status->jmp_quickret_regs, ctx->quickret_sizes[i], ctx->quickret_regs[i]);
 	}
 
 	return true;

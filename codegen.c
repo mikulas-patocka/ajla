@@ -564,6 +564,7 @@ struct codegen_context {
 
 	bool quickret_regs_valid;
 	uint8_t quickret_regs[MAX_QUICKRET_VALUES];
+	uint8_t quickret_sizes[MAX_QUICKRET_VALUES];
 
 	ajla_error_t err;
 
