@@ -238,6 +238,7 @@ static const uint8_t regs_volatile[] = { R_A3, R_T6, R_T7, R_T8, R_T9 };
 
 #define FP_REGISTERS(real_size)	2
 #define FP_ALIASES(real_size, reg, idx)	((reg) + (idx))
+#define N_FP_ALIASES(real_size)	((real_size) >= 8 ? 2 : 1)
 static const uint8_t fp_saved[] = { R_F20, R_F21, R_F22, R_F23, R_F24, R_F25, R_F26, R_F27, R_F28, R_F29, R_F30, R_F31 };
 #define n_fp_saved(real_type) (optimize_int ? 0 : n_array_elements(fp_saved))
 static const uint8_t fp_volatile[] = { R_F8, R_F9, R_F10, R_F11, R_F12, R_F13, R_F14, R_F15, R_F16, R_F17, R_F18, R_F19 };

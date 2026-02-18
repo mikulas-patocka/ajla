@@ -182,6 +182,7 @@
 #define SUPPORTED_FP_HALF_CVT	((cpu_test_feature(CPU_FEATURE_vfp) && cpu_test_feature(CPU_FEATURE_half)) * 0x1)
 #define FP_REGISTERS(real_size) ((real_size) >= 8 ? 2 : 1)
 #define FP_ALIASES(real_size, reg, idx)	(!((reg) & 1) ? (reg) + (idx) : (reg))
+#define N_FP_ALIASES(real_size)	FP_REGISTERS(real_size)
 
 static bool reg_is_fp(unsigned reg)
 {

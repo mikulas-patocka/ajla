@@ -224,7 +224,7 @@ static void set_reg_and_aliases(reg_map *regs, unsigned attr_unused size, unsign
 #ifdef FP_ALIASES
 	if (reg_is_fp(reg)) {
 		unsigned i;
-		for (i = 1; i < FP_REGISTERS(size); i++)
+		for (i = 1; i < N_FP_ALIASES(size); i++)
 			reg_map_set(regs, FP_ALIASES(size, reg, i));
 	}
 #endif

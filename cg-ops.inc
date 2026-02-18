@@ -451,6 +451,10 @@ static bool test_quick_return(struct codegen_context *ctx, frame_t *ret_vars, ar
 		if (TYPE_TAG_IS_REAL(t->tag) && TYPE_TAG_IDX_REAL(t->tag) == 4)
 			return false;
 #endif
+#if defined(ARCH_MIPS)
+		if (TYPE_TAG_IS_REAL(t->tag) && TYPE_TAG_IDX_REAL(t->tag) == 2 && !MIPS_HAS_LS_DOUBLE)
+			return false;
+#endif
 		reg = allocate_register(&index_saved, &index_volatile, &index_fp_saved, &index_fp_volatile, &index_vector_volatile, t);
 		if (reg < 0)
 			return false;
