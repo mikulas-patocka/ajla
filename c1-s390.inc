@@ -188,7 +188,7 @@ static const uint8_t fp_volatile[] = { FR_1, FR_3, FR_5, FR_7 };
 static const uint8_t fp_saved[] = { 0 }
 #define n_fp_saved(real_type)	0U
 static const uint8_t fp_volatile[] = { FR_1, FR_3, FR_5, FR_7, FR_8, FR_10, FR_12, FR_14, FR_9, FR_11, FR_13, FR_15 };
-#define reg_is_saved(r)	(((r) >= R_6 && (r) <= R_13) || (r) == R_SP || (r) == FR_4 && (r) == FR_6)
+#define reg_is_saved(r)	(((r) >= R_6 && (r) <= R_13) || (r) == R_SP || (r) == FR_4 || (r) == FR_6)
 #endif
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
