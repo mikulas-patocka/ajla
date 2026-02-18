@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -23,6 +23,9 @@
 #include "os.h"
 
 #include "args.h"
+
+#include <fcntl.h>
+#include <unistd.h>
 
 chicken_mask_t chicken = 0;
 
@@ -245,6 +248,79 @@ inv:
 	fatal("invalid argument '%s'", arg);
 }
 
+static void process_line_args(const char *line)
+{
+	while (1) {
+		size_t len = strcspn(line, " 	");
+		if (len) {
+			char *a = malloc(len + 1);
+			if (unlikely(!a))
+				fatal("malloc failed");
+			*(char *)mempcpy(a, line, len) = 0;
+			process_arg(a);
+			free(a);
+		}
+		line += len;
+		if (!*line)
+			break;
+		line++;
+	}
+}
+
+static void process_file_args(const char *file)
+{
+	int h;
+	size_t position, size;
+	ssize_t r;
+	char *buffer, *nl;
+	EINTR_LOOP(h, open(file, O_RDONLY));
+	if (unlikely(h == -1))
+		return;
+
+	position = 0;
+	size = 128;
+
+	buffer = malloc(size);
+	if (unlikely(!buffer))
+		fatal("malloc failed");
+
+again:
+	EINTR_LOOP(r, read(h, buffer + position, size - position));
+	if (unlikely(r < 0))
+		goto close_ret;
+
+	position += r;
+new_line:
+	nl = memchr(buffer, '\n', position);
+	if (!nl) {
+		if (unlikely(!r))
+			goto close_ret;
+		if (position == size) {
+			size *= 2;
+			if (unlikely(!size))
+				fatal("size wrap around");
+			buffer = realloc(buffer, size);
+			if (unlikely(!buffer))
+				fatal("realloc failed");
+		}
+		goto again;
+	}
+	*nl = 0;
+	if (buffer[0] == '#') {
+		memmove(buffer, nl + 1, position - (nl + 1 - buffer));
+		position -= nl + 1 - buffer;
+		goto new_line;
+	}
+	if (!strncmp(buffer, "// flags: ", 10)) {
+		/*debug("\"%s\"", buffer + 10);*/
+		process_line_args(buffer + 10);
+	}
+
+close_ret:
+	free(buffer);
+	close(h);
+}
+
 void args_init(int argc, const char * const argv[])
 {
 	int i;
@@ -253,21 +329,18 @@ void args_init(int argc, const char * const argv[])
 		fatal("the argument 0 is not present");
 	arg0 = argv[0];
 	if ((env = getenv("AJLA_OPTIONS"))) {
-		while (1) {
-			size_t len = strcspn(env, " 	");
-			if (len) {
-				char *a = malloc(len + 1);
-				if (unlikely(!a))
-					fatal("malloc failed");
-				*(char *)mempcpy(a, env, len) = 0;
-				process_arg(a);
-				free(a);
-			}
-			env += len;
-			if (!*env)
-				break;
-			env++;
+		process_line_args(env);
+	}
+	for (i = 1; i < argc; i++) {
+		if (likely(argv[i][0] != '-'))
+			break;
+		if (argv[i][0] == '-' && argv[i][1] == '-' && !argv[i][2]) {
+			i++;
+			break;
 		}
+	}
+	if (i < argc) {
+		process_file_args(argv[i]);
 	}
 	for (i = 1; i < argc; i++) {
 		if (likely(argv[i][0] != '-'))
