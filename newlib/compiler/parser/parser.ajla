@@ -1271,7 +1271,13 @@ fn parse_file~cache(w : world, d : list(bytes), name : bytes, program : bool, pa
 		var un_dir, un_name := path_to_dir_file(name);
 		h := "unit " + unit_encode(un_name) + "; uses io, treemap; fn main(implicit w : world, d : dhandle, h : list(handle), args : list(bytes), env : treemap(bytes, bytes), prereq len(h) >= 3) : world; implementation ";
 	]
-	h += read_lazy(f);
+	var rl := read_lazy(f);
+	if len_greater_than(rl, 0), rl[0] = '#' then [
+		var n := list_search_fn(rl, lambda(x : byte) : bool [ return x = 10 or x = 13; ]);
+		if n >= 0 then
+			rl := rl[n .. ];
+	]
+	h += rl;
 	var t := tokenize(h, name);
 	var dict := parse_tokens(w, d, t, name, program, parse_interface);
 	if not parse_interface then [
