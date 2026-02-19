@@ -2303,9 +2303,9 @@ do_op:
 			return true;
 		}
 		if (ARCH_HAS_2REG_M(false, fp, op_size, 0)) {
-			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_SCRATCH_3, reg_src, offset_src, 0));
+			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_SCRATCH_1, reg_src, offset_src, 0));
 			addr_mode = ARG_ADDRESS_2 + op_size;
-			reg_src = R_SCRATCH_3;
+			reg_src = R_SCRATCH_1;
 			offset_src = 0;
 			goto do_op;
 		}
