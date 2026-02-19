@@ -31,9 +31,6 @@ uses compiler.parser.export;
 fn compile_module_2(w : world, d : list(bytes), file : bytes, program : bool, prereq len_greater_than(d, 0)) : (list(list(pcode_t)), list(module_unique_id))
 [
 	// TODO: move the following test elsewhere ?
-	if list_ends_with(file, ".ajla") then
-		file := file[ .. len(file) - 5];
-
 	var dict := parse_file(w, d, file, program, false);
 
 	var m := empty(module_unique_id);

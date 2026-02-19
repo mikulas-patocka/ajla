@@ -4334,10 +4334,6 @@ static void * attr_fastcall io_load_program_handler(struct io_ctx *ctx)
 	io_get_bytes(ctx, get_input(ctx, 1));
 	ctx->str_l--;
 
-	if (ctx->str_l >= 5 && !strcasecmp(ctx->str + ctx->str_l - 5, ".ajla")) {
-		ctx->str_l -= 5;
-	}
-
 	get_lib_path();
 	path_idx = 0;
 	for (i = 0; i < lib_path_len; i++)

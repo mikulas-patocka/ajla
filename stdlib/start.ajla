@@ -95,8 +95,6 @@ fn extract_modules(path_idx : nat, file : bytes, program : bool) : list(tuple2(n
 
 fn preparse(w : world, file : bytes) : world
 [
-	if list_ends_with(file, ".ajla") then
-		file := file[ .. len(file) - 5];
 	var lp := libpath;
 	var idx := 0;
 	for i := 0 to len(lp) do

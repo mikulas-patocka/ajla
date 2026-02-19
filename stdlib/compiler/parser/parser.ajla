@@ -1183,20 +1183,28 @@ next_unit_flag:
 
 {
 	if parse_interface then
-		eval debug("interface: " + file_name);
+		eval debug("interface: " + file_name + ", " + name);
 	else
-		eval debug("file name: " + file_name);
+		eval debug("file name: " + file_name + ", " + name);
 }
 
-	var name_pos := len(name) - len(file_name);
-	if name_pos < 0 then [
-		abort compiler_error("Unit name doesn't match file name", unit_tokens);
-	]
-	if name_pos > 0, not path_is_separator(name[name_pos - 1]) then [
-		abort compiler_error("Unit name doesn't match file name", unit_tokens);
-	]
-	if name[name_pos .. ] <> file_name then [
-		abort compiler_error("Unit name doesn't match file name", unit_tokens);
+	var name_pos : int;
+	if not program then [
+		name_pos := len(name) - len(file_name);
+		if name_pos < 0 then [
+			abort compiler_error("Unit name doesn't match file name", unit_tokens);
+		]
+		if name_pos > 0, not path_is_separator(name[name_pos - 1]) then [
+			abort compiler_error("Unit name doesn't match file name", unit_tokens);
+		]
+		if name[name_pos .. ] <> file_name then [
+			abort compiler_error("Unit name doesn't match file name", unit_tokens);
+		]
+	] else [
+		name_pos := 0;
+		for i := 0 to len(name) do
+			if path_is_separator(name[i]) then
+				name_pos := i + 1;
 	]
 	dict.name_prefix := name[ .. name_pos];
 	t := t[sc + 1 ..];
@@ -1224,21 +1232,6 @@ next_unit_flag:
 	return dict;
 ]
 
-fn unit_encode(un_name : bytes) : bytes
-[
-	var result := """";
-	for i := 0 to len(un_name) do [
-		if un_name[i] = '"' then
-			result += """""";
-		else if un_name[i] < ' ' then
-			abort compiler_error("invalid program file name", empty(token));
-		else
-			result +<= un_name[i];
-	]
-	result += """";
-	return result;
-]
-
 fn parse_file~cache(w : world, d : list(bytes), name : bytes, program : bool, parse_interface : bool, prereq len_greater_than(d, 0)) : function_dictionary
 [
 	{var tm : int64;
@@ -1252,10 +1245,14 @@ fn parse_file~cache(w : world, d : list(bytes), name : bytes, program : bool, pa
 	var idx := len(d) - 1;
 	var dir := dopen_lazy(dnone(w), d[idx], 0);
 
-	if idx > 0 then
-		xeval register_dependence(w, dir, name + ".ajla");
+	var file_name := name;
+	if not program then
+		file_name += ".ajla";
 
-	var f := ropen_lazy(dir, name + ".ajla", 0);
+	if idx > 0 then
+		xeval register_dependence(w, dir, file_name);
+
+	var f := ropen_lazy(dir, file_name, 0);
 
 	if path_is_separator('\') then [
 		for i := 0 to len(name) do [
@@ -1268,8 +1265,7 @@ fn parse_file~cache(w : world, d : list(bytes), name : bytes, program : bool, pa
 
 	var h := "";
 	if program then [
-		var un_dir, un_name := path_to_dir_file(name);
-		h := "unit " + unit_encode(un_name) + "; uses io, treemap; fn main(implicit w : world, d : dhandle, h : list(handle), args : list(bytes), env : treemap(bytes, bytes), prereq len(h) >= 3) : world; implementation ";
+		h := "unit """"; uses io, treemap; fn main(implicit w : world, d : dhandle, h : list(handle), args : list(bytes), env : treemap(bytes, bytes), prereq len(h) >= 3) : world; implementation ";
 	]
 	var rl := read_lazy(f);
 	if len_greater_than(rl, 0), rl[0] = '#' then [
