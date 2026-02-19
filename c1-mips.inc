@@ -236,6 +236,9 @@ static const uint8_t regs_volatile[] = { R_A3, R_T6, R_T7, R_T8, R_T9 };
 
 #ifdef ARCH_MIPS_O32
 
+#if !MIPS_HAS_LS_DOUBLE
+#define FP_SPLIT_LOAD_STORE(real_size)	((real_size) == 8)
+#endif
 #define FP_REGISTERS(real_size)	2
 #define FP_ALIASES(real_size, reg, idx)	((reg) + (idx))
 #define N_FP_ALIASES(real_size)	((real_size) >= 8 ? 2 : 1)

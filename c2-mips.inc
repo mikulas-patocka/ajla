@@ -297,6 +297,8 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 			cgen_mips_fp(mc, fmt, arg1[0] & 31, arg2[0] & 31, 0);
 			return true;
 		}
+		if (!MIPS_HAS_LS_DOUBLE && size != OP_SIZE_4)
+			goto invalid;
 		g(cgen_ls(ctx, size == OP_SIZE_4 ? MIPS_LWC1 : MIPS_LDC1, arg1[0] & 31, arg2));
 		if (MIPS_LOAD_DELAY_SLOTS)
 			cgen_mips(MIPS_NOP);
@@ -313,6 +315,8 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 			return cgen_ls(ctx, size == OP_SIZE_1 ? MIPS_SB : size == OP_SIZE_2 ? MIPS_SH : size == OP_SIZE_4 ? MIPS_SW : MIPS_SD, arg2[0], arg1);
 		}
 		if (reg_is_fp(arg2[0])) {
+			if (!MIPS_HAS_LS_DOUBLE && size != OP_SIZE_4)
+				goto invalid;
 			return cgen_ls(ctx, size == OP_SIZE_4 ? MIPS_SWC1 : MIPS_SDC1, arg2[0] & 31, arg1);
 		}
 		goto invalid;

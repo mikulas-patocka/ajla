@@ -2272,8 +2272,8 @@ static bool attr_w gen_scaled_array_load(struct codegen_context *ctx, unsigned r
 			goto gen_memcpy;
 		if (fp && !((SUPPORTED_FP >> real_type) & 1))
 			goto gen_memcpy;
-#if defined(ARCH_S390)
-		if (fp && op_size == OP_SIZE_16)
+#if defined(FP_SPLIT_LOAD_STORE)
+		if (fp && FP_SPLIT_LOAD_STORE(t->size))
 			goto gen_memcpy;
 #endif
 		if (ARCH_HAS_2REG_M(false, fp, op_size, offset_src)) {
@@ -2342,8 +2342,8 @@ static bool attr_w gen_scaled_array_store(struct codegen_context *ctx, unsigned 
 			goto gen_memcpy;
 		if (fp && !((SUPPORTED_FP >> real_type) & 1))
 			goto gen_memcpy;
-#if defined(ARCH_S390)
-		if (fp && op_size == OP_SIZE_16)
+#if defined(FP_SPLIT_LOAD_STORE)
+		if (fp && FP_SPLIT_LOAD_STORE(t->size))
 			goto gen_memcpy;
 #endif
 		if (ARCH_HAS_2REG_M(true, fp, op_size, offset_src)) {
