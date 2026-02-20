@@ -637,7 +637,7 @@ conversion fn list_consumer~inline(t : type, l : list(t)) : class_iterator :=
  ----------}
 
 fn ntos_base~inline(t : type, c : class_integer_number(t), n : t, base : int) : bytes;
-fn ntos_base_precision~inlnie(t : type, c : class_real_number(t), n : t, base digits : int) : bytes;
+fn ntos_base_precision~inline(t : type, c : class_real_number(t), n : t, base digits : int) : bytes;
 fn ntos~inline(t : type, c : class_show(t), n : t) : bytes;
 fn ston_base~inline(b : bytes, base : int) : int;
 fn ston~inline(b : bytes) : int;
@@ -3624,7 +3624,7 @@ fn ntos_base~inline(t : type, c : class_integer_number(t), n : t, base : int) : 
 	return c.to_bytes_base(n, base);
 ]
 
-fn ntos_base_precision~inlnie(t : type, c : class_real_number(t), n : t, base digits : int) : bytes
+fn ntos_base_precision~inline(t : type, c : class_real_number(t), n : t, base digits : int) : bytes
 [
 	return c.to_bytes_base_precision(n, base, digits);
 ]
