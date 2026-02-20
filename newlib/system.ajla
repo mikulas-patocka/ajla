@@ -3167,6 +3167,8 @@ fn list_replace_substring(t : type, implicit c~spec : class_eq(t), x v r : list(
 [
 	var len_v := len(v);
 	var res := empty(t);
+	if len_v = 0, not len_greater_than(r, 0) then
+		return x;
 again:
 	var s := list_search_substring(x, v);
 	if s = -1 then
