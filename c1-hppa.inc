@@ -491,8 +491,8 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 		for (i = R_F12; i <= R_F21; i++) {
 			g(gen_address(ctx, R_SP, offs, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_8));
 			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
-			gen_address_offset();
 			gen_one(i);
+			gen_address_offset();
 			offs += 1 << OP_SIZE_8;
 		}
 	}
