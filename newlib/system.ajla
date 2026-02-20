@@ -3174,7 +3174,7 @@ again:
 	res += x[ .. s];
 	res += r;
 	x := x[s + len_v .. ];
-	if list_is_finite(x) then
+	if list_is_finite(x), len_v > 0 then
 		goto again;
 	else
 		return res + list_replace_substring~lazy(x, v, r);
