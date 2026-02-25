@@ -457,7 +457,7 @@ fn join(t : type, w1 w2 : t) : t;
 fn any~lazy(t1 t2 : type, w1 : t1, w2 : t2) : bool;
 fn any_list~lazy(t : type, wx : list(t)) : (r : nat, contract r < len(wx));
 fn is_ready(t : type, v : t) : bool;
-fn never(t : type) : t;
+fn never~lazy(t : type) : t;
 fn fork(t : type, w : t) : (t, t);
 
 {------------------
@@ -2945,7 +2945,7 @@ fn is_ready(t : type, v : t) : bool
 	return not any(v, unit_value);
 ]
 
-fn never(t : type) : t
+fn never~lazy(t : type) : t
 [
 	var w : t;
 	pcode IO IO_Never 1 0 0 =w;
