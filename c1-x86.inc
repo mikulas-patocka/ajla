@@ -281,8 +281,8 @@ static const uint8_t regs_saved[] = {
 #ifndef TIMESTAMP_IN_REGISTER
 	R_R14,
 #endif
-	R_R15,
 	R_R13,
+	R_R15,
 	};
 #define n_regs_saved (n_array_elements(regs_saved) - !reg_is_segment(R_UPCALL))
 static const uint8_t regs_volatile[] = { R_SI, R_DI, R_R8, R_R9, R_R10, R_R11,
