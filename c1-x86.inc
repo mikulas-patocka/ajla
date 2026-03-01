@@ -225,11 +225,13 @@ static uint8_t upcall_register = R_R15;
 #define ARG_SPACE	0x1c		/* must be 0xc modulo 0x10 */
 #define ARG_OFFSET	0x14
 #elif defined(ARCH_X86_WIN_ABI) && !defined(TIMESTAMP_IN_REGISTER)
-#define ARG_SPACE	0x28		/* must be 0x8 modulo 0x10 */
-#define ARG_OFFSET	0xa0
+#define ARG_SPACE	((int)!optimize_int * 0xa0 + 0x28)	/* must be 0x8 modulo 0x10 */
+#define XMM_SPACE	(ARG_SPACE - 0x8)
+#define ARG_OFFSET	(ARG_SPACE + 0x78)
 #elif defined(ARCH_X86_WIN_ABI)
-#define ARG_SPACE	0x20		/* must be 0x0 modulo 0x10 */
-#define ARG_OFFSET	0x90
+#define ARG_SPACE	((int)!optimize_int * 0xa0 + 0x20)	/* must be 0x0 modulo 0x10 */
+#define XMM_SPACE	(ARG_SPACE)
+#define ARG_OFFSET	(ARG_SPACE + 0x70)
 #endif
 
 #define SUPPORTED_FP		(cpu_test_feature(CPU_FEATURE_fp16) + cpu_test_feature(CPU_FEATURE_sse) * 0x2 + cpu_test_feature(CPU_FEATURE_sse2) * 0x4)
@@ -266,14 +268,14 @@ static const uint8_t regs_saved[] = { R_BX, R_R12, R_R13,
 #endif
 	};
 static const uint8_t regs_volatile[] = { R_R8, R_R9, R_R10, R_R11 };
-static const uint8_t fp_saved[] = { 0 };
-#define n_fp_saved(real_type) 0U
+static const uint8_t fp_saved[] = { R_XMM6, R_XMM7, R_XMM8, R_XMM9, R_XMM10, R_XMM11, R_XMM12, R_XMM13, R_XMM14, R_XMM15 };
+#define n_fp_saved(real_type) (optimize_int ? 0 : n_array_elements(fp_saved))
 static const uint8_t fp_volatile[] = { R_XMM2, R_XMM3, R_XMM4, R_XMM5,
 	R_XMM17, R_XMM18, R_XMM19, R_XMM20, R_XMM21, R_XMM22, R_XMM23, R_XMM24, R_XMM25, R_XMM26, R_XMM27, R_XMM28, R_XMM29, R_XMM30, R_XMM31,
 	};
 #define n_fp_volatile(real_type) (likely(cpu_test_feature(CPU_FEATURE_avx512vl)) || likely(cpu_test_feature(CPU_FEATURE_avx10)) ? n_array_elements(fp_volatile) : 4)
 
-#define reg_is_saved(r)	(((r) >= R_BX && (r) <= R_DI) || ((r) >= R_R12 && (r) <= R_R15))
+#define reg_is_saved(r)	(((r) >= R_BX && (r) <= R_DI) || ((r) >= R_R12 && (r) <= R_R15) || ((r) >= R_XMM6 && (r) <= R_XMM15))
 
 #else
 
@@ -456,6 +458,17 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(ARG_IMM);
 	gen_eight(ARG_SPACE);
 
+	if (!optimize_int) {
+		int r;
+		for (r = R_XMM6; r <= R_XMM15; r++) {
+			gen_insn(INSN_MOV, OP_SIZE_16, 0, 0);
+			gen_one(ARG_ADDRESS_1);
+			gen_one(R_SP);
+			gen_eight(XMM_SPACE - (r - R_XMM5) * 0x10);
+			gen_one(r);
+		}
+	}
+
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_FRAME);
 	gen_one(R_ARG1);
@@ -533,6 +546,17 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 
 	gen_insn(INSN_RET, 0, 0, 0);
 #elif defined(ARCH_X86_WIN_ABI)
+	if (!optimize_int) {
+		int r;
+		for (r = R_XMM15; r >= R_XMM6; r--) {
+			gen_insn(INSN_MOV, OP_SIZE_16, 0, 0);
+			gen_one(ARG_ADDRESS_1);
+			gen_one(R_SP);
+			gen_eight(XMM_SPACE - (r - R_XMM5) * 0x10);
+			gen_one(r);
+		}
+	}
+
 	gen_insn(INSN_ALU, OP_SIZE_8, ALU_ADD, 1);
 	gen_one(R_SP);
 	gen_one(R_SP);
