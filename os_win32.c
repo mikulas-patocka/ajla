@@ -2412,7 +2412,7 @@ bool os_dstatvfs(dir_handle_t dir, os_statvfs_t *st, ajla_error_t *err)
 	st->f_frsize = bps;
 	st->f_blocks = (uint64_t)totalcl * spc;
 	st->f_bfree = st->f_bavail = (uint64_t)freecl * spc;
-	st->f_fsid = disk[0];
+	st->f_fsid = disk[0] >= 'a' && disk[0] <= 'z' ? disk[0] - 0x20 : disk[0];
 	st->f_namemax = 255;
 	if (b2) {
 		st->f_blocks = totalb.QuadPart / st->f_frsize;
