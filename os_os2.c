@@ -2183,7 +2183,7 @@ static bool os_stat_disk(char disk, os_statvfs_t *st, ajla_error_t *err)
 	st->f_bsize = st->f_frsize = fsal.cSectorUnit * fsal.cbSector;
 	st->f_blocks = fsal.cUnit;
 	st->f_bfree = st->f_bavail = fsal.cUnitAvail;
-	st->f_fsid = fsal.idFileSystem;
+	st->f_fsid = disk;
 	st->f_namemax = 255;
 	return true;
 }
