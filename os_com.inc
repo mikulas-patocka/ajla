@@ -289,6 +289,24 @@ static void os_init_calendar_lock(void)
 #ifdef HAVE_CALENDAR_LOCK
 	mutex_init(&calendar_lock);
 #endif
+#ifdef OS_WIN32
+	{
+		size_t i;
+		char *tz = getenv("TZ");
+		if (!tz || !strchr(tz, '/'))
+			goto ok;
+		for (i = 0; tz[i]; i++) {
+			if (!((tz[i] >= 'A' && tz[i] <= 'Z') || (tz[i] >= 'a' && tz[i] <= 'z') || tz[i] == '_' || tz[i] == '/'))
+				goto ok;
+		}
+		if (unlikely(putenv("TZ="))) {
+			int er = errno;
+			fatal("putenv failed: %d, %s", er, error_decode(error_from_errno(EC_SYSCALL, er)));
+		}
+		_tzset();
+ok:;
+	}
+#endif
 }
 
 static void os_done_calendar_lock(void)
