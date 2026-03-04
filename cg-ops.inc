@@ -2404,14 +2404,24 @@ static bool attr_w gen_check_array_len(struct codegen_context *ctx, unsigned reg
 
 	gen_insn(INSN_JMP_COND, OP_SIZE_INT, cond, 0);
 	gen_label_ref(escape_label);
-#else
+	return true;
+#endif
+#if defined(ARCH_S390)
+	if (!allocated && OS_SUPPORTS_TRAPS && cpu_test_feature(CPU_FEATURE_misc_insn_ext_1)) {
+		g(gen_address(ctx, reg_array, offset, ARCH_PREFERS_SX(OP_SIZE_INT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_INT));
+		gen_insn(INSN_CMP_TRAP, OP_SIZE_INT, cond, 0);
+		gen_one(reg_len);
+		gen_address_offset();
+		gen_label_ref(escape_label);
+		return true;
+	}
+#endif
 	g(gen_address(ctx, reg_array, offset, ARCH_PREFERS_SX(OP_SIZE_INT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_INT));
 	gen_insn(ARCH_PREFERS_SX(OP_SIZE_INT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_INT, 0, 0);
 	gen_one(R_SCRATCH_3);
 	gen_address_offset();
 
 	g(gen_cmp_test_jmp(ctx, INSN_CMP, i_size_cmp(OP_SIZE_INT), reg_len, R_SCRATCH_3, cond, escape_label));
-#endif
 	return true;
 }
 

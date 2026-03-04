@@ -722,6 +722,11 @@ do_call:
 			ptr += arg_read(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, size);
 			break;
+		case INSN_CMP_TRAP:
+			ptr += arg_read(ctx, d, ptr, size);
+			ptr += arg_read(ctx, d, ptr, size);
+			ptr += arg_jmp(d, ptr);
+			break;
 		case INSN_CMN:
 			ptr += arg_read(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, size);
@@ -1091,6 +1096,7 @@ static bool can_be_in_delay_slot(const struct insn_details *d)
 		case INSN_RET:
 		case INSN_CALL:
 		case INSN_CALL_INDIRECT:
+		case INSN_CMP_TRAP:
 		case INSN_ALU_TRAP:
 		case INSN_ALU1_TRAP:
 		case INSN_FP_CMP_DEST_REG_TRAP:

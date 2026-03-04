@@ -2688,6 +2688,13 @@ static void sigfpe_handler(int attr_unused sig, siginfo_t *siginfo, void *uconte
 	/*debug("bla: %llx, %llx, %llx", uc->uc_mcontext.gregs[0x4], uc->uc_mcontext.gregs[0x17], uc->uc_mcontext.gregs[0x16]);*/
 	uc->uc_mcontext.pc = ptr_to_num(call(data_trap_lookup)(num_to_ptr(uc->uc_mcontext.pc)));
 #endif
+#if defined(ARCH_S390)
+	/*debug("si_code: %d", siginfo->si_code);*/
+	/*debug("pc: %lx", uc->uc_mcontext.psw.addr);*/
+	if (unlikely(siginfo->si_code != 0))
+		fatal("unexpected SIGFPE received: %d", siginfo->si_code);
+	uc->uc_mcontext.psw.addr = ptr_to_num(call(data_trap_lookup)(num_to_ptr(uc->uc_mcontext.psw.addr)));
+#endif
 }
 
 #endif

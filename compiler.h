@@ -856,6 +856,7 @@ typedef uint16_t ushort_efficient_t;
 #endif
 #if defined(ARCH_S390)
 #define HAVE_CODEGEN
+#define HAVE_CODEGEN_TRAPS
 #endif
 #if defined(ARCH_SPARC)
 #define HAVE_CODEGEN

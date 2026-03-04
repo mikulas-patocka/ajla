@@ -120,6 +120,9 @@ typedef uint64_t it;
 #define S300_CLIJ		0xec000000007fULL
 #define S300_CLGIJ		0xec000000007dULL
 
+#define S390_CLT		0xeb0000000023ULL
+#define S390_CLGT		0xeb000000002bULL
+
 #define S390_AR			0x1a0000000000ULL
 #define S390_ARK		0xb9f800000000ULL
 #define S390_A			0x5a0000000000ULL
@@ -1242,6 +1245,33 @@ invl:
 	return false;
 }
 
+static bool attr_w cgen_cmp_trap(struct codegen_context *ctx, unsigned size, unsigned aux)
+{
+	it code;
+	int64_t imm;
+	uint8_t *arg1, *arg2;
+	arg1 = ctx->code_position;
+	arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+	if (unlikely(arg1[0] >= 0x10) || unlikely(arg2[0] != ARG_ADDRESS_1))
+		goto invl;
+	code = size == OP_SIZE_4 ? S390_CLT : S390_CLGT;
+	code |= (it)arg1[0] << 36;
+	code |= (it)get_jmp_cond(aux, true) << 32;
+	code |= (it)arg2[1] << 28;
+	imm = get_imm(&arg2[2]);
+	if (imm < -0x80000 || imm >= 0x80000)
+		goto invl;
+	code |= (it)(imm & 0xfff) << 16;
+	code |= (it)(imm & 0xff000) >> 4;
+	g(cgen_s390(ctx, code));
+	g(cgen_trap(ctx, cget_four(ctx)));
+	return true;
+invl:
+	internal(file_line, "cgen_cmp_trap: invalid arguments %u, %02x, %02x", size, *arg1, *arg2);
+	return false;
+}
+
 static bool attr_w cgen_test(struct codegen_context *ctx, unsigned size)
 {
 	it code;
@@ -2187,6 +2217,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_CMP:
 			g(cgen_cmp(ctx, insn_op_size(insn), insn_writes_flags(insn)));
+			return true;
+		case INSN_CMP_TRAP:
+			g(cgen_cmp_trap(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_TEST:
 			if (unlikely(!insn_writes_flags(insn)))
