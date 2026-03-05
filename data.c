@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -3276,6 +3276,8 @@ void *data_trap_lookup(void *ptr)
 
 	binary_search(size_t, dc->trap_records_size, res, dc->trap_records[res].source_ip == offset, dc->trap_records[res].source_ip < offset,
 		internal(file_line, "data_trap_lookup(%s): could not find trap for address %p, offset %"PRIxMAX"", da(dc->function,function)->function_name, ptr, (uintmax_t)offset));
+
+	/*debug("trap in %s", da(dc->function,function)->function_name);*/
 
 	return cast_ptr(char *, dc->unoptimized_code_base) + dc->trap_records[res].destination_ip;
 }
