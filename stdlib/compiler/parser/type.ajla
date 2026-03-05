@@ -658,33 +658,39 @@ skip_cond:
 		var arg2_blob := get_constant(arg2);
 		if t1 = T_Bool then [
 			if op = Bin_And then [
-				if len_greater_than(arg1_blob, 0) and blob_to_int(arg1_blob) = 0 or
-				   len_greater_than(arg2_blob, 0) and blob_to_int(arg2_blob) = 0 then
+				if len_greater_than(arg1_blob, 0), blob_to_int(arg1_blob) = 0 then
+					goto ret_false;
+				if len_greater_than(arg2_blob, 0), blob_to_int(arg2_blob) = 0 then
 					goto ret_false;
 			]
 			if op = Bin_Or then [
-				if len_greater_than(arg1_blob, 0) and blob_to_int(arg1_blob) = 1 or
-				   len_greater_than(arg2_blob, 0) and blob_to_int(arg2_blob) = 1 then
+				if len_greater_than(arg1_blob, 0), blob_to_int(arg1_blob) = 1 then
+					goto ret_true;
+				if len_greater_than(arg2_blob, 0), blob_to_int(arg2_blob) = 1 then
 					goto ret_true;
 			]
 			if op = Bin_Less then [
-				if len_greater_than(arg1_blob, 0) and blob_to_int(arg1_blob) = 1 or
-				   len_greater_than(arg2_blob, 0) and blob_to_int(arg2_blob) = 0 then
+				if len_greater_than(arg1_blob, 0), blob_to_int(arg1_blob) = 1 then
+					goto ret_false;
+				if len_greater_than(arg2_blob, 0), blob_to_int(arg2_blob) = 0 then
 					goto ret_false;
 			]
 			if op = Bin_LessEqual then [
-				if len_greater_than(arg1_blob, 0) and blob_to_int(arg1_blob) = 0 or
-				   len_greater_than(arg2_blob, 0) and blob_to_int(arg2_blob) = 1 then
+				if len_greater_than(arg1_blob, 0), blob_to_int(arg1_blob) = 0 then
+					goto ret_true;
+				if len_greater_than(arg2_blob, 0), blob_to_int(arg2_blob) = 1 then
 					goto ret_true;
 			]
 			if op = Bin_Greater then [
-				if len_greater_than(arg1_blob, 0) and blob_to_int(arg1_blob) = 0 or
-				   len_greater_than(arg2_blob, 0) and blob_to_int(arg2_blob) = 1 then
+				if len_greater_than(arg1_blob, 0), blob_to_int(arg1_blob) = 0 then
+					goto ret_false;
+				if len_greater_than(arg2_blob, 0), blob_to_int(arg2_blob) = 1 then
 					goto ret_false;
 			]
 			if op = Bin_GreaterEqual then [
-				if len_greater_than(arg1_blob, 0) and blob_to_int(arg1_blob) = 1 or
-				   len_greater_than(arg2_blob, 0) and blob_to_int(arg2_blob) = 0 then
+				if len_greater_than(arg1_blob, 0), blob_to_int(arg1_blob) = 1 then
+					goto ret_true;
+				if len_greater_than(arg2_blob, 0), blob_to_int(arg2_blob) = 0 then
 					goto ret_true;
 			]
 		]
