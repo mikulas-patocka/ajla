@@ -1399,10 +1399,11 @@ static bool attr_w equality_analysis(struct codegen_context *ctx)
 			uint8_t *pd = d->start + 4;
 			uint8_t *ps = pd + arg_size(*pd);
 			bool is_fp = reg_is_fp(*pd) || reg_is_fp(*ps);
+			bool is_extension = likely(!is_fp) && insn_op_size(d->insn) != OP_SIZE_NATIVE;
 			if (!arg_to_val(d, pd, &eq.v1))
 				goto skip;
 			eq_valid = arg_to_val(d, ps, &eq.v2);
-			if (likely(!is_fp) && insn_op_size(d->insn) != OP_SIZE_NATIVE && eq.v1.tag == VALUE_TAG_REGISTER) {
+			if (is_extension && eq.v1.tag == VALUE_TAG_REGISTER) {
 				rng.v1 = eq.v1;
 				rng.v1.size = op_size_to_size(OP_SIZE_NATIVE);
 				rng.v2.tag = VALUE_TAG_RANGE;
@@ -1438,7 +1439,7 @@ static bool attr_w equality_analysis(struct codegen_context *ctx)
 				continue;
 			}
 dont_quash_mov:
-			if (eq_valid) {
+			if (!is_extension && eq_valid) {
 				rp = find_equality(ctx, &eq.v2);
 				if (rp) {
 					struct value *rp1 = find_equality(ctx, &eq.v1);
