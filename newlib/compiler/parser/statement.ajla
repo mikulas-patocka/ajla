@@ -892,7 +892,8 @@ fn parse_statement_return(ctx : function_context, vd : variable_dictionary, t : 
 			var inferred : teq;
 			ctx, ax, inferred := convert_type(ctx, vd, a[i], new_compare_context(ctx), get_type_of_var(ctx, v), 0, true, t);
 		]
-		ctx.pattern_matching_info[len(ctx.pattern_matching_info) - 1].return_values +<= ax;
+		if ctx.is_pattern_matched then
+			ctx.pattern_matching_info[len(ctx.pattern_matching_info) - 1].return_values +<= ax;
 		ctx := set_defined_here(ctx, v);
 		ctx := generate_Copy(ctx, ax, v);
 	]
