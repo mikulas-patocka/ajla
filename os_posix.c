@@ -3842,9 +3842,10 @@ skip_test:;
 		list_init(&signal_states[i].wait_list);
 	if (!dll) {
 #ifdef HAVE_CODEGEN_TRAPS
-		os_signal_trap(SIGFPE, sigfpe_handler);
-#if defined(ARCH_MIPS) || defined(ARCH_POWER)
+#if defined(ARCH_POWER)
 		os_signal_trap(SIGTRAP, sigfpe_handler);
+#else
+		os_signal_trap(SIGFPE, sigfpe_handler);
 #endif
 #endif
 	}
@@ -3857,9 +3858,10 @@ void os_done(void)
 	int sig;
 	if (!dll) {
 #ifdef HAVE_CODEGEN_TRAPS
-		os_signal_untrap(SIGFPE);
-#if defined(ARCH_MIPS) || defined(ARCH_POWER)
+#if defined(ARCH_POWER)
 		os_signal_untrap(SIGTRAP);
+#else
+		os_signal_untrap(SIGFPE);
 #endif
 #endif
 	}
