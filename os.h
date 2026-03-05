@@ -19,6 +19,7 @@
 #ifndef AJLA_OS_H
 #define AJLA_OS_H
 
+#include "args.h"
 #include "list.h"
 #include "tree.h"
 #include "thread.h"
@@ -348,7 +349,7 @@ typedef sig_atomic_t signal_seq_t;
 #endif
 
 #if defined(OS_HAS_SIGNALS) && defined(SA_SIGINFO) && defined(HAVE_UCONTEXT_H)
-#define OS_SUPPORTS_TRAPS			(!dll)
+#define OS_SUPPORTS_TRAPS			(!dll && !(chicken & CHICKEN_CG_TRAPS))
 #else
 #define OS_SUPPORTS_TRAPS			0
 #endif

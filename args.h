@@ -25,6 +25,7 @@
 #define CHICKEN_CG_MUST_BE_DATA	0x00000008
 #define CHICKEN_CG_RA		0x00000010
 #define CHICKEN_CG_OPTIMIZE	0x00000020
+#define CHICKEN_CG_TRAPS	0x00000040
 typedef uint8_t chicken_mask_t;
 extern chicken_mask_t chicken;
 

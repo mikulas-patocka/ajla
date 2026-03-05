@@ -77,6 +77,8 @@ next_param:
 		chicken |= CHICKEN_CG_RA;
 	else if (l == 11 && !strncmp(str, "cg-optimize", l))
 		chicken |= CHICKEN_CG_OPTIMIZE;
+	else if (l == 8 && !strncmp(str, "cg-traps", l))
+		chicken |= CHICKEN_CG_TRAPS;
 	else
 		warning("invalid chicken option %.*s", (int)l, str);
 	if (str[l] == ',') {
