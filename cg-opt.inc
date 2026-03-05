@@ -1733,7 +1733,7 @@ quash_after_i:
 		}
 
 #ifdef QUASH_REPETITIVE_INSNS
-		if (insn_opcode(d1->insn) == INSN_JMP_COND || insn_opcode(d1->insn) == INSN_JMP_COND_LOGICAL || insn_opcode(d1->insn) == INSN_JMP_REG || insn_opcode(d1->insn) == INSN_JMP_REG_BIT || insn_opcode(d1->insn) == INSN_JMP_2REGS) {
+		if (insn_opcode(d1->insn) == INSN_JMP_COND || insn_opcode(d1->insn) == INSN_JMP_COND_LOGICAL || insn_opcode(d1->insn) == INSN_JMP_REG || insn_opcode(d1->insn) == INSN_JMP_REG_BIT || insn_opcode(d1->insn) == INSN_JMP_2REGS || (insn_opcode(d1->insn) == INSN_CMP_TRAP && d1->start[4] < ARG_REGS_MAX && d1->start[5] < ARG_REGS_MAX)) {
 			size_t c;
 			reg_map mask;
 			reg_map_init(&mask);
@@ -1742,7 +1742,7 @@ quash_after_i:
 			if (insn_opcode(d1->insn) == INSN_JMP_REG || insn_opcode(d1->insn) == INSN_JMP_REG_BIT) {
 				reg_map_set(&mask, d1->start[4]);
 			}
-			if (insn_opcode(d1->insn) == INSN_JMP_2REGS) {
+			if (insn_opcode(d1->insn) == INSN_JMP_2REGS || insn_opcode(d1->insn) == INSN_CMP_TRAP) {
 				reg_map_set(&mask, d1->start[4]);
 				reg_map_set(&mask, d1->start[5]);
 			}
