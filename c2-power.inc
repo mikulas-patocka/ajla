@@ -20,6 +20,12 @@
 #define		POWER_OE		0x00000400U
 #define		POWER_CMP_L		0x00200000U
 
+#define		POWER_TRAP_UA		0x00200000U
+#define		POWER_TRAP_UB		0x00400000U
+#define		POWER_TRAP_E		0x00800000U
+#define		POWER_TRAP_SA		0x01000000U
+#define		POWER_TRAP_SB		0x02000000U
+
 #define POWER_MULLI		0x1c000000U
 #define POWER_SUBFIC		0x20000000U
 #define POWER_CMPLI		0x28000000U
@@ -54,6 +60,7 @@
 #define POWER_RLDCL		0x78000010U
 #define POWER_RLDCR		0x78000012U
 #define POWER_CMP		0x7c000000U
+#define POWER_TW		0x7c000008U
 #define POWER_SUBFC		0x7c000010U
 #define POWER_ADDC		0x7c000014U
 #define POWER_ISELLT		0x7c00001eU
@@ -68,6 +75,7 @@
 #define POWER_ISELGT		0x7c00005eU
 #define POWER_CNTLZD		0x7c000074U
 #define POWER_ANDC		0x7c000078U
+#define POWER_TD		0x7c000088U
 #define POWER_ISELEQ		0x7c00009eU
 #define POWER_LBZX		0x7c0000aeU
 #define POWER_NEG		0x7c0000d0U
@@ -262,6 +270,13 @@ static const uint32_t jmp_cond[0x2c] = {
 static const uint32_t jmp_cond_logical[0x8] = {
 	0, 0, POWER_BLT, POWER_BGE,
 	POWER_BEQ, POWER_BNE, POWER_BLE, POWER_BGT,
+};
+
+static const uint32_t trap_cond[0x10] = {
+	0, 0, POWER_TRAP_UB, POWER_TRAP_UA | POWER_TRAP_E,
+	POWER_TRAP_E, POWER_TRAP_UA | POWER_TRAP_UB, POWER_TRAP_UB | POWER_TRAP_E, POWER_TRAP_UA,
+	0, 0, 0, 0,
+	POWER_TRAP_SB, POWER_TRAP_E | POWER_TRAP_SA, POWER_TRAP_SB | POWER_TRAP_E, POWER_TRAP_SA,
 };
 
 static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
@@ -519,6 +534,25 @@ static bool attr_w cgen_cmp(struct codegen_context *ctx, unsigned size, unsigned
 	}
 
 	internal(file_line, "cgen_cmp: invalid arguments %u, %02x, %02x, %u", size, *arg1, *arg2, writes_flags);
+	return false;
+}
+
+static bool attr_w cgen_cmp_trap(struct codegen_context *ctx, unsigned size, unsigned aux)
+{
+	uint32_t mc;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+	if (unlikely(arg1[0] >= 32) || unlikely(arg1[0] >= 32) || unlikely(aux >= 0x10))
+		goto invl;
+	g(cgen_trap(ctx, cget_four(ctx)));
+	mc = size == OP_SIZE_4 ? POWER_TW : POWER_TD;
+	mc |= trap_cond[aux];
+	cgen_xform(mc, 0, arg1[0], arg2[0], false);
+	return true;
+
+invl:
+	internal(file_line, "cgen_cmp_trap: invalid arguments %u, %02x, %02x, %u", size, *arg1, *arg2, aux);
 	return false;
 }
 
@@ -1130,6 +1164,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_CMP:
 			g(cgen_cmp(ctx, insn_op_size(insn), insn_writes_flags(insn)));
+			return true;
+		case INSN_CMP_TRAP:
+			g(cgen_cmp_trap(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_TEST:
 			if (unlikely(insn_op_size(insn) != OP_SIZE_NATIVE))
