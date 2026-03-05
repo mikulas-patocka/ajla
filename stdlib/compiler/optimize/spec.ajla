@@ -278,14 +278,38 @@ fn spec_extract_pcode(spec_ctx : spec_context) : list(pcode_t)
 	var i1 := instruction.[
 		opcode : P_Args,
 		params : empty(pcode_t),
+		read_set : 0,
+		write_set : 0,
+		free_set : 0,
+		lt_set : 0,
+		conflict_1 : 0,
+		conflict_2 : 0,
+		borrow : -1,
+		bb : -1,
 	];
 	var i2 := instruction.[
 		opcode : P_Return_Vars,
 		params : empty(pcode_t),
+		read_set : 0,
+		write_set : 0,
+		free_set : 0,
+		lt_set : 0,
+		conflict_1 : 0,
+		conflict_2 : 0,
+		borrow : -1,
+		bb : -1,
 	];
 	var i3 := instruction.[
 		opcode : P_Return,
 		params : empty(pcode_t),
+		read_set : 0,
+		write_set : 0,
+		free_set : 0,
+		lt_set : 0,
+		conflict_1 : 0,
+		conflict_2 : 0,
+		borrow : -1,
+		bb : -1,
 	];
 	for i := 0 to len(spec_ctx.outputs) do [
 		i2.params +<= spec_ctx.outputs[i];

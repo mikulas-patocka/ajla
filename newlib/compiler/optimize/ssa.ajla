@@ -117,6 +117,7 @@ fn deactivate_node(ctx : context, bgi : int) : context
 		pred_list : empty(int),
 		pred_position : empty(int),
 		post_list : empty(int),
+
 		dom : -1,
 		dominates : -1,
 		idom : -1,
@@ -125,6 +126,15 @@ fn deactivate_node(ctx : context, bgi : int) : context
 		uninitialized : -1,
 		live_top : -1,
 		live_bottom : -1,
+
+		generate_asm : false,
+
+		block_name : "",
+		post_cut_nodes : 0,
+		pre_cut_nodes : false,
+		added_claims : empty(bytes),
+		guards : 0,
+		not_guards : 0,
 	];
 	return ctx;
 ]

@@ -530,11 +530,33 @@ fn load_function_context(pc : list(pcode_t), un : bytes, get_inline : fn(functio
 		local_types : empty(local_type),
 		instrs : empty(instruction),
 		blocks : empty(basic_block),
+		variables : empty(variable),
+		args : empty(pcode_t),
+		specialize_args : 0,
+		var_map : empty(int),
+		cm : exception_make(conflict_map, ec_sync, error_record_field_not_initialized, 0, false),
+		should_retry : false,
+		num_retries : 0,
+		need_offload : false,
+		do_offload : false,
 
 		un : un,
 		name : blob_load(pc[9 .. ]),
-
 		get_inline : get_inline,
+
+		dump_z3 : false,
+		return_ins : exception_make(instruction, ec_sync, error_record_field_not_initialized, 0, false),
+		op_map : exception_make(array(bytes, [ -T_Bool + 1, Op_N ]), ec_sync, error_record_field_not_initialized, 0, false),
+		unint_map : exception_make(array(bool, [ -T_Bool + 1, Op_N ]), ec_sync, error_record_field_not_initialized, 0, false),
+		unint_counter : exception_make(int, ec_sync, error_record_field_not_initialized, 0, false),
+		llt_defined : exception_make(treeset(bytes), ec_sync, error_record_field_not_initialized, 0, false),
+		var_names : exception_make(treeset(bytes), ec_sync, error_record_field_not_initialized, 0, false),
+		unint_functions : exception_make(treeset(bytes), ec_sync, error_record_field_not_initialized, 0, false),
+
+		imported_variables : 0,
+		local_variables : 0,
+		output_array_variables : 0,
+		loop_controls : 0,
 	];
 
 	var ptr := 9 + blob_length(pc[9 .. ]);

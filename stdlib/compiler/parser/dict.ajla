@@ -540,6 +540,7 @@ fn add_lambda(ctx ctx_head ctx_body : function_context, call_mode : int) : (func
 	var def := function_definition.[
 		signature : ctx_head,
 		body : maybe(function_context).j.(ctx_body),
+		vd : exception_make(variable_dictionary, ec_sync, error_record_field_not_initialized, 0, false),
 		call_mode : call_mode,
 		op_bypass : -1,
 		op_bypass_reverse : false,
