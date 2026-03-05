@@ -47,6 +47,8 @@
 #define PARISC_NOP		0x08000240U
 #define PARISC_XOR		0x08000280U
 #define PARISC_SUB		0x08000400U
+#define PARISC_SUB_TRAP		0x080004c0U
+#define PARISC_SUB_TRAP_D	0x080004e0U
 #define PARISC_SUB_B		0x08000500U
 #define PARISC_SUB_DB		0x08000520U
 #define PARISC_ADD		0x08000600U
@@ -608,6 +610,27 @@ static bool attr_w cgen_movsx(struct codegen_context *ctx, unsigned size)
 	} else {
 		return cgen_mov_args(ctx, size, arg1, arg2);
 	}
+}
+
+static bool attr_w cgen_cmp_trap(struct codegen_context *ctx, unsigned size, unsigned cond)
+{
+	int32_t fc;
+	uint32_t mc;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+	if (unlikely(arg1[0] >= 0x20) || unlikely(arg2[0] >= 0x20))
+		goto invl;
+	g(cgen_trap(ctx, cget_four(ctx)));
+	fc = cmp_sub_cond[cond];
+	mc = size == OP_SIZE_4 ? PARISC_SUB_TRAP : PARISC_SUB_TRAP_D;
+	mc |= fc;
+	g(cgen_3reg(ctx, mc, arg1[0], arg2[0], R_ZERO));
+	return true;
+
+invl:
+	internal(file_line, "cgen_cmp_trap: invalid arguments %u, %02x, %02x, %u", size, *arg1, *arg2, cond);
+	return false;
 }
 
 static bool attr_w cgen_cmp_dest_reg(struct codegen_context *ctx, unsigned size, unsigned cond)
@@ -1634,6 +1657,11 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_MOVSX:
 			g(cgen_movsx(ctx, insn_op_size(insn)));
+			return true;
+		case INSN_CMP_TRAP:
+			if (unlikely(insn_op_size(insn) < OP_SIZE_4))
+				goto invalid_insn;
+			g(cgen_cmp_trap(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_CMP_DEST_REG:
 			if (unlikely(insn_op_size(insn) < OP_SIZE_4))

@@ -2397,6 +2397,11 @@ gen_memcpy:
 
 static bool gen_check_array_len_traps(void)
 {
+#if defined(HAVE_CODEGEN_TRAPS)
+#if defined(ARCH_PARISC)
+	if (OS_SUPPORTS_TRAPS)
+		return true;
+#endif
 #if defined(ARCH_POWER)
 	if (OS_SUPPORTS_TRAPS)
 		return true;
@@ -2404,6 +2409,7 @@ static bool gen_check_array_len_traps(void)
 #if defined(ARCH_S390)
 	if (OS_SUPPORTS_TRAPS && cpu_test_feature(CPU_FEATURE_misc_insn_ext_1))
 		return true;
+#endif
 #endif
 	return false;
 }
@@ -2435,7 +2441,7 @@ static bool attr_w gen_check_array_len(struct codegen_context *ctx, unsigned reg
 	gen_insn(ARCH_PREFERS_SX(OP_SIZE_INT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_INT, 0, 0);
 	gen_one(R_SCRATCH_3);
 	gen_address_offset();
-#if defined(ARCH_POWER)
+#if defined(ARCH_POWER) || defined(ARCH_PARISC)
 	if (trap && gen_check_array_len_traps()) {
 		gen_insn(INSN_CMP_TRAP, OP_SIZE_INT, cond, 0);
 		gen_one(reg_len);

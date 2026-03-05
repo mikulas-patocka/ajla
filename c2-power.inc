@@ -543,7 +543,7 @@ static bool attr_w cgen_cmp_trap(struct codegen_context *ctx, unsigned size, uns
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
-	if (unlikely(arg1[0] >= 32) || unlikely(arg1[0] >= 32) || unlikely(aux >= 0x10))
+	if (unlikely(arg1[0] >= 32) || unlikely(arg2[0] >= 32) || unlikely(aux >= 0x10))
 		goto invl;
 	g(cgen_trap(ctx, cget_four(ctx)));
 	mc = size == OP_SIZE_4 ? POWER_TW : POWER_TD;

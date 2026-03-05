@@ -2688,6 +2688,18 @@ static void sigfpe_handler(int attr_unused sig, siginfo_t *siginfo, void *uconte
 	/*debug("bla: %llx, %llx, %llx", uc->uc_mcontext.gregs[0x4], uc->uc_mcontext.gregs[0x17], uc->uc_mcontext.gregs[0x16]);*/
 	uc->uc_mcontext.pc = ptr_to_num(call(data_trap_lookup)(num_to_ptr(uc->uc_mcontext.pc)));
 #endif
+#if defined(ARCH_PARISC)
+	unsigned long target;
+	/*debug("si_code: %d", siginfo->si_code);*/
+	/*debug("flags: %lx %lx", uc->uc_mcontext.sc_flags, uc->uc_mcontext.sc_gr[0]);*/
+	/*debug("pc: %lx %lx", uc->uc_mcontext.sc_iaoq[0], uc->uc_mcontext.sc_iaoq[1]);*/
+	if (unlikely(siginfo->si_code != FPE_CONDTRAP))
+		fatal("unexpected SIGFPE received: %d", siginfo->si_code);
+	target = ptr_to_num(call(data_trap_lookup)(num_to_ptr(uc->uc_mcontext.sc_iaoq[0] - 3)));
+	uc->uc_mcontext.sc_iaoq[0] = target + 3;
+	uc->uc_mcontext.sc_iaoq[1] = target + 7;
+	uc->uc_mcontext.sc_gr[0] &= ~(1UL << (63 - 42));
+#endif
 #if defined(ARCH_POWER)
 	/*debug("si_code: %d", siginfo->si_code);*/
 	/*debug("pc: %lx", uc->uc_mcontext.regs->nip);*/
