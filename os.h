@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -524,6 +524,7 @@ ajla_time_t os_timespec_to_ajla_time(const struct timespec *ts);
 #endif
 ajla_time_t os_time_real(void);
 ajla_time_t os_time_monotonic(void);
+bool os_time_tai(ajla_time_t *t, ajla_error_t *err);
 bool os_time_to_calendar(ajla_time_t t, bool local, int *year, int *month, int *day, int *hour, int *min, int *sec, int *usec, int *yday, int *wday, int *is_dst, ajla_error_t *err);
 bool os_calendar_to_time(bool local, int year, int month, int day, int hour, int min, int sec, int usec, int is_dst, ajla_time_t *t, ajla_error_t *err);
 

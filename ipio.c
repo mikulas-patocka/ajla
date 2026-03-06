@@ -3043,6 +3043,13 @@ static void * attr_fastcall io_get_time_handler(struct io_ctx *ctx)
 		case 2:
 			t = os_time_monotonic();
 			break;
+		case 3:
+			if (unlikely(!os_time_tai(&t, &ctx->err))) {
+				io_terminate_with_error(ctx, ctx->err, true, NULL);
+				test = POINTER_FOLLOW_THUNK_EXCEPTION;
+				goto ret_test;
+			}
+			break;
 		default:
 			internal(file_line, "io_get_time_handler: invalid function code %u", (unsigned)fn);
 	}

@@ -1,5 +1,5 @@
 {*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -210,6 +210,7 @@ fn get_host_name(w : world) : (world, bytes);
 
 fn get_real_time(w : world) : (world, int64);
 fn get_monotonic_time(w : world) : (world, int64);
+fn get_tai_time(w : world) : (world, int64);
 fn sleep(t : type, w : t, tm : int64) : t;
 
 {--------
@@ -1102,6 +1103,14 @@ fn get_monotonic_time(w : world) : (world, int64)
 	var ret : int64;
 	var w2 : world;
 	pcode IO IO_GetTime 2 1 1 =w2 =ret w 2;
+	return w2, ret;
+]
+
+fn get_tai_time(w : world) : (world, int64)
+[
+	var ret : int64;
+	var w2 : world;
+	pcode IO IO_GetTime 2 1 1 =w2 =ret w 3;
 	return w2, ret;
 ]
 

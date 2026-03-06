@@ -43,6 +43,9 @@
 #endif
 #include <time.h>
 #include <sys/time.h>
+#if defined(HAVE_SYS_TIMEX_H)
+#include <sys/timex.h>
+#endif
 #include <sys/wait.h>
 #ifdef HAVE_SYS_SELECT_H
 #include <sys/select.h>
@@ -2087,6 +2090,38 @@ ajla_time_t os_time_monotonic(void)
 	return os_timespec_to_ajla_time(&ts);
 #else
 	return os_time_real();
+#endif
+}
+
+bool os_time_tai(ajla_time_t attr_unused *t, ajla_error_t *err)
+{
+#if defined(HAVE_CLOCK_GETTIME) && defined(HAVE_CLOCK_TAI) && defined(HAVE_ADJTIMEX) && defined(HAVE_SYS_TIMEX_H)
+	int r;
+	struct timespec ts;
+	struct timex tmx;
+	memset(&tmx, 0, sizeof tmx);
+	r = adjtimex(&tmx);
+	if (unlikely(r == -1)) {
+		ajla_error_t e = error_from_errno(EC_SYSCALL, errno);
+		fatal_mayfail(e, err, "the system doesn't provide TAI time");
+		return false;
+	}
+	if (unlikely(!tmx.tai)) {
+		fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED), err, "the system doesn't provide TAI time");
+		return false;
+	}
+	EINTR_LOOP(r, clock_gettime(CLOCK_TAI, &ts));
+	if (unlikely(r == -1)) {
+		ajla_error_t e = error_from_errno(EC_SYSCALL, errno);
+		fatal_mayfail(e, err, "the system doesn't provide TAI time");
+		return false;
+	}
+	debug("tai  seconds: %lu", ts.tv_sec);
+	*t = os_timespec_to_ajla_time(&ts);
+	return true;
+#else
+	fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED), err, "the system doesn't provide TAI time");
+	return false;
 #endif
 }
 

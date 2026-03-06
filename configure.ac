@@ -1,4 +1,4 @@
-# Copyright (C) 2024, 2025 Mikulas Patocka
+# Copyright (C) 2024 - 2026 Mikulas Patocka
 #
 # This file is part of Ajla.
 #
@@ -373,7 +373,7 @@ if test "$ac_cv_have_gcc_assembler" = yes; then
 fi
 
 # Checks for header files.
-AC_CHECK_HEADERS(asm/prctl.h ffi.h gmp.h gmp/gmp.h linux/falloc.h linux/fs.h malloc.h netdb.h netinet/in.h numa.h os2thunk.h quadmath.h signal.h stdalign.h stdatomic.h stdbit.h stdnoreturn.h sys/auxv.h sys/builtin.h sys/epoll.h sys/event.h sys/fmutex.h sys/inotify.h sys/mman.h sys/mount.h sys/param.h sys/pstat.h sys/select.h sys/socket.h sys/statvfs.h sys/syscall.h sys/sysctl.h sys/sysmacros.h sys/time.h sys/ucred.h sys/utsname.h sys/vfs.h ucontext.h x86/sysarch.h)
+AC_CHECK_HEADERS(asm/prctl.h ffi.h gmp.h gmp/gmp.h linux/falloc.h linux/fs.h malloc.h netdb.h netinet/in.h numa.h os2thunk.h quadmath.h signal.h stdalign.h stdatomic.h stdbit.h stdnoreturn.h sys/auxv.h sys/builtin.h sys/epoll.h sys/event.h sys/fmutex.h sys/inotify.h sys/mman.h sys/mount.h sys/param.h sys/pstat.h sys/select.h sys/socket.h sys/statvfs.h sys/syscall.h sys/sysctl.h sys/sysmacros.h sys/time.h sys/timex.h sys/ucred.h sys/utsname.h sys/vfs.h ucontext.h x86/sysarch.h)
 
 # Checks for libraries.
 AC_CHECK_LIB(m, frexp)
@@ -443,7 +443,7 @@ AC_FUNC_MALLOC
 AC_CHECK_LIB(xnet, getpeername)
 
 # Checks for library functions.
-AC_CHECK_FUNCS(accept4 aligned_alloc amd64_set_gsbase cfmakeraw chown clock_gettime epoll_create fallocate fchdir fchmodat fchownat fdatasync ffs ffsl ffsll fls flsl flsll fstat64 fstatat fstatfs fstatvfs fstatvfs64 ftruncate64 getauxval getenv getfsstat gethostname getpagesize getpeername getvfsstat gmtime_r inotify_init isatty kqueue lchown link linkat localtime_r lseek64 lstat lstat64 madvise memalign mempcpy mkdirat mknod mknodat mkostemp mmap mmap64 mprotect mremap open64 openat pipe2 posix_memalign pread pread64 pstat_getdynamic pthread_condattr_setclock pthread_sigmask pthread_spin_init pwrite pwrite64 raise readlink readlinkat renameat setitimer setvbuf sigaction sigblock sigfillset sigprocmask sigsetmask socket stat64 statfs statvfs statvfs64 strerror strerror_r strnlen strverscmp symlink symlinkat syncfs sysarch syscall sysconf sysctl timegm timer_create truncate64 uname unlinkat utime utimensat utimes vsnprintf _beginthreadex _fmutex_create _threadstore)
+AC_CHECK_FUNCS(accept4 adjtimex aligned_alloc amd64_set_gsbase cfmakeraw chown clock_gettime epoll_create fallocate fchdir fchmodat fchownat fdatasync ffs ffsl ffsll fls flsl flsll fstat64 fstatat fstatfs fstatvfs fstatvfs64 ftruncate64 getauxval getenv getfsstat gethostname getpagesize getpeername getvfsstat gmtime_r inotify_init isatty kqueue lchown link linkat localtime_r lseek64 lstat lstat64 madvise memalign mempcpy mkdirat mknod mknodat mkostemp mmap mmap64 mprotect mremap open64 openat pipe2 posix_memalign pread pread64 pstat_getdynamic pthread_condattr_setclock pthread_sigmask pthread_spin_init pwrite pwrite64 raise readlink readlinkat renameat setitimer setvbuf sigaction sigblock sigfillset sigprocmask sigsetmask socket stat64 statfs statvfs statvfs64 strerror strerror_r strnlen strverscmp symlink symlinkat syncfs sysarch syscall sysconf sysctl timegm timer_create truncate64 uname unlinkat utime utimensat utimes vsnprintf _beginthreadex _fmutex_create _threadstore)
 
 AC_CHECK_FUNCS(
 	copysign copysignf						\
@@ -599,6 +599,15 @@ AC_TRY_LINK([
 	return 0;
 ], ac_cv_have_clock_monotonic_raw=yes, ac_cv_have_clock_monotonic_raw=no))
 test "$ac_cv_have_clock_monotonic_raw" = yes && AC_DEFINE(HAVE_CLOCK_MONOTONIC_RAW, 1, Have CLOCK_MONOTONIC_RAW)
+
+AC_CACHE_CHECK(for CLOCK_TAI, ac_cv_have_clock_tai,
+AC_TRY_LINK([
+	#include <time.h>
+] , [
+	clockid_t id = CLOCK_TAI;
+	return 0;
+], ac_cv_have_clock_tai=yes, ac_cv_have_clock_tai=no))
+test "$ac_cv_have_clock_tai" = yes && AC_DEFINE(HAVE_CLOCK_TAI, 1, Have CLOCK_TAI)
 
 
 AC_CACHE_CHECK(for intX_t and u_intX_t, ac_cv_have_intx_t_u_intx_t,

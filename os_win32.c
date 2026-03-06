@@ -2920,6 +2920,12 @@ ajla_time_t os_time_monotonic(void)
 	return ret * 1000;
 }
 
+bool os_time_tai(ajla_time_t *t, ajla_error_t *err)
+{
+	fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED), err, "the system doesn't provide TAI time");
+	return false;
+}
+
 
 static int get_socket_error(handle_t h)
 {
