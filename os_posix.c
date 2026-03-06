@@ -2116,7 +2116,6 @@ bool os_time_tai(ajla_time_t attr_unused *t, ajla_error_t *err)
 		fatal_mayfail(e, err, "the system doesn't provide TAI time");
 		return false;
 	}
-	debug("tai  seconds: %lu", ts.tv_sec);
 	*t = os_timespec_to_ajla_time(&ts);
 	return true;
 #else
