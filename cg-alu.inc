@@ -445,12 +445,12 @@ skip_mem_modify:;
 #if defined(ARCH_POWER)
 		op_size_flags = OP_SIZE_NATIVE;
 #endif
-		g(gen_frame_get(ctx, op_size, mode == MODE_INT && (op_size < op_size_flags || ARCH_SUPPORTS_TRAPS(op_size)) ? sign_x : garbage, slot_1, R_SCRATCH_1, &reg1));
+		g(gen_frame_get(ctx, op_size, mode == MODE_INT && op_size < op_size_flags ? sign_x : garbage, slot_1, R_SCRATCH_1, &reg1));
 		if (frame_t_is_const(slot_2)) {
 			reg2 = 0xff;
 			c = true;
 		} else {
-			g(gen_frame_get(ctx, op_size, mode == MODE_INT && (op_size < op_size_flags || ARCH_SUPPORTS_TRAPS(op_size)) ? sign_x : garbage, slot_2, R_SCRATCH_2, &reg2));
+			g(gen_frame_get(ctx, op_size, mode == MODE_INT && op_size < op_size_flags ? sign_x : garbage, slot_2, R_SCRATCH_2, &reg2));
 			c = false;
 		}
 #if !ARCH_HAS_FLAGS || defined(ARCH_POWER)
