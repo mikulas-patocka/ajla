@@ -830,7 +830,9 @@ typedef uint16_t ushort_efficient_t;
 #if defined(HAVE_MMAP) || defined(OS_DOS) || defined(OS_OS2) || defined(OS_WIN32)
 #if defined(ARCH_ALPHA)
 #define HAVE_CODEGEN
+#if defined(__linux__)
 #define HAVE_CODEGEN_TRAPS
+#endif
 #endif
 #if defined(ARCH_ARM32) && defined(__ARMEL__)
 #define HAVE_CODEGEN
@@ -846,7 +848,9 @@ typedef uint16_t ushort_efficient_t;
 #endif
 #if defined(ARCH_MIPS)
 #define HAVE_CODEGEN
+#if defined(__linux__)
 #define HAVE_CODEGEN_TRAPS
+#endif
 #endif
 #if defined(ARCH_PARISC)
 #define HAVE_CODEGEN
@@ -856,11 +860,15 @@ typedef uint16_t ushort_efficient_t;
 #endif
 #if defined(ARCH_POWER)
 #define HAVE_CODEGEN
+#if defined(__linux__)
 #define HAVE_CODEGEN_TRAPS
+#endif
 #endif
 #if defined(ARCH_S390)
 #define HAVE_CODEGEN
+#if defined(__linux__)
 #define HAVE_CODEGEN_TRAPS
+#endif
 #endif
 #if defined(ARCH_SPARC)
 #define HAVE_CODEGEN
