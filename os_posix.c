@@ -2093,12 +2093,20 @@ ajla_time_t os_time_monotonic(void)
 #endif
 }
 
+#if defined(HAVE_CLOCK_GETTIME) && defined(HAVE_CLOCK_TAI) && defined(HAVE_ADJTIMEX) && defined(HAVE_SYS_TIMEX_H)
+static bool have_tai_time;
+#endif
+
 bool os_time_tai(ajla_time_t attr_unused *t, ajla_error_t *err)
 {
 #if defined(HAVE_CLOCK_GETTIME) && defined(HAVE_CLOCK_TAI) && defined(HAVE_ADJTIMEX) && defined(HAVE_SYS_TIMEX_H)
 	int r;
 	struct timespec ts;
 	struct timex tmx;
+	if (unlikely(!have_tai_time)) {
+		fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED), err, "the system doesn't provide TAI time");
+		return false;
+	}
 	memset(&tmx, 0, sizeof tmx);
 	r = adjtimex(&tmx);
 	if (unlikely(r == -1)) {
@@ -3857,6 +3865,11 @@ void os_init(void)
 		os_close_handle(h);
 skip_test:;
 	}
+#endif
+#if defined(HAVE_CLOCK_GETTIME) && defined(HAVE_CLOCK_TAI) && defined(HAVE_ADJTIMEX) && defined(HAVE_SYS_TIMEX_H)
+	if (os_kernel_version("GNU/Linux", "4") ||
+	    os_kernel_version("GNU/Linux", "3.10"))
+		have_tai_time = true;
 #endif
 
 	os_cwd = os_get_cwd(&sink);
