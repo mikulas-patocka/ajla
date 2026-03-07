@@ -22,6 +22,10 @@
 #define OP_SIZE_NATIVE			OP_SIZE_8
 #endif
 
+#ifdef ARCH_X86_X32
+#define OP_SIZE_EXTEND_INDICES
+#endif
+
 #ifndef ARCH_X86_64
 #define OP_SIZE_ADDRESS			OP_SIZE_4
 #else

@@ -1105,6 +1105,12 @@ static bool attr_w gen_scaled_array_address(struct codegen_context *ctx, size_t 
 static bool attr_w gen_check_array_len(struct codegen_context *ctx, unsigned reg_array, bool allocated, unsigned reg_len, unsigned cond, bool trap, uint32_t escape_label);
 static bool attr_w gen_scaled_array_store(struct codegen_context *ctx, unsigned reg_src, unsigned reg_idx, int64_t offset_src, frame_t slot_1);
 
+#if defined(POINTER_COMPRESSION) || defined(OP_SIZE_EXTEND_INDICES)
+#define array_index_extension	native
+#else
+#define array_index_extension	garbage
+#endif
+
 static bool attr_w gen_array_store_flat(struct codegen_context *ctx, frame_t slot_struct, frame_t slot_elem, uint32_t escape_label)
 {
 	frame_t slot_idx = ctx->args[0].slot;
@@ -1121,7 +1127,7 @@ static bool attr_w gen_array_store_flat(struct codegen_context *ctx, frame_t slo
 	/*else
 		debug("eliding array check in %s", da(ctx->fn,function)->function_name);*/
 
-	g(gen_frame_get(ctx, OP_SIZE_INT, native, slot_idx, R_SCRATCH_2, &reg_idx));
+	g(gen_frame_get(ctx, OP_SIZE_INT, array_index_extension, slot_idx, R_SCRATCH_2, &reg_idx));
 
 	g(gen_check_array_len(ctx, reg_struct, false, reg_idx, COND_AE, true, escape_label));
 
@@ -1218,7 +1224,7 @@ struct_zero:
 					ajla_assert_lo(struct_type->tag == TYPE_TAG_flat_array, (file_line, "gen_structured: invalid tag %u, expected %u", struct_type->tag, TYPE_TAG_flat_array));
 					g(gen_test_1_cached(ctx, param_slot, escape_label));
 					flag_set(ctx, param_slot, false);
-					g(gen_frame_get(ctx, OP_SIZE_INT, native, param_slot, R_SCRATCH_1, &reg1));
+					g(gen_frame_get(ctx, OP_SIZE_INT, array_index_extension, param_slot, R_SCRATCH_1, &reg1));
 
 					g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, reg1, type_def(struct_type,flat_array)->n_elements, COND_AE, escape_label, -1));
 
@@ -1289,7 +1295,7 @@ struct_zero:
 					g(gen_test_1_cached(ctx, param_slot, escape_label));
 					flag_set(ctx, param_slot, false);
 
-					g(gen_frame_get(ctx, OP_SIZE_INT, native, param_slot, R_SCRATCH_2, &reg2));
+					g(gen_frame_get(ctx, OP_SIZE_INT, array_index_extension, param_slot, R_SCRATCH_2, &reg2));
 
 					if (!TYPE_IS_FLAT(e_type) || (e_type->tag == TYPE_TAG_flat_option && !(ctx->args[i].flags & OPCODE_STRUCTURED_FLAG_END))) {
 						g(gen_compare_ptr_tag(ctx, R_SCRATCH_1, DATA_TAG_array_pointers, COND_NE, escape_label, R_SCRATCH_3, false, false));
@@ -2474,7 +2480,7 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 		flag_set(ctx, slot_1, false);
 		flag_set(ctx, slot_idx, false);
 
-		g(gen_frame_get(ctx, OP_SIZE_INT, native, slot_idx, R_SCRATCH_2, &reg2));
+		g(gen_frame_get(ctx, OP_SIZE_INT, array_index_extension, slot_idx, R_SCRATCH_2, &reg2));
 
 		if (!(flags & OPCODE_ARRAY_INDEX_IN_RANGE))
 			g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, reg2, def->n_elements, COND_AE, escape_label, -1));
@@ -2487,7 +2493,7 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 
 	g(gen_test_1_cached(ctx, slot_idx, escape_label));
 	flag_set(ctx, slot_idx, false);
-	g(gen_frame_get(ctx, OP_SIZE_INT, native, slot_idx, R_SCRATCH_2, &reg2));
+	g(gen_frame_get(ctx, OP_SIZE_INT, array_index_extension, slot_idx, R_SCRATCH_2, &reg2));
 
 	need_check_array_len = false;
 	if (!(flags & OPCODE_ARRAY_INDEX_IN_RANGE)) {
