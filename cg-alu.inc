@@ -4152,7 +4152,7 @@ do_bt:	{
 					gen_label_ref(label_ovf);
 				}
 			} else {
-				if (op_size == OP_SIZE_1) {
+				if (op_size == OP_SIZE_1 || !slot_is_register(ctx, slot_1)) {
 					g(gen_3address_alu_imm(ctx, OP_SIZE_4, ALU_AND, R_SCRATCH_3, reg2, max_imm, 0));
 					reg2 = R_SCRATCH_3;
 				}
