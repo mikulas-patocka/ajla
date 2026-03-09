@@ -214,6 +214,8 @@ record compare_context [
 	option_map : list(int);
 ]
 
+fn function_name(ctx : function_context) : bytes;
+
 fn new_variable_dictionary(parent : maybe(variable_dictionary)) : variable_dictionary;
 fn new_variable_dictionary_chained(ctx : function_context, v : variable_dictionary) : variable_dictionary;
 fn free_variable_dictionary_chained(ctx : function_context, v : variable_dictionary) : function_context;
@@ -262,6 +264,16 @@ fn unimplemented(m : bytes) : unit_type
 [
 	m := "Unimplemented: " + m;
 	return internal(m);
+]
+
+fn function_name(ctx : function_context) : bytes
+[
+	var n := i_decode(ctx.name);
+	if list_ends_with(n, op_name) then
+		return "operator '" + n[ .. len(n) - len(op_name)] + "'";
+	if list_ends_with(n, op_prefix_name) then
+		return "operator '" + n[ .. len(n) - len(op_prefix_name)] + "'";
+	return "function '" + n + "'";
 ]
 
 fn new_variable_dictionary(parent : maybe(variable_dictionary)) : variable_dictionary

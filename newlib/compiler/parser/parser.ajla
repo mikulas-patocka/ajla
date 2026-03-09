@@ -26,6 +26,7 @@ fn parse_file~cache(w : world, d : list(bytes), name : bytes, program : bool, pa
 
 implementation
 
+uses charset;
 uses exception;
 uses pcode;
 uses compiler.parser.gen;
@@ -1278,8 +1279,11 @@ fn parse_file~cache(w : world, d : list(bytes), name : bytes, program : bool, pa
 	var dict := parse_tokens(w, d, t, name, program, parse_interface);
 	if not parse_interface then [
 		for i := 0 to len(dict.defs) do [
-			if dict.defs[i].body is n then
-				abort compiler_error("function '" + i_decode(dict.defs[i].signature.name) + "' was not defined", empty(token));
+			if dict.defs[i].body is n then [
+				var name := function_name(dict.defs[i].signature);
+				name[0] := ascii_upcase(name[0]);
+				abort compiler_error(name + " was not defined", empty(token));
+			]
 			dict.defs[i].pcode := dump_function(dict.defs[i]);
 		]
 	]

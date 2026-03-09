@@ -301,16 +301,6 @@ fn is_nat(inv : list(compare_argument)) : bool
 	return false;
 ]
 
-fn function_name(ctx : function_context)
-[
-	var n := i_decode(ctx.name);
-	if list_ends_with(n, op_name) then
-		return "operator '" + n[ .. len(n) - len(op_name)] + "'";
-	if list_ends_with(n, op_prefix_name) then
-		return "operator '" + n[ .. len(n) - len(op_prefix_name)] + "'";
-	return "function '" + n + "'";
-]
-
 fn try_process_direct_function(ctx : function_context, vd : variable_dictionary, fd : function_definition, call_mode : int, pp : list(int), pflags : list(int), arg_shift : int, r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
 [
 	var infer_bmp : int;
