@@ -301,6 +301,16 @@ fn is_nat(inv : list(compare_argument)) : bool
 	return false;
 ]
 
+fn function_name(ctx : function_context)
+[
+	var n := i_decode(ctx.name);
+	if list_ends_with(n, op_name) then
+		return "operator '" + n[ .. len(n) - len(op_name)] + "'";
+	if list_ends_with(n, op_prefix_name) then
+		return "operator '" + n[ .. len(n) - len(op_prefix_name)] + "'";
+	return "function '" + n + "'";
+]
+
 fn try_process_direct_function(ctx : function_context, vd : variable_dictionary, fd : function_definition, call_mode : int, pp : list(int), pflags : list(int), arg_shift : int, r_cc : compare_context, r_typ : int, do_convert : bool, t : tokens) : (function_context, list(int))
 [
 	var infer_bmp : int;
@@ -311,7 +321,7 @@ fn try_process_direct_function(ctx : function_context, vd : variable_dictionary,
 		abort exception_make(int, ec_sync, error_user, 0, false);
 
 	if total_args > fd.signature.n_arguments then
-		abort compiler_error("Too many arguments", t);
+		abort compiler_error("Too many arguments for " + function_name(fd.signature), t);
 
 	var inferred_args := fd.signature.n_arguments - total_args - arg_shift;
 
@@ -519,7 +529,12 @@ skip_bypass:
 					ctx, pp := strip_invariants(ctx, pp, inferred_args, infer_bmp, t);
 					goto retry_after_stripping;
 				]
-				abort compiler_error("Argument " + ntos(i + 1) + " was not inferred", t);
+				var op_name := i_decode(fd.signature.variables[i].name);
+				if len_greater_than(op_name, 0) then
+					op_name := "'" + op_name + "'";
+				else
+					op_name := ntos(i + 1);
+				abort compiler_error("Argument " + op_name + " of " + function_name(fd.signature) + " was not inferred", t);
 			]
 			if i >= len(fn_cc.args) then
 				fn_cc.args +<= new_compare_argument(new_compare_context(ctx), p[i]);
