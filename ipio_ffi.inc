@@ -1574,7 +1574,9 @@ static void * attr_fastcall io_ffi_handle_to_number_handler(struct io_ctx *ctx)
 	pointer_reference_owned(hptr);
 	address_unlock(rfd, DEPTH_AUX);
 
-	io_get_handle(ctx, get_input(ctx, 2));
+	test = io_get_handle(ctx, get_input(ctx, 2), 0);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 
 	n = os_handle_to_number(ctx->handle->fd);
 

@@ -58,9 +58,14 @@
 extern char **environ;
 #endif
 
+#define MODE_READ	0x1
+#define MODE_WRITE	0x2
+#define MODE_BLOCK	0x4
+
 struct resource_handle {
 	handle_t fd;
 	bool nonblocking;
+	uint8_t allowed_modes;
 	os_termios_t *old_termios;
 };
 
@@ -285,10 +290,13 @@ static bool io_allow_sandbox(uchar_efficient_t io_code)
 		case IO_Exception_Stack:	return true;
 		case IO_Stream_Read_Partial:	return true;
 		case IO_Stream_Write:		return true;
+		case IO_Stream_FAllocate:	return true;
 		case IO_Pipe:			return true;
+		case IO_Block_Read:		return true;
+		case IO_Block_Write:		return true;
 		case IO_LSeek:			return true;
 		case IO_FTruncate:		return true;
-		case IO_FAllocate:		return true;
+		case IO_Block_FAllocate:	return true;
 		case IO_CloneRange:		return true;
 		case IO_FSync:			return true;
 		case IO_Sync:			return true;
@@ -350,7 +358,7 @@ static void *io_deep_eval(struct io_ctx *ctx, const char *input_positions, bool 
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
-static void io_get_handle(struct io_ctx *ctx, frame_t slot)
+static void *io_get_handle(struct io_ctx *ctx, frame_t slot, uint8_t mode)
 {
 	pointer_t ptr;
 	struct data *d;
@@ -361,9 +369,17 @@ static void io_get_handle(struct io_ctx *ctx, frame_t slot)
 	d = pointer_get_data(ptr);
 
 	h = da_resource(d);
+
+	if (unlikely((h->allowed_modes & mode) != mode)) {
+		io_terminate_with_error(ctx, error_ajla(EC_SYNC, AJLA_ERROR_INVALID_HANDLE), true, NULL);
+		return POINTER_FOLLOW_THUNK_EXCEPTION;
+	}
+
 	ctx->handle = h;
 
 	verify_file_handle(d);
+
+	return POINTER_FOLLOW_THUNK_GO;
 }
 
 static void io_get_dir_handle(struct io_ctx *ctx, frame_t slot)
@@ -891,6 +907,7 @@ static void * attr_fastcall io_get_std_handle_handler(struct io_ctx attr_unused 
 		goto ret_thunk;
 	h = da_resource(d);
 	h->fd = os_get_std_handle(p);
+	h->allowed_modes = MODE_READ | MODE_WRITE | MODE_BLOCK;
 
 	frame_set_pointer(ctx->fp, get_output(ctx, 1), pointer_data(d));
 	return POINTER_FOLLOW_THUNK_GO;
@@ -1015,6 +1032,8 @@ static void * attr_fastcall io_stream_open_handler(struct io_ctx *ctx)
 	if (unlikely(!d))
 		goto ret_thunk;
 
+	h = da_resource(d);
+
 	flags = 0;
 	test_symlink = false;
 
@@ -1033,12 +1052,14 @@ static void * attr_fastcall io_stream_open_handler(struct io_ctx *ctx)
 		if (ajla_flags)
 			goto invalid_op;
 		flags |= O_RDONLY;
+		h->allowed_modes = MODE_READ;
 	} else if (ctx->code == IO_Stream_Open_Write) {
 		if (ajla_flags & (IO_Open_Flag_Read | IO_Open_Flag_Write))
 			goto invalid_op;
 		flags |= O_WRONLY | O_APPEND;
 		if (!(ajla_flags & IO_Open_Flag_Append))
 			flags |= O_TRUNC;
+		h->allowed_modes = MODE_WRITE;
 	} else {
 		switch (ajla_flags & (IO_Open_Flag_Read | IO_Open_Flag_Write)) {
 			case 0x0:
@@ -1052,6 +1073,7 @@ static void * attr_fastcall io_stream_open_handler(struct io_ctx *ctx)
 			default:
 				internal(file_line, "invalid flags %x", ajla_flags);
 		}
+		h->allowed_modes = MODE_BLOCK;
 	}
 
 	if (ajla_flags & IO_Open_Flag_Create)
@@ -1097,7 +1119,6 @@ static void * attr_fastcall io_stream_open_handler(struct io_ctx *ctx)
 #endif
 	}
 
-	h = da_resource(d);
 	h->fd = p;
 	h->nonblocking = true;
 
@@ -1132,7 +1153,9 @@ static void * attr_fastcall io_stream_read_handler(struct io_ctx *ctx)
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 
-	io_get_handle(ctx, get_input(ctx, 1));
+	test = io_get_handle(ctx, get_input(ctx, 1), ctx->code == IO_Block_Read ? MODE_BLOCK : MODE_READ);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 
 	test = io_get_array_index(ctx, ctx->fp, get_input(ctx, 2), &idx pass_file_line);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
@@ -1290,7 +1313,9 @@ static void * attr_fastcall io_stream_write_handler(struct io_ctx *ctx)
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 
-	io_get_handle(ctx, get_input(ctx, 1));
+	test = io_get_handle(ctx, get_input(ctx, 1), ctx->code == IO_Block_Write ? MODE_BLOCK : MODE_WRITE);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 
 again:
 	index_from_int(&idx, 0);
@@ -1362,7 +1387,9 @@ static void * attr_fastcall io_lseek_handler(struct io_ctx *ctx)
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 
-	io_get_handle(ctx, get_input(ctx, 1));
+	test = io_get_handle(ctx, get_input(ctx, 1), MODE_BLOCK);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 
 	io_get_number(ctx, get_input(ctx, 2), int64_t, os_off_t, ctx->position);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
@@ -1394,7 +1421,9 @@ static void * attr_fastcall io_ftruncate_handler(struct io_ctx *ctx)
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 
-	io_get_handle(ctx, get_input(ctx, 1));
+	test = io_get_handle(ctx, get_input(ctx, 1), MODE_BLOCK);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 
 	io_get_number(ctx, get_input(ctx, 2), int64_t, os_off_t, ctx->position);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
@@ -1420,21 +1449,28 @@ static void * attr_fastcall io_fallocate_handler(struct io_ctx *ctx)
 {
 	void *test;
 
-	test = io_deep_eval(ctx, "0123", true);
+	test = io_deep_eval(ctx, ctx->code == IO_Block_FAllocate ? "0123" : "012", true);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 
-	io_get_handle(ctx, get_input(ctx, 1));
-
-	io_get_number(ctx, get_input(ctx, 2), int64_t, os_off_t, ctx->position);
+	test = io_get_handle(ctx, get_input(ctx, 1), ctx->code == IO_Block_FAllocate ? MODE_BLOCK : MODE_WRITE);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
-	if (unlikely(ctx->position < 0)) {
-		ctx->err = error_ajla(EC_SYNC, AJLA_ERROR_NEGATIVE_INDEX);
-		goto ret_thunk;
+
+	if (ctx->code == IO_Block_FAllocate) {
+		io_get_number(ctx, get_input(ctx, 3), int64_t, os_off_t, ctx->position);
+		if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+			goto ret_test;
+		if (unlikely(ctx->position < 0)) {
+			ctx->err = error_ajla(EC_SYNC, AJLA_ERROR_NEGATIVE_INDEX);
+			goto ret_thunk;
+		}
+	} else {
+		if (unlikely(!os_lseek(ctx->handle->fd, 2, 0, &ctx->position, &ctx->err)))
+			goto ret_thunk;
 	}
 
-	io_get_number(ctx, get_input(ctx, 3), int64_t, os_off_t, ctx->length);
+	io_get_number(ctx, get_input(ctx, 2), int64_t, os_off_t, ctx->length);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 	if (unlikely(ctx->length < 0)) {
@@ -1462,7 +1498,9 @@ static void * attr_fastcall io_fclone_range_handler(struct io_ctx *ctx)
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 
-	io_get_handle(ctx, get_input(ctx, 1));
+	test = io_get_handle(ctx, get_input(ctx, 1), MODE_BLOCK);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 	ctx->handle2 = ctx->handle;
 
 	io_get_number(ctx, get_input(ctx, 2), int64_t, os_off_t, ctx->position);
@@ -1474,7 +1512,9 @@ static void * attr_fastcall io_fclone_range_handler(struct io_ctx *ctx)
 	}
 	ctx->position2 = ctx->position;
 
-	io_get_handle(ctx, get_input(ctx, 3));
+	test = io_get_handle(ctx, get_input(ctx, 3), MODE_BLOCK);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 
 	io_get_number(ctx, get_input(ctx, 4), int64_t, os_off_t, ctx->position);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
@@ -1511,7 +1551,9 @@ static void * attr_fastcall io_fsync_handler(struct io_ctx *ctx)
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 
-	io_get_handle(ctx, get_input(ctx, 1));
+	test = io_get_handle(ctx, get_input(ctx, 1), 0);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 
 	if (unlikely(!os_fsync(ctx->handle->fd, get_param(ctx, 0), &ctx->err)))
 		goto ret_thunk;
@@ -1554,7 +1596,9 @@ static void * attr_fastcall io_read_console_packet_handler(struct io_ctx *ctx)
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 
-	io_get_handle(ctx, get_input(ctx, 1));
+	test = io_get_handle(ctx, get_input(ctx, 1), 0);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 
 	a = data_alloc_array_flat_mayfail(type_get_fixed(2, false), CONSOLE_PACKET_ENTRIES, CONSOLE_PACKET_ENTRIES, false, &ctx->err pass_file_line);
 	if (unlikely(!a))
@@ -1589,7 +1633,9 @@ static void * attr_fastcall io_write_console_packet_handler(struct io_ctx *ctx)
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 
-	io_get_handle(ctx, get_input(ctx, 1));
+	test = io_get_handle(ctx, get_input(ctx, 1), 0);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 
 	io_get_bytes(ctx, get_input(ctx, 2));
 
@@ -1630,10 +1676,12 @@ static void * attr_fastcall io_pipe_handler(struct io_ctx *ctx)
 	h1 = da_resource(d1);
 	h1->fd = result[0];
 	h1->nonblocking = true;
+	h1->allowed_modes = MODE_READ;
 
 	h2 = da_resource(d2);
 	h2->fd = result[1];
 	h2->nonblocking = true;
+	h2->allowed_modes = MODE_WRITE;
 
 	frame_set_pointer(ctx->fp, get_output(ctx, 1), pointer_data(d1));
 	frame_set_pointer(ctx->fp, get_output(ctx, 2), pointer_data(d2));
@@ -2236,7 +2284,9 @@ static void * attr_fastcall io_fstat_handler(struct io_ctx *ctx)
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		return test;
 
-	io_get_handle(ctx, get_input(ctx, 1));
+	test = io_get_handle(ctx, get_input(ctx, 1), 0);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 
 	io_get_positive_number(ctx, ctx->fp, get_input(ctx, 2), unsigned, stat_select);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
@@ -2364,7 +2414,9 @@ static void * attr_fastcall io_fstatfs_handler(struct io_ctx *ctx)
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		return test;
 
-	io_get_handle(ctx, get_input(ctx, 1));
+	test = io_get_handle(ctx, get_input(ctx, 1), 0);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
 
 	io_get_positive_number(ctx, ctx->fp, get_input(ctx, 2), unsigned, stat_select);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
@@ -2618,7 +2670,9 @@ static void * attr_fastcall io_stty_handler(struct io_ctx *ctx)
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 
-	io_get_handle(ctx, get_input(ctx, 1));
+	test = io_get_handle(ctx, get_input(ctx, 1), 0);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
 
 	io_get_positive_number(ctx, ctx->fp, get_input(ctx, 2), int, flags);
 
@@ -2666,7 +2720,9 @@ static void * attr_fastcall io_tty_size_handler(struct io_ctx *ctx)
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		return test;
 
-	io_get_handle(ctx, get_input(ctx, 1));
+	test = io_get_handle(ctx, get_input(ctx, 1), 0);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
 
 	if (unlikely(!os_tty_size(ctx->handle->fd, &nx, &ny, &ox, &oy, &ctx->err))) {
 		io_terminate_with_error(ctx, ctx->err, true, NULL);
@@ -3509,6 +3565,7 @@ static void * attr_fastcall io_socket_handler(struct io_ctx *ctx)
 	h = da_resource(d);
 	h->fd = result;
 	h->nonblocking = true;
+	h->allowed_modes = MODE_READ | MODE_WRITE;
 
 	frame_set_pointer(ctx->fp, get_output(ctx, 1), pointer_data(d));
 
@@ -3531,7 +3588,10 @@ static void * attr_fastcall io_bind_connect_handler(struct io_ctx *ctx)
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 
-	io_get_handle(ctx, get_input(ctx, 1));
+	test = io_get_handle(ctx, get_input(ctx, 1), MODE_READ | MODE_WRITE);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
+
 	io_get_bytes(ctx, get_input(ctx, 2));
 	ctx->str_l--;
 
@@ -3557,7 +3617,9 @@ static void * attr_fastcall io_connect_wait_handler(struct io_ctx *ctx)
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		return test;
 
-	io_get_handle(ctx, get_input(ctx, 1));
+	test = io_get_handle(ctx, get_input(ctx, 1), MODE_READ | MODE_WRITE);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
 
 	if (!iomux_test_handle(ctx->handle->fd, true)) {
 		io_block_on_handle(ctx, true, false);
@@ -3580,7 +3642,9 @@ static void * attr_fastcall io_listen_handler(struct io_ctx *ctx)
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		return test;
 
-	io_get_handle(ctx, get_input(ctx, 1));
+	test = io_get_handle(ctx, get_input(ctx, 1), MODE_READ | MODE_WRITE);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
 
 	if (unlikely(!os_listen(ctx->handle->fd, &ctx->err))) {
 		io_terminate_with_error(ctx, ctx->err, true, NULL);
@@ -3602,7 +3666,9 @@ static void * attr_fastcall io_accept_handler(struct io_ctx *ctx)
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		return test;
 
-	io_get_handle(ctx, get_input(ctx, 1));
+	test = io_get_handle(ctx, get_input(ctx, 1), MODE_READ | MODE_WRITE);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
 
 	d = data_alloc_resource_mayfail(sizeof(struct resource_handle), handle_close, &ctx->err pass_file_line);
 	if (unlikely(!d))
@@ -3620,6 +3686,7 @@ static void * attr_fastcall io_accept_handler(struct io_ctx *ctx)
 	h = da_resource(d);
 	h->fd = result;
 	h->nonblocking = true;
+	h->allowed_modes = MODE_READ | MODE_WRITE;
 
 	frame_set_pointer(ctx->fp, get_output(ctx, 1), pointer_data(d));
 
@@ -3643,7 +3710,9 @@ static void * attr_fastcall io_getsockpeername_handler(struct io_ctx *ctx)
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		return test;
 
-	io_get_handle(ctx, get_input(ctx, 1));
+	test = io_get_handle(ctx, get_input(ctx, 1), MODE_READ | MODE_WRITE);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
 
 	if (unlikely(!os_getsockpeername(ctx->code == IO_Get_Peer_Name, ctx->handle->fd, &addr, &addr_len, &ctx->err))) {
 		io_terminate_with_error(ctx, ctx->err, true, NULL);
@@ -3676,7 +3745,10 @@ static void * attr_fastcall io_recvfrom_handler(struct io_ctx *ctx)
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		return test;
 
-	io_get_handle(ctx, get_input(ctx, 1));
+	test = io_get_handle(ctx, get_input(ctx, 1), MODE_READ | MODE_WRITE);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
+
 	io_get_positive_number(ctx, ctx->fp, get_input(ctx, 2), int_default_t, length);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		return test;
@@ -3740,7 +3812,10 @@ static void * attr_fastcall io_sendto_handler(struct io_ctx *ctx)
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 
-	io_get_handle(ctx, get_input(ctx, 1));
+	test = io_get_handle(ctx, get_input(ctx, 1), MODE_READ | MODE_WRITE);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
+
 	io_get_bytes(ctx, get_input(ctx, 2));
 	io_get_bytes2(ctx, get_input(ctx, 4));
 
@@ -3781,7 +3856,9 @@ static void * attr_fastcall io_getsockopt_handler(struct io_ctx *ctx)
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		return test;
 
-	io_get_handle(ctx, get_input(ctx, 1));
+	test = io_get_handle(ctx, get_input(ctx, 1), MODE_READ | MODE_WRITE);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
 
 	io_get_positive_number(ctx, ctx->fp, get_input(ctx, 2), int, l);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
@@ -3823,7 +3900,9 @@ static void * attr_fastcall io_setsockopt_handler(struct io_ctx *ctx)
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		return test;
 
-	io_get_handle(ctx, get_input(ctx, 1));
+	test = io_get_handle(ctx, get_input(ctx, 1), MODE_READ | MODE_WRITE);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
 
 	io_get_positive_number(ctx, ctx->fp, get_input(ctx, 2), int, l);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
@@ -3877,6 +3956,7 @@ static void * attr_fastcall io_getaddrinfo_handler(struct io_ctx *ctx)
 	h = da_resource(d);
 	h->fd = result[0];
 	h->nonblocking = true;
+	h->allowed_modes = MODE_READ;
 
 	if (!resolver_resolve(ctx->str, port, result[1], &ctx->err))
 		goto ret_thunk_close;
@@ -3927,6 +4007,7 @@ static void * attr_fastcall io_getnameinfo_handler(struct io_ctx *ctx)
 	h = da_resource(d);
 	h->fd = result[0];
 	h->nonblocking = true;
+	h->allowed_modes = MODE_READ;
 
 	if (!resolver_resolve_reverse(ctx->str, ctx->str_l, result[1], &ctx->err))
 		goto ret_thunk_close;
@@ -3957,7 +4038,7 @@ static void io_get_msgqueue(struct io_ctx *ctx, frame_t slot)
 
 	ptr = *frame_pointer(ctx->fp, slot);
 
-	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_get_handle: pointer is thunk"));
+	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_get_msgqueue: pointer is thunk"));
 	d = pointer_get_data(ptr);
 
 	q = da_resource(d);
@@ -4975,6 +5056,7 @@ static const struct {
 	{ io_stream_read_handler },
 	{ io_stream_open_handler },
 	{ io_stream_write_handler },
+	{ io_fallocate_handler },
 	{ io_read_console_packet_handler },
 	{ io_write_console_packet_handler },
 	{ io_pipe_handler },

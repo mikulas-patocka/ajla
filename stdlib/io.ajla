@@ -228,11 +228,11 @@ fn path_append(pd pf : bytes) : bytes;
 fn path_contract(p : bytes) : bytes;
 fn path_join(pd pf : bytes) : bytes;
 fn path_canonical(w : world, d : dhandle, p : bytes) : (world, bytes);
-fn path_get_cwd(implicit w : world, d : dhandle, env : treemap(bytes, bytes)) : (world, bytes);
+fn path_get_cwd(w : world, d : dhandle, env : treemap(bytes, bytes)) : (world, bytes);
 fn path_shortcut_home(home : maybe(bytes), p : bytes) : bytes;
 fn path_expand_home(home : maybe(bytes), p : bytes) : bytes;
 fn path_mkdir(w : world, d : dhandle, f : bytes, mode : int) : world;
-fn path_xdg(implicit w : world, env : treemap(bytes, bytes), xdg_env : bytes, deflt : bytes, appname : bytes) : (world, dhandle);
+fn path_xdg(w : world, env : treemap(bytes, bytes), xdg_env : bytes, deflt : bytes, appname : bytes) : (world, dhandle);
 fn path_config(w : world, env : treemap(bytes, bytes), appname : bytes) : (world, dhandle);
 fn path_write_atomic(w : world, d : dhandle, f : bytes, content : bytes) : world;
 
@@ -411,10 +411,11 @@ fn write(w : world, h : handle, s : bytes) : world
 	return w;
 ]
 
-fn wcontiguous(implicit w : world, h : handle, size : int64) : world
+fn wcontiguous(w : world, h : handle, size : int64) : world
 [
-	var offset := bsize(h);
-	bcontiguous(w, h, offset, size);
+	var w2 : world;
+	pcode IO IO_Stream_FAllocate 1 3 0 =w2 w h size;
+	return w2;
 ]
 
 fn ropen_lazy(d : dhandle, f : bytes, flags : int) : handle
@@ -525,7 +526,7 @@ fn bsetsize(w : world, h : handle, size : int64) : world
 fn bcontiguous(w : world, h : handle, pos : int64, size : int64) : world
 [
 	var w2 : world;
-	pcode IO IO_FAllocate 1 4 0 =w2 w h pos size;
+	pcode IO IO_Block_FAllocate 1 4 0 =w2 w h size pos;
 	return w2;
 ]
 

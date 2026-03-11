@@ -278,6 +278,7 @@ IO_Stream_Open_Read
 IO_Stream_Read_Partial
 IO_Stream_Open_Write
 IO_Stream_Write
+IO_Stream_FAllocate
 IO_Read_Console_Packet
 IO_Write_Console_Packet
 IO_Pipe
@@ -286,7 +287,7 @@ IO_Block_Read
 IO_Block_Write
 IO_LSeek
 IO_FTruncate
-IO_FAllocate
+IO_Block_FAllocate
 IO_CloneRange
 IO_FSync
 IO_Sync
@@ -501,6 +502,7 @@ AJLA_ERROR_RECORD_FIELD_NOT_INITIALIZED
 AJLA_ERROR_ARRAY_ENTRY_NOT_INITIALIZED
 AJLA_ERROR_NOT_FOUND
 AJLA_ERROR_NON_ABSOLUTE_PATH
+AJLA_ERROR_INVALID_HANDLE
 AJLA_ERROR_ABORT
 AJLA_ERROR_NAN
 AJLA_ERROR_INFINITY

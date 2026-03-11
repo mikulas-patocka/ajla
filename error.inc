@@ -31,6 +31,7 @@ static const char * const error_codes[] = {
 	"Array entry not initialized",
 	"Not found",
 	"Non-absolute path",
+	"Invalid handle",
 	"Abort",
 	"Floating-point NaN",
 	"Floating-point infinity",
