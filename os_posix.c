@@ -3977,10 +3977,6 @@ void os_done_multithreaded(void)
 	for (u = 0; u < n_std_handles; u++)
 		obj_registry_remove(OBJ_TYPE_HANDLE, u, file_line);
 
-#ifdef OS_HAS_SIGNALS
-	mutex_done(&signal_state_mutex);
-#endif
-
 #if !defined(OS_DOS)
 	if (unlikely(!tree_is_empty(&proc_tree))) {
 		struct proc_handle *ph = get_struct(tree_any(&proc_tree), struct proc_handle, entry);
@@ -3988,6 +3984,10 @@ void os_done_multithreaded(void)
 		proc_handle_free(ph);
 	}
 	mutex_done(&proc_tree_mutex);
+#endif
+
+#ifdef OS_HAS_SIGNALS
+	mutex_done(&signal_state_mutex);
 #endif
 
 	os_threads_initialized = false;
