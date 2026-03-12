@@ -1060,6 +1060,11 @@ static void * attr_fastcall io_stream_open_handler(struct io_ctx *ctx)
 		if (!(ajla_flags & IO_Open_Flag_Append))
 			flags |= O_TRUNC;
 		h->allowed_modes = MODE_WRITE;
+	} else if (ctx->code == IO_Stream_Open_Read_Write) {
+		if (ajla_flags)
+			goto invalid_op;
+		flags |= O_RDWR;
+		h->allowed_modes = MODE_READ | MODE_WRITE;
 	} else {
 		switch (ajla_flags & (IO_Open_Flag_Read | IO_Open_Flag_Write)) {
 			case 0x0:
@@ -1091,12 +1096,18 @@ static void * attr_fastcall io_stream_open_handler(struct io_ctx *ctx)
 	if (unlikely(!handle_is_valid(p)))
 		goto ret_thunk;
 
-	if (ctx->code == IO_Block_Open || test_symlink) {
+	if (ctx->code == IO_Stream_Open_Read_Write || ctx->code == IO_Block_Open || test_symlink) {
 		if (unlikely(!os_fstat(p, &st, &ctx->err)))
 			goto ret_thunk;
 	}
+	if (ctx->code == IO_Stream_Open_Read_Write) {
+		 if (unlikely(!S_ISCHR(st.st_mode))
+		  && unlikely(!S_ISFIFO(st.st_mode)))
+			goto invalid_op;
+	}
 	if (ctx->code == IO_Block_Open) {
 		if (unlikely(!S_ISREG(st.st_mode))
+		 && unlikely(!S_ISCHR(st.st_mode))
 #ifdef S_ISBLK
 		 && unlikely(!S_ISBLK(st.st_mode))
 #endif
@@ -5057,6 +5068,7 @@ static const struct {
 	{ io_stream_open_handler },
 	{ io_stream_write_handler },
 	{ io_fallocate_handler },
+	{ io_stream_open_handler },
 	{ io_read_console_packet_handler },
 	{ io_write_console_packet_handler },
 	{ io_pipe_handler },

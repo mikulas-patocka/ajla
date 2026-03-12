@@ -279,6 +279,7 @@ IO_Stream_Read_Partial
 IO_Stream_Open_Write
 IO_Stream_Write
 IO_Stream_FAllocate
+IO_Stream_Open_Read_Write
 IO_Read_Console_Packet
 IO_Write_Console_Packet
 IO_Pipe
