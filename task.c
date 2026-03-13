@@ -35,8 +35,8 @@
 #include <signal.h>
 #endif
 
-shared_var unsigned nr_cpus;
-shared_var uchar_efficient_t shutting_down;
+static unsigned nr_cpus;
+static uchar_efficient_t shutting_down;
 
 #define STATE_ALL_BUSY	0
 #define STATE_SOME_BUSY	1
@@ -72,16 +72,16 @@ struct thread_pointers {
 	struct task_percpu *tpc;
 };
 
-shared_var struct node_state **nodes;
-shared_var unsigned nr_nodes;
-shared_var unsigned nr_real_nodes;
-shared_var unsigned nr_idle_nodes;
-shared_var struct thread_pointers *thread_pointers;
-shared_var bool task_initialized shared_init(false);
+static struct node_state **nodes;
+static unsigned nr_nodes;
+static unsigned nr_real_nodes;
+static unsigned nr_idle_nodes;
+static struct thread_pointers *thread_pointers;
+static bool task_initialized shared_init(false);
 
-shared_var refcount_t n_programs;
+static refcount_t n_programs;
 
-shared_var mutex_t mutex_idle_nodes;
+static mutex_t mutex_idle_nodes;
 
 static tls_decl(struct task_percpu *, task_tls);
 
