@@ -24,6 +24,7 @@
 
 #include "args.h"
 
+#include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -35,6 +36,7 @@ const char *dump_pcode = NULL;
 const char *dump_z3 = NULL;
 const char *verify = NULL;
 
+bool help = false;
 bool ipret_strict_calls = false;
 bool ipret_is_privileged = false;
 bool ipret_sandbox = false;
@@ -180,6 +182,7 @@ static const struct arg args[] = {
 	{ "--debug",			ARG_SWITCH,	debug_all,			NULL,			0, 0 },
 	{ "--debug=",			ARG_STRING,	debug_select,			NULL,			0, 0 },
 	{ "--dump-",			ARG_STRING,	dump_select,			NULL,			0, 0 },
+	{ "--help",			ARG_SWITCH,	NULL,				&help,			0, 0 },
 	{ "--noinline",			ARG_SWITCH,	NULL,				&ipret_noinline,	0, 0 },
 	{ "--nosave",			ARG_SWITCH,	NULL,				&save_disable,		0, 0 },
 	{ "--numa-nodes=",		ARG_NUMBER,	NULL,				&nr_nodes_override,	1, (unsigned)-1 },
@@ -202,6 +205,59 @@ static const struct arg args[] = {
 	{ "--verify-timeout=",		ARG_NUMBER,	NULL,				&ipret_verify_timeout,	0, signed_maximum(int32_t) },
 	{ "--warnings",			ARG_SWITCH,	NULL,				&ipret_warnings,	0, 0 },
 };
+
+static const char *help_strings[] = {
+"Ajla "AJLA_VERSION"",
+"","\
+--chicken=features	disable the specified comma-separated features","\
+	cg		disable the code generator and only use the interpreter","\
+	cg-flag-cache	disable the flag cache","\
+	cg-must-be-flat	disable the optimization for flat variables","\
+	cg-must-be-data	disable the optimization for data variables","\
+	cg-ra		disable the register allocator","\
+	cg-optimize	disable the machine code optimizer","\
+	cg-traps	disable traps on architectures that use them","\
+--compile		compile the whole program and don't run it","\
+--compile-run		compile the whole program and run it","\
+--debug			enable all debugging options","\
+--debug=features	enable specific comma-separated debugging features","\
+	magic		put magic number before all allocations","\
+	redzone		put magic number after all allocations","\
+	fill		fill memory block on allocation and freeing","\
+	leak		identify memory leaks","\
+	memory		enable magic, redzone, fill, leak","\
+	mutex		enable mutex debugging","\
+	mutex-errorcheck use the errorcheck attribute on mutexes","\
+	cond		enable condition variable debugging","\
+	thread		enable thread debugging","\
+	handles		enable handle debugging","\
+	objects		enable mutex, mutex-errorcheck, cond, thread, handles","\
+--dump-code		write the generated machine code to \"dump.s\"","\
+--dump-opencl		write the generated OpenCL code to stderr","\
+--dump-pcode		write the generated pcode code to stderr","\
+--dump-z3		write the generated z3 assertions to stderr","\
+--help			display help","\
+--noinline		disable automatic inlining","\
+--nosave		do not save and load the compiled program","\
+--numa_node=x		override the number of numa nodes to \"x\"","\
+--opencl-device=x	use the OpenCL device with index \"x\"","\
+--optimize-fp		optimize for floating point calculations (default)","\
+--optimize-int		optimize for integer calculations","\
+--profile		enable all profilng options","\
+--profile=features	enable specified comma-separated profiling features","\
+	function	print functions that consumed most CPUs","\
+	escape		print positions where the code escaped from interpreter","\
+	memory		print places where most memory was allocated","\
+--ptrcomp		enable pointer compression","\
+--sandbox		do not allow opening files or other unsafe operations","\
+--strict-calls		disable automatic parallelization","\
+--system-malloc		use the system malloc instead of Ajla malloc","\
+--thread-tick		use a thread instead of a signal for timer ticks","\
+--threads=x		override the number of CPUs to \"x\"","\
+--tick=x		tick interval in microseconds (default 10000)","\
+--verify		verify the program using z3","\
+--verify-timeout=x	a timeout to verify a function in microseconds","\
+--warnings		enable warnings in the OpenCL code" };
 
 static void process_arg(const char *arg)
 {
@@ -352,6 +408,11 @@ void args_init(int argc, const char * const argv[])
 			break;
 		}
 		process_arg(argv[i]);
+	}
+	if (unlikely(help)) {
+		for (i = 0; i < (int)n_array_elements(help_strings); i++)
+			puts(help_strings[i]);
+		exit(0);
 	}
 	args_left = argv + i;
 	n_args_left = argc - i;
