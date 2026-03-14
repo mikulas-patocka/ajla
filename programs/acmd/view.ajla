@@ -360,7 +360,7 @@ fn view_get_line(implicit as : view_async_state, b : bytes, file_pos : nat, wrap
 	]
 	assume file_pos < len(as.line_cache);
 	var tm := as.line_cache[file_pos];
-	if not is_uninitialized(tm), tm.length <= len(b) then [
+	if not is_uninitialized(tm), len_at_least(b, tm.length) then [
 		return tm.line, tm.highlight_map, b[tm.length .. ], file_pos + tm.length;
 	]
 	var bytes_processed : nat := 0;
