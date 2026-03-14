@@ -2883,7 +2883,7 @@ fn remove_redundant_frees(ctx : context) : context
 			if ctx.instrs[ctx.blocks[bgi].instrs[i]].opcode = P_Copy then [
 				var v1 := ctx.instrs[ctx.blocks[bgi].instrs[i]].params[0];
 				var v2 := ctx.instrs[ctx.blocks[bgi].instrs[i]].params[2];
-				if v1 = v2 then [
+				if v1 = v2, ctx.variables[v1].runtime_type < 0, ctx.variables[v1].runtime_type > T_Undetermined then [
 					ctx.blocks[bgi].instrs := ctx.blocks[bgi].instrs[ .. i] + ctx.blocks[bgi].instrs[i + 1 .. ];
 					continue;
 				]
