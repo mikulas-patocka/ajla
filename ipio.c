@@ -4788,6 +4788,36 @@ unsup:
 	goto ret_test;
 }
 
+static void * attr_fastcall io_forced_exit_handler(struct io_ctx *ctx)
+{
+	void *test;
+	int p;
+	ajla_error_t e;
+	struct thunk *t;
+
+	test = io_deep_eval(ctx, "01", false);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
+
+	io_get_number(ctx, get_input(ctx, 0), int_default_t, int, p);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
+
+	io_get_bytes(ctx, get_input(ctx, 1));
+
+	e = error_ajla_aux(EC_EXIT, AJLA_ERROR_EXIT, p);
+
+	t = thunk_alloc_exception_error(e, *ctx->str ? ctx->str : NULL, NULL, NULL pass_file_line);
+
+	task_force_termination(pointer_thunk(t));
+
+	pointer_dereference(pointer_thunk(t));
+
+	mem_free(ctx->str);
+
+	return io_never_handler(ctx);
+}
+
 static void * attr_fastcall io_debug_handler(struct io_ctx *ctx)
 {
 	void *test;
@@ -5147,6 +5177,7 @@ static const struct {
 	{ io_deep_eval_handler },
 	{ io_real_to_int_handler },
 	{ io_evaluate_handler },
+	{ io_forced_exit_handler },
 	{ io_debug_handler },
 	{ io_stacktrace_handler },
 	{ io_trace_ctl_handler },

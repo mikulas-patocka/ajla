@@ -358,6 +358,7 @@ IO_Register_Dependence
 IO_Deep_Eval
 IO_Real_To_Int
 IO_Evaluate
+IO_Forced_Exit
 IO_Debug
 IO_StackTrace
 IO_TraceCtl

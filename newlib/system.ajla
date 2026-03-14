@@ -436,6 +436,7 @@ implicit fn instance_real_number_fixed_point~inline(const base digits : int) : c
  - DEBUG -
  ---------}
 
+fn forced_exit(n : int, m : bytes) : unit_type;
 fn debug(m : bytes) : unit_type;
 fn warning(m : bytes) : unit_type;
 fn internal(m : bytes) : unit_type;
@@ -2821,6 +2822,13 @@ conversion fn real_number_to_real_number~inline(t1 : type, c1 : class_real_numbe
 {---------
  - DEBUG -
  ---------}
+
+fn forced_exit(n : int, m : bytes) : unit_type
+[
+	var b : unit_type;
+	pcode IO IO_Forced_Exit 1 2 0 =b n m;
+	return b;
+]
 
 fn debug(m : bytes) : unit_type
 [

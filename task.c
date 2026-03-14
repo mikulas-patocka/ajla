@@ -80,6 +80,7 @@ static struct thread_pointers *thread_pointers;
 static bool task_initialized shared_init(false);
 
 static refcount_t n_programs;
+static pointer_t forced_termination;
 
 static mutex_t mutex_idle_nodes;
 
@@ -115,10 +116,22 @@ static bool no_ex_controls(void)
 	return !sum;
 }
 
+void task_force_termination(pointer_t ptr)
+{
+	mutex_lock(&mutex_idle_nodes);
+	if (pointer_is_empty(forced_termination)) {
+		pointer_reference_owned(ptr);
+		pointer_locked_write(&forced_termination, ptr);
+	}
+	mutex_unlock(&mutex_idle_nodes);
+}
+
 static bool task_is_useless(struct execution_control *ex)
 {
 	struct thunk *thunk = ex->thunk;
-	if (refcount_is_one(&n_programs))
+	if (unlikely(refcount_is_one(&n_programs)))
+		goto ret_true;
+	if (unlikely(!pointer_is_empty(pointer_locked_read(&forced_termination))))
 		goto ret_true;
 	if (unlikely(!thunk))
 		return false;
@@ -141,9 +154,17 @@ ret_true:
 static bool task_useless(struct execution_control *ex)
 {
 	if (unlikely(task_is_useless(ex))) {
-		pointer_t ptr = pointer_thunk(thunk_alloc_exception_error(error_ajla(EC_ASYNC, AJLA_ERROR_NOT_SUPPORTED), NULL, NULL, NULL pass_file_line));
-		execution_control_terminate(ex, ptr);
-		pointer_dereference(ptr);
+		pointer_t ptr;
+		mutex_lock(&mutex_idle_nodes);
+		ptr = forced_termination;
+		mutex_unlock(&mutex_idle_nodes);
+		if (pointer_is_empty(ptr)) {
+			ptr = pointer_thunk(thunk_alloc_exception_error(error_ajla(EC_ASYNC, AJLA_ERROR_NOT_SUPPORTED), NULL, NULL, NULL pass_file_line));
+			execution_control_terminate(ex, ptr);
+			pointer_dereference(ptr);
+		} else {
+			execution_control_terminate(ex, ptr);
+		}
 		return true;
 	}
 	return false;
@@ -575,6 +596,7 @@ void name(task_init)(void)
 	unsigned n, c;
 
 	refcount_init(&n_programs);
+	forced_termination = pointer_empty();
 
 	mutex_init(&mutex_idle_nodes);
 	nr_idle_nodes = 0;
@@ -649,6 +671,9 @@ void name(task_done)(void)
 	unsigned n, c;
 
 	ajla_assert_lo(refcount_is_one(&n_programs), (file_line, "task_done: programs leaked: %"PRIuMAX"", (uintmax_t)refcount_get_nonatomic(&n_programs)));
+
+	if (!pointer_is_empty(forced_termination))
+		pointer_dereference(forced_termination);
 
 	task_initialized = false;
 	tls_done(struct task_percpu *, task_tls);

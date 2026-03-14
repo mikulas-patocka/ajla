@@ -22,6 +22,7 @@
 #include "data.h"
 
 #define task_get_numa_node	name(task_get_numa_node)
+#define task_force_termination	name(task_force_termination)
 #define task_submit		name(task_submit)
 #define task_schedule		name(task_schedule)
 #define task_ex_control_started	name(task_ex_control_started)
@@ -34,8 +35,8 @@
 
 int task_get_numa_node(void);
 
+void task_force_termination(pointer_t ptr);
 void attr_fastcall task_submit(struct execution_control *ex, unsigned spawn_mode);
-
 void * attr_fastcall task_schedule(struct execution_control *ex);
 
 void waiting_list_add(struct execution_control *ex);
