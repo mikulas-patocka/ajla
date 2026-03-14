@@ -1,7 +1,9 @@
-Before compiling Ajla, install the packages libgmp-dev and libffi-dev. If
-libgmp-dev is not installed, Ajla will use slow built-in version. If libffi-dev
-is not installed, the possibility to call C functions from Ajla will be
-disabled.
+Before compiling Ajla, install the packages libgmp-dev, libffi-dev, libnuma-dev,
+libz3-dev. If libgmp-dev is not installed, Ajla will use slow built-in version.
+If libffi-dev is not installed, the possibility to call C functions from Ajla
+will be disabled. If libnuma-dev is not installed, NUMA optimizations will be
+disabled, if libz3-dev is not installed, verification of programs using z3 will
+be disabled.
 
 You can compile and install Ajla with ./configure && make && make install
 
@@ -18,36 +20,55 @@ underclocks the cores, resulting in slower performance.
 
 
 Ajla arguments:
---compile	- compile the program without running it
---debug		- enable all debugging
---debug=magic		- put a magic value at the start every memory block
---debug=redzone		- put a redzone value at the end of every memory block
---debug=fill		- fill the allocated and free blocks with a byte pattern
---debug=leak		- test for memory leaks
---debug=memory		- enable "magic, redzone, fill, leak"
---debug=mutex-errorcheck- set pthread attribute PTHREAD_MUTEX_ERRORCHECK
---debug=mutex		- check correct usage of mutexes (also enables
-			  mutex-errorcheck)
---debug=cond		- check correct usage of condition variables
---debng=thread		- check correct usage of threads
---debug=tls		- check correct usage of thread-local storage
---debug=handles		- check correct usage of handles
---debug=objects		- enable "mutex, cond, thread, tls, handles"
---nosave	- do not save and load compiled code
---profile	- enable all profiling
---profile=function	- display functions that took most time
---profile=escapes	- display files and lines where escape from compiled
-			  code to the interpreter happend most often
---profile=memory	- display files and lines where memory allocation
-			  happened
---ptrcomp	- use 4-byte pointers and 4-byte integers by default - heap
-		  memory is limited to 32GiB
---strict-calls	- disable auto-parallelization
---system-malloc	- use system malloc instead of ajla malloc
---thread-tick	- spawn a thread that increases the tick variable instead of
-		  using signals
---threads=n	- the number of worker threads, the default is the number of
-		  threads on the system
---tick=n	- tick time in microseconds, the default is 10000
+
+--chicken=features	disable the specified comma-separated features
+	cg		disable the code generator and only use the interpreter
+	cg-flag-cache	disable the flag cache
+	cg-must-be-flat	disable the optimization for flat variables
+	cg-must-be-data	disable the optimization for data variables
+	cg-ra		disable the register allocator
+	cg-optimize	disable the machine code optimizer
+	cg-traps	disable traps on architectures that use them
+--compile		compile the whole program and don't run it
+--compile-run		compile the whole program and run it
+--debug			enable all debugging options
+--debug=features	enable specific comma-separated debugging features
+	magic		put magic number before all allocations
+	redzone		put magic number after all allocations
+	fill		fill memory block on allocation and freeing
+	leak		identify memory leaks
+	memory		enable magic, redzone, fill, leak
+	mutex		enable mutex debugging
+	mutex-errorcheck use the errorcheck attribute on mutexes
+	cond		enable condition variable debugging
+	thread		enable thread debugging
+	handles		enable handle debugging
+	objects		enable mutex, mutex-errorcheck, cond, thread, handles
+--dump-code		write the generated machine code to "dump.s"
+--dump-opencl		write the generated OpenCL code to stderr
+--dump-pcode		write the generated pcode code to stderr
+--dump-z3		write the generated z3 assertions to stderr
+--help			display help
+--noinline		disable automatic inlining
+--nosave		do not save and load the compiled program
+--numa_node=x		override the number of numa nodes to "x"
+--opencl-device=x	use the OpenCL device with index "x"
+--optimize-fp		optimize for floating point calculations (default)
+--optimize-int		optimize for integer calculations
+--profile		enable all profilng options
+--profile=features	enable specified comma-separated profiling features
+	function	print functions that consumed most CPUs
+	escape		print positions where the code escaped from interpreter
+	memory		print places where most memory was allocated
+--ptrcomp		enable pointer compression
+--sandbox		do not allow opening files or other unsafe operations
+--strict-calls		disable automatic parallelization
+--system-malloc		use the system malloc instead of Ajla malloc
+--thread-tick		use a thread instead of a signal for timer ticks
+--threads=x		override the number of CPUs to "x"
+--tick=x		tick interval in microseconds (default 10000)
+--verify		verify the program using z3
+--verify-timeout=x	a timeout to verify a function in microseconds
+--warnings		enable warnings in the OpenCL code
 
 vim: textwidth=80
