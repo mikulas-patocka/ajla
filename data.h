@@ -870,6 +870,7 @@ struct data_function_reference {
 		pointer_t *direct;
 	} u;
 	uchar_efficient_t is_indirect;
+	uchar_efficient_t is_internal;
 	arg_t n_curried_arguments;
 #ifdef DEBUG
 	/* deliberately misalign variables to catch alignment errors */

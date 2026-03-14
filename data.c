@@ -483,6 +483,7 @@ struct data * attr_fastcall data_alloc_function_reference_mayfail(arg_t n_currie
 	if (unlikely(!d))
 		return NULL;
 	mem_set_position(data_untag(d) pass_position);
+	da(d,function_reference)->is_internal = false;
 	da(d,function_reference)->n_curried_arguments = n_curried_arguments;
 
 	return d;

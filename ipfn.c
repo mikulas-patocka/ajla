@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -34,6 +34,88 @@
 #include "ipfn.h"
 
 static const timestamp_t break_ticks = 1;
+
+#define SHOULD_EVAL	1
+#define CAN_EVAL	2
+
+#define MAX_DEPTH	8
+
+/*static unsigned max_depth = 0;*/
+
+static unsigned force_eval_ptr(pointer_t pv, unsigned depth)
+{
+	pointer_t call;
+	struct thunk *t;
+	struct data *callp;
+	tag_t t_tag;
+	arg_t n_args, i, j;
+	pointer_t args[3];
+	unsigned r;
+
+	/*if (depth > max_depth) {
+		max_depth = depth;
+		debug("max depth %u", depth);
+	}*/
+
+	if (unlikely(depth > MAX_DEPTH))
+		return SHOULD_EVAL;
+
+	if (!pointer_is_thunk(pv))
+		return CAN_EVAL;
+	t = pointer_get_thunk(pv);
+	address_lock(t, DEPTH_THUNK);
+	t_tag = thunk_tag(t);
+	if (t_tag == THUNK_TAG_EXCEPTION || t_tag == THUNK_TAG_RESULT) {
+		address_unlock(t, DEPTH_THUNK);
+		return CAN_EVAL;
+	}
+	if (t_tag != THUNK_TAG_FUNCTION_CALL) {
+		address_unlock(t, DEPTH_THUNK);
+		return 0;
+	}
+	call = t->u.function_call.u.function_reference;
+	if (pointer_is_thunk(call)) {
+		address_unlock(t, DEPTH_THUNK);
+		return 0;
+	}
+	callp = pointer_get_data(call);
+	if (!da(callp,function_reference)->is_internal) {
+		address_unlock(t, DEPTH_THUNK);
+		return 0;
+	}
+	n_args = da(callp,function_reference)->n_curried_arguments;
+	if (unlikely(n_args > 3)) {
+		address_unlock(t, DEPTH_THUNK);
+		return 0;
+	}
+	for (i = 0, j = 0; i < n_args; i++) {
+		if (da(callp,function_reference)->arguments[i].tag == TYPE_TAG_unknown) {
+			args[j] = da(callp,function_reference)->arguments[i].u.ptr;
+			pointer_reference_owned(args[j]);
+			j++;
+		}
+	}
+	address_unlock(t, DEPTH_THUNK);
+	r = CAN_EVAL;
+	for (i = 0; i < j; i++) {
+		if (likely(!(r & SHOULD_EVAL))) {
+			unsigned a = force_eval_ptr(args[i], depth + 1);
+			r |= a & SHOULD_EVAL;
+			r &= a & CAN_EVAL;
+		}
+		pointer_dereference(args[i]);
+	}
+	return r;
+}
+
+static unsigned force_eval(frame_s *fp, frame_t slot)
+{
+	if (slot == NO_FRAME_T)
+		return CAN_EVAL;
+	if (frame_variable_is_flat(fp, slot))
+		return CAN_EVAL;
+	return force_eval_ptr(*frame_pointer(fp, slot), 0);
+}
 
 void eval_both(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2)
 {
@@ -104,6 +186,7 @@ static struct thunk *build_thunk(pointer_t *fn_ptr, arg_t n_arguments, struct da
 	*function_reference = data_alloc_function_reference_mayfail(n_arguments, &err pass_file_line);
 	if (unlikely(!*function_reference))
 		goto fail_err;
+	da(*function_reference,function_reference)->is_internal = true;
 	da(*function_reference,function_reference)->is_indirect = false;
 	da(*function_reference,function_reference)->u.direct = fn_ptr;
 
@@ -181,6 +264,15 @@ static void *ipret_op_build_thunk(frame_s *fp, const code_t *ip, frame_t slot_1,
 			break,
 			slot_2_eval = slot_2; break
 		);
+	}
+
+	if (!(strict_flag & OPCODE_OP_FLAG_STRICT)) {
+		unsigned force_eval_1 = force_eval(fp, slot_1_eval);
+		unsigned force_eval_2 = force_eval(fp, slot_2_eval);
+		if ((force_eval_1 | force_eval_2) & SHOULD_EVAL)
+			strict_flag |= OPCODE_OP_FLAG_STRICT;
+		else if (force_eval_1 & force_eval_2 & CAN_EVAL)
+			strict_flag |= OPCODE_OP_FLAG_STRICT;
 	}
 
 	if (strict_flag & OPCODE_OP_FLAG_STRICT) {
