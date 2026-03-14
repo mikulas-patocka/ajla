@@ -36,7 +36,8 @@ const char *dump_pcode = NULL;
 const char *dump_z3 = NULL;
 const char *verify = NULL;
 
-bool help = false;
+static bool help = false;
+static bool version = false;
 bool ipret_strict_calls = false;
 bool ipret_is_privileged = false;
 bool ipret_sandbox = false;
@@ -203,6 +204,7 @@ static const struct arg args[] = {
 	{ "--verify=",			ARG_STRING,	verify_select,			NULL,			0, 0 },
 	{ "--verify-light",		ARG_SWITCH,	NULL,				&ipret_verify_light,	0, 0 },
 	{ "--verify-timeout=",		ARG_NUMBER,	NULL,				&ipret_verify_timeout,	0, signed_maximum(int32_t) },
+	{ "--version",			ARG_SWITCH,	NULL,				&version,		0, 0 },
 	{ "--warnings",			ARG_SWITCH,	NULL,				&ipret_warnings,	0, 0 },
 };
 
@@ -257,6 +259,7 @@ static const char *help_strings[] = {
 --tick=x		tick interval in microseconds (default 10000)","\
 --verify		verify the program using z3","\
 --verify-timeout=x	a timeout to verify a function in microseconds","\
+--version		display Ajla version","\
 --warnings		enable warnings in the OpenCL code" };
 
 static void process_arg(const char *arg)
@@ -412,6 +415,10 @@ void args_init(int argc, const char * const argv[])
 	if (unlikely(help)) {
 		for (i = 0; i < (int)n_array_elements(help_strings); i++)
 			puts(help_strings[i]);
+		exit(0);
+	}
+	if (unlikely(version)) {
+		puts(help_strings[0]);
 		exit(0);
 	}
 	args_left = argv + i;

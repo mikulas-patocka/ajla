@@ -69,6 +69,7 @@ Ajla arguments:
 --tick=x		tick interval in microseconds (default 10000)
 --verify		verify the program using z3
 --verify-timeout=x	a timeout to verify a function in microseconds
+--version		display Ajla version
 --warnings		enable warnings in the OpenCL code
 
 vim: textwidth=80
