@@ -102,7 +102,6 @@ record variable [
 	must_be_flat : bool;
 	must_be_data : bool;
 	must_be_array : bool;
-	must_be_writable_array : bool;
 	nogvn : bool;
 	name : bytes;
 
@@ -131,7 +130,6 @@ fn new_variable : variable
 		must_be_flat : false,
 		must_be_data : false,
 		must_be_array : false,
-		must_be_writable_array : false,
 		nogvn : false,
 		name : "",
 		writing_instrs : -1,

@@ -27,7 +27,6 @@ unsupported pointer mode
 #endif
 
 static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg, unsigned tag, unsigned cond, uint32_t label, unsigned tmp_reg, bool subtract, bool need_flags);
-static bool attr_w gen_compare_tag_and_refcount(struct codegen_context *ctx, unsigned reg, unsigned tag, uint32_t label, unsigned attr_unused tmp_reg);
 static bool attr_w gen_frame_decompress_slot(struct codegen_context *ctx, frame_t slot, unsigned reg, unsigned *dest, uint32_t escape_label);
 
 static bool test_ptr_is_not_thunk(struct codegen_context *ctx, frame_t slot)
@@ -166,10 +165,7 @@ static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *vari
 				g(gen_frame_decompress_slot(ctx, v, R_SCRATCH_1, &reg, 0));
 				if (is_arg)
 					g(gen_cmp_test_jmp(ctx, INSN_TEST, OP_SIZE_ADDRESS, reg, reg, COND_E, skip_label));
-				if (da(ctx->fn,function)->local_variables_flags[v].must_be_data == 2)
-					g(gen_compare_ptr_tag(ctx, reg, DATA_TAG_array_flat, COND_NE, label, R_SCRATCH_2, false, false));
-				else
-					g(gen_compare_tag_and_refcount(ctx, reg, DATA_TAG_array_flat, label, R_SCRATCH_2));
+				g(gen_compare_ptr_tag(ctx, reg, DATA_TAG_array_flat, COND_NE, label, R_SCRATCH_2, false, false));
 				if (is_arg)
 					gen_label(skip_label);
 			}
@@ -410,10 +406,7 @@ static bool attr_w gen_test_tag(struct codegen_context *ctx, frame_t slot, unsig
 #else
 		reg2 = reg;
 #endif
-		if (da(ctx->fn,function)->local_variables_flags[slot].must_be_data == 2)
-			g(gen_compare_ptr_tag(ctx, reg2, DATA_TAG_array_flat, COND_NE, label, R_SCRATCH_4, false, false));
-		else
-			g(gen_compare_tag_and_refcount(ctx, reg2, DATA_TAG_array_flat, label, R_SCRATCH_4));
+		g(gen_compare_ptr_tag(ctx, reg2, DATA_TAG_array_flat, COND_NE, label, R_SCRATCH_4, false, false));
 	}
 	return true;
 }

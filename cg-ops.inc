@@ -67,10 +67,7 @@ static bool attr_w gen_ref_move_copy(struct codegen_context *ctx, code_t code, f
 #else
 		reg2 = reg;
 #endif
-		if (da(ctx->fn,function)->local_variables_flags[slot_r].must_be_data == 2)
-			g(gen_compare_ptr_tag(ctx, reg2, DATA_TAG_array_flat, COND_NE, escape_label, R_SCRATCH_2, false, false));
-		else
-			g(gen_compare_tag_and_refcount(ctx, reg2, DATA_TAG_array_flat, escape_label, R_SCRATCH_2));
+		g(gen_compare_ptr_tag(ctx, reg2, DATA_TAG_array_flat, COND_NE, escape_label, R_SCRATCH_2, false, false));
 	}
 	g(gen_frame_store(ctx, OP_SIZE_SLOT, slot_r, 0, reg));
 	g(gen_set_1(ctx, R_FRAME, slot_r, 0, true));
@@ -1122,10 +1119,7 @@ static bool attr_w gen_array_store_flat(struct codegen_context *ctx, frame_t slo
 
 	g(gen_frame_decompress_slot(ctx, slot_struct, R_SCRATCH_1, &reg_struct, escape_label));
 
-	if (da(ctx->fn,function)->local_variables_flags[slot_struct].must_be_data < 3)
-		g(gen_compare_tag_and_refcount(ctx, reg_struct, DATA_TAG_array_flat, escape_label, R_SCRATCH_2));
-	/*else
-		debug("eliding array check in %s", da(ctx->fn,function)->function_name);*/
+	g(gen_compare_tag_and_refcount(ctx, reg_struct, DATA_TAG_array_flat, escape_label, R_SCRATCH_2));
 
 	g(gen_frame_get(ctx, OP_SIZE_INT, array_index_extension, slot_idx, R_SCRATCH_2, &reg_idx));
 

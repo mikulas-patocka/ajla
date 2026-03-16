@@ -3608,7 +3608,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 			/*if (pt->type->tag == TYPE_TAG_flat_option && !(pt->varflags & VarFlag_Must_Be_Flat))
 				debug("non-flat variable in %s", function_name(ctx));*/
 			ctx->local_variables_flags[pt->slot].must_be_flat = unlikely((chicken & CHICKEN_CG_MUST_BE_FLAT) != 0) ? 0 : !!(pt->varflags & VarFlag_Must_Be_Flat);
-			ctx->local_variables_flags[pt->slot].must_be_data = unlikely((chicken & CHICKEN_CG_MUST_BE_DATA) != 0) ? 0 : !!(pt->varflags & VarFlag_Must_Be_Data) + !!(pt->varflags & VarFlag_Must_Be_Array) + !!(pt->varflags & VarFlag_Must_Be_Writable_Array);
+			ctx->local_variables_flags[pt->slot].must_be_data = unlikely((chicken & CHICKEN_CG_MUST_BE_DATA) != 0) ? 0 : !!(pt->varflags & VarFlag_Must_Be_Data) + !!(pt->varflags & VarFlag_Must_Be_Array);
 			ctx->local_variables_flags[pt->slot].is_argument = false;
 		}
 	}

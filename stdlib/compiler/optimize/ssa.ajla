@@ -2335,7 +2335,6 @@ in_loop2:
 					]
 					if instr.opcode = P_Structured_Write, instr.params[3] = vgi, instr.params[6] = Structured_Array, instr.params[8] < 0, instr.params[8] >= T_Bool then [
 						ctx.variables[vgi].must_be_array := true;
-						ctx.variables[vgi].must_be_writable_array := true;
 					]
 					ctx.variables[vgi].ra_priority += add;
 				]
@@ -2350,7 +2349,6 @@ in_loop2:
 				var rt := ctx.variables[vgi].runtime_type;
 				if rt = T_Undetermined then [
 					ctx.variables[vgi].must_be_array := true;
-					ctx.variables[vgi].must_be_writable_array := true;
 					ctx.variables[vgi].ra_priority += add;
 				]
 			]
@@ -2390,9 +2388,6 @@ in_loop2:
 
 					ctx.variables[src].must_be_array := v_src.must_be_array or v_dst.must_be_array;
 					ctx.variables[dst].must_be_array := v_src.must_be_array or v_dst.must_be_array;
-
-					ctx.variables[src].must_be_writable_array := v_src.must_be_writable_array or v_dst.must_be_writable_array;
-					ctx.variables[dst].must_be_writable_array := v_src.must_be_writable_array or v_dst.must_be_writable_array;
 				]
 			]
 		]
@@ -2759,7 +2754,7 @@ fn instance_ord_type_index(ctx : context) : class_ord(int) :=
 
 fn allocate_variables(ctx : context) : context
 [
-	var type_to_var_set : list(var_set) := fill(var_set, 0, (len(ctx.local_types) - T_Undetermined) * 16);
+	var type_to_var_set : list(var_set) := fill(var_set, 0, (len(ctx.local_types) - T_Undetermined) * 8);
 	for vgi := 0 to len(ctx.variables) do [
 		var v := ctx.variables[vgi];
 		if v.color = -1 then
@@ -2774,7 +2769,7 @@ fn allocate_variables(ctx : context) : context
 		var rt := v.runtime_type;
 		if rt < T_Undetermined then
 			abort internal("allocate_variables: invalid runtime_type: " + ctx.name + ", " + ntos(vgi) + "(" + v.name + "): " + ntos(rt));
-		type_to_var_set[(rt - T_Undetermined) * 8 + select(v.must_be_flat, 0, 1) + select(v.must_be_data, 0, 2) + select(v.must_be_array, 0, 4) + select(v.must_be_writable_array, 0, 8)] bts= vgi;
+		type_to_var_set[(rt - T_Undetermined) * 8 + select(v.must_be_flat, 0, 1) + select(v.must_be_data, 0, 2) + select(v.must_be_array, 0, 4)] bts= vgi;
 		if not ctx.cm[vgi] bt vgi then
 			abort internal("self-bit not set for variable " + ntos(vgi));
 		ctx.variables[vgi].color := -1;
@@ -3265,7 +3260,6 @@ did_verify:
 		rpc +<= select(v.must_be_flat, 0, VarFlag_Must_Be_Flat) or
 			select(v.must_be_data, 0, VarFlag_Must_Be_Data) or
 			select(v.must_be_array, 0, VarFlag_Must_Be_Array) or
-			select(v.must_be_writable_array, 0, VarFlag_Must_Be_Writable_Array) or
 			select(v.nogvn, 0, VarFlag_NoGVN) or
 			select(specialized_vars bt i, 0, VarFlag_Specialize);
 		rpc += blob_store(v.name);
