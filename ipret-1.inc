@@ -2001,6 +2001,7 @@ DEFINE_OPCODE_START(OPCODE_STRUCTURED)
 	unsigned char *struc_flat;
 	const struct type *t;
 	bool optimize_elem_is_flat;
+	bool elem_is_unevaluated;
 
 	unsigned char type;
 	frame_t arg;
@@ -2008,7 +2009,9 @@ DEFINE_OPCODE_START(OPCODE_STRUCTURED)
 	pointer_t thunk_ptr;
 
 	elem = get_i_param(1);
+cat(structured_retry_test_elem_,ARG_MODE):
 	optimize_elem_is_flat = data_to_flat(fp, elem);
+	elem_is_unevaluated = slot_is_unevaluated(fp, elem);
 
 cat(structured_retry_,ARG_MODE):
 	struc = get_i_param(0);
@@ -2017,6 +2020,16 @@ cat(structured_retry_,ARG_MODE):
 	t = frame_get_type_of_local(fp, struc);
 	if (frame_variable_is_flat(fp, struc)) {
 		if (!optimize_elem_is_flat) {
+			if (unlikely(elem_is_unevaluated)) {
+				struct data attr_unused *data_elem;
+cat(structured_evaluate_elem_,ARG_MODE):
+				ip = orig_ip;
+				pointer_follow(frame_pointer(fp, elem), true, data_elem, PF_WAIT, fp, orig_ip,
+					RELOAD_EX_POSITION(ex_),
+					goto cat(structured_retry_test_elem_,ARG_MODE);
+				);
+				goto cat(structured_retry_test_elem_,ARG_MODE);
+			}
 			frame_set_pointer(fp, struc, flat_to_data(frame_get_type_of_local(fp, struc), frame_var(fp, struc)));
 			struc_flat = NULL;
 			struc_ptr = frame_pointer(fp, struc);
@@ -2096,6 +2109,8 @@ cat(structured_restart_pointer_follow_,ARG_MODE):
 					struc_ptr = frame_pointer(da_record_frame(data), arg);
 
 					if (type & OPCODE_STRUCTURED_FLAG_END) {
+						if (unlikely(elem_is_unevaluated))
+							goto cat(structured_evaluate_elem_,ARG_MODE);
 						if (frame_variable_is_flat(fp, elem)) {
 							if (TYPE_IS_FLAT(t)) {
 								frame_free(da_record_frame(data), arg);
@@ -2109,6 +2124,8 @@ cat(structured_restart_pointer_follow_,ARG_MODE):
 					}
 
 					if (!frame_test_flag(da_record_frame(data), arg)) {
+						if (unlikely(elem_is_unevaluated))
+							goto cat(structured_evaluate_elem_,ARG_MODE);
 						struc_flat = frame_var(da_record_frame(data), arg);
 						if (unlikely(!optimize_elem_is_flat)) {
 							frame_set_pointer(da_record_frame(data), arg, flat_to_data(t, struc_flat));
@@ -2159,6 +2176,8 @@ cat(structured_error_,ARG_MODE):
 							goto cat(structured_restart_pointer_follow_,ARG_MODE);
 						}
 					}
+					if (unlikely(elem_is_unevaluated) && da_tag(data) == DATA_TAG_array_flat)
+						goto cat(structured_evaluate_elem_,ARG_MODE);
 					if (!optimize_elem_is_flat) {
 						array_flags = ARRAY_MODIFY_NEED_PTR;
 					} else if (type & OPCODE_STRUCTURED_FLAG_END) {

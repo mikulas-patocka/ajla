@@ -1850,6 +1850,19 @@ again:
 	return false;
 }
 
+bool attr_fastcall slot_is_unevaluated(frame_s *fp, frame_t slot)
+{
+	pointer_t ptr;
+	if (likely(!frame_test_flag(fp, slot)))
+		return false;
+	ptr = *frame_pointer(fp, slot);
+	if (pointer_is_thunk(ptr)) {
+		struct thunk *t = pointer_get_thunk(ptr);
+		return thunk_tag_volatile(t) != THUNK_TAG_EXCEPTION;
+	}
+	return false;
+}
+
 
 void attr_fastcall struct_clone(pointer_t *ptr)
 {
