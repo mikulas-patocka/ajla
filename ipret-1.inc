@@ -2109,8 +2109,6 @@ cat(structured_restart_pointer_follow_,ARG_MODE):
 					struc_ptr = frame_pointer(da_record_frame(data), arg);
 
 					if (type & OPCODE_STRUCTURED_FLAG_END) {
-						if (unlikely(elem_is_unevaluated))
-							goto cat(structured_evaluate_elem_,ARG_MODE);
 						if (frame_variable_is_flat(fp, elem)) {
 							if (TYPE_IS_FLAT(t)) {
 								frame_free(da_record_frame(data), arg);
@@ -2124,8 +2122,6 @@ cat(structured_restart_pointer_follow_,ARG_MODE):
 					}
 
 					if (!frame_test_flag(da_record_frame(data), arg)) {
-						if (unlikely(elem_is_unevaluated))
-							goto cat(structured_evaluate_elem_,ARG_MODE);
 						struc_flat = frame_var(da_record_frame(data), arg);
 						if (unlikely(!optimize_elem_is_flat)) {
 							frame_set_pointer(da_record_frame(data), arg, flat_to_data(t, struc_flat));
