@@ -635,7 +635,7 @@ static void done_ctx(struct codegen_context *ctx)
 		mem_free(ctx->code_labels);
 	if (ctx->code_exits) {
 		ip_t ip;
-		ip_t cs = da(ctx->fn,function)->code_size;
+		ip_t cs = da(ctx->fn,function)->code_size * CG_EXIT_MULTIPLIER;
 		for (ip = 0; ip < cs; ip++) {
 			if (ctx->code_exits[ip])
 				mem_free(ctx->code_exits[ip]);
@@ -756,9 +756,9 @@ static uint32_t alloc_label(struct codegen_context *ctx)
 	return l;
 }
 
-static struct cg_exit *alloc_cg_exit_for_ip(struct codegen_context *ctx, const code_t *code)
+static struct cg_exit *alloc_cg_exit_for_ip(struct codegen_context *ctx, const code_t *code, unsigned flags)
 {
-	ip_t ip = code - da(ctx->fn,function)->code;
+	ip_t ip = ((code - da(ctx->fn,function)->code) * CG_EXIT_MULTIPLIER) | flags;
 	struct cg_exit *ce = ctx->code_exits[ip];
 	if (!ce) {
 		ce = mem_calloc_mayfail(struct cg_exit *, sizeof(struct cg_exit), &ctx->err);
@@ -771,7 +771,7 @@ static struct cg_exit *alloc_cg_exit_for_ip(struct codegen_context *ctx, const c
 
 static struct cg_exit *alloc_undo_label(struct codegen_context *ctx)
 {
-	struct cg_exit *ce = alloc_cg_exit_for_ip(ctx, ctx->instr_start);
+	struct cg_exit *ce = alloc_cg_exit_for_ip(ctx, ctx->instr_start, 0);
 	if (unlikely(!ce))
 		return NULL;
 	if (unlikely(ce->undo_label != 0))
@@ -782,9 +782,9 @@ static struct cg_exit *alloc_undo_label(struct codegen_context *ctx)
 	return ce;
 }
 
-static uint32_t alloc_escape_label_for_ip(struct codegen_context *ctx, const code_t *code)
+static uint32_t alloc_escape_label_for_ip(struct codegen_context *ctx, const code_t *code, unsigned flags)
 {
-	struct cg_exit *ce = alloc_cg_exit_for_ip(ctx, code);
+	struct cg_exit *ce = alloc_cg_exit_for_ip(ctx, code, flags);
 	if (!ce)
 		return 0;
 	if (!ce->escape_label) {
@@ -798,7 +798,7 @@ static uint32_t alloc_escape_label_for_ip(struct codegen_context *ctx, const cod
 
 static uint32_t alloc_escape_label(struct codegen_context *ctx)
 {
-	return alloc_escape_label_for_ip(ctx, ctx->instr_start);
+	return alloc_escape_label_for_ip(ctx, ctx->instr_start, 0);
 }
 
 static uint32_t attr_unused alloc_call_label(struct codegen_context *ctx)
@@ -1884,7 +1884,7 @@ skip_dereference:
 				ce->entry_label = entry_label;
 
 				if (n_vars || ctx->unreachable) {
-					nonflat_label = alloc_escape_label_for_ip(ctx, ctx->current_position);
+					nonflat_label = alloc_escape_label_for_ip(ctx, ctx->current_position, CG_EXIT_FLAG_NONFLAT);
 					if (unlikely(!nonflat_label))
 						return false;
 					ce->nonflat_label = nonflat_label;
@@ -1895,7 +1895,7 @@ skip_dereference:
 					g(gen_timestamp_test(ctx, ctx->escape_nospill_label));
 				} else {
 					if (!n_vars) {
-						struct cg_exit *ce = alloc_cg_exit_for_ip(ctx, ctx->instr_start);
+						struct cg_exit *ce = alloc_cg_exit_for_ip(ctx, ctx->instr_start, 0);
 						if (unlikely(!ce))
 							return false;
 						ce->nospill = true;
@@ -2281,7 +2281,7 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 
 static bool attr_w gen_epilogues(struct codegen_context *ctx)
 {
-	ip_t ip;
+	ip_t ip, cs;
 	uint32_t escape_label, nospill_label;
 	escape_label = alloc_label(ctx);
 	if (unlikely(!escape_label))
@@ -2302,7 +2302,8 @@ static bool attr_w gen_epilogues(struct codegen_context *ctx)
 	}
 	gen_label(ctx->escape_nospill_label);
 	g(gen_escape_arg(ctx, 0, nospill_label));
-	for (ip = 0; ip < da(ctx->fn,function)->code_size; ip++) {
+	cs = da(ctx->fn,function)->code_size * CG_EXIT_MULTIPLIER;
+	for (ip = 0; ip < cs; ip++) {
 		struct cg_exit *ce = ctx->code_exits[ip];
 		if (ce && (ce->undo_label || ce->escape_label)) {
 			if (ce->undo_label) {
@@ -2614,7 +2615,11 @@ next_one:;
 	if (unlikely(!ctx->code_labels))
 		goto fail;
 
-	ctx->code_exits = mem_alloc_array_mayfail(mem_calloc_mayfail, struct cg_exit **, 0, 0, da(ctx->fn,function)->code_size, sizeof(struct cg_exit *), &ctx->err);
+	if (unlikely((ip_t)(da(ctx->fn,function)->code_size * CG_EXIT_MULTIPLIER / CG_EXIT_MULTIPLIER) != da(ctx->fn,function)->code_size)) {
+		ctx->err = error_ajla(EC_SYNC, AJLA_ERROR_SIZE_OVERFLOW);
+		goto fail;
+	}
+	ctx->code_exits = mem_alloc_array_mayfail(mem_calloc_mayfail, struct cg_exit **, 0, 0, da(ctx->fn,function)->code_size * CG_EXIT_MULTIPLIER, sizeof(struct cg_exit *), &ctx->err);
 	if (unlikely(!ctx->code_exits))
 		goto fail;
 

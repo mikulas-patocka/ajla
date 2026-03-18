@@ -432,7 +432,7 @@ static bool attr_w gen_frame_set_pointer(struct codegen_context *ctx, frame_t sl
 			src = R_SAVED_1;
 	}
 	if (escape_on_thunk || escape_on_tag) {
-		uint32_t nondata_label = alloc_escape_label_for_ip(ctx, ctx->current_position);
+		uint32_t nondata_label = alloc_escape_label_for_ip(ctx, ctx->current_position, CG_EXIT_FLAG_NONFLAT);
 		if (unlikely(!nondata_label))
 			return false;
 		if (escape_on_thunk)

@@ -1302,13 +1302,33 @@ DEFINE_OPCODE_START(OPCODE_CHECKPOINT)
 		} else {
 			/*if (fp != new_fp) debug("switching function: %s -> %s", da(fn,function)->function_name, da(get_frame(new_fp)->function,function)->function_name);*/
 			fp = new_fp;
-			ip = da(get_frame(fp)->function,function)->code + new_ip;
+			fn = get_frame(fp)->function;
+			ip = da(fn,function)->code + new_ip / CG_EXIT_MULTIPLIER;
 			if (unlikely(profiling_escapes)) {
 				profile_counter_t profiling_counter;
-				fn = get_frame(fp)->function;
-				profiling_counter = load_relaxed(&da(fn,function)->escape_data[new_ip].counter);
+				profiling_counter = load_relaxed(&da(fn,function)->escape_data[new_ip / CG_EXIT_MULTIPLIER].counter);
 				profiling_counter++;
-				store_relaxed(&da(fn,function)->escape_data[new_ip].counter, profiling_counter);
+				store_relaxed(&da(fn,function)->escape_data[new_ip / CG_EXIT_MULTIPLIER].counter, profiling_counter);
+			}
+			if (unlikely((new_ip & CG_EXIT_FLAG_NONFLAT) != 0)) {
+				frame_t l, n;
+				n = function_n_variables(fn);
+				/*debug("nonflat exit: %s", da(fn,function)->function_name);*/
+				for (l = MIN_USEABLE_SLOT; l < n; l++) {
+					if (da(fn,function)->local_variables_flags[l].must_be_flat) {
+						if (unlikely(frame_test_flag(fp, l))) {
+							if (!data_to_flat(fp, l)) {
+								if (force_eval(fp, l)) {
+									struct data attr_unused *data_x;
+									pointer_follow(frame_pointer(fp, l), true, data_x, PF_WAIT, fp, ip,
+										RELOAD_EX_POSITION(ex_),
+										break
+									);
+								}
+							}
+						}
+					}
+				}
 			}
 		}
 #endif

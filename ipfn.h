@@ -22,6 +22,7 @@
 #include "data.h"
 #include "ipunalg.h"
 
+#define force_eval				name(force_eval)
 #define eval_both				name(eval_both)
 #define ipret_fill_function_reference_from_slot	name(ipret_fill_function_reference_from_slot)
 #define thunk_fixed_operator			name(thunk_fixed_operator)
@@ -71,6 +72,9 @@
 #define get_max_i_param(ip, n)	get_max_param(ip + 1, n)
 
 
+#define SHOULD_EVAL	1
+#define CAN_EVAL	2
+unsigned force_eval(frame_s *fp, frame_t slot);
 void eval_both(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2);
 
 void attr_hot_fastcall ipret_fill_function_reference_from_slot(struct data *function_reference, arg_t a, frame_s *fp, frame_t slot, bool deref);

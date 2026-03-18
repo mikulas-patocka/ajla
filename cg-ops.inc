@@ -3153,7 +3153,7 @@ duplicate2:;
 	for (i = 0; i < slot_1; i++)
 		flag_set_unknown(ctx, ctx->var_aux_2[i]);
 
-	escape_label = alloc_escape_label_for_ip(ctx, ctx->current_position);
+	escape_label = alloc_escape_label_for_ip(ctx, ctx->current_position, CG_EXIT_FLAG_NONFLAT);
 	if (unlikely(!escape_label))
 		return false;
 

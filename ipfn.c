@@ -35,9 +35,6 @@
 
 static const timestamp_t break_ticks = 1;
 
-#define SHOULD_EVAL	1
-#define CAN_EVAL	2
-
 #define MAX_DEPTH	8
 
 /*static unsigned max_depth = 0;*/
@@ -108,7 +105,7 @@ static unsigned force_eval_ptr(pointer_t pv, unsigned depth)
 	return r;
 }
 
-static unsigned force_eval(frame_s *fp, frame_t slot)
+unsigned force_eval(frame_s *fp, frame_t slot)
 {
 	if (slot == NO_FRAME_T)
 		return CAN_EVAL;

@@ -975,6 +975,8 @@ struct data_function_types {
 };
 
 #ifdef HAVE_CODEGEN
+#define CG_EXIT_FLAG_NONFLAT		1
+#define CG_EXIT_MULTIPLIER		2
 #if defined(ARCH_X86_32) || defined(ARCH_ARM32) || defined(ARCH_MIPS32) || defined(ARCH_POWER32) || defined(ARCH_SPARC32)
 typedef uint64_t code_return_t;
 #else
