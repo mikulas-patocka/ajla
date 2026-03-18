@@ -1328,6 +1328,17 @@ DEFINE_OPCODE_START(OPCODE_CHECKPOINT)
 							}
 						}
 					}
+					if (da(fn,function)->local_variables_flags[l].must_be_data) {
+						if (likely(frame_test_flag(fp, l))) {
+							pointer_t *ptr = frame_pointer(fp, l);
+							if (unlikely(pointer_is_thunk(*ptr))) {
+								struct thunk *t = pointer_get_thunk(*ptr);
+								if (thunk_is_finished(t)) {
+									pointer_resolve_result(ptr);
+								}
+							}
+						}
+					}
 				}
 			}
 		}
