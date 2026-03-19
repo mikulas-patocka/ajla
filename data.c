@@ -3206,7 +3206,7 @@ static bool attr_fastcall save_exception(void *data, uintptr_t offset, size_t at
 bool data_save(void *p, uintptr_t offset, size_t *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_l)
 {
 	tag_t tag = da_thunk_tag(p);
-	if (tag >= DATA_TAG_START && tag < DATA_TAG_END) {
+	if (tag >= DATA_TAG_START + zero && tag < DATA_TAG_END) {
 		p = data_pointer_tag(p, tag);
 	} else {
 		p = thunk_pointer_tag(p);

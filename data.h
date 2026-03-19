@@ -1044,40 +1044,40 @@ struct data_saved_cache {
 
 typedef uchar_efficient_t tag_t;
 
-#define DATA_TAG_START				1
-#define DATA_TAG_flat				1
-#define DATA_TAG_longint			2
-#define DATA_TAG_record				3
-#define DATA_TAG_option				4
-#define DATA_TAG_array_flat			5
-#define DATA_TAG_array_slice			6
-#define DATA_TAG_array_pointers			7
-#define DATA_TAG_array_same			8
-#define DATA_TAG_array_btree			9
-#define DATA_TAG_array_incomplete		10
-#define DATA_TAG_function_reference		11
-#define DATA_TAG_resource			12
-#define DATA_TAG_function			13
-#define DATA_TAG_function_types			14
+#define DATA_TAG_START				0
+#define DATA_TAG_array_flat			0
+#define DATA_TAG_array_slice			1
+#define DATA_TAG_array_pointers			2
+#define DATA_TAG_array_same			3
+#define DATA_TAG_array_btree			4
+#define DATA_TAG_array_incomplete		5
+#define DATA_TAG_flat				6
+#define DATA_TAG_longint			7
+#define DATA_TAG_record				8
+#define DATA_TAG_option				9
+#define DATA_TAG_function_reference		10
+#define DATA_TAG_resource			11
+#define DATA_TAG_function			12
+#define DATA_TAG_function_types			13
 #ifdef HAVE_CODEGEN
-#define DATA_TAG_codegen			15
+#define DATA_TAG_codegen			14
 #endif
-#define DATA_TAG_internal			16
-#define DATA_TAG_saved				17
-#define DATA_TAG_saved_cache			18
-#define DATA_TAG_END				19
+#define DATA_TAG_internal			15
+#define DATA_TAG_saved				16
+#define DATA_TAG_saved_cache			17
+#define DATA_TAG_END				18
 
-#define THUNK_TAG_START				19
-#define THUNK_TAG_FUNCTION_CALL			19
-#define THUNK_TAG_BLACKHOLE			20
-#define THUNK_TAG_BLACKHOLE_SOME_DEREFERENCED	21
-#define THUNK_TAG_BLACKHOLE_DEREFERENCED	22
-#define THUNK_TAG_RESULT			23
-#define THUNK_TAG_MULTI_RET_REFERENCE		24
-#define THUNK_TAG_EXCEPTION			25
-#define THUNK_TAG_END				26
+#define THUNK_TAG_START				18
+#define THUNK_TAG_FUNCTION_CALL			18
+#define THUNK_TAG_BLACKHOLE			19
+#define THUNK_TAG_BLACKHOLE_SOME_DEREFERENCED	20
+#define THUNK_TAG_BLACKHOLE_DEREFERENCED	21
+#define THUNK_TAG_RESULT			22
+#define THUNK_TAG_MULTI_RET_REFERENCE		23
+#define THUNK_TAG_EXCEPTION			24
+#define THUNK_TAG_END				25
 
-#define TAG_END					26
+#define TAG_END					25
 
 #if defined(POINTER_TAG_AT_ALLOC) && DATA_TAG_END <= (1 << POINTER_IGNORE_BITS) / 2
 #define DATA_TAG_AT_ALLOC
@@ -1123,7 +1123,7 @@ struct data {
 #else
 #define da_tag_(data)		((data)->tag)
 #endif
-#define da_tag(data)		(ajla_assert(da_tag_(data) >= DATA_TAG_START && da_tag_(data) < DATA_TAG_END, (file_line, "invalid data tag %u", da_tag_(data))), da_tag_(data))
+#define da_tag(data)		(ajla_assert(da_tag_(data) >= DATA_TAG_START + zero && da_tag_(data) < DATA_TAG_END, (file_line, "invalid data tag %u", da_tag_(data))), da_tag_(data))
 #define da_assert(data, kind)	(ajla_assert(da_tag_(data) == DATA_TAG_##kind, (file_line, "data tag %u, expected %u", da_tag_(data), DATA_TAG_##kind)))
 #define da(data, kind)		(da_assert(data,kind), &(data)->u_.kind)
 
@@ -1160,7 +1160,7 @@ static attr_always_inline unsigned char *da_array_flat(struct data *d)
 	da_assert(d,array_flat);
 	return cast_ptr(unsigned char *, d) + data_array_offset;
 }
-#define DATA_TAG_is_array(tag)		((tag) >= DATA_TAG_array_flat && (tag) <= DATA_TAG_array_btree)
+#define DATA_TAG_is_array(tag)		((tag) >= DATA_TAG_array_flat + zero && (tag) <= DATA_TAG_array_btree)
 #define da_array_flat_element_size(d) ((size_t)da(d,array_flat)->type->size)
 #define da_array_depth(d)	(ajla_assert(DATA_TAG_is_array(da_tag(d)), (file_line, "da_array_depth: invalid tag %u", da_tag(d))), da_tag(d) == DATA_TAG_array_btree ? (int)da(d,array_btree)->depth : -1)
 #define da_array_assert_son(parent, son)	(			\
@@ -1222,7 +1222,6 @@ static inline void *data_untag_(void *d, const char attr_unused *fl)
 	mask = mask | (mask >> 2);
 	mask = mask | (mask >> 4);
 	mask = mask | (mask >> 8);
-	ajla_assert((ptr_to_num(d) & ((uintptr_t)mask << POINTER_IGNORE_START)) != 0, (fl, "data_untag_: pointer not tagged: %p", d));
 	return num_to_ptr(ptr_to_num(d) & ~((uintptr_t)mask << POINTER_IGNORE_START));
 #else
 	return d;
@@ -1338,7 +1337,7 @@ static inline tag_t da_thunk_tag_(void *dt, const char attr_unused *position)
 	ajla_assert(offsetof(struct data, refcount_) == offsetof(struct thunk, refcount_), (position, "da_thunk_tag: the data_structure doesn't match the thunk structure"));
 	tag = refcount_tag_get(cast_ptr(refcount_t *, cast_ptr(char *, dt) + offsetof(struct data, refcount_)));
 #endif
-	ajla_assert(tag >= DATA_TAG_START && tag < TAG_END, (position, "invalid thunk tag %u", tag));
+	ajla_assert(tag >= DATA_TAG_START + zero && tag < TAG_END, (position, "invalid thunk tag %u", tag));
 	return tag;
 }
 #define da_thunk_tag(dt)			da_thunk_tag_(dt, file_line)
