@@ -1749,11 +1749,14 @@ quash_after_i:
 			}
 			for (c = i; c--; ) {
 				struct insn_details *dc = &ctx->basic_block[c];
+				uint32_t d1_insn, dc_insn;
 				if (dc->quash)
 					continue;
 				if (!reg_map_is_empty(reg_map_intersection(dc->wr, mask)))
 					break;
-				if (d1->length == dc->length && !memcmp(d1->start, dc->start, d1->length - 4)) {
+				d1_insn = d1->insn & ~INSN_DELAY_SLOT;
+				dc_insn = dc->insn & ~INSN_DELAY_SLOT;
+				if (d1_insn == dc_insn && d1->length == dc->length && !memcmp(d1->start + 4, dc->start + 4, d1->length - 8)) {
 					if (REPORT_QUASHED_INSNS)
 						debug("quashing repetitive conditional jmp in %s", da(ctx->fn,function)->function_name);
 					d1->quash = true;
