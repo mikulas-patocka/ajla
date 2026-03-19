@@ -2203,8 +2203,10 @@ cat(structured_error_,ARG_MODE):
 							goto cat(structured_restart_pointer_follow_,ARG_MODE);
 						}
 					}
-					if (unlikely(elem_is_unevaluated) && da_tag(data) == DATA_TAG_array_flat)
+					if (unlikely(elem_is_unevaluated) && da_tag(data) == DATA_TAG_array_flat) {
+						index_free(&array_index);
 						goto cat(structured_evaluate_elem_,ARG_MODE);
+					}
 					if (!optimize_elem_is_flat) {
 						array_flags = ARRAY_MODIFY_NEED_PTR;
 					} else if (type & OPCODE_STRUCTURED_FLAG_END) {
