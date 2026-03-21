@@ -3045,8 +3045,8 @@ do_alu:
 		return true;
 	}
 #endif
-#ifdef SUPPORTED_FP_HALF_CVT
-	if ((SUPPORTED_FP_HALF_CVT >> real_type) & 1) {
+#ifdef SUPPORTED_FP_CVT
+	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1)) {
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, fr_scratch_2, &reg2));
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_1);
@@ -3273,8 +3273,8 @@ do_cmp:
 		return true;
 	}
 #endif
-#ifdef SUPPORTED_FP_HALF_CVT
-	if ((SUPPORTED_FP_HALF_CVT >> real_type) & 1) {
+#ifdef SUPPORTED_FP_CVT
+	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1)) {
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, fr_scratch_2, &reg2));
 		gen_insn(INSN_FP_CVT, op_size, OP_SIZE_4, 0);
@@ -3431,8 +3431,8 @@ do_alu:
 		}
 	}
 #endif
-#ifdef SUPPORTED_FP_HALF_CVT
-	if ((SUPPORTED_FP_HALF_CVT >> real_type) & 1 && (
+#ifdef SUPPORTED_FP_CVT
+	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1) && (
 #if defined(ARCH_ARM32)
 		fp_alu == FP_ALU1_NEG ||
 		fp_alu == FP_ALU1_SQRT ||
@@ -3662,8 +3662,8 @@ do_cvt_to_int:
 		return true;
 	}
 #endif
-#ifdef SUPPORTED_FP_HALF_CVT
-	if ((SUPPORTED_FP_HALF_CVT >> real_type) & 1) {
+#ifdef SUPPORTED_FP_CVT
+	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1)) {
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		gen_insn(INSN_FP_CVT, op_size, OP_SIZE_4, 0);
 		gen_one(fr_scratch_1);
@@ -3740,8 +3740,8 @@ do_from_int:
 		return true;
 	}
 #endif
-#ifdef SUPPORTED_FP_HALF_CVT
-	if ((SUPPORTED_FP_HALF_CVT >> real_type) & 1) {
+#ifdef SUPPORTED_FP_CVT
+	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1)) {
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_1);
 #if defined(ARCH_ARM32)
 		g(gen_frame_get(ctx, OP_SIZE_INT, zero_x, slot_1, fr_scratch_1, &reg1));
@@ -3856,8 +3856,8 @@ do_is_exception:
 		return true;
 	}
 #endif
-#ifdef SUPPORTED_FP_HALF_CVT
-	if ((SUPPORTED_FP_HALF_CVT >> real_type) & 1) {
+#ifdef SUPPORTED_FP_CVT
+	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1)) {
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		gen_insn(INSN_FP_CVT, op_size, OP_SIZE_4, 0);
 		gen_one(fr_scratch_1);

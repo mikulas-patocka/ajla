@@ -167,7 +167,7 @@
 #define FR_SCRATCH_2	FR_1
 
 #define SUPPORTED_FP		(cpu_test_feature(CPU_FEATURE_fphp) + 0x6)
-#define SUPPORTED_FP_HALF_CVT	0x1
+#define SUPPORTED_FP_CVT(l, h)	((l) <= 2 && (h) <= 2)
 #define FP_REGISTERS(real_size) 1
 
 static bool reg_is_fp(unsigned reg)
