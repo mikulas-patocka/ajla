@@ -97,6 +97,7 @@
 #define MIPS_NEG_FP		0x46000007U
 #define MIPS_TRUNC_L		0x46000009U
 #define MIPS_TRUNC_W		0x4600000dU
+#define MIPS_CVT_D_S		0x46000021U
 #define MIPS_C_F		0x46000030U
 #define MIPS_C_UN		0x46000031U
 #define MIPS_C_EQ		0x46000032U
@@ -107,6 +108,7 @@
 #define MIPS_C_ULE		0x46000037U
 #define MIPS_FP_SINGLE			0x00U
 #define MIPS_FP_DOUBLE			0x01U
+#define MIPS_CVT_S_D		0x46200020U
 #define MIPS_CVT_S_W		0x46800020U
 #define MIPS_CVT_D_W		0x46800021U
 #define MIPS_CVT_S_L		0x46a00020U
@@ -845,6 +847,23 @@ static bool attr_w cgen_fp_from_int(struct codegen_context *ctx, unsigned int_op
 	return true;
 }
 
+static bool attr_w cgen_fp_cvt(struct codegen_context *ctx, unsigned from_op_size, unsigned to_op_size)
+{
+	uint32_t mc;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+	if (from_op_size == OP_SIZE_4 && to_op_size == OP_SIZE_8) {
+		mc = MIPS_CVT_D_S;
+	} else if (from_op_size == OP_SIZE_8 && to_op_size == OP_SIZE_4) {
+		mc = MIPS_CVT_S_D;
+	} else {
+		internal(file_line, "cgen_fp_cvt: invalid types %u, %u", from_op_size, to_op_size);
+	}
+	cgen_mips_fp(mc, 0, arg1[0] & 31, arg2[0] & 31, 0);
+	return true;
+}
+
 static bool attr_w cgen_nop_after_jmp(struct codegen_context *ctx)
 {
 	if (MIPS_R6 && ctx->a.last_cond_jmp)
@@ -1331,6 +1350,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		case INSN_FP_FROM_INT32:
 		case INSN_FP_FROM_INT64:
 			g(cgen_fp_from_int(ctx, insn_opcode(insn) == INSN_FP_FROM_INT32 ? OP_SIZE_4 : OP_SIZE_8, insn_op_size(insn)));
+			return true;
+		case INSN_FP_CVT:
+			g(cgen_fp_cvt(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_JMP:
 			g(cgen_jmp(ctx, insn_jump_size(insn), insn_delay_slot(insn)));

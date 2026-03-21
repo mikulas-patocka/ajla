@@ -211,6 +211,7 @@
 #define FR_CMP_RESULT	R_F6
 
 #define SUPPORTED_FP	0x6
+#define SUPPORTED_FP_CVT(l, h)	((l) == 1 && (h) == 2)
 
 #ifdef ARCH_MIPS_O32
 #define FRAME_SIZE	(optimize_int ? 0x40 : 0x70)
