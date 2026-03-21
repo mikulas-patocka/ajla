@@ -372,6 +372,31 @@ conversion fn integer_number_to_real_number~inline(t1 : type, c1 : class_integer
 conversion fn real_number_to_integer_number~inline(t1 : type, c1 : class_real_number(t1), t2 : type, c2 : class_integer_number(t2), val : t1) : t2;
 conversion fn real_number_to_real_number~inline(t1 : type, c1 : class_real_number(t1), t2 : type, c2 : class_real_number(t2), val : t1) : t2;
 
+conversion fn real16_to_real32~inline(val : real16) : real32;
+conversion fn real16_to_real64~inline(val : real16) : real64;
+conversion fn real16_to_real80~inline(val : real16) : real80;
+conversion fn real16_to_real128~inline(val : real16) : real128;
+
+conversion fn real32_to_real16~inline(val : real32) : real16;
+conversion fn real32_to_real64~inline(val : real32) : real64;
+conversion fn real32_to_real80~inline(val : real32) : real80;
+conversion fn real32_to_real128~inline(val : real32) : real128;
+
+conversion fn real64_to_real16~inline(val : real64) : real16;
+conversion fn real64_to_real32~inline(val : real64) : real32;
+conversion fn real64_to_real80~inline(val : real64) : real80;
+conversion fn real64_to_real128~inline(val : real64) : real128;
+
+conversion fn real80_to_real16~inline(val : real80) : real16;
+conversion fn real80_to_real32~inline(val : real80) : real32;
+conversion fn real80_to_real64~inline(val : real80) : real64;
+conversion fn real80_to_real128~inline(val : real80) : real128;
+
+conversion fn real128_to_real16~inline(val : real128) : real16;
+conversion fn real128_to_real32~inline(val : real128) : real32;
+conversion fn real128_to_real64~inline(val : real128) : real64;
+conversion fn real128_to_real80~inline(val : real128) : real80;
+
 implicit fn instance_number_int8~inline : class_integer_number(int8);
 implicit fn instance_number_int16~inline : class_integer_number(int16);
 implicit fn instance_number_int32~inline : class_integer_number(int32);
@@ -2818,6 +2843,44 @@ conversion fn integer_number_to_integer_number~inline(t1 : type, c1 : class_inte
 conversion fn integer_number_to_real_number~inline(t1 : type, c1 : class_integer_number(t1), t2 : type, c2 : class_real_number(t2), val : t1) : t2 := c2.from_int(c1.to_int(val));
 conversion fn real_number_to_integer_number~inline(t1 : type, c1 : class_real_number(t1), t2 : type, c2 : class_integer_number(t2), val : t1) : t2 := c2.from_int(c1.to_int(val));
 conversion fn real_number_to_real_number~inline(t1 : type, c1 : class_real_number(t1), t2 : type, c2 : class_real_number(t2), val : t1) : t2 := c2.from_rational(c1.to_rational(val));
+
+define real_conversion [
+conversion fn real@1_to_real@2~inline(val : real@1) : real@2
+[
+	if (sysprop(SystemProperty_Real) and @3) = @3 then [
+		var r : real@2;
+		pcode UnaryOp Un_ConvertToReal@2 =r 0 val;
+		return r;
+	] else [
+		return real_number_to_real_number(real@1, instance_real_number_real@1, real@2, instance_real_number_real@2, val);
+	]
+]
+]
+
+real_conversion(16, 32, #3);
+real_conversion(16, 64, #5);
+real_conversion(16, 80, #9);
+real_conversion(16, 128, #11);
+
+real_conversion(32, 16, #3);
+real_conversion(32, 64, #6);
+real_conversion(32, 80, #a);
+real_conversion(32, 128, #12);
+
+real_conversion(64, 16, #5);
+real_conversion(64, 32, #6);
+real_conversion(64, 80, #c);
+real_conversion(64, 128, #14);
+
+real_conversion(80, 16, #9);
+real_conversion(80, 32, #a);
+real_conversion(80, 64, #c);
+real_conversion(80, 128, #18);
+
+real_conversion(128, 16, #11);
+real_conversion(128, 32, #12);
+real_conversion(128, 64, #14);
+real_conversion(128, 80, #18);
 
 {---------
  - DEBUG -

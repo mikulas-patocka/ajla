@@ -3329,6 +3329,21 @@ static bool attr_w gen_fp_alu1(struct codegen_context *ctx, unsigned real_type, 
 		case OPCODE_REAL_OP_is_exception:
 		case OPCODE_REAL_OP_is_exception_alt1:
 		case OPCODE_REAL_OP_is_exception_alt2: upc = offsetof(struct cg_upcall_vector_s, REAL_unary_is_exception_real16_t); label_ovf = 0; goto do_is_exception;
+#if REAL_MASK & 0x1
+		case OPCODE_REAL_OP_to_real16_t: upc = offsetof(struct cg_upcall_vector_s, REAL_unary_to_real16_t_real16_t); goto do_to_real;
+#endif
+#if REAL_MASK & 0x2
+		case OPCODE_REAL_OP_to_real32_t: upc = offsetof(struct cg_upcall_vector_s, REAL_unary_to_real32_t_real16_t); goto do_to_real;
+#endif
+#if REAL_MASK & 0x4
+		case OPCODE_REAL_OP_to_real64_t: upc = offsetof(struct cg_upcall_vector_s, REAL_unary_to_real64_t_real16_t); goto do_to_real;
+#endif
+#if REAL_MASK & 0x8
+		case OPCODE_REAL_OP_to_real80_t: upc = offsetof(struct cg_upcall_vector_s, REAL_unary_to_real80_t_real16_t); goto do_to_real;
+#endif
+#if REAL_MASK & 0x10
+		case OPCODE_REAL_OP_to_real128_t: upc = offsetof(struct cg_upcall_vector_s, REAL_unary_to_real128_t_real16_t); goto do_to_real;
+#endif
 		default: upc = offsetof(struct cg_upcall_vector_s, REAL_unary_cbrt_real16_t) + (op - OPCODE_REAL_OP_cbrt) * TYPE_REAL_N * sizeof(void (*)(void)); label_ovf = 0; goto do_upcall;
 	}
 
@@ -3857,6 +3872,10 @@ do_is_exception:
 		return true;
 	}
 #endif
+
+do_to_real:
+	g(gen_alu_typed_upcall(ctx, upc, real_type, slot_1, NO_FRAME_T, slot_r, 0));
+	return true;
 
 do_upcall:
 	g(gen_alu_typed_upcall(ctx, upc, real_type, slot_1, NO_FRAME_T, slot_r, label_ovf));
