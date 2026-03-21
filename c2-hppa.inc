@@ -164,6 +164,9 @@
 #define PARISC_FCPY		0x30004000U
 #define PARISC_FMPY		0x30004600U
 #define PARISC_FDIV		0x30006600U
+#define PARISC_FCNVFF		0x30000200U
+#define  PARISC_FCNVFF_DOUBLE_TO_SINGLE	0x00000800U
+#define  PARISC_FCNVFF_SINGLE_TO_DOUBLE	0x00002000U
 #define PARISC_FCNVXF		0x30008200U
 #define  PARISC_FCNVXF_FROM_LONG	0x00000800U
 #define  PARISC_FCNVXF_TO_DOUBLE	0x00002000U
@@ -1295,6 +1298,26 @@ static bool attr_w cgen_fp_from_int(struct codegen_context *ctx, unsigned int_op
 	return true;
 }
 
+static bool attr_w cgen_fp_cvt(struct codegen_context *ctx, unsigned from_op_size, unsigned to_op_size)
+{
+	uint32_t mc;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+	mc = PARISC_FCNVFF;
+	if (from_op_size == OP_SIZE_4 && to_op_size == OP_SIZE_8) {
+		mc |= PARISC_FCNVFF_SINGLE_TO_DOUBLE;
+	} else if (from_op_size == OP_SIZE_8 && to_op_size == OP_SIZE_4) {
+		mc |= PARISC_FCNVFF_DOUBLE_TO_SINGLE;
+	} else {
+		internal(file_line, "cgen_fp_cvt: invalid types %u, %u", from_op_size, to_op_size);
+	}
+	mc |= arg1[0] & 0x1f;
+	mc |= (uint32_t)(arg2[0] & 0x1f) << 21;
+	cgen_four(mc);
+	return true;
+}
+
 static bool attr_w cgen_cond_jmp(struct codegen_context *ctx, uint32_t mc, unsigned length, unsigned reg1, unsigned reg2, int reloc_offset)
 {
 	if (length == JMP_SHORTEST) {
@@ -1727,6 +1750,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		case INSN_FP_FROM_INT32:
 		case INSN_FP_FROM_INT64:
 			g(cgen_fp_from_int(ctx, insn_opcode(insn) == INSN_FP_FROM_INT32 ? OP_SIZE_4 : OP_SIZE_8, insn_op_size(insn)));
+			return true;
+		case INSN_FP_CVT:
+			g(cgen_fp_cvt(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_JMP:
 			g(cgen_jmp(ctx, insn_jump_size(insn)));
