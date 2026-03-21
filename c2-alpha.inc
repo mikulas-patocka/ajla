@@ -102,6 +102,8 @@
 #define ALPHA_CVTQS		0x5be01780U
 #define ALPHA_CVTQT		0x5be017c0U
 #define ALPHA_CVTTQ_VC		0x5be025e0U
+#define ALPHA_CVTTS_SU		0x5be0b580U
+#define ALPHA_CVTST_S		0x5be0d580U
 
 #define ALPHA_CPYS		0x5c000400U
 #define ALPHA_CPYSN		0x5c000420U
@@ -753,6 +755,25 @@ static bool attr_w cgen_fp_int64_to_int32_trap(struct codegen_context *ctx)
 	return true;
 }
 
+static bool attr_w cgen_fp_cvt(struct codegen_context *ctx, unsigned from_op_size, unsigned to_op_size)
+{
+	uint32_t mc;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+	if (from_op_size == OP_SIZE_4 && to_op_size == OP_SIZE_8) {
+		mc = ALPHA_CVTST_S;
+	} else if (from_op_size == OP_SIZE_8 && to_op_size == OP_SIZE_4) {
+		mc = ALPHA_CVTTS_SU;
+	} else {
+		internal(file_line, "cgen_fp_cvt: invalid types %u, %u", from_op_size, to_op_size);
+	}
+	g(cgen_fp_operate(ctx, mc, 0x31, arg2[0], arg1[0]));
+	if (!cpu_test_feature(CPU_FEATURE_precise_trap))
+		cgen_four(ALPHA_TRAPB);
+	return true;
+}
+
 
 static bool attr_w cgen_jmp_reg(struct codegen_context *ctx, unsigned aux)
 {
@@ -986,6 +1007,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_FP_INT64_TO_INT32_TRAP:
 			g(cgen_fp_int64_to_int32_trap(ctx));
+			return true;
+		case INSN_FP_CVT:
+			g(cgen_fp_cvt(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_JMP:
 			g(add_relocation(ctx, JMP_SHORTEST, 0, NULL));

@@ -163,6 +163,7 @@
 #define FR_SCRATCH_3	R_F10
 
 #define SUPPORTED_FP	0x6
+#define SUPPORTED_FP_CVT(l, h)	((l) == 1 && (h) == 2)
 #define FP_REGISTERS(real_size) 1
 
 #define FRAME_SIZE	(optimize_int ? 0x50 : 0x90)
