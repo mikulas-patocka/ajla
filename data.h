@@ -1160,7 +1160,7 @@ static attr_always_inline unsigned char *da_array_flat(struct data *d)
 	da_assert(d,array_flat);
 	return cast_ptr(unsigned char *, d) + data_array_offset;
 }
-#define DATA_TAG_is_array(tag)		((tag) >= DATA_TAG_array_flat + zero && (tag) <= DATA_TAG_array_btree)
+#define DATA_TAG_is_array(tag)		((tag) >= DATA_TAG_array_flat + (tag_t)zero && (tag) <= DATA_TAG_array_btree)
 #define da_array_flat_element_size(d) ((size_t)da(d,array_flat)->type->size)
 #define da_array_depth(d)	(ajla_assert(DATA_TAG_is_array(da_tag(d)), (file_line, "da_array_depth: invalid tag %u", da_tag(d))), da_tag(d) == DATA_TAG_array_btree ? (int)da(d,array_btree)->depth : -1)
 #define da_array_assert_son(parent, son)	(			\

@@ -3273,7 +3273,7 @@ do_cmp:
 		return true;
 	}
 #endif
-#ifdef SUPPORTED_FP_CVT
+#if defined(SUPPORTED_FP_CVT) && ARCH_HAS_FLAGS
 	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1)) {
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, fr_scratch_2, &reg2));
@@ -3307,7 +3307,7 @@ static bool attr_w gen_fp_alu1(struct codegen_context *ctx, unsigned real_type, 
 	unsigned attr_unused fp_alu;
 	size_t upc;
 	unsigned attr_unused op_size = real_type_to_op_size(real_type);
-	unsigned real_target_type;
+	unsigned attr_unused real_target_type;
 	unsigned reg1, target;
 	setup_fr_scratch;
 	switch (op) {
@@ -3857,7 +3857,7 @@ do_is_exception:
 		return true;
 	}
 #endif
-#ifdef SUPPORTED_FP_CVT
+#if defined(SUPPORTED_FP_CVT) && ARCH_HAS_FLAGS
 	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1)) {
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		gen_insn(INSN_FP_CVT, op_size, OP_SIZE_4, 0);
