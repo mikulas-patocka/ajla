@@ -109,6 +109,8 @@
 #define RISCV_FMUL		0x10000053U
 #define RISCV_FDIV		0x18000053U
 #define RISCV_FSGNJ		0x20000053U
+#define RISCV_FCVT_S_D		0x40107053U
+#define RISCV_FCVT_D_S		0x42000053U
 #define RISCV_FLE		0xa0000053U
 #define RISCV_FCVT_TO_W		0xc0000053U
 #define RISCV_FCVT_TO_L		0xc0200053U
@@ -717,6 +719,25 @@ static bool attr_w cgen_fp_from_int(struct codegen_context *ctx, unsigned int_op
 	return true;
 }
 
+static bool attr_w cgen_fp_cvt(struct codegen_context *ctx, unsigned from_op_size, unsigned to_op_size)
+{
+	uint32_t mc;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+	if (from_op_size == OP_SIZE_4 && to_op_size == OP_SIZE_8) {
+		mc = RISCV_FCVT_D_S;
+	} else if (from_op_size == OP_SIZE_8 && to_op_size == OP_SIZE_4) {
+		mc = RISCV_FCVT_S_D;
+	} else {
+		internal(file_line, "cgen_fp_cvt: invalid types %u, %u", from_op_size, to_op_size);
+	}
+	mc |= (uint32_t)(arg1[0] & 0x1f) << 7;
+	mc |= (uint32_t)(arg2[0] & 0x1f) << 15;
+	cgen_rv(mc);
+	return true;
+}
+
 static bool attr_w cgen_jmp(struct codegen_context *ctx, unsigned length)
 {
 	if (length == JMP_SHORTEST && likely(cpu_test_feature(CPU_FEATURE_c))) {
@@ -1008,6 +1029,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		case INSN_FP_FROM_INT32:
 		case INSN_FP_FROM_INT64:
 			g(cgen_fp_from_int(ctx, insn_opcode(insn) == INSN_FP_FROM_INT32 ? OP_SIZE_4 : OP_SIZE_8, insn_op_size(insn)));
+			return true;
+		case INSN_FP_CVT:
+			g(cgen_fp_cvt(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_JMP:
 			g(cgen_jmp(ctx, insn_jump_size(insn)));
