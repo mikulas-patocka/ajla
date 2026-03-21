@@ -275,6 +275,13 @@ typedef uint64_t it;
 #define S390_CGDBR		0xb3a900000000ULL
 #define S390_CGXBR		0xb3aa00000000ULL
 
+#define S390_LDEBR		0xb30400000000ULL
+#define S390_LXDBR		0xb30500000000ULL
+#define S390_LXEBR		0xb30600000000ULL
+#define S390_LEDBR		0xb34400000000ULL
+#define S390_LDXBR		0xb34500000000ULL
+#define S390_LEXBR		0xb34600000000ULL
+
 #define S390_LHR		0xb92700000000ULL
 #define S390_LH			0x480000000000ULL
 #define S390_LHY		0xe30000000078ULL
@@ -1835,6 +1842,37 @@ invl:
 	return false;
 }
 
+static bool attr_w cgen_fp_cvt(struct codegen_context *ctx, unsigned from_op_size, unsigned to_op_size)
+{
+	it code;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+	if (unlikely(!reg_is_fp(arg1[0])) || unlikely(!reg_is_fp(arg2[0])))
+		goto invl;
+	if (from_op_size == OP_SIZE_4 && to_op_size == OP_SIZE_8)
+		code = S390_LDEBR;
+	else if (from_op_size == OP_SIZE_8 && to_op_size == OP_SIZE_4)
+		code = S390_LEDBR;
+	else if (from_op_size == OP_SIZE_4 && to_op_size == OP_SIZE_16)
+		code = S390_LXEBR;
+	/*else if (from_op_size == OP_SIZE_16 && to_op_size == OP_SIZE_4)
+		code = S390_LEXBR;*/
+	else if (from_op_size == OP_SIZE_8 && to_op_size == OP_SIZE_16)
+		code = S390_LXDBR;
+	/*else if (from_op_size == OP_SIZE_16 && to_op_size == OP_SIZE_8)
+		code = S390_LDXBR;*/
+	else
+		goto invl;
+	code |= (it)(arg1[0] & 0xf) << 20;
+	code |= (it)(arg2[0] & 0xf) << 16;
+	g(cgen_s390(ctx, code));
+	return true;
+invl:
+	internal(file_line, "cgen_fp_cvt: invalid arguments %u, %u, %02x, %02x", from_op_size, to_op_size, *arg1, *arg2);
+	return false;
+}
+
 static bool attr_w cgen_jmp_cond(struct codegen_context *ctx, bool lng, unsigned aux, bool logical)
 {
 	it code;
@@ -2322,6 +2360,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_FP_FROM_INT64:
 			g(cgen_fp_from_int(ctx, OP_SIZE_8, insn_op_size(insn)));
+			return true;
+		case INSN_FP_CVT:
+			g(cgen_fp_cvt(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_JMP:
 			g(cgen_jmp_cond(ctx, insn_jump_size(insn) == JMP_SHORT, COND_ALWAYS, false));
