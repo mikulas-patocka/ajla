@@ -528,6 +528,56 @@ static ipret_inline void cat(REAL_unary_from_int_,type)(const int_default_t *val
 	*r = pack(*val);						\
 }
 
+#if REAL_MASK & 0x1
+#define generate_real_real16(stype, sntype, spack, sunpack)		\
+static ipret_inline void cat(REAL_unary_to_real16_t_,stype)(const stype *val, real16_t *r)\
+{									\
+	*r = pack_real16_t(sunpack(*val));				\
+}
+#else
+#define generate_real_real16(stype, sntype, spack, sunpack)
+#endif
+
+#if REAL_MASK & 0x2
+#define generate_real_real32(stype, sntype, spack, sunpack)		\
+static ipret_inline void cat(REAL_unary_to_real32_t_,stype)(const stype *val, real32_t *r)\
+{									\
+	*r = pack_real32_t(sunpack(*val));				\
+}
+#else
+#define generate_real_real32(stype, sntype, spack, sunpack)
+#endif
+
+#if REAL_MASK & 0x4
+#define generate_real_real64(stype, sntype, spack, sunpack)		\
+static ipret_inline void cat(REAL_unary_to_real64_t_,stype)(const stype *val, real64_t *r)\
+{									\
+	*r = pack_real64_t(sunpack(*val));				\
+}
+#else
+#define generate_real_real64(stype, sntype, spack, sunpack)
+#endif
+
+#if REAL_MASK & 0x8
+#define generate_real_real80(stype, sntype, spack, sunpack)		\
+static ipret_inline void cat(REAL_unary_to_real80_t_,stype)(const stype *val, real80_t *r)\
+{									\
+	*r = pack_real80_t(sunpack(*val));				\
+}
+#else
+#define generate_real_real80(stype, sntype, spack, sunpack)
+#endif
+
+#if REAL_MASK & 0x10
+#define generate_real_real128(stype, sntype, spack, sunpack)		\
+static ipret_inline void cat(REAL_unary_to_real128_t_,stype)(const stype *val, real128_t *r)\
+{									\
+	*r = pack_real128_t(sunpack(*val));				\
+}
+#else
+#define generate_real_real128(stype, sntype, spack, sunpack)
+#endif
+
 #define generate_real_functions(n, type, ntype, pack, unpack)		\
 generate_real_binary(type, ntype, pack, unpack, add)			\
 generate_real_binary(type, ntype, pack, unpack, subtract)		\
@@ -568,12 +618,21 @@ generate_real_unary(n, type, ntype, pack, unpack, floor, 1)		\
 generate_real_unary(n, type, ntype, pack, unpack, trunc, 1)		\
 generate_real_fns(n, type, ntype, pack, unpack)				\
 generate_real_int(type, ntype, pack, unpack)				\
+generate_real_real16(type, ntype, pack, unpack)				\
+generate_real_real32(type, ntype, pack, unpack)				\
+generate_real_real64(type, ntype, pack, unpack)				\
+generate_real_real80(type, ntype, pack, unpack)				\
+generate_real_real128(type, ntype, pack, unpack)			\
 generate_real_unary_logical(n, type, ntype, pack, unpack, is_exception, 0)\
 generate_real_ldc(n, type, ntype, pack, unpack)
 
 for_all_real(generate_real_functions, for_all_empty)
 #undef generate_real_functions
-
+#undef generate_real_real16
+#undef generate_real_real32
+#undef generate_real_real64
+#undef generate_real_real80
+#undef generate_real_real128
 
 static inline frame_s *frame_build(frame_s *fp, struct data *function, ajla_error_t *mayfail)
 {
@@ -1362,6 +1421,36 @@ struct cg_upcall_vector_s cg_upcall_vector = {
 	cat(REAL_unary_from_int_,t),
 	for_all_real(f, nf)
 #undef f
+#if REAL_MASK & 0x1
+#define f(n, t, nt, pack, unpack) \
+	cat(REAL_unary_to_real16_t_,t),
+	for_all_real(f, nf)
+#undef f
+#endif
+#if REAL_MASK & 0x2
+#define f(n, t, nt, pack, unpack) \
+	cat(REAL_unary_to_real32_t_,t),
+	for_all_real(f, nf)
+#undef f
+#endif
+#if REAL_MASK & 0x4
+#define f(n, t, nt, pack, unpack) \
+	cat(REAL_unary_to_real64_t_,t),
+	for_all_real(f, nf)
+#undef f
+#endif
+#if REAL_MASK & 0x8
+#define f(n, t, nt, pack, unpack) \
+	cat(REAL_unary_to_real80_t_,t),
+	for_all_real(f, nf)
+#undef f
+#endif
+#if REAL_MASK & 0x10
+#define f(n, t, nt, pack, unpack) \
+	cat(REAL_unary_to_real128_t_,t),
+	for_all_real(f, nf)
+#undef f
+#endif
 #define f(n, t, nt, pack, unpack) \
 	cat(REAL_unary_is_exception_,t),
 	for_all_real(f, nf)

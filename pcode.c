@@ -117,6 +117,11 @@ shared_var const code_t pcode2code[Op_NN][5]
 	{ NO_OPCODE,		NO_OPCODE,		NO_OPCODE,		re(prev_number),	NO_OPCODE,	},
 	{ fx(to_int),		fx(uto_int),		in(to_int),		re(to_int),		NO_OPCODE,	},
 	{ fx(from_int),		fx(ufrom_int),		in(from_int),		re(from_int),		NO_OPCODE,	},
+	{ NO_OPCODE,		NO_OPCODE,		NO_OPCODE,		re(to_real16_t),	NO_OPCODE,	},
+	{ NO_OPCODE,		NO_OPCODE,		NO_OPCODE,		re(to_real32_t),	NO_OPCODE,	},
+	{ NO_OPCODE,		NO_OPCODE,		NO_OPCODE,		re(to_real64_t),	NO_OPCODE,	},
+	{ NO_OPCODE,		NO_OPCODE,		NO_OPCODE,		re(to_real80_t),	NO_OPCODE,	},
+	{ NO_OPCODE,		NO_OPCODE,		NO_OPCODE,		re(to_real128_t),	NO_OPCODE,	},
 	{ OPCODE_IS_EXCEPTION,	NO_OPCODE,		NO_OPCODE,		re(is_exception),	NO_OPCODE,	},
 	{ OPCODE_EXCEPTION_CLASS,NO_OPCODE,		NO_OPCODE,		NO_OPCODE,		NO_OPCODE,	},
 	{ OPCODE_EXCEPTION_TYPE,NO_OPCODE,		NO_OPCODE,		NO_OPCODE,		NO_OPCODE,	},
@@ -2642,7 +2647,7 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				}
 				tr = get_var_type(ctx, res);
 				t1 = get_var_type(ctx, a1);
-				ajla_assert_lo(op >= Op_N || op == Un_ConvertFromInt ||
+				ajla_assert_lo(op >= Op_N || op == Un_ConvertFromInt || Op_IsReal(op) ||
 					type_is_equal(tr->type, (Op_IsBool(op) ? type_get_flat_option()
 					: Op_IsInt(op) ? type_get_int(INT_DEFAULT_N)
 					: t1->type)), (file_line, "P_UnaryOp(%s): invalid types for unary operation %"PRIdMAX": %u, %u", function_name(ctx), (intmax_t)op, t1->type->tag, tr->type->tag));

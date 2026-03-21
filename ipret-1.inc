@@ -427,6 +427,49 @@ DEFINE_OPCODE(								\
 	}								\
 )
 
+#define DEFINE_REAL_TO_REAL(stype, dtype, op)				\
+DEFINE_OPCODE(								\
+		OPCODE_REAL_OP +					\
+		cat(OPCODE_REAL_OP_,op) * OPCODE_REAL_OP_MULT +		\
+		cat(OPCODE_REAL_TYPE_,stype) * OPCODE_REAL_TYPE_MULT,	\
+		cat6(REAL_unary_,op,_,stype,_,ARG_MODE),		\
+	frame_t slot_1 = get_i_param(0);				\
+	frame_t slot_r = get_i_param(1);				\
+	if (unlikely(frame_test_flag(fp, slot_1))) {			\
+		goto cat(escape_convert_thunk_,ARG_MODE);		\
+	} else {							\
+		barrier_aliasing();					\
+		cat4(REAL_unary_,op,_,stype)(frame_slot(fp, slot_1, stype), frame_slot(fp, slot_r, dtype));\
+		barrier_aliasing();					\
+		ADVANCE_I_PARAM(3);					\
+	}								\
+)
+
+#if REAL_MASK & 0x1
+#define DEFINE_REAL_TO_REAL16(stype) DEFINE_REAL_TO_REAL(stype, real16_t, to_real16_t)
+#else
+#define DEFINE_REAL_TO_REAL16(stype)
+#endif
+#if REAL_MASK & 0x2
+#define DEFINE_REAL_TO_REAL32(stype) DEFINE_REAL_TO_REAL(stype, real32_t, to_real32_t)
+#else
+#define DEFINE_REAL_TO_REAL32(stype)
+#endif
+#if REAL_MASK & 0x4
+#define DEFINE_REAL_TO_REAL64(stype) DEFINE_REAL_TO_REAL(stype, real64_t, to_real64_t)
+#else
+#define DEFINE_REAL_TO_REAL64(stype)
+#endif
+#if REAL_MASK & 0x8
+#define DEFINE_REAL_TO_REAL80(stype) DEFINE_REAL_TO_REAL(stype, real80_t, to_real80_t)
+#else
+#define DEFINE_REAL_TO_REAL80(stype)
+#endif
+#if REAL_MASK & 0x10
+#define DEFINE_REAL_TO_REAL128(stype) DEFINE_REAL_TO_REAL(stype, real128_t, to_real128_t)
+#else
+#define DEFINE_REAL_TO_REAL128(stype)
+#endif
 
 #define DEFINE_REAL_OPCODES(n, type, ntype, pack, unpack)\
 DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, add)	\
@@ -475,6 +518,11 @@ DEFINE_FIXED_REAL_UNARY_OPCODE(REAL_, type, next_number)\
 DEFINE_FIXED_REAL_UNARY_OPCODE(REAL_, type, prev_number)\
 DEFINE_REAL_TO_INT(type, to_int)			\
 DEFINE_REAL_FROM_INT(type, from_int)			\
+DEFINE_REAL_TO_REAL16(type)				\
+DEFINE_REAL_TO_REAL32(type)				\
+DEFINE_REAL_TO_REAL64(type)				\
+DEFINE_REAL_TO_REAL80(type)				\
+DEFINE_REAL_TO_REAL128(type)				\
 DEFINE_FIXED_REAL_UNARY_OPCODE(REAL_, type, is_exception)\
 DEFINE_SCALAR_MOVE_OPCODE(REAL_, type)			\
 DEFINE_SCALAR_COPY_OPCODE(REAL_, type)			\
@@ -482,6 +530,11 @@ DEFINE_FIXED_LDC_OPCODE(REAL, type, type, ldc, false)
 
 for_all_real(DEFINE_REAL_OPCODES, for_all_empty)
 
+#undef DEFINE_REAL_TO_REAL16
+#undef DEFINE_REAL_TO_REAL32
+#undef DEFINE_REAL_TO_REAL64
+#undef DEFINE_REAL_TO_REAL80
+#undef DEFINE_REAL_TO_REAL128
 
 DEFINE_LABEL(cat(escape_fixed_binary_thunk_,ARG_MODE),
 	void *ex;

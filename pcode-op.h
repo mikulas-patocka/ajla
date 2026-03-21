@@ -186,12 +186,17 @@
 #define Un_PrevNumber			60
 #define Un_ConvertToInt			61
 #define Un_ConvertFromInt		62
-#define Un_IsException			63
-#define Un_ExceptionClass		64
-#define Un_ExceptionType		65
-#define Un_ExceptionAux			66
-#define Un_SystemProperty		67
-#define Op_N				68
+#define Un_ConvertToReal16		63
+#define Un_ConvertToReal32		64
+#define Un_ConvertToReal64		65
+#define Un_ConvertToReal80		66
+#define Un_ConvertToReal128		67
+#define Un_IsException			68
+#define Un_ExceptionClass		69
+#define Un_ExceptionType		70
+#define Un_ExceptionAux			71
+#define Un_SystemProperty		72
+#define Op_N				73
 
 #define Fn_Function			1
 #define Fn_Record			2

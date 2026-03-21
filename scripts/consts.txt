@@ -199,6 +199,11 @@ Un_NextNumber
 Un_PrevNumber
 Un_ConvertToInt
 Un_ConvertFromInt
+Un_ConvertToReal16
+Un_ConvertToReal32
+Un_ConvertToReal64
+Un_ConvertToReal80
+Un_ConvertToReal128
 Un_IsException
 Un_ExceptionClass
 Un_ExceptionType

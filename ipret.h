@@ -493,6 +493,51 @@ struct cg_upcall_vector_s {
 	for_all_real(f, nf)
 #undef f
 #undef nf
+#if REAL_MASK & 0x1
+#define f(n, t, nt, pack, unpack) \
+	void (*cat(REAL_unary_to_real16_t_,t))(const t *val, real16_t *r);
+#define nf(n, t) \
+	void (*cat(REAL_unary_to_real16_t_,t))(void);
+	for_all_real(f, nf)
+#undef f
+#undef nf
+#endif
+#if REAL_MASK & 0x2
+#define f(n, t, nt, pack, unpack) \
+	void (*cat(REAL_unary_to_real32_t_,t))(const t *val, real32_t *r);
+#define nf(n, t) \
+	void (*cat(REAL_unary_to_real32_t_,t))(void);
+	for_all_real(f, nf)
+#undef f
+#undef nf
+#endif
+#if REAL_MASK & 0x4
+#define f(n, t, nt, pack, unpack) \
+	void (*cat(REAL_unary_to_real64_t_,t))(const t *val, real64_t *r);
+#define nf(n, t) \
+	void (*cat(REAL_unary_to_real64_t_,t))(void);
+	for_all_real(f, nf)
+#undef f
+#undef nf
+#endif
+#if REAL_MASK & 0x8
+#define f(n, t, nt, pack, unpack) \
+	void (*cat(REAL_unary_to_real80_t_,t))(const t *val, real80_t *r);
+#define nf(n, t) \
+	void (*cat(REAL_unary_to_real80_t_,t))(void);
+	for_all_real(f, nf)
+#undef f
+#undef nf
+#endif
+#if REAL_MASK & 0x10
+#define f(n, t, nt, pack, unpack) \
+	void (*cat(REAL_unary_to_real128_t_,t))(const t *val, real128_t *r);
+#define nf(n, t) \
+	void (*cat(REAL_unary_to_real128_t_,t))(void);
+	for_all_real(f, nf)
+#undef f
+#undef nf
+#endif
 #define f(n, t, nt, pack, unpack) \
 	void (*cat(REAL_unary_is_exception_,t))(const t *v1, ajla_flat_option_t *r);
 #define nf(n, t) \
