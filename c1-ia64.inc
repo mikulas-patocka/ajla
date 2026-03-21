@@ -280,6 +280,7 @@ static void *callback_trampoline;
 #define FR_SCRATCH_2	FR_7
 
 #define SUPPORTED_FP	0xe
+#define SUPPORTED_FP_CVT(f, t)	(false)
 #define FP_REGISTERS(real_size) 1
 
 static inline bool reg_is_gr(unsigned reg)

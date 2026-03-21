@@ -1176,6 +1176,10 @@ static inline bool slot_is_register(struct codegen_context *ctx, frame_t slot)
 #endif
 
 
+#ifndef SUPPORTED_FP_CVT
+#define SUPPORTED_FP_CVT(f, t)		((SUPPORTED_FP >> (f)) & (SUPPORTED_FP >> (t)) & 1)
+#endif
+
 #ifndef n_regs_saved
 #define n_regs_saved n_array_elements(regs_saved)
 #endif

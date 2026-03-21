@@ -3045,8 +3045,7 @@ do_alu:
 		return true;
 	}
 #endif
-#ifdef SUPPORTED_FP_CVT
-	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1)) {
+	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1) && SUPPORTED_FP_CVT(1, 0)) {
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, fr_scratch_2, &reg2));
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_1);
@@ -3066,7 +3065,6 @@ do_alu:
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
 	}
-#endif
 	goto do_upcall;
 
 do_cmp:
@@ -3273,8 +3271,8 @@ do_cmp:
 		return true;
 	}
 #endif
-#if defined(SUPPORTED_FP_CVT) && ARCH_HAS_FLAGS
-	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1)) {
+#if ARCH_HAS_FLAGS
+	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1) && SUPPORTED_FP_CVT(1, 0)) {
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, fr_scratch_2, &reg2));
 		gen_insn(INSN_FP_CVT, op_size, OP_SIZE_4, 0);
@@ -3307,7 +3305,7 @@ static bool attr_w gen_fp_alu1(struct codegen_context *ctx, unsigned real_type, 
 	unsigned attr_unused fp_alu;
 	size_t upc;
 	unsigned attr_unused op_size = real_type_to_op_size(real_type);
-	unsigned attr_unused real_target_type;
+	unsigned real_target_type;
 	unsigned reg1, target;
 	setup_fr_scratch;
 	switch (op) {
@@ -3432,8 +3430,7 @@ do_alu:
 		}
 	}
 #endif
-#ifdef SUPPORTED_FP_CVT
-	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1) && (
+	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1) && SUPPORTED_FP_CVT(1, 0) && (
 #if defined(ARCH_ARM32)
 		fp_alu == FP_ALU1_NEG ||
 		fp_alu == FP_ALU1_SQRT ||
@@ -3458,7 +3455,6 @@ do_alu:
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
 	}
-#endif
 	goto do_upcall;
 
 do_to_int:
@@ -3663,8 +3659,7 @@ do_cvt_to_int:
 		return true;
 	}
 #endif
-#ifdef SUPPORTED_FP_CVT
-	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1)) {
+	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1) && SUPPORTED_FP_CVT(1, 0)) {
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		gen_insn(INSN_FP_CVT, op_size, OP_SIZE_4, 0);
 		gen_one(fr_scratch_1);
@@ -3674,7 +3669,6 @@ do_cvt_to_int:
 		op_size = real_type_to_op_size(real_type);
 		goto do_cvt_to_int;
 	}
-#endif
 	goto do_upcall;
 
 do_from_int:
@@ -3741,8 +3735,7 @@ do_from_int:
 		return true;
 	}
 #endif
-#ifdef SUPPORTED_FP_CVT
-	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1)) {
+	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1) && SUPPORTED_FP_CVT(1, 0)) {
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_1);
 #if defined(ARCH_ARM32)
 		g(gen_frame_get(ctx, OP_SIZE_INT, zero_x, slot_1, fr_scratch_1, &reg1));
@@ -3762,7 +3755,6 @@ do_from_int:
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
 	}
-#endif
 	goto do_upcall;
 
 do_is_exception:
@@ -3857,8 +3849,8 @@ do_is_exception:
 		return true;
 	}
 #endif
-#if defined(SUPPORTED_FP_CVT) && ARCH_HAS_FLAGS
-	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1)) {
+#if ARCH_HAS_FLAGS
+	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1) && SUPPORTED_FP_CVT(1, 0)) {
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		gen_insn(INSN_FP_CVT, op_size, OP_SIZE_4, 0);
 		gen_one(fr_scratch_1);
@@ -3875,24 +3867,19 @@ do_is_exception:
 #endif
 	goto do_upcall;
 
-do_to_real: {
-#ifdef SUPPORTED_FP_CVT
-		unsigned lo = minimum(real_type, real_target_type);
-		unsigned hi = maximum(real_type, real_target_type);
-		if (SUPPORTED_FP_CVT(lo, hi)) {
-			unsigned op_size_target = real_type_to_op_size(real_target_type);
-			g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
-			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_1);
-			gen_insn(INSN_FP_CVT, op_size, op_size_target, 0);
-			gen_one(target);
-			gen_one(reg1);
-			g(gen_frame_store(ctx, op_size_target, slot_r, 0, target));
-			return true;
-		}
-#endif
-		g(gen_alu_typed_upcall(ctx, upc, real_type, slot_1, NO_FRAME_T, slot_r, 0));
+do_to_real:
+	if (SUPPORTED_FP_CVT(real_type, real_target_type)) {
+		unsigned op_size_target = real_type_to_op_size(real_target_type);
+		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
+		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_1);
+		gen_insn(INSN_FP_CVT, op_size, op_size_target, 0);
+		gen_one(target);
+		gen_one(reg1);
+		g(gen_frame_store(ctx, op_size_target, slot_r, 0, target));
 		return true;
 	}
+	g(gen_alu_typed_upcall(ctx, upc, real_type, slot_1, NO_FRAME_T, slot_r, 0));
+	return true;
 
 do_upcall:
 	g(gen_alu_typed_upcall(ctx, upc, real_type, slot_1, NO_FRAME_T, slot_r, label_ovf));

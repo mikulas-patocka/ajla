@@ -179,7 +179,7 @@
 #define FR_SCRATCH_2	FDR_2
 
 #define SUPPORTED_FP		(cpu_test_feature(CPU_FEATURE_vfp) * 0x6)
-#define SUPPORTED_FP_CVT(l, h)	((l) == 0 && (h) == 1 ? cpu_test_feature(CPU_FEATURE_vfp) && cpu_test_feature(CPU_FEATURE_half) : (l) == 1 && (h) == 2)
+#define SUPPORTED_FP_CVT(f, t)	(((f) == 0 && (t) == 1) || ((f) == 1 && (t) == 0) ? cpu_test_feature(CPU_FEATURE_vfp) && cpu_test_feature(CPU_FEATURE_half) : ((l) == 1 && (h) == 2) || (f) == 1 && (t) == 2)
 #define FP_REGISTERS(real_size) ((real_size) >= 8 ? 2 : 1)
 #define FP_ALIASES(real_size, reg, idx)	(!((reg) & 1) ? (reg) + (idx) : (reg))
 #define N_FP_ALIASES(real_size)	FP_REGISTERS(real_size)
