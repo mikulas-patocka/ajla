@@ -99,6 +99,13 @@
 #define  SPARC_FCMP_SINGLE		0x00000020U
 #define  SPARC_FCMP_DOUBLE		0x00000040U
 #define  SPARC_FCMP_QUAD		0x00000060U
+#define SPARC_FTOF		0x81a01800U
+#define  SPARC_FTOF_FROM_SINGLE		0x00000020U
+#define  SPARC_FTOF_FROM_DOUBLE		0x00000040U
+#define  SPARC_FTOF_FROM_QUAD		0x00000060U
+#define  SPARC_FTOF_TO_SINGLE		0x00000080U
+#define  SPARC_FTOF_TO_DOUBLE		0x00000100U
+#define  SPARC_FTOF_TO_QUAD		0x00000180U
 #define SPARC_JMPL		0x81c00000U
 #define SPARC_RETURN		0x81c80000U
 #define SPARC_SAVE		0x81e00000U
@@ -567,6 +574,29 @@ static bool attr_w cgen_fp_from_int(struct codegen_context *ctx, unsigned int_op
 	return true;
 }
 
+static bool attr_w cgen_fp_cvt(struct codegen_context *ctx, unsigned from_op_size, unsigned to_op_size)
+{
+	uint32_t mc;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+	mc = SPARC_FTOF;
+	switch (from_op_size) {
+		case OP_SIZE_4:		mc |= SPARC_FTOF_FROM_SINGLE; break;
+		case OP_SIZE_8:		mc |= SPARC_FTOF_FROM_DOUBLE; break;
+		case OP_SIZE_16:	mc |= SPARC_FTOF_FROM_QUAD; break;
+		default:		internal(file_line, "cgen_fp_cvt: invalid source size %u", from_op_size);
+	}
+	switch (to_op_size) {
+		case OP_SIZE_4:		mc |= SPARC_FTOF_TO_SINGLE; break;
+		case OP_SIZE_8:		mc |= SPARC_FTOF_TO_DOUBLE; break;
+		case OP_SIZE_16:	mc |= SPARC_FTOF_TO_QUAD; break;
+		default:		internal(file_line, "cgen_fp_cvt: invalid destination size %u", to_op_size);
+	}
+	cgen_sparc_3reg(mc, arg1[0] & 31, 0, arg2[0] & 31);
+	return true;
+}
+
 static bool attr_w cgen_jmp_cond(struct codegen_context *ctx, unsigned size, unsigned aux, unsigned length, bool delay_slot)
 {
 	int8_t cond;
@@ -863,6 +893,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 #endif
 		case INSN_FP_FROM_INT32:
 			g(cgen_fp_from_int(ctx, insn_opcode(insn) == INSN_FP_FROM_INT32 ? OP_SIZE_4 : OP_SIZE_8, insn_op_size(insn)));
+			return true;
+		case INSN_FP_CVT:
+			g(cgen_fp_cvt(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_JMP:
 			g(add_relocation(ctx, JMP_LONG, 0, NULL));
