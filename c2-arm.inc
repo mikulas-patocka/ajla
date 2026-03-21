@@ -100,6 +100,8 @@
 #define ARM_VCVT_F32_F16	0x0eb20a40U
 #define ARM_VCVT_F16_F32	0x0eb30a40U
 #define ARM_VCMP		0x0eb40a40U
+#define ARM_VCVT_F64_F32	0x0eb70ac0U
+#define ARM_VCVT_F32_F64	0x0eb70bc0U
 #define ARM_VCVT_F_S32		0x0eb80ac0U
 #define ARM_VCVT_S32_F		0x0ebd0ac0U
 #define ARM_VMRS_NZCV_FPSCR	0x0ef1fa10U
@@ -866,6 +868,10 @@ static bool attr_w cgen_fp_cvt(struct codegen_context *ctx, unsigned from_op_siz
 		mc |= ARM_VCVT_F32_F16;
 	} else if (from_op_size == OP_SIZE_4 && to_op_size == OP_SIZE_2) {
 		mc |= ARM_VCVT_F16_F32;
+	} else if (from_op_size == OP_SIZE_4 && to_op_size == OP_SIZE_8) {
+		mc |= ARM_VCVT_F64_F32;
+	} else if (from_op_size == OP_SIZE_8 && to_op_size == OP_SIZE_4) {
+		mc |= ARM_VCVT_F32_F64;
 	} else {
 		internal(file_line, "cgen_fp_cvt: invalid types %u, %u", from_op_size, to_op_size);
 	}

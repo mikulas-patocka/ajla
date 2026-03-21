@@ -3307,6 +3307,7 @@ static bool attr_w gen_fp_alu1(struct codegen_context *ctx, unsigned real_type, 
 	unsigned attr_unused fp_alu;
 	size_t upc;
 	unsigned attr_unused op_size = real_type_to_op_size(real_type);
+	unsigned real_target_type;
 	unsigned reg1, target;
 	setup_fr_scratch;
 	switch (op) {
@@ -3330,19 +3331,19 @@ static bool attr_w gen_fp_alu1(struct codegen_context *ctx, unsigned real_type, 
 		case OPCODE_REAL_OP_is_exception_alt1:
 		case OPCODE_REAL_OP_is_exception_alt2: upc = offsetof(struct cg_upcall_vector_s, REAL_unary_is_exception_real16_t); label_ovf = 0; goto do_is_exception;
 #if REAL_MASK & 0x1
-		case OPCODE_REAL_OP_to_real16_t: upc = offsetof(struct cg_upcall_vector_s, REAL_unary_to_real16_t_real16_t); goto do_to_real;
+		case OPCODE_REAL_OP_to_real16_t: upc = offsetof(struct cg_upcall_vector_s, REAL_unary_to_real16_t_real16_t); real_target_type = 0; goto do_to_real;
 #endif
 #if REAL_MASK & 0x2
-		case OPCODE_REAL_OP_to_real32_t: upc = offsetof(struct cg_upcall_vector_s, REAL_unary_to_real32_t_real16_t); goto do_to_real;
+		case OPCODE_REAL_OP_to_real32_t: upc = offsetof(struct cg_upcall_vector_s, REAL_unary_to_real32_t_real16_t); real_target_type = 1; goto do_to_real;
 #endif
 #if REAL_MASK & 0x4
-		case OPCODE_REAL_OP_to_real64_t: upc = offsetof(struct cg_upcall_vector_s, REAL_unary_to_real64_t_real16_t); goto do_to_real;
+		case OPCODE_REAL_OP_to_real64_t: upc = offsetof(struct cg_upcall_vector_s, REAL_unary_to_real64_t_real16_t); real_target_type = 2; goto do_to_real;
 #endif
 #if REAL_MASK & 0x8
-		case OPCODE_REAL_OP_to_real80_t: upc = offsetof(struct cg_upcall_vector_s, REAL_unary_to_real80_t_real16_t); goto do_to_real;
+		case OPCODE_REAL_OP_to_real80_t: upc = offsetof(struct cg_upcall_vector_s, REAL_unary_to_real80_t_real16_t); real_target_type = 3; goto do_to_real;
 #endif
 #if REAL_MASK & 0x10
-		case OPCODE_REAL_OP_to_real128_t: upc = offsetof(struct cg_upcall_vector_s, REAL_unary_to_real128_t_real16_t); goto do_to_real;
+		case OPCODE_REAL_OP_to_real128_t: upc = offsetof(struct cg_upcall_vector_s, REAL_unary_to_real128_t_real16_t); real_target_type = 4; goto do_to_real;
 #endif
 		default: upc = offsetof(struct cg_upcall_vector_s, REAL_unary_cbrt_real16_t) + (op - OPCODE_REAL_OP_cbrt) * TYPE_REAL_N * sizeof(void (*)(void)); label_ovf = 0; goto do_upcall;
 	}
@@ -3872,10 +3873,26 @@ do_is_exception:
 		return true;
 	}
 #endif
+	goto do_upcall;
 
-do_to_real:
-	g(gen_alu_typed_upcall(ctx, upc, real_type, slot_1, NO_FRAME_T, slot_r, 0));
-	return true;
+do_to_real: {
+#ifdef SUPPORTED_FP_CVT
+		unsigned lo = minimum(real_type, real_target_type);
+		unsigned hi = maximum(real_type, real_target_type);
+		if (SUPPORTED_FP_CVT(lo, hi)) {
+			unsigned op_size_target = real_type_to_op_size(real_target_type);
+			g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
+			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_1);
+			gen_insn(INSN_FP_CVT, op_size, op_size_target, 0);
+			gen_one(target);
+			gen_one(reg1);
+			g(gen_frame_store(ctx, op_size_target, slot_r, 0, target));
+			return true;
+		}
+#endif
+		g(gen_alu_typed_upcall(ctx, upc, real_type, slot_1, NO_FRAME_T, slot_r, 0));
+		return true;
+	}
 
 do_upcall:
 	g(gen_alu_typed_upcall(ctx, upc, real_type, slot_1, NO_FRAME_T, slot_r, label_ovf));
