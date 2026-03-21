@@ -169,6 +169,7 @@
 #define POWER_STQ		0xf8000002U
 #define POWER_FCMPU		0xfc000000U
 #define POWER_XSADDQP		0xfc000008U
+#define POWER_FRSP		0xfc000018U
 #define POWER_FDIV		0xfc000024U
 #define POWER_FSUB		0xfc000028U
 #define POWER_FADD		0xfc00002aU
@@ -1013,6 +1014,25 @@ static bool attr_w cgen_fp_from_int(struct codegen_context *ctx, unsigned fp_op_
 	return true;
 }
 
+static bool attr_w cgen_fp_cvt(struct codegen_context *ctx, unsigned from_op_size, unsigned to_op_size)
+{
+	uint32_t mc;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+	if (from_op_size == OP_SIZE_4 && to_op_size == OP_SIZE_8) {
+		if (arg1[0] == arg2[0])
+			return true;
+		mc = POWER_FMR;
+	} else if (from_op_size == OP_SIZE_8 && to_op_size == OP_SIZE_4) {
+		mc = POWER_FRSP;
+	} else {
+		internal(file_line, "cgen_fp_cvt: invalid types %u, %u", from_op_size, to_op_size);
+	}
+	cgen_xform(mc, arg1[0] & 31, 0, arg2[0] & 31, false);
+	return true;
+}
+
 static bool attr_w cgen_jmp_cond(struct codegen_context *ctx, bool lng, unsigned aux, bool logical)
 {
 	uint32_t mc;
@@ -1214,6 +1234,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_FP_FROM_INT64:
 			g(cgen_fp_from_int(ctx, insn_op_size(insn)));
+			return true;
+		case INSN_FP_CVT:
+			g(cgen_fp_cvt(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_JMP:
 			g(add_relocation(ctx, JMP_SHORT, 0, NULL));
