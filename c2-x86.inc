@@ -1434,14 +1434,14 @@ static bool attr_w cgen_sse_cvt(struct codegen_context *ctx, unsigned from_op_si
 		g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F_38, X86_0F_38_CVTPH2PS_X128_RM64, false, OP_SIZE_8, arg1[0], 0, arg2));
 		return true;
 	} else if (from_op_size == OP_SIZE_4 && to_op_size == OP_SIZE_2) {
-		g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F_3A, X86_0F_3A_CVTPS2PH_RM64_X128, false, OP_SIZE_16, arg2[0], 0, arg1));
+		g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F_3A, X86_0F_3A_CVTPS2PH_RM64_X128, false, OP_SIZE_16, arg1[0], 0, arg2));
 		cgen_one(0x04);
 		return true;
 	} else if (from_op_size == OP_SIZE_4 && to_op_size == OP_SIZE_8) {
-		g(cgen_sse_insn(ctx, SSE_PREFIX_F3, PREFIX_0F, X86_0F_CVTSS2SD_X128_M32, false, OP_SIZE_4, arg2[0], 0, arg1));
+		g(cgen_sse_insn(ctx, SSE_PREFIX_F3, PREFIX_0F, X86_0F_CVTSS2SD_X128_M32, false, OP_SIZE_4, arg1[0], 0, arg2));
 		return true;
 	} else if (from_op_size == OP_SIZE_8 && to_op_size == OP_SIZE_4) {
-		g(cgen_sse_insn(ctx, SSE_PREFIX_F2, PREFIX_0F, X86_0F_CVTSD2SS_X128_M32, false, OP_SIZE_8, arg2[0], 0, arg1));
+		g(cgen_sse_insn(ctx, SSE_PREFIX_F2, PREFIX_0F, X86_0F_CVTSD2SS_X128_M32, false, OP_SIZE_8, arg1[0], 0, arg2));
 		return true;
 	}
 	internal(file_line, "cgen_sse_cvt: unsupported arguments %u, %u", from_op_size, to_op_size);

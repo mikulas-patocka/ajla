@@ -240,7 +240,7 @@ static uint8_t upcall_register = R_R15;
 
 #define SUPPORTED_FP		(cpu_test_feature(CPU_FEATURE_fp16) + cpu_test_feature(CPU_FEATURE_sse) * 0x2 + cpu_test_feature(CPU_FEATURE_sse2) * 0x4)
 #define SUPPORTED_FP_X87	0xe
-#define SUPPORTED_FP_CVT(f, t)	(((f) == 0 && (t) == 1) || ((f) == 1 && (t) == 0) ? cpu_test_feature(CPU_FEATURE_f16c) : ((f) == 1 && (t) == 2) || ((f) == 2 && (t) == 1) ? cpu_test_feature(CPU_FEATURE_sse2) : false)
+#define SUPPORTED_FP_CVT(f, t)	(((f) == 0 && (t) == 1) || ((f) == 1 && (t) == 0) ? cpu_test_feature(CPU_FEATURE_f16c) : (((f) == 1 && (t) == 2)) || ((f) == 2 && (t) == 1) ? cpu_test_feature(CPU_FEATURE_sse2) : false)
 #define FP_REGISTERS(real_size) 1
 
 static bool reg_is_fp(unsigned reg)
