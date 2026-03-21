@@ -735,7 +735,7 @@ do {								\
 			ln = st.trace[0].line;
 		}
 #define xip(n)	(frame_ip(fp, ip) + n >= da(get_frame(fp)->function,function)->code_size ? 0xffff : ip[n])
-		trace("%-24s %-5u %-32s at %u %p %p %04x %04x %04x %04x %04x %04x %04x %04x", fn, ln, decode_opcode(code, true), frame_ip(fp, ip), fp, frame_execution_control(fp), xip(1), xip(2), xip(3), xip(4), xip(5), xip(6), xip(7), xip(8));
+		trace("%-24s %-5u %-32s at %u %p %p %04x %04x %04x %04x %04x %04x %04x %04x %04x", fn, ln, decode_opcode(code, true), frame_ip(fp, ip), fp, frame_execution_control(fp), xip(0), xip(1), xip(2), xip(3), xip(4), xip(5), xip(6), xip(7), xip(8));
 #undef xip
 		stack_trace_free(&st);
 	}
