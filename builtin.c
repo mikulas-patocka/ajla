@@ -132,7 +132,7 @@ void builtin_find_function(struct module_designator *md, struct function_designa
 		return;
 	}
 	m = builtin_find_module(md->path, md->path_len);
-	ajla_assert_lo((size_t)fd->entries[0] < m->n_functions, (file_line, "builtin_find_function: invalid index"));
+	ajla_assert_lo((size_t)fd->entries[0] < m->n_functions, (file_line, "builtin_find_function: invalid index in %.*s: %lu >= %lu", (int)md->path_len, md->path, (unsigned long)fd->entries[0], (unsigned long)m->n_functions));
 	f = cast_ptr(const struct builtin_function_info *, builtin_ptr + m->function_info);
 	f += fd->entries[0];
 	*start = cast_ptr(const pcode_t *, builtin_ptr + f->pcode);

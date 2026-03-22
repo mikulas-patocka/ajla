@@ -82,6 +82,11 @@ fn @1_next_number(a : floating(@2,@3)) : floating(@2,@3) := next_number(a);
 fn @1_prev_number(a : floating(@2,@3)) : floating(@2,@3) := prev_number(a);
 fn @1_convert_to_int(a : floating(@2,@3)) : int := a;
 fn @1_convert_from_int(a : int) : floating(@2,@3) := a;
+fn @1_convert_to_real16_t(a : floating(@2,@3)) : real16 [ abort internal("unsupported real op"); ]
+fn @1_convert_to_real32_t(a : floating(@2,@3)) : real32 [ abort internal("unsupported real op"); ]
+fn @1_convert_to_real64_t(a : floating(@2,@3)) : real64 [ abort internal("unsupported real op"); ]
+fn @1_convert_to_real80_t(a : floating(@2,@3)) : real80 [ abort internal("unsupported real op"); ]
+fn @1_convert_to_real128_t(a : floating(@2,@3)) : real128 [ abort internal("unsupported real op"); ]
 fn @1_is_exception(a : floating(@2,@3)) : bool := is_exception a;
 fn @1_exception_class(a : floating(@2,@3)) : int := exception_class a;
 fn @1_exception_type(a : floating(@2,@3)) : int := exception_type a;
