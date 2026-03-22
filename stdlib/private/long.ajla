@@ -82,6 +82,11 @@ fn @1@2_prev_number(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported int
 fn @1@2_next_number(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
 fn @1@2_convert_to_int(a : @1int(@2)) : int := a;
 fn @1@2_convert_from_int(a : int) : @1int(@2) := a;
+fn @1@2_convert_to_real16_t(a : @1int(@2)) : real16 [ abort internal("unsupported integer op"); ]
+fn @1@2_convert_to_real32_t(a : @1int(@2)) : real32 [ abort internal("unsupported integer op"); ]
+fn @1@2_convert_to_real64_t(a : @1int(@2)) : real64 [ abort internal("unsupported integer op"); ]
+fn @1@2_convert_to_real80_t(a : @1int(@2)) : real80 [ abort internal("unsupported integer op"); ]
+fn @1@2_convert_to_real128_t(a : @1int(@2)) : real128 [ abort internal("unsupported integer op"); ]
 fn @1@2_is_exception(a : @1int(@2)) : bool := is_exception a;
 fn @1@2_exception_class(a : @1int(@2)) : int := exception_class a;
 fn @1@2_exception_type(a : @1int(@2)) : int := exception_type a;
