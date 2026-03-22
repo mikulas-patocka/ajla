@@ -444,7 +444,7 @@ static const uint8_t fp_volatile[] = {
 #define reg_is_saved(r)	(			\
 	((r) >= R_4 && (r) <= R_7) ||		\
 	(r) == R_SP ||				\
-	((r) >= R_32 && (r) <= R_95) ||		\
+	((r) >= R_32 && (r) < R_ARG0) ||	\
 	((r) >= FR_2 && (r) <= FR_5) ||		\
 	((r) >= FR_16 && (r) <= FR_31) ||	\
 	((r) >= P_1 && (r) <= P_5) ||		\
