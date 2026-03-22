@@ -738,7 +738,6 @@ do_call:
 		case INSN_TEST_DEST_REG:
 			ptr += arg_write(ctx, d, ptr, 1U << OP_SIZE_NATIVE);
 			ptr += arg_read(ctx, d, ptr, size);
-			ptr += arg_read(ctx, d, ptr, size);
 			break;
 		case INSN_ALU:
 		case INSN_ALU_PARTIAL:
