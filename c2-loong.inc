@@ -98,6 +98,8 @@
 #define LOONG_MOVFR2GR_S	0x0114b400U
 #define LOONG_MOVFR2GR_D	0x0114b800U
 #define LOONG_MOVCF2GR		0x0114dc00U
+#define LOONG_FCVT_S_D		0x01191800U
+#define LOONG_FCVT_D_S		0x01192400U
 #define LOONG_FTINTRZ_W_S	0x011a8400U
 #define LOONG_FTINTRZ_W_D	0x011a8800U
 #define LOONG_FTINTRZ_L_S	0x011aa400U
@@ -738,6 +740,23 @@ static bool attr_w cgen_fp_from_int(struct codegen_context *ctx, unsigned int_op
 	return true;
 }
 
+static bool attr_w cgen_fp_cvt(struct codegen_context *ctx, unsigned from_op_size, unsigned to_op_size)
+{
+	uint32_t mc;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+	if (from_op_size == OP_SIZE_4 && to_op_size == OP_SIZE_8) {
+		mc = LOONG_FCVT_D_S;
+	} else if (from_op_size == OP_SIZE_8 && to_op_size == OP_SIZE_4) {
+		mc = LOONG_FCVT_S_D;
+	} else {
+		internal(file_line, "cgen_fp_cvt: invalid types %u, %u", from_op_size, to_op_size);
+	}
+	cgen_2r(mc, arg1[0] & 0x1f, arg2[0] & 0x1f);
+	return true;
+}
+
 static bool attr_w cgen_jmp(struct codegen_context *ctx)
 {
 	g(add_relocation(ctx, JMP_LONG, 0, NULL));
@@ -1049,6 +1068,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		case INSN_FP_FROM_INT32:
 		case INSN_FP_FROM_INT64:
 			g(cgen_fp_from_int(ctx, insn_opcode(insn) == INSN_FP_FROM_INT32 ? OP_SIZE_4 : OP_SIZE_8, insn_op_size(insn)));
+			return true;
+		case INSN_FP_CVT:
+			g(cgen_fp_cvt(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_JMP:
 			g(cgen_jmp(ctx));
