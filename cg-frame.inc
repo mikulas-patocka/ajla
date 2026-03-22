@@ -73,7 +73,7 @@ static bool attr_w spill(struct codegen_context *ctx, frame_t v, bool attr_unuse
 	const struct type *t = get_type_of_local(ctx, v);
 	unsigned size = spill_size(t);
 #if defined(C_LITTLE_ENDIAN)
-	if (can_be_smaller)
+	if (can_be_smaller && !TYPE_TAG_IS_REAL(t->tag))
 		size = maximum(OP_SIZE_SLOT, size);
 #endif
 	g(gen_store_raw(ctx, size, R_FRAME, v, 0, ctx->registers[v]));
@@ -86,7 +86,7 @@ static bool attr_w unspill(struct codegen_context *ctx, frame_t v, bool attr_unu
 	unsigned size = spill_size(t);
 	enum extend ex = garbage;
 #if defined(C_LITTLE_ENDIAN)
-	if (can_be_smaller)
+	if (can_be_smaller && !TYPE_TAG_IS_REAL(t->tag))
 		size = maximum(OP_SIZE_SLOT, size);
 #endif
 	if (t->tag == TYPE_TAG_flat_option)
