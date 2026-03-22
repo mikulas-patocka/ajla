@@ -1221,6 +1221,38 @@ invalid:
 	return false;
 }
 
+static bool attr_w cgen_fp_cvt(struct codegen_context *ctx, unsigned to_op_size)
+{
+	uint64_t mc;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+	mc = IA64_F_FMA;
+	switch (to_op_size) {
+		case OP_SIZE_4:
+			mc |= IA64_F_FMA_S;
+			break;
+		case OP_SIZE_8:
+			mc |= IA64_F_FMA_D;
+			break;
+		case OP_SIZE_10:
+			mc |= IA64_F_FMA_E;
+			break;
+		default:
+			goto invalid;
+	}
+	mc |= bits_fp(arg1[0]) << 6;
+	mc |= bits_fp(FR_ZERO) << 13;
+	mc |= bits_fp(arg2[0]) << 20;
+	mc |= bits_fp(FR_ONE) << 27;
+	g(ia64_insn(ctx, UNIT_F, mc, arg1[0], ACCESS_NOTHING, arg2[0], ACCESS_NOTHING, ACCESS_NOTHING));
+	return true;
+
+invalid:
+	internal(file_line, "cgen_fp_cvt: invalid arguments %u, %02x, %02x", to_op_size, arg1[0], arg2[0]);
+	return false;
+}
+
 static bool attr_w cgen_jmp(struct codegen_context *ctx, unsigned length)
 {
 	uint64_t mc;
@@ -1448,6 +1480,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_FP_FROM_INT64:
 			g(cgen_fp_from_int(ctx, insn_op_size(insn)));
+			return true;
+		case INSN_FP_CVT:
+			g(cgen_fp_cvt(ctx, insn_aux(insn)));
 			return true;
 		case INSN_JMP:
 			g(cgen_jmp(ctx, insn_jump_size(insn)));
