@@ -246,6 +246,10 @@ Call_Mode_Cache
 Call_Mode_Save
 Call_Mode_Flat
 
+*
+FID_Flag_Program_Unit
+FID_Flag_Path_Index
+
 1
 SystemProperty_OS
 SystemProperty_Charset
