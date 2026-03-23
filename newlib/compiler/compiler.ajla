@@ -56,7 +56,7 @@ fn get_inline(f : function, optimized : bool) : list(pcode_t)
 	pc +<= len(f.spec_data);
 	for i := 0 to len(f.spec_data) do
 		pc +<= f.spec_data[i];
-	return load_optimized_pcode(f.path_idx, f.un, f.program, pc, optimized);
+	return load_optimized_pcode(f.path_idx, f.un, f.flags bt bsf FID_Flag_Program_Unit, pc, optimized);
 ]
 
 fn optimize_function_saved~save(lp : bytes, path_idx : nat, file : bytes, program : bool, fn_idx : list(int), verify_pattern : bytes) : list(pcode_t)

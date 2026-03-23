@@ -178,8 +178,8 @@ bool pcode_load_module_and_function_designator(const pcode_t **pc, struct module
 	path_idx = (unsigned)q;
 	if (unlikely(q != (pcode_t)path_idx))
 		goto exception_overflow;
-	program = path_idx & 1;
-	path_idx >>= 1;
+	program = !!(path_idx & FID_Flag_Program_Unit);
+	path_idx /= FID_Flag_Path_Index;
 	if (unlikely(!pcode_load_blob(pc, &blob, &l, err)))
 		goto exception;
 

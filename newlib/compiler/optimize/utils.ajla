@@ -63,8 +63,8 @@ fn function_load(params : list(pcode_t)) : (int, function)
 	assume params[1 + bl] >= 0;
 	assume params[l1] >= 0;
 	var r := function.[
-		path_idx : params[0] shr 1,
-		program : (params[0] and 1) <> 0,
+		path_idx : params[0] shr bsf FID_Flag_Path_Index,
+		flags : params[0] and FID_Flag_Path_Index - 1,
 		un : blob_load(params[1 .. ]),
 		fn_idx : fill(0, params[1 + bl]),
 		spec_data : fill(pcode_t, 0, params[l1]),
@@ -78,7 +78,7 @@ fn function_load(params : list(pcode_t)) : (int, function)
 
 fn function_store(f : function) : list(pcode_t)
 [
-	var pc := list(pcode_t).[ (f.path_idx shl 1) + select(f.program, 0, 1) ];
+	var pc := list(pcode_t).[ f.path_idx shl bsf FID_Flag_Path_Index or f.flags ];
 	pc += blob_store(f.un);
 	pc += list(pcode_t).[ len(f.fn_idx) ];
 	for i := 0 to len(f.fn_idx) do
