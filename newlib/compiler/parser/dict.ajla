@@ -70,7 +70,7 @@ record module_unique_id [
 record function_unique_id [
 	path_index : int;
 	unit_string : istring;
-	program : bool;
+	flags : int;
 	function_index : list(int);
 ]
 
@@ -251,7 +251,7 @@ fn function_unique_id_equal(x1 x2 : function_unique_id) : bool
 [
 	return	x1.path_index = x2.path_index and
 		x1.unit_string = x2.unit_string and
-		x1.program = x2.program and
+		x1.flags = x2.flags and
 		x1.function_index = x2.function_index;
 ]
 
@@ -430,7 +430,7 @@ fn new_function_context(dict : function_dictionary, parent_function : maybe(func
 	var id := function_unique_id.[
 		path_index : dict.id.path_index,
 		unit_string : dict.id.unit_string,
-		program : dict.id.program,
+		flags : select(dict.id.program, 0, FID_Flag_Program_Unit),
 		function_index : function_index,
 	];
 
@@ -616,7 +616,7 @@ fn search_function(ctx : function_context, name : istring, t : tokens) : functio
 fn search_function_from_id(ctx : function_context, id : function_unique_id) : function_definition
 [
 	var fd : function_definition;
-	if ctx.dict.id.path_index = id.path_index, ctx.dict.id.unit_string = id.unit_string, ctx.dict.id.program = id.program then [
+	if ctx.dict.id.path_index = id.path_index, ctx.dict.id.unit_string = id.unit_string, ctx.dict.id.program = id.flags bt bsf FID_Flag_Program_Unit then [
 		fd := ctx.dict.defs[id.function_index[0]];
 	] else [
 		var m_id := encode_module_id(id.path_index, id.unit_string);

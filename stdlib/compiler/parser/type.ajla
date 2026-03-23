@@ -497,7 +497,7 @@ restart:
 		if ctx.parsing_header,
 		   body.id.path_index = ctx.id.path_index,
 		   body.id.unit_string = ctx.id.unit_string,
-		   body.id.program = ctx.id.program,
+		   body.id.flags = ctx.id.flags,
 		   body.def_offset >= ctx.id.function_index[0] then [
 			//eval debug("de: " + i_decode(ctx.name) + ": " + ntos(body.def_offset) + ", " + ntos(ctx.id.function_index[0]));
 			return cc, typ;
@@ -1871,7 +1871,7 @@ fn array_shape(ctx : function_context, cc : compare_context, a : int, t : tokens
 	var instrm := get_defined_maybe(cc, a);
 	if instrm is j then [
 		var success, fid, args, ret_idx := decode_call(ctx, cc, a, instrm.j);
-		if success, fid.path_index = 0, fid.unit_string = i_encode("system"), not fid.program, fid.function_index = [ predefined_xarray ] then [
+		if success, fid.path_index = 0, fid.unit_string = i_encode("system"), fid.function_index = [ predefined_xarray ] then [
 			if len(args) <> 2 then
 				abort internal("array_shape: array doesn't have two arguments: " + ntos(len(args)));
 			var list_cc := args[0].cc;
@@ -1904,12 +1904,12 @@ processed_where:
 			goto processed_where;
 		]
 		var success, fid, args, ret_idx := decode_call(ctx, cc, a, instrm.j);
-		if success, fid.path_index = 0, fid.unit_string = i_encode("system"), not fid.program, fid.function_index = [ predefined_list ] then [
+		if success, fid.path_index = 0, fid.unit_string = i_encode("system"), fid.function_index = [ predefined_list ] then [
 			if len(args) <> 1 then
 				abort internal("list_type: list doesn't have one argument: " + ntos(len(args)));
 			return args[0].cc, args[0].idx, empty_compare_context, T_InvalidType;
 		]
-		if success, fid.path_index = 0, fid.unit_string = i_encode("system"), not fid.program, fid.function_index = [ predefined_xarray ] then [
+		if success, fid.path_index = 0, fid.unit_string = i_encode("system"), fid.function_index = [ predefined_xarray ] then [
 			if len(args) <> 2 then
 				abort internal("list_type: array doesn't have two arguments: " + ntos(len(args)));
 			return args[1].cc, args[1].idx, args[0].cc, args[0].idx;
@@ -1938,7 +1938,7 @@ fn get_list_id : function_unique_id
 	return function_unique_id.[
 		path_index : 0,
 		unit_string : i_encode("system"),
-		program : false,
+		flags : 0,
 		function_index : [ predefined_list ],
 	];
 ]

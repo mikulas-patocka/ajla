@@ -285,7 +285,7 @@ fn is_nat(inv : list(compare_argument)) : bool
 	if len(inv) <> 1 then
 		return false;
 	var fid := inv[0].cc.ctx.id;
-	var r := fid.path_index = 0 and fid.unit_string = i_encode("system") and not fid.program and fid.function_index = [ predefined_nat ];
+	var r := fid.path_index = 0 and fid.unit_string = i_encode("system") and fid.function_index = [ predefined_nat ];
 	if r then
 		return true;
 	var instr := get_defined_maybe(inv[0].cc, inv[0].idx);
@@ -293,7 +293,7 @@ fn is_nat(inv : list(compare_argument)) : bool
 		return false;
 	if instr.j.opcode = P_Call then [
 		fid := pcode_Call_get_unique_id(instr.j);
-		r := fid.path_index = 0 and fid.unit_string = i_encode("system") and not fid.program and fid.function_index = [ predefined_is_positive ];
+		r := fid.path_index = 0 and fid.unit_string = i_encode("system") and fid.function_index = [ predefined_is_positive ];
 		if r then
 			return true;
 	]
