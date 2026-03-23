@@ -168,6 +168,7 @@ next_flag:
 				for i := 0 to len(post_hints) do [
 					if post_hints[i] = "spec" then [
 						ctx.variables[v].specialize := true;
+						ctx.id.flags or= FID_Flag_Specialize;
 						break;
 					]
 				]

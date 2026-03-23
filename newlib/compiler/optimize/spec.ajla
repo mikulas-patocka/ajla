@@ -391,6 +391,7 @@ fn spec_extract(pc : list(pcode_t)) : treeset(list(pcode_t))
 		var ins := pc[ptr];
 		if ins = P_Call then [
 			if function_specifier_is_spec(pc[ptr + 5 .. ]) then [
+				pc[ptr + 5] and= not FID_Flag_Specialize;
 				var l := function_specifier_length(pc[ptr + 5 .. ]);
 				specs := treeset_set(specs, pc[ptr + 5 .. ptr + 5 + l]);
 			]

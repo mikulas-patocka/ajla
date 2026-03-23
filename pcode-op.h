@@ -225,7 +225,8 @@
 #define Call_Mode_Flat			9
 
 #define FID_Flag_Program_Unit		1
-#define FID_Flag_Path_Index		2
+#define FID_Flag_Specialize		2
+#define FID_Flag_Path_Index		4
 
 #define SystemProperty_OS		1
 #define SystemProperty_Charset		2

@@ -248,6 +248,7 @@ Call_Mode_Flat
 
 *
 FID_Flag_Program_Unit
+FID_Flag_Specialize
 FID_Flag_Path_Index
 
 1
