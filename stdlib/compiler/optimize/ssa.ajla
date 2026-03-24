@@ -1002,7 +1002,7 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 		]
 		goto end;
 	]
-	if ins.opcode = P_Call, ins.params[3] bt bsf FID_Flag_Specialize then [
+	if ins.opcode = P_Call then [
 		var l, f := function_load(ins.params[3 .. ]);
 		l += 3;
 		if len_greater_than(f.spec_data, 0) then
@@ -1016,6 +1016,9 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 			if ins.params[l + i * 2] bt bsf Flag_NoSpec then
 				bmp_nospec bts= i;
 		]
+
+		if bmp_spec = 0, not ins.params[3] bt bsf FID_Flag_Specialize then
+			goto end;
 
 		var pc := function_pcode(ins.params[3 .. ], ctx.get_inline);
 		//eval debug("considering specialization: " + function_name(ins.params[3 .. ], ctx.get_inline) + " " + ctx.name);
