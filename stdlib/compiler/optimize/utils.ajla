@@ -26,6 +26,7 @@ fn function_load(params : list(pcode_t)) : (int, function);
 fn function_store(f : function) : list(pcode_t);
 fn function_pcode(params : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t)) : list(pcode_t);
 fn function_name(params : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t)) : bytes;
+fn function_builtin_name(f : function, un : bytes, get_inline : fn(function, bool) : list(pcode_t)) : bytes;
 fn function_extract_nested(pc : list(pcode_t), fn_idx : list(int)) : list(pcode_t);
 
 fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instruction;
@@ -99,6 +100,16 @@ fn function_pcode(params : list(pcode_t), get_inline : fn(function, bool) : list
 fn function_name(params : list(pcode_t), get_inline : fn(function, bool) : list(pcode_t)) : bytes
 [
 	var pc := function_pcode(params, get_inline);
+	return blob_load(pc[9 .. ]);
+]
+
+fn function_builtin_name(f : function, un : bytes, get_inline : fn(function, bool) : list(pcode_t)) : bytes
+[
+	if f.path_idx <> 0 then
+		return "";
+	if f.un <> un then
+		return "";
+	var pc := get_inline~save(f, false);
 	return blob_load(pc[9 .. ]);
 ]
 
