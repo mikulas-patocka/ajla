@@ -167,7 +167,7 @@ fn real_to_bytes_base_precision(t : type, implicit c~spec : class_real_number(t)
 		frac := frac * b + inn;
 		n -= inn;
 	]
-	if n >= 0.5 then [
+	if n + n >= c.one then [
 		frac += 1;
 		var imul := ipower(b, digits);
 		if frac >= imul then [
@@ -206,11 +206,11 @@ fn bytes_to_real_base(t : type, implicit c~spec : class_real_number(t), a : byte
 		a := a[1 .. ];
 	]
 	if bytes_locase(a) = "inf" then [
-		r := 1. / 0.;
+		r := c.one / c.zero;
 		goto ret;
 	]
 	if bytes_locase(a) = "nan" then [
-		r := 0. / 0.;
+		r := c.zero / c.zero;
 		goto ret;
 	]
 

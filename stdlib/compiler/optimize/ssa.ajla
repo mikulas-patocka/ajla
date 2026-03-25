@@ -1045,7 +1045,7 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 					goto skip_cast;
 				]
 			]
-			//eval debug("optimizing it");
+			//eval debug("optimizing conversion from " + ntos(ins.params[l + 1]) + " to " + ntos(ins.params[l + 5]) + " in " + ctx.name);
 			var params := list(pcode_t).[ Un_ConvertToReal16 + (T_Real16 - ins.params[l + 5]), ins.params[l + 10], 0, ins.params[l + 9] ];
 			return create_instr(P_UnaryOp, params, ins.bb), true;
 		]
