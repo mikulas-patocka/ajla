@@ -68,6 +68,8 @@ fn test~inline(implicit w : world, implicit p : prng_state, h : list(handle), t 
 		floor(v1),
 		ceil(v1),
 		trunc(v1),
+		cast(real32, v1),
+		cast(real64, v1),
 	];
 	var ff := [
 		f1 + f2,
@@ -81,6 +83,8 @@ fn test~inline(implicit w : world, implicit p : prng_state, h : list(handle), t 
 		floor(f1),
 		ceil(f1),
 		trunc(f1),
+		cast(real32, f1),
+		cast(real64, f1),
 	];
 
 	vv := map(vv, xlate_exception(c, ));

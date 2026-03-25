@@ -198,6 +198,8 @@ record class_fixed_integer_number(t : type) [
 ]
 
 record class_real_number(t : type) [
+	to_rational : fn(t) : rational;		// these two must be first
+	from_rational : fn(rational) : t;	// these two must be first
 	add : fn(t, t) : t;
 	zero : t;
 	neg : fn(t) : t;
@@ -246,8 +248,6 @@ record class_real_number(t : type) [
 	less : fn(t, t) : bool;
 	to_int : fn(t) : int;
 	from_int : fn(int) : t;
-	to_rational : fn(t) : rational;
-	from_rational : fn(rational) : t;
 	to_bytes : fn(t) : bytes;
 	to_bytes_base_precision : fn(t, int, int) : bytes;
 	from_bytes : fn(bytes) : t;
@@ -370,7 +370,7 @@ fn prev_number~inline(t : type, c : class_real_number(t), val : t) : t;
 conversion fn integer_number_to_integer_number~inline(t1 : type, c1 : class_integer_number(t1), t2 : type, c2 : class_integer_number(t2), val : t1) : t2;
 conversion fn integer_number_to_real_number~inline(t1 : type, c1 : class_integer_number(t1), t2 : type, c2 : class_real_number(t2), val : t1) : t2;
 conversion fn real_number_to_integer_number~inline(t1 : type, c1 : class_real_number(t1), t2 : type, c2 : class_integer_number(t2), val : t1) : t2;
-conversion fn real_number_to_real_number~inline(t1 : type, c1 : class_real_number(t1), t2 : type, c2 : class_real_number(t2), val : t1) : t2;
+conversion fn real_number_to_real_number(t1 : type, c1 : class_real_number(t1), t2 : type, c2 : class_real_number(t2), val : t1) : t2;
 
 implicit fn instance_number_int8~inline : class_integer_number(int8);
 implicit fn instance_number_int16~inline : class_integer_number(int16);
@@ -2817,7 +2817,7 @@ fn prev_number~inline(t : type, c : class_real_number(t), val : t) : t := c.prev
 conversion fn integer_number_to_integer_number~inline(t1 : type, c1 : class_integer_number(t1), t2 : type, c2 : class_integer_number(t2), val : t1) : t2 := c2.from_int(c1.to_int(val));
 conversion fn integer_number_to_real_number~inline(t1 : type, c1 : class_integer_number(t1), t2 : type, c2 : class_real_number(t2), val : t1) : t2 := c2.from_int(c1.to_int(val));
 conversion fn real_number_to_integer_number~inline(t1 : type, c1 : class_real_number(t1), t2 : type, c2 : class_integer_number(t2), val : t1) : t2 := c2.from_int(c1.to_int(val));
-conversion fn real_number_to_real_number~inline(t1 : type, c1 : class_real_number(t1), t2 : type, c2 : class_real_number(t2), val : t1) : t2 := c2.from_rational(c1.to_rational(val));
+conversion fn real_number_to_real_number(t1 : type, c1 : class_real_number(t1), t2 : type, c2 : class_real_number(t2), val : t1) : t2 := c2.from_rational(c1.to_rational(val));
 
 {---------
  - DEBUG -

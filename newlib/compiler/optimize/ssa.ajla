@@ -1015,15 +1015,37 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 				if c < 0 then
 					goto skip_cast;
 				var cins := ctx.instrs[ctx.variables[c].defining_instr];
-				if cins.opcode <> P_Call then
+				if cins.opcode = P_Call then [
+					if cins.params[1] <> 1 or cins.params[2] <> 0 then
+						goto skip_cast;
+					var ll, ff := function_load(cins.params[3 .. ]);
+					var ffname := function_builtin_name(ff, "system", ctx.get_inline);
+					if not list_begins_with(ffname, "instance_real_number_") then
+						goto skip_cast;
+				] else if cins.opcode = P_Record_Create then [
+					if cins.params[1] < 2 then
+						goto skip_cast;
+					for idx := 0 to 2 do [
+						var r := cins.params[3 + idx * 2];
+						if r < 0 then
+							goto skip_cast;
+						var rins := ctx.instrs[ctx.variables[r].defining_instr];
+						if rins.opcode <> P_Load_Fn then
+							goto skip_cast;
+						if rins.params[1] <> 0 then
+							goto skip_cast;
+						var ll, ff := function_load(rins.params[3 .. ]);
+						var ffname := function_builtin_name(ff, "system", ctx.get_inline);
+						if not list_begins_with(ffname, "real") then
+							goto skip_cast;
+						if not list_ends_with(ffname, select(idx = 1, "_to_rational", "_from_rational")) then
+							goto skip_cast;
+					]
+				] else [
 					goto skip_cast;
-				if cins.params[1] <> 1 or cins.params[2] <> 0 then
-					goto skip_cast;
-				var ll, ff := function_load(cins.params[3 .. ]);
-				var ffname := function_builtin_name(ff, "system", ctx.get_inline);
-				if not list_begins_with(ffname, "instance_real_number_") then
-					goto skip_cast;
+				]
 			]
+			//eval debug("optimizing it");
 			var params := list(pcode_t).[ Un_ConvertToReal16 + (T_Real16 - ins.params[l + 5]), ins.params[l + 10], 0, ins.params[l + 9] ];
 			return create_instr(P_UnaryOp, params, ins.bb), true;
 		]
