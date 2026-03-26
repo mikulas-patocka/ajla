@@ -492,7 +492,10 @@ void attr_fastcall cat(mpint_export_to_,type)(const mpint_t *s, type *result)\
 		idx = (sz - 1) / GMP_NUMB_BITS;				\
 		base_pos = idx * GMP_NUMB_BITS;				\
 									\
-		mult = mult * (ntype)(1. / ((ntype)((mp_limb_t)1 << (GMP_NUMB_BITS - 1)) * 2.));\
+		if (sizeof(ntype) < 4)					\
+			mult = mult * (float)(1. / ((float)((mp_limb_t)1 << (GMP_NUMB_BITS - 1)) * 2.));\
+		else							\
+			mult = mult * (ntype)(1. / ((ntype)((mp_limb_t)1 << (GMP_NUMB_BITS - 1)) * 2.));\
 	}								\
 									\
 	if (last_bit >= 1 && mpint_raw_test_bit(limbs, last_bit - 1)) {	\
