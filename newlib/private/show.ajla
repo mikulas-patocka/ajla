@@ -359,6 +359,8 @@ fn int_to_real(t : type, implicit c~spec : class_real_number(t), i : int) : (t, 
 			q := qq;
 	]
 
+	if i bt q - 1 then
+		i += 1 shl q;
 	num := c.from_int(i shr q);
 	return num, q;
 ]
@@ -370,6 +372,5 @@ fn rational_to_real(t : type, implicit c~spec : class_real_number(t), a : ration
 	var num_t, adj_p := int_to_real(t, c, num);
 	var den_t, adj_m := int_to_real(t, c, den);
 	var adj := adj_p - adj_m;
-	//return num_t / den_t * ldexp(c.one, adj);
 	return ldexp(num_t / den_t, adj);
 ]
