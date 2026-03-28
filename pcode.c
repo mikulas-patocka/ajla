@@ -166,6 +166,12 @@ static code_t get_code(pcode_t op, const struct type *t)
 	code_t code, typeq;
 	unsigned cls;
 	ajla_assert(op >= 0 && op < Op_NN, (file_line, "get_code: invalid operation %"PRIdMAX"", (intmax_t)op));
+	if (Op_IsReal(op)) {
+		unsigned r = op - Un_ConvertToReal16;
+		const struct type *type = type_get_real(r);
+		if (type)
+			op = Un_ConvertToReal16 + TYPE_TAG_IDX_REAL(type->tag);
+	}
 	instruction_class(t, &cls, &typeq, op);
 	code = pcode2code[op][cls];
 	ajla_assert(code != NO_OPCODE, (file_line, "get_code: invalid instruction and type: %"PRIdMAX", %u", (intmax_t)op, t->tag));
