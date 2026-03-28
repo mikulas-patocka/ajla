@@ -1008,14 +1008,9 @@ fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
 		if len_greater_than(f.spec_data, 0) then
 			goto end;
 
-		if not is_privileged, ins.params[1] = 1, ins.params[2] = 5, ins.params[l + 1] <= T_Real16, ins.params[l + 1] >= T_Real128, ins.params[l + 5] <= T_Real16, ins.params[l + 5] >= T_Real128, function_builtin_name(f, "system", ctx.get_inline) = "real_number_to_real_number" then [
+		if ins.params[1] = 1, ins.params[2] = 5, ins.params[l + 1] <= T_Real16, ins.params[l + 1] >= T_Real128, ins.params[l + 5] <= T_Real16, ins.params[l + 5] >= T_Real128, function_builtin_name(f, "system", ctx.get_inline) = "real_number_to_real_number" then [
 			var real_from := T_Real16 - ins.params[l + 1];
 			var real_to := T_Real16 - ins.params[l + 5];
-			var real_available := sysprop(SystemProperty_Real);
-			if not real_available bt real_from then
-				goto skip_cast;
-			if not real_available bt real_to then
-				goto skip_cast;
 			var c1 := ins.params[l + 3];
 			var c2 := ins.params[l + 7];
 			for c in [ c1, c2 ] do [

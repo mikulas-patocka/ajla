@@ -1344,7 +1344,7 @@ static bool pcode_op_to_call(struct build_function_context *ctx, pcode_t op, con
 	arg_mode_t am;
 	code_t code;
 
-	switch (t1->extra_type ? t1->extra_type : tr->extra_type) {
+	switch (t1->extra_type ? t1->extra_type : Op_IsReal(op) ? t1->typ : tr->extra_type) {
 		case T_SInt128:	module = "private/long"; fn = 0 * Op_N; break;
 		case T_UInt128:	module = "private/long"; fn = 1 * Op_N; break;
 		case T_Real16:	module = "private/longreal"; fn = 0 * Op_N; break;
