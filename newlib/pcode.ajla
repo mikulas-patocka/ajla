@@ -199,7 +199,11 @@ const Un_ExceptionClass := 69;
 const Un_ExceptionType := 70;
 const Un_ExceptionAux := 71;
 const Un_SystemProperty := 72;
-const Op_N := 73;
+const Tern_FMA := 73;
+const Tern_FMS := 74;
+const Tern_FNMA := 75;
+const Tern_FNMS := 76;
+const Op_N := 77;
 
 const Fn_Function := 1;
 const Fn_Record := 2;
@@ -733,7 +737,11 @@ fn name_to_value~cache : list(int)
 	a[#ABBAFC5F18F2F0E9A77EEA9E7865] := 70;					// Un_ExceptionType
 	a[#15775F8BE31E5E1D34EFDD07AF8] := 71;					// Un_ExceptionAux
 	a[#55DD7E9F9E7D32EDA1CB7F0CBCBA79] := 72;				// Un_SystemProperty
-	a[#9FC2FCE] := 73;							// Op_N
+	a[#A99796EBF1A6C1] := 73;						// Tern_FMA
+	a[#A99796EBF1A6D3] := 74;						// Tern_FMS
+	a[#54CBCB75F8D3A6C1] := 75;						// Tern_FNMA
+	a[#54CBCB75F8D3A6D3] := 76;						// Tern_FNMS
+	a[#9FC2FCE] := 77;							// Op_N
 
 	a[#11B75F8DD7763E9A77EE] := 1;						// Fn_Function
 	a[#46DD7E965C7BF964] := 2;						// Fn_Record

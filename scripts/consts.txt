@@ -210,6 +210,10 @@ Un_ExceptionClass
 Un_ExceptionType
 Un_ExceptionAux
 Un_SystemProperty
+Tern_FMA
+Tern_FMS
+Tern_FNMA
+Tern_FNMS
 Op_N
 
 1

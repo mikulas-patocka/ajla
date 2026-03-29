@@ -197,7 +197,11 @@
 #define Un_ExceptionType		70
 #define Un_ExceptionAux			71
 #define Un_SystemProperty		72
-#define Op_N				73
+#define Tern_FMA			73
+#define Tern_FMS			74
+#define Tern_FNMA			75
+#define Tern_FNMS			76
+#define Op_N				77
 
 #define Fn_Function			1
 #define Fn_Record			2

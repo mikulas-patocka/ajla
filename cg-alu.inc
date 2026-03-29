@@ -47,9 +47,9 @@ static bool attr_w gen_alu_upcall(struct codegen_context *ctx, size_t upcall, un
 		g(gen_upcall_argument(ctx, 0));
 		g(gen_frame_address(ctx, slot_2, 0, R_ARG1));
 		g(gen_upcall_argument(ctx, 1));
-		g(gen_frame_address(ctx, slot_3, 0, R_ARG1));
+		g(gen_frame_address(ctx, slot_3, 0, R_ARG2));
 		g(gen_upcall_argument(ctx, 2));
-		g(gen_frame_address(ctx, slot_r, 0, R_ARG2));
+		g(gen_frame_address(ctx, slot_r, 0, R_ARG3));
 		g(gen_upcall_argument(ctx, 3));
 		g(gen_upcall(ctx, upcall, 4, true));
 	} else if (slot_2 != NO_FRAME_T) {
