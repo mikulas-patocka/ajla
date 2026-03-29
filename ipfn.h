@@ -75,11 +75,11 @@
 #define SHOULD_EVAL	1
 #define CAN_EVAL	2
 unsigned force_eval(frame_s *fp, frame_t slot);
-void eval_both(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2);
+void eval_both(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2, frame_t slot_3);
 
 void attr_hot_fastcall ipret_fill_function_reference_from_slot(struct data *function_reference, arg_t a, frame_s *fp, frame_t slot, bool deref);
 
-void * attr_hot_fastcall thunk_fixed_operator(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2, frame_t slot_r, unsigned strict_flag);
+void * attr_hot_fastcall thunk_fixed_operator(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2, frame_t slot_3, frame_t slot_r, unsigned strict_flag);
 void * attr_hot_fastcall is_thunk_operator(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_r, unsigned strict_flag);
 void * attr_hot_fastcall thunk_get_param(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_r, unsigned strict_flag, unsigned mode);
 int_default_t ipret_system_property(int_default_t idx);

@@ -335,6 +335,20 @@ static ipret_inline void cat4(REAL_unary_,op,_,type)			\
 	*res = pack(cat(op_,op)(type, type, (unpack(*op1))));		\
 }
 
+#define generate_real_ternary_fma(type, ntype, pack, unpack, op, neg)	\
+static ipret_inline void cat4(REAL_ternary_,op,_,type)			\
+				(const type *op1, const type *op2, const type *op3, type *res)\
+{									\
+	ntype n1 = unpack(*op1);					\
+	ntype n2 = unpack(*op2);					\
+	ntype n3 = unpack(*op3);					\
+	if (neg & 1)							\
+		n3 = -n3;						\
+	if (neg & 2)							\
+		n1 = -n1;						\
+	*res = pack(cat(mathfunc_,type)(fma)(n1, n2, n3));		\
+}
+
 /* EMX has a bug - modf(infinity) return NaN instead of 0. */
 #ifdef HAVE_BUGGY_MODF
 #define need_modf_hack true
@@ -624,6 +638,10 @@ generate_real_real64(type, ntype, pack, unpack)				\
 generate_real_real80(type, ntype, pack, unpack)				\
 generate_real_real128(type, ntype, pack, unpack)			\
 generate_real_unary_logical(n, type, ntype, pack, unpack, is_exception, 0)\
+generate_real_ternary_fma(type, ntype, pack, unpack, fma, 0)		\
+generate_real_ternary_fma(type, ntype, pack, unpack, fms, 1)		\
+generate_real_ternary_fma(type, ntype, pack, unpack, fnma, 2)		\
+generate_real_ternary_fma(type, ntype, pack, unpack, fnms, 3)		\
 generate_real_ldc(n, type, ntype, pack, unpack)
 
 for_all_real(generate_real_functions, for_all_empty)

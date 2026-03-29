@@ -602,6 +602,17 @@ flag_set:
 	return true;
 #endif
 }
+static attr_always_inline bool frame_test_3(frame_s *fp, frame_t idx1, frame_t idx2, frame_t idx3)
+{
+#ifndef INLINE_ASM_GCC_LABELS
+	return frame_test_flag(fp, idx1) || frame_test_flag(fp, idx2) || frame_test_flag(fp, idx3);
+#else
+	__asm__ goto("bt %k0, %3; jc 1f; bt %k1, %3; jc 1f; bt %k2, %3 1:jc %l[flag_set]"::"r"((size_t)idx1),"r"((size_t)idx2),"r"((size_t)idx3),"m"(*(unsigned char *)fp):"cc","memory":flag_set);
+	return false;
+flag_set:
+	return true;
+#endif
+}
 static attr_always_inline bool frame_test_and_set_flag(frame_s *fp, frame_t idx)
 {
 #ifndef INLINE_ASM_GCC_LABELS
@@ -696,6 +707,10 @@ static attr_always_inline bool frame_test_2(frame_s *fp, frame_t idx1, frame_t i
 {
 	return frame_test_flag(fp, idx1) || frame_test_flag(fp, idx2);
 }
+static attr_always_inline bool frame_test_3(frame_s *fp, frame_t idx1, frame_t idx2, frame_t idx3)
+{
+	return frame_test_flag(fp, idx1) || frame_test_flag(fp, idx2) || frame_test_flag(fp, idx3);
+}
 #endif
 #else
 #define frame_flags_per_slot_bits		(slot_bits)
@@ -725,7 +740,8 @@ static attr_always_inline bool frame_test_and_set_flag(frame_s *fp, frame_t idx)
 {
 	unsigned char val = frame_char_(fp)[idx];
 	ajla_assert(val <= 1, (file_line, "frame_test_and_set_flag: invalid value %d at index %"PRIuMAX"", (int)val, (uintmax_t)idx));
-	if (val) return true;
+	if (val)
+		return true;
 	frame_char_(fp)[idx] = 1;
 	return false;
 }
@@ -733,7 +749,8 @@ static attr_always_inline bool frame_test_and_clear_flag(frame_s *fp, frame_t id
 {
 	unsigned char val = frame_char_(fp)[idx];
 	ajla_assert(val <= 1, (file_line, "frame_test_and_clear_flag: invalid value %d at index %"PRIuMAX"", (int)val, (uintmax_t)idx));
-	if (!val) return false;
+	if (!val)
+		return false;
 	frame_char_(fp)[idx] = 0;
 	return true;
 }
@@ -749,10 +766,15 @@ static attr_always_inline bool frame_test_and_clear_flag(frame_s *fp, frame_t id
 #endif	/* doesn't care: defined(__riscv) || defined(__sparc__) */
 #ifndef INLINE_WORKS
 #define frame_test_2(fp, idx1, idx2)		(frame_char_(fp)[idx1] frame_test_operator frame_char_(fp)[idx2])
+#define frame_test_3(fp, idx1, idx2, idx3)	(frame_char_(fp)[idx1] frame_test_operator frame_char_(fp)[idx2] frame_test_operator frame_char_(fp)[idx3])
 #else
 static attr_always_inline bool frame_test_2(frame_s *fp, frame_t idx1, frame_t idx2)
 {
 	return frame_char_(fp)[idx1] frame_test_operator frame_char_(fp)[idx2];
+}
+static attr_always_inline bool frame_test_3(frame_s *fp, frame_t idx1, frame_t idx2, frame_t idx3)
+{
+	return frame_char_(fp)[idx1] frame_test_operator frame_char_(fp)[idx2] frame_test_operator frame_char_(fp)[idx3];
 }
 #endif
 #endif
@@ -1550,7 +1572,7 @@ bool attr_fastcall thunk_alloc_blackhole(struct execution_control *ex, arg_t n_r
  * EXECUTION CONTROL *
  *********************/
 
-#define N_EXECUTION_CONTROL_WAIT	2
+#define N_EXECUTION_CONTROL_WAIT	3
 
 #define EXECUTION_CONTROL_NORMAL	4
 #define EXECUTION_CONTROL_ARMED		3
@@ -1752,8 +1774,9 @@ do {									\
 #define PF_SPARK	(-2)
 #define PF_NOEVAL	(-1)
 #define PF_WAIT		(0)
-#define PF_PREPARE0	(2)
-#define PF_PREPARE1	(3)
+#define PF_PREPARE0	(4)
+#define PF_PREPARE1	(5)
+#define PF_PREPARE2	(6)
 
 #define pointer_follow(ptr, owned, result, wait_idx, fp, ip, xc_code, exception_code)\
 do {									\
@@ -1767,7 +1790,7 @@ do {									\
 		break;							\
 	} else {							\
 		void *ex__;						\
-		ex__ = pointer_follow_thunk_(ptr, (wait_idx) >= 0 ? &frame_execution_control(fp)->wait[(wait_idx) & 1] : (wait_idx) == PF_NOEVAL ? POINTER_FOLLOW_THUNK_NOEVAL : POINTER_FOLLOW_THUNK_SPARK);\
+		ex__ = pointer_follow_thunk_(ptr, (wait_idx) >= 0 ? &frame_execution_control(fp)->wait[(wait_idx) & 3] : (wait_idx) == PF_NOEVAL ? POINTER_FOLLOW_THUNK_NOEVAL : POINTER_FOLLOW_THUNK_SPARK);\
 		if (ex__ == POINTER_FOLLOW_THUNK_RETRY)			\
 			continue;					\
 		if (ex__ == POINTER_FOLLOW_THUNK_EXCEPTION) {		\
@@ -1779,7 +1802,7 @@ do {									\
 		{							\
 			struct execution_control attr_unused *ex_;	\
 			ex_ = cast_cpp(struct execution_control *, ex__);\
-			if ((wait_idx) >= 0 && !((wait_idx) & 2)) {	\
+			if ((wait_idx) >= 0 && !((wait_idx) & 4)) {	\
 				pointer_follow_wait(fp, ip);		\
 			}						\
 			{ xc_code; }					\

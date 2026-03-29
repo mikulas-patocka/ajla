@@ -3308,7 +3308,7 @@ return_2:
 		return POINTER_FOLLOW_THUNK_GO;
 	}
 
-	eval_both(ctx->fp, ctx->ip, slot_1, slot_2);
+	eval_both(ctx->fp, ctx->ip, slot_1, slot_2, NO_FRAME_T);
 
 	return POINTER_FOLLOW_THUNK_EXIT;
 }

@@ -295,12 +295,16 @@ typedef uint16_t code_t;
 #define OPCODE_REAL_OP_is_exception		80
 #define OPCODE_REAL_OP_is_exception_alt1	81
 #define OPCODE_REAL_OP_is_exception_alt2	82
-#define OPCODE_REAL_OP_N			 83
-#define OPCODE_REAL_OP_move			83
-#define OPCODE_REAL_OP_copy			84
-#define OPCODE_REAL_OP_ldc			85
+#define OPCODE_REAL_OP_fma			83
+#define OPCODE_REAL_OP_fms			84
+#define OPCODE_REAL_OP_fnma			85
+#define OPCODE_REAL_OP_fnms			86
+#define OPCODE_REAL_OP_N			 87
+#define OPCODE_REAL_OP_move			87
+#define OPCODE_REAL_OP_copy			88
+#define OPCODE_REAL_OP_ldc			89
 
-#define OPCODE_REAL_TYPE_MULT		86
+#define OPCODE_REAL_TYPE_MULT		90
 #define OPCODE_REAL_TYPE_real16_t		0
 #define OPCODE_REAL_TYPE_real32_t		1
 #define OPCODE_REAL_TYPE_real64_t		2

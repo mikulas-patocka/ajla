@@ -114,7 +114,7 @@ unsigned force_eval(frame_s *fp, frame_t slot)
 	return force_eval_ptr(*frame_pointer(fp, slot), 0);
 }
 
-void eval_both(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2)
+void eval_both(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2, frame_t slot_3)
 {
 	struct execution_control *ex = frame_execution_control(fp);
 	if (slot_1 != NO_FRAME_T) {
@@ -139,6 +139,17 @@ brk1:
 		execution_control_acquire(ex);
 	}
 brk2:
+	if (slot_3 != NO_FRAME_T) {
+		if (!frame_variable_is_flat(fp, slot_3)) {
+			pointer_t *ptr = frame_pointer(fp, slot_3);
+			struct data attr_unused *result;
+			pointer_follow(ptr, true, result, PF_PREPARE2, fp, ip,
+				SUBMIT_EX(ex_); goto brk3,
+				break);
+		}
+		execution_control_acquire(ex);
+	}
+brk3:
 	pointer_follow_wait(fp, ip);
 }
 
@@ -199,7 +210,7 @@ fail_err:
 	return thunk_alloc_exception_error(err, NULL, NULL, NULL pass_file_line);
 }
 
-static void *ipret_op_build_thunk(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2, frame_t slot_r, unsigned strict_flag)
+static void *ipret_op_build_thunk(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2, frame_t slot_3, frame_t slot_r, unsigned strict_flag)
 {
 	unsigned flags;
 	pointer_t *fn_ptr;
@@ -209,6 +220,7 @@ static void *ipret_op_build_thunk(frame_s *fp, const code_t *ip, frame_t slot_1,
 	struct thunk *result;
 	frame_t slot_1_eval = NO_FRAME_T;
 	frame_t slot_2_eval = NO_FRAME_T;
+	frame_t slot_3_eval = NO_FRAME_T;
 
 	code = *ip % OPCODE_MODE_MULT;
 	if (code == OPCODE_IS_EXCEPTION)
@@ -263,18 +275,31 @@ static void *ipret_op_build_thunk(frame_s *fp, const code_t *ip, frame_t slot_1,
 		);
 	}
 
+	if (slot_3 != NO_FRAME_T && frame_test_flag(fp, slot_3) && pointer_is_thunk(*frame_pointer(fp, slot_3))) {
+		pointer_follow_thunk_noeval(frame_pointer(fp, slot_3),
+			return POINTER_FOLLOW_THUNK_RETRY,
+			if ((strict_flag & (FLAG_NEED_BOTH_EXCEPTIONS_TO_FAIL | FLAG_FIRST_EXCEPTION)) != FLAG_NEED_BOTH_EXCEPTIONS_TO_FAIL) {
+				pointer_copy_owned(fp, slot_3, slot_r);
+				return POINTER_FOLLOW_THUNK_GO;
+			}
+			break,
+			slot_3_eval = slot_3; break
+		);
+	}
+
 	if (!(strict_flag & OPCODE_OP_FLAG_STRICT)) {
 		unsigned force_eval_1 = force_eval(fp, slot_1_eval);
 		unsigned force_eval_2 = force_eval(fp, slot_2_eval);
-		if ((force_eval_1 | force_eval_2) & SHOULD_EVAL)
+		unsigned force_eval_3 = force_eval(fp, slot_3_eval);
+		if ((force_eval_1 | force_eval_2 | force_eval_3) & SHOULD_EVAL)
 			strict_flag |= OPCODE_OP_FLAG_STRICT;
-		else if (force_eval_1 & force_eval_2 & CAN_EVAL)
+		else if (force_eval_1 & force_eval_2 & force_eval_3 & CAN_EVAL)
 			strict_flag |= OPCODE_OP_FLAG_STRICT;
 	}
 
 	if (strict_flag & OPCODE_OP_FLAG_STRICT) {
-		if (slot_1_eval != NO_FRAME_T || slot_2_eval != NO_FRAME_T) {
-			eval_both(fp, ip, slot_1_eval, slot_2_eval);
+		if (slot_1_eval != NO_FRAME_T || slot_2_eval != NO_FRAME_T || slot_3_eval != NO_FRAME_T) {
+			eval_both(fp, ip, slot_1_eval, slot_2_eval, slot_3_eval);
 			return POINTER_FOLLOW_THUNK_EXIT;
 		}
 		return POINTER_FOLLOW_THUNK_RETRY;
@@ -296,7 +321,7 @@ static void *ipret_op_build_thunk(frame_s *fp, const code_t *ip, frame_t slot_1,
 	if (unlikely(ex != POINTER_FOLLOW_THUNK_RETRY))
 		return ex;
 
-	result = build_thunk(fn_ptr, slot_2 != NO_FRAME_T ? 2 : 1, &function_reference);
+	result = build_thunk(fn_ptr, slot_3 != NO_FRAME_T ? 3 : slot_2 != NO_FRAME_T ? 2 : 1, &function_reference);
 	ipret_fill_function_reference_from_slot(function_reference, 0, fp, slot_1, false);
 	if (slot_2 != NO_FRAME_T) {
 		ajla_error_t err;
@@ -359,6 +384,9 @@ do_mpint:
 			}
 		}
 	}
+	if (slot_3 != NO_FRAME_T) {
+		ipret_fill_function_reference_from_slot(function_reference, 2, fp, slot_3, false);
+	}
 
 	frame_free_and_set_pointer(fp, slot_r, pointer_thunk(result));
 
@@ -414,7 +442,7 @@ static bool test_and_copy_nan(frame_s attr_unused *fp, const code_t attr_unused 
 	return false;
 }
 
-void * attr_hot_fastcall thunk_fixed_operator(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2, frame_t slot_r, unsigned strict_flag)
+void * attr_hot_fastcall thunk_fixed_operator(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2, frame_t slot_3, frame_t slot_r, unsigned strict_flag)
 {
 	const struct type *type;
 	int converted;
@@ -436,8 +464,13 @@ void * attr_hot_fastcall thunk_fixed_operator(frame_s *fp, const code_t *ip, fra
 		if (!frame_test_flag(fp, slot_2) && unlikely(test_and_copy_nan(fp, ip, type->tag, slot_2, slot_r)))
 			return POINTER_FOLLOW_THUNK_GO;
 	}
+	if (slot_3 != NO_FRAME_T && !frame_t_is_const(slot_3)) {
+		converted |= ipret_unbox_value(fp, type, slot_3);
+		if (!frame_test_flag(fp, slot_3) && unlikely(test_and_copy_nan(fp, ip, type->tag, slot_3, slot_r)))
+			return POINTER_FOLLOW_THUNK_GO;
+	}
 	if (converted & UNBOX_THUNK)
-		return ipret_op_build_thunk(fp, ip, slot_1, slot_2, slot_r, strict_flag);
+		return ipret_op_build_thunk(fp, ip, slot_1, slot_2, slot_3, slot_r, strict_flag);
 
 	return POINTER_FOLLOW_THUNK_RETRY;
 }
@@ -470,7 +503,7 @@ return_val:
 	return POINTER_FOLLOW_THUNK_GO;
 
 create_thunk:
-	return ipret_op_build_thunk(fp, ip, slot_1, NO_FRAME_T, slot_r, strict_flag);
+	return ipret_op_build_thunk(fp, ip, slot_1, NO_FRAME_T, NO_FRAME_T, slot_r, strict_flag);
 }
 
 void * attr_hot_fastcall thunk_get_param(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_r, unsigned strict_flag, unsigned mode)
@@ -550,7 +583,7 @@ not_thunk:
 	return POINTER_FOLLOW_THUNK_GO;
 
 create_thunk:
-	return ipret_op_build_thunk(fp, ip, slot_1, NO_FRAME_T, slot_r, strict_flag);
+	return ipret_op_build_thunk(fp, ip, slot_1, NO_FRAME_T, NO_FRAME_T, slot_r, strict_flag);
 }
 
 int_default_t ipret_system_property(int_default_t idx)
@@ -752,7 +785,7 @@ void * attr_hot_fastcall thunk_int_binary_operator(frame_s *fp, const code_t *ip
 		converted |= ipret_unbox_value(fp, type, slot_2);
 
 	if (converted & UNBOX_THUNK)
-		return ipret_op_build_thunk(fp, ip, slot_1, slot_2, slot_r, strict_flag);
+		return ipret_op_build_thunk(fp, ip, slot_1, slot_2, NO_FRAME_T, slot_r, strict_flag);
 
 	if (converted == UNBOX_DID_SOMETHING)
 		return POINTER_FOLLOW_THUNK_RETRY;
@@ -828,7 +861,7 @@ void * attr_hot_fastcall thunk_int_binary_logical_operator(frame_s *fp, const co
 		converted |= ipret_unbox_value(fp, type, slot_2);
 
 	if (converted & UNBOX_THUNK)
-		return ipret_op_build_thunk(fp, ip, slot_1, slot_2, slot_r, strict_flag);
+		return ipret_op_build_thunk(fp, ip, slot_1, slot_2, NO_FRAME_T, slot_r, strict_flag);
 
 	if (converted == UNBOX_DID_SOMETHING)
 		return POINTER_FOLLOW_THUNK_RETRY;
@@ -887,7 +920,7 @@ void * attr_hot_fastcall thunk_int_unary_operator(frame_s *fp, const code_t *ip,
 	converted |= ipret_unbox_value(fp, type, slot_1);
 
 	if (converted & UNBOX_THUNK)
-		return ipret_op_build_thunk(fp, ip, slot_1, NO_FRAME_T, slot_r, strict_flag);
+		return ipret_op_build_thunk(fp, ip, slot_1, NO_FRAME_T, NO_FRAME_T, slot_r, strict_flag);
 
 	if (converted == UNBOX_DID_SOMETHING)
 		return POINTER_FOLLOW_THUNK_RETRY;
@@ -1046,7 +1079,7 @@ void * attr_hot_fastcall thunk_convert(frame_s *fp, const code_t *ip, frame_t sr
 
 	converted = ipret_unbox_value(fp, src_type, src_slot);
 	if (unlikely(converted == UNBOX_THUNK)) {
-		return ipret_op_build_thunk(fp, ip, src_slot, NO_FRAME_T, dest_slot, strict_flag);
+		return ipret_op_build_thunk(fp, ip, src_slot, NO_FRAME_T, NO_FRAME_T, dest_slot, strict_flag);
 	}
 	if (converted == UNBOX_DID_SOMETHING) {
 		return POINTER_FOLLOW_THUNK_RETRY;
@@ -1208,7 +1241,7 @@ void * attr_hot_fastcall thunk_bool_operator(frame_s *fp, const code_t *ip, fram
 		}
 	}
 
-	return ipret_op_build_thunk(fp, ip, slot_1, slot_2, slot_r, strict_flag);
+	return ipret_op_build_thunk(fp, ip, slot_1, slot_2, NO_FRAME_T, slot_r, strict_flag);
 
 have_result:
 	frame_free(fp, slot_r);
