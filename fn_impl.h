@@ -154,3 +154,15 @@ float rintf(float x);
 #if !defined(HAVE_MODFF)
 float modff(float x, float *iflt);
 #endif
+
+#if !defined(HAVE_FMA)
+double fma(double x, double y, double z);
+#endif
+
+#if !defined(HAVE_FMAF)
+float fmaf(float x, float y, float z);
+#endif
+
+#if defined(HAVE_LONG_DOUBLE) && !defined(HAVE_FMAL)
+long double fmal(long double x, long double y, long double z);
+#endif

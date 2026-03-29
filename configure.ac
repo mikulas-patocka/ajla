@@ -488,6 +488,8 @@ AC_CHECK_FUNCS(
 	powf powl powq							\
 	ldexpf ldexpl ldexpq						\
 	atan2f atan2l							\
+									\
+	fmaf fma fmal							\
 )
 
 cf_have_socket=yes

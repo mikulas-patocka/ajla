@@ -277,3 +277,24 @@ double ldexp(double x, int exp)
 	return ldexpl(x, exp);
 }
 #endif
+
+#if !defined(HAVE_FMA)
+double fma(double x, double y, double z)
+{
+	return x * y + z;
+}
+#endif
+
+#if !defined(HAVE_FMAF)
+float fmaf(float x, float y, float z)
+{
+	return x * y + z;
+}
+#endif
+
+#if defined(HAVE_LONG_DOUBLE) && !defined(HAVE_FMAL)
+long double fmal(long double x, long double y, long double z)
+{
+	return x * y + z;
+}
+#endif
