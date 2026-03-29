@@ -306,7 +306,11 @@ static void *ipret_op_build_thunk(frame_s *fp, const code_t *ip, frame_t slot_1,
 	}
 
 	flags = 0;
-	if (slot_2 == NO_FRAME_T) {
+	if (slot_3 != NO_FRAME_T) {
+		flags |= PCODE_FIND_OP_TERNARY;
+	} else if (slot_2 != NO_FRAME_T) {
+		flags |= PCODE_FIND_OP_BINARY;
+	} else {
 		flags |= PCODE_FIND_OP_UNARY;
 		if (type_is_equal(frame_get_type_of_local(fp, slot_1), type_get_int(INT_DEFAULT_N)) &&
 		   !type_is_equal(frame_get_type_of_local(fp, slot_r), type_get_int(INT_DEFAULT_N)))

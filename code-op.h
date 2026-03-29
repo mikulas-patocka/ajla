@@ -295,6 +295,7 @@ typedef uint16_t code_t;
 #define OPCODE_REAL_OP_is_exception		80
 #define OPCODE_REAL_OP_is_exception_alt1	81
 #define OPCODE_REAL_OP_is_exception_alt2	82
+#define OPCODE_REAL_OP_TERNARY			 83
 #define OPCODE_REAL_OP_fma			83
 #define OPCODE_REAL_OP_fms			84
 #define OPCODE_REAL_OP_fnma			85

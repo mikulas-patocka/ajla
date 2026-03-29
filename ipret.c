@@ -1473,6 +1473,22 @@ struct cg_upcall_vector_s cg_upcall_vector = {
 	cat(REAL_unary_is_exception_,t),
 	for_all_real(f, nf)
 #undef f
+#define f(n, t, nt, pack, unpack) \
+	cat(REAL_ternary_fma_,t),
+	for_all_real(f, nf)
+#undef f
+#define f(n, t, nt, pack, unpack) \
+	cat(REAL_ternary_fms_,t),
+	for_all_real(f, nf)
+#undef f
+#define f(n, t, nt, pack, unpack) \
+	cat(REAL_ternary_fnma_,t),
+	for_all_real(f, nf)
+#undef f
+#define f(n, t, nt, pack, unpack) \
+	cat(REAL_ternary_fnms_,t),
+	for_all_real(f, nf)
+#undef f
 #endif
 #ifdef DEBUG_UPCALL
 	cg_upcall_debug,

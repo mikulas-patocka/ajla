@@ -82,6 +82,19 @@ static bool attr_w gen_test_2_cached(struct codegen_context *ctx, frame_t slot_1
 	return gen_test_2(ctx, slot_1, slot_2, label);
 }
 
+static bool attr_w gen_test_3_cached(struct codegen_context *ctx, frame_t slot_1, frame_t slot_2, frame_t slot_3, uint32_t label)
+{
+	frame_t vars[3];
+	size_t n_vars = 0;
+	if (!flag_is_clear(ctx, slot_1))
+		vars[n_vars++] = slot_1;
+	if (!flag_is_clear(ctx, slot_2))
+		vars[n_vars++] = slot_2;
+	if (!flag_is_clear(ctx, slot_3))
+		vars[n_vars++] = slot_3;
+	return gen_test_multiple(ctx, vars, n_vars, label);
+}
+
 static bool attr_w gen_test_1_jz_cached(struct codegen_context *ctx, frame_t slot_1, uint32_t label)
 {
 	const struct type *type = get_type_of_local(ctx, slot_1);

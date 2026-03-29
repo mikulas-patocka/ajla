@@ -545,6 +545,34 @@ struct cg_upcall_vector_s {
 	for_all_real(f, nf)
 #undef f
 #undef nf
+#define f(n, t, nt, pack, unpack) \
+	void (*cat(REAL_ternary_fma_,t))(const t *v1, const t *v2, const t *v3, t *r);
+#define nf(n, t) \
+	void (*cat(REAL_ternary_fma_,t))(void);
+	for_all_real(f, nf)
+#undef f
+#undef nf
+#define f(n, t, nt, pack, unpack) \
+	void (*cat(REAL_ternary_fms_,t))(const t *v1, const t *v2, const t *v3, t *r);
+#define nf(n, t) \
+	void (*cat(REAL_ternary_fms_,t))(void);
+	for_all_real(f, nf)
+#undef f
+#undef nf
+#define f(n, t, nt, pack, unpack) \
+	void (*cat(REAL_ternary_fnma_,t))(const t *v1, const t *v2, const t *v3, t *r);
+#define nf(n, t) \
+	void (*cat(REAL_ternary_fnma_,t))(void);
+	for_all_real(f, nf)
+#undef f
+#undef nf
+#define f(n, t, nt, pack, unpack) \
+	void (*cat(REAL_ternary_fnms_,t))(const t *v1, const t *v2, const t *v3, t *r);
+#define nf(n, t) \
+	void (*cat(REAL_ternary_fnms_,t))(void);
+	for_all_real(f, nf)
+#undef f
+#undef nf
 #endif
 #ifdef DEBUG_UPCALL
 	void (*cg_upcall_debug)(unsigned long x1, unsigned long x2, unsigned long x3, unsigned long x4);

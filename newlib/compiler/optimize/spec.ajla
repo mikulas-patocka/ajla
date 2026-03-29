@@ -53,6 +53,7 @@ record spec_context [
 ]
 
 const allowed_opcodes : int64 := 0
+	bts P_TernaryOp
 	bts P_BinaryOp
 	bts P_BinaryConstOp
 	bts P_UnaryOp

@@ -14,6 +14,7 @@
 ; You should have received a copy of the GNU General Public License along with
 ; Ajla. If not, see <https://www.gnu.org/licenses/>.
 1
+P_TernaryOp		; op, result, (ref_flag1, strict_flag), src1, (ref_flag2), src2, (ref_flag3), src3
 P_BinaryOp		; op, result, (ref_flag1, strict_flag, fused_flag), src1, (ref_flag2), src2
 P_BinaryConstOp		; op, result, (ref_flag1, strict_flag, fused_flag), src1, const2
 P_UnaryOp		; op, result, (ref_flag, strict_flag), src

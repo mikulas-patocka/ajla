@@ -19,7 +19,7 @@
 static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, unsigned op_size, unsigned cond, unsigned reg1, unsigned reg2, int64_t imm);
 static bool attr_w gen_copy(struct codegen_context *ctx, unsigned op_size, frame_t slot_1, frame_t slot_r);
 
-static bool attr_w gen_alu_upcall(struct codegen_context *ctx, size_t upcall, unsigned op_size, frame_t slot_1, frame_t slot_2, frame_t slot_r, uint32_t label_ovf)
+static bool attr_w gen_alu_upcall(struct codegen_context *ctx, size_t upcall, unsigned op_size, frame_t slot_1, frame_t slot_2, frame_t slot_3, frame_t slot_r, uint32_t label_ovf)
 {
 	if (unlikely(frame_t_is_const(slot_1)))
 		internal(file_line, "gen_alu_upcall: the first argument is constant");
@@ -27,6 +27,8 @@ static bool attr_w gen_alu_upcall(struct codegen_context *ctx, size_t upcall, un
 		g(spill(ctx, slot_1, false));
 	if (slot_2 != NO_FRAME_T && slot_is_register(ctx, slot_2))
 		g(spill(ctx, slot_2, false));
+	if (slot_3 != NO_FRAME_T && slot_is_register(ctx, slot_3))
+		g(spill(ctx, slot_3, false));
 	if (frame_t_is_const(slot_2)) {
 		size_t x_offs = offsetof(struct cg_upcall_vector_s, INT_binary_const_int8_t) + op_size * sizeof(void (*)(void));
 		g(gen_upcall_start(ctx, x_offs, 4, true));
@@ -39,6 +41,17 @@ static bool attr_w gen_alu_upcall(struct codegen_context *ctx, size_t upcall, un
 		g(gen_get_upcall_pointer(ctx, upcall, OP_SIZE_ADDRESS, R_ARG3));
 		g(gen_upcall_argument(ctx, 3));
 		g(gen_upcall(ctx, x_offs, 4, true));
+	} else if (slot_3 != NO_FRAME_T) {
+		g(gen_upcall_start(ctx, upcall, 4, true));
+		g(gen_frame_address(ctx, slot_1, 0, R_ARG0));
+		g(gen_upcall_argument(ctx, 0));
+		g(gen_frame_address(ctx, slot_2, 0, R_ARG1));
+		g(gen_upcall_argument(ctx, 1));
+		g(gen_frame_address(ctx, slot_3, 0, R_ARG1));
+		g(gen_upcall_argument(ctx, 2));
+		g(gen_frame_address(ctx, slot_r, 0, R_ARG2));
+		g(gen_upcall_argument(ctx, 3));
+		g(gen_upcall(ctx, upcall, 4, true));
 	} else if (slot_2 != NO_FRAME_T) {
 		g(gen_upcall_start(ctx, upcall, 3, true));
 		g(gen_frame_address(ctx, slot_1, 0, R_ARG0));
@@ -63,10 +76,10 @@ static bool attr_w gen_alu_upcall(struct codegen_context *ctx, size_t upcall, un
 	return true;
 }
 
-static bool attr_w gen_alu_typed_upcall(struct codegen_context *ctx, size_t upcall, unsigned op_size, frame_t slot_1, frame_t slot_2, frame_t slot_r, uint32_t label_ovf)
+static bool attr_w gen_alu_typed_upcall(struct codegen_context *ctx, size_t upcall, unsigned op_size, frame_t slot_1, frame_t slot_2, frame_t slot_3, frame_t slot_r, uint32_t label_ovf)
 {
 	upcall += op_size * sizeof(void (*)(void));
-	return gen_alu_upcall(ctx, upcall, op_size, slot_1, slot_2, slot_r, label_ovf);
+	return gen_alu_upcall(ctx, upcall, op_size, slot_1, slot_2, slot_3, slot_r, label_ovf);
 }
 
 #define MODE_FIXED		0
@@ -93,7 +106,7 @@ static bool attr_w gen_alu(struct codegen_context *ctx, unsigned mode, unsigned 
 			case OPCODE_FIXED_OP_modulo_alt1:	sgn = true; mod = true; goto do_divide;
 			case OPCODE_FIXED_OP_umodulo:
 			case OPCODE_FIXED_OP_umodulo_alt1:	sgn = false; mod = true; goto do_divide;
-			case OPCODE_FIXED_OP_power:		return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, FIXED_binary_power_int8_t), op_size, slot_1, slot_2, slot_r, 0);
+			case OPCODE_FIXED_OP_power:		return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, FIXED_binary_power_int8_t), op_size, slot_1, slot_2, NO_FRAME_T, slot_r, 0);
 			case OPCODE_FIXED_OP_and:		alu = ALU_AND; goto do_alu;
 			case OPCODE_FIXED_OP_or:		alu = ALU_OR; goto do_alu;
 			case OPCODE_FIXED_OP_xor:		alu = ALU_XOR; goto do_alu;
@@ -126,7 +139,7 @@ static bool attr_w gen_alu(struct codegen_context *ctx, unsigned mode, unsigned 
 			case OPCODE_INT_OP_divide_alt1:		sgn = true; mod = false; goto do_divide;
 			case OPCODE_INT_OP_modulo:
 			case OPCODE_INT_OP_modulo_alt1:		sgn = true; mod = true; goto do_divide;
-			case OPCODE_INT_OP_power:		return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, INT_binary_power_int8_t), op_size, slot_1, slot_2, slot_r, label_ovf);
+			case OPCODE_INT_OP_power:		return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, INT_binary_power_int8_t), op_size, slot_1, slot_2, NO_FRAME_T, slot_r, label_ovf);
 			case OPCODE_INT_OP_and:			alu = ALU_AND; mode = MODE_FIXED; goto do_alu;
 			case OPCODE_INT_OP_or:			alu = ALU_OR; mode = MODE_FIXED; goto do_alu;
 			case OPCODE_INT_OP_xor:			alu = ALU_XOR; mode = MODE_FIXED; goto do_alu;
@@ -200,18 +213,18 @@ do_alu: {
 #if !defined(ARCH_X86) && !defined(ARCH_ARM) && !defined(ARCH_PARISC) && !defined(ARCH_POWER) && !defined(ARCH_SPARC32)
 			if (mode == MODE_FIXED) {
 				if (alu == ALU_ADD) {
-					g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(FIXED_binary_add_,TYPE_INT_MAX)), op_size, slot_1, slot_2, slot_r, 0));
+					g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(FIXED_binary_add_,TYPE_INT_MAX)), op_size, slot_1, slot_2, NO_FRAME_T, slot_r, 0));
 					return true;
 				} else if (alu == ALU_SUB) {
-					g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(FIXED_binary_subtract_,TYPE_INT_MAX)), op_size, slot_1, slot_2, slot_r, 0));
+					g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(FIXED_binary_subtract_,TYPE_INT_MAX)), op_size, slot_1, slot_2, NO_FRAME_T, slot_r, 0));
 					return true;
 				}
 			} else if (mode == MODE_INT) {
 				if (alu == ALU_ADD) {
-					g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(INT_binary_add_,TYPE_INT_MAX)), op_size, slot_1, slot_2, slot_r, label_ovf));
+					g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(INT_binary_add_,TYPE_INT_MAX)), op_size, slot_1, slot_2, NO_FRAME_T, slot_r, label_ovf));
 					return true;
 				} else if (alu == ALU_SUB) {
-					g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(INT_binary_subtract_,TYPE_INT_MAX)), op_size, slot_1, slot_2, slot_r, label_ovf));
+					g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(INT_binary_subtract_,TYPE_INT_MAX)), op_size, slot_1, slot_2, NO_FRAME_T, slot_r, label_ovf));
 					return true;
 				}
 			}
@@ -554,7 +567,7 @@ do_multiply: {
 		uint8_t attr_unused long_imm;
 		if (unlikely(op_size > OP_SIZE_NATIVE) || unlikely(!ARCH_HAS_MUL)) {
 			if (mode == MODE_INT) {
-				g(gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, INT_binary_multiply_int8_t), op_size, slot_1, slot_2, slot_r, label_ovf));
+				g(gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, INT_binary_multiply_int8_t), op_size, slot_1, slot_2, NO_FRAME_T, slot_r, label_ovf));
 				return true;
 			}
 #if defined(ARCH_X86)
@@ -627,7 +640,7 @@ do_multiply: {
 
 			return true;
 #else
-			g(gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, FIXED_binary_multiply_int8_t), op_size, slot_1, slot_2, slot_r, 0));
+			g(gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, FIXED_binary_multiply_int8_t), op_size, slot_1, slot_2, NO_FRAME_T, slot_r, 0));
 			return true;
 #endif
 		}
@@ -849,7 +862,7 @@ do_multiply: {
 		}
 #endif
 		if (mode == MODE_INT && op_size == OP_SIZE_NATIVE) {
-			g(gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, INT_binary_multiply_int8_t), op_size, slot_1, slot_2, slot_r, label_ovf));
+			g(gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, INT_binary_multiply_int8_t), op_size, slot_1, slot_2, NO_FRAME_T, slot_r, label_ovf));
 			return true;
 		}
 
@@ -898,7 +911,7 @@ do_divide: {
 			} else {
 				upcall = !mod ? offsetof(struct cg_upcall_vector_s, FIXED_binary_udivide_int8_t) : offsetof(struct cg_upcall_vector_s, FIXED_binary_umodulo_int8_t);
 			}
-			g(gen_alu_typed_upcall(ctx, upcall, op_size, slot_1, slot_2, slot_r, mode == MODE_INT ? label_ovf : 0));
+			g(gen_alu_typed_upcall(ctx, upcall, op_size, slot_1, slot_2, NO_FRAME_T, slot_r, mode == MODE_INT ? label_ovf : 0));
 			return true;
 		}
 #if defined(ARCH_X86) || defined(ARCH_S390)
@@ -1212,7 +1225,7 @@ shift_skip:
 					default:	internal(file_line, "do_alu: invalid shift %u", alu);
 				}
 			}
-			g(gen_alu_upcall(ctx, upcall, op_size, slot_1, slot_2, slot_r, mode == MODE_INT ? label_ovf : 0));
+			g(gen_alu_upcall(ctx, upcall, op_size, slot_1, slot_2, NO_FRAME_T, slot_r, mode == MODE_INT ? label_ovf : 0));
 			return true;
 		}
 		op_s = i_size_rot(op_size);
@@ -1593,7 +1606,7 @@ do_bt: {
 					default:	internal(file_line, "do_alu: invalid bit test %u", alu);
 				}
 			}
-			g(gen_alu_upcall(ctx, upcall, op_size, slot_1, slot_2, slot_r, label_ovf));
+			g(gen_alu_upcall(ctx, upcall, op_size, slot_1, slot_2, NO_FRAME_T, slot_r, label_ovf));
 			return true;
 		}
 		op_s = minimum(OP_SIZE_NATIVE, ARCH_SHIFT_SIZE);
@@ -1844,7 +1857,7 @@ do_compare: {
 				case COND_BE:	upcall = offsetof(struct cg_upcall_vector_s, cat(FIXED_binary_uless_equal_,TYPE_INT_MAX)); goto do_upcall;
 				case COND_A:	upcall = offsetof(struct cg_upcall_vector_s, cat(FIXED_binary_ugreater_,TYPE_INT_MAX)); goto do_upcall;
 				case COND_AE:	upcall = offsetof(struct cg_upcall_vector_s, cat(FIXED_binary_ugreater_equal_,TYPE_INT_MAX)); goto do_upcall;
-				do_upcall:	g(gen_alu_upcall(ctx, upcall, op_size, slot_1, slot_2, slot_r, 0));
+				do_upcall:	g(gen_alu_upcall(ctx, upcall, op_size, slot_1, slot_2, NO_FRAME_T, slot_r, 0));
 						return true;
 #endif
 				default:
@@ -1918,9 +1931,9 @@ do_alu: {
 #if !defined(ARCH_X86) && !defined(ARCH_ARM) && !defined(ARCH_POWER)
 			if (alu == ALU1_NEG) {
 				if (mode == MODE_FIXED)
-					g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(FIXED_unary_neg_,TYPE_INT_MAX)), op_size, slot_1, NO_FRAME_T, slot_r, 0));
+					g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(FIXED_unary_neg_,TYPE_INT_MAX)), op_size, slot_1, NO_FRAME_T, NO_FRAME_T, slot_r, 0));
 				else
-					g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(INT_unary_neg_,TYPE_INT_MAX)), op_size, slot_1, NO_FRAME_T, slot_r, label_ovf));
+					g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(INT_unary_neg_,TYPE_INT_MAX)), op_size, slot_1, NO_FRAME_T, NO_FRAME_T, slot_r, label_ovf));
 				return true;
 			}
 #endif
@@ -2187,7 +2200,7 @@ do_bswap: {
 #endif
 		goto do_generic_bswap;
 do_generic_bswap:
-		return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, FIXED_unary_bswap_int8_t), op_size, slot_1, NO_FRAME_T, slot_r, 0);
+		return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, FIXED_unary_bswap_int8_t), op_size, slot_1, NO_FRAME_T, NO_FRAME_T, slot_r, 0);
 	}
 	/********
 	 * BREV *
@@ -2223,7 +2236,7 @@ do_brev: {
 #endif
 		goto do_generic_brev;
 do_generic_brev:
-		return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, FIXED_unary_brev_int8_t), op_size, slot_1, NO_FRAME_T, slot_r, 0);
+		return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, FIXED_unary_brev_int8_t), op_size, slot_1, NO_FRAME_T, NO_FRAME_T, slot_r, 0);
 	}
 	/******************
 	 * BSF/BSR/POPCNT *
@@ -2665,21 +2678,21 @@ write_result:
 do_generic_bsf_bsr_popcnt:
 		if (alu == ALU1_BSF) {
 			if (mode == MODE_FIXED)
-				return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, FIXED_unary_bsf_int8_t), op_size, slot_1, NO_FRAME_T, slot_r, 0);
+				return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, FIXED_unary_bsf_int8_t), op_size, slot_1, NO_FRAME_T, NO_FRAME_T, slot_r, 0);
 			else
-				return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, INT_unary_bsf_int8_t), op_size, slot_1, NO_FRAME_T, slot_r, label_ovf);
+				return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, INT_unary_bsf_int8_t), op_size, slot_1, NO_FRAME_T, NO_FRAME_T, slot_r, label_ovf);
 		}
 		if (alu == ALU1_BSR) {
 			if (mode == MODE_FIXED)
-				return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, FIXED_unary_bsr_int8_t), op_size, slot_1, NO_FRAME_T, slot_r, 0);
+				return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, FIXED_unary_bsr_int8_t), op_size, slot_1, NO_FRAME_T, NO_FRAME_T, slot_r, 0);
 			else
-				return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, INT_unary_bsr_int8_t), op_size, slot_1, NO_FRAME_T, slot_r, label_ovf);
+				return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, INT_unary_bsr_int8_t), op_size, slot_1, NO_FRAME_T, NO_FRAME_T, slot_r, label_ovf);
 		}
 		if (alu == ALU1_POPCNT) {
 			if (mode == MODE_FIXED)
-				return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, FIXED_unary_popcnt_int8_t), op_size, slot_1, NO_FRAME_T, slot_r, 0);
+				return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, FIXED_unary_popcnt_int8_t), op_size, slot_1, NO_FRAME_T, NO_FRAME_T, slot_r, 0);
 			else
-				return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, INT_unary_popcnt_int8_t), op_size, slot_1, NO_FRAME_T, slot_r, label_ovf);
+				return gen_alu_typed_upcall(ctx, offsetof(struct cg_upcall_vector_s, INT_unary_popcnt_int8_t), op_size, slot_1, NO_FRAME_T, NO_FRAME_T, slot_r, label_ovf);
 		}
 		return false;	/* this shouldn't be reached */
 		goto bsf_bsr_popcnt_finish;
@@ -2813,7 +2826,7 @@ conv_uto_int: {
 			g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, reg1));
 			return true;
 		}
-		g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(FIXED_uto_int_,TYPE_INT_MAX)), src_op_size, slot_1, NO_FRAME_T, slot_r, label_ovf));
+		g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(FIXED_uto_int_,TYPE_INT_MAX)), src_op_size, slot_1, NO_FRAME_T, NO_FRAME_T, slot_r, label_ovf));
 		return true;
 	}
 
@@ -2833,7 +2846,7 @@ conv_ufrom_int: {
 			g(gen_frame_store(ctx, dest_op_size, slot_r, 0, reg1));
 			return true;
 		}
-		g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(FIXED_ufrom_int_,TYPE_INT_MAX)), dest_op_size, slot_1, NO_FRAME_T, slot_r, label_ovf));
+		g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(FIXED_ufrom_int_,TYPE_INT_MAX)), dest_op_size, slot_1, NO_FRAME_T, NO_FRAME_T, slot_r, label_ovf));
 		return true;
 	}
 }
@@ -3295,7 +3308,7 @@ do_cmp:
 #endif
 
 do_upcall:
-	return gen_alu_typed_upcall(ctx, upc, real_type, slot_1, slot_2, slot_r, label_ovf);
+	return gen_alu_typed_upcall(ctx, upc, real_type, slot_1, slot_2, NO_FRAME_T, slot_r, label_ovf);
 }
 
 #define OP_IS_ROUND(alu)	((alu) == FP_ALU1_ROUND || (alu) == FP_ALU1_FLOOR || (alu) == FP_ALU1_CEIL || (alu) == FP_ALU1_TRUNC)
@@ -3878,11 +3891,26 @@ do_to_real:
 		g(gen_frame_store(ctx, op_size_target, slot_r, 0, target));
 		return true;
 	}
-	g(gen_alu_typed_upcall(ctx, upc, real_type, slot_1, NO_FRAME_T, slot_r, 0));
+	g(gen_alu_typed_upcall(ctx, upc, real_type, slot_1, NO_FRAME_T, NO_FRAME_T, slot_r, 0));
 	return true;
 
 do_upcall:
-	g(gen_alu_typed_upcall(ctx, upc, real_type, slot_1, NO_FRAME_T, slot_r, label_ovf));
+	g(gen_alu_typed_upcall(ctx, upc, real_type, slot_1, NO_FRAME_T, NO_FRAME_T, slot_r, label_ovf));
+	return true;
+}
+
+static bool attr_w gen_fp_alu3(struct codegen_context *ctx, unsigned real_type, unsigned op, frame_t slot_1, frame_t slot_2, frame_t slot_3, frame_t slot_r)
+{
+	size_t upc;
+	switch (op) {
+		case OPCODE_REAL_OP_fma: upc = offsetof(struct cg_upcall_vector_s, REAL_ternary_fma_real16_t); goto do_alu;
+		case OPCODE_REAL_OP_fms: upc = offsetof(struct cg_upcall_vector_s, REAL_ternary_fms_real16_t); goto do_alu;
+		case OPCODE_REAL_OP_fnma: upc = offsetof(struct cg_upcall_vector_s, REAL_ternary_fnma_real16_t); goto do_alu;
+		case OPCODE_REAL_OP_fnms: upc = offsetof(struct cg_upcall_vector_s, REAL_ternary_fnms_real16_t); goto do_alu;
+		default: internal(file_line, "gen_fp_alu3: unsupported operation %u", op);
+	}
+do_alu:
+	g(gen_alu_typed_upcall(ctx, upc, real_type, slot_1, slot_2, slot_3, slot_r, 0));
 	return true;
 }
 

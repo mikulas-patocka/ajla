@@ -1583,7 +1583,7 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				}
 				g(gen_fp_alu(ctx, type, op, escape_label, slot_1, slot_2, slot_r));
 				continue;
-			} else if (op < OPCODE_REAL_OP_N) {
+			} else if (op < OPCODE_REAL_OP_TERNARY) {
 				get_two(ctx, &slot_1, &slot_r);
 				get_one(ctx, &flags);
 				escape_label = alloc_escape_label(ctx);
@@ -1593,6 +1593,20 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				flag_set(ctx, slot_1, false);
 				flag_set(ctx, slot_r, false);
 				g(gen_fp_alu1(ctx, type, op, escape_label, slot_1, slot_r));
+				continue;
+			} else if (op < OPCODE_REAL_OP_N) {
+				get_two(ctx, &slot_1, &slot_2);
+				get_two(ctx, &slot_3, &slot_r);
+				get_one(ctx, &flags);
+				escape_label = alloc_escape_label(ctx);
+				if (unlikely(!escape_label))
+					return false;
+				g(gen_test_3_cached(ctx, slot_1, slot_2, slot_3, escape_label));
+				flag_set(ctx, slot_1, false);
+				flag_set(ctx, slot_2, false);
+				flag_set(ctx, slot_3, false);
+				flag_set(ctx, slot_r, false);
+				g(gen_fp_alu3(ctx, type, op, slot_1, slot_2, slot_3, slot_r));
 				continue;
 			} else if (op == OPCODE_REAL_OP_ldc) {
 				const struct type *t;

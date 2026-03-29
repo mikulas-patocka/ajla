@@ -43,6 +43,7 @@
 #define Op_IsBool(op)			((op) == Bin_Equal || (op) == Bin_NotEqual || (op) == Bin_Less || (op) == Bin_LessEqual || (op) == Bin_Greater || (op) == Bin_GreaterEqual || (op) == Bin_Bt || (op) == Un_IsException)
 #define Op_IsInt(op)			((op) == Un_ConvertToInt || (op) == Un_ExceptionClass || (op) == Un_ExceptionType || (op) == Un_ExceptionAux)
 #define Op_IsReal(op)			((op) >= Un_ConvertToReal16 && (op) <= Un_ConvertToReal128)
+#define Op_IsTernary(op)		(0)
 #define Op_IsBinary(op)			((op) >= Bin_Add && (op) <= Bin_Bt)
 #define Op_IsUnary(op)			((op) >= Un_Not && (op) <= Un_SystemProperty)
 
@@ -52,10 +53,12 @@ bool pcode_decode_real(const struct type *type, const char *blob, size_t blob_l,
 void *pcode_build_function_from_builtin(frame_s *f, const code_t *ip, union internal_arg arguments[]);
 void *pcode_build_function_from_array(frame_s *fp, const code_t *ip, union internal_arg arguments[]);
 void *pcode_array_from_builtin(frame_s *fp, const code_t *ip, union internal_arg arguments[]);
-pointer_t pcode_build_eval_function(pcode_t src_type, pcode_t dest_type, pcode_t op, pcode_t *blob_1, size_t blob_1_len, pcode_t *blob_2, size_t blob_2_len, ajla_error_t *err);
+pointer_t pcode_build_eval_function(pcode_t src_type, pcode_t dest_type, pcode_t op, pcode_t *blob_1, size_t blob_1_len, pcode_t *blob_2, size_t blob_2_len, pcode_t *blob_3, size_t blob_3_len, ajla_error_t *err);
 
 #define PCODE_FIND_OP_UNARY	0x1
-#define PCODE_CONVERT_FROM_INT	0x2
+#define PCODE_FIND_OP_BINARY	0x2
+#define PCODE_FIND_OP_TERNARY	0x4
+#define PCODE_CONVERT_FROM_INT	0x8
 void * attr_fastcall pcode_find_op_function(const struct type *type, const struct type *rtype, code_t code, unsigned flags, frame_s *fp, const code_t *ip, pointer_t **result);
 void * attr_fastcall pcode_find_is_exception(frame_s *fp, const code_t *ip, pointer_t **result);
 void * attr_fastcall pcode_find_get_exception(unsigned mode, frame_s *fp, const code_t *ip, pointer_t **result);

@@ -1342,7 +1342,7 @@ exception:
 	return no_function_idx;
 }
 
-static bool pcode_op_to_call(struct build_function_context *ctx, pcode_t op, const struct pcode_type *tr, const struct pcode_type *t1, pcode_t flags1, const struct pcode_type *t2, pcode_t flags2, bool preload)
+static bool pcode_op_to_call(struct build_function_context *ctx, pcode_t op, const struct pcode_type *tr, const struct pcode_type *t1, pcode_t flags1, const struct pcode_type *t2, pcode_t flags2, const struct pcode_type *t3, pcode_t flags3, bool preload)
 {
 	const char *module;
 	unsigned fn;
@@ -1375,14 +1375,18 @@ static bool pcode_op_to_call(struct build_function_context *ctx, pcode_t op, con
 	get_arg_mode(am, t1->slot);
 	if (t2)
 		get_arg_mode(am, t2->slot);
+	if (t3)
+		get_arg_mode(am, t3->slot);
 
 	code = OPCODE_CALL + am * OPCODE_MODE_MULT;
 	gen_code(code);
-	gen_am_two(am, t2 ? 2 : 1, 1);
+	gen_am_two(am, t3 ? 3 : t2 ? 2 : 1, 1);
 	gen_am(am, fn_idx);
 	gen_am_two(am, t1->slot, flags1 & Flag_Free_Argument ? OPCODE_FLAG_FREE_ARGUMENT : 0);
 	if (t2)
 		gen_am_two(am, t2->slot, flags2 & Flag_Free_Argument ? OPCODE_FLAG_FREE_ARGUMENT : 0);
+	if (t3)
+		gen_am_two(am, t3->slot, flags3 & Flag_Free_Argument ? OPCODE_FLAG_FREE_ARGUMENT : 0);
 
 	if (unlikely(!pcode_finish_call(ctx, &tr, 1, true)))
 		goto exception;
@@ -2448,6 +2452,7 @@ static bool pcode_preload_ld(struct build_function_context *ctx)
 					goto exception;
 				break;
 #if NEED_OP_EMULATION
+			case P_TernaryOp:
 			case P_BinaryOp:
 			case P_UnaryOp: {
 				const struct pcode_type *tr, *t1;
@@ -2460,7 +2465,7 @@ static bool pcode_preload_ld(struct build_function_context *ctx)
 				tr = get_var_type(ctx, res);
 				t1 = get_var_type(ctx, a1);
 				if (unlikely(t1->extra_type) || unlikely(tr->extra_type)) {
-					if (unlikely(!pcode_op_to_call(ctx, op, tr, t1, flags1, NULL, 0, true)))
+					if (unlikely(!pcode_op_to_call(ctx, op, tr, t1, flags1, NULL, 0, NULL, 0, true)))
 						goto exception;
 				}
 				break;
@@ -2550,8 +2555,8 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 		pcode_t instr, instr_params;
 		pcode_get_instr(ctx, &instr, &instr_params);
 		switch (instr) {
-			pcode_t p, op, res, a1, a2, a3, a4, aa, flags, flags1, flags2, cnst;
-			const struct pcode_type *tr, *t1, *t2, *ta;
+			pcode_t p, op, res, a1, a2, a3, a4, aa, flags, flags1, flags2, flags3, cnst;
+			const struct pcode_type *tr, *t1, *t2, *t3, *ta;
 			bool a1_deref, a2_deref;
 			arg_mode_t am;
 			code_t code;
@@ -2559,6 +2564,65 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 			struct line_position lp;
 			struct record_definition *def;
 
+			case P_TernaryOp:
+				op = u_pcode_get();
+				ajla_assert_lo(op >= Op_N || Op_IsTernary(op), (file_line, "P_TernaryOp(%s): invalid ternary op %"PRIdMAX"", function_name(ctx), (intmax_t)op));
+				res = u_pcode_get();
+				flags1 = u_pcode_get();
+				a1 = pcode_get();
+				flags2 = u_pcode_get();
+				a2 = pcode_get();
+				flags3 = u_pcode_get();
+				a3 = pcode_get();
+				if (unlikely(var_elided(res))) {
+					if (flags1 & Flag_Free_Argument)
+						pcode_free(ctx, a1);
+					if (flags2 & Flag_Free_Argument)
+						pcode_free(ctx, a2);
+					if (flags3 & Flag_Free_Argument)
+						pcode_free(ctx, a3);
+					break;
+				}
+				tr = get_var_type(ctx, res);
+				t1 = get_var_type(ctx, a1);
+				t2 = get_var_type(ctx, a2);
+				t3 = get_var_type(ctx, a3);
+				ajla_assert_lo(op >= Op_N || (
+					type_is_equal(t1->type, t2->type) &&
+					type_is_equal(t1->type, t3->type) &&
+					type_is_equal(t1->type, tr->type)),
+					(file_line, "P_TernaryOp(%s): invalid types for ternary operation %"PRIdMAX": %u, %u, %u, %u", function_name(ctx), (intmax_t)op, t1->type->tag, t2->type->tag, t3->type->tag, tr->type->tag));
+				if (NEED_OP_EMULATION && unlikely(t1->extra_type)) {
+					if (unlikely(!pcode_op_to_call(ctx, op, tr, t1, flags1, t2, flags2, t3, flags3, false)))
+						goto exception;
+					break;
+				}
+				fflags = 0;
+				if (unlikely(flags1 & Flag_Op_Strict) != 0)
+					fflags |= OPCODE_OP_FLAG_STRICT;
+				am = INIT_ARG_MODE;
+				get_arg_mode(am, t1->slot);
+				get_arg_mode(am, t2->slot);
+				get_arg_mode(am, t3->slot);
+				get_arg_mode(am, tr->slot);
+				code = (code_t)((likely(op < Op_N) ? get_code(op, t1->type) : (code_t)(op - Op_N)) + am * OPCODE_MODE_MULT);
+				gen_code(code);
+				gen_am_two(am, t1->slot, t2->slot);
+				gen_am_two(am, t3->slot, tr->slot);
+				gen_am(am, fflags);
+				if (flags1 & Flag_Free_Argument) {
+					if (t1->slot != tr->slot)
+						pcode_free(ctx, a1);
+				}
+				if (flags2 & Flag_Free_Argument) {
+					if (t2->slot != tr->slot)
+						pcode_free(ctx, a2);
+				}
+				if (flags3 & Flag_Free_Argument) {
+					if (t3->slot != tr->slot)
+						pcode_free(ctx, a3);
+				}
+				break;
 			case P_BinaryOp:
 				op = u_pcode_get();
 				ajla_assert_lo(op >= Op_N || Op_IsBinary(op), (file_line, "P_BinaryOp(%s): invalid binary op %"PRIdMAX"", function_name(ctx), (intmax_t)op));
@@ -2583,7 +2647,7 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 					: Op_IsInt(op) ? type_get_int(INT_DEFAULT_N)
 					: t1->type))), (file_line, "P_BinaryOp(%s): invalid types for binary operation %"PRIdMAX": %u, %u, %u", function_name(ctx), (intmax_t)op, t1->type->tag, t2->type->tag, tr->type->tag));
 				if (NEED_OP_EMULATION && unlikely(t1->extra_type)) {
-					if (unlikely(!pcode_op_to_call(ctx, op, tr, t1, flags1, t2, flags2, false)))
+					if (unlikely(!pcode_op_to_call(ctx, op, tr, t1, flags1, t2, flags2, NULL, 0, false)))
 						goto exception;
 					break;
 				}
@@ -2658,7 +2722,7 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 					: Op_IsInt(op) ? type_get_int(INT_DEFAULT_N)
 					: t1->type)), (file_line, "P_UnaryOp(%s): invalid types for unary operation %"PRIdMAX": %u, %u", function_name(ctx), (intmax_t)op, t1->type->tag, tr->type->tag));
 				if (NEED_OP_EMULATION && (unlikely(t1->extra_type) || unlikely(tr->extra_type))) {
-					if (unlikely(!pcode_op_to_call(ctx, op, tr, t1, flags1, NULL, 0, false)))
+					if (unlikely(!pcode_op_to_call(ctx, op, tr, t1, flags1, NULL, 0, NULL, 0, false)))
 						goto exception;
 					break;
 				}
@@ -3884,7 +3948,7 @@ void *pcode_array_from_builtin(frame_s *fp, const code_t attr_unused *ip, union 
 }
 
 
-pointer_t pcode_build_eval_function(pcode_t src_type, pcode_t dest_type, pcode_t op, pcode_t *blob_1, size_t blob_1_len, pcode_t *blob_2, size_t blob_2_len, ajla_error_t *err)
+pointer_t pcode_build_eval_function(pcode_t src_type, pcode_t dest_type, pcode_t op, pcode_t *blob_1, size_t blob_1_len, pcode_t *blob_2, size_t blob_2_len, pcode_t *blob_3, size_t blob_3_len, ajla_error_t *err)
 {
 	pcode_t *pc = NULL;
 	size_t pc_l;
@@ -3906,7 +3970,7 @@ pointer_t pcode_build_eval_function(pcode_t src_type, pcode_t dest_type, pcode_t
 			goto ret_err;					\
 	} while (0)
 
-	n_local_variables = Op_IsUnary(op) ? 2 : 3;
+	n_local_variables = Op_IsUnary(op) ? 2 : Op_IsBinary(op) ? 3 : 4;
 	n_arguments = n_local_variables - 1;
 
 	add(Fn_Function);
@@ -3936,22 +4000,32 @@ pointer_t pcode_build_eval_function(pcode_t src_type, pcode_t dest_type, pcode_t
 	add(1 + blob_1_len);
 	add(0);
 	addstr(blob_1, blob_1_len);
-	if (n_arguments == 2) {
+	if (n_arguments >= 2) {
 		add(P_Load_Const);
 		add(1 + blob_2_len);
 		add(1);
 		addstr(blob_2, blob_2_len);
 	}
+	if (n_arguments >= 3) {
+		add(P_Load_Const);
+		add(1 + blob_3_len);
+		add(2);
+		addstr(blob_3, blob_3_len);
+	}
 
-	add(Op_IsUnary(op) ? P_UnaryOp : P_BinaryOp);
-	add(Op_IsUnary(op) ? 4 : 6);
+	add(Op_IsUnary(op) ? P_UnaryOp : Op_IsBinary(op) ? P_BinaryOp : P_TernaryOp);
+	add(Op_IsUnary(op) ? 4 : Op_IsBinary(op) ? 6 : 8);
 	add(op);
 	add(n_arguments);
 	add(Flag_Free_Argument | Flag_Op_Strict);
 	add(0);
-	if (n_arguments == 2) {
+	if (n_arguments >= 2) {
 		add(Flag_Free_Argument);
 		add(1);
+	}
+	if (n_arguments >= 3) {
+		add(Flag_Free_Argument);
+		add(2);
 	}
 
 	add(P_Return);
@@ -4024,7 +4098,7 @@ static void *pcode_build_op_function(frame_s *fp, const code_t *ip, union intern
 	pcode_t pcode[41];
 	pcode_t *pc = pcode;
 
-	n_local_variables = flags & PCODE_FIND_OP_UNARY ? 2 : 3;
+	n_local_variables = flags & PCODE_FIND_OP_UNARY ? 2 : flags & PCODE_FIND_OP_BINARY ? 3 : 4;
 	n_arguments = n_local_variables - 1;
 
 	*pc++ = Fn_Function;
@@ -4052,8 +4126,8 @@ static void *pcode_build_op_function(frame_s *fp, const code_t *ip, union intern
 	for (i = 0; i < n_arguments; i++)
 		*pc++ = i;
 
-	*pc++ = (pcode_t)(flags & PCODE_FIND_OP_UNARY ? P_UnaryOp : P_BinaryOp);
-	*pc++ = (pcode_t)(flags & PCODE_FIND_OP_UNARY ? 4 : 6);
+	*pc++ = (pcode_t)(flags & PCODE_FIND_OP_UNARY ? P_UnaryOp : flags & PCODE_FIND_OP_BINARY ? P_BinaryOp : P_TernaryOp);
+	*pc++ = (pcode_t)(flags & PCODE_FIND_OP_UNARY ? 4 : flags & PCODE_FIND_OP_BINARY ? 6 : 8);
 	*pc++ = op;
 	*pc++ = (pcode_t)n_arguments;
 	*pc++ = Flag_Free_Argument | Flag_Op_Strict;
@@ -4061,6 +4135,10 @@ static void *pcode_build_op_function(frame_s *fp, const code_t *ip, union intern
 	if (!(flags & PCODE_FIND_OP_UNARY)) {
 		*pc++ = Flag_Free_Argument;
 		*pc++ = 1;
+	}
+	if (flags & PCODE_FIND_OP_TERNARY) {
+		*pc++ = Flag_Free_Argument;
+		*pc++ = 2;
 	}
 
 	*pc++ = P_Return;

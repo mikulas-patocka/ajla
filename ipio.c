@@ -4721,7 +4721,7 @@ static void * attr_fastcall io_evaluate_handler(struct io_ctx *ctx)
 
 	ajla_assert_lo(!(ctx->str_l % sizeof(pcode_t)) && !(ctx->str2_l % sizeof(pcode_t)), (file_line, "io_evaluate_handler: invalid length of blobs: %"PRIuMAX", %"PRIuMAX"", (uintmax_t)ctx->str_l, (uintmax_t)ctx->str2_l));
 
-	fn = pcode_build_eval_function(src_type, dest_type, op, cast_ptr(pcode_t *, ctx->str), ctx->str_l / sizeof(pcode_t), cast_ptr(pcode_t *, ctx->str2), ctx->str2_l / sizeof(pcode_t), &ctx->err);
+	fn = pcode_build_eval_function(src_type, dest_type, op, cast_ptr(pcode_t *, ctx->str), ctx->str_l / sizeof(pcode_t), cast_ptr(pcode_t *, ctx->str2), ctx->str2_l / sizeof(pcode_t), NULL, 0, &ctx->err);
 	if (unlikely(pointer_is_empty(fn))) {
 		io_terminate_with_error(ctx, ctx->err, true, NULL);
 		test = POINTER_FOLLOW_THUNK_EXCEPTION;
