@@ -2430,9 +2430,16 @@ fn floating_multiply(ex_bits sig_bits : int, x1 x2 : floating_base) : floating_b
 	return pack(ex_bits, sig_bits, neg1 xor neg2, e1, s1);
 ]
 
+fn floating_to_rational(const ex_bits sig_bits : int, x1 : floating_base) : rational;
+fn floating_from_rational(const ex_bits sig_bits : int, i1 : rational) : floating_base;
+
 fn floating_fma(ex_bits sig_bits : int, x1 x2 x3 : floating_base) : floating_base
 [
-	return floating_add(ex_bits, sig_bits, floating_multiply(ex_bits, sig_bits, x1, x2), x3);
+	var y1 := floating_to_rational(ex_bits, sig_bits, x1);
+	var y2 := floating_to_rational(ex_bits, sig_bits, x2);
+	var y3 := floating_to_rational(ex_bits, sig_bits, x3);
+	var r := y1 * y2 + y3;
+	return floating_from_rational(ex_bits, sig_bits, r);
 ]
 
 fn floating_recip(ex_bits sig_bits : int, x1 : floating_base) : floating_base

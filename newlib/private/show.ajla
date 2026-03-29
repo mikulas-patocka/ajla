@@ -332,7 +332,7 @@ fn real_to_rational(t : type, implicit c~spec : class_real_number(t), n : t) : r
 			q := qq;
 	]
 	var num := ldexp(n, q);
-	den *= (1 shl q);
+	den *= 1 shl q;
 	return instance_real_number_rational.from_int(num) / instance_real_number_rational.from_int(den);
 ]
 

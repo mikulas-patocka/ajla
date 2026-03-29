@@ -43,9 +43,11 @@ fn test~inline(implicit w : world, implicit p : prng_state, h : list(handle), t 
 [
 	var v1 := get_random(t, ex_bits, mant_bits);
 	var v2 := get_random(t, ex_bits, mant_bits);
+	var v3 := get_random(t, ex_bits, mant_bits);
 
 	var f1 : floating(ex_bits, mant_bits) := v1;
 	var f2 : floating(ex_bits, mant_bits) := v2;
+	var f3 : floating(ex_bits, mant_bits) := v3;
 
 	if (v1 > v2) <> (v2 < v1) then
 		abort internal("comparison 1 doesn't work");
@@ -72,6 +74,7 @@ fn test~inline(implicit w : world, implicit p : prng_state, h : list(handle), t 
 		//cast(real32, v1),
 		//cast(real64, v1),
 		//cast(real128, v1),
+		//fma(v1, v2, v3),
 	];
 	var ff := [
 		f1 + f2,
@@ -89,6 +92,7 @@ fn test~inline(implicit w : world, implicit p : prng_state, h : list(handle), t 
 		//cast(real32, f1),
 		//cast(real64, f1),
 		//cast(real128, f1),
+		//fma(f1, f2, f3),
 	];
 
 	vv := map(vv, xlate_exception(c, ));
@@ -103,6 +107,7 @@ fn test~inline(implicit w : world, implicit p : prng_state, h : list(handle), t 
 		if mismatch then [
 			eval debug(ntos_base_precision(v1, 16, 40));
 			eval debug(ntos_base_precision(v2, 16, 40));
+			eval debug(ntos_base_precision(v3, 16, 40));
 			abort internal("mismatch " + ntos(i) + ": " + "(" + ntos(ex_bits) + "," + ntos(mant_bits) + ") " + ntos_base_precision(vv[i], 16, 40) + ", " + ntos_base_precision(ff[i], 16, 40));
 		]
 	]

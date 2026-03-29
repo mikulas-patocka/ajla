@@ -137,6 +137,21 @@ fn rational_neg(i1 : rational) : rational
 
 fn rational_add(i1 i2 : rational) : rational
 [
+	if i1.num = 0, i2.num = 0 then [
+		return rational.[
+			num : 0,
+			den : select(i1.den > 0 or i2.den > 0, -1, 1),
+		];
+	]
+	if i1.den = 0, i2.den = 0 then [
+		if i1.num = i2.num then
+			return i1;
+		abort exception_make(rational, ec_sync, error_nan, 0, true);
+	]
+	if i1.den = 0 then
+		return i1;
+	if i2.den = 0 then
+		return i2;
 	var r := rational.[
 		num : i1.num * i2.den + i1.den * i2.num,
 		den : i1.den * i2.den,
@@ -146,6 +161,21 @@ fn rational_add(i1 i2 : rational) : rational
 
 fn rational_subtract(i1 i2 : rational) : rational
 [
+	if i1.num = 0, i2.num = 0 then [
+		return rational.[
+			num : 0,
+			den : select(i1.den > 0 or i2.den < 0, -1, 1),
+		];
+	]
+	if i1.den = 0, i2.den = 0 then [
+		if i1.num <> i2.num then
+			return i1;
+		abort exception_make(rational, ec_sync, error_nan, 0, true);
+	]
+	if i1.den = 0 then
+		return i1;
+	if i2.den = 0 then
+		return -i2;
 	var r := rational.[
 		num : i1.num * i2.den - i1.den * i2.num,
 		den : i1.den * i2.den,
@@ -155,6 +185,16 @@ fn rational_subtract(i1 i2 : rational) : rational
 
 fn rational_multiply(i1 i2 : rational) : rational
 [
+	if i1.num = 0 then [
+		if i2.den = 0 then
+			abort exception_make(rational, ec_sync, error_nan, 0, true);
+		return select(is_negative(i2), i1, -i1);
+	]
+	if i2.num = 0 then [
+		if i1.den = 0 then
+			abort exception_make(rational, ec_sync, error_nan, 0, true);
+		return select(is_negative(i1), i2, -i2);
+	]
 	var r := rational.[
 		num : i1.num * i2.num,
 		den : i1.den * i2.den,
@@ -173,16 +213,12 @@ fn rational_recip(i1 : rational) : rational
 		num : i1.den,
 		den : i1.num,
 	];
-	return r;
+	return rational_normalize(r);
 ]
 
 fn rational_divide(i1 i2 : rational) : rational
 [
-	var r := rational.[
-		num : i1.num * i2.den,
-		den : i1.den * i2.num,
-	];
-	return rational_normalize(r);
+	return rational_multiply(i1, rational_recip(i2));
 ]
 
 fn rational_modulo(i1 i2 : rational) : rational
