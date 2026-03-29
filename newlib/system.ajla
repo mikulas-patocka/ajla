@@ -112,6 +112,7 @@ record class_unit_ring(t : type) [
 	subtract : fn(t, t) : t;
 	multiply : fn(t, t) : t;
 	one : t;
+	fma : fn(t, t, t) : t;
 ]
 
 record class_division_ring(t : type) [
@@ -121,6 +122,7 @@ record class_division_ring(t : type) [
 	subtract : fn(t, t) : t;
 	multiply : fn(t, t) : t;
 	one : t;
+	fma : fn(t, t, t) : t;
 	recip : fn(t) : t;
 	divide : fn(t, t) : t;
 ]
@@ -132,6 +134,7 @@ record class_integer_number(t : type) [
 	subtract : fn(t, t) : t;
 	multiply : fn(t, t) : t;
 	one : t;
+	fma : fn(t, t, t) : t;
 	div : fn(t, t) : t;
 	mod : fn(t, t) : t;
 	power : fn(t, t) : t;
@@ -167,6 +170,7 @@ record class_fixed_integer_number(t : type) [
 	subtract : fn(t, t) : t;
 	multiply : fn(t, t) : t;
 	one : t;
+	fma : fn(t, t, t) : t;
 	div : fn(t, t) : t;
 	mod : fn(t, t) : t;
 	power : fn(t, t) : t;
@@ -206,6 +210,7 @@ record class_real_number(t : type) [
 	subtract : fn(t, t) : t;
 	multiply : fn(t, t) : t;
 	one : t;
+	fma : fn(t, t, t) : t;
 	recip : fn(t) : t;
 	divide : fn(t, t) : t;
 	modulo : fn(t, t) : t;
@@ -332,6 +337,7 @@ operator or 10000 ~inline ~Bin_Or (t : type, c : class_logical(t), val1 val2 : t
 operator +< 3000 ~inline (t : type, x : list(t), y : t) : list(t) := x + list(t).[ y ];
 operator ==> 11000 ~inline (val1 val2 : bool) : bool := val1 <= val2;
 
+fn fma~inline(t : type, c : class_unit_ring(t), val1 val2 val3 : t) : t;
 fn ipower~inline(t : type, c : class_integer_number(t), val1 val2 : t) : t;
 fn fmod~inline(t : type, c : class_real_number(t), val1 val2 : t) : t;
 fn power~inline(t : type, c : class_real_number(t), val1 val2 : t) : t;
@@ -724,6 +730,7 @@ implicit fn inherit_unit_ring_division_ring(t : type, c : class_division_ring(t)
 		subtract : c.subtract,
 		multiply : c.multiply,
 		one : c.one,
+		fma : c.fma,
 	];
 implicit fn inherit_show_integer_number~inline(t : type, c : class_integer_number(t)) : class_show(t) :=
 	class_show(t).[
@@ -755,6 +762,7 @@ implicit fn inherit_unit_ring_integer_number(t : type, c : class_integer_number(
 		subtract : c.subtract,
 		multiply : c.multiply,
 		one : c.one,
+		fma : c.fma,
 	];
 implicit fn inherit_integer_number_fixed_integer_number(t : type, c : class_fixed_integer_number(t)) : class_integer_number(t) :=
 	class_integer_number(t).[
@@ -764,6 +772,7 @@ implicit fn inherit_integer_number_fixed_integer_number(t : type, c : class_fixe
 		subtract : c.subtract,
 		multiply : c.multiply,
 		one : c.one,
+		fma : c.fma,
 		div : c.div,
 		mod : c.mod,
 		power : c.power,
@@ -802,6 +811,7 @@ implicit fn inherit_division_ring_real_number(t : type, c : class_real_number(t)
 		subtract : c.subtract,
 		multiply : c.multiply,
 		one : c.one,
+		fma : c.fma,
 		recip : c.recip,
 		divide : c.divide,
 	];
@@ -1028,6 +1038,10 @@ fn @1_one~inline : @1
 	pcode Load_Const =r 1 1;
 	return r;
 ]
+fn @1_fma~inline(i1 i2 i3 : @1) : @1
+[
+	return i1 * i2 + i3;
+]
 fn @1_div~inline(i1 i2 : @1) : @1
 [
 	var r : @1;
@@ -1172,6 +1186,7 @@ implicit fn instance_number_@1~inline : class_integer_number(@1) :=
 		subtract : @1_subtract,
 		multiply : @1_multiply,
 		one : @1_one,
+		fma : @1_fma,
 		div : @1_div,
 		mod : @1_mod,
 		power : @1_power,
@@ -1296,6 +1311,10 @@ fn @1_one~inline : @1
 	var r : @1;
 	pcode Load_Const =r 1 1;
 	return r;
+]
+fn @1_fma~inline(i1 i2 i3 : @1) : @1
+[
+	return i1 * i2 + i3;
 ]
 fn @1_div~inline(i1 i2 : @1) : @1
 [
@@ -1467,6 +1486,7 @@ implicit fn instance_fixed_integer_number_@1~inline : class_fixed_integer_number
 		subtract : @1_subtract,
 		multiply : @1_multiply,
 		one : @1_one,
+		fma : @1_fma,
 		div : @1_div,
 		mod : @1_mod,
 		power : @1_power,
@@ -1532,6 +1552,7 @@ fn fx_add~inline(n : nat, i1 i2 : suint_base) : suint_base := fx_wrap(n, i1 + i2
 fn fx_neg~inline(n : nat, i1 : suint_base) : suint_base := fx_wrap(n, -i1);
 fn fx_subtract~inline(n : nat, i1 i2 : suint_base) : suint_base := fx_wrap(n, i1 - i2);
 fn fx_multiply~inline(n : nat, i1 i2 : suint_base) : suint_base := fx_wrap(n, i1 * i2);
+fn fx_fma~inline(n : nat, uns : bool, i1 i2 i3 : suint_base) : suint_base := fx_wrap(n, i1 * i2 + i3);
 fn fx_div~inline(n : nat, uns : bool, i1 i2 : suint_base) : suint_base
 [
 	i1 := fx_unwrap(n, uns, i1);
@@ -1631,6 +1652,7 @@ fn instance_fixed_integer_number_int~inline(n : nat, uns : bool) : class_fixed_i
 		subtract : fx_subtract(n,,),
 		multiply : fx_multiply(n,,),
 		one : 1,
+		fma : fx_fma(n, uns,,,),
 		div : fx_div(n, uns,,),
 		mod : fx_mod(n, uns,,),
 		power : fx_power(n, uns,,),
@@ -1705,6 +1727,12 @@ fn @1_one~inline : @1
 	var r : @1;
 	var i : int := 1;
 	pcode UnaryOp Un_ConvertFromInt =r 0 i;
+	return r;
+]
+fn @1_fma~inline(i1 i2 i3 : @1) : @1
+[
+	var r : @1;
+	pcode TernaryOp Tern_FMA =r 0 i1 0 i2 0 i3;
 	return r;
 ]
 fn @1_recip~inline(i1 : @1) : @1
@@ -1989,6 +2017,7 @@ implicit fn instance_real_number_@1~inline : class_real_number(@1) :=
 		subtract : @1_subtract,
 		multiply : @1_multiply,
 		one : @1_one,
+		fma : @1_fma,
 		recip : @1_recip,
 		divide : @1_divide,
 		modulo : @1_modulo,
@@ -2401,6 +2430,11 @@ fn floating_multiply(ex_bits sig_bits : int, x1 x2 : floating_base) : floating_b
 	return pack(ex_bits, sig_bits, neg1 xor neg2, e1, s1);
 ]
 
+fn floating_fma(ex_bits sig_bits : int, x1 x2 x3 : floating_base) : floating_base
+[
+	return floating_add(ex_bits, sig_bits, floating_multiply(ex_bits, sig_bits, x1, x2), x3);
+]
+
 fn floating_recip(ex_bits sig_bits : int, x1 : floating_base) : floating_base
 [
 	return floating_divide(ex_bits, sig_bits, floating_one(ex_bits, sig_bits), x1);
@@ -2560,6 +2594,7 @@ implicit fn instance_real_number_floating~inline(const ex_bits sig_bits : int) :
 		subtract : floating_subtract(ex_bits, sig_bits,,),
 		multiply : floating_multiply(ex_bits, sig_bits,,),
 		one : floating_one(ex_bits, sig_bits),
+		fma : floating_fma(ex_bits, sig_bits,,,),
 		recip : floating_recip(ex_bits, sig_bits,),
 		divide : floating_divide(ex_bits, sig_bits,,),
 		modulo : floating_modulo(ex_bits, sig_bits,,),
@@ -2622,6 +2657,7 @@ implicit fn instance_real_number_rational~inline : class_real_number(rational) :
 		subtract : rational_subtract,
 		multiply : rational_multiply,
 		one : rational_one,
+		fma : rational_fma,
 		recip : rational_recip,
 		divide : rational_divide,
 		modulo : rational_modulo,
@@ -2682,6 +2718,7 @@ implicit fn instance_real_number_fixed_point~inline(const base digits : int) : c
 		subtract : fixed_point_subtract(base, digits,,),
 		multiply : fixed_point_multiply(base, digits,,),
 		one : fixed_point_one(base, digits),
+		fma : fixed_point_fma(base, digits,,,),
 		recip : fixed_point_recip(base, digits,),
 		divide : fixed_point_divide(base, digits,,),
 		modulo : fixed_point_modulo(base, digits,,),
@@ -2779,6 +2816,7 @@ operator and 8000 ~inline (t : type, c : class_logical(t), val1 val2 : t) : t :=
 operator xor 9000 ~inline (t : type, c : class_logical(t), val1 val2 : t) : t := c.xor(val1, val2);
 operator or 10000 ~inline (t : type, c : class_logical(t), val1 val2 : t) : t := c.or(val1, val2);
 
+fn fma~inline(t : type, c : class_unit_ring(t), val1 val2 val3 : t) : t := c.fma(val1, val2, val3);
 fn ipower~inline (t : type, c : class_integer_number(t), val1 val2 : t) : t := c.power(val1, val2);
 fn fmod~inline(t : type, c : class_real_number(t), val1 val2 : t) : t := c.modulo(val1, val2);
 fn power~inline(t : type, c : class_real_number(t), val1 val2 : t) : t := c.power(val1, val2);

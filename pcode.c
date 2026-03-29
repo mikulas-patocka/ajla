@@ -127,10 +127,10 @@ shared_var const code_t pcode2code[Op_NN][5]
 	{ OPCODE_EXCEPTION_TYPE,NO_OPCODE,		NO_OPCODE,		NO_OPCODE,		NO_OPCODE,	},
 	{ OPCODE_EXCEPTION_AUX,	NO_OPCODE,		NO_OPCODE,		NO_OPCODE,		NO_OPCODE,	},
 	{ OPCODE_SYSTEM_PROPERTY,NO_OPCODE,		NO_OPCODE,		NO_OPCODE,		NO_OPCODE,	},
-	{ NO_OPCODE, 		NO_OPCODE,		NO_OPCODE,		NO_OPCODE,		NO_OPCODE,	},
-	{ NO_OPCODE, 		NO_OPCODE,		NO_OPCODE,		NO_OPCODE,		NO_OPCODE,	},
-	{ NO_OPCODE, 		NO_OPCODE,		NO_OPCODE,		NO_OPCODE,		NO_OPCODE,	},
-	{ NO_OPCODE, 		NO_OPCODE,		NO_OPCODE,		NO_OPCODE,		NO_OPCODE,	},
+	{ NO_OPCODE, 		NO_OPCODE,		NO_OPCODE,		re(fma),		NO_OPCODE,	},
+	{ NO_OPCODE, 		NO_OPCODE,		NO_OPCODE,		re(fms),		NO_OPCODE,	},
+	{ NO_OPCODE, 		NO_OPCODE,		NO_OPCODE,		re(fnma),		NO_OPCODE,	},
+	{ NO_OPCODE, 		NO_OPCODE,		NO_OPCODE,		re(fnms),		NO_OPCODE,	},
 	{ fx(move),		fx(move),		in(move),		re(move),		bo(move),	},
 	{ fx(copy),		fx(copy),		in(copy),		re(copy),		bo(copy),	},
 	{ fx(ldc),		fx(ldc),		in(ldc),		re(ldc),		NO_OPCODE,	},
@@ -4099,7 +4099,7 @@ static void *pcode_build_op_function(frame_s *fp, const code_t *ip, union intern
 	unsigned i;
 	unsigned n_local_variables;
 	unsigned n_arguments;
-	pcode_t pcode[41];
+	pcode_t pcode[49];
 	pcode_t *pc = pcode;
 
 	n_local_variables = flags & PCODE_FIND_OP_UNARY ? 2 : flags & PCODE_FIND_OP_BINARY ? 3 : 4;

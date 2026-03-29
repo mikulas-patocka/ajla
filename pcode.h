@@ -43,7 +43,7 @@
 #define Op_IsBool(op)			((op) == Bin_Equal || (op) == Bin_NotEqual || (op) == Bin_Less || (op) == Bin_LessEqual || (op) == Bin_Greater || (op) == Bin_GreaterEqual || (op) == Bin_Bt || (op) == Un_IsException)
 #define Op_IsInt(op)			((op) == Un_ConvertToInt || (op) == Un_ExceptionClass || (op) == Un_ExceptionType || (op) == Un_ExceptionAux)
 #define Op_IsReal(op)			((op) >= Un_ConvertToReal16 && (op) <= Un_ConvertToReal128)
-#define Op_IsTernary(op)		(0)
+#define Op_IsTernary(op)		((op) >= Tern_FMA && (op) <= Tern_FNMS)
 #define Op_IsBinary(op)			((op) >= Bin_Add && (op) <= Bin_Bt)
 #define Op_IsUnary(op)			((op) >= Un_Not && (op) <= Un_SystemProperty)
 

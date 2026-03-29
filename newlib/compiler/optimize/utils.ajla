@@ -172,7 +172,7 @@ fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instructi
 		ins.read_set := 0 bts 3 bts 5 bts 7;
 		ins.free_set := ins.read_set;
 		ins.write_set := 0 bts 1;
-		xlen := 6;
+		xlen := 8;
 	] else if opcode = P_BinaryOp then [
 		ins.read_set := 0 bts 3 bts 5;
 		ins.free_set := ins.read_set;

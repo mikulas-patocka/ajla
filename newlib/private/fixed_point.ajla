@@ -27,6 +27,7 @@ fn fixed_point_recip~inline(base digits : int, i1 : fp_type) : fp_type;
 fn fixed_point_add~inline(base digits : int, i1 i2 : fp_type) : fp_type;
 fn fixed_point_subtract~inline(base digits : int, i1 i2 : fp_type) : fp_type;
 fn fixed_point_multiply~inline(base digits : int, i1 i2 : fp_type) : fp_type;
+fn fixed_point_fma~inline(base digits : int, i1 i2 i3 : fp_type) : fp_type;
 fn fixed_point_divide~inline(base digits : int, i1 i2 : fp_type) : fp_type;
 fn fixed_point_modulo~inline(const base digits : int, i1 i2 : fixed_point(base, digits)) : fixed_point(base, digits);
 fn fixed_point_power~inline(const base digits : int, i1 i2 : fixed_point(base, digits)) : fixed_point(base, digits);
@@ -127,6 +128,11 @@ fn fixed_point_recip~inline(base digits : int, i1 : fp_type) : fp_type
 	if i1 = 0 then
 		return exception_make(fp_type, ec_sync, error_infinity, 0, true);
 	return ipower(base, digits * 2) div i1;
+]
+
+fn fixed_point_fma~inline(base digits : int, i1 i2 i3 : fp_type) : fp_type
+[
+	return fixed_point_add(base, digits, fixed_point_multiply(base, digits, i1, i2), i3);
 ]
 
 fn fixed_point_divide~inline(base digits : int, i1 i2 : fp_type) : fp_type

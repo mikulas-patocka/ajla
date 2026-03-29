@@ -25,6 +25,7 @@ fn rational_neg(i1 : rational) : rational;
 fn rational_add(i1 i2 : rational) : rational;
 fn rational_subtract(i1 i2 : rational) : rational;
 fn rational_multiply(i1 i2 : rational) : rational;
+fn rational_fma(i1 i2 i3 : rational) : rational;
 fn rational_recip(i1 : rational) : rational;
 fn rational_divide(i1 i2 : rational) : rational;
 fn rational_modulo(i1 i2 : rational) : rational;
@@ -159,6 +160,11 @@ fn rational_multiply(i1 i2 : rational) : rational
 		den : i1.den * i2.den,
 	];
 	return rational_normalize(r);
+]
+
+fn rational_fma(i1 i2 i3 : rational) : rational
+[
+	return i1 * i2 + i3;
 ]
 
 fn rational_recip(i1 : rational) : rational
