@@ -365,10 +365,46 @@ fn int_to_real(t : type, implicit c~spec : class_real_number(t), i : int) : (t, 
 	return num, q;
 ]
 
+fn rational_to_real_exact(t : type, implicit c~spec : class_real_number(t), s : int, i : int, bit : int) : t
+[
+	var top_bit := bsr i;
+t1:
+	var top_num := ldexp(c.one, top_bit - bit);
+	if is_infinity top_num then [
+		return top_num * s;
+	]
+	if top_num = 0 then [
+		top_bit += 1;
+		goto t1;
+	]
+	var test_bit := top_bit - 1;
+	while true do [
+		if test_bit < 0 then [
+			return ldexp(c.from_int(i), -bit) * s;
+		]
+		var add_num := ldexp(c.one, test_bit - bit);
+		var xnum := top_num + add_num;
+		if xnum = top_num then
+			break;
+		test_bit -= 1;
+	]
+	if i bt test_bit then [
+		if bsf i = test_bit, not i bt test_bit + 1 then
+			goto skip_add;
+		i += 1 shl test_bit + 1;
+skip_add:
+	]
+	i shr= test_bit + 1;
+	return ldexp(c.from_int(i), -bit + (test_bit + 1)) * s;
+]
+
 fn rational_to_real(t : type, implicit c~spec : class_real_number(t), a : rational) : t
 [
 	var num := a.num;
 	var den := a.den;
+	if den > 0, (den and den - 1) = 0, num <> 0 then [
+		return rational_to_real_exact(t, c, sgn(num), abs(num), bsr den);
+	]
 	var num_t, adj_p := int_to_real(t, c, num);
 	var den_t, adj_m := int_to_real(t, c, den);
 	var adj := adj_p - adj_m;
