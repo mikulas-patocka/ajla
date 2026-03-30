@@ -195,7 +195,7 @@ static bool attr_w gen_3address_fp_alu(struct codegen_context *ctx, unsigned siz
 	return true;
 }
 
-static bool attr_w gen_4address_fp_alu(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src1, unsigned src2, unsigned src3)
+static bool attr_w attr_unused gen_4address_fp_alu(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src1, unsigned src2, unsigned src3)
 {
 	gen_insn(INSN_FP_ALU3, size, alu, 0);
 	gen_one(dest);

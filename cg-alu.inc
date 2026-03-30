@@ -3901,10 +3901,10 @@ do_upcall:
 
 static bool attr_w gen_fp_alu3(struct codegen_context *ctx, unsigned real_type, unsigned op, frame_t slot_1, frame_t slot_2, frame_t slot_3, frame_t slot_r)
 {
-	unsigned fp_alu;
+	unsigned attr_unused fp_alu;
 	size_t upc;
 	unsigned attr_unused op_size = real_type_to_op_size(real_type);
-	unsigned reg1, reg2, reg3, target;
+	unsigned attr_unused reg1, reg2, reg3, target;
 	setup_fr_scratch;
 	switch (op) {
 		case OPCODE_REAL_OP_fma: fp_alu = FP_ALU3_FMADD; upc = offsetof(struct cg_upcall_vector_s, REAL_ternary_fma_real16_t); goto do_alu;
@@ -3914,6 +3914,7 @@ static bool attr_w gen_fp_alu3(struct codegen_context *ctx, unsigned real_type, 
 		default: internal(file_line, "gen_fp_alu3: unsupported operation %u", op);
 	}
 do_alu:
+#ifdef SUPPORTED_FP_FMA
 	if ((SUPPORTED_FP >> real_type) & 1 && SUPPORTED_FP_FMA) {
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, fr_scratch_2, &reg2));
@@ -3923,6 +3924,7 @@ do_alu:
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
 	}
+#endif
 	g(gen_alu_typed_upcall(ctx, upc, real_type, slot_1, slot_2, slot_3, slot_r, 0));
 	return true;
 }
