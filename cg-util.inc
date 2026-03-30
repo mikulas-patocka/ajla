@@ -195,6 +195,17 @@ static bool attr_w gen_3address_fp_alu(struct codegen_context *ctx, unsigned siz
 	return true;
 }
 
+static bool attr_w gen_4address_fp_alu(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src1, unsigned src2, unsigned src3)
+{
+	gen_insn(INSN_FP_ALU3, size, alu, 0);
+	gen_one(dest);
+	gen_one(src1);
+	gen_one(src2);
+	gen_one(src3);
+
+	return true;
+}
+
 
 static bool attr_w attr_unused gen_load_two(struct codegen_context *ctx, unsigned dest, unsigned src, int64_t offset)
 {

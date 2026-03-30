@@ -113,6 +113,12 @@
 #define  ARM64_FCVTZS_DOUBLE		0x00400000U
 #define  ARM64_FCVTZS_HALF		0x00c00000U
 #define  ARM64_FCVTZS_SIZE		0x80000000U
+#define ARM64_FMADD		0x1f000000U
+#define  ARM64_FMADD_SUB		0x00008000U
+#define  ARM64_FMADD_N			0x00200000U
+#define  ARM64_FMADD_SINGLE		0x00000000U
+#define  ARM64_FMADD_DOUBLE		0x00400000U
+#define  ARM64_FMADD_HALF		0x00c00000U
 #define ARM64_LDPSTP		0x28000000U
 #define  ARM64_LDPSTP_LD		0x00400000U
 #define  ARM64_LDPSTP_POST_INDEX	0x00800000U
@@ -948,6 +954,35 @@ do_regs:
 	return true;
 }
 
+static bool attr_w cgen_fp_alu3(struct codegen_context *ctx, unsigned op_size, unsigned aux)
+{
+	uint32_t mc;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	uint8_t *arg4 = arg3 + arg_size(*arg3);
+	ctx->code_position = arg4 + arg_size(*arg4);
+	switch (aux) {
+		case FP_ALU3_FMADD:	mc = ARM64_FMADD; break;
+		case FP_ALU3_FMSUB:	mc = ARM64_FMADD | ARM64_FMADD_SUB; break;
+		case FP_ALU3_FNMADD:	mc = ARM64_FMADD | ARM64_FMADD_N; break;
+		case FP_ALU3_FNMSUB:	mc = ARM64_FMADD | ARM64_FMADD_N | ARM64_FMADD_SUB; break;
+		default:		internal(file_line, "cgen_fp_alu3: invalid alu %u", aux);
+	}
+	switch (op_size) {
+		case OP_SIZE_2:		mc |= ARM64_FMADD_HALF; break;
+		case OP_SIZE_4:		mc |= ARM64_FMADD_SINGLE; break;
+		case OP_SIZE_8:		mc |= ARM64_FMADD_DOUBLE; break;
+		default:		internal(file_line, "cgen_fp_alu1: invalid size %u", op_size);
+	}
+	mc |= arg1[0] & 31;
+	mc |= ((uint32_t)(arg2[0] & 31)) << 5;
+	mc |= ((uint32_t)(arg3[0] & 31)) << 16;
+	mc |= ((uint32_t)(arg4[0] & 31)) << 10;
+	cgen_four(mc);
+	return true;
+}
+
 static bool attr_w cgen_fp_to_int(struct codegen_context *ctx, unsigned int_op_size, unsigned fp_op_size)
 {
 	uint32_t mc;
@@ -1345,6 +1380,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_FP_ALU1:
 			g(cgen_fp_alu1(ctx, insn_op_size(insn), insn_aux(insn)));
+			return true;
+		case INSN_FP_ALU3:
+			g(cgen_fp_alu3(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_FP_TO_INT32:
 		case INSN_FP_TO_INT64:

@@ -129,6 +129,7 @@ static uint64_t dump_seq = 0;
 #define FP_ALU_SUB			1
 #define FP_ALU_MUL			2
 #define FP_ALU_DIV			3
+
 #define FP_ALU1_NEG			0
 #define FP_ALU1_SQRT			1
 #define FP_ALU1_ROUND			2
@@ -140,6 +141,11 @@ static uint64_t dump_seq = 0;
 #define FP_ALU1_VPADDL2			8
 #define FP_ALU1_VPADDL4			9
 #define FP_ALU1_ADDV			10
+
+#define FP_ALU3_FMADD			0
+#define FP_ALU3_FMSUB			1
+#define FP_ALU3_FNMADD			2
+#define FP_ALU3_FNMSUB			3
 
 #define COND_O				0x0
 #define COND_NO				0x1
@@ -279,6 +285,7 @@ enum {
 	INSN_FP_TO_INT_FLAGS,
 	INSN_FP_ALU,
 	INSN_FP_ALU1,
+	INSN_FP_ALU3,
 	INSN_FP_TO_INT32,
 	INSN_FP_TO_INT64,
 	INSN_FP_TO_INT64_TRAP,
@@ -1178,6 +1185,10 @@ static inline bool slot_is_register(struct codegen_context *ctx, frame_t slot)
 
 #ifndef SUPPORTED_FP_CVT
 #define SUPPORTED_FP_CVT(f, t)		((SUPPORTED_FP >> (f)) & (SUPPORTED_FP >> (t)) & 1)
+#endif
+
+#ifndef SUPPORTED_FP_FMA
+#define SUPPORTED_FP_FMA		false
 #endif
 
 #ifndef n_regs_saved
