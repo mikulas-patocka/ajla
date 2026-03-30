@@ -106,6 +106,8 @@
 #define ARM64_FMOV		0x1e260000U
 #define  ARM64_FMOV_W_S			0x00000000U
 #define  ARM64_FMOV_S_W			0x00010000U
+#define  ARM64_FMOV_W_H			0x00c00000U
+#define  ARM64_FMOV_H_W			0x00c10000U
 #define  ARM64_FMOV_X_D			0x80400000U
 #define  ARM64_FMOV_D_X			0x80410000U
 #define ARM64_FCVTZS		0x1e380000U
@@ -297,9 +299,9 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 			return true;
 		}
 		if (reg_is_fp(arg2[0])) {
-			if (size < OP_SIZE_4)
+			if (size < OP_SIZE_2)
 				goto invalid;
-			mc = ARM64_FMOV | (size == OP_SIZE_4 ? ARM64_FMOV_W_S : ARM64_FMOV_X_D);
+			mc = ARM64_FMOV | (size == OP_SIZE_2 ? ARM64_FMOV_W_H : size == OP_SIZE_4 ? ARM64_FMOV_W_S : ARM64_FMOV_X_D);
 			mc |= arg1[0];
 			mc |= (uint32_t)(arg2[0] & 31) << 5;
 			cgen_four(mc);
@@ -335,9 +337,9 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 	}
 	if (reg_is_fp(arg1[0])) {
 		if (arg2[0] < 32) {
-			if (size < OP_SIZE_4)
+			if (size < OP_SIZE_2)
 				goto invalid;
-			mc = ARM64_FMOV | (size == OP_SIZE_4 ? ARM64_FMOV_S_W : ARM64_FMOV_D_X);
+			mc = ARM64_FMOV | (size == OP_SIZE_2 ? ARM64_FMOV_H_W : size == OP_SIZE_4 ? ARM64_FMOV_S_W : ARM64_FMOV_D_X);
 			mc |= arg1[0] & 31;
 			mc |= (uint32_t)arg2[0] << 5;
 			cgen_four(mc);
