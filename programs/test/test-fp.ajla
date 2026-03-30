@@ -39,6 +39,14 @@ fn xlate_exception(t : type, implicit c : class_real_number(t), n : t) : t
 	return n;
 ]
 
+fn fmx~strict(t : type, implicit c~spec : class_real_number(t), v1 v2 v3 : t) : t
+[
+	var v : t := 0;
+	for i := 0 to 2 do
+		v := fma(select(i = 1, v2, v1), v2, v3);
+	return v;
+]
+
 fn test~inline(implicit w : world, implicit p : prng_state, h : list(handle), t : type, const ex_bits mant_bits : int, implicit c : class_real_number(t)) : (prng_state, world)
 [
 	var v1 := get_random(t, ex_bits, mant_bits);
@@ -74,7 +82,7 @@ fn test~inline(implicit w : world, implicit p : prng_state, h : list(handle), t 
 		cast(real32, v1),
 		cast(real64, v1),
 		cast(real128, v1),
-		fma(v1, v2, v3),
+		fmx(v1, v2, v3),
 	];
 	var ff := [
 		f1 + f2,
