@@ -1,5 +1,5 @@
 {*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -92,10 +92,10 @@ fn @1_exception_class(a : floating(@2,@3)) : int := exception_class a;
 fn @1_exception_type(a : floating(@2,@3)) : int := exception_type a;
 fn @1_exception_aux(a : floating(@2,@3)) : int := exception_aux a;
 fn @1_system_property(a : floating(@2,@3)) : int [ abort internal("unsupported real op"); ]
-fn @1_fma(a b c : floating(@2,@3)) : floating(@2,@3) := a * b + c;
-fn @1_fms(a b c : floating(@2,@3)) : floating(@2,@3) := a * b - c;
-fn @1_fnma(a b c : floating(@2,@3)) : floating(@2,@3) := -(a * b) + c;
-fn @1_fnms(a b c : floating(@2,@3)) : floating(@2,@3) := -(a * b) - c;
+fn @1_fma(a b c : floating(@2,@3)) : floating(@2,@3) := fma(a, b, c);
+fn @1_fms(a b c : floating(@2,@3)) : floating(@2,@3) := fma(a, b, -c);
+fn @1_fnma(a b c : floating(@2,@3)) : floating(@2,@3) := fma(-a, b, c);
+fn @1_fnms(a b c : floating(@2,@3)) : floating(@2,@3) := fma(-a, b, -c);
 ]
 
 real_ops(real16, 5, 11);
