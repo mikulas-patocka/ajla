@@ -94,6 +94,10 @@
 #define ARM_VADD		0x0e300a00U
 #define ARM_VSUB		0x0e300a40U
 #define ARM_VDIV		0x0e800a00U
+#define ARM_VFNMS		0x0e900a00U
+#define ARM_VFNMA		0x0e900a40U
+#define ARM_VFMA		0x0ea00a00U
+#define ARM_VFMS		0x0ea00a40U
 #define ARM_VMOV		0x0eb00a40U
 #define ARM_VNEG		0x0eb10a40U
 #define ARM_VSQRT		0x0eb10ac0U
@@ -115,6 +119,7 @@
 #define ARM_VPADDL_U8		0xf3b00280U
 #define ARM_VPADDL_U16		0xf3b40280U
 #define ARM_VPADDL_U32		0xf3b80280U
+
 
 static const uint32_t alu_codes[7] = {
 	ARM_ADD,
@@ -815,6 +820,39 @@ do_regs:
 	return true;
 }
 
+static bool attr_w cgen_fp_alu3(struct codegen_context *ctx, unsigned op_size, unsigned aux)
+{
+	uint32_t mc;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	uint8_t *arg4 = arg3 + arg_size(*arg3);
+	ctx->code_position = arg4 + arg_size(*arg4);
+	mc = ARM_ALWAYS;
+	switch (aux) {
+		case FP_ALU3_FMADD:	mc |= ARM_VFMA; break;
+		case FP_ALU3_FMSUB:	mc |= ARM_VFNMS; break;
+		case FP_ALU3_FNMADD:	mc |= ARM_VFMS; break;
+		case FP_ALU3_FNMSUB:	mc |= ARM_VFNMA; break;
+		default:		internal(file_line, "cgen_fp_alu3: invalid alu %u", aux);
+	}
+	switch (op_size) {
+		case OP_SIZE_4:		break;
+		case OP_SIZE_8:		mc |= ARM_V_D; break;
+		default:		internal(file_line, "cgen_fp_alu3: invalid size %u", op_size);
+	}
+	if (arg1[0] != arg4[0])
+		internal(file_line, "cgen_fp_alu3: invalid registers %02x, %02x, %02x, %02x", arg1[0], arg2[0], arg3[0], arg4[0]);
+	mc |= (uint32_t)(arg1[0] & 0x1e) << 11;
+	mc |= (uint32_t)(arg1[0] & 1) << 22;
+	mc |= (uint32_t)(arg2[0] & 0x1e) << 15;
+	mc |= (uint32_t)(arg2[0] & 1) << 7;
+	mc |= (uint32_t)(arg3[0] & 0x1e) >> 1;
+	mc |= (uint32_t)(arg3[0] & 1) << 5;
+	cgen_four(mc);
+	return true;
+}
+
 static bool attr_w cgen_fp_to_int(struct codegen_context *ctx, unsigned fp_op_size)
 {
 	uint32_t mc;
@@ -1103,6 +1141,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_FP_ALU1:
 			g(cgen_fp_alu1(ctx, insn_op_size(insn), insn_aux(insn)));
+			return true;
+		case INSN_FP_ALU3:
+			g(cgen_fp_alu3(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_FP_TO_INT32:
 			g(cgen_fp_to_int(ctx, insn_op_size(insn)));

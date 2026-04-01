@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -43,6 +43,11 @@
 #define feature_name		vfpd32
 #define static_test_vfpd32	0
 #define dynamic_test		(elf_hwcap & (1 << 19))
+#include "asm-1.inc"
+
+#define feature_name		vfpv4
+#define static_test_vfpv4	(__ARM_FEATURE_FMA)
+#define dynamic_test		(elf_hwcap & (1 << 16))
 #include "asm-1.inc"
 
 #define feature_name		half
