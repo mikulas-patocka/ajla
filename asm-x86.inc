@@ -61,6 +61,11 @@
 #define dynamic_test		(likely(cpu_test_feature(CPU_FEATURE_sse2)) && likely((cpuid_1[2] & (7U << 26)) == (7U << 26)) && likely(test_xcr0(6)))
 #include "asm-1.inc"
 
+#define feature_name		fma3
+#define static_test_fma3	(__FMA__)
+#define dynamic_test		(likely(cpu_test_feature(CPU_FEATURE_avx)) && likely(cpuid_1[2] & (1U << 12)))
+#include "asm-1.inc"
+
 #define feature_name		f16c
 #define static_test_f16c	(__F16C__)
 #define dynamic_test		(likely(cpu_test_feature(CPU_FEATURE_avx)) && likely(cpuid_1[2] & (1U << 29)))

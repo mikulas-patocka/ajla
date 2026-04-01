@@ -136,7 +136,7 @@
 #define X86_0F_38			0x38
 #define X86_0F_3A			0x3a
 #define X86_0F_CMOVCC_R16_RM16		0x40
-#define X86_0F_SQRTPS_X128_M32		0x51
+#define X86_0F_SQRTSS_X128_M32		0x51
 #define X86_0F_ANDPS_X128_M128		0x54
 #define X86_0F_ANDNPS_X128_M128		0x55
 #define X86_0F_ORPS_X128_M128		0x56
@@ -176,6 +176,21 @@
 #define X86_0F_PINSRW_X128_RM16_IMM8	0xc4
 
 #define X86_0F_38_CVTPH2PS_X128_RM64	0x13
+#define X86_0F_38_VFMADD132S		0x99
+#define X86_0F_38_VFMSUB132S		0x9b
+#define X86_0F_38_VFNMADD132S		0x9d
+#define X86_0F_38_VFNMSUB132S		0x9f
+#define X86_0F_38_VFMADD213S		0xa9
+#define X86_0F_38_VFMSUB213S		0xab
+#define X86_0F_38_VFNMADD213S		0xad
+#define X86_0F_38_VFNMSUB213S		0xaf
+#define X86_0F_38_VFMADD231S		0xb9
+#define X86_0F_38_VFMSUB231S		0xbb
+#define X86_0F_38_VFNMADD231S		0xbd
+#define X86_0F_38_VFNMSUB231S		0xbf
+#define  X86_0F_38_VFMA_132			0x00
+#define  X86_0F_38_VFMA_213			0x10
+#define  X86_0F_38_VFMA_231			0x20
 #define X86_0F_38_ROTX			0xf7
 
 #define X86_0F_3A_ROUNDSS_X128_M32	0x0a
@@ -267,6 +282,7 @@
 #define PREFIX_0F_3A			3
 #define PREFIX_LEGACY_EVEX		4
 #define PREFIX_MAP5			5
+#define PREFIX_MAP6			6
 
 static bool attr_w cgen_rex2(struct codegen_context attr_unused *ctx, uint8_t rex2)
 {
@@ -1371,7 +1387,7 @@ static bool attr_w cgen_sse_alu1(struct codegen_context *ctx, unsigned size, uns
 					} else {
 						goto fail;
 					}
-					opcode = X86_0F_SQRTPS_X128_M32;
+					opcode = X86_0F_SQRTSS_X128_M32;
 					break;
 		case FP_ALU1_ROUND:
 		case FP_ALU1_FLOOR:
@@ -1397,6 +1413,74 @@ static bool attr_w cgen_sse_alu1(struct codegen_context *ctx, unsigned size, uns
 	if (OP_IS_ROUND(alu))
 		cgen_one(alu - FP_ALU1_ROUND);
 	return true;
+}
+
+static bool attr_w cgen_avx_alu3(struct codegen_context *ctx, unsigned size, unsigned alu)
+{
+	uint8_t opcode;
+	uint8_t variant;
+	uint8_t r1, r2, *rm3;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	uint8_t *arg4 = arg3 + arg_size(*arg3);
+	ctx->code_position = arg4 + arg_size(*arg4);
+	switch (alu) {
+		case FP_ALU3_FMADD:	opcode = X86_0F_38_VFMADD132S; break;
+		case FP_ALU3_FMSUB:	opcode = X86_0F_38_VFMSUB132S; break;
+		case FP_ALU3_FNMADD:	opcode = X86_0F_38_VFNMADD132S; break;
+		case FP_ALU3_FNMSUB:	opcode = X86_0F_38_VFNMSUB132S; break;
+		default:		goto invl;
+	}
+	if (*arg1 == *arg2) {
+		r1 = *arg2;
+		if (*arg4 >= ARG_REGS_MAX) {
+			r2 = *arg3;
+			rm3 = arg4;
+			variant = X86_0F_38_VFMA_213;
+		} else {
+			r2 = *arg4;
+			rm3 = arg3;
+			variant = X86_0F_38_VFMA_132;
+		}
+	} else if (*arg1 == *arg3) {
+		r1 = *arg3;
+		if (*arg4 >= ARG_REGS_MAX) {
+			r2 = *arg2;
+			rm3 = arg4;
+			variant = X86_0F_38_VFMA_213;
+		} else {
+			r2 = *arg4;
+			rm3 = arg2;
+			variant = X86_0F_38_VFMA_132;
+		}
+	} else if (*arg1 == *arg4) {
+		r1 = *arg4;
+		if (*arg3 >= ARG_REGS_MAX) {
+			r2 = *arg2;
+			rm3 = arg3;
+			variant = X86_0F_38_VFMA_231;
+		} else {
+			r2 = *arg3;
+			rm3 = arg2;
+			variant = X86_0F_38_VFMA_231;
+		}
+	} else {
+		goto invl;
+	}
+	opcode += variant;
+	if (unlikely(r1 >= ARG_REGS_MAX) || unlikely(r2 >= ARG_REGS_MAX))
+		goto invl;
+	if (size == OP_SIZE_2) {
+		g(cgen_sse_insn(ctx, SSE_PREFIX_66 | force_evex, PREFIX_MAP6, opcode, false, size, r1, r2, rm3));
+	} else {
+		g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F_38, opcode, size == OP_SIZE_8, size, r1, r2, rm3));
+	}
+	return true;
+
+invl:
+	internal(file_line, "cgen_avx_alu3: invalid arguments: %u, %u, %02x, %02x, %02x, %02x", alu, size, *arg1, *arg2, *arg3, *arg4);
+	return false;
 }
 
 static bool attr_w cgen_sse_from_int(struct codegen_context *ctx, unsigned int_op_size, unsigned fp_op_size)
@@ -1917,6 +2001,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_FP_ALU1:
 			g(cgen_sse_alu1(ctx, insn_op_size(insn), insn_aux(insn)));
+			return true;
+		case INSN_FP_ALU3:
+			g(cgen_avx_alu3(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_FP_FROM_INT32:
 		case INSN_FP_FROM_INT64:

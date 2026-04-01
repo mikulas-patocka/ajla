@@ -169,7 +169,7 @@
 
 #define SUPPORTED_FP		(cpu_test_feature(CPU_FEATURE_fphp) + 0x6)
 #define SUPPORTED_FP_CVT(f, t)	((f) <= 2 && (t) <= 2)
-#define SUPPORTED_FP_FMA	true
+#define SUPPORTED_FP_FMA	SUPPORTED_FP
 #define FP_REGISTERS(real_size) 1
 
 static bool reg_is_fp(unsigned reg)
