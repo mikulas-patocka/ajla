@@ -149,7 +149,8 @@
 #define PARISC_FSTD		0x2c000200U
 #define  PARISC_FLDST_IMM5		0x00001000U
 #define  PARISC_FLDST_SCALE		0x00002000U
-#define PARISC_FCMP		0x30000400U
+#define PARISC_FTEST		0x30002420U
+#define PARISC_FCMP		0x38000400U
 #define  PARISC_FCMP_NP			0x02U
 #define  PARISC_FCMP_NE			0x04U
 #define  PARISC_FCMP_AE			0x08U
@@ -158,21 +159,20 @@
 #define  PARISC_FCMP_B			0x14U
 #define  PARISC_FCMP_E			0x18U
 #define  PARISC_FCMP_P			0x1cU
-#define PARISC_FADD		0x30000600U
-#define PARISC_FTEST		0x30002420U
-#define PARISC_FSUB		0x30002600U
-#define PARISC_FCPY		0x30004000U
-#define PARISC_FMPY		0x30004600U
-#define PARISC_FDIV		0x30006600U
-#define PARISC_FCNVFF		0x30000200U
+#define PARISC_FADD		0x38000600U
+#define PARISC_FSUB		0x38002600U
+#define PARISC_FCPY		0x38004000U
+#define PARISC_FMPY		0x38004600U
+#define PARISC_FDIV		0x38006600U
+#define PARISC_FCNVFF		0x38000200U
 #define  PARISC_FCNVFF_DOUBLE_TO_SINGLE	0x00000800U
 #define  PARISC_FCNVFF_SINGLE_TO_DOUBLE	0x00002000U
-#define PARISC_FCNVXF		0x30008200U
+#define PARISC_FCNVXF		0x38008200U
 #define  PARISC_FCNVXF_FROM_LONG	0x00000800U
 #define  PARISC_FCNVXF_TO_DOUBLE	0x00002000U
-#define PARISC_FSQRT		0x30008000U
-#define PARISC_FNEG		0x3000c000U
-#define PARISC_FCNVFXT		0x30018200U
+#define PARISC_FSQRT		0x38008000U
+#define PARISC_FNEG		0x3800c000U
+#define PARISC_FCNVFXT		0x38018200U
 #define  PARISC_FCNVFXT_FROM_DOUBLE	0x00000800U
 #define  PARISC_FCNVFXT_TO_LONG		0x00002000U
 #define PARISC_FLDD_LONG	0x50000002U
@@ -219,6 +219,28 @@ static bool attr_w cgen_3reg(struct codegen_context *ctx, uint32_t mc, unsigned 
 	mc |= (uint32_t)r1 << 16;
 	mc |= (uint32_t)r2 << 21;
 	mc |= rt;
+	cgen_four(mc);
+	return true;
+}
+
+static bool attr_w cgen_3reg_fp(struct codegen_context *ctx, uint32_t mc, unsigned r1, unsigned r2, unsigned rt)
+{
+	mc |= ((uint32_t)r1 & 0x3e) << 20;
+	mc |= ((uint32_t)r2 & 0x3e) << 15;
+	mc |= ((uint32_t)rt & 0x3e) >> 1;
+	mc |= ((uint32_t)r1 & 0x01) << 7;
+	mc |= ((uint32_t)r2 & 0x01) << 12;
+	mc |= ((uint32_t)rt & 0x01) << 6;
+	cgen_four(mc);
+	return true;
+}
+
+static bool attr_w cgen_2reg_fp(struct codegen_context *ctx, uint32_t mc, unsigned r1, unsigned rt)
+{
+	mc |= ((uint32_t)r1 & 0x3e) << 20;
+	mc |= ((uint32_t)rt & 0x3e) >> 1;
+	mc |= ((uint32_t)r1 & 0x01) << 7;
+	mc |= ((uint32_t)rt & 0x01) << 6;
 	cgen_four(mc);
 	return true;
 }
@@ -434,7 +456,8 @@ static bool attr_w cgen_fp_ld_st(struct codegen_context *ctx, bool ld, unsigned 
 				mc = size == OP_SIZE_4 ? PARISC_FSTW : PARISC_FSTD;
 			mc |= PARISC_FLDST_IMM5;
 			mc |= low_sign_ext_5(imm) << 16;
-			mc |= reg & 0x1f;
+			mc |= ((uint32_t)reg & 0x3e) >> 1;
+			mc |= ((uint32_t)reg & 0x01) << 6;
 			mc |= (uint32_t)address[1] << 21;
 			cgen_four(mc);
 			return true;
@@ -444,7 +467,10 @@ static bool attr_w cgen_fp_ld_st(struct codegen_context *ctx, bool ld, unsigned 
 			else
 				mc = size == OP_SIZE_4 ? PARISC_FSTW_LONG : PARISC_FSTD_LONG;
 			mc |= low_sign_ext_14(imm);
-			g(cgen_2reg(ctx, mc, address[1], reg & 0x1f));
+			mc |= (uint32_t)address[1] << 21;
+			mc |= ((uint32_t)reg & 0x3e) << 15;
+			mc |= ((uint32_t)reg & 0x01) << 1;
+			cgen_four(mc);
 			return true;
 		}
 	}
@@ -464,7 +490,11 @@ static bool attr_w cgen_fp_ld_st(struct codegen_context *ctx, bool ld, unsigned 
 		} else {
 			goto invalid;
 		}
-		g(cgen_3reg(ctx, mc, address[2], address[1], reg & 0x1f));
+		mc |= (uint32_t)address[2] << 16;
+		mc |= (uint32_t)address[1] << 21;
+		mc |= ((uint32_t)reg & 0x3e) >> 1;
+		mc |= ((uint32_t)reg & 0x01) << 6;
+		cgen_four(mc);
 		return true;
 	}
 
@@ -549,7 +579,7 @@ static bool attr_w cgen_mov_args(struct codegen_context *ctx, unsigned size, uin
 			case OP_SIZE_8:		mc |= PARISC_FP_DOUBLE; break;
 			default:		internal(file_line, "cgen_fp_alu: invalid size %u", size);
 		}
-		g(cgen_3reg(ctx, mc, 0, arg2[0] & 0x1f, arg1[0] & 0x1f));
+		g(cgen_2reg_fp(ctx, mc, arg2[0], arg1[0]));
 		return true;
 	}
 	if (reg_is_fp(arg1[0])) {
@@ -1197,7 +1227,7 @@ static bool attr_w cgen_fp_cmp_cond(struct codegen_context *ctx, unsigned op_siz
 	mc = PARISC_FCMP;
 	if (op_size == OP_SIZE_8)
 		mc |= PARISC_FP_DOUBLE;
-	g(cgen_3reg(ctx, mc, arg2[0] & 0x1f, arg1[0] & 0x1f, cond));
+	g(cgen_3reg_fp(ctx, mc, arg1[0], arg2[0], cond << 1));
 	return true;
 }
 
@@ -1238,7 +1268,7 @@ static bool attr_w cgen_fp_alu(struct codegen_context *ctx, unsigned op_size, un
 		case OP_SIZE_8:		mc |= PARISC_FP_DOUBLE; break;
 		default:		internal(file_line, "cgen_fp_alu: invalid size %u", op_size);
 	}
-	g(cgen_3reg(ctx, mc, arg3[0] & 0x1f, arg2[0] & 0x1f, arg1[0] & 0x1f));
+	g(cgen_3reg_fp(ctx, mc, arg2[0], arg3[0], arg1[0]));
 	return true;
 }
 
@@ -1258,7 +1288,7 @@ static bool attr_w cgen_fp_alu1(struct codegen_context *ctx, unsigned op_size, u
 		case OP_SIZE_8:		mc |= PARISC_FP_DOUBLE; break;
 		default:		internal(file_line, "cgen_fp_alu: invalid size %u", op_size);
 	}
-	g(cgen_3reg(ctx, mc, 0, arg2[0] & 0x1f, arg1[0] & 0x1f));
+	g(cgen_2reg_fp(ctx, mc, arg2[0], arg1[0]));
 	return true;
 }
 
@@ -1274,9 +1304,7 @@ static bool attr_w cgen_fp_to_int(struct codegen_context *ctx, unsigned int_op_s
 		mc |= PARISC_FCNVFXT_TO_LONG;
 	if (fp_op_size == OP_SIZE_8)
 		mc |= PARISC_FCNVFXT_FROM_DOUBLE;
-	mc |= arg1[0] & 0x1f;
-	mc |= (uint32_t)(arg2[0] & 0x1f) << 21;
-	cgen_four(mc);
+	g(cgen_2reg_fp(ctx, mc, arg2[0], arg1[0]));
 	return true;
 }
 
@@ -1292,9 +1320,7 @@ static bool attr_w cgen_fp_from_int(struct codegen_context *ctx, unsigned int_op
 		mc |= PARISC_FCNVXF_FROM_LONG;
 	if (fp_op_size == OP_SIZE_8)
 		mc |= PARISC_FCNVXF_TO_DOUBLE;
-	mc |= arg1[0] & 0x1f;
-	mc |= (uint32_t)(arg2[0] & 0x1f) << 21;
-	cgen_four(mc);
+	g(cgen_2reg_fp(ctx, mc, arg2[0], arg1[0]));
 	return true;
 }
 
@@ -1312,9 +1338,7 @@ static bool attr_w cgen_fp_cvt(struct codegen_context *ctx, unsigned from_op_siz
 	} else {
 		internal(file_line, "cgen_fp_cvt: invalid types %u, %u", from_op_size, to_op_size);
 	}
-	mc |= arg1[0] & 0x1f;
-	mc |= (uint32_t)(arg2[0] & 0x1f) << 21;
-	cgen_four(mc);
+	g(cgen_2reg_fp(ctx, mc, arg2[0], arg1[0]));
 	return true;
 }
 

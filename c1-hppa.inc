@@ -110,37 +110,65 @@
 #define R_SP		0x1e
 #define R_31		0x1f
 
-#define R_FSTATUS	0x20
-#define R_F4		0x24
-#define R_F5		0x25
-#define R_F6		0x26
-#define R_F7		0x27
-#define R_F8		0x28
-#define R_F9		0x29
-#define R_F10		0x2a
-#define R_F11		0x2b
-#define R_F12		0x2c
-#define R_F13		0x2d
-#define R_F14		0x2e
-#define R_F15		0x2f
-#define R_F16		0x30
-#define R_F17		0x31
-#define R_F18		0x32
-#define R_F19		0x33
-#define R_F20		0x34
-#define R_F21		0x35
-#define R_F22		0x36
-#define R_F23		0x37
-#define R_F24		0x38
-#define R_F25		0x39
-#define R_F26		0x3a
-#define R_F27		0x3b
-#define R_F28		0x3c
-#define R_F29		0x3d
-#define R_F30		0x3e
-#define R_F31		0x3f
+#define R_FSTATUS	0x40
+#define R_F4		0x48
+#define R_F4R		0x49
+#define R_F5		0x4a
+#define R_F5R		0x4b
+#define R_F6		0x4c
+#define R_F6R		0x4d
+#define R_F7		0x4e
+#define R_F7R		0x4f
+#define R_F8		0x50
+#define R_F8R		0x51
+#define R_F9		0x52
+#define R_F9R		0x53
+#define R_F10		0x54
+#define R_F10R		0x55
+#define R_F11		0x56
+#define R_F11R		0x57
+#define R_F12		0x58
+#define R_F12R		0x59
+#define R_F13		0x5a
+#define R_F13R		0x5b
+#define R_F14		0x5c
+#define R_F14R		0x5d
+#define R_F15		0x5e
+#define R_F15R		0x5f
+#define R_F16		0x60
+#define R_F16R		0x61
+#define R_F17		0x62
+#define R_F17R		0x63
+#define R_F18		0x64
+#define R_F18R		0x65
+#define R_F19		0x66
+#define R_F19R		0x67
+#define R_F20		0x68
+#define R_F20R		0x69
+#define R_F21		0x6a
+#define R_F21R		0x6b
+#define R_F22		0x6c
+#define R_F22R		0x6d
+#define R_F23		0x6e
+#define R_F23R		0x6f
+#define R_F24		0x70
+#define R_F24R		0x71
+#define R_F25		0x72
+#define R_F25R		0x73
+#define R_F26		0x74
+#define R_F26R		0x75
+#define R_F27		0x76
+#define R_F27R		0x77
+#define R_F28		0x78
+#define R_F28R		0x79
+#define R_F29		0x7a
+#define R_F29R		0x7b
+#define R_F30		0x7c
+#define R_F30R		0x7d
+#define R_F31		0x7e
+#define R_F31R		0x7f
 
-#define R_MAX		0x40
+#define R_MAX		0x80
 
 #define R_FRAME		R_3
 #define R_UPCALL	R_4
@@ -174,8 +202,10 @@
 #define FR_SCRATCH_1	R_F4
 #define FR_SCRATCH_2	R_F5
 
-#define SUPPORTED_FP	0x6
-#define FP_REGISTERS(real_size) 1
+#define SUPPORTED_FP			0x6
+#define FP_REGISTERS(real_size)		((real_size) >= 8 ? 2 : 1)
+#define FP_ALIASES(real_size, reg, idx)	(!((reg) & 1) ? (reg) + (idx) : (reg))
+#define N_FP_ALIASES(real_size)		FP_REGISTERS(real_size)
 
 #ifdef ARCH_PARISC32
 #define FRAME_SIZE	(optimize_int ? 0x80 : 0x100)
@@ -202,7 +232,7 @@
 
 static bool reg_is_fp(unsigned reg)
 {
-	return reg >= R_FSTATUS && reg <= R_F31;
+	return reg >= R_FSTATUS && reg <= R_F31R;
 }
 
 static const uint8_t regs_saved[] = {
@@ -218,11 +248,11 @@ static const uint8_t regs_volatile[] = { R_23, R_RET1,
 	R_20,
 #endif
 };
-static const uint8_t fp_saved[] = { R_F12, R_F13, R_F14, R_F15, R_F16, R_F17, R_F18, R_F19, R_F20, R_F21 };
+static const uint8_t fp_saved[] = { R_F12, R_F12R, R_F13, R_F13R, R_F14, R_F14R, R_F15, R_F15R, R_F16, R_F16R, R_F17, R_F17R, R_F18, R_F18R, R_F19, R_F19R, R_F20, R_F20R, R_F21, R_F21R };
 #define n_fp_saved(real_type) (optimize_int ? 0 : n_array_elements(fp_saved))
-static const uint8_t fp_volatile[] = { R_F6, R_F7, R_F8, R_F9, R_F10, R_F11, R_F22, R_F23, R_F24, R_F25, R_F26, R_F27, R_F28, R_F29, R_F30, R_F31 };
+static const uint8_t fp_volatile[] = { R_F6, R_F6R, R_F7, R_F7R, R_F8, R_F8R, R_F9, R_F9R, R_F10, R_F10R, R_F11, R_F11R, R_F22, R_F22R, R_F23, R_F23R, R_F24, R_F24R, R_F25, R_F25R, R_F26, R_F26R, R_F27, R_F27R, R_F28, R_F28R, R_F29, R_F29R, R_F30, R_F30R, R_F31, R_F31R };
 
-#define reg_is_saved(r)	(((r) >= R_3 && (r) <= R_18) || (r) == R_SP || ((r) >= R_F12 && (r) <= R_F21))
+#define reg_is_saved(r)	(((r) >= R_3 && (r) <= R_18) || (r) == R_SP || ((r) >= R_F12 && (r) <= R_F21R))
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint64_t c)
 {
@@ -429,7 +459,7 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 		offs += 1 << OP_SIZE_ADDRESS;
 	}
 	if (!optimize_int) {
-		for (i = R_F12; i <= R_F21; i++) {
+		for (i = R_F12; i <= R_F21; i += 2) {
 			g(gen_address(ctx, R_SP, offs, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_8));
 			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
 			gen_address_offset();
@@ -488,7 +518,7 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 		offs += 1 << OP_SIZE_ADDRESS;
 	}
 	if (!optimize_int) {
-		for (i = R_F12; i <= R_F21; i++) {
+		for (i = R_F12; i <= R_F21; i += 2) {
 			g(gen_address(ctx, R_SP, offs, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_8));
 			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
 			gen_one(i);
