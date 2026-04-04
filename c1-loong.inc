@@ -264,7 +264,7 @@ static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int64
 				return true;
 			}
 			if (imm >= -0x8000 && imm < 0x8000 && !(imm & 3)) {
-				if (size == OP_SIZE_NATIVE)
+				if ((purpose == IMM_PURPOSE_LDR_OFFSET || purpose == IMM_PURPOSE_LDR_SX_OFFSET || purpose == IMM_PURPOSE_STR_OFFSET) && size == OP_SIZE_NATIVE)
 					return true;
 				if (purpose == IMM_PURPOSE_LDR_SX_OFFSET && size == OP_SIZE_4)
 					return true;
