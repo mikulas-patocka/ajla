@@ -3980,8 +3980,26 @@ do_alu:
 		}
 #else
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
+#ifdef FMA_NO_NEG
+		if (fp_alu == FP_ALU3_FNMADD || fp_alu == FP_ALU3_FNMSUB) {
+			gen_insn(INSN_FP_ALU1, OP_SIZE_NATIVE, FP_ALU1_NEG, 0);
+			gen_one(fr_scratch_1);
+			gen_one(reg1);
+			reg1 = fr_scratch_1;
+			fp_alu -= FP_ALU3_FNMADD - FP_ALU3_FMADD;
+		}
+#endif
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, fr_scratch_2, &reg2));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_3, fr_scratch_3, &reg3));
+#ifdef FMA_NO_SUB
+		if (fp_alu == FP_ALU3_FMSUB || fp_alu == FP_ALU3_FNMSUB) {
+			gen_insn(INSN_FP_ALU1, OP_SIZE_NATIVE, FP_ALU1_NEG, 0);
+			gen_one(fr_scratch_3);
+			gen_one(reg3);
+			reg3 = fr_scratch_3;
+			fp_alu -= FP_ALU3_FMSUB - FP_ALU3_FMADD;
+		}
+#endif
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_3);
 #if defined(ARCH_ARM32)
 		if (target != reg3) {

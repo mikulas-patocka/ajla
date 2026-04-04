@@ -201,8 +201,12 @@
 
 #define FR_SCRATCH_1	R_F4
 #define FR_SCRATCH_2	R_F5
+#define FR_SCRATCH_3	R_F6
 
 #define SUPPORTED_FP			0x6
+#define SUPPORTED_FP_FMA		(PA_20 * SUPPORTED_FP)
+#define SUPPORTED_FP_FMA_OPS		0x5
+#define FMA_NO_SUB
 #define FP_REGISTERS(real_size)		((real_size) >= 8 ? 2 : 1)
 #define FP_ALIASES(real_size, reg, idx)	(!((reg) & 1) ? (reg) + (idx) : (reg))
 #define N_FP_ALIASES(real_size)		FP_REGISTERS(real_size)
@@ -250,7 +254,7 @@ static const uint8_t regs_volatile[] = { R_23, R_RET1,
 };
 static const uint8_t fp_saved[] = { R_F12, R_F12R, R_F13, R_F13R, R_F14, R_F14R, R_F15, R_F15R, R_F16, R_F16R, R_F17, R_F17R, R_F18, R_F18R, R_F19, R_F19R, R_F20, R_F20R, R_F21, R_F21R };
 #define n_fp_saved(real_type) (optimize_int ? 0 : n_array_elements(fp_saved))
-static const uint8_t fp_volatile[] = { R_F6, R_F6R, R_F7, R_F7R, R_F8, R_F8R, R_F9, R_F9R, R_F10, R_F10R, R_F11, R_F11R, R_F22, R_F22R, R_F23, R_F23R, R_F24, R_F24R, R_F25, R_F25R, R_F26, R_F26R, R_F27, R_F27R, R_F28, R_F28R, R_F29, R_F29R, R_F30, R_F30R, R_F31, R_F31R };
+static const uint8_t fp_volatile[] = { R_F7, R_F7R, R_F8, R_F8R, R_F9, R_F9R, R_F10, R_F10R, R_F11, R_F11R, R_F22, R_F22R, R_F23, R_F23R, R_F24, R_F24R, R_F25, R_F25R, R_F26, R_F26R, R_F27, R_F27R, R_F28, R_F28R, R_F29, R_F29R, R_F30, R_F30R, R_F31, R_F31R };
 
 #define reg_is_saved(r)	(((r) >= R_3 && (r) <= R_18) || (r) == R_SP || ((r) >= R_F12 && (r) <= R_F21R))
 

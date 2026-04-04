@@ -100,6 +100,8 @@
 #define PARISC_ADDB		0xa0000000U
 #define PARISC_ADDB_NOT		0xa8000000U
 #define PARISC_ADDI		0xb4000000U
+#define PARISC_FMPYFADD		0xb8000000U
+#define PARISC_FMPYNFADD	0xb8000020U
 #define PARISC_CMPB_64_NOT	0xbc000000U
 
 #define PARISC_BB_1		0xc4004000U
@@ -231,6 +233,20 @@ static bool attr_w cgen_3reg_fp(struct codegen_context *ctx, uint32_t mc, unsign
 	mc |= ((uint32_t)r1 & 0x01) << 7;
 	mc |= ((uint32_t)r2 & 0x01) << 12;
 	mc |= ((uint32_t)rt & 0x01) << 6;
+	cgen_four(mc);
+	return true;
+}
+
+static bool attr_w cgen_4reg_fp(struct codegen_context *ctx, uint32_t mc, unsigned r1, unsigned r2, unsigned rt, unsigned ra)
+{
+	mc |= ((uint32_t)r1 & 0x3e) << 20;
+	mc |= ((uint32_t)r2 & 0x3e) << 15;
+	mc |= ((uint32_t)rt & 0x3e) >> 1;
+	mc |= ((uint32_t)r1 & 0x01) << 7;
+	mc |= ((uint32_t)r2 & 0x01) << 12;
+	mc |= ((uint32_t)rt & 0x01) << 6;
+	mc |= ((uint32_t)ra & 0x07) << 8;
+	mc |= ((uint32_t)ra & 0x38) << 10;
 	cgen_four(mc);
 	return true;
 }
@@ -1286,9 +1302,31 @@ static bool attr_w cgen_fp_alu1(struct codegen_context *ctx, unsigned op_size, u
 	switch (op_size) {
 		case OP_SIZE_4:		break;
 		case OP_SIZE_8:		mc |= PARISC_FP_DOUBLE; break;
-		default:		internal(file_line, "cgen_fp_alu: invalid size %u", op_size);
+		default:		internal(file_line, "cgen_fp_alu1: invalid size %u", op_size);
 	}
 	g(cgen_2reg_fp(ctx, mc, arg2[0], arg1[0]));
+	return true;
+}
+
+static bool attr_w cgen_fp_alu3(struct codegen_context *ctx, unsigned op_size, unsigned aux)
+{
+	uint32_t mc;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	uint8_t *arg4 = arg3 + arg_size(*arg3);
+	ctx->code_position = arg4 + arg_size(*arg4);
+	switch (aux) {
+		case FP_ALU3_FMADD:	mc = PARISC_FMPYFADD; break;
+		case FP_ALU3_FNMADD:	mc = PARISC_FMPYNFADD; break;
+		default:		internal(file_line, "cgen_fp_alu3: invalid alu %u", aux);
+	}
+	switch (op_size) {
+		case OP_SIZE_4:		break;
+		case OP_SIZE_8:		mc |= PARISC_FP_DOUBLE; break;
+		default:		internal(file_line, "cgen_fp_alu3: invalid size %u", op_size);
+	}
+	g(cgen_4reg_fp(ctx, mc, arg2[0], arg3[0], arg1[0], arg4[0]));
 	return true;
 }
 
@@ -1766,6 +1804,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_FP_ALU1:
 			g(cgen_fp_alu1(ctx, insn_op_size(insn), insn_aux(insn)));
+			return true;
+		case INSN_FP_ALU3:
+			g(cgen_fp_alu3(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_FP_TO_INT32:
 		case INSN_FP_TO_INT64:
