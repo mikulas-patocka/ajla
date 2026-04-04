@@ -134,6 +134,14 @@
 #define  LOONG_FCMP_UNE			0x000c0000U
 #define LOONG_MOVGR2FR_W	0x0114a400U
 #define LOONG_MOVGR2FR_D	0x0114a800U
+#define LOONG_FMADD_S		0x08100000U
+#define LOONG_FMADD_D		0x08200000U
+#define LOONG_FMSUB_S		0x08500000U
+#define LOONG_FMSUB_D		0x08600000U
+#define LOONG_FNMADD_S		0x08900000U
+#define LOONG_FNMADD_D		0x08a00000U
+#define LOONG_FNMSUB_S		0x08d00000U
+#define LOONG_FNMSUB_D		0x08e00000U
 #define LOONG_LU12I_W		0x14000000U
 #define LOONG_LU32I_D		0x16000000U
 #define LOONG_LDPTR_W		0x24000000U
@@ -193,7 +201,8 @@
 #define cgen_2ri14(opcode, rd, rj, imm)		cgen_four((opcode) | (rd) | (rj) << 5 | ((imm) & 0x3fffU) << 10)
 #define cgen_2ri16(opcode, rd, rj, imm)		cgen_four((opcode) | (rd) | (rj) << 5 | ((imm) & 0xffffU) << 10)
 #define cgen_2r2i(opcode, rd, rj, imm_m, imm_l)	cgen_four((opcode) | (rd) | (rj) << 5 | (imm_m) << 16 | (imm_l) << 10)
-#define cgen_3r(opcode, rd, rj, rk)		cgen_four((opcode) | (rd) | (rj) << 5 | ((rk) << 10))
+#define cgen_3r(opcode, rd, rj, rk)		cgen_four((opcode) | (rd) | (rj) << 5 | (rk) << 10)
+#define cgen_4r(opcode, rd, rj, rk, ra)		cgen_four((opcode) | (rd) | (rj) << 5 | (rk) << 10 | (ra) << 15)
 
 static bool attr_w cgen_jmp_call_indirect(struct codegen_context *ctx, bool call)
 {
@@ -690,6 +699,25 @@ static bool attr_w cgen_fp_alu1(struct codegen_context *ctx, unsigned op_size, u
 	return true;
 }
 
+static bool attr_w cgen_fp_alu3(struct codegen_context *ctx, unsigned op_size, unsigned aux)
+{
+	uint32_t mc;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	uint8_t *arg4 = arg3 + arg_size(*arg3);
+	ctx->code_position = arg4 + arg_size(*arg4);
+	switch (aux) {
+		case FP_ALU3_FMADD:	mc = op_size == OP_SIZE_4 ? LOONG_FMADD_S : LOONG_FMADD_D; break;
+		case FP_ALU3_FMSUB:	mc = op_size == OP_SIZE_4 ? LOONG_FMSUB_S : LOONG_FMSUB_D; break;
+		case FP_ALU3_FNMADD:	mc = op_size == OP_SIZE_4 ? LOONG_FNMSUB_S : LOONG_FNMSUB_D; break;
+		case FP_ALU3_FNMSUB:	mc = op_size == OP_SIZE_4 ? LOONG_FNMADD_S : LOONG_FNMADD_D; break;
+		default:		internal(file_line, "cgen_fp_alu: invalid alu %u", aux);
+	}
+	cgen_4r(mc, arg1[0] & 0x1f, arg2[0] & 0x1f, arg3[0] & 0x1f, arg4[0] & 0x1f);
+	return true;
+}
+
 static bool attr_w cgen_fp_to_int(struct codegen_context *ctx, unsigned int_op_size, unsigned fp_op_size)
 {
 	uint32_t mc;
@@ -1060,6 +1088,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_FP_ALU1:
 			g(cgen_fp_alu1(ctx, insn_op_size(insn), insn_aux(insn)));
+			return true;
+		case INSN_FP_ALU3:
+			g(cgen_fp_alu3(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_FP_TO_INT32:
 		case INSN_FP_TO_INT64:
