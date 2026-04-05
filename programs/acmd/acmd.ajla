@@ -24,15 +24,10 @@ fn xxmain~strict(implicit w : world, d : dhandle, h : list(handle), args : list(
 	xmain(w, d, h, args, env);
 ]
 
-fn xxxmain~strict(implicit w : world, d : dhandle, h : list(handle), args : list(bytes), env : treemap(bytes, bytes), prereq len(h) >= 3) : world
-[
-	xxmain(w, d, h, args, env);
-]
-
 fn main
 [
-	fn f~weakspark := xxmain;
+	fn f~weakspark := xmain;
 	if not is_ready(f) then
 		write(h[2], "compiling, please wait..." + nl);
-	xxxmain(w, d, h, args, env);
+	xxmain(w, d, h, args, env);
 ]
