@@ -104,6 +104,10 @@
 #define RISCV_RORW		0x6000503bU
 #define RISCV_REMW		0x0200603bU
 #define RISCV_REMUW		0x0200703bU
+#define RISCV_FMADD		0x00000043U
+#define RISCV_FMSUB		0x00000047U
+#define RISCV_FNMSUB		0x0000004bU
+#define RISCV_FNMADD		0x0000004fU
 #define RISCV_FADD		0x00000053U
 #define RISCV_FSUB		0x08000053U
 #define RISCV_FMUL		0x10000053U
@@ -681,6 +685,31 @@ static bool attr_w cgen_fp_alu1(struct codegen_context *ctx, unsigned op_size, u
 	return true;
 }
 
+static bool attr_w cgen_fp_alu3(struct codegen_context *ctx, unsigned op_size, unsigned aux)
+{
+	uint32_t mc;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	uint8_t *arg4 = arg3 + arg_size(*arg3);
+	ctx->code_position = arg4 + arg_size(*arg4);
+	switch (aux) {
+		case FP_ALU3_FMADD:	mc = RISCV_FMADD; break;
+		case FP_ALU3_FMSUB:	mc = RISCV_FMSUB; break;
+		case FP_ALU3_FNMADD:	mc = RISCV_FNMSUB; break;
+		case FP_ALU3_FNMSUB:	mc = RISCV_FNMADD; break;
+		default:		internal(file_line, "cgen_fp_alu3: invalid alu %u", aux);
+	}
+	mc |= RISCV_F_RNE;
+	mc |= riscv_fp_op_size(op_size);
+	mc |= (uint32_t)(arg1[0] & 0x1f) << 7;
+	mc |= (uint32_t)(arg2[0] & 0x1f) << 15;
+	mc |= (uint32_t)(arg3[0] & 0x1f) << 20;
+	mc |= (uint32_t)(arg4[0] & 0x1f) << 27;
+	cgen_rv(mc);
+	return true;
+}
+
 static bool attr_w cgen_fp_to_int(struct codegen_context *ctx, unsigned int_op_size, unsigned fp_op_size)
 {
 	uint32_t mc;
@@ -1021,6 +1050,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_FP_ALU1:
 			g(cgen_fp_alu1(ctx, insn_op_size(insn), insn_aux(insn)));
+			return true;
+		case INSN_FP_ALU3:
+			g(cgen_fp_alu3(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_FP_TO_INT32:
 		case INSN_FP_TO_INT64:
