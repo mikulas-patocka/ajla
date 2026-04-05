@@ -159,6 +159,10 @@
 #define POWER_FADDS		0xec00002aU
 #define POWER_FSQRTS		0xec00002cU
 #define POWER_FMULS		0xec000032U
+#define POWER_FMSUBS		0xec000038U
+#define POWER_FMADDS		0xec00003aU
+#define POWER_FNMSUBS		0xec00003cU
+#define POWER_FNMADDS		0xec00003eU
 #define POWER_FCFIDS		0xec00069cU
 #define POWER_XXLOR		0xf0000497U
 #define POWER_LXV		0xf4000001U
@@ -175,6 +179,10 @@
 #define POWER_FADD		0xfc00002aU
 #define POWER_FSQRT		0xfc00002cU
 #define POWER_FMUL		0xfc000032U
+#define POWER_FMSUB		0xfc000038U
+#define POWER_FMADD		0xfc00003aU
+#define POWER_FNMSUB		0xfc00003cU
+#define POWER_FNMADD		0xfc00003eU
 #define POWER_FCMPO		0xfc000040U
 #define POWER_XSMULQP		0xfc000048U
 #define POWER_FNEG		0xfc000050U
@@ -192,6 +200,9 @@
 
 #define cgen_xform(mc, rt, ra, rb, flags) \
 	cgen_four((mc) | ((uint32_t)(rt) << 21) | ((uint32_t)((ra) << 16)) | ((uint32_t)(rb) << 11) | (((uint32_t)(flags) & 1) * POWER_RC))
+
+#define cgen_x4form(mc, rt, ra, rb, rc, flags) \
+	cgen_four((mc) | ((uint32_t)(rt) << 21) | ((uint32_t)((ra) << 16)) | ((uint32_t)(rb) << 11) | ((uint32_t)(rc) << 6) | (((uint32_t)(flags) & 1) * POWER_RC))
 
 #define cgen_dform(mc, rt, ra, imm) \
 	cgen_four((mc) | ((uint32_t)(rt) << 21) | ((uint32_t)((ra) << 16)) | (uint16_t)(imm))
@@ -992,6 +1003,28 @@ invl:
 	return false;
 }
 
+static bool attr_w cgen_fp_alu3(struct codegen_context *ctx, unsigned op_size, unsigned aux)
+{
+	uint32_t mc;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	uint8_t *arg4 = arg3 + arg_size(*arg3);
+	ctx->code_position = arg4 + arg_size(*arg4);
+	switch (aux) {
+		case FP_ALU3_FMADD:     mc = op_size == OP_SIZE_4 ? POWER_FMADDS : POWER_FMADD; break;
+		case FP_ALU3_FMSUB:	mc = op_size == OP_SIZE_4 ? POWER_FMSUBS : POWER_FMSUB; break;
+		case FP_ALU3_FNMADD:	mc = op_size == OP_SIZE_4 ? POWER_FNMSUBS : POWER_FNMSUB; break;
+		case FP_ALU3_FNMSUB:	mc = op_size == OP_SIZE_4 ? POWER_FNMADDS : POWER_FNMADD; break;
+		default:		goto invl;
+	}
+	cgen_x4form(mc, arg1[0] & 31, arg2[0] & 31, arg4[0] & 31, arg3[0] & 31, false);
+	return true;
+invl:
+	internal(file_line, "cgen_fp_alu3: invalid arguments %u, %u, %02x, %02x, %02x, %02x", op_size, aux, *arg1, *arg2, *arg3, *arg4);
+	return false;
+}
+
 static bool attr_w cgen_fp_to_int(struct codegen_context *ctx, unsigned fp_op_size)
 {
 	uint32_t mc;
@@ -1228,6 +1261,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_FP_ALU1:
 			g(cgen_fp_alu1(ctx, insn_op_size(insn), insn_aux(insn)));
+			return true;
+		case INSN_FP_ALU3:
+			g(cgen_fp_alu3(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_FP_TO_INT64:
 			g(cgen_fp_to_int(ctx, insn_op_size(insn)));

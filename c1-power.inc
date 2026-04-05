@@ -241,12 +241,15 @@
 
 #define FR_SCRATCH_1			R_F0
 #define FR_SCRATCH_2			R_F1
+#define FR_SCRATCH_3			R_F2
 
 #define FR_SCRATCH_128_1		R_VS32
 #define FR_SCRATCH_128_2		R_VS33
 
 #define SUPPORTED_FP			(cpu_test_feature(CPU_FEATURE_ppc) * 0x2 + 0x4 + cpu_test_feature(CPU_FEATURE_v30) * 0x10)
 #define SUPPORTED_FP_CVT(f, t)		(cpu_test_feature(CPU_FEATURE_ppc) && (((f) == 1 && (t) == 2) || ((f) == 2 && (t) == 1)))
+#define SUPPORTED_FP_FMA		(cpu_test_feature(CPU_FEATURE_ppc) * 0x2 + 0x4)
+#define FMA_NO_NEG
 #define FP_REGISTERS(real_size)		1
 
 static bool reg_is_fp(unsigned reg)
@@ -275,7 +278,7 @@ static const uint8_t regs_volatile[] = {
 	R_12 };
 static const uint8_t fp_saved[] = { R_F14, R_F15, R_F16, R_F17, R_F18, R_F19, R_F20, R_F21, R_F22, R_F23, R_F24, R_F25, R_F26, R_F27, R_F28, R_F29, R_F30, R_F31 };
 #define n_fp_saved(real_type) (optimize_int ? 0 : n_array_elements(fp_saved))
-static const uint8_t fp_volatile[] = { R_F2, R_F3, R_F4, R_F5, R_F6, R_F7, R_F8, R_F9, R_F10, R_F11, R_F12, R_F13 };
+static const uint8_t fp_volatile[] = { R_F3, R_F4, R_F5, R_F6, R_F7, R_F8, R_F9, R_F10, R_F11, R_F12, R_F13 };
 static const uint8_t vector_volatile[] = { R_VS34, R_VS35, R_VS36, R_VS37, R_VS38, R_VS39, R_VS40, R_VS41, R_VS42, R_VS43, R_VS44, R_VS45, R_VS46, R_VS47, R_VS48, R_VS49, R_VS50, R_VS51 };
 
 #define reg_is_saved(r)	((r) == R_SP || ((r) >= R_14 && (r) <= R_31) || ((r) >= R_F14 && (r) <= R_F31) || ((r) >= R_VS52 && (r) <= R_VS63))
