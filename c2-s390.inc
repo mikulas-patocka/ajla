@@ -253,6 +253,15 @@ typedef uint64_t it;
 #define S390_MEEB		0xed0000000017ULL
 #define S390_MDB		0xed000000001cULL
 
+#define S390_MAEBR		0xb30e00000000ULL
+#define S390_MADBR		0xb31e00000000ULL
+#define S390_MAEB		0xed000000000eULL
+#define S390_MADB		0xed000000001eULL
+#define S390_MSEBR		0xb30f00000000ULL
+#define S390_MSDBR		0xb31f00000000ULL
+#define S390_MSEB		0xed000000000fULL
+#define S390_MSDB		0xed000000001fULL
+
 #define S390_FIEBR		0xb35700000000ULL
 #define S390_FIDBR		0xb35f00000000ULL
 #define S390_FIXBR		0xb34700000000ULL
@@ -1781,6 +1790,32 @@ invl:
 	return false;
 }
 
+static bool attr_w cgen_fp_alu3(struct codegen_context *ctx, unsigned size, unsigned aux)
+{
+	it code;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	uint8_t *arg4 = arg3 + arg_size(*arg3);
+	ctx->code_position = arg4 + arg_size(*arg4);
+	if (size != OP_SIZE_4 && size != OP_SIZE_8)
+		goto invl;
+	switch (aux) {
+		case FP_ALU3_FMADD:	code = size == OP_SIZE_4 ? S390_MAEBR : S390_MADBR; break;
+		case FP_ALU3_FMSUB:	code = size == OP_SIZE_4 ? S390_MSEBR : S390_MSDBR; break;
+		default:		goto invl;
+	}
+	if (arg1[0] != arg4[0])
+		goto invl;
+	code |= (it)(arg1[0] & 0xf) << 28;
+	code |= (it)(arg2[0] & 0xf) << 16;
+	code |= (it)(arg3[0] & 0xf) << 20;
+	g(cgen_s390(ctx, code));
+	return true;
+invl:
+	internal(file_line, "cgen_fp_alu3: invalid arguments %u, %u, %02x, %02x, %02x, %02x", size, aux, arg1[0], arg2[0], arg3[0], arg4[0]);
+}
+
 static bool attr_w cgen_fp_to_int(struct codegen_context *ctx, unsigned int_op_size, unsigned fp_op_size)
 {
 	it code;
@@ -2348,6 +2383,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_FP_ALU1:
 			g(cgen_fp_alu1(ctx, insn_op_size(insn), insn_aux(insn)));
+			return true;
+		case INSN_FP_ALU3:
+			g(cgen_fp_alu3(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_FP_TO_INT32:
 			g(cgen_fp_to_int(ctx, OP_SIZE_4, insn_op_size(insn)));

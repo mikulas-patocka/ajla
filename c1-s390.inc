@@ -141,9 +141,12 @@
 
 #define FR_SCRATCH_1	FR_0	/* + FR_2 */
 #define FR_SCRATCH_2	FR_4	/* + FR_6 */
+#define FR_SCRATCH_3	FR_2
 
-#define SUPPORTED_FP	0x16
+#define SUPPORTED_FP		0x16
 #define SUPPORTED_FP_CVT(f, t)	((SUPPORTED_FP >> (f)) & (SUPPORTED_FP >> (t)) & 1 && (f) != 4)
+#define SUPPORTED_FP_FMA	0x6
+#define FMA_NO_NEG
 #define FP_SPLIT_LOAD_STORE(real_size)	((real_size) == 16)
 #define FP_REGISTERS(real_size)	((real_size) == 16 ? 2 : 1)
 #define FP_ALIASES(real_size, reg, idx)	((reg) + 2 * (idx))
