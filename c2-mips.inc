@@ -175,6 +175,8 @@
 #define MIPS_R6_AUI		0x3c000000U
 #define MIPS_R6_BC1EQZ		0x45200000U
 #define MIPS_R6_BC1NEZ		0x45a00000U
+#define MIPS_R6_MADDF		0x46000018U
+#define MIPS_R6_MSUBF		0x46000019U
 #define MIPS_R6_CMP_AF		0x46800000U
 #define MIPS_R6_CMP_UN		0x46800001U
 #define MIPS_R6_CMP_EQ		0x46800002U
@@ -809,6 +811,26 @@ static bool attr_w cgen_fp_alu1(struct codegen_context *ctx, unsigned op_size, u
 	return true;
 }
 
+static bool attr_w cgen_fp_alu3(struct codegen_context *ctx, unsigned op_size, unsigned aux)
+{
+	uint32_t mc, fmt;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	uint8_t *arg4 = arg3 + arg_size(*arg3);
+	ctx->code_position = arg4 + arg_size(*arg4);
+	switch (aux) {
+		case FP_ALU3_FMADD:	mc = MIPS_R6_MADDF; break;
+		case FP_ALU3_FMSUB:	mc = MIPS_R6_MSUBF; break;
+		default:		internal(file_line, "cgen_fp_alu3: invalid alu %u", aux);
+	}
+	fmt = cgen_fp_fmt(op_size);
+	if (arg1[0] != arg4[0])
+		internal(file_line, "cgen_fp_alu3: invalid registers %02x, %02x, %02x, %02x", arg1[0], arg2[0], arg3[0], arg4[0]);
+	cgen_mips_fp(mc, fmt, arg1[0] & 31, arg2[0] & 31, arg3[0] & 31);
+	return true;
+}
+
 static bool attr_w cgen_fp_to_int(struct codegen_context *ctx, unsigned int_op_size, unsigned fp_op_size)
 {
 	uint32_t mc, fmt;
@@ -1342,6 +1364,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_FP_ALU1:
 			g(cgen_fp_alu1(ctx, insn_op_size(insn), insn_aux(insn)));
+			return true;
+		case INSN_FP_ALU3:
+			g(cgen_fp_alu3(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_FP_TO_INT32:
 		case INSN_FP_TO_INT64:

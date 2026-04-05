@@ -210,7 +210,9 @@
 #define FR_SCRATCH_3	R_F4
 #define FR_CMP_RESULT	R_F6
 
-#define SUPPORTED_FP	0x6
+#define SUPPORTED_FP		0x6
+#define SUPPORTED_FP_FMA	(MIPS_R6 * 0x6)
+#define FMA_NO_NEG
 
 #ifdef ARCH_MIPS_O32
 #define FRAME_SIZE	(optimize_int ? 0x40 : 0x70)

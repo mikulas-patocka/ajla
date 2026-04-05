@@ -4002,7 +4002,7 @@ do_alu:
 		}
 #endif
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_3);
-#if defined(ARCH_ARM32) || defined(ARCH_S390)
+#if defined(ARCH_ARM32) || defined(ARCH_MIPS) || defined(ARCH_S390)
 		if (target != reg3) {
 			g(gen_mov(ctx, op_size, fr_scratch_3, reg3));
 			target = fr_scratch_3;
