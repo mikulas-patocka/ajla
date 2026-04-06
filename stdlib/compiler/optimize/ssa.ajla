@@ -1291,6 +1291,34 @@ skip_bool:
 		]
 		goto end;
 	]
+	if ins.opcode = P_TernaryOp then [
+		var vgi1 := ins.params[3];
+		var v1 := ctx.variables[vgi1];
+		var v1_ins := ctx.instrs[v1.defining_instr];
+		var vgi2 := ins.params[5];
+		var v2 := ctx.variables[vgi2];
+		var v2_ins := ctx.instrs[v2.defining_instr];
+		var vgi3 := ins.params[7];
+		var v3 := ctx.variables[vgi3];
+		var v3_ins := ctx.instrs[v3.defining_instr];
+		var vgir := ins.params[1];
+		var vr := ctx.variables[vgir];
+		if ins.params[0] = Tern_FMA or ins.params[0] = Tern_FMS or ins.params[0] = Tern_FNMA or ins.params[0] = Tern_FNMS then [
+			if v1_ins.opcode = P_UnaryOp, v1_ins.params[0] = Un_Neg then [
+				var params := ins.params;
+				params[0] := (params[0] - Tern_FMA xor 2) + Tern_FMA;
+				params[3] := v1_ins.params[3];
+				return create_instr(P_TernaryOp, params, ins.bb), true;
+			]
+			if v2_ins.opcode = P_UnaryOp, v2_ins.params[0] = Un_Neg then [
+				var params := ins.params;
+				params[0] := (params[0] - Tern_FMA xor 2) + Tern_FMA;
+				params[5] := v2_ins.params[3];
+				return create_instr(P_TernaryOp, params, ins.bb), true;
+			]
+		]
+		goto end;
+	]
 	if ins.opcode = P_Option_Test then [
 		//if ctx.name = "rec" then goto end;
 		var idx := ins.params[2];
