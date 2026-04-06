@@ -2766,6 +2766,15 @@ void codegen_free(struct data *codegen)
 	os_code_unmap(da(codegen,codegen)->unoptimized_code_base, da(codegen,codegen)->unoptimized_code_size);
 }
 
+unsigned codegen_fma(void)
+{
+#ifdef SUPPORTED_FP_FMA
+	return SUPPORTED_FP_FMA;
+#else
+	return 0;
+#endif
+}
+
 bool codegen_callback_init(struct codegen_callback *cb, void (*callback)(void *ptr), void attr_unused *ptr, ajla_error_t *err)
 {
 	struct codegen_context ctx_;

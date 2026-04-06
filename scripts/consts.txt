@@ -262,6 +262,7 @@ SystemProperty_Charset
 SystemProperty_Charset_Console
 SystemProperty_Fixed
 SystemProperty_Real
+SystemProperty_Real_AutoFMA
 SystemProperty_Int_Size
 SystemProperty_Bool_Size
 SystemProperty_Privileged

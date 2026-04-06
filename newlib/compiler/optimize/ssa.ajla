@@ -1212,6 +1212,20 @@ skip_bool:
 			var params := list(pcode_t).[ vgir, v2_ins.params[1], vgi1, 0 ];
 			return create_instr(P_Array_Len_Greater_Than, params, ins.bb), true;
 		]
+		if v1.runtime_type <= T_Real16, v1.runtime_type >= T_Real128, sysprop(SystemProperty_Real_AutoFMA) bt T_Real16 - v1.runtime_type then [
+			if ins.params[0] = Bin_Add, v1_ins.opcode = P_BinaryOp, v1_ins.params[0] = Bin_Multiply then [
+				var params := list(pcode_t).[ Tern_FMA, ins.params[1], 0, v1_ins.params[3], 0, v1_ins.params[5], 0, ins.params[5] ];
+				return create_instr(P_TernaryOp, params, ins.bb), true;
+			]
+			if ins.params[0] = Bin_Add, v2_ins.opcode = P_BinaryOp, v2_ins.params[0] = Bin_Multiply then [
+				var params := list(pcode_t).[ Tern_FMA, ins.params[1], 0, v2_ins.params[3], 0, v2_ins.params[5], 0, ins.params[3] ];
+				return create_instr(P_TernaryOp, params, ins.bb), true;
+			]
+			if ins.params[0] = Bin_Subtract, v1_ins.opcode = P_BinaryOp, v1_ins.params[0] = Bin_Multiply then [
+				var params := list(pcode_t).[ Tern_FMS, ins.params[1], 0, v1_ins.params[3], 0, v1_ins.params[5], 0, ins.params[5] ];
+				return create_instr(P_TernaryOp, params, ins.bb), true;
+			]
+		]
 		goto end;
 	]
 	if ins.opcode = P_BinaryConstOp then [

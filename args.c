@@ -50,6 +50,7 @@ bool ipret_warnings = false;
 uint32_t ipret_opencl_device = 0;
 
 bool optimize_int = false;
+bool noautofma = false;
 
 bool save_disable = false;
 bool thread_tick = false;
@@ -177,6 +178,7 @@ struct arg {
 };
 
 static const struct arg args[] = {
+	{ "--autofma",			ARG_SWITCH_OFF,	NULL,				&noautofma,		0, 0 },
 	{ "--chicken=",			ARG_STRING,	chicken_select,			NULL,			0, 0 },
 	{ "--compile",			ARG_SWITCH,	NULL,				&ipret_compile,		0, 0 },
 	{ "--compile-run",		ARG_SWITCH,	NULL,				&ipret_compile_run,	0, 0 },
@@ -184,6 +186,7 @@ static const struct arg args[] = {
 	{ "--debug=",			ARG_STRING,	debug_select,			NULL,			0, 0 },
 	{ "--dump-",			ARG_STRING,	dump_select,			NULL,			0, 0 },
 	{ "--help",			ARG_SWITCH,	NULL,				&help,			0, 0 },
+	{ "--noautofma",		ARG_SWITCH,	NULL,				&noautofma,		0, 0 },
 	{ "--noinline",			ARG_SWITCH,	NULL,				&ipret_noinline,	0, 0 },
 	{ "--nosave",			ARG_SWITCH,	NULL,				&save_disable,		0, 0 },
 	{ "--numa-nodes=",		ARG_NUMBER,	NULL,				&nr_nodes_override,	1, (unsigned)-1 },
@@ -211,6 +214,7 @@ static const struct arg args[] = {
 static const char *help_strings[] = {
 "Ajla "AJLA_VERSION"",
 "","\
+--autofma		enable automatic generation of FMA instruction (default)","\
 --chicken=features	disable the specified comma-separated features","\
 	cg		disable the code generator and only use the interpreter","\
 	cg-flag-cache	disable the flag cache","\
@@ -239,6 +243,7 @@ static const char *help_strings[] = {
 --dump-pcode		write the generated pcode code to stderr","\
 --dump-z3		write the generated z3 assertions to stderr","\
 --help			display help","\
+--noautofma		disable automatic generation of FMA instruction","\
 --noinline		disable automatic inlining","\
 --nosave		do not save and load the compiled program","\
 --numa_node=x		override the number of numa nodes to \"x\"","\

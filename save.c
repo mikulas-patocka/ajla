@@ -74,6 +74,8 @@ struct file_descriptor {
 	unsigned char profiling;
 	unsigned char strict_calls;
 	unsigned char verifying;
+	unsigned char noinline;
+	unsigned char noautofma;
 	chicken_mask_t chicken;
 	char ajla_id[sizeof(id)];
 };
@@ -782,6 +784,8 @@ static void save_finish_file(void)
 	file_desc.profiling = profiling;
 	file_desc.strict_calls = ipret_strict_calls;
 	file_desc.verifying = verify != NULL;
+	file_desc.noinline = ipret_noinline;
+	file_desc.noautofma = noautofma;
 	file_desc.chicken = chicken;
 	memcpy(file_desc.ajla_id, id, sizeof(id));
 
@@ -1129,6 +1133,8 @@ static void save_load_cache(void)
 	    unlikely(file_desc.profiling != profiling) ||
 	    unlikely(file_desc.strict_calls != ipret_strict_calls) ||
 	    unlikely(file_desc.verifying != (verify != NULL)) ||
+	    unlikely(file_desc.noinline != ipret_noinline) ||
+	    unlikely(file_desc.noautofma != noautofma) ||
 	    unlikely(file_desc.chicken != chicken) ||
 	    unlikely(memcmp(file_desc.ajla_id, id, sizeof(id)))) {
 		os_close(h);

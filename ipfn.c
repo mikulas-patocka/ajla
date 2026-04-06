@@ -29,6 +29,7 @@
 #include "pcode.h"
 #include "ipio.h"
 #include "funct.h"
+#include "codegen.h"
 #include "os.h"
 
 #include "ipfn.h"
@@ -623,6 +624,15 @@ int_default_t ipret_system_property(int_default_t idx)
 			break;
 		case SystemProperty_Real:
 			result = REAL_MASK;
+			break;
+		case SystemProperty_Real_AutoFMA:
+			if (unlikely(ipret_is_privileged) || unlikely(noautofma))
+				return 0;
+#ifdef HAVE_CODEGEN
+			result = codegen_fma();
+#else
+			result = 0;
+#endif
 			break;
 		case SystemProperty_Int_Size:
 			result = sizeof(int_default_t);

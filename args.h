@@ -46,6 +46,7 @@ extern uint32_t ipret_verify_timeout;
 extern bool ipret_warnings;
 extern uint32_t ipret_opencl_device;
 
+extern bool noautofma;
 extern bool optimize_int;
 
 extern bool save_disable;
