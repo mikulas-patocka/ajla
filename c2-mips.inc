@@ -821,7 +821,7 @@ static bool attr_w cgen_fp_alu3(struct codegen_context *ctx, unsigned op_size, u
 	ctx->code_position = arg4 + arg_size(*arg4);
 	switch (aux) {
 		case FP_ALU3_FMADD:	mc = MIPS_R6_MADDF; break;
-		case FP_ALU3_FMSUB:	mc = MIPS_R6_MSUBF; break;
+		case FP_ALU3_FNMADD:	mc = MIPS_R6_MSUBF; break;
 		default:		internal(file_line, "cgen_fp_alu3: invalid alu %u", aux);
 	}
 	fmt = cgen_fp_fmt(op_size);
