@@ -135,6 +135,8 @@ struct io_ctx {
 	size_t str_l;
 	char *str2;
 	size_t str2_l;
+	char *str3;
+	size_t str3_l;
 
 	char **strs;
 	size_t strs_l;
@@ -662,6 +664,11 @@ static void io_get_bytes(struct io_ctx *ctx, frame_t slot)
 static void io_get_bytes2(struct io_ctx *ctx, frame_t slot)
 {
 	array_onstack_to_bytes(ctx->fp, slot, &ctx->str2, &ctx->str2_l);
+}
+
+static void io_get_bytes3(struct io_ctx *ctx, frame_t slot)
+{
+	array_onstack_to_bytes(ctx->fp, slot, &ctx->str3, &ctx->str3_l);
 }
 
 static void free_strings(struct io_ctx *ctx)
@@ -4680,9 +4687,13 @@ static void * attr_fastcall io_evaluate_handler(struct io_ctx *ctx)
 	struct data *a;
 
 	ctx->str = NULL;
+	ctx->str_l = 0;
 	ctx->str2 = NULL;
+	ctx->str2_l = 0;
+	ctx->str3 = NULL;
+	ctx->str3_l = 0;
 
-	test = io_deep_eval(ctx, ctx->n_inputs == 4 ? "0123" : "01234", false);
+	test = io_deep_eval(ctx, ctx->n_inputs == 4 ? "0123" : ctx->n_inputs == 5 ? "01234" : "012345", false);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 
@@ -4694,8 +4705,8 @@ static void * attr_fastcall io_evaluate_handler(struct io_ctx *ctx)
 	io_get_pcode_t(ctx, get_input(ctx, 1), &dest_type);
 	io_get_pcode_t(ctx, get_input(ctx, 2), &op);
 
-	ajla_assert_lo(Op_IsBinary(op) || Op_IsUnary(op), (file_line, "io_evaluate_handler: invalid operator %ld (%ld, %ld)", (long)op, (long)src_type, (long)dest_type));
-	ajla_assert_lo(ctx->n_inputs == (uchar_efficient_t)(Op_IsBinary(op) ? 5 : 4), (file_line, "io_evaluate_handler: bad number of arguments %u, op %ld", ctx->n_inputs, (long)op));
+	ajla_assert_lo(Op_IsBinary(op) || Op_IsUnary(op) || Op_IsTernary(op), (file_line, "io_evaluate_handler: invalid operator %ld (%ld, %ld)", (long)op, (long)src_type, (long)dest_type));
+	ajla_assert_lo(ctx->n_inputs == (uchar_efficient_t)(Op_IsTernary(op) ? 6 : Op_IsBinary(op) ? 5 : 4), (file_line, "io_evaluate_handler: bad number of arguments %u, op %ld", ctx->n_inputs, (long)op));
 
 	src_t = pcode_get_type(src_type);
 	dest_t = pcode_get_type(dest_type);
@@ -4712,16 +4723,22 @@ static void * attr_fastcall io_evaluate_handler(struct io_ctx *ctx)
 
 	io_get_bytes(ctx, get_input(ctx, 3));
 	ctx->str_l--;
-	if (ctx->n_inputs == 5) {
+	if (ctx->n_inputs >= 5) {
 		io_get_bytes2(ctx, get_input(ctx, 4));
 		ctx->str2_l--;
-	} else {
-		ctx->str2_l = 0;
+		if (ctx->n_inputs >= 6) {
+			io_get_bytes3(ctx, get_input(ctx, 5));
+			ctx->str3_l--;
+		}
 	}
 
 	ajla_assert_lo(!(ctx->str_l % sizeof(pcode_t)) && !(ctx->str2_l % sizeof(pcode_t)), (file_line, "io_evaluate_handler: invalid length of blobs: %"PRIuMAX", %"PRIuMAX"", (uintmax_t)ctx->str_l, (uintmax_t)ctx->str2_l));
 
-	fn = pcode_build_eval_function(src_type, dest_type, op, cast_ptr(pcode_t *, ctx->str), ctx->str_l / sizeof(pcode_t), cast_ptr(pcode_t *, ctx->str2), ctx->str2_l / sizeof(pcode_t), NULL, 0, &ctx->err);
+	fn = pcode_build_eval_function(src_type, dest_type, op,
+		cast_ptr(pcode_t *, ctx->str), ctx->str_l / sizeof(pcode_t),
+		cast_ptr(pcode_t *, ctx->str2), ctx->str2_l / sizeof(pcode_t),
+		cast_ptr(pcode_t *, ctx->str3), ctx->str3_l / sizeof(pcode_t),
+		&ctx->err);
 	if (unlikely(pointer_is_empty(fn))) {
 		io_terminate_with_error(ctx, ctx->err, true, NULL);
 		test = POINTER_FOLLOW_THUNK_EXCEPTION;
@@ -4772,6 +4789,8 @@ ret_test:
 		mem_free(ctx->str);
 	if (ctx->str2)
 		mem_free(ctx->str2);
+	if (ctx->str3)
+		mem_free(ctx->str3);
 	if (!pointer_is_empty(fn))
 		pointer_dereference(fn);
 	if (st)

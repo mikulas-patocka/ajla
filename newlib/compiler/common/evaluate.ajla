@@ -20,11 +20,19 @@ private unit compiler.common.evaluate;
 
 uses pcode;
 
-fn evaluate_binary(srctype dsttype : pcode_t, op : pcode_t, arg1 arg2 : list(pcode_t)) : list(pcode_t);
 fn evaluate_unary(srctype dsttype : pcode_t, op : pcode_t, arg1 : list(pcode_t)) : list(pcode_t);
+fn evaluate_binary(srctype dsttype : pcode_t, op : pcode_t, arg1 arg2 : list(pcode_t)) : list(pcode_t);
+fn evaluate_ternary(srctype dsttype : pcode_t, op : pcode_t, arg1 arg2 arg3 : list(pcode_t)) : list(pcode_t);
 fn load_optimized_pcode(path_idx : pcode_t, unit_name : bytes, program : bool, fn_idx : list(pcode_t), optimized : bool) : list(pcode_t);
 
 implementation
+
+fn evaluate_unary(srctype dsttype : pcode_t, op : pcode_t, arg1 : list(pcode_t)) : list(pcode_t)
+[
+	var result : list(pcode_t);
+	pcode IO IO_Evaluate 1 4 0 =result srctype dsttype op arg1;
+	return result;
+]
 
 fn evaluate_binary(srctype dsttype : pcode_t, op : pcode_t, arg1 arg2 : list(pcode_t)) : list(pcode_t)
 [
@@ -33,10 +41,10 @@ fn evaluate_binary(srctype dsttype : pcode_t, op : pcode_t, arg1 arg2 : list(pco
 	return result;
 ]
 
-fn evaluate_unary(srctype dsttype : pcode_t, op : pcode_t, arg1 : list(pcode_t)) : list(pcode_t)
+fn evaluate_ternary(srctype dsttype : pcode_t, op : pcode_t, arg1 arg2 arg3 : list(pcode_t)) : list(pcode_t)
 [
 	var result : list(pcode_t);
-	pcode IO IO_Evaluate 1 4 0 =result srctype dsttype op arg1;
+	pcode IO IO_Evaluate 1 6 0 =result srctype dsttype op arg1 arg2 arg3;
 	return result;
 ]
 
