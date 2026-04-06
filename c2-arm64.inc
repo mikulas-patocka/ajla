@@ -966,9 +966,9 @@ static bool attr_w cgen_fp_alu3(struct codegen_context *ctx, unsigned op_size, u
 	ctx->code_position = arg4 + arg_size(*arg4);
 	switch (aux) {
 		case FP_ALU3_FMADD:	mc = ARM64_FMADD; break;
-		case FP_ALU3_FMSUB:	mc = ARM64_FMADD | ARM64_FMADD_SUB; break;
-		case FP_ALU3_FNMADD:	mc = ARM64_FMADD | ARM64_FMADD_N; break;
-		case FP_ALU3_FNMSUB:	mc = ARM64_FMADD | ARM64_FMADD_N | ARM64_FMADD_SUB; break;
+		case FP_ALU3_FMSUB:	mc = ARM64_FMADD | ARM64_FMADD_N | ARM64_FMADD_SUB; break;
+		case FP_ALU3_FNMADD:	mc = ARM64_FMADD | ARM64_FMADD_SUB; break;
+		case FP_ALU3_FNMSUB:	mc = ARM64_FMADD | ARM64_FMADD_N; break;
 		default:		internal(file_line, "cgen_fp_alu3: invalid alu %u", aux);
 	}
 	switch (op_size) {
