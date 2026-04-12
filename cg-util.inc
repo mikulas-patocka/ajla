@@ -48,10 +48,10 @@ static bool attr_w gen_3address_alu(struct codegen_context *ctx, unsigned size, 
 		src1 = src2;
 		src2 = swap;
 	}
-	if (!ARCH_IS_3ADDRESS(alu, writes_flags) && unlikely(dest == src2) && unlikely(dest != src1)) {
+	if (!(reg_is_fp(dest) ? ARCH_IS_3ADDRESS_FP : ARCH_IS_3ADDRESS(alu, writes_flags)) && unlikely(dest == src2) && unlikely(dest != src1)) {
 		internal(file_line, "gen_3address_alu: invalid registers: %u, %u, %x, %x, %x", size, alu, dest, src1, src2);
 	}
-	if (!ARCH_IS_3ADDRESS(alu, writes_flags) && dest != src1) {
+	if (!(reg_is_fp(dest) ? ARCH_IS_3ADDRESS_FP : ARCH_IS_3ADDRESS(alu, writes_flags)) && dest != src1) {
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src1));
 
 		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(size, alu, false, false, 0) | writes_flags);
