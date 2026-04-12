@@ -1191,18 +1191,6 @@ skip_bool:
 				return create_instr(P_BinaryOp, params, ins.bb), true;
 			]
 		]
-		if v1_ins.opcode = P_IO, v1_ins.params[0] = IO_Exception_Make,
-		   v1.runtime_type <> T_Bool or (v2_ins.opcode = P_IO and v2_ins.params[0] = IO_Exception_Make) then [
-			var params := v1_ins.params;
-			params[4] := ins.params[1];
-			return create_instr(P_IO, params, ins.bb), true;
-		]
-		if v2_ins.opcode = P_IO, v2_ins.params[0] = IO_Exception_Make,
-		   v1.runtime_type <> T_Bool then [
-			var params := v2_ins.params;
-			params[4] := ins.params[1];
-			return create_instr(P_IO, params, ins.bb), true;
-		]
 		if ins.params[0] = Bin_Less, v2_ins.opcode = P_Array_Len then [
 			//eval debug(ctx.name + ": P_Array_Len_Greater_Than optimized");
 			var params := list(pcode_t).[ vgir, v2_ins.params[1], vgi1, 0 ];
@@ -1221,6 +1209,18 @@ skip_bool:
 				var params := list(pcode_t).[ Tern_FMS, ins.params[1], 0, v1_ins.params[3], 0, v1_ins.params[5], 0, ins.params[5] ];
 				return create_instr(P_TernaryOp, params, ins.bb), true;
 			]
+		]
+		if v1_ins.opcode = P_IO, v1_ins.params[0] = IO_Exception_Make,
+		   v1.runtime_type <> T_Bool or (v2_ins.opcode = P_IO and v2_ins.params[0] = IO_Exception_Make) then [
+			var params := v1_ins.params;
+			params[4] := ins.params[1];
+			return create_instr(P_IO, params, ins.bb), true;
+		]
+		if v2_ins.opcode = P_IO, v2_ins.params[0] = IO_Exception_Make,
+		   v1.runtime_type <> T_Bool then [
+			var params := v2_ins.params;
+			params[4] := ins.params[1];
+			return create_instr(P_IO, params, ins.bb), true;
 		]
 		goto end;
 	]
@@ -1252,6 +1252,11 @@ skip_bool:
 				return create_instr(P_BinaryOp, list(pcode_t).[ Bin_Add, ins.params[1], ins.params[2], ins.params[3], ins.params[2], ins.params[3] ], ins.bb), true;
 			]
 		]
+		if v1_ins.opcode = P_IO, v1_ins.params[0] = IO_Exception_Make then [
+			var params := v1_ins.params;
+			params[4] := ins.params[1];
+			return create_instr(P_IO, params, ins.bb), true;
+		]
 		goto end;
 	]
 	if ins.opcode = P_UnaryOp then [
@@ -1267,12 +1272,6 @@ skip_bool:
 			var params := list(pcode_t).[ ins.params[1] ] + c;
 			return create_instr(P_Load_Const, params, ins.bb), true;
 		]
-		if v1_ins.opcode = P_IO, v1_ins.params[0] = IO_Exception_Make,
-		   ins.params[0] <> Un_IsException, ins.params[0] <> Un_ExceptionClass, ins.params[0] <> Un_ExceptionType, ins.params[0] <> Un_ExceptionAux then [
-			var params := v1_ins.params;
-			params[4] := ins.params[1];
-			return create_instr(P_IO, params, ins.bb), true;
-		]
 		if ins.params[0] = Un_Not, v1_ins.opcode = P_BinaryOp or v1_ins.opcode = P_BinaryConstOp then [
 			var new_op := operator_not(v1_ins.params[0]);
 			if new_op >= 0 then [
@@ -1281,6 +1280,12 @@ skip_bool:
 				params[1] := ins.params[1];
 				return create_instr(v1_ins.opcode, params, ins.bb), true;
 			]
+		]
+		if v1_ins.opcode = P_IO, v1_ins.params[0] = IO_Exception_Make,
+		   ins.params[0] <> Un_IsException, ins.params[0] <> Un_ExceptionClass, ins.params[0] <> Un_ExceptionType, ins.params[0] <> Un_ExceptionAux then [
+			var params := v1_ins.params;
+			params[4] := ins.params[1];
+			return create_instr(P_IO, params, ins.bb), true;
 		]
 		goto end;
 	]
@@ -1316,6 +1321,21 @@ skip_bool:
 				params[5] := v2_ins.params[3];
 				return create_instr(P_TernaryOp, params, ins.bb), true;
 			]
+		]
+		if v1_ins.opcode = P_IO, v1_ins.params[0] = IO_Exception_Make then [
+			var params := v1_ins.params;
+			params[4] := ins.params[1];
+			return create_instr(P_IO, params, ins.bb), true;
+		]
+		if v2_ins.opcode = P_IO, v2_ins.params[0] = IO_Exception_Make then [
+			var params := v2_ins.params;
+			params[4] := ins.params[1];
+			return create_instr(P_IO, params, ins.bb), true;
+		]
+		if v3_ins.opcode = P_IO, v3_ins.params[0] = IO_Exception_Make then [
+			var params := v3_ins.params;
+			params[4] := ins.params[1];
+			return create_instr(P_IO, params, ins.bb), true;
 		]
 		goto end;
 	]
