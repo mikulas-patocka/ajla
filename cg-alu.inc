@@ -3394,6 +3394,9 @@ do_alu:
 		fp_alu == FP_ALU1_NEG ||
 		fp_alu == FP_ALU1_SQRT ||
 #elif defined(ARCH_X86)
+#if defined(ARCH_X86_64) || defined(ARCH_X86_X32)
+		fp_alu == FP_ALU1_NEG ||
+#endif
 		fp_alu == FP_ALU1_SQRT ||
 		(OP_IS_ROUND(fp_alu) && cpu_test_feature(CPU_FEATURE_sse41)) ||
 #endif
@@ -3413,6 +3416,43 @@ do_alu:
 				gen_address_offset();
 				g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 			}
+			return true;
+		}
+#endif
+#if defined(ARCH_X86)
+		if (fp_alu == FP_ALU1_NEG) {
+			uint64_t val = 0x80ULL << (((1 << op_size) - 1) * 8);
+			if (!slot_is_register(ctx, slot_1) && slot_1 == slot_r && op_size == OP_SIZE_4) {
+				g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_STR_OFFSET, op_size));
+				g(gen_imm(ctx, (int32_t)val, IMM_PURPOSE_XOR, op_size));
+				gen_insn(INSN_ALU, op_size, ALU_XOR, 1);
+				gen_address_offset();
+				gen_address_offset();
+				gen_imm_offset();
+				return true;
+			}
+			g(gen_load_constant(ctx, R_SCRATCH_1, val));
+			if (!slot_is_register(ctx, slot_1) && slot_1 == slot_r) {
+				g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_STR_OFFSET, op_size));
+				gen_insn(INSN_ALU, op_size, ALU_XOR, 1);
+				gen_address_offset();
+				gen_address_offset();
+				gen_one(R_SCRATCH_1);
+				return true;
+			}
+			if (!slot_is_register(ctx, slot_1)) {
+				g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_STR_OFFSET, op_size));
+				gen_insn(INSN_ALU, op_size, ALU_XOR, 1);
+				gen_one(R_SCRATCH_1);
+				gen_one(R_SCRATCH_1);
+				gen_address_offset();
+				g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_1));
+				return true;
+			}
+			g(gen_mov(ctx, op_size, fr_scratch_1, R_SCRATCH_1));
+			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_2);
+			g(gen_3address_alu(ctx, OP_SIZE_16, ALU_XOR, target, ctx->registers[slot_1], fr_scratch_1, 0));
+			g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 			return true;
 		}
 #endif
