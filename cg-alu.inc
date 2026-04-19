@@ -3948,10 +3948,14 @@ static bool attr_w gen_fp_alu3(struct codegen_context *ctx, unsigned real_type, 
 	unsigned attr_unused reg1, reg2, reg3, target;
 	setup_fr_scratch;
 	switch (op) {
-		case OPCODE_REAL_OP_fma: fp_alu = FP_ALU3_FMADD; upc = offsetof(struct cg_upcall_vector_s, REAL_ternary_fma_real16_t); goto do_alu;
-		case OPCODE_REAL_OP_fms: fp_alu = FP_ALU3_FMSUB; upc = offsetof(struct cg_upcall_vector_s, REAL_ternary_fms_real16_t); goto do_alu;
-		case OPCODE_REAL_OP_fnma: fp_alu = FP_ALU3_FNMADD; upc = offsetof(struct cg_upcall_vector_s, REAL_ternary_fnma_real16_t); goto do_alu;
-		case OPCODE_REAL_OP_fnms: fp_alu = FP_ALU3_FNMSUB; upc = offsetof(struct cg_upcall_vector_s, REAL_ternary_fnms_real16_t); goto do_alu;
+		case OPCODE_REAL_OP_fma:
+		case OPCODE_REAL_OP_fma_alt1: fp_alu = FP_ALU3_FMADD; upc = offsetof(struct cg_upcall_vector_s, REAL_ternary_fma_real16_t); goto do_alu;
+		case OPCODE_REAL_OP_fms:
+		case OPCODE_REAL_OP_fms_alt1: fp_alu = FP_ALU3_FMSUB; upc = offsetof(struct cg_upcall_vector_s, REAL_ternary_fms_real16_t); goto do_alu;
+		case OPCODE_REAL_OP_fnma:
+		case OPCODE_REAL_OP_fnma_alt1: fp_alu = FP_ALU3_FNMADD; upc = offsetof(struct cg_upcall_vector_s, REAL_ternary_fnma_real16_t); goto do_alu;
+		case OPCODE_REAL_OP_fnms:
+		case OPCODE_REAL_OP_fnms_alt1: fp_alu = FP_ALU3_FNMSUB; upc = offsetof(struct cg_upcall_vector_s, REAL_ternary_fnms_real16_t); goto do_alu;
 		default: internal(file_line, "gen_fp_alu3: unsupported operation %u", op);
 	}
 do_alu:

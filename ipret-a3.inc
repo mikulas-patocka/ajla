@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -201,6 +201,30 @@
 #define op		is_exception_alt2
 #define OPF		cat4(REAL,TYPE_BITS,_,ALT2_)
 #define DEF(type)	DEFINE_FIXED_REAL_UNARY_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+
+#define orig_op		fma
+#define op		fma_alt1
+#define OPF		cat4(REAL,TYPE_BITS,_,FMA_ALT_)
+#define DEF(type)	DEFINE_FIXED_REAL_TERNARY_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+
+#define orig_op		fms
+#define op		fms_alt1
+#define OPF		cat4(REAL,TYPE_BITS,_,FMA_ALT_)
+#define DEF(type)	DEFINE_FIXED_REAL_TERNARY_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+
+#define orig_op		fnma
+#define op		fnma_alt1
+#define OPF		cat4(REAL,TYPE_BITS,_,FMA_ALT_)
+#define DEF(type)	DEFINE_FIXED_REAL_TERNARY_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+
+#define orig_op		fnms
+#define op		fnms_alt1
+#define OPF		cat4(REAL,TYPE_BITS,_,FMA_ALT_)
+#define DEF(type)	DEFINE_FIXED_REAL_TERNARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
 #endif
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -55,6 +55,18 @@ gen_avx_ops(type, s, z)
 #define REAL64_ALT2_FEATURES	(cpu_feature_mask(CPU_FEATURE_avx))
 #define REAL64_ALT2_TYPES	0x4
 gen_avx_ops(type, d, z)
+#endif
+
+#if defined(INLINE_ASM_GCC_X86) && defined(HAVE_X86_ASSEMBLER_FMA) && TYPE_MASK == 0x2
+#define REAL32_FMA_ALT_FEATURES	(cpu_feature_mask(CPU_FEATURE_fma3))
+#define REAL32_FMA_ALT_TYPES	0x2
+gen_fma_ops(type, s)
+#endif
+
+#if defined(INLINE_ASM_GCC_X86) && defined(HAVE_X86_ASSEMBLER_FMA) && TYPE_MASK == 0x4
+#define REAL64_FMA_ALT_FEATURES	(cpu_feature_mask(CPU_FEATURE_fma3))
+#define REAL64_FMA_ALT_TYPES	0x4
+gen_fma_ops(type, d)
 #endif
 
 #if defined(INLINE_ASM_GCC_ARM) && defined(HAVE_ARM_ASSEMBLER_HALF_PRECISION) && TYPE_MASK == 0x1

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -634,7 +634,7 @@ code_t code_alt(code_t code)
 	return ret;
 }
 
-#ifdef DEBUG_BIST
+#ifdef DEBUG
 static attr_noinline void verify_alttable(void)
 {
 	int i;

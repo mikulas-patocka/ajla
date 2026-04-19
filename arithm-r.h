@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -216,6 +216,17 @@ static ipret_inline void attr_unused cat4(REAL_unary_,fn,_,type)(const int_defau
 		vcvtps2ph		$4, %%xmm0, %%xmm0		\n\
 		vpextrw			$0, %%xmm0, %0			\n\
 	" : "=m"(*res) : "rm"(*op1) X86_ASM_XMM0_CLOB);			\
+}
+
+#define gen_fma_ternary(fn, type, instr, s)				\
+static ipret_inline void attr_unused cat4(REAL_ternary_,fn,_,type)(const type *op1, const type *op2, const type *op3, type *res)\
+{									\
+	__asm__("							\n\
+		vmovs"#s"		%1, %%xmm0			\n\
+		vmovs"#s"		%3, %%xmm1			\n\
+		v"#instr"231s"#s"	%2, %%xmm0, %%xmm1		\n\
+		vmovs"#s"		%%xmm1, %0			\n\
+	" : "=m"(*res) : "m"(*op1), "m"(*op2), "m"(*op3) X86_ASM_XMM0_CLOB X86_ASM_XMM1_CLOBC);\
 }
 
 #define gen_fp16_binary(fn, type, instr)				\
@@ -608,6 +619,12 @@ gen_f16c_logical(greater_equal_alt1, real16_t, setae)			\
 gen_f16c_to_int(to_int_alt1, real16_t)					\
 gen_f16c_from_int(from_int_alt1, real16_t, z)
 
+#define gen_fma_ops(type, s)						\
+gen_fma_ternary(fma_alt1, type, fmadd, s)				\
+gen_fma_ternary(fms_alt1, type, fmsub, s)				\
+gen_fma_ternary(fnma_alt1, type, fnmadd, s)				\
+gen_fma_ternary(fnms_alt1, type, fnmsub, s)
+
 #define gen_fp16_ops(z)							\
 gen_fp16_binary(add_alt2, real16_t, add)				\
 gen_fp16_binary(subtract_alt2, real16_t, sub)				\
@@ -660,6 +677,7 @@ gen_vfp_half_from_int(from_int_alt1, real16_t)
 #define gen_sse_ops(type, s, z)
 #define gen_avx_ops(type, s, z)
 #define gen_f16c_ops(z)
+#define gen_fma_ops(type, s)
 #define gen_fp16_ops(z)
 #define gen_vfp_ops(type, f, s)
 #define gen_vfp_half_ops()
