@@ -57,6 +57,12 @@ gen_avx_ops(type, s, z)
 gen_avx_ops(type, d, z)
 #endif
 
+#if defined(INLINE_ASM_GCC_X86) && defined(HAVE_X86_ASSEMBLER_FP16) && TYPE_MASK == 0x1
+#define REAL16_FMA_ALT_FEATURES	(cpu_feature_mask(CPU_FEATURE_fp16))
+#define REAL16_FMA_ALT_TYPES	0x1
+gen_fma_ops(type, h)
+#endif
+
 #if defined(INLINE_ASM_GCC_X86) && defined(HAVE_X86_ASSEMBLER_FMA) && TYPE_MASK == 0x2
 #define REAL32_FMA_ALT_FEATURES	(cpu_feature_mask(CPU_FEATURE_fma3))
 #define REAL32_FMA_ALT_TYPES	0x2
