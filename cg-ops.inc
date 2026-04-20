@@ -948,7 +948,7 @@ skip_quickret:
 			g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, OP_SIZE_NATIVE, R_SCRATCH_1, OPCODE_MAY_RETURN_FLAT, COND_E, flat_to_data_label, -1));
 #endif
 #if defined(ARCH_X86)
-			if (is_power_of_2(t->size) && t->size <= 2U << OP_SIZE_NATIVE) {
+			if (is_power_of_2(t->size) && t->size <= 2U << OP_SIZE_NATIVE && !TYPE_TAG_IS_REAL(t->tag)) {
 				if (t->size == 2U << OP_SIZE_NATIVE) {
 					g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, src_arg->slot, 0, R_SCRATCH_1, R_SCRATCH_2));
 
