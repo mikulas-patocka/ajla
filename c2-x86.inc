@@ -228,6 +228,10 @@
 #define  X87_FLD_M80_X				0x5
 #define X87_FLD_M64			0xdd
 #define  X87_FLD_M64_X				0x0
+#define X87_FST_M32			0xd9
+#define  X87_FST_M32_X				0x2
+#define X87_FST_RM64			0xdd
+#define  X87_FST_RM64_X				0x2
 #define X87_FSTP_M32			0xd9
 #define  X87_FSTP_M32_X				0x3
 #define X87_FSTP_M80			0xdb
@@ -1572,6 +1576,25 @@ static bool attr_w cgen_x87_fild(struct codegen_context *ctx, unsigned size)
 	return true;
 }
 
+static bool attr_w cgen_x87_fst(struct codegen_context *ctx, unsigned size)
+{
+	unsigned c1, c2;
+	uint8_t *arg1 = ctx->code_position;
+	ctx->code_position = arg1 + arg_size(*arg1);
+	if (arg1[0] >= R_ST0 && arg1[0] <= R_ST7)
+		size = OP_SIZE_8;
+	switch (size) {
+		case OP_SIZE_4:
+			c1 = X87_FST_M32; c2 = X87_FST_M32_X; break;
+		case OP_SIZE_8:
+			c1 = X87_FST_RM64; c2 = X87_FST_RM64_X; break;
+		default:
+			internal(file_line, "cgen_x87_fst: invalid size %u", size);
+	}
+	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, c1, OP_SIZE_4, size, false, c2, arg1));
+	return true;
+}
+
 static bool attr_w cgen_x87_fstp(struct codegen_context *ctx, unsigned size)
 {
 	unsigned c1, c2;
@@ -2021,6 +2044,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_X87_FILD:
 			g(cgen_x87_fild(ctx, insn_op_size(insn)));
+			return true;
+		case INSN_X87_FST:
+			g(cgen_x87_fst(ctx, insn_op_size(insn)));
 			return true;
 		case INSN_X87_FSTP:
 			g(cgen_x87_fstp(ctx, insn_op_size(insn)));
