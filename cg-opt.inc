@@ -1967,6 +1967,16 @@ gen_nd:
 				}
 			}
 		}
+#if defined(ARCH_X86)
+		if (insn_opcode(d1->insn) == INSN_X87_FSTP && insn_opcode(d2->insn) == INSN_X87_FLD && insn_op_size(d1->insn) == insn_op_size(d2->insn) && d1->start[4] >= ARG_REGS_MAX && d1->length == d2->length && !memcmp(d1->start + 4, d2->start + 4, d1->length - 4)) {
+			*d2 = *d1;
+			g(prepare_new_insn(ctx));
+			gen_insn(INSN_X87_FLD, insn_op_size(d1->insn), 0, 0);
+			gen_one(R_ST0);
+			g(finish_new_insn(ctx, d1));
+			continue;
+		}
+#endif
 
 		k = j + 1;
 new_d3:
