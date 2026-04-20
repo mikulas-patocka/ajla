@@ -3425,7 +3425,7 @@ do_alu:
 			if (!slot_is_register(ctx, slot_1) && slot_1 == slot_r && op_size == OP_SIZE_4) {
 				g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_STR_OFFSET, op_size));
 				g(gen_imm(ctx, (int32_t)val, IMM_PURPOSE_XOR, op_size));
-				gen_insn(INSN_ALU, op_size, ALU_XOR, 1);
+				gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(op_size), op_size, ALU_XOR, 1);
 				gen_address_offset();
 				gen_address_offset();
 				gen_imm_offset();
@@ -3434,7 +3434,7 @@ do_alu:
 			g(gen_load_constant(ctx, R_SCRATCH_1, val));
 			if (!slot_is_register(ctx, slot_1) && slot_1 == slot_r) {
 				g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_STR_OFFSET, op_size));
-				gen_insn(INSN_ALU, op_size, ALU_XOR, 1);
+				gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(op_size), op_size, ALU_XOR, 1);
 				gen_address_offset();
 				gen_address_offset();
 				gen_one(R_SCRATCH_1);
@@ -3442,7 +3442,7 @@ do_alu:
 			}
 			if (!slot_is_register(ctx, slot_1)) {
 				g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_STR_OFFSET, op_size));
-				gen_insn(INSN_ALU, op_size, ALU_XOR, 1);
+				gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(op_size), op_size, ALU_XOR, 1);
 				gen_one(R_SCRATCH_1);
 				gen_one(R_SCRATCH_1);
 				gen_address_offset();
