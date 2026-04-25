@@ -200,7 +200,7 @@ static const uint8_t regs_volatile[] = { R_3 };
 static const uint8_t fp_saved[] = { FSR_16, FSR_17, FSR_18, FSR_19, FSR_20, FSR_21, FSR_22, FSR_23, FSR_24, FSR_25, FSR_26, FSR_27, FSR_28, FSR_29, FSR_30, FSR_31 };
 #define n_fp_saved(real_type) (optimize_int ? 0 : n_array_elements(fp_saved))
 static const uint8_t fp_volatile[] = { FSR_6, FSR_7, FSR_8, FSR_9, FSR_10, FSR_11, FSR_12, FSR_13, FSR_14, FSR_15, FDR_1, FDR_1, FDR_3, FDR_3, FDR_5, FDR_5, FDR_7, FDR_7, FDR_9, FDR_9, FDR_11, FDR_11, FDR_13, FDR_13, FDR_15, FDR_15, FDR_17, FDR_17, FDR_19, FDR_19, FDR_21, FDR_21, FDR_23, FDR_23, FDR_25, FDR_25, FDR_27, FDR_27, FDR_29, FDR_29, FDR_31, FDR_31 };
-#define n_fp_volatile(real_type) (real_type == 1 || !cpu_test_feature(CPU_FEATURE_vfpd32) ? 12 : n_array_elements(fp_volatile))
+#define n_fp_volatile(real_type) (real_type == 1 || !cpu_test_feature(CPU_FEATURE_vfpd32) ? 10 : n_array_elements(fp_volatile))
 
 #define reg_is_saved(r)	(((r) >= R_4 && (r) <= R_FP) || (r) == R_SP || ((r) >= FSR_16 && (r) <= FSR_31))
 
