@@ -470,12 +470,16 @@ static attr_always_inline struct data *pointer_get_data_(pointer_t ptr argument_
 #define pointer_get_data(ptr_)	pointer_get_data_(ptr_ pass_file_line)
 
 
+#ifdef HAVE_BUILTIN_CLZ
+#define slot_bits	(((unsigned)sizeof(unsigned) * 8 - 1) - __builtin_clz(sizeof(pointer_t) - 1) + 1)
+#else
 #define slot_bits	(		\
 	sizeof(pointer_t) <= 2 ? 1 :	\
 	sizeof(pointer_t) <= 4 ? 2 :	\
 	sizeof(pointer_t) <= 8 ? 3 :	\
 	sizeof(pointer_t) <= 16 ? 4 :	\
 	(5))
+#endif
 
 #define slot_size		((size_t)1 << slot_bits)
 #if defined(ARCH_ALPHA) || defined(ARCH_PARISC) || defined(ARCH_SPARC)
