@@ -555,11 +555,11 @@ static attr_always_inline uint64_t *frame_uint64_(frame_s *fp)
 }
 #endif
 
-#define frame_var(fp, idx)		(cast_ptr(unsigned char *, __builtin_assume_aligned(frame_char_(fp) + ((size_t)(idx) << slot_bits), slot_size)))
+#define frame_var(fp, idx)		(cast_ptr(unsigned char *, (frame_char_(fp) + ((size_t)(idx) << slot_bits))))
 #define frame_idx(fp, var)		((frame_t)((cast_ptr(char *, var) - frame_char_(fp)) / slot_size))
 
 #define frame_slot_(p, type)			\
-	(cast_ptr(type *, assert_alignment(p, align_of(type))))
+	(cast_ptr(type *, assert_alignment(p, maximum(slot_size, align_of(type)))))
 #define frame_slot(fp, pos, type)		\
 	frame_slot_(frame_var(fp, pos), type)
 

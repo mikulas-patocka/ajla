@@ -192,9 +192,9 @@ static inline int pop_count(unsigned x)
 #define assert_alignment(ptr, align)	\
 	(ajla_assert(is_power_of_2(align), (file_line, "assert_alignment: value %" PRIuMAX " is not a power of 2", (uintmax_t)(align))),\
 	 ajla_assert(!((uintptr_t)(ptr) & ((align) - 1)), (file_line, "assert_alignment: pointer %p is not aligned on %" PRIuMAX "", (void *)(ptr), (uintmax_t)(align))),\
-	 __builtin_assume_aligned(ptr, align))
+	 builtin_assume_aligned(ptr, align))
 #else
-#define assert_alignment(ptr, align)	(__builtin_assume_aligned(ptr, align))
+#define assert_alignment(ptr, align)	(builtin_assume_aligned(ptr, align))
 #endif
 
 #define get_struct_(ptr, str, entry)	(cast_ptr(str *, (cast_ptr(char *, (ptr)) - offsetof(str, entry))))

@@ -45,8 +45,8 @@ void attr_fastcall memcpy_fast(void *dest, const void *src, size_t size)
 #ifndef UNALIGNED_ACCESS_EFFICIENT
 #define check_alignment(n)						\
 			if (unlikely(((ptr_to_num(dest) | ptr_to_num(src)) & ((al(n)) - 1)) != 0)) break;\
-			dest = __builtin_assume_aligned(dest, al(n));	\
-			src = __builtin_assume_aligned(src, al(n));
+			dest = builtin_assume_aligned(dest, al(n));	\
+			src = builtin_assume_aligned(src, al(n));
 #else
 #define check_alignment(n)
 #endif

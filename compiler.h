@@ -493,8 +493,10 @@ static attr_always_inline void *return_ptr(const void *ptr)
 #define cast_cpp(type, ptr)	(ptr)
 #endif
 
-#ifndef HAVE___BUILTIN_ASSUME_ALIGNED
-#define __builtin_assume_aligned(p, align)		(p)
+#ifdef HAVE___BUILTIN_ASSUME_ALIGNED
+#define builtin_assume_aligned(p, align)		(__builtin_assume_aligned(p, align))
+#else
+#define builtin_assume_aligned(p, align)		(p)
 #endif
 
 
