@@ -1,6 +1,6 @@
 #!/bin/sh -ex
 #
-# Copyright (C) 2024, 2025 Mikulas Patocka
+# Copyright (C) 2024 - 2026 Mikulas Patocka
 #
 # This file is part of Ajla.
 #
@@ -86,6 +86,7 @@ for a in $targets; do
 			$PFX ./ajla $ARG programs/test/test-fp.ajla 50
 			if [ -f ~/ajla/advent-2023/test.sh ]; then (cd ~/ajla/advent-2023/; ./test.sh $ARG); fi
 			if [ -f ~/ajla/advent-2024/test.sh ]; then (cd ~/ajla/advent-2024/; ./test.sh $ARG); fi
+			if [ -f ~/ajla/advent-2025/test.sh ]; then (cd ~/ajla/advent-2025/; ./test.sh $ARG); fi
 			if $do_ptrcomp; then
 				$PFX ./ajla $ARG --ptrcomp programs/test/empty.ajla
 				$PFX ./ajla $ARG --ptrcomp programs/test/test.ajla 2
@@ -94,6 +95,7 @@ for a in $targets; do
 				$PFX ./ajla $ARG --ptrcomp programs/test/test-fp.ajla 50
 				if [ -f ~/ajla/advent-2023/test.sh ]; then (cd ~/ajla/advent-2023/; ./test.sh $ARG --ptrcomp); fi
 				if [ -f ~/ajla/advent-2024/test.sh ]; then (cd ~/ajla/advent-2024/; ./test.sh $ARG --ptrcomp); fi
+				if [ -f ~/ajla/advent-2025/test.sh ]; then (cd ~/ajla/advent-2025/; ./test.sh $ARG --ptrcomp); fi
 			fi
 		done
 	done
