@@ -1,5 +1,5 @@
 {*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -540,7 +540,7 @@ fn array_fill~inline(t : type, const x : t, const dim : list(nat)) : array(t, di
 fn array_sparse~inline(t : type, const x : t, const dim : list(nat)) : array(t, dim);
 fn array_read(t : type, const dim : list(nat), v : array(t, dim), idx : list(nat), prereq len(dim) = len(idx)) : t;
 fn array_write(t : type, const dim : list(nat), v : array(t, dim), idx : list(nat), val : t, prereq len(dim) = len(idx)) : array(t, dim);
-fn array_reverse(t : type, const ln : nat, implicit c : class_ord(t), v : array(t, [ln])) : array(t, [ln]);
+fn array_reverse(t : type, const ln : nat, v : array(t, [ln])) : array(t, [ln]);
 fn array_sort(t : type, const ln : nat, implicit c~spec : class_ord(t), v : array(t, [ln])) : array(t, [ln]);
 fn array_flatten~inline(t : type, const dim : list(nat), v : array(t, dim)) : array(t, dim);
 
@@ -3835,7 +3835,7 @@ novfy fn array_write(t : type, const dim : list(nat), v : array(t, dim), idx : l
 	return v;
 ]
 
-fn array_reverse(t : type, const ln : nat, implicit c : class_ord(t), v : array(t, [ln])) : array(t, [ln])
+fn array_reverse(t : type, const ln : nat, v : array(t, [ln])) : array(t, [ln])
 [
 	var l := array_to_list(v);
 	l := list_reverse(l);
