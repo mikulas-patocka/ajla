@@ -541,6 +541,7 @@ fn array_sparse~inline(t : type, const x : t, const dim : list(nat)) : array(t, 
 fn array_read(t : type, const dim : list(nat), v : array(t, dim), idx : list(nat), prereq len(dim) = len(idx)) : t;
 fn array_write(t : type, const dim : list(nat), v : array(t, dim), idx : list(nat), val : t, prereq len(dim) = len(idx)) : array(t, dim);
 fn array_reverse(t : type, const ln : nat, v : array(t, [ln])) : array(t, [ln]);
+fn array_transpose(t : type, const y x : nat, v : array(t, [y, x])) : array(t, [x, y]);
 fn array_sort(t : type, const ln : nat, implicit c~spec : class_ord(t), v : array(t, [ln])) : array(t, [ln]);
 fn array_flatten~inline(t : type, const dim : list(nat), v : array(t, dim)) : array(t, dim);
 
@@ -3840,6 +3841,16 @@ fn array_reverse(t : type, const ln : nat, v : array(t, [ln])) : array(t, [ln])
 	var l := array_to_list(v);
 	l := list_reverse(l);
 	return list_to_array([ln], l);
+]
+
+fn array_transpose(t : type, const y x : nat, v : array(t, [y, x])) : array(t, [x, y])
+[
+	var l := array_to_list(v);
+	var m := list_to_array([x, y], l);
+	for i := 0 to x do
+		for j := 0 to y do
+			m[i, j] := v[j, i];
+	return m;
 ]
 
 fn array_sort(t : type, const ln : nat, implicit c~spec : class_ord(t), v : array(t, [ln])) : array(t, [ln])
