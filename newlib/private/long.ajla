@@ -92,6 +92,10 @@ fn @1@2_exception_class(a : @1int(@2)) : int := exception_class a;
 fn @1@2_exception_type(a : @1int(@2)) : int := exception_type a;
 fn @1@2_exception_aux(a : @1int(@2)) : int := exception_aux a;
 fn @1@2_system_property(a : @1int(@2)) : int := sysprop(a);
+fn @1@2_fma(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_fms(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_fnma(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
+fn @1@2_fnms(a : @1int(@2)) : @1int(@2) [ abort internal("unsupported integer op"); ]
 ]
 
 fixed_ops(s, 128);
