@@ -611,7 +611,7 @@ static attr_always_inline bool frame_test_3(frame_s *fp, frame_t idx1, frame_t i
 #ifndef INLINE_ASM_GCC_LABELS
 	return frame_test_flag(fp, idx1) || frame_test_flag(fp, idx2) || frame_test_flag(fp, idx3);
 #else
-	__asm__ goto("bt %k0, %3; jc 1f; bt %k1, %3; jc 1f; bt %k2, %3 1:jc %l[flag_set]"::"r"((size_t)idx1),"r"((size_t)idx2),"r"((size_t)idx3),"m"(*(unsigned char *)fp):"cc","memory":flag_set);
+	__asm__ goto("bt %k0, %3; jc 1f; bt %k1, %3; jc 1f; bt %k2, %3; 1:jc %l[flag_set]"::"r"((size_t)idx1),"r"((size_t)idx2),"r"((size_t)idx3),"m"(*(unsigned char *)fp):"cc","memory":flag_set);
 	return false;
 flag_set:
 	return true;
