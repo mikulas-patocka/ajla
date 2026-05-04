@@ -772,11 +772,11 @@ static attr_always_inline bool frame_test_and_clear_flag(frame_s *fp, frame_t id
 #define frame_test_2(fp, idx1, idx2)		(frame_char_(fp)[idx1] frame_test_operator frame_char_(fp)[idx2])
 #define frame_test_3(fp, idx1, idx2, idx3)	(frame_char_(fp)[idx1] frame_test_operator frame_char_(fp)[idx2] frame_test_operator frame_char_(fp)[idx3])
 #else
-static attr_always_inline bool frame_test_2(frame_s *fp, frame_t idx1, frame_t idx2)
+static attr_always_inline unsigned frame_test_2(frame_s *fp, frame_t idx1, frame_t idx2)
 {
 	return frame_char_(fp)[idx1] frame_test_operator frame_char_(fp)[idx2];
 }
-static attr_always_inline bool frame_test_3(frame_s *fp, frame_t idx1, frame_t idx2, frame_t idx3)
+static attr_always_inline unsigned frame_test_3(frame_s *fp, frame_t idx1, frame_t idx2, frame_t idx3)
 {
 	return frame_char_(fp)[idx1] frame_test_operator frame_char_(fp)[idx2] frame_test_operator frame_char_(fp)[idx3];
 }
