@@ -1149,7 +1149,7 @@ struct data {
 #else
 #define da_tag_(data)		((data)->tag)
 #endif
-#define da_tag(data)		(ajla_assert(da_tag_(data) >= DATA_TAG_START + zero && da_tag_(data) < DATA_TAG_END, (file_line, "invalid data tag %u", da_tag_(data))), da_tag_(data))
+#define da_tag(data)		(ajla_assert(da_tag_(data) >= (tag_t)DATA_TAG_START + zero && da_tag_(data) < DATA_TAG_END, (file_line, "invalid data tag %u", da_tag_(data))), da_tag_(data))
 #define da_assert(data, kind)	(ajla_assert(da_tag_(data) == DATA_TAG_##kind, (file_line, "data tag %u, expected %u", da_tag_(data), DATA_TAG_##kind)))
 #define da(data, kind)		(da_assert(data,kind), &(data)->u_.kind)
 
@@ -1363,7 +1363,7 @@ static inline tag_t da_thunk_tag_(void *dt, const char attr_unused *position)
 	ajla_assert(offsetof(struct data, refcount_) == offsetof(struct thunk, refcount_), (position, "da_thunk_tag: the data_structure doesn't match the thunk structure"));
 	tag = refcount_tag_get(cast_ptr(refcount_t *, cast_ptr(char *, dt) + offsetof(struct data, refcount_)));
 #endif
-	ajla_assert(tag >= DATA_TAG_START + zero && tag < TAG_END, (position, "invalid thunk tag %u", tag));
+	ajla_assert(tag >= (tag_t)DATA_TAG_START + zero && tag < TAG_END, (position, "invalid thunk tag %u", tag));
 	return tag;
 }
 #define da_thunk_tag(dt)			da_thunk_tag_(dt, file_line)
