@@ -336,11 +336,6 @@ static bool attr_w cgen_movsx(struct codegen_context *ctx, unsigned size)
 	arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
 
-	if (reg_is_fp(*arg1) && reg_is_fp(*arg2) && size == OP_SIZE_4) {
-		g(cgen_fp_operate(ctx, ALPHA_CVTLQ, 0x1f, *arg2, *arg1));
-		return true;
-	}
-
 	if (unlikely(*arg1 >= 0x20))
 		goto invalid;
 
@@ -755,6 +750,16 @@ static bool attr_w cgen_fp_int64_to_int32_trap(struct codegen_context *ctx)
 	return true;
 }
 
+static bool attr_w cgen_fp_int32_to_int64(struct codegen_context *ctx)
+{
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+
+	g(cgen_fp_operate(ctx, ALPHA_CVTLQ, 0x1f, *arg2, *arg1));
+	return true;
+}
+
 static bool attr_w cgen_fp_cvt(struct codegen_context *ctx, unsigned from_op_size, unsigned to_op_size)
 {
 	uint32_t mc;
@@ -1007,6 +1012,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_FP_INT64_TO_INT32_TRAP:
 			g(cgen_fp_int64_to_int32_trap(ctx));
+			return true;
+		case INSN_FP_INT32_TO_INT64:
+			g(cgen_fp_int32_to_int64(ctx));
 			return true;
 		case INSN_FP_CVT:
 			g(cgen_fp_cvt(ctx, insn_op_size(insn), insn_aux(insn)));

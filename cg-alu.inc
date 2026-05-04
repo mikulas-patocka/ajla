@@ -3743,7 +3743,7 @@ do_from_int:
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_2);
 #if defined(ARCH_ALPHA)
 		if (OP_SIZE_INT == OP_SIZE_4) {
-			gen_insn(INSN_MOVSX, OP_SIZE_4, 0, 0);
+			gen_insn(INSN_FP_INT32_TO_INT64, 0, 0, 0);
 			gen_one(fr_scratch_1);
 			gen_one(fr_scratch_1);
 

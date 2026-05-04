@@ -975,6 +975,10 @@ skip_reads:
 			ptr += arg_read(ctx, d, ptr, 8);
 			ptr += arg_jmp(d, ptr);
 			break;
+		case INSN_FP_INT32_TO_INT64:
+			ptr += arg_write(ctx, d, ptr, 8);
+			ptr += arg_read(ctx, d, ptr, 4);
+			break;
 		case INSN_FP_CVT:
 			ptr += arg_write(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, size);
