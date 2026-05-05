@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -42,28 +42,28 @@
 #define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(FIXED_, type, op)
 #include "ipret-b1.inc"
 
-#define orig_op		divide
-#define op		divide_alt1
+#define orig_op		C_divide
+#define op		C_divide_alt1
 #define OPF		FIXED_DIVIDE_ALT1_
-#define DEF(type)	DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, op)
+#define DEF(type)	DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, divide_alt1)
 #include "ipret-b1.inc"
 
-#define orig_op		udivide
-#define op		udivide_alt1
+#define orig_op		C_udivide
+#define op		C_udivide_alt1
 #define OPF		FIXED_UDIVIDE_ALT1_
-#define DEF(type)	DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, op)
+#define DEF(type)	DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, udivide_alt1)
 #include "ipret-b1.inc"
 
-#define orig_op		modulo
-#define op		modulo_alt1
+#define orig_op		C_modulo
+#define op		C_modulo_alt1
 #define OPF		FIXED_MODULO_ALT1_
-#define DEF(type)	DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, op)
+#define DEF(type)	DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, modulo_alt1)
 #include "ipret-b1.inc"
 
-#define orig_op		umodulo
-#define op		umodulo_alt1
+#define orig_op		C_umodulo
+#define op		C_umodulo_alt1
 #define OPF		FIXED_UMODULO_ALT1_
-#define DEF(type)	DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, op)
+#define DEF(type)	DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, umodulo_alt1)
 #include "ipret-b1.inc"
 
 #define orig_op		bswap

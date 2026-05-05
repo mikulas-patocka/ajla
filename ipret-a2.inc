@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -30,16 +30,16 @@
 #define DEF(type)	DEFINE_INT_BINARY_OPCODE(type, op)
 #include "ipret-b1.inc"
 
-#define orig_op		divide
-#define op		divide_alt1
+#define orig_op		C_divide
+#define op		C_divide_alt1
 #define OPF		INT_DIVIDE_ALT1_
-#define DEF(type)	DEFINE_INT_BINARY_CONST_OPCODE(type, op)
+#define DEF(type)	DEFINE_INT_BINARY_CONST_OPCODE(type, divide_alt1)
 #include "ipret-b1.inc"
 
-#define orig_op		modulo
-#define op		modulo_alt1
+#define orig_op		C_modulo
+#define op		C_modulo_alt1
 #define OPF		INT_MODULO_ALT1_
-#define DEF(type)	DEFINE_INT_BINARY_CONST_OPCODE(type, op)
+#define DEF(type)	DEFINE_INT_BINARY_CONST_OPCODE(type, modulo_alt1)
 #include "ipret-b1.inc"
 
 #define orig_op		popcnt

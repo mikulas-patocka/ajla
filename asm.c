@@ -639,8 +639,10 @@ static attr_noinline void verify_alttable(void)
 {
 	int i;
 	/*debug("Alttable size: %x", (unsigned)code_alttable_n);*/
+	/*for (i = 0; i < (int)code_alttable_n; i++) {
+		debug("Alttable: %x -> %x", code_alttable[i].orig, code_alttable[i].alt);
+	}*/
 	for (i = 0; i < (int)code_alttable_n - 1; i++) {
-		/*debug("Alttable: %x -> %x", code_alttable[i].orig, code_alttable[i].alt);*/
 		if (unlikely(code_alttable[i].orig > code_alttable[i + 1].orig))
 			internal(file_line, "verify_alttable: code_alttable is not sorted: 0x%x > 0x%x @ %d", (unsigned)code_alttable[i].orig, (unsigned)code_alttable[i + 1].orig, i);
 		/*code_alt(code_alttable[i].orig);*/
