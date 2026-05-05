@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -678,7 +678,11 @@ do {									\
 #define EMIT_FUNCTIONS
 #include "ipret.inc"
 
-void attr_hot_fastcall run(frame_s *fp_, ip_t ip_)
+void attr_hot_fastcall
+#if defined(HAVE_REAL_GNUC) && GNUC_ATLEAST(16,0,0)
+	__attribute__((optimize("-fno-tree-vectorize")))
+#endif
+run(frame_s *fp_, ip_t ip_)
 {
 	ajla_error_t ajla_error;
 	tick_stamp_t ts;
