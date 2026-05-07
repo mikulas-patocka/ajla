@@ -655,6 +655,10 @@ static unsigned reserve_alloc_run(unsigned al, unsigned len)
 		unsigned idx1 = rmap1 - rmap;
 		unsigned len1 = rmap[idx1].f + 1 - idx1;
 		unsigned idx = round_up(idx1, al);
+#ifdef DEBUG
+		if (likely(al == 1))
+			idx = idx1 + len1 - len;
+#endif
 		reserve_sub_alloc(idx1, len1, idx, len);
 		return idx;
 	}
