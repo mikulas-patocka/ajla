@@ -30,9 +30,6 @@ static bool attr_w gen_mov(struct codegen_context *ctx, unsigned size, unsigned 
 
 static bool attr_w gen_sanitize_returned_pointer(struct codegen_context attr_unused *ctx, unsigned attr_unused reg)
 {
-#if defined(ARCH_X86_X32)
-	g(gen_mov(ctx, OP_SIZE_ADDRESS, reg, reg));
-#endif
 	return true;
 }
 
