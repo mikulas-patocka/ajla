@@ -891,19 +891,19 @@ static void cg_upcall_pointer_reference_owned(pointer_t_upcall ptr)
 	pointer_reference_owned(ptr);
 }
 
-static pointer_t cg_upcall_ipret_copy_variable_to_pointer_noderef(frame_s *src_fp, uintptr_t src_slot)
+static pointer_t_upcall cg_upcall_ipret_copy_variable_to_pointer_noderef(frame_s *src_fp, uintptr_t src_slot)
 {
 	return ipret_copy_variable_to_pointer(src_fp, src_slot, false);
 }
 
-static pointer_t cg_upcall_ipret_copy_variable_to_pointer_deref(frame_s *src_fp, uintptr_t src_slot)
+static pointer_t_upcall cg_upcall_ipret_copy_variable_to_pointer_deref(frame_s *src_fp, uintptr_t src_slot)
 {
 	pointer_t ptr = ipret_copy_variable_to_pointer(src_fp, src_slot, true);
 	*frame_pointer(src_fp, src_slot) = pointer_empty();
 	return ptr;
 }
 
-static pointer_t cg_upcall_flat_to_data(frame_s *fp, uintptr_t slot)
+static pointer_t_upcall cg_upcall_flat_to_data(frame_s *fp, uintptr_t slot)
 {
 	const struct type *type = frame_get_type_of_local(fp, slot);
 	const unsigned char *flat = frame_var(fp, slot);
@@ -956,7 +956,7 @@ static unsigned char *cg_upcall_data_alloc_array_pointers_mayfail(int_default_t_
 	return cast_ptr(unsigned char *, data_alloc_array_pointers_mayfail(n_allocated, n_used, &sink pass_file_line));
 }
 
-static pointer_t cg_upcall_array_create_flat(frame_s *fp, int_default_t_upcall length, uintptr_t content_slot)
+static pointer_t_upcall cg_upcall_array_create_flat(frame_s *fp, int_default_t_upcall length, uintptr_t content_slot)
 {
 	array_index_t idx;
 	const struct type *content_type = frame_get_type_of_local(fp, content_slot);
@@ -964,7 +964,7 @@ static pointer_t cg_upcall_array_create_flat(frame_s *fp, int_default_t_upcall l
 	return array_create(idx, content_type, frame_var(fp, content_slot), pointer_empty());
 }
 
-static pointer_t cg_upcall_array_create_pointers(frame_s *fp, uintptr_t ip_offset, uintptr_t length_slot, pointer_t_upcall ptr)
+static pointer_t_upcall cg_upcall_array_create_pointers(frame_s *fp, uintptr_t ip_offset, uintptr_t length_slot, pointer_t_upcall ptr)
 {
 	array_index_t idx;
 	int_default_t length = *frame_slot(fp, length_slot, int_default_t);
@@ -978,14 +978,14 @@ static pointer_t cg_upcall_array_create_pointers(frame_s *fp, uintptr_t ip_offse
 	return array_create(idx, NULL, NULL, ptr);
 }
 
-static pointer_t cg_upcall_array_create_sparse(int_default_t_upcall length, pointer_t_upcall ptr)
+static pointer_t_upcall cg_upcall_array_create_sparse(int_default_t_upcall length, pointer_t_upcall ptr)
 {
 	array_index_t idx;
 	index_from_int(&idx, length);
 	return array_create_sparse(idx, ptr);
 }
 
-static pointer_t cg_upcall_array_sub(pointer_t_upcall array, int_default_t_upcall start, int_default_t_upcall end, bool deref)
+static pointer_t_upcall cg_upcall_array_sub(pointer_t_upcall array, int_default_t_upcall start, int_default_t_upcall end, bool deref)
 {
 	pointer_t res_ptr;
 	ajla_error_t err;
@@ -1025,7 +1025,7 @@ fail1:
 	return pointer_empty();
 }
 
-static pointer_t cg_upcall_array_skip(pointer_t_upcall array, int_default_t_upcall start, bool deref)
+static pointer_t_upcall cg_upcall_array_skip(pointer_t_upcall array, int_default_t_upcall start, bool deref)
 {
 	pointer_t res_ptr;
 	ajla_error_t err;
@@ -1058,7 +1058,7 @@ fail1:
 	return pointer_empty();
 }
 
-static pointer_t cg_upcall_array_join(pointer_t_upcall ptr1, pointer_t_upcall ptr2)
+static pointer_t_upcall cg_upcall_array_join(pointer_t_upcall ptr1, pointer_t_upcall ptr2)
 {
 	ajla_error_t err;
 	struct data *d1 = pointer_get_data(ptr1);

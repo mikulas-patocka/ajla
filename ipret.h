@@ -46,9 +46,9 @@ struct cg_upcall_vector_s {
 	void (*mem_clear)(void *ptr, size_t size);
 	void (*cg_upcall_pointer_dereference)(pointer_t_upcall ptr);
 	void (*cg_upcall_pointer_reference_owned)(pointer_t_upcall ptr);
-	pointer_t (*cg_upcall_ipret_copy_variable_to_pointer_noderef)(frame_s *src_fp, uintptr_t src_slot);
-	pointer_t (*cg_upcall_ipret_copy_variable_to_pointer_deref)(frame_s *src_fp, uintptr_t src_slot);
-	pointer_t (*cg_upcall_flat_to_data)(frame_s *fp, uintptr_t slot);
+	pointer_t_upcall (*cg_upcall_ipret_copy_variable_to_pointer_noderef)(frame_s *src_fp, uintptr_t src_slot);
+	pointer_t_upcall (*cg_upcall_ipret_copy_variable_to_pointer_deref)(frame_s *src_fp, uintptr_t src_slot);
+	pointer_t_upcall (*cg_upcall_flat_to_data)(frame_s *fp, uintptr_t slot);
 	unsigned char *(*cg_upcall_data_alloc_function_reference_mayfail)(uintptr_t n_curried_arguments);
 	unsigned char *(*cg_upcall_data_alloc_record_mayfail)(frame_s *fp, uintptr_t slot);
 	unsigned char *(*cg_upcall_data_alloc_option_mayfail)(void);
@@ -56,12 +56,12 @@ struct cg_upcall_vector_s {
 	unsigned char *(*cg_upcall_data_alloc_array_flat_slot_mayfail)(frame_s *fp, uintptr_t slot, int_default_t_upcall n_entries);
 	unsigned char *(*cg_upcall_data_alloc_array_flat_types_ptr_mayfail)(frame_s *fp, uintptr_t local_type, int_default_t_upcall n_allocated, int_default_t_upcall n_used);
 	unsigned char *(*cg_upcall_data_alloc_array_pointers_mayfail)(int_default_t_upcall n_allocated, int_default_t_upcall n_used);
-	pointer_t (*cg_upcall_array_create_flat)(frame_s *fp, int_default_t_upcall length, uintptr_t content_slot);
-	pointer_t (*cg_upcall_array_create_pointers)(frame_s *fp, uintptr_t ip_offset, uintptr_t length_slot, pointer_t_upcall ptr);
-	pointer_t (*cg_upcall_array_create_sparse)(int_default_t_upcall length, pointer_t_upcall ptr);
-	pointer_t (*cg_upcall_array_sub)(pointer_t_upcall array, int_default_t_upcall start, int_default_t_upcall end, bool deref);
-	pointer_t (*cg_upcall_array_skip)(pointer_t_upcall array, int_default_t_upcall start, bool deref);
-	pointer_t (*cg_upcall_array_join)(pointer_t_upcall ptr1, pointer_t_upcall ptr2);
+	pointer_t_upcall (*cg_upcall_array_create_flat)(frame_s *fp, int_default_t_upcall length, uintptr_t content_slot);
+	pointer_t_upcall (*cg_upcall_array_create_pointers)(frame_s *fp, uintptr_t ip_offset, uintptr_t length_slot, pointer_t_upcall ptr);
+	pointer_t_upcall (*cg_upcall_array_create_sparse)(int_default_t_upcall length, pointer_t_upcall ptr);
+	pointer_t_upcall (*cg_upcall_array_sub)(pointer_t_upcall array, int_default_t_upcall start, int_default_t_upcall end, bool deref);
+	pointer_t_upcall (*cg_upcall_array_skip)(pointer_t_upcall array, int_default_t_upcall start, bool deref);
+	pointer_t_upcall (*cg_upcall_array_join)(pointer_t_upcall ptr1, pointer_t_upcall ptr2);
 	void *(*cg_upcall_ipret_io)(frame_s *fp, uintptr_t ip_offset, uintptr_t code_params);
 	int_default_t (*cg_upcall_ipret_system_property)(int_default_t_upcall idx);
 #define f(n, s, u, sz, bits) \
