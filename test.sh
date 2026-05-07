@@ -67,23 +67,27 @@ for a in $targets; do
 		for b in '' --enable-bitwise-frame; do
 			CC="$a-gcc $m" CF='-O1 -DDEBUG_ENV' ./rebuild --disable-rwx-mappings --enable-debuglevel=2 --host=$a $b
 			do_ptrcomp=true
+			do_test_fp=true
 			case "$a" in
 				arm-linux-gnueabi |\
 				arm-linux-gnueabihf |\
 				hppa-linux-gnu |\
-				m68k-linux-gnu |\
 				mips-linux-gnu |\
 				mipsel-linux-gnu |\
 				mipsisa32r6-linux-gnu |\
 				mipsisa32r6el-linux-gnu |\
-				powerpc-linux-gnu)	do_ptrcomp=false;;
+				powerpc-linux-gnu |\
+				sh4-linux-gnu)		do_ptrcomp=false;;
+				m68k-linux-gnu)		do_ptrcomp=false; do_test_fp=false;;
 				x86_64-linux-gnu)	if [ "$m" = -m32 -o "$m" = -mx32 ]; then do_ptrcomp=false; fi;;
 			esac
 			$PFX ./ajla $ARG programs/test/empty.ajla
 			$PFX ./ajla $ARG programs/test/test.ajla 2
 			$PFX ./ajla $ARG programs/test/test.ajla 100
-			$PFX ./ajla $ARG programs/test/test-fp.ajla 2
-			$PFX ./ajla $ARG programs/test/test-fp.ajla 50
+			if $do_test_fp; then
+				$PFX ./ajla $ARG programs/test/test-fp.ajla 2
+				$PFX ./ajla $ARG programs/test/test-fp.ajla 50
+			fi
 			if [ -f ~/ajla/advent-2023/test.sh ]; then (cd ~/ajla/advent-2023/; ./test.sh $ARG); fi
 			if [ -f ~/ajla/advent-2024/test.sh ]; then (cd ~/ajla/advent-2024/; ./test.sh $ARG); fi
 			if [ -f ~/ajla/advent-2025/test.sh ]; then (cd ~/ajla/advent-2025/; ./test.sh $ARG); fi
@@ -91,8 +95,10 @@ for a in $targets; do
 				$PFX ./ajla $ARG --ptrcomp programs/test/empty.ajla
 				$PFX ./ajla $ARG --ptrcomp programs/test/test.ajla 2
 				$PFX ./ajla $ARG --ptrcomp programs/test/test.ajla 100
-				$PFX ./ajla $ARG --ptrcomp programs/test/test-fp.ajla 2
-				$PFX ./ajla $ARG --ptrcomp programs/test/test-fp.ajla 50
+				if $do_test_fp; then
+					$PFX ./ajla $ARG --ptrcomp programs/test/test-fp.ajla 2
+					$PFX ./ajla $ARG --ptrcomp programs/test/test-fp.ajla 50
+				fi
 				if [ -f ~/ajla/advent-2023/test.sh ]; then (cd ~/ajla/advent-2023/; ./test.sh $ARG --ptrcomp); fi
 				if [ -f ~/ajla/advent-2024/test.sh ]; then (cd ~/ajla/advent-2024/; ./test.sh $ARG --ptrcomp); fi
 				if [ -f ~/ajla/advent-2025/test.sh ]; then (cd ~/ajla/advent-2025/; ./test.sh $ARG --ptrcomp); fi
