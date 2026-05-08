@@ -4027,7 +4027,7 @@ do_alu:
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 #ifdef FMA_NO_NEG
 		if (fp_alu == FP_ALU3_FNMADD || fp_alu == FP_ALU3_FNMSUB) {
-			gen_insn(INSN_FP_ALU1, OP_SIZE_NATIVE, FP_ALU1_NEG, 0);
+			gen_insn(INSN_FP_ALU1, op_size, FP_ALU1_NEG, 0);
 			gen_one(fr_scratch_1);
 			gen_one(reg1);
 			reg1 = fr_scratch_1;
@@ -4038,7 +4038,7 @@ do_alu:
 		g(gen_frame_get(ctx, op_size, zero_x, slot_3, fr_scratch_3, &reg3));
 #ifdef FMA_NO_SUB
 		if (fp_alu == FP_ALU3_FMSUB || fp_alu == FP_ALU3_FNMSUB) {
-			gen_insn(INSN_FP_ALU1, OP_SIZE_NATIVE, FP_ALU1_NEG, 0);
+			gen_insn(INSN_FP_ALU1, op_size, FP_ALU1_NEG, 0);
 			gen_one(fr_scratch_3);
 			gen_one(reg3);
 			reg3 = fr_scratch_3;
