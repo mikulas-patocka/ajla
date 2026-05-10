@@ -740,6 +740,11 @@ typedef uint16_t ushort_efficient_t;
 #define ARCH_LOONGARCH64
 #define ARCH_NAME	"loongarch64"
 
+#elif defined(__m68k__)
+
+#define ARCH_M68K
+#define ARCH_NAME	"m68k"
+
 #elif defined(__mips) && defined(_MIPS_SIM) && (_MIPS_SIM == 1 || _MIPS_SIM == 2 || _MIPS_SIM == 3)
 
 #define ARCH_MIPS
@@ -846,6 +851,9 @@ typedef uint16_t ushort_efficient_t;
 #define HAVE_CODEGEN
 #endif
 #if defined(ARCH_LOONGARCH64)
+#define HAVE_CODEGEN
+#endif
+#if defined(ARCH_M68K)
 #define HAVE_CODEGEN
 #endif
 #if defined(ARCH_MIPS)

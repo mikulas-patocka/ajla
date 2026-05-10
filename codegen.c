@@ -224,6 +224,8 @@ enum {
 	INSN_ARM_POP,
 	INSN_S390_PUSH,
 	INSN_S390_POP,
+	INSN_M68K_PUSH,
+	INSN_M68K_POP,
 	INSN_IA64_ALLOC,
 	INSN_IA64_DEALLOC,
 	INSN_PUSH,
@@ -1161,6 +1163,8 @@ static inline bool slot_is_register(struct codegen_context *ctx, frame_t slot)
 #include "c1-ia64.inc"
 #elif defined(ARCH_LOONGARCH64)
 #include "c1-loong.inc"
+#elif defined(ARCH_M68K)
+#include "c1-m68k.inc"
 #elif defined(ARCH_MIPS)
 #include "c1-mips.inc"
 #elif defined(ARCH_PARISC)
@@ -2408,6 +2412,8 @@ static bool attr_w add_relocation(struct codegen_context *ctx, unsigned length, 
 #include "c2-ia64.inc"
 #elif defined(ARCH_LOONGARCH64)
 #include "c2-loong.inc"
+#elif defined(ARCH_M68K)
+#include "c2-m68k.inc"
 #elif defined(ARCH_MIPS)
 #include "c2-mips.inc"
 #elif defined(ARCH_PARISC)

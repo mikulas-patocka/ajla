@@ -44,6 +44,11 @@ static void dump_registers(int sig, ucontext_t *uc)
 		debug("br_%02x = %016lx	br_%02x = %016lx", i, uc->uc_mcontext.sc_br[i], i + 1, uc->uc_mcontext.sc_br[i + 1]);
 	}
 #endif
+#if defined(ARCH_M68K)
+	debug("%s at %x", sig == SIGSEGV ? "sigsegv" : sig == SIGBUS ? "sigbus" : "sigill", uc->uc_mcontext.gregs[R_PC]);
+	for (i = 0; i < 8; i++)
+		debug("d%i = %08x	a%i = %08x", i, uc->uc_mcontext.gregs[i], i, uc->uc_mcontext.gregs[8 + i]);
+#endif
 #if defined(ARCH_MIPS)
 	debug("%s at %llx", sig == SIGSEGV ? "sigsegv" : sig == SIGBUS ? "sigbus" : "sigill", uc->uc_mcontext.pc);
 	for (i = 0; i < 32; i++)

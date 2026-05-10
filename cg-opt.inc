@@ -610,6 +610,35 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 			break;
 		}
 #endif
+#ifdef ARCH_M68K
+		case INSN_M68K_PUSH: {
+			unsigned r;
+			for (r = RD0; r <= RD7; r++)
+				if (reg_is_saved(r))
+					reg_map_set(&d->rd, r);
+			for (r = RA0; r < RSP; r++)
+				if (reg_is_saved(r))
+					reg_map_set(&d->rd, r);
+			reg_map_set(&d->rd, RSP);
+			reg_map_set(&d->wr, RSP);
+			reg_map_set(&d->rd, R_MEMORY);
+			reg_map_set(&d->wr, R_MEMORY);
+			break;
+		}
+		case INSN_M68K_POP: {
+			unsigned r;
+			for (r = RD0; r <= RD7; r++)
+				if (reg_is_saved(r))
+					reg_map_set(&d->wr, r);
+			for (r = RA0; r < RSP; r++)
+				if (reg_is_saved(r))
+					reg_map_set(&d->wr, r);
+			reg_map_set(&d->rd, RSP);
+			reg_map_set(&d->wr, RSP);
+			reg_map_set(&d->rd, R_MEMORY);
+			break;
+		}
+#endif
 		case INSN_IA64_ALLOC:
 			ptr += arg_write(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, 0);

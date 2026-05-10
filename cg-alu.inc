@@ -815,8 +815,12 @@ do_multiply: {
 			return true;
 		}
 #endif
+#if defined(ARCH_M68K) || defined(ARCH_S390)
+		if (mode == MODE_INT && op_size >= OP_SIZE_4
 #if defined(ARCH_S390)
-		if (mode == MODE_INT && op_size >= OP_SIZE_4 && likely(cpu_test_feature(CPU_FEATURE_misc_insn_ext_2))) {
+			&& likely(cpu_test_feature(CPU_FEATURE_misc_insn_ext_2))
+#endif
+			) {
 			target = gen_frame_target(ctx, slot_r, slot_1, slot_2, R_SCRATCH_1);
 			g(gen_frame_load(ctx, op_size, sign_x, slot_1, 0, false, target));
 			g(gen_frame_load_op(ctx, op_size, sign_x, ALU_MUL, 1, slot_2, 0, false, target));
@@ -867,7 +871,11 @@ do_multiply: {
 		}
 
 		target = gen_frame_target(ctx, slot_r, slot_1, slot_2, R_SCRATCH_1);
-		if (op_size < OP_SIZE_NATIVE && mode == MODE_INT) {
+		if (op_size < OP_SIZE_NATIVE
+#if !defined(ARCH_M68K)
+		    && mode == MODE_INT
+#endif
+		    ) {
 			g(gen_frame_get(ctx, op_size, sign_x, slot_1, R_SCRATCH_1, &reg1));
 			g(gen_frame_get(ctx, op_size, sign_x, slot_2, R_SCRATCH_2, &reg2));
 
@@ -1038,7 +1046,7 @@ do_divide: {
 		g(gen_frame_get(ctx, op_size, (sgn && op_size < i_size(op_size)) || force_sx ? sign_x : zero_x, slot_2, R_SCRATCH_2, &reg2));
 		target = gen_frame_target(ctx, slot_r, slot_1, slot_2, R_SCRATCH_3);
 
-		if (ARCH_PREFERS_SX(op_size) && !sgn && op_size < i_size(op_size)) {
+		if (ARCH_PREFERS_SX(op_size) && !sgn && op_size < i_size(op_size) + (unsigned)zero) {
 			g(gen_extend(ctx, op_size, zero_x, R_SCRATCH_1, reg1));
 			reg1 = R_SCRATCH_1;
 			g(gen_extend(ctx, op_size, zero_x, R_SCRATCH_2, reg2));
@@ -1725,7 +1733,7 @@ do_generic_bt:
 		switch (alu) {
 			case BTX_BT:
 #if ARCH_HAS_FLAGS
-#if defined(ARCH_S390) || defined(ARCH_POWER)
+#if defined(ARCH_M68K) || defined(ARCH_S390) || defined(ARCH_POWER)
 				g(gen_3address_alu(ctx, i_size(op_size), ALU_AND, R_SCRATCH_1, reg1, R_SCRATCH_3, 1));
 #else
 				gen_insn(INSN_TEST, i_size(op_size), 0, 1);
@@ -4299,7 +4307,7 @@ do_alu: {
 		}
 #endif
 		g(gen_frame_get(ctx, op_size, ex, slot_2, R_SCRATCH_2, &reg2));
-#if ARCH_HAS_FLAGS && !defined(ARCH_S390)
+#if ARCH_HAS_FLAGS && !defined(ARCH_M68K) && !defined(ARCH_S390)
 		if (alu == ALU_AND) {
 			gen_insn(INSN_TEST, i_size(op_size), 0, 1);
 			gen_one(reg1);

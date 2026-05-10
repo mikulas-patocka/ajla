@@ -185,7 +185,7 @@ static bool attr_w gen_barrier(struct codegen_context *ctx)
 static bool attr_w gen_compare_refcount(struct codegen_context *ctx, unsigned ptr, unsigned val, unsigned cond, uint32_t label)
 {
 	unsigned op_size = log_2(sizeof(refcount_int_t));
-#if defined(ARCH_X86)
+#if defined(ARCH_M68K) || defined(ARCH_X86)
 	bool logical = COND_IS_LOGICAL(cond);
 	g(gen_address(ctx, ptr, offsetof(struct data, refcount_), IMM_PURPOSE_LDR_OFFSET, op_size));
 	g(gen_imm(ctx, val, IMM_PURPOSE_CMP, op_size));

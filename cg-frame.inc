@@ -376,7 +376,7 @@ static bool attr_w gen_frame_load_op(struct codegen_context *ctx, unsigned size,
 		gen_imm_offset();
 		return true;
 	}
-#if defined(ARCH_X86) || defined(ARCH_S390)
+#if defined(ARCH_M68K) || defined(ARCH_S390) || defined(ARCH_X86)
 #if defined(ARCH_S390)
 	if (size >= OP_SIZE_4)
 #endif
@@ -452,7 +452,7 @@ static bool attr_w gen_frame_load_cmp(struct codegen_context *ctx, unsigned size
 		}
 		return true;
 	}
-#if defined(ARCH_S390) || defined(ARCH_X86)
+#if defined(ARCH_M68K) || defined(ARCH_S390) || defined(ARCH_X86)
 #if defined(ARCH_S390)
 	if (size < OP_SIZE_4)
 		goto fallback;
@@ -487,13 +487,13 @@ fallback:
 static bool attr_w gen_frame_load_cmp_imm(struct codegen_context *ctx, unsigned size, bool logical, enum extend attr_unused ex, frame_t slot, int64_t offset, int64_t value)
 {
 	if (slot_is_register(ctx, slot)) {
-#if defined(ARCH_X86)
+#if defined(ARCH_M68K) || defined(ARCH_X86)
 		g(gen_imm(ctx, value, logical ? IMM_PURPOSE_CMP_LOGICAL : IMM_PURPOSE_CMP, size));
 		gen_insn(INSN_CMP, size, 0, 1 + logical);
 		gen_one(ctx->registers[slot]);
 		gen_imm_offset();
 #else
-		if (size != i_size(size) + (unsigned)zero && size < OP_SIZE_4 && ex != garbage)
+		if (size != i_size_cmp(size) + (unsigned)zero && size < OP_SIZE_4 && ex != garbage)
 			goto fallback;
 		g(gen_imm(ctx, value, logical ? IMM_PURPOSE_CMP_LOGICAL : IMM_PURPOSE_CMP, size));
 		gen_insn(INSN_CMP, i_size_cmp(size), 0, 1 + logical);
@@ -502,7 +502,7 @@ static bool attr_w gen_frame_load_cmp_imm(struct codegen_context *ctx, unsigned 
 #endif
 		return true;
 	}
-#if defined(ARCH_X86)
+#if defined(ARCH_M68K) || defined(ARCH_X86)
 	offset += (size_t)slot * slot_size;
 	g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_MVI_CLI_OFFSET, size));
 	g(gen_imm(ctx, value, logical ? IMM_PURPOSE_CMP_LOGICAL : IMM_PURPOSE_CMP, size));
@@ -687,7 +687,7 @@ static bool attr_w gen_frame_clear(struct codegen_context *ctx, unsigned size, f
 	return true;
 }
 
-#if defined(ARCH_X86)
+#if defined(ARCH_M68K) || defined(ARCH_X86)
 static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned attr_unused size, bool attr_unused logical, unsigned cond, frame_t slot)
 {
 	size_t offset;
@@ -703,16 +703,18 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned attr
 			return true;
 		}
 #endif
+#if defined(ARCH_X86)
 		if (cpu_test_feature(CPU_FEATURE_apx)) {
 			gen_insn(INSN_SET_COND, OP_SIZE_8, cond, 0);
 			gen_one(reg);
-		} else {
-			gen_insn(INSN_SET_COND_PARTIAL, OP_SIZE_1, cond, 0);
-			gen_one(reg);
-			gen_one(reg);
-			if (sizeof(ajla_flat_option_t) > 1)
-				g(gen_mov(ctx, OP_SIZE_1, reg, reg));
+			return true;
 		}
+#endif
+		gen_insn(INSN_SET_COND_PARTIAL, OP_SIZE_1, cond, 0);
+		gen_one(reg);
+		gen_one(reg);
+		if (sizeof(ajla_flat_option_t) > 1)
+			g(gen_mov(ctx, OP_SIZE_1, reg, reg));
 		return true;
 	}
 	offset = (size_t)slot * slot_size;

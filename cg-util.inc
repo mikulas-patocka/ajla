@@ -68,7 +68,7 @@ static bool attr_w gen_3address_alu(struct codegen_context *ctx, unsigned size, 
 static bool attr_w gen_3address_alu_imm(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src, int64_t imm, unsigned writes_flags)
 {
 	unsigned purpose = alu_purpose(alu);
-	if (!ARCH_IS_3ADDRESS_IMM(alu, writes_flags) && dest != src) {
+	if (!ARCH_IS_3ADDRESS_IMM(alu, writes_flags, imm) && dest != src) {
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src));
 
 		g(gen_imm(ctx, imm, purpose, size));
@@ -565,6 +565,17 @@ static bool attr_w gen_cmp_test_imm_jmp_q_flags(struct codegen_context *ctx, uns
 
 		return true;
 #endif
+#if defined(ARCH_M68K)
+		gen_insn(INSN_BT, OP_SIZE_4, 0, 1);
+		gen_one(reg1);
+		gen_one(ARG_IMM);
+		gen_eight(bit);
+
+		gen_insn(INSN_JMP_COND, op_size, cond, 0);
+		gen_label_ref(label);
+
+		return true;
+#endif
 #if defined(ARCH_POWER)
 		if (op_size != OP_SIZE_NATIVE || !is_direct_const(value, IMM_PURPOSE_TEST, OP_SIZE_NATIVE)) {
 			g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_CONST_IMM, reg1, (8U << OP_SIZE_NATIVE) - 1 - bit, 1));
@@ -796,7 +807,7 @@ static bool attr_w gen_extend(struct codegen_context *ctx, unsigned op_size, enu
 	} else {
 		internal(file_line, "gen_extend: invalid OP_SIZE_NATIVE");
 	}
-#if defined(ARCH_ARM) || defined(ARCH_IA64) || defined(ARCH_LOONGARCH64) || defined(ARCH_PARISC) || defined(ARCH_X86)
+#if defined(ARCH_ARM) || defined(ARCH_IA64) || defined(ARCH_LOONGARCH64) || defined(ARCH_M68K) || defined(ARCH_PARISC) || defined(ARCH_X86)
 #if defined(ARCH_ARM32)
 	if (unlikely(!cpu_test_feature(CPU_FEATURE_armv6)))
 		goto default_extend;
