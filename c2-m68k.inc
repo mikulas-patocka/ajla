@@ -487,13 +487,24 @@ static bool attr_w cgen_lea(struct codegen_context *ctx, uint8_t *arg1, uint8_t 
 			goto invl;
 	} else if (arg3[0] == ARG_IMM) {
 		int64_t imm = get_imm(&arg3[1]);
-		mc = M68K_LEA;
-		mc |= M68K_ADDR_AA_D16;
-		mc |= reg2 & 7;
-		mc |= (reg1 & 7) << 9;
-		cgen_two(mc);
-		cgen_two(imm);
-		goto instr_done;
+		if (imm_is_16bit(imm)) {
+			mc = M68K_LEA;
+			mc |= M68K_ADDR_AA_D16;
+			mc |= reg2 & 7;
+			mc |= (reg1 & 7) << 9;
+			cgen_two(mc);
+			cgen_two(imm);
+			goto instr_done;
+		} else {
+			mc = M68K_LEA;
+			mc |= M68K_ADDR_AA_D8_X;
+			mc |= reg2 & 7;
+			mc |= (reg1 & 7) << 9;
+			cgen_two(mc);
+			cgen_two(M68K_EW_FULL | M68K_EW_IS | M68K_EW_BD_L);
+			cgen_four(imm);
+			goto instr_done;
+		}
 	} else {
 		goto invl;
 	}

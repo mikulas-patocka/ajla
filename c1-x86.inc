@@ -43,7 +43,7 @@
 
 #define ARCH_PARTIAL_ALU(size)		((size) <= OP_SIZE_2)
 #define ARCH_IS_3ADDRESS(alu, f)	(((alu) == ALU_ADD && !(f)) || cpu_test_feature(CPU_FEATURE_apx))
-#define ARCH_IS_3ADDRESS_IMM(alu, f, i)	(((alu) == ALU_ADD && !(f)) || cpu_test_feature(CPU_FEATURE_apx))
+#define ARCH_IS_3ADDRESS_IMM(alu, f)	(((alu) == ALU_ADD && !(f)) || cpu_test_feature(CPU_FEATURE_apx))
 #define ARCH_IS_3ADDRESS_ROT(alu, size)	(ROT_WRITES_FLAGS(alu, size, false) && !cpu_test_feature(CPU_FEATURE_apx) ? 0 : 1)
 #define ARCH_IS_3ADDRESS_ROT_IMM(alu)	(cpu_test_feature(CPU_FEATURE_apx))
 #define ARCH_IS_2ADDRESS(alu)		((alu) == ALU1_BSF || (alu) == ALU1_BSR || (alu) == ALU1_LZCNT || (alu) == ALU1_POPCNT || ((((alu) == ALU1_NOT || (alu) == ALU1_NEG)) && cpu_test_feature(CPU_FEATURE_apx)))

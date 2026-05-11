@@ -68,7 +68,7 @@ static bool attr_w gen_3address_alu(struct codegen_context *ctx, unsigned size, 
 static bool attr_w gen_3address_alu_imm(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src, int64_t imm, unsigned writes_flags)
 {
 	unsigned purpose = alu_purpose(alu);
-	if (!ARCH_IS_3ADDRESS_IMM(alu, writes_flags, imm) && dest != src) {
+	if (!ARCH_IS_3ADDRESS_IMM(alu, writes_flags) && dest != src) {
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src));
 
 		g(gen_imm(ctx, imm, purpose, size));

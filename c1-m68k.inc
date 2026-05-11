@@ -30,7 +30,7 @@
 
 #define ARCH_PARTIAL_ALU(size)		((size) <= OP_SIZE_2)
 #define ARCH_IS_3ADDRESS(alu, f)	((alu) == ALU_ADD)
-#define ARCH_IS_3ADDRESS_IMM(alu, f, i)	((alu) == ALU_ADD && (i) >= -0x8000 && (i) < 0x8000)
+#define ARCH_IS_3ADDRESS_IMM(alu, f)	((alu) == ALU_ADD)
 #define ARCH_IS_3ADDRESS_ROT(alu, size)	0
 #define ARCH_IS_3ADDRESS_ROT_IMM(alu)	0
 #define ARCH_IS_2ADDRESS(alu)		0
