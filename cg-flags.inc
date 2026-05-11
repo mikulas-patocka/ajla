@@ -174,24 +174,13 @@ save_it:
 	gen_eight(offset);
 	gen_imm_offset();
 #elif defined(ARCH_M68K)
-	if (imm_is_8bit(offset)) {
-		g(gen_imm(ctx, val, IMM_PURPOSE_STORE_VALUE, OP_SIZE_1));
-		gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
-		gen_one(ARG_ADDRESS_2);
-		gen_one(R_FRAME);
-		gen_one(slot_reg);
-		gen_eight(offset);
-		gen_imm_offset();
-	} else {
-		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_OFFSET_IMM, slot_reg, offset, 0));
-		g(gen_imm(ctx, val, IMM_PURPOSE_STORE_VALUE, OP_SIZE_1));
-		gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
-		gen_one(ARG_ADDRESS_2);
-		gen_one(R_FRAME);
-		gen_one(R_OFFSET_IMM);
-		gen_eight(0);
-		gen_imm_offset();
-	}
+	g(gen_imm(ctx, val, IMM_PURPOSE_STORE_VALUE, OP_SIZE_1));
+	gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
+	gen_one(ARG_ADDRESS_2);
+	gen_one(R_FRAME);
+	gen_one(slot_reg);
+	gen_eight(offset);
+	gen_imm_offset();
 #else
 	g(gen_3address_alu(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_SCRATCH_NA_1, R_FRAME, slot_reg, 0));
 #ifdef ARCH_ALPHA

@@ -104,7 +104,6 @@ static bool reg_is_fp(unsigned reg)
 #define R_SCRATCH_4			RD3
 #define R_TMP_D				RD7
 
-#define R_OFFSET_IMM			RA0
 #define R_TMP_A				RA1
 #define R_SAVED_1			RA2
 #define R_SAVED_2			RA3
@@ -240,19 +239,19 @@ static bool attr_w gen_upcall_argument(struct codegen_context attr_unused *ctx, 
 static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsigned n_args, bool unspill)
 {
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
-	gen_one(R_OFFSET_IMM);
+	gen_one(R_TMP_A);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(RSP);
 	gen_eight(ARG_SPACE + ARG_OFFSET + 4);
 
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
-	gen_one(R_OFFSET_IMM);
+	gen_one(R_TMP_A);
 	gen_one(ARG_ADDRESS_1);
-	gen_one(R_OFFSET_IMM);
+	gen_one(R_TMP_A);
 	gen_eight(offset);
 
 	gen_insn(INSN_CALL_INDIRECT, OP_SIZE_4, 0, 0);
-	gen_one(R_OFFSET_IMM);
+	gen_one(R_TMP_A);
 
 	g(gen_upcall_end(ctx, offset, n_args, unspill));
 
@@ -262,7 +261,7 @@ static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsi
 static bool attr_w gen_get_upcall_pointer(struct codegen_context *ctx, unsigned offset, unsigned op_size, unsigned reg)
 {
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
-	gen_one(R_OFFSET_IMM);
+	gen_one(R_TMP_A);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(RSP);
 	gen_eight(ARG_SPACE + ARG_OFFSET + 4);
@@ -270,7 +269,7 @@ static bool attr_w gen_get_upcall_pointer(struct codegen_context *ctx, unsigned 
 	gen_insn(INSN_MOV, op_size, 0, 0);
 	gen_one(reg);
 	gen_one(ARG_ADDRESS_1);
-	gen_one(R_OFFSET_IMM);
+	gen_one(R_TMP_A);
 	gen_eight(offset);
 
 	return true;

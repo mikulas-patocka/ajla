@@ -1102,7 +1102,7 @@ static unsigned alu_trap_purpose(unsigned alu)
 static bool attr_w gen_imm(struct codegen_context *ctx, int64_t imm, unsigned purpose, unsigned size);
 static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned offset, unsigned args, bool do_unspill);
 
-#if !defined(ARCH_X86)
+#if !defined(ARCH_M68K) && !defined(ARCH_X86)
 #define gen_address_offset()						\
 do {									\
 	if (likely(!ctx->offset_reg)) {					\
