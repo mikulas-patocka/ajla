@@ -531,7 +531,7 @@ invl:
 	internal(file_line, "cgen_lea: invalid arguments %02x %02x %02x", arg1[0], arg2[0], arg3[0]);
 }
 
-static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned alu)
+static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned writes_flags)
 {
 	uint16_t instr, instri;
 	uint8_t *arg1 = ctx->code_position;
@@ -539,6 +539,8 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 	uint8_t *arg3 = arg2 + arg_size(*arg2);
 	ctx->code_position = arg3 + arg_size(*arg3);
 	if (arg_size(*arg1) != arg_size(*arg2) || memcmp(arg1, arg2, arg_size(*arg1)) || arg2[0] == ARG_SHIFTED_REGISTER || arg3[0] == ARG_SHIFTED_REGISTER) {
+		if (writes_flags)
+			goto invl;
 		if (alu == ALU_ADD && size == OP_SIZE_4) {
 			g(cgen_lea(ctx, arg1, arg2, arg3));
 			return true;
@@ -602,7 +604,7 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 	g(cgen_two_op(ctx, size, instr, instri, arg1, arg3));
 	return true;
 invl:
-	internal(file_line, "cgen_alu: invalid arguments %u %u %02x %02x %02x", size, alu, arg1[0], arg2[0], arg3[0]);
+	internal(file_line, "cgen_alu: invalid arguments %u %u %u %02x %02x %02x", size, alu, writes_flags, arg1[0], arg2[0], arg3[0]);
 }
 
 static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigned alu)
@@ -858,12 +860,12 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		case INSN_ALU:
 			if (unlikely(insn_op_size(insn) < OP_SIZE_4))
 				goto invalid_insn;
-			g(cgen_alu(ctx, insn_op_size(insn), insn_aux(insn)));
+			g(cgen_alu(ctx, insn_op_size(insn), insn_aux(insn), insn_writes_flags(insn)));
 			return true;
 		case INSN_ALU_PARTIAL:
 			if (unlikely(insn_op_size(insn) >= OP_SIZE_4))
 				goto invalid_insn;
-			g(cgen_alu(ctx, insn_op_size(insn), insn_aux(insn)));
+			g(cgen_alu(ctx, insn_op_size(insn), insn_aux(insn), insn_writes_flags(insn)));
 			return true;
 		case INSN_ALU1:
 			if (unlikely(insn_op_size(insn) < OP_SIZE_4))

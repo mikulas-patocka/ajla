@@ -23,14 +23,14 @@
 
 #define UNALIGNED_TRAP			0
 
-#define ALU_WRITES_FLAGS(size, alu, is_mem, is_imm, imm)	1
+#define ALU_WRITES_FLAGS(size, alu, is_mem, is_imm, imm)	((alu) == ALU_ADD && (size) == OP_SIZE_4 ? 0 : 1)
 #define ALU1_WRITES_FLAGS(alu)		1
 #define ROT_WRITES_FLAGS(alu, size, im)	1
 #define COND_IS_LOGICAL(cond)		0
 
 #define ARCH_PARTIAL_ALU(size)		((size) <= OP_SIZE_2)
-#define ARCH_IS_3ADDRESS(alu, f)	((alu) == ALU_ADD)
-#define ARCH_IS_3ADDRESS_IMM(alu, f)	((alu) == ALU_ADD)
+#define ARCH_IS_3ADDRESS(alu, f)	((alu) == ALU_ADD && !(f))
+#define ARCH_IS_3ADDRESS_IMM(alu, f)	((alu) == ALU_ADD && !(f))
 #define ARCH_IS_3ADDRESS_ROT(alu, size)	0
 #define ARCH_IS_3ADDRESS_ROT_IMM(alu)	0
 #define ARCH_IS_2ADDRESS(alu)		0
@@ -40,7 +40,7 @@
 #define ARCH_HAS_DELAY_SLOTS(insn)	0
 #define ARCH_HAS_FUSED_MEMORY_ACCESSES	0
 #define ARCH_HAS_FLAGS			1
-#define ARCH_PREFERS_SX(size)		0
+#define ARCH_PREFERS_SX(size)		1
 #define ARCH_HAS_BWX			1
 #define ARCH_HAS_MUL			1
 #define ARCH_HAS_DIV			0	/* !!! TODO */
@@ -126,8 +126,7 @@ static bool reg_is_fp(unsigned reg)
 #define ARG_SPACE			16
 #define ARG_OFFSET			((6 + 5 + 1) * 4)
 
-static const uint8_t regs_saved[] = { 0 };
-#define n_regs_saved 0U
+static const uint8_t regs_saved[] = { RD4, RD5, RD6, RD7 };
 static const uint8_t regs_volatile[] = { 0 };
 #define n_regs_volatile 0U
 static const uint8_t fp_saved[] = { 0 };
