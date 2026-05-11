@@ -386,7 +386,7 @@ copied:
 
 static int allocate_register(unsigned *index_saved, unsigned *index_volatile, unsigned *index_fp_saved, unsigned *index_fp_volatile, unsigned attr_unused *index_vector_volatile, const struct type *t)
 {
-	if (!ARCH_HAS_BWX && t->size < 1U << OP_SIZE_4)
+	if (!ARCH_HAS_BWX && (t->size && t->size < 1U << OP_SIZE_4))
 		return -1;
 	if (TYPE_TAG_IS_FIXED(t->tag) || TYPE_TAG_IS_INT(t->tag) || t->tag == TYPE_TAG_flat_option || t->tag == TYPE_TAG_unknown || t->tag == TYPE_TAG_record) {
 		if (TYPE_TAG_IS_BUILTIN(t->tag)) {
