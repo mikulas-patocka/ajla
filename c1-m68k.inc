@@ -138,12 +138,12 @@ static const uint8_t fp_volatile[] = { 0 };
 
 #define reg_is_saved(r) (((r) >= RD2 && (r) <= RD7) || ((r) >= RA2 && (r) <= RSP) || ((r) >= RFP2 && (r) <= RFP7))
 
-static bool attr_w imm_is_8bit(int32_t imm)
+static bool imm_is_8bit(int32_t imm)
 {
 	return imm >= -0x80 && imm < 0x80;
 }
 
-static bool attr_w imm_is_16bit(int32_t imm)
+static bool imm_is_16bit(int32_t imm)
 {
 	return imm >= -0x8000 && imm < 0x8000;
 }
@@ -162,10 +162,6 @@ static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int32
 	ctx->base_reg = base;
 	ctx->offset_imm = imm;
 	ctx->offset_reg = false;
-	if (imm_is_16bit(imm))
-		return true;
-	g(gen_load_constant(ctx, R_OFFSET_IMM, imm));
-	ctx->offset_reg = true;
 	return true;
 }
 

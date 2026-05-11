@@ -29,8 +29,14 @@
 #define M68K_ADDR_PC_D8_X	0x003b
 #define M68K_ADDR_IMM		0x003c
 
-#define M68K_BEW_DA		0x8000
-#define M68K_BEW_WL		0x0800
+#define M68K_EW_BD_N		0x0010
+#define M68K_EW_BD_W		0x0020
+#define M68K_EW_BD_L		0x0030
+#define M68K_EW_IS		0x0040
+#define M68K_EW_BS		0x0080
+#define M68K_EW_FULL		0x0100
+#define M68K_EW_WL		0x0800
+#define M68K_EW_DA		0x8000
 
 #define M68K_SIZE_B		0x0000
 #define M68K_SIZE_W		0x0040
@@ -231,7 +237,12 @@ static bool attr_w cgen_operand(struct codegen_context *ctx, unsigned size, size
 				mc = M68K_ADDR_AA_D16 | (arg[1] & 7);
 			cgen_two(imm);
 		} else {
-			internal(file_line, "cgen_operand: invalid immediate %"PRIuMAX"", (uintmax_t)imm);
+			if (!R_IS_A(arg[1]))
+				mc = M68K_ADDR_AA_D8_X | (R_TMP_A & 7);
+			else
+				mc = M68K_ADDR_AA_D8_X | (arg[1] & 7);
+			cgen_two(M68K_EW_FULL | M68K_EW_IS | M68K_EW_BD_L);
+			cgen_four(imm);
 		}
 	} else if (arg[0] == ARG_ADDRESS_1_PRE_I) {
 		imm = get_imm(&arg[2]);
@@ -251,20 +262,28 @@ static bool attr_w cgen_operand(struct codegen_context *ctx, unsigned size, size
 			mc = M68K_ADDR_AA_I | (arg[1] & 7);
 	} else if (arg[0] >= ARG_ADDRESS_2 && arg[0] <= ARG_ADDRESS_2_8) {
 		unsigned shift = arg[0] - ARG_ADDRESS_2;
-		uint16_t bew;
+		uint16_t ew;
 		imm = get_imm(&arg[3]);
-		if (imm < -0x80 || imm >= 0x80)
-			internal(file_line, "cgen_operand: invalid immediate %"PRIuMAX"", (uintmax_t)imm);
 		if (!R_IS_A(arg[1]))
 			mc = M68K_ADDR_AA_D8_X | (R_TMP_A & 7);
 		else
 			mc = M68K_ADDR_AA_D8_X | (arg[1] & 7);
-		bew = M68K_BEW_WL;
-		bew |= R_IS_A(arg[2]) ? M68K_BEW_DA : 0;
-		bew |= (arg[2] & 7) << 12;
-		bew |= shift << 9;
-		bew |= imm & 0xff;
-		cgen_two(bew);
+		ew = M68K_EW_WL;
+		ew |= R_IS_A(arg[2]) ? M68K_EW_DA : 0;
+		ew |= (arg[2] & 7) << 12;
+		ew |= shift << 9;
+		if (imm_is_8bit(imm)) {
+			ew |= imm & 0xff;
+			cgen_two(ew);
+		} else if (imm_is_16bit(imm)) {
+			ew |= M68K_EW_FULL | M68K_EW_BD_W;
+			cgen_two(ew);
+			cgen_two(imm);
+		} else {
+			ew |= M68K_EW_FULL | M68K_EW_BD_L;
+			cgen_two(ew);
+			cgen_four(imm);
+		}
 	} else if (arg[0] == ARG_IMM) {
 		imm = get_imm(&arg[1]);
 		mc = M68K_ADDR_IMM;
@@ -431,7 +450,7 @@ static bool attr_w cgen_test(struct codegen_context *ctx, unsigned size)
 
 static bool attr_w cgen_lea(struct codegen_context *ctx, uint8_t *arg1, uint8_t *arg2, uint8_t *arg3)
 {
-	uint16_t mc, bew;
+	uint16_t mc, ew;
 	uint8_t reg1, reg2, reg3;
 	unsigned shift;
 
@@ -486,11 +505,11 @@ static bool attr_w cgen_lea(struct codegen_context *ctx, uint8_t *arg1, uint8_t 
 	mc |= reg2 & 7;
 	mc |= (reg1 & 7) << 9;
 	cgen_two(mc);
-	bew = M68K_BEW_WL;
-	bew |= R_IS_A(reg3) ? M68K_BEW_DA : 0;
-	bew |= (reg3 & 7) << 12;
-	bew |= shift << 9;
-	cgen_two(bew);
+	ew = M68K_EW_WL;
+	ew |= R_IS_A(reg3) ? M68K_EW_DA : 0;
+	ew |= (reg3 & 7) << 12;
+	ew |= shift << 9;
+	cgen_two(ew);
 
 instr_done:
 	if (reg1 == R_TMP_A)
