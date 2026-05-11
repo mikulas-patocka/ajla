@@ -2511,6 +2511,10 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 			g(gen_scaled_array_load(ctx, reg1, reg2, data_array_offset, slot_r));
 			goto skip_slice;
 		}
+
+		if (!(ARCH_HAS_CMOV & 0x1f))
+			g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SCRATCH_1, reg1));
+
 		g(gen_compare_ptr_tag(ctx, reg1, DATA_TAG_array_slice, COND_A, escape_label, R_SCRATCH_4, subtract, ARCH_HAS_FLAGS));
 		if (need_check_array_len)
 			g(gen_check_array_len(ctx, reg1, false, reg2, COND_AE, true, escape_label));
@@ -2582,8 +2586,6 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 				gen_one(R_SCRATCH_3);
 			}
 		} else {
-			g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SCRATCH_1, reg1));
-
 			label = alloc_label(ctx);
 			if (unlikely(!label))
 				return false;
