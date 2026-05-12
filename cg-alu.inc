@@ -922,7 +922,10 @@ do_divide: {
 			g(gen_alu_typed_upcall(ctx, upcall, op_size, slot_1, slot_2, NO_FRAME_T, slot_r, mode == MODE_INT ? label_ovf : 0));
 			return true;
 		}
-#if defined(ARCH_X86) || defined(ARCH_S390)
+#if defined(ARCH_M68K) || defined(ARCH_S390) || defined(ARCH_X86)
+#if defined(ARCH_M68K)
+		div_op_size = OP_SIZE_4;
+#endif
 		if (mode == MODE_FIXED) {
 			label_skip = alloc_label(ctx);
 			if (unlikely(!label_skip))
@@ -943,7 +946,7 @@ do_divide: {
 		g(gen_frame_load(ctx, op_size, sgn ? sign_x : zero_x, slot_1, 0, false, R_SCRATCH_1));
 		g(gen_frame_load(ctx, op_size, sgn ? sign_x : zero_x, slot_2, 0, false, R_SCRATCH_3));
 
-		g(gen_jmp_on_zero(ctx, i_size(op_size), R_SCRATCH_3, COND_E, mode == MODE_INT ? label_ovf : label_skip));
+		g(gen_jmp_on_zero(ctx, div_op_size, R_SCRATCH_3, COND_E, mode == MODE_INT ? label_ovf : label_skip));
 
 		if (sgn) {
 			uint64_t val;
@@ -974,24 +977,26 @@ do_divide: {
 		}
 		gen_insn(INSN_DIV_L, op_size, sgn, 1);
 		gen_one(R_SCRATCH_1);
-		gen_one(i_size(op_size) == OP_SIZE_1 ? R_SCRATCH_1 : R_SCRATCH_2);
+		gen_one(div_op_size == OP_SIZE_1 ? R_SCRATCH_1 : R_SCRATCH_2);
 		gen_one(R_SCRATCH_1);
-		gen_one(i_size(op_size) == OP_SIZE_1 ? R_SCRATCH_1 : R_SCRATCH_2);
+		gen_one(div_op_size == OP_SIZE_1 ? R_SCRATCH_1 : R_SCRATCH_2);
 		gen_one(R_SCRATCH_3);
 #else
+#if defined(ARCH_S390)
 		if (!sgn) {
 			g(gen_load_constant(ctx, R_SCRATCH_2, 0));
 		} else if (op_size <= OP_SIZE_4) {
 			g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, R_SCRATCH_2, R_SCRATCH_1, (1U << (OP_SIZE_NATIVE + 3)) - 1, 0));
 		}
-		gen_insn(INSN_DIV_L, i_size(op_size), sgn, 1);
+#endif
+		gen_insn(INSN_DIV_L, div_op_size, sgn, 1);
 		gen_one(R_SCRATCH_2);
 		gen_one(R_SCRATCH_1);
 		gen_one(R_SCRATCH_2);
 		gen_one(R_SCRATCH_1);
 		gen_one(R_SCRATCH_3);
 #endif
-		if (mod && i_size(op_size) == OP_SIZE_1) {
+		if (mod && div_op_size == OP_SIZE_1) {
 			g(gen_3address_rot_imm(ctx, OP_SIZE_2, ROT_SHR, R_SCRATCH_1, R_SCRATCH_1, 8, 0));
 			g(gen_frame_store(ctx, op_size, slot_r, 0, R_SCRATCH_1));
 		} else if (mod) {
