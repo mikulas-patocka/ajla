@@ -60,6 +60,7 @@ static bool attr_w gen_ptr_is_thunk(struct codegen_context *ctx, unsigned reg, f
 
 static bool attr_w gen_test_multiple_thunks(struct codegen_context *ctx, frame_t *variables, size_t n_variables, uint32_t label)
 {
+#if !defined(ARCH_M68K)
 	if (n_variables >= 2 && slot_is_register(ctx, variables[0]) && slot_is_register(ctx, variables[1])) {
 		g(gen_3address_alu(ctx, i_size(OP_SIZE_SLOT), ALU_OR, R_SCRATCH_1, ctx->registers[variables[0]], ctx->registers[variables[1]], 0));
 		variables += 2;
@@ -75,6 +76,7 @@ static bool attr_w gen_test_multiple_thunks(struct codegen_context *ctx, frame_t
 		g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, NO_FRAME_T, label));
 #endif
 	}
+#endif
 #if defined(ARCH_X86) || defined(ARCH_S390)
 	if (n_variables >= 2) {
 		g(gen_frame_load(ctx, OP_SIZE_SLOT, garbage, variables[0], 0, false, R_SCRATCH_1));

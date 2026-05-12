@@ -1294,6 +1294,7 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 	frame_t v;
 	unsigned index_saved = 0;
 	unsigned index_volatile = 0;
+	unsigned index_address = 0;
 	unsigned index_fp_saved = 0;
 	unsigned index_fp_volatile = 0;
 	unsigned index_vector_volatile = 0;
@@ -1312,7 +1313,7 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 		if (!da(ctx->fn,function)->local_variables_flags[v].must_be_flat &&
 		    !da(ctx->fn,function)->local_variables_flags[v].must_be_data)
 			continue;
-		reg = allocate_register(&index_saved, &index_volatile, &index_fp_saved, &index_fp_volatile, &index_vector_volatile, t);
+		reg = allocate_register(&index_saved, &index_volatile, &index_address, &index_fp_saved, &index_fp_volatile, &index_vector_volatile, t);
 		if (reg >= 0) {
 			ctx->registers[v] = reg;
 			if (!reg_is_saved(reg)) {

@@ -104,7 +104,7 @@ static bool reg_is_fp(unsigned reg)
 #define R_SCRATCH_4			RD3
 #define R_TMP_D				RD7
 
-#define R_TMP_A				RA1
+#define R_TMP_A				RA0
 #define R_SAVED_1			RA2
 #define R_SAVED_2			RA3
 #define R_FRAME				RA6
@@ -129,6 +129,7 @@ static bool reg_is_fp(unsigned reg)
 static const uint8_t regs_saved[] = { RD4, RD5, RD6, RD7 };
 static const uint8_t regs_volatile[] = { 0 };
 #define n_regs_volatile 0U
+static const uint8_t regs_address[] = { RA4, RA5, RA1 };
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved(real_type) 0U
 static const uint8_t fp_volatile[] = { 0 };
