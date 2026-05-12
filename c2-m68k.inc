@@ -101,6 +101,8 @@
 #define M68K_RTS	0x4e75
 #define M68K_JSR	0x4e80
 #define M68K_JMP	0x4ec0
+#define M68K_ADDQ	0x5000
+#define M68K_SUBQ	0x5100
 #define M68K_SETCC	0x50c0
 #define M68K_BCC	0x6000
 #define M68K_OR		0x8000
@@ -563,9 +565,19 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 		}
 		goto invl;
 	}
-	if (R_IS_A(arg1[0]) && arg3[0] == ARG_IMM && (alu == ALU_ADD || alu == ALU_SUB)) {
+	if (arg3[0] == ARG_IMM && (alu == ALU_ADD || alu == ALU_SUB)) {
 		int64_t imm = get_imm(&arg3[1]);
-		if (imm_is_16bit(imm)) {
+		if (imm >= 1 && imm <= 8) {
+			size_t instr_base;
+			uint16_t mc = alu == ALU_ADD ? M68K_ADDQ : M68K_SUBQ;
+			mc |= get_size(size, false);
+			mc |= (imm & 7) << 9;
+			instr_base = ctx->mcode_size;
+			cgen_two(mc);
+			g(cgen_operand(ctx, size, instr_base, 0, arg1));
+			return true;
+		}
+		if (R_IS_A(arg1[0]) && imm_is_16bit(imm)) {
 			g(cgen_lea(ctx, arg1, arg2, arg3, alu == ALU_SUB));
 			return true;
 		}
