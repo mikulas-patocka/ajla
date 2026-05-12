@@ -359,7 +359,7 @@ do_undo_opcode:
 					}
 					return true;
 				}
-#if defined(ARCH_S390) || defined(ARCH_X86)
+#if defined(ARCH_M68K) || defined(ARCH_S390) || defined(ARCH_X86)
 				else if (!frame_t_is_const(slot_2)) {
 					size_t m;
 					int64_t offset = (size_t)slot_2 * slot_size;
@@ -388,7 +388,7 @@ do_undo_opcode:
 				}
 #endif
 			}
-#if defined(ARCH_S390) || defined(ARCH_X86)
+#if defined(ARCH_M68K) || defined(ARCH_S390) || defined(ARCH_X86)
 			else {
 				unsigned reg2;
 				size_t m;
