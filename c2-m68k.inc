@@ -81,6 +81,7 @@
 #define M68K_EORI	0x0a00
 #define M68K_CMPI	0x0c00
 #define M68K_LEA	0x41c0
+#define M68K_CLR	0x4200
 #define M68K_NEG	0x4400
 #define M68K_NOT	0x4600
 #define M68K_MOVEM	0x4880
@@ -355,12 +356,25 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 	g(cgen_prepare_address(ctx, arg1));
 	g(cgen_prepare_address(ctx, arg2));
 
+	if (arg2[0] == ARG_IMM) {
+		int64_t imm = get_imm(&arg2[1]);
+		if (!imm && !R_IS_A(arg1[0])) {
+			mc = M68K_CLR;
+			mc |= get_size(R_IS_DA(arg1[0]) ? OP_SIZE_4 : size, false);
+			instr_base = ctx->mcode_size;
+			cgen_two(mc);
+			g(cgen_operand(ctx, size, instr_base, 0, arg1));
+			return true;
+		}
+	}
+
 	mc = M68K_MOVE;
 	mc |= get_move_size(size);
 	instr_base = ctx->mcode_size;
 	cgen_two(mc);
 	g(cgen_operand(ctx, size, instr_base, 0, arg2));
 	g(cgen_operand(ctx, size, instr_base, CGO_MOVE_DEST, arg1));
+
 	if (R_IS_A(arg1[0])) {
 		if (size != OP_SIZE_4)
 			internal(file_line, "cgen_mov: partial move to address register");
