@@ -105,6 +105,7 @@
 #define M68K_SUBQ	0x5100
 #define M68K_SETCC	0x50c0
 #define M68K_BCC	0x6000
+#define M68K_MOVEQ	0x7000
 #define M68K_OR		0x8000
 #define M68K_SUB	0x9000
 #define M68K_CMP	0xb000
@@ -366,6 +367,13 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 			instr_base = ctx->mcode_size;
 			cgen_two(mc);
 			g(cgen_operand(ctx, size, instr_base, 0, arg1));
+			return true;
+		}
+		if (imm_is_8bit(imm) && (size == OP_SIZE_4 || sx) && R_IS_D(arg1[0])) {
+			mc = M68K_MOVEQ;
+			mc |= (arg1[0] & 7) << 9;
+			mc |= imm & 255;
+			cgen_two(mc);
 			return true;
 		}
 	}
