@@ -1465,8 +1465,15 @@ shift_skip:
 do_generic_shift:
 		if (mode == MODE_INT && alu == ROT_SHL) {
 			target = gen_frame_target(ctx, slot_r, slot_1, slot_2, R_SCRATCH_1);
-#if defined(ARCH_S390)
-			if (op_size >= OP_SIZE_4) {
+#if defined(ARCH_M68K)
+			if (!c || (cnst >= 1 && cnst <= 8))
+#elif defined(ARCH_S390)
+			if (op_size >= OP_SIZE_4)
+#else
+			if (false)
+#endif
+
+			{
 				if (c)
 					g(gen_3address_rot_imm(ctx, op_size, ROT_SAL, target, reg1, cnst, 0));
 				else
@@ -1474,8 +1481,8 @@ do_generic_shift:
 
 				gen_insn(INSN_JMP_COND, op_size, COND_O, 0);
 				gen_label_ref(label_ovf);
-			} else
-#endif
+				goto write_rot_result;
+			}
 			if (op_size <= OP_SIZE_NATIVE - 1) {
 				if (c)
 					g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, alu, target, reg1, cnst, 0));
@@ -1505,7 +1512,7 @@ do_generic_shift:
 			else
 				g(gen_3address_rot(ctx, op_s, alu, target, reg1, reg3));
 		}
-
+write_rot_result:
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
 	}
