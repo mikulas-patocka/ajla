@@ -210,7 +210,7 @@ do_alu: {
 		}
 #endif
 		if (unlikely(op_size > OP_SIZE_NATIVE)) {
-#if !defined(ARCH_X86) && !defined(ARCH_ARM) && !defined(ARCH_PARISC) && !defined(ARCH_POWER) && !defined(ARCH_SPARC32)
+#if !defined(ARCH_ARM) && !defined(ARCH_M68K) && !defined(ARCH_PARISC) && !defined(ARCH_POWER) && !defined(ARCH_SPARC32) && !defined(ARCH_X86)
 			if (mode == MODE_FIXED) {
 				if (alu == ALU_ADD) {
 					g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(FIXED_binary_add_,TYPE_INT_MAX)), op_size, slot_1, slot_2, NO_FRAME_T, slot_r, 0));
@@ -1936,7 +1936,7 @@ do_alu: {
 		arch_use_flags = false;
 #endif
 		if (op_size > OP_SIZE_NATIVE) {
-#if !defined(ARCH_X86) && !defined(ARCH_ARM) && !defined(ARCH_POWER)
+#if !defined(ARCH_ARM) && !defined(ARCH_M68K) && !defined(ARCH_POWER) && !defined(ARCH_X86)
 			if (alu == ALU1_NEG) {
 				if (mode == MODE_FIXED)
 					g(gen_alu_upcall(ctx, offsetof(struct cg_upcall_vector_s, cat(FIXED_unary_neg_,TYPE_INT_MAX)), op_size, slot_1, NO_FRAME_T, NO_FRAME_T, slot_r, 0));

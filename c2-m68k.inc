@@ -80,6 +80,7 @@
 #define M68K_BSET_IMM	0x08c0
 #define M68K_EORI	0x0a00
 #define M68K_CMPI	0x0c00
+#define M68K_NEGX	0x4000
 #define M68K_LEA	0x41c0
 #define M68K_CLR	0x4200
 #define M68K_NEG	0x4400
@@ -108,6 +109,7 @@
 #define M68K_MOVEQ	0x7000
 #define M68K_OR		0x8000
 #define M68K_SUB	0x9000
+#define M68K_SUBX	0x9100
 #define M68K_CMP	0xb000
 #define M68K_EOR	0xb100
 #define M68K_AND	0xc000
@@ -115,13 +117,14 @@
 #define M68K_EXG_AA	0xc148
 #define M68K_EXG_DA	0xc188
 #define M68K_ADD	0xd000
+#define M68K_ADDX	0xd100
 #define M68K_ASR	0xe000
 #define M68K_LSR	0xe008
-#define M68K_RORX	0xe010
+#define M68K_ROXR	0xe010
 #define M68K_ROR	0xe018
 #define M68K_ASL	0xe100
 #define M68K_LSL	0xe108
-#define M68K_ROLX	0xe110
+#define M68K_ROXL	0xe110
 #define M68K_ROL	0xe118
 #define  M68K_ROT_R		0x0020
 
@@ -445,6 +448,22 @@ invl:
 	return false;
 }
 
+static bool attr_w cgen_adc_sbb(struct codegen_context *ctx, unsigned size, uint16_t instr, uint8_t *arg1, uint8_t *arg2)
+{
+	uint16_t mc;
+	if (!R_IS_D(arg1[0]) || !R_IS_D(arg2[0]))
+		goto invl;
+	mc = instr;
+	mc |= get_size(size, false);
+	mc |= (arg1[0] & 7) << 9;
+	mc |= arg2[0] & 7;
+	cgen_two(mc);
+	return true;
+invl:
+	internal(file_line, "cgen_adc_sbb: invalid arguments %04x %02x %02x", instr, arg1[0], arg2[0]);
+	return false;
+}
+
 static bool attr_w cgen_cmp(struct codegen_context *ctx, unsigned size)
 {
 	uint8_t *arg1 = ctx->code_position;
@@ -642,6 +661,8 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 		case ALU_AND:	instr = M68K_AND; instri = M68K_ANDI; break;
 		case ALU_OR:	instr = M68K_OR; instri = M68K_ORI; break;
 		case ALU_XOR:	instr = M68K_EOR; instri = M68K_EORI; break;
+		case ALU_ADC:	g(cgen_adc_sbb(ctx, size, M68K_ADDX, arg1, arg3)); return true;
+		case ALU_SBB:	g(cgen_adc_sbb(ctx, size, M68K_SUBX, arg1, arg3)); return true;
 		default:	goto invl;
 	}
 	g(cgen_two_op(ctx, size, instr, instri, arg1, arg3));
@@ -660,8 +681,9 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 	if (memcmp(arg1, arg2, arg_size(*arg1)))
 		internal(file_line, "cgen_alu1: operand mismatch");
 	switch (alu) {
-		case ALU1_NEG:	instr = M68K_NEG; break;
 		case ALU1_NOT:	instr = M68K_NOT; break;
+		case ALU1_NEG:	instr = M68K_NEG; break;
+		case ALU1_NGC:	instr = M68K_NEGX; break;
 		default:	internal(file_line, "cgen_alu1: invalid alu %u", alu);
 	}
 	if (R_IS_A(arg1[0]))
@@ -686,8 +708,8 @@ static bool attr_w cgen_rot(struct codegen_context *ctx, unsigned size, unsigned
 	switch (alu) {
 		case ROT_ROL:	instr = M68K_ROL; break;
 		case ROT_ROR:	instr = M68K_ROR; break;
-		case ROT_RCL:	instr = M68K_ROLX; break;
-		case ROT_RCR:	instr = M68K_RORX; break;
+		case ROT_RCL:	instr = M68K_ROXL; break;
+		case ROT_RCR:	instr = M68K_ROXR; break;
 		case ROT_SHL:	instr = M68K_LSL; break;
 		case ROT_SHR:	instr = M68K_LSR; break;
 		case ROT_SAL:	instr = M68K_ASL; break;
