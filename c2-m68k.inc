@@ -462,7 +462,7 @@ static bool attr_w cgen_test(struct codegen_context *ctx, unsigned size)
 	return true;
 }
 
-static bool attr_w cgen_lea(struct codegen_context *ctx, uint8_t *arg1, uint8_t *arg2, uint8_t *arg3)
+static bool attr_w cgen_lea(struct codegen_context *ctx, uint8_t *arg1, uint8_t *arg2, uint8_t *arg3, bool neg_imm)
 {
 	uint16_t mc, ew;
 	uint8_t reg1, reg2, reg3;
@@ -501,6 +501,8 @@ static bool attr_w cgen_lea(struct codegen_context *ctx, uint8_t *arg1, uint8_t 
 			goto invl;
 	} else if (arg3[0] == ARG_IMM) {
 		int64_t imm = get_imm(&arg3[1]);
+		if (neg_imm)
+			imm = -(uint64_t)imm;
 		if (imm_is_16bit(imm)) {
 			mc = M68K_LEA;
 			mc |= M68K_ADDR_AA_D16;
@@ -556,10 +558,17 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 		if (writes_flags)
 			goto invl;
 		if (alu == ALU_ADD && size == OP_SIZE_4) {
-			g(cgen_lea(ctx, arg1, arg2, arg3));
+			g(cgen_lea(ctx, arg1, arg2, arg3, false));
 			return true;
 		}
 		goto invl;
+	}
+	if (R_IS_A(arg1[0]) && arg3[0] == ARG_IMM && (alu == ALU_ADD || alu == ALU_SUB)) {
+		int64_t imm = get_imm(&arg3[1]);
+		if (imm_is_16bit(imm)) {
+			g(cgen_lea(ctx, arg1, arg2, arg3, alu == ALU_SUB));
+			return true;
+		}
 	}
 	if (alu == ALU_XOR && R_IS_D(arg1[0]) && (arg3[0] == ARG_ADDRESS_1 || arg3[0] == ARG_ADDRESS_2)) {
 		size_t instr_base;
