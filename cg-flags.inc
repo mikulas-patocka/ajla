@@ -331,10 +331,9 @@ static bool attr_w gen_test_1(struct codegen_context *ctx, unsigned base, frame_
 #elif defined(ARCH_M68K)
 	if (test == TEST) {
 		g(gen_address(ctx, base, offset + slot_1, IMM_PURPOSE_MVI_CLI_OFFSET, OP_SIZE_1));
-		gen_insn(INSN_BT, OP_SIZE_1, 0, 1);
+		gen_insn(INSN_TEST, OP_SIZE_1, 0, 1);
 		gen_address_offset();
-		gen_one(ARG_IMM);
-		gen_eight(0);
+		gen_address_offset();
 	} else {
 		g(gen_address(ctx, base, offset + slot_1, IMM_PURPOSE_MVI_CLI_OFFSET, OP_SIZE_1));
 		gen_insn(INSN_BTX, OP_SIZE_1, test == TEST_CLEAR ? BTX_BTR : BTX_BTS, 1);
