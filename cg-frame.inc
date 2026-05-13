@@ -1022,10 +1022,10 @@ do_explicit_copy:
 #endif
 	if (size >> step_bits <= INLINE_COPY_STEPS) {
 		while (size) {
-			unsigned reg;
+			unsigned attr_unused reg;
 			unsigned this_step;
 			unsigned this_op_size;
-			bool x86_unaligned = false;
+			bool attr_unused x86_unaligned = false;
 #if defined(ARCH_ARM)
 #if defined(ARCH_ARM64)
 			if (size >= 2U << OP_SIZE_16 && cpu_test_feature(CPU_FEATURE_neon)) {
@@ -1109,6 +1109,15 @@ do_explicit_copy:
 				this_step = minimum(this_step, align);
 			this_op_size = log_2(this_step);
 
+#if defined(ARCH_M68K)
+			gen_insn(INSN_MOV, this_op_size, 0, 0);
+			gen_one(ARG_ADDRESS_1);
+			gen_one(dest_base);
+			gen_eight(dest_offset);
+			gen_one(ARG_ADDRESS_1);
+			gen_one(src_base);
+			gen_eight(src_offset);
+#else
 			g(gen_address(ctx, src_base, src_offset, ARCH_PREFERS_SX(this_op_size) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, this_op_size));
 			gen_insn(ARCH_PREFERS_SX(this_op_size) ? INSN_MOVSX : INSN_MOV, this_op_size, x86_unaligned, 0);
 			gen_one(reg);
@@ -1118,7 +1127,7 @@ do_explicit_copy:
 			gen_insn(INSN_MOV, this_op_size, x86_unaligned, 0);
 			gen_address_offset();
 			gen_one(reg);
-
+#endif
 			size -= this_step;
 			src_offset += this_step;
 			dest_offset += this_step;
