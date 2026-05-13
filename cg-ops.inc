@@ -650,7 +650,7 @@ skip_ref_argument:
 	g(gen_barrier(ctx));
 
 	gen_pointer_compression(R_SCRATCH_1);
-#if (defined(ARCH_X86) && !defined(ARCH_X86_X32)) || defined(ARCH_ARM32)
+#if defined(ARCH_ARM32) || defined(ARCH_M68K) || (defined(ARCH_X86) && !defined(ARCH_X86_X32))
 	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_base), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 	gen_address_offset_compressed();
@@ -726,7 +726,7 @@ static bool attr_w gen_jmp_indirect(struct codegen_context *ctx, unsigned reg1, 
 	reg1 = reg2;
 	reg2 = regx;
 #endif
-#if (defined(ARCH_X86) && !defined(ARCH_X86_X32))
+#if defined(ARCH_M68K) || (defined(ARCH_X86) && !defined(ARCH_X86_X32))
 	if (is_direct_offset(offset) && shift <= 3)
 		goto direct_jmp;
 #endif

@@ -169,6 +169,11 @@ static bool is_direct_const(int32_t attr_unused imm, unsigned attr_unused purpos
 	return true;
 }
 
+static bool is_direct_offset(int64_t attr_unused imm)
+{
+	return true;
+}
+
 static bool attr_w gen_entry(struct codegen_context *ctx)
 {
 	gen_insn(INSN_M68K_PUSH, OP_SIZE_4, 0, 0);

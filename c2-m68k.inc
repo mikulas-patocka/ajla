@@ -337,6 +337,7 @@ static bool attr_w cgen_m68k_push_pop(struct codegen_context *ctx, bool pop)
 
 static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, bool call)
 {
+	int64_t imm;
 	uint16_t mc, ew;
 	uint8_t reg;
 	uint8_t *arg1 = ctx->code_position;
@@ -354,7 +355,7 @@ static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, bool call)
 	} else if (R_IS_A(arg1[0])) {
 		reg = arg1[0];
 	} else if (arg1[0] == ARG_ADDRESS_1) {
-		int64_t imm = get_imm(&arg1[2]);
+		imm = get_imm(&arg1[2]);
 		if (R_IS_A(arg1[1])) {
 			mc = (call ? M68K_JSR : M68K_JMP) | M68K_ADDR_AA_D8_X | (arg1[1] & 7);
 			cgen_two(mc);
@@ -365,6 +366,7 @@ static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, bool call)
 			ew = M68K_EW_FULL | M68K_EW_BS | M68K_EW_WL | M68K_EW_I_PREIND_0;
 			ew |= (arg1[1] & 7) << 12;
 		}
+write_imm:
 		if (!imm) {
 			ew |= M68K_EW_BD_N;
 			cgen_two(ew);
@@ -378,6 +380,22 @@ static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, bool call)
 			cgen_four(imm);
 		}
 		return true;
+	} else if (arg1[0] >= ARG_ADDRESS_2 && arg1[0] <= ARG_ADDRESS_2_8) {
+		unsigned shift = arg1[0] - ARG_ADDRESS_2;
+		imm = get_imm(&arg1[3]);
+		if (!R_IS_A(arg1[1])) {
+			g(cgen_mov_da(ctx, R_TMP_A, arg1[1]));
+			reg = R_TMP_A;
+		} else {
+			reg = arg1[0];
+		}
+		mc = (call ? M68K_JSR : M68K_JMP) | M68K_ADDR_AA_D8_X | (reg & 7);
+		cgen_two(mc);
+		ew = M68K_EW_FULL | M68K_EW_WL | M68K_EW_I_PREIND_0;
+		ew |= R_IS_A(arg1[2]) ? M68K_EW_DA : 0;
+		ew |= (arg1[2] & 7) << 12;
+		ew |= shift << 9;
+		goto write_imm;
 	} else {
 		internal(file_line, "cgen_jmp_indirect: invalid register %02x", arg1[0]);
 	}

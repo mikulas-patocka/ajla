@@ -307,12 +307,12 @@ static const uint8_t fp_volatile[] = {
 
 #endif
 
-static bool attr_w imm_is_8bit(int64_t imm)
+static bool imm_is_8bit(int64_t imm)
 {
 	return imm >= -0x80 && imm < 0x80;
 }
 
-static bool attr_w is_direct_offset(int64_t attr_unused imm)
+static bool is_direct_offset(int64_t attr_unused imm)
 {
 #ifdef ARCH_X86_32
 	return true;
