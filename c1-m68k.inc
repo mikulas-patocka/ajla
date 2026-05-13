@@ -45,7 +45,7 @@
 #define ARCH_HAS_MUL			1
 #define ARCH_HAS_DIV			1
 #define ARCH_HAS_ANDN			0
-#define ARCH_HAS_2REG_M(st, fp, sh, im)	0
+#define ARCH_HAS_2REG_M(st, fp, sh, im)	1
 #define ARCH_HAS_BTX(btx, size, cnst)	0
 #define ARCH_HAS_SHIFTED_ADD(bits)	((bits) <= 3)
 #define ARCH_HAS_CMOV			0
