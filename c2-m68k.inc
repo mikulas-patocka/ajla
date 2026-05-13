@@ -32,11 +32,21 @@
 #define M68K_EW_BD_N		0x0010
 #define M68K_EW_BD_W		0x0020
 #define M68K_EW_BD_L		0x0030
-#define M68K_EW_IS		0x0040
 #define M68K_EW_BS		0x0080
 #define M68K_EW_FULL		0x0100
 #define M68K_EW_WL		0x0800
 #define M68K_EW_DA		0x8000
+#define M68K_EW_S_NO_IND	0x0000
+#define M68K_EW_S_PREIND_0	0x0001
+#define M68K_EW_S_PREIND_1	0x0002
+#define M68K_EW_S_PREIND_2	0x0003
+#define M68K_EW_S_POSTIND_0	0x0005
+#define M68K_EW_S_POSTIND_1	0x0006
+#define M68K_EW_S_POSTIND_2	0x0007
+#define M68K_EW_IS_NO_IND	0x0040
+#define M68K_EW_IS_IND_0	0x0041
+#define M68K_EW_IS_IND_1	0x0042
+#define M68K_EW_IS_IND_2	0x0043
 
 #define M68K_SIZE_B		0x0000
 #define M68K_SIZE_W		0x0040
@@ -248,7 +258,7 @@ static bool attr_w cgen_operand(struct codegen_context *ctx, unsigned size, size
 				mc = M68K_ADDR_AA_D8_X | (R_TMP_A & 7);
 			else
 				mc = M68K_ADDR_AA_D8_X | (arg[1] & 7);
-			cgen_two(M68K_EW_FULL | M68K_EW_IS | M68K_EW_BD_L);
+			cgen_two(M68K_EW_FULL | M68K_EW_IS_NO_IND | M68K_EW_BD_L);
 			cgen_four(imm);
 		}
 	} else if (arg[0] == ARG_ADDRESS_1_PRE_I) {
@@ -283,11 +293,11 @@ static bool attr_w cgen_operand(struct codegen_context *ctx, unsigned size, size
 			ew |= imm & 0xff;
 			cgen_two(ew);
 		} else if (imm_is_16bit(imm)) {
-			ew |= M68K_EW_FULL | M68K_EW_BD_W;
+			ew |= M68K_EW_FULL | M68K_EW_FULL | M68K_EW_S_NO_IND | M68K_EW_BD_W;
 			cgen_two(ew);
 			cgen_two(imm);
 		} else {
-			ew |= M68K_EW_FULL | M68K_EW_BD_L;
+			ew |= M68K_EW_FULL | M68K_EW_FULL | M68K_EW_S_NO_IND | M68K_EW_BD_L;
 			cgen_two(ew);
 			cgen_four(imm);
 		}
@@ -546,7 +556,7 @@ static bool attr_w cgen_lea(struct codegen_context *ctx, uint8_t *arg1, uint8_t 
 			mc |= reg2 & 7;
 			mc |= (reg1 & 7) << 9;
 			cgen_two(mc);
-			cgen_two(M68K_EW_FULL | M68K_EW_IS | M68K_EW_BD_L);
+			cgen_two(M68K_EW_FULL | M68K_EW_IS_NO_IND | M68K_EW_BD_L);
 			cgen_four(imm);
 			goto instr_done;
 		}
