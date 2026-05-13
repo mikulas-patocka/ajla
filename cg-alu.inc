@@ -1696,7 +1696,13 @@ do_bt: {
 			reg2 = R_SCRATCH_2;
 		}
 		if (alu == BTX_BT) {
-#if defined(ARCH_X86)
+#if defined(ARCH_M68K)
+			gen_insn(INSN_BT, OP_SIZE_4, 0, 1);
+			gen_one(reg1);
+			gen_one(reg2);
+
+			g(gen_frame_set_cond(ctx, OP_SIZE_4, false, COND_NE, slot_r));
+#elif defined(ARCH_X86)
 			gen_insn(INSN_BT, maximum(op_size, OP_SIZE_2), 0, 1);
 			gen_one(reg1);
 			gen_one(reg2);
@@ -1713,13 +1719,15 @@ do_bt: {
 #endif
 		} else {
 			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, slot_2, R_SCRATCH_1);
-#if defined(ARCH_X86)
+#if defined(ARCH_M68K) || defined(ARCH_X86)
 			if (target == reg2)
 				target = R_SCRATCH_1;
 			if (target != reg1) {
 				g(gen_mov(ctx, op_size, target, reg1));
 				reg1 = target;
 			}
+#endif
+#if defined(ARCH_X86)
 			gen_insn(INSN_BTX, maximum(op_size, OP_SIZE_2), alu, 1);
 #else
 			gen_insn(INSN_BTX, need_mask ? OP_SIZE_NATIVE : op_size, alu, 0);

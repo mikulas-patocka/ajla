@@ -830,6 +830,32 @@ invl:
 	return false;
 }
 
+static bool attr_w cgen_div_l(struct codegen_context *ctx, bool sgn)
+{
+	size_t instr_base;
+	uint16_t mc;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	uint8_t *arg4 = arg3 + arg_size(*arg3);
+	uint8_t *arg5 = arg4 + arg_size(*arg4);
+	ctx->code_position = arg5 + arg_size(*arg5);
+	if (arg1[0] != arg3[0] || arg2[0] != arg4[0] || !R_IS_D(arg1[0]) || !R_IS_D(arg2[0]))
+		goto invl;
+	mc = M68K_DIV_L;
+	instr_base = ctx->mcode_size;
+	cgen_two(mc);
+	mc = sgn ? M68K_DIV_L_S : 0;
+	mc |= (arg2[0] & 7) << 12;
+	mc |= arg1[0] & 7;
+	cgen_two(mc);
+	g(cgen_operand(ctx, OP_SIZE_4, instr_base, 0, arg5));
+	return true;
+invl:
+	internal(file_line, "cgen_div_l: invalid arguments %02x %02x %02x %02x %02x", arg1[0], arg2[0], arg3[0], arg4[0], arg5[0]);
+	return false;
+}
+
 static bool attr_w cgen_btxt(struct codegen_context *ctx, unsigned size, uint8_t bt, uint8_t *arg1, uint8_t *arg2)
 {
 	size_t instr_base;
@@ -876,32 +902,6 @@ static bool attr_w cgen_btxt(struct codegen_context *ctx, unsigned size, uint8_t
 	return true;
 invl:
 	internal(file_line, "cgen_btxt: invalid arguments %u %u %02x %02x", size, bt, arg1[0], arg2[0]);
-	return false;
-}
-
-static bool attr_w cgen_div_l(struct codegen_context *ctx, bool sgn)
-{
-	size_t instr_base;
-	uint16_t mc;
-	uint8_t *arg1 = ctx->code_position;
-	uint8_t *arg2 = arg1 + arg_size(*arg1);
-	uint8_t *arg3 = arg2 + arg_size(*arg2);
-	uint8_t *arg4 = arg3 + arg_size(*arg3);
-	uint8_t *arg5 = arg4 + arg_size(*arg4);
-	ctx->code_position = arg5 + arg_size(*arg5);
-	if (arg1[0] != arg3[0] || arg2[0] != arg4[0] || !R_IS_D(arg1[0]) || !R_IS_D(arg2[0]))
-		goto invl;
-	mc = M68K_DIV_L;
-	instr_base = ctx->mcode_size;
-	cgen_two(mc);
-	mc = sgn ? M68K_DIV_L_S : 0;
-	mc |= (arg2[0] & 7) << 12;
-	mc |= arg1[0] & 7;
-	cgen_two(mc);
-	g(cgen_operand(ctx, OP_SIZE_4, instr_base, 0, arg5));
-	return true;
-invl:
-	internal(file_line, "cgen_div_l: invalid arguments %02x %02x %02x %02x %02x", arg1[0], arg2[0], arg3[0], arg4[0], arg5[0]);
 	return false;
 }
 
