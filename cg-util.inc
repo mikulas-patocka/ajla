@@ -917,7 +917,7 @@ static bool attr_w gen_cmp_extended(struct codegen_context *ctx, unsigned cmp_op
 
 static bool attr_w gen_lea3(struct codegen_context *ctx, unsigned dest, unsigned base, unsigned shifted, unsigned shift, int64_t offset)
 {
-#if defined(ARCH_X86)
+#if defined(ARCH_M68K) || defined(ARCH_X86)
 	if (unlikely(shift > 3))
 		goto skip_direct_shift;
 #endif
@@ -927,7 +927,7 @@ static bool attr_w gen_lea3(struct codegen_context *ctx, unsigned dest, unsigned
 		shift = 0;
 	}
 #endif
-#if defined(ARCH_X86) || defined(ARCH_S390)
+#if defined(ARCH_M68K) || defined(ARCH_S390) || defined(ARCH_X86)
 	gen_insn(INSN_LEA3, i_size(OP_SIZE_ADDRESS), shift, 0);
 	gen_one(dest);
 	gen_one(base);

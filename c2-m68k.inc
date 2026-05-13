@@ -749,6 +749,42 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 	return true;
 }
 
+static bool attr_w cgen_lea3(struct codegen_context *ctx, unsigned shift)
+{
+	size_t instr_base;
+	uint16_t mc;
+	uint8_t addr[11];
+
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	uint8_t *arg4 = arg3 + arg_size(*arg3);
+	ctx->code_position = arg4 + arg_size(*arg4);
+
+	if (unlikely(!R_IS_DA(arg1[0])) || unlikely(!R_IS_DA(arg2[0])) || unlikely(!R_IS_DA(arg3[0])) || unlikely(arg4[0] != ARG_IMM))
+		internal(file_line, "cgen_lea3: invalid arguments");
+
+	addr[0] = ARG_ADDRESS_2 + shift;
+	addr[1] = arg2[0];
+	addr[2] = arg3[0];
+	memcpy(&addr[3], &arg4[1], 8);
+
+	g(cgen_prepare_address(ctx, addr));
+
+	mc = M68K_LEA;
+	if (R_IS_A(arg1[0]))
+		mc |= (arg1[0] & 7) << 9;
+	else
+		mc |= (R_TMP_A & 7) << 9;
+	instr_base = ctx->mcode_size;
+	cgen_two(mc);
+	g(cgen_operand(ctx, OP_SIZE_4, instr_base, 0, addr));
+	if (!R_IS_A(arg1[0]))
+		g(cgen_mov_ad(ctx, arg1[0], R_TMP_A));
+
+	return true;
+}
+
 static bool attr_w cgen_rot(struct codegen_context *ctx, unsigned size, unsigned alu)
 {
 	uint16_t instr;
@@ -1021,6 +1057,11 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			if (unlikely(insn_op_size(insn) >= OP_SIZE_4))
 				goto invalid_insn;
 			g(cgen_alu1(ctx, insn_op_size(insn), insn_aux(insn)));
+			return true;
+		case INSN_LEA3:
+			if (unlikely(insn_op_size(insn) != OP_SIZE_4))
+				goto invalid_insn;
+			g(cgen_lea3(ctx, insn_aux(insn)));
 			return true;
 		case INSN_ROT:
 			if (unlikely(insn_op_size(insn) < OP_SIZE_4))
