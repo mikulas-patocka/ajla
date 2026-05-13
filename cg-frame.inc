@@ -135,6 +135,7 @@ crash:
 static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum extend ex, unsigned base, frame_t slot, int64_t offset, bool dual, unsigned reg)
 {
 	int64_t x_offset;
+	bool skip_extend = ex == garbage;
 	ajla_assert_lo(ex < max_x, (file_line, "gen_load_raw: invalid extension %u", (unsigned)ex));
 	if (frame_t_is_const(slot)) {
 		g(gen_load_constant(ctx, reg, get_constant(size, ex, slot, offset, dual)));
@@ -172,6 +173,17 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 	if (size == OP_SIZE_4 && !reg_is_fp(reg) && ex == zero_x) {
 		g(gen_load_raw(ctx, size, sign_x, base, slot, offset, false, reg));
 		g(gen_extend(ctx, size, ex, reg, reg));
+
+		return true;
+	}
+#endif
+#if defined(ARCH_M68K)
+	if (skip_extend && size < OP_SIZE_NATIVE) {
+		g(gen_address(ctx, base, x_offset, IMM_PURPOSE_LDR_OFFSET, size));
+		gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, size == OP_SIZE_1 ? MOV_MASK_0_8 : MOV_MASK_0_16, 0);
+		gen_one(reg);
+		gen_one(reg);
+		gen_address_offset();
 
 		return true;
 	}
@@ -220,7 +232,8 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 		gen_one(reg);
 		gen_address_offset();
 
-		g(gen_extend(ctx, size, ex, reg, reg));
+		if (!skip_extend)
+			g(gen_extend(ctx, size, ex, reg, reg));
 
 		return true;
 	}

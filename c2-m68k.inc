@@ -404,13 +404,10 @@ write_imm:
 	return true;
 }
 
-static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
+static bool attr_w cgen_moves(struct codegen_context *ctx, unsigned size, uint8_t *arg1, uint8_t *arg2, bool sx, bool partial)
 {
 	size_t instr_base;
 	uint16_t mc;
-	uint8_t *arg1 = ctx->code_position;
-	uint8_t *arg2 = arg1 + arg_size(*arg1);
-	ctx->code_position = arg2 + arg_size(*arg2);
 
 	g(cgen_prepare_address(ctx, arg1));
 	g(cgen_prepare_address(ctx, arg2));
@@ -425,7 +422,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 			g(cgen_operand(ctx, size, instr_base, 0, arg1));
 			return true;
 		}
-		if (imm_is_8bit(imm) && (size == OP_SIZE_4 || sx) && R_IS_D(arg1[0])) {
+		if (imm_is_8bit(imm) && !partial && (size == OP_SIZE_4 || sx) && R_IS_D(arg1[0])) {
 			mc = M68K_MOVEQ;
 			mc |= (arg1[0] & 7) << 9;
 			mc |= imm & 255;
@@ -443,9 +440,9 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 
 	if (R_IS_A(arg1[0])) {
 		if (size != OP_SIZE_4)
-			internal(file_line, "cgen_mov: partial move to address register");
+			internal(file_line, "cgen_moves: partial move to address register");
 	} else if (R_IS_D(arg1[0])) {
-		if (size < OP_SIZE_4) {
+		if (size < OP_SIZE_4 && !partial) {
 			if (!sx) {
 				mc = M68K_ANDI | get_size(OP_SIZE_4, false) | M68K_ADDR_D | (arg1[0] & 7);
 				cgen_two(mc);
@@ -456,6 +453,17 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 			}
 		}
 	}
+	return true;
+}
+
+static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
+{
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+
+	g(cgen_moves(ctx, size, arg1, arg2, sx, false));
+
 	return true;
 }
 
@@ -958,6 +966,20 @@ static bool attr_w cgen_set_cond(struct codegen_context *ctx, unsigned cond, boo
 	return true;
 }
 
+static bool attr_w cgen_mov_mask(struct codegen_context *ctx, unsigned size)
+{
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	ctx->code_position = arg3 + arg_size(*arg3);
+	if (memcmp(arg1, arg2, arg_size(*arg1)))
+		internal(file_line, "cgen_mov_mask: operand mismatch");
+
+	g(cgen_moves(ctx, size, arg1, arg3, false, true));
+
+	return true;
+}
+
 static bool attr_w cgen_jmp(struct codegen_context *ctx, unsigned cond, unsigned jump_size)
 {
 	uint16_t mc;
@@ -1087,6 +1109,16 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			if (unlikely(insn_op_size(insn) != OP_SIZE_1))
 				goto invalid_insn;
 			g(cgen_set_cond(ctx, insn_aux(insn), insn_opcode(insn) == INSN_SET_COND_PARTIAL));
+			return true;
+		case INSN_MOV_MASK:
+			if (unlikely(insn_op_size(insn) != OP_SIZE_4))
+				goto invalid_insn;
+			if (insn_aux(insn) == MOV_MASK_0_8)
+				g(cgen_mov_mask(ctx, OP_SIZE_1));
+			else if (insn_aux(insn) == MOV_MASK_0_16)
+				g(cgen_mov_mask(ctx, OP_SIZE_2));
+			else
+				goto invalid_insn;
 			return true;
 		case INSN_JMP:
 			g(cgen_jmp(ctx, COND_ALWAYS, insn_jump_size(insn)));
