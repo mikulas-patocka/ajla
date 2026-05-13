@@ -185,14 +185,10 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(RSP);
 	gen_eight(ARG_SPACE + ARG_OFFSET);
 
-	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
-	gen_one(R_SAVED_1);
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(RSP);
 	gen_eight(ARG_SPACE + ARG_OFFSET + 12);
-
-	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
-	gen_one(R_SAVED_1);
 
 	return true;
 }
@@ -244,14 +240,10 @@ static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsi
 	gen_one(RSP);
 	gen_eight(ARG_SPACE + ARG_OFFSET + 4);
 
-	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
-	gen_one(R_TMP_A);
+	gen_insn(INSN_CALL_INDIRECT, OP_SIZE_4, 0, 0);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_TMP_A);
 	gen_eight(offset);
-
-	gen_insn(INSN_CALL_INDIRECT, OP_SIZE_4, 0, 0);
-	gen_one(R_TMP_A);
 
 	g(gen_upcall_end(ctx, offset, n_args, unspill));
 

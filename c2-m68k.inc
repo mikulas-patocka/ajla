@@ -36,13 +36,13 @@
 #define M68K_EW_FULL		0x0100
 #define M68K_EW_WL		0x0800
 #define M68K_EW_DA		0x8000
-#define M68K_EW_S_NO_IND	0x0000
-#define M68K_EW_S_PREIND_0	0x0001
-#define M68K_EW_S_PREIND_1	0x0002
-#define M68K_EW_S_PREIND_2	0x0003
-#define M68K_EW_S_POSTIND_0	0x0005
-#define M68K_EW_S_POSTIND_1	0x0006
-#define M68K_EW_S_POSTIND_2	0x0007
+#define M68K_EW_I_NO_IND	0x0000
+#define M68K_EW_I_PREIND_0	0x0001
+#define M68K_EW_I_PREIND_1	0x0002
+#define M68K_EW_I_PREIND_2	0x0003
+#define M68K_EW_I_POSTIND_0	0x0005
+#define M68K_EW_I_POSTIND_1	0x0006
+#define M68K_EW_I_POSTIND_2	0x0007
 #define M68K_EW_IS_NO_IND	0x0040
 #define M68K_EW_IS_IND_0	0x0041
 #define M68K_EW_IS_IND_1	0x0042
@@ -293,11 +293,11 @@ static bool attr_w cgen_operand(struct codegen_context *ctx, unsigned size, size
 			ew |= imm & 0xff;
 			cgen_two(ew);
 		} else if (imm_is_16bit(imm)) {
-			ew |= M68K_EW_FULL | M68K_EW_FULL | M68K_EW_S_NO_IND | M68K_EW_BD_W;
+			ew |= M68K_EW_FULL | M68K_EW_I_NO_IND | M68K_EW_BD_W;
 			cgen_two(ew);
 			cgen_two(imm);
 		} else {
-			ew |= M68K_EW_FULL | M68K_EW_FULL | M68K_EW_S_NO_IND | M68K_EW_BD_L;
+			ew |= M68K_EW_FULL | M68K_EW_I_NO_IND | M68K_EW_BD_L;
 			cgen_two(ew);
 			cgen_four(imm);
 		}
@@ -337,7 +337,7 @@ static bool attr_w cgen_m68k_push_pop(struct codegen_context *ctx, bool pop)
 
 static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, bool call)
 {
-	uint16_t mc;
+	uint16_t mc, ew;
 	uint8_t reg;
 	uint8_t *arg1 = ctx->code_position;
 	ctx->code_position = arg1 + arg_size(*arg1);
@@ -353,6 +353,31 @@ static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, bool call)
 		reg = R_TMP_A;
 	} else if (R_IS_A(arg1[0])) {
 		reg = arg1[0];
+	} else if (arg1[0] == ARG_ADDRESS_1) {
+		int64_t imm = get_imm(&arg1[2]);
+		if (R_IS_A(arg1[1])) {
+			mc = (call ? M68K_JSR : M68K_JMP) | M68K_ADDR_AA_D8_X | (arg1[1] & 7);
+			cgen_two(mc);
+			ew = M68K_EW_FULL | M68K_EW_WL | M68K_EW_IS_IND_0;
+		} else {
+			mc = (call ? M68K_JSR : M68K_JMP) | M68K_ADDR_AA_D8_X;
+			cgen_two(mc);
+			ew = M68K_EW_FULL | M68K_EW_BS | M68K_EW_WL | M68K_EW_I_PREIND_0;
+			ew |= (arg1[1] & 7) << 12;
+		}
+		if (!imm) {
+			ew |= M68K_EW_BD_N;
+			cgen_two(ew);
+		} else if (imm_is_16bit(imm)) {
+			ew |= M68K_EW_BD_W;
+			cgen_two(ew);
+			cgen_two(imm);
+		} else {
+			ew |= M68K_EW_BD_L;
+			cgen_two(ew);
+			cgen_four(imm);
+		}
+		return true;
 	} else {
 		internal(file_line, "cgen_jmp_indirect: invalid register %02x", arg1[0]);
 	}
