@@ -629,7 +629,7 @@ static bool attr_w cgen_lea(struct codegen_context *ctx, uint8_t *arg1, uint8_t 
 	cgen_two(ew);
 
 instr_done:
-	if (reg1 == R_TMP_A)
+	if (reg1 == R_TMP_A && arg1[0] != R_TMP_A)
 		g(cgen_mov_ad(ctx, arg1[0], R_TMP_A));
 
 	return true;
