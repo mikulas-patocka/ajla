@@ -216,6 +216,8 @@ static bool attr_w gen_compare_refcount(struct codegen_context *ctx, unsigned pt
 
 static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg, unsigned tag, unsigned cond, uint32_t label, unsigned tmp_reg, bool subtract, bool need_flags)
 {
+	size_t attr_unused offset;
+	unsigned op_size = log_2(sizeof(tag_t));
 	if (subtract
 #if defined(ARCH_S390)
 		|| 1
@@ -230,7 +232,7 @@ static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg
 #if defined(DATA_TAG_AT_ALLOC)
 	g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHR, tmp_reg, reg, POINTER_IGNORE_START, 0));
 #elif defined(REFCOUNT_TAG)
-	size_t offset = offsetof(struct data, refcount_);
+	offset = offsetof(struct data, refcount_);
 #if defined(C_BIG_ENDIAN)
 	offset += sizeof(refcount_int_t) - 1;
 #endif
@@ -268,15 +270,15 @@ static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg
 		g(gen_3address_alu_imm(ctx, log_2(sizeof(refcount_int_t)), ALU_AND, tmp_reg, tmp_reg, REFCOUNT_STEP - 1, 0));
 	}
 #else
-	g(gen_load_raw(ctx, log_2(sizeof(tag_t)), native, reg, 0, offsetof(struct data, tag), false, tmp_reg));
+	g(gen_load_raw(ctx, op_size, i_size_cmp(op_size) == op_size ? garbage : native, reg, 0, offsetof(struct data, tag), false, tmp_reg));
 #endif
 	if (!subtract && !need_flags && !tag && (cond == COND_E || cond == COND_NE)) {
-		g(gen_jmp_on_zero(ctx, i_size(OP_SIZE_4), tmp_reg, cond, label));
+		g(gen_jmp_on_zero(ctx, i_size_cmp(op_size), tmp_reg, cond, label));
 	} else if (!subtract) {
-		g(gen_cmp_test_imm_jmp_q_flags(ctx, INSN_CMP, i_size(OP_SIZE_4), tmp_reg, tag, cond, label, -1, need_flags));
+		g(gen_cmp_test_imm_jmp_q_flags(ctx, INSN_CMP, i_size_cmp(op_size), tmp_reg, tag, cond, label, -1, need_flags));
 	} else {
-		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_4), ALU_SUB, tmp_reg, tmp_reg, tag, 0));
-		g(gen_jmp_on_zero(ctx, i_size(OP_SIZE_4), tmp_reg, cond, label));
+		g(gen_3address_alu_imm(ctx, i_size_cmp(op_size), ALU_SUB, tmp_reg, tmp_reg, tag, 0));
+		g(gen_jmp_on_zero(ctx, i_size_cmp(op_size), tmp_reg, cond, label));
 	}
 	return true;
 }
