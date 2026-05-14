@@ -877,8 +877,10 @@ static bool attr_w cgen_rot(struct codegen_context *ctx, unsigned size, unsigned
 	ctx->code_position = arg3 + arg_size(*arg3);
 	if (!R_IS_D(arg1[0]))
 		goto invl;
-	if (arg1[0] != arg2[0])
-		goto invl;
+	if (arg1[0] != arg2[0]) {
+		g(cgen_rot_bf(ctx, size, alu, arg1, arg2, arg3));
+		return true;
+	}
 	switch (alu) {
 		case ROT_ROL:	instr = M68K_ROL; break;
 		case ROT_ROR:	instr = M68K_ROR; break;

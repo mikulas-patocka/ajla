@@ -32,7 +32,7 @@
 #define ARCH_IS_3ADDRESS(alu, f)	((alu) == ALU_ADD && !(f))
 #define ARCH_IS_3ADDRESS_IMM(alu, f)	((alu) == ALU_ADD && !(f))
 #define ARCH_IS_3ADDRESS_ROT(alu, size)	0
-#define ARCH_IS_3ADDRESS_ROT_IMM(alu)	0
+#define ARCH_IS_3ADDRESS_ROT_IMM(alu)	((alu) == ROT_SHR || (alu) == ROT_SAR)
 #define ARCH_IS_2ADDRESS(alu)		((alu) == ALU1_LZCNT)
 #define ARCH_IS_3ADDRESS_FP		0
 #define ARCH_HAS_JMP_REG(cond)		0
