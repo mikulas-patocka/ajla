@@ -1183,7 +1183,7 @@ static bool attr_w gen_memcpy_to_slot(struct codegen_context *ctx, frame_t dest_
 	unsigned size = spill_size(t);
 	short dest_reg = ctx->registers[dest_slot];
 	if (dest_reg >= 0) {
-		g(gen_load_raw(ctx, size, native, src_base, 0, src_offset, false, dest_reg));
+		g(gen_load_raw(ctx, size, size == i_size(size) ? garbage : native, src_base, 0, src_offset, false, dest_reg));
 		return true;
 	}
 	g(gen_memcpy_raw(ctx, R_FRAME, (size_t)dest_slot * slot_size, src_base, src_offset, t->size, t->align));
