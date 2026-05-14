@@ -137,6 +137,14 @@
 #define M68K_ROXL	0xe110
 #define M68K_ROL	0xe118
 #define  M68K_ROT_R		0x0020
+#define M68K_BFTST	0xe8c0
+#define M68K_BFEXTU	0xe9c0
+#define M68K_BFCGH	0xeac0
+#define M68K_BFEXTS	0xebc0
+#define M68K_BFCLR	0xecc0
+#define M68K_BFFFO	0xedc0
+#define M68K_BFSET	0xeec0
+#define M68K_BFINS	0xefc0
 
 static uint16_t get_size(unsigned size, bool a)
 {
@@ -444,9 +452,17 @@ static bool attr_w cgen_moves(struct codegen_context *ctx, unsigned size, uint8_
 	} else if (R_IS_D(arg1[0])) {
 		if (size < OP_SIZE_4 && !partial) {
 			if (!sx) {
-				mc = M68K_ANDI | get_size(OP_SIZE_4, false) | M68K_ADDR_D | (arg1[0] & 7);
+				mc = M68K_BFEXTU | M68K_ADDR_D | (arg1[0] & 7);
 				cgen_two(mc);
-				cgen_four(size == OP_SIZE_1 ? 0xff : 0xffff);
+				mc = (arg1[0] & 7) << 12;
+				if (size == OP_SIZE_1) {
+					mc |= 24 << 6;
+					mc |= 8;
+				} else {
+					mc |= 16 << 6;
+					mc |= 16;
+				}
+				cgen_two(mc);
 			} else {
 				mc = (size == OP_SIZE_1 ? M68K_EXTBL : M68K_EXTL) | (arg1[0] & 7);
 				cgen_two(mc);
