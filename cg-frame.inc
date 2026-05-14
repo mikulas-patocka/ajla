@@ -177,8 +177,7 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 		return true;
 	}
 #endif
-#if defined(ARCH_M68K)
-	if (skip_extend && size < OP_SIZE_NATIVE) {
+	if (skip_extend && ARCH_PREFERS_MOV_MASK(size)) {
 		g(gen_address(ctx, base, x_offset, IMM_PURPOSE_LDR_OFFSET, size));
 		gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, size == OP_SIZE_1 ? MOV_MASK_0_8 : MOV_MASK_0_16, 0);
 		gen_one(reg);
@@ -187,7 +186,6 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 
 		return true;
 	}
-#endif
 #if defined(ARCH_MIPS)
 	if (reg_is_fp(reg) && size == OP_SIZE_8 && !MIPS_HAS_LS_DOUBLE) {
 #if defined(C_LITTLE_ENDIAN)
