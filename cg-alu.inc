@@ -1576,7 +1576,7 @@ do_bt: {
 			}
 			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_STR_OFFSET, maximum(n_op_size, OP_SIZE_2)));
 			if (alu == BTX_BT) {
-				gen_insn(INSN_BT, maximum(n_op_size, OP_SIZE_2), 0, 1);
+				gen_insn(INSN_BT, maximum(n_op_size, OP_SIZE_2), BTX_BT, 1);
 				gen_address_offset();
 				if (c) {
 					gen_one(ARG_IMM);
@@ -1697,13 +1697,13 @@ do_bt: {
 		}
 		if (alu == BTX_BT) {
 #if defined(ARCH_M68K)
-			gen_insn(INSN_BT, OP_SIZE_4, 0, 1);
+			gen_insn(INSN_BT, OP_SIZE_4, BTX_BT, 1);
 			gen_one(reg1);
 			gen_one(reg2);
 
 			g(gen_frame_set_cond(ctx, OP_SIZE_4, false, COND_NE, slot_r));
 #elif defined(ARCH_X86)
-			gen_insn(INSN_BT, maximum(op_size, OP_SIZE_2), 0, 1);
+			gen_insn(INSN_BT, maximum(op_size, OP_SIZE_2), BTX_BT, 1);
 			gen_one(reg1);
 			gen_one(reg2);
 
@@ -4393,7 +4393,7 @@ do_bt:	{
 				cnst -= 8U << OP_SIZE_NATIVE;
 			}
 			g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_STR_OFFSET, maximum(n_op_size, OP_SIZE_2)));
-			gen_insn(INSN_BT, maximum(n_op_size, OP_SIZE_2), 0, 1);
+			gen_insn(INSN_BT, maximum(n_op_size, OP_SIZE_2), BTX_BT, 1);
 			gen_address_offset();
 			if (c) {
 				gen_one(ARG_IMM);
@@ -4403,7 +4403,7 @@ do_bt:	{
 			}
 		} else {
 			g(gen_frame_get(ctx, n_op_size, garbage, slot_1, R_SCRATCH_1, &reg1));
-			gen_insn(INSN_BT, maximum(n_op_size, OP_SIZE_2), 0, 1);
+			gen_insn(INSN_BT, maximum(n_op_size, OP_SIZE_2), BTX_BT, 1);
 			gen_one(reg1);
 			if (c) {
 				gen_one(ARG_IMM);

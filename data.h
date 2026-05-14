@@ -646,11 +646,17 @@ flag_set:
 #else
 #if defined(ARCH_ARM64) || defined(ARCH_RISCV64)
 #define bitmap_64bit			(slot_size >= sizeof(uint64_t) && EFFICIENT_WORD_SIZE >= 64)
+#define idx_xor				0
+#elif defined(ARCH_M68K)
+#define bitmap_64bit			0
+#define idx_xor				31
 #else
 #define bitmap_64bit			0
+#define idx_xor				0
 #endif
 static attr_always_inline void frame_set_flag(frame_s *fp, frame_t idx)
 {
+	idx ^= idx_xor;
 	if (bitmap_64bit) {
 		frame_uint64_(fp)[idx / 64] |= (uint64_t)1 << (idx & 63);
 	} else {
@@ -659,6 +665,7 @@ static attr_always_inline void frame_set_flag(frame_s *fp, frame_t idx)
 }
 static attr_always_inline void frame_clear_flag(frame_s *fp, frame_t idx)
 {
+	idx ^= idx_xor;
 	if (bitmap_64bit) {
 		frame_uint64_(fp)[idx / 64] &= ~((uint64_t)1 << (idx & 63));
 	} else {
@@ -667,6 +674,7 @@ static attr_always_inline void frame_clear_flag(frame_s *fp, frame_t idx)
 }
 static attr_always_inline bool frame_test_flag(frame_s *fp, frame_t idx)
 {
+	idx ^= idx_xor;
 	if (bitmap_64bit) {
 		return (frame_uint64_(fp)[idx / 64] & ((uint64_t)1 << (idx & 63))) != 0;
 	} else {
@@ -676,6 +684,7 @@ static attr_always_inline bool frame_test_flag(frame_s *fp, frame_t idx)
 static attr_always_inline bool frame_test_and_set_flag(frame_s *fp, frame_t idx)
 {
 	bool ret;
+	idx ^= idx_xor;
 	if (bitmap_64bit) {
 		uint64_t val = frame_uint64_(fp)[idx / 64];
 		ret = (val & ((uint64_t)1 << (idx & 63))) != 0;
@@ -693,6 +702,7 @@ static attr_always_inline bool frame_test_and_set_flag(frame_s *fp, frame_t idx)
 static attr_always_inline bool frame_test_and_clear_flag(frame_s *fp, frame_t idx)
 {
 	bool ret;
+	idx ^= idx_xor;
 	if (bitmap_64bit) {
 		uint64_t val = frame_uint64_(fp)[idx / 64];
 		ret = (val & ((uint64_t)1 << (idx & 63))) != 0;

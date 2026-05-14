@@ -42,6 +42,13 @@ static bool attr_w gen_set_1(struct codegen_context *ctx, unsigned base, frame_t
 		gen_address_offset();
 		gen_imm_offset();
 	}
+#elif defined(ARCH_M68K)
+	g(gen_address(ctx, base, offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_BITMAP));
+	g(gen_imm(ctx, bit, IMM_PURPOSE_BITWISE, OP_SIZE_BITMAP));
+	gen_insn(INSN_BTX, OP_SIZE_BITMAP, val ? BTX_BTSX31 : BTX_BTRX31, 1);
+	gen_address_offset();
+	gen_address_offset();
+	gen_imm_offset();
 #else
 	g(gen_address(ctx, base, offset, ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_BITMAP));
 	gen_insn(ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? INSN_MOVSX : INSN_MOV, OP_SIZE_BITMAP, 0, 0);
@@ -102,6 +109,12 @@ static bool attr_w gen_set_1_variable(struct codegen_context *ctx, unsigned slot
 #if defined(ARCH_X86)
 	g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_BITMAP));
 	gen_insn(INSN_BTX, OP_SIZE_BITMAP, val ? BTX_BTS : BTX_BTR, 1);
+	gen_address_offset();
+	gen_address_offset();
+	gen_one(slot_reg);
+#elif defined(ARCH_M68K)
+	g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_BITMAP));
+	gen_insn(INSN_BTX, OP_SIZE_BITMAP, val ? BTX_BTSX31 : BTX_BTRX31, 1);
 	gen_address_offset();
 	gen_address_offset();
 	gen_one(slot_reg);
@@ -242,7 +255,7 @@ static bool attr_w gen_test_1(struct codegen_context *ctx, unsigned base, frame_
 		}
 		g(gen_address(ctx, base, offset, test == TEST ? IMM_PURPOSE_LDR_OFFSET : IMM_PURPOSE_STR_OFFSET, OP_SIZE_BITMAP));
 		g(gen_imm(ctx, bit, IMM_PURPOSE_BITWISE, OP_SIZE_BITMAP));
-		gen_insn(INSN_BT, OP_SIZE_BITMAP, 0, 1);
+		gen_insn(INSN_BT, OP_SIZE_BITMAP, BTX_BT, 1);
 		gen_address_offset();
 		gen_imm_offset();
 	} else {
@@ -255,6 +268,24 @@ static bool attr_w gen_test_1(struct codegen_context *ctx, unsigned base, frame_
 	}
 
 	gen_insn(INSN_JMP_COND, OP_SIZE_1, jz ? COND_AE : COND_B, 0);
+	gen_label_ref(label);
+#elif defined(ARCH_M68K)
+	if (test == TEST) {
+		g(gen_address(ctx, base, offset, test == TEST ? IMM_PURPOSE_LDR_OFFSET : IMM_PURPOSE_STR_OFFSET, OP_SIZE_BITMAP));
+		g(gen_imm(ctx, bit, IMM_PURPOSE_BITWISE, OP_SIZE_BITMAP));
+		gen_insn(INSN_BT, OP_SIZE_BITMAP, BTX_BTX31, 1);
+		gen_address_offset();
+		gen_imm_offset();
+	}  else {
+		g(gen_address(ctx, base, offset, test == TEST ? IMM_PURPOSE_LDR_OFFSET : IMM_PURPOSE_STR_OFFSET, OP_SIZE_BITMAP));
+		g(gen_imm(ctx, bit, IMM_PURPOSE_BITWISE, OP_SIZE_BITMAP));
+		gen_insn(INSN_BTX, OP_SIZE_BITMAP, test == TEST_CLEAR ? BTX_BTRX31 : BTX_BTSX31, 1);
+		gen_address_offset();
+		gen_address_offset();
+		gen_imm_offset();
+	}
+
+	gen_insn(INSN_JMP_COND, OP_SIZE_1, jz ? COND_E : COND_NE, 0);
 	gen_label_ref(label);
 #else
 	g(gen_address(ctx, base, offset, ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_BITMAP));
@@ -392,12 +423,10 @@ static bool attr_w gen_test_2(struct codegen_context *ctx, frame_t slot_1, frame
 	bit1 = slot_1 & ((1 << (OP_SIZE_BITMAP + 3)) - 1);
 	bit2 = slot_2 & ((1 << (OP_SIZE_BITMAP + 3)) - 1);
 #if defined(ARCH_X86)
+	if (OP_SIZE_BITMAP != OP_SIZE_4)
+		goto dont_optimize;
 	g(gen_address(ctx, R_FRAME, addr1, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_BITMAP));
-	if (OP_SIZE_BITMAP == OP_SIZE_4) {
-		g(gen_imm(ctx, (int32_t)(((uintptr_t)1 << bit1) | ((uintptr_t)1 << bit2)), IMM_PURPOSE_TEST, OP_SIZE_BITMAP));
-	} else {
-		g(gen_imm(ctx, ((uintptr_t)1 << bit1) | ((uintptr_t)1 << bit2), IMM_PURPOSE_TEST, OP_SIZE_BITMAP));
-	}
+	g(gen_imm(ctx, (int32_t)(((uintptr_t)1 << bit1) | ((uintptr_t)1 << bit2)), IMM_PURPOSE_TEST, OP_SIZE_BITMAP));
 	gen_insn(INSN_TEST, OP_SIZE_BITMAP, 0, 1);
 	gen_address_offset();
 	gen_imm_offset();
@@ -406,6 +435,8 @@ static bool attr_w gen_test_2(struct codegen_context *ctx, frame_t slot_1, frame
 	gen_label_ref(label);
 
 	return true;
+#elif defined(ARCH_M68K)
+	goto dont_optimize;
 #else
 	g(gen_address(ctx, R_FRAME, addr1, ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_BITMAP));
 	gen_insn(ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? INSN_MOVSX : INSN_MOV, OP_SIZE_BITMAP, 0, 0);
@@ -547,6 +578,13 @@ static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *varia
 		goto tested;
 	}
 #if defined(HAVE_BITWISE_FRAME)
+#if defined(ARCH_X86)
+	if (OP_SIZE_BITMAP != OP_SIZE_4)
+		goto fallback;
+#endif
+#if defined(ARCH_M68K)
+	goto fallback;
+#endif
 	pos = 0;
 	while (pos < n_variables) {
 		frame_t addr = variables[pos] >> (OP_SIZE_BITMAP + 3) << OP_SIZE_BITMAP;
@@ -575,13 +613,9 @@ static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *varia
 			g(gen_test_2(ctx, variables[pos - 2], variables[pos - 1], label));
 			continue;
 		}
-#if defined(ARCH_X86)
+#if defined(ARCH_X86) || !defined(R_SCRATCH_NA_1)
 		g(gen_address(ctx, R_FRAME, addr, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_BITMAP));
-		if (OP_SIZE_BITMAP == OP_SIZE_4) {
-			g(gen_imm(ctx, (int32_t)mask, IMM_PURPOSE_TEST, OP_SIZE_BITMAP));
-		} else {
-			g(gen_imm(ctx, mask, IMM_PURPOSE_TEST, OP_SIZE_BITMAP));
-		}
+		g(gen_imm(ctx, (int32_t)mask, IMM_PURPOSE_TEST, OP_SIZE_BITMAP));
 		gen_insn(INSN_TEST, OP_SIZE_BITMAP, 0, 1);
 		gen_address_offset();
 		gen_imm_offset();
@@ -648,6 +682,8 @@ static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *varia
 		goto tested;
 	}
 #endif
+	goto fallback;
+fallback:
 	for (i = 0; i < n_variables; i++) {
 		g(gen_test_1(ctx, R_FRAME, variables[i], 0, label, false, TEST));
 	}

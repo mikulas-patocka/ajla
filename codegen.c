@@ -193,6 +193,12 @@ static uint64_t dump_seq = 0;
 #define BTX_BTC				0x3
 #define BTX_BTEXT			0x4
 
+#define BTX_BTX31			0x8
+#define BTX_BTSX31			0x9
+#define BTX_BTRX31			0xa
+#define BTX_BTCX31			0xb
+#define BTX_BTEXTX31			0xc
+
 #define OP_SIZE_1			0
 #define OP_SIZE_2			1
 #define OP_SIZE_4			2

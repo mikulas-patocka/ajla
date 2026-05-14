@@ -139,7 +139,7 @@
 #define  M68K_ROT_R		0x0020
 #define M68K_BFTST	0xe8c0
 #define M68K_BFEXTU	0xe9c0
-#define M68K_BFCGH	0xeac0
+#define M68K_BFCHG	0xeac0
 #define M68K_BFEXTS	0xebc0
 #define M68K_BFCLR	0xecc0
 #define M68K_BFFFO	0xedc0
@@ -880,10 +880,50 @@ invl:
 	return false;
 }
 
+static bool attr_w cgen_btx31(struct codegen_context *ctx, uint8_t bt, uint8_t *arg1, uint8_t *arg2)
+{
+	size_t instr_base;
+	uint16_t mc;
+	g(cgen_prepare_address(ctx, arg1));
+	instr_base = ctx->mcode_size;
+	switch (bt) {
+		case BTX_BTX31:		mc = M68K_BFTST; break;
+		case BTX_BTSX31:	mc = M68K_BFSET; break;
+		case BTX_BTRX31:	mc = M68K_BFCLR; break;
+		case BTX_BTCX31:	mc = M68K_BFCHG; break;
+		default:		goto invl;
+	}
+	cgen_two(mc);
+	mc = 1;
+	if (arg2[0] == ARG_IMM) {
+		int64_t imm = get_imm(&arg2[1]);
+		if (imm < 0 || imm >= 32)
+			goto invl;
+		mc |= (imm & 31) << 6;
+	} else if (R_IS_D(arg2[0])) {
+		mc |= 1 << 11;
+		mc |= (arg2[0] & 7) << 6;
+	} else {
+		goto invl;
+	}
+	cgen_two(mc);
+	g(cgen_operand(ctx, OP_SIZE_4, instr_base, 0, arg1));
+	return true;
+invl:
+	internal(file_line, "cgen_btxt: invalid arguments %u %02x %02x", bt, arg1[0], arg2[0]);
+	return false;
+}
+
 static bool attr_w cgen_btxt(struct codegen_context *ctx, unsigned size, uint8_t bt, uint8_t *arg1, uint8_t *arg2)
 {
 	size_t instr_base;
 	uint16_t mc;
+	if (bt >= BTX_BTX31 && bt <= BTX_BTCX31) {
+		if (size != OP_SIZE_4)
+			goto invl;
+		g(cgen_btx31(ctx, bt, arg1, arg2));
+		return true;
+	}
 	if (R_IS_A(arg1[0]) && arg2[0] == ARG_IMM) {
 		uint8_t tmp_d = R_TMP_D;
 		mc = M68K_EXG_DA | ((tmp_d & 7) << 9) | (arg1[0] & 7);
@@ -929,13 +969,13 @@ invl:
 	return false;
 }
 
-static bool attr_w cgen_bt(struct codegen_context *ctx, unsigned size)
+static bool attr_w cgen_bt(struct codegen_context *ctx, unsigned size, uint8_t bt)
 {
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
 
-	return cgen_btxt(ctx, size, BTX_BT, arg1, arg2);
+	return cgen_btxt(ctx, size, bt, arg1, arg2);
 }
 
 static bool attr_w cgen_btx(struct codegen_context *ctx, unsigned size, uint8_t bt)
@@ -1112,7 +1152,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_rot(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_BT:
-			g(cgen_bt(ctx, insn_op_size(insn)));
+			g(cgen_bt(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_BTX:
 			g(cgen_btx(ctx, insn_op_size(insn), insn_aux(insn)));

@@ -566,7 +566,7 @@ static bool attr_w gen_cmp_test_imm_jmp_q_flags(struct codegen_context *ctx, uns
 		return true;
 #endif
 #if defined(ARCH_M68K)
-		gen_insn(INSN_BT, OP_SIZE_4, 0, 1);
+		gen_insn(INSN_BT, OP_SIZE_4, BTX_BT, 1);
 		gen_one(reg1);
 		gen_one(ARG_IMM);
 		gen_eight(bit);
