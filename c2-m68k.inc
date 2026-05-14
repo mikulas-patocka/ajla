@@ -546,6 +546,20 @@ static bool attr_w cgen_cmp(struct codegen_context *ctx, unsigned size)
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
+	if (arg2[0] == ARG_IMM) {
+		int64_t imm = get_imm(&arg2[1]);
+		if (!imm) {
+			size_t instr_base;
+			uint16_t mc;
+			g(cgen_prepare_address(ctx, arg1));
+			mc = M68K_TST;
+			mc |= get_size(size, false);
+			instr_base = ctx->mcode_size;
+			cgen_two(mc);
+			g(cgen_operand(ctx, size, instr_base, 0, arg1));
+			return true;
+		}
+	}
 	g(cgen_two_op(ctx, size, M68K_CMP, M68K_CMPI, arg1, arg2));
 	return true;
 }
