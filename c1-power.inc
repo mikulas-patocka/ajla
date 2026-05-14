@@ -80,6 +80,7 @@
 #define ARCH_HAS_DELAY_SLOTS(insn)	0
 #define ARCH_HAS_FLAGS			1
 #define ARCH_PREFERS_SX(size)		0
+#define ARCH_PREFERS_MOV_MASK(size)	0
 #define ARCH_HAS_BWX			1
 #define ARCH_HAS_MUL			1
 #define ARCH_HAS_DIV			cpu_test_feature(CPU_FEATURE_ppc)

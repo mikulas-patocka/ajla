@@ -2362,10 +2362,18 @@ do_op:
 			reg = ctx->registers[slot_1];
 			if (reg < 0) {
 				reg = !fp ? R_SCRATCH_3 : FR_SCRATCH_1;
-				g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_LDR_OFFSET, op_size));
-				gen_insn(INSN_MOV, op_size, 0, 0);
-				gen_one(reg);
-				gen_address_offset();
+				if (ARCH_PREFERS_MOV_MASK(op_size)) {
+					g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_LDR_OFFSET, op_size));
+					gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, op_size == OP_SIZE_1 ? MOV_MASK_0_8 : MOV_MASK_0_16, 0);
+					gen_one(reg);
+					gen_one(reg);
+					gen_address_offset();
+				} else {
+					g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_LDR_OFFSET, op_size));
+					gen_insn(ARCH_PREFERS_SX(op_size) ? INSN_MOVSX : INSN_MOV, op_size, 0, 0);
+					gen_one(reg);
+					gen_address_offset();
+				}
 			}
 
 			gen_insn(INSN_MOV, op_size, 0, 0);

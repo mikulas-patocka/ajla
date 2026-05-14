@@ -231,14 +231,12 @@ static bool attr_w attr_unused gen_load_two(struct codegen_context *ctx, unsigne
 			g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_EXTWL, dest, dest, R_OFFSET_IMM, 0));
 		}
 #endif
-#if defined(ARCH_M68K)
-	} else if (no_ext) {
+	} else if (no_ext && ARCH_PREFERS_MOV_MASK(OP_SIZE_2)) {
 		g(gen_address(ctx, src, offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_2));
 		gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, MOV_MASK_0_16, 0);
 		gen_one(dest);
 		gen_one(dest);
 		gen_address_offset();
-#endif
 #if defined(ARCH_S390)
 	} else if (!cpu_test_feature(CPU_FEATURE_extended_imm)) {
 		g(gen_address(ctx, src, offset, IMM_PURPOSE_LDR_SX_OFFSET, OP_SIZE_2));

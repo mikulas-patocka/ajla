@@ -50,6 +50,7 @@
 #define ARCH_HAS_FUSED_MEMORY_ACCESSES	1
 #define ARCH_HAS_FLAGS			1
 #define ARCH_PREFERS_SX(size)		0
+#define ARCH_PREFERS_MOV_MASK(size)	0
 #define ARCH_HAS_BWX			1
 #define ARCH_HAS_MUL			SPARC_9
 #define ARCH_HAS_DIV			SPARC_9

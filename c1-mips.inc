@@ -52,6 +52,7 @@
 #define ARCH_SUPPORTS_TRAPS(size)	(OS_SUPPORTS_TRAPS && ((size) == OP_SIZE_4 || (size) == OP_SIZE_8))
 #define ARCH_TRAP_BEFORE		1
 #define ARCH_PREFERS_SX(size)		0
+#define ARCH_PREFERS_MOV_MASK(size)	0
 #define ARCH_HAS_BWX			1
 #define ARCH_HAS_MUL			1
 #define ARCH_HAS_DIV			1
