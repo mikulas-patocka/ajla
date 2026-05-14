@@ -887,7 +887,7 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 				gen_insn(INSN_JMP_COND, OP_SIZE_2, COND_NE, 0);
 				gen_label_ref(label_skip_quick_ret);
 			} else {
-				g(gen_load_two(ctx, R_SCRATCH_1, R_SAVED_1, 0));
+				g(gen_load_two(ctx, R_SCRATCH_1, R_SAVED_1, 0, i_size(log_2(sizeof(code_t))) == log_2(sizeof(code_t))));
 
 				if (!flat_mask)
 					g(gen_jmp_on_zero(ctx, i_size(log_2(sizeof(code_t))), R_SCRATCH_1, COND_NE, label_skip_quick_ret));
@@ -950,7 +950,7 @@ skip_quickret:
 #if defined(ARCH_M68K) || defined(ARCH_S390) || defined(ARCH_X86)
 			g(gen_test_bit(ctx, OP_SIZE_2, R_SAVED_1, retval_offset + 2 + 2 * (ARG_MODE_N >= 3), log_2(OPCODE_MAY_RETURN_FLAT), COND_E, flat_to_data_label));
 #else
-			g(gen_load_two(ctx, R_SCRATCH_1, R_SAVED_1, retval_offset + 2 + 2 * (ARG_MODE_N >= 3)));
+			g(gen_load_two(ctx, R_SCRATCH_1, R_SAVED_1, retval_offset + 2 + 2 * (ARG_MODE_N >= 3), false));
 
 			g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, OP_SIZE_NATIVE, R_SCRATCH_1, OPCODE_MAY_RETURN_FLAT, COND_E, flat_to_data_label, -1));
 #endif

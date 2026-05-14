@@ -204,7 +204,7 @@ static bool attr_w attr_unused gen_4address_fp_alu(struct codegen_context *ctx, 
 }
 
 
-static bool attr_w attr_unused gen_load_two(struct codegen_context *ctx, unsigned dest, unsigned src, int64_t offset)
+static bool attr_w attr_unused gen_load_two(struct codegen_context *ctx, unsigned dest, unsigned src, int64_t offset, bool no_ext)
 {
 	if (!ARCH_HAS_BWX) {
 #if defined(R_OFFSET_IMM)
@@ -230,6 +230,14 @@ static bool attr_w attr_unused gen_load_two(struct codegen_context *ctx, unsigne
 
 			g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_EXTWL, dest, dest, R_OFFSET_IMM, 0));
 		}
+#endif
+#if defined(ARCH_M68K)
+	} else if (no_ext) {
+		g(gen_address(ctx, src, offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_2));
+		gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, MOV_MASK_0_16, 0);
+		gen_one(dest);
+		gen_one(dest);
+		gen_address_offset();
 #endif
 #if defined(ARCH_S390)
 	} else if (!cpu_test_feature(CPU_FEATURE_extended_imm)) {
@@ -299,8 +307,8 @@ static bool attr_w gen_load_code_32(struct codegen_context *ctx, unsigned dest, 
 	if (UNALIGNED_TRAP)
 #endif
 	{
-		g(gen_load_two(ctx, dest, src, offset));
-		g(gen_load_two(ctx, R_CONST_IMM, src, offset + 2));
+		g(gen_load_two(ctx, dest, src, offset, false));
+		g(gen_load_two(ctx, R_CONST_IMM, src, offset + 2, false));
 #if CODE_ENDIAN
 		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, dest, dest, 16, 0));
 #else
