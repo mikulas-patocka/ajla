@@ -947,7 +947,7 @@ skip_quickret:
 			if (unlikely(!flat_to_data_label))
 				return false;
 
-#if defined(ARCH_X86) || defined(ARCH_S390)
+#if defined(ARCH_M68K) || defined(ARCH_S390) || defined(ARCH_X86)
 			g(gen_test_bit(ctx, OP_SIZE_2, R_SAVED_1, retval_offset + 2 + 2 * (ARG_MODE_N >= 3), log_2(OPCODE_MAY_RETURN_FLAT), COND_E, flat_to_data_label));
 #else
 			g(gen_load_two(ctx, R_SCRATCH_1, R_SAVED_1, retval_offset + 2 + 2 * (ARG_MODE_N >= 3)));

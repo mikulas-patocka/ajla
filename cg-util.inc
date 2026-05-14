@@ -317,7 +317,7 @@ static bool attr_w gen_load_code_32(struct codegen_context *ctx, unsigned dest, 
 	return true;
 }
 
-#if defined(ARCH_X86) || defined(ARCH_S390)
+#if defined(ARCH_M68K) || defined(ARCH_S390) || defined(ARCH_X86)
 static bool attr_w gen_test_bit(struct codegen_context *ctx, unsigned attr_unused size, unsigned reg_base, int64_t offset, unsigned bit, unsigned cond, uint32_t label)
 {
 #if defined(C_LITTLE_ENDIAN)
@@ -326,12 +326,19 @@ static bool attr_w gen_test_bit(struct codegen_context *ctx, unsigned attr_unuse
 	offset += (1U << size) - 1 - (bit >> 3);
 #endif
 	bit &= 7;
+#if defined(ARCH_M68K)
+	g(gen_address(ctx, reg_base, offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
+	gen_insn(INSN_BT, OP_SIZE_1, BTX_BT, 1);
+	gen_address_offset();
+	gen_one(ARG_IMM);
+	gen_eight(bit);
+#else
 	g(gen_address(ctx, reg_base, offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
 	gen_insn(INSN_TEST, OP_SIZE_1, 0, 1);
 	gen_address_offset();
 	gen_one(ARG_IMM);
 	gen_eight(1U << bit);
-
+#endif
 	gen_insn(INSN_JMP_COND, OP_SIZE_1, cond, 0);
 	gen_label_ref(label);
 
