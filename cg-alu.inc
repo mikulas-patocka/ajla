@@ -2538,8 +2538,12 @@ write_result:
 			goto bsf_bsr_popcnt_finish;
 		}
 #endif
+#if defined(ARCH_M68K) || defined(ARCH_MIPS)
+		if (alu != ALU1_POPCNT) {
 #if defined(ARCH_MIPS)
-		if (MIPS_HAS_CLZ && alu != ALU1_POPCNT) {
+			if (!MIPS_HAS_CLZ)
+				goto do_generic_bsf_bsr_popcnt;
+#endif
 			g(gen_frame_get(ctx, op_size, mode == MODE_INT ? sign_x : zero_x, slot_1, R_SCRATCH_1, &reg1));
 			target = gen_frame_target(ctx, slot_r, slot_1, NO_FRAME_T, R_SCRATCH_2);
 			if (mode == MODE_INT) {
@@ -2555,8 +2559,14 @@ write_result:
 			if (mode == MODE_INT) {
 				g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_XOR, target, target, OP_SIZE_NATIVE == OP_SIZE_8 ? 63 : 31, 0));
 			} else {
-				g(gen_load_constant(ctx, R_SCRATCH_3, OP_SIZE_NATIVE == OP_SIZE_8 ? 63 : 31));
-				g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_SUB, target, R_SCRATCH_3, target, 0));
+				if (ARCH_IS_3ADDRESS(ALU_SUB, 0)) {
+					g(gen_load_constant(ctx, R_SCRATCH_3, OP_SIZE_NATIVE == OP_SIZE_8 ? 63 : 31));
+					g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_SUB, target, R_SCRATCH_3, target, 0));
+				} else {
+					g(gen_load_constant(ctx, R_SCRATCH_3, OP_SIZE_NATIVE == OP_SIZE_8 ? 63 : 31));
+					g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_SUB, R_SCRATCH_3, R_SCRATCH_3, target, 0));
+					target = R_SCRATCH_3;
+				}
 			}
 			goto bsf_bsr_popcnt_finish;
 		}

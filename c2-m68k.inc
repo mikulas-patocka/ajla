@@ -755,6 +755,18 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
+	if (alu == ALU1_LZCNT) {
+		if (!R_IS_D(arg1[0]))
+			internal(file_line, "cgen_alu1: invalid register");
+		g(cgen_prepare_address(ctx, arg2));
+		instr_base = ctx->mcode_size;
+		instr = M68K_BFFFO;
+		cgen_two(instr);
+		instr = (arg1[0] & 7) << 12;
+		cgen_two(instr);
+		g(cgen_operand(ctx, OP_SIZE_4, instr_base, 0, arg2));
+		return true;
+	}
 	if (memcmp(arg1, arg2, arg_size(*arg1)))
 		internal(file_line, "cgen_alu1: operand mismatch");
 	switch (alu) {
