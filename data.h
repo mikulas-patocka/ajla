@@ -643,6 +643,77 @@ flag_set:
 	return true;
 #endif
 }
+#elif defined(INLINE_ASM_GCC_M68K)
+#define bitmap_64bit			0
+static attr_always_inline void frame_set_flag(frame_s *fp, frame_t idx)
+{
+	__asm__ volatile("bfset %1{%0:#1}"::"d"(idx),"m"(*(unsigned char *)fp):"cc","memory");
+}
+static attr_always_inline void frame_clear_flag(frame_s *fp, frame_t idx)
+{
+	__asm__ volatile("bfclr %1{%0:#1}"::"d"(idx),"m"(*(unsigned char *)fp):"cc","memory");
+}
+static attr_always_inline bool frame_test_flag(frame_s *fp, frame_t idx)
+{
+#ifndef INLINE_ASM_GCC_LABELS
+	unsigned char res;
+	__asm__ volatile("bftst %2{%1:#1}; sne %0":"=d"(res):"d"(idx),"m"(*(unsigned char *)fp):"cc","memory");
+	return res != 0;
+#else
+	__asm__ goto("bftst %1{%0:#1}; jne %l[flag_set]"::"d"(idx),"m"(*(unsigned char *)fp):"cc","memory":flag_set);
+	return false;
+flag_set:
+	return true;
+#endif
+}
+static attr_always_inline bool frame_test_2(frame_s *fp, frame_t idx1, frame_t idx2)
+{
+#ifndef INLINE_ASM_GCC_LABELS
+	return frame_test_flag(fp, idx1) || frame_test_flag(fp, idx2);
+#else
+	__asm__ goto("bftst %2{%0:#1}; jne 1f; bftst %2{%1:#1}; 1: jne %l[flag_set]"::"d"(idx1),"d"(idx2),"m"(*(unsigned char *)fp):"cc","memory":flag_set);
+	return false;
+flag_set:
+	return true;
+#endif
+}
+static attr_always_inline bool frame_test_3(frame_s *fp, frame_t idx1, frame_t idx2, frame_t idx3)
+{
+#ifndef INLINE_ASM_GCC_LABELS
+	return frame_test_flag(fp, idx1) || frame_test_flag(fp, idx2) || frame_test_flag(fp, idx3);
+#else
+	__asm__ goto("bftst %3{%0:#1}; jne 1f; bftst %3{%1:#1}; jne 1f; bftst %3{%2:#1}; 1: jne %l[flag_set]"::"d"(idx1),"d"(idx2),"d"(idx3),"m"(*(unsigned char *)fp):"cc","memory":flag_set);
+	return false;
+flag_set:
+	return true;
+#endif
+}
+static attr_always_inline bool frame_test_and_set_flag(frame_s *fp, frame_t idx)
+{
+#ifndef INLINE_ASM_GCC_LABELS
+	unsigned char res;
+	__asm__ volatile("bfset %2{%1:#1}; sne %0":"=d"(res):"d"(idx),"m"(*(unsigned char *)fp):"cc","memory");
+	return res != 0;
+#else
+	__asm__ goto("bfset %1{%0:#1}; jne %l[flag_set]"::"d"(idx),"m"(*(unsigned char *)fp):"cc","memory":flag_set);
+	return false;
+flag_set:
+	return true;
+#endif
+}
+static attr_always_inline bool frame_test_and_clear_flag(frame_s *fp, frame_t idx)
+{
+#ifndef INLINE_ASM_GCC_LABELS
+	unsigned char res;
+	__asm__ volatile("bfclr %2{%1:#1}; sne %0":"=d"(res):"d"(idx),"m"(*(unsigned char *)fp):"cc","memory");
+	return res != 0;
+#else
+	__asm__ goto("bfclr %1{%0:#1}; jne %l[flag_set]"::"d"(idx),"m"(*(unsigned char *)fp):"cc","memory":flag_set);
+	return false;
+flag_set:
+	return true;
+#endif
+}
 #else
 #if defined(ARCH_ARM64) || defined(ARCH_RISCV64)
 #define bitmap_64bit			(slot_size >= sizeof(uint64_t) && EFFICIENT_WORD_SIZE >= 64)

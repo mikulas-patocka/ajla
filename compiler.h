@@ -744,6 +744,9 @@ typedef uint16_t ushort_efficient_t;
 
 #define ARCH_M68K
 #define ARCH_NAME	"m68k"
+#ifdef HAVE_GCC_ASSEMBLER
+#define INLINE_ASM_GCC_M68K
+#endif
 
 #elif defined(__mips) && defined(_MIPS_SIM) && (_MIPS_SIM == 1 || _MIPS_SIM == 2 || _MIPS_SIM == 3)
 
