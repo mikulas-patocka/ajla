@@ -439,6 +439,9 @@ static bool attr_w cgen_moves(struct codegen_context *ctx, unsigned size, uint8_
 		}
 	}
 
+	if (R_IS_DA(arg1[0]) && arg1[0] == arg2[0])
+		goto skip_move;
+
 	mc = M68K_MOVE;
 	mc |= get_move_size(size);
 	instr_base = ctx->mcode_size;
@@ -446,6 +449,7 @@ static bool attr_w cgen_moves(struct codegen_context *ctx, unsigned size, uint8_
 	g(cgen_operand(ctx, size, instr_base, 0, arg2));
 	g(cgen_operand(ctx, size, instr_base, CGO_MOVE_DEST, arg1));
 
+skip_move:
 	if (R_IS_A(arg1[0])) {
 		if (size != OP_SIZE_4)
 			internal(file_line, "cgen_moves: partial move to address register");
