@@ -839,6 +839,35 @@ static bool attr_w cgen_lea3(struct codegen_context *ctx, unsigned shift)
 	return true;
 }
 
+static bool attr_w cgen_rot_bf(struct codegen_context *ctx, unsigned size, unsigned alu, uint8_t *arg1, uint8_t *arg2, uint8_t *arg3)
+{
+	size_t instr_base;
+	uint16_t instr;
+	unsigned bit_size = 8U << size;
+	int64_t imm;
+	if (!R_IS_D(arg1[0]) || arg3[0] != ARG_IMM)
+		goto invl;
+	imm = get_imm(&arg3[1]);
+	imm &= (bit_size - 1);
+	g(cgen_prepare_address(ctx, arg2));
+	switch (alu) {
+		case ROT_SHR:	instr = M68K_BFEXTU; break;
+		case ROT_SAR:	instr = M68K_BFEXTS; break;
+		default:	goto invl;
+	}
+	instr_base = ctx->mcode_size;
+	cgen_two(instr);
+	instr = (arg1[0] & 7) << 12;
+	instr |= (32 - bit_size) << 6;;
+	instr |= bit_size - imm;
+	cgen_two(instr);
+	g(cgen_operand(ctx, size, instr_base, 0, arg2));
+	return true;
+invl:
+	internal(file_line, "cgen_rot_bf: invalid arguments %u %u %02x %02x %02x", size, alu, arg1[0], arg2[0], arg3[0]);
+	return false;
+}
+
 static bool attr_w cgen_rot(struct codegen_context *ctx, unsigned size, unsigned alu)
 {
 	uint16_t instr;
@@ -846,7 +875,9 @@ static bool attr_w cgen_rot(struct codegen_context *ctx, unsigned size, unsigned
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	uint8_t *arg3 = arg2 + arg_size(*arg2);
 	ctx->code_position = arg3 + arg_size(*arg3);
-	if (!R_IS_D(arg1[0]) || arg1[0] != arg2[0])
+	if (!R_IS_D(arg1[0]))
+		goto invl;
+	if (arg1[0] != arg2[0])
 		goto invl;
 	switch (alu) {
 		case ROT_ROL:	instr = M68K_ROL; break;
@@ -864,6 +895,10 @@ static bool attr_w cgen_rot(struct codegen_context *ctx, unsigned size, unsigned
 	if (arg3[0] == ARG_IMM) {
 		int64_t imm = get_imm(&arg3[1]);
 		imm &= 0x3f;
+		if (imm > 8 && imm < (8U << size) && (alu == ROT_SHR || alu == ROT_SAR)) {
+			g(cgen_rot_bf(ctx, size, alu, arg1, arg2, arg3));
+			return true;
+		}
 		while (imm) {
 			uint8_t this_step = minimum(imm, 8);
 			uint16_t mc = instr;
