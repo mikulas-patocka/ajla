@@ -334,11 +334,9 @@ static bool attr_w gen_load_fn_or_curry(struct codegen_context *ctx, frame_t fn_
 					gen_insn(INSN_MOV, spill_size(t), 0, 0);
 					gen_address_offset();
 					gen_one(ctx->registers[arg_slot]);
-					goto copied;
+				} else {
+					g(gen_memcpy_raw(ctx, R_SAVED_1, arg_offset_slot, R_FRAME, (size_t)arg_slot * slot_size, 1U << copy_size, maximum(slot_size, t->align)));
 				}
-				g(gen_load_raw(ctx, copy_size, native, R_FRAME, arg_slot, 0, false, R_SCRATCH_1));
-				g(gen_store_raw(ctx, copy_size, R_SAVED_1, 0, arg_offset_slot, R_SCRATCH_1));
-copied:
 				gen_insn(INSN_JMP, 0, 0, 0);
 				gen_label_ref(next_arg_label);
 			} else {
