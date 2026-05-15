@@ -1146,8 +1146,29 @@ static bool attr_w resolve_relocation(struct codegen_context *ctx, struct reloca
 	return false;
 }
 
+static bool validate_arg(const uint8_t *arg)
+{
+	if (R_IS_DA(arg[0]))
+		return true;
+	if (arg[0] == ARG_ADDRESS_1 ||
+	    arg[0] == ARG_ADDRESS_1_PRE_I ||
+	    arg[0] == ARG_ADDRESS_1_POST_I ||
+	    (arg[0] >= ARG_ADDRESS_2 && arg[0] <= ARG_ADDRESS_2_8))
+		return true;
+	return false;
+}
+
 static bool validate_insn(const struct insn_details attr_unused *d)
 {
+	switch (insn_opcode(d->insn)) {
+		case INSN_MOV:
+		case INSN_MOVSX:
+			const uint8_t *arg1 = d->start + 4;
+			const uint8_t *arg2 = arg1 + arg_size(*arg1);
+			if (unlikely(!validate_arg(arg1)) || unlikely(!(validate_arg(arg2) || arg2[0] == ARG_IMM)))
+				return false;
+			return true;
+	}
 	return false;
 }
 
