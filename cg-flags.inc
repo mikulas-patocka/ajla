@@ -641,11 +641,19 @@ static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *varia
 	}
 	goto tested;
 #elif !defined(HAVE_BITWISE_FRAME)
-#if defined(ARCH_X86)
-	g(gen_address(ctx, R_FRAME, variables[0], IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
-	gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
-	gen_one(R_SCRATCH_1);
-	gen_address_offset();
+#if defined(ARCH_M68K) || defined(ARCH_X86)
+	if (ARCH_PREFERS_MOV_MASK(OP_SIZE_1)) {
+		g(gen_address(ctx, R_FRAME, variables[0], IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
+		gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, MOV_MASK_0_8, 0);
+		gen_one(R_SCRATCH_1);
+		gen_one(R_SCRATCH_1);
+		gen_address_offset();
+	} else {
+		g(gen_address(ctx, R_FRAME, variables[0], IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
+		gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
+		gen_one(R_SCRATCH_1);
+		gen_address_offset();
+	}
 
 	for (i = 1; i < n_variables; i++) {
 		g(gen_address(ctx, R_FRAME, variables[i], IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
