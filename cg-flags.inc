@@ -494,11 +494,19 @@ dont_optimize:
 	g(gen_test_1(ctx, R_FRAME, slot_1, 0, label, false, TEST));
 	g(gen_test_1(ctx, R_FRAME, slot_2, 0, label, false, TEST));
 #else
-#if defined(ARCH_X86)
-	g(gen_address(ctx, R_FRAME, slot_1, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
-	gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
-	gen_one(R_SCRATCH_1);
-	gen_address_offset();
+#if defined(ARCH_M68K) || defined(ARCH_X86)
+	if (ARCH_PREFERS_MOV_MASK(OP_SIZE_1)) {
+		g(gen_address(ctx, R_FRAME, slot_1, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
+		gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, MOV_MASK_0_8, 0);
+		gen_one(R_SCRATCH_1);
+		gen_one(R_SCRATCH_1);
+		gen_address_offset();
+	} else {
+		g(gen_address(ctx, R_FRAME, slot_1, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
+		gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
+		gen_one(R_SCRATCH_1);
+		gen_address_offset();
+	}
 
 	g(gen_address(ctx, R_FRAME, slot_2, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
 	gen_insn(INSN_ALU_PARTIAL, OP_SIZE_1, ALU_OR, 1);
