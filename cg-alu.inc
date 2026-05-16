@@ -3468,24 +3468,6 @@ do_alu:
 		(OP_IS_ROUND(fp_alu) && cpu_test_feature(CPU_FEATURE_sse41)) ||
 #endif
 		false)) {
-#if defined(ARCH_S390)
-		if (op_size <= OP_SIZE_8 && (size_t)slot_1 * slot_size < 4096 && fp_alu == FP_ALU1_SQRT) {
-			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_1);
-			if (slot_is_register(ctx, slot_1)) {
-				gen_insn(INSN_FP_ALU1, op_size, fp_alu, 0);
-				gen_one(target);
-				gen_one(ctx->registers[slot_1]);
-				g(gen_frame_store(ctx, op_size, slot_r, 0, target));
-			} else {
-				g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
-				gen_insn(INSN_FP_ALU1, op_size, fp_alu, 0);
-				gen_one(target);
-				gen_address_offset();
-				g(gen_frame_store(ctx, op_size, slot_r, 0, target));
-			}
-			return true;
-		}
-#endif
 #if defined(ARCH_X86)
 		if (fp_alu == FP_ALU1_NEG) {
 			uint64_t val = 0x80ULL << (((1 << op_size) - 1) * 8);
@@ -3523,6 +3505,29 @@ do_alu:
 			return true;
 		}
 #endif
+#if defined(ARCH_M68K) || defined(ARCH_X86)
+		if (1)
+#elif defined(ARCH_S390)
+		if (op_size <= OP_SIZE_8 && (size_t)slot_1 * slot_size < 4096 && fp_alu == FP_ALU1_SQRT)
+#else
+		if (0)
+#endif
+		{
+			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_1);
+			if (slot_is_register(ctx, slot_1)) {
+				gen_insn(INSN_FP_ALU1, op_size, fp_alu, 0);
+				gen_one(target);
+				gen_one(ctx->registers[slot_1]);
+				g(gen_frame_store(ctx, op_size, slot_r, 0, target));
+			} else {
+				g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
+				gen_insn(INSN_FP_ALU1, op_size, fp_alu, 0);
+				gen_one(target);
+				gen_address_offset();
+				g(gen_frame_store(ctx, op_size, slot_r, 0, target));
+			}
+			return true;
+		}
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_2);
 		gen_insn(INSN_FP_ALU1, op_size, fp_alu, 0);
