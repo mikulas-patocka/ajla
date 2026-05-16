@@ -125,7 +125,7 @@ static bool reg_is_fp(unsigned reg)
 #define R_RET1				RD1
 
 #define SUPPORTED_FP			0xe
-#define SUPPORTED_FP_CVT(f, t)		(0 && (f) >= 1 && (f) <= 3 && (t) >= 1 && (t) <= 3)
+#define SUPPORTED_FP_CVT(f, t)		((f) >= 1 && (f) <= 3 && (t) >= 1 && (t) <= 3)
 #define FP_REGISTERS(real_size)		1
 
 #define ARG_SPACE			16

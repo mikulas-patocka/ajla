@@ -1315,7 +1315,20 @@ static bool attr_w cgen_fp_cvt(struct codegen_context *ctx, unsigned from_size, 
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
-	g(cgen_fp_2arg(ctx, from_size, select_fp_instr(to_size, M68K_FP_FSMOVE_EA_REG, M68K_FP_FDMOVE_EA_REG, M68K_FP_FMOVE_EA_REG), get_fp_size(from_size), arg1, arg2));
+	if (arg1[0] != arg2[0])
+		g(cgen_fp_2arg(ctx, from_size, select_fp_instr(from_size, M68K_FP_FSMOVE_EA_REG, M68K_FP_FDMOVE_EA_REG, M68K_FP_FMOVE_EA_REG), get_fp_size(from_size), arg1, arg2));
+	if (to_size < OP_SIZE_10) {
+		uint16_t mc;
+		mc = M68K_FP | M68K_ADDR_AA_D | (RSP & 7);
+		cgen_two(mc);
+		mc = M68K_FP_FMOVE_REG_EA | get_fp_size(to_size) | (arg1[0] & 7) << 7;
+		cgen_two(mc);
+
+		mc = M68K_FP | M68K_ADDR_AA_I | (RSP & 7);
+		cgen_two(mc);
+		mc = M68K_FP_FMOVE_EA_REG | M68K_FP_RM | get_fp_size(to_size) | (arg1[0] & 7) << 7;
+		cgen_two(mc);
+	}
 	return true;
 }
 
