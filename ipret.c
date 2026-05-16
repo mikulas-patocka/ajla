@@ -335,6 +335,14 @@ static ipret_inline void cat4(REAL_unary_,op,_,type)			\
 	*res = pack(cat(op_,op)(type, type, (unpack(*op1))));		\
 }
 
+static attr_always_inline void m68k_fixup_fpcr(void)
+{
+	/* workaround for a glibc bug */
+#if defined(INLINE_ASM_GCC_M68K)
+	__asm__ volatile ("fmove.l #0, %%fpcr" ::: "memory");
+#endif
+}
+
 #define generate_real_ternary_fma(type, ntype, pack, unpack, op, neg)	\
 static ipret_inline void cat4(REAL_ternary_,op,_,type)			\
 				(const type *op1, const type *op2, const type *op3, type *res)\
@@ -342,11 +350,14 @@ static ipret_inline void cat4(REAL_ternary_,op,_,type)			\
 	ntype n1 = unpack(*op1);					\
 	ntype n2 = unpack(*op2);					\
 	ntype n3 = unpack(*op3);					\
+	ntype r;							\
 	if (neg & 1)							\
 		n3 = -n3;						\
 	if (neg & 2)							\
 		n1 = -n1;						\
-	*res = pack(cat(mathfunc_,type)(fma)(n1, n2, n3));		\
+	r = cat(mathfunc_,type)(fma)(n1, n2, n3);			\
+	m68k_fixup_fpcr();						\
+	*res = pack(r);							\
 }
 
 /* EMX has a bug - modf(infinity) return NaN instead of 0. */
