@@ -470,6 +470,23 @@ static bool attr_w cgen_m68k_push_pop(struct codegen_context *ctx, bool pop)
 	return true;
 }
 
+static bool attr_w cgen_m68k_push_pop_fp(struct codegen_context *ctx, bool pop)
+{
+	uint16_t mc = M68K_FP;
+	if (!pop) {
+		mc |= M68K_ADDR_AA_D | (RSP & 7);
+	} else {
+		mc |= M68K_ADDR_AA_I | (RSP & 7);
+	}
+	cgen_two(mc);
+	if (!pop) {
+		cgen_two(M68K_FP_FMOVEM_REG_EA | 0xfc);
+	} else {
+		cgen_two(M68K_FP_FMOVEM_EA_REG | 0x3f);
+	}
+	return true;
+}
+
 static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, bool call)
 {
 	int64_t imm;
@@ -1428,6 +1445,10 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		case INSN_M68K_PUSH:
 		case INSN_M68K_POP:
 			g(cgen_m68k_push_pop(ctx, insn_opcode(insn) == INSN_M68K_POP));
+			return true;
+		case INSN_M68K_PUSH_FP:
+		case INSN_M68K_POP_FP:
+			g(cgen_m68k_push_pop_fp(ctx, insn_opcode(insn) == INSN_M68K_POP_FP));
 			return true;
 		case INSN_CALL_INDIRECT:
 			g(cgen_jmp_indirect(ctx, true));

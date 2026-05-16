@@ -128,15 +128,16 @@ static bool reg_is_fp(unsigned reg)
 #define FP_REGISTERS(real_size)		1
 
 #define ARG_SPACE			16
-#define ARG_OFFSET			((6 + 5 + 1) * 4)
+#define ARG_OFFSET			(((!optimize_int * 3 * 6) + 6 + 5 + 1) * 4)
 
 static const uint8_t regs_saved[] = { RD4, RD5, RD6, RD7 };
 static const uint8_t regs_volatile[] = { 0 };
 #define n_regs_volatile 0U
 static const uint8_t regs_address[] = { RA3, RA4, RA5, RA1 };
-static const uint8_t fp_saved[] = { 0 };
-#define n_fp_saved(real_type) 0U
+static const uint8_t fp_saved[] = { RFP2, RFP3, RFP4, RFP5, RFP6, RFP7 };
+#define n_fp_saved(real_type) ((real_type) >= 3 || optimize_int ? 0 : n_array_elements(fp_saved))
 static const uint8_t fp_volatile[] = { RFP1 };
+#define n_fp_volatile(real_type) ((real_type) >= 3 ? 0 : n_array_elements(fp_volatile))
 
 #define reg_is_saved(r) (((r) >= RD2 && (r) <= RD7) || ((r) >= RA2 && (r) <= RSP) || ((r) >= RFP2 && (r) <= RFP7))
 
@@ -181,6 +182,9 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 {
 	gen_insn(INSN_M68K_PUSH, OP_SIZE_4, 0, 0);
 
+	if (!optimize_int)
+		gen_insn(INSN_M68K_PUSH_FP, OP_SIZE_4, 0, 0);
+
 	gen_insn(INSN_ALU, OP_SIZE_4, ALU_SUB, 0);
 	gen_one(RSP);
 	gen_one(RSP);
@@ -220,6 +224,9 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_one(RSP);
 	gen_one(ARG_IMM);
 	gen_eight(ARG_SPACE);
+
+	if (!optimize_int)
+		gen_insn(INSN_M68K_POP_FP, OP_SIZE_4, 0, 0);
 
 	gen_insn(INSN_M68K_POP, OP_SIZE_4, 0, 0);
 
