@@ -3126,7 +3126,7 @@ do_alu:
 	goto do_upcall;
 
 do_cmp:
-	if (0 && (SUPPORTED_FP >> real_type) & 1
+	if ((SUPPORTED_FP >> real_type) & 1
 #if defined(ARCH_ALPHA)
 		&& OS_SUPPORTS_TRAPS
 #endif
@@ -3405,7 +3405,7 @@ static bool attr_w gen_fp_alu1(struct codegen_context *ctx, unsigned real_type, 
 	}
 
 do_alu:
-	if (0 && (SUPPORTED_FP >> real_type) & 1 && (
+	if ((SUPPORTED_FP >> real_type) & 1 && (
 #if defined(ARCH_ALPHA)
 		fp_alu == FP_ALU1_NEG ||
 		(fp_alu == FP_ALU1_SQRT && cpu_test_feature(CPU_FEATURE_fix)) ||
@@ -3555,7 +3555,7 @@ do_alu:
 	goto do_upcall;
 
 do_to_int:
-	if (0 && (SUPPORTED_FP >> real_type) & 1
+	if ((SUPPORTED_FP >> real_type) & 1
 #if defined(ARCH_ALPHA)
 		&& OS_SUPPORTS_TRAPS
 #endif
@@ -3774,7 +3774,7 @@ do_cvt_to_int:
 	goto do_upcall;
 
 do_from_int:
-	if (0 && (SUPPORTED_FP >> real_type) & 1) {
+	if ((SUPPORTED_FP >> real_type) & 1) {
 #if defined(ARCH_ALPHA) || defined(ARCH_ARM32) || defined(ARCH_LOONGARCH64) || defined(ARCH_MIPS) || defined(ARCH_PARISC) || defined(ARCH_POWER) || defined(ARCH_SPARC)
 		int int_op_size = OP_SIZE_INT;
 #if defined(ARCH_POWER)
@@ -3860,7 +3860,7 @@ do_from_int:
 	goto do_upcall;
 
 do_is_exception:
-	if (0 && (SUPPORTED_FP >> real_type) & 1) {
+	if ((SUPPORTED_FP >> real_type) & 1) {
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 #if defined(ARCH_ALPHA)
@@ -4473,7 +4473,7 @@ static bool attr_w gen_fp_alu_jmp(struct codegen_context *ctx, unsigned real_typ
 	}
 
 do_cmp:
-	if (0 && (SUPPORTED_FP >> real_type) & 1
+	if ((SUPPORTED_FP >> real_type) & 1
 #if defined(ARCH_ALPHA)
 		&& OS_SUPPORTS_TRAPS && cpu_test_feature(CPU_FEATURE_fix)
 #endif

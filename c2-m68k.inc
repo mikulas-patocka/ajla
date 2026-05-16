@@ -167,7 +167,6 @@
 #define  M68K_FP_FINT		0x0001
 #define  M68K_FP_FINTRZ		0x0003
 #define  M68K_FP_FSQRT		0x0004
-#define  M68K_FP_FCMP		0x000c
 #define  M68K_FP_FNEG		0x001a
 #define  M68K_FP_FDIV		0x0020
 #define  M68K_FP_FADD		0x0022
@@ -175,6 +174,7 @@
 #define  M68K_FP_FSGLDIV	0x0024
 #define  M68K_FP_FSGLMUL	0x0027
 #define  M68K_FP_FSUB		0x0028
+#define  M68K_FP_FCMP		0x0038
 #define  M68K_FP_FTST		0x003a
 #define  M68K_FP_FSMOVE_EA_REG	0x0040
 #define  M68K_FP_FSSQRT		0x0041
