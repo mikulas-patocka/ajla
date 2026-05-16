@@ -72,6 +72,15 @@
 #define M68K_COND_GT		0xe
 #define M68K_COND_LE		0xf
 
+#define M68K_FPCOND_EQ		0x01
+#define M68K_FPCOND_NE		0x0e
+#define M68K_FPCOND_OGT		0x02
+#define M68K_FPCOND_OGE		0x03
+#define M68K_FPCOND_OLT		0x04
+#define M68K_FPCOND_OLE		0x05
+#define M68K_FPCOND_OR		0x07
+#define M68K_FPCOND_UN		0x08
+
 #define M68K_MOVE	0x0000
 #define  M68K_MOVE_B		0x1000
 #define  M68K_MOVE_L		0x2000
@@ -147,9 +156,16 @@
 #define M68K_BFINS	0xefc0
 #define M68K_FP		0xf200
 #define  M68K_FP_RM		0x4000
+#define  M68K_FP_FMT_LONG	0x0000
+#define  M68K_FP_FMT_SINGLE	0x0400
+#define  M68K_FP_FMT_EXTENDED	0x0800
+#define  M68K_FP_FMT_PDECIMAL	0x0c00
+#define  M68K_FP_FMT_WORD	0x1000
+#define  M68K_FP_FMT_DOUBLE	0x1400
+#define  M68K_FP_FMT_BYTE	0x1800
 #define  M68K_FP_FMOVE_EA_REG	0x0000
 #define  M68K_FP_FINT		0x0001
-#define  M68K_FP_FINTRZ		0x0002
+#define  M68K_FP_FINTRZ		0x0003
 #define  M68K_FP_FSQRT		0x0004
 #define  M68K_FP_FCMP		0x000c
 #define  M68K_FP_FNEG		0x001a
@@ -160,7 +176,9 @@
 #define  M68K_FP_FSGLMUL	0x0027
 #define  M68K_FP_FSUB		0x0028
 #define  M68K_FP_FTST		0x003a
+#define  M68K_FP_FSMOVE_EA_REG	0x0040
 #define  M68K_FP_FSSQRT		0x0041
+#define  M68K_FP_FDMOVE_EA_REG	0x0044
 #define  M68K_FP_FDSQRT		0x0045
 #define  M68K_FP_FSNEG		0x005a
 #define  M68K_FP_FDNEG		0x005e
@@ -172,8 +190,6 @@
 #define  M68K_FP_FDMUL		0x0067
 #define  M68K_FP_FSSUB		0x0068
 #define  M68K_FP_FDSUB		0x006c
-#define  M68K_FP_FSMOVE_EA_REG	0x4000
-#define  M68K_FP_FDMOVE_EA_REG	0x4040
 #define  M68K_FP_FMOVE_REG_EA	0x6000
 #define  M68K_FP_FMOVEM_EA_REG	0xd000
 #define  M68K_FP_FMOVEM_REG_EA	0xe000
@@ -209,6 +225,33 @@ static uint16_t get_move_size(unsigned size)
 	return mc;
 }
 
+static uint16_t get_fp_size(unsigned size)
+{
+	uint16_t mc;
+	switch (size) {
+		case OP_SIZE_4:	mc = M68K_FP_FMT_SINGLE; break;
+		case OP_SIZE_8:	mc = M68K_FP_FMT_DOUBLE; break;
+		case OP_SIZE_10:mc = M68K_FP_FMT_EXTENDED; break;
+		default: internal(file_line, "get_fp_size: invalid size %u", size);
+	}
+	return mc;
+}
+
+static uint16_t select_fp_instr(unsigned size, uint16_t s, uint16_t d, uint16_t x)
+{
+	uint16_t mc;
+	switch (size) {
+		case OP_SIZE_4:	mc = s; break;
+		case OP_SIZE_8:	mc = d; break;
+		case OP_SIZE_10:mc = x; break;
+		default: internal(file_line, "select_fp_instr: invalid size %u", size);
+	}
+#ifndef M68K_HAS_EXACT_FPU
+	mc = x;
+#endif
+	return mc;
+}
+
 static uint16_t get_cond(unsigned cond)
 {
 	switch (cond) {
@@ -233,6 +276,22 @@ static uint16_t get_cond(unsigned cond)
 	return 0xffff;
 }
 
+static uint16_t get_fp_cond(unsigned cond)
+{
+	switch (cond) {
+		case FP_COND_P:	return M68K_FPCOND_UN;
+		case FP_COND_NP:return M68K_FPCOND_OR;
+		case FP_COND_E:	return M68K_FPCOND_EQ;
+		case FP_COND_NE:return M68K_FPCOND_NE;
+		case FP_COND_A:	return M68K_FPCOND_OGT;
+		case FP_COND_BE:return M68K_FPCOND_OLE;
+		case FP_COND_B:	return M68K_FPCOND_OLT;
+		case FP_COND_AE:return M68K_FPCOND_OGE;
+		default:	internal(file_line, "get_fp_cond: invalid condition %u", cond);
+	}
+	return 0xffff;
+}
+
 static bool attr_w cgen_mov_da(struct codegen_context *ctx, uint8_t ra, uint8_t rd)
 {
 	uint16_t mc = M68K_MOVE | M68K_MOVE_L | ((ra & 7) << 9) | (M68K_ADDR_A << 3) | M68K_ADDR_D | (rd & 7);
@@ -240,9 +299,9 @@ static bool attr_w cgen_mov_da(struct codegen_context *ctx, uint8_t ra, uint8_t 
 	return true;
 }
 
-static bool attr_w cgen_mov_ad(struct codegen_context *ctx, uint8_t rd, uint8_t ra)
+static bool attr_w cgen_xchg_ad(struct codegen_context *ctx, uint8_t rd, uint8_t ra)
 {
-	uint16_t mc = M68K_MOVE | M68K_MOVE_L | ((rd & 7) << 9) | (M68K_ADDR_D << 3) | M68K_ADDR_A | (ra & 7);
+	uint16_t mc = M68K_EXG_DA | ((rd & 7) << 9) | (ra & 7);
 	cgen_two(mc);
 	return true;
 }
@@ -349,7 +408,8 @@ static bool attr_w cgen_operand(struct codegen_context *ctx, unsigned size, size
 		mc = M68K_ADDR_IMM;
 		g(cgen_imm(ctx, size, imm));
 	} else {
-		internal(file_line, "cgen_operand: invalid operand %02x", arg[0]);
+		memcpy(&mcx, ctx->mcode + instr_base, 2);
+		internal(file_line, "cgen_operand: invalid operand %02x (instr %04x)", arg[0], mcx);
 	}
 	memcpy(&mcx, ctx->mcode + instr_base, 2);
 	if (flags & CGO_MOVE_DEST)
@@ -358,6 +418,36 @@ static bool attr_w cgen_operand(struct codegen_context *ctx, unsigned size, size
 		mcx |= mc;
 	memcpy(ctx->mcode + instr_base, &mcx, 2);
 	return true;
+}
+
+static bool attr_w cgen_fp_2arg(struct codegen_context *ctx, unsigned size, uint16_t instr, uint16_t fmt, uint8_t *arg1, uint8_t *arg2)
+{
+	size_t instr_base;
+	uint16_t mc;
+
+	if (!reg_is_fp(arg1[0]))
+		goto invl;
+
+	g(cgen_prepare_address(ctx, arg2));
+
+	instr_base = ctx->mcode_size;
+	mc = M68K_FP;
+	cgen_two(mc);
+	mc = instr;
+	mc |= (arg1[0] & 7) << 7;
+	if (reg_is_fp(arg2[0])) {
+		mc |= (arg2[0] & 7) << 10;
+	} else {
+		mc |= M68K_FP_RM;
+		mc |= fmt;
+	}
+	cgen_two(mc);
+	if (!reg_is_fp(arg2[0]))
+		g(cgen_operand(ctx, size, instr_base, 0, arg2));
+	return true;
+invl:
+	internal(file_line, "cgen_fp_2arg: invalid arguments %u %04x %02x %02x", size, instr, arg1[0], arg2[0]);
+	return false;
 }
 
 static bool attr_w cgen_m68k_push_pop(struct codegen_context *ctx, bool pop)
@@ -516,6 +606,15 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
+
+	if (reg_is_fp(arg1[0])) {
+		g(cgen_fp_2arg(ctx, size, select_fp_instr(size, M68K_FP_FSMOVE_EA_REG, M68K_FP_FDMOVE_EA_REG, M68K_FP_FMOVE_EA_REG), get_fp_size(size), arg1, arg2));
+		return true;
+	}
+	if (reg_is_fp(arg2[0])) {
+		g(cgen_fp_2arg(ctx, size, M68K_FP_FMOVE_REG_EA, get_fp_size(size), arg2, arg1));
+		return true;
+	}
 
 	g(cgen_moves(ctx, size, arg1, arg2, sx, false));
 
@@ -699,7 +798,7 @@ static bool attr_w cgen_lea(struct codegen_context *ctx, uint8_t *arg1, uint8_t 
 
 instr_done:
 	if (reg1 == R_TMP_A && arg1[0] != R_TMP_A)
-		g(cgen_mov_ad(ctx, arg1[0], R_TMP_A));
+		g(cgen_xchg_ad(ctx, arg1[0], R_TMP_A));
 
 	return true;
 invl:
@@ -869,7 +968,7 @@ static bool attr_w cgen_lea3(struct codegen_context *ctx, unsigned shift)
 	cgen_two(mc);
 	g(cgen_operand(ctx, OP_SIZE_4, instr_base, 0, addr));
 	if (!R_IS_A(arg1[0]))
-		g(cgen_mov_ad(ctx, arg1[0], R_TMP_A));
+		g(cgen_xchg_ad(ctx, arg1[0], R_TMP_A));
 
 	return true;
 }
@@ -1110,9 +1209,16 @@ static bool attr_w cgen_set_cond(struct codegen_context *ctx, unsigned cond, boo
 	g(cgen_prepare_address(ctx, arg1));
 
 	instr_base = ctx->mcode_size;
-	mc = M68K_SETCC;
-	mc |= get_cond(cond) << 8;
-	cgen_two(mc);
+	if (!(cond & COND_FP)) {
+		mc = M68K_SETCC;
+		mc |= get_cond(cond) << 8;
+		cgen_two(mc);
+	} else {
+		mc = M68K_FSCC;
+		cgen_two(mc);
+		mc = get_fp_cond(cond);
+		cgen_two(mc);
+	}
 	g(cgen_operand(ctx, OP_SIZE_1, instr_base, 0, arg1));
 
 	instr_base = ctx->mcode_size;
@@ -1138,16 +1244,102 @@ static bool attr_w cgen_mov_mask(struct codegen_context *ctx, unsigned size)
 	return true;
 }
 
+static bool attr_w cgen_fp_cmp(struct codegen_context *ctx, unsigned size)
+{
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+	g(cgen_fp_2arg(ctx, size, M68K_FP_FCMP, get_fp_size(size), arg1, arg2));
+	return true;
+}
+
+static bool attr_w cgen_fp_alu(struct codegen_context *ctx, unsigned size, unsigned alu)
+{
+	uint16_t instr;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	ctx->code_position = arg3 + arg_size(*arg3);
+	if (memcmp(arg1, arg2, arg_size(*arg1)))
+		internal(file_line, "cgen_fp_alu: operand mismatch");
+	switch (alu) {
+		case FP_ALU_ADD:	instr = select_fp_instr(size, M68K_FP_FSADD, M68K_FP_FDADD, M68K_FP_FADD); break;
+		case FP_ALU_SUB:	instr = select_fp_instr(size, M68K_FP_FSSUB, M68K_FP_FDSUB, M68K_FP_FSUB); break;
+		case FP_ALU_MUL:	instr = select_fp_instr(size, M68K_FP_FSGLMUL, M68K_FP_FDMUL, M68K_FP_FMUL); break;
+		case FP_ALU_DIV:	instr = select_fp_instr(size, M68K_FP_FSGLMUL, M68K_FP_FDMUL, M68K_FP_FMUL); break;
+		default:		internal(file_line, "cgen_fp_alu: invalid alu %u", alu);
+	}
+	g(cgen_fp_2arg(ctx, size, instr, get_fp_size(size), arg1, arg3));
+	return true;
+}
+
+static bool attr_w cgen_fp_alu1(struct codegen_context *ctx, unsigned size, unsigned alu)
+{
+	uint16_t instr;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+	switch (alu) {
+		case FP_ALU1_NEG:	instr = select_fp_instr(size, M68K_FP_FSNEG, M68K_FP_FDNEG, M68K_FP_FNEG); break;
+		case FP_ALU1_SQRT:	instr = select_fp_instr(size, M68K_FP_FSSQRT, M68K_FP_FDSQRT, M68K_FP_FSQRT); break;
+		case FP_ALU1_ROUND:	instr = M68K_FP_FINT; break;
+		case FP_ALU1_TRUNC:	instr = M68K_FP_FINTRZ; break;
+		default:		internal(file_line, "cgen_fp_alu1: invalid alu %u", alu);
+	}
+	g(cgen_fp_2arg(ctx, size, instr, get_fp_size(size), arg1, arg2));
+	return true;
+}
+
+static bool attr_w cgen_fp_to_int(struct codegen_context *ctx, unsigned size)
+{
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+	g(cgen_fp_2arg(ctx, size, M68K_FP_FMOVE_REG_EA, M68K_FP_FMT_LONG, arg2, arg1));
+	return true;
+}
+
+static bool attr_w cgen_fp_from_int(struct codegen_context *ctx, unsigned size)
+{
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+	g(cgen_fp_2arg(ctx, size, M68K_FP_FMOVE_EA_REG, M68K_FP_FMT_LONG, arg1, arg2));
+	return true;
+}
+
+static bool attr_w cgen_fp_cvt(struct codegen_context *ctx, unsigned from_size, unsigned to_size)
+{
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+	g(cgen_fp_2arg(ctx, from_size, select_fp_instr(to_size, M68K_FP_FSMOVE_EA_REG, M68K_FP_FDMOVE_EA_REG, M68K_FP_FMOVE_EA_REG), get_fp_size(from_size), arg1, arg2));
+	return true;
+}
+
 static bool attr_w cgen_jmp(struct codegen_context *ctx, unsigned cond, unsigned jump_size)
 {
 	uint16_t mc;
-	g(add_relocation(ctx, jump_size, 0, NULL));
-	mc = M68K_BCC;
-	mc |= get_cond(cond) << 8;
-	cgen_two(mc);
+	if (!(cond & COND_FP)) {
+		g(add_relocation(ctx, jump_size, 0, NULL));
+		mc = M68K_BCC;
+		mc |= get_cond(cond) << 8;
+		if (jump_size == JMP_LONG)
+			mc |= 0xff;
+		cgen_two(mc);
+	} else {
+		if (jump_size == JMP_SHORTEST)
+			jump_size = JMP_SHORT;
+		g(add_relocation(ctx, jump_size, 0, NULL));
+		mc = M68K_FBCC;
+		mc |= get_fp_cond(cond);
+		if (jump_size == JMP_LONG)
+			mc |= M68K_FBCC_32C;
+		cgen_two(mc);
+	}
 	if (jump_size >= JMP_SHORT)
 		cgen_two(0);
-	if (jump_size >= JMP_LONG)
+	if (jump_size == JMP_LONG)
 		cgen_two(0);
 	return true;
 }
@@ -1164,12 +1356,10 @@ static bool attr_w resolve_relocation(struct codegen_context *ctx, struct reloca
 		case JMP_SHORT:
 			if (!imm_is_16bit(offs))
 				return false;
-			ctx->mcode[reloc->position + 1] = 0;
 			ctx->mcode[reloc->position + 2] = (uint32_t)offs >> 8;
 			ctx->mcode[reloc->position + 3] = (uint32_t)offs;
 			return true;
 		case JMP_LONG:
-			ctx->mcode[reloc->position + 1] = 0xff;
 			ctx->mcode[reloc->position + 2] = (uint32_t)offs >> 24;
 			ctx->mcode[reloc->position + 3] = (uint32_t)offs >> 16;
 			ctx->mcode[reloc->position + 4] = (uint32_t)offs >> 8;
@@ -1296,6 +1486,24 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 				g(cgen_mov_mask(ctx, OP_SIZE_2));
 			else
 				goto invalid_insn;
+			return true;
+		case INSN_FP_CMP:
+			g(cgen_fp_cmp(ctx, insn_op_size(insn)));
+			return true;
+		case INSN_FP_ALU:
+			g(cgen_fp_alu(ctx, insn_op_size(insn), insn_aux(insn)));
+			return true;
+		case INSN_FP_ALU1:
+			g(cgen_fp_alu1(ctx, insn_op_size(insn), insn_aux(insn)));
+			return true;
+		case INSN_FP_TO_INT32:
+			g(cgen_fp_to_int(ctx, insn_op_size(insn)));
+			return true;
+		case INSN_FP_FROM_INT32:
+			g(cgen_fp_from_int(ctx, insn_op_size(insn)));
+			return true;
+		case INSN_FP_CVT:
+			g(cgen_fp_cvt(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_JMP:
 			g(cgen_jmp(ctx, COND_ALWAYS, insn_jump_size(insn)));

@@ -16,6 +16,10 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#if defined(__mc68040__) || defined(__mc68060__)
+#define M68K_HAS_EXACT_FPU
+#endif
+
 #define OP_SIZE_NATIVE			OP_SIZE_4
 #define OP_SIZE_ADDRESS			OP_SIZE_4
 

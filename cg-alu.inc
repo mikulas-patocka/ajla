@@ -3047,7 +3047,7 @@ do_alu:
 		if (unlikely(fp_alu == FP_ALU_DIV))
 			goto do_upcall;
 #endif
-#if defined(ARCH_X86)
+#if defined(ARCH_M68K) || defined(ARCH_X86)
 		if (1)
 #elif defined(ARCH_S390)
 		if ((op_size <= OP_SIZE_8 && (size_t)slot_2 * slot_size < 4096) || slot_is_register(ctx, slot_2))
@@ -3126,7 +3126,7 @@ do_alu:
 	goto do_upcall;
 
 do_cmp:
-	if ((SUPPORTED_FP >> real_type) & 1
+	if (0 && (SUPPORTED_FP >> real_type) & 1
 #if defined(ARCH_ALPHA)
 		&& OS_SUPPORTS_TRAPS
 #endif
@@ -3405,11 +3405,11 @@ static bool attr_w gen_fp_alu1(struct codegen_context *ctx, unsigned real_type, 
 	}
 
 do_alu:
-	if ((SUPPORTED_FP >> real_type) & 1 && (
+	if (0 && (SUPPORTED_FP >> real_type) & 1 && (
 #if defined(ARCH_ALPHA)
 		fp_alu == FP_ALU1_NEG ||
 		(fp_alu == FP_ALU1_SQRT && cpu_test_feature(CPU_FEATURE_fix)) ||
-#elif defined(ARCH_ARM32)
+#elif defined(ARCH_ARM32) || defined(ARCH_SPARC) || defined(ARCH_RISCV64)
 		fp_alu == FP_ALU1_NEG ||
 		fp_alu == FP_ALU1_SQRT ||
 #elif defined(ARCH_ARM64)
@@ -3420,6 +3420,11 @@ do_alu:
 		fp_alu == FP_ALU1_NEG ||
 		fp_alu == FP_ALU1_SQRT ||
 		fp_alu == FP_ALU1_ROUND ||
+#elif defined(ARCH_M68K)
+		fp_alu == FP_ALU1_NEG ||
+		fp_alu == FP_ALU1_SQRT ||
+		fp_alu == FP_ALU1_ROUND ||
+		fp_alu == FP_ALU1_TRUNC ||
 #elif defined(ARCH_MIPS)
 		fp_alu == FP_ALU1_NEG ||
 		(fp_alu == FP_ALU1_SQRT && MIPS_HAS_SQRT) ||
@@ -3431,12 +3436,6 @@ do_alu:
 		(fp_alu == FP_ALU1_SQRT && cpu_test_feature(CPU_FEATURE_p2) && real_type != 4) ||
 #elif defined(ARCH_S390)
 		true ||
-#elif defined(ARCH_SPARC)
-		fp_alu == FP_ALU1_NEG ||
-		fp_alu == FP_ALU1_SQRT ||
-#elif defined(ARCH_RISCV64)
-		fp_alu == FP_ALU1_NEG ||
-		fp_alu == FP_ALU1_SQRT ||
 #elif defined(ARCH_X86)
 #if defined(ARCH_X86_64) || defined(ARCH_X86_X32)
 		fp_alu == FP_ALU1_NEG ||
@@ -3556,7 +3555,7 @@ do_alu:
 	goto do_upcall;
 
 do_to_int:
-	if ((SUPPORTED_FP >> real_type) & 1
+	if (0 && (SUPPORTED_FP >> real_type) & 1
 #if defined(ARCH_ALPHA)
 		&& OS_SUPPORTS_TRAPS
 #endif
@@ -3578,7 +3577,7 @@ do_cvt_to_int:
 		g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, target));
 		return true;
 #endif
-#if defined(ARCH_ARM) || defined(ARCH_LOONGARCH64) || defined(ARCH_MIPS)
+#if defined(ARCH_ARM) || defined(ARCH_LOONGARCH64) || defined(ARCH_M68K) || defined(ARCH_MIPS)
 #if defined(ARCH_ARM)
 		gen_insn(INSN_FP_CMP, op_size, 0, 1);
 		gen_one(reg1);
@@ -3588,6 +3587,11 @@ do_cvt_to_int:
 #endif
 		gen_insn(INSN_JMP_COND, op_size, FP_COND_P, 0);
 		gen_label_ref(label_ovf);
+#elif defined(ARCH_M68K)
+		gen_insn(INSN_FP_ALU1, op_size, FP_ALU1_TRUNC, 0);
+		gen_one(fr_scratch_1);
+		gen_one(reg1);
+		reg1 = fr_scratch_1;
 #else
 		gen_insn(INSN_FP_CMP_COND, op_size, FP_COND_P, 1);
 		gen_one(reg1);
@@ -3770,7 +3774,7 @@ do_cvt_to_int:
 	goto do_upcall;
 
 do_from_int:
-	if ((SUPPORTED_FP >> real_type) & 1) {
+	if (0 && (SUPPORTED_FP >> real_type) & 1) {
 #if defined(ARCH_ALPHA) || defined(ARCH_ARM32) || defined(ARCH_LOONGARCH64) || defined(ARCH_MIPS) || defined(ARCH_PARISC) || defined(ARCH_POWER) || defined(ARCH_SPARC)
 		int int_op_size = OP_SIZE_INT;
 #if defined(ARCH_POWER)
@@ -3856,7 +3860,7 @@ do_from_int:
 	goto do_upcall;
 
 do_is_exception:
-	if ((SUPPORTED_FP >> real_type) & 1) {
+	if (0 && (SUPPORTED_FP >> real_type) & 1) {
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 #if defined(ARCH_ALPHA)
@@ -4443,6 +4447,9 @@ static bool attr_w gen_fp_alu_jmp(struct codegen_context *ctx, unsigned real_typ
 	unsigned reg1, reg2;
 	unsigned attr_unused target;
 	setup_fr_scratch;
+#if 0
+	*failed = true; return true;
+#endif
 	switch (op) {
 		case OPCODE_REAL_OP_equal:
 		case OPCODE_REAL_OP_equal_alt1:
@@ -4466,7 +4473,7 @@ static bool attr_w gen_fp_alu_jmp(struct codegen_context *ctx, unsigned real_typ
 	}
 
 do_cmp:
-	if ((SUPPORTED_FP >> real_type) & 1
+	if (0 && (SUPPORTED_FP >> real_type) & 1
 #if defined(ARCH_ALPHA)
 		&& OS_SUPPORTS_TRAPS && cpu_test_feature(CPU_FEATURE_fix)
 #endif
