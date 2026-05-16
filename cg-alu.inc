@@ -3131,6 +3131,30 @@ do_cmp:
 		&& OS_SUPPORTS_TRAPS
 #endif
 	) {
+#if defined(ARCH_M68K) || defined(ARCH_X86)
+		if (1)
+#elif defined(ARCH_S390)
+		if ((op_size <= OP_SIZE_8 && (size_t)slot_2 * slot_size < 4096) || slot_is_register(ctx, slot_2))
+#else
+		if (slot_is_register(ctx, slot_2))
+#endif
+		{
+			g(gen_frame_get(ctx, op_size, garbage, slot_1, fr_scratch_1, &reg1));
+			if (slot_is_register(ctx, slot_2)) {
+				gen_insn(INSN_FP_CMP, op_size, 0, 1);
+				gen_one(reg1);
+				gen_one(ctx->registers[slot_2]);
+			} else {
+				g(gen_address(ctx, R_FRAME, (size_t)slot_2 * slot_size, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
+				gen_insn(INSN_FP_CMP, op_size, 0, 1);
+				gen_one(reg1);
+				gen_address_offset();
+			}
+			gen_insn(INSN_JMP_COND, op_size, FP_COND_P, 0);
+			gen_label_ref(label_ovf);
+			g(gen_frame_set_cond(ctx, op_size, false, fp_alu, slot_r));
+			return true;
+		}
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, fr_scratch_2, &reg2));
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
@@ -4478,6 +4502,30 @@ do_cmp:
 		&& OS_SUPPORTS_TRAPS && cpu_test_feature(CPU_FEATURE_fix)
 #endif
 	) {
+#if defined(ARCH_M68K) || defined(ARCH_X86)
+		if (1)
+#elif defined(ARCH_S390)
+		if ((op_size <= OP_SIZE_8 && (size_t)slot_2 * slot_size < 4096) || slot_is_register(ctx, slot_2))
+#else
+		if (slot_is_register(ctx, slot_2))
+#endif
+		{
+			g(gen_frame_get(ctx, op_size, garbage, slot_1, fr_scratch_1, &reg1));
+			if (slot_is_register(ctx, slot_2)) {
+				gen_insn(INSN_FP_CMP, op_size, 0, 1);
+				gen_one(reg1);
+				gen_one(ctx->registers[slot_2]);
+			} else {
+				g(gen_address(ctx, R_FRAME, (size_t)slot_2 * slot_size, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
+				gen_insn(INSN_FP_CMP, op_size, 0, 1);
+				gen_one(reg1);
+				gen_address_offset();
+			}
+			gen_insn(INSN_JMP_COND, op_size, FP_COND_P, 0);
+			gen_label_ref(label_ovf);
+			g(gen_jump(ctx, jmp_offset, op_size, fp_alu ^ 1, -1U, -1U, 0));
+			return true;
+		}
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, fr_scratch_2, &reg2));
 		target = R_SCRATCH_1;
