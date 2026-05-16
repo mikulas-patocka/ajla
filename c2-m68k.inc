@@ -246,6 +246,8 @@ static uint16_t select_fp_instr(unsigned size, uint16_t s, uint16_t d, uint16_t 
 		case OP_SIZE_10:mc = x; break;
 		default: internal(file_line, "select_fp_instr: invalid size %u", size);
 	}
+	if (mc == M68K_FP_FSGLMUL || mc == M68K_FP_FSGLDIV)
+		return mc;
 #ifndef M68K_HAS_EXACT_FPU
 	mc = x;
 #endif
@@ -1266,7 +1268,7 @@ static bool attr_w cgen_fp_alu(struct codegen_context *ctx, unsigned size, unsig
 		case FP_ALU_ADD:	instr = select_fp_instr(size, M68K_FP_FSADD, M68K_FP_FDADD, M68K_FP_FADD); break;
 		case FP_ALU_SUB:	instr = select_fp_instr(size, M68K_FP_FSSUB, M68K_FP_FDSUB, M68K_FP_FSUB); break;
 		case FP_ALU_MUL:	instr = select_fp_instr(size, M68K_FP_FSGLMUL, M68K_FP_FDMUL, M68K_FP_FMUL); break;
-		case FP_ALU_DIV:	instr = select_fp_instr(size, M68K_FP_FSGLMUL, M68K_FP_FDMUL, M68K_FP_FMUL); break;
+		case FP_ALU_DIV:	instr = select_fp_instr(size, M68K_FP_FSGLDIV, M68K_FP_FDDIV, M68K_FP_FDIV); break;
 		default:		internal(file_line, "cgen_fp_alu: invalid alu %u", alu);
 	}
 	g(cgen_fp_2arg(ctx, size, instr, get_fp_size(size), arg1, arg3));
