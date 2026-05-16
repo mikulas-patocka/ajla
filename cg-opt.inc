@@ -299,7 +299,9 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 			continue;
 		size = type_get_real(real_type)->size;
 		set_reg_and_aliases(&scratch_regs, size, FR_SCRATCH_1);
+#ifdef FR_SCRATCH_2
 		set_reg_and_aliases(&scratch_regs, size, FR_SCRATCH_2);
+#endif
 #ifdef FR_SCRATCH_3
 		set_reg_and_aliases(&scratch_regs, size, FR_SCRATCH_3);
 #endif

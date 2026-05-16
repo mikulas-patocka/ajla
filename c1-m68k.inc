@@ -115,7 +115,6 @@ static bool reg_is_fp(unsigned reg)
 #define R_FRAME				RA6
 
 #define FR_SCRATCH_1			RFP0
-#define FR_SCRATCH_2			RFP1
 
 #define R_ARG0				RD0
 #define R_ARG1				RD0

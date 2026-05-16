@@ -2990,10 +2990,13 @@ static bool attr_w gen_copy(struct codegen_context *ctx, unsigned op_size, frame
 	unsigned attr_unused fr_scratch_1 = FR_SCRATCH_1;		\
 	unsigned attr_unused fr_scratch_2 = FR_SCRATCH_2;		\
 	unsigned attr_unused fr_scratch_3 = FR_SCRATCH_3
-#else
+#elif defined(FR_SCRATCH_2)
 #define setup_fr_scratch						\
 	unsigned attr_unused fr_scratch_1 = FR_SCRATCH_1;		\
 	unsigned attr_unused fr_scratch_2 = FR_SCRATCH_2
+#else
+#define setup_fr_scratch						\
+	unsigned attr_unused fr_scratch_1 = FR_SCRATCH_1;
 #endif
 
 static bool attr_w gen_fp_alu(struct codegen_context *ctx, unsigned real_type, unsigned op, uint32_t label_ovf, frame_t slot_1, frame_t slot_2, frame_t slot_r)
@@ -3079,7 +3082,7 @@ do_alu:
 		target = gen_frame_target(ctx, slot_r, slot_1, slot_2, fr_scratch_3);
 		g(gen_3address_fp_alu(ctx, op_size, fp_alu, target, reg1, reg2));
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
-#else
+#elif defined(FR_SCRATCH_2)
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, fr_scratch_2, &reg2));
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_1);
@@ -3103,6 +3106,7 @@ do_alu:
 		return true;
 	}
 #endif
+#if defined(FR_SCRATCH_2)
 	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1) && SUPPORTED_FP_CVT(1, 0)) {
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, fr_scratch_2, &reg2));
@@ -3123,6 +3127,7 @@ do_alu:
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
 	}
+#endif
 	goto do_upcall;
 
 do_cmp:
@@ -3155,9 +3160,11 @@ do_cmp:
 			g(gen_frame_set_cond(ctx, op_size, false, fp_alu, slot_r));
 			return true;
 		}
+#if defined(FR_SCRATCH_2)
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, fr_scratch_2, &reg2));
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
+#endif
 #if defined(ARCH_ALPHA)
 		gen_insn(INSN_FP_CMP_DEST_REG_TRAP, op_size, fp_alu == FP_COND_NE ? FP_COND_E : fp_alu, 0);
 		gen_one(fr_scratch_3);
@@ -3353,7 +3360,7 @@ do_cmp:
 		return true;
 	}
 #endif
-#if ARCH_HAS_FLAGS
+#if ARCH_HAS_FLAGS && defined(FR_SCRATCH_2)
 	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1) && SUPPORTED_FP_CVT(1, 0)) {
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, fr_scratch_2, &reg2));
@@ -3528,6 +3535,7 @@ do_alu:
 			}
 			return true;
 		}
+#if defined(FR_SCRATCH_2)
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_2);
 		gen_insn(INSN_FP_ALU1, op_size, fp_alu, 0);
@@ -3535,6 +3543,7 @@ do_alu:
 		gen_one(reg1);
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
+#endif
 	}
 #ifdef SUPPORTED_FP_X87
 	if ((SUPPORTED_FP_X87 >> real_type) & 1) {
@@ -4531,9 +4540,11 @@ do_cmp:
 			g(gen_jump(ctx, jmp_offset, op_size, fp_alu ^ 1, -1U, -1U, 0));
 			return true;
 		}
+#if defined(FR_SCRATCH_2)
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, fr_scratch_2, &reg2));
 		target = R_SCRATCH_1;
+#endif
 #if defined(ARCH_ALPHA)
 		gen_insn(INSN_FP_CMP_DEST_REG_TRAP, op_size, fp_alu == FP_COND_NE ? FP_COND_E : fp_alu, 0);
 		gen_one(fr_scratch_3);
