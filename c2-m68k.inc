@@ -145,6 +145,41 @@
 #define M68K_BFFFO	0xedc0
 #define M68K_BFSET	0xeec0
 #define M68K_BFINS	0xefc0
+#define M68K_FP		0xf200
+#define  M68K_FP_RM		0x4000
+#define  M68K_FP_FMOVE_EA_REG	0x0000
+#define  M68K_FP_FINT		0x0001
+#define  M68K_FP_FINTRZ		0x0002
+#define  M68K_FP_FSQRT		0x0004
+#define  M68K_FP_FCMP		0x000c
+#define  M68K_FP_FNEG		0x001a
+#define  M68K_FP_FDIV		0x0020
+#define  M68K_FP_FADD		0x0022
+#define  M68K_FP_FMUL		0x0023
+#define  M68K_FP_FSGLDIV	0x0024
+#define  M68K_FP_FSGLMUL	0x0027
+#define  M68K_FP_FSUB		0x0028
+#define  M68K_FP_FTST		0x003a
+#define  M68K_FP_FSSQRT		0x0041
+#define  M68K_FP_FDSQRT		0x0045
+#define  M68K_FP_FSNEG		0x005a
+#define  M68K_FP_FDNEG		0x005e
+#define  M68K_FP_FSDIV		0x0060
+#define  M68K_FP_FSADD		0x0062
+#define  M68K_FP_FSMUL		0x0063
+#define  M68K_FP_FDDIV		0x0064
+#define  M68K_FP_FDADD		0x0066
+#define  M68K_FP_FDMUL		0x0067
+#define  M68K_FP_FSSUB		0x0068
+#define  M68K_FP_FDSUB		0x006c
+#define  M68K_FP_FSMOVE_EA_REG	0x4000
+#define  M68K_FP_FDMOVE_EA_REG	0x4040
+#define  M68K_FP_FMOVE_REG_EA	0x6000
+#define  M68K_FP_FMOVEM_EA_REG	0xd000
+#define  M68K_FP_FMOVEM_REG_EA	0xe000
+#define M68K_FSCC	0xf240
+#define M68K_FBCC	0xf280
+#define  M68K_FBCC_32C	0x0040
 
 static uint16_t get_size(unsigned size, bool a)
 {
@@ -1151,8 +1186,6 @@ static bool validate_arg(const uint8_t *arg)
 	if (R_IS_DA(arg[0]))
 		return true;
 	if (arg[0] == ARG_ADDRESS_1 ||
-	    arg[0] == ARG_ADDRESS_1_PRE_I ||
-	    arg[0] == ARG_ADDRESS_1_POST_I ||
 	    (arg[0] >= ARG_ADDRESS_2 && arg[0] <= ARG_ADDRESS_2_8))
 		return true;
 	return false;
