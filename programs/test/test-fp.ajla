@@ -113,7 +113,7 @@ fn test~inline(implicit w : world, implicit p : prng_state, h : list(handle), t 
 			mismatch := vv[i] <> ff[i];
 		]
 		if mismatch then [
-			if uname(uname_flag_machine)[0] = "m68k", i = len(vv) - 1 or i = 5 or i = 6 then
+			if uname(uname_flag_machine)[0] = "m68k", i = len(vv) - 1 then
 				continue;
 			eval debug("1: " + ntos_base_precision(v1, 16, 40));
 			eval debug("2: " + ntos_base_precision(v2, 16, 40));
