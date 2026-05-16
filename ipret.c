@@ -337,7 +337,7 @@ static ipret_inline void cat4(REAL_unary_,op,_,type)			\
 
 static attr_always_inline void m68k_fixup_fpcr(void)
 {
-	/* workaround for a glibc bug */
+	/* workaround for a qemu bug */
 #if defined(INLINE_ASM_GCC_M68K)
 	__asm__ volatile ("fmove.l #0, %%fpcr" ::: "memory");
 #endif
