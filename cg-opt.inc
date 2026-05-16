@@ -515,6 +515,11 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 	d->rd_frame = NO_FRAME_T;
 	d->wr_frame = NO_FRAME_T;
 	insn = oget_four(ptr);
+#if defined(ARCH_M68K)
+	if (insn_opcode(insn) == INSN_MOV || insn_opcode(insn) == INSN_MOVSX) {
+		insn |= (uint32_t)1 << INSN_WRITES_FLAGS_SHIFT;
+	}
+#endif
 #ifdef QUASH_REPETITIVE_INSNS
 	d->wr_reg = insn_writes_flags(insn) ? R_FLAGS : (uint8_t)-1;
 #endif
