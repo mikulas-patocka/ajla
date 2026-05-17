@@ -561,6 +561,10 @@ static bool attr_w cgen_moves(struct codegen_context *ctx, unsigned size, uint8_
 	size_t instr_base;
 	uint16_t mc;
 
+	if (arg1[0] >= ARG_ADDRESS_1 && arg1[0] <= ARG_ADDRESS_2_8 && R_IS_D(arg1[1]) &&
+	    arg2[0] >= ARG_ADDRESS_1 && arg2[0] <= ARG_ADDRESS_2_8 && R_IS_D(arg2[1]))
+		internal(file_line, "cgen_moves: move with two data registers: %02x %02x", arg1[1], arg2[1]);
+
 	g(cgen_prepare_address(ctx, arg1));
 	g(cgen_prepare_address(ctx, arg2));
 
@@ -1421,6 +1425,9 @@ static bool validate_insn(const struct insn_details attr_unused *d)
 			const uint8_t *arg1 = d->start + 4;
 			const uint8_t *arg2 = arg1 + arg_size(*arg1);
 			if (unlikely(!validate_arg(arg1)) || unlikely(!(validate_arg(arg2) || arg2[0] == ARG_IMM)))
+				return false;
+			if (arg1[0] >= ARG_ADDRESS_1 && arg1[0] <= ARG_ADDRESS_2_8 && R_IS_D(arg1[1]) &&
+			    arg2[0] >= ARG_ADDRESS_1 && arg2[0] <= ARG_ADDRESS_2_8 && R_IS_D(arg2[1]))
 				return false;
 			return true;
 	}
