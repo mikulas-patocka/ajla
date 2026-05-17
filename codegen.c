@@ -1835,7 +1835,7 @@ skip_dereference:
 
 				g(gen_load_constant(ctx, R_RET_IP, ((ctx->current_position - da(ctx->fn,function)->code) * CG_EXIT_MULTIPLIER) | CG_EXIT_FLAG_NONFLAT));
 
-				if (unlikely(!gen_test_variables(ctx, vars, n, 1, true, ctx->nospill_label))) {
+				if (unlikely(!gen_test_variable_tags(ctx, vars, n, ctx->nospill_label))) {
 					mem_free(vars);
 					return false;
 				}
@@ -1843,7 +1843,7 @@ skip_dereference:
 					mem_free(vars);
 					return false;
 				}
-				if (unlikely(!gen_test_variables(ctx, vars, n, 6, true, escape_label))) {
+				if (unlikely(!gen_test_variable_content(ctx, vars, n, true, escape_label))) {
 					mem_free(vars);
 					return false;
 				}
@@ -2320,9 +2320,9 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 
 				g(gen_load_constant(ctx, R_RET_IP, ce->current_position | CG_EXIT_FLAG_NONFLAT));
 
-				g(gen_test_variables(ctx, ce->variables, ce->n_variables, 1, false, ctx->nospill_label));
+				g(gen_test_variable_tags(ctx, ce->variables, ce->n_variables, ctx->nospill_label));
 				g(gen_unspill_variables(ctx, ce->variables, ce->n_variables));
-				g(gen_test_variables(ctx, ce->variables, ce->n_variables, 6, false, ce->nonflat_label));
+				g(gen_test_variable_content(ctx, ce->variables, ce->n_variables, false, ce->nonflat_label));
 
 				gen_insn(INSN_JMP, 0, 0, 0);
 				gen_label_ref(ce->entry_label);

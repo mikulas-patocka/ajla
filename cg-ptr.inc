@@ -118,25 +118,33 @@ static bool attr_w gen_unspill_variables(struct codegen_context *ctx, frame_t *v
 	return true;
 }
 
-static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *variables, size_t n_variables, unsigned pass, bool test_flag_on_thunks, uint32_t label)
+static bool attr_w gen_test_variable_tags(struct codegen_context *ctx, frame_t *variables, size_t n_variables, uint32_t label)
+{
+	size_t n_vars = 0;
+	size_t n;
+	for (n = 0; n < n_variables; n++) {
+		frame_t v = variables[n];
+		if (da(ctx->fn,function)->local_variables_flags[v].must_be_flat)
+			ctx->var_aux[n_vars++] = v;
+	}
+	g(gen_test_multiple(ctx, ctx->var_aux, n_vars, label));
+	return true;
+}
+
+static bool attr_w gen_test_variable_content(struct codegen_context *ctx, frame_t *variables, size_t n_variables, bool test_flag_on_thunks, uint32_t label)
 {
 	unsigned i;
 
-	for (i = 0; i < 3; i++) {
+	for (i = 0; i < 2; i++) {
 		size_t n_vars = 0;
 		size_t n;
-		if (!((pass >> i) & 1))
-			continue;
 		for (n = 0; n < n_variables; n++) {
 			frame_t v = variables[n];
-			if (!i ? da(ctx->fn,function)->local_variables_flags[v].must_be_flat :
-			     i == 1 ? da(ctx->fn,function)->local_variables_flags[v].must_be_data :
+			if (i == 0 ? da(ctx->fn,function)->local_variables_flags[v].must_be_data :
 			     da(ctx->fn,function)->local_variables_flags[v].must_be_data >= 2)
 				ctx->var_aux[n_vars++] = v;
 		}
-		if (!i) {
-			g(gen_test_multiple(ctx, ctx->var_aux, n_vars, label));
-		} else if (i == 1) {
+		if (i == 0) {
 			if (!test_flag_on_thunks) {
 				g(gen_test_multiple_thunks(ctx, ctx->var_aux, n_vars, label));
 			} else {
