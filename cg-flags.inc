@@ -543,14 +543,14 @@ dont_optimize:
 
 		g(gen_address(ctx, R_FRAME, slot_2, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
 		gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
-		gen_one(R_SCRATCH_2);
+		gen_one(R_SCRATCH_NA_1);
 		gen_address_offset();
 #if defined(ARCH_ARM) || defined(ARCH_SPARC)
 		gen_insn(INSN_CMN, OP_SIZE_NATIVE, 0, 1);
 		gen_one(R_SCRATCH_1);
-		gen_one(R_SCRATCH_2);
+		gen_one(R_SCRATCH_NA_1);
 #else
-		g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_OR, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_2, 1));
+		g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_OR, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_NA_1, 1));
 #endif
 		gen_insn(INSN_JMP_COND, OP_SIZE_NATIVE, COND_NE, 0);
 		gen_label_ref(label);
