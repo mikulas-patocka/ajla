@@ -228,7 +228,7 @@ static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg
 {
 	bool attr_unused logical;
 	size_t attr_unused offset;
-	unsigned op_size = log_2(sizeof(tag_t));
+	unsigned attr_unused op_size = log_2(sizeof(tag_t));
 	if (subtract
 #if defined(ARCH_S390)
 		|| 1
