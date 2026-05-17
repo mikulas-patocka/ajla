@@ -3141,9 +3141,10 @@ do_cmp:
 #elif defined(ARCH_S390)
 		if ((op_size <= OP_SIZE_8 && (size_t)slot_2 * slot_size < 4096) || slot_is_register(ctx, slot_2))
 #else
-		if (slot_is_register(ctx, slot_2))
+		if (0)
 #endif
 		{
+#if ARCH_HAS_FLAGS
 			g(gen_frame_get(ctx, op_size, garbage, slot_1, fr_scratch_1, &reg1));
 			if (slot_is_register(ctx, slot_2)) {
 				gen_insn(INSN_FP_CMP, op_size, 0, 1);
@@ -3159,6 +3160,7 @@ do_cmp:
 			gen_label_ref(label_ovf);
 			g(gen_frame_set_cond(ctx, op_size, false, fp_alu, slot_r));
 			return true;
+#endif
 		}
 #if defined(FR_SCRATCH_2)
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
@@ -4521,7 +4523,7 @@ do_cmp:
 #elif defined(ARCH_S390)
 		if ((op_size <= OP_SIZE_8 && (size_t)slot_2 * slot_size < 4096) || slot_is_register(ctx, slot_2))
 #else
-		if (slot_is_register(ctx, slot_2))
+		if (0)
 #endif
 		{
 			g(gen_frame_get(ctx, op_size, garbage, slot_1, fr_scratch_1, &reg1));
