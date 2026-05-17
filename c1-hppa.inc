@@ -196,6 +196,7 @@
 #define R_ARG1		R_25
 #define R_ARG2		R_24
 #define R_ARG3		R_23
+#define R_RET_IP	R_SCRATCH_2
 
 #define R_CONST_IMM	R_1
 #define R_OFFSET_IMM	R_LR
@@ -490,16 +491,6 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	return true;
 }
 
-static bool attr_w gen_escape_arg(struct codegen_context *ctx, ip_t ip, uint32_t escape_label)
-{
-	g(gen_load_constant(ctx, R_SCRATCH_1, ip));
-
-	gen_insn(INSN_JMP, 0, 0, 0);
-	gen_label_ref(escape_label);
-
-	return true;
-}
-
 static bool attr_w gen_escape(struct codegen_context *ctx)
 {
 	int i, offs;
@@ -510,7 +501,7 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_RET1);
-	gen_one(R_SCRATCH_1);
+	gen_one(R_RET_IP);
 
 	offs = -FRAME_SIZE + (1 << OP_SIZE_ADDRESS);
 	for (i = R_4; i <= R_18; i++) {

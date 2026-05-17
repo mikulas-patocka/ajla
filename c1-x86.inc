@@ -225,6 +225,7 @@ static uint8_t upcall_register = R_R15;
 #define R_ARG3		R_CX
 #endif
 #define R_RET0		R_AX
+#define R_RET_IP	R_DX
 
 #if defined(ARCH_X86_32)
 #define ARG_SPACE	0x1c		/* must be 0xc modulo 0x10 */
@@ -521,19 +522,6 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	return true;
 }
 
-static bool attr_w gen_escape_arg(struct codegen_context *ctx, ip_t ip, uint32_t escape_label)
-{
-#if defined(ARCH_X86_32) || defined(ARCH_X86_64)
-	g(gen_load_constant(ctx, R_DX, ip));
-#else
-	g(gen_load_constant(ctx, R_AX, (uint64_t)ip << 32));
-#endif
-	gen_insn(INSN_JMP, 0, 0, 0);
-	gen_label_ref(escape_label);
-
-	return true;
-}
-
 static bool attr_w gen_escape(struct codegen_context *ctx)
 {
 #if defined(ARCH_X86_32)
@@ -594,10 +582,16 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_insn(INSN_RET, 0, 0, 0);
 #else
 #if defined(ARCH_X86_X32)
-	gen_insn(INSN_ALU, OP_SIZE_8, ALU_ADD, 1);
-	gen_one(R_AX);
+	gen_insn(INSN_ROT, OP_SIZE_8, ROT_SHL, 1);
+	gen_one(R_DX);
+	gen_one(R_DX);
+	gen_one(ARG_IMM);
+	gen_eight(32);
+
+	gen_insn(INSN_ALU, OP_SIZE_8, ALU_ADD, 0);
 	gen_one(R_AX);
 	gen_one(R_FRAME);
+	gen_one(R_DX);
 #else
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_AX);

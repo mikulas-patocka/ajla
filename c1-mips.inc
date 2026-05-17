@@ -201,6 +201,7 @@
 
 #define R_RET0		R_V0
 #define R_RET1		R_V1
+#define R_RET_IP	R_RET1
 
 #define R_OFFSET_IMM	R_T3
 #define R_CONST_IMM	R_T4
@@ -546,16 +547,6 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 
 	if (MIPS_R6)
 		gen_insn(INSN_NOP, 0, 0, 0);
-
-	return true;
-}
-
-static bool attr_w gen_escape_arg(struct codegen_context *ctx, ip_t ip, uint32_t escape_label)
-{
-	g(gen_load_constant(ctx, R_RET1, (int32_t)ip));
-
-	gen_insn(INSN_JMP, 0, 0, 0);
-	gen_label_ref(escape_label);
 
 	return true;
 }

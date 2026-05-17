@@ -869,7 +869,7 @@ do {								\
 					else
 						debug("%c %04x", c, v);
 				}
-				internal(file_line, "run: invalid opcode %04x (mode %x, int %x, real %x, bool %x, extra %x)", code, OPCODE_MODE_MULT, OPCODE_INT_OP, OPCODE_REAL_OP, OPCODE_BOOL_OP, OPCODE_EXTRA);
+				internal(file_line, "run: %s: invalid opcode %04x (mode %x, int %x, real %x, bool %x, extra %x)", da(get_frame(fp)->function,function)->function_name, code, OPCODE_MODE_MULT, OPCODE_INT_OP, OPCODE_REAL_OP, OPCODE_BOOL_OP, OPCODE_EXTRA);
 			}
 #endif
 	}

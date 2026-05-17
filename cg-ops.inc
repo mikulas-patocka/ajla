@@ -3182,7 +3182,7 @@ duplicate2:;
 	if (unlikely(!escape_label))
 		return false;
 
-	g(gen_test_variables(ctx, ctx->var_aux_2, slot_1, false, escape_label));
+	g(gen_test_variables(ctx, ctx->var_aux_2, slot_1, 7, false, escape_label));
 
 	return true;
 }

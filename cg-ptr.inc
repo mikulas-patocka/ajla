@@ -118,13 +118,15 @@ static bool attr_w gen_unspill_variables(struct codegen_context *ctx, frame_t *v
 	return true;
 }
 
-static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *variables, size_t n_variables, bool test_flag_on_thunks, uint32_t label)
+static bool attr_w gen_test_variables(struct codegen_context *ctx, frame_t *variables, size_t n_variables, unsigned pass, bool test_flag_on_thunks, uint32_t label)
 {
-	size_t i;
+	unsigned i;
 
 	for (i = 0; i < 3; i++) {
 		size_t n_vars = 0;
 		size_t n;
+		if (!((pass >> i) & 1))
+			continue;
 		for (n = 0; n < n_variables; n++) {
 			frame_t v = variables[n];
 			if (!i ? da(ctx->fn,function)->local_variables_flags[v].must_be_flat :

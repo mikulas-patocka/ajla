@@ -470,6 +470,7 @@ struct cg_entry {
 	uint32_t entry_label;
 	uint32_t nonflat_label;
 	uint32_t test_and_entry_label;
+	ip_t current_position;
 	bool unreachable;
 
 	arg_t n_ret;
@@ -524,6 +525,7 @@ struct codegen_context {
 	uint32_t escape_nospill_label;
 	uint32_t call_label;
 	uint32_t reload_label;
+	uint32_t nospill_label;
 
 	uint8_t *mcode;
 	size_t mcode_size;
@@ -1398,6 +1400,10 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 	if (unlikely(!ctx->escape_nospill_label))
 		return false;
 
+	ctx->nospill_label = alloc_label(ctx);
+	if (unlikely(!ctx->nospill_label))
+		return false;
+
 	while (ctx->current_position != da(ctx->fn,function)->code + da(ctx->fn,function)->code_size) {
 		ip_t ip;
 		code_t code;
@@ -1827,11 +1833,17 @@ skip_dereference:
 					return false;
 				}
 
+				g(gen_load_constant(ctx, R_RET_IP, ((ctx->current_position - da(ctx->fn,function)->code) * CG_EXIT_MULTIPLIER) | CG_EXIT_FLAG_NONFLAT));
+
+				if (unlikely(!gen_test_variables(ctx, vars, n, 1, true, ctx->nospill_label))) {
+					mem_free(vars);
+					return false;
+				}
 				if (unlikely(!gen_unspill_variables(ctx, vars, n))) {
 					mem_free(vars);
 					return false;
 				}
-				if (unlikely(!gen_test_variables(ctx, vars, n, true, escape_label))) {
+				if (unlikely(!gen_test_variables(ctx, vars, n, 6, true, escape_label))) {
 					mem_free(vars);
 					return false;
 				}
@@ -1893,6 +1905,7 @@ skip_dereference:
 					if (unlikely(!array_add_mayfail(frame_t, &ce->variables, &ce->n_variables, v, NULL, &ctx->err)))
 						return false;
 				}
+				ce->current_position = (ctx->current_position - da(ctx->fn,function)->code) * CG_EXIT_MULTIPLIER;
 
 				if (ctx->checkpoint_quick_entry) {
 					ajla_assert_lo(!ce[-1].entry_label, (file_line, "gen_function: entry label for call not allocated (%s)", da(ctx->fn,function)->function_name));
@@ -2305,8 +2318,11 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 					return false;
 				gen_label(ce->test_and_entry_label);
 
+				g(gen_load_constant(ctx, R_RET_IP, ce->current_position | CG_EXIT_FLAG_NONFLAT));
+
+				g(gen_test_variables(ctx, ce->variables, ce->n_variables, 1, false, ctx->nospill_label));
 				g(gen_unspill_variables(ctx, ce->variables, ce->n_variables));
-				g(gen_test_variables(ctx, ce->variables, ce->n_variables, false, ce->nonflat_label));
+				g(gen_test_variables(ctx, ce->variables, ce->n_variables, 6, false, ce->nonflat_label));
 
 				gen_insn(INSN_JMP, 0, 0, 0);
 				gen_label_ref(ce->entry_label);
@@ -2322,12 +2338,9 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 static bool attr_w gen_epilogues(struct codegen_context *ctx)
 {
 	ip_t ip, cs;
-	uint32_t escape_label, nospill_label;
+	uint32_t escape_label;
 	escape_label = alloc_label(ctx);
 	if (unlikely(!escape_label))
-		return false;
-	nospill_label = alloc_label(ctx);
-	if (unlikely(!nospill_label))
 		return false;
 #if defined(ARCH_PARISC)
 	if (ctx->call_label) {
@@ -2338,10 +2351,14 @@ static bool attr_w gen_epilogues(struct codegen_context *ctx)
 	if (ctx->reload_label) {
 		gen_label(ctx->reload_label);
 		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_FRAME, R_RET0));
-		g(gen_escape_arg(ctx, (ip_t)-1, nospill_label));
+		g(gen_load_constant(ctx, R_RET_IP, (ip_t)-1));
+		gen_insn(INSN_JMP, 0, 0, 0);
+		gen_label_ref(ctx->nospill_label);
 	}
 	gen_label(ctx->escape_nospill_label);
-	g(gen_escape_arg(ctx, 0, nospill_label));
+	g(gen_load_constant(ctx, R_RET_IP, 0));
+	gen_insn(INSN_JMP, 0, 0, 0);
+	gen_label_ref(ctx->nospill_label);
 	cs = da(ctx->fn,function)->code_size * CG_EXIT_MULTIPLIER;
 	for (ip = 0; ip < cs; ip++) {
 		struct cg_exit *ce = ctx->code_exits[ip];
@@ -2356,14 +2373,16 @@ static bool attr_w gen_epilogues(struct codegen_context *ctx)
 			if (ce->escape_label) {
 				gen_label(ce->escape_label);
 			}
-			g(gen_escape_arg(ctx, ip, ce->nospill ? nospill_label : escape_label));
+			g(gen_load_constant(ctx, R_RET_IP, ip));
+			gen_insn(INSN_JMP, 0, 0, 0);
+			gen_label_ref(ce->nospill ? ctx->nospill_label : escape_label);
 		}
 	}
 	gen_label(escape_label);
 
 	g(gen_spill_all(ctx));
 
-	gen_label(nospill_label);
+	gen_label(ctx->nospill_label);
 	g(gen_escape(ctx));
 	return true;
 }

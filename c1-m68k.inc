@@ -122,6 +122,7 @@ static bool reg_is_fp(unsigned reg)
 #define R_ARG3				RD0
 #define R_RET0				RD0
 #define R_RET1				RD1
+#define R_RET_IP			R_RET1
 
 #define SUPPORTED_FP			0xe
 #define SUPPORTED_FP_CVT(f, t)		((f) >= 1 && (f) <= 3 && (t) >= 1 && (t) <= 3)
@@ -135,9 +136,8 @@ static const uint8_t regs_volatile[] = { 0 };
 #define n_regs_volatile 0U
 static const uint8_t regs_address[] = { RA3, RA4, RA5, RA1 };
 static const uint8_t fp_saved[] = { RFP2, RFP3, RFP4, RFP5, RFP6, RFP7 };
-#define n_fp_saved(real_type) ((real_type) >= 3 || optimize_int ? 0 : n_array_elements(fp_saved))
+#define n_fp_saved(real_type) (optimize_int ? 0 : n_array_elements(fp_saved))
 static const uint8_t fp_volatile[] = { RFP1 };
-#define n_fp_volatile(real_type) ((real_type) >= 3 ? 0 : n_array_elements(fp_volatile))
 
 #define reg_is_saved(r) (((r) >= RD2 && (r) <= RD7) || ((r) >= RA2 && (r) <= RSP) || ((r) >= RFP2 && (r) <= RFP7))
 
@@ -202,14 +202,6 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(RSP);
 	gen_eight(ARG_SPACE + ARG_OFFSET + 12);
 
-	return true;
-}
-
-static bool attr_w gen_escape_arg(struct codegen_context *ctx, ip_t ip, uint32_t escape_label)
-{
-	g(gen_load_constant(ctx, RD1, ip));
-	gen_insn(INSN_JMP, 0, 0, 0);
-	gen_label_ref(escape_label);
 	return true;
 }
 

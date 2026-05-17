@@ -139,6 +139,7 @@
 #define R_ARG3		R_5
 #define R_ARG4		R_6
 #define R_RET0		R_2
+#define R_RET_IP	R_SAVED_1
 
 #define FR_SCRATCH_1	FR_0	/* + FR_2 */
 #define FR_SCRATCH_2	FR_4	/* + FR_6 */
@@ -486,7 +487,7 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_one(R_ARG0);
 	gen_eight(0);
 	gen_one(R_FRAME);
-	gen_one(R_SAVED_1);
+	gen_one(R_RET_IP);
 
 	gen_insn(INSN_S390_POP, OP_SIZE_ADDRESS, R_6, 0);
 	gen_one(ARG_ADDRESS_1);

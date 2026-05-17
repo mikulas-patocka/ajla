@@ -163,6 +163,7 @@
 #define R_ARG3		R_3
 #define R_RET0		R_0
 #define R_RET1		R_1
+#define R_RET_IP	R_RET1
 
 #define FR_SCRATCH_1	FR_0
 #define FR_SCRATCH_2	FR_1
@@ -493,16 +494,6 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 	gen_one(R_23);
 #endif
-	return true;
-}
-
-static bool attr_w gen_escape_arg(struct codegen_context *ctx, ip_t ip, uint32_t escape_label)
-{
-	g(gen_load_constant(ctx, R_RET1, ip));
-
-	gen_insn(INSN_JMP, 0, 0, 0);
-	gen_label_ref(escape_label);
-
 	return true;
 }
 
