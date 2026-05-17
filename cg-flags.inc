@@ -668,35 +668,35 @@ static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *varia
 
 	goto tested;
 #endif
-	if (!ARCH_HAS_BWX) {
-		pos = 0;
+#if defined(ARCH_ALPHA)
+	pos = 0;
+	while (pos < n_variables) {
+		frame_t addr = variables[pos] & ~7;
+		unsigned bit = variables[pos] & 7;
+		unsigned mask = 1U << bit;
+		pos++;
 		while (pos < n_variables) {
-			frame_t addr = variables[pos] & ~7;
-			unsigned bit = variables[pos] & 7;
-			unsigned mask = 1U << bit;
+			frame_t addr2 = variables[pos] & ~7;
+			unsigned bit2 = variables[pos] & 7;
+			unsigned mask2 = 1U << bit2;
+
+			if (addr != addr2)
+				break;
+
+			mask |= mask2;
 			pos++;
-			while (pos < n_variables) {
-				frame_t addr2 = variables[pos] & ~7;
-				unsigned bit2 = variables[pos] & 7;
-				unsigned mask2 = 1U << bit2;
-
-				if (addr != addr2)
-					break;
-
-				mask |= mask2;
-				pos++;
-			}
-			g(gen_address(ctx, R_FRAME, addr, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_8));
-			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
-			gen_one(R_SCRATCH_1);
-			gen_address_offset();
-
-			g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_ZAPNOT, R_SCRATCH_1, R_SCRATCH_1, mask, 0));
-
-			g(gen_jmp_on_zero(ctx, OP_SIZE_8, R_SCRATCH_1, COND_NE, label));
 		}
-		goto tested;
+		g(gen_address(ctx, R_FRAME, addr, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_8));
+		gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+		gen_one(R_SCRATCH_1);
+		gen_address_offset();
+
+		g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_ZAPNOT, R_SCRATCH_1, R_SCRATCH_1, mask, 0));
+
+		g(gen_jmp_on_zero(ctx, OP_SIZE_8, R_SCRATCH_1, COND_NE, label));
 	}
+	goto tested;
+#endif
 #endif
 	goto fallback;
 fallback:
