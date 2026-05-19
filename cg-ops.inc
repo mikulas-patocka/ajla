@@ -228,7 +228,7 @@ static bool attr_w gen_cond_jump(struct codegen_context *ctx, frame_t slot, int3
 	if (slot_is_register(ctx, slot)) {
 		goto no_load_op;
 	}
-#if defined(ARCH_S390) || defined(ARCH_X86)
+#if defined(ARCH_M68K) || defined(ARCH_S390) || defined(ARCH_X86)
 	offset = (size_t)slot * slot_size;
 #if defined(ARCH_S390)
 	if (size != OP_SIZE_1)
