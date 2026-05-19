@@ -107,6 +107,7 @@
 #define M68K_MOVEM	0x4880
 #define  M68K_MOVEM_DR		0x0400
 #define  M68K_MOVEM_SIZE	0x0040
+#define M68K_SWAP	0x4840
 #define M68K_EXTW	0x4880
 #define M68K_EXTL	0x48c0
 #define M68K_EXTBL	0x49c0
@@ -1082,6 +1083,12 @@ static bool attr_w cgen_rot(struct codegen_context *ctx, unsigned size, unsigned
 	if (arg3[0] == ARG_IMM) {
 		int64_t imm = get_imm(&arg3[1]);
 		imm &= 0x3f;
+		if (size == OP_SIZE_4 && imm == 16 && (alu == ROT_ROL || alu == ROT_ROR)) {
+			uint16_t mc = M68K_SWAP;
+			mc |= arg1[0] & 7;
+			cgen_two(mc);
+			return true;
+		}
 		if (imm > 8 && imm < (8U << size) && (alu == ROT_SHR || alu == ROT_SAR)) {
 			g(cgen_rot_bf(ctx, size, alu, arg1, arg2, arg3));
 			return true;
