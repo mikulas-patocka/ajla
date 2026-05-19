@@ -2440,7 +2440,7 @@ static bool gen_check_array_len_traps(void)
 static bool attr_w gen_check_array_len(struct codegen_context *ctx, unsigned reg_array, bool allocated, unsigned reg_len, unsigned cond, bool attr_unused trap, uint32_t escape_label)
 {
 	size_t offset = !allocated ? offsetof(struct data, u_.array_flat.n_used_entries) : offsetof(struct data, u_.array_flat.n_allocated_entries);
-#if defined(ARCH_X86)
+#if defined(ARCH_M68K) || defined(ARCH_X86)
 	g(gen_address(ctx, reg_array, offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_INT));
 	gen_insn(INSN_CMP, OP_SIZE_INT, 0, 1);
 	gen_one(reg_len);
