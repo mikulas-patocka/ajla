@@ -556,7 +556,7 @@ write_imm:
 	return true;
 }
 
-static bool attr_w cgen_moves(struct codegen_context *ctx, unsigned size, uint8_t *arg1, uint8_t *arg2, bool sx, bool partial)
+static bool attr_w cgen_moves(struct codegen_context *ctx, unsigned size, uint8_t *arg1, uint8_t *arg2)
 {
 	size_t instr_base;
 	uint16_t mc;
@@ -578,7 +578,7 @@ static bool attr_w cgen_moves(struct codegen_context *ctx, unsigned size, uint8_
 			g(cgen_operand(ctx, size, instr_base, 0, arg1));
 			return true;
 		}
-		if (imm_is_8bit(imm) && !partial && (size == OP_SIZE_4 || sx) && R_IS_D(arg1[0])) {
+		if (imm_is_8bit(imm) && size == OP_SIZE_4 && R_IS_D(arg1[0])) {
 			mc = M68K_MOVEQ;
 			mc |= (arg1[0] & 7) << 9;
 			mc |= imm & 255;
@@ -587,9 +587,6 @@ static bool attr_w cgen_moves(struct codegen_context *ctx, unsigned size, uint8_
 		}
 	}
 
-	if (R_IS_DA(arg1[0]) && arg1[0] == arg2[0])
-		goto skip_move;
-
 	mc = M68K_MOVE;
 	mc |= get_move_size(size);
 	instr_base = ctx->mcode_size;
@@ -597,34 +594,10 @@ static bool attr_w cgen_moves(struct codegen_context *ctx, unsigned size, uint8_
 	g(cgen_operand(ctx, size, instr_base, 0, arg2));
 	g(cgen_operand(ctx, size, instr_base, CGO_MOVE_DEST, arg1));
 
-skip_move:
-	if (R_IS_A(arg1[0])) {
-		if (size != OP_SIZE_4)
-			internal(file_line, "cgen_moves: partial move to address register");
-	} else if (R_IS_D(arg1[0])) {
-		if (size < OP_SIZE_4 && !partial) {
-			if (!sx) {
-				mc = M68K_BFEXTU | M68K_ADDR_D | (arg1[0] & 7);
-				cgen_two(mc);
-				mc = (arg1[0] & 7) << 12;
-				if (size == OP_SIZE_1) {
-					mc |= 24 << 6;
-					mc |= 8;
-				} else {
-					mc |= 16 << 6;
-					mc |= 16;
-				}
-				cgen_two(mc);
-			} else {
-				mc = (size == OP_SIZE_1 ? M68K_EXTBL : M68K_EXTL) | (arg1[0] & 7);
-				cgen_two(mc);
-			}
-		}
-	}
 	return true;
 }
 
-static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
+static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size)
 {
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
@@ -639,8 +612,63 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 		return true;
 	}
 
-	g(cgen_moves(ctx, size, arg1, arg2, sx, false));
+	if (size < OP_SIZE_4) {
+		if (R_IS_D(arg1[0]) && R_IS_D(arg2[0])) {
+			int16_t mc;
+			mc = M68K_BFEXTU | M68K_ADDR_D | (arg2[0] & 7);
+			cgen_two(mc);
+			mc = (arg1[0] & 7) << 12;
+			if (size == OP_SIZE_1) {
+				mc |= 24 << 6;
+				mc |= 8;
+			} else {
+				mc |= 16 << 6;
+				mc |= 16;
+			}
+			cgen_two(mc);
+			return true;
+		}
+		if (R_IS_D(arg1[0]))
+			internal(file_line, "cgen_mov: invalid arguments %u %02x %02x", size, arg1[0], arg2[0]);
+	}
 
+	g(cgen_moves(ctx, size, arg1, arg2));
+
+	return true;
+}
+
+static bool attr_w cgen_movsx(struct codegen_context *ctx, unsigned size)
+{
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+
+	if (size < OP_SIZE_4) {
+		if (R_IS_D(arg1[0]) && R_IS_D(arg2[0])) {
+			uint16_t mc;
+			if (arg1[0] == arg2[0]) {
+				mc = (size == OP_SIZE_1 ? M68K_EXTBL : M68K_EXTL) | (arg1[0] & 7);
+				cgen_two(mc);
+				return true;
+			}
+			mc = M68K_BFEXTS | M68K_ADDR_D | (arg2[0] & 7);
+			cgen_two(mc);
+			mc = (arg1[0] & 7) << 12;
+			if (size == OP_SIZE_1) {
+				mc |= 24 << 6;
+				mc |= 8;
+			} else {
+				mc |= 16 << 6;
+				mc |= 16;
+			}
+			cgen_two(mc);
+			return true;
+		}
+		if (R_IS_D(arg1[0]))
+			internal(file_line, "cgen_movsx: invalid arguments %u %02x %02x", size, arg1[0], arg2[0]);
+	}
+
+	g(cgen_moves(ctx, size, arg1, arg2));
 	return true;
 }
 
@@ -1262,7 +1290,7 @@ static bool attr_w cgen_mov_mask(struct codegen_context *ctx, unsigned size)
 	if (memcmp(arg1, arg2, arg_size(*arg1)))
 		internal(file_line, "cgen_mov_mask: operand mismatch");
 
-	g(cgen_moves(ctx, size, arg1, arg3, false, true));
+	g(cgen_moves(ctx, size, arg1, arg3));
 
 	return true;
 }
@@ -1461,8 +1489,10 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_jmp_indirect(ctx, true));
 			return true;
 		case INSN_MOV:
+			g(cgen_mov(ctx, insn_op_size(insn)));
+			return true;
 		case INSN_MOVSX:
-			g(cgen_mov(ctx, insn_op_size(insn), insn_opcode(insn) == INSN_MOVSX));
+			g(cgen_movsx(ctx, insn_op_size(insn)));
 			return true;
 		case INSN_CMP:
 			g(cgen_cmp(ctx, insn_op_size(insn)));
