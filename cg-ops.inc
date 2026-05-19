@@ -863,7 +863,7 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 			for (i = 0; i < n_test_borrowed; i++)
 				g(gen_test_1(ctx, R_FRAME, test_borrowed[i], 0, label_skip_quick_ret, true, TEST));
 
-#if defined(ARCH_X86)
+#if defined(ARCH_M68K) || defined(ARCH_X86)
 			if (MAX_QUICKRET_VALUES <= 8)
 #elif defined(ARCH_S390)
 			if (MAX_QUICKRET_VALUES <= 8 && cpu_test_feature(CPU_FEATURE_general_insn_ext))
