@@ -2169,7 +2169,7 @@ do_bool_not: {
 	 *********/
 do_bswap: {
 		bool attr_unused sx = false;
-#if defined(ARCH_X86) || defined(ARCH_ARM) || defined(ARCH_IA64) || defined(ARCH_LOONGARCH64) || defined(ARCH_MIPS) || defined(ARCH_RISCV64) || defined(ARCH_S390)
+#if defined(ARCH_ARM) || defined(ARCH_IA64) || defined(ARCH_LOONGARCH64) || defined(ARCH_M68K) || defined(ARCH_MIPS) || defined(ARCH_RISCV64) || defined(ARCH_S390) || defined(ARCH_X86)
 #if defined(ARCH_ARM32)
 		if (unlikely(!cpu_test_feature(CPU_FEATURE_armv6)))
 			goto do_generic_bswap;
@@ -2208,16 +2208,28 @@ do_bswap: {
 			g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, target, target, op_size == OP_SIZE_2 ? 48 : 32, 0));
 #endif
 		} else if (op_size == OP_SIZE_2) {
-#if defined(ARCH_X86)
+#if defined(ARCH_M68K) || defined(ARCH_X86)
 			g(gen_3address_rot_imm(ctx, OP_SIZE_2, ROT_ROR, target, reg1, 8, 0));
 #else
 			g(gen_2address_alu1(ctx, OP_SIZE_4, ALU1_BSWAP16, target, reg1, 0));
+#endif
+#if defined(ARCH_M68K)
+		} else if (op_size >= OP_SIZE_4) {
+			g(gen_3address_rot_imm(ctx, OP_SIZE_2, ROT_ROR, target, reg1, 8, 0));
+			g(gen_3address_rot_imm(ctx, OP_SIZE_4, ROT_ROR, target, target, 16, 0));
+			g(gen_3address_rot_imm(ctx, OP_SIZE_2, ROT_ROR, target, target, 8, 0));
 #endif
 		} else {
 			g(gen_2address_alu1(ctx, minimum(op_size, OP_SIZE_NATIVE), ALU1_BSWAP, target, reg1, 0));
 		}
 		if (op_size > OP_SIZE_NATIVE) {
+#if defined(ARCH_M68K)
+			g(gen_3address_rot_imm(ctx, OP_SIZE_2, ROT_ROR, R_SCRATCH_2, R_SCRATCH_2, 8, 0));
+			g(gen_3address_rot_imm(ctx, OP_SIZE_4, ROT_ROR, R_SCRATCH_2, R_SCRATCH_2, 16, 0));
+			g(gen_3address_rot_imm(ctx, OP_SIZE_2, ROT_ROR, R_SCRATCH_2, R_SCRATCH_2, 8, 0));
+#else
 			g(gen_2address_alu1(ctx, OP_SIZE_NATIVE, ALU1_BSWAP, R_SCRATCH_2, R_SCRATCH_2, 0));
+#endif
 		}
 
 		if (op_size > OP_SIZE_NATIVE)
