@@ -177,12 +177,15 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 		return true;
 	}
 #endif
-	if (skip_extend && ARCH_PREFERS_MOV_MASK(size)) {
+	if (!reg_is_fp(reg) && ARCH_PREFERS_MOV_MASK(size)) {
 		g(gen_address(ctx, base, x_offset, IMM_PURPOSE_LDR_OFFSET, size));
 		gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, size == OP_SIZE_1 ? MOV_MASK_0_8 : MOV_MASK_0_16, 0);
 		gen_one(reg);
 		gen_one(reg);
 		gen_address_offset();
+
+		if (!skip_extend)
+			g(gen_extend(ctx, size, ex, reg, reg));
 
 		return true;
 	}
@@ -223,18 +226,6 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 	}
 #endif
 #if defined(ARCH_S390)
-	if (size == OP_SIZE_1 && !cpu_test_feature(CPU_FEATURE_long_displacement)) {
-		g(gen_address(ctx, base, x_offset, IMM_PURPOSE_LDR_OFFSET, size));
-		gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, MOV_MASK_0_8, 0);
-		gen_one(reg);
-		gen_one(reg);
-		gen_address_offset();
-
-		if (!skip_extend)
-			g(gen_extend(ctx, size, ex, reg, reg));
-
-		return true;
-	}
 	if (size <= OP_SIZE_2 && ex == zero_x && !cpu_test_feature(CPU_FEATURE_extended_imm)) {
 		g(gen_address(ctx, base, x_offset, IMM_PURPOSE_LDR_SX_OFFSET, size));
 		gen_insn(INSN_MOVSX, size, 0, 0);
