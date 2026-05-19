@@ -1268,7 +1268,7 @@ struct_zero:
 				}
 				case OPCODE_STRUCTURED_OPTION: {
 					unsigned op_size = log_2(sizeof(ajla_option_t));
-#if defined(ARCH_X86)
+#if defined(ARCH_M68K) || defined(ARCH_X86)
 					g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.option.option), IMM_PURPOSE_LDR_OFFSET, op_size));
 					g(gen_imm(ctx, param_slot, IMM_PURPOSE_CMP, op_size));
 					gen_insn(INSN_CMP, op_size, 0, 1);
