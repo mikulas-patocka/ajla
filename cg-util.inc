@@ -203,6 +203,117 @@ static bool attr_w attr_unused gen_4address_fp_alu(struct codegen_context *ctx, 
 	return true;
 }
 
+enum extend {
+	zero_x,
+	sign_x,
+	native,
+	garbage,
+	max_x,
+};
+
+static bool attr_w gen_extend(struct codegen_context *ctx, unsigned op_size, enum extend ex, unsigned dest, unsigned src)
+{
+	unsigned attr_unused shift;
+	if (ex == native)
+		ex = ARCH_PREFERS_SX(op_size) ? sign_x : zero_x;
+	ajla_assert_lo(ex == zero_x || ex == sign_x, (file_line, "gen_extend: invalid mode %u", (unsigned)ex));
+	if (unlikely(op_size == OP_SIZE_NATIVE)) {
+		g(gen_mov(ctx, op_size, dest, src));
+		return true;
+	}
+	if (OP_SIZE_NATIVE == OP_SIZE_4) {
+		shift = op_size == OP_SIZE_1 ? 24 : 16;
+	} else if (OP_SIZE_NATIVE == OP_SIZE_8) {
+		shift = op_size == OP_SIZE_1 ? 56 : op_size == OP_SIZE_2 ? 48 : 32;
+	} else {
+		internal(file_line, "gen_extend: invalid OP_SIZE_NATIVE");
+	}
+#if defined(ARCH_ARM) || defined(ARCH_IA64) || defined(ARCH_LOONGARCH64) || defined(ARCH_M68K) || defined(ARCH_PARISC) || defined(ARCH_X86)
+#if defined(ARCH_ARM32)
+	if (unlikely(!cpu_test_feature(CPU_FEATURE_armv6)))
+		goto default_extend;
+#endif
+	gen_insn(ex == sign_x ? INSN_MOVSX : INSN_MOV, op_size, 0, 0);
+	gen_one(dest);
+	gen_one(src);
+	return true;
+#endif
+#if defined(ARCH_POWER)
+	if (ex == zero_x || op_size == OP_SIZE_2 || cpu_test_feature(CPU_FEATURE_ppc)) {
+		gen_insn(ex == sign_x ? INSN_MOVSX : INSN_MOV, op_size, 0, 0);
+		gen_one(dest);
+		gen_one(src);
+		return true;
+	}
+#endif
+#if defined(ARCH_ALPHA)
+	if (ex == zero_x) {
+		g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_ZAPNOT, dest, src, op_size == OP_SIZE_1 ? 0x1 : op_size == OP_SIZE_2 ? 0x3 : 0xf, 0));
+		return true;
+	} else if (op_size == OP_SIZE_4 || ARCH_HAS_BWX) {
+		gen_insn(INSN_MOVSX, op_size, 0, 0);
+		gen_one(dest);
+		gen_one(src);
+		return true;
+	}
+#endif
+#if defined(ARCH_MIPS)
+	if (ex == sign_x && shift == 32) {
+		g(gen_3address_rot_imm(ctx, OP_SIZE_4, ROT_SHL, dest, src, 0, 0));
+		return true;
+	}
+	if (ex == sign_x && MIPS_HAS_ROT) {
+		gen_insn(INSN_MOVSX, op_size, 0, 0);
+		gen_one(dest);
+		gen_one(src);
+		return true;
+	}
+#endif
+#if defined(ARCH_S390)
+	if (((op_size == OP_SIZE_1 || op_size == OP_SIZE_2) && cpu_test_feature(CPU_FEATURE_extended_imm)) || op_size == OP_SIZE_4) {
+		gen_insn(ex == zero_x ? INSN_MOV : INSN_MOVSX, op_size, 0, 0);
+		gen_one(dest);
+		gen_one(src);
+		return true;
+	}
+#endif
+#if defined(ARCH_SPARC)
+	if (shift == 32) {
+		g(gen_3address_rot_imm(ctx, OP_SIZE_4, ex == sign_x ? ROT_SAR : ROT_SHR, dest, src, 0, 0));
+		return true;
+	}
+#endif
+#if defined(ARCH_RISCV64)
+	if (ex == sign_x && (op_size == OP_SIZE_4 || likely(cpu_test_feature(CPU_FEATURE_zbb)))) {
+		gen_insn(INSN_MOVSX, op_size, 0, 0);
+		gen_one(dest);
+		gen_one(src);
+		return true;
+	}
+	if (ex == zero_x && ((op_size == OP_SIZE_1) ||
+		    (op_size == OP_SIZE_2 && likely(cpu_test_feature(CPU_FEATURE_zbb))) ||
+		    (op_size == OP_SIZE_4 && likely(cpu_test_feature(CPU_FEATURE_zba))))) {
+		g(gen_mov(ctx, op_size, dest, src));
+		return true;
+	}
+#endif
+	goto default_extend;
+default_extend:
+	if (ex == zero_x && op_size <= OP_SIZE_4) {
+		int64_t cnst = ((uint64_t)0x1 << (8U << op_size)) - 1;
+		if (is_direct_const(cnst, IMM_PURPOSE_AND, OP_SIZE_NATIVE)) {
+			g(gen_imm(ctx, 0xff, IMM_PURPOSE_AND, OP_SIZE_NATIVE));
+			gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_AND, ALU_WRITES_FLAGS(OP_SIZE_NATIVE, ALU_AND, false, is_imm(), ctx->const_imm));
+			gen_one(dest);
+			gen_one(src);
+			gen_imm_offset();
+			return true;
+		}
+	}
+	g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, dest, src, shift, 0));
+	g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ex == sign_x ? ROT_SAR : ROT_SHR, dest, dest, shift, 0));
+	return true;
+}
 
 static bool attr_w attr_unused gen_load_two(struct codegen_context *ctx, unsigned dest, unsigned src, int64_t offset, bool no_ext)
 {
@@ -231,21 +342,21 @@ static bool attr_w attr_unused gen_load_two(struct codegen_context *ctx, unsigne
 			g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_EXTWL, dest, dest, R_OFFSET_IMM, 0));
 		}
 #endif
-	} else if (no_ext && ARCH_PREFERS_MOV_MASK(OP_SIZE_2)) {
+	} else if (ARCH_REQUIRES_MOV_MASK(OP_SIZE_2)) {
 		g(gen_address(ctx, src, offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_2));
 		gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, MOV_MASK_0_16, 0);
 		gen_one(dest);
 		gen_one(dest);
 		gen_address_offset();
-#if defined(ARCH_S390)
-	} else if (!cpu_test_feature(CPU_FEATURE_extended_imm)) {
+		if (!no_ext)
+			g(gen_extend(ctx, OP_SIZE_2, zero_x, dest, dest));
+	} else if (ARCH_PREFERS_SX(OP_SIZE_2)) {
 		g(gen_address(ctx, src, offset, IMM_PURPOSE_LDR_SX_OFFSET, OP_SIZE_2));
 		gen_insn(INSN_MOVSX, OP_SIZE_2, 0, 0);
 		gen_one(dest);
 		gen_address_offset();
-
-		g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_AND, dest, dest, 0xffff, 0));
-#endif
+		if (!no_ext)
+			g(gen_extend(ctx, OP_SIZE_2, zero_x, dest, dest));
 	} else {
 		g(gen_address(ctx, src, offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_2));
 		gen_insn(INSN_MOV, OP_SIZE_2, 0, 0);
@@ -794,118 +905,6 @@ static bool attr_w gen_cmov(struct codegen_context *ctx, unsigned op_size, unsig
 	return true;
 }
 #endif
-
-enum extend {
-	zero_x,
-	sign_x,
-	native,
-	garbage,
-	max_x,
-};
-
-static bool attr_w gen_extend(struct codegen_context *ctx, unsigned op_size, enum extend ex, unsigned dest, unsigned src)
-{
-	unsigned attr_unused shift;
-	if (ex == native)
-		ex = ARCH_PREFERS_SX(op_size) ? sign_x : zero_x;
-	ajla_assert_lo(ex == zero_x || ex == sign_x, (file_line, "gen_extend: invalid mode %u", (unsigned)ex));
-	if (unlikely(op_size == OP_SIZE_NATIVE)) {
-		g(gen_mov(ctx, op_size, dest, src));
-		return true;
-	}
-	if (OP_SIZE_NATIVE == OP_SIZE_4) {
-		shift = op_size == OP_SIZE_1 ? 24 : 16;
-	} else if (OP_SIZE_NATIVE == OP_SIZE_8) {
-		shift = op_size == OP_SIZE_1 ? 56 : op_size == OP_SIZE_2 ? 48 : 32;
-	} else {
-		internal(file_line, "gen_extend: invalid OP_SIZE_NATIVE");
-	}
-#if defined(ARCH_ARM) || defined(ARCH_IA64) || defined(ARCH_LOONGARCH64) || defined(ARCH_M68K) || defined(ARCH_PARISC) || defined(ARCH_X86)
-#if defined(ARCH_ARM32)
-	if (unlikely(!cpu_test_feature(CPU_FEATURE_armv6)))
-		goto default_extend;
-#endif
-	gen_insn(ex == sign_x ? INSN_MOVSX : INSN_MOV, op_size, 0, 0);
-	gen_one(dest);
-	gen_one(src);
-	return true;
-#endif
-#if defined(ARCH_POWER)
-	if (ex == zero_x || op_size == OP_SIZE_2 || cpu_test_feature(CPU_FEATURE_ppc)) {
-		gen_insn(ex == sign_x ? INSN_MOVSX : INSN_MOV, op_size, 0, 0);
-		gen_one(dest);
-		gen_one(src);
-		return true;
-	}
-#endif
-#if defined(ARCH_ALPHA)
-	if (ex == zero_x) {
-		g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_ZAPNOT, dest, src, op_size == OP_SIZE_1 ? 0x1 : op_size == OP_SIZE_2 ? 0x3 : 0xf, 0));
-		return true;
-	} else if (op_size == OP_SIZE_4 || ARCH_HAS_BWX) {
-		gen_insn(INSN_MOVSX, op_size, 0, 0);
-		gen_one(dest);
-		gen_one(src);
-		return true;
-	}
-#endif
-#if defined(ARCH_MIPS)
-	if (ex == sign_x && shift == 32) {
-		g(gen_3address_rot_imm(ctx, OP_SIZE_4, ROT_SHL, dest, src, 0, 0));
-		return true;
-	}
-	if (ex == sign_x && MIPS_HAS_ROT) {
-		gen_insn(INSN_MOVSX, op_size, 0, 0);
-		gen_one(dest);
-		gen_one(src);
-		return true;
-	}
-#endif
-#if defined(ARCH_S390)
-	if (((op_size == OP_SIZE_1 || op_size == OP_SIZE_2) && cpu_test_feature(CPU_FEATURE_extended_imm)) || op_size == OP_SIZE_4) {
-		gen_insn(ex == zero_x ? INSN_MOV : INSN_MOVSX, op_size, 0, 0);
-		gen_one(dest);
-		gen_one(src);
-		return true;
-	}
-#endif
-#if defined(ARCH_SPARC)
-	if (shift == 32) {
-		g(gen_3address_rot_imm(ctx, OP_SIZE_4, ex == sign_x ? ROT_SAR : ROT_SHR, dest, src, 0, 0));
-		return true;
-	}
-#endif
-#if defined(ARCH_RISCV64)
-	if (ex == sign_x && (op_size == OP_SIZE_4 || likely(cpu_test_feature(CPU_FEATURE_zbb)))) {
-		gen_insn(INSN_MOVSX, op_size, 0, 0);
-		gen_one(dest);
-		gen_one(src);
-		return true;
-	}
-	if (ex == zero_x && ((op_size == OP_SIZE_1) ||
-		    (op_size == OP_SIZE_2 && likely(cpu_test_feature(CPU_FEATURE_zbb))) ||
-		    (op_size == OP_SIZE_4 && likely(cpu_test_feature(CPU_FEATURE_zba))))) {
-		g(gen_mov(ctx, op_size, dest, src));
-		return true;
-	}
-#endif
-	goto default_extend;
-default_extend:
-	if (ex == zero_x && op_size <= OP_SIZE_4) {
-		int64_t cnst = ((uint64_t)0x1 << (8U << op_size)) - 1;
-		if (is_direct_const(cnst, IMM_PURPOSE_AND, OP_SIZE_NATIVE)) {
-			g(gen_imm(ctx, 0xff, IMM_PURPOSE_AND, OP_SIZE_NATIVE));
-			gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_AND, ALU_WRITES_FLAGS(OP_SIZE_NATIVE, ALU_AND, false, is_imm(), ctx->const_imm));
-			gen_one(dest);
-			gen_one(src);
-			gen_imm_offset();
-			return true;
-		}
-	}
-	g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, dest, src, shift, 0));
-	g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ex == sign_x ? ROT_SAR : ROT_SHR, dest, dest, shift, 0));
-	return true;
-}
 
 static bool attr_w gen_cmp_extended(struct codegen_context *ctx, unsigned cmp_op_size, unsigned sub_op_size, unsigned reg, unsigned attr_unused tmp_reg, uint32_t label_ovf)
 {

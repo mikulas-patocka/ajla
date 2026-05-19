@@ -54,7 +54,7 @@
 #define ARCH_HAS_FUSED_MEMORY_ACCESSES	1
 #define ARCH_HAS_FLAGS			1
 #define ARCH_PREFERS_SX(size)		((size) < OP_SIZE_NATIVE && (!Z || !cpu_test_feature(CPU_FEATURE_long_displacement) || !cpu_test_feature(CPU_FEATURE_extended_imm)))
-#define ARCH_PREFERS_MOV_MASK(size)	((size) == OP_SIZE_1 && !cpu_test_feature(CPU_FEATURE_long_displacement))
+#define ARCH_REQUIRES_MOV_MASK(size)	((size) == OP_SIZE_1 && !cpu_test_feature(CPU_FEATURE_long_displacement))
 #define ARCH_HAS_BWX			1
 #define ARCH_HAS_MUL			1
 #define ARCH_HAS_DIV			1

@@ -2293,7 +2293,7 @@ do_op:
 				xreg = reg;
 			else
 				xreg = !fp ? R_SCRATCH_2 : FR_SCRATCH_1;
-			if (!fp && ARCH_PREFERS_MOV_MASK(op_size)) {
+			if (!fp && ARCH_REQUIRES_MOV_MASK(op_size)) {
 				gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, op_size == OP_SIZE_1 ? MOV_MASK_0_8 : MOV_MASK_0_16, 0);
 				gen_one(xreg);
 				gen_one(xreg);
@@ -2370,7 +2370,7 @@ do_op:
 			reg = ctx->registers[slot_1];
 			if (reg < 0) {
 				reg = !fp ? R_SCRATCH_3 : FR_SCRATCH_1;
-				if (!fp && ARCH_PREFERS_MOV_MASK(op_size)) {
+				if (!fp && ARCH_REQUIRES_MOV_MASK(op_size)) {
 					g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_LDR_OFFSET, op_size));
 					gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, op_size == OP_SIZE_1 ? MOV_MASK_0_8 : MOV_MASK_0_16, 0);
 					gen_one(reg);

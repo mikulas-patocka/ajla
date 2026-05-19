@@ -45,7 +45,7 @@
 #define ARCH_HAS_FUSED_MEMORY_ACCESSES	0
 #define ARCH_HAS_FLAGS			1
 #define ARCH_PREFERS_SX(size)		((size) < OP_SIZE_4)
-#define ARCH_PREFERS_MOV_MASK(size)	((size) < OP_SIZE_4)
+#define ARCH_REQUIRES_MOV_MASK(size)	((size) < OP_SIZE_4)
 #define ARCH_HAS_BWX			1
 #define ARCH_HAS_MUL			1
 #define ARCH_HAS_DIV			1

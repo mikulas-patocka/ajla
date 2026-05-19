@@ -177,7 +177,7 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 		return true;
 	}
 #endif
-	if (!reg_is_fp(reg) && ARCH_PREFERS_MOV_MASK(size)) {
+	if (!reg_is_fp(reg) && ARCH_REQUIRES_MOV_MASK(size)) {
 		g(gen_address(ctx, base, x_offset, IMM_PURPOSE_LDR_OFFSET, size));
 		gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, size == OP_SIZE_1 ? MOV_MASK_0_8 : MOV_MASK_0_16, 0);
 		gen_one(reg);
