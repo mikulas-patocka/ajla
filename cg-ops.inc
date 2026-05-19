@@ -2757,7 +2757,7 @@ static bool attr_w gen_array_len(struct codegen_context *ctx, frame_t slot_1, fr
 			target = R_SCRATCH_1;
 		}
 
-#if defined(ARCH_X86) || defined(ARCH_S390)
+#if defined(ARCH_M68K) || defined(ARCH_S390) || defined(ARCH_X86)
 		if (fused && slot_is_register(ctx, slot_2)) {
 			g(gen_address(ctx, reg, offsetof(struct data, u_.array_flat.n_used_entries), ARCH_PREFERS_SX(OP_SIZE_INT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_INT));
 			gen_insn(INSN_CMP, OP_SIZE_INT, 0, 1 + COND_IS_LOGICAL(COND_GE));
