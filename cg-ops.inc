@@ -1667,7 +1667,7 @@ static bool attr_w gen_option_cmp(struct codegen_context *ctx, unsigned reg, fra
 {
 	unsigned op_size = log_2(sizeof(ajla_option_t));
 #if ARCH_HAS_FLAGS
-#if defined(ARCH_X86)
+#if defined(ARCH_M68K) || defined(ARCH_X86)
 	g(gen_address(ctx, reg, offsetof(struct data, u_.option.option), IMM_PURPOSE_LDR_OFFSET, op_size));
 	g(gen_imm(ctx, opt, IMM_PURPOSE_CMP, op_size));
 	gen_insn(INSN_CMP, op_size, 0, 1);
