@@ -435,7 +435,7 @@ skip_mem_modify:;
 #endif
 		}
 
-#if defined(ARCH_X86)
+#if defined(ARCH_M68K) || defined(ARCH_X86)
 		if (1)
 #elif defined(ARCH_S390)
 		if (op_size >= OP_SIZE_4)
