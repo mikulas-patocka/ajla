@@ -1331,6 +1331,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		case INSN_ALU_TRAP:
 			if (unlikely(insn_op_size(insn) < OP_SIZE_4))
 				goto invalid_insn;
+			g(cgen_nop_after_jmp(ctx));
 			g(cgen_alu(ctx, insn_op_size(insn), insn_aux(insn), true));
 			return true;
 		case INSN_ALU1:
@@ -1341,6 +1342,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		case INSN_ALU1_TRAP:
 			if (unlikely(insn_op_size(insn) < OP_SIZE_4))
 				goto invalid_insn;
+			g(cgen_nop_after_jmp(ctx));
 			g(cgen_alu1(ctx, insn_op_size(insn), insn_aux(insn), true));
 			return true;
 		case INSN_ROT:
