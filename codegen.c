@@ -2307,10 +2307,10 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 				return false;
 			gen_label(ce->test_and_entry_label);
 
-			g(gen_unspill_variables(ctx, ce->variables, ce->n_variables));
+			g(gen_load_constant(ctx, R_RET_IP, ce->current_position | CG_EXIT_FLAG_NONFLAT));
 
 			gen_insn(INSN_JMP, 0, 0, 0);
-			gen_label_ref(ce->nonflat_label);
+			gen_label_ref(ctx->nospill_label);
 		} else if (ce->entry_label) {
 			if (ce->n_variables) {
 				ce->test_and_entry_label = alloc_label(ctx);
