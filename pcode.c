@@ -1049,6 +1049,7 @@ static bool pcode_finish_call(struct build_function_context *ctx, const struct p
 		arg_mode_t am;
 		frame_t slot;
 		size_t n_vars;
+		code_t code;
 
 		if (unlikely(!gen_checkpoint(ctx, NULL, 0, false)))
 			goto exception;
@@ -1073,16 +1074,13 @@ static bool pcode_finish_call(struct build_function_context *ctx, const struct p
 				get_arg_mode(am, slot);
 			}
 		}
-		if (n_vars) {
-			code_t code;
-			get_arg_mode(am, n_vars);
-			code = OPCODE_ESCAPE_NONFLAT;
-			code += am * OPCODE_MODE_MULT;
-			gen_code(code);
-			gen_am(am, n_vars);
-			for (i = 0; i < n_vars; i++)
-				gen_am(am, vars[i]);
-		}
+		get_arg_mode(am, n_vars);
+		code = OPCODE_ESCAPE_NONFLAT;
+		code += am * OPCODE_MODE_MULT;
+		gen_code(code);
+		gen_am(am, n_vars);
+		for (i = 0; i < n_vars; i++)
+			gen_am(am, vars[i]);
 		mem_free(vars);
 		vars = NULL;
 	}
@@ -2509,6 +2507,7 @@ static bool pcode_check_args(struct build_function_context *ctx)
 	frame_t *vars = NULL;
 	size_t n_vars;
 	arg_mode_t am;
+	code_t code;
 
 	vars = mem_alloc_array_mayfail(mem_alloc_mayfail, frame_t *, 0, 0, ctx->n_real_arguments, sizeof(frame_t), ctx->err);
 	if (unlikely(!vars))
@@ -2525,16 +2524,13 @@ static bool pcode_check_args(struct build_function_context *ctx)
 		}
 	}
 
-	if (n_vars) {
-		code_t code;
-		get_arg_mode(am, n_vars);
-		code = OPCODE_ESCAPE_NONFLAT;
-		code += am * OPCODE_MODE_MULT;
-		gen_code(code);
-		gen_am(am, n_vars);
-		for (i = 0; i < n_vars; i++)
-			gen_am(am, vars[i]);
-	}
+	get_arg_mode(am, n_vars);
+	code = OPCODE_ESCAPE_NONFLAT;
+	code += am * OPCODE_MODE_MULT;
+	gen_code(code);
+	gen_am(am, n_vars);
+	for (i = 0; i < n_vars; i++)
+		gen_am(am, vars[i]);
 
 	mem_free(vars);
 	vars = NULL;

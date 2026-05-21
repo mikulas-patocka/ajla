@@ -148,6 +148,16 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 			ex = zero_x;
 	}
 	x_offset = offset + (size_t)slot * slot_size;
+#if defined(SUPPORTED_FP_X87)
+	if (unlikely(reg_is_x87(reg))) {
+		g(gen_address(ctx, base, x_offset, IMM_PURPOSE_LDR_OFFSET, size));
+		gen_insn(INSN_X87_FLD, size, 0, 0);
+		gen_address_offset();
+		gen_insn(INSN_X87_FSTP, OP_SIZE_10, 0, 0);
+		gen_one(reg + 1);
+		return true;
+	}
+#endif
 	if (!ARCH_HAS_BWX && size < OP_SIZE_4) {
 		g(gen_address(ctx, base, x_offset, reg_is_fp(reg) ? IMM_PURPOSE_VLDR_VSTR_OFFSET : IMM_PURPOSE_LDR_SX_OFFSET, OP_SIZE_4));
 		gen_insn(INSN_MOVSX, OP_SIZE_4, 0, 0);
@@ -337,22 +347,42 @@ ret:
 }
 
 #if defined(ARCH_X86)
-static bool attr_w gen_frame_load_x87(struct codegen_context *ctx, unsigned insn, unsigned size, unsigned alu, frame_t slot)
+static bool attr_w gen_frame_load_x87_raw(struct codegen_context *ctx, unsigned insn, unsigned size, unsigned alu, frame_t slot)
 {
-	if (slot_is_register(ctx, slot))
-		g(spill(ctx, slot, false));
 	g(gen_address(ctx, R_FRAME, (size_t)slot * slot_size, IMM_PURPOSE_LDR_OFFSET, size));
 	gen_insn(insn, size, alu, 0);
 	gen_address_offset();
 	return true;
 }
 
-static bool attr_w gen_frame_store_x87(struct codegen_context *ctx, unsigned insn, unsigned size, frame_t slot)
+static bool attr_w gen_frame_store_x87_raw(struct codegen_context *ctx, unsigned insn, unsigned size, frame_t slot)
 {
 	g(gen_address(ctx, R_FRAME, (size_t)slot * slot_size, IMM_PURPOSE_STR_OFFSET, size));
 	gen_insn(insn, size, 0, 0);
 	gen_address_offset();
-	if (slot_is_register(ctx, slot))
+	return true;
+}
+static bool attr_w gen_frame_load_x87(struct codegen_context *ctx, unsigned insn, unsigned size, unsigned alu, frame_t slot, unsigned stkpos)
+{
+	if (slot_is_register(ctx, slot) && reg_is_x87(ctx->registers[slot])) {
+		gen_insn(insn, OP_SIZE_10, alu, 0);
+		gen_one(ctx->registers[slot] + stkpos);
+		return true;
+	}
+	if (slot_is_register(ctx, slot) && !reg_is_x87(ctx->registers[slot]))
+		g(spill(ctx, slot, false));
+	g(gen_frame_load_x87_raw(ctx, insn, size, alu, slot));
+	return true;
+}
+static bool attr_w gen_frame_store_x87(struct codegen_context *ctx, unsigned insn, unsigned size, frame_t slot, unsigned stkpos)
+{
+	if (slot_is_register(ctx, slot) && reg_is_x87(ctx->registers[slot])) {
+		gen_insn(insn, size, 0, 0);
+		gen_one(ctx->registers[slot] + stkpos);
+		return true;
+	}
+	g(gen_frame_store_x87_raw(ctx, insn, size, slot));
+	if (slot_is_register(ctx, slot) && !reg_is_x87(ctx->registers[slot]))
 		g(unspill(ctx, slot, false));
 	return true;
 }
@@ -565,6 +595,22 @@ static bool attr_w gen_store_raw(struct codegen_context *ctx, unsigned size, uns
 	if (size == OP_SIZE_16 && reg_is_fp(reg)) {
 		g(gen_store_raw(ctx, OP_SIZE_8, base, 0, offset, reg));
 		g(gen_store_raw(ctx, OP_SIZE_8, base, 0, offset + 8, reg + 2));
+		return true;
+	}
+#endif
+#if defined(SUPPORTED_FP_X87)
+	if (unlikely(reg_is_x87(reg))) {
+		if (reg == R_ST0 && size <= OP_SIZE_8) {
+			g(gen_address(ctx, base, offset, IMM_PURPOSE_STR_OFFSET, size));
+			gen_insn(INSN_X87_FST, size, 0, 0);
+			gen_address_offset();
+			return true;
+		}
+		gen_insn(INSN_X87_FLD, OP_SIZE_10, 0, 0);
+		gen_one(reg);
+		g(gen_address(ctx, base, offset, IMM_PURPOSE_STR_OFFSET, size));
+		gen_insn(INSN_X87_FSTP, size, 0, 0);
+		gen_address_offset();
 		return true;
 	}
 #endif
@@ -868,9 +914,37 @@ static bool attr_w gen_spill_all(struct codegen_context *ctx)
 
 	n_vars = 0;
 	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++)
-		if (slot_is_register(ctx, v))
+		if (slot_is_register(ctx, v) && !reg_is_x87(ctx->registers[v]))
 			ctx->var_aux[n_vars++] = v;
 	g(gen_spill_multiple(ctx, ctx->var_aux, n_vars, false));
+	return true;
+}
+
+static bool attr_w gen_unspill_x87(struct codegen_context attr_unused *ctx)
+{
+#ifdef SUPPORTED_FP_X87
+	size_t i = ctx->x87_spill_l;
+	while (i--) {
+		frame_t v = ctx->x87_spill[i];
+		const struct type *t = get_type_of_local(ctx, v);
+		unsigned size = spill_size(t);
+		g(gen_frame_load_x87_raw(ctx, INSN_X87_FLD, size, 0, v));
+	}
+#endif
+	return true;
+}
+
+static bool attr_w gen_spill_x87(struct codegen_context attr_unused *ctx)
+{
+#ifdef SUPPORTED_FP_X87
+	size_t i;
+	for (i = 0; i < ctx->x87_spill_l; i++) {
+		frame_t v = ctx->x87_spill[i];
+		const struct type *t = get_type_of_local(ctx, v);
+		unsigned size = spill_size(t);
+		g(gen_frame_store_x87_raw(ctx, INSN_X87_FSTP, size, v));
+	}
+#endif
 	return true;
 }
 
@@ -916,6 +990,7 @@ static bool attr_w gen_upcall_start(struct codegen_context *ctx, unsigned offset
 #else
 		g(gen_spill_multiple(ctx, ctx->need_spill, ctx->need_spill_l, true));
 #endif
+		g(gen_spill_x87(ctx));
 	}
 	return true;
 }
@@ -928,6 +1003,7 @@ static bool attr_w gen_upcall_end(struct codegen_context *ctx, unsigned attr_unu
 	ajla_assert_lo(ctx->upcall_offset == (int)offset, (file_line, "gen_upcall_end: gen_upcall_start offset mismatch: %d != %d", ctx->upcall_offset, (int)offset));
 
 	if (do_unspill) {
+		g(gen_unspill_x87(ctx));
 #if (defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI)
 		if (ctx->n_pushes & 1) {
 			reg_to_pop = R_CX;

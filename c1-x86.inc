@@ -246,12 +246,17 @@ static uint8_t upcall_register = R_R15;
 #define SUPPORTED_FP_FMA	(cpu_test_feature(CPU_FEATURE_fp16) + cpu_test_feature(CPU_FEATURE_fma3) * 0x6)
 #define FP_REGISTERS(real_size) 1
 
-static bool reg_is_fp(unsigned reg)
+static inline bool reg_is_fp(unsigned reg)
 {
 	return reg >= 0x40 && reg < 0x60;
 }
 
-static bool reg_is_segment(unsigned reg)
+static inline bool reg_is_x87(unsigned reg)
+{
+	return reg >= 0x20 && reg < 0x28;
+}
+
+static inline bool reg_is_segment(unsigned reg)
 {
 	return reg >= 0x28 && reg < 0x2e;
 }
@@ -264,6 +269,7 @@ static const uint8_t regs_volatile[] = { 0 };
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved(real_type) 0U
 static const uint8_t fp_volatile[] = { R_XMM2, R_XMM3, R_XMM4, R_XMM5, R_XMM6, R_XMM7 };
+static const uint8_t fp_x87[] = { R_ST0, R_ST1, R_ST2, R_ST3, R_ST4, R_ST5 };
 
 #define reg_is_saved(r)	((r) >= R_BX && (r) <= R_DI)
 
@@ -281,6 +287,7 @@ static const uint8_t fp_volatile[] = { R_XMM2, R_XMM3, R_XMM4, R_XMM5,
 	R_XMM17, R_XMM18, R_XMM19, R_XMM20, R_XMM21, R_XMM22, R_XMM23, R_XMM24, R_XMM25, R_XMM26, R_XMM27, R_XMM28, R_XMM29, R_XMM30, R_XMM31,
 	};
 #define n_fp_volatile(real_type) (likely(cpu_test_feature(CPU_FEATURE_avx512vl)) || likely(cpu_test_feature(CPU_FEATURE_avx10)) ? n_array_elements(fp_volatile) : 4)
+static const uint8_t fp_x87[] = { R_ST0, R_ST1, R_ST2, R_ST3, R_ST4, R_ST5 };
 
 #define reg_is_saved(r)	(((r) >= R_BX && (r) <= R_DI) || ((r) >= R_R12 && (r) <= R_R15) || ((r) >= R_XMM6 && (r) <= R_XMM15))
 
@@ -304,17 +311,18 @@ static const uint8_t fp_volatile[] = {
 	R_XMM17, R_XMM18, R_XMM19, R_XMM20, R_XMM21, R_XMM22, R_XMM23, R_XMM24, R_XMM25, R_XMM26, R_XMM27, R_XMM28, R_XMM29, R_XMM30, R_XMM31,
 	};
 #define n_fp_volatile(real_type) (likely(cpu_test_feature(CPU_FEATURE_avx512vl)) || likely(cpu_test_feature(CPU_FEATURE_avx10)) ? n_array_elements(fp_volatile) : 14)
+static const uint8_t fp_x87[] = { R_ST0, R_ST1, R_ST2, R_ST3, R_ST4, R_ST5 };
 
 #define reg_is_saved(r)	(((r) >= R_BX && (r) <= R_BP) || ((r) >= R_R12 && (r) <= R_R15))
 
 #endif
 
-static bool imm_is_8bit(int64_t imm)
+static inline bool imm_is_8bit(int64_t imm)
 {
 	return imm >= -0x80 && imm < 0x80;
 }
 
-static bool is_direct_offset(int64_t attr_unused imm)
+static inline bool is_direct_offset(int64_t attr_unused imm)
 {
 #ifdef ARCH_X86_32
 	return true;

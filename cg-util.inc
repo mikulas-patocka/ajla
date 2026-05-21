@@ -20,7 +20,21 @@ static bool attr_w gen_mov(struct codegen_context *ctx, unsigned size, unsigned 
 {
 	if (dest == src && (size == OP_SIZE_NATIVE || reg_is_fp(dest)))
 		return true;
+#if defined(SUPPORTED_FP_X87)
+	if (unlikely(reg_is_x87(dest)) && unlikely(reg_is_x87(src))) {
+		if (src == R_ST0) {
+			gen_insn(INSN_X87_FST, OP_SIZE_10, 0, 0);
+			gen_one(dest);
+			return true;
+		}
+		gen_insn(INSN_X87_FLD, OP_SIZE_10, 0, 0);
+		gen_one(src);
+		gen_insn(INSN_X87_FSTP, OP_SIZE_10, 0, 0);
+		gen_one(dest + 1);
 
+		return true;
+	}
+#endif
 	gen_insn(INSN_MOV, size, 0, 0);
 	gen_one(dest);
 	gen_one(src);

@@ -109,7 +109,7 @@ static bool attr_w gen_unspill_variables(struct codegen_context *ctx, frame_t *v
 
 	for (i = 0; i < n_variables; i++) {
 		frame_t v = variables[i];
-		if (slot_is_register(ctx, v))
+		if (slot_is_register(ctx, v) && !reg_is_x87(ctx->registers[v]))
 			ctx->var_aux[n_vars++] = v;
 	}
 

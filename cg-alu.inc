@@ -3106,15 +3106,15 @@ do_alu:
 #ifdef SUPPORTED_FP_X87
 	if ((SUPPORTED_FP_X87 >> real_type) & 1) {
 		if (real_type != 3) {
-			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_2));
-			g(gen_frame_load_x87(ctx, INSN_X87_ALU, op_size, fp_alu, slot_1));
+			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_2, 0));
+			g(gen_frame_load_x87(ctx, INSN_X87_ALU, op_size, fp_alu, slot_1, 1));
 		} else {
-			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1));
-			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_2));
+			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 0));
+			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_2, 1));
 			gen_insn(INSN_X87_ALUP, op_size, fp_alu, 0);
 			gen_one(R_ST1);
 		}
-		g(gen_frame_store_x87(ctx, INSN_X87_FSTP, op_size, slot_r));
+		g(gen_frame_store_x87(ctx, INSN_X87_FSTP, op_size, slot_r, 1));
 		return true;
 	}
 #endif
@@ -3292,8 +3292,8 @@ do_cmp:
 #ifdef SUPPORTED_FP_X87
 	if ((SUPPORTED_FP_X87 >> real_type) & 1) {
 		if (likely(cpu_test_feature(CPU_FEATURE_cmov))) {
-			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_2));
-			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1));
+			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_2, 0));
+			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 1));
 			gen_insn(INSN_X87_FCOMIP, op_size, 0, 0);
 			gen_one(R_ST1);
 			gen_insn(INSN_X87_FSTP, op_size, 0, 0);
@@ -3305,11 +3305,11 @@ do_cmp:
 		}
 
 		if (real_type != 3) {
-			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1));
-			g(gen_frame_load_x87(ctx, INSN_X87_FCOMP, op_size, 0, slot_2));
+			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 0));
+			g(gen_frame_load_x87(ctx, INSN_X87_FCOMP, op_size, 0, slot_2, 1));
 		} else {
-			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_2));
-			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1));
+			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_2, 0));
+			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 1));
 			gen_insn(INSN_X87_FCOMPP, op_size, 0, 0);
 		}
 
@@ -3562,19 +3562,19 @@ do_alu:
 #ifdef SUPPORTED_FP_X87
 	if ((SUPPORTED_FP_X87 >> real_type) & 1) {
 		if (fp_alu == FP_ALU1_NEG) {
-			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1));
+			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 0));
 			gen_insn(INSN_X87_FCHS, op_size, 0, 0);
-			g(gen_frame_store_x87(ctx, INSN_X87_FSTP, op_size, slot_r));
+			g(gen_frame_store_x87(ctx, INSN_X87_FSTP, op_size, slot_r, 1));
 			return true;
 		} else if (fp_alu == FP_ALU1_SQRT) {
-			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1));
+			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 0));
 			gen_insn(INSN_X87_FSQRT, op_size, 0, 0);
-			g(gen_frame_store_x87(ctx, INSN_X87_FSTP, op_size, slot_r));
+			g(gen_frame_store_x87(ctx, INSN_X87_FSTP, op_size, slot_r, 1));
 			return true;
 		} else if (fp_alu == FP_ALU1_ROUND) {
-			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1));
+			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 0));
 			gen_insn(INSN_X87_FRNDINT, op_size, 0, 0);
-			g(gen_frame_store_x87(ctx, INSN_X87_FSTP, op_size, slot_r));
+			g(gen_frame_store_x87(ctx, INSN_X87_FSTP, op_size, slot_r, 1));
 			return true;
 		}
 	}
@@ -3770,10 +3770,10 @@ do_cvt_to_int:
 	}
 #ifdef SUPPORTED_FP_X87
 	if ((SUPPORTED_FP_X87 >> real_type) & 1) {
-		g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1));
+		g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 0));
 
 		if (likely(cpu_test_feature(CPU_FEATURE_sse3))) {
-			g(gen_frame_store_x87(ctx, INSN_X87_FISTTP, OP_SIZE_INT, slot_r));
+			g(gen_frame_store_x87(ctx, INSN_X87_FISTTP, OP_SIZE_INT, slot_r, 1));
 		} else {
 			gen_insn(INSN_PUSH, OP_SIZE_NATIVE, 0, 0);
 			gen_one(ARG_IMM);
@@ -3784,7 +3784,7 @@ do_cvt_to_int:
 			gen_one(R_SP);
 			gen_eight(0);
 
-			g(gen_frame_store_x87(ctx, INSN_X87_FISTP, OP_SIZE_INT, slot_r));
+			g(gen_frame_store_x87(ctx, INSN_X87_FISTP, OP_SIZE_INT, slot_r, 1));
 
 			gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 			gen_one(ARG_ADDRESS_1);
@@ -3884,8 +3884,8 @@ do_from_int:
 	if ((SUPPORTED_FP_X87 >> real_type) & 1) {
 		if (slot_is_register(ctx, slot_1))
 			g(spill(ctx, slot_1, false));
-		g(gen_frame_load_x87(ctx, INSN_X87_FILD, OP_SIZE_INT, 0, slot_1));
-		g(gen_frame_store_x87(ctx, INSN_X87_FSTP, op_size, slot_r));
+		g(gen_frame_load_x87(ctx, INSN_X87_FILD, OP_SIZE_INT, 0, slot_1, 0));
+		g(gen_frame_store_x87(ctx, INSN_X87_FSTP, op_size, slot_r, 1));
 		return true;
 	}
 #endif
@@ -3977,7 +3977,7 @@ do_is_exception:
 	}
 #ifdef SUPPORTED_FP_X87
 	if ((SUPPORTED_FP_X87 >> real_type) & 1) {
-		g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1));
+		g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 0));
 		if (likely(cpu_test_feature(CPU_FEATURE_cmov))) {
 			gen_insn(INSN_X87_FCOMIP, op_size, 0, 0);
 			gen_one(R_ST0);

@@ -546,6 +546,8 @@ struct codegen_context {
 	frame_t *var_aux_2;
 	frame_t *need_spill;
 	size_t need_spill_l;
+	frame_t *x87_spill;
+	size_t x87_spill_l;
 
 	uint8_t base_reg;
 	bool offset_reg;
@@ -619,6 +621,7 @@ static void init_ctx(struct codegen_context *ctx)
 	ctx->var_aux = NULL;
 	ctx->var_aux_2 = NULL;
 	ctx->need_spill = NULL;
+	ctx->x87_spill = NULL;
 	ctx->codegen = NULL;
 	ctx->upcall_offset = -1;
 	ctx->upcall_args = -1;
@@ -683,6 +686,8 @@ static void done_ctx(struct codegen_context *ctx)
 		mem_free(ctx->var_aux_2);
 	if (ctx->need_spill)
 		mem_free(ctx->need_spill);
+	if (ctx->x87_spill)
+		mem_free(ctx->x87_spill);
 	if (ctx->codegen)
 		data_free(ctx->codegen);
 	if (ctx->opt_status)
@@ -1223,6 +1228,12 @@ static inline bool slot_is_register(struct codegen_context *ctx, frame_t slot)
 #define n_vector_volatile n_array_elements(vector_volatile)
 #endif
 
+#ifndef SUPPORTED_FP_X87
+static bool reg_is_x87(unsigned attr_unused reg)
+{
+	return false;
+}
+#endif
 
 static bool attr_w gen_imm(struct codegen_context *ctx, int64_t imm, unsigned purpose, unsigned size)
 {
@@ -1308,6 +1319,7 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 	unsigned index_fp_saved = 0;
 	unsigned index_fp_volatile = 0;
 	unsigned index_vector_volatile = 0;
+	unsigned index_fp_x87 = 0;
 	/*for (v = function_n_variables(ctx->fn) - 1; v >= MIN_USEABLE_SLOT; v--)*/
 	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++) {
 		const struct type *t;
@@ -1323,10 +1335,13 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 		if (!da(ctx->fn,function)->local_variables_flags[v].must_be_flat &&
 		    !da(ctx->fn,function)->local_variables_flags[v].must_be_data)
 			continue;
-		reg = allocate_register(&index_saved, &index_volatile, &index_address, &index_fp_saved, &index_fp_volatile, &index_vector_volatile, t);
+		reg = allocate_register(&index_saved, &index_volatile, &index_address, &index_fp_saved, &index_fp_volatile, &index_vector_volatile, &index_fp_x87, t);
 		if (reg >= 0) {
 			ctx->registers[v] = reg;
-			if (!reg_is_saved(reg)) {
+			if (reg_is_x87(reg)) {
+				if (unlikely(!array_add_mayfail(frame_t, &ctx->x87_spill, &ctx->x87_spill_l, v, NULL, &ctx->err)))
+					return false;
+			} else if (!reg_is_saved(reg)) {
 				if (unlikely(!array_add_mayfail(frame_t, &ctx->need_spill, &ctx->need_spill_l, v, NULL, &ctx->err)))
 					return false;
 			}
@@ -1839,6 +1854,10 @@ skip_dereference:
 					mem_free(vars);
 					return false;
 				}
+				if (unlikely(!gen_unspill_x87(ctx))) {
+					mem_free(vars);
+					return false;
+				}
 				if (unlikely(!gen_unspill_variables(ctx, vars, n))) {
 					mem_free(vars);
 					return false;
@@ -2321,6 +2340,7 @@ static bool attr_w gen_entries(struct codegen_context *ctx)
 				g(gen_load_constant(ctx, R_RET_IP, ce->current_position | CG_EXIT_FLAG_NONFLAT));
 
 				g(gen_test_variable_tags(ctx, ce->variables, ce->n_variables, ctx->nospill_label));
+				g(gen_unspill_x87(ctx));
 				g(gen_unspill_variables(ctx, ce->variables, ce->n_variables));
 				g(gen_test_variable_content(ctx, ce->variables, ce->n_variables, false, ce->nonflat_label));
 
@@ -2381,6 +2401,7 @@ static bool attr_w gen_epilogues(struct codegen_context *ctx)
 	gen_label(escape_label);
 
 	g(gen_spill_all(ctx));
+	g(gen_spill_x87(ctx));
 
 	gen_label(ctx->nospill_label);
 	g(gen_escape(ctx));
@@ -2697,6 +2718,9 @@ next_one:;
 		goto fail;
 
 	if (unlikely(!array_init_mayfail(frame_t, &ctx->need_spill, &ctx->need_spill_l, &ctx->err)))
+		goto fail;
+
+	if (unlikely(!array_init_mayfail(frame_t, &ctx->x87_spill, &ctx->x87_spill_l, &ctx->err)))
 		goto fail;
 
 	if (unlikely(!gen_registers(ctx)))

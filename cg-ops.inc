@@ -382,7 +382,7 @@ static bool attr_w gen_load_fn_or_curry(struct codegen_context *ctx, frame_t fn_
 	return true;
 }
 
-static int allocate_register(unsigned *index_saved, unsigned *index_volatile, unsigned attr_unused *index_address, unsigned *index_fp_saved, unsigned *index_fp_volatile, unsigned attr_unused *index_vector_volatile, const struct type *t)
+static int allocate_register(unsigned *index_saved, unsigned *index_volatile, unsigned attr_unused *index_address, unsigned *index_fp_saved, unsigned *index_fp_volatile, unsigned attr_unused *index_vector_volatile, unsigned attr_unused *index_x87, const struct type *t)
 {
 	if (!ARCH_HAS_BWX && (t->size && t->size < 1U << OP_SIZE_4))
 		return -1;
@@ -411,8 +411,16 @@ static int allocate_register(unsigned *index_saved, unsigned *index_volatile, un
 	} else if (TYPE_TAG_IS_REAL(t->tag)) {
 		unsigned real_type = TYPE_TAG_IDX_REAL(t->tag);
 		unsigned n_fp_registers, idx;
-		if (!((SUPPORTED_FP >> real_type) & 1))
+		if (!((SUPPORTED_FP >> real_type) & 1)) {
+#ifdef SUPPORTED_FP_X87
+			if ((SUPPORTED_FP_X87 >> real_type) & 1) {
+				if (*index_x87 < n_array_elements(fp_x87)) {
+					return fp_x87[(*index_x87)++];
+				}
+			}
+#endif
 			return -1;
+		}
 #ifdef ARCH_POWER
 		if (real_type == 4) {
 			if (*index_vector_volatile < n_vector_volatile + zero) {
@@ -445,17 +453,20 @@ static bool test_quick_return(struct codegen_context *ctx, frame_t *ret_vars, ar
 	unsigned index_fp_saved = 0;
 	unsigned index_fp_volatile = 0;
 	unsigned index_vector_volatile = 0;
+	unsigned index_fp_x87 = 0;
 	for (i = 0; i < n_ret; i++) {
 		frame_t v = ret_vars[i];
 		const struct type *t = get_type_of_local(ctx, v);
 		int reg;
-		reg = allocate_register(&index_saved, &index_volatile, &index_address, &index_fp_saved, &index_fp_volatile, &index_vector_volatile, t);
+		reg = allocate_register(&index_saved, &index_volatile, &index_address, &index_fp_saved, &index_fp_volatile, &index_vector_volatile, &index_fp_x87, t);
 		if (reg < 0)
 			return false;
 		regs[i] = reg;
 		if (sizes)
 			sizes[i] = t->size;
 	}
+	if (unlikely(index_fp_x87 != 0))
+		return false;
 	return true;
 }
 
@@ -504,6 +515,8 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 	g(gen_frame_store_imm_raw(ctx, log_2(sizeof(uchar_efficient_t)), 0, new_fp_offset + frame_offs(mode), call_mode));
 
 	g(gen_clear_bitmap(ctx, frame_offset, R_FRAME, new_fp_offset, bitmap_slots));
+
+	g(gen_spill_x87(ctx));
 
 	for (i = 0; i < ctx->args_l; i++) {
 		const struct code_arg *src_arg = &ctx->args[i];
@@ -893,6 +906,8 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 					g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size(log_2(sizeof(code_t))), R_SCRATCH_1, flat_mask, COND_NE, label_skip_quick_ret, -1));
 			}
 
+			g(gen_spill_x87(ctx));
+
 			for (i = 0; i < ctx->args_l; i++) {
 				const struct code_arg *src_arg = &ctx->args[i];
 				const struct type *t = get_type_of_local(ctx, src_arg->slot);
@@ -1084,6 +1099,8 @@ scaled_store_done:
 
 		retval_offset += 4 + 2 * (ARG_MODE_N >= 3);
 	}
+
+	g(gen_spill_x87(ctx));
 
 	g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, new_fp_offset + frame_offs(function), false, R_SCRATCH_1));
 
@@ -3120,6 +3137,7 @@ static bool attr_w gen_io(struct codegen_context *ctx, frame_t code, frame_t slo
 		return false;
 
 	g(gen_spill_all(ctx));
+	g(gen_spill_x87(ctx));
 
 	if (ctx->var_aux_2) {
 		mem_free(ctx->var_aux_2);
@@ -3174,6 +3192,7 @@ duplicate2:;
 	g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_ADDRESS, R_RET0, ptr_to_num(POINTER_FOLLOW_THUNK_GO), COND_NE, reload_label, -1));
 
 	g(gen_unspill_multiple(ctx, ctx->var_aux, n_unspill, false));
+	g(gen_unspill_x87(ctx));
 
 	for (i = 0; i < slot_1; i++)
 		flag_set_unknown(ctx, ctx->var_aux_2[i]);
