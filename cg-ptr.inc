@@ -226,7 +226,6 @@ static bool attr_w gen_compare_refcount(struct codegen_context *ctx, unsigned pt
 
 static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg, unsigned tag, unsigned cond, uint32_t label, unsigned tmp_reg, bool subtract, bool need_flags)
 {
-	bool attr_unused logical;
 	size_t attr_unused offset;
 	unsigned attr_unused op_size = log_2(sizeof(tag_t));
 	if (subtract
@@ -240,7 +239,6 @@ static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg
 			case COND_B:	cond = COND_L; break;
 			case COND_BE:	cond = COND_LE; break;
 		}
-	logical = COND_IS_LOGICAL(cond);
 #if defined(DATA_TAG_AT_ALLOC)
 	g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHR, tmp_reg, reg, POINTER_IGNORE_START, 0));
 #elif defined(REFCOUNT_TAG)
@@ -282,14 +280,14 @@ static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg
 		g(gen_3address_alu_imm(ctx, log_2(sizeof(refcount_int_t)), ALU_AND, tmp_reg, tmp_reg, REFCOUNT_STEP - 1, 0));
 	}
 #else
-#if defined(ARCH_M68K) || defined(ARCH_S390) || defined(ARCH_X86)
+#if defined(ARCH_M68K) || defined(ARCH_X86)
 	g(gen_address(ctx, reg, offsetof(struct data, tag), IMM_PURPOSE_MVI_CLI_OFFSET, op_size));
 	g(gen_imm(ctx, tag, IMM_PURPOSE_CMP, op_size));
-	gen_insn(INSN_CMP, op_size, 0, 1 + logical);
+	gen_insn(INSN_CMP, op_size, 0, 1);
 	gen_address_offset();
 	gen_imm_offset();
 
-	gen_insn(!logical ? INSN_JMP_COND : INSN_JMP_COND_LOGICAL, op_size, cond, 0);
+	gen_insn(INSN_JMP_COND, op_size, cond, 0);
 	gen_label_ref(label);
 
 	return true;
