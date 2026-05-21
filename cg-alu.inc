@@ -2917,6 +2917,10 @@ static bool attr_w gen_constant(struct codegen_context *ctx, bool real, unsigned
 			internal(file_line, "gen_constant: invalid type %u", op_size);
 	}
 	if (op_size > OP_SIZE_NATIVE) {
+#if defined(ARCH_X86)
+		if (real && TYPE_TAG_IDX_REAL(get_type_of_local(ctx, slot_r)->tag) == 3)
+			c &= ((uintbig_t)1 << 80) - 1;
+#endif
 		g(gen_frame_store_imm_dual(ctx, slot_r, c));
 		if (real && slot_is_register(ctx, slot_r))
 			g(unspill(ctx, slot_r, false));
