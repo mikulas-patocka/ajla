@@ -1055,6 +1055,11 @@ skip_reads:
 			reg_map_set(&d->rd, R_X87);
 			reg_map_set(&d->wr, R_X87);
 			break;
+		case INSN_X87_FXCH:
+			ptr++;
+			reg_map_set(&d->rd, R_X87);
+			reg_map_set(&d->wr, R_X87);
+			break;
 		case INSN_X87_FCOMP:
 			ptr += arg_read(ctx, d, ptr, size);
 			reg_map_set(&d->rd, R_X87);
@@ -1837,6 +1842,13 @@ quash_after_i:
 					goto retry;
 				}
 			}
+		}
+#endif
+
+#if defined(SUPPORTED_FP_X87)
+		if (insn_opcode(d1->insn) == INSN_X87_FXCH && d1->start[4] == R_ST0) {
+			d1->quash = true;
+			continue;
 		}
 #endif
 

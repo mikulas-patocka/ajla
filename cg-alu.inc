@@ -3561,19 +3561,24 @@ do_alu:
 	}
 #ifdef SUPPORTED_FP_X87
 	if ((SUPPORTED_FP_X87 >> real_type) & 1) {
-		if (fp_alu == FP_ALU1_NEG) {
-			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 0));
-			gen_insn(INSN_X87_FCHS, op_size, 0, 0);
-			g(gen_frame_store_x87(ctx, INSN_X87_FSTP, op_size, slot_r, 1));
+		unsigned insn;
+		switch (fp_alu) {
+			case FP_ALU1_NEG:	insn = INSN_X87_FCHS; break;
+			case FP_ALU1_SQRT:	insn = INSN_X87_FSQRT; break;
+			case FP_ALU1_ROUND:	insn = INSN_X87_FRNDINT; break;
+			default:		goto do_upcall;
+		}
+		if (slot_1 == slot_r && slot_is_register(ctx, slot_1) && reg_is_x87(ctx->registers[slot_1])) {
+			unsigned reg = ctx->registers[slot_1];
+			gen_insn(INSN_X87_FXCH, 0, 0, 0);
+			gen_one(reg);
+			gen_insn(insn, op_size, 0, 0);
+			gen_insn(INSN_X87_FXCH, 0, 0, 0);
+			gen_one(reg);
 			return true;
-		} else if (fp_alu == FP_ALU1_SQRT) {
+		} else {
 			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 0));
-			gen_insn(INSN_X87_FSQRT, op_size, 0, 0);
-			g(gen_frame_store_x87(ctx, INSN_X87_FSTP, op_size, slot_r, 1));
-			return true;
-		} else if (fp_alu == FP_ALU1_ROUND) {
-			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 0));
-			gen_insn(INSN_X87_FRNDINT, op_size, 0, 0);
+			gen_insn(insn, op_size, 0, 0);
 			g(gen_frame_store_x87(ctx, INSN_X87_FSTP, op_size, slot_r, 1));
 			return true;
 		}

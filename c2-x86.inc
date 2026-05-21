@@ -239,6 +239,8 @@
 #define X87_FSTP_RM64			0xdd
 #define  X87_FSTP_RM64_X			0x3
 #define X87_FALU_ST_RM32		0xd8
+#define X87_FXCH			0xd9
+#define  X87_FXCH_2				0xc8
 #define X87_FCHS			0xd9
 #define  X87_FCHS_2				0xe0
 #define X87_FSQRT			0xd9
@@ -1654,6 +1656,17 @@ static bool attr_w cgen_x87_fisttp(struct codegen_context *ctx, unsigned size)
 	return true;
 }
 
+static bool attr_w cgen_x87_fxch(struct codegen_context *ctx)
+{
+	uint8_t *arg1 = ctx->code_position;
+	ctx->code_position = arg1 + arg_size(*arg1);
+	if (unlikely(!reg_is_x87(arg1[0])))
+		internal(file_line, "cgen_x87_fxch: invalid register %02x", arg1[0]);
+	cgen_one(X87_FXCH);
+	cgen_one(X87_FXCH_2 + (arg1[0] & 7));
+	return true;
+}
+
 static bool attr_w cgen_x87_fcomp(struct codegen_context *ctx, unsigned size)
 {
 	unsigned c1, c2;
@@ -2056,6 +2069,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_X87_FISTTP:
 			g(cgen_x87_fisttp(ctx, insn_op_size(insn)));
+			return true;
+		case INSN_X87_FXCH:
+			g(cgen_x87_fxch(ctx));
 			return true;
 		case INSN_X87_FCOMP:
 			g(cgen_x87_fcomp(ctx, insn_op_size(insn)));
