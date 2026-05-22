@@ -1678,7 +1678,7 @@ static bool attr_w cgen_x87_fxch(struct codegen_context *ctx)
 	return true;
 }
 
-static bool attr_w cgen_x87_fcomp(struct codegen_context *ctx, unsigned size)
+static bool attr_w cgen_x87_fcom(struct codegen_context *ctx, unsigned size, bool pop)
 {
 	unsigned c1, c2;
 	uint8_t *arg1 = ctx->code_position;
@@ -1691,9 +1691,9 @@ static bool attr_w cgen_x87_fcomp(struct codegen_context *ctx, unsigned size)
 		case OP_SIZE_8:
 			c1 = X87_FALU_ST_M64; break;
 		default:
-			internal(file_line, "cgen_x87_fcomp: invalid size %u", size);
+			internal(file_line, "cgen_x87_fcom: invalid size %u", size);
 	}
-	c2 = X87_ALU_FCOMP;
+	c2 = !pop ? X87_ALU_FCOM : X87_ALU_FCOMP;
 	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, c1, OP_SIZE_4, size, false, c2, arg1));
 	return true;
 }
@@ -2099,8 +2099,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		case INSN_X87_FXCH:
 			g(cgen_x87_fxch(ctx));
 			return true;
+		case INSN_X87_FCOM:
 		case INSN_X87_FCOMP:
-			g(cgen_x87_fcomp(ctx, insn_op_size(insn)));
+			g(cgen_x87_fcom(ctx, insn_op_size(insn), insn_opcode(insn) == INSN_X87_FCOMP));
 			return true;
 		case INSN_X87_FCOMPP:
 			cgen_one(X87_FCOMPP);
