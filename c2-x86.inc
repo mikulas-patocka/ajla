@@ -248,7 +248,7 @@
 #define X87_FRNDINT			0xd9
 #define  X87_FRNDINT_2				0xfc
 #define X87_FALU_ST_M64			0xdc
-#define X87_FALU_STi_ST			0xdc
+#define X87_FALU_STi_ST0		0xdc
 #define X87_FISTTP_M64			0xdd
 #define  X87_FISTTP_M64_X			0x1
 #define X87_FALUP_STi_ST0		0xde
@@ -1687,32 +1687,36 @@ static bool attr_w cgen_x87_fcomp(struct codegen_context *ctx, unsigned size)
 	return true;
 }
 
-static bool attr_w cgen_x87_alu(struct codegen_context *ctx, unsigned size, unsigned aux)
+static bool attr_w cgen_x87_alu(struct codegen_context *ctx, unsigned size, unsigned aux, bool rev)
 {
 	unsigned c1, c2;
 	uint8_t *arg1 = ctx->code_position;
 	ctx->code_position = arg1 + arg_size(*arg1);
 	if (arg1[0] < ARG_REGS_MAX) {
-		c1 = X87_FALU_ST_RM32;
-	} else switch (size) {
-		case OP_SIZE_4:
-			c1 = X87_FALU_ST_RM32; break;
-		case OP_SIZE_8:
-			c1 = X87_FALU_ST_M64; break;
-		default:
-			internal(file_line, "cgen_x87_alu: invalid size %u", size);
+		c1 = !rev ? X87_FALU_ST_RM32 : X87_FALU_STi_ST0;
+	} else {
+		if (unlikely(rev))
+			internal(file_line, "cgen_x87_alu: use of memory operand with reversed arguments");
+		switch (size) {
+			case OP_SIZE_4:
+				c1 = X87_FALU_ST_RM32; break;
+			case OP_SIZE_8:
+				c1 = X87_FALU_ST_M64; break;
+			default:
+				internal(file_line, "cgen_x87_alu: invalid size %u", size);
+		}
 	}
 	switch (aux) {
 		case FP_ALU_ADD:
 			c2 = X87_ALU_ADD; break;
 		case FP_ALU_SUB:
 			c2 = X87_ALU_SUB; break;
-		case FP_ALU_SUBR:
-			c2 = X87_ALU_SUBR; break;
 		case FP_ALU_MUL:
 			c2 = X87_ALU_MUL; break;
 		case FP_ALU_DIV:
 			c2 = X87_ALU_DIV; break;
+		case FP_ALU_SUBR:
+			c2 = X87_ALU_SUBR; break;
 		case FP_ALU_DIVR:
 			c2 = X87_ALU_DIVR; break;
 		default:
@@ -1736,8 +1740,12 @@ static bool attr_w cgen_x87_alup(struct codegen_context *ctx, unsigned aux)
 			c2 = X87_ALU_MUL; break;
 		case FP_ALU_DIV:
 			c2 = X87_ALU_DIV; break;
+		case FP_ALU_SUBR:
+			c2 = X87_ALU_SUBR; break;
+		case FP_ALU_DIVR:
+			c2 = X87_ALU_DIVR; break;
 		default:
-			internal(file_line, "cgen_x87_fstp: invalid operation %u", aux);
+			internal(file_line, "cgen_x87_alup: invalid operation %u", aux);
 	}
 	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, X87_FALUP_STi_ST0, OP_SIZE_4, OP_SIZE_10, false, c2, arg1));
 	return true;
@@ -2090,7 +2098,8 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			cgen_one(X87_FCOMIP_2 + (imm8 & 7));
 			return true;
 		case INSN_X87_ALU:
-			g(cgen_x87_alu(ctx, insn_op_size(insn), insn_aux(insn)));
+		case INSN_X87_ALU_REV:
+			g(cgen_x87_alu(ctx, insn_op_size(insn), insn_aux(insn), insn_opcode(insn) == INSN_X87_ALU_REV));
 			return true;
 		case INSN_X87_ALUP:
 			g(cgen_x87_alup(ctx, insn_aux(insn)));

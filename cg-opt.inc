@@ -1076,6 +1076,7 @@ skip_reads:
 			reg_map_set(&d->wr, R_FLAGS);
 			break;
 		case INSN_X87_ALU:
+		case INSN_X87_ALU_REV:
 		case INSN_X87_ALUP:
 			ptr += arg_read(ctx, d, ptr, size);
 			reg_map_set(&d->rd, R_X87);

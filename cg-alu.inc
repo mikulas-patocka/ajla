@@ -3109,16 +3109,24 @@ do_alu:
 	}
 #ifdef SUPPORTED_FP_X87
 	if ((SUPPORTED_FP_X87 >> real_type) & 1) {
+		unsigned fp_alu_rev = fp_alu == FP_ALU_SUB ? FP_ALU_SUBR : fp_alu == FP_ALU_DIV ? FP_ALU_DIVR : fp_alu;
 		bool supported_direct_operand;
-		supported_direct_operand = real_type != 3 || (slot_is_register(ctx, slot_2) && reg_is_x87(ctx->registers[slot_2]));
-		if (slot_1 == slot_r && slot_is_register(ctx, slot_1) && reg_is_x87(ctx->registers[slot_1]) && supported_direct_operand) {
+		short reg_1 = ctx->registers[slot_1];
+		short reg_2 = ctx->registers[slot_2];
+		supported_direct_operand = real_type != 3 || (slot_is_register(ctx, slot_2) && reg_is_x87(reg_2));
+		if (slot_1 == slot_r && slot_is_register(ctx, slot_1) && reg_is_x87(reg_1) && supported_direct_operand) {
+			if (reg_2 == R_ST0) {
+				gen_insn(INSN_X87_ALU_REV, OP_SIZE_10, fp_alu_rev, 0);
+				gen_one(reg_1);
+				return true;
+			}
 			gen_insn(INSN_X87_FXCH, 0, 0, 0);
 			gen_one(ctx->registers[slot_1]);
-			if (slot_is_register(ctx, slot_2) && reg_is_x87(ctx->registers[slot_2])) {
-				unsigned reg = ctx->registers[slot_2];
+			if (slot_is_register(ctx, slot_2) && reg_is_x87(reg_2)) {
+				short reg = reg_2;
 				if (reg == R_ST0)
-					reg = ctx->registers[slot_1];
-				else if (reg == (unsigned)ctx->registers[slot_1])
+					reg = reg_1;
+				else if (reg == reg_1)
 					reg = R_ST0;
 				gen_insn(INSN_X87_ALU, OP_SIZE_10, fp_alu, 0);
 				gen_one(reg);
