@@ -1047,6 +1047,10 @@ skip_reads:
 			reg_map_set(&d->rd, R_X87);
 			reg_map_set(&d->wr, R_X87);
 			break;
+		case INSN_X87_FLDC:
+			reg_map_set(&d->rd, R_X87);
+			reg_map_set(&d->wr, R_X87);
+			break;
 		case INSN_X87_FST:
 		case INSN_X87_FSTP:
 		case INSN_X87_FISTP:

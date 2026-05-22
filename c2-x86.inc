@@ -243,6 +243,8 @@
 #define  X87_FXCH_2				0xc8
 #define X87_FCHS			0xd9
 #define  X87_FCHS_2				0xe0
+#define X87_FLDC			0xd9
+#define  X87_FLDC_2				0xe8
 #define X87_FSQRT			0xd9
 #define  X87_FSQRT_2				0xfa
 #define X87_FRNDINT			0xd9
@@ -1578,6 +1580,13 @@ static bool attr_w cgen_x87_fild(struct codegen_context *ctx, unsigned size)
 	return true;
 }
 
+static bool attr_w cgen_x87_fldc(struct codegen_context *ctx, unsigned aux)
+{
+	cgen_one(X87_FLDC);
+	cgen_one(X87_FLDC_2 + aux);
+	return true;
+}
+
 static bool attr_w cgen_x87_fst(struct codegen_context *ctx, unsigned size)
 {
 	unsigned c1, c2;
@@ -2069,6 +2078,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_X87_FILD:
 			g(cgen_x87_fild(ctx, insn_op_size(insn)));
+			return true;
+		case INSN_X87_FLDC:
+			g(cgen_x87_fldc(ctx, insn_aux(insn)));
 			return true;
 		case INSN_X87_FST:
 			g(cgen_x87_fst(ctx, insn_op_size(insn)));

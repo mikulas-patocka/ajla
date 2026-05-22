@@ -2918,8 +2918,17 @@ static bool attr_w gen_constant(struct codegen_context *ctx, bool real, unsigned
 	}
 	if (op_size > OP_SIZE_NATIVE) {
 #if defined(ARCH_X86)
-		if (real && TYPE_TAG_IDX_REAL(get_type_of_local(ctx, slot_r)->tag) == 3)
+		if (real && TYPE_TAG_IDX_REAL(get_type_of_local(ctx, slot_r)->tag) == 3) {
 			c &= ((uintbig_t)1 << 80) - 1;
+			if (slot_is_register(ctx, slot_r) && reg_is_x87(ctx->registers[slot_r])) {
+				if (!c) {
+					gen_insn(INSN_X87_FLDC, OP_SIZE_10, 6, 0);
+					gen_insn(INSN_X87_FSTP, OP_SIZE_10, 0, 0);
+					gen_one(ctx->registers[slot_r] + 1);
+					return true;
+				}
+			}
+		}
 #endif
 		g(gen_frame_store_imm_dual(ctx, slot_r, c));
 		if (real && slot_is_register(ctx, slot_r))
