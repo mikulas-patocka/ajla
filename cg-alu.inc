@@ -2918,17 +2918,8 @@ static bool attr_w gen_constant(struct codegen_context *ctx, bool real, unsigned
 	}
 	if (op_size > OP_SIZE_NATIVE) {
 #if defined(ARCH_X86)
-		if (real && TYPE_TAG_IDX_REAL(get_type_of_local(ctx, slot_r)->tag) == 3) {
+		if (real && TYPE_TAG_IDX_REAL(get_type_of_local(ctx, slot_r)->tag) == 3)
 			c &= ((uintbig_t)1 << 80) - 1;
-			if (slot_is_register(ctx, slot_r) && reg_is_x87(ctx->registers[slot_r])) {
-				if (!c) {
-					gen_insn(INSN_X87_FLDC, OP_SIZE_10, 6, 0);
-					gen_insn(INSN_X87_FSTP, OP_SIZE_10, 0, 0);
-					gen_one(ctx->registers[slot_r] + 1);
-					return true;
-				}
-			}
-		}
 #endif
 		g(gen_frame_store_imm_dual(ctx, slot_r, c));
 		if (real && slot_is_register(ctx, slot_r))
@@ -2956,9 +2947,42 @@ static bool attr_w gen_constant(struct codegen_context *ctx, bool real, unsigned
 	return true;
 }
 
+#if defined(ARCH_X86)
+static const struct {
+	uint64_t hi, lo;
+} x87_builtin_consts[] = {
+	{ 0x0000000000003fffULL, 0x8000000000000000ULL },
+	{ 0x0000000000004000ULL, 0xd49a784bcd1b8afeULL },
+	{ 0x0000000000003fffULL, 0xb8aa3b295c17f0bcULL },
+	{ 0x0000000000004000ULL, 0xc90fdaa22168c235ULL },
+	{ 0x0000000000003ffdULL, 0x9a209a84fbcff799ULL },
+	{ 0x0000000000003ffeULL, 0xb17217f7d1cf79acULL },
+	{ 0x0000000000000000ULL, 0x0000000000000000ULL },
+};
+#endif
+
 static bool attr_w gen_real_constant(struct codegen_context *ctx, const struct type *t, frame_t slot_r)
 {
 	int64_t offset;
+
+#if defined(ARCH_X86)
+	if (TYPE_TAG_IDX_REAL(t->tag) == 3 && slot_is_register(ctx, slot_r)) {
+		size_t i;
+		uint64_t lo;
+		uint64_t hi = 0;
+		memcpy(&lo, cast_ptr(const char *, ctx->current_position), 8);
+		memcpy(&hi, cast_ptr(const char *, ctx->current_position) + 8, 2);
+		for (i = 0; i < n_array_elements(x87_builtin_consts); i++) {
+			if (lo == x87_builtin_consts[i].lo && hi == x87_builtin_consts[i].hi) {
+				gen_insn(INSN_X87_FLDC, OP_SIZE_10, i, 0);
+				gen_insn(INSN_X87_FSTP, OP_SIZE_10, 0, 0);
+				gen_one(ctx->registers[slot_r] + 1);
+				return true;
+			}
+		}
+	}
+#endif
+
 	if (is_power_of_2(t->size) && t->size <= sizeof(uintbig_t))
 		return gen_constant(ctx, true, log_2(t->size), false, slot_r);
 
