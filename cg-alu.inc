@@ -3112,7 +3112,7 @@ do_alu:
 		unsigned fp_alu_rev = fp_alu == FP_ALU_SUB ? FP_ALU_SUBR : fp_alu == FP_ALU_DIV ? FP_ALU_DIVR : fp_alu;
 		bool supported_direct_operand;
 		short reg_1, reg_2;
-		if (slot_2 == slot_r && slot_1 != slot_r) {
+		if (slot_2 == slot_r && slot_1 != slot_r && slot_is_register(ctx, slot_1)) {
 			unsigned fp_alu_x;
 			frame_t slot_x;
 			slot_x = slot_2;
@@ -3146,6 +3146,12 @@ do_alu:
 			}
 			gen_insn(INSN_X87_FXCH, 0, 0, 0);
 			gen_one(ctx->registers[slot_1]);
+			return true;
+		}
+		if (slot_1 == slot_r && slot_is_register(ctx, slot_1) && reg_is_x87(reg_1)) {
+			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_2, 0));
+			gen_insn(INSN_X87_ALUP, op_size, fp_alu_rev, 0);
+			gen_one(reg_1 + 1);
 			return true;
 		}
 		if (supported_direct_operand) {
