@@ -256,10 +256,10 @@
 #define  X87_ALU_MUL				0x1
 #define  X87_ALU_FCOM				0x2
 #define  X87_ALU_FCOMP				0x3
-#define  X87_ALU_SUBR				0x4
-#define  X87_ALU_SUB				0x5
-#define  X87_ALU_DIVR				0x6
-#define  X87_ALU_DIV				0x7
+#define  X87_ALU_SUB				0x4
+#define  X87_ALU_SUBR				0x5
+#define  X87_ALU_DIV				0x6
+#define  X87_ALU_DIVR				0x7
 #define X87_FCOMPP			0xde
 #define  X87_FCOMPP_2				0xd9
 #define X87_FILD_M16			0xdf
@@ -1707,10 +1707,14 @@ static bool attr_w cgen_x87_alu(struct codegen_context *ctx, unsigned size, unsi
 			c2 = X87_ALU_ADD; break;
 		case FP_ALU_SUB:
 			c2 = X87_ALU_SUB; break;
+		case FP_ALU_SUBR:
+			c2 = X87_ALU_SUBR; break;
 		case FP_ALU_MUL:
 			c2 = X87_ALU_MUL; break;
 		case FP_ALU_DIV:
 			c2 = X87_ALU_DIV; break;
+		case FP_ALU_DIVR:
+			c2 = X87_ALU_DIVR; break;
 		default:
 			internal(file_line, "cgen_x87_fst: invalid operation %u", aux);
 	}

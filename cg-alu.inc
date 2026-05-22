@@ -3109,12 +3109,12 @@ do_alu:
 	}
 #ifdef SUPPORTED_FP_X87
 	if ((SUPPORTED_FP_X87 >> real_type) & 1) {
-		if (real_type != 3 || (slot_is_register(ctx, slot_1) && reg_is_x87(ctx->registers[slot_1]))) {
-			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_2, 0));
-			g(gen_frame_load_x87(ctx, INSN_X87_ALU, op_size, fp_alu, slot_1, 1));
-		} else {
+		if (real_type != 3 || (slot_is_register(ctx, slot_2) && reg_is_x87(ctx->registers[slot_2]))) {
 			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 0));
-			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_2, 1));
+			g(gen_frame_load_x87(ctx, INSN_X87_ALU, op_size, fp_alu, slot_2, 1));
+		} else {
+			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_2, 0));
+			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 1));
 			gen_insn(INSN_X87_ALUP, op_size, fp_alu, 0);
 			gen_one(R_ST1);
 		}

@@ -129,6 +129,8 @@ static uint64_t dump_seq = 0;
 #define FP_ALU_SUB			1
 #define FP_ALU_MUL			2
 #define FP_ALU_DIV			3
+#define FP_ALU_SUBR			4
+#define FP_ALU_DIVR			5
 
 #define FP_ALU1_NEG			0
 #define FP_ALU1_SQRT			1
