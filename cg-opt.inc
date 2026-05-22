@@ -2079,7 +2079,7 @@ new_d3:
 		}
 #if defined(ARCH_X86)
 		if ((insn_opcode(d1->insn) == INSN_SET_COND || insn_opcode(d1->insn) == INSN_SET_COND_PARTIAL) &&
-		    insn_opcode(d2->insn) == INSN_CMP &&
+		    (insn_opcode(d2->insn) == INSN_CMP || insn_opcode(d2->insn) == INSN_TEST) &&
 		    insn_opcode(d3->insn) == INSN_JMP_COND && (insn_aux(d3->insn) == COND_E || insn_aux(d3->insn) == COND_NE)) {
 			uint8_t *d1w, *d2r, *d2c;
 			if (insn_op_size(d1->insn) != insn_op_size(d2->insn) || insn_op_size(d1->insn) != insn_op_size(d3->insn))
@@ -2089,8 +2089,13 @@ new_d3:
 			d1w = d1->start + 4;
 			d2r = d2->start + 4;
 			d2c = d2r + arg_size(*d2r);
-			if (*d2c != ARG_IMM || oget_eight(d2c + 1) != 0)
-				goto skip_setc_cmp_jmp;
+			if (insn_opcode(d2->insn) == INSN_CMP) {
+				if (*d2c != ARG_IMM || oget_eight(d2c + 1) != 0)
+					goto skip_setc_cmp_jmp;
+			} else {
+				if (!arg_equal(d2r, d2c))
+					goto skip_setc_cmp_jmp;
+			}
 			if (!arg_equal(d1w, d2r))
 				goto skip_setc_cmp_jmp;
 			d2->quash = true;
