@@ -3417,7 +3417,7 @@ do_cmp:
 			return true;
 		}
 
-		if (real_type != 3) {
+		if (real_type != 3 || (slot_is_register(ctx, slot_2) && reg_is_x87(ctx->registers[slot_2]))) {
 			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 0));
 			g(gen_frame_load_x87(ctx, INSN_X87_FCOMP, op_size, 0, slot_2, 1));
 		} else {
