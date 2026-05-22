@@ -3376,12 +3376,29 @@ do_cmp:
 #ifdef SUPPORTED_FP_X87
 	if ((SUPPORTED_FP_X87 >> real_type) & 1) {
 		if (likely(cpu_test_feature(CPU_FEATURE_cmov))) {
-			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_2, 0));
-			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 1));
-			gen_insn(INSN_X87_FCOMIP, op_size, 0, 0);
-			gen_one(R_ST1);
-			gen_insn(INSN_X87_FSTP, op_size, 0, 0);
-			gen_one(R_ST0);
+			short reg_1 = ctx->registers[slot_1];
+			short reg_2 = ctx->registers[slot_2];
+			if (slot_is_register(ctx, slot_1) && reg_is_x87(reg_1) &&
+			    slot_is_register(ctx, slot_2) && reg_is_x87(reg_2)) {
+				short reg = reg_2;
+				if (reg == R_ST0)
+					reg = reg_1;
+				else if (reg == reg_1)
+					reg = R_ST0;
+				gen_insn(INSN_X87_FXCH, 0, 0, 0);
+				gen_one(reg_1);
+				gen_insn(INSN_X87_FCOMI, op_size, 0, 0);
+				gen_one(reg);
+				gen_insn(INSN_X87_FXCH, 0, 0, 0);
+				gen_one(reg_1);
+			} else {
+				g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_2, 0));
+				g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 1));
+				gen_insn(INSN_X87_FCOMIP, op_size, 0, 0);
+				gen_one(R_ST1);
+				gen_insn(INSN_X87_FSTP, op_size, 0, 0);
+				gen_one(R_ST0);
+			}
 			gen_insn(INSN_JMP_COND, op_size, COND_P, 0);
 			gen_label_ref(label_ovf);
 			g(gen_frame_set_cond(ctx, op_size, false, fp_alu & 0xf, slot_r));

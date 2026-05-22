@@ -249,6 +249,8 @@
 #define  X87_FSQRT_2				0xfa
 #define X87_FRNDINT			0xd9
 #define  X87_FRNDINT_2				0xfc
+#define X87_FCOMI			0xdb
+#define  X87_FCOMI_2				0xf0
 #define X87_FALU_ST_M64			0xdc
 #define X87_FALU_STi_ST0		0xdc
 #define X87_FISTTP_M64			0xdd
@@ -2103,6 +2105,11 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		case INSN_X87_FCOMPP:
 			cgen_one(X87_FCOMPP);
 			cgen_one(X87_FCOMPP_2);
+			return true;
+		case INSN_X87_FCOMI:
+			imm8 = cget_one(ctx);
+			cgen_one(X87_FCOMI);
+			cgen_one(X87_FCOMI_2 + (imm8 & 7));
 			return true;
 		case INSN_X87_FCOMIP:
 			imm8 = cget_one(ctx);
