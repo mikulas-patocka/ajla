@@ -23,11 +23,11 @@ static bool attr_w gen_alu_upcall(struct codegen_context *ctx, size_t upcall, un
 {
 	if (unlikely(frame_t_is_const(slot_1)))
 		internal(file_line, "gen_alu_upcall: the first argument is constant");
-	if (slot_is_register(ctx, slot_1))
+	if (slot_is_register(ctx, slot_1) && !reg_is_x87(ctx->registers[slot_1]))
 		g(spill(ctx, slot_1, false));
-	if (slot_2 != NO_FRAME_T && slot_is_register(ctx, slot_2))
+	if (slot_2 != NO_FRAME_T && slot_is_register(ctx, slot_2) && !reg_is_x87(ctx->registers[slot_2]))
 		g(spill(ctx, slot_2, false));
-	if (slot_3 != NO_FRAME_T && slot_is_register(ctx, slot_3))
+	if (slot_3 != NO_FRAME_T && slot_is_register(ctx, slot_3) && !reg_is_x87(ctx->registers[slot_3]))
 		g(spill(ctx, slot_3, false));
 	if (frame_t_is_const(slot_2)) {
 		size_t x_offs = offsetof(struct cg_upcall_vector_s, INT_binary_const_int8_t) + op_size * sizeof(void (*)(void));
@@ -69,7 +69,7 @@ static bool attr_w gen_alu_upcall(struct codegen_context *ctx, size_t upcall, un
 		g(gen_upcall_argument(ctx, 1));
 		g(gen_upcall(ctx, upcall, 2, true));
 	}
-	if (slot_is_register(ctx, slot_r))
+	if (slot_is_register(ctx, slot_r) && !reg_is_x87(ctx->registers[slot_r]))
 		g(unspill(ctx, slot_r, false));
 	if (label_ovf)
 		g(gen_jmp_on_zero(ctx, OP_SIZE_1, R_RET0, COND_E, label_ovf));
