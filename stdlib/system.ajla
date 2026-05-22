@@ -2070,10 +2070,10 @@ implicit fn instance_real_number_@1~inline : class_real_number(@1) :=
 	];
 ]
 
-real_instance(real16, #1.921fb54442d18469898cc51701b8p+1h);
-real_instance(real32, #1.921fb54442d18469898cc51701b8p+1s);
-real_instance(real64, #1.921fb54442d18469898cc51701b8p+1);
-real_instance(real80, #1.921fb54442d18469898cc51701b8p+1l);
+real_instance(real16, cast(real16, #1.921fb54442d18469898cc51701b8p+1q));
+real_instance(real32, cast(real32, #1.921fb54442d18469898cc51701b8p+1q));
+real_instance(real64, cast(real64, #1.921fb54442d18469898cc51701b8p+1q));
+real_instance(real80, cast(real80, #1.921fb54442d18469898cc51701b8p+1q));
 real_instance(real128, #1.921fb54442d18469898cc51701b8p+1q);
 
 {---------------------
