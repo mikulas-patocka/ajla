@@ -4101,17 +4101,30 @@ do_is_exception:
 	}
 #ifdef SUPPORTED_FP_X87
 	if ((SUPPORTED_FP_X87 >> real_type) & 1) {
-		g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 0));
 		if (likely(cpu_test_feature(CPU_FEATURE_cmov))) {
-			gen_insn(INSN_X87_FCOMIP, op_size, 0, 0);
-			gen_one(R_ST0);
+			if (slot_is_register(ctx, slot_1) && ctx->registers[slot_1] == R_ST0) {
+				gen_insn(INSN_X87_FCOMI, op_size, 0, 0);
+				gen_one(R_ST0);
+			} else {
+				g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 0));
+
+				gen_insn(INSN_X87_FCOMIP, op_size, 0, 0);
+				gen_one(R_ST0);
+			}
 
 			g(gen_frame_set_cond(ctx, op_size, false, COND_P, slot_r));
 			return true;
 		}
 
-		gen_insn(INSN_X87_FCOMP, op_size, 0, 0);
-		gen_one(R_ST0);
+		if (slot_is_register(ctx, slot_1) && ctx->registers[slot_1] == R_ST0) {
+			gen_insn(INSN_X87_FCOM, op_size, 0, 0);
+			gen_one(R_ST0);
+		} else {
+			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 0));
+
+			gen_insn(INSN_X87_FCOMP, op_size, 0, 0);
+			gen_one(R_ST0);
+		}
 
 		gen_insn(INSN_X87_FNSTSW, 0, 0, 0);
 		gen_one(R_AX);
