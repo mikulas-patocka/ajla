@@ -3109,7 +3109,27 @@ do_alu:
 	}
 #ifdef SUPPORTED_FP_X87
 	if ((SUPPORTED_FP_X87 >> real_type) & 1) {
-		if (real_type != 3 || (slot_is_register(ctx, slot_2) && reg_is_x87(ctx->registers[slot_2]))) {
+		bool supported_direct_operand;
+		supported_direct_operand = real_type != 3 || (slot_is_register(ctx, slot_2) && reg_is_x87(ctx->registers[slot_2]));
+		if (slot_1 == slot_r && slot_is_register(ctx, slot_1) && reg_is_x87(ctx->registers[slot_1]) && supported_direct_operand) {
+			gen_insn(INSN_X87_FXCH, 0, 0, 0);
+			gen_one(ctx->registers[slot_1]);
+			if (slot_is_register(ctx, slot_2) && reg_is_x87(ctx->registers[slot_2])) {
+				unsigned reg = ctx->registers[slot_2];
+				if (reg == R_ST0)
+					reg = ctx->registers[slot_1];
+				else if (reg == (unsigned)ctx->registers[slot_1])
+					reg = R_ST0;
+				gen_insn(INSN_X87_ALU, OP_SIZE_10, fp_alu, 0);
+				gen_one(reg);
+			} else {
+				g(gen_frame_load_x87(ctx, INSN_X87_ALU, op_size, fp_alu, slot_2, 1));
+			}
+			gen_insn(INSN_X87_FXCH, 0, 0, 0);
+			gen_one(ctx->registers[slot_1]);
+			return true;
+		}
+		if (supported_direct_operand) {
 			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 0));
 			g(gen_frame_load_x87(ctx, INSN_X87_ALU, op_size, fp_alu, slot_2, 1));
 		} else {
