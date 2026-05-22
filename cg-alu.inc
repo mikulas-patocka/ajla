@@ -3380,7 +3380,19 @@ do_cmp:
 			short reg_2 = ctx->registers[slot_2];
 			if (slot_is_register(ctx, slot_1) && reg_is_x87(reg_1) &&
 			    slot_is_register(ctx, slot_2) && reg_is_x87(reg_2)) {
-				short reg = reg_2;
+				short reg;
+				if (reg_2 == R_ST0) {
+					short tmp_reg = reg_1;
+					reg_1 = reg_2;
+					reg_2 = tmp_reg;
+					switch (fp_alu) {
+						case FP_COND_A:		fp_alu = FP_COND_B; break;
+						case FP_COND_BE:	fp_alu = FP_COND_AE; break;
+						case FP_COND_B:		fp_alu = FP_COND_A; break;
+						case FP_COND_AE:	fp_alu = FP_COND_BE; break;
+					}
+				}
+				reg = reg_2;
 				if (reg == R_ST0)
 					reg = reg_1;
 				else if (reg == reg_1)
