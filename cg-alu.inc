@@ -3147,7 +3147,7 @@ do_alu:
 		unsigned fp_alu_rev = fp_alu == FP_ALU_SUB ? FP_ALU_SUBR : fp_alu == FP_ALU_DIV ? FP_ALU_DIVR : fp_alu;
 		bool supported_direct_operand;
 		short reg_1, reg_2;
-		if (slot_2 == slot_r && slot_1 != slot_r && slot_is_register(ctx, slot_1)) {
+		if (slot_2 == slot_r && slot_1 != slot_r) {
 			unsigned fp_alu_x;
 			frame_t slot_x;
 			slot_x = slot_2;
