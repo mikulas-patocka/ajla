@@ -2919,7 +2919,7 @@ static bool attr_w gen_constant(struct codegen_context *ctx, bool real, unsigned
 	if (op_size > OP_SIZE_NATIVE) {
 #if defined(ARCH_X86)
 		if (real && TYPE_TAG_IDX_REAL(get_type_of_local(ctx, slot_r)->tag) == 3)
-			c &= ((uintbig_t)1 << 80) - 1;
+			c &= ((uintbig_t)1 << 40 << 40) - 1;
 #endif
 		g(gen_frame_store_imm_dual(ctx, slot_r, c));
 		if (real && slot_is_register(ctx, slot_r))
