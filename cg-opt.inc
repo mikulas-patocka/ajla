@@ -2066,6 +2066,14 @@ gen_nd:
 			}
 			continue;
 		}
+		if (((insn_opcode(d1->insn) == INSN_X87_FLD && d1->start[4] >= ARG_REGS_MAX) || insn_opcode(d1->insn) == INSN_X87_FILD || insn_opcode(d1->insn) == INSN_X87_FLDC) && insn_opcode(d2->insn) == INSN_X87_FSTP && d2->start[4] == R_ST1) {
+			*d2 = *d1;
+			g(prepare_new_insn(ctx));
+			gen_insn(INSN_X87_FSTP, OP_SIZE_10, 0, 0);
+			gen_one(R_ST0);
+			g(finish_new_insn(ctx, d1));
+			continue;
+		}
 #endif
 
 		k = j + 1;
