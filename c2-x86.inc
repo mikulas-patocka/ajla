@@ -276,6 +276,8 @@
 #define  X87_FILD_M64_X				0x5
 #define X87_FISTP_M64			0xdf
 #define  X87_FISTP_M64_X			0x7
+#define X87_FFREEP			0xdf
+#define  X87_FFREEP_2				0xc0
 #define X87_FNSTSW			0xdf
 #define  X87_FNSTSW_2				0xe0
 #define X87_FCOMIP			0xdf
@@ -1613,8 +1615,16 @@ static bool attr_w cgen_x87_fstp(struct codegen_context *ctx, unsigned size)
 	unsigned c1, c2;
 	uint8_t *arg1 = ctx->code_position;
 	ctx->code_position = arg1 + arg_size(*arg1);
-	if (arg1[0] >= R_ST0 && arg1[0] <= R_ST7)
+	if (arg1[0] >= R_ST0 && arg1[0] <= R_ST7) {
+#ifndef ARCH_X86_32
+		if (arg1[0] == R_ST0) {
+			cgen_one(X87_FFREEP);
+			cgen_one(X87_FFREEP_2);
+			return true;
+		}
+#endif
 		size = OP_SIZE_8;
+	}
 	switch (size) {
 		case OP_SIZE_4:
 			c1 = X87_FSTP_M32; c2 = X87_FSTP_M32_X; break;
