@@ -3956,6 +3956,7 @@ do_cvt_to_int:
 	}
 #ifdef SUPPORTED_FP_X87
 	if ((SUPPORTED_FP_X87 >> real_type) & 1) {
+		unsigned reg;
 		g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 0));
 
 		if (likely(cpu_test_feature(CPU_FEATURE_sse3))) {
@@ -3990,9 +3991,9 @@ do_cvt_to_int:
 			gen_one(ARG_IMM);
 			gen_eight(1 << OP_SIZE_NATIVE);
 		}
-		g(gen_frame_load(ctx, OP_SIZE_INT, garbage, slot_r, 0, false, R_SCRATCH_1));
+		g(gen_frame_get(ctx, OP_SIZE_INT, garbage, slot_r, R_SCRATCH_1, &reg));
 
-		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, R_SCRATCH_1, sign_bit(int_default_t), COND_E, label_ovf, R_SCRATCH_2));
+		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, reg, sign_bit(int_default_t), COND_E, label_ovf, R_SCRATCH_2));
 
 		return true;
 	}
