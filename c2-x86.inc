@@ -222,6 +222,8 @@
 #define  X87_FILD_M32_X				0x0
 #define X87_FISTTP_M32			0xdb
 #define  X87_FISTTP_M32_X			0x1
+#define X87_FIST_M32			0xdb
+#define  X87_FIST_M32_X				0x2
 #define X87_FISTP_M32			0xdb
 #define  X87_FISTP_M32_X			0x3
 #define X87_FLD_M80			0xdb
@@ -270,6 +272,8 @@
 #define  X87_FILD_M16_X				0x0
 #define X87_FISTTP_M16			0xdf
 #define  X87_FISTTP_M16_X			0x1
+#define X87_FIST_M16			0xdf
+#define  X87_FIST_M16_X				0x2
 #define X87_FISTP_M16			0xdf
 #define  X87_FISTP_M16_X			0x3
 #define X87_FILD_M64			0xdf
@@ -1639,20 +1643,31 @@ static bool attr_w cgen_x87_fstp(struct codegen_context *ctx, unsigned size)
 	return true;
 }
 
-static bool attr_w cgen_x87_fistp(struct codegen_context *ctx, unsigned size)
+static bool attr_w cgen_x87_fist(struct codegen_context *ctx, unsigned size, bool pop)
 {
 	unsigned c1, c2;
 	uint8_t *arg1 = ctx->code_position;
 	ctx->code_position = arg1 + arg_size(*arg1);
-	switch (size) {
-		case OP_SIZE_2:
-			c1 = X87_FISTP_M16; c2 = X87_FISTP_M16_X; break;
-		case OP_SIZE_4:
-			c1 = X87_FISTP_M32; c2 = X87_FISTP_M32_X; break;
-		case OP_SIZE_8:
-			c1 = X87_FISTP_M64; c2 = X87_FISTP_M64_X; break;
-		default:
-			internal(file_line, "cgen_x87_fistp: invalid size %u", size);
+	if (!pop) {
+		switch (size) {
+			case OP_SIZE_2:
+				c1 = X87_FIST_M16; c2 = X87_FIST_M16_X; break;
+			case OP_SIZE_4:
+				c1 = X87_FIST_M32; c2 = X87_FIST_M32_X; break;
+			default:
+				internal(file_line, "cgen_x87_fist: invalid size %u", size);
+		}
+	} else {
+		switch (size) {
+			case OP_SIZE_2:
+				c1 = X87_FISTP_M16; c2 = X87_FISTP_M16_X; break;
+			case OP_SIZE_4:
+				c1 = X87_FISTP_M32; c2 = X87_FISTP_M32_X; break;
+			case OP_SIZE_8:
+				c1 = X87_FISTP_M64; c2 = X87_FISTP_M64_X; break;
+			default:
+				internal(file_line, "cgen_x87_fist: invalid size %u", size);
+		}
 	}
 	g(cgen_rm_insn(ctx, -1, PREFIX_NONE, c1, OP_SIZE_4, size, false, c2, arg1));
 	return true;
@@ -2100,8 +2115,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		case INSN_X87_FSTP:
 			g(cgen_x87_fstp(ctx, insn_op_size(insn)));
 			return true;
+		case INSN_X87_FIST:
 		case INSN_X87_FISTP:
-			g(cgen_x87_fistp(ctx, insn_op_size(insn)));
+			g(cgen_x87_fist(ctx, insn_op_size(insn), insn_opcode(insn) == INSN_X87_FISTP));
 			return true;
 		case INSN_X87_FISTTP:
 			g(cgen_x87_fisttp(ctx, insn_op_size(insn)));

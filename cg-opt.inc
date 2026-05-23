@@ -1053,6 +1053,7 @@ skip_reads:
 			break;
 		case INSN_X87_FST:
 		case INSN_X87_FSTP:
+		case INSN_X87_FIST:
 		case INSN_X87_FISTP:
 		case INSN_X87_FISTTP:
 			ptr += arg_write(ctx, d, ptr, size);

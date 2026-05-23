@@ -3957,11 +3957,15 @@ do_cvt_to_int:
 #ifdef SUPPORTED_FP_X87
 	if ((SUPPORTED_FP_X87 >> real_type) & 1) {
 		unsigned reg;
-		g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 0));
 
 		if (likely(cpu_test_feature(CPU_FEATURE_sse3))) {
+			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 0));
 			g(gen_frame_store_x87(ctx, INSN_X87_FISTTP, OP_SIZE_INT, slot_r, 1));
 		} else {
+			bool bypass_ld_pop = slot_is_register(ctx, slot_1) && ctx->registers[slot_1] == R_ST0 && OP_SIZE_INT < OP_SIZE_8;
+			if (!bypass_ld_pop)
+				g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 0));
+
 			gen_insn(INSN_PUSH, OP_SIZE_NATIVE, 0, 0);
 			gen_one(ARG_IMM);
 			gen_eight(0x0f7f);
@@ -3971,7 +3975,10 @@ do_cvt_to_int:
 			gen_one(R_SP);
 			gen_eight(0);
 
-			g(gen_frame_store_x87(ctx, INSN_X87_FISTP, OP_SIZE_INT, slot_r, 1));
+			if (!bypass_ld_pop)
+				g(gen_frame_store_x87(ctx, INSN_X87_FISTP, OP_SIZE_INT, slot_r, 1));
+			else
+				g(gen_frame_store_x87(ctx, INSN_X87_FIST, OP_SIZE_INT, slot_r, 1));
 
 			gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 			gen_one(ARG_ADDRESS_1);
