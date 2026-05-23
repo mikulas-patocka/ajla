@@ -3019,6 +3019,30 @@ gen_fldc:
 
 	offset = (ctx->current_position - da(ctx->fn,function)->code) * sizeof(code_t);
 
+	if (TYPE_TAG_IDX_REAL(t->tag) == 3) {
+#if defined(ARCH_M68K)
+		if (slot_is_register(ctx, slot_r)) {
+			g(gen_address(ctx, R_SCRATCH_3, offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_10));
+			gen_insn(INSN_MOV, OP_SIZE_10, 0, 0);
+			gen_one(ctx->registers[slot_r]);
+			gen_address_offset();
+
+			return true;
+		}
+		g(gen_address(ctx, R_SCRATCH_3, offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_10));
+		gen_insn(INSN_MOV, OP_SIZE_10, 0, 0);
+		gen_one(FR_SCRATCH_1);
+		gen_address_offset();
+
+		g(gen_address(ctx, R_FRAME, (size_t)slot_r * slot_size, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_10));
+		gen_insn(INSN_MOV, OP_SIZE_10, 0, 0);
+		gen_address_offset();
+		gen_one(FR_SCRATCH_1);
+
+		return true;
+#endif
+	}
+
 	g(gen_memcpy_raw(ctx, R_FRAME, (size_t)slot_r * slot_size, R_SCRATCH_3, offset, t->size, minimum(t->align, sizeof(code_t))));
 	if (slot_is_register(ctx, slot_r))
 		g(unspill(ctx, slot_r, false));
