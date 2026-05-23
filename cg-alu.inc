@@ -2948,9 +2948,29 @@ static bool attr_w gen_constant(struct codegen_context *ctx, bool real, unsigned
 }
 
 #if defined(ARCH_X86)
+static const uint32_t x87_builtin_consts_real32[] = {
+	0x3f800000UL,
+	0x40549a78UL,
+	0x3fb8aa3bUL,
+	0x40490fdbUL,
+	0x3e9a209bUL,
+	0x3f317218UL,
+	0x00000000UL,
+};
+
+static const uint64_t x87_builtin_consts_real64[] = {
+	0x3ff0000000000000ULL,
+	0x400a934f0979a371ULL,
+	0x3ff71547652b82feULL,
+	0x400921fb54442d18ULL,
+	0x3fd34413509f79ffULL,
+	0x3fe62e42fefa39efULL,
+	0x0000000000000000ULL,
+};
+
 static const struct {
 	uint64_t hi, lo;
-} x87_builtin_consts[] = {
+} x87_builtin_consts_real80[] = {
 	{ 0x0000000000003fffULL, 0x8000000000000000ULL },
 	{ 0x0000000000004000ULL, 0xd49a784bcd1b8afeULL },
 	{ 0x0000000000003fffULL, 0xb8aa3b295c17f0bcULL },
@@ -2966,18 +2986,33 @@ static bool attr_w gen_real_constant(struct codegen_context *ctx, const struct t
 	int64_t offset;
 
 #if defined(ARCH_X86)
-	if (TYPE_TAG_IDX_REAL(t->tag) == 3 && slot_is_register(ctx, slot_r)) {
+	if (slot_is_register(ctx, slot_r) && reg_is_x87(ctx->registers[slot_r])) {
 		size_t i;
-		uint64_t lo;
-		uint64_t hi = 0;
-		memcpy(&lo, cast_ptr(const char *, ctx->current_position), 8);
-		memcpy(&hi, cast_ptr(const char *, ctx->current_position) + 8, 2);
-		for (i = 0; i < n_array_elements(x87_builtin_consts); i++) {
-			if (lo == x87_builtin_consts[i].lo && hi == x87_builtin_consts[i].hi) {
-				gen_insn(INSN_X87_FLDC, OP_SIZE_10, i, 0);
-				gen_insn(INSN_X87_FSTP, OP_SIZE_10, 0, 0);
-				gen_one(ctx->registers[slot_r] + 1);
-				return true;
+		if (TYPE_TAG_IDX_REAL(t->tag) == 1) {
+			for (i = 0; i < n_array_elements(x87_builtin_consts_real32); i++) {
+				if (!memcmp(ctx->current_position, &x87_builtin_consts_real32[i], 4)) {
+gen_fldc:
+					gen_insn(INSN_X87_FLDC, OP_SIZE_10, i, 0);
+					gen_insn(INSN_X87_FSTP, OP_SIZE_10, 0, 0);
+					gen_one(ctx->registers[slot_r] + 1);
+					return true;
+				}
+			}
+		}
+		if (TYPE_TAG_IDX_REAL(t->tag) == 2) {
+			for (i = 0; i < n_array_elements(x87_builtin_consts_real64); i++) {
+				if (!memcmp(ctx->current_position, &x87_builtin_consts_real64[i], 8))
+					goto gen_fldc;
+			}
+		}
+		if (TYPE_TAG_IDX_REAL(t->tag) == 3) {
+			uint64_t lo;
+			uint64_t hi = 0;
+			memcpy(&lo, cast_ptr(const char *, ctx->current_position), 8);
+			memcpy(&hi, cast_ptr(const char *, ctx->current_position) + 8, 2);
+			for (i = 0; i < n_array_elements(x87_builtin_consts_real80); i++) {
+				if (lo == x87_builtin_consts_real80[i].lo && hi == x87_builtin_consts_real80[i].hi)
+					goto gen_fldc;
 			}
 		}
 	}
