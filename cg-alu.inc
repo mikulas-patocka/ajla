@@ -3810,7 +3810,7 @@ do_cvt_to_int:
 		gen_one(target);
 		gen_one(reg1);
 
-		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, target, sign_bit(uint_default_t), COND_E, label_ovf, R_SCRATCH_2));
+		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, target, sign_bit(int_default_t), COND_E, label_ovf, R_SCRATCH_2));
 
 		g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, target));
 		return true;
