@@ -3041,6 +3041,15 @@ gen_fldc:
 
 		return true;
 #endif
+#if defined(ARCH_X86)
+		g(gen_address(ctx, R_SCRATCH_3, offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_10));
+		gen_insn(INSN_X87_FLD, OP_SIZE_10, 0, 0);
+		gen_address_offset();
+
+		g(gen_frame_store_x87(ctx, INSN_X87_FSTP, OP_SIZE_10, slot_r, 1));
+
+		return true;
+#endif
 	}
 
 	g(gen_memcpy_raw(ctx, R_FRAME, (size_t)slot_r * slot_size, R_SCRATCH_3, offset, t->size, minimum(t->align, sizeof(code_t))));
