@@ -215,7 +215,7 @@
 #define R_ARG2		R_O2
 #define R_ARG3		R_O3
 #define R_RET0		R_O0
-#define R_RET_IP	R_I1
+#define R_RET_IP	R_O0
 
 #define R_OFFSET_IMM	R_G1
 #define R_CONST_IMM	R_G2
@@ -416,6 +416,10 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 
 static bool attr_w gen_escape(struct codegen_context *ctx)
 {
+	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+	gen_one(R_I1);
+	gen_one(R_O0);
+
 	gen_insn(INSN_RET, 0, 0, 0);
 
 	return true;
