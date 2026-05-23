@@ -3990,8 +3990,6 @@ do_cvt_to_int:
 			gen_one(ARG_IMM);
 			gen_eight(1 << OP_SIZE_NATIVE);
 		}
-		if (slot_is_register(ctx, slot_r))
-			g(unspill(ctx, slot_r, false));
 		g(gen_frame_load(ctx, OP_SIZE_INT, garbage, slot_r, 0, false, R_SCRATCH_1));
 
 		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, R_SCRATCH_1, sign_bit(int_default_t), COND_E, label_ovf, R_SCRATCH_2));
