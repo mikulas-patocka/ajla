@@ -2074,6 +2074,11 @@ gen_nd:
 			g(finish_new_insn(ctx, d1));
 			continue;
 		}
+		if (insn_opcode(d1->insn) == INSN_X87_FXCH && insn_opcode(d2->insn) == INSN_X87_FXCH && d1->start[4] == d2->start[4]) {
+			d1->quash = true;
+			d2->quash = true;
+			continue;
+		}
 #endif
 
 		k = j + 1;
