@@ -2957,7 +2957,6 @@ static const uint32_t x87_builtin_consts_real32[] = {
 	0x3f317218UL,
 	0x00000000UL,
 };
-
 static const uint64_t x87_builtin_consts_real64[] = {
 	0x3ff0000000000000ULL,
 	0x400a934f0979a371ULL,
@@ -2967,16 +2966,15 @@ static const uint64_t x87_builtin_consts_real64[] = {
 	0x3fe62e42fefa39efULL,
 	0x0000000000000000ULL,
 };
-
 static const struct {
 	uint64_t hi, lo;
 } x87_builtin_consts_real80[] = {
-	{ 0x0000000000003fffULL, 0x8000000000000000ULL },
-	{ 0x0000000000004000ULL, 0xd49a784bcd1b8afeULL },
-	{ 0x0000000000003fffULL, 0xb8aa3b295c17f0bcULL },
-	{ 0x0000000000004000ULL, 0xc90fdaa22168c235ULL },
-	{ 0x0000000000003ffdULL, 0x9a209a84fbcff799ULL },
-	{ 0x0000000000003ffeULL, 0xb17217f7d1cf79acULL },
+	{ 0x8000000000000000ULL, 0x0000000000003fffULL },
+	{ 0xd49a784bcd1b8afeULL, 0x0000000000004000ULL },
+	{ 0xb8aa3b295c17f0bcULL, 0x0000000000003fffULL },
+	{ 0xc90fdaa22168c235ULL, 0x0000000000004000ULL },
+	{ 0x9a209a84fbcff799ULL, 0x0000000000003ffdULL },
+	{ 0xb17217f7d1cf79acULL, 0x0000000000003ffeULL },
 	{ 0x0000000000000000ULL, 0x0000000000000000ULL },
 };
 #endif
@@ -3006,12 +3004,8 @@ gen_fldc:
 			}
 		}
 		if (TYPE_TAG_IDX_REAL(t->tag) == 3) {
-			uint64_t lo;
-			uint64_t hi = 0;
-			memcpy(&lo, cast_ptr(const char *, ctx->current_position), 8);
-			memcpy(&hi, cast_ptr(const char *, ctx->current_position) + 8, 2);
 			for (i = 0; i < n_array_elements(x87_builtin_consts_real80); i++) {
-				if (lo == x87_builtin_consts_real80[i].lo && hi == x87_builtin_consts_real80[i].hi)
+				if (!memcmp(ctx->current_position, &x87_builtin_consts_real80[i], 10))
 					goto gen_fldc;
 			}
 		}
