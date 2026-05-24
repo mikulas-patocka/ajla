@@ -1383,13 +1383,15 @@ static bool validate_arg(const uint8_t *arg)
 	return false;
 }
 
-static bool validate_insn(const struct insn_details attr_unused *d)
+static bool validate_insn(const struct insn_details *d)
 {
 	switch (insn_opcode(d->insn)) {
 		case INSN_MOV:
 		case INSN_MOVSX:
 			const uint8_t *arg1 = d->start + 4;
 			const uint8_t *arg2 = arg1 + arg_size(*arg1);
+			if (insn_op_size(d->insn) > OP_SIZE_4)
+				return false;
 			if (unlikely(!validate_arg(arg1)) || unlikely(!(validate_arg(arg2) || arg2[0] == ARG_IMM)))
 				return false;
 			if (arg1[0] >= ARG_ADDRESS_1 && arg1[0] <= ARG_ADDRESS_2_8 && R_IS_D(arg1[1]) &&

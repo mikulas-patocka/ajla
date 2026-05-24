@@ -1878,6 +1878,11 @@ static bool validate_insn(const struct insn_details *d)
 				return false;
 			if (arg1[0] >= ARG_REGS_MAX && arg2[0] >= ARG_REGS_MAX && arg2[0] != ARG_IMM)
 				return false;
+			if (arg2[0] == ARG_IMM) {
+				int64_t imm = get_imm(&arg2[1]);
+				if (unlikely(!is_direct_offset(imm)))
+					return false;
+			}
 			return true;
 		}
 		case INSN_MOVSX: {

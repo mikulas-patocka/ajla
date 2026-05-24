@@ -730,10 +730,12 @@ do_call:
 				reg_map_set(&d->rd, R_AX);
 #endif
 			} else {
+#if !defined(ARCH_M68K) && !defined(ARCH_X86_32)
 				reg_map_set(&d->rd, R_ARG0);
 				reg_map_set(&d->rd, R_ARG1);
 				reg_map_set(&d->rd, R_ARG2);
 				reg_map_set(&d->rd, R_ARG3);
+#endif
 			}
 #if defined(ARCH_IA64)
 			reg_map_set(&d->rd, R_GP);
@@ -1919,6 +1921,32 @@ new_d2:
 		}
 cant_elide:
 #endif
+
+		if (insn_opcode(d1->insn) == INSN_MOV && insn_opcode(d2->insn) == INSN_MOV && insn_op_size(d1->insn) == insn_op_size(d2->insn)) {
+			unsigned dst1 = d1->start[4];
+			if (dst1 < ARG_REGS_MAX) {
+				uint8_t *src1 = d1->start + 5;
+				uint8_t *dst2 = d2->start + 4;
+				uint8_t *src2 = dst2 + arg_size(*dst2);
+				if (dst1 == *src2 && !reg_map_is_set(d2->live_after, dst1)
+#if !defined(ARCH_M68K)
+				    && (*dst2 < ARG_REGS_MAX || *src1 < ARG_REGS_MAX || *src1 == ARG_IMM)
+#endif
+					) {
+					struct insn_details nd;
+					g(prepare_new_insn(ctx));
+					gen_insn(INSN_MOV, insn_op_size(d1->insn), 0, 0);
+					gen_stream(dst2, arg_size(*dst2));
+					gen_stream(src1, arg_size(*src1));
+					g(finish_new_insn(ctx, &nd));
+					if (validate_insn(&nd)) {
+						*d1 = nd;
+						d2->quash = true;
+						continue;
+					}
+				}
+			}
+		}
 
 #if !defined(ARCH_PARISC)	/* this transformation increases code size on parisc */
 		if ((insn_opcode(d1->insn) == INSN_JMP_COND || insn_opcode(d1->insn) == INSN_JMP_COND_LOGICAL || insn_opcode(d1->insn) == INSN_JMP_REG || insn_opcode(d1->insn) == INSN_JMP_2REGS) && insn_opcode(d2->insn) == INSN_JMP) {
