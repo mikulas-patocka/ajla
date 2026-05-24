@@ -47,6 +47,19 @@ static bool attr_w gen_sanitize_returned_pointer(struct codegen_context attr_unu
 	return true;
 }
 
+static bool attr_w gen_address_register(struct codegen_context attr_unused *ctx, unsigned src, unsigned *dest)
+{
+#if defined(ARCH_M68K)
+	if (!R_IS_A(src)) {
+		*dest = R_SCRATCH_A;
+		g(gen_mov(ctx, OP_SIZE_NATIVE, *dest, src));
+		return true;
+	}
+#endif
+	*dest = src;
+	return true;
+}
+
 static bool alu_is_commutative(unsigned alu)
 {
 	return alu == ALU_ADD || alu == ALU_OR || alu == ALU_AND || alu == ALU_XOR || alu == ALU_MUL || alu == ALU_UMULH || alu == ALU_SMULH;

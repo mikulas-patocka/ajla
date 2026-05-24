@@ -2137,6 +2137,7 @@ static bool attr_w gen_array_fill(struct codegen_context *ctx, frame_t slot_1, f
 
 static bool attr_w gen_array_string(struct codegen_context *ctx, type_tag_t tag, uint8_t *string, frame_t len, frame_t slot_r)
 {
+	unsigned src_reg;
 	uint32_t escape_label;
 	int64_t offset;
 	const struct type *type;
@@ -2168,15 +2169,17 @@ static bool attr_w gen_array_string(struct codegen_context *ctx, type_tag_t tag,
 
 	g(load_function_offset(ctx, R_SCRATCH_3, offsetof(struct data, u_.function.code)));
 
+	g(gen_address_register(ctx, R_SCRATCH_3, &src_reg));
+
 	offset = string - cast_ptr(uint8_t *, da(ctx->fn,function)->code);
 
 #if !defined(ARCH_M68K) && !defined(ARCH_X86)
-	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_SCRATCH_3, R_SCRATCH_3, offset, 0));
+	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, src_reg, src_reg, offset, 0));
 	offset = 0;
 #endif
 
 	type = type_get_from_tag(tag);
-	g(gen_memcpy_raw(ctx, R_SAVED_1, data_array_offset, R_SCRATCH_3, offset, (size_t)len * type->size, align_of(code_t)));
+	g(gen_memcpy_raw(ctx, R_SAVED_1, data_array_offset, src_reg, offset, (size_t)len * type->size, align_of(code_t)));
 
 	return true;
 }
