@@ -1086,6 +1086,13 @@ do_explicit_copy:
 		step_bits = OP_SIZE_64;
 #endif
 	if (size >> step_bits <= INLINE_COPY_STEPS) {
+#if defined(ARCH_M68K)
+		if (R_IS_A(src_base) && R_IS_D(dest_base)) {
+			g(gen_address_register(ctx, dest_base, &dest_base));
+		} else if (R_IS_D(src_base) && R_IS_A(dest_base)) {
+			g(gen_address_register(ctx, src_base, &src_base));
+		}
+#endif
 		while (size) {
 			unsigned attr_unused reg;
 			unsigned this_step;
@@ -1175,24 +1182,27 @@ do_explicit_copy:
 			this_op_size = log_2(this_step);
 
 #if defined(ARCH_M68K)
-			gen_insn(INSN_MOV, this_op_size, 0, 0);
-			gen_one(ARG_ADDRESS_1);
-			gen_one(dest_base);
-			gen_eight(dest_offset);
-			gen_one(ARG_ADDRESS_1);
-			gen_one(src_base);
-			gen_eight(src_offset);
-#else
-			g(gen_address(ctx, src_base, src_offset, ARCH_PREFERS_SX(this_op_size) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, this_op_size));
-			gen_insn(ARCH_PREFERS_SX(this_op_size) ? INSN_MOVSX : INSN_MOV, this_op_size, x86_unaligned, 0);
-			gen_one(reg);
-			gen_address_offset();
-
-			g(gen_address(ctx, dest_base, dest_offset, IMM_PURPOSE_STR_OFFSET, this_op_size));
-			gen_insn(INSN_MOV, this_op_size, x86_unaligned, 0);
-			gen_address_offset();
-			gen_one(reg);
+			if (R_IS_A(dest_base) && R_IS_A(src_base)) {
+				gen_insn(INSN_MOV, this_op_size, 0, 0);
+				gen_one(ARG_ADDRESS_1);
+				gen_one(dest_base);
+				gen_eight(dest_offset);
+				gen_one(ARG_ADDRESS_1);
+				gen_one(src_base);
+				gen_eight(src_offset);
+			} else
 #endif
+			{
+				g(gen_address(ctx, src_base, src_offset, ARCH_PREFERS_SX(this_op_size) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, this_op_size));
+				gen_insn(ARCH_PREFERS_SX(this_op_size) ? INSN_MOVSX : INSN_MOV, this_op_size, x86_unaligned, 0);
+				gen_one(reg);
+				gen_address_offset();
+
+				g(gen_address(ctx, dest_base, dest_offset, IMM_PURPOSE_STR_OFFSET, this_op_size));
+				gen_insn(INSN_MOV, this_op_size, x86_unaligned, 0);
+				gen_address_offset();
+				gen_one(reg);
+			}
 			size -= this_step;
 			src_offset += this_step;
 			dest_offset += this_step;
