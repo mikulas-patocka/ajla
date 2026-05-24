@@ -807,6 +807,7 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 	arg_t i;
 	int64_t retval_offset;
 	unsigned attr_unused reg1;
+	unsigned jmp_reg;
 
 	escape_label = alloc_escape_label(ctx);
 	if (unlikely(!escape_label))
@@ -921,7 +922,8 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 
 			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_FRAME, R_FRAME, new_fp_offset, 0));
 
-			g(gen_jmp_indirect(ctx, R_SCRATCH_3, R_SCRATCH_2, offsetof(struct data, u_.codegen.unoptimized_code) - checkpoint_num_offset - sizeof(char *), 1));
+			g(gen_address_register(ctx, R_SCRATCH_3, &jmp_reg));
+			g(gen_jmp_indirect(ctx, jmp_reg, R_SCRATCH_2, offsetof(struct data, u_.codegen.unoptimized_code) - checkpoint_num_offset - sizeof(char *), 1));
 
 			gen_label(label_skip_quick_ret);
 		}
@@ -1115,7 +1117,8 @@ scaled_store_done:
 
 	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_FRAME, R_FRAME, new_fp_offset, 0));
 
-	g(gen_jmp_indirect(ctx, R_SCRATCH_1, R_SCRATCH_2, offsetof(struct data, u_.codegen.unoptimized_code) - checkpoint_num_offset, 0));
+	g(gen_address_register(ctx, R_SCRATCH_1, &jmp_reg));
+	g(gen_jmp_indirect(ctx, jmp_reg, R_SCRATCH_2, offsetof(struct data, u_.codegen.unoptimized_code) - checkpoint_num_offset, 0));
 
 	return true;
 }

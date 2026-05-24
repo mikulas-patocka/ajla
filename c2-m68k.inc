@@ -540,7 +540,7 @@ write_imm:
 			g(cgen_mov_da(ctx, R_TMP_A, arg1[1]));
 			reg = R_TMP_A;
 		} else {
-			reg = arg1[0];
+			reg = arg1[1];
 		}
 		mc = (call ? M68K_JSR : M68K_JMP) | M68K_ADDR_AA_D8_X | (reg & 7);
 		cgen_two(mc);
