@@ -133,7 +133,7 @@ static bool reg_is_fp(unsigned reg)
 static const uint8_t regs_saved[] = { RD4, RD5, RD6, RD7 };
 static const uint8_t regs_volatile[] = { 0 };
 #define n_regs_volatile 0U
-static const uint8_t regs_address[] = { RA3, RA4, RA5 };
+static const uint8_t regs_address[] = { RA3, RA4, RA5, RA1 };
 static const uint8_t fp_saved[] = { RFP2, RFP3, RFP4, RFP5, RFP6, RFP7 };
 #define n_fp_saved(real_type) (optimize_int ? 0 : n_array_elements(fp_saved))
 static const uint8_t fp_volatile[] = { RFP1 };
