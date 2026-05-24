@@ -3171,6 +3171,14 @@ do_alu:
 		if (slot_is_register(ctx, slot_2))
 #endif
 		{
+#if defined(ARCH_M68K) || defined(ARCH_X86)
+			if (slot_2 == slot_r && (fp_alu == FP_ALU_ADD || fp_alu == FP_ALU_MUL)) {
+				frame_t slot_x;
+				slot_x = slot_2;
+				slot_2 = slot_1;
+				slot_1 = slot_x;
+			}
+#endif
 			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, slot_2, fr_scratch_1);
 			g(gen_frame_get(ctx, op_size, garbage, slot_1, fr_scratch_1, &reg1));
 			if (slot_is_register(ctx, slot_2)) {
