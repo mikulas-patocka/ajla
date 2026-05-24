@@ -1193,6 +1193,30 @@ invalid:
 	return false;
 }
 
+static bool attr_w cgen_normalize(struct codegen_context *ctx, unsigned op_size, unsigned dest, unsigned src)
+{
+	uint64_t mc = IA64_F_FMA;
+	switch (op_size) {
+		case OP_SIZE_4:
+			mc |= IA64_F_FMA_S;
+			break;
+		case OP_SIZE_8:
+			mc |= IA64_F_FMA_D;
+			break;
+		case OP_SIZE_10:
+			mc |= IA64_F_FMA_E;
+			break;
+		default:
+			internal(file_line, "cgen_normalize: invalid arguments %u %02x %02x", op_size, dest, src);
+	}
+	mc |= bits_fp(dest) << 6;
+	mc |= bits_fp(FR_ZERO) << 13;
+	mc |= bits_fp(src) << 20;
+	mc |= bits_fp(FR_ONE) << 27;
+	g(ia64_insn(ctx, UNIT_F, mc, dest, ACCESS_NOTHING, src, ACCESS_NOTHING, ACCESS_NOTHING));
+	return true;
+}
+
 static bool attr_w cgen_fp_to_int(struct codegen_context *ctx)
 {
 	uint64_t mc;
@@ -1219,62 +1243,21 @@ static bool attr_w cgen_fp_from_int(struct codegen_context *ctx, unsigned fp_op_
 	mc |= bits_fp(arg2[0]) << 13;
 	g(ia64_insn(ctx, UNIT_F, mc, arg1[0], ACCESS_NOTHING, arg2[0], ACCESS_NOTHING, ACCESS_NOTHING));
 
-	mc = IA64_F_FMA;
-	switch (fp_op_size) {
-		case OP_SIZE_4:
-			mc |= IA64_F_FMA_S;
-			break;
-		case OP_SIZE_8:
-			mc |= IA64_F_FMA_D;
-			break;
-		case OP_SIZE_10:
-			goto skip_norm;
-		default:
-			goto invalid;
-	}
-	mc |= bits_fp(arg1[0]) << 6;
-	mc |= bits_fp(FR_ZERO) << 13;
-	mc |= bits_fp(arg1[0]) << 20;
-	mc |= bits_fp(FR_ONE) << 27;
-	g(ia64_insn(ctx, UNIT_F, mc, arg1[0], ACCESS_NOTHING, arg1[0], ACCESS_NOTHING, ACCESS_NOTHING));
-skip_norm:
-	return true;
+	if (fp_op_size != OP_SIZE_10)
+		g(cgen_normalize(ctx, fp_op_size, arg1[0], arg1[0]));
 
-invalid:
-	internal(file_line, "cgen_fp_from_int: invalid arguments %u, %02x, %02x", fp_op_size, arg1[0], arg2[0]);
-	return false;
+	return true;
 }
 
-static bool attr_w cgen_fp_cvt(struct codegen_context *ctx, unsigned to_op_size)
+static bool attr_w cgen_fp_cvt(struct codegen_context *ctx, unsigned to_size)
 {
-	uint64_t mc;
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
-	mc = IA64_F_FMA;
-	switch (to_op_size) {
-		case OP_SIZE_4:
-			mc |= IA64_F_FMA_S;
-			break;
-		case OP_SIZE_8:
-			mc |= IA64_F_FMA_D;
-			break;
-		case OP_SIZE_10:
-			mc |= IA64_F_FMA_E;
-			break;
-		default:
-			goto invalid;
-	}
-	mc |= bits_fp(arg1[0]) << 6;
-	mc |= bits_fp(FR_ZERO) << 13;
-	mc |= bits_fp(arg2[0]) << 20;
-	mc |= bits_fp(FR_ONE) << 27;
-	g(ia64_insn(ctx, UNIT_F, mc, arg1[0], ACCESS_NOTHING, arg2[0], ACCESS_NOTHING, ACCESS_NOTHING));
-	return true;
 
-invalid:
-	internal(file_line, "cgen_fp_cvt: invalid arguments %u, %02x, %02x", to_op_size, arg1[0], arg2[0]);
-	return false;
+	g(cgen_normalize(ctx, to_size, arg1[0], arg2[0]));
+
+	return true;
 }
 
 static bool attr_w cgen_jmp(struct codegen_context *ctx, unsigned length)
