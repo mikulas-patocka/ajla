@@ -67,15 +67,23 @@ static bool alu_is_commutative(unsigned alu)
 
 static bool attr_w gen_3address_alu(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src1, unsigned src2, unsigned writes_flags)
 {
+	bool is_2a;
 	if (unlikely(dest == src2) && alu_is_commutative(alu)) {
 		unsigned swap = src1;
 		src1 = src2;
 		src2 = swap;
 	}
-	if (!(reg_is_fp(dest) ? ARCH_IS_3ADDRESS_FP : ARCH_IS_3ADDRESS(alu, writes_flags)) && unlikely(dest == src2) && unlikely(dest != src1)) {
+	is_2a = !(reg_is_fp(dest) ? ARCH_IS_3ADDRESS_FP : ARCH_IS_3ADDRESS(alu, writes_flags)) && dest != src1;
+#if defined(ARCH_M68K)
+	if (R_IS_D(dest) || R_IS_D(src1)) {
+		is_2a = true;
+		writes_flags = 1;
+	}
+#endif
+	if (is_2a && unlikely(dest == src2)) {
 		internal(file_line, "gen_3address_alu: invalid registers: %u, %u, %x, %x, %x", size, alu, dest, src1, src2);
 	}
-	if (!(reg_is_fp(dest) ? ARCH_IS_3ADDRESS_FP : ARCH_IS_3ADDRESS(alu, writes_flags)) && dest != src1) {
+	if (is_2a) {
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src1));
 
 		gen_insn(INSN_ALU + ARCH_PARTIAL_ALU(size), size, alu, ALU_WRITES_FLAGS(size, alu, false, false, 0) | writes_flags);
@@ -95,7 +103,14 @@ static bool attr_w gen_3address_alu(struct codegen_context *ctx, unsigned size, 
 static bool attr_w gen_3address_alu_imm(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src, int64_t imm, unsigned writes_flags)
 {
 	unsigned purpose = alu_purpose(alu);
-	if (!ARCH_IS_3ADDRESS_IMM(alu, writes_flags) && dest != src) {
+	bool is_2a = !ARCH_IS_3ADDRESS_IMM(alu, writes_flags) && dest != src;
+#if defined(ARCH_M68K)
+	if (R_IS_D(dest)) {
+		is_2a = true;
+		writes_flags = 1;
+	}
+#endif
+	if (is_2a) {
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src));
 
 		g(gen_imm(ctx, imm, purpose, size));
