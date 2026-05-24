@@ -1088,37 +1088,61 @@ static bool attr_w cgen_fp_cmp_dest_reg(struct codegen_context *ctx, unsigned au
 	return true;
 }
 
-static bool attr_w cgen_fp_alu(struct codegen_context *ctx, unsigned op_size, unsigned aux)
+static bool attr_w cgen_fp_alu23(struct codegen_context *ctx, unsigned op_size, unsigned aux, bool fmadd)
 {
 	uint64_t mc, f1, f2, f3, f4;
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	uint8_t *arg3 = arg2 + arg_size(*arg2);
-	ctx->code_position = arg3 + arg_size(*arg3);
-	switch (aux) {
-		case FP_ALU_ADD:
-			mc = IA64_F_FMA;
-			f1 = bits_fp(arg1[0]);
-			f2 = bits_fp(arg3[0]);
-			f3 = bits_fp(arg2[0]);
-			f4 = bits_fp(FR_ONE);
-			break;
-		case FP_ALU_SUB:
-			mc = IA64_F_FMS;
-			f1 = bits_fp(arg1[0]);
-			f2 = bits_fp(arg3[0]);
-			f3 = bits_fp(arg2[0]);
-			f4 = bits_fp(FR_ONE);
-			break;
-		case FP_ALU_MUL:
-			mc = IA64_F_FMA;
-			f1 = bits_fp(arg1[0]);
-			f2 = bits_fp(FR_ZERO);
-			f3 = bits_fp(arg2[0]);
-			f4 = bits_fp(arg3[0]);
-			break;
-		default:
-			goto invalid;
+	uint8_t *arg4 = NULL;
+	if (!fmadd) {
+		ctx->code_position = arg3 + arg_size(*arg3);
+		switch (aux) {
+			case FP_ALU_ADD:
+				mc = IA64_F_FMA;
+				f1 = bits_fp(arg1[0]);
+				f2 = bits_fp(arg3[0]);
+				f3 = bits_fp(arg2[0]);
+				f4 = bits_fp(FR_ONE);
+				break;
+			case FP_ALU_SUB:
+				mc = IA64_F_FMS;
+				f1 = bits_fp(arg1[0]);
+				f2 = bits_fp(arg3[0]);
+				f3 = bits_fp(arg2[0]);
+				f4 = bits_fp(FR_ONE);
+				break;
+			case FP_ALU_MUL:
+				mc = IA64_F_FMA;
+				f1 = bits_fp(arg1[0]);
+				f2 = bits_fp(FR_ZERO);
+				f3 = bits_fp(arg2[0]);
+				f4 = bits_fp(arg3[0]);
+				break;
+			default:
+				goto invalid;
+		}
+	} else {
+		arg4 = arg3 + arg_size(*arg3);
+		ctx->code_position = arg4 + arg_size(*arg4);
+		switch (aux) {
+			case FP_ALU3_FMADD:
+				mc = IA64_F_FMA;
+				f1 = bits_fp(arg1[0]);
+				f2 = bits_fp(arg4[0]);
+				f3 = bits_fp(arg2[0]);
+				f4 = bits_fp(arg3[0]);
+				break;
+			case FP_ALU3_FMSUB:
+				mc = IA64_F_FMS;
+				f1 = bits_fp(arg1[0]);
+				f2 = bits_fp(arg4[0]);
+				f3 = bits_fp(arg2[0]);
+				f4 = bits_fp(arg3[0]);
+				break;
+			default:
+				goto invalid;
+		}
 	}
 	switch (op_size) {
 		case OP_SIZE_4:
@@ -1141,7 +1165,7 @@ static bool attr_w cgen_fp_alu(struct codegen_context *ctx, unsigned op_size, un
 	return true;
 
 invalid:
-	internal(file_line, "cgen_fp_alu: invalid arguments %u, %u, %02x, %02x, %02x", op_size, aux, arg1[0], arg2[0], arg3[0]);
+	internal(file_line, "cgen_fp_alu23: invalid arguments %u, %u, %u, %02x, %02x, %02x", (unsigned)fmadd, op_size, aux, arg1[0], arg2[0], arg3[0]);
 	return false;
 }
 
@@ -1470,10 +1494,13 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_fp_cmp_dest_reg(ctx, insn_aux(insn)));
 			return true;
 		case INSN_FP_ALU:
-			g(cgen_fp_alu(ctx, insn_op_size(insn), insn_aux(insn)));
+			g(cgen_fp_alu23(ctx, insn_op_size(insn), insn_aux(insn), false));
 			return true;
 		case INSN_FP_ALU1:
 			g(cgen_fp_alu1(ctx, insn_op_size(insn), insn_aux(insn)));
+			return true;
+		case INSN_FP_ALU3:
+			g(cgen_fp_alu23(ctx, insn_op_size(insn), insn_aux(insn), true));
 			return true;
 		case INSN_FP_TO_INT64:
 			g(cgen_fp_to_int(ctx));

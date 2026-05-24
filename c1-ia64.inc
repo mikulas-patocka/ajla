@@ -280,8 +280,11 @@ static void *callback_trampoline;
 
 #define FR_SCRATCH_1	FR_6
 #define FR_SCRATCH_2	FR_7
+#define FR_SCRATCH_3	FR_8
 
-#define SUPPORTED_FP	0xe
+#define SUPPORTED_FP		0xe
+#define SUPPORTED_FP_FMA	SUPPORTED_FP
+#define FMA_NO_NEG
 #define FP_REGISTERS(real_size) 1
 
 static inline bool reg_is_gr(unsigned reg)
@@ -400,7 +403,6 @@ static const uint8_t regs_volatile[] = {
 static const uint8_t fp_saved[] = { 0 };
 #define n_fp_saved(real_type) 0U
 static const uint8_t fp_volatile[] = {
-	FR_8,
 	FR_9,
 	FR_10,
 	FR_11,
