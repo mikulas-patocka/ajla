@@ -1319,11 +1319,11 @@ static bool attr_w gen_clear_bitmap(struct codegen_context *ctx, unsigned additi
 #if defined(ARCH_M68K)
 	if (bitmap_slots >= 3 && bitmap_slots <= INLINE_BITMAP_SLOTS) {
 		frame_t i;
-		g(gen_3address_alu_imm(ctx, OP_SIZE_ADDRESS, ALU_ADD, R_TMP_A, dest_base, dest_offset, 0));
+		g(gen_3address_alu_imm(ctx, OP_SIZE_ADDRESS, ALU_ADD, R_SCRATCH_A, dest_base, dest_offset, 0));
 		for (i = 0; i < bitmap_slots; i++) {
 			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
 			gen_one(ARG_ADDRESS_1_POST_I);
-			gen_one(R_TMP_A);
+			gen_one(R_SCRATCH_A);
 			gen_eight(4);
 			gen_one(ARG_IMM);
 			gen_eight(0);

@@ -110,6 +110,7 @@ static bool reg_is_fp(unsigned reg)
 #define R_TMP_D				RD7
 
 #define R_TMP_A				RA0
+#define R_SCRATCH_A			RA1
 #define R_SAVED_1			RA2
 #define R_SAVED_2			R_SCRATCH_4
 #define R_FRAME				RA6
@@ -133,7 +134,7 @@ static bool reg_is_fp(unsigned reg)
 static const uint8_t regs_saved[] = { RD4, RD5, RD6, RD7 };
 static const uint8_t regs_volatile[] = { 0 };
 #define n_regs_volatile 0U
-static const uint8_t regs_address[] = { RA3, RA4, RA5, RA1 };
+static const uint8_t regs_address[] = { RA3, RA4, RA5 };
 static const uint8_t fp_saved[] = { RFP2, RFP3, RFP4, RFP5, RFP6, RFP7 };
 #define n_fp_saved(real_type) (optimize_int ? 0 : n_array_elements(fp_saved))
 static const uint8_t fp_volatile[] = { RFP1 };
@@ -241,14 +242,14 @@ static bool attr_w gen_upcall_argument(struct codegen_context attr_unused *ctx, 
 static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsigned n_args, bool unspill)
 {
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
-	gen_one(R_TMP_A);
+	gen_one(R_SCRATCH_A);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(RSP);
 	gen_eight(ARG_SPACE + ARG_OFFSET + 4);
 
 	gen_insn(INSN_CALL_INDIRECT, OP_SIZE_4, 0, 0);
 	gen_one(ARG_ADDRESS_1);
-	gen_one(R_TMP_A);
+	gen_one(R_SCRATCH_A);
 	gen_eight(offset);
 
 	g(gen_upcall_end(ctx, offset, n_args, unspill));
@@ -259,7 +260,7 @@ static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsi
 static bool attr_w gen_get_upcall_pointer(struct codegen_context *ctx, unsigned offset, unsigned op_size, unsigned reg)
 {
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
-	gen_one(R_TMP_A);
+	gen_one(R_SCRATCH_A);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(RSP);
 	gen_eight(ARG_SPACE + ARG_OFFSET + 4);
@@ -267,7 +268,7 @@ static bool attr_w gen_get_upcall_pointer(struct codegen_context *ctx, unsigned 
 	gen_insn(INSN_MOV, op_size, 0, 0);
 	gen_one(reg);
 	gen_one(ARG_ADDRESS_1);
-	gen_one(R_TMP_A);
+	gen_one(R_SCRATCH_A);
 	gen_eight(offset);
 
 	return true;
