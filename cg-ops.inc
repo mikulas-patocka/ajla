@@ -2396,6 +2396,7 @@ static bool attr_w gen_scaled_array_store(struct codegen_context *ctx, unsigned 
 			short reg;
 			addr_mode = ARG_ADDRESS_2 + op_size;
 do_op:
+			g(gen_address_register(ctx, reg_src, &reg_src));
 			reg = ctx->registers[slot_1];
 			if (reg < 0) {
 				reg = !fp ? R_SCRATCH_3 : FR_SCRATCH_1;
