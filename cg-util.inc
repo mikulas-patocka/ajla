@@ -114,7 +114,7 @@ static bool attr_w gen_3address_alu_imm(struct codegen_context *ctx, unsigned si
 	unsigned purpose = alu_purpose(alu);
 	bool is_2a = !ARCH_IS_3ADDRESS_IMM(alu, writes_flags) && dest != src;
 #if defined(ARCH_M68K)
-	if (R_IS_D(dest)) {
+	if (R_IS_D(dest) || R_IS_D(src)) {
 		is_2a = true;
 		writes_flags = 1;
 	}
