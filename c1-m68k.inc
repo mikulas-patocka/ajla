@@ -162,6 +162,12 @@ static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, 
 
 static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int32_t imm, unsigned attr_unused purpose, unsigned attr_unused size)
 {
+	if (!R_IS_A(base)) {
+		gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
+		gen_one(R_SCRATCH_A);
+		gen_one(base);
+		base = R_SCRATCH_A;
+	}
 	ctx->base_reg = base;
 	ctx->offset_imm = imm;
 	ctx->offset_reg = false;
