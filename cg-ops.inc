@@ -3083,10 +3083,9 @@ static bool attr_w gen_array_append_one(struct codegen_context *ctx, frame_t slo
 
 	g(gen_scaled_array_address(ctx, slot_size, R_SAVED_2, R_SCRATCH_3, R_SAVED_2, 0));
 
+	g(gen_address(ctx, R_SAVED_2, 0, IMM_PURPOSE_STR_OFFSET, OP_SIZE_SLOT));
 	gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
-	gen_one(ARG_ADDRESS_1);
-	gen_one(R_SAVED_2);
-	gen_eight(0);
+	gen_address_offset();
 	gen_one(R_SCRATCH_2);
 
 	if (slot_1 != slot_r) {
