@@ -2316,6 +2316,7 @@ static bool attr_w gen_scaled_array_load(struct codegen_context *ctx, unsigned r
 			unsigned xreg;
 			addr_mode = ARG_ADDRESS_2 + op_size;
 do_op:
+			g(gen_address_register(ctx, reg_src, &reg_src));
 			reg = ctx->registers[slot_r];
 			if (reg >= 0)
 				xreg = reg;
