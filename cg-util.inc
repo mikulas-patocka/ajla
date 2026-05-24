@@ -47,6 +47,15 @@ static bool attr_w gen_sanitize_returned_pointer(struct codegen_context attr_unu
 	return true;
 }
 
+static unsigned get_address_register(unsigned reg)
+{
+#if defined(ARCH_M68K)
+	if (!R_IS_A(reg))
+		return R_SCRATCH_A;
+#endif
+	return reg;
+}
+
 static bool attr_w gen_address_register(struct codegen_context attr_unused *ctx, unsigned src, unsigned *dest)
 {
 #if defined(ARCH_M68K)

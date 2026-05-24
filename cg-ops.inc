@@ -1000,9 +1000,9 @@ skip_quickret:
 			} else
 #endif
 			{
-				g(gen_lea3(ctx, R_SCRATCH_2, R_FRAME, R_SAVED_2, OP_SIZE_SLOT, 0));
+				g(gen_lea3(ctx, get_address_register(R_SCRATCH_2), R_FRAME, R_SAVED_2, OP_SIZE_SLOT, 0));
 
-				g(gen_memcpy_from_slot(ctx, R_SCRATCH_2, new_fp_offset, src_arg->slot));
+				g(gen_memcpy_from_slot(ctx, get_address_register(R_SCRATCH_2), new_fp_offset, src_arg->slot));
 			}
 
 			gen_insn(INSN_JMP, 0, 0, 0);
