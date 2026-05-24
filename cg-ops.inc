@@ -2664,14 +2664,14 @@ skip_slice:
 
 		g(gen_address(ctx, reg1, offsetof(struct data, u_.array_pointers.pointer), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
-		gen_one(R_SCRATCH_1);
+		gen_one(R_SAVED_1);
 		gen_address_offset();
 
 		if (ARCH_HAS_2REG_M(false, false, OP_SIZE_SLOT, 0)) {
 			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
 			gen_one(R_SCRATCH_1);
 			gen_one(ARG_ADDRESS_2 + OP_SIZE_SLOT);
-			gen_one(R_SCRATCH_1);
+			gen_one(R_SAVED_1);
 			gen_one(reg2);
 			gen_eight(0);
 
@@ -2684,7 +2684,7 @@ skip_slice:
 			gen_one(ARG_SHIFTED_REGISTER);
 			gen_one(ARG_SHIFT_LSL | OP_SIZE_SLOT);
 			gen_one(reg2);
-			gen_one(R_SCRATCH_1);
+			gen_one(R_SAVED_1);
 
 			gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, 0);
 			gen_one(R_SCRATCH_1);
@@ -2701,7 +2701,7 @@ skip_slice:
 			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
 			gen_one(R_SCRATCH_1);
 			gen_one(ARG_ADDRESS_2);
-			gen_one(R_SCRATCH_1);
+			gen_one(R_SAVED_1);
 			gen_one(R_SCRATCH_2);
 			gen_eight(0);
 
@@ -2710,7 +2710,7 @@ skip_slice:
 
 		g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_SCRATCH_2, reg2, OP_SIZE_SLOT, 0));
 
-		g(gen_3address_alu(ctx, OP_SIZE_ADDRESS, ALU_ADD, R_SCRATCH_2, R_SCRATCH_2, R_SCRATCH_1, 0));
+		g(gen_3address_alu(ctx, OP_SIZE_ADDRESS, ALU_ADD, R_SCRATCH_2, R_SCRATCH_2, R_SAVED_1, 0));
 
 		gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, 0);
 		gen_one(R_SCRATCH_1);
