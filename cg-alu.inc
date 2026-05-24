@@ -4237,6 +4237,14 @@ do_to_real:
 		g(gen_frame_store(ctx, op_size_target, slot_r, 0, target));
 		return true;
 	}
+#ifdef SUPPORTED_FP_X87
+	if ((SUPPORTED_FP_X87 >> real_type) & (SUPPORTED_FP_X87 >> real_target_type) & 1) {
+		unsigned op_size_target = real_type_to_op_size(real_target_type);
+		g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 0));
+		g(gen_frame_store_x87(ctx, INSN_X87_FSTP, op_size_target, slot_r, 1));
+		return true;
+	}
+#endif
 	g(gen_alu_typed_upcall(ctx, upc, real_type, slot_1, NO_FRAME_T, NO_FRAME_T, slot_r, 0));
 	return true;
 
