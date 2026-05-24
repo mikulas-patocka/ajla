@@ -3849,11 +3849,7 @@ do_cvt_to_int:
 		gen_one(target);
 		gen_one(reg1);
 #endif
-		g(gen_imm(ctx, (int_default_t)(sign_bit(uint_default_t) + 1), IMM_PURPOSE_ADD, OP_SIZE_INT));
-		gen_insn(INSN_ALU, OP_SIZE_INT, ALU_ADD, ALU_WRITES_FLAGS(OP_SIZE_INT, ALU_ADD, false, is_imm(), ctx->const_imm));
-		gen_one(R_SCRATCH_2);
-		gen_one(target);
-		gen_imm_offset();
+		g(gen_3address_alu_imm(ctx, OP_SIZE_INT, ALU_ADD, R_SCRATCH_2, target, (int_default_t)(sign_bit(uint_default_t) + 1), 0));
 
 		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, OP_SIZE_INT, R_SCRATCH_2, 1, COND_BE, label_ovf, -1));
 
