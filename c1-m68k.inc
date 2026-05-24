@@ -296,10 +296,10 @@ static bool attr_w gen_callback_trampoline(struct codegen_context *ctx)
 	gen_one(ARG_ADDRESS_1_PRE_I);
 	gen_one(RSP);
 	gen_eight(-4);
-	gen_one(RA1);
+	gen_one(RD0);
 
 	gen_insn(INSN_CALL_INDIRECT, 0, 0, 0);
-	gen_one(RA0);
+	gen_one(R_SCRATCH_A);
 
 	gen_insn(INSN_ALU, OP_SIZE_4, ALU_ADD, 1);
 	gen_one(RSP);
@@ -314,8 +314,8 @@ static bool attr_w gen_callback_trampoline(struct codegen_context *ctx)
 
 static bool attr_w gen_callback(struct codegen_context *ctx, void (*callback)(void *ptr), void *ptr)
 {
-	g(gen_load_constant(ctx, RA0, ptr_to_num(callback)));
-	g(gen_load_constant(ctx, RA1, ptr_to_num(ptr)));
+	g(gen_load_constant(ctx, R_SCRATCH_A, ptr_to_num(callback)));
+	g(gen_load_constant(ctx, RD0, ptr_to_num(ptr)));
 
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 	gen_one(ARG_IMM);
