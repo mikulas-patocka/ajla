@@ -109,8 +109,7 @@ static bool reg_is_fp(unsigned reg)
 #define R_SCRATCH_4			RD3
 #define R_TMP_D				RD7
 
-#define R_TMP_A				RA0
-#define R_SCRATCH_A			RA1
+#define R_SCRATCH_A			RA0
 #define R_SAVED_1			RA2
 #define R_SAVED_2			R_SCRATCH_4
 #define R_FRAME				RA6

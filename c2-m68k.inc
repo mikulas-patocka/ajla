@@ -295,28 +295,6 @@ static uint16_t get_fp_cond(unsigned cond)
 	return 0xffff;
 }
 
-static bool attr_w cgen_mov_da(struct codegen_context *ctx, uint8_t ra, uint8_t rd)
-{
-	uint16_t mc = M68K_MOVE | M68K_MOVE_L | ((ra & 7) << 9) | (M68K_ADDR_A << 3) | M68K_ADDR_D | (rd & 7);
-	cgen_two(mc);
-	return true;
-}
-
-static bool attr_w cgen_xchg_ad(struct codegen_context *ctx, uint8_t rd, uint8_t ra)
-{
-	uint16_t mc = M68K_EXG_DA | ((rd & 7) << 9) | (ra & 7);
-	cgen_two(mc);
-	return true;
-}
-
-static bool attr_w cgen_prepare_address(struct codegen_context *ctx, uint8_t *arg)
-{
-	if (arg[0] >= ARG_ADDRESS_1 && arg[0] <= ARG_ADDRESS_2_8 && R_IS_D(arg[1])) {
-		g(cgen_mov_da(ctx, R_TMP_A, arg[1]));
-	}
-	return true;
-}
-
 static bool attr_w cgen_imm(struct codegen_context *ctx, unsigned size, int32_t imm)
 {
 	switch (size) {
@@ -346,50 +324,40 @@ static bool attr_w cgen_operand(struct codegen_context *ctx, unsigned size, size
 	} else if (R_IS_A(arg[0])) {
 		mc = M68K_ADDR_A | (arg[0] & 7);
 	} else if (arg[0] == ARG_ADDRESS_1) {
+		if (!R_IS_A(arg[1]))
+			goto invl;
 		imm = get_imm(&arg[2]);
 		if (!imm) {
-			if (!R_IS_A(arg[1]))
-				mc = M68K_ADDR_AA | (R_TMP_A & 7);
-			else
-				mc = M68K_ADDR_AA | (arg[1] & 7);
+			mc = M68K_ADDR_AA | (arg[1] & 7);
 		} else if (imm_is_16bit(imm)) {
-			if (!R_IS_A(arg[1]))
-				mc = M68K_ADDR_AA_D16 | (R_TMP_A & 7);
-			else
-				mc = M68K_ADDR_AA_D16 | (arg[1] & 7);
+			mc = M68K_ADDR_AA_D16 | (arg[1] & 7);
 			cgen_two(imm);
 		} else {
-			if (!R_IS_A(arg[1]))
-				mc = M68K_ADDR_AA_D8_X | (R_TMP_A & 7);
-			else
-				mc = M68K_ADDR_AA_D8_X | (arg[1] & 7);
+			mc = M68K_ADDR_AA_D8_X | (arg[1] & 7);
 			cgen_two(M68K_EW_FULL | M68K_EW_IS_NO_IND | M68K_EW_BD_L);
 			cgen_four(imm);
 		}
 	} else if (arg[0] == ARG_ADDRESS_1_PRE_I) {
+		if (!R_IS_A(arg[1]))
+			goto invl;
 		imm = get_imm(&arg[2]);
 		if (imm != (size == OP_SIZE_1 ? -1 : size == OP_SIZE_2 ? -2 : -4))
 			internal(file_line, "cgen_operand: invalid preindex immediate %"PRIuMAX"", (uintmax_t)imm);
-		if (!R_IS_A(arg[1]))
-			mc = M68K_ADDR_AA_D | (R_TMP_A & 7);
-		else
-			mc = M68K_ADDR_AA_D | (arg[1] & 7);
+		mc = M68K_ADDR_AA_D | (arg[1] & 7);
 	} else if (arg[0] == ARG_ADDRESS_1_POST_I) {
+		if (!R_IS_A(arg[1]))
+			goto invl;
 		imm = get_imm(&arg[2]);
 		if (imm != (size == OP_SIZE_1 ? 1 : size == OP_SIZE_2 ? 2 : 4))
 			internal(file_line, "cgen_operand: invalid postindex immediate %"PRIuMAX"", (uintmax_t)imm);
-		if (!R_IS_A(arg[1]))
-			mc = M68K_ADDR_AA_I | (R_TMP_A & 7);
-		else
-			mc = M68K_ADDR_AA_I | (arg[1] & 7);
+		mc = M68K_ADDR_AA_I | (arg[1] & 7);
 	} else if (arg[0] >= ARG_ADDRESS_2 && arg[0] <= ARG_ADDRESS_2_8) {
 		unsigned shift = arg[0] - ARG_ADDRESS_2;
 		uint16_t ew;
-		imm = get_imm(&arg[3]);
 		if (!R_IS_A(arg[1]))
-			mc = M68K_ADDR_AA_D8_X | (R_TMP_A & 7);
-		else
-			mc = M68K_ADDR_AA_D8_X | (arg[1] & 7);
+			goto invl;
+		imm = get_imm(&arg[3]);
+		mc = M68K_ADDR_AA_D8_X | (arg[1] & 7);
 		ew = M68K_EW_WL;
 		ew |= R_IS_A(arg[2]) ? M68K_EW_DA : 0;
 		ew |= (arg[2] & 7) << 12;
@@ -411,8 +379,7 @@ static bool attr_w cgen_operand(struct codegen_context *ctx, unsigned size, size
 		mc = M68K_ADDR_IMM;
 		g(cgen_imm(ctx, size, imm));
 	} else {
-		memcpy(&mcx, ctx->mcode + instr_base, 2);
-		internal(file_line, "cgen_operand: invalid operand %02x (instr %04x)", arg[0], mcx);
+		goto invl;
 	}
 	memcpy(&mcx, ctx->mcode + instr_base, 2);
 	if (flags & CGO_MOVE_DEST)
@@ -421,6 +388,10 @@ static bool attr_w cgen_operand(struct codegen_context *ctx, unsigned size, size
 		mcx |= mc;
 	memcpy(ctx->mcode + instr_base, &mcx, 2);
 	return true;
+invl:
+	memcpy(&mcx, ctx->mcode + instr_base, 2);
+	internal(file_line, "cgen_operand: invalid operand %02x %02x (instr %04x)", arg[0], arg[0] >= ARG_REGS_MAX ? arg[1] : 0, mcx);
+	return false;
 }
 
 static bool attr_w cgen_fp_2arg(struct codegen_context *ctx, unsigned size, uint16_t instr, uint16_t fmt, uint8_t *arg1, uint8_t *arg2)
@@ -430,8 +401,6 @@ static bool attr_w cgen_fp_2arg(struct codegen_context *ctx, unsigned size, uint
 
 	if (!reg_is_fp(arg1[0]))
 		goto invl;
-
-	g(cgen_prepare_address(ctx, arg2));
 
 	instr_base = ctx->mcode_size;
 	mc = M68K_FP;
@@ -503,8 +472,7 @@ static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, bool call)
 		return true;
 	}
 	if (R_IS_D(arg1[0])) {
-		g(cgen_mov_da(ctx, R_TMP_A, arg1[0]));
-		reg = R_TMP_A;
+		goto invl;
 	} else if (R_IS_A(arg1[0])) {
 		reg = arg1[0];
 	} else if (arg1[0] == ARG_ADDRESS_1) {
@@ -536,12 +504,9 @@ write_imm:
 	} else if (arg1[0] >= ARG_ADDRESS_2 && arg1[0] <= ARG_ADDRESS_2_8) {
 		unsigned shift = arg1[0] - ARG_ADDRESS_2;
 		imm = get_imm(&arg1[3]);
-		if (!R_IS_A(arg1[1])) {
-			g(cgen_mov_da(ctx, R_TMP_A, arg1[1]));
-			reg = R_TMP_A;
-		} else {
-			reg = arg1[1];
-		}
+		if (!R_IS_A(arg1[1]))
+			goto invl;
+		reg = arg1[1];
 		mc = (call ? M68K_JSR : M68K_JMP) | M68K_ADDR_AA_D8_X | (reg & 7);
 		cgen_two(mc);
 		ew = M68K_EW_FULL | M68K_EW_WL | M68K_EW_I_PREIND_0;
@@ -550,11 +515,14 @@ write_imm:
 		ew |= shift << 9;
 		goto write_imm;
 	} else {
-		internal(file_line, "cgen_jmp_indirect: invalid register %02x", arg1[0]);
+		goto invl;
 	}
 	mc = (call ? M68K_JSR : M68K_JMP) | M68K_ADDR_AA | (reg & 7);
 	cgen_two(mc);
 	return true;
+invl:
+	internal(file_line, "cgen_jmp_indirect: invalid operand %02x %02x", arg1[0], arg1[0] >= ARG_REGS_MAX ? arg1[1] : 0);
+	return false;
 }
 
 static bool attr_w cgen_moves(struct codegen_context *ctx, unsigned size, uint8_t *arg1, uint8_t *arg2)
@@ -565,9 +533,6 @@ static bool attr_w cgen_moves(struct codegen_context *ctx, unsigned size, uint8_
 	if (arg1[0] >= ARG_ADDRESS_1 && arg1[0] <= ARG_ADDRESS_2_8 && R_IS_D(arg1[1]) &&
 	    arg2[0] >= ARG_ADDRESS_1 && arg2[0] <= ARG_ADDRESS_2_8 && R_IS_D(arg2[1]))
 		internal(file_line, "cgen_moves: move with two data registers: %02x %02x", arg1[1], arg2[1]);
-
-	g(cgen_prepare_address(ctx, arg1));
-	g(cgen_prepare_address(ctx, arg2));
 
 	if (arg2[0] == ARG_IMM) {
 		int64_t imm = get_imm(&arg2[1]);
@@ -677,8 +642,7 @@ static bool attr_w cgen_two_op(struct codegen_context *ctx, unsigned size, uint1
 {
 	size_t instr_base;
 	uint16_t mc;
-	g(cgen_prepare_address(ctx, arg1));
-	g(cgen_prepare_address(ctx, arg2));
+
 	instr_base = ctx->mcode_size;
 	if (instr == M68K_OR || instr == M68K_EOR || instr == M68K_AND) {
 		if (R_IS_A(arg1[0]) || R_IS_A(arg2[0]))
@@ -741,7 +705,6 @@ static bool attr_w cgen_cmp(struct codegen_context *ctx, unsigned size)
 		if (!imm) {
 			size_t instr_base;
 			uint16_t mc;
-			g(cgen_prepare_address(ctx, arg1));
 			mc = M68K_TST;
 			mc |= get_size(size, false);
 			instr_base = ctx->mcode_size;
@@ -763,7 +726,6 @@ static bool attr_w cgen_test(struct codegen_context *ctx, unsigned size)
 	ctx->code_position = arg2 + arg_size(*arg2);
 	if (memcmp(arg1, arg2, arg_size(*arg1)))
 		internal(file_line, "cgen_test: operand mismatch");
-	g(cgen_prepare_address(ctx, arg1));
 	mc = M68K_TST;
 	mc |= get_size(size, false);
 	instr_base = ctx->mcode_size;
@@ -784,22 +746,13 @@ static bool attr_w cgen_lea(struct codegen_context *ctx, uint8_t *arg1, uint8_t 
 		arg2 = arg_swp;
 	}
 
-	if (R_IS_D(arg1[0])) {
-		reg1 = R_TMP_A;
-	} else if (R_IS_A(arg1[0])) {
-		reg1 = arg1[0];
-	} else {
+	if (!R_IS_A(arg1[0]))
 		goto invl;
-	}
+	reg1 = arg1[0];
 
-	if (R_IS_D(arg2[0])) {
-		g(cgen_mov_da(ctx, R_TMP_A, arg2[0]));
-		reg2 = R_TMP_A;
-	} else if (R_IS_A(arg2[0])) {
-		reg2 = arg2[0];
-	} else {
+	if (!R_IS_A(arg2[0]))
 		goto invl;
-	}
+	reg2 = arg2[0];
 
 	if (R_IS_DA(arg3[0])) {
 		reg3 = arg3[0];
@@ -820,7 +773,7 @@ static bool attr_w cgen_lea(struct codegen_context *ctx, uint8_t *arg1, uint8_t 
 			mc |= (reg1 & 7) << 9;
 			cgen_two(mc);
 			cgen_two(imm);
-			goto instr_done;
+			return true;
 		} else {
 			mc = M68K_LEA;
 			mc |= M68K_ADDR_AA_D8_X;
@@ -829,7 +782,7 @@ static bool attr_w cgen_lea(struct codegen_context *ctx, uint8_t *arg1, uint8_t 
 			cgen_two(mc);
 			cgen_two(M68K_EW_FULL | M68K_EW_IS_NO_IND | M68K_EW_BD_L);
 			cgen_four(imm);
-			goto instr_done;
+			return true;
 		}
 	} else {
 		goto invl;
@@ -847,11 +800,6 @@ static bool attr_w cgen_lea(struct codegen_context *ctx, uint8_t *arg1, uint8_t 
 	ew |= (reg3 & 7) << 12;
 	ew |= shift << 9;
 	cgen_two(ew);
-
-instr_done:
-	if (reg1 == R_TMP_A && arg1[0] != R_TMP_A)
-		g(cgen_xchg_ad(ctx, arg1[0], R_TMP_A));
-
 	return true;
 invl:
 	internal(file_line, "cgen_lea: invalid arguments %02x %02x %02x", arg1[0], arg2[0], arg3[0]);
@@ -885,7 +833,7 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 			g(cgen_operand(ctx, size, instr_base, 0, arg1));
 			return true;
 		}
-		if (R_IS_A(arg1[0]) && imm_is_16bit(imm)) {
+		if (R_IS_A(arg1[0])) {
 			g(cgen_lea(ctx, arg1, arg2, arg3, alu == ALU_SUB));
 			return true;
 		}
@@ -897,8 +845,6 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 		sp[0] = ARG_ADDRESS_1;
 		sp[1] = RSP;
 		memset(&sp[2], 0, 8);
-
-		g(cgen_prepare_address(ctx, arg3));
 
 		mc = M68K_MOVE;
 		mc |= get_move_size(size);
@@ -923,8 +869,6 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 		uint16_t mc;
 		if (size != OP_SIZE_4 || !R_IS_D(arg1[0]))
 			goto invl;
-
-		g(cgen_prepare_address(ctx, arg3));
 
 		mc = M68K_MUL_L;
 		instr_base = ctx->mcode_size;
@@ -962,7 +906,6 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 	if (alu == ALU1_LZCNT) {
 		if (!R_IS_D(arg1[0]))
 			internal(file_line, "cgen_alu1: invalid register");
-		g(cgen_prepare_address(ctx, arg2));
 		instr_base = ctx->mcode_size;
 		instr = M68K_BFFFO;
 		cgen_two(instr);
@@ -981,7 +924,6 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 	}
 	if (R_IS_A(arg1[0]))
 		internal(file_line, "cgen_alu1: invalid register");
-	g(cgen_prepare_address(ctx, arg1));
 	instr_base = ctx->mcode_size;
 	instr |= get_size(size, false);
 	cgen_two(instr);
@@ -1001,26 +943,19 @@ static bool attr_w cgen_lea3(struct codegen_context *ctx, unsigned shift)
 	uint8_t *arg4 = arg3 + arg_size(*arg3);
 	ctx->code_position = arg4 + arg_size(*arg4);
 
-	if (unlikely(!R_IS_DA(arg1[0])) || unlikely(!R_IS_DA(arg2[0])) || unlikely(!R_IS_DA(arg3[0])) || unlikely(arg4[0] != ARG_IMM))
-		internal(file_line, "cgen_lea3: invalid arguments");
+	if (unlikely(!R_IS_A(arg1[0])) || unlikely(!R_IS_A(arg2[0])) || unlikely(!R_IS_DA(arg3[0])) || unlikely(arg4[0] != ARG_IMM))
+		internal(file_line, "cgen_lea3: invalid arguments: %02x %02x %02x %02x", arg1[0], arg2[0], arg3[0], arg4[0]);
 
 	addr[0] = ARG_ADDRESS_2 + shift;
 	addr[1] = arg2[0];
 	addr[2] = arg3[0];
 	memcpy(&addr[3], &arg4[1], 8);
 
-	g(cgen_prepare_address(ctx, addr));
-
 	mc = M68K_LEA;
-	if (R_IS_A(arg1[0]))
-		mc |= (arg1[0] & 7) << 9;
-	else
-		mc |= (R_TMP_A & 7) << 9;
+	mc |= (arg1[0] & 7) << 9;
 	instr_base = ctx->mcode_size;
 	cgen_two(mc);
 	g(cgen_operand(ctx, OP_SIZE_4, instr_base, 0, addr));
-	if (!R_IS_A(arg1[0]))
-		g(cgen_xchg_ad(ctx, arg1[0], R_TMP_A));
 
 	return true;
 }
@@ -1035,7 +970,6 @@ static bool attr_w cgen_rot_bf(struct codegen_context *ctx, unsigned size, unsig
 		goto invl;
 	imm = get_imm(&arg3[1]);
 	imm &= (bit_size - 1);
-	g(cgen_prepare_address(ctx, arg2));
 	switch (alu) {
 		case ROT_SHR:	instr = M68K_BFEXTU; break;
 		case ROT_SAR:	instr = M68K_BFEXTS; break;
@@ -1143,7 +1077,6 @@ static bool attr_w cgen_btx31(struct codegen_context *ctx, uint8_t bt, uint8_t *
 {
 	size_t instr_base;
 	uint16_t mc;
-	g(cgen_prepare_address(ctx, arg1));
 	instr_base = ctx->mcode_size;
 	switch (bt) {
 		case BTX_BTX31:		mc = M68K_BFTST; break;
@@ -1193,7 +1126,6 @@ static bool attr_w cgen_btxt(struct codegen_context *ctx, unsigned size, uint8_t
 	}
 	if (size != (R_IS_D(arg1[0]) ? OP_SIZE_4 : OP_SIZE_1))
 		goto invl;
-	g(cgen_prepare_address(ctx, arg1));
 	instr_base = ctx->mcode_size;
 	if (arg2[0] == ARG_IMM) {
 		int64_t imm = get_imm(&arg2[1]);
@@ -1264,7 +1196,6 @@ static bool attr_w cgen_set_cond(struct codegen_context *ctx, unsigned cond, boo
 		if (memcmp(arg1, arg2, arg_size(*arg1)))
 			internal(file_line, "cgen_set_cond: operand mismatch");
 	}
-	g(cgen_prepare_address(ctx, arg1));
 
 	instr_base = ctx->mcode_size;
 	if (!(cond & COND_FP)) {
