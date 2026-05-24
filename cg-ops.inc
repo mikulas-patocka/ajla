@@ -2193,12 +2193,17 @@ static bool attr_w gen_scaled_array_address(struct codegen_context *ctx, size_t 
 		unsigned shift = log_2(element_size);
 #if defined(ARCH_M68K) || defined(ARCH_X86)
 		if (shift <= 3 && is_direct_offset(offset_src)) {
+			unsigned dest_a = get_address_register(reg_dst);
+			g(gen_address_register(ctx, reg_src, &reg_src));
 			gen_insn(INSN_LEA3, i_size(OP_SIZE_ADDRESS), shift, 0);
-			gen_one(reg_dst);
+			gen_one(dest_a);
 			gen_one(reg_src);
 			gen_one(reg_index);
 			gen_one(ARG_IMM);
 			gen_eight(offset_src);
+			if (dest_a != reg_dst) {
+				g(gen_mov(ctx, OP_SIZE_ADDRESS, reg_dst, dest_a));
+			}
 			return true;
 		}
 #endif
