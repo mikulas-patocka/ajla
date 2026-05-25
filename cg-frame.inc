@@ -1050,10 +1050,6 @@ static bool attr_w gen_memcpy_raw(struct codegen_context *ctx, unsigned dest_bas
 			goto call_memcpy;
 	}
 #if defined(ARCH_S390)
-	if (size <= 0x10) {
-		if (!(size & 3) || (cpu_test_feature(CPU_FEATURE_long_displacement) && cpu_test_feature(CPU_FEATURE_extended_imm)))
-			goto do_explicit_copy;
-	}
 	if (size <= 0x100 && dest_offset >= 0 && dest_offset < 0x1000 && src_offset >= 0 && src_offset < 0x1000) {
 		gen_insn(INSN_MEMCPY, 0, 0, 0);
 		gen_one(ARG_ADDRESS_1);
@@ -1066,6 +1062,14 @@ static bool attr_w gen_memcpy_raw(struct codegen_context *ctx, unsigned dest_bas
 		gen_eight(size);
 		return true;
 	}
+	if (size <= 0x10) {
+		if (!(size & 3) || (cpu_test_feature(CPU_FEATURE_long_displacement) && cpu_test_feature(CPU_FEATURE_extended_imm)))
+			goto do_explicit_copy;
+	}
+	/*
+	 * Warning: memcpy must not be called for short sizes, because it
+	 * trashes registers.
+	 */
 	goto call_memcpy;
 do_explicit_copy:
 #endif
