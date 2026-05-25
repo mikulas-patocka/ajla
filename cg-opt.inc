@@ -1929,7 +1929,7 @@ cant_elide:
 				uint8_t *dst2 = d2->start + 4;
 				uint8_t *src2 = dst2 + arg_size(*dst2);
 				if (dst1 == *src2 && !reg_map_is_set(d2->live_after, dst1)
-#if !defined(ARCH_M68K)
+#if !defined(ARCH_M68K) && !defined(ARCH_S390)
 				    && (*dst2 < ARG_REGS_MAX || *src1 < ARG_REGS_MAX || *src1 == ARG_IMM)
 #endif
 					) {
