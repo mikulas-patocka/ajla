@@ -554,7 +554,10 @@ invl:
 
 static bool attr_w cgen_s390(struct codegen_context *ctx, it code)
 {
-	unsigned sz = code >> 46;
+	unsigned sz;
+	if (unlikely(!ctx))
+		return true;
+	sz = code >> 46;
 	if (sz == 0) {
 		if (unlikely((uint32_t)code))
 			goto invl;
@@ -629,8 +632,6 @@ static bool attr_w cgen_rr_rx(struct codegen_context *ctx, unsigned size, const 
 		code |= (it)(disp_dest & 0xfff) << 16;
 		code |= (it)arg3[1] << 12;
 		code |= (it)(disp_src & 0xfff) << 0;
-		if (!ctx)
-			return true;
 		g(cgen_s390(ctx, code));
 		return true;
 	}
@@ -655,8 +656,6 @@ static bool attr_w cgen_rr_rx(struct codegen_context *ctx, unsigned size, const 
 		code |= (it)arg1[1] << 28;
 		code |= (it)(imm & 0xfff) << 16;
 		code |= (it)(imm & 0xff000) >> 4;
-		if (!ctx)
-			return true;
 		g(cgen_s390(ctx, code));
 		return true;
 	}
@@ -696,8 +695,6 @@ static bool attr_w cgen_rr_rx(struct codegen_context *ctx, unsigned size, const 
 		} else {
 			goto invl;
 		}
-		if (!ctx)
-			return true;
 		g(cgen_s390(ctx, code));
 		return true;
 	}
@@ -714,8 +711,6 @@ static bool attr_w cgen_rr_rx(struct codegen_context *ctx, unsigned size, const 
 			code |= (it)arg1[0] << 36;
 			code |= (it)arg2[0] << 32;
 			code |= (it)(imm & 0xffff) << 16;
-			if (!ctx)
-				return true;
 			g(cgen_s390(ctx, code));
 			return true;
 		}
@@ -742,8 +737,6 @@ static bool attr_w cgen_rr_rx(struct codegen_context *ctx, unsigned size, const 
 		} else {
 			goto log_op;
 		}
-		if (!ctx)
-			return true;
 		g(cgen_s390(ctx, code));
 		return true;
 log_op:
@@ -783,8 +776,6 @@ log_op:
 			goto invl;
 		}
 		code |= (it)arg1[0] << 36;
-		if (!ctx)
-			return true;
 		g(cgen_s390(ctx, code));
 		return true;
 	} else if (arg3[0] == ARG_ADDRESS_0) {
@@ -842,8 +833,6 @@ rxya:
 		}
 
 	}
-	if (!ctx)
-		return true;
 	g(cgen_s390(ctx, code));
 	return true;
 invl:
