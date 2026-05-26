@@ -1945,7 +1945,7 @@ cant_elide:
 					if (validate_insn(&nd)) {
 						*d1 = nd;
 						d2->quash = true;
-						continue;
+						goto retry;
 					}
 				}
 			}
