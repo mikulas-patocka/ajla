@@ -2169,7 +2169,7 @@ new_d3:
 			g(prepare_new_insn(ctx));
 			gen_insn(insn_opcode(d3->insn), insn_op_size(d3->insn), insn_aux(d1->insn) ^ (insn_aux(d3->insn) == COND_E), insn_writes_flags(d3->insn));
 			gen_four(d3->target_label);
-			g(finish_new_insn(ctx, d3, d3->live_before, d3->live_after));
+			g(finish_new_insn(ctx, d3, &d3->live_before, &d3->live_after));
 			continue;
 		}
 skip_setc_cmp_jmp:
