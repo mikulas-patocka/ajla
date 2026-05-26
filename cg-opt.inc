@@ -1209,11 +1209,12 @@ static bool attr_w prepare_new_insn(struct codegen_context *ctx)
 	return true;
 }
 
-static bool attr_w finish_new_insn(struct codegen_context *ctx, struct insn_details *d)
+static bool attr_w finish_new_insn(struct codegen_context *ctx, struct insn_details *d, reg_map *live_before, reg_map *live_after)
 {
 	size_t len = ctx->new_code_size - ctx->new_insn_mark;
 	uint8_t *new_insn;
 	void *err_ptr;
+	reg_map lb, la;
 
 	new_insn = mem_alloc_mayfail(uint8_t *, len, &ctx->err);
 	if (unlikely(!new_insn))
@@ -1228,7 +1229,11 @@ static bool attr_w finish_new_insn(struct codegen_context *ctx, struct insn_deta
 		return false;
 	}
 
+	lb = *live_before;
+	la = *live_after;
 	identify_insn(ctx, new_insn, d);
+	d->live_before = lb;
+	d->live_after = la;
 
 	return true;
 }
@@ -1528,6 +1533,7 @@ dont_quash_mov:
 			if (!is_extension && eq_valid) {
 				rp = find_equality(ctx, &eq.v2);
 				if (rp) {
+					reg_map rm;
 					struct value *rp1 = find_equality(ctx, &eq.v1);
 					struct insn_details nd;
 					if (rp1 && compare_values(rp, rp1) && rp->value == rp->value_hi) {
@@ -1540,7 +1546,8 @@ dont_quash_mov:
 					gen_insn(insn_opcode(d->insn), insn_op_size(d->insn), 0, 0);
 					gen_stream(pd, arg_size(*pd));
 					g(val_to_arg(ctx, rp));
-					g(finish_new_insn(ctx, &nd));
+					reg_map_init(&rm);
+					g(finish_new_insn(ctx, &nd, &rm, &rm));
 					if (nd.length <= d->length && validate_insn(&nd)) {
 						eq.v2 = *rp;
 						if (search_equalities(ctx, &eq)) {
@@ -1910,10 +1917,6 @@ new_d2:
 						if (REPORT_QUASHED_INSNS)
 							debug("quashing repetitive instruction in %s", da(ctx->fn,function)->function_name);
 						d2->quash = true;
-						/*d2->mark = true;*/
-						/*g(prepare_new_insn(ctx));
-						gen_insn(INSN_NOP, 0, 0, 0);
-						g(finish_new_insn(ctx, d2));*/
 						goto retry;
 					}
 				}
@@ -1938,7 +1941,7 @@ cant_elide:
 					gen_insn(INSN_MOV, insn_op_size(d1->insn), 0, 0);
 					gen_stream(dst2, arg_size(*dst2));
 					gen_stream(src1, arg_size(*src1));
-					g(finish_new_insn(ctx, &nd));
+					g(finish_new_insn(ctx, &nd, &d1->live_before, &d2->live_after));
 					if (validate_insn(&nd)) {
 						*d1 = nd;
 						d2->quash = true;
@@ -1957,11 +1960,11 @@ cant_elide:
 				gen_insn(insn_opcode(d1->insn), insn_op_size(d1->insn), insn_aux(d1->insn) ^ 1, 0);
 				gen_stream(d1->start + 4, d1->length - 8);
 				gen_four(label2);
-				g(finish_new_insn(ctx, d1));
+				g(finish_new_insn(ctx, d1, &d1->live_before, &d2->live_before));
 				g(prepare_new_insn(ctx));
 				gen_insn(INSN_JMP, 0, 0, 0);
 				gen_four(label1);
-				g(finish_new_insn(ctx, d2));
+				g(finish_new_insn(ctx, d2, &d2->live_before, &d2->live_after));
 				continue;
 			}
 		}
@@ -1974,7 +1977,7 @@ cant_elide:
 				g(prepare_new_insn(ctx));
 				gen_insn(insn_opcode(d1->insn) | INSN_DELAY_SLOT, insn_op_size(d1->insn), insn_aux(d1->insn), insn_writes_flags(d1->insn));
 				gen_stream(d1->start + 4, d1->length - 4);
-				g(finish_new_insn(ctx, d1));
+				g(finish_new_insn(ctx, d1, &d1->live_before, &d1->live_after));
 #ifdef QUASH_REPETITIVE_INSNS
 				if (d2->wr_reg != (uint8_t)-1) {
 					if (j < (defined_at_t)-1)
@@ -1992,7 +1995,7 @@ cant_elide:
 			g(prepare_new_insn(ctx));
 			gen_insn(insn_opcode(d2->insn) | INSN_DELAY_SLOT, insn_op_size(d2->insn), insn_aux(d2->insn), insn_writes_flags(d2->insn));
 			gen_stream(d2->start + 4, d2->length - 4);
-			g(finish_new_insn(ctx, &jmp_d));
+			g(finish_new_insn(ctx, &jmp_d, &d2->live_before, &d2->live_after));
 			*d2 = *d1;
 			*d1 = jmp_d;
 			i = j;
@@ -2020,7 +2023,7 @@ cant_elide:
 				uint8_t *dr1 = d1w + arg_size(*d1w);
 				gen_stream(dr1, arg_size(*dr1));
 			}
-			g(finish_new_insn(ctx, d1));
+			g(finish_new_insn(ctx, d1, &d1->live_before, &d2->live_after));
 			d2->quash = true;
 			goto retry;
 		}
@@ -2039,7 +2042,7 @@ skip_setc_xor:
 				gen_stream(d1w, arg_size(d1w[0]));
 				gen_stream(d2w, arg_size(d2w[0]));
 				gen_stream(d1r, arg_size(d1r[0]));
-				g(finish_new_insn(ctx, &nd));
+				g(finish_new_insn(ctx, &nd, &d1->live_before, &d2->live_after));
 				goto gen_nd;
 			}
 			if (fuse_mem_accesses(d2w, d1w, d2r, d1r, insn_op_size(d1->insn))) {
@@ -2048,7 +2051,7 @@ skip_setc_xor:
 				gen_stream(d2w, arg_size(d2w[0]));
 				gen_stream(d1w, arg_size(d1w[0]));
 				gen_stream(d2r, arg_size(d2r[0]));
-				g(finish_new_insn(ctx, &nd));
+				g(finish_new_insn(ctx, &nd, &d1->live_before, &d2->live_after));
 				goto gen_nd;
 			}
 			if (fuse_mem_accesses(d1r, d2r, d1w, d2w, insn_op_size(d1->insn))) {
@@ -2057,7 +2060,7 @@ skip_setc_xor:
 				gen_stream(d1w, arg_size(d1w[0]));
 				gen_stream(d1r, arg_size(d1r[0]));
 				gen_stream(d2r, arg_size(d2r[0]));
-				g(finish_new_insn(ctx, &nd));
+				g(finish_new_insn(ctx, &nd, &d1->live_before, &d2->live_after));
 				goto gen_nd;
 			}
 			if (fuse_mem_accesses(d2r, d1r, d2w, d1w, insn_op_size(d1->insn))) {
@@ -2066,7 +2069,7 @@ skip_setc_xor:
 				gen_stream(d2w, arg_size(d2w[0]));
 				gen_stream(d2r, arg_size(d2r[0]));
 				gen_stream(d1r, arg_size(d1r[0]));
-				g(finish_new_insn(ctx, &nd));
+				g(finish_new_insn(ctx, &nd, &d1->live_before, &d2->live_after));
 				goto gen_nd;
 			}
 			if (false) {
@@ -2084,7 +2087,7 @@ gen_nd:
 			g(prepare_new_insn(ctx));
 			gen_insn(INSN_X87_FLD, insn_op_size(d1->insn), 0, 0);
 			gen_one(R_ST0);
-			g(finish_new_insn(ctx, d1));
+			g(finish_new_insn(ctx, d1, &d1->live_before, &d1->live_after));
 			continue;
 		}
 		if (((insn_opcode(d1->insn) == INSN_X87_FLD && d1->start[4] >= ARG_REGS_MAX) || insn_opcode(d1->insn) == INSN_X87_FILD || insn_opcode(d1->insn) == INSN_X87_FLDC) && insn_opcode(d2->insn) == INSN_X87_FSTP && d2->start[4] == R_ST1) {
@@ -2092,7 +2095,7 @@ gen_nd:
 			g(prepare_new_insn(ctx));
 			gen_insn(INSN_X87_FSTP, OP_SIZE_10, 0, 0);
 			gen_one(R_ST0);
-			g(finish_new_insn(ctx, d1));
+			g(finish_new_insn(ctx, d1, &d1->live_before, &d1->live_after));
 			continue;
 		}
 		if (insn_opcode(d1->insn) == INSN_X87_FXCH && insn_opcode(d2->insn) == INSN_X87_FXCH && d1->start[4] == d2->start[4]) {
@@ -2137,7 +2140,7 @@ new_d3:
 			g(prepare_new_insn(ctx));
 			gen_insn(insn_opcode(d3->insn), insn_op_size(d3->insn), insn_aux(d1->insn) ^ (insn_aux(d3->insn) == COND_E), insn_writes_flags(d3->insn));
 			gen_four(d3->target_label);
-			g(finish_new_insn(ctx, d3));
+			g(finish_new_insn(ctx, d3, d3->live_before, d3->live_after));
 			continue;
 		}
 skip_setc_cmp_jmp:
