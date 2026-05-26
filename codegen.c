@@ -374,6 +374,7 @@ enum {
 #define ARG_ADDRESS_2_8			0xda
 #define ARG_ADDRESS_2_UXTW		0xdb
 #define ARG_ADDRESS_2_SXTW		0xdc
+#define ARG_ADDRESS_INDIRECT		0xdd
 #define ARG_IMM				0xe0
 
 #define ARG_IS_ADDRESS(a)		((a) >= ARG_ADDRESS_0 && (a) <= ARG_ADDRESS_2_SXTW)
@@ -440,6 +441,8 @@ static size_t arg_size(const uint8_t arg)
 		return 10;
 	if (arg >= ARG_ADDRESS_2 && arg <= ARG_ADDRESS_2_SXTW)
 		return 11;
+	if (arg == ARG_ADDRESS_INDIRECT)
+		return 18;
 	if (arg == ARG_IMM)
 		return 9;
 	internal(file_line, "arg_size: invalid argument %02x", arg);

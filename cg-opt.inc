@@ -415,6 +415,10 @@ static unsigned arg_common(struct insn_details *d, uint8_t *ptr)
 		reg_map_set(&d->rd, ptr[2]);
 		return 11;
 	}
+	if (ptr[0] == ARG_ADDRESS_INDIRECT) {
+		reg_map_set(&d->rd, ptr[1]);
+		return 18;
+	}
 	if (ptr[0] == ARG_IMM) {
 		return 9;
 	}
@@ -1950,6 +1954,31 @@ cant_elide:
 				}
 			}
 		}
+
+#if defined(ARCH_M68K)
+		if (insn_opcode(d1->insn) == INSN_MOV && insn_opcode(d2->insn) == INSN_MOV && insn_op_size(d1->insn) == insn_op_size(d2->insn) && insn_op_size(d1->insn) == OP_SIZE_NATIVE) {
+			uint8_t *dst1 = d1->start + 4;
+			uint8_t *src1 = dst1 + arg_size(*dst1);
+			uint8_t *dst2 = d2->start + 4;
+			uint8_t *src2 = dst2 + arg_size(*dst2);
+			if (src1[0] == ARG_ADDRESS_1 && dst1[0] < ARG_REGS_MAX && src2[0] == ARG_ADDRESS_1 && src2[1] == dst1[0] && !reg_map_is_set(d2->live_after, dst1[0])) {
+				struct insn_details nd;
+				g(prepare_new_insn(ctx));
+				gen_insn(INSN_MOV, insn_op_size(d2->insn), 0, 0);
+				gen_stream(dst2, arg_size(*dst2));
+				gen_one(ARG_ADDRESS_INDIRECT);
+				gen_one(src1[1]);
+				gen_stream(&src1[2], 8);
+				gen_stream(&src2[2], 8);
+				g(finish_new_insn(ctx, &nd, &d1->live_before, &d2->live_after));
+				if (validate_insn(&nd)) {
+					*d1 = nd;
+					d2->quash = true;
+					goto retry;
+				}
+			}
+		}
+#endif
 
 #if !defined(ARCH_PARISC)	/* this transformation increases code size on parisc */
 		if ((insn_opcode(d1->insn) == INSN_JMP_COND || insn_opcode(d1->insn) == INSN_JMP_COND_LOGICAL || insn_opcode(d1->insn) == INSN_JMP_REG || insn_opcode(d1->insn) == INSN_JMP_2REGS) && insn_opcode(d2->insn) == INSN_JMP) {

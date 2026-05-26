@@ -29,9 +29,9 @@
 #define M68K_ADDR_PC_D8_X	0x003b
 #define M68K_ADDR_IMM		0x003c
 
-#define M68K_EW_BD_N		0x0010
-#define M68K_EW_BD_W		0x0020
-#define M68K_EW_BD_L		0x0030
+#define M68K_EW_BD_0		0x0010
+#define M68K_EW_BD_1		0x0020
+#define M68K_EW_BD_2		0x0030
 #define M68K_EW_BS		0x0080
 #define M68K_EW_FULL		0x0100
 #define M68K_EW_WL		0x0800
@@ -317,8 +317,9 @@ static bool attr_w cgen_imm(struct codegen_context *ctx, unsigned size, int32_t 
 
 static bool attr_w cgen_operand(struct codegen_context *ctx, unsigned size, size_t instr_base, unsigned flags, uint8_t *arg)
 {
-	int64_t imm;
+	int64_t imm, imm2;
 	uint16_t mc, mcx;
+	uint16_t ew;
 	if (R_IS_D(arg[0])) {
 		mc = M68K_ADDR_D | (arg[0] & 7);
 	} else if (R_IS_A(arg[0])) {
@@ -334,7 +335,7 @@ static bool attr_w cgen_operand(struct codegen_context *ctx, unsigned size, size
 			cgen_two(imm);
 		} else {
 			mc = M68K_ADDR_AA_D8_X | (arg[1] & 7);
-			cgen_two(M68K_EW_FULL | M68K_EW_IS_NO_IND | M68K_EW_BD_L);
+			cgen_two(M68K_EW_FULL | M68K_EW_IS_NO_IND | M68K_EW_BD_2);
 			cgen_four(imm);
 		}
 	} else if (arg[0] == ARG_ADDRESS_1_PRE_I) {
@@ -353,7 +354,6 @@ static bool attr_w cgen_operand(struct codegen_context *ctx, unsigned size, size
 		mc = M68K_ADDR_AA_I | (arg[1] & 7);
 	} else if (arg[0] >= ARG_ADDRESS_2 && arg[0] <= ARG_ADDRESS_2_8) {
 		unsigned shift = arg[0] - ARG_ADDRESS_2;
-		uint16_t ew;
 		if (!R_IS_A(arg[1]))
 			goto invl;
 		imm = get_imm(&arg[3]);
@@ -366,13 +366,45 @@ static bool attr_w cgen_operand(struct codegen_context *ctx, unsigned size, size
 			ew |= imm & 0xff;
 			cgen_two(ew);
 		} else if (imm_is_16bit(imm)) {
-			ew |= M68K_EW_FULL | M68K_EW_I_NO_IND | M68K_EW_BD_W;
+			ew |= M68K_EW_FULL | M68K_EW_I_NO_IND | M68K_EW_BD_1;
 			cgen_two(ew);
 			cgen_two(imm);
 		} else {
-			ew |= M68K_EW_FULL | M68K_EW_I_NO_IND | M68K_EW_BD_L;
+			ew |= M68K_EW_FULL | M68K_EW_I_NO_IND | M68K_EW_BD_2;
 			cgen_two(ew);
 			cgen_four(imm);
+		}
+	} else if (arg[0] == ARG_ADDRESS_INDIRECT) {
+		imm = get_imm(&arg[2]);
+		imm2 = get_imm(&arg[10]);
+		mc = M68K_ADDR_AA_D8_X | (arg[1] & 7);
+		ew = M68K_EW_FULL | M68K_EW_WL;
+		if (!imm) {
+			ew |= M68K_EW_BD_0;
+		} else if (imm_is_16bit(imm)) {
+			ew |= M68K_EW_BD_1;
+		} else {
+			ew |= M68K_EW_BD_2;
+		}
+		if (!imm2) {
+			ew |= M68K_EW_IS_IND_0;
+		} else if (imm_is_16bit(imm2)) {
+			ew |= M68K_EW_IS_IND_1;
+		} else {
+			ew |= M68K_EW_IS_IND_2;
+		}
+		cgen_two(ew);
+		if (imm) {
+			if (imm_is_16bit(imm))
+				cgen_two(imm);
+			else
+				cgen_four(imm);
+		}
+		if (imm2) {
+			if (imm_is_16bit(imm2))
+				cgen_two(imm2);
+			else
+				cgen_four(imm2);
 		}
 	} else if (arg[0] == ARG_IMM) {
 		imm = get_imm(&arg[1]);
@@ -489,14 +521,14 @@ static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, bool call)
 		}
 write_imm:
 		if (!imm) {
-			ew |= M68K_EW_BD_N;
+			ew |= M68K_EW_BD_0;
 			cgen_two(ew);
 		} else if (imm_is_16bit(imm)) {
-			ew |= M68K_EW_BD_W;
+			ew |= M68K_EW_BD_1;
 			cgen_two(ew);
 			cgen_two(imm);
 		} else {
-			ew |= M68K_EW_BD_L;
+			ew |= M68K_EW_BD_2;
 			cgen_two(ew);
 			cgen_four(imm);
 		}
@@ -780,7 +812,7 @@ static bool attr_w cgen_lea(struct codegen_context *ctx, uint8_t *arg1, uint8_t 
 			mc |= reg2 & 7;
 			mc |= (reg1 & 7) << 9;
 			cgen_two(mc);
-			cgen_two(M68K_EW_FULL | M68K_EW_IS_NO_IND | M68K_EW_BD_L);
+			cgen_two(M68K_EW_FULL | M68K_EW_IS_NO_IND | M68K_EW_BD_2);
 			cgen_four(imm);
 			return true;
 		}
@@ -1378,8 +1410,10 @@ static bool validate_arg(const uint8_t *arg)
 	if (R_IS_DA(arg[0]))
 		return true;
 	if (arg[0] == ARG_ADDRESS_1 ||
-	    (arg[0] >= ARG_ADDRESS_2 && arg[0] <= ARG_ADDRESS_2_8))
-		return true;
+	    (arg[0] >= ARG_ADDRESS_2 && arg[0] <= ARG_ADDRESS_2_8) ||
+	    arg[0] == ARG_ADDRESS_INDIRECT) {
+		return R_IS_A(arg[1]);
+	}
 	return false;
 }
 
