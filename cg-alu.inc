@@ -158,10 +158,10 @@ static bool attr_w gen_alu(struct codegen_context *ctx, unsigned mode, unsigned 
 			default:				internal(file_line, "gen_alu: unsupported int operation %u", op);
 		}
 		case MODE_BOOL: switch (op) {
-			case OPCODE_BOOL_OP_and:		alu = ALU_AND; mode = MODE_FIXED; goto do_alu;
-			case OPCODE_BOOL_OP_or:			alu = ALU_OR; mode = MODE_FIXED; goto do_alu;
+			case OPCODE_BOOL_OP_and:		alu = ALU_AND; goto do_alu;
+			case OPCODE_BOOL_OP_or:			alu = ALU_OR; goto do_alu;
 			case OPCODE_BOOL_OP_equal:		alu = COND_E; goto do_compare;
-			case OPCODE_BOOL_OP_not_equal:		alu = ALU_XOR; mode = MODE_FIXED; goto do_alu;
+			case OPCODE_BOOL_OP_not_equal:		alu = ALU_XOR; goto do_alu;
 			case OPCODE_BOOL_OP_less:		alu = COND_L; goto do_compare;
 			case OPCODE_BOOL_OP_less_equal:		alu = COND_LE; goto do_compare;
 			case OPCODE_BOOL_OP_greater:		alu = COND_G; goto do_compare;
@@ -458,12 +458,12 @@ skip_mem_modify:;
 #if defined(ARCH_POWER)
 		op_size_flags = OP_SIZE_NATIVE;
 #endif
-		g(gen_frame_get(ctx, op_size, mode == MODE_INT && op_size < op_size_flags ? sign_x : garbage, slot_1, R_SCRATCH_1, &reg1));
+		g(gen_frame_get(ctx, op_size, mode == MODE_BOOL && op_size != ARCH_BOOL_SIZE ? native : mode == MODE_INT && op_size < op_size_flags ? sign_x : garbage, slot_1, R_SCRATCH_1, &reg1));
 		if (frame_t_is_const(slot_2)) {
 			reg2 = 0xff;
 			c = true;
 		} else {
-			g(gen_frame_get(ctx, op_size, mode == MODE_INT && op_size < op_size_flags ? sign_x : garbage, slot_2, R_SCRATCH_2, &reg2));
+			g(gen_frame_get(ctx, op_size, mode == MODE_BOOL && op_size != ARCH_BOOL_SIZE ? native : mode == MODE_INT && op_size < op_size_flags ? sign_x : garbage, slot_2, R_SCRATCH_2, &reg2));
 			c = false;
 		}
 #if !ARCH_HAS_FLAGS || defined(ARCH_POWER)
@@ -4474,14 +4474,14 @@ static bool attr_w gen_alu_jmp(struct codegen_context *ctx, unsigned mode, unsig
 			default:				internal(file_line, "gen_alu_jmp: unsupported int operation %u", op);
 		}
 		case MODE_BOOL: switch (op) {
-			case OPCODE_BOOL_OP_and:		alu = ALU_AND; mode = MODE_FIXED; goto do_alu;
-			case OPCODE_BOOL_OP_or:			alu = ALU_OR; mode = MODE_FIXED; goto do_alu;
-			case OPCODE_BOOL_OP_equal:		alu = COND_E; mode = MODE_FIXED; goto do_compare;
-			case OPCODE_BOOL_OP_not_equal:		alu = COND_NE; mode = MODE_FIXED; goto do_compare;
-			case OPCODE_BOOL_OP_less:		alu = COND_L; mode = MODE_FIXED; goto do_compare;
-			case OPCODE_BOOL_OP_less_equal:		alu = COND_LE; mode = MODE_FIXED; goto do_compare;
-			case OPCODE_BOOL_OP_greater:		alu = COND_G; mode = MODE_FIXED; goto do_compare;
-			case OPCODE_BOOL_OP_greater_equal:	alu = COND_GE; mode = MODE_FIXED; goto do_compare;
+			case OPCODE_BOOL_OP_and:		alu = ALU_AND; goto do_alu;
+			case OPCODE_BOOL_OP_or:			alu = ALU_OR; goto do_alu;
+			case OPCODE_BOOL_OP_equal:		alu = COND_E; goto do_compare;
+			case OPCODE_BOOL_OP_not_equal:		alu = COND_NE; goto do_compare;
+			case OPCODE_BOOL_OP_less:		alu = COND_L; goto do_compare;
+			case OPCODE_BOOL_OP_less_equal:		alu = COND_LE; goto do_compare;
+			case OPCODE_BOOL_OP_greater:		alu = COND_G; goto do_compare;
+			case OPCODE_BOOL_OP_greater_equal:	alu = COND_GE; goto do_compare;
 			default:				internal(file_line, "gen_alu_jmp: unsupported bool operation %u", op);
 		}
 	}
