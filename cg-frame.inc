@@ -1062,16 +1062,6 @@ static bool attr_w gen_memcpy_raw(struct codegen_context *ctx, unsigned dest_bas
 		gen_eight(size);
 		return true;
 	}
-	if (size <= 0x10) {
-		if (!(size & 3) || (cpu_test_feature(CPU_FEATURE_long_displacement) && cpu_test_feature(CPU_FEATURE_extended_imm)))
-			goto do_explicit_copy;
-	}
-	/*
-	 * Warning: memcpy must not be called for short sizes, because it
-	 * trashes registers.
-	 */
-	goto call_memcpy;
-do_explicit_copy:
 #endif
 	step_bits = OP_SIZE_NATIVE;
 	if (UNALIGNED_TRAP)
@@ -1089,7 +1079,11 @@ do_explicit_copy:
 	if (cpu_test_feature(CPU_FEATURE_avx512))
 		step_bits = OP_SIZE_64;
 #endif
-	if (size >> step_bits <= INLINE_COPY_STEPS) {
+	/*
+	 * Warning: memcpy must not be called for short sizes, because it
+	 * trashes registers.
+	 */
+	if (size <= 0x10 || size >> step_bits <= INLINE_COPY_STEPS) {
 #if defined(ARCH_M68K)
 		if (R_IS_A(src_base) && R_IS_D(dest_base)) {
 			g(gen_address_register(ctx, dest_base, &dest_base));
@@ -1194,19 +1188,28 @@ do_explicit_copy:
 				gen_one(ARG_ADDRESS_1);
 				gen_one(src_base);
 				gen_eight(src_offset);
-			} else
+				goto next_unit;
+			}
 #endif
-			{
+			if (ARCH_REQUIRES_MOV_MASK(this_op_size)) {
+				g(gen_address(ctx, src_base, src_offset, IMM_PURPOSE_LDR_OFFSET, this_op_size));
+				gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, this_op_size == OP_SIZE_1 ? MOV_MASK_0_8 : MOV_MASK_0_16, 0);
+				gen_one(reg);
+				gen_one(reg);
+				gen_address_offset();
+			} else {
 				g(gen_address(ctx, src_base, src_offset, ARCH_PREFERS_SX(this_op_size) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, this_op_size));
 				gen_insn(ARCH_PREFERS_SX(this_op_size) ? INSN_MOVSX : INSN_MOV, this_op_size, x86_unaligned, 0);
 				gen_one(reg);
 				gen_address_offset();
-
-				g(gen_address(ctx, dest_base, dest_offset, IMM_PURPOSE_STR_OFFSET, this_op_size));
-				gen_insn(INSN_MOV, this_op_size, x86_unaligned, 0);
-				gen_address_offset();
-				gen_one(reg);
 			}
+			g(gen_address(ctx, dest_base, dest_offset, IMM_PURPOSE_STR_OFFSET, this_op_size));
+			gen_insn(INSN_MOV, this_op_size, x86_unaligned, 0);
+			gen_address_offset();
+			gen_one(reg);
+
+			goto next_unit;
+next_unit:
 			size -= this_step;
 			src_offset += this_step;
 			dest_offset += this_step;
