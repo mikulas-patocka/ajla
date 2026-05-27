@@ -1814,6 +1814,7 @@ static bool fuse_mem_accesses(const uint8_t *r1, const uint8_t *r2, const uint8_
 static bool attr_w peephole(struct codegen_context *ctx)
 {
 	size_t i, j, k;
+	struct insn_details nd;
 	ctx->equalities_used = 0;
 	for (i = 0; i < ctx->basic_block_position; i++) {
 		struct insn_details *d1, *d2, *d3;
@@ -1940,7 +1941,6 @@ cant_elide:
 				    && (*dst2 < ARG_REGS_MAX || *src1 < ARG_REGS_MAX || *src1 == ARG_IMM)
 #endif
 					) {
-					struct insn_details nd;
 					g(prepare_new_insn(ctx));
 					gen_insn(INSN_MOV, insn_op_size(d1->insn), 0, 0);
 					gen_stream(dst2, arg_size(*dst2));
@@ -1962,7 +1962,6 @@ cant_elide:
 			uint8_t *dst2 = d2->start + 4;
 			uint8_t *src2 = dst2 + arg_size(*dst2);
 			if (src1[0] == ARG_ADDRESS_1 && dst1[0] < ARG_REGS_MAX && src2[0] == ARG_ADDRESS_1 && src2[1] == dst1[0] && !reg_map_is_set(d2->live_after, dst1[0])) {
-				struct insn_details nd;
 				g(prepare_new_insn(ctx));
 				gen_insn(INSN_MOV, insn_op_size(d2->insn), 0, 0);
 				gen_stream(dst2, arg_size(*dst2));
@@ -1979,7 +1978,7 @@ cant_elide:
 			}
 		}
 #endif
-		if (insn_opcode(d2->insn) == INSN_TEST && insn_op_size(d1->insn) == insn_op_size(d2->insn) && 
+		if (insn_opcode(d2->insn) == INSN_TEST && insn_op_size(d1->insn) == insn_op_size(d2->insn) &&
 		    (
 #if defined(ARCH_M68K)
 		     insn_opcode(d1->insn) == INSN_MOV ||
@@ -2045,13 +2044,12 @@ cant_elide:
 			}
 		}
 		if (insn_opcode(d2->insn) == INSN_JMP && ARCH_HAS_DELAY_SLOTS(insn_opcode(d2->insn)) && can_be_in_delay_slot(d1)) {
-			struct insn_details jmp_d;
 			g(prepare_new_insn(ctx));
 			gen_insn(insn_opcode(d2->insn) | INSN_DELAY_SLOT, insn_op_size(d2->insn), insn_aux(d2->insn), insn_writes_flags(d2->insn));
 			gen_stream(d2->start + 4, d2->length - 4);
-			g(finish_new_insn(ctx, &jmp_d, &d2->live_before, &d2->live_after));
+			g(finish_new_insn(ctx, &nd, &d2->live_before, &d2->live_after));
 			*d2 = *d1;
-			*d1 = jmp_d;
+			*d1 = nd;
 			i = j;
 			goto quash_after_i;
 		}
@@ -2085,7 +2083,6 @@ skip_setc_xor:
 #endif
 
 		if (ARCH_HAS_FUSED_MEMORY_ACCESSES && insn_opcode(d1->insn) == INSN_MOV && insn_opcode(d2->insn) == INSN_MOV && insn_op_size(d1->insn) == insn_op_size(d2->insn)) {
-			struct insn_details nd;
 			const uint8_t *d1w = d1->start + 4;
 			const uint8_t *d1r = d1w + arg_size(*d1w);
 			const uint8_t *d2w = d2->start + 4;
