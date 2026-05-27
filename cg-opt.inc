@@ -2143,7 +2143,7 @@ new_d3:
 			k++;
 			goto new_d3;
 		}
-#if defined(ARCH_X86)
+#if defined(ARCH_M68K) || defined(ARCH_X86)
 		if ((insn_opcode(d1->insn) == INSN_SET_COND || insn_opcode(d1->insn) == INSN_SET_COND_PARTIAL) &&
 		    (insn_opcode(d2->insn) == INSN_CMP || insn_opcode(d2->insn) == INSN_TEST) &&
 		    insn_opcode(d3->insn) == INSN_JMP_COND && (insn_aux(d3->insn) == COND_E || insn_aux(d3->insn) == COND_NE)) {
@@ -2166,10 +2166,12 @@ new_d3:
 				goto skip_setc_cmp_jmp;
 			d2->quash = true;
 
-			g(prepare_new_insn(ctx));
-			gen_insn(insn_opcode(d3->insn), insn_op_size(d3->insn), insn_aux(d1->insn) ^ (insn_aux(d3->insn) == COND_E), insn_writes_flags(d3->insn));
-			gen_four(d3->target_label);
-			g(finish_new_insn(ctx, d3, &d3->live_before, &d3->live_after));
+			if (!insn_writes_flags(d1->insn)) {
+				g(prepare_new_insn(ctx));
+				gen_insn(insn_opcode(d3->insn), insn_op_size(d3->insn), insn_aux(d1->insn) ^ (insn_aux(d3->insn) == COND_E), insn_writes_flags(d3->insn));
+				gen_four(d3->target_label);
+				g(finish_new_insn(ctx, d3, &d3->live_before, &d3->live_after));
+			}
 			continue;
 		}
 skip_setc_cmp_jmp:
