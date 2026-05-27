@@ -1978,6 +1978,7 @@ cant_elide:
 			}
 		}
 #endif
+#if defined(ARCH_M68K) || defined(ARCH_X86)
 		if (insn_opcode(d2->insn) == INSN_TEST && insn_op_size(d1->insn) == insn_op_size(d2->insn) &&
 		    (
 #if defined(ARCH_M68K)
@@ -2003,6 +2004,7 @@ cant_elide:
 				goto retry;
 			}
 		}
+#endif
 
 #if !defined(ARCH_PARISC)	/* this transformation increases code size on parisc */
 		if ((insn_opcode(d1->insn) == INSN_JMP_COND || insn_opcode(d1->insn) == INSN_JMP_COND_LOGICAL || insn_opcode(d1->insn) == INSN_JMP_REG || insn_opcode(d1->insn) == INSN_JMP_2REGS) && insn_opcode(d2->insn) == INSN_JMP) {
