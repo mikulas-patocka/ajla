@@ -1956,7 +1956,7 @@ cant_elide:
 		}
 
 #if defined(ARCH_M68K)
-		if (insn_opcode(d1->insn) == INSN_MOV && insn_opcode(d2->insn) == INSN_MOV && insn_op_size(d1->insn) == insn_op_size(d2->insn) && insn_op_size(d1->insn) == OP_SIZE_NATIVE) {
+		if (insn_opcode(d1->insn) == INSN_MOV && insn_opcode(d2->insn) == INSN_MOV && insn_op_size(d1->insn) == OP_SIZE_ADDRESS) {
 			uint8_t *dst1 = d1->start + 4;
 			uint8_t *src1 = dst1 + arg_size(*dst1);
 			uint8_t *dst2 = d2->start + 4;
