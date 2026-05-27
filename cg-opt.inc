@@ -1978,22 +1978,32 @@ cant_elide:
 				}
 			}
 		}
-		if ((insn_opcode(d1->insn) == INSN_MOV ||
+#endif
+		if (insn_opcode(d2->insn) == INSN_TEST && insn_op_size(d1->insn) == insn_op_size(d2->insn) && 
+		    (
+#if defined(ARCH_M68K)
+		     insn_opcode(d1->insn) == INSN_MOV ||
+#endif
 		     insn_opcode(d1->insn) == INSN_ALU ||
 		     insn_opcode(d1->insn) == INSN_ALU_PARTIAL ||
 		     insn_opcode(d1->insn) == INSN_ALU1 ||
 		     insn_opcode(d1->insn) == INSN_ALU1_PARTIAL
-		     ) && insn_opcode(d2->insn) == INSN_TEST && insn_op_size(d1->insn) == insn_op_size(d2->insn)) {
+		    )
+#if defined(ARCH_M68K)
+		      && !R_IS_A(d1->start[4])
+#else
+		      && insn_writes_flags(d1->insn)
+#endif
+		     ) {
 			uint8_t *dst1 = d1->start + 4;
 			uint8_t *src1 = dst1 + arg_size(*dst1);
 			uint8_t *dst2 = d2->start + 4;
 			uint8_t *src2 = dst2 + arg_size(*dst2);
-			if (!R_IS_A(*dst1) && ((insn_opcode(d1->insn) == INSN_MOV && arg_equal(src1, src2)) || arg_equal(dst1, src2)) && arg_equal(src2, dst2)) {
+			if (((insn_opcode(d1->insn) == INSN_MOV && arg_equal(src1, src2)) || arg_equal(dst1, src2)) && arg_equal(src2, dst2)) {
 				d2->quash = true;
 				goto retry;
 			}
 		}
-#endif
 
 #if !defined(ARCH_PARISC)	/* this transformation increases code size on parisc */
 		if ((insn_opcode(d1->insn) == INSN_JMP_COND || insn_opcode(d1->insn) == INSN_JMP_COND_LOGICAL || insn_opcode(d1->insn) == INSN_JMP_REG || insn_opcode(d1->insn) == INSN_JMP_2REGS) && insn_opcode(d2->insn) == INSN_JMP) {
