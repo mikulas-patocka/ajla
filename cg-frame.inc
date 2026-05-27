@@ -739,11 +739,15 @@ static bool attr_w gen_frame_clear(struct codegen_context *ctx, unsigned size, f
 static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned attr_unused size, bool attr_unused logical, unsigned cond, frame_t slot)
 {
 	size_t offset;
+	unsigned writes_flags = 0;
+#if defined(ARCH_M68K)
+	writes_flags = 1;
+#endif
 	if (slot_is_register(ctx, slot)) {
 		unsigned reg = ctx->registers[slot];
 #if defined(ARCH_X86_32)
 		if (reg >= 4) {
-			gen_insn(INSN_SET_COND_PARTIAL, OP_SIZE_1, cond, 0);
+			gen_insn(INSN_SET_COND_PARTIAL, OP_SIZE_1, cond, writes_flags);
 			gen_one(R_SCRATCH_1);
 			gen_one(R_SCRATCH_1);
 
@@ -753,12 +757,12 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned attr
 #endif
 #if defined(ARCH_X86)
 		if (cpu_test_feature(CPU_FEATURE_apx)) {
-			gen_insn(INSN_SET_COND, OP_SIZE_8, cond, 0);
+			gen_insn(INSN_SET_COND, OP_SIZE_8, cond, writes_flags);
 			gen_one(reg);
 			return true;
 		}
 #endif
-		gen_insn(INSN_SET_COND_PARTIAL, OP_SIZE_1, cond, 0);
+		gen_insn(INSN_SET_COND_PARTIAL, OP_SIZE_1, cond, writes_flags);
 		gen_one(reg);
 		gen_one(reg);
 		if (sizeof(ajla_flat_option_t) > 1)
@@ -767,7 +771,7 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned attr
 	}
 	offset = (size_t)slot * slot_size;
 	if (sizeof(ajla_flat_option_t) > 1) {
-		gen_insn(INSN_SET_COND_PARTIAL, OP_SIZE_1, cond, 0);
+		gen_insn(INSN_SET_COND_PARTIAL, OP_SIZE_1, cond, writes_flags);
 		gen_one(R_SCRATCH_1);
 		gen_one(R_SCRATCH_1);
 
@@ -776,7 +780,7 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned attr
 		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot, 0, R_SCRATCH_1));
 	} else {
 		g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_1));
-		gen_insn(INSN_SET_COND, OP_SIZE_1, cond, 0);
+		gen_insn(INSN_SET_COND, OP_SIZE_1, cond, writes_flags);
 		gen_address_offset();
 	}
 	return true;
