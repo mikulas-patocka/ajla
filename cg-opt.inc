@@ -521,12 +521,6 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 	d->rd_frame = NO_FRAME_T;
 	d->wr_frame = NO_FRAME_T;
 	insn = oget_four(ptr);
-#if defined(ARCH_M68K)
-	if (insn_opcode(insn) == INSN_MOV || insn_opcode(insn) == INSN_MOVSX || insn_opcode(insn) == INSN_MOV_MASK) {
-		if (!R_IS_A(ptr[4]))
-			insn |= (uint32_t)1 << INSN_WRITES_FLAGS_SHIFT;
-	}
-#endif
 #ifdef QUASH_REPETITIVE_INSNS
 	d->wr_reg = insn_writes_flags(insn) ? R_FLAGS : (uint8_t)-1;
 #endif
@@ -1271,6 +1265,20 @@ static bool arg_to_val(struct insn_details *d, uint8_t *ptr, struct value *value
 	return false;
 }
 
+static unsigned attr_unused val_to_arg_byte(struct value *v)
+{
+	switch (v->tag) {
+		case VALUE_TAG_REGISTER:
+			return v->value;
+		case VALUE_TAG_FRAME:
+			return ARG_ADDRESS_1;
+		case VALUE_TAG_RANGE:
+			return ARG_IMM;
+	}
+	internal(file_line, "val_to_arg_byte: invalid tag %u", v->tag);
+	return 0;
+}
+
 static bool attr_w val_to_arg(struct codegen_context *ctx, struct value *v)
 {
 	switch (v->tag) {
@@ -1547,7 +1555,7 @@ dont_quash_mov:
 						continue;
 					}
 					g(prepare_new_insn(ctx));
-					gen_insn(insn_opcode(d->insn), insn_op_size(d->insn), 0, 0);
+					gen_insn(insn_opcode(d->insn), insn_op_size(d->insn), 0, MOV_WRITES_FLAGS(*pd, val_to_arg_byte(rp)));
 					gen_stream(pd, arg_size(*pd));
 					g(val_to_arg(ctx, rp));
 					reg_map_init(&rm);
@@ -1979,22 +1987,15 @@ cant_elide:
 		}
 #endif
 #if defined(ARCH_M68K) || defined(ARCH_X86)
-		if (insn_opcode(d2->insn) == INSN_TEST && insn_op_size(d1->insn) == insn_op_size(d2->insn) &&
+		if (insn_opcode(d2->insn) == INSN_TEST && insn_op_size(d1->insn) == insn_op_size(d2->insn) && insn_writes_flags(d1->insn) &&
 		    (
-#if defined(ARCH_M68K)
 		     insn_opcode(d1->insn) == INSN_MOV ||
-#endif
+		     insn_opcode(d1->insn) == INSN_MOVSX ||
 		     insn_opcode(d1->insn) == INSN_ALU ||
 		     insn_opcode(d1->insn) == INSN_ALU_PARTIAL ||
 		     insn_opcode(d1->insn) == INSN_ALU1 ||
 		     insn_opcode(d1->insn) == INSN_ALU1_PARTIAL
-		    )
-#if defined(ARCH_M68K)
-		      && !R_IS_A(d1->start[4])
-#else
-		      && insn_writes_flags(d1->insn)
-#endif
-		     ) {
+		    )) {
 			uint8_t *dst1 = d1->start + 4;
 			uint8_t *src1 = dst1 + arg_size(*dst1);
 			uint8_t *dst2 = d2->start + 4;
