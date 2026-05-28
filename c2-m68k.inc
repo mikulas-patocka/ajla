@@ -662,8 +662,7 @@ static bool attr_w cgen_movsx(struct codegen_context *ctx, unsigned size)
 			cgen_two(mc);
 			return true;
 		}
-		if (R_IS_D(arg1[0]))
-			internal(file_line, "cgen_movsx: invalid arguments %u %02x %02x", size, arg1[0], arg2[0]);
+		internal(file_line, "cgen_movsx: invalid arguments %u %02x %02x", size, arg1[0], arg2[0]);
 	}
 
 	g(cgen_moves(ctx, size, arg1, arg2));
