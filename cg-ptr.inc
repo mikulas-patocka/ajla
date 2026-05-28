@@ -209,7 +209,7 @@ static bool attr_w gen_compare_refcount(struct codegen_context *ctx, unsigned pt
 	gen_label_ref(label);
 #else
 	g(gen_address(ctx, ptr, offsetof(struct data, refcount_), IMM_PURPOSE_LDR_OFFSET, op_size));
-	gen_insn(INSN_MOV, op_size, 0, 0);
+	gen_insn(INSN_MOV, op_size, 0, MOV_WRITES_FLAGS(R_SCRATCH_NA_1, ARG_ADDRESS_1));
 	gen_one(R_SCRATCH_NA_1);
 	gen_address_offset();
 
@@ -265,17 +265,15 @@ static bool attr_w gen_compare_ptr_tag(struct codegen_context *ctx, unsigned reg
 		&& cpu_test_feature(CPU_FEATURE_extended_imm)
 #endif
 	    ) {
-		gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
+		g(gen_address(ctx, reg, offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
+		gen_insn(INSN_MOV, OP_SIZE_1, 0, MOV_WRITES_FLAGS(tmp_reg, ARG_ADDRESS_1));
 		gen_one(tmp_reg);
-		gen_one(ARG_ADDRESS_1);
-		gen_one(reg);
-		gen_eight(offset);
+		gen_address_offset();
 	} else {
-		gen_insn(INSN_MOV, log_2(sizeof(refcount_int_t)), 0, 0);
+		g(gen_address(ctx, reg, offsetof(struct data, refcount_), IMM_PURPOSE_LDR_OFFSET, log_2(sizeof(refcount_int_t))));
+		gen_insn(INSN_MOV, log_2(sizeof(refcount_int_t)), 0, MOV_WRITES_FLAGS(tmp_reg, ARG_ADDRESS_1));
 		gen_one(tmp_reg);
-		gen_one(ARG_ADDRESS_1);
-		gen_one(reg);
-		gen_eight(offsetof(struct data, refcount_));
+		gen_address_offset();
 
 		g(gen_3address_alu_imm(ctx, log_2(sizeof(refcount_int_t)), ALU_AND, tmp_reg, tmp_reg, REFCOUNT_STEP - 1, 0));
 	}

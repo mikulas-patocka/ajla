@@ -59,6 +59,7 @@
 
 #define UNALIGNED_TRAP			0
 
+#define MOV_WRITES_FLAGS(dest, src)	0
 #define ALU_WRITES_FLAGS(size, alu, is_mem, is_imm, imm)	(!(is_imm) ?			\
 						((alu) == ALU_SUB && !cpu_test_feature(CPU_FEATURE_ppc) ? 2 : (alu) == ALU_ADC || (alu) == ALU_SBB ? 2 : 0) :\
 						((alu) == ALU_AND ? 1 : 0)\

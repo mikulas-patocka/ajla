@@ -51,7 +51,7 @@ static bool attr_w gen_set_1(struct codegen_context *ctx, unsigned base, frame_t
 	gen_imm_offset();
 #else
 	g(gen_address(ctx, base, offset, ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_BITMAP));
-	gen_insn(ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? INSN_MOVSX : INSN_MOV, OP_SIZE_BITMAP, 0, 0);
+	gen_insn(ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? INSN_MOVSX : INSN_MOV, OP_SIZE_BITMAP, 0, MOV_WRITES_FLAGS(R_SCRATCH_NA_1, ARG_ADDRESS_1));
 	gen_one(R_SCRATCH_NA_1);
 	gen_address_offset();
 
@@ -68,7 +68,7 @@ static bool attr_w gen_set_1(struct codegen_context *ctx, unsigned base, frame_t
 	}
 
 	g(gen_address(ctx, base, offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_BITMAP));
-	gen_insn(INSN_MOV, OP_SIZE_BITMAP, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_BITMAP, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_SCRATCH_NA_1));
 	gen_address_offset();
 	gen_one(R_SCRATCH_NA_1);
 #endif
@@ -76,7 +76,7 @@ static bool attr_w gen_set_1(struct codegen_context *ctx, unsigned base, frame_t
 #if defined(ARCH_ALPHA)
 	if (!ARCH_HAS_BWX) {
 		g(gen_address(ctx, base, offset + (slot_1 & ~7), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_8));
-		gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+		gen_insn(INSN_MOV, OP_SIZE_8, 0, MOV_WRITES_FLAGS(R_SCRATCH_NA_1, ARG_ADDRESS_1));
 		gen_one(R_SCRATCH_NA_1);
 		gen_address_offset();
 
@@ -87,7 +87,7 @@ static bool attr_w gen_set_1(struct codegen_context *ctx, unsigned base, frame_t
 		}
 
 		g(gen_address(ctx, base, offset + (slot_1 & ~7), IMM_PURPOSE_STR_OFFSET, OP_SIZE_8));
-		gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+		gen_insn(INSN_MOV, OP_SIZE_8, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_SCRATCH_NA_1));
 		gen_address_offset();
 		gen_one(R_SCRATCH_NA_1);
 
@@ -96,7 +96,7 @@ static bool attr_w gen_set_1(struct codegen_context *ctx, unsigned base, frame_t
 #endif
 	g(gen_address(ctx, base, offset + slot_1, IMM_PURPOSE_MVI_CLI_OFFSET, OP_SIZE_1));
 	g(gen_imm(ctx, val, IMM_PURPOSE_STORE_VALUE, OP_SIZE_1));
-	gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_1, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, ARG_IMM));
 	gen_address_offset();
 	gen_imm_offset();
 #endif
@@ -135,7 +135,7 @@ static bool attr_w gen_set_1_variable(struct codegen_context *ctx, unsigned slot
 	}
 	if (ARCH_HAS_BTX(!val ? BTX_BTR : BTX_BTS, OP_SIZE_BITMAP, false)) {
 		g(gen_address(ctx, R_SCRATCH_NA_1, offset, ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_BITMAP));
-		gen_insn(ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? INSN_MOVSX : INSN_MOV, OP_SIZE_BITMAP, 0, 0);
+		gen_insn(ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? INSN_MOVSX : INSN_MOV, OP_SIZE_BITMAP, 0, MOV_WRITES_FLAGS(R_SCRATCH_NA_3, ARG_ADDRESS_1));
 		gen_one(R_SCRATCH_NA_3);
 		gen_address_offset();
 
@@ -158,7 +158,7 @@ static bool attr_w gen_set_1_variable(struct codegen_context *ctx, unsigned slot
 		g(gen_3address_rot(ctx, OP_SIZE_BITMAP, ROT_SHL, R_SCRATCH_NA_2, R_SCRATCH_NA_2, slot_reg));
 	}
 	g(gen_address(ctx, R_SCRATCH_NA_1, offset, ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_BITMAP));
-	gen_insn(ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? INSN_MOVSX : INSN_MOV, OP_SIZE_BITMAP, 0, 0);
+	gen_insn(ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? INSN_MOVSX : INSN_MOV, OP_SIZE_BITMAP, 0, MOV_WRITES_FLAGS(R_SCRATCH_NA_3, ARG_ADDRESS_1));
 	gen_one(R_SCRATCH_NA_3);
 	gen_address_offset();
 
@@ -173,14 +173,14 @@ static bool attr_w gen_set_1_variable(struct codegen_context *ctx, unsigned slot
 	goto save_it;
 save_it:
 	g(gen_address(ctx, R_SCRATCH_NA_1, offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_BITMAP));
-	gen_insn(INSN_MOV, OP_SIZE_BITMAP, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_BITMAP, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_SCRATCH_NA_3));
 	gen_address_offset();
 	gen_one(R_SCRATCH_NA_3);
 #endif
 #else
 #if defined(ARCH_X86)
 	g(gen_imm(ctx, val, IMM_PURPOSE_STORE_VALUE, OP_SIZE_1));
-	gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_1, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_2, ARG_IMM));
 	gen_one(ARG_ADDRESS_2);
 	gen_one(R_FRAME);
 	gen_one(slot_reg);
@@ -188,7 +188,7 @@ save_it:
 	gen_imm_offset();
 #elif defined(ARCH_M68K)
 	g(gen_imm(ctx, val, IMM_PURPOSE_STORE_VALUE, OP_SIZE_1));
-	gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_1, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_2, ARG_IMM));
 	gen_one(ARG_ADDRESS_2);
 	gen_one(R_FRAME);
 	gen_one(slot_reg);
@@ -199,7 +199,7 @@ save_it:
 #ifdef ARCH_ALPHA
 	if (!ARCH_HAS_BWX) {
 		g(gen_address(ctx, R_SCRATCH_NA_1, offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_8));
-		gen_insn(INSN_MOV_U, OP_SIZE_8, 0, 0);
+		gen_insn(INSN_MOV_U, OP_SIZE_8, 0, MOV_WRITES_FLAGS(R_SCRATCH_NA_2, ARG_ADDRESS_1));
 		gen_one(R_SCRATCH_NA_2);
 		gen_address_offset();
 		if (!val) {
@@ -212,7 +212,7 @@ save_it:
 			g(gen_3address_alu(ctx, OP_SIZE_8, ALU_OR, R_SCRATCH_NA_2, R_SCRATCH_NA_2, R_SCRATCH_NA_3, 0));
 		}
 		g(gen_address(ctx, R_SCRATCH_NA_1, offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_8));
-		gen_insn(INSN_MOV_U, OP_SIZE_8, 0, 0);
+		gen_insn(INSN_MOV_U, OP_SIZE_8, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_SCRATCH_NA_2));
 		gen_address_offset();
 		gen_one(R_SCRATCH_NA_2);
 
@@ -222,7 +222,7 @@ save_it:
 
 	g(gen_address(ctx, R_SCRATCH_NA_1, offset, IMM_PURPOSE_MVI_CLI_OFFSET, OP_SIZE_1));
 	g(gen_imm(ctx, val, IMM_PURPOSE_STORE_VALUE, OP_SIZE_1));
-	gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_1, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, ARG_IMM));
 	gen_address_offset();
 	gen_imm_offset();
 #endif
@@ -289,7 +289,7 @@ static bool attr_w gen_test_1(struct codegen_context *ctx, unsigned base, frame_
 	gen_label_ref(label);
 #else
 	g(gen_address(ctx, base, offset, ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_BITMAP));
-	gen_insn(ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? INSN_MOVSX : INSN_MOV, OP_SIZE_BITMAP, 0, 0);
+	gen_insn(ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? INSN_MOVSX : INSN_MOV, OP_SIZE_BITMAP, 0, MOV_WRITES_FLAGS(R_SCRATCH_NA_1, ARG_ADDRESS_1));
 	gen_one(R_SCRATCH_NA_1);
 	gen_address_offset();
 
@@ -307,7 +307,7 @@ static bool attr_w gen_test_1(struct codegen_context *ctx, unsigned base, frame_
 		}
 
 		g(gen_address(ctx, base, offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_BITMAP));
-		gen_insn(INSN_MOV, OP_SIZE_BITMAP, 0, 0);
+		gen_insn(INSN_MOV, OP_SIZE_BITMAP, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_SCRATCH_NA_2));
 		gen_address_offset();
 		gen_one(R_SCRATCH_NA_2);
 	}
@@ -336,7 +336,7 @@ static bool attr_w gen_test_1(struct codegen_context *ctx, unsigned base, frame_
 				g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_BITMAP), test == TEST_SET ? ALU_OR : ALU_XOR, R_SCRATCH_NA_1, R_SCRATCH_NA_1, (uintptr_t)1 << bit, 0));
 		}
 		g(gen_address(ctx, base, offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_BITMAP));
-		gen_insn(INSN_MOV, OP_SIZE_BITMAP, 0, 0);
+		gen_insn(INSN_MOV, OP_SIZE_BITMAP, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_SCRATCH_NA_1));
 		gen_address_offset();
 		gen_one(R_SCRATCH_NA_1);
 	}
@@ -380,7 +380,7 @@ static bool attr_w gen_test_1(struct codegen_context *ctx, unsigned base, frame_
 	if (!ARCH_HAS_BWX) {
 #if defined(ARCH_ALPHA)
 		g(gen_address(ctx, base, offset + (slot_1 & ~7), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_8));
-		gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+		gen_insn(INSN_MOV, OP_SIZE_8, 0, MOV_WRITES_FLAGS(R_SCRATCH_NA_2, ARG_ADDRESS_1));
 		gen_one(R_SCRATCH_NA_2);
 		gen_address_offset();
 
@@ -388,7 +388,7 @@ static bool attr_w gen_test_1(struct codegen_context *ctx, unsigned base, frame_
 #endif
 	} else {
 		g(gen_address(ctx, base, offset + slot_1, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
-		gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
+		gen_insn(INSN_MOV, OP_SIZE_1, 0, MOV_WRITES_FLAGS(R_SCRATCH_NA_2, ARG_ADDRESS_1));
 		gen_one(R_SCRATCH_NA_2);
 		gen_address_offset();
 	}
@@ -439,7 +439,7 @@ static bool attr_w gen_test_2(struct codegen_context *ctx, frame_t slot_1, frame
 	goto dont_optimize;
 #else
 	g(gen_address(ctx, R_FRAME, addr1, ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_BITMAP));
-	gen_insn(ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? INSN_MOVSX : INSN_MOV, OP_SIZE_BITMAP, 0, 0);
+	gen_insn(ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? INSN_MOVSX : INSN_MOV, OP_SIZE_BITMAP, 0, MOV_WRITES_FLAGS(R_SCRATCH_NA_1, ARG_ADDRESS_1));
 	gen_one(R_SCRATCH_NA_1);
 	gen_address_offset();
 
@@ -497,13 +497,13 @@ dont_optimize:
 #if defined(ARCH_M68K) || defined(ARCH_X86)
 	if (ARCH_REQUIRES_MOV_MASK(OP_SIZE_1)) {
 		g(gen_address(ctx, R_FRAME, slot_1, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
-		gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, MOV_MASK_0_8, 0);
+		gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, MOV_MASK_0_8, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
 		gen_one(R_SCRATCH_1);
 		gen_one(R_SCRATCH_1);
 		gen_address_offset();
 	} else {
 		g(gen_address(ctx, R_FRAME, slot_1, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
-		gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
+		gen_insn(INSN_MOV, OP_SIZE_1, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
 		gen_one(R_SCRATCH_1);
 		gen_address_offset();
 	}
@@ -524,7 +524,7 @@ dont_optimize:
 	    ) {
 		if (!ARCH_HAS_BWX && (slot_1 & ~7) == (slot_2 & ~7)) {
 			g(gen_address(ctx, R_FRAME, slot_1 & ~7, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_8));
-			gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+			gen_insn(INSN_MOV, OP_SIZE_8, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
 			gen_one(R_SCRATCH_1);
 			gen_address_offset();
 
@@ -537,12 +537,12 @@ dont_optimize:
 		}
 	} else {
 		g(gen_address(ctx, R_FRAME, slot_1, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
-		gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
+		gen_insn(INSN_MOV, OP_SIZE_1, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
 		gen_one(R_SCRATCH_1);
 		gen_address_offset();
 
 		g(gen_address(ctx, R_FRAME, slot_2, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
-		gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
+		gen_insn(INSN_MOV, OP_SIZE_1, 0, MOV_WRITES_FLAGS(R_SCRATCH_NA_1, ARG_ADDRESS_1));
 		gen_one(R_SCRATCH_NA_1);
 		gen_address_offset();
 #if defined(ARCH_ARM) || defined(ARCH_SPARC)
@@ -632,7 +632,7 @@ static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *varia
 		gen_label_ref(label);
 #else
 		g(gen_address(ctx, R_FRAME, addr, ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_BITMAP));
-		gen_insn(ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? INSN_MOVSX : INSN_MOV, OP_SIZE_BITMAP, 0, 0);
+		gen_insn(ARCH_PREFERS_SX(OP_SIZE_BITMAP) ? INSN_MOVSX : INSN_MOV, OP_SIZE_BITMAP, 0, MOV_WRITES_FLAGS(R_SCRATCH_NA_1, ARG_ADDRESS_1));
 		gen_one(R_SCRATCH_NA_1);
 		gen_address_offset();
 
@@ -644,13 +644,13 @@ static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *varia
 #if defined(ARCH_M68K) || defined(ARCH_X86)
 	if (ARCH_REQUIRES_MOV_MASK(OP_SIZE_1)) {
 		g(gen_address(ctx, R_FRAME, variables[0], IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
-		gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, MOV_MASK_0_8, 0);
+		gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, MOV_MASK_0_8, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
 		gen_one(R_SCRATCH_1);
 		gen_one(R_SCRATCH_1);
 		gen_address_offset();
 	} else {
 		g(gen_address(ctx, R_FRAME, variables[0], IMM_PURPOSE_LDR_OFFSET, OP_SIZE_1));
-		gen_insn(INSN_MOV, OP_SIZE_1, 0, 0);
+		gen_insn(INSN_MOV, OP_SIZE_1, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
 		gen_one(R_SCRATCH_1);
 		gen_address_offset();
 	}
@@ -687,7 +687,7 @@ static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *varia
 			pos++;
 		}
 		g(gen_address(ctx, R_FRAME, addr, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_8));
-		gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
+		gen_insn(INSN_MOV, OP_SIZE_8, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
 		gen_one(R_SCRATCH_1);
 		gen_address_offset();
 

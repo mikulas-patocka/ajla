@@ -23,6 +23,7 @@
 
 #define UNALIGNED_TRAP			(!cpu_test_feature(CPU_FEATURE_unaligned))
 
+#define MOV_WRITES_FLAGS(dest, src)	0
 #define ALU_WRITES_FLAGS(size, alu, is_mem, is_imm, imm)	0
 #define ALU1_WRITES_FLAGS(alu)		0
 #define ROT_WRITES_FLAGS(alu, size, im)	0

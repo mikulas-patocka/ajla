@@ -27,6 +27,7 @@
 
 #define UNALIGNED_TRAP			0
 
+#define MOV_WRITES_FLAGS(dest, src)	(!R_IS_A(dest) && !reg_is_fp(dest) && !reg_is_fp(src))
 #define ALU_WRITES_FLAGS(size, alu, is_mem, is_imm, imm)	((alu) == ALU_ADD && (size) == OP_SIZE_4 ? 0 : 1)
 #define ALU1_WRITES_FLAGS(alu)		1
 #define ROT_WRITES_FLAGS(alu, size, im)	1
@@ -152,7 +153,7 @@ static bool imm_is_16bit(int32_t imm)
 
 static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, uint32_t c)
 {
-	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_4, 0, MOV_WRITES_FLAGS(reg, ARG_IMM));
 	gen_one(reg);
 	gen_one(ARG_IMM);
 	gen_eight(c);
@@ -162,7 +163,7 @@ static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, 
 static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int32_t imm, unsigned attr_unused purpose, unsigned attr_unused size)
 {
 	if (!R_IS_A(base)) {
-		gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
+		gen_insn(INSN_MOV, OP_SIZE_4, 0, MOV_WRITES_FLAGS(R_SCRATCH_A, base));
 		gen_one(R_SCRATCH_A);
 		gen_one(base);
 		base = R_SCRATCH_A;
@@ -196,7 +197,7 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_one(ARG_IMM);
 	gen_eight(ARG_SPACE);
 
-	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_4, 0, MOV_WRITES_FLAGS(R_FRAME, ARG_ADDRESS_1));
 	gen_one(R_FRAME);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(RSP);
@@ -212,7 +213,7 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 
 static bool attr_w gen_escape(struct codegen_context *ctx)
 {
-	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_4, 0, MOV_WRITES_FLAGS(RD0, R_FRAME));
 	gen_one(RD0);
 	gen_one(R_FRAME);
 
@@ -235,7 +236,7 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 static bool attr_w gen_upcall_argument(struct codegen_context attr_unused *ctx, unsigned attr_unused arg)
 {
 	ajla_assert_lo(arg * 4 < ARG_SPACE, (file_line, "gen_upcall_argument: argument %u", arg));
-	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_4, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_ARG0));
 	gen_one(ARG_ADDRESS_1);
 	gen_one(RSP);
 	gen_eight(arg * 4);
@@ -246,7 +247,7 @@ static bool attr_w gen_upcall_argument(struct codegen_context attr_unused *ctx, 
 
 static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsigned n_args, bool unspill)
 {
-	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_4, 0, MOV_WRITES_FLAGS(R_SCRATCH_A, ARG_ADDRESS_1));
 	gen_one(R_SCRATCH_A);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(RSP);
@@ -264,13 +265,13 @@ static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsi
 
 static bool attr_w gen_get_upcall_pointer(struct codegen_context *ctx, unsigned offset, unsigned op_size, unsigned reg)
 {
-	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_4, 0, MOV_WRITES_FLAGS(R_SCRATCH_A, ARG_ADDRESS_1));
 	gen_one(R_SCRATCH_A);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(RSP);
 	gen_eight(ARG_SPACE + ARG_OFFSET + 4);
 
-	gen_insn(INSN_MOV, op_size, 0, 0);
+	gen_insn(INSN_MOV, op_size, 0, MOV_WRITES_FLAGS(reg, ARG_ADDRESS_1));
 	gen_one(reg);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_SCRATCH_A);
@@ -297,7 +298,7 @@ static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t esca
 
 static bool attr_w gen_callback_trampoline(struct codegen_context *ctx)
 {
-	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_4, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1_PRE_I, RD0));
 	gen_one(ARG_ADDRESS_1_PRE_I);
 	gen_one(RSP);
 	gen_eight(-4);

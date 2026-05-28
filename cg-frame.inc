@@ -160,7 +160,7 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 #endif
 	if (!ARCH_HAS_BWX && size < OP_SIZE_4) {
 		g(gen_address(ctx, base, x_offset, reg_is_fp(reg) ? IMM_PURPOSE_VLDR_VSTR_OFFSET : IMM_PURPOSE_LDR_SX_OFFSET, OP_SIZE_4));
-		gen_insn(INSN_MOVSX, OP_SIZE_4, 0, 0);
+		gen_insn(INSN_MOVSX, OP_SIZE_4, 0, MOV_WRITES_FLAGS(reg, ARG_ADDRESS_1));
 		gen_one(reg);
 		gen_address_offset();
 
@@ -171,7 +171,7 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 #if defined(ARCH_ALPHA)
 	if (size < OP_SIZE_4) {
 		g(gen_address(ctx, base, x_offset, reg_is_fp(reg) ? IMM_PURPOSE_VLDR_VSTR_OFFSET : IMM_PURPOSE_LDR_OFFSET, size));
-		gen_insn(INSN_MOV, size, 0, 0);
+		gen_insn(INSN_MOV, size, 0, MOV_WRITES_FLAGS(reg, ARG_ADDRESS_1));
 		gen_one(reg);
 		gen_address_offset();
 
@@ -189,7 +189,7 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 #endif
 	if (!reg_is_fp(reg) && ARCH_REQUIRES_MOV_MASK(size)) {
 		g(gen_address(ctx, base, x_offset, IMM_PURPOSE_LDR_OFFSET, size));
-		gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, size == OP_SIZE_1 ? MOV_MASK_0_8 : MOV_MASK_0_16, 0);
+		gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, size == OP_SIZE_1 ? MOV_MASK_0_8 : MOV_MASK_0_16, MOV_WRITES_FLAGS(reg, ARG_ADDRESS_1));
 		gen_one(reg);
 		gen_one(reg);
 		gen_address_offset();
@@ -214,7 +214,7 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 #if defined(ARCH_IA64) || defined(ARCH_PARISC)
 	if (ex == sign_x) {
 		g(gen_address(ctx, base, x_offset, IMM_PURPOSE_LDR_OFFSET, size));
-		gen_insn(INSN_MOV, size, 0, 0);
+		gen_insn(INSN_MOV, size, 0, MOV_WRITES_FLAGS(reg, ARG_ADDRESS_1));
 		gen_one(reg);
 		gen_address_offset();
 
@@ -226,7 +226,7 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 #if defined(ARCH_POWER)
 	if (size == OP_SIZE_1 && ex == sign_x) {
 		g(gen_address(ctx, base, x_offset, IMM_PURPOSE_LDR_OFFSET, size));
-		gen_insn(INSN_MOV, size, 0, 0);
+		gen_insn(INSN_MOV, size, 0, MOV_WRITES_FLAGS(reg, ARG_ADDRESS_1));
 		gen_one(reg);
 		gen_address_offset();
 
@@ -238,7 +238,7 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 #if defined(ARCH_S390)
 	if (size <= OP_SIZE_2 && ex == zero_x && !cpu_test_feature(CPU_FEATURE_extended_imm)) {
 		g(gen_address(ctx, base, x_offset, IMM_PURPOSE_LDR_SX_OFFSET, size));
-		gen_insn(INSN_MOVSX, size, 0, 0);
+		gen_insn(INSN_MOVSX, size, 0, MOV_WRITES_FLAGS(reg, ARG_ADDRESS_1));
 		gen_one(reg);
 		gen_address_offset();
 
@@ -254,7 +254,7 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 	}
 #endif
 	g(gen_address(ctx, base, x_offset, reg_is_fp(reg) ? IMM_PURPOSE_VLDR_VSTR_OFFSET : ex ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, size));
-	gen_insn(unlikely(ex == sign_x) && size < OP_SIZE_NATIVE ? INSN_MOVSX : INSN_MOV, size, 0, 0);
+	gen_insn(unlikely(ex == sign_x) && size < OP_SIZE_NATIVE ? INSN_MOVSX : INSN_MOV, size, 0, MOV_WRITES_FLAGS(reg, ARG_ADDRESS_1));
 	gen_one(reg);
 	gen_address_offset();
 
@@ -615,7 +615,7 @@ static bool attr_w gen_store_raw(struct codegen_context *ctx, unsigned size, uns
 	}
 #endif
 	g(gen_address(ctx, base, offset, reg_is_fp(reg) ? IMM_PURPOSE_VLDR_VSTR_OFFSET : IMM_PURPOSE_STR_OFFSET, size));
-	gen_insn(INSN_MOV, size, 0, 0);
+	gen_insn(INSN_MOV, size, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, reg));
 	gen_address_offset();
 	gen_one(reg);
 	return true;
@@ -662,7 +662,7 @@ static bool attr_w gen_frame_store_imm_raw(struct codegen_context *ctx, unsigned
 	if (!is_direct_const(imm, IMM_PURPOSE_MVI_CLI_OFFSET, size)) {
 		g(gen_load_constant(ctx, R_SCRATCH_3, imm));
 		g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_MVI_CLI_OFFSET, size));
-		gen_insn(INSN_MOV, size, 0, 0);
+		gen_insn(INSN_MOV, size, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_SCRATCH_3));
 		gen_address_offset();
 		gen_one(R_SCRATCH_3);
 		return true;
@@ -670,7 +670,7 @@ static bool attr_w gen_frame_store_imm_raw(struct codegen_context *ctx, unsigned
 #endif
 	g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_MVI_CLI_OFFSET, size));
 	g(gen_imm(ctx, imm, IMM_PURPOSE_STORE_VALUE, size));
-	gen_insn(INSN_MOV, size, 0, 0);
+	gen_insn(INSN_MOV, size, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, ARG_IMM));
 	gen_address_offset();
 	gen_imm_offset();
 	return true;
@@ -1185,7 +1185,7 @@ static bool attr_w gen_memcpy_raw(struct codegen_context *ctx, unsigned dest_bas
 
 #if defined(ARCH_M68K)
 			if (R_IS_A(dest_base) && R_IS_A(src_base)) {
-				gen_insn(INSN_MOV, this_op_size, 0, 0);
+				gen_insn(INSN_MOV, this_op_size, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, ARG_ADDRESS_1));
 				gen_one(ARG_ADDRESS_1);
 				gen_one(dest_base);
 				gen_eight(dest_offset);
@@ -1197,18 +1197,18 @@ static bool attr_w gen_memcpy_raw(struct codegen_context *ctx, unsigned dest_bas
 #endif
 			if (ARCH_REQUIRES_MOV_MASK(this_op_size)) {
 				g(gen_address(ctx, src_base, src_offset, IMM_PURPOSE_LDR_OFFSET, this_op_size));
-				gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, this_op_size == OP_SIZE_1 ? MOV_MASK_0_8 : MOV_MASK_0_16, 0);
+				gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, this_op_size == OP_SIZE_1 ? MOV_MASK_0_8 : MOV_MASK_0_16, MOV_WRITES_FLAGS(reg, ARG_ADDRESS_1));
 				gen_one(reg);
 				gen_one(reg);
 				gen_address_offset();
 			} else {
 				g(gen_address(ctx, src_base, src_offset, ARCH_PREFERS_SX(this_op_size) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, this_op_size));
-				gen_insn(ARCH_PREFERS_SX(this_op_size) ? INSN_MOVSX : INSN_MOV, this_op_size, x86_unaligned, 0);
+				gen_insn(ARCH_PREFERS_SX(this_op_size) ? INSN_MOVSX : INSN_MOV, this_op_size, x86_unaligned, MOV_WRITES_FLAGS(reg, ARG_ADDRESS_1));
 				gen_one(reg);
 				gen_address_offset();
 			}
 			g(gen_address(ctx, dest_base, dest_offset, IMM_PURPOSE_STR_OFFSET, this_op_size));
-			gen_insn(INSN_MOV, this_op_size, x86_unaligned, 0);
+			gen_insn(INSN_MOV, this_op_size, x86_unaligned, MOV_WRITES_FLAGS(ARG_ADDRESS_1, reg));
 			gen_address_offset();
 			gen_one(reg);
 
@@ -1342,7 +1342,7 @@ static bool attr_w gen_clear_bitmap(struct codegen_context *ctx, unsigned additi
 		frame_t i;
 		g(gen_3address_alu_imm(ctx, OP_SIZE_ADDRESS, ALU_ADD, R_SCRATCH_A, dest_base, dest_offset, 0));
 		for (i = 0; i < bitmap_slots; i++) {
-			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
+			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1_POST_I, ARG_IMM));
 			gen_one(ARG_ADDRESS_1_POST_I);
 			gen_one(R_SCRATCH_A);
 			gen_eight(4);
@@ -1401,7 +1401,7 @@ static bool attr_w gen_clear_bitmap(struct codegen_context *ctx, unsigned additi
 					scratch_2_zeroed = true;
 				}
 				g(gen_address(ctx, dest_base, dest_offset + clear_offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_16));
-				gen_insn(INSN_MOV, OP_SIZE_16, 0, 0);
+				gen_insn(INSN_MOV, OP_SIZE_16, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, FR_SCRATCH_1));
 				gen_address_offset();
 				gen_one(FR_SCRATCH_1);
 				goto next_loop;
@@ -1415,13 +1415,13 @@ static bool attr_w gen_clear_bitmap(struct codegen_context *ctx, unsigned additi
 				scratch_1_zeroed = true;
 			}
 			g(gen_address(ctx, dest_base, dest_offset + clear_offset, IMM_PURPOSE_STR_OFFSET, log_2(len)));
-			gen_insn(INSN_MOV, log_2(len), 0, 0);
+			gen_insn(INSN_MOV, log_2(len), 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_SCRATCH_1));
 			gen_address_offset();
 			gen_one(R_SCRATCH_1);
 #else
 			g(gen_address(ctx, dest_base, dest_offset + clear_offset, IMM_PURPOSE_STR_OFFSET, log_2(len)));
 			g(gen_imm(ctx, 0, IMM_PURPOSE_STORE_VALUE, log_2(len)));
-			gen_insn(INSN_MOV, log_2(len), 0, 0);
+			gen_insn(INSN_MOV, log_2(len), 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, ARG_IMM));
 			gen_address_offset();
 			gen_imm_offset();
 #endif
@@ -1472,7 +1472,7 @@ static bool attr_w load_function_offset(struct codegen_context *ctx, unsigned de
 	g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, dest));
 
 	g(gen_address(ctx, dest, fn_offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(dest, ARG_ADDRESS_1));
 	gen_one(dest);
 	gen_address_offset();
 

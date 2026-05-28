@@ -1942,7 +1942,7 @@ cant_elide:
 #endif
 					) {
 					g(prepare_new_insn(ctx));
-					gen_insn(INSN_MOV, insn_op_size(d1->insn), 0, 0);
+					gen_insn(INSN_MOV, insn_op_size(d1->insn), 0, MOV_WRITES_FLAGS(*dst2, dst1));
 					gen_stream(dst2, arg_size(*dst2));
 					gen_stream(src1, arg_size(*src1));
 					g(finish_new_insn(ctx, &nd, &d1->live_before, &d2->live_after));
@@ -1963,7 +1963,7 @@ cant_elide:
 			uint8_t *src2 = dst2 + arg_size(*dst2);
 			if (src1[0] == ARG_ADDRESS_1 && dst1[0] < ARG_REGS_MAX && src2[0] == ARG_ADDRESS_1 && src2[1] == dst1[0] && !reg_map_is_set(d2->live_after, dst1[0])) {
 				g(prepare_new_insn(ctx));
-				gen_insn(INSN_MOV, insn_op_size(d2->insn), 0, 0);
+				gen_insn(INSN_MOV, insn_op_size(d2->insn), 0, MOV_WRITES_FLAGS(*dst2, ARG_ADDRESS_INDIRECT));
 				gen_stream(dst2, arg_size(*dst2));
 				gen_one(ARG_ADDRESS_INDIRECT);
 				gen_one(src1[1]);

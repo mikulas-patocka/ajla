@@ -275,26 +275,26 @@ static bool attr_w gen_load_fn_or_curry(struct codegen_context *ctx, frame_t fn_
 		g(load_function_offset(ctx, R_SCRATCH_1, offsetof(struct data, u_.function.local_directory[fn_idx])));
 
 		g(gen_address(ctx, R_SAVED_1, offsetof(struct data, u_.function_reference.u.direct), IMM_PURPOSE_STR_OFFSET, OP_SIZE_ADDRESS));
-		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_SCRATCH_1));
 		gen_address_offset();
 		gen_one(R_SCRATCH_1);
 
 		g(gen_address(ctx, R_SAVED_1, offsetof(struct data, u_.function_reference.is_indirect), IMM_PURPOSE_STR_OFFSET, log_2(sizeof(bool))));
 		g(gen_imm(ctx, 0, IMM_PURPOSE_STORE_VALUE, log_2(sizeof(uchar_efficient_t))));
-		gen_insn(INSN_MOV, log_2(sizeof(uchar_efficient_t)), 0, 0);
+		gen_insn(INSN_MOV, log_2(sizeof(uchar_efficient_t)), 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, ARG_IMM));
 		gen_address_offset();
 		gen_imm_offset();
 	} else {
 		g(gen_frame_get_pointer(ctx, slot_fn, (flags & OPCODE_FLAG_FREE_ARGUMENT) != 0, R_SCRATCH_1));
 
 		g(gen_address(ctx, R_SAVED_1, offsetof(struct data, u_.function_reference.u.indirect), IMM_PURPOSE_STR_OFFSET, OP_SIZE_ADDRESS));
-		gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
+		gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_SCRATCH_1));
 		gen_address_offset();
 		gen_one(R_SCRATCH_1);
 
 		g(gen_address(ctx, R_SAVED_1, offsetof(struct data, u_.function_reference.is_indirect), IMM_PURPOSE_STR_OFFSET, log_2(sizeof(bool))));
 		g(gen_imm(ctx, 1, IMM_PURPOSE_STORE_VALUE, log_2(sizeof(uchar_efficient_t))));
-		gen_insn(INSN_MOV, log_2(sizeof(uchar_efficient_t)), 0, 0);
+		gen_insn(INSN_MOV, log_2(sizeof(uchar_efficient_t)), 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, ARG_IMM));
 		gen_address_offset();
 		gen_imm_offset();
 	}
@@ -325,13 +325,13 @@ static bool attr_w gen_load_fn_or_curry(struct codegen_context *ctx, frame_t fn_
 					copy_size = maximum(copy_size, OP_SIZE_4);
 				g(gen_address(ctx, R_SAVED_1, arg_offset_tag, IMM_PURPOSE_STR_OFFSET, log_2(sizeof(type_tag_t))));
 				g(gen_imm(ctx, t->tag, IMM_PURPOSE_STORE_VALUE, log_2(sizeof(type_tag_t))));
-				gen_insn(INSN_MOV, log_2(sizeof(type_tag_t)), 0, 0);
+				gen_insn(INSN_MOV, log_2(sizeof(type_tag_t)), 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, ARG_IMM));
 				gen_address_offset();
 				gen_imm_offset();
 
 				if (slot_is_register(ctx, arg_slot)) {
 					g(gen_address(ctx, R_SAVED_1, arg_offset_slot, IMM_PURPOSE_STR_OFFSET, copy_size));
-					gen_insn(INSN_MOV, spill_size(t), 0, 0);
+					gen_insn(INSN_MOV, spill_size(t), 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, ctx->registers[arg_slot]));
 					gen_address_offset();
 					gen_one(ctx->registers[arg_slot]);
 				} else {
@@ -364,12 +364,12 @@ static bool attr_w gen_load_fn_or_curry(struct codegen_context *ctx, frame_t fn_
 		gen_label(set_ptr_label);
 		g(gen_address(ctx, R_SAVED_1, arg_offset_tag, IMM_PURPOSE_STR_OFFSET, log_2(sizeof(type_tag_t))));
 		g(gen_imm(ctx, TYPE_TAG_unknown, IMM_PURPOSE_STORE_VALUE, log_2(sizeof(type_tag_t))));
-		gen_insn(INSN_MOV, log_2(sizeof(type_tag_t)), 0, 0);
+		gen_insn(INSN_MOV, log_2(sizeof(type_tag_t)), 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, ARG_IMM));
 		gen_address_offset();
 		gen_imm_offset();
 
 		g(gen_address(ctx, R_SAVED_1, arg_offset_ptr, IMM_PURPOSE_STR_OFFSET, OP_SIZE_SLOT));
-		gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
+		gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_RET0));
 		gen_address_offset();
 		gen_one(R_RET0);
 
@@ -638,7 +638,7 @@ skip_ref_argument:
 	g(load_function_offset(ctx, R_SCRATCH_1, offsetof(struct data, u_.function.local_directory[fn_idx])));
 
 	g(gen_address(ctx, R_SCRATCH_1, 0, IMM_PURPOSE_STR_OFFSET, OP_SIZE_SLOT));
-	gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, 0);
+	gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
 	gen_one(R_SCRATCH_1);
 	gen_address_offset();
 
@@ -653,7 +653,7 @@ skip_ref_argument:
 #endif
 
 	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.function.codegen), ARCH_PREFERS_SX(OP_SIZE_SLOT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_SLOT));
-	gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, 0);
+	gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
 	gen_one(R_SCRATCH_1);
 	gen_address_offset();
 
@@ -676,11 +676,11 @@ skip_ref_argument:
 	}
 #endif
 	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_base), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
 	gen_one(R_SCRATCH_1);
 	gen_address_offset_compressed();
 #if defined(R_SCRATCH_B)
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(R_SCRATCH_B, R_SCRATCH_1));
 	gen_one(R_SCRATCH_B);
 	gen_one(R_SCRATCH_1);
 
@@ -754,7 +754,7 @@ static bool attr_w gen_jmp_indirect(struct codegen_context *ctx, unsigned reg1, 
 		goto direct_jmp;
 #endif
 	if ((!shift || shift == OP_SIZE_ADDRESS) && ARCH_HAS_2REG_M(false, false, shift, offset)) {
-		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(reg1, ARG_ADDRESS_2 + shift));
 		gen_one(reg1);
 		gen_one(ARG_ADDRESS_2 + shift);
 		gen_one(reg1);
@@ -771,13 +771,13 @@ static bool attr_w gen_jmp_indirect(struct codegen_context *ctx, unsigned reg1, 
 		return true;
 #endif
 		g(gen_address(ctx, reg1, offset, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(reg1, ARG_ADDRESS_1));
 		gen_one(reg1);
 		gen_address_offset();
 	}
 
 #if defined(R_SCRATCH_B)
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(R_SCRATCH_B, reg1));
 	gen_one(R_SCRATCH_B);
 	gen_one(reg1);
 
@@ -818,7 +818,7 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 	g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, new_fp_offset + frame_offs(function), false, R_SCRATCH_2));
 
 	g(gen_address(ctx, R_SCRATCH_2, offsetof(struct data, u_.function.codegen), ARCH_PREFERS_SX(OP_SIZE_SLOT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_SLOT));
-	gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, 0);
+	gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(R_SCRATCH_3, ARG_ADDRESS_1));
 	gen_one(R_SCRATCH_3);
 	gen_address_offset();
 
@@ -834,7 +834,7 @@ static bool attr_w gen_return(struct codegen_context *ctx)
 	g(gen_load_raw(ctx, log_2(sizeof(ip_t)), native, R_FRAME, 0, frame_offs(previous_ip_bytes), false, R_SCRATCH_1));
 
 	g(gen_address(ctx, R_SCRATCH_2, offsetof(struct data, u_.function.code), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(R_SCRATCH_2, ARG_ADDRESS_1));
 	gen_one(R_SCRATCH_2);
 	gen_address_offset();
 
@@ -974,14 +974,14 @@ skip_quickret:
 				if (t->size == 2U << OP_SIZE_NATIVE) {
 					g(gen_frame_load_2(ctx, OP_SIZE_NATIVE, src_arg->slot, 0, R_SCRATCH_1, R_SCRATCH_2));
 
-					gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+					gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_2 + OP_SIZE_SLOT, R_SCRATCH_1));
 					gen_one(ARG_ADDRESS_2 + OP_SIZE_SLOT);
 					gen_one(R_FRAME);
 					gen_one(R_SAVED_2);
 					gen_eight(new_fp_offset + lo_word(OP_SIZE_NATIVE));
 					gen_one(R_SCRATCH_1);
 
-					gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+					gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_2 + OP_SIZE_SLOT, R_SCRATCH_2));
 					gen_one(ARG_ADDRESS_2 + OP_SIZE_SLOT);
 					gen_one(R_FRAME);
 					gen_one(R_SAVED_2);
@@ -990,7 +990,7 @@ skip_quickret:
 				} else {
 					g(gen_frame_get(ctx, log_2(t->size), garbage, src_arg->slot, R_SCRATCH_1, &reg1));
 
-					gen_insn(INSN_MOV, log_2(t->size), 0, 0);
+					gen_insn(INSN_MOV, log_2(t->size), 0, MOV_WRITES_FLAGS(ARG_ADDRESS_2 + OP_SIZE_SLOT, reg1));
 					gen_one(ARG_ADDRESS_2 + OP_SIZE_SLOT);
 					gen_one(R_FRAME);
 					gen_one(R_SAVED_2);
@@ -1053,7 +1053,7 @@ skip_ref_argument:
 		gen_label(write_ptr_label);
 
 		if (ARCH_HAS_2REG_M(true, false, OP_SIZE_SLOT, new_fp_offset)) {
-			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
+			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_2 + OP_SIZE_SLOT, R_RET0));
 			gen_one(ARG_ADDRESS_2 + OP_SIZE_SLOT);
 			gen_one(R_FRAME);
 			gen_one(R_SAVED_2);
@@ -1070,7 +1070,7 @@ skip_ref_argument:
 			gen_one(R_SAVED_2);
 
 			g(gen_address(ctx, R_SCRATCH_3, new_fp_offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_SLOT));
-			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
+			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_RET0));
 			gen_address_offset();
 			gen_one(R_RET0);
 			goto scaled_store_done;
@@ -1079,7 +1079,7 @@ skip_ref_argument:
 		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_SCRATCH_3, R_SAVED_2, OP_SIZE_SLOT, 0));
 
 		if (ARCH_HAS_2REG_M(true, false, 0, new_fp_offset)) {
-			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
+			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_2, R_RET0));
 			gen_one(ARG_ADDRESS_2);
 			gen_one(R_FRAME);
 			gen_one(R_SCRATCH_3);
@@ -1089,7 +1089,7 @@ skip_ref_argument:
 			g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_ADD, R_SCRATCH_3, R_SCRATCH_3, R_FRAME, 0));
 
 			g(gen_address(ctx, R_SCRATCH_3, new_fp_offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_SLOT));
-			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
+			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_RET0));
 			gen_address_offset();
 			gen_one(R_RET0);
 		}
@@ -1107,7 +1107,7 @@ scaled_store_done:
 	g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, new_fp_offset + frame_offs(function), false, R_SCRATCH_1));
 
 	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.function.codegen), ARCH_PREFERS_SX(OP_SIZE_SLOT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_SLOT));
-	gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, 0);
+	gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
 	gen_one(R_SCRATCH_1);
 	gen_address_offset();
 	if (OP_SIZE_SLOT < OP_SIZE_NATIVE && ARCH_PREFERS_SX(OP_SIZE_SLOT))
@@ -1256,11 +1256,10 @@ struct_zero:
 					internal(file_line, "gen_structured: invalid structured flags %x", (unsigned)ctx->args[i].flags);
 			}
 		} else {
-			gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, 0);
+			g(gen_address(ctx, R_SAVED_1, 0, ARCH_PREFERS_SX(OP_SIZE_SLOT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_SLOT));
+			gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
 			gen_one(R_SCRATCH_1);
-			gen_one(ARG_ADDRESS_1);
-			gen_one(R_SAVED_1);
-			gen_eight(0);
+			gen_address_offset();
 
 			g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, NO_FRAME_T, escape_label));
 			g(gen_barrier(ctx));
@@ -1299,7 +1298,7 @@ struct_zero:
 					gen_label_ref(escape_label);
 #else
 					g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.option.option), ARCH_PREFERS_SX(op_size) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, op_size));
-					gen_insn(ARCH_PREFERS_SX(op_size) ? INSN_MOVSX : INSN_MOV, op_size, 0, 0);
+					gen_insn(ARCH_PREFERS_SX(op_size) ? INSN_MOVSX : INSN_MOV, op_size, 0, MOV_WRITES_FLAGS(R_SCRATCH_2, ARG_ADDRESS_1));
 					gen_one(R_SCRATCH_2);
 					gen_address_offset();
 
@@ -1322,7 +1321,7 @@ struct_zero:
 						g(gen_check_array_len(ctx, R_SCRATCH_1, false, reg2, COND_AE, true, escape_label));
 
 						g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.array_pointers.pointer), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-						gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+						gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
 						gen_one(R_SCRATCH_1);
 						gen_address_offset();
 
@@ -1358,11 +1357,10 @@ struct_zero:
 		if (TYPE_IS_FLAT(elem_type))
 			g(gen_test_1_jz_cached(ctx, slot_elem, escape_label));
 
-		gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, 0);
+		g(gen_address(ctx, R_SAVED_1, 0, ARCH_PREFERS_SX(OP_SIZE_SLOT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_SLOT));
+		gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
 		gen_one(R_SCRATCH_1);
-		gen_one(ARG_ADDRESS_1);
-		gen_one(R_SAVED_1);
-		gen_eight(0);
+		gen_address_offset();
 
 		g(gen_jmp_on_zero(ctx, OP_SIZE_SLOT, R_SCRATCH_1, COND_E, skip_deref_label));
 
@@ -1375,10 +1373,9 @@ struct_zero:
 
 		g(gen_frame_get_pointer(ctx, slot_elem, (ctx->args[i - 1].flags & OPCODE_STRUCTURED_FREE_VARIABLE) != 0, R_SCRATCH_1));
 
-		gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
-		gen_one(ARG_ADDRESS_1);
-		gen_one(R_SAVED_1);
-		gen_eight(0);
+		g(gen_address(ctx, R_SAVED_1, 0, OP_SIZE_SLOT, IMM_PURPOSE_STR_OFFSET));
+		gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_SCRATCH_1));
+		gen_address_offset();
 		gen_one(R_SCRATCH_1);
 	}
 
@@ -1491,7 +1488,7 @@ static bool attr_w gen_record_create(struct codegen_context *ctx, frame_t slot_r
 
 		gen_label(set_ptr_label);
 		g(gen_address(ctx, R_SAVED_1, data_record_offset + (size_t)record_slot * slot_size, IMM_PURPOSE_STR_OFFSET, OP_SIZE_SLOT));
-		gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
+		gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_RET0));
 		gen_address_offset();
 		gen_one(R_RET0);
 
@@ -1551,7 +1548,7 @@ static bool attr_w gen_record_load(struct codegen_context *ctx, frame_t slot_1, 
 	g(gen_test_1(ctx, reg, rec_slot, data_record_offset, escape_label, true, TEST));
 
 	g(gen_address(ctx, reg, (size_t)rec_slot * slot_size + data_record_offset, ARCH_PREFERS_SX(OP_SIZE_SLOT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_SLOT));
-	gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, 0);
+	gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
 	gen_one(R_SCRATCH_1);
 	gen_address_offset();
 
@@ -1589,13 +1586,13 @@ static bool attr_w gen_option_create_empty(struct codegen_context *ctx, ajla_opt
 
 	g(gen_address(ctx, R_RET0, offsetof(struct data, u_.option.option), IMM_PURPOSE_STR_OFFSET, option_size));
 	g(gen_imm(ctx, opt, IMM_PURPOSE_STORE_VALUE, option_size));
-	gen_insn(INSN_MOV, option_size, 0, 0);
+	gen_insn(INSN_MOV, option_size, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, ARG_IMM));
 	gen_address_offset();
 	gen_imm_offset();
 
 	g(gen_address(ctx, R_RET0, offsetof(struct data, u_.option.pointer), IMM_PURPOSE_STR_OFFSET, OP_SIZE_SLOT));
 	g(gen_imm(ctx, 0, IMM_PURPOSE_STORE_VALUE, OP_SIZE_SLOT));
-	gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, ARG_IMM));
 	gen_address_offset();
 	gen_imm_offset();
 
@@ -1640,7 +1637,7 @@ static bool attr_w gen_option_create(struct codegen_context *ctx, ajla_option_t 
 
 	g(gen_address(ctx, R_RET0, offsetof(struct data, u_.option.option), IMM_PURPOSE_STR_OFFSET, option_size));
 	g(gen_imm(ctx, opt, IMM_PURPOSE_STORE_VALUE, option_size));
-	gen_insn(INSN_MOV, option_size, 0, 0);
+	gen_insn(INSN_MOV, option_size, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, ARG_IMM));
 	gen_address_offset();
 	gen_imm_offset();
 
@@ -1673,7 +1670,7 @@ static bool attr_w gen_option_create(struct codegen_context *ctx, ajla_option_t 
 skip_get_pointer_label:
 	gen_label(got_pointer_label);
 	g(gen_address(ctx, R_SAVED_1, offsetof(struct data, u_.option.pointer), IMM_PURPOSE_STR_OFFSET, OP_SIZE_SLOT));
-	gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_RET0));
 	gen_address_offset();
 	gen_one(R_RET0);
 
@@ -1695,7 +1692,7 @@ static bool attr_w gen_option_cmp(struct codegen_context *ctx, unsigned reg, fra
 	gen_imm_offset();
 #else
 	g(gen_address(ctx, reg, offsetof(struct data, u_.option.option), ARCH_PREFERS_SX(op_size) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, op_size));
-	gen_insn(ARCH_PREFERS_SX(op_size) ? INSN_MOVSX : INSN_MOV, op_size, 0, 0);
+	gen_insn(ARCH_PREFERS_SX(op_size) ? INSN_MOVSX : INSN_MOV, op_size, 0, MOV_WRITES_FLAGS(R_SCRATCH_2, ARG_ADDRESS_1));
 	gen_one(R_SCRATCH_2);
 	gen_address_offset();
 
@@ -1713,7 +1710,7 @@ static bool attr_w gen_option_cmp(struct codegen_context *ctx, unsigned reg, fra
 	return true;
 #else
 	g(gen_address(ctx, reg, offsetof(struct data, u_.option.option), ARCH_PREFERS_SX(op_size) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, op_size));
-	gen_insn(ARCH_PREFERS_SX(op_size) ? INSN_MOVSX : INSN_MOV, op_size, 0, 0);
+	gen_insn(ARCH_PREFERS_SX(op_size) ? INSN_MOVSX : INSN_MOV, op_size, 0, MOV_WRITES_FLAGS(R_SCRATCH_2, ARG_ADDRESS_1));
 	gen_one(R_SCRATCH_2);
 	gen_address_offset();
 
@@ -1755,7 +1752,7 @@ static bool attr_w gen_option_load(struct codegen_context *ctx, frame_t slot_1, 
 	g(gen_option_cmp(ctx, reg, opt, escape_label, 0));
 
 	g(gen_address(ctx, reg, offsetof(struct data, u_.option.pointer), ARCH_PREFERS_SX(OP_SIZE_SLOT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_SLOT));
-	gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, 0);
+	gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
 	gen_one(R_SCRATCH_1);
 	gen_address_offset();
 
@@ -1848,7 +1845,7 @@ static bool attr_w gen_option_ord(struct codegen_context *ctx, frame_t slot_1, f
 	g(gen_frame_decompress_slot(ctx, slot_1, R_SCRATCH_1, &reg, escape_label));
 
 	g(gen_address(ctx, reg, offsetof(struct data, u_.option.option), ARCH_PREFERS_SX(op_size) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, op_size));
-	gen_insn(ARCH_PREFERS_SX(op_size) ? INSN_MOVSX : INSN_MOV, op_size, 0, 0);
+	gen_insn(ARCH_PREFERS_SX(op_size) ? INSN_MOVSX : INSN_MOV, op_size, 0, MOV_WRITES_FLAGS(target, ARG_ADDRESS_1));
 	gen_one(target);
 	gen_address_offset();
 
@@ -1931,7 +1928,7 @@ static bool attr_w gen_array_create(struct codegen_context *ctx, frame_t slot_r)
 		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SAVED_1, R_RET0));
 
 		g(gen_address(ctx, R_RET0, offsetof(struct data, u_.array_pointers.pointer), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(R_SAVED_2, ARG_ADDRESS_1));
 		gen_one(R_SAVED_2);
 		gen_address_offset();
 
@@ -1939,7 +1936,7 @@ static bool attr_w gen_array_create(struct codegen_context *ctx, frame_t slot_r)
 		for (i = 0; i < ctx->args_l; i++) {
 			g(gen_frame_get_pointer(ctx, ctx->args[i].slot, (ctx->args[i].flags & OPCODE_FLAG_FREE_ARGUMENT) != 0, R_SCRATCH_1));
 			g(gen_address(ctx, R_SAVED_2, offset, IMM_PURPOSE_STR_OFFSET, OP_SIZE_SLOT));
-			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
+			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_SCRATCH_1));
 			gen_address_offset();
 			gen_one(R_SCRATCH_1);
 			offset += sizeof(pointer_t);
@@ -2323,7 +2320,7 @@ do_op:
 			else
 				xreg = !fp ? R_SCRATCH_2 : FR_SCRATCH_1;
 			if (!fp && ARCH_REQUIRES_MOV_MASK(op_size)) {
-				gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, op_size == OP_SIZE_1 ? MOV_MASK_0_8 : MOV_MASK_0_16, 0);
+				gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, op_size == OP_SIZE_1 ? MOV_MASK_0_8 : MOV_MASK_0_16, MOV_WRITES_FLAGS(xreg, addr_mode));
 				gen_one(xreg);
 				gen_one(xreg);
 				gen_one(addr_mode);
@@ -2331,7 +2328,7 @@ do_op:
 				gen_one(reg_idx);
 				gen_eight(offset_src);
 			} else {
-				gen_insn(!fp && ARCH_PREFERS_SX(op_size) ? INSN_MOVSX : INSN_MOV, op_size, 0, 0);
+				gen_insn(!fp && ARCH_PREFERS_SX(op_size) ? INSN_MOVSX : INSN_MOV, op_size, 0, MOV_WRITES_FLAGS(xreg, addr_mode));
 				gen_one(xreg);
 				gen_one(addr_mode);
 				gen_one(reg_src);
@@ -2341,7 +2338,7 @@ do_op:
 
 			if (reg < 0) {
 				g(gen_address(ctx, R_FRAME, (size_t)slot_r * slot_size, IMM_PURPOSE_STR_OFFSET, op_size));
-				gen_insn(INSN_MOV, op_size, 0, 0);
+				gen_insn(INSN_MOV, op_size, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, xreg));
 				gen_address_offset();
 				gen_one(xreg);
 			}
@@ -2402,19 +2399,19 @@ do_op:
 				reg = !fp ? R_SCRATCH_3 : FR_SCRATCH_1;
 				if (!fp && ARCH_REQUIRES_MOV_MASK(op_size)) {
 					g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_LDR_OFFSET, op_size));
-					gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, op_size == OP_SIZE_1 ? MOV_MASK_0_8 : MOV_MASK_0_16, 0);
+					gen_insn(INSN_MOV_MASK, OP_SIZE_NATIVE, op_size == OP_SIZE_1 ? MOV_MASK_0_8 : MOV_MASK_0_16, MOV_WRITES_FLAGS(reg, ARG_ADDRESS_1));
 					gen_one(reg);
 					gen_one(reg);
 					gen_address_offset();
 				} else {
 					g(gen_address(ctx, R_FRAME, (size_t)slot_1 * slot_size, IMM_PURPOSE_LDR_OFFSET, op_size));
-					gen_insn(!fp && ARCH_PREFERS_SX(op_size) ? INSN_MOVSX : INSN_MOV, op_size, 0, 0);
+					gen_insn(!fp && ARCH_PREFERS_SX(op_size) ? INSN_MOVSX : INSN_MOV, op_size, 0, MOV_WRITES_FLAGS(reg, ARG_ADDRESS_1));
 					gen_one(reg);
 					gen_address_offset();
 				}
 			}
 
-			gen_insn(INSN_MOV, op_size, 0, 0);
+			gen_insn(INSN_MOV, op_size, 0, MOV_WRITES_FLAGS(addr_mode, reg));
 			gen_one(addr_mode);
 			gen_one(reg_src);
 			gen_one(reg_idx);
@@ -2491,7 +2488,7 @@ static bool attr_w gen_check_array_len(struct codegen_context *ctx, unsigned reg
 	}
 #endif
 	g(gen_address(ctx, reg_array, offset, ARCH_PREFERS_SX(OP_SIZE_INT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_INT));
-	gen_insn(ARCH_PREFERS_SX(OP_SIZE_INT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_INT, 0, 0);
+	gen_insn(ARCH_PREFERS_SX(OP_SIZE_INT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_INT, 0, MOV_WRITES_FLAGS(R_SCRATCH_3, ARG_ADDRESS_1));
 	gen_one(R_SCRATCH_3);
 	gen_address_offset();
 #if defined(ARCH_POWER) || defined(ARCH_PARISC)
@@ -2590,7 +2587,7 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 			gen_address_offset();
 		} else if (ARCH_HAS_CMOV & 0x2) {	/* 3-address register */
 			g(gen_address(ctx, reg1, offsetof(struct data, u_.array_slice.flat_data_minus_data_array_offset), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-			gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+			gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(R_SCRATCH_3, ARG_ADDRESS_1));
 			gen_one(R_SCRATCH_3);
 			gen_address_offset();
 
@@ -2601,7 +2598,7 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 		} else if (ARCH_HAS_CMOV & 0x1) {	/* 2-address register */
 			g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SCRATCH_1, reg1));
 			g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.array_slice.flat_data_minus_data_array_offset), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-			gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+			gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(R_SCRATCH_3, ARG_ADDRESS_1));
 			gen_one(R_SCRATCH_3);
 			gen_address_offset();
 
@@ -2612,7 +2609,7 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 		} else if (ARCH_HAS_CMOV & 0x8) {	/* register-dependent */
 			g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SCRATCH_1, reg1));
 			g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.array_slice.flat_data_minus_data_array_offset), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-			gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+			gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(R_SCRATCH_3, ARG_ADDRESS_1));
 			gen_one(R_SCRATCH_3);
 			gen_address_offset();
 			if (!subtract) {
@@ -2653,7 +2650,7 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 			}
 
 			g(gen_address(ctx, reg1, offsetof(struct data, u_.array_slice.flat_data_minus_data_array_offset), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-			gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+			gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
 			gen_one(R_SCRATCH_1);
 			gen_address_offset();
 
@@ -2676,12 +2673,12 @@ skip_slice:
 			g(gen_check_array_len(ctx, reg1, false, reg2, COND_AE, true, escape_label));
 
 		g(gen_address(ctx, reg1, offsetof(struct data, u_.array_pointers.pointer), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(R_SAVED_1, ARG_ADDRESS_1));
 		gen_one(R_SAVED_1);
 		gen_address_offset();
 
 		if (ARCH_HAS_2REG_M(false, false, OP_SIZE_SLOT, 0)) {
-			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
+			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_2 + OP_SIZE_SLOT));
 			gen_one(R_SCRATCH_1);
 			gen_one(ARG_ADDRESS_2 + OP_SIZE_SLOT);
 			gen_one(R_SAVED_1);
@@ -2699,7 +2696,7 @@ skip_slice:
 			gen_one(reg2);
 			gen_one(R_SAVED_1);
 
-			gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, 0);
+			gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
 			gen_one(R_SCRATCH_1);
 			gen_one(ARG_ADDRESS_1);
 			gen_one(R_SCRATCH_2);
@@ -2711,7 +2708,7 @@ skip_slice:
 		if (ARCH_HAS_2REG_M(false, false, 0, 0)) {
 			g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_SCRATCH_2, reg2, OP_SIZE_SLOT, 0));
 
-			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
+			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_2));
 			gen_one(R_SCRATCH_1);
 			gen_one(ARG_ADDRESS_2);
 			gen_one(R_SAVED_1);
@@ -2725,11 +2722,10 @@ skip_slice:
 
 		g(gen_3address_alu(ctx, OP_SIZE_ADDRESS, ALU_ADD, R_SCRATCH_2, R_SCRATCH_2, R_SAVED_1, 0));
 
-		gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, 0);
+		g(gen_address(ctx, R_SCRATCH_2, 0, ARCH_PREFERS_SX(OP_SIZE_SLOT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_SLOT));
+		gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
 		gen_one(R_SCRATCH_1);
-		gen_one(ARG_ADDRESS_1);
-		gen_one(R_SCRATCH_2);
-		gen_eight(0);
+		gen_address_offset();
 scaled_load_done:
 		g(gen_frame_set_pointer_2(ctx, slot_r, R_SCRATCH_1, flags, escape_label));
 		return true;
@@ -2799,7 +2795,7 @@ static bool attr_w gen_array_len(struct codegen_context *ctx, frame_t slot_1, fr
 		}
 #endif
 		g(gen_address(ctx, reg, offsetof(struct data, u_.array_flat.n_used_entries), ARCH_PREFERS_SX(OP_SIZE_INT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_INT));
-		gen_insn(ARCH_PREFERS_SX(OP_SIZE_INT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_INT, 0, 0);
+		gen_insn(ARCH_PREFERS_SX(OP_SIZE_INT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_INT, 0, MOV_WRITES_FLAGS(target, ARG_ADDRESS_1));
 		gen_one(target);
 		gen_address_offset();
 
@@ -3010,7 +3006,7 @@ static bool attr_w gen_array_append_one_flat(struct codegen_context *ctx, frame_
 	g(gen_compare_tag_and_refcount(ctx, reg, DATA_TAG_array_flat, escape_label, R_SCRATCH_1));
 
 	g(gen_address(ctx, reg, offsetof(struct data, u_.array_flat.n_used_entries), ARCH_PREFERS_SX(OP_SIZE_INT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_INT));
-	gen_insn(ARCH_PREFERS_SX(OP_SIZE_INT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_INT, 0, 0);
+	gen_insn(ARCH_PREFERS_SX(OP_SIZE_INT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_INT, 0, MOV_WRITES_FLAGS(R_SCRATCH_2, ARG_ADDRESS_1));
 	gen_one(R_SCRATCH_2);
 	gen_address_offset();
 
@@ -3019,7 +3015,7 @@ static bool attr_w gen_array_append_one_flat(struct codegen_context *ctx, frame_
 	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_INT), ALU_ADD, R_SCRATCH_1, R_SCRATCH_2, 1, 0));
 
 	g(gen_address(ctx, reg, offsetof(struct data, u_.array_flat.n_used_entries), IMM_PURPOSE_STR_OFFSET, OP_SIZE_INT));
-	gen_insn(INSN_MOV, OP_SIZE_INT, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_INT, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_SCRATCH_1));
 	gen_address_offset();
 	gen_one(R_SCRATCH_1);
 
@@ -3063,7 +3059,7 @@ static bool attr_w gen_array_append_one(struct codegen_context *ctx, frame_t slo
 	g(gen_compare_tag_and_refcount(ctx, reg, DATA_TAG_array_pointers, escape_label, R_SCRATCH_1));
 
 	g(gen_address(ctx, reg, offsetof(struct data, u_.array_pointers.n_used_entries), ARCH_PREFERS_SX(OP_SIZE_INT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_INT));
-	gen_insn(ARCH_PREFERS_SX(OP_SIZE_INT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_INT, 0, 0);
+	gen_insn(ARCH_PREFERS_SX(OP_SIZE_INT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_INT, 0, MOV_WRITES_FLAGS(R_SAVED_2, ARG_ADDRESS_1));
 	gen_one(R_SAVED_2);
 	gen_address_offset();
 
@@ -3074,19 +3070,19 @@ static bool attr_w gen_array_append_one(struct codegen_context *ctx, frame_t slo
 	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_INT), ALU_ADD, R_SCRATCH_1, R_SAVED_2, 1, 0));
 
 	g(gen_address(ctx, reg, offsetof(struct data, u_.array_pointers.n_used_entries), IMM_PURPOSE_STR_OFFSET, OP_SIZE_INT));
-	gen_insn(INSN_MOV, OP_SIZE_INT, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_INT, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_SCRATCH_1));
 	gen_address_offset();
 	gen_one(R_SCRATCH_1);
 
 	g(gen_address(ctx, reg, offsetof(struct data, u_.array_pointers.pointer), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(R_SCRATCH_3, ARG_ADDRESS_1));
 	gen_one(R_SCRATCH_3);
 	gen_address_offset();
 
 	g(gen_scaled_array_address(ctx, slot_size, R_SAVED_2, R_SCRATCH_3, R_SAVED_2, 0));
 
 	g(gen_address(ctx, R_SAVED_2, 0, IMM_PURPOSE_STR_OFFSET, OP_SIZE_SLOT));
-	gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, 0);
+	gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_SCRATCH_2));
 	gen_address_offset();
 	gen_one(R_SCRATCH_2);
 

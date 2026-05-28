@@ -658,7 +658,7 @@ do_multiply: {
 				ce->undo_opcode = INSN_MOV;
 				ce->undo_op_size = op_size;
 				ce->undo_aux = 0;
-				ce->undo_writes_flags = 0;
+				ce->undo_writes_flags = MOV_WRITES_FLAGS(target, R_SCRATCH_1);
 				ce->undo_parameters[0] = target;
 				ce->undo_parameters[1] = R_SCRATCH_1;
 				ce->undo_parameters_len = 2;
@@ -1393,7 +1393,7 @@ shift_skip:
 
 		if (mode == MODE_INT && alu == ROT_SHL) {
 			if (op_size < OP_SIZE_NATIVE) {
-				gen_insn(INSN_MOVSX, op_size, 0, 0);
+				gen_insn(INSN_MOVSX, op_size, 0, MOV_WRITES_FLAGS(R_SCRATCH_4, target));
 				gen_one(R_SCRATCH_4);
 				gen_one(target);
 
@@ -2362,12 +2362,12 @@ do_bsf_bsr_popcnt: {
 				gen_one(R_AX);
 
 				g(gen_address(ctx, R_FRAME, (size_t)slot_r * slot_size + lo_word(OP_SIZE_NATIVE), IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
-				gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+				gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_SCRATCH_1));
 				gen_address_offset();
 				gen_one(R_SCRATCH_1);
 
 				g(gen_address(ctx, R_FRAME, (size_t)slot_r * slot_size + hi_word(OP_SIZE_NATIVE), IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
-				gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+				gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_SCRATCH_2));
 				gen_address_offset();
 				gen_one(R_SCRATCH_2);
 
@@ -2387,13 +2387,13 @@ do_bsf_bsr_popcnt: {
 				g(gen_3address_alu(ctx, OP_SIZE_4, ALU_ADD, R_SCRATCH_1, R_SCRATCH_1, R_SCRATCH_2, 1));
 write_result:
 				g(gen_address(ctx, R_FRAME, (size_t)slot_r * slot_size + lo_word(OP_SIZE_NATIVE), IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
-				gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+				gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_SCRATCH_1));
 				gen_address_offset();
 				gen_one(R_SCRATCH_1);
 
 				g(gen_address(ctx, R_FRAME, (size_t)slot_r * slot_size + hi_word(OP_SIZE_NATIVE), IMM_PURPOSE_STR_OFFSET, OP_SIZE_NATIVE));
 				g(gen_imm(ctx, 0, IMM_PURPOSE_STORE_VALUE, OP_SIZE_NATIVE));
-				gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+				gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, ARG_IMM));
 				gen_address_offset();
 				gen_imm_offset();
 
@@ -2422,7 +2422,7 @@ write_result:
 			goto bsf_bsr_popcnt_finish;
 		if (mode == MODE_FIXED) {
 			uint32_t cmov_label;
-			gen_insn(INSN_MOV, maximum(op_size, OP_SIZE_4), 0, 0);
+			gen_insn(INSN_MOV, maximum(op_size, OP_SIZE_4), 0, MOV_WRITES_FLAGS(R_SCRATCH_2, ARG_IMM));
 			gen_one(R_SCRATCH_2);
 			gen_one(ARG_IMM);
 			gen_eight(-1);
@@ -3023,19 +3023,19 @@ gen_fldc:
 #if defined(ARCH_M68K)
 		if (slot_is_register(ctx, slot_r)) {
 			g(gen_address(ctx, R_SCRATCH_3, offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_10));
-			gen_insn(INSN_MOV, OP_SIZE_10, 0, 0);
+			gen_insn(INSN_MOV, OP_SIZE_10, 0, MOV_WRITES_FLAGS(ctx->registers[slot_r], ARG_ADDRESS_1));
 			gen_one(ctx->registers[slot_r]);
 			gen_address_offset();
 
 			return true;
 		}
 		g(gen_address(ctx, R_SCRATCH_3, offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_10));
-		gen_insn(INSN_MOV, OP_SIZE_10, 0, 0);
+		gen_insn(INSN_MOV, OP_SIZE_10, 0, MOV_WRITES_FLAGS(FR_SCRATCH_1, ARG_ADDRESS_1));
 		gen_one(FR_SCRATCH_1);
 		gen_address_offset();
 
 		g(gen_address(ctx, R_FRAME, (size_t)slot_r * slot_size, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_10));
-		gen_insn(INSN_MOV, OP_SIZE_10, 0, 0);
+		gen_insn(INSN_MOV, OP_SIZE_10, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, FR_SCRATCH_1));
 		gen_address_offset();
 		gen_one(FR_SCRATCH_1);
 
@@ -3070,7 +3070,7 @@ static bool attr_w gen_copy(struct codegen_context *ctx, unsigned op_size, frame
 #endif
 #if defined(ARCH_S390)
 		if (slot_r * slot_size < 0x1000 && (size_t)slot_1 * slot_size < 0x1000) {
-			gen_insn(INSN_MOV, op_size, 0, 0);
+			gen_insn(INSN_MOV, op_size, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, ARG_ADDRESS_1));
 			gen_one(ARG_ADDRESS_1);
 			gen_one(R_FRAME);
 			gen_eight(slot_r * slot_size);
@@ -3984,7 +3984,7 @@ do_cvt_to_int:
 			else
 				g(gen_frame_store_x87(ctx, INSN_X87_FIST, OP_SIZE_INT, slot_r, 1));
 
-			gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+			gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, ARG_IMM));
 			gen_one(ARG_ADDRESS_1);
 			gen_one(R_SP);
 			gen_eight(0);
