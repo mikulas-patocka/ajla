@@ -82,7 +82,7 @@ again:
 				if ins.opcode <> P_Phi then
 					break;
 				ins.params := ins.params[.. j + 1] + ins.params[j + 2 .. ];
-				ins.read_set := ins.read_set shr 1 btc 0;
+				ins.read_set := ins.read_set shr 1 btr 0;
 				ctx.instrs[ctx.blocks[p].instrs[lidx]] := ins;
 			]
 			goto again;
