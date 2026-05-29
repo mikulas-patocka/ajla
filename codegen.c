@@ -1859,7 +1859,8 @@ skip_dereference:
 					return false;
 				}
 
-				g(gen_load_constant(ctx, R_RET_IP, ((ctx->current_position - da(ctx->fn,function)->code) * CG_EXIT_MULTIPLIER) | CG_EXIT_FLAG_NONFLAT));
+				if (n)
+					g(gen_load_constant(ctx, R_RET_IP, ((ctx->current_position - da(ctx->fn,function)->code) * CG_EXIT_MULTIPLIER) | CG_EXIT_FLAG_NONFLAT));
 
 				if (unlikely(!gen_test_variable_tags(ctx, vars, n, ctx->nospill_label))) {
 					mem_free(vars);
