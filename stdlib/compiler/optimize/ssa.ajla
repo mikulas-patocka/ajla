@@ -1701,49 +1701,6 @@ skip_this_instr:
 	return ctx;
 ]
 
-fn rematerialize(ctx : context) : context
-[
-	for bgi := 0 to len(ctx.blocks) do [
-		if not ctx.blocks[bgi].active then
-			continue;
-		var consts := infinite(-1);
-		var consts_nonempty := false;
-		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
-			var igi := ctx.blocks[bgi].instrs[ili];
-			var ins := ctx.instrs[igi];
-			if ins.opcode = P_Load_Const then [
-				var value_list := ins.params[1 .. ];
-				value_list +<= ctx.variables[ins.params[0]].runtime_type;
-				var value_number := gvn_encode(value_list);
-				if consts[value_number] <> -1 then
-					continue;
-				consts[value_number] := ins.params[0];
-				consts_nonempty := true;
-				continue;
-			]
-			if not consts_nonempty then
-				continue;
-			var rs := ins.read_set;
-			while rs <> 0 do [
-				var p : int := bsr rs;
-				rs btr= p;
-				var rd := ins.params[p];
-				var v := ctx.variables[rd];
-				var def_ins := ctx.instrs[v.defining_instr];
-				if def_ins.opcode = P_Load_Const,
-				   def_ins.bb <> bgi then [
-					var value_list := def_ins.params[1 .. ];
-					value_list +<= ctx.variables[def_ins.params[0]].runtime_type;
-					var value_number := gvn_encode(value_list);
-					if consts[value_number] <> -1 then
-						ctx.instrs[igi].params[p] := consts[value_number];
-				]
-			]
-		]
-	]
-	return ctx;
-]
-
 fn dce(ctx : context) : context
 [
 	for vgi := 0 to len(ctx.variables) do [
@@ -1890,6 +1847,54 @@ cont:
 		]
 	]
 
+	return ctx;
+]
+
+fn rematerialize(ctx : context) : context
+[
+	var use_count := fill(0, len(ctx.variables));
+	var use_bgi := fill(-1, len(ctx.variables));
+	var use_ili := fill(-1, len(ctx.variables));
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
+			var igi := ctx.blocks[bgi].instrs[ili];
+			var ins := ctx.instrs[igi];
+			var rs := ins.read_set;
+			while rs <> 0 do [
+				var p : int := bsr rs;
+				rs btr= p;
+				var rd := ins.params[p];
+				if ins.opcode = P_Phi then [
+					use_count[rd] := 2;
+					continue;
+				]
+				use_count[rd] += 1;
+				use_bgi[rd] := bgi;
+				use_ili[rd] := ili;
+			]
+		]
+	]
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
+			var igi := ctx.blocks[bgi].instrs[ili];
+			var ins := ctx.instrs[igi];
+			if ins.opcode = P_Load_Const then [
+				var rd := ins.params[0];
+				if use_count[rd] = 1, use_bgi[rd] <> bgi then [
+					var ubgi := use_bgi[rd];
+					var uili := use_ili[rd];
+					ctx.instrs[igi].bb := ubgi;
+					ctx.blocks[bgi].instrs := ctx.blocks[bgi].instrs[ .. ili ] + ctx.blocks[bgi].instrs[ ili + 1 .. ];
+					ctx.blocks[ubgi].instrs := ctx.blocks[ubgi].instrs[ .. uili] + [ igi ] + ctx.blocks[ubgi].instrs[uili .. ];
+					ili -= 1;
+				]
+			]
+		]
+	]
 	return ctx;
 ]
 
@@ -3242,10 +3247,6 @@ retry_optimize:
 	ctx := icm(ctx);
 	ctx := check_consistency(ctx, "icm", true);
 
-	if print_passes then [ eval ctx; eval debug("rematerialize"); if is_exception ctx then eval debug("ctx exception"); ]
-	ctx := rematerialize(ctx);
-	ctx := check_consistency(ctx, "rematerialize", true);
-
 	if print_passes then [ eval ctx; eval debug("dce"); if is_exception ctx then eval debug("ctx exception"); ]
 	ctx := dce(ctx);
 	ctx := check_consistency(ctx, "dce", true);
@@ -3253,6 +3254,10 @@ retry_optimize:
 	if print_passes then [ eval ctx; eval debug("dce2"); if is_exception ctx then eval debug("ctx exception"); ]
 	ctx := dce2(ctx);
 	ctx := check_consistency(ctx, "dce2", true);
+
+	if print_passes then [ eval ctx; eval debug("rematerialize"); if is_exception ctx then eval debug("ctx exception"); ]
+	ctx := rematerialize(ctx);
+	ctx := check_consistency(ctx, "rematerialize", true);
 
 	if ctx.do_offload then [
 		if print_passes then [ eval ctx; eval debug("offload"); if is_exception ctx then eval debug("ctx exception"); ]
