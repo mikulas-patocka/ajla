@@ -53,7 +53,7 @@
 #define ARCH_HAS_CMOV			0x3
 #define ARCH_SHIFT_SIZE			OP_SIZE_4
 #define ARCH_BOOL_SIZE			OP_SIZE_4
-#define ARCH_HAS_FP_GP_MOV		1
+#define ARCH_HAS_FP_GP_MOV(size)	1
 #define ARCH_NEEDS_BARRIER		0
 
 #define i_size(size)			maximum(size, OP_SIZE_4)

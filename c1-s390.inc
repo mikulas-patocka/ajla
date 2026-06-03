@@ -66,7 +66,7 @@
 #define ARCH_HAS_CMOV			(cpu_test_feature(CPU_FEATURE_misc_45) * 0x5)
 #define ARCH_SHIFT_SIZE			OP_SIZE_8
 #define ARCH_BOOL_SIZE			OP_SIZE_4
-#define ARCH_HAS_FP_GP_MOV		0
+#define ARCH_HAS_FP_GP_MOV(size)	0
 #define ARCH_NEEDS_BARRIER		0
 
 #define i_size(size)			maximum(size, OP_SIZE_4)

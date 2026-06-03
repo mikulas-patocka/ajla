@@ -2934,7 +2934,7 @@ static bool attr_w gen_constant(struct codegen_context *ctx, bool real, unsigned
 			}
 		}
 #endif
-		if (ARCH_HAS_FP_GP_MOV) {
+		if (ARCH_HAS_FP_GP_MOV(op_size)) {
 			g(gen_load_constant(ctx, R_SCRATCH_1, c));
 			g(gen_mov(ctx, op_size, ctx->registers[slot_r], R_SCRATCH_1));
 		} else {
@@ -3340,7 +3340,7 @@ do_cmp:
 		gen_one(reg2);
 		gen_label_ref(label_ovf);
 
-		if (!ARCH_HAS_FP_GP_MOV) {
+		if (!ARCH_HAS_FP_GP_MOV(OP_SIZE_4)) {
 			g(gen_store_raw(ctx, OP_SIZE_4, R_FRAME, slot_r, 0, fr_scratch_3));
 			g(gen_load_raw(ctx, OP_SIZE_4, sign_x, R_FRAME, slot_r, 0, false, target));
 		} else {

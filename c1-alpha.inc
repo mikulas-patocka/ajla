@@ -55,7 +55,7 @@
 #define ARCH_HAS_SHIFTED_ADD(bits)	((bits) == 0 || (bits) == 2 || (bits) == 3)
 #define ARCH_SHIFT_SIZE			OP_SIZE_8
 #define ARCH_BOOL_SIZE			OP_SIZE_8
-#define ARCH_HAS_FP_GP_MOV		cpu_test_feature(CPU_FEATURE_fix)
+#define ARCH_HAS_FP_GP_MOV(size)	cpu_test_feature(CPU_FEATURE_fix)
 #define ARCH_NEEDS_BARRIER		thread_needs_barriers
 
 #define i_size(size)			OP_SIZE_NATIVE

@@ -85,6 +85,7 @@
 #define POWER_ADDE		0x7c000114U
 #define POWER_STDX		0x7c00012aU
 #define POWER_STWX		0x7c00012eU
+#define POWER_MTVSRD		0x7c000166U
 #define POWER_SUBFZE		0x7c000190U
 #define POWER_ADDZE		0x7c000194U
 #define POWER_STBX		0x7c0001aeU
@@ -473,6 +474,12 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 			cgen_xform(mc, arg2[0] & 31, arg1[1], arg1[2], false);
 			return true;
 		}
+	}
+	if (reg_is_fp(arg1[0]) && arg2[0] < 32 && size == OP_SIZE_8) {
+		mc = POWER_MTVSRD;
+		mc |= (arg1[0] & 32) >> 5;
+		cgen_xform(mc, arg1[0] & 31, arg2[0], 0, false);
+		return true;
 	}
 	if (reg_is_fp(arg1[0]) && !reg_is_vs(arg1[0])) {
 		if (unlikely(arg2[0] == ARG_ADDRESS_1)) {

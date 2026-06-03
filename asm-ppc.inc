@@ -36,6 +36,11 @@
 #define dynamic_test		trap_insn("7c0002f4")	/* popcntw */
 #include "asm-1.inc"
 
+#define feature_name		v207
+#define static_test_v207	_ARCH_PWR8
+#define dynamic_test		trap_insn("7c000166")	/* mtvsrd */
+#include "asm-1.inc"
+
 #define feature_name		v30
 #define static_test_v30		_ARCH_PWR9
 #define dynamic_test		trap_insn("7c000434")	/* cnttzw */
