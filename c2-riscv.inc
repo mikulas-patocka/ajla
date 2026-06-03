@@ -135,6 +135,7 @@
 #define  RISCV_F_DOUBLE			0x02000000U
 #define  RISCV_F_HALF			0x04000000U
 #define  RISCV_F_QUAD			0x06000000U
+#define RISCV_FMV_F_X		0xf0000053U
 #define RISCV_BEQ		0x00000063U
 #define RISCV_BNE		0x00001063U
 #define RISCV_BLT		0x00004063U
@@ -285,6 +286,14 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size)
 				default:	goto invalid;
 			}
 			g(cgen_memory_load(ctx, mc, arg1[0] & 0x1f, arg2[1], imm));
+			return true;
+		}
+		if (arg2[0] < 0x20) {
+			mc = RISCV_FMV_F_X;
+			mc |= riscv_fp_op_size(size);
+			mc |= (uint32_t)(arg1[0] & 0x1f) << 7;
+			mc |= (uint32_t)arg2[0] << 15;
+			cgen_rv(mc);
 			return true;
 		}
 		goto invalid;
