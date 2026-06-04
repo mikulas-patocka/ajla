@@ -235,6 +235,7 @@ fn string_to_ascii(str : string) : bytes
 
 fn utf8_validate(utf8 : bytes) : bool
 [
+	var n_combining : nat := 0;
 	var i : nat := 0;
 	while len_greater_than(utf8, i) do [
 		var st := i;
@@ -276,8 +277,15 @@ fn utf8_validate(utf8 : bytes) : bool
 		]
 		if not char_validate(code) then
 			return false;
-		if st = 0, classify_character(code) = class_combining then
-			return false;
+		if classify_character(code) = class_combining then [
+			if st = 0 then
+				return false;
+			n_combining += 1;
+			if n_combining > max_combining_characters then
+				return false;
+		] else [
+			n_combining := 0;
+		]
 	]
 	return true;
 ]
