@@ -27,7 +27,8 @@ const error_ascii : byte;
 const combining_shift : char := 21;
 const combining_mask : char := (1 shl combining_shift) - 1;
 const unicode_mask : char := #1FFFFF;
-fn n_combining_characters(code : char) : nat;
+const max_combining_characters : char := 29;
+fn n_combining_characters(code : char) : (r : char, contract r >= 0);
 
 fn char_validate~inline(c : char) : bool;
 fn char_to_unicode~inline(c : char) : int;
@@ -104,7 +105,7 @@ record charset_8bit [
 	unicode_to_chr : array(byte, [#110000]);
 ]
 
-fn n_combining_characters(code : char) : nat
+fn n_combining_characters(code : char) : (r : char, contract r >= 0)
 [
 	var b := bsr(code or 1);
 	assume b >= 0;
@@ -127,8 +128,10 @@ fn char_validate~inline(c : char) : bool
 	if not validate_unicode(c and unicode_mask) then
 		return false;
 	var nc := n_combining_characters(c);
-	for i := 0 to nc do [
-		var cc := (c shr (i + 1) * combining_shift);
+	if nc > max_combining_characters then
+		return false;
+	for i : char := 0 to nc do [
+		var cc := c shr (i + 1) * combining_shift;
 		if not validate_unicode(cc and unicode_mask) then
 			return false;
 	]
@@ -336,6 +339,8 @@ abrt:
 			if result = -1 then
 				return error_char, i;
 			var n := n_combining_characters(result);
+			if n >= max_combining_characters then
+				return error_char, i;
 			result or= code shl (n + 1) * combining_shift;
 		] else [
 			if result <> -1 then
