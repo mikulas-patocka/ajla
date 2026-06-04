@@ -471,6 +471,7 @@ fn string_to_ch8(ch8 : charset_8bit, s : string) : bytes
 	var result := empty(byte);
 	var i : nat := 0;
 	while len_greater_than(s, i) do [
+		var cls : int;
 		if i >= lazy_buffer_size then
 			return result + string_to_ch8~lazy(ch8, s[i .. ]);
 		var uni := s[i];
@@ -484,18 +485,19 @@ recheck:
 			if b > 0 then [
 				result +<= b;
 			] else [
-				var cls := classify_character(uni);
+				cls := classify_character(uni);
 				if cls = 1 then [
 					uni := uni_fallback[uni];
 					if uni <> 0 then
 						goto recheck;
-					result +<= error_ascii;
-				] else if cls = 2 then [
-					result += [ error_ascii, error_ascii ];
 				]
+				goto fill_with_error;
 			]
 		] else [
-			result +<= error_ascii;
+			cls := classify_character(uni);
+fill_with_error:
+			if cls > 0 then
+				result += fill(error_ascii, cls);
 		]
 		i += 1;
 	]
