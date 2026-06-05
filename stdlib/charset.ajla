@@ -275,7 +275,7 @@ fn utf8_validate(utf8 : bytes) : bool
 		] else [
 			return false;
 		]
-		if not char_validate(code) then
+		if not validate_unicode(code) then
 			return false;
 		if classify_character(code) = class_combining then [
 			if st = 0 then
