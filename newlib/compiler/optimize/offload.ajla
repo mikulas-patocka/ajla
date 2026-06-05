@@ -120,7 +120,7 @@ fn test_loop(ctx : context, start_bgi end_bgi : int) : (list(loop_status), bytes
 		lim := loop_limit.v.(cmp_instr.params[5]);
 	] else if cmp_instr.opcode = P_BinaryConstOp, cmp_instr.params[0] = Bin_Less then [
 		control_var := cmp_instr.params[3];
-		lim := loop_limit.c.(cmp_instr.params[4]);
+		lim := loop_limit.c.(blob_to_int(cmp_instr.params[4 .. ]));
 	] else if cmp_instr.opcode = P_Array_Len_Greater_Than then [
 		control_var := cmp_instr.params[2];
 		lim := loop_limit.a.(cmp_instr.params[1]);
@@ -161,7 +161,7 @@ found_control_var:
 		return empty(loop_status), "unsupported loop increment";
 	if def1.params[0] <> Bin_Add or
 	   def1.params[3] <> control_var or
-	   def1.params[4] <> 1 then
+	   blob_to_int(def1.params[4 .. ]) <> 1 then
 		return empty(loop_status), "unsupported loop increment";
 
 	if len(ctx.blocks[last_bb].post_list) <> 1 then
@@ -317,7 +317,7 @@ found_x:
 				]
 			] else if def_var_mult.opcode = P_BinaryConstOp, def_var_mult.params[0] = Bin_Multiply then [
 				var_idx := def_var_mult.params[3];
-				if shape[ll].limit is c, shape[ll].limit.c = def_var_mult.params[4] then
+				if shape[ll].limit is c, shape[ll].limit.c = blob_to_int(def_var_mult.params[4 .. ]) then
 					goto mult_ok;
 			]
 			return "invalid array indices";
@@ -472,7 +472,7 @@ fn process_binary_operator(ctx : context, ins : instruction) : bytes
 	] else if not cnst then [
 		op2_name := ctx.variables[ins.params[5]].offload_name;
 	] else [
-		op2_name := "("+ft+")"+ntos(ins.params[4]);
+		op2_name := "("+ft+")"+ntos(blob_to_int(ins.params[4 .. ]));
 	]
 	var output := "	{"+nl;
 	output += "		"+t+" result;"+nl;

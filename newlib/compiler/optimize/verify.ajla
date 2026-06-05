@@ -418,12 +418,13 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				goto ret_undefined;
 			gen_assert(ctx, v, var_name, "(" + op_z3 + " " + var1 + " " + var2 + unint_str + ")", fa);
 		] else [
+			var cnst := blob_to_int(ins.params[4 .. ]);
 			if t = T_Bool then
-				var2 := select(ins.params[4] <> 0, "false", "true");
+				var2 := select(cnst <> 0, "false", "true");
 			else if t <= T_SInt8, t >= T_UInt128 then
-				var2 := get_bv_const(t, ins.params[4]);
+				var2 := get_bv_const(t, cnst);
 			else
-				var2 := ntos(ins.params[4]);
+				var2 := ntos(cnst);
 			gen_assert(ctx, v, var_name, "(" + op_z3 + " " + var1 + " " + var2 + unint_str + ")", fa);
 		]
 		return ctx;

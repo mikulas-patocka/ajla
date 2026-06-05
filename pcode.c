@@ -2558,6 +2558,8 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 			pcode_t p, op, res, a1, a2, a3, a4, aa, flags, flags1, flags2, flags3, cnst;
 			const struct pcode_type *tr, *t1, *t2, *t3, *ta;
 			bool a1_deref, a2_deref;
+			uint8_t *blob;
+			size_t l, i;
 			arg_mode_t am;
 			code_t code;
 			frame_t fflags;
@@ -2679,7 +2681,16 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				res = u_pcode_get();
 				flags1 = u_pcode_get();
 				a1 = pcode_get();
-				cnst = pcode_get();
+				if (unlikely(!pcode_load_blob(&ctx->pcode, &blob, &l, ctx->err)))
+					goto exception;
+				cnst = 0;
+				for (i = 0; i < l; i++) {
+					upcode_t o = blob[i];
+					if (i >= l - 1 && o >= 128)
+						o -= 256;
+					cnst |= o << (i * 8);
+				}
+				mem_free(blob);
 				if (unlikely(var_elided(res))) {
 					if (flags1 & Flag_Free_Argument)
 						pcode_free(ctx, a1);
