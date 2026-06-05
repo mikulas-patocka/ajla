@@ -4717,7 +4717,13 @@ static void * attr_fastcall io_evaluate_handler(struct io_ctx *ctx)
 	if (unlikely(ipret_is_privileged)) {
 		if (unlikely(op == Un_SystemProperty))
 			goto unsup;
-		if (TYPE_TAG_IS_REAL(src_t->tag) || TYPE_TAG_IS_REAL(dest_t->tag))
+		if (TYPE_TAG_IS_REAL(src_t->tag))
+			goto unsup;
+		if (TYPE_TAG_IS_REAL(dest_t->tag))
+			goto unsup;
+		if (TYPE_TAG_IS_FIXED(src_t->tag) && TYPE_TAG_IDX_FIXED(src_t->tag) >> 1 == 4)
+			goto unsup;
+		if (TYPE_TAG_IS_FIXED(dest_t->tag) && TYPE_TAG_IDX_FIXED(dest_t->tag) >> 1 == 4)
 			goto unsup;
 	}
 
