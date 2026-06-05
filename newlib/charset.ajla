@@ -381,18 +381,15 @@ novfy fn utf8_to_string(utf8 : bytes) : string
 
 fn char_to_utf8~inline(code : char) : bytes
 [
-	if code < 0 then
+	if not validate_unicode(code) then
 		return bytes.[ error_ascii ];
-	else if code < #80 then
+	if code < #80 then
 		return bytes.[ code ];
-	else if code < #800 then
+	if code < #800 then
 		return bytes.[ code shr 6 or #c0, code and #3f or #80 ];
-	else if code < #10000 then
+	if code < #10000 then
 		return bytes.[ code shr 12 or #e0, code shr 6 and #3f or #80, code and #3f or #80 ];
-	else if code < #110000 then
-		return bytes.[ code shr 18 or #f0, code shr 12 and #3f or #80, code shr 6 and #3f or #80, code and #3f or #80 ];
-	else
-		return bytes.[ error_ascii ];
+	return bytes.[ code shr 18 or #f0, code shr 12 and #3f or #80, code shr 6 and #3f or #80, code and #3f or #80 ];
 ]
 
 fn string_to_utf8(s : string) : bytes
