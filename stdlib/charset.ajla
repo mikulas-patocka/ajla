@@ -269,7 +269,7 @@ fn utf8_validate(utf8 : bytes) : bool
 			if utf8[i + 3] < #80 or utf8[i + 3] >= #c0 then
 				return false;
 			code := (#07 and utf8[i]) shl 18 or (#3f and utf8[i + 1]) shl 12 or (#3f and utf8[i + 2]) shl 6 or (#3f and utf8[i + 3]);
-			if code < #10000 or code > #10ffff then
+			if code < #10000 then
 				return false;
 			i += 4;
 		] else [
