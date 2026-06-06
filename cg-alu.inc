@@ -4918,6 +4918,57 @@ do_cmp:
 		return true;
 #endif
 	}
+#ifdef SUPPORTED_FP_X87
+	if ((SUPPORTED_FP_X87 >> real_type) & 1 && cpu_test_feature(CPU_FEATURE_cmov)) {
+		short reg_1, reg_2;
+		reg_1 = reg_2 = -1;
+		if (slot_is_register(ctx, slot_1))
+			reg_1 = ctx->registers[slot_1];
+		if (slot_is_register(ctx, slot_2))
+			reg_2 = ctx->registers[slot_2];
+		if (slot_is_register(ctx, slot_2) && reg_2 == R_ST0) {
+			short tmp_reg;
+			frame_t tmp_slot;
+			tmp_slot = slot_1;
+			slot_1 = slot_2;
+			slot_2 = tmp_slot;
+			tmp_reg = reg_1;
+			reg_1 = reg_2;
+			reg_2 = tmp_reg;
+			switch (fp_alu) {
+				case FP_COND_A:		fp_alu = FP_COND_B; break;
+				case FP_COND_BE:	fp_alu = FP_COND_AE; break;
+				case FP_COND_B:		fp_alu = FP_COND_A; break;
+				case FP_COND_AE:	fp_alu = FP_COND_BE; break;
+			}
+		}
+		if (slot_is_register(ctx, slot_1) && reg_is_x87(reg_1) &&
+		    slot_is_register(ctx, slot_2) && reg_is_x87(reg_2)) {
+			short reg = reg_2;
+			if (reg == R_ST0)
+				reg = reg_1;
+			else if (reg == reg_1)
+				reg = R_ST0;
+			gen_insn(INSN_X87_FXCH, 0, 0, 0);
+			gen_one(reg_1);
+			gen_insn(INSN_X87_FCOMI, op_size, 0, 0);
+			gen_one(reg);
+			gen_insn(INSN_X87_FXCH, 0, 0, 0);
+			gen_one(reg_1);
+		} else {
+			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_2, 0));
+			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 1));
+			gen_insn(INSN_X87_FCOMIP, op_size, 0, 0);
+			gen_one(R_ST1);
+			gen_insn(INSN_X87_FSTP, op_size, 0, 0);
+			gen_one(R_ST0);
+		}
+		gen_insn(INSN_JMP_COND, op_size, COND_P, 0);
+		gen_label_ref(label_ovf);
+		g(gen_jump(ctx, jmp_offset, op_size, fp_alu ^ 1, -1U, -1U, 0));
+		return true;
+	}
+#endif
 	*failed = true;
 	return true;
 }
