@@ -249,6 +249,12 @@ struct ld_ref {
 	pointer_t *ptr;
 };
 
+struct real_ref {
+	struct tree_entry entry;
+	size_t idx;
+	size_t len;
+};
+
 struct build_function_context {
 	const pcode_t *pcode;
 	const pcode_t *pcode_limit;
@@ -289,6 +295,7 @@ struct build_function_context {
 #define real_start(ctx)	(offsetof(struct data, u_.function.local_directory[(ctx)->ld_len]))
 	uint8_t *real_data;
 	size_t real_len;
+	struct tree real_tree;
 
 	struct local_arg *args;
 
@@ -337,6 +344,7 @@ static void init_ctx(struct build_function_context *ctx)
 	ctx->ld = NULL;
 	tree_init(&ctx->ld_tree);
 	ctx->real_data = NULL;
+	tree_init(&ctx->real_tree);
 	ctx->args = NULL;
 	ctx->types = NULL;
 	ctx->ft_free = NULL;
@@ -359,6 +367,15 @@ static void free_ld_tree(struct build_function_context *ctx)
 		struct ld_ref *ld_ref = get_struct(tree_any(&ctx->ld_tree), struct ld_ref, entry);
 		tree_delete(&ld_ref->entry);
 		mem_free(ld_ref);
+	}
+}
+
+static void free_real_tree(struct build_function_context *ctx)
+{
+	while (!tree_is_empty(&ctx->real_tree)) {
+		struct real_ref *real_ref = get_struct(tree_any(&ctx->real_tree), struct real_ref, entry);
+		tree_delete(&real_ref->entry);
+		mem_free(real_ref);
 	}
 }
 
@@ -396,6 +413,7 @@ static void done_ctx(struct build_function_context *ctx)
 	free_ld_tree(ctx);
 	if (ctx->real_data)
 		mem_free(ctx->real_data);
+	free_real_tree(ctx);
 	if (ctx->args)
 		mem_free(ctx->args);
 	if (ctx->types)
@@ -1634,7 +1652,7 @@ bool pcode_decode_real(const struct type *type, const uint8_t attr_unused *blob,
 	switch (type->tag) {
 #define re(n, rtype, ntype, pack, unpack)				\
 		case TYPE_TAG_real + n: {				\
-			rtype val = cat(strto_,rtype)(blob, blob_l);\
+			rtype val = cat(strto_,rtype)(blob, blob_l);	\
 			*result_len = round_up(sizeof(rtype), sizeof(code_t)) / sizeof(code_t);\
 			if (unlikely(!(*result = mem_alloc_array_mayfail(mem_calloc_mayfail, code_t *, 0, 0, *result_len, sizeof(code_t), err))))\
 				goto err;				\
@@ -1653,9 +1671,45 @@ err:
 	return false;
 }
 
+struct real_tree_compare_ctx {
+	struct build_function_context *ctx;
+	const uint8_t *data;
+	const struct type *type;
+};
+
+static int real_tree_compare(const struct tree_entry *e, uintptr_t ptr)
+{
+	struct real_ref *real_ref_1 = get_struct(e, struct real_ref, entry);
+	struct real_tree_compare_ctx *compare_ctx = num_to_ptr(ptr);
+	struct build_function_context *ctx = compare_ctx->ctx;
+	const struct type *type = compare_ctx->type;
+	size_t cmp_len = real_ref_1->len;
+	if (cmp_len < type->size)
+		return -1;
+	if (cmp_len > type->size)
+		return 1;
+	if (TYPE_TAG_IDX_REAL(type->tag) == 3)
+		cmp_len = 10;
+	return memcmp(ctx->real_data + (real_ref_1->idx - real_start(ctx)), compare_ctx->data, cmp_len);
+}
+
 static pcode_t pcode_alloc_real(struct build_function_context *ctx, const struct type *type, const code_t *result)
 {
+	struct real_tree_compare_ctx compare_ctx;
+	struct tree_entry *e;
+	struct tree_insert_position ins;
+	struct real_ref * real_ref;
 	size_t current_end, start;
+
+	compare_ctx.ctx = ctx;
+	compare_ctx.data = cast_ptr(const uint8_t *, result);
+	compare_ctx.type = type;
+
+	e = tree_find_for_insert(&ctx->real_tree, real_tree_compare, ptr_to_num(&compare_ctx), &ins);
+	if (e) {
+		real_ref = get_struct(e, struct real_ref, entry);
+		return real_ref->idx;
+	}
 
 	current_end = real_start(ctx) + ctx->real_len;
 	start = round_up(current_end, type->align);
@@ -1671,6 +1725,13 @@ static pcode_t pcode_alloc_real(struct build_function_context *ctx, const struct
 	}
 	if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->real_data, &ctx->real_len, cast_ptr(const uint8_t *, result), type->size, NULL, ctx->err)))
 		goto exception;
+
+	real_ref = mem_alloc_mayfail(struct real_ref *, sizeof(struct real_ref), ctx->err);
+	if (unlikely(!real_ref))
+		goto exception;
+	real_ref->idx = start;
+	real_ref->len = type->size;
+	tree_insert_after_find(&real_ref->entry, &ins);
 
 	return start;
 
@@ -3850,6 +3911,7 @@ skip_codegen:
 	mem_free(ctx->pcode_types), ctx->pcode_types = NULL;
 	free_local_types(ctx), ctx->local_types = NULL;
 	free_ld_tree(ctx);
+	free_real_tree(ctx);
 
 	if (profiling_escapes) {
 		ctx->escape_data = mem_alloc_array_mayfail(mem_calloc_mayfail, struct escape_data *, 0, 0, ctx->code_len, sizeof(struct escape_data), ctx->err);
