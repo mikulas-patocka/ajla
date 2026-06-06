@@ -2444,6 +2444,9 @@ static bool pcode_preload_ld(struct build_function_context *ctx)
 {
 	pcode_position_save_t saved;
 
+	if (unlikely(!array_init_mayfail(pointer_t *, &ctx->ld, &ctx->ld_len, ctx->err)))
+		goto exception;
+
 	pcode_position_save(ctx, &saved);
 	while (ctx->pcode != ctx->pcode_limit) {
 		pcode_t instr, instr_params;
@@ -2494,6 +2497,8 @@ static bool pcode_preload_ld(struct build_function_context *ctx)
 		ctx->pcode = ctx->pcode_instr_end;
 	}
 	pcode_position_restore(ctx, &saved);
+
+	array_finish(pointer_t *, &ctx->ld, &ctx->ld_len);
 
 	return true;
 
@@ -3701,9 +3706,6 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 
 	layout_free(ctx->layout), ctx->layout = NULL;
 
-	if (unlikely(!array_init_mayfail(pointer_t *, &ctx->ld, &ctx->ld_len, ctx->err)))
-		goto exception;
-
 	if (unlikely(!pcode_preload_ld(ctx)))
 		goto exception;
 
@@ -3796,7 +3798,6 @@ skip_codegen:
 	mem_free(ctx->pcode_types), ctx->pcode_types = NULL;
 	free_local_types(ctx), ctx->local_types = NULL;
 	free_ld_tree(ctx);
-	array_finish(pointer_t *, &ctx->ld, &ctx->ld_len);
 
 	if (profiling_escapes) {
 		ctx->escape_data = mem_alloc_array_mayfail(mem_calloc_mayfail, struct escape_data *, 0, 0, ctx->code_len, sizeof(struct escape_data), ctx->err);
