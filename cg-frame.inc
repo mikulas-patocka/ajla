@@ -140,10 +140,7 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 	if (frame_t_is_const(slot)) {
 		if (reg_is_fp(reg)) {
 			g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_1));
-			g(gen_address(ctx, R_SCRATCH_1, frame_t_get_const(slot), IMM_PURPOSE_VLDR_VSTR_OFFSET, size));
-			gen_insn(INSN_MOV, size, 0, MOV_WRITES_FLAGS(reg, ARG_ADDRESS_1));
-			gen_one(reg);
-			gen_address_offset();
+			g(gen_load_raw(ctx, size, native, R_SCRATCH_1, 0, frame_t_get_const(slot), false, reg));
 			return true;
 		}
 #if defined(SUPPORTED_FP_X87)

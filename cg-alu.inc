@@ -2992,10 +2992,10 @@ static const struct {
 static bool attr_w gen_real_constant(struct codegen_context *ctx, const struct type *t, frame_t slot_r, frame_t c)
 {
 	unsigned op_size;
-	uint8_t *ptr = cast_ptr(uint8_t *, ctx->fn) + c;
 
 #if defined(ARCH_X86)
 	if (slot_is_register(ctx, slot_r) && reg_is_x87(ctx->registers[slot_r])) {
+		uint8_t *ptr = cast_ptr(uint8_t *, ctx->fn) + c;
 		size_t i;
 		if (TYPE_TAG_IDX_REAL(t->tag) == 1) {
 			for (i = 0; i < n_array_elements(x87_builtin_consts_real32); i++) {
@@ -3179,8 +3179,8 @@ do_alu:
 		if (1)
 #elif defined(ARCH_S390)
 		if (slot_is_register(ctx, slot_2) ||
-		   (slot_is_const(slot_2) && op_size <= OP_SIZE_8 && frame_t_get_const(slot_2) < 4096) ||
-		   (!slot_is_const(slot_2) && op_size <= OP_SIZE_8 && (size_t)slot_2 * slot_size < 4096))
+		   (frame_t_is_const(slot_2) && op_size <= OP_SIZE_8 && frame_t_get_const(slot_2) < 4096) ||
+		   (!frame_t_is_const(slot_2) && op_size <= OP_SIZE_8 && (size_t)slot_2 * slot_size < 4096))
 #else
 		if (slot_is_register(ctx, slot_2))
 #endif
@@ -3332,8 +3332,8 @@ do_cmp:
 		if (1)
 #elif defined(ARCH_S390)
 		if (slot_is_register(ctx, slot_2) ||
-		   (slot_is_const(slot_2) && op_size <= OP_SIZE_8 && frame_t_get_const(slot_2) < 4096) ||
-		   (!slot_is_const(slot_2) && op_size <= OP_SIZE_8 && (size_t)slot_2 * slot_size < 4096))
+		   (frame_t_is_const(slot_2) && op_size <= OP_SIZE_8 && frame_t_get_const(slot_2) < 4096) ||
+		   (!frame_t_is_const(slot_2) && op_size <= OP_SIZE_8 && (size_t)slot_2 * slot_size < 4096))
 #else
 		if (0)
 #endif
@@ -4791,8 +4791,8 @@ do_cmp:
 		if (1)
 #elif defined(ARCH_S390)
 		if (slot_is_register(ctx, slot_2) ||
-		   (slot_is_const(slot_2) && op_size <= OP_SIZE_8 && frame_t_get_const(slot_2) < 4096) ||
-		   (!slot_is_const(slot_2) && op_size <= OP_SIZE_8 && (size_t)slot_2 * slot_size < 4096))
+		   (frame_t_is_const(slot_2) && op_size <= OP_SIZE_8 && frame_t_get_const(slot_2) < 4096) ||
+		   (!frame_t_is_const(slot_2) && op_size <= OP_SIZE_8 && (size_t)slot_2 * slot_size < 4096))
 #else
 		if (0)
 #endif
