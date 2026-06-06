@@ -49,7 +49,7 @@
 
 const struct type *pcode_get_type(pcode_t q);
 bool pcode_generate_blob_from_value(pointer_t ptr, pcode_t pcode_type, pcode_t **res_blob, size_t *res_len, ajla_error_t *err);
-bool pcode_decode_real(const struct type *type, const uint8_t *blob, size_t blob_l, code_t **result, size_t *result_len, ajla_error_t *err);
+bool pcode_decode_real(const struct type *type, const uint8_t *blob, size_t blob_l, uint8_t **result, ajla_error_t *err);
 void *pcode_build_function_from_builtin(frame_s *f, const code_t *ip, union internal_arg arguments[]);
 void *pcode_build_function_from_array(frame_s *fp, const code_t *ip, union internal_arg arguments[]);
 void *pcode_array_from_builtin(frame_s *fp, const code_t *ip, union internal_arg arguments[]);

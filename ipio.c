@@ -4627,8 +4627,7 @@ static void * attr_fastcall io_real_to_int_handler(struct io_ctx *ctx)
 	const struct type *type;
 	bool ret;
 	uint64_t v;
-	code_t *result;
-	size_t result_len;
+	uint8_t *result;
 	void *test;
 	union {
 		uint16_t u16;
@@ -4647,7 +4646,7 @@ static void * attr_fastcall io_real_to_int_handler(struct io_ctx *ctx)
 	ctx->str_l--;
 
 	type = pcode_get_type(typ);
-	ret = pcode_decode_real(type, cast_ptr(const uint8_t *, ctx->str), ctx->str_l, &result, &result_len, &ctx->err);
+	ret = pcode_decode_real(type, cast_ptr(const uint8_t *, ctx->str), ctx->str_l, &result, &ctx->err);
 	mem_free(ctx->str);
 	if (unlikely(!ret)) {
 		io_terminate_with_error(ctx, ctx->err, true, NULL);

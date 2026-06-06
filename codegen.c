@@ -1682,12 +1682,9 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				continue;
 			} else if (op == OPCODE_REAL_OP_ldc) {
 				const struct type *t;
-				unsigned i;
-				get_one(ctx, &slot_r);
+				get_two(ctx, &slot_r, &slot_1);
 				t = type_get_real(type);
-				g(gen_real_constant(ctx, t, slot_r));
-				for (i = 0; i < t->size; i += 2)
-					get_code(ctx);
+				g(gen_real_constant(ctx, t, slot_r, slot_1));
 				flag_set(ctx, slot_r, false);
 				continue;
 			} else if (op == OPCODE_REAL_OP_move || op == OPCODE_REAL_OP_copy) {

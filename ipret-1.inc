@@ -357,6 +357,25 @@ DEFINE_OPCODE(								\
 	ADVANCE_IP(sz);							\
 )
 
+#define DEFINE_REAL_LDC_OPCODE(cls, type, opc)				\
+DEFINE_OPCODE(								\
+		OPCODE_##cls##_OP +					\
+		OPCODE_##cls##_OP_##opc * OPCODE_##cls##_OP_MULT +	\
+		cat(OPCODE_##cls##_TYPE_,type) * OPCODE_##cls##_TYPE_MULT,\
+		cat6(real_,opc,_,type,_,ARG_MODE),			\
+	frame_t slot;							\
+	frame_t cnst;							\
+	type *val;							\
+	slot = get_i_param(0);						\
+	cnst = get_i_param(1);						\
+	ajla_assert(!frame_test_flag(fp, slot), (file_line, "ldc real: flag already set for destination slot %"PRIuMAX"", (uintmax_t)slot));\
+	val = frame_slot(fp, slot, type);				\
+	barrier_aliasing();						\
+	*val = *cast_ptr(type *, cast_ptr(char *, get_frame(fp)->function) + cnst);\
+	barrier_aliasing();						\
+	ADVANCE_I_PARAM(2);						\
+)
+
 #define DEFINE_FIXED_OPCODES(n, type, utype, sz, bits)	\
 DEFINE_FIXED_REAL_BINARY_OPCODE(FIXED_, type, add)	\
 DEFINE_FIXED_REAL_BINARY_OPCODE(FIXED_, type, subtract)	\
@@ -602,7 +621,7 @@ DEFINE_FIXED_REAL_TERNARY_OPCODE(REAL_, type, fnma)	\
 DEFINE_FIXED_REAL_TERNARY_OPCODE(REAL_, type, fnms)	\
 DEFINE_SCALAR_MOVE_OPCODE(REAL_, type)			\
 DEFINE_SCALAR_COPY_OPCODE(REAL_, type)			\
-DEFINE_FIXED_LDC_OPCODE(REAL, type, type, ldc, false)
+DEFINE_REAL_LDC_OPCODE(REAL, type, ldc)
 
 for_all_real(DEFINE_REAL_OPCODES, for_all_empty)
 

@@ -2989,16 +2989,17 @@ static const struct {
 };
 #endif
 
-static bool attr_w gen_real_constant(struct codegen_context *ctx, const struct type *t, frame_t slot_r)
+static bool attr_w gen_real_constant(struct codegen_context *ctx, const struct type *t, frame_t slot_r, frame_t c)
 {
-	int64_t offset;
+	unsigned op_size;
+	uint8_t *ptr = cast_ptr(uint8_t *, ctx->fn) + c;
 
 #if defined(ARCH_X86)
 	if (slot_is_register(ctx, slot_r) && reg_is_x87(ctx->registers[slot_r])) {
 		size_t i;
 		if (TYPE_TAG_IDX_REAL(t->tag) == 1) {
 			for (i = 0; i < n_array_elements(x87_builtin_consts_real32); i++) {
-				if (!memcmp(ctx->current_position, &x87_builtin_consts_real32[i], 4)) {
+				if (!memcmp(ptr, &x87_builtin_consts_real32[i], 4)) {
 gen_fldc:
 					gen_insn(INSN_X87_FLDC, OP_SIZE_10, i, 0);
 					gen_insn(INSN_X87_FSTP, OP_SIZE_10, 0, 0);
@@ -3009,62 +3010,63 @@ gen_fldc:
 		}
 		if (TYPE_TAG_IDX_REAL(t->tag) == 2) {
 			for (i = 0; i < n_array_elements(x87_builtin_consts_real64); i++) {
-				if (!memcmp(ctx->current_position, &x87_builtin_consts_real64[i], 8))
+				if (!memcmp(ptr, &x87_builtin_consts_real64[i], 8))
 					goto gen_fldc;
 			}
 		}
 		if (TYPE_TAG_IDX_REAL(t->tag) == 3) {
 			for (i = 0; i < n_array_elements(x87_builtin_consts_real80); i++) {
-				if (!memcmp(ctx->current_position, &x87_builtin_consts_real80[i], 10))
+				if (!memcmp(ptr, &x87_builtin_consts_real80[i], 10))
 					goto gen_fldc;
 			}
 		}
 	}
 #endif
 
-	if (is_power_of_2(t->size) && t->size <= sizeof(uintbig_t))
-		return gen_constant(ctx, true, log_2(t->size), false, slot_r);
+	op_size = real_type_to_op_size(TYPE_TAG_IDX_REAL(t->tag));
 
-	g(load_function_offset(ctx, R_SCRATCH_3, offsetof(struct data, u_.function.code)));
-
-	offset = (ctx->current_position - da(ctx->fn,function)->code) * sizeof(code_t);
+	g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_1));
+#ifdef SUPPORTED_FP_X87
+	if (slot_is_register(ctx, slot_r) && reg_is_x87(ctx->registers[slot_r])) {
+		g(gen_address(ctx, R_SCRATCH_1, c, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
+		gen_insn(INSN_X87_FLD, op_size, 0, 0);
+		gen_address_offset();
+		gen_insn(INSN_X87_FSTP, OP_SIZE_10, 0, 0);
+		gen_one(ctx->registers[slot_r] + 1);
+		return true;
+	}
+#endif
+	if (slot_is_register(ctx, slot_r)) {
+		g(gen_load_raw(ctx, op_size, native, R_SCRATCH_1, 0, c, false, ctx->registers[slot_r]));
+		return true;
+	}
 
 	if (TYPE_TAG_IDX_REAL(t->tag) == 3) {
 #if defined(ARCH_M68K)
-		if (slot_is_register(ctx, slot_r)) {
-			g(gen_address(ctx, R_SCRATCH_3, offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_10));
-			gen_insn(INSN_MOV, OP_SIZE_10, 0, MOV_WRITES_FLAGS(ctx->registers[slot_r], ARG_ADDRESS_1));
-			gen_one(ctx->registers[slot_r]);
-			gen_address_offset();
-
-			return true;
-		}
-		g(gen_address(ctx, R_SCRATCH_3, offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_10));
-		gen_insn(INSN_MOV, OP_SIZE_10, 0, MOV_WRITES_FLAGS(FR_SCRATCH_1, ARG_ADDRESS_1));
+		g(gen_address(ctx, R_SCRATCH_1, c, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
+		gen_insn(INSN_MOV, op_size, 0, MOV_WRITES_FLAGS(FR_SCRATCH_1, ARG_ADDRESS_1));
 		gen_one(FR_SCRATCH_1);
 		gen_address_offset();
 
-		g(gen_address(ctx, R_FRAME, (size_t)slot_r * slot_size, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_10));
-		gen_insn(INSN_MOV, OP_SIZE_10, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, FR_SCRATCH_1));
+		g(gen_address(ctx, R_FRAME, (size_t)slot_r * slot_size, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
+		gen_insn(INSN_MOV, op_size, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, FR_SCRATCH_1));
 		gen_address_offset();
 		gen_one(FR_SCRATCH_1);
 
 		return true;
 #endif
 #if defined(ARCH_X86)
-		g(gen_address(ctx, R_SCRATCH_3, offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, OP_SIZE_10));
-		gen_insn(INSN_X87_FLD, OP_SIZE_10, 0, 0);
+		g(gen_address(ctx, R_SCRATCH_1, c, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
+		gen_insn(INSN_X87_FLD, op_size, 0, 0);
 		gen_address_offset();
 
-		g(gen_frame_store_x87(ctx, INSN_X87_FSTP, OP_SIZE_10, slot_r, 1));
+		g(gen_frame_store_x87(ctx, INSN_X87_FSTP, op_size, slot_r, 1));
 
 		return true;
 #endif
 	}
 
-	g(gen_memcpy_raw(ctx, R_FRAME, (size_t)slot_r * slot_size, R_SCRATCH_3, offset, t->size, minimum(t->align, sizeof(code_t))));
-	if (slot_is_register(ctx, slot_r))
-		g(unspill(ctx, slot_r, false));
+	g(gen_memcpy_raw(ctx, R_FRAME, (size_t)slot_r * slot_size, R_SCRATCH_1, c, t->size, t->align));
 
 	return true;
 }

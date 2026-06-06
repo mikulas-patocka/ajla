@@ -1647,14 +1647,13 @@ static inline rtype cat(strto_,rtype)(const unsigned char *d, size_t dl)\
 for_all_real(re, for_all_empty)
 #undef re
 
-bool pcode_decode_real(const struct type *type, const uint8_t attr_unused *blob, size_t attr_unused blob_l, code_t attr_unused **result, size_t attr_unused *result_len, ajla_error_t *err)
+bool pcode_decode_real(const struct type *type, const uint8_t attr_unused *blob, size_t attr_unused blob_l, uint8_t attr_unused **result, ajla_error_t *err)
 {
 	switch (type->tag) {
 #define re(n, rtype, ntype, pack, unpack)				\
 		case TYPE_TAG_real + n: {				\
 			rtype val = cat(strto_,rtype)(blob, blob_l);	\
-			*result_len = round_up(sizeof(rtype), sizeof(code_t)) / sizeof(code_t);\
-			if (unlikely(!(*result = mem_alloc_array_mayfail(mem_calloc_mayfail, code_t *, 0, 0, *result_len, sizeof(code_t), err))))\
+			if (unlikely(!(*result = mem_alloc_array_mayfail(mem_calloc_mayfail, uint8_t *, 0, 0, sizeof(rtype), sizeof(code_t), err))))\
 				goto err;				\
 			memcpy(*result, &val, sizeof(rtype));		\
 			break;						\
@@ -1693,7 +1692,7 @@ static int real_tree_compare(const struct tree_entry *e, uintptr_t ptr)
 	return memcmp(ctx->real_data + (real_ref_1->idx - real_start(ctx)), compare_ctx->data, cmp_len);
 }
 
-static pcode_t pcode_alloc_real(struct build_function_context *ctx, const struct type *type, const code_t *result)
+static pcode_t pcode_alloc_real(struct build_function_context *ctx, const struct type *type, const uint8_t *result)
 {
 	struct real_tree_compare_ctx compare_ctx;
 	struct tree_entry *e;
@@ -1702,7 +1701,7 @@ static pcode_t pcode_alloc_real(struct build_function_context *ctx, const struct
 	size_t current_end, start;
 
 	compare_ctx.ctx = ctx;
-	compare_ctx.data = cast_ptr(const uint8_t *, result);
+	compare_ctx.data = result;
 	compare_ctx.type = type;
 
 	e = tree_find_for_insert(&ctx->real_tree, real_tree_compare, ptr_to_num(&compare_ctx), &ins);
@@ -1723,7 +1722,7 @@ static pcode_t pcode_alloc_real(struct build_function_context *ctx, const struct
 		if (unlikely(!array_add_mayfail(uint8_t, &ctx->real_data, &ctx->real_len, 0, NULL, ctx->err)))
 			goto exception;
 	}
-	if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->real_data, &ctx->real_len, cast_ptr(const uint8_t *, result), type->size, NULL, ctx->err)))
+	if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->real_data, &ctx->real_len, result, type->size, NULL, ctx->err)))
 		goto exception;
 
 	real_ref = mem_alloc_mayfail(struct real_ref *, sizeof(struct real_ref), ctx->err);
@@ -1744,7 +1743,7 @@ exception:
 static bool pcode_generate_constant_from_blob(struct build_function_context *ctx, pcode_t res, uint8_t *blob, size_t l)
 {
 	const struct pcode_type *pt;
-	bool is_emulated_fixed_8, is_emulated_fixed_16;
+	bool is_emulated_fixed_16;
 	const struct type *type;
 	size_t orig_l;
 	code_t *raw_result = NULL;
@@ -1758,7 +1757,6 @@ static bool pcode_generate_constant_from_blob(struct build_function_context *ctx
 
 	pt = get_var_type(ctx, res);
 	type = pt->type;
-	is_emulated_fixed_8 = pt->extra_type == T_SInt64 || pt->extra_type == T_UInt64;
 	is_emulated_fixed_16 = pt->extra_type == T_SInt128 || pt->extra_type == T_UInt128;
 
 	orig_l = l;
@@ -1772,9 +1770,7 @@ static bool pcode_generate_constant_from_blob(struct build_function_context *ctx
 		else
 			requested_size = round_up(type->size, sizeof(code_t));
 	} else if (TYPE_TAG_IS_INT(type->tag)) {
-		if (is_emulated_fixed_8 && l && blob[l - 1] & 0x80)
-			requested_size = 8;
-		else if (is_emulated_fixed_16 && l && blob[l - 1] & 0x80)
+		if (is_emulated_fixed_16 && l && blob[l - 1] & 0x80)
 			requested_size = 16;
 		else if (l <= sizeof(code_t))
 			requested_size = sizeof(code_t);
@@ -1782,9 +1778,6 @@ static bool pcode_generate_constant_from_blob(struct build_function_context *ctx
 			requested_size = round_up(type->size, sizeof(code_t));
 		else
 			requested_size = round_up(l, sizeof(code_t));
-	} else if (TYPE_TAG_IS_REAL(type->tag)) {
-		if (!unlikely(pcode_decode_real(type, blob, l, &raw_result, &requested_size, ctx->err)))
-			return false;
 	} else {
 		internal(file_line, "pcode_generate_constant_from_blob(%s): unknown type %u", function_name(ctx), type->tag);
 	}
@@ -1803,8 +1796,8 @@ static bool pcode_generate_constant_from_blob(struct build_function_context *ctx
 	if (TYPE_TAG_IS_FIXED(type->tag)) {
 		if (requested_size < type->size)
 			code += (OPCODE_FIXED_OP_ldc16 - OPCODE_FIXED_OP_ldc) * OPCODE_FIXED_OP_MULT;
-	} else if (TYPE_TAG_IS_INT(type->tag)) {
-		if ((is_emulated_fixed_8 || is_emulated_fixed_16) && l && blob[l - 1] & 0x80) {
+	} else {
+		if (is_emulated_fixed_16 && l && blob[l - 1] & 0x80) {
 			if (unlikely(!array_add_mayfail(uint8_t, &blob, &l, 0, NULL, ctx->err)))
 				goto exception;
 			code = OPCODE_INT_LDC_LONG;
@@ -1902,6 +1895,32 @@ exception:
 	return false;
 }
 
+static bool pcode_generate_real_from_blob(struct build_function_context *ctx, const struct pcode_type *tr, uint8_t *blob, size_t l)
+{
+	arg_mode_t am;
+	uint8_t *raw_real;
+	pcode_t cnst;
+	code_t code;
+	if (!unlikely(pcode_decode_real(tr->type, blob, l, &raw_real, ctx->err))) {
+		mem_free(blob);
+		goto exception;
+	}
+	mem_free(blob);
+	cnst = pcode_alloc_real(ctx, tr->type, raw_real);
+	mem_free(raw_real);
+	if (unlikely(cnst < 0))
+		goto exception;
+	am = INIT_ARG_MODE;
+	get_arg_mode(am, tr->slot);
+	get_arg_mode(am, cnst);
+	code = get_code(Op_Ldc, tr->type) + am * OPCODE_MODE_MULT;
+	gen_code(code);
+	gen_am_two(am, tr->slot, (frame_t)cnst);
+	return true;
+exception:
+	return false;
+}
+
 static bool pcode_load_constant(struct build_function_context *ctx)
 {
 	pcode_t res;
@@ -1922,6 +1941,8 @@ static bool pcode_load_constant(struct build_function_context *ctx)
 
 	if (tr->type->tag == TYPE_TAG_flat_option || tr->type->tag == TYPE_TAG_unknown) {
 		return pcode_generate_option_from_blob(ctx, tr, blob, l);
+	} else if (TYPE_TAG_IS_REAL(tr->type->tag)) {
+		return pcode_generate_real_from_blob(ctx, tr, blob, l);
 	} else {
 		return pcode_generate_constant_from_blob(ctx, res, blob, l);
 	}
@@ -2792,9 +2813,8 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				tr = get_var_type(ctx, res);
 				t1 = get_var_type(ctx, a1);
 				if (TYPE_TAG_IS_REAL(t1->type->tag)) {
-					code_t *result;
-					size_t result_len;
-					if (!pcode_decode_real(t1->type, blob, l, &result, &result_len, ctx->err)) {
+					uint8_t *result;
+					if (!pcode_decode_real(t1->type, blob, l, &result, ctx->err)) {
 						mem_free(blob);
 						goto exception;
 					}
