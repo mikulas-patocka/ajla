@@ -41,6 +41,8 @@ struct function_descriptor {
 	const struct local_variable_flags *local_variables_flags;
 	frame_t n_slots;
 	struct data *types;
+	uint8_t *real_data;
+	size_t real_size;
 	struct line_position *lp;
 	size_t lp_size;
 	void *unoptimized_code_base;

@@ -45,25 +45,25 @@
 #define orig_op		C_divide
 #define op		C_divide_alt1
 #define OPF		FIXED_DIVIDE_ALT1_
-#define DEF(type)	DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, divide_alt1)
+#define DEF(type)	DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, divide_alt1)
 #include "ipret-b1.inc"
 
 #define orig_op		C_udivide
 #define op		C_udivide_alt1
 #define OPF		FIXED_UDIVIDE_ALT1_
-#define DEF(type)	DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, udivide_alt1)
+#define DEF(type)	DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, udivide_alt1)
 #include "ipret-b1.inc"
 
 #define orig_op		C_modulo
 #define op		C_modulo_alt1
 #define OPF		FIXED_MODULO_ALT1_
-#define DEF(type)	DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, modulo_alt1)
+#define DEF(type)	DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, modulo_alt1)
 #include "ipret-b1.inc"
 
 #define orig_op		C_umodulo
 #define op		C_umodulo_alt1
 #define OPF		FIXED_UMODULO_ALT1_
-#define DEF(type)	DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, umodulo_alt1)
+#define DEF(type)	DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, umodulo_alt1)
 #include "ipret-b1.inc"
 
 #define orig_op		bswap

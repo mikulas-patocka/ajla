@@ -286,6 +286,10 @@ struct build_function_context {
 	size_t ld_len;
 	struct tree ld_tree;
 
+#define real_start(ctx)	(offsetof(struct data, u_.function.local_directory[(ctx)->ld_len]))
+	uint8_t *real_data;
+	size_t real_len;
+
 	struct local_arg *args;
 
 	const struct type **types;
@@ -332,6 +336,7 @@ static void init_ctx(struct build_function_context *ctx)
 	ctx->label_ref = NULL;
 	ctx->ld = NULL;
 	tree_init(&ctx->ld_tree);
+	ctx->real_data = NULL;
 	ctx->args = NULL;
 	ctx->types = NULL;
 	ctx->ft_free = NULL;
@@ -389,6 +394,8 @@ static void done_ctx(struct build_function_context *ctx)
 	if (ctx->ld)
 		mem_free(ctx->ld);
 	free_ld_tree(ctx);
+	if (ctx->real_data)
+		mem_free(ctx->real_data);
 	if (ctx->args)
 		mem_free(ctx->args);
 	if (ctx->types)
@@ -1622,12 +1629,12 @@ static inline rtype cat(strto_,rtype)(const unsigned char *d, size_t dl)\
 for_all_real(re, for_all_empty)
 #undef re
 
-bool pcode_decode_real(const struct type *type, const char attr_unused *blob, size_t attr_unused blob_l, code_t attr_unused **result, size_t attr_unused *result_len, ajla_error_t *err)
+bool pcode_decode_real(const struct type *type, const uint8_t attr_unused *blob, size_t attr_unused blob_l, code_t attr_unused **result, size_t attr_unused *result_len, ajla_error_t *err)
 {
 	switch (type->tag) {
 #define re(n, rtype, ntype, pack, unpack)				\
 		case TYPE_TAG_real + n: {				\
-			rtype val = cat(strto_,rtype)((const unsigned char *)blob, blob_l);\
+			rtype val = cat(strto_,rtype)(blob, blob_l);\
 			*result_len = round_up(sizeof(rtype), sizeof(code_t)) / sizeof(code_t);\
 			if (unlikely(!(*result = mem_alloc_array_mayfail(mem_calloc_mayfail, code_t *, 0, 0, *result_len, sizeof(code_t), err))))\
 				goto err;				\
@@ -1644,6 +1651,33 @@ bool pcode_decode_real(const struct type *type, const char attr_unused *blob, si
 	goto err;
 err:
 	return false;
+}
+
+static pcode_t pcode_alloc_real(struct build_function_context *ctx, const struct type *type, const code_t *result)
+{
+	size_t current_end, start;
+
+	current_end = real_start(ctx) + ctx->real_len;
+	start = round_up(current_end, type->align);
+	if (unlikely(start < current_end))
+		goto exception_overflow;
+
+	if (unlikely(start >= frame_t_max_const))
+		goto exception_overflow;
+
+	while (unlikely(real_start(ctx) + ctx->real_len < start)) {
+		if (unlikely(!array_add_mayfail(uint8_t, &ctx->real_data, &ctx->real_len, 0, NULL, ctx->err)))
+			goto exception;
+	}
+	if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->real_data, &ctx->real_len, cast_ptr(const uint8_t *, result), type->size, NULL, ctx->err)))
+		goto exception;
+
+	return start;
+
+exception_overflow:
+	*ctx->err = error_ajla(EC_ASYNC, AJLA_ERROR_SIZE_OVERFLOW);
+exception:
+	return -1;
 }
 
 static bool pcode_generate_constant_from_blob(struct build_function_context *ctx, pcode_t res, uint8_t *blob, size_t l)
@@ -1688,7 +1722,7 @@ static bool pcode_generate_constant_from_blob(struct build_function_context *ctx
 		else
 			requested_size = round_up(l, sizeof(code_t));
 	} else if (TYPE_TAG_IS_REAL(type->tag)) {
-		if (!unlikely(pcode_decode_real(type, cast_ptr(const char *, blob), l, &raw_result, &requested_size, ctx->err)))
+		if (!unlikely(pcode_decode_real(type, blob, l, &raw_result, &requested_size, ctx->err)))
 			return false;
 	} else {
 		internal(file_line, "pcode_generate_constant_from_blob(%s): unknown type %u", function_name(ctx), type->tag);
@@ -2688,21 +2722,36 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				a1 = pcode_get();
 				if (unlikely(!pcode_load_blob(&ctx->pcode, &blob, &l, ctx->err)))
 					goto exception;
-				cnst = 0;
-				for (i = 0; i < l; i++) {
-					upcode_t o = blob[i];
-					if (i >= l - 1 && o >= 128)
-						o -= 256;
-					cnst |= o << (i * 8);
-				}
-				mem_free(blob);
 				if (unlikely(var_elided(res))) {
+					mem_free(blob);
 					if (flags1 & Flag_Free_Argument)
 						pcode_free(ctx, a1);
 					break;
 				}
 				tr = get_var_type(ctx, res);
 				t1 = get_var_type(ctx, a1);
+				if (TYPE_TAG_IS_REAL(t1->type->tag)) {
+					code_t *result;
+					size_t result_len;
+					if (!pcode_decode_real(t1->type, blob, l, &result, &result_len, ctx->err)) {
+						mem_free(blob);
+						goto exception;
+					}
+					mem_free(blob);
+					cnst = pcode_alloc_real(ctx, t1->type, result);
+					mem_free(result);
+					if (unlikely(cnst < 0))
+						goto exception;
+				} else {
+					cnst = 0;
+					for (i = 0; i < l; i++) {
+						upcode_t o = blob[i];
+						if (i >= l - 1 && o >= 128)
+							o -= 256;
+						cnst |= o << (i * 8);
+					}
+					mem_free(blob);
+				}
 				ajla_assert_lo(type_is_equal(tr->type, (Op_IsBool(op) ? type_get_flat_option() : t1->type)), (file_line, "P_BinaryConstOp(%s): invalid types for binary operation %"PRIdMAX": %u, %u", function_name(ctx), (intmax_t)op, t1->type->tag, tr->type->tag));
 				fflags = 0;
 				if (flags1 & Flag_Fused_Bin_Jmp)
@@ -2711,7 +2760,7 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				get_arg_mode(am, t1->slot);
 				get_arg_mode(am, (frame_t)cnst);
 				get_arg_mode(am, tr->slot);
-				code = get_code(op, t1->type) + (TYPE_TAG_IS_FIXED(t1->type->tag) ? OPCODE_FIXED_OP_C : OPCODE_INT_OP_C) + am * OPCODE_MODE_MULT;
+				code = get_code(op, t1->type) + (TYPE_TAG_IS_FIXED(t1->type->tag) ? OPCODE_FIXED_OP_C : TYPE_TAG_IS_INT(t1->type->tag) ? OPCODE_INT_OP_C : OPCODE_REAL_OP_C) + am * OPCODE_MODE_MULT;
 				gen_code(code);
 				gen_am_two(am, t1->slot, (frame_t)cnst);
 				gen_am_two(am, tr->slot, fflags);
@@ -3733,6 +3782,9 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 	if (unlikely(!array_init_mayfail(struct label_ref, &ctx->label_ref, &ctx->label_ref_len, ctx->err)))
 		goto exception;
 
+	if (unlikely(!array_init_mayfail(uint8_t, &ctx->real_data, &ctx->real_len, ctx->err)))
+		goto exception;
+
 	if (unlikely(!array_init_mayfail(const struct type *, &ctx->types, &ctx->types_len, ctx->err)))
 		goto exception;
 
@@ -3805,7 +3857,7 @@ skip_codegen:
 			goto exception;
 	}
 
-	fn = data_alloc_flexible(function, local_directory, ctx->ld_len, ctx->err);
+	fn = data_align(function, real_start(ctx) + (!is_saved ? ctx->real_len : sfd->real_size), scalar_align, ctx->err);
 	if (unlikely(!fn))
 		goto exception;
 
@@ -3838,6 +3890,14 @@ skip_codegen:
 	memcpy(da(fn,function)->local_directory, ctx->ld, ctx->ld_len * sizeof(pointer_t *));
 	da(fn,function)->local_directory_size = ctx->ld_len;
 	mem_free(ctx->ld);
+	if (!is_saved) {
+		memcpy(cast_ptr(char *, fn) + real_start(ctx), ctx->real_data, ctx->real_len);
+		mem_free(ctx->real_data);
+		da(fn,function)->real_size = ctx->real_len;
+	} else {
+		memcpy(cast_ptr(char *, fn) + real_start(ctx), sfd->real_data, sfd->real_size);
+		da(fn,function)->real_size = sfd->real_size;
+	}
 #ifdef HAVE_CODEGEN
 	if (md) {
 		union internal_arg ia[1];
@@ -3851,7 +3911,7 @@ skip_codegen:
 #endif
 	function_init_common(fn);
 
-	if (sfd) {
+	if (is_saved) {
 		/*if (memcmp(ctx->code, sfd->code, ctx->code_len * sizeof(code_t))) internal(file_line, "code mismatch");*/
 		da(fn,function)->loaded_cache = sfd->data_saved_cache;
 		/*if (da(fn,function)->loaded_cache) debug("loaded cache: %s", function_name(ctx));*/

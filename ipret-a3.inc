@@ -20,11 +20,13 @@
 
 #if cat3(REAL,TYPE_BITS,_ALT1_TYPES) & TYPE_MASK
 
+#if defined(ARCH_X86_32)
 #define orig_op		add
 #define op		add_alt1
 #define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
 #define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
+#endif
 
 #define orig_op		add
 #define op		add_alt2
@@ -32,11 +34,13 @@
 #define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
 
+#if defined(ARCH_X86_32)
 #define orig_op		subtract
 #define op		subtract_alt1
 #define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
 #define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
+#endif
 
 #define orig_op		subtract
 #define op		subtract_alt2
@@ -44,11 +48,13 @@
 #define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
 
+#if defined(ARCH_X86_32)
 #define orig_op		multiply
 #define op		multiply_alt1
 #define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
 #define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
+#endif
 
 #define orig_op		multiply
 #define op		multiply_alt2
@@ -56,11 +62,13 @@
 #define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
 
+#if defined(ARCH_X86_32)
 #define orig_op		divide
 #define op		divide_alt1
 #define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
 #define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
+#endif
 
 #define orig_op		divide
 #define op		divide_alt2
@@ -68,11 +76,13 @@
 #define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
 
+#if defined(ARCH_X86_32)
 #define orig_op		equal
 #define op		equal_alt1
 #define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
 #define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
+#endif
 
 #define orig_op		equal
 #define op		equal_alt2
@@ -80,11 +90,13 @@
 #define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
 
+#if defined(ARCH_X86_32)
 #define orig_op		not_equal
 #define op		not_equal_alt1
 #define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
 #define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
+#endif
 
 #define orig_op		not_equal
 #define op		not_equal_alt2
@@ -92,11 +104,13 @@
 #define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
 
+#if defined(ARCH_X86_32)
 #define orig_op		less
 #define op		less_alt1
 #define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
 #define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
+#endif
 
 #define orig_op		less
 #define op		less_alt2
@@ -104,11 +118,13 @@
 #define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
 
+#if defined(ARCH_X86_32)
 #define orig_op		less_equal
 #define op		less_equal_alt1
 #define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
 #define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
+#endif
 
 #define orig_op		less_equal
 #define op		less_equal_alt2
@@ -116,11 +132,13 @@
 #define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
 
+#if defined(ARCH_X86_32)
 #define orig_op		greater
 #define op		greater_alt1
 #define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
 #define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
+#endif
 
 #define orig_op		greater
 #define op		greater_alt2
@@ -128,11 +146,13 @@
 #define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
 
+#if defined(ARCH_X86_32)
 #define orig_op		greater_equal
 #define op		greater_equal_alt1
 #define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
 #define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
+#endif
 
 #define orig_op		greater_equal
 #define op		greater_equal_alt2
@@ -140,12 +160,154 @@
 #define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
 
+#if defined(ARCH_X86_32)
+#define orig_op		add
+#define op		add_alt1
+#define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
+#define DEF(type)	DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+#endif
+
+#define orig_op		add
+#define op		add_alt2
+#define OPF		cat4(REAL,TYPE_BITS,_,ALT2_)
+#define DEF(type)	DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+
+#if defined(ARCH_X86_32)
+#define orig_op		subtract
+#define op		subtract_alt1
+#define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
+#define DEF(type)	DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+#endif
+
+#define orig_op		subtract
+#define op		subtract_alt2
+#define OPF		cat4(REAL,TYPE_BITS,_,ALT2_)
+#define DEF(type)	DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+
+#if defined(ARCH_X86_32)
+#define orig_op		multiply
+#define op		multiply_alt1
+#define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
+#define DEF(type)	DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+#endif
+
+#define orig_op		multiply
+#define op		multiply_alt2
+#define OPF		cat4(REAL,TYPE_BITS,_,ALT2_)
+#define DEF(type)	DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+
+#if defined(ARCH_X86_32)
+#define orig_op		divide
+#define op		divide_alt1
+#define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
+#define DEF(type)	DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+#endif
+
+#define orig_op		divide
+#define op		divide_alt2
+#define OPF		cat4(REAL,TYPE_BITS,_,ALT2_)
+#define DEF(type)	DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+
+#if defined(ARCH_X86_32)
+#define orig_op		equal
+#define op		equal_alt1
+#define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
+#define DEF(type)	DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+#endif
+
+#define orig_op		equal
+#define op		equal_alt2
+#define OPF		cat4(REAL,TYPE_BITS,_,ALT2_)
+#define DEF(type)	DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+
+#if defined(ARCH_X86_32)
+#define orig_op		not_equal
+#define op		not_equal_alt1
+#define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
+#define DEF(type)	DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+#endif
+
+#define orig_op		not_equal
+#define op		not_equal_alt2
+#define OPF		cat4(REAL,TYPE_BITS,_,ALT2_)
+#define DEF(type)	DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+
+#if defined(ARCH_X86_32)
+#define orig_op		less
+#define op		less_alt1
+#define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
+#define DEF(type)	DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+#endif
+
+#define orig_op		less
+#define op		less_alt2
+#define OPF		cat4(REAL,TYPE_BITS,_,ALT2_)
+#define DEF(type)	DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+
+#if defined(ARCH_X86_32)
+#define orig_op		less_equal
+#define op		less_equal_alt1
+#define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
+#define DEF(type)	DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+#endif
+
+#define orig_op		less_equal
+#define op		less_equal_alt2
+#define OPF		cat4(REAL,TYPE_BITS,_,ALT2_)
+#define DEF(type)	DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+
+#if defined(ARCH_X86_32)
+#define orig_op		greater
+#define op		greater_alt1
+#define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
+#define DEF(type)	DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+#endif
+
+#define orig_op		greater
+#define op		greater_alt2
+#define OPF		cat4(REAL,TYPE_BITS,_,ALT2_)
+#define DEF(type)	DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+
+#if defined(ARCH_X86_32)
+#define orig_op		greater_equal
+#define op		greater_equal_alt1
+#define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
+#define DEF(type)	DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+#endif
+
+#define orig_op		greater_equal
+#define op		greater_equal_alt2
+#define OPF		cat4(REAL,TYPE_BITS,_,ALT2_)
+#define DEF(type)	DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, op)
+#include "ipret-b1.inc"
+
 #if TYPE_MASK != 1
+#if defined(ARCH_X86_32)
 #define orig_op		neg
 #define op		neg_alt1
 #define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
 #define DEF(type)	DEFINE_FIXED_REAL_UNARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
+#endif
 
 #define orig_op		neg
 #define op		neg_alt2
@@ -154,11 +316,13 @@
 #include "ipret-b1.inc"
 #endif
 
+#if defined(ARCH_X86_32)
 #define orig_op		sqrt
 #define op		sqrt_alt1
 #define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
 #define DEF(type)	DEFINE_FIXED_REAL_UNARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
+#endif
 
 #define orig_op		sqrt
 #define op		sqrt_alt2
@@ -166,11 +330,13 @@
 #define DEF(type)	DEFINE_FIXED_REAL_UNARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
 
+#if defined(ARCH_X86_32)
 #define orig_op		to_int
 #define op		to_int_alt1
 #define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
 #define DEF(type)	DEFINE_REAL_TO_INT(type, op)
 #include "ipret-b1.inc"
+#endif
 
 #define orig_op		to_int
 #define op		to_int_alt2
@@ -178,11 +344,13 @@
 #define DEF(type)	DEFINE_REAL_TO_INT(type, op)
 #include "ipret-b1.inc"
 
+#if defined(ARCH_X86_32)
 #define orig_op		from_int
 #define op		from_int_alt1
 #define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
 #define DEF(type)	DEFINE_REAL_FROM_INT(type, op)
 #include "ipret-b1.inc"
+#endif
 
 #define orig_op		from_int
 #define op		from_int_alt2
@@ -191,11 +359,13 @@
 #include "ipret-b1.inc"
 
 #if TYPE_MASK != 1
+#if defined(ARCH_X86_32)
 #define orig_op		is_exception
 #define op		is_exception_alt1
 #define OPF		cat4(REAL,TYPE_BITS,_,ALT1_)
 #define DEF(type)	DEFINE_FIXED_REAL_UNARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
+#endif
 
 #define orig_op		is_exception
 #define op		is_exception_alt2

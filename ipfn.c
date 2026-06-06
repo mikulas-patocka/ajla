@@ -336,6 +336,11 @@ static void *ipret_op_build_thunk(frame_s *fp, const code_t *ip, frame_t slot_1,
 			ipret_fill_function_reference_from_slot(function_reference, 1, fp, slot_2, false);
 		} else {
 			int32_t c = frame_t_get_const(slot_2);
+			if (TYPE_TAG_IS_REAL(type->tag)) {
+				uint8_t *ptr = cast_ptr(uint8_t *, get_frame(fp)->function) + c;
+				d = data_alloc_flat_mayfail(type->tag, ptr, type->size, &err pass_file_line);
+				goto allocated_d;
+			}
 			union {
 #define f(n, s, u, sz, bits)						\
 				s cat(int_val_,bits);
@@ -371,6 +376,7 @@ static void *ipret_op_build_thunk(frame_s *fp, const code_t *ip, frame_t slot_1,
 					internal(file_line, "ipret_op_build_thunk: invalid type tag %u", type->tag);
 			}
 			d = data_alloc_flat_mayfail(type->tag, un.flat, type->size, &err pass_file_line);
+allocated_d:
 			if (unlikely(!d)) {
 				data_fill_function_reference(function_reference, 1, pointer_error(err, NULL, NULL pass_file_line));
 			} else {

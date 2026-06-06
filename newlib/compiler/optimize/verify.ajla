@@ -245,6 +245,21 @@ fn get_bv_const(typ : int, num : int) : bytes
 	return "#x" + list_left_pad(bytes_locase(ntos_base(num, 16)), hex_width, '0');
 ]
 
+fn get_real_const(typ : int, num : int) : bytes
+[
+	var ex_bits sig_bits : int;
+	if typ = T_Real16 then ex_bits, sig_bits := 5, 11;
+	else if typ = T_Real32 then ex_bits, sig_bits := 8, 24;
+	else if typ = T_Real64 then ex_bits, sig_bits := 11, 53;
+	else if typ = T_Real80 then ex_bits, sig_bits := 15, 64;
+	else if typ = T_Real128 then ex_bits, sig_bits := 15, 113;
+	else abort internal("get_real_const: invalid real type " + ntos(typ));
+	const eb, sb := ex_bits, sig_bits;
+	var f := floating_from_internal(eb, sb, num);
+	var r : rational := f;
+	return "(/ " + ntos(r.num) + " " + ntos(r.den) + ")";
+]
+
 fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, typ : int, op : int) : (z3_world, context, bytes, bool)
 [
 	if len(ctx.op_map[-typ, op]) <> 0 then
@@ -423,8 +438,10 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				var2 := select(cnst <> 0, "false", "true");
 			else if t <= T_SInt8, t >= T_UInt128 then
 				var2 := get_bv_const(t, cnst);
-			else
+			else if t <= T_Integer, t >= T_Integer128 then
 				var2 := ntos(cnst);
+			else
+				var2 := get_real_const(t, cnst);
 			gen_assert(ctx, v, var_name, "(" + op_z3 + " " + var1 + " " + var2 + unint_str + ")", fa);
 		]
 		return ctx;
@@ -484,17 +501,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		] else if t <= T_Integer and t >= T_Integer128 then [
 			cnst := ntos(l);
 		] else if t <= T_Real16, t >= T_Real128 then [
-			var ex_bits sig_bits : int;
-			if t = T_Real16 then ex_bits, sig_bits := 5, 11;
-			else if t = T_Real32 then ex_bits, sig_bits := 8, 24;
-			else if t = T_Real64 then ex_bits, sig_bits := 11, 53;
-			else if t = T_Real80 then ex_bits, sig_bits := 15, 64;
-			else if t = T_Real128 then ex_bits, sig_bits := 15, 113;
-			else abort internal("assert_instruction: invalid real type " + ntos(t));
-			const eb, sb := ex_bits, sig_bits;
-			var f := floating_from_internal(eb, sb, l);
-			var r : rational := f;
-			cnst := "(/ " + ntos(r.num) + " " + ntos(r.den) + ")";
+			cnst := get_real_const(t, l);
 		] else if t >= 0, ctx.local_types[t] is rec, ctx.local_types[t].rec.opt then [
 			cnst := "(mk-option "+ntos(l)+" mk-void)";
 		] else [

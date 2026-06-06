@@ -1072,6 +1072,7 @@ struct data_function {
 	struct escape_data *escape_data;
 	bool leaf;
 	bool is_saved;
+	frame_t real_size;
 	frame_t local_directory_size;
 	pointer_t *local_directory[FLEXIBLE_ARRAY_GCC];
 };

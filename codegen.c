@@ -1620,7 +1620,7 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 			code -= OPCODE_REAL_OP;
 			op = (code / OPCODE_REAL_OP_MULT) % OPCODE_REAL_TYPE_MULT;
 			type = code / OPCODE_REAL_TYPE_MULT;
-			if (op < OPCODE_REAL_OP_UNARY) {
+			if (op < OPCODE_REAL_OP_C) {
 				get_two(ctx, &slot_1, &slot_2);
 				get_two(ctx, &slot_r, &flags);
 				escape_label = alloc_escape_label(ctx);
@@ -1630,6 +1630,24 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				flag_set(ctx, slot_1, false);
 				flag_set(ctx, slot_2, false);
 				flag_set(ctx, slot_r, false);
+				if (flags & OPCODE_FLAG_FUSED) {
+					g(gen_fused_binary(ctx, MODE_REAL, type, op, escape_label, slot_1, slot_2, slot_r, &failed));
+					if (unlikely(!failed))
+						continue;
+				}
+				g(gen_fp_alu(ctx, type, op, escape_label, slot_1, slot_2, slot_r));
+				continue;
+			} else if (op < OPCODE_REAL_OP_UNARY) {
+				op -= OPCODE_REAL_OP_C;
+				get_two(ctx, &slot_1, &slot_2);
+				get_two(ctx, &slot_r, &flags);
+				escape_label = alloc_escape_label(ctx);
+				if (unlikely(!escape_label))
+					return false;
+				g(gen_test_1_cached(ctx, slot_1, escape_label));
+				flag_set(ctx, slot_1, false);
+				flag_set(ctx, slot_r, false);
+				slot_2 = frame_t_from_const((int32_t)slot_2);
 				if (flags & OPCODE_FLAG_FUSED) {
 					g(gen_fused_binary(ctx, MODE_REAL, type, op, escape_label, slot_1, slot_2, slot_r, &failed));
 					if (unlikely(!failed))

@@ -29,7 +29,17 @@ static bool attr_w gen_alu_upcall(struct codegen_context *ctx, size_t upcall, un
 		g(spill(ctx, slot_2, false));
 	if (slot_3 != NO_FRAME_T && slot_is_register(ctx, slot_3) && !reg_is_x87(ctx->registers[slot_3]))
 		g(spill(ctx, slot_3, false));
-	if (frame_t_is_const(slot_2)) {
+	if (frame_t_is_const(slot_2) && TYPE_TAG_IS_REAL(get_type_of_local(ctx, slot_1)->tag)) {
+		g(gen_upcall_start(ctx, upcall, 3, true));
+		g(gen_frame_address(ctx, slot_1, 0, R_ARG0));
+		g(gen_upcall_argument(ctx, 0));
+		g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_ARG1));
+		g(gen_3address_alu_imm(ctx, OP_SIZE_ADDRESS, ALU_ADD, R_ARG1, R_ARG1, frame_t_get_const(slot_2), 0));
+		g(gen_upcall_argument(ctx, 1));
+		g(gen_frame_address(ctx, slot_r, 0, R_ARG2));
+		g(gen_upcall_argument(ctx, 2));
+		g(gen_upcall(ctx, upcall, 3, true));
+	} else if (frame_t_is_const(slot_2)) {
 		size_t x_offs = offsetof(struct cg_upcall_vector_s, INT_binary_const_int8_t) + op_size * sizeof(void (*)(void));
 		g(gen_upcall_start(ctx, x_offs, 4, true));
 		g(gen_frame_address(ctx, slot_1, 0, R_ARG0));
@@ -3166,7 +3176,9 @@ do_alu:
 #if defined(ARCH_M68K) || defined(ARCH_X86)
 		if (1)
 #elif defined(ARCH_S390)
-		if ((op_size <= OP_SIZE_8 && (size_t)slot_2 * slot_size < 4096) || slot_is_register(ctx, slot_2))
+		if (slot_is_register(ctx, slot_2) ||
+		   (slot_is_const(slot_2) && op_size <= OP_SIZE_8 && frame_t_get_const(slot_2) < 4096) ||
+		   (!slot_is_const(slot_2) && op_size <= OP_SIZE_8 && (size_t)slot_2 * slot_size < 4096))
 #else
 		if (slot_is_register(ctx, slot_2))
 #endif
@@ -3188,11 +3200,20 @@ do_alu:
 					g(gen_mov(ctx, op_size, target, reg1));
 					reg1 = target;
 				}
-				g(gen_address(ctx, R_FRAME, (size_t)slot_2 * slot_size, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
-				gen_insn(INSN_FP_ALU, op_size, fp_alu, 0);
-				gen_one(target);
-				gen_one(reg1);
-				gen_address_offset();
+				if (frame_t_is_const(slot_2)) {
+					g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_1));
+					g(gen_address(ctx, R_SCRATCH_1, frame_t_get_const(slot_2), IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
+					gen_insn(INSN_FP_ALU, op_size, fp_alu, 0);
+					gen_one(target);
+					gen_one(reg1);
+					gen_address_offset();
+				} else {
+					g(gen_address(ctx, R_FRAME, (size_t)slot_2 * slot_size, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
+					gen_insn(INSN_FP_ALU, op_size, fp_alu, 0);
+					gen_one(target);
+					gen_one(reg1);
+					gen_address_offset();
+				}
 			}
 			g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 			return true;
@@ -3227,8 +3248,11 @@ do_alu:
 			fp_alu_rev = fp_alu;
 			fp_alu = fp_alu_x;
 		}
-		reg_1 = ctx->registers[slot_1];
-		reg_2 = ctx->registers[slot_2];
+		reg_1 = reg_2 = -1;
+		if (slot_is_register(ctx, slot_1))
+			reg_1 = ctx->registers[slot_1];
+		if (slot_is_register(ctx, slot_2))
+			reg_2 = ctx->registers[slot_2];
 		supported_direct_operand = real_type != 3 || (slot_is_register(ctx, slot_2) && reg_is_x87(reg_2));
 		if (slot_1 == slot_r && slot_is_register(ctx, slot_1) && reg_is_x87(reg_1) && supported_direct_operand) {
 			if (reg_2 == R_ST0) {
@@ -3305,7 +3329,9 @@ do_cmp:
 #if defined(ARCH_M68K) || defined(ARCH_X86)
 		if (1)
 #elif defined(ARCH_S390)
-		if ((op_size <= OP_SIZE_8 && (size_t)slot_2 * slot_size < 4096) || slot_is_register(ctx, slot_2))
+		if (slot_is_register(ctx, slot_2) ||
+		   (slot_is_const(slot_2) && op_size <= OP_SIZE_8 && frame_t_get_const(slot_2) < 4096) ||
+		   (!slot_is_const(slot_2) && op_size <= OP_SIZE_8 && (size_t)slot_2 * slot_size < 4096))
 #else
 		if (0)
 #endif
@@ -3317,10 +3343,18 @@ do_cmp:
 				gen_one(reg1);
 				gen_one(ctx->registers[slot_2]);
 			} else {
-				g(gen_address(ctx, R_FRAME, (size_t)slot_2 * slot_size, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
-				gen_insn(INSN_FP_CMP, op_size, 0, 1);
-				gen_one(reg1);
-				gen_address_offset();
+				if (frame_t_is_const(slot_2)) {
+					g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_1));
+					g(gen_address(ctx, R_SCRATCH_1, frame_t_get_const(slot_2), IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
+					gen_insn(INSN_FP_CMP, op_size, 0, 1);
+					gen_one(reg1);
+					gen_address_offset();
+				} else {
+					g(gen_address(ctx, R_FRAME, (size_t)slot_2 * slot_size, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
+					gen_insn(INSN_FP_CMP, op_size, 0, 1);
+					gen_one(reg1);
+					gen_address_offset();
+				}
 			}
 			gen_insn(INSN_JMP_COND, op_size, FP_COND_P, 0);
 			gen_label_ref(label_ovf);
@@ -3445,8 +3479,12 @@ do_cmp:
 	}
 #ifdef SUPPORTED_FP_X87
 	if ((SUPPORTED_FP_X87 >> real_type) & 1) {
-		short reg_1 = ctx->registers[slot_1];
-		short reg_2 = ctx->registers[slot_2];
+		short reg_1, reg_2;
+		reg_1 = reg_2 = -1;
+		if (slot_is_register(ctx, slot_1))
+			reg_1 = ctx->registers[slot_1];
+		if (slot_is_register(ctx, slot_2))
+			reg_2 = ctx->registers[slot_2];
 		if (slot_is_register(ctx, slot_2) && reg_2 == R_ST0) {
 			short tmp_reg;
 			frame_t tmp_slot;
@@ -4750,7 +4788,9 @@ do_cmp:
 #if defined(ARCH_M68K) || defined(ARCH_X86)
 		if (1)
 #elif defined(ARCH_S390)
-		if ((op_size <= OP_SIZE_8 && (size_t)slot_2 * slot_size < 4096) || slot_is_register(ctx, slot_2))
+		if (slot_is_register(ctx, slot_2) ||
+		   (slot_is_const(slot_2) && op_size <= OP_SIZE_8 && frame_t_get_const(slot_2) < 4096) ||
+		   (!slot_is_const(slot_2) && op_size <= OP_SIZE_8 && (size_t)slot_2 * slot_size < 4096))
 #else
 		if (0)
 #endif
@@ -4761,10 +4801,18 @@ do_cmp:
 				gen_one(reg1);
 				gen_one(ctx->registers[slot_2]);
 			} else {
-				g(gen_address(ctx, R_FRAME, (size_t)slot_2 * slot_size, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
-				gen_insn(INSN_FP_CMP, op_size, 0, 1);
-				gen_one(reg1);
-				gen_address_offset();
+				if (frame_t_is_const(slot_2)) {
+					g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_1));
+					g(gen_address(ctx, R_SCRATCH_1, frame_t_get_const(slot_2), IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
+					gen_insn(INSN_FP_CMP, op_size, 0, 1);
+					gen_one(reg1);
+					gen_address_offset();
+				} else {
+					g(gen_address(ctx, R_FRAME, (size_t)slot_2 * slot_size, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
+					gen_insn(INSN_FP_CMP, op_size, 0, 1);
+					gen_one(reg1);
+					gen_address_offset();
+				}
 			}
 			gen_insn(INSN_JMP_COND, op_size, FP_COND_P, 0);
 			gen_label_ref(label_ovf);

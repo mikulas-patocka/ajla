@@ -138,6 +138,25 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 	bool skip_extend = ex == garbage;
 	ajla_assert_lo(ex < max_x, (file_line, "gen_load_raw: invalid extension %u", (unsigned)ex));
 	if (frame_t_is_const(slot)) {
+		if (reg_is_fp(reg)) {
+			g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_1));
+			g(gen_address(ctx, R_SCRATCH_1, frame_t_get_const(slot), IMM_PURPOSE_VLDR_VSTR_OFFSET, size));
+			gen_insn(INSN_MOV, size, 0, MOV_WRITES_FLAGS(reg, ARG_ADDRESS_1));
+			gen_one(reg);
+			gen_address_offset();
+			return true;
+		}
+#if defined(SUPPORTED_FP_X87)
+		if (unlikely(reg_is_x87(reg))) {
+			g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_1));
+			g(gen_address(ctx, R_SCRATCH_1, frame_t_get_const(slot), IMM_PURPOSE_VLDR_VSTR_OFFSET, size));
+			gen_insn(INSN_X87_FLD, size, 0, 0);
+			gen_address_offset();
+			gen_insn(INSN_X87_FSTP, OP_SIZE_10, 0, 0);
+			gen_one(reg + 1);
+			return true;
+		}
+#endif
 		g(gen_load_constant(ctx, reg, get_constant(size, ex, slot, offset, dual)));
 		return true;
 	}
@@ -349,7 +368,12 @@ ret:
 #if defined(ARCH_X86)
 static bool attr_w gen_frame_load_x87_raw(struct codegen_context *ctx, unsigned insn, unsigned size, unsigned alu, frame_t slot)
 {
-	g(gen_address(ctx, R_FRAME, (size_t)slot * slot_size, IMM_PURPOSE_LDR_OFFSET, size));
+	if (frame_t_is_const(slot)) {
+		g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_1));
+		g(gen_address(ctx, R_SCRATCH_1, frame_t_get_const(slot), IMM_PURPOSE_VLDR_VSTR_OFFSET, size));
+	} else {
+		g(gen_address(ctx, R_FRAME, (size_t)slot * slot_size, IMM_PURPOSE_LDR_OFFSET, size));
+	}
 	gen_insn(insn, size, alu, 0);
 	gen_address_offset();
 	return true;

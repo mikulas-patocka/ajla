@@ -106,7 +106,25 @@ static mutex_t dependencies_mutex;
 
 static int function_compare(const struct module_designator *md1, const struct function_designator *fd1, struct function_descriptor *fd2);
 static void save_one_entry(arg_t n_arguments, arg_t n_return_values, pointer_t *arguments, pointer_t *returns);
-static void save_finish_one(const struct module_designator *md, const struct function_designator *fd, arg_t n_arguments, arg_t n_return_values, code_t *code, ip_t code_size, const struct local_variable_flags *local_variables_flags, frame_t n_slots, struct data *types, struct line_position *lp, size_t lp_size, void *unoptimized_code_base, size_t unoptimized_code_size, size_t *entries, size_t n_entries, struct trap_record *trap_records, size_t trap_records_size);
+static void save_finish_one(
+	const struct module_designator *md,
+	const struct function_designator *fd,
+	arg_t n_arguments,
+	arg_t n_return_values,
+	code_t *code,
+	ip_t code_size,
+	const struct local_variable_flags *local_variables_flags,
+	frame_t n_slots,
+	struct data *types,
+	uint8_t *real_data,
+	size_t real_size,
+	struct line_position *lp,
+	size_t lp_size,
+	void *unoptimized_code_base,
+	size_t unoptimized_code_size,
+	size_t *entries,
+	size_t n_entries,
+	struct trap_record *trap_records, size_t trap_records_size);
 static bool dep_get_stream(char **result, size_t *result_l);
 
 
@@ -432,6 +450,8 @@ static void save_loaded_function(struct function_descriptor *fn_desc)
 			fn_desc->local_variables_flags,
 			fn_desc->n_slots,
 			fn_desc->types,
+			fn_desc->real_data,
+			fn_desc->real_size,
 			fn_desc->lp,
 			fn_desc->lp_size,
 			fn_desc->unoptimized_code_base,
@@ -558,13 +578,32 @@ void save_cache_entry(struct data *d, struct cache_entry *ce)
 	mem_free(returns);
 }
 
-static void save_finish_one(const struct module_designator *md, const struct function_designator *fd, arg_t n_arguments, arg_t n_return_values, code_t *code, ip_t code_size, const struct local_variable_flags *local_variables_flags, frame_t n_slots, struct data *types, struct line_position *lp, size_t lp_size, void *unoptimized_code_base, size_t unoptimized_code_size, size_t *entries, size_t n_entries, struct trap_record *trap_records, size_t trap_records_size)
+static void save_finish_one(
+	const struct module_designator *md,
+	const struct function_designator *fd,
+	arg_t n_arguments,
+	arg_t n_return_values,
+	code_t *code,
+	ip_t code_size,
+	const struct local_variable_flags *local_variables_flags,
+	frame_t n_slots,
+	struct data *types,
+	uint8_t *real_data,
+	size_t real_size,
+	struct line_position *lp,
+	size_t lp_size,
+	void *unoptimized_code_base,
+	size_t unoptimized_code_size,
+	size_t *entries,
+	size_t n_entries,
+	struct trap_record *trap_records,
+	size_t trap_records_size)
 {
 	ajla_error_t sink;
 	size_t saved_pos;
 	struct function_descriptor fn_desc;
 	struct data *dsc;
-	size_t code_off, lvf_off, lp_off, uc_off, en_off, tr_off;
+	size_t code_off, lvf_off, real_data_off, lp_off, uc_off, en_off, tr_off;
 	size_t last_fd;
 	pointer_t types_ptr = pointer_data(types);
 	size_t saved_types;
@@ -606,6 +645,10 @@ static void save_finish_one(const struct module_designator *md, const struct fun
 		goto free_it_2;
 	}
 
+	real_data_off = save_range(real_data, scalar_align, real_size, NULL, 0);
+	if (unlikely(code_off == (size_t)-1))
+		goto free_it_2;
+
 	lp_off = save_range(lp, align_of(struct line_position), (size_t)lp_size * sizeof(struct line_position), NULL, 0);
 	if (unlikely(lp_off == (size_t)-1))
 		goto free_it_2;
@@ -644,6 +687,8 @@ static void save_finish_one(const struct module_designator *md, const struct fun
 	fn_desc.n_slots = n_slots;
 	fn_desc.types = num_to_ptr(saved_types);
 	fn_desc.types = data_pointer_tag(fn_desc.types, DATA_TAG_function_types);
+	fn_desc.real_data = num_to_ptr(real_data_off);
+	fn_desc.real_size = real_size;
 	fn_desc.lp = num_to_ptr(lp_off);
 	fn_desc.lp_size = lp_size;
 	fn_desc.unoptimized_code_base = num_to_ptr(uc_off);
@@ -712,6 +757,8 @@ void save_finish_function(struct data *d)
 			da(d,function)->local_variables_flags,
 			function_n_variables(d),
 			pointer_get_data(da(d,function)->types_ptr),
+			cast_ptr(uint8_t *, d) + (offsetof(struct data, u_.function.local_directory[da(d,function)->local_directory_size])),
+			da(d,function)->real_size,
 			da(d,function)->lp,
 			da(d,function)->lp_size,
 			unoptimized_code_base,
@@ -724,7 +771,7 @@ void save_finish_function(struct data *d)
 
 static void save_finish_file(void)
 {
-	const int fn_desc_ptrs = 10;
+	const int fn_desc_ptrs = 11;
 	ajla_error_t sink;
 	struct stack_entry *subptrs;
 	char *deps;
@@ -749,12 +796,13 @@ static void save_finish_file(void)
 		subptrs[i * fn_desc_ptrs + 1].ptr = &fn_descs[i].code;
 		subptrs[i * fn_desc_ptrs + 2].ptr = &fn_descs[i].local_variables_flags;
 		subptrs[i * fn_desc_ptrs + 3].ptr = &fn_descs[i].types;
-		subptrs[i * fn_desc_ptrs + 4].ptr = &fn_descs[i].lp;
-		subptrs[i * fn_desc_ptrs + 5].ptr = &fn_descs[i].md;
-		subptrs[i * fn_desc_ptrs + 6].ptr = &fn_descs[i].fd;
-		subptrs[i * fn_desc_ptrs + 7].ptr = &fn_descs[i].unoptimized_code_base;
-		subptrs[i * fn_desc_ptrs + 8].ptr = &fn_descs[i].entries;
-		subptrs[i * fn_desc_ptrs + 9].ptr = &fn_descs[i].trap_records;
+		subptrs[i * fn_desc_ptrs + 4].ptr = &fn_descs[i].real_data;
+		subptrs[i * fn_desc_ptrs + 5].ptr = &fn_descs[i].lp;
+		subptrs[i * fn_desc_ptrs + 6].ptr = &fn_descs[i].md;
+		subptrs[i * fn_desc_ptrs + 7].ptr = &fn_descs[i].fd;
+		subptrs[i * fn_desc_ptrs + 8].ptr = &fn_descs[i].unoptimized_code_base;
+		subptrs[i * fn_desc_ptrs + 9].ptr = &fn_descs[i].entries;
+		subptrs[i * fn_desc_ptrs + 10].ptr = &fn_descs[i].trap_records;
 		/*debug("%p %p %zx", fn_descs[i].data_saved_cache, fn_descs[i].md, fn_descs[i].idx);*/
 	}
 	fn_descs_offset = save_range(fn_descs, align_of(struct function_descriptor), fn_descs_len * sizeof(struct function_descriptor), subptrs, fn_descs_len * fn_desc_ptrs);

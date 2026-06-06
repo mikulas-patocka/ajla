@@ -139,7 +139,7 @@ DEFINE_OPCODE(								\
 	}								\
 )
 
-#define DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(tc, type, op)		\
+#define DEFINE_FIXED_BINARY_CONST_OPCODE(tc, type, op)			\
 DEFINE_OPCODE(								\
 		cat3(OPCODE_,tc,OP) +					\
 		cat4(OPCODE_,tc,OP_C_,op) * cat3(OPCODE_,tc,OP_MULT) +	\
@@ -157,6 +157,35 @@ DEFINE_OPCODE(								\
 		void *result;						\
 		val1 = frame_var(fp, slot_1);				\
 		val2 = (int32_t)slot_2;					\
+		result = frame_var(fp, slot_r);				\
+		barrier_aliasing();					\
+		if (unlikely(!cat5(tc,binary_,op,_,type)(val1, cast_ptr(void *, &val2), result))) {\
+			barrier_aliasing();				\
+			goto cat(escape_fixed_binary_const_thunk_,ARG_MODE);\
+		}							\
+		barrier_aliasing();					\
+		ADVANCE_I_PARAM(4);					\
+	}								\
+)
+
+#define DEFINE_REAL_BINARY_CONST_OPCODE(tc, type, op)			\
+DEFINE_OPCODE(								\
+		cat3(OPCODE_,tc,OP) +					\
+		cat4(OPCODE_,tc,OP_C_,op) * cat3(OPCODE_,tc,OP_MULT) +	\
+		cat4(OPCODE_,tc,TYPE_,type) * cat3(OPCODE_,tc,TYPE_MULT),\
+		cat7(tc,binary_const_,op,_,type,_,ARG_MODE),		\
+	frame_t slot_1 = get_i_param(0);				\
+	frame_t slot_2 = get_i_param(1);				\
+	frame_t slot_r = get_i_param(2);				\
+	ajla_assert(slot_r == slot_1 || !frame_test_flag(fp, slot_r), (file_line, "real binary const: flag already set for destination slot %"PRIuMAX"", (uintmax_t)slot_r));\
+	if (unlikely(frame_test_flag(fp, slot_1))) {			\
+		goto cat(escape_fixed_binary_const_thunk_,ARG_MODE);	\
+	} else {							\
+		const void *val1;					\
+		type val2;						\
+		void *result;						\
+		val1 = frame_var(fp, slot_1);				\
+		val2 = *cast_ptr(type *, cast_ptr(char *, get_frame(fp)->function) + slot_2);\
 		result = frame_var(fp, slot_r);				\
 		barrier_aliasing();					\
 		if (unlikely(!cat5(tc,binary_,op,_,type)(val1, cast_ptr(void *, &val2), result))) {\
@@ -359,36 +388,36 @@ DEFINE_FIXED_REAL_BINARY_OPCODE(FIXED_, type, uless_equal)\
 DEFINE_FIXED_REAL_BINARY_OPCODE(FIXED_, type, ugreater)	\
 DEFINE_FIXED_REAL_BINARY_OPCODE(FIXED_, type, ugreater_equal)\
 DEFINE_FIXED_REAL_BINARY_OPCODE(FIXED_, type, bt)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, add)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, subtract)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, multiply)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, divide)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, udivide)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, modulo)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, umodulo)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, power)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, and)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, or)		\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, xor)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, shl)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, shr)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, ushr)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, rol)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, ror)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, bts)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, btr)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, btc)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, equal)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, not_equal)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, less)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, less_equal)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, greater)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, greater_equal)\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, uless)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, uless_equal)\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, ugreater)	\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, ugreater_equal)\
-DEFINE_FIXED_REAL_BINARY_CONST_OPCODE(FIXED_, type, bt)		\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, add)	\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, subtract)\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, multiply)\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, divide)	\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, udivide)	\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, modulo)	\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, umodulo)	\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, power)	\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, and)	\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, or)	\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, xor)	\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, shl)	\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, shr)	\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, ushr)	\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, rol)	\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, ror)	\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, bts)	\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, btr)	\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, btc)	\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, equal)	\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, not_equal)\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, less)	\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, less_equal)\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, greater)	\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, greater_equal)\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, uless)	\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, uless_equal)\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, ugreater)\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, ugreater_equal)\
+DEFINE_FIXED_BINARY_CONST_OPCODE(FIXED_, type, bt)	\
 DEFINE_FIXED_REAL_UNARY_OPCODE(FIXED_, type, not)	\
 DEFINE_FIXED_REAL_UNARY_OPCODE(FIXED_, type, neg)	\
 DEFINE_FIXED_REAL_UNARY_OPCODE(FIXED_, type, bswap)	\
@@ -515,6 +544,20 @@ DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, less)	\
 DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, less_equal)\
 DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, greater)	\
 DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, greater_equal)\
+DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, add)	\
+DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, subtract)	\
+DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, multiply)	\
+DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, divide)	\
+DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, modulo)	\
+DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, power)	\
+DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, ldexp)	\
+DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, atan2)	\
+DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, equal)	\
+DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, not_equal)	\
+DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, less)	\
+DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, less_equal)\
+DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, greater)	\
+DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, greater_equal)\
 DEFINE_FIXED_REAL_UNARY_OPCODE(REAL_, type, neg)	\
 DEFINE_FIXED_REAL_UNARY_OPCODE(REAL_, type, sqrt)	\
 DEFINE_FIXED_REAL_UNARY_OPCODE(REAL_, type, cbrt)	\
