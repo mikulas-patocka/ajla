@@ -2596,7 +2596,7 @@ static bool attr_w codegen_map(struct codegen_context *ctx)
 		da(ctx->codegen,codegen)->n_entries++;
 	}
 	da(ctx->codegen,codegen)->unoptimized_code_base = ptr;
-	da(ctx->codegen,codegen)->unoptimized_code_entry = cast_ptr(uint8_t *, ptr) + da(ctx->fn,function)->real_size;
+	da(ctx->codegen,codegen)->unoptimized_code_entry = cast_ptr(uint8_t *, ptr) + (ctx->pc_relative_addressing ? da(ctx->fn,function)->real_size : 0);
 	da(ctx->codegen,codegen)->unoptimized_code_size = ctx->mcode_size;
 
 	return true;
