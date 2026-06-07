@@ -98,6 +98,21 @@ static bool attr_w unspill(struct codegen_context *ctx, frame_t v, bool attr_unu
 }
 
 
+static bool attr_w gen_pool_address(struct codegen_context *ctx, frame_t idx, unsigned *reg, int64_t *offset)
+{
+#if defined R_PC
+	if (ARCH_HAS_PC_RELATIVE_ADDRESSING) {
+		*reg = R_PC;
+		*offset = (uint64_t)idx - (uint64_t)round_up(offsetof(struct data, u_.function.local_directory[da(ctx->fn,function)->local_directory_size]), scalar_align);
+		return true;
+	}
+#endif
+	g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_2));
+	*reg = R_SCRATCH_2;
+	*offset = idx;
+	return true;
+}
+
 static bool attr_w gen_frame_address(struct codegen_context *ctx, frame_t slot, int64_t offset, unsigned reg)
 {
 	offset += (size_t)slot * slot_size;
@@ -139,14 +154,18 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 	ajla_assert_lo(ex < max_x, (file_line, "gen_load_raw: invalid extension %u", (unsigned)ex));
 	if (frame_t_is_const(slot)) {
 		if (reg_is_fp(reg)) {
-			g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_2));
-			g(gen_load_raw(ctx, size, native, R_SCRATCH_2, 0, frame_t_get_const(slot), false, reg));
+			unsigned addr_reg;
+			int64_t addr_offset;
+			g(gen_pool_address(ctx, frame_t_get_const(slot), &addr_reg, &addr_offset));
+			g(gen_load_raw(ctx, size, native, addr_reg, 0, addr_offset, false, reg));
 			return true;
 		}
 #if defined(SUPPORTED_FP_X87)
 		if (unlikely(reg_is_x87(reg))) {
-			g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_2));
-			g(gen_address(ctx, R_SCRATCH_2, frame_t_get_const(slot), IMM_PURPOSE_VLDR_VSTR_OFFSET, size));
+			unsigned addr_reg;
+			int64_t addr_offset;
+			g(gen_pool_address(ctx, frame_t_get_const(slot), &addr_reg, &addr_offset));
+			g(gen_address(ctx, addr_reg, addr_offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, size));
 			gen_insn(INSN_X87_FLD, size, 0, 0);
 			gen_address_offset();
 			gen_insn(INSN_X87_FSTP, OP_SIZE_10, 0, 0);
@@ -366,8 +385,10 @@ ret:
 static bool attr_w gen_frame_load_x87_raw(struct codegen_context *ctx, unsigned insn, unsigned size, unsigned alu, frame_t slot)
 {
 	if (frame_t_is_const(slot)) {
-		g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_2));
-		g(gen_address(ctx, R_SCRATCH_2, frame_t_get_const(slot), IMM_PURPOSE_VLDR_VSTR_OFFSET, size));
+		unsigned addr_reg;
+		int64_t addr_offset;
+		g(gen_pool_address(ctx, frame_t_get_const(slot), &addr_reg, &addr_offset));
+		g(gen_address(ctx, addr_reg, addr_offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, size));
 	} else {
 		g(gen_address(ctx, R_FRAME, (size_t)slot * slot_size, IMM_PURPOSE_LDR_OFFSET, size));
 	}

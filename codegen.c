@@ -593,6 +593,8 @@ struct codegen_context {
 
 	char *live_frame;
 
+	bool pc_relative_addressing;
+
 	arg_t n_ret;
 	frame_t ret_vars[MAX_QUICKRET_VALUES];
 	uint8_t regs[MAX_QUICKRET_VALUES];
@@ -644,6 +646,7 @@ static void init_ctx(struct codegen_context *ctx)
 	ctx->equalities = NULL;
 	ctx->new_insns = NULL;
 	ctx->live_frame = NULL;
+	ctx->pc_relative_addressing = false;
 	ctx->quickret_regs_valid = false;
 }
 
@@ -2593,6 +2596,7 @@ static bool attr_w codegen_map(struct codegen_context *ctx)
 		da(ctx->codegen,codegen)->n_entries++;
 	}
 	da(ctx->codegen,codegen)->unoptimized_code_base = ptr;
+	da(ctx->codegen,codegen)->unoptimized_code_entry = cast_ptr(uint8_t *, ptr) + da(ctx->fn,function)->real_size;
 	da(ctx->codegen,codegen)->unoptimized_code_size = ctx->mcode_size;
 
 	return true;
@@ -2602,7 +2606,7 @@ static void dump_code_ctx(struct codegen_context *ctx)
 {
 	char *hex;
 	size_t hexl;
-	size_t i;
+	size_t i, cnt;
 	handle_t h;
 
 	mutex_lock(&dump_mutex);
@@ -2616,12 +2620,14 @@ static void dump_code_ctx(struct codegen_context *ctx)
 	for (i = 0; i < hexl; i++)
 		if (hex[i] == '/')
 			hex[i] = '_';
-	for (i = 0; i < ctx->mcode_size; i++) {
+	cnt = 0;
+	for (i = ctx->pc_relative_addressing ? da(ctx->fn,function)->real_size : 0; i < ctx->mcode_size; i++) {
 		uint8_t a = ctx->mcode[i];
-		if (!(i & 0xff))
+		if (!(cnt & 0xff))
 			str_add_string(&hex, &hexl, "\n	.byte	0x");
 		else
 			str_add_string(&hex, &hexl, ",0x");
+		cnt++;
 		if (a < 16)
 			str_add_char(&hex, &hexl, '0');
 		str_add_unsigned(&hex, &hexl, a, 16);
@@ -2692,6 +2698,7 @@ next_one:;
 			if (unlikely(!codegen))
 				goto fail;
 			da(codegen,codegen)->unoptimized_code_base = sfd->unoptimized_code_base;
+			da(codegen,codegen)->unoptimized_code_entry = cast_ptr(char *, sfd->unoptimized_code_base) + sfd->unoptimized_code_entry_offset;
 			da(codegen,codegen)->unoptimized_code_size = sfd->unoptimized_code_size;
 			da(codegen,codegen)->function = ctx->fn;
 			da(codegen,codegen)->is_saved = true;
@@ -2709,6 +2716,8 @@ next_one:;
 			goto have_codegen;
 		}
 	}
+
+	ctx->pc_relative_addressing = ARCH_HAS_PC_RELATIVE_ADDRESSING;
 
 	if (unlikely(!array_init_mayfail(uint8_t, &ctx->label_flags, &ctx->label_flags_size, &ctx->err)))
 		goto fail;
@@ -2776,6 +2785,12 @@ again:
 
 	if (unlikely(!array_init_mayfail(uint8_t, &ctx->mcode, &ctx->mcode_size, &ctx->err)))
 		goto fail;
+
+	if (ctx->pc_relative_addressing) {
+		const uint8_t *real_pool = cast_ptr(uint8_t *, ctx->fn) + round_up(offsetof(struct data, u_.function.local_directory[da(ctx->fn,function)->local_directory_size]), scalar_align);
+		if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->mcode, &ctx->mcode_size, real_pool, da(ctx->fn,function)->real_size, NULL, &ctx->err)))
+			goto fail;
+	}
 
 	if (unlikely(!array_init_mayfail(struct relocation, &ctx->reloc, &ctx->reloc_size, &ctx->err)))
 		goto fail;

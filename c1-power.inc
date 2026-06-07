@@ -93,6 +93,7 @@
 #define ARCH_SHIFT_SIZE			OP_SIZE_16
 #define ARCH_BOOL_SIZE			OP_SIZE_NATIVE
 #define ARCH_HAS_FP_GP_MOV(size)	(cpu_test_feature(CPU_FEATURE_v207) && (size) == OP_SIZE_8)
+#define ARCH_HAS_PC_RELATIVE_ADDRESSING	0
 #define ARCH_NEEDS_BARRIER		0
 
 #define i_size(size)			OP_SIZE_NATIVE

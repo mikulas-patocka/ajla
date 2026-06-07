@@ -3030,8 +3030,10 @@ static bool attr_w gen_real_constant(struct codegen_context *ctx, const struct t
 		if (const_idx >= 0) {
 			gen_insn(INSN_X87_FLDC, OP_SIZE_10, const_idx, 0);
 		} else {
-			g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_2));
-			g(gen_address(ctx, R_SCRATCH_2, c, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
+			unsigned addr_reg;
+			int64_t addr_offset;
+			g(gen_pool_address(ctx, c, &addr_reg, &addr_offset));
+			g(gen_address(ctx, addr_reg, addr_offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
 			gen_insn(INSN_X87_FLD, op_size, 0, 0);
 			gen_address_offset();
 		}
@@ -3044,8 +3046,10 @@ static bool attr_w gen_real_constant(struct codegen_context *ctx, const struct t
 		if (const_idx == 6) {
 			g(gen_3address_alu(ctx, OP_SIZE_16, ALU_XOR, ctx->registers[slot_r], ctx->registers[slot_r], ctx->registers[slot_r], 0));
 		} else {
-			g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_2));
-			g(gen_load_raw(ctx, op_size, native, R_SCRATCH_2, 0, c, false, ctx->registers[slot_r]));
+			unsigned addr_reg;
+			int64_t addr_offset;
+			g(gen_pool_address(ctx, c, &addr_reg, &addr_offset));
+			g(gen_load_raw(ctx, op_size, native, addr_reg, 0, addr_offset, false, ctx->registers[slot_r]));
 		}
 		return true;
 	}
@@ -3054,8 +3058,10 @@ static bool attr_w gen_real_constant(struct codegen_context *ctx, const struct t
 		if (const_idx == 6) {
 			g(gen_3address_alu(ctx, OP_SIZE_16, ALU_XOR, fr_scratch_1, fr_scratch_1, fr_scratch_1, 0));
 		} else {
-			g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_2));
-			g(gen_load_raw(ctx, op_size, native, R_SCRATCH_2, 0, c, false, fr_scratch_1));
+			unsigned addr_reg;
+			int64_t addr_offset;
+			g(gen_pool_address(ctx, c, &addr_reg, &addr_offset));
+			g(gen_load_raw(ctx, op_size, native, addr_reg, 0, addr_offset, false, fr_scratch_1));
 		}
 		g(gen_store_raw(ctx, op_size, R_FRAME, slot_r, 0, fr_scratch_1));
 		return true;
@@ -3065,8 +3071,10 @@ static bool attr_w gen_real_constant(struct codegen_context *ctx, const struct t
 		if (const_idx >= 0) {
 			gen_insn(INSN_X87_FLDC, OP_SIZE_10, const_idx, 0);
 		} else {
-			g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_2));
-			g(gen_address(ctx, R_SCRATCH_2, c, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
+			unsigned addr_reg;
+			int64_t addr_offset;
+			g(gen_pool_address(ctx, c, &addr_reg, &addr_offset));
+			g(gen_address(ctx, addr_reg, addr_offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
 			gen_insn(INSN_X87_FLD, op_size, 0, 0);
 			gen_address_offset();
 		}
@@ -3195,8 +3203,10 @@ do_alu:
 					reg1 = target;
 				}
 				if (frame_t_is_const(slot_2)) {
-					g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_2));
-					g(gen_address(ctx, R_SCRATCH_2, frame_t_get_const(slot_2), IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
+					unsigned addr_reg;
+					int64_t addr_offset;
+					g(gen_pool_address(ctx, frame_t_get_const(slot_2), &addr_reg, &addr_offset));
+					g(gen_address(ctx, addr_reg, addr_offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
 					gen_insn(INSN_FP_ALU, op_size, fp_alu, 0);
 					gen_one(target);
 					gen_one(reg1);
@@ -3338,8 +3348,10 @@ do_cmp:
 				gen_one(ctx->registers[slot_2]);
 			} else {
 				if (frame_t_is_const(slot_2)) {
-					g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_2));
-					g(gen_address(ctx, R_SCRATCH_2, frame_t_get_const(slot_2), IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
+					unsigned addr_reg;
+					int64_t addr_offset;
+					g(gen_pool_address(ctx, frame_t_get_const(slot_2), &addr_reg, &addr_offset));
+					g(gen_address(ctx, addr_reg, addr_offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
 					gen_insn(INSN_FP_CMP, op_size, 0, 1);
 					gen_one(reg1);
 					gen_address_offset();
@@ -4796,8 +4808,10 @@ do_cmp:
 				gen_one(ctx->registers[slot_2]);
 			} else {
 				if (frame_t_is_const(slot_2)) {
-					g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_2));
-					g(gen_address(ctx, R_SCRATCH_2, frame_t_get_const(slot_2), IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
+					unsigned addr_reg;
+					int64_t addr_offset;
+					g(gen_pool_address(ctx, frame_t_get_const(slot_2), &addr_reg, &addr_offset));
+					g(gen_address(ctx, addr_reg, addr_offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
 					gen_insn(INSN_FP_CMP, op_size, 0, 1);
 					gen_one(reg1);
 					gen_address_offset();

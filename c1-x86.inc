@@ -67,6 +67,11 @@
 #define ARCH_SHIFT_SIZE			OP_SIZE_4
 #define ARCH_BOOL_SIZE			log_2(sizeof(ajla_flat_option_t))
 #define ARCH_HAS_FP_GP_MOV(size)	cpu_test_feature(CPU_FEATURE_sse2)
+#ifdef ARCH_X86_32
+#define ARCH_HAS_PC_RELATIVE_ADDRESSING	0
+#else
+#define ARCH_HAS_PC_RELATIVE_ADDRESSING	1
+#endif
 #define ARCH_NEEDS_BARRIER		0
 
 #define i_size(size)			(size)
@@ -126,6 +131,8 @@ static void *callback_trampoline;
 #define R_DS		0x2b
 #define R_FS		0x2c
 #define R_GS		0x2d
+
+#define R_PC		0x30
 
 #define R_XMM0		0x40
 #define R_XMM1		0x41

@@ -662,20 +662,20 @@ skip_ref_argument:
 
 	gen_pointer_compression(R_SCRATCH_1);
 #if defined(ARCH_ARM32) || defined(ARCH_M68K) || (defined(ARCH_X86) && !defined(ARCH_X86_X32))
-	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_base), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_entry), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 	gen_address_offset_compressed();
 	goto jmp_done;
 #endif
 #if defined(ARCH_S390_64)
 	if (likely(cpu_test_feature(CPU_FEATURE_misc_insn_ext_2))) {
-		g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_base), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+		g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_entry), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 		gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 		gen_address_offset_compressed();
 		goto jmp_done;
 	}
 #endif
-	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_base), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_entry), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
 	gen_one(R_SCRATCH_1);
 	gen_address_offset_compressed();

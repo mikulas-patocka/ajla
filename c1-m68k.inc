@@ -58,6 +58,7 @@
 #define ARCH_SHIFT_SIZE			OP_SIZE_8
 #define ARCH_BOOL_SIZE			log_2(sizeof(ajla_flat_option_t))
 #define ARCH_HAS_FP_GP_MOV(size)	0
+#define ARCH_HAS_PC_RELATIVE_ADDRESSING	0
 #define ARCH_NEEDS_BARRIER		0
 
 #define i_size(size)			(size)

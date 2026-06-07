@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -121,6 +121,7 @@ static void save_finish_one(
 	struct line_position *lp,
 	size_t lp_size,
 	void *unoptimized_code_base,
+	size_t unoptimized_code_entry_offset,
 	size_t unoptimized_code_size,
 	size_t *entries,
 	size_t n_entries,
@@ -455,6 +456,7 @@ static void save_loaded_function(struct function_descriptor *fn_desc)
 			fn_desc->lp,
 			fn_desc->lp_size,
 			fn_desc->unoptimized_code_base,
+			fn_desc->unoptimized_code_entry_offset,
 			fn_desc->unoptimized_code_size,
 			fn_desc->entries,
 			fn_desc->n_entries,
@@ -593,6 +595,7 @@ static void save_finish_one(
 	struct line_position *lp,
 	size_t lp_size,
 	void *unoptimized_code_base,
+	size_t unoptimized_code_entry_offset,
 	size_t unoptimized_code_size,
 	size_t *entries,
 	size_t n_entries,
@@ -692,6 +695,7 @@ static void save_finish_one(
 	fn_desc.lp = num_to_ptr(lp_off);
 	fn_desc.lp_size = lp_size;
 	fn_desc.unoptimized_code_base = num_to_ptr(uc_off);
+	fn_desc.unoptimized_code_entry_offset = unoptimized_code_entry_offset;
 	fn_desc.unoptimized_code_size = unoptimized_code_size;
 	fn_desc.entries = num_to_ptr(en_off);
 	fn_desc.n_entries = n_entries;
@@ -716,6 +720,7 @@ free_it:
 void save_finish_function(struct data *d)
 {
 	void *unoptimized_code_base = NULL;
+	size_t unoptimized_code_entry_offset = 0;
 	size_t unoptimized_code_size = 0;
 	size_t *entries = NULL;
 	size_t n_entries = 0;
@@ -742,6 +747,7 @@ void save_finish_function(struct data *d)
 		for (i = 0; i < n_entries; i++)
 			entries[i] = da(codegen,codegen)->unoptimized_code[i] - cast_ptr(char *, da(codegen,codegen)->unoptimized_code_base);
 		unoptimized_code_base = da(codegen,codegen)->unoptimized_code_base;
+		unoptimized_code_entry_offset = cast_ptr(char *, da(codegen,codegen)->unoptimized_code_entry) - cast_ptr(char *, da(codegen,codegen)->unoptimized_code_base);
 		unoptimized_code_size = da(codegen,codegen)->unoptimized_code_size;
 #ifdef HAVE_CODEGEN_TRAPS
 		trap_records = da(codegen,codegen)->trap_records;
@@ -757,11 +763,12 @@ void save_finish_function(struct data *d)
 			da(d,function)->local_variables_flags,
 			function_n_variables(d),
 			pointer_get_data(da(d,function)->types_ptr),
-			cast_ptr(uint8_t *, d) + (offsetof(struct data, u_.function.local_directory[da(d,function)->local_directory_size])),
+			cast_ptr(uint8_t *, d) + round_up(offsetof(struct data, u_.function.local_directory[da(d,function)->local_directory_size]), scalar_align),
 			da(d,function)->real_size,
 			da(d,function)->lp,
 			da(d,function)->lp_size,
 			unoptimized_code_base,
+			unoptimized_code_entry_offset,
 			unoptimized_code_size,
 			entries,
 			n_entries,

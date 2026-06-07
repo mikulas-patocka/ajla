@@ -1112,6 +1112,7 @@ struct data_codegen {
 #endif
 	void *unoptimized_code_base;
 	size_t unoptimized_code_size;
+	void *unoptimized_code_entry;
 	struct data *function;
 	bool is_saved;
 	frame_t n_entries;

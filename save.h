@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -46,6 +46,7 @@ struct function_descriptor {
 	struct line_position *lp;
 	size_t lp_size;
 	void *unoptimized_code_base;
+	size_t unoptimized_code_entry_offset;
 	size_t unoptimized_code_size;
 	size_t *entries;
 	size_t n_entries;
