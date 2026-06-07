@@ -3025,10 +3025,10 @@ gen_fldc:
 
 	op_size = real_type_to_op_size(TYPE_TAG_IDX_REAL(t->tag));
 
-	g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_1));
+	g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_2));
 #ifdef SUPPORTED_FP_X87
 	if (slot_is_register(ctx, slot_r) && reg_is_x87(ctx->registers[slot_r])) {
-		g(gen_address(ctx, R_SCRATCH_1, c, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
+		g(gen_address(ctx, R_SCRATCH_2, c, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
 		gen_insn(INSN_X87_FLD, op_size, 0, 0);
 		gen_address_offset();
 		gen_insn(INSN_X87_FSTP, OP_SIZE_10, 0, 0);
@@ -3037,13 +3037,13 @@ gen_fldc:
 	}
 #endif
 	if (slot_is_register(ctx, slot_r)) {
-		g(gen_load_raw(ctx, op_size, native, R_SCRATCH_1, 0, c, false, ctx->registers[slot_r]));
+		g(gen_load_raw(ctx, op_size, native, R_SCRATCH_2, 0, c, false, ctx->registers[slot_r]));
 		return true;
 	}
 
 	if (TYPE_TAG_IDX_REAL(t->tag) == 3) {
 #if defined(ARCH_M68K)
-		g(gen_address(ctx, R_SCRATCH_1, c, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
+		g(gen_address(ctx, R_SCRATCH_2, c, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
 		gen_insn(INSN_MOV, op_size, 0, MOV_WRITES_FLAGS(FR_SCRATCH_1, ARG_ADDRESS_1));
 		gen_one(FR_SCRATCH_1);
 		gen_address_offset();
@@ -3056,7 +3056,7 @@ gen_fldc:
 		return true;
 #endif
 #if defined(ARCH_X86)
-		g(gen_address(ctx, R_SCRATCH_1, c, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
+		g(gen_address(ctx, R_SCRATCH_2, c, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
 		gen_insn(INSN_X87_FLD, op_size, 0, 0);
 		gen_address_offset();
 
@@ -3066,7 +3066,7 @@ gen_fldc:
 #endif
 	}
 
-	g(gen_memcpy_raw(ctx, R_FRAME, (size_t)slot_r * slot_size, R_SCRATCH_1, c, t->size, t->align));
+	g(gen_memcpy_raw(ctx, R_FRAME, (size_t)slot_r * slot_size, R_SCRATCH_2, c, t->size, t->align));
 
 	return true;
 }
