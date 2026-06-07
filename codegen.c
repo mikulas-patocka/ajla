@@ -2787,7 +2787,7 @@ again:
 		goto fail;
 
 	if (ctx->pc_relative_addressing) {
-		const uint8_t *real_pool = cast_ptr(uint8_t *, ctx->fn) + round_up(offsetof(struct data, u_.function.local_directory[da(ctx->fn,function)->local_directory_size]), scalar_align);
+		const uint8_t *real_pool = cast_ptr(uint8_t *, ctx->fn) + function_real_pool_offset(ctx->fn);
 		if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->mcode, &ctx->mcode_size, real_pool, da(ctx->fn,function)->real_size, NULL, &ctx->err)))
 			goto fail;
 	}

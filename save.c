@@ -763,7 +763,7 @@ void save_finish_function(struct data *d)
 			da(d,function)->local_variables_flags,
 			function_n_variables(d),
 			pointer_get_data(da(d,function)->types_ptr),
-			cast_ptr(uint8_t *, d) + round_up(offsetof(struct data, u_.function.local_directory[da(d,function)->local_directory_size]), scalar_align),
+			cast_ptr(uint8_t *, d) + function_real_pool_offset(d),
 			da(d,function)->real_size,
 			da(d,function)->lp,
 			da(d,function)->lp_size,

@@ -103,7 +103,7 @@ static bool attr_w gen_pool_address(struct codegen_context *ctx, frame_t idx, un
 #if defined R_PC
 	if (ARCH_HAS_PC_RELATIVE_ADDRESSING) {
 		*reg = R_PC;
-		*offset = (uint64_t)idx - (uint64_t)round_up(offsetof(struct data, u_.function.local_directory[da(ctx->fn,function)->local_directory_size]), scalar_align);
+		*offset = (uint64_t)idx - (uint64_t)function_real_pool_offset(ctx->fn);
 		return true;
 	}
 #endif

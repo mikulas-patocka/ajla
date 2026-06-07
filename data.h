@@ -1077,6 +1077,8 @@ struct data_function {
 	pointer_t *local_directory[FLEXIBLE_ARRAY_GCC];
 };
 
+#define function_real_pool_offset(d)	round_up(offsetof(struct data, u_.function.local_directory[da(d,function)->local_directory_size]), scalar_align)
+
 struct data_function_types {
 	size_t n_types;
 	const struct type *types[FLEXIBLE_ARRAY_GCC];
