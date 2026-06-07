@@ -2957,6 +2957,25 @@ static bool attr_w gen_constant(struct codegen_context *ctx, bool real, unsigned
 	return true;
 }
 
+#if defined(FR_SCRATCH_128_1)
+#define setup_fr_scratch						\
+	unsigned attr_unused fr_scratch_1 = unlikely(real_type == 4) ? FR_SCRATCH_128_1 : FR_SCRATCH_1;\
+	unsigned attr_unused fr_scratch_2 = unlikely(real_type == 4) ? FR_SCRATCH_128_2 : FR_SCRATCH_2;\
+	unsigned attr_unused fr_scratch_3 = FR_SCRATCH_3
+#elif defined(FR_SCRATCH_3)
+#define setup_fr_scratch						\
+	unsigned attr_unused fr_scratch_1 = FR_SCRATCH_1;		\
+	unsigned attr_unused fr_scratch_2 = FR_SCRATCH_2;		\
+	unsigned attr_unused fr_scratch_3 = FR_SCRATCH_3
+#elif defined(FR_SCRATCH_2)
+#define setup_fr_scratch						\
+	unsigned attr_unused fr_scratch_1 = FR_SCRATCH_1;		\
+	unsigned attr_unused fr_scratch_2 = FR_SCRATCH_2
+#else
+#define setup_fr_scratch						\
+	unsigned attr_unused fr_scratch_1 = FR_SCRATCH_1;
+#endif
+
 #if defined(ARCH_X86)
 static const uint32_t x87_builtin_consts_real32[] = {
 	0x3f800000UL,
@@ -2991,7 +3010,10 @@ static const struct {
 
 static bool attr_w gen_real_constant(struct codegen_context *ctx, const struct type *t, frame_t slot_r, frame_t c)
 {
-	unsigned op_size;
+	unsigned real_type = TYPE_TAG_IDX_REAL(t->tag);
+	unsigned op_size = real_type_to_op_size(real_type);
+
+	setup_fr_scratch;
 
 #if defined(ARCH_X86)
 	if (slot_is_register(ctx, slot_r) && reg_is_x87(ctx->registers[slot_r])) {
@@ -3023,8 +3045,6 @@ gen_fldc:
 	}
 #endif
 
-	op_size = real_type_to_op_size(TYPE_TAG_IDX_REAL(t->tag));
-
 	g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_2));
 #ifdef SUPPORTED_FP_X87
 	if (slot_is_register(ctx, slot_r) && reg_is_x87(ctx->registers[slot_r])) {
@@ -3041,21 +3061,13 @@ gen_fldc:
 		return true;
 	}
 
-	if (TYPE_TAG_IDX_REAL(t->tag) == 3) {
-#if defined(ARCH_M68K)
-		g(gen_address(ctx, R_SCRATCH_2, c, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
-		gen_insn(INSN_MOV, op_size, 0, MOV_WRITES_FLAGS(FR_SCRATCH_1, ARG_ADDRESS_1));
-		gen_one(FR_SCRATCH_1);
-		gen_address_offset();
-
-		g(gen_address(ctx, R_FRAME, (size_t)slot_r * slot_size, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
-		gen_insn(INSN_MOV, op_size, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, FR_SCRATCH_1));
-		gen_address_offset();
-		gen_one(FR_SCRATCH_1);
-
+	if ((SUPPORTED_FP >> real_type) & 1) {
+		g(gen_load_raw(ctx, op_size, native, R_SCRATCH_2, 0, c, false, fr_scratch_1));
+		g(gen_store_raw(ctx, op_size, R_FRAME, slot_r, 0, fr_scratch_1));
 		return true;
-#endif
-#if defined(ARCH_X86)
+	}
+#ifdef SUPPORTED_FP_X87
+	if ((SUPPORTED_FP_X87 >> real_type) & 1) {
 		g(gen_address(ctx, R_SCRATCH_2, c, IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
 		gen_insn(INSN_X87_FLD, op_size, 0, 0);
 		gen_address_offset();
@@ -3063,8 +3075,8 @@ gen_fldc:
 		g(gen_frame_store_x87(ctx, INSN_X87_FSTP, op_size, slot_r, 1));
 
 		return true;
-#endif
 	}
+#endif
 
 	g(gen_memcpy_raw(ctx, R_FRAME, (size_t)slot_r * slot_size, R_SCRATCH_2, c, t->size, t->align));
 
@@ -3104,25 +3116,6 @@ static bool attr_w gen_copy(struct codegen_context *ctx, unsigned op_size, frame
 		return true;
 	}
 }
-
-#if defined(FR_SCRATCH_128_1)
-#define setup_fr_scratch						\
-	unsigned attr_unused fr_scratch_1 = unlikely(real_type == 4) ? FR_SCRATCH_128_1 : FR_SCRATCH_1;\
-	unsigned attr_unused fr_scratch_2 = unlikely(real_type == 4) ? FR_SCRATCH_128_2 : FR_SCRATCH_2;\
-	unsigned attr_unused fr_scratch_3 = FR_SCRATCH_3
-#elif defined(FR_SCRATCH_3)
-#define setup_fr_scratch						\
-	unsigned attr_unused fr_scratch_1 = FR_SCRATCH_1;		\
-	unsigned attr_unused fr_scratch_2 = FR_SCRATCH_2;		\
-	unsigned attr_unused fr_scratch_3 = FR_SCRATCH_3
-#elif defined(FR_SCRATCH_2)
-#define setup_fr_scratch						\
-	unsigned attr_unused fr_scratch_1 = FR_SCRATCH_1;		\
-	unsigned attr_unused fr_scratch_2 = FR_SCRATCH_2
-#else
-#define setup_fr_scratch						\
-	unsigned attr_unused fr_scratch_1 = FR_SCRATCH_1;
-#endif
 
 static bool attr_w gen_fp_alu(struct codegen_context *ctx, unsigned real_type, unsigned op, uint32_t label_ovf, frame_t slot_1, frame_t slot_2, frame_t slot_r)
 {
