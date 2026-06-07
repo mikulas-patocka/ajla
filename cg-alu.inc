@@ -3168,7 +3168,7 @@ do_alu:
 #elif defined(FR_SCRATCH_2)
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, fr_scratch_2, &reg2));
-		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_1);
+		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, !ARCH_IS_3ADDRESS_FP ? slot_2 : NO_FRAME_T, fr_scratch_1);
 		g(gen_3address_fp_alu(ctx, op_size, fp_alu, target, reg1, reg2));
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 #endif
