@@ -147,6 +147,65 @@ crash:
 	return 0;
 }
 
+static int get_known_constant(struct codegen_context attr_unused *ctx, unsigned attr_unused size, frame_t attr_unused c)
+{
+#if defined(ARCH_X86)
+static const uint32_t x87_builtin_consts_real32[] = {
+	0x3f800000UL,
+	0x40549a78UL,
+	0x3fb8aa3bUL,
+	0x40490fdbUL,
+	0x3e9a209bUL,
+	0x3f317218UL,
+	0x00000000UL,
+};
+static const uint64_t x87_builtin_consts_real64[] = {
+	0x3ff0000000000000ULL,
+	0x400a934f0979a371ULL,
+	0x3ff71547652b82feULL,
+	0x400921fb54442d18ULL,
+	0x3fd34413509f79ffULL,
+	0x3fe62e42fefa39efULL,
+	0x0000000000000000ULL,
+};
+static const struct {
+	uint64_t hi, lo;
+} x87_builtin_consts_real80[] = {
+	{ 0x8000000000000000ULL, 0x0000000000003fffULL },
+	{ 0xd49a784bcd1b8afeULL, 0x0000000000004000ULL },
+	{ 0xb8aa3b295c17f0bcULL, 0x0000000000003fffULL },
+	{ 0xc90fdaa22168c235ULL, 0x0000000000004000ULL },
+	{ 0x9a209a84fbcff799ULL, 0x0000000000003ffdULL },
+	{ 0xb17217f7d1cf79acULL, 0x0000000000003ffeULL },
+	{ 0x0000000000000000ULL, 0x0000000000000000ULL },
+};
+	uint8_t *ptr = cast_ptr(uint8_t *, ctx->fn) + c;
+	unsigned i;
+	if (size == OP_SIZE_4) {
+		for (i = 0; i < n_array_elements(x87_builtin_consts_real32); i++) {
+			if (!memcmp(ptr, &x87_builtin_consts_real32[i], 4)) {
+				return i;
+			}
+		}
+	}
+	if (size == OP_SIZE_8) {
+		for (i = 0; i < n_array_elements(x87_builtin_consts_real64); i++) {
+			if (!memcmp(ptr, &x87_builtin_consts_real64[i], 8)) {
+				return i;
+			}
+		}
+	}
+	if (size == OP_SIZE_10) {
+		for (i = 0; i < n_array_elements(x87_builtin_consts_real80); i++) {
+			if (!memcmp(ptr, &x87_builtin_consts_real80[i], 10)) {
+				return i;
+			}
+		}
+	}
+#endif
+	return -1;
+}
+
 static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum extend ex, unsigned base, frame_t slot, int64_t offset, bool dual, unsigned reg)
 {
 	int64_t x_offset;
@@ -156,6 +215,11 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 		if (reg_is_fp(reg)) {
 			unsigned addr_reg;
 			int64_t addr_offset;
+			int const_idx = get_known_constant(ctx, size, frame_t_get_const(slot));
+			if (const_idx == 6) {
+				g(gen_3address_alu(ctx, OP_SIZE_16, ALU_XOR, reg, reg, reg, 0));
+				return true;
+			}
 			g(gen_pool_address(ctx, frame_t_get_const(slot), &addr_reg, &addr_offset));
 			g(gen_load_raw(ctx, size, native, addr_reg, 0, addr_offset, false, reg));
 			return true;
@@ -164,6 +228,13 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 		if (unlikely(reg_is_x87(reg))) {
 			unsigned addr_reg;
 			int64_t addr_offset;
+			int const_idx = get_known_constant(ctx, size, frame_t_get_const(slot));
+			if (const_idx >= 0) {
+				gen_insn(INSN_X87_FLDC, OP_SIZE_10, const_idx, 0);
+				gen_insn(INSN_X87_FSTP, OP_SIZE_10, 0, 0);
+				gen_one(reg + 1);
+				return true;
+			}
 			g(gen_pool_address(ctx, frame_t_get_const(slot), &addr_reg, &addr_offset));
 			g(gen_address(ctx, addr_reg, addr_offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, size));
 			gen_insn(INSN_X87_FLD, size, 0, 0);
@@ -387,6 +458,13 @@ static bool attr_w gen_frame_load_x87_raw(struct codegen_context *ctx, unsigned 
 	if (frame_t_is_const(slot)) {
 		unsigned addr_reg;
 		int64_t addr_offset;
+		if (insn == INSN_X87_FLD) {
+			int const_idx = get_known_constant(ctx, size, frame_t_get_const(slot));
+			if (const_idx >= 0) {
+				gen_insn(INSN_X87_FLDC, OP_SIZE_10, const_idx, 0);
+				return true;
+			}
+		}
 		g(gen_pool_address(ctx, frame_t_get_const(slot), &addr_reg, &addr_offset));
 		g(gen_address(ctx, addr_reg, addr_offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, size));
 	} else {
