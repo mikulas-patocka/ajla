@@ -2911,7 +2911,7 @@ conv_ufrom_int: {
 	}
 }
 
-static bool attr_w gen_constant(struct codegen_context *ctx, bool real, unsigned op_size, bool shrt, frame_t slot_r)
+static bool attr_w gen_constant(struct codegen_context *ctx, unsigned op_size, bool shrt, frame_t slot_r)
 {
 	uintbig_t c;
 	if (shrt) {
@@ -2927,30 +2927,8 @@ static bool attr_w gen_constant(struct codegen_context *ctx, bool real, unsigned
 			internal(file_line, "gen_constant: invalid type %u", op_size);
 	}
 	if (op_size > OP_SIZE_NATIVE) {
-#if defined(ARCH_X86)
-		if (real && TYPE_TAG_IDX_REAL(get_type_of_local(ctx, slot_r)->tag) == 3)
-			c &= ((uintbig_t)1 << 40 << 40) - 1;
-#endif
 		g(gen_frame_store_imm_dual(ctx, slot_r, c));
-		if (real && slot_is_register(ctx, slot_r))
-			g(unspill(ctx, slot_r, false));
 		return true;
-	} else if (real && slot_is_register(ctx, slot_r)) {
-#if defined(ARCH_X86)
-		if (!c) {
-			if (reg_is_fp(ctx->registers[slot_r])) {
-				g(gen_3address_alu(ctx, OP_SIZE_16, ALU_XOR, ctx->registers[slot_r], ctx->registers[slot_r], ctx->registers[slot_r], 0));
-				return true;
-			}
-		}
-#endif
-		if (ARCH_HAS_FP_GP_MOV(op_size)) {
-			g(gen_load_constant(ctx, R_SCRATCH_1, c));
-			g(gen_mov(ctx, op_size, ctx->registers[slot_r], R_SCRATCH_1));
-		} else {
-			g(gen_frame_store_imm_raw(ctx, op_size, slot_r, 0, c));
-			g(unspill(ctx, slot_r, false));
-		}
 	} else {
 		g(gen_frame_store_imm(ctx, op_size, slot_r, 0, c));
 	}
