@@ -3196,8 +3196,8 @@ do_alu:
 					reg1 = target;
 				}
 				if (frame_t_is_const(slot_2)) {
-					g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_1));
-					g(gen_address(ctx, R_SCRATCH_1, frame_t_get_const(slot_2), IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
+					g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_2));
+					g(gen_address(ctx, R_SCRATCH_2, frame_t_get_const(slot_2), IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
 					gen_insn(INSN_FP_ALU, op_size, fp_alu, 0);
 					gen_one(target);
 					gen_one(reg1);
@@ -3339,8 +3339,8 @@ do_cmp:
 				gen_one(ctx->registers[slot_2]);
 			} else {
 				if (frame_t_is_const(slot_2)) {
-					g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_1));
-					g(gen_address(ctx, R_SCRATCH_1, frame_t_get_const(slot_2), IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
+					g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_2));
+					g(gen_address(ctx, R_SCRATCH_2, frame_t_get_const(slot_2), IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
 					gen_insn(INSN_FP_CMP, op_size, 0, 1);
 					gen_one(reg1);
 					gen_address_offset();
@@ -4797,8 +4797,8 @@ do_cmp:
 				gen_one(ctx->registers[slot_2]);
 			} else {
 				if (frame_t_is_const(slot_2)) {
-					g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_1));
-					g(gen_address(ctx, R_SCRATCH_1, frame_t_get_const(slot_2), IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
+					g(gen_load_raw(ctx, OP_SIZE_ADDRESS, zero_x, R_FRAME, 0, frame_offs(function), false, R_SCRATCH_2));
+					g(gen_address(ctx, R_SCRATCH_2, frame_t_get_const(slot_2), IMM_PURPOSE_VLDR_VSTR_OFFSET, op_size));
 					gen_insn(INSN_FP_CMP, op_size, 0, 1);
 					gen_one(reg1);
 					gen_address_offset();
