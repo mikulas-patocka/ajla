@@ -280,18 +280,31 @@ void iomux_check_all(uint32_t us)
 {
 	struct epoll_event events[EPOLL_MAX_EVENTS];
 	int n_ev, i;
-	int ms;
 
 	us = iomux_get_time(us);
-	/*debug("iomux_check_all: %u", us);
-	us = minimum(us, 1000000);*/
 
-	if (us != IOMUX_INDEFINITE_WAIT)
-		ms = (us + 999) / 1000;
-	else
-		ms = -1;
-
-	n_ev = epoll_wait(ep_fd, events, EPOLL_MAX_EVENTS, ms);
+#ifdef HAVE_EPOLL_PWAIT2
+	{
+		struct timespec ts;
+		if (us != IOMUX_INDEFINITE_WAIT) {
+			ts.tv_sec = us / 1000000;
+			ts.tv_nsec = us % 1000000 * 1000;
+		}
+		n_ev = epoll_pwait2(ep_fd, events, EPOLL_MAX_EVENTS, us == IOMUX_INDEFINITE_WAIT ? NULL : &ts, NULL);
+		if (likely(n_ev != -1) || likely(errno != ENOSYS))
+			goto have_n_ev;
+	}
+#endif
+	{
+		int ms;
+		if (us != IOMUX_INDEFINITE_WAIT)
+			ms = (us + 999) / 1000;
+		else
+			ms = -1;
+		n_ev = epoll_wait(ep_fd, events, EPOLL_MAX_EVENTS, ms);
+	}
+	goto have_n_ev;
+have_n_ev:
 	if (n_ev == -1) {
 		int er;
 		if (likely(errno == EINTR))
