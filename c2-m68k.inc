@@ -325,18 +325,30 @@ static bool attr_w cgen_operand(struct codegen_context *ctx, unsigned size, size
 	} else if (R_IS_A(arg[0])) {
 		mc = M68K_ADDR_A | (arg[0] & 7);
 	} else if (arg[0] == ARG_ADDRESS_1) {
-		if (!R_IS_A(arg[1]))
-			goto invl;
 		imm = get_imm(&arg[2]);
-		if (!imm) {
-			mc = M68K_ADDR_AA | (arg[1] & 7);
-		} else if (imm_is_16bit(imm)) {
-			mc = M68K_ADDR_AA_D16 | (arg[1] & 7);
-			cgen_two(imm);
+		if (arg[1] == R_PCN) {
+			imm -= (uint64_t)ctx->mcode_size;
+			if (imm_is_16bit(imm)) {
+				mc = M68K_ADDR_PC_D16;
+				cgen_two(imm);
+			} else {
+				mc = M68K_ADDR_PC_D8_X;
+				cgen_two(M68K_EW_FULL | M68K_EW_IS_NO_IND | M68K_EW_BD_2);
+				cgen_four(imm);
+			}
 		} else {
-			mc = M68K_ADDR_AA_D8_X | (arg[1] & 7);
-			cgen_two(M68K_EW_FULL | M68K_EW_IS_NO_IND | M68K_EW_BD_2);
-			cgen_four(imm);
+			if (!R_IS_A(arg[1]))
+				goto invl;
+			if (!imm) {
+				mc = M68K_ADDR_AA | (arg[1] & 7);
+			} else if (imm_is_16bit(imm)) {
+				mc = M68K_ADDR_AA_D16 | (arg[1] & 7);
+				cgen_two(imm);
+			} else {
+				mc = M68K_ADDR_AA_D8_X | (arg[1] & 7);
+				cgen_two(M68K_EW_FULL | M68K_EW_IS_NO_IND | M68K_EW_BD_2);
+				cgen_four(imm);
+			}
 		}
 	} else if (arg[0] == ARG_ADDRESS_1_PRE_I) {
 		if (!R_IS_A(arg[1]))

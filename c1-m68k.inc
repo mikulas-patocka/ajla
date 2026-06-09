@@ -58,7 +58,7 @@
 #define ARCH_SHIFT_SIZE			OP_SIZE_8
 #define ARCH_BOOL_SIZE			log_2(sizeof(ajla_flat_option_t))
 #define ARCH_HAS_FP_GP_MOV(size)	0
-#define ARCH_HAS_PC_RELATIVE_ADDRESSING	0
+#define ARCH_HAS_PC_RELATIVE_ADDRESSING	1
 #define ARCH_NEEDS_BARRIER		0
 
 #define i_size(size)			(size)
@@ -95,7 +95,9 @@ static void *callback_trampoline;
 #define RFP6				22
 #define RFP7				23
 
-#define R_MAX				24
+#define R_PCN				24
+
+#define R_MAX				25
 
 #define R_IS_D(r)			((r) <= RD7)
 #define R_IS_A(r)			((r) >= RA0 && (r) <= RSP)
@@ -163,7 +165,7 @@ static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, 
 
 static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int32_t imm, unsigned attr_unused purpose, unsigned attr_unused size)
 {
-	if (!R_IS_A(base)) {
+	if (!R_IS_A(base) && base != R_PCN) {
 		gen_insn(INSN_MOV, OP_SIZE_4, 0, MOV_WRITES_FLAGS(R_SCRATCH_A, base));
 		gen_one(R_SCRATCH_A);
 		gen_one(base);
