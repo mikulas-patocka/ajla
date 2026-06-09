@@ -67,6 +67,10 @@
 #define ARM64_MADDSUB		0x1b000000U
 #define  ARM64_MADDSUB_MSUB		0x00008000U
 #define  ARM64_MADDSUB_SIZE		0x80000000U
+#define ARM64_LD_FP_PCREL	0x1c000000U
+#define  ARM64_LD_FP_PCREL_32		0x00000000U
+#define  ARM64_LD_FP_PCREL_64		0x40000000U
+#define  ARM64_LD_FP_PCREL_128		0x80000000U
 #define ARM64_FP_ALU		0x1e200800U
 #define  ARM64_FP_ALU_MUL		0x00000000U
 #define  ARM64_FP_ALU_DIV		0x00001000U
@@ -355,6 +359,28 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 			}
 			mc |= arg1[0] & 31;
 			mc |= ((uint32_t)(arg2[0] & 31)) << 5;
+			cgen_four(mc);
+			return true;
+		}
+		if (arg2[0] == ARG_ADDRESS_1 && arg2[1] == R_PC) {
+			mc = ARM64_LD_FP_PCREL;
+			switch (size) {
+				case OP_SIZE_2:		mc |= ARM64_LD_FP_PCREL_32; break;
+				case OP_SIZE_4:		mc |= ARM64_LD_FP_PCREL_32; break;
+				case OP_SIZE_8:		mc |= ARM64_LD_FP_PCREL_64; break;
+				case OP_SIZE_16:	mc |= ARM64_LD_FP_PCREL_128; break;
+			}
+			mc |= arg1[0] & 31;
+			imm = get_imm(&arg2[2]);
+			imm -= (uint64_t)ctx->mcode_size;
+			if (imm & 3)
+				internal(file_line, "cgen_mov: unaligned offset %"PRIxMAX"", (uintmax_t)imm);
+			imm /= 4;
+			if (imm < -0x40000 || imm >= 0x40000) {
+				ctx->pc_relative_addressing_failed = true;
+				return false;
+			}
+			mc |= (uint32_t)(imm & 0x7ffff) << 5;
 			cgen_four(mc);
 			return true;
 		}

@@ -101,7 +101,7 @@ static bool attr_w unspill(struct codegen_context *ctx, frame_t v, bool attr_unu
 static bool attr_w gen_pool_address(struct codegen_context *ctx, frame_t idx, unsigned *reg, int64_t *offset)
 {
 #if defined R_PC
-	if (ARCH_HAS_PC_RELATIVE_ADDRESSING) {
+	if (ctx->pc_relative_addressing) {
 		*reg = R_PC;
 		*offset = (uint64_t)idx - (uint64_t)function_real_pool_offset(ctx->fn);
 		return true;

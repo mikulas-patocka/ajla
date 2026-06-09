@@ -594,6 +594,7 @@ struct codegen_context {
 	char *live_frame;
 
 	bool pc_relative_addressing;
+	bool pc_relative_addressing_failed;
 
 	arg_t n_ret;
 	frame_t ret_vars[MAX_QUICKRET_VALUES];
@@ -610,8 +611,9 @@ struct codegen_context {
 #endif
 };
 
-static void init_ctx(struct codegen_context *ctx)
+static void init_ctx(struct codegen_context *ctx, struct data *fn, bool pcrel)
 {
+	ctx->fn = fn;
 	ctx->local_directory = NULL;
 	ctx->unreachable = false;
 	ctx->label_flags = NULL;
@@ -646,7 +648,8 @@ static void init_ctx(struct codegen_context *ctx)
 	ctx->equalities = NULL;
 	ctx->new_insns = NULL;
 	ctx->live_frame = NULL;
-	ctx->pc_relative_addressing = false;
+	ctx->pc_relative_addressing = pcrel;
+	ctx->pc_relative_addressing_failed = false;
 	ctx->quickret_regs_valid = false;
 }
 
@@ -2648,8 +2651,7 @@ void *codegen_fn(frame_s *fp, const code_t *ip, union internal_arg ia[])
 	struct data *codegen;
 	uint32_t l;
 
-	init_ctx(ctx);
-	ctx->fn = ia[0].ptr;
+	init_ctx(ctx, ia[0].ptr, !!ARCH_HAS_PC_RELATIVE_ADDRESSING);
 
 	if (unlikely((chicken & CHICKEN_CG) != 0))
 		goto fail;
@@ -2659,6 +2661,7 @@ void *codegen_fn(frame_s *fp, const code_t *ip, union internal_arg ia[])
 		goto fail;
 #endif
 
+retry_without_pcrel:
 	ctx->local_directory = mem_alloc_array_mayfail(mem_calloc_mayfail, struct data **, 0, 0, da(ctx->fn,function)->local_directory_size, sizeof(struct data *), &ctx->err);
 	if (unlikely(!ctx->local_directory))
 		goto fail;
@@ -2715,8 +2718,6 @@ next_one:;
 			goto have_codegen;
 		}
 	}
-
-	ctx->pc_relative_addressing = !!ARCH_HAS_PC_RELATIVE_ADDRESSING;
 
 	if (unlikely(!array_init_mayfail(uint8_t, &ctx->label_flags, &ctx->label_flags_size, &ctx->err)))
 		goto fail;
@@ -2801,8 +2802,14 @@ again:
 	init_arch_context(ctx);
 #endif
 
-	if (unlikely(!gen_mcode(ctx)))
+	if (unlikely(!gen_mcode(ctx))) {
+		if (ctx->pc_relative_addressing_failed) {
+			done_ctx(ctx);
+			init_ctx(ctx, ia[0].ptr, false);
+			goto retry_without_pcrel;
+		}
 		goto fail;
+	}
 
 	rr = resolve_relocs(ctx);
 	if (unlikely(rr == RELOCS_FAIL)) {
@@ -2886,8 +2893,7 @@ bool codegen_callback_init(struct codegen_callback *cb, void (*callback)(void *p
 	struct codegen_context ctx_;
 	struct codegen_context *ctx = &ctx_;
 
-	init_ctx(ctx);
-	ctx->fn = NULL;
+	init_ctx(ctx, NULL, false);
 
 	array_init(uint8_t, &ctx->new_code, &ctx->new_code_size);
 

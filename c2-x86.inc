@@ -555,8 +555,10 @@ avx_done:
 		cgen_one(sib);
 	if (pc_relative) {
 		imm -= (uint64_t)ctx->mcode_size + 4 + trailing_bytes;
-		if (unlikely(!is_direct_offset(imm)))
+		if (unlikely(!is_direct_offset(imm))) {
+			ctx->pc_relative_addressing_failed = true;
 			return false;
+		}
 	}
 	switch (addr_size) {
 		case 1:

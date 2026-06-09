@@ -54,7 +54,7 @@
 #define ARCH_SHIFT_SIZE			OP_SIZE_4
 #define ARCH_BOOL_SIZE			OP_SIZE_4
 #define ARCH_HAS_FP_GP_MOV(size)	1
-#define ARCH_HAS_PC_RELATIVE_ADDRESSING	0
+#define ARCH_HAS_PC_RELATIVE_ADDRESSING	4
 #define ARCH_NEEDS_BARRIER		0
 
 #define i_size(size)			maximum(size, OP_SIZE_4)
@@ -128,7 +128,9 @@
 #define FR_30		0x3e
 #define FR_31		0x3f
 
-#define R_MAX		0x40
+#define R_PC		0x40
+
+#define R_MAX		0x41
 
 #if defined(HAVE_PRESERVE_NONE)
 #define FRAME_SIZE	0x10
