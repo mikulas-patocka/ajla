@@ -2716,7 +2716,7 @@ next_one:;
 		}
 	}
 
-	ctx->pc_relative_addressing = ARCH_HAS_PC_RELATIVE_ADDRESSING;
+	ctx->pc_relative_addressing = !!ARCH_HAS_PC_RELATIVE_ADDRESSING;
 
 	if (unlikely(!array_init_mayfail(uint8_t, &ctx->label_flags, &ctx->label_flags_size, &ctx->err)))
 		goto fail;
@@ -2874,6 +2874,11 @@ unsigned codegen_fma(void)
 #else
 	return 0;
 #endif
+}
+
+size_t codegen_real_align(void)
+{
+	return ARCH_HAS_PC_RELATIVE_ADDRESSING;
 }
 
 bool codegen_callback_init(struct codegen_callback *cb, void (*callback)(void *ptr), void attr_unused *ptr, ajla_error_t *err)

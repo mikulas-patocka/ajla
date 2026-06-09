@@ -1698,7 +1698,7 @@ static pcode_t pcode_alloc_real(struct build_function_context *ctx, const struct
 	struct tree_entry *e;
 	struct tree_insert_position ins;
 	struct real_ref * real_ref;
-	size_t current_end, start;
+	size_t current_end, start, align;
 
 	compare_ctx.ctx = ctx;
 	compare_ctx.data = result;
@@ -1711,7 +1711,11 @@ static pcode_t pcode_alloc_real(struct build_function_context *ctx, const struct
 	}
 
 	current_end = real_start(ctx) + ctx->real_len;
-	start = round_up(current_end, type->align);
+	align = type->align;
+#ifdef HAVE_CODEGEN
+	align = maximum(align, codegen_real_align());
+#endif
+	start = round_up(current_end, align);
 	if (unlikely(start < current_end))
 		goto exception_overflow;
 
@@ -1724,6 +1728,10 @@ static pcode_t pcode_alloc_real(struct build_function_context *ctx, const struct
 	}
 	if (unlikely(!array_add_multiple_mayfail(uint8_t, &ctx->real_data, &ctx->real_len, result, type->size, NULL, ctx->err)))
 		goto exception;
+	while (unlikely((ctx->real_len & (align - 1)) != 0)) {
+		if (unlikely(!array_add_mayfail(uint8_t, &ctx->real_data, &ctx->real_len, 0, NULL, ctx->err)))
+			goto exception;
+	}
 
 	real_ref = mem_alloc_mayfail(struct real_ref *, sizeof(struct real_ref), ctx->err);
 	if (unlikely(!real_ref))
