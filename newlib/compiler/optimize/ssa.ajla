@@ -1182,7 +1182,7 @@ skip_bool:
 		if v1.runtime_type <= T_Real16, v1.runtime_type >= T_Real128, v2_ins.opcode = P_Load_Const then [
 			return create_instr(P_BinaryConstOp, ins.params[ .. 4] + v2_ins.params[1 .. ], ins.bb), true;
 		]
-		if v1.runtime_type <= T_SInt8, v1.runtime_type >= T_Integer128, v1_ins.opcode = P_Load_Const then [
+		if v1.runtime_type <= T_SInt8, v1.runtime_type >= T_Real128, v1_ins.opcode = P_Load_Const then [
 			var new_op := operator_swap(ins.params[0]);
 			if new_op >= 0 then [
 				var params := ins.params;
