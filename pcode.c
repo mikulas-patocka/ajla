@@ -292,7 +292,7 @@ struct build_function_context {
 	size_t ld_len;
 	struct tree ld_tree;
 
-#define real_start(ctx)	(round_up(offsetof(struct data, u_.function.local_directory[(ctx)->ld_len]), scalar_align))
+#define real_start(ctx)	(round_up(offsetof(struct data, u_.function.local_directory[(ctx)->ld_len]), CODE_ALIGNMENT))
 	uint8_t *real_data;
 	size_t real_len;
 	struct tree real_tree;
@@ -3925,7 +3925,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 	ctx->types = NULL;
 	ctx->ft_free = ft;
 
-	while (ctx->real_len & (scalar_align - 1)) {
+	while (ctx->real_len & (CODE_ALIGNMENT - 1)) {
 		if (unlikely(!array_add_mayfail(uint8_t, &ctx->real_data, &ctx->real_len, 0, NULL, ctx->err)))
 			goto exception;
 	}
@@ -3944,7 +3944,7 @@ skip_codegen:
 			goto exception;
 	}
 
-	fn = data_align(function, real_start(ctx) + (!is_saved ? ctx->real_len : sfd->real_size), scalar_align, ctx->err);
+	fn = data_align(function, real_start(ctx) + (!is_saved ? ctx->real_len : sfd->real_size), CODE_ALIGNMENT, ctx->err);
 	if (unlikely(!fn))
 		goto exception;
 

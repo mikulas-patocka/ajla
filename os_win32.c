@@ -4607,14 +4607,20 @@ void os_code_invalidate_cache(uint8_t *code, size_t code_size, bool set_exec)
 
 void *os_code_map(uint8_t *code, size_t attr_unused code_size, ajla_error_t attr_unused *err)
 {
-	/*debug("making executable: %p, %lx", code, code_size);*/
-	os_code_invalidate_cache(code, code_size, true);
-	return code;
+	uint8_t *aligned = mem_align_mayfail(uint8_t *, code_size, CODE_ALIGNMENT, err);
+	if (unlikely(!aligned)) {
+		mem_free(code);
+		return NULL;
+	}
+	memcpy(aligned, code, code_size);
+	mem_free(code);
+	os_code_invalidate_cache(aligned, code_size, true);
+	return aligned;
 }
 
 void os_code_unmap(void *mapped_code, size_t attr_unused code_size)
 {
-	mem_free(mapped_code);
+	mem_free_aligned(mapped_code);
 }
 
 

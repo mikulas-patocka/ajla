@@ -648,7 +648,7 @@ static void save_finish_one(
 		goto free_it_2;
 	}
 
-	real_data_off = save_range(real_data, scalar_align, real_size, NULL, 0);
+	real_data_off = save_range(real_data, CODE_ALIGNMENT, real_size, NULL, 0);
 	if (unlikely(code_off == (size_t)-1))
 		goto free_it_2;
 

@@ -303,11 +303,18 @@ void os_code_invalidate_cache(uint8_t attr_unused *code, size_t attr_unused code
 #endif
 }
 
-void *os_code_map(uint8_t *code, size_t code_size, ajla_error_t attr_unused *err)
+void *os_code_map(uint8_t *code, size_t code_size, ajla_error_t *err)
 {
 #ifdef CODEGEN_USE_HEAP
-	os_code_invalidate_cache(code, code_size, !amalloc_enabled);
-	return code;
+	uint8_t *aligned = mem_align_mayfail(uint8_t *, code_size, CODE_ALIGNMENT, err);
+	if (unlikely(!aligned)) {
+		mem_free(code);
+		return NULL;
+	}
+	memcpy(aligned, code, code_size);
+	mem_free(code);
+	os_code_invalidate_cache(aligned, code_size, !amalloc_enabled);
+	return aligned;
 #else
 	size_t rounded_size = round_up(code_size, os_getpagesize());
 	void *ptr = os_mmap(NULL, rounded_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, handle_none, 0, err);
@@ -325,7 +332,7 @@ void *os_code_map(uint8_t *code, size_t code_size, ajla_error_t attr_unused *err
 void os_code_unmap(void *mapped_code, size_t attr_unused code_size)
 {
 #ifdef CODEGEN_USE_HEAP
-	mem_free(mapped_code);
+	mem_free_aligned(mapped_code);
 #else
 	size_t rounded_size = round_up(code_size, os_getpagesize());
 	os_munmap(mapped_code, rounded_size, false);

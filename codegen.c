@@ -2578,7 +2578,6 @@ static bool attr_w codegen_map(struct codegen_context *ctx)
 {
 	void *ptr;
 	frame_t i;
-	array_finish(uint8_t, &ctx->mcode, &ctx->mcode_size);
 	ptr = os_code_map(ctx->mcode, ctx->mcode_size, &ctx->err);
 	ctx->mcode = NULL;
 	if (unlikely(!ptr)) {

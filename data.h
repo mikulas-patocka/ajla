@@ -148,28 +148,6 @@ unknown integer size
 #endif
 
 
-/*************
- * ALIGNMENT *
- *************/
-
-#ifdef HAVE_MAX_ALIGN_T
-#define scalar_align_max_align_t_		(align_of(max_align_t) - 1) |
-#else
-#define scalar_align_max_align_t_
-#endif
-#define scalar_align_fixed_(n, s, u, sz, bits)		(align_of(s) - 1) |
-#define scalar_align_int_(n, s, u, sz, bits)		(align_of(s) - 1) |
-#define scalar_align_real_(n, t, nt, pack, unpack)	(align_of(t) - 1) |
-#define scalar_align ((							\
-			for_all_fixed(scalar_align_fixed_)		\
-			for_all_int(scalar_align_int_, for_all_empty)	\
-			for_all_real(scalar_align_real_, for_all_empty)	\
-			scalar_align_max_align_t_			\
-			(align_of(ajla_flat_option_t) - 1) |		\
-			(align_of(void *) - 1) |			\
-			1) + 1)
-
-
 /***************
  * COMPRESSION *
  ***************/
@@ -1077,7 +1055,7 @@ struct data_function {
 	pointer_t *local_directory[FLEXIBLE_ARRAY_GCC];
 };
 
-#define function_real_pool_offset(d)	round_up(offsetof(struct data, u_.function.local_directory[da(d,function)->local_directory_size]), scalar_align)
+#define function_real_pool_offset(d)	round_up(offsetof(struct data, u_.function.local_directory[da(d,function)->local_directory_size]), CODE_ALIGNMENT)
 
 struct data_function_types {
 	size_t n_types;

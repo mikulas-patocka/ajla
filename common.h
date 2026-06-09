@@ -236,3 +236,23 @@ do {									\
 #define TASK_SUBMIT_MUST_NOT_SPAWN	0
 #define TASK_SUBMIT_MAY_SPAWN		1
 #define TASK_SUBMIT_MUST_SPAWN		2
+
+
+#ifdef HAVE_MAX_ALIGN_T
+#define scalar_align_max_align_t_		(align_of(max_align_t) - 1) |
+#else
+#define scalar_align_max_align_t_
+#endif
+#define scalar_align_fixed_(n, s, u, sz, bits)		(align_of(s) - 1) |
+#define scalar_align_int_(n, s, u, sz, bits)		(align_of(s) - 1) |
+#define scalar_align_real_(n, t, nt, pack, unpack)	(align_of(t) - 1) |
+#define scalar_align ((							\
+			for_all_fixed(scalar_align_fixed_)		\
+			for_all_int(scalar_align_int_, for_all_empty)	\
+			for_all_real(scalar_align_real_, for_all_empty)	\
+			scalar_align_max_align_t_			\
+			(align_of(ajla_flat_option_t) - 1) |		\
+			(align_of(void *) - 1) |			\
+			1) + 1)
+
+#define CODE_ALIGNMENT	maximum(16, scalar_align)
