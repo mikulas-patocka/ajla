@@ -342,7 +342,7 @@ static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int64
 	ctx->base_reg = base;
 	ctx->offset_imm = imm;
 	ctx->offset_reg = false;
-	if (is_address_direct(imm, purpose, size))
+	if (base == R_PCN || is_address_direct(imm, purpose, size))
 		return true;
 	if (purpose == IMM_PURPOSE_LDP_STP_OFFSET) {
 		g(gen_imm(ctx, imm, alu_purpose(ALU_ADD), i_size(OP_SIZE_ADDRESS)));
