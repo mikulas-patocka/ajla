@@ -171,7 +171,7 @@ static bool attr_w cgen_arm_push_pop(struct codegen_context *ctx, bool pop)
 	mc |= 1U << R_9;
 	mc |= 1U << R_10;
 	mc |= 1U << R_FP;
-	mc |= 1U << (pop && !need_bx ? R_PC : R_LR);
+	mc |= 1U << (pop && !need_bx ? R_PCN : R_LR);
 	cgen_four(mc);
 	if (need_bx) {
 		mc = ARM_ALWAYS | ARM_BX;
@@ -201,11 +201,11 @@ static bool attr_w cgen_call_indirect(struct codegen_context *ctx)
 	} else {
 		mc = ARM_ALWAYS | ARM_MOV;
 		mc |= (uint32_t)R_LR << 12;
-		mc |= R_PC;
+		mc |= R_PCN;
 		cgen_four(mc);
 
 		mc = ARM_ALWAYS | ARM_MOV;
-		mc |= (uint32_t)R_PC << 12;
+		mc |= (uint32_t)R_PCN << 12;
 		mc |= reg;
 		cgen_four(mc);
 	}
@@ -939,7 +939,7 @@ static bool attr_w cgen_jmp_cond(struct codegen_context *ctx, unsigned aux, unsi
 
 static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx)
 {
-	uint8_t pc = R_PC;
+	uint8_t pc = R_PCN;
 	uint8_t *arg1 = ctx->code_position;
 	ctx->code_position = arg1 + arg_size(*arg1);
 	g(cgen_mov_args(ctx, ARM_ALWAYS, OP_SIZE_ADDRESS, false, &pc, arg1));

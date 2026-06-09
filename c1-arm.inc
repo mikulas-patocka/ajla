@@ -80,7 +80,7 @@
 #define R_IP		0x0c
 #define R_SP		0x0d
 #define R_LR		0x0e
-#define R_PC		0x0f
+#define R_PCN		0x0f
 
 #define FSR_0		0x20
 #define FSR_1		0x21

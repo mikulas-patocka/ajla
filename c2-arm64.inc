@@ -362,7 +362,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 			cgen_four(mc);
 			return true;
 		}
-		if (arg2[0] == ARG_ADDRESS_1 && arg2[1] == R_PC) {
+		if (arg2[0] == ARG_ADDRESS_1 && arg2[1] == R_PCN) {
 			mc = ARM64_LD_FP_PCREL;
 			switch (size) {
 				case OP_SIZE_2:		mc |= ARM64_LD_FP_PCREL_32; break;

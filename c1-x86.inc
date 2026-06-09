@@ -132,7 +132,7 @@ static void *callback_trampoline;
 #define R_FS		0x2c
 #define R_GS		0x2d
 
-#define R_PC		0x30
+#define R_PCN		0x30
 
 #define R_XMM0		0x40
 #define R_XMM1		0x41

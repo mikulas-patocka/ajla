@@ -128,7 +128,7 @@
 #define FR_30		0x3e
 #define FR_31		0x3f
 
-#define R_PC		0x40
+#define R_PCN		0x40
 
 #define R_MAX		0x41
 

@@ -333,7 +333,7 @@ static bool attr_w cgen_rm_insn(struct codegen_context *ctx, int32_t sse_prefix,
 	uint8_t addr_size;
 	uint8_t arg_reg;
 	bool need_rex;
-	bool pc_relative = arg[0] == ARG_ADDRESS_1 && arg[1] == R_PC;
+	bool pc_relative = arg[0] == ARG_ADDRESS_1 && arg[1] == R_PCN;
 
 	if (real_size == OP_SIZE_32)
 		sse_prefix |= SSE_PREFIX_L;
