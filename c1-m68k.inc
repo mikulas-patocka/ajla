@@ -163,9 +163,9 @@ static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, 
 	return true;
 }
 
-static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int32_t imm, unsigned attr_unused purpose, unsigned attr_unused size)
+static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int64_t imm, unsigned attr_unused purpose, unsigned attr_unused size)
 {
-	if (!R_IS_A(base) && base != R_PCN) {
+	if (!R_IS_A(base) && base != R_PCN && base != ARG_IMM) {
 		gen_insn(INSN_MOV, OP_SIZE_4, 0, MOV_WRITES_FLAGS(R_SCRATCH_A, base));
 		gen_one(R_SCRATCH_A);
 		gen_one(base);

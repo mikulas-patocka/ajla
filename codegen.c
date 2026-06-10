@@ -1151,7 +1151,10 @@ do {									\
 #else
 #define gen_address_offset()						\
 do {									\
-	if (likely(!ctx->offset_reg)) {					\
+	if (ctx->base_reg == ARG_IMM) {					\
+		gen_one(ARG_IMM);					\
+		gen_eight(ctx->offset_imm);				\
+	} else if (likely(!ctx->offset_reg)) {				\
 		gen_one(ARG_ADDRESS_1);					\
 		gen_one(ctx->base_reg);					\
 		gen_eight(ctx->offset_imm);				\

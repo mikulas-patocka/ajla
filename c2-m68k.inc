@@ -295,7 +295,7 @@ static uint16_t get_fp_cond(unsigned cond)
 	return 0xffff;
 }
 
-static bool attr_w cgen_imm(struct codegen_context *ctx, unsigned size, int32_t imm)
+static bool attr_w cgen_imm(struct codegen_context *ctx, unsigned size, uint64_t imm)
 {
 	switch (size) {
 		case OP_SIZE_1:
@@ -306,6 +306,9 @@ static bool attr_w cgen_imm(struct codegen_context *ctx, unsigned size, int32_t 
 			break;
 		case OP_SIZE_4:
 			cgen_four(imm);
+			break;
+		case OP_SIZE_8:
+			cgen_eight(imm);
 			break;
 		default:
 			internal(file_line, "cgen_imm: invalid size %u", size);

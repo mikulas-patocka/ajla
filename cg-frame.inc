@@ -98,8 +98,17 @@ static bool attr_w unspill(struct codegen_context *ctx, frame_t v, bool attr_unu
 }
 
 
-static bool attr_w gen_pool_address(struct codegen_context *ctx, frame_t idx, unsigned *reg, int64_t *offset)
+static bool attr_w gen_pool_address(struct codegen_context *ctx, unsigned attr_unused size, frame_t idx, unsigned *reg, int64_t *offset)
 {
+#if defined(ARCH_M68K)
+	if (size == OP_SIZE_4 || size == OP_SIZE_8) {
+		uint8_t *ptr = cast_ptr(uint8_t *, ctx->fn) + idx;
+		*reg = ARG_IMM;
+		memset(offset, 0, 8);
+		memcpy(cast_ptr(uint8_t *, offset) + 8 - (1U << size), ptr, 1U << size);
+		return true;
+	}
+#endif
 #if defined(R_PCN)
 	if (ctx->pc_relative_addressing) {
 		*reg = R_PCN;
@@ -220,7 +229,7 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 				g(gen_3address_alu(ctx, OP_SIZE_16, ALU_XOR, reg, reg, reg, 0));
 				return true;
 			}
-			g(gen_pool_address(ctx, frame_t_get_const(slot), &addr_reg, &addr_offset));
+			g(gen_pool_address(ctx, size, frame_t_get_const(slot), &addr_reg, &addr_offset));
 			g(gen_load_raw(ctx, size, native, addr_reg, 0, addr_offset, false, reg));
 			return true;
 		}
@@ -235,7 +244,7 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 				gen_one(reg + 1);
 				return true;
 			}
-			g(gen_pool_address(ctx, frame_t_get_const(slot), &addr_reg, &addr_offset));
+			g(gen_pool_address(ctx, size, frame_t_get_const(slot), &addr_reg, &addr_offset));
 			g(gen_address(ctx, addr_reg, addr_offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, size));
 			gen_insn(INSN_X87_FLD, size, 0, 0);
 			gen_address_offset();
@@ -465,7 +474,7 @@ static bool attr_w gen_frame_load_x87_raw(struct codegen_context *ctx, unsigned 
 				return true;
 			}
 		}
-		g(gen_pool_address(ctx, frame_t_get_const(slot), &addr_reg, &addr_offset));
+		g(gen_pool_address(ctx, size, frame_t_get_const(slot), &addr_reg, &addr_offset));
 		g(gen_address(ctx, addr_reg, addr_offset, IMM_PURPOSE_VLDR_VSTR_OFFSET, size));
 	} else {
 		g(gen_address(ctx, R_FRAME, (size_t)slot * slot_size, IMM_PURPOSE_LDR_OFFSET, size));
