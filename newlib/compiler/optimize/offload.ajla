@@ -442,6 +442,27 @@ fn get_integer_type(ctx : context)
 	return t;
 ]
 
+fn decode_const(ctx : context, blob : list(pcode_t), typ : int)
+[
+	var b := blob_load(blob);
+	var itype as : bytes;
+	if typ = T_Real16 then [
+		itype := "ushort";
+		as := "as_half";
+	] else if typ = T_Real32 then [
+		itype := "uint";
+		as := "as_float";
+	] else if typ = T_Real64 then [
+		itype := "ulong";
+		as := "as_double";
+	] else [
+		abort internal("decode_const: invalid type " + ntos(typ));
+	]
+	var val : uint64;
+	pcode IO IO_Real_To_Int 1 2 0 =val typ b;
+	return as+"(("+itype+")"+ntos(val)+")";
+]
+
 fn process_structured_write(ctx : context, ins : instruction) : bytes
 [
 	if ins.params[0] <> 1 or ins.params[6] <> Structured_Array then [
@@ -471,6 +492,8 @@ fn process_binary_operator(ctx : context, ins : instruction) : bytes
 		op2_name := "";
 	] else if not cnst then [
 		op2_name := ctx.variables[ins.params[5]].offload_name;
+	] else if fot is fp then [
+		op2_name := decode_const(ctx, ins.params[4 .. ], tx);
 	] else [
 		op2_name := "("+ft+")"+ntos(blob_to_int(ins.params[4 .. ]));
 	]
@@ -746,25 +769,8 @@ fn process_load_const(ctx : context, ins : instruction) : bytes
 	var blob := ins.params[1 .. ];
 	if ot is fp then [
 		var typ := ctx.variables[ins.params[0]].type_index;
-		var b := blob_load(blob);
-		var itype as : bytes;
-		if typ = T_Real16 then [
-			itype := "ushort";
-			as := "as_half";
-		] else if typ = T_Real32 then [
-			itype := "uint";
-			as := "as_float";
-		] else if typ = T_Real64 then [
-			itype := "ulong";
-			as := "as_double";
-		] else [
-			abort internal("process_load_const: invalid type " + ntos(typ));
-		]
-		var val : uint64;
-		pcode IO IO_Real_To_Int 1 2 0 =val typ b;
 		var output := "	{"+nl;
-		output += "		"+itype+" i = "+ntos(val)+";"+nl;
-		output += "		"+ctx.variables[ins.params[0]].offload_name+" = "+as+"(i);"+nl;
+		output += "		"+ctx.variables[ins.params[0]].offload_name+" = "+decode_const(ctx, blob, typ)+";"+nl;
 		output += "	}"+nl;
 		return output;
 	]
