@@ -763,6 +763,35 @@ unsup_op:
 	return output;
 ]
 
+fn process_ternary_operator(ctx : context, ins : instruction) : bytes
+[
+	var t, ot, bits := get_variable_type(ctx, ins.params[1]);
+	var ft, fot, fbits := get_variable_type(ctx, ins.params[3]);
+	var tx := ctx.variables[ins.params[3]].type_index;
+	var op := ins.params[0];
+	var op1_name op2_name op3_name : bytes;
+	op1_name := ctx.variables[ins.params[3]].offload_name;
+	op2_name := ctx.variables[ins.params[5]].offload_name;
+	op3_name := ctx.variables[ins.params[7]].offload_name;
+	if ins.params[0] = Tern_FMA then [
+	] else if ins.params[0] = Tern_FMS then [
+		op3_name := "-"+op3_name;
+	] else if ins.params[0] = Tern_FNMA then [
+		op1_name := "-"+op1_name;
+	] else if ins.params[0] = Tern_FNMS then [
+		op3_name := "-"+op3_name;
+		op1_name := "-"+op1_name;
+	] else [
+		abort internal("process_ternary_operator: invalid operators " + ntos(ins.params[0]));
+	]
+	var output := "	{"+nl;
+	output += "		"+t+" result;"+nl;
+	output += "		result = fma("+op1_name+", "+op2_name+", "+op3_name+");"+nl;
+	output += "		"+ctx.variables[ins.params[1]].offload_name+" = result;"+nl;
+	output += "	}"+nl;
+	return output;
+]
+
 fn process_load_const(ctx : context, ins : instruction) : bytes
 [
 	var t, ot, bits := get_variable_type(ctx, ins.params[0]);
@@ -864,6 +893,13 @@ fn process_basic_block(ctx : context, bgi : int, test last : bool) : bytes
 		]
 		if not ctx.local_variables bt wr then
 			continue;
+		if ins.opcode = P_TernaryOp then [
+			s := process_ternary_operator(ctx, ins);
+			if not len_greater_than(s, 0) then
+				return "";
+			output += s;
+			continue;
+		]
 		if ins.opcode = P_BinaryOp or ins.opcode = P_BinaryConstOp or ins.opcode = P_UnaryOp then [
 			s := process_binary_operator(ctx, ins);
 			if not len_greater_than(s, 0) then
