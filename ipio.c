@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -113,6 +113,8 @@ static struct list msgqueue_list;
 #define IO_STATUS_THUNK		4
 #define IO_STATUS_BLOCKED	5
 
+struct ffi_call_packet;
+
 struct io_ctx {
 	frame_s *fp;
 	const code_t *ip;
@@ -143,6 +145,7 @@ struct io_ctx {
 
 	void **ptrs;
 	size_t ptrs_l;
+	struct ffi_call_packet *pkt;
 
 	handle_t *h_src;
 	size_t h_src_l;
@@ -151,8 +154,6 @@ struct io_ctx {
 
 	uchar_efficient_t *args;
 	size_t args_l;
-
-	struct resource_ffi *rf;
 
 	struct resource_handle *handle;
 	struct resource_handle *handle2;
@@ -4980,14 +4981,15 @@ static void * attr_fastcall io_ffi_callback_supported(struct io_ctx *ctx)
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
-#if defined(SUPPORTS_FFI)
-#include "ipio_ffi.inc"
-#else
-static void * attr_fastcall io_ffi_unsupported(struct io_ctx *ctx)
+static attr_unused void * attr_fastcall io_ffi_unsupported(struct io_ctx *ctx)
 {
 	io_terminate_with_error(ctx, error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED), true, NULL);
 	return POINTER_FOLLOW_THUNK_EXCEPTION;
 }
+
+#if defined(SUPPORTS_FFI)
+#include "ipio_ffi.inc"
+#else
 #define io_ffi_get_size_alignment_handler	io_ffi_unsupported
 #define io_ffi_create_structure_handler		io_ffi_unsupported
 #define io_ffi_structure_offset_handler		io_ffi_unsupported
@@ -5007,6 +5009,7 @@ static void * attr_fastcall io_ffi_unsupported(struct io_ctx *ctx)
 #define io_ffi_callback_create			io_ffi_unsupported
 #define io_ffi_callback_wait			io_ffi_unsupported
 #define io_ffi_callback_cancel			io_ffi_unsupported
+#define io_ffi_thread_spawn			io_ffi_unsupported
 int io_ffi_get_ffi_type(const struct type attr_unused *type)
 {
 	return -1;
@@ -5228,6 +5231,7 @@ static const struct {
 	{ io_ffi_callback_create },
 	{ io_ffi_callback_wait },
 	{ io_ffi_callback_cancel },
+	{ io_ffi_thread_spawn },
 };
 
 void *ipret_io(frame_s *fp, const code_t *ip, unsigned char io_code, unsigned char n_outputs, unsigned char n_inputs, unsigned char n_params)

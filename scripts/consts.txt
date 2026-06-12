@@ -400,6 +400,7 @@ IO_FFI_Callback_Supported
 IO_FFI_Callback_Create
 IO_FFI_Callback_Wait
 IO_FFI_Callback_Cancel
+IO_FFI_Thread_Spawn
 IO_N
 
 *
