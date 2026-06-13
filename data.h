@@ -966,7 +966,7 @@ struct data_function_reference {
 };
 
 struct data_resource {
-	void (*close)(struct data *);
+	bool (*close)(struct data *);
 #ifdef DEBUG
 	/* deliberately misalign variables to catch alignment errors */
 	char misalign;
@@ -1271,6 +1271,13 @@ static inline void *da_resource(struct data *d)
 {
 	da_assert(d,resource);
 	return cast_ptr(void *, cast_ptr(const char *, d) + data_resource_offset);
+}
+
+static inline struct data *resource_da(void *r)
+{
+	struct data *d = cast_ptr(struct data *, cast_ptr(const char *, r) - data_resource_offset);
+	da_assert(d,resource);
+	return d;
 }
 
 
@@ -1622,7 +1629,7 @@ struct data * attr_fastcall data_alloc_array_incomplete(struct data *first, poin
 struct data * attr_fastcall data_alloc_function_reference_mayfail(arg_t n_curried_arguments, ajla_error_t *mayfail argument_position);
 void attr_fastcall data_fill_function_reference(struct data *function_reference, arg_t a, pointer_t ptr);
 void attr_fastcall data_fill_function_reference_flat(struct data *function_reference, arg_t a, const struct type *type, const unsigned char *data);
-struct data * attr_fastcall data_alloc_resource_mayfail(size_t size, void (*close)(struct data *), ajla_error_t *mayfail argument_position);
+struct data * attr_fastcall data_alloc_resource_mayfail(size_t size, bool (*close)(struct data *), ajla_error_t *mayfail argument_position);
 
 extern pointer_t *out_of_memory_ptr;
 struct thunk * attr_fastcall thunk_alloc_exception_error(ajla_error_t err, char *msg, frame_s *fp, const code_t *ip argument_position);

@@ -137,13 +137,14 @@ static void free_type(ffi_type *ft)
 	}
 }
 
-static void resource_ffi_library_close(struct data *d)
+static bool resource_ffi_library_close(struct data *d)
 {
 	struct resource_ffi_library *rfl = da_resource(d);
 	library_unload(rfl->lib);
+	return true;
 }
 
-static void resource_ffi_close(struct data *d)
+static bool resource_ffi_close(struct data *d)
 {
 	unsigned i;
 	struct resource_ffi *rf = da_resource(d);
@@ -154,9 +155,10 @@ static void resource_ffi_close(struct data *d)
 	mem_free(rf->args);
 	mem_free(rf->ctx_args);
 	free_type(rf->ret_ffi_type);
+	return true;
 }
 
-static void resource_ffi_structure_close(struct data *d)
+static bool resource_ffi_structure_close(struct data *d)
 {
 	unsigned i;
 	struct resource_ffi_structure *rfs = da_resource(d);
@@ -164,6 +166,7 @@ static void resource_ffi_structure_close(struct data *d)
 		free_type(rfs->typ.elements[i]);
 	mem_free(rfs->typ.elements);
 	mem_free(rfs->offsets);
+	return true;
 }
 
 #define T_VOID			0
@@ -215,6 +218,7 @@ struct resource_thread {
 	thread_t thr;
 	cond_t cond;
 	struct ffi_call_packet *sync_packet;
+	struct list async_packets;
 	bool should_exit;
 };
 
@@ -1328,7 +1332,7 @@ struct resource_ffi_destructor {
 	size_t handles_l;
 };
 
-static void resource_ffi_destructor_close(struct data *d)
+static bool resource_ffi_destructor_close(struct data *d)
 {
 	size_t i;
 	struct resource_ffi_destructor *rfd = da_resource(d);
@@ -1348,6 +1352,7 @@ static void resource_ffi_destructor_close(struct data *d)
 	for (i = 0; i < rfd->ptrs_l; i++)
 		mem_free_aligned(rfd->ptrs[i]);
 	mem_free(rfd->ptrs);
+	return true;
 }
 
 static void * attr_fastcall io_ffi_destructor_new_handler(struct io_ctx *ctx)
@@ -1651,12 +1656,13 @@ struct resource_callback {
 	struct codegen_callback cb;
 };
 
-static void callback_close(struct data *d)
+static bool callback_close(struct data *d)
 {
 	struct resource_callback *c = da_resource(d);
 	if (unlikely(!c->fired))
 		fatal("Freeing callback that wasn't called");
 	codegen_callback_done(&c->cb);
+	return true;
 }
 
 static void callback_call(void *c_)
@@ -1769,7 +1775,30 @@ static void * attr_fastcall io_ffi_callback_cancel(struct io_ctx *ctx)
 
 #ifndef THREAD_NONE
 
-static void thread_close(struct data *d)
+struct resource_async_packet {
+	struct list list_entry;
+	struct ffi_call_packet pkt;
+	bool finished;
+	bool dereferenced;
+	struct list wait_list;
+};
+
+static bool async_packet_close(struct data *d)
+{
+	struct resource_async_packet *a = da_resource(d);
+	address_lock(a, DEPTH_THUNK);
+	if (a->finished) {
+		address_unlock(a, DEPTH_THUNK);
+		ffi_call_packet_done(&a->pkt);
+		return true;
+	} else {
+		a->dereferenced = true;
+		address_unlock(a, DEPTH_THUNK);
+		return false;
+	}
+}
+
+static bool thread_close(struct data *d)
 {
 	struct resource_thread *t = da_resource(d);
 	cond_lock(&t->cond);
@@ -1777,6 +1806,7 @@ static void thread_close(struct data *d)
 	cond_unlock_broadcast(&t->cond);
 	thread_join(&t->thr);
 	cond_done(&t->cond);
+	return true;
 }
 
 thread_function_decl(ffi_thread_function,
@@ -1785,10 +1815,31 @@ thread_function_decl(ffi_thread_function,
 
 	cond_lock(&t->cond);
 	while (1) {
-		if (likely(t->sync_packet != NULL)) {
+		if (t->sync_packet) {
 			ffi_call_packet_call(t->sync_packet);
 			t->sync_packet = NULL;
 			cond_unlock_broadcast(&t->cond);
+			cond_lock(&t->cond);
+			continue;
+		}
+		if (!list_is_empty(&t->async_packets)) {
+			struct list async_packets;
+			list_take(&async_packets, &t->async_packets);
+			cond_unlock(&t->cond);
+			do {
+				struct resource_async_packet *a = get_struct(async_packets.prev, struct resource_async_packet, list_entry);
+				list_del(&a->list_entry);
+				ffi_call_packet_call(&a->pkt);
+				address_lock(a, DEPTH_THUNK);
+				if (!a->dereferenced) {
+					a->finished = true;
+					wake_up_wait_list(&a->wait_list, address_get_mutex(a, DEPTH_THUNK), TASK_SUBMIT_MAY_SPAWN);
+				} else {
+					ffi_call_packet_done(&a->pkt);
+					data_free(resource_da(a));
+					address_unlock(a, DEPTH_THUNK);
+				}
+			} while (!list_is_empty(&async_packets));
 			cond_lock(&t->cond);
 			continue;
 		}
@@ -1816,6 +1867,7 @@ static void * attr_fastcall io_ffi_thread_spawn(struct io_ctx *ctx)
 	t = da_resource(d);
 	cond_init(&t->cond);
 	t->sync_packet = NULL;
+	list_init(&t->async_packets);
 	t->should_exit = false;
 	if (unlikely(!thread_spawn(&t->thr, ffi_thread_function, d, PRIORITY_IO, &ctx->err)))
 		goto free_d_ret_thunk;
@@ -1829,11 +1881,100 @@ free_d_ret_thunk:
 	data_free_r1(d);
 ret_thunk:
 	io_terminate_with_error(ctx, ctx->err, true, NULL);
+	return POINTER_FOLLOW_THUNK_EXCEPTION;
+}
+
+static void * attr_fastcall io_ffi_async_call_handler(struct io_ctx *ctx)
+{
+	void *test;
+	struct data *d, *td;
+	struct resource_async_packet *a;
+	struct resource_thread *t;
+	pointer_t ptr;
+
+	test = io_deep_eval(ctx, "0123", true);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
+
+	d = data_alloc_resource_mayfail(sizeof(struct resource_async_packet), async_packet_close, &ctx->err pass_file_line);
+	if (unlikely(!d))
+		goto ret;
+
+	a = da_resource(d);
+
+	a->finished = false;
+	a->dereferenced = false;
+	list_init(&a->wait_list);
+
+	ctx->pkt = &a->pkt;
+
+	if (unlikely(!ffi_call_packet_init(ctx)))
+		goto ret_err;
+
+	if (unlikely(!ffi_call_packet_fill(ctx, get_input(ctx, 1), get_input(ctx, 2), true)))
+		goto ret_err;
+
+	ptr = *frame_pointer(ctx->fp, get_input(ctx, 3));
+	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_async_call_handler: pointer is thunk"));
+	td = pointer_get_data(ptr);
+	t = da_resource(td);
+
+	cond_lock(&t->cond);
+	list_add(&t->async_packets, &a->list_entry);
+	cond_unlock_broadcast(&t->cond);
+
+	frame_set_pointer(ctx->fp, get_output(ctx, 1), pointer_data(d));
+
+	return POINTER_FOLLOW_THUNK_GO;
+
+ret_err:
+	ffi_call_packet_done(&a->pkt);
+	data_free_r1(d);
+ret:
+	io_terminate_with_error(ctx, ctx->err, true, NULL);
+	return POINTER_FOLLOW_THUNK_EXCEPTION;
+}
+
+static void * attr_fastcall io_ffi_unpack_async_result_handler(struct io_ctx *ctx)
+{
+	void *test;
+	struct data *d;
+	struct resource_async_packet *a;
+	pointer_t ptr;
+
+	test = io_deep_eval(ctx, "0", false);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
+
+	ptr = *frame_pointer(ctx->fp, get_input(ctx, 0));
+	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_unpack_async_result_handler: pointer is thunk"));
+	d = pointer_get_data(ptr);
+	a = da_resource(d);
+
+	address_lock(a, DEPTH_THUNK);
+	if (unlikely(!a->finished)) {
+		struct execution_control *ex = frame_execution_control(ctx->fp);
+		ex->wait[0].mutex_to_lock = address_get_mutex(a, DEPTH_THUNK);
+		list_add(&a->wait_list, &ex->wait[0].wait_entry);
+		address_unlock(a, DEPTH_THUNK);
+		pointer_follow_wait(ctx->fp, ctx->ip);
+		return POINTER_FOLLOW_THUNK_EXIT;
+	}
+	address_unlock(a, DEPTH_THUNK);
+
+	ctx->pkt = &a->pkt;
+	if (unlikely(!ffi_call_packet_result(ctx, get_output(ctx, 0), get_output(ctx, 1)))) {
+		io_terminate_with_error(ctx, ctx->err, true, NULL);
+		return POINTER_FOLLOW_THUNK_EXCEPTION;
+	}
+
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
 #else
 
 #define io_ffi_thread_spawn			io_ffi_unsupported
+#define io_ffi_async_call_handler		io_ffi_unsupported
+#define io_ffi_unpack_async_result_handler	io_ffi_unsupported
 
 #endif

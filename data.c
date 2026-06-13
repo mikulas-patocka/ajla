@@ -516,7 +516,7 @@ void attr_fastcall data_fill_function_reference_flat(struct data *function_refer
 	}
 }
 
-struct data * attr_fastcall data_alloc_resource_mayfail(size_t size, void (*close)(struct data *), ajla_error_t *mayfail argument_position)
+struct data * attr_fastcall data_alloc_resource_mayfail(size_t size, bool (*close)(struct data *), ajla_error_t *mayfail argument_position)
 {
 	struct data *d = data_calign(resource, data_resource_offset + size, scalar_align, mayfail);
 	if (unlikely(!d))
@@ -1005,8 +1005,8 @@ static void attr_hot_fastcall free_array_same(void *data)
 static void attr_hot_fastcall free_resource(void *data)
 {
 	struct data *d = cast_cpp(struct data *, data);
-	da(d,resource)->close(d);
-	data_free(d);
+	if (likely(da(d,resource)->close(d)))
+		data_free(d);
 }
 
 void free_cache_entry(struct data *d, struct cache_entry *ce)

@@ -121,6 +121,8 @@ type ffi_thread;
 
 fn ffi_thread_spawn(w : world) : (world, ffi_thread);
 fn ffi_thread_call(w : world, t : ffi_thread, func : ffi_function, args : list(int)) : (world, int, int);
+fn ffi_thread_async_call(w : world, t : ffi_thread, func : ffi_function, args : list(int)) : (world, int, int);
+fn ffi_thread_async_call_noret(w : world, t : ffi_thread, func : ffi_function, args : list(int)) : world;
 
 implementation
 
@@ -435,7 +437,6 @@ fn ffi_callback_wait(w : world, f : ffi_callback) : world
 	return w2;
 ]
 
-
 fn ffi_callback_cancel(w : world, f : ffi_callback) : world
 [
 	var w2 : world;
@@ -457,4 +458,31 @@ fn ffi_thread_call(w : world, t : ffi_thread, func : ffi_function, args : list(i
 	var w2 : world;
 	pcode IO IO_FFI_Function_Call 3 4 0 =w2 =r =e w func args t;
 	return w2, r, e;
+]
+
+type ffi_async_result := internal_type;
+
+fn ffi_unpack_async_result(a : ffi_async_result) : (int, int)
+[
+	var r e : int;
+	pcode IO IO_FFI_Unpack_Async_Result 2 1 0 =r =e a;
+	return r, e;
+]
+
+fn ffi_thread_async_call(w : world, t : ffi_thread, func : ffi_function, args : list(int)) : (world, int, int)
+[
+	var a : ffi_async_result;
+	var r e : int;
+	var w2 : world;
+	pcode IO IO_FFI_Async_Call 2 4 0 =w2 =a w func args t;
+	r, e := ffi_unpack_async_result~lazy(a);
+	return w2, r, e;
+]
+
+fn ffi_thread_async_call_noret(w : world, t : ffi_thread, func : ffi_function, args : list(int)) : world
+[
+	var a : ffi_async_result;
+	var w2 : world;
+	pcode IO IO_FFI_Async_Call 2 4 0 =w2 =a w func args t;
+	return w2;
 ]

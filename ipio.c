@@ -165,7 +165,7 @@ struct io_ctx {
 	os_off_t length;
 };
 
-static void handle_no_close(struct data *d)
+static bool handle_no_close(struct data *d)
 {
 	struct resource_handle *h = da_resource(d);
 	if (unlikely(h->old_termios != NULL)) {
@@ -173,36 +173,41 @@ static void handle_no_close(struct data *d)
 		os_tcsetattr(h->fd, h->old_termios, &sink);
 		mem_free(h->old_termios);
 	}
+	return true;
 }
 
-static void handle_close(struct data *d)
+static bool handle_close(struct data *d)
 {
 	struct resource_handle *h;
 	handle_no_close(d);
 	h = da_resource(d);
 	os_close(h->fd);
+	return true;
 }
 
-static void dir_handle_close(struct data *d)
+static bool dir_handle_close(struct data *d)
 {
 	struct resource_dir_handle *h = da_resource(d);
 	if (dir_handle_is_valid(h->fd))
 		os_dir_close(h->fd);
+	return true;
 }
 
-static void notify_handle_close(struct data *d)
+static bool notify_handle_close(struct data *d)
 {
 	struct resource_notify_handle *h = da_resource(d);
 	iomux_directory_handle_free(h->id);
+	return true;
 }
 
-static void proc_handle_close(struct data *d)
+static bool proc_handle_close(struct data *d)
 {
 	struct resource_proc_handle *rph = da_resource(d);
 	os_proc_free_handle(rph->ph);
+	return true;
 }
 
-static void msgqueue_close(struct data *d)
+static bool msgqueue_close(struct data *d)
 {
 	size_t i;
 	struct resource_msgqueue *q = da_resource(d);
@@ -217,12 +222,14 @@ static void msgqueue_close(struct data *d)
 		pointer_dereference(qe->ptr);
 	}
 	mem_free(q->queue);
+	return true;
 }
 
-static void signal_close(struct data *d)
+static bool signal_close(struct data *d)
 {
 	struct resource_signal *s = da_resource(d);
 	os_signal_unhandle(s->s);
+	return true;
 }
 
 #define verify_file_handle(d)						\
@@ -5010,6 +5017,8 @@ static attr_unused void * attr_fastcall io_ffi_unsupported(struct io_ctx *ctx)
 #define io_ffi_callback_wait			io_ffi_unsupported
 #define io_ffi_callback_cancel			io_ffi_unsupported
 #define io_ffi_thread_spawn			io_ffi_unsupported
+#define io_ffi_async_call_handler		io_ffi_unsupported
+#define io_ffi_unpack_async_result_handler	io_ffi_unsupported
 int io_ffi_get_ffi_type(const struct type attr_unused *type)
 {
 	return -1;
@@ -5232,6 +5241,8 @@ static const struct {
 	{ io_ffi_callback_wait },
 	{ io_ffi_callback_cancel },
 	{ io_ffi_thread_spawn },
+	{ io_ffi_async_call_handler },
+	{ io_ffi_unpack_async_result_handler },
 };
 
 void *ipret_io(frame_s *fp, const code_t *ip, unsigned char io_code, unsigned char n_outputs, unsigned char n_inputs, unsigned char n_params)

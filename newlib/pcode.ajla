@@ -377,7 +377,9 @@ const IO_FFI_Callback_Create := 116;
 const IO_FFI_Callback_Wait := 117;
 const IO_FFI_Callback_Cancel := 118;
 const IO_FFI_Thread_Spawn := 119;
-const IO_N := 120;
+const IO_FFI_Async_Call := 120;
+const IO_FFI_Unpack_Async_Result := 121;
+const IO_N := 122;
 
 const IO_Open_Flag_Read := 1;
 const IO_Open_Flag_Write := 2;
@@ -917,7 +919,9 @@ fn name_to_value~cache : list(int)
 	a[#933EFC68D26FC3C3B3662C38F5DFAF874F4] := 117;				// IO_FFI_Callback_Wait
 	a[#24CFBF1A349BF0F0ECD98B0E3D77E1E1DD8F2EC] := 118;			// IO_FFI_Callback_Cancel
 	a[#1267DF8D1A4DFA9A3965C392FD3E187BEE] := 119;				// IO_FFI_Thread_Spawn
-	a[#933EFCE] := 120;							// IO_N
+	a[#499F7E346937E0F3F3BB1DF878766C] := 120;				// IO_FFI_Async_Call
+	a[#24CFBF1A349BF57770C38F5DF83CFCEEC77E965E7D7674] := 121;		// IO_FFI_Unpack_Async_Result
+	a[#933EFCE] := 122;							// IO_N
 
 	a[#499F7E7F0CBBAFC6D9873DFA5970E4] := 1;				// IO_Open_Flag_Read
 	a[#24CFBF3F865DD7E36CC39EFD7E5A7A65] := 2;				// IO_Open_Flag_Write

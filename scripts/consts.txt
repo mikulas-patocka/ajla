@@ -401,6 +401,8 @@ IO_FFI_Callback_Create
 IO_FFI_Callback_Wait
 IO_FFI_Callback_Cancel
 IO_FFI_Thread_Spawn
+IO_FFI_Async_Call
+IO_FFI_Unpack_Async_Result
 IO_N
 
 *
