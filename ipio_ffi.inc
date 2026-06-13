@@ -1642,7 +1642,7 @@ static void callback_call(void *c_)
 	wake_up_wait_list(&c->wait_list, address_get_mutex(c, DEPTH_THUNK), TASK_SUBMIT_MUST_NOT_SPAWN);
 }
 
-static void * attr_fastcall io_ffi_callback_create(struct io_ctx *ctx)
+static void * attr_fastcall io_ffi_callback_create_handler(struct io_ctx *ctx)
 {
 	void *test;
 	struct data *d;
@@ -1680,7 +1680,7 @@ ret_thunk:
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
-static void * attr_fastcall io_ffi_callback_wait(struct io_ctx *ctx)
+static void * attr_fastcall io_ffi_callback_wait_handler(struct io_ctx *ctx)
 {
 	void *test;
 	pointer_t ptr;
@@ -1691,7 +1691,7 @@ static void * attr_fastcall io_ffi_callback_wait(struct io_ctx *ctx)
 		return test;
 
 	ptr = *frame_pointer(ctx->fp, get_input(ctx, 1));
-	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_callback_wait: pointer is thunk"));
+	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_callback_wait_handler: pointer is thunk"));
 	c = da_resource(pointer_get_data(ptr));
 
 	address_lock(c, DEPTH_THUNK);
@@ -1708,7 +1708,7 @@ static void * attr_fastcall io_ffi_callback_wait(struct io_ctx *ctx)
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
-static void * attr_fastcall io_ffi_callback_cancel(struct io_ctx *ctx)
+static void * attr_fastcall io_ffi_callback_cancel_handler(struct io_ctx *ctx)
 {
 	void *test;
 	pointer_t ptr;
@@ -1719,7 +1719,7 @@ static void * attr_fastcall io_ffi_callback_cancel(struct io_ctx *ctx)
 		return test;
 
 	ptr = *frame_pointer(ctx->fp, get_input(ctx, 1));
-	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_callback_cancel: pointer is thunk"));
+	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_callback_cancel_handler: pointer is thunk"));
 	c = da_resource(pointer_get_data(ptr));
 
 	address_lock(c, DEPTH_THUNK);
@@ -1733,9 +1733,9 @@ static void * attr_fastcall io_ffi_callback_cancel(struct io_ctx *ctx)
 
 #else
 
-#define io_ffi_callback_create			io_ffi_unsupported
-#define io_ffi_callback_wait			io_ffi_unsupported
-#define io_ffi_callback_cancel			io_ffi_unsupported
+#define io_ffi_callback_create_handler		io_ffi_unsupported
+#define io_ffi_callback_wait_handler		io_ffi_unsupported
+#define io_ffi_callback_cancel_handler		io_ffi_unsupported
 
 #endif
 
@@ -1824,7 +1824,7 @@ thread_function_decl(ffi_thread_function,
 	cond_unlock(&t->cond);
 )
 
-static void * attr_fastcall io_ffi_thread_spawn(struct io_ctx *ctx)
+static void * attr_fastcall io_ffi_thread_spawn_handler(struct io_ctx *ctx)
 {
 	void *test;
 	struct data *d;
@@ -1951,7 +1951,7 @@ static void * attr_fastcall io_ffi_unpack_async_result_handler(struct io_ctx *ct
 
 #else
 
-#define io_ffi_thread_spawn			io_ffi_unsupported
+#define io_ffi_thread_spawn_handler		io_ffi_unsupported
 #define io_ffi_async_call_handler		io_ffi_unsupported
 #define io_ffi_unpack_async_result_handler	io_ffi_unsupported
 

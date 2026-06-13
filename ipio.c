@@ -4978,7 +4978,7 @@ static void * attr_fastcall io_get_dump_handler(struct io_ctx *ctx)
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
-static void * attr_fastcall io_ffi_callback_supported(struct io_ctx *ctx)
+static void * attr_fastcall io_ffi_callback_supported_handler(struct io_ctx *ctx)
 {
 	bool supported = false;
 #if defined(HAVE_CODEGEN_CALLBACK) && defined(SUPPORTS_FFI)
@@ -5013,10 +5013,10 @@ static attr_unused void * attr_fastcall io_ffi_unsupported(struct io_ctx *ctx)
 #define io_ffi_destructor_call_handler		io_ffi_unsupported
 #define io_ffi_handle_to_number_handler		io_ffi_unsupported
 #define io_ffi_number_to_handle_handler		io_ffi_unsupported
-#define io_ffi_callback_create			io_ffi_unsupported
-#define io_ffi_callback_wait			io_ffi_unsupported
-#define io_ffi_callback_cancel			io_ffi_unsupported
-#define io_ffi_thread_spawn			io_ffi_unsupported
+#define io_ffi_callback_create_handler		io_ffi_unsupported
+#define io_ffi_callback_wait_handler		io_ffi_unsupported
+#define io_ffi_callback_cancel_handler		io_ffi_unsupported
+#define io_ffi_thread_spawn_handler		io_ffi_unsupported
 #define io_ffi_async_call_handler		io_ffi_unsupported
 #define io_ffi_unpack_async_result_handler	io_ffi_unsupported
 int io_ffi_get_ffi_type(const struct type attr_unused *type)
@@ -5236,11 +5236,11 @@ static const struct {
 	{ io_ffi_destructor_allocate_handler },
 	{ io_ffi_destructor_free_handler },
 	{ io_ffi_destructor_call_handler },
-	{ io_ffi_callback_supported },
-	{ io_ffi_callback_create },
-	{ io_ffi_callback_wait },
-	{ io_ffi_callback_cancel },
-	{ io_ffi_thread_spawn },
+	{ io_ffi_callback_supported_handler },
+	{ io_ffi_callback_create_handler },
+	{ io_ffi_callback_wait_handler },
+	{ io_ffi_callback_cancel_handler },
+	{ io_ffi_thread_spawn_handler },
 	{ io_ffi_async_call_handler },
 	{ io_ffi_unpack_async_result_handler },
 };
