@@ -93,8 +93,7 @@ fn ffi_open_library(filename : bytes, hold : bool, destructor : bytes) : ffi_lib
 const ffi_flag_interlocked : int;
 const ffi_flag_block_signals : int;
 
-fn ffi_function_create(library : ffi_library, funcname : bytes, err_type : ffi_error, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : ffi_function;
-fn ffi_function_create_with_flags(library : ffi_library, funcname : bytes, err_type : ffi_error, nvarargs : int, rtype : ffi_type, args : list(ffi_type), flags : int) : ffi_function;
+fn ffi_function_create(library : ffi_library, funcname : bytes, err_type : ffi_error, nvarargs : int, rtype : ffi_type, args : list(ffi_type), flags : int) : ffi_function;
 fn ffi_function_call(w : world, func : ffi_function, args : list(int)) : (world, int, int);
 
 fn ffi_encode_float(f : real32) : int;
@@ -312,12 +311,7 @@ fn ffi_open_library(filename : bytes, hold : bool, destructor : bytes) : ffi_lib
 const ffi_flag_interlocked := 1;
 const ffi_flag_block_signals := 2;
 
-fn ffi_function_create(library : ffi_library, funcname : bytes, err_type : ffi_error, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : ffi_function
-[
-	return ffi_function_create_with_flags~inline(library, funcname, err_type, nvarargs, rtype, args, 0);
-]
-
-fn ffi_function_create_with_flags(library : ffi_library, funcname : bytes, err_type : ffi_error, nvarargs : int, rtype : ffi_type, args : list(ffi_type), flags : int) : ffi_function
+fn ffi_function_create(library : ffi_library, funcname : bytes, err_type : ffi_error, nvarargs : int, rtype : ffi_type, args : list(ffi_type), flags : int) : ffi_function
 [
 	var r : ffi_function;
 	pcode IO IO_FFI_Function_Create 1 7 0 =r library funcname err_type nvarargs rtype args flags;
