@@ -90,6 +90,7 @@ const ffi_flag_interlocked : int;
 const ffi_flag_block_signals : int;
 
 fn ffi_function_create(library : ffi_library, funcname : bytes, flags : int, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : ffi_function;
+fn ffi_function_prototype(library : ffi_library, flags : int, prototype : bytes) : ffi_function;
 fn ffi_function_call(w : world, func : ffi_function, args : list(int)) : (world, int, int);
 
 fn ffi_encode_float(f : real32) : int;
@@ -315,6 +316,114 @@ fn ffi_function_create(library : ffi_library, funcname : bytes, flags : int, nva
 	var r : ffi_function;
 	pcode IO IO_FFI_Function_Create 1 6 0 =r library funcname flags nvarargs rtype args;
 	return r;
+]
+
+fn type_map~save : treemap(bytes, ffi_type)
+[
+	var tm := treemap_init(bytes, ffi_type);
+	tm := treemap_insert(tm, "void", ffi_type.t_void);
+	tm := treemap_insert(tm, "uint8_t", ffi_type.t_uint8);
+	tm := treemap_insert(tm, "int8_t", ffi_type.t_sint8);
+	tm := treemap_insert(tm, "uint16_t", ffi_type.t_uint16);
+	tm := treemap_insert(tm, "int16_t", ffi_type.t_sint16);
+	tm := treemap_insert(tm, "uint32_t", ffi_type.t_uint32);
+	tm := treemap_insert(tm, "int32_t", ffi_type.t_sint32);
+	tm := treemap_insert(tm, "uint64_t", ffi_type.t_uint64);
+	tm := treemap_insert(tm, "int64_t", ffi_type.t_sint64);
+	tm := treemap_insert(tm, "float", ffi_type.t_float);
+	tm := treemap_insert(tm, "double", ffi_type.t_double);
+	tm := treemap_insert(tm, "long double", ffi_type.t_longdouble);
+	tm := treemap_insert(tm, "char", ffi_type.t_schar);
+	tm := treemap_insert(tm, "signed char", ffi_type.t_schar);
+	tm := treemap_insert(tm, "unsigned char", ffi_type.t_uchar);
+	tm := treemap_insert(tm, "short", ffi_type.t_sshort);
+	tm := treemap_insert(tm, "short int", ffi_type.t_sshort);
+	tm := treemap_insert(tm, "unsigned short", ffi_type.t_ushort);
+	tm := treemap_insert(tm, "unsigned short int", ffi_type.t_ushort);
+	tm := treemap_insert(tm, "int", ffi_type.t_sint);
+	tm := treemap_insert(tm, "unsigned", ffi_type.t_uint);
+	tm := treemap_insert(tm, "unsigned int", ffi_type.t_uint);
+	tm := treemap_insert(tm, "long", ffi_type.t_slong);
+	tm := treemap_insert(tm, "long int", ffi_type.t_slong);
+	tm := treemap_insert(tm, "unsigned long", ffi_type.t_ulong);
+	tm := treemap_insert(tm, "unsigned long int", ffi_type.t_ulong);
+	tm := treemap_insert(tm, "ssize_t", ffi_type.t_ssize);
+	tm := treemap_insert(tm, "size_t", ffi_type.t_usize);
+	tm := treemap_insert(tm, "bool", ffi_type.t_bool);
+	return tm;
+]
+
+fn decode_ascii_type(b : bytes) : ffi_type
+[
+	if not len_greater_than(b, 0) then
+		goto err;
+
+	if b[len(b) - 1] = '*' then
+		return ffi_type.t_pointer;
+
+	var r := treemap_search(type_map, b);
+	if r is n then
+		goto err;
+
+	return r.j;
+
+err:
+	return exception_make(ffi_type, ec_sync, error_invalid_operation, 0, true);
+]
+
+fn is_identifier(a : byte) := (a >= '0' and a <= '9') or (a >= 'A' and a <= 'Z') or (a >= 'a' and a <= 'z') or a = '_' or a = '$';
+
+fn ffi_function_prototype(library : ffi_library, flags : int, prototype : bytes) : ffi_function
+[
+	var i := len(prototype) - 1;
+	while i >= 0 do [
+		if prototype[i] = ' ' then [
+			if i >= 1, is_identifier(prototype[i - 1]), i + 1 < len(prototype), is_identifier(prototype[i + 1]) then
+				goto preserve_space;
+			prototype := prototype[ .. i] + prototype[i + 1 .. ];
+preserve_space:
+		]
+		i -= 1;
+	]
+
+	if not list_ends_with(prototype, ")") then
+		goto err;
+	var b := list_search(prototype, '(');
+	if b = -1 then
+		goto err;
+	var pt_args := prototype[b + 1 .. len(prototype) - 1];
+	var fn_name := "";
+	b -= 1;
+	while b >= 0, is_identifier(prototype[b]) do [
+		fn_name := [ prototype[b] ] + fn_name;
+		b -= 1;
+	]
+	if b = -1 then
+		goto err;
+	if len(fn_name) = 0 then
+		goto err;
+	var rtype : ffi_type;
+	if prototype[b] = ' ' then
+		rtype := decode_ascii_type(prototype[ .. b]);
+	else
+		rtype := decode_ascii_type(prototype[ .. b + 1]);
+
+	var args := empty(ffi_type);
+	if pt_args <> "", pt_args <> "void" then [
+		if pt_args[len(pt_args) - 1] = ',' then
+			goto err;
+		var arg_list := list_break(pt_args, ',');
+		for i := 0 to len(arg_list) do [
+			var arg := decode_ascii_type(arg_list[i]);
+			if arg is t_void then
+				goto err;
+			args +<= arg;
+		]
+	]
+	return ffi_function_create(library, fn_name, flags, 0, rtype, args);
+
+err:
+	return exception_make(ffi_function, ec_sync, error_invalid_operation, 0, true);
 ]
 
 fn ffi_function_call(w : world, func : ffi_function, args : list(int)) : (world, int, int)
