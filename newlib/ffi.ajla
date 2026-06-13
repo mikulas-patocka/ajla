@@ -353,25 +353,44 @@ fn type_map~save : treemap(bytes, ffi_type)
 	return tm;
 ]
 
-fn decode_ascii_type(b : bytes) : ffi_type
+fn decode_ascii_type(b : bytes) : maybe(ffi_type)
 [
 	if not len_greater_than(b, 0) then
-		goto err;
+		return maybe(ffi_type).n;
 
 	if b[len(b) - 1] = '*' then
-		return ffi_type.t_pointer;
+		return maybe(ffi_type).j.(ffi_type.t_pointer);
 
-	var r := treemap_search(type_map, b);
-	if r is n then
-		goto err;
-
-	return r.j;
-
-err:
-	return exception_make(ffi_type, ec_sync, error_invalid_operation, 0, true);
+	return treemap_search(type_map, b);
 ]
 
 fn is_identifier(a : byte) := (a >= '0' and a <= '9') or (a >= 'A' and a <= 'Z') or (a >= 'a' and a <= 'z') or a = '_' or a = '$';
+
+fn decode_type_and_variable(b : bytes) : (bytes, ffi_type)
+[
+	var m := decode_ascii_type(b);
+	if m is j then
+		return "", m.j;
+	var idx := len(b) - 1;
+	while idx >= 0, is_identifier(b[idx]) do
+		idx -= 1;
+	if idx < 0 then
+		goto err;
+	var var_name := b[idx + 1 .. ];
+	if len(var_name) = 0 then
+		goto err;
+	var typ : bytes;
+	if b[idx] = ' ' then
+		typ := b[ .. idx];
+	else
+		typ := b[ .. idx + 1];
+	m := decode_ascii_type(typ);
+	if m is n then
+		goto err;
+	return var_name, m.j;
+err:
+	abort exception_make(unit_type, ec_sync, error_invalid_operation, 0, true);
+]
 
 fn ffi_function_prototype(library : ffi_library, flags : int, prototype : bytes) : ffi_function
 [
@@ -392,36 +411,20 @@ preserve_space:
 	if b = -1 then
 		goto err;
 	var pt_args := prototype[b + 1 .. len(prototype) - 1];
-	var fn_name := "";
-	b -= 1;
-	while b >= 0, is_identifier(prototype[b]) do [
-		fn_name := [ prototype[b] ] + fn_name;
-		b -= 1;
-	]
-	if b = -1 then
-		goto err;
+	var fn_name, rtype := decode_type_and_variable(prototype[ .. b]);
 	if len(fn_name) = 0 then
 		goto err;
-	var rtype : ffi_type;
-	if prototype[b] = ' ' then
-		rtype := decode_ascii_type(prototype[ .. b]);
-	else
-		rtype := decode_ascii_type(prototype[ .. b + 1]);
-
 	var args := empty(ffi_type);
 	if pt_args <> "", pt_args <> "void" then [
 		if pt_args[len(pt_args) - 1] = ',' then
 			goto err;
 		var arg_list := list_break(pt_args, ',');
 		for i := 0 to len(arg_list) do [
-			var arg := decode_ascii_type(arg_list[i]);
-			if arg is t_void then
-				goto err;
-			args +<= arg;
+			var var_name, atype := decode_type_and_variable(arg_list[i]);
+			args +<= atype;
 		]
 	]
 	return ffi_function_create(library, fn_name, flags, 0, rtype, args);
-
 err:
 	return exception_make(ffi_function, ec_sync, error_invalid_operation, 0, true);
 ]
