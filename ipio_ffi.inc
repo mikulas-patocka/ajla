@@ -1781,7 +1781,14 @@ struct resource_async_packet {
 	bool finished;
 	bool dereferenced;
 	struct list wait_list;
+	pointer_t destructor;
 };
+
+static void async_packet_cleanup(struct resource_async_packet *a)
+{
+	ffi_call_packet_done(&a->pkt);
+	pointer_dereference(a->destructor);
+}
 
 static bool async_packet_close(struct data *d)
 {
@@ -1789,7 +1796,7 @@ static bool async_packet_close(struct data *d)
 	address_lock(a, DEPTH_THUNK);
 	if (a->finished) {
 		address_unlock(a, DEPTH_THUNK);
-		ffi_call_packet_done(&a->pkt);
+		async_packet_cleanup(a);
 		return true;
 	} else {
 		a->dereferenced = true;
@@ -1835,7 +1842,7 @@ thread_function_decl(ffi_thread_function,
 					a->finished = true;
 					wake_up_wait_list(&a->wait_list, address_get_mutex(a, DEPTH_THUNK), TASK_SUBMIT_MAY_SPAWN);
 				} else {
-					ffi_call_packet_done(&a->pkt);
+					async_packet_cleanup(a);
 					data_free(resource_da(a));
 					address_unlock(a, DEPTH_THUNK);
 				}
@@ -1892,7 +1899,7 @@ static void * attr_fastcall io_ffi_async_call_handler(struct io_ctx *ctx)
 	struct resource_thread *t;
 	pointer_t ptr;
 
-	test = io_deep_eval(ctx, "0123", true);
+	test = io_deep_eval(ctx, "01234", true);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		return test;
 
@@ -1913,6 +1920,11 @@ static void * attr_fastcall io_ffi_async_call_handler(struct io_ctx *ctx)
 
 	if (unlikely(!ffi_call_packet_fill(ctx, get_input(ctx, 1), get_input(ctx, 2), true)))
 		goto ret_err;
+
+	ptr = *frame_pointer(ctx->fp, get_input(ctx, 4));
+	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_async_call_handler: pointer is thunk"));
+	pointer_reference_owned(ptr);
+	a->destructor = ptr;
 
 	ptr = *frame_pointer(ctx->fp, get_input(ctx, 3));
 	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_async_call_handler: pointer is thunk"));
