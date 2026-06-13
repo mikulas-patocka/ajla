@@ -212,18 +212,6 @@ static const struct {
 	{ sizeof(bool) == 1 ? &ffi_type_uint8 : sizeof(bool) == 4 ? &ffi_type_uint32 : NULL,		sizeof(bool),	T_UNSIGNED, },
 };
 
-#ifndef THREAD_NONE
-
-struct resource_thread {
-	thread_t thr;
-	cond_t cond;
-	struct ffi_call_packet *sync_packet;
-	struct list async_packets;
-	bool should_exit;
-};
-
-#endif
-
 int io_ffi_get_ffi_type(const struct type *type)
 {
 	size_t i;
@@ -1273,9 +1261,8 @@ static void * attr_fastcall io_ffi_function_call_handler(struct io_ctx *ctx)
 {
 	void *test;
 	struct ffi_call_packet pkt;
-	bool is_thread = ctx->n_inputs >= 4;
 
-	test = io_deep_eval(ctx, !is_thread ? "012" : "0123", true);
+	test = io_deep_eval(ctx, "012", true);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		return test;
 
@@ -1286,30 +1273,7 @@ static void * attr_fastcall io_ffi_function_call_handler(struct io_ctx *ctx)
 	if (unlikely(!ffi_call_packet_fill(ctx, get_input(ctx, 1), get_input(ctx, 2), false)))
 		goto ret_err;
 
-	if (!is_thread) {
-		ffi_call_packet_call(&pkt);
-	} else {
-#ifndef THREAD_NONE
-		pointer_t ptr;
-		struct data *d;
-		struct resource_thread *t;
-
-		ptr = *frame_pointer(ctx->fp, get_input(ctx, 3));
-		ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_function_call_handler: pointer is thunk"));
-		d = pointer_get_data(ptr);
-		t = da_resource(d);
-
-		cond_lock(&t->cond);
-		while (unlikely(t->sync_packet != NULL))
-			cond_wait(&t->cond);
-		t->sync_packet = &pkt;
-		cond_unlock_broadcast(&t->cond);
-		cond_lock(&t->cond);
-		while (unlikely(t->sync_packet == &pkt))
-			cond_wait(&t->cond);
-		cond_unlock(&t->cond);
-#endif
-	}
+	ffi_call_packet_call(&pkt);
 
 	if (unlikely(!ffi_call_packet_result(ctx, get_output(ctx, 1), get_output(ctx, 2))))
 		goto ret_err;
@@ -1775,6 +1739,13 @@ static void * attr_fastcall io_ffi_callback_cancel(struct io_ctx *ctx)
 
 #ifndef THREAD_NONE
 
+struct resource_thread {
+	thread_t thr;
+	cond_t cond;
+	struct list async_packets;
+	bool should_exit;
+};
+
 struct resource_async_packet {
 	struct list list_entry;
 	struct ffi_call_packet pkt;
@@ -1822,13 +1793,6 @@ thread_function_decl(ffi_thread_function,
 
 	cond_lock(&t->cond);
 	while (1) {
-		if (t->sync_packet) {
-			ffi_call_packet_call(t->sync_packet);
-			t->sync_packet = NULL;
-			cond_unlock_broadcast(&t->cond);
-			cond_lock(&t->cond);
-			continue;
-		}
 		if (!list_is_empty(&t->async_packets)) {
 			struct list async_packets;
 			list_take(&async_packets, &t->async_packets);
@@ -1873,7 +1837,6 @@ static void * attr_fastcall io_ffi_thread_spawn(struct io_ctx *ctx)
 
 	t = da_resource(d);
 	cond_init(&t->cond);
-	t->sync_packet = NULL;
 	list_init(&t->async_packets);
 	t->should_exit = false;
 	if (unlikely(!thread_spawn(&t->thr, ffi_thread_function, d, PRIORITY_IO, &ctx->err)))

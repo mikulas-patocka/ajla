@@ -120,7 +120,6 @@ fn ffi_callback_cancel(w : world, f : ffi_callback) : world;
 type ffi_thread;
 
 fn ffi_thread_spawn(w : world) : (world, ffi_thread);
-fn ffi_thread_call(w : world, t : ffi_thread, func : ffi_function, args : list(int)) : (world, int, int);
 fn ffi_thread_async_call(w : world, t : ffi_thread, d : ffi_destructor, func : ffi_function, args : list(int)) : (world, int, int);
 fn ffi_thread_async_call_noret(w : world, t : ffi_thread, d : ffi_destructor, func : ffi_function, args : list(int)) : world;
 
@@ -450,14 +449,6 @@ fn ffi_thread_spawn(w : world) : (world, ffi_thread)
 	var w2 : world;;
 	pcode IO IO_FFI_Thread_Spawn 2 1 0 =w2 =r w;
 	return w2, r;
-]
-
-fn ffi_thread_call(w : world, t : ffi_thread, func : ffi_function, args : list(int)) : (world, int, int)
-[
-	var r e : int;
-	var w2 : world;
-	pcode IO IO_FFI_Function_Call 3 4 0 =w2 =r =e w func args t;
-	return w2, r, e;
 ]
 
 type ffi_async_result := internal_type;
