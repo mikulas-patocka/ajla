@@ -462,6 +462,12 @@
 #define IO_Stty_Flag_Nosignal		4
 #define IO_Stty_Flag_NoCRLF		8
 
+#define IO_FFI_Flag_Errno		1
+#define IO_FFI_Flag_GetLastError	2
+#define IO_FFI_Flag_GetLastSocketError	4
+#define IO_FFI_Flag_Interlocked		8
+#define IO_FFI_Flag_Block_Signals	16
+
 #define EC_NONE				0
 #define EC_SYNC				1
 #define EC_ASYNC			2

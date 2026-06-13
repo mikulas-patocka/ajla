@@ -496,6 +496,13 @@ IO_Stty_Flag_Noecho
 IO_Stty_Flag_Nosignal
 IO_Stty_Flag_NoCRLF
 
+*
+IO_FFI_Flag_Errno
+IO_FFI_Flag_GetLastError
+IO_FFI_Flag_GetLastSocketError
+IO_FFI_Flag_Interlocked
+IO_FFI_Flag_Block_Signals
+
 0
 EC_NONE
 EC_SYNC

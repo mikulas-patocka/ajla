@@ -111,14 +111,12 @@ struct resource_ffi_library {
 struct resource_ffi {
 	struct resource_ffi_library *rfl;
 	void *sym;
-	ajla_option_t err_type;
 	ffi_type **args;
 	uchar_efficient_t *ctx_args;
 	unsigned n_args;
 	ffi_type *ret_ffi_type;
 	ajla_option_t ret_type;
-	bool interlocked;
-	bool block_signals;
+	unsigned flags;
 	ffi_cif cif;
 };
 
@@ -838,10 +836,9 @@ static void * attr_fastcall io_ffi_function_create_handler(struct io_ctx *ctx)
 	struct resource_ffi *rf;
 	char *open_msg = NULL;
 	unsigned attr_unused nvargs;
-	ajla_option_t err_type;
 	ajla_option_t rtype;
 	struct data *r_struc;
-	unsigned flags;
+	unsigned flags, one_flag;
 	ffi_type *ret = NULL;
 	ffi_type **args = NULL;
 
@@ -852,7 +849,7 @@ static void * attr_fastcall io_ffi_function_create_handler(struct io_ctx *ctx)
 	ptr = *frame_pointer(ctx->fp, get_input(ctx, 0));
 	d = pointer_get_data(ptr);
 	rfl = da_resource(d);
-	test = io_deep_eval(ctx, "0123456", false);
+	test = io_deep_eval(ctx, "012345", false);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 
@@ -868,7 +865,19 @@ static void * attr_fastcall io_ffi_function_create_handler(struct io_ctx *ctx)
 		goto ret_err;
 	}
 
-	io_get_option(ctx, get_input(ctx, 2), &err_type, NULL);
+	io_get_positive_number(ctx, ctx->fp, get_input(ctx, 2), unsigned, flags);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
+
+	if (unlikely((flags & ~(IO_FFI_Flag_Errno | IO_FFI_Flag_GetLastError | IO_FFI_Flag_GetLastSocketError | IO_FFI_Flag_Interlocked | IO_FFI_Flag_Block_Signals)) != 0)) {
+		ctx->err = error_ajla(EC_SYNC, AJLA_ERROR_INVALID_OPERATION);
+		goto ret_err;
+	}
+	one_flag = flags & (IO_FFI_Flag_Errno | IO_FFI_Flag_GetLastError | IO_FFI_Flag_GetLastSocketError);
+	if (unlikely((one_flag & (one_flag - 1)))) {
+		ctx->err = error_ajla(EC_SYNC, AJLA_ERROR_INVALID_OPERATION);
+		goto ret_err;
+	}
 
 	io_get_positive_number(ctx, ctx->fp, get_input(ctx, 3), unsigned, nvargs);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
@@ -883,10 +892,6 @@ static void * attr_fastcall io_ffi_function_create_handler(struct io_ctx *ctx)
 	ret = ajla_type_to_ffi_type(rtype, r_struc, true);
 	if (unlikely(!ret))
 		goto ret_err;
-
-	io_get_positive_number(ctx, ctx->fp, get_input(ctx, 6), unsigned, flags);
-	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
-		goto ret_test;
 
 	if (unlikely(nvargs > ctx->args_l)) {
 		ctx->err = error_ajla(EC_SYNC, AJLA_ERROR_INVALID_OPERATION);
@@ -918,7 +923,6 @@ static void * attr_fastcall io_ffi_function_create_handler(struct io_ctx *ctx)
 
 	rf->rfl = rfl;
 	rf->sym = sym;
-	rf->err_type = err_type;
 	rf->ctx_args = ctx->args;
 	rf->n_args = ctx->args_l;
 	ctx->args = NULL;
@@ -926,8 +930,7 @@ static void * attr_fastcall io_ffi_function_create_handler(struct io_ctx *ctx)
 	args = NULL;
 	rf->ret_ffi_type = ret;
 	rf->ret_type = rtype;
-	rf->interlocked = (flags & 1) != 0;
-	rf->block_signals = (flags & 2) != 0;
+	rf->flags = flags;
 	ret = NULL;
 
 	pointer_reference_owned(ptr);
@@ -1190,27 +1193,27 @@ static void ffi_call_packet_call(struct ffi_call_packet *pkt)
 	struct resource_ffi *rf = pkt->rf;
 	sig_state_t set;
 
-	if (unlikely(rf->interlocked))
+	if (unlikely((rf->flags & IO_FFI_Flag_Interlocked) != 0))
 		mutex_lock(&ffi_libraries_mutex);
 
-	if (rf->block_signals)
+	if (unlikely((rf->flags & IO_FFI_Flag_Block_Signals) != 0))
 		os_block_signals(&set);
 
 	ffi_call(&rf->cif, (void (*)(void))rf->sym, &pkt->u.rc, pkt->ptrs);
 
-	switch (rf->err_type) {
-		case 0:	pkt->e = 0; break;
-		case 1: pkt->e = errno; break;
-		case 2:	pkt->e = os_get_last_error(); break;
-		case 3:	pkt->e = os_get_last_socket_error(); break;
-		default:
-			internal(file_line, "ffi_call_packet_call: invalid error specifier %u", (unsigned)rf->err_type);
-	}
+	if (rf->flags & IO_FFI_Flag_Errno)
+		pkt->e = errno;
+	else if (rf->flags & IO_FFI_Flag_GetLastError)
+		pkt->e = os_get_last_error();
+	else if (rf->flags & IO_FFI_Flag_GetLastSocketError)
+		pkt->e = os_get_last_socket_error();
+	else
+		pkt->e = 0;
 
-	if (rf->block_signals)
+	if (unlikely((rf->flags & IO_FFI_Flag_Block_Signals) != 0))
 		os_unblock_signals(&set);
 
-	if (unlikely(rf->interlocked))
+	if (unlikely((rf->flags & IO_FFI_Flag_Interlocked) != 0))
 		mutex_unlock(&ffi_libraries_mutex);
 }
 

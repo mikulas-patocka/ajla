@@ -464,6 +464,12 @@ const IO_Stty_Flag_Noecho := 2;
 const IO_Stty_Flag_Nosignal := 4;
 const IO_Stty_Flag_NoCRLF := 8;
 
+const IO_FFI_Flag_Errno := 1;
+const IO_FFI_Flag_GetLastError := 2;
+const IO_FFI_Flag_GetLastSocketError := 4;
+const IO_FFI_Flag_Interlocked := 8;
+const IO_FFI_Flag_Block_Signals := 16;
+
 const EC_N := 6;
 
 const AJLA_ERROR_BASE := 1;
@@ -1005,6 +1011,12 @@ fn name_to_value~cache : list(int)
 	a[#1267DFA7D3A79BF1B661CF7E76FCB8F46F] := 2;				// IO_Stty_Flag_Noecho
 	a[#499F7E9F4E9E6FC6D9873DF9DBF9E9CFBB0EC] := 4;				// IO_Stty_Flag_Nosignal
 	a[#1267DFA7D3A79BF1B661CF7E76F874A646] := 8;				// IO_Stty_Flag_NoCRLF
+
+	a[#499F7E346937E36CC39EFC5E5CB76F] := 1;				// IO_FFI_Flag_Errno
+	a[#933EFC68D26FC6D9873DF8F97A4CC3CFA45E5CB7F2] := 2;			// IO_FFI_Flag_GetLastError
+	a[#24CFBF1A349BF1B661CF7E3E5E9330F3E94F7E3D797A45E5CB7F2] := 4;		// IO_FFI_Flag_GetLastSocketError
+	a[#1267DF8D1A4DF8DB30E7BF27774CBCB66FC7AF2E4] := 8;			// IO_FFI_Flag_Interlocked
+	a[#499F7E346937E36CC39EFC2D9BF1EBBF4F4E7DD87673] := 16;			// IO_FFI_Flag_Block_Signals
 
 	a[#1971DFDDBF765] := 0;							// ec_none
 	a[#1971DFE7E7763] := 1;							// ec_sync
