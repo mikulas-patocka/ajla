@@ -34,7 +34,8 @@ static void library_destroy(struct ffi_library *lib)
 {
 	if (lib->destructor)
 		lib->destructor();
-	os_dlclose(lib->dlh);
+	if (!lib->hold)
+		os_dlclose(lib->dlh);
 	list_del(&lib->list_entry);
 	mem_free(lib);
 }
