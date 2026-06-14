@@ -349,7 +349,7 @@ found:
 		abort opencl_abort_msg("Invalid version: " + version);
 	//eval debug("version: " + ntos(ctx.version));
 
-	ctx.callbacks := ctx.version >= 101 and ffi_callback_supported;
+	ctx.callbacks := ctx.version >= 101 and ffi_barrier_supported;
 
 	var ooo_queue := false;
 	var queue_flags := cl_get_device_info_value(ctx, #102A, ffi_type.t_ulong);
@@ -494,16 +494,16 @@ fn cl_read_buffer_raw(ctx : cl_context, buf : cl_buffer, offset ptr size : nat) 
 		var event := ffi_peek(ptr_event, ffi_type.t_pointer);
 		ffi_destructor_call(destr, ctx.clReleaseEvent, [ event ]);
 
-		var callback, callback_ptr := ffi_callback_create();
+		var callback, callback_ptr := ffi_barrier_create();
 		ret, err := ffi_function_call(ctx.clSetEventCallback, [ event, 0, callback_ptr, 0 ]);
 		if ret <> 0 then [
-			ffi_callback_cancel(callback);
+			ffi_barrier_cancel(callback);
 			atomic_exit();
 			ffi_destructor_destroy();
 			xeval w;
 			abort opencl_abort("clSetEventCallback", ret);
 		]
-		ffi_callback_wait(callback);
+		ffi_barrier_wait(callback);
 		atomic_exit();
 	]
 	xeval buf;
@@ -560,16 +560,16 @@ fn cl_write_buffer_raw(ctx : cl_context, buf : cl_buffer, offset ptr size : nat)
 		var event := ffi_peek(ptr_event, ffi_type.t_pointer);
 		ffi_destructor_call(destr, ctx.clReleaseEvent, [ event ]);
 
-		var callback, callback_ptr := ffi_callback_create();
+		var callback, callback_ptr := ffi_barrier_create();
 		ret, err := ffi_function_call(ctx.clSetEventCallback, [ event, 0, callback_ptr, 0 ]);
 		if ret <> 0 then [
-			ffi_callback_cancel(callback);
+			ffi_barrier_cancel(callback);
 			atomic_exit();
 			ffi_destructor_destroy();
 			xeval w;
 			abort opencl_abort("clSetEventCallback", ret);
 		]
-		ffi_callback_wait(callback);
+		ffi_barrier_wait(callback);
 		atomic_exit();
 	]
 	xeval buf;
@@ -638,9 +638,9 @@ fn cl_mk_program(ctx : cl_context, code : bytes, options : bytes) : (cl_context,
 	if not ctx.callbacks then [
 		ret, err := ffi_function_call(ctx.clBuildProgram, [ prog, 1, ptr_devices, ptr_options, 0, 0 ]);
 	] else [
-		var callback, callback_ptr := ffi_callback_create();
+		var callback, callback_ptr := ffi_barrier_create();
 		ret, err := ffi_function_call(ctx.clBuildProgram, [ prog, 1, ptr_devices, ptr_options, callback_ptr, 0 ]);
-		ffi_callback_wait(callback);
+		ffi_barrier_wait(callback);
 		if ret = 0 then [
 			var ptr_status := ffi_destructor_allocate(ffi_get_size(ffi_type.t_sint32), ffi_get_alignment(ffi_type.t_sint32), false);
 			var ret2 : int;
@@ -810,16 +810,16 @@ fn cl_enqueue_kernel(ctx : cl_context, kernel : cl_kernel, dim : nat, gwo gws lw
 			abort opencl_abort("clWaitForEvents", ret);
 		]
 	] else [
-		var callback, callback_ptr := ffi_callback_create();
+		var callback, callback_ptr := ffi_barrier_create();
 		ret, err := ffi_function_call(ctx.clSetEventCallback, [ event, 0, callback_ptr, 0 ]);
 		if ret <> 0 then [
-			ffi_callback_cancel(callback);
+			ffi_barrier_cancel(callback);
 			atomic_exit();
 			ffi_destructor_destroy();
 			xeval w;
 			abort opencl_abort("clSetEventCallback", ret);
 		]
-		ffi_callback_wait(callback);
+		ffi_barrier_wait(callback);
 	]
 
 	atomic_exit();

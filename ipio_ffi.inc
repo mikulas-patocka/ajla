@@ -113,7 +113,7 @@ struct resource_ffi {
 	void *sym;
 	ffi_type **args;
 	uchar_efficient_t *ctx_args;
-	unsigned n_args;
+	size_t n_args;
 	ffi_type *ret_ffi_type;
 	ajla_option_t ret_type;
 	unsigned flags;
@@ -144,7 +144,7 @@ static bool resource_ffi_library_close(struct data *d)
 
 static bool resource_ffi_close(struct data *d)
 {
-	unsigned i;
+	size_t i;
 	struct resource_ffi *rf = da_resource(d);
 	struct data *da = cast_ptr(struct data *, cast_ptr(char *, rf->rfl) - data_resource_offset);
 	pointer_dereference(pointer_data(da));
@@ -158,7 +158,7 @@ static bool resource_ffi_close(struct data *d)
 
 static bool resource_ffi_structure_close(struct data *d)
 {
-	unsigned i;
+	size_t i;
 	struct resource_ffi_structure *rfs = da_resource(d);
 	for (i = 0; i < rfs->n_elements; i++)
 		free_type(rfs->typ.elements[i]);
@@ -330,7 +330,7 @@ static int_default_t io_get_argument_type_callback(unsigned char *flat, const st
 
 static void io_ffi_free_args(struct io_ctx *ctx, ffi_type **args)
 {
-	unsigned i;
+	size_t i;
 	if (args) {
 		for (i = 0; i < ctx->args_l; i++)
 			if (args[i])
@@ -342,7 +342,7 @@ static void io_ffi_free_args(struct io_ctx *ctx, ffi_type **args)
 static ffi_type **io_ffi_load_arg_list(struct io_ctx *ctx, unsigned slot)
 {
 	array_index_t idx;
-	unsigned i;
+	size_t i;
 	ffi_type **args;
 
 	if (unlikely(!array_init_mayfail(uchar_efficient_t, &ctx->args, &ctx->args_l, &ctx->err)))
@@ -392,7 +392,7 @@ static void * attr_fastcall io_ffi_create_structure_handler(struct io_ctx *ctx)
 	size_t *offsets = NULL;
 	ffi_cif cif;
 	size_t pos;
-	unsigned i;
+	size_t i;
 
 	ctx->args = NULL;
 	ctx->ptrs = NULL;
@@ -522,6 +522,32 @@ ret_err:
 static bool io_get_argument_from_flat(struct io_ctx *ctx, uchar_efficient_t t, int_default_t num);
 static bool io_get_argument_from_longint(struct io_ctx *ctx, uchar_efficient_t t, const mpint_t *m);
 
+static bool io_get_argument_from_slot(struct io_ctx *ctx, ajla_option_t a, frame_t slot, void *result)
+{
+	ctx->pkt = NULL;
+	ctx->str = result;
+	if (unlikely(!ajla_type_to_ffi_type_table[a].size))
+		return true;
+	if (likely(!frame_test_flag(ctx->fp, slot))) {
+		int_default_t in;
+		barrier_aliasing();
+		in = *frame_slot(ctx->fp, slot, int_default_t);
+		barrier_aliasing();
+		if (unlikely(!io_get_argument_from_flat(ctx, a, in)))
+			return false;
+	} else {
+		struct data *d = pointer_get_data(*frame_pointer(ctx->fp, slot));
+		if (da_tag(d) == DATA_TAG_flat) {
+			if (unlikely(!io_get_argument_from_flat(ctx, a, *cast_ptr(int_default_t *, da_flat(d)))))
+				return false;
+		} else {
+			if (unlikely(!io_get_argument_from_longint(ctx, a, &da(d,longint)->mp)))
+				return false;
+		}
+	}
+	return true;
+}
+
 static void * attr_fastcall io_ffi_poke_handler(struct io_ctx *ctx)
 {
 	void *test;
@@ -545,26 +571,8 @@ static void * attr_fastcall io_ffi_poke_handler(struct io_ctx *ctx)
 	}
 
 	slot = get_input(ctx, 3);
-
-	ctx->pkt = NULL;
-	ctx->str = num_to_ptr(addr);
-	if (likely(!frame_test_flag(ctx->fp, slot))) {
-		int_default_t in;
-		barrier_aliasing();
-		in = *frame_slot(ctx->fp, slot, int_default_t);
-		barrier_aliasing();
-		if (unlikely(!io_get_argument_from_flat(ctx, a, in)))
-			goto ret_err;
-	} else {
-		struct data *d = pointer_get_data(*frame_pointer(ctx->fp, slot));
-		if (da_tag(d) == DATA_TAG_flat) {
-			if (unlikely(!io_get_argument_from_flat(ctx, a, *cast_ptr(int_default_t *, da_flat(d)))))
-				goto ret_err;
-		} else {
-			if (unlikely(!io_get_argument_from_longint(ctx, a, &da(d,longint)->mp)))
-				goto ret_err;
-		}
-	}
+	if (!io_get_argument_from_slot(ctx, a, slot, num_to_ptr(addr)))
+		goto ret_err;
 
 	test = POINTER_FOLLOW_THUNK_GO;
 
@@ -835,7 +843,7 @@ static void * attr_fastcall io_ffi_function_create_handler(struct io_ctx *ctx)
 	struct data *d;
 	struct resource_ffi *rf;
 	char *open_msg = NULL;
-	unsigned attr_unused nvargs;
+	unsigned nvargs;
 	ajla_option_t rtype;
 	struct data *r_struc;
 	unsigned flags, one_flag;
@@ -846,9 +854,6 @@ static void * attr_fastcall io_ffi_function_create_handler(struct io_ctx *ctx)
 	ctx->ptrs = NULL;
 	ctx->str = NULL;
 
-	ptr = *frame_pointer(ctx->fp, get_input(ctx, 0));
-	d = pointer_get_data(ptr);
-	rfl = da_resource(d);
 	test = io_deep_eval(ctx, "012345", false);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
@@ -930,8 +935,8 @@ static void * attr_fastcall io_ffi_function_create_handler(struct io_ctx *ctx)
 	args = NULL;
 	rf->ret_ffi_type = ret;
 	rf->ret_type = rtype;
-	rf->flags = flags;
 	ret = NULL;
+	rf->flags = flags;
 
 	pointer_reference_owned(ptr);
 
@@ -957,27 +962,29 @@ ret_err:
 	goto ret_test;
 }
 
+union result {
+	ffi_arg rc;
+	ffi_sarg src;
+	unsigned char pool[MAX_FFI_TYPE_SIZE];
+
+	/* force alignment */
+	long l;
+	int64_t i64;
+	uint64_t ui64;
+#ifdef HAVE_LONG_LONG
+	long long ll;
+#endif
+	double dbl;
+#ifdef HAVE_LONG_DOUBLE
+	long double ld;
+#endif
+};
+
 struct ffi_call_packet {
 	struct resource_ffi *rf;
 	void **ptrs;
 	size_t ptrs_l;
-	union {
-		ffi_arg rc;
-		ffi_sarg src;
-		unsigned char pool[MAX_FFI_TYPE_SIZE];
-
-		/* force alignment */
-		long l;
-		int64_t i64;
-		uint64_t ui64;
-#ifdef HAVE_LONG_LONG
-		long long ll;
-#endif
-		double dbl;
-#ifdef HAVE_LONG_DOUBLE
-		long double ld;
-#endif
-	} u;
+	union result u;
 	uint32_t e;
 	pointer_t rf_ref;
 };
@@ -1217,43 +1224,52 @@ static void ffi_call_packet_call(struct ffi_call_packet *pkt)
 		mutex_unlock(&ffi_libraries_mutex);
 }
 
+static bool ffi_convert_result(struct io_ctx *ctx, ajla_option_t ret_type, union result *u, frame_t frame_result)
+{
+	void *test;
+
+	if (ajla_type_to_ffi_type_table[ret_type].sign == T_VOID) {
+		io_store_typed_number(ctx, frame_result, int_default_t, INT_DEFAULT_N, int, 0);
+		if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+			return false;
+	} else if (ajla_type_to_ffi_type_table[ret_type].sign == T_REAL) {
+		struct data *dl = data_alloc_longint_mayfail(ajla_type_to_ffi_type_table[ret_type].size * 8, &ctx->err pass_file_line);
+		if (unlikely(!dl)) {
+			io_terminate_with_error(ctx, ctx->err, true, NULL);
+			return false;
+		}
+		mpz_import(&da(dl,longint)->mp, ajla_type_to_ffi_type_table[ret_type].size, -1, 1, 0, 0, &u->pool);
+		frame_set_pointer(ctx->fp, frame_result, pointer_data(dl));
+	} else if (ajla_type_to_ffi_type_table[ret_type].size > sizeof(u->rc)) {
+		if (ajla_type_to_ffi_type_table[ret_type].sign != T_SIGNED) {
+			io_store_typed_number(ctx, frame_result, int_default_t, INT_DEFAULT_N, uint64_t, u->ui64);
+			if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+				return false;
+		} else {
+			io_store_typed_number(ctx, frame_result, int_default_t, INT_DEFAULT_N, int64_t, u->i64);
+			if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+				return false;
+		}
+	} else if (ajla_type_to_ffi_type_table[ret_type].sign != T_SIGNED) {
+		io_store_typed_number(ctx, frame_result, int_default_t, INT_DEFAULT_N, ffi_arg, u->rc);
+		if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+			return false;
+	} else {
+		io_store_typed_number(ctx, frame_result, int_default_t, INT_DEFAULT_N, ffi_sarg, u->src);
+		if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+			return false;
+	}
+	return true;
+}
+
 static bool ffi_call_packet_result(struct io_ctx *ctx, frame_t frame_result, frame_t frame_error)
 {
 	struct ffi_call_packet *pkt = ctx->pkt;
 	struct resource_ffi *rf = pkt->rf;
 	void *test;
 
-	if (ajla_type_to_ffi_type_table[rf->ret_type].sign == T_VOID) {
-		io_store_typed_number(ctx, frame_result, int_default_t, INT_DEFAULT_N, int, 0);
-		if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
-			return false;
-	} else if (ajla_type_to_ffi_type_table[rf->ret_type].sign == T_REAL) {
-		struct data *dl = data_alloc_longint_mayfail(ajla_type_to_ffi_type_table[rf->ret_type].size * 8, &ctx->err pass_file_line);
-		if (unlikely(!dl)) {
-			io_terminate_with_error(ctx, ctx->err, true, NULL);
-			return false;
-		}
-		mpz_import(&da(dl,longint)->mp, ajla_type_to_ffi_type_table[rf->ret_type].size, -1, 1, 0, 0, &pkt->u.pool);
-		frame_set_pointer(ctx->fp, frame_result, pointer_data(dl));
-	} else if (ajla_type_to_ffi_type_table[rf->ret_type].size > sizeof(pkt->u.rc)) {
-		if (ajla_type_to_ffi_type_table[rf->ret_type].sign != T_SIGNED) {
-			io_store_typed_number(ctx, frame_result, int_default_t, INT_DEFAULT_N, uint64_t, pkt->u.ui64);
-			if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
-				return false;
-		} else {
-			io_store_typed_number(ctx, frame_result, int_default_t, INT_DEFAULT_N, int64_t, pkt->u.i64);
-			if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
-				return false;
-		}
-	} else if (ajla_type_to_ffi_type_table[rf->ret_type].sign != T_SIGNED) {
-		io_store_typed_number(ctx, frame_result, int_default_t, INT_DEFAULT_N, ffi_arg, pkt->u.rc);
-		if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
-			return false;
-	} else {
-		io_store_typed_number(ctx, frame_result, int_default_t, INT_DEFAULT_N, ffi_sarg, pkt->u.src);
-		if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
-			return false;
-	}
+	ffi_convert_result(ctx, rf->ret_type, &pkt->u, frame_result);
+
 	io_store_typed_number(ctx, frame_error, int_default_t, INT_DEFAULT_N, uint32_t, pkt->e);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		return false;
@@ -1290,6 +1306,9 @@ ret_err:
 	return POINTER_FOLLOW_THUNK_EXCEPTION;
 }
 
+struct callback;
+static void callback_free(struct callback *);
+
 struct resource_ffi_destructor {
 	void **ptrs;
 	size_t ptrs_l;
@@ -1297,6 +1316,8 @@ struct resource_ffi_destructor {
 	size_t calls_l;
 	pointer_t *handles;
 	size_t handles_l;
+	struct callback **callbacks;
+	size_t callbacks_l;
 };
 
 static bool resource_ffi_destructor_close(struct data *d)
@@ -1319,6 +1340,9 @@ static bool resource_ffi_destructor_close(struct data *d)
 	for (i = 0; i < rfd->ptrs_l; i++)
 		mem_free_aligned(rfd->ptrs[i]);
 	mem_free(rfd->ptrs);
+	for (i = 0; i < rfd->callbacks_l; i++)
+		callback_free(rfd->callbacks[i]);
+	mem_free(rfd->callbacks);
 	return true;
 }
 
@@ -1337,21 +1361,14 @@ static void * attr_fastcall io_ffi_destructor_new_handler(struct io_ctx *ctx)
 		goto ret_err;
 	rfd = da_resource(d);
 
-	if (unlikely(!array_init_mayfail(void *, &rfd->ptrs, &rfd->ptrs_l, &ctx->err))) {
-		data_free_r1(d);
-		goto ret_err;
-	}
-	if (unlikely(!array_init_mayfail(struct ffi_call_packet, &rfd->calls, &rfd->calls_l, &ctx->err))) {
-		mem_free(rfd->ptrs);
-		data_free_r1(d);
-		goto ret_err;
-	}
-	if (unlikely(!array_init_mayfail(pointer_t, &rfd->handles, &rfd->handles_l, &ctx->err))) {
-		mem_free(rfd->calls);
-		mem_free(rfd->ptrs);
-		data_free_r1(d);
-		goto ret_err;
-	}
+	if (unlikely(!array_init_mayfail(void *, &rfd->ptrs, &rfd->ptrs_l, &ctx->err)))
+		goto ret_err_d1;
+	if (unlikely(!array_init_mayfail(struct ffi_call_packet, &rfd->calls, &rfd->calls_l, &ctx->err)))
+		goto ret_err_ptrs;
+	if (unlikely(!array_init_mayfail(pointer_t, &rfd->handles, &rfd->handles_l, &ctx->err)))
+		goto ret_err_calls;
+	if (unlikely(!array_init_mayfail(struct callback *, &rfd->callbacks, &rfd->callbacks_l, &ctx->err)))
+		goto ret_err_handles;
 
 	frame_set_pointer(ctx->fp, get_output(ctx, 1), pointer_data(d));
 
@@ -1360,6 +1377,14 @@ static void * attr_fastcall io_ffi_destructor_new_handler(struct io_ctx *ctx)
 ret_test:
 	return test;
 
+ret_err_handles:
+	mem_free(rfd->handles);
+ret_err_calls:
+	mem_free(rfd->calls);
+ret_err_ptrs:
+	mem_free(rfd->ptrs);
+ret_err_d1:
+	data_free_r1(d);
 ret_err:
 	io_terminate_with_error(ctx, ctx->err, true, NULL);
 	test = POINTER_FOLLOW_THUNK_EXCEPTION;
@@ -1642,7 +1667,7 @@ static void callback_call(void *c_)
 	wake_up_wait_list(&c->wait_list, address_get_mutex(c, DEPTH_THUNK), TASK_SUBMIT_MUST_NOT_SPAWN);
 }
 
-static void * attr_fastcall io_ffi_callback_create_handler(struct io_ctx *ctx)
+static void * attr_fastcall io_ffi_barrier_create_handler(struct io_ctx *ctx)
 {
 	void *test;
 	struct data *d;
@@ -1680,7 +1705,7 @@ ret_thunk:
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
-static void * attr_fastcall io_ffi_callback_wait_handler(struct io_ctx *ctx)
+static void * attr_fastcall io_ffi_barrier_wait_handler(struct io_ctx *ctx)
 {
 	void *test;
 	pointer_t ptr;
@@ -1691,7 +1716,7 @@ static void * attr_fastcall io_ffi_callback_wait_handler(struct io_ctx *ctx)
 		return test;
 
 	ptr = *frame_pointer(ctx->fp, get_input(ctx, 1));
-	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_callback_wait_handler: pointer is thunk"));
+	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_barrier_wait_handler: pointer is thunk"));
 	c = da_resource(pointer_get_data(ptr));
 
 	address_lock(c, DEPTH_THUNK);
@@ -1708,7 +1733,7 @@ static void * attr_fastcall io_ffi_callback_wait_handler(struct io_ctx *ctx)
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
-static void * attr_fastcall io_ffi_callback_cancel_handler(struct io_ctx *ctx)
+static void * attr_fastcall io_ffi_barrier_cancel_handler(struct io_ctx *ctx)
 {
 	void *test;
 	pointer_t ptr;
@@ -1719,7 +1744,7 @@ static void * attr_fastcall io_ffi_callback_cancel_handler(struct io_ctx *ctx)
 		return test;
 
 	ptr = *frame_pointer(ctx->fp, get_input(ctx, 1));
-	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_callback_cancel_handler: pointer is thunk"));
+	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_barrier_cancel_handler: pointer is thunk"));
 	c = da_resource(pointer_get_data(ptr));
 
 	address_lock(c, DEPTH_THUNK);
@@ -1733,30 +1758,39 @@ static void * attr_fastcall io_ffi_callback_cancel_handler(struct io_ctx *ctx)
 
 #else
 
-#define io_ffi_callback_create_handler		io_ffi_unsupported
-#define io_ffi_callback_wait_handler		io_ffi_unsupported
-#define io_ffi_callback_cancel_handler		io_ffi_unsupported
+#define io_ffi_barrier_create_handler		io_ffi_unsupported
+#define io_ffi_barrier_wait_handler		io_ffi_unsupported
+#define io_ffi_barrier_cancel_handler		io_ffi_unsupported
 
 #endif
 
 
 #ifndef THREAD_NONE
 
-struct resource_thread {
-	thread_t thr;
-	cond_t cond;
-	struct list async_packets;
-	bool should_exit;
-};
-
 struct resource_async_packet {
 	struct list list_entry;
 	struct ffi_call_packet pkt;
 	bool finished;
 	bool dereferenced;
-	struct list wait_list;
+	bool in_callback;
+	struct list wait_list_result;
+	struct list wait_list_callback;
+	pointer_t thr;
 	pointer_t destructor;
 };
+
+struct resource_thread {
+	thread_t thr;
+	cond_t cond;
+	struct list async_packets;
+	bool should_exit;
+	struct callback *cb;
+	struct resource_async_packet *a;
+	void *ret;
+	void **args;
+};
+
+static tls_decl(struct resource_async_packet *, current_ap);
 
 static void async_packet_cleanup(struct resource_async_packet *a)
 {
@@ -1773,6 +1807,8 @@ static bool async_packet_close(struct data *d)
 		async_packet_cleanup(a);
 		return true;
 	} else {
+		if (unlikely(a->dereferenced))
+			internal(file_line, "async_packet_close: packet already dereferenced");
 		a->dereferenced = true;
 		address_unlock(a, DEPTH_THUNK);
 		return false;
@@ -1784,16 +1820,14 @@ static bool thread_close(struct data *d)
 	struct resource_thread *t = da_resource(d);
 	cond_lock(&t->cond);
 	t->should_exit = true;
-	cond_unlock_broadcast(&t->cond);
+	cond_unlock_signal(&t->cond);
 	thread_join(&t->thr);
 	cond_done(&t->cond);
 	return true;
 }
 
-thread_function_decl(ffi_thread_function,
-	struct data *d = arg;
-	struct resource_thread *t = da_resource(d);
-
+static void thread_dispatcher(struct resource_thread *t)
+{
 	cond_lock(&t->cond);
 	while (1) {
 		if (!list_is_empty(&t->async_packets)) {
@@ -1803,11 +1837,13 @@ thread_function_decl(ffi_thread_function,
 			do {
 				struct resource_async_packet *a = get_struct(async_packets.prev, struct resource_async_packet, list_entry);
 				list_del(&a->list_entry);
+				tls_set(struct resource_async_packet *, current_ap, a);
 				ffi_call_packet_call(&a->pkt);
+				tls_set(struct resource_async_packet *, current_ap, NULL);
 				address_lock(a, DEPTH_THUNK);
 				if (!a->dereferenced) {
 					a->finished = true;
-					wake_up_wait_list(&a->wait_list, address_get_mutex(a, DEPTH_THUNK), TASK_SUBMIT_MAY_SPAWN);
+					wake_up_wait_list(&a->wait_list_result, address_get_mutex(a, DEPTH_THUNK), TASK_SUBMIT_MAY_SPAWN);
 				} else {
 					async_packet_cleanup(a);
 					data_free(resource_da(a));
@@ -1822,6 +1858,13 @@ thread_function_decl(ffi_thread_function,
 		cond_wait(&t->cond);
 	}
 	cond_unlock(&t->cond);
+}
+
+thread_function_decl(ffi_thread_function,
+	struct data *d = arg;
+	struct resource_thread *t = da_resource(d);
+
+	thread_dispatcher(t);
 )
 
 static void * attr_fastcall io_ffi_thread_spawn_handler(struct io_ctx *ctx)
@@ -1877,7 +1920,8 @@ static void * attr_fastcall io_ffi_async_call_handler(struct io_ctx *ctx)
 
 	a->finished = false;
 	a->dereferenced = false;
-	list_init(&a->wait_list);
+	list_init(&a->wait_list_result);
+	list_init(&a->wait_list_callback);
 
 	ctx->pkt = &a->pkt;
 
@@ -1899,9 +1943,13 @@ static void * attr_fastcall io_ffi_async_call_handler(struct io_ctx *ctx)
 
 	cond_lock(&t->cond);
 	list_add(&t->async_packets, &a->list_entry);
-	cond_unlock_broadcast(&t->cond);
+	cond_unlock_signal(&t->cond);
 
-	frame_set_pointer(ctx->fp, get_output(ctx, 1), pointer_data(d));
+	if (ctx->n_outputs > 1) {
+		frame_set_pointer(ctx->fp, get_output(ctx, 1), pointer_data(d));
+	} else {
+		pointer_dereference(pointer_data(d));
+	}
 
 	return POINTER_FOLLOW_THUNK_GO;
 
@@ -1933,7 +1981,7 @@ static void * attr_fastcall io_ffi_unpack_async_result_handler(struct io_ctx *ct
 	if (unlikely(!a->finished)) {
 		struct execution_control *ex = frame_execution_control(ctx->fp);
 		ex->wait[0].mutex_to_lock = address_get_mutex(a, DEPTH_THUNK);
-		list_add(&a->wait_list, &ex->wait[0].wait_entry);
+		list_add(&a->wait_list_result, &ex->wait[0].wait_entry);
 		address_unlock(a, DEPTH_THUNK);
 		pointer_follow_wait(ctx->fp, ctx->ip);
 		return POINTER_FOLLOW_THUNK_EXIT;
@@ -1954,5 +2002,306 @@ static void * attr_fastcall io_ffi_unpack_async_result_handler(struct io_ctx *ct
 #define io_ffi_thread_spawn_handler		io_ffi_unsupported
 #define io_ffi_async_call_handler		io_ffi_unsupported
 #define io_ffi_unpack_async_result_handler	io_ffi_unsupported
+
+#endif
+
+
+#if !defined(THREAD_NONE) && defined(HAVE_FFI_PREP_CLOSURE_LOC) && defined(FFI_CLOSURES) && FFI_CLOSURES
+
+struct callback {
+	ffi_closure *rw_addr;
+	void *exec_addr;
+	ffi_type **args;
+	uchar_efficient_t *ctx_args;
+	size_t n_args;
+	ffi_type *ret_ffi_type;
+	ajla_option_t ret_type;
+	ffi_cif cif;
+};
+
+static void callback_free(struct callback *c)
+{
+	size_t i;
+	if (c->rw_addr)
+		ffi_closure_free(c->rw_addr);
+	for (i = 0; i < c->n_args; i++)
+		free_type(c->args[i]);
+	if (c->args)
+		mem_free(c->args);
+	if (c->ctx_args)
+		mem_free(c->ctx_args);
+	if (c->ret_ffi_type)
+		free_type(c->ret_ffi_type);
+	mem_free(c);
+}
+
+static void callback_fn(ffi_cif attr_unused *cif, void *ret, void **args, void *c_)
+{
+	struct callback *c = c_;
+	struct resource_async_packet *a = tls_get(struct resource_async_packet *, current_ap);
+	struct data *d;
+	struct resource_thread *t;
+
+	if (unlikely(!a))
+		internal(file_line, "callback_fn: callback was called from unknown place");
+
+	tls_set(struct resource_async_packet *, current_ap, NULL);
+
+	d = data_alloc_resource_mayfail(sizeof(struct resource_thread), NULL, NULL pass_file_line);
+	t = da_resource(d);
+	cond_init(&t->cond);
+	list_init(&t->async_packets);
+	t->should_exit = false;
+	t->ret = ret;
+	t->args = args;
+	t->cb = c;
+	t->a = a;
+
+	address_lock(a, DEPTH_THUNK);
+	a->in_callback = true;
+	a->thr = pointer_data(d);
+	wake_up_wait_list(&a->wait_list_callback, address_get_mutex(a, DEPTH_THUNK), TASK_SUBMIT_MAY_SPAWN);
+
+	thread_dispatcher(t);
+
+	cond_done(&t->cond);
+	if (!refcount_is_one(pointer_get_refcount_(pointer_data(d))))
+		internal(file_line, "callback_fn: reference to resource_thread leaked");
+	data_free_r1(d);
+
+	tls_set(struct resource_async_packet *, current_ap, a);
+}
+
+static void * attr_fastcall io_ffi_unpack_async_callback_handler(struct io_ctx *ctx)
+{
+	void *test;
+	struct data *d;
+	struct resource_async_packet *a;
+	pointer_t ptr;
+
+	test = io_deep_eval(ctx, "0", false);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
+
+	ptr = *frame_pointer(ctx->fp, get_input(ctx, 0));
+	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_unpack_async_callback_handler: pointer is thunk"));
+	d = pointer_get_data(ptr);
+	a = da_resource(d);
+
+	address_lock(a, DEPTH_THUNK);
+	if (unlikely(!a->in_callback)) {
+		struct execution_control *ex = frame_execution_control(ctx->fp);
+		ex->wait[0].mutex_to_lock = address_get_mutex(a, DEPTH_THUNK);
+		list_add(&a->wait_list_callback, &ex->wait[0].wait_entry);
+		address_unlock(a, DEPTH_THUNK);
+		pointer_follow_wait(ctx->fp, ctx->ip);
+		return POINTER_FOLLOW_THUNK_EXIT;
+	}
+	address_unlock(a, DEPTH_THUNK);
+
+	frame_set_pointer(ctx->fp, get_output(ctx, 0), pointer_reference(&a->thr));
+
+	return POINTER_FOLLOW_THUNK_GO;
+}
+
+static void * attr_fastcall io_ffi_callback_create_handler(struct io_ctx *ctx)
+{
+	void *test;
+	pointer_t ptr;
+	struct resource_ffi_destructor *rfd;
+	unsigned nvargs;
+	ajla_option_t rtype;
+	struct data *r_struc;
+	ffi_type *ret = NULL;
+	ffi_type **args = NULL;
+	struct callback *c = NULL;
+	void *old;
+
+	ctx->args = NULL;
+	ctx->ptrs = NULL;
+
+	test = io_deep_eval(ctx, "01234", true);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
+
+	ptr = *frame_pointer(ctx->fp, get_input(ctx, 1));
+	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_callback_create_handler: pointer is thunk"));
+	rfd = da_resource(pointer_get_data(ptr));
+
+	io_get_positive_number(ctx, ctx->fp, get_input(ctx, 2), unsigned, nvargs);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
+
+	io_get_option(ctx, get_input(ctx, 3), &rtype, &r_struc);
+
+	args = io_ffi_load_arg_list(ctx, 4);
+	if (unlikely(!args))
+		goto ret_err;
+
+	ret = ajla_type_to_ffi_type(rtype, r_struc, true);
+	if (unlikely(!ret))
+		goto ret_err;
+
+	if (unlikely(nvargs > ctx->args_l)) {
+		ctx->err = error_ajla(EC_SYNC, AJLA_ERROR_INVALID_OPERATION);
+		goto ret_err;
+	}
+
+	c = mem_calloc_mayfail(struct callback *, sizeof(struct callback), &ctx->err);
+	if (unlikely(!c))
+		goto ret_err;
+
+#ifdef HAVE_FFI_PREP_CIF_VAR
+	if (!nvargs) {
+#endif
+		if (unlikely(ffi_prep_cif(&c->cif, FFI_DEFAULT_ABI, ctx->args_l, ret, args) != FFI_OK)) {
+			ctx->err = error_ajla(EC_SYNC, AJLA_ERROR_INVALID_OPERATION);
+			goto ret_err;
+		}
+#ifdef HAVE_FFI_PREP_CIF_VAR
+	} else {
+		if (unlikely(ffi_prep_cif_var(&c->cif, FFI_DEFAULT_ABI, ctx->args_l - nvargs, ctx->args_l, ret, args) != FFI_OK)) {
+			ctx->err = error_ajla(EC_SYNC, AJLA_ERROR_INVALID_OPERATION);
+			goto ret_err;
+		}
+	}
+#endif
+
+	c->rw_addr = ffi_closure_alloc(sizeof(ffi_closure), &c->exec_addr);
+	if (unlikely(!c->rw_addr)) {
+		ctx->err = error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED);
+		goto ret_err;
+	}
+
+	if (ffi_prep_closure_loc(c->rw_addr, &c->cif, callback_fn, c, c->exec_addr) != FFI_OK) {
+		ctx->err = error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED);
+		goto ret_err;
+	}
+
+	c->ctx_args = ctx->args;
+	c->n_args = ctx->args_l;
+	ctx->args = NULL;
+	c->args = args;
+	args = NULL;
+	c->ret_ffi_type = ret;
+	c->ret_type = rtype;
+	ret = NULL;
+
+	address_lock(rfd, DEPTH_AUX);
+	if (unlikely(!array_add_mayfail(struct callback *, &rfd->callbacks, &rfd->callbacks_l, c, &old, &ctx->err))) {
+		rfd->callbacks = old;
+		address_unlock(rfd, DEPTH_AUX);
+		goto ret_err;
+	}
+	address_unlock(rfd, DEPTH_AUX);
+
+	io_store_typed_number(ctx, get_output(ctx, 1), int_default_t, INT_DEFAULT_N, uintptr_t, ptr_to_num(c->exec_addr));
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_err;
+
+	c = NULL;
+	test = POINTER_FOLLOW_THUNK_GO;
+ret_test:
+	io_ffi_free_args(ctx, args);
+	if (ret)
+		free_type(ret);
+	if (ctx->ptrs)
+		mem_free(ctx->ptrs);
+	if (ctx->args)
+		mem_free(ctx->args);
+	if (c)
+		callback_free(c);
+	return test;
+ret_err:
+	io_terminate_with_error(ctx, ctx->err, true, NULL);
+	test = POINTER_FOLLOW_THUNK_EXCEPTION;
+	goto ret_test;
+}
+
+static void * attr_fastcall io_ffi_callback_get_arg_handler(struct io_ctx *ctx)
+{
+	void *test;
+	pointer_t ptr;
+	struct resource_thread *t;
+	unsigned n;
+
+	test = io_deep_eval(ctx, "01", false);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
+
+	ptr = *frame_pointer(ctx->fp, get_input(ctx, 0));
+	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_callback_get_arg_handler: pointer is thunk"));
+	t = da_resource(pointer_get_data(ptr));
+
+	io_get_number(ctx, get_input(ctx, 1), int_default_t, unsigned, n);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
+
+	if (unlikely(n >= t->cb->n_args)) {
+		ctx->err = error_ajla(EC_SYNC, AJLA_ERROR_INVALID_OPERATION);
+		goto ret_err;
+	}
+
+	if (unlikely(!ffi_convert_result(ctx, t->cb->ctx_args[n], t->args[n], get_output(ctx, 0))))
+		goto ret_err;
+
+	test = POINTER_FOLLOW_THUNK_GO;
+ret_test:
+	return test;
+ret_err:
+	io_terminate_with_error(ctx, ctx->err, true, NULL);
+	test = POINTER_FOLLOW_THUNK_EXCEPTION;
+	goto ret_test;
+}
+
+static void * attr_fastcall io_ffi_callback_return_handler(struct io_ctx *ctx)
+{
+	void *test;
+	pointer_t ptr;
+	struct resource_thread *t;
+	struct resource_async_packet *a;
+
+	test = io_deep_eval(ctx, "012", true);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
+
+	ptr = *frame_pointer(ctx->fp, get_input(ctx, 1));
+	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_callback_return_handler: pointer is thunk"));
+	t = da_resource(pointer_get_data(ptr));
+
+	if (unlikely(!io_get_argument_from_slot(ctx, t->cb->ret_type, get_input(ctx, 2), t->ret)))
+		goto ret_err;
+
+	a = t->a;
+	address_lock(a, DEPTH_THUNK);
+	a->in_callback = false;
+	address_unlock(a, DEPTH_THUNK);
+
+	cond_lock(&t->cond);
+	t->should_exit = true;
+	cond_unlock_signal(&t->cond);
+
+	pointer_reference_owned(pointer_data(resource_da(a)));
+	frame_set_pointer(ctx->fp, get_output(ctx, 1), pointer_data(resource_da(a)));
+
+	test = POINTER_FOLLOW_THUNK_GO;
+ret_test:
+	return test;
+ret_err:
+	io_terminate_with_error(ctx, ctx->err, true, NULL);
+	goto ret_test;
+}
+
+#else
+
+static void callback_free(struct callback attr_unused *c)
+{
+}
+
+#define io_ffi_unpack_async_result_handler	io_ffi_unsupported
+#define io_ffi_callback_create_handler		io_ffi_unsupported
+#define io_ffi_callback_recurse_handler		io_ffi_unsupported
+#define io_ffi_callback_get_arg_handler		io_ffi_unsupported
+#define io_ffi_callback_return_handler		io_ffi_unsupported
 
 #endif

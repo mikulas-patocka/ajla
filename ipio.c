@@ -4978,7 +4978,7 @@ static void * attr_fastcall io_get_dump_handler(struct io_ctx *ctx)
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
-static void * attr_fastcall io_ffi_callback_supported_handler(struct io_ctx *ctx)
+static void * attr_fastcall io_ffi_barrier_supported_handler(struct io_ctx *ctx)
 {
 	bool supported = false;
 #if defined(HAVE_CODEGEN_CALLBACK) && defined(SUPPORTS_FFI)
@@ -5013,12 +5013,16 @@ static attr_unused void * attr_fastcall io_ffi_unsupported(struct io_ctx *ctx)
 #define io_ffi_destructor_call_handler		io_ffi_unsupported
 #define io_ffi_handle_to_number_handler		io_ffi_unsupported
 #define io_ffi_number_to_handle_handler		io_ffi_unsupported
-#define io_ffi_callback_create_handler		io_ffi_unsupported
-#define io_ffi_callback_wait_handler		io_ffi_unsupported
-#define io_ffi_callback_cancel_handler		io_ffi_unsupported
+#define io_ffi_barrier_create_handler		io_ffi_unsupported
+#define io_ffi_barrier_wait_handler		io_ffi_unsupported
+#define io_ffi_barrier_cancel_handler		io_ffi_unsupported
 #define io_ffi_thread_spawn_handler		io_ffi_unsupported
 #define io_ffi_async_call_handler		io_ffi_unsupported
 #define io_ffi_unpack_async_result_handler	io_ffi_unsupported
+#define io_ffi_unpack_async_callback_handler	io_ffi_unsupported
+#define io_ffi_callback_create_handler		io_ffi_unsupported
+#define io_ffi_callback_get_arg_handler		io_ffi_unsupported
+#define io_ffi_callback_return_handler		io_ffi_unsupported
 int io_ffi_get_ffi_type(const struct type attr_unused *type)
 {
 	return -1;
@@ -5236,13 +5240,17 @@ static const struct {
 	{ io_ffi_destructor_allocate_handler },
 	{ io_ffi_destructor_free_handler },
 	{ io_ffi_destructor_call_handler },
-	{ io_ffi_callback_supported_handler },
-	{ io_ffi_callback_create_handler },
-	{ io_ffi_callback_wait_handler },
-	{ io_ffi_callback_cancel_handler },
+	{ io_ffi_barrier_supported_handler },
+	{ io_ffi_barrier_create_handler },
+	{ io_ffi_barrier_wait_handler },
+	{ io_ffi_barrier_cancel_handler },
 	{ io_ffi_thread_spawn_handler },
 	{ io_ffi_async_call_handler },
 	{ io_ffi_unpack_async_result_handler },
+	{ io_ffi_unpack_async_callback_handler },
+	{ io_ffi_callback_create_handler },
+	{ io_ffi_callback_get_arg_handler },
+	{ io_ffi_callback_return_handler },
 };
 
 void *ipret_io(frame_s *fp, const code_t *ip, unsigned char io_code, unsigned char n_outputs, unsigned char n_inputs, unsigned char n_params)
@@ -5276,6 +5284,9 @@ void name(ipio_init)(void)
 	list_init(&msgqueue_list);
 
 #if defined(SUPPORTS_FFI)
+#if !defined(THREAD_NONE)
+	tls_init(struct resource_async_packet *, current_ap);
+#endif
 	mutex_init(&ffi_libraries_mutex);
 	list_init(&ffi_libraries);
 #endif
@@ -5307,6 +5318,9 @@ again:
 		library_destroy(lib);
 	}
 	mutex_done(&ffi_libraries_mutex);
+#if !defined(THREAD_NONE)
+	tls_done(struct resource_async_packet *, current_ap);
+#endif
 #endif
 
 	if (lib_path)

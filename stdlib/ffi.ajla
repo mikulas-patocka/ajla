@@ -73,10 +73,10 @@ fn ffi_peek_array(w : world, ptr : int, l : int, ft : ffi_type, t : type) : (wor
 fn ffi_poke_int_array(w : world, ptr : int, ft : ffi_type, a : list(int)) : world;
 fn ffi_peek_int_array(w : world, ptr : int, l : nat, ft : ffi_type) : (world, list(int));
 
-fn ffi_poke_zstring(w : world, destr : ffi_destructor, str : bytes) : (world, int);
+fn ffi_poke_zstring(w : world, fd : ffi_destructor, str : bytes) : (world, int);
 fn ffi_peek_zstring(w : world, addr : int) : (world, bytes);
 
-fn ffi_handle_to_number(w : world, desc : ffi_destructor, h : handle) : (world, int);
+fn ffi_handle_to_number(w : world, fd : ffi_destructor, h : handle) : (world, int);
 fn ffi_number_to_handle(w : world, n : int, sckt : bool) : (world, handle);
 
 fn ffi_default_library : ffi_library;
@@ -106,18 +106,27 @@ fn ffi_destructor_allocate(w : world, fd : ffi_destructor, size align : int, zer
 fn ffi_destructor_free(w : world, fd : ffi_destructor, ptr : int) : world;
 fn ffi_destructor_call(w : world, fd : ffi_destructor, func : ffi_function, args : list(int)) : world;
 
-type ffi_callback;
+type ffi_barrier;
 
-fn ffi_callback_supported : bool;
-fn ffi_callback_create(w : world) : (world, ffi_callback, int);
-fn ffi_callback_wait(w : world, f : ffi_callback) : world;
-fn ffi_callback_cancel(w : world, f : ffi_callback) : world;
+fn ffi_barrier_supported : bool;
+fn ffi_barrier_create(w : world) : (world, ffi_barrier, int);
+fn ffi_barrier_wait(w : world, f : ffi_barrier) : world;
+fn ffi_barrier_cancel(w : world, f : ffi_barrier) : world;
 
 type ffi_thread;
+type ffi_callback;
 
 fn ffi_thread_spawn(w : world) : (world, ffi_thread);
-fn ffi_thread_async_call(w : world, t : ffi_thread, d : ffi_destructor, func : ffi_function, args : list(int)) : (world, int, int);
 fn ffi_thread_async_call_noret(w : world, t : ffi_thread, d : ffi_destructor, func : ffi_function, args : list(int)) : world;
+fn ffi_thread_async_call(w : world, t : ffi_thread, d : ffi_destructor, func : ffi_function, args : list(int)) : (world, int, int);
+fn ffi_thread_async_call_cb(w : world, t : ffi_thread, d : ffi_destructor, func : ffi_function, args : list(int)) : (world, int, int, ffi_callback);
+
+fn ffi_callback_create(w : world, fd : ffi_destructor, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : (world, int);
+
+fn ffi_callback_recurse(c : ffi_callback) : ffi_thread;
+fn ffi_callback_get_arg(c : ffi_callback, a : int) : int;
+fn ffi_callback_return(w : world, c : ffi_callback, ret : int) : (world, ffi_callback);
+
 
 implementation
 
@@ -127,8 +136,9 @@ uses pcode;
 type ffi_structure := internal_type;
 type ffi_library := internal_type;
 type ffi_function := internal_type;
-type ffi_callback := internal_type;
+type ffi_barrier := internal_type;
 type ffi_thread := internal_type;
+type ffi_callback := ffi_thread;
 
 fn ffi_unsafe_get_world : world
 [
@@ -225,10 +235,10 @@ fn ffi_peek_int_array(w : world, ptr : int, l : nat, ft : ffi_type) : (world, li
 	return w, result;
 ]
 
-fn ffi_poke_zstring(w : world, destr : ffi_destructor, str : bytes) : (world, int)
+fn ffi_poke_zstring(w : world, fd : ffi_destructor, str : bytes) : (world, int)
 [
 	var mem_str : int;
-	w, mem_str := ffi_destructor_allocate(w, destr, len(str) + 1, 1, false);
+	w, mem_str := ffi_destructor_allocate(w, fd, len(str) + 1, 1, false);
 	w := ffi_poke_array(w, mem_str, str);
 	w := ffi_poke(w, mem_str + len(str), ffi_type.t_uchar, 0);
 	return w, mem_str;
@@ -248,11 +258,11 @@ fn ffi_peek_zstring(w : world, addr : int) : (world, bytes)
 	return w, result;
 ]
 
-fn ffi_handle_to_number(w : world, desc : ffi_destructor, h : handle) : (world, int)
+fn ffi_handle_to_number(w : world, fd : ffi_destructor, h : handle) : (world, int)
 [
 	var n : int;
 	var w2 : world;
-	pcode IO IO_FFI_Handle_To_Number 2 3 0 =w2 =n w desc h;
+	pcode IO IO_FFI_Handle_To_Number 2 3 0 =w2 =n w fd h;
 	return w2, n;
 ]
 
@@ -518,33 +528,33 @@ fn ffi_destructor_call(w : world, fd : ffi_destructor, func : ffi_function, args
 	return w2;
 ]
 
-fn ffi_callback_supported : bool
+fn ffi_barrier_supported : bool
 [
 	var r : bool;
-	pcode IO IO_FFI_Callback_Supported 1 0 0 =r;
+	pcode IO IO_FFI_Barrier_Supported 1 0 0 =r;
 	return r;
 ]
 
-fn ffi_callback_create(w : world) : (world, ffi_callback, int)
+fn ffi_barrier_create(w : world) : (world, ffi_barrier, int)
 [
-	var r : ffi_callback;
+	var r : ffi_barrier;
 	var i : int;
 	var w2 : world;
-	pcode IO IO_FFI_Callback_Create 3 1 0 =w2 =r =i w;
+	pcode IO IO_FFI_Barrier_Create 3 1 0 =w2 =r =i w;
 	return w2, r, i;
 ]
 
-fn ffi_callback_wait(w : world, f : ffi_callback) : world
+fn ffi_barrier_wait(w : world, f : ffi_barrier) : world
 [
 	var w2 : world;
-	pcode IO IO_FFI_Callback_Wait 1 2 0 =w2 w f;
+	pcode IO IO_FFI_Barrier_Wait 1 2 0 =w2 w f;
 	return w2;
 ]
 
-fn ffi_callback_cancel(w : world, f : ffi_callback) : world
+fn ffi_barrier_cancel(w : world, f : ffi_barrier) : world
 [
 	var w2 : world;
-	pcode IO IO_FFI_Callback_Cancel 1 2 0 =w2 w f;
+	pcode IO IO_FFI_Barrier_Cancel 1 2 0 =w2 w f;
 	return w2;
 ]
 
@@ -565,6 +575,20 @@ fn ffi_unpack_async_result(a : ffi_async_result) : (int, int)
 	return r, e;
 ]
 
+fn ffi_unpack_async_callback(a : ffi_async_result) : ffi_callback
+[
+	var cb : ffi_callback;
+	pcode IO IO_FFI_Unpack_Async_Callback 1 1 0 =cb a;
+	return cb;
+]
+
+fn ffi_thread_async_call_noret(w : world, t : ffi_thread, d : ffi_destructor, func : ffi_function, args : list(int)) : world
+[
+	var w2 : world;
+	pcode IO IO_FFI_Async_Call 1 5 0 =w2 w func args t d;
+	return w2;
+]
+
 fn ffi_thread_async_call(w : world, t : ffi_thread, d : ffi_destructor, func : ffi_function, args : list(int)) : (world, int, int)
 [
 	var a : ffi_async_result;
@@ -575,10 +599,44 @@ fn ffi_thread_async_call(w : world, t : ffi_thread, d : ffi_destructor, func : f
 	return w2, r, e;
 ]
 
-fn ffi_thread_async_call_noret(w : world, t : ffi_thread, d : ffi_destructor, func : ffi_function, args : list(int)) : world
+fn ffi_thread_async_call_cb(w : world, t : ffi_thread, d : ffi_destructor, func : ffi_function, args : list(int)) : (world, int, int, ffi_callback)
 [
 	var a : ffi_async_result;
+	var cb : ffi_callback;
+	var r e : int;
 	var w2 : world;
 	pcode IO IO_FFI_Async_Call 2 5 0 =w2 =a w func args t d;
-	return w2;
+	r, e := ffi_unpack_async_result~lazy(a);
+	cb := ffi_unpack_async_callback~lazy(a);
+	return w2, r, e, cb;
+]
+
+fn ffi_callback_create(w : world, fd : ffi_destructor, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : (world, int)
+[
+	var c : int;
+	var w2 : world;
+	pcode IO IO_FFI_Callback_Create 2 5 0 =w2 =c w fd nvarargs rtype args;
+	return w2, c;
+]
+
+fn ffi_callback_recurse(c : ffi_callback) : ffi_thread
+[
+	return c;
+]
+
+fn ffi_callback_get_arg(c : ffi_callback, a : int) : int
+[
+	var v : int;
+	pcode IO IO_FFI_Callback_Get_Arg 1 2 0 =v c a;
+	return v;
+]
+
+fn ffi_callback_return(w : world, c : ffi_callback, ret : int) : (world, ffi_callback)
+[
+	var w2 : world;
+	var c2 : ffi_callback;
+	var a : ffi_async_result;
+	pcode IO IO_FFI_Callback_Return 2 3 0 =w2 =a w c ret;
+	c2 := ffi_unpack_async_callback~lazy(a);
+	return w2, c2;
 ]

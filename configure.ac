@@ -414,7 +414,7 @@ if test "$with_gmp" != "no"; then
 fi
 if test "$ac_cv_header_ffi_h" = yes; then
 	AC_CHECK_LIB(ffi, ffi_prep_cif)
-	AC_CHECK_FUNCS(ffi_prep_cif_var)
+	AC_CHECK_FUNCS(ffi_prep_cif_var ffi_prep_closure_loc)
 	if test "$ac_cv_have_emx" = no -a "$ac_cv_have_win32" = no; then
 		AC_CHECK_FUNCS(dlopen)
 		if test "$ac_cv_have_dlopen" != yes; then

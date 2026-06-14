@@ -370,14 +370,18 @@
 #define IO_FFI_Destructor_Allocate	112
 #define IO_FFI_Destructor_Free		113
 #define IO_FFI_Destructor_Call		114
-#define IO_FFI_Callback_Supported	115
-#define IO_FFI_Callback_Create		116
-#define IO_FFI_Callback_Wait		117
-#define IO_FFI_Callback_Cancel		118
+#define IO_FFI_Barrier_Supported	115
+#define IO_FFI_Barrier_Create		116
+#define IO_FFI_Barrier_Wait		117
+#define IO_FFI_Barrier_Cancel		118
 #define IO_FFI_Thread_Spawn		119
 #define IO_FFI_Async_Call		120
 #define IO_FFI_Unpack_Async_Result	121
-#define IO_N				122
+#define IO_FFI_Unpack_Async_Callback	122
+#define IO_FFI_Callback_Create		123
+#define IO_FFI_Callback_Get_Arg		124
+#define IO_FFI_Callback_Return		125
+#define IO_N				126
 
 #define IO_Open_Flag_Read		1
 #define IO_Open_Flag_Write		2
