@@ -1291,9 +1291,6 @@ ret_err:
 	return POINTER_FOLLOW_THUNK_EXCEPTION;
 }
 
-struct callback;
-static void callback_free(struct callback *);
-
 struct resource_ffi_destructor {
 	void **ptrs;
 	size_t ptrs_l;
@@ -1301,8 +1298,6 @@ struct resource_ffi_destructor {
 	size_t calls_l;
 	pointer_t *handles;
 	size_t handles_l;
-	struct callback **callbacks;
-	size_t callbacks_l;
 };
 
 static bool resource_ffi_destructor_close(struct data *d)
@@ -1325,9 +1320,6 @@ static bool resource_ffi_destructor_close(struct data *d)
 	for (i = 0; i < rfd->ptrs_l; i++)
 		mem_free_aligned(rfd->ptrs[i]);
 	mem_free(rfd->ptrs);
-	for (i = 0; i < rfd->callbacks_l; i++)
-		callback_free(rfd->callbacks[i]);
-	mem_free(rfd->callbacks);
 	return true;
 }
 
@@ -1352,8 +1344,6 @@ static void * attr_fastcall io_ffi_destructor_new_handler(struct io_ctx *ctx)
 		goto ret_err_ptrs;
 	if (unlikely(!array_init_mayfail(pointer_t, &rfd->handles, &rfd->handles_l, &ctx->err)))
 		goto ret_err_calls;
-	if (unlikely(!array_init_mayfail(struct callback *, &rfd->callbacks, &rfd->callbacks_l, &ctx->err)))
-		goto ret_err_handles;
 
 	frame_set_pointer(ctx->fp, get_output(ctx, 1), pointer_data(d));
 
@@ -1362,8 +1352,6 @@ static void * attr_fastcall io_ffi_destructor_new_handler(struct io_ctx *ctx)
 ret_test:
 	return test;
 
-ret_err_handles:
-	mem_free(rfd->handles);
 ret_err_calls:
 	mem_free(rfd->calls);
 ret_err_ptrs:
@@ -1627,24 +1615,24 @@ ret_err:
 
 #if defined(HAVE_CODEGEN_CALLBACK)
 
-struct resource_callback {
+struct resource_barrier {
 	struct list wait_list;
 	bool fired;
 	struct codegen_callback cb;
 };
 
-static bool callback_close(struct data *d)
+static bool barrier_close(struct data *d)
 {
-	struct resource_callback *c = da_resource(d);
+	struct resource_barrier *c = da_resource(d);
 	if (unlikely(!c->fired))
-		fatal("Freeing callback that wasn't called");
+		fatal("Freeing barrier that wasn't called");
 	codegen_callback_done(&c->cb);
 	return true;
 }
 
-static void callback_call(void *c_)
+static void barrier_call(void *c_)
 {
-	struct resource_callback *c = c_;
+	struct resource_barrier *c = c_;
 	address_lock(c, DEPTH_THUNK);
 	if (unlikely(c->fired))
 		fatal("Callback was called multiple times");
@@ -1656,20 +1644,20 @@ static void * attr_fastcall io_ffi_barrier_create_handler(struct io_ctx *ctx)
 {
 	void *test;
 	struct data *d;
-	struct resource_callback *c;
+	struct resource_barrier *c;
 
 	test = io_deep_eval(ctx, "0", true);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		return test;
 
-	d = data_alloc_resource_mayfail(sizeof(struct resource_callback), callback_close, &ctx->err pass_file_line);
+	d = data_alloc_resource_mayfail(sizeof(struct resource_barrier), barrier_close, &ctx->err pass_file_line);
 	if (unlikely(!d))
 		goto ret_thunk;
 
 	c = da_resource(d);
 	list_init(&c->wait_list);
 	c->fired = false;
-	if (unlikely(!codegen_callback_init(&c->cb, callback_call, c, &ctx->err)))
+	if (unlikely(!codegen_callback_init(&c->cb, barrier_call, c, &ctx->err)))
 		goto free_d_ret_thunk;
 
 	io_store_typed_number(ctx, get_output(ctx, 2), int_default_t, INT_DEFAULT_N, uintptr_t, ptr_to_num(c->cb.fn));
@@ -1694,7 +1682,7 @@ static void * attr_fastcall io_ffi_barrier_wait_handler(struct io_ctx *ctx)
 {
 	void *test;
 	pointer_t ptr;
-	struct resource_callback *c;
+	struct resource_barrier *c;
 
 	test = io_deep_eval(ctx, "01", true);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
@@ -1722,7 +1710,7 @@ static void * attr_fastcall io_ffi_barrier_cancel_handler(struct io_ctx *ctx)
 {
 	void *test;
 	pointer_t ptr;
-	struct resource_callback *c;
+	struct resource_barrier *c;
 
 	test = io_deep_eval(ctx, "01", true);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
@@ -1734,7 +1722,7 @@ static void * attr_fastcall io_ffi_barrier_cancel_handler(struct io_ctx *ctx)
 
 	address_lock(c, DEPTH_THUNK);
 	if (unlikely(c->fired))
-		fatal("Canceling callback that was already called");
+		fatal("Canceling barrier that was already called");
 	c->fired = true;
 	wake_up_wait_list(&c->wait_list, address_get_mutex(c, DEPTH_THUNK), TASK_SUBMIT_MAY_SPAWN);
 
@@ -1769,10 +1757,10 @@ struct resource_thread {
 	cond_t cond;
 	struct list async_packets;
 	bool should_exit;
-	struct callback *cb;
+	pointer_t cb;
 	struct resource_async_packet *a;
 	void *ret;
-	void **args;
+	union result arguments[FLEXIBLE_ARRAY];
 };
 
 static tls_decl(struct resource_async_packet *, current_ap);
@@ -1993,7 +1981,7 @@ static void * attr_fastcall io_ffi_unpack_async_result_handler(struct io_ctx *ct
 
 #if !defined(THREAD_NONE) && defined(HAVE_FFI_PREP_CLOSURE_LOC) && defined(FFI_CLOSURES) && FFI_CLOSURES
 
-struct callback {
+struct resource_callback {
 	ffi_closure *rw_addr;
 	void *exec_addr;
 	ffi_type **args;
@@ -2004,9 +1992,10 @@ struct callback {
 	ffi_cif cif;
 };
 
-static void callback_free(struct callback *c)
+static bool resource_callback_close(struct data *d)
 {
 	size_t i;
+	struct resource_callback *c = da_resource(d);
 	if (c->rw_addr)
 		ffi_closure_free(c->rw_addr);
 	for (i = 0; i < c->n_args; i++)
@@ -2017,30 +2006,40 @@ static void callback_free(struct callback *c)
 		mem_free(c->ctx_args);
 	if (c->ret_ffi_type)
 		free_type(c->ret_ffi_type);
-	mem_free(c);
+	return true;
+}
+
+static bool arguments_close(struct data *d)
+{
+	struct resource_thread *t = da_resource(d);
+	pointer_dereference(t->cb);
+	return true;
 }
 
 static void callback_fn(ffi_cif attr_unused *cif, void *ret, void **args, void *c_)
 {
-	struct callback *c = c_;
+	struct resource_callback *c = c_;
 	struct resource_async_packet *a = tls_get(struct resource_async_packet *, current_ap);
 	struct data *d;
 	struct resource_thread *t;
+	size_t i;
 
 	if (unlikely(!a))
 		internal(file_line, "callback_fn: callback was called from unknown place");
 
 	tls_set(struct resource_async_packet *, current_ap, NULL);
 
-	d = data_alloc_resource_mayfail(sizeof(struct resource_thread), NULL, NULL pass_file_line);
+	d = data_alloc_resource_mayfail(offsetof(struct resource_thread, arguments[c->n_args]), arguments_close, NULL pass_file_line);
 	t = da_resource(d);
 	cond_init(&t->cond);
 	list_init(&t->async_packets);
 	t->should_exit = false;
 	t->ret = ret;
-	t->args = args;
-	t->cb = c;
+	t->cb = pointer_data(resource_da(c));
+	pointer_reference_owned(t->cb);
 	t->a = a;
+	for (i = 0; i < c->n_args; i++)
+		memcpy(&t->arguments[i], args[i], ajla_type_to_ffi_type_table[c->ctx_args[i]].size);
 
 	address_lock(a, DEPTH_THUNK);
 	a->in_callback = true;
@@ -2050,9 +2049,10 @@ static void callback_fn(ffi_cif attr_unused *cif, void *ret, void **args, void *
 	thread_dispatcher(t);
 
 	cond_done(&t->cond);
-	if (!refcount_is_one(pointer_get_refcount_(pointer_data(d))))
-		internal(file_line, "callback_fn: reference to resource_thread leaked");
-	data_free_r1(d);
+	t->ret = NULL;
+	t->a = NULL;
+
+	pointer_dereference(pointer_data(d));
 
 	tls_set(struct resource_async_packet *, current_ap, a);
 }
@@ -2099,7 +2099,8 @@ static void * attr_fastcall io_ffi_callback_create_handler(struct io_ctx *ctx)
 	struct data *r_struc;
 	ffi_type *ret = NULL;
 	ffi_type **args = NULL;
-	struct callback *c = NULL;
+	struct data *d = NULL;
+	struct resource_callback *c;
 	void *old;
 
 	ctx->args = NULL;
@@ -2132,9 +2133,11 @@ static void * attr_fastcall io_ffi_callback_create_handler(struct io_ctx *ctx)
 		goto ret_err;
 	}
 
-	c = mem_calloc_mayfail(struct callback *, sizeof(struct callback), &ctx->err);
-	if (unlikely(!c))
+	d = data_alloc_resource_mayfail(sizeof(struct resource_callback), resource_callback_close, &ctx->err pass_file_line);
+	if (unlikely(!d))
 		goto ret_err;
+	c = da_resource(d);
+	memset(c, 0, sizeof(struct resource_callback));
 
 #ifdef HAVE_FFI_PREP_CIF_VAR
 	if (!nvargs) {
@@ -2173,18 +2176,20 @@ static void * attr_fastcall io_ffi_callback_create_handler(struct io_ctx *ctx)
 	ret = NULL;
 
 	address_lock(rfd, DEPTH_AUX);
-	if (unlikely(!array_add_mayfail(struct callback *, &rfd->callbacks, &rfd->callbacks_l, c, &old, &ctx->err))) {
-		rfd->callbacks = old;
+	if (unlikely(!array_add_mayfail(pointer_t, &rfd->handles, &rfd->handles_l, pointer_data(d), &old, &ctx->err))) {
+		rfd->handles = old;
 		address_unlock(rfd, DEPTH_AUX);
 		goto ret_err;
 	}
 	address_unlock(rfd, DEPTH_AUX);
 
 	io_store_typed_number(ctx, get_output(ctx, 1), int_default_t, INT_DEFAULT_N, uintptr_t, ptr_to_num(c->exec_addr));
-	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO)) {
+		rfd->handles_l--;
 		goto ret_test;
+	}
 
-	c = NULL;
+	d = NULL;
 	test = POINTER_FOLLOW_THUNK_GO;
 ret_test:
 	io_ffi_free_args(ctx, args);
@@ -2194,8 +2199,8 @@ ret_test:
 		mem_free(ctx->ptrs);
 	if (ctx->args)
 		mem_free(ctx->args);
-	if (c)
-		callback_free(c);
+	if (d)
+		pointer_dereference(pointer_data(d));
 	return test;
 ret_err:
 	io_terminate_with_error(ctx, ctx->err, true, NULL);
@@ -2208,16 +2213,18 @@ static void * attr_fastcall io_ffi_callback_get_address_handler(struct io_ctx *c
 	void *test;
 	pointer_t ptr;
 	struct resource_thread *t;
+	struct resource_callback *c;
 
 	test = io_deep_eval(ctx, "0", false);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 
 	ptr = *frame_pointer(ctx->fp, get_input(ctx, 0));
-	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_callback_get_arg_handler: pointer is thunk"));
+	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_callback_get_address_handler: pointer is thunk"));
 	t = da_resource(pointer_get_data(ptr));
 
-	io_store_typed_number(ctx, get_output(ctx, 0), int_default_t, INT_DEFAULT_N, uintptr_t, ptr_to_num(t->cb->exec_addr));
+	c = da_resource(pointer_get_data(t->cb));
+	io_store_typed_number(ctx, get_output(ctx, 0), int_default_t, INT_DEFAULT_N, uintptr_t, ptr_to_num(c->exec_addr));
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 
@@ -2231,6 +2238,7 @@ static void * attr_fastcall io_ffi_callback_get_arg_handler(struct io_ctx *ctx)
 	void *test;
 	pointer_t ptr;
 	struct resource_thread *t;
+	struct resource_callback *c;
 	unsigned n;
 
 	test = io_deep_eval(ctx, "01", false);
@@ -2245,12 +2253,13 @@ static void * attr_fastcall io_ffi_callback_get_arg_handler(struct io_ctx *ctx)
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 
-	if (unlikely(n >= t->cb->n_args)) {
+	c = da_resource(pointer_get_data(t->cb));
+	if (unlikely(n >= c->n_args)) {
 		ctx->err = error_ajla(EC_SYNC, AJLA_ERROR_INVALID_OPERATION);
 		goto ret_err;
 	}
 
-	if (unlikely(!ffi_convert_result(ctx, t->cb->ctx_args[n], t->args[n], get_output(ctx, 0))))
+	if (unlikely(!ffi_convert_result(ctx, c->ctx_args[n], &t->arguments[n], get_output(ctx, 0))))
 		goto ret_err;
 
 	test = POINTER_FOLLOW_THUNK_GO;
@@ -2268,6 +2277,7 @@ static void * attr_fastcall io_ffi_callback_return_handler(struct io_ctx *ctx)
 	pointer_t ptr;
 	struct resource_thread *t;
 	struct resource_async_packet *a;
+	struct resource_callback *c;
 
 	test = io_deep_eval(ctx, "012", true);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
@@ -2277,7 +2287,8 @@ static void * attr_fastcall io_ffi_callback_return_handler(struct io_ctx *ctx)
 	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_callback_return_handler: pointer is thunk"));
 	t = da_resource(pointer_get_data(ptr));
 
-	if (unlikely(!io_get_argument_from_slot(ctx, t->cb->ret_type, get_input(ctx, 2), t->ret)))
+	c = da_resource(pointer_get_data(t->cb));
+	if (unlikely(!io_get_argument_from_slot(ctx, c->ret_type, get_input(ctx, 2), t->ret)))
 		goto ret_err;
 
 	a = t->a;
@@ -2285,11 +2296,12 @@ static void * attr_fastcall io_ffi_callback_return_handler(struct io_ctx *ctx)
 	a->in_callback = false;
 	address_unlock(a, DEPTH_THUNK);
 
+	pointer_reference_owned(pointer_data(resource_da(a)));
+
 	cond_lock(&t->cond);
 	t->should_exit = true;
 	cond_unlock_signal(&t->cond);
 
-	pointer_reference_owned(pointer_data(resource_da(a)));
 	frame_set_pointer(ctx->fp, get_output(ctx, 1), pointer_data(resource_da(a)));
 
 	test = POINTER_FOLLOW_THUNK_GO;
