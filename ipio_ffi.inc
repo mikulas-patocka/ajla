@@ -1047,23 +1047,7 @@ static bool io_get_argument_from_longint(struct io_ctx *ctx, uchar_efficient_t t
 	unsigned idx;
 	bool uns;
 
-	union {
-		ffi_arg rc;
-		ffi_sarg src;
-		unsigned char pool[MAX_FFI_TYPE_SIZE];
-
-		/* force alignment */
-		long l;
-		int64_t i64;
-		uint64_t ui64;
-#ifdef HAVE_LONG_LONG
-		long long ll;
-#endif
-		double dbl;
-#ifdef HAVE_LONG_DOUBLE
-		long double ld;
-#endif
-	} u;
+	union result u;
 
 	if (ajla_type_to_ffi_type_table[t].sign == T_REAL) {
 		if (unlikely(mpz_sgn(m) < 0))
