@@ -5286,11 +5286,13 @@ void name(ipio_init)(void)
 	list_init(&msgqueue_list);
 
 #if defined(SUPPORTS_FFI)
-#if !defined(THREAD_NONE)
-	tls_init(struct resource_async_packet *, current_ap);
-#endif
 	mutex_init(&ffi_libraries_mutex);
 	list_init(&ffi_libraries);
+#if !defined(THREAD_NONE)
+	tls_init(struct resource_async_packet *, current_ap);
+	mutex_init(&thread_pool_mutex);
+	list_init(&thread_pool);
+#endif
 #endif
 }
 
@@ -5313,6 +5315,11 @@ again:
 	mutex_done(&msgqueue_list_mutex);
 
 #if defined(SUPPORTS_FFI)
+#if !defined(THREAD_NONE)
+	thread_pool_cleanup(false);
+	mutex_done(&thread_pool_mutex);
+	tls_done(struct resource_async_packet *, current_ap);
+#endif
 	while (!list_is_empty(&ffi_libraries)) {
 		struct ffi_library *lib = get_struct(ffi_libraries.next, struct ffi_library, list_entry);
 		if (lib->refcount)
@@ -5320,9 +5327,6 @@ again:
 		library_destroy(lib);
 	}
 	mutex_done(&ffi_libraries_mutex);
-#if !defined(THREAD_NONE)
-	tls_done(struct resource_async_packet *, current_ap);
-#endif
 #endif
 
 	if (lib_path)

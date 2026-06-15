@@ -1753,10 +1753,12 @@ struct resource_async_packet {
 };
 
 struct resource_thread {
+	struct list list_entry;
 	thread_t thr;
 	cond_t cond;
 	struct list async_packets;
 	bool should_exit;
+	atomic_type uchar_efficient_t idle;
 	pointer_t cb;
 	struct resource_async_packet *a;
 	void *ret;
@@ -1764,6 +1766,26 @@ struct resource_thread {
 };
 
 static tls_decl(struct resource_async_packet *, current_ap);
+
+static mutex_t thread_pool_mutex;
+static struct list thread_pool;
+
+static void thread_pool_cleanup(bool only_idle)
+{
+	struct list *l;
+	mutex_lock(&thread_pool_mutex);
+	list_for_each(l, &thread_pool) {
+		struct resource_thread *t = get_struct(l, struct resource_thread, list_entry);
+		if (only_idle && !load_relaxed(&t->idle))
+			continue;
+		l = l->prev;
+		list_del(&t->list_entry);
+		thread_join(&t->thr);
+		cond_done(&t->cond);
+		data_free(resource_da(t));
+	}
+	mutex_unlock(&thread_pool_mutex);
+}
 
 static void async_packet_cleanup(struct resource_async_packet *a)
 {
@@ -1794,9 +1816,7 @@ static bool thread_close(struct data *d)
 	cond_lock(&t->cond);
 	t->should_exit = true;
 	cond_unlock_signal(&t->cond);
-	thread_join(&t->thr);
-	cond_done(&t->cond);
-	return true;
+	return false;
 }
 
 static void thread_dispatcher(struct resource_thread *t)
@@ -1838,6 +1858,8 @@ thread_function_decl(ffi_thread_function,
 	struct resource_thread *t = da_resource(d);
 
 	thread_dispatcher(t);
+
+	store_relaxed(&t->idle, true);
 )
 
 static void * attr_fastcall io_ffi_thread_spawn_handler(struct io_ctx *ctx)
@@ -1845,6 +1867,8 @@ static void * attr_fastcall io_ffi_thread_spawn_handler(struct io_ctx *ctx)
 	void *test;
 	struct data *d;
 	struct resource_thread *t;
+
+	thread_pool_cleanup(true);
 
 	test = io_deep_eval(ctx, "0", true);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
@@ -1858,8 +1882,12 @@ static void * attr_fastcall io_ffi_thread_spawn_handler(struct io_ctx *ctx)
 	cond_init(&t->cond);
 	list_init(&t->async_packets);
 	t->should_exit = false;
+	store_relaxed(&t->idle, false);
 	if (unlikely(!thread_spawn(&t->thr, ffi_thread_function, d, PRIORITY_IO, &ctx->err)))
 		goto free_d_ret_thunk;
+	mutex_lock(&thread_pool_mutex);
+	list_add(&thread_pool, &t->list_entry);
+	mutex_unlock(&thread_pool_mutex);
 
 	frame_set_pointer(ctx->fp, get_output(ctx, 1), pointer_data(d));
 
