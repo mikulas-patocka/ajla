@@ -5021,6 +5021,7 @@ static attr_unused void * attr_fastcall io_ffi_unsupported(struct io_ctx *ctx)
 #define io_ffi_unpack_async_result_handler	io_ffi_unsupported
 #define io_ffi_unpack_async_callback_handler	io_ffi_unsupported
 #define io_ffi_callback_create_handler		io_ffi_unsupported
+#define io_ffi_callback_get_address_handler	io_ffi_unsupported
 #define io_ffi_callback_get_arg_handler		io_ffi_unsupported
 #define io_ffi_callback_return_handler		io_ffi_unsupported
 int io_ffi_get_ffi_type(const struct type attr_unused *type)
@@ -5249,6 +5250,7 @@ static const struct {
 	{ io_ffi_unpack_async_result_handler },
 	{ io_ffi_unpack_async_callback_handler },
 	{ io_ffi_callback_create_handler },
+	{ io_ffi_callback_get_address_handler },
 	{ io_ffi_callback_get_arg_handler },
 	{ io_ffi_callback_return_handler },
 };

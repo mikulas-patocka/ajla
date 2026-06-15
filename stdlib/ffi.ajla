@@ -124,6 +124,7 @@ fn ffi_thread_async_call_cb(w : world, t : ffi_thread, d : ffi_destructor, func 
 fn ffi_callback_create(w : world, fd : ffi_destructor, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : (world, int);
 
 fn ffi_callback_recurse(c : ffi_callback) : ffi_thread;
+fn ffi_callback_get_address(c : ffi_callback) : int;
 fn ffi_callback_get_arg(c : ffi_callback, a : int) : int;
 fn ffi_callback_return(w : world, c : ffi_callback, ret : int) : (world, ffi_callback);
 
@@ -622,6 +623,13 @@ fn ffi_callback_create(w : world, fd : ffi_destructor, nvarargs : int, rtype : f
 fn ffi_callback_recurse(c : ffi_callback) : ffi_thread
 [
 	return c;
+]
+
+fn ffi_callback_get_address(c : ffi_callback) : int
+[
+	var a : int;
+	pcode IO IO_FFI_Callback_Get_Address 1 1 0 =a c;
+	return a;
 ]
 
 fn ffi_callback_get_arg(c : ffi_callback, a : int) : int

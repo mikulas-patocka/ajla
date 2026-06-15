@@ -2198,7 +2198,7 @@ static void * attr_fastcall io_ffi_callback_create_handler(struct io_ctx *ctx)
 
 	io_store_typed_number(ctx, get_output(ctx, 1), int_default_t, INT_DEFAULT_N, uintptr_t, ptr_to_num(c->exec_addr));
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
-		goto ret_err;
+		goto ret_test;
 
 	c = NULL;
 	test = POINTER_FOLLOW_THUNK_GO;
@@ -2217,6 +2217,29 @@ ret_err:
 	io_terminate_with_error(ctx, ctx->err, true, NULL);
 	test = POINTER_FOLLOW_THUNK_EXCEPTION;
 	goto ret_test;
+}
+
+static void * attr_fastcall io_ffi_callback_get_address_handler(struct io_ctx *ctx)
+{
+	void *test;
+	pointer_t ptr;
+	struct resource_thread *t;
+
+	test = io_deep_eval(ctx, "0", false);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
+
+	ptr = *frame_pointer(ctx->fp, get_input(ctx, 0));
+	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_callback_get_arg_handler: pointer is thunk"));
+	t = da_resource(pointer_get_data(ptr));
+
+	io_store_typed_number(ctx, get_output(ctx, 0), int_default_t, INT_DEFAULT_N, uintptr_t, ptr_to_num(t->cb->exec_addr));
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		goto ret_test;
+
+	test = POINTER_FOLLOW_THUNK_GO;
+ret_test:
+	return test;
 }
 
 static void * attr_fastcall io_ffi_callback_get_arg_handler(struct io_ctx *ctx)
@@ -2302,6 +2325,7 @@ static void callback_free(struct callback attr_unused *c)
 #define io_ffi_unpack_async_result_handler	io_ffi_unsupported
 #define io_ffi_callback_create_handler		io_ffi_unsupported
 #define io_ffi_callback_recurse_handler		io_ffi_unsupported
+#define io_ffi_callback_get_address_handler	io_ffi_unsupported
 #define io_ffi_callback_get_arg_handler		io_ffi_unsupported
 #define io_ffi_callback_return_handler		io_ffi_unsupported
 

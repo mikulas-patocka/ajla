@@ -381,9 +381,10 @@ const IO_FFI_Async_Call := 120;
 const IO_FFI_Unpack_Async_Result := 121;
 const IO_FFI_Unpack_Async_Callback := 122;
 const IO_FFI_Callback_Create := 123;
-const IO_FFI_Callback_Get_Arg := 124;
-const IO_FFI_Callback_Return := 125;
-const IO_N := 126;
+const IO_FFI_Callback_Get_Address := 124;
+const IO_FFI_Callback_Get_Arg := 125;
+const IO_FFI_Callback_Return := 126;
+const IO_N := 127;
 
 const IO_Open_Flag_Read := 1;
 const IO_Open_Flag_Write := 2;
@@ -933,9 +934,10 @@ fn name_to_value~cache : list(int)
 	a[#24CFBF1A349BF57770C38F5DF83CFCEEC77E965E7D7674] := 121;		// IO_FFI_Unpack_Async_Result
 	a[#933EFC68D26FD5DDC30E3D77E0F3F3BB1DF878766CC5871EB] := 122;		// IO_FFI_Unpack_Async_Callback
 	a[#24CFBF1A349BF0F0ECD98B0E3D77E1F2CB87A65] := 123;			// IO_FFI_Callback_Create
-	a[#1267DF8D1A4DF878766CC5871EBBF1F2F4BF07967] := 124;			// IO_FFI_Callback_Get_Arg
-	a[#24CFBF1A349BF0F0ECD98B0E3D77E965E9D796E] := 125;			// IO_FFI_Callback_Return
-	a[#933EFCE] := 126;							// IO_N
+	a[#1267DF8D1A4DF878766CC5871EBBF1F2F4BF07264E5979F3] := 124;		// IO_FFI_Callback_Get_Address
+	a[#1267DF8D1A4DF878766CC5871EBBF1F2F4BF07967] := 125;			// IO_FFI_Callback_Get_Arg
+	a[#24CFBF1A349BF0F0ECD98B0E3D77E965E9D796E] := 126;			// IO_FFI_Callback_Return
+	a[#933EFCE] := 127;							// IO_N
 
 	a[#499F7E7F0CBBAFC6D9873DFA5970E4] := 1;				// IO_Open_Flag_Read
 	a[#24CFBF3F865DD7E36CC39EFD7E5A7A65] := 2;				// IO_Open_Flag_Write

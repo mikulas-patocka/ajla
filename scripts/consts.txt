@@ -405,6 +405,7 @@ IO_FFI_Async_Call
 IO_FFI_Unpack_Async_Result
 IO_FFI_Unpack_Async_Callback
 IO_FFI_Callback_Create
+IO_FFI_Callback_Get_Address
 IO_FFI_Callback_Get_Arg
 IO_FFI_Callback_Return
 IO_N
