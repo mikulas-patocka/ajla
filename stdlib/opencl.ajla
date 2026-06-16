@@ -245,7 +245,7 @@ fn cl_mk_context(num : int) : cl_context
 	if num < 0 then
 		num := sysprop(SystemProperty_OpenCL_Device);
 
-	var lib := ffi_open_library("OpenCL", true, "");
+	var lib := ffi_open_library("OpenCL", true, "", 1);
 	xeval lib;
 
 	var clGetPlatformIDs := ffi_function_create(lib, "clGetPlatformIDs", ffi_flag_block_signals, 0, ffi_type.t_sint32, [ ffi_type.t_uint32, ffi_type.t_pointer, ffi_type.t_pointer ]);

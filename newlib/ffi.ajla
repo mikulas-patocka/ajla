@@ -81,7 +81,7 @@ fn ffi_number_to_handle(w : world, n : int, sckt : bool) : (world, handle);
 
 fn ffi_default_library : ffi_library;
 fn ffi_open_library_raw_name(filename : bytes, hold : bool, destructor : bytes) : ffi_library;
-fn ffi_open_library(filename : bytes, hold : bool, destructor : bytes) : ffi_library;
+fn ffi_open_library(filename : bytes, hold : bool, destructor : bytes, version : int) : ffi_library;
 
 const ffi_flag_errno : int;
 const ffi_flag_get_last_error : int;
@@ -289,29 +289,33 @@ fn ffi_open_library_raw_name(filename : bytes, hold : bool, destructor : bytes) 
 	return r;
 ]
 
-fn ffi_open_library(filename : bytes, hold : bool, destructor : bytes) : ffi_library
+fn ffi_open_library(filename : bytes, hold : bool, destructor : bytes, version : int) : ffi_library
 [
 	var pfx := [ "lib" ];
-	var sfx := ".so";
+	var sfx := [ ".so" ];
+	if version >= 0 then
+		sfx := [ ".so." + ntos(version) ] + sfx;
 	var os := uname(uname_flag_system)[0];
 	if os = "Cygwin" then [
 		pfx := [ "cyg", "" ];
-		sfx := ".dll";
+		sfx := [ ".dll" ];
 	] else if os = "Darwin" then [
 		pfx := [ "lib" ];
-		sfx := ".dylib";
+		sfx := [ ".dylib" ];
 	] else if os = "HP-UX" then [
 		pfx := [ "lib" ];
-		sfx := ".sl";
+		sfx := [ ".sl" ];
 	] else if os = "OS/2" or os = "Windows" then [
 		pfx := [ "", "lib" ];
-		sfx := ".dll";
+		sfx := [ ".dll" ];
 	]
 	var r := exception_make(ffi_library, ec_sync, error_library_not_found, 0, false);
 	for p in pfx do [
-		r := ffi_open_library_raw_name(p + filename + sfx, hold, destructor);
-		if not is_exception r then
-			return r;
+		for s in sfx do [
+			r := ffi_open_library_raw_name(p + filename + s, hold, destructor);
+			if not is_exception r then
+				return r;
+		]
 	]
 	return r;
 ]

@@ -49,7 +49,7 @@ fn z3_mk_context(implicit w : z3_world) : (z3_world, z3_context)
 [
 	implicit var ctx := z3_context.[ ];
 	var v e : int;
-	var lib := ffi_open_library("z3", true, "Z3_finalize_memory");
+	var lib := ffi_open_library("z3", true, "Z3_finalize_memory", -1);
 
 	xeval lib;
 
