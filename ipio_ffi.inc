@@ -1968,12 +1968,16 @@ static void * attr_fastcall io_ffi_unpack_async_result_handler(struct io_ctx *ct
 	struct data *d;
 	struct resource_async_packet *a;
 	pointer_t ptr;
+	bool has_world = ctx->n_inputs > 1;
 
-	test = io_deep_eval(ctx, "0", false);
+	if (!has_world)
+		test = io_deep_eval(ctx, "0", false);
+	else
+		test = io_deep_eval(ctx, "01", true);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		return test;
 
-	ptr = *frame_pointer(ctx->fp, get_input(ctx, 0));
+	ptr = *frame_pointer(ctx->fp, get_input(ctx, 0 + (int)has_world));
 	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_unpack_async_result_handler: pointer is thunk"));
 	d = pointer_get_data(ptr);
 	a = da_resource(d);
@@ -1990,7 +1994,7 @@ static void * attr_fastcall io_ffi_unpack_async_result_handler(struct io_ctx *ct
 	address_unlock(a, DEPTH_THUNK);
 
 	ctx->pkt = &a->pkt;
-	if (unlikely(!ffi_call_packet_result(ctx, get_output(ctx, 0), get_output(ctx, 1)))) {
+	if (unlikely(!ffi_call_packet_result(ctx, get_output(ctx, 0 + (int)has_world), get_output(ctx, 1 + (int)has_world)))) {
 		io_terminate_with_error(ctx, ctx->err, true, NULL);
 		return POINTER_FOLLOW_THUNK_EXCEPTION;
 	}
