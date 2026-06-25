@@ -45,11 +45,13 @@
 
 #ifndef EMIT_ALTTABLE
 
+#if HAVE_REDUCE_NODES < 2
 #define ARG_MODE	0
 #define DEFINE_OPCODE_START(opcode)	DEFINE_OPCODE_START_LBL(opcode, opcode##0)
 #include "ipret-1.inc"
+#endif
 
-#if ARG_MODE_N >= 2
+#if HAVE_REDUCE_NODES == 0
 #define ARG_MODE	1
 #define DEFINE_OPCODE_START(opcode)	DEFINE_OPCODE_START_LBL(opcode, opcode##1)
 #include "ipret-1.inc"

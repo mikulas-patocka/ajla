@@ -185,15 +185,26 @@ static code_t get_code(pcode_t op, const struct type *t)
 
 #define ARG_MODE_MAX	(ARG_MODE_N - 1)
 
+#if HAVE_REDUCE_NODES == 0
 #define INIT_ARG_MODE	0
 #define INIT_ARG_MODE_1	1
+#elif HAVE_REDUCE_NODES == 1
+#define INIT_ARG_MODE	0
+#define INIT_ARG_MODE_1	2
+#else
+#define INIT_ARG_MODE	2
+#define INIT_ARG_MODE_1	2
+#endif
+
 typedef unsigned char arg_mode_t;
 
 static bool adjust_arg_mode(arg_mode_t *am, uintmax_t offs, ajla_error_t *mayfail)
 {
 	arg_mode_t my_am;
 	if (offs + uzero <= 0xff) my_am = 0;
+#if HAVE_REDUCE_NODES == 0
 	else if (offs + uzero <= 0xffffU) my_am = 1;
+#endif
 	else if (offs + uzero <= 0xffffffffUL + uzero) my_am = 2;
 	else my_am = 3;
 	if (unlikely(my_am >= ARG_MODE_N)) {

@@ -142,4 +142,6 @@
 #define HAVE__BEGINTHREADEX	1
 #endif
 
+#define HAVE_REDUCE_NODES	0
+
 #endif
