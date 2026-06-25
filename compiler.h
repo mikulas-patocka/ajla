@@ -576,6 +576,16 @@ typedef uint16_t ushort_efficient_t;
 #undef HAVE_COMPUTED_GOTO
 #endif
 
+#if HAVE_REDUCE_NODES == -1
+#if CLANG_ATLEAST(0,0,0)
+#undef HAVE_REDUCE_NODES
+#define HAVE_REDUCE_NODES	2
+#else
+#undef HAVE_REDUCE_NODES
+#define HAVE_REDUCE_NODES	0
+#endif
+#endif
+
 
 #if !defined(UNUSUAL_NO_ASSEMBLER)
 

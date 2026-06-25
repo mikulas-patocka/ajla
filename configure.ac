@@ -91,10 +91,11 @@ AC_ARG_ENABLE(rwx-mappings, [  --disable-rwx-mappings  disable read+write+execut
 AC_ARG_ENABLE(bitwise-frame, [  --enable-bitwise-frame  use bitwise tags on the frame], enable_bitwise_frame="$enableval", enable_bitwise_frame=no)
 test "$enable_bitwise_frame" = yes && AC_DEFINE(HAVE_BITWISE_FRAME, 1, Use bitwise frame)
 
-AC_ARG_ENABLE(reduce-nodes, [  --enable-reduce-nodes   reduce compile time and compile memory consumption
+AC_ARG_ENABLE(reduce-nodes, [  --enable-reduce-nodes   reduce compile time and compiler memory consumption
+	-1 - default (2 on clang, 0 on other compilers)
 	0 - no reduction
 	1 - reduce 1/3 nodes
-	2 - reduce 2/3 nodes], enable_reduce_nodes="$enableval", enable_reduce_nodes=0)
+	2 - reduce 2/3 nodes], enable_reduce_nodes="$enableval", enable_reduce_nodes=-1)
 if test "$enable_reduce_nodes" = no; then enable_reduce_nodes=0; fi
 if test "$enable_reduce_nodes" = yes; then enable_reduce_nodes=2; fi
 AC_DEFINE_UNQUOTED(HAVE_REDUCE_NODES, $enable_reduce_nodes, Reduce nodes in the interpreter)
