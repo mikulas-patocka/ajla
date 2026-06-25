@@ -16,10 +16,10 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#define OPC(op)         (OPCODE_REAL_OP + cat(OPCODE_REAL_OP_,op) * OPCODE_REAL_OP_MULT + cat(OPCODE_REAL_TYPE_,type) * OPCODE_REAL_TYPE_MULT)
-
 #if cat3(REAL,TYPE_BITS,_ALT1_TYPES) & TYPE_MASK
 
+#define OPC(op)         (OPCODE_REAL_OP + cat(OPCODE_REAL_OP_,op) * OPCODE_REAL_OP_MULT + cat(OPCODE_REAL_TYPE_,type) * OPCODE_REAL_TYPE_MULT)
+
 #if defined(ARCH_X86_32)
 #define orig_op		add
 #define op		add_alt1
@@ -160,6 +160,9 @@
 #define DEF(type)	DEFINE_FIXED_REAL_BINARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
 
+#undef OPC
+#define OPC(op)         (OPCODE_REAL_OP + cat(OPCODE_REAL_OP_C_,op) * OPCODE_REAL_OP_MULT + cat(OPCODE_REAL_TYPE_,type) * OPCODE_REAL_TYPE_MULT)
+
 #if defined(ARCH_X86_32)
 #define orig_op		add
 #define op		add_alt1
@@ -299,6 +302,9 @@
 #define OPF		cat4(REAL,TYPE_BITS,_,ALT2_)
 #define DEF(type)	DEFINE_REAL_BINARY_CONST_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
+
+#undef OPC
+#define OPC(op)         (OPCODE_REAL_OP + cat(OPCODE_REAL_OP_,op) * OPCODE_REAL_OP_MULT + cat(OPCODE_REAL_TYPE_,type) * OPCODE_REAL_TYPE_MULT)
 
 #if TYPE_MASK != 1
 #if defined(ARCH_X86_32)
@@ -398,6 +404,6 @@
 #define DEF(type)	DEFINE_FIXED_REAL_TERNARY_OPCODE(REAL_, type, op)
 #include "ipret-b1.inc"
 
-#endif
-
 #undef OPC
+
+#endif
