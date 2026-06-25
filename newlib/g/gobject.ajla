@@ -1,0 +1,202 @@
+unit g.gobject;
+
+uses ffi;
+
+type gobject_repository;
+
+fn gobject_lib~cache : ffi_library;
+fn gio_lib~cache : ffi_library;
+
+type fn_callback := fn(w : world, repo : gobject_repository) : (world, gobject_repository);
+
+record gobject_repository [
+	d : dhandle;
+	h : list(handle);
+	env : treemap(bytes, bytes);
+	destr : ffi_destructor;
+	thr : ffi_thread;
+	callbacks : list(fn_callback);
+]
+
+fn ffi_function_create_multiple(libraries : list(ffi_library), funcname : bytes, flags : int, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : ffi_function;
+
+fn gobject_repository_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(bytes, bytes)) : (world, gobject_repository);
+
+type gpointer;
+
+fn gpointer_from_ptr(ptr : int) : gpointer;
+fn gpointer_ptr(gptr : gpointer) : int;
+
+type gobject;
+
+fn gobject_init(implicit w : world, implicit repo : gobject_repository, func : ffi_function, args : list(int)) : (world, gobject);
+fn gobject_init_with_unref(implicit w : world, implicit repo : gobject_repository, func : ffi_function, args : list(int), unref : ffi_function) : (world, gobject);
+fn gobject_from_ptr(ptr : int) : gobject;
+fn gobject_ptr(gobj : gobject) : int;
+
+fn g_free(implicit w : world, ptr : int) : world;
+
+fn g_signal_connect_data(implicit w : world, implicit repo : gobject_repository, gobj : gobject, name : bytes, flags : int) : (world, int);
+
+fn g_application_run(implicit w : world, implicit repo : gobject_repository, app : gobject, appname : string, args : list(bytes)) : (world, gobject_repository, int);
+
+implementation
+
+uses charset;
+
+fn gobject_lib~cache := ffi_open_library("gobject-2.0", true, "", 0);
+fn gio_lib~cache := ffi_open_library("gio-2.0", true, "", 0);
+
+fn ffi_function_create_multiple(libraries : list(ffi_library), funcname : bytes, flags : int, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : ffi_function
+[
+	if not len_greater_than(libraries, 0) then
+		abort;
+	var i := 0;
+again:
+	var ffn := ffi_function_create(libraries[i], funcname, flags, nvarargs, rtype, args);
+	if not is_exception ffn then
+		return ffn;
+	if i + 1 < len(libraries) then [
+		i += 1;
+		goto again;
+	]
+	return ffn;
+]
+
+fn gobject_repository_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(bytes, bytes)) : (world, gobject_repository)
+[
+	var destr := ffi_destructor_new();
+	var thr := ffi_thread_spawn();
+	var callbacks := infinite_uninitialized(fn_callback);
+	return gobject_repository.[
+		d : d,
+		h : h,
+		env : env,
+		destr : destr,
+		thr : thr,
+		callbacks : callbacks,
+	];
+]
+
+type gpointer := int;
+
+fn gpointer_from_ptr(ptr : int) : gpointer := ptr;
+fn gpointer_ptr(gptr : gpointer) : int := gptr;
+
+record gobject [
+	ptr : int;
+	destr : ffi_destructor;
+]
+
+fn gobject_init(implicit w : world, implicit repo : gobject_repository, func : ffi_function, args : list(int)) : (world, gobject)
+[
+	var ptr : int;
+	var r e : int;
+	var destr := ffi_destructor_new();
+	ptr, e := ffi_thread_sync_call(repo.thr, destr, func, args);
+	if ptr = 0 then [
+		return gobject.[
+			ptr : ptr,
+		];
+	]
+
+	{
+	var pr_fn := ffi_function_prototype(ffi_default_library, ffi_flag_errno, "int printf(char *fmt, long *value)");
+	eval debug("creating " + ntos_base(ptr, 16));
+	var zstr := ffi_poke_zstring(destr, "destroying %lx" + nl);
+	ffi_destructor_call(destr, pr_fn, [ zstr, ptr ]);
+	}
+
+	fn g_object_ref_sink~cache := ffi_function_prototype(gobject_lib, 0, "void *g_object_ref_sink(void *)");
+	w, r, e := ffi_thread_sync_call(repo.thr, destr, g_object_ref_sink, [ ptr ]);
+	fn g_object_unref~cache := ffi_function_prototype(gobject_lib, 0, "void g_object_unref(void *)");
+	ffi_destructor_call(destr, g_object_unref, [ ptr ]);
+	return gobject.[
+		ptr : ptr,
+		destr : destr,
+	];
+]
+
+fn gobject_init_with_unref(implicit w : world, implicit repo : gobject_repository, func : ffi_function, args : list(int), unref : ffi_function) : (world, gobject)
+[
+	var ptr : int;
+	var r e : int;
+	var destr := ffi_destructor_new();
+	ptr, e := ffi_thread_sync_call(repo.thr, destr, func, args);
+	if ptr = 0 then [
+		return gobject.[
+			ptr : ptr,
+		];
+	]
+
+	ffi_destructor_call(destr, unref, [ ptr ]);
+	return gobject.[
+		ptr : ptr,
+		destr : destr,
+	];
+]
+
+fn gobject_from_ptr(ptr : int) : gobject
+[
+	return gobject.[
+		ptr : ptr,
+	];
+]
+
+fn gobject_ptr(gobj : gobject) : int
+[
+	return gobj.ptr;
+]
+
+fn g_free(implicit w : world, ptr : int) : world
+[
+	fn g_free~cache := ffi_function_prototype(gobject_lib, 0, "void g_free(void *mem)");
+	var r, e := ffi_function_call(g_free, [ ptr ]);
+]
+
+fn g_signal_connect_data(implicit w : world, implicit repo : gobject_repository, gobj : gobject, name : bytes, flags : int) : (world, int)
+[
+	var destr := ffi_destructor_new();
+	var zstr := ffi_poke_zstring(destr, name);
+	// !!! FIXME: repo.destr leaks memory
+	var cb := ffi_callback_create(repo.destr, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
+	fn g_signal_connect_data~cache := ffi_function_prototype(gobject_lib, 0, "unsigned long g_signal_connect_data(void *instance, char *detailed_signal, void *c_handler, void *data, void *destroy_data, unsigned connect_flags)");
+	xeval ffi_thread_sync_call(repo.thr, destr, g_signal_connect_data, [ gobj.ptr, zstr, cb, 0, 0, flags ]);
+	ffi_destructor_destroy(destr);
+	return cb;
+]
+
+fn g_application_run(implicit w : world, implicit repo : gobject_repository, app : gobject, appname : string, args : list(bytes)) : (world, gobject_repository, int)
+[
+	args := [ string_to_utf8(appname) ] + args;
+	var argv := ffi_destructor_allocate(app.destr, len(args) * ffi_get_size(ffi_type.t_pointer), ffi_get_alignment(ffi_type.t_pointer), false);
+	for i := 0 to len(args) do [
+		var arg := ffi_poke_zstring(app.destr, args[i]);
+		ffi_poke(argv + i * ffi_get_size(ffi_type.t_pointer), ffi_type.t_pointer, arg);
+	]
+	fn g_application_run~cache := ffi_function_prototype(gio_lib, 0, "int g_application_run(GApplication *application, int argc, char *argv)");
+	fn g_application_quit~cache := ffi_function_prototype(gio_lib, 0, "void g_application_quit(GApplication* application)");
+	var r, e, u := ffi_thread_callback_call(repo.thr, app.destr, g_application_run, [ app.ptr, len(args), argv ]);
+	while any(r, u) do [
+		var w_backup := w;
+		var repo_backup := repo;
+		var cb := ffi_callback_get_address(u);
+		//eval debug("callback: " + ntos_base(cb, 16));
+		var old_thr := repo.thr;
+		repo.thr := ffi_callback_recurse(u);
+		w, repo := repo.callbacks[cb](w, repo);
+		if is_exception repo then
+			repo := repo_backup;
+		repo.thr := old_thr;
+		if is_exception w then [
+			var rr ee : int;
+			w_backup, rr, ee := ffi_thread_sync_call(w_backup, ffi_callback_recurse(u), repo.destr, g_application_quit, [ app.ptr ]);
+			w_backup, u := ffi_callback_return(w_backup, u, 0);
+			eval w_backup;
+			break;
+		]
+		w, u := ffi_callback_return(w, u, 0);
+	]
+	xeval app;
+	return r;
+]
