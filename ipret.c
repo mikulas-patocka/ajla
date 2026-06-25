@@ -529,14 +529,6 @@ static ipret_inline void cat4(REAL_unary_,op,_,type)			\
 #define op_real_greater_equal				op_greater_equal
 #endif
 
-#define generate_real_ldc(n, rtype, ntype, pack, unpack)		\
-static ipret_inline size_t cat(fixed_ldc_,rtype)			\
-			(rtype *res, const code_t *ip, bool attr_unused shrt)\
-{									\
-	memcpy(res, ip, sizeof(rtype));					\
-	return round_up(sizeof(rtype), sizeof(code_t)) / sizeof(code_t);\
-}
-
 #define generate_real_int(type, ntype, pack, unpack)			\
 static ipret_inline bool cat(REAL_unary_to_int_,type)(const type *val, int_default_t *r)\
 {									\
@@ -652,8 +644,7 @@ generate_real_unary_logical(n, type, ntype, pack, unpack, is_exception, 0)\
 generate_real_ternary_fma(type, ntype, pack, unpack, fma, 0)		\
 generate_real_ternary_fma(type, ntype, pack, unpack, fms, 1)		\
 generate_real_ternary_fma(type, ntype, pack, unpack, fnma, 2)		\
-generate_real_ternary_fma(type, ntype, pack, unpack, fnms, 3)		\
-generate_real_ldc(n, type, ntype, pack, unpack)
+generate_real_ternary_fma(type, ntype, pack, unpack, fnms, 3)
 
 for_all_real(generate_real_functions, for_all_empty)
 #undef generate_real_functions
