@@ -16,6 +16,8 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#define get_param0(ip, n)	(!((n) & 1) ? get_lo((ip) + (n) / 2) : get_hi((ip) + (n) / 2))
+
 #if ARG_MODE == 0
 #define get_param(ip, n)	(!((n) & 1) ? get_lo((ip) + (n) / 2) : get_hi((ip) + (n) / 2))
 #define param_size(n)		(((n) + 1) / 2)
@@ -1510,7 +1512,7 @@ cat(checkpoint_exit_,ARG_MODE):;
 DEFINE_OPCODE_END(OPCODE_CHECKPOINT)
 
 
-#if ARG_MODE == 0
+#if ARG_MODE == ARG_MODE_N - 1
 DEFINE_OPCODE_START(OPCODE_JMP)
 #ifdef EMIT_CODE
 	if (SIZEOF_IP_T == 2) {
@@ -1528,7 +1530,7 @@ DEFINE_OPCODE_START(OPCODE_JMP)
 DEFINE_OPCODE_END(OPCODE_JMP)
 #endif
 
-#if ARG_MODE == 0 && SIZEOF_IP_T > 2
+#if ARG_MODE == ARG_MODE_N - 1 && SIZEOF_IP_T > 2
 DEFINE_OPCODE_START(OPCODE_JMP_BACK_16)
 #ifdef EMIT_CODE
 	uint16_t offset;
@@ -1593,7 +1595,7 @@ cat(jmp_false_exception_,ARG_MODE):;
 #endif
 DEFINE_OPCODE_END(OPCODE_JMP_FALSE)
 
-#if ARG_MODE == 0
+#if ARG_MODE == ARG_MODE_N - 1
 DEFINE_OPCODE_START(OPCODE_LABEL)
 #ifdef EMIT_CODE
 	ADVANCE_IP(1);
@@ -1601,7 +1603,7 @@ DEFINE_OPCODE_START(OPCODE_LABEL)
 DEFINE_OPCODE_END(OPCODE_LABEL)
 #endif
 
-#if ARG_MODE == 0
+#if ARG_MODE == ARG_MODE_N - 1
 DEFINE_OPCODE_START(OPCODE_LABEL_UNREACHABLE)
 #ifdef EMIT_CODE
 	ADVANCE_IP(1);
@@ -1609,7 +1611,7 @@ DEFINE_OPCODE_START(OPCODE_LABEL_UNREACHABLE)
 DEFINE_OPCODE_END(OPCODE_LABEL_UNREACHABLE)
 #endif
 
-#if ARG_MODE == 0
+#if ARG_MODE == ARG_MODE_N - 1
 DEFINE_OPCODE_START(OPCODE_LABEL_1ENTRY)
 #ifdef EMIT_CODE
 	ADVANCE_IP(1);
@@ -3229,16 +3231,16 @@ cat(array_is_finite_,ARG_MODE):
 DEFINE_OPCODE_END(OPCODE_ARRAY_IS_FINITE)
 
 
-#if ARG_MODE == 0
+#if ARG_MODE == ARG_MODE_N - 1
 DEFINE_OPCODE_START(OPCODE_IO)
 #ifdef EMIT_CODE
 	unsigned char io_code, n_outputs, n_inputs, n_params;
 	void *ex;
 
-	io_code = get_i_param(0);
-	n_outputs = get_i_param(1);
-	n_inputs = get_i_param(2);
-	n_params = get_i_param(3);
+	io_code = get_param0(ip + 1, 0);
+	n_outputs = get_param0(ip + 1, 1);
+	n_inputs = get_param0(ip + 1, 2);
+	n_params = get_param0(ip + 1, 3);
 
 	ex = ipret_io(fp, ip, io_code, n_outputs, n_inputs, n_params);
 	if (ex != POINTER_FOLLOW_THUNK_GO) {
@@ -3250,7 +3252,7 @@ DEFINE_OPCODE_START(OPCODE_IO)
 DEFINE_OPCODE_END(OPCODE_IO)
 #endif
 
-#if ARG_MODE == 0
+#if ARG_MODE == ARG_MODE_N - 1
 DEFINE_OPCODE_START(OPCODE_OFFLOAD_PREPARE)
 #ifdef EMIT_CODE
 	void *ex;
@@ -3267,7 +3269,7 @@ DEFINE_OPCODE_START(OPCODE_OFFLOAD_PREPARE)
 DEFINE_OPCODE_END(OPCODE_OFFLOAD_PREPARE)
 #endif
 
-#if ARG_MODE == 0
+#if ARG_MODE == ARG_MODE_N - 1
 DEFINE_OPCODE_START(OPCODE_INTERNAL_FUNCTION)
 #ifdef EMIT_CODE
 	void *ex = function_call_internal(fp, ip);
@@ -3278,7 +3280,7 @@ DEFINE_OPCODE_START(OPCODE_INTERNAL_FUNCTION)
 DEFINE_OPCODE_END(OPCODE_INTERNAL_FUNCTION)
 #endif
 
-#if ARG_MODE == 0
+#if ARG_MODE == ARG_MODE_N - 1
 DEFINE_OPCODE_START(OPCODE_UNREACHABLE)
 #ifdef EMIT_CODE
 	internal(file_line, "unreachable code");
@@ -3286,7 +3288,7 @@ DEFINE_OPCODE_START(OPCODE_UNREACHABLE)
 DEFINE_OPCODE_END(OPCODE_UNREACHABLE)
 #endif
 
-#if ARG_MODE == 0
+#if ARG_MODE == ARG_MODE_N - 1
 DEFINE_OPCODE_START(OPCODE_EXIT_THREAD)
 #ifdef EMIT_CODE
 	struct execution_control *ex = frame_execution_control(fp);

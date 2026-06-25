@@ -43,11 +43,11 @@
 	DEFINE_OPCODE_END(opcode)
 #endif
 
+#ifndef EMIT_ALTTABLE
+
 #define ARG_MODE	0
 #define DEFINE_OPCODE_START(opcode)	DEFINE_OPCODE_START_LBL(opcode, opcode##0)
 #include "ipret-1.inc"
-
-#ifndef EMIT_ALTTABLE
 
 #if ARG_MODE_N >= 2
 #define ARG_MODE	1
@@ -60,6 +60,12 @@
 #define DEFINE_OPCODE_START(opcode)	DEFINE_OPCODE_START_LBL(opcode, opcode##2)
 #include "ipret-1.inc"
 #endif
+
+#else
+
+#define ARG_MODE	0
+#define DEFINE_OPCODE_START(opcode)	DEFINE_OPCODE_START_LBL(opcode, opcode##0)
+#include "ipret-1.inc"
 
 #endif
 

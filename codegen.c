@@ -2307,6 +2307,7 @@ jump_over_arguments_and_return:
 				continue;
 			}
 			case OPCODE_IO: {
+				ctx->arg_mode = 0;
 				get_two(ctx, &flags, &slot_1);
 				get_two(ctx, &slot_2, &slot_3);
 				g(gen_io(ctx, flags, slot_1, slot_2, slot_3));

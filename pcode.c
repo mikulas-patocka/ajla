@@ -183,6 +183,8 @@ static code_t get_code(pcode_t op, const struct type *t)
 	return code_alt(code);
 }
 
+#define ARG_MODE_MAX	(ARG_MODE_N - 1)
+
 #define INIT_ARG_MODE	0
 #define INIT_ARG_MODE_1	1
 typedef unsigned char arg_mode_t;
@@ -2307,7 +2309,7 @@ static bool pcode_io(struct build_function_context *ctx)
 
 	ajla_assert_lo(!((io_type | n_outputs | n_inputs | n_params) & ~0xff), (file_line, "pcode_io(%s): data out of range %"PRIdMAX" %"PRIdMAX" %"PRIdMAX" %"PRIdMAX"", function_name(ctx), (intmax_t)io_type, (intmax_t)n_outputs, (intmax_t)n_inputs, (intmax_t)n_params));
 
-	gen_code(OPCODE_IO);
+	gen_code(OPCODE_IO + ARG_MODE_MAX * OPCODE_MODE_MULT);
 	gen_code(io_type | (n_outputs << 8));
 	gen_code(n_inputs | (n_params << 8));
 
@@ -2381,7 +2383,7 @@ static bool pcode_offload(struct build_function_context *ctx, bool preload)
 		if (preload)
 			return true;
 
-		code = OPCODE_OFFLOAD_PREPARE;
+		code = OPCODE_OFFLOAD_PREPARE + ARG_MODE_MAX * OPCODE_MODE_MULT;
 		gen_code(code);
 		gen_uint32(tr->slot);
 		gen_uint32(record_idx);
@@ -2956,7 +2958,7 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				u_pcode_get();
 				if (!var_elided(res)) {
 					tr = get_var_type(ctx, res);
-					gen_code(OPCODE_IO);
+					gen_code(OPCODE_IO + ARG_MODE_MAX * OPCODE_MODE_MULT);
 					gen_code(IO_Exception_Make | (1 << 8));
 					gen_code(0 | (4 << 8));
 					gen_uint32(tr->slot);
@@ -3380,13 +3382,13 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 					uint32_t target;
 					target = (uint32_t)((ctx->code_len - ctx->labels[res]) * sizeof(code_t));
 					if (likely(target < 0x10000)) {
-						gen_code(OPCODE_JMP_BACK_16);
+						gen_code(OPCODE_JMP_BACK_16 + ARG_MODE_MAX * OPCODE_MODE_MULT);
 						gen_code((code_t)target);
 						break;
 					}
 				}
 #endif
-				gen_code(OPCODE_JMP);
+				gen_code(OPCODE_JMP + ARG_MODE_MAX * OPCODE_MODE_MULT);
 				gen_relative_jump(res, SIZEOF_IP_T);
 				break;
 			case P_Jmp_False:
@@ -3410,9 +3412,10 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				flags = u_pcode_get();
 				ajla_assert_lo(res < ctx->n_labels, (file_line, "P_Label(%s): invalid label %"PRIdMAX"", function_name(ctx), (intmax_t)res));
 				ajla_assert_lo(ctx->labels[res] == no_label, (file_line, "P_Label(%s): label %"PRIdMAX" already defined", function_name(ctx), (intmax_t)res));
-				gen_code(flags & Flag_Unreachable_Label ? OPCODE_LABEL_UNREACHABLE :
-					 flags & Flag_Label_With_One_Entry ? OPCODE_LABEL_1ENTRY :
-					 OPCODE_LABEL);
+				gen_code((flags & Flag_Unreachable_Label ? OPCODE_LABEL_UNREACHABLE :
+					  flags & Flag_Label_With_One_Entry ? OPCODE_LABEL_1ENTRY :
+					  OPCODE_LABEL)
+					 + ARG_MODE_MAX * OPCODE_MODE_MULT);
 				ctx->labels[res] = ctx->code_len;
 				break;
 			case P_IO:
@@ -3888,7 +3891,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 			if (unlikely(!pcode_generate_record(ctx)))
 				goto exception;
 		}
-		gen_code(OPCODE_UNREACHABLE);
+		gen_code(OPCODE_UNREACHABLE + ARG_MODE_MAX * OPCODE_MODE_MULT);
 	} else {
 		/*debug("gen instr: %s", function_name(ctx));*/
 		if (unlikely(!pcode_generate_instructions(ctx)))

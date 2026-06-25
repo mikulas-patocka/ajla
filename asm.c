@@ -23,6 +23,7 @@
 #include "arithm-b.h"
 #include "arithm-i.h"
 #include "arithm-r.h"
+#include "util.h"
 
 #include "asm.h"
 
@@ -645,7 +646,7 @@ static attr_noinline void verify_alttable(void)
 	int i;
 	/*debug("Alttable size: %x", (unsigned)code_alttable_n);*/
 	/*for (i = 0; i < (int)code_alttable_n; i++) {
-		debug("Alttable: %x -> %x", code_alttable[i].orig, code_alttable[i].alt);
+		debug("Alttable: %x -> %x (%s -> %s)", code_alttable[i].orig, code_alttable[i].alt, decode_opcode(code_alttable[i].orig, false), decode_opcode(code_alttable[i].alt, false));
 	}*/
 	for (i = 0; i < (int)code_alttable_n - 1; i++) {
 		if (unlikely(code_alttable[i].orig > code_alttable[i + 1].orig))

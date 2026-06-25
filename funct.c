@@ -174,7 +174,7 @@ void name(function_init)(void)
 	struct local_arg *ar;
 	arg_t ia;
 	ip_t ip;
-	ip_t code_size = 6;
+	ip_t code_size = ARG_MODE_N == 2 ? 7 : 10;
 
 	layout = layout_start(slot_bits, frame_flags_per_slot_bits, frame_align, frame_offset, NULL);
 	for (ia = 0; ia < N_SLOTS; ia++) {
@@ -224,16 +224,41 @@ void name(function_init)(void)
 
 	ip = 0;
 #define gen_code(n)	(da(int_fn,function)->code[ip++] = (n))
-	gen_code(OPCODE_INTERNAL_FUNCTION);
-	gen_code(OPCODE_UNREACHABLE);
+	gen_code(OPCODE_INTERNAL_FUNCTION + (ARG_MODE_N - 1) * OPCODE_MODE_MULT);
+	gen_code(OPCODE_UNREACHABLE + (ARG_MODE_N - 1) * OPCODE_MODE_MULT);
 	function_ip_return = ip;
-	gen_code(OPCODE_RETURN);
+	gen_code(OPCODE_RETURN + (ARG_MODE_N - 1) * OPCODE_MODE_MULT);
 	if (N_RETURN_VALUES != 1)
 		internal(file_line, "function_init: N_RETURN_VALUES is %d", N_RETURN_VALUES);
-	gen_code(FUNCTION_RETURN_SLOT | (OPCODE_FLAG_FREE_ARGUMENT << 8));
+	if (ARG_MODE_N == 2) {
+		gen_code(FUNCTION_RETURN_SLOT);
+		gen_code(OPCODE_FLAG_FREE_ARGUMENT);
+	} else {
+#if !CODE_ENDIAN
+		gen_code(FUNCTION_RETURN_SLOT);
+		gen_code(0);
+		gen_code(OPCODE_FLAG_FREE_ARGUMENT);
+		gen_code(0);
+#else
+		gen_code(0);
+		gen_code(FUNCTION_RETURN_SLOT);
+		gen_code(0);
+		gen_code(OPCODE_FLAG_FREE_ARGUMENT);
+#endif
+	}
 	function_ip_eval = ip;
-	gen_code(OPCODE_EXIT_THREAD);
-	gen_code(FUNCTION_RETURN_SLOT);
+	gen_code(OPCODE_EXIT_THREAD + (ARG_MODE_N - 1) * OPCODE_MODE_MULT);
+	if (ARG_MODE_N == 2) {
+		gen_code(FUNCTION_RETURN_SLOT);
+	} else {
+#if !CODE_ENDIAN
+		gen_code(FUNCTION_RETURN_SLOT);
+		gen_code(0);
+#else
+		gen_code(0);
+		gen_code(FUNCTION_RETURN_SLOT);
+#endif
+	}
 #undef gen_code
 
 	if (unlikely(ip != code_size))
