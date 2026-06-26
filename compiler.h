@@ -576,8 +576,11 @@ typedef uint16_t ushort_efficient_t;
 #undef HAVE_COMPUTED_GOTO
 #endif
 
-#if HAVE_REDUCE_NODES == -1
-#if CLANG_ATLEAST(0,0,0)
+#if HAVE_REDUCE_NODES < 0 || HAVE_REDUCE_NODES > 2
+#if CLANG_ATLEAST(19,0,0)
+#undef HAVE_REDUCE_NODES
+#define HAVE_REDUCE_NODES	0
+#elif CLANG_ATLEAST(0,0,0)
 #undef HAVE_REDUCE_NODES
 #define HAVE_REDUCE_NODES	2
 #else
