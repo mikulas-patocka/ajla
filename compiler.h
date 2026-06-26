@@ -577,14 +577,14 @@ typedef uint16_t ushort_efficient_t;
 #endif
 
 #if HAVE_REDUCE_NODES < 0 || HAVE_REDUCE_NODES > 2
-#if CLANG_ATLEAST(19,0,0)
 #undef HAVE_REDUCE_NODES
+#if CLANG_ATLEAST(21,0,0) && defined(HAVE_COMPUTED_GOTO)
+#define HAVE_REDUCE_NODES	2
+#elif CLANG_ATLEAST(19,0,0)
 #define HAVE_REDUCE_NODES	0
 #elif CLANG_ATLEAST(0,0,0)
-#undef HAVE_REDUCE_NODES
 #define HAVE_REDUCE_NODES	2
 #else
-#undef HAVE_REDUCE_NODES
 #define HAVE_REDUCE_NODES	0
 #endif
 #endif
