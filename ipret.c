@@ -680,6 +680,11 @@ do {									\
 #define EMIT_FUNCTIONS
 #include "ipret.inc"
 
+#if CLANG_ATLEAST(0,0,0)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wuninitialized"
+#endif
+
 void attr_hot_fastcall
 #if defined(HAVE_REAL_GNUC) && GNUC_ATLEAST(16,0,0)
 	__attribute__((optimize("-fno-tree-vectorize")))
@@ -869,6 +874,10 @@ do {								\
 
 exit_ipret:;
 }
+
+#if CLANG_ATLEAST(0,0,0)
+#pragma clang diagnostic pop
+#endif
 
 
 #ifdef HAVE_CODEGEN
