@@ -1691,7 +1691,7 @@ static attr_noinline void *amalloc_small_empty(struct per_thread *pt, size_t siz
 	if (likely(m != &full_midblock)) {
 		if (unlikely(!amalloc_detach_small(sbc, m))) {
 			sbc_unlock(sbc);
-			return false;
+			return NULL;
 		}
 		all_free = BITMAP_BITS - m->s.reserved_bits;
 	} else {
