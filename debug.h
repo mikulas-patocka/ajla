@@ -21,7 +21,6 @@
 #endif
 
 /*#define DEBUG_BIST*/
-/*#define DEBUG_INFO*/
 /*#define DEBUG_ENV*/
 /*#define DEBUG_CRASH_HANDLER*/
 

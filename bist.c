@@ -1331,24 +1331,26 @@ static void bist_background_done(void)
 
 void name(bist)(void)
 {
-#ifdef DEBUG_INFO
+#ifdef DEBUG_ENV
+	if (getenv("PRINT_INFO")) {
 #if defined(C_LITTLE_ENDIAN)
-	const char *endian = "little endian";
+		const char *endian = "little endian";
 #elif defined(C_BIG_ENDIAN)
-	const char *endian = "big endian";
+		const char *endian = "big endian";
 #else
-	const char *endian = "unknown endian";
+		const char *endian = "unknown endian";
 #endif
-	debug("sizeof(int) = %d, sizeof(long) = %d, sizeof(size_t) = %d, sizeof(void *) = %d, sizeof(int_default_t) = %d", (int)sizeof(int), (int)sizeof(long), (int)sizeof(size_t), (int)sizeof(void *), (int)sizeof(int_default_t));
-	debug("align_of(int) = %d, align_of(long) = %d, align_of(size_t) = %d, align_of(void *) = %d, align_of(int_default_t) = %d", (int)align_of(int), (int)align_of(long), (int)align_of(size_t), (int)align_of(void *), (int)align_of(int_default_t));
+		debug("sizeof(int) = %d, sizeof(long) = %d, sizeof(size_t) = %d, sizeof(void *) = %d, sizeof(int_default_t) = %d", (int)sizeof(int), (int)sizeof(long), (int)sizeof(size_t), (int)sizeof(void *), (int)sizeof(int_default_t));
+		debug("align_of(int) = %d, align_of(long) = %d, align_of(size_t) = %d, align_of(void *) = %d, align_of(int_default_t) = %d", (int)align_of(int), (int)align_of(long), (int)align_of(size_t), (int)align_of(void *), (int)align_of(int_default_t));
 #if defined(HAVE_NATIVE_FP16) || !(REAL_MASK & 1)
 #define em	""
 #else
 #define em	" (fp16 emulated)"
 #endif
-	debug("fixed_mask = 0x%x, int_mask = 0x%x, real_mask = 0x%x%s", (1 << TYPE_FIXED_N) - 1, INT_MASK, REAL_MASK, em);
+		debug("fixed_mask = 0x%x, int_mask = 0x%x, real_mask = 0x%x%s", (1 << TYPE_FIXED_N) - 1, INT_MASK, REAL_MASK, em);
 #undef em
-	debug("scalar_align = %d, frame_align = %d, max_frame_align = %d, slot_size = %d, %s", (int)scalar_align, (int)frame_align, (int)max_frame_align, (int)slot_size, endian);
+		debug("scalar_align = %d, frame_align = %d, max_frame_align = %d, slot_size = %d, %s", (int)scalar_align, (int)frame_align, (int)max_frame_align, (int)slot_size, endian);
+	}
 #endif
 	bist_constants();
 #ifdef DEBUG_BIST

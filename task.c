@@ -607,8 +607,9 @@ void name(task_init)(void)
 	if (unlikely(nr_cpus_override))
 		nr_cpus = nr_cpus_override;
 #endif
-#ifdef DEBUG_INFO
-	debug("concurrency: %u", nr_cpus);
+#ifdef DEBUG_ENV
+	if (getenv("PRINT_INFO"))
+		debug("concurrency: %u", nr_cpus);
 #endif
 
 	/*debug("available: %d", numa_available());
@@ -622,8 +623,9 @@ void name(task_init)(void)
 		nr_nodes = nr_nodes_override;
 	if (unlikely(nr_nodes > nr_cpus))
 		nr_nodes = nr_cpus;
-#ifdef DEBUG_INFO
-	debug("numa nodes: %u", nr_nodes);
+#ifdef DEBUG_ENV
+	if (getenv("PRINT_INFO"))
+		debug("numa nodes: %u", nr_nodes);
 #endif
 	nodes = mem_alloc_array_mayfail(mem_alloc_mayfail, struct node_state **, 0, 0, nr_nodes, sizeof(struct node_state *), NULL);
 	for (n = 0; n < nr_nodes; n++) {
