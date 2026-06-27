@@ -27,12 +27,16 @@ extern const char *dump_code;
 
 #if defined(ARCH_ARM64) && (CLANG_ATLEAST(19,1,0) || (defined(HAVE_REAL_GNUC) && GNUC_ATLEAST(16,0,1)))
 #define codegen_type_attr		__attribute__((preserve_none))
-#define HAVE_PRESERVE_NONE
+#define HAVE_PRESERVE_NONE		1
+#elif defined(ARCH_X86) && !defined(ARCH_X86_32) && !defined(ARCH_X86_WIN_ABI) && CLANG_ATLEAST(19,1,0)
+#define codegen_type_attr		__attribute__((preserve_none))
+#define HAVE_PRESERVE_NONE		1
 #elif defined(ARCH_X86) && !defined(ARCH_X86_32) && !defined(ARCH_X86_WIN_ABI) && defined(HAVE_REAL_GNUC) && GNUC_ATLEAST(14,1,0)
 #define codegen_type_attr		__attribute__((no_callee_saved_registers))
-#define HAVE_PRESERVE_NONE
+#define HAVE_PRESERVE_NONE		2
 #else
 #define codegen_type_attr
+#define HAVE_PRESERVE_NONE		0
 #endif
 
 #define codegen_fn			name(codegen_fn)

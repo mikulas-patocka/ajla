@@ -446,6 +446,17 @@ static bool attr_w gen_x86_pop2(struct codegen_context *ctx, unsigned reg1, unsi
 
 static bool attr_w gen_entry(struct codegen_context *ctx)
 {
+#if HAVE_PRESERVE_NONE == 1
+	unsigned r_arg0 = R_R12;
+	unsigned r_arg1 = R_R13;
+	unsigned r_arg2 = R_R14;
+	unsigned r_arg3 = R_R15;
+#else
+	unsigned r_arg0 = R_ARG0;
+	unsigned r_arg1 = R_ARG1;
+	unsigned r_arg2 = R_ARG2;
+	unsigned r_arg3 = R_ARG3;
+#endif
 #if defined(ARCH_X86_32)
 	g(gen_x86_push2(ctx, R_BX, R_BP, true));
 	g(gen_x86_push2(ctx, R_SI, R_DI, true));
@@ -471,9 +482,9 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	g(gen_x86_push2(ctx, R_BP, R_SI, true));
 	g(gen_x86_push2(ctx, R_DI, R_R12, true));
 	g(gen_x86_push2(ctx, R_R13, R_R14, true));
-	g(gen_x86_push2(ctx, R_R15, R_ARG0, true));
+	g(gen_x86_push2(ctx, R_R15, r_arg0, true));
 #ifndef TIMESTAMP_IN_REGISTER
-	g(gen_x86_push(ctx, R_ARG3, false));
+	g(gen_x86_push(ctx, r_arg3, false));
 #endif
 	gen_insn(INSN_ALU, OP_SIZE_8, ALU_SUB, 1);
 	gen_one(R_SP);
@@ -494,46 +505,46 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_FRAME);
-	gen_one(R_ARG1);
+	gen_one(r_arg1);
 
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_UPCALL);
-	gen_one(R_ARG2);
+	gen_one(r_arg2);
 #ifdef TIMESTAMP_IN_REGISTER
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
 	gen_one(R_TIMESTAMP);
-	gen_one(R_ARG3);
+	gen_one(r_arg3);
 #endif
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_SP);
 	gen_eight(ARG_OFFSET);
 #else
-#ifndef HAVE_PRESERVE_NONE
+#if !HAVE_PRESERVE_NONE
 	g(gen_x86_push(ctx, R_BX, true));
 	g(gen_x86_push2(ctx, R_BP, R_R12, true));
 	g(gen_x86_push2(ctx, R_R13, R_R14, true));
-	g(gen_x86_push2(ctx, R_R15, R_ARG2, false));
+	g(gen_x86_push2(ctx, R_R15, r_arg2, false));
 #else
 	g(gen_x86_push(ctx, R_BP, true));
-	g(gen_x86_push2(ctx, R_CX, R_ARG2, false));
+	g(gen_x86_push2(ctx, R_CX, r_arg2, false));
 #endif
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_FRAME);
-	gen_one(R_ARG0);
+	gen_one(r_arg0);
 
 	if (!reg_is_segment(R_UPCALL)) {
 		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 		gen_one(R_UPCALL);
-		gen_one(R_ARG1);
+		gen_one(r_arg1);
 	}
 #ifdef TIMESTAMP_IN_REGISTER
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
 	gen_one(R_TIMESTAMP);
-	gen_one(R_ARG2);
+	gen_one(r_arg2);
 #endif
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
-	gen_one(R_ARG3);
+	gen_one(r_arg3);
 #endif
 	return true;
 }
@@ -613,7 +624,7 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_one(R_AX);
 	gen_one(R_FRAME);
 #endif
-#ifndef HAVE_PRESERVE_NONE
+#if !HAVE_PRESERVE_NONE
 	g(gen_x86_pop2(ctx, R_CX, R_R15, false));
 	g(gen_x86_pop2(ctx, R_R14, R_R13, true));
 	g(gen_x86_pop2(ctx, R_R12, R_BP, true));

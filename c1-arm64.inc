@@ -132,7 +132,7 @@
 
 #define R_MAX		0x41
 
-#if defined(HAVE_PRESERVE_NONE)
+#if HAVE_PRESERVE_NONE
 #define FRAME_SIZE	0x10
 #else
 #define FRAME_SIZE	(optimize_int ? 0x60 : 0xa0)
@@ -190,7 +190,7 @@ static const uint8_t regs_volatile[] = { R_3, R_4, R_5, R_6, R_7,
 #endif
 	R_11, R_12, R_13, R_14, R_15, R_LR };
 static const uint8_t fp_saved[] = { FR_8, FR_9, FR_10, FR_11, FR_12, FR_13, FR_14, FR_15 };
-#if defined(HAVE_PRESERVE_NONE)
+#if HAVE_PRESERVE_NONE
 #define n_fp_saved(real_type)	n_array_elements(fp_saved)
 #else
 #define n_fp_saved(real_type)	(optimize_int ? 0 : n_array_elements(fp_saved))
@@ -403,7 +403,7 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	gen_eight(-FRAME_SIZE);
 	gen_one(R_FP);
 	gen_one(R_LR);
-#ifndef HAVE_PRESERVE_NONE
+#if !HAVE_PRESERVE_NONE
 	gen_insn(INSN_STP, OP_SIZE_8, 0, 0);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_SP);
@@ -506,7 +506,7 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	gen_insn(INSN_MOV, OP_SIZE_8, 0, 0);
 	gen_one(R_RET0);
 	gen_one(R_FRAME);
-#ifndef HAVE_PRESERVE_NONE
+#if !HAVE_PRESERVE_NONE
 	if (!optimize_int) {
 		gen_insn(INSN_LDP, OP_SIZE_8, 0, 0);
 		gen_one(FR_8);
