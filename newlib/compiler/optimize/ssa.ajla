@@ -1179,7 +1179,7 @@ skip_bool:
 			if i >= lower_limit, i < upper_limit then
 				return create_instr(P_BinaryConstOp, ins.params[ .. 4] + v2_ins.params[1 .. ], ins.bb), true;
 		]
-		if v1.runtime_type <= T_Real16, v1.runtime_type >= T_Real128, v2_ins.opcode = P_Load_Const then [
+		if v1.runtime_type <= T_Real16, v1.runtime_type >= T_Real128, v2_ins.opcode = P_Load_Const, sysprop(SystemProperty_Real) bt T_Real16 - v1.runtime_type, not is_privileged then [
 			return create_instr(P_BinaryConstOp, ins.params[ .. 4] + v2_ins.params[1 .. ], ins.bb), true;
 		]
 		if v1.runtime_type <= T_SInt8, v1.runtime_type >= T_Real128, v1_ins.opcode = P_Load_Const then [
