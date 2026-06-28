@@ -2431,10 +2431,11 @@ static bool pcode_offload(struct build_function_context *ctx, bool preload)
 		for (i = 0; i < n_results; i++) {
 			pcode_t result_in, result_out;
 			bool result_in_deref;
+			const struct pcode_type *t_in, *t_out;
 			pcode_get_var_deref(&result_in, &result_in_deref, 0);
 			result_out = u_pcode_get();
-			const struct pcode_type *t_in = get_var_type(ctx, result_in);
-			const struct pcode_type *t_out = get_var_type(ctx, result_out);
+			t_in = get_var_type(ctx, result_in);
+			t_out = get_var_type(ctx, result_out);
 			gen_uint32(t_in->slot);
 			gen_uint32(result_in_deref ? OPCODE_FLAG_FREE_ARGUMENT : 0);
 			gen_uint32(t_out->slot);
