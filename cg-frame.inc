@@ -1444,7 +1444,7 @@ static bool attr_w gen_memcpy_slots(struct codegen_context *ctx, frame_t dest_sl
 	return true;
 }
 
-static bool attr_w gen_clear_bitmap(struct codegen_context *ctx, unsigned additional_offset, unsigned dest_base, int64_t dest_offset, frame_t bitmap_slots)
+static bool attr_w gen_clear_bitmap(struct codegen_context *ctx, int64_t additional_offset, unsigned dest_base, int64_t dest_offset, frame_t bitmap_slots)
 {
 #if defined(ARCH_S390)
 	if (bitmap_slots * slot_size > 8 && (size_t)bitmap_slots * slot_size <= 0x100) {
@@ -1486,13 +1486,13 @@ static bool attr_w gen_clear_bitmap(struct codegen_context *ctx, unsigned additi
 		bool attr_unused scratch_2_zeroed = false;
 		size_t bitmap_length = (size_t)bitmap_slots * slot_size;
 		size_t clear_offset = 0;
-		additional_offset += (unsigned)dest_offset;
+		additional_offset += dest_offset;
 		while (clear_offset < bitmap_length) {
 			size_t len = bitmap_length - clear_offset;
 			if (len > frame_align)
 				len = frame_align;
 			if (additional_offset)
-				len = minimum(len, additional_offset & -additional_offset);
+				len = minimum(len, (uint64_t)additional_offset & -(uint64_t)additional_offset);
 #if defined(ARCH_ARM32) || defined(ARCH_S390)
 			len = minimum(len, 2U << OP_SIZE_NATIVE);
 			if (len == 2U << OP_SIZE_NATIVE) {
