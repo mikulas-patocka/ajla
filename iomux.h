@@ -62,6 +62,7 @@ static inline bool iomux_directory_handle_alloc(dir_handle_t attr_unused handle,
 static inline bool iomux_directory_handle_wait(notify_handle_t attr_unused h, uint64_t attr_unused seq, mutex_t attr_unused **mutex_to_lock, struct list attr_unused *list_entry)
 {
 	internal(file_line, "iomux_directory_handle_wait: the system doesn't support directory monitoring");
+	return false;
 }
 static inline void iomux_directory_handle_free(notify_handle_t attr_unused h)
 {

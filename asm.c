@@ -96,6 +96,8 @@ static bool detection_failed;
 
 
 
+#ifdef HAVE_CODEGEN
+
 #ifdef ARCH_ALPHA
 
 static uint32_t amask = 0;
@@ -489,6 +491,8 @@ static uint32_t cpuid_7_1[4];
 static uint32_t cpuid_80000000[4];
 static uint32_t cpuid_80000001[4];
 
+#endif
+
 static void do_cpuid(void)
 {
 	char *c;
@@ -666,6 +670,9 @@ void asm_init(void)
 
 	verify_alttable();
 
+#if !defined(HAVE_CODEGEN)
+	detection_failed = true;
+#else
 	detection_failed = false;
 #ifdef ARCH_ALPHA
 	alpha_read_amask();
@@ -707,6 +714,7 @@ void asm_init(void)
 		os_signal_untrap(SIGILL);
 #endif
 	}
+#endif
 	if (unlikely(detection_failed))
 		cpu_feature_flags |= cpu_feature_static_flags;
 	missing_features = cpu_feature_static_flags & ~cpu_feature_flags;

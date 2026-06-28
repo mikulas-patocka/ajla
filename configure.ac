@@ -146,6 +146,7 @@ test "$ac_cv_have_signbit__float128" = yes && AC_DEFINE(HAVE_SIGNBIT___FLOAT128,
 AC_CHECK_TYPES([max_align_t], [], [], [[#include <stddef.h>]])
 AC_CHECK_TYPES([sig_atomic_t], [], [], [[#include <signal.h>]])
 AC_CHECK_TYPES([sigset_t], [], [], [[#include <signal.h>]])
+AC_CHECK_TYPES([siginfo_t], [], [], [[#include <signal.h>]])
 AC_CHECK_TYPES([socklen_t], [], [], [[
 #include <sys/types.h>
 #include <sys/socket.h>]])
@@ -389,7 +390,7 @@ if test "$ac_cv_have_gcc_assembler" = yes; then
 fi
 
 # Checks for header files.
-AC_CHECK_HEADERS(asm/prctl.h ffi.h gmp.h gmp/gmp.h linux/falloc.h linux/fs.h malloc.h netdb.h netinet/in.h numa.h os2thunk.h quadmath.h signal.h stdalign.h stdatomic.h stdbit.h stdbool.h stdnoreturn.h sys/auxv.h sys/builtin.h sys/epoll.h sys/event.h sys/fmutex.h sys/inotify.h sys/mman.h sys/mount.h sys/param.h sys/pstat.h sys/select.h sys/socket.h sys/statvfs.h sys/syscall.h sys/sysctl.h sys/sysmacros.h sys/time.h sys/timex.h sys/ucred.h sys/utsname.h sys/vfs.h ucontext.h x86/sysarch.h)
+AC_CHECK_HEADERS(asm/prctl.h ffi.h gmp.h gmp/gmp.h linux/falloc.h linux/fs.h malloc.h netdb.h netinet/in.h numa.h os2thunk.h quadmath.h signal.h stdalign.h stdatomic.h stdbit.h stdbool.h stdnoreturn.h sys/auxv.h sys/builtin.h sys/epoll.h sys/event.h sys/fmutex.h sys/inotify.h sys/mman.h sys/mount.h sys/param.h sys/pstat.h sys/select.h sys/socket.h sys/statvfs.h sys/syscall.h sys/sysctl.h sys/sysmacros.h sys/time.h sys/timex.h sys/ucred.h sys/utsname.h sys/vfs.h ucontext.h utime.h x86/sysarch.h)
 
 # Checks for libraries.
 AC_CHECK_LIB(m, frexp)

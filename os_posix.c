@@ -46,6 +46,9 @@
 #if defined(HAVE_SYS_TIMEX_H)
 #include <sys/timex.h>
 #endif
+#if defined(HAVE_UTIME_H)
+#include <utime.h>
+#endif
 #include <sys/wait.h>
 #ifdef HAVE_SYS_SELECT_H
 #include <sys/select.h>
@@ -244,6 +247,8 @@ void *os_mremap(void *old_ptr, size_t old_size, size_t new_size, int flags, void
 #endif
 
 
+#if defined(HAVE_CODEGEN)
+
 void os_code_invalidate_cache(uint8_t attr_unused *code, size_t attr_unused code_size, bool attr_unused set_exec)
 {
 #if defined(ARCH_PARISC) && defined(HAVE_GCC_ASSEMBLER)
@@ -338,6 +343,8 @@ void os_code_unmap(void *mapped_code, size_t attr_unused code_size)
 	os_munmap(mapped_code, rounded_size, false);
 #endif
 }
+
+#endif
 
 
 void os_block_signals(sig_state_t attr_unused *set)
@@ -1679,7 +1686,7 @@ bool os_dir_action(dir_handle_t dir, const char *path, int action, int mode, ajl
 			struct utimbuf tm;
 			tm.actime = dev_minor / 1000000;
 			tm.modtime = dev_major / 1000000;
-			EINTR_LOOP(r, times(path, &tm));
+			EINTR_LOOP(r, utime(path, &tm));
 			break;
 #endif
 			fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED), err, "utime not supported");
@@ -2767,7 +2774,7 @@ static void sigfpe_handler(int attr_unused sig, siginfo_t *siginfo, void *uconte
 
 #endif
 
-#ifdef SA_SIGINFO
+#if defined(SA_SIGINFO) && defined(HAVE_SIGINFO_T)
 void os_signal_trap(int sig, void (*handler)(int, siginfo_t *, void *))
 {
 	if (OS_SUPPORTS_TRAPS) {

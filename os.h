@@ -388,9 +388,13 @@ uint32_t os_get_last_error(void);
 uint32_t os_get_last_socket_error(void);
 
 
+#if defined(HAVE_CODEGEN)
+
 void os_code_invalidate_cache(uint8_t *code, size_t code_size, bool set_exec);
 void *os_code_map(uint8_t *code, size_t code_size, ajla_error_t *err);
 void os_code_unmap(void *mapped_code, size_t code_size);
+
+#endif
 
 
 static inline char os_path_separator(void)
@@ -545,7 +549,7 @@ void os_signal_unhandle(int sig);
 signal_seq_t os_signal_seq(int sig);
 bool os_signal_wait(int sig, signal_seq_t seq, mutex_t **mutex_to_lock, struct list *list_entry);
 void os_signal_check_all(void);
-#if defined(OS_HAS_SIGNALS) && defined(SA_SIGINFO)
+#if defined(OS_HAS_SIGNALS) && defined(SA_SIGINFO) && defined(HAVE_SIGINFO_T)
 void os_signal_trap(int sig, void (*handler)(int, siginfo_t *, void *));
 void os_signal_untrap(int sig);
 #endif
