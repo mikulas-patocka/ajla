@@ -623,7 +623,7 @@ static void bist_rbtree_delete(int n)
 	mem_free(t);
 }
 
-static int rbtree_content_compare(const void *p1, const void *p2)
+LIBC_CALLBACK static int rbtree_content_compare(const void *p1, const void *p2)
 {
 	int i1 = *(int *)p1;
 	int i2 = *(int *)p2;
@@ -644,7 +644,7 @@ static attr_noinline void bist_rbtree(unsigned attr_unused flags)
 		bist_rbtree_insert_into_content(TREE_SIZE * 3 / 2 - n);
 		bist_rbtree_insert_into_content(rand() & 0xfff);
 	}
-	qsort(rbtree_content, rbtree_content_n, sizeof(rbtree_content[0]), rbtree_content_compare);
+	qsort(rbtree_content, rbtree_content_n, sizeof(rbtree_content[0]), QSORT_TYPE rbtree_content_compare);
 	for (e = 0, m = 0, n = 0; n < rbtree_content_n; n++) {
 		if (n + 1 < rbtree_content_n && rbtree_content[n] == rbtree_content[n + 1]) {
 			e++;

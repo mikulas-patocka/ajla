@@ -1953,7 +1953,7 @@ ret_thunk:
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
-static int name_cmp(const void *p1, const void *p2)
+LIBC_CALLBACK static int name_cmp(const void *p1, const void *p2)
 {
 	int diff;
 	unsigned char *c1 = *cast_ptr(unsigned char **, p1);
@@ -1988,7 +1988,7 @@ static void * attr_fastcall io_read_dir_handler(struct io_ctx *ctx)
 	if (unlikely(!os_dir_read(ctx->dir_handle->fd, &files, &n_files, &ctx->err)))
 		goto ret_error;
 
-	qsort(files, n_files, sizeof(char *), name_cmp);
+	qsort(files, n_files, sizeof(char *), QSORT_TYPE name_cmp);
 
 	a = data_alloc_array_pointers_mayfail(n_files, n_files, &ctx->err pass_file_line);
 	if (unlikely(!a)) {
@@ -2839,7 +2839,7 @@ static int_default_t io_get_spawn_handles_callback(unsigned char *flat, const st
 	return n_elements;
 }
 
-static int cmp_int(const void *p1, const void *p2)
+LIBC_CALLBACK static int cmp_int(const void *p1, const void *p2)
 {
 	int i1 = *cast_ptr(const int *, p1);
 	int i2 = *cast_ptr(const int *, p2);
@@ -2876,7 +2876,7 @@ static bool io_get_spawn_handles(struct io_ctx *ctx, frame_t slot)
 		return false;
 	}
 	memcpy(h_dst_sorted, ctx->h_dst, ctx->h_dst_l * sizeof(int));
-	qsort(h_dst_sorted, ctx->h_dst_l, sizeof(int), cmp_int);
+	qsort(h_dst_sorted, ctx->h_dst_l, sizeof(int), QSORT_TYPE cmp_int);
 	for (i = 1; i < ctx->h_dst_l; i++) {
 		if (h_dst_sorted[i - 1] == h_dst_sorted[i]) {
 			mem_free(h_dst_sorted);

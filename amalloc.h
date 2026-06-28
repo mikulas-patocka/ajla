@@ -49,6 +49,7 @@ static inline void * attr_fastcall amemalign(size_t attr_unused al, size_t attr_
 static inline void * attr_fastcall acmemalign(size_t attr_unused al, size_t attr_unused size) { return NULL; }
 static inline void attr_fastcall afree(void attr_unused *ptr) { }
 static inline void * attr_fastcall arealloc(void attr_unused *ptr, size_t attr_unused size) { return NULL; }
+static inline size_t asize(void *ptr) { return 0; }
 static inline bool attr_fastcall aptr_is_huge(void attr_unused *ptr) { return false; }
 
 #define amalloc_init() do { } while(0)

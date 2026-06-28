@@ -560,7 +560,7 @@ dont_optimize:
 	return true;
 }
 
-static int frame_t_compare(const void *p1, const void *p2)
+LIBC_CALLBACK static int frame_t_compare(const void *p1, const void *p2)
 {
 	if (*(const frame_t *)p1 < *(const frame_t *)p2)
 		return -1;
@@ -573,7 +573,7 @@ static bool attr_w gen_test_multiple(struct codegen_context *ctx, frame_t *varia
 {
 	size_t i;
 	size_t attr_unused pos;
-	qsort(variables, n_variables, sizeof(frame_t), frame_t_compare);
+	qsort(variables, n_variables, sizeof(frame_t), QSORT_TYPE frame_t_compare);
 
 	if (!n_variables)
 		goto tested;

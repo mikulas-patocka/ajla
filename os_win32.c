@@ -4367,7 +4367,7 @@ bool os_dlsym(struct dl_handle_t *dlh, const char *symbol, void **result)
 
 static thread_t iomux_thread;
 
-static int compare_socket(const void *x1, const void *x2)
+LIBC_CALLBACK static int compare_socket(const void *x1, const void *x2)
 {
 	SOCKET s1 = *cast_ptr(const SOCKET *, x1);
 	SOCKET s2 = *cast_ptr(const SOCKET *, x2);
@@ -4432,8 +4432,8 @@ thread_function_decl(iomux_poll_thread,
 			internal(file_line, "select returned an error: %d", er);
 		}
 
-		qsort(fdx[0]->fd_array, fdx[0]->fd_count, sizeof(SOCKET), compare_socket);
-		qsort(fdx[1]->fd_array, fdx[1]->fd_count, sizeof(SOCKET), compare_socket);
+		qsort(fdx[0]->fd_array, fdx[0]->fd_count, sizeof(SOCKET), QSORT_TYPE compare_socket);
+		qsort(fdx[1]->fd_array, fdx[1]->fd_count, sizeof(SOCKET), QSORT_TYPE compare_socket);
 
 		mutex_lock(&socket_list_mutex);
 		for (wr = 0; wr < 2; wr++) {

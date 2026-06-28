@@ -3810,7 +3810,7 @@ void os_code_unmap(void *mapped_code, size_t attr_unused code_size)
 }
 
 
-static int compare_int(const void *x1, const void *x2)
+LIBC_CALLBACK static int compare_int(const void *x1, const void *x2)
 {
 	return *cast_ptr(const int *, x1) - *cast_ptr(const int *, x2);
 }
@@ -3859,8 +3859,8 @@ thread_function_decl(iomux_poll_thread,
 			internal(file_line, "select returned an error: %d", er);
 		}
 
-		qsort(select_arg, select_arg_read, sizeof(int), compare_int);
-		qsort(select_arg + select_arg_read, select_arg_n - select_arg_read, sizeof(int), compare_int);
+		qsort(select_arg, select_arg_read, sizeof(int), QSORT_TYPE compare_int);
+		qsort(select_arg + select_arg_read, select_arg_n - select_arg_read, sizeof(int), QSORT_TYPE compare_int);
 
 		mutex_lock(&socket_list_mutex);
 		for (wr = 0; wr < 2; wr++) {

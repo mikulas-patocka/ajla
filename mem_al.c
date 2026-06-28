@@ -875,7 +875,7 @@ static bool attr_cold add_memory_entries(struct memory_entry **me, size_t *me_l,
 	return true;
 }
 
-static int attr_cold mem_compare_file_line(const void *me1_, const void *me2_)
+LIBC_CALLBACK static int attr_cold mem_compare_file_line(const void *me1_, const void *me2_)
 {
 	const struct memory_entry *me1 = me1_;
 	const struct memory_entry *me2 = me2_;
@@ -891,7 +891,7 @@ static int attr_cold mem_compare_file_line(const void *me1_, const void *me2_)
 	return c;
 }
 
-static int attr_cold mem_compare_cumulative_size(const void *me1_, const void *me2_)
+LIBC_CALLBACK static int attr_cold mem_compare_cumulative_size(const void *me1_, const void *me2_)
 {
 	const struct memory_entry *me1 = me1_;
 	const struct memory_entry *me2 = me2_;
@@ -958,7 +958,7 @@ void attr_cold mem_report_usage(int mode, const char *string)
 	if (mode == MR_SUMMARY) {
 		goto free_ret;
 	} else if (mode == MR_MOST_ALLOCATED) {
-		qsort(me, me_l, sizeof(struct memory_entry), mem_compare_file_line);
+		qsort(me, me_l, sizeof(struct memory_entry), QSORT_TYPE mem_compare_file_line);
 		me_l2 = 0;
 		for (mr = 0; mr < me_l; mr++) {
 			me[me_l2] = me[mr];
@@ -974,7 +974,7 @@ void attr_cold mem_report_usage(int mode, const char *string)
 	} else {
 		internal(file_line, "mem_report_usage: invalid mode %d", mode);
 	}
-	qsort(me, me_l2, sizeof(struct memory_entry), mem_compare_cumulative_size);
+	qsort(me, me_l2, sizeof(struct memory_entry), QSORT_TYPE mem_compare_cumulative_size);
 
 	max_ps = 0;
 	for (mr = 0; mr < me_l2; mr++) {
@@ -1043,7 +1043,7 @@ oom:
 #endif
 
 #ifdef DEBUG_MEMORY_POSSIBLE
-static int leaks_compare(const void *a1, const void *a2)
+LIBC_CALLBACK static int leaks_compare(const void *a1, const void *a2)
 {
 	struct alloc_header *ah1 = *cast_ptr(struct alloc_header **, a1);
 	struct alloc_header *ah2 = *cast_ptr(struct alloc_header **, a2);
@@ -1094,7 +1094,7 @@ static attr_noreturn attr_cold mem_dump_leaks(void)
 		n_bytes += ah->size;
 		n_blocks++;
 	}
-	qsort(leaked_array, n_blocks, sizeof(struct alloc_header *), leaks_compare);
+	qsort(leaked_array, n_blocks, sizeof(struct alloc_header *), QSORT_TYPE leaks_compare);
 
 	for (i = 0; i < n_blocks; i++) {
 		struct alloc_header *ah = leaked_array[i];

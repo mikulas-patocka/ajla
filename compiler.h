@@ -590,6 +590,15 @@ typedef uint16_t ushort_efficient_t;
 #endif
 
 
+#if defined(__WATCOMC__) && defined(_WCRTLINK)
+#define LIBC_CALLBACK	_WCRTLINK
+#define QSORT_TYPE	(int (*)(const void *, const void *))
+#else
+#define LIBC_CALLBACK
+#define QSORT_TYPE
+#endif
+
+
 #if !defined(UNUSUAL_NO_ASSEMBLER)
 
 #if defined(HAVE_GCC_ASSEMBLER) && (defined(__i386__) || defined(__x86_64__))
@@ -850,7 +859,7 @@ typedef uint16_t ushort_efficient_t;
 
 
 #if !defined(UNUSUAL_NO_TAGGED_POINTERS) && !defined(DEBUG_ARRAY_INDICES) && (defined(C_LITTLE_ENDIAN) || defined(C_BIG_ENDIAN))
-#if defined(HAVE_MMAP) || defined(OS_DOS) || defined(OS_OS2) || defined(OS_WIN32)
+#if defined(HAVE_MMAP) || defined(OS_DOS) || defined(OS_OS2) || defined(OS_WIN32) || defined(__WATCOMC__)
 #if defined(ARCH_ALPHA)
 #define HAVE_CODEGEN
 #if defined(__linux__)
@@ -908,7 +917,7 @@ typedef uint16_t ushort_efficient_t;
 #endif
 #endif
 
-#if defined(HAVE_CODEGEN) && (defined(HAVE_MPROTECT) || defined(OS_DOS) || defined(OS_OS2) || defined(OS_WIN32))
+#if defined(HAVE_CODEGEN) && (defined(HAVE_MPROTECT) || defined(OS_DOS) || defined(OS_OS2) || defined(OS_WIN32)) || defined(__WATCOMC__)
 #if defined(ARCH_ARM) && defined(HAVE___BUILTIN___CLEAR_CACHE)
 #define CODEGEN_USE_HEAP
 #endif
@@ -929,7 +938,7 @@ typedef uint16_t ushort_efficient_t;
 #endif
 #endif
 
-#if defined(CODEGEN_USE_HEAP) && defined(DISABLE_RWX_MAPPINGS)
+#if defined(CODEGEN_USE_HEAP) && defined(DISABLE_RWX_MAPPINGS) && !defined(__WATCOMC__)
 #undef CODEGEN_USE_HEAP
 #endif
 

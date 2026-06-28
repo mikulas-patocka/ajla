@@ -1103,6 +1103,10 @@ int main(void)
 ], ac_cv_have_buggy_ldexp=no, ac_cv_have_buggy_ldexp=yes, ac_cv_have_buggy_ldexp=unknown))
 test "$ac_cv_have_buggy_ldexp" = yes && AC_DEFINE(HAVE_BUGGY_LDEXP, 1, Have buggy ldexp)
 
+if echo "$CC" | grep ^owcc >/dev/null; then
+	CFLAGS="-Wc,-ecc $CFLAGS"
+fi
+
 
 AC_CONFIG_FILES(Makefile)
 AC_OUTPUT

@@ -64,7 +64,7 @@ void profile_collect(const char *function_name, profile_counter_t profiling_coun
 	array_add(struct profile_data, &pd, &pd_len, p);
 }
 
-static int profile_cmp(const void *p1, const void *p2)
+LIBC_CALLBACK static int profile_cmp(const void *p1, const void *p2)
 {
 	const struct profile_data *q1 = p1;
 	const struct profile_data *q2 = p2;
@@ -78,7 +78,7 @@ static int profile_cmp(const void *p1, const void *p2)
 static void profile_print(void)
 {
 	size_t i;
-	qsort(pd, pd_len, sizeof(struct profile_data), profile_cmp);
+	qsort(pd, pd_len, sizeof(struct profile_data), QSORT_TYPE profile_cmp);
 	for (i = 0; i < pd_len; i++) {
 		debug("%-30s %"PRIuMAX" %"PRIuMAX"", pd[i].function_name, (uintmax_t)pd[i].profiling_counter, (uintmax_t)pd[i].call_counter);
 		mem_free(pd[i].function_name);
@@ -111,7 +111,7 @@ void profile_escape_collect(const char *function_name, profile_counter_t profili
 	array_add(struct profile_escape_data, &ped, &ped_len, pe);
 }
 
-static int profile_escape_cmp(const void *p1, const void *p2)
+LIBC_CALLBACK static int profile_escape_cmp(const void *p1, const void *p2)
 {
 	int r;
 	const struct profile_escape_data *q1 = p1;
@@ -131,7 +131,7 @@ static int profile_escape_cmp(const void *p1, const void *p2)
 static void profile_escape_print(void)
 {
 	size_t i;
-	qsort(ped, ped_len, sizeof(struct profile_escape_data), profile_escape_cmp);
+	qsort(ped, ped_len, sizeof(struct profile_escape_data), QSORT_TYPE profile_escape_cmp);
 	for (i = 0; i < ped_len; i++) {
 		debug("%30s:%-6u %-10"PRIuMAX" %s,%lx", ped[i].function_name, ped[i].line, (uintmax_t)ped[i].profiling_counter, decode_opcode(ped[i].code, false), (unsigned long)ped[i].ip);
 		mem_free(ped[i].function_name);

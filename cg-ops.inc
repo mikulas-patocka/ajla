@@ -3122,7 +3122,7 @@ static bool attr_w gen_array_is_finite(struct codegen_context *ctx, frame_t slot
 
 }
 
-static int compare_frame_t(const void *p1, const void *p2)
+LIBC_CALLBACK static int compare_frame_t(const void *p1, const void *p2)
 {
 	frame_t f1 = *cast_ptr(const frame_t *, p1);
 	frame_t f2 = *cast_ptr(const frame_t *, p2);
@@ -3176,7 +3176,7 @@ duplicate:;
 		ctx->var_aux[n_unspill++] = v;
 duplicate2:;
 	}
-	qsort(ctx->var_aux, n_unspill, sizeof(frame_t), compare_frame_t);
+	qsort(ctx->var_aux, n_unspill, sizeof(frame_t), QSORT_TYPE compare_frame_t);
 
 	for (i = 0; i < slot_2 + slot_3; i++)
 		get_uint32(ctx);
