@@ -1269,8 +1269,9 @@ skip_mmap:
 		loaded_data_amalloc = true;
 	}
 #endif
+#else
+	adjust_pointers(loaded_data, loaded_data_len, ptr_to_num(loaded_data) - ptr_to_num(loaded_file_descriptor->base));
 #endif
-	/*adjust_pointers(loaded_data, loaded_data_len, 0);*/
 #ifdef USE_MMAP
 verify_ret:
 #endif
