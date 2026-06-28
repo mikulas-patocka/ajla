@@ -1391,6 +1391,7 @@ static bool check_interference(struct insn_details *d, struct value *v)
 			return reg_map_is_set(d->wr, R_FLAGS);
 		default:
 			internal(file_line, "check_interference: invalid tag %u", v->tag);
+			return false;
 	}
 }
 
