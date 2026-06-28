@@ -170,7 +170,7 @@ ovf:
 #define my_timegm	timegm
 #endif
 
-#if (!defined(HAVE_GMTIME_R) && !defined(HAVE_LOCALTIME_R)) || defined(THREAD_NONE)
+#if !defined(HAVE_GMTIME_R) || !defined(HAVE_LOCALTIME_R) || defined(THREAD_NONE) || defined(__HAIKU__)
 #define HAVE_CALENDAR_LOCK
 static mutex_t calendar_lock;
 #endif
