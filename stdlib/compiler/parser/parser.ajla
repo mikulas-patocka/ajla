@@ -679,21 +679,27 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 
 		if decl_type is k_fn or decl_type is k_type or decl_type is k_const or decl_type is k_operator then [
 			dict.defs[def.signature.id.function_index[0]].typ := Fn_Function;
-			ctx := parse_function_body(ctx, vd, t[b .. ]);
+			ctx := parse_function_body~spark(ctx, vd, t[b .. ]);
 		] else if decl_type is k_record then [
 			dict.defs[def.signature.id.function_index[0]].typ := Fn_Record;
-			ctx := parse_record_definition(ctx, vd, false, wh_expr, t[b .. ]);
+			ctx := parse_record_definition~spark(ctx, vd, false, wh_expr, t[b .. ]);
 		] else if decl_type is k_option then [
 			dict.defs[def.signature.id.function_index[0]].typ := Fn_Option;
-			ctx := parse_record_definition(ctx, vd, true, wh_expr, t[b .. ]);
+			ctx := parse_record_definition~spark(ctx, vd, true, wh_expr, t[b .. ]);
 		] else [
 			abort internal("invalid decl_type " + ntos(ord decl_type));
 		]
 
-		ctx := generate_local_types(ctx);
+		ctx := generate_local_types~lazy(ctx);
 
-		ctx.incomplete := false;
-		ctx := function_context_clear_temp_values(ctx);
+		fn set_incomplete(ctx : function_context) : function_context
+		[
+			ctx.incomplete := false;
+			return ctx;
+		]
+
+		ctx := set_incomplete~lazy(ctx);
+		ctx := function_context_clear_temp_values~lazy(ctx);
 
 		dict.defs[def.signature.id.function_index[0]].body.j := ctx;
 		if def.signature.inferred_return then
