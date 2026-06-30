@@ -447,15 +447,15 @@ static bool attr_w gen_x86_pop2(struct codegen_context *ctx, unsigned reg1, unsi
 static bool attr_w gen_entry(struct codegen_context *ctx)
 {
 #if HAVE_PRESERVE_NONE == 1
-	unsigned r_arg0 = R_R12;
-	unsigned r_arg1 = R_R13;
-	unsigned r_arg2 = R_R14;
-	unsigned r_arg3 = R_R15;
+	unsigned attr_unused r_arg0 = R_R12;
+	unsigned attr_unused r_arg1 = R_R13;
+	unsigned attr_unused r_arg2 = R_R14;
+	unsigned attr_unused r_arg3 = R_R15;
 #else
-	unsigned r_arg0 = R_ARG0;
-	unsigned r_arg1 = R_ARG1;
-	unsigned r_arg2 = R_ARG2;
-	unsigned r_arg3 = R_ARG3;
+	unsigned attr_unused r_arg0 = R_ARG0;
+	unsigned attr_unused r_arg1 = R_ARG1;
+	unsigned attr_unused r_arg2 = R_ARG2;
+	unsigned attr_unused r_arg3 = R_ARG3;
 #endif
 #if defined(ARCH_X86_32)
 	g(gen_x86_push2(ctx, R_BX, R_BP, true));
