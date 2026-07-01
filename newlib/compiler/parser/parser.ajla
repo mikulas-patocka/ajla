@@ -386,6 +386,10 @@ fn parse_function_body(ctx : function_context, vd : variable_dictionary, t : tok
 			ctx.variables[i].defined_at := defined_argument;
 	]
 
+	ctx := generate_local_types(ctx);
+	ctx.incomplete := false;
+	ctx := function_context_clear_temp_values(ctx);
+
 	return ctx;
 ]
 
@@ -477,6 +481,10 @@ next_flag:
 		ctx.record_where := wh_var;
 		ctx.parsing_record_where := false;
 	]
+
+	ctx := generate_local_types(ctx);
+	ctx.incomplete := false;
+	ctx := function_context_clear_temp_values(ctx);
 
 	return ctx;
 ]
@@ -690,17 +698,6 @@ fn parse_function(dict : function_dictionary, t : tokens, private_flag implicit_
 			abort internal("invalid decl_type " + ntos(ord decl_type));
 		]
 
-		ctx := generate_local_types~lazy(ctx);
-
-		fn set_incomplete(ctx : function_context) : function_context
-		[
-			ctx.incomplete := false;
-			return ctx;
-		]
-
-		ctx := set_incomplete~lazy(ctx);
-		ctx := function_context_clear_temp_values~lazy(ctx);
-
 		dict.defs[def.signature.id.function_index[0]].body.j := ctx;
 		if def.signature.inferred_return then
 			dict.defs[def.signature.id.function_index[0]].signature := ctx;
@@ -829,9 +826,6 @@ again:
 	]
 	if prune then
 		goto prune_implicits;
-
-	ctx_body := generate_local_types(ctx_body);
-	ctx_body.incomplete := false;
 
 	if ctx_head.inferred_return then
 		ctx_head := ctx_body;
