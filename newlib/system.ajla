@@ -16,7 +16,7 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  *}
 
-unit system;
+unit system~lazy;
 
 // types hardcoded in type.ajla
 type byte;
