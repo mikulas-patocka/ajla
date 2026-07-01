@@ -1185,7 +1185,7 @@ next_unit_flag:
 	var sc := token_find(t, token_opt.semicolon, true);
 	for h in t[sc].prev_hints do [
 		if h = "lazy" then
-			if sysprop(SystemProperty_Compile) = 0 then
+			if sysprop(SystemProperty_Compile) = 0 or path_index = 0 then
 				dict.mostly_unused := true;
 	]
 	if is_privileged then

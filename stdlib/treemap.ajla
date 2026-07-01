@@ -16,7 +16,7 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  *}
 
-unit treemap;
+unit treemap~lazy;
 
 private type xtreemap(key : type, cls : class_ord(key), val : type);
 type treemap(key : type, val : type, cls : class_ord(key)) := xtreemap(key, cls, val);
