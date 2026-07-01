@@ -1285,7 +1285,7 @@ fn parse_file~cache(w : world, d : list(bytes), name : bytes, program : bool, pa
 				name[0] := ascii_upcase(name[0]);
 				abort compiler_error(name + " was not defined", empty(token));
 			]
-			dict.defs[i].pcode := dump_function(dict.defs[i]);
+			dict.defs[i].pcode := dump_function~spark(dict.defs[i]);
 		]
 	]
 	{w, tm := get_monotonic_time(w);
