@@ -325,6 +325,7 @@ fn parse_function_header(def : function_definition, dict : function_dictionary, 
 
 fn parse_function_body(ctx : function_context, vd : variable_dictionary, t : tokens) : function_context
 [
+	//eval debug("parse function: " + i_decode(ctx.name));
 	var lbl : int;
 	ctx, lbl := alloc_local_label(ctx);
 	if lbl <> 0 then
@@ -1187,6 +1188,8 @@ next_unit_flag:
 			if sysprop(SystemProperty_Compile) = 0 then
 				dict.mostly_unused := true;
 	]
+	if is_privileged then
+		dict.mostly_unused := true;
 	var unit_tokens := t[1 .. sc];
 
 	var file_name := parse_unit_name(unit_tokens);
