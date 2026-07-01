@@ -1,5 +1,5 @@
 {*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -30,7 +30,6 @@ uses compiler.parser.export;
 
 fn compile_module_2(w : world, d : list(bytes), file : bytes, program : bool, prereq len_greater_than(d, 0)) : (list(list(pcode_t)), list(module_unique_id))
 [
-	// TODO: move the following test elsewhere ?
 	var dict := parse_file(w, d, file, program, false);
 
 	var m := empty(module_unique_id);

@@ -195,6 +195,7 @@ record function_dictionary [
 	priv : bool;
 	modules : list(function_dictionary);
 	modules_map : list(int);
+	mostly_unused : bool;
 ]
 
 record compare_argument [
@@ -417,6 +418,7 @@ fn new_function_dictionary(path_index : nat, unit_string : istring, program : bo
 		priv : false,
 		modules : empty(function_dictionary),
 		modules_map : infinite_uninitialized(int),
+		mostly_unused : false,
 	];
 ]
 
