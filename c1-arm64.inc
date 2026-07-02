@@ -451,8 +451,8 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 		gen_one(ARG_ADDRESS_1);
 		gen_one(R_SP);
 		gen_eight(0x70);
-		gen_one(FR_13);
 		gen_one(FR_12);
+		gen_one(FR_13);
 
 		gen_insn(INSN_STP, OP_SIZE_8, 0, 0);
 		gen_one(ARG_ADDRESS_1);
