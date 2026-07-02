@@ -491,8 +491,6 @@ static uint32_t cpuid_7_1[4];
 static uint32_t cpuid_80000000[4];
 static uint32_t cpuid_80000001[4];
 
-#endif
-
 static void do_cpuid(void)
 {
 	char *c;
@@ -582,6 +580,8 @@ static bool test_xcr0(uint32_t mask)
 	}
 	return (res & mask) == mask;
 }
+
+#endif
 
 #endif
 
