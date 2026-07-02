@@ -435,14 +435,14 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 		gen_address_offset();
 	}
 
-	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x10, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
-	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
-	gen_one(R_S0);
-	gen_address_offset();
-
 	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x18, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 	gen_one(R_S1);
+	gen_address_offset();
+
+	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x10, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
+	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+	gen_one(R_S0);
 	gen_address_offset();
 
 	g(gen_address(ctx, R_SP, FRAME_SIZE - 0x08, IMM_PURPOSE_LDR_OFFSET, OP_SIZE_NATIVE));
