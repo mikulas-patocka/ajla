@@ -919,7 +919,11 @@ typedef uint16_t ushort_efficient_t;
 
 #if defined(HAVE_CODEGEN) && (defined(HAVE_MPROTECT) || defined(OS_DOS) || defined(OS_OS2) || defined(OS_WIN32)) || defined(__WATCOMC__)
 #if defined(ARCH_ARM) && defined(HAVE___BUILTIN___CLEAR_CACHE)
+#if CLANG_ATLEAST(0,0,0) && !CLANG_ATLEAST(6,0,0)
+/* Clang 5 has broken cache invalidation */
+#else
 #define CODEGEN_USE_HEAP
+#endif
 #endif
 #if defined(ARCH_PARISC) && defined(HAVE_GCC_ASSEMBLER)
 #define CODEGEN_USE_HEAP
