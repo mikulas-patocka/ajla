@@ -3428,7 +3428,7 @@ do_cmp:
 			reg_1 = ctx->registers[slot_1];
 		if (slot_is_register(ctx, slot_2))
 			reg_2 = ctx->registers[slot_2];
-		if (slot_is_register(ctx, slot_2) && reg_2 == R_ST0) {
+		if ((slot_is_register(ctx, slot_2) && reg_2 == R_ST0) || frame_t_is_const(slot_2)) {
 			short tmp_reg;
 			frame_t tmp_slot;
 			tmp_slot = slot_1;
@@ -3458,6 +3458,10 @@ do_cmp:
 				gen_one(reg);
 				gen_insn(INSN_X87_FXCH, 0, 0, 0);
 				gen_one(reg_1);
+			} else if (slot_is_register(ctx, slot_2) && reg_is_x87(reg_2)) {
+				g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 0));
+				gen_insn(INSN_X87_FCOMIP, op_size, 0, 0);
+				gen_one(reg_2 + 1);
 			} else {
 				g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_2, 0));
 				g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 1));
@@ -4869,7 +4873,7 @@ do_cmp:
 			reg_1 = ctx->registers[slot_1];
 		if (slot_is_register(ctx, slot_2))
 			reg_2 = ctx->registers[slot_2];
-		if (slot_is_register(ctx, slot_2) && reg_2 == R_ST0) {
+		if ((slot_is_register(ctx, slot_2) && reg_2 == R_ST0) || frame_t_is_const(slot_2)) {
 			short tmp_reg;
 			frame_t tmp_slot;
 			tmp_slot = slot_1;
@@ -4898,6 +4902,10 @@ do_cmp:
 			gen_one(reg);
 			gen_insn(INSN_X87_FXCH, 0, 0, 0);
 			gen_one(reg_1);
+		} else if (slot_is_register(ctx, slot_2) && reg_is_x87(reg_2)) {
+			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 0));
+			gen_insn(INSN_X87_FCOMIP, op_size, 0, 0);
+			gen_one(reg_2 + 1);
 		} else {
 			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_2, 0));
 			g(gen_frame_load_x87(ctx, INSN_X87_FLD, op_size, 0, slot_1, 1));
