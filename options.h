@@ -193,6 +193,12 @@ typedef double real64_t;
 #endif
 #endif
 
+#if defined(ARCH_ARM64) && CLANG_ATLEAST(6,0,0) && !CLANG_ATLEAST(12,0,0)
+#ifdef HAVE_LONG_DOUBLE
+#undef HAVE_LONG_DOUBLE
+#endif
+#endif
+
 #if FLT_RADIX == 2 && defined(HAVE_LONG_DOUBLE) && \
 	(defined(LDBL_MIN_EXP) && LDBL_MIN_EXP <= -16381 && defined(LDBL_MAX_EXP) && LDBL_MAX_EXP >= 16384 && defined(LDBL_MANT_DIG) && LDBL_MANT_DIG >= 64) && \
 	!(defined(LDBL_MIN_EXP) && LDBL_MIN_EXP <= -16381 && defined(LDBL_MAX_EXP) && LDBL_MAX_EXP >= 16384 && defined(LDBL_MANT_DIG) && LDBL_MANT_DIG >= 113)
