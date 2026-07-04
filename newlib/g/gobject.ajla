@@ -33,6 +33,7 @@ fn gobject_init(implicit w : world, implicit repo : gobject_repository, func : f
 fn gobject_init_with_unref(implicit w : world, implicit repo : gobject_repository, func : ffi_function, args : list(int), unref : ffi_function) : (world, gobject);
 fn gobject_from_ptr(ptr : int) : gobject;
 fn gobject_ptr(gobj : gobject) : int;
+fn gobject_keep(w : world, gobj : gobject) : world;
 
 fn g_free(implicit w : world, ptr : int) : world;
 
@@ -146,6 +147,13 @@ fn gobject_from_ptr(ptr : int) : gobject
 fn gobject_ptr(gobj : gobject) : int
 [
 	return gobj.ptr;
+]
+
+fn gobject_keep(w : world, gobj : gobject) : world
+[
+	var w2 : world;
+	pcode IO IO_Consume_Parameters 1 2 0 =w2 w gobj;
+	return w2;
 ]
 
 fn g_free(implicit w : world, ptr : int) : world

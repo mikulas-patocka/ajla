@@ -1,4 +1,4 @@
-unit g.girepository;
+unit g.girepository~lazy;
 
 uses g.gobject, charset;
 
@@ -278,7 +278,7 @@ fn g_constant_info_get_value(implicit w : world, implicit repo : gobject_reposit
 [
 	fn function~cache := ffi_function_create_multiple(girepository_libs, "g_constant_info_get_value", 0, 0, ffi_type.t_sint, list(ffi_type).[ ffi_type.t_pointer, ffi_type.t_pointer ]);
 	var ret := ffi_function_call_noerr(function, [ gobject_ptr(gibaseinfo), val ]);
-	keep gibaseinfo;
+	gobject_keep(gibaseinfo);
 	return ret;
 ]
 
@@ -296,8 +296,8 @@ fn g_base_info_equal(implicit w : world, repo : gobject_repository, this_object_
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, info2__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep this_object_;
-	keep info2_;
+	gobject_keep(this_object_);
+	gobject_keep(info2_);
 	return r_;
 ]
 
@@ -310,7 +310,7 @@ fn g_base_info_get_attribute(implicit w : world, repo : gobject_repository, this
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, name__, ]);
 	var r_ := ffi_peek_zstring(r);
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r_;
 ]
 
@@ -322,7 +322,7 @@ fn g_base_info_get_container(implicit w : world, repo : gobject_repository, this
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ this_object__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r;
 ]
 
@@ -334,7 +334,7 @@ fn g_base_info_get_name(implicit w : world, repo : gobject_repository, this_obje
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, ]);
 	var r_ := ffi_peek_zstring(r);
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r_;
 ]
 
@@ -346,7 +346,7 @@ fn g_base_info_get_namespace(implicit w : world, repo : gobject_repository, this
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, ]);
 	var r_ := ffi_peek_zstring(r);
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r_;
 ]
 
@@ -358,7 +358,7 @@ fn g_base_info_get_type(implicit w : world, repo : gobject_repository, this_obje
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r_;
 ]
 
@@ -370,7 +370,7 @@ fn g_base_info_get_typelib(implicit w : world, repo : gobject_repository, this_o
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, ]);
 	var r_ := gobject_from_ptr(r);
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r_;
 ]
 
@@ -382,7 +382,7 @@ fn g_base_info_is_deprecated(implicit w : world, repo : gobject_repository, this
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r_;
 ]
 
@@ -397,7 +397,7 @@ fn g_base_info_iterate_attributes(implicit w : world, repo : gobject_repository,
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, iterator__, name__, value__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r_;
 ]
 
@@ -521,7 +521,7 @@ fn g_irepository_enumerate_versions(implicit w : world, repo : gobject_repositor
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, namespace___, ]);
 	var r_ := gpointer_from_ptr(r);
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r_;
 ]
 
@@ -534,7 +534,7 @@ fn g_irepository_find_by_error_domain(implicit w : world, repo : gobject_reposit
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ this_object__, domain__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r;
 ]
 
@@ -547,7 +547,7 @@ fn g_irepository_find_by_gtype(implicit w : world, repo : gobject_repository, th
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ this_object__, gtype__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r;
 ]
 
@@ -561,7 +561,7 @@ fn g_irepository_find_by_name(implicit w : world, repo : gobject_repository, thi
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ this_object__, namespace___, name__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r;
 ]
 
@@ -574,7 +574,7 @@ fn g_irepository_get_c_prefix(implicit w : world, repo : gobject_repository, thi
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, namespace___, ]);
 	var r_ := ffi_peek_zstring(r);
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r_;
 ]
 
@@ -587,7 +587,7 @@ fn g_irepository_get_dependencies(implicit w : world, repo : gobject_repository,
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, namespace___, ]);
 	var r_ := gpointer_from_ptr(r);
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r_;
 ]
 
@@ -600,7 +600,7 @@ fn g_irepository_get_immediate_dependencies(implicit w : world, repo : gobject_r
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, namespace___, ]);
 	var r_ := gpointer_from_ptr(r);
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r_;
 ]
 
@@ -614,7 +614,7 @@ fn g_irepository_get_info(implicit w : world, repo : gobject_repository, this_ob
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ this_object__, namespace___, index__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r;
 ]
 
@@ -626,7 +626,7 @@ fn g_irepository_get_loaded_namespaces(implicit w : world, repo : gobject_reposi
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, ]);
 	var r_ := gpointer_from_ptr(r);
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r_;
 ]
 
@@ -639,7 +639,7 @@ fn g_irepository_get_n_infos(implicit w : world, repo : gobject_repository, this
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, namespace___, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r_;
 ]
 
@@ -653,7 +653,7 @@ fn g_irepository_get_object_gtype_interfaces(implicit w : world, repo : gobject_
 	var interfaces_out__ := interfaces_out_;
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, gtype__, n_interfaces_out__, interfaces_out__, ]);
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 ]
 
 fn g_irepository_get_shared_library(implicit w : world, repo : gobject_repository, this_object_ : gobject, namespace__ : bytes) : (world, bytes)
@@ -665,7 +665,7 @@ fn g_irepository_get_shared_library(implicit w : world, repo : gobject_repositor
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, namespace___, ]);
 	var r_ : bytes; if r = 0 then r_ := ""; else r_ := ffi_peek_zstring(r);
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r_;
 ]
 
@@ -678,7 +678,7 @@ fn g_irepository_get_typelib_path(implicit w : world, repo : gobject_repository,
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, namespace___, ]);
 	var r_ := ffi_peek_zstring(r);
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r_;
 ]
 
@@ -691,7 +691,7 @@ fn g_irepository_get_version(implicit w : world, repo : gobject_repository, this
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, namespace___, ]);
 	var r_ := ffi_peek_zstring(r);
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r_;
 ]
 
@@ -705,7 +705,7 @@ fn g_irepository_is_registered(implicit w : world, repo : gobject_repository, th
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, namespace___, version__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r_;
 ]
 
@@ -720,8 +720,8 @@ fn g_irepository_load_typelib(implicit w : world, repo : gobject_repository, thi
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, typelib__, flags__, gerror__, ]);
 	var r_ := ffi_peek_zstring(r);
 	ffi_destructor_destroy(destr);
-	keep this_object_;
-	keep typelib_;
+	gobject_keep(this_object_);
+	gobject_keep(typelib_);
 	return r_;
 ]
 
@@ -737,7 +737,7 @@ fn g_irepository_require(implicit w : world, repo : gobject_repository, this_obj
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, namespace___, version__, flags__, gerror__, ]);
 	var r_ := gobject_from_ptr(r);
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r_;
 ]
 
@@ -754,7 +754,7 @@ fn g_irepository_require_private(implicit w : world, repo : gobject_repository, 
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, typelib_dir__, namespace___, version__, flags__, gerror__, ]);
 	var r_ := gobject_from_ptr(r);
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r_;
 ]
 
@@ -807,7 +807,7 @@ fn g_typelib_free(implicit w : world, repo : gobject_repository, this_object_ : 
 	var this_object__ := gobject_ptr(this_object_);
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, ]);
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 ]
 
 fn g_typelib_get_namespace(implicit w : world, repo : gobject_repository, this_object_ : gobject) : (world, bytes)
@@ -818,7 +818,7 @@ fn g_typelib_get_namespace(implicit w : world, repo : gobject_repository, this_o
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, ]);
 	var r_ := ffi_peek_zstring(r);
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r_;
 ]
 
@@ -832,7 +832,7 @@ fn g_typelib_symbol(implicit w : world, repo : gobject_repository, this_object_ 
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ this_object__, symbol_name__, symbol__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep this_object_;
+	gobject_keep(this_object_);
 	return r_;
 ]
 
@@ -849,7 +849,7 @@ fn g_arg_info_get_closure(implicit w : world, repo : gobject_repository, info_ :
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -861,7 +861,7 @@ fn g_arg_info_get_destroy(implicit w : world, repo : gobject_repository, info_ :
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -873,7 +873,7 @@ fn g_arg_info_get_direction(implicit w : world, repo : gobject_repository, info_
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -885,7 +885,7 @@ fn g_arg_info_get_ownership_transfer(implicit w : world, repo : gobject_reposito
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -897,7 +897,7 @@ fn g_arg_info_get_scope(implicit w : world, repo : gobject_repository, info_ : g
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -909,7 +909,7 @@ fn g_arg_info_get_type(implicit w : world, repo : gobject_repository, info_ : go
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -921,7 +921,7 @@ fn g_arg_info_is_caller_allocates(implicit w : world, repo : gobject_repository,
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -933,7 +933,7 @@ fn g_arg_info_is_optional(implicit w : world, repo : gobject_repository, info_ :
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -945,7 +945,7 @@ fn g_arg_info_is_return_value(implicit w : world, repo : gobject_repository, inf
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -957,7 +957,7 @@ fn g_arg_info_is_skip(implicit w : world, repo : gobject_repository, info_ : gob
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -969,7 +969,7 @@ fn g_arg_info_load_type(implicit w : world, repo : gobject_repository, info_ : g
 	var type__ := type_;
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, type__, ]);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 ]
 
 fn g_arg_info_may_be_null(implicit w : world, repo : gobject_repository, info_ : gobject) : (world, bool)
@@ -980,7 +980,7 @@ fn g_arg_info_may_be_null(implicit w : world, repo : gobject_repository, info_ :
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -992,7 +992,7 @@ fn g_callable_info_can_throw_gerror(implicit w : world, repo : gobject_repositor
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1005,7 +1005,7 @@ fn g_callable_info_get_arg(implicit w : world, repo : gobject_repository, info_ 
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, n__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1017,7 +1017,7 @@ fn g_callable_info_get_caller_owns(implicit w : world, repo : gobject_repository
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1029,7 +1029,7 @@ fn g_callable_info_get_instance_ownership_transfer(implicit w : world, repo : go
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1041,7 +1041,7 @@ fn g_callable_info_get_n_args(implicit w : world, repo : gobject_repository, inf
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1054,7 +1054,7 @@ fn g_callable_info_get_return_attribute(implicit w : world, repo : gobject_repos
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, name__, ]);
 	var r_ := ffi_peek_zstring(r);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1066,7 +1066,7 @@ fn g_callable_info_get_return_type(implicit w : world, repo : gobject_repository
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1087,8 +1087,8 @@ fn g_callable_info_invoke(implicit w : world, repo : gobject_repository, info_ :
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, function__, in_args__, n_in_args__, out_args__, n_out_args__, return_value__, is_method__, throws__, gerror__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep info_;
-	keep return_value_;
+	gobject_keep(info_);
+	gobject_keep(return_value_);
 	return r_;
 ]
 
@@ -1100,7 +1100,7 @@ fn g_callable_info_is_method(implicit w : world, repo : gobject_repository, info
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1115,7 +1115,7 @@ fn g_callable_info_iterate_return_attributes(implicit w : world, repo : gobject_
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, iterator__, name__, value__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1128,7 +1128,7 @@ fn g_callable_info_load_arg(implicit w : world, repo : gobject_repository, info_
 	var arg__ := arg_;
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, n__, arg__, ]);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 ]
 
 fn g_callable_info_load_return_type(implicit w : world, repo : gobject_repository, info_ : gobject, type_ : int) : (world)
@@ -1139,7 +1139,7 @@ fn g_callable_info_load_return_type(implicit w : world, repo : gobject_repositor
 	var type__ := type_;
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, type__, ]);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 ]
 
 fn g_callable_info_may_return_null(implicit w : world, repo : gobject_repository, info_ : gobject) : (world, bool)
@@ -1150,7 +1150,7 @@ fn g_callable_info_may_return_null(implicit w : world, repo : gobject_repository
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1162,7 +1162,7 @@ fn g_callable_info_skip_return(implicit w : world, repo : gobject_repository, in
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1178,9 +1178,9 @@ fn gi_cclosure_marshal_generic(implicit w : world, repo : gobject_repository, cl
 	var marshal_data__ := gpointer_ptr(marshal_data_);
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ closure__, return_gvalue__, n_param_values__, param_values__, invocation_hint__, marshal_data__, ]);
 	ffi_destructor_destroy(destr);
-	keep closure_;
-	keep return_gvalue_;
-	keep param_values_;
+	gobject_keep(closure_);
+	gobject_keep(return_gvalue_);
+	gobject_keep(param_values_);
 ]
 
 fn g_constant_info_get_type(implicit w : world, repo : gobject_repository, info_ : gobject) : (world, gobject)
@@ -1191,7 +1191,7 @@ fn g_constant_info_get_type(implicit w : world, repo : gobject_repository, info_
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1203,7 +1203,7 @@ fn g_enum_info_get_error_domain(implicit w : world, repo : gobject_repository, i
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := ffi_peek_zstring(r);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1216,7 +1216,7 @@ fn g_enum_info_get_method(implicit w : world, repo : gobject_repository, info_ :
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, n__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1228,7 +1228,7 @@ fn g_enum_info_get_n_methods(implicit w : world, repo : gobject_repository, info
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1240,7 +1240,7 @@ fn g_enum_info_get_n_values(implicit w : world, repo : gobject_repository, info_
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1252,7 +1252,7 @@ fn g_enum_info_get_storage_type(implicit w : world, repo : gobject_repository, i
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1265,7 +1265,7 @@ fn g_enum_info_get_value(implicit w : world, repo : gobject_repository, info_ : 
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, n__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1277,7 +1277,7 @@ fn g_field_info_get_flags(implicit w : world, repo : gobject_repository, info_ :
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1289,7 +1289,7 @@ fn g_field_info_get_offset(implicit w : world, repo : gobject_repository, info_ 
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1301,7 +1301,7 @@ fn g_field_info_get_size(implicit w : world, repo : gobject_repository, info_ : 
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1313,7 +1313,7 @@ fn g_field_info_get_type(implicit w : world, repo : gobject_repository, info_ : 
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1325,7 +1325,7 @@ fn g_function_info_get_flags(implicit w : world, repo : gobject_repository, info
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1337,7 +1337,7 @@ fn g_function_info_get_property(implicit w : world, repo : gobject_repository, i
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1349,7 +1349,7 @@ fn g_function_info_get_symbol(implicit w : world, repo : gobject_repository, inf
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := ffi_peek_zstring(r);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1361,7 +1361,7 @@ fn g_function_info_get_vfunc(implicit w : world, repo : gobject_repository, info
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1406,8 +1406,8 @@ fn g_info_new(implicit w : world, repo : gobject_repository, type_ : int, contai
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ type__, container__, typelib__, offset__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep container_;
-	keep typelib_;
+	gobject_keep(container_);
+	gobject_keep(typelib_);
 	return r;
 ]
 
@@ -1431,7 +1431,7 @@ fn g_interface_info_find_method(implicit w : world, repo : gobject_repository, i
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, name__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1444,7 +1444,7 @@ fn g_interface_info_find_signal(implicit w : world, repo : gobject_repository, i
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, name__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1457,7 +1457,7 @@ fn g_interface_info_find_vfunc(implicit w : world, repo : gobject_repository, in
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, name__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1470,7 +1470,7 @@ fn g_interface_info_get_constant(implicit w : world, repo : gobject_repository, 
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, n__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1482,7 +1482,7 @@ fn g_interface_info_get_iface_struct(implicit w : world, repo : gobject_reposito
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1495,7 +1495,7 @@ fn g_interface_info_get_method(implicit w : world, repo : gobject_repository, in
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, n__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1507,7 +1507,7 @@ fn g_interface_info_get_n_constants(implicit w : world, repo : gobject_repositor
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1519,7 +1519,7 @@ fn g_interface_info_get_n_methods(implicit w : world, repo : gobject_repository,
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1531,7 +1531,7 @@ fn g_interface_info_get_n_prerequisites(implicit w : world, repo : gobject_repos
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1543,7 +1543,7 @@ fn g_interface_info_get_n_properties(implicit w : world, repo : gobject_reposito
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1555,7 +1555,7 @@ fn g_interface_info_get_n_signals(implicit w : world, repo : gobject_repository,
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1567,7 +1567,7 @@ fn g_interface_info_get_n_vfuncs(implicit w : world, repo : gobject_repository, 
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1580,7 +1580,7 @@ fn g_interface_info_get_prerequisite(implicit w : world, repo : gobject_reposito
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, n__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1593,7 +1593,7 @@ fn g_interface_info_get_property(implicit w : world, repo : gobject_repository, 
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, n__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1606,7 +1606,7 @@ fn g_interface_info_get_signal(implicit w : world, repo : gobject_repository, in
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, n__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1619,7 +1619,7 @@ fn g_interface_info_get_vfunc(implicit w : world, repo : gobject_repository, inf
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, n__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1646,7 +1646,7 @@ fn g_object_info_find_method(implicit w : world, repo : gobject_repository, info
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, name__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1660,7 +1660,7 @@ fn g_object_info_find_method_using_interfaces(implicit w : world, repo : gobject
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, name__, implementor__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1673,7 +1673,7 @@ fn g_object_info_find_signal(implicit w : world, repo : gobject_repository, info
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, name__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1686,7 +1686,7 @@ fn g_object_info_find_vfunc(implicit w : world, repo : gobject_repository, info_
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, name__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1700,7 +1700,7 @@ fn g_object_info_find_vfunc_using_interfaces(implicit w : world, repo : gobject_
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, name__, implementor__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1712,7 +1712,7 @@ fn g_object_info_get_abstract(implicit w : world, repo : gobject_repository, inf
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1724,7 +1724,7 @@ fn g_object_info_get_class_struct(implicit w : world, repo : gobject_repository,
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1737,7 +1737,7 @@ fn g_object_info_get_constant(implicit w : world, repo : gobject_repository, inf
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, n__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1750,7 +1750,7 @@ fn g_object_info_get_field(implicit w : world, repo : gobject_repository, info_ 
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, n__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1762,7 +1762,7 @@ fn g_object_info_get_final(implicit w : world, repo : gobject_repository, info_ 
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1774,7 +1774,7 @@ fn g_object_info_get_fundamental(implicit w : world, repo : gobject_repository, 
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1786,7 +1786,7 @@ fn g_object_info_get_get_value_function(implicit w : world, repo : gobject_repos
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ : bytes; if r = 0 then r_ := ""; else r_ := ffi_peek_zstring(r);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1799,7 +1799,7 @@ fn g_object_info_get_interface(implicit w : world, repo : gobject_repository, in
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, n__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1812,7 +1812,7 @@ fn g_object_info_get_method(implicit w : world, repo : gobject_repository, info_
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, n__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1824,7 +1824,7 @@ fn g_object_info_get_n_constants(implicit w : world, repo : gobject_repository, 
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1836,7 +1836,7 @@ fn g_object_info_get_n_fields(implicit w : world, repo : gobject_repository, inf
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1848,7 +1848,7 @@ fn g_object_info_get_n_interfaces(implicit w : world, repo : gobject_repository,
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1860,7 +1860,7 @@ fn g_object_info_get_n_methods(implicit w : world, repo : gobject_repository, in
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1872,7 +1872,7 @@ fn g_object_info_get_n_properties(implicit w : world, repo : gobject_repository,
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1884,7 +1884,7 @@ fn g_object_info_get_n_signals(implicit w : world, repo : gobject_repository, in
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1896,7 +1896,7 @@ fn g_object_info_get_n_vfuncs(implicit w : world, repo : gobject_repository, inf
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1908,7 +1908,7 @@ fn g_object_info_get_parent(implicit w : world, repo : gobject_repository, info_
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1921,7 +1921,7 @@ fn g_object_info_get_property(implicit w : world, repo : gobject_repository, inf
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, n__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1933,7 +1933,7 @@ fn g_object_info_get_ref_function(implicit w : world, repo : gobject_repository,
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ : bytes; if r = 0 then r_ := ""; else r_ := ffi_peek_zstring(r);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1945,7 +1945,7 @@ fn g_object_info_get_set_value_function(implicit w : world, repo : gobject_repos
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ : bytes; if r = 0 then r_ := ""; else r_ := ffi_peek_zstring(r);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1958,7 +1958,7 @@ fn g_object_info_get_signal(implicit w : world, repo : gobject_repository, info_
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, n__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -1970,7 +1970,7 @@ fn g_object_info_get_type_init(implicit w : world, repo : gobject_repository, in
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := ffi_peek_zstring(r);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1982,7 +1982,7 @@ fn g_object_info_get_type_name(implicit w : world, repo : gobject_repository, in
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := ffi_peek_zstring(r);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -1994,7 +1994,7 @@ fn g_object_info_get_unref_function(implicit w : world, repo : gobject_repositor
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ : bytes; if r = 0 then r_ := ""; else r_ := ffi_peek_zstring(r);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2007,7 +2007,7 @@ fn g_object_info_get_vfunc(implicit w : world, repo : gobject_repository, info_ 
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, n__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -2019,7 +2019,7 @@ fn g_property_info_get_flags(implicit w : world, repo : gobject_repository, info
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2031,7 +2031,7 @@ fn g_property_info_get_getter(implicit w : world, repo : gobject_repository, inf
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -2043,7 +2043,7 @@ fn g_property_info_get_ownership_transfer(implicit w : world, repo : gobject_rep
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2055,7 +2055,7 @@ fn g_property_info_get_setter(implicit w : world, repo : gobject_repository, inf
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -2067,7 +2067,7 @@ fn g_property_info_get_type(implicit w : world, repo : gobject_repository, info_
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -2079,7 +2079,7 @@ fn g_registered_type_info_get_g_type(implicit w : world, repo : gobject_reposito
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2091,7 +2091,7 @@ fn g_registered_type_info_get_type_init(implicit w : world, repo : gobject_repos
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := ffi_peek_zstring(r);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2103,7 +2103,7 @@ fn g_registered_type_info_get_type_name(implicit w : world, repo : gobject_repos
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := ffi_peek_zstring(r);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2115,7 +2115,7 @@ fn g_signal_info_get_class_closure(implicit w : world, repo : gobject_repository
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -2127,7 +2127,7 @@ fn g_signal_info_get_flags(implicit w : world, repo : gobject_repository, info_ 
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2139,7 +2139,7 @@ fn g_signal_info_true_stops_emit(implicit w : world, repo : gobject_repository, 
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2152,7 +2152,7 @@ fn g_struct_info_find_field(implicit w : world, repo : gobject_repository, info_
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, name__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -2165,7 +2165,7 @@ fn g_struct_info_find_method(implicit w : world, repo : gobject_repository, info
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, name__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -2177,7 +2177,7 @@ fn g_struct_info_get_alignment(implicit w : world, repo : gobject_repository, in
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2190,7 +2190,7 @@ fn g_struct_info_get_field(implicit w : world, repo : gobject_repository, info_ 
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, n__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -2203,7 +2203,7 @@ fn g_struct_info_get_method(implicit w : world, repo : gobject_repository, info_
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, n__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -2215,7 +2215,7 @@ fn g_struct_info_get_n_fields(implicit w : world, repo : gobject_repository, inf
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2227,7 +2227,7 @@ fn g_struct_info_get_n_methods(implicit w : world, repo : gobject_repository, in
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2239,7 +2239,7 @@ fn g_struct_info_get_size(implicit w : world, repo : gobject_repository, info_ :
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2251,7 +2251,7 @@ fn g_struct_info_is_foreign(implicit w : world, repo : gobject_repository, info_
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2263,7 +2263,7 @@ fn g_struct_info_is_gtype_struct(implicit w : world, repo : gobject_repository, 
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2276,8 +2276,8 @@ fn g_type_info_argument_from_hash_pointer(implicit w : world, repo : gobject_rep
 	var arg__ := gobject_ptr(arg_);
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, hash_pointer__, arg__, ]);
 	ffi_destructor_destroy(destr);
-	keep info_;
-	keep arg_;
+	gobject_keep(info_);
+	gobject_keep(arg_);
 ]
 
 fn g_type_info_get_array_fixed_size(implicit w : world, repo : gobject_repository, info_ : gobject) : (world, int)
@@ -2288,7 +2288,7 @@ fn g_type_info_get_array_fixed_size(implicit w : world, repo : gobject_repositor
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2300,7 +2300,7 @@ fn g_type_info_get_array_length(implicit w : world, repo : gobject_repository, i
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2312,7 +2312,7 @@ fn g_type_info_get_array_type(implicit w : world, repo : gobject_repository, inf
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2324,7 +2324,7 @@ fn g_type_info_get_interface(implicit w : world, repo : gobject_repository, info
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -2337,7 +2337,7 @@ fn g_type_info_get_param_type(implicit w : world, repo : gobject_repository, inf
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, n__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -2349,7 +2349,7 @@ fn g_type_info_get_storage_type(implicit w : world, repo : gobject_repository, i
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2361,7 +2361,7 @@ fn g_type_info_get_tag(implicit w : world, repo : gobject_repository, info_ : go
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2374,8 +2374,8 @@ fn g_type_info_hash_pointer_from_argument(implicit w : world, repo : gobject_rep
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, arg__, ]);
 	var r_ := gpointer_from_ptr(r);
 	ffi_destructor_destroy(destr);
-	keep info_;
-	keep arg_;
+	gobject_keep(info_);
+	gobject_keep(arg_);
 	return r_;
 ]
 
@@ -2387,7 +2387,7 @@ fn g_type_info_is_pointer(implicit w : world, repo : gobject_repository, info_ :
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2399,7 +2399,7 @@ fn g_type_info_is_zero_terminated(implicit w : world, repo : gobject_repository,
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2412,7 +2412,7 @@ fn gi_type_tag_argument_from_hash_pointer(implicit w : world, repo : gobject_rep
 	var arg__ := gobject_ptr(arg_);
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ storage_type__, hash_pointer__, arg__, ]);
 	ffi_destructor_destroy(destr);
-	keep arg_;
+	gobject_keep(arg_);
 ]
 
 fn gi_type_tag_hash_pointer_from_argument(implicit w : world, repo : gobject_repository, storage_type_ : int, arg_ : gobject) : (world, gpointer)
@@ -2424,7 +2424,7 @@ fn gi_type_tag_hash_pointer_from_argument(implicit w : world, repo : gobject_rep
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ storage_type__, arg__, ]);
 	var r_ := gpointer_from_ptr(r);
 	ffi_destructor_destroy(destr);
-	keep arg_;
+	gobject_keep(arg_);
 	return r_;
 ]
 
@@ -2448,7 +2448,7 @@ fn g_union_info_find_method(implicit w : world, repo : gobject_repository, info_
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, name__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -2460,7 +2460,7 @@ fn g_union_info_get_alignment(implicit w : world, repo : gobject_repository, inf
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2473,7 +2473,7 @@ fn g_union_info_get_discriminator(implicit w : world, repo : gobject_repository,
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, n__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -2485,7 +2485,7 @@ fn g_union_info_get_discriminator_offset(implicit w : world, repo : gobject_repo
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2497,7 +2497,7 @@ fn g_union_info_get_discriminator_type(implicit w : world, repo : gobject_reposi
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -2510,7 +2510,7 @@ fn g_union_info_get_field(implicit w : world, repo : gobject_repository, info_ :
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, n__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -2523,7 +2523,7 @@ fn g_union_info_get_method(implicit w : world, repo : gobject_repository, info_ 
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, n__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -2535,7 +2535,7 @@ fn g_union_info_get_n_fields(implicit w : world, repo : gobject_repository, info
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2547,7 +2547,7 @@ fn g_union_info_get_n_methods(implicit w : world, repo : gobject_repository, inf
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2559,7 +2559,7 @@ fn g_union_info_get_size(implicit w : world, repo : gobject_repository, info_ : 
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2571,7 +2571,7 @@ fn g_union_info_is_discriminated(implicit w : world, repo : gobject_repository, 
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r <> 0;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2583,7 +2583,7 @@ fn g_value_info_get_value(implicit w : world, repo : gobject_repository, info_ :
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2597,7 +2597,7 @@ fn g_vfunc_info_get_address(implicit w : world, repo : gobject_repository, info_
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, implementor_gtype__, gerror__, ]);
 	var r_ := gpointer_from_ptr(r);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2609,7 +2609,7 @@ fn g_vfunc_info_get_flags(implicit w : world, repo : gobject_repository, info_ :
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2621,7 +2621,7 @@ fn g_vfunc_info_get_invoker(implicit w : world, repo : gobject_repository, info_
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
@@ -2633,7 +2633,7 @@ fn g_vfunc_info_get_offset(implicit w : world, repo : gobject_repository, info_ 
 	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ info__, ]);
 	var r_ := r;
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r_;
 ]
 
@@ -2645,7 +2645,7 @@ fn g_vfunc_info_get_signal(implicit w : world, repo : gobject_repository, info_ 
 	fn unref~cache := ffi_function_create_multiple(girepository_libs, "g_base_info_unref", 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
 	var r := gobject_init_with_unref(repo, function, list(int).[ info__, ], unref);
 	ffi_destructor_destroy(destr);
-	keep info_;
+	gobject_keep(info_);
 	return r;
 ]
 
