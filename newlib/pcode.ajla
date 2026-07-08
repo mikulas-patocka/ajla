@@ -232,8 +232,9 @@ const Call_Mode_Save := 8;
 const Call_Mode_Flat := 9;
 
 const FID_Flag_Program_Unit := 1;
-const FID_Flag_Specialize := 2;
-const FID_Flag_Path_Index := 4;
+const FID_Flag_Unit_Generator := 2;
+const FID_Flag_Specialize := 4;
+const FID_Flag_Path_Index := 8;
 
 const SystemProperty_OS := 1;
 const SystemProperty_Charset := 2;
@@ -785,8 +786,9 @@ fn name_to_value~cache : list(int)
 	a[#21E1D9B2FCDDF932DF8DB30F4] := 9;					// Call_Mode_Flat
 
 	a[#469312FC6D9873DFA1CB7E7E5876DFABBB4F4] := 1;				// FID_Flag_Program_Unit
-	a[#11A4C4BF1B661CF7E9F0CB8F4E1D9A7D65] := 2;				// FID_Flag_Specialize
-	a[#11A4C4BF1B661CF7E861E9A2FC9DD932F8] := 4;				// FID_Flag_Path_Index
+	a[#11A4C4BF1B661CF7EAEED3D2FC7CBBB2F2C3D37F2] := 2;			// FID_Flag_Unit_Generator
+	a[#11A4C4BF1B661CF7E9F0CB8F4E1D9A7D65] := 4;				// FID_Flag_Specialize
+	a[#11A4C4BF1B661CF7E861E9A2FC9DD932F8] := 8;				// FID_Flag_Path_Index
 
 	a[#53F3CFA65DB4396FE197974F37E7D3] := 1;				// SystemProperty_OS
 	a[#29F9E7D32EDA1CB7F0CBCBA79BF0F461E5CF2F4] := 2;			// SystemProperty_Charset

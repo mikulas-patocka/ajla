@@ -195,6 +195,7 @@ record function_dictionary [
 	priv : bool;
 	modules : list(function_dictionary);
 	modules_map : list(int);
+	unit_generator : bool;
 	mostly_unused : bool;
 ]
 
@@ -418,6 +419,7 @@ fn new_function_dictionary(path_index : nat, unit_string : istring, program : bo
 		priv : false,
 		modules : empty(function_dictionary),
 		modules_map : infinite_uninitialized(int),
+		unit_generator : false,
 		mostly_unused : false,
 	];
 ]

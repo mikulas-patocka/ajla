@@ -1,5 +1,5 @@
 {*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -29,6 +29,7 @@ option token_opt [
 	string : bytes;
 	unicode : bytes;
 	k_unit;
+	k_generator;
 	k_implementation;
 	k_uses;
 	k_fn;
@@ -170,6 +171,7 @@ fn token_opt_to_string(t : token_opt, us : bool) : bytes
 		stri := t.unicode;
 	]
 	else if t is k_unit then str := "unit";
+	else if t is k_generator then str := "generator";
 	else if t is k_implementation then str := "implementation";
 	else if t is k_uses then str := "uses";
 	else if t is k_fn then str := "fn";
@@ -303,6 +305,7 @@ fn get_kwmap~cache : list(token_opt)
 [
 	var result := infinite_uninitialized(token_opt);
 	result[i_encode("unit")] := token_opt.k_unit;
+	result[i_encode("generator")] := token_opt.k_generator;
 	result[i_encode("implementation")] := token_opt.k_implementation;
 	result[i_encode("uses")] := token_opt.k_uses;
 	result[i_encode("fn")] := token_opt.k_fn;
