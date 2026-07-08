@@ -168,7 +168,7 @@ next_flag:
 				for i := 0 to len(post_hints) do [
 					if post_hints[i] = "spec" then [
 						ctx.variables[v].specialize := true;
-						ctx.id.flags or= FID_Flag_Specialize;
+						ctx.id.fid_flags or= FID_Flag_Specialize;
 						break;
 					]
 				]
@@ -1172,12 +1172,12 @@ next_flag:
 	return dict, t1[f + 1 .. ];
 ]
 
-fn parse_tokens(w : world, d : list(bytes), t : tokens, name : bytes, program : bool, parse_interface : bool, prereq len_greater_than(d, 0)) : function_dictionary
+fn parse_tokens(w : world, d : list(bytes), t : tokens, name : bytes, fid_flags : uint8, parse_interface : bool, prereq len_greater_than(d, 0)) : function_dictionary
 [
 	var path_index := len(d) - 1;
-	var dict := new_function_dictionary(path_index, i_encode(name), program);
+	var dict := new_function_dictionary(path_index, i_encode(name), fid_flags);
 
-	if program then [
+	if fid_flags bt bsf FID_Flag_Program_Unit then [
 		t := tokenize("unit """"; uses io, treemap; fn main(implicit w : world, d : dhandle, h : list(handle), args : list(bytes), env : treemap(bytes, bytes), prereq len(h) >= 3) : world; implementation", name) + t;
 	]
 
@@ -1219,7 +1219,7 @@ next_unit_flag:
 }
 
 	var name_pos : int;
-	if not program then [
+	if not fid_flags bt bsf FID_Flag_Program_Unit then [
 		name_pos := len(name) - len(file_name);
 		if name_pos < 0 then [
 			abort compiler_error("Unit name doesn't match file name", unit_tokens);
@@ -1319,7 +1319,7 @@ fn parse_file~cache(w : world, d : list(bytes), name : bytes, fid_flags : uint8,
 			rl := rl[n .. ];
 	]
 	var t := tokenize(rl, name);
-	var dict := parse_tokens(w, d, t, name, fid_flags bt bsf FID_Flag_Program_Unit, parse_interface);
+	var dict := parse_tokens(w, d, t, name, fid_flags, parse_interface);
 
 	if dict.unit_generator then [
 		// !!! FIXME

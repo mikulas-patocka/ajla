@@ -64,13 +64,13 @@ type local_type := list(pcode_t);
 record module_unique_id [
 	path_index : nat;
 	unit_string : istring;
-	program : bool;
+	fid_flags : uint8;
 ]
 
 record function_unique_id [
 	path_index : int;
 	unit_string : istring;
-	flags : int;
+	fid_flags : uint8;
 	function_index : list(int);
 ]
 
@@ -229,7 +229,7 @@ fn search_break(vd : variable_dictionary) : int;
 fn search_continue(vd : variable_dictionary) : int;
 fn get_implicit_variables(vd : variable_dictionary) : list(int);
 
-fn new_function_dictionary(path_index : nat, unit_string : istring, program : bool) : function_dictionary;
+fn new_function_dictionary(path_index : nat, unit_string : istring, fid_flags : uint8) : function_dictionary;
 fn new_function_context(dict : function_dictionary, parent_function : maybe(function_context), n_arguments n_return_values : nat, name : istring) : function_context;
 fn function_context_is_privileged(ctx : function_context) : bool;
 fn function_context_clear_temp_values(ctx : function_context) : function_context;
@@ -253,7 +253,7 @@ fn function_unique_id_equal(x1 x2 : function_unique_id) : bool
 [
 	return	x1.path_index = x2.path_index and
 		x1.unit_string = x2.unit_string and
-		x1.flags = x2.flags and
+		x1.fid_flags = x2.fid_flags and
 		x1.function_index = x2.function_index;
 ]
 
@@ -402,7 +402,7 @@ fn get_implicit_variables(vd : variable_dictionary) : list(int)
 	return lst;
 ]
 
-fn new_function_dictionary(path_index : nat, unit_string : istring, program : bool) : function_dictionary
+fn new_function_dictionary(path_index : nat, unit_string : istring, fid_flags : uint8) : function_dictionary
 [
 	return function_dictionary.[
 		defs : empty(function_definition),
@@ -411,7 +411,7 @@ fn new_function_dictionary(path_index : nat, unit_string : istring, program : bo
 		id : module_unique_id.[
 			path_index : path_index,
 			unit_string : unit_string,
-			program : program,
+			fid_flags : fid_flags and (FID_Flag_Program_Unit or FID_Flag_Unit_Generator),
 		],
 		impl : empty(int),
 		conv : empty(int),
@@ -434,7 +434,7 @@ fn new_function_context(dict : function_dictionary, parent_function : maybe(func
 	var id := function_unique_id.[
 		path_index : dict.id.path_index,
 		unit_string : dict.id.unit_string,
-		flags : select(dict.id.program, 0, FID_Flag_Program_Unit),
+		fid_flags : dict.id.fid_flags,
 		function_index : function_index,
 	];
 
@@ -620,7 +620,7 @@ fn search_function(ctx : function_context, name : istring, t : tokens) : functio
 fn search_function_from_id(ctx : function_context, id : function_unique_id) : function_definition
 [
 	var fd : function_definition;
-	if ctx.dict.id.path_index = id.path_index, ctx.dict.id.unit_string = id.unit_string, ctx.dict.id.program = id.flags bt bsf FID_Flag_Program_Unit then [
+	if ctx.dict.id.path_index = id.path_index, ctx.dict.id.unit_string = id.unit_string, ctx.dict.id.fid_flags = id.fid_flags then [
 		fd := ctx.dict.defs[id.function_index[0]];
 	] else [
 		var m_id := encode_module_id(id.path_index, id.unit_string);

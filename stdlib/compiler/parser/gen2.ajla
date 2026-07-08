@@ -145,7 +145,7 @@ fn variable_is_suitable_for_gvn(ctx : function_context, v : int) : bool
 
 fn generate_function_id(id : function_unique_id) : list(pcode_t)
 [
-	var result := list(pcode_t).[ (id.path_index shl bsf FID_Flag_Path_Index) or id.flags ];
+	var result := list(pcode_t).[ (id.path_index shl bsf FID_Flag_Path_Index) or id.fid_flags ];
 	result += blob_store(i_decode(id.unit_string));
 	result +<= len(id.function_index);
 	for i := 0 to len(id.function_index) do
@@ -163,7 +163,7 @@ fn decode_function_id(p : list(pcode_t)) : function_unique_id
 		fi[i] := p[1 + bl + 1 + i];
 	var fui := function_unique_id.[
 		path_index : p[0] shr bsf FID_Flag_Path_Index,
-		flags : p[0] and FID_Flag_Path_Index - 1,
+		fid_flags : p[0] and FID_Flag_Path_Index - 1,
 		unit_string : i_encode(blob_load(p[1 .. ])),
 		function_index : fi,
 	];
@@ -808,7 +808,7 @@ fn generate_Value(ctx : function_context, typ : int) : (function_context, int)
 
 fn generate_std(ctx : function_context, index : int) : (function_context, int)
 [
-	var f_id := function_unique_id.[ path_index : 0, unit_string : i_encode("system"), flags : 0, function_index : [ index ] ];
+	var f_id := function_unique_id.[ path_index : 0, unit_string : i_encode("system"), fid_flags : 0, function_index : [ index ] ];
 	var fd := search_function_from_id(ctx, f_id);
 
 	var q : list(int);

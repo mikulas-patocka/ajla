@@ -497,7 +497,7 @@ restart:
 		if ctx.parsing_header,
 		   body.id.path_index = ctx.id.path_index,
 		   body.id.unit_string = ctx.id.unit_string,
-		   body.id.flags = ctx.id.flags,
+		   body.id.fid_flags = ctx.id.fid_flags,
 		   body.def_offset >= ctx.id.function_index[0] then [
 			//eval debug("de: " + i_decode(ctx.name) + ": " + ntos(body.def_offset) + ", " + ntos(ctx.id.function_index[0]));
 			return cc, typ;
@@ -1938,7 +1938,7 @@ fn get_list_id : function_unique_id
 	return function_unique_id.[
 		path_index : 0,
 		unit_string : i_encode("system"),
-		flags : 0,
+		fid_flags : 0,
 		function_index : [ predefined_list ],
 	];
 ]
