@@ -23,10 +23,11 @@ struct module_designator {
 	size_t path_len;
 	unsigned path_idx;
 	bool program;
+	bool generator;
 	uint8_t path[FLEXIBLE_ARRAY];
 };
 
-struct module_designator *module_designator_alloc(unsigned path_idx, const uint8_t *path, size_t path_len, bool program, ajla_error_t *mayfail);
+struct module_designator *module_designator_alloc(unsigned path_idx, const uint8_t *path, size_t path_len, bool program, bool generator, ajla_error_t *mayfail);
 void module_designator_free(struct module_designator *md);
 size_t module_designator_length(const struct module_designator *md);
 int module_designator_compare(const struct module_designator *md1, const struct module_designator *md2);

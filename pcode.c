@@ -1358,7 +1358,7 @@ static size_t pcode_load_explicit(struct build_function_context *ctx, const char
 	pointer_t *ptr;
 	size_t fn_idx;
 
-	md = module_designator_alloc(0, cast_ptr(const uint8_t *, module), strlen(module), false, ctx->err);
+	md = module_designator_alloc(0, cast_ptr(const uint8_t *, module), strlen(module), false, false, ctx->err);
 	if (unlikely(!md))
 		goto exception;
 	fd = function_designator_alloc_single(fn, ctx->err);

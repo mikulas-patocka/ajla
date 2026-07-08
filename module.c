@@ -253,6 +253,7 @@ static struct module *module_find(const struct module_designator *md, bool creat
 	m->md.path_len = md->path_len;
 	m->md.path_idx = md->path_idx;
 	m->md.program = md->program;
+	m->md.generator = md->generator;
 	memcpy(m->md.path, md->path, md->path_len);
 
 	tree_init(&m->functions);
@@ -373,14 +374,14 @@ void name(module_init)(void)
 
 
 	n = "start";
-	md = module_designator_alloc(0, cast_ptr(const uint8_t *, n), strlen(n), false, NULL);
+	md = module_designator_alloc(0, cast_ptr(const uint8_t *, n), strlen(n), false, false, NULL);
 	fd = function_designator_alloc_single(0, NULL);
 	start_fn = module_load_function(md, fd, true, true, NULL);
 	function_designator_free(fd);
 	module_designator_free(md);
 
 	n = "compiler/compiler";
-	md = module_designator_alloc(0, cast_ptr(const uint8_t *, n), strlen(n), false, NULL);
+	md = module_designator_alloc(0, cast_ptr(const uint8_t *, n), strlen(n), false, false, NULL);
 	fd = function_designator_alloc_single(0, NULL);
 	optimizer_fn = module_load_function(md, fd, true, true, NULL);
 	function_designator_free(fd);

@@ -4454,7 +4454,7 @@ static void * attr_fastcall io_load_program_handler(struct io_ctx *ctx)
 		path_idx += !lib_path[i];
 	path_idx--;
 
-	md = module_designator_alloc(path_idx, cast_ptr(const uint8_t *, ctx->str), ctx->str_l, true, &ctx->err);
+	md = module_designator_alloc(path_idx, cast_ptr(const uint8_t *, ctx->str), ctx->str_l, true, false, &ctx->err);
 	mem_free(ctx->str);
 
 	if (unlikely(!md))
@@ -4568,7 +4568,7 @@ static void * attr_fastcall io_load_optimized_pcode_handler(struct io_ctx *ctx)
 	io_get_bytes2(ctx, get_input(ctx, 3));
 	io_get_option(ctx, get_input(ctx, 4), &optimized, NULL);
 
-	md = module_designator_alloc(path_idx, cast_ptr(uint8_t *, ctx->str), ctx->str_l - 1, program, &ctx->err);
+	md = module_designator_alloc(path_idx, cast_ptr(uint8_t *, ctx->str), ctx->str_l - 1, program, false /* !!! FIXME */, &ctx->err);
 	if (unlikely(!md)) {
 		io_terminate_with_error(ctx, ctx->err, true, NULL);
 		test = POINTER_FOLLOW_THUNK_EXCEPTION;

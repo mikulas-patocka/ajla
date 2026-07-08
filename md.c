@@ -23,7 +23,7 @@
 
 #include "md.h"
 
-struct module_designator *module_designator_alloc(unsigned path_idx, const uint8_t *path, size_t path_len, bool program, ajla_error_t *mayfail)
+struct module_designator *module_designator_alloc(unsigned path_idx, const uint8_t *path, size_t path_len, bool program, bool generator, ajla_error_t *mayfail)
 {
 	struct module_designator *md = struct_alloc_array_mayfail(mem_alloc_mayfail, struct module_designator, path, path_len, mayfail);
 	if (unlikely(!md))
@@ -31,6 +31,7 @@ struct module_designator *module_designator_alloc(unsigned path_idx, const uint8
 	md->path_idx = path_idx;
 	md->path_len = path_len;
 	md->program = program;
+	md->generator = generator;
 	memcpy(md->path, path, path_len);
 	return md;
 }
@@ -53,6 +54,8 @@ int module_designator_compare(const struct module_designator *md1, const struct 
 		return 1;
 	if (md1->program != md2->program)
 		return md1->program - md2->program;
+	if (md1->generator != md2->generator)
+		return md1->generator - md2->generator;
 	if (md1->path_len < md2->path_len)
 		return -1;
 	if (md1->path_len > md2->path_len)
@@ -167,6 +170,7 @@ bool pcode_load_module_and_function_designator(const pcode_t **pc, struct module
 {
 	unsigned path_idx;
 	bool program;
+	bool generator;
 	pcode_t q;
 	uint8_t *blob = NULL;
 	size_t l;
@@ -179,11 +183,12 @@ bool pcode_load_module_and_function_designator(const pcode_t **pc, struct module
 	if (unlikely(q != (pcode_t)path_idx))
 		goto exception_overflow;
 	program = !!(path_idx & FID_Flag_Program_Unit);
+	generator = !!(path_idx & FID_Flag_Unit_Generator);
 	path_idx /= FID_Flag_Path_Index;
 	if (unlikely(!pcode_load_blob(pc, &blob, &l, err)))
 		goto exception;
 
-	*md = module_designator_alloc(path_idx, blob, l, program, err);
+	*md = module_designator_alloc(path_idx, blob, l, program, generator, err);
 	if (unlikely(!*md))
 		goto exception;
 
@@ -249,7 +254,7 @@ pcode_t *pcode_store_module_and_function_designator(struct module_designator *md
 	if (unlikely(!array_init_mayfail(pcode_t, &pc, &l, err)))
 		return NULL;
 
-	val = (md->path_idx << 1) + md->program;
+	val = md->path_idx * FID_Flag_Path_Index + md->program * FID_Flag_Program_Unit + md->generator * FID_Flag_Unit_Generator;
 	if (unlikely(!array_add_mayfail(pcode_t, &pc, &l, val, NULL, err)))
 		return NULL;
 
