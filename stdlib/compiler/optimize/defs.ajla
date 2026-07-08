@@ -148,7 +148,7 @@ fn new_variable : variable
 record function [
 	path_idx : int;
 	un : bytes;
-	flags : pcode_t;
+	flags : uint8;
 	fn_idx : list(int);
 	spec_data : list(pcode_t);
 ]

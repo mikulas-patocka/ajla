@@ -21,16 +21,16 @@ unit compiler.parser.unit;
 uses io;
 uses compiler.parser.dict;
 
-private fn compile_module_2(w : world, d : list(bytes), file : bytes, program : bool, prereq len_greater_than(d, 0)) : (list(list(pcode_t)), list(module_unique_id));
+private fn compile_module_2(w : world, d : list(bytes), file : bytes, fid_flags : uint8, prereq len_greater_than(d, 0)) : (list(list(pcode_t)), list(module_unique_id));
 
 implementation
 
 uses compiler.parser.parser;
 uses compiler.parser.export;
 
-fn compile_module_2(w : world, d : list(bytes), file : bytes, program : bool, prereq len_greater_than(d, 0)) : (list(list(pcode_t)), list(module_unique_id))
+fn compile_module_2(w : world, d : list(bytes), file : bytes, fid_flags : uint8, prereq len_greater_than(d, 0)) : (list(list(pcode_t)), list(module_unique_id))
 [
-	var dict := parse_file(w, d, file, program, false);
+	var dict := parse_file(w, d, file, fid_flags, false);
 
 	var m := empty(module_unique_id);
 	for i := 0 to len(dict.modules) do [

@@ -78,11 +78,11 @@ fn get_sub~spark(f : uint64) : list(uint64)
 	return sub_f;
 ]
 
-fn extract_modules(path_idx : nat, file : bytes, program : bool) : list(tuple2(nat, istring))
+fn extract_modules(path_idx : nat, file : bytes, fid_flags : uint8) : list(tuple2(nat, istring))
 [
 	//eval debug("preparsing: " + file);
 	var opt := empty(list(pcode_t));
-	var pcl, modules := compile_module~save(libpath, path_idx, file, program);
+	var pcl, modules := compile_module~save(libpath, path_idx, file, fid_flags);
 	pcode IO IO_Deep_Eval 1 1 0 =pcl pcl;
 	xeval pcl;
 	var r := empty(tuple2(nat, istring));
@@ -102,7 +102,7 @@ fn preparse(w : world, file : bytes) : world
 			idx += 1;
 	if idx < 1 then
 		abort internal("empty libpath");
-	var queue := [ extract_modules~spark(idx - 1, file, true) ];
+	var queue := [ extract_modules~spark(idx - 1, file, FID_Flag_Program_Unit) ];
 	var mod_visited := treeset_from_list([ mktuple2(nat, istring, 1, i_encode(file)) ]);
 	while len_greater_than(queue, 0) do [
 		var idx := any_list(queue);
@@ -112,7 +112,7 @@ fn preparse(w : world, file : bytes) : world
 			var t := m[i];
 			if not treeset_test(mod_visited, t) then [
 				mod_visited := treeset_set(mod_visited, t);
-				var ml := extract_modules~spark(t.v1, i_decode(t.v2), false);
+				var ml := extract_modules~spark(t.v1, i_decode(t.v2), 0);
 				queue +<= ml;
 			]
 		]

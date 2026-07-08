@@ -22,7 +22,7 @@ uses compiler.parser.token;
 uses compiler.parser.dict;
 
 fn parse_lambda_function(ctx : function_context, parent_vd : variable_dictionary, t : tokens) : (function_context, list(int));
-fn parse_file~cache(w : world, d : list(bytes), name : bytes, program : bool, parse_interface : bool, prereq len_greater_than(d, 0)) : function_dictionary;
+fn parse_file~cache(w : world, d : list(bytes), name : bytes, fid_flags : uint8, parse_interface : bool, prereq len_greater_than(d, 0)) : function_dictionary;
 
 implementation
 
@@ -969,7 +969,7 @@ fn parse_uses(w : world, d : list(bytes), dict : function_dictionary, t : tokens
 		var xfile := file;
 		if first then
 			xfile := dict.name_prefix + xfile;
-		var new_dict := parse_file(w, d[ .. i + 1], xfile, false, true);
+		var new_dict := parse_file(w, d[ .. i + 1], xfile, 0, true);
 		if is_exception new_dict, exception_class new_dict = ec_syscall then [
 			i -= 1;
 			continue;
@@ -987,7 +987,7 @@ fn parse_uses(w : world, d : list(bytes), dict : function_dictionary, t : tokens
 
 fn parse_system_unit(w : world, d : list(bytes), dict : function_dictionary, prereq len_greater_than(d, 0)) : function_dictionary
 [
-	var new_dict := parse_file(w, d[ .. 1], "system", false, true);
+	var new_dict := parse_file(w, d[ .. 1], "system", 0, true);
 	dict := merge_interfaces(dict, new_dict);
 	return dict;
 ]
@@ -1281,7 +1281,7 @@ next_unit_flag:
 	return dict;
 ]
 
-fn parse_file~cache(w : world, d : list(bytes), name : bytes, program : bool, parse_interface : bool, prereq len_greater_than(d, 0)) : function_dictionary
+fn parse_file~cache(w : world, d : list(bytes), name : bytes, fid_flags : uint8, parse_interface : bool, prereq len_greater_than(d, 0)) : function_dictionary
 [
 	{var tm : int64;
 	w, tm := get_monotonic_time(w);
@@ -1295,7 +1295,7 @@ fn parse_file~cache(w : world, d : list(bytes), name : bytes, program : bool, pa
 	var dir := dopen_lazy(dnone(w), d[idx], 0);
 
 	var file_name := name;
-	if not program then
+	if not fid_flags bt bsf FID_Flag_Program_Unit then
 		file_name += ".ajla";
 
 	if idx > 0 then
@@ -1319,7 +1319,7 @@ fn parse_file~cache(w : world, d : list(bytes), name : bytes, program : bool, pa
 			rl := rl[n .. ];
 	]
 	var t := tokenize(rl, name);
-	var dict := parse_tokens(w, d, t, name, program, parse_interface);
+	var dict := parse_tokens(w, d, t, name, fid_flags bt bsf FID_Flag_Program_Unit, parse_interface);
 
 	if dict.unit_generator then [
 		// !!! FIXME

@@ -4550,7 +4550,8 @@ static void * attr_fastcall io_load_optimized_pcode_handler(struct io_ctx *ctx)
 {
 	void *test;
 	pcode_t path_idx;
-	ajla_option_t program, optimized;
+	uint8_t fid_flags;
+	ajla_option_t optimized;
 	struct module_designator *md = NULL;
 	struct function_designator *fd = NULL;
 	pointer_t *ptr;
@@ -4564,11 +4565,11 @@ static void * attr_fastcall io_load_optimized_pcode_handler(struct io_ctx *ctx)
 
 	io_get_pcode_t(ctx, get_input(ctx, 0), &path_idx);
 	io_get_bytes(ctx, get_input(ctx, 1));
-	io_get_option(ctx, get_input(ctx, 2), &program, NULL);
+	fid_flags = *io_get_flat_pointer(ctx, get_input(ctx, 2));
 	io_get_bytes2(ctx, get_input(ctx, 3));
 	io_get_option(ctx, get_input(ctx, 4), &optimized, NULL);
 
-	md = module_designator_alloc(path_idx, cast_ptr(uint8_t *, ctx->str), ctx->str_l - 1, program, false /* !!! FIXME */, &ctx->err);
+	md = module_designator_alloc(path_idx, cast_ptr(uint8_t *, ctx->str), ctx->str_l - 1, !!(fid_flags & FID_Flag_Program_Unit), !!(fid_flags & FID_Flag_Unit_Generator), &ctx->err);
 	if (unlikely(!md)) {
 		io_terminate_with_error(ctx, ctx->err, true, NULL);
 		test = POINTER_FOLLOW_THUNK_EXCEPTION;

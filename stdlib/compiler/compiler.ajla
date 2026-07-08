@@ -22,10 +22,10 @@ uses compiler.common.evaluate;
 uses compiler.parser.dict;
 uses compiler.optimize.defs;
 
-fn optimize_function(path_idx : nat, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t);
-fn get_unoptimized_function(path_idx : nat, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t);
-fn optimize_specialized_function(path_idx : nat, file : bytes, program : bool, fn_idx : list(int), spec_data : list(pcode_t)) : list(pcode_t);
-fn compile_module(lp : bytes, path_idx : nat, file : bytes, program : bool) : (list(list(pcode_t)), list(module_unique_id));
+fn optimize_function(path_idx : nat, file : bytes, fid_flags : uint8, fn_idx : list(int)) : list(pcode_t);
+fn get_unoptimized_function(path_idx : nat, file : bytes, fid_flags : uint8, fn_idx : list(int)) : list(pcode_t);
+fn optimize_specialized_function(path_idx : nat, file : bytes, fid_flags : uint8, fn_idx : list(int), spec_data : list(pcode_t)) : list(pcode_t);
+fn compile_module(lp : bytes, path_idx : nat, file : bytes, fid_flags : uint8) : (list(list(pcode_t)), list(module_unique_id));
 
 implementation
 
@@ -35,7 +35,7 @@ uses compiler.optimize.utils;
 uses compiler.optimize.ssa;
 uses compiler.optimize.spec;
 
-fn compile_module(lp : bytes, path_idx : nat, file : bytes, program : bool) : (list(list(pcode_t)), list(module_unique_id))
+fn compile_module(lp : bytes, path_idx : nat, file : bytes, fid_flags : uint8) : (list(list(pcode_t)), list(module_unique_id))
 [
 	var w := unsafe_get_world;
 
@@ -43,7 +43,7 @@ fn compile_module(lp : bytes, path_idx : nat, file : bytes, program : bool) : (l
 	if not len_greater_than(d, path_idx) then
 		abort internal("libpath is too short");
 	d := d[ .. path_idx + 1];
-	return compile_module_2(w, d, file, program);
+	return compile_module_2(w, d, file, fid_flags);
 ]
 
 fn get_inline(f : function, optimized : bool) : list(pcode_t)
@@ -56,52 +56,52 @@ fn get_inline(f : function, optimized : bool) : list(pcode_t)
 	pc +<= len(f.spec_data);
 	for i := 0 to len(f.spec_data) do
 		pc +<= f.spec_data[i];
-	return load_optimized_pcode(f.path_idx, f.un, f.flags bt bsf FID_Flag_Program_Unit, pc, optimized);
+	return load_optimized_pcode(f.path_idx, f.un, f.flags, pc, optimized);
 ]
 
-fn optimize_function_saved~save(lp : bytes, path_idx : nat, file : bytes, program : bool, fn_idx : list(int), verify_pattern : bytes) : list(pcode_t)
+fn optimize_function_saved~save(lp : bytes, path_idx : nat, file : bytes, fid_flags : uint8, fn_idx : list(int), verify_pattern : bytes) : list(pcode_t)
 [
-	var pcod, modules := compile_module~save(lp, path_idx, file, program);
+	var pcod, modules := compile_module~save(lp, path_idx, file, fid_flags);
 	var pc := pcod[fn_idx[0]];
 	pc := function_extract_nested(pc, fn_idx);
 	var func := process_pcode(pc, file, get_inline, verify_pattern);
 	return func;
 ]
 
-fn optimize_function(path_idx : nat, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t)
+fn optimize_function(path_idx : nat, file : bytes, fid_flags : uint8, fn_idx : list(int)) : list(pcode_t)
 [
 	var verify_pattern := get_dump("verify");
-	return optimize_function_saved(libpath, path_idx, file, program, fn_idx, verify_pattern);
+	return optimize_function_saved(libpath, path_idx, file, fid_flags, fn_idx, verify_pattern);
 ]
 
-fn get_unoptimized_function(path_idx : nat, file : bytes, program : bool, fn_idx : list(int)) : list(pcode_t)
+fn get_unoptimized_function(path_idx : nat, file : bytes, fid_flags : uint8, fn_idx : list(int)) : list(pcode_t)
 [
-	var pcod, modules := compile_module~save(libpath, path_idx, file, program);
+	var pcod, modules := compile_module~save(libpath, path_idx, file, fid_flags);
 	var pc := pcod[fn_idx[0]];
 	pc := function_extract_nested(pc, fn_idx);
 	return pc;
 ]
 
-fn optimize_specialized_function_saved~save(path_idx : nat, file : bytes, program : bool, fn_idx : list(int), spec_data : list(pcode_t), verify_pattern : bytes) : list(pcode_t)
+fn optimize_specialized_function_saved~save(path_idx : nat, file : bytes, fid_flags : uint8, fn_idx : list(int), spec_data : list(pcode_t), verify_pattern : bytes) : list(pcode_t)
 [
 	var pc : list(pcode_t);
 	if path_idx > 0 then [
-		pc := get_unoptimized_function(path_idx, file, program, fn_idx);
+		pc := get_unoptimized_function(path_idx, file, fid_flags, fn_idx);
 	] else [
 		pc := empty(pcode_t);
 		pc +<= len(fn_idx);
 		for i := 0 to len(fn_idx) do
 			pc +<= fn_idx[i];
 		pc +<= 0;
-		pc := load_optimized_pcode(path_idx, file, program, pc, false);
+		pc := load_optimized_pcode(path_idx, file, fid_flags, pc, false);
 	]
 	var func := spec_pcode(pc, spec_data, file, get_inline, verify_pattern);
 	return func;
 ]
 
-fn optimize_specialized_function(path_idx : nat, file : bytes, program : bool, fn_idx : list(int), spec_data : list(pcode_t)) : list(pcode_t)
+fn optimize_specialized_function(path_idx : nat, file : bytes, fid_flags : uint8, fn_idx : list(int), spec_data : list(pcode_t)) : list(pcode_t)
 [
 	var verify_pattern := get_dump("verify");
-	var func := optimize_specialized_function_saved(path_idx, file, program, fn_idx, spec_data, verify_pattern);
+	var func := optimize_specialized_function_saved(path_idx, file, fid_flags, fn_idx, spec_data, verify_pattern);
 	return func;
 ]

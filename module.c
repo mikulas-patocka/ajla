@@ -65,7 +65,7 @@ static struct module_function *module_find_function(struct module *m, const stru
 static pointer_t module_create_optimizer_reference(struct module *m, struct function_designator *fd, unsigned mode)
 {
 	size_t i;
-	ajla_flat_option_t program;
+	unsigned char fid_flags;
 	int_default_t path_idx;
 	struct data *filename;
 	int_default_t *np;
@@ -75,7 +75,7 @@ static pointer_t module_create_optimizer_reference(struct module *m, struct func
 	struct thunk *result;
 	ajla_error_t err;
 
-	program = m->md.program;
+	fid_flags = m->md.program * FID_Flag_Program_Unit + m->md.generator * FID_Flag_Unit_Generator;
 
 	path_idx = m->md.path_idx;
 	if (path_idx < 0 || (uint_default_t)path_idx != m->md.path_idx) {
@@ -142,7 +142,7 @@ static pointer_t module_create_optimizer_reference(struct module *m, struct func
 
 	data_fill_function_reference_flat(fn_ref, 0, type_get_int(INT_DEFAULT_N), cast_ptr(unsigned char *, &path_idx));
 	data_fill_function_reference(fn_ref, 1, pointer_data(filename));
-	data_fill_function_reference_flat(fn_ref, 2, type_get_flat_option(), cast_ptr(unsigned char *, &program));
+	data_fill_function_reference_flat(fn_ref, 2, type_get_fixed(0, true), &fid_flags);
 	data_fill_function_reference(fn_ref, 3, pointer_data(nesting_path));
 	if (mode == mode_spec)
 		data_fill_function_reference(fn_ref, 4, pointer_data(spec_array));
