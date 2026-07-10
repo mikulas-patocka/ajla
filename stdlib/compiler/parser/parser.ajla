@@ -1172,6 +1172,19 @@ next_flag:
 	return dict, t1[f + 1 .. ];
 ]
 
+fn generate_unit(w : world, path_index : int, name : bytes, params : bytes) : bytes
+[
+	var program := false;
+	var gen := true;
+	var fn_idx := 0;
+	var gen_fn : fn(bytes) : bytes;
+	var w2 : world;
+	pcode IO IO_Load_Function 2 6 0 =w2 =gen_fn w path_index name program gen fn_idx;
+	w := w2;
+	//eval debug("generating " + name + ":" + params + ".");
+	return gen_fn(params);
+]
+
 fn parse_tokens(w : world, d : list(bytes), t : tokens, name : bytes, fid_flags : uint8, parse_interface : bool, prereq len_greater_than(d, 0)) : function_dictionary
 [
 	var path_index := len(d) - 1;
@@ -1247,13 +1260,7 @@ next_unit_flag:
 
 	if gen then [
 		if not fid_flags bt bsf FID_Flag_Unit_Generator then [
-			var program := false;
-			var fn_idx := 0;
-			var gen_fn : fn(bytes) : bytes;
-			var w2 : world;
-			pcode IO IO_Load_Function 2 6 0 =w2 =gen_fn w path_index name program gen fn_idx;
-			w := w2;
-			var generated_bytes := gen_fn(params);
+			var generated_bytes := generate_unit~cache(w, path_index, name, params);
 			t := tokenize(generated_bytes, name);
 		] else [
 			t := tokenize("fn generate(params : bytes) : bytes; implementation", name) + t;
@@ -1341,10 +1348,6 @@ fn parse_file~cache(w : world, d : list(bytes), name : bytes, fid_flags : uint8,
 	]
 	var t := tokenize(rl, name);
 	var dict := parse_tokens(w, d, t, name, fid_flags, parse_interface);
-
-	if dict.unit_generator then [
-		// !!! FIXME
-	]
 
 	{w, tm := get_monotonic_time(w);
 	var td2 : decimal(6) := tm;
