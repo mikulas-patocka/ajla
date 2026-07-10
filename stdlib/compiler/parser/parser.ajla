@@ -914,7 +914,7 @@ add_variable_2:
 	goto again;
 ]
 
-fn parse_unit_name(unit_tokens : tokens) : (bytes, bytes)
+fn parse_unit_name(unit_tokens : tokens) : bytes
 [
 	var file_name := "";
 
@@ -932,7 +932,7 @@ invalid:
 		if file_name[i] = ':' then [
 			if i = 0 then
 				goto invalid;
-			return file_name[ .. i], file_name[i .. ];
+			return file_name;
 		]
 		if path_is_separator(file_name[i]) then
 			goto invalid;
@@ -945,7 +945,7 @@ invalid:
 		]
 	]
 
-	return file_name, "";
+	return file_name;
 ]
 
 fn merge_interfaces(dict new_dict : function_dictionary) : function_dictionary
@@ -962,7 +962,7 @@ fn merge_interfaces(dict new_dict : function_dictionary) : function_dictionary
 
 fn parse_uses(w : world, d : list(bytes), dict : function_dictionary, t : tokens, prereq len_greater_than(d, 0)) : function_dictionary
 [
-	var file, params := parse_unit_name(t);
+	var file := parse_unit_name(t);
 	var i : int := len(d) - 1;
 	while i >= 0, invariant i < len(d) do [
 		var first := i = len(d) - 1;
@@ -1206,9 +1206,7 @@ next_unit_flag:
 		dict.mostly_unused := true;
 	var unit_tokens := t[1 .. sc];
 
-	var file_name, file_params := parse_unit_name(unit_tokens);
-	if len_greater_than(file_params, 0) then
-		abort compiler_error("invalid unit name", unit_tokens);
+	var file_name := parse_unit_name(unit_tokens);
 
 {
 	if parse_interface then
@@ -1218,15 +1216,24 @@ next_unit_flag:
 }
 
 	var name_pos : int;
+	var params := "";
 	if not fid_flags bt bsf FID_Flag_Program_Unit then [
-		name_pos := len(name) - len(file_name);
+		var xname := name;
+		var colon := list_search(xname, ':');
+		if colon >= 0 then [
+			if not gen then
+				abort compiler_error("Parameters may only be used on unit generators", unit_tokens);
+			params := xname[colon + 1 .. ];
+			xname := xname[ .. colon];
+		]
+		name_pos := len(xname) - len(file_name);
 		if name_pos < 0 then [
 			abort compiler_error("Unit name doesn't match file name", unit_tokens);
 		]
-		if name_pos > 0, not path_is_separator(name[name_pos - 1]) then [
+		if name_pos > 0, not path_is_separator(xname[name_pos - 1]) then [
 			abort compiler_error("Unit name doesn't match file name", unit_tokens);
 		]
-		if name[name_pos .. ] <> file_name then [
+		if xname[name_pos .. ] <> file_name then [
 			abort compiler_error("Unit name doesn't match file name", unit_tokens);
 		]
 	] else [
@@ -1246,7 +1253,7 @@ next_unit_flag:
 			var w2 : world;
 			pcode IO IO_Load_Function 2 6 0 =w2 =gen_fn w path_index name program gen fn_idx;
 			w := w2;
-			var generated_bytes := gen_fn("");
+			var generated_bytes := gen_fn(params);
 			t := tokenize(generated_bytes, name);
 		] else [
 			t := tokenize("fn generate(params : bytes) : bytes; implementation", name) + t;
@@ -1305,8 +1312,12 @@ fn parse_file~cache(w : world, d : list(bytes), name : bytes, fid_flags : uint8,
 	var dir := dopen_lazy(dnone(w), d[idx], 0);
 
 	var file_name := name;
-	if not fid_flags bt bsf FID_Flag_Program_Unit then
+	if not fid_flags bt bsf FID_Flag_Program_Unit then [
+		var colon := list_search(file_name, ':');
+		if colon >= 0 then
+			file_name := file_name[ .. colon];
 		file_name += ".ajla";
+	]
 
 	if idx > 0 then
 		xeval register_dependence(w, dir, file_name);
