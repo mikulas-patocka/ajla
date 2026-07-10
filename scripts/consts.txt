@@ -366,7 +366,7 @@ IO_Signal_Handle
 IO_Signal_Prepare
 IO_Signal_Wait
 IO_Consume_Parameters
-IO_Load_Program
+IO_Load_Function
 IO_Get_Function_Ptr
 IO_Get_SubFunctions
 IO_Load_Optimized_Pcode

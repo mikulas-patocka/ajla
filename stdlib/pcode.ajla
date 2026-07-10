@@ -342,7 +342,7 @@ const IO_Signal_Handle := 80;
 const IO_Signal_Prepare := 81;
 const IO_Signal_Wait := 82;
 const IO_Consume_Parameters := 83;
-const IO_Load_Program := 84;
+const IO_Load_Function := 84;
 const IO_Get_Function_Ptr := 85;
 const IO_Get_SubFunctions := 86;
 const IO_Load_Optimized_Pcode := 87;
@@ -896,7 +896,7 @@ fn name_to_value~cache : list(int)
 	a[#499F7E9E9CFBB0ECBF43965E187965] := 81;				// IO_Signal_Prepare
 	a[#24CFBF4F4E7DD8765FAF874F4] := 82;					// IO_Signal_Wait
 	a[#499F7E1EFDDCFAEDCB7E861E5876E5E997973] := 83;			// IO_Consume_Parameters
-	a[#1267DF99BF0E4BF4396FCFCB0ED] := 84;					// IO_Load_Program
+	a[#933EFCCDF8725F8DD7763E9A77EE] := 84;					// IO_Load_Function
 	a[#1267DF8F97A5F8DD7763E9A77EEBF43A72] := 85;				// IO_Get_Function_Ptr
 	a[#1267DF8F97A5FA7D7146EBBB1F4D3BF773] := 86;				// IO_Get_SubFunctions
 	a[#1267DF99BF0E4BF3F874D3B74FACB92FD0C7BF265] := 87;			// IO_Load_Optimized_Pcode

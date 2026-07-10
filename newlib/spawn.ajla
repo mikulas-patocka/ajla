@@ -169,6 +169,15 @@ fn load_program(w : world, f : bytes) : (world, main_function_type)
 [
 	var main : main_function_type;
 	var w2 : world;
-	pcode IO IO_Load_Program 2 2 0 =w2 =main w f;
+	var lp := libpath;
+	var path_idx := 0;
+	for i := 0 to len(lp) do
+		if lp[i] = 0 then
+			path_idx += 1;
+	path_idx -= 1;
+	var program := true;
+	var gen := false;
+	var fn_idx := 0;
+	pcode IO IO_Load_Function 2 6 0 =w2 =main w path_idx f program gen fn_idx;
 	return w2, main;
 ]

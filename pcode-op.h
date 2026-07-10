@@ -340,7 +340,7 @@
 #define IO_Signal_Prepare		81
 #define IO_Signal_Wait			82
 #define IO_Consume_Parameters		83
-#define IO_Load_Program			84
+#define IO_Load_Function		84
 #define IO_Get_Function_Ptr		85
 #define IO_Get_SubFunctions		86
 #define IO_Load_Optimized_Pcode		87

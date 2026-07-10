@@ -4431,36 +4431,42 @@ static void * attr_fastcall io_consume_parameter_handler(struct io_ctx *ctx)
 	return io_deep_eval(ctx, "0", true);
 }
 
-static void * attr_fastcall io_load_program_handler(struct io_ctx *ctx)
+static void * attr_fastcall io_load_function_handler(struct io_ctx *ctx)
 {
 	void *test;
-	size_t i;
 	unsigned path_idx;
+	ajla_option_t opt_program, opt_generator;
+	pcode_t fn_idx;
 	struct module_designator *md = NULL;
 	struct function_designator *fd = NULL;
 	pointer_t *main_ptr;
 	struct data *main_ref;
 
-	test = io_deep_eval(ctx, "01", true);
+	test = io_deep_eval(ctx, "012345", true);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		return test;
 
-	io_get_bytes(ctx, get_input(ctx, 1));
+	io_get_positive_number(ctx, ctx->fp, get_input(ctx, 1), unsigned, path_idx);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
+
+	io_get_option(ctx, get_input(ctx, 3), &opt_program, NULL);
+	io_get_option(ctx, get_input(ctx, 4), &opt_generator, NULL);
+
+	io_get_positive_number(ctx, ctx->fp, get_input(ctx, 5), pcode_t, fn_idx);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
+
+	io_get_bytes(ctx, get_input(ctx, 2));
 	ctx->str_l--;
 
-	get_lib_path();
-	path_idx = 0;
-	for (i = 0; i < lib_path_len; i++)
-		path_idx += !lib_path[i];
-	path_idx--;
-
-	md = module_designator_alloc(path_idx, cast_ptr(const uint8_t *, ctx->str), ctx->str_l, true, false, &ctx->err);
+	md = module_designator_alloc(path_idx, cast_ptr(const uint8_t *, ctx->str), ctx->str_l, opt_program, opt_generator, &ctx->err);
 	mem_free(ctx->str);
 
 	if (unlikely(!md))
 		goto ret_err;
 
-	fd = function_designator_alloc_single(0, &ctx->err);
+	fd = function_designator_alloc_single(fn_idx, &ctx->err);
 	if (unlikely(!fd)) {
 		module_designator_free(md);
 		goto ret_err;
@@ -5211,7 +5217,7 @@ static const struct {
 	{ io_signal_prepare_handler },
 	{ io_signal_wait_handler },
 	{ io_consume_parameter_handler },
-	{ io_load_program_handler },
+	{ io_load_function_handler },
 	{ io_get_function_ptr_handler },
 	{ io_get_subfunctions_handler },
 	{ io_load_optimized_pcode_handler },
