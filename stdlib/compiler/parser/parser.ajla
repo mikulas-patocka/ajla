@@ -1192,7 +1192,6 @@ next_unit_flag:
 		gen := false;
 	] else if len_greater_than(t, 0), t[0].t is k_generator then [
 		gen := true;
-		parse_interface := false;
 	] else [
 		return exception_make(function_dictionary, ec_syscall, error_system, system_error_enoent, true);
 	]
@@ -1240,8 +1239,19 @@ next_unit_flag:
 	t := t[sc + 1 ..];
 
 	if gen then [
-		t := tokenize("fn generate(params : bytes) : bytes; implementation", name) + t;
-		dict.unit_generator := true;
+		if not fid_flags bt bsf FID_Flag_Unit_Generator then [
+			var program := false;
+			var fn_idx := 0;
+			var gen_fn : fn(bytes) : bytes;
+			var w2 : world;
+			pcode IO IO_Load_Function 2 6 0 =w2 =gen_fn w path_index name program gen fn_idx;
+			w := w2;
+			var generated_bytes := gen_fn("");
+			t := tokenize(generated_bytes, name);
+		] else [
+			t := tokenize("fn generate(params : bytes) : bytes; implementation", name) + t;
+			dict.unit_generator := true;
+		]
 	]
 
 	if path_index <> 0 or name <> "system" then [
