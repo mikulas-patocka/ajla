@@ -1232,8 +1232,8 @@ next_unit_flag:
 
 	var name_pos : int;
 	var params := "";
+	var xname := name;
 	if not fid_flags bt bsf FID_Flag_Program_Unit then [
-		var xname := name;
 		var colon := list_search(xname, ':');
 		if colon >= 0 then [
 			if not gen then
@@ -1262,7 +1262,7 @@ next_unit_flag:
 
 	if gen then [
 		if not fid_flags bt bsf FID_Flag_Unit_Generator then [
-			var generated_bytes := generate_unit~cache(w, path_index, name, params);
+			var generated_bytes := generate_unit~cache(w, path_index, xname, params);
 			t := tokenize(generated_bytes, name);
 		] else [
 			t := tokenize("fn generate(params : bytes) : bytes; implementation", name) + t;

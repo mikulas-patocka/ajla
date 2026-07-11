@@ -78,11 +78,6 @@ static int builtin_compare(size_t idx, uint32_t flags, const uint8_t *path, size
 	fi += mod->n_functions;
 	name = cast_ptr(const struct builtin_module_name *, fi);
 
-	if (unlikely(name->flags > flags))
-		return 1;
-	if (unlikely(name->flags < flags))
-		return -1;
-
 	min_len = minimum(name->len, path_len);
 	for (i = 0; i < min_len; i++) {
 		if (name->name[i] < path[i])
@@ -95,6 +90,12 @@ static int builtin_compare(size_t idx, uint32_t flags, const uint8_t *path, size
 		return 1;
 	if (unlikely(name->len < path_len))
 		return -1;
+
+	if (unlikely(name->flags > flags))
+		return 1;
+	if (unlikely(name->flags < flags))
+		return -1;
+
 	return 0;
 }
 

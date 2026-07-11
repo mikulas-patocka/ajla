@@ -127,8 +127,11 @@ fn self_optimize(implicit w : world, dir : dhandle) : world
 		for n := 0 to len(nm) do
 			if nm[n] = '\' then
 				nm[n] := '/';
+		if false then [
+			flags or= FID_Flag_Unit_Generator;
+		]
 		var u : uni := uni.[ flags : flags, name : nm, functions : empty(list(pcode_t)), specs : treeset_init(list(pcode_t)) ];
-		var pc, modules := compile_module_2(d, u.name, 0);
+		var pc, modules := compile_module_2(d, u.name, flags);
 		u := optimize_module(d, u, pc);
 		units +<= u;
 	]
