@@ -34,6 +34,7 @@ record context [
 	iface : bytes;
 	impl : bytes;
 	processed : treeset(bytes);
+	thread_safe : bool;
 ]
 
 const nl10 := bytes.[ 10 ];
@@ -228,7 +229,10 @@ fn process_function(implicit w : world, implicit repo : gobject_repository, impl
 	] else if flags bt bsf GI_FUNCTION_IS_CONSTRUCTOR then [
 		prototype += "	var r := gobject_init(repo, function, list(int).[ ";
 	] else [
-		prototype += "	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ ";
+		if ctx.thread_safe then
+			prototype += "	var r, e := ffi_function_call(function, list(int).[ ";
+		else
+			prototype += "	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ ";
 	]
 	for i := 0 to n_args do [
 		var a := args[i];
@@ -391,6 +395,7 @@ fn getgi(name : bytes, version : bytes, gen_unit : bool) : bytes
 		iface : "",
 		impl : "",
 		processed : treeset_init(bytes),
+		thread_safe : name = "GIRepository",
 	];
 	if gen_unit then [
 		ctx.iface += "{*" + nl10;
@@ -402,7 +407,7 @@ fn getgi(name : bytes, version : bytes, gen_unit : bool) : bytes
 	]
 	ctx.iface += "uses g.gobject, charset;" + nl10 + nl10;
 	ctx.impl += "implementation" + nl10 + nl10;
-	implicit var repo := gobject_repository_init(dnone(), empty(handle), treemap_init(bytes, bytes));
+	implicit var repo := gobject_repository_init(dnone(), empty(handle), treemap_init(bytes, bytes), false);
 	var gir := g_irepository_get_default();
 	var gitypelib := g_irepository_require(gir, name, version, 0, 0);
 	var shlib := g_irepository_get_shared_library(gir, name);

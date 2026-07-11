@@ -32,13 +32,14 @@ record gobject_repository [
 	h : list(handle);
 	env : treemap(bytes, bytes);
 	destr : ffi_destructor;
+	use_thread : bool;
 	thr : ffi_thread;
 	callbacks : list(fn_callback);
 ]
 
 fn ffi_function_create_multiple(libraries : list(ffi_library), funcname : bytes, flags : int, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : ffi_function;
 
-fn gobject_repository_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(bytes, bytes)) : (world, gobject_repository);
+fn gobject_repository_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(bytes, bytes), use_thread : bool) : (world, gobject_repository);
 
 type gpointer;
 
@@ -82,19 +83,20 @@ again:
 	return ffn;
 ]
 
-fn gobject_repository_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(bytes, bytes)) : (world, gobject_repository)
+fn gobject_repository_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(bytes, bytes), use_thread : bool) : (world, gobject_repository)
 [
 	var destr := ffi_destructor_new();
-	var thr := ffi_thread_spawn();
 	var callbacks := infinite_uninitialized(fn_callback);
-	return gobject_repository.[
+	var repo := gobject_repository.[
 		d : d,
 		h : h,
 		env : env,
 		destr : destr,
-		thr : thr,
+		use_thread : use_thread,
 		callbacks : callbacks,
 	];
+	repo.thr := ffi_thread_spawn();
+	return repo;
 ]
 
 type gpointer := int;
@@ -112,22 +114,21 @@ fn gobject_init(implicit w : world, implicit repo : gobject_repository, func : f
 	var ptr : int;
 	var r e : int;
 	var destr := ffi_destructor_new();
-	ptr, e := ffi_thread_sync_call(repo.thr, destr, func, args);
+	if repo.use_thread then
+		ptr, e := ffi_thread_sync_call(repo.thr, destr, func, args);
+	else
+		ptr, e := ffi_function_call(func, args);
 	if ptr = 0 then [
 		return gobject.[
 			ptr : ptr,
 		];
 	]
 
-	{
-	var pr_fn := ffi_function_prototype(ffi_default_library, ffi_flag_errno, "int printf(char *fmt, long *value)");
-	eval debug("creating " + ntos_base(ptr, 16));
-	var zstr := ffi_poke_zstring(destr, "destroying %lx" + nl);
-	ffi_destructor_call(destr, pr_fn, [ zstr, ptr ]);
-	}
-
 	fn g_object_ref_sink~cache := ffi_function_prototype(gobject_lib, 0, "void *g_object_ref_sink(void *)");
-	w, r, e := ffi_thread_sync_call(repo.thr, destr, g_object_ref_sink, [ ptr ]);
+	if repo.use_thread then
+		r, e := ffi_thread_sync_call(repo.thr, destr, g_object_ref_sink, [ ptr ]);
+	else
+		r, e := ffi_function_call(g_object_ref_sink, [ ptr ]);
 	fn g_object_unref~cache := ffi_function_prototype(gobject_lib, 0, "void g_object_unref(void *)");
 	ffi_destructor_call(destr, g_object_unref, [ ptr ]);
 	return gobject.[
@@ -141,7 +142,10 @@ fn gobject_init_with_unref(implicit w : world, implicit repo : gobject_repositor
 	var ptr : int;
 	var r e : int;
 	var destr := ffi_destructor_new();
-	ptr, e := ffi_thread_sync_call(repo.thr, destr, func, args);
+	if repo.use_thread then
+		ptr, e := ffi_thread_sync_call(repo.thr, destr, func, args);
+	else
+		ptr, e := ffi_function_call(func, args);
 	if ptr = 0 then [
 		return gobject.[
 			ptr : ptr,
