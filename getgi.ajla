@@ -1,0 +1,27 @@
+{*
+ * Copyright (C) 2026 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+uses g.getgi;
+
+fn main
+[
+	if len(args) <> 3 then
+		exit_msg(1, "Three parameters expected");
+	var u := getgi(args[0], args[1], true);
+	path_write_atomic(d, args[2], u);
+]

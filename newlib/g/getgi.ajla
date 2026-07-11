@@ -1,0 +1,464 @@
+{*
+ * Copyright (C) 2026 Mikulas Patocka
+ *
+ * This file is part of Ajla.
+ *
+ * Ajla is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Ajla is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Ajla. If not, see <https://www.gnu.org/licenses/>.
+ *}
+
+unit g.getgi;
+
+fn getgi(name : bytes, version : bytes, gen_unit : bool) : bytes;
+
+implementation
+
+uses g.girepository20;
+
+uses charset;
+uses ffi;
+
+record context [
+	unit_name : bytes;
+	byte_strings : bool;
+	c_prefix : bytes;
+	iface : bytes;
+	impl : bytes;
+	processed : treeset(bytes);
+]
+
+const nl10 := bytes.[ 10 ];
+
+record arg [
+	argname : bytes;
+	direction : int;
+	tag : int;
+	is_pointer : bool;
+	ajla_type : bytes;
+	ffi_type : bytes;
+	cvt_to_ffi : bytes;
+	cvt_to_ajla : bytes;
+	keep_after_call : bool;
+]
+
+fn type_to_ajla(ctx : context, tag : int, is_pointer : bool, may_be_null : bool) : (bytes, bytes, ffi_type, bytes, bytes, bool, bool)
+[
+	if not is_pointer then [
+		if tag = GI_TYPE_TAG_VOID then
+			return "", "t_void", ffi_type.t_void, "", "", false, false;
+		if tag = GI_TYPE_TAG_BOOLEAN then
+			return "bool", "t_sint", ffi_type.t_sint, "var %_ := select(%, 0, 1);", "var %_ := % <> 0;", false, false;
+		if tag = GI_TYPE_TAG_INT8 then
+			return "int", "t_sint8", ffi_type.t_sint8, "var %_ := %;", "var %_ := %;", false, false;
+		if tag = GI_TYPE_TAG_UINT8 then
+			return "int", "t_uint8", ffi_type.t_uint8, "var %_ := %;", "var %_ := %;", false, false;
+		if tag = GI_TYPE_TAG_INT16 then
+			return "int", "t_sint16", ffi_type.t_sint16, "var %_ := %;", "var %_ := %;", false, false;
+		if tag = GI_TYPE_TAG_UINT16 then
+			return "int", "t_uint16", ffi_type.t_uint16, "var %_ := %;", "var %_ := %;", false, false;
+		if tag = GI_TYPE_TAG_INT32 then
+			return "int", "t_sint32", ffi_type.t_sint32, "var %_ := %;", "var %_ := %;", false, false;
+		if tag = GI_TYPE_TAG_UINT32 then
+			return "int", "t_uint32", ffi_type.t_uint32, "var %_ := %;", "var %_ := %;", false, false;
+		if tag = GI_TYPE_TAG_INT64 then
+			return "int", "t_sint64", ffi_type.t_sint64, "var %_ := %;", "var %_ := %;", false, false;
+		if tag = GI_TYPE_TAG_UINT64 then
+			return "int", "t_uint64", ffi_type.t_uint64, "var %_ := %;", "var %_ := %;", false, false;
+		if tag = GI_TYPE_TAG_FLOAT then
+			return "real32", "t_float", ffi_type.t_float, "var %_ := ffi_encode_float(%);", "var %_ := ffi_decode_float(%);", false, false;
+		if tag = GI_TYPE_TAG_DOUBLE then
+			return "real64", "t_double", ffi_type.t_double, "var %_ := ffi_encode_double(%);", "var %_ := ffi_decode_double(%);", false, false;
+		if tag = GI_TYPE_TAG_GTYPE then
+			return "int", "t_usize", ffi_type.t_usize, "var %_ := %;", "var %_ := %;", false, false;
+		if tag = GI_TYPE_TAG_INTERFACE then
+			return "int", "t_uint", ffi_type.t_uint, "var %_ := %;", "var %_ := %;", false, false;
+		if tag = GI_TYPE_TAG_UNICHAR then
+			return "char", "t_uint32", ffi_type.t_uint32, "var %_ := %;", "var %_ := %;", false, false;
+	] else [
+		//if tag >= GI_TYPE_TAG_VOID and tag <= GI_TYPE_TAG_DOUBLE then
+		//	return "int", "t_pointer", ffi_type.t_pointer, "var %_ := %;", "var %_ := %;", false, false;
+		if tag = GI_TYPE_TAG_FILENAME or tag = GI_TYPE_TAG_UTF8 and ctx.byte_strings then
+			return "bytes", "t_pointer", ffi_type.t_pointer, "var %_ := ffi_poke_zstring(destr, %);", select(may_be_null, "var %_ := ffi_peek_zstring(%);", "var %_ : bytes; if % = 0 then %_ := """"; else %_ := ffi_peek_zstring(%);"), false, true;
+		if tag = GI_TYPE_TAG_UTF8 then
+			return "string", "t_pointer", ffi_type.t_pointer, "var %_ := ffi_poke_zstring(destr, string_to_utf8(%));", select(may_be_null, "var %__ := ffi_peek_zstring(%);", "var %__ : bytes; if % = 0 then %__ := """"; else %__ := ffi_peek_zstring(%);") + nl10 + "	var %_ := utf8_to_string(%__);", false, true;
+		if tag = GI_TYPE_TAG_INTERFACE or tag = GI_TYPE_TAG_ERROR then
+			return "gobject", "t_pointer", ffi_type.t_pointer, "var %_ := gobject_ptr(%);", "var %_ := gobject_from_ptr(%);", true, true;
+		//return "int", "t_pointer", ffi_type.t_pointer, "var %_ := %;", "var %_ := %;", false, false;
+		return "gpointer", "t_pointer", ffi_type.t_pointer, "var %_ := gpointer_ptr(%);", "var %_ := gpointer_from_ptr(%);", false, false;
+	]
+	return "", "", ffi_type.t_void, "", "", false, false;
+]
+
+fn process_function(implicit w : world, implicit repo : gobject_repository, implicit ctx : context, gifunctioninfo : gobject, is_method : bool) : (world, gobject_repository, context)
+[
+	var name := g_function_info_get_symbol(gifunctioninfo);
+	if treeset_test(ctx.processed, name) then
+		return;
+	var flags := g_function_info_get_flags(gifunctioninfo);
+	var return_typeinfo := g_callable_info_get_return_type(gifunctioninfo);
+	var return_tag := g_type_info_get_tag(return_typeinfo);
+	var return_is_pointer := g_type_info_is_pointer(return_typeinfo);
+	var return_may_be_null := g_callable_info_may_return_null(gifunctioninfo);
+	var can_throw := g_callable_info_can_throw_gerror(gifunctioninfo);
+	//eval debug("function " + name + " " + select(is_method, "n", "y") + " " + ntos(flags) + " -> " + ntos(return_tag));
+	var unref_fn := "";
+	if return_tag = GI_TYPE_TAG_INTERFACE then [
+		var iface := g_type_info_get_interface(return_typeinfo);
+		var iface_name := g_base_info_get_name(iface);
+		//write(repo.h[2], name + " -> " + iface_name + nl);
+		if iface_name = "BaseInfo" then [
+			unref_fn := "g_base_info_unref";
+		]
+	]
+	var return_ajla_type, return_ffi_type, return_ffi_val, return_cvt_to_ffi, return_cvt_to_ajla, return_keep_after_call, return_nd := type_to_ajla(ctx, return_tag, return_is_pointer, return_may_be_null);
+	if len(return_ajla_type) = 0 and return_tag <> GI_TYPE_TAG_VOID then [
+		write(repo.h[2], name + ": unknown return type " + ntos(return_tag) + select(return_is_pointer, "", "*") + ", skipping" + nl);
+		return;
+	]
+	var need_destructor := true;
+	var n_args := g_callable_info_get_n_args(gifunctioninfo);
+	var args := empty(arg);
+	//write(repo.h[2], name + "(" + ntos(n_args) + ")" + nl);
+	//write(repo.h[2], "return: " + ntos(return_tag) + ", " + select(return_is_pointer, "0", "pointer") + nl);
+	for i := 0 to n_args do [
+		var giarginfo := g_callable_info_get_arg(gifunctioninfo, i);
+		var argname := g_base_info_get_name(giarginfo);
+		var typeinfo := g_arg_info_get_type(giarginfo);
+		var direction := g_arg_info_get_direction(giarginfo);
+		var tag := g_type_info_get_tag(typeinfo);
+		var is_pointer := g_type_info_is_pointer(typeinfo);
+		var ajla_type, ffi_type, ffi_val, cvt_to_ffi, cvt_to_ajla, keep_after_call, nd := type_to_ajla(ctx, tag, is_pointer, false);
+		if direction <> GI_DIRECTION_IN then [
+			args +<= arg.[
+				argname : argname,
+				direction : GI_DIRECTION_IN,
+				tag : GI_TYPE_TAG_VOID,
+				is_pointer : true,
+				ajla_type : "int",
+				ffi_type : "t_pointer",
+				cvt_to_ffi : "var %_ := %;",
+				cvt_to_ajla : "var %_ := %;",
+				keep_after_call : false,
+			];
+			continue;
+		]
+		if len(ajla_type) = 0 then [
+			write(repo.h[2], name + ", " + ntos(i) + ": direction " + ntos(direction) + " type " + ntos(tag) + select(is_pointer, "", "*") + ", skipping" + nl);
+			return;
+		]
+		need_destructor or= nd;
+		args +<= arg.[
+			argname : argname,
+			direction : direction,
+			tag : tag,
+			is_pointer : is_pointer,
+			ajla_type : ajla_type,
+			ffi_type : ffi_type,
+			cvt_to_ffi : cvt_to_ffi,
+			cvt_to_ajla : cvt_to_ajla,
+			keep_after_call : keep_after_call,
+		];
+		//write(repo.h[2], "arg " + ntos(i) + ": " + ntos(direction) + ", " + ntos(tag) + ", " + select(is_pointer, "0", "pointer") + nl);
+	]
+	if flags bt bsf GI_FUNCTION_IS_METHOD then [
+		args := [ arg.[
+			argname : "this_object",
+			direction : GI_DIRECTION_IN,
+			tag : GI_TYPE_TAG_INTERFACE,
+			is_pointer : true,
+			ajla_type : "gobject",
+			ffi_type : "t_pointer",
+			cvt_to_ffi : "var %_ := gobject_ptr(%);",
+			cvt_to_ajla : "var %_ := gobject_from_ptr(%);",
+			keep_after_call : true,
+		] ] + args;
+		n_args += 1;
+	]
+	if can_throw then [
+		args +<= arg.[
+			argname : "gerror",
+			direction : GI_DIRECTION_IN,
+			tag : GI_TYPE_TAG_VOID,
+			is_pointer : true,
+			ajla_type : "int",
+			ffi_type : "t_pointer",
+			cvt_to_ffi : "var %_ := %;",
+			cvt_to_ajla : "var %_ := %;",
+			keep_after_call : false,
+		];
+		n_args += 1;
+	]
+	var prototype := "fn " + name + "(implicit w : world, repo : gobject_repository";
+	for i := 0 to n_args do [
+		var a := args[i];
+		prototype += ", " + a.argname + "_ : " + a.ajla_type;
+	]
+	prototype += ") : (world";
+	if len(return_ajla_type) > 0 then
+		prototype += ", " + return_ajla_type;
+	prototype += ")";
+	ctx.iface += prototype + ";" + nl10;
+
+	prototype += nl10 + "[" + nl10;
+	prototype += "	fn function~cache := ffi_function_create_multiple(" + ctx.unit_name + "_libs, """ + name + """, 0, 0, ffi_type." + return_ffi_type + ", list(ffi_type).[ ";
+	for i := 0 to n_args do [
+		var a := args[i];
+		prototype += "ffi_type." + a.ffi_type + ", ";
+	]
+	prototype += "]);" + nl10;
+	if need_destructor then [
+		prototype += "	var destr := ffi_destructor_new();" + nl10;
+	]
+	for i := 0 to n_args do [
+		var a := args[i];
+		prototype += "	" + list_replace_substring(a.cvt_to_ffi, "%", a.argname + "_") + nl10;
+	]
+	if len(unref_fn) > 0 then [
+		prototype += "	fn unref~cache := ffi_function_create_multiple(" + ctx.unit_name + "_libs, """ + unref_fn + """, 0, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);" + nl10;
+		prototype += "	var r := gobject_init_with_unref(repo, function, list(int).[ ";
+	] else if flags bt bsf GI_FUNCTION_IS_CONSTRUCTOR then [
+		prototype += "	var r := gobject_init(repo, function, list(int).[ ";
+	] else [
+		prototype += "	var r, e := ffi_thread_sync_call(repo.thr, destr, function, list(int).[ ";
+	]
+	for i := 0 to n_args do [
+		var a := args[i];
+		prototype += a.argname + "__, ";
+	]
+	prototype += "]";
+	if len(unref_fn) > 0 then [
+		prototype += ", unref";
+	]
+	prototype += ");" + nl10;
+	var keep_str := "";
+	for i := 0 to n_args do [
+		var a := args[i];
+		if a.keep_after_call then
+			keep_str += "	gobject_keep(" + a.argname + "_);" + nl10;
+	]
+	if flags bt bsf GI_FUNCTION_IS_CONSTRUCTOR or len(unref_fn) > 0 then [
+		if need_destructor then [
+			prototype += "	ffi_destructor_destroy(destr);" + nl10;
+		]
+		prototype += keep_str;
+		prototype += "	return r;" + nl10;
+	] else [
+		if len(return_cvt_to_ajla) > 0 then
+			prototype += "	" + list_replace_substring(return_cvt_to_ajla, "%", "r") + nl10;
+		if need_destructor then [
+			prototype += "	ffi_destructor_destroy(destr);" + nl10;
+		]
+		prototype += keep_str;
+		if len(return_ajla_type) > 0 then
+			prototype += "	return r_;" + nl10;
+	]
+	prototype += "]" + nl10;
+	ctx.impl += prototype + nl10;
+	ctx.processed := treeset_set(ctx.processed, name);
+]
+
+fn process_enum(implicit w : world, implicit repo : gobject_repository, implicit ctx : context, gibaseinfo : gobject) : (world, gobject_repository, context)
+[
+	var n_values := g_enum_info_get_n_values(gibaseinfo);
+	for i := 0 to n_values do [
+		var givalue := g_enum_info_get_value(gibaseinfo, i);
+		var val := g_value_info_get_value(givalue);
+		var name := g_base_info_get_attribute(givalue, "c:identifier");
+		//write(repo.h[2], "	" + name + " " + ntos(val) + nl);
+		ctx.iface += "const " + name + " : int;" + nl10;
+		ctx.impl += "const " + name + " : int := " + ntos(val) + ";" + nl10;
+	]
+	ctx.impl += nl10;
+]
+
+fn process_constant(implicit w : world, implicit repo : gobject_repository, implicit ctx : context, gibaseinfo : gobject) : (world, gobject_repository, context)
+[
+	var name := g_base_info_get_name(gibaseinfo);
+	name := bytes_upcase(ctx.c_prefix) + "_" + name;
+	var typeinfo := g_constant_info_get_type(gibaseinfo);
+	var tag := g_type_info_get_tag(typeinfo);
+	var is_pointer := g_type_info_is_pointer(typeinfo);
+	var ajla_type, ffi_type, ffi_val, cvt_to_ffi, cvt_to_ajla, keep_after_call, need_destructor := type_to_ajla(ctx, tag, is_pointer, false);
+	if len(ffi_type) = 0 or (is_pointer and tag <> GI_TYPE_TAG_UTF8) then [
+		write(repo.h[2], name + ": skipping type " + ntos(tag) + select(is_pointer, "", "*") + ", skipping" + nl);
+		return;
+	]
+	var destr := ffi_destructor_new();
+	var ptr := ffi_destructor_allocate(destr, ffi_get_size(ffi_val), ffi_get_alignment(ffi_val), false);
+	var ln := g_constant_info_get_value(gibaseinfo, ptr);
+	var val := ffi_peek(ptr, ffi_val);
+	//write(repo.h[2], name + ": " + ntos_base(val, 16) + nl);
+	var prototype := "const " + name + " : " + ajla_type;
+	ctx.iface += prototype + ";" + nl10;
+	if is_pointer then [
+		var zstr := ffi_peek_zstring(val);
+		prototype += " := `" + zstr + "`";
+		g_free(val);
+	] else [
+		prototype += " := ";
+		if tag = GI_TYPE_TAG_BOOLEAN then
+			prototype += select(val <> 0, "false", "true");
+		else if tag = GI_TYPE_TAG_FLOAT then
+			prototype += ntos(ffi_decode_float(val));
+		else if tag = GI_TYPE_TAG_DOUBLE then
+			prototype += ntos(ffi_decode_double(val));
+		else
+			prototype += ntos(val);
+	]
+	ctx.impl += prototype + ";" + nl10 + nl10;
+	ffi_destructor_destroy(destr);
+]
+
+fn process_struct(implicit w : world, implicit repo : gobject_repository, implicit ctx : context, gibaseinfo : gobject) : (world, gobject_repository, context)
+[
+	var name := g_base_info_get_name(gibaseinfo);
+	//eval debug("struct: " + name);
+	var n_methods := g_struct_info_get_n_methods(gibaseinfo);
+	for i := 0 to n_methods do [
+		var method := g_struct_info_get_method(gibaseinfo, i);
+		process_function(method, true);
+	]
+]
+
+fn process_object(implicit w : world, implicit repo : gobject_repository, implicit ctx : context, gibaseinfo : gobject) : (world, gobject_repository, context)
+[
+	var name := g_base_info_get_name(gibaseinfo);
+	//var ref_name := g_object_info_get_ref_function(gibaseinfo);
+	//var unref_name := g_object_info_get_unref_function(gibaseinfo);
+	//if ref_name <> "" or unref_name <> "" then
+	//	eval debug("object: " + name + ": " + ref_name + ", " + unref_name);
+	var n_cnsts := g_object_info_get_n_constants(gibaseinfo);
+	for i := 0 to n_cnsts do [
+		var cnst := g_object_info_get_constant(gibaseinfo, i);
+		process_constant(cnst);
+	]
+	var n_methods := g_object_info_get_n_methods(gibaseinfo);
+	for i := 0 to n_methods do [
+		var method := g_object_info_get_method(gibaseinfo, i);
+		process_function(method, true);
+	]
+	var n_properties := g_object_info_get_n_properties(gibaseinfo);
+	for i := 0 to n_properties do [
+		var property := g_object_info_get_property(gibaseinfo, i);
+		var getter := g_property_info_get_getter(property);
+		if gobject_ptr(getter) <> 0 then
+			process_function(getter, true);
+		var setter := g_property_info_get_getter(property);
+		if gobject_ptr(setter) <> 0 then
+			process_function(setter, true);
+	]
+]
+
+fn process_interface(implicit w : world, implicit repo : gobject_repository, implicit ctx : context, gibaseinfo : gobject) : (world, gobject_repository, context)
+[
+	var name := g_base_info_get_name(gibaseinfo);
+	//eval debug("interface: " + name);
+	var n_methods := g_interface_info_get_n_methods(gibaseinfo);
+	for i := 0 to n_methods do [
+		var method := g_interface_info_get_method(gibaseinfo, i);
+		process_function(method, true);
+	]
+	var n_properties := g_interface_info_get_n_properties(gibaseinfo);
+	for i := 0 to n_properties do [
+		var property := g_interface_info_get_property(gibaseinfo, i);
+		var getter := g_property_info_get_getter(property);
+		if gobject_ptr(getter) <> 0 then
+			process_function(getter, true);
+		var setter := g_property_info_get_getter(property);
+		if gobject_ptr(setter) <> 0 then
+			process_function(setter, true);
+	]
+]
+
+fn getgi(name : bytes, version : bytes, gen_unit : bool) : bytes
+[
+	implicit var w := unsafe_get_world;
+	var unit_name := name + version;
+	unit_name := list_replace_substring(unit_name, ".", "");
+	unit_name := bytes_locase(unit_name);
+	implicit var ctx := context.[
+		unit_name : unit_name,
+		byte_strings : name = "GIRepository",
+		iface : "",
+		impl : "",
+		processed : treeset_init(bytes),
+	];
+	if gen_unit then [
+		ctx.iface += "{*" + nl10;
+		ctx.iface += " * No-copyright" + nl10;
+		ctx.iface += " * A table of functions, generated by a script, is supposedly not copyrightable." + nl10;
+		ctx.iface += " *}" + nl10;
+		ctx.iface += nl10;
+		ctx.iface += "unit g." + ctx.unit_name + "~lazy;" + nl10 + nl10;
+	]
+	ctx.iface += "uses g.gobject, charset;" + nl10 + nl10;
+	ctx.impl += "implementation" + nl10 + nl10;
+	implicit var repo := gobject_repository_init(dnone(), empty(handle), treemap_init(bytes, bytes));
+	var gir := g_irepository_get_default();
+	var gitypelib := g_irepository_require(gir, name, version, 0, 0);
+	var shlib := g_irepository_get_shared_library(gir, name);
+	var shlibs := list_break(shlib, ',');
+	ctx.iface += "fn " + ctx.unit_name + "_libs~cache : list(ffi_library);" + nl10 + nl10;
+	ctx.impl += "fn " + ctx.unit_name + "_libs~cache := list(ffi_library).[ ";
+	for i := 0 to len(shlibs) do [
+		ctx.impl += "ffi_open_library_raw_name(""" + shlibs[i] + """, true, """"), ";
+	]
+	ctx.impl += "];" + nl10 + nl10;
+	ctx.c_prefix := g_irepository_get_c_prefix(gir, name);
+
+	if name = "GIRepository" then [
+		ctx.iface +=
+"fn g_constant_info_get_value(implicit w : world, implicit repo : gobject_repository, gibaseinfo : gobject, val : int) : (world, int);" + nl10;
+		ctx.impl +=
+"fn g_constant_info_get_value(implicit w : world, implicit repo : gobject_repository, gibaseinfo : gobject, val : int) : (world, int)" + nl10 +
+"[" + nl10 +
+"	fn function~cache := ffi_function_create_multiple(" + ctx.unit_name + "_libs, ""g_constant_info_get_value"", 0, 0, ffi_type.t_sint, list(ffi_type).[ ffi_type.t_pointer, ffi_type.t_pointer ]);" + nl10 +
+"	var ret := ffi_function_call_noerr(function, [ gobject_ptr(gibaseinfo), val ]);" + nl10 +
+"	gobject_keep(gibaseinfo);" + nl10 +
+"	return ret;" + nl10 +
+"]" + nl10 +
+		nl10;
+	]
+
+	var n_infos := g_irepository_get_n_infos(gir, name);
+	for i := 0 to n_infos do [
+		var gibaseinfo := g_irepository_get_info(gir, name, i);
+		var name := g_base_info_get_name(gibaseinfo);
+		//var destr := ffi_destructor_new();
+		//var r, e := ffi_thread_sync_call(repo.thr, destr, repo.g_object_ref, [ gobject_ptr(gibaseinfo) ]);
+		//write(h[2], name + nl);
+		var typ := g_base_info_get_type(gibaseinfo);
+		//eval debug("base info: " + name + ": " + ntos(typ));
+		if typ = GI_INFO_TYPE_FUNCTION then [
+			process_function(gibaseinfo, false);
+		]
+		if typ = GI_INFO_TYPE_ENUM or typ = GI_INFO_TYPE_FLAGS then [
+			process_enum(gibaseinfo);
+		]
+		if typ = GI_INFO_TYPE_STRUCT then [
+			process_struct(gibaseinfo);
+		]
+		if typ = GI_INFO_TYPE_OBJECT then [
+			//eval debug("object " + name);
+			process_object(gibaseinfo);
+		]
+		if typ = GI_INFO_TYPE_INTERFACE then [
+			//eval debug("iface " + name);
+			process_interface(gibaseinfo);
+		]
+		if typ = GI_INFO_TYPE_CONSTANT then [
+			process_constant(gibaseinfo);
+		]
+	]
+	gobject_keep(gitypelib);
+	return ctx.iface + nl10 + ctx.impl;
+]
