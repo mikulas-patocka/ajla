@@ -1182,7 +1182,9 @@ fn generate_unit(w : world, path_index : int, name : bytes, params : bytes) : by
 	pcode IO IO_Load_Function 2 6 0 =w2 =gen_fn w path_index name program gen fn_idx;
 	w := w2;
 	//eval debug("generating " + name + ":" + params + ".");
-	return gen_fn(params);
+	var r := gen_fn(params);
+	//eval debug("generated " + name + ":" + params + ".");
+	return r;
 ]
 
 fn parse_tokens(w : world, d : list(bytes), t : tokens, name : bytes, fid_flags : uint8, parse_interface : bool, prereq len_greater_than(d, 0)) : function_dictionary

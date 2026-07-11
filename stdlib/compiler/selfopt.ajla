@@ -57,6 +57,7 @@ fn read_dir_recursive(d : dhandle) : list(bytes)
 ]
 
 record uni [
+	flags : uint8;
 	name : bytes;
 	functions : list(list(pcode_t));
 	specs : treeset(list(pcode_t));
@@ -121,11 +122,12 @@ fn self_optimize(implicit w : world, dir : dhandle) : world
 	var l := read_dir_recursive(dir_nl);
 	var d := list(bytes).[ dpath_lazy(dir_nl) ];
 	for i := 0 to len(l) do [
+		var flags := 0;
 		var nm := l[i];
 		for n := 0 to len(nm) do
 			if nm[n] = '\' then
 				nm[n] := '/';
-		var u : uni := uni.[ name : nm, functions : empty(list(pcode_t)), specs : treeset_init(list(pcode_t)) ];
+		var u : uni := uni.[ flags : flags, name : nm, functions : empty(list(pcode_t)), specs : treeset_init(list(pcode_t)) ];
 		var pc, modules := compile_module_2(d, u.name, 0);
 		u := optimize_module(d, u, pc);
 		units +<= u;
@@ -148,6 +150,7 @@ fn self_optimize(implicit w : world, dir : dhandle) : world
 		module_info += int_to_native(native.n_int32, len(a));
 		module_info += int_to_native(native.n_int32, len(u.functions));
 		a += function_info;
+		a += int_to_native(native.n_int32, u.flags);
 		a += int_to_native(native.n_int32, len(u.name));
 		for i := 0 to len(u.name) do
 			a += int_to_native(native.n_int32, u.name[i]);

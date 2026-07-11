@@ -58,13 +58,14 @@ struct builtin_function_info {
 };
 
 struct builtin_module_name {
+	uint32_t flags;
 	uint32_t len;
 	uint32_t name[FLEXIBLE_ARRAY];
 };
 
 #define builtin_file	cast_ptr(const struct builtin_file_info *, builtin_ptr + builtin_size - sizeof(struct builtin_file_info))
 
-static int builtin_compare(size_t idx, const uint8_t *path, size_t path_len)
+static int builtin_compare(size_t idx, uint32_t flags, const uint8_t *path, size_t path_len)
 {
 	const struct builtin_module_info *mod;
 	const struct builtin_function_info *fi;
@@ -76,6 +77,11 @@ static int builtin_compare(size_t idx, const uint8_t *path, size_t path_len)
 	fi = cast_ptr(const struct builtin_function_info *, builtin_ptr + mod->function_info);
 	fi += mod->n_functions;
 	name = cast_ptr(const struct builtin_module_name *, fi);
+
+	if (unlikely(name->flags > flags))
+		return 1;
+	if (unlikely(name->flags < flags))
+		return -1;
 
 	min_len = minimum(name->len, path_len);
 	for (i = 0; i < min_len; i++) {
@@ -92,18 +98,27 @@ static int builtin_compare(size_t idx, const uint8_t *path, size_t path_len)
 	return 0;
 }
 
-static const struct builtin_module_info *builtin_find_module(const uint8_t *path, size_t path_len)
+static const struct builtin_module_info *builtin_find_module(struct module_designator *md)
 {
+	size_t path_len = md->path_len;
+	const uint8_t *path = md->path;
+	uint32_t flags = md->generator ? FID_Flag_Unit_Generator : 0;
 	const struct builtin_module_info *mod;
 	size_t s;
 	int c;
-	binary_search(size_t, builtin_file->n_modules, s, !(c = builtin_compare(s, path, path_len)), c < 0, goto not_found);
+	binary_search(size_t, builtin_file->n_modules, s, !(c = builtin_compare(s, flags, path, path_len)), c < 0, goto not_found);
 	mod = cast_ptr(const struct builtin_module_info *, builtin_ptr + builtin_file->module_info);
 	mod += s;
 	return mod;
 not_found:
-	internal(file_line, "builtin_find_module: builtin module %.*s not found", (int)path_len, path);
 	return NULL;
+}
+
+bool builtin_test_module(struct module_designator *md)
+{
+	if (md->path_idx)
+		return false;
+	return !!builtin_find_module(md);
 }
 
 static void builtin_walk_nested(const pcode_t **start, size_t *size, size_t n_entries, const pcode_t *entries)
@@ -125,13 +140,14 @@ static void builtin_walk_nested(const pcode_t **start, size_t *size, size_t n_en
 void builtin_find_function(struct module_designator *md, struct function_designator *fd, const pcode_t **start, size_t *size)
 {
 	const struct builtin_function_info *f;
-	const struct builtin_module_info *m = builtin_find_module(md->path, md->path_len);
+	const struct builtin_module_info *m = builtin_find_module(md);
+	if (unlikely(!m))
+		internal(file_line, "builtin_find_function: builtin module %.*s not found", (int)md->path_len, md->path);
 	if (unlikely(fd->n_spec_data != 0)) {
 		if (unlikely(!builtin_find_spec_function(md, fd, start, size)))
 			internal(file_line, "builtin_find_function: specialized function not found");
 		return;
 	}
-	m = builtin_find_module(md->path, md->path_len);
 	ajla_assert_lo((size_t)fd->entries[0] < m->n_functions, (file_line, "builtin_find_function: invalid index in %.*s: %lu >= %lu", (int)md->path_len, md->path, (unsigned long)fd->entries[0], (unsigned long)m->n_functions));
 	f = cast_ptr(const struct builtin_function_info *, builtin_ptr + m->function_info);
 	f += fd->entries[0];

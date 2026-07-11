@@ -165,7 +165,7 @@ static bool module_function_init(struct module *m, struct module_function *mf, a
 		optr = module_create_optimizer_reference(m, &mf->fd, mode_spec);
 		pptr = module_create_optimizer_reference(m, &mf->fd, mode_nonopt);
 		goto build_from_array;
-	} else if (m->md.path_idx > 0) {
+	} else if (!builtin_test_module(&m->md)) {
 		optr = module_create_optimizer_reference(m, &mf->fd, mode_opt);
 		pptr = module_create_optimizer_reference(m, &mf->fd, mode_nonopt);
 build_from_array:

@@ -23,6 +23,7 @@
 
 extern const char *builtin_lib_path;
 
+bool builtin_test_module(struct module_designator *md);
 void builtin_find_function(struct module_designator *md, struct function_designator *fd, const pcode_t **start, size_t *size);
 bool builtin_find_spec_function(struct module_designator *md, struct function_designator *fd, const pcode_t **start, size_t *size);
 
