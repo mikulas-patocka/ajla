@@ -16,7 +16,7 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  *}
 
-generator g.gi;
+generator g.gi~lazy;
 
 uses exception;
 uses g.getgi;
