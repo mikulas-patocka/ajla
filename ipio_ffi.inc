@@ -2352,7 +2352,6 @@ static void callback_free(struct callback attr_unused *c)
 
 #define io_ffi_unpack_async_result_handler	io_ffi_unsupported
 #define io_ffi_callback_create_handler		io_ffi_unsupported
-#define io_ffi_callback_recurse_handler		io_ffi_unsupported
 #define io_ffi_callback_get_address_handler	io_ffi_unsupported
 #define io_ffi_callback_get_arg_handler		io_ffi_unsupported
 #define io_ffi_callback_return_handler		io_ffi_unsupported
