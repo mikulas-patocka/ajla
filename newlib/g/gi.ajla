@@ -23,10 +23,22 @@ uses g.getgi;
 
 fn generate
 [
+	var thread_safe := false;
+next_flag:
+	var colon := list_search_backwards(params, ':');
+	if colon <> -1 then [
+		var attr := params[colon + 1 .. ];
+		params := params[ .. colon];
+		if attr = "thread-safe" then
+			thread_safe := true;
+		else
+			return exception_make(bytes, ec_sync, error_invalid_operation, 0, true);
+		goto next_flag;
+	]
 	var dash := list_search_backwards(params, '-');
 	if dash = -1 then
 		return exception_make(bytes, ec_sync, error_invalid_operation, 0, true);
 	var name := params[ .. dash];
 	var version := params[dash + 1 .. ];
-	return getgi(name, version, false);
+	return getgi(name, version, thread_safe, false);
 ]

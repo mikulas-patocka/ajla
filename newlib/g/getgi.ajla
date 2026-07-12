@@ -18,7 +18,7 @@
 
 unit g.getgi;
 
-fn getgi(name : bytes, version : bytes, gen_unit : bool) : bytes;
+fn getgi(name : bytes, version : bytes, thread_safe : bool, gen_unit : bool) : bytes;
 
 implementation
 
@@ -383,7 +383,7 @@ fn process_interface(implicit w : world, implicit repo : gobject_repository, imp
 	]
 ]
 
-fn getgi(name : bytes, version : bytes, gen_unit : bool) : bytes
+fn getgi(name : bytes, version : bytes, thread_safe : bool, gen_unit : bool) : bytes
 [
 	implicit var w := unsafe_get_world;
 	var unit_name := name + version;
@@ -395,7 +395,7 @@ fn getgi(name : bytes, version : bytes, gen_unit : bool) : bytes
 		iface : "",
 		impl : "",
 		processed : treeset_init(bytes),
-		thread_safe : name = "GIRepository",
+		thread_safe : thread_safe,
 	];
 	if gen_unit then [
 		ctx.iface += "{*" + nl10;

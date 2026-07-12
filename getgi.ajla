@@ -20,8 +20,12 @@ uses g.getgi;
 
 fn main
 [
-	if len(args) <> 3 then
-		exit_msg(1, "Three parameters expected");
-	var u := getgi(args[0], args[1], true);
-	path_write_atomic(d, args[2], u);
+	if len(args) <> 3 and len(args) <> 4 then
+		exit_msg(1, "Three or four parameters expected");
+	var thread_safe := select(ston(args[2]) <> 0, false, true);
+	var u := getgi(args[0], args[1], thread_safe, true);
+	if len(args) = 3 then
+		write(h[1], u);
+	else
+		path_write_atomic(d, args[3], u);
 ]
