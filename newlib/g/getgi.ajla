@@ -26,6 +26,7 @@ uses g.girepository20;
 
 uses charset;
 uses ffi;
+uses exception;
 
 record context [
 	unit_name : bytes;
@@ -410,6 +411,8 @@ fn getgi(name : bytes, version : bytes, thread_safe : bool, gen_unit : bool) : b
 	implicit var repo := gobject_repository_init(dnone(), empty(handle), treemap_init(bytes, bytes), false);
 	var gir := g_irepository_get_default();
 	var gitypelib := g_irepository_require(gir, name, version, 0, 0);
+	if gobject_ptr(gitypelib) = 0 then
+		return exception_make_str(bytes, ec_sync, error_library_not_found, 0, false, "Could not open repository " + name + "-" + version);
 	var shlib := g_irepository_get_shared_library(gir, name);
 	var shlibs := list_break(shlib, ',');
 	ctx.iface += "fn " + ctx.unit_name + "_libs~cache : list(ffi_library);" + nl10 + nl10;
