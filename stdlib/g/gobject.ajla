@@ -56,7 +56,7 @@ fn gobject_keep(w : world, gobj : gobject) : world;
 
 fn g_free(implicit w : world, ptr : int) : world;
 
-fn g_signal_connect_data(implicit w : world, implicit repo : gobject_repository, gobj : gobject, name : bytes, flags : int, args : list(ffi_type)) : (world, int);
+fn g_signal_connect_data(implicit w : world, implicit repo : gobject_repository, gobj : gobject, name : bytes, data : int, flags : int, args : list(ffi_type)) : (world, int);
 
 fn g_application_run(implicit w : world, implicit repo : gobject_repository, app : gobject, appname : string, args : list(bytes)) : (world, gobject_repository, int);
 
@@ -184,14 +184,14 @@ fn g_free(implicit w : world, ptr : int) : world
 	var r, e := ffi_function_call(g_free, [ ptr ]);
 ]
 
-fn g_signal_connect_data(implicit w : world, implicit repo : gobject_repository, gobj : gobject, name : bytes, flags : int, args : list(ffi_type)) : (world, int)
+fn g_signal_connect_data(implicit w : world, implicit repo : gobject_repository, gobj : gobject, name : bytes, data : int, flags : int, args : list(ffi_type)) : (world, int)
 [
 	var destr := ffi_destructor_new();
 	var zstr := ffi_poke_zstring(destr, name);
 	// !!! FIXME: repo.destr leaks memory
 	var cb := ffi_callback_create(repo.destr, 0, ffi_type.t_void, args);
 	fn g_signal_connect_data~cache := ffi_function_prototype(gobject_lib, 0, "unsigned long g_signal_connect_data(void *instance, char *detailed_signal, void *c_handler, void *data, void *destroy_data, unsigned connect_flags)");
-	xeval ffi_thread_sync_call(repo.thr, destr, g_signal_connect_data, [ gobj.ptr, zstr, cb, 0, 0, flags ]);
+	xeval ffi_thread_sync_call(repo.thr, destr, g_signal_connect_data, [ gobj.ptr, zstr, cb, data, 0, flags ]);
 	ffi_destructor_destroy(destr);
 	return cb;
 ]
