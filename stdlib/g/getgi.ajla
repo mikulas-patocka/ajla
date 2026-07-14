@@ -123,8 +123,7 @@ fn process_function(implicit w : world, implicit repo : gobject_repository, impl
 	]
 	var return_ajla_type, return_ffi_type, return_ffi_val, return_cvt_to_ffi, return_cvt_to_ajla, return_keep_after_call, return_nd := type_to_ajla(ctx, return_tag, return_is_pointer, return_may_be_null);
 	if len(return_ajla_type) = 0 and return_tag <> GI_TYPE_TAG_VOID then [
-		write(repo.h[2], name + ": unknown return type " + ntos(return_tag) + select(return_is_pointer, "", "*") + ", skipping" + nl);
-		return;
+		abort exception_make_str(bottom_type, ec_sync, error_invalid_operation, 0, false, name + ": unknown return type " + ntos(return_tag) + select(return_is_pointer, "", "*") + ", skipping");
 	]
 	var need_destructor := true;
 	var n_args := g_callable_info_get_n_args(gifunctioninfo);
@@ -154,8 +153,7 @@ fn process_function(implicit w : world, implicit repo : gobject_repository, impl
 			continue;
 		]
 		if len(ajla_type) = 0 then [
-			write(repo.h[2], name + ", " + ntos(i) + ": direction " + ntos(direction) + " type " + ntos(tag) + select(is_pointer, "", "*") + ", skipping" + nl);
-			return;
+			abort exception_make_str(bottom_type, ec_sync, error_invalid_operation, 0, false, name + ", " + ntos(i) + ": direction " + ntos(direction) + " type " + ntos(tag) + select(is_pointer, "", "*") + ", skipping");
 		]
 		need_destructor or= nd;
 		args +<= arg.[
@@ -294,7 +292,7 @@ fn process_constant(implicit w : world, implicit repo : gobject_repository, impl
 	var is_pointer := g_type_info_is_pointer(typeinfo);
 	var ajla_type, ffi_type, ffi_val, cvt_to_ffi, cvt_to_ajla, keep_after_call, need_destructor := type_to_ajla(ctx, tag, is_pointer, false);
 	if len(ffi_type) = 0 or (is_pointer and tag <> GI_TYPE_TAG_UTF8) then [
-		write(repo.h[2], name + ": skipping type " + ntos(tag) + select(is_pointer, "", "*") + ", skipping" + nl);
+		abort exception_make_str(bottom_type, ec_sync, error_invalid_operation, 0, false, name + ": skipping type " + ntos(tag) + select(is_pointer, "", "*") + ", skipping");
 		return;
 	]
 	var destr := ffi_destructor_new();
@@ -408,7 +406,7 @@ fn getgi(name : bytes, version : bytes, thread_safe : bool, gen_unit : bool) : b
 	]
 	ctx.iface += "uses g.gobject, charset;" + nl10 + nl10;
 	ctx.impl += "implementation" + nl10 + nl10;
-	implicit var repo := gobject_repository_init(dnone(), empty(handle), treemap_init(bytes, bytes), false);
+	implicit var repo := gobject_repository_init(false);
 	var gir := g_irepository_get_default();
 	var gitypelib := g_irepository_require(gir, name, version, 0, 0);
 	if gobject_ptr(gitypelib) = 0 then

@@ -28,9 +28,6 @@ fn gio_lib~cache : ffi_library;
 type fn_callback := fn(w : world, repo : gobject_repository, u : ffi_callback) : (world, gobject_repository);
 
 record gobject_repository [
-	d : dhandle;
-	h : list(handle);
-	env : treemap(bytes, bytes);
 	destr : ffi_destructor;
 	use_thread : bool;
 	thr : ffi_thread;
@@ -39,7 +36,7 @@ record gobject_repository [
 
 fn ffi_function_create_multiple(libraries : list(ffi_library), funcname : bytes, flags : int, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : ffi_function;
 
-fn gobject_repository_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(bytes, bytes), use_thread : bool) : (world, gobject_repository);
+fn gobject_repository_init(implicit w : world, use_thread : bool) : (world, gobject_repository);
 
 type gpointer;
 
@@ -83,14 +80,11 @@ again:
 	return ffn;
 ]
 
-fn gobject_repository_init(implicit w : world, d : dhandle, h : list(handle), env : treemap(bytes, bytes), use_thread : bool) : (world, gobject_repository)
+fn gobject_repository_init(implicit w : world, use_thread : bool) : (world, gobject_repository)
 [
 	var destr := ffi_destructor_new();
 	var callbacks := infinite_uninitialized(fn_callback);
 	var repo := gobject_repository.[
-		d : d,
-		h : h,
-		env : env,
 		destr : destr,
 		use_thread : use_thread,
 		callbacks : callbacks,
