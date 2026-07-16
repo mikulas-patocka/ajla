@@ -32,6 +32,7 @@ record gobject_repository [
 	use_thread : bool;
 	thr : ffi_thread;
 	callbacks : list(fn_callback);
+	destructors : list(ffi_destructor);
 ]
 
 fn ffi_function_create_multiple(libraries : list(ffi_library), funcname : bytes, flags : int, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : ffi_function;
@@ -54,6 +55,7 @@ fn gobject_keep(w : world, gobj : gobject) : world;
 fn g_free(implicit w : world, ptr : int) : world;
 
 fn g_signal_connect_data(implicit w : world, implicit repo : gobject_repository, gobj : gobject, name : bytes, data : int, flags : int, ret : ffi_type, args : list(ffi_type)) : (world, int);
+fn g_signal_connect(implicit w : world, implicit repo : gobject_repository, gobj : gobject, name : bytes, data : int, flags : int, ret : ffi_type, args : list(ffi_type), f : fn_callback) : (world, gobject_repository);
 
 fn g_application_run(implicit w : world, implicit repo : gobject_repository, app : gobject, appname : string, args : list(bytes)) : (world, gobject_repository, int);
 
@@ -84,10 +86,12 @@ fn gobject_repository_init(implicit w : world, use_thread : bool) : (world, gobj
 [
 	var destr := ffi_destructor_new();
 	var callbacks := infinite_uninitialized(fn_callback);
+	var destructors := infinite_uninitialized(ffi_destructor);
 	var repo := gobject_repository.[
 		destr : destr,
 		use_thread : use_thread,
 		callbacks : callbacks,
+		destructors : destructors,
 	];
 	repo.thr := ffi_thread_spawn();
 	return repo;
@@ -188,6 +192,29 @@ fn g_signal_connect_data(implicit w : world, implicit repo : gobject_repository,
 	xeval ffi_thread_sync_call(repo.thr, destr, g_signal_connect_data, [ gobj.ptr, zstr, cb, data, 0, flags ]);
 	ffi_destructor_destroy(destr);
 	return cb;
+]
+
+fn signal_disconnect(cb cb_destr : int, implicit w : world, implicit repo : gobject_repository, u : ffi_callback) : (world, gobject_repository)
+[
+	repo.callbacks[cb] := uninitialized(fn_callback);
+	repo.callbacks[cb_destr] := uninitialized(fn_callback);
+	repo.destructors[cb] := uninitialized(ffi_destructor);
+	eval debug("disconnecting " + ntos_base(cb, 16) + ", " + ntos_base(cb_destr, 16));
+]
+
+fn g_signal_connect(implicit w : world, implicit repo : gobject_repository, gobj : gobject, name : bytes, data : int, flags : int, ret : ffi_type, args : list(ffi_type), f : fn_callback) : (world, gobject_repository)
+[
+	var destr := ffi_destructor_new();
+	var zstr := ffi_poke_zstring(destr, name);
+	var cb := ffi_callback_create(destr, 0, ret, args);
+	var cb_destr := ffi_callback_create(destr, 0, ffi_type.t_void, [ ffi_type.t_pointer, ffi_type.t_pointer ]);
+	fn g_signal_connect_data~cache := ffi_function_prototype(gobject_lib, 0, "unsigned long g_signal_connect_data(void *instance, char *detailed_signal, void *c_handler, void *data, void *destroy_data, unsigned connect_flags)");
+	xeval ffi_thread_sync_call(repo.thr, destr, g_signal_connect_data, [ gobj.ptr, zstr, cb, data, cb_destr, flags ]);
+	ffi_destructor_free(destr, zstr);
+	repo.callbacks[cb] := f;
+	repo.callbacks[cb_destr] := signal_disconnect(cb, cb_destr,,,);
+	repo.destructors[cb] := destr;
+	eval debug("connecting " + ntos_base(cb, 16) + ", " + ntos_base(cb_destr, 16));
 ]
 
 fn g_application_run(implicit w : world, implicit repo : gobject_repository, app : gobject, appname : string, args : list(bytes)) : (world, gobject_repository, int)
