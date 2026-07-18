@@ -121,6 +121,7 @@ fn ffi_thread_spawn(w : world) : (world, ffi_thread);
 fn ffi_thread_async_call(w : world, t : ffi_thread, d : ffi_destructor, func : ffi_function, args : list(int)) : world;
 fn ffi_thread_sync_call(w : world, t : ffi_thread, d : ffi_destructor, func : ffi_function, args : list(int)) : (world, int, int);
 fn ffi_thread_callback_call(w : world, t : ffi_thread, d : ffi_destructor, func : ffi_function, args : list(int)) : (world, int, int, ffi_callback);
+fn ffi_thread_destructor_call(w : world, fd : ffi_destructor, t : ffi_thread, func : ffi_function, args : list(int)) : world;
 
 fn ffi_callback_create(w : world, fd : ffi_destructor, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : (world, int);
 
@@ -623,6 +624,13 @@ fn ffi_thread_callback_call(w : world, t : ffi_thread, d : ffi_destructor, func 
 	r, e := ffi_unpack_async_result~lazy(a);
 	cb := ffi_unpack_async_callback~lazy(a);
 	return w2, r, e, cb;
+]
+
+fn ffi_thread_destructor_call(w : world, fd : ffi_destructor, t : ffi_thread, func : ffi_function, args : list(int)) : world
+[
+	var w2 : world;
+	pcode IO IO_FFI_Thread_Destructor_Call 1 5 0 =w2 w fd func args t;
+	return w2;
 ]
 
 fn ffi_callback_create(w : world, fd : ffi_destructor, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : (world, int)

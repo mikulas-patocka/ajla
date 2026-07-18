@@ -988,12 +988,14 @@ struct ffi_call_packet {
 	union result u;
 	uint32_t e;
 	pointer_t rf_ref;
+	pointer_t thread;
 };
 
 static bool ffi_call_packet_init(struct io_ctx *ctx)
 {
 	struct ffi_call_packet *pkt = ctx->pkt;
 	pkt->rf_ref = pointer_empty();
+	pkt->thread = pointer_empty();
 	if (unlikely(!array_init_mayfail(void *, &pkt->ptrs, &pkt->ptrs_l, &ctx->err))) {
 		pkt->ptrs = NULL;
 		return false;
@@ -1011,6 +1013,8 @@ static void ffi_call_packet_done(struct ffi_call_packet *pkt)
 	}
 	if (!pointer_is_empty(pkt->rf_ref))
 		pointer_dereference(pkt->rf_ref);
+	if (!pointer_is_empty(pkt->thread))
+		pointer_dereference(pkt->thread);
 }
 
 static bool io_add_argument(struct io_ctx *ctx, void *ptr, size_t size)
@@ -1300,6 +1304,8 @@ struct resource_ffi_destructor {
 	size_t handles_l;
 };
 
+static void destructor_call_in_thread(struct ffi_call_packet *call);
+
 static bool resource_ffi_destructor_close(struct data *d)
 {
 	size_t i;
@@ -1308,8 +1314,12 @@ static bool resource_ffi_destructor_close(struct data *d)
 	i = rfd->calls_l;
 	while (i--) {
 		struct ffi_call_packet *call = &rfd->calls[i];
-		ffi_call_packet_call(call);
-		ffi_call_packet_done(call);
+		if (!pointer_is_empty(call->thread)) {
+			destructor_call_in_thread(call);
+		} else {
+			ffi_call_packet_call(call);
+			ffi_call_packet_done(call);
+		}
 	}
 
 	mem_free(rfd->calls);
@@ -1498,9 +1508,6 @@ static void * attr_fastcall io_ffi_destructor_call_handler(struct io_ctx *ctx)
 
 	if (unlikely(!ffi_call_packet_fill(ctx, get_input(ctx, 2), get_input(ctx, 3), true)))
 		goto ret_err;
-
-	ptr = *frame_pointer(ctx->fp, get_input(ctx, 2));
-	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_destructor_call_handler: pointer is thunk"));
 
 	address_lock(rfd, DEPTH_AUX);
 	if (unlikely(!array_add_mayfail(struct ffi_call_packet, &rfd->calls, &rfd->calls_l, call, &old, &ctx->err))) {
@@ -1757,6 +1764,7 @@ struct resource_thread {
 	thread_t thr;
 	cond_t cond;
 	struct list async_packets;
+	bool ready;
 	bool should_exit;
 	atomic_type uchar_efficient_t idle;
 	pointer_t cb;
@@ -1790,7 +1798,8 @@ static void thread_pool_cleanup(bool only_idle)
 static void async_packet_cleanup(struct resource_async_packet *a)
 {
 	ffi_call_packet_done(&a->pkt);
-	pointer_dereference(a->destructor);
+	if (!pointer_is_empty(a->destructor))
+		pointer_dereference(a->destructor);
 }
 
 static bool async_packet_close(struct data *d)
@@ -1822,6 +1831,7 @@ static bool thread_close(struct data *d)
 static void thread_dispatcher(struct resource_thread *t)
 {
 	cond_lock(&t->cond);
+	t->ready = true;
 	while (1) {
 		if (!list_is_empty(&t->async_packets)) {
 			struct list async_packets;
@@ -1850,6 +1860,7 @@ static void thread_dispatcher(struct resource_thread *t)
 			break;
 		cond_wait(&t->cond);
 	}
+	t->ready = false;
 	cond_unlock(&t->cond);
 }
 
@@ -1882,6 +1893,7 @@ static void * attr_fastcall io_ffi_thread_spawn_handler(struct io_ctx *ctx)
 	cond_init(&t->cond);
 	list_init(&t->async_packets);
 	t->should_exit = false;
+	t->ready = false;
 	store_relaxed(&t->idle, false);
 	if (unlikely(!thread_spawn(&t->thr, ffi_thread_function, d, PRIORITY_IO, &ctx->err)))
 		goto free_d_ret_thunk;
@@ -1962,6 +1974,77 @@ ret:
 	return POINTER_FOLLOW_THUNK_EXCEPTION;
 }
 
+static void * attr_fastcall io_ffi_thread_destructor_call_handler(struct io_ctx *ctx)
+{
+	void *test;
+	pointer_t ptr;
+	struct resource_ffi_destructor *rfd = NULL;
+	void *old;
+	struct ffi_call_packet call;
+
+	test = io_deep_eval(ctx, "01234", true);
+	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
+		return test;
+
+	ptr = *frame_pointer(ctx->fp, get_input(ctx, 1));
+	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_thread_destructor_call_handler: pointer is thunk"));
+	rfd = da_resource(pointer_get_data(ptr));
+
+	ctx->pkt = &call;
+	if (unlikely(!ffi_call_packet_init(ctx)))
+		goto ret_err;
+
+	if (unlikely(!ffi_call_packet_fill(ctx, get_input(ctx, 2), get_input(ctx, 3), true)))
+		goto ret_err;
+
+	ptr = *frame_pointer(ctx->fp, get_input(ctx, 4));
+	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_thread_destructor_call_handler: pointer is thunk"));
+	pointer_reference_owned(ptr);
+	call.thread = ptr;
+
+	address_lock(rfd, DEPTH_AUX);
+	if (unlikely(!array_add_mayfail(struct ffi_call_packet, &rfd->calls, &rfd->calls_l, call, &old, &ctx->err))) {
+		rfd->calls = old;
+		address_unlock(rfd, DEPTH_AUX);
+		goto ret_err;
+	}
+	address_unlock(rfd, DEPTH_AUX);
+
+	return test;
+
+ret_err:
+	ffi_call_packet_done(&call);
+	io_terminate_with_error(ctx, ctx->err, true, NULL);
+	return POINTER_FOLLOW_THUNK_EXCEPTION;
+}
+
+static void destructor_call_in_thread(struct ffi_call_packet *call)
+{
+	struct data *td = pointer_get_data(call->thread);
+	struct resource_thread *t = da_resource(td);
+	struct data *d;
+	struct resource_async_packet *a;
+
+	d = data_alloc_resource_mayfail(sizeof(struct resource_async_packet), async_packet_close, NULL pass_file_line);
+	a = da_resource(d);
+	a->finished = false;
+	a->dereferenced = true;
+	list_init(&a->wait_list_result);
+	list_init(&a->wait_list_callback);
+	a->destructor = pointer_empty();
+	a->pkt = *call;
+
+	cond_lock(&t->cond);
+	if (t->ready) {
+		list_add(&t->async_packets, &a->list_entry);
+		cond_unlock_signal(&t->cond);
+	} else {
+		cond_unlock(&t->cond);
+		data_free_r1(d);
+		ffi_call_packet_done(call);
+	}
+}
+
 static void * attr_fastcall io_ffi_unpack_async_result_handler(struct io_ctx *ctx)
 {
 	void *test;
@@ -2006,6 +2089,7 @@ static void * attr_fastcall io_ffi_unpack_async_result_handler(struct io_ctx *ct
 
 #define io_ffi_thread_spawn_handler		io_ffi_unsupported
 #define io_ffi_async_call_handler		io_ffi_unsupported
+#define io_ffi_thread_destructor_call_handler	io_ffi_unsupported
 #define io_ffi_unpack_async_result_handler	io_ffi_unsupported
 
 #endif
@@ -2044,6 +2128,7 @@ static bool resource_callback_close(struct data *d)
 static bool arguments_close(struct data *d)
 {
 	struct resource_thread *t = da_resource(d);
+	cond_done(&t->cond);
 	pointer_dereference(t->cb);
 	return true;
 }
@@ -2080,7 +2165,6 @@ static void callback_fn(ffi_cif attr_unused *cif, void *ret, void **args, void *
 
 	thread_dispatcher(t);
 
-	cond_done(&t->cond);
 	t->ret = NULL;
 	t->a = NULL;
 

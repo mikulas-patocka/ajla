@@ -128,7 +128,10 @@ fn gobject_init(implicit w : world, implicit repo : gobject_repository, func : f
 	else
 		r, e := ffi_function_call(g_object_ref_sink, [ ptr ]);
 	fn g_object_unref~cache := ffi_function_prototype(gobject_lib, 0, "void g_object_unref(void *)");
-	ffi_destructor_call(destr, g_object_unref, [ ptr ]);
+	if repo.use_thread then
+		ffi_thread_destructor_call(destr, repo.thr, g_object_unref, [ ptr ]);
+	else
+		ffi_destructor_call(destr, g_object_unref, [ ptr ]);
 	return gobject.[
 		ptr : ptr,
 		destr : destr,
@@ -199,7 +202,7 @@ fn signal_disconnect(cb cb_destr : int, implicit w : world, implicit repo : gobj
 	repo.callbacks[cb] := uninitialized(fn_callback);
 	repo.callbacks[cb_destr] := uninitialized(fn_callback);
 	repo.destructors[cb] := uninitialized(ffi_destructor);
-	eval debug("disconnecting " + ntos_base(cb, 16) + ", " + ntos_base(cb_destr, 16));
+	//eval debug("disconnecting " + ntos_base(cb, 16) + ", " + ntos_base(cb_destr, 16));
 ]
 
 fn g_signal_connect(implicit w : world, implicit repo : gobject_repository, gobj : gobject, name : bytes, data : int, flags : int, ret : ffi_type, args : list(ffi_type), f : fn_callback) : (world, gobject_repository)
@@ -214,7 +217,7 @@ fn g_signal_connect(implicit w : world, implicit repo : gobject_repository, gobj
 	repo.callbacks[cb] := f;
 	repo.callbacks[cb_destr] := signal_disconnect(cb, cb_destr,,,);
 	repo.destructors[cb] := destr;
-	eval debug("connecting " + ntos_base(cb, 16) + ", " + ntos_base(cb_destr, 16));
+	//eval debug("connecting " + ntos_base(cb, 16) + ", " + ntos_base(cb_destr, 16));
 ]
 
 fn g_application_run(implicit w : world, implicit repo : gobject_repository, app : gobject, appname : string, args : list(bytes)) : (world, gobject_repository, int)

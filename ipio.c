@@ -5025,6 +5025,7 @@ static attr_unused void * attr_fastcall io_ffi_unsupported(struct io_ctx *ctx)
 #define io_ffi_barrier_cancel_handler		io_ffi_unsupported
 #define io_ffi_thread_spawn_handler		io_ffi_unsupported
 #define io_ffi_async_call_handler		io_ffi_unsupported
+#define io_ffi_thread_destructor_call_handler	io_ffi_unsupported
 #define io_ffi_unpack_async_result_handler	io_ffi_unsupported
 #define io_ffi_unpack_async_callback_handler	io_ffi_unsupported
 #define io_ffi_callback_create_handler		io_ffi_unsupported
@@ -5254,6 +5255,7 @@ static const struct {
 	{ io_ffi_barrier_cancel_handler },
 	{ io_ffi_thread_spawn_handler },
 	{ io_ffi_async_call_handler },
+	{ io_ffi_thread_destructor_call_handler },
 	{ io_ffi_unpack_async_result_handler },
 	{ io_ffi_unpack_async_callback_handler },
 	{ io_ffi_callback_create_handler },

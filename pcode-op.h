@@ -377,13 +377,14 @@
 #define IO_FFI_Barrier_Cancel		118
 #define IO_FFI_Thread_Spawn		119
 #define IO_FFI_Async_Call		120
-#define IO_FFI_Unpack_Async_Result	121
-#define IO_FFI_Unpack_Async_Callback	122
-#define IO_FFI_Callback_Create		123
-#define IO_FFI_Callback_Get_Address	124
-#define IO_FFI_Callback_Get_Arg		125
-#define IO_FFI_Callback_Return		126
-#define IO_N				127
+#define IO_FFI_Thread_Destructor_Call	121
+#define IO_FFI_Unpack_Async_Result	122
+#define IO_FFI_Unpack_Async_Callback	123
+#define IO_FFI_Callback_Create		124
+#define IO_FFI_Callback_Get_Address	125
+#define IO_FFI_Callback_Get_Arg		126
+#define IO_FFI_Callback_Return		127
+#define IO_N				128
 
 #define IO_Open_Flag_Read		1
 #define IO_Open_Flag_Write		2

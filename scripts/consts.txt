@@ -403,6 +403,7 @@ IO_FFI_Barrier_Wait
 IO_FFI_Barrier_Cancel
 IO_FFI_Thread_Spawn
 IO_FFI_Async_Call
+IO_FFI_Thread_Destructor_Call
 IO_FFI_Unpack_Async_Result
 IO_FFI_Unpack_Async_Callback
 IO_FFI_Callback_Create
