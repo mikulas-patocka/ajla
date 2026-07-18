@@ -629,7 +629,7 @@ fn ffi_thread_callback_call(w : world, t : ffi_thread, d : ffi_destructor, func 
 fn ffi_thread_destructor_call(w : world, fd : ffi_destructor, t : ffi_thread, func : ffi_function, args : list(int)) : world
 [
 	var w2 : world;
-	pcode IO IO_FFI_Thread_Destructor_Call 1 5 0 =w2 w fd func args t;
+	pcode IO IO_FFI_Destructor_Call 1 5 0 =w2 w fd func args t;
 	return w2;
 ]
 

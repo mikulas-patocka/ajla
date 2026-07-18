@@ -1494,7 +1494,7 @@ static void * attr_fastcall io_ffi_destructor_call_handler(struct io_ctx *ctx)
 	void *old;
 	struct ffi_call_packet call;
 
-	test = io_deep_eval(ctx, "0123", true);
+	test = io_deep_eval(ctx, ctx->n_inputs < 5 ? "0123" : "01234", true);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		return test;
 
@@ -1508,6 +1508,13 @@ static void * attr_fastcall io_ffi_destructor_call_handler(struct io_ctx *ctx)
 
 	if (unlikely(!ffi_call_packet_fill(ctx, get_input(ctx, 2), get_input(ctx, 3), true)))
 		goto ret_err;
+
+	if (ctx->n_inputs >= 5) {
+		ptr = *frame_pointer(ctx->fp, get_input(ctx, 4));
+		ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_destructor_call_handler: pointer is thunk"));
+		pointer_reference_owned(ptr);
+		call.thread = ptr;
+	}
 
 	address_lock(rfd, DEPTH_AUX);
 	if (unlikely(!array_add_mayfail(struct ffi_call_packet, &rfd->calls, &rfd->calls_l, call, &old, &ctx->err))) {
@@ -1974,50 +1981,6 @@ ret:
 	return POINTER_FOLLOW_THUNK_EXCEPTION;
 }
 
-static void * attr_fastcall io_ffi_thread_destructor_call_handler(struct io_ctx *ctx)
-{
-	void *test;
-	pointer_t ptr;
-	struct resource_ffi_destructor *rfd = NULL;
-	void *old;
-	struct ffi_call_packet call;
-
-	test = io_deep_eval(ctx, "01234", true);
-	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
-		return test;
-
-	ptr = *frame_pointer(ctx->fp, get_input(ctx, 1));
-	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_thread_destructor_call_handler: pointer is thunk"));
-	rfd = da_resource(pointer_get_data(ptr));
-
-	ctx->pkt = &call;
-	if (unlikely(!ffi_call_packet_init(ctx)))
-		goto ret_err;
-
-	if (unlikely(!ffi_call_packet_fill(ctx, get_input(ctx, 2), get_input(ctx, 3), true)))
-		goto ret_err;
-
-	ptr = *frame_pointer(ctx->fp, get_input(ctx, 4));
-	ajla_assert_lo(!pointer_is_thunk(ptr), (file_line, "io_ffi_thread_destructor_call_handler: pointer is thunk"));
-	pointer_reference_owned(ptr);
-	call.thread = ptr;
-
-	address_lock(rfd, DEPTH_AUX);
-	if (unlikely(!array_add_mayfail(struct ffi_call_packet, &rfd->calls, &rfd->calls_l, call, &old, &ctx->err))) {
-		rfd->calls = old;
-		address_unlock(rfd, DEPTH_AUX);
-		goto ret_err;
-	}
-	address_unlock(rfd, DEPTH_AUX);
-
-	return test;
-
-ret_err:
-	ffi_call_packet_done(&call);
-	io_terminate_with_error(ctx, ctx->err, true, NULL);
-	return POINTER_FOLLOW_THUNK_EXCEPTION;
-}
-
 static void destructor_call_in_thread(struct ffi_call_packet *call)
 {
 	struct data *td = pointer_get_data(call->thread);
@@ -2089,7 +2052,6 @@ static void * attr_fastcall io_ffi_unpack_async_result_handler(struct io_ctx *ct
 
 #define io_ffi_thread_spawn_handler		io_ffi_unsupported
 #define io_ffi_async_call_handler		io_ffi_unsupported
-#define io_ffi_thread_destructor_call_handler	io_ffi_unsupported
 #define io_ffi_unpack_async_result_handler	io_ffi_unsupported
 
 #endif
