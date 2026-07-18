@@ -104,6 +104,7 @@ fn ffi_decode_longdouble(i : int) : real80;
 fn ffi_destructor_new(w : world) : (world, ffi_destructor);
 fn ffi_destructor_destroy(w : world, fd : ffi_destructor) : world;
 fn ffi_destructor_allocate(w : world, fd : ffi_destructor, size align : int, zero : bool) : (world, int);
+fn ffi_destructor_allocate_type(w : world, fd : ffi_destructor, ft : ffi_type, n : int, zero : bool) : (world, int);
 fn ffi_destructor_free(w : world, fd : ffi_destructor, ptr : int) : world;
 fn ffi_destructor_call(w : world, fd : ffi_destructor, func : ffi_function, args : list(int)) : world;
 
@@ -527,6 +528,11 @@ fn ffi_destructor_allocate(w : world, fd : ffi_destructor, size align : int, zer
 	var w2 : world;
 	pcode IO IO_FFI_Destructor_Allocate 2 5 0 =w2 =r w fd size align zero;
 	return w2, r;
+]
+
+fn ffi_destructor_allocate_type(w : world, fd : ffi_destructor, ft : ffi_type, n : int, zero : bool) : (world, int)
+[
+	return ffi_destructor_allocate(w, fd, ffi_get_size(ft) * n, ffi_get_alignment(ft), zero);
 ]
 
 fn ffi_destructor_free(w : world, fd : ffi_destructor, ptr : int) : world
