@@ -232,9 +232,13 @@ fn g_application_run(implicit w : world, implicit repo : gobject_repository, app
 		if is_exception w then [
 			var rr ee : int;
 			w_backup, rr, ee := ffi_thread_sync_call(w_backup, ffi_callback_recurse(u), repo.destr, g_application_quit, [ app.ptr ]);
+x:
 			w_backup, u := ffi_callback_return(w_backup, u, 0);
-			eval w_backup;
-			break;
+			if any(r, u) then [
+				xeval repo;
+				goto x;
+			]
+			abort w;
 		]
 		w, u := ffi_callback_return(w, u, 0);
 	]
