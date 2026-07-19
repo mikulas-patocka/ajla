@@ -26,7 +26,7 @@ fn gobject_lib~cache : ffi_library;
 fn glib_lib~cache : ffi_library;
 fn gio_lib~cache : ffi_library;
 
-type fn_callback := fn(w : world, repo : gobject_repository, u : ffi_callback) : (world, gobject_repository);
+type fn_callback := fn(w : world, repo : gobject_repository, u : ffi_callback) : (world, gobject_repository, int);
 
 record gobject_repository [
 	destr : ffi_destructor;
@@ -194,12 +194,13 @@ fn g_free(implicit w : world, ptr : int) : world
 	var r, e := ffi_function_call(g_free, [ ptr ]);
 ]
 
-fn callback_disconnect(cb cb_destr : int, implicit w : world, implicit repo : gobject_repository, u : ffi_callback) : (world, gobject_repository)
+fn callback_disconnect(cb cb_destr : int, implicit w : world, implicit repo : gobject_repository, u : ffi_callback) : (world, gobject_repository, int)
 [
 	repo.callbacks[cb] := uninitialized(fn_callback);
 	repo.callbacks[cb_destr] := uninitialized(fn_callback);
 	repo.destructors[cb] := uninitialized(ffi_destructor);
 	//eval debug("disconnecting " + ntos_base(cb, 16) + ", " + ntos_base(cb_destr, 16));
+	return 0;
 ]
 
 fn g_signal_connect(implicit w : world, implicit repo : gobject_repository, gobj : gobject, name : bytes, data : int, flags : int, ret : ffi_type, args : list(ffi_type), f : fn_callback) : (world, gobject_repository)
@@ -259,7 +260,8 @@ fn g_application_run(implicit w : world, implicit repo : gobject_repository, app
 		//eval debug("callback: " + ntos_base(cb, 16));
 		var old_thr := repo.thr;
 		repo.thr := ffi_callback_recurse(u);
-		w, repo := repo.callbacks[cb](w, repo, u);
+		var ret : int;
+		w, repo, ret := repo.callbacks[cb](w, repo, u);
 		if is_exception repo then
 			repo := repo_backup;
 		repo.thr := old_thr;
@@ -274,7 +276,7 @@ x:
 			]
 			abort w;
 		]
-		w, u := ffi_callback_return(w, u, 1);
+		w, u := ffi_callback_return(w, u, ret);
 	]
 	xeval app;
 	return r;
