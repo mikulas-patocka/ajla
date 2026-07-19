@@ -52,6 +52,7 @@ fn gobject_init_with_unref(implicit w : world, implicit repo : gobject_repositor
 fn gobject_from_ptr(ptr : int) : gobject;
 fn gobject_ptr(gobj : gobject) : int;
 fn gobject_keep(w : world, gobj : gobject) : world;
+fn gobject_unref(implicit w : world, implicit repo : gobject_repository, gobj : gobject) : world;
 
 fn g_free(implicit w : world, ptr : int) : world;
 
@@ -188,6 +189,17 @@ fn gobject_keep(w : world, gobj : gobject) : world
 	var w2 : world;
 	pcode IO IO_Consume_Parameters 1 2 0 =w2 w gobj;
 	return w2;
+]
+
+fn gobject_unref(implicit w : world, implicit repo : gobject_repository, gobj : gobject) : world
+[
+	var r e : int;
+	var destr := ffi_destructor_new();
+	fn g_object_unref~cache := ffi_function_prototype(gobject_lib, 0, "void g_object_unref(void *)");
+	if repo.use_thread then
+		r, e := ffi_thread_sync_call(repo.thr, destr, g_object_unref, [ gobj.ptr ]);
+	else
+		r, e := ffi_function_call(g_object_unref, [ gobj.ptr ]);
 ]
 
 fn g_free(implicit w : world, ptr : int) : world
