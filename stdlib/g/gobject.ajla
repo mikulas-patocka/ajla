@@ -64,6 +64,7 @@ const G_PRIORITY_HIGH_IDLE := 100;
 const G_PRIORITY_DEFAULT_IDLE := 200;
 const G_PRIORITY_LOW := 300;
 fn g_timer_connect(implicit w : world, implicit repo : gobject_repository, priority : int, interval : int, data : int, f : fn_callback) : (world, gobject_repository, gtimer);
+fn g_idle_connect(implicit w : world, implicit repo : gobject_repository, priority : int, data : int, f : fn_callback) : (world, gobject_repository, gtimer);
 
 fn g_application_run(implicit w : world, implicit repo : gobject_repository, app : gobject, appname : string, args : list(bytes)) : (world, gobject_repository, int);
 
@@ -231,6 +232,25 @@ fn g_timer_connect(implicit w : world, implicit repo : gobject_repository, prior
 	fn g_timeout_add_full~cache := ffi_function_prototype(glib_lib, 0, "unsigned g_timeout_add_full(int priority, unsigned interval, void *function, void *data, void *destroy_data)");
 	fn g_source_remove~cache := ffi_function_prototype(glib_lib, 0, "int g_source_remove(unsigned tag)");
 	var id, e := ffi_thread_sync_call(repo.thr, destr, g_timeout_add_full, [ priority, interval, cb, data, cb_destr ]);
+	repo.callbacks[cb] := f;
+	repo.callbacks[cb_destr] := callback_disconnect(cb, cb_destr,,,);
+	repo.destructors[cb] := destr;
+	var destr2 := ffi_destructor_new();
+	ffi_thread_destructor_call(destr2, repo.thr, g_source_remove, [ id ]);
+	return gtimer.[
+		id : id,
+		destr : destr2,
+	];
+]
+
+fn g_idle_connect(implicit w : world, implicit repo : gobject_repository, priority : int, data : int, f : fn_callback) : (world, gobject_repository, gtimer)
+[
+	var destr := ffi_destructor_new();
+	var cb := ffi_callback_create(destr, 0, ffi_type.t_sint, [ ffi_type.t_pointer ]);
+	var cb_destr := ffi_callback_create(destr, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
+	fn g_idle_add_full~cache := ffi_function_prototype(glib_lib, 0, "unsigned g_idle_add_full(int priority, void *function, void *data, void *destroy_data)");
+	fn g_source_remove~cache := ffi_function_prototype(glib_lib, 0, "int g_source_remove(unsigned tag)");
+	var id, e := ffi_thread_sync_call(repo.thr, destr, g_idle_add_full, [ priority, cb, data, cb_destr ]);
 	repo.callbacks[cb] := f;
 	repo.callbacks[cb_destr] := callback_disconnect(cb, cb_destr,,,);
 	repo.destructors[cb] := destr;
