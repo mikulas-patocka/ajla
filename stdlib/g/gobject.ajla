@@ -23,6 +23,7 @@ uses ffi;
 type gobject_repository;
 
 fn gobject_lib~cache : ffi_library;
+fn glib_lib~cache : ffi_library;
 fn gio_lib~cache : ffi_library;
 
 type fn_callback := fn(w : world, repo : gobject_repository, u : ffi_callback) : (world, gobject_repository);
@@ -56,6 +57,14 @@ fn g_free(implicit w : world, ptr : int) : world;
 
 fn g_signal_connect(implicit w : world, implicit repo : gobject_repository, gobj : gobject, name : bytes, data : int, flags : int, ret : ffi_type, args : list(ffi_type), f : fn_callback) : (world, gobject_repository);
 
+type gtimer;
+const G_PRIORITY_HIGH := -100;
+const G_PRIORITY_DEFAULT := 0;
+const G_PRIORITY_HIGH_IDLE := 100;
+const G_PRIORITY_DEFAULT_IDLE := 200;
+const G_PRIORITY_LOW := 300;
+fn g_timer_connect(implicit w : world, implicit repo : gobject_repository, priority : int, interval : int, data : int, f : fn_callback) : (world, gobject_repository, gtimer);
+
 fn g_application_run(implicit w : world, implicit repo : gobject_repository, app : gobject, appname : string, args : list(bytes)) : (world, gobject_repository, int);
 
 implementation
@@ -63,6 +72,7 @@ implementation
 uses charset;
 
 fn gobject_lib~cache := ffi_open_library("gobject-2.0", true, "", 0);
+fn glib_lib~cache := ffi_open_library("glib-2.0", true, "", 0);
 fn gio_lib~cache := ffi_open_library("gio-2.0", true, "", 0);
 
 fn ffi_function_create_multiple(libraries : list(ffi_library), funcname : bytes, flags : int, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : ffi_function
@@ -184,7 +194,7 @@ fn g_free(implicit w : world, ptr : int) : world
 	var r, e := ffi_function_call(g_free, [ ptr ]);
 ]
 
-fn signal_disconnect(cb cb_destr : int, implicit w : world, implicit repo : gobject_repository, u : ffi_callback) : (world, gobject_repository)
+fn callback_disconnect(cb cb_destr : int, implicit w : world, implicit repo : gobject_repository, u : ffi_callback) : (world, gobject_repository)
 [
 	repo.callbacks[cb] := uninitialized(fn_callback);
 	repo.callbacks[cb_destr] := uninitialized(fn_callback);
@@ -202,9 +212,33 @@ fn g_signal_connect(implicit w : world, implicit repo : gobject_repository, gobj
 	xeval ffi_thread_sync_call(repo.thr, destr, g_signal_connect_data, [ gobj.ptr, zstr, cb, data, cb_destr, flags ]);
 	ffi_destructor_free(destr, zstr);
 	repo.callbacks[cb] := f;
-	repo.callbacks[cb_destr] := signal_disconnect(cb, cb_destr,,,);
+	repo.callbacks[cb_destr] := callback_disconnect(cb, cb_destr,,,);
 	repo.destructors[cb] := destr;
 	//eval debug("connecting " + ntos_base(cb, 16) + ", " + ntos_base(cb_destr, 16));
+]
+
+record gtimer [
+	id : int;
+	destr : ffi_destructor;
+]
+
+fn g_timer_connect(implicit w : world, implicit repo : gobject_repository, priority : int, interval : int, data : int, f : fn_callback) : (world, gobject_repository, gtimer)
+[
+	var destr := ffi_destructor_new();
+	var cb := ffi_callback_create(destr, 0, ffi_type.t_sint, [ ffi_type.t_pointer ]);
+	var cb_destr := ffi_callback_create(destr, 0, ffi_type.t_void, [ ffi_type.t_pointer ]);
+	fn g_timeout_add_full~cache := ffi_function_prototype(glib_lib, 0, "unsigned g_timeout_add_full(int priority, unsigned interval, void *function, void *data, void *destroy_data)");
+	fn g_source_remove~cache := ffi_function_prototype(glib_lib, 0, "int g_source_remove(unsigned tag)");
+	var id, e := ffi_thread_sync_call(repo.thr, destr, g_timeout_add_full, [ priority, interval, cb, data, cb_destr ]);
+	repo.callbacks[cb] := f;
+	repo.callbacks[cb_destr] := callback_disconnect(cb, cb_destr,,,);
+	repo.destructors[cb] := destr;
+	var destr2 := ffi_destructor_new();
+	ffi_thread_destructor_call(destr2, repo.thr, g_source_remove, [ id ]);
+	return gtimer.[
+		id : id,
+		destr : destr2,
+	];
 ]
 
 fn g_application_run(implicit w : world, implicit repo : gobject_repository, app : gobject, appname : string, args : list(bytes)) : (world, gobject_repository, int)
@@ -240,7 +274,7 @@ x:
 			]
 			abort w;
 		]
-		w, u := ffi_callback_return(w, u, 0);
+		w, u := ffi_callback_return(w, u, 1);
 	]
 	xeval app;
 	return r;
