@@ -68,7 +68,7 @@ fn g_timer_connect(implicit w : world, implicit repo : gobject_repository, prior
 fn g_idle_connect(implicit w : world, implicit repo : gobject_repository, priority : int, data : int, f : fn_callback) : (world, gobject_repository, gtimer);
 fn g_source_remove(implicit w : world, implicit repo : gobject_repository, source : gtimer) : (world, gobject_repository);
 
-fn g_application_run(implicit w : world, implicit repo : gobject_repository, app : gobject, appname : string, args : list(bytes)) : (world, gobject_repository, int);
+fn g_run(implicit w : world, implicit repo : gobject_repository, app : gobject, appname : string, args : list(bytes)) : (world, gobject_repository, int);
 
 implementation
 
@@ -276,7 +276,7 @@ fn g_source_remove(implicit w : world, implicit repo : gobject_repository, sourc
 	repo.destructors[source.cb] := uninitialized(ffi_destructor);
 ]
 
-fn g_application_run(implicit w : world, implicit repo : gobject_repository, app : gobject, appname : string, args : list(bytes)) : (world, gobject_repository, int)
+fn g_run(implicit w : world, implicit repo : gobject_repository, app : gobject, appname : string, args : list(bytes)) : (world, gobject_repository, int)
 [
 	args := [ string_to_utf8(appname) ] + args;
 	var argv := ffi_destructor_allocate(app.destr, len(args) * ffi_get_size(ffi_type.t_pointer), ffi_get_alignment(ffi_type.t_pointer), false);
