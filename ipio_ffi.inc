@@ -1244,7 +1244,14 @@ static bool ffi_convert_result(struct io_ctx *ctx, ajla_option_t ret_type, union
 		if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 			return false;
 	} else {
-		io_store_typed_number(ctx, frame_result, int_default_t, INT_DEFAULT_N, ffi_sarg, u->src);
+		ffi_sarg value = u->src;
+		if (ajla_type_to_ffi_type_table[ret_type].size == 1)
+			value = (int8_t)value;
+		if (ajla_type_to_ffi_type_table[ret_type].size == 2)
+			value = (int16_t)value;
+		if (ajla_type_to_ffi_type_table[ret_type].size == 4)
+			value = (int32_t)value;
+		io_store_typed_number(ctx, frame_result, int_default_t, INT_DEFAULT_N, ffi_sarg, value);
 		if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 			return false;
 	}
