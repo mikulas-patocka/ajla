@@ -24,7 +24,7 @@ type spec_context;
 
 fn spec_get_arg_dependencies(ctx : context, args : int) : int;
 
-fn new_spec_context(n : int) : spec_context;
+fn new_spec_context : spec_context;
 fn spec_add_variable(spec_ctx : spec_context, ctx : context, a v : int) : spec_context;
 fn spec_extract_pcode(spec_ctx : spec_context) : list(pcode_t);
 fn spec_pcode(pc : list(pcode_t), spec_data : list(pcode_t), un : bytes, get_inline : fn(function, bool) : list(pcode_t), verify_pattern : bytes) : list(pcode_t);
@@ -141,7 +141,7 @@ found_it:
 	return args;
 ]
 
-fn new_spec_context(n : int) : spec_context
+fn new_spec_context : spec_context
 [
 	var spec_ctx := spec_context.[
 		arguments : 0,

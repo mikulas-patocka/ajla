@@ -1084,7 +1084,7 @@ skip_cast:
 			//eval debug("bmp 1: " + ntos(bmp));
 			bmp := spec_get_arg_dependencies(new_ctx, bmp);
 			//eval debug("bmp 2: " + ntos(bmp));
-			var spec_ctx := new_spec_context(popcnt bmp);
+			var spec_ctx := new_spec_context;
 			var b := bmp;
 			while b <> 0 do [
 				var a := bsf b;
