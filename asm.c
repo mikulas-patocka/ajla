@@ -665,7 +665,7 @@ static attr_noinline void verify_alttable(void)
 
 void asm_init(void)
 {
-	bool trap_sigill = false;
+	bool attr_unused trap_sigill = false;
 	uint32_t missing_features;
 
 	verify_alttable();
@@ -705,7 +705,7 @@ void asm_init(void)
 #if defined(ARCH_POWER) || defined(ARCH_RISCV64)
 		os_signal_trap(SIGILL, sigill);
 #endif
-}
+	}
 #define ASM_INC_DYNAMIC
 #include "asm.inc"
 #undef ASM_INC_DYNAMIC
