@@ -137,7 +137,11 @@ static bool reg_is_p(unsigned reg)
 #define R_SAVED_1			R_9
 #define R_SAVED_2			R_SCRATCH_4
 
-#define R_SCRATCH_NA_1			R_7
+#define R_SCRATCH_NA_1			R_2
+#ifdef HAVE_BITWISE_FRAME
+#define R_SCRATCH_NA_2			R_3
+#define R_SCRATCH_NA_3			R_14
+#endif
 
 #define R_FRAME				R_GBR
 #define R_CMP_RESULT			R_T
@@ -149,7 +153,7 @@ static bool reg_is_p(unsigned reg)
 #define R_ARG1				R_5
 #define R_ARG2				R_6
 #define R_ARG3				R_7
-#define R_RET0				R_SCRATCH_NA_1
+#define R_RET0				R_SCRATCH_1
 #define R_RET_IP			R_4
 
 #define SUPPORTED_FP			0
@@ -158,7 +162,11 @@ static bool reg_is_p(unsigned reg)
 #define N_FP_ALIASES(real_size)		FP_REGISTERS(real_size)
 
 static const uint8_t regs_saved[] = { R_10, R_11, R_12, R_13, R_14 };
-static const uint8_t regs_volatile[] = { R_2, R_3 };
+static const uint8_t regs_volatile[] = { R_7, R_3 };
+#ifdef HAVE_BITWISE_FRAME
+#define n_regs_saved 4U
+#define n_regs_volatile 1U
+#endif
 static const uint8_t fp_saved[] = { FR_12, FR_13, FR_14, FR_15 };
 #define n_fp_saved(real_type) (optimize_int ? 0 : n_array_elements(fp_saved))
 static const uint8_t fp_volatile[] = { FR_4, FR_5, FR_6, FR_7, FR_8, FR_9, FR_10, FR_11 };
@@ -357,12 +365,12 @@ static bool attr_w gen_upcall_argument(struct codegen_context attr_unused *ctx, 
 static bool attr_w gen_get_upcall_pointer(struct codegen_context *ctx, unsigned offset, unsigned op_size, unsigned reg)
 {
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
-	gen_one(R_3);
+	gen_one(reg);
 	gen_one(ARG_ADDRESS_1);
 	gen_one(R_SP);
 	gen_eight(4);
 
-	g(gen_address(ctx, R_3, offset, IMM_PURPOSE_LDR_OFFSET, op_size));
+	g(gen_address(ctx, reg, offset, IMM_PURPOSE_LDR_OFFSET, op_size));
 	gen_insn(INSN_MOV, op_size, 0, 0);
 	gen_one(reg);
 	gen_address_offset();
@@ -388,7 +396,7 @@ static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsi
 	gen_one(R_3);
 
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
-	gen_one(R_SCRATCH_NA_1);
+	gen_one(R_RET0);
 	gen_one(R_0);
 
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
@@ -410,17 +418,7 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 
 static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t escape_label)
 {
-	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
-	gen_one(R_SCRATCH_1);
-	gen_one(ARG_ADDRESS_1);
-	gen_one(R_SP);
-	gen_eight(4);
-
-	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct cg_upcall_vector_s, ts), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_4));
-	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
-	gen_one(R_SCRATCH_1);
-	gen_address_offset();
-
+	g(gen_get_upcall_pointer(ctx, offsetof(struct cg_upcall_vector_s, ts), OP_SIZE_4, R_SCRATCH_1));
 
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
 	gen_one(R_SCRATCH_2);

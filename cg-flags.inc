@@ -333,7 +333,7 @@ static bool attr_w gen_test_1(struct codegen_context *ctx, unsigned base, frame_
 		gen_address_offset();
 		gen_one(R_SCRATCH_NA_2);
 	}
-#if defined(ARCH_ARM) || defined(ARCH_IA64) || defined(ARCH_LOONGARCH64) || defined(ARCH_PARISC) || defined(ARCH_POWER) || defined(ARCH_S390)
+#if defined(ARCH_ARM) || defined(ARCH_IA64) || defined(ARCH_LOONGARCH64) || defined(ARCH_PARISC) || defined(ARCH_POWER) || defined(ARCH_S390) || defined(ARCH_SH4)
 	g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, i_size(OP_SIZE_BITMAP), R_SCRATCH_NA_1, (uintptr_t)1 << bit, !jz ? COND_NE : COND_E, label, -1));
 #else
 	g(gen_3address_rot_imm(ctx, i_size(OP_SIZE_BITMAP), ROT_SHL, R_SCRATCH_NA_3, R_SCRATCH_NA_1, (1U << (i_size(OP_SIZE_BITMAP) + 3)) - 1 - bit, 0));
@@ -503,7 +503,7 @@ static bool attr_w gen_test_2(struct codegen_context *ctx, frame_t slot_1, frame
 		g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, i_size(OP_SIZE_BITMAP), R_SCRATCH_NA_1, 1ULL << bit1 | 1ULL << bit2, COND_NE, label, -1));
 		return true;
 	}
-#if defined(ARCH_ARM) || defined(ARCH_IA64) || defined(ARCH_PARISC) || defined(ARCH_S390)
+#if defined(ARCH_ARM) || defined(ARCH_IA64) || defined(ARCH_PARISC) || defined(ARCH_S390) || defined(ARCH_SH4)
 	g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, i_size(OP_SIZE_BITMAP), R_SCRATCH_NA_1, (uintptr_t)1 << bit1, COND_NE, label, -1));
 	g(gen_cmp_test_imm_jmp(ctx, INSN_TEST, i_size(OP_SIZE_BITMAP), R_SCRATCH_NA_1, (uintptr_t)1 << bit2, COND_NE, label, -1));
 
