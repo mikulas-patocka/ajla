@@ -448,6 +448,45 @@ static void riscv64_syscall(void)
 #endif
 
 
+#ifdef ARCH_SH4
+
+static void sigill(int attr_unused sig, siginfo_t attr_unused *siginfo, void *ucontext)
+{
+	ucontext_t *uc = ucontext;
+	uc->uc_mcontext.pc += 4;
+	uc->uc_mcontext.gregs[0] = 0;
+}
+
+static bool trap_insn(const char *hex)
+{
+	char *c;
+	size_t cs;
+	size_t attr_unused i;
+	int (*fn)(void);
+	int ret;
+	if (unlikely(!OS_SUPPORTS_TRAPS)) {
+		detection_failed = true;
+		return false;
+	}
+	str_init(&c, &cs);
+	str_add_hex(&c, &cs, "e001");
+	str_add_hex(&c, &cs, hex);
+	str_add_hex(&c, &cs, "000b0009");
+#if defined(C_LITTLE_ENDIAN)
+	for (i = 0; i < cs; i += 2) {
+		char t;
+		t = c[i];
+		c[i] = c[i + 1];
+		c[i + 1] = t;
+	}
+#endif
+	fn = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
+	ret = fn();
+	os_code_unmap(fn, cs);
+	return ret;
+}
+
+#endif
 #ifdef ARCH_SPARC32
 
 static bool sparc_detect_9(void)
@@ -697,12 +736,15 @@ void asm_init(void)
 	if (riscv_hwp[0].key < 0)
 		trap_sigill = true;
 #endif
+#ifdef ARCH_SH4
+	trap_sigill = true;
+#endif
 #ifdef ARCH_X86
 	test_eflags_bits();
 	do_cpuid();
 #endif
 	if (trap_sigill) {
-#if defined(ARCH_POWER) || defined(ARCH_RISCV64)
+#if defined(ARCH_POWER) || defined(ARCH_RISCV64) || defined(ARCH_SH4)
 		os_signal_trap(SIGILL, sigill);
 #endif
 	}
@@ -710,7 +752,7 @@ void asm_init(void)
 #include "asm.inc"
 #undef ASM_INC_DYNAMIC
 	if (trap_sigill) {
-#if defined(ARCH_POWER) || defined(ARCH_RISCV64)
+#if defined(ARCH_POWER) || defined(ARCH_RISCV64) || defined(ARCH_SH4)
 		os_signal_untrap(SIGILL);
 #endif
 	}

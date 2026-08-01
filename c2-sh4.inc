@@ -83,6 +83,8 @@
 #define SH4_STS_L_FPSCR			0x4062
 #define SH4_LDS_L_FPSCR			0x4066
 #define SH4_LDS_FPSCR			0x406a
+#define SH4_MOVUA_L_ADDR_REG		0x40a9
+#define SH4_MOVUA_L_ADDR_INC_REG	0x40e9
 #define SH4_MOV_L_DISP_ADDR_REG		0x5000
 #define SH4_MOV_B_ADDR_REG		0x6000
 #define SH4_MOV_W_ADDR_REG		0x6001
@@ -466,6 +468,30 @@ static bool attr_w cgen_movsx(struct codegen_context *ctx, unsigned size)
 
 	return cgen_moves(ctx, size, true, arg1, arg2);
 }
+
+static bool attr_w cgen_mov_unaligned(struct codegen_context *ctx)
+{
+	uint16_t mc;
+	int64_t imm;
+
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+
+	if (arg1[0] == R_0 && (arg2[0] == ARG_ADDRESS_1 || arg2[0] == ARG_ADDRESS_1_POST_I) && arg2[1] < 0x10) {
+		imm = get_imm(&arg2[2]);
+		if (unlikely(imm == (arg2[0] == ARG_ADDRESS_1 ? 0 : 4))) {
+			mc = arg2[0] == ARG_ADDRESS_1 ? SH4_MOVUA_L_ADDR_REG : SH4_MOVUA_L_ADDR_INC_REG;
+			mc |= arg2[1] << 8;
+			if (ctx)
+				cgen_two(mc);
+			return true;
+		}
+	}
+	internal(file_line, "cgen_mov_unaligned: invalid operands: %02x %02x", arg1[0], arg2[0]);
+	return false;
+}
+
 
 static bool attr_w cgen_cmp_dest_reg(struct codegen_context *ctx, unsigned cond)
 {
@@ -1053,6 +1079,11 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_MOVSX:
 			g(cgen_movsx(ctx, insn_op_size(insn)));
+			return true;
+		case INSN_MOV_UNALIGNED:
+			if (unlikely(insn_op_size(insn) != OP_SIZE_4))
+				goto invalid_insn;
+			g(cgen_mov_unaligned(ctx));
 			return true;
 		case INSN_CMP_DEST_REG:
 			if (unlikely(insn_op_size(insn) != OP_SIZE_4))

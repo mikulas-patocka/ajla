@@ -780,6 +780,10 @@ do_call:
 			ptr += arg_write(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, size);
 			break;
+		case INSN_MOV_UNALIGNED:
+			ptr += arg_write(ctx, d, ptr, size);
+			ptr += arg_read(ctx, d, ptr, size);
+			break;
 		case INSN_MOV_LR:
 			ptr += arg_write(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, size);

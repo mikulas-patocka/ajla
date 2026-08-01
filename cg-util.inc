@@ -503,6 +503,23 @@ static bool attr_w gen_load_code_32(struct codegen_context *ctx, unsigned dest, 
 		return true;
 	}
 #endif
+#if ARG_MODE_N == 3 && defined(ARCH_SH4)
+	if (cpu_test_feature(CPU_FEATURE_sh4a)) {
+		if (offset) {
+			g(gen_load_constant(ctx, R_0, offset));
+			g(gen_3address_alu(ctx, OP_SIZE_4, ALU_ADD, R_0, R_0, src, 0));
+			src = R_0;
+		}
+		gen_insn(INSN_MOV_UNALIGNED, OP_SIZE_4, 0, 0);
+		gen_one(R_0);
+		gen_one(ARG_ADDRESS_1);
+		gen_one(src);
+		gen_eight(0);
+
+		g(gen_mov(ctx, OP_SIZE_4, dest, R_0));
+		return true;
+	}
+#endif
 #if ARG_MODE_N == 3 && defined(R_CONST_IMM)
 #if !(defined(C_BIG_ENDIAN) ^ CODE_ENDIAN)
 	if (UNALIGNED_TRAP)
