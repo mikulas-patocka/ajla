@@ -188,6 +188,8 @@ static uint64_t dump_seq = 0;
 #define ROT_SHR				0x5
 #define ROT_SAR				0x7
 #define ROT_SAL				0x8
+#define ROT_SHLR			0x9
+#define ROT_SALR			0x10
 
 #define BTX_BT				0x0
 #define BTX_BTS				0x1
@@ -254,9 +256,11 @@ enum {
 	INSN_CMN,
 	INSN_TEST,
 	INSN_TEST_DEST_REG,
+	INSN_TEST_BIT_DEST_REG,
 	INSN_ALU,
 	INSN_ALU_PARTIAL,
 	INSN_ALU_TRAP,
+	INSN_ALU_OVERFLOW,
 	INSN_ALU1,
 	INSN_ALU1_PARTIAL,
 	INSN_ALU1_TRAP,
@@ -1208,6 +1212,8 @@ static inline bool slot_is_register(struct codegen_context *ctx, frame_t slot)
 #include "c1-power.inc"
 #elif defined(ARCH_S390)
 #include "c1-s390.inc"
+#elif defined(ARCH_SH4)
+#include "c1-sh4.inc"
 #elif defined(ARCH_SPARC)
 #include "c1-sparc.inc"
 #elif defined(ARCH_RISCV64)
@@ -1253,6 +1259,10 @@ static bool reg_is_x87(unsigned attr_unused reg)
 {
 	return false;
 }
+#endif
+
+#ifndef ARCH_SWAP_CONDITION
+#define ARCH_SWAP_CONDITION(cond, final_cond, reg1, reg2) do { } while (0)
 #endif
 
 static bool attr_w gen_imm(struct codegen_context *ctx, int64_t imm, unsigned purpose, unsigned size)
@@ -2508,6 +2518,8 @@ static bool attr_w add_relocation(struct codegen_context *ctx, unsigned length, 
 #include "c2-power.inc"
 #elif defined(ARCH_S390)
 #include "c2-s390.inc"
+#elif defined(ARCH_SH4)
+#include "c2-sh4.inc"
 #elif defined(ARCH_SPARC)
 #include "c2-sparc.inc"
 #elif defined(ARCH_RISCV64)
@@ -2617,6 +2629,9 @@ static void dump_code_ctx(struct codegen_context *ctx)
 
 	mutex_lock(&dump_mutex);
 	str_init(&hex, &hexl);
+#if defined(ARCH_SH4)
+	str_add_string(&hex, &hexl, ".align 2\n");
+#endif
 	str_add_string(&hex, &hexl, "_");
 	str_add_unsigned(&hex, &hexl, dump_seq++, 10);
 	str_add_string(&hex, &hexl, "_");
@@ -2661,8 +2676,18 @@ void *codegen_fn(frame_s *fp, const code_t *ip, union internal_arg ia[])
 		goto fail;
 
 #ifdef DEBUG_ENV
-	if (getenv("CG") && strcmp(da(ctx->fn,function)->function_name, getenv("CG")))
-		goto fail;
+	{
+		char *cg = getenv("CG");
+		if (unlikely(cg != NULL)) {
+			if (cg[0] == '!') {
+				if (!strcmp(da(ctx->fn,function)->function_name, cg + 1))
+					goto fail;
+			} else {
+				if (strcmp(da(ctx->fn,function)->function_name, cg))
+					goto fail;
+			}
+		}
+	}
 #endif
 
 retry_without_pcrel:

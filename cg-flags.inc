@@ -73,6 +73,22 @@ static bool attr_w gen_set_1(struct codegen_context *ctx, unsigned base, frame_t
 	gen_one(R_SCRATCH_NA_1);
 #endif
 #else
+#if defined(ARCH_SH4)
+	if (base == R_GBR) {
+		g(gen_load_constant(ctx, R_OFFSET_IMM, offset + slot_1));
+		gen_insn(INSN_ALU, OP_SIZE_1, !val ? ALU_AND : ALU_OR, 0);
+		gen_one(ARG_ADDRESS_2);
+		gen_one(R_GBR);
+		gen_one(R_OFFSET_IMM);
+		gen_eight(0);
+		gen_one(ARG_ADDRESS_2);
+		gen_one(R_GBR);
+		gen_one(R_OFFSET_IMM);
+		gen_eight(0);
+		gen_one(ARG_IMM);
+		gen_eight(!val ? ~1 : 1);
+	}
+#endif
 #if defined(ARCH_ALPHA)
 	if (!ARCH_HAS_BWX) {
 		g(gen_address(ctx, base, offset + (slot_1 & ~7), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_8));
@@ -178,7 +194,7 @@ save_it:
 	gen_one(R_SCRATCH_NA_3);
 #endif
 #else
-#if defined(ARCH_X86)
+#if defined(ARCH_M68K) || defined(ARCH_X86)
 	g(gen_imm(ctx, val, IMM_PURPOSE_STORE_VALUE, OP_SIZE_1));
 	gen_insn(INSN_MOV, OP_SIZE_1, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_2, ARG_IMM));
 	gen_one(ARG_ADDRESS_2);
@@ -186,14 +202,20 @@ save_it:
 	gen_one(slot_reg);
 	gen_eight(offset);
 	gen_imm_offset();
-#elif defined(ARCH_M68K)
-	g(gen_imm(ctx, val, IMM_PURPOSE_STORE_VALUE, OP_SIZE_1));
-	gen_insn(INSN_MOV, OP_SIZE_1, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_2, ARG_IMM));
+#elif defined(ARCH_SH4)
+	g(gen_load_constant(ctx, R_OFFSET_IMM, offset));
+	g(gen_3address_alu(ctx, OP_SIZE_4, ALU_ADD, R_OFFSET_IMM, R_OFFSET_IMM, slot_reg, 0));
+	gen_insn(INSN_ALU, OP_SIZE_1, !val ? ALU_AND : ALU_OR, 0);
 	gen_one(ARG_ADDRESS_2);
-	gen_one(R_FRAME);
-	gen_one(slot_reg);
-	gen_eight(offset);
-	gen_imm_offset();
+	gen_one(R_GBR);
+	gen_one(R_OFFSET_IMM);
+	gen_eight(0);
+	gen_one(ARG_ADDRESS_2);
+	gen_one(R_GBR);
+	gen_one(R_OFFSET_IMM);
+	gen_eight(0);
+	gen_one(ARG_IMM);
+	gen_eight(!val ? ~1 : 1);
 #else
 	g(gen_3address_alu(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_SCRATCH_NA_1, R_FRAME, slot_reg, 0));
 #ifdef ARCH_ALPHA
@@ -376,6 +398,40 @@ static bool attr_w gen_test_1(struct codegen_context *ctx, unsigned base, frame_
 
 	gen_insn(INSN_JMP_COND, OP_SIZE_1, jz ? COND_E : COND_NE, 0);
 	gen_label_ref(label);
+#elif defined(ARCH_SH4)
+	if (base == R_GBR) {
+		g(gen_load_constant(ctx, R_OFFSET_IMM, offset + slot_1));
+		gen_insn(INSN_TEST_DEST_REG, OP_SIZE_1, COND_E, 0);
+		gen_one(R_CMP_RESULT);
+		gen_one(ARG_ADDRESS_2);
+		gen_one(R_GBR);
+		gen_one(R_OFFSET_IMM);
+		gen_eight(0);
+		gen_one(ARG_IMM);
+		gen_eight(1);
+	} else {
+		g(gen_address(ctx, base, offset + slot_1, IMM_PURPOSE_MVI_CLI_OFFSET, OP_SIZE_1));
+		gen_insn(INSN_MOVSX, OP_SIZE_1, 0, 0);
+		gen_one(R_0);
+		gen_address_offset();
+		gen_insn(INSN_TEST_DEST_REG, OP_SIZE_4, COND_E, 0);
+		gen_one(R_CMP_RESULT);
+		gen_one(R_0);
+		gen_one(ARG_IMM);
+		gen_eight(1);
+	}
+
+	if (jz ? test == TEST_SET : test == TEST_CLEAR) {
+		g(gen_set_1(ctx, base, slot_1, offset, test == TEST_SET));
+	}
+
+	gen_insn(INSN_JMP_REG, OP_SIZE_1, jz ? COND_NE : COND_E, 0);
+	gen_one(R_CMP_RESULT);
+	gen_label_ref(label);
+
+	if (!jz ? test == TEST_SET : test == TEST_CLEAR) {
+		g(gen_set_1(ctx, base, slot_1, offset, test == TEST_SET));
+	}
 #else
 	if (!ARCH_HAS_BWX) {
 #if defined(ARCH_ALPHA)

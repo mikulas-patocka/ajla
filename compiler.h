@@ -825,6 +825,11 @@ typedef uint16_t ushort_efficient_t;
 #define ARCH_NAME	"s390"
 #endif
 
+#elif defined(__SH4__)
+
+#define ARCH_SH4
+#define ARCH_NAME	"sh4"
+
 #elif defined(__sparc__)
 
 #define ARCH_SPARC
@@ -904,6 +909,9 @@ typedef uint16_t ushort_efficient_t;
 #if defined(__linux__)
 #define HAVE_CODEGEN_TRAPS
 #endif
+#endif
+#if defined(ARCH_SH4)
+#define HAVE_CODEGEN
 #endif
 #if defined(ARCH_SPARC)
 #define HAVE_CODEGEN

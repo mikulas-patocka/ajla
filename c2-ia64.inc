@@ -1445,7 +1445,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 				goto invalid_insn;
 			g(cgen_cmp_dest_reg(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
-		case INSN_TEST_DEST_REG:
+		case INSN_TEST_BIT_DEST_REG:
 			if (unlikely(insn_op_size(insn) != OP_SIZE_NATIVE))
 				goto invalid_insn;
 			g(cgen_test_dest_reg(ctx, insn_aux(insn) & 63, insn_aux(insn) >> 6));

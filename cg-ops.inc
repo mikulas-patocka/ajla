@@ -197,7 +197,7 @@ static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, uns
 		g(gen_cmp_test_imm_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg1, imm, cond, ctx->code_labels[ip], R_SCRATCH_2));
 	} else if (reg1 != -1U && reg2 != -1U) {
 		g(gen_cmp_test_jmp(ctx, INSN_CMP, i_size_cmp(op_size), reg1, reg2, cond, ctx->code_labels[ip]));
-#if defined(ARCH_IA64)
+#if defined(ARCH_IA64) || defined(ARCH_SH4)
 	} else if (reg_is_p(reg1)) {
 		gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, cond, 0);
 		gen_one(reg1);
@@ -1683,6 +1683,7 @@ skip_get_pointer_label:
 static bool attr_w gen_option_cmp(struct codegen_context *ctx, unsigned reg, frame_t opt, uint32_t label, frame_t slot_r)
 {
 	unsigned op_size = log_2(sizeof(ajla_option_t));
+	unsigned attr_unused final_cond;
 #if ARCH_HAS_FLAGS
 #if defined(ARCH_M68K) || defined(ARCH_X86)
 	g(gen_address(ctx, reg, offsetof(struct data, u_.option.option), IMM_PURPOSE_LDR_OFFSET, op_size));
@@ -1714,13 +1715,16 @@ static bool attr_w gen_option_cmp(struct codegen_context *ctx, unsigned reg, fra
 	gen_one(R_SCRATCH_2);
 	gen_address_offset();
 
-	g(gen_cmp_dest_reg(ctx, op_size, R_SCRATCH_2, (unsigned)-1, label ? R_CMP_RESULT : R_SCRATCH_2, opt, COND_E));
+	final_cond = COND_E;
+	g(gen_cmp_dest_reg(ctx, op_size, R_SCRATCH_2, (unsigned)-1, label ? R_CMP_RESULT : R_SCRATCH_2, opt, COND_E, &final_cond));
 
 	if (label) {
-		gen_insn(INSN_JMP_REG, i_size(op_size), COND_E, 0);
+		gen_insn(INSN_JMP_REG, i_size(op_size), final_cond, 0);
 		gen_one(R_CMP_RESULT);
 		gen_label_ref(label);
 	} else {
+		if (final_cond != COND_E)
+			g(gen_3address_alu_imm(ctx, i_size(log_2(sizeof(ajla_flat_option_t))), ALU_XOR, R_SCRATCH_2, R_SCRATCH_2, 1, 0));
 		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, R_SCRATCH_2));
 	}
 	return true;
@@ -2644,9 +2648,20 @@ static bool attr_w gen_array_load(struct codegen_context *ctx, frame_t slot_1, f
 				gen_insn(INSN_JMP_COND, OP_SIZE_4, COND_NE, 0);
 				gen_label_ref(label);
 			} else {
+#if defined(ARCH_SH4)
+				gen_insn(INSN_TEST_DEST_REG, OP_SIZE_NATIVE, COND_E, 0);
+				gen_one(R_CMP_RESULT);
+				gen_one(R_SCRATCH_4);
+				gen_one(R_SCRATCH_4);
+
+				gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, COND_E, 0);
+				gen_one(R_CMP_RESULT);
+				gen_label_ref(label);
+#else
 				gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, COND_NE, 0);
 				gen_one(R_SCRATCH_4);
 				gen_label_ref(label);
+#endif
 			}
 
 			g(gen_address(ctx, reg1, offsetof(struct data, u_.array_slice.flat_data_minus_data_array_offset), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
@@ -2803,6 +2818,7 @@ static bool attr_w gen_array_len(struct codegen_context *ctx, frame_t slot_1, fr
 do_fused:	{
 			enum extend ex = OP_SIZE_INT == i_size_cmp(OP_SIZE_INT) + (unsigned)zero ? garbage : sign_x;
 			unsigned reg2;
+			unsigned attr_unused final_cond;
 			if (ARCH_HAS_JMP_2REGS(COND_LE)) {
 				g(gen_frame_get(ctx, OP_SIZE_INT, ex, slot_2, R_SCRATCH_2, &reg2));
 				g(gen_jump(ctx, offs_false, i_size_cmp(OP_SIZE_INT), COND_LE, target, reg2, 0));
@@ -2812,9 +2828,10 @@ do_fused:	{
 			g(gen_frame_load_cmp(ctx, OP_SIZE_INT, COND_IS_LOGICAL(COND_LE), ex, false, slot_2, 0, false, target));
 			g(gen_jump(ctx, offs_false, i_size_cmp(OP_SIZE_INT), COND_LE, -1U, -1U, 0));
 #else
+			final_cond = COND_E;
 			g(gen_frame_get(ctx, OP_SIZE_INT, ex, slot_2, R_SCRATCH_2, &reg2));
-			g(gen_cmp_dest_reg(ctx, i_size_cmp(OP_SIZE_INT), target, reg2, R_CMP_RESULT, 0, COND_G));
-			g(gen_jump(ctx, offs_false, OP_SIZE_NATIVE, COND_E, R_CMP_RESULT, -1U, 0));
+			g(gen_cmp_dest_reg(ctx, i_size_cmp(OP_SIZE_INT), target, reg2, R_CMP_RESULT, 0, COND_G, &final_cond));
+			g(gen_jump(ctx, offs_false, OP_SIZE_NATIVE, final_cond, R_CMP_RESULT, -1U, 0));
 #endif
 		} else if (slot_2 == NO_FRAME_T) {
 			g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, target));

@@ -89,6 +89,12 @@ static bool attr_w gen_3address_alu(struct codegen_context *ctx, unsigned size, 
 		writes_flags = 1;
 	}
 #endif
+#if defined(ARCH_SH4)
+	if (src2 == R_GBR) {
+		g(gen_mov(ctx, OP_SIZE_NATIVE, R_OFFSET_IMM, src2));
+		src2 = R_OFFSET_IMM;
+	}
+#endif
 	if (is_2a && unlikely(dest == src2)) {
 		internal(file_line, "gen_3address_alu: invalid registers: %u, %u, %x, %x, %x", size, alu, dest, src1, src2);
 	}
@@ -119,6 +125,19 @@ static bool attr_w gen_3address_alu_imm(struct codegen_context *ctx, unsigned si
 		writes_flags = 1;
 	}
 #endif
+#if defined(ARCH_SH4)
+	if (dest == R_GBR) {
+		g(gen_mov(ctx, OP_SIZE_4, R_OFFSET_IMM, src));
+		g(gen_3address_alu_imm(ctx, size, alu, R_OFFSET_IMM, R_OFFSET_IMM, imm, 0));
+		g(gen_mov(ctx, OP_SIZE_4, dest, R_OFFSET_IMM));
+		gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
+		gen_one(ARG_ADDRESS_1);
+		gen_one(R_SP);
+		gen_eight(8);
+		gen_one(R_OFFSET_IMM);
+		return true;
+	}
+#endif
 	if (is_2a) {
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src));
 
@@ -139,9 +158,11 @@ static bool attr_w gen_3address_alu_imm(struct codegen_context *ctx, unsigned si
 	return true;
 }
 
+static bool attr_w gen_2address_alu1(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src, unsigned writes_flags);
+
 static bool attr_w attr_unused gen_3address_rot(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned dest, unsigned src1, unsigned src2)
 {
-#ifdef ARCH_X86
+#if defined(ARCH_X86)
 	if (dest == src1 && src2 == R_CX) {
 		gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(size), size, alu, 1);
 		gen_one(dest);
@@ -156,14 +177,17 @@ static bool attr_w attr_unused gen_3address_rot(struct codegen_context *ctx, uns
 			internal(file_line, "gen_3address_rot: invalid registers: %u, %u, %x, %x, %x", size, alu, dest, src1, src2);
 
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src1));
-
-		gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(size), size, alu, ROT_WRITES_FLAGS(alu, size, false));
-		gen_one(dest);
-		gen_one(dest);
-		gen_one(src2);
-
-		return true;
+		src1 = dest;
 	}
+#if defined(ARCH_SH4)
+	if (alu == ROT_SHL) {
+		alu = ROT_SHLR;
+	} else if (alu == ROT_SAR || alu == ROT_SHR) {
+		g(gen_2address_alu1(ctx, OP_SIZE_4, ALU1_NEG, R_CONST_IMM, src2, 0));
+		src2 = R_CONST_IMM;
+		alu = alu == ROT_SAR ? ROT_SALR : ROT_SHLR;
+	}
+#endif
 	gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(size), size, alu, ROT_WRITES_FLAGS(alu, size, false));
 	gen_one(dest);
 	gen_one(src1);
@@ -176,15 +200,32 @@ static bool attr_w gen_3address_rot_imm(struct codegen_context *ctx, unsigned si
 {
 	if (!ARCH_IS_3ADDRESS_ROT_IMM(alu) && dest != src) {
 		g(gen_mov(ctx, OP_SIZE_NATIVE, dest, src));
+		src = dest;
+	}
+#if defined(ARCH_SH4)
+	if ((imm != 2 && imm != 8 && imm != 16) || (alu != ROT_SHL && alu != ROT_SHR)) {
+		if (alu == ROT_SHL) {
+			alu = ROT_SHLR;
+		} else if (alu == ROT_SHR) {
+			alu = ROT_SHLR;
+			imm = -(uint64_t)imm;
+		} else if (alu == ROT_SAR) {
+			alu = ROT_SALR;
+			imm = -(uint64_t)imm;
+		} else {
+			internal(file_line, "gen_3address_rot_imm: invalid operation: %u", alu);
+		}
+
+		g(gen_load_constant(ctx, R_CONST_IMM, imm));
 
 		gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(size), size, alu, ROT_WRITES_FLAGS(alu, size, true) | writes_flags);
 		gen_one(dest);
-		gen_one(dest);
-		gen_one(ARG_IMM);
-		gen_eight(imm);
+		gen_one(src);
+		gen_one(R_CONST_IMM);
 
 		return true;
 	}
+#endif
 	gen_insn(INSN_ROT + ARCH_PARTIAL_ALU(size), size, alu, ROT_WRITES_FLAGS(alu, size, true) | writes_flags);
 	gen_one(dest);
 	gen_one(src);
@@ -279,7 +320,7 @@ static bool attr_w gen_extend(struct codegen_context *ctx, unsigned op_size, enu
 	} else {
 		internal(file_line, "gen_extend: invalid OP_SIZE_NATIVE");
 	}
-#if defined(ARCH_ARM) || defined(ARCH_IA64) || defined(ARCH_LOONGARCH64) || defined(ARCH_M68K) || defined(ARCH_PARISC) || defined(ARCH_X86)
+#if defined(ARCH_ARM) || defined(ARCH_IA64) || defined(ARCH_LOONGARCH64) || defined(ARCH_M68K) || defined(ARCH_PARISC) || defined(ARCH_SH4) || defined(ARCH_X86)
 #if defined(ARCH_ARM32)
 	if (unlikely(!cpu_test_feature(CPU_FEATURE_armv6)))
 		goto default_extend;
@@ -467,11 +508,13 @@ static bool attr_w gen_load_code_32(struct codegen_context *ctx, unsigned dest, 
 	if (UNALIGNED_TRAP)
 #endif
 	{
-		g(gen_load_two(ctx, dest, src, offset, false));
-		g(gen_load_two(ctx, R_CONST_IMM, src, offset + 2, false));
 #if CODE_ENDIAN
+		g(gen_load_two(ctx, dest, src, offset, OP_SIZE_NATIVE == OP_SIZE_4));
+		g(gen_load_two(ctx, R_CONST_IMM, src, offset + 2, false));
 		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, dest, dest, 16, 0));
 #else
+		g(gen_load_two(ctx, dest, src, offset, false));
+		g(gen_load_two(ctx, R_CONST_IMM, src, offset + 2, OP_SIZE_NATIVE == OP_SIZE_4));
 		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_CONST_IMM, R_CONST_IMM, 16, 0));
 #endif
 		g(gen_3address_alu(ctx, OP_SIZE_NATIVE, ALU_OR, dest, dest, R_CONST_IMM, 0));
@@ -514,7 +557,7 @@ static bool attr_w gen_test_bit(struct codegen_context *ctx, unsigned attr_unuse
 }
 #endif
 
-static bool attr_w attr_unused gen_cmp_dest_reg(struct codegen_context *ctx, unsigned attr_unused size, unsigned reg1, unsigned reg2, unsigned reg_dest, int64_t imm, unsigned cond)
+static bool attr_w attr_unused gen_cmp_dest_reg(struct codegen_context *ctx, unsigned attr_unused size, unsigned reg1, unsigned reg2, unsigned reg_dest, int64_t imm, unsigned cond, unsigned *final_cond)
 {
 	unsigned neg_result = false;
 
@@ -586,6 +629,21 @@ skip_xor:
 
 	goto done;
 #endif
+#if defined(ARCH_SH4)
+	if (reg2 == (unsigned)-1) {
+		g(gen_load_constant(ctx, R_CONST_IMM, imm));
+		reg2 = R_CONST_IMM;
+	}
+	ARCH_SWAP_CONDITION(cond, neg_result, reg1, reg2);
+	gen_insn(INSN_CMP_DEST_REG, i_size_cmp(size), cond, 0);
+	gen_one(R_CMP_RESULT);
+	gen_one(reg1);
+	gen_one(reg2);
+
+	g(gen_mov(ctx, OP_SIZE_NATIVE, reg_dest, R_CMP_RESULT));
+
+	goto done;
+#endif
 	if (reg2 == (unsigned)-1)
 		g(gen_imm(ctx, imm, IMM_PURPOSE_CMP, i_size_cmp(size)));
 	gen_insn(INSN_CMP_DEST_REG, i_size_cmp(size), cond, 0);
@@ -599,7 +657,7 @@ skip_xor:
 	goto done;
 done:
 	if (neg_result)
-		g(gen_3address_alu_imm(ctx, i_size(size), ALU_XOR, reg_dest, reg_dest, 1, 0));
+		*final_cond ^= 1;
 
 	return true;
 }
@@ -664,6 +722,7 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 				return true;
 			}
 #endif
+			ARCH_SWAP_CONDITION(cond, jmp_cond, reg1, reg2);
 #if defined(ARCH_LOONGARCH64) || defined(ARCH_MIPS)
 			if (cond == COND_AE || cond == COND_BE || cond == COND_LE || cond == COND_GE) {
 				cond ^= 1;
@@ -706,6 +765,41 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 			reg1 = R_CMP_RESULT;
 			cond = COND_NE;
 #endif
+#if defined(ARCH_SH4)
+			if (cond == COND_S)
+				cond = COND_L;
+			if (cond == COND_NS)
+				cond = COND_GE;
+			if (cond == COND_G || cond == COND_LE) {
+				g(gen_imm(ctx, 0, IMM_PURPOSE_CMP, OP_SIZE_4));
+				gen_insn(INSN_CMP_DEST_REG, OP_SIZE_4, COND_G, 0);
+				gen_one(R_CMP_RESULT);
+				gen_one(reg1);
+				gen_imm_offset();
+
+				reg1 = R_CMP_RESULT;
+				cond = cond == COND_G ? COND_NE : COND_E;
+			} else if (cond == COND_L || cond == COND_GE) {
+				g(gen_imm(ctx, 0, IMM_PURPOSE_CMP, OP_SIZE_4));
+				gen_insn(INSN_CMP_DEST_REG, OP_SIZE_4, COND_GE, 0);
+				gen_one(R_CMP_RESULT);
+				gen_one(reg1);
+				gen_imm_offset();
+
+				reg1 = R_CMP_RESULT;
+				cond = cond == COND_GE ? COND_NE : COND_E;
+			} else if (cond == COND_E || cond == COND_NE) {
+				gen_insn(INSN_TEST_DEST_REG, OP_SIZE_4, COND_E, 0);
+				gen_one(R_CMP_RESULT);
+				gen_one(reg1);
+				gen_one(reg2);
+
+				reg1 = R_CMP_RESULT;
+				cond ^= 1;
+			} else {
+				internal(file_line, "gen_cmp_test_jmp: INSN_TEST with condition %u", cond);
+			}
+#endif
 			gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, cond, 0);
 			gen_one(reg1);
 			gen_label_ref(label);
@@ -716,6 +810,27 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 
 static bool attr_w gen_cmp_test_imm_jmp_q_flags(struct codegen_context *ctx, unsigned insn, unsigned attr_unused op_size, unsigned reg1, int64_t value, unsigned cond, uint32_t label, int attr_unused x86_scratch, bool need_flags)
 {
+#if defined(ARCH_SH4)
+	unsigned final_cond = COND_NE;
+	unsigned reg2 = R_OFFSET_IMM;
+	g(gen_load_constant(ctx, R_OFFSET_IMM, value));
+	if (insn == INSN_CMP) {
+		ARCH_SWAP_CONDITION(cond, final_cond, reg1, reg2);
+	} else if (cond == COND_NE) {
+		cond ^= 1;
+		final_cond ^= 1;
+	}
+	gen_insn(insn == INSN_CMP ? INSN_CMP_DEST_REG : INSN_TEST_DEST_REG, OP_SIZE_4, cond, OP_SIZE_4);
+	gen_one(R_CMP_RESULT);
+	gen_one(reg1);
+	gen_one(reg2);
+
+	gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, final_cond, 0);
+	gen_one(R_CMP_RESULT);
+	gen_label_ref(label);
+
+	return true;
+#endif
 	if (insn == INSN_TEST && (cond == COND_E || cond == COND_NE) && is_power_of_2((uint64_t)value)) {
 #ifdef HAVE_BUILTIN_CTZ
 		unsigned attr_unused bit = __builtin_ctzll(value);
@@ -740,6 +855,17 @@ static bool attr_w gen_cmp_test_imm_jmp_q_flags(struct codegen_context *ctx, uns
 
 		return true;
 #endif
+#if defined(ARCH_IA64)
+		gen_insn(INSN_TEST_BIT_DEST_REG, OP_SIZE_NATIVE, bit | ((cond == COND_NE) << 6), 0);
+		gen_one(R_CMP_RESULT);
+		gen_one(reg1);
+
+		gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, COND_NE, 0);
+		gen_one(R_CMP_RESULT);
+		gen_label_ref(label);
+
+		return true;
+#endif
 #if defined(ARCH_M68K)
 		gen_insn(INSN_BT, OP_SIZE_4, BTX_BT, 1);
 		gen_one(reg1);
@@ -760,17 +886,6 @@ static bool attr_w gen_cmp_test_imm_jmp_q_flags(struct codegen_context *ctx, uns
 
 			return true;
 		}
-#endif
-#if defined(ARCH_IA64)
-		gen_insn(INSN_TEST_DEST_REG, OP_SIZE_NATIVE, bit | ((cond == COND_NE) << 6), 0);
-		gen_one(R_CMP_RESULT);
-		gen_one(reg1);
-
-		gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, COND_NE, 0);
-		gen_one(R_CMP_RESULT);
-		gen_label_ref(label);
-
-		return true;
 #endif
 #if defined(R_CMP_RESULT)
 		if (!is_direct_const(1ULL << bit, IMM_PURPOSE_AND, OP_SIZE_NATIVE) && ARCH_HAS_BTX(BTX_BTEXT, OP_SIZE_NATIVE, true)) {
@@ -884,7 +999,7 @@ jmp_reg:
 		gen_one(R_CMP_RESULT);
 		gen_label_ref(label);
 	} else if (insn == INSN_TEST) {
-#if defined(ARCH_IA64)
+#if defined(ARCH_IA64) || defined(ARCH_SH4)
 		internal(file_line, "gen_cmp_test_imm_jmp_q_flags: value %"PRIxMAX" not supported", (uintmax_t)value);
 #endif
 		g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_AND, R_CMP_RESULT, reg1, value, 0));

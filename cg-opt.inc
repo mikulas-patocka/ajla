@@ -293,6 +293,18 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 #ifdef R_SCRATCH_B
 	reg_map_set(&scratch_regs, R_SCRATCH_B);
 #endif
+#ifdef R_MACH
+	reg_map_set(&scratch_regs, R_MACH);
+#endif
+#ifdef R_MACL
+	reg_map_set(&scratch_regs, R_MACL);
+#endif
+#ifdef R_FPSCR
+	reg_map_set(&scratch_regs, R_FPSCR);
+#endif
+#ifdef R_FPUL
+	reg_map_set(&scratch_regs, R_FPUL);
+#endif
 	for (real_type = 0; real_type < TYPE_REAL_N; real_type++) {
 		unsigned size;
 		if (!((SUPPORTED_FP >> real_type) & 1))
@@ -562,9 +574,14 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 			break;
 		case INSN_RET:
 			d->rd = ctx->opt_status->regs_saved;
+#ifdef ARCH_SH4
+			reg_map_set(&d->rd, R_0);
+			reg_map_set(&d->rd, R_1);
+#else
 			reg_map_set(&d->rd, R_RET0);
 #ifdef R_RET1
 			reg_map_set(&d->rd, R_RET1);
+#endif
 #endif
 #ifdef R_LR
 			reg_map_set(&d->rd, R_LR);
@@ -745,6 +762,9 @@ do_call:
 			reg_map_set(&d->rd, R_2);
 			reg_map_set(&d->rd, R_11);
 #endif
+#if defined(ARCH_SH4)
+			reg_map_set(&d->rd, R_GBR);
+#endif
 			reg_map_set(&d->rd, R_SP);
 			reg_map_set(&d->wr, R_SP);
 			reg_map_set(&d->wr, R_RET0);
@@ -796,7 +816,15 @@ do_call:
 		case INSN_TEST_DEST_REG:
 			ptr += arg_write(ctx, d, ptr, 1U << OP_SIZE_NATIVE);
 			ptr += arg_read(ctx, d, ptr, size);
+			ptr += arg_read(ctx, d, ptr, size);
 			break;
+		case INSN_TEST_BIT_DEST_REG:
+			ptr += arg_write(ctx, d, ptr, 1U << OP_SIZE_NATIVE);
+			ptr += arg_read(ctx, d, ptr, size);
+			break;
+		case INSN_ALU_OVERFLOW:
+			ptr += arg_write(ctx, d, ptr, size);
+			/*-fallthrough*/
 		case INSN_ALU:
 		case INSN_ALU_PARTIAL:
 			if (unlikely(insn_aux(insn) == ALU_ADC) || unlikely(insn_aux(insn) == ALU_SBB))

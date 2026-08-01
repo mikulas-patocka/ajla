@@ -368,6 +368,30 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 		return true;
 	}
 #endif
+#if defined(ARCH_SH4)
+	if (base == R_GBR && !(x_offset & 3) && x_offset >= 0 && x_offset < 0x100 << size) {
+		gen_insn(ARCH_PREFERS_SX(size) ? INSN_MOVSX : INSN_MOV, size, 0, 0);
+		gen_one(R_0);
+		gen_one(ARG_ADDRESS_1);
+		gen_one(R_GBR);
+		gen_eight(x_offset);
+
+		if (reg != R_0 || (size < OP_SIZE_4 && ex != sign_x)) {
+			gen_insn(size < OP_SIZE_4 && ex == sign_x ? INSN_MOVSX : INSN_MOV, size, 0, 0);
+			gen_one(reg);
+			gen_one(R_0);
+		}
+
+		return true;
+	}
+	if (size <= OP_SIZE_2 && ex == zero_x) {
+		g(gen_load_raw(ctx, size, sign_x, base, 0, x_offset, true, reg));
+
+		g(gen_extend(ctx, size, ex, reg, reg));
+
+		return true;
+	}
+#endif
 	g(gen_address(ctx, base, x_offset, reg_is_fp(reg) ? IMM_PURPOSE_VLDR_VSTR_OFFSET : ex ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, size));
 	gen_insn(unlikely(ex == sign_x) && size < OP_SIZE_NATIVE ? INSN_MOVSX : INSN_MOV, size, 0, MOV_WRITES_FLAGS(reg, ARG_ADDRESS_1));
 	gen_one(reg);
@@ -727,6 +751,19 @@ static bool attr_w gen_store_raw(struct codegen_context *ctx, unsigned size, uns
 		return true;
 	}
 #endif
+#if defined(ARCH_SH4)
+	if (base == R_GBR && !(offset & 3) && offset >= 0 && offset < 0x100 << size) {
+		if (reg != R_0)
+			g(gen_mov(ctx, OP_SIZE_4, R_0, reg));
+		gen_insn(INSN_MOV, size, 0, 0);
+		gen_one(ARG_ADDRESS_1);
+		gen_one(R_GBR);
+		gen_eight(offset);
+		gen_one(R_0);
+
+		return true;
+	}
+#endif
 #if defined(SUPPORTED_FP_X87)
 	if (unlikely(reg_is_x87(reg))) {
 		if (reg == R_ST0 && size <= OP_SIZE_8) {
@@ -787,13 +824,10 @@ static bool attr_w gen_frame_store_imm_raw(struct codegen_context *ctx, unsigned
 	offset += (size_t)slot * slot_size;
 	if (!ARCH_HAS_BWX)
 		size = maximum(OP_SIZE_4, size);
-#if !defined(R_CONST_IMM)
-	if (!is_direct_const(imm, IMM_PURPOSE_MVI_CLI_OFFSET, size)) {
+#if !defined(R_CONST_IMM) || defined(ARCH_SH4)
+	if (!is_direct_const(imm, IMM_PURPOSE_STORE_VALUE, size)) {
 		g(gen_load_constant(ctx, R_SCRATCH_3, imm));
-		g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_MVI_CLI_OFFSET, size));
-		gen_insn(INSN_MOV, size, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, R_SCRATCH_3));
-		gen_address_offset();
-		gen_one(R_SCRATCH_3);
+		g(gen_store_raw(ctx, size, R_FRAME, 0, offset, R_SCRATCH_3));
 		return true;
 	}
 #endif
@@ -978,15 +1012,32 @@ do_store:
 #endif
 
 #if !ARCH_HAS_FLAGS
+#if defined(ARCH_IA64) || defined(ARCH_SH4)
 static bool attr_w gen_frame_cmp_imm_set_cond_reg(struct codegen_context *ctx, unsigned size, unsigned reg, int64_t imm, unsigned cond, frame_t slot_r)
 {
+	unsigned final_cond = COND_NE;
+	g(gen_cmp_dest_reg(ctx, size, reg, (unsigned)-1, R_CMP_RESULT, imm, cond, &final_cond));
+	g(gen_mov(ctx, OP_SIZE_NATIVE, R_SCRATCH_NA_1, R_CMP_RESULT));
+	if (final_cond != COND_NE)
+		g(gen_3address_alu_imm(ctx, i_size(log_2(sizeof(ajla_flat_option_t))), ALU_XOR, R_SCRATCH_NA_1, R_SCRATCH_NA_1, 1, 0));
+	g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, R_SCRATCH_NA_1));
+
+	return true;
+}
+#else
+static bool attr_w gen_frame_cmp_imm_set_cond_reg(struct codegen_context *ctx, unsigned size, unsigned reg, int64_t imm, unsigned cond, frame_t slot_r)
+{
+	unsigned final_cond = COND_NE;
 	unsigned dest_reg;
 	dest_reg = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_CMP_RESULT);
-	g(gen_cmp_dest_reg(ctx, size, reg, (unsigned)-1, dest_reg, imm, cond));
+	g(gen_cmp_dest_reg(ctx, size, reg, (unsigned)-1, dest_reg, imm, cond, &final_cond));
+	if (final_cond != COND_NE)
+		g(gen_3address_alu_imm(ctx, i_size(log_2(sizeof(ajla_flat_option_t))), ALU_XOR, dest_reg, dest_reg, 1, 0));
 	g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, dest_reg));
 
 	return true;
 }
+#endif
 #endif
 
 static bool attr_w gen_frame_load_cmp_set_cond(struct codegen_context *ctx, unsigned size, enum extend ex, frame_t slot, unsigned reg, unsigned cond, frame_t slot_r)
@@ -997,9 +1048,12 @@ static bool attr_w gen_frame_load_cmp_set_cond(struct codegen_context *ctx, unsi
 	g(gen_frame_set_cond(ctx, size, logical, cond, slot_r));
 #else
 	unsigned src_reg, dest_reg;
+	unsigned final_cond = COND_NE;
 	g(gen_frame_get(ctx, size, ex, slot, R_SCRATCH_NA_1, &src_reg));
 	dest_reg = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_NA_1);
-	g(gen_cmp_dest_reg(ctx, size, reg, src_reg, dest_reg, 0, cond));
+	g(gen_cmp_dest_reg(ctx, size, reg, src_reg, dest_reg, 0, cond, &final_cond));
+	if (final_cond != COND_NE)
+		g(gen_3address_alu_imm(ctx, i_size(log_2(sizeof(ajla_flat_option_t))), ALU_XOR, dest_reg, dest_reg, 1, 0));
 	g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, dest_reg));
 #endif
 	return true;

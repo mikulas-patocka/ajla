@@ -307,7 +307,7 @@ do_alu: {
 #endif
 		    ) {
 			struct cg_exit *ce;
-			unsigned undo_alu = alu == ALU_ADD ? ALU_SUB : ALU_ADD;
+			unsigned undo_alu = alu ^ (ALU_ADD ^ ALU_SUB);
 			if (slot_is_register(ctx, slot_1)) {
 				unsigned reg1 = ctx->registers[slot_1];
 				if (slot_is_register(ctx, slot_2)
@@ -497,6 +497,60 @@ skip_mem_modify:;
 				g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 				return true;
 			}
+#if defined(ARCH_SH4)
+			if (op_size >= OP_SIZE_NATIVE) {
+				bool need_undo = false;
+				if (c)
+					g(gen_frame_get(ctx, op_size, native, slot_2, R_SCRATCH_2, &reg2));
+				target = gen_frame_target(ctx, slot_r, NO_FRAME_T, slot_2, R_SCRATCH_1);
+
+				if (target == reg1 && target != R_SCRATCH_1)
+					need_undo = true;
+
+				if (target != reg1) {
+					g(gen_mov(ctx, OP_SIZE_NATIVE, target, reg1));
+					reg1 = target;
+				}
+
+				gen_insn(INSN_ALU_OVERFLOW, op_size, alu, 0);
+				gen_one(R_CMP_RESULT);
+				gen_one(target);
+				gen_one(reg1);
+				gen_one(reg2);
+
+				if (!need_undo) {
+					gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, COND_NE, 0);
+					gen_one(R_CMP_RESULT);
+					gen_label_ref(label_ovf);
+
+					g(gen_frame_store(ctx, op_size, slot_r, 0, target));
+				} else {
+					struct cg_exit *ce = alloc_undo_label(ctx);
+					size_t m;
+					if (unlikely(!ce))
+						return false;
+
+					gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, COND_NE, 0);
+					gen_one(R_CMP_RESULT);
+					gen_label_ref(ce->undo_label);
+
+					g(gen_frame_store(ctx, op_size, slot_r, 0, target));
+
+					ce->undo_opcode = INSN_ALU;
+					ce->undo_op_size = i_size(op_size);
+					ce->undo_aux = alu ^ (ALU_ADD ^ ALU_SUB);
+					ce->undo_writes_flags = 0;
+					m = mark_params(ctx);
+					gen_one(reg1);
+					gen_one(reg1);
+					gen_one(reg2);
+					copy_params(ctx, ce, m);
+				}
+
+
+				return true;
+			}
+#endif
 			if (op_size >= OP_SIZE_NATIVE) {
 				target = gen_frame_target(ctx, slot_r, slot_1, slot_2, R_SCRATCH_3);
 				if (c)
@@ -2179,7 +2233,7 @@ do_bool_not: {
 	 *********/
 do_bswap: {
 		bool attr_unused sx = false;
-#if defined(ARCH_ARM) || defined(ARCH_IA64) || defined(ARCH_LOONGARCH64) || defined(ARCH_M68K) || defined(ARCH_MIPS) || defined(ARCH_RISCV64) || defined(ARCH_S390) || defined(ARCH_X86)
+#if defined(ARCH_ARM) || defined(ARCH_IA64) || defined(ARCH_LOONGARCH64) || defined(ARCH_M68K) || defined(ARCH_MIPS) || defined(ARCH_RISCV64) || defined(ARCH_S390) || defined(ARCH_SH4) || defined(ARCH_X86)
 #if defined(ARCH_ARM32)
 		if (unlikely(!cpu_test_feature(CPU_FEATURE_armv6)))
 			goto do_generic_bswap;
@@ -2707,6 +2761,7 @@ write_result:
 
 			if (mode == MODE_FIXED) {
 				unsigned attr_unused test_reg = reg1;
+				unsigned attr_unused final_cond = COND_E;
 #if defined(ARCH_S390)
 				g(gen_imm(ctx, 0, COND_IS_LOGICAL(COND_E) ? IMM_PURPOSE_CMP_LOGICAL : IMM_PURPOSE_CMP, OP_SIZE_NATIVE));
 				gen_insn(INSN_CMP, OP_SIZE_NATIVE, 0, 1 + COND_IS_LOGICAL(COND_E));
@@ -2720,7 +2775,9 @@ write_result:
 				gen_imm_offset();
 #else
 #if defined(ARCH_IA64)
-				g(gen_cmp_dest_reg(ctx, OP_SIZE_NATIVE, reg1, (unsigned)-1, R_CMP_RESULT, 0, COND_NE));
+				g(gen_cmp_dest_reg(ctx, OP_SIZE_NATIVE, reg1, (unsigned)-1, R_CMP_RESULT, 0, COND_NE, &final_cond));
+				if (unlikely(final_cond != COND_E))
+					internal(file_line, "gen_alu1: final_cond unexpectedly toggled");
 				test_reg = R_CMP_RESULT;
 #endif
 				g(gen_imm(ctx, -1, IMM_PURPOSE_MOVR, OP_SIZE_NATIVE));
@@ -3406,6 +3463,35 @@ do_cmp:
 		}
 
 		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, target));
+		return true;
+#elif defined(ARCH_SH4)
+		gen_insn(INSN_FP_CMP_DEST_REG, op_size, FP_COND_E, 0);
+		gen_one(R_CMP_RESULT);
+		gen_one(reg1);
+		gen_one(reg1);
+
+		gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, COND_E, 0);
+		gen_one(R_CMP_RESULT);
+		gen_label_ref(label_ovf);
+
+		gen_insn(INSN_FP_CMP_DEST_REG, op_size, FP_COND_E, 0);
+		gen_one(R_CMP_RESULT);
+		gen_one(reg2);
+		gen_one(reg2);
+
+		gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, COND_E, 0);
+		gen_one(R_CMP_RESULT);
+		gen_label_ref(label_ovf);
+
+		gen_insn(INSN_FP_CMP_DEST_REG, op_size, fp_alu, 0);
+		gen_one(R_CMP_RESULT);
+		gen_one(reg1);
+		gen_one(reg2);
+
+		g(gen_mov(ctx, OP_SIZE_NATIVE, target, R_CMP_RESULT));
+
+		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, target));
+
 		return true;
 #else
 		gen_insn(INSN_FP_CMP, op_size, 0, 1);
@@ -4145,6 +4231,17 @@ do_is_exception:
 		gen_imm_offset();
 
 		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, target));
+#elif defined(ARCH_SH4)
+		gen_insn(INSN_FP_CMP_DEST_REG, op_size, FP_COND_E, 0);
+		gen_one(R_CMP_RESULT);
+		gen_one(reg1);
+		gen_one(reg1);
+
+		g(gen_mov(ctx, OP_SIZE_NATIVE, target, R_CMP_RESULT));
+
+		g(gen_3address_alu_imm(ctx, i_size(log_2(sizeof(ajla_flat_option_t))), ALU_XOR, target, target, 1, 0));
+
+		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, target));
 #else
 		gen_insn(INSN_FP_CMP, op_size, 0, 1);
 		gen_one(reg1);
@@ -4473,6 +4570,7 @@ static bool attr_w gen_alu_jmp(struct codegen_context *ctx, unsigned mode, unsig
 	internal(file_line, "gen_alu_jmp: unsupported mode %u", mode);
 do_compare: {
 		bool attr_unused logical;
+		unsigned attr_unused final_cond;
 #if defined(ARCH_S390)
 		if (!slot_is_register(ctx, slot_1) && !frame_t_is_const(slot_1) && (size_t)slot_1 * slot_size < 0x1000 &&
 		    !slot_is_register(ctx, slot_2) && !frame_t_is_const(slot_2) && (size_t)slot_2 * slot_size < 0x1000 &&
@@ -4519,11 +4617,11 @@ do_compare: {
 				if (!ARCH_HAS_FLAGS) {
 					g(gen_frame_load_op(ctx, OP_SIZE_NATIVE, garbage, ALU_OR, 0, slot_1, hi_word(OP_SIZE_NATIVE), false, R_SCRATCH_1));
 					g(gen_imm(ctx, 0, IMM_PURPOSE_CMP, OP_SIZE_NATIVE));
-					gen_insn(INSN_CMP_DEST_REG, OP_SIZE_NATIVE, alu ^ 1, 0);
+					gen_insn(INSN_CMP_DEST_REG, OP_SIZE_NATIVE, COND_E, 0);
 					gen_one(R_CMP_RESULT);
 					gen_one(R_SCRATCH_1);
 					gen_imm_offset();
-					g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, COND_NE, R_CMP_RESULT, -1U, 0));
+					g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, alu, R_CMP_RESULT, -1U, 0));
 					return true;
 				}
 #endif
@@ -4576,9 +4674,10 @@ do_compare: {
 		g(gen_frame_load_cmp(ctx, op_size, logical, ex, false, slot_2, 0, false, reg1));
 		g(gen_jump(ctx, jmp_offset, op_size, alu ^ 1, -1U, -1U, 0));
 #else
+		final_cond = COND_E;
 		g(gen_frame_get(ctx, op_size, ex, slot_2, R_SCRATCH_2, &reg2));
-		g(gen_cmp_dest_reg(ctx, op_size, reg1, reg2, R_CMP_RESULT, 0, alu));
-		g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, COND_E, R_CMP_RESULT, -1U, 0));
+		g(gen_cmp_dest_reg(ctx, op_size, reg1, reg2, R_CMP_RESULT, 0, alu, &final_cond));
+		g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, final_cond, R_CMP_RESULT, -1U, 0));
 #endif
 		return true;
 	}
