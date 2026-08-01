@@ -1535,6 +1535,21 @@ static bool attr_w gen_clear_bitmap(struct codegen_context *ctx, int64_t additio
 		return true;
 	}
 #endif
+#if defined(ARCH_SH4)
+	if (bitmap_slots >= 2 && bitmap_slots <= INLINE_BITMAP_SLOTS) {
+		frame_t i;
+		g(gen_3address_alu_imm(ctx, OP_SIZE_ADDRESS, ALU_ADD, R_SCRATCH_2, dest_base, dest_offset + (bitmap_slots << OP_SIZE_SLOT), 0));
+		g(gen_load_constant(ctx, R_SCRATCH_1, 0));
+		for (i = 0; i < bitmap_slots; i++) {
+			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1_PRE_I, ARG_IMM));
+			gen_one(ARG_ADDRESS_1_PRE_I);
+			gen_one(R_SCRATCH_2);
+			gen_eight(-(1 << OP_SIZE_SLOT));
+			gen_one(R_SCRATCH_1);
+		}
+		return true;
+	}
+#endif
 	if (bitmap_slots <= INLINE_BITMAP_SLOTS) {
 		bool attr_unused scratch_1_zeroed = false;
 		bool attr_unused scratch_2_zeroed = false;
