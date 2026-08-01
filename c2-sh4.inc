@@ -19,6 +19,7 @@
 #define SH4_MOV_B_REG_ADDR2		0x0004
 #define SH4_MOV_W_REG_ADDR2		0x0005
 #define SH4_MOV_L_REG_ADDR2		0x0006
+#define SH4_MUL_L			0x0007
 #define SH4_NOP				0x0009
 #define SH4_STS_MACH			0x000a
 #define SH4_RTS				0x000b
@@ -46,11 +47,13 @@
 #define SH4_CMP_EQ			0x3000
 #define SH4_CMP_HS			0x3002
 #define SH4_CMP_GE			0x3003
+#define SH4_DMULU_L			0x3005
 #define SH4_CMP_HI			0x3006
 #define SH4_CMP_GT			0x3007
 #define SH4_SUB				0x3008
 #define SH4_SUBV			0x300b
 #define SH4_ADD				0x300c
+#define SH4_DMULS_L			0x300d
 #define SH4_ADDV			0x300f
 #define SH4_STS_L_MACH			0x4002
 #define SH4_LDS_L_MACH			0x4006
@@ -123,9 +126,7 @@
 #define SH4_MOV_L_PCREL_REG		0xd000
 #define SH4_MOV_IMM_REG			0xe000
 
-static uint16_t ctrl_instrs[6][4] = {
-	{ SH4_LDS_MACH,		SH4_LDS_L_MACH,		SH4_STS_MACH,		SH4_STS_L_MACH },
-	{ SH4_LDS_MACL,		SH4_LDS_L_MACL,		SH4_STS_MACL,		SH4_STS_L_MACL },
+static uint16_t ctrl_instrs[4][4] = {
 	{ SH4_LDS_PR,		SH4_LDS_L_PR,		SH4_STS_PR,		SH4_STS_L_PR },
 	{ SH4_LDC_GBR,		SH4_LDC_L_GBR,		SH4_STC_GBR,		SH4_STC_L_GBR },
 	{ SH4_LDS_FPSCR,	SH4_LDS_L_FPSCR,	SH4_STS_FPSCR,		SH4_STS_L_FPSCR },
@@ -614,6 +615,20 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned alu)
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	uint8_t *arg3 = arg2 + arg_size(*arg2);
 	ctx->code_position = arg3 + arg_size(*arg3);
+
+	if (alu == ALU_MUL && arg1[0] < 0x10 && arg2[0] < 0x10 && arg3[0] < 0x10) {
+		mc = SH4_MUL_L;
+		mc |= arg3[0] << 4;
+		mc |= arg2[0] << 8;
+		cgen_two(mc);
+
+		mc = SH4_STS_MACL;
+		mc |= arg1[0] << 8;
+		cgen_two(mc);
+
+		return true;
+	}
+
 	if (unlikely(arg1[0] != arg2[0]) || unlikely(arg1[0] >= 0x10))
 		goto invalid;
 
@@ -812,6 +827,37 @@ static bool attr_w cgen_rot(struct codegen_context *ctx, unsigned alu)
 invalid:
 	internal(file_line, "cgen_rot: invalid operands: %02x %02x %02x %02x %d", alu, arg1[0], arg2[0], arg3[0], (int)imm);
 	return false;
+}
+
+static bool attr_w cgen_mul_l(struct codegen_context *ctx, bool sgn)
+{
+	uint16_t mc;
+
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	uint8_t *arg4 = arg3 + arg_size(*arg3);
+	ctx->code_position = arg4 + arg_size(*arg4);
+	if (unlikely(arg1[0] >= 0x10) || unlikely(arg2[0] >= 0x10) || unlikely(arg3[0] >= 0x10) || unlikely(arg4[0] >= 0x10))
+		goto invalid;
+
+	mc = !sgn ? SH4_DMULU_L : SH4_DMULS_L;
+	mc |= arg4[0] << 4;
+	mc |= arg3[0] << 8;
+	cgen_two(mc);
+
+	mc = SH4_STS_MACL;
+	mc |= arg1[0] << 8;
+	cgen_two(mc);
+
+	mc = SH4_STS_MACH;
+	mc |= arg2[0] << 8;
+	cgen_two(mc);
+
+	return true;
+
+invalid:
+	internal(file_line, "cgen_mul_l: invalid operands: %02x %02x %02x %02x", arg1[0], arg2[0], arg3[0], arg4[0]);
 }
 
 static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, unsigned reg, uint16_t mc)
@@ -1051,6 +1097,11 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			if (unlikely(insn_op_size(insn) != OP_SIZE_4))
 				goto invalid_insn;
 			g(cgen_rot(ctx, insn_aux(insn)));
+			return true;
+		case INSN_MUL_L:
+			if (unlikely(insn_op_size(insn) != OP_SIZE_4))
+				goto invalid_insn;
+			g(cgen_mul_l(ctx, insn_aux(insn)));
 			return true;
 		case INSN_JMP:
 			g(cgen_jmp(ctx, insn_jump_size(insn)));

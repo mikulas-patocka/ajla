@@ -44,7 +44,7 @@
 #define ARCH_PREFERS_SX(size)		((size) < OP_SIZE_4)
 #define ARCH_REQUIRES_MOV_MASK(size)	0
 #define ARCH_HAS_BWX			1
-#define ARCH_HAS_MUL			0	/* !!! FIXME */
+#define ARCH_HAS_MUL			1
 #define ARCH_HAS_DIV			0
 #define ARCH_HAS_ANDN			0
 #define ARCH_HAS_2REG_M(st, fp, sh, im)	0
@@ -78,13 +78,11 @@
 #define R_14				0x0e
 #define R_SP				0x0f
 
-#define R_MACH				0x10
-#define R_MACL				0x11
-#define R_LR				0x12
-#define R_GBR				0x13
-#define R_FPSCR				0x14
-#define R_FPUL				0x15
-#define R_T				0x16
+#define R_LR				0x10
+#define R_GBR				0x11
+#define R_FPSCR				0x12
+#define R_FPUL				0x13
+#define R_T				0x14
 
 #define FR_0				0x20
 #define FR_1				0x21
@@ -121,7 +119,7 @@ static bool reg_is_fp(unsigned reg)
 
 static bool reg_is_ctrl(unsigned reg)
 {
-	return reg >= 0x10 && reg <= 0x15;
+	return reg >= 0x10 && reg <= 0x13;
 }
 
 static bool reg_is_p(unsigned reg)

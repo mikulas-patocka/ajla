@@ -293,12 +293,6 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 #ifdef R_SCRATCH_B
 	reg_map_set(&scratch_regs, R_SCRATCH_B);
 #endif
-#ifdef R_MACH
-	reg_map_set(&scratch_regs, R_MACH);
-#endif
-#ifdef R_MACL
-	reg_map_set(&scratch_regs, R_MACL);
-#endif
 #ifdef R_FPSCR
 	reg_map_set(&scratch_regs, R_FPSCR);
 #endif

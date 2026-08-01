@@ -775,7 +775,7 @@ do_multiply: {
 			g(gen_frame_get(ctx, op_size, garbage, slot_1, R_SCRATCH_1, &reg1));
 			g(gen_frame_get(ctx, op_size, garbage, slot_2, R_SCRATCH_2, &reg2));
 
-			gen_insn(INSN_MUL_L, OP_SIZE_NATIVE, 0, 0);
+			gen_insn(INSN_MUL_L, OP_SIZE_NATIVE, 1, 0);
 			gen_one(target);
 			gen_one(R_SCRATCH_4);
 			gen_one(reg1);
@@ -896,11 +896,11 @@ do_multiply: {
 			return true;
 		}
 #endif
-#if (defined(ARCH_MIPS) && !MIPS_R6) || defined(ARCH_S390)
+#if (defined(ARCH_MIPS) && !MIPS_R6) || defined(ARCH_S390) || defined(ARCH_SH4)
 #if defined(ARCH_MIPS)
 		if (mode == MODE_INT && op_size >= OP_SIZE_4)
 #endif
-#if defined(ARCH_S390)
+#if defined(ARCH_S390) || defined(ARCH_SH4)
 		if (mode == MODE_INT && op_size == OP_SIZE_4)
 #endif
 		{
@@ -915,7 +915,7 @@ do_multiply: {
 			g(gen_frame_get(ctx, op_size, sign_x, slot_1, R_SCRATCH_1, &reg1));
 			g(gen_frame_get(ctx, op_size, sign_x, slot_2, R_SCRATCH_3, &reg2));
 #endif
-			gen_insn(INSN_MUL_L, op_size, 0, 0);
+			gen_insn(INSN_MUL_L, op_size, 1, 0);
 			gen_one(target);
 			gen_one(R_SCRATCH_2);
 			gen_one(reg1);
