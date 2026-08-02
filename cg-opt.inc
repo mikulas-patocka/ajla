@@ -1600,17 +1600,34 @@ dont_quash_mov:
 					reg_map rm;
 					struct value *rp1;
 					struct insn_details nd;
-					rp1 = find_equality(ctx, &eq.v1);
-					if (rp1 && compare_values(rp, rp1) && rp->value == rp->value_hi) {
-						d->quash = true;
-						if (REPORT_QUASHED_INSNS)
-							debug("quashing mov due to equality");
-						continue;
-					}
 					if (!rng_valid && rp->tag == VALUE_TAG_RANGE) {
 						rng.v1 = eq.v1;
 						rng.v2 = *rp;
 						rng_valid = true;
+					}
+					rp1 = find_equality(ctx, &eq.v1);
+					if (rp1) {
+						if (compare_values(rp, rp1) && rp->value == rp->value_hi) {
+							d->quash = true;
+							if (REPORT_QUASHED_INSNS)
+								debug("quashing mov due to equality");
+							continue;
+						}
+#if defined(ARCH_SH4)
+						if (cpu_test_feature(CPU_FEATURE_sh4a) && *pd == R_FPSCR && rp->tag == VALUE_TAG_RANGE && rp->value == rp->value_hi && rp1->tag == VALUE_TAG_RANGE && rp1->value == rp1->value_hi && rp->value == (rp1->value ^ (1U << 19))) {
+							g(prepare_new_insn(ctx));
+							gen_insn(INSN_ALU, OP_SIZE_4, ALU_XOR, 0);
+							gen_one(R_FPSCR);
+							gen_one(R_FPSCR);
+							gen_one(ARG_IMM);
+							gen_eight(1U << 19);
+							g(finish_new_insn(ctx, &nd, &rm, &rm));
+							if (validate_insn(&nd)) {
+								*d = nd;
+								goto generated_fpchg;
+							}
+						}
+#endif
 					}
 					g(prepare_new_insn(ctx));
 					gen_insn(insn_opcode(d->insn), insn_op_size(d->insn), 0, MOV_WRITES_FLAGS(*pd, val_to_arg_byte(rp)));
@@ -1630,6 +1647,8 @@ dont_quash_mov:
 					}
 				}
 			}
+			goto generated_fpchg;
+generated_fpchg:
 			quash_equalities(ctx, d);
 			if (eq_valid)
 				g(insert_equality(ctx, &eq));

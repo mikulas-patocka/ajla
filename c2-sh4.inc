@@ -762,6 +762,13 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned alu)
 	uint8_t *arg3 = arg2 + arg_size(*arg2);
 	ctx->code_position = arg3 + arg_size(*arg3);
 
+	if (alu == ALU_XOR && arg1[0] == R_FPSCR && arg2[0] == R_FPSCR && arg3[0] == ARG_IMM && get_imm(&arg3[1]) == 1U << 19) {
+		mc = SH4_FPCHG;
+		cgen_two(mc);
+
+		return true;
+	}
+
 	if (alu == ALU_MUL && arg1[0] < 0x10 && arg2[0] < 0x10 && arg3[0] < 0x10) {
 		mc = SH4_MUL_L;
 		mc |= arg3[0] << 4;
@@ -1387,6 +1394,14 @@ static bool validate_insn(const struct insn_details *d)
 				return false;
 			return cgen_moves(NULL, insn_op_size(d->insn), insn_opcode(d->insn) == INSN_MOVSX, arg1, arg2);
 
+		}
+		case INSN_ALU: {
+			const uint8_t *arg1 = d->start + 4;
+			const uint8_t *arg2 = arg1 + arg_size(*arg1);
+			const uint8_t *arg3 = arg2 + arg_size(*arg2);
+			if (cpu_test_feature(CPU_FEATURE_sh4a) && insn_aux(d->insn) == ALU_XOR && arg1[0] == R_FPSCR && arg2[0] == R_FPSCR && arg3[0] == ARG_IMM && get_imm(&arg3[1]) == (1U << 19))
+				return true;
+			return false;
 		}
 	}
 	return false;
