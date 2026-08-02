@@ -1598,13 +1598,19 @@ dont_quash_mov:
 				rp = find_equality(ctx, &eq.v2);
 				if (rp) {
 					reg_map rm;
-					struct value *rp1 = find_equality(ctx, &eq.v1);
+					struct value *rp1;
 					struct insn_details nd;
+					rp1 = find_equality(ctx, &eq.v1);
 					if (rp1 && compare_values(rp, rp1) && rp->value == rp->value_hi) {
 						d->quash = true;
 						if (REPORT_QUASHED_INSNS)
 							debug("quashing mov due to equality");
 						continue;
+					}
+					if (!rng_valid && rp->tag == VALUE_TAG_RANGE) {
+						rng.v1 = eq.v1;
+						rng.v2 = *rp;
+						rng_valid = true;
 					}
 					g(prepare_new_insn(ctx));
 					gen_insn(insn_opcode(d->insn), insn_op_size(d->insn), 0, MOV_WRITES_FLAGS(*pd, val_to_arg_byte(rp)));

@@ -1379,6 +1379,12 @@ static bool validate_insn(const struct insn_details *d)
 		case INSN_MOVSX: {
 			const uint8_t *arg1 = d->start + 4;
 			const uint8_t *arg2 = arg1 + arg_size(*arg1);
+			/*
+			 * We must not read FPSCR because bits in it may
+			 * be set by the FP instructions.
+			 */
+			if (*arg2 == R_FPSCR)
+				return false;
 			return cgen_moves(NULL, insn_op_size(d->insn), insn_opcode(d->insn) == INSN_MOVSX, arg1, arg2);
 
 		}
