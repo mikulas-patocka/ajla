@@ -240,6 +240,9 @@ static void *ipret_op_build_thunk(frame_s *fp, const code_t *ip, frame_t slot_1,
 	}
 	if (code >= OPCODE_REAL_OP && code < OPCODE_REAL_OP + OPCODE_REAL_TYPE_MULT * TYPE_REAL_N) {
 		code_t op = (code - OPCODE_REAL_OP) % OPCODE_REAL_TYPE_MULT;
+		if (op >= OPCODE_REAL_OP_C && op < OPCODE_REAL_OP_UNARY) {
+			code -= OPCODE_REAL_OP_C;
+		}
 		if (op == OPCODE_REAL_OP_is_exception || op == OPCODE_REAL_OP_is_exception_alt1 || op == OPCODE_REAL_OP_is_exception_alt2)
 			strict_flag |= FLAG_TESTING_FOR_EXCEPTION;
 	}
