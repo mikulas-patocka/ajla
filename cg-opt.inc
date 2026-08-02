@@ -512,6 +512,12 @@ static unsigned arg_jmp(struct insn_details *d, uint8_t *ptr)
 	return 4;
 }
 
+#ifdef R_FPSCR
+#define set_fp_precision	reg_map_set(&d->rd, R_FPSCR)
+#else
+#define set_fp_precision	do { } while (0)
+#endif
+
 static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn_details *d)
 {
 	uint32_t insn;
@@ -758,6 +764,7 @@ do_call:
 #endif
 #if defined(ARCH_SH4)
 			reg_map_set(&d->rd, R_GBR);
+			reg_map_set(&d->rd, R_FPSCR);
 #endif
 			reg_map_set(&d->rd, R_SP);
 			reg_map_set(&d->wr, R_SP);
@@ -988,82 +995,100 @@ skip_reads:
 			reg_map_set(&d->wr, R_MEMORY_FRAME);
 			break;
 		case INSN_FP_CMP:
+			set_fp_precision;
 			ptr += arg_read(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, size);
 			break;
 		case INSN_FP_CMP_DEST_REG:
+			set_fp_precision;
 			ptr += arg_write(ctx, d, ptr, 1U << OP_SIZE_NATIVE);
 			ptr += arg_read(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, size);
 			break;
 		case INSN_FP_CMP_DEST_REG_TRAP:
+			set_fp_precision;
 			ptr += arg_write(ctx, d, ptr, 1U << OP_SIZE_NATIVE);
 			ptr += arg_read(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, size);
 			ptr += arg_jmp(d, ptr);
 			break;
 		case INSN_FP_CMP_UNORDERED_DEST_REG:
+			set_fp_precision;
 			ptr += arg_write(ctx, d, ptr, 1U << OP_SIZE_NATIVE);
 			ptr += arg_read(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, size);
 			break;
 		case INSN_FP_CMP_COND:
+			set_fp_precision;
 			ptr += arg_read(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, size);
 			break;
 		case INSN_FP_TEST_REG:
+			set_fp_precision;
 			reg_map_set(&d->rd, R_FLAGS);
 			ptr += arg_write(ctx, d, ptr, size);
 			break;
 		case INSN_FP_TO_INT_FLAGS:
+			set_fp_precision;
 			reg_map_set(&d->rd, R_FLAGS);
 			break;
 		case INSN_FP_ALU:
+			set_fp_precision;
 			ptr += arg_write(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, size);
 			break;
 		case INSN_FP_ALU1:
+			set_fp_precision;
 			ptr += arg_write(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, size);
 			break;
 		case INSN_FP_ALU3:
+			set_fp_precision;
 			ptr += arg_write(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, size);
 			break;
 		case INSN_FP_TO_INT32:
+			set_fp_precision;
 			ptr += arg_write(ctx, d, ptr, 4);
 			ptr += arg_read(ctx, d, ptr, size);
 			break;
 		case INSN_FP_TO_INT64:
+			set_fp_precision;
 			ptr += arg_write(ctx, d, ptr, 8);
 			ptr += arg_read(ctx, d, ptr, size);
 			break;
 		case INSN_FP_FROM_INT32:
+			set_fp_precision;
 			ptr += arg_write(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, 4);
 			break;
 		case INSN_FP_FROM_INT64:
+			set_fp_precision;
 			ptr += arg_write(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, 8);
 			break;
 		case INSN_FP_TO_INT64_TRAP:
+			set_fp_precision;
 			ptr += arg_write(ctx, d, ptr, 8);
 			ptr += arg_read(ctx, d, ptr, size);
 			ptr += arg_jmp(d, ptr);
 			break;
 		case INSN_FP_INT64_TO_INT32_TRAP:
+			set_fp_precision;
 			ptr += arg_write(ctx, d, ptr, 4);
 			ptr += arg_read(ctx, d, ptr, 8);
 			ptr += arg_jmp(d, ptr);
 			break;
 		case INSN_FP_INT32_TO_INT64:
+			set_fp_precision;
 			ptr += arg_write(ctx, d, ptr, 8);
 			ptr += arg_read(ctx, d, ptr, 4);
 			break;
 		case INSN_FP_CVT:
+			set_fp_precision;
 			ptr += arg_write(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, size);
 			break;

@@ -35,6 +35,19 @@ static bool attr_w gen_mov(struct codegen_context *ctx, unsigned size, unsigned 
 		return true;
 	}
 #endif
+#if defined(ARCH_SH4)
+	if (reg_is_fp(dest) && reg_is_fp(src) && size == OP_SIZE_8) {
+		gen_insn(INSN_MOV, OP_SIZE_4, 0, MOV_WRITES_FLAGS(dest, src));
+		gen_one(dest);
+		gen_one(src);
+
+		gen_insn(INSN_MOV, OP_SIZE_4, 0, MOV_WRITES_FLAGS(dest + 1, src + 1));
+		gen_one(dest + 1);
+		gen_one(src + 1);
+
+		return true;
+	}
+#endif
 	gen_insn(INSN_MOV, size, 0, MOV_WRITES_FLAGS(dest, src));
 	gen_one(dest);
 	gen_one(src);

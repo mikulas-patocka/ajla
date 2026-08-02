@@ -16,6 +16,8 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#define DEFAULT_DOUBLE			1
+
 #define OP_SIZE_NATIVE			OP_SIZE_4
 #define OP_SIZE_ADDRESS			OP_SIZE_4
 
@@ -81,8 +83,7 @@
 #define R_LR				0x10
 #define R_GBR				0x11
 #define R_FPSCR				0x12
-#define R_FPUL				0x13
-#define R_T				0x14
+#define R_T				0x13
 
 #define FR_0				0x20
 #define FR_1				0x21
@@ -119,7 +120,7 @@ static bool reg_is_fp(unsigned reg)
 
 static bool reg_is_ctrl(unsigned reg)
 {
-	return reg >= 0x10 && reg <= 0x13;
+	return reg >= 0x10 && reg <= 0x12;
 }
 
 static bool reg_is_p(unsigned reg)
@@ -148,6 +149,7 @@ static bool reg_is_p(unsigned reg)
 
 #define FR_SCRATCH_1			FR_0
 #define FR_SCRATCH_2			FR_2
+#define FR_SCRATCH_3			FR_4
 
 #define R_ARG0				R_4
 #define R_ARG1				R_5
@@ -156,7 +158,8 @@ static bool reg_is_p(unsigned reg)
 #define R_RET0				R_SCRATCH_1
 #define R_RET_IP			R_4
 
-#define SUPPORTED_FP			0
+#define SUPPORTED_FP			0x6
+#define SUPPORTED_FP_FMA		0x0
 #define FP_REGISTERS(real_size)		((real_size) >= 8 ? 2 : 1)
 #define FP_ALIASES(real_size, reg, idx)	(!((reg) & 1) ? (reg) + (idx) : (reg))
 #define N_FP_ALIASES(real_size)		FP_REGISTERS(real_size)
@@ -169,9 +172,9 @@ static const uint8_t regs_volatile[] = { R_7, R_3 };
 #endif
 static const uint8_t fp_saved[] = { FR_12, FR_13, FR_14, FR_15 };
 #define n_fp_saved(real_type) (optimize_int ? 0 : n_array_elements(fp_saved))
-static const uint8_t fp_volatile[] = { FR_4, FR_5, FR_6, FR_7, FR_8, FR_9, FR_10, FR_11 };
+static const uint8_t fp_volatile[] = { FR_6, FR_7, FR_8, FR_9, FR_10, FR_11 };
 
-#define reg_is_saved(r) (((r) >= R_8 && (r) <= R_SP) || ((r) >= FR_12 && (r) <= FR_15) || ((r) == R_GBR))
+#define reg_is_saved(r) (((r) >= R_8 && (r) <= R_SP) || ((r) >= FR_12 && (r) <= FR_15) || ((r) == R_GBR) || ((r) == R_FPSCR))
 
 #define ARCH_SWAP_CONDITION(cond, final_cond, reg1, reg2)	\
 do {								\
@@ -196,6 +199,21 @@ do {								\
 		case COND_LE:					\
 			swap = true;				\
 			cond = COND_GE;				\
+			break;					\
+		case FP_COND_NE:				\
+			revert = true;				\
+			break;					\
+		case FP_COND_BE:				\
+			revert = true;				\
+			break;					\
+		case FP_COND_B:					\
+			swap = true;				\
+			cond = FP_COND_A;			\
+			break;					\
+		case FP_COND_AE:				\
+			swap = true;				\
+			revert = true;				\
+			cond = FP_COND_BE;			\
 			break;					\
 	}							\
 	if (swap) {						\
@@ -227,6 +245,15 @@ static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, 
 	gen_eight(c);
 	return true;
 }
+
+#define SET_FP_PRECISION(rt)					\
+do {								\
+	g(gen_load_constant(ctx, R_0, ((rt) == 2) << 19));	\
+								\
+	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);			\
+	gen_one(R_FPSCR);					\
+	gen_one(R_0);						\
+} while (0)
 
 static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int64_t imm, unsigned purpose, unsigned size)
 {
@@ -304,10 +331,10 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	unsigned r;
 	for (r = R_8; r <= R_14; r++)
 		g(gen_push(ctx, r));
-	/*if (!optimize_int) {
+	if (!optimize_int) {
 		for (r = FR_12; r <= FR_15; r++)
 			g(gen_push(ctx, r));
-	}*/
+	}
 	g(gen_push(ctx, R_LR));
 	g(gen_push(ctx, R_GBR));
 	g(gen_push(ctx, R_ARG0));
@@ -328,6 +355,8 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 {
 	unsigned r;
 
+	SET_FP_PRECISION(DEFAULT_DOUBLE ? 2 : 1);
+
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
 	gen_one(R_0);
 	gen_one(R_GBR);
@@ -345,10 +374,10 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 	g(gen_pop(ctx, R_GBR));
 	g(gen_pop(ctx, R_LR));
 
-	/*if (!optimize_int) {
+	if (!optimize_int) {
 		for (r = FR_15; r >= FR_12; r--)
 			g(gen_pop(ctx, r));
-	}*/
+	}
 	for (r = R_14; r >= R_8; r--)
 		g(gen_pop(ctx, r));
 
@@ -381,6 +410,8 @@ static bool attr_w gen_get_upcall_pointer(struct codegen_context *ctx, unsigned 
 static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsigned n_args, bool unspill)
 {
 	g(gen_get_upcall_pointer(ctx, offset, OP_SIZE_4, R_3));
+
+	SET_FP_PRECISION(DEFAULT_DOUBLE ? 2 : 1);
 
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
 	gen_one(R_0);

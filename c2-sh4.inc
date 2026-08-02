@@ -127,12 +127,41 @@
 #define SH4_OR_B			0xcf00
 #define SH4_MOV_L_PCREL_REG		0xd000
 #define SH4_MOV_IMM_REG			0xe000
+#define SH4_FADD			0xf000
+#define SH4_FSUB			0xf001
+#define SH4_FMUL			0xf002
+#define SH4_FDIV			0xf003
+#define SH4_FCMP_EQ			0xf004
+#define SH4_FCMP_GT			0xf005
+#define SH4_FMOV_S_ADDR2_REG		0xf006
+#define SH4_FMOV_S_REG_ADDR2		0xf007
+#define SH4_FMOV_S_ADDR_REG		0xf008
+#define SH4_FMOV_S_ADDR_INC_REG		0xf009
+#define SH4_FMOV_S_REG_ADDR		0xf00a
+#define SH4_FMOV_S_REG_DEC_ADDR		0xf00b
+#define SH4_FMOV_REG_REG		0xf00c
+#define SH4_FSTS_FPUL			0xf00d
+#define SH4_FLDS_FPUL			0xf01d
+#define SH4_FLOAT			0xf02d
+#define SH4_FTRC			0xf03d
+#define SH4_FNEG			0xf04d
+#define SH4_FABS			0xf05d
+#define SH4_FSQRT			0xf06d
+#define SH4_FSRRA			0xf07d
+#define SH4_FLDI0			0xf08d
+#define SH4_FLDI1			0xf09d
+#define SH4_FCNVSD			0xf0ad
+#define SH4_FCNVDS			0xf0bd
+#define SH4_FSCA			0xf0fd
+#define SH4_FSCHG			0xf3fd
+#define SH4_FPCHG			0xf7fd
+#define SH4_FRCHG			0xfbfd
+#define SH4_FMAC			0xf00e
 
-static uint16_t ctrl_instrs[4][4] = {
+static uint16_t ctrl_instrs[3][4] = {
 	{ SH4_LDS_PR,		SH4_LDS_L_PR,		SH4_STS_PR,		SH4_STS_L_PR },
 	{ SH4_LDC_GBR,		SH4_LDC_L_GBR,		SH4_STC_GBR,		SH4_STC_L_GBR },
 	{ SH4_LDS_FPSCR,	SH4_LDS_L_FPSCR,	SH4_STS_FPSCR,		SH4_STS_L_FPSCR },
-	{ SH4_LDS_FPUL,		SH4_LDS_L_FPUL,		SH4_STS_FPUL,		SH4_STS_L_FPUL },
 };
 
 static bool attr_w cgen_moves(struct codegen_context *ctx, unsigned size, bool sx, const uint8_t *arg1, const uint8_t *arg2)
@@ -177,6 +206,29 @@ static bool attr_w cgen_moves(struct codegen_context *ctx, unsigned size, bool s
 				mc |= lo & 0xff;
 				cgen_two(mc);
 			}
+			return true;
+		}
+		if (!(imm & 0xffff) && imm >= -0x00800000 && imm < 0x00800000) {
+			mc = SH4_MOV_IMM_REG;
+			mc |= arg1[0] << 8;
+			mc |= (imm / 0x10000) & 0xff;
+			cgen_two(mc);
+			mc = SH4_SHLL16;
+			mc |= arg1[0] << 8;
+			cgen_two(mc);
+			return true;
+		}
+		if (!(imm & 0xffffff)) {
+			mc = SH4_MOV_IMM_REG;
+			mc |= arg1[0] << 8;
+			mc |= (imm / 0x1000000) & 0xff;
+			cgen_two(mc);
+			mc = SH4_SHLL8;
+			mc |= arg1[0] << 8;
+			cgen_two(mc);
+			mc = SH4_SHLL16;
+			mc |= arg1[0] << 8;
+			cgen_two(mc);
 			return true;
 		}
 		if (imm_is_16bit(imm)) {
@@ -409,37 +461,105 @@ static bool attr_w cgen_moves(struct codegen_context *ctx, unsigned size, bool s
 			return true;
 		}
 	}
-	if (reg_is_ctrl(arg1[0]) && arg2[0] < 0x10 && !sx) {
+	if (reg_is_ctrl(arg1[0]) && arg2[0] < 0x10 && size == OP_SIZE_4 && !sx) {
 		mc = ctrl_instrs[arg1[0] - 0x10][0];
 		mc |= arg2[0] << 8;
 		if (ctx)
 			cgen_two(mc);
 		return true;
 	}
-	if (reg_is_ctrl(arg1[0]) && arg2[0] == ARG_ADDRESS_1_POST_I && arg2[1] < 0x10 && get_imm(&arg2[2]) == 4 && !sx) {
+	if (reg_is_ctrl(arg1[0]) && arg2[0] == ARG_ADDRESS_1_POST_I && arg2[1] < 0x10 && get_imm(&arg2[2]) == 4 && size == OP_SIZE_4 && !sx) {
 		mc = ctrl_instrs[arg1[0] - 0x10][1];
 		mc |= arg2[1] << 8;
 		if (ctx)
 			cgen_two(mc);
 		return true;
 	}
-	if (reg_is_ctrl(arg2[0]) && arg1[0] < 0x10 && !sx) {
+	if (reg_is_ctrl(arg2[0]) && arg1[0] < 0x10 && size == OP_SIZE_4 && !sx) {
 		mc = ctrl_instrs[arg2[0] - 0x10][2];
 		mc |= arg1[0] << 8;
 		if (ctx)
 			cgen_two(mc);
 		return true;
 	}
-	if (reg_is_ctrl(arg2[0]) && arg1[0] == ARG_ADDRESS_1_PRE_I && arg1[1] < 0x10 && get_imm(&arg1[2]) == -4 && !sx) {
+	if (reg_is_ctrl(arg2[0]) && arg1[0] == ARG_ADDRESS_1_PRE_I && arg1[1] < 0x10 && get_imm(&arg1[2]) == -4 && size == OP_SIZE_4 && !sx) {
 		mc = ctrl_instrs[arg2[0] - 0x10][3];
 		mc |= arg1[1] << 8;
 		if (ctx)
 			cgen_two(mc);
 		return true;
 	}
-	if (arg1[0] < 0x10 && arg2[0] == R_T && !sx) {
+	if (arg1[0] < 0x10 && arg2[0] == R_T && size == OP_SIZE_4 && !sx) {
 		mc = SH4_MOVT;
 		mc |= arg1[0] << 8;
+		if (ctx)
+			cgen_two(mc);
+		return true;
+	}
+	if (reg_is_fp(arg1[0]) && reg_is_fp(arg2[0]) && size == OP_SIZE_4 && !sx) {
+		mc = SH4_FMOV_REG_REG;
+		mc |= (arg2[0] & 0xf) << 4;
+		mc |= (arg1[0] & 0xf) << 8;
+		if (ctx)
+			cgen_two(mc);
+		return true;
+	}
+	if ((arg1[0] == ARG_ADDRESS_1 || arg1[0] == ARG_ADDRESS_1_PRE_I) && arg1[1] < 0x10 && reg_is_fp(arg2[0]) && size == OP_SIZE_4 && !sx) {
+		imm = get_imm(&arg1[2]);
+		if (imm == (arg1[0] == ARG_ADDRESS_1 ? 0 : -(1 << size))) {
+			mc = arg1[0] == ARG_ADDRESS_1 ? SH4_FMOV_S_REG_ADDR : SH4_FMOV_S_REG_DEC_ADDR;
+			mc |= (arg2[0] & 0xf) << 4;
+			mc |= arg1[1] << 8;
+			if (ctx)
+				cgen_two(mc);
+			return true;
+		}
+	}
+	if (reg_is_fp(arg1[0]) && (arg2[0] == ARG_ADDRESS_1 || arg2[0] == ARG_ADDRESS_1_POST_I) && arg2[1] < 0x10 && size == OP_SIZE_4 && !sx) {
+		imm = get_imm(&arg2[2]);
+		if (unlikely(imm == (arg2[0] == ARG_ADDRESS_1 ? 0 : 1 << size))) {
+			mc = arg2[0] == ARG_ADDRESS_1 ? SH4_FMOV_S_ADDR_REG : SH4_FMOV_S_ADDR_INC_REG;
+			mc |= arg2[1] << 4;
+			mc |= (arg1[0] & 0xf) << 8;
+			if (ctx)
+				cgen_two(mc);
+			return true;
+		}
+	}
+	if (arg1[0] == ARG_ADDRESS_2 && arg1[1] < 0x10 && arg1[2] == R_0 && !get_imm(&arg1[3]) && reg_is_fp(arg2[0]) && size == OP_SIZE_4 && !sx) {
+		mc = SH4_FMOV_S_REG_ADDR2;
+		mc |= (arg2[0] & 0xf) << 4;
+		mc |= arg1[1] << 8;
+		if (ctx)
+			cgen_two(mc);
+		return true;
+	}
+	if (arg2[0] == ARG_ADDRESS_2 && arg2[1] < 0x10 && arg2[2] == R_0 && !get_imm(&arg2[3]) && reg_is_fp(arg1[0]) && size == OP_SIZE_4 && !sx) {
+		mc = SH4_FMOV_S_ADDR2_REG;
+		mc |= arg2[1] << 4;
+		mc |= (arg1[0] & 0xf) << 8;
+		if (ctx)
+			cgen_two(mc);
+		return true;
+	}
+	if (arg1[0] < 0x10 && reg_is_fp(arg2[0]) && size == OP_SIZE_4 && !sx) {
+		mc = SH4_FLDS_FPUL;
+		mc |= (arg2[0] & 0xf) << 8;
+		if (ctx)
+			cgen_two(mc);
+		mc = SH4_STS_FPUL;
+		mc |= arg1[0] << 8;
+		if (ctx)
+			cgen_two(mc);
+		return true;
+	}
+	if (reg_is_fp(arg1[0]) && arg2[0] < 0x10 && size == OP_SIZE_4 && !sx) {
+		mc = SH4_LDS_FPUL;
+		mc |= arg2[0] << 8;
+		if (ctx)
+			cgen_two(mc);
+		mc = SH4_FSTS_FPUL;
+		mc |= (arg1[0] & 0xf) << 8;
 		if (ctx)
 			cgen_two(mc);
 		return true;
@@ -886,6 +1006,189 @@ invalid:
 	internal(file_line, "cgen_mul_l: invalid operands: %02x %02x %02x %02x", arg1[0], arg2[0], arg3[0], arg4[0]);
 }
 
+static bool attr_w cgen_fp_cmp_dest_reg(struct codegen_context *ctx, unsigned cond)
+{
+	uint16_t mc;
+
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	ctx->code_position = arg3 + arg_size(*arg3);
+
+	if (unlikely(arg1[0] != R_T) || unlikely(!reg_is_fp(arg2[0])) || unlikely(!reg_is_fp(arg3[0])))
+		goto invalid;
+
+	switch (cond) {
+		case FP_COND_E:
+			mc = SH4_FCMP_EQ;
+			break;
+		case FP_COND_A:
+			mc = SH4_FCMP_GT;
+			break;
+		default:
+			goto invalid;
+	}
+	mc |= (arg3[0] & 0xf) << 4;
+	mc |= (arg2[0] & 0xf) << 8;
+	cgen_two(mc);
+	return true;
+
+invalid:
+	internal(file_line, "cgen_fp_cmp_dest_reg: invalid operands: %02x %02x %02x %02x", cond, arg1[0], arg2[0], arg3[0]);
+}
+
+static bool attr_w cgen_fp_alu(struct codegen_context *ctx, unsigned alu)
+{
+	uint16_t mc;
+
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	ctx->code_position = arg3 + arg_size(*arg3);
+	if (unlikely(!reg_is_fp(arg1[0])) || unlikely(arg2[0] != arg1[0]) || unlikely(!reg_is_fp(arg3[0])))
+		goto invalid;
+
+	switch (alu) {
+		case FP_ALU_ADD:
+			mc = SH4_FADD;
+			break;
+		case FP_ALU_SUB:
+			mc = SH4_FSUB;
+			break;
+		case FP_ALU_MUL:
+			mc = SH4_FMUL;
+			break;
+		case FP_ALU_DIV:
+			mc = SH4_FDIV;
+			break;
+		default:
+			goto invalid;
+	}
+
+	mc |= (arg3[0] & 0xf) << 4;
+	mc |= (arg1[0] & 0xf) << 8;
+	cgen_two(mc);
+	return true;
+
+invalid:
+	internal(file_line, "cgen_fp_alu: invalid operands: %02x %02x %02x %02x", alu, arg1[0], arg2[0], arg3[0]);
+}
+
+static bool attr_w cgen_fp_alu1(struct codegen_context *ctx, unsigned alu)
+{
+	uint16_t mc;
+
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+	if (unlikely(!reg_is_fp(arg1[0])) || unlikely(arg2[0] != arg1[0]))
+		goto invalid;
+
+	switch (alu) {
+		case FP_ALU1_NEG:
+			mc = SH4_FNEG;
+			break;
+		case FP_ALU1_SQRT:
+			mc = SH4_FSQRT;
+			break;
+		default:
+			goto invalid;
+	}
+
+	mc |= (arg1[0] & 0xf) << 8;
+	cgen_two(mc);
+	return true;
+
+invalid:
+	internal(file_line, "cgen_fp_alu1: invalid operands: %02x %02x %02x", alu, arg1[0], arg2[0]);
+}
+
+static bool attr_w cgen_fp_to_int32(struct codegen_context *ctx)
+{
+	uint16_t mc;
+
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+	if (unlikely(arg1[0] >= 0x10) || unlikely(!reg_is_fp(arg2[0])))
+		goto invalid;
+
+	mc = SH4_FTRC;
+	mc |= (arg2[0] & 0xf) << 8;
+	cgen_two(mc);
+
+	mc = SH4_STS_FPUL;
+	mc |= arg1[0] << 8;
+	cgen_two(mc);
+
+	return true;
+
+invalid:
+	internal(file_line, "cgen_fp_to_int32: invalid operands: %02x %02x", arg1[0], arg2[0]);
+}
+
+static bool attr_w cgen_fp_from_int32(struct codegen_context *ctx)
+{
+	uint16_t mc;
+
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+	if (unlikely(!reg_is_fp(arg1[0])) || unlikely(arg2[0] >= 0x10))
+		goto invalid;
+
+	mc = SH4_LDS_FPUL;
+	mc |= arg2[0] << 8;
+	cgen_two(mc);
+
+	mc = SH4_FLOAT;
+	mc |= (arg1[0] & 0xf) << 8;
+	cgen_two(mc);
+
+	return true;
+
+invalid:
+	internal(file_line, "cgen_fp_from_int32: invalid operands: %02x %02x", arg1[0], arg2[0]);
+}
+
+static bool attr_w cgen_fp_cvt(struct codegen_context *ctx, unsigned from_op_size, unsigned to_op_size)
+{
+	uint16_t mc;
+
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+
+	if (unlikely(!reg_is_fp(arg1[0])) || unlikely(!reg_is_fp(arg2[0])))
+		goto invalid;
+
+	if (from_op_size == OP_SIZE_4 && to_op_size == OP_SIZE_8) {
+		mc = SH4_FLDS_FPUL;
+		mc |= (arg2[0] & 0xf) << 8;
+		cgen_two(mc);
+
+		mc = SH4_FCNVSD;
+		mc |= (arg1[0] & 0xf) << 8;
+		cgen_two(mc);
+
+		return true;
+	}
+	if (from_op_size == OP_SIZE_8 && to_op_size == OP_SIZE_4) {
+		mc = SH4_FCNVDS;
+		mc |= (arg2[0] & 0xf) << 8;
+		cgen_two(mc);
+
+		mc = SH4_FSTS_FPUL;
+		mc |= (arg1[0] & 0xf) << 8;
+		cgen_two(mc);
+
+		return true;
+	}
+
+invalid:
+	internal(file_line, "cgen_fp_cvt: invalid operands: %02x %02x", arg1[0], arg2[0]);
+}
+
 static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, unsigned reg, uint16_t mc)
 {
 	mc |= reg << 8;
@@ -1133,6 +1436,24 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			if (unlikely(insn_op_size(insn) != OP_SIZE_4))
 				goto invalid_insn;
 			g(cgen_mul_l(ctx, insn_aux(insn)));
+			return true;
+		case INSN_FP_CMP_DEST_REG:
+			g(cgen_fp_cmp_dest_reg(ctx, insn_aux(insn)));
+			return true;
+		case INSN_FP_ALU:
+			g(cgen_fp_alu(ctx, insn_aux(insn)));
+			return true;
+		case INSN_FP_ALU1:
+			g(cgen_fp_alu1(ctx, insn_aux(insn)));
+			return true;
+		case INSN_FP_TO_INT32:
+			g(cgen_fp_to_int32(ctx));
+			return true;
+		case INSN_FP_FROM_INT32:
+			g(cgen_fp_from_int32(ctx));
+			return true;
+		case INSN_FP_CVT:
+			g(cgen_fp_cvt(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_JMP:
 			g(cgen_jmp(ctx, insn_jump_size(insn)));

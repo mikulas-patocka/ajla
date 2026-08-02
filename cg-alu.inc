@@ -3165,6 +3165,7 @@ static bool attr_w gen_fp_alu(struct codegen_context *ctx, unsigned real_type, u
 
 do_alu:
 	if ((SUPPORTED_FP >> real_type) & 1) {
+		SET_FP_PRECISION(real_type);
 #if defined(ARCH_IA64)
 		if (unlikely(fp_alu == FP_ALU_DIV))
 			goto do_upcall;
@@ -3296,6 +3297,7 @@ do_alu:
 #endif
 #if defined(FR_SCRATCH_2)
 	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1) && SUPPORTED_FP_CVT(1, 0)) {
+		SET_FP_PRECISION(1);
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, fr_scratch_2, &reg2));
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_1);
@@ -3324,6 +3326,8 @@ do_cmp:
 		&& OS_SUPPORTS_TRAPS
 #endif
 	) {
+		unsigned attr_unused final_cond;
+		SET_FP_PRECISION(real_type);
 #if defined(ARCH_M68K) || defined(ARCH_X86)
 		if (1)
 #elif defined(ARCH_S390)
@@ -3465,6 +3469,9 @@ do_cmp:
 		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, target));
 		return true;
 #elif defined(ARCH_SH4)
+		final_cond = COND_NE;
+		ARCH_SWAP_CONDITION(fp_alu, final_cond, reg1, reg2);
+
 		gen_insn(INSN_FP_CMP_DEST_REG, op_size, FP_COND_E, 0);
 		gen_one(R_CMP_RESULT);
 		gen_one(reg1);
@@ -3489,6 +3496,9 @@ do_cmp:
 		gen_one(reg2);
 
 		g(gen_mov(ctx, OP_SIZE_NATIVE, target, R_CMP_RESULT));
+
+		if (final_cond != COND_NE)
+			g(gen_3address_alu_imm(ctx, i_size(log_2(sizeof(ajla_flat_option_t))), ALU_XOR, target, target, 1, 0));
 
 		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot_r, 0, target));
 
@@ -3636,6 +3646,7 @@ do_cmp:
 #endif
 #if ARCH_HAS_FLAGS && defined(FR_SCRATCH_2)
 	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1) && SUPPORTED_FP_CVT(1, 0)) {
+		SET_FP_PRECISION(1);
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, fr_scratch_2, &reg2));
 		gen_insn(INSN_FP_CVT, op_size, OP_SIZE_4, 0);
@@ -3714,7 +3725,7 @@ do_alu:
 #if defined(ARCH_ALPHA)
 		fp_alu == FP_ALU1_NEG ||
 		(fp_alu == FP_ALU1_SQRT && cpu_test_feature(CPU_FEATURE_fix)) ||
-#elif defined(ARCH_ARM32) || defined(ARCH_SPARC) || defined(ARCH_RISCV64)
+#elif defined(ARCH_ARM32) || defined(ARCH_SPARC) || defined(ARCH_RISCV64) || defined(ARCH_SH4)
 		fp_alu == FP_ALU1_NEG ||
 		fp_alu == FP_ALU1_SQRT ||
 #elif defined(ARCH_ARM64)
@@ -3749,6 +3760,7 @@ do_alu:
 		(OP_IS_ROUND(fp_alu) && cpu_test_feature(CPU_FEATURE_sse41)) ||
 #endif
 		false)) {
+		SET_FP_PRECISION(real_type);
 #if defined(ARCH_X86)
 		if (fp_alu == FP_ALU1_NEG) {
 			uint64_t val = 0x80ULL << (((1 << op_size) - 1) * 8);
@@ -3812,6 +3824,12 @@ do_alu:
 #if defined(FR_SCRATCH_2)
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_2);
+#if defined(ARCH_SH4)
+		if (target != reg1) {
+			g(gen_mov(ctx, op_size, target, reg1));
+			reg1 = target;
+		}
+#endif
 		gen_insn(INSN_FP_ALU1, op_size, fp_alu, 0);
 		gen_one(target);
 		gen_one(reg1);
@@ -3855,6 +3873,7 @@ do_alu:
 		(OP_IS_ROUND(fp_alu) && cpu_test_feature(CPU_FEATURE_sse41)) ||
 #endif
 		false)) {
+		SET_FP_PRECISION(1);
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_1);
 		gen_insn(INSN_FP_CVT, op_size, OP_SIZE_4, 0);
@@ -3880,6 +3899,7 @@ do_to_int:
 		&& MIPS_HAS_TRUNC
 #endif
 	) {
+		SET_FP_PRECISION(real_type);
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		goto do_cvt_to_int;
 do_cvt_to_int:
@@ -4008,7 +4028,7 @@ do_cvt_to_int:
 		g(gen_frame_store(ctx, OP_SIZE_INT, slot_r, 0, target));
 		return true;
 #endif
-#if defined(ARCH_RISCV64)
+#if defined(ARCH_RISCV64) || defined(ARCH_SH4)
 		gen_insn(OP_SIZE_INT == OP_SIZE_4 ? INSN_FP_TO_INT32 : INSN_FP_TO_INT64, op_size, 0, 0);
 		gen_one(target);
 		gen_one(reg1);
@@ -4081,6 +4101,7 @@ do_cvt_to_int:
 	}
 #endif
 	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1) && SUPPORTED_FP_CVT(1, 0)) {
+		SET_FP_PRECISION(1);
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		gen_insn(INSN_FP_CVT, op_size, OP_SIZE_4, 0);
 		gen_one(fr_scratch_1);
@@ -4094,8 +4115,9 @@ do_cvt_to_int:
 
 do_from_int:
 	if ((SUPPORTED_FP >> real_type) & 1) {
+		int attr_unused int_op_size = OP_SIZE_INT;
+		SET_FP_PRECISION(real_type);
 #if defined(ARCH_ALPHA) || defined(ARCH_ARM32) || defined(ARCH_LOONGARCH64) || defined(ARCH_MIPS) || defined(ARCH_PARISC) || defined(ARCH_POWER) || defined(ARCH_SPARC)
-		int int_op_size = OP_SIZE_INT;
 #if defined(ARCH_POWER)
 		if (int_op_size == OP_SIZE_4)
 			goto do_upcall;
@@ -4157,6 +4179,7 @@ do_from_int:
 	}
 #endif
 	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1) && SUPPORTED_FP_CVT(1, 0)) {
+		SET_FP_PRECISION(1);
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_1);
 #if defined(ARCH_ARM32)
 		g(gen_frame_get(ctx, OP_SIZE_INT, zero_x, slot_1, fr_scratch_1, &reg1));
@@ -4180,6 +4203,7 @@ do_from_int:
 
 do_is_exception:
 	if ((SUPPORTED_FP >> real_type) & 1) {
+		SET_FP_PRECISION(real_type);
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 #if defined(ARCH_ALPHA)
@@ -4296,6 +4320,7 @@ do_is_exception:
 #endif
 #if ARCH_HAS_FLAGS
 	if (real_type == 0 && SUPPORTED_FP_CVT(0, 1) && SUPPORTED_FP_CVT(1, 0)) {
+		SET_FP_PRECISION(1);
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		gen_insn(INSN_FP_CVT, op_size, OP_SIZE_4, 0);
 		gen_one(fr_scratch_1);
@@ -4315,6 +4340,7 @@ do_is_exception:
 do_to_real:
 	if (SUPPORTED_FP_CVT(real_type, real_target_type)) {
 		unsigned op_size_target = real_type_to_op_size(real_target_type);
+		SET_FP_PRECISION(maximum(real_type, real_target_type));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_1);
 		gen_insn(INSN_FP_CVT, op_size, op_size_target, 0);
@@ -4360,6 +4386,7 @@ static bool attr_w gen_fp_alu3(struct codegen_context *ctx, unsigned real_type, 
 do_alu:
 #ifdef SUPPORTED_FP_FMA
 	if ((SUPPORTED_FP_FMA >> real_type) & 1) {
+		SET_FP_PRECISION(real_type);
 #if defined(ARCH_X86)
 		if (!slot_is_register(ctx, slot_1)) {
 			g(gen_frame_get(ctx, op_size, zero_x, slot_2, fr_scratch_1, &reg2));
@@ -4831,6 +4858,8 @@ do_cmp:
 		&& OS_SUPPORTS_TRAPS && cpu_test_feature(CPU_FEATURE_fix)
 #endif
 	) {
+		unsigned attr_unused final_cond;
+		SET_FP_PRECISION(real_type);
 #if defined(ARCH_M68K) || defined(ARCH_X86)
 		if (1)
 #elif defined(ARCH_S390)
@@ -4950,6 +4979,36 @@ do_cmp:
 		} else {
 			g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, COND_E, target, -1U, 0));
 		}
+		return true;
+#elif defined(ARCH_SH4)
+		final_cond = COND_E;
+		ARCH_SWAP_CONDITION(fp_alu, final_cond, reg1, reg2);
+
+		gen_insn(INSN_FP_CMP_DEST_REG, op_size, FP_COND_E, 0);
+		gen_one(R_CMP_RESULT);
+		gen_one(reg1);
+		gen_one(reg1);
+
+		gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, COND_E, 0);
+		gen_one(R_CMP_RESULT);
+		gen_label_ref(label_ovf);
+
+		gen_insn(INSN_FP_CMP_DEST_REG, op_size, FP_COND_E, 0);
+		gen_one(R_CMP_RESULT);
+		gen_one(reg2);
+		gen_one(reg2);
+
+		gen_insn(INSN_JMP_REG, OP_SIZE_NATIVE, COND_E, 0);
+		gen_one(R_CMP_RESULT);
+		gen_label_ref(label_ovf);
+
+		gen_insn(INSN_FP_CMP_DEST_REG, op_size, fp_alu, 0);
+		gen_one(R_CMP_RESULT);
+		gen_one(reg1);
+		gen_one(reg2);
+
+		g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, final_cond, R_CMP_RESULT, -1U, 0));
+
 		return true;
 #else
 		gen_insn(INSN_FP_CMP, op_size, 0, 1);

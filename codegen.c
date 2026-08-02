@@ -1266,6 +1266,10 @@ static bool reg_is_x87(unsigned attr_unused reg)
 #define ARCH_SWAP_CONDITION(cond, final_cond, reg1, reg2) do { } while (0)
 #endif
 
+#ifndef SET_FP_PRECISION
+#define SET_FP_PRECISION(rt)		do { } while (0)
+#endif
+
 static bool attr_w gen_imm(struct codegen_context *ctx, int64_t imm, unsigned purpose, unsigned size)
 {
 	if (!is_direct_const(imm, purpose & 0xff, size))
