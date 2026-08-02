@@ -141,6 +141,7 @@
 #define SH4_FMOV_S_REG_DEC_ADDR		0xf00b
 #define SH4_FMOV_REG_REG		0xf00c
 #define SH4_FSTS_FPUL			0xf00d
+#define SH4_FMAC			0xf00e
 #define SH4_FLDS_FPUL			0xf01d
 #define SH4_FLOAT			0xf02d
 #define SH4_FTRC			0xf03d
@@ -156,7 +157,6 @@
 #define SH4_FSCHG			0xf3fd
 #define SH4_FPCHG			0xf7fd
 #define SH4_FRCHG			0xfbfd
-#define SH4_FMAC			0xf00e
 
 static uint16_t ctrl_instrs[3][4] = {
 	{ SH4_LDS_PR,		SH4_LDS_L_PR,		SH4_STS_PR,		SH4_STS_L_PR },
@@ -1103,6 +1103,34 @@ invalid:
 	internal(file_line, "cgen_fp_alu1: invalid operands: %02x %02x %02x", alu, arg1[0], arg2[0]);
 }
 
+static bool attr_w cgen_fp_alu3(struct codegen_context *ctx, unsigned size, unsigned alu)
+{
+	uint16_t mc;
+
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	uint8_t *arg4 = arg3 + arg_size(*arg3);
+	ctx->code_position = arg4 + arg_size(*arg4);
+
+	if (unlikely(arg2[0] != FR_0) || unlikely(!reg_is_fp(arg3[0])) || unlikely(!reg_is_fp(arg4[0])) || unlikely(arg4[0] != arg1[0]))
+		goto invalid;
+
+	if (unlikely(size != OP_SIZE_4) || unlikely(alu != FP_ALU3_FMADD))
+		goto invalid;
+
+	mc = SH4_FMAC;
+	mc |= (arg3[0] & 0xf) << 4;
+	mc |= (arg4[0] & 0xf) << 8;
+	cgen_two(mc);
+
+	return true;
+
+invalid:
+	internal(file_line, "cgen_fp_alu3: invalid operands: %02x %02x %02x %02x %02x %u", alu, arg1[0], arg2[0], arg3[0], arg4[0], size);
+	return false;
+}
+
 static bool attr_w cgen_fp_to_int32(struct codegen_context *ctx)
 {
 	uint16_t mc;
@@ -1445,6 +1473,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_FP_ALU1:
 			g(cgen_fp_alu1(ctx, insn_aux(insn)));
+			return true;
+		case INSN_FP_ALU3:
+			g(cgen_fp_alu3(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_FP_TO_INT32:
 			g(cgen_fp_to_int32(ctx));

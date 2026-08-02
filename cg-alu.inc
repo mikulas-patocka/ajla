@@ -4449,6 +4449,33 @@ do_alu:
 			g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 			return true;
 		}
+#elif defined(ARCH_SH4)
+		g(gen_frame_load(ctx, op_size, zero_x, slot_1, 0, false, fr_scratch_1));
+		reg1 = fr_scratch_1;
+		if (fp_alu == FP_ALU3_FNMADD || fp_alu == FP_ALU3_FNMSUB) {
+			gen_insn(INSN_FP_ALU1, op_size, FP_ALU1_NEG, 0);
+			gen_one(fr_scratch_1);
+			gen_one(fr_scratch_1);
+			fp_alu -= FP_ALU3_FNMADD - FP_ALU3_FMADD;
+		}
+		g(gen_frame_get(ctx, op_size, zero_x, slot_2, fr_scratch_2, &reg2));
+		g(gen_frame_get(ctx, op_size, zero_x, slot_3, fr_scratch_3, &reg3));
+		if (fp_alu == FP_ALU3_FMSUB || fp_alu == FP_ALU3_FNMSUB) {
+			g(gen_mov(ctx, op_size, fr_scratch_3, reg3));
+			gen_insn(INSN_FP_ALU1, op_size, FP_ALU1_NEG, 0);
+			gen_one(fr_scratch_3);
+			gen_one(fr_scratch_3);
+			reg3 = fr_scratch_3;
+			fp_alu -= FP_ALU3_FMSUB - FP_ALU3_FMADD;
+		}
+		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_3);
+		if (target != reg3) {
+			g(gen_mov(ctx, op_size, fr_scratch_3, reg3));
+			target = fr_scratch_3;
+			reg3 = fr_scratch_3;
+		}
+		g(gen_4address_fp_alu(ctx, op_size, fp_alu, target, reg1, reg2, reg3));
+		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 #else
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
 #ifdef FMA_NO_NEG

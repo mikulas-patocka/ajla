@@ -149,7 +149,7 @@ static bool reg_is_p(unsigned reg)
 
 #define FR_SCRATCH_1			FR_0
 #define FR_SCRATCH_2			FR_2
-#define FR_SCRATCH_3			FR_4
+#define FR_SCRATCH_3			FR_3
 
 #define R_ARG0				R_4
 #define R_ARG1				R_5
@@ -159,7 +159,10 @@ static bool reg_is_p(unsigned reg)
 #define R_RET_IP			R_4
 
 #define SUPPORTED_FP			0x6
-#define SUPPORTED_FP_FMA		0x0
+#define SUPPORTED_FP_FMA		0x2
+#define FMA_NO_NEG
+#define FMA_NO_SUB
+
 #define FP_REGISTERS(real_size)		((real_size) >= 8 ? 2 : 1)
 #define FP_ALIASES(real_size, reg, idx)	(!((reg) & 1) ? (reg) + (idx) : (reg))
 #define N_FP_ALIASES(real_size)		FP_REGISTERS(real_size)
@@ -172,7 +175,7 @@ static const uint8_t regs_volatile[] = { R_7, R_3 };
 #endif
 static const uint8_t fp_saved[] = { FR_12, FR_13, FR_14, FR_15 };
 #define n_fp_saved(real_type) (optimize_int ? 0 : n_array_elements(fp_saved))
-static const uint8_t fp_volatile[] = { FR_6, FR_7, FR_8, FR_9, FR_10, FR_11 };
+static const uint8_t fp_volatile[] = { FR_4, FR_5, FR_6, FR_7, FR_8, FR_9, FR_10, FR_11 };
 
 #define reg_is_saved(r) (((r) >= R_8 && (r) <= R_SP) || ((r) >= FR_12 && (r) <= FR_15) || ((r) == R_GBR) || ((r) == R_FPSCR))
 
