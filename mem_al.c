@@ -664,6 +664,20 @@ static attr_noinline void debug_mem_verify_aligned(const void *ptr, position_t p
 	verify_block(ah, VFY_ALIGNED, position, "debug_mem_verify_aligned");
 }
 
+static attr_noinline bool debug_mem_test(const void *ptr)
+{
+	struct alloc_header *ah;
+	ah = AH_FROM_PTR(ptr);
+	return AH_MAGIC(ah) == ALLOC_MAGIC;
+}
+
+static attr_noinline bool debug_mem_test_aligned(const void *ptr)
+{
+	struct alloc_header *ah;
+	ah = AH_FROM_PTR(ptr);
+	return AH_MAGIC(ah) == ALLOC_MAGIC_ALIGNED;
+}
+
 #endif
 
 #define verify_size							\
@@ -825,6 +839,20 @@ void attr_fastcall mem_verify_aligned_position(const void *ptr argument_position
 	if (unlikely(memory_debug)) {
 		debug_mem_verify_aligned(ptr, position_arg);
 	}
+}
+bool attr_fastcall mem_test(const void *ptr)
+{
+	if (unlikely(memory_debug)) {
+		return debug_mem_test(ptr);
+	}
+	return true;
+}
+bool attr_fastcall mem_test_aligned(const void *ptr)
+{
+	if (unlikely(memory_debug)) {
+		return debug_mem_test_aligned(ptr);
+	}
+	return true;
 }
 #endif
 

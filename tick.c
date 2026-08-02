@@ -69,6 +69,22 @@ static void tick_signal_handler(int attr_unused sig)
 	gettimeofday(&tv, NULL);
 	debug("tick: %lu.%06lu %u", tv.tv_sec, tv.tv_usec, load_relaxed(tick_stamp_ptr));
 #endif
+#if 0
+	unsigned g, i;
+	char buffer[9];
+	__asm__ volatile ("stc gbr, %0" : "=r"(g));
+	//debug("%08x", g);
+	for (i = 0; i < 32; i += 4) {
+		unsigned char c = (g >> (28 - i)) & 0xf;
+		if (c < 10)
+			c += '0';
+		else
+			c += 'A' - 10;
+		buffer[i / 4] = c;
+	}
+	buffer[i / 4] = '\n';
+	write(2, buffer, 9);
+#endif
 	increment_stamp();
 }
 

@@ -60,11 +60,15 @@ void attr_fastcall mem_set_position(const void *ptr argument_position);
 const char * attr_fastcall mem_get_position(const void *ptr argument_position);
 void attr_fastcall mem_verify_position(const void attr_unused *ptr argument_position);
 void attr_fastcall mem_verify_aligned_position(const void attr_unused *ptr argument_position);
+bool attr_fastcall mem_test(const void attr_unused *ptr);
+bool attr_fastcall mem_test_aligned(const void attr_unused *ptr);
 #else
 static inline void mem_set_position(const void attr_unused *ptr argument_position) { }
 static inline const char *mem_get_position(const void attr_unused *ptr argument_position) { return "unknown position"; }
 static inline void mem_verify_position(const void attr_unused *ptr argument_position) { }
 static inline void mem_verify_aligned_position(const void attr_unused *ptr argument_position) { }
+static inline bool mem_test(const void attr_unused *ptr) { return true; }
+static inline bool mem_test_aligned(const void attr_unused *ptr) { return true; }
 #endif
 
 #define mem_get_pos(x)			mem_get_position(x pass_file_line)
