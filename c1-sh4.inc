@@ -16,8 +16,6 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#define DEFAULT_DOUBLE			1
-
 #define OP_SIZE_NATIVE			OP_SIZE_4
 #define OP_SIZE_ADDRESS			OP_SIZE_4
 
@@ -258,6 +256,8 @@ do {								\
 	gen_one(R_0);						\
 } while (0)
 
+#define DEFAULT_FP_PRECISION	(cpu_test_feature(CPU_FEATURE_sh4_float) ? 1 : 2)
+
 static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int64_t imm, unsigned purpose, unsigned size)
 {
 	ctx->base_reg = base;
@@ -358,7 +358,7 @@ static bool attr_w gen_escape(struct codegen_context *ctx)
 {
 	unsigned r;
 
-	SET_FP_PRECISION(DEFAULT_DOUBLE ? 2 : 1);
+	SET_FP_PRECISION(DEFAULT_FP_PRECISION);
 
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
 	gen_one(R_0);
@@ -414,7 +414,7 @@ static bool attr_w gen_upcall(struct codegen_context *ctx, unsigned offset, unsi
 {
 	g(gen_get_upcall_pointer(ctx, offset, OP_SIZE_4, R_3));
 
-	SET_FP_PRECISION(DEFAULT_DOUBLE ? 2 : 1);
+	SET_FP_PRECISION(DEFAULT_FP_PRECISION);
 
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
 	gen_one(R_0);

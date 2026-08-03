@@ -450,6 +450,8 @@ static void riscv64_syscall(void)
 
 #ifdef ARCH_SH4
 
+static uint32_t sh4_fpscr;
+
 static void sigill(int attr_unused sig, siginfo_t attr_unused *siginfo, void *ucontext)
 {
 	ucontext_t *uc = ucontext;
@@ -484,6 +486,27 @@ static bool trap_insn(const char *hex)
 	ret = fn();
 	os_code_unmap(fn, cs);
 	return ret;
+}
+
+static void sh4_get_fpscr(void)
+{
+	char *c;
+	size_t cs;
+	size_t attr_unused i;
+	uint32_t (*fn)(void);
+	str_init(&c, &cs);
+	str_add_hex(&c, &cs, "006a000b0009");
+#if defined(C_LITTLE_ENDIAN)
+	for (i = 0; i < cs; i += 2) {
+		char t;
+		t = c[i];
+		c[i] = c[i + 1];
+		c[i + 1] = t;
+	}
+#endif
+	fn = os_code_map(cast_ptr(uint8_t *, c), cs, NULL);
+	sh4_fpscr = fn();
+	os_code_unmap(fn, cs);
 }
 
 #endif
@@ -737,6 +760,7 @@ void asm_init(void)
 		trap_sigill = true;
 #endif
 #ifdef ARCH_SH4
+	sh4_get_fpscr();
 	trap_sigill = true;
 #endif
 #ifdef ARCH_X86

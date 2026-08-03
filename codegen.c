@@ -1270,6 +1270,10 @@ static bool reg_is_x87(unsigned attr_unused reg)
 #define SET_FP_PRECISION(rt)		do { } while (0)
 #endif
 
+#ifndef DEFAULT_FP_PRECISION
+#define DEFAULT_FP_PRECISION		2
+#endif
+
 static bool attr_w gen_imm(struct codegen_context *ctx, int64_t imm, unsigned purpose, unsigned size)
 {
 	if (!is_direct_const(imm, purpose & 0xff, size))

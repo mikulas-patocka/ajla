@@ -20,3 +20,8 @@
 #define static_test_sh4a	__SH4A__
 #define dynamic_test		trap_insn("f7fdf7fd")
 #include "asm-1.inc"
+
+#define feature_name		sh4_float
+#define static_test_sh4_float	0
+#define dynamic_test		(!(sh4_fpscr & (1U << 19)))
+#include "asm-1.inc"
