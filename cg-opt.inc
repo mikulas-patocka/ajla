@@ -1183,6 +1183,9 @@ skip_reads:
 			reg_map_set(&d->rd, R_FLAGS);
 			break;
 		case INSN_JMP_INDIRECT:
+#if defined(ARCH_SH4)
+			reg_map_set(&d->rd, R_FPSCR);
+#endif
 			ptr += arg_read(ctx, d, ptr, size);
 			if (insn_aux(insn))
 				d->rd = reg_map_union(d->rd, ctx->opt_status->jmp_quickret_regs);
@@ -1555,6 +1558,14 @@ static bool attr_w equality_analysis(struct codegen_context *ctx)
 			uint8_t *ps = pd + arg_size(*pd);
 			bool is_fp = reg_is_fp(*pd) || reg_is_fp(*ps);
 			bool is_extension = likely(!is_fp) && insn_op_size(d->insn) != OP_SIZE_NATIVE;
+#if defined(ARCH_SH4)
+			if (*pd == R_FPSCR && !ctx->flips_fpscr) {
+				d->quash = true;
+				if (REPORT_QUASHED_INSNS)
+					debug("quashing mov due to move to fpscr");
+				continue;
+			}
+#endif
 			if (!arg_to_val(d, pd, &eq.v1))
 				goto skip;
 			eq_valid = arg_to_val(d, ps, &eq.v2);

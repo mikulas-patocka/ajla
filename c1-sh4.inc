@@ -247,16 +247,19 @@ static bool attr_w gen_load_constant(struct codegen_context *ctx, unsigned reg, 
 	return true;
 }
 
+#define DEFAULT_FP_PRECISION	(cpu_test_feature(CPU_FEATURE_sh4_float) ? 1 : 2)
+
 #define SET_FP_PRECISION(rt)					\
 do {								\
+	if ((rt) != DEFAULT_FP_PRECISION)			\
+		ctx->flips_fpscr = true;			\
+								\
 	g(gen_load_constant(ctx, R_0, ((rt) == 2) << 19));	\
 								\
 	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);			\
 	gen_one(R_FPSCR);					\
 	gen_one(R_0);						\
 } while (0)
-
-#define DEFAULT_FP_PRECISION	(cpu_test_feature(CPU_FEATURE_sh4_float) ? 1 : 2)
 
 static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int64_t imm, unsigned purpose, unsigned size)
 {

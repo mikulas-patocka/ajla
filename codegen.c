@@ -611,6 +611,8 @@ struct codegen_context {
 
 	ajla_error_t err;
 
+	bool flips_fpscr;
+
 #ifdef ARCH_CONTEXT
 	ARCH_CONTEXT a;
 #endif
@@ -656,6 +658,7 @@ static void init_ctx(struct codegen_context *ctx, struct data *fn, bool pcrel)
 	ctx->pc_relative_addressing = pcrel;
 	ctx->pc_relative_addressing_failed = false;
 	ctx->quickret_regs_valid = false;
+	ctx->flips_fpscr = false;
 }
 
 static void done_ctx(struct codegen_context *ctx)

@@ -660,6 +660,8 @@ skip_ref_argument:
 	g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, NO_FRAME_T, ctx->escape_nospill_label));
 	g(gen_barrier(ctx));
 
+	SET_FP_PRECISION(DEFAULT_FP_PRECISION);
+
 	gen_pointer_compression(R_SCRATCH_1);
 #if defined(ARCH_ARM32) || defined(ARCH_M68K) || (defined(ARCH_X86) && !defined(ARCH_X86_X32))
 	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_entry), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
@@ -737,6 +739,9 @@ static bool attr_w gen_jmp_indirect(struct codegen_context *ctx, unsigned reg1, 
 	reg1 = reg2;
 	reg2 = regx;
 #endif
+
+	SET_FP_PRECISION(DEFAULT_FP_PRECISION);
+
 #if defined(ARCH_M68K) || (defined(ARCH_X86) && !defined(ARCH_X86_X32))
 	if (is_direct_offset(offset) && shift <= 3)
 		goto direct_jmp;
