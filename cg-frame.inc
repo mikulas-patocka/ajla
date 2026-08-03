@@ -370,16 +370,21 @@ static bool attr_w gen_load_raw(struct codegen_context *ctx, unsigned size, enum
 #endif
 #if defined(ARCH_SH4)
 	if (size == OP_SIZE_8 && reg_is_fp(reg)) {
+#if defined(C_LITTLE_ENDIAN)
+		const unsigned first_idx = 1;
+#else
+		const unsigned first_idx = 0;
+#endif
 		g(gen_3address_alu_imm(ctx, OP_SIZE_4, ALU_ADD, R_OFFSET_IMM, base, x_offset, 0));
 
 		gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
-		gen_one(reg + 1);
+		gen_one(reg ^ first_idx);
 		gen_one(ARG_ADDRESS_1_POST_I);
 		gen_one(R_OFFSET_IMM);
 		gen_eight(4);
 
 		gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
-		gen_one(reg);
+		gen_one(reg ^ first_idx ^ 1);
 		gen_one(ARG_ADDRESS_1);
 		gen_one(R_OFFSET_IMM);
 		gen_eight(0);
@@ -770,19 +775,24 @@ static bool attr_w gen_store_raw(struct codegen_context *ctx, unsigned size, uns
 #endif
 #if defined(ARCH_SH4)
 	if (size == OP_SIZE_8 && reg_is_fp(reg)) {
+#if defined(C_LITTLE_ENDIAN)
+		const unsigned first_idx = 0;
+#else
+		const unsigned first_idx = 1;
+#endif
 		g(gen_3address_alu_imm(ctx, OP_SIZE_4, ALU_ADD, R_OFFSET_IMM, base, offset + 4, 0));
 
 		gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
 		gen_one(ARG_ADDRESS_1);
 		gen_one(R_OFFSET_IMM);
 		gen_eight(0);
-		gen_one(reg);
+		gen_one(reg ^ first_idx);
 
 		gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
 		gen_one(ARG_ADDRESS_1_PRE_I);
 		gen_one(R_OFFSET_IMM);
 		gen_eight(-4);
-		gen_one(reg + 1);
+		gen_one(reg ^ first_idx ^ 1);
 
 		return true;
 	}
