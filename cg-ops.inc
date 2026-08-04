@@ -214,7 +214,7 @@ static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, uns
 		gen_label_ref(ctx->code_labels[ip]);
 #endif
 	} else {
-		gen_insn(COND_IS_LOGICAL(cond) ? INSN_JMP_COND_LOGICAL : INSN_JMP_COND, i_size_cmp(op_size), cond, 0);
+		gen_insn(INSN_JMP_COND, i_size_cmp(op_size), cond, 0);
 		gen_label_ref(ctx->code_labels[ip]);
 	}
 	return true;
@@ -499,7 +499,7 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 	gen_imm_offset();
 
 	if (arch_use_flags) {
-		gen_insn(COND_IS_LOGICAL(COND_B) ? INSN_JMP_COND_LOGICAL : INSN_JMP_COND, i_size(stack_op_size), COND_B, 0);
+		gen_insn(INSN_JMP_COND, i_size(stack_op_size), COND_B, 0);
 		gen_label_ref(escape_label);
 	} else {
 		g(gen_jmp_on_zero(ctx, i_size(stack_op_size), R_SCRATCH_1, COND_S, escape_label));
@@ -1711,7 +1711,7 @@ static bool attr_w gen_option_cmp(struct codegen_context *ctx, unsigned reg, fra
 		gen_insn(INSN_JMP_COND, op_size, COND_NE, 0);
 		gen_label_ref(label);
 	} else {
-		g(gen_frame_set_cond(ctx, op_size, false, COND_E, slot_r));
+		g(gen_frame_set_cond(ctx, op_size, COND_E, slot_r));
 	}
 	return true;
 #else

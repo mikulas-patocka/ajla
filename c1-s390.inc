@@ -544,7 +544,7 @@ static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t esca
 	gen_eight(FRAME_TIMESTAMP);
 	gen_address_offset();
 
-	gen_insn(INSN_JMP_COND_LOGICAL, OP_SIZE_4, COND_NE, 0);
+	gen_insn(INSN_JMP_COND, OP_SIZE_4, COND_NE, 0);
 	gen_label_ref(escape_label);
 
 	return true;

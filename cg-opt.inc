@@ -1161,7 +1161,6 @@ skip_reads:
 			ptr += arg_jmp(d, ptr);
 			break;
 		case INSN_JMP_COND:
-		case INSN_JMP_COND_LOGICAL:
 			ptr += arg_jmp(d, ptr);
 			reg_map_set(&d->rd, R_FLAGS);
 			break;
@@ -1242,7 +1241,6 @@ static bool can_be_in_delay_slot(const struct insn_details *d)
 		case INSN_FP_INT64_TO_INT32_TRAP:
 		case INSN_JMP:
 		case INSN_JMP_COND:
-		case INSN_JMP_COND_LOGICAL:
 		case INSN_JMP_REG:
 		case INSN_JMP_REG_BIT:
 		case INSN_JMP_2REGS:
@@ -1801,8 +1799,7 @@ generated_fpchg:
 			g(insert_equality(ctx, &rng));
 			continue;
 		}
-		case INSN_JMP_COND:
-		case INSN_JMP_COND_LOGICAL: {
+		case INSN_JMP_COND: {
 			rng.v1.tag = VALUE_TAG_FLAGS;
 			rng.v1.size = 0;
 			rng.v1.range_signed = false;
@@ -1928,11 +1925,11 @@ quash_after_i:
 		}
 
 #ifdef QUASH_REPETITIVE_INSNS
-		if (insn_opcode(d1->insn) == INSN_JMP_COND || insn_opcode(d1->insn) == INSN_JMP_COND_LOGICAL || insn_opcode(d1->insn) == INSN_JMP_REG || insn_opcode(d1->insn) == INSN_JMP_REG_BIT || insn_opcode(d1->insn) == INSN_JMP_2REGS || (insn_opcode(d1->insn) == INSN_CMP_TRAP && d1->start[4] < ARG_REGS_MAX && d1->start[5] < ARG_REGS_MAX)) {
+		if (insn_opcode(d1->insn) == INSN_JMP_COND || insn_opcode(d1->insn) == INSN_JMP_REG || insn_opcode(d1->insn) == INSN_JMP_REG_BIT || insn_opcode(d1->insn) == INSN_JMP_2REGS || (insn_opcode(d1->insn) == INSN_CMP_TRAP && d1->start[4] < ARG_REGS_MAX && d1->start[5] < ARG_REGS_MAX)) {
 			size_t c;
 			reg_map mask;
 			reg_map_init(&mask);
-			if (insn_opcode(d1->insn) == INSN_JMP_COND || insn_opcode(d1->insn) == INSN_JMP_COND_LOGICAL)
+			if (insn_opcode(d1->insn) == INSN_JMP_COND)
 				reg_map_set(&mask, R_FLAGS);
 			if (insn_opcode(d1->insn) == INSN_JMP_REG || insn_opcode(d1->insn) == INSN_JMP_REG_BIT) {
 				reg_map_set(&mask, d1->start[4]);
@@ -2096,7 +2093,7 @@ cant_elide:
 #endif
 
 #if !defined(ARCH_PARISC)	/* this transformation increases code size on parisc */
-		if ((insn_opcode(d1->insn) == INSN_JMP_COND || insn_opcode(d1->insn) == INSN_JMP_COND_LOGICAL || insn_opcode(d1->insn) == INSN_JMP_REG || insn_opcode(d1->insn) == INSN_JMP_2REGS) && insn_opcode(d2->insn) == INSN_JMP) {
+		if ((insn_opcode(d1->insn) == INSN_JMP_COND || insn_opcode(d1->insn) == INSN_JMP_REG || insn_opcode(d1->insn) == INSN_JMP_2REGS) && insn_opcode(d2->insn) == INSN_JMP) {
 			uint32_t label1 = d1->target_label;
 			uint32_t label2 = d2->target_label;
 			if (ctx->label_flags[label1] & LABEL_ESCAPE && !(ctx->label_flags[label2] & LABEL_ESCAPE)) {

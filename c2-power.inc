@@ -308,8 +308,8 @@ static const uint32_t alu_reg[0x45] = {
 };
 
 static const uint32_t jmp_cond[0x2c] = {
-	POWER_BSO, POWER_BNS, 0, 0,
-	POWER_BEQ, POWER_BNE, 0, 0,
+	POWER_BSO, POWER_BNS, POWER_BLT, POWER_BGE,
+	POWER_BEQ, POWER_BNE, POWER_BLE, POWER_BGT,
 	POWER_BLT, POWER_BGE, 0, 0,
 	POWER_BLT, POWER_BGE, POWER_BLE, POWER_BGT,
 	0, 0, 0, 0,
@@ -320,11 +320,6 @@ static const uint32_t jmp_cond[0x2c] = {
 	0, 0, POWER_BLT, POWER_BGE,
 	POWER_BEQ, POWER_BNE, POWER_BLE, POWER_BGT,
 	0, 0, POWER_BSO, POWER_BNS,
-};
-
-static const uint32_t jmp_cond_logical[0x8] = {
-	0, 0, POWER_BLT, POWER_BGE,
-	POWER_BEQ, POWER_BNE, POWER_BLE, POWER_BGT,
 };
 
 static const uint32_t trap_cond[0x10] = {
@@ -1194,7 +1189,7 @@ static bool attr_w cgen_fp_cvt(struct codegen_context *ctx, unsigned from_op_siz
 	return true;
 }
 
-static bool attr_w cgen_jmp_cond(struct codegen_context *ctx, bool lng, unsigned aux, bool logical)
+static bool attr_w cgen_jmp_cond(struct codegen_context *ctx, bool lng, unsigned aux)
 {
 	uint32_t mc;
 	if (!lng) {
@@ -1202,15 +1197,9 @@ static bool attr_w cgen_jmp_cond(struct codegen_context *ctx, bool lng, unsigned
 	} else {
 		aux ^= 1;
 	}
-	if (!logical) {
-		if (unlikely(aux >= n_array_elements(jmp_cond)))
-			goto invl;
-		mc = jmp_cond[aux];
-	} else {
-		if (unlikely(aux >= n_array_elements(jmp_cond_logical)))
-			goto invl;
-		mc = jmp_cond_logical[aux];
-	}
+	if (unlikely(aux >= n_array_elements(jmp_cond)))
+		goto invl;
+	mc = jmp_cond[aux];
 	if (unlikely(!mc))
 		goto invl;
 
@@ -1225,7 +1214,7 @@ static bool attr_w cgen_jmp_cond(struct codegen_context *ctx, bool lng, unsigned
 	return true;
 
 invl:
-	internal(file_line, "cgen_jmp_cond: invalid %scondition %x", logical ? "logical " : "", aux);
+	internal(file_line, "cgen_jmp_cond: invalid condition %x", aux);
 	return false;
 }
 
@@ -1407,10 +1396,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			cgen_four(POWER_B);
 			return true;
 		case INSN_JMP_COND:
-			g(cgen_jmp_cond(ctx, insn_jump_size(insn) == JMP_SHORT, insn_aux(insn), false));
-			return true;
-		case INSN_JMP_COND_LOGICAL:
-			g(cgen_jmp_cond(ctx, insn_jump_size(insn) == JMP_SHORT, insn_aux(insn), true));
+			g(cgen_jmp_cond(ctx, insn_jump_size(insn) == JMP_SHORT, insn_aux(insn)));
 			return true;
 		case INSN_JMP_INDIRECT:
 			reg = cget_one(ctx);

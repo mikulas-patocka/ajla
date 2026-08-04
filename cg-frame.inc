@@ -943,7 +943,7 @@ static bool attr_w gen_frame_clear(struct codegen_context *ctx, unsigned size, f
 }
 
 #if defined(ARCH_M68K) || defined(ARCH_X86)
-static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned attr_unused size, bool attr_unused logical, unsigned cond, frame_t slot)
+static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned attr_unused size, unsigned cond, frame_t slot)
 {
 	size_t offset;
 	unsigned writes_flags = 0;
@@ -993,7 +993,7 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned attr
 	return true;
 }
 #elif defined(ARCH_ARM64)
-static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned attr_unused size, bool attr_unused logical, unsigned cond, frame_t slot)
+static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned attr_unused size, unsigned cond, frame_t slot)
 {
 	if (slot_is_register(ctx, slot)) {
 		gen_insn(INSN_SET_COND, OP_SIZE_4, cond, 0);
@@ -1006,7 +1006,7 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned attr
 	return true;
 }
 #elif ARCH_HAS_FLAGS
-static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned size, bool logical, unsigned cond, frame_t slot)
+static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned size, unsigned cond, frame_t slot)
 {
 	unsigned target = gen_frame_target(ctx, slot, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 #if defined(ARCH_S390)
@@ -1029,7 +1029,7 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned size
 		label = alloc_label(ctx);
 		if (unlikely(!label))
 			return false;
-		gen_insn(!logical ? INSN_JMP_COND : INSN_JMP_COND_LOGICAL, i_size_cmp(size), cond, 0);
+		gen_insn(INSN_JMP_COND, i_size_cmp(size), cond, 0);
 		gen_label_ref(label);
 		g(gen_load_constant(ctx, target, 0));
 		gen_label(label);
@@ -1040,11 +1040,7 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned size
 	if (cond & COND_FP) {
 		gen_insn(INSN_CMOV, OP_SIZE_NATIVE, cond ^ 1, 0);
 	} else {
-#if defined(ARCH_S390)
-		gen_insn(logical ? INSN_CMOV_XCC : INSN_CMOV, OP_SIZE_NATIVE, cond ^ 1, 0);
-#else
 		gen_insn(size == OP_SIZE_8 ? INSN_CMOV_XCC : INSN_CMOV, OP_SIZE_NATIVE, cond ^ 1, 0);
-#endif
 	}
 	gen_one(target);
 	gen_one(target);
@@ -1089,7 +1085,7 @@ static bool attr_w gen_frame_load_cmp_set_cond(struct codegen_context *ctx, unsi
 #if ARCH_HAS_FLAGS
 	bool logical = COND_IS_LOGICAL(cond);
 	g(gen_frame_load_cmp(ctx, size, logical, ex, false, slot, 0, false, reg));
-	g(gen_frame_set_cond(ctx, size, logical, cond, slot_r));
+	g(gen_frame_set_cond(ctx, size, cond, slot_r));
 #else
 	unsigned src_reg, dest_reg;
 	unsigned final_cond = COND_NE;
@@ -1112,7 +1108,7 @@ static bool attr_w gen_frame_load_cmp_imm_set_cond(struct codegen_context *ctx, 
 		logical = true;
 #endif
 	g(gen_frame_load_cmp_imm(ctx, size, logical, ex, slot, 0, value));
-	g(gen_frame_set_cond(ctx, size, false, cond, slot_r));
+	g(gen_frame_set_cond(ctx, size, cond, slot_r));
 #else
 	unsigned src_reg;
 	g(gen_frame_get(ctx, size, ex, slot, R_SCRATCH_NA_1, &src_reg));

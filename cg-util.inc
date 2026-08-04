@@ -711,7 +711,7 @@ static bool attr_w gen_cmp_test_jmp(struct codegen_context *ctx, unsigned insn, 
 			gen_one(reg1);
 			gen_one(reg2);
 
-			gen_insn(INSN_JMP_COND_LOGICAL, op_size, cond, 0);
+			gen_insn(INSN_JMP_COND, op_size, cond, 0);
 			gen_label_ref(label);
 
 			return true;
@@ -948,7 +948,7 @@ static bool attr_w gen_cmp_test_imm_jmp_q_flags(struct codegen_context *ctx, uns
 		gen_one(reg1);
 		gen_imm_offset();
 
-		gen_insn(INSN_JMP_COND_LOGICAL, op_size, cond, 0);
+		gen_insn(INSN_JMP_COND, op_size, cond, 0);
 		gen_label_ref(label);
 
 		return true;

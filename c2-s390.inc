@@ -467,9 +467,9 @@ static const it rot64[9] = {
 
 static const int8_t jmp_cond[0x30] = {
 	S390_BRC_OVF,			S390_BRC_GREATER | S390_BRC_LESS | S390_BRC_EQ,
-	-1,				-1,
+	S390_BRC_LESS,			S390_BRC_GREATER | S390_BRC_EQ,
 	S390_BRC_EQ,			S390_BRC_GREATER | S390_BRC_LESS | S390_BRC_OVF,
-	-1,				-1,
+	S390_BRC_LESS | S390_BRC_EQ,	S390_BRC_GREATER,
 	-1,				-1,
 	-1,				-1,
 	S390_BRC_LESS,			S390_BRC_GREATER | S390_BRC_EQ,
@@ -492,13 +492,6 @@ static const int8_t jmp_cond[0x30] = {
 	S390_BRC_OVF,			S390_BRC_GREATER | S390_BRC_LESS | S390_BRC_EQ,
 	-1,				-1,
 	-1,				-1,
-};
-
-static const int8_t jmp_cond_logical[0x8] = {
-	-1,				-1,
-	S390_BRC_LESS,			S390_BRC_GREATER | S390_BRC_EQ,
-	S390_BRC_EQ,			S390_BRC_GREATER | S390_BRC_LESS,
-	S390_BRC_LESS | S390_BRC_EQ,	S390_BRC_GREATER,
 };
 
 struct fp_alu {
@@ -533,23 +526,17 @@ static const struct fp_alu fp_cmp = {
 	S390_CEBR, S390_CDBR, S390_CXBR, S390_CEB, S390_CDB
 };
 
-static uint8_t get_jmp_cond(unsigned cond, bool logical)
+static uint8_t get_jmp_cond(unsigned cond)
 {
 	int8_t c;
-	if (!logical) {
-		if (unlikely(cond >= n_array_elements(jmp_cond)))
-			goto invl;
-		c = jmp_cond[cond];
-	} else {
-		if (unlikely(cond >= n_array_elements(jmp_cond_logical)))
-			goto invl;
-		c = jmp_cond_logical[cond];
-	}
+	if (unlikely(cond >= n_array_elements(jmp_cond)))
+		goto invl;
+	c = jmp_cond[cond];
 	if (unlikely(c == -1))
 		goto invl;
 	return (uint8_t)c;
 invl:
-	internal(file_line, "get_jmp_cond: invalid %scondition %x", logical ? "logical " : "", cond);
+	internal(file_line, "get_jmp_cond: invalid condition %x", cond);
 }
 
 static bool attr_w cgen_s390(struct codegen_context *ctx, it code)
@@ -1262,7 +1249,7 @@ static bool attr_w cgen_cmp_trap(struct codegen_context *ctx, unsigned size, uns
 		goto invl;
 	code = size == OP_SIZE_4 ? S390_CLT : S390_CLGT;
 	code |= (it)arg1[0] << 36;
-	code |= (it)get_jmp_cond(aux, true) << 32;
+	code |= (it)get_jmp_cond(aux) << 32;
 	code |= (it)arg2[1] << 28;
 	imm = get_imm(&arg2[2]);
 	if (imm < -0x80000 || imm >= 0x80000)
@@ -1580,7 +1567,7 @@ invl:
 	return false;
 }
 
-static bool attr_w cgen_cmov(struct codegen_context *ctx, unsigned size, unsigned cond, bool logical)
+static bool attr_w cgen_cmov(struct codegen_context *ctx, unsigned size, unsigned cond)
 {
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
@@ -1592,7 +1579,7 @@ static bool attr_w cgen_cmov(struct codegen_context *ctx, unsigned size, unsigne
 	if (arg3[0] < 0x10) {
 		it code;
 		code = size == OP_SIZE_4 ? S390_LOCR : S390_LOCGR;
-		code |= (it)get_jmp_cond(cond, logical) << 28;
+		code |= (it)get_jmp_cond(cond) << 28;
 		code |= (it)arg1[0] << 20;
 		code |= (it)arg3[0] << 16;
 		g(cgen_s390(ctx, code));
@@ -1601,7 +1588,7 @@ static bool attr_w cgen_cmov(struct codegen_context *ctx, unsigned size, unsigne
 		it code;
 		int64_t imm;
 		code = size == OP_SIZE_4 ? S390_LOC : S390_LOCG;
-		code |= (it)get_jmp_cond(cond, logical) << 32;
+		code |= (it)get_jmp_cond(cond) << 32;
 		code |= (it)arg1[0] << 36;
 		code |= (it)arg3[1] << 28;
 		imm = get_imm(&arg3[2]);
@@ -1897,7 +1884,7 @@ invl:
 	return false;
 }
 
-static bool attr_w cgen_jmp_cond(struct codegen_context *ctx, bool lng, unsigned aux, bool logical)
+static bool attr_w cgen_jmp_cond(struct codegen_context *ctx, bool lng, unsigned aux)
 {
 	it code;
 	if (!lng) {
@@ -1928,11 +1915,11 @@ static bool attr_w cgen_jmp_cond(struct codegen_context *ctx, bool lng, unsigned
 		g(cgen_s390(ctx, code));
 		code = S390_BCR;
 		code |= (it)R_OFFSET_IMM << 32;
-		code |= (it)get_jmp_cond(aux, logical) << 36;
+		code |= (it)get_jmp_cond(aux) << 36;
 		g(cgen_s390(ctx, code));
 		return true;
 	}
-	code |= (it)get_jmp_cond(aux, logical) << 36;
+	code |= (it)get_jmp_cond(aux) << 36;
 	g(cgen_s390(ctx, code));
 	return true;
 }
@@ -1944,7 +1931,7 @@ static bool attr_w jmp_reg_imm(struct codegen_context *ctx, bool lng, unsigned s
 	bool logical = COND_IS_LOGICAL(cond);
 	if (lng)
 		cond ^= 1;
-	m = get_jmp_cond(cond, logical) & 0xe;
+	m = get_jmp_cond(cond) & 0xe;
 	if (size == OP_SIZE_4)
 		code = logical ? S300_CLIJ : S300_CIJ;
 	else if (size == OP_SIZE_8)
@@ -1989,7 +1976,7 @@ static bool attr_w jmp_2regs(struct codegen_context *ctx, bool lng, unsigned siz
 	bool logical = COND_IS_LOGICAL(cond);
 	if (lng)
 		cond ^= 1;
-	m = get_jmp_cond(cond, logical) & 0xe;
+	m = get_jmp_cond(cond) & 0xe;
 	if (size == OP_SIZE_4)
 		code = logical ? S300_CLRJ : S300_CRJ;
 	else if (size == OP_SIZE_8)
@@ -2335,7 +2322,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		case INSN_CMOV_XCC:
 			if (unlikely(!cpu_test_feature(CPU_FEATURE_misc_45)))
 				goto invalid_insn;
-			g(cgen_cmov(ctx, insn_op_size(insn), insn_aux(insn), insn_opcode(insn) == INSN_CMOV_XCC));
+			g(cgen_cmov(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_STP:
 			if (unlikely(insn_op_size(insn) <= OP_SIZE_2) || unlikely(insn_op_size(insn) > OP_SIZE_NATIVE))
@@ -2392,13 +2379,10 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_fp_cvt(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_JMP:
-			g(cgen_jmp_cond(ctx, insn_jump_size(insn) == JMP_SHORT, COND_ALWAYS, false));
+			g(cgen_jmp_cond(ctx, insn_jump_size(insn) == JMP_SHORT, COND_ALWAYS));
 			return true;
 		case INSN_JMP_COND:
-			g(cgen_jmp_cond(ctx, insn_jump_size(insn) == JMP_SHORT, insn_aux(insn), false));
-			return true;
-		case INSN_JMP_COND_LOGICAL:
-			g(cgen_jmp_cond(ctx, insn_jump_size(insn) == JMP_SHORT, insn_aux(insn), true));
+			g(cgen_jmp_cond(ctx, insn_jump_size(insn) == JMP_SHORT, insn_aux(insn)));
 			return true;
 		case INSN_JMP_REG:
 			g(cgen_jmp_reg(ctx, insn_jump_size(insn) == JMP_SHORT, insn_op_size(insn), insn_aux(insn)));
