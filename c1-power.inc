@@ -397,6 +397,8 @@ static bool attr_w gen_address(struct codegen_context *ctx, unsigned base, int64
 	ctx->base_reg = base;
 	ctx->offset_imm = imm;
 	ctx->offset_reg = false;
+	if (cpu_test_feature(CPU_FEATURE_v31) && likely(imm >= -0x200000000LL) && likely(imm < 0x200000000LL) && purpose != IMM_PURPOSE_LDP_STP_OFFSET)
+		return true;
 	switch (purpose) {
 		case IMM_PURPOSE_VLDR_VSTR_OFFSET:
 			if (size >= OP_SIZE_16 && imm & 15)

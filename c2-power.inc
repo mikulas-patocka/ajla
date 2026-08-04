@@ -198,9 +198,30 @@
 #define POWER_XSNEGQP		0xfc100648U
 #define POWER_XSCVQPSDZ		0xfc190688U
 
+#define PREFIX_0		0x0400000000000000ULL
+#define PREFIX_2		0x0600000000000000ULL
 
-#define POWER_PADDI		0x0600000038000000ULL
+#define POWER_PADDI		(PREFIX_2 | POWER_ADDI)
+#define POWER_PLBZ		(PREFIX_2 | POWER_LBZ)
+#define POWER_PLHZ		(PREFIX_2 | POWER_LHZ)
+#define POWER_PLWZ		(PREFIX_2 | POWER_LWZ)
+#define POWER_PLD		(PREFIX_0 | 0xe4000000U)
+#define POWER_PLHA		(PREFIX_2 | POWER_LHA)
+#define POWER_PLWA		(PREFIX_0 | 0xa4000000U)
+#define POWER_PSTB		(PREFIX_2 | POWER_STB)
+#define POWER_PSTH		(PREFIX_2 | POWER_STH)
+#define POWER_PSTW		(PREFIX_2 | POWER_STW)
+#define POWER_PSTD		(PREFIX_0 | 0xf4000000U)
 
+#define POWER_PLFS		(PREFIX_2 | POWER_LFS)
+#define POWER_PLFD		(PREFIX_2 | POWER_LFD)
+#define POWER_PSTFS		(PREFIX_2 | POWER_STFS)
+#define POWER_PSTFD		(PREFIX_2 | POWER_STFD)
+
+#define POWER_PLXV		(PREFIX_0 | 0xc8000000U)
+#define POWER_PSTXV		(PREFIX_0 | 0xd8000000U)
+#define POWER_PLXSD		(PREFIX_0 | 0xa8000000U)
+#define POWER_PSTXSD		(PREFIX_0 | 0xb8000000U)
 
 #define cgen_xform(mc, rt, ra, rb, flags) \
 	cgen_four((mc) | ((uint32_t)(rt) << 21) | ((uint32_t)((ra) << 16)) | ((uint32_t)(rb) << 11) | (((uint32_t)(flags) & 1) * POWER_RC))
@@ -225,10 +246,14 @@ do {									\
 	cgen_dform((uint32_t)(mc), (rt), (ra), (imm));			\
 } while (0)
 
+static const uint8_t load_a1_mask[8] = { 0, 0, 0, 3, 0, 0, 3, 0 };
 static const uint32_t load_a1[8] = { POWER_LBZ, POWER_LHZ, POWER_LWZ, POWER_LD, 0, POWER_LHA, POWER_LWA, 0 };
+static const uint64_t load_a1p[8] = { POWER_PLBZ, POWER_PLHZ, POWER_PLWZ, POWER_PLD, 0, POWER_PLHA, POWER_PLWA, 0 };
 static const uint32_t load_a2[8] = { POWER_LBZX, POWER_LHZX, POWER_LWZX, POWER_LDX, 0, POWER_LHAX, POWER_LWAX, 0 };
 
+static const uint8_t store_a1_mask[8] = { 0, 0, 0, 3 };
 static const uint32_t store_a1[4] = { POWER_STB, POWER_STH, POWER_STW, POWER_STD };
+static const uint64_t store_a1p[4] = { POWER_PSTB, POWER_PSTH, POWER_PSTW, POWER_PSTD };
 static const uint32_t store_a1u[4] = { POWER_STBU, POWER_STHU, POWER_STWU, POWER_STDU };
 static const uint32_t store_a2[4] = { POWER_STBX, POWER_STHX, POWER_STWX, POWER_STDX };
 
@@ -312,6 +337,7 @@ static const uint32_t trap_cond[0x10] = {
 static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 {
 	uint32_t mc;
+	uint64_t mc64;
 	int64_t imm;
 	uint8_t z = R_ZERO;
 	uint8_t *arg1 = ctx->code_position;
@@ -373,12 +399,22 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 			}
 		}
 		if (arg2[0] == ARG_ADDRESS_1) {
-			mc = load_a1[size + (unsigned)sx * 4];
-			if (unlikely(!mc))
-				goto invl;
 			imm = get_imm(&arg2[2]);
-			cgen_dform(mc, arg1[0], arg2[1], imm);
-			return true;
+			if (imm >= -0x8000 && imm < 0x8000 && !(imm & load_a1_mask[size + (unsigned)sx * 4])) {
+				mc = load_a1[size + (unsigned)sx * 4];
+				if (unlikely(!mc))
+					goto invl;
+				cgen_dform(mc, arg1[0], arg2[1], imm);
+				return true;
+			}
+			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
+				mc64 = load_a1p[size + (unsigned)sx * 4];
+				if (unlikely(!mc64))
+					goto invl;
+				cgen_prefix(mc64, false, arg1[0], arg2[1], imm);
+				return true;
+			}
+			goto invl;
 		}
 		if (arg2[0] == ARG_ADDRESS_2) {
 			mc = load_a2[size + (unsigned)sx * 4];
@@ -411,10 +447,18 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 	}
 	if (arg2[0] < 32) {
 		if (arg1[0] == ARG_ADDRESS_1) {
-			mc = store_a1[size];
 			imm = get_imm(&arg1[2]);
-			cgen_dform(mc, arg2[0], arg1[1], imm);
-			return true;
+			if (imm >= -0x8000 && imm < 0x8000 && !(imm & store_a1_mask[size])) {
+				mc = store_a1[size];
+				cgen_dform(mc, arg2[0], arg1[1], imm);
+				return true;
+			}
+			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
+				mc64 = store_a1p[size];
+				cgen_prefix(mc64, false, arg2[0], arg1[1], imm);
+				return true;
+			}
+			goto invl;
 		}
 		if (arg1[0] == ARG_ADDRESS_1_PRE_I) {
 			mc = store_a1u[size];
@@ -434,10 +478,19 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 	if (reg_is_fp(arg1[0]) && size == OP_SIZE_16) {
 		if (unlikely(arg2[0] == ARG_ADDRESS_1)) {
 			imm = get_imm(&arg2[2]);
-			mc = POWER_LXV;
-			mc |= (arg1[0] & 32) >> 2;
-			cgen_dform(mc, arg1[0] & 31, arg2[1], imm);
-			return true;
+			if (imm >= -0x8000 && imm < 0x8000 && !(imm & 15)) {
+				mc = POWER_LXV;
+				mc |= (arg1[0] & 32) >> 2;
+				cgen_dform(mc, arg1[0] & 31, arg2[1], imm);
+				return true;
+			}
+			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
+				mc64 = POWER_PLXV;
+				mc64 |= (arg1[0] & 32) >> 5 << 26;
+				cgen_prefix(mc64, false, arg1[0] & 31, arg2[1], imm);
+				return true;
+			}
+			goto invl;
 		}
 		if (unlikely(arg2[0] == ARG_ADDRESS_2)) {
 			imm = get_imm(&arg2[3]);
@@ -451,10 +504,19 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 	if (reg_is_fp(arg2[0]) && size == OP_SIZE_16) {
 		if (unlikely(arg1[0] == ARG_ADDRESS_1)) {
 			imm = get_imm(&arg1[2]);
-			mc = POWER_STXV;
-			mc |= (arg2[0] & 32) >> 2;
-			cgen_dform(mc, arg2[0] & 31, arg1[1], imm);
-			return true;
+			if (imm >= -0x8000 && imm < 0x8000 && !(imm & 15)) {
+				mc = POWER_STXV;
+				mc |= (arg2[0] & 32) >> 2;
+				cgen_dform(mc, arg2[0] & 31, arg1[1], imm);
+				return true;
+			}
+			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
+				mc64 = POWER_PSTXV;
+				mc64 |= (arg2[0] & 32) >> 5 << 26;
+				cgen_prefix(mc64, false, arg2[0] & 31, arg1[1], imm);
+				return true;
+			}
+			goto invl;
 		}
 		if (unlikely(arg1[0] == ARG_ADDRESS_2)) {
 			imm = get_imm(&arg1[3]);
@@ -468,9 +530,17 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 	if (reg_is_vs(arg1[0]) && size == OP_SIZE_8) {
 		if (unlikely(arg2[0] == ARG_ADDRESS_1)) {
 			imm = get_imm(&arg2[2]);
-			mc = POWER_LXSD;
-			cgen_dform(mc, arg1[0] & 31, arg2[1], imm);
-			return true;
+			if (imm >= -0x8000 && imm < 0x8000 && !(imm & 3)) {
+				mc = POWER_LXSD;
+				cgen_dform(mc, arg1[0] & 31, arg2[1], imm);
+				return true;
+			}
+			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
+				mc64 = POWER_PLXSD;
+				cgen_prefix(mc64, false, arg1[0] & 31, arg2[1], imm);
+				return true;
+			}
+			goto invl;
 		}
 		if (unlikely(arg2[0] == ARG_ADDRESS_2)) {
 			imm = get_imm(&arg2[3]);
@@ -484,9 +554,17 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 	if (reg_is_vs(arg2[0]) && size == OP_SIZE_8) {
 		if (unlikely(arg1[0] == ARG_ADDRESS_1)) {
 			imm = get_imm(&arg1[2]);
-			mc = POWER_STXSD;
-			cgen_dform(mc, arg2[0] & 31, arg1[1], imm);
-			return true;
+			if (imm >= -0x8000 && imm < 0x8000 && !(imm & 3)) {
+				mc = POWER_STXSD;
+				cgen_dform(mc, arg2[0] & 31, arg1[1], imm);
+				return true;
+			}
+			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
+				mc64 = POWER_PSTXSD;
+				cgen_prefix(mc64, false, arg2[0] & 31, arg1[1], imm);
+				return true;
+			}
+			goto invl;
 		}
 		if (unlikely(arg1[0] == ARG_ADDRESS_2)) {
 			imm = get_imm(&arg1[3]);
@@ -506,9 +584,17 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 	if (reg_is_fp(arg1[0]) && !reg_is_vs(arg1[0])) {
 		if (unlikely(arg2[0] == ARG_ADDRESS_1)) {
 			imm = get_imm(&arg2[2]);
-			mc = size == OP_SIZE_4 ? POWER_LFS : POWER_LFD;
-			cgen_dform(mc, arg1[0] & 31, arg2[1], imm);
-			return true;
+			if (imm >= -0x8000 && imm < 0x8000) {
+				mc = size == OP_SIZE_4 ? POWER_LFS : POWER_LFD;
+				cgen_dform(mc, arg1[0] & 31, arg2[1], imm);
+				return true;
+			}
+			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
+				mc64 = size == OP_SIZE_4 ? POWER_PLFS : POWER_PLFD;
+				cgen_prefix(mc64, false, arg1[0] & 31, arg2[1], imm);
+				return true;
+			}
+			goto invl;
 		}
 		if (unlikely(arg2[0] == ARG_ADDRESS_2)) {
 			imm = get_imm(&arg2[3]);
@@ -522,9 +608,17 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 	if (reg_is_fp(arg2[0]) && !reg_is_vs(arg2[0])) {
 		if (unlikely(arg1[0] == ARG_ADDRESS_1)) {
 			imm = get_imm(&arg1[2]);
-			mc = size == OP_SIZE_4 ? POWER_STFS : POWER_STFD;
-			cgen_dform(mc, arg2[0] & 31, arg1[1], imm);
-			return true;
+			if (imm >= -0x8000 && imm < 0x8000) {
+				mc = size == OP_SIZE_4 ? POWER_STFS : POWER_STFD;
+				cgen_dform(mc, arg2[0] & 31, arg1[1], imm);
+				return true;
+			}
+			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
+				mc64 = size == OP_SIZE_4 ? POWER_PSTFS : POWER_PSTFD;
+				cgen_prefix(mc64, false, arg2[0] & 31, arg1[1], imm);
+				return true;
+			}
+			goto invl;
 		}
 		if (unlikely(arg1[0] == ARG_ADDRESS_2)) {
 			imm = get_imm(&arg1[3]);
