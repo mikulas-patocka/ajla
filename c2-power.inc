@@ -102,9 +102,11 @@
 #define POWER_LWAX		0x7c0002aaU
 #define POWER_LHAX		0x7c0002aeU
 #define POWER_POPCNTW		0x7c0002f4U
+#define POWER_SETBC_LT		0x7c000300U
 #define POWER_STXVX		0x7c000318U
 #define POWER_STHX		0x7c00032eU
 #define POWER_ORC		0x7c000338U
+#define POWER_SETBC_GE		0x7c000340U
 #define POWER_OR		0x7c000378U
 #define POWER_DIVDU		0x7c000392U
 #define POWER_DIVWU		0x7c000396U
@@ -131,8 +133,14 @@
 #define POWER_EXTSH		0x7c000734U
 #define POWER_EXTSB		0x7c000774U
 #define POWER_EXTSW		0x7c0007b4U
+#define POWER_SETBC_GT		0x7c010300U
+#define POWER_SETBC_LE		0x7c010340U
 #define POWER_MFXER		0x7c0102a6U
 #define POWER_MTXER		0x7c0103a6U
+#define POWER_SETBC_EQ		0x7c020300U
+#define POWER_SETBC_NE		0x7c020340U
+#define POWER_SETBC_SO		0x7c030300U
+#define POWER_SETBC_NS		0x7c030340U
 #define POWER_MFLR		0x7c0802a6U
 #define POWER_MTLR		0x7c0803a6U
 #define POWER_MFCTR		0x7c0902a6U
@@ -320,6 +328,21 @@ static const uint32_t jmp_cond[0x2c] = {
 	0, 0, POWER_BLT, POWER_BGE,
 	POWER_BEQ, POWER_BNE, POWER_BLE, POWER_BGT,
 	0, 0, POWER_BSO, POWER_BNS,
+};
+
+static const uint32_t setbc_cond[0x2c] = {
+	POWER_SETBC_SO, POWER_SETBC_NS, POWER_SETBC_LT, POWER_SETBC_GE,
+	POWER_SETBC_EQ, POWER_SETBC_NE, POWER_SETBC_LE, POWER_SETBC_GT,
+	POWER_SETBC_LT, POWER_SETBC_GE, 0, 0,
+	POWER_SETBC_LT, POWER_SETBC_GE, POWER_SETBC_LE, POWER_SETBC_GT,
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+
+	0, 0, POWER_SETBC_LT, POWER_SETBC_GE,
+	POWER_SETBC_EQ, POWER_SETBC_NE, POWER_SETBC_LE, POWER_SETBC_GT,
+	0, 0, POWER_SETBC_SO, POWER_SETBC_NS,
 };
 
 static const uint32_t trap_cond[0x10] = {
@@ -971,6 +994,27 @@ invl:
 	return false;
 }
 
+static bool attr_w cgen_set_cond(struct codegen_context *ctx, unsigned aux)
+{
+	uint32_t mc;
+	uint8_t *arg1 = ctx->code_position;
+	ctx->code_position = arg1 + arg_size(*arg1);
+
+	if (unlikely(aux >= n_array_elements(setbc_cond)))
+		goto invl;
+	mc = setbc_cond[aux];
+	if (unlikely(!mc))
+		goto invl;
+
+	cgen_xform(mc, arg1[0], 0, 0, false);
+
+	return true;
+
+invl:
+	internal(file_line, "cgen_set_cond: invalid condition %x", aux);
+	return false;
+}
+
 static bool attr_w cgen_cmov(struct codegen_context *ctx, unsigned aux)
 {
 	bool swap;
@@ -1355,6 +1399,13 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_ROT:
 			g(cgen_rot(ctx, insn_op_size(insn), insn_aux(insn), insn_writes_flags(insn)));
+			return true;
+		case INSN_SET_COND:
+			if (unlikely(!cpu_test_feature(CPU_FEATURE_v31)))
+				goto invalid_insn;
+			if (unlikely(insn_op_size(insn) != OP_SIZE_NATIVE))
+				goto invalid_insn;
+			g(cgen_set_cond(ctx, insn_aux(insn)));
 			return true;
 		case INSN_CMOV:
 		case INSN_CMOV_XCC:

@@ -1009,6 +1009,13 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned attr
 static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned size, unsigned cond, frame_t slot)
 {
 	unsigned target = gen_frame_target(ctx, slot, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
+#if defined(ARCH_POWER)
+	if (cpu_test_feature(CPU_FEATURE_v31)) {
+		gen_insn(INSN_SET_COND, OP_SIZE_NATIVE, cond, 0);
+		gen_one(target);
+		goto do_store;
+	}
+#endif
 #if defined(ARCH_S390)
 	if (Z) {
 		if (cond == COND_A || cond == COND_G) {
