@@ -289,6 +289,7 @@ static const uint8_t vector_volatile[] = { R_VS34, R_VS35, R_VS36, R_VS37, R_VS3
 
 static bool attr_w gen_load_constant_rz(struct codegen_context *ctx, unsigned reg, uint64_t c, unsigned xreg)
 {
+	unsigned zero_reg = xreg;
 	if (OP_SIZE_NATIVE == OP_SIZE_4)
 		c = (int32_t)c;
 	if (c == (uint64_t)(int32_t)c) {
@@ -322,7 +323,7 @@ static bool attr_w gen_load_constant_rz(struct codegen_context *ctx, unsigned re
 			gen_eight((uint16_t)(c >> 32));
 			xreg = reg;
 		}
-		if (xreg != R_ZERO) {
+		if (xreg != zero_reg) {
 			gen_insn(INSN_ROT, OP_SIZE_NATIVE, ROT_SHL, 0);
 			gen_one(reg);
 			gen_one(reg);
@@ -346,7 +347,7 @@ static bool attr_w gen_load_constant_rz(struct codegen_context *ctx, unsigned re
 		gen_eight(c & 0xffffU);
 		xreg = reg;
 	}
-	if (xreg == R_ZERO) {
+	if (xreg == zero_reg) {
 		gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 		gen_one(reg);
 		gen_one(ARG_IMM);
