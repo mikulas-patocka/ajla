@@ -199,6 +199,9 @@
 #define POWER_XSCVQPSDZ		0xfc190688U
 
 
+#define POWER_PADDI		0x0600000038000000ULL
+
+
 #define cgen_xform(mc, rt, ra, rb, flags) \
 	cgen_four((mc) | ((uint32_t)(rt) << 21) | ((uint32_t)((ra) << 16)) | ((uint32_t)(rb) << 11) | (((uint32_t)(flags) & 1) * POWER_RC))
 
@@ -207,6 +210,20 @@
 
 #define cgen_dform(mc, rt, ra, imm) \
 	cgen_four((mc) | ((uint32_t)(rt) << 21) | ((uint32_t)((ra) << 16)) | (uint16_t)(imm))
+
+static bool attr_w cgen_prefix_align(struct codegen_context *ctx)
+{
+	if ((ctx->mcode_size & 63) == 60)
+		cgen_four(POWER_NOP);
+	return true;
+}
+
+#define cgen_prefix(mc, pcrel, rt, ra, imm)				\
+do {									\
+	g(cgen_prefix_align(ctx));					\
+	cgen_four((mc) >> 32 | (uint32_t)(pcrel) << 22 | (((uint64_t)(imm) >> 16) & 0x3ffffU));\
+	cgen_dform((uint32_t)(mc), (rt), (ra), (imm));			\
+} while (0);
 
 static const uint32_t load_a1[8] = { POWER_LBZ, POWER_LHZ, POWER_LWZ, POWER_LD, 0, POWER_LHA, POWER_LWA, 0 };
 static const uint32_t load_a2[8] = { POWER_LBZX, POWER_LHZX, POWER_LWZX, POWER_LDX, 0, POWER_LHAX, POWER_LWAX, 0 };
@@ -344,10 +361,15 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 				cgen_dform(POWER_ADDI, arg1[0], 0, imm);
 				return true;
 			} else {
-				if (imm & 0xffffULL)
-					internal(file_line, "cgen_mov: invalid imm");
-				cgen_dform(POWER_ADDIS, arg1[0], 0, (uint64_t)imm >> 16);
-				return true;
+				if (!(imm & 0xffffULL) && imm >= -0x80000000LL && imm < 0x80000000LL) {
+					cgen_dform(POWER_ADDIS, arg1[0], 0, (uint64_t)imm >> 16);
+					return true;
+				}
+				if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
+					cgen_prefix(POWER_PADDI, false, arg1[0], 0, imm)
+					return true;
+				}
+				internal(file_line, "cgen_mov: invalid imm: %llx", (long long)imm);
 			}
 		}
 		if (arg2[0] == ARG_ADDRESS_1) {

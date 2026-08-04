@@ -2641,6 +2641,9 @@ static void dump_code_ctx(struct codegen_context *ctx)
 
 	mutex_lock(&dump_mutex);
 	str_init(&hex, &hexl);
+#if defined(ARCH_POWER)
+	str_add_string(&hex, &hexl, ".align 6\n");
+#endif
 #if defined(ARCH_SH4)
 	str_add_string(&hex, &hexl, ".align 2\n");
 #endif

@@ -255,4 +255,8 @@ do {									\
 			(align_of(void *) - 1) |			\
 			1) + 1)
 
+#if defined(ARCH_POWER)
+#define CODE_ALIGNMENT	maximum(64, scalar_align)
+#else
 #define CODE_ALIGNMENT	maximum(16, scalar_align)
+#endif

@@ -45,3 +45,8 @@
 #define static_test_v30		_ARCH_PWR9
 #define dynamic_test		trap_insn("7c000434")	/* cnttzw */
 #include "asm-1.inc"
+
+#define feature_name		v31
+#define static_test_v31		_ARCH_PWR10
+#define dynamic_test		trap_insn("7c000176")	/* brd */
+#include "asm-1.inc"

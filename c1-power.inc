@@ -293,6 +293,13 @@ static bool attr_w gen_load_constant_rz(struct codegen_context *ctx, unsigned re
 	if (OP_SIZE_NATIVE == OP_SIZE_4)
 		c = (int32_t)c;
 	if (c == (uint64_t)(int32_t)c) {
+		if (cpu_test_feature(CPU_FEATURE_v31) && c & 0xffff0000U && c & 0xffffU) {
+			gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+			gen_one(reg);
+			gen_one(ARG_IMM);
+			gen_eight(c);
+			return true;
+		}
 		if (c == (uint64_t)(int16_t)c) {
 			gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 			gen_one(reg);
@@ -308,20 +315,35 @@ static bool attr_w gen_load_constant_rz(struct codegen_context *ctx, unsigned re
 			xreg = reg;
 		}
 	} else {
-		if (c >> 48) {
+		if (cpu_test_feature(CPU_FEATURE_v31) && (int64_t)c >= -0x200000000LL && (int64_t)c < 0x200000000LL) {
 			gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 			gen_one(reg);
 			gen_one(ARG_IMM);
-			gen_eight((int32_t)((c >> 32) & 0xffff0000U));
-			xreg = reg;
+			gen_eight(c);
+			return true;
 		}
-		if (c & 0x0000ffff00000000ULL) {
-			gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_OR, 0);
+		if (cpu_test_feature(CPU_FEATURE_v31) && c >> 48 && c & 0x0000ffff00000000ULL) {
+			gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
 			gen_one(reg);
-			gen_one(xreg);
 			gen_one(ARG_IMM);
-			gen_eight((uint16_t)(c >> 32));
+			gen_eight(c >> 32);
 			xreg = reg;
+		} else {
+			if (c >> 48) {
+				gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);
+				gen_one(reg);
+				gen_one(ARG_IMM);
+				gen_eight((int32_t)((c >> 32) & 0xffff0000U));
+				xreg = reg;
+			}
+			if (c & 0x0000ffff00000000ULL) {
+				gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_OR, 0);
+				gen_one(reg);
+				gen_one(xreg);
+				gen_one(ARG_IMM);
+				gen_eight((uint16_t)(c >> 32));
+				xreg = reg;
+			}
 		}
 		if (xreg != zero_reg) {
 			gen_insn(INSN_ROT, OP_SIZE_NATIVE, ROT_SHL, 0);
