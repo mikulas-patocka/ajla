@@ -232,18 +232,18 @@
 #define cgen_dform(mc, rt, ra, imm) \
 	cgen_four((mc) | ((uint32_t)(rt) << 21) | ((uint32_t)((ra) << 16)) | (uint16_t)(imm))
 
-static bool attr_w cgen_prefix_align(struct codegen_context *ctx)
-{
-	if ((ctx->mcode_size & 63) == 60)
-		cgen_four(POWER_NOP);
-	return true;
-}
-
-#define cgen_prefix(mc, pcrel, rt, ra, imm)				\
+#define cgen_prefix(mc, rt, ra, imm)					\
 do {									\
-	g(cgen_prefix_align(ctx));					\
-	cgen_four((mc) >> 32 | (uint32_t)(pcrel) << 22 | (((uint64_t)(imm) >> 16) & 0x3ffffU));\
-	cgen_dform((uint32_t)(mc), (rt), (ra), (imm));			\
+	uint64_t bias;							\
+	if ((ctx->mcode_size & 63) == 60)				\
+		cgen_four(POWER_NOP);					\
+	bias = (ra) == R_PCN ? -ctx->mcode_size : 0;			\
+	if ((ra) == R_PCN && !((int64_t)(imm + bias) >= -0x200000000LL && (int64_t)(imm + bias) < 0x200000000LL)) {\
+		ctx->pc_relative_addressing_failed = true;		\
+		return false;						\
+	}								\
+	cgen_four((mc) >> 32 | (uint32_t)((ra) == R_PCN) << 20 | ((((uint64_t)(imm) + bias) >> 16) & 0x3ffffU));\
+	cgen_dform((uint32_t)(mc), (rt), (ra) == R_PCN ? 0 : (ra), (imm) + bias);\
 } while (0)
 
 static const uint8_t load_a1_mask[8] = { 0, 0, 0, 3, 0, 0, 3, 0 };
@@ -392,7 +392,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 					return true;
 				}
 				if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
-					cgen_prefix(POWER_PADDI, false, arg1[0], 0, imm);
+					cgen_prefix(POWER_PADDI, arg1[0], 0, imm);
 					return true;
 				}
 				internal(file_line, "cgen_mov: invalid imm: %llx", (long long)imm);
@@ -400,7 +400,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 		}
 		if (arg2[0] == ARG_ADDRESS_1) {
 			imm = get_imm(&arg2[2]);
-			if (imm >= -0x8000 && imm < 0x8000 && !(imm & load_a1_mask[size + (unsigned)sx * 4])) {
+			if (imm >= -0x8000 && imm < 0x8000 && !(imm & load_a1_mask[size + (unsigned)sx * 4]) && arg2[1] != R_PCN) {
 				mc = load_a1[size + (unsigned)sx * 4];
 				if (unlikely(!mc))
 					goto invl;
@@ -411,7 +411,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 				mc64 = load_a1p[size + (unsigned)sx * 4];
 				if (unlikely(!mc64))
 					goto invl;
-				cgen_prefix(mc64, false, arg1[0], arg2[1], imm);
+				cgen_prefix(mc64, arg1[0], arg2[1], imm);
 				return true;
 			}
 			goto invl;
@@ -448,14 +448,14 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 	if (arg2[0] < 32) {
 		if (arg1[0] == ARG_ADDRESS_1) {
 			imm = get_imm(&arg1[2]);
-			if (imm >= -0x8000 && imm < 0x8000 && !(imm & store_a1_mask[size])) {
+			if (imm >= -0x8000 && imm < 0x8000 && !(imm & store_a1_mask[size]) && arg1[1] != R_PCN) {
 				mc = store_a1[size];
 				cgen_dform(mc, arg2[0], arg1[1], imm);
 				return true;
 			}
 			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
 				mc64 = store_a1p[size];
-				cgen_prefix(mc64, false, arg2[0], arg1[1], imm);
+				cgen_prefix(mc64, arg2[0], arg1[1], imm);
 				return true;
 			}
 			goto invl;
@@ -478,7 +478,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 	if (reg_is_fp(arg1[0]) && size == OP_SIZE_16) {
 		if (unlikely(arg2[0] == ARG_ADDRESS_1)) {
 			imm = get_imm(&arg2[2]);
-			if (imm >= -0x8000 && imm < 0x8000 && !(imm & 15)) {
+			if (imm >= -0x8000 && imm < 0x8000 && !(imm & 15) && arg2[1] != R_PCN) {
 				mc = POWER_LXV;
 				mc |= (arg1[0] & 32) >> 2;
 				cgen_dform(mc, arg1[0] & 31, arg2[1], imm);
@@ -487,7 +487,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
 				mc64 = POWER_PLXV;
 				mc64 |= (arg1[0] & 32) >> 5 << 26;
-				cgen_prefix(mc64, false, arg1[0] & 31, arg2[1], imm);
+				cgen_prefix(mc64, arg1[0] & 31, arg2[1], imm);
 				return true;
 			}
 			goto invl;
@@ -504,7 +504,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 	if (reg_is_fp(arg2[0]) && size == OP_SIZE_16) {
 		if (unlikely(arg1[0] == ARG_ADDRESS_1)) {
 			imm = get_imm(&arg1[2]);
-			if (imm >= -0x8000 && imm < 0x8000 && !(imm & 15)) {
+			if (imm >= -0x8000 && imm < 0x8000 && !(imm & 15) && arg1[1] != R_PCN) {
 				mc = POWER_STXV;
 				mc |= (arg2[0] & 32) >> 2;
 				cgen_dform(mc, arg2[0] & 31, arg1[1], imm);
@@ -513,7 +513,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
 				mc64 = POWER_PSTXV;
 				mc64 |= (arg2[0] & 32) >> 5 << 26;
-				cgen_prefix(mc64, false, arg2[0] & 31, arg1[1], imm);
+				cgen_prefix(mc64, arg2[0] & 31, arg1[1], imm);
 				return true;
 			}
 			goto invl;
@@ -530,14 +530,14 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 	if (reg_is_vs(arg1[0]) && size == OP_SIZE_8) {
 		if (unlikely(arg2[0] == ARG_ADDRESS_1)) {
 			imm = get_imm(&arg2[2]);
-			if (imm >= -0x8000 && imm < 0x8000 && !(imm & 3)) {
+			if (imm >= -0x8000 && imm < 0x8000 && !(imm & 3) && arg2[1] != R_PCN) {
 				mc = POWER_LXSD;
 				cgen_dform(mc, arg1[0] & 31, arg2[1], imm);
 				return true;
 			}
 			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
 				mc64 = POWER_PLXSD;
-				cgen_prefix(mc64, false, arg1[0] & 31, arg2[1], imm);
+				cgen_prefix(mc64, arg1[0] & 31, arg2[1], imm);
 				return true;
 			}
 			goto invl;
@@ -554,14 +554,14 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 	if (reg_is_vs(arg2[0]) && size == OP_SIZE_8) {
 		if (unlikely(arg1[0] == ARG_ADDRESS_1)) {
 			imm = get_imm(&arg1[2]);
-			if (imm >= -0x8000 && imm < 0x8000 && !(imm & 3)) {
+			if (imm >= -0x8000 && imm < 0x8000 && !(imm & 3) && arg1[1] != R_PCN) {
 				mc = POWER_STXSD;
 				cgen_dform(mc, arg2[0] & 31, arg1[1], imm);
 				return true;
 			}
 			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
 				mc64 = POWER_PSTXSD;
-				cgen_prefix(mc64, false, arg2[0] & 31, arg1[1], imm);
+				cgen_prefix(mc64, arg2[0] & 31, arg1[1], imm);
 				return true;
 			}
 			goto invl;
@@ -584,14 +584,14 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 	if (reg_is_fp(arg1[0]) && !reg_is_vs(arg1[0])) {
 		if (unlikely(arg2[0] == ARG_ADDRESS_1)) {
 			imm = get_imm(&arg2[2]);
-			if (imm >= -0x8000 && imm < 0x8000) {
+			if (imm >= -0x8000 && imm < 0x8000 && arg2[1] != R_PCN) {
 				mc = size == OP_SIZE_4 ? POWER_LFS : POWER_LFD;
 				cgen_dform(mc, arg1[0] & 31, arg2[1], imm);
 				return true;
 			}
 			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
 				mc64 = size == OP_SIZE_4 ? POWER_PLFS : POWER_PLFD;
-				cgen_prefix(mc64, false, arg1[0] & 31, arg2[1], imm);
+				cgen_prefix(mc64, arg1[0] & 31, arg2[1], imm);
 				return true;
 			}
 			goto invl;
@@ -608,14 +608,14 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 	if (reg_is_fp(arg2[0]) && !reg_is_vs(arg2[0])) {
 		if (unlikely(arg1[0] == ARG_ADDRESS_1)) {
 			imm = get_imm(&arg1[2]);
-			if (imm >= -0x8000 && imm < 0x8000) {
+			if (imm >= -0x8000 && imm < 0x8000 && arg1[1] != R_PCN) {
 				mc = size == OP_SIZE_4 ? POWER_STFS : POWER_STFD;
 				cgen_dform(mc, arg2[0] & 31, arg1[1], imm);
 				return true;
 			}
 			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
 				mc64 = size == OP_SIZE_4 ? POWER_PSTFS : POWER_PSTFD;
-				cgen_prefix(mc64, false, arg2[0] & 31, arg1[1], imm);
+				cgen_prefix(mc64, arg2[0] & 31, arg1[1], imm);
 				return true;
 			}
 			goto invl;
@@ -764,7 +764,7 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 					break;
 				}
 				if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
-					cgen_prefix(POWER_PADDI, false, arg1[0], arg2[0], imm);
+					cgen_prefix(POWER_PADDI, arg1[0], arg2[0], imm);
 					return true;
 				}
 				goto invl;
