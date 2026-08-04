@@ -992,23 +992,15 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned attr
 	}
 	return true;
 }
-#elif defined(ARCH_ARM64)
-static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned attr_unused size, unsigned cond, frame_t slot)
-{
-	if (slot_is_register(ctx, slot)) {
-		gen_insn(INSN_SET_COND, OP_SIZE_4, cond, 0);
-		gen_one(ctx->registers[slot]);
-	} else {
-		gen_insn(INSN_SET_COND, OP_SIZE_4, cond, 0);
-		gen_one(R_SCRATCH_1);
-		g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot, 0, R_SCRATCH_1));
-	}
-	return true;
-}
 #elif ARCH_HAS_FLAGS
 static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned size, unsigned cond, frame_t slot)
 {
 	unsigned target = gen_frame_target(ctx, slot, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
+#if defined(ARCH_ARM64)
+	gen_insn(INSN_SET_COND, OP_SIZE_NATIVE, cond, 0);
+	gen_one(target);
+	goto do_store;
+#endif
 #if defined(ARCH_POWER)
 	if (cpu_test_feature(CPU_FEATURE_v31)) {
 		gen_insn(INSN_SET_COND, OP_SIZE_NATIVE, cond, 0);
