@@ -352,6 +352,14 @@ static bool attr_w gen_load_constant_rz(struct codegen_context *ctx, unsigned re
 			gen_one(ARG_IMM);
 			gen_eight(32);
 		}
+		if (cpu_test_feature(CPU_FEATURE_v31) && c & 0xffff0000U && c & 0xffffU) {
+			gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_ADD, 0);
+			gen_one(reg);
+			gen_one(xreg);
+			gen_one(ARG_IMM);
+			gen_eight(c & 0xffffffffU);
+			return true;
+		}
 		if (c & 0xffff0000U) {
 			gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_OR, 0);
 			gen_one(reg);
@@ -442,6 +450,8 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 		case IMM_PURPOSE_ADC_SBB:
 			break;
 		case IMM_PURPOSE_ADD:
+			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL)
+				return true;
 			if (likely(imm >= -0x8000) && likely(imm < 0x8000))
 				return true;
 			if (imm & 0xffff)
@@ -450,6 +460,8 @@ static bool is_direct_const(int64_t imm, unsigned purpose, unsigned size)
 				return true;
 			break;
 		case IMM_PURPOSE_SUB:
+			if (cpu_test_feature(CPU_FEATURE_v31) && imm > -0x200000000LL && imm <= 0x200000000LL)
+				return true;
 			if (likely(imm > -0x8000) && likely(imm <= 0x8000))
 				return true;
 			if (imm & 0xffff)

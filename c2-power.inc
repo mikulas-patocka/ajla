@@ -663,15 +663,20 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 			goto invl;
 		switch (alu) {
 			case ALU_ADD:
-			case ALU_MUL:
 				if (likely(imm >= -0x8000) && likely(imm < 0x8000))
 					break;
-				if (imm & 0xffff)
-					goto invl;
-				if (likely(imm >= -0x80000000LL) && likely(imm < 0x80000000LL)) {
+				if (!(imm & 0xffff) && likely(imm >= -0x80000000LL) && likely(imm < 0x80000000LL)) {
 					shifted = true;
 					break;
 				}
+				if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
+					cgen_prefix(POWER_PADDI, false, arg1[0], arg2[0], imm)
+					return true;
+				}
+				goto invl;
+			case ALU_MUL:
+				if (likely(imm >= -0x8000) && likely(imm < 0x8000))
+					break;
 				goto invl;
 			case ALU_AND:
 			case ALU_OR:
