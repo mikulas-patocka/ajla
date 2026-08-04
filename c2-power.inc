@@ -223,7 +223,7 @@ do {									\
 	g(cgen_prefix_align(ctx));					\
 	cgen_four((mc) >> 32 | (uint32_t)(pcrel) << 22 | (((uint64_t)(imm) >> 16) & 0x3ffffU));\
 	cgen_dform((uint32_t)(mc), (rt), (ra), (imm));			\
-} while (0);
+} while (0)
 
 static const uint32_t load_a1[8] = { POWER_LBZ, POWER_LHZ, POWER_LWZ, POWER_LD, 0, POWER_LHA, POWER_LWA, 0 };
 static const uint32_t load_a2[8] = { POWER_LBZX, POWER_LHZX, POWER_LWZX, POWER_LDX, 0, POWER_LHAX, POWER_LWAX, 0 };
@@ -366,7 +366,7 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 					return true;
 				}
 				if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
-					cgen_prefix(POWER_PADDI, false, arg1[0], 0, imm)
+					cgen_prefix(POWER_PADDI, false, arg1[0], 0, imm);
 					return true;
 				}
 				internal(file_line, "cgen_mov: invalid imm: %llx", (long long)imm);
@@ -670,7 +670,7 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 					break;
 				}
 				if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
-					cgen_prefix(POWER_PADDI, false, arg1[0], arg2[0], imm)
+					cgen_prefix(POWER_PADDI, false, arg1[0], arg2[0], imm);
 					return true;
 				}
 				goto invl;
