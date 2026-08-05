@@ -352,21 +352,19 @@ static const uint32_t trap_cond[0x10] = {
 	POWER_TRAP_SB, POWER_TRAP_E | POWER_TRAP_SA, POWER_TRAP_SB | POWER_TRAP_E, POWER_TRAP_SA,
 };
 
-static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
+static bool attr_w cgen_moves(struct codegen_context *ctx, unsigned size, bool sx, const uint8_t *arg1, const uint8_t *arg2)
 {
 	uint32_t mc;
 	uint64_t mc64;
 	int64_t imm;
 	uint8_t z = R_ZERO;
-	uint8_t *arg1 = ctx->code_position;
-	uint8_t *arg2 = arg1 + arg_size(*arg1);
-	ctx->code_position = arg2 + arg_size(*arg2);
 	if (size >= OP_SIZE_NATIVE)
 		sx = false;
 	if (arg1[0] < 32) {
 		if (arg2[0] < 32) {
 			if (unlikely(size == OP_SIZE_NATIVE)) {
-				cgen_xform(POWER_OR, arg2[0], arg1[0], arg2[0], false);
+				if (ctx)
+					cgen_xform(POWER_OR, arg2[0], arg1[0], arg2[0], false);
 				return true;
 			}
 			if (sx) {
@@ -384,283 +382,342 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 					default:	goto invl;
 				}
 			}
-			cgen_xform(mc, arg2[0], arg1[0], 0, false);
+			if (ctx)
+				cgen_xform(mc, arg2[0], arg1[0], 0, false);
 			return true;
 		}
-		if (arg2[0] == R_CTR) {
+		if (arg2[0] == R_CTR && size == OP_SIZE_NATIVE) {
 			mc = POWER_MFCTR;
 			mc |= (uint32_t)arg1[0] << 21;
-			cgen_four(mc);
+			if (ctx)
+				cgen_four(mc);
 			return true;
 		}
-		if (arg2[0] == R_LR) {
+		if (arg2[0] == R_LR && size == OP_SIZE_NATIVE) {
 			mc = POWER_MFLR;
 			mc |= (uint32_t)arg1[0] << 21;
-			cgen_four(mc);
+			if (ctx)
+				cgen_four(mc);
 			return true;
 		}
 		if (arg2[0] == ARG_IMM) {
 			imm = get_imm(&arg2[1]);
 			if (imm >= -0x8000 && imm < 0x8000) {
-				cgen_dform(POWER_ADDI, arg1[0], 0, imm);
+				if (ctx)
+					cgen_dform(POWER_ADDI, arg1[0], 0, imm);
 				return true;
-			} else {
-				if (!(imm & 0xffffULL) && imm >= -0x80000000LL && imm < 0x80000000LL) {
-					cgen_dform(POWER_ADDIS, arg1[0], 0, (uint64_t)imm >> 16);
-					return true;
-				}
-				if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
-					cgen_prefix(POWER_PADDI, arg1[0], 0, imm);
-					return true;
-				}
-				internal(file_line, "cgen_mov: invalid imm: %llx", (long long)imm);
 			}
+			if (!(imm & 0xffffULL) && imm >= -0x80000000LL && imm < 0x80000000LL) {
+				if (ctx)
+					cgen_dform(POWER_ADDIS, arg1[0], 0, (uint64_t)imm >> 16);
+				return true;
+			}
+			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
+				if (ctx)
+					cgen_prefix(POWER_PADDI, arg1[0], 0, imm);
+				return true;
+			}
+			goto invl;
 		}
-		if (arg2[0] == ARG_ADDRESS_1) {
+		if (arg2[0] == ARG_ADDRESS_1 && arg2[1] <= R_PCN) {
 			imm = get_imm(&arg2[2]);
 			if (imm >= -0x8000 && imm < 0x8000 && !(imm & load_a1_mask[size + (unsigned)sx * 4]) && arg2[1] != R_PCN) {
 				mc = load_a1[size + (unsigned)sx * 4];
 				if (unlikely(!mc))
 					goto invl;
-				cgen_dform(mc, arg1[0], arg2[1], imm);
+				if (ctx)
+					cgen_dform(mc, arg1[0], arg2[1], imm);
 				return true;
 			}
 			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
 				mc64 = load_a1p[size + (unsigned)sx * 4];
 				if (unlikely(!mc64))
 					goto invl;
-				cgen_prefix(mc64, arg1[0], arg2[1], imm);
+				if (ctx)
+					cgen_prefix(mc64, arg1[0], arg2[1], imm);
 				return true;
 			}
 			goto invl;
 		}
-		if (arg2[0] == ARG_ADDRESS_2) {
+		if (arg2[0] == ARG_ADDRESS_2 && arg2[1] < 32 && arg2[2] < 32) {
 			mc = load_a2[size + (unsigned)sx * 4];
 			if (unlikely(!mc))
 				goto invl;
 			imm = get_imm(&arg2[3]);
 			if (imm)
-				internal(file_line, "cgen_mov: imm is not zero");
-			cgen_xform(mc, arg1[0], arg2[1], arg2[2], false);
+				goto invl;
+			if (ctx)
+				cgen_xform(mc, arg1[0], arg2[1], arg2[2], false);
 			return true;
 		}
 	}
+	if (unlikely(sx))
+		goto invl;
 	if (arg2[0] == ARG_IMM) {
 		imm = get_imm(&arg2[1]);
 		if (unlikely(imm != 0))
 			goto invl;
 		arg2 = &z;
 	}
-	if (arg1[0] == R_CTR && arg2[0] < 32) {
+	if (arg1[0] == R_CTR && arg2[0] < 32 && size == OP_SIZE_NATIVE) {
 		mc = POWER_MTCTR;
 		mc |= (uint32_t)arg2[0] << 21;
-		cgen_four(mc);
+		if (ctx)
+			cgen_four(mc);
 		return true;
 	}
-	if (arg1[0] == R_LR && arg2[0] < 32) {
+	if (arg1[0] == R_LR && arg2[0] < 32 && size == OP_SIZE_NATIVE) {
 		mc = POWER_MTLR;
 		mc |= (uint32_t)arg2[0] << 21;
-		cgen_four(mc);
+		if (ctx)
+			cgen_four(mc);
 		return true;
 	}
 	if (arg2[0] < 32) {
-		if (arg1[0] == ARG_ADDRESS_1) {
+		if (arg1[0] == ARG_ADDRESS_1 && arg1[1] <= R_PCN) {
 			imm = get_imm(&arg1[2]);
 			if (imm >= -0x8000 && imm < 0x8000 && !(imm & store_a1_mask[size]) && arg1[1] != R_PCN) {
 				mc = store_a1[size];
-				cgen_dform(mc, arg2[0], arg1[1], imm);
+				if (ctx)
+					cgen_dform(mc, arg2[0], arg1[1], imm);
 				return true;
 			}
 			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
 				mc64 = store_a1p[size];
-				cgen_prefix(mc64, arg2[0], arg1[1], imm);
+				if (ctx)
+					cgen_prefix(mc64, arg2[0], arg1[1], imm);
 				return true;
 			}
 			goto invl;
 		}
-		if (arg1[0] == ARG_ADDRESS_1_PRE_I) {
-			mc = store_a1u[size];
+		if (arg1[0] == ARG_ADDRESS_1_PRE_I && arg1[1] < 32) {
 			imm = get_imm(&arg1[2]);
-			cgen_dform(mc, arg2[0], arg1[1], imm);
-			return true;
+			if (imm >= -0x8000 && imm < 0x8000 && !(imm & store_a1_mask[size])) {
+				mc = store_a1u[size];
+				if (ctx)
+					cgen_dform(mc, arg2[0], arg1[1], imm);
+				return true;
+			}
+			goto invl;
 		}
-		if (arg1[0] == ARG_ADDRESS_2) {
+		if (arg1[0] == ARG_ADDRESS_2 && arg1[1] < 32 && arg1[2] < 32) {
 			mc = store_a2[size];
 			imm = get_imm(&arg1[3]);
 			if (imm)
-				internal(file_line, "cgen_mov: imm is not zero");
-			cgen_xform(mc, arg2[0], arg1[1], arg1[2], false);
+				goto invl;
+			if (ctx)
+				cgen_xform(mc, arg2[0], arg1[1], arg1[2], false);
 			return true;
 		}
 	}
 	if (reg_is_fp(arg1[0]) && size == OP_SIZE_16) {
-		if (unlikely(arg2[0] == ARG_ADDRESS_1)) {
+		if (unlikely(arg2[0] == ARG_ADDRESS_1) && arg2[1] <= R_PCN) {
 			imm = get_imm(&arg2[2]);
 			if (imm >= -0x8000 && imm < 0x8000 && !(imm & 15) && arg2[1] != R_PCN) {
 				mc = POWER_LXV;
 				mc |= (arg1[0] & 32) >> 2;
-				cgen_dform(mc, arg1[0] & 31, arg2[1], imm);
+				if (ctx)
+					cgen_dform(mc, arg1[0] & 31, arg2[1], imm);
 				return true;
 			}
 			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
 				mc64 = POWER_PLXV;
 				mc64 |= (arg1[0] & 32) >> 5 << 26;
-				cgen_prefix(mc64, arg1[0] & 31, arg2[1], imm);
+				if (ctx)
+					cgen_prefix(mc64, arg1[0] & 31, arg2[1], imm);
 				return true;
 			}
 			goto invl;
 		}
-		if (unlikely(arg2[0] == ARG_ADDRESS_2)) {
+		if (unlikely(arg2[0] == ARG_ADDRESS_2) && arg2[1] < 32 && arg2[2] < 32) {
 			imm = get_imm(&arg2[3]);
 			if (imm)
-				internal(file_line, "cgen_mov: imm is not zero");
+				goto invl;
 			mc = POWER_LXVX;
-			cgen_xform(mc, arg1[0] & 31, arg2[1], arg2[2], !!(arg1[0] & 32));
+			if (ctx)
+				cgen_xform(mc, arg1[0] & 31, arg2[1], arg2[2], !!(arg1[0] & 32));
 			return true;
 		}
 	}
 	if (reg_is_fp(arg2[0]) && size == OP_SIZE_16) {
-		if (unlikely(arg1[0] == ARG_ADDRESS_1)) {
+		if (unlikely(arg1[0] == ARG_ADDRESS_1) && arg1[1] <= R_PCN) {
 			imm = get_imm(&arg1[2]);
 			if (imm >= -0x8000 && imm < 0x8000 && !(imm & 15) && arg1[1] != R_PCN) {
 				mc = POWER_STXV;
 				mc |= (arg2[0] & 32) >> 2;
-				cgen_dform(mc, arg2[0] & 31, arg1[1], imm);
+				if (ctx)
+					cgen_dform(mc, arg2[0] & 31, arg1[1], imm);
 				return true;
 			}
 			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
 				mc64 = POWER_PSTXV;
 				mc64 |= (arg2[0] & 32) >> 5 << 26;
-				cgen_prefix(mc64, arg2[0] & 31, arg1[1], imm);
+				if (ctx)
+					cgen_prefix(mc64, arg2[0] & 31, arg1[1], imm);
 				return true;
 			}
 			goto invl;
 		}
-		if (unlikely(arg1[0] == ARG_ADDRESS_2)) {
+		if (unlikely(arg1[0] == ARG_ADDRESS_2) && arg1[1] < 32 && arg1[2] < 32) {
 			imm = get_imm(&arg1[3]);
 			if (imm)
-				internal(file_line, "cgen_mov: imm is not zero");
+				goto invl;
 			mc = POWER_STXVX;
-			cgen_xform(mc, arg2[0] & 31, arg1[1], arg1[2], !!(arg2[0] & 32));
+			if (ctx)
+				cgen_xform(mc, arg2[0] & 31, arg1[1], arg1[2], !!(arg2[0] & 32));
 			return true;
 		}
 	}
 	if (reg_is_vs(arg1[0]) && size == OP_SIZE_8) {
-		if (unlikely(arg2[0] == ARG_ADDRESS_1)) {
+		if (unlikely(arg2[0] == ARG_ADDRESS_1) && arg2[1] <= R_PCN) {
 			imm = get_imm(&arg2[2]);
 			if (imm >= -0x8000 && imm < 0x8000 && !(imm & 3) && arg2[1] != R_PCN) {
 				mc = POWER_LXSD;
-				cgen_dform(mc, arg1[0] & 31, arg2[1], imm);
+				if (ctx)
+					cgen_dform(mc, arg1[0] & 31, arg2[1], imm);
 				return true;
 			}
 			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
 				mc64 = POWER_PLXSD;
-				cgen_prefix(mc64, arg1[0] & 31, arg2[1], imm);
+				if (ctx)
+					cgen_prefix(mc64, arg1[0] & 31, arg2[1], imm);
 				return true;
 			}
 			goto invl;
 		}
-		if (unlikely(arg2[0] == ARG_ADDRESS_2)) {
+		if (unlikely(arg2[0] == ARG_ADDRESS_2) && arg2[1] < 32 && arg2[2] < 32) {
 			imm = get_imm(&arg2[3]);
 			if (imm)
-				internal(file_line, "cgen_mov: imm is not zero");
+				goto invl;
 			mc = POWER_LXSDX;
-			cgen_xform(mc, arg1[0] & 31, arg2[1], arg2[2], false);
+			if (ctx)
+				cgen_xform(mc, arg1[0] & 31, arg2[1], arg2[2], false);
 			return true;
 		}
 	}
 	if (reg_is_vs(arg2[0]) && size == OP_SIZE_8) {
-		if (unlikely(arg1[0] == ARG_ADDRESS_1)) {
+		if (unlikely(arg1[0] == ARG_ADDRESS_1) && arg1[1] <= R_PCN) {
 			imm = get_imm(&arg1[2]);
 			if (imm >= -0x8000 && imm < 0x8000 && !(imm & 3) && arg1[1] != R_PCN) {
 				mc = POWER_STXSD;
-				cgen_dform(mc, arg2[0] & 31, arg1[1], imm);
+				if (ctx)
+					cgen_dform(mc, arg2[0] & 31, arg1[1], imm);
 				return true;
 			}
 			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
 				mc64 = POWER_PSTXSD;
-				cgen_prefix(mc64, arg2[0] & 31, arg1[1], imm);
+				if (ctx)
+					cgen_prefix(mc64, arg2[0] & 31, arg1[1], imm);
 				return true;
 			}
 			goto invl;
 		}
-		if (unlikely(arg1[0] == ARG_ADDRESS_2)) {
+		if (unlikely(arg1[0] == ARG_ADDRESS_2) && arg1[1] < 32 && arg2[1] < 32) {
 			imm = get_imm(&arg1[3]);
 			if (imm)
-				internal(file_line, "cgen_mov: imm is not zero");
+				goto invl;
 			mc = POWER_STXSDX;
-			cgen_xform(mc, arg2[0] & 31, arg1[1], arg1[2], false);
+			if (ctx)
+				cgen_xform(mc, arg2[0] & 31, arg1[1], arg1[2], false);
 			return true;
 		}
 	}
 	if (reg_is_fp(arg1[0]) && arg2[0] < 32 && size == OP_SIZE_8) {
 		mc = POWER_MTVSRD;
 		mc |= (arg1[0] & 32) >> 5;
-		cgen_xform(mc, arg1[0] & 31, arg2[0], 0, false);
+		if (ctx)
+			cgen_xform(mc, arg1[0] & 31, arg2[0], 0, false);
 		return true;
 	}
-	if (reg_is_fp(arg1[0]) && !reg_is_vs(arg1[0])) {
-		if (unlikely(arg2[0] == ARG_ADDRESS_1)) {
+	if (reg_is_fp(arg1[0]) && !reg_is_vs(arg1[0]) && (size == OP_SIZE_4 || size == OP_SIZE_8)) {
+		if (unlikely(arg2[0] == ARG_ADDRESS_1) && arg2[1] <= R_PCN) {
 			imm = get_imm(&arg2[2]);
 			if (imm >= -0x8000 && imm < 0x8000 && arg2[1] != R_PCN) {
 				mc = size == OP_SIZE_4 ? POWER_LFS : POWER_LFD;
-				cgen_dform(mc, arg1[0] & 31, arg2[1], imm);
+				if (ctx)
+					cgen_dform(mc, arg1[0] & 31, arg2[1], imm);
 				return true;
 			}
 			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
 				mc64 = size == OP_SIZE_4 ? POWER_PLFS : POWER_PLFD;
-				cgen_prefix(mc64, arg1[0] & 31, arg2[1], imm);
+				if (ctx)
+					cgen_prefix(mc64, arg1[0] & 31, arg2[1], imm);
 				return true;
 			}
 			goto invl;
 		}
-		if (unlikely(arg2[0] == ARG_ADDRESS_2)) {
+		if (unlikely(arg2[0] == ARG_ADDRESS_2) && arg2[1] < 32 && arg2[2] < 32) {
 			imm = get_imm(&arg2[3]);
 			if (imm)
-				internal(file_line, "cgen_mov: imm is not zero");
+				goto invl;
 			mc = size == OP_SIZE_4 ? POWER_LFSX : POWER_LFDX;
-			cgen_xform(mc, arg1[0] & 31, arg2[1], arg2[2], false);
+			if (ctx)
+				cgen_xform(mc, arg1[0] & 31, arg2[1], arg2[2], false);
 			return true;
 		}
 	}
-	if (reg_is_fp(arg2[0]) && !reg_is_vs(arg2[0])) {
-		if (unlikely(arg1[0] == ARG_ADDRESS_1)) {
+	if (reg_is_fp(arg2[0]) && !reg_is_vs(arg2[0]) && (size == OP_SIZE_4 || size == OP_SIZE_8)) {
+		if (unlikely(arg1[0] == ARG_ADDRESS_1) && arg1[1] <= R_PCN) {
 			imm = get_imm(&arg1[2]);
 			if (imm >= -0x8000 && imm < 0x8000 && arg1[1] != R_PCN) {
 				mc = size == OP_SIZE_4 ? POWER_STFS : POWER_STFD;
-				cgen_dform(mc, arg2[0] & 31, arg1[1], imm);
+				if (ctx)
+					cgen_dform(mc, arg2[0] & 31, arg1[1], imm);
 				return true;
 			}
 			if (cpu_test_feature(CPU_FEATURE_v31) && imm >= -0x200000000LL && imm < 0x200000000LL) {
 				mc64 = size == OP_SIZE_4 ? POWER_PSTFS : POWER_PSTFD;
-				cgen_prefix(mc64, arg2[0] & 31, arg1[1], imm);
+				if (ctx)
+					cgen_prefix(mc64, arg2[0] & 31, arg1[1], imm);
 				return true;
 			}
 			goto invl;
 		}
-		if (unlikely(arg1[0] == ARG_ADDRESS_2)) {
+		if (unlikely(arg1[0] == ARG_ADDRESS_2) && arg1[1] < 32 && arg1[2] < 32) {
 			imm = get_imm(&arg1[3]);
 			if (imm)
-				internal(file_line, "cgen_mov: imm is not zero");
+				goto invl;
 			mc = size == OP_SIZE_4 ? POWER_STFSX : POWER_STFDX;
-			cgen_xform(mc, arg2[0] & 31, arg1[1], arg1[2], false);
+			if (ctx)
+				cgen_xform(mc, arg2[0] & 31, arg1[1], arg1[2], false);
 			return true;
 		}
 	}
-	if (reg_is_fp(arg1[0]) && !reg_is_vs(arg1[0]) && reg_is_fp(arg2[0]) && !reg_is_vs(arg2[0])) {
+	if (reg_is_fp(arg1[0]) && !reg_is_vs(arg1[0]) && reg_is_fp(arg2[0]) && !reg_is_vs(arg2[0]) && (size == OP_SIZE_4 || size == OP_SIZE_8)) {
 		mc = POWER_FMR;
-		cgen_xform(mc, arg1[0] & 31, 0, arg2[0] & 31, false);
+		if (ctx)
+			cgen_xform(mc, arg1[0] & 31, 0, arg2[0] & 31, false);
 		return true;
 	}
 	if (reg_is_vs(arg1[0]) && reg_is_vs(arg2[0])) {
 		mc = POWER_XXLOR;
-		cgen_xform(mc, arg1[0] & 31, arg2[0] & 31, arg2[0] & 31, false);
+		if (ctx)
+			cgen_xform(mc, arg1[0] & 31, arg2[0] & 31, arg2[0] & 31, false);
 		return true;
 	}
 
 invl:
-	internal(file_line, "cgen_mov: invalid arguments %u, %02x, %02x", size, arg1[0], arg2[0]);
+	if (ctx)
+		internal(file_line, "cgen_moves: invalid arguments %u, %02x, %02x", size, arg1[0], arg2[0]);
 	return false;
+}
+
+static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size)
+{
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+
+	return cgen_moves(ctx, size, false, arg1, arg2);
+}
+
+static bool attr_w cgen_movsx(struct codegen_context *ctx, unsigned size)
+{
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	ctx->code_position = arg2 + arg_size(*arg2);
+
+	return cgen_moves(ctx, size, true, arg1, arg2);
 }
 
 static bool attr_w cgen_cmp(struct codegen_context *ctx, unsigned size, unsigned writes_flags)
@@ -1289,60 +1346,14 @@ static bool attr_w resolve_relocation(struct codegen_context *ctx, struct reloca
 	return false;
 }
 
-static bool validate_gr(uint8_t reg)
-{
-	return reg >= 1 && reg < 0x20;
-}
-
-static bool validate_address(const uint8_t *arg)
-{
-	if (arg[0] == ARG_ADDRESS_1 && validate_gr(arg[1])) {
-		int64_t imm = get_imm(&arg[2]);
-		return likely(imm >= -0x8000) && likely(imm < 0x8000);
-	}
-	if (arg[0] == ARG_ADDRESS_2 && validate_gr(arg[1]) && validate_gr(arg[2])) {
-		int64_t imm = get_imm(&arg[3]);
-		return !imm;
-	}
-	return false;
-}
-
-static bool validate_mov(const struct insn_details *d)
-{
-	const uint8_t *arg1 = d->start + 4;
-	const uint8_t *arg2 = arg1 + arg_size(*arg1);
-	unsigned size = insn_op_size(d->insn);
-	bool sx = insn_opcode(d->insn) == INSN_MOVSX;
-	if (validate_gr(arg1[0]) && validate_gr(arg2[0])) {
-		if (size == OP_SIZE_NATIVE)
-			return true;
-		if (sx && (size == OP_SIZE_1 || size == OP_SIZE_4))
-			return cpu_test_feature(CPU_FEATURE_ppc);
-		return true;
-	}
-	if (validate_gr(arg1[0]) && arg2[0] == ARG_IMM && size == OP_SIZE_NATIVE) {
-		int64_t imm = get_imm(&arg2[1]);
-		if (likely(imm >= -0x8000) && likely(imm < 0x8000))
-			return true;
-		if (unlikely(!(imm & 0xffff)) && unlikely(imm == (int32_t)imm))
-			return true;
-		return false;
-	}
-	if (validate_gr(arg1[0]) && validate_address(arg2)) {
-		return true;
-	}
-	if (validate_address(arg1) && validate_gr(arg2[0])) {
-		return true;
-	}
-	return false;
-}
-
 static bool validate_insn(const struct insn_details *d)
 {
 	switch (insn_opcode(d->insn)) {
 		case INSN_MOV:
 		case INSN_MOVSX: {
-			return validate_mov(d);
+			const uint8_t *arg1 = d->start + 4;
+			const uint8_t *arg2 = arg1 + arg_size(*arg1);
+			return cgen_moves(NULL, insn_op_size(d->insn), insn_opcode(d->insn) == INSN_MOVSX, arg1, arg2);
 		}
 	}
 	return false;
@@ -1371,10 +1382,10 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			cgen_four(POWER_BCTRL);
 			return true;
 		case INSN_MOV:
-			g(cgen_mov(ctx, insn_op_size(insn), false));
+			g(cgen_mov(ctx, insn_op_size(insn)));
 			return true;
 		case INSN_MOVSX:
-			g(cgen_mov(ctx, insn_op_size(insn), true));
+			g(cgen_movsx(ctx, insn_op_size(insn)));
 			return true;
 		case INSN_CMP:
 			g(cgen_cmp(ctx, insn_op_size(insn), insn_writes_flags(insn)));
