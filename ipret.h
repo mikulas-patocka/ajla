@@ -41,6 +41,9 @@ extern uint32_t hacked_upcall_map;
 
 struct cg_upcall_vector_s {
 	atomic_type tick_stamp_t ts;
+#ifdef CODEGEN_JOIN_ESCAPES
+	void *escape;
+#endif
 #ifdef HAVE_CODEGEN
 	void (*mem_copy)(void *dest, const void *src, size_t size);
 	void (*mem_clear)(void *ptr, size_t size);

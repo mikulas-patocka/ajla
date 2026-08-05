@@ -760,6 +760,22 @@ static bool attr_w gen_timestamp_test(struct codegen_context *ctx, uint32_t esca
 	return true;
 }
 
+#ifdef CODEGEN_JOIN_ESCAPES
+static bool attr_w gen_jump_to_escape(struct codegen_context *ctx)
+{
+	g(gen_get_upcall_pointer(ctx, offsetof(struct cg_upcall_vector_s, escape), OP_SIZE_ADDRESS, R_SCRATCH_NA_1));
+
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+	gen_one(R_CTR);
+	gen_one(R_SCRATCH_NA_1);
+
+	gen_insn(INSN_JMP_INDIRECT, 0, 2, 0);
+	gen_one(R_CTR);
+
+	return true;
+}
+#endif
+
 static bool attr_w gen_callback(struct codegen_context *ctx, void (*callback)(void *ptr), void *ptr)
 {
 	gen_insn(INSN_MOV, OP_SIZE_NATIVE, 0, 0);

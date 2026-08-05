@@ -1140,6 +1140,9 @@ static void cg_upcall_debug(unsigned long x1, unsigned long x2, unsigned long x3
 
 struct cg_upcall_vector_s cg_upcall_vector = {
 	0,
+#ifdef CODEGEN_JOIN_ESCAPES
+	NULL,
+#endif
 #ifdef HAVE_CODEGEN
 	cg_upcall_mem_copy,
 	cg_upcall_mem_clear,

@@ -2462,7 +2462,11 @@ static bool attr_w gen_epilogues(struct codegen_context *ctx)
 	g(gen_spill_x87(ctx));
 
 	gen_label(ctx->nospill_label);
+#ifndef CODEGEN_JOIN_ESCAPES
 	g(gen_escape(ctx));
+#else
+	g(gen_jump_to_escape(ctx));
+#endif
 	return true;
 }
 
@@ -2945,12 +2949,19 @@ bool codegen_callback_init(struct codegen_callback *cb, void (*callback)(void *p
 		if (ptr_to_num(ptr) == 1) {
 			if (unlikely(!gen_callback_trampoline(ctx)))
 				goto fail;
-		} else
-#endif
-		{
-			if (unlikely(!gen_entry(ctx)))
-				goto fail;
+			goto generated;
 		}
+#endif
+#ifdef CODEGEN_JOIN_ESCAPES
+		if (ptr_to_num(ptr) == 2) {
+			if (unlikely(!gen_escape(ctx)))
+				goto fail;
+			goto generated;
+		}
+#endif
+		if (unlikely(!gen_entry(ctx)))
+			goto fail;
+		goto generated;
 	} else {
 #ifdef HAVE_CODEGEN_CALLBACK
 		if (unlikely(!gen_callback(ctx, callback, ptr)))
@@ -2960,6 +2971,7 @@ bool codegen_callback_init(struct codegen_callback *cb, void (*callback)(void *p
 #endif
 	}
 
+generated:
 	flip_buffers(ctx);
 
 	array_init(uint8_t, &ctx->mcode, &ctx->mcode_size);
@@ -3026,6 +3038,9 @@ void codegen_callback_done(struct codegen_callback *cb)
 }
 
 static struct codegen_callback codegen_entry_callback;
+#ifdef CODEGEN_JOIN_ESCAPES
+static struct codegen_callback codegen_escape_callback;
+#endif
 #ifdef CALLBACK_NEEDS_TRAMPOLINE
 static struct codegen_callback codegen_trampoline_callback;
 #endif
@@ -3083,6 +3098,10 @@ void name(codegen_init)(void)
 
 	codegen_callback_init(&codegen_entry_callback, NULL, NULL, NULL);
 	codegen_entry = cast_ptr(codegen_type, codegen_entry_callback.fn);
+#ifdef CODEGEN_JOIN_ESCAPES
+	codegen_callback_init(&codegen_escape_callback, NULL, num_to_ptr(2), NULL);
+	cg_upcall_vector.escape = codegen_escape_callback.code;
+#endif
 
 #ifdef CALLBACK_NEEDS_TRAMPOLINE
 	codegen_callback_init(&codegen_trampoline_callback, NULL, num_to_ptr(1), NULL);
@@ -3102,6 +3121,9 @@ void name(codegen_init)(void)
 void name(codegen_done)(void)
 {
 	codegen_callback_done(&codegen_entry_callback);
+#ifdef CODEGEN_JOIN_ESCAPES
+	codegen_callback_done(&codegen_escape_callback);
+#endif
 #ifdef CALLBACK_NEEDS_TRAMPOLINE
 	codegen_callback_done(&codegen_trampoline_callback);
 #endif

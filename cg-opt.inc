@@ -1186,10 +1186,20 @@ skip_reads:
 			reg_map_set(&d->rd, R_FPSCR);
 #endif
 			ptr += arg_read(ctx, d, ptr, size);
-			if (insn_aux(insn))
-				d->rd = reg_map_union(d->rd, ctx->opt_status->jmp_quickret_regs);
-			else
-				d->rd = reg_map_union(d->rd, ctx->opt_status->regs_common);
+			switch (insn_aux(insn)) {
+				case 0:
+					d->rd = reg_map_union(d->rd, ctx->opt_status->regs_common);
+					break;
+				case 1:
+					d->rd = reg_map_union(d->rd, ctx->opt_status->jmp_quickret_regs);
+					break;
+				case 2:
+					d->rd = reg_map_union(d->rd, ctx->opt_status->regs_common);
+					reg_map_set(&d->rd, R_RET_IP);
+					break;
+				default:
+					internal(file_line, "identify_insn: invalid jmp_indirect aux: %u", (unsigned)insn_aux(insn));
+			}
 			d->barrier = true;
 			break;
 #if defined(ARCH_X86)
