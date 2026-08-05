@@ -997,16 +997,11 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned size
 {
 	unsigned target = gen_frame_target(ctx, slot, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
 #if defined(ARCH_ARM64)
-	gen_insn(INSN_SET_COND, OP_SIZE_NATIVE, cond, 0);
-	gen_one(target);
-	goto do_store;
+	goto gen_insn_set_cond;
 #endif
 #if defined(ARCH_POWER)
-	if (cpu_test_feature(CPU_FEATURE_v31)) {
-		gen_insn(INSN_SET_COND, OP_SIZE_NATIVE, cond, 0);
-		gen_one(target);
-		goto do_store;
-	}
+	if (cpu_test_feature(CPU_FEATURE_v31))
+		goto gen_insn_set_cond;
 #endif
 #if defined(ARCH_S390)
 	if (Z) {
@@ -1047,6 +1042,12 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned size
 do_store:
 	g(gen_frame_store(ctx, log_2(sizeof(ajla_flat_option_t)), slot, 0, target));
 	return true;
+
+	goto gen_insn_set_cond;
+gen_insn_set_cond:
+	gen_insn(INSN_SET_COND, OP_SIZE_NATIVE, cond, 0);
+	gen_one(target);
+	goto do_store;
 }
 #endif
 
