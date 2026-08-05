@@ -883,6 +883,7 @@ typedef uint16_t ushort_efficient_t;
 #endif
 #if defined(ARCH_LOONGARCH64)
 #define HAVE_CODEGEN
+#define CODEGEN_JOIN_ESCAPES
 #endif
 #if defined(ARCH_M68K)
 #define HAVE_CODEGEN
