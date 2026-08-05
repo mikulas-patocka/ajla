@@ -867,6 +867,7 @@ typedef uint16_t ushort_efficient_t;
 #if defined(HAVE_MMAP) || defined(OS_DOS) || defined(OS_OS2) || defined(OS_WIN32) || defined(__WATCOMC__)
 #if defined(ARCH_ALPHA)
 #define HAVE_CODEGEN
+#define CODEGEN_JOIN_ESCAPES
 #if defined(__linux__)
 #define HAVE_CODEGEN_TRAPS
 #endif
