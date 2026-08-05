@@ -85,10 +85,13 @@
 #define POWER_ADDE		0x7c000114U
 #define POWER_STDX		0x7c00012aU
 #define POWER_STWX		0x7c00012eU
+#define POWER_BRW		0x7c000136U
 #define POWER_MTVSRD		0x7c000166U
+#define POWER_BRD		0x7c000176U
 #define POWER_SUBFZE		0x7c000190U
 #define POWER_ADDZE		0x7c000194U
 #define POWER_STBX		0x7c0001aeU
+#define POWER_BRH		0x7c0001b6U
 #define POWER_MULLD		0x7c0001d2U
 #define POWER_ADDME		0x7c0001d4U
 #define POWER_MULLW		0x7c0001d6U
@@ -960,6 +963,16 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 				goto invl;
 			cgen_xform(size == OP_SIZE_4 ? POWER_POPCNTW : POWER_POPCNTD, arg2[0], arg1[0], 0, 0);
 			return true;
+		case ALU1_BSWAP16:
+			if (unlikely(writes_flags))
+				goto invl;
+			cgen_xform(POWER_BRH, arg2[0], arg1[0], 0, false);
+			return true;
+		case ALU1_BSWAP:
+			if (unlikely(writes_flags))
+				goto invl;
+			cgen_xform(size == OP_SIZE_4 ? POWER_BRW : POWER_BRD, arg2[0], arg1[0], 0, false);
+			return true;
 		default:
 			goto invl;
 	}
@@ -1404,8 +1417,10 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_alu(ctx, insn_op_size(insn), insn_aux(insn), insn_writes_flags(insn)));
 			return true;
 		case INSN_ALU1:
-			if (unlikely(insn_op_size(insn) != OP_SIZE_NATIVE))
-				goto invalid_insn;
+			if (unlikely(insn_op_size(insn) != OP_SIZE_NATIVE)) {
+				if (!(insn_op_size(insn) == OP_SIZE_4 && (insn_aux(insn) == ALU1_BSWAP16 || insn_aux(insn) == ALU1_BSWAP)))
+					goto invalid_insn;
+			}
 			g(cgen_alu1(ctx, insn_op_size(insn), insn_aux(insn), insn_writes_flags(insn)));
 			return true;
 		case INSN_ROT:

@@ -2233,7 +2233,7 @@ do_bool_not: {
 	 *********/
 do_bswap: {
 		bool attr_unused sx = false;
-#if defined(ARCH_ARM) || defined(ARCH_IA64) || defined(ARCH_LOONGARCH64) || defined(ARCH_M68K) || defined(ARCH_MIPS) || defined(ARCH_RISCV64) || defined(ARCH_S390) || defined(ARCH_SH4) || defined(ARCH_X86)
+#if defined(ARCH_ARM) || defined(ARCH_IA64) || defined(ARCH_LOONGARCH64) || defined(ARCH_M68K) || defined(ARCH_MIPS) || defined(ARCH_POWER) || defined(ARCH_RISCV64) || defined(ARCH_S390) || defined(ARCH_SH4) || defined(ARCH_X86)
 #if defined(ARCH_ARM32)
 		if (unlikely(!cpu_test_feature(CPU_FEATURE_armv6)))
 			goto do_generic_bswap;
@@ -2242,6 +2242,10 @@ do_bswap: {
 		if (unlikely(!MIPS_HAS_ROT))
 			goto do_generic_bswap;
 		sx = op_size == OP_SIZE_4;
+#endif
+#if defined(ARCH_POWER)
+		if (!cpu_test_feature(CPU_FEATURE_v31))
+			goto do_generic_bswap;
 #endif
 #if defined(ARCH_RISCV64)
 		if (unlikely(!cpu_test_feature(CPU_FEATURE_zbb)))
