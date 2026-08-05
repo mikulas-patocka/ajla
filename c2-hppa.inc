@@ -1529,7 +1529,7 @@ static bool attr_w cgen_jmp_fp_test(struct codegen_context *ctx, unsigned length
 	return true;
 }
 
-static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, unsigned reg, bool delay_slot)
+static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, unsigned reg, bool delay_slot, unsigned aux)
 {
 	uint32_t mc;
 	if (PA_20) {
@@ -1561,7 +1561,7 @@ static bool attr_w cgen_jmp_indirect(struct codegen_context *ctx, unsigned reg, 
 		}
 	}
 	if (!delay_slot) {
-		if (unlikely(!ctx->fn))
+		if (unlikely(!ctx->fn) || aux == 2)
 			cgen_four(PARISC_NOP);
 	}
 	return true;
@@ -1587,7 +1587,7 @@ static bool attr_w cgen_call_millicode(struct codegen_context attr_unused *ctx)
 	g(cgen_3reg(ctx, mc, low_sign_ext_5(2), reg, R_19));
 	g(cgen_3reg(ctx, mc, low_sign_ext_5(-2), reg, reg));
 
-	g(cgen_jmp_indirect(ctx, reg, PA_SPACES));
+	g(cgen_jmp_indirect(ctx, reg, PA_SPACES, 0));
 	if (PA_SPACES) {
 		mc = PARISC_STW_LONG;
 		mc |= low_sign_ext_14(-0x18);
@@ -1841,7 +1841,7 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_jmp_fp_test(ctx, insn_jump_size(insn)));
 			return true;
 		case INSN_JMP_INDIRECT:
-			g(cgen_jmp_indirect(ctx, cget_one(ctx), false));
+			g(cgen_jmp_indirect(ctx, cget_one(ctx), false, insn_aux(insn)));
 			return true;
 		case INSN_CALL_MILLICODE:
 			g(cgen_call_millicode(ctx));
