@@ -3041,14 +3041,24 @@ static bool attr_w gen_real_constant(struct codegen_context *ctx, const struct t
 	}
 #endif
 	if (slot_is_register(ctx, slot_r)) {
+		unsigned addr_reg;
+		int64_t addr_offset;
+#if defined(ARCH_SH4)
+		if (const_idx >= 0) {
+			SET_FP_PRECISION(real_type);
+			gen_insn(INSN_FP_LDC, op_size, const_idx, 0);
+			gen_one(ctx->registers[slot_r]);
+			return true;
+		}
+#endif
+#if defined(ARCH_X86)
 		if (const_idx == 6) {
 			g(gen_3address_alu(ctx, OP_SIZE_16, ALU_XOR, ctx->registers[slot_r], ctx->registers[slot_r], ctx->registers[slot_r], 0));
-		} else {
-			unsigned addr_reg;
-			int64_t addr_offset;
-			g(gen_pool_address(ctx, op_size, c, &addr_reg, &addr_offset));
-			g(gen_load_raw(ctx, op_size, native, addr_reg, 0, addr_offset, false, ctx->registers[slot_r]));
+			return true;
 		}
+#endif
+		g(gen_pool_address(ctx, op_size, c, &addr_reg, &addr_offset));
+		g(gen_load_raw(ctx, op_size, native, addr_reg, 0, addr_offset, false, ctx->registers[slot_r]));
 		return true;
 	}
 

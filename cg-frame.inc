@@ -158,6 +158,21 @@ crash:
 
 static int get_known_constant(struct codegen_context attr_unused *ctx, unsigned attr_unused size, frame_t attr_unused c)
 {
+#if defined(ARCH_SH4)
+static const uint32_t x87_builtin_consts_real32[] = {
+	0x00000000UL,
+	0x3f800000UL,
+};
+	uint8_t *ptr = cast_ptr(uint8_t *, ctx->fn) + c;
+	unsigned i;
+	if (size == OP_SIZE_4) {
+		for (i = 0; i < n_array_elements(x87_builtin_consts_real32); i++) {
+			if (!memcmp(ptr, &x87_builtin_consts_real32[i], 4)) {
+				return i;
+			}
+		}
+	}
+#endif
 #if defined(ARCH_X86)
 static const uint32_t x87_builtin_consts_real32[] = {
 	0x3f800000UL,

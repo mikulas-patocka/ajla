@@ -994,6 +994,10 @@ skip_reads:
 			reg_map_set(&d->wr, R_MEMORY);
 			reg_map_set(&d->wr, R_MEMORY_FRAME);
 			break;
+		case INSN_FP_LDC:
+			set_fp_precision;
+			ptr += arg_write(ctx, d, ptr, size);
+			break;
 		case INSN_FP_CMP:
 			set_fp_precision;
 			ptr += arg_read(ctx, d, ptr, size);

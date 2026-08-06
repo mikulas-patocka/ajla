@@ -1013,6 +1013,34 @@ invalid:
 	internal(file_line, "cgen_mul_l: invalid operands: %02x %02x %02x %02x", arg1[0], arg2[0], arg3[0], arg4[0]);
 }
 
+static bool attr_w cgen_fp_ldc(struct codegen_context *ctx, unsigned aux)
+{
+	uint16_t mc;
+
+	uint8_t *arg1 = ctx->code_position;
+	ctx->code_position = arg1 + arg_size(*arg1);
+
+	if (unlikely(!reg_is_fp(arg1[0])))
+		goto invalid;
+
+	switch (aux) {
+		case 0:
+			mc = SH4_FLDI0;
+			break;
+		case 1:
+			mc = SH4_FLDI1;
+			break;
+		default:
+			goto invalid;
+	}
+	mc |= (arg1[0] & 0xf) << 8;
+	cgen_two(mc);
+	return true;
+
+invalid:
+	internal(file_line, "cgen_fp_ldc: invalid operands: %02x %02x", aux, arg1[0]);
+}
+
 static bool attr_w cgen_fp_cmp_dest_reg(struct codegen_context *ctx, unsigned cond)
 {
 	uint16_t mc;
@@ -1485,6 +1513,11 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			if (unlikely(insn_op_size(insn) != OP_SIZE_4))
 				goto invalid_insn;
 			g(cgen_mul_l(ctx, insn_aux(insn)));
+			return true;
+		case INSN_FP_LDC:
+			if (unlikely(insn_op_size(insn) != OP_SIZE_4))
+				goto invalid_insn;
+			g(cgen_fp_ldc(ctx, insn_aux(insn)));
 			return true;
 		case INSN_FP_CMP_DEST_REG:
 			g(cgen_fp_cmp_dest_reg(ctx, insn_aux(insn)));
