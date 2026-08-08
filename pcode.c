@@ -259,7 +259,7 @@ struct label_ref {
 struct ld_ref {
 	struct tree_entry entry;
 	size_t idx;
-	pointer_t *ptr;
+	struct function_pointer *ptr;
 };
 
 struct real_ref {
@@ -301,11 +301,11 @@ struct build_function_context {
 	struct label_ref *label_ref;
 	size_t label_ref_len;
 
-	pointer_t **ld;
+	struct function_pointer **ld;
 	size_t ld_len;
 	struct tree ld_tree;
 
-#define real_start(ctx)	(round_up(offsetof(struct data, u_.function.local_directory[(ctx)->ld_len]), CODE_ALIGNMENT))
+#define real_start(ctx)	(round_up(offsetof(struct data, u_.function.function_pointers[(ctx)->ld_len]), CODE_ALIGNMENT))
 	uint8_t *real_data;
 	size_t real_len;
 	struct tree real_tree;
@@ -680,16 +680,16 @@ static bool pcode_generate_blob(uint8_t *str, size_t str_len, pcode_t **res_blob
 	return true;
 }
 
-static pointer_t *pcode_module_load_function(struct build_function_context *ctx)
+static struct function_pointer *pcode_module_load_function(struct build_function_context *ctx)
 {
-	pointer_t *ptr;
+	struct function_pointer *ptr;
 	struct module_designator *md = NULL;
 	struct function_designator *fd = NULL;
 
 	if (unlikely(!pcode_load_module_and_function_designator(&ctx->pcode, &md, &fd, ctx->err)))
 		goto exception;
 
-	ptr = module_load_function(md, fd, true, false, ctx->err);
+	ptr = module_load_function(md, fd, ctx->err);
 	if (unlikely(!ptr))
 		goto exception;
 
@@ -719,7 +719,7 @@ static int ld_tree_compare(const struct tree_entry *e, uintptr_t ptr)
 	return 0;
 }
 
-static size_t pcode_module_load_function_idx(struct build_function_context *ctx, pointer_t *ptr, bool must_exist)
+static size_t pcode_module_load_function_idx(struct build_function_context *ctx, struct function_pointer *ptr, bool must_exist)
 {
 	struct tree_entry *e;
 	struct ld_ref *ld_ref;
@@ -742,7 +742,7 @@ static size_t pcode_module_load_function_idx(struct build_function_context *ctx,
 
 	tree_insert_after_find(&ld_ref->entry, &ins);
 
-	if (unlikely(!array_add_mayfail(pointer_t *, &ctx->ld, &ctx->ld_len, ptr, NULL, ctx->err)))
+	if (unlikely(!array_add_mayfail(struct function_pointer *, &ctx->ld, &ctx->ld_len, ptr, NULL, ctx->err)))
 		return no_function_idx;
 	return ctx->ld_len - 1;
 }
@@ -1175,7 +1175,7 @@ static bool pcode_call(struct build_function_context *ctx, pcode_t instr)
 	if (unlikely(q != (pcode_t)n_arguments))
 		goto exception_overflow;
 	if (instr == P_Load_Fn || instr == P_Call) {
-		pointer_t *ptr;
+		struct function_pointer *ptr;
 		if (instr == P_Load_Fn)
 			u_pcode_get();	/* call mode */
 		ptr = pcode_module_load_function(ctx);
@@ -1355,7 +1355,7 @@ static size_t pcode_load_explicit(struct build_function_context *ctx, const char
 {
 	struct module_designator *md = NULL;
 	struct function_designator *fd = NULL;
-	pointer_t *ptr;
+	struct function_pointer *ptr;
 	size_t fn_idx;
 
 	md = module_designator_alloc(0, cast_ptr(const uint8_t *, module), strlen(module), false, false, ctx->err);
@@ -1364,7 +1364,7 @@ static size_t pcode_load_explicit(struct build_function_context *ctx, const char
 	fd = function_designator_alloc_single(fn, ctx->err);
 	if (unlikely(!fd))
 		goto exception;
-	ptr = module_load_function(md, fd, true, false, ctx->err);
+	ptr = module_load_function(md, fd, ctx->err);
 	if (unlikely(!ptr))
 		goto exception;
 	module_designator_free(md), md = NULL;
@@ -2582,7 +2582,7 @@ static bool pcode_preload_ld(struct build_function_context *ctx)
 {
 	pcode_position_save_t saved;
 
-	if (unlikely(!array_init_mayfail(pointer_t *, &ctx->ld, &ctx->ld_len, ctx->err)))
+	if (unlikely(!array_init_mayfail(struct function_pointer *, &ctx->ld, &ctx->ld_len, ctx->err)))
 		goto exception;
 
 	pcode_position_save(ctx, &saved);
@@ -2616,7 +2616,7 @@ static bool pcode_preload_ld(struct build_function_context *ctx)
 #endif
 			case P_Load_Fn:
 			case P_Call: {
-				pointer_t *ptr;
+				struct function_pointer *ptr;
 				size_t fn_idx;
 				ctx->pcode += 3;
 				ptr = pcode_module_load_function(ctx);
@@ -2636,7 +2636,7 @@ static bool pcode_preload_ld(struct build_function_context *ctx)
 	}
 	pcode_position_restore(ctx, &saved);
 
-	array_finish(pointer_t *, &ctx->ld, &ctx->ld_len);
+	array_finish(struct function_pointer *, &ctx->ld, &ctx->ld_len);
 
 	return true;
 
@@ -3668,7 +3668,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 		ctx->local_types[p].elements = NULL;
 
 	for (p = 0; p < ctx->n_local_types; p++) {
-		pointer_t *ptr;
+		struct function_pointer *ptr;
 		struct data *rec_fn;
 		const struct record_definition *def;
 		pcode_t base_idx = -1;
@@ -3684,7 +3684,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 				if (unlikely(!ptr))
 					goto exception;
 				n_elements = u_pcode_get();
-				pointer_follow(ptr, false, rec_fn, PF_WAIT, fp, ip,
+				pointer_follow(&ptr->ptr, false, rec_fn, PF_WAIT, fp, ip,
 					*ret_ex = ex_;
 					ctx->ret_val = pointer_empty();
 					goto ret,
@@ -3997,8 +3997,8 @@ skip_codegen:
 		da(fn,function)->lp = sfd->lp;
 		da(fn,function)->lp_size = sfd->lp_size;
 	}
-	memcpy(da(fn,function)->local_directory, ctx->ld, ctx->ld_len * sizeof(pointer_t *));
-	da(fn,function)->local_directory_size = ctx->ld_len;
+	memcpy(da(fn,function)->function_pointers, ctx->ld, ctx->ld_len * sizeof(pointer_t *));
+	da(fn,function)->n_function_pointers = ctx->ld_len;
 	mem_free(ctx->ld);
 	if (!is_saved) {
 		memcpy(cast_ptr(char *, fn) + real_start(ctx), ctx->real_data, ctx->real_len);
@@ -4231,7 +4231,7 @@ ret_err:
 }
 
 
-static void *pcode_alloc_op_function(pointer_t *ptr, frame_s *fp, const code_t *ip, void *(*build_fn)(frame_s *fp, const code_t *ip, union internal_arg ia[]), unsigned n_arguments, union internal_arg ia[], pointer_t **result)
+static void *pcode_alloc_op_function(struct function_pointer *ptr, frame_s *fp, const code_t *ip, void *(*build_fn)(frame_s *fp, const code_t *ip, union internal_arg ia[]), unsigned n_arguments, union internal_arg ia[], struct function_pointer **result)
 {
 	struct data *function;
 	pointer_t fn_thunk;
@@ -4243,7 +4243,7 @@ static void *pcode_alloc_op_function(pointer_t *ptr, frame_s *fp, const code_t *
 #endif
 
 again:
-	pointer_follow(ptr, false, function, PF_WAIT, fp, ip,
+	pointer_follow(&ptr->ptr, false, function, PF_WAIT, fp, ip,
 		return ex_,
 		*result = ptr;
 		return POINTER_FOLLOW_THUNK_RETRY);
@@ -4256,12 +4256,14 @@ again:
 	fn_thunk = function_build_internal_thunk(build_fn, n_arguments, ia);
 
 	barrier_write_before_lock();
-	address_lock(ptr, lock_depth);
-	if (likely(pointer_is_empty(*pointer_volatile(ptr)))) {
-		*pointer_volatile(ptr) = fn_thunk;
-		address_unlock(ptr, lock_depth);
+	address_lock(&ptr->ptr, lock_depth);
+	if (likely(pointer_is_empty(*pointer_volatile(&ptr->ptr)))) {
+		*pointer_volatile(&ptr->ptr) = fn_thunk;
+		ptr->md = NULL;
+		ptr->fd = NULL;
+		address_unlock(&ptr->ptr, lock_depth);
 	} else {
-		address_unlock(ptr, lock_depth);
+		address_unlock(&ptr->ptr, lock_depth);
 		pointer_dereference(fn_thunk);
 	}
 
@@ -4333,15 +4335,15 @@ static void *pcode_build_op_function(frame_s *fp, const code_t *ip, union intern
 	return pcode_build_function(fp, ip, pcode, pc - pcode, NULL, NULL);
 }
 
-static pointer_t fixed_op_thunk[TYPE_FIXED_N][OPCODE_FIXED_OP_N];
-static pointer_t int_op_thunk[TYPE_INT_N][OPCODE_INT_OP_N];
-static pointer_t real_op_thunk[TYPE_REAL_N][OPCODE_REAL_OP_N];
-static pointer_t bool_op_thunk[OPCODE_BOOL_TYPE_MULT];
+static struct function_pointer fixed_op_thunk[TYPE_FIXED_N][OPCODE_FIXED_OP_N];
+static struct function_pointer int_op_thunk[TYPE_INT_N][OPCODE_INT_OP_N];
+static struct function_pointer real_op_thunk[TYPE_REAL_N][OPCODE_REAL_OP_N];
+static struct function_pointer bool_op_thunk[OPCODE_BOOL_TYPE_MULT];
 
-void * attr_fastcall pcode_find_op_function(const struct type *type, const struct type *rtype, code_t code, unsigned flags, frame_s *fp, const code_t *ip, pointer_t **result)
+void * attr_fastcall pcode_find_op_function(const struct type *type, const struct type *rtype, code_t code, unsigned flags, frame_s *fp, const code_t *ip, struct function_pointer **result)
 {
 	union internal_arg ia[4];
-	pointer_t *ptr;
+	struct function_pointer *ptr;
 
 	type_tag_t tag = likely(!(flags & PCODE_CONVERT_FROM_INT)) ? type->tag : rtype->tag;
 
@@ -4429,9 +4431,9 @@ static void *pcode_build_is_exception_function(frame_s *fp, const code_t *ip, un
 	return pcode_build_function(fp, ip, pcode, pc - pcode, NULL, NULL);
 }
 
-static pointer_t is_exception_thunk;
+static struct function_pointer is_exception_thunk;
 
-void * attr_fastcall pcode_find_is_exception(frame_s *fp, const code_t *ip, pointer_t **result)
+void * attr_fastcall pcode_find_is_exception(frame_s *fp, const code_t *ip, struct function_pointer **result)
 {
 	return pcode_alloc_op_function(&is_exception_thunk, fp, ip, pcode_build_is_exception_function, 0, NULL, result);
 }
@@ -4489,9 +4491,9 @@ static void *pcode_build_get_exception_function(frame_s *fp, const code_t *ip, u
 	return pcode_build_function(fp, ip, pcode, pc - pcode, NULL, NULL);
 }
 
-static pointer_t get_exception_thunk[3];
+static struct function_pointer get_exception_thunk[3];
 
-void * attr_fastcall pcode_find_get_exception(unsigned mode, frame_s *fp, const code_t *ip, pointer_t **result)
+void * attr_fastcall pcode_find_get_exception(unsigned mode, frame_s *fp, const code_t *ip, struct function_pointer **result)
 {
 	union internal_arg ia[1];
 	ia[0].i = mode;
@@ -4562,9 +4564,9 @@ static void *pcode_build_array_load_function(frame_s *fp, const code_t *ip, unio
 	return pcode_build_function(fp, ip, pcode, pc - pcode, NULL, NULL);
 }
 
-static pointer_t array_load_thunk;
+static struct function_pointer array_load_thunk;
 
-void * attr_fastcall pcode_find_array_load_function(frame_s *fp, const code_t *ip, pointer_t **result)
+void * attr_fastcall pcode_find_array_load_function(frame_s *fp, const code_t *ip, struct function_pointer **result)
 {
 	return pcode_alloc_op_function(&array_load_thunk, fp, ip, pcode_build_array_load_function, 0, NULL, result);
 }
@@ -4621,10 +4623,10 @@ static void *pcode_build_array_len_function(frame_s *fp, const code_t *ip, union
 	return pcode_build_function(fp, ip, pcode, pc - pcode, NULL, NULL);
 }
 
-static pointer_t array_len_thunk;
-static pointer_t array_len_finite_thunk;
+static struct function_pointer array_len_thunk;
+static struct function_pointer array_len_finite_thunk;
 
-void * attr_fastcall pcode_find_array_len_function(bool finite, frame_s *fp, const code_t *ip, pointer_t **result)
+void * attr_fastcall pcode_find_array_len_function(bool finite, frame_s *fp, const code_t *ip, struct function_pointer **result)
 {
 	union internal_arg ia[1];
 	ia[0].b = finite;
@@ -4695,9 +4697,9 @@ static void *pcode_build_array_len_greater_than_function(frame_s *fp, const code
 	return pcode_build_function(fp, ip, pcode, pc - pcode, NULL, NULL);
 }
 
-static pointer_t array_len_greater_than_thunk;
+static struct function_pointer array_len_greater_than_thunk;
 
-void * attr_fastcall pcode_find_array_len_greater_than_function(frame_s *fp, const code_t *ip, pointer_t **result)
+void * attr_fastcall pcode_find_array_len_greater_than_function(frame_s *fp, const code_t *ip, struct function_pointer **result)
 {
 	return pcode_alloc_op_function(&array_len_greater_than_thunk, fp, ip, pcode_build_array_len_greater_than_function, 0, NULL, result);
 }
@@ -4778,9 +4780,9 @@ static void *pcode_build_array_sub_function(frame_s *fp, const code_t *ip, union
 	return pcode_build_function(fp, ip, pcode, pc - pcode, NULL, NULL);
 }
 
-static pointer_t array_sub_thunk;
+static struct function_pointer array_sub_thunk;
 
-void * attr_fastcall pcode_find_array_sub_function(frame_s *fp, const code_t *ip, pointer_t **result)
+void * attr_fastcall pcode_find_array_sub_function(frame_s *fp, const code_t *ip, struct function_pointer **result)
 {
 	return pcode_alloc_op_function(&array_sub_thunk, fp, ip, pcode_build_array_sub_function, 0, NULL, result);
 }
@@ -4849,9 +4851,9 @@ static void *pcode_build_array_skip_function(frame_s *fp, const code_t *ip, unio
 	return pcode_build_function(fp, ip, pcode, pc - pcode, NULL, NULL);
 }
 
-static pointer_t array_skip_thunk;
+static struct function_pointer array_skip_thunk;
 
-void * attr_fastcall pcode_find_array_skip_function(frame_s *fp, const code_t *ip, pointer_t **result)
+void * attr_fastcall pcode_find_array_skip_function(frame_s *fp, const code_t *ip, struct function_pointer **result)
 {
 	return pcode_alloc_op_function(&array_skip_thunk, fp, ip, pcode_build_array_skip_function, 0, NULL, result);
 }
@@ -4916,9 +4918,9 @@ static void *pcode_build_array_append_function(frame_s *fp, const code_t *ip, un
 	return pcode_build_function(fp, ip, pcode, pc - pcode, NULL, NULL);
 }
 
-static pointer_t array_append_thunk;
+static struct function_pointer array_append_thunk;
 
-void * attr_fastcall pcode_find_array_append_function(frame_s *fp, const code_t *ip, pointer_t **result)
+void * attr_fastcall pcode_find_array_append_function(frame_s *fp, const code_t *ip, struct function_pointer **result)
 {
 	return pcode_alloc_op_function(&array_append_thunk, fp, ip, pcode_build_array_append_function, 0, NULL, result);
 }
@@ -4979,9 +4981,9 @@ static void *pcode_build_option_ord_function(frame_s *fp, const code_t *ip, unio
 	return pcode_build_function(fp, ip, pcode, pc - pcode, NULL, NULL);
 }
 
-static pointer_t option_ord_thunk;
+static struct function_pointer option_ord_thunk;
 
-void * attr_fastcall pcode_find_option_ord_function(frame_s *fp, const code_t *ip, pointer_t **result)
+void * attr_fastcall pcode_find_option_ord_function(frame_s *fp, const code_t *ip, struct function_pointer **result)
 {
 	return pcode_alloc_op_function(&option_ord_thunk, fp, ip, pcode_build_option_ord_function, 0, NULL, result);
 }
@@ -5073,7 +5075,7 @@ static void *pcode_build_record_option_load_function(frame_s *fp, const code_t *
 struct pcode_function {
 	struct tree_entry entry;
 	struct function_key key;
-	pointer_t ptr;
+	struct function_pointer ptr;
 };
 
 shared_var struct tree pcode_functions;
@@ -5092,7 +5094,7 @@ static int record_option_load_compare(const struct tree_entry *e1, uintptr_t e2)
 	return 0;
 }
 
-static pointer_t *pcode_find_function_for_key(struct function_key *key)
+static struct function_pointer *pcode_find_function_for_key(struct function_key *key)
 {
 	struct tree_entry *e;
 
@@ -5112,7 +5114,9 @@ static pointer_t *pcode_find_function_for_key(struct function_key *key)
 				return NULL;
 			}
 			rl->key = *key;
-			rl->ptr = pointer_empty();
+			rl->ptr.ptr = pointer_empty();
+			rl->ptr.md = NULL;
+			rl->ptr.fd = NULL;
 			e = &rl->entry;
 			tree_insert_after_find(e, &ins);
 		}
@@ -5121,14 +5125,14 @@ static pointer_t *pcode_find_function_for_key(struct function_key *key)
 	return &get_struct(e, struct pcode_function, entry)->ptr;
 }
 
-void * attr_fastcall pcode_find_record_option_load_function(unsigned char tag, frame_t slot, frame_s *fp, const code_t *ip, pointer_t **result)
+void * attr_fastcall pcode_find_record_option_load_function(unsigned char tag, frame_t slot, frame_s *fp, const code_t *ip, struct function_pointer **result)
 {
 	struct function_key key;
-	pointer_t *ptr;
+	struct function_pointer *ptr;
 	union internal_arg ia[2];
 
 	if (unlikely((uintmax_t)slot > (uintmax_t)signed_maximum(pcode_t) + zero)) {
-		*result = out_of_memory_ptr;
+		*result = &out_of_memory_ptr;
 		return POINTER_FOLLOW_THUNK_RETRY;
 	}
 
@@ -5137,7 +5141,7 @@ void * attr_fastcall pcode_find_record_option_load_function(unsigned char tag, f
 
 	ptr = pcode_find_function_for_key(&key);
 	if (unlikely(!ptr)) {
-		*result = out_of_memory_ptr;
+		*result = &out_of_memory_ptr;
 		return POINTER_FOLLOW_THUNK_RETRY;
 	}
 
@@ -5146,19 +5150,19 @@ void * attr_fastcall pcode_find_record_option_load_function(unsigned char tag, f
 	return pcode_alloc_op_function(ptr, fp, ip, pcode_build_record_option_load_function, 2, ia, result);
 }
 
-static void thunk_init_run(pointer_t *ptr, unsigned n)
+static void thunk_init_run(struct function_pointer *ptr, unsigned n)
 {
 	while (n--) {
-		*ptr = pointer_empty();
+		ptr->ptr = pointer_empty();
 		ptr++;
 	}
 }
 
-static void thunk_free_run(pointer_t *ptr, unsigned n)
+static void thunk_free_run(struct function_pointer *ptr, unsigned n)
 {
 	while (n--) {
-		if (!pointer_is_empty(*ptr))
-			pointer_dereference(*ptr);
+		if (!pointer_is_empty(ptr->ptr))
+			pointer_dereference(ptr->ptr);
 		ptr++;
 	}
 }
@@ -5203,8 +5207,8 @@ void name(pcode_done)(void)
 	thunk_free_run(&option_ord_thunk, 1);
 	while (!tree_is_empty(&pcode_functions)) {
 		struct pcode_function *rl = get_struct(tree_any(&pcode_functions), struct pcode_function, entry);
-		if (!pointer_is_empty(rl->ptr))
-			pointer_dereference(rl->ptr);
+		if (!pointer_is_empty(rl->ptr.ptr))
+			pointer_dereference(rl->ptr.ptr);
 		tree_delete(&rl->entry);
 		mem_free(rl);
 	}

@@ -557,8 +557,7 @@ static attr_always_inline struct thunk *thunk_alloc_exception_mayfail(ajla_error
 	return thunk;
 }
 
-static pointer_t out_of_memory_thunk;
-pointer_t *out_of_memory_ptr = &out_of_memory_thunk;
+struct function_pointer out_of_memory_ptr;
 
 struct thunk * attr_fastcall thunk_alloc_exception_error(ajla_error_t err, char *msg, frame_s *fp, const code_t *ip argument_position)
 {
@@ -567,8 +566,8 @@ struct thunk * attr_fastcall thunk_alloc_exception_error(ajla_error_t err, char 
 	/*debug("thunk_alloc_exception_error: %d, %d @ %p", err.error_type, err.error_code, __builtin_return_address(0));*/
 	thunk = thunk_alloc_exception_mayfail(err, &sink pass_position);
 	if (unlikely(!thunk)) {
-		pointer_reference_owned(out_of_memory_thunk);
-		return pointer_get_thunk(out_of_memory_thunk);
+		pointer_reference_owned(out_of_memory_ptr.ptr);
+		return pointer_get_thunk(out_of_memory_ptr.ptr);
 	}
 	if (msg)
 		thunk->u.exception.msg = str_dup(msg, -1, &sink);
@@ -1639,7 +1638,7 @@ evaluate_thunk:
 				break;
 			pr = &da(function_reference,function_reference)->u.indirect;
 		}
-		pr = da(function_reference,function_reference)->u.direct;
+		pr = &da(function_reference,function_reference)->u.direct->ptr;
 		pq = pointer_locked_read(pr);
 		if (unlikely(pointer_is_thunk(pq)))
 			goto evaluate_thunk;
@@ -2105,7 +2104,7 @@ static bool attr_fastcall deep_eval_function_reference(struct data *d, pointer_t
 	if (da(d,function_reference)->is_indirect) {
 		return array_add_mayfail(pointer_t *, data_stack, data_stack_size, &da(d,function_reference)->u.indirect, NULL, err);
 	} else {
-		return array_add_mayfail(pointer_t *, data_stack, data_stack_size, da(d,function_reference)->u.direct, NULL, err);
+		return array_add_mayfail(pointer_t *, data_stack, data_stack_size, &da(d,function_reference)->u.direct->ptr, NULL, err);
 	}
 }
 
@@ -2550,7 +2549,7 @@ static void acquire_function_reference_args(struct data *d, struct function_argu
 			break;
 		d = pointer_get_data(da(d,function_reference)->u.indirect);
 	}
-	*function = pointer_get_data(*da(d,function_reference)->u.direct);
+	*function = pointer_get_data(da(d,function_reference)->u.direct->ptr);
 }
 
 static int attr_fastcall data_compare_function_reference(struct compare_status *cs, struct compare_status *new_cs, bool init)
@@ -3404,9 +3403,11 @@ void name(data_init)(void)
 	data_method_table[THUNK_TAG_EXCEPTION].save = save_exception;
 
 	oom = thunk_alloc_exception_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_OUT_OF_MEMORY), NULL pass_file_line);
-	out_of_memory_thunk = pointer_thunk(oom);
+	out_of_memory_ptr.ptr = pointer_thunk(oom);
+	out_of_memory_ptr.md = NULL;
+	out_of_memory_ptr.fd = NULL;
 #ifdef HAVE_CODEGEN
-	top_frame_marker.u_.function.codegen = out_of_memory_thunk;
+	top_frame_marker.u_.function.codegen = out_of_memory_ptr.ptr;
 #endif
 
 #ifdef HAVE_CODEGEN_TRAPS
@@ -3424,7 +3425,7 @@ void name(data_done)(void)
 	rwmutex_done(&traps_lock);
 	ajla_assert_lo(tree_is_empty(&traps_tree), (file_line, "data_done: traps_tree is not empty"));
 #endif
-	pointer_dereference(out_of_memory_thunk);
+	pointer_dereference(out_of_memory_ptr.ptr);
 }
 
 #endif

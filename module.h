@@ -24,10 +24,12 @@
 
 #define start_fn			name(start_fn)
 #define module_load_function		name(module_load_function)
+#define module_load_function_reference	name(module_load_function)
 
-extern pointer_t *start_fn;
+extern struct function_pointer *start_fn;
 
 /* returns a pointer to pointer_t */
-pointer_t *module_load_function(const struct module_designator *md, const struct function_designator *fd, bool get_fn, bool optimizer, ajla_error_t *mayfail);
+struct function_pointer *module_load_function(const struct module_designator *md, const struct function_designator *fd, ajla_error_t *mayfail);
+pointer_t *module_load_function_reference(const struct module_designator *md, const struct function_designator *fd, bool optimizer, ajla_error_t *mayfail);
 
 #endif

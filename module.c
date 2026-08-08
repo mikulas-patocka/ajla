@@ -34,17 +34,17 @@
 
 #include "module.h"
 
-pointer_t *start_fn;
-shared_var pointer_t *optimizer_fn;
-shared_var pointer_t *parser_fn;
-shared_var pointer_t *specialize_fn;
+struct function_pointer *start_fn;
+shared_var struct function_pointer *optimizer_fn;
+shared_var struct function_pointer *parser_fn;
+shared_var struct function_pointer *specialize_fn;
 
 static struct tree modules;
 rwlock_decl(modules_mutex);
 
 struct module_function {
 	struct tree_entry entry;
-	pointer_t function;
+	struct function_pointer function;
 	pointer_t optimizer;
 	pointer_t parser;
 	struct function_designator fd;
@@ -182,7 +182,9 @@ known_spec:
 		pptr = optr;
 		ptr = function_build_internal_thunk(pcode_build_function_from_builtin, 2, ia);
 	}
-	mf->function = ptr;
+	mf->function.ptr = ptr;
+	mf->function.md = &m->md;
+	mf->function.fd = &mf->fd;
 	mf->optimizer = optr;
 	mf->parser = pptr;
 	return true;
@@ -263,7 +265,7 @@ static struct module *module_find(const struct module_designator *md, bool creat
 	return m;
 }
 
-pointer_t *module_load_function(const struct module_designator *md, const struct function_designator *fd, bool get_fn, bool optimizer, ajla_error_t *mayfail)
+struct function_pointer *module_load_function(const struct module_designator *md, const struct function_designator *fd, ajla_error_t *mayfail)
 {
 	struct module *m;
 	struct module_function *mf;
@@ -284,9 +286,41 @@ retry:
 	else
 		rwlock_unlock_write(&modules_mutex);
 
-	if (get_fn)
-		return &mf->function;
-	else if (optimizer)
+	return &mf->function;
+
+lock_for_write:
+	if (unlikely(create)) {
+		rwlock_unlock_write(&modules_mutex);
+		return NULL;
+	}
+	create = true;
+	rwlock_unlock_read(&modules_mutex);
+	rwlock_lock_write(&modules_mutex);
+	goto retry;
+}
+
+pointer_t *module_load_function_reference(const struct module_designator *md, const struct function_designator *fd, bool optimizer, ajla_error_t *mayfail)
+{
+	struct module *m;
+	struct module_function *mf;
+	bool create = false;
+
+	rwlock_lock_read(&modules_mutex);
+retry:
+	m = module_find(md, create, mayfail);
+	if (!m)
+		goto lock_for_write;
+
+	mf = module_find_function(m, fd, create, mayfail);
+	if (!mf)
+		goto lock_for_write;
+
+	if (!create)
+		rwlock_unlock_read(&modules_mutex);
+	else
+		rwlock_unlock_write(&modules_mutex);
+
+	if (optimizer)
 		return &mf->optimizer;
 	else
 		return &mf->parser;
@@ -305,11 +339,11 @@ lock_for_write:
 
 static void module_finish_function(struct module_function *mf)
 {
-	if (pointer_is_thunk(mf->function) && thunk_is_finished(pointer_get_thunk(mf->function))) {
-		pointer_follow_thunk_(&mf->function, POINTER_FOLLOW_THUNK_NOEVAL);
+	if (pointer_is_thunk(mf->function.ptr) && thunk_is_finished(pointer_get_thunk(mf->function.ptr))) {
+		pointer_follow_thunk_(&mf->function.ptr, POINTER_FOLLOW_THUNK_NOEVAL);
 	}
-	if (!pointer_is_thunk(mf->function)) {
-		struct data *d = pointer_get_data(mf->function);
+	if (!pointer_is_thunk(mf->function.ptr)) {
+		struct data *d = pointer_get_data(mf->function.ptr);
 		struct tree_entry *e;
 		bool new_cache;
 		if (profiling) {
@@ -358,7 +392,7 @@ static void module_finish_function(struct module_function *mf)
 
 static void module_free_function(struct module_function *mf)
 {
-	pointer_dereference(mf->function);
+	pointer_dereference(mf->function.ptr);
 	pointer_dereference(mf->optimizer);
 	pointer_dereference(mf->parser);
 }
@@ -376,22 +410,22 @@ void name(module_init)(void)
 	n = "start";
 	md = module_designator_alloc(0, cast_ptr(const uint8_t *, n), strlen(n), false, false, NULL);
 	fd = function_designator_alloc_single(0, NULL);
-	start_fn = module_load_function(md, fd, true, true, NULL);
+	start_fn = module_load_function(md, fd, NULL);
 	function_designator_free(fd);
 	module_designator_free(md);
 
 	n = "compiler/compiler";
 	md = module_designator_alloc(0, cast_ptr(const uint8_t *, n), strlen(n), false, false, NULL);
 	fd = function_designator_alloc_single(0, NULL);
-	optimizer_fn = module_load_function(md, fd, true, true, NULL);
+	optimizer_fn = module_load_function(md, fd, NULL);
 	function_designator_free(fd);
 
 	fd = function_designator_alloc_single(1, NULL);
-	parser_fn = module_load_function(md, fd, true, true, NULL);
+	parser_fn = module_load_function(md, fd, NULL);
 	function_designator_free(fd);
 
 	fd = function_designator_alloc_single(2, NULL);
-	specialize_fn = module_load_function(md, fd, true, true, NULL);
+	specialize_fn = module_load_function(md, fd, NULL);
 	function_designator_free(fd);
 
 	module_designator_free(md);

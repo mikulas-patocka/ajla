@@ -1621,7 +1621,7 @@ DEFINE_OPCODE_END(OPCODE_LABEL_1ENTRY)
 
 
 START_BLOCK(
-	pointer_t *direct_data;
+	struct function_pointer *direct_data;
 	pointer_t indirect_data;
 	arg_t n_arguments;
 	frame_t result_slot;
@@ -1635,7 +1635,7 @@ DEFINE_OPCODE_START(OPCODE_LOAD_FN)
 
 	n_arguments = get_i_param(0);
 	result_slot = get_i_param(1);
-	direct_data = da(get_frame(fp)->function,function)->local_directory[get_i_param(2)];
+	direct_data = da(get_frame(fp)->function,function)->function_pointers[get_i_param(2)];
 	indirect_data = pointer_empty();	/* avoid warning */
 
 	ADVANCE_I_PARAM(3);
@@ -1697,7 +1697,7 @@ START_BLOCK(
 	const code_t *orig_ip;
 	frame_s *new_fp;
 	arg_t i;
-	pointer_t *direct_function;
+	struct function_pointer *direct_function;
 	pointer_t indirect_function;
 	unsigned char mode;
 )
@@ -1710,7 +1710,7 @@ cat(call_from_mode_,ARG_MODE):
 
 	n_arguments = get_i_param(0);
 	n_return_values = get_i_param(1);
-	function_ptr = da(get_frame(fp)->function,function)->local_directory[get_i_param(2)];
+	function_ptr = &da(get_frame(fp)->function,function)->function_pointers[get_i_param(2)]->ptr;
 
 	pointer_follow(function_ptr, false, function, PF_WAIT, fp, ip,
 		RELOAD_EX_POSITION(ex_),
@@ -1828,7 +1828,7 @@ cat(call_indirect_from_mode_,ARG_MODE):
 			break;
 		ptr = &da(function,function_reference)->u.indirect;
 	}
-	ptr = da(function,function_reference)->u.direct;
+	ptr = &da(function,function_reference)->u.direct->ptr;
 	pointer_follow(ptr, false, function, PF_WAIT, fp, orig_ip,
 		RELOAD_EX_POSITION(ex_),
 		function_error = thunk_;
@@ -1886,7 +1886,7 @@ DEFINE_OPCODE_START(OPCODE_CALL_LAZY)
 
 	n_arguments = get_i_param(0);
 	n_return_values = get_i_param(1);
-	direct_function = da(get_frame(fp)->function,function)->local_directory[get_i_param(2)];
+	direct_function = da(get_frame(fp)->function,function)->function_pointers[get_i_param(2)];
 	indirect_function = pointer_empty();	/* avoid warning */
 
 	ADVANCE_I_PARAM(3);
@@ -1967,10 +1967,10 @@ cat(call_cache_,ARG_MODE):
 	orig_ip = ip;
 	n_arguments = get_i_param(0);
 	n_return_values = get_i_param(1);
-	direct_function = da(get_frame(fp)->function,function)->local_directory[get_i_param(2)];
+	direct_function = da(get_frame(fp)->function,function)->function_pointers[get_i_param(2)];
 	ADVANCE_I_PARAM(3);
 
-	pointer_follow(direct_function, false, function, PF_WAIT, fp, orig_ip,
+	pointer_follow(&direct_function->ptr, false, function, PF_WAIT, fp, orig_ip,
 		RELOAD_EX_POSITION(ex_),
 		function_error = thunk_;
 		thunk_reference(function_error);
@@ -2055,8 +2055,8 @@ cat(call_indirect_cache_,ARG_MODE):
 			break;
 		ptr = &da(function,function_reference)->u.indirect;
 	}
-	ptr = da(function,function_reference)->u.direct;
-	pointer_follow(ptr, false, function, PF_WAIT, fp, orig_ip,
+	direct_function = da(function,function_reference)->u.direct;
+	pointer_follow(&direct_function->ptr, false, function, PF_WAIT, fp, orig_ip,
 		RELOAD_EX_POSITION(ex_),
 		function_error = thunk_;
 		thunk_reference(function_error);
@@ -2110,7 +2110,7 @@ cat(call_indirect_cache_,ARG_MODE):
 		ADVANCE_IP(max_param_size(1) + 1);
 	}
 
-	ex = ipret_call_cache(fp, orig_ip, ptr, arguments, return_values, deref ? fn_ref_slot : NO_FRAME_T);
+	ex = ipret_call_cache(fp, orig_ip, direct_function, arguments, return_values, deref ? fn_ref_slot : NO_FRAME_T);
 	if (unlikely(ex != POINTER_FOLLOW_THUNK_GO)) {
 		RELOAD_EX_POSITION(ex);
 	}

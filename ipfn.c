@@ -187,7 +187,7 @@ void attr_hot_fastcall ipret_fill_function_reference_from_slot(struct data *func
 }
 
 
-static struct thunk *build_thunk(pointer_t *fn_ptr, arg_t n_arguments, struct data **function_reference)
+static struct thunk *build_thunk(struct function_pointer *fn_ptr, arg_t n_arguments, struct data **function_reference)
 {
 	struct thunk *result;
 	ajla_error_t err;
@@ -214,7 +214,7 @@ fail_err:
 static void *ipret_op_build_thunk(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2, frame_t slot_3, frame_t slot_r, unsigned strict_flag)
 {
 	unsigned flags;
-	pointer_t *fn_ptr;
+	struct function_pointer *fn_ptr;
 	code_t code;
 	void *ex;
 	struct data *function_reference;
@@ -1394,7 +1394,7 @@ static void cache_evaluated(void *cookie, pointer_t ptr)
 	}
 }
 
-void * attr_fastcall ipret_call_cache(frame_s *fp, const code_t *ip, pointer_t *direct_function, struct ipret_call_cache_arg *arguments, frame_t *return_values, frame_t free_fn_slot)
+void * attr_fastcall ipret_call_cache(frame_s *fp, const code_t *ip, struct function_pointer *direct_function, struct ipret_call_cache_arg *arguments, frame_t *return_values, frame_t free_fn_slot)
 {
 	struct thunk *thunk = NULL;
 	struct data_compare_context ctx;
@@ -1406,7 +1406,7 @@ void * attr_fastcall ipret_call_cache(frame_s *fp, const code_t *ip, pointer_t *
 	bool wr_lock;
 	struct thunk **results;
 	struct data *function_reference;
-	struct data *function = pointer_get_data(*direct_function);
+	struct data *function = pointer_get_data(direct_function->ptr);
 	arg_t n_arguments = da(function,function)->n_arguments;
 	arg_t n_return_values = da(function,function)->n_return_values;
 	bool save = *ip % OPCODE_MODE_MULT == OPCODE_CALL_SAVE || *ip % OPCODE_MODE_MULT == OPCODE_CALL_INDIRECT_SAVE;
@@ -1714,7 +1714,7 @@ complicated:
 
 void * attr_hot_fastcall ipret_record_load_create_thunk(frame_s *fp, const code_t *ip, frame_t record, frame_t record_slot, frame_t result_slot)
 {
-	pointer_t *fn_ptr;
+	struct function_pointer *fn_ptr;
 	void *ex;
 	struct data *function_reference;
 	struct thunk *result;
@@ -1734,7 +1734,7 @@ void * attr_hot_fastcall ipret_record_load_create_thunk(frame_s *fp, const code_
 
 void * attr_hot_fastcall ipret_option_load_create_thunk(frame_s *fp, const code_t *ip, frame_t option, frame_t option_idx, frame_t result_slot)
 {
-	pointer_t *fn_ptr;
+	struct function_pointer *fn_ptr;
 	void *ex;
 	struct data *function_reference;
 	struct thunk *result;
@@ -1754,7 +1754,7 @@ void * attr_hot_fastcall ipret_option_load_create_thunk(frame_s *fp, const code_
 
 void * attr_hot_fastcall thunk_option_test(frame_s *fp, const code_t *ip, frame_t slot_1, ajla_option_t option, frame_t slot_r)
 {
-	pointer_t *fn_ptr;
+	struct function_pointer *fn_ptr;
 	void *ex;
 	struct data *function_reference;
 	struct thunk *result;
@@ -1780,7 +1780,7 @@ void * attr_hot_fastcall thunk_option_test(frame_s *fp, const code_t *ip, frame_
 
 void * attr_hot_fastcall thunk_option_ord(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_r)
 {
-	pointer_t *fn_ptr;
+	struct function_pointer *fn_ptr;
 	void *ex;
 	struct data *function_reference;
 	struct thunk *result;
@@ -1807,7 +1807,7 @@ void * attr_hot_fastcall thunk_option_ord(frame_s *fp, const code_t *ip, frame_t
 
 void * attr_hot_fastcall ipret_array_load_create_thunk(frame_s *fp, const code_t *ip, frame_t array, frame_t index, frame_t result_slot)
 {
-	pointer_t *fn_ptr;
+	struct function_pointer *fn_ptr;
 	void *ex;
 	struct data *function_reference;
 	struct thunk *result;
@@ -1828,7 +1828,7 @@ void * attr_hot_fastcall ipret_array_load_create_thunk(frame_s *fp, const code_t
 
 static attr_noinline void *array_len_create_thunk(frame_s *fp, const code_t *ip, frame_t array_slot, frame_t result_slot, bool finite)
 {
-	pointer_t *fn_ptr;
+	struct function_pointer *fn_ptr;
 	void *ex;
 	struct data *function_reference;
 	struct thunk *result;
@@ -1848,7 +1848,7 @@ static attr_noinline void *array_len_create_thunk(frame_s *fp, const code_t *ip,
 
 static attr_noinline void *array_len_greater_than_create_thunk(frame_s *fp, const code_t *ip, frame_t array_slot, frame_t length_slot, frame_t result_slot)
 {
-	pointer_t *fn_ptr;
+	struct function_pointer *fn_ptr;
 	void *ex;
 	struct data *function_reference;
 	struct thunk *result;
@@ -1869,7 +1869,7 @@ static attr_noinline void *array_len_greater_than_create_thunk(frame_s *fp, cons
 
 static attr_noinline void *array_sub_create_thunk(frame_s *fp, const code_t *ip, frame_t array_slot, frame_t start_slot, frame_t end_slot, frame_t result_slot, unsigned flags)
 {
-	pointer_t *fn_ptr;
+	struct function_pointer *fn_ptr;
 	void *ex;
 	struct data *function_reference;
 	struct thunk *result;
@@ -1891,7 +1891,7 @@ static attr_noinline void *array_sub_create_thunk(frame_s *fp, const code_t *ip,
 
 static attr_noinline void *array_skip_create_thunk(frame_s *fp, const code_t *ip, frame_t array_slot, frame_t start_slot, frame_t result_slot, unsigned flags)
 {
-	pointer_t *fn_ptr;
+	struct function_pointer *fn_ptr;
 	void *ex;
 	struct data *function_reference;
 	struct thunk *result;
@@ -2449,7 +2449,7 @@ ret:
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
-static void attr_hot ipret_array_append_pointers(frame_s *fp, const code_t *ip, pointer_t *ptr_r, pointer_t ptr_1, pointer_t ptr_2, pointer_t *fn_ptr)
+static void attr_hot ipret_array_append_pointers(frame_s *fp, const code_t *ip, pointer_t *ptr_r, pointer_t ptr_1, pointer_t ptr_2, struct function_pointer *fn_ptr)
 {
 	ajla_error_t err;
 	struct data *d;
@@ -2524,7 +2524,7 @@ static void attr_hot ipret_array_append_pointers(frame_s *fp, const code_t *ip, 
 
 void * attr_hot_fastcall ipret_array_append(frame_s *fp, const code_t *ip, frame_t slot_r, frame_t slot_1, frame_t slot_2, unsigned flags)
 {
-	pointer_t *fn_ptr = NULL;
+	struct function_pointer *fn_ptr = NULL;
 	pointer_t ptr_1, ptr_2, *ptr_r;
 
 	if (unlikely(array_resolve_thunk(fp, slot_1))) {
@@ -2611,7 +2611,7 @@ fallback:
 void * attr_hot_fastcall ipret_array_append_one(frame_s *fp, const code_t *ip, frame_t slot_r, frame_t slot_1, frame_t slot_2, unsigned flags)
 {
 	ajla_error_t err;
-	pointer_t *fn_ptr = NULL;
+	struct function_pointer *fn_ptr = NULL;
 	pointer_t ptr_1, ptr_2, ptr_e, *ptr_r;
 	struct data *data;
 
@@ -2820,10 +2820,10 @@ do_nothing:
 void attr_fastcall ipret_prefetch_functions(struct data *function)
 {
 	frame_t x;
-	for (x = 0; x < da(function,function)->local_directory_size; x++) {
+	for (x = 0; x < da(function,function)->n_function_pointers; x++) {
 		ajla_error_t sink;
 		pointer_t *lfnp, lfn;
-		lfnp = da(function,function)->local_directory[x];
+		lfnp = &da(function,function)->function_pointers[x]->ptr;
 		if (pointer_is_thunk(pointer_locked_read(lfnp))) {
 			struct execution_control *ex;
 			lfn = pointer_reference(lfnp);

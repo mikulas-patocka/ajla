@@ -38,8 +38,8 @@ shared_var uchar_efficient_t function_slots[N_SLOTS];
 shared_var uchar_efficient_t function_ip_return;
 shared_var uchar_efficient_t function_ip_eval;
 
-static pointer_t internal_function_ptr;
-#define internal_function		pointer_get_data(internal_function_ptr)
+static struct function_pointer internal_function_ptr;
+#define internal_function		pointer_get_data(internal_function_ptr.ptr)
 
 void * attr_fastcall function_call_internal(frame_s *fp, const code_t *ip)
 {
@@ -185,7 +185,7 @@ void name(function_init)(void)
 	ft = data_alloc_flexible(function_types, types, 0, NULL);
 	da(ft,function_types)->n_types = 0;
 
-	int_fn = data_alloc_flexible(function, local_directory, 0, NULL);
+	int_fn = data_alloc_flexible(function, function_pointers, 0, NULL);
 
 	n_slots = layout_size(layout);
 	da(int_fn,function)->frame_slots = frame_offset / slot_size + n_slots;
@@ -202,7 +202,7 @@ void name(function_init)(void)
 	da(int_fn,function)->function_name = str_dup("internal_function", -1, NULL);
 	da(int_fn,function)->lp = NULL;
 	da(int_fn,function)->lp_size = 0;
-	da(int_fn,function)->local_directory_size = 0;
+	da(int_fn,function)->n_function_pointers = 0;
 #ifdef HAVE_CODEGEN
 	da(int_fn,function)->codegen = pointer_thunk(thunk_alloc_exception_error(error_ajla(EC_ASYNC, AJLA_ERROR_NOT_SUPPORTED), NULL, NULL, NULL pass_file_line));
 	store_relaxed(&da(int_fn,function)->codegen_failed, 1);
@@ -264,15 +264,17 @@ void name(function_init)(void)
 	if (unlikely(ip != code_size))
 		internal(file_line, "function_init: code size mismatch: %"PRIuMAX" != %"PRIuMAX"", (uintmax_t)ip, (uintmax_t)code_size);
 
-	internal_function_ptr = pointer_data(int_fn);
+	internal_function_ptr.ptr = pointer_data(int_fn);
+	internal_function_ptr.md = NULL;
+	internal_function_ptr.fd = NULL;
 
 	layout_free(layout);
 }
 
 void name(function_done)(void)
 {
-	pointer_dereference(internal_function_ptr);
-	pointer_poison(&internal_function_ptr);
+	pointer_dereference(internal_function_ptr.ptr);
+	pointer_poison(&internal_function_ptr.ptr);
 }
 
 #endif

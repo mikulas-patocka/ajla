@@ -106,7 +106,7 @@ struct ipret_call_cache_arg {
 	bool need_free_ptr;
 	pointer_t ptr;
 };
-void * attr_fastcall ipret_call_cache(frame_s *fp, const code_t *ip, pointer_t *direct_function, struct ipret_call_cache_arg *arguments, frame_t *return_values, frame_t free_fn_slot);
+void * attr_fastcall ipret_call_cache(frame_s *fp, const code_t *ip, struct function_pointer *direct_function, struct ipret_call_cache_arg *arguments, frame_t *return_values, frame_t free_fn_slot);
 
 void * attr_hot_fastcall ipret_get_index(frame_s *fp, const code_t *ip, frame_s *fp_slot, frame_t slot, bool *is_negative, array_index_t *idx, pointer_t *thunk argument_position);
 

@@ -138,7 +138,7 @@ void *ipret_offload(frame_s *fp, const code_t *ip)
 	n_args = get_unaligned_32(ip + 9);
 	n_results = get_unaligned_32(ip + 11);
 
-	record_ptr = da(get_frame(fp)->function,function)->local_directory[record_idx];
+	record_ptr = &da(get_frame(fp)->function,function)->function_pointers[record_idx]->ptr;
 	pointer_follow(record_ptr, false, record_fn, PF_WAIT, fp, ip,
 		ex = ex_;
 		goto return_ex,

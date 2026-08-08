@@ -4439,7 +4439,7 @@ static void * attr_fastcall io_load_function_handler(struct io_ctx *ctx)
 	pcode_t fn_idx;
 	struct module_designator *md = NULL;
 	struct function_designator *fd = NULL;
-	pointer_t *main_ptr;
+	struct function_pointer *main_ptr;
 	struct data *main_ref;
 
 	test = io_deep_eval(ctx, "012345", true);
@@ -4472,7 +4472,7 @@ static void * attr_fastcall io_load_function_handler(struct io_ctx *ctx)
 		goto ret_err;
 	}
 
-	main_ptr = module_load_function(md, fd, true, false, &ctx->err);
+	main_ptr = module_load_function(md, fd, &ctx->err);
 	module_designator_free(md);
 	function_designator_free(fd);
 
@@ -4536,14 +4536,14 @@ static void * attr_fastcall io_get_subfunctions_handler(struct io_ctx *ctx)
 		return POINTER_FOLLOW_THUNK_GO;
 	);
 
-	o = data_alloc_array_flat_mayfail(type_get_fixed(3, true), da(function,function)->local_directory_size, da(function,function)->local_directory_size, false, &ctx->err pass_file_line);
+	o = data_alloc_array_flat_mayfail(type_get_fixed(3, true), da(function,function)->n_function_pointers, da(function,function)->n_function_pointers, false, &ctx->err pass_file_line);
 	if (unlikely(!o)) {
 		io_terminate_with_error(ctx, ctx->err, true, NULL);
 		return POINTER_FOLLOW_THUNK_EXCEPTION;
 	}
 
-	for (x = 0; x < da(function,function)->local_directory_size; x++) {
-		uintptr_t sub = ptr_to_num(da(function,function)->local_directory[x]);
+	for (x = 0; x < da(function,function)->n_function_pointers; x++) {
+		uintptr_t sub = ptr_to_num(&da(function,function)->function_pointers[x]->ptr);
 		cast_ptr(uint64_t *, da_array_flat(o))[x] = sub;
 	}
 
@@ -4588,7 +4588,7 @@ static void * attr_fastcall io_load_optimized_pcode_handler(struct io_ctx *ctx)
 		goto ret_test;
 	}
 
-	ptr = module_load_function(md, fd, false, optimized, &ctx->err);
+	ptr = module_load_function_reference(md, fd, optimized, &ctx->err);
 	if (unlikely(!ptr)) {
 		io_terminate_with_error(ctx, ctx->err, true, NULL);
 		test = POINTER_FOLLOW_THUNK_EXCEPTION;

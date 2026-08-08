@@ -2710,14 +2710,14 @@ void *codegen_fn(frame_s *fp, const code_t *ip, union internal_arg ia[])
 #endif
 
 retry_without_pcrel:
-	ctx->local_directory = mem_alloc_array_mayfail(mem_calloc_mayfail, struct data **, 0, 0, da(ctx->fn,function)->local_directory_size, sizeof(struct data *), &ctx->err);
+	ctx->local_directory = mem_alloc_array_mayfail(mem_calloc_mayfail, struct data **, 0, 0, da(ctx->fn,function)->n_function_pointers, sizeof(struct data *), &ctx->err);
 	if (unlikely(!ctx->local_directory))
 		goto fail;
 
-	if (0) for (i = 0; i < da(ctx->fn,function)->local_directory_size; i++) {
+	if (0) for (i = 0; i < da(ctx->fn,function)->n_function_pointers; i++) {
 		struct data *callee;
 		pointer_t *ptr;
-		ptr = da(ctx->fn,function)->local_directory[i];
+		ptr = &da(ctx->fn,function)->function_pointers[i]->ptr;
 		pointer_follow(ptr, false, callee, PF_SPARK, NULL, 0,
 			SUBMIT_EX(ex_);
 			goto next_one,
@@ -2726,12 +2726,12 @@ retry_without_pcrel:
 		ctx->local_directory[i] = callee;
 next_one:;
 	}
-	for (i = 0; i < da(ctx->fn,function)->local_directory_size; i++) {
+	for (i = 0; i < da(ctx->fn,function)->n_function_pointers; i++) {
 		struct data *callee;
 		pointer_t *ptr;
 		if (ctx->local_directory[i])
 			continue;
-		ptr = da(ctx->fn,function)->local_directory[i];
+		ptr = &da(ctx->fn,function)->function_pointers[i]->ptr;
 		pointer_follow(ptr, false, callee, PF_WAIT, fp, ip,
 			done_ctx(ctx);
 			return ex_,

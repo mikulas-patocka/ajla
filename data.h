@@ -942,6 +942,12 @@ struct data_array_incomplete {
 	pointer_t next;   /* a pointer to array or array_incomplete or thunk */
 };
 
+struct function_pointer {
+	const struct module_designator *md;
+	const struct function_designator *fd;
+	pointer_t ptr;
+};
+
 struct function_argument {
 	type_tag_t tag;	/* TYPE_TAG_unknown or primitive type tag */
 	union {
@@ -953,7 +959,7 @@ struct function_argument {
 struct data_function_reference {
 	union {
 		pointer_t indirect;
-		pointer_t *direct;
+		struct function_pointer *direct;
 	} u;
 	uchar_efficient_t is_indirect;
 	uchar_efficient_t is_internal;
@@ -1051,11 +1057,11 @@ struct data_function {
 	bool leaf;
 	bool is_saved;
 	frame_t real_size;
-	frame_t local_directory_size;
-	pointer_t *local_directory[FLEXIBLE_ARRAY_GCC];
+	frame_t n_function_pointers;
+	struct function_pointer *function_pointers[FLEXIBLE_ARRAY_GCC];
 };
 
-#define function_real_pool_offset(d)	round_up(offsetof(struct data, u_.function.local_directory[da(d,function)->local_directory_size]), CODE_ALIGNMENT)
+#define function_real_pool_offset(d)	round_up(offsetof(struct data, u_.function.function_pointers[da(d,function)->n_function_pointers]), CODE_ALIGNMENT)
 
 struct data_function_types {
 	size_t n_types;
@@ -1631,7 +1637,7 @@ void attr_fastcall data_fill_function_reference(struct data *function_reference,
 void attr_fastcall data_fill_function_reference_flat(struct data *function_reference, arg_t a, const struct type *type, const unsigned char *data);
 struct data * attr_fastcall data_alloc_resource_mayfail(size_t size, bool (*close)(struct data *), ajla_error_t *mayfail argument_position);
 
-extern pointer_t *out_of_memory_ptr;
+extern struct function_pointer out_of_memory_ptr;
 struct thunk * attr_fastcall thunk_alloc_exception_error(ajla_error_t err, char *msg, frame_s *fp, const code_t *ip argument_position);
 pointer_t attr_fastcall pointer_error(ajla_error_t err, frame_s *fp, const code_t *ip argument_position);
 char *thunk_exception_string(struct thunk *thunk, ajla_error_t *err);
