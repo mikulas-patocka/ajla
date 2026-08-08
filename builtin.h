@@ -21,6 +21,7 @@
 
 #include "md.h"
 
+extern const char *builtin_path;
 extern const char *builtin_lib_path;
 
 bool builtin_test_module(struct module_designator *md);

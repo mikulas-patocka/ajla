@@ -22,14 +22,13 @@
 #include "data.h"
 #include "module.h"
 
-#define save_prepare			name(save_prepare)
 #define save_start_function		name(save_start_function)
 #define save_cache_entry		name(save_cache_entry)
 #define save_finish_function		name(save_finish_function)
 #define save_find_function_descriptor	name(save_find_function_descriptor)
 #define save_register_dependence	name(save_register_dependence)
+#define save_unmap_data			name(save_unmap_data)
 
-void save_prepare(void);
 void save_start_function(struct data *d, bool new_cache);
 void save_cache_entry(struct data *d, struct cache_entry *ce);
 void save_finish_function(struct data *d);
@@ -59,5 +58,7 @@ struct function_descriptor {
 struct function_descriptor *save_find_function_descriptor(const struct module_designator *md, const struct function_designator *fd);
 
 void save_register_dependence(const char *path_name);
+
+void save_unmap_data(void);
 
 #endif

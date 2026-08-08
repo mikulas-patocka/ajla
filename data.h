@@ -1984,6 +1984,7 @@ struct stack_entry_type {
 	void (*fixup_after_copy)(void *new_ptr);
 	void (*fixup_sub_ptr)(void *loc, uintptr_t offset);
 	bool wrap_on_save;
+	bool duplicate;
 };
 
 struct stack_entry {

@@ -2702,6 +2702,7 @@ static const struct stack_entry_type save_run = {
 	no_fixup_after_copy,
 	ptr_fixup_sub_ptr,
 	true,
+	false,
 };
 
 static const struct stack_entry_type save_slice = {
@@ -2710,6 +2711,7 @@ static const struct stack_entry_type save_slice = {
 	no_fixup_after_copy,
 	ptr_fixup_sub_ptr,
 	true,
+	false,
 };
 
 
@@ -2804,6 +2806,7 @@ static const struct stack_entry_type save_type = {
 	no_fixup_after_copy,
 	ptr_fixup_sub_ptr,
 	true,
+	false,
 };
 
 static void *save_index_get_ptr(struct stack_entry *ste)
@@ -2851,6 +2854,7 @@ static const struct stack_entry_type save_index = {
 	no_fixup_after_copy,
 	save_index_fixup_sub_ptr,
 	true,
+	false,
 };
 
 static void *save_pointer_get_ptr(struct stack_entry *ste)
@@ -2893,6 +2897,7 @@ static const struct stack_entry_type save_pointer = {
 	save_pointer_fixup_after_copy,
 	save_pointer_fixup_sub_ptr,
 	false,
+	false,
 };
 
 static const struct stack_entry_type save_data_saved = {
@@ -2901,6 +2906,44 @@ static const struct stack_entry_type save_data_saved = {
 	NULL,
 	ptr_fixup_sub_ptr,
 	false,
+	false,
+};
+
+static bool save_function_pointer_get_properties(struct stack_entry *ste, size_t *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_len)
+{
+	ajla_error_t sink;
+	struct function_pointer *fp = *cast_ptr(struct function_pointer **, ste->ptr);
+
+	if (!fp->fd)
+		return false;
+
+	*align = align_of(struct function_pointer);
+	*size = sizeof(struct function_pointer);
+
+	*subptrs = mem_alloc_array_mayfail(mem_alloc_mayfail, struct stack_entry *, 0, 0, 2, sizeof(struct stack_entry), &sink);
+	if (unlikely(!*subptrs))
+		return false;
+
+	(*subptrs)[0].t = &save_run;
+	(*subptrs)[0].ptr = &fp->md;
+	(*subptrs)[0].align = align_of(struct module_designator);
+	(*subptrs)[0].size = module_designator_length(fp->md);
+	(*subptrs)[1].t = &save_run;
+	(*subptrs)[1].ptr = &fp->fd;
+	(*subptrs)[1].align = align_of(struct function_designator);
+	(*subptrs)[1].size = function_designator_length(fp->fd);
+	*subptrs_len = 2;
+
+	return true;
+}
+
+static const struct stack_entry_type save_function_pointer = {
+	save_run_get_ptr,
+	save_function_pointer_get_properties,
+	no_fixup_after_copy,
+	ptr_fixup_sub_ptr,
+	true,
+	true,
 };
 
 static bool attr_fastcall no_save(void attr_unused *data, uintptr_t attr_unused offset, size_t attr_unused *align, size_t attr_unused *size, struct stack_entry attr_unused **subptrs, size_t attr_unused *subptrs_l)
@@ -3109,7 +3152,7 @@ static bool attr_fastcall save_array_btree(void *data, uintptr_t attr_unused off
 	return true;
 }
 
-static bool attr_fastcall save_array_incomplete(void attr_unused *data, uintptr_t attr_unused offset, size_t attr_unused *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_l)
+static bool attr_fastcall save_array_incomplete(void *data, uintptr_t attr_unused offset, size_t attr_unused *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_l)
 {
 	ajla_error_t sink;
 	struct data *d = data;
@@ -3122,6 +3165,40 @@ static bool attr_fastcall save_array_incomplete(void attr_unused *data, uintptr_
 	(*subptrs)[1].t = &save_pointer;
 	(*subptrs)[1].ptr = &da(d,array_incomplete)->next;
 	*subptrs_l = 2;
+	return true;
+}
+
+static bool attr_fastcall save_function_reference(void *data, uintptr_t attr_unused offset, size_t attr_unused *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_l)
+{
+	size_t i;
+	ajla_error_t sink;
+	struct data *d = data;
+	struct stack_entry ste;
+
+	*size = offsetof(struct data, u_.function_reference.arguments[da(d,function_reference)->n_curried_arguments]);
+
+	if (unlikely(!array_init_mayfail(struct stack_entry, subptrs, subptrs_l, &sink)))
+		return false;
+
+	if (da(d,function_reference)->is_indirect) {
+		ste.t = &save_pointer;
+		ste.ptr = &da(d,function_reference)->u.indirect;
+	} else {
+		ste.t = &save_function_pointer;
+		ste.ptr = &da(d,function_reference)->u.direct;
+	}
+	if (unlikely(!array_add_mayfail(struct stack_entry, subptrs, subptrs_l, ste, NULL, &sink)))
+		return false;
+
+	for (i = 0; i < da(d,function_reference)->n_curried_arguments; i++) {
+		if (da(d,function_reference)->arguments[i].tag == TYPE_TAG_unknown) {
+			ste.t = &save_pointer;
+			ste.ptr = &da(d,function_reference)->arguments[i].u.ptr;
+			if (unlikely(!array_add_mayfail(struct stack_entry, subptrs, subptrs_l, ste, NULL, &sink)))
+				return false;
+		}
+	}
+
 	return true;
 }
 
@@ -3397,6 +3474,7 @@ void name(data_init)(void)
 	data_method_table[DATA_TAG_array_same].save = save_array_same;
 	data_method_table[DATA_TAG_array_btree].save = save_array_btree;
 	data_method_table[DATA_TAG_array_incomplete].save = save_array_incomplete;
+	data_method_table[DATA_TAG_function_reference].save = save_function_reference;
 	data_method_table[DATA_TAG_function_types].save = save_function_types;
 	data_method_table[DATA_TAG_saved].save = save_saved;
 	data_method_table[DATA_TAG_saved_cache].save = save_saved_cache;

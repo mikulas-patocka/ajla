@@ -390,6 +390,19 @@ static void module_finish_function(struct module_function *mf)
 	}
 }
 
+void module_finish_functions(void)
+{
+	struct tree_entry *e1, *e2;
+	for (e1 = tree_first(&modules); e1; e1 = tree_next(e1)) {
+		struct module *m = get_struct(e1, struct module, entry);
+		/*debug("saving: %.*s", (int)m->md.path_len, m->md.path);*/
+		for (e2 = tree_first(&m->functions); e2; e2 = tree_next(e2)) {
+			struct module_function *mf = get_struct(e2, struct module_function, entry);
+			module_finish_function(mf);
+		}
+	}
+}
+
 static void module_free_function(struct module_function *mf)
 {
 	pointer_dereference(mf->function.ptr);
@@ -433,16 +446,6 @@ void name(module_init)(void)
 
 void name(module_done)(void)
 {
-	struct tree_entry *e1, *e2;
-	save_prepare();
-	for (e1 = tree_first(&modules); e1; e1 = tree_next(e1)) {
-		struct module *m = get_struct(e1, struct module, entry);
-		/*debug("saving: %.*s", (int)m->md.path_len, m->md.path);*/
-		for (e2 = tree_first(&m->functions); e2; e2 = tree_next(e2)) {
-			struct module_function *mf = get_struct(e2, struct module_function, entry);
-			module_finish_function(mf);
-		}
-	}
 	while (!tree_is_empty(&modules)) {
 		struct module *m = get_struct(tree_any(&modules), struct module, entry);
 		tree_delete(&m->entry);
@@ -455,6 +458,7 @@ void name(module_done)(void)
 		mem_free(m);
 	}
 	rwlock_done(&modules_mutex);
+	save_unmap_data();
 }
 
 #endif

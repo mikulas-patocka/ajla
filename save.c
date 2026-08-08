@@ -30,6 +30,7 @@
 #include "thread.h"
 #include "ipfn.h"
 #include "ipio.h"
+#include "builtin.h"
 
 #include "save.h"
 
@@ -62,12 +63,22 @@ static size_t pointers_len;
 static struct function_descriptor *fn_descs;
 static size_t fn_descs_len;
 
+struct duplicate_record {
+	size_t fp_ptr;
+};
+
+static struct duplicate_record *duplicate_records;
+static size_t duplicate_records_len;
+
 struct file_descriptor {
 	struct function_descriptor *fn_descs;
 	size_t fn_descs_len;
 	char *dependencies;
 	size_t dependencies_l;
+	struct function_pointer *function_pointers;
+	size_t function_pointers_len;
 	void *base;
+	int page_size;
 	cpu_feature_mask_t cpu_feature_flags;
 	unsigned char optimize_int;
 	unsigned char privileged;
@@ -323,6 +334,14 @@ cont:
 			for (i = 0; i < subptrs_len; i++) {
 				size_t offset = cast_ptr(char *, subptrs[i].ptr) - p1;
 				subptrs[i].t->fixup_sub_ptr(save_data + data_pos + offset, sps[i]);
+				if (subptrs[i].t->duplicate) {
+					struct duplicate_record dr;
+					dr.fp_ptr = data_pos + offset;
+					if (unlikely(!array_add_mayfail(struct duplicate_record, &duplicate_records, &duplicate_records_len, dr, NULL, &sink))) {
+						save_ok = false;
+						goto err_free_sps;
+					}
+				}
 			}
 		} else {
 			data_pos = 0;
@@ -361,7 +380,7 @@ err:
 	return (size_t)-1;
 }
 
-void save_prepare(void)
+static void save_prepare(void)
 {
 	ajla_error_t sink;
 	save_data = NULL;
@@ -377,6 +396,10 @@ void save_prepare(void)
 		return;
 	}
 	if (unlikely(!array_init_mayfail(struct function_descriptor, &fn_descs, &fn_descs_len, &sink))) {
+		save_ok = false;
+		return;
+	}
+	if (unlikely(!array_init_mayfail(struct duplicate_record, &duplicate_records, &duplicate_records_len, &sink))) {
 		save_ok = false;
 		return;
 	}
@@ -783,7 +806,8 @@ static void save_finish_file(void)
 	struct stack_entry *subptrs;
 	char *deps;
 	size_t i, deps_l;
-	size_t fn_descs_offset, deps_offset, file_desc_offset;
+	struct function_pointer *fpptrs;
+	size_t fn_descs_offset, deps_offset, fpptrs_offset, file_desc_offset;
 	struct file_descriptor file_desc;
 
 	if (!fn_descs_len) {
@@ -829,10 +853,46 @@ static void save_finish_file(void)
 	if (unlikely(deps_offset == (size_t)-1))
 		return;
 
+	fpptrs = mem_alloc_array_mayfail(mem_alloc_mayfail, struct function_pointer *, 0, 0, duplicate_records_len, sizeof(struct function_pointer), &sink);
+	if (unlikely(!fpptrs)) {
+		save_ok = false;
+		return;
+	}
+	subptrs = mem_alloc_array_mayfail(mem_alloc_mayfail, struct stack_entry *, 0, 0, duplicate_records_len, sizeof(struct stack_entry) * 2, &sink);
+	if (unlikely(!subptrs)) {
+		mem_free(fpptrs);
+		save_ok = false;
+		return;
+	}
+	for (i = 0; i < duplicate_records_len; i++) {
+		uintptr_t offset;
+		struct function_pointer fp;
+		char *p = save_data + duplicate_records[i].fp_ptr;
+		memcpy(&offset, p, sizeof(uintptr_t));
+		memcpy(&fp, save_data + offset, sizeof(struct function_pointer));
+		fp.ptr = pointer_empty();
+		fpptrs[i] = fp;
+		subptrs[i * 2 + 0].ptr = &fpptrs[i].md;
+		subptrs[i * 2 + 1].ptr = &fpptrs[i].fd;
+	}
+
+	fpptrs_offset = save_range(fpptrs, os_getpagesize(), duplicate_records_len * sizeof(struct function_pointer), subptrs, duplicate_records_len * 2);
+	mem_free(fpptrs);
+	mem_free(subptrs);
+	if (unlikely(fpptrs_offset == (size_t)-1))
+		return;
+	for (i = 0; i < duplicate_records_len; i++) {
+		char *p = save_data + duplicate_records[i].fp_ptr;
+		uintptr_t dst_offset = fpptrs_offset + i * sizeof(struct function_pointer);
+		memcpy(p, &dst_offset, sizeof(uintptr_t));
+	}
+
 	file_desc.dependencies = num_to_ptr(deps_offset);
 	file_desc.dependencies_l = deps_l;
-
+	file_desc.function_pointers = num_to_ptr(fpptrs_offset);
+	file_desc.function_pointers_len = duplicate_records_len;
 	file_desc.base = num_to_ptr(0);
+	file_desc.page_size = os_getpagesize();
 	file_desc.cpu_feature_flags = cpu_feature_flags;
 	file_desc.optimize_int = optimize_int;
 	file_desc.privileged = ipret_is_privileged;
@@ -844,15 +904,16 @@ static void save_finish_file(void)
 	file_desc.chicken = chicken;
 	memcpy(file_desc.ajla_id, id, sizeof(id));
 
-	subptrs = mem_alloc_mayfail(struct stack_entry *, sizeof(struct stack_entry) * 3, &sink);
+	subptrs = mem_alloc_mayfail(struct stack_entry *, sizeof(struct stack_entry) * 4, &sink);
 	if (unlikely(!subptrs)) {
 		save_ok = false;
 		return;
 	}
 	subptrs[0].ptr = &file_desc.fn_descs;
 	subptrs[1].ptr = &file_desc.dependencies;
-	subptrs[2].ptr = &file_desc.base;
-	file_desc_offset = save_range(&file_desc, align_of(struct file_descriptor), sizeof(struct file_descriptor), subptrs, 3);
+	subptrs[2].ptr = &file_desc.function_pointers;
+	subptrs[3].ptr = &file_desc.base;
+	file_desc_offset = save_range(&file_desc, align_of(struct file_descriptor), sizeof(struct file_descriptor), subptrs, 4);
 	mem_free(subptrs);
 	if (unlikely(file_desc_offset == (size_t)-1))
 		return;
@@ -886,6 +947,29 @@ static bool adjust_pointers(char *data, size_t len, uintptr_t offset)
 		pos += size;
 	}
 	return true;
+}
+
+static void bind_function_pointers(void)
+{
+	size_t i;
+	for (i = 0; i < loaded_file_descriptor->function_pointers_len; i++) {
+		pointer_t ptr;
+		struct function_pointer *fp = &loaded_file_descriptor->function_pointers[i];
+		struct function_pointer *new_fp = module_load_function(fp->md, fp->fd, NULL);
+		ptr = pointer_reference(&new_fp->ptr);
+		fp->ptr = ptr;
+		fp->md = new_fp->md;
+		fp->fd = new_fp->fd;
+	}
+}
+
+static void unbind_function_pointers(void)
+{
+	size_t i;
+	for (i = 0; i < loaded_file_descriptor->function_pointers_len; i++) {
+		struct function_pointer *fp = &loaded_file_descriptor->function_pointers[i];
+		pointer_dereference(fp->ptr);
+	}
 }
 
 static int function_compare(const struct module_designator *md1, const struct function_designator *fd1, struct function_descriptor *fd2)
@@ -1083,9 +1167,10 @@ static bool dep_verify(void)
 	return true;
 }
 
-static void unmap_loaded_data(void)
+void save_unmap_data(void)
 {
 	if (loaded_data) {
+		unbind_function_pointers();
 #ifdef USE_MMAP
 		if (likely(loaded_data_mapped)) {
 			os_munmap(loaded_data, loaded_data_len, true);
@@ -1182,7 +1267,8 @@ static void save_load_cache(void)
 		os_close(h);
 		return;
 	}
-	if (unlikely(file_desc.cpu_feature_flags != cpu_feature_flags) ||
+	if (unlikely(file_desc.page_size != os_getpagesize()) ||
+	    unlikely(file_desc.cpu_feature_flags != cpu_feature_flags) ||
 	    unlikely(file_desc.optimize_int != optimize_int) ||
 	    unlikely(file_desc.privileged != ipret_is_privileged) ||
 	    unlikely(file_desc.profiling != profiling) ||
@@ -1197,11 +1283,7 @@ static void save_load_cache(void)
 	}
 #ifdef USE_MMAP
 	{
-		int prot_flags = PROT_READ
-#ifdef HAVE_CODEGEN
-			| PROT_EXEC
-#endif
-		;
+		int prot_flags = PROT_READ | PROT_WRITE;
 		void *ptr;
 #ifndef POINTER_COMPRESSION
 		ptr = os_mmap(file_desc.base, loaded_data_len, prot_flags, MAP_PRIVATE, h, 0, &sink);
@@ -1230,6 +1312,10 @@ static void save_load_cache(void)
 		loaded_data = ptr;
 		loaded_data_amalloc = true;
 #endif
+#if defined(HAVE_CODEGEN) && defined(HAVE_MPROTECT)
+		os_mprotect(ptr, cast_ptr(char *, loaded_file_descriptor->function_pointers) - cast_ptr(char *, ptr), PROT_READ | PROT_EXEC, NULL);
+#endif
+		bind_function_pointers();
 		os_close(h);
 		goto verify_ret;
 	}
@@ -1251,13 +1337,14 @@ skip_mmap:
 #if defined(CODEGEN_USE_HEAP) || !defined(USE_MMAP)
 	/*debug("adjusting pointers: %p, %p", loaded_data, loaded_data + loaded_data_len);*/
 	adjust_pointers(loaded_data, loaded_data_len, ptr_to_num(loaded_data) - ptr_to_num(loaded_file_descriptor->base));
+	bind_function_pointers();
 	os_code_invalidate_cache(cast_ptr(uint8_t *, loaded_data), loaded_data_len, true);
 #else
 	{
 		void *new_ptr;
 		new_ptr = amalloc_run_alloc(CODE_ALIGNMENT, loaded_data_len, false, false);
 		if (unlikely(!new_ptr)) {
-			unmap_loaded_data();
+			save_unmap_data();
 			return;
 		}
 		memcpy(new_ptr, loaded_data, loaded_data_len);
@@ -1272,11 +1359,10 @@ skip_mmap:
 #else
 	adjust_pointers(loaded_data, loaded_data_len, ptr_to_num(loaded_data) - ptr_to_num(loaded_file_descriptor->base));
 #endif
-#ifdef USE_MMAP
+	goto verify_ret;
 verify_ret:
-#endif
 	if (unlikely(!dep_verify())) {
-		unmap_loaded_data();
+		save_unmap_data();
 		return;
 	}
 #ifdef DEBUG
@@ -1321,6 +1407,7 @@ void name(save_init)(void)
 	dependencies_failed = false;
 	mutex_init(&dependencies_mutex);
 	save_load_cache();
+	save_register_dependence(builtin_path);
 }
 
 static void save_stream(void)
@@ -1360,6 +1447,8 @@ static void save_stream(void)
 void name(save_done)(void)
 {
 	/*debug("1: save_data: %p, save_ok %d", save_data, save_ok);*/
+	save_prepare();
+	module_finish_functions();
 	if (save_ok) {
 		save_finish_file();
 	}
@@ -1374,7 +1463,9 @@ void name(save_done)(void)
 	if (fn_descs) {
 		mem_free(fn_descs);
 	}
-	unmap_loaded_data();
+	if (duplicate_records) {
+		mem_free(duplicate_records);
+	}
 	while (!tree_is_empty(&dependencies)) {
 		struct dependence *dep = get_struct(tree_any(&dependencies), struct dependence, entry);
 		tree_delete(&dep->entry);

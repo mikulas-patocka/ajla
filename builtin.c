@@ -24,13 +24,9 @@
 
 #include "builtin.h"
 
-#ifndef wake_up_wait_list
-void u_name(save_register_dependence)(const char *path_name);
-void c_name(save_register_dependence)(const char *path_name);
-#endif
-
 #include <fcntl.h>
 
+const char *builtin_path;
 const char *builtin_lib_path;
 
 static char *builtin_ptr;
@@ -207,7 +203,7 @@ void builtin_init(void)
 	ajla_error_t sink;
 	handle_t h;
 	os_stat_t st;
-	const char *pte, *builtin_path;
+	const char *pte;
 
 	pte = os_get_path_to_exe();
 	builtin_lib_path = pte;
@@ -246,7 +242,7 @@ found_builtin:
 				builtin_ptr = ptr;
 				builtin_mapped = true;
 				os_close(h);
-				goto finalize;
+				return;
 			}
 		} else if (unlikely(fi.signature != 0x416A6C61))
 			goto bad_sig;
@@ -277,10 +273,6 @@ bad_sig:
 			p[3] = a[0];
 		}
 	}
-	goto finalize;	/* avoid warning */
-finalize:
-	call(save_register_dependence)(builtin_path);
-	mem_free(builtin_path);
 }
 
 void builtin_done(void)
@@ -293,4 +285,5 @@ void builtin_done(void)
 	{
 		mem_free(builtin_ptr);
 	}
+	mem_free(builtin_path);
 }
