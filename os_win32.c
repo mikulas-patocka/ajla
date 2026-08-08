@@ -4503,7 +4503,7 @@ void *os_mmap(void *ptr, size_t size, int prot, int flags, handle_t h, os_off_t 
 	}
 	if (unlikely(handle_is_valid(h))) {
 		HANDLE hmap;
-		DWORD map_access = !prot || prot == PROT_READ ? FILE_MAP_READ : FILE_MAP_WRITE;
+		DWORD map_access = !prot || prot == PROT_READ ? FILE_MAP_READ : FILE_MAP_COPY;
 		if (unlikely(handle_is_socket(h))) {
 			fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED), err, "mmap of socket not supported");
 			return MAP_FAILED;
