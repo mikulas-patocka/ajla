@@ -653,6 +653,7 @@ static struct thunk * attr_fastcall thunk_alloc_struct(tag_t tag, arg_t n_return
 	t = thunk_pointer_tag(t);
 
 	thunk_init_refcount_tag(t, tag);
+	t->u.function_call.n_results = n_return_values;
 
 	return t;
 }
@@ -2703,6 +2704,7 @@ static const struct stack_entry_type save_run = {
 	no_fixup_after_copy,
 	ptr_fixup_sub_ptr,
 	NULL,
+	NULL,
 	true,
 	false,
 };
@@ -2712,6 +2714,7 @@ static const struct stack_entry_type save_slice = {
 	save_run_get_properties,
 	no_fixup_after_copy,
 	ptr_fixup_sub_ptr,
+	NULL,
 	NULL,
 	true,
 	false,
@@ -2813,6 +2816,7 @@ static const struct stack_entry_type save_type = {
 	no_fixup_after_copy,
 	ptr_fixup_sub_ptr,
 	NULL,
+	NULL,
 	true,
 	false,
 };
@@ -2863,6 +2867,7 @@ static const struct stack_entry_type save_index = {
 	no_fixup_after_copy,
 	save_index_fixup_sub_ptr,
 	NULL,
+	NULL,
 	true,
 	false,
 };
@@ -2901,12 +2906,19 @@ static void save_pointer_fixup_sub_ptr(void *loc, uintptr_t offset)
 	}
 }
 
+static void save_pointer_dereference_ptr(void *loc)
+{
+	pointer_t *ptr = loc;
+	pointer_dereference(*ptr);
+}
+
 static const struct stack_entry_type save_pointer = {
 	save_pointer_get_ptr,
 	save_pointer_get_properties,
 	save_pointer_fixup_after_copy,
 	save_pointer_fixup_sub_ptr,
 	NULL,
+	save_pointer_dereference_ptr,
 	false,
 	false,
 };
@@ -2916,6 +2928,7 @@ static const struct stack_entry_type save_data_saved = {
 	NULL,
 	NULL,
 	ptr_fixup_sub_ptr,
+	NULL,
 	NULL,
 	false,
 	false,
@@ -2955,6 +2968,7 @@ static const struct stack_entry_type save_function_pointer = {
 	save_function_pointer_get_properties,
 	no_fixup_after_copy,
 	ptr_fixup_sub_ptr,
+	NULL,
 	NULL,
 	true,
 	true,
@@ -3268,6 +3282,55 @@ static bool attr_fastcall save_saved_cache(void *data, uintptr_t attr_unused off
 	return true;
 }
 
+static bool attr_fastcall save_function_call(void *data, uintptr_t attr_unused offset, size_t attr_unused *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_l)
+{
+	ajla_error_t sink;
+	struct thunk *t = data;
+	size_t n_return_values = t->u.function_call.n_results;
+
+	*size = partial_sizeof_array(struct thunk, u.function_call.results, n_return_values);
+
+	*subptrs = mem_alloc_mayfail(struct stack_entry *, sizeof(struct stack_entry), &sink);
+	if (unlikely(!*subptrs))
+		return false;
+	(*subptrs)[0].t = &save_pointer;
+	(*subptrs)[0].ptr = &t->u.function_call.u.function_reference;
+	*subptrs_l = 1;
+	return true;
+}
+
+static bool attr_fastcall save_result(void *data, uintptr_t attr_unused offset, size_t attr_unused *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_l)
+{
+	ajla_error_t sink;
+	struct thunk *t = data;
+	size_t n_return_values = t->u.function_call.n_results;
+
+	*size = partial_sizeof_array(struct thunk, u.function_call.results, n_return_values);
+
+	if (likely(n_return_values == 1)) {
+		*subptrs = mem_alloc_mayfail(struct stack_entry *, sizeof(struct stack_entry), &sink);
+		if (unlikely(!*subptrs))
+			return false;
+		(*subptrs)[0].t = &save_pointer;
+		(*subptrs)[0].ptr = &t->u.function_call.results[0].ptr;
+		*subptrs_l = 1;
+	} else {
+		size_t i;
+		if (unlikely(!array_init_mayfail(struct stack_entry, subptrs, subptrs_l, &sink)))
+			return false;
+		for (i = 0; i < n_return_values; i++) {
+			if (t->u.function_call.results[i].wanted) {
+				struct stack_entry ste;
+				ste.t = &save_pointer;
+				ste.ptr = &t->u.function_call.results[i].ptr;
+				if (unlikely(!array_add_mayfail(struct stack_entry, subptrs, subptrs_l, ste, NULL, &sink)))
+					return false;
+			}
+		}
+	}
+	return true;
+}
+
 static bool attr_fastcall save_exception(void *data, uintptr_t offset, size_t attr_unused *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_l)
 {
 	ajla_error_t sink;
@@ -3302,7 +3365,7 @@ bool data_save(void *p, uintptr_t offset, size_t *align, size_t *size, struct st
 		p = thunk_pointer_tag(p);
 	}
 	*align = 1;
-	*duplicate = tag == THUNK_TAG_FUNCTION_CALL;
+	*duplicate = tag >= THUNK_TAG_START && tag != THUNK_TAG_EXCEPTION;
 	*subptrs = NULL;
 	*subptrs_l = 0;
 	if (unlikely(!data_method_table[tag].save(p, offset, align, size, subptrs, subptrs_l))) {
@@ -3493,6 +3556,8 @@ void name(data_init)(void)
 	data_method_table[DATA_TAG_function_types].save = save_function_types;
 	data_method_table[DATA_TAG_saved].save = save_saved;
 	data_method_table[DATA_TAG_saved_cache].save = save_saved_cache;
+	data_method_table[THUNK_TAG_FUNCTION_CALL].save = save_function_call;
+	data_method_table[THUNK_TAG_RESULT].save = save_result;
 	data_method_table[THUNK_TAG_EXCEPTION].save = save_exception;
 
 	oom = thunk_alloc_exception_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_OUT_OF_MEMORY), NULL pass_file_line);

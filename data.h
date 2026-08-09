@@ -1380,6 +1380,7 @@ struct thunk {
 				/* THUNK_TAG_BLACKHOLE_DEREFERENCED */
 				struct execution_control *execution_control;
 			} u;
+			arg_t n_results;
 			struct thunk_result results[1];
 		} function_call;
 		/* THUNK_TAG_MULTI_RET_REFERENCE */
@@ -1984,6 +1985,7 @@ struct stack_entry_type {
 	void (*fixup_after_copy)(void *new_ptr);
 	void (*fixup_sub_ptr)(void *loc, uintptr_t offset);
 	bool (*duplicate_parents)(void *loc);
+	void (*dereference_ptr)(void *loc);
 	bool wrap_on_save;
 	bool is_function_pointer;
 };

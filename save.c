@@ -1064,11 +1064,40 @@ static void bind_function_pointers(void)
 
 static void unbind_function_pointers(void)
 {
-	size_t i;
+	size_t i, pos;
 	for (i = 0; i < loaded_file_descriptor->function_pointers_len; i++) {
 		size_t off = loaded_file_descriptor->function_pointers[i];
 		struct function_pointer *fp = cast_ptr(struct function_pointer *, cast_ptr(char *, loaded_data) + off);
 		pointer_dereference(fp->ptr);
+	}
+	pos = loaded_file_descriptor->writable_boundary;
+	while (pos < loaded_data_len) {
+		refcount_t *ref;
+		struct stack_entry *subptrs;
+		size_t align, size, subptrs_l, i;
+		bool duplicate;
+		if (unlikely((pos & (SAVED_DATA_ALIGN - 1)) != 0)) {
+			pos++;
+			continue;
+		}
+		ref = cast_ptr(refcount_t *, loaded_data + pos + offsetof(struct data, refcount_));
+		if (refcount_is_one(ref)) {
+			pos += SAVED_DATA_ALIGN;
+			continue;
+		}
+		if (unlikely(!refcount_is_read_only(ref)))
+			internal(file_line, "unbind_function_pointers: invalid refcount at position %"PRIxMAX"", (uintmax_t)pos);
+		if (unlikely(!data_save(loaded_data + pos, 0, &align, &size, &subptrs, &subptrs_l, &duplicate))) {
+			fatal("unable to allocate memory during shutdown");
+			return;
+		}
+		for (i = 0; i < subptrs_l; i++) {
+			if (subptrs[i].t->dereference_ptr)
+				subptrs[i].t->dereference_ptr(subptrs[i].ptr);
+		}
+		if (subptrs)
+			mem_free(subptrs);
+		pos += size;
 	}
 }
 
