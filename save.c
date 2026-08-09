@@ -52,9 +52,11 @@ struct position_map {
 	struct tree_entry entry;
 	uintptr_t old_position;
 	uintptr_t new_position;
+	uintptr_t new_wrap_position;
 	size_t size;
-	uint16_t align;
 	bool need_duplicate;
+	uintptr_t duplicate_position;
+	size_t duplicate_size;
 };
 
 static struct tree position_tree;
@@ -66,7 +68,9 @@ static struct function_descriptor *fn_descs;
 static size_t fn_descs_len;
 
 struct duplicate_record {
+	size_t old_position;
 	size_t fp_ptr;
+	struct position_map *subpm;
 };
 
 static struct duplicate_record *duplicate_records;
@@ -184,7 +188,7 @@ static void free_position_tree(struct tree *t)
 	}
 }
 
-static size_t save_range(const void *ptr, size_t align, size_t size, struct stack_entry *subptrs, size_t subptrs_l)
+static size_t save_range(const void *ptr, size_t align, size_t size, struct stack_entry *subptrs, size_t subptrs_l, size_t *doff)
 {
 	ajla_error_t sink;
 	size_t data_offset, payload_offset, i;
@@ -192,6 +196,8 @@ static size_t save_range(const void *ptr, size_t align, size_t size, struct stac
 	if (unlikely(!align_output(SAVED_DATA_ALIGN)))
 		return (size_t)-1;
 	data_offset = save_len;
+	if (doff)
+		*doff = data_offset;
 	d = data_alloc_flexible(saved, offsets, subptrs_l, &sink);
 	if (unlikely(!d)) {
 		save_ok = false;
@@ -230,6 +236,7 @@ static size_t save_range(const void *ptr, size_t align, size_t size, struct stac
 struct subptr_state {
 	uint64_t offset;
 	bool need_duplicate;
+	struct position_map *pm;
 };
 
 static size_t save_pointer(pointer_t *xptr, bool verify_only)
@@ -252,7 +259,7 @@ static size_t save_pointer(pointer_t *xptr, bool verify_only)
 
 cont:
 	do {
-		size_t align, size, i, data_pos;
+		size_t align, size, i, data_pos, doff;
 		bool need_duplicate;
 		struct stack_entry ste;
 		const char *p1;
@@ -315,6 +322,7 @@ cont:
 				struct position_map *subpm = get_struct(e2, struct position_map, entry);
 				sps[i].offset = subpm->new_position - subpm->old_position;
 				sps[i].need_duplicate = subpm->need_duplicate;
+				sps[i].pm = subpm;
 			}
 		}
 		if (need_sub) {
@@ -329,12 +337,13 @@ cont:
 				if (unlikely(!align_output(align)))
 					goto err_free_sps;
 				data_pos = save_len;
+				doff = save_len;
 				if (unlikely(!array_add_multiple_mayfail(char, &save_data, &save_len, p1, size, NULL, &sink))) {
 					save_ok = false;
 					goto err_free_sps;
 				}
 			} else {
-				data_pos = save_range(p1, align, size, subptrs, subptrs_len);
+				data_pos = save_range(p1, align, size, subptrs, subptrs_len, &doff);
 				if (unlikely(data_pos == (size_t)-1)) {
 					goto err_free_sps;
 				}
@@ -352,7 +361,9 @@ cont:
 				subptrs[i].t->fixup_sub_ptr(save_data + data_pos + offset, sps[i].offset);
 				if (sps[i].need_duplicate) {
 					struct duplicate_record dr;
+					dr.old_position = p1_num;
 					dr.fp_ptr = data_pos + offset;
+					dr.subpm = sps[i].pm;
 					if (unlikely(!array_add_mayfail(struct duplicate_record, &duplicate_records, &duplicate_records_len, dr, NULL, &sink))) {
 						save_ok = false;
 						goto err_free_sps;
@@ -373,8 +384,8 @@ cont:
 		}
 		pm->old_position = p1_num;
 		pm->new_position = data_pos;
+		pm->new_wrap_position = doff;
 		pm->size = size;
-		pm->align = align;
 		pm->need_duplicate = need_duplicate;
 		tree_insert_after_find(&pm->entry, &ins);
 		ret = data_pos;
@@ -675,11 +686,11 @@ static void save_finish_one(
 		goto free_it_2;
 	}
 
-	code_off = save_range(code, align_of(code_t), (size_t)code_size * sizeof(code_t), NULL, 0);
+	code_off = save_range(code, align_of(code_t), (size_t)code_size * sizeof(code_t), NULL, 0, NULL);
 	if (unlikely(code_off == (size_t)-1))
 		goto free_it_2;
 
-	lvf_off = save_range(local_variables_flags, align_of(struct local_variable_flags), (size_t)n_slots * sizeof(struct local_variable_flags), NULL, 0);
+	lvf_off = save_range(local_variables_flags, align_of(struct local_variable_flags), (size_t)n_slots * sizeof(struct local_variable_flags), NULL, 0, NULL);
 	if (unlikely(lvf_off == (size_t)-1))
 		goto free_it_2;
 
@@ -689,37 +700,37 @@ static void save_finish_one(
 		goto free_it_2;
 	}
 
-	real_data_off = save_range(real_data, CODE_ALIGNMENT, real_size, NULL, 0);
+	real_data_off = save_range(real_data, CODE_ALIGNMENT, real_size, NULL, 0, NULL);
 	if (unlikely(code_off == (size_t)-1))
 		goto free_it_2;
 
-	lp_off = save_range(lp, align_of(struct line_position), (size_t)lp_size * sizeof(struct line_position), NULL, 0);
+	lp_off = save_range(lp, align_of(struct line_position), (size_t)lp_size * sizeof(struct line_position), NULL, 0, NULL);
 	if (unlikely(lp_off == (size_t)-1))
 		goto free_it_2;
 
-	uc_off = save_range(unoptimized_code_base, CODE_ALIGNMENT, unoptimized_code_size, NULL, 0);
+	uc_off = save_range(unoptimized_code_base, CODE_ALIGNMENT, unoptimized_code_size, NULL, 0, NULL);
 	if (unlikely(uc_off == (size_t)-1))
 		goto free_it_2;
 
-	en_off = save_range(entries, align_of(size_t), n_entries * sizeof(size_t), NULL, 0);
+	en_off = save_range(entries, align_of(size_t), n_entries * sizeof(size_t), NULL, 0, NULL);
 	if (unlikely(en_off == (size_t)-1))
 		goto free_it_2;
 
 #ifdef HAVE_CODEGEN_TRAPS
-	tr_off = save_range(trap_records, align_of(struct trap_record), trap_records_size * sizeof(struct trap_record), NULL, 0);
+	tr_off = save_range(trap_records, align_of(struct trap_record), trap_records_size * sizeof(struct trap_record), NULL, 0, NULL);
 #else
-	tr_off = save_range(trap_records, 1, 0, NULL, 0);
+	tr_off = save_range(trap_records, 1, 0, NULL, 0, NULL);
 #endif
 	if (unlikely(tr_off == (size_t)-1))
 		goto free_it_2;
 
 	if (!(last_md != (size_t)-1 && !module_designator_compare(cast_ptr(struct module_designator *, save_data + last_md), md))) {
-		last_md = save_range(md, align_of(struct module_designator), module_designator_length(md), NULL, 0);
+		last_md = save_range(md, align_of(struct module_designator), module_designator_length(md), NULL, 0, NULL);
 		if (unlikely(last_md == (size_t)-1))
 			goto free_it_2;
 	}
 
-	last_fd = save_range(fd, align_of(struct function_designator), function_designator_length(fd), NULL, 0);
+	last_fd = save_range(fd, align_of(struct function_designator), function_designator_length(fd), NULL, 0, NULL);
 	if (unlikely(last_fd == (size_t)-1))
 		goto free_it_2;
 
@@ -817,6 +828,79 @@ void save_finish_function(struct data *d)
 			trap_records_size);
 }
 
+static void duplicate_writeable_entries(void)
+{
+	ajla_error_t sink;
+	struct tree_entry *e;
+	struct position_map *pm, *pm2;
+	size_t i, j;
+	struct stack_entry *subptrs;
+	size_t align, size, subptrs_l;
+	bool duplicate;
+
+	if (unlikely(!align_output(os_getpagesize())))
+		return;
+
+	for (e = tree_first(&position_tree); e; e = tree_next(e)) {
+		pm = get_struct(e, struct position_map, entry);
+		if (pm->need_duplicate) {
+			char *cpy;
+			if (unlikely(!data_save(save_data + pm->new_wrap_position, 0, &align, &size, &subptrs, &subptrs_l, &duplicate)))
+				return;
+			if (subptrs)
+				mem_free(subptrs);
+			pm->duplicate_size = size;
+			if (unlikely(!align_output(align)))
+				return;
+			pm->duplicate_position = save_len;
+			cpy = mem_alloc_mayfail(char *, size, &sink);
+			if (unlikely(!cpy)) {
+				save_ok = false;
+				return;
+			}
+			memcpy(cpy, save_data + pm->new_wrap_position, size);
+			if (unlikely(!array_add_multiple_mayfail(char, &save_data, &save_len, cpy, size, NULL, &sink))) {
+				mem_free(cpy);
+				save_ok = false;
+				return;
+			}
+			mem_free(cpy);
+		}
+	}
+
+	for (i = 0; i < duplicate_records_len; i++) {
+		struct duplicate_record *dr = &duplicate_records[i];
+		size_t old_position = dr->old_position;
+		e = tree_find(&position_tree, position_tree_compare, old_position);
+		if (!e)
+			internal(file_line, "duplicate_writeable_entries: entry not found in position tree");
+		pm = get_struct(e, struct position_map, entry);
+		if (unlikely(!data_save(save_data + pm->new_wrap_position, 0, &align, &size, &subptrs, &subptrs_l, &duplicate))) {
+			return;
+		}
+		for (j = 0; j < subptrs_l; j++) {
+			size_t offset = cast_ptr(char *, subptrs[i].ptr) - save_data;
+			if (offset == dr->fp_ptr)
+				goto found;
+		}
+		internal(file_line, "duplicate_writeable_entries: modification offset not found");
+found:
+		pm2 = dr->subpm;
+		subptrs[j].t->fixup_sub_ptr(save_data + dr->fp_ptr, pm2->duplicate_position - pm2->new_wrap_position);
+		mem_free(subptrs);
+	}
+
+	for (e = tree_first(&position_tree); e; e = tree_next(e)) {
+		struct position_map *pm = get_struct(e, struct position_map, entry);
+		if (pm->need_duplicate) {
+			memcpy(save_data + pm->duplicate_position, save_data + pm->new_wrap_position, pm->duplicate_size);
+			if (unlikely(!data_save(save_data + pm->duplicate_position, 0, &align, &size, &subptrs, &subptrs_l, &duplicate)))
+				return;
+			mem_free(subptrs);
+		}
+	}
+}
+
 static void save_finish_file(void)
 {
 	const int fn_desc_ptrs = 11;
@@ -834,6 +918,10 @@ static void save_finish_file(void)
 	}
 
 	save_functions_until(NULL);
+
+	duplicate_writeable_entries();
+	if (unlikely(!save_ok))
+		return;
 
 	subptrs = mem_alloc_array_mayfail(mem_alloc_mayfail, struct stack_entry *, 0, 0, fn_descs_len, sizeof(struct stack_entry) * fn_desc_ptrs, &sink);
 	if (unlikely(!subptrs)) {
@@ -854,7 +942,7 @@ static void save_finish_file(void)
 		subptrs[i * fn_desc_ptrs + 10].ptr = &fn_descs[i].trap_records;
 		/*debug("%p %p %zx", fn_descs[i].data_saved_cache, fn_descs[i].md, fn_descs[i].idx);*/
 	}
-	fn_descs_offset = save_range(fn_descs, align_of(struct function_descriptor), fn_descs_len * sizeof(struct function_descriptor), subptrs, fn_descs_len * fn_desc_ptrs);
+	fn_descs_offset = save_range(fn_descs, align_of(struct function_descriptor), fn_descs_len * sizeof(struct function_descriptor), subptrs, fn_descs_len * fn_desc_ptrs, NULL);
 	mem_free(subptrs);
 	if (unlikely(fn_descs_offset == (size_t)-1))
 		return;
@@ -866,7 +954,7 @@ static void save_finish_file(void)
 		save_ok = false;
 		return;
 	}
-	deps_offset = save_range(deps, 1, deps_l, NULL, 0);
+	deps_offset = save_range(deps, 1, deps_l, NULL, 0, NULL);
 	mem_free(deps);
 	if (unlikely(deps_offset == (size_t)-1))
 		return;
@@ -894,7 +982,7 @@ static void save_finish_file(void)
 		subptrs[i * 2 + 1].ptr = &fpptrs[i].fd;
 	}
 
-	fpptrs_offset = save_range(fpptrs, os_getpagesize(), duplicate_records_len * sizeof(struct function_pointer), subptrs, duplicate_records_len * 2);
+	fpptrs_offset = save_range(fpptrs, os_getpagesize(), duplicate_records_len * sizeof(struct function_pointer), subptrs, duplicate_records_len * 2, NULL);
 	mem_free(fpptrs);
 	mem_free(subptrs);
 	if (unlikely(fpptrs_offset == (size_t)-1))
@@ -931,7 +1019,7 @@ static void save_finish_file(void)
 	subptrs[1].ptr = &file_desc.dependencies;
 	subptrs[2].ptr = &file_desc.function_pointers;
 	subptrs[3].ptr = &file_desc.base;
-	file_desc_offset = save_range(&file_desc, align_of(struct file_descriptor), sizeof(struct file_descriptor), subptrs, 4);
+	file_desc_offset = save_range(&file_desc, align_of(struct file_descriptor), sizeof(struct file_descriptor), subptrs, 4, NULL);
 	mem_free(subptrs);
 	if (unlikely(file_desc_offset == (size_t)-1))
 		return;
