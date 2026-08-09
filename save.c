@@ -53,6 +53,8 @@ struct position_map {
 	uintptr_t old_position;
 	uintptr_t new_position;
 	size_t size;
+	uint16_t align;
+	bool need_duplicate;
 };
 
 static struct tree position_tree;
@@ -136,7 +138,8 @@ static void save_finish_one(
 	size_t unoptimized_code_size,
 	size_t *entries,
 	size_t n_entries,
-	struct trap_record *trap_records, size_t trap_records_size);
+	struct trap_record *trap_records,
+	size_t trap_records_size);
 static bool dep_get_stream(char **result, size_t *result_l);
 
 
@@ -224,6 +227,11 @@ static size_t save_range(const void *ptr, size_t align, size_t size, struct stac
 	return payload_offset;
 }
 
+struct subptr_state {
+	uint64_t offset;
+	bool need_duplicate;
+};
+
 static size_t save_pointer(pointer_t *xptr, bool verify_only)
 {
 	ajla_error_t sink;
@@ -231,7 +239,7 @@ static size_t save_pointer(pointer_t *xptr, bool verify_only)
 	size_t subptrs_len;
 	struct stack_entry *stk;
 	size_t stk_l;
-	uintptr_t *sps;
+	struct subptr_state *sps;
 	size_t ret = (size_t)-1;		/* avoid warning */
 
 	struct tree processed;
@@ -245,6 +253,7 @@ static size_t save_pointer(pointer_t *xptr, bool verify_only)
 cont:
 	do {
 		size_t align, size, i, data_pos;
+		bool need_duplicate;
 		struct stack_entry ste;
 		const char *p1;
 		uintptr_t p1_num;
@@ -267,12 +276,12 @@ cont:
 			goto pop_stk;
 		}
 
-		if (unlikely(!ste.t->get_properties(&ste, &align, &size, &subptrs, &subptrs_len)))
+		if (unlikely(!ste.t->get_properties(&ste, &align, &size, &subptrs, &subptrs_len, &need_duplicate)))
 			goto err;
 
 		ajla_assert_lo(size != 0, (file_line, "save_pointer: size == 0"));
 
-		sps = mem_alloc_array_mayfail(mem_calloc_mayfail, uintptr_t *, 0, 0, subptrs_len, sizeof(uintptr_t), &sink);
+		sps = mem_alloc_array_mayfail(mem_calloc_mayfail, struct subptr_state *, 0, 0, subptrs_len, sizeof(struct subptr_state), &sink);
 		if (unlikely(!sps)) {
 			save_ok = false;
 			goto err_free_subptrs;
@@ -304,7 +313,8 @@ cont:
 				need_sub = true;
 			} else {
 				struct position_map *subpm = get_struct(e2, struct position_map, entry);
-				sps[i] = subpm->new_position - subpm->old_position;
+				sps[i].offset = subpm->new_position - subpm->old_position;
+				sps[i].need_duplicate = subpm->need_duplicate;
 			}
 		}
 		if (need_sub) {
@@ -333,8 +343,14 @@ cont:
 
 			for (i = 0; i < subptrs_len; i++) {
 				size_t offset = cast_ptr(char *, subptrs[i].ptr) - p1;
-				subptrs[i].t->fixup_sub_ptr(save_data + data_pos + offset, sps[i]);
-				if (subptrs[i].t->duplicate) {
+				if (subptrs[i].t->duplicate_parents && subptrs[i].t->duplicate_parents(save_data + data_pos + offset))
+					need_duplicate = true;
+			}
+
+			for (i = 0; i < subptrs_len; i++) {
+				size_t offset = cast_ptr(char *, subptrs[i].ptr) - p1;
+				subptrs[i].t->fixup_sub_ptr(save_data + data_pos + offset, sps[i].offset);
+				if (sps[i].need_duplicate) {
 					struct duplicate_record dr;
 					dr.fp_ptr = data_pos + offset;
 					if (unlikely(!array_add_mayfail(struct duplicate_record, &duplicate_records, &duplicate_records_len, dr, NULL, &sink))) {
@@ -358,6 +374,8 @@ cont:
 		pm->old_position = p1_num;
 		pm->new_position = data_pos;
 		pm->size = size;
+		pm->align = align;
+		pm->need_duplicate = need_duplicate;
 		tree_insert_after_find(&pm->entry, &ins);
 		ret = data_pos;
 
@@ -926,6 +944,7 @@ static bool adjust_pointers(char *data, size_t len, uintptr_t offset)
 		refcount_t *ref;
 		struct stack_entry *subptrs;
 		size_t align, size, subptrs_l, i;
+		bool duplicate;
 		if (unlikely((pos & (SAVED_DATA_ALIGN - 1)) != 0)) {
 			pos++;
 			continue;
@@ -937,7 +956,7 @@ static bool adjust_pointers(char *data, size_t len, uintptr_t offset)
 		}
 		if (unlikely(!refcount_is_read_only(ref)))
 			internal(file_line, "adjust_pointers: invalid refcount at position %"PRIxMAX"", (uintmax_t)pos);
-		if (unlikely(!data_save(data + pos, offset, &align, &size, &subptrs, &subptrs_l)))
+		if (unlikely(!data_save(data + pos, offset, &align, &size, &subptrs, &subptrs_l, &duplicate)))
 			return false;
 		for (i = 0; i < subptrs_l; i++) {
 			subptrs[i].t->fixup_sub_ptr(subptrs[i].ptr, offset);

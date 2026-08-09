@@ -2672,10 +2672,11 @@ static void *save_run_get_ptr(struct stack_entry *ste)
 	return p;
 }
 
-static bool save_run_get_properties(struct stack_entry *ste, size_t *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_len)
+static bool save_run_get_properties(struct stack_entry *ste, size_t *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_len, bool *duplicate)
 {
 	*align = ste->align;
 	*size = ste->size;
+	*duplicate = false;
 	*subptrs = NULL;
 	*subptrs_len = 0;
 	return true;
@@ -2701,8 +2702,8 @@ static const struct stack_entry_type save_run = {
 	save_run_get_properties,
 	no_fixup_after_copy,
 	ptr_fixup_sub_ptr,
+	NULL,
 	true,
-	false,
 };
 
 static const struct stack_entry_type save_slice = {
@@ -2710,12 +2711,12 @@ static const struct stack_entry_type save_slice = {
 	save_run_get_properties,
 	no_fixup_after_copy,
 	ptr_fixup_sub_ptr,
+	NULL,
 	true,
-	false,
 };
 
 
-static bool save_type_get_properties(struct stack_entry *ste, size_t *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_len)
+static bool save_type_get_properties(struct stack_entry *ste, size_t *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_len, bool *duplicate)
 {
 	ajla_error_t sink;
 	const struct type *t = *cast_ptr(const struct type **, ste->ptr);
@@ -2746,6 +2747,7 @@ static bool save_type_get_properties(struct stack_entry *ste, size_t *align, siz
 			*subptrs_len = ii;
 			*align = align_of(struct record_definition);
 			*size = offsetof(struct record_definition, types[rec->n_slots]);
+			*duplicate = false;
 			break;
 		}
 		case TYPE_TAG_flat_record: {
@@ -2771,6 +2773,7 @@ static bool save_type_get_properties(struct stack_entry *ste, size_t *align, siz
 			}
 			*align = align_of(struct flat_record_definition);
 			*size = offsetof(struct flat_record_definition, entries[rec->n_slots]);
+			*duplicate = false;
 			*subptrs = subp;
 			*subptrs_len = ii;
 			break;
@@ -2784,6 +2787,7 @@ static bool save_type_get_properties(struct stack_entry *ste, size_t *align, siz
 			subp->ptr = &def->base;
 			*align = align_of(struct flat_array_definition);
 			*size = sizeof(struct flat_array_definition);
+			*duplicate = false;
 			*subptrs = subp;
 			*subptrs_len = 1;
 			break;
@@ -2792,6 +2796,7 @@ static bool save_type_get_properties(struct stack_entry *ste, size_t *align, siz
 			TYPE_TAG_VALIDATE(t->tag);
 			*align = align_of(struct type);
 			*size = sizeof(struct type);
+			*duplicate = false;
 			*subptrs = NULL;
 			*subptrs_len = 0;
 			break;
@@ -2805,8 +2810,8 @@ static const struct stack_entry_type save_type = {
 	save_type_get_properties,
 	no_fixup_after_copy,
 	ptr_fixup_sub_ptr,
+	NULL,
 	true,
-	false,
 };
 
 static void *save_index_get_ptr(struct stack_entry *ste)
@@ -2816,13 +2821,14 @@ static void *save_index_get_ptr(struct stack_entry *ste)
 	return mp;
 }
 
-static bool save_index_get_properties(struct stack_entry *ste, size_t *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_len)
+static bool save_index_get_properties(struct stack_entry *ste, size_t *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_len, bool *duplicate)
 {
 	ajla_error_t sink;
 	mpint_t *mp = save_index_get_ptr(ste);
 	struct stack_entry *subp;
 	*align = align_of(mpint_t);
 	*size = sizeof(mpint_t);
+	*duplicate = false;
 	if (unlikely(!mp->_mp_size)) {
 		*subptrs = NULL;
 		*subptrs_len = 0;
@@ -2853,8 +2859,8 @@ static const struct stack_entry_type save_index = {
 	save_index_get_properties,
 	no_fixup_after_copy,
 	save_index_fixup_sub_ptr,
+	NULL,
 	true,
-	false,
 };
 
 static void *save_pointer_get_ptr(struct stack_entry *ste)
@@ -2867,9 +2873,9 @@ static void *save_pointer_get_ptr(struct stack_entry *ste)
 		return thunk_untag(pointer_get_value_strip_tag_(*ptr));
 }
 
-static bool save_pointer_get_properties(struct stack_entry *ste, size_t *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_len)
+static bool save_pointer_get_properties(struct stack_entry *ste, size_t *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_len, bool *duplicate)
 {
-	return data_save(save_pointer_get_ptr(ste), 0, align, size, subptrs, subptrs_len);
+	return data_save(save_pointer_get_ptr(ste), 0, align, size, subptrs, subptrs_len, duplicate);
 }
 
 static void save_pointer_fixup_after_copy(void *new_ptr)
@@ -2896,7 +2902,7 @@ static const struct stack_entry_type save_pointer = {
 	save_pointer_get_properties,
 	save_pointer_fixup_after_copy,
 	save_pointer_fixup_sub_ptr,
-	false,
+	NULL,
 	false,
 };
 
@@ -2905,11 +2911,11 @@ static const struct stack_entry_type save_data_saved = {
 	NULL,
 	NULL,
 	ptr_fixup_sub_ptr,
-	false,
+	NULL,
 	false,
 };
 
-static bool save_function_pointer_get_properties(struct stack_entry *ste, size_t *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_len)
+static bool save_function_pointer_get_properties(struct stack_entry *ste, size_t *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_len, bool *duplicate)
 {
 	ajla_error_t sink;
 	struct function_pointer *fp = *cast_ptr(struct function_pointer **, ste->ptr);
@@ -2919,6 +2925,7 @@ static bool save_function_pointer_get_properties(struct stack_entry *ste, size_t
 
 	*align = align_of(struct function_pointer);
 	*size = sizeof(struct function_pointer);
+	*duplicate = true;
 
 	*subptrs = mem_alloc_array_mayfail(mem_alloc_mayfail, struct stack_entry *, 0, 0, 2, sizeof(struct stack_entry), &sink);
 	if (unlikely(!*subptrs))
@@ -2942,7 +2949,7 @@ static const struct stack_entry_type save_function_pointer = {
 	save_function_pointer_get_properties,
 	no_fixup_after_copy,
 	ptr_fixup_sub_ptr,
-	true,
+	NULL,
 	true,
 };
 
@@ -3279,7 +3286,7 @@ static bool attr_fastcall save_exception(void *data, uintptr_t offset, size_t at
 	return true;
 }
 
-bool data_save(void *p, uintptr_t offset, size_t *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_l)
+bool data_save(void *p, uintptr_t offset, size_t *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_l, bool *duplicate)
 {
 	tag_t tag = da_thunk_tag(p);
 	if (tag >= DATA_TAG_START + (tag_t)zero && tag < DATA_TAG_END) {
@@ -3288,6 +3295,7 @@ bool data_save(void *p, uintptr_t offset, size_t *align, size_t *size, struct st
 		p = thunk_pointer_tag(p);
 	}
 	*align = 1;
+	*duplicate = tag == THUNK_TAG_FUNCTION_CALL;
 	*subptrs = NULL;
 	*subptrs_l = 0;
 	if (unlikely(!data_method_table[tag].save(p, offset, align, size, subptrs, subptrs_l))) {

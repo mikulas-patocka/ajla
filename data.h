@@ -1980,11 +1980,11 @@ struct stack_entry;
 
 struct stack_entry_type {
 	void *(*get_ptr)(struct stack_entry *ste);
-	bool (*get_properties)(struct stack_entry *ste, size_t *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_len);
+	bool (*get_properties)(struct stack_entry *ste, size_t *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_len, bool *duplicate);
 	void (*fixup_after_copy)(void *new_ptr);
 	void (*fixup_sub_ptr)(void *loc, uintptr_t offset);
+	bool (*duplicate_parents)(void *loc);
 	bool wrap_on_save;
-	bool duplicate;
 };
 
 struct stack_entry {
@@ -1994,7 +1994,7 @@ struct stack_entry {
 	size_t size;
 };
 
-bool data_save(void *p, uintptr_t offset, size_t *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_l);
+bool data_save(void *p, uintptr_t offset, size_t *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_l, bool *duplicate);
 bool data_save_init_stack(pointer_t *ptr, struct stack_entry **stk, size_t *stk_l);
 
 /*********
