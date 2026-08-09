@@ -2704,6 +2704,7 @@ static const struct stack_entry_type save_run = {
 	ptr_fixup_sub_ptr,
 	NULL,
 	true,
+	false,
 };
 
 static const struct stack_entry_type save_slice = {
@@ -2713,6 +2714,7 @@ static const struct stack_entry_type save_slice = {
 	ptr_fixup_sub_ptr,
 	NULL,
 	true,
+	false,
 };
 
 
@@ -2812,6 +2814,7 @@ static const struct stack_entry_type save_type = {
 	ptr_fixup_sub_ptr,
 	NULL,
 	true,
+	false,
 };
 
 static void *save_index_get_ptr(struct stack_entry *ste)
@@ -2861,6 +2864,7 @@ static const struct stack_entry_type save_index = {
 	save_index_fixup_sub_ptr,
 	NULL,
 	true,
+	false,
 };
 
 static void *save_pointer_get_ptr(struct stack_entry *ste)
@@ -2904,6 +2908,7 @@ static const struct stack_entry_type save_pointer = {
 	save_pointer_fixup_sub_ptr,
 	NULL,
 	false,
+	false,
 };
 
 static const struct stack_entry_type save_data_saved = {
@@ -2912,6 +2917,7 @@ static const struct stack_entry_type save_data_saved = {
 	NULL,
 	ptr_fixup_sub_ptr,
 	NULL,
+	false,
 	false,
 };
 
@@ -2950,6 +2956,7 @@ static const struct stack_entry_type save_function_pointer = {
 	no_fixup_after_copy,
 	ptr_fixup_sub_ptr,
 	NULL,
+	true,
 	true,
 };
 

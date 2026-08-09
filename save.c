@@ -55,6 +55,7 @@ struct position_map {
 	uintptr_t new_position;
 	uintptr_t new_wrap_position;
 	size_t size;
+	bool is_function_pointer;
 	bool need_duplicate;
 	uintptr_t duplicate_position;
 	size_t duplicate_size;
@@ -74,6 +75,9 @@ struct duplicate_record {
 	struct position_map *subpm;
 };
 
+static size_t *function_pointers;
+static size_t function_pointers_len;
+
 static struct duplicate_record *duplicate_records;
 static size_t duplicate_records_len;
 
@@ -83,7 +87,7 @@ struct file_descriptor {
 	char *dependencies;
 	size_t dependencies_l;
 	size_t writable_boundary;
-	struct function_pointer *function_pointers;
+	size_t *function_pointers;
 	size_t function_pointers_len;
 	void *base;
 	int page_size;
@@ -388,6 +392,7 @@ cont:
 		pm->new_position = data_pos;
 		pm->new_wrap_position = doff;
 		pm->size = size;
+		pm->is_function_pointer = ste.t->is_function_pointer;
 		pm->need_duplicate = need_duplicate;
 		tree_insert_after_find(&pm->entry, &ins);
 		ret = data_pos;
@@ -845,6 +850,7 @@ static void duplicate_writeable_entries(void)
 
 	writable_boundary = save_len;
 
+	function_pointers_len = 0;
 	for (e = tree_first(&position_tree); e; e = tree_next(e)) {
 		pm = get_struct(e, struct position_map, entry);
 		if (pm->need_duplicate) {
@@ -870,6 +876,7 @@ static void duplicate_writeable_entries(void)
 			}
 			mem_free(cpy);
 		}
+		function_pointers_len += pm->is_function_pointer;
 	}
 
 	for (i = 0; i < duplicate_records_len; i++) {
@@ -883,7 +890,7 @@ static void duplicate_writeable_entries(void)
 			return;
 		}
 		for (j = 0; j < subptrs_l; j++) {
-			size_t offset = cast_ptr(char *, subptrs[i].ptr) - save_data;
+			size_t offset = cast_ptr(char *, subptrs[j].ptr) - save_data;
 			if (offset == dr->fp_ptr)
 				goto found;
 		}
@@ -894,6 +901,13 @@ found:
 		mem_free(subptrs);
 	}
 
+	function_pointers = mem_alloc_array_mayfail(mem_alloc_mayfail, size_t *, 0, 0, function_pointers_len, sizeof(size_t), &sink);
+	if (unlikely(!function_pointers)) {
+		save_ok = false;
+		return;
+	}
+
+	i = 0;
 	for (e = tree_first(&position_tree); e; e = tree_next(e)) {
 		struct position_map *pm = get_struct(e, struct position_map, entry);
 		if (pm->need_duplicate) {
@@ -901,6 +915,10 @@ found:
 			if (unlikely(!data_save(save_data + pm->duplicate_position, 0, &align, &size, &subptrs, &subptrs_l, &duplicate)))
 				return;
 			mem_free(subptrs);
+		}
+		if (pm->is_function_pointer) {
+			function_pointers[i] = pm->duplicate_position + (pm->new_position - pm->new_wrap_position);
+			i++;
 		}
 	}
 }
@@ -912,7 +930,6 @@ static void save_finish_file(void)
 	struct stack_entry *subptrs;
 	char *deps;
 	size_t i, deps_l;
-	struct function_pointer *fpptrs;
 	size_t fn_descs_offset, deps_offset, fpptrs_offset, file_desc_offset;
 	struct file_descriptor file_desc;
 
@@ -963,45 +980,15 @@ static void save_finish_file(void)
 	if (unlikely(deps_offset == (size_t)-1))
 		return;
 
-	fpptrs = mem_alloc_array_mayfail(mem_alloc_mayfail, struct function_pointer *, 0, 0, duplicate_records_len, sizeof(struct function_pointer), &sink);
-	if (unlikely(!fpptrs)) {
-		save_ok = false;
+	fpptrs_offset = save_range(function_pointers, align_of(uintptr_t), function_pointers_len * sizeof(uintptr_t), NULL, 0, NULL);
+	if (unlikely(fn_descs_offset == (size_t)-1))
 		return;
-	}
-	subptrs = mem_alloc_array_mayfail(mem_alloc_mayfail, struct stack_entry *, 0, 0, duplicate_records_len, sizeof(struct stack_entry) * 2, &sink);
-	if (unlikely(!subptrs)) {
-		mem_free(fpptrs);
-		save_ok = false;
-		return;
-	}
-	for (i = 0; i < duplicate_records_len; i++) {
-		uintptr_t offset;
-		struct function_pointer fp;
-		char *p = save_data + duplicate_records[i].fp_ptr;
-		memcpy(&offset, p, sizeof(uintptr_t));
-		memcpy(&fp, save_data + offset, sizeof(struct function_pointer));
-		fp.ptr = pointer_empty();
-		fpptrs[i] = fp;
-		subptrs[i * 2 + 0].ptr = &fpptrs[i].md;
-		subptrs[i * 2 + 1].ptr = &fpptrs[i].fd;
-	}
-
-	fpptrs_offset = save_range(fpptrs, os_getpagesize(), duplicate_records_len * sizeof(struct function_pointer), subptrs, duplicate_records_len * 2, NULL);
-	mem_free(fpptrs);
-	mem_free(subptrs);
-	if (unlikely(fpptrs_offset == (size_t)-1))
-		return;
-	for (i = 0; i < duplicate_records_len; i++) {
-		char *p = save_data + duplicate_records[i].fp_ptr;
-		uintptr_t dst_offset = fpptrs_offset + i * sizeof(struct function_pointer);
-		memcpy(p, &dst_offset, sizeof(uintptr_t));
-	}
 
 	file_desc.dependencies = num_to_ptr(deps_offset);
 	file_desc.dependencies_l = deps_l;
 	file_desc.writable_boundary = writable_boundary;
 	file_desc.function_pointers = num_to_ptr(fpptrs_offset);
-	file_desc.function_pointers_len = duplicate_records_len;
+	file_desc.function_pointers_len = function_pointers_len;
 	file_desc.base = num_to_ptr(0);
 	file_desc.page_size = os_getpagesize();
 	file_desc.cpu_feature_flags = cpu_feature_flags;
@@ -1065,10 +1052,10 @@ static void bind_function_pointers(void)
 {
 	size_t i;
 	for (i = 0; i < loaded_file_descriptor->function_pointers_len; i++) {
-		pointer_t ptr;
-		struct function_pointer *fp = &loaded_file_descriptor->function_pointers[i];
+		size_t off = loaded_file_descriptor->function_pointers[i];
+		struct function_pointer *fp = cast_ptr(struct function_pointer *, cast_ptr(char *, loaded_data) + off);
 		struct function_pointer *new_fp = module_load_function(fp->md, fp->fd, NULL);
-		ptr = pointer_reference(&new_fp->ptr);
+		pointer_t ptr = pointer_reference(&new_fp->ptr);
 		fp->ptr = ptr;
 		fp->md = new_fp->md;
 		fp->fd = new_fp->fd;
@@ -1079,7 +1066,8 @@ static void unbind_function_pointers(void)
 {
 	size_t i;
 	for (i = 0; i < loaded_file_descriptor->function_pointers_len; i++) {
-		struct function_pointer *fp = &loaded_file_descriptor->function_pointers[i];
+		size_t off = loaded_file_descriptor->function_pointers[i];
+		struct function_pointer *fp = cast_ptr(struct function_pointer *, cast_ptr(char *, loaded_data) + off);
 		pointer_dereference(fp->ptr);
 	}
 }
@@ -1577,6 +1565,9 @@ void name(save_done)(void)
 	}
 	if (duplicate_records) {
 		mem_free(duplicate_records);
+	}
+	if (function_pointers) {
+		mem_free(function_pointers);
 	}
 	while (!tree_is_empty(&dependencies)) {
 		struct dependence *dep = get_struct(tree_any(&dependencies), struct dependence, entry);

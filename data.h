@@ -1985,6 +1985,7 @@ struct stack_entry_type {
 	void (*fixup_sub_ptr)(void *loc, uintptr_t offset);
 	bool (*duplicate_parents)(void *loc);
 	bool wrap_on_save;
+	bool is_function_pointer;
 };
 
 struct stack_entry {
