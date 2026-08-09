@@ -678,7 +678,7 @@ static bool attr_fastcall thunk_alloc_result(struct thunk *t, arg_t n_return_val
 			thunk_free(t);
 			return false;
 		}
-		tm->u.multi_ret_reference.thunk = t;
+		tm->u.multi_ret_reference.thunk = pointer_thunk(t);
 		tm->u.multi_ret_reference.idx = ia;
 		result[ia] = tm;
 	}
@@ -1261,7 +1261,7 @@ static void * attr_hot_fastcall get_sub_multi_ret_reference(void *data)
 
 	address_unlock(t, DEPTH_THUNK);
 
-	mt = t->u.multi_ret_reference.thunk;
+	mt = pointer_get_thunk(t->u.multi_ret_reference.thunk);
 
 	address_lock(mt, DEPTH_THUNK);
 
@@ -1575,7 +1575,7 @@ process_result:
 	}
 
 	if (t_tag == THUNK_TAG_MULTI_RET_REFERENCE) {
-		struct thunk *mt = t->u.multi_ret_reference.thunk;
+		struct thunk *mt = pointer_get_thunk(t->u.multi_ret_reference.thunk);
 		tag_t mt_tag;
 		if (unlikely(!address_trylock_second(t, mt, DEPTH_THUNK))) {
 			address_unlock(t, DEPTH_THUNK);
@@ -1591,7 +1591,9 @@ process_result:
 		if (mt_tag == THUNK_TAG_RESULT) {
 			arg_t idx = t->u.multi_ret_reference.idx;
 			thunk_tag_set(t, THUNK_TAG_MULTI_RET_REFERENCE, THUNK_TAG_RESULT);
+			t->u.function_call.n_results = 1;
 			t->u.function_call.results[0].ptr = mt->u.function_call.results[idx].ptr;
+			mt->u.function_call.results[idx].wanted = false;
 			pointer_poison(&mt->u.function_call.results[idx].ptr);
 			if (thunk_dereference_nonatomic(mt)) {
 				address_unlock_second(t, mt, DEPTH_THUNK);
@@ -3331,6 +3333,22 @@ static bool attr_fastcall save_result(void *data, uintptr_t attr_unused offset, 
 	return true;
 }
 
+static bool attr_fastcall save_multi_ret_reference(void *data, uintptr_t attr_unused offset, size_t attr_unused *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_l)
+{
+	ajla_error_t sink;
+	struct thunk *t = data;
+
+	*size = partial_sizeof_array(struct thunk, u.function_call.results, 1);
+
+	*subptrs = mem_alloc_mayfail(struct stack_entry *, sizeof(struct stack_entry), &sink);
+	if (unlikely(!*subptrs))
+		return false;
+	(*subptrs)[0].t = &save_pointer;
+	(*subptrs)[0].ptr = &t->u.multi_ret_reference.thunk;
+	*subptrs_l = 1;
+	return true;
+}
+
 static bool attr_fastcall save_exception(void *data, uintptr_t offset, size_t attr_unused *align, size_t *size, struct stack_entry **subptrs, size_t *subptrs_l)
 {
 	ajla_error_t sink;
@@ -3558,6 +3576,7 @@ void name(data_init)(void)
 	data_method_table[DATA_TAG_saved_cache].save = save_saved_cache;
 	data_method_table[THUNK_TAG_FUNCTION_CALL].save = save_function_call;
 	data_method_table[THUNK_TAG_RESULT].save = save_result;
+	data_method_table[THUNK_TAG_MULTI_RET_REFERENCE].save = save_multi_ret_reference;
 	data_method_table[THUNK_TAG_EXCEPTION].save = save_exception;
 
 	oom = thunk_alloc_exception_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_OUT_OF_MEMORY), NULL pass_file_line);

@@ -1385,7 +1385,7 @@ struct thunk {
 		} function_call;
 		/* THUNK_TAG_MULTI_RET_REFERENCE */
 		struct {
-			struct thunk *thunk;
+			pointer_t thunk;
 			arg_t idx;
 		} multi_ret_reference;
 		/* THUNK_TAG_EXCEPTION */
@@ -1462,7 +1462,7 @@ static inline bool thunk_is_finished(struct thunk *t)
 {
 	tag_t tag = thunk_tag_volatile(t);
 	return   tag == THUNK_TAG_RESULT ||
-		(tag == THUNK_TAG_MULTI_RET_REFERENCE && thunk_tag_volatile(t->u.multi_ret_reference.thunk) == THUNK_TAG_RESULT);
+		(tag == THUNK_TAG_MULTI_RET_REFERENCE && thunk_tag_volatile(pointer_get_thunk(t->u.multi_ret_reference.thunk)) == THUNK_TAG_RESULT);
 }
 
 static inline struct thunk *thunk_pointer_tag(struct thunk *t)
@@ -1752,11 +1752,14 @@ static inline void thunk_reference(struct thunk *t)
 
 static inline void thunk_reference_nonatomic(struct thunk *t)
 {
-	refcount_inc_nonatomic(&t->refcount_);
+	if (likely(!refcount_is_read_only(&t->refcount_)))
+		refcount_inc_nonatomic(&t->refcount_);
 }
 
 static inline bool thunk_dereference_nonatomic(struct thunk *t)
 {
+	if (likely(refcount_is_read_only(&t->refcount_)))
+		return false;
 	return refcount_dec_nonatomic(&t->refcount_);
 }
 
@@ -1767,6 +1770,8 @@ static inline bool thunk_refcount_is_one_nonatomic(struct thunk *t)
 
 static inline refcount_int_t thunk_refcount_get_nonatomic(struct thunk *t)
 {
+	if (likely(refcount_is_read_only(&t->refcount_)))
+		return 0;
 	return refcount_get_nonatomic(&t->refcount_);
 }
 
