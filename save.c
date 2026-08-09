@@ -45,6 +45,7 @@ static const char id[] = "AJLA" " " __DATE__ " " __TIME__;
 static bool save_ok;
 static char *save_data;
 static size_t save_len;
+static size_t writable_boundary;
 
 static size_t last_md;
 
@@ -81,6 +82,7 @@ struct file_descriptor {
 	size_t fn_descs_len;
 	char *dependencies;
 	size_t dependencies_l;
+	size_t writable_boundary;
 	struct function_pointer *function_pointers;
 	size_t function_pointers_len;
 	void *base;
@@ -841,6 +843,8 @@ static void duplicate_writeable_entries(void)
 	if (unlikely(!align_output(os_getpagesize())))
 		return;
 
+	writable_boundary = save_len;
+
 	for (e = tree_first(&position_tree); e; e = tree_next(e)) {
 		pm = get_struct(e, struct position_map, entry);
 		if (pm->need_duplicate) {
@@ -995,6 +999,7 @@ static void save_finish_file(void)
 
 	file_desc.dependencies = num_to_ptr(deps_offset);
 	file_desc.dependencies_l = deps_l;
+	file_desc.writable_boundary = writable_boundary;
 	file_desc.function_pointers = num_to_ptr(fpptrs_offset);
 	file_desc.function_pointers_len = duplicate_records_len;
 	file_desc.base = num_to_ptr(0);
@@ -1420,7 +1425,7 @@ static void save_load_cache(void)
 		loaded_data_amalloc = true;
 #endif
 #if defined(HAVE_CODEGEN) && defined(HAVE_MPROTECT)
-		os_mprotect(ptr, cast_ptr(char *, loaded_file_descriptor->function_pointers) - cast_ptr(char *, ptr), PROT_READ | PROT_EXEC, NULL);
+		os_mprotect(ptr, loaded_file_descriptor->writable_boundary, PROT_READ | PROT_EXEC, NULL);
 #endif
 		bind_function_pointers();
 		os_close(h);
