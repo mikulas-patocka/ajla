@@ -69,14 +69,14 @@ static size_t pointers_len;
 static struct function_descriptor *fn_descs;
 static size_t fn_descs_len;
 
+static size_t *function_pointers;
+static size_t function_pointers_len;
+
 struct duplicate_record {
 	size_t old_position;
 	size_t fp_ptr;
 	struct position_map *subpm;
 };
-
-static size_t *function_pointers;
-static size_t function_pointers_len;
 
 static struct duplicate_record *duplicate_records;
 static size_t duplicate_records_len;
@@ -425,6 +425,7 @@ static void save_prepare(void)
 	tree_init(&position_tree);
 	pointers = NULL;
 	pointers_len = 0;
+	function_pointers = NULL;
 	loaded_fn_idx = 0;
 	loaded_fn_cache = (size_t)-1;
 	if (unlikely(!array_init_mayfail(char, &save_data, &save_len, &sink))) {
