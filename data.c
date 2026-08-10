@@ -828,7 +828,7 @@ return_dereference_unused:
 		do {
 			if (n_return_values == 1 || !t->u.function_call.results[i].wanted) {
 				pointer_dereference(t->u.function_call.results[i].ptr);
-				pointer_poison(&t->u.function_call.results[i].ptr);
+				t->u.function_call.results[i].ptr = pointer_empty();
 			}
 		} while (++i < n_return_values);
 		address_lock(t, DEPTH_THUNK);
@@ -1593,8 +1593,7 @@ process_result:
 			thunk_tag_set(t, THUNK_TAG_MULTI_RET_REFERENCE, THUNK_TAG_RESULT);
 			t->u.function_call.n_results = 1;
 			t->u.function_call.results[0].ptr = mt->u.function_call.results[idx].ptr;
-			mt->u.function_call.results[idx].wanted = false;
-			pointer_poison(&mt->u.function_call.results[idx].ptr);
+			mt->u.function_call.results[idx].ptr = pointer_empty();
 			if (thunk_dereference_nonatomic(mt)) {
 				address_unlock_second(t, mt, DEPTH_THUNK);
 				address_unlock(t, DEPTH_THUNK);
@@ -3321,7 +3320,7 @@ static bool attr_fastcall save_result(void *data, uintptr_t attr_unused offset, 
 		if (unlikely(!array_init_mayfail(struct stack_entry, subptrs, subptrs_l, &sink)))
 			return false;
 		for (i = 0; i < n_return_values; i++) {
-			if (t->u.function_call.results[i].wanted) {
+			if (t->u.function_call.results[i].wanted && !pointer_is_empty(t->u.function_call.results[i].ptr)) {
 				struct stack_entry ste;
 				ste.t = &save_pointer;
 				ste.ptr = &t->u.function_call.results[i].ptr;
