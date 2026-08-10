@@ -41,7 +41,8 @@ static bool attr_w gen_ptr_is_thunk(struct codegen_context *ctx, unsigned reg, f
 	if (slot != NO_FRAME_T) {
 		if (test_ptr_is_not_thunk(ctx, slot))
 			return true;
-		ctx->flag_cache[slot] |= FLAG_CACHE_IS_NOT_THUNK;
+		if (ctx->label_flags[label] & (LABEL_OP_BOUNDARY | LABEL_ESCAPE))
+			ctx->flag_cache[slot] |= FLAG_CACHE_IS_NOT_THUNK;
 	}
 #if defined(ARCH_X86)
 	if (POINTER_THUNK_BIT < 8
