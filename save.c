@@ -420,7 +420,7 @@ static void save_prepare(void)
 {
 	ajla_error_t sink;
 	save_data = NULL;
-	save_ok = !save_disable;
+	save_ok = !save_disable && !dependencies_failed;
 	last_md = (size_t)-1;
 	tree_init(&position_tree);
 	pointers = NULL;
