@@ -199,10 +199,10 @@ static void attr_cold *oom_realloc(void attr_unused *ptr, size_t size, ajla_erro
 
 static int memory_debug = 0;
 
-#define USE_RED_ZONE	(likely(memory_debug & MEMORY_DEBUG_REDZONE))
-#define USE_FILL	(likely(memory_debug & MEMORY_DEBUG_FILL))
-#define USE_LIST	(likely(memory_debug & MEMORY_DEBUG_TRACK_BLOCKS))
-#define USE_HISTOGRAM	(unlikely(memory_debug & MEMORY_DEBUG_HISTOGRAM))
+#define USE_RED_ZONE	(likely((memory_debug & MEMORY_DEBUG_REDZONE) != 0))
+#define USE_FILL	(likely((memory_debug & MEMORY_DEBUG_FILL) != 0))
+#define USE_LIST	(likely((memory_debug & MEMORY_DEBUG_TRACK_BLOCKS) != 0))
+#define USE_HISTOGRAM	(unlikely((memory_debug & MEMORY_DEBUG_HISTOGRAM) != 0))
 
 #define RED_ZONE	'R'
 
