@@ -634,6 +634,15 @@ void attr_cold thunk_exception_print(struct thunk *thunk)
 	stack_trace_print(&thunk->u.exception.tr);
 }
 
+static void thunk_release(struct thunk *t)
+{
+	if (unlikely(refcount_is_read_only(&t->refcount_)))
+		return;
+	if (unlikely(!refcount_is_one(&t->refcount_)))
+		internal(file_line, "thunk_release: releasing referenced thunk: %"PRIuMAX"", (uintmax_t)refcount_get_nonatomic(&t->refcount_));
+	thunk_free(t);
+}
+
 static struct thunk * attr_fastcall thunk_alloc_struct(tag_t tag, arg_t n_return_values, ajla_error_t *mayfail)
 {
 	size_t s;
@@ -653,6 +662,7 @@ static struct thunk * attr_fastcall thunk_alloc_struct(tag_t tag, arg_t n_return
 	t = thunk_pointer_tag(t);
 
 	thunk_init_refcount_tag(t, tag);
+	t->u.function_call.soft_refcount = n_return_values;
 	t->u.function_call.n_results = n_return_values;
 
 	return t;
@@ -666,8 +676,6 @@ static bool attr_fastcall thunk_alloc_result(struct thunk *t, arg_t n_return_val
 		*result = t;
 	} else for (ia = 0; ia < n_return_values; ia++) {
 		struct thunk *tm;
-		if (ia)
-			thunk_reference_nonatomic(t);
 		t->u.function_call.results[ia].wanted = true;
 		tm = thunk_alloc_struct(THUNK_TAG_MULTI_RET_REFERENCE, 1, mayfail);
 		if (unlikely(!tm)) {
@@ -813,7 +821,7 @@ void *thunk_terminate(struct thunk *t, arg_t n_return_values)
 		(tag == THUNK_TAG_BLACKHOLE_DEREFERENCED)
 	    ), (file_line, "thunk_terminate: invalid thunk tag %u (n_return_values %lu)", tag, (unsigned long)n_return_values));
 	if (unlikely(tag == THUNK_TAG_BLACKHOLE_DEREFERENCED)) {
-		thunk_init_refcount_tag(t, THUNK_TAG_BLACKHOLE_DEREFERENCED);
+		t->u.function_call.soft_refcount = 1;
 		goto return_dereference_unused;
 	}
 	thunk_tag_set(t, tag, THUNK_TAG_RESULT);
@@ -821,7 +829,7 @@ void *thunk_terminate(struct thunk *t, arg_t n_return_values)
 	barrier_write_before_unlock_lock();
 #endif
 	if (tag == THUNK_TAG_BLACKHOLE_SOME_DEREFERENCED) {
-		thunk_reference_nonatomic(t);
+		t->u.function_call.soft_refcount++;
 return_dereference_unused:
 		address_unlock(t, DEPTH_THUNK);
 		i = 0;
@@ -832,8 +840,7 @@ return_dereference_unused:
 			}
 		} while (++i < n_return_values);
 		address_lock(t, DEPTH_THUNK);
-		thunk_assert_refcount(t);
-		if (thunk_dereference_nonatomic(t)) {
+		if (!--t->u.function_call.soft_refcount) {
 			if (unlikely(tag == THUNK_TAG_BLACKHOLE_DEREFERENCED))
 				refcount_add(&n_dereferenced, -1);
 			thunk_free(t);
@@ -1269,15 +1276,15 @@ static void * attr_hot_fastcall get_sub_multi_ret_reference(void *data)
 
 	tag = thunk_tag(mt);
 	if (tag == THUNK_TAG_FUNCTION_CALL) {
-		if (thunk_refcount_is_one_nonatomic(mt)) {
+		if (mt->u.function_call.soft_refcount == 1) {
 			/* get_sub_function_call unlocks mt */
 			pointer_t *ptr = get_sub_function_call(mt);
 			if (ptr)
 				return ptr;
-			thunk_free(mt);
+			thunk_release(mt);
 			return NULL;
 		}
-		(void)thunk_dereference_nonatomic(mt);
+		mt->u.function_call.soft_refcount--;
 		mt->u.function_call.results[idx].wanted = false;
 		goto unlock_ret_false;
 	}
@@ -1287,7 +1294,7 @@ static void * attr_hot_fastcall get_sub_multi_ret_reference(void *data)
 	}
 	if (tag == THUNK_TAG_BLACKHOLE_SOME_DEREFERENCED) {
 		mt->u.function_call.results[idx].wanted = false;
-		if (thunk_dereference_nonatomic(mt)) {
+		if (!--mt->u.function_call.soft_refcount) {
 			refcount_add(&n_dereferenced, 1);
 			thunk_tag_set(mt, THUNK_TAG_BLACKHOLE_SOME_DEREFERENCED, THUNK_TAG_BLACKHOLE_DEREFERENCED);
 			tag = THUNK_TAG_BLACKHOLE_DEREFERENCED;
@@ -1301,8 +1308,8 @@ static void * attr_hot_fastcall get_sub_multi_ret_reference(void *data)
 			address_unlock(mt, DEPTH_THUNK);
 			return ptr;
 		}
-		if (thunk_dereference_nonatomic(mt))
-			thunk_free(mt);
+		if (!--mt->u.function_call.soft_refcount)
+			thunk_release(mt);
 		goto unlock_ret_false;
 	}
 	internal(file_line, "get_sub_multi_ret_reference: invalid thunk tag %u", tag);
@@ -1557,10 +1564,11 @@ process_result:
 		pointer_lock(ptr);
 		if (thunk_is_writable(t)) {
 			*pointer_volatile(ptr) = t->u.function_call.results[0].ptr;
+			t->u.function_call.results[0].ptr = pointer_empty();
 			pointer_unlock(ptr);
 			address_unlock(t, DEPTH_THUNK);
 
-			thunk_free(t);
+			thunk_release(t);
 		} else {
 			pointer_t px = t->u.function_call.results[0].ptr;
 			pointer_reference_owned(px);
@@ -1594,10 +1602,10 @@ process_result:
 			t->u.function_call.n_results = 1;
 			t->u.function_call.results[0].ptr = mt->u.function_call.results[idx].ptr;
 			mt->u.function_call.results[idx].ptr = pointer_empty();
-			if (thunk_dereference_nonatomic(mt)) {
+			if (!--mt->u.function_call.soft_refcount) {
 				address_unlock_second(t, mt, DEPTH_THUNK);
 				address_unlock(t, DEPTH_THUNK);
-				thunk_free(mt);
+				thunk_release(mt);
 				ret = POINTER_FOLLOW_THUNK_RETRY;
 				goto return_ret;
 			}
@@ -1667,7 +1675,7 @@ evaluate_thunk:
 		}
 		top_reference = pointer_get_data(t->u.function_call.u.function_reference);
 		t->u.function_call.u.execution_control = new_ex;
-		if (da(function,function)->n_return_values == 1 || likely(thunk_refcount_get_nonatomic(t) == da(function,function)->n_return_values))
+		if (da(function,function)->n_return_values == 1 || likely(t->u.function_call.soft_refcount == da(function,function)->n_return_values))
 			thunk_tag_set(t, THUNK_TAG_FUNCTION_CALL, THUNK_TAG_BLACKHOLE);
 		else
 			thunk_tag_set(t, THUNK_TAG_FUNCTION_CALL, THUNK_TAG_BLACKHOLE_SOME_DEREFERENCED);

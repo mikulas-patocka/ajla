@@ -1380,6 +1380,7 @@ struct thunk {
 				/* THUNK_TAG_BLACKHOLE_DEREFERENCED */
 				struct execution_control *execution_control;
 			} u;
+			arg_t soft_refcount;
 			arg_t n_results;
 			struct thunk_result results[1];
 		} function_call;
@@ -1748,36 +1749,6 @@ static inline void thunk_reference(struct thunk *t)
 {
 	if (likely(!refcount_is_read_only(&t->refcount_)))
 		refcount_inc(&t->refcount_);
-}
-
-static inline void thunk_reference_nonatomic(struct thunk *t)
-{
-	if (likely(!refcount_is_read_only(&t->refcount_)))
-		refcount_inc_nonatomic(&t->refcount_);
-}
-
-static inline bool thunk_dereference_nonatomic(struct thunk *t)
-{
-	if (likely(refcount_is_read_only(&t->refcount_)))
-		return false;
-	return refcount_dec_nonatomic(&t->refcount_);
-}
-
-static inline bool thunk_refcount_is_one_nonatomic(struct thunk *t)
-{
-	return refcount_is_one_nonatomic(&t->refcount_);
-}
-
-static inline refcount_int_t thunk_refcount_get_nonatomic(struct thunk *t)
-{
-	if (likely(refcount_is_read_only(&t->refcount_)))
-		return 0;
-	return refcount_get_nonatomic(&t->refcount_);
-}
-
-static inline void thunk_assert_refcount(struct thunk attr_unused *t)
-{
-	ajla_assert_lo(!refcount_is_invalid(&t->refcount_), (file_line, "thunk_assert_refcount: invalid refcount"));
 }
 
 pointer_t attr_fastcall pointer_reference_(pointer_t *ptr argument_position);
