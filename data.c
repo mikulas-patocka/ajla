@@ -3309,12 +3309,14 @@ static bool attr_fastcall save_result(void *data, uintptr_t attr_unused offset, 
 	*size = partial_sizeof_array(struct thunk, u.function_call.results, n_return_values);
 
 	if (likely(n_return_values == 1)) {
-		*subptrs = mem_alloc_mayfail(struct stack_entry *, sizeof(struct stack_entry), &sink);
-		if (unlikely(!*subptrs))
-			return false;
-		(*subptrs)[0].t = &save_pointer;
-		(*subptrs)[0].ptr = &t->u.function_call.results[0].ptr;
-		*subptrs_l = 1;
+		if (!pointer_is_empty(t->u.function_call.results[0].ptr)) {
+			*subptrs = mem_alloc_mayfail(struct stack_entry *, sizeof(struct stack_entry), &sink);
+			if (unlikely(!*subptrs))
+				return false;
+			(*subptrs)[0].t = &save_pointer;
+			(*subptrs)[0].ptr = &t->u.function_call.results[0].ptr;
+			*subptrs_l = 1;
+		}
 	} else {
 		size_t i;
 		if (unlikely(!array_init_mayfail(struct stack_entry, subptrs, subptrs_l, &sink)))
