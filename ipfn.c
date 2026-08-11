@@ -1409,7 +1409,11 @@ void * attr_fastcall ipret_call_cache(frame_s *fp, const code_t *ip, struct func
 	struct data *function = pointer_get_data(direct_function->ptr);
 	arg_t n_arguments = da(function,function)->n_arguments;
 	arg_t n_return_values = da(function,function)->n_return_values;
-	bool save = *ip % OPCODE_MODE_MULT == OPCODE_CALL_SAVE || *ip % OPCODE_MODE_MULT == OPCODE_CALL_INDIRECT_SAVE;
+	bool save =
+		*ip % OPCODE_MODE_MULT == OPCODE_CALL_SAVE ||
+		*ip % OPCODE_MODE_MULT == OPCODE_CALL_COMPSAVE ||
+		*ip % OPCODE_MODE_MULT == OPCODE_CALL_INDIRECT_SAVE ||
+		*ip % OPCODE_MODE_MULT == OPCODE_CALL_INDIRECT_COMPSAVE;
 
 	ctx.err.error_class = EC_NONE;
 

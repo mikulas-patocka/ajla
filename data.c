@@ -3411,7 +3411,7 @@ bool data_save(void *p, uintptr_t offset, size_t *align, size_t *size, struct st
 					break;
 				ref = da(pointer_get_data(ref),function_reference)->u.indirect;
 			}
-			ref = *da(pointer_get_data(ref),function_reference)->u.direct;
+			ref = da(pointer_get_data(ref),function_reference)->u.direct->ptr;
 			if (pointer_is_thunk(ref)) {
 				debug("function not evaluated");
 				goto ret;

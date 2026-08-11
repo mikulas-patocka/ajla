@@ -410,6 +410,7 @@ enum {
 	OPCODE_CALL_LAZY,		/* n_arg, n_ret, fn_idx,		[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */
 	OPCODE_CALL_CACHE,		/* n_arg, n_ret, fn_idx,		[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */
 	OPCODE_CALL_SAVE,		/* n_arg, n_ret, fn_idx,		[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */
+	OPCODE_CALL_COMPSAVE,		/* n_arg, n_ret, fn_idx,		[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */
 	OPCODE_CALL_INDIRECT,		/* n_arg, n_ret, fn_thunk, fn_deref,	[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */
 	OPCODE_CALL_INDIRECT_STRICT,	/* n_arg, n_ret, fn_thunk, fn_deref,	[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */
 	OPCODE_CALL_INDIRECT_SPARK,	/* n_arg, n_ret, fn_thunk, fn_deref,	[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */
@@ -417,6 +418,7 @@ enum {
 	OPCODE_CALL_INDIRECT_LAZY,	/* n_arg, n_ret, fn_thunk, fn_deref,	[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */
 	OPCODE_CALL_INDIRECT_CACHE,	/* n_arg, n_ret, fn_thunk, fn_deref,	[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */
 	OPCODE_CALL_INDIRECT_SAVE,	/* n_arg, n_ret, fn_thunk, fn_deref,	[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */
+	OPCODE_CALL_INDIRECT_COMPSAVE,	/* n_arg, n_ret, fn_thunk, fn_deref,	[arg_var, arg_deref], [ret_var(32), ret_flag(16)] */
 	OPCODE_RETURN,			/* val, arg_deref ... */
 	OPCODE_STRUCTURED,		/* struct, element ... */
 #define  OPCODE_STRUCTURED_RECORD		0x01	/* + element_slot, record_type */

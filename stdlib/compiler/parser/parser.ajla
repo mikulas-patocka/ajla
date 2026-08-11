@@ -22,7 +22,7 @@ uses compiler.parser.token;
 uses compiler.parser.dict;
 
 fn parse_lambda_function(ctx : function_context, parent_vd : variable_dictionary, t : tokens) : (function_context, list(int));
-fn parse_file~cache(w : world, d : list(bytes), name : bytes, fid_flags : uint8, parse_interface : bool, prereq len_greater_than(d, 0)) : function_dictionary;
+fn parse_file(w : world, d : list(bytes), name : bytes, fid_flags : uint8, parse_interface : bool, prereq len_greater_than(d, 0)) : function_dictionary;
 
 implementation
 
@@ -1307,7 +1307,7 @@ next_unit_flag:
 	return dict;
 ]
 
-fn parse_file~cache(w : world, d : list(bytes), name : bytes, fid_flags : uint8, parse_interface : bool, prereq len_greater_than(d, 0)) : function_dictionary
+fn parse_file_2(w : world, d : list(bytes), name : bytes, fid_flags : uint8, parse_interface : bool, prereq len_greater_than(d, 0)) : function_dictionary
 [
 	{var tm : int64;
 	w, tm := get_monotonic_time(w);
@@ -1359,4 +1359,12 @@ fn parse_file~cache(w : world, d : list(bytes), name : bytes, fid_flags : uint8,
 	else
 		eval debug(ntos(td2) + " parsed: " + name + " - " + ntos(td2 - td));}
 	return dict;
+]
+
+fn parse_file(w : world, d : list(bytes), name : bytes, fid_flags : uint8, parse_interface : bool, prereq len_greater_than(d, 0)) : function_dictionary
+[
+	if len(d) = 1 then
+		return parse_file_2~cache(w, d, name, fid_flags, parse_interface);
+	else
+		return parse_file_2~cache(w, d, name, fid_flags, parse_interface);
 ]
