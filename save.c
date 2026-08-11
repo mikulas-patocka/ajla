@@ -856,7 +856,7 @@ static void duplicate_writeable_entries(void)
 		pm = get_struct(e, struct position_map, entry);
 		if (pm->need_duplicate) {
 			char *cpy;
-			if (unlikely(!data_save(save_data + pm->new_wrap_position, 0, &align, &size, &subptrs, &subptrs_l, &duplicate)))
+			if (unlikely(!data_save(save_data + pm->new_wrap_position, ptr_to_num(save_data), &align, &size, &subptrs, &subptrs_l, &duplicate)))
 				return;
 			if (subptrs)
 				mem_free(subptrs);
@@ -887,7 +887,7 @@ static void duplicate_writeable_entries(void)
 		if (!e)
 			internal(file_line, "duplicate_writeable_entries: entry not found in position tree");
 		pm = get_struct(e, struct position_map, entry);
-		if (unlikely(!data_save(save_data + pm->new_wrap_position, 0, &align, &size, &subptrs, &subptrs_l, &duplicate))) {
+		if (unlikely(!data_save(save_data + pm->new_wrap_position, ptr_to_num(save_data), &align, &size, &subptrs, &subptrs_l, &duplicate))) {
 			return;
 		}
 		for (j = 0; j < subptrs_l; j++) {
@@ -913,7 +913,7 @@ found:
 		struct position_map *pm = get_struct(e, struct position_map, entry);
 		if (pm->need_duplicate) {
 			memcpy(save_data + pm->duplicate_position, save_data + pm->new_wrap_position, pm->duplicate_size);
-			if (unlikely(!data_save(save_data + pm->duplicate_position, 0, &align, &size, &subptrs, &subptrs_l, &duplicate)))
+			if (unlikely(!data_save(save_data + pm->duplicate_position, ptr_to_num(save_data), &align, &size, &subptrs, &subptrs_l, &duplicate)))
 				return;
 			mem_free(subptrs);
 		}
