@@ -2530,9 +2530,8 @@ DEFINE_OPCODE_START(OPCODE_RECORD_LOAD)
 		frame_s *fr;
 		pointer_follow(frame_pointer(fp, record), true, data, unlikely(flags & OPCODE_OP_FLAG_STRICT) ? PF_WAIT : PF_NOEVAL, fp, ip,
 			if (!(flags & OPCODE_OP_FLAG_STRICT)) {
-				ex_ = ipret_record_load_create_thunk(fp, ip, record, record_slot, result);
-				if (ex_ == POINTER_FOLLOW_THUNK_GO)
-					goto cat(record_load_end_,ARG_MODE);
+				ipret_record_load_create_thunk(fp, record, record_slot, result);
+				goto cat(record_load_end_,ARG_MODE);
 			}
 			RELOAD_EX_POSITION(ex_),
 			thunk_reference(thunk_);
@@ -2633,9 +2632,8 @@ DEFINE_OPCODE_START(OPCODE_OPTION_LOAD)
 
 	pointer_follow(frame_pointer(fp, option), true, data, unlikely(flags & OPCODE_OP_FLAG_STRICT) ? PF_WAIT : PF_NOEVAL, fp, ip,
 		if (!(flags & OPCODE_OP_FLAG_STRICT)) {
-			ex_ = ipret_option_load_create_thunk(fp, ip, option, option_idx, result);
-			if (ex_ == POINTER_FOLLOW_THUNK_GO)
-				goto cat(option_load_end_,ARG_MODE);
+			ipret_option_load_create_thunk(fp, option, option_idx, result);
+			goto cat(option_load_end_,ARG_MODE);
 		}
 		RELOAD_EX_POSITION(ex_),
 		thunk_reference(thunk_);
@@ -2688,7 +2686,7 @@ cat(option_test_,ARG_MODE):
 	if (unlikely(pointer_is_thunk(ptr))) {
 		void *ex;
 		ajla_assert(!frame_test_flag(fp, get_i_param(2)), (file_line, "option test: flag already set for destination slot %"PRIuMAX"", (uintmax_t)get_i_param(2)));
-		ex = thunk_option_test(fp, ip, slot_1, get_i_param(1), get_i_param(2));
+		ex = thunk_option_test(fp, slot_1, get_i_param(1), get_i_param(2));
 		if (ex == POINTER_FOLLOW_THUNK_GO) {
 			ADVANCE_I_PARAM(3);
 			break;
@@ -2735,7 +2733,7 @@ cat(option_ord_,ARG_MODE):
 	if (unlikely(pointer_is_thunk(ptr))) {
 		void *ex;
 		ajla_assert(!frame_test_flag(fp, get_i_param(1)), (file_line, "option ord: flag already set for destination slot %"PRIuMAX"", (uintmax_t)get_i_param(2)));
-		ex = thunk_option_ord(fp, ip, slot_1, get_i_param(1));
+		ex = thunk_option_ord(fp, slot_1, get_i_param(1));
 		if (ex == POINTER_FOLLOW_THUNK_GO) {
 			ADVANCE_I_PARAM(2);
 			break;
@@ -3003,9 +3001,8 @@ cat(array_restart_pointer_follow_,ARG_MODE):
 		pointer_follow(array_ptr, false, data, unlikely(flags & OPCODE_OP_FLAG_STRICT) ? PF_WAIT : PF_NOEVAL, fp, ip,
 			index_free(&array_index);
 			if (!(flags & OPCODE_OP_FLAG_STRICT)) {
-				ex_ = ipret_array_load_create_thunk(fp, ip, array, idx, result);
-				if (ex_ == POINTER_FOLLOW_THUNK_GO)
-					goto cat(array_load_end_,ARG_MODE);
+				ipret_array_load_create_thunk(fp, array, idx, result);
+				goto cat(array_load_end_,ARG_MODE);
 			}
 			RELOAD_EX_POSITION(ex_),
 			index_free(&array_index);

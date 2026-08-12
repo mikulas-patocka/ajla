@@ -1713,7 +1713,7 @@ complicated:
 }
 
 
-void * attr_hot_fastcall ipret_record_load_create_thunk(frame_s *fp, const code_t *ip, frame_t record, frame_t record_slot, frame_t result_slot)
+void attr_hot_fastcall ipret_record_load_create_thunk(frame_s *fp, frame_t record, frame_t record_slot, frame_t result_slot)
 {
 	struct function_pointer *fn_ptr;
 	struct data *function_reference;
@@ -1725,11 +1725,9 @@ void * attr_hot_fastcall ipret_record_load_create_thunk(frame_s *fp, const code_
 	ipret_fill_function_reference_from_slot(function_reference, 0, fp, record, false);
 
 	frame_set_pointer(fp, result_slot, pointer_thunk(result));
-
-	return POINTER_FOLLOW_THUNK_GO;
 }
 
-void * attr_hot_fastcall ipret_option_load_create_thunk(frame_s *fp, const code_t *ip, frame_t option, frame_t option_idx, frame_t result_slot)
+void attr_hot_fastcall ipret_option_load_create_thunk(frame_s *fp, frame_t option, frame_t option_idx, frame_t result_slot)
 {
 	struct function_pointer *fn_ptr;
 	struct data *function_reference;
@@ -1741,11 +1739,9 @@ void * attr_hot_fastcall ipret_option_load_create_thunk(frame_s *fp, const code_
 	ipret_fill_function_reference_from_slot(function_reference, 0, fp, option, false);
 
 	frame_set_pointer(fp, result_slot, pointer_thunk(result));
-
-	return POINTER_FOLLOW_THUNK_GO;
 }
 
-void * attr_hot_fastcall thunk_option_test(frame_s *fp, const code_t *ip, frame_t slot_1, ajla_option_t option, frame_t slot_r)
+void * attr_hot_fastcall thunk_option_test(frame_s *fp, frame_t slot_1, ajla_option_t option, frame_t slot_r)
 {
 	struct function_pointer *fn_ptr;
 	struct data *function_reference;
@@ -1768,7 +1764,7 @@ void * attr_hot_fastcall thunk_option_test(frame_s *fp, const code_t *ip, frame_
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
-void * attr_hot_fastcall thunk_option_ord(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_r)
+void * attr_hot_fastcall thunk_option_ord(frame_s *fp, frame_t slot_1, frame_t slot_r)
 {
 	struct function_pointer *fn_ptr;
 	struct data *function_reference;
@@ -1792,7 +1788,7 @@ void * attr_hot_fastcall thunk_option_ord(frame_s *fp, const code_t *ip, frame_t
 }
 
 
-void * attr_hot_fastcall ipret_array_load_create_thunk(frame_s *fp, const code_t *ip, frame_t array, frame_t index, frame_t result_slot)
+void attr_hot_fastcall ipret_array_load_create_thunk(frame_s *fp, frame_t array, frame_t index, frame_t result_slot)
 {
 	struct function_pointer *fn_ptr;
 	struct data *function_reference;
@@ -1805,11 +1801,9 @@ void * attr_hot_fastcall ipret_array_load_create_thunk(frame_s *fp, const code_t
 	ipret_fill_function_reference_from_slot(function_reference, 1, fp, index, false);
 
 	frame_set_pointer(fp, result_slot, pointer_thunk(result));
-
-	return POINTER_FOLLOW_THUNK_GO;
 }
 
-static attr_noinline void *array_len_create_thunk(frame_s *fp, const code_t *ip, frame_t array_slot, frame_t result_slot, bool finite)
+static attr_noinline void array_len_create_thunk(frame_s *fp, frame_t array_slot, frame_t result_slot, bool finite)
 {
 	struct function_pointer *fn_ptr;
 	struct data *function_reference;
@@ -1821,11 +1815,9 @@ static attr_noinline void *array_len_create_thunk(frame_s *fp, const code_t *ip,
 	ipret_fill_function_reference_from_slot(function_reference, 0, fp, array_slot, false);
 
 	frame_set_pointer(fp, result_slot, pointer_thunk(result));
-
-	return POINTER_FOLLOW_THUNK_GO;
 }
 
-static attr_noinline void *array_len_greater_than_create_thunk(frame_s *fp, const code_t *ip, frame_t array_slot, frame_t length_slot, frame_t result_slot)
+static attr_noinline void array_len_greater_than_create_thunk(frame_s *fp, frame_t array_slot, frame_t length_slot, frame_t result_slot)
 {
 	struct function_pointer *fn_ptr;
 	struct data *function_reference;
@@ -1838,11 +1830,9 @@ static attr_noinline void *array_len_greater_than_create_thunk(frame_s *fp, cons
 	ipret_fill_function_reference_from_slot(function_reference, 1, fp, length_slot, false);
 
 	frame_set_pointer(fp, result_slot, pointer_thunk(result));
-
-	return POINTER_FOLLOW_THUNK_GO;
 }
 
-static attr_noinline void *array_sub_create_thunk(frame_s *fp, const code_t *ip, frame_t array_slot, frame_t start_slot, frame_t end_slot, frame_t result_slot, unsigned flags)
+static attr_noinline void array_sub_create_thunk(frame_s *fp, frame_t array_slot, frame_t start_slot, frame_t end_slot, frame_t result_slot, unsigned flags)
 {
 	struct function_pointer *fn_ptr;
 	struct data *function_reference;
@@ -1856,11 +1846,9 @@ static attr_noinline void *array_sub_create_thunk(frame_s *fp, const code_t *ip,
 	ipret_fill_function_reference_from_slot(function_reference, 2, fp, end_slot, false);
 
 	frame_set_pointer(fp, result_slot, pointer_thunk(result));
-
-	return POINTER_FOLLOW_THUNK_GO;
 }
 
-static attr_noinline void *array_skip_create_thunk(frame_s *fp, const code_t *ip, frame_t array_slot, frame_t start_slot, frame_t result_slot, unsigned flags)
+static attr_noinline void array_skip_create_thunk(frame_s *fp, frame_t array_slot, frame_t start_slot, frame_t result_slot, unsigned flags)
 {
 	struct function_pointer *fn_ptr;
 	struct data *function_reference;
@@ -1873,8 +1861,6 @@ static attr_noinline void *array_skip_create_thunk(frame_s *fp, const code_t *ip
 	ipret_fill_function_reference_from_slot(function_reference, 1, fp, start_slot, false);
 
 	frame_set_pointer(fp, result_slot, pointer_thunk(result));
-
-	return POINTER_FOLLOW_THUNK_GO;
 }
 
 static bool array_resolve_thunk(frame_s *fp, frame_t slot)
@@ -1983,7 +1969,8 @@ void * attr_hot_fastcall ipret_array_len(frame_s *fp, const code_t *ip, frame_t 
 			if (!(flags & OPCODE_OP_FLAG_STRICT)) {
 				if (unlikely((flags & OPCODE_FLAG_LEN_FINITE) != 0) && likely(!index_eq_int(idx_len, 0)))
 					goto brk;
-				ex_ = array_len_create_thunk(fp, ip, slot_a, slot_r, !!(flags & OPCODE_FLAG_LEN_FINITE));
+				array_len_create_thunk(fp, slot_a, slot_r, !!(flags & OPCODE_FLAG_LEN_FINITE));
+				ex_ = POINTER_FOLLOW_THUNK_GO;
 			}
 			index_free(&idx_len);
 			return ex_,
@@ -2090,8 +2077,10 @@ void * attr_hot_fastcall ipret_array_len_greater_than(frame_s *fp, const code_t 
 		}
 		if (unlikely(ex == POINTER_FOLLOW_THUNK_EXCEPTION))
 			goto err_free;
-		if (!(flags & OPCODE_OP_FLAG_STRICT))
-			ex = array_len_greater_than_create_thunk(fp, ip, slot_a, slot_l, slot_r);
+		if (!(flags & OPCODE_OP_FLAG_STRICT)) {
+			array_len_greater_than_create_thunk(fp, slot_a, slot_l, slot_r);
+			ex = POINTER_FOLLOW_THUNK_GO;
+		}
 		index_free(&remaining_length);
 		return ex;
 	}
@@ -2178,8 +2167,10 @@ void * attr_hot_fastcall ipret_array_sub(frame_s *fp, const code_t *ip, frame_t 
 		}
 		if (unlikely(ex == POINTER_FOLLOW_THUNK_EXCEPTION))
 			goto except_end;
-		if (!(flags & OPCODE_OP_FLAG_STRICT))
-			ex = array_sub_create_thunk(fp, ip, slot_a, slot_start, slot_end, slot_r, flags);
+		if (!(flags & OPCODE_OP_FLAG_STRICT)) {
+			array_sub_create_thunk(fp, slot_a, slot_start, slot_end, slot_r, flags);
+			ex = POINTER_FOLLOW_THUNK_GO;
+		}
 		index_free(&start);
 		index_free(&end);
 		return ex;
@@ -2343,8 +2334,10 @@ void * attr_hot_fastcall ipret_array_skip(frame_s *fp, const code_t *ip, frame_t
 		}
 		if (unlikely(ex == POINTER_FOLLOW_THUNK_EXCEPTION))
 			goto ret_free_start;
-		if (!(flags & OPCODE_OP_FLAG_STRICT))
-			ex = array_skip_create_thunk(fp, ip, slot_a, slot_start, slot_r, flags);
+		if (!(flags & OPCODE_OP_FLAG_STRICT)) {
+			array_skip_create_thunk(fp, slot_a, slot_start, slot_r, flags);
+			ex = POINTER_FOLLOW_THUNK_GO;
+		}
 		index_free(&start);
 		return ex;
 	}
