@@ -156,13 +156,15 @@ static pointer_t module_create_optimizer_reference(struct module *m, struct func
 static bool module_function_init(struct module *m, struct module_function *mf, ajla_error_t attr_unused *mayfail)
 {
 	pointer_t ptr, optr, pptr;
-	union internal_arg ia[4];
+	union internal_arg ia[6];
 	if (unlikely(module_designator_is_internal(&m->md))) {
 		size_t index, i;
 		index = mf->fd.entries[0];
+		ia[0].ptr = &m->md;
+		ia[1].ptr = &mf->fd;
 		for (i = 1; i < mf->fd.n_entries; i++)
-			ia[i - 1].i = mf->fd.entries[i];
-		ptr = function_build_internal_thunk(pcode_build_internal_functions[index], mf->fd.n_entries - 1, ia);
+			ia[i + 1].i = mf->fd.entries[i];
+		ptr = function_build_internal_thunk(pcode_build_internal_functions[index], mf->fd.n_entries + 1, ia);
 		optr = pointer_empty();
 		pptr = pointer_empty();
 	} else if (unlikely(mf->fd.n_spec_data != 0)) {

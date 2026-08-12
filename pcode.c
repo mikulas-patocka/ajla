@@ -4259,7 +4259,7 @@ static void pcode_alloc_internal_function(struct function_pointer **ptr, pcode_t
 
 	va_start(ap, n_args);
 	for (i = 0; i < n_args; i++)
-		fd->entries[1 + i] = va_arg(ap, unsigned);
+		fd->entries[1 + i] = va_arg(ap, long);
 	va_end(ap);
 
 	fp = module_load_function(&module_designator_internal, fd, &sink);
@@ -4274,51 +4274,26 @@ set_oom:
 	rwlock_unlock_write(&pcode_internal_functions_mutex);
 }
 
-static void *pcode_alloc_op_function(struct function_pointer *ptr, frame_s *fp, const code_t *ip, void *(*build_fn)(frame_s *fp, const code_t *ip, union internal_arg ia[]), unsigned n_arguments, union internal_arg ia[], struct function_pointer **result)
-{
-	struct data *function;
-	pointer_t fn_thunk;
-
-#ifdef POINTER_FOLLOW_IS_LOCKLESS
-	const addrlock_depth lock_depth = DEPTH_THUNK;
-#else
-	const addrlock_depth lock_depth = DEPTH_POINTER;
-#endif
-
-again:
-	pointer_follow(&ptr->ptr, false, function, PF_WAIT, fp, ip,
-		return ex_,
-		*result = ptr;
-		return POINTER_FOLLOW_THUNK_RETRY);
-
-	if (likely(function != NULL)) {
-		*result = ptr;
-		return POINTER_FOLLOW_THUNK_RETRY;
-	}
-
-	fn_thunk = function_build_internal_thunk(build_fn, n_arguments, ia);
-
-	barrier_write_before_lock();
-	address_lock(&ptr->ptr, lock_depth);
-	if (likely(pointer_is_empty(*pointer_volatile(&ptr->ptr)))) {
-		*pointer_volatile(&ptr->ptr) = fn_thunk;
-		ptr->md = NULL;
-		ptr->fd = NULL;
-		address_unlock(&ptr->ptr, lock_depth);
-	} else {
-		address_unlock(&ptr->ptr, lock_depth);
-		pointer_dereference(fn_thunk);
-	}
-
-	goto again;
-}
+enum {
+	index_op_function,
+	index_is_exception_function,
+	index_get_exception_function,
+	index_array_load_function,
+	index_array_len_function,
+	index_array_len_greater_than_function,
+	index_array_sub_function,
+	index_array_skip_function,
+	index_array_append_function,
+	index_option_ord_function,
+	index_record_option_load_function,
+};
 
 static void *pcode_build_op_function(frame_s *fp, const code_t *ip, union internal_arg a[])
 {
-	pcode_t src_type = (pcode_t)a[0].i;
-	pcode_t dest_type = (pcode_t)a[1].i;
-	pcode_t op = (pcode_t)a[2].i;
-	unsigned flags = (unsigned)a[3].i;
+	pcode_t src_type = (pcode_t)a[2].i;
+	pcode_t dest_type = (pcode_t)a[3].i;
+	pcode_t op = (pcode_t)a[4].i;
+	unsigned flags = (unsigned)a[5].i;
 	unsigned i;
 	unsigned n_local_variables;
 	unsigned n_arguments;
@@ -4375,18 +4350,17 @@ static void *pcode_build_op_function(frame_s *fp, const code_t *ip, union intern
 
 	ajla_assert_lo((size_t)(pc - pcode) <= n_array_elements(pcode), (file_line, "pcode_build_op_function: array overflow: %"PRIdMAX" > %"PRIdMAX", src_type %"PRIdMAX", dest_type %"PRIdMAX", op %"PRIdMAX"", (intmax_t)(pc - pcode), (intmax_t)n_array_elements(pcode), (intmax_t)src_type, (intmax_t)dest_type, (intmax_t)op));
 
-	return pcode_build_function(fp, ip, pcode, pc - pcode, NULL, NULL);
+	return pcode_build_function(fp, ip, pcode, pc - pcode, a[0].ptr, a[1].ptr);
 }
 
-static struct function_pointer fixed_op_thunk[TYPE_FIXED_N][OPCODE_FIXED_OP_N];
-static struct function_pointer int_op_thunk[TYPE_INT_N][OPCODE_INT_OP_N];
-static struct function_pointer real_op_thunk[TYPE_REAL_N][OPCODE_REAL_OP_N];
-static struct function_pointer bool_op_thunk[OPCODE_BOOL_TYPE_MULT];
+static struct function_pointer *fixed_op_thunk[TYPE_FIXED_N][OPCODE_FIXED_OP_N];
+static struct function_pointer *int_op_thunk[TYPE_INT_N][OPCODE_INT_OP_N];
+static struct function_pointer *real_op_thunk[TYPE_REAL_N][OPCODE_REAL_OP_N];
+static struct function_pointer *bool_op_thunk[OPCODE_BOOL_TYPE_MULT];
 
-void * attr_fastcall pcode_find_op_function(const struct type *type, const struct type *rtype, code_t code, unsigned flags, frame_s *fp, const code_t *ip, struct function_pointer **result)
+void attr_fastcall pcode_find_op_function(const struct type *type, const struct type *rtype, code_t code, unsigned flags, struct function_pointer **result)
 {
-	union internal_arg ia[4];
-	struct function_pointer *ptr;
+	struct function_pointer **ptr;
 
 	type_tag_t tag = likely(!(flags & PCODE_CONVERT_FROM_INT)) ? type->tag : rtype->tag;
 
@@ -4413,12 +4387,8 @@ void * attr_fastcall pcode_find_op_function(const struct type *type, const struc
 		internal(file_line, "pcode_find_op_function: invalid type %u", tag);
 	}
 
-	ia[0].i = type_to_pcode(type);
-	ia[1].i = type_to_pcode(rtype);
-	ia[2].i = code + Op_N;
-	ia[3].i = flags;
-
-	return pcode_alloc_op_function(ptr, fp, ip, pcode_build_op_function, 4, ia, result);
+	pcode_alloc_internal_function(ptr, index_op_function, 4, (long)type_to_pcode(type), (long)type_to_pcode(rtype), (long)(code + Op_N), (long)flags);
+	*result = *ptr;
 }
 
 static void *pcode_build_is_exception_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
@@ -4471,14 +4441,15 @@ static void *pcode_build_is_exception_function(frame_s *fp, const code_t *ip, un
 
 	ajla_assert_lo((size_t)(pc - pcode) == n_array_elements(pcode), (file_line, "pcode_build_is_exception_function: array overflow: %"PRIdMAX" != %"PRIdMAX"", (intmax_t)(pc - pcode), (intmax_t)n_array_elements(pcode)));
 
-	return pcode_build_function(fp, ip, pcode, pc - pcode, NULL, NULL);
+	return pcode_build_function(fp, ip, pcode, pc - pcode, a[0].ptr, a[1].ptr);
 }
 
-static struct function_pointer is_exception_thunk;
+static struct function_pointer *is_exception_thunk;
 
-void * attr_fastcall pcode_find_is_exception(frame_s *fp, const code_t *ip, struct function_pointer **result)
+void attr_fastcall pcode_find_is_exception(struct function_pointer **result)
 {
-	return pcode_alloc_op_function(&is_exception_thunk, fp, ip, pcode_build_is_exception_function, 0, NULL, result);
+	pcode_alloc_internal_function(&is_exception_thunk, index_is_exception_function, 0);
+	*result = is_exception_thunk;
 }
 
 static void *pcode_build_get_exception_function(frame_s *fp, const code_t *ip, union internal_arg a[])
@@ -4515,7 +4486,7 @@ static void *pcode_build_get_exception_function(frame_s *fp, const code_t *ip, u
 
 	*pc++ = P_UnaryOp;
 	*pc++ = 4;
-	*pc++ = Un_ExceptionClass + a[0].i;
+	*pc++ = Un_ExceptionClass + a[2].i;
 	*pc++ = 1;
 	*pc++ = Flag_Free_Argument | Flag_Op_Strict;
 	*pc++ = 0;
@@ -4531,16 +4502,15 @@ static void *pcode_build_get_exception_function(frame_s *fp, const code_t *ip, u
 
 	ajla_assert_lo((size_t)(pc - pcode) == n_array_elements(pcode), (file_line, "pcode_build_get_exception_function: array overflow: %"PRIdMAX" != %"PRIdMAX"", (intmax_t)(pc - pcode), (intmax_t)n_array_elements(pcode)));
 
-	return pcode_build_function(fp, ip, pcode, pc - pcode, NULL, NULL);
+	return pcode_build_function(fp, ip, pcode, pc - pcode, a[0].ptr, a[1].ptr);
 }
 
-static struct function_pointer get_exception_thunk[3];
+static struct function_pointer *get_exception_thunk[3];
 
-void * attr_fastcall pcode_find_get_exception(unsigned mode, frame_s *fp, const code_t *ip, struct function_pointer **result)
+void attr_fastcall pcode_find_get_exception(unsigned mode, struct function_pointer **result)
 {
-	union internal_arg ia[1];
-	ia[0].i = mode;
-	return pcode_alloc_op_function(&get_exception_thunk[mode], fp, ip, pcode_build_get_exception_function, 1, ia, result);
+	pcode_alloc_internal_function(&get_exception_thunk[mode], index_get_exception_function, 1, (long)mode);
+	*result = get_exception_thunk[mode];
 }
 
 static void *pcode_build_array_load_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
@@ -4604,14 +4574,15 @@ static void *pcode_build_array_load_function(frame_s *fp, const code_t *ip, unio
 
 	ajla_assert_lo((size_t)(pc - pcode) == n_array_elements(pcode), (file_line, "pcode_build_array_load_function: array mismatch: %"PRIdMAX" != %"PRIdMAX"", (intmax_t)(pc - pcode), (intmax_t)n_array_elements(pcode)));
 
-	return pcode_build_function(fp, ip, pcode, pc - pcode, NULL, NULL);
+	return pcode_build_function(fp, ip, pcode, pc - pcode, a[0].ptr, a[1].ptr);
 }
 
-static struct function_pointer array_load_thunk;
+static struct function_pointer *array_load_thunk;
 
-void * attr_fastcall pcode_find_array_load_function(frame_s *fp, const code_t *ip, struct function_pointer **result)
+void attr_fastcall pcode_find_array_load_function(struct function_pointer **result)
 {
-	return pcode_alloc_op_function(&array_load_thunk, fp, ip, pcode_build_array_load_function, 0, NULL, result);
+	pcode_alloc_internal_function(&array_load_thunk, index_array_load_function, 0);
+	*result = array_load_thunk;
 }
 
 static void *pcode_build_array_len_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
@@ -4646,7 +4617,7 @@ static void *pcode_build_array_len_function(frame_s *fp, const code_t *ip, union
 	*pc++ = 1;
 	*pc++ = 0;
 
-	*pc++ = a[0].b ? P_Array_Len_Finite : P_Array_Len;
+	*pc++ = a[2].b ? P_Array_Len_Finite : P_Array_Len;
 	*pc++ = 3;
 	*pc++ = 1;
 	*pc++ = 0;
@@ -4663,17 +4634,17 @@ static void *pcode_build_array_len_function(frame_s *fp, const code_t *ip, union
 
 	ajla_assert_lo((size_t)(pc - pcode) == n_array_elements(pcode), (file_line, "pcode_build_array_len_function: array mismatch: %"PRIdMAX" != %"PRIdMAX"", (intmax_t)(pc - pcode), (intmax_t)n_array_elements(pcode)));
 
-	return pcode_build_function(fp, ip, pcode, pc - pcode, NULL, NULL);
+	return pcode_build_function(fp, ip, pcode, pc - pcode, a[0].ptr, a[1].ptr);
 }
 
-static struct function_pointer array_len_thunk;
-static struct function_pointer array_len_finite_thunk;
+static struct function_pointer *array_len_thunk;
+static struct function_pointer *array_len_finite_thunk;
 
-void * attr_fastcall pcode_find_array_len_function(bool finite, frame_s *fp, const code_t *ip, struct function_pointer **result)
+void attr_fastcall pcode_find_array_len_function(bool finite, struct function_pointer **result)
 {
-	union internal_arg ia[1];
-	ia[0].b = finite;
-	return pcode_alloc_op_function(!finite ? &array_len_thunk : &array_len_finite_thunk, fp, ip, pcode_build_array_len_function, 1, ia, result);
+	struct function_pointer **ptr = !finite ? &array_len_thunk : &array_len_finite_thunk;
+	pcode_alloc_internal_function(ptr, index_array_len_function, 1, (long)finite);
+	*result = *ptr;
 }
 
 static void *pcode_build_array_len_greater_than_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
@@ -4737,14 +4708,15 @@ static void *pcode_build_array_len_greater_than_function(frame_s *fp, const code
 
 	ajla_assert_lo((size_t)(pc - pcode) == n_array_elements(pcode), (file_line, "pcode_build_array_len_function: array mismatch: %"PRIdMAX" != %"PRIdMAX"", (intmax_t)(pc - pcode), (intmax_t)n_array_elements(pcode)));
 
-	return pcode_build_function(fp, ip, pcode, pc - pcode, NULL, NULL);
+	return pcode_build_function(fp, ip, pcode, pc - pcode, a[0].ptr, a[1].ptr);
 }
 
-static struct function_pointer array_len_greater_than_thunk;
+static struct function_pointer *array_len_greater_than_thunk;
 
-void * attr_fastcall pcode_find_array_len_greater_than_function(frame_s *fp, const code_t *ip, struct function_pointer **result)
+void attr_fastcall pcode_find_array_len_greater_than_function(struct function_pointer **result)
 {
-	return pcode_alloc_op_function(&array_len_greater_than_thunk, fp, ip, pcode_build_array_len_greater_than_function, 0, NULL, result);
+	pcode_alloc_internal_function(&array_len_greater_than_thunk, index_array_len_greater_than_function, 0);
+	*result = array_len_greater_than_thunk;
 }
 
 static void *pcode_build_array_sub_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
@@ -4820,14 +4792,15 @@ static void *pcode_build_array_sub_function(frame_s *fp, const code_t *ip, union
 
 	ajla_assert_lo((size_t)(pc - pcode) == n_array_elements(pcode), (file_line, "pcode_build_array_len_function: array mismatch: %"PRIdMAX" != %"PRIdMAX"", (intmax_t)(pc - pcode), (intmax_t)n_array_elements(pcode)));
 
-	return pcode_build_function(fp, ip, pcode, pc - pcode, NULL, NULL);
+	return pcode_build_function(fp, ip, pcode, pc - pcode, a[0].ptr, a[1].ptr);
 }
 
-static struct function_pointer array_sub_thunk;
+static struct function_pointer *array_sub_thunk;
 
-void * attr_fastcall pcode_find_array_sub_function(frame_s *fp, const code_t *ip, struct function_pointer **result)
+void attr_fastcall pcode_find_array_sub_function(struct function_pointer **result)
 {
-	return pcode_alloc_op_function(&array_sub_thunk, fp, ip, pcode_build_array_sub_function, 0, NULL, result);
+	pcode_alloc_internal_function(&array_sub_thunk, index_array_sub_function, 0);
+	*result = array_sub_thunk;
 }
 
 static void *pcode_build_array_skip_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
@@ -4891,14 +4864,15 @@ static void *pcode_build_array_skip_function(frame_s *fp, const code_t *ip, unio
 
 	ajla_assert_lo((size_t)(pc - pcode) == n_array_elements(pcode), (file_line, "pcode_build_array_len_function: array mismatch: %"PRIdMAX" != %"PRIdMAX"", (intmax_t)(pc - pcode), (intmax_t)n_array_elements(pcode)));
 
-	return pcode_build_function(fp, ip, pcode, pc - pcode, NULL, NULL);
+	return pcode_build_function(fp, ip, pcode, pc - pcode, a[0].ptr, a[1].ptr);
 }
 
-static struct function_pointer array_skip_thunk;
+static struct function_pointer *array_skip_thunk;
 
-void * attr_fastcall pcode_find_array_skip_function(frame_s *fp, const code_t *ip, struct function_pointer **result)
+void attr_fastcall pcode_find_array_skip_function(struct function_pointer **result)
 {
-	return pcode_alloc_op_function(&array_skip_thunk, fp, ip, pcode_build_array_skip_function, 0, NULL, result);
+	pcode_alloc_internal_function(&array_skip_thunk, index_array_skip_function, 0);
+	*result = array_skip_thunk;
 }
 
 static void *pcode_build_array_append_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
@@ -4958,16 +4932,16 @@ static void *pcode_build_array_append_function(frame_s *fp, const code_t *ip, un
 	*pc++ = 2;
 	ajla_assert_lo((size_t)(pc - pcode) == n_array_elements(pcode), (file_line, "pcode_build_array_append_function: array mismatch: %"PRIdMAX" != %"PRIdMAX"", (intmax_t)(pc - pcode), (intmax_t)n_array_elements(pcode)));
 
-	return pcode_build_function(fp, ip, pcode, pc - pcode, NULL, NULL);
+	return pcode_build_function(fp, ip, pcode, pc - pcode, a[0].ptr, a[1].ptr);
 }
 
-static struct function_pointer array_append_thunk;
+static struct function_pointer *array_append_thunk;
 
-void * attr_fastcall pcode_find_array_append_function(frame_s *fp, const code_t *ip, struct function_pointer **result)
+void attr_fastcall pcode_find_array_append_function(struct function_pointer **result)
 {
-	return pcode_alloc_op_function(&array_append_thunk, fp, ip, pcode_build_array_append_function, 0, NULL, result);
+	pcode_alloc_internal_function(&array_append_thunk, index_array_append_function, 0);
+	*result = array_append_thunk;
 }
-
 
 static void *pcode_build_option_ord_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
 {
@@ -5021,16 +4995,16 @@ static void *pcode_build_option_ord_function(frame_s *fp, const code_t *ip, unio
 
 	ajla_assert_lo((size_t)(pc - pcode) == n_array_elements(pcode), (file_line, "pcode_build_option_ord_function: array mismatch: %"PRIdMAX" != %"PRIdMAX"", (intmax_t)(pc - pcode), (intmax_t)n_array_elements(pcode)));
 
-	return pcode_build_function(fp, ip, pcode, pc - pcode, NULL, NULL);
+	return pcode_build_function(fp, ip, pcode, pc - pcode, a[0].ptr, a[1].ptr);
 }
 
-static struct function_pointer option_ord_thunk;
+static struct function_pointer *option_ord_thunk;
 
-void * attr_fastcall pcode_find_option_ord_function(frame_s *fp, const code_t *ip, struct function_pointer **result)
+void attr_fastcall pcode_find_option_ord_function(struct function_pointer **result)
 {
-	return pcode_alloc_op_function(&option_ord_thunk, fp, ip, pcode_build_option_ord_function, 0, NULL, result);
+	pcode_alloc_internal_function(&option_ord_thunk, index_option_ord_function, 0);
+	*result = option_ord_thunk;
 }
-
 
 struct function_key {
 	unsigned char tag;
@@ -5041,7 +5015,7 @@ static void *pcode_build_record_option_load_function(frame_s *fp, const code_t *
 {
 	pcode_t pcode[38];
 	pcode_t *pc = pcode;
-	pcode_t result_type = a[0].i == PCODE_FUNCTION_OPTION_TEST ? T_Bool : T_Undetermined;
+	pcode_t result_type = a[2].i == PCODE_FUNCTION_OPTION_TEST ? T_Bool : T_Undetermined;
 
 	*pc++ = Fn_Function;
 	*pc++ = Call_Mode_Strict;
@@ -5070,14 +5044,14 @@ static void *pcode_build_record_option_load_function(frame_s *fp, const code_t *
 	*pc++ = 1;
 	*pc++ = 0;
 
-	switch (a[0].i) {
+	switch (a[2].i) {
 		case PCODE_FUNCTION_RECORD_LOAD:
 			/* P_Record_Load_Slot already sets Flag_Evaluate */
 			*pc++ = P_Record_Load_Slot;
 			*pc++ = 3;
 			*pc++ = 1;
 			*pc++ = 0;
-			*pc++ = (pcode_t)a[1].i;
+			*pc++ = (pcode_t)a[3].i;
 			break;
 		case PCODE_FUNCTION_OPTION_LOAD:
 			*pc++ = P_Option_Load;
@@ -5085,7 +5059,7 @@ static void *pcode_build_record_option_load_function(frame_s *fp, const code_t *
 			*pc++ = 1;
 			*pc++ = Flag_Evaluate;
 			*pc++ = 0;
-			*pc++ = (pcode_t)a[1].i;
+			*pc++ = (pcode_t)a[3].i;
 			break;
 		case PCODE_FUNCTION_OPTION_TEST:
 			*pc++ = P_Eval;
@@ -5095,10 +5069,10 @@ static void *pcode_build_record_option_load_function(frame_s *fp, const code_t *
 			*pc++ = 3;
 			*pc++ = 1;
 			*pc++ = 0;
-			*pc++ = (pcode_t)a[1].i;
+			*pc++ = (pcode_t)a[3].i;
 			break;
 		default:
-			internal(file_line, "pcode_build_record_option_load_function: invalid operation %"PRIuMAX"", (uintmax_t)a[0].i);
+			internal(file_line, "pcode_build_record_option_load_function: invalid operation %"PRIuMAX"", (uintmax_t)a[2].i);
 	}
 
 	*pc++ = P_Free;
@@ -5112,13 +5086,13 @@ static void *pcode_build_record_option_load_function(frame_s *fp, const code_t *
 
 	ajla_assert_lo((size_t)(pc - pcode) <= n_array_elements(pcode), (file_line, "pcode_build_record_option_load_function: array overflow: %"PRIdMAX" > %"PRIdMAX"", (intmax_t)(pc - pcode), (intmax_t)n_array_elements(pcode)));
 
-	return pcode_build_function(fp, ip, pcode, pc - pcode, NULL, NULL);
+	return pcode_build_function(fp, ip, pcode, pc - pcode, a[0].ptr, a[1].ptr);
 }
 
 struct pcode_function {
 	struct tree_entry entry;
 	struct function_key key;
-	struct function_pointer ptr;
+	struct function_pointer *ptr;
 };
 
 shared_var struct tree pcode_functions;
@@ -5137,7 +5111,7 @@ static int record_option_load_compare(const struct tree_entry *e1, uintptr_t e2)
 	return 0;
 }
 
-static struct function_pointer *pcode_find_function_for_key(struct function_key *key)
+static struct function_pointer **pcode_find_function_for_key(struct function_key *key)
 {
 	struct tree_entry *e;
 
@@ -5157,9 +5131,7 @@ static struct function_pointer *pcode_find_function_for_key(struct function_key 
 				return NULL;
 			}
 			rl->key = *key;
-			rl->ptr.ptr = pointer_empty();
-			rl->ptr.md = NULL;
-			rl->ptr.fd = NULL;
+			rl->ptr = NULL;
 			e = &rl->entry;
 			tree_insert_after_find(e, &ins);
 		}
@@ -5168,15 +5140,14 @@ static struct function_pointer *pcode_find_function_for_key(struct function_key 
 	return &get_struct(e, struct pcode_function, entry)->ptr;
 }
 
-void * attr_fastcall pcode_find_record_option_load_function(unsigned char tag, frame_t slot, frame_s *fp, const code_t *ip, struct function_pointer **result)
+void attr_fastcall pcode_find_record_option_load_function(unsigned char tag, frame_t slot, struct function_pointer **result)
 {
 	struct function_key key;
-	struct function_pointer *ptr;
-	union internal_arg ia[2];
+	struct function_pointer **ptr;
 
 	if (unlikely((uintmax_t)slot > (uintmax_t)signed_maximum(pcode_t) + zero)) {
 		*result = &out_of_memory_ptr;
-		return POINTER_FOLLOW_THUNK_RETRY;
+		return;
 	}
 
 	key.tag = tag;
@@ -5185,12 +5156,11 @@ void * attr_fastcall pcode_find_record_option_load_function(unsigned char tag, f
 	ptr = pcode_find_function_for_key(&key);
 	if (unlikely(!ptr)) {
 		*result = &out_of_memory_ptr;
-		return POINTER_FOLLOW_THUNK_RETRY;
+		return;
 	}
 
-	ia[0].i = tag;
-	ia[1].i = slot;
-	return pcode_alloc_op_function(ptr, fp, ip, pcode_build_record_option_load_function, 2, ia, result);
+	pcode_alloc_internal_function(ptr, index_record_option_load_function, 2, (long)tag, (long)slot);
+	*result = *ptr;
 }
 
 void *(*pcode_build_internal_functions[11])(frame_s *fp, const code_t *ip, union internal_arg a[]) = {
@@ -5207,21 +5177,9 @@ void *(*pcode_build_internal_functions[11])(frame_s *fp, const code_t *ip, union
 	pcode_build_record_option_load_function,
 };
 
-static void thunk_init_run(struct function_pointer *ptr, unsigned n)
+static void thunk_init_run(struct function_pointer **ptr, unsigned n)
 {
-	while (n--) {
-		ptr->ptr = pointer_empty();
-		ptr++;
-	}
-}
-
-static void thunk_free_run(struct function_pointer *ptr, unsigned n)
-{
-	while (n--) {
-		if (!pointer_is_empty(ptr->ptr))
-			pointer_dereference(ptr->ptr);
-		ptr++;
-	}
+	memset(ptr, 0, n * sizeof(struct function_pointer *));
 }
 
 void name(pcode_init)(void)
@@ -5242,34 +5200,19 @@ void name(pcode_init)(void)
 	thunk_init_run(&array_append_thunk, 1);
 	thunk_init_run(&option_ord_thunk, 1);
 	tree_init(&pcode_functions);
+	rwlock_init(&pcode_internal_functions_mutex);
 	rwlock_init(&pcode_functions_mutex);
 }
 
 void name(pcode_done)(void)
 {
-	unsigned i;
-	for (i = 0; i < TYPE_FIXED_N + uzero; i++) thunk_free_run(fixed_op_thunk[i], OPCODE_FIXED_OP_N);
-	for (i = 0; i < TYPE_INT_N; i++) thunk_free_run(int_op_thunk[i], OPCODE_INT_OP_N);
-	for (i = 0; i < TYPE_REAL_N + uzero; i++) thunk_free_run(real_op_thunk[i], OPCODE_REAL_OP_N);
-	thunk_free_run(&is_exception_thunk, 1);
-	thunk_free_run(get_exception_thunk, n_array_elements(get_exception_thunk));
-	thunk_free_run(bool_op_thunk, OPCODE_BOOL_OP_N);
-	thunk_free_run(&array_load_thunk, 1);
-	thunk_free_run(&array_len_thunk, 1);
-	thunk_free_run(&array_len_finite_thunk, 1);
-	thunk_free_run(&array_len_greater_than_thunk, 1);
-	thunk_free_run(&array_sub_thunk, 1);
-	thunk_free_run(&array_skip_thunk, 1);
-	thunk_free_run(&array_append_thunk, 1);
-	thunk_free_run(&option_ord_thunk, 1);
 	while (!tree_is_empty(&pcode_functions)) {
 		struct pcode_function *rl = get_struct(tree_any(&pcode_functions), struct pcode_function, entry);
-		if (!pointer_is_empty(rl->ptr.ptr))
-			pointer_dereference(rl->ptr.ptr);
 		tree_delete(&rl->entry);
 		mem_free(rl);
 	}
 	rwlock_done(&pcode_functions_mutex);
+	rwlock_done(&pcode_internal_functions_mutex);
 }
 
 #endif

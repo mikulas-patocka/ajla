@@ -60,22 +60,22 @@ pointer_t pcode_build_eval_function(pcode_t src_type, pcode_t dest_type, pcode_t
 #define PCODE_FIND_OP_BINARY	0x2
 #define PCODE_FIND_OP_TERNARY	0x4
 #define PCODE_CONVERT_FROM_INT	0x8
-void * attr_fastcall pcode_find_op_function(const struct type *type, const struct type *rtype, code_t code, unsigned flags, frame_s *fp, const code_t *ip, struct function_pointer **result);
-void * attr_fastcall pcode_find_is_exception(frame_s *fp, const code_t *ip, struct function_pointer **result);
-void * attr_fastcall pcode_find_get_exception(unsigned mode, frame_s *fp, const code_t *ip, struct function_pointer **result);
+void attr_fastcall pcode_find_op_function(const struct type *type, const struct type *rtype, code_t code, unsigned flags, struct function_pointer **result);
+void attr_fastcall pcode_find_is_exception(struct function_pointer **result);
+void attr_fastcall pcode_find_get_exception(unsigned mode, struct function_pointer **result);
 
-void * attr_fastcall pcode_find_array_load_function(frame_s *fp, const code_t *ip, struct function_pointer **result);
-void * attr_fastcall pcode_find_array_len_function(bool finite, frame_s *fp, const code_t *ip, struct function_pointer **result);
-void * attr_fastcall pcode_find_array_len_greater_than_function(frame_s *fp, const code_t *ip, struct function_pointer **result);
-void * attr_fastcall pcode_find_array_sub_function(frame_s *fp, const code_t *ip, struct function_pointer **result);
-void * attr_fastcall pcode_find_array_skip_function(frame_s *fp, const code_t *ip, struct function_pointer **result);
-void * attr_fastcall pcode_find_array_append_function(frame_s *fp, const code_t *ip, struct function_pointer **result);
-void * attr_fastcall pcode_find_option_ord_function(frame_s *fp, const code_t *ip, struct function_pointer **result);
+void attr_fastcall pcode_find_array_load_function(struct function_pointer **result);
+void attr_fastcall pcode_find_array_len_function(bool finite, struct function_pointer **result);
+void attr_fastcall pcode_find_array_len_greater_than_function(struct function_pointer **result);
+void attr_fastcall pcode_find_array_sub_function(struct function_pointer **result);
+void attr_fastcall pcode_find_array_skip_function(struct function_pointer **result);
+void attr_fastcall pcode_find_array_append_function(struct function_pointer **result);
+void attr_fastcall pcode_find_option_ord_function(struct function_pointer **result);
 
 #define PCODE_FUNCTION_RECORD_LOAD	0
 #define PCODE_FUNCTION_OPTION_LOAD	1
 #define PCODE_FUNCTION_OPTION_TEST	2
-void * attr_fastcall pcode_find_record_option_load_function(unsigned char tag, frame_t slot, frame_s *fp, const code_t *ip, struct function_pointer **result);
+void attr_fastcall pcode_find_record_option_load_function(unsigned char tag, frame_t slot, struct function_pointer **result);
 
 extern void *(*pcode_build_internal_functions[])(frame_s *fp, const code_t *ip, union internal_arg a[]);
 
