@@ -4358,7 +4358,7 @@ static struct function_pointer *int_op_thunk[TYPE_INT_N][OPCODE_INT_OP_N];
 static struct function_pointer *real_op_thunk[TYPE_REAL_N][OPCODE_REAL_OP_N];
 static struct function_pointer *bool_op_thunk[OPCODE_BOOL_TYPE_MULT];
 
-void attr_fastcall pcode_find_op_function(const struct type *type, const struct type *rtype, code_t code, unsigned flags, struct function_pointer **result)
+struct function_pointer * attr_fastcall pcode_find_op_function(const struct type *type, const struct type *rtype, code_t code, unsigned flags)
 {
 	struct function_pointer **ptr;
 
@@ -4388,7 +4388,7 @@ void attr_fastcall pcode_find_op_function(const struct type *type, const struct 
 	}
 
 	pcode_alloc_internal_function(ptr, index_op_function, 4, (long)type_to_pcode(type), (long)type_to_pcode(rtype), (long)(code + Op_N), (long)flags);
-	*result = *ptr;
+	return *ptr;
 }
 
 static void *pcode_build_is_exception_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
@@ -4446,10 +4446,10 @@ static void *pcode_build_is_exception_function(frame_s *fp, const code_t *ip, un
 
 static struct function_pointer *is_exception_thunk;
 
-void attr_fastcall pcode_find_is_exception(struct function_pointer **result)
+struct function_pointer * attr_fastcall pcode_find_is_exception(void)
 {
 	pcode_alloc_internal_function(&is_exception_thunk, index_is_exception_function, 0);
-	*result = is_exception_thunk;
+	return is_exception_thunk;
 }
 
 static void *pcode_build_get_exception_function(frame_s *fp, const code_t *ip, union internal_arg a[])
@@ -4507,10 +4507,10 @@ static void *pcode_build_get_exception_function(frame_s *fp, const code_t *ip, u
 
 static struct function_pointer *get_exception_thunk[3];
 
-void attr_fastcall pcode_find_get_exception(unsigned mode, struct function_pointer **result)
+struct function_pointer * attr_fastcall pcode_find_get_exception(unsigned mode)
 {
 	pcode_alloc_internal_function(&get_exception_thunk[mode], index_get_exception_function, 1, (long)mode);
-	*result = get_exception_thunk[mode];
+	return get_exception_thunk[mode];
 }
 
 static void *pcode_build_array_load_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
@@ -4579,10 +4579,10 @@ static void *pcode_build_array_load_function(frame_s *fp, const code_t *ip, unio
 
 static struct function_pointer *array_load_thunk;
 
-void attr_fastcall pcode_find_array_load_function(struct function_pointer **result)
+struct function_pointer * attr_fastcall pcode_find_array_load_function(void)
 {
 	pcode_alloc_internal_function(&array_load_thunk, index_array_load_function, 0);
-	*result = array_load_thunk;
+	return array_load_thunk;
 }
 
 static void *pcode_build_array_len_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
@@ -4640,11 +4640,11 @@ static void *pcode_build_array_len_function(frame_s *fp, const code_t *ip, union
 static struct function_pointer *array_len_thunk;
 static struct function_pointer *array_len_finite_thunk;
 
-void attr_fastcall pcode_find_array_len_function(bool finite, struct function_pointer **result)
+struct function_pointer * attr_fastcall pcode_find_array_len_function(bool finite)
 {
 	struct function_pointer **ptr = !finite ? &array_len_thunk : &array_len_finite_thunk;
 	pcode_alloc_internal_function(ptr, index_array_len_function, 1, (long)finite);
-	*result = *ptr;
+	return *ptr;
 }
 
 static void *pcode_build_array_len_greater_than_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
@@ -4713,10 +4713,10 @@ static void *pcode_build_array_len_greater_than_function(frame_s *fp, const code
 
 static struct function_pointer *array_len_greater_than_thunk;
 
-void attr_fastcall pcode_find_array_len_greater_than_function(struct function_pointer **result)
+struct function_pointer * attr_fastcall pcode_find_array_len_greater_than_function(void)
 {
 	pcode_alloc_internal_function(&array_len_greater_than_thunk, index_array_len_greater_than_function, 0);
-	*result = array_len_greater_than_thunk;
+	return array_len_greater_than_thunk;
 }
 
 static void *pcode_build_array_sub_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
@@ -4797,10 +4797,10 @@ static void *pcode_build_array_sub_function(frame_s *fp, const code_t *ip, union
 
 static struct function_pointer *array_sub_thunk;
 
-void attr_fastcall pcode_find_array_sub_function(struct function_pointer **result)
+struct function_pointer * attr_fastcall pcode_find_array_sub_function(void)
 {
 	pcode_alloc_internal_function(&array_sub_thunk, index_array_sub_function, 0);
-	*result = array_sub_thunk;
+	return array_sub_thunk;
 }
 
 static void *pcode_build_array_skip_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
@@ -4869,10 +4869,10 @@ static void *pcode_build_array_skip_function(frame_s *fp, const code_t *ip, unio
 
 static struct function_pointer *array_skip_thunk;
 
-void attr_fastcall pcode_find_array_skip_function(struct function_pointer **result)
+struct function_pointer * attr_fastcall pcode_find_array_skip_function(void)
 {
 	pcode_alloc_internal_function(&array_skip_thunk, index_array_skip_function, 0);
-	*result = array_skip_thunk;
+	return array_skip_thunk;
 }
 
 static void *pcode_build_array_append_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
@@ -4937,10 +4937,10 @@ static void *pcode_build_array_append_function(frame_s *fp, const code_t *ip, un
 
 static struct function_pointer *array_append_thunk;
 
-void attr_fastcall pcode_find_array_append_function(struct function_pointer **result)
+struct function_pointer * attr_fastcall pcode_find_array_append_function(void)
 {
 	pcode_alloc_internal_function(&array_append_thunk, index_array_append_function, 0);
-	*result = array_append_thunk;
+	return array_append_thunk;
 }
 
 static void *pcode_build_option_ord_function(frame_s *fp, const code_t *ip, union internal_arg attr_unused a[])
@@ -5000,10 +5000,10 @@ static void *pcode_build_option_ord_function(frame_s *fp, const code_t *ip, unio
 
 static struct function_pointer *option_ord_thunk;
 
-void attr_fastcall pcode_find_option_ord_function(struct function_pointer **result)
+struct function_pointer * attr_fastcall pcode_find_option_ord_function(void)
 {
 	pcode_alloc_internal_function(&option_ord_thunk, index_option_ord_function, 0);
-	*result = option_ord_thunk;
+	return option_ord_thunk;
 }
 
 struct function_key {
@@ -5140,14 +5140,13 @@ static struct function_pointer **pcode_find_function_for_key(struct function_key
 	return &get_struct(e, struct pcode_function, entry)->ptr;
 }
 
-void attr_fastcall pcode_find_record_option_load_function(unsigned char tag, frame_t slot, struct function_pointer **result)
+struct function_pointer * attr_fastcall pcode_find_record_option_load_function(unsigned char tag, frame_t slot)
 {
 	struct function_key key;
 	struct function_pointer **ptr;
 
 	if (unlikely((uintmax_t)slot > (uintmax_t)signed_maximum(pcode_t) + zero)) {
-		*result = &out_of_memory_ptr;
-		return;
+		return &out_of_memory_ptr;
 	}
 
 	key.tag = tag;
@@ -5155,12 +5154,11 @@ void attr_fastcall pcode_find_record_option_load_function(unsigned char tag, fra
 
 	ptr = pcode_find_function_for_key(&key);
 	if (unlikely(!ptr)) {
-		*result = &out_of_memory_ptr;
-		return;
+		return &out_of_memory_ptr;
 	}
 
 	pcode_alloc_internal_function(ptr, index_record_option_load_function, 2, (long)tag, (long)slot);
-	*result = *ptr;
+	return *ptr;
 }
 
 void *(*pcode_build_internal_functions[11])(frame_s *fp, const code_t *ip, union internal_arg a[]) = {

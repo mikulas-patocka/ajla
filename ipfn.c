@@ -320,11 +320,11 @@ static void *ipret_op_build_thunk(frame_s *fp, const code_t *ip, frame_t slot_1,
 			flags |= PCODE_CONVERT_FROM_INT;
 	}
 	if (code == OPCODE_IS_EXCEPTION)
-		pcode_find_is_exception(&fn_ptr);
+		fn_ptr = pcode_find_is_exception();
 	else if (code == OPCODE_EXCEPTION_CLASS || code == OPCODE_EXCEPTION_TYPE || code == OPCODE_EXCEPTION_AUX)
-		pcode_find_get_exception(code - OPCODE_EXCEPTION_CLASS, &fn_ptr);
+		fn_ptr = pcode_find_get_exception(code - OPCODE_EXCEPTION_CLASS);
 	else
-		pcode_find_op_function(frame_get_type_of_local(fp, slot_1), frame_get_type_of_local(fp, slot_r), code, flags, &fn_ptr);
+		fn_ptr = pcode_find_op_function(frame_get_type_of_local(fp, slot_1), frame_get_type_of_local(fp, slot_r), code, flags);
 
 	result = build_thunk(fn_ptr, slot_3 != NO_FRAME_T ? 3 : slot_2 != NO_FRAME_T ? 2 : 1, &function_reference);
 	ipret_fill_function_reference_from_slot(function_reference, 0, fp, slot_1, false);
@@ -1719,7 +1719,7 @@ void attr_hot_fastcall ipret_record_load_create_thunk(frame_s *fp, frame_t recor
 	struct data *function_reference;
 	struct thunk *result;
 
-	pcode_find_record_option_load_function(PCODE_FUNCTION_RECORD_LOAD, record_slot, &fn_ptr);
+	fn_ptr = pcode_find_record_option_load_function(PCODE_FUNCTION_RECORD_LOAD, record_slot);
 
 	result = build_thunk(fn_ptr, 1, &function_reference);
 	ipret_fill_function_reference_from_slot(function_reference, 0, fp, record, false);
@@ -1733,7 +1733,7 @@ void attr_hot_fastcall ipret_option_load_create_thunk(frame_s *fp, frame_t optio
 	struct data *function_reference;
 	struct thunk *result;
 
-	pcode_find_record_option_load_function(PCODE_FUNCTION_OPTION_LOAD, option_idx, &fn_ptr);
+	fn_ptr = pcode_find_record_option_load_function(PCODE_FUNCTION_OPTION_LOAD, option_idx);
 
 	result = build_thunk(fn_ptr, 1, &function_reference);
 	ipret_fill_function_reference_from_slot(function_reference, 0, fp, option, false);
@@ -1754,7 +1754,7 @@ void * attr_hot_fastcall thunk_option_test(frame_s *fp, frame_t slot_1, ajla_opt
 		break
 	);
 
-	pcode_find_record_option_load_function(PCODE_FUNCTION_OPTION_TEST, option, &fn_ptr);
+	fn_ptr = pcode_find_record_option_load_function(PCODE_FUNCTION_OPTION_TEST, option);
 
 	result = build_thunk(fn_ptr, 1, &function_reference);
 	ipret_fill_function_reference_from_slot(function_reference, 0, fp, slot_1, false);
@@ -1777,7 +1777,7 @@ void * attr_hot_fastcall thunk_option_ord(frame_s *fp, frame_t slot_1, frame_t s
 		break
 	);
 
-	pcode_find_option_ord_function(&fn_ptr);
+	fn_ptr = pcode_find_option_ord_function();
 
 	result = build_thunk(fn_ptr, 1, &function_reference);
 	ipret_fill_function_reference_from_slot(function_reference, 0, fp, slot_1, false);
@@ -1794,7 +1794,7 @@ void attr_hot_fastcall ipret_array_load_create_thunk(frame_s *fp, frame_t array,
 	struct data *function_reference;
 	struct thunk *result;
 
-	pcode_find_array_load_function(&fn_ptr);
+	fn_ptr = pcode_find_array_load_function();
 
 	result = build_thunk(fn_ptr, 2, &function_reference);
 	ipret_fill_function_reference_from_slot(function_reference, 0, fp, array, false);
@@ -1809,7 +1809,7 @@ static attr_noinline void array_len_create_thunk(frame_s *fp, frame_t array_slot
 	struct data *function_reference;
 	struct thunk *result;
 
-	pcode_find_array_len_function(finite, &fn_ptr);
+	fn_ptr = pcode_find_array_len_function(finite);
 
 	result = build_thunk(fn_ptr, 1, &function_reference);
 	ipret_fill_function_reference_from_slot(function_reference, 0, fp, array_slot, false);
@@ -1823,7 +1823,7 @@ static attr_noinline void array_len_greater_than_create_thunk(frame_s *fp, frame
 	struct data *function_reference;
 	struct thunk *result;
 
-	pcode_find_array_len_greater_than_function(&fn_ptr);
+	fn_ptr = pcode_find_array_len_greater_than_function();
 
 	result = build_thunk(fn_ptr, 2, &function_reference);
 	ipret_fill_function_reference_from_slot(function_reference, 0, fp, array_slot, false);
@@ -1838,7 +1838,7 @@ static attr_noinline void array_sub_create_thunk(frame_s *fp, frame_t array_slot
 	struct data *function_reference;
 	struct thunk *result;
 
-	pcode_find_array_sub_function(&fn_ptr);
+	fn_ptr = pcode_find_array_sub_function();
 
 	result = build_thunk(fn_ptr, 3, &function_reference);
 	ipret_fill_function_reference_from_slot(function_reference, 0, fp, array_slot, (flags & OPCODE_FLAG_FREE_ARGUMENT) != 0);
@@ -1854,7 +1854,7 @@ static attr_noinline void array_skip_create_thunk(frame_s *fp, frame_t array_slo
 	struct data *function_reference;
 	struct thunk *result;
 
-	pcode_find_array_skip_function(&fn_ptr);
+	fn_ptr = pcode_find_array_skip_function();
 
 	result = build_thunk(fn_ptr, 2, &function_reference);
 	ipret_fill_function_reference_from_slot(function_reference, 0, fp, array_slot, (flags & OPCODE_FLAG_FREE_ARGUMENT) != 0);
@@ -2488,7 +2488,7 @@ void * attr_hot_fastcall ipret_array_append(frame_s *fp, const code_t *ip, frame
 	pointer_t ptr_1, ptr_2, *ptr_r;
 
 	if (unlikely(array_resolve_thunk(fp, slot_1))) {
-		pcode_find_array_append_function(&fn_ptr);
+		fn_ptr = pcode_find_array_append_function();
 	}
 	array_resolve_thunk(fp, slot_2);
 
@@ -2574,7 +2574,7 @@ void * attr_hot_fastcall ipret_array_append_one(frame_s *fp, const code_t *ip, f
 	struct data *data;
 
 	if (unlikely(array_resolve_thunk(fp, slot_1))) {
-		pcode_find_array_append_function(&fn_ptr);
+		fn_ptr = pcode_find_array_append_function();
 	}
 
 	ptr_1 = ipret_copy_variable_to_pointer(fp, slot_1, (flags & OPCODE_FLAG_FREE_ARGUMENT) != 0);
