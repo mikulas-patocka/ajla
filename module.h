@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -29,7 +29,6 @@
 
 extern struct function_pointer *start_fn;
 
-/* returns a pointer to pointer_t */
 struct function_pointer *module_load_function(const struct module_designator *md, const struct function_designator *fd, ajla_error_t *mayfail);
 pointer_t *module_load_function_reference(const struct module_designator *md, const struct function_designator *fd, bool optimizer, ajla_error_t *mayfail);
 void module_finish_functions(void);

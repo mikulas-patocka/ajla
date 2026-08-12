@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -55,8 +55,6 @@ struct module {
 	struct tree functions;
 	struct module_designator md;
 };
-
-static struct module_function *module_find_function(struct module *m, const struct function_designator *fd, bool create, ajla_error_t *mayfail);
 
 #define mode_nonopt	0
 #define mode_opt	1
@@ -158,8 +156,16 @@ static pointer_t module_create_optimizer_reference(struct module *m, struct func
 static bool module_function_init(struct module *m, struct module_function *mf, ajla_error_t attr_unused *mayfail)
 {
 	pointer_t ptr, optr, pptr;
-	union internal_arg ia[3];
-	if (unlikely(mf->fd.n_spec_data != 0)) {
+	union internal_arg ia[4];
+	if (unlikely(module_designator_is_internal(&m->md))) {
+		size_t index, i;
+		index = mf->fd.entries[0];
+		for (i = 1; i < mf->fd.n_entries; i++)
+			ia[i - 1].i = mf->fd.entries[i];
+		ptr = function_build_internal_thunk(pcode_build_internal_functions[index], mf->fd.n_entries - 1, ia);
+		optr = pointer_empty();
+		pptr = pointer_empty();
+	} else if (unlikely(mf->fd.n_spec_data != 0)) {
 		if (!m->md.path_idx && builtin_find_spec_function(&m->md, &mf->fd, NULL, NULL))
 			goto known_spec;
 		optr = module_create_optimizer_reference(m, &mf->fd, mode_spec);
@@ -406,8 +412,10 @@ void module_finish_functions(void)
 static void module_free_function(struct module_function *mf)
 {
 	pointer_dereference(mf->function.ptr);
-	pointer_dereference(mf->optimizer);
-	pointer_dereference(mf->parser);
+	if (!pointer_is_empty(mf->optimizer))
+		pointer_dereference(mf->optimizer);
+	if (!pointer_is_empty(mf->parser))
+		pointer_dereference(mf->parser);
 }
 
 void name(module_init)(void)
@@ -418,7 +426,6 @@ void name(module_init)(void)
 
 	tree_init(&modules);
 	rwlock_init(&modules_mutex);
-
 
 	n = "start";
 	md = module_designator_alloc(0, cast_ptr(const uint8_t *, n), strlen(n), false, false, NULL);

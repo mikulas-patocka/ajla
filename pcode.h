@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -39,6 +39,7 @@
 #define pcode_find_array_append_function	name(pcode_find_array_append_function)
 #define pcode_find_option_ord_function		name(pcode_find_option_ord_function)
 #define pcode_find_record_option_load_function	name(pcode_find_record_option_load_function)
+#define pcode_build_internal_functions		name(pcode_build_internal_functions)
 
 #define Op_IsBool(op)			((op) == Bin_Equal || (op) == Bin_NotEqual || (op) == Bin_Less || (op) == Bin_LessEqual || (op) == Bin_Greater || (op) == Bin_GreaterEqual || (op) == Bin_Bt || (op) == Un_IsException)
 #define Op_IsInt(op)			((op) == Un_ConvertToInt || (op) == Un_ExceptionClass || (op) == Un_ExceptionType || (op) == Un_ExceptionAux)
@@ -75,5 +76,7 @@ void * attr_fastcall pcode_find_option_ord_function(frame_s *fp, const code_t *i
 #define PCODE_FUNCTION_OPTION_LOAD	1
 #define PCODE_FUNCTION_OPTION_TEST	2
 void * attr_fastcall pcode_find_record_option_load_function(unsigned char tag, frame_t slot, frame_s *fp, const code_t *ip, struct function_pointer **result);
+
+extern void *(*pcode_build_internal_functions[])(frame_s *fp, const code_t *ip, union internal_arg a[]);
 
 #endif

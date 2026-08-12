@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -22,6 +22,8 @@
 #include "str.h"
 
 #include "md.h"
+
+struct module_designator module_designator_internal;
 
 struct module_designator *module_designator_alloc(unsigned path_idx, const uint8_t *path, size_t path_len, bool program, bool generator, ajla_error_t *mayfail)
 {
@@ -96,6 +98,16 @@ struct function_designator *function_designator_alloc_single(pcode_t idx, ajla_e
 	p[1] = idx;
 	p[2] = 0;
 	return function_designator_alloc(p, mayfail);
+}
+
+struct function_designator *function_designator_alloc_internal(pcode_t build_index, size_t n_entries, ajla_error_t *mayfail)
+{
+	struct function_designator *fd;
+	fd = struct_alloc_array_mayfail(mem_alloc_mayfail, struct function_designator, entries, 1 + n_entries, mayfail);
+	fd->n_entries = n_entries + 1;
+	fd->n_spec_data = 0;
+	fd->entries[0] = build_index;
+	return fd;
 }
 
 void function_designator_free(struct function_designator *fd)

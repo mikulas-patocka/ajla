@@ -4236,6 +4236,43 @@ ret_err:
 	return pointer_empty();
 }
 
+rwlock_decl(pcode_internal_functions_mutex);
+
+static void pcode_alloc_internal_function(struct function_pointer **ptr, pcode_t build_index, size_t n_args, ...)
+{
+	struct function_pointer *fp;
+	ajla_error_t sink;
+	struct function_designator *fd;
+	va_list ap;
+	size_t i;
+
+	rwlock_lock_read(&pcode_internal_functions_mutex);
+	if (*ptr) {
+		rwlock_unlock_read(&pcode_internal_functions_mutex);
+		return;
+	}
+	rwlock_unlock_read(&pcode_internal_functions_mutex);
+
+	fd = function_designator_alloc_internal(build_index, n_args, &sink);
+	if (unlikely(!fd))
+		goto set_oom;
+
+	va_start(ap, n_args);
+	for (i = 0; i < n_args; i++)
+		fd->entries[1 + i] = va_arg(ap, unsigned);
+	va_end(ap);
+
+	fp = module_load_function(&module_designator_internal, fd, &sink);
+	function_designator_free(fd);
+	if (unlikely(!fp))
+set_oom:
+		fp = &out_of_memory_ptr;
+
+	rwlock_lock_write(&pcode_internal_functions_mutex);
+	if (!*ptr)
+		*ptr = fp;
+	rwlock_unlock_write(&pcode_internal_functions_mutex);
+}
 
 static void *pcode_alloc_op_function(struct function_pointer *ptr, frame_s *fp, const code_t *ip, void *(*build_fn)(frame_s *fp, const code_t *ip, union internal_arg ia[]), unsigned n_arguments, union internal_arg ia[], struct function_pointer **result)
 {
@@ -5155,6 +5192,20 @@ void * attr_fastcall pcode_find_record_option_load_function(unsigned char tag, f
 	ia[1].i = slot;
 	return pcode_alloc_op_function(ptr, fp, ip, pcode_build_record_option_load_function, 2, ia, result);
 }
+
+void *(*pcode_build_internal_functions[11])(frame_s *fp, const code_t *ip, union internal_arg a[]) = {
+	pcode_build_op_function,
+	pcode_build_is_exception_function,
+	pcode_build_get_exception_function,
+	pcode_build_array_load_function,
+	pcode_build_array_len_function,
+	pcode_build_array_len_greater_than_function,
+	pcode_build_array_sub_function,
+	pcode_build_array_skip_function,
+	pcode_build_array_append_function,
+	pcode_build_option_ord_function,
+	pcode_build_record_option_load_function,
+};
 
 static void thunk_init_run(struct function_pointer *ptr, unsigned n)
 {

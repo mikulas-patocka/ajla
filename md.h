@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -27,6 +27,12 @@ struct module_designator {
 	uint8_t path[FLEXIBLE_ARRAY];
 };
 
+extern struct module_designator module_designator_internal;
+static inline bool module_designator_is_internal(struct module_designator *md)
+{
+	return !md->path_len;
+}
+
 struct module_designator *module_designator_alloc(unsigned path_idx, const uint8_t *path, size_t path_len, bool program, bool generator, ajla_error_t *mayfail);
 void module_designator_free(struct module_designator *md);
 size_t module_designator_length(const struct module_designator *md);
@@ -40,6 +46,7 @@ struct function_designator {
 
 struct function_designator *function_designator_alloc(const pcode_t *p, ajla_error_t *mayfail);
 struct function_designator *function_designator_alloc_single(pcode_t idx, ajla_error_t *mayfail);
+struct function_designator *function_designator_alloc_internal(pcode_t build_index, size_t n_entries, ajla_error_t *mayfail);
 void function_designator_free(struct function_designator *fd);
 size_t function_designator_length(const struct function_designator *fd);
 struct function_designator *function_designator_copy(const struct function_designator *fd, ajla_error_t *mayfail);
