@@ -105,13 +105,17 @@ struct file_descriptor {
 	char ajla_id[sizeof(id)];
 };
 
-static char *loaded_data;
-static size_t loaded_data_len;
+static struct {
+	char *loaded_data;
+	size_t loaded_data_len;
 #ifdef USE_MMAP
-static bool loaded_data_mapped;
-static bool loaded_data_amalloc;
+	bool loaded_data_mapped;
+	bool loaded_data_amalloc;
 #endif
-#define loaded_file_descriptor		cast_ptr(struct file_descriptor *, loaded_data + loaded_data_len - sizeof(struct file_descriptor))
+} ld[2];
+
+#define loaded_file_descriptor(n)	cast_ptr(struct file_descriptor *, ld[n].loaded_data + ld[n].loaded_data_len - sizeof(struct file_descriptor))
+
 
 static size_t loaded_fn_idx;
 static size_t loaded_fn_cache;
@@ -465,7 +469,7 @@ static void save_entries_until(pointer_t *arguments)
 		return;
 	if (loaded_fn_cache == (size_t)-1)
 		return;
-	fn_desc = &loaded_file_descriptor->fn_descs[loaded_fn_idx];
+	fn_desc = &loaded_file_descriptor(compsave)->fn_descs[loaded_fn_idx];
 	dsc = fn_desc->data_saved_cache;
 	while (loaded_fn_cache < da(dsc,saved_cache)->n_entries) {
 		pointer_t *dsc_arguments = da(dsc,saved_cache)->pointers + loaded_fn_cache * ((size_t)da(dsc,saved_cache)->n_arguments + (size_t)da(dsc,saved_cache)->n_return_values);
@@ -532,11 +536,11 @@ static void save_functions_until(struct data *d)
 	loaded_fn_cache = (size_t)-1;
 	if (unlikely(!save_ok))
 		return;
-	if (!loaded_data)
+	if (!ld[compsave].loaded_data)
 		return;
 	/*debug("save_functions_until: %lu, %lu", loaded_fn_idx, loaded_file_descriptor->fn_descs_len);*/
-	while (loaded_fn_idx < loaded_file_descriptor->fn_descs_len) {
-		struct function_descriptor *fn_desc = &loaded_file_descriptor->fn_descs[loaded_fn_idx];
+	while (loaded_fn_idx < loaded_file_descriptor(compsave)->fn_descs_len) {
+		struct function_descriptor *fn_desc = &loaded_file_descriptor(compsave)->fn_descs[loaded_fn_idx];
 		/*debug("test loaded: %lu", loaded_fn_idx);*/
 		if (d) {
 			int c = function_compare(da(d,function)->module_designator, da(d,function)->function_designator, fn_desc);
@@ -801,7 +805,7 @@ void save_finish_function(struct data *d)
 		ajla_error_t sink;
 		size_t i;
 		struct data *codegen;
-		if (compsave && da(d,function)->module_designator->path_idx)
+		if (compsave)
 			goto skip_save_codegen;
 		codegen = pointer_get_data(da(d,function)->codegen);
 		entries = da(codegen,codegen)->offsets = mem_alloc_array_mayfail(mem_alloc_mayfail, size_t *, 0, 0, da(codegen,codegen)->n_entries, sizeof(size_t), &sink);
@@ -1065,9 +1069,9 @@ static bool adjust_pointers(char *data, size_t len, uintptr_t offset)
 static void bind_function_pointers(void)
 {
 	size_t i;
-	for (i = 0; i < loaded_file_descriptor->function_pointers_len; i++) {
-		size_t off = loaded_file_descriptor->function_pointers[i];
-		struct function_pointer *fp = cast_ptr(struct function_pointer *, cast_ptr(char *, loaded_data) + off);
+	for (i = 0; i < loaded_file_descriptor(compsave)->function_pointers_len; i++) {
+		size_t off = loaded_file_descriptor(compsave)->function_pointers[i];
+		struct function_pointer *fp = cast_ptr(struct function_pointer *, cast_ptr(char *, ld[compsave].loaded_data) + off);
 		struct function_pointer *new_fp = module_load_function(fp->md, fp->fd, NULL);
 		pointer_t ptr = pointer_reference(&new_fp->ptr);
 		fp->ptr = ptr;
@@ -1076,16 +1080,18 @@ static void bind_function_pointers(void)
 	}
 }
 
-static void unbind_function_pointers(void)
+void save_unbind_function_pointers(bool cs)
 {
 	size_t i, pos;
-	for (i = 0; i < loaded_file_descriptor->function_pointers_len; i++) {
-		size_t off = loaded_file_descriptor->function_pointers[i];
-		struct function_pointer *fp = cast_ptr(struct function_pointer *, cast_ptr(char *, loaded_data) + off);
+	if (!ld[cs].loaded_data)
+		return;
+	for (i = 0; i < loaded_file_descriptor(cs)->function_pointers_len; i++) {
+		size_t off = loaded_file_descriptor(cs)->function_pointers[i];
+		struct function_pointer *fp = cast_ptr(struct function_pointer *, cast_ptr(char *, ld[cs].loaded_data) + off);
 		pointer_dereference(fp->ptr);
 	}
-	pos = loaded_file_descriptor->writable_boundary;
-	while (pos < loaded_data_len) {
+	pos = loaded_file_descriptor(cs)->writable_boundary;
+	while (pos < ld[cs].loaded_data_len) {
 		refcount_t *ref;
 		struct stack_entry *subptrs;
 		size_t align, size, subptrs_l, i;
@@ -1094,14 +1100,14 @@ static void unbind_function_pointers(void)
 			pos++;
 			continue;
 		}
-		ref = cast_ptr(refcount_t *, loaded_data + pos + offsetof(struct data, refcount_));
+		ref = cast_ptr(refcount_t *, ld[cs].loaded_data + pos + offsetof(struct data, refcount_));
 		if (refcount_is_one(ref)) {
 			pos += SAVED_DATA_ALIGN;
 			continue;
 		}
 		if (unlikely(!refcount_is_read_only(ref)))
 			internal(file_line, "unbind_function_pointers: invalid refcount at position %"PRIxMAX"", (uintmax_t)pos);
-		if (unlikely(!data_save(loaded_data + pos, 0, &align, &size, &subptrs, &subptrs_l, &duplicate))) {
+		if (unlikely(!data_save(ld[cs].loaded_data + pos, 0, &align, &size, &subptrs, &subptrs_l, &duplicate))) {
 			fatal("unable to allocate memory during shutdown");
 			return;
 		}
@@ -1125,23 +1131,28 @@ static int function_compare(const struct module_designator *md1, const struct fu
 
 struct function_descriptor *save_find_function_descriptor(const struct module_designator *md, const struct function_designator *fd)
 {
-	struct function_descriptor *fn_descs;
-	size_t fn_descs_len;
-	size_t result;
-	int cmp;
-	if (!loaded_data)
-		return NULL;
-	fn_descs = loaded_file_descriptor->fn_descs;
-	fn_descs_len = loaded_file_descriptor->fn_descs_len;
-	/*{
-		size_t i;
-		for (i = 0; i < fn_descs_len; i++)
-			if (!function_compare(md, fd, &fn_descs[i]))
-				return &fn_descs[i];
-		return NULL;
-	}*/
-	binary_search(size_t, fn_descs_len, result, !(cmp = function_compare(md, fd, &fn_descs[result])), cmp >= 0, return NULL);
-	return &fn_descs[result];
+	size_t cs;
+	for (cs = 0; cs < 2; cs++) {
+		struct function_descriptor *fn_descs;
+		size_t fn_descs_len;
+		size_t result;
+		int cmp;
+		if (!ld[cs].loaded_data)
+			continue;
+		fn_descs = loaded_file_descriptor(cs)->fn_descs;
+		fn_descs_len = loaded_file_descriptor(cs)->fn_descs_len;
+		/*{
+			size_t i;
+			for (i = 0; i < fn_descs_len; i++)
+				if (!function_compare(md, fd, &fn_descs[i]))
+					return &fn_descs[i];
+			return NULL;
+		}*/
+		binary_search(size_t, fn_descs_len, result, !(cmp = function_compare(md, fd, &fn_descs[result])), cmp >= 0, goto cont);
+		return &fn_descs[result];
+cont:;
+	}
+	return NULL;
 }
 
 static int dep_compare(const struct tree_entry *e1, uintptr_t e2)
@@ -1259,8 +1270,8 @@ static bool dep_get_stream(char **result, size_t *result_l)
 static bool dep_verify(void)
 {
 	const char *ptr, *end;
-	ptr = loaded_file_descriptor->dependencies;
-	end = ptr + loaded_file_descriptor->dependencies_l;
+	ptr = loaded_file_descriptor(compsave)->dependencies;
+	end = ptr + loaded_file_descriptor(compsave)->dependencies_l;
 	while (ptr < end) {
 		char *fp;
 		size_t fp_l, l;
@@ -1276,8 +1287,8 @@ static bool dep_verify(void)
 		mem_free(fp);
 		ptr += fp_l;
 	}
-	ptr = loaded_file_descriptor->dependencies;
-	end = ptr + loaded_file_descriptor->dependencies_l;
+	ptr = loaded_file_descriptor(compsave)->dependencies;
+	end = ptr + loaded_file_descriptor(compsave)->dependencies_l;
 	while (ptr < end) {
 		struct tree_insert_position ins;
 		ajla_error_t sink;
@@ -1313,22 +1324,21 @@ static bool dep_verify(void)
 	return true;
 }
 
-void save_unmap_data(void)
+void save_unmap_data(bool cs)
 {
-	if (loaded_data) {
-		unbind_function_pointers();
+	if (!ld[cs].loaded_data)
+		return;
 #ifdef USE_MMAP
-		if (likely(loaded_data_mapped)) {
-			os_munmap(loaded_data, loaded_data_len, true);
-		} else if (loaded_data_amalloc) {
-			amalloc_run_free(loaded_data, loaded_data_len);
-		} else
+	if (likely(ld[cs].loaded_data_mapped)) {
+		os_munmap(ld[cs].loaded_data, ld[cs].loaded_data_len, true);
+	} else if (ld[cs].loaded_data_amalloc) {
+		amalloc_run_free(ld[cs].loaded_data, ld[cs].loaded_data_len);
+	} else
 #endif
-		{
-			mem_free(loaded_data);
-		}
+	{
+		mem_free(ld[cs].loaded_data);
 	}
-	loaded_data = NULL;
+	ld[cs].loaded_data = NULL;
 }
 
 static char *save_get_file(void)
@@ -1400,12 +1410,12 @@ static void save_load_cache(void)
 		os_close(h);
 		return;
 	}
-	loaded_data_len = (size_t)st.st_size;
-	if (unlikely((uintmax_t)st.st_size != loaded_data_len)) {
+	ld[compsave].loaded_data_len = (size_t)st.st_size;
+	if (unlikely((uintmax_t)st.st_size != ld[compsave].loaded_data_len)) {
 		os_close(h);
 		return;
 	}
-	if (unlikely(loaded_data_len < sizeof(struct file_descriptor))) {
+	if (unlikely(ld[compsave].loaded_data_len < sizeof(struct file_descriptor))) {
 		warning("too short cache file");
 		os_close(h);
 		return;
@@ -1416,7 +1426,7 @@ static void save_load_cache(void)
 	}
 	if (unlikely(file_desc.page_size != os_getpagesize()) ||
 	    unlikely(file_desc.cpu_feature_flags != cpu_feature_flags) ||
-	    unlikely(file_desc.optimize_int != optimize_int) ||
+	    unlikely(file_desc.optimize_int != optimize_int && !compsave) ||
 	    unlikely(file_desc.privileged != ipret_is_privileged) ||
 	    unlikely(file_desc.profiling != profiling) ||
 	    unlikely(file_desc.strict_calls != ipret_strict_calls) ||
@@ -1433,34 +1443,34 @@ static void save_load_cache(void)
 		int prot_flags = PROT_READ | PROT_WRITE;
 		void *ptr;
 #ifndef POINTER_COMPRESSION
-		ptr = os_mmap(file_desc.base, loaded_data_len, prot_flags, MAP_PRIVATE, h, 0, &sink);
-		/*debug("mapped: %p, %lx -> %p", file_desc.base, loaded_data_len, ptr);*/
+		ptr = os_mmap(file_desc.base, ld[compsave].loaded_data_len, prot_flags, MAP_PRIVATE, h, 0, &sink);
+		/*debug("mapped: %p, %lx -> %p", file_desc.base, ld[compsave].loaded_data_len, ptr);*/
 		if (unlikely(ptr == MAP_FAILED))
 			goto skip_mmap;
 		if (unlikely(ptr != file_desc.base)) {
 			/*debug("address mismatch");*/
-			os_munmap(ptr, loaded_data_len, true);
+			os_munmap(ptr, ld[compsave].loaded_data_len, true);
 			goto skip_mmap;
 		}
-		loaded_data = ptr;
-		loaded_data_mapped = true;
+		ld[compsave].loaded_data = ptr;
+		ld[compsave].loaded_data_mapped = true;
 #else
-		if (unlikely(!amalloc_ptrcomp_try_reserve_range(file_desc.base, loaded_data_len))) {
+		if (unlikely(!amalloc_ptrcomp_try_reserve_range(file_desc.base, ld[compsave].loaded_data_len))) {
 			/*debug("amalloc_ptrcomp_try_reserve_range failed");*/
 			goto skip_mmap;
 		}
-		ptr = os_mmap(file_desc.base, loaded_data_len, prot_flags, MAP_PRIVATE | MAP_FIXED, h, 0, &sink);
+		ptr = os_mmap(file_desc.base, ld[compsave].loaded_data_len, prot_flags, MAP_PRIVATE | MAP_FIXED, h, 0, &sink);
 		if (unlikely(ptr == MAP_FAILED)) {
-			amalloc_run_free(file_desc.base, loaded_data_len);
+			amalloc_run_free(file_desc.base, ld[compsave].loaded_data_len);
 			goto skip_mmap;
 		}
 		if (unlikely(ptr != file_desc.base))
 			internal(file_line, "save_load_cache: os_mmap(MAP_FIXED) returned different pointer: %p != %p", ptr, file_desc.base);
-		loaded_data = ptr;
-		loaded_data_amalloc = true;
+		ld[compsave].loaded_data = ptr;
+		ld[compsave].loaded_data_amalloc = true;
 #endif
 #if defined(HAVE_CODEGEN) && defined(HAVE_MPROTECT)
-		os_mprotect(ptr, loaded_file_descriptor->writable_boundary, PROT_READ | PROT_EXEC, NULL);
+		os_mprotect(ptr, loaded_file_descriptor(compsave)->writable_boundary, PROT_READ | PROT_EXEC, NULL);
 #endif
 		bind_function_pointers();
 		os_close(h);
@@ -1468,63 +1478,64 @@ static void save_load_cache(void)
 	}
 skip_mmap:
 #endif
-	loaded_data = mem_alloc_mayfail(char *, st.st_size, &sink);
-	if (unlikely(!loaded_data)) {
+	ld[compsave].loaded_data = mem_alloc_mayfail(char *, st.st_size, &sink);
+	if (unlikely(!ld[compsave].loaded_data)) {
 		os_close(h);
 		return;
 	}
-	if (unlikely(!os_pread_all(h, loaded_data, st.st_size, 0, &sink))) {
+	if (unlikely(!os_pread_all(h, ld[compsave].loaded_data, st.st_size, 0, &sink))) {
 		os_close(h);
-		mem_free(loaded_data);
-		loaded_data = NULL;
+		mem_free(ld[compsave].loaded_data);
+		ld[compsave].loaded_data = NULL;
 		return;
 	}
 	os_close(h);
 #ifdef HAVE_CODEGEN
 #if defined(CODEGEN_USE_HEAP) || !defined(USE_MMAP)
 	/*debug("adjusting pointers: %p, %p", loaded_data, loaded_data + loaded_data_len);*/
-	adjust_pointers(loaded_data, loaded_data_len, ptr_to_num(loaded_data) - ptr_to_num(loaded_file_descriptor->base));
+	adjust_pointers(ld[compsave].loaded_data, ld[compsave].loaded_data_len, ptr_to_num(ld[compsave].loaded_data) - ptr_to_num(loaded_file_descriptor(compsave)->base));
 	bind_function_pointers();
-	os_code_invalidate_cache(cast_ptr(uint8_t *, loaded_data), loaded_data_len, true);
+	os_code_invalidate_cache(cast_ptr(uint8_t *, ld[compsave].loaded_data), ld[compsave].loaded_data_len, true);
 #else
 	{
 		void *new_ptr;
-		new_ptr = amalloc_run_alloc(CODE_ALIGNMENT, loaded_data_len, false, false);
+		new_ptr = amalloc_run_alloc(CODE_ALIGNMENT, ld[compsave].loaded_data_len, false, 0);
 		if (unlikely(!new_ptr)) {
-			save_unmap_data();
+			save_unmap_data(compsave);
 			return;
 		}
-		memcpy(new_ptr, loaded_data, loaded_data_len);
-		mem_free(loaded_data);
-		loaded_data = new_ptr;
-		/*debug("adjusting pointers: %p, %p", loaded_data, loaded_data + loaded_data_len);*/
-		adjust_pointers(loaded_data, loaded_data_len, ptr_to_num(loaded_data) - ptr_to_num(loaded_file_descriptor->base));
-		os_code_invalidate_cache(cast_ptr(uint8_t *, loaded_data), loaded_data_len, true);
-		loaded_data_amalloc = true;
+		memcpy(new_ptr, ld[compsave].loaded_data, ld[compsave].loaded_data_len);
+		mem_free(ld[compsave].loaded_data);
+		ld[compsave].loaded_data = new_ptr;
+		/*debug("adjusting pointers: %p, %p", ld[compsave].loaded_data, ld[compsave].loaded_data + ld[compsave].loaded_data_len);*/
+		adjust_pointers(ld[compsave].loaded_data, ld[compsave].loaded_data_len, ptr_to_num(ld[compsave].loaded_data) - ptr_to_num(loaded_file_descriptor->base));
+		os_code_invalidate_cache(cast_ptr(uint8_t *, ld[compsave].loaded_data), ld[compsave].loaded_data_len, true);
+		ld[compsave].loaded_data_amalloc = true;
 	}
 #endif
 #else
-	adjust_pointers(loaded_data, loaded_data_len, ptr_to_num(loaded_data) - ptr_to_num(loaded_file_descriptor->base));
+	adjust_pointers(ld[compsave].loaded_data, ld[compsave].loaded_data_len, ptr_to_num(ld[compsave].loaded_data) - ptr_to_num(loaded_file_descriptor->base));
 #endif
 	goto verify_ret;
 verify_ret:
 	if (unlikely(!dep_verify())) {
-		save_unmap_data();
+		save_unbind_function_pointers(compsave);
+		save_unmap_data(compsave);
 		return;
 	}
 #ifdef DEBUG
 	{
 		size_t i;
-		for (i = 0; i < loaded_file_descriptor->fn_descs_len; i++) {
-			struct function_descriptor *fn_desc = &loaded_file_descriptor->fn_descs[i];
+		for (i = 0; i < loaded_file_descriptor(compsave)->fn_descs_len; i++) {
+			struct function_descriptor *fn_desc = &loaded_file_descriptor(compsave)->fn_descs[i];
 			struct data *dsc = fn_desc->data_saved_cache;
 			size_t j, k;
 			/*const struct module_designator *md = fn_desc->md;
 			debug("content: %u:%.*s:%lu:%lu", md->path_idx, (int)md->path_len, md->path, fn_desc->fd->n_entries, (long)fn_desc->fd->entries[0]);*/
 			if (i > 0) {
-				int c = function_compare(loaded_file_descriptor->fn_descs[i - 1].md, loaded_file_descriptor->fn_descs[i - 1].fd, &loaded_file_descriptor->fn_descs[i]);
+				int c = function_compare(loaded_file_descriptor(compsave)->fn_descs[i - 1].md, loaded_file_descriptor(compsave)->fn_descs[i - 1].fd, &loaded_file_descriptor(compsave)->fn_descs[i]);
 				if (unlikely(c >= 0))
-					internal(file_line, "save_load_cache: misordered function descriptors: %d (%"PRIuMAX" / %"PRIuMAX")", c, (uintmax_t)i, (uintmax_t)loaded_file_descriptor->fn_descs_len);
+					internal(file_line, "save_load_cache: misordered function descriptors: %d (%"PRIuMAX" / %"PRIuMAX")", c, (uintmax_t)i, (uintmax_t)loaded_file_descriptor(compsave)->fn_descs_len);
 			}
 			k = (size_t)da(dsc,saved_cache)->n_arguments + (size_t)da(dsc,saved_cache)->n_return_values;
 			if (da(dsc,saved_cache)->n_entries) {
@@ -1543,32 +1554,35 @@ verify_ret:
 
 void name(save_init)(void)
 {
+	size_t cs;
 	if (verify && verify[0])
 		save_disable = true;
-	loaded_data = NULL;
+	for (cs = 0; cs < 2; cs++) {
+		ld[cs].loaded_data = NULL;
 #ifdef USE_MMAP
-	loaded_data_mapped = false;
-	loaded_data_amalloc = false;
+		ld[cs].loaded_data_mapped = false;
+		ld[cs].loaded_data_amalloc = false;
 #endif
+	}
 	tree_init(&dependencies);
 	dependencies_failed = false;
 	mutex_init(&dependencies_mutex);
+	compsave = true;
+	save_load_cache();
 	compsave = false;
 	save_load_cache();
-	if (!loaded_data) {
-		compsave = true;
-		save_load_cache();
-	}
 	save_register_dependence(builtin_path, true);
 }
+
+#ifdef USE_MMAP
+static char *save_data_mapped[2];
+static size_t save_data_len[2];
+#endif
 
 static void save_stream(void)
 {
 	ajla_error_t sink;
 	char *file, *path;
-#ifdef USE_MMAP
-	char *save_data_mapped;
-#endif
 	path = os_get_directory_cache(&sink);
 	if (unlikely(!path))
 		return;
@@ -1577,16 +1591,16 @@ static void save_stream(void)
 		mem_free(path);
 		return;
 	}
-	/*debug("writing file: '%s'", file);*/
+	debug("writing file: '%s'", file);
 #ifdef USE_MMAP
-	save_data_mapped = amalloc_run_alloc(1, save_len, false, true);
+	save_data_mapped[compsave] = amalloc_run_alloc(1, save_len, false, compsave + 1);
 	/*debug("save_stream: %p, %llx", save_data_mapped, save_len);*/
-	if (save_data_mapped) {
-		memcpy(save_data_mapped, save_data, save_len);
+	if (save_data_mapped[compsave]) {
+		save_data_len[compsave] = save_len;
+		memcpy(save_data_mapped[compsave], save_data, save_len);
 		/*debug("adjusting pointers when saving");*/
-		adjust_pointers(save_data_mapped, save_len, ptr_to_num(save_data_mapped));
-		os_write_atomic(path, file, save_data_mapped, save_len, &sink);
-		amalloc_run_free(save_data_mapped, save_len);
+		adjust_pointers(save_data_mapped[compsave], save_len, ptr_to_num(save_data_mapped[compsave]));
+		os_write_atomic(path, file, save_data_mapped[compsave], save_len, &sink);
 	} else
 #endif
 	{
@@ -1594,6 +1608,17 @@ static void save_stream(void)
 	}
 	mem_free(path);
 	mem_free(file);
+}
+
+static void free_streams(void)
+{
+#ifdef USE_MMAP
+	size_t cs;
+	for (cs = 0; cs < 2; cs++) {
+		if (save_data_len[cs] != 0)
+			amalloc_run_free(save_data_mapped[cs], save_data_len[cs]);
+	}
+#endif
 }
 
 static void save_file(void)
@@ -1628,6 +1653,8 @@ void name(save_done)(void)
 
 	compsave = false;
 	save_file();
+
+	free_streams();
 
 	while (!tree_is_empty(&dependencies)) {
 		struct dependence *dep = get_struct(tree_any(&dependencies), struct dependence, entry);

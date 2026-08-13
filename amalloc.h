@@ -33,7 +33,7 @@ bool attr_fastcall aptr_is_huge(void *ptr);
 #ifdef POINTER_COMPRESSION_POSSIBLE
 bool amalloc_ptrcomp_try_reserve_range(void *ptr, size_t length);
 #endif
-void *amalloc_run_alloc(size_t al, size_t length, bool clr, bool saved);
+void *amalloc_run_alloc(size_t al, size_t length, bool clr, unsigned saved);
 void amalloc_run_free(void *ptr, size_t length);
 
 void amalloc_init(void);

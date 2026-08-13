@@ -857,7 +857,7 @@ void amalloc_run_free(void *ptr, size_t length)
 	amalloc_do_unmap(ptr, length);
 }
 
-void *amalloc_run_alloc(size_t al, size_t length, bool attr_unused clr, bool attr_unused saved)
+void *amalloc_run_alloc(size_t al, size_t length, bool attr_unused clr, unsigned attr_unused saved)
 {
 	size_t attr_unused extra_length;
 	void *ptr;
@@ -909,7 +909,7 @@ void *amalloc_run_alloc(size_t al, size_t length, bool attr_unused clr, bool att
 	base_address = NULL;
 	if (unlikely(saved)) {
 #if !defined(__ia64)
-		base_address = num_to_ptr(round_down(ptr_to_num(&saved) / 2, page_size));
+		base_address = num_to_ptr(round_down(ptr_to_num(&saved) / 3 * saved, page_size));
 #endif
 	}
 
@@ -1045,7 +1045,7 @@ static void *amalloc_run_realloc(void *ptr, size_t old_length, size_t new_length
 	}
 #endif
 
-	n = amalloc_run_alloc(ARENA_SIZE, new_length, false, false);
+	n = amalloc_run_alloc(ARENA_SIZE, new_length, false, 0);
 	if (unlikely(!n))
 		return NULL;
 
@@ -1431,7 +1431,7 @@ static bool arena_try_realloc_midblock(struct arena *a, unsigned base, unsigned 
 static struct arena *arena_alloc(void)
 {
 	struct arena *a;
-	a = amalloc_run_alloc(ARENA_SIZE, ARENA_SIZE, false, false);
+	a = amalloc_run_alloc(ARENA_SIZE, ARENA_SIZE, false, 0);
 	if (unlikely(!a))
 		return NULL;
 	tree_init(&a->midblock_free);
@@ -1543,7 +1543,7 @@ static void *amalloc_huge(size_t al, size_t size, bool clr)
 	struct huge_entry *e;
 	void *ptr;
 	size = round_up(size, page_size);
-	ptr = amalloc_run_alloc(al, size, clr, false);
+	ptr = amalloc_run_alloc(al, size, clr, 0);
 	if (unlikely(!ptr))
 		return NULL;
 	e = malloc(sizeof(struct huge_entry));

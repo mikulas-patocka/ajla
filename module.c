@@ -375,7 +375,7 @@ static void module_finish_function(struct module_function *mf, bool compsave)
 #ifdef HAVE_CODEGEN
 		if (likely(!pointer_is_thunk(da(d,function)->codegen))) {
 			struct data *codegen = pointer_get_data(da(d,function)->codegen);
-			if (!(compsave && da(d,function)->module_designator->path_idx)) {
+			if (!compsave) {
 				if (unlikely(!da(codegen,codegen)->is_saved))
 					new_cache = true;
 			}
@@ -383,18 +383,20 @@ static void module_finish_function(struct module_function *mf, bool compsave)
 #endif
 		for (e = tree_first(&da(d,function)->cache); e && !new_cache; e = tree_next(e)) {
 			struct cache_entry *ce = get_struct(e, struct cache_entry, entry);
-			if (compsave && !ce->compsave)
+			if (compsave != ce->compsave)
 				continue;
 			if (ce->save) {
 				new_cache = true;
 				break;
 			}
 		}
+		if (compsave && !new_cache)
+			return;
 		save_start_function(d, new_cache);
 		if (compsave) {
 			for (e = tree_first(&da(d,function)->cache); e; e = tree_next(e)) {
 				struct cache_entry *ce = get_struct(e, struct cache_entry, entry);
-				if (compsave && !ce->compsave)
+				if (compsave != ce->compsave)
 					continue;
 				if (ce->save) {
 					save_cache_entry(d, ce);
@@ -404,7 +406,7 @@ static void module_finish_function(struct module_function *mf, bool compsave)
 			while ((e = tree_first(&da(d,function)->cache))) {
 				struct cache_entry *ce = get_struct(e, struct cache_entry, entry);
 				tree_delete(&ce->entry);
-				if (ce->save) {
+				if (compsave == ce->compsave && ce->save) {
 					/*debug("saving: %s", da(d,function)->function_name);*/
 					save_cache_entry(d, ce);
 				}
@@ -484,7 +486,10 @@ void name(module_done)(void)
 		mem_free(m);
 	}
 	rwlock_done(&modules_mutex);
-	save_unmap_data();
+	save_unbind_function_pointers(false);
+	save_unbind_function_pointers(true);
+	save_unmap_data(false);
+	save_unmap_data(true);
 }
 
 #endif

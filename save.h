@@ -27,6 +27,7 @@
 #define save_finish_function		name(save_finish_function)
 #define save_find_function_descriptor	name(save_find_function_descriptor)
 #define save_register_dependence	name(save_register_dependence)
+#define save_unbind_function_pointers	name(save_unbind_function_pointers)
 #define save_unmap_data			name(save_unmap_data)
 
 void save_start_function(struct data *d, bool new_cache);
@@ -59,6 +60,7 @@ struct function_descriptor *save_find_function_descriptor(const struct module_de
 
 void save_register_dependence(const char *path_name, bool comp);
 
-void save_unmap_data(void);
+void save_unbind_function_pointers(bool cs);
+void save_unmap_data(bool cs);
 
 #endif
