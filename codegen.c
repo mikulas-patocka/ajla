@@ -2105,7 +2105,8 @@ do {									\
 			case OPCODE_CALL_WEAKSPARK:
 			case OPCODE_CALL_LAZY:
 			case OPCODE_CALL_CACHE:
-			case OPCODE_CALL_SAVE: {
+			case OPCODE_CALL_SAVE:
+			case OPCODE_CALL_COMPSAVE: {
 				get_two(ctx, &n_args, &n_ret);
 				get_one(ctx, &fn_idx);
 jump_over_arguments_and_return:
@@ -2124,7 +2125,8 @@ jump_over_arguments_and_return:
 			case OPCODE_CALL_INDIRECT_WEAKSPARK:
 			case OPCODE_CALL_INDIRECT_LAZY:
 			case OPCODE_CALL_INDIRECT_CACHE:
-			case OPCODE_CALL_INDIRECT_SAVE: {
+			case OPCODE_CALL_INDIRECT_SAVE:
+			case OPCODE_CALL_INDIRECT_COMPSAVE: {
 				fn_idx = 0;		/* avoid warning */
 				get_two(ctx, &n_args, &n_ret);
 				get_two(ctx, &slot_1, &flags);
