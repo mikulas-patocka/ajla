@@ -1411,6 +1411,9 @@ void * attr_fastcall ipret_call_cache(frame_s *fp, const code_t *ip, struct func
 		*ip % OPCODE_MODE_MULT == OPCODE_CALL_COMPSAVE ||
 		*ip % OPCODE_MODE_MULT == OPCODE_CALL_INDIRECT_SAVE ||
 		*ip % OPCODE_MODE_MULT == OPCODE_CALL_INDIRECT_COMPSAVE;
+	bool compsave =
+		*ip % OPCODE_MODE_MULT == OPCODE_CALL_COMPSAVE ||
+		*ip % OPCODE_MODE_MULT == OPCODE_CALL_INDIRECT_COMPSAVE;
 
 	ctx.err.error_class = EC_NONE;
 
@@ -1532,6 +1535,7 @@ again:
 	if (unlikely(!c))
 		goto oom1;
 	c->save = save;
+	c->compsave = compsave;
 	c->returns = mem_alloc_array_mayfail(mem_alloc_mayfail, struct cache_entry_return *, 0, 0, n_return_values, sizeof(struct cache_entry_return), MEM_DONT_TRY_TO_FREE);
 	if (unlikely(!c->returns))
 		goto oom2;
@@ -1595,6 +1599,8 @@ oom1:
 have_c:
 	if (!c->save && unlikely(save))
 		c->save = true;
+	if (!c->compsave && unlikely(compsave))
+		c->compsave = true;
 	if (c->n_pending) {
 		struct execution_control *exx;
 		/*debug("waiting on %p, pending %u", c, c->n_pending);*/
