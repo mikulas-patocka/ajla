@@ -31,6 +31,6 @@ extern struct function_pointer *start_fn;
 
 struct function_pointer *module_load_function(const struct module_designator *md, const struct function_designator *fd, ajla_error_t *mayfail);
 pointer_t *module_load_function_reference(const struct module_designator *md, const struct function_designator *fd, bool optimizer, ajla_error_t *mayfail);
-void module_finish_functions(void);
+void module_finish_functions(bool compsave);
 
 #endif

@@ -57,7 +57,7 @@ struct function_descriptor {
 
 struct function_descriptor *save_find_function_descriptor(const struct module_designator *md, const struct function_designator *fd);
 
-void save_register_dependence(const char *path_name);
+void save_register_dependence(const char *path_name, bool comp);
 
 void save_unmap_data(void);
 

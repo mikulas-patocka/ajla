@@ -4619,7 +4619,7 @@ static void * attr_fastcall io_register_dependence_handler(struct io_ctx *ctx)
 		return test;
 
 	io_get_bytes(ctx, get_input(ctx, 1));
-	save_register_dependence(ctx->str);
+	save_register_dependence(ctx->str, false);
 	mem_free(ctx->str);
 	return POINTER_FOLLOW_THUNK_GO;
 }

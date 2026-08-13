@@ -42,6 +42,8 @@
 
 static const char id[] = "AJLA" " " __DATE__ " " __TIME__;
 
+static bool compsave;
+
 static bool save_ok;
 static char *save_data;
 static size_t save_len;
@@ -119,6 +121,7 @@ struct dependence {
 	struct tree_entry entry;
 	char *fingerprint;
 	size_t fingerprint_l;
+	bool comp;
 	char path_name[FLEXIBLE_ARRAY];
 };
 
@@ -612,7 +615,7 @@ void save_cache_entry(struct data *d, struct cache_entry *ce)
 	if (unlikely(!save_ok))
 		return;
 
-	/*debug("save cache entry: %s", da(d,function)->function_name);*/
+	/*debug("save cache entry: %s (%d)", da(d,function)->function_name, compsave);*/
 	for (i = 0; i < da(d,function)->n_arguments; i++) {
 		if (unlikely(save_pointer(&ce->arguments[i], true) == (size_t)-1)) {
 			/*debug("failed arg %d", i);*/
@@ -797,7 +800,10 @@ void save_finish_function(struct data *d)
 	if (!pointer_is_thunk(da(d,function)->codegen)) {
 		ajla_error_t sink;
 		size_t i;
-		struct data *codegen = pointer_get_data(da(d,function)->codegen);
+		struct data *codegen;
+		if (compsave && da(d,function)->module_designator->path_idx)
+			goto skip_save_codegen;
+		codegen = pointer_get_data(da(d,function)->codegen);
 		entries = da(codegen,codegen)->offsets = mem_alloc_array_mayfail(mem_alloc_mayfail, size_t *, 0, 0, da(codegen,codegen)->n_entries, sizeof(size_t), &sink);
 		if (unlikely(!entries)) {
 			save_ok = false;
@@ -813,6 +819,7 @@ void save_finish_function(struct data *d)
 		trap_records = da(codegen,codegen)->trap_records;
 		trap_records_size = da(codegen,codegen)->trap_records_size;
 #endif
+skip_save_codegen:;
 	}
 #endif
 	save_finish_one(da(d,function)->module_designator,
@@ -834,6 +841,12 @@ void save_finish_function(struct data *d)
 			n_entries,
 			trap_records,
 			trap_records_size);
+
+	if (entries) {
+		struct data *codegen = pointer_get_data(da(d,function)->codegen);
+		da(codegen,codegen)->offsets = NULL;
+		mem_free(entries);
+	}
 }
 
 static void duplicate_writeable_entries(void)
@@ -1190,7 +1203,7 @@ static bool dep_fingerprint(const char *path_name, char **result, size_t *result
 	return true;
 }
 
-void save_register_dependence(const char *path_name)
+void save_register_dependence(const char *path_name, bool comp)
 {
 	struct tree_insert_position ins;
 	ajla_error_t sink;
@@ -1208,6 +1221,7 @@ void save_register_dependence(const char *path_name)
 		dependencies_failed = true;
 		goto unlock_ret;
 	}
+	dep->comp = comp;
 	memcpy(dep->path_name, path_name, path_name_len);
 	if (unlikely(!dep_fingerprint(dep->path_name, &dep->fingerprint, &dep->fingerprint_l))) {
 		mem_free(dep);
@@ -1230,6 +1244,8 @@ static bool dep_get_stream(char **result, size_t *result_l)
 	for (e = tree_first(&dependencies); e; e = tree_next(e)) {
 		struct dependence *dep = get_struct(e, struct dependence, entry);
 		size_t path_name_len = strlen(dep->path_name) + 1;
+		if (compsave && !dep->comp)
+			continue;
 		if (unlikely(!array_add_multiple_mayfail(char, result, result_l, dep->path_name, path_name_len, NULL, &sink)))
 			return false;
 		if (unlikely(!array_add_mayfail(char, result, result_l, (char)dep->fingerprint_l, NULL, &sink)))
@@ -1320,16 +1336,17 @@ static char *save_get_file(void)
 	ajla_error_t sink;
 	char *pn, *fn, *ext;
 	size_t pn_l, fn_l;
-	pn = str_dup(*program_name ? program_name : "ajla", -1, &sink);
+
+	pn = str_dup(compsave ? "compiler" : *program_name ? program_name : "ajla", -1, &sink);
 	if (unlikely(!pn))
 		return NULL;
 	pn_l = strlen(pn);
 	if (pn_l > 5 && !strcasecmp(pn + pn_l - 5, ".ajla"))
 		pn[pn_l -= 5] = 0;
 #ifndef POINTER_COMPRESSION
-	ext = ".sav";
+	ext = !compsave ? ".sav" : ".scv";
 #else
-	ext = ".sac";
+	ext = !compsave ? ".sac" : ".scc";
 #endif
 	if (unlikely(!array_init_mayfail(char, &fn, &fn_l, &sink)))
 		goto free_ret;
@@ -1536,8 +1553,13 @@ void name(save_init)(void)
 	tree_init(&dependencies);
 	dependencies_failed = false;
 	mutex_init(&dependencies_mutex);
+	compsave = false;
 	save_load_cache();
-	save_register_dependence(builtin_path);
+	if (!loaded_data) {
+		compsave = true;
+		save_load_cache();
+	}
+	save_register_dependence(builtin_path, true);
 }
 
 static void save_stream(void)
@@ -1574,16 +1596,14 @@ static void save_stream(void)
 	mem_free(file);
 }
 
-void name(save_done)(void)
+static void save_file(void)
 {
-	/*debug("1: save_data: %p, save_ok %d", save_data, save_ok);*/
 	save_prepare();
-	module_finish_functions();
+	module_finish_functions(compsave);
 	if (save_ok) {
 		save_finish_file();
 	}
 	free_position_tree(&position_tree);
-	/*debug("2: save_data: %p, save_ok %d", save_data, save_ok);*/
 	if (save_data) {
 		if (save_ok) {
 			save_stream();
@@ -1599,6 +1619,16 @@ void name(save_done)(void)
 	if (function_pointers) {
 		mem_free(function_pointers);
 	}
+}
+
+void name(save_done)(void)
+{
+	compsave = true;
+	save_file();
+
+	compsave = false;
+	save_file();
+
 	while (!tree_is_empty(&dependencies)) {
 		struct dependence *dep = get_struct(tree_any(&dependencies), struct dependence, entry);
 		tree_delete(&dep->entry);

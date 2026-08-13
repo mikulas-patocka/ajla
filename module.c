@@ -345,7 +345,7 @@ lock_for_write:
 }
 
 
-static void module_finish_function(struct module_function *mf)
+static void module_finish_function(struct module_function *mf, bool compsave)
 {
 	if (pointer_is_thunk(mf->function.ptr) && thunk_is_finished(pointer_get_thunk(mf->function.ptr))) {
 		pointer_follow_thunk_(&mf->function.ptr, POINTER_FOLLOW_THUNK_NOEVAL);
@@ -354,51 +354,68 @@ static void module_finish_function(struct module_function *mf)
 		struct data *d = pointer_get_data(mf->function.ptr);
 		struct tree_entry *e;
 		bool new_cache;
-		if (profiling) {
-			profile_collect(da(d,function)->function_name, load_relaxed(&da(d,function)->profiling_counter), load_relaxed(&da(d,function)->call_counter));
-		}
-		if (profiling_escapes) {
-			ip_t ip_rel;
-			for (ip_rel = 0; ip_rel < da(d,function)->code_size; ip_rel++) {
-				struct stack_trace_entry ste;
-				profile_counter_t profiling_counter = load_relaxed(&da(d,function)->escape_data[ip_rel].counter);
-				if (likely(!profiling_counter))
-					continue;
-				if (unlikely(!stack_trace_get_location(d, ip_rel, &ste)))
-					continue;
-				profile_escape_collect(ste.function_name, profiling_counter, ip_rel, ste.line, da(d,function)->code[ip_rel]);
+		if (!compsave) {
+			if (profiling) {
+				profile_collect(da(d,function)->function_name, load_relaxed(&da(d,function)->profiling_counter), load_relaxed(&da(d,function)->call_counter));
+			}
+			if (profiling_escapes) {
+				ip_t ip_rel;
+				for (ip_rel = 0; ip_rel < da(d,function)->code_size; ip_rel++) {
+					struct stack_trace_entry ste;
+					profile_counter_t profiling_counter = load_relaxed(&da(d,function)->escape_data[ip_rel].counter);
+					if (likely(!profiling_counter))
+						continue;
+					if (unlikely(!stack_trace_get_location(d, ip_rel, &ste)))
+						continue;
+					profile_escape_collect(ste.function_name, profiling_counter, ip_rel, ste.line, da(d,function)->code[ip_rel]);
+				}
 			}
 		}
 		new_cache = false;
 #ifdef HAVE_CODEGEN
 		if (likely(!pointer_is_thunk(da(d,function)->codegen))) {
 			struct data *codegen = pointer_get_data(da(d,function)->codegen);
-			if (unlikely(!da(codegen,codegen)->is_saved))
-				new_cache = true;
+			if (!(compsave && da(d,function)->module_designator->path_idx)) {
+				if (unlikely(!da(codegen,codegen)->is_saved))
+					new_cache = true;
+			}
 		}
 #endif
 		for (e = tree_first(&da(d,function)->cache); e && !new_cache; e = tree_next(e)) {
 			struct cache_entry *ce = get_struct(e, struct cache_entry, entry);
+			if (compsave && !ce->compsave)
+				continue;
 			if (ce->save) {
 				new_cache = true;
 				break;
 			}
 		}
 		save_start_function(d, new_cache);
-		while ((e = tree_first(&da(d,function)->cache))) {
-			struct cache_entry *ce = get_struct(e, struct cache_entry, entry);
-			tree_delete(&ce->entry);
-			if (ce->save) {
-				/*debug("saving: %s", da(d,function)->function_name);*/
-				save_cache_entry(d, ce);
+		if (compsave) {
+			for (e = tree_first(&da(d,function)->cache); e; e = tree_next(e)) {
+				struct cache_entry *ce = get_struct(e, struct cache_entry, entry);
+				if (compsave && !ce->compsave)
+					continue;
+				if (ce->save) {
+					save_cache_entry(d, ce);
+				}
 			}
-			free_cache_entry(d, ce);
+		} else {
+			while ((e = tree_first(&da(d,function)->cache))) {
+				struct cache_entry *ce = get_struct(e, struct cache_entry, entry);
+				tree_delete(&ce->entry);
+				if (ce->save) {
+					/*debug("saving: %s", da(d,function)->function_name);*/
+					save_cache_entry(d, ce);
+				}
+				free_cache_entry(d, ce);
+			}
 		}
 		save_finish_function(d);
 	}
 }
 
-void module_finish_functions(void)
+void module_finish_functions(bool compsave)
 {
 	struct tree_entry *e1, *e2;
 	for (e1 = tree_first(&modules); e1; e1 = tree_next(e1)) {
@@ -406,7 +423,7 @@ void module_finish_functions(void)
 		/*debug("saving: %.*s", (int)m->md.path_len, m->md.path);*/
 		for (e2 = tree_first(&m->functions); e2; e2 = tree_next(e2)) {
 			struct module_function *mf = get_struct(e2, struct module_function, entry);
-			module_finish_function(mf);
+			module_finish_function(mf, compsave);
 		}
 	}
 }
