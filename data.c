@@ -2915,6 +2915,12 @@ static void save_pointer_fixup_sub_ptr(void *loc, uintptr_t offset)
 	}
 }
 
+static bool save_pointer_duplicate_parents(void *loc)
+{
+	pointer_t *ptr = loc;
+	return pointer_is_thunk(*ptr);
+}
+
 static void save_pointer_dereference_ptr(void *loc)
 {
 	pointer_t *ptr = loc;
@@ -2926,7 +2932,7 @@ static const struct stack_entry_type save_pointer = {
 	save_pointer_get_properties,
 	save_pointer_fixup_after_copy,
 	save_pointer_fixup_sub_ptr,
-	NULL,
+	save_pointer_duplicate_parents,
 	save_pointer_dereference_ptr,
 	false,
 	false,
