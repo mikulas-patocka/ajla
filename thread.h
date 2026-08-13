@@ -413,30 +413,6 @@ void tls_destructor_position(tls_destructor_t *, tls_destructor_fn * argument_po
 #define barrier_write_before_unlock_lock()	do { } while (0)
 #endif
 
-/*
- * A write barrier before lock, it makes sure that previous writes are not
- * reordered with the following content of locked region.
- */
-#if defined(THREAD_NONE) || defined(THREAD_OS2) || (defined(ARCH_X86) && !defined(UNUSUAL))
-#define barrier_write_before_lock()		do { } while (0)
-#elif defined(HAVE_C11_ATOMICS) && !defined(UNUSUAL)
-#define barrier_write_before_lock()		atomic_thread_fence(memory_order_seq_cst)
-#elif defined(HAVE_SYNC_AND_FETCH) && !defined(UNUSUAL)
-#define barrier_write_before_lock()		__sync_synchronize()
-#elif defined(THREAD_WIN32)
-#if (defined(MemoryBarrier) || defined(__buildmemorybarrier)) && !defined(UNUSUAL_THREAD)
-#define barrier_write_before_lock()		MemoryBarrier()
-#else
-#define barrier_write_before_lock()		\
-do {						\
-	LONG x;					\
-	InterlockedExchange(&x, 0);		\
-} while (0)
-#endif
-#else
-void barrier_write_before_lock(void);
-#endif
-
 
 #if !defined(THREAD_NONE) && defined(DEBUG_TRACE)
 void thread_set_id(int id);

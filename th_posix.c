@@ -513,70 +513,8 @@ do {									\
 
 #endif
 
+
 #include "th_com.inc"
-
-
-#ifndef barrier_write_before_lock
-
-#if defined(HAVE_PTHREAD_SPIN_INIT) && !defined(UNUSUAL_ARITHMETICS)
-
-void barrier_write_before_lock(void)
-{
-	pthread_spinlock_t lock;
-	int r;
-#ifdef barrier_write_before_unlock_lock
-	barrier_write_before_unlock_lock();
-#endif
-	r = pthread_spin_init(&lock, PTHREAD_PROCESS_PRIVATE);
-	if (unlikely(r))
-		fatal("pthread_spin_init failed: %d, %s", r, error_decode(error_from_errno(EC_SYSCALL, r)));
-	r = pthread_spin_lock(&lock);
-	if (unlikely(r))
-		internal(file_line, "pthread_spin_lock failed: %d, %s", r, error_decode(error_from_errno(EC_SYSCALL, r)));
-	r = pthread_spin_unlock(&lock);
-	if (unlikely(r))
-		internal(file_line, "pthread_spin_unlock failed: %d, %s", r, error_decode(error_from_errno(EC_SYSCALL, r)));
-	r = pthread_spin_destroy(&lock);
-	if (unlikely(r))
-		internal(file_line, "pthread_spin_destroy failed: %d, %s", r, error_decode(error_from_errno(EC_SYSCALL, r)));
-}
-
-#else
-
-#define barrier_lock_need_tls
-struct barrier_lock {
-	mutex_t mutex;
-	tls_destructor_t destructor;
-};
-static tls_decl(struct barrier_lock *, barrier_lock);
-
-static void barrier_lock_destructor(tls_destructor_t *destr)
-{
-	struct barrier_lock *lock = get_struct(destr, struct barrier_lock, destructor);
-	mutex_done(&lock->mutex);
-	mem_free(lock);
-}
-
-void barrier_write_before_lock(void)
-{
-	struct barrier_lock *lock = tls_get(struct barrier_lock *, barrier_lock);
-	if (unlikely(!lock)) {
-		lock = mem_alloc(struct barrier_lock *, sizeof(struct barrier_lock));
-		mutex_init(&lock->mutex);
-		tls_set(struct barrier_lock *, barrier_lock, lock);
-		tls_destructor(&lock->destructor, barrier_lock_destructor);
-	}
-#ifdef barrier_write_before_unlock_lock
-	barrier_write_before_unlock_lock();
-#endif
-	mutex_lock(&lock->mutex);
-	mutex_unlock(&lock->mutex);
-}
-
-#endif
-
-#endif
-
 
 #include "th_sig.inc"
 
