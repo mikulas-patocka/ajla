@@ -4508,7 +4508,7 @@ static void * attr_fastcall io_get_function_ptr_handler(struct io_ctx *ctx)
 	ajla_assert_lo(!da(d,function_reference)->is_indirect, (file_line, "io_get_function_ptr_handler: the reference is not direct"));
 
 	barrier_aliasing();
-	*frame_slot(ctx->fp, get_output(ctx, 0), uint64_t) = ptr_to_num(da(d,function_reference)->u.direct);
+	*frame_slot(ctx->fp, get_output(ctx, 0), uint64_t) = ptr_to_num(&da(d,function_reference)->u.direct->ptr);
 	barrier_aliasing();
 
 	return POINTER_FOLLOW_THUNK_GO;
