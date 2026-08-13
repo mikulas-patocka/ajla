@@ -1508,7 +1508,7 @@ skip_mmap:
 		mem_free(ld[compsave].loaded_data);
 		ld[compsave].loaded_data = new_ptr;
 		/*debug("adjusting pointers: %p, %p", ld[compsave].loaded_data, ld[compsave].loaded_data + ld[compsave].loaded_data_len);*/
-		adjust_pointers(ld[compsave].loaded_data, ld[compsave].loaded_data_len, ptr_to_num(ld[compsave].loaded_data) - ptr_to_num(loaded_file_descriptor->base));
+		adjust_pointers(ld[compsave].loaded_data, ld[compsave].loaded_data_len, ptr_to_num(ld[compsave].loaded_data) - ptr_to_num(loaded_file_descriptor(compsave)->base));
 		os_code_invalidate_cache(cast_ptr(uint8_t *, ld[compsave].loaded_data), ld[compsave].loaded_data_len, true);
 		ld[compsave].loaded_data_amalloc = true;
 	}
@@ -1591,7 +1591,7 @@ static void save_stream(void)
 		mem_free(path);
 		return;
 	}
-	debug("writing file: '%s'", file);
+	/*debug("writing file: '%s'", file);*/
 #ifdef USE_MMAP
 	save_data_mapped[compsave] = amalloc_run_alloc(1, save_len, false, compsave + 1);
 	/*debug("save_stream: %p, %llx", save_data_mapped, save_len);*/
