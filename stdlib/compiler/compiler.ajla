@@ -61,7 +61,7 @@ fn get_inline(f : function, optimized : bool) : list(pcode_t)
 
 fn optimize_function_saved~save(lp : bytes, path_idx : nat, file : bytes, fid_flags : uint8, fn_idx : list(int), verify_pattern : bytes) : list(pcode_t)
 [
-	var pcod, modules := compile_module~save(lp, path_idx, file, fid_flags);
+	var pcod, modules := compile_module~cache(lp, path_idx, file, fid_flags);
 	var pc := pcod[fn_idx[0]];
 	pc := function_extract_nested(pc, fn_idx);
 	var func := process_pcode(pc, file, get_inline, verify_pattern);
@@ -76,7 +76,7 @@ fn optimize_function(path_idx : nat, file : bytes, fid_flags : uint8, fn_idx : l
 
 fn get_unoptimized_function(path_idx : nat, file : bytes, fid_flags : uint8, fn_idx : list(int)) : list(pcode_t)
 [
-	var pcod, modules := compile_module~save(libpath, path_idx, file, fid_flags);
+	var pcod, modules := compile_module~cache(libpath, path_idx, file, fid_flags);
 	var pc := pcod[fn_idx[0]];
 	pc := function_extract_nested(pc, fn_idx);
 	return pc;
