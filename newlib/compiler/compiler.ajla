@@ -65,6 +65,7 @@ fn optimize_function_saved~save(lp : bytes, path_idx : nat, file : bytes, fid_fl
 	var pc := pcod[fn_idx[0]];
 	pc := function_extract_nested(pc, fn_idx);
 	var func := process_pcode(pc, file, get_inline, verify_pattern);
+	func := list_flatten(func);
 	return func;
 ]
 
@@ -96,6 +97,7 @@ fn optimize_specialized_function_saved~save(path_idx : nat, file : bytes, fid_fl
 		pc := load_optimized_pcode(path_idx, file, fid_flags, pc, false);
 	]
 	var func := spec_pcode(pc, spec_data, file, get_inline, verify_pattern);
+	func := list_flatten(func);
 	return func;
 ]
 
