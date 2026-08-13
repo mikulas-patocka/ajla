@@ -379,7 +379,7 @@ static void module_finish_function(struct module_function *mf)
 #endif
 		for (e = tree_first(&da(d,function)->cache); e && !new_cache; e = tree_next(e)) {
 			struct cache_entry *ce = get_struct(e, struct cache_entry, entry);
-			if (ce->save && da(d,function)->module_designator) {
+			if (ce->save) {
 				new_cache = true;
 				break;
 			}
@@ -388,7 +388,7 @@ static void module_finish_function(struct module_function *mf)
 		while ((e = tree_first(&da(d,function)->cache))) {
 			struct cache_entry *ce = get_struct(e, struct cache_entry, entry);
 			tree_delete(&ce->entry);
-			if (ce->save && da(d,function)->module_designator) {
+			if (ce->save) {
 				/*debug("saving: %s", da(d,function)->function_name);*/
 				save_cache_entry(d, ce);
 			}
