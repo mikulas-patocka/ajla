@@ -1017,7 +1017,6 @@ struct cache_entry {
 	struct tree_entry entry;
 	arg_t n_pending;
 	bool save;
-	bool compsave;
 	struct list wait_list;
 	struct cache_entry_return *returns;
 	pointer_t arguments[FLEXIBLE_ARRAY];

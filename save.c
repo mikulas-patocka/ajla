@@ -599,6 +599,7 @@ void save_start_function(struct data *d, bool new_cache)
 		/*const struct module_designator *md = da(d,function)->module_designator;
 		const struct function_designator *fd = da(d,function)->function_designator;
 		debug("save_start_function: %u:%.*s:%u (%lu) - %s", md->path_idx, (int)md->path_len, md->path, fd->entries[0], fd->n_entries, da(d,function)->function_name);*/
+		/*debug("saving: %zu, %s", save_len, da(d,function)->function_name);*/
 		save_functions_until(d);
 		if (unlikely(!save_ok))
 			return;

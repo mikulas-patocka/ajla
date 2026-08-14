@@ -1265,9 +1265,6 @@ static bool pcode_call(struct build_function_context *ctx, pcode_t instr)
 				case Call_Mode_Save:
 					code = OPCODE_CALL_SAVE;
 					break;
-				case Call_Mode_CompSave:
-					code = OPCODE_CALL_COMPSAVE;
-					break;
 				default:
 					internal(file_line, "pcode_call(%s): invalid call mode %ld", function_name(ctx), (long)call_mode);
 			}
@@ -1299,9 +1296,6 @@ static bool pcode_call(struct build_function_context *ctx, pcode_t instr)
 					break;
 				case Call_Mode_Save:
 					code = OPCODE_CALL_INDIRECT_SAVE;
-					break;
-				case Call_Mode_CompSave:
-					code = OPCODE_CALL_INDIRECT_COMPSAVE;
 					break;
 				default:
 					internal(file_line, "pcode_call(%s): invalid call mode %ld", function_name(ctx), (long)call_mode);

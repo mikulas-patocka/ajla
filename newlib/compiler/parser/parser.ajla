@@ -1365,7 +1365,7 @@ fn parse_file(w : world, d : list(bytes), name : bytes, fid_flags : uint8, parse
 [
 	if len(d) = 1, not fid_flags bt bsf FID_Flag_Unit_Generator then [
 		//eval debug("parse_file: " + name);
-		return parse_file_2~compsave(w, d, name, fid_flags, parse_interface);
+		return parse_file_2~save(w, d, name, fid_flags, parse_interface);
 	] else [
 		return parse_file_2~cache(w, d, name, fid_flags, parse_interface);
 	]

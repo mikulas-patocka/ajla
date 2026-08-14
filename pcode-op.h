@@ -227,8 +227,7 @@
 #define Call_Mode_Inline		6
 #define Call_Mode_Cache			7
 #define Call_Mode_Save			8
-#define Call_Mode_CompSave		9
-#define Call_Mode_Flat			10
+#define Call_Mode_Flat			9
 
 #define FID_Flag_Program_Unit		1
 #define FID_Flag_Unit_Generator		2

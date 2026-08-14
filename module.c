@@ -345,6 +345,11 @@ lock_for_write:
 }
 
 
+static bool function_is_compsave(struct data *d)
+{
+	return !da(d,function)->module_designator->path_idx && !strcmp(da(d,function)->function_name, "parse_file_2");
+}
+
 static void module_finish_function(struct module_function *mf, bool compsave)
 {
 	if (pointer_is_thunk(mf->function.ptr) && thunk_is_finished(pointer_get_thunk(mf->function.ptr))) {
@@ -371,45 +376,38 @@ static void module_finish_function(struct module_function *mf, bool compsave)
 				}
 			}
 		}
+		if (compsave != function_is_compsave(d)) {
+			return;
+		}
 		new_cache = false;
 #ifdef HAVE_CODEGEN
-		if (likely(!pointer_is_thunk(da(d,function)->codegen))) {
+		if (likely(!pointer_is_thunk(da(d,function)->codegen)) && !compsave) {
 			struct data *codegen = pointer_get_data(da(d,function)->codegen);
-			if (!compsave) {
-				if (unlikely(!da(codegen,codegen)->is_saved))
-					new_cache = true;
-			}
+			if (unlikely(!da(codegen,codegen)->is_saved))
+				new_cache = true;
 		}
 #endif
 		for (e = tree_first(&da(d,function)->cache); e && !new_cache; e = tree_next(e)) {
 			struct cache_entry *ce = get_struct(e, struct cache_entry, entry);
-			if (compsave != ce->compsave)
-				continue;
 			if (ce->save) {
 				new_cache = true;
 				break;
 			}
 		}
-		if (compsave && !new_cache)
-			return;
 		save_start_function(d, new_cache);
 		if (compsave) {
 			for (e = tree_first(&da(d,function)->cache); e; e = tree_next(e)) {
 				struct cache_entry *ce = get_struct(e, struct cache_entry, entry);
-				if (compsave != ce->compsave)
-					continue;
-				if (ce->save) {
+				if (ce->save)
 					save_cache_entry(d, ce);
-				}
 			}
 		} else {
 			while ((e = tree_first(&da(d,function)->cache))) {
 				struct cache_entry *ce = get_struct(e, struct cache_entry, entry);
 				tree_delete(&ce->entry);
-				if (compsave == ce->compsave && ce->save) {
-					/*debug("saving: %s", da(d,function)->function_name);*/
+				/*debug("saving: %s", da(d,function)->function_name);*/
+				if (ce->save)
 					save_cache_entry(d, ce);
-				}
 				free_cache_entry(d, ce);
 			}
 		}

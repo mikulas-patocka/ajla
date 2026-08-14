@@ -249,7 +249,6 @@ Call_Mode_Lazy
 Call_Mode_Inline
 Call_Mode_Cache
 Call_Mode_Save
-Call_Mode_CompSave
 Call_Mode_Flat
 
 *
