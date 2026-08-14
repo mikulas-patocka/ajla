@@ -1433,7 +1433,7 @@ static void save_load_cache(void)
 	    unlikely(file_desc.strict_calls != ipret_strict_calls) ||
 	    unlikely(file_desc.verifying != (verify != NULL)) ||
 	    unlikely(file_desc.noinline != ipret_noinline) ||
-	    unlikely(file_desc.noautofma != noautofma) ||
+	    unlikely(file_desc.noautofma != noautofma && !compsave) ||
 	    unlikely(file_desc.chicken != chicken) ||
 	    unlikely(memcmp(file_desc.ajla_id, id, sizeof(id)))) {
 		os_close(h);
