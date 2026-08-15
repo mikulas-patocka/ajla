@@ -35,6 +35,7 @@
 #include "save.h"
 
 #include <fcntl.h>
+#include <stdio.h>
 
 #if defined(OS_HAS_MMAP) && defined(USE_AMALLOC) && !((defined(OS_CYGWIN) || defined(OS_WIN32)) && defined(POINTER_COMPRESSION))
 #define USE_MMAP
@@ -1469,7 +1470,9 @@ void save_unmap_data(bool cs)
 static char *save_get_file(void)
 {
 	ajla_error_t sink;
-	char *pn, *fn, *ext;
+	char *pn, *fn;
+	unsigned ext_index;
+	char ext[5];
 	size_t pn_l, fn_l;
 
 	pn = str_dup(compsave ? "compiler" : *program_name ? program_name : "ajla", -1, &sink);
@@ -1478,11 +1481,21 @@ static char *save_get_file(void)
 	pn_l = strlen(pn);
 	if (pn_l > 5 && !strcasecmp(pn + pn_l - 5, ".ajla"))
 		pn[pn_l -= 5] = 0;
-#ifndef POINTER_COMPRESSION
-	ext = !compsave ? ".sav" : ".scv";
-#else
-	ext = !compsave ? ".sac" : ".scc";
+	ext_index = 0;
+#ifdef POINTER_COMPRESSION
+	ext_index |= 0x01;
 #endif
+	if (optimize_int)
+		ext_index |= 0x02;
+	if (ipret_strict_calls)
+		ext_index |= 0x04;
+	if (verify != NULL)
+		ext_index |= 0x08;
+	if (ipret_noinline)
+		ext_index |= 0x10;
+	if (noautofma)
+		ext_index |= 0x20;
+	sprintf(ext, ".%c%02x", compsave ? 'c' : 's', ext_index);
 	if (unlikely(!array_init_mayfail(char, &fn, &fn_l, &sink)))
 		goto free_ret;
 	if (unlikely(!array_add_multiple_mayfail(char, &fn, &fn_l, pn, pn_l, NULL, &sink)))
