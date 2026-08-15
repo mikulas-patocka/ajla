@@ -111,7 +111,7 @@ struct file_descriptor {
 	char ajla_id[sizeof(id)];
 };
 
-#if defined(ARCH_IA64) || defined(ARCH_SPARC) || ((defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI))
+#if defined(ARCH_IA64) || defined(ARCH_SPARC) || defined(ARCH_X86_32) || ((defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI))
 #define save_optimize_int	0
 #else
 #define save_optimize_int	optimize_int
