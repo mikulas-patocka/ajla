@@ -71,6 +71,9 @@ static size_t pointers_len;
 static struct function_descriptor *fn_descs;
 static size_t fn_descs_len;
 
+static struct cache_descriptor *cache_descs;
+static size_t cache_descs_len;
+
 static size_t *function_pointers;
 static size_t function_pointers_len;
 
@@ -86,6 +89,8 @@ static size_t duplicate_records_len;
 struct file_descriptor {
 	struct function_descriptor *fn_descs;
 	size_t fn_descs_len;
+	struct cache_descriptor *cache_descs;
+	size_t cache_descs_len;
 	char *dependencies;
 	size_t dependencies_l;
 	size_t writable_boundary;
@@ -117,6 +122,7 @@ static struct {
 #define loaded_file_descriptor(n)	cast_ptr(struct file_descriptor *, ld[n].loaded_data + ld[n].loaded_data_len - sizeof(struct file_descriptor))
 
 
+static size_t loaded_cache_idx;
 static size_t loaded_fn_idx;
 static size_t loaded_fn_cache;
 
@@ -135,12 +141,11 @@ static mutex_t dependencies_mutex;
 
 
 static int function_compare(const struct module_designator *md1, const struct function_designator *fd1, struct function_descriptor *fd2);
-static void save_one_entry(arg_t n_arguments, arg_t n_return_values, pointer_t *arguments, pointer_t *returns);
-static void save_finish_one(
+static int cache_compare(const struct module_designator *md1, const struct function_designator *fd1, struct cache_descriptor *fd2);
+static void save_one_cache_entry(arg_t n_arguments, arg_t n_return_values, pointer_t *arguments, pointer_t *returns);
+static void save_function_descriptor(
 	const struct module_designator *md,
 	const struct function_designator *fd,
-	arg_t n_arguments,
-	arg_t n_return_values,
 	code_t *code,
 	ip_t code_size,
 	const struct local_variable_flags *local_variables_flags,
@@ -157,6 +162,11 @@ static void save_finish_one(
 	size_t n_entries,
 	struct trap_record *trap_records,
 	size_t trap_records_size);
+static void save_cache_descriptor(
+	const struct module_designator *md,
+	const struct function_designator *fd,
+	arg_t n_arguments,
+	arg_t n_return_values);
 static bool dep_get_stream(char **result, size_t *result_l);
 
 
@@ -433,6 +443,7 @@ static void save_prepare(void)
 	pointers = NULL;
 	pointers_len = 0;
 	function_pointers = NULL;
+	loaded_cache_idx = 0;
 	loaded_fn_idx = 0;
 	loaded_fn_cache = (size_t)-1;
 	if (unlikely(!array_init_mayfail(char, &save_data, &save_len, &sink))) {
@@ -440,6 +451,10 @@ static void save_prepare(void)
 		return;
 	}
 	if (unlikely(!array_init_mayfail(struct function_descriptor, &fn_descs, &fn_descs_len, &sink))) {
+		save_ok = false;
+		return;
+	}
+	if (unlikely(!array_init_mayfail(struct cache_descriptor, &cache_descs, &cache_descs_len, &sink))) {
 		save_ok = false;
 		return;
 	}
@@ -461,16 +476,16 @@ static int compare_arguments(arg_t n_arguments, pointer_t *ptr1, pointer_t *ptr2
 	return 0;
 }
 
-static void save_entries_until(pointer_t *arguments)
+static void save_cache_entries_until(pointer_t *arguments)
 {
-	struct function_descriptor *fn_desc;
+	struct cache_descriptor *cache_desc;
 	struct data *dsc;
 	if (unlikely(!save_ok))
 		return;
 	if (loaded_fn_cache == (size_t)-1)
 		return;
-	fn_desc = &loaded_file_descriptor(compsave)->fn_descs[loaded_fn_idx];
-	dsc = fn_desc->data_saved_cache;
+	cache_desc = &loaded_file_descriptor(compsave)->cache_descs[loaded_cache_idx];
+	dsc = cache_desc->data_saved_cache;
 	while (loaded_fn_cache < da(dsc,saved_cache)->n_entries) {
 		pointer_t *dsc_arguments = da(dsc,saved_cache)->pointers + loaded_fn_cache * ((size_t)da(dsc,saved_cache)->n_arguments + (size_t)da(dsc,saved_cache)->n_return_values);
 		if (arguments) {
@@ -480,11 +495,11 @@ static void save_entries_until(pointer_t *arguments)
 				return;
 			}
 			if (unlikely(!c))
-				internal(file_line, "save_entries_until: data already present in loaded cache");
+				internal(file_line, "save_cache_entries_until: data already present in loaded cache");
 			if (c < 0)
 				return;
 		}
-		save_one_entry(da(dsc,saved_cache)->n_arguments, da(dsc,saved_cache)->n_return_values, dsc_arguments, dsc_arguments + da(dsc,saved_cache)->n_arguments);
+		save_one_cache_entry(da(dsc,saved_cache)->n_arguments, da(dsc,saved_cache)->n_return_values, dsc_arguments, dsc_arguments + da(dsc,saved_cache)->n_arguments);
 		if (!save_ok)
 			return;
 		loaded_fn_cache++;
@@ -493,6 +508,53 @@ static void save_entries_until(pointer_t *arguments)
 
 static void save_loaded_function(struct function_descriptor *fn_desc)
 {
+	save_function_descriptor(fn_desc->md,
+				fn_desc->fd,
+				fn_desc->code,
+				fn_desc->code_size,
+				fn_desc->local_variables_flags,
+				fn_desc->n_slots,
+				fn_desc->types,
+				fn_desc->real_data,
+				fn_desc->real_size,
+				fn_desc->lp,
+				fn_desc->lp_size,
+				fn_desc->unoptimized_code_base,
+				fn_desc->unoptimized_code_entry_offset,
+				fn_desc->unoptimized_code_size,
+				fn_desc->entries,
+				fn_desc->n_entries,
+				fn_desc->trap_records,
+				fn_desc->trap_records_size);
+}
+
+static void save_functions_until(struct data *d)
+{
+	if (unlikely(!save_ok))
+		return;
+	if (!ld[compsave].loaded_data)
+		return;
+	/*debug("save_functions_until: %lu, %lu", loaded_fn_idx, loaded_file_descriptor->function_descs_len);*/
+	while (loaded_fn_idx < loaded_file_descriptor(compsave)->fn_descs_len) {
+		struct function_descriptor *function_desc = &loaded_file_descriptor(compsave)->fn_descs[loaded_fn_idx];
+		/*debug("test loaded: %lu", loaded_fn_idx);*/
+		if (d) {
+			int c = function_compare(da(d,function)->module_designator, da(d,function)->function_designator, function_desc);
+			if (c <= 0 && c != DATA_COMPARE_OOM) {
+				if (!c)
+					loaded_fn_idx++;
+				return;
+			}
+		}
+		save_loaded_function(function_desc);
+		if (!save_ok)
+			return;
+		loaded_fn_idx++;
+	}
+}
+
+static void save_loaded_cache(struct cache_descriptor *cache_desc)
+{
 	struct data *dsc;
 	ajla_error_t sink;
 	size_t i, k;
@@ -500,50 +562,33 @@ static void save_loaded_function(struct function_descriptor *fn_desc)
 		save_ok = false;
 		return;
 	}
-	dsc = fn_desc->data_saved_cache;
-	/*debug("saving ld: %p, %lu", fn_desc, fn_desc - loaded_file_descriptor->fn_descs);*/
+	dsc = cache_desc->data_saved_cache;
 	k = (size_t)da(dsc,saved_cache)->n_arguments + (size_t)da(dsc,saved_cache)->n_return_values;
 	for (i = 0; i < da(dsc,saved_cache)->n_entries; i++) {
 		pointer_t *base = da(dsc,saved_cache)->pointers + k * i;
-		save_one_entry(da(dsc,saved_cache)->n_arguments, da(dsc,saved_cache)->n_return_values, base, base + da(dsc,saved_cache)->n_arguments);
+		save_one_cache_entry(da(dsc,saved_cache)->n_arguments, da(dsc,saved_cache)->n_return_values, base, base + da(dsc,saved_cache)->n_arguments);
 		if (unlikely(!save_ok))
 			return;
 	}
-	save_finish_one(fn_desc->md,
-			fn_desc->fd,
-			da(dsc,saved_cache)->n_arguments,
-			da(dsc,saved_cache)->n_return_values,
-			fn_desc->code,
-			fn_desc->code_size,
-			fn_desc->local_variables_flags,
-			fn_desc->n_slots,
-			fn_desc->types,
-			fn_desc->real_data,
-			fn_desc->real_size,
-			fn_desc->lp,
-			fn_desc->lp_size,
-			fn_desc->unoptimized_code_base,
-			fn_desc->unoptimized_code_entry_offset,
-			fn_desc->unoptimized_code_size,
-			fn_desc->entries,
-			fn_desc->n_entries,
-			fn_desc->trap_records,
-			fn_desc->trap_records_size);
+	save_cache_descriptor(cache_desc->md,
+				cache_desc->fd,
+				da(dsc,saved_cache)->n_arguments,
+				da(dsc,saved_cache)->n_return_values);
 }
 
-static void save_functions_until(struct data *d)
+static void save_caches_until(struct data *d)
 {
 	loaded_fn_cache = (size_t)-1;
 	if (unlikely(!save_ok))
 		return;
 	if (!ld[compsave].loaded_data)
 		return;
-	/*debug("save_functions_until: %lu, %lu", loaded_fn_idx, loaded_file_descriptor->fn_descs_len);*/
-	while (loaded_fn_idx < loaded_file_descriptor(compsave)->fn_descs_len) {
-		struct function_descriptor *fn_desc = &loaded_file_descriptor(compsave)->fn_descs[loaded_fn_idx];
-		/*debug("test loaded: %lu", loaded_fn_idx);*/
+	/*debug("save_caches_until: %lu, %lu", loaded_cache_idx, loaded_file_descriptor->cache_descs_len);*/
+	while (loaded_cache_idx < loaded_file_descriptor(compsave)->cache_descs_len) {
+		struct cache_descriptor *cache_desc = &loaded_file_descriptor(compsave)->cache_descs[loaded_cache_idx];
+		/*debug("test loaded: %lu", loaded_cache_idx);*/
 		if (d) {
-			int c = function_compare(da(d,function)->module_designator, da(d,function)->function_designator, fn_desc);
+			int c = cache_compare(da(d,function)->module_designator, da(d,function)->function_designator, cache_desc);
 			if (c <= 0 && c != DATA_COMPARE_OOM) {
 				if (!c) {
 					loaded_fn_cache = 0;
@@ -551,14 +596,14 @@ static void save_functions_until(struct data *d)
 				return;
 			}
 		}
-		save_loaded_function(fn_desc);
+		save_loaded_cache(cache_desc);
 		if (!save_ok)
 			return;
-		loaded_fn_idx++;
+		loaded_cache_idx++;
 	}
 }
 
-static void save_one_entry(arg_t n_arguments, arg_t n_return_values, pointer_t *arguments, pointer_t *returns)
+static void save_one_cache_entry(arg_t n_arguments, arg_t n_return_values, pointer_t *arguments, pointer_t *returns)
 {
 	ajla_error_t sink;
 	arg_t i;
@@ -590,23 +635,21 @@ static void save_one_entry(arg_t n_arguments, arg_t n_return_values, pointer_t *
 	}
 }
 
-void save_start_function(struct data *d, bool new_cache)
+void save_start_cache(struct data *d, bool new_cache)
 {
-	if (!da(d,function)->n_return_values)
+	ajla_error_t sink;
+	if (!da(d,function)->n_return_values || !new_cache)
 		return;
-	if (!da(d,function)->is_saved || new_cache) {
-		ajla_error_t sink;
-		/*const struct module_designator *md = da(d,function)->module_designator;
-		const struct function_designator *fd = da(d,function)->function_designator;
-		debug("save_start_function: %u:%.*s:%u (%lu) - %s", md->path_idx, (int)md->path_len, md->path, fd->entries[0], fd->n_entries, da(d,function)->function_name);*/
-		/*debug("saving: %zu, %s", save_len, da(d,function)->function_name);*/
-		save_functions_until(d);
-		if (unlikely(!save_ok))
-			return;
-		if (unlikely(!array_init_mayfail(pointer_t, &pointers, &pointers_len, &sink))) {
-			save_ok = false;
-			return;
-		}
+	/*const struct module_designator *md = da(d,function)->module_designator;
+	const struct function_designator *fd = da(d,function)->function_designator;
+	debug("save_start_function: %u:%.*s:%u (%lu) - %s", md->path_idx, (int)md->path_len, md->path, fd->entries[0], fd->n_entries, da(d,function)->function_name);*/
+	/*debug("saving: %zu, %s", save_len, da(d,function)->function_name);*/
+	save_caches_until(d);
+	if (unlikely(!save_ok))
+		return;
+	if (unlikely(!array_init_mayfail(pointer_t, &pointers, &pointers_len, &sink))) {
+		save_ok = false;
+		return;
 	}
 }
 
@@ -633,7 +676,7 @@ void save_cache_entry(struct data *d, struct cache_entry *ce)
 			return;
 		}
 	}
-	save_entries_until(ce->arguments);
+	save_cache_entries_until(ce->arguments);
 	if (!save_ok)
 		return;
 	returns = mem_alloc_array_mayfail(mem_alloc_mayfail, pointer_t *, 0, 0, da(d,function)->n_return_values, sizeof(pointer_t), &sink);
@@ -644,15 +687,28 @@ void save_cache_entry(struct data *d, struct cache_entry *ce)
 	for (i = 0; i < da(d,function)->n_return_values; i++) {
 		returns[i] = ce->returns[i].ptr;
 	}
-	save_one_entry(da(d,function)->n_arguments, da(d,function)->n_return_values, ce->arguments, returns);
+	save_one_cache_entry(da(d,function)->n_arguments, da(d,function)->n_return_values, ce->arguments, returns);
 	mem_free(returns);
 }
 
-static void save_finish_one(
+void save_finish_cache(struct data *d)
+{
+	if (loaded_fn_cache != (size_t)-1) {
+		save_cache_entries_until(NULL);
+		if (unlikely(!save_ok))
+			return;
+		loaded_cache_idx++;
+		loaded_fn_cache = (size_t)-1;
+	}
+	save_cache_descriptor(da(d,function)->module_designator,
+				da(d,function)->function_designator,
+				da(d,function)->n_arguments,
+				da(d,function)->n_return_values);
+}
+
+static void save_function_descriptor(
 	const struct module_designator *md,
 	const struct function_designator *fd,
-	arg_t n_arguments,
-	arg_t n_return_values,
 	code_t *code,
 	ip_t code_size,
 	const struct local_variable_flags *local_variables_flags,
@@ -671,66 +727,44 @@ static void save_finish_one(
 	size_t trap_records_size)
 {
 	ajla_error_t sink;
-	size_t saved_pos;
 	struct function_descriptor fn_desc;
-	struct data *dsc;
 	size_t code_off, lvf_off, real_data_off, lp_off, uc_off, en_off, tr_off;
 	size_t last_fd;
 	pointer_t types_ptr = pointer_data(types);
 	size_t saved_types;
-	if (!n_return_values)
-		goto free_it;
-	if (!pointers)
-		goto free_it;
-	/*debug("save_finish_one: %u:%.*s:%u (%lu)", md->path_idx, (int)md->path_len, md->path, fd->entries[0], fd->n_entries);*/
-	dsc = data_alloc_flexible(saved_cache, pointers, pointers_len, &sink);
-	if (unlikely(!dsc)) {
-		save_ok = false;
-		goto free_it;
-	}
-	refcount_set_read_only(&dsc->refcount_);
-	da(dsc,saved_cache)->n_entries = pointers_len / ((size_t)n_arguments + (size_t)n_return_values);
-	da(dsc,saved_cache)->n_arguments = n_arguments;
-	da(dsc,saved_cache)->n_return_values = n_return_values;
-	memcpy(da(dsc,saved_cache)->pointers, pointers, pointers_len * sizeof(pointer_t));
+	/*debug("save_function_descriptor: %u:%.*s:%u (%lu)", md->path_idx, (int)md->path_len, md->path, fd->entries[0], fd->n_entries);*/
 	if (unlikely(!align_output(SAVED_DATA_ALIGN)))
-		goto free_it_2;
-
-	saved_pos = save_len;
-	if (unlikely(!array_add_multiple_mayfail(char, &save_data, &save_len, dsc, offsetof(struct data, u_.saved_cache.pointers[pointers_len]), NULL, &sink))) {
-		save_ok = false;
-		goto free_it_2;
-	}
+		return;
 
 	code_off = save_range(code, align_of(code_t), (size_t)code_size * sizeof(code_t), NULL, 0, NULL);
 	if (unlikely(code_off == (size_t)-1))
-		goto free_it_2;
+		return;
 
 	lvf_off = save_range(local_variables_flags, align_of(struct local_variable_flags), (size_t)n_slots * sizeof(struct local_variable_flags), NULL, 0, NULL);
 	if (unlikely(lvf_off == (size_t)-1))
-		goto free_it_2;
+		return;
 
 	saved_types = save_pointer(&types_ptr, false);
 	if (unlikely(saved_types == (size_t)-1)) {
 		save_ok = false;
-		goto free_it_2;
+		return;
 	}
 
 	real_data_off = save_range(real_data, CODE_ALIGNMENT, real_size, NULL, 0, NULL);
 	if (unlikely(code_off == (size_t)-1))
-		goto free_it_2;
+		return;
 
 	lp_off = save_range(lp, align_of(struct line_position), (size_t)lp_size * sizeof(struct line_position), NULL, 0, NULL);
 	if (unlikely(lp_off == (size_t)-1))
-		goto free_it_2;
+		return;
 
 	uc_off = save_range(unoptimized_code_base, CODE_ALIGNMENT, unoptimized_code_size, NULL, 0, NULL);
 	if (unlikely(uc_off == (size_t)-1))
-		goto free_it_2;
+		return;
 
 	en_off = save_range(entries, align_of(size_t), n_entries * sizeof(size_t), NULL, 0, NULL);
 	if (unlikely(en_off == (size_t)-1))
-		goto free_it_2;
+		return;
 
 #ifdef HAVE_CODEGEN_TRAPS
 	tr_off = save_range(trap_records, align_of(struct trap_record), trap_records_size * sizeof(struct trap_record), NULL, 0, NULL);
@@ -738,20 +772,18 @@ static void save_finish_one(
 	tr_off = save_range(trap_records, 1, 0, NULL, 0, NULL);
 #endif
 	if (unlikely(tr_off == (size_t)-1))
-		goto free_it_2;
+		return;
 
 	if (!(last_md != (size_t)-1 && !module_designator_compare(cast_ptr(struct module_designator *, save_data + last_md), md))) {
 		last_md = save_range(md, align_of(struct module_designator), module_designator_length(md), NULL, 0, NULL);
 		if (unlikely(last_md == (size_t)-1))
-			goto free_it_2;
+			return;
 	}
 
 	last_fd = save_range(fd, align_of(struct function_designator), function_designator_length(fd), NULL, 0, NULL);
 	if (unlikely(last_fd == (size_t)-1))
-		goto free_it_2;
+		return;
 
-	fn_desc.data_saved_cache = num_to_ptr(saved_pos);
-	fn_desc.data_saved_cache = data_pointer_tag(fn_desc.data_saved_cache, DATA_TAG_saved_cache);
 	fn_desc.code = num_to_ptr(code_off);
 	fn_desc.code_size = code_size;
 	fn_desc.local_variables_flags = num_to_ptr(lvf_off);
@@ -773,6 +805,63 @@ static void save_finish_one(
 	fn_desc.fd = num_to_ptr(last_fd);
 	if (!unlikely(array_add_mayfail(struct function_descriptor, &fn_descs, &fn_descs_len, fn_desc, NULL, &sink))) {
 		save_ok = false;
+		return;
+	}
+}
+
+static void save_cache_descriptor(
+	const struct module_designator *md,
+	const struct function_designator *fd,
+	arg_t n_arguments,
+	arg_t n_return_values)
+{
+	ajla_error_t sink;
+	size_t saved_pos;
+	struct cache_descriptor cache_desc;
+	struct data *dsc;
+	size_t last_fd;
+
+	if (!n_return_values)
+		goto free_it;
+	if (!pointers_len)
+		goto free_it;
+
+	dsc = data_alloc_flexible(saved_cache, pointers, pointers_len, &sink);
+	if (unlikely(!dsc)) {
+		save_ok = false;
+		goto free_it;
+	}
+	refcount_set_read_only(&dsc->refcount_);
+	da(dsc,saved_cache)->n_entries = pointers_len / ((size_t)n_arguments + (size_t)n_return_values);
+	da(dsc,saved_cache)->n_arguments = n_arguments;
+	da(dsc,saved_cache)->n_return_values = n_return_values;
+	memcpy(da(dsc,saved_cache)->pointers, pointers, pointers_len * sizeof(pointer_t));
+
+	if (unlikely(!align_output(SAVED_DATA_ALIGN)))
+		goto free_it_2;
+
+	saved_pos = save_len;
+	if (unlikely(!array_add_multiple_mayfail(char, &save_data, &save_len, dsc, offsetof(struct data, u_.saved_cache.pointers[pointers_len]), NULL, &sink))) {
+		save_ok = false;
+		goto free_it_2;
+	}
+
+	if (!(last_md != (size_t)-1 && !module_designator_compare(cast_ptr(struct module_designator *, save_data + last_md), md))) {
+		last_md = save_range(md, align_of(struct module_designator), module_designator_length(md), NULL, 0, NULL);
+		if (unlikely(last_md == (size_t)-1))
+			goto free_it_2;
+	}
+
+	last_fd = save_range(fd, align_of(struct function_designator), function_designator_length(fd), NULL, 0, NULL);
+	if (unlikely(last_fd == (size_t)-1))
+		goto free_it_2;
+
+	cache_desc.data_saved_cache = num_to_ptr(saved_pos);
+	cache_desc.data_saved_cache = data_pointer_tag(cache_desc.data_saved_cache, DATA_TAG_saved_cache);
+	cache_desc.md = num_to_ptr(last_md);
+	cache_desc.fd = num_to_ptr(last_fd);
+	if (!unlikely(array_add_mayfail(struct cache_descriptor, &cache_descs, &cache_descs_len, cache_desc, NULL, &sink))) {
+		save_ok = false;
 		goto free_it_2;
 	}
 
@@ -785,7 +874,7 @@ free_it:
 	pointers_len = 0;
 }
 
-void save_finish_function(struct data *d)
+void save_function(struct data *d, bool new_cache)
 {
 	void *unoptimized_code_base = NULL;
 	size_t unoptimized_code_entry_offset = 0;
@@ -794,13 +883,9 @@ void save_finish_function(struct data *d)
 	size_t n_entries = 0;
 	struct trap_record *trap_records = NULL;
 	size_t trap_records_size = 0;
-	if (loaded_fn_cache != (size_t)-1) {
-		save_entries_until(NULL);
-		if (unlikely(!save_ok))
-			return;
-		loaded_fn_idx++;
-		loaded_fn_cache = (size_t)-1;
-	}
+	if (!da(d,function)->n_return_values || !new_cache)
+		return;
+	save_functions_until(d);
 #ifdef HAVE_CODEGEN
 	if (!pointer_is_thunk(da(d,function)->codegen)) {
 		ajla_error_t sink;
@@ -827,25 +912,23 @@ void save_finish_function(struct data *d)
 skip_save_codegen:;
 	}
 #endif
-	save_finish_one(da(d,function)->module_designator,
-			da(d,function)->function_designator,
-			da(d,function)->n_arguments,
-			da(d,function)->n_return_values,
-			da(d,function)->code, da(d,function)->code_size,
-			da(d,function)->local_variables_flags,
-			function_n_variables(d),
-			pointer_get_data(da(d,function)->types_ptr),
-			cast_ptr(uint8_t *, d) + function_real_pool_offset(d),
-			da(d,function)->real_size,
-			da(d,function)->lp,
-			da(d,function)->lp_size,
-			unoptimized_code_base,
-			unoptimized_code_entry_offset,
-			unoptimized_code_size,
-			entries,
-			n_entries,
-			trap_records,
-			trap_records_size);
+	save_function_descriptor(da(d,function)->module_designator,
+				da(d,function)->function_designator,
+				da(d,function)->code, da(d,function)->code_size,
+				da(d,function)->local_variables_flags,
+				function_n_variables(d),
+				pointer_get_data(da(d,function)->types_ptr),
+				cast_ptr(uint8_t *, d) + function_real_pool_offset(d),
+				da(d,function)->real_size,
+				da(d,function)->lp,
+				da(d,function)->lp_size,
+				unoptimized_code_base,
+				unoptimized_code_entry_offset,
+				unoptimized_code_size,
+				entries,
+				n_entries,
+				trap_records,
+				trap_records_size);
 
 	if (entries) {
 		struct data *codegen = pointer_get_data(da(d,function)->codegen);
@@ -944,20 +1027,22 @@ found:
 
 static void save_finish_file(void)
 {
-	const int fn_desc_ptrs = 11;
+	const int fn_desc_ptrs = 10;
+	const int cache_desc_ptrs = 3;
 	ajla_error_t sink;
 	struct stack_entry *subptrs;
 	char *deps;
 	size_t i, deps_l;
-	size_t fn_descs_offset, deps_offset, fpptrs_offset, file_desc_offset;
+	size_t fn_descs_offset, cache_descs_offset, deps_offset, fpptrs_offset, file_desc_offset;
 	struct file_descriptor file_desc;
 
-	if (!fn_descs_len) {
+	if (!fn_descs_len && !cache_descs_len) {
 		save_ok = false;
 		return;
 	}
 
 	save_functions_until(NULL);
+	save_caches_until(NULL);
 
 	duplicate_writeable_entries();
 	if (unlikely(!save_ok))
@@ -969,17 +1054,16 @@ static void save_finish_file(void)
 		return;
 	}
 	for (i = 0; i < fn_descs_len; i++) {
-		subptrs[i * fn_desc_ptrs + 0].ptr = &fn_descs[i].data_saved_cache;
-		subptrs[i * fn_desc_ptrs + 1].ptr = &fn_descs[i].code;
-		subptrs[i * fn_desc_ptrs + 2].ptr = &fn_descs[i].local_variables_flags;
-		subptrs[i * fn_desc_ptrs + 3].ptr = &fn_descs[i].types;
-		subptrs[i * fn_desc_ptrs + 4].ptr = &fn_descs[i].real_data;
-		subptrs[i * fn_desc_ptrs + 5].ptr = &fn_descs[i].lp;
-		subptrs[i * fn_desc_ptrs + 6].ptr = &fn_descs[i].md;
-		subptrs[i * fn_desc_ptrs + 7].ptr = &fn_descs[i].fd;
-		subptrs[i * fn_desc_ptrs + 8].ptr = &fn_descs[i].unoptimized_code_base;
-		subptrs[i * fn_desc_ptrs + 9].ptr = &fn_descs[i].entries;
-		subptrs[i * fn_desc_ptrs + 10].ptr = &fn_descs[i].trap_records;
+		subptrs[i * fn_desc_ptrs + 0].ptr = &fn_descs[i].code;
+		subptrs[i * fn_desc_ptrs + 1].ptr = &fn_descs[i].local_variables_flags;
+		subptrs[i * fn_desc_ptrs + 2].ptr = &fn_descs[i].types;
+		subptrs[i * fn_desc_ptrs + 3].ptr = &fn_descs[i].real_data;
+		subptrs[i * fn_desc_ptrs + 4].ptr = &fn_descs[i].lp;
+		subptrs[i * fn_desc_ptrs + 5].ptr = &fn_descs[i].md;
+		subptrs[i * fn_desc_ptrs + 6].ptr = &fn_descs[i].fd;
+		subptrs[i * fn_desc_ptrs + 7].ptr = &fn_descs[i].unoptimized_code_base;
+		subptrs[i * fn_desc_ptrs + 8].ptr = &fn_descs[i].entries;
+		subptrs[i * fn_desc_ptrs + 9].ptr = &fn_descs[i].trap_records;
 		/*debug("%p %p %zx", fn_descs[i].data_saved_cache, fn_descs[i].md, fn_descs[i].idx);*/
 	}
 	fn_descs_offset = save_range(fn_descs, align_of(struct function_descriptor), fn_descs_len * sizeof(struct function_descriptor), subptrs, fn_descs_len * fn_desc_ptrs, NULL);
@@ -989,6 +1073,25 @@ static void save_finish_file(void)
 
 	file_desc.fn_descs = num_to_ptr(fn_descs_offset);
 	file_desc.fn_descs_len = fn_descs_len;
+
+	subptrs = mem_alloc_array_mayfail(mem_alloc_mayfail, struct stack_entry *, 0, 0, cache_descs_len, sizeof(struct stack_entry) * cache_desc_ptrs, &sink);
+	if (unlikely(!subptrs)) {
+		save_ok = false;
+		return;
+	}
+	for (i = 0; i < cache_descs_len; i++) {
+		/*debug("saving: %p, %p, %p", cache_descs[i].data_saved_cache, cache_descs[i].md, cache_descs[i].fd);*/
+		subptrs[i * cache_desc_ptrs + 0].ptr = &cache_descs[i].data_saved_cache;
+		subptrs[i * cache_desc_ptrs + 1].ptr = &cache_descs[i].md;
+		subptrs[i * cache_desc_ptrs + 2].ptr = &cache_descs[i].fd;
+	}
+	cache_descs_offset = save_range(cache_descs, align_of(struct cache_descriptor), cache_descs_len * sizeof(struct cache_descriptor), subptrs, cache_descs_len * cache_desc_ptrs, NULL);
+	mem_free(subptrs);
+	if (unlikely(cache_descs_offset == (size_t)-1))
+		return;
+
+	file_desc.cache_descs = num_to_ptr(cache_descs_offset);
+	file_desc.cache_descs_len = cache_descs_len;
 
 	if (unlikely(!dep_get_stream(&deps, &deps_l))) {
 		save_ok = false;
@@ -1021,16 +1124,17 @@ static void save_finish_file(void)
 	file_desc.chicken = chicken;
 	memcpy(file_desc.ajla_id, id, sizeof(id));
 
-	subptrs = mem_alloc_mayfail(struct stack_entry *, sizeof(struct stack_entry) * 4, &sink);
+	subptrs = mem_alloc_mayfail(struct stack_entry *, sizeof(struct stack_entry) * 5, &sink);
 	if (unlikely(!subptrs)) {
 		save_ok = false;
 		return;
 	}
 	subptrs[0].ptr = &file_desc.fn_descs;
-	subptrs[1].ptr = &file_desc.dependencies;
-	subptrs[2].ptr = &file_desc.function_pointers;
-	subptrs[3].ptr = &file_desc.base;
-	file_desc_offset = save_range(&file_desc, align_of(struct file_descriptor), sizeof(struct file_descriptor), subptrs, 4, NULL);
+	subptrs[1].ptr = &file_desc.cache_descs;
+	subptrs[2].ptr = &file_desc.dependencies;
+	subptrs[3].ptr = &file_desc.function_pointers;
+	subptrs[4].ptr = &file_desc.base;
+	file_desc_offset = save_range(&file_desc, align_of(struct file_descriptor), sizeof(struct file_descriptor), subptrs, 5, NULL);
 	mem_free(subptrs);
 	if (unlikely(file_desc_offset == (size_t)-1))
 		return;
@@ -1142,15 +1246,35 @@ struct function_descriptor *save_find_function_descriptor(const struct module_de
 			continue;
 		fn_descs = loaded_file_descriptor(cs)->fn_descs;
 		fn_descs_len = loaded_file_descriptor(cs)->fn_descs_len;
-		/*{
-			size_t i;
-			for (i = 0; i < fn_descs_len; i++)
-				if (!function_compare(md, fd, &fn_descs[i]))
-					return &fn_descs[i];
-			return NULL;
-		}*/
 		binary_search(size_t, fn_descs_len, result, !(cmp = function_compare(md, fd, &fn_descs[result])), cmp >= 0, goto cont);
 		return &fn_descs[result];
+cont:;
+	}
+	return NULL;
+}
+
+static int cache_compare(const struct module_designator *md1, const struct function_designator *fd1, struct cache_descriptor *fd2)
+{
+	int x = module_designator_compare(md1, fd2->md);
+	if (x)
+		return x;
+	return function_designator_compare(fd1, fd2->fd);
+}
+
+struct cache_descriptor *save_find_cache_descriptor(const struct module_designator *md, const struct function_designator *fd)
+{
+	size_t cs;
+	for (cs = 0; cs < 2; cs++) {
+		struct cache_descriptor *cache_descs;
+		size_t cache_descs_len;
+		size_t result;
+		int cmp;
+		if (!ld[cs].loaded_data)
+			continue;
+		cache_descs = loaded_file_descriptor(cs)->cache_descs;
+		cache_descs_len = loaded_file_descriptor(cs)->cache_descs_len;
+		binary_search(size_t, cache_descs_len, result, !(cmp = cache_compare(md, fd, &cache_descs[result])), cmp >= 0, goto cont);
+		return &cache_descs[result];
 cont:;
 	}
 	return NULL;
@@ -1427,13 +1551,13 @@ static void save_load_cache(void)
 	}
 	if (unlikely(file_desc.page_size != os_getpagesize()) ||
 	    unlikely(file_desc.cpu_feature_flags != cpu_feature_flags) ||
-	    unlikely(file_desc.optimize_int != optimize_int && !compsave) ||
+	    unlikely(file_desc.optimize_int != optimize_int) ||
 	    unlikely(file_desc.privileged != ipret_is_privileged) ||
 	    unlikely(file_desc.profiling != profiling) ||
 	    unlikely(file_desc.strict_calls != ipret_strict_calls) ||
 	    unlikely(file_desc.verifying != (verify != NULL)) ||
 	    unlikely(file_desc.noinline != ipret_noinline) ||
-	    unlikely(file_desc.noautofma != noautofma && !compsave) ||
+	    unlikely(file_desc.noautofma != noautofma) ||
 	    unlikely(file_desc.chicken != chicken) ||
 	    unlikely(memcmp(file_desc.ajla_id, id, sizeof(id)))) {
 		os_close(h);
@@ -1527,16 +1651,16 @@ verify_ret:
 #ifdef DEBUG
 	{
 		size_t i;
-		for (i = 0; i < loaded_file_descriptor(compsave)->fn_descs_len; i++) {
-			struct function_descriptor *fn_desc = &loaded_file_descriptor(compsave)->fn_descs[i];
-			struct data *dsc = fn_desc->data_saved_cache;
+		for (i = 0; i < loaded_file_descriptor(compsave)->cache_descs_len; i++) {
+			struct cache_descriptor *cache_desc = &loaded_file_descriptor(compsave)->cache_descs[i];
+			struct data *dsc = cache_desc->data_saved_cache;
 			size_t j, k;
-			/*const struct module_designator *md = fn_desc->md;
-			debug("content: %u:%.*s:%lu:%lu", md->path_idx, (int)md->path_len, md->path, fn_desc->fd->n_entries, (long)fn_desc->fd->entries[0]);*/
+			/*const struct module_designator *md = cache_desc->md;
+			debug("content: %u:%.*s:%lu:%lu", md->path_idx, (int)md->path_len, md->path, cache_desc->fd->n_entries, (long)cache_desc->fd->entries[0]);*/
 			if (i > 0) {
-				int c = function_compare(loaded_file_descriptor(compsave)->fn_descs[i - 1].md, loaded_file_descriptor(compsave)->fn_descs[i - 1].fd, &loaded_file_descriptor(compsave)->fn_descs[i]);
+				int c = cache_compare(loaded_file_descriptor(compsave)->cache_descs[i - 1].md, loaded_file_descriptor(compsave)->cache_descs[i - 1].fd, &loaded_file_descriptor(compsave)->cache_descs[i]);
 				if (unlikely(c >= 0))
-					internal(file_line, "save_load_cache: misordered function descriptors: %d (%"PRIuMAX" / %"PRIuMAX")", c, (uintmax_t)i, (uintmax_t)loaded_file_descriptor(compsave)->fn_descs_len);
+					internal(file_line, "save_load_cache: misordered cache descriptors: %d (%"PRIuMAX" / %"PRIuMAX")", c, (uintmax_t)i, (uintmax_t)loaded_file_descriptor(compsave)->cache_descs_len);
 			}
 			k = (size_t)da(dsc,saved_cache)->n_arguments + (size_t)da(dsc,saved_cache)->n_return_values;
 			if (da(dsc,saved_cache)->n_entries) {
@@ -1547,6 +1671,14 @@ verify_ret:
 					if (unlikely(c >= 0) && c != DATA_COMPARE_OOM)
 						internal(file_line, "save_load_cache: misordered cache entries: %d", c);
 				}
+			}
+		}
+		for (i = 0; i < loaded_file_descriptor(compsave)->fn_descs_len; i++) {
+			struct function_descriptor *fn_desc = &loaded_file_descriptor(compsave)->fn_descs[i];
+			if (i > 0) {
+				int c = function_compare(loaded_file_descriptor(compsave)->fn_descs[i - 1].md, loaded_file_descriptor(compsave)->fn_descs[i - 1].fd, fn_desc);
+				if (unlikely(c >= 0))
+					internal(file_line, "save_load_cache: misordered function descriptors: %d (%"PRIuMAX" / %"PRIuMAX")", c, (uintmax_t)i, (uintmax_t)loaded_file_descriptor(compsave)->fn_descs_len);
 			}
 		}
 	}
@@ -1638,6 +1770,9 @@ static void save_file(void)
 	}
 	if (fn_descs) {
 		mem_free(fn_descs);
+	}
+	if (cache_descs) {
+		mem_free(cache_descs);
 	}
 	if (duplicate_records) {
 		mem_free(duplicate_records);

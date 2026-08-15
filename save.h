@@ -22,20 +22,22 @@
 #include "data.h"
 #include "module.h"
 
-#define save_start_function		name(save_start_function)
+#define save_start_cache		name(save_start_cache)
 #define save_cache_entry		name(save_cache_entry)
-#define save_finish_function		name(save_finish_function)
+#define save_finish_cache		name(save_finish_cache)
+#define save_function			name(save_function)
 #define save_find_function_descriptor	name(save_find_function_descriptor)
+#define save_find_cache_descriptor	name(save_find_cache_descriptor)
 #define save_register_dependence	name(save_register_dependence)
 #define save_unbind_function_pointers	name(save_unbind_function_pointers)
 #define save_unmap_data			name(save_unmap_data)
 
-void save_start_function(struct data *d, bool new_cache);
+void save_start_cache(struct data *d, bool new_cache);
 void save_cache_entry(struct data *d, struct cache_entry *ce);
-void save_finish_function(struct data *d);
+void save_finish_cache(struct data *d);
+void save_function(struct data *d, bool new_cache);
 
 struct function_descriptor {
-	struct data *data_saved_cache;
 	code_t *code;
 	ip_t code_size;
 	const struct local_variable_flags *local_variables_flags;
@@ -57,6 +59,14 @@ struct function_descriptor {
 };
 
 struct function_descriptor *save_find_function_descriptor(const struct module_designator *md, const struct function_designator *fd);
+
+struct cache_descriptor {
+	struct data *data_saved_cache;
+	struct module_designator *md;
+	struct function_designator *fd;
+};
+
+struct cache_descriptor *save_find_cache_descriptor(const struct module_designator *md, const struct function_designator *fd);
 
 void save_register_dependence(const char *path_name, bool comp);
 

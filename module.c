@@ -345,9 +345,14 @@ lock_for_write:
 }
 
 
-static bool function_is_compsave(struct data *d)
+static bool function_cache_is_compsave(struct data *d)
 {
 	return !da(d,function)->module_designator->path_idx && !strcmp(da(d,function)->function_name, "parse_file_2");
+}
+
+static bool function_descriptor_is_compsave(struct data *d)
+{
+	return !da(d,function)->module_designator->path_idx && !da(d,function)->function_designator->n_spec_data;
 }
 
 static void module_finish_function(struct module_function *mf, bool compsave)
@@ -358,49 +363,34 @@ static void module_finish_function(struct module_function *mf, bool compsave)
 	if (!pointer_is_thunk(mf->function.ptr)) {
 		struct data *d = pointer_get_data(mf->function.ptr);
 		struct tree_entry *e;
-		bool new_cache;
-		if (!compsave) {
-			if (profiling) {
-				profile_collect(da(d,function)->function_name, load_relaxed(&da(d,function)->profiling_counter), load_relaxed(&da(d,function)->call_counter));
-			}
-			if (profiling_escapes) {
-				ip_t ip_rel;
-				for (ip_rel = 0; ip_rel < da(d,function)->code_size; ip_rel++) {
-					struct stack_trace_entry ste;
-					profile_counter_t profiling_counter = load_relaxed(&da(d,function)->escape_data[ip_rel].counter);
-					if (likely(!profiling_counter))
-						continue;
-					if (unlikely(!stack_trace_get_location(d, ip_rel, &ste)))
-						continue;
-					profile_escape_collect(ste.function_name, profiling_counter, ip_rel, ste.line, da(d,function)->code[ip_rel]);
+		if (function_cache_is_compsave(d) == compsave) {
+			bool new_cache = false;
+			for (e = tree_first(&da(d,function)->cache); e; e = tree_next(e)) {
+				struct cache_entry *ce = get_struct(e, struct cache_entry, entry);
+				if (ce->save) {
+					new_cache = true;
+					break;
 				}
 			}
-		}
-		if (compsave != function_is_compsave(d)) {
-			return;
-		}
-		new_cache = false;
-#ifdef HAVE_CODEGEN
-		if (likely(!pointer_is_thunk(da(d,function)->codegen)) && !compsave) {
-			struct data *codegen = pointer_get_data(da(d,function)->codegen);
-			if (unlikely(!da(codegen,codegen)->is_saved))
-				new_cache = true;
-		}
-#endif
-		for (e = tree_first(&da(d,function)->cache); e && !new_cache; e = tree_next(e)) {
-			struct cache_entry *ce = get_struct(e, struct cache_entry, entry);
-			if (ce->save) {
-				new_cache = true;
-				break;
+			save_start_cache(d, new_cache);
+			for (e = tree_first(&da(d,function)->cache); e; e = tree_next(e)) {
+				struct cache_entry *ce = get_struct(e, struct cache_entry, entry);
+				if (ce->save)
+					save_cache_entry(d, ce);
 			}
+			save_finish_cache(d);
 		}
-		save_start_function(d, new_cache);
-		for (e = tree_first(&da(d,function)->cache); e; e = tree_next(e)) {
-			struct cache_entry *ce = get_struct(e, struct cache_entry, entry);
-			if (ce->save)
-				save_cache_entry(d, ce);
+		if (function_descriptor_is_compsave(d) == compsave) {
+			bool new_cache = !da(d,function)->is_saved;
+#ifdef HAVE_CODEGEN
+			if (likely(!pointer_is_thunk(da(d,function)->codegen)) && !compsave) {
+				struct data *codegen = pointer_get_data(da(d,function)->codegen);
+				if (unlikely(!da(codegen,codegen)->is_saved))
+					new_cache = true;
+			}
+#endif
+			save_function(d, new_cache);
 		}
-		save_finish_function(d);
 	}
 }
 
@@ -419,6 +409,24 @@ void module_finish_functions(bool compsave)
 
 static void module_free_function(struct module_function *mf)
 {
+	if (!pointer_is_thunk(mf->function.ptr)) {
+		struct data *d = pointer_get_data(mf->function.ptr);
+		if (unlikely(profiling)) {
+			profile_collect(da(d,function)->function_name, load_relaxed(&da(d,function)->profiling_counter), load_relaxed(&da(d,function)->call_counter));
+		}
+		if (unlikely(profiling_escapes)) {
+			ip_t ip_rel;
+			for (ip_rel = 0; ip_rel < da(d,function)->code_size; ip_rel++) {
+				struct stack_trace_entry ste;
+				profile_counter_t profiling_counter = load_relaxed(&da(d,function)->escape_data[ip_rel].counter);
+				if (likely(!profiling_counter))
+					continue;
+				if (unlikely(!stack_trace_get_location(d, ip_rel, &ste)))
+					continue;
+				profile_escape_collect(ste.function_name, profiling_counter, ip_rel, ste.line, da(d,function)->code[ip_rel]);
+			}
+		}
+	}
 	pointer_dereference(mf->function.ptr);
 	if (!pointer_is_empty(mf->optimizer))
 		pointer_dereference(mf->optimizer);
@@ -465,7 +473,7 @@ void name(module_done)(void)
 		struct module *m = get_struct(tree_any(&modules), struct module, entry);
 		tree_delete(&m->entry);
 		while (!tree_is_empty(&m->functions)) {
-			struct module_function *mf = get_struct(tree_any(&m->functions), struct module_function, entry);
+			struct module_function *mf = get_struct(tree_first(&m->functions), struct module_function, entry);
 			module_free_function(mf);
 			tree_delete(&mf->entry);
 			mem_free(mf);

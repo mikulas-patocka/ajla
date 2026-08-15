@@ -3606,6 +3606,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 
 	struct data *ft, *fn;
 	struct function_descriptor *sfd;
+	struct cache_descriptor *scd;
 	bool is_saved;
 
 	struct build_function_context ctx_;
@@ -4021,10 +4022,13 @@ skip_codegen:
 #endif
 	function_init_common(fn);
 
-	if (is_saved) {
-		/*if (memcmp(ctx->code, sfd->code, ctx->code_len * sizeof(code_t))) internal(file_line, "code mismatch");*/
-		da(fn,function)->loaded_cache = sfd->data_saved_cache;
-		/*if (da(fn,function)->loaded_cache) debug("loaded cache: %s", function_name(ctx));*/
+	if (md) {
+		scd = save_find_cache_descriptor(md, fd);
+	} else {
+		scd = NULL;
+	}
+	if (scd) {
+		da(fn,function)->loaded_cache = scd->data_saved_cache;
 	}
 
 	da(fn,function)->escape_data = ctx->escape_data;
