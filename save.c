@@ -80,7 +80,7 @@ static inline size_t HASH(uintptr_t p)
 	return (p / HASH_SIZE / HASH_SIZE + p / HASH_SIZE + p) & (HASH_SIZE - 1);
 }
 
-static struct tree position_tree[HASH_SIZE];
+shared_var struct tree position_tree[HASH_SIZE];
 
 static pointer_t *pointers;
 static size_t pointers_len;
