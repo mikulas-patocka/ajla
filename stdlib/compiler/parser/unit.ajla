@@ -30,6 +30,10 @@ uses compiler.parser.export;
 
 fn compile_module_2(w : world, d : list(bytes), file : bytes, fid_flags : uint8, prereq len_greater_than(d, 0)) : (list(list(pcode_t)), list(module_unique_id))
 [
+	{var tm : int64;
+	w, tm := get_monotonic_time(w);
+	eval debug("compile_module_2: " + file + ", " + ntos(tm));}
+
 	var dict := parse_file(w, d, file, fid_flags, false);
 
 	var m := empty(module_unique_id);
@@ -37,5 +41,13 @@ fn compile_module_2(w : world, d : list(bytes), file : bytes, fid_flags : uint8,
 		m +<= dict.modules[i].id;
 	]
 
-	return generate_pcode(dict), m;
+	{w, tm := get_monotonic_time(w);
+	eval debug("compile_module_2 gp: " + file + ", " + ntos(tm));}
+
+	var pcl, modules := generate_pcode(dict), m;
+
+	{w, tm := get_monotonic_time(w);
+	eval debug("compile_module_2 done: " + file + ", " + ntos(tm));}
+
+	return pcl, modules;
 ]

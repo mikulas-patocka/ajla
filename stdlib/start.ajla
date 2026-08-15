@@ -78,11 +78,20 @@ fn get_sub~spark(f : uint64) : list(uint64)
 	return sub_f;
 ]
 
+fn compile_module_compsaved(lp : bytes, path_idx : nat, file : bytes, fid_flags : uint8) : (list(list(pcode_t)), list(module_unique_id))
+[
+	return compile_module~strict(libpath, path_idx, file, fid_flags);
+]
+
 fn extract_modules(path_idx : nat, file : bytes, fid_flags : uint8) : list(tuple2(nat, istring))
 [
 	//eval debug("preparsing: " + file);
-	var opt := empty(list(pcode_t));
-	var pcl, modules := compile_module~save(libpath, path_idx, file, fid_flags);
+	var pcl : list(list(pcode_t));
+	var modules : list(module_unique_id);
+	if path_idx = 0 then
+		pcl, modules := compile_module_compsaved~save(libpath, path_idx, file, fid_flags);
+	else
+		pcl, modules := compile_module~save(libpath, path_idx, file, fid_flags);
 	pcode IO IO_Deep_Eval 1 1 0 =pcl pcl;
 	xeval pcl;
 	var r := empty(tuple2(nat, istring));

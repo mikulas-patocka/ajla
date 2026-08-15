@@ -347,7 +347,13 @@ lock_for_write:
 
 static bool function_cache_is_compsave(struct data *d)
 {
-	return !da(d,function)->module_designator->path_idx && !strcmp(da(d,function)->function_name, "parse_file_2");
+	if (!da(d,function)->module_designator->path_idx) {
+		if (unlikely(!strcmp(da(d,function)->function_name, "parse_file_2")))
+			return true;
+		if (unlikely(!strcmp(da(d,function)->function_name, "compile_module_compsaved")))
+			return true;
+	}
+	return false;
 }
 
 static bool function_descriptor_is_compsave(struct data *d)
