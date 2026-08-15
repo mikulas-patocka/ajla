@@ -111,6 +111,12 @@ struct file_descriptor {
 	char ajla_id[sizeof(id)];
 };
 
+#if defined(ARCH_IA64) || defined(ARCH_SPARC) || ((defined(ARCH_X86_64) || defined(ARCH_X86_X32)) && !defined(ARCH_X86_WIN_ABI))
+#define save_optimize_int	0
+#else
+#define save_optimize_int	optimize_int
+#endif
+
 static struct {
 	char *loaded_data;
 	size_t loaded_data_len;
@@ -1112,7 +1118,7 @@ static void save_finish_file(void)
 	file_desc.base = num_to_ptr(0);
 	file_desc.page_size = os_getpagesize();
 	file_desc.cpu_feature_flags = cpu_feature_flags;
-	file_desc.optimize_int = optimize_int;
+	file_desc.optimize_int = save_optimize_int;
 	file_desc.privileged = ipret_is_privileged;
 	file_desc.profiling = profiling;
 	file_desc.strict_calls = ipret_strict_calls;
@@ -1490,7 +1496,7 @@ static char *save_get_file(void)
 #ifdef POINTER_COMPRESSION
 	ext_index |= 0x01;
 #endif
-	if (optimize_int)
+	if (save_optimize_int)
 		ext_index |= 0x02;
 	if (ipret_strict_calls)
 		ext_index |= 0x04;
@@ -1569,7 +1575,7 @@ static void save_load_cache(void)
 	}
 	if (unlikely(file_desc.page_size != os_getpagesize()) ||
 	    unlikely(file_desc.cpu_feature_flags != cpu_feature_flags) ||
-	    unlikely(file_desc.optimize_int != optimize_int) ||
+	    unlikely(file_desc.optimize_int != save_optimize_int) ||
 	    unlikely(file_desc.privileged != ipret_is_privileged) ||
 	    unlikely(file_desc.profiling != profiling) ||
 	    unlikely(file_desc.strict_calls != ipret_strict_calls) ||
