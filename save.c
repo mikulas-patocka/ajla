@@ -64,7 +64,23 @@ struct position_map {
 	size_t duplicate_size;
 };
 
-static struct tree position_tree;
+/*
+ * 4194304 - 1.616036
+ * 2097152 - 1.570913
+ * 1048576 - 1.574024
+ * 524288 - 1.615232
+ * 262144 - 1.671366
+ * 131072 - 1.793275
+ * 65536 - 1.953788
+ * no hash - 2.231493
+ */
+#define HASH_SIZE	262144
+static inline size_t HASH(uintptr_t p)
+{
+	return (p / HASH_SIZE / HASH_SIZE + p / HASH_SIZE + p) & (HASH_SIZE - 1);
+}
+
+static struct tree position_tree[HASH_SIZE];
 
 static pointer_t *pointers;
 static size_t pointers_len;
@@ -302,7 +318,7 @@ cont:
 		ste = stk[stk_l - 1];
 		p1 = ste.t->get_ptr(&ste);
 		p1_num = ptr_to_num(p1);
-		e = tree_find_for_insert(&position_tree, position_tree_compare, p1_num, &ins);
+		e = tree_find_for_insert(&position_tree[HASH(p1_num)], position_tree_compare, p1_num, &ins);
 
 		if (verify_only && !e) {
 			e = tree_find_for_insert(&processed, position_tree_compare, p1_num, &ins);
@@ -338,7 +354,7 @@ cont:
 			}
 			p2 = subptr->t->get_ptr(subptr);
 			p2_num = ptr_to_num(p2);
-			e2 = tree_find(&position_tree, position_tree_compare, p2_num);
+			e2 = tree_find(&position_tree[HASH(p2_num)], position_tree_compare, p2_num);
 			if (verify_only && !e2) {
 				e2 = tree_find(&processed, position_tree_compare, p2_num);
 			}
@@ -442,11 +458,13 @@ err:
 
 static void save_prepare(void)
 {
+	size_t h;
 	ajla_error_t sink;
 	save_data = NULL;
 	save_ok = !save_disable && !dependencies_failed;
 	last_md = (size_t)-1;
-	tree_init(&position_tree);
+	for (h = 0; h < HASH_SIZE; h++)
+		tree_init(&position_tree[h]);
 	pointers = NULL;
 	pointers_len = 0;
 	function_pointers = NULL;
@@ -946,7 +964,7 @@ static void duplicate_writeable_entries(void)
 	ajla_error_t sink;
 	struct tree_entry *e;
 	struct position_map *pm, *pm2;
-	size_t i, j;
+	size_t h, i, j;
 	struct stack_entry *subptrs;
 	size_t align, size, subptrs_l;
 	bool duplicate;
@@ -957,7 +975,7 @@ static void duplicate_writeable_entries(void)
 	writable_boundary = save_len;
 
 	function_pointers_len = 0;
-	for (e = tree_first(&position_tree); e; e = tree_next(e)) {
+	for (h = 0; h < HASH_SIZE; h++) for (e = tree_first(&position_tree[h]); e; e = tree_next(e)) {
 		pm = get_struct(e, struct position_map, entry);
 		if (pm->need_duplicate) {
 			char *cpy;
@@ -988,7 +1006,7 @@ static void duplicate_writeable_entries(void)
 	for (i = 0; i < duplicate_records_len; i++) {
 		struct duplicate_record *dr = &duplicate_records[i];
 		size_t old_position = dr->old_position;
-		e = tree_find(&position_tree, position_tree_compare, old_position);
+		e = tree_find(&position_tree[HASH(old_position)], position_tree_compare, old_position);
 		if (!e)
 			internal(file_line, "duplicate_writeable_entries: entry not found in position tree");
 		pm = get_struct(e, struct position_map, entry);
@@ -1014,7 +1032,7 @@ found:
 	}
 
 	i = 0;
-	for (e = tree_first(&position_tree); e; e = tree_next(e)) {
+	for (h = 0; h < HASH_SIZE; h++) for (e = tree_first(&position_tree[h]); e; e = tree_next(e)) {
 		struct position_map *pm = get_struct(e, struct position_map, entry);
 		if (pm->need_duplicate) {
 			memcpy(save_data + pm->duplicate_position, save_data + pm->new_wrap_position, pm->duplicate_size);
@@ -1780,12 +1798,14 @@ static void free_streams(void)
 
 static void save_file(void)
 {
+	size_t h;
 	save_prepare();
 	module_finish_functions(compsave);
 	if (save_ok) {
 		save_finish_file();
 	}
-	free_position_tree(&position_tree);
+	for (h = 0; h < HASH_SIZE; h++)
+		free_position_tree(&position_tree[h]);
 	if (save_data) {
 		if (save_ok) {
 			save_stream();
@@ -1808,11 +1828,15 @@ static void save_file(void)
 
 void name(save_done)(void)
 {
+	/*ajla_time_t t1 = os_time_monotonic();*/
+
 	compsave = true;
 	save_file();
 
 	compsave = false;
 	save_file();
+
+	/*debug("saving took %lf seconds", (double)(os_time_monotonic() - t1) / 1000000.);*/
 
 	free_streams();
 
