@@ -1317,6 +1317,7 @@ fn parse_file_2(w : world, d : list(bytes), name : bytes, fid_flags : uint8, par
 		eval debug(ntos(td) + " parsing interface: " + name);
 	else
 		eval debug(ntos(td) + " parsing: " + name);}
+
 	var idx := len(d) - 1;
 	var dir := dopen_lazy(dnone(w), d[idx], 0);
 
@@ -1358,6 +1359,7 @@ fn parse_file_2(w : world, d : list(bytes), name : bytes, fid_flags : uint8, par
 		eval debug(ntos(td2) + " parsed interface: " + name + " - " + ntos(td2 - td));
 	else
 		eval debug(ntos(td2) + " parsed: " + name + " - " + ntos(td2 - td));}
+
 	return dict;
 ]
 

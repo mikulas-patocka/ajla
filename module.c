@@ -363,6 +363,7 @@ static void module_finish_function(struct module_function *mf, bool compsave)
 	if (!pointer_is_thunk(mf->function.ptr)) {
 		struct data *d = pointer_get_data(mf->function.ptr);
 		struct tree_entry *e;
+		/*debug("saving %s", da(d,function)->function_name);*/
 		if (function_cache_is_compsave(d) == compsave) {
 			bool new_cache = false;
 			for (e = tree_first(&da(d,function)->cache); e; e = tree_next(e)) {

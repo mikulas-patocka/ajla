@@ -82,7 +82,7 @@ fn extract_modules(path_idx : nat, file : bytes, fid_flags : uint8) : list(tuple
 [
 	//eval debug("preparsing: " + file);
 	var opt := empty(list(pcode_t));
-	var pcl, modules := compile_module~cache(libpath, path_idx, file, fid_flags);
+	var pcl, modules := compile_module~save(libpath, path_idx, file, fid_flags);
 	pcode IO IO_Deep_Eval 1 1 0 =pcl pcl;
 	xeval pcl;
 	var r := empty(tuple2(nat, istring));
