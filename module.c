@@ -395,21 +395,10 @@ static void module_finish_function(struct module_function *mf, bool compsave)
 			}
 		}
 		save_start_function(d, new_cache);
-		if (compsave) {
-			for (e = tree_first(&da(d,function)->cache); e; e = tree_next(e)) {
-				struct cache_entry *ce = get_struct(e, struct cache_entry, entry);
-				if (ce->save)
-					save_cache_entry(d, ce);
-			}
-		} else {
-			while ((e = tree_first(&da(d,function)->cache))) {
-				struct cache_entry *ce = get_struct(e, struct cache_entry, entry);
-				tree_delete(&ce->entry);
-				/*debug("saving: %s", da(d,function)->function_name);*/
-				if (ce->save)
-					save_cache_entry(d, ce);
-				free_cache_entry(d, ce);
-			}
+		for (e = tree_first(&da(d,function)->cache); e; e = tree_next(e)) {
+			struct cache_entry *ce = get_struct(e, struct cache_entry, entry);
+			if (ce->save)
+				save_cache_entry(d, ce);
 		}
 		save_finish_function(d);
 	}
