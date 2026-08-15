@@ -892,8 +892,6 @@ void save_function(struct data *d, bool new_cache)
 		ajla_error_t sink;
 		size_t i;
 		struct data *codegen;
-		if (compsave)
-			goto skip_save_codegen;
 		codegen = pointer_get_data(da(d,function)->codegen);
 		entries = da(codegen,codegen)->offsets = mem_alloc_array_mayfail(mem_alloc_mayfail, size_t *, 0, 0, da(codegen,codegen)->n_entries, sizeof(size_t), &sink);
 		if (unlikely(!entries)) {
@@ -910,7 +908,6 @@ void save_function(struct data *d, bool new_cache)
 		trap_records = da(codegen,codegen)->trap_records;
 		trap_records_size = da(codegen,codegen)->trap_records_size;
 #endif
-skip_save_codegen:;
 	}
 #endif
 	save_function_descriptor(da(d,function)->module_designator,
