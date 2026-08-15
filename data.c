@@ -2713,7 +2713,7 @@ static const struct stack_entry_type save_run = {
 	no_fixup_after_copy,
 	ptr_fixup_sub_ptr,
 	NULL,
-	NULL,
+	false,
 	true,
 	false,
 };
@@ -2724,7 +2724,7 @@ static const struct stack_entry_type save_slice = {
 	no_fixup_after_copy,
 	ptr_fixup_sub_ptr,
 	NULL,
-	NULL,
+	false,
 	true,
 	false,
 };
@@ -2825,7 +2825,7 @@ static const struct stack_entry_type save_type = {
 	no_fixup_after_copy,
 	ptr_fixup_sub_ptr,
 	NULL,
-	NULL,
+	false,
 	true,
 	false,
 };
@@ -2876,7 +2876,7 @@ static const struct stack_entry_type save_index = {
 	no_fixup_after_copy,
 	save_index_fixup_sub_ptr,
 	NULL,
-	NULL,
+	false,
 	true,
 	false,
 };
@@ -2921,19 +2921,13 @@ static bool save_pointer_duplicate_parents(void *loc)
 	return pointer_is_thunk(*ptr);
 }
 
-static void save_pointer_dereference_ptr(void *loc)
-{
-	pointer_t *ptr = loc;
-	pointer_dereference(*ptr);
-}
-
 static const struct stack_entry_type save_pointer = {
 	save_pointer_get_ptr,
 	save_pointer_get_properties,
 	save_pointer_fixup_after_copy,
 	save_pointer_fixup_sub_ptr,
 	save_pointer_duplicate_parents,
-	save_pointer_dereference_ptr,
+	true,
 	false,
 	false,
 };
@@ -2944,7 +2938,7 @@ static const struct stack_entry_type save_data_saved = {
 	NULL,
 	ptr_fixup_sub_ptr,
 	NULL,
-	NULL,
+	false,
 	false,
 	false,
 };
@@ -2984,7 +2978,7 @@ static const struct stack_entry_type save_function_pointer = {
 	no_fixup_after_copy,
 	ptr_fixup_sub_ptr,
 	NULL,
-	NULL,
+	false,
 	true,
 	true,
 };

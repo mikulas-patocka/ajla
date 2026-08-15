@@ -1961,7 +1961,7 @@ struct stack_entry_type {
 	void (*fixup_after_copy)(void *new_ptr);
 	void (*fixup_sub_ptr)(void *loc, uintptr_t offset);
 	bool (*duplicate_parents)(void *loc);
-	void (*dereference_ptr)(void *loc);
+	bool dereference_ptr;
 	bool wrap_on_save;
 	bool is_function_pointer;
 };

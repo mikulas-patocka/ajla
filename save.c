@@ -1175,6 +1175,7 @@ static bool adjust_pointers(char *data, size_t len, uintptr_t offset)
 static void bind_function_pointers(void)
 {
 	size_t i;
+
 	for (i = 0; i < loaded_file_descriptor(compsave)->function_pointers_len; i++) {
 		size_t off = loaded_file_descriptor(compsave)->function_pointers[i];
 		struct function_pointer *fp = cast_ptr(struct function_pointer *, cast_ptr(char *, ld[compsave].loaded_data) + off);
@@ -1189,6 +1190,7 @@ static void bind_function_pointers(void)
 void save_unbind_function_pointers(bool cs)
 {
 	size_t i, pos;
+	/*ajla_time_t a1 = os_time_monotonic();*/
 	if (!ld[cs].loaded_data)
 		return;
 	for (i = 0; i < loaded_file_descriptor(cs)->function_pointers_len; i++) {
@@ -1196,35 +1198,41 @@ void save_unbind_function_pointers(bool cs)
 		struct function_pointer *fp = cast_ptr(struct function_pointer *, cast_ptr(char *, ld[cs].loaded_data) + off);
 		pointer_dereference(fp->ptr);
 	}
+	/*debug("save_unbind_function_pointers_1: %lu", os_time_monotonic() - a1);
+	a1 = os_time_monotonic();*/
 	pos = loaded_file_descriptor(cs)->writable_boundary;
-	while (pos < ld[cs].loaded_data_len) {
+	while (pos = round_up(pos, SAVED_DATA_ALIGN), pos < ld[cs].loaded_data_len) {
+		char *p;
 		refcount_t *ref;
 		struct stack_entry *subptrs;
 		size_t align, size, subptrs_l, i;
 		bool duplicate;
-		if (unlikely((pos & (SAVED_DATA_ALIGN - 1)) != 0)) {
-			pos++;
-			continue;
-		}
-		ref = cast_ptr(refcount_t *, ld[cs].loaded_data + pos + offsetof(struct data, refcount_));
+		p = ld[cs].loaded_data + pos;
+		ref = cast_ptr(refcount_t *, p + offsetof(struct data, refcount_));
 		if (refcount_is_one(ref)) {
 			pos += SAVED_DATA_ALIGN;
 			continue;
 		}
 		if (unlikely(!refcount_is_read_only(ref)))
 			internal(file_line, "unbind_function_pointers: invalid refcount at position %"PRIxMAX"", (uintmax_t)pos);
-		if (unlikely(!data_save(ld[cs].loaded_data + pos, 0, &align, &size, &subptrs, &subptrs_l, &duplicate))) {
+		if (unlikely(!data_save(p, 0, &align, &size, &subptrs, &subptrs_l, &duplicate))) {
 			fatal("unable to allocate memory during shutdown");
 			return;
 		}
 		for (i = 0; i < subptrs_l; i++) {
-			if (subptrs[i].t->dereference_ptr)
-				subptrs[i].t->dereference_ptr(subptrs[i].ptr);
+			if (subptrs[i].t->dereference_ptr) {
+				pointer_t *ptr = subptrs[i].ptr;
+				char *rawptr = pointer_get_value_strip_tag_(*ptr);
+				if (likely(rawptr >= ld[cs].loaded_data) && likely(rawptr < ld[cs].loaded_data + ld[cs].loaded_data_len))
+					continue;
+				pointer_dereference(*ptr);
+			}
 		}
 		if (subptrs)
 			mem_free(subptrs);
 		pos += size;
 	}
+	/*debug("save_unbind_function_pointers: %lu", os_time_monotonic() - a1);*/
 }
 
 static int function_compare(const struct module_designator *md1, const struct function_designator *fd1, struct function_descriptor *fd2)
