@@ -383,7 +383,7 @@ static void module_finish_function(struct module_function *mf, bool compsave)
 		if (function_descriptor_is_compsave(d) == compsave) {
 			bool new_cache = !da(d,function)->is_saved;
 #ifdef HAVE_CODEGEN
-			if (likely(!pointer_is_thunk(da(d,function)->codegen)) && !compsave) {
+			if (likely(!pointer_is_thunk(da(d,function)->codegen))) {
 				struct data *codegen = pointer_get_data(da(d,function)->codegen);
 				if (unlikely(!da(codegen,codegen)->is_saved))
 					new_cache = true;
