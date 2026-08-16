@@ -68,6 +68,8 @@ fn get_local_type(ctx : function_context, i : int) : (function_context, int)
 	if typ = T_Record then [
 		return get_record_option_type_cc(ctx, cc);
 	]
+	var inv : list(compare_argument);
+	cc, typ, inv := get_type_invariants(ctx, cc, typ);
 	if typ = T_UnknownType or typ >= 0 then
 		typ := T_Undetermined;
 	return ctx, typ;
