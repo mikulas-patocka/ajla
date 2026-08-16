@@ -430,7 +430,7 @@ static void module_free_function(struct module_function *mf)
 					continue;
 				if (unlikely(!stack_trace_get_location(d, ip_rel, &ste)))
 					continue;
-				profile_escape_collect(ste.function_name, profiling_counter, ip_rel, ste.line, da(d,function)->code[ip_rel]);
+				profile_escape_collect(ste.function_name, profiling_counter, ip_rel * CG_EXIT_MULTIPLIER, ste.line, da(d,function)->code[ip_rel]);
 			}
 		}
 	}
