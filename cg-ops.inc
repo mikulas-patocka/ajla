@@ -1738,7 +1738,7 @@ static bool attr_w gen_option_cmp(struct codegen_context *ctx, unsigned reg, fra
 
 static bool attr_w gen_option_load(struct codegen_context *ctx, frame_t slot_1, frame_t slot_r, ajla_option_t opt, frame_t flags)
 {
-	const struct type *type;
+	const struct type *type, *rtype;
 	uint32_t escape_label;
 	unsigned reg;
 
@@ -1761,11 +1761,19 @@ static bool attr_w gen_option_load(struct codegen_context *ctx, frame_t slot_1, 
 	g(gen_option_cmp(ctx, reg, opt, escape_label, 0));
 
 	g(gen_address(ctx, reg, offsetof(struct data, u_.option.pointer), ARCH_PREFERS_SX(OP_SIZE_SLOT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_SLOT));
-	gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
-	gen_one(R_SCRATCH_1);
+	gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(R_SCRATCH_2, ARG_ADDRESS_1));
+	gen_one(R_SCRATCH_2);
 	gen_address_offset();
 
-	g(gen_frame_set_pointer_2(ctx, slot_r, R_SCRATCH_1, flags, escape_label));
+	rtype = get_type_of_local(ctx, slot_r);
+	if (TYPE_IS_FLAT(rtype)) {
+		g(gen_decompress_pointer(ctx, ARCH_PREFERS_SX(OP_SIZE_SLOT), R_SCRATCH_2, R_SCRATCH_2, 0));
+		g(gen_compare_ptr_tag(ctx, R_SCRATCH_2, DATA_TAG_flat, COND_NE, escape_label, R_SCRATCH_1, false, false));
+
+		g(gen_memcpy_to_slot(ctx, slot_r, R_SCRATCH_2, data_flat_offset));
+	} else {
+		g(gen_frame_set_pointer_2(ctx, slot_r, R_SCRATCH_2, flags, escape_label));
+	}
 
 	return true;
 }
