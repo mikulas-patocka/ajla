@@ -1524,6 +1524,8 @@ static char *save_get_file(void)
 		ext_index |= 0x10;
 	if (noautofma)
 		ext_index |= 0x20;
+	if (profiling)
+		ext_index |= 0x40;
 	sprintf(ext, ".%c%02x", compsave ? 'c' : 's', ext_index);
 	if (unlikely(!array_init_mayfail(char, &fn, &fn_l, &sink)))
 		goto free_ret;
