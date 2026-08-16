@@ -4956,7 +4956,7 @@ static void * attr_fastcall io_examine_handler(struct io_ctx *ctx)
 	tag_t tag;
 
 	if (frame_variable_is_flat(ctx->fp, slot)) {
-		debug("slot %u: flat variable", (unsigned)slot);
+		debug("slot %u: flat variable, type tag %u, size %u", (unsigned)slot, (unsigned)frame_get_type_of_local(ctx->fp, slot)->tag, (unsigned)frame_get_type_of_local(ctx->fp, slot)->size);
 		goto x;
 	}
 	bit = frame_test_flag(ctx->fp, slot);
