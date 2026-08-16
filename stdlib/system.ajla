@@ -454,6 +454,7 @@ fn assert~inline(v : bool, b : bytes) : unit_type;
 fn stacktrace(t : type, v : t) : unit_type;
 fn trace_on : unit_type;
 fn trace_off : unit_type;
+fn examine~inline(t : type, v : t) : t;
 private fn get_dump(b : bytes) : bytes;
 
 {-----------
@@ -2950,6 +2951,13 @@ fn trace_off : unit_type
 [
 	var b : unit_type;
 	pcode IO IO_TraceCtl 1 0 1 =b 0;
+	return b;
+]
+
+fn examine~inline(t : type, v : t) : t
+[
+	var b : t;
+	pcode IO IO_Examine 1 1 0 =b v;
 	return b;
 ]
 

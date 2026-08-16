@@ -4945,6 +4945,69 @@ static void * attr_fastcall io_trace_ctl_handler(struct io_ctx *ctx)
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
+static void * attr_fastcall io_examine_handler(struct io_ctx *ctx)
+{
+	frame_t slot = get_input(ctx, 0);
+	bool bit;
+	pointer_t ptr;
+	void *p;
+	refcount_t *r;
+	refcount_int_t refc;
+	tag_t tag;
+
+	if (frame_variable_is_flat(ctx->fp, slot)) {
+		debug("slot %u: flat variable", (unsigned)slot);
+		goto x;
+	}
+	bit = frame_test_flag(ctx->fp, slot);
+	ptr = *frame_pointer(ctx->fp, slot);
+
+	p = pointer_get_value_strip_tag_(ptr);
+
+	r = pointer_get_refcount_(ptr);
+	refc = refcount_get_nonatomic(r);
+
+	if (unlikely(pointer_is_thunk(ptr))) {
+		tag = thunk_tag(pointer_get_thunk(ptr));
+	} else {
+		tag = da_tag(pointer_get_data(ptr));
+	}
+
+	debug("slot %u: bit %d, ptr %p, refcount %"PRIuMAX", tag %u", (unsigned)slot, bit, p, (uintmax_t)refc, tag);
+
+	if (tag == DATA_TAG_record) {
+		struct data *data = pointer_get_data(ptr);
+		const struct record_definition *def = type_def(da(data,record)->definition,record);
+		frame_s *rfp = da_record_frame(data);
+		arg_t i;
+		for (i = 0; i < def->n_entries; i++) {
+			frame_t rs = def->idx_to_frame[i];
+			bool rbit = frame_test_flag(rfp, rs);
+			const struct type *typ = def->types[rs];
+			if (!rbit && TYPE_IS_FLAT(typ)) {
+				debug("record index %u, slot %u, type tag %u: flat variable", (unsigned)i, (unsigned)rs, (unsigned)typ->tag);
+			} else {
+				pointer_t rptr = *frame_pointer(rfp, rs);
+				void *rp = pointer_get_value_strip_tag_(rptr);
+				refcount_t *rr = pointer_get_refcount_(ptr);
+				refcount_int_t rrefc = refcount_get_nonatomic(rr);
+				tag_t rtag;
+				if (unlikely(pointer_is_thunk(rptr))) {
+					rtag = thunk_tag(pointer_get_thunk(rptr));
+				} else {
+					rtag = da_tag(pointer_get_data(rptr));
+				}
+				debug("record index %u, slot %u, type tag %u: bit %d, ptr %p, refcount %"PRIuMAX", tag %u", (unsigned)i, (unsigned)rs, (unsigned)typ->tag, rbit, rp, (uintmax_t)rrefc, rtag);
+			}
+		}
+	}
+
+x:
+	ipret_copy_variable(ctx->fp, slot, ctx->fp, get_output(ctx, 0), false);
+
+	return POINTER_FOLLOW_THUNK_GO;
+}
+
 static void * attr_fastcall io_get_dump_handler(struct io_ctx *ctx)
 {
 	void *test;
@@ -5229,6 +5292,7 @@ static const struct {
 	{ io_debug_handler },
 	{ io_stacktrace_handler },
 	{ io_trace_ctl_handler },
+	{ io_examine_handler },
 	{ io_get_dump_handler },
 	{ io_ffi_get_size_alignment_handler },
 	{ io_ffi_create_structure_handler },
