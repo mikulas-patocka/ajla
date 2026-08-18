@@ -370,7 +370,7 @@ fn record_list_create(ctx : function_context, vd : variable_dictionary, t : toke
 		fields +<= a;
 	]
 	var l : int;
-	ctx, l := generate_Array_Create(ctx, at, select(type_var < 0, T_Undetermined, type_var), fields, t);
+	ctx, l := generate_Array_Create(ctx, at, select(type_var < 0, T_Undetermined, type_var), T_Undetermined, fields, t);
 	return ctx, [ l ];
 ]
 
@@ -410,7 +410,7 @@ fn shortened_list_create(ctx : function_context, vd : variable_dictionary, t : t
 	ctx, at := generate_Call(ctx, Call_Mode_Unspecified, fd, list(int).[ type_var ], list(int).[ 0 ], t);
 
 	var l : int;
-	ctx, l := generate_Array_Create(ctx, at[0], select(type_var < 0, T_Undetermined, type_var), fields, t);
+	ctx, l := generate_Array_Create(ctx, at[0], select(type_var < 0, T_Undetermined, type_var), T_Undetermined, fields, t);
 	return ctx, [ l ];
 ]
 

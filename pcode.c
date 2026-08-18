@@ -1987,6 +1987,7 @@ static bool pcode_structured_loop(struct build_function_context *ctx, pcode_t n_
 
 				q = u_pcode_get();
 				local_type = pcode_get();
+				pcode_get();
 
 				idx = (arg_t)q;
 				if (unlikely(q != (pcode_t)idx))
@@ -2022,6 +2023,7 @@ c1:
 
 				q = u_pcode_get();
 				pcode_get();
+				pcode_get();
 
 				opt = (ajla_option_t)q;
 				if (unlikely(q != (pcode_t)opt))
@@ -2042,6 +2044,7 @@ c1:
 
 				var = u_pcode_get();
 				local_type = pcode_get();
+				pcode_get();
 
 				if (var_elided(var)) {
 					ajla_assert_lo(!gen, (file_line, "pcode_structured_loop(%s): elided array index in the second pass", function_name(ctx)));
@@ -2181,6 +2184,7 @@ static bool pcode_array_create(struct build_function_context *ctx)
 	length = u_pcode_get();
 	pcode_get();
 	local_type = pcode_get();
+	pcode_get();
 
 	pcode_position_save(ctx, &saved);
 

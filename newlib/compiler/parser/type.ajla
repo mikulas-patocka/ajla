@@ -1761,10 +1761,12 @@ fn evaluate_type(ctx : function_context, cc : compare_context, typ : int, fn_sta
 				goto uses_non_const;
 		var at elem length l : int;
 		ctx, at := evaluate_type(ctx, cc, type_idx, fn_stack, t);
+		var lt_var : int;
+		ctx, lt_var := evaluate_type(ctx, cc, pcode_Array_Create_get_lt_var(instr), fn_stack, t);
 		var fields := fill(-1, array_length);
 		for i := 0 to array_length do
 			ctx, fields[i] := evaluate_type(ctx, cc, pcode_Array_Create_get_arg(instr, i), fn_stack, t);
-		ctx, l := generate_Array_Create(ctx, at, local_type, fields, t);
+		ctx, l := generate_Array_Create(ctx, at, local_type, lt_var, fields, t);
 		return ctx, l;
 	]
 	if opcode = P_Array_String then [

@@ -67,9 +67,9 @@ fn generate_Bytes(ctx : function_context) : (function_context, int);
 fn generate_String(ctx : function_context) : (function_context, int);
 
 fn start_Structured_Write(v : int) : list(pcode_t);
-fn append_Structured_Array(m : list(pcode_t), idx local_type : int) : list(pcode_t);
-fn append_Structured_Record(m : list(pcode_t), idx local_type : int) : list(pcode_t);
-fn append_Structured_Option(m : list(pcode_t), idx local_type : int) : list(pcode_t);
+fn append_Structured_Array(m : list(pcode_t), idx local_type lt_var : int) : list(pcode_t);
+fn append_Structured_Record(m : list(pcode_t), idx local_type lt_var : int) : list(pcode_t);
+fn append_Structured_Option(m : list(pcode_t), idx local_type lt_var : int) : list(pcode_t);
 fn generate_Structured_Write(ctx : function_context, instr : list(pcode_t), scalar : int) : function_context;
 
 fn generate_Record_Type(ctx : function_context, fields : list(int), result : int) : function_context;
@@ -96,9 +96,10 @@ fn pcode_Option_Test_get_index(ins : instruction) : int;
 fn generate_Option_Ord(ctx : function_context, ar : int) : (function_context, int);
 fn pcode_Option_Ord_get_option(ins : instruction) : int;
 
-fn generate_Array_Create(ctx : function_context, at : int, local_type : int, fields : list(int), t : tokens) : (function_context, int);
+fn generate_Array_Create(ctx : function_context, at : int, local_type lt_var : int, fields : list(int), t : tokens) : (function_context, int);
 fn pcode_Array_Create_get_length(ins : instruction) : nat;
 fn pcode_Array_Create_get_local_type(ins : instruction) : nat;
+fn pcode_Array_Create_get_lt_var(ins : instruction) : nat;
 fn pcode_Array_Create_get_arg(ins : instruction, arg : int) : int;
 fn generate_Array_String(ctx : function_context, blob : list(pcode_t)) : (function_context, int);
 fn pcode_Array_String_get_blob(ins : instruction) : list(pcode_t);
@@ -841,24 +842,24 @@ fn start_Structured_Write(v : int) : list(pcode_t)
 	return list(pcode_t).[ 0, v, 0, v, 0, -1 ];
 ]
 
-fn append_Structured_Array(m : list(pcode_t), idx local_type : int) : list(pcode_t)
+fn append_Structured_Array(m : list(pcode_t), idx local_type lt_var : int) : list(pcode_t)
 [
 	m[0] += 1;
-	m += list(pcode_t).[ Structured_Array, idx, local_type ];
+	m += list(pcode_t).[ Structured_Array, idx, local_type, lt_var ];
 	return m;
 ]
 
-fn append_Structured_Record(m : list(pcode_t), idx local_type : int) : list(pcode_t)
+fn append_Structured_Record(m : list(pcode_t), idx local_type lt_var : int) : list(pcode_t)
 [
 	m[0] += 1;
-	m += list(pcode_t).[ Structured_Record, idx, local_type ];
+	m += list(pcode_t).[ Structured_Record, idx, local_type, lt_var ];
 	return m;
 ]
 
-fn append_Structured_Option(m : list(pcode_t), idx local_type : int) : list(pcode_t)
+fn append_Structured_Option(m : list(pcode_t), idx local_type lt_var : int) : list(pcode_t)
 [
 	m[0] += 1;
-	m += list(pcode_t).[ Structured_Option, idx, local_type ];
+	m += list(pcode_t).[ Structured_Option, idx, local_type, lt_var ];
 	return m;
 ]
 
@@ -1103,7 +1104,7 @@ fn pcode_Option_Ord_get_option(ins : instruction) : int
 ]
 
 
-fn generate_Array_Create(ctx : function_context, at : int, local_type : int, fields : list(int), t : tokens) : (function_context, int)
+fn generate_Array_Create(ctx : function_context, at : int, local_type lt_var : int, fields : list(int), t : tokens) : (function_context, int)
 [
 	var array_length := len(fields);
 	var blob := int_to_blob(array_length);
@@ -1111,7 +1112,7 @@ fn generate_Array_Create(ctx : function_context, at : int, local_type : int, fie
 	ctx, c := generate_Load_Const(ctx, T_Integer, blob);
 	ctx, l := alloc_local_variable(ctx, at, true, false);
 
-	var pcode_args := list(pcode_t).[ l, array_length, c, local_type ];
+	var pcode_args := list(pcode_t).[ l, array_length, c, local_type, lt_var ];
 
 	for i := 0 to array_length do [
 		pcode_args +<= 0;
@@ -1136,10 +1137,16 @@ fn pcode_Array_Create_get_local_type(ins : instruction) : nat
 	return ins.args[3];
 ]
 
+fn pcode_Array_Create_get_lt_var(ins : instruction) : nat
+[
+	//xeval assert(ins.opcode = P_Array_Create, "pcode_Array_Create_get_local_type: invalid instruction");
+	return ins.args[4];
+]
+
 fn pcode_Array_Create_get_arg(ins : instruction, arg : int) : int
 [
 	//xeval assert(ins.opcode = P_Array_Create, "pcode_Array_Create_get_arg: invalid instruction");
-	return ins.args[5 + arg * 2];
+	return ins.args[6 + arg * 2];
 ]
 
 fn generate_Array_String(ctx : function_context, blob : list(pcode_t)) : (function_context, int)

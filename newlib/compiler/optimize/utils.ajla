@@ -138,14 +138,14 @@ fn decode_structured_params(offs : int, params : list(pcode_t)) : (int, param_se
 		var scode := params[offs];
 		if scode = Structured_Record then [
 			ls bts= offs + 2;
-			offs += 3;
+			offs += 4;
 		] else if scode = Structured_Option then [
 			ls bts= offs + 2;
-			offs += 3;
+			offs += 4;
 		] else if scode = Structured_Array then [
 			ps bts= offs + 1;
 			ls bts= offs + 2;
-			offs += 3;
+			offs += 4;
 		] else [
 			abort internal("invalid structured type");
 		]
@@ -324,11 +324,11 @@ fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instructi
 		ins.read_set := 0 bts 2;
 		ins.write_set := 0 bts 0;
 		for i := 0 to params[1] do [
-			ins.read_set bts= 5 + i * 2;
-			ins.free_set bts= 5 + i * 2;
+			ins.read_set bts= 6 + i * 2;
+			ins.free_set bts= 6 + i * 2;
 		]
 		ins.lt_set bts= 3;
-		xlen := 4 + params[1] * 2;
+		xlen := 5 + params[1] * 2;
 	] else if opcode = P_Array_Fill then [
 		ins.read_set := 0 bts 2 bts 3;
 		ins.free_set := 0 bts 2;
