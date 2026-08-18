@@ -21,7 +21,7 @@ private unit compiler.optimize.defs;
 uses pcode;
 uses treemap;
 
-const check : bool := false;
+const check := false;
 
 type node_set := int128;
 type var_set := int128;

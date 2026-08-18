@@ -398,7 +398,9 @@ fn set_to_mask(ins : instruction, s : param_set) : var_set
 	while s <> 0 do [
 		var q : int := bsr s;
 		s btr= q;
-		r bts= ins.params[q];
+		var p := ins.params[q];
+		if p >= 0 then
+			r bts= p;
 	]
 	return r;
 ]
@@ -1802,6 +1804,7 @@ fn dce2(ctx : context) : context
 			var ins := ctx.instrs[igi];
 			if ins.opcode = P_Assume or ins.opcode = P_Claim or ins.opcode = P_Invariant then
 				worklist or= set_to_mask(ins, ins.read_set);
+			worklist or= set_to_mask(ins, ins.lt_set shl 1);
 		]
 	]
 
@@ -2122,7 +2125,7 @@ fn remap_variables(ctx : context, old_new : list(int)) : context
 				ctx.instrs[igi].params := var_set_2_list(new_set);
 				continue;
 			]
-			var s := ins.read_set or ins.write_set;
+			var s := ins.read_set or ins.write_set or ins.lt_set shl 1;
 			if ins.opcode = P_Load_Local_Type, ins.params[1] >= 0 then
 				s bts= 1;
 			while s <> 0 do [
@@ -2157,7 +2160,7 @@ fn dve(ctx : context) : context
 			var ins := ctx.instrs[igi];
 			if ins.opcode = P_Load_Const then
 				continue;
-			var s := ins.read_set or ins.write_set;
+			var s := ins.read_set or ins.write_set or ins.lt_set shl 1;
 			while s <> 0 do [
 				var p : int := bsr s;
 				s btr= p;
@@ -2242,6 +2245,10 @@ fn remap_local_types(ctx : context, old_new : list(int)) : context
 				var p : int := bsr s;
 				s btr= p;
 				ctx.instrs[igi].params[p] := old_new[ins.params[p]];
+				var v := ctx.instrs[igi].params[p + 1];
+				if v >= 0, ctx.variables[v].type_index <> T_Type then [
+					abort internal("remap_local_types: local type variable has invalid type " + ntos(ctx.variables[v].type_index));
+				]
 			]
 		]
 	]
@@ -3115,6 +3122,23 @@ fn check_consistency(ctx : context, msg : bytes, test_no_pred : bool) : context
 			abort internal(msg + ": runtime type out of range");
 		//if ctx.variables[vgi].local_type >= len(ctx.local_types) then
 		//	abort internal(msg + ": local type out of range");
+	]
+	for bgi := 0 to len(ctx.blocks) do [
+		if not ctx.blocks[bgi].active then
+			continue;
+		for ili := 0 to len(ctx.blocks[bgi].instrs) do [
+			var igi := ctx.blocks[bgi].instrs[ili];
+			var ins := ctx.instrs[igi];
+			var s := ins.lt_set;
+			while s <> 0 do [
+				var p : int := bsr s;
+				s btr= p;
+				var v := ctx.instrs[igi].params[p + 1];
+				if v >= 0, ctx.variables[v].type_index <> T_Type then [
+					abort internal(msg + ": local type variable has invalid type " + ntos(ctx.variables[v].type_index));
+				]
+			]
+		]
 	]
 	return ctx;
 ]

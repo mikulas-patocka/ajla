@@ -369,8 +369,9 @@ fn record_list_create(ctx : function_context, vd : variable_dictionary, t : toke
 		ctx, a, m := convert_type(ctx, vd, a, type_cc, type_var, 0, true, decl);
 		fields +<= a;
 	]
-	var l : int;
-	ctx, l := generate_Array_Create(ctx, at, select(type_var < 0, T_Undetermined, type_var), T_Undetermined, fields, t);
+	var l lt_var : int;
+	ctx, lt_var := evaluate_type(ctx, type_cc, type_var, empty(compare_fn_stack), t);
+	ctx, l := generate_Array_Create(ctx, at, select(type_var < 0, T_Undetermined, type_var), lt_var, fields, t);
 	return ctx, [ l ];
 ]
 

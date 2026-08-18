@@ -346,9 +346,10 @@ fn parse_statement_assign(ctx : function_context, vd : variable_dictionary, can_
 				if not is_array then
 					need_verify_indices[len(need_verify_indices) - 1] := ai;
 
-				var lt : int;
+				var lt lt_var : int;
 				ctx, lt := get_type_cc(ctx, cc, typ);
-				av.instr := append_Structured_Array(av.instr, ai, lt, T_Undetermined);
+				ctx, lt_var := evaluate_type(ctx, cc, typ, empty(compare_fn_stack), expression);
+				av.instr := append_Structured_Array(av.instr, ai, lt, lt_var);
 			] else if len_at_least(lvalue, lv_index + 2), lvalue[lv_index].t is dot then [
 				xeval token_assert(lvalue[lv_index + 1 ..], token_opt.identifier.(0));
 				var field := lvalue[lv_index + 1].t.identifier;
@@ -365,17 +366,19 @@ fn parse_statement_assign(ctx : function_context, vd : variable_dictionary, can_
 				if rec_def.entries[idx].accessing_other, av.deep_structured then
 					abort compiler_error("Record field may not be modified here", lvalue[lv_index .. ]);
 				if not rec_def.is_option then [
-					var lt : int;
+					var lt lt_var : int;
 					ctx, lt := get_record_option_type_cc(ctx, rec_cc);
-					av.instr := append_Structured_Record(av.instr, idx, lt, T_Undetermined);
 					ctx, cc, typ := generate_record_entry_type(ctx, v, idx, rec_cc, lvalue[lv_index .. ]);
+					ctx, lt_var := evaluate_type(ctx, cc, typ, empty(compare_fn_stack), expression);
+					av.instr := append_Structured_Record(av.instr, idx, lt, lt_var);
 				] else [
 					if rec_def.entries[idx].type_idx = T_EmptyOption then
 						abort compiler_error("Option field doesn't have a value", lvalue[lv_index .. ]);
-					var lt : int;
+					var lt lt_var : int;
 					ctx, lt := get_record_option_type_cc(ctx, rec_cc);
-					av.instr := append_Structured_Option(av.instr, idx, lt, T_Undetermined);
 					cc, typ := rec_cc, rec_def.entries[idx].type_idx;
+					ctx, lt_var := evaluate_type(ctx, cc, typ, empty(compare_fn_stack), expression);
+					av.instr := append_Structured_Option(av.instr, idx, lt, lt_var);
 				]
 				lv_index += 2;
 			] else [
