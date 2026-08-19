@@ -125,9 +125,8 @@ fn do_inline_or_specialize(ctx new_ctx : context, bgi : int, ili ili_n : int, ca
 		while ls <> 0 do [
 			var p : int := bsr ls;
 			ls btr= p;
-			new_ctx.instrs[i].params[p] += len(ctx.local_types);
-			if new_ctx.instrs[i].params[p + 1] >= 0 then
-				new_ctx.instrs[i].params[p + 1] += len(ctx.variables);
+			if new_ctx.instrs[i].params[p] >= 0 then
+				new_ctx.instrs[i].params[p] += len(ctx.local_types);
 		]
 	]
 

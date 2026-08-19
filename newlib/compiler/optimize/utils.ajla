@@ -268,7 +268,7 @@ fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instructi
 		ins.write_set := 0 bts 1;
 		var pmask lmask : param_set;
 		xlen, pmask, lmask := decode_structured_params(6, params);
-		ins.read_set or= pmask;
+		ins.read_set or= pmask or lmask shl 1;
 		ins.lt_set := lmask;
 		ins.conflict_1 := 0 bts 5 or pmask;
 		ins.conflict_2 := 0 bts 1;
@@ -321,7 +321,7 @@ fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instructi
 		ins.write_set := 0 bts 0;
 		xlen := 3;
 	] else if opcode = P_Array_Create then [
-		ins.read_set := 0 bts 2;
+		ins.read_set := 0 bts 2 bts 4;
 		ins.write_set := 0 bts 0;
 		for i := 0 to params[1] do [
 			ins.read_set bts= 6 + i * 2;
@@ -494,14 +494,6 @@ fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instructi
 			ins.free_set btr= s;
 			ins.conflict_1 btr= s;
 			ins.conflict_2 btr= s;
-		]
-	]
-	var ls := ins.lt_set;
-	while ls <> 0 do [
-		var s : int := bsr ls;
-		ls btr= s;
-		if ins.params[s] < 0 then [
-			ins.lt_set btr= s;
 		]
 	]
 

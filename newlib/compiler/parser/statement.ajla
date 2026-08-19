@@ -368,16 +368,16 @@ fn parse_statement_assign(ctx : function_context, vd : variable_dictionary, can_
 				if not rec_def.is_option then [
 					var lt lt_var : int;
 					ctx, lt := get_record_option_type_cc(ctx, rec_cc);
-					ctx, cc, typ := generate_record_entry_type(ctx, v, idx, rec_cc, lvalue[lv_index .. ]);
 					ctx, lt_var := evaluate_type(ctx, cc, typ, empty(compare_fn_stack), expression);
+					ctx, cc, typ := generate_record_entry_type(ctx, v, idx, rec_cc, lvalue[lv_index .. ]);
 					av.instr := append_Structured_Record(av.instr, idx, lt, lt_var);
 				] else [
 					if rec_def.entries[idx].type_idx = T_EmptyOption then
 						abort compiler_error("Option field doesn't have a value", lvalue[lv_index .. ]);
 					var lt lt_var : int;
 					ctx, lt := get_record_option_type_cc(ctx, rec_cc);
-					cc, typ := rec_cc, rec_def.entries[idx].type_idx;
 					ctx, lt_var := evaluate_type(ctx, cc, typ, empty(compare_fn_stack), expression);
+					cc, typ := rec_cc, rec_def.entries[idx].type_idx;
 					av.instr := append_Structured_Option(av.instr, idx, lt, lt_var);
 				]
 				lv_index += 2;
