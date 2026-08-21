@@ -1763,7 +1763,7 @@ fn dce(ctx : context) : context
 		done bts= vgi;
 		var igi := ctx.variables[vgi].defining_instr;
 		var ins := ctx.instrs[igi];
-		var var_mask := set_to_mask(ins, ins.read_set) or set_to_mask(ins, ins.write_set);
+		var var_mask := set_to_mask(ins, ins.read_set and not ins.lt_set shl 1) or set_to_mask(ins, ins.write_set);
 		//eval debug("variable " + ntos(vgi) + " defined at " + ntos(igi) + " opcode " + ntos(ins.opcode) + " read_mask " + mtos(set_to_mask(ins, ins.read_set)) + " write_mask " + mtos(set_to_mask(ins, ins.write_set)));
 		worklist or= var_mask and not done;
 	]
