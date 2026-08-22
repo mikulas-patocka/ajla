@@ -761,7 +761,10 @@ static bool attr_w gen_call_indirect(struct codegen_context *ctx, code_t code, f
 		g(gen_load_constant(ctx, R_ARG2, src_arg->flags));
 		g(gen_upcall_argument(ctx, 2));
 
-		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG3, R_SAVED_2, i * sizeof(struct local_arg), 0));
+		if (!i)
+			g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG3, R_SAVED_2));
+		else
+			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG3, R_SAVED_2, i * sizeof(struct local_arg), 0));
 		g(gen_upcall_argument(ctx, 3));
 
 		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_call_indirect_arg), 4, false));
