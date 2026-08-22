@@ -1728,7 +1728,7 @@ cat(call_from_mode_,ARG_MODE):
 
 	ADVANCE_I_PARAM(3);
 
-	new_fp = frame_build(fp, function, &ajla_error);
+	new_fp = frame_build(fp, function, false, &ajla_error);
 	if (unlikely(!new_fp)) {
 cat(call_allocation_error_,ARG_MODE):
 		function_error = thunk_alloc_exception_error(ajla_error, NULL, fp, ip pass_file_line);
@@ -1838,7 +1838,7 @@ cat(call_indirect_from_mode_,ARG_MODE):
 		goto cat(call_set_error_,ARG_MODE)
 	);
 
-	new_fp = frame_build(fp, function, &ajla_error);
+	new_fp = frame_build(fp, function, false, &ajla_error);
 	if (unlikely(!new_fp)) {
 		if (deref)
 			frame_free_and_clear(fp, fn_ref_slot);

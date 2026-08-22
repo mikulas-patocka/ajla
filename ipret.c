@@ -654,7 +654,7 @@ for_all_real(generate_real_functions, for_all_empty)
 #undef generate_real_real80
 #undef generate_real_real128
 
-static inline frame_s *frame_build(frame_s *fp, struct data *function, ajla_error_t *mayfail)
+static inline frame_s *frame_build(frame_s *fp, struct data *function, bool no_expand, ajla_error_t *mayfail)
 {
 	frame_t new_frame_slots = da(function,function)->frame_slots;
 	if (likely(new_frame_slots <= get_frame(fp)->available_slots)) {
@@ -663,6 +663,8 @@ static inline frame_s *frame_build(frame_s *fp, struct data *function, ajla_erro
 		get_frame(new_fp)->function = function;
 		return new_fp;
 	} else {
+		if (no_expand)
+			return NULL;
 		return stack_expand(fp, function, mayfail);
 	}
 }
@@ -1080,6 +1082,53 @@ static pointer_t_upcall cg_upcall_array_join(pointer_t_upcall ptr1, pointer_t_up
 	return pointer_data(d);
 }
 
+static void *cg_upcall_call_indirect(frame_s *fp, uintptr_t fn_ref_slot, uintptr_t deref_call_mode)
+{
+	struct data *function;
+	pointer_t *ptr = frame_pointer(fp, fn_ref_slot);
+	frame_s *new_fp;
+	arg_t n_curried_arguments = 0;
+	bool deref = (deref_call_mode & 0x1) != 0;
+	deref_call_mode >>= 1;
+	while (1) {
+		pointer_follow(ptr, false, function, PF_NOEVAL, NULL, NULL,
+			return NULL,
+			return NULL);
+		n_curried_arguments += da(function,function_reference)->n_curried_arguments;
+		if (!da(function,function_reference)->is_indirect)
+			break;
+		ptr = &da(function,function_reference)->u.indirect;
+	}
+	ptr = &da(function,function_reference)->u.direct->ptr;
+	pointer_follow(ptr, false, function, PF_NOEVAL, NULL, NULL,
+		return NULL,
+		return NULL);
+	new_fp = frame_build(fp, function, true, NULL);
+	if (unlikely(!new_fp))
+		return NULL;
+	frame_init(new_fp, function, get_frame(fp)->timestamp, deref_call_mode);
+	copy_from_function_reference_to_frame(new_fp, pointer_get_data(*frame_pointer(fp, fn_ref_slot)), n_curried_arguments, deref && frame_test_flag(fp, fn_ref_slot));
+	if (deref)
+		frame_free_and_clear(fp, fn_ref_slot);
+
+	get_frame(new_fp)->previous_ip_bytes = n_curried_arguments;
+	return new_fp;
+}
+
+static void cg_upcall_call_indirect_arg(frame_s *new_fp, uintptr_t src_slot, uintptr_t src_flag, struct local_arg *dest_arg)
+{
+	frame_s *fp = frame_up(new_fp);
+	frame_t dst_slot = dest_arg->slot;
+	bool may_be_borrowed = dest_arg->may_be_borrowed;
+	if (may_be_borrowed && src_flag & OPCODE_CALL_MAY_LEND && !pointer_is_thunk(*frame_pointer(fp, src_slot))) {
+		*frame_pointer(new_fp, dst_slot) = *frame_pointer(fp, src_slot);
+	} else if (may_be_borrowed && src_flag & OPCODE_CALL_MAY_GIVE && !frame_test_flag(fp, src_slot) && !pointer_is_thunk(*frame_pointer(fp, src_slot))) {
+		*frame_pointer(new_fp, dst_slot) = *frame_pointer(fp, src_slot);
+	} else {
+		ipret_copy_variable(fp, src_slot, new_fp, dst_slot, (src_flag & OPCODE_FLAG_FREE_ARGUMENT) != 0);
+	}
+}
+
 static void *cg_upcall_ipret_io(frame_s *fp, uintptr_t ip_offset, uintptr_t code_params)
 {
 	void *ret;
@@ -1164,6 +1213,8 @@ struct cg_upcall_vector_s cg_upcall_vector = {
 	cg_upcall_array_sub,
 	cg_upcall_array_skip,
 	cg_upcall_array_join,
+	cg_upcall_call_indirect,
+	cg_upcall_call_indirect_arg,
 	cg_upcall_ipret_io,
 	cg_upcall_ipret_system_property,
 #define f(n, s, u, sz, bits) \

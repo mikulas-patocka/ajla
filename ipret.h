@@ -65,6 +65,8 @@ struct cg_upcall_vector_s {
 	pointer_t_upcall (*cg_upcall_array_sub)(pointer_t_upcall array, int_default_t_upcall start, int_default_t_upcall end, bool deref);
 	pointer_t_upcall (*cg_upcall_array_skip)(pointer_t_upcall array, int_default_t_upcall start, bool deref);
 	pointer_t_upcall (*cg_upcall_array_join)(pointer_t_upcall ptr1, pointer_t_upcall ptr2);
+	void *(*cg_upcall_call_indirect)(frame_s *fp, uintptr_t fn_ref_slot, uintptr_t deref_call_mode);
+	void (*cg_upcall_call_indirect_arg)(frame_s *new_fp, uintptr_t src_slot, uintptr_t src_flag, struct local_arg *dest_arg);
 	void *(*cg_upcall_ipret_io)(frame_s *fp, uintptr_t ip_offset, uintptr_t code_params);
 	int_default_t (*cg_upcall_ipret_system_property)(int_default_t_upcall idx);
 #define f(n, s, u, sz, bits) \

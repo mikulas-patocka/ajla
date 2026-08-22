@@ -2108,7 +2108,6 @@ do {									\
 			case OPCODE_CALL_SAVE: {
 				get_two(ctx, &n_args, &n_ret);
 				get_one(ctx, &fn_idx);
-jump_over_arguments_and_return:
 				load_args;
 				if (likely(!profiling) && (likely(code == OPCODE_CALL) || code == OPCODE_CALL_STRICT)) {
 					g(gen_call(ctx, code, fn_idx));
@@ -2128,7 +2127,14 @@ jump_over_arguments_and_return:
 				fn_idx = 0;		/* avoid warning */
 				get_two(ctx, &n_args, &n_ret);
 				get_two(ctx, &slot_1, &flags);
-				goto jump_over_arguments_and_return;
+				load_args;
+				if (likely(!profiling) && (likely(code == OPCODE_CALL_INDIRECT) || code == OPCODE_CALL_INDIRECT_STRICT)) {
+					g(gen_call_indirect(ctx, code, slot_1, flags));
+					g(gen_call_end(ctx, n_ret));
+					continue;
+				}
+				g(gen_call_end(ctx, n_ret));
+				goto unconditional_escape;
 			}
 			case OPCODE_RETURN: {
 				n_args = da(ctx->fn,function)->n_return_values;

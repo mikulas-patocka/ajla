@@ -16,6 +16,8 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  */
 
+static bool attr_w gen_scaled_array_address(struct codegen_context *ctx, size_t element_size, unsigned reg_dst, unsigned reg_src, unsigned reg_index, int64_t offset_src);
+
 static bool attr_w gen_flat_move_copy(struct codegen_context *ctx, frame_t slot_1, frame_t slot_r)
 {
 	uint32_t escape_label;
@@ -470,6 +472,51 @@ static bool test_quick_return(struct codegen_context *ctx, frame_t *ret_vars, ar
 	return true;
 }
 
+static bool attr_w gen_call_tail(struct codegen_context *ctx)
+{
+	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.function.codegen), ARCH_PREFERS_SX(OP_SIZE_SLOT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_SLOT));
+	gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
+	gen_one(R_SCRATCH_1);
+	gen_address_offset();
+
+	g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, NO_FRAME_T, ctx->escape_nospill_label));
+	g(gen_barrier(ctx));
+
+	SET_FP_PRECISION(DEFAULT_FP_PRECISION);
+
+	gen_pointer_compression(R_SCRATCH_1);
+#if defined(ARCH_ARM32) || defined(ARCH_M68K) || (defined(ARCH_X86) && !defined(ARCH_X86_X32))
+	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_entry), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_address_offset_compressed();
+	return true;
+#endif
+#if defined(ARCH_S390_64)
+	if (likely(cpu_test_feature(CPU_FEATURE_misc_insn_ext_2))) {
+		g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_entry), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+		gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+		gen_address_offset_compressed();
+		return true;
+	}
+#endif
+	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_entry), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
+	gen_one(R_SCRATCH_1);
+	gen_address_offset_compressed();
+#if defined(R_SCRATCH_B)
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(R_SCRATCH_B, R_SCRATCH_1));
+	gen_one(R_SCRATCH_B);
+	gen_one(R_SCRATCH_1);
+
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(R_SCRATCH_B);
+	return true;
+#endif
+	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
+	gen_one(R_SCRATCH_1);
+	return true;
+}
+
 static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn_idx)
 {
 	struct data *new_fn = ctx->local_directory[fn_idx];
@@ -511,7 +558,7 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 	g(gen_frame_store_imm_raw(ctx, log_2(sizeof(ip_t)), 0, new_fp_offset + frame_offs(previous_ip_bytes), (ctx->current_position - da(ctx->fn,function)->code) * sizeof(code_t)));
 	g(gen_load_raw(ctx, log_2(sizeof(timestamp_t)), garbage, R_FRAME, 0, frame_offs(timestamp), false, R_SCRATCH_1));
 	g(gen_store_raw(ctx, log_2(sizeof(timestamp_t)), R_FRAME, 0, new_fp_offset + frame_offs(timestamp), R_SCRATCH_1));
-	call_mode = code == OPCODE_CALL ? CALL_MODE_NORMAL : code == OPCODE_CALL_STRICT ? CALL_MODE_STRICT : CALL_MODE_SPARK;
+	call_mode = likely(code == OPCODE_CALL) ? CALL_MODE_NORMAL : CALL_MODE_STRICT;
 	g(gen_frame_store_imm_raw(ctx, log_2(sizeof(uchar_efficient_t)), 0, new_fp_offset + frame_offs(mode), call_mode));
 
 	g(gen_clear_bitmap(ctx, frame_offset, R_FRAME, new_fp_offset, bitmap_slots));
@@ -652,48 +699,78 @@ skip_ref_argument:
 	g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_FRAME, R_FRAME, new_fp_offset, 0));
 #endif
 
-	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.function.codegen), ARCH_PREFERS_SX(OP_SIZE_SLOT) ? IMM_PURPOSE_LDR_SX_OFFSET : IMM_PURPOSE_LDR_OFFSET, OP_SIZE_SLOT));
-	gen_insn(ARCH_PREFERS_SX(OP_SIZE_SLOT) ? INSN_MOVSX : INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
-	gen_one(R_SCRATCH_1);
+	g(gen_call_tail(ctx));
+	return true;
+}
+
+static bool attr_w gen_call_indirect(struct codegen_context *ctx, code_t code, frame_t fn_ref_slot, frame_t flags)
+{
+	uchar_efficient_t call_mode = likely(code == OPCODE_CALL_INDIRECT) ? CALL_MODE_NORMAL : CALL_MODE_STRICT;
+	uint32_t escape_label;
+	arg_t i;
+
+	escape_label = alloc_escape_label(ctx);
+	if (unlikely(!escape_label))
+		return false;
+
+	g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_call_indirect), 3, true));
+
+	g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, R_FRAME));
+	g(gen_upcall_argument(ctx, 0));
+
+	g(gen_load_constant(ctx, R_ARG1, fn_ref_slot));
+	g(gen_upcall_argument(ctx, 1));
+
+	g(gen_load_constant(ctx, R_ARG2, (!!(flags & OPCODE_FLAG_FREE_ARGUMENT)) | (call_mode << 1)));
+	g(gen_upcall_argument(ctx, 2));
+
+	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_call_indirect), 3, true));
+	g(gen_sanitize_returned_pointer(ctx, R_RET0));
+	g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, escape_label));
+
+	g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SAVED_1, R_RET0));
+
+	g(gen_spill_all(ctx));
+	g(gen_spill_x87(ctx));
+
+	g(gen_load_raw(ctx, log_2(sizeof(ip_t)), native, R_SAVED_1, 0, frame_offs(previous_ip_bytes), false, R_SCRATCH_1));
+	g(gen_load_raw(ctx, OP_SIZE_ADDRESS, native, R_SAVED_1, 0, frame_offs(function), false, R_SCRATCH_2));
+
+	g(gen_address(ctx, R_SCRATCH_2, offsetof(struct data, u_.function.args), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(R_SCRATCH_3, ARG_ADDRESS_1));
+	gen_one(R_SCRATCH_3);
 	gen_address_offset();
 
-	g(gen_ptr_is_thunk(ctx, R_SCRATCH_1, NO_FRAME_T, ctx->escape_nospill_label));
-	g(gen_barrier(ctx));
+	g(gen_scaled_array_address(ctx, sizeof(struct local_arg), R_SAVED_2, R_SCRATCH_3, R_SCRATCH_1, 0));
 
-	SET_FP_PRECISION(DEFAULT_FP_PRECISION);
+	for (i = 0; i < ctx->args_l; i++) {
+		const struct code_arg *src_arg = &ctx->args[i];
+		/*const struct type *t = get_type_of_local(ctx, src_arg->slot);*/
 
-	gen_pointer_compression(R_SCRATCH_1);
-#if defined(ARCH_ARM32) || defined(ARCH_M68K) || (defined(ARCH_X86) && !defined(ARCH_X86_X32))
-	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_entry), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
-	gen_address_offset_compressed();
-	goto jmp_done;
-#endif
-#if defined(ARCH_S390_64)
-	if (likely(cpu_test_feature(CPU_FEATURE_misc_insn_ext_2))) {
-		g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_entry), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-		gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
-		gen_address_offset_compressed();
-		goto jmp_done;
+		g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_call_indirect_arg), 4, false));
+
+		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, R_SAVED_1));
+		g(gen_upcall_argument(ctx, 0));
+
+		g(gen_load_constant(ctx, R_ARG1, src_arg->slot));
+		g(gen_upcall_argument(ctx, 1));
+
+		g(gen_load_constant(ctx, R_ARG2, src_arg->flags));
+		g(gen_upcall_argument(ctx, 2));
+
+		g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_ARG3, R_SAVED_2, i * sizeof(struct local_arg), 0));
+		g(gen_upcall_argument(ctx, 3));
+
+		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_call_indirect_arg), 4, false));
 	}
-#endif
-	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.codegen.unoptimized_code_entry), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
-	gen_one(R_SCRATCH_1);
-	gen_address_offset_compressed();
-#if defined(R_SCRATCH_B)
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(R_SCRATCH_B, R_SCRATCH_1));
-	gen_one(R_SCRATCH_B);
-	gen_one(R_SCRATCH_1);
 
-	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
-	gen_one(R_SCRATCH_B);
-	goto jmp_done;
-#endif
-	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
-	gen_one(R_SCRATCH_1);
-	goto jmp_done;
-jmp_done:
+	g(gen_load_raw(ctx, OP_SIZE_ADDRESS, native, R_SAVED_1, 0, frame_offs(function), false, R_SCRATCH_1));
+
+	g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_FRAME, R_SAVED_1));
+	g(gen_frame_store_imm_raw(ctx, log_2(sizeof(ip_t)), 0, frame_offs(previous_ip_bytes), (ctx->current_position - da(ctx->fn,function)->code) * sizeof(code_t)));
+
+	g(gen_call_tail(ctx));
+
 	return true;
 }
 
@@ -1128,7 +1205,6 @@ scaled_store_done:
 	return true;
 }
 
-static bool attr_w gen_scaled_array_address(struct codegen_context *ctx, size_t element_size, unsigned reg_dst, unsigned reg_src, unsigned reg_index, int64_t offset_src);
 static bool attr_w gen_check_array_len(struct codegen_context *ctx, unsigned reg_array, bool allocated, unsigned reg_len, unsigned cond, bool trap, uint32_t escape_label);
 static bool attr_w gen_scaled_array_store(struct codegen_context *ctx, unsigned reg_src, unsigned reg_idx, int64_t offset_src, frame_t slot_1);
 
