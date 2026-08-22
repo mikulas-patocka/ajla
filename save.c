@@ -1526,7 +1526,7 @@ static char *save_get_file(void)
 		ext_index |= 0x20;
 	if (profiling)
 		ext_index |= 0x40;
-	sprintf(ext, ".%c%02x", compsave ? 'c' : 's', ext_index);
+	sprintf(ext, ".%c%02x", compsave ? 'c' : 's', ext_index & 0xff);
 	if (unlikely(!array_init_mayfail(char, &fn, &fn_l, &sink)))
 		goto free_ret;
 	if (unlikely(!array_add_multiple_mayfail(char, &fn, &fn_l, pn, pn_l, NULL, &sink)))
