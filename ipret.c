@@ -1111,7 +1111,7 @@ static void *cg_upcall_call_indirect(frame_s *fp, uintptr_t fn_ref_slot, uintptr
 	if (deref)
 		frame_free_and_clear(fp, fn_ref_slot);
 
-	get_frame(new_fp)->previous_ip_bytes = n_curried_arguments;
+	get_frame(new_fp)->previous_ip_bytes = n_curried_arguments * sizeof(struct local_arg);
 	return new_fp;
 }
 

@@ -733,15 +733,15 @@ static bool attr_w gen_call_indirect(struct codegen_context *ctx, code_t code, f
 	g(gen_spill_all(ctx));
 	g(gen_spill_x87(ctx));
 
-	g(gen_load_raw(ctx, log_2(sizeof(ip_t)), native, R_SAVED_1, 0, frame_offs(previous_ip_bytes), false, R_SCRATCH_1));
-	g(gen_load_raw(ctx, OP_SIZE_ADDRESS, native, R_SAVED_1, 0, frame_offs(function), false, R_SCRATCH_2));
+	g(gen_load_raw(ctx, log_2(sizeof(ip_t)), native, R_SAVED_1, 0, frame_offs(previous_ip_bytes), false, R_SAVED_2));
+	g(gen_load_raw(ctx, OP_SIZE_ADDRESS, native, R_SAVED_1, 0, frame_offs(function), false, R_SCRATCH_1));
 
-	g(gen_address(ctx, R_SCRATCH_2, offsetof(struct data, u_.function.args), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
-	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(R_SCRATCH_3, ARG_ADDRESS_1));
-	gen_one(R_SCRATCH_3);
+	g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.function.args), IMM_PURPOSE_LDR_OFFSET, OP_SIZE_ADDRESS));
+	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
+	gen_one(R_SCRATCH_1);
 	gen_address_offset();
 
-	g(gen_scaled_array_address(ctx, sizeof(struct local_arg), R_SAVED_2, R_SCRATCH_3, R_SCRATCH_1, 0));
+	g(gen_3address_alu(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_SAVED_2, R_SAVED_2, R_SCRATCH_1, 0));
 
 	for (i = 0; i < ctx->args_l; i++) {
 		const struct code_arg *src_arg = &ctx->args[i];
