@@ -1162,17 +1162,15 @@ static bool attr_w gen_spill_all(struct codegen_context *ctx)
 	return true;
 }
 
-static bool attr_w gen_unspill_x87(struct codegen_context attr_unused *ctx)
+static bool attr_w gen_unspill_all(struct codegen_context *ctx)
 {
-#ifdef SUPPORTED_FP_X87
-	size_t i = ctx->x87_spill_l;
-	while (i--) {
-		frame_t v = ctx->x87_spill[i];
-		const struct type *t = get_type_of_local(ctx, v);
-		unsigned size = spill_size(t);
-		g(gen_frame_load_x87_raw(ctx, INSN_X87_FLD, size, 0, v));
-	}
-#endif
+	frame_t v, n_vars;
+
+	n_vars = 0;
+	for (v = MIN_USEABLE_SLOT; v < function_n_variables(ctx->fn); v++)
+		if (slot_is_register(ctx, v) && !reg_is_x87(ctx->registers[v]))
+			ctx->var_aux[n_vars++] = v;
+	g(gen_unspill_multiple(ctx, ctx->var_aux, n_vars, false));
 	return true;
 }
 
@@ -1185,6 +1183,20 @@ static bool attr_w gen_spill_x87(struct codegen_context attr_unused *ctx)
 		const struct type *t = get_type_of_local(ctx, v);
 		unsigned size = spill_size(t);
 		g(gen_frame_store_x87_raw(ctx, INSN_X87_FSTP, size, v));
+	}
+#endif
+	return true;
+}
+
+static bool attr_w gen_unspill_x87(struct codegen_context attr_unused *ctx)
+{
+#ifdef SUPPORTED_FP_X87
+	size_t i = ctx->x87_spill_l;
+	while (i--) {
+		frame_t v = ctx->x87_spill[i];
+		const struct type *t = get_type_of_local(ctx, v);
+		unsigned size = spill_size(t);
+		g(gen_frame_load_x87_raw(ctx, INSN_X87_FLD, size, 0, v));
 	}
 #endif
 	return true;

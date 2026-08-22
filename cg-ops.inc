@@ -706,14 +706,20 @@ skip_ref_argument:
 static bool attr_w gen_call_indirect(struct codegen_context *ctx, code_t code, frame_t fn_ref_slot, frame_t flags)
 {
 	uchar_efficient_t call_mode = likely(code == OPCODE_CALL_INDIRECT) ? CALL_MODE_NORMAL : CALL_MODE_STRICT;
-	uint32_t escape_label;
+	uint32_t escape_label, unspill_escape_label;
 	arg_t i;
 
 	escape_label = alloc_escape_label(ctx);
 	if (unlikely(!escape_label))
 		return false;
 
-	g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_call_indirect), 3, true));
+	if (unlikely(!(unspill_escape_label = alloc_label(ctx))))
+		return false;
+
+	g(gen_spill_all(ctx));
+	g(gen_spill_x87(ctx));
+
+	g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_call_indirect), 3, false));
 
 	g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, R_FRAME));
 	g(gen_upcall_argument(ctx, 0));
@@ -724,14 +730,11 @@ static bool attr_w gen_call_indirect(struct codegen_context *ctx, code_t code, f
 	g(gen_load_constant(ctx, R_ARG2, (!!(flags & OPCODE_FLAG_FREE_ARGUMENT)) | (call_mode << 1)));
 	g(gen_upcall_argument(ctx, 2));
 
-	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_call_indirect), 3, true));
+	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_call_indirect), 3, false));
 	g(gen_sanitize_returned_pointer(ctx, R_RET0));
-	g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, escape_label));
+	g(gen_jmp_on_zero(ctx, OP_SIZE_ADDRESS, R_RET0, COND_E, unspill_escape_label));
 
 	g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_SAVED_1, R_RET0));
-
-	g(gen_spill_all(ctx));
-	g(gen_spill_x87(ctx));
 
 	g(gen_load_raw(ctx, log_2(sizeof(ip_t)), native, R_SAVED_1, 0, frame_offs(previous_ip_bytes), false, R_SAVED_2));
 	g(gen_load_raw(ctx, OP_SIZE_ADDRESS, native, R_SAVED_1, 0, frame_offs(function), false, R_SCRATCH_1));
@@ -770,6 +773,14 @@ static bool attr_w gen_call_indirect(struct codegen_context *ctx, code_t code, f
 	g(gen_frame_store_imm_raw(ctx, log_2(sizeof(ip_t)), 0, frame_offs(previous_ip_bytes), (ctx->current_position - da(ctx->fn,function)->code) * sizeof(code_t)));
 
 	g(gen_call_tail(ctx));
+
+	gen_label(unspill_escape_label);
+
+	g(gen_unspill_x87(ctx));
+	g(gen_unspill_all(ctx));
+
+	gen_insn(INSN_JMP, 0, 0, 0);
+	gen_label_ref(escape_label);
 
 	return true;
 }
