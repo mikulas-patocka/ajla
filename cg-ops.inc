@@ -16,8 +16,6 @@
  * Ajla. If not, see <https://www.gnu.org/licenses/>.
  */
 
-static bool attr_w gen_scaled_array_address(struct codegen_context *ctx, size_t element_size, unsigned reg_dst, unsigned reg_src, unsigned reg_index, int64_t offset_src);
-
 static bool attr_w gen_flat_move_copy(struct codegen_context *ctx, frame_t slot_1, frame_t slot_r)
 {
 	uint32_t escape_label;
@@ -748,7 +746,41 @@ static bool attr_w gen_call_indirect(struct codegen_context *ctx, code_t code, f
 
 	for (i = 0; i < ctx->args_l; i++) {
 		const struct code_arg *src_arg = &ctx->args[i];
-		/*const struct type *t = get_type_of_local(ctx, src_arg->slot);*/
+		const struct type *t = get_type_of_local(ctx, src_arg->slot);
+		uint32_t fallback_label;
+		uint32_t continue_label = 0;
+
+		if (TYPE_IS_FLAT(t)) {
+			const unsigned mbf_size = log_2(sizeof(uchar_efficient_t));
+			const unsigned f_size = log_2(sizeof(frame_t));
+			if (unlikely(!(fallback_label = alloc_label(ctx))))
+				return false;
+			if (unlikely(!(continue_label = alloc_label(ctx))))
+				return false;
+
+			g(gen_test_1_cached(ctx, src_arg->slot, fallback_label));
+
+			g(gen_address(ctx, R_SAVED_2, i * sizeof(struct local_arg) + offsetof(struct local_arg, may_be_flat), IMM_PURPOSE_LDR_OFFSET, mbf_size));
+			gen_insn(ARCH_PREFERS_SX(mbf_size) ? INSN_MOVSX : INSN_MOV, mbf_size, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
+			gen_one(R_SCRATCH_1);
+			gen_address_offset();
+
+			g(gen_jmp_on_zero(ctx, i_size(log_2(sizeof(uchar_efficient_t))), R_SCRATCH_1, COND_E, fallback_label));
+
+			g(gen_address(ctx, R_SAVED_2, i * sizeof(struct local_arg) + offsetof(struct local_arg, slot), IMM_PURPOSE_LDR_OFFSET, f_size));
+			gen_insn(ARCH_PREFERS_SX(f_size) ? INSN_MOVSX : INSN_MOV, f_size, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
+			gen_one(R_SCRATCH_2);
+			gen_address_offset();
+
+			g(gen_lea3(ctx, R_SCRATCH_2, R_SAVED_1, R_SCRATCH_2, slot_bits, 0));
+
+			g(gen_memcpy_raw(ctx, R_SCRATCH_2, 0, R_FRAME, (size_t)src_arg->slot * slot_size, t->size, maximum(t->align, slot_size)));
+
+			gen_insn(INSN_JMP, 0, 0, 0);
+			gen_label_ref(continue_label);
+
+			gen_label(fallback_label);
+		}
 
 		g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_call_indirect_arg), 4, false));
 
@@ -768,6 +800,9 @@ static bool attr_w gen_call_indirect(struct codegen_context *ctx, code_t code, f
 		g(gen_upcall_argument(ctx, 3));
 
 		g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_call_indirect_arg), 4, false));
+
+		if (continue_label)
+			gen_label(continue_label);
 	}
 
 	g(gen_load_raw(ctx, OP_SIZE_ADDRESS, native, R_SAVED_1, 0, frame_offs(function), false, R_SCRATCH_1));
@@ -1219,6 +1254,7 @@ scaled_store_done:
 	return true;
 }
 
+static bool attr_w gen_scaled_array_address(struct codegen_context *ctx, size_t element_size, unsigned reg_dst, unsigned reg_src, unsigned reg_index, int64_t offset_src);
 static bool attr_w gen_check_array_len(struct codegen_context *ctx, unsigned reg_array, bool allocated, unsigned reg_len, unsigned cond, bool trap, uint32_t escape_label);
 static bool attr_w gen_scaled_array_store(struct codegen_context *ctx, unsigned reg_src, unsigned reg_idx, int64_t offset_src, frame_t slot_1);
 

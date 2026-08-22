@@ -996,8 +996,8 @@ struct local_variable_flags {
 
 struct local_arg {
 	frame_t slot;
-	bool may_be_borrowed;
-	bool may_be_flat;
+	uchar_efficient_t may_be_borrowed;
+	uchar_efficient_t may_be_flat;
 };
 
 struct line_position {
