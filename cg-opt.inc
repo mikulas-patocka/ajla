@@ -329,6 +329,10 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 		reg_map_set(&all_regs, regs_saved[i]);
 	for (i = 0; i < n_regs_volatile + zero; i++)
 		reg_map_set(&all_regs, regs_volatile[i]);
+#if defined(ARCH_M68K)
+	for (i = 0; i < n_array_elements(regs_address); i++)
+		reg_map_set(&all_regs, regs_address[i]);
+#endif
 	for (real_type = 0; real_type < TYPE_REAL_N; real_type++) {
 		unsigned n_fp_registers, j;
 		if (!((SUPPORTED_FP >> real_type) & 1))
