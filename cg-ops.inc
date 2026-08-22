@@ -772,10 +772,46 @@ static bool attr_w gen_call_indirect(struct codegen_context *ctx, code_t code, f
 			gen_one(R_SCRATCH_2);
 			gen_address_offset();
 
+			if (is_power_of_2(t->size) && t->size <= 1U << OP_SIZE_NATIVE) {
+				unsigned t_size = log_2(t->size);
+				if (!ARCH_HAS_BWX)
+					t_size = maximum(OP_SIZE_4, t_size);
+				if (UNALIGNED_TRAP) {
+					if (t_size > OP_SIZE_SLOT && t->size > t->align)
+						goto skip_direct_copy;
+				}
+				if (ARCH_HAS_2REG_M(true, false, t_size, slot_bits, 0)) {
+					g(gen_load_raw(ctx, t_size, garbage, R_FRAME, src_arg->slot, 0, false, R_SCRATCH_1));
+
+					gen_insn(INSN_MOV, t_size, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_2, R_SCRATCH_1));
+					gen_one(ARG_ADDRESS_2 + slot_bits);
+					gen_one(R_SAVED_1);
+					gen_one(R_SCRATCH_2);
+					gen_eight(0);
+					gen_one(R_SCRATCH_1);
+					goto copied;
+				}
+				if (ARCH_HAS_2REG_M(true, false, t_size, 0, 0)) {
+					g(gen_load_raw(ctx, t_size, garbage, R_FRAME, src_arg->slot, 0, false, R_SCRATCH_1));
+
+					g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_SCRATCH_2, R_SCRATCH_2, slot_bits, 0));
+
+					gen_insn(INSN_MOV, t_size, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_2, R_SCRATCH_1));
+					gen_one(ARG_ADDRESS_2);
+					gen_one(R_SAVED_1);
+					gen_one(R_SCRATCH_2);
+					gen_eight(0);
+					gen_one(R_SCRATCH_1);
+					goto copied;
+				}
+			}
+skip_direct_copy:
+
 			g(gen_lea3(ctx, R_SCRATCH_2, R_SAVED_1, R_SCRATCH_2, slot_bits, 0));
 
 			g(gen_memcpy_raw(ctx, R_SCRATCH_2, 0, R_FRAME, (size_t)src_arg->slot * slot_size, t->size, maximum(t->align, slot_size)));
 
+copied:
 			gen_insn(INSN_JMP, 0, 0, 0);
 			gen_label_ref(continue_label);
 
@@ -884,7 +920,7 @@ static bool attr_w gen_jmp_indirect(struct codegen_context *ctx, unsigned reg1, 
 	if (likely(cpu_test_feature(CPU_FEATURE_misc_insn_ext_2)) && is_direct_offset(offset) && !shift)
 		goto direct_jmp;
 #endif
-	if ((!shift || shift == OP_SIZE_ADDRESS) && ARCH_HAS_2REG_M(false, false, shift, offset)) {
+	if ((!shift || shift == OP_SIZE_ADDRESS) && ARCH_HAS_2REG_M(false, false, OP_SIZE_ADDRESS, shift, offset)) {
 		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, MOV_WRITES_FLAGS(reg1, ARG_ADDRESS_2 + shift));
 		gen_one(reg1);
 		gen_one(ARG_ADDRESS_2 + shift);
@@ -1183,7 +1219,7 @@ skip_quickret:
 skip_ref_argument:
 		gen_label(write_ptr_label);
 
-		if (ARCH_HAS_2REG_M(true, false, OP_SIZE_SLOT, new_fp_offset)) {
+		if (ARCH_HAS_2REG_M(true, false, OP_SIZE_SLOT, OP_SIZE_SLOT, new_fp_offset)) {
 			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_2 + OP_SIZE_SLOT, R_RET0));
 			gen_one(ARG_ADDRESS_2 + OP_SIZE_SLOT);
 			gen_one(R_FRAME);
@@ -1209,7 +1245,7 @@ skip_ref_argument:
 
 		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SHL, R_SCRATCH_3, R_SAVED_2, OP_SIZE_SLOT, 0));
 
-		if (ARCH_HAS_2REG_M(true, false, 0, new_fp_offset)) {
+		if (ARCH_HAS_2REG_M(true, false, OP_SIZE_SLOT, 0, new_fp_offset)) {
 			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_2, R_RET0));
 			gen_one(ARG_ADDRESS_2);
 			gen_one(R_FRAME);
@@ -2451,7 +2487,7 @@ static bool attr_w gen_scaled_array_load(struct codegen_context *ctx, unsigned r
 		if (fp && FP_SPLIT_LOAD_STORE(t->size))
 			goto gen_memcpy;
 #endif
-		if (ARCH_HAS_2REG_M(false, fp, op_size, offset_src)) {
+		if (ARCH_HAS_2REG_M(false, fp, op_size, op_size, offset_src)) {
 			short reg;
 			unsigned xreg;
 			addr_mode = ARG_ADDRESS_2 + op_size;
@@ -2488,7 +2524,7 @@ do_op:
 
 			return true;
 		}
-		if (ARCH_HAS_2REG_M(false, fp, op_size, 0)) {
+		if (ARCH_HAS_2REG_M(false, fp, op_size, op_size, 0)) {
 			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_SCRATCH_1, reg_src, offset_src, 0));
 			addr_mode = ARG_ADDRESS_2 + op_size;
 			reg_src = R_SCRATCH_1;
@@ -2497,7 +2533,7 @@ do_op:
 		}
 		if (ARCH_HAS_SHIFTED_ADD(op_size))
 			goto gen_memcpy;
-		if (ARCH_HAS_2REG_M(false, fp, 0, offset_src)) {
+		if (ARCH_HAS_2REG_M(false, fp, op_size, 0, offset_src)) {
 			g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_SCRATCH_2, reg_idx, op_size, 0));
 
 			addr_mode = ARG_ADDRESS_2;
@@ -2532,7 +2568,7 @@ static bool attr_w gen_scaled_array_store(struct codegen_context *ctx, unsigned 
 		if (fp && FP_SPLIT_LOAD_STORE(t->size))
 			goto gen_memcpy;
 #endif
-		if (ARCH_HAS_2REG_M(true, fp, op_size, offset_src)) {
+		if (ARCH_HAS_2REG_M(true, fp, op_size, op_size, offset_src)) {
 			short reg;
 			addr_mode = ARG_ADDRESS_2 + op_size;
 do_op:
@@ -2563,7 +2599,7 @@ do_op:
 
 			return true;
 		}
-		if (ARCH_HAS_2REG_M(true, fp, op_size, 0)) {
+		if (ARCH_HAS_2REG_M(true, fp, op_size, op_size, 0)) {
 			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, R_SCRATCH_1, reg_src, offset_src, 0));
 			addr_mode = ARG_ADDRESS_2 + op_size;
 			reg_src = R_SCRATCH_1;
@@ -2572,7 +2608,7 @@ do_op:
 		}
 		if (ARCH_HAS_SHIFTED_ADD(op_size))
 			goto gen_memcpy;
-		if (ARCH_HAS_2REG_M(true, fp, 0, offset_src)) {
+		if (ARCH_HAS_2REG_M(true, fp, op_size, 0, offset_src)) {
 			g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_SCRATCH_2, reg_idx, op_size, 0));
 			reg_idx = R_SCRATCH_2;
 			addr_mode = ARG_ADDRESS_2;
@@ -2831,7 +2867,7 @@ skip_slice:
 		gen_one(R_SAVED_1);
 		gen_address_offset();
 
-		if (ARCH_HAS_2REG_M(false, false, OP_SIZE_SLOT, 0)) {
+		if (ARCH_HAS_2REG_M(false, false, OP_SIZE_SLOT, OP_SIZE_SLOT, 0)) {
 			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_2 + OP_SIZE_SLOT));
 			gen_one(R_SCRATCH_1);
 			gen_one(ARG_ADDRESS_2 + OP_SIZE_SLOT);
@@ -2859,7 +2895,7 @@ skip_slice:
 			goto scaled_load_done;
 		}
 
-		if (ARCH_HAS_2REG_M(false, false, 0, 0)) {
+		if (ARCH_HAS_2REG_M(false, false, OP_SIZE_SLOT, 0, 0)) {
 			g(gen_3address_rot_imm(ctx, OP_SIZE_ADDRESS, ROT_SHL, R_SCRATCH_2, reg2, OP_SIZE_SLOT, 0));
 
 			gen_insn(INSN_MOV, OP_SIZE_SLOT, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_2));

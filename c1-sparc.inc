@@ -56,7 +56,7 @@
 #define ARCH_HAS_MUL			SPARC_9
 #define ARCH_HAS_DIV			SPARC_9
 #define ARCH_HAS_ANDN			1
-#define ARCH_HAS_2REG_M(st, fp, sh, im)	(!(sh) && !(im))
+#define ARCH_HAS_2REG_M(st, fp, sz, sh, im)	(!(sh) && !(im))
 #define ARCH_HAS_BTX(btx, size, cnst)	0
 #define ARCH_HAS_SHIFTED_ADD(bits)	0
 #define ARCH_HAS_CMOV			(SPARC_9 * 0x9)

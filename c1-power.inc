@@ -86,7 +86,7 @@
 #define ARCH_HAS_MUL			1
 #define ARCH_HAS_DIV			cpu_test_feature(CPU_FEATURE_ppc)
 #define ARCH_HAS_ANDN			1
-#define ARCH_HAS_2REG_M(st, fp, sh, im)	(!(sh) && !(im))
+#define ARCH_HAS_2REG_M(st, fp, sz, sh, im)	(!(sh) && !(im))
 #define ARCH_HAS_BTX(btx, size, cnst)	0
 #define ARCH_HAS_SHIFTED_ADD(bits)	0
 #define ARCH_HAS_CMOV			(cpu_test_feature(CPU_FEATURE_v203) * 0x3)
