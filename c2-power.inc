@@ -74,6 +74,7 @@
 #define POWER_TW		0x7c000008U
 #define POWER_SUBFC		0x7c000010U
 #define POWER_ADDC		0x7c000014U
+#define POWER_ISEL		0x7c00001eU
 #define POWER_ISELLT		0x7c00001eU
 #define POWER_LDX		0x7c00002aU
 #define POWER_LWZX		0x7c00002eU
@@ -393,9 +394,19 @@ static bool attr_w cgen_gr_to_cr(struct codegen_context *ctx, unsigned cr, unsig
 static bool attr_w cgen_cr_to_gr(struct codegen_context *ctx, unsigned gr, unsigned cr)
 {
 	if (ctx) {
-		cgen_dform(POWER_ADDI, gr, 0, 0);
-		cgen_dform(POWER_B_CLEAR, 0, cr & 31, 8);
-		cgen_dform(POWER_ADDI, gr, 0, 1);
+		if (cpu_test_feature(CPU_FEATURE_v203)) {
+			cgen_dform(POWER_ADDI, gr, 0, 1);
+			if (gr == R_0) {
+				cgen_x4form(POWER_ISEL, gr, 0, gr, cr & 31, 0);
+				cgen_dform(POWER_XORI, gr, gr, 1);
+			} else {
+				cgen_x4form(POWER_ISEL, gr, gr, R_ZERO, cr & 31, 0);
+			}
+		} else {
+			cgen_dform(POWER_ADDI, gr, 0, 0);
+			cgen_dform(POWER_B_CLEAR, 0, cr & 31, 8);
+			cgen_dform(POWER_ADDI, gr, 0, 1);
+		}
 	}
 	return true;
 }
