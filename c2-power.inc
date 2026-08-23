@@ -426,11 +426,19 @@ static bool attr_w cgen_moves(struct codegen_context *ctx, unsigned size, bool s
 				cgen_xform(POWER_CROR, arg1[0] & 31, arg2[0] & 31, arg2[0] & 31, 0);
 			return true;
 		}
+		if (arg2[0] < 32) {
+			g(cgen_gr_to_cr(ctx, arg1[0], arg2[0]));
+			return true;
+		}
 		g(cgen_moves(ctx, size, sx, &scr, arg2));
 		g(cgen_gr_to_cr(ctx, arg1[0], R_CG_SCRATCH));
 		return true;
 	}
 	if (reg_is_cr(arg2[0])) {
+		if (arg1[0] < 32) {
+			g(cgen_cr_to_gr(ctx, arg1[0], arg2[0]));
+			return true;
+		}
 		g(cgen_cr_to_gr(ctx, R_CG_SCRATCH, arg2[0]));
 		arg2 = &scr;
 	}
