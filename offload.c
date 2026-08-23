@@ -161,6 +161,12 @@ void *ipret_offload(frame_s *fp, const code_t *ip)
 	memcpy(da_array_flat(function_name), name, name_len);
 	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[0], pointer_data(function_name));
 
+	if (unlikely(io_ffi_get_ffi_type(type_get_int(INT_DEFAULT_N)) < 0)) {
+		if (ipret_warnings)
+			warning("%s: ffi not compiled-in", name);
+		goto set_unsupp;
+	}
+
 	shape = data_alloc_array_flat_mayfail(type_get_int(INT_DEFAULT_N), n_dims, n_dims, false, &err pass_file_line);
 	if (unlikely(!shape))
 		goto set_err;
