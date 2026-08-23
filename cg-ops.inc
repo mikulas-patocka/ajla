@@ -382,7 +382,7 @@ static bool attr_w gen_load_fn_or_curry(struct codegen_context *ctx, frame_t fn_
 	return true;
 }
 
-static int allocate_register(unsigned *index_saved, unsigned *index_volatile, unsigned attr_unused *index_address, unsigned *index_fp_saved, unsigned *index_fp_volatile, unsigned attr_unused *index_vector_volatile, unsigned attr_unused *index_x87, const struct type *t)
+static int allocate_register(unsigned *index_saved, unsigned *index_volatile, unsigned attr_unused *index_address, unsigned attr_unused *index_bool, unsigned *index_fp_saved, unsigned *index_fp_volatile, unsigned attr_unused *index_vector_volatile, unsigned attr_unused *index_x87, const struct type *t)
 {
 	if (!ARCH_HAS_BWX && (t->size && t->size < 1U << OP_SIZE_4))
 		return -1;
@@ -390,6 +390,13 @@ static int allocate_register(unsigned *index_saved, unsigned *index_volatile, un
 		if (TYPE_TAG_IS_BUILTIN(t->tag)) {
 			if (!is_power_of_2(t->size) || t->size > 1U << OP_SIZE_NATIVE)
 				return -1;
+#if ARCH_HAS_BITWISE_BOOL
+			if (t->tag == TYPE_TAG_flat_option) {
+				if (*index_bool < n_array_elements(regs_bool))
+					return regs_bool[(*index_bool)++];
+				return -1;
+			}
+#endif
 		} else {
 #if defined(ARCH_M68K)
 			if (*index_address < n_array_elements(regs_address)) {
@@ -450,6 +457,7 @@ static bool test_quick_return(struct codegen_context *ctx, frame_t *ret_vars, ar
 	unsigned index_saved = 0;
 	unsigned index_volatile = 0;
 	unsigned index_address = 0;
+	unsigned index_bool = 0;
 	unsigned index_fp_saved = 0;
 	unsigned index_fp_volatile = 0;
 	unsigned index_vector_volatile = 0;
@@ -458,7 +466,7 @@ static bool test_quick_return(struct codegen_context *ctx, frame_t *ret_vars, ar
 		frame_t v = ret_vars[i];
 		const struct type *t = get_type_of_local(ctx, v);
 		int reg;
-		reg = allocate_register(&index_saved, &index_volatile, &index_address, &index_fp_saved, &index_fp_volatile, &index_vector_volatile, &index_fp_x87, t);
+		reg = allocate_register(&index_saved, &index_volatile, &index_address, &index_bool, &index_fp_saved, &index_fp_volatile, &index_vector_volatile, &index_fp_x87, t);
 		if (reg < 0)
 			return false;
 		regs[i] = reg;

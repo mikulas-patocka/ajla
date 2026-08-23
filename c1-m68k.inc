@@ -60,6 +60,7 @@
 #define ARCH_HAS_FP_GP_MOV(size)	0
 #define ARCH_HAS_PC_RELATIVE_ADDRESSING	1
 #define ARCH_NEEDS_BARRIER		0
+#define ARCH_HAS_BITWISE_BOOL		0
 
 #define i_size(size)			(size)
 #define i_size_rot(size)		(size)

@@ -103,6 +103,7 @@ static bool attr_w gen_alu(struct codegen_context *ctx, unsigned mode, unsigned 
 	unsigned alu;
 	bool sgn, mod;
 	unsigned reg1, reg2, reg3, target;
+	bool attr_unused swap = false;
 	switch (mode) {
 		case MODE_FIXED: switch (op) {
 			case OPCODE_FIXED_OP_add:		alu = ALU_ADD; goto do_alu;
@@ -170,12 +171,20 @@ static bool attr_w gen_alu(struct codegen_context *ctx, unsigned mode, unsigned 
 		case MODE_BOOL: switch (op) {
 			case OPCODE_BOOL_OP_and:		alu = ALU_AND; goto do_alu;
 			case OPCODE_BOOL_OP_or:			alu = ALU_OR; goto do_alu;
-			case OPCODE_BOOL_OP_equal:		alu = COND_E; goto do_compare;
 			case OPCODE_BOOL_OP_not_equal:		alu = ALU_XOR; goto do_alu;
+#if ARCH_HAS_BITWISE_BOOL
+			case OPCODE_BOOL_OP_equal:		alu = ALU_XORN; goto do_alu;
+			case OPCODE_BOOL_OP_less:		alu = ALU_ANDN; swap = true; goto do_alu;
+			case OPCODE_BOOL_OP_less_equal:		alu = ALU_ORN; swap = true; goto do_alu;
+			case OPCODE_BOOL_OP_greater:		alu = ALU_ANDN; goto do_alu;
+			case OPCODE_BOOL_OP_greater_equal:	alu = ALU_ORN; goto do_alu;
+#else
+			case OPCODE_BOOL_OP_equal:		alu = COND_E; goto do_compare;
 			case OPCODE_BOOL_OP_less:		alu = COND_L; goto do_compare;
 			case OPCODE_BOOL_OP_less_equal:		alu = COND_LE; goto do_compare;
 			case OPCODE_BOOL_OP_greater:		alu = COND_G; goto do_compare;
 			case OPCODE_BOOL_OP_greater_equal:	alu = COND_GE; goto do_compare;
+#endif
 			default:				internal(file_line, "gen_alu: unsupported bool operation %u", op);
 		}
 	}
@@ -194,6 +203,12 @@ do_alu: {
 		bool c;
 		if ((alu == ALU_OR || alu == ALU_AND) && unlikely(slot_1 == slot_2) && slot_1 == slot_r)
 			return true;
+		if (swap) {
+			frame_t x;
+			x = slot_1;
+			slot_1 = slot_2;
+			slot_2 = x;
+		}
 #if defined(ARCH_S390)
 		if (!slot_is_register(ctx, slot_r) && slot_r * slot_size < 0x1000 &&
 		    !slot_is_register(ctx, slot_1) && !frame_t_is_const(slot_1) && (size_t)slot_1 * slot_size < 0x1000 &&

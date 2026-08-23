@@ -67,6 +67,7 @@
 #define ARCH_HAS_FP_GP_MOV(size)	1
 #define ARCH_HAS_PC_RELATIVE_ADDRESSING	0
 #define ARCH_NEEDS_BARRIER		0
+#define ARCH_HAS_BITWISE_BOOL		0
 
 #define i_size(size)			OP_SIZE_NATIVE
 #define i_size_rot(size)		maximum(size, OP_SIZE_4)

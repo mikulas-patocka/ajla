@@ -26,6 +26,7 @@
 #define		POWER_TRAP_SA		0x01000000U
 #define		POWER_TRAP_SB		0x02000000U
 
+
 #define POWER_MULLI		0x1c000000U
 #define POWER_SUBFIC		0x20000000U
 #define POWER_CMPLI		0x28000000U
@@ -34,15 +35,25 @@
 #define POWER_ADDIC_		0x34000000U
 #define POWER_ADDI		0x38000000U
 #define POWER_ADDIS		0x3c000000U
+#define POWER_B_CLEAR		0x40800000U
 #define POWER_BGE		0x40800000U
 #define POWER_BLE		0x40810000U
 #define POWER_BNE		0x40820000U
 #define POWER_BNS		0x40830000U
+#define POWER_B_SET		0x41800000U
 #define POWER_BLT		0x41800000U
 #define POWER_BGT		0x41810000U
 #define POWER_BEQ		0x41820000U
 #define POWER_BSO		0x41830000U
 #define POWER_B			0x48000000U
+#define POWER_CRNOR		0x4c000042U
+#define POWER_CRANDC		0x4c000102U
+#define POWER_CRXOR		0x4c000182U
+#define POWER_CRNAND		0x4c0001c2U
+#define POWER_CRAND		0x4c000202U
+#define POWER_CREQV		0x4c000242U
+#define POWER_CRORC		0x4c000342U
+#define POWER_CROR		0x4c000382U
 #define POWER_BLR		0x4e800020U
 #define POWER_BCTR		0x4e800420U
 #define POWER_BCTRL		0x4e800421U
@@ -355,14 +366,48 @@ static const uint32_t trap_cond[0x10] = {
 	POWER_TRAP_SB, POWER_TRAP_E | POWER_TRAP_SA, POWER_TRAP_SB | POWER_TRAP_E, POWER_TRAP_SA,
 };
 
+static bool attr_w cgen_gr_to_cr(struct codegen_context *ctx, unsigned cr, unsigned gr)
+{
+	if (ctx) {
+		cgen_dform(POWER_CMPLI, R_CG_CR_SCRATCH & 31, gr, 0);
+		cgen_xform(POWER_CRNOR, cr, (R_CG_CR_SCRATCH + 2) & 31, (R_CG_CR_SCRATCH + 2) & 31, 0);
+	}
+	return true;
+}
+
+static bool attr_w cgen_cr_to_gr(struct codegen_context *ctx, unsigned gr, unsigned cr)
+{
+	if (ctx) {
+		cgen_dform(POWER_ADDI, gr, 0, 0);
+		cgen_dform(POWER_B_CLEAR, 0, cr & 31, 8);
+		cgen_dform(POWER_ADDI, gr, 0, 1);
+	}
+	return true;
+}
+
 static bool attr_w cgen_moves(struct codegen_context *ctx, unsigned size, bool sx, const uint8_t *arg1, const uint8_t *arg2)
 {
 	uint32_t mc;
 	uint64_t mc64;
 	int64_t imm;
 	uint8_t z = R_ZERO;
+	uint8_t scr = R_CG_SCRATCH;
 	if (size >= OP_SIZE_NATIVE)
 		sx = false;
+	if (reg_is_cr(arg1[0])) {
+		if (reg_is_cr(arg2[0])) {
+			if (ctx)
+				cgen_xform(POWER_CROR, arg1[0] & 31, arg2[0] & 31, arg2[0] & 31, 0);
+			return true;
+		}
+		g(cgen_moves(ctx, size, sx, &scr, arg2));
+		g(cgen_gr_to_cr(ctx, arg1[0], R_CG_SCRATCH));
+		return true;
+	}
+	if (reg_is_cr(arg2[0])) {
+		g(cgen_cr_to_gr(ctx, R_CG_SCRATCH, arg2[0]));
+		arg2 = &scr;
+	}
 	if (arg1[0] < 32) {
 		if (arg2[0] < 32) {
 			if (unlikely(size == OP_SIZE_NATIVE)) {
@@ -725,11 +770,33 @@ static bool attr_w cgen_movsx(struct codegen_context *ctx, unsigned size)
 
 static bool attr_w cgen_cmp(struct codegen_context *ctx, unsigned size, unsigned writes_flags)
 {
+	uint8_t cr_scratch = R_CG_CR_SCRATCH;
 	uint32_t mc;
 	int64_t imm;
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
+
+	if (reg_is_cr(arg1[0])) {
+		if (arg2[0] == ARG_IMM) {
+			imm = get_imm(&arg2[1]);
+			if (imm)
+				goto invl;
+			cgen_xform(POWER_CRNOR, R_CR2 & 31, arg1[0] & 31, arg1[0] & 31, 0);
+			return true;
+		}
+		if (arg2[0] < 32) {
+			g(cgen_gr_to_cr(ctx, cr_scratch, arg2[0]));
+			arg2 = &cr_scratch;
+		}
+		if (reg_is_cr(arg2[0])) {
+			cgen_xform(POWER_CREQV, R_CR2 & 31, arg1[0] & 31, arg2[0] & 31, 0);
+			return true;
+		}
+	}
+
+	if (unlikely(arg1[0] >= 32))
+		goto invl;
 
 	if (arg2[0] == ARG_IMM) {
 		imm = get_imm(&arg2[1]);
@@ -738,7 +805,7 @@ static bool attr_w cgen_cmp(struct codegen_context *ctx, unsigned size, unsigned
 			mc |= POWER_CMP_L;
 		cgen_dform(mc, 0, arg1[0], imm);
 		return true;
-	} else {
+	} else if (arg2[0] < 32) {
 		mc = writes_flags == 1 ? POWER_CMP : POWER_CMPL;
 		if (size == OP_SIZE_8)
 			mc |= POWER_CMP_L;
@@ -746,6 +813,7 @@ static bool attr_w cgen_cmp(struct codegen_context *ctx, unsigned size, unsigned
 		return true;
 	}
 
+invl:
 	internal(file_line, "cgen_cmp: invalid arguments %u, %02x, %02x, %u", size, *arg1, *arg2, writes_flags);
 	return false;
 }
@@ -771,10 +839,25 @@ invl:
 
 static bool attr_w cgen_test(struct codegen_context *ctx)
 {
+	uint8_t cr_scratch = R_CG_CR_SCRATCH;
 	int64_t imm;
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
+
+	if (reg_is_cr(arg1[0])) {
+		if (arg2[0] < 32) {
+			g(cgen_gr_to_cr(ctx, cr_scratch, arg2[0]));
+			arg2 = &cr_scratch;
+		}
+		if (reg_is_cr(arg2[0])) {
+			cgen_xform(POWER_CRNAND, R_CR2 & 31, arg1[0] & 31, arg2[0] & 31, 0);
+			return true;
+		}
+	}
+
+	if (unlikely(arg1[0] >= 32))
+		goto invl;
 
 	if (arg2[0] == ARG_IMM) {
 		imm = get_imm(&arg2[1]);
@@ -789,7 +872,7 @@ static bool attr_w cgen_test(struct codegen_context *ctx)
 			return true;
 		}
 		goto invl;
-	} else {
+	} else if (arg2[0] < 32) {
 		cgen_xform(POWER_AND, arg1[0], R_CG_SCRATCH, arg2[0], 1);
 		return true;
 	}
@@ -799,14 +882,63 @@ invl:
 	return false;
 }
 
-static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned writes_flags)
+static bool attr_w cgen_alus(struct codegen_context *ctx, unsigned size, unsigned alu, uint8_t *arg1, uint8_t *arg2, uint8_t *arg3, unsigned writes_flags)
 {
 	uint32_t mc;
 	int64_t imm;
-	uint8_t *arg1 = ctx->code_position;
-	uint8_t *arg2 = arg1 + arg_size(*arg1);
-	uint8_t *arg3 = arg2 + arg_size(*arg2);
-	ctx->code_position = arg3 + arg_size(*arg3);
+
+	if (reg_is_cr(arg1[0]) || reg_is_cr(arg2[0]) || reg_is_cr(arg3[0])) {
+		uint8_t cr_scratch = R_CG_CR_SCRATCH;
+		if (arg1[0] < 32) {
+			g(cgen_alus(ctx, size, alu, &cr_scratch, arg2, arg3, writes_flags));
+			g(cgen_cr_to_gr(ctx, arg1[0], R_CG_CR_SCRATCH));
+			return true;
+		}
+		if (arg2[0] < 32) {
+			g(cgen_gr_to_cr(ctx, R_CG_CR_SCRATCH, arg2[0]));
+			g(cgen_alus(ctx, size, alu, arg1, &cr_scratch, arg3, writes_flags));
+			return true;
+		}
+		if (arg3[0] < 32) {
+			g(cgen_gr_to_cr(ctx, R_CG_CR_SCRATCH, arg3[0]));
+			g(cgen_alus(ctx, size, alu, arg1, arg2, &cr_scratch, writes_flags));
+			return true;
+		}
+		if (!reg_is_cr(arg2[0]))
+			goto invl;
+		if (alu == ALU_AND && arg3[0] == ARG_IMM) {
+			imm = get_imm(&arg3[1]);
+			if (unlikely(imm != 1))
+				goto invl;
+			if (unlikely(arg1[0] != arg2[0]))
+				cgen_xform(POWER_CROR, arg1[0] & 31, arg2[0] & 31, arg2[0] & 31, 0);
+			goto wf;
+		}
+		if (alu == ALU_XOR && arg3[0] == ARG_IMM) {
+			imm = get_imm(&arg3[1]);
+			if (unlikely(imm != 1))
+				goto invl;
+			cgen_xform(POWER_CRNOR, arg1[0] & 31, arg2[0] & 31, arg2[0] & 31, 0);
+			goto wf;
+		}
+		if (!reg_is_cr(arg3[0]))
+			goto invl;
+		switch (alu) {
+			case ALU_OR:	mc = POWER_CROR; break;
+			case ALU_AND:	mc = POWER_CRAND; break;
+			case ALU_XOR:	mc = POWER_CRXOR; break;
+			case ALU_ORN:	mc = POWER_CRORC; break;
+			case ALU_ANDN:	mc = POWER_CRANDC; break;
+			case ALU_XORN:	mc = POWER_CREQV; break;
+			default:	goto invl;
+		}
+		cgen_xform(mc, arg1[0] & 31, arg2[0] & 31, arg3[0] & 31, 0);
+wf:
+		if (unlikely(writes_flags)) {
+			cgen_xform(POWER_CRNOR, R_CR2 & 31, arg1[0] & 31, arg1[0] & 31, 0);
+		}
+		return true;
+	}
 
 	if (unlikely(arg1[0] >= 32) || unlikely(arg2[0] >= 32))
 		goto invl;
@@ -918,8 +1050,20 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 	}
 
 invl:
-	internal(file_line, "cgen_alu: invalid arguments %u, %u, %02x, %02x, %02x, %u", size, alu, *arg1, *arg2, *arg3, writes_flags);
+	internal(file_line, "cgen_alus: invalid arguments %u, %u, %02x, %02x, %02x, %u", size, alu, *arg1, *arg2, *arg3, writes_flags);
 	return false;
+}
+
+static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned writes_flags)
+{
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	ctx->code_position = arg3 + arg_size(*arg3);
+
+	g(cgen_alus(ctx, size, alu, arg1, arg2, arg3, writes_flags));
+
+	return true;
 }
 
 static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned writes_flags)
@@ -982,16 +1126,25 @@ invl:
 	return false;
 }
 
-static bool attr_w cgen_rot(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned writes_flags)
+static bool attr_w cgen_rots(struct codegen_context *ctx, unsigned size, unsigned alu, uint8_t *arg1, uint8_t *arg2, uint8_t *arg3, unsigned writes_flags)
 {
 	uint32_t mc;
 	int64_t imm;
-	uint8_t *arg1 = ctx->code_position;
-	uint8_t *arg2 = arg1 + arg_size(*arg1);
-	uint8_t *arg3 = arg2 + arg_size(*arg2);
-	ctx->code_position = arg3 + arg_size(*arg3);
 
 	if (unlikely(size < OP_SIZE_4))
+		goto invl;
+
+	if (reg_is_cr(arg1[0])) {
+		uint8_t scr = R_CG_SCRATCH;
+
+		g(cgen_rots(ctx, size, alu, &scr, arg2, arg3, writes_flags));
+		cgen_dform(POWER_ANDI_, scr, scr, 1);
+		cgen_xform(POWER_CRNOR, arg1[0] & 31, R_CR2 & 31, R_CR2 & 31, 0);
+
+		return true;
+	}
+
+	if (unlikely(arg1[0] >= 32) || unlikely(arg2[0] >= 32))
 		goto invl;
 
 	if (arg3[0] < 32) {
@@ -1060,8 +1213,20 @@ static bool attr_w cgen_rot(struct codegen_context *ctx, unsigned size, unsigned
 	}
 
 invl:
-	internal(file_line, "cgen_rot: invalid arguments %u, %u, %02x, %02x, %02x", size, alu, *arg1, *arg2, *arg3);
+	internal(file_line, "cgen_rots: invalid arguments %u, %u, %02x, %02x, %02x", size, alu, *arg1, *arg2, *arg3);
 	return false;
+}
+
+static bool attr_w cgen_rot(struct codegen_context *ctx, unsigned size, unsigned alu, unsigned writes_flags)
+{
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	ctx->code_position = arg3 + arg_size(*arg3);
+
+	g(cgen_rots(ctx, size, alu, arg1, arg2, arg3, writes_flags));
+
+	return true;
 }
 
 static bool attr_w cgen_set_cond(struct codegen_context *ctx, unsigned aux)
@@ -1108,6 +1273,9 @@ static bool attr_w cgen_cmov(struct codegen_context *ctx, unsigned aux)
 			goto invl;
 		arg3 = &z;
 	}
+
+	if (arg1[0] >= 32 || arg2[0] >= 32 || arg3[0] >= 32)
+		goto invl;
 
 	switch (aux) {
 		case COND_B:	aux = COND_L; break;

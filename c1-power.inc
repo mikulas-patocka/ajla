@@ -95,6 +95,7 @@
 #define ARCH_HAS_FP_GP_MOV(size)	(cpu_test_feature(CPU_FEATURE_v207) && (size) == OP_SIZE_8)
 #define ARCH_HAS_PC_RELATIVE_ADDRESSING	cpu_test_feature(CPU_FEATURE_v31)
 #define ARCH_NEEDS_BARRIER		0
+#define ARCH_HAS_BITWISE_BOOL		0
 
 #define i_size(size)			OP_SIZE_NATIVE
 #define i_size_rot(size)		maximum(size, OP_SIZE_4)
@@ -133,9 +134,38 @@
 #define R_30				0x1e
 #define R_31				0x1f
 
-#define R_PCN				0x20
-#define R_LR				0x21
-#define R_CTR				0x22
+#define R_CR0				0x20
+#define R_CR1				0x21
+#define R_CR2				0x22
+#define R_CR3				0x23
+#define R_CR4				0x24
+#define R_CR5				0x25
+#define R_CR6				0x26
+#define R_CR7				0x27
+#define R_CR8				0x28
+#define R_CR9				0x29
+#define R_CR10				0x2a
+#define R_CR11				0x2b
+#define R_CR12				0x2c
+#define R_CR13				0x2d
+#define R_CR14				0x2e
+#define R_CR15				0x2f
+#define R_CR16				0x30
+#define R_CR17				0x31
+#define R_CR18				0x32
+#define R_CR19				0x33
+#define R_CR20				0x34
+#define R_CR21				0x35
+#define R_CR22				0x36
+#define R_CR23				0x37
+#define R_CR24				0x38
+#define R_CR25				0x39
+#define R_CR26				0x3a
+#define R_CR27				0x3b
+#define R_CR28				0x3c
+#define R_CR29				0x3d
+#define R_CR30				0x3e
+#define R_CR31				0x3f
 
 #define R_F0				0x40
 #define R_F1				0x41
@@ -202,9 +232,14 @@
 #define R_VS62				0x7e
 #define R_VS63				0x7f
 
-#define R_MAX				0x80
+#define R_PCN				0x80
+#define R_LR				0x81
+#define R_CTR				0x82
+
+#define R_MAX				0x83
 
 #define R_CG_SCRATCH			R_0
+#define R_CG_CR_SCRATCH			R_CR4
 
 #define R_SP				R_1
 
@@ -257,6 +292,11 @@
 #define FMA_NO_NEG
 #define FP_REGISTERS(real_size)		1
 
+static bool reg_is_cr(unsigned reg)
+{
+	return reg >= 0x20 && reg < 0x40;
+}
+
 static bool reg_is_fp(unsigned reg)
 {
 	return reg >= 0x40 && reg < 0x80;
@@ -287,8 +327,9 @@ static const uint8_t fp_saved[] = { R_F14, R_F15, R_F16, R_F17, R_F18, R_F19, R_
 #define n_fp_saved(real_type) (optimize_int ? 0 : n_array_elements(fp_saved))
 static const uint8_t fp_volatile[] = { R_F3, R_F4, R_F5, R_F6, R_F7, R_F8, R_F9, R_F10, R_F11, R_F12, R_F13 };
 static const uint8_t vector_volatile[] = { R_VS34, R_VS35, R_VS36, R_VS37, R_VS38, R_VS39, R_VS40, R_VS41, R_VS42, R_VS43, R_VS44, R_VS45, R_VS46, R_VS47, R_VS48, R_VS49, R_VS50, R_VS51 };
+static const uint8_t regs_bool[] = { R_CR20, R_CR21, R_CR22, R_CR23, R_CR24, R_CR25, R_CR26, R_CR27, R_CR28, R_CR29, R_CR30, R_CR31 };
 
-#define reg_is_saved(r)	((r) == R_SP || ((r) >= R_14 && (r) <= R_31) || ((r) >= R_F14 && (r) <= R_F31) || ((r) >= R_VS52 && (r) <= R_VS63))
+#define reg_is_saved(r)	((r) == R_SP || ((r) >= R_14 && (r) <= R_31) || ((r) >= R_CR8 && (r) <= R_CR19) || ((r) >= R_F14 && (r) <= R_F31) || ((r) >= R_VS52 && (r) <= R_VS63))
 
 static bool attr_w gen_load_constant_rz(struct codegen_context *ctx, unsigned reg, uint64_t c, unsigned xreg)
 {

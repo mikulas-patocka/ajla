@@ -58,6 +58,7 @@
 #define ARCH_HAS_FP_GP_MOV(size)	cpu_test_feature(CPU_FEATURE_fix)
 #define ARCH_HAS_PC_RELATIVE_ADDRESSING	0
 #define ARCH_NEEDS_BARRIER		thread_needs_barriers
+#define ARCH_HAS_BITWISE_BOOL		0
 
 #define i_size(size)			OP_SIZE_NATIVE
 #define i_size_rot(size)		OP_SIZE_NATIVE

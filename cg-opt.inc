@@ -333,6 +333,10 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 	for (i = 0; i < n_array_elements(regs_address); i++)
 		reg_map_set(&all_regs, regs_address[i]);
 #endif
+#if ARCH_HAS_BITWISE_BOOL
+	for (i = 0; i < n_array_elements(regs_bool); i++)
+		reg_map_set(&all_regs, regs_bool[i]);
+#endif
 	for (real_type = 0; real_type < TYPE_REAL_N; real_type++) {
 		unsigned n_fp_registers, j;
 		if (!((SUPPORTED_FP >> real_type) & 1))

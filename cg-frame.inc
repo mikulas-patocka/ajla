@@ -1032,7 +1032,7 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned size
 		}
 	}
 #endif
-	if (!(ARCH_HAS_CMOV & 0x1)) {
+	if (!(ARCH_HAS_CMOV & 0x1) || ARCH_HAS_BITWISE_BOOL/* !!! FIXME */) {
 		uint32_t label;
 		g(gen_load_constant(ctx, target, 1));
 		label = alloc_label(ctx);
@@ -1044,6 +1044,7 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned size
 		gen_label(label);
 		goto do_store;
 	}
+	/* !!! TODO: use setb on power */
 	g(gen_load_constant(ctx, target, 1));
 	g(gen_imm(ctx, 0, IMM_PURPOSE_CMOV, OP_SIZE_NATIVE));
 	if (cond & COND_FP) {

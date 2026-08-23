@@ -1358,6 +1358,7 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 	unsigned index_saved = 0;
 	unsigned index_volatile = 0;
 	unsigned index_address = 0;
+	unsigned index_bool = 0;
 	unsigned index_fp_saved = 0;
 	unsigned index_fp_volatile = 0;
 	unsigned index_vector_volatile = 0;
@@ -1377,7 +1378,7 @@ static bool attr_w gen_registers(struct codegen_context *ctx)
 		if (!da(ctx->fn,function)->local_variables_flags[v].must_be_flat &&
 		    !da(ctx->fn,function)->local_variables_flags[v].must_be_data)
 			continue;
-		reg = allocate_register(&index_saved, &index_volatile, &index_address, &index_fp_saved, &index_fp_volatile, &index_vector_volatile, &index_fp_x87, t);
+		reg = allocate_register(&index_saved, &index_volatile, &index_address, &index_bool, &index_fp_saved, &index_fp_volatile, &index_vector_volatile, &index_fp_x87, t);
 		if (reg >= 0) {
 			ctx->registers[v] = reg;
 			if (reg_is_x87(reg)) {
@@ -2706,6 +2707,12 @@ void *codegen_fn(frame_s *fp, const code_t *ip, union internal_arg ia[])
 		if (unlikely(cg != NULL)) {
 			if (cg[0] == '!') {
 				if (!strcmp(da(ctx->fn,function)->function_name, cg + 1))
+					goto fail;
+			} else if (cg[0] == '+') {
+				if (strcmp(da(ctx->fn,function)->function_name, cg + 1) < 0)
+					goto fail;
+			} else if (cg[0] == '-') {
+				if (strcmp(da(ctx->fn,function)->function_name, cg + 1) > 0)
 					goto fail;
 			} else {
 				if (strcmp(da(ctx->fn,function)->function_name, cg))
