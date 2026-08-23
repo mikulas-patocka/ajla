@@ -241,7 +241,7 @@
 #define R_CTR				0x82
 #define R_CR				0x83
 
-#define R_MAX				0x83
+#define R_MAX				0x84
 
 #define R_CG_SCRATCH			R_0
 #define R_CG_CR_SCRATCH			R_CR4
