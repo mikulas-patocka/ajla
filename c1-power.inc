@@ -95,7 +95,7 @@
 #define ARCH_HAS_FP_GP_MOV(size)	(cpu_test_feature(CPU_FEATURE_v207) && (size) == OP_SIZE_8)
 #define ARCH_HAS_PC_RELATIVE_ADDRESSING	cpu_test_feature(CPU_FEATURE_v31)
 #define ARCH_NEEDS_BARRIER		0
-#define ARCH_HAS_BITWISE_BOOL		0
+#define ARCH_HAS_BITWISE_BOOL		1
 
 #define i_size(size)			OP_SIZE_NATIVE
 #define i_size_rot(size)		maximum(size, OP_SIZE_4)
