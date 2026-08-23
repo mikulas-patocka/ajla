@@ -1856,7 +1856,19 @@ again:
 		pointer_dereference(ptr);
 		return true;
 	}
-	/* !!! TODO: flatten flat options */
+	if (da_tag(da) == DATA_TAG_option) {
+		ajla_option_t opt = da(da,option)->option;
+		if (!pointer_is_empty(da(da,option)->pointer))
+			return false;
+		if (unlikely(opt != (ajla_flat_option_t)opt))
+			return false;
+		barrier_aliasing();
+		*frame_slot(fp, slot, ajla_flat_option_t) = opt;
+		barrier_aliasing();
+		frame_clear_flag(fp, slot);
+		pointer_dereference(ptr);
+		return true;
+	}
 	return false;
 }
 
