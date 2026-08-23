@@ -76,6 +76,7 @@
 #define POWER_ADDC		0x7c000014U
 #define POWER_ISEL		0x7c00001eU
 #define POWER_ISELLT		0x7c00001eU
+#define POWER_MFCR		0x7c000026U
 #define POWER_LDX		0x7c00002aU
 #define POWER_LWZX		0x7c00002eU
 #define POWER_SLW		0x7c000030U
@@ -95,6 +96,7 @@
 #define POWER_NOR		0x7c0000f8U
 #define POWER_SUBFE		0x7c000110U
 #define POWER_ADDE		0x7c000114U
+#define POWER_MTCRF		0x7c000120U
 #define POWER_STDX		0x7c00012aU
 #define POWER_STWX		0x7c00012eU
 #define POWER_BRW		0x7c000136U
@@ -494,6 +496,13 @@ static bool attr_w cgen_moves(struct codegen_context *ctx, unsigned size, bool s
 				cgen_four(mc);
 			return true;
 		}
+		if (arg2[0] == R_CR && size == OP_SIZE_NATIVE) {
+			mc = POWER_MFCR;
+			mc |= (uint32_t)arg1[0] << 21;
+			if (ctx)
+				cgen_four(mc);
+			return true;
+		}
 		if (arg2[0] == ARG_IMM) {
 			imm = get_imm(&arg2[1]);
 			if (imm >= -0x8000 && imm < 0x8000) {
@@ -562,6 +571,24 @@ static bool attr_w cgen_moves(struct codegen_context *ctx, unsigned size, bool s
 	}
 	if (arg1[0] == R_LR && arg2[0] < 32 && size == OP_SIZE_NATIVE) {
 		mc = POWER_MTLR;
+		mc |= (uint32_t)arg2[0] << 21;
+		if (ctx)
+			cgen_four(mc);
+		return true;
+	}
+	if (arg1[0] == R_CR && arg2[0] < 32 && size == OP_SIZE_NATIVE) {
+		mc = POWER_MTCRF;
+		mc |= 0x8 << 12;
+		mc |= (uint32_t)arg2[0] << 21;
+		if (ctx)
+			cgen_four(mc);
+		mc = POWER_MTCRF;
+		mc |= 0x10 << 12;
+		mc |= (uint32_t)arg2[0] << 21;
+		if (ctx)
+			cgen_four(mc);
+		mc = POWER_MTCRF;
+		mc |= 0x20 << 12;
 		mc |= (uint32_t)arg2[0] << 21;
 		if (ctx)
 			cgen_four(mc);

@@ -255,6 +255,9 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 #ifdef R_LR
 	reg_map_set(&all_regs, R_LR);
 #endif
+#ifdef R_CR
+	reg_map_set(&all_regs, R_CR);
+#endif
 	reg_map_set(&scratch_regs, R_SCRATCH_1);
 	reg_map_set(&scratch_regs, R_SCRATCH_2);
 	reg_map_set(&scratch_regs, R_SCRATCH_3);
@@ -593,6 +596,9 @@ static void identify_insn(struct codegen_context *ctx, uint8_t *ptr, struct insn
 #endif
 #ifdef R_LR
 			reg_map_set(&d->rd, R_LR);
+#endif
+#ifdef R_CR
+			reg_map_set(&d->rd, R_CR);
 #endif
 			reg_map_set(&d->rd, R_MEMORY);
 			reg_map_set(&d->rd, R_MEMORY_FRAME);
