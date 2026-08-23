@@ -201,7 +201,7 @@ found_control_var:
 			return empty(loop_status), "array has zero dimensions";
 		for jj := 0 to n_dims do [
 			var j := n_dims - 1 - jj;
-			var dim_var := shape_instr.params[5 + 2 * j];
+			var dim_var := shape_instr.params[6 + 2 * j];
 			ai.dims +<= dim_var;
 		]
 		ais +<= ai;
