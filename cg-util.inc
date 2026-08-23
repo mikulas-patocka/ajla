@@ -1059,7 +1059,7 @@ static bool attr_w gen_cmp_test_imm_jmp(struct codegen_context *ctx, unsigned in
 
 static bool attr_w gen_jmp_on_zero(struct codegen_context *ctx, unsigned attr_unused op_size, unsigned reg, unsigned cond, uint32_t label)
 {
-	if (ARCH_HAS_JMP_REG(cond)) {
+	if (ARCH_HAS_JMP_REG(cond, reg)) {
 		gen_insn(INSN_JMP_REG, i_size(op_size), cond, 0);
 		gen_one(reg);
 		gen_label_ref(label);

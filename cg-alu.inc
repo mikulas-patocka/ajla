@@ -4690,7 +4690,7 @@ do_compare: {
 			if (!frame_t_is_const(slot_1) && frame_t_is_const(slot_2) && !frame_t_get_const(slot_2) && (alu == COND_E || alu == COND_NE)) {
 				g(gen_frame_load(ctx, OP_SIZE_NATIVE, garbage, slot_1, lo_word(OP_SIZE_NATIVE), false, R_SCRATCH_1));
 #if !defined(ARCH_S390)
-				if (ARCH_HAS_JMP_REG(alu ^ 1)) {
+				if (ARCH_HAS_JMP_REG(alu ^ 1, R_SCRATCH_1)) {
 					g(gen_frame_load_op(ctx, OP_SIZE_NATIVE, garbage, ALU_OR, 0, slot_1, hi_word(OP_SIZE_NATIVE), false, R_SCRATCH_1));
 					g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, alu ^ 1, R_SCRATCH_1, -1U, 0));
 					return true;

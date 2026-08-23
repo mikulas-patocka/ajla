@@ -1563,6 +1563,40 @@ invl:
 	return false;
 }
 
+static bool attr_w cgen_jmp_reg(struct codegen_context *ctx, bool lng, unsigned aux)
+{
+	uint32_t mc;
+	uint8_t *arg1 = ctx->code_position;
+	ctx->code_position = arg1 + arg_size(*arg1);
+
+	if (unlikely(!reg_is_cr(arg1[0])) || unlikely(aux != COND_E && aux != COND_NE))
+		goto invl;
+
+	if (!lng) {
+		g(add_relocation(ctx, JMP_SHORTEST, 1, NULL));
+	} else {
+		aux ^= 1;
+	}
+
+	mc = aux == COND_E ? POWER_B_CLEAR : POWER_B_SET;
+
+	mc |= ((uint32_t)arg1[0] & 31) << 16;
+
+	if (!lng) {
+		cgen_four(mc);
+	} else {
+		cgen_four(mc | 0x8);
+		g(add_relocation(ctx, JMP_SHORT, 1, NULL));
+		cgen_four(POWER_B);
+	}
+
+	return true;
+
+invl:
+	internal(file_line, "cgen_jmp_cond: invalid condition %x", aux);
+	return false;
+}
+
 static bool attr_w resolve_relocation(struct codegen_context *ctx, struct relocation *reloc)
 {
 	uint32_t mc;
@@ -1697,6 +1731,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_JMP_COND:
 			g(cgen_jmp_cond(ctx, insn_jump_size(insn) == JMP_SHORT, insn_aux(insn)));
+			return true;
+		case INSN_JMP_REG:
+			g(cgen_jmp_reg(ctx, insn_jump_size(insn) == JMP_SHORT, insn_aux(insn)));
 			return true;
 		case INSN_JMP_INDIRECT:
 			reg = cget_one(ctx);

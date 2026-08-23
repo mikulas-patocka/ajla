@@ -45,7 +45,7 @@
 #define ARCH_IS_3ADDRESS_ROT_IMM(alu)	1
 #define ARCH_IS_2ADDRESS(alu)		1
 #define ARCH_IS_3ADDRESS_FP		1
-#define ARCH_HAS_JMP_REG(cond)		1
+#define ARCH_HAS_JMP_REG(cond, reg)	1
 #define ARCH_HAS_JMP_2REGS(cond)	((cond) == COND_E || (cond) == COND_NE || MIPS_R6)
 #define ARCH_HAS_DELAY_SLOTS(insn)	((!MIPS_R6 && (insn) == INSN_JMP) || (insn) == INSN_JMP_REG || (insn) == INSN_JMP_2REGS || (insn) == INSN_JMP_FP_TEST)
 #define ARCH_HAS_FUSED_MEMORY_ACCESSES	0

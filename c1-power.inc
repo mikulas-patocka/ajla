@@ -79,7 +79,7 @@
 #define ARCH_IS_3ADDRESS_ROT_IMM(alu)	1
 #define ARCH_IS_2ADDRESS(alu)		1
 #define ARCH_IS_3ADDRESS_FP		1
-#define ARCH_HAS_JMP_REG(cond)		0
+#define ARCH_HAS_JMP_REG(cond, reg)	(((cond) == COND_E || (cond) == COND_NE) && reg_is_cr(reg))
 #define ARCH_HAS_JMP_2REGS(cond)	0
 #define ARCH_HAS_FUSED_MEMORY_ACCESSES	0
 #define ARCH_HAS_DELAY_SLOTS(insn)	0
