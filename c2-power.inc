@@ -1267,6 +1267,9 @@ static bool attr_w cgen_set_cond(struct codegen_context *ctx, unsigned aux)
 	if (unlikely(arg1[0] >= 32))
 		goto invl;
 
+	if (unlikely(!cpu_test_feature(CPU_FEATURE_v31)))
+		goto invl;
+
 	if (unlikely(aux >= n_array_elements(setbc_cond)))
 		goto invl;
 	mc = setbc_cond[aux];
@@ -1597,8 +1600,6 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_rot(ctx, insn_op_size(insn), insn_aux(insn), insn_writes_flags(insn)));
 			return true;
 		case INSN_SET_COND:
-			if (unlikely(!cpu_test_feature(CPU_FEATURE_v31)))
-				goto invalid_insn;
 			if (unlikely(insn_op_size(insn) != OP_SIZE_NATIVE))
 				goto invalid_insn;
 			g(cgen_set_cond(ctx, insn_aux(insn)));
