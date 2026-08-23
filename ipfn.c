@@ -859,7 +859,7 @@ void * attr_hot_fastcall thunk_int_binary_logical_operator(frame_s *fp, const co
 	if (!frame_t_is_const(slot_2)) {
 		ajla_assert(TYPE_TAG_IS_INT(type->tag) &&
 			    frame_get_type_of_local(fp, slot_2) == type &&
-			    frame_get_type_of_local(fp, slot_r)->tag == TYPE_TAG_flat_option,
+			    frame_get_type_of_local(fp, slot_r)->tag == TYPE_TAG_bool,
 			    (file_line, "thunk_int_binary_logical_operator: invalid types on opcode %04x: %u, %u, %u",
 			    *ip,
 			    type->tag,
@@ -867,7 +867,7 @@ void * attr_hot_fastcall thunk_int_binary_logical_operator(frame_s *fp, const co
 			    frame_get_type_of_local(fp, slot_r)->tag));
 	} else {
 		ajla_assert(TYPE_TAG_IS_INT(type->tag) &&
-			    frame_get_type_of_local(fp, slot_r)->tag == TYPE_TAG_flat_option,
+			    frame_get_type_of_local(fp, slot_r)->tag == TYPE_TAG_bool,
 			    (file_line, "thunk_int_binary_logical_operator: invalid types on opcode %04x: %u, %u",
 			    *ip,
 			    type->tag,

@@ -30,12 +30,13 @@ typedef uchar_efficient_t type_tag_t;
 #define TYPE_TAG_real			(TYPE_TAG_integer + TYPE_INT_N)
 #define TYPE_TAG_val			(TYPE_TAG_real + TYPE_REAL_N)
 
-#define TYPE_TAG_flat_option		(TYPE_TAG_val + 0)
-#define TYPE_TAG_unknown		(TYPE_TAG_val + 1)
-#define TYPE_TAG_record			(TYPE_TAG_val + 2)
-#define TYPE_TAG_flat_record		(TYPE_TAG_val + 3)
-#define TYPE_TAG_flat_array		(TYPE_TAG_val + 4)
-#define TYPE_TAG_N			(TYPE_TAG_val + 5)
+#define TYPE_TAG_bool			(TYPE_TAG_val + 0)
+#define TYPE_TAG_flat_opt		(TYPE_TAG_val + 1)
+#define TYPE_TAG_unknown		(TYPE_TAG_val + 2)
+#define TYPE_TAG_record			(TYPE_TAG_val + 3)
+#define TYPE_TAG_flat_record		(TYPE_TAG_val + 4)
+#define TYPE_TAG_flat_array		(TYPE_TAG_val + 5)
+#define TYPE_TAG_N			(TYPE_TAG_val + 6)
 
 #define TYPE_TAG_VALIDATE(x)		ajla_assert((unsigned)(x) < TYPE_TAG_N, (file_line, "invalid type"))
 
@@ -49,7 +50,7 @@ typedef uchar_efficient_t type_tag_t;
 #define TYPE_TAG_IDX_FIXED(x)		((x) - TYPE_TAG_fixed)
 #define TYPE_TAG_IDX_INT(x)		((x) - TYPE_TAG_integer)
 #define TYPE_TAG_IDX_REAL(x)		((x) - TYPE_TAG_real)
-#define TYPE_TAG_IS_BUILTIN(x)		(TYPE_TAG_IS_FIXED(x) || TYPE_TAG_IS_REAL(x) || TYPE_TAG_IS_INT(x) || (x) == TYPE_TAG_flat_option)
+#define TYPE_TAG_IS_BUILTIN(x)		(TYPE_TAG_IS_FIXED(x) || TYPE_TAG_IS_REAL(x) || TYPE_TAG_IS_INT(x) || (x) == TYPE_TAG_bool || (x) == TYPE_TAG_flat_opt)
 #define TYPE_TAG_IS_FLAT(x)		(TYPE_TAG_IS_BUILTIN(x) || (x) == TYPE_TAG_flat_record || (x) == TYPE_TAG_flat_array)
 #define TYPE_IS_FLAT(t)			(TYPE_TAG_IS_FLAT((t)->tag))
 
@@ -78,6 +79,7 @@ const struct type *type_get_fixed(unsigned bits, bool uns);
 const struct type *type_get_int(unsigned idx);
 const struct type *type_get_real(unsigned idx);
 const struct type *type_get_bool(void);
+const struct type *type_get_flat_opt(void);
 const struct type *type_get_unknown(void);
 const struct type *type_get_from_tag(type_tag_t tag);
 

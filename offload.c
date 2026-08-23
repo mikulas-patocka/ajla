@@ -311,7 +311,7 @@ process_idx:
 				flt = half_to_float(*cast_ptr(uint16_t *, flat));
 				flat = cast_ptr(unsigned char *, &flt);
 			}
-			if (type->tag == TYPE_TAG_flat_option) {
+			if (type->tag == TYPE_TAG_bool || type->tag == TYPE_TAG_flat_opt) {
 				type = type_get_fixed(log_2(sizeof(ajla_flat_option_t)), true);
 			}
 			d = type_to_mpint(type, flat, &err);

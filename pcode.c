@@ -157,7 +157,7 @@ static void instruction_class(const struct type *t, unsigned *cls, code_t *typeq
 	} else if (TYPE_TAG_IS_REAL(t->tag)) {
 		*typeq = TYPE_TAG_IDX_REAL(t->tag) * OPCODE_REAL_TYPE_MULT;
 		*cls = 3;
-	} else if (t->tag == TYPE_TAG_flat_option) {
+	} else if (t->tag == TYPE_TAG_bool || t->tag == TYPE_TAG_flat_opt) {
 		*typeq = 0;
 		*cls = 4;
 	} else {
@@ -607,7 +607,7 @@ static pcode_t type_to_pcode(const struct type *type)
 		return (pcode_t)(T_Integer8 - TYPE_TAG_IDX_INT(type->tag));
 	else if (TYPE_TAG_IS_REAL(type->tag))
 		return (pcode_t)(T_Real16 - TYPE_TAG_IDX_REAL(type->tag));
-	else if (type->tag == TYPE_TAG_flat_option)
+	else if (type->tag == TYPE_TAG_bool)
 		return T_Bool;
 	else
 		internal(file_line, "type_to_pcode: invalid type %u", type->tag);
@@ -1897,7 +1897,7 @@ static bool pcode_generate_option_from_blob(struct build_function_context *ctx, 
 	am = INIT_ARG_MODE;
 	get_arg_mode(am, tr->slot);
 	get_arg_mode(am, opt);
-	if (likely(opt == (ajla_option_t)(ajla_flat_option_t)opt) && tr->type->tag == TYPE_TAG_flat_option) {
+	if (likely(opt == (ajla_option_t)(ajla_flat_option_t)opt) && (tr->type->tag == TYPE_TAG_bool || tr->type->tag == TYPE_TAG_flat_opt)) {
 		code = OPCODE_OPTION_CREATE_EMPTY_FLAT;
 	} else {
 		code = OPCODE_OPTION_CREATE_EMPTY;
@@ -1960,7 +1960,7 @@ static bool pcode_load_constant(struct build_function_context *ctx)
 
 	tr = get_var_type(ctx, res);
 
-	if (tr->type->tag == TYPE_TAG_flat_option || tr->type->tag == TYPE_TAG_unknown) {
+	if (tr->type->tag == TYPE_TAG_bool || tr->type->tag == TYPE_TAG_flat_opt || tr->type->tag == TYPE_TAG_unknown) {
 		return pcode_generate_option_from_blob(ctx, tr, blob, l);
 	} else if (TYPE_TAG_IS_REAL(tr->type->tag)) {
 		return pcode_generate_real_from_blob(ctx, tr, blob, l);
@@ -3094,7 +3094,7 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				}
 				tr = get_var_type(ctx, res);
 				t1 = get_var_type(ctx, a1);
-				ajla_assert_lo(tr->type->tag == TYPE_TAG_flat_option || tr->type->tag == TYPE_TAG_unknown, (file_line, "P_Option_Create(%s): invalid type %u", function_name(ctx), tr->type->tag));
+				ajla_assert_lo(tr->type->tag == TYPE_TAG_flat_opt || tr->type->tag == TYPE_TAG_unknown, (file_line, "P_Option_Create(%s): invalid type %u", function_name(ctx), tr->type->tag));
 				am = INIT_ARG_MODE;
 				get_arg_mode(am, tr->slot);
 				get_arg_mode(am, t1->slot);
@@ -3115,14 +3115,14 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 					break;
 				tr = get_var_type(ctx, res);
 				t1 = get_var_type(ctx, a1);
-				ajla_assert_lo((t1->type->tag == TYPE_TAG_flat_option || t1->type->tag == TYPE_TAG_unknown) && tr->type->tag == TYPE_TAG_flat_option, (file_line, "P_Option_Test(%s): invalid types for option test %u, %u", function_name(ctx), t1->type->tag, tr->type->tag));
+				ajla_assert_lo((t1->type->tag == TYPE_TAG_flat_opt || t1->type->tag == TYPE_TAG_unknown) && tr->type->tag == TYPE_TAG_bool, (file_line, "P_Option_Test(%s): invalid types for option test %u, %u", function_name(ctx), t1->type->tag, tr->type->tag));
 				am = INIT_ARG_MODE;
 				get_arg_mode(am, tr->slot);
 				get_arg_mode(am, t1->slot);
 				get_arg_mode(am, op);
 				if (unlikely(op != (pcode_t)(ajla_option_t)op))
 					goto exception_overflow;
-				if (t1->type->tag == TYPE_TAG_flat_option)
+				if (t1->type->tag == TYPE_TAG_flat_opt)
 					code = OPCODE_OPTION_TEST_FLAT;
 				else
 					code = OPCODE_OPTION_TEST;
@@ -3138,11 +3138,11 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 					break;
 				tr = get_var_type(ctx, res);
 				t1 = get_var_type(ctx, a1);
-				ajla_assert_lo((t1->type->tag == TYPE_TAG_flat_option || t1->type->tag == TYPE_TAG_unknown) && type_is_equal(tr->type, type_get_int(INT_DEFAULT_N)), (file_line, "P_Option_Ord(%s): invalid types for option test %u, %u", function_name(ctx), t1->type->tag, tr->type->tag));
+				ajla_assert_lo((t1->type->tag == TYPE_TAG_flat_opt || t1->type->tag == TYPE_TAG_unknown) && type_is_equal(tr->type, type_get_int(INT_DEFAULT_N)), (file_line, "P_Option_Ord(%s): invalid types for option test %u, %u", function_name(ctx), t1->type->tag, tr->type->tag));
 				am = INIT_ARG_MODE;
 				get_arg_mode(am, tr->slot);
 				get_arg_mode(am, t1->slot);
-				if (t1->type->tag == TYPE_TAG_flat_option)
+				if (t1->type->tag == TYPE_TAG_flat_opt)
 					code = OPCODE_OPTION_ORD_FLAT;
 				else
 					code = OPCODE_OPTION_ORD;
@@ -3706,7 +3706,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 				if (unlikely(!ptr))
 					goto exception;
 				n_elements = u_pcode_get();
-				tt = type_get_bool();
+				tt = type_get_flat_opt();
 				break;
 			case Local_Type_Flat_Record:
 				base_idx = u_pcode_get();
@@ -3853,9 +3853,6 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 		} else {
 			pt->slot = layout_get(ctx->layout, pt->color);
 			ctx->local_variables[pt->slot].type = pt->type;
-			/*ctx->local_variables_flags[pt->slot].may_be_borrowed = false;*/
-			/*if (pt->type->tag == TYPE_TAG_flat_option && !(pt->varflags & VarFlag_Must_Be_Flat))
-				debug("non-flat variable in %s", function_name(ctx));*/
 			ctx->local_variables_flags[pt->slot].must_be_flat = unlikely((chicken & CHICKEN_CG_MUST_BE_FLAT) != 0) ? 0 : !!(pt->varflags & VarFlag_Must_Be_Flat);
 			ctx->local_variables_flags[pt->slot].must_be_data = unlikely((chicken & CHICKEN_CG_MUST_BE_DATA) != 0) ? 0 : !!(pt->varflags & VarFlag_Must_Be_Data) + !!(pt->varflags & VarFlag_Must_Be_Array);
 			ctx->local_variables_flags[pt->slot].is_argument = false;

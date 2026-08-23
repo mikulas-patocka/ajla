@@ -509,7 +509,7 @@ static void io_get_int64_t(struct io_ctx *ctx, frame_t slot, int64_t *result, co
 static void io_get_option(struct io_ctx *ctx, frame_t slot, ajla_option_t *result, struct data **pointer)
 {
 	if (likely(frame_variable_is_flat(ctx->fp, slot))) {
-		ajla_assert(frame_get_type_of_local(ctx->fp, slot)->tag == TYPE_TAG_flat_option, (file_line, "io_get_int32_t: invalid type %u", (unsigned)frame_get_type_of_local(ctx->fp, slot)->tag));
+		ajla_assert(frame_get_type_of_local(ctx->fp, slot)->tag == TYPE_TAG_bool || frame_get_type_of_local(ctx->fp, slot)->tag == TYPE_TAG_flat_opt, (file_line, "io_get_option: invalid type %u", (unsigned)frame_get_type_of_local(ctx->fp, slot)->tag));
 		*result = *frame_slot(ctx->fp, slot, ajla_flat_option_t);
 		if (pointer)
 			*pointer = NULL;
@@ -542,7 +542,7 @@ static void *io_get_array_index(struct io_ctx *ctx, frame_s *fp_slot, frame_t sl
 
 static void io_store_flat_option(struct io_ctx *ctx, frame_t slot, ajla_flat_option_t val)
 {
-	ajla_assert(frame_get_type_of_local(ctx->fp, slot)->tag == TYPE_TAG_flat_option, (file_line, "io_store_flat_option: invalid type %u", (unsigned)frame_get_type_of_local(ctx->fp, slot)->tag));
+	ajla_assert(frame_get_type_of_local(ctx->fp, slot)->tag == TYPE_TAG_bool || frame_get_type_of_local(ctx->fp, slot)->tag == TYPE_TAG_flat_opt, (file_line, "io_store_flat_option: invalid type %u", (unsigned)frame_get_type_of_local(ctx->fp, slot)->tag));
 	frame_free(ctx->fp, slot);
 	barrier_aliasing();
 	*frame_slot(ctx->fp, slot, ajla_flat_option_t) = val;

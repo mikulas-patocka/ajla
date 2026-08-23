@@ -45,7 +45,8 @@ static const struct type builtin_types[TYPE_TAG_unknown + 1] = {
 	for_all_real(f, fn)
 #undef f
 #undef fn
-	{ TYPE_TAG_flat_option,		0,	0,	sizeof(ajla_flat_option_t),	align_of(ajla_flat_option_t)	},
+	{ TYPE_TAG_bool,		0,	0,	sizeof(ajla_flat_option_t),	align_of(ajla_flat_option_t)	},
+	{ TYPE_TAG_flat_opt,		0,	0,	sizeof(ajla_flat_option_t),	align_of(ajla_flat_option_t)	},
 	{ TYPE_TAG_unknown,		0,	0,	0,				1		},
 };
 
@@ -96,7 +97,12 @@ ret_type:
 
 const struct type *type_get_bool(void)
 {
-	return &builtin_types[TYPE_TAG_flat_option];
+	return &builtin_types[TYPE_TAG_bool];
+}
+
+const struct type *type_get_flat_opt(void)
+{
+	return &builtin_types[TYPE_TAG_flat_opt];
 }
 
 const struct type *type_get_unknown(void)

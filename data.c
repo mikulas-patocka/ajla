@@ -1778,7 +1778,7 @@ pointer_t flat_to_data(const struct type *type, const unsigned char *flat)
 	struct data *d;
 	unsigned tag = type->tag;
 
-	if (tag == TYPE_TAG_flat_option) {
+	if (tag == TYPE_TAG_bool || tag == TYPE_TAG_flat_opt) {
 		d = data_alloc_option_mayfail(&err pass_file_line);
 		if (unlikely(!d))
 			goto fail;
@@ -1856,6 +1856,7 @@ again:
 		pointer_dereference(ptr);
 		return true;
 	}
+	/* !!! TODO: flatten flat options */
 	return false;
 }
 
@@ -2029,7 +2030,7 @@ static bool deep_eval_array_test_nan(const struct type *type, unsigned char *fla
 	size_t rp_size;
 	int_default_t i;
 
-	if (TYPE_TAG_IS_FIXED(type->tag) || likely(TYPE_TAG_IS_INT(type->tag)) || type->tag == TYPE_TAG_flat_option)
+	if (TYPE_TAG_IS_FIXED(type->tag) || likely(TYPE_TAG_IS_INT(type->tag)) || type->tag == TYPE_TAG_bool || type->tag == TYPE_TAG_flat_opt)
 		return true;
 
 	if (unlikely(!array_init_mayfail(struct real_pos, &rp, &rp_size, err)))
@@ -2301,7 +2302,7 @@ int data_compare_numbers(type_tag_t tt, unsigned char *flat1, pointer_t ptr1, un
 				}
 				break;
 			case DATA_TAG_option:
-				tt = TYPE_TAG_flat_option;
+				tt = TYPE_TAG_flat_opt;
 				opt1 = da(d1,option)->option;
 				if (unlikely(opt1 != (ajla_flat_option_t)opt1))
 					return 1;
@@ -2329,7 +2330,7 @@ int data_compare_numbers(type_tag_t tt, unsigned char *flat1, pointer_t ptr1, un
 				}
 				break;
 			case DATA_TAG_option:
-				tt = TYPE_TAG_flat_option;
+				tt = TYPE_TAG_flat_opt;
 				opt2 = da(d2,option)->option;
 				if (unlikely(opt2 != (ajla_flat_option_t)opt2))
 					return -1;

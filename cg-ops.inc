@@ -386,12 +386,12 @@ static int allocate_register(unsigned *index_saved, unsigned *index_volatile, un
 {
 	if (!ARCH_HAS_BWX && (t->size && t->size < 1U << OP_SIZE_4))
 		return -1;
-	if (TYPE_TAG_IS_FIXED(t->tag) || TYPE_TAG_IS_INT(t->tag) || t->tag == TYPE_TAG_flat_option || t->tag == TYPE_TAG_unknown || t->tag == TYPE_TAG_record) {
+	if (TYPE_TAG_IS_FIXED(t->tag) || TYPE_TAG_IS_INT(t->tag) || t->tag == TYPE_TAG_bool || t->tag == TYPE_TAG_flat_opt || t->tag == TYPE_TAG_unknown || t->tag == TYPE_TAG_record) {
 		if (TYPE_TAG_IS_BUILTIN(t->tag)) {
 			if (!is_power_of_2(t->size) || t->size > 1U << OP_SIZE_NATIVE)
 				return -1;
 #if ARCH_HAS_BITWISE_BOOL
-			if (t->tag == TYPE_TAG_flat_option) {
+			if (t->tag == TYPE_TAG_bool) {
 				if (*index_bool < n_array_elements(regs_bool))
 					return regs_bool[(*index_bool)++];
 				return -1;
@@ -1371,7 +1371,7 @@ static bool attr_w gen_structured(struct codegen_context *ctx, frame_t slot_stru
 	struct_type = get_type_of_local(ctx, slot_struct);
 	elem_type = get_type_of_local(ctx, slot_elem);
 
-	if (TYPE_IS_FLAT(struct_type) && struct_type->tag != TYPE_TAG_flat_option) {
+	if (TYPE_IS_FLAT(struct_type) && struct_type->tag != TYPE_TAG_flat_opt) {
 		if (!TYPE_IS_FLAT(elem_type)) {
 			goto struct_zero;
 		} else {
@@ -1459,7 +1459,7 @@ struct_zero:
 					if (unlikely(rec_type->tag == TYPE_TAG_flat_record))
 						rec_type = type_def(rec_type,flat_record)->base;
 					e_type = type_def(rec_type,record)->types[param_slot];
-					if (!TYPE_IS_FLAT(e_type) || (e_type->tag == TYPE_TAG_flat_option && !(ctx->args[i].flags & OPCODE_STRUCTURED_FLAG_END))) {
+					if (!TYPE_IS_FLAT(e_type) || (e_type->tag == TYPE_TAG_flat_opt && !(ctx->args[i].flags & OPCODE_STRUCTURED_FLAG_END))) {
 						g(gen_test_1(ctx, R_SCRATCH_1, param_slot, data_record_offset, escape_label, true, TEST));
 					} else {
 						g(gen_test_1(ctx, R_SCRATCH_1, param_slot, data_record_offset, escape_label, false, TEST));
@@ -1498,7 +1498,7 @@ struct_zero:
 
 					g(gen_frame_get(ctx, OP_SIZE_INT, array_index_extension, param_slot, R_SCRATCH_2, &reg2));
 
-					if (!TYPE_IS_FLAT(e_type) || (e_type->tag == TYPE_TAG_flat_option && !(ctx->args[i].flags & OPCODE_STRUCTURED_FLAG_END))) {
+					if (!TYPE_IS_FLAT(e_type) || (e_type->tag == TYPE_TAG_flat_opt && !(ctx->args[i].flags & OPCODE_STRUCTURED_FLAG_END))) {
 						g(gen_compare_ptr_tag(ctx, R_SCRATCH_1, DATA_TAG_array_pointers, COND_NE, escape_label, R_SCRATCH_3, false, false));
 
 						g(gen_check_array_len(ctx, R_SCRATCH_1, false, reg2, COND_AE, true, escape_label));

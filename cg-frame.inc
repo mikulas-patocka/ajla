@@ -89,7 +89,7 @@ static bool attr_w unspill(struct codegen_context *ctx, frame_t v, bool attr_unu
 	if (can_be_smaller && !TYPE_TAG_IS_REAL(t->tag))
 		size = maximum(OP_SIZE_SLOT, size);
 #endif
-	if (t->tag == TYPE_TAG_flat_option)
+	if (t->tag == TYPE_TAG_bool || t->tag == TYPE_TAG_flat_opt)
 		ex = zero;
 	else if (!TYPE_IS_FLAT(t))
 		ex = native;
@@ -490,7 +490,7 @@ static bool attr_w gen_frame_get(struct codegen_context *ctx, unsigned size, enu
 	if (slot_is_register(ctx, slot)) {
 		unsigned sreg = ctx->registers[slot];
 		if (ex != garbage && size < OP_SIZE_NATIVE && !reg_is_fp(sreg)) {
-			if (t->tag == TYPE_TAG_flat_option && size <= ARCH_BOOL_SIZE)
+			if ((t->tag == TYPE_TAG_bool || t->tag == TYPE_TAG_flat_opt) && size <= ARCH_BOOL_SIZE)
 				goto skip_extend;
 			g(gen_extend(ctx, size, ex, sreg, sreg));
 		}
@@ -507,7 +507,7 @@ skip_extend:
 	g(gen_frame_load(ctx, size, ex, slot, 0, false, reg));
 ret:
 #ifdef DEBUG_GARBAGE
-	if (!reg_is_fp(*dest) && size < OP_SIZE_NATIVE && ex == garbage && t->tag != TYPE_TAG_flat_option) {
+	if (!reg_is_fp(*dest) && size < OP_SIZE_NATIVE && ex == garbage && t->tag != TYPE_TAG_bool && t->tag != TYPE_TAG_flat_opt) {
 		uint64_t mask;
 		g(gen_extend(ctx, size, zero_x, *dest, *dest));
 		mask = (rand()) | ((uint64_t)rand() << 31) | ((uint64_t)rand() << 62);
