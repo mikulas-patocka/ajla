@@ -359,6 +359,21 @@ static const uint32_t setbc_cond[0x2c] = {
 	0, 0, POWER_SETBC_SO, POWER_SETBC_NS,
 };
 
+static const int8_t cr_cond[0x2c] = {
+	0x23, 0x03, 0x20, 0x00,
+	0x22, 0x02, 0x01, 0x21,
+	0x20, 0x00, -1, -1,
+	0x20, 0x00, 0x01, 0x21,
+	-1, -1, -1, -1,
+	-1, -1, -1, -1,
+	-1, -1, -1, -1,
+	-1, -1, -1, -1,
+
+	-1, -1, 0x20, 0x00,
+	0x22, 0x02, 0x01, 0x21,
+	-1, -1, 0x23, 0x03,
+};
+
 static const uint32_t trap_cond[0x10] = {
 	0, 0, POWER_TRAP_UB, POWER_TRAP_UA | POWER_TRAP_E,
 	POWER_TRAP_E, POWER_TRAP_UA | POWER_TRAP_UB, POWER_TRAP_UB | POWER_TRAP_E, POWER_TRAP_UA,
@@ -1234,6 +1249,23 @@ static bool attr_w cgen_set_cond(struct codegen_context *ctx, unsigned aux)
 	uint32_t mc;
 	uint8_t *arg1 = ctx->code_position;
 	ctx->code_position = arg1 + arg_size(*arg1);
+
+	if (reg_is_cr(arg1[0])) {
+		int cond;
+		if (unlikely(aux >= n_array_elements(cr_cond)))
+			goto invl;
+		cond = cr_cond[aux];
+		if (unlikely(cond < 0))
+			goto invl;
+
+		mc = cond & 0x20 ? POWER_CROR : POWER_CRNOR;
+		cgen_xform(mc, arg1[0] & 31, cond & 31, cond & 31, 0);
+
+		return true;
+	}
+
+	if (unlikely(arg1[0] >= 32))
+		goto invl;
 
 	if (unlikely(aux >= n_array_elements(setbc_cond)))
 		goto invl;

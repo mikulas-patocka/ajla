@@ -1044,7 +1044,6 @@ static bool attr_w gen_frame_set_cond(struct codegen_context *ctx, unsigned size
 		gen_label(label);
 		goto do_store;
 	}
-	/* !!! TODO: use setb on power */
 	g(gen_load_constant(ctx, target, 1));
 	g(gen_imm(ctx, 0, IMM_PURPOSE_CMOV, OP_SIZE_NATIVE));
 	if (cond & COND_FP) {
