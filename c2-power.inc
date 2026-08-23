@@ -433,6 +433,15 @@ static bool attr_w cgen_moves(struct codegen_context *ctx, unsigned size, bool s
 			g(cgen_gr_to_cr(ctx, arg1[0], arg2[0]));
 			return true;
 		}
+		if (arg2[0] == ARG_IMM) {
+			imm = get_imm(&arg2[1]);
+			if (unlikely((imm & ~1) != 0))
+				goto invl;
+			mc = imm ? POWER_CREQV : POWER_CRXOR;
+			if (ctx)
+				cgen_xform(mc, arg1[0] & 31, arg1[0] & 31, arg1[0] & 31, 0);
+			return true;
+		}
 		g(cgen_moves(ctx, size, sx, &scr, arg2));
 		g(cgen_gr_to_cr(ctx, arg1[0], R_CG_SCRATCH));
 		return true;
