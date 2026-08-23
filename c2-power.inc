@@ -117,6 +117,7 @@
 #define POWER_LWAX		0x7c0002aaU
 #define POWER_LHAX		0x7c0002aeU
 #define POWER_POPCNTW		0x7c0002f4U
+#define POWER_SETBC		0x7c000300U
 #define POWER_SETBC_LT		0x7c000300U
 #define POWER_STXVX		0x7c000318U
 #define POWER_STHX		0x7c00032eU
@@ -394,7 +395,9 @@ static bool attr_w cgen_gr_to_cr(struct codegen_context *ctx, unsigned cr, unsig
 static bool attr_w cgen_cr_to_gr(struct codegen_context *ctx, unsigned gr, unsigned cr)
 {
 	if (ctx) {
-		if (cpu_test_feature(CPU_FEATURE_v203)) {
+		if (cpu_test_feature(CPU_FEATURE_v31)) {
+			cgen_xform(POWER_SETBC, gr, cr & 31, 0, 0);
+		} else if (cpu_test_feature(CPU_FEATURE_v203)) {
 			cgen_dform(POWER_ADDI, gr, 0, 1);
 			if (gr == R_0) {
 				cgen_x4form(POWER_ISEL, gr, 0, gr, cr & 31, 0);
