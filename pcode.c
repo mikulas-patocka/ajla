@@ -565,7 +565,7 @@ const struct type *pcode_get_type(pcode_t q)
 			break;
 
 		case T_Bool:
-			t = type_get_flat_option();
+			t = type_get_bool();
 			break;
 
 		case T_Undetermined:
@@ -2369,7 +2369,7 @@ static bool pcode_offload(struct build_function_context *ctx, bool preload)
 
 	res = u_pcode_get();
 	tr = get_var_type(ctx, res);
-	ajla_assert_lo(type_is_equal(tr->type, type_get_flat_option()), (file_line, "P_Offload(%s): invalid type for bool variable: %u", function_name(ctx), tr->type->tag));
+	ajla_assert_lo(type_is_equal(tr->type, type_get_bool()), (file_line, "P_Offload(%s): invalid type for bool variable: %u", function_name(ctx), tr->type->tag));
 	if (ctx->pcode == ctx->pcode_instr_end) {
 		if (preload)
 			return true;
@@ -2792,7 +2792,7 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				t2 = get_var_type(ctx, a2);
 				ajla_assert_lo(op >= Op_N ||
 					(type_is_equal(t1->type, t2->type) &&
-					type_is_equal(tr->type, (Op_IsBool(op) ? type_get_flat_option()
+					type_is_equal(tr->type, (Op_IsBool(op) ? type_get_bool()
 					: Op_IsInt(op) ? type_get_int(INT_DEFAULT_N)
 					: t1->type))), (file_line, "P_BinaryOp(%s): invalid types for binary operation %"PRIdMAX": %u, %u, %u", function_name(ctx), (intmax_t)op, t1->type->tag, t2->type->tag, tr->type->tag));
 				if (NEED_OP_EMULATION && unlikely(t1->extra_type)) {
@@ -2859,7 +2859,7 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 					}
 					mem_free(blob);
 				}
-				ajla_assert_lo(type_is_equal(tr->type, (Op_IsBool(op) ? type_get_flat_option() : t1->type)), (file_line, "P_BinaryConstOp(%s): invalid types for binary operation %"PRIdMAX": %u, %u", function_name(ctx), (intmax_t)op, t1->type->tag, tr->type->tag));
+				ajla_assert_lo(type_is_equal(tr->type, (Op_IsBool(op) ? type_get_bool() : t1->type)), (file_line, "P_BinaryConstOp(%s): invalid types for binary operation %"PRIdMAX": %u, %u", function_name(ctx), (intmax_t)op, t1->type->tag, tr->type->tag));
 				fflags = 0;
 				if (flags1 & Flag_Fused_Bin_Jmp)
 					fflags |= OPCODE_FLAG_FUSED;
@@ -2890,7 +2890,7 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				tr = get_var_type(ctx, res);
 				t1 = get_var_type(ctx, a1);
 				ajla_assert_lo(op >= Op_N || op == Un_ConvertFromInt || Op_IsReal(op) ||
-					type_is_equal(tr->type, (Op_IsBool(op) ? type_get_flat_option()
+					type_is_equal(tr->type, (Op_IsBool(op) ? type_get_bool()
 					: Op_IsInt(op) ? type_get_int(INT_DEFAULT_N)
 					: t1->type)), (file_line, "P_UnaryOp(%s): invalid types for unary operation %"PRIdMAX": %u, %u", function_name(ctx), (intmax_t)op, t1->type->tag, tr->type->tag));
 				if (NEED_OP_EMULATION && (unlikely(t1->extra_type) || unlikely(tr->extra_type))) {
@@ -3258,7 +3258,7 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				tr = get_var_type(ctx, res);
 				t1 = get_var_type(ctx, a1);
 				t2 = get_var_type(ctx, a2);
-				ajla_assert_lo(type_is_equal(tr->type, type_get_flat_option()), (file_line, "P_Array_Len_Greater_Than(%s): invalid result type: %u", function_name(ctx), tr->type->tag));
+				ajla_assert_lo(type_is_equal(tr->type, type_get_bool()), (file_line, "P_Array_Len_Greater_Than(%s): invalid result type: %u", function_name(ctx), tr->type->tag));
 				ajla_assert_lo(type_is_equal(t2->type, type_get_int(INT_DEFAULT_N)), (file_line, "P_Array_Len_Greater_Than(%s): invalid length type: %u", function_name(ctx), t2->type->tag));
 
 				fflags = 0;
@@ -3410,7 +3410,7 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 			case P_Jmp_False:
 				res = pcode_get();
 				tr = get_var_type(ctx, res);
-				ajla_assert_lo(type_is_equal(tr->type, type_get_flat_option()), (file_line, "P_Jmp_False(%s): invalid type for conditional jump: %u", function_name(ctx), tr->type->tag));
+				ajla_assert_lo(type_is_equal(tr->type, type_get_bool()), (file_line, "P_Jmp_False(%s): invalid type for conditional jump: %u", function_name(ctx), tr->type->tag));
 
 				a1 = u_pcode_get();
 				a2 = u_pcode_get();
@@ -3706,7 +3706,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 				if (unlikely(!ptr))
 					goto exception;
 				n_elements = u_pcode_get();
-				tt = type_get_flat_option();
+				tt = type_get_bool();
 				break;
 			case Local_Type_Flat_Record:
 				base_idx = u_pcode_get();

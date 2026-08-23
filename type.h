@@ -77,7 +77,7 @@ static inline bool type_is_equal(const struct type *t1, const struct type *t2)
 const struct type *type_get_fixed(unsigned bits, bool uns);
 const struct type *type_get_int(unsigned idx);
 const struct type *type_get_real(unsigned idx);
-const struct type *type_get_flat_option(void);
+const struct type *type_get_bool(void);
 const struct type *type_get_unknown(void);
 const struct type *type_get_from_tag(type_tag_t tag);
 

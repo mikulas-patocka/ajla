@@ -2038,7 +2038,7 @@ void * attr_hot_fastcall ipret_array_len_greater_than(frame_s *fp, const code_t 
 	pointer_t res_ptr;
 	pointer_t *can_modify;
 
-	ajla_assert(type_is_equal(frame_get_type_of_local(fp, slot_r), type_get_flat_option()), (file_line, "ipret_array_len_greater_than: invalid index type %u", frame_get_type_of_local(fp, slot_r)->tag));
+	ajla_assert(type_is_equal(frame_get_type_of_local(fp, slot_r), type_get_bool()), (file_line, "ipret_array_len_greater_than: invalid index type %u", frame_get_type_of_local(fp, slot_r)->tag));
 	ajla_assert(!frame_test_flag(fp, slot_r), (file_line, "ipret_array_len_greater_than: flag already set for destination slot %"PRIuMAX"", (uintmax_t)slot_r));
 
 	ex = ipret_get_index(fp, ip, fp, slot_l, &neg, &remaining_length, &res_ptr pass_file_line);

@@ -173,7 +173,7 @@ void *ipret_offload(frame_s *fp, const code_t *ip)
 		da(args,array_pointers)->pointer[i] = pointer_empty();
 	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[2], pointer_data(args));
 
-	arg_types = data_alloc_array_flat_mayfail(type_get_flat_option(), n_args, n_args, false, &err pass_file_line);
+	arg_types = data_alloc_array_flat_mayfail(type_get_bool(), n_args, n_args, false, &err pass_file_line);
 	if (unlikely(!arg_types))
 		goto set_err;
 	frame_set_pointer(da_record_frame(record), record_definition->idx_to_frame[3], pointer_data(arg_types));

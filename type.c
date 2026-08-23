@@ -94,7 +94,7 @@ ret_type:
 	return &builtin_types[TYPE_TAG_real + idx];
 }
 
-const struct type *type_get_flat_option(void)
+const struct type *type_get_bool(void)
 {
 	return &builtin_types[TYPE_TAG_flat_option];
 }
