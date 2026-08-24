@@ -204,10 +204,10 @@ do_alu: {
 		if ((alu == ALU_OR || alu == ALU_AND) && unlikely(slot_1 == slot_2) && slot_1 == slot_r)
 			return true;
 		if (swap) {
-			frame_t x;
-			x = slot_1;
+			frame_t s;
+			s = slot_1;
 			slot_1 = slot_2;
-			slot_2 = x;
+			slot_2 = s;
 		}
 #if defined(ARCH_S390)
 		if (!slot_is_register(ctx, slot_r) && slot_r * slot_size < 0x1000 &&
@@ -216,10 +216,10 @@ do_alu: {
 		    (slot_r == slot_1 || slot_r == slot_2) &&
 		    (alu == ALU_AND || alu == ALU_OR || alu == ALU_XOR)) {
 			if (slot_r != slot_1) {
-				frame_t x;
-				x = slot_1;
+				frame_t s;
+				s = slot_1;
 				slot_1 = slot_2;
-				slot_2 = x;
+				slot_2 = s;
 			}
 			gen_insn(INSN_ALU, op_size, alu, ALU_WRITES_FLAGS(op_size, alu, true, false, 0));
 			gen_one(ARG_ADDRESS_1);
@@ -312,9 +312,9 @@ do_alu: {
 		}
 
 		if (((ARCH_HAS_FLAGS && i_size_cmp(op_size) == op_size + zero) || ARCH_SUPPORTS_TRAPS(op_size)) && slot_2 == slot_r && slot_1 != slot_2 && alu_is_commutative(alu)) {
-			frame_t x = slot_1;
+			frame_t s = slot_1;
 			slot_1 = slot_2;
-			slot_2 = x;
+			slot_2 = s;
 		}
 		if (((ARCH_HAS_FLAGS && i_size_cmp(op_size) == op_size + zero) || ARCH_SUPPORTS_TRAPS(op_size)) && slot_1 == slot_r && (slot_1 != slot_2 || mode != MODE_INT)
 #if defined(ARCH_POWER)
@@ -4610,6 +4610,8 @@ static bool attr_w gen_alu_jmp(struct codegen_context *ctx, unsigned mode, unsig
 	enum extend ex;
 	unsigned reg1;
 	unsigned attr_unused reg2;
+	bool attr_unused swap = false;
+	unsigned res = R_SCRATCH_1;
 #if 0
 	*failed = true; return true;
 #endif
@@ -4641,12 +4643,21 @@ static bool attr_w gen_alu_jmp(struct codegen_context *ctx, unsigned mode, unsig
 		case MODE_BOOL: switch (op) {
 			case OPCODE_BOOL_OP_and:		alu = ALU_AND; goto do_alu;
 			case OPCODE_BOOL_OP_or:			alu = ALU_OR; goto do_alu;
+#if ARCH_HAS_BITWISE_BOOL
+			case OPCODE_BOOL_OP_equal:		alu = ALU_XORN; goto do_alu;
+			case OPCODE_BOOL_OP_not_equal:		alu = ALU_XOR; goto do_alu;
+			case OPCODE_BOOL_OP_less:		alu = ALU_ANDN; swap = true; goto do_alu;
+			case OPCODE_BOOL_OP_less_equal:		alu = ALU_ORN; swap = true; goto do_alu;
+			case OPCODE_BOOL_OP_greater:		alu = ALU_ANDN; goto do_alu;
+			case OPCODE_BOOL_OP_greater_equal:	alu = ALU_ORN; goto do_alu;
+#else
 			case OPCODE_BOOL_OP_equal:		alu = COND_E; goto do_compare;
 			case OPCODE_BOOL_OP_not_equal:		alu = COND_NE; goto do_compare;
 			case OPCODE_BOOL_OP_less:		alu = COND_L; goto do_compare;
 			case OPCODE_BOOL_OP_less_equal:		alu = COND_LE; goto do_compare;
 			case OPCODE_BOOL_OP_greater:		alu = COND_G; goto do_compare;
 			case OPCODE_BOOL_OP_greater_equal:	alu = COND_GE; goto do_compare;
+#endif
 			default:				internal(file_line, "gen_alu_jmp: unsupported bool operation %u", op);
 		}
 	}
@@ -4765,7 +4776,12 @@ do_compare: {
 		return true;
 	}
 do_alu: {
-		if (slot_is_register(ctx, slot_2) && !slot_is_register(ctx, slot_1)) {
+		if (swap) {
+			frame_t s = slot_1;
+			slot_1 = slot_2;
+			slot_2 = s;
+		}
+		if (slot_is_register(ctx, slot_2) && !slot_is_register(ctx, slot_1) && alu_is_commutative(alu)) {
 			frame_t s = slot_1;
 			slot_1 = slot_2;
 			slot_2 = s;
@@ -4796,6 +4812,12 @@ do_alu: {
 		if (alu == ALU_OR)
 			goto skip_flags;
 #endif
+#if ARCH_HAS_BITWISE_BOOL
+		if (reg_is_cr(reg1) || reg_is_cr(reg2)) {
+			res = R_CR_SCRATCH;
+			goto skip_flags;
+		}
+#endif
 #if ARCH_HAS_FLAGS
 		g(gen_3address_alu(ctx, i_size(op_size), alu, R_SCRATCH_1, reg1, reg2, 1));
 		g(gen_jump(ctx, jmp_offset, i_size(op_size), COND_E, -1U, -1U, 0));
@@ -4803,8 +4825,8 @@ do_alu: {
 #endif
 		goto skip_flags;
 skip_flags:
-		g(gen_3address_alu(ctx, i_size(op_size), alu, R_SCRATCH_1, reg1, reg2, 0));
-		g(gen_jump(ctx, jmp_offset, i_size(op_size), COND_E, R_SCRATCH_1, -1U, 0));
+		g(gen_3address_alu(ctx, i_size(op_size), alu, res, reg1, reg2, 0));
+		g(gen_jump(ctx, jmp_offset, i_size(op_size), COND_E, res, -1U, 0));
 		return true;
 	}
 do_bt:	{
