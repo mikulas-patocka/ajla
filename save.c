@@ -41,7 +41,11 @@
 #define USE_MMAP
 #endif
 
+#if 1
 static const char id[] = "AJLA" " " __DATE__ " " __TIME__;
+#else
+static const char id[] = "AJLA";
+#endif
 
 static bool compsave;
 
@@ -565,7 +569,7 @@ static void save_functions_until(struct data *d)
 		/*debug("test loaded: %lu", loaded_fn_idx);*/
 		if (d) {
 			int c = function_compare(da(d,function)->module_designator, da(d,function)->function_designator, function_desc);
-			if (c <= 0 && c != DATA_COMPARE_OOM) {
+			if (c <= 0) {
 				if (!c)
 					loaded_fn_idx++;
 				return;
@@ -1704,7 +1708,7 @@ verify_ret:
 			if (i > 0) {
 				int c = cache_compare(loaded_file_descriptor(compsave)->cache_descs[i - 1].md, loaded_file_descriptor(compsave)->cache_descs[i - 1].fd, &loaded_file_descriptor(compsave)->cache_descs[i]);
 				if (unlikely(c >= 0))
-					internal(file_line, "save_load_cache: misordered cache descriptors: %d (%"PRIuMAX" / %"PRIuMAX")", c, (uintmax_t)i, (uintmax_t)loaded_file_descriptor(compsave)->cache_descs_len);
+					internal(file_line, "save_load_cache: misordered cache descriptors(%d): %d (%"PRIuMAX" / %"PRIuMAX")", compsave, c, (uintmax_t)i, (uintmax_t)loaded_file_descriptor(compsave)->cache_descs_len);
 			}
 			k = (size_t)da(dsc,saved_cache)->n_arguments + (size_t)da(dsc,saved_cache)->n_return_values;
 			if (da(dsc,saved_cache)->n_entries) {
@@ -1719,10 +1723,11 @@ verify_ret:
 		}
 		for (i = 0; i < loaded_file_descriptor(compsave)->fn_descs_len; i++) {
 			struct function_descriptor *fn_desc = &loaded_file_descriptor(compsave)->fn_descs[i];
+			/*debug("%.*s", (int)fn_desc->md->path_len, fn_desc->md->path);*/
 			if (i > 0) {
 				int c = function_compare(loaded_file_descriptor(compsave)->fn_descs[i - 1].md, loaded_file_descriptor(compsave)->fn_descs[i - 1].fd, fn_desc);
 				if (unlikely(c >= 0))
-					internal(file_line, "save_load_cache: misordered function descriptors: %d (%"PRIuMAX" / %"PRIuMAX")", c, (uintmax_t)i, (uintmax_t)loaded_file_descriptor(compsave)->fn_descs_len);
+					internal(file_line, "save_load_cache: misordered function descriptors(%d): %d (%"PRIuMAX" / %"PRIuMAX")", compsave, c, (uintmax_t)i, (uintmax_t)loaded_file_descriptor(compsave)->fn_descs_len);
 			}
 		}
 	}
