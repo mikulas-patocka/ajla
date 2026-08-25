@@ -29,5 +29,6 @@ fn main
 	fn f~weakspark := xmain;
 	if not is_ready(f) then
 		write(h[2], "compiling, please wait..." + nl);
+	xeval f;
 	xxmain(w, d, h, args, env);
 ]
