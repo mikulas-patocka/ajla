@@ -55,6 +55,13 @@ static bool attr_w gen_mov(struct codegen_context *ctx, unsigned size, unsigned 
 
 		return true;
 	}
+	if (dest == R_GBR) {
+		gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
+		gen_one(ARG_ADDRESS_1);
+		gen_one(R_SP);
+		gen_eight(8);
+		gen_one(src);
+	}
 #endif
 	gen_insn(INSN_MOV, size, 0, MOV_WRITES_FLAGS(dest, src));
 	gen_one(dest);
@@ -151,11 +158,6 @@ static bool attr_w gen_3address_alu_imm(struct codegen_context *ctx, unsigned si
 		g(gen_mov(ctx, OP_SIZE_4, R_OFFSET_IMM, src));
 		g(gen_3address_alu_imm(ctx, size, alu, R_OFFSET_IMM, R_OFFSET_IMM, imm, 0));
 		g(gen_mov(ctx, OP_SIZE_4, dest, R_OFFSET_IMM));
-		gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
-		gen_one(ARG_ADDRESS_1);
-		gen_one(R_SP);
-		gen_eight(8);
-		gen_one(R_OFFSET_IMM);
 		return true;
 	}
 #endif
