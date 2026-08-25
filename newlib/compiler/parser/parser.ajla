@@ -1365,10 +1365,12 @@ fn parse_file_2(w : world, d : list(bytes), name : bytes, fid_flags : uint8, par
 
 fn parse_file(w : world, d : list(bytes), name : bytes, fid_flags : uint8, parse_interface : bool, prereq len_greater_than(d, 0)) : function_dictionary
 [
-	if len(d) = 1, not fid_flags bt bsf FID_Flag_Unit_Generator then [
+	//eval debug("parse_file("+ntos(fid_flags)+"): " + name);
+	if len(d) = 1, list_search(name, ':') = -1 then [
 		//eval debug("parse_file: " + name);
 		return parse_file_2~save(w, d, name, fid_flags, parse_interface);
 	] else [
+		//eval debug("parse_file nosave: " + name);
 		return parse_file_2~cache(w, d, name, fid_flags, parse_interface);
 	]
 ]
