@@ -2436,7 +2436,9 @@ static bool attr_w gen_epilogues(struct codegen_context *ctx)
 #endif
 	if (ctx->reload_label) {
 		gen_label(ctx->reload_label);
-		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_FRAME, R_RET0));
+		gen_insn(INSN_MOV, i_size(OP_SIZE_ADDRESS), 0, 0);
+		gen_one(R_FRAME);
+		gen_one(R_RET0);
 		g(gen_load_constant(ctx, R_RET_IP, (ip_t)-1));
 		gen_insn(INSN_JMP, 0, 0, 0);
 		gen_label_ref(ctx->nospill_label);
