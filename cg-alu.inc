@@ -322,7 +322,7 @@ do_alu: {
 #endif
 		    ) {
 			struct cg_exit *ce;
-			unsigned undo_alu = alu ^ (ALU_ADD ^ ALU_SUB);
+			unsigned undo_alu = alu == ALU_ADD ? ALU_SUB : alu == ALU_SUB ? ALU_ADD : alu;
 			if (slot_is_register(ctx, slot_1)) {
 				unsigned reg1 = ctx->registers[slot_1];
 				if (slot_is_register(ctx, slot_2)
