@@ -48,6 +48,14 @@ fn get_record_option_type_cc(ctx : function_context, cc : compare_context) : (fu
 	var lt := list(pcode_t).[ select(rec_ctx.record_def.j.is_option, Local_Type_Record, Local_Type_Option) ]
 		+ generate_function_id(rec_ctx.id)
 		+< len(rec_ctx.record_def.j.entries);
+	if rec_ctx.record_def.j.is_option then [
+		var flags := 0;
+		if rec_ctx.record_def.j.is_flat_option then
+			flags or= Fn_IsFlatOption;
+		if rec_ctx.record_def.j.always_flat_option then
+			flags or= Fn_AlwaysFlatOption;
+		lt +<= flags;
+	]
 	return local_type_idx(ctx, lt);
 ]
 

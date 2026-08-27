@@ -2291,6 +2291,8 @@ fn encode_local_type(lt : local_type) : int
 	if lt is rec then [
 		pc := list(pcode_t).[ select(lt.rec.opt, Local_Type_Record, Local_Type_Option) ] + function_store(lt.rec.f);
 		pc +<= lt.rec.n_entries;
+		if lt.rec.opt then
+			pc +<= lt.rec.flags;
 	] else if lt is flat_rec then [
 		pc := list(pcode_t).[ Local_Type_Flat_Record, lt.flat_rec.non_flat_record, len(lt.flat_rec.flat_types) ];
 		for i := 0 to len(lt.flat_rec.flat_types) do [

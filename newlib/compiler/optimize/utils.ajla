@@ -577,11 +577,16 @@ fn load_function_context(pc : list(pcode_t), un : bytes, get_inline : fn(functio
 		var ft := pc[ptr];
 		ptr += 1;
 		var lt : local_type;
-		if ft = Local_Type_Record or ft = Local_Type_Option then [
+		if ft = Local_Type_Record then [
 			var n, f := function_load(pc[ptr .. ]);
 			ptr += n;
-			lt := local_type.rec.(local_type_record.[ opt : ft = Local_Type_Option, f : f, n_entries : pc[ptr] ]);
+			lt := local_type.rec.(local_type_record.[ opt : false, f : f, n_entries : pc[ptr], flags : 0 ]);
 			ptr += 1;
+		] else if ft = Local_Type_Option then [
+			var n, f := function_load(pc[ptr .. ]);
+			ptr += n;
+			lt := local_type.rec.(local_type_record.[ opt : true, f : f, n_entries : pc[ptr], flags : pc[ptr + 1] ]);
+			ptr += 2;
 		] else if ft = Local_Type_Flat_Record then [
 			var non_flat_rec := pc[ptr];
 			var n_entries := pc[ptr + 1];
@@ -715,6 +720,8 @@ fn dump_local_type(lt : local_type) : list(pcode_t)
 		rpc +<= select(lt.rec.opt, Local_Type_Record, Local_Type_Option);
 		rpc += function_store(lt.rec.f);
 		rpc +<= lt.rec.n_entries;
+		if lt.rec.opt then
+			rpc +<= lt.rec.flags;
 	] else if lt is flat_rec then [
 		rpc +<= Local_Type_Flat_Record;
 		rpc +<= lt.flat_rec.non_flat_record;

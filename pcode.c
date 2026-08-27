@@ -3678,6 +3678,7 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 		const struct record_definition *def;
 		pcode_t base_idx = -1;
 		pcode_t n_elements = 0;
+		pcode_t flags;
 		struct type_entry *flat_rec;
 		const struct type *tt, *tp;
 
@@ -3706,7 +3707,11 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 				if (unlikely(!ptr))
 					goto exception;
 				n_elements = u_pcode_get();
-				tt = type_get_flat_opt();
+				flags = u_pcode_get();
+				if (flags & Fn_IsFlatOption)
+					tt = type_get_flat_opt();
+				else
+					tt = type_get_unknown();
 				break;
 			case Local_Type_Flat_Record:
 				base_idx = u_pcode_get();

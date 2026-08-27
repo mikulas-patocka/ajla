@@ -157,6 +157,7 @@ record local_type_record [
 	opt : bool;
 	f : function;
 	n_entries : int;
+	flags : int;
 ]
 
 record local_type_flat_record [
