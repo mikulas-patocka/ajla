@@ -1928,12 +1928,6 @@ static bool attr_w gen_option_load(struct codegen_context *ctx, frame_t slot_1, 
 	if (unlikely(!escape_label))
 		return false;
 
-	if (flag_must_be_flat(ctx, slot_r)) {
-		gen_insn(INSN_JMP, 0, 0, 0);
-		gen_label_ref(escape_label);
-		return true;
-	}
-
 	type = get_type_of_local(ctx, slot_1);
 	if (TYPE_IS_FLAT(type)) {
 		g(gen_test_1_jz_cached(ctx, slot_1, escape_label));
