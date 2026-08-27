@@ -1449,11 +1449,12 @@ struct_zero:
 
 			g(gen_decompress_pointer(ctx, ARCH_PREFERS_SX(OP_SIZE_SLOT), R_SCRATCH_1, R_SCRATCH_1, 0));
 
-			g(gen_compare_refcount(ctx, R_SCRATCH_1, minimum(REFCOUNT_STEP, TAG_END), COND_AE, escape_label));
-
 			switch (ctx->args[i].flags & OPCODE_STRUCTURED_MASK) {
 				case OPCODE_STRUCTURED_RECORD: {
 					const struct type *rec_type, *e_type;
+
+					g(gen_compare_refcount(ctx, R_SCRATCH_1, minimum(REFCOUNT_STEP, TAG_END), COND_AE, escape_label));
+
 					rec_type = da_type(ctx->fn, ctx->args[i].type);
 					TYPE_TAG_VALIDATE(rec_type->tag);
 					if (unlikely(rec_type->tag == TYPE_TAG_flat_record))
@@ -1470,6 +1471,9 @@ struct_zero:
 				}
 				case OPCODE_STRUCTURED_OPTION: {
 					unsigned op_size = log_2(sizeof(ajla_option_t));
+
+					g(gen_compare_refcount(ctx, R_SCRATCH_1, minimum(REFCOUNT_STEP, TAG_END), COND_AE, escape_label));
+
 #if defined(ARCH_M68K) || defined(ARCH_X86)
 					g(gen_address(ctx, R_SCRATCH_1, offsetof(struct data, u_.option.option), IMM_PURPOSE_LDR_OFFSET, op_size));
 					g(gen_imm(ctx, param_slot, IMM_PURPOSE_CMP, op_size));
@@ -1499,7 +1503,7 @@ struct_zero:
 					g(gen_frame_get(ctx, OP_SIZE_INT, array_index_extension, param_slot, R_SCRATCH_2, &reg2));
 
 					if (!TYPE_IS_FLAT(e_type) || (e_type->tag == TYPE_TAG_flat_opt && !(ctx->args[i].flags & OPCODE_STRUCTURED_FLAG_END))) {
-						g(gen_compare_ptr_tag(ctx, R_SCRATCH_1, DATA_TAG_array_pointers, COND_NE, escape_label, R_SCRATCH_3, false, false));
+						g(gen_compare_tag_and_refcount(ctx, R_SCRATCH_1, DATA_TAG_array_pointers, escape_label, R_SCRATCH_3));
 
 						g(gen_check_array_len(ctx, R_SCRATCH_1, false, reg2, COND_AE, true, escape_label));
 
@@ -1510,7 +1514,7 @@ struct_zero:
 
 						g(gen_scaled_array_address(ctx, slot_size, R_SAVED_1, R_SCRATCH_1, reg2, 0));
 					} else {
-						g(gen_compare_ptr_tag(ctx, R_SCRATCH_1, DATA_TAG_array_flat, COND_NE, escape_label, R_SCRATCH_3, false, false));
+						g(gen_compare_tag_and_refcount(ctx, R_SCRATCH_1, DATA_TAG_array_flat, escape_label, R_SCRATCH_3));
 
 						g(gen_check_array_len(ctx, R_SCRATCH_1, false, reg2, COND_AE, true, escape_label));
 
