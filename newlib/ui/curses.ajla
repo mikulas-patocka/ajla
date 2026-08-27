@@ -1188,7 +1188,8 @@ fn curses_char_to_packet~inline(implicit curs : curses, n : cchar) : packets
 
 fn curses_update_char(implicit curs : curses, x y : nat, prereq x < curs.x and y < curs.y) : (c2 : curses, bytes, packets, nat, contract curs.x = c2.x and curs.y = c2.y)
 [
-	const c1 := curs;
+	const c1x := curs.x;
+	const c1y := curs.y;
 	var str := "";
 	var s : bytes;
 	var pkt := packets.[];
@@ -1218,7 +1219,7 @@ fn curses_update_char(implicit curs : curses, x y : nat, prereq x < curs.x and y
 			n.ch := f;
 	]
 
-	if not locale_validate_character(curs.loc, n.ch) or curs.prefer_acs_map, n.ch >= 0, n.ch < #110000 then [
+	if not locale_validate_character(curs.loc, n.ch) or curs.prefer_acs_map, n.ch >= #80, n.ch < #110000 then [
 		var a := curs.acs_map[n.ch];
 		if a > 0 then [
 			var b := curs.altcharset_map[a];
@@ -1259,8 +1260,8 @@ ok_wide:
 	]
 	curs.current_cx += width;
 ret:
-	assume c1.x = curs.x;
-	assume c1.y = curs.y;
+	assume c1x = curs.x;
+	assume c1y = curs.y;
 	return str, pkt, width;
 ]
 

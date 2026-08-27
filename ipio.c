@@ -5003,7 +5003,7 @@ static void * attr_fastcall io_examine_handler(struct io_ctx *ctx)
 	}
 
 x:
-	ipret_copy_variable(ctx->fp, slot, ctx->fp, get_output(ctx, 0), false);
+	set_uniq_type(ctx);
 
 	return POINTER_FOLLOW_THUNK_GO;
 }
