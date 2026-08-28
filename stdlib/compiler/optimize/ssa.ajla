@@ -2015,29 +2015,32 @@ skip:
 					abort internal("runtime type out of range: " + ntos(vt.local_type) + " >= " + ntos(len(ctx.local_types)));
 			]
 		]
-		for bgi := 0 to len(ctx.blocks) do [
-			var block := ctx.blocks[bgi];
-			if not block.active then
-				continue;
-			for ili := 0 to len(block.instrs) do [
-				var igi := block.instrs[ili];
-				var ins := ctx.instrs[igi];
-				var s := ins.lt_set;
-				while s <> 0 do [
-					var p : int := bsr s;
-					s btr= p;
-					var vgi := ins.params[p + 1];
-					if vgi < 0 then
-						continue;
-					var vt := ctx.variables[vgi];
-					if vt.defining_instr < 0 then
-						continue;
-					var ins2 := ctx.instrs[vt.defining_instr];
-					if vt.local_type >= 0 then [
-						if vt.local_type >= len(ctx.local_types) then
-							abort internal("runtime type out of range: " + ntos(vt.local_type) + " >= " + ntos(len(ctx.local_types)));
-						ctx.instrs[igi].params[p] := vt.local_type;
-					]
+	]
+
+	for bgi := 0 to len(ctx.blocks) do [
+		var block := ctx.blocks[bgi];
+		if not block.active then
+			continue;
+		for ili := 0 to len(block.instrs) do [
+			var igi := block.instrs[ili];
+			var ins := ctx.instrs[igi];
+			var s := ins.lt_set;
+			while s <> 0 do [
+				var p : int := bsr s;
+				s btr= p;
+				var vgi := ins.params[p + 1];
+				if vgi < 0 then [
+					if ins.params[p] <> vgi then
+						ctx.instrs[igi].params[p] := vgi;
+					continue;
+				]
+				var vt := ctx.variables[vgi];
+				if vt.defining_instr < 0 then
+					continue;
+				if vt.local_type >= 0 then [
+					if vt.local_type >= len(ctx.local_types) then
+						abort internal("runtime type out of range: " + ntos(vt.local_type) + " >= " + ntos(len(ctx.local_types)));
+					ctx.instrs[igi].params[p] := vt.local_type;
 				]
 			]
 		]
