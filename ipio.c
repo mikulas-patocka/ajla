@@ -4975,6 +4975,18 @@ static void * attr_fastcall io_examine_handler(struct io_ctx *ctx)
 
 	debug("slot %u: bit %d, ptr %p, refcount %"PRIuMAX", tag %u", (unsigned)slot, bit, p, (uintmax_t)refc, tag);
 
+	if (tag == DATA_TAG_array_flat) {
+		struct data *data = pointer_get_data(ptr);
+		debug("array flat, n_used_entries %"PRIuMAX", n_allocated_entries %"PRIuMAX", type tag %u", (uintmax_t)da(data,array_flat)->n_used_entries, (uintmax_t)da(data,array_flat)->n_allocated_entries, (unsigned)da(data,array_flat)->type->tag);
+	}
+	if (tag == DATA_TAG_array_slice) {
+		struct data *data = pointer_get_data(ptr);
+		debug("array slice, n_entries %"PRIuMAX", type tag %u", (uintmax_t)da(data,array_slice)->n_entries, (unsigned)da(data,array_slice)->type->tag);
+	}
+	if (tag == DATA_TAG_array_pointers) {
+		struct data *data = pointer_get_data(ptr);
+		debug("array pointers, n_used_entries %"PRIuMAX", n_allocated_entries %"PRIuMAX"", (uintmax_t)da(data,array_pointers)->n_used_entries, (uintmax_t)da(data,array_pointers)->n_allocated_entries);
+	}
 	if (tag == DATA_TAG_record) {
 		struct data *data = pointer_get_data(ptr);
 		const struct record_definition *def = type_def(da(data,record)->definition,record);
