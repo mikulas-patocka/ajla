@@ -1095,7 +1095,7 @@ novfy fn termcap_substitute_string(implicit tc : termcap, entry : nat, implicit 
 	var dynamic_vars := array_fill(sint32, 0, [num_vars]);
 
 	var format := termcap_query_string(tc, entry);
-	var result := "";
+	var result := empty(byte);
 
 	for i := 0 to len(format) do [
 		if format[i] = '$', i + 1 < len(format), format[i + 1] = '<' then [
