@@ -4953,10 +4953,11 @@ static void * attr_fastcall io_examine_handler(struct io_ctx *ctx)
 	void *p;
 	refcount_t *r;
 	refcount_int_t refc;
+	unsigned type_tag = frame_get_type_of_local(ctx->fp, slot)->tag;
 	tag_t tag;
 
 	if (frame_variable_is_flat(ctx->fp, slot)) {
-		debug("slot %u: flat variable, type tag %u, size %u", (unsigned)slot, (unsigned)frame_get_type_of_local(ctx->fp, slot)->tag, (unsigned)frame_get_type_of_local(ctx->fp, slot)->size);
+		debug("slot %u: flat variable, type tag %u, size %u", (unsigned)slot, type_tag, (unsigned)frame_get_type_of_local(ctx->fp, slot)->size);
 		goto x;
 	}
 	bit = frame_test_flag(ctx->fp, slot);
@@ -4973,7 +4974,7 @@ static void * attr_fastcall io_examine_handler(struct io_ctx *ctx)
 		tag = da_tag(pointer_get_data(ptr));
 	}
 
-	debug("slot %u: bit %d, ptr %p, refcount %"PRIuMAX", tag %u", (unsigned)slot, bit, p, (uintmax_t)refc, tag);
+	debug("slot %u: bit %d, ptr %p, refcount %"PRIuMAX", type tag %u, tag %u", (unsigned)slot, bit, p, (uintmax_t)refc, type_tag, tag);
 
 	if (tag == DATA_TAG_array_flat) {
 		struct data *data = pointer_get_data(ptr);
