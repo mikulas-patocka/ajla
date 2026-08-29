@@ -538,6 +538,7 @@ fn load_function_context(pc : list(pcode_t), un : bytes, get_inline : fn(functio
 	assume pc[8] >= 0;
 
 	var ctx := context.[
+		ft : pc[0],
 		local_types : empty(local_type),
 		instrs : empty(instruction),
 		blocks : empty(basic_block),

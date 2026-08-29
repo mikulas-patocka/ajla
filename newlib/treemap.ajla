@@ -102,8 +102,8 @@ implementation
 record treemap_entry(key : type, val : type, cls : class_ord(key)) [
 	k : key;
 	v : val;
-	left : treemap(key, val, cls);
-	right : treemap(key, val, cls);
+	left : treemap~strict(key, val, cls);
+	right : treemap~strict(key, val, cls);
 	balance : sint8;
 ]
 

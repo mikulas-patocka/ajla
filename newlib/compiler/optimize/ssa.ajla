@@ -3198,7 +3198,8 @@ fn process_pcode_ctx(pc : list(pcode_t), ctx : context, verify_pattern : bytes) 
 		if ft <> Fn_Record and ft <> Fn_Option then
 			abort internal("unsupported function type " + ntos(pc[0]));
 		{ no need to optimize it, it won't be executed }
-		return pc;
+		if ft = Fn_Option then
+			return pc;
 	]
 
 	//eval debug("optimizing: " + ctx.un + "-" + ctx.name);
@@ -3410,7 +3411,7 @@ did_verify:
 		n_blocks -= 1;
 
 	var rpc := list(pcode_t).[
-		pc[0] or select(n_blocks > 1, Fn_AutoInline, 0),
+		ctx.ft or select(n_blocks > 1 or ft <> Fn_Function, Fn_AutoInline, 0),
 		pc[1],
 		0,
 		len(ctx.local_types),

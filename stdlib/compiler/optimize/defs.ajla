@@ -179,6 +179,7 @@ option local_type [
 type conflict_map := list(var_set);
 
 record context [
+	ft : int;
 	local_types : list(local_type);
 	instrs : list(instruction);
 	blocks : list(basic_block);

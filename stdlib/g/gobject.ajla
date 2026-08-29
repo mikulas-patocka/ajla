@@ -32,7 +32,7 @@ record gobject_repository [
 	destr : ffi_destructor;
 	use_thread : bool;
 	thr : ffi_thread;
-	callbacks : list(fn_callback);
+	callbacks : list(fn_callback~strict);
 	destructors : list(ffi_destructor);
 ]
 

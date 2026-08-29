@@ -54,13 +54,10 @@ fn do_inline(ctx : context, bgi : int, ili : int, call_mode : pcode_t, autoinlin
 	if ft = Fn_Option then
 		return ctx, false;
 
-	if autoinline, len_greater_than(new_pc, inline_optimized_limit) then [
-		//eval debug("aborting inlining: " + ctx.name + ", " + ntos(len(new_pc)));
+	if autoinline, len_greater_than(new_pc, inline_optimized_limit) then
 		return ctx, false;
-	]
 
 	var new_ctx := load_function_context(new_pc, ctx.un, ctx.get_inline);
-	//eval debug("success: " + ctx.name + ", " + ntos(len(new_pc)));
 
 	ctx := do_inline_or_specialize(ctx, new_ctx, bgi, ili, 1, call_params, call_result);
 
@@ -237,10 +234,14 @@ again:
 			var igi := ctx.blocks[bgi].instrs[ili];
 			var ins := ctx.instrs[igi];
 			if ins.opcode = P_Call then [
-				//xeval debug("considering inline of " + ctx.name + " -> " + function_name(ins.params[3 .. ], ctx.get_inline) + ": " + ntos(ins.params[0]));
 				var call_mode := ins.params[0];
 				var autoinline := false;
 				if call_mode = Call_Mode_Inline or call_mode = Call_Mode_Flat then [
+					if (ctx.ft and Fn_Mask) <> Fn_Function, call_mode <> Call_Mode_Flat then [
+						var pc := function_pcode(ins.params[3 .. ], ctx.get_inline);
+						if (pc[0] and Fn_Mask) <> Fn_Function then
+							continue;
+					]
 do_inline:
 					var progress : bool;
 					ctx, progress := do_inline(ctx, bgi, ili, call_mode, autoinline);
@@ -249,7 +250,7 @@ do_inline:
 						ctx.should_retry := true;
 						break;
 					]
-				] else if call_mode = Call_Mode_Unspecified, sysprop(SystemProperty_NoInline) = 0 then [
+				] else if (ctx.ft and Fn_Mask) = Fn_Function, call_mode = Call_Mode_Unspecified, sysprop(SystemProperty_NoInline) = 0 then [
 					var pc := function_pcode(ins.params[3 .. ], ctx.get_inline);
 					//xeval debug("consideting inlining: " + ntos(len(pc)));
 					if pc[0] bt bsf Fn_AutoInline, not len_greater_than(pc, inline_unoptimized_limit) then [
