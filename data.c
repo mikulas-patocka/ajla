@@ -2420,8 +2420,14 @@ static int attr_fastcall data_compare_record(struct compare_status *cs, struct c
 	if (init)
 		cs->u.record.ai = 0;
 	while (cs->u.record.ai < def->n_entries) {
-		frame_t slot = record_definition_slot(def, cs->u.record.ai);
-		const struct type *t = def->types[slot];
+		frame_t slot;
+		const struct type *t;
+		if (record_definition_is_elided(def, cs->u.record.ai)) {
+			cs->u.record.ai++;
+			continue;
+		}
+		slot = record_definition_slot(def, cs->u.record.ai);
+		t = def->types[slot];
 		if (frame_test_flag(f1, slot) && frame_test_flag(f2, slot)) {
 			new_cs->ptr1 = *frame_pointer(f1, slot);
 			new_cs->ptr2 = *frame_pointer(f2, slot);
