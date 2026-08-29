@@ -1750,6 +1750,8 @@ fn dce(ctx : context) : context
 				if ins.params[0] >= 0 then
 					worklist bts= ins.params[0];
 			]
+			if ins.opcode = P_Load_Local_Type and ins.params[1] = -1 then
+				worklist bts= ins.params[0];
 		]
 	]
 
@@ -3408,7 +3410,7 @@ did_verify:
 		n_blocks -= 1;
 
 	var rpc := list(pcode_t).[
-		Fn_Function or select(n_blocks > 1, Fn_AutoInline, 0),
+		pc[0] or select(n_blocks > 1, Fn_AutoInline, 0),
 		pc[1],
 		0,
 		len(ctx.local_types),

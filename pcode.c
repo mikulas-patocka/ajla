@@ -2969,6 +2969,7 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 					pcode_get();
 				break;
 			case P_Load_Local_Type:
+			case P_Load_Local_Type_Inlined:
 				res = u_pcode_get();
 				pcode_get();
 				u_pcode_get();

@@ -223,6 +223,9 @@ fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instructi
 	] else if opcode = P_Load_Local_Type then [
 		ins.write_set := 0 bts 0;
 		xlen := 3;
+	] else if opcode = P_Load_Local_Type_Inlined then [
+		ins.write_set := 0 bts 0;
+		xlen := 3;
 	] else if opcode = P_Load_Fn then [
 		var l := function_specifier_length(params[3 .. ]);
 		for i := 0 to params[1] do [

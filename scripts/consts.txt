@@ -27,6 +27,7 @@ P_Where			; result_type, type, condition
 P_Value			; result
 P_Fn			; result, n_args, n_return_values, n_prereqs, n_contracts, args..., return_values..., prereqs..., contracts...
 P_Load_Local_Type	; result, function var (-1 if we are referring to record entries), index
+P_Load_Local_Type_Inlined	; result, function var (-1 if we are referring to record entries), index
 P_Load_Fn		; result, n_curried_args, call_mode, [path_idx, n_unit_chars, (unit_name), n_fn_index, (fn_index)], (ref_flag, arg_idx)
 P_Curry			; result, n_curried_args, ref_flag, function, (ref_flag, arg_idx)
 P_Call			; call_mode, n_return_values, n_args, [path_idx, n_unit_chars, (unit_name), n_fn_index, (fn_index)], (ref_flag, arg_idx), (return_value_idx)
