@@ -1124,6 +1124,7 @@ static void cg_upcall_call_indirect_arg(frame_s *new_fp, uintptr_t src_slot, uin
 		*frame_pointer(new_fp, dst_slot) = *frame_pointer(fp, src_slot);
 	} else if (may_be_borrowed && src_flag & OPCODE_CALL_MAY_GIVE && !frame_test_flag(fp, src_slot) && !pointer_is_thunk(*frame_pointer(fp, src_slot))) {
 		*frame_pointer(new_fp, dst_slot) = *frame_pointer(fp, src_slot);
+		*frame_pointer(fp, src_slot) = pointer_empty();
 	} else {
 		ipret_copy_variable(fp, src_slot, new_fp, dst_slot, (src_flag & OPCODE_FLAG_FREE_ARGUMENT) != 0);
 	}
