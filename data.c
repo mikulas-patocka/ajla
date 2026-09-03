@@ -1355,7 +1355,7 @@ process_current:
 	if (unlikely(pointer_is_thunk(current_ptr))) {
 		struct thunk *thunk = cast_cpp(struct thunk *, p);
 		address_lock(thunk, DEPTH_THUNK);
-		tag = thunk_tag(thunk);
+		tag = thunk_tag_(thunk, caller_file_line);
 	} else {
 		struct data *data = cast_cpp(struct data *, p);
 		tag = da_tag(data);
