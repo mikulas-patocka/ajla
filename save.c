@@ -1682,12 +1682,14 @@ skip_mmap:
 		ld[compsave].loaded_data = new_ptr;
 		/*debug("adjusting pointers: %p, %p", ld[compsave].loaded_data, ld[compsave].loaded_data + ld[compsave].loaded_data_len);*/
 		adjust_pointers(ld[compsave].loaded_data, ld[compsave].loaded_data_len, ptr_to_num(ld[compsave].loaded_data) - ptr_to_num(loaded_file_descriptor(compsave)->base));
+		bind_function_pointers();
 		os_code_invalidate_cache(cast_ptr(uint8_t *, ld[compsave].loaded_data), ld[compsave].loaded_data_len, true);
 		ld[compsave].loaded_data_amalloc = true;
 	}
 #endif
 #else
 	adjust_pointers(ld[compsave].loaded_data, ld[compsave].loaded_data_len, ptr_to_num(ld[compsave].loaded_data) - ptr_to_num(loaded_file_descriptor->base));
+	bind_function_pointers();
 #endif
 	goto verify_ret;
 verify_ret:
