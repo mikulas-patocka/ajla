@@ -4835,7 +4835,11 @@ do_alu: {
 		goto skip_flags;
 skip_flags:
 		g(gen_3address_alu(ctx, i_size(op_size), alu, res, reg1, reg2, 0));
-		if (mode == MODE_BOOL && (alu == ALU_XORN || alu == ALU_ORN) && !reg_is_cr(res)) {
+		if (mode == MODE_BOOL && (alu == ALU_XORN || alu == ALU_ORN)
+#if ARCH_HAS_BITWISE_BOOL
+		    && !reg_is_cr(res)
+#endif
+		    ) {
 			g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_AND, res, res, 1, 0));
 		}
 		g(gen_jump(ctx, jmp_offset, i_size(op_size), COND_E, res, -1U, 0));
