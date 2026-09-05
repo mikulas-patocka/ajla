@@ -1135,31 +1135,52 @@ skip_cast:
 		if v1.runtime_type = T_Bool then [
 			var c res : int;
 			var op := ins.params[0];
+			var v : int;
 			if v1_ins.opcode = P_Load_Const then [
 				c := blob_to_int(v1_ins.params[1 .. ]);
+				v := vgi2;
 			] else if v2_ins.opcode = P_Load_Const then [
 				c := blob_to_int(v2_ins.params[1 .. ]);
 				op := operator_swap(op);
+				v := vgi1;
 			] else [
 				goto skip_bool;
 			]
-			if op = Bin_And, c = 0 then [
-				res := 0;
-			] else if op = Bin_Or, c = 1 then [
-				res := 1;
-			] else if op = Bin_Less, c = 1 then [
-				res := 0;
-			] else if op = Bin_LessEqual, c = 0 then [
-				res := 1;
-			] else if op = Bin_Greater, c = 0 then [
-				res := 0;
-			] else if op = Bin_GreaterEqual, c = 1 then [
-				res := 1;
+			if op = Bin_And then [
+				if c = 0 then [ res := 0; goto bool_ret_const; ]
+				else goto bool_ret_val;
+			] else if op = Bin_Or then [
+				if c = 1 then [ res := 1; goto bool_ret_const; ]
+				else goto bool_ret_val;
+			] else if op = Bin_Less then [
+				if c = 1 then [ res := 0; goto bool_ret_const; ]
+				else goto bool_ret_val;
+			] else if op = Bin_LessEqual then [
+				if c = 0 then [ res := 1; goto bool_ret_const; ]
+				else goto bool_ret_val;
+			] else if op = Bin_Greater then [
+				if c = 0 then [ res := 0; goto bool_ret_const; ]
+				else goto bool_ret_neg;
+			] else if op = Bin_GreaterEqual then [
+				if c = 1 then [ res := 1; goto bool_ret_const; ]
+				else goto bool_ret_neg;
+			] else if op = Bin_Xor or op = Bin_NotEqual then [
+				if c = 1 then goto bool_ret_neg;
+				else goto bool_ret_val;
+			] else if op = Bin_Equal then [
+				if c = 0 then goto bool_ret_neg;
+				else goto bool_ret_val;
 			] else [
 				goto skip_bool;
 			]
-			var params := list(pcode_t).[ ins.params[1] ] + int_to_blob(res);
-			return create_instr(P_Load_Const, params, ins.bb), true;
+bool_ret_const:
+			return create_instr(P_Load_Const, list(pcode_t).[ ins.params[1] ] + int_to_blob(res), ins.bb), true;
+bool_ret_val:
+			//eval debug("val: " + ntos(op) + ", " + ctx.name);
+			return create_instr(P_Copy, list(pcode_t).[ ins.params[1], 0, v ], ins.bb), true;
+bool_ret_neg:
+			//eval debug("neg: " + ntos(op) + ", " + ctx.name);
+			return create_instr(P_UnaryOp, list(pcode_t).[ Un_Not, ins.params[1], 0, v ], ins.bb), true;
 skip_bool:
 		]
 		if v1.runtime_type <= T_SInt8, v1.runtime_type >= T_Integer128, v2_ins.opcode = P_Load_Const then [
