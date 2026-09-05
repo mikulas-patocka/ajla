@@ -1335,6 +1335,9 @@ skip_const:
 				return create_instr(v1_ins.opcode, params, ins.bb), true;
 			]
 		]
+		if ins.params[0] = Un_Not, v1_ins.opcode = P_UnaryOp, v1_ins.params[0] = Un_Not then [
+			return create_instr(P_Copy, list(pcode_t).[ ins.params[1], 0, v1_ins.params[3] ], ins.bb), true;
+		]
 		if v1_ins.opcode = P_IO, v1_ins.params[0] = IO_Exception_Make,
 		   ins.params[0] <> Un_IsException, ins.params[0] <> Un_ExceptionClass, ins.params[0] <> Un_ExceptionType, ins.params[0] <> Un_ExceptionAux then [
 			var params := v1_ins.params;
