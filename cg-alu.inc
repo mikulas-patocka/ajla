@@ -634,6 +634,9 @@ check_ovf_store:
 			gen_insn(INSN_JMP_COND, op_size, COND_O, 0);
 			gen_label_ref(label_ovf);
 		}
+		if (mode == MODE_BOOL && (alu == ALU_XORN || alu == ALU_ORN)) {
+			g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_AND, target, target, 1, 0));
+		}
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 		return true;
 	}
@@ -4819,6 +4822,12 @@ do_alu: {
 		}
 #endif
 #if ARCH_HAS_FLAGS
+		if (mode == MODE_BOOL && (alu == ALU_XORN || alu == ALU_ORN)) {
+			g(gen_3address_alu(ctx, i_size(op_size), alu, R_SCRATCH_1, reg1, reg2, 0));
+			g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_AND, R_SCRATCH_1, R_SCRATCH_1, 1, 1));
+			g(gen_jump(ctx, jmp_offset, i_size(op_size), COND_E, -1U, -1U, 0));
+			return true;
+		}
 		g(gen_3address_alu(ctx, i_size(op_size), alu, R_SCRATCH_1, reg1, reg2, 1));
 		g(gen_jump(ctx, jmp_offset, i_size(op_size), COND_E, -1U, -1U, 0));
 		return true;
@@ -4826,6 +4835,9 @@ do_alu: {
 		goto skip_flags;
 skip_flags:
 		g(gen_3address_alu(ctx, i_size(op_size), alu, res, reg1, reg2, 0));
+		if (mode == MODE_BOOL && (alu == ALU_XORN || alu == ALU_ORN) && !reg_is_cr(res)) {
+			g(gen_3address_alu_imm(ctx, OP_SIZE_NATIVE, ALU_AND, res, res, 1, 0));
+		}
 		g(gen_jump(ctx, jmp_offset, i_size(op_size), COND_E, res, -1U, 0));
 		return true;
 	}
