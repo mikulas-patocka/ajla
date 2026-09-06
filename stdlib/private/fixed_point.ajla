@@ -84,7 +84,7 @@ uses exception;
 uses private.show;
 uses private.math;
 
-fn fixed_point_validate(base digits : int) : unit_type
+fn fixed_point_validate~inline(base digits : int) : unit_type
 [
 	if base < 2 or digits < 0 then
 		abort exception_make(unit_type, ec_sync, error_invalid_operation, 0, true);
