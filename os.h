@@ -384,6 +384,14 @@ void os_numa_bind_memory(void *ptr, size_t size, unsigned node);
 #endif
 
 
+#ifndef OS_HAS_MMAP
+static inline int os_getpagesize(void)
+{
+	return 512;
+}
+#endif
+
+
 uint32_t os_get_last_error(void);
 uint32_t os_get_last_socket_error(void);
 
