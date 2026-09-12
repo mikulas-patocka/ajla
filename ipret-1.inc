@@ -2634,8 +2634,9 @@ cat(option_load_mismatch,ARG_MODE):
 		ptr = pointer_error(error_ajla(EC_SYNC, AJLA_ERROR_OPTION_DOESNT_MATCH), fp, ip pass_file_line);
 		frame_set_pointer(fp, result, ptr);
 	} else {
+		const struct type *type;
 		ptr = da(data,option)->pointer;
-		const struct type *type = frame_get_type_of_local(fp, result);
+		type = frame_get_type_of_local(fp, result);
 		if (likely(!pointer_is_thunk(ptr)) && likely(da_tag(pointer_get_data(ptr)) == DATA_TAG_flat) && likely(TYPE_IS_FLAT(type))) {
 			memcpy_fast(frame_var(fp, result), da_flat(pointer_get_data(ptr)), type->size);
 		} else {
