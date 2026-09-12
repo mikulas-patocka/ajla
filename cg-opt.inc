@@ -345,7 +345,7 @@ static bool attr_w setup_register_maps(struct codegen_context *ctx)
 		if (!((SUPPORTED_FP >> real_type) & 1))
 			continue;
 		n_fp_registers = FP_REGISTERS(type_get_real(real_type)->size);
-		for (i = 0; i + n_fp_registers <= n_fp_saved(real_type); i += n_fp_registers) {
+		for (i = 0; i + n_fp_registers <= n_fp_saved(real_type) + zero; i += n_fp_registers) {
 			for (j = 0; j < n_fp_registers; j++)
 				reg_map_set(&all_regs, fp_saved[i + j]);
 		}

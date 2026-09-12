@@ -438,7 +438,7 @@ static int allocate_register(unsigned *index_saved, unsigned *index_volatile, un
 #endif
 		n_fp_registers = FP_REGISTERS(t->size);
 		idx = round_up(*index_fp_saved, n_fp_registers);
-		if (idx + n_fp_registers <= n_fp_saved(real_type)) {
+		if (idx + n_fp_registers <= n_fp_saved(real_type) + zero) {
 			*index_fp_saved = idx + n_fp_registers;
 			return fp_saved[idx];
 		}
