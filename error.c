@@ -155,11 +155,10 @@ static attr_noreturn attr_cold force_dump(void)
 	if (trace_file)
 		fflush(trace_file);
 #endif
+	*(char *)num_to_ptr(0) = 0;
+	*(char *)num_to_ptr((uintptr_t)-1) = 0;
 #if defined(HAVE_SIGNAL_H) && defined(HAVE_RAISE) && !defined(__EMX__)
 	(void)raise(SIGSEGV);
-#else
-	*(int *)BAD_POINTER_1 = 0;
-	*(int *)num_to_ptr((uintptr_t)-1) = 0;
 #endif
 	exit(127);
 }
