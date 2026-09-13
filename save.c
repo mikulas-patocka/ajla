@@ -47,7 +47,7 @@ static const char id[] = "AJLA" " " __DATE__ " " __TIME__;
 static const char id[] = "AJLA";
 #endif
 
-static bool compsave;
+static size_t compsave;
 
 static bool save_ok;
 static char *save_data;
@@ -1212,7 +1212,7 @@ static void bind_function_pointers(void)
 	}
 }
 
-void save_unbind_function_pointers(bool cs)
+void save_unbind_function_pointers(size_t cs)
 {
 	size_t i, pos;
 	/*ajla_time_t a1 = os_time_monotonic();*/
@@ -1483,7 +1483,7 @@ static bool dep_verify(void)
 	return true;
 }
 
-void save_unmap_data(bool cs)
+void save_unmap_data(size_t cs)
 {
 	if (!ld[cs].loaded_data)
 		return;

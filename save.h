@@ -70,7 +70,7 @@ struct cache_descriptor *save_find_cache_descriptor(const struct module_designat
 
 void save_register_dependence(const char *path_name, bool comp);
 
-void save_unbind_function_pointers(bool cs);
-void save_unmap_data(bool cs);
+void save_unbind_function_pointers(size_t cs);
+void save_unmap_data(size_t cs);
 
 #endif

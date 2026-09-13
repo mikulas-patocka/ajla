@@ -4830,7 +4830,7 @@ unsup:
 static void * attr_fastcall io_forced_exit_handler(struct io_ctx *ctx)
 {
 	void *test;
-	int p;
+	int p = 0;	/* avoid warning */
 	ajla_error_t e;
 	struct thunk *t;
 
