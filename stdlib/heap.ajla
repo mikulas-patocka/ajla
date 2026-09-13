@@ -21,9 +21,10 @@ unit heap;
 type heap(key : type, cls : class_ord(key));
 
 fn heap_init(key : type, const cls~spec : class_ord(key)) : heap(key, cls);
-fn heap_size(key : type, const cls~spec : class_ord(key), h : heap(key, cls)) : int;
+fn heap_size(key : type, const cls~spec : class_ord(key), h : heap(key, cls)) : nat;
 fn heap_is_nonempty(key : type, const cls~spec : class_ord(key), h : heap(key, cls)) : bool;
 fn heap_peek(key : type, const cls~spec : class_ord(key), h : heap(key, cls), prereq heap_is_nonempty(h)) : key;
+fn heap_get_entry(key : type, const cls~spec : class_ord(key), h : heap(key, cls), e : nat, prereq e < heap_size(key, cls, h)) : key;
 fn heap_extract(key : type, const cls~spec : class_ord(key), h : heap(key, cls), prereq heap_is_nonempty(h)) : (heap(key, cls), key);
 fn heap_insert(key : type, const cls~spec : class_ord(key), h : heap(key, cls), k : key) : heap(key, cls);
 fn heap_from_list(key : type, const cls~spec : class_ord(key), l : list(key)) : heap(key, cls);
@@ -37,7 +38,7 @@ fn heap_init(key : type, const cls~spec : class_ord(key)) : heap(key, cls)
 	return empty(key);
 ]
 
-fn heap_size(key : type, const cls~spec : class_ord(key), h : heap(key, cls)) : int
+fn heap_size(key : type, const cls~spec : class_ord(key), h : heap(key, cls)) : nat
 [
 	return len(h);
 ]
@@ -50,6 +51,11 @@ fn heap_is_nonempty(key : type, const cls~spec : class_ord(key), h : heap(key, c
 fn heap_peek(key : type, const implicit cls~spec : class_ord(key), h : heap(key, cls), prereq heap_is_nonempty(h)) : key
 [
 	return h[0];
+]
+
+fn heap_get_entry(key : type, const cls~spec : class_ord(key), h : heap(key, cls), e : nat, prereq e < heap_size(key, cls, h)) : key
+[
+	return h[e];
 ]
 
 fn heap_left~inline(i : nat) : nat := i + i + 1;
