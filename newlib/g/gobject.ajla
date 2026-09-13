@@ -221,8 +221,8 @@ fn g_signal_connect(implicit w : world, implicit repo : gobject_repository, gobj
 [
 	var destr := ffi_destructor_new();
 	var zstr := ffi_poke_zstring(destr, name);
-	var cb := ffi_callback_create(destr, 0, ret, args);
-	var cb_destr := ffi_callback_create(destr, 0, ffi_type.t_void, [ ffi_type.t_pointer, ffi_type.t_pointer ]);
+	var cb := ffi_callback_create(destr, 0, ret, args, false);
+	var cb_destr := ffi_callback_create(destr, 0, ffi_type.t_void, [ ffi_type.t_pointer, ffi_type.t_pointer ], true);
 	fn g_signal_connect_data~cache := ffi_function_prototype(gobject_lib, 0, "unsigned long g_signal_connect_data(void *instance, char *detailed_signal, void *c_handler, void *data, void *destroy_data, unsigned connect_flags)");
 	xeval ffi_thread_sync_call(repo.thr, destr, g_signal_connect_data, [ gobj.ptr, zstr, cb, data, cb_destr, flags ]);
 	ffi_destructor_free(destr, zstr);
@@ -240,7 +240,7 @@ record gtimer [
 fn g_timer_connect(implicit w : world, implicit repo : gobject_repository, priority : int, interval : int, data : int, f : fn_callback) : (world, gobject_repository, gtimer)
 [
 	var destr := ffi_destructor_new();
-	var cb := ffi_callback_create(destr, 0, ffi_type.t_sint, [ ffi_type.t_pointer ]);
+	var cb := ffi_callback_create(destr, 0, ffi_type.t_sint, [ ffi_type.t_pointer ], false);
 	fn g_timeout_add_full~cache := ffi_function_prototype(glib_lib, 0, "unsigned g_timeout_add_full(int priority, unsigned interval, void *function, void *data, void *destroy_data)");
 	var id, e := ffi_thread_sync_call(repo.thr, destr, g_timeout_add_full, [ priority, interval, cb, data, 0 ]);
 	repo.callbacks[cb] := f;
@@ -254,7 +254,7 @@ fn g_timer_connect(implicit w : world, implicit repo : gobject_repository, prior
 fn g_idle_connect(implicit w : world, implicit repo : gobject_repository, priority : int, data : int, f : fn_callback) : (world, gobject_repository, gtimer)
 [
 	var destr := ffi_destructor_new();
-	var cb := ffi_callback_create(destr, 0, ffi_type.t_sint, [ ffi_type.t_pointer ]);
+	var cb := ffi_callback_create(destr, 0, ffi_type.t_sint, [ ffi_type.t_pointer ], false);
 	fn g_idle_add_full~cache := ffi_function_prototype(glib_lib, 0, "unsigned g_idle_add_full(int priority, void *function, void *data, void *destroy_data)");
 	var id, e := ffi_thread_sync_call(repo.thr, destr, g_idle_add_full, [ priority, cb, data, 0 ]);
 	repo.callbacks[cb] := f;

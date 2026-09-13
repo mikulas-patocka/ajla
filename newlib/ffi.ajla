@@ -124,7 +124,7 @@ fn ffi_thread_sync_call(w : world, t : ffi_thread, d : ffi_destructor, func : ff
 fn ffi_thread_callback_call(w : world, t : ffi_thread, d : ffi_destructor, func : ffi_function, args : list(int)) : (world, int, int, ffi_callback);
 fn ffi_thread_destructor_call(w : world, fd : ffi_destructor, t : ffi_thread, func : ffi_function, args : list(int)) : world;
 
-fn ffi_callback_create(w : world, fd : ffi_destructor, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : (world, int);
+fn ffi_callback_create(w : world, fd : ffi_destructor, nvarargs : int, rtype : ffi_type, args : list(ffi_type), may_ignore : bool) : (world, int);
 
 fn ffi_callback_recurse(c : ffi_callback) : ffi_thread;
 fn ffi_callback_get_address(c : ffi_callback) : int;
@@ -639,11 +639,11 @@ fn ffi_thread_destructor_call(w : world, fd : ffi_destructor, t : ffi_thread, fu
 	return w2;
 ]
 
-fn ffi_callback_create(w : world, fd : ffi_destructor, nvarargs : int, rtype : ffi_type, args : list(ffi_type)) : (world, int)
+fn ffi_callback_create(w : world, fd : ffi_destructor, nvarargs : int, rtype : ffi_type, args : list(ffi_type), may_ignore : bool) : (world, int)
 [
 	var c : int;
 	var w2 : world;
-	pcode IO IO_FFI_Callback_Create 2 5 0 =w2 =c w fd nvarargs rtype args;
+	pcode IO IO_FFI_Callback_Create 2 6 0 =w2 =c w fd nvarargs rtype args may_ignore;
 	return w2, c;
 ]
 

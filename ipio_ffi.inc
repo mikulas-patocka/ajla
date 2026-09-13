@@ -2077,6 +2077,7 @@ struct resource_callback {
 	ffi_type *ret_ffi_type;
 	ajla_option_t ret_type;
 	ffi_cif cif;
+	bool may_ignore;
 };
 
 static bool resource_callback_close(struct data *d)
@@ -2112,8 +2113,11 @@ static void callback_fn(ffi_cif attr_unused *cif, void *ret, void **args, void *
 	struct resource_thread *t;
 	size_t i;
 
-	if (unlikely(!a))
+	if (unlikely(!a)) {
+		if (likely(c->may_ignore))
+			return;
 		internal(file_line, "callback_fn: callback was called from unknown place");
+	}
 
 	tls_set(struct resource_async_packet *, current_ap, NULL);
 
@@ -2186,6 +2190,7 @@ static void * attr_fastcall io_ffi_callback_create_handler(struct io_ctx *ctx)
 	struct data *r_struc;
 	ffi_type *ret = NULL;
 	ffi_type **args = NULL;
+	ajla_option_t may_ignore;
 	struct data *d = NULL;
 	struct resource_callback *c;
 	void *old;
@@ -2193,7 +2198,7 @@ static void * attr_fastcall io_ffi_callback_create_handler(struct io_ctx *ctx)
 	ctx->args = NULL;
 	ctx->ptrs = NULL;
 
-	test = io_deep_eval(ctx, "01234", true);
+	test = io_deep_eval(ctx, "012345", true);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 
@@ -2210,6 +2215,8 @@ static void * attr_fastcall io_ffi_callback_create_handler(struct io_ctx *ctx)
 	args = io_ffi_load_arg_list(ctx, 4);
 	if (unlikely(!args))
 		goto ret_err;
+
+	io_get_option(ctx, get_input(ctx, 5), &may_ignore, NULL);
 
 	ret = ajla_type_to_ffi_type(rtype, r_struc, true);
 	if (unlikely(!ret))
@@ -2261,6 +2268,7 @@ static void * attr_fastcall io_ffi_callback_create_handler(struct io_ctx *ctx)
 	c->ret_ffi_type = ret;
 	c->ret_type = rtype;
 	ret = NULL;
+	c->may_ignore = may_ignore;
 
 	address_lock(rfd, DEPTH_AUX);
 	if (unlikely(!array_add_mayfail(pointer_t, &rfd->handles, &rfd->handles_l, pointer_data(d), &old, &ctx->err))) {
