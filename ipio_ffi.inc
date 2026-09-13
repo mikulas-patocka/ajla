@@ -119,6 +119,7 @@ struct resource_ffi {
 	ajla_option_t ret_type;
 	unsigned flags;
 	ffi_cif cif;
+	char name[FLEXIBLE_ARRAY];
 };
 
 struct resource_ffi_structure {
@@ -904,7 +905,7 @@ static void * attr_fastcall io_ffi_function_create_handler(struct io_ctx *ctx)
 		goto ret_err;
 	}
 
-	d = data_alloc_resource_mayfail(sizeof(struct resource_ffi), resource_ffi_close, &ctx->err pass_file_line);
+	d = data_alloc_resource_mayfail(partial_sizeof_array(struct resource_ffi, name, strlen(ctx->str) + 1), resource_ffi_close, &ctx->err pass_file_line);
 	if (unlikely(!d))
 		goto ret_err;
 	rf = da_resource(d);
@@ -938,6 +939,7 @@ static void * attr_fastcall io_ffi_function_create_handler(struct io_ctx *ctx)
 	rf->ret_type = rtype;
 	ret = NULL;
 	rf->flags = flags;
+	strcpy(rf->name, ctx->str);
 
 	pointer_reference_owned(ptr);
 
