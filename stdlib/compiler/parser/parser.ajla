@@ -1187,6 +1187,18 @@ fn generate_unit(w : world, path_index : int, name : bytes, params : bytes) : by
 	return r;
 ]
 
+fn find_unit_generator(name : bytes) : int
+[
+	var colon := list_search_backwards(name, ':');
+	if colon = -1 then
+		return -1;
+	if colon + 1 >= len(name) then
+		return colon;
+	if path_is_dir_separator(name[colon + 1]) then
+		return -1;
+	return colon;
+]
+
 fn parse_tokens(w : world, d : list(bytes), t : tokens, name : bytes, fid_flags : uint8, parse_interface : bool, prereq len_greater_than(d, 0)) : function_dictionary
 [
 	var path_index := len(d) - 1;
@@ -1234,7 +1246,7 @@ next_unit_flag:
 	var params := "";
 	var xname := name;
 	if not fid_flags bt bsf FID_Flag_Program_Unit then [
-		var colon := list_search(xname, ':');
+		var colon := find_unit_generator(xname);
 		if colon >= 0 then [
 			if not gen then
 				abort compiler_error("Parameters may only be used on unit generators", unit_tokens);
@@ -1323,7 +1335,7 @@ fn parse_file_2(w : world, d : list(bytes), name : bytes, fid_flags : uint8, par
 
 	var file_name := name;
 	if not fid_flags bt bsf FID_Flag_Program_Unit then [
-		var colon := list_search(file_name, ':');
+		var colon := find_unit_generator(file_name);
 		if colon >= 0 then
 			file_name := file_name[ .. colon];
 		file_name += ".ajla";
@@ -1366,7 +1378,7 @@ fn parse_file_2(w : world, d : list(bytes), name : bytes, fid_flags : uint8, par
 fn parse_file(w : world, d : list(bytes), name : bytes, fid_flags : uint8, parse_interface : bool, prereq len_greater_than(d, 0)) : function_dictionary
 [
 	//eval debug("parse_file("+ntos(fid_flags)+"): " + name);
-	if len(d) = 1, list_search(name, ':') = -1 then [
+	if len(d) = 1, find_unit_generator(name) = -1 then [
 		//eval debug("parse_file: " + name);
 		return parse_file_2~save(w, d, name, fid_flags, parse_interface);
 	] else [
