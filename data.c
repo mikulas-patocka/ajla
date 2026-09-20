@@ -1163,7 +1163,6 @@ static void * attr_hot_fastcall get_sub_function_reference(void *data)
 	arg_t ia = da(d,function_reference)->n_curried_arguments;
 	pointer_t *prev;
 
-	ia = da(d,function_reference)->n_curried_arguments;
 	while (ia--) {
 		if (da(d,function_reference)->arguments[ia].tag == TYPE_TAG_unknown) {
 			pointer_t *ptr = &da(d,function_reference)->arguments[ia].u.ptr;
@@ -1297,7 +1296,6 @@ static void * attr_hot_fastcall get_sub_multi_ret_reference(void *data)
 		if (!--mt->u.function_call.soft_refcount) {
 			refcount_add(&n_dereferenced, 1);
 			thunk_tag_set(mt, THUNK_TAG_BLACKHOLE_SOME_DEREFERENCED, THUNK_TAG_BLACKHOLE_DEREFERENCED);
-			tag = THUNK_TAG_BLACKHOLE_DEREFERENCED;
 			ex = execution_control_acquire_from_thunk(mt);
 		}
 		goto unlock_ret_false;
@@ -2532,11 +2530,9 @@ static int attr_fastcall data_compare_array(struct compare_status *cs, struct co
 			}
 			index_add_int(&cs->u.array.idx, m);
 		} else {
-			struct thunk *thunk;
 			if (unlikely(ctx1.flat != NULL)) {
 				new_cs->ptr1 = cs->u.array.p1 = flat_to_data(ctx1.type, ctx1.flat);
-				if (unlikely(pointer_deep_eval(&cs->u.array.p1, NULL, NULL, &thunk) == POINTER_FOLLOW_THUNK_EXCEPTION)) {
-					pointer_dereference(pointer_thunk(thunk));
+				if (unlikely(pointer_is_thunk(new_cs->ptr1))) {
 					return DATA_COMPARE_OOM;
 				}
 			} else {
@@ -2544,8 +2540,7 @@ static int attr_fastcall data_compare_array(struct compare_status *cs, struct co
 			}
 			if (unlikely(ctx2.flat != NULL)) {
 				new_cs->ptr2 = cs->u.array.p2 = flat_to_data(ctx2.type, ctx2.flat);
-				if (unlikely(pointer_deep_eval(&cs->u.array.p2, NULL, NULL, &thunk) == POINTER_FOLLOW_THUNK_EXCEPTION)) {
-					pointer_dereference(pointer_thunk(thunk));
+				if (unlikely(pointer_is_thunk(new_cs->ptr2))) {
 					return DATA_COMPARE_OOM;
 				}
 			} else {
