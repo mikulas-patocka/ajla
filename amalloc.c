@@ -707,7 +707,6 @@ static unsigned reserve_last_run(unsigned len)
 	if (unlikely(!best_idx))
 		return 0;
 	idx1 = best_idx;
-	rmap1 = &rmap[idx1];
 	len1 = rmap[idx1].f + 1 - idx1;
 	reserve_sub_alloc(idx1, len1, idx1 + len1 - len, len);
 	return idx1 + len1 - len;
@@ -882,6 +881,8 @@ void *amalloc_run_alloc(size_t al, size_t length, bool attr_unused clr, unsigned
 		if (unlikely(al < ARENA_SIZE))
 			al = ARENA_SIZE;
 		al >>= ARENA_BITS;
+		if (unlikely(al != (unsigned)al))
+			return NULL;
 		l = round_up(length, ARENA_SIZE) >> ARENA_BITS;
 		if (unlikely(!l))
 			return NULL;
@@ -924,7 +925,7 @@ void *amalloc_run_alloc(size_t al, size_t length, bool attr_unused clr, unsigned
 	if (unlikely(ptr == MAP_FAILED))
 		return NULL;
 	if (unlikely((ptr_to_num(ptr) & (al - 1)) != 0))
-		fatal("os_mmap returned unaligned pointer: %p, required alignment %lx", ptr, (unsigned long)ARENA_SIZE);
+		fatal("os_mmap returned unaligned pointer: %p, required alignment %lx", ptr, (unsigned long)al);
 #else
 	if (likely(length == ARENA_SIZE) && likely(al == ARENA_SIZE)) {
 		ptr = os_mmap(base_address, length, PROT_HEAP, MAP_PRIVATE | MAP_ANONYMOUS, handle_none, 0, &sink);
@@ -1542,7 +1543,10 @@ static void *amalloc_huge(size_t al, size_t size, bool clr)
 {
 	struct huge_entry *e;
 	void *ptr;
-	size = round_up(size, page_size);
+	size_t size2 = round_up(size, page_size);
+	if (unlikely(size2 < size))
+		return NULL;
+	size = size2;
 	ptr = amalloc_run_alloc(al, size, clr, 0);
 	if (unlikely(!ptr))
 		return NULL;
@@ -1572,7 +1576,7 @@ static attr_noinline void *amalloc_mid_huge(struct per_thread *pt, size_t size, 
 
 static attr_noinline void *amemalign_mid_huge(size_t al, size_t size, bool clr)
 {
-	if (size + al > MIDBLOCK_LIMIT) {
+	if (size + al > MIDBLOCK_LIMIT || unlikely(size + al < size)) {
 		if (al < ARENA_SIZE)
 			al = ARENA_SIZE;
 		return amalloc_huge(al, size, clr);
@@ -1826,6 +1830,7 @@ void * attr_fastcall amemalign(size_t al, size_t size)
 		size2 = round_up(size, al);
 		if (unlikely(size2 < size))
 			return NULL;
+		size2 = maximum(size2, al);
 		return amalloc(size2);
 	}
 	return amemalign_mid_huge(al, size, false);
@@ -1838,6 +1843,7 @@ void * attr_fastcall acmemalign(size_t al, size_t size)
 		size2 = round_up(size, al);
 		if (unlikely(size2 < size))
 			return NULL;
+		size2 = maximum(size2, al);
 		return acalloc(size2);
 	}
 	return amemalign_mid_huge(al, size, true);
@@ -1916,7 +1922,10 @@ static attr_noinline void *arealloc_malloc(void *ptr, size_t old_size, size_t ne
 
 static attr_noinline void *arealloc_huge(void *ptr, size_t size)
 {
-	struct huge_entry *e = huge_tree_delete(ptr);
+	struct huge_entry *e;
+	if (unlikely(size + page_size < size))
+		return NULL;
+	e = huge_tree_delete(ptr);
 	if (likely(size >= page_size)) {
 		void *n;
 		size = round_up(size, page_size);
@@ -1960,7 +1969,7 @@ void * attr_fastcall arealloc(void *ptr, size_t size)
 	if (unlikely((void *)m >= ptr)) {
 		return arealloc_mid(a, idx, size);
 	}
-	if (INDEX_TO_CLASS(SIZE_TO_INDEX(size)) != m->s.cls) {
+	if (size >= DIRECT_LIMIT || INDEX_TO_CLASS(SIZE_TO_INDEX(size)) != m->s.cls) {
 		return arealloc_malloc(ptr, m->s.size, size);
 	}
 	return ptr;
