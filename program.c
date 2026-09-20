@@ -32,7 +32,7 @@ static void program_callback(void attr_unused *callback_cookie, pointer_t ptr)
 		if (unlikely(pointer_is_thunk(ptr))) {
 			struct thunk *t = pointer_get_thunk(ptr);
 			struct thunk_exception *te = &t->u.exception;
-			if (te->err.error_class == EC_EXIT && te->err.error_type == AJLA_ERROR_EXIT) {
+			if (te->err.error_type == AJLA_ERROR_EXIT) {
 				if (unlikely(te->err.error_aux < 0) || unlikely(te->err.error_aux >= 256))
 					retval = EXCEPTION_RETVAL;
 				else

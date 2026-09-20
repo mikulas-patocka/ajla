@@ -4844,7 +4844,7 @@ static void * attr_fastcall io_forced_exit_handler(struct io_ctx *ctx)
 
 	io_get_bytes(ctx, get_input(ctx, 1));
 
-	e = error_ajla_aux(EC_EXIT, AJLA_ERROR_EXIT, p);
+	e = error_ajla_aux(EC_ASYNC, AJLA_ERROR_EXIT, p);
 
 	t = thunk_alloc_exception_error(e, *ctx->str ? ctx->str : NULL, NULL, NULL pass_file_line);
 
