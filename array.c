@@ -1523,6 +1523,7 @@ static bool same_to_ptr(struct walk_context *w, pointer_t **result_ptr, ajla_err
 free_single_right_ret_err:
 	data_free_r1(single);
 free_right_ret_err:
+	index_free(&da(right,array_same)->n_entries);
 	data_free_r1(right);
 ret_err:
 	return false;
@@ -1604,6 +1605,7 @@ static bool same_to_flat(struct walk_context *w, const struct type *type, unsign
 free_single_right_ret_err:
 	data_free_r1(single);
 free_right_ret_err:
+	index_free(&da(right,array_same)->n_entries);
 	data_free_r1(right);
 ret_err:
 	return false;
@@ -2048,8 +2050,10 @@ pointers_do_copy:
 			}
 			index_sub(&len, max_step);
 			result = array_sub(pointer_get_data(levels[bt_pos].node), start, max_step, false, err);
-			if (unlikely(!result))
+			if (unlikely(!result)) {
+				index_free(&len);
 				goto ret;
+			}
 			do {
 				array_index_t zero0;
 				struct data *xa;
@@ -2062,7 +2066,12 @@ pointers_do_copy:
 				index_sub(&len, max_step);
 				index_from_int(&zero0, 0);
 				xa = array_sub(pointer_get_data(levels[bt_pos].node), zero0, max_step, false, err);
-
+				if (unlikely(!xa)) {
+					data_dereference(result);
+					result = NULL;
+					index_free(&len);
+					goto ret;
+				}
 				result = array_join(result, xa, err);
 				if (unlikely(!result)) {
 					index_free(&len);
@@ -2140,7 +2149,7 @@ oom:
 			flat_ptr = da_array_flat(array);
 			element_size = flat_type->size;
 			if (cnst) {
-				memset(flat_ptr, flat[0], element_size * est);
+				memset(flat_ptr, flat[0], (size_t)element_size * est);
 			} else {
 				int_default_t first_est = minimum(est, 4096 / element_size);
 				for (i = 0; i < first_est; i++) {
@@ -2231,7 +2240,7 @@ pointer_t attr_fastcall array_string(int_default_t length, const struct type *fl
 		return pointer_error(err, NULL, NULL pass_file_line);
 	}
 
-	memcpy(da_array_flat(array), flat, flat_type->size * length);
+	memcpy(da_array_flat(array), flat, (size_t)flat_type->size * length);
 
 	return pointer_data(array);
 }
@@ -2316,7 +2325,7 @@ again:
 	b = data_alloc_array_flat_mayfail(type, s, s, false, mayfail pass_file_line);
 	if (unlikely(!b))
 		goto ret_null;
-	memcpy(da_array_flat(b), mem, s * type->size);
+	memcpy(da_array_flat(b), mem, s * (size_t)type->size);
 	if (!r) {
 		r = b;
 	} else {
@@ -2325,7 +2334,7 @@ again:
 			goto ret_null;
 	}
 	if ((size_t)s < n_elements) {
-		mem += s * type->size;
+		mem += s * (size_t)type->size;
 		n_elements -= s;
 		goto again;
 	}
