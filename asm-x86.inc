@@ -93,7 +93,7 @@
 
 #define feature_name		avx10
 #define static_test_avx10	(__AVX10_1__)
-#define dynamic_test		(likely(cpu_test_feature(CPU_FEATURE_avx)) && likely(cpuid_7_1[3] & (1U << 21)) && likely(test_xcr0(0xa0)))
+#define dynamic_test		(likely(cpu_test_feature(CPU_FEATURE_avx)) && likely(cpuid_7_1[3] & (1U << 19)) && likely(test_xcr0(0xa0)))
 #include "asm-1.inc"
 
 #define feature_name		fp16
@@ -104,7 +104,7 @@
 #define feature_name		apx
 #if defined(ARCH_X86_64) && !defined(ARCH_X86_WIN_ABI)
 #define static_test_apx		(__APX_F__)
-#define dynamic_test		(cpuid_7_1[3] & (1U << 21) && likely(test_xcr0(1U << 19)))
+#define dynamic_test		(likely(cpu_test_feature(CPU_FEATURE_avx)) && cpuid_7_1[3] & (1U << 21) && likely(test_xcr0(1U << 19)))
 #else
 #define static_test_apx		0
 #define dynamic_test		false

@@ -673,7 +673,8 @@ attr_noinline void asm_setup_thread(void)
 #endif
 #endif
 #if defined(INLINE_ASM_GCC_ARM)
-	__asm__ volatile (ARM_ASM_PREFIX "vmsr fpscr, %0" : : "r"(0));
+	if (likely(cpu_test_feature(CPU_FEATURE_vfp)))
+		__asm__ volatile (ARM_ASM_PREFIX "vmsr fpscr, %0" : : "r"(0));
 #endif
 #if defined(INLINE_ASM_GCC_ARM64)
 	__asm__ volatile (ARM_ASM_PREFIX "msr fpcr, %0" : : "r"(0UL));
