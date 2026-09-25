@@ -908,6 +908,14 @@ static void try_join_siblings_ptr(struct walk_context *w, pointer_t **result_ptr
 	struct data *left, *right;
 	int_default_t ptr_pos;
 
+	/*
+	 * Joining the siblings removes one child from the parent.  Never do that
+	 * to a non-root parent that is already at BTREE_MIN_SIZE, otherwise it
+	 * would end up below the minimum.
+	 */
+	if (unlikely(ul != pointer_get_data(*w->root) && da(ul,array_btree)->n_used_btree_entries <= BTREE_MIN_SIZE))
+		return;
+
 	left = pointer_get_data(da(ul,array_btree)->btree[ul_pos].node);
 	right = pointer_get_data(da(ul,array_btree)->btree[ul_pos + 1].node);
 
@@ -1266,6 +1274,14 @@ static void try_join_siblings_flat(struct walk_context *w, unsigned char **resul
 	struct data *left, *right;
 	size_t ptr_pos;
 	size_t element_size;
+
+	/*
+	 * Joining the siblings removes one child from the parent.  Never do that
+	 * to a non-root parent that is already at BTREE_MIN_SIZE, otherwise it
+	 * would end up below the minimum.
+	 */
+	if (unlikely(ul != pointer_get_data(*w->root) && da(ul,array_btree)->n_used_btree_entries <= BTREE_MIN_SIZE))
+		return;
 
 	left = pointer_get_data(da(ul,array_btree)->btree[ul_pos].node);
 	right = pointer_get_data(da(ul,array_btree)->btree[ul_pos + 1].node);
