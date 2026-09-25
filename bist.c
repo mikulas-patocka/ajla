@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -132,7 +132,7 @@ static attr_noinline void bist_memarray(void)
 		array_add(int, &array, &array_l, i * 2);
 	for (i = 0; i < 100; i++)
 		if (unlikely(array[i + 1] != i * 2))
-			internal(file_line, "bist_memarray: array[%d] == %d", i, array[i]);
+			internal(file_line, "bist_memarray: array[%d] == %d", i, array[i + 1]);
 	mem_free(array);
 }
 
@@ -282,7 +282,7 @@ static attr_noinline void bist_arithm(void)
 			val &= val - 1, res2++;				\
 	}								\
 	if (unlikely(res1 != res2))					\
-		internal(file_line, "bist_popcnt(%s) mismatch: %"PRIdMAX" != %"PRIdMAX"", stringify(type), (intmax_t)res, (intmax_t)res1);\
+		internal(file_line, "bist_popcnt(%s) mismatch: %"PRIdMAX" != %"PRIdMAX"", stringify(type), (intmax_t)res1, (intmax_t)res2);\
 }
 
 #if defined(INT_POPCNT_ALT1_TYPES) && INT_POPCNT_ALT1_TYPES & 1
@@ -347,16 +347,16 @@ static attr_noinline void cat(bist_unary_,type)(			\
 	*resp = -1;							\
 	res = -1;							\
 	if (unlikely(fn(&op1, &res) != succeed))			\
-		internal(file_line, "bist_binary_%s: %s(%s) %s",	\
+		internal(file_line, "bist_unary_%s: %s(%s) %s",	\
 			stringify(type), fn_name,			\
 			str_from_signed(op1, 16),			\
 			succeed ? "failed" : "succeeded");		\
 	if (!succeed && unlikely(res != -1))				\
-		internal(file_line, "bist_binary_%s: %s(%s) modified result: %s",\
+		internal(file_line, "bist_unary_%s: %s(%s) modified result: %s",\
 			stringify(type), fn_name,			\
 			str_from_signed(op1, 16), str_from_signed(res, 16));\
 	if (succeed && unlikely(res != result))				\
-		internal(file_line, "bist_binary_%s: %s(%s) returned wrong result: %s != %s",\
+		internal(file_line, "bist_unary_%s: %s(%s) returned wrong result: %s != %s",\
 			stringify(type), fn_name,			\
 			str_from_signed(op1, 16), str_from_signed(res, 16),\
 			str_from_signed(result, 16));			\
@@ -567,6 +567,8 @@ static int bist_rbtree_verify_node(struct tree_entry *e, int from, int to)
 static void bist_rbtree_verify(struct tree *root)
 {
 	rbtree_verify_node_count = 0;
+	if (root->root && unlikely(!rb_is_black(root->root)))
+		internal(file_line, "bist_rbtree_verify: root is not black");
 	(void)bist_rbtree_verify_node(root->root, 0, signed_maximum(int));
 	if (unlikely(rbtree_verify_node_count != rbtree_node_count))
 		internal(file_line, "bist_rbtree_verify: node count mismatch: %d != %d", rbtree_verify_node_count, rbtree_node_count);
@@ -949,7 +951,7 @@ static void bist_array_toggle(struct bist_array_state *st, int_bist_t i)
 				/*internal(file_line, "bist_array_toggle: array_modify failed");*/
 			bist_array_test_ptr(*result_ptr, SAME_MAGIC);
 			di = i;
-			flat = data_alloc_flat_mayfail(TYPE_TAG_N, cast_ptr(unsigned char *, &di), sizeof(int_bist_t), NULL pass_file_line);
+			flat = data_alloc_flat_mayfail(int_bist_type->tag, cast_ptr(unsigned char *, &di), sizeof(int_bist_t), NULL pass_file_line);
 			pointer_dereference(*result_ptr);
 			*result_ptr = pointer_data(flat);
 			st->array_flag[i] = 1;
@@ -992,7 +994,7 @@ static attr_noinline void bist_array_st(struct bist_array_state *st, unsigned fl
 				array = data_alloc_array_pointers_mayfail(l, l, NULL pass_file_line);
 				for (i = 0; i < l; i++) {
 					di = j + i;
-					flat = data_alloc_flat_mayfail(TYPE_TAG_N, cast_ptr(unsigned char *, &di), sizeof(int_bist_t), NULL pass_file_line);
+					flat = data_alloc_flat_mayfail(int_bist_type->tag, cast_ptr(unsigned char *, &di), sizeof(int_bist_t), NULL pass_file_line);
 					da(array,array_pointers)->pointer[i] = pointer_data(flat);
 					st->array_flag[j + i] = 1;
 				}
@@ -1011,7 +1013,7 @@ static attr_noinline void bist_array_st(struct bist_array_state *st, unsigned fl
 				array = data_alloc_array_pointers_mayfail(l, l, NULL pass_file_line);
 				for (i = 0; i < l; i++) {
 					di = j + i;
-					flat = data_alloc_flat_mayfail(TYPE_TAG_N, cast_ptr(unsigned char *, &di), sizeof(int_bist_t), NULL pass_file_line);
+					flat = data_alloc_flat_mayfail(int_bist_type->tag, cast_ptr(unsigned char *, &di), sizeof(int_bist_t), NULL pass_file_line);
 					da(array,array_pointers)->pointer[i] = pointer_data(flat);
 					st->array_flag[j + i] = 1;
 				}
@@ -1071,7 +1073,7 @@ static attr_noinline void bist_array_2_st(struct bist_array_state *st)
 	pointer_t flat_ptr;
 
 	di = SAME_MAGIC;
-	flat = data_alloc_flat_mayfail(TYPE_TAG_N, cast_ptr(unsigned char *, &di), sizeof(int_bist_t), NULL pass_file_line);
+	flat = data_alloc_flat_mayfail(int_bist_type->tag, cast_ptr(unsigned char *, &di), sizeof(int_bist_t), NULL pass_file_line);
 	flat_ptr = pointer_data(flat);
 	array = data_alloc_array_pointers_mayfail(0, 0, NULL pass_file_line);
 	st->array_ptr = pointer_data(array);
