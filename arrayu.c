@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -226,7 +226,7 @@ static int_default_t array_to_bytes_callback(unsigned char *flat, const struct t
 {
 	struct array_to_bytes_context *ctx = cast_ptr(struct array_to_bytes_context *, ctx_);
 	if (likely(flat != NULL)) {
-		str_add_bytes(&ctx->str, &ctx->str_l, (char *)flat, n_elements * type->size);
+		str_add_bytes(&ctx->str, &ctx->str_l, (char *)flat, n_elements * (size_t)type->size);
 		return n_elements;
 	} else {
 		if (pointer_is_thunk(*ptr))
@@ -262,14 +262,14 @@ void attr_fastcall array_onstack_to_bytes(frame_s *fp, frame_t slot, char **str,
 		const struct flat_array_definition *fa = get_struct(type, const struct flat_array_definition, type);
 		int_default_t n_elements = fa->n_elements;
 		unsigned char *flat = frame_slot(fp, slot, unsigned char);
-		size_t size = fa->base->size * n_elements;
+		size_t size = (size_t)fa->base->size * n_elements;
 		unsigned char *p;
 
 		p = mem_alloc(unsigned char *, size + 1);
 		*cast_ptr(char *, mempcpy(p, flat, size)) = 0;
 
 		*str = cast_ptr(char *, p);
-		*str_l = size;
+		*str_l = size + 1;
 
 		return;
 	}
