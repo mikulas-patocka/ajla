@@ -2258,14 +2258,14 @@ do {									\
 				frame_t i;
 				get_two(ctx, &slot_r, &i);
 				g(gen_array_string(ctx, type_get_fixed(0, true)->tag, cast_ptr(uint8_t *, ctx->current_position), i, slot_r));
-				ctx->current_position += (i + 1) >> 1;
+				ctx->current_position += ((size_t)i + 1) >> 1;
 				continue;
 			}
 			case OPCODE_ARRAY_UNICODE: {
 				frame_t i;
 				get_two(ctx, &slot_r, &i);
 				g(gen_array_string(ctx, type_get_int(2)->tag, cast_ptr(uint8_t *, ctx->current_position), i, slot_r));
-				ctx->current_position += i * 2;
+				ctx->current_position += (size_t)i * 2;
 				continue;
 			}
 			case OPCODE_ARRAY_LOAD: {
