@@ -2959,7 +2959,7 @@ static bool attr_w gen_array_len(struct codegen_context *ctx, frame_t slot_1, fr
 		} else if (slot_2 == NO_FRAME_T) {
 			g(gen_frame_store_imm(ctx, OP_SIZE_INT, slot_r, 0, (unsigned)type_def(t,flat_array)->n_elements));
 		} else {
-			g(gen_frame_load_cmp_imm_set_cond(ctx, OP_SIZE_INT, zero_x, slot_2, type_def(t,flat_array)->n_elements, COND_G, slot_r));
+			g(gen_frame_load_cmp_imm_set_cond(ctx, OP_SIZE_INT, zero_x, slot_2, type_def(t,flat_array)->n_elements, COND_L, slot_r));
 		}
 		flag_set(ctx, slot_r, false);
 	} else {
