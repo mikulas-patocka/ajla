@@ -424,7 +424,7 @@ static bool attr_w cgen_alu_args(struct codegen_context *ctx, unsigned size, uns
 			arg3 += 2;
 			mc = ARM64_SMADDSUBL | ARM64_SMADDSUBL_U;
 		}
-		if (unlikely(arg2[0] >= 32) && unlikely(arg3[0] >= 32))
+		if (unlikely(arg2[0] >= 32) || unlikely(arg3[0] >= 32))
 			goto invalid;
 		mc |= ARM64_MADDSUB_SIZE * (size == OP_SIZE_8);
 		mc |= arg1[0];
