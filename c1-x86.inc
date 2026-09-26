@@ -530,6 +530,12 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 	g(gen_x86_push(ctx, R_BP, true));
 	g(gen_x86_push2(ctx, R_CX, r_arg2, false));
 #endif
+	if (R_ARG3 != r_arg3) {
+		gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
+		gen_one(R_ARG3);
+		gen_one(r_arg3);
+		r_arg3 = R_ARG3;
+	}
 	gen_insn(INSN_MOV, OP_SIZE_ADDRESS, 0, 0);
 	gen_one(R_FRAME);
 	gen_one(r_arg0);
@@ -540,9 +546,11 @@ static bool attr_w gen_entry(struct codegen_context *ctx)
 		gen_one(r_arg1);
 	}
 #ifdef TIMESTAMP_IN_REGISTER
-	gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
-	gen_one(R_TIMESTAMP);
-	gen_one(r_arg2);
+	if (R_TIMESTAMP != r_arg2) {
+		gen_insn(INSN_MOV, OP_SIZE_4, 0, 0);
+		gen_one(R_TIMESTAMP);
+		gen_one(r_arg2);
+	}
 #endif
 	gen_insn(INSN_JMP_INDIRECT, 0, 0, 0);
 	gen_one(r_arg3);
