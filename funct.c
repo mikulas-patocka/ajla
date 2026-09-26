@@ -199,9 +199,12 @@ void name(function_init)(void)
 	da(int_fn,function)->args = ar = mem_alloc(struct local_arg *, N_ARGUMENTS * sizeof(struct local_arg));
 	da(int_fn,function)->types_ptr = pointer_data(ft);
 	da(int_fn,function)->record_definition = NULL;
+	da(int_fn,function)->module_designator = NULL;
+	da(int_fn,function)->function_designator = NULL;
 	da(int_fn,function)->function_name = str_dup("internal_function", -1, NULL);
 	da(int_fn,function)->lp = NULL;
 	da(int_fn,function)->lp_size = 0;
+	da(int_fn,function)->real_size = 0;
 	da(int_fn,function)->n_function_pointers = 0;
 #ifdef HAVE_CODEGEN
 	da(int_fn,function)->codegen = pointer_thunk(thunk_alloc_exception_error(error_ajla(EC_ASYNC, AJLA_ERROR_NOT_SUPPORTED), NULL, NULL, NULL pass_file_line));
@@ -210,6 +213,8 @@ void name(function_init)(void)
 	function_init_common(int_fn);
 	if (profiling_escapes)
 		da(int_fn,function)->escape_data = mem_alloc_array_mayfail(mem_calloc_mayfail, struct escape_data *, 0, 0, code_size, sizeof(struct escape_data), NULL);
+	else
+		da(int_fn,function)->escape_data = NULL;
 	da(int_fn,function)->leaf = true;
 
 	for (ia = 0; ia < N_SLOTS; ia++) {
