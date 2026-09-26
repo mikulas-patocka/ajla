@@ -105,6 +105,8 @@ static void attr_cold fd_set_realloc(size_t new_size)
 	f = mem_realloc(fd_set *, write_fd_set, new_size);
 	memset((char *)f + fd_set_size, 0, new_size - fd_set_size);
 	write_fd_set = f;
+
+	fd_set_size = new_size;
 }
 
 void iomux_check_all(uint32_t us)
