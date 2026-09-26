@@ -394,7 +394,7 @@ static bool attr_w cgen_cmp_dest_reg(struct codegen_context *ctx, unsigned aux)
 	ctx->code_position = arg3 + arg_size(*arg3);
 	if (arg3[0] == ARG_IMM) {
 		int64_t imm = get_imm(&arg3[1]);
-		if (unlikely(imm < -0x800) && unlikely(imm >= 0x800))
+		if (unlikely(imm < -0x800) || unlikely(imm >= 0x800))
 			internal(file_line, "cgen_cmp_dest_reg: invalid imm value %"PRIxMAX"", (intmax_t)imm);
 		switch (aux) {
 			case COND_B:	mc = LOONG_SLTUI; break;
