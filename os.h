@@ -450,6 +450,7 @@ handle_t os_open(dir_handle_t dir, const char *path, int flags, int mode, ajla_e
 bool os_pipe(handle_t result[2], int nonblock_flags, ajla_error_t *err);
 void os_close_handle(handle_t h);
 void os_close(handle_t h);
+handle_t os_dup(handle_t h, ajla_error_t *err);
 unsigned os_n_std_handles(void);
 handle_t os_get_std_handle(unsigned p);
 #define OS_RW_ERROR		-1

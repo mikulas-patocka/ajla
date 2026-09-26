@@ -773,6 +773,22 @@ void os_close(handle_t h)
 	os_close_handle(h);
 }
 
+handle_t os_dup(handle_t h, ajla_error_t *err)
+{
+	int r;
+	os_lock_fork(false);
+	EINTR_LOOP(r, dup(h));
+	if (unlikely(r == -1)) {
+		ajla_error_t e = error_from_errno(EC_SYSCALL, errno);
+		os_unlock_fork(false);
+		fatal_mayfail(e, err, "can't duplicate handle: %s", error_decode(e));
+		return -1;
+	}
+	os_set_cloexec(r);
+	os_unlock_fork(false);
+	return r;
+}
+
 static unsigned n_std_handles;
 
 unsigned os_n_std_handles(void)

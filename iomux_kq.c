@@ -110,12 +110,9 @@ bool iomux_directory_handle_alloc(dir_handle_t attr_unused handle, notify_handle
 	struct iomux_wait *iow;
 	struct kevent event;
 
-	EINTR_LOOP(newfd, dup(handle));
-	if (unlikely(newfd == -1)) {
-		ajla_error_t e = error_from_errno(EC_SYSCALL, errno);
-		fatal_mayfail(e, err, "dup failed: %s", error_decode(e));
+	newfd = os_dup(handle, err);
+	if (unlikely(!handle_is_valid(newfd)))
 		return false;
-	}
 	iow = iomux_get_iowait(newfd);
 
 	EV_SET(&event, newfd, EVFILT_VNODE, EV_ADD | EV_ONESHOT, NOTE_WRITE, 0, 0);
