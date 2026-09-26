@@ -784,7 +784,7 @@ static bool attr_w gen_call_indirect(struct codegen_context *ctx, code_t code, f
 			g(gen_jmp_on_zero(ctx, i_size(log_2(sizeof(uchar_efficient_t))), R_SCRATCH_1, COND_E, fallback_label));
 
 			g(gen_address(ctx, R_SAVED_2, i * sizeof(struct local_arg) + offsetof(struct local_arg, slot), IMM_PURPOSE_LDR_OFFSET, f_size));
-			gen_insn(ARCH_PREFERS_SX(f_size) ? INSN_MOVSX : INSN_MOV, f_size, 0, MOV_WRITES_FLAGS(R_SCRATCH_1, ARG_ADDRESS_1));
+			gen_insn(ARCH_PREFERS_SX(f_size) ? INSN_MOVSX : INSN_MOV, f_size, 0, MOV_WRITES_FLAGS(R_SCRATCH_2, ARG_ADDRESS_1));
 			gen_one(R_SCRATCH_2);
 			gen_address_offset();
 
