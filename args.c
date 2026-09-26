@@ -28,6 +28,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+static char *file_buffer = NULL;
+static char *env_buffer = NULL;
+
 chicken_mask_t chicken = 0;
 
 const char *dump_code = NULL;
@@ -246,7 +249,7 @@ static const char *help_strings[] = {
 --noautofma		disable automatic generation of FMA instruction","\
 --noinline		disable automatic inlining","\
 --nosave		do not save and load the compiled program","\
---numa_node=x		override the number of numa nodes to \"x\"","\
+--numa-nodes=x		override the number of numa nodes to \"x\"","\
 --opencl-device=x	use the OpenCL device with index \"x\"","\
 --optimize-fp		optimize for floating point calculations (default)","\
 --optimize-int		optimize for integer calculations","\
@@ -314,20 +317,17 @@ inv:
 	fatal("invalid argument '%s'", arg);
 }
 
-static void process_line_args(const char *line)
+static void process_line_args(char *line)
 {
 	while (1) {
 		size_t len = strcspn(line, " 	");
+		bool is_last = !line[len];
 		if (len) {
-			char *a = malloc(len + 1);
-			if (unlikely(!a))
-				fatal("malloc failed");
-			*(char *)mempcpy(a, line, len) = 0;
-			process_arg(a);
-			free(a);
+			line[len] = 0;
+			process_arg(line);
 		}
 		line += len;
-		if (!*line)
+		if (is_last)
 			break;
 		line++;
 	}
@@ -338,7 +338,7 @@ static void process_file_args(const char *file)
 	int h;
 	size_t position, size;
 	ssize_t r;
-	char *buffer, *nl;
+	char *nl;
 	EINTR_LOOP(h, open(file, O_RDONLY));
 	if (unlikely(h == -1))
 		return;
@@ -346,18 +346,18 @@ static void process_file_args(const char *file)
 	position = 0;
 	size = 128;
 
-	buffer = malloc(size);
-	if (unlikely(!buffer))
+	file_buffer = malloc(size);
+	if (unlikely(!file_buffer))
 		fatal("malloc failed");
 
 again:
-	EINTR_LOOP(r, read(h, buffer + position, size - position));
+	EINTR_LOOP(r, read(h, file_buffer + position, size - position));
 	if (unlikely(r < 0))
 		goto close_ret;
 
 	position += r;
 new_line:
-	nl = memchr(buffer, '\n', position);
+	nl = memchr(file_buffer, '\n', position);
 	if (!nl) {
 		if (unlikely(!r))
 			goto close_ret;
@@ -365,25 +365,29 @@ new_line:
 			size *= 2;
 			if (unlikely(!size))
 				fatal("size wrap around");
-			buffer = realloc(buffer, size);
-			if (unlikely(!buffer))
+			file_buffer = realloc(file_buffer, size);
+			if (unlikely(!file_buffer))
 				fatal("realloc failed");
 		}
 		goto again;
 	}
+	if (nl > file_buffer && nl[-1] == '\r')
+		nl[-1] = 0;
 	*nl = 0;
-	if (buffer[0] == '#') {
-		memmove(buffer, nl + 1, position - (nl + 1 - buffer));
-		position -= nl + 1 - buffer;
+	if (file_buffer[0] == '#') {
+		memmove(file_buffer, nl + 1, position - (nl + 1 - file_buffer));
+		position -= nl + 1 - file_buffer;
 		goto new_line;
 	}
-	if (!strncmp(buffer, "// flags: ", 10)) {
-		/*debug("\"%s\"", buffer + 10);*/
-		process_line_args(buffer + 10);
+	if (!strncmp(file_buffer, "// flags: ", 10)) {
+		/*debug("\"%s\"", file_buffer + 10);*/
+		process_line_args(file_buffer + 10);
+	} else {
+close_ret:
+		free(file_buffer);
+		file_buffer = NULL;
 	}
 
-close_ret:
-	free(buffer);
 	close(h);
 }
 
@@ -395,7 +399,10 @@ void args_init(int argc, const char * const argv[])
 		fatal("the argument 0 is not present");
 	arg0 = argv[0];
 	if ((env = getenv("AJLA_OPTIONS"))) {
-		process_line_args(env);
+		env_buffer = strdup(env);
+		if (!env_buffer)
+			fatal("strdup failed");
+		process_line_args(env_buffer);
 	}
 	for (i = 1; i < argc; i++) {
 		if (likely(argv[i][0] != '-'))
@@ -444,4 +451,8 @@ void args_init(int argc, const char * const argv[])
 
 void args_done(void)
 {
+	if (unlikely(env_buffer != NULL))
+		free(env_buffer);
+	if (unlikely(file_buffer != NULL))
+		free(file_buffer);
 }

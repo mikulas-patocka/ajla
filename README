@@ -51,7 +51,7 @@ Ajla arguments:
 --help			display help
 --noinline		disable automatic inlining
 --nosave		do not save and load the compiled program
---numa_node=x		override the number of numa nodes to "x"
+--numa-nodes=x		override the number of numa nodes to "x"
 --opencl-device=x	use the OpenCL device with index "x"
 --optimize-fp		optimize for floating point calculations (default)
 --optimize-int		optimize for integer calculations
