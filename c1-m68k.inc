@@ -28,7 +28,7 @@
 #define UNALIGNED_TRAP			0
 
 #define MOV_WRITES_FLAGS(dest, src)	(!R_IS_A(dest) && !reg_is_fp(dest) && !reg_is_fp(src))
-#define ALU_WRITES_FLAGS(size, alu, is_mem, is_imm, imm)	((alu) == ALU_ADD && (size) == OP_SIZE_4 ? 0 : 1)
+#define ALU_WRITES_FLAGS(size, alu, is_mem, is_imm, imm)	((alu) == ALU_ADD && (size) == OP_SIZE_4 && !(is_mem) ? 0 : 1)
 #define ALU1_WRITES_FLAGS(alu)		1
 #define ROT_WRITES_FLAGS(alu, size, im)	1
 #define COND_IS_LOGICAL(cond)		0
