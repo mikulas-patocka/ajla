@@ -194,7 +194,7 @@
 
 #define cgen_i26(opcode, imm)			cgen_four((opcode) | ((imm) & 0xffffU) << 10 | ((imm) & 0x3ff0000) >> 16)
 #define cgen_1ri20(opcode, rd, imm)		cgen_four((opcode) | (rd) | ((imm) & 0xFFFFFU) << 5)
-#define cgen_1ri21(opcode, rj, imm)		cgen_four((opcode) | (rj) << 5 | ((imm) & 0xFFFFU) << 5 | ((imm) & 0x1f0000) >> 16)
+#define cgen_1ri21(opcode, rj, imm)		cgen_four((opcode) | (rj) << 5 | ((imm) & 0xFFFFU) << 10 | ((imm) & 0x1f0000) >> 16)
 #define cgen_2r(opcode, rd, rj)			cgen_four((opcode) | (rd) | (rj) << 5)
 #define cgen_2ri8(opcode, rd, rj, imm)		cgen_four((opcode) | (rd) | (rj) << 5 | ((imm) & 0xffU) << 10)
 #define cgen_2ri12(opcode, rd, rj, imm)		cgen_four((opcode) | (rd) | (rj) << 5 | ((imm) & 0xfffU) << 10)
