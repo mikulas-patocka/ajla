@@ -1554,7 +1554,7 @@ static bool attr_w cgen_sse_cvt(struct codegen_context *ctx, unsigned from_op_si
 		g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F_38, X86_0F_38_CVTPH2PS_X128_RM64, false, OP_SIZE_8, arg1[0], 0, arg2, 0));
 		return true;
 	} else if (from_op_size == OP_SIZE_4 && to_op_size == OP_SIZE_2) {
-		g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F_3A, X86_0F_3A_CVTPS2PH_RM64_X128, false, OP_SIZE_16, arg1[0], 0, arg2, 1));
+		g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F_3A, X86_0F_3A_CVTPS2PH_RM64_X128, false, OP_SIZE_8, arg2[0], 0, arg1, 1));
 		cgen_one(0x04);
 		return true;
 	} else if (from_op_size == OP_SIZE_4 && to_op_size == OP_SIZE_8) {
