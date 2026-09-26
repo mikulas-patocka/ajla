@@ -4069,7 +4069,7 @@ do_cvt_to_int:
 
 		g(gen_cmp_test_jmp(ctx, INSN_CMP, OP_SIZE_NATIVE, target, R_SCRATCH_2, COND_E, label_ovf));
 
-		g(gen_imm(ctx, -1, IMM_PURPOSE_XOR, i_size(size)));
+		g(gen_imm(ctx, -1, IMM_PURPOSE_XOR, OP_SIZE_NATIVE));
 		gen_insn(INSN_ALU, OP_SIZE_NATIVE, ALU_XOR, ALU_WRITES_FLAGS(OP_SIZE_NATIVE, ALU_XOR, false, is_imm(), ctx->const_imm));
 		gen_one(R_SCRATCH_2);
 		gen_one(R_SCRATCH_2);
