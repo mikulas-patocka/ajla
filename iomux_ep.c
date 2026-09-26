@@ -298,7 +298,7 @@ void iomux_check_all(uint32_t us)
 	{
 		int ms;
 		if (us != IOMUX_INDEFINITE_WAIT)
-			ms = (us + 999) / 1000;
+			ms = (int)(((uint64_t)us + 999) / 1000);
 		else
 			ms = -1;
 		n_ev = epoll_wait(ep_fd, events, EPOLL_MAX_EVENTS, ms);
