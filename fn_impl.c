@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -83,13 +83,13 @@ float cbrtf(float x)
 #endif
 
 #if defined(HAVE_LONG_DOUBLE) && !defined(HAVE_CBRTL)
-float cbrtl(float x)
+long double cbrtl(long double x)
 {
 	if (unlikely(x <= 0)) {
 		if (x == 0)
 			return x;
 		else
-			return -powl(-x, 1./3.);
+			return -powl(-x, 1.L/3.L);
 	}
 	return powl(x, 1.L/3.L);
 }

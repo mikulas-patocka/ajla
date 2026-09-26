@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -63,7 +63,7 @@ float cbrtf(float x);
 
 #if defined(HAVE_LONG_DOUBLE) && !defined(HAVE_CBRTL)
 #define cbrtl	my_cbrtl	/* fix conflicting types for built-in function cbrtl */
-float cbrtl(float x);
+long double cbrtl(long double x);
 #endif
 
 #if !defined(HAVE_ASINH)
