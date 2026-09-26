@@ -173,7 +173,10 @@ void attr_fastcall str_add_signed(char **s, size_t *l, intbig_t i, int base)
 	uintbig_t ui = (uintbig_t)i;
 	/*debug("number: %llx %llx", (unsigned long long)(ui >> 64), (unsigned long long)ui);*/
 	if (unlikely(i < 0)) {
-		str_add_char(s, l, '-');
+		if (likely(l != NULL))
+			str_add_char(s, l, '-');
+		else
+			*(*s)++ = '-';
 		ui = -ui;
 	}
 	str_add_unsigned(s, l, ui, base);
