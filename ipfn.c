@@ -687,6 +687,7 @@ void * attr_hot_fastcall ipret_get_system_property(frame_s *fp, const code_t *ip
 			frame_free_and_set_pointer(fp, slot_r, result_ptr);
 			return POINTER_FOLLOW_THUNK_GO;
 		}
+		return ex;
 	}
 	idx = index_to_int(idx_l);
 	index_free(&idx_l);
@@ -986,7 +987,7 @@ ip_t attr_hot_fastcall ipret_int_ldc_long(frame_s *fp, frame_t slot, const code_
 	n_words = (ip_t)n_words_32;
 	ajla_assert(n_words == n_words_32, (file_line, "ipret_int_ldc_long: n_words overflow: %lu != %lu", (unsigned long)n_words_32, (unsigned long)n_words));
 
-	d = data_alloc_longint_mayfail((n_words + sizeof(code_t) - 1) / sizeof(code_t), &err pass_file_line);
+	d = data_alloc_longint_mayfail(n_words * sizeof(code_t) * 8, &err pass_file_line);
 	if (unlikely(!d))
 		goto fail;
 
@@ -1547,15 +1548,18 @@ again:
 	}
 	results = mem_alloc_array_mayfail(mem_alloc_mayfail, struct thunk **, 0, 0, n_return_values, sizeof(struct thunk *), MEM_DONT_TRY_TO_FREE);
 	if (unlikely(!results))
-		goto oom3;
-	if (!(function_reference = data_alloc_function_reference_mayfail(n_arguments, MEM_DONT_TRY_TO_FREE pass_file_line)))
 		goto oom4;
+	if (!(function_reference = data_alloc_function_reference_mayfail(n_arguments, MEM_DONT_TRY_TO_FREE pass_file_line)))
+		goto oom5;
 	da(function_reference,function_reference)->is_indirect = false;
 	da(function_reference,function_reference)->u.direct = direct_function;
 	if (unlikely(!thunk_alloc_function_call(pointer_data(function_reference), n_return_values, results, MEM_DONT_TRY_TO_FREE))) {
 		data_free_r1(function_reference);
-oom4:
+oom5:
 		mem_free(results);
+oom4:
+		for (ai = 0; ai < n_arguments; ai++)
+			pointer_dereference(c->arguments[ai]);
 oom3:
 		for (ai = 0; ai < n_return_values; ai++) {
 			if (c->returns[ai].ex)
