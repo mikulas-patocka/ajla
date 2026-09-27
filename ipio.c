@@ -1550,7 +1550,7 @@ static void * attr_fastcall io_fclone_range_handler(struct io_ctx *ctx)
 		goto ret_thunk;
 	}
 
-	io_get_number(ctx, get_input(ctx, 4), int64_t, os_off_t, ctx->length);
+	io_get_number(ctx, get_input(ctx, 5), int64_t, os_off_t, ctx->length);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))
 		goto ret_test;
 	if (unlikely(ctx->length < 0)) {
@@ -1919,12 +1919,17 @@ static void * attr_fastcall io_open_dir_handler(struct io_ctx *ctx)
 #ifdef S_ISLNK
 		os_stat_t st;
 		os_stat_t st2;
-		if (unlikely(!os_stat(p, ".", true, &st, &ctx->err)))
+		if (unlikely(!os_stat(p, ".", true, &st, &ctx->err))) {
+			os_dir_close(p);
 			goto ret_thunk;
-		if (unlikely(!os_stat(ctx->dir_handle->fd, ctx->str, true, &st2, &ctx->err)))
+		}
+		if (unlikely(!os_stat(ctx->dir_handle->fd, ctx->str, true, &st2, &ctx->err))) {
+			os_dir_close(p);
 			goto ret_thunk;
+		}
 		if (unlikely(memcmp(&st.st_dev, &st2.st_dev, sizeof st.st_dev)) ||
 		    unlikely(st.st_ino != st2.st_ino)) {
+			os_dir_close(p);
 			if (S_ISLNK(st2.st_mode)) {
 				ctx->err = error_ajla_aux(EC_SYSCALL, AJLA_ERROR_SYSTEM, SYSTEM_ERROR_ELOOP);
 				goto ret_thunk;
@@ -3780,7 +3785,7 @@ static void * attr_fastcall io_recvfrom_handler(struct io_ctx *ctx)
 		return test;
 	if (unlikely(length < 0)) {
 		ctx->err = error_ajla(EC_SYNC, AJLA_ERROR_INT_TOO_LARGE);
-		return POINTER_FOLLOW_THUNK_EXCEPTION;
+		goto ret_thunk;
 	}
 	io_get_positive_number(ctx, ctx->fp, get_input(ctx, 3), int, flags);
 	if (unlikely(test != POINTER_FOLLOW_THUNK_GO))

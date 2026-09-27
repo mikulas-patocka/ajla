@@ -1093,7 +1093,7 @@ static bool io_get_argument_from_flat(struct io_ctx *ctx, uchar_efficient_t t, i
 	if (ajla_type_to_ffi_type_table[t].sign == T_REAL) {
 		bool ret;
 		mpint_t m;
-		if (unlikely(!cat(mpint_init_from_,int_default_t)(&m, 0, &ctx->err)))
+		if (unlikely(!cat(mpint_init_from_,int_default_t)(&m, num, &ctx->err)))
 			return false;
 		ret = io_get_argument_from_longint(ctx, t, &m);
 		mpint_free(&m);
