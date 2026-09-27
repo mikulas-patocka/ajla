@@ -2876,7 +2876,7 @@ static bool io_get_spawn_handles(struct io_ctx *ctx, frame_t slot)
 		return false;
 
 	h_dst_sorted = mem_alloc_array_mayfail(mem_alloc_mayfail, int *, 0, 0, ctx->h_dst_l, sizeof(int), &ctx->err);
-	if (!unlikely(h_dst_sorted != NULL)) {
+	if (unlikely(!h_dst_sorted)) {
 		io_terminate_with_error(ctx, ctx->err, true, NULL);
 		return false;
 	}
@@ -5007,7 +5007,7 @@ static void * attr_fastcall io_examine_handler(struct io_ctx *ctx)
 			} else {
 				pointer_t rptr = *frame_pointer(rfp, rs);
 				void *rp = pointer_get_value_strip_tag_(rptr);
-				refcount_t *rr = pointer_get_refcount_(ptr);
+				refcount_t *rr = pointer_get_refcount_(rptr);
 				refcount_int_t rrefc = refcount_get_nonatomic(rr);
 				tag_t rtag;
 				if (unlikely(pointer_is_thunk(rptr))) {

@@ -1143,12 +1143,22 @@ static int_default_t io_get_argument_callback(unsigned char *flat, const struct 
 	if (unlikely(flat != NULL)) {
 		int_default_t i;
 		for (i = n_elements; i; i--, flat += sizeof(int_default_t)) {
-			int_default_t num = *cast_ptr(int_default_t *, flat);
+			int_default_t num;
+			if (unlikely(pkt->ptrs_l >= pkt->rf->n_args)) {
+				ctx->err = error_ajla(EC_SYNC, AJLA_ERROR_INVALID_OPERATION);
+				return 0;
+			}
+			num = *cast_ptr(int_default_t *, flat);
 			if (unlikely(!io_get_argument_from_flat(ctx, pkt->rf->ctx_args[pkt->ptrs_l], num)))
 				return 0;
 		}
 	} else {
-		struct data *d = pointer_get_data(*ptr);
+		struct data *d;
+		if (unlikely(pkt->ptrs_l >= pkt->rf->n_args)) {
+			ctx->err = error_ajla(EC_SYNC, AJLA_ERROR_INVALID_OPERATION);
+			return 0;
+		}
+		d = pointer_get_data(*ptr);
 		if (unlikely(!io_get_argument_from_longint(ctx, pkt->rf->ctx_args[pkt->ptrs_l], &da(d,longint)->mp)))
 			return 0;
 	}
