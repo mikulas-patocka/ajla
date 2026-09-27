@@ -2838,12 +2838,21 @@ static attr_noinline frame_s *ipret_break(frame_s *top_fp, frame_s *high, frame_
 	if (unlikely(!low_ex))
 		goto err1;
 
+	high_function = get_frame(high)->function;
+	result = mem_alloc_array_mayfail(mem_alloc_mayfail, struct thunk **, 0, 0, da(high_function,function)->n_return_values, sizeof(struct thunk *), &sink);
+	if (unlikely(!result))
+		goto err2;
+
+	t = high_ex->thunk;
+	low_ex->thunk = t;
+
+	if (unlikely(!thunk_alloc_blackhole(high_ex, da(high_function,function)->n_return_values, result, &sink)))
+		goto err3;
+
 	low_ex->stack = frame_stack_bottom(low);
 	low_ex->stack->ex = low_ex;
 	low_ex->callback = high_ex->callback;
 
-	t = high_ex->thunk;
-	low_ex->thunk = t;
 	if (t) {
 		address_lock(t, DEPTH_THUNK);
 		t->u.function_call.u.execution_control = low_ex;
@@ -2853,14 +2862,6 @@ static attr_noinline frame_s *ipret_break(frame_s *top_fp, frame_s *high, frame_
 
 	high_ex->stack = frame_stack_bottom(high);
 	high_ex->stack->ex = high_ex;
-
-	high_function = get_frame(high)->function;
-	result = mem_alloc_array_mayfail(mem_alloc_mayfail, struct thunk **, 0, 0, da(high_function,function)->n_return_values, sizeof(struct thunk *), &sink);
-	if (unlikely(!result))
-		goto err2;
-
-	if (unlikely(!thunk_alloc_blackhole(high_ex, da(get_frame(high)->function,function)->n_return_values, result, &sink)))
-		goto err3;
 
 	low_function = get_frame(low)->function;
 	ip = da(low_function,function)->code + get_frame(high)->previous_ip_bytes / sizeof(code_t) + 1;
@@ -2887,7 +2888,7 @@ static attr_noinline frame_s *ipret_break(frame_s *top_fp, frame_s *high, frame_
 err3:
 	mem_free(result);
 err2:
-	mem_free(high_ex);
+	execution_control_free(low_ex);
 err1:
 	stack_free(frame_stack_bottom(top_fp));
 err0:

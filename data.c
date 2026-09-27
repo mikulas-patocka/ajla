@@ -709,15 +709,21 @@ bool attr_fastcall thunk_alloc_function_call(pointer_t function_reference, arg_t
 bool attr_fastcall thunk_alloc_blackhole(struct execution_control *ex, arg_t n_return_values, struct thunk *result[], ajla_error_t *mayfail)
 {
 	struct thunk *t;
+	bool r;
 
 	t = thunk_alloc_struct(THUNK_TAG_BLACKHOLE, n_return_values, mayfail);
 	if (unlikely(!t))
 		return false;
 
 	t->u.function_call.u.execution_control = ex;
+
+	r = thunk_alloc_result(t, n_return_values, result, mayfail);
+	if (unlikely(!r))
+		return false;
+
 	ex->thunk = t;
 
-	return thunk_alloc_result(t, n_return_values, result, mayfail);
+	return true;
 }
 
 bool are_there_dereferenced(void)
