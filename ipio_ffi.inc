@@ -420,6 +420,7 @@ static void * attr_fastcall io_ffi_create_structure_handler(struct io_ctx *ctx)
 
 	rfs->n_elements = ctx->args_l;
 	rfs->offsets = offsets;
+	offsets = NULL;
 	rfs->typ.size = 0;
 	rfs->typ.alignment = 0;
 	rfs->typ.type = FFI_TYPE_STRUCT;
@@ -439,7 +440,7 @@ static void * attr_fastcall io_ffi_create_structure_handler(struct io_ctx *ctx)
 	for (i = 0; i < ctx->args_l; i++) {
 		int_default_t p;
 		pos = round_up(pos, rfs->typ.elements[i]->alignment);
-		offsets[i] = pos;
+		rfs->offsets[i] = pos;
 		p = pos;
 		if (unlikely(p < 0) || unlikely((uint_default_t)p != pos)) {
 			ctx->err = error_ajla(EC_ASYNC, AJLA_ERROR_SIZE_OVERFLOW);
@@ -457,7 +458,6 @@ static void * attr_fastcall io_ffi_create_structure_handler(struct io_ctx *ctx)
 	d = NULL;
 	frame_set_pointer(ctx->fp, get_output(ctx, 1), pointer_data(a));
 	a = NULL;
-	offsets = NULL;
 
 	test = POINTER_FOLLOW_THUNK_GO;
 
@@ -465,7 +465,7 @@ ret_test:
 	if (a)
 		data_free_r1(a);
 	if (d)
-		data_free_r1(d);
+		pointer_dereference(pointer_data(d));
 	if (offsets)
 		mem_free(offsets);
 	io_ffi_free_args(ctx, args);
