@@ -2404,7 +2404,6 @@ cat(structured_write_ptr_,ARG_MODE):
 	if (false) {
 		do {
 			type = (unsigned char)get_param(ip, 0);
-			arg = get_param(ip, 1);
 			ADVANCE_IP(param_size(3));
 cat(structured_read_to_the_end_,ARG_MODE):;
 		} while (!(type & OPCODE_STRUCTURED_FLAG_END));
@@ -2544,7 +2543,7 @@ DEFINE_OPCODE_START(OPCODE_RECORD_LOAD)
 cat(record_load_end_,ARG_MODE):
 	ADVANCE_I_PARAM(4);
 #endif
-DEFINE_OPCODE_END(OPCODE_RECORD_CREATE)
+DEFINE_OPCODE_END(OPCODE_RECORD_LOAD)
 
 DEFINE_OPCODE_START(OPCODE_OPTION_CREATE_EMPTY_FLAT)
 #ifdef EMIT_CODE
@@ -2727,7 +2726,7 @@ cat(option_ord_,ARG_MODE):
 	ptr = *frame_pointer(fp, slot_1);
 	if (unlikely(pointer_is_thunk(ptr))) {
 		void *ex;
-		ajla_assert(!frame_test_flag(fp, get_i_param(1)), (file_line, "option ord: flag already set for destination slot %"PRIuMAX"", (uintmax_t)get_i_param(2)));
+		ajla_assert(!frame_test_flag(fp, get_i_param(1)), (file_line, "option ord: flag already set for destination slot %"PRIuMAX"", (uintmax_t)get_i_param(1)));
 		ex = thunk_option_ord(fp, slot_1, get_i_param(1));
 		if (ex == POINTER_FOLLOW_THUNK_GO) {
 			ADVANCE_I_PARAM(2);
@@ -2949,7 +2948,7 @@ DEFINE_OPCODE_START(OPCODE_ARRAY_UNICODE)
 
 	ADVANCE_IP(length * 2);
 #endif
-DEFINE_OPCODE_END(OPCODE_ARRAY_STRING)
+DEFINE_OPCODE_END(OPCODE_ARRAY_UNICODE)
 
 DEFINE_OPCODE_START(OPCODE_ARRAY_LOAD)
 #ifdef EMIT_CODE
