@@ -51,6 +51,8 @@ static frame_t bitmap_slots(struct layout *l, frame_t n_vars)
 
 static frame_t bitmap_slots_estimate(struct layout *l, frame_t n_vars)
 {
+	if (unlikely(!n_vars))
+		return 0;
 	return (n_vars - 1) / ((1 << l->flags_per_slot_bits) - 1) + 1;
 }
 
@@ -220,7 +222,7 @@ ret_true:
 
 	return true;
 
-#undef add_slots
+#undef align_slots
 
 overflow:
 	fatal_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_SIZE_OVERFLOW), mayfail, "layout size overflow");
