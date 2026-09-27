@@ -58,7 +58,7 @@ static void error_per_thread_destructor(tls_destructor_t *destr)
 
 static char *get_error_tls(void)
 {
-	static struct error_tls *t;
+	struct error_tls *t;
 	if (unlikely(!error_threads_initialized))
 		return thread1.msg;
 	t = tls_get(struct error_tls *, error_tls);
@@ -108,10 +108,10 @@ const char attr_cold *error_decode(ajla_error_t error)
 		}
 		case AJLA_ERROR_SUBPROCESS: {
 			msg = get_error_tls();
-			if (error.error_aux < 0x100)
+			if (error.error_aux >= 0)
 				sprintf(msg, "Subprocess returned an error: %d", error.error_aux);
 			else
-				sprintf(msg, "Subprocess terminated by a signal: %d", error.error_aux - 0x200);
+				sprintf(msg, "Subprocess terminated by a signal: %d", -error.error_aux);
 			return msg;
 		}
 #ifdef HAVE_STRERROR_R
@@ -313,7 +313,9 @@ void error_init(void)
 void error_done(void)
 {
 #ifdef DEBUG_TRACE
-	if (trace_file)
+	if (trace_file) {
 		fclose(trace_file);
+		trace_file = NULL;
+	}
 #endif
 }
