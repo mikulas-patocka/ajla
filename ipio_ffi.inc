@@ -2221,6 +2221,10 @@ static void * attr_fastcall io_ffi_callback_create_handler(struct io_ctx *ctx)
 		goto ret_test;
 
 	io_get_option(ctx, get_input(ctx, 3), &rtype, &r_struc);
+	if (unlikely(r_struc != NULL)) {
+		ctx->err = error_ajla(EC_SYNC, AJLA_ERROR_INVALID_OPERATION);
+		goto ret_err;
+	}
 
 	args = io_ffi_load_arg_list(ctx, 4);
 	if (unlikely(!args))
