@@ -276,6 +276,8 @@ static inline void mem_per_thread_init(struct per_thread *pt)
 	if (USE_HISTOGRAM) {
 		pt->histogram_size = 2;
 		pt->histogram = heap_calloc(pt->histogram_size * sizeof(struct histogram_entry));
+		if (unlikely(!pt->histogram))
+			fatal("histogram allocation failed");
 	}
 }
 
@@ -537,19 +539,12 @@ static attr_noinline void *debug_mem_realloc(void *ptr, size_t size, ajla_error_
 		AH_MAGIC(ah) = ALLOC_MAGIC;
 		mem_mutex_unlock(pt);
 		result = cast_cpp(unsigned char *, oom_calloc(needed_size, mayfail, position));
-		if (!result) {
-			if (size <= ah->size) {
-				ah->size = size;
-				if (USE_RED_ZONE)
-					AH_RED_ZONE(ah) = RED_ZONE;
-				return ptr;
-			}
+		if (!result)
 			return NULL;
-		}
 		pt = mem_mutex_lock(ah);
 		(void)memcpy(result + padding, ah, minimum(size, ah->size) + AH_SIZE);
 		AH_MAGIC(ah) = ALLOC_MAGIC_REALLOC;
-		heap_free(ah);
+		heap_free(AH_MALLOC_BLOCK(ah));
 	}
 	new_ah = cast_ptr(struct alloc_header *, result + padding);
 	AH_MAGIC(new_ah) = ALLOC_MAGIC;
@@ -877,9 +872,9 @@ static bool attr_cold add_memory_entry(struct memory_entry **me, size_t *me_l, s
 	if (unlikely(!(*me_l & (*me_l - 1)))) {
 		struct memory_entry *m;
 		size_t ns = !*me_l ? 1 : *me_l * 2;
-		if (unlikely(!ns) || ns > (size_t)-1 / sizeof(struct alloc_header))
+		if (unlikely(!ns) || ns > (size_t)-1 / sizeof(struct memory_entry))
 			return false;
-		m = heap_realloc(*me, ns * sizeof(struct alloc_header));
+		m = heap_realloc(*me, ns * sizeof(struct memory_entry));
 		if (unlikely(!m))
 			return false;
 		*me = m;
@@ -1128,7 +1123,7 @@ static attr_noreturn attr_cold mem_dump_leaks(void)
 		struct alloc_header *ah = leaked_array[i];
 		unsigned char *ptr = AH_DATA(ah);
 		size_t s;
-		for (s = 0; s < ah->size; s += sizeof(void *)) {
+		for (s = 0; s + sizeof(void *) <= ah->size; s += sizeof(void *)) {
 			size_t res;
 			uintptr_t ptr2 = *cast_ptr(uintptr_t *, ptr + s);
 			if (!pointer_compression_enabled) {
@@ -1145,7 +1140,7 @@ static attr_noreturn attr_cold mem_dump_leaks(void)
 		}
 #ifdef POINTER_COMPRESSION_POSSIBLE
 		if (pointer_compression_enabled) {
-			for (s = 0; s < ah->size; s += sizeof(uint32_t)) {
+			for (s = 0; s + sizeof(uint32_t) <= ah->size; s += sizeof(uint32_t)) {
 				size_t res;
 				uintptr_t ptr2 = *cast_ptr(uint32_t *, ptr + s);
 				ptr2 &= ~1;
