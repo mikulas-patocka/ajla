@@ -324,12 +324,18 @@ bool thread_enable_debugging_option(const char *option, size_t l)
 #endif
 	if (!option)
 		mutex_debug = thread_debug = true;
-	else if (l == 5 && !strncmp(option, "mutex", 5))
+	else if (l == 5 && !strncmp(option, "mutex", l))
 		mutex_debug = true;
-	else if (l == 16 && !strncmp(option, "mutex-errorcheck", 16))
+	else if (l == 16 && !strncmp(option, "mutex-errorcheck", l))
 		mutex_debug = true;
-	else if (l == 6 && !strncmp(option, "thread", 6))
+	else if (l == 4 && !strncmp(option, "cond", l))
+		mutex_debug = true;
+	else if (l == 3 && !strncmp(option, "tls", l))
+		mutex_debug = true;
+	else if (l == 6 && !strncmp(option, "thread", l))
 		thread_debug = true;
+	else if (l == 7 && !strncmp(option, "objects", l))
+		mutex_debug = true, thread_debug = true;
 	else
 		return false;
 #if defined(OS_OS2) || defined(OS_WIN32)

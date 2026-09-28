@@ -174,7 +174,7 @@ void obj_registry_insert(obj_type type, obj_id id, position_t position)
 	if (unlikely(e != NULL)) {
 		struct object *of = get_struct(e, struct object, entry);
 		obj_registry_unlock_write();
-		internal(position_string(position), "object already present, type %u, id %s, allocated at %s", (unsigned)type, print_obj_id(id), position_string(of->position));
+		internal(position_string_alloc(position), "object already present, type %u, id %s, allocated at %s", (unsigned)type, print_obj_id(id), position_string_alloc(of->position));
 	}
 	tree_insert_after_find(&o->entry, &ins);
 
@@ -244,7 +244,7 @@ static attr_noreturn attr_cold obj_registry_dump_leaks(void)
 		struct tree_entry *lv;
 		for (lv = tree_first(&registry[t].head); lv; lv = tree_next(lv)) {
 			struct object *o = get_struct(lv, struct object, entry);
-			const char *pos_str = position_string(o->position);
+			const char *pos_str = position_string_alloc(o->position);
 
 			if (first) first_pos = pos_str;
 			else str_add_string(&s, &sl, ", ");
@@ -318,7 +318,7 @@ bool obj_registry_enable_debugging_option(const char *option, size_t l)
 	if (!option)
 		obj_registry_active = -1;
 	else if (l == 5 && !strncmp(option, "mutex", l))
-		obj_registry_active |= 1 << OBJ_TYPE_MUTEX;
+		obj_registry_active |= (1 << OBJ_TYPE_MUTEX) | (1 << OBJ_TYPE_RWMUTEX);
 	else if (l == 4 && !strncmp(option, "cond", l))
 		obj_registry_active |= 1 << OBJ_TYPE_COND;
 	else if (l == 6 && !strncmp(option, "thread", l))
