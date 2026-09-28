@@ -1233,7 +1233,7 @@ mpz_init_set (mpz_t r, const mpz_t x)
   mpz_set (r, x);
 }
 
-static int
+int
 mpz_cmp_ui (const mpz_t u, unsigned long v);
 static int
 mpz_cmpabs_ui (const mpz_t u, unsigned long v);
@@ -1309,7 +1309,20 @@ mpz_sgn (const mpz_t u)
   return GMP_CMP (u->_mp_size, 0);
 }
 
-static int
+int
+mpz_cmp_si (const mpz_t u, long v)
+{
+  mp_size_t usize = u->_mp_size;
+
+  if (v >= 0)
+    return mpz_cmp_ui (u, v);
+  else if (usize >= 0)
+    return 1;
+  else
+    return - mpz_cmpabs_ui (u, GMP_NEG_CAST (unsigned long int, v));
+}
+
+int
 mpz_cmp_ui (const mpz_t u, unsigned long v)
 {
   mp_size_t usize = u->_mp_size;

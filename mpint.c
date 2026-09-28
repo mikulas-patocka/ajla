@@ -135,18 +135,34 @@ ret_err:
 		mpz_clear(&x2);
 		return false;
 	}
+	if (!mpz_cmp_ui(&x1, 1)) {
+		mpz_set_ui(r, 1);
+		goto ret_r;
+	}
+	if (!mpz_sgn(&x1) && mpz_sgn(&x2)) {
+		mpz_set_ui(r, 0);
+		goto ret_r;
+	}
+	if (!mpz_cmp_si(&x1, -1)) {
+		if (mpz_tstbit(&x2, 0))
+			mpz_set_si(r, -1);
+		else
+			mpz_set_ui(r, 1);
+		goto ret_r;
+	}
 	mpz_set_ui(r, 1);
 	while (1) {
 		if (mpz_tstbit(&x2, 0)) {
 			if (unlikely(!mpint_multiply(r, &x1, r, err)))
 				goto ret_err;
 		}
+		mpz_tdiv_q_2exp(&x2, &x2, 1);
 		if (!mpz_sgn(&x2))
 			break;
-		mpz_tdiv_q_2exp(&x2, &x2, 1);
 		if (unlikely(!mpint_multiply(&x1, &x1, &x1, err)))
 			goto ret_err;
 	}
+ret_r:
 	mpz_clear(&x1);
 	mpz_clear(&x2);
 	return true;
@@ -174,7 +190,7 @@ bool attr_fastcall mpint_shl(const mpint_t *s1, const mpint_t *s2, mpint_t *r, a
 {
 	unsigned long sh;
 	size_t size1, size2;
-	if (unlikely(!mpz_fits_ulong_p(s2))) {
+	if (unlikely(!mpz_fits_ulong_p(s2)) || unlikely(!mpz_sgn(s1))) {
 overflow:
 		if (unlikely((mpz_sgn(s2) < 0))) {
 			fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_INVALID_OPERATION), err, "shift left with negative count");
@@ -248,7 +264,7 @@ overflow:
 		return false;
 	}
 	sh = mpz_get_ui(s2);
-	if (unlikely(sh != (unsigned long)(mp_bitcnt_t)sh))
+	if (unlikely(sh >= MPINT_MAX_BITS - 1))
 		goto overflow;
 	mpz_set(r, s1);
 	fn_bit(r, sh);

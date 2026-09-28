@@ -90,6 +90,8 @@ void mpz_clear (mpz_t);
 #define mpz_even_p(z)  (! mpz_odd_p (z))
 
 int mpz_sgn (const mpz_t);
+int mpz_cmp_si (const mpz_t, long);
+int mpz_cmp_ui (const mpz_t, unsigned long);
 int mpz_cmp (const mpz_t, const mpz_t);
 
 void mpz_neg (mpz_t, const mpz_t);
