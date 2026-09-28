@@ -1235,7 +1235,7 @@ mpz_init_set (mpz_t r, const mpz_t x)
 
 static int
 mpz_cmp_ui (const mpz_t u, unsigned long v);
-int
+static int
 mpz_cmpabs_ui (const mpz_t u, unsigned long v);
 
 int
@@ -1334,7 +1334,7 @@ mpz_cmp (const mpz_t a, const mpz_t b)
     return mpn_cmp (b->_mp_d, a->_mp_d, -asize);
 }
 
-int
+static int
 mpz_cmpabs_ui (const mpz_t u, unsigned long v)
 {
   mp_size_t un = GMP_ABS (u->_mp_size);
@@ -2283,7 +2283,8 @@ mpz_import (mpz_t r, size_t count, int order, size_t size, int endian,
      least significant word. */
   if (order == 1)
     {
-      p += size * (count - 1);
+      if (count)
+	p += size * (count - 1);
       word_step = - word_step;
     }
 
@@ -2325,7 +2326,7 @@ mpz_export (void *r, size_t *countp, int order, size_t size, int endian,
   mp_size_t un;
 
   if (nails != 0)
-    gmp_die ("mpz_import: Nails not supported.");
+    gmp_die ("mpz_export: Nails not supported.");
 
   assert (order == 1 || order == -1);
   assert (endian >= -1 && endian <= 1);
