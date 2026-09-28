@@ -30,7 +30,7 @@ struct module_designator {
 extern struct module_designator module_designator_internal;
 static inline bool module_designator_is_internal(struct module_designator *md)
 {
-	return !md->path_len;
+	return !md->path_len && !md->path_idx;
 }
 
 struct module_designator *module_designator_alloc(unsigned path_idx, const uint8_t *path, size_t path_len, bool program, bool generator, ajla_error_t *mayfail);
