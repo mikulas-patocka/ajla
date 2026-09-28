@@ -52,7 +52,7 @@ static unsigned short dos_mouse_last_y;
 static unsigned short dos_mouse_last_buttons;
 
 static struct console_read_packet *mouse_events;
-size_t n_mouse_events;
+static size_t n_mouse_events;
 
 static bool dos_mouse_init(void)
 {
