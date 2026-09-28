@@ -75,7 +75,7 @@ struct function_designator *function_designator_alloc(const pcode_t *p, ajla_err
 	ajla_assert_lo(p[n_entries] >= 0, (file_line, "function_designator_alloc: invalid spec length %ld", (long)p[n_entries]));
 	n_spec_data = p[n_entries];
 	if (unlikely(n_entries + n_spec_data < n_entries)) {
-		fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED), mayfail, "function designator overflow");
+		fatal_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_SIZE_OVERFLOW), mayfail, "function designator overflow");
 		return NULL;
 	}
 	fd = struct_alloc_array_mayfail(mem_alloc_mayfail, struct function_designator, entries, n_entries + n_spec_data, mayfail);
@@ -104,6 +104,8 @@ struct function_designator *function_designator_alloc_internal(pcode_t build_ind
 {
 	struct function_designator *fd;
 	fd = struct_alloc_array_mayfail(mem_alloc_mayfail, struct function_designator, entries, 1 + n_entries, mayfail);
+	if (unlikely(!fd))
+		return NULL;
 	fd->n_entries = n_entries + 1;
 	fd->n_spec_data = 0;
 	fd->entries[0] = build_index;
@@ -162,6 +164,7 @@ bool pcode_load_blob(const pcode_t **pc, uint8_t **blob, size_t *l, ajla_error_t
 
 	q = 0;		/* avoid warning */
 	n = *(*pc)++;
+	ajla_assert_lo(n >= 0, (file_line, "pcode_load_blob: negative blob length"));
 	for (i = 0; i < n; i++) {
 		uint8_t val;
 		if (!(i & 3)) {
@@ -191,9 +194,9 @@ bool pcode_load_module_and_function_designator(const pcode_t **pc, struct module
 	*fd = NULL;
 
 	q = *(*pc)++;
-	path_idx = (unsigned)q;
-	if (unlikely(q != (pcode_t)path_idx))
+	if (unlikely(q < 0) || unlikely((uintbig_t)q > -1U))
 		goto exception_overflow;
+	path_idx = (unsigned)q;
 	program = !!(path_idx & FID_Flag_Program_Unit);
 	generator = !!(path_idx & FID_Flag_Unit_Generator);
 	path_idx /= FID_Flag_Path_Index;
@@ -262,6 +265,15 @@ pcode_t *pcode_store_module_and_function_designator(struct module_designator *md
 	pcode_t *pc;
 	size_t l;
 	pcode_t val;
+
+	if (unlikely(fd->n_entries > signed_maximum(pcode_t))) {
+		fatal_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_SIZE_OVERFLOW), err, "pcode overflow");
+		return NULL;
+	}
+	if (unlikely(fd->n_spec_data > signed_maximum(pcode_t))) {
+		fatal_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_SIZE_OVERFLOW), err, "pcode overflow");
+		return NULL;
+	}
 
 	if (unlikely(!array_init_mayfail(pcode_t, &pc, &l, err)))
 		return NULL;
