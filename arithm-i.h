@@ -216,7 +216,7 @@ static maybe_inline bool attr_unused cat(INT_binary_shl_,type)(const type *op1, 
 	if (unlikely((utype)o2 >= (int)sizeof(type) * 8))		\
 		return false;						\
 	if (sizeof(type) <= sizeof(int_efficient_t) / 2) {		\
-		int_efficient_t r = (int_efficient_t)o1 << o2;		\
+		int_efficient_t r = (uint_efficient_t)o1 << o2;		\
 		if (unlikely(r != (type)r))				\
 			return false;					\
 		*res = (type)r;						\

@@ -325,7 +325,7 @@ static ipret_inline void attr_unused FIXED_unary_bswap_alt1_int64_t(const uint64
 #define gen_generic_brev(type, utype)					\
 static maybe_inline void attr_unused cat(FIXED_unary_brev_,type)(const utype *op, utype *res)\
 {									\
-	utype one = 1; /* avoid shift overflow warning in clang */	\
+	uintbig_t one = 1; /* avoid undefined behavior when shifting left */\
 	utype mask;							\
 	utype o = *op;							\
 	mask = (utype)brev_distribute_mask(utype, 0x55);		\

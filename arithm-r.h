@@ -405,7 +405,7 @@ static ipret_inline bool attr_unused cat4(REAL_unary_,fn,_,type)(const type *op1
 		vcvt.s32."f"		s0, "s"0			\n\
 		vmov			%1, s0				\n\
 	" : "=r"(unordered), "=r"(r) : "r"(op1) : s"0", s"1", "r0", "memory", "cc");\
-	if (unlikely(unordered) || (unlikely((unsigned)r + 0x80000001U < 1)))\
+	if (unlikely(unordered) || (unlikely((unsigned)r + 0x80000001U <= 1)))\
 		return false;						\
 	*res = r;							\
 	return true;							\
@@ -548,7 +548,7 @@ static ipret_inline bool attr_unused cat4(REAL_unary_,fn,_,type)(const type *op1
 		vcvt.s32.f32		s0, s0				\n\
 		vmov			%1, s0				\n\
 	" : "=r"(unordered), "=r"(r) : "r"(op1) : "d0", "r0", "memory", "cc");\
-	if (unlikely(unordered) || (unlikely((unsigned)r + 0x80000001U < 1)))\
+	if (unlikely(unordered) || (unlikely((unsigned)r + 0x80000001U <= 1)))\
 		return false;						\
 	*res = r;							\
 	return true;							\
