@@ -300,6 +300,8 @@ process_idx:
 					goto set_result;
 				);
 				if (da_tag(d) == DATA_TAG_option) {
+					if (!pointer_is_empty(da(d,option)->pointer))
+						goto set_unsupp;
 					fo = da(d,option)->option;
 					if (unlikely(fo != da(d,option)->option))
 						goto set_unsupp;
@@ -451,6 +453,7 @@ process_idx:
 			goto set_err;
 		new_size = (size_t)da(d,array_slice)->n_entries * type->size;
 		if (unlikely((int_default_t)new_size < 0) || unlikely((size_t)(int_default_t)new_size != new_size)) {
+			pointer_dereference(pointer_data(d));
 			if (ipret_warnings)
 				warning("%s: array size overflow", name);
 			goto set_unsupp;
