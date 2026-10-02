@@ -32,25 +32,30 @@ bool os_read_file(const char *path, char **file, size_t *len, ajla_error_t *err)
 		return false;
 	h = os_open(dir_none, path, O_RDONLY, 0, err);
 	if (unlikely(!handle_is_valid(h)))
-		goto ret_false;
+		goto free_ret_false;
 	while (1) {
 		ssize_t rd = os_read(h, buffer, sizeof buffer, err);
 		if (unlikely(rd == OS_RW_ERROR))
-			goto ret_false;
+			goto free_ret_false;
 		if (unlikely(rd == OS_RW_WOULDBLOCK)) {
 			fatal_warning_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_SYSTEM_RETURNED_INVALID_DATA), err, "the read syscall tries to block");
-			goto ret_false;
+			goto free_ret_false;
 		}
 		if (unlikely(!rd))
 			break;
 		if (unlikely(!array_add_multiple_mayfail(char, file, len, buffer, rd, NULL, err)))
-			return false;
+			goto close_ret_false;
 	}
 	os_close(h);
 	return true;
 
-ret_false:
+free_ret_false:
 	mem_free(*file);
+close_ret_false:
+	*file = NULL;
+	*len = 0;
+	if (handle_is_valid(h))
+		os_close(h);
 	return false;
 }
 
