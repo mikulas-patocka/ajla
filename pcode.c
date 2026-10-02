@@ -1767,7 +1767,6 @@ static bool pcode_generate_constant_from_blob(struct build_function_context *ctx
 	bool is_emulated_fixed_16;
 	const struct type *type;
 	size_t orig_l;
-	code_t *raw_result = NULL;
 
 	size_t requested_size;
 	bool const_swap;
@@ -1803,12 +1802,10 @@ static bool pcode_generate_constant_from_blob(struct build_function_context *ctx
 		internal(file_line, "pcode_generate_constant_from_blob(%s): unknown type %u", function_name(ctx), type->tag);
 	}
 
-	if (likely(!raw_result)) {
-		while (l < requested_size) {
-			uint8_t c = !l ? 0 : !(blob[l - 1] & 0x80) ? 0 : 0xff;
-			if (unlikely(!array_add_mayfail(uint8_t, &blob, &l, c, NULL, ctx->err)))
-				goto exception;
-		}
+	while (l < requested_size) {
+		uint8_t c = !l ? 0 : !(blob[l - 1] & 0x80) ? 0 : 0xff;
+		if (unlikely(!array_add_mayfail(uint8_t, &blob, &l, c, NULL, ctx->err)))
+			goto exception;
 	}
 
 	code = get_code(Op_Ldc, type);
@@ -1819,6 +1816,18 @@ static bool pcode_generate_constant_from_blob(struct build_function_context *ctx
 			code += (OPCODE_FIXED_OP_ldc16 - OPCODE_FIXED_OP_ldc) * OPCODE_FIXED_OP_MULT;
 	} else {
 		if (is_emulated_fixed_16 && l && blob[l - 1] & 0x80) {
+			/*
+			 * An emulated fixed 16 value is kept as an unsigned
+			 * n-bit pattern.  Keep the length word-aligned and
+			 * append a zero high word, so that the pattern is
+			 * not interpreted as a negative number.
+			 */
+			while (l & (sizeof(code_t) - 1)) {
+				if (unlikely(!array_add_mayfail(uint8_t, &blob, &l, 0xff, NULL, ctx->err)))
+					goto exception;
+			}
+			if (unlikely(!array_add_mayfail(uint8_t, &blob, &l, 0, NULL, ctx->err)))
+				goto exception;
 			if (unlikely(!array_add_mayfail(uint8_t, &blob, &l, 0, NULL, ctx->err)))
 				goto exception;
 			code = OPCODE_INT_LDC_LONG;
@@ -1838,26 +1847,18 @@ static bool pcode_generate_constant_from_blob(struct build_function_context *ctx
 		gen_uint32(l / sizeof(code_t));
 		/*debug("load long constant: %zu (%d)", l, type->tag);*/
 	}
-	if (unlikely(raw_result != NULL)) {
-		size_t idx;
-		for (idx = 0; idx < requested_size; idx++)
-			gen_code(raw_result[idx]);
-	} else for (is = 0; is < l; is += sizeof(code_t)) {
+	for (is = 0; is < l; is += sizeof(code_t)) {
 		size_t idx = !const_swap ? is : l - sizeof(code_t) - is;
 		gen_code(blob[idx] + (blob[idx + 1] << 8));
 	}
 
 	mem_free(blob), blob = NULL;
-	if (unlikely(raw_result != NULL))
-		mem_free(raw_result);
 
 	return true;
 
 exception:
 	if (blob)
 		mem_free(blob);
-	if (raw_result)
-		mem_free(raw_result);
 	return false;
 }
 
@@ -1889,9 +1890,11 @@ static bool pcode_generate_option_from_blob(struct build_function_context *ctx, 
 	opt = 0;
 	for (i = 0; i < l; i++) {
 		ajla_option_t o = (ajla_option_t)blob[i];
-		opt |= o << (i * 8);
-		if (unlikely(opt >> (i * 8) != o))
+		if (!o)
+			continue;
+		if (unlikely(i >= sizeof(ajla_option_t)))
 			goto exception_overflow;
+		opt |= o << (i * 8);
 	}
 
 	am = INIT_ARG_MODE;
@@ -5112,7 +5115,7 @@ static int record_option_load_compare(const struct tree_entry *e1, uintptr_t e2)
 	if (rl->key.id < key->id)
 		return -1;
 	if (rl->key.id > key->id)
-		return -1;
+		return 1;
 	return 0;
 }
 
