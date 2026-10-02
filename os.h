@@ -362,7 +362,7 @@ void os_dlclose(struct dl_handle_t *dlh);
 bool os_dlsym(struct dl_handle_t *dlh, const char *symbol, void **result);
 #endif
 
-#if defined(HAVE_GETADDRINFO) && (defined(HAVE_HAVE_GETNAMEINFO) || !defined(HAVE_GETHOSTBYADDR))
+#if defined(HAVE_GETADDRINFO) && (defined(HAVE_GETNAMEINFO) || !defined(HAVE_GETHOSTBYADDR))
 #define os_getaddrinfo_is_thread_safe()		true
 #else
 #define os_getaddrinfo_is_thread_safe()		false

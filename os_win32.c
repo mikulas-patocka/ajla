@@ -4111,6 +4111,7 @@ static bool os_use_getaddrinfo(const char *host, int port, struct address **resu
 
 		if (unlikely(!array_add_mayfail(struct address, result, result_l, addr, &xresult, err))) {
 			*result = xresult;
+			mem_free(addr.address);
 			goto fail;
 		}
 	}
@@ -4129,6 +4130,7 @@ fail:
 	for (i = 0; i < *result_l; i++)
 		mem_free((*result)[i].address);
 	mem_free(*result);
+	*result = NULL;
 	return false;
 }
 
@@ -4140,6 +4142,7 @@ bool os_getaddrinfo(const char *host, int port, struct address **result, size_t 
 	char *a;
 
 	if (unlikely(!winsock_supported)) {
+		*result = NULL;
 		fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED), err, "TCP/IP is not configured");
 		return false;
 	}
@@ -4185,6 +4188,7 @@ bool os_getaddrinfo(const char *host, int port, struct address **result, size_t 
 
 		if (unlikely(!array_add_mayfail(struct address, result, result_l, addr, &xresult, err))) {
 			*result = xresult;
+			mem_free(addr.address);
 			goto fail;
 		}
 	}
@@ -4201,6 +4205,7 @@ fail:
 	for (i = 0; i < *result_l; i++)
 		mem_free((*result)[i].address);
 	mem_free(*result);
+	*result = NULL;
 	return false;
 }
 

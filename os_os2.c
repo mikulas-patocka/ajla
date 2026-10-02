@@ -3657,6 +3657,7 @@ bool os_getaddrinfo(const char *host, int port, struct address **result, size_t 
 	char *a;
 
 	if (unlikely(!tcpip_loaded)) {
+		*result = NULL;
 		fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED), err, "TCP/IP is not installed");
 		return false;
 	}
@@ -3696,6 +3697,7 @@ bool os_getaddrinfo(const char *host, int port, struct address **result, size_t 
 
 		if (unlikely(!array_add_mayfail(struct address, result, result_l, addr, &xresult, err))) {
 			*result = xresult;
+			mem_free(addr.address);
 			goto fail;
 		}
 	}
@@ -3711,6 +3713,7 @@ fail:
 	for (i = 0; i < *result_l; i++)
 		mem_free((*result)[i].address);
 	mem_free(*result);
+	*result = NULL;
 	return false;
 }
 
@@ -4151,7 +4154,7 @@ void os_done_multithreaded(void)
 	os2_clean_up_handles();
 
 	proc_lock();
-	if (unlikely(!tree_is_empty(&proc_tree))) {
+	while (unlikely(!tree_is_empty(&proc_tree))) {
 		struct proc_handle *ph = get_struct(tree_any(&proc_tree), struct proc_handle, entry);
 		tree_delete(&ph->entry);
 		os2_free_buffer(ph);

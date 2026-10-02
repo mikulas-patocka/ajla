@@ -548,7 +548,7 @@ static dir_handle_t os_get_cwd(ajla_error_t *err)
 	EINTR_LOOP(h, open(".", O_RDONLY, 0));
 	if (unlikely(h == -1)) {
 		ajla_error_t e = error_from_errno(EC_SYSCALL, errno);
-		fatal_mayfail(e, err, "cam't open the current directory: %s", error_decode(e));
+		fatal_mayfail(e, err, "can't open the current directory: %s", error_decode(e));
 	} else {
 		obj_registry_insert(OBJ_TYPE_HANDLE, h, file_line);
 		os_set_cloexec(h);
@@ -1014,7 +1014,7 @@ bool os_clone_range(handle_t attr_unused src_h, os_off_t attr_unused src_pos, ha
 	struct file_clone_range c;
 	c.src_fd = src_h;
 	c.src_offset = src_pos;
-	c.src_length = len;;
+	c.src_length = len;
 	c.dest_offset = dst_pos;
 	EINTR_LOOP(r, ioctl(dst_h, FICLONERANGE, &c));
 	if (unlikely(r == -1)) {
@@ -1189,8 +1189,8 @@ unlock_ret:
 static void os_close_DIR(DIR *d)
 {
 	int r;
-	EINTR_LOOP(r, closedir(d));
-	if (unlikely(r))
+	r = closedir(d);
+	if (unlikely(r) && errno != EINTR)
 		internal(file_line, "os_close_DIR: closing invalid directory handle: %s", error_decode(error_from_errno(EC_SYSCALL, errno)));
 }
 
@@ -1233,7 +1233,7 @@ bool os_dir_read(dir_handle_t h, char ***files, size_t *n_files, ajla_error_t *e
 			if (likely(!errno))
 				break;
 			e = error_from_errno(EC_SYSCALL, errno);
-			fatal_mayfail(e, err, "error reading directory directory: %s", error_decode(e));
+			fatal_mayfail(e, err, "error reading directory: %s", error_decode(e));
 			os_dir_free(*files, *n_files);
 			os_close_DIR(d);
 			return false;
@@ -1391,7 +1391,7 @@ bool os_fstatvfs(handle_t h, os_statvfs_t *st, ajla_error_t *err)
 		return true;
 	}
 #endif
-	fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED), err, "the system doesn't support mprotect");
+	fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED), err, "the system doesn't support fstatfs");
 	return false;
 
 	goto err;
@@ -1422,7 +1422,7 @@ bool os_dstatvfs(dir_handle_t dir, os_statvfs_t *st, ajla_error_t *err)
 		return true;
 	}
 #endif
-	fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED), err, "the system doesn't support mprotect");
+	fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED), err, "the system doesn't support dstatfs");
 	return false;
 
 	goto err;
@@ -1684,7 +1684,7 @@ bool os_dir_action(dir_handle_t dir, const char *path, int action, int mode, ajl
 				break;
 			if (S_ISLNK(st.st_mode)) {
 				r = -1;
-				errno = -ELOOP;
+				errno = ELOOP;
 				break;
 			}
 		}
@@ -1860,7 +1860,7 @@ bool os_drives(char **drives, size_t *drives_l, ajla_error_t *err)
 #if defined(OS_CYGWIN)
 	uint32_t mask = GetLogicalDrives();
 	return os_drives_bitmap(mask, drives, drives_l, err);
-#elif defined(HAVE_GETFSSTAT) || defined(HAVE_GETVFSFSSTAT)
+#elif defined(HAVE_GETFSSTAT) || defined(HAVE_GETVFSSTAT)
 	int r, i;
 	int n_entries;
 #if defined(HAVE_GETVFSSTAT)
@@ -3118,7 +3118,7 @@ bool os_getsockopt(handle_t h, int level, int option, char **buffer, size_t *buf
 		return false;
 
 	option = os_socket_option(option, err);
-	if (unlikely(level < 0))
+	if (unlikely(option < 0))
 		return false;
 
 	opt_len = 4096;
@@ -3150,7 +3150,7 @@ bool os_setsockopt(handle_t h, int level, int option, const char *buffer, size_t
 		return false;
 
 	option = os_socket_option(option, err);
-	if (unlikely(level < 0))
+	if (unlikely(option < 0))
 		return false;
 
 	EINTR_LOOP(r, setsockopt(h, level, option, buffer, buffer_len));
@@ -3200,6 +3200,7 @@ bool os_getaddrinfo(const char *host, int port, struct address **result, size_t 
 
 		if (unlikely(!array_add_mayfail(struct address, result, result_l, addr, &xresult, err))) {
 			*result = xresult;
+			mem_free(addr.address);
 			goto fail;
 		}
 	}
@@ -3218,6 +3219,7 @@ fail:
 	for (i = 0; i < *result_l; i++)
 		mem_free((*result)[i].address);
 	mem_free(*result);
+	*result = NULL;
 	return false;
 }
 #else
@@ -3274,6 +3276,7 @@ bool os_getaddrinfo(const char *host, int port, struct address **result, size_t 
 
 		if (unlikely(!array_add_mayfail(struct address, result, result_l, addr, &xresult, err))) {
 			*result = xresult;
+			mem_free(addr.address);
 			goto fail;
 		}
 	}
@@ -3289,6 +3292,7 @@ fail:
 	for (i = 0; i < *result_l; i++)
 		mem_free((*result)[i].address);
 	mem_free(*result);
+	*result = NULL;
 	return false;
 }
 #endif
@@ -4008,7 +4012,7 @@ void os_done_multithreaded(void)
 		obj_registry_remove(OBJ_TYPE_HANDLE, u, file_line);
 
 #if !defined(OS_DOS)
-	if (unlikely(!tree_is_empty(&proc_tree))) {
+	while (unlikely(!tree_is_empty(&proc_tree))) {
 		struct proc_handle *ph = get_struct(tree_any(&proc_tree), struct proc_handle, entry);
 		tree_delete(&ph->entry);
 		proc_handle_free(ph);
