@@ -117,7 +117,7 @@ static BOOL (WINAPI *fn_CancelIo)(HANDLE hFile);
 static BOOL (WINAPI *fn_CancelIoEx)(HANDLE hFile, LPOVERLAPPED lpOverlapped);
 static BOOL (WINAPI *fn_MoveFileExA)(LPCSTR lpExistingFileName, LPCSTR lpNewFileName, DWORD dwFlags);
 static BOOL (WINAPI *fn_MoveFileExW)(LPWSTR lpExistingFileName, LPWSTR lpNewFileName, DWORD dwFlags);
-static BOOL (WINAPI *fn_FlushInstructionCache)(HANDLE hProcess, LPCVOID *lpBaseAddress, SIZE_T dwSize);
+static BOOL (WINAPI *fn_FlushInstructionCache)(HANDLE hProcess, LPCVOID lpBaseAddress, SIZE_T dwSize);
 static DWORD (WINAPI *fn_GetNetworkParams)(char *, PULONG pOutBufLen);
 static uint64_t (WINAPI *fn_GetTickCount64)(void);
 
@@ -716,7 +716,7 @@ unnamed_pipe:
 
 	result[0] = win32_hfile_to_handle(h1, O_RDONLY | (nonblock_flags & 1 ? O_NONBLOCK : 0), overlapped, "", err);
 	if (unlikely(!result[0])) {
-		win32_close_handle(h1);
+		win32_close_handle(h2);
 		return false;
 	}
 	result[1] = win32_hfile_to_handle(h2, O_WRONLY | (nonblock_flags & 2 ? O_NONBLOCK : 0), overlapped, "", err);
@@ -970,7 +970,7 @@ static BOOL read_console(struct win32_io_thread *thr, char *buffer, unsigned len
 again:
 	if (thr->line_buffer_pos) {
 		unsigned tx = min(len, thr->line_buffer_pos);
-		unsigned rem = thr->line_buffer_size - thr->line_buffer_pos;
+		unsigned rem = thr->line_buffer_size - tx;
 		memcpy(buffer, thr->line_buffer, tx);
 		memmove(thr->line_buffer, thr->line_buffer + tx, rem);
 		thr->line_buffer_pos -= tx;
@@ -1079,7 +1079,7 @@ static DWORD WINAPI win32_read_thread(LPVOID thr_)
 			lock_io_thread(thr);
 			if (unlikely(b < 0)) {
 				if (unlikely(gle == ERROR_OPERATION_ABORTED)) {
-				} if (likely(gle == ERROR_BROKEN_PIPE)) {
+				} else if (likely(gle == ERROR_BROKEN_PIPE)) {
 					thr->eof = true;
 				} else {
 					thr->err = gle;
@@ -1109,7 +1109,7 @@ static DWORD WINAPI win32_read_thread(LPVOID thr_)
 			thr->buffer_len += rd;
 			if (unlikely(!b)) {
 				if (unlikely(gle == ERROR_OPERATION_ABORTED)) {
-				} if (likely(gle == ERROR_BROKEN_PIPE)) {
+				} else if (likely(gle == ERROR_BROKEN_PIPE)) {
 					thr->eof = true;
 				} else {
 					thr->err = gle;
@@ -1211,7 +1211,6 @@ static bool win32_create_io_thread(handle_t h, struct win32_io_thread **pthr, LP
 	thr = mem_calloc_mayfail(struct win32_io_thread *, sizeof(struct win32_io_thread), err);
 	if (unlikely(!thr))
 		goto err;
-	*pthr = thr;
 
 	thr->h = h;
 	thr->eof = false;
@@ -1265,6 +1264,8 @@ static bool win32_create_io_thread(handle_t h, struct win32_io_thread **pthr, LP
 		wait_for_event(thr->startup_event);
 		win32_close_handle(thr->startup_event);
 	}
+
+	*pthr = thr;
 
 	return true;
 
@@ -1828,7 +1829,6 @@ ssize_t os_read_console_packet(handle_t h, struct console_read_packet *result, a
 		}
 	}
 	if (unlikely(!win32_create_read_thread(h, err))) {
-		address_unlock(h, DEPTH_THUNK);
 		retval = OS_RW_ERROR;
 		goto unlock_ret;
 	}
@@ -1870,22 +1870,6 @@ bool os_write_console_packet(handle_t h, struct console_write_packet *packet, aj
 		fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_INVALID_OPERATION), err, "attempting to use packet console on non-console");
 		return false;
 	}
-
-	if (h->is_console && (h->flags & 3) == O_RDONLY) {
-		handle_t h1;
-		h1 = os_get_std_handle(1);
-		if (h1->is_console) {
-			h = h1;
-			goto have_h;
-		}
-		h1 = os_get_std_handle(2);
-		if (h1->is_console) {
-			h = h1;
-			goto have_h;
-		}
-	}
-
-have_h:
 
 next:
 	switch (packet->type) {
@@ -2319,7 +2303,7 @@ bool os_stat(dir_handle_t dir, const char *path, bool attr_unused lnk, os_stat_t
 	st->st_nlink = 1;
 
 	if (is_winnt()) {
-		st->st_size = ((uint64_t)u.find_data_w.nFileSizeHigh << 32) | u.find_data_a.nFileSizeLow;
+		st->st_size = ((uint64_t)u.find_data_w.nFileSizeHigh << 32) | u.find_data_w.nFileSizeLow;
 		st->st_ctime = get_win32_time(&u.find_data_w.ftCreationTime);
 		st->st_atime = get_win32_time(&u.find_data_w.ftLastAccessTime);
 		st->st_mtime = get_win32_time(&u.find_data_w.ftLastWriteTime);
@@ -2444,10 +2428,8 @@ bool os_dir_action(dir_handle_t dir, const char *path, int action, int attr_unus
 
 	if (is_winnt()) {
 		joined_w = utf8_to_wchar(joined, err);
-		if (unlikely(!joined_w)) {
-			mem_free(joined);
+		if (unlikely(!joined_w))
 			goto free_ret;
-		}
 	}
 
 	switch (action) {
@@ -2557,15 +2539,11 @@ bool os_dir2_action(dir_handle_t dest_dir, const char *dest_path, int action, di
 		goto free_ret;
 	if (is_winnt()) {
 		dest_joined_w = utf8_to_wchar(dest_joined, err);
-		if (unlikely(!dest_joined_w)) {
-			mem_free(dest_joined);
+		if (unlikely(!dest_joined_w))
 			goto free_ret;
-		}
 		src_joined_w = utf8_to_wchar(src_joined, err);
-		if (unlikely(!src_joined_w)) {
-			mem_free(src_joined);
+		if (unlikely(!src_joined_w))
 			goto free_ret;
-		}
 	}
 
 	switch (action) {
@@ -2685,7 +2663,7 @@ bool os_tty_size(handle_t h, int *nx, int *ny, int *ox, int *oy, ajla_error_t *e
 have_h:
 	if (!GetConsoleScreenBufferInfo(h->h, &csbi)) {
 		ajla_error_t e = error_from_win32(EC_SYSCALL, GetLastError());
-		fatal_mayfail(e, err, "GetConsoleScreenBufefrInfo failed: %s", error_decode(e));
+		fatal_mayfail(e, err, "GetConsoleScreenBufferInfo failed: %s", error_decode(e));
 		return false;
 	}
 
@@ -3418,7 +3396,7 @@ struct proc_handle *os_proc_spawn(dir_handle_t wd, const char *path, size_t n_ha
 	win32_close_handle(pi.hThread);
 
 	if (unlikely(!monitor_handle(ph->process_handle, proc_wait_end, win32_close_handle, ph, err))) {
-		goto err4;
+		goto err5;
 	}
 
 	for (i = 0; i < 3; i++) {
@@ -3436,6 +3414,8 @@ struct proc_handle *os_proc_spawn(dir_handle_t wd, const char *path, size_t n_ha
 	mem_free(path_cpy);
 	return ph;
 
+err5:
+	win32_close_handle(ph->process_handle);
 err4:
 	for (i = 0; i < 3; i++) {
 		HANDLE *t;
@@ -3895,7 +3875,7 @@ bool os_getsockpeername(bool peer, handle_t h, unsigned char **addr, size_t *add
 	obj_registry_verify(OBJ_TYPE_HANDLE, ptr_to_num(h), file_line);
 	if (unlikely(!handle_is_socket(h))) {
 		fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_INVALID_OPERATION), err, "socket operation on non-socket");
-		return OS_RW_ERROR;
+		return false;
 	}
 
 	sa = mem_align_mayfail(struct sockaddr *, SOCKADDR_MAX_LEN, SOCKADDR_ALIGN, err);
@@ -3946,8 +3926,10 @@ ssize_t os_recvfrom(handle_t h, char *buffer, size_t len, int flags, unsigned ch
 	r = recvfrom(h->s, buffer, len, f, sa, &addrlen);
 	if (unlikely(r == SOCKET_ERROR)) {
 		int er = WSAGetLastError();
-		if (likely(er == WSAEWOULDBLOCK))
+		if (likely(er == WSAEWOULDBLOCK)) {
+			mem_free_aligned(sa);
 			return OS_RW_WOULDBLOCK;
+		}
 		fatal_mayfail(error_from_win32_socket(er), err, "recvfrom returned an error: %d", er);
 		goto free_ret_error;
 	}
