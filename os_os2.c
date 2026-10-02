@@ -895,11 +895,11 @@ static void os2_read_thread(ULONG rd_)
 			address_lock(h, DEPTH_THUNK);
 			if (unlikely(rc != 0)) {
 				rd->err = rc;
-			}
-			if (unlikely(!rd_num)) {
+			} else if (unlikely(!rd_num)) {
 				rd->eof = true;
+			} else {
+				rd->buffer_len += rd_num;
 			}
-			rd->buffer_len += rd_num;
 			call(wake_up_wait_list)(&h->rd.wait_list, address_get_mutex(h, DEPTH_THUNK), TASK_SUBMIT_MUST_NOT_SPAWN);
 			os_unblock_signals(&s);
 		} else {
@@ -951,10 +951,10 @@ static void os2_write_thread(ULONG wr_)
 			address_lock(h, DEPTH_THUNK);
 			if (unlikely(rc != 0)) {
 				wr->err = rc;
+			} else {
+				wr->buffer_pos = (wr->buffer_pos + wr_num) % OS2_BUFFER_SIZE;
+				wr->buffer_len -= wr_num;
 			}
-
-			wr->buffer_pos = (wr->buffer_pos + wr_num) % OS2_BUFFER_SIZE;
-			wr->buffer_len -= wr_num;
 
 			call(wake_up_wait_list)(&h->wr.wait_list, address_get_mutex(h, DEPTH_THUNK), TASK_SUBMIT_MUST_NOT_SPAWN);
 			os_unblock_signals(&s);
@@ -1286,7 +1286,7 @@ ssize_t os_do_rw(handle_t h, char *buffer, int size, bool wr, ajla_error_t *err)
 	bool bounce = h->t == HANDTYPE_DEVICE && ptr_to_num(buffer) + size >= 0x20000000UL;
 	if (unlikely(bounce)) {
 		bb = os2_alloc_buffer(size);
-		if (unlikely(!buffer)) {
+		if (unlikely(!bb)) {
 			fatal_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_OUT_OF_MEMORY), err, "out of memory for bounce buffer (%"PRIuMAX" bytes)", (uintmax_t)size);
 			return OS_RW_ERROR;
 		}
@@ -1349,7 +1349,7 @@ ssize_t os_read(handle_t h, char *buffer, int size, ajla_error_t *err)
 	ssize_t res;
 	if (unlikely((h->flags & 3) == O_WRONLY)) {
 		fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_INVALID_OPERATION), err, "attempting to read from write-only handle");
-		return false;
+		return OS_RW_ERROR;
 	}
 	if (h->t == HANDTYPE_SOCKET)
 		return os_read_socket(h, buffer, size, err);
@@ -1368,7 +1368,7 @@ ssize_t os_write(handle_t h, const char *buffer, int size, ajla_error_t *err)
 	ssize_t res;
 	if (unlikely((h->flags & 3) == O_RDONLY)) {
 		fatal_mayfail(error_ajla(EC_SYNC, AJLA_ERROR_INVALID_OPERATION), err, "attempting to write to read-only handle");
-		return false;
+		return OS_RW_ERROR;
 	}
 	if (h->t == HANDTYPE_SOCKET)
 		return os_write_socket(h, buffer, size, err);
@@ -1486,6 +1486,8 @@ bool os_ftruncate(handle_t h, os_off_t size, ajla_error_t *err)
 		address_lock(h, DEPTH_THUNK);
 
 	ret = os2_setfileptr(h, 0, FILE_END, &current_size, err);
+	if (unlikely(!ret))
+		goto unlock_ret;
 
 	if (size < current_size) {
 		ret = os2_setfilesize(h, size, err);
@@ -1506,6 +1508,7 @@ bool os_ftruncate(handle_t h, os_off_t size, ajla_error_t *err)
 		ret = true;
 	}
 
+unlock_ret:
 	if (likely(os_threads_initialized))
 		address_unlock(h, DEPTH_THUNK);
 
@@ -1904,6 +1907,7 @@ static bool process_find_buffer(char *buffer, size_t n_entries, char ***files, s
 			return false;
 		if (unlikely(!array_add_mayfail(char *, files, n_files, name, &err_ptr, err))) {
 			*files = err_ptr;
+			mem_free(name);
 			return false;
 		}
 	}
@@ -2176,7 +2180,7 @@ static bool os_stat_disk(char disk, os_statvfs_t *st, ajla_error_t *err)
 	rc = DosQueryFSInfo(disk - 'A' + 1, FSIL_ALLOC, &fsal, sizeof(FSALLOCATE));
 	if (unlikely(rc != 0)) {
 		ajla_error_t e = error_from_os2(EC_SYSCALL, rc);
-		fatal_mayfail(e, err, "can't get disk '%c' free space: %s", disk - 1 + 'A', error_decode(e));
+		fatal_mayfail(e, err, "can't get disk '%c' free space: %s", disk, error_decode(e));
 		return false;
 	}
 	memset(st, 0, sizeof(os_statvfs_t));
@@ -2559,7 +2563,7 @@ ajla_time_t os_time_monotonic(void)
 	if (unlikely(t < tick_last))
 		tick_high++;
 	tick_last = t;
-	ret = ((ajla_time_t)tick_high * (1 << 31) * 2) + t;
+	ret = ((ajla_time_t)tick_high << 32) + t;
 	if (likely(os_threads_initialized))
 		mutex_unlock(&tick_mutex);
 	return ret * 1000;
@@ -2838,6 +2842,7 @@ struct proc_handle *os_proc_spawn(dir_handle_t wd, const char *path, size_t n_ha
 
 	cwd = os_dir_cwd(err);
 	if (unlikely(!cwd)) {
+		os2_free_buffer(ph);
 		os2_free_buffer(copy_of_ptr);
 		os2_free_buffer(copy_of_env);
 		return NULL;
@@ -2854,6 +2859,7 @@ struct proc_handle *os_proc_spawn(dir_handle_t wd, const char *path, size_t n_ha
 			fatal_mayfail(e, err, "can't spawn wait thread: %s", error_decode(e));
 			proc_unlock();
 			mem_free(cwd);
+			os2_free_buffer(ph);
 			os2_free_buffer(copy_of_ptr);
 			os2_free_buffer(copy_of_env);
 			return NULL;
@@ -2917,6 +2923,7 @@ struct proc_handle *os_proc_spawn(dir_handle_t wd, const char *path, size_t n_ha
 		os2_exit_critical_section();
 		proc_unlock();
 		mem_free(cwd);
+		os2_free_buffer(ph);
 		os2_free_buffer(copy_of_ptr);
 		os2_free_buffer(copy_of_env);
 		return NULL;
@@ -2931,7 +2938,7 @@ handle_error:
 
 	for (i = 0; i < n_handles; i++) {
 		if (mapping_table[i] == -2)
-			os2_close_handle(target[i]);
+			os2_close_handle(i);
 	}
 	for (i = 0; i < OS2_MAX_HANDLE; i++) {
 		if (mapping_table[i] >= 0) {
@@ -2956,6 +2963,7 @@ handle_error:
 	if (unlikely(rc != 0)) {
 		ajla_error_t e;
 		proc_unlock();
+		os2_free_buffer(ph);
 		if (rc != (APIRET)-1) {
 			e = error_from_os2(EC_SYSCALL, rc);
 			fatal_mayfail(e, err, "DosExecPgm returned(%s) an error: %s", path, error_decode(e));
@@ -3310,8 +3318,8 @@ static void os2_shutdown_notify_pipe(void)
 {
 	int r;
 	r = proc_shutdown(os2_notify_socket[0], 2);
-	if (likely(r == -1)) {
-		int er = errno;
+	if (unlikely(r == -1)) {
+		int er = proc_sock_errno();
 		fatal("error shutting down the notify socket: %d", er);
 	}
 #ifdef DEBUG
@@ -3590,7 +3598,7 @@ bool os_getsockopt(handle_t h, int level, int option, char **buffer, size_t *buf
 		return false;
 
 	option = os_socket_option(option, err);
-	if (unlikely(level < 0))
+	if (unlikely(option < 0))
 		return false;
 
 	opt_len = 4096;
@@ -3627,7 +3635,7 @@ bool os_setsockopt(handle_t h, int level, int option, const char *buffer, size_t
 		return false;
 
 	option = os_socket_option(option, err);
-	if (unlikely(level < 0))
+	if (unlikely(option < 0))
 		return false;
 
 	r = proc_setsockopt(h->h, level, option, buffer, buffer_len);

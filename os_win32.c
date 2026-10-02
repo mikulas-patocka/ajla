@@ -4030,7 +4030,7 @@ bool os_getsockopt(handle_t h, int level, int option, char **buffer, size_t *buf
 		return false;
 
 	option = os_socket_option(option, err);
-	if (unlikely(level < 0))
+	if (unlikely(option < 0))
 		return false;
 
 	opt_len = 4096;
@@ -4067,7 +4067,7 @@ bool os_setsockopt(handle_t h, int level, int option, const char *buffer, size_t
 		return false;
 
 	option = os_socket_option(option, err);
-	if (unlikely(level < 0))
+	if (unlikely(option < 0))
 		return false;
 
 	r = setsockopt(h->s, level, option, buffer, buffer_len);
