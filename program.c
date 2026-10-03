@@ -23,7 +23,6 @@
 #include "module.h"
 #include "funct.h"
 #include "task.h"
-#include "module.h"
 #include "builtin.h"
 
 static void program_callback(void attr_unused *callback_cookie, pointer_t ptr)
@@ -37,7 +36,7 @@ static void program_callback(void attr_unused *callback_cookie, pointer_t ptr)
 					retval = EXCEPTION_RETVAL;
 				else
 					retval = te->err.error_aux;
-				if (te->msg)
+				if (te->msg && *te->msg)
 					stderr_msg("%s", te->msg);
 			} else {
 				thunk_exception_print(t);
@@ -55,6 +54,8 @@ void name(program_run)(void)
 {
 	struct data *function_reference;
 	struct thunk *thunk;
+
+	retval = 0;
 
 	function_reference = data_alloc_function_reference_mayfail(0, NULL pass_file_line);
 	da(function_reference,function_reference)->is_indirect = false;
