@@ -147,7 +147,7 @@ do {									\
 #define do_cond_wait_us(c, us)						\
 do {									\
 	if (unlikely((c)->mutex.state != MUTEX_LOCKED))			\
-		internal(position_string(position_arg), "do_cond_wait_us: invalid mutex state %d", (c)->mutex.state);\
+		internal(position_string(position_arg), "cond_wait_us: invalid mutex state %d", (c)->mutex.state);\
 	us = us + 1; /* avoid warning */				\
 	return false;							\
 } while (0)

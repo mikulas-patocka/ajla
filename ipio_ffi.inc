@@ -2423,11 +2423,15 @@ ret_err:
 
 #else
 
-static void callback_free(struct callback attr_unused *c)
+#ifdef THREAD_NONE
+static void destructor_call_in_thread(struct ffi_call_packet attr_unused *call)
 {
+	internal(file_line, "destructor_call_in_thread called");
 }
+#endif
 
 #define io_ffi_unpack_async_result_handler	io_ffi_unsupported
+#define io_ffi_unpack_async_callback_handler	io_ffi_unsupported
 #define io_ffi_callback_create_handler		io_ffi_unsupported
 #define io_ffi_callback_get_address_handler	io_ffi_unsupported
 #define io_ffi_callback_get_arg_handler		io_ffi_unsupported
