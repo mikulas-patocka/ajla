@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024, 2025 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -41,15 +41,9 @@ static cond_t timer_cond;
 static uchar_efficient_t timer_thread_exit;
 #endif
 
-static inline void timer_lock(void)
-{
-	mutex_lock(&timer_tree_mutex);
-}
+#define timer_lock()	mutex_lock(&timer_tree_mutex)
 
-static inline void timer_unlock(void)
-{
-	mutex_unlock(&timer_tree_mutex);
-}
+#define timer_unlock()	mutex_unlock(&timer_tree_mutex)
 
 static bool timer_first(ajla_time_t *f)
 {
