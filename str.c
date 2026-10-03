@@ -81,7 +81,10 @@ void * attr_fastcall array_realloc_mayfail(void *p, size_t element_size, size_t 
 			return p;
 array_overflow:
 		fatal_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_SIZE_OVERFLOW), mayfail, "array allocation size overflow");
-		mem_free(p);
+		if (err_ptr)
+			*err_ptr = p;
+		else
+			mem_free(p);
 		return NULL;
 	}
 	new_length--;
