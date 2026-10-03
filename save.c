@@ -422,6 +422,7 @@ cont:
 			}
 		} else {
 			data_pos = 0;
+			doff = 0;
 		}
 		if (subptrs)
 			mem_free(subptrs);
@@ -475,6 +476,10 @@ static void save_prepare(void)
 	loaded_cache_idx = 0;
 	loaded_fn_idx = 0;
 	loaded_fn_cache = (size_t)-1;
+	save_data = NULL;
+	fn_descs = NULL;
+	cache_descs = NULL;
+	duplicate_records = NULL;
 	if (unlikely(!array_init_mayfail(char, &save_data, &save_len, &sink))) {
 		save_ok = false;
 		return;
@@ -618,7 +623,7 @@ static void save_caches_until(struct data *d)
 		/*debug("test loaded: %lu", loaded_cache_idx);*/
 		if (d) {
 			int c = cache_compare(da(d,function)->module_designator, da(d,function)->function_designator, cache_desc);
-			if (c <= 0 && c != DATA_COMPARE_OOM) {
+			if (c <= 0) {
 				if (!c) {
 					loaded_fn_cache = 0;
 				}
@@ -780,7 +785,7 @@ static void save_function_descriptor(
 	}
 
 	real_data_off = save_range(real_data, CODE_ALIGNMENT, real_size, NULL, 0, NULL);
-	if (unlikely(code_off == (size_t)-1))
+	if (unlikely(real_data_off == (size_t)-1))
 		return;
 
 	lp_off = save_range(lp, align_of(struct line_position), (size_t)lp_size * sizeof(struct line_position), NULL, 0, NULL);
@@ -957,8 +962,10 @@ void save_function(struct data *d, bool new_cache)
 				trap_records_size);
 
 	if (entries) {
+#ifdef HAVE_CODEGEN
 		struct data *codegen = pointer_get_data(da(d,function)->codegen);
 		da(codegen,codegen)->offsets = NULL;
+#endif
 		mem_free(entries);
 	}
 }
@@ -983,8 +990,10 @@ static void duplicate_writeable_entries(void)
 		pm = get_struct(e, struct position_map, entry);
 		if (pm->need_duplicate) {
 			char *cpy;
-			if (unlikely(!data_save(save_data + pm->new_wrap_position, ptr_to_num(save_data), &align, &size, &subptrs, &subptrs_l, &duplicate)))
+			if (unlikely(!data_save(save_data + pm->new_wrap_position, ptr_to_num(save_data), &align, &size, &subptrs, &subptrs_l, &duplicate))) {
+				save_ok = false;
 				return;
+			}
 			if (subptrs)
 				mem_free(subptrs);
 			pm->duplicate_size = size;
@@ -1015,6 +1024,7 @@ static void duplicate_writeable_entries(void)
 			internal(file_line, "duplicate_writeable_entries: entry not found in position tree");
 		pm = get_struct(e, struct position_map, entry);
 		if (unlikely(!data_save(save_data + pm->new_wrap_position, ptr_to_num(save_data), &align, &size, &subptrs, &subptrs_l, &duplicate))) {
+			save_ok = false;
 			return;
 		}
 		for (j = 0; j < subptrs_l; j++) {
@@ -1040,8 +1050,10 @@ found:
 		struct position_map *pm = get_struct(e, struct position_map, entry);
 		if (pm->need_duplicate) {
 			memcpy(save_data + pm->duplicate_position, save_data + pm->new_wrap_position, pm->duplicate_size);
-			if (unlikely(!data_save(save_data + pm->duplicate_position, ptr_to_num(save_data), &align, &size, &subptrs, &subptrs_l, &duplicate)))
+			if (unlikely(!data_save(save_data + pm->duplicate_position, ptr_to_num(save_data), &align, &size, &subptrs, &subptrs_l, &duplicate))) {
+				save_ok = false;
 				return;
+			}
 			mem_free(subptrs);
 		}
 		if (pm->is_function_pointer) {
@@ -1129,7 +1141,7 @@ static void save_finish_file(void)
 		return;
 
 	fpptrs_offset = save_range(function_pointers, align_of(uintptr_t), function_pointers_len * sizeof(uintptr_t), NULL, 0, NULL);
-	if (unlikely(fn_descs_offset == (size_t)-1))
+	if (unlikely(fpptrs_offset == (size_t)-1))
 		return;
 
 	file_desc.dependencies = num_to_ptr(deps_offset);
@@ -1469,6 +1481,7 @@ static bool dep_verify(void)
 		if (unlikely(!dep)) {
 			return false;
 		}
+		dep->comp = compsave;
 		memcpy(dep->path_name, path_name, path_name_len);
 		dep->fingerprint_l = fingerprint_len;
 		dep->fingerprint = mem_alloc_mayfail(char *, fingerprint_len, &sink);
@@ -1666,7 +1679,10 @@ skip_mmap:
 #ifdef HAVE_CODEGEN
 #if defined(CODEGEN_USE_HEAP) || !defined(USE_MMAP)
 	/*debug("adjusting pointers: %p, %p", loaded_data, loaded_data + loaded_data_len);*/
-	adjust_pointers(ld[compsave].loaded_data, ld[compsave].loaded_data_len, ptr_to_num(ld[compsave].loaded_data) - ptr_to_num(loaded_file_descriptor(compsave)->base));
+	if (unlikely(!adjust_pointers(ld[compsave].loaded_data, ld[compsave].loaded_data_len, ptr_to_num(ld[compsave].loaded_data) - ptr_to_num(loaded_file_descriptor(compsave)->base)))) {
+		save_unmap_data(compsave);
+		return;
+	}
 	bind_function_pointers();
 	os_code_invalidate_cache(cast_ptr(uint8_t *, ld[compsave].loaded_data), ld[compsave].loaded_data_len, true);
 #else
@@ -1680,15 +1696,21 @@ skip_mmap:
 		memcpy(new_ptr, ld[compsave].loaded_data, ld[compsave].loaded_data_len);
 		mem_free(ld[compsave].loaded_data);
 		ld[compsave].loaded_data = new_ptr;
+		ld[compsave].loaded_data_amalloc = true;
 		/*debug("adjusting pointers: %p, %p", ld[compsave].loaded_data, ld[compsave].loaded_data + ld[compsave].loaded_data_len);*/
-		adjust_pointers(ld[compsave].loaded_data, ld[compsave].loaded_data_len, ptr_to_num(ld[compsave].loaded_data) - ptr_to_num(loaded_file_descriptor(compsave)->base));
+		if (unlikely(!adjust_pointers(ld[compsave].loaded_data, ld[compsave].loaded_data_len, ptr_to_num(ld[compsave].loaded_data) - ptr_to_num(loaded_file_descriptor(compsave)->base)))) {
+			save_unmap_data(compsave);
+			return;
+		}
 		bind_function_pointers();
 		os_code_invalidate_cache(cast_ptr(uint8_t *, ld[compsave].loaded_data), ld[compsave].loaded_data_len, true);
-		ld[compsave].loaded_data_amalloc = true;
 	}
 #endif
 #else
-	adjust_pointers(ld[compsave].loaded_data, ld[compsave].loaded_data_len, ptr_to_num(ld[compsave].loaded_data) - ptr_to_num(loaded_file_descriptor->base));
+	if (unlikely(!adjust_pointers(ld[compsave].loaded_data, ld[compsave].loaded_data_len, ptr_to_num(ld[compsave].loaded_data) - ptr_to_num(loaded_file_descriptor(compsave)->base)))) {
+		save_unmap_data(compsave);
+		return;
+	}
 	bind_function_pointers();
 #endif
 	goto verify_ret;
@@ -1783,8 +1805,10 @@ static void save_stream(void)
 		save_data_len[compsave] = save_len;
 		memcpy(save_data_mapped[compsave], save_data, save_len);
 		/*debug("adjusting pointers when saving");*/
-		adjust_pointers(save_data_mapped[compsave], save_len, ptr_to_num(save_data_mapped[compsave]));
+		if (unlikely(!adjust_pointers(save_data_mapped[compsave], save_len, ptr_to_num(save_data_mapped[compsave]))))
+			goto failed;
 		os_write_atomic(path, file, save_data_mapped[compsave], save_len, &sink);
+failed:;
 	} else
 #endif
 	{

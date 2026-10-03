@@ -421,6 +421,7 @@ static void module_free_function(struct module_function *mf)
 		if (unlikely(profiling)) {
 			profile_collect(da(d,function)->function_name, load_relaxed(&da(d,function)->profiling_counter), load_relaxed(&da(d,function)->call_counter));
 		}
+#ifdef HAVE_CODEGEN
 		if (unlikely(profiling_escapes)) {
 			ip_t ip_rel;
 			for (ip_rel = 0; ip_rel < da(d,function)->code_size; ip_rel++) {
@@ -433,6 +434,7 @@ static void module_free_function(struct module_function *mf)
 				profile_escape_collect(ste.function_name, profiling_counter, ip_rel * CG_EXIT_MULTIPLIER, ste.line, da(d,function)->code[ip_rel]);
 			}
 		}
+#endif
 	}
 	pointer_dereference(mf->function.ptr);
 	if (!pointer_is_empty(mf->optimizer))
