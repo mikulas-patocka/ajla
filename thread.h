@@ -39,7 +39,7 @@
 #endif
 
 #define tls_verify_type_common_(type)				\
-	ajla_assert(sizeof(type) <= sizeof(void *), (file_line, "tls_verify_type_common_: too big type: %d > %d", (int)sizeof(type), (int)sizeof(type)))
+	ajla_assert(sizeof(type) <= sizeof(void *), (file_line, "tls_verify_type_common_: too big type: %d > %d", (int)sizeof(type), (int)sizeof(void *)))
 
 #if defined(HAVE___THREAD)
 #define tls_verify_type_(type, variable)	((void)(&variable - (type *)&variable), tls_verify_type_common_(type))

@@ -37,21 +37,39 @@ struct profile_data {
 static struct profile_data *pd;
 static size_t pd_len;
 
-tls_decl(ajla_time_t, profiler_time);
+struct profile_per_thread {
+	ajla_time_t t;
+	tls_destructor_t destructor;
+};
+
+tls_decl(struct profile_per_thread *, profiler_time);
+
+static void profile_per_thread_destructor(tls_destructor_t *destr)
+{
+	struct profile_per_thread *t = get_struct(destr, struct profile_per_thread, destructor);
+	mem_free(t);
+}
 
 void profile_unblock(void)
 {
-	ajla_time_t now = os_time_monotonic();
-	tls_set(ajla_time_t, profiler_time, now);
+	struct profile_per_thread *ppt;
+	ppt = tls_get(struct profile_per_thread *, profiler_time);
+	if (unlikely(!ppt)) {
+		ppt = mem_alloc(struct profile_per_thread *, sizeof(struct profile_per_thread));
+		tls_set(struct profile_per_thread *, profiler_time, ppt);
+		tls_destructor(&ppt->destructor, profile_per_thread_destructor);
+	}
+	ppt->t = os_time_monotonic();
 }
 
 profile_counter_t profile_sample(void)
 {
 	profile_counter_t retval;
+	struct profile_per_thread *ppt = tls_get(struct profile_per_thread *, profiler_time);
 	ajla_time_t now = os_time_monotonic();
-	ajla_time_t us = tls_get(ajla_time_t, profiler_time);
+	ajla_time_t us = ppt->t;
 	retval = ((now - us) + 500) / 1000;
-	tls_set(ajla_time_t, profiler_time, now);
+	ppt->t = now;
 	return retval;
 }
 
@@ -125,6 +143,8 @@ LIBC_CALLBACK static int profile_escape_cmp(const void *p1, const void *p2)
 	if (q1->line > q2->line) return 1;
 	if (q1->code < q2->code) return -1;
 	if (q1->code > q2->code) return 1;
+	if (q1->ip < q2->ip) return -1;
+	if (q1->ip > q2->ip) return 1;
 	return 0;
 }
 
@@ -156,7 +176,7 @@ bool function_enable_profile(const char *option, size_t l)
 void profile_init(void)
 {
 	if (profiling) {
-		tls_init(ajla_time_t, profiler_time);
+		tls_init(struct profile_per_thread *, profiler_time);
 		array_init(struct profile_data, &pd, &pd_len);
 	}
 	if (profiling_escapes) {
@@ -168,7 +188,7 @@ void profile_done(void)
 {
 	if (profiling) {
 		profile_print();
-		tls_done(ajla_time_t, profiler_time);
+		tls_done(struct profile_per_thread *, profiler_time);
 	}
 	if (profiling_escapes) {
 		profile_escape_print();
