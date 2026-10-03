@@ -210,9 +210,9 @@ do {									\
 static attr_noreturn attr_cold win32_wait_failed(const char *str, DWORD r argument_position)
 {
 	if (r == WAIT_FAILED)
-		internal(caller_file_line, "win32_cond_wait_failed: %s failed: error %u", str, (unsigned)GetLastError());
+		internal(caller_file_line, "win32_wait_failed: %s failed: error %u", str, (unsigned)GetLastError());
 	else
-		internal(caller_file_line, "win32_cond_wait_failed: %s failed: status %u", str, (unsigned)r);
+		internal(caller_file_line, "win32_wait_failed: %s failed: status %u", str, (unsigned)r);
 }
 
 static bool win32_cond_wait(cond_t *c, DWORD timeout argument_position)
@@ -246,7 +246,7 @@ do {									\
 
 #define do_cond_wait_us(c, us)						\
 do {									\
-	return win32_cond_wait(c, (us + 999) / 1000 pass_position);	\
+	return win32_cond_wait(c, (DWORD)(((uint64_t)us + 999) / 1000) pass_position);\
 } while (0)
 
 static void win32_thread_init(struct win32_thread *tcb argument_position)

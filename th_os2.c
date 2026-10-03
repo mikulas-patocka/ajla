@@ -107,7 +107,7 @@ do {									\
 	unsigned r;							\
 	r = _fmutex_create(m, 0);					\
 	if (unlikely(r != 0))						\
-		fatal("_fmutex_cerate failed at %s: %u", position_string(position_arg), r);\
+		fatal("_fmutex_create failed at %s: %u", position_string(position_arg), r);\
 } while (0)
 
 #define do_mutex_done(m)						\
@@ -294,7 +294,7 @@ do {									\
 	tcb = os2_tcb();						\
 	list_add(&(c)->wait_list, &tcb->wait_entry);			\
 	mutex_unlock_position(&(c)->mutex pass_position);		\
-	r = DosWaitEventSem(tcb->wakeup, (us + 999) / 1000);		\
+	r = DosWaitEventSem(tcb->wakeup, (ULONG)(((uint64_t)us + 999) / 1000));\
 	if (likely(r != 0)) {						\
 		if (unlikely(!(likely(r == ERROR_TIMEOUT) || r == ERROR_INTERRUPT)))\
 			internal(caller_file_line, "cond_wait_us: DosWaitEventSem 1 failed: %lu", r);\
@@ -308,7 +308,7 @@ again:									\
 			if (unlikely(r != 0)) {				\
 				if (r == ERROR_INTERRUPT || r == ERROR_TIMEOUT)\
 					goto again;			\
-				internal(caller_file_line, "cond_wait: DosWaitEventSem 2 failed: %lu", r);\
+				internal(caller_file_line, "cond_wait_us: DosWaitEventSem 2 failed: %lu", r);\
 			}						\
 			r = DosResetEventSem(tcb->wakeup, &sink);	\
 			if (unlikely(r != 0))				\
@@ -382,7 +382,7 @@ static void os2_thread_function(void *tcb_)
 	}
 	r = DosSetPriority(PRTYS_THREAD, cls, del, 0);
 	if (unlikely(r != 0))
-		warning("DosSetPriority(%ld,%lu) failed: %lu", cls, del, r);
+		warning("DosSetPriority(%lu,%ld) failed: %lu", cls, del, r);
 	asm_setup_thread();
 	obj_registry_init_thread();
 	tcb->function(tcb->arg);
