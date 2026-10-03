@@ -526,8 +526,9 @@ static bool pthread_condattr_try_clock(clockid_t c, bool mayfail)
 	struct timespec ts;
 	r = clock_gettime(c, &ts);
 	if (r) {
+		int er = errno;
 		if (unlikely(!mayfail))
-			fatal("clock_gettime (%d) failed: %d, %s", (int)c, r, error_decode(error_from_errno(EC_SYSCALL, r)));
+			fatal("clock_gettime (%d) failed: %d, %s", (int)c, er, error_decode(error_from_errno(EC_SYSCALL, er)));
 		return false;
 	}
 	r = pthread_condattr_setclock(cond_attr_p, c);
@@ -618,9 +619,6 @@ void thread_init(void)
 
 	thread_signal_init();
 	thread_common_init();
-#ifdef barrier_lock_need_tls
-	tls_init(struct barrier_lock *, barrier_lock);
-#endif
 }
 
 void thread_done(void)
@@ -628,9 +626,6 @@ void thread_done(void)
 	int r;
 	thread_common_done();
 	thread_signal_done();
-#ifdef barrier_lock_need_tls
-	tls_done(struct barrier_lock *, barrier_lock);
-#endif
 	r = pthread_attr_destroy(&thread_attr);
 	if (unlikely(r))
 		fatal("pthread_attr_destroy failed: %d, %s", r, error_decode(error_from_errno(EC_SYSCALL, r)));
