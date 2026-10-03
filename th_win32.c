@@ -203,7 +203,7 @@ do {									\
 		list.next = tcb->wait_entry.next;			\
 		r = SetEvent(tcb->wakeup);				\
 		if (unlikely(!r))					\
-			internal(caller_file_line, "cond_unlock_signal: SetEvent failed: %u", (unsigned)GetLastError());\
+			internal(caller_file_line, "cond_unlock_broadcast: SetEvent failed: %u", (unsigned)GetLastError());\
 	}								\
 } while (0)
 
@@ -369,7 +369,7 @@ do {									\
 #define do_tls_init(tl)							\
 do {									\
 	DWORD r = TlsAlloc();						\
-	if (unlikely(!r))						\
+	if (unlikely(r == TLS_OUT_OF_INDEXES))				\
 		fatal("TlsAlloc failed at %s: %u", caller_file_line, (unsigned)GetLastError());\
 	*(tl) = r;							\
 } while (0)
@@ -386,7 +386,7 @@ do {									\
 	if (unlikely(!r)) {						\
 		DWORD le = GetLastError();				\
 		if (unlikely(le != 0))					\
-			internal(caller_file_line, "TlsGetValue(%u) failed: %u", (unsigned)*(tl), (unsigned)GetLastError());\
+			internal(caller_file_line, "TlsGetValue(%u) failed: %u", (unsigned)*(tl), (unsigned)le);\
 	}								\
 	*(ret) = ptr_to_num(r);						\
 } while (0)
