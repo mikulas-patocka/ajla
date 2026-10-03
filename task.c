@@ -569,7 +569,10 @@ void task_ex_control_exited(void)
 	struct task_percpu *tpc;
 	struct node_state *node;
 	tpc = tls_get(struct task_percpu *, task_tls);
-	node = tpc->node;
+	if (unlikely(!tpc))
+		node = nodes[0];
+	else
+		node = tpc->node;
 #ifdef HAVE_C11_ATOMICS
 	atomic_fetch_sub_explicit(&node->n_ex_controls, 1, memory_order_release);
 #else
