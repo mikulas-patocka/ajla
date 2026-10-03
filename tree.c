@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -126,11 +126,8 @@ void attr_fastcall tree_insert_after_find_impl(struct tree_entry *n, uchar_effic
 			n = gp;
 		} else {
 			if (n->idx != p->idx) {
-				struct tree_entry *tmp;
 				rb_rotate(p, n);
-				tmp = p;
 				p = n;
-				n = tmp;
 			}
 			rb_rotate(gp, p);
 			p->color = RB_BLACK;

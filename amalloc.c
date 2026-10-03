@@ -603,6 +603,7 @@ static int rmap_compare(const struct tree_entry *entry, uintptr_t idx2)
 static void reserve_free_merge_run(unsigned idx, unsigned len)
 {
 	struct tree_insert_position ins;
+	struct tree_entry attr_unused *ee;
 	if (rmap[idx - 1].f) {
 		unsigned more = idx - rmap[idx - 1].f;
 		idx -= more;
@@ -616,7 +617,8 @@ static void reserve_free_merge_run(unsigned idx, unsigned len)
 	}
 	rmap[idx].f = idx + len - 1;
 	rmap[idx + len - 1].f = idx;
-	tree_find_for_insert(&rmap_tree, rmap_compare, idx, &ins);
+	ee = tree_find_for_insert(&rmap_tree, rmap_compare, idx, &ins);
+	ajla_assert_lo(ee == NULL, (file_line, "reserve_free_merge_run: entry for index %u is already present", idx));
 	tree_insert_after_find(&rmap[idx].free_entry, &ins);
 }
 
@@ -1323,9 +1325,11 @@ static int midblock_compare(const struct tree_entry *entry, uintptr_t idx2)
 static void arena_free_midblock(struct arena *a, unsigned start, unsigned len)
 {
 	struct tree_insert_position ins;
+	struct tree_entry attr_unused *ee;
 	a->map[start] = MAP_FREE | (start + len - 1);
 	a->map[start + len - 1] = MAP_FREE | start;
-	tree_find_for_insert(&a->midblock_free, midblock_compare, start, &ins);
+	ee = tree_find_for_insert(&a->midblock_free, midblock_compare, start, &ins);
+	ajla_assert(ee == NULL, (file_line, "arena_free_midblock: entry for index %u is already present", start));
 	tree_insert_after_find(&idx_to_midblock(a, start)->free_entry, &ins);
 }
 
