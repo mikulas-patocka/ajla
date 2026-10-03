@@ -132,6 +132,10 @@ void tick_suspend(void)
 		struct itimerspec its;
 		memset(&its, 0, sizeof its);
 		EINTR_LOOP(ir, timer_settime(timer_id, 0, &its, NULL));
+		if (ir == -1) {
+			int er = errno;
+			fatal("timer_settime failed: %d, %s", er, error_decode(error_from_errno(EC_SYSCALL, er)));
+		}
 		return;
 	}
 #endif
@@ -170,6 +174,10 @@ void tick_resume(void)
 		its.it_interval.tv_nsec = tick_us % 1000000 * 1000;
 		its.it_value = its.it_interval;
 		EINTR_LOOP(ir, timer_settime(timer_id, 0, &its, NULL));
+		if (ir == -1) {
+			int er = errno;
+			fatal("timer_settime failed: %d, %s", er, error_decode(error_from_errno(EC_SYSCALL, er)));
+		}
 		return;
 	}
 #endif
@@ -231,6 +239,12 @@ void tick_init(void)
 #ifdef THREAD_NONE
 				goto try_setitimer;
 #else
+				thread_tick = true;
+				EINTR_LOOP(ir, sigaction(SIGNAL, &old_sigaction, NULL));
+				if (unlikely(ir == -1)) {
+					int er = errno;
+					fatal("sigaction failed: %d, %s", er, error_decode(error_from_errno(EC_SYSCALL, er)));
+				}
 				goto try_thread;
 #endif
 			}
@@ -262,7 +276,7 @@ try_setitimer:
 #endif
 	{
 #ifdef THREAD_NONE
-		not_reached();
+		fatal("neither signals nor threads are supported");
 #else
 		goto try_thread;
 try_thread:
@@ -303,8 +317,10 @@ void tick_done(void)
 #ifndef THREAD_NONE
 		/*
 		 * If we have threads, the signal handler may be queued for another
-		 * theread. So, we must set it to ignore to avoid damage.
+		 * thread. So, we must set it to ignore to avoid damage.
 		 */
+		memset(&old_sigaction, 0, sizeof old_sigaction);
+		sigemptyset(&old_sigaction.sa_mask);
 		old_sigaction.sa_handler = SIG_IGN;
 #endif
 		EINTR_LOOP(ir, sigaction(SIGNAL, &old_sigaction, NULL));

@@ -2490,7 +2490,7 @@ static int os_signal_number(const char *str)
 	if (!strcmp(str, "SIGABRT")) return SIGABRT;
 #endif
 #ifdef SIGALRM
-	if (!strcmp(str, "SIGALRM")) return SIGALRM;
+	if (0 && !strcmp(str, "SIGALRM")) return SIGALRM;
 #endif
 #ifdef SIGBUS
 	if (!strcmp(str, "SIGBUS")) return SIGBUS;
@@ -2508,7 +2508,7 @@ static int os_signal_number(const char *str)
 	if (!strcmp(str, "SIGEMT")) return SIGEMT;
 #endif
 #ifdef SIGFPE
-	if (!strcmp(str, "SIGFPE")) return SIGFPE;
+	if (0 && !strcmp(str, "SIGFPE")) return SIGFPE;
 #endif
 #ifdef SIGHUP
 	if (!strcmp(str, "SIGHUP")) return SIGHUP;
@@ -2568,7 +2568,7 @@ static int os_signal_number(const char *str)
 	if (!strcmp(str, "SIGTERM")) return SIGTERM;
 #endif
 #ifdef SIGTRAP
-	if (!strcmp(str, "SIGTRAP")) return SIGTRAP;
+	if (0 && !strcmp(str, "SIGTRAP")) return SIGTRAP;
 #endif
 #ifdef SIGTTIN
 	if (!strcmp(str, "SIGTTIN")) return SIGTTIN;
