@@ -161,14 +161,14 @@ fail:
 	if (str)
 		mem_free(str);
 	error_record[0] = 1;
-	error_record[1] = err.error_class;
-	error_record[2] = err.error_class >> 8;
-	error_record[3] = err.error_type;
-	error_record[4] = err.error_type >> 8;
-	error_record[5] = err.error_aux;
-	error_record[6] = err.error_aux >> 8;
-	error_record[7] = err.error_aux >> 16;
-	error_record[8] = err.error_aux >> 24;
+	error_record[1] = (uint32_t)err.error_class;
+	error_record[2] = (uint32_t)err.error_class >> 8;
+	error_record[3] = (uint32_t)err.error_type;
+	error_record[4] = (uint32_t)err.error_type >> 8;
+	error_record[5] = (uint32_t)err.error_aux;
+	error_record[6] = (uint32_t)err.error_aux >> 8;
+	error_record[7] = (uint32_t)err.error_aux >> 16;
+	error_record[8] = (uint32_t)err.error_aux >> 24;
 	os_write_all(work->p, error_record, 9, &err);
 }
 
