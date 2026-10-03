@@ -310,8 +310,9 @@ do {									\
 	}								\
 	tcb->id = spawn_thread(haiku_thread_function, NULL, b, tcb);	\
 	if (unlikely(tcb->id < 0)) {					\
-		ajla_error_t e = error_from_errno(EC_SYSCALL, tcb->id);	\
+		ajla_error_t e = error_from_errno(EC_SYSCALL, ENOMEM);	\
 		fatal_mayfail(e, err, "spawn_thread failed at %s: %x", position_string(position_arg), tcb->id);\
+		haiku_thread_done(tcb pass_position);			\
 		mem_free(tcb);						\
 		return false;						\
 	}								\

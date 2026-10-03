@@ -407,9 +407,14 @@ do {									\
 	btr = _beginthread(os2_thread_function, NULL, MINIMUM_STACK_SIZE, tcb);\
 	mutex_unlock(&thread_spawn_mutex);				\
 	if (unlikely(btr == -1)) {					\
+		int r;							\
 		int er = errno;						\
 		ajla_error_t e = error_from_errno(EC_SYSCALL, er);	\
-		fatal("_beginthread failed at %s: %d, %s", position_string(position_arg), er, error_decode(e));\
+		fatal_mayfail(e, err, "_beginthread failed at %s: %d, %s", position_string(position_arg), er, error_decode(e));\
+		r = DosPostEventSem(tcb->terminate);			\
+		if (unlikely(r != 0))					\
+			internal(file_line, "do_thread_spawn: DosPostEventSem failed: %lu", r);\
+		os2_thread_done(tcb, false pass_position);		\
 		mem_free(tcb);						\
 		return false;						\
 	}								\

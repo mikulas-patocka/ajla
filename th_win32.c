@@ -300,6 +300,7 @@ do {									\
 		int er = errno;						\
 		ajla_error_t e = error_from_errno(EC_SYSCALL, er);	\
 		fatal_mayfail(e, err, "_beginthreadex failed at %s: %u, %d, %s", position_string(position_arg), GetLastError(), er, error_decode(e));\
+		win32_thread_done(tcb pass_position);			\
 		mem_free(tcb);						\
 		return false;						\
 	}								\
@@ -343,6 +344,7 @@ do {									\
 	if (unlikely(r)) {						\
 		ajla_error_t e = error_from_errno(EC_SYSCALL, r);	\
 		fatal_mayfail(e, err, "pthread_create failed at %s: %d, %s", position_string(position_arg), r, error_decode(e));\
+		win32_thread_done(tcb pass_position);			\
 		mem_free(tcb);						\
 		return false;						\
 	}								\
