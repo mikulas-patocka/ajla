@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -24,6 +24,7 @@
 #include "tree.h"
 #include "thread.h"
 #include "os.h"
+#include "os_util.h"
 
 #include "resolver.h"
 
@@ -109,8 +110,10 @@ static void resolver_do_lookup(struct resolver_request *work)
 
 			if (unlikely(tree_find_for_insert(&dedup_tree, address_compare, ptr_to_num(addr), &pos) != NULL))
 				continue;
+			if (unlikely(addr->address_length >= 65536))
+				continue;
 #ifdef THREAD_NONE
-			if (str_l + 4 + addr->address_length > PIPE_BUF - 1)
+			if (unlikely(str_l + 2 + addr->address_length > PIPE_BUF - 1))
 				continue;
 #endif
 			tree_insert_after_find(&addr->entry, &pos);
@@ -129,15 +132,24 @@ static void resolver_do_lookup(struct resolver_request *work)
 		if (unlikely(!name))
 			goto fail;
 		l = strlen(name);
-		if (unlikely(!array_add_multiple_mayfail(char, &str, &str_l, name, l, NULL, &err)))
+#ifdef THREAD_NONE
+		if (unlikely(str_l + l > PIPE_BUF - 1)) {
+			mem_free(name);
+			err = error_ajla(EC_SYNC, AJLA_ERROR_SIZE_OVERFLOW);
 			goto fail;
+		}
+#endif
+		if (unlikely(!array_add_multiple_mayfail(char, &str, &str_l, name, l, NULL, &err))) {
+			mem_free(name);
+			goto fail;
+		}
 		mem_free(name);
 		break;
 	default:
 		internal(file_line, "resolver_do_lookup: invalid work type %d", work->type);
 	}
 
-	os_write(work->p, str, str_l, &err);
+	os_write_all(work->p, str, str_l, &err);
 
 	mem_free(str);
 
@@ -157,7 +169,7 @@ fail:
 	error_record[6] = err.error_aux >> 8;
 	error_record[7] = err.error_aux >> 16;
 	error_record[8] = err.error_aux >> 24;
-	os_write(work->p, error_record, 9, &err);
+	os_write_all(work->p, error_record, 9, &err);
 }
 
 #ifndef THREAD_NONE
