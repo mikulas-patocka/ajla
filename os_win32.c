@@ -4575,21 +4575,25 @@ bool os_mprotect(void *ptr, size_t size, int prot, ajla_error_t *err)
 	return true;
 }
 
-void os_code_invalidate_cache(uint8_t *code, size_t code_size, bool set_exec)
+void os_code_invalidate_cache(uint8_t *code, size_t code_size)
 {
-	DWORD old;
 	if (fn_FlushInstructionCache) {
 		if (unlikely(!fn_FlushInstructionCache(GetCurrentProcess(), cast_ptr(void *, code), code_size))) {
 			ajla_error_t e = error_from_win32(EC_SYSCALL, GetLastError());
 			fatal("failed to flush instruction cache: FlushInstructionCache(%p, %"PRIxMAX") returned error: %s", code, (uintmax_t)code_size, error_decode(e));
 		}
 	}
-	if (set_exec) {
-		if (unlikely(!VirtualProtect(code, code_size, PAGE_EXECUTE_READWRITE, &old))) {
-			ajla_error_t e = error_from_win32(EC_SYSCALL, GetLastError());
-			fatal("failed to set memory range read+write+exec: VirtualProtect(%p, %"PRIxMAX") returned error: %s", code, (uintmax_t)code_size, error_decode(e));
-		}
+}
+
+bool os_code_set_exec(uint8_t *code, size_t code_size, ajla_error_t *err)
+{
+	DWORD old;
+	if (unlikely(!VirtualProtect(code, code_size, PAGE_EXECUTE_READWRITE, &old))) {
+		ajla_error_t e = error_from_win32(EC_SYSCALL, GetLastError());
+		fatal_mayfail(e, err, "failed to set memory range read+write+exec: VirtualProtect(%p, %"PRIxMAX") returned error: %s", code, (uintmax_t)code_size, error_decode(e));
+		return false;
 	}
+	return true;
 }
 
 void *os_code_map(uint8_t *code, size_t attr_unused code_size, ajla_error_t attr_unused *err)
@@ -4601,7 +4605,8 @@ void *os_code_map(uint8_t *code, size_t attr_unused code_size, ajla_error_t attr
 	}
 	memcpy(aligned, code, code_size);
 	mem_free(code);
-	os_code_invalidate_cache(aligned, code_size, true);
+	os_code_invalidate_cache(aligned, code_size);
+	os_code_set_exec(aligned, code_size, NULL);
 	return aligned;
 }
 

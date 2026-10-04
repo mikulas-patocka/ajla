@@ -1684,7 +1684,8 @@ skip_mmap:
 		return;
 	}
 	bind_function_pointers();
-	os_code_invalidate_cache(cast_ptr(uint8_t *, ld[compsave].loaded_data), ld[compsave].loaded_data_len, true);
+	os_code_invalidate_cache(cast_ptr(uint8_t *, ld[compsave].loaded_data), ld[compsave].loaded_data_len);
+	os_code_set_exec(cast_ptr(uint8_t *, ld[compsave].loaded_data), ld[compsave].loaded_data_len, NULL);
 #else
 	{
 		void *new_ptr;
@@ -1703,7 +1704,8 @@ skip_mmap:
 			return;
 		}
 		bind_function_pointers();
-		os_code_invalidate_cache(cast_ptr(uint8_t *, ld[compsave].loaded_data), ld[compsave].loaded_data_len, true);
+		os_code_invalidate_cache(cast_ptr(uint8_t *, ld[compsave].loaded_data), ld[compsave].loaded_data_len);
+		os_code_set_exec(cast_ptr(uint8_t *, ld[compsave].loaded_data), ld[compsave].loaded_data_len, NULL);
 	}
 #endif
 #else
@@ -1732,7 +1734,7 @@ verify_ret:
 			if (i > 0) {
 				int c = cache_compare(loaded_file_descriptor(compsave)->cache_descs[i - 1].md, loaded_file_descriptor(compsave)->cache_descs[i - 1].fd, &loaded_file_descriptor(compsave)->cache_descs[i]);
 				if (unlikely(c >= 0))
-					internal(file_line, "save_load_cache: misordered cache descriptors(%d): %d (%"PRIuMAX" / %"PRIuMAX")", compsave, c, (uintmax_t)i, (uintmax_t)loaded_file_descriptor(compsave)->cache_descs_len);
+					internal(file_line, "save_load_cache: misordered cache descriptors(%d): %d (%"PRIuMAX" / %"PRIuMAX")", (int)compsave, c, (uintmax_t)i, (uintmax_t)loaded_file_descriptor(compsave)->cache_descs_len);
 			}
 			k = (size_t)da(dsc,saved_cache)->n_arguments + (size_t)da(dsc,saved_cache)->n_return_values;
 			if (da(dsc,saved_cache)->n_entries) {
@@ -1751,7 +1753,7 @@ verify_ret:
 			if (i > 0) {
 				int c = function_compare(loaded_file_descriptor(compsave)->fn_descs[i - 1].md, loaded_file_descriptor(compsave)->fn_descs[i - 1].fd, fn_desc);
 				if (unlikely(c >= 0))
-					internal(file_line, "save_load_cache: misordered function descriptors(%d): %d (%"PRIuMAX" / %"PRIuMAX")", compsave, c, (uintmax_t)i, (uintmax_t)loaded_file_descriptor(compsave)->fn_descs_len);
+					internal(file_line, "save_load_cache: misordered function descriptors(%d): %d (%"PRIuMAX" / %"PRIuMAX")", (int)compsave, c, (uintmax_t)i, (uintmax_t)loaded_file_descriptor(compsave)->fn_descs_len);
 			}
 		}
 	}

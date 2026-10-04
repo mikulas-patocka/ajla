@@ -398,7 +398,8 @@ uint32_t os_get_last_socket_error(void);
 
 #if defined(HAVE_CODEGEN)
 
-void os_code_invalidate_cache(uint8_t *code, size_t code_size, bool set_exec);
+void os_code_invalidate_cache(uint8_t *code, size_t code_size);
+bool os_code_set_exec(uint8_t *code, size_t code_size, ajla_error_t *err);
 void *os_code_map(uint8_t *code, size_t code_size, ajla_error_t *err);
 void os_code_unmap(void *mapped_code, size_t code_size);
 

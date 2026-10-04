@@ -117,6 +117,12 @@ static bool have_O_CLOEXEC_openat = false;
 
 dir_handle_t os_cwd;
 
+#ifdef CODEGEN_USE_HEAP
+static bool codegen_use_heap = true;
+#else
+#define codegen_use_heap	false
+#endif
+
 
 #include "os_com.inc"
 
@@ -249,7 +255,7 @@ void *os_mremap(void *old_ptr, size_t old_size, size_t new_size, int flags, void
 
 #if defined(HAVE_CODEGEN)
 
-void os_code_invalidate_cache(uint8_t attr_unused *code, size_t attr_unused code_size, bool attr_unused set_exec)
+void os_code_invalidate_cache(uint8_t attr_unused *code, size_t attr_unused code_size)
 {
 #if defined(ARCH_PARISC) && defined(HAVE_GCC_ASSEMBLER)
 	size_t i;
@@ -291,57 +297,67 @@ void os_code_invalidate_cache(uint8_t attr_unused *code, size_t attr_unused code
 #elif defined(HAVE___BUILTIN___CLEAR_CACHE)
 	__builtin___clear_cache(cast_ptr(void *, code), cast_ptr(char *, code) + code_size);
 #endif
+}
+
+bool os_code_set_exec(uint8_t attr_unused *code, size_t attr_unused code_size, ajla_error_t attr_unused *err)
+{
 #if defined(OS_HAS_MMAP) && defined(HAVE_MPROTECT)
-	if (set_exec) {
-		int prot_flags = PROT_READ | PROT_EXEC
-#ifdef CODEGEN_USE_HEAP
-			| PROT_WRITE
-#endif
-			;
-		int page_size = os_getpagesize();
-		int front_pad = ptr_to_num(code) & (page_size - 1);
-		uint8_t *mem_region = code - front_pad;
-		size_t mem_length = code_size + front_pad;
-		mem_length = round_up(mem_length, page_size);
-		os_mprotect(mem_region, mem_length, prot_flags, NULL);
-	}
+	int prot_flags = PROT_READ | PROT_EXEC | (codegen_use_heap ? PROT_WRITE : 0);
+	int page_size = os_getpagesize();
+	int front_pad = ptr_to_num(code) & (page_size - 1);
+	uint8_t *mem_region = code - front_pad;
+	size_t mem_length = code_size + front_pad;
+	mem_length = round_up(mem_length, page_size);
+	return os_mprotect(mem_region, mem_length, prot_flags, err);
+#else
+	return true;
 #endif
 }
 
 void *os_code_map(uint8_t *code, size_t code_size, ajla_error_t *err)
 {
-#ifdef CODEGEN_USE_HEAP
-	uint8_t *aligned = mem_align_mayfail(uint8_t *, code_size, CODE_ALIGNMENT, err);
-	if (unlikely(!aligned)) {
+	if (codegen_use_heap) {
+		uint8_t *aligned = mem_align_mayfail(uint8_t *, code_size, CODE_ALIGNMENT, err);
+		if (unlikely(!aligned)) {
+			mem_free(code);
+			return NULL;
+		}
+		memcpy(aligned, code, code_size);
 		mem_free(code);
-		return NULL;
-	}
-	memcpy(aligned, code, code_size);
-	mem_free(code);
-	os_code_invalidate_cache(aligned, code_size, !amalloc_enabled);
-	return aligned;
-#else
-	size_t rounded_size = round_up(code_size, os_getpagesize());
-	void *ptr = os_mmap(NULL, rounded_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, handle_none, 0, err);
-	if (unlikely(ptr == MAP_FAILED)) {
+		os_code_invalidate_cache(aligned, code_size);
+		if (!amalloc_enabled) {
+			if (unlikely(!os_code_set_exec(aligned, code_size, err))) {
+				os_code_unmap(aligned, code_size);
+				return NULL;
+			}
+		}
+		return aligned;
+	} else {
+		size_t rounded_size = round_up(code_size, os_getpagesize());
+		void *ptr = os_mmap(NULL, rounded_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, handle_none, 0, err);
+		if (unlikely(ptr == MAP_FAILED)) {
+			mem_free(code);
+			return NULL;
+		}
+		memcpy(ptr, code, code_size);
 		mem_free(code);
-		return NULL;
+		os_code_invalidate_cache(ptr, code_size);
+		if (unlikely(!os_code_set_exec(ptr, code_size, err))) {
+			os_code_unmap(ptr, code_size);
+			return NULL;
+		}
+		return ptr;
 	}
-	memcpy(ptr, code, code_size);
-	os_code_invalidate_cache(ptr, code_size, true);
-	mem_free(code);
-	return ptr;
-#endif
 }
 
 void os_code_unmap(void *mapped_code, size_t attr_unused code_size)
 {
-#ifdef CODEGEN_USE_HEAP
-	mem_free_aligned(mapped_code);
-#else
-	size_t rounded_size = round_up(code_size, os_getpagesize());
-	os_munmap(mapped_code, rounded_size, false);
-#endif
+	if (codegen_use_heap) {
+		mem_free_aligned(mapped_code);
+	} else {
+		size_t rounded_size = round_up(code_size, os_getpagesize());
+		os_munmap(mapped_code, rounded_size, false);
+	}
 }
 
 #endif
@@ -3941,6 +3957,18 @@ skip_test:;
 		os_signal_trap(SIGFPE, sigfpe_handler);
 #endif
 #endif
+	}
+#endif
+
+#ifdef CODEGEN_USE_HEAP
+	if (unlikely(!amalloc_enabled)) {
+		uint8_t *code = mem_calloc(uint8_t *, 1);
+		void *mapped = os_code_map(code, 1, &sink);
+		if (likely(mapped != NULL)) {
+			os_code_unmap(mapped, 1);
+		} else {
+			codegen_use_heap = false;
+		}
 	}
 #endif
 }
