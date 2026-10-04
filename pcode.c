@@ -3731,8 +3731,6 @@ static pointer_t pcode_build_function_core(frame_s *fp, const code_t *ip, const 
 				flat_rec = type_prepare_flat_record(&def->type, ctx->err);
 				if (unlikely(!flat_rec))
 					goto exception;
-				if (unlikely(flat_rec == SPECIAL_POINTER_1))
-					goto record_not_flattened;
 				for (q = 0; q < n_elements; q++) {
 					tp = pcode_to_type(ctx, ctx->local_types[p].elements[q], NULL);
 					if (unlikely(!TYPE_IS_FLAT(tp))) {

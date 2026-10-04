@@ -112,7 +112,7 @@ const struct type *type_get_unknown(void)
 
 const struct type *type_get_from_tag(type_tag_t tag)
 {
-	ajla_assert_lo(tag < n_array_elements(builtin_types), (file_line, "type_get_from_tag: invalid tag %u", tag));
+	ajla_assert_lo(tag < n_array_elements(builtin_types) && builtin_types[tag].tag == tag, (file_line, "type_get_from_tag: invalid tag %u", tag));
 	return &builtin_types[tag];
 }
 
@@ -155,8 +155,7 @@ static int type_entry_compare(const struct tree_entry *e1, uintptr_t e2)
 	ajla_assert((t1->u.head.type.tag == TYPE_TAG_flat_record || t1->u.head.type.tag == TYPE_TAG_flat_array) &&
 		    (t2->u.head.type.tag == TYPE_TAG_flat_record || t2->u.head.type.tag == TYPE_TAG_flat_array),
 		    (file_line, "type_entry_compare: invalid type tags: %d, %d",
-		    t1->u.head.type.tag == TYPE_TAG_flat_record,
-		    t2->u.head.type.tag == TYPE_TAG_flat_record));
+		    t1->u.head.type.tag, t2->u.head.type.tag));
 
 	if (unlikely(t1->u.head.type.tag != t2->u.head.type.tag))
 		return (int)t1->u.head.type.tag - (int)t2->u.head.type.tag;
@@ -194,9 +193,6 @@ struct type_entry *type_prepare_flat_record(const struct type *base, ajla_error_
 	frame_t n_slots;
 	struct type_entry *def;
 
-	if (unlikely(base->depth >= TYPE_MAX_DEPTH))
-		goto err_overflow;
-
 	n_slots = type_def(base,record)->n_slots;
 	def = struct_alloc_array_mayfail(mem_alloc_mayfail, struct type_entry, u.flat_record_definition.entries, n_slots, mayfail);
 	if (unlikely(!def))
@@ -208,9 +204,6 @@ struct type_entry *type_prepare_flat_record(const struct type *base, ajla_error_
 	(void)memset(def->u.flat_record_definition.entries, 0, n_slots * sizeof(struct flat_record_definition_entry));
 
 	return def;
-
-err_overflow:
-	return SPECIAL_POINTER_1;
 }
 
 static frame_t flat_record_slot(struct type_entry *def, arg_t idx)
@@ -239,12 +232,17 @@ static struct type_entry *type_flat_record_allocate(struct type_entry *def, ajla
 	if (unlikely(!l))
 		goto err;
 
+	def->u.flat_record_definition.type.depth = 0;
+
 	for (i = 0; i < flat_record_n_entries(&def->u.flat_record_definition); i++) {
 		frame_t slot = flat_record_slot(def, i);
 		const struct type *subtype = def->u.flat_record_definition.entries[slot].subtype;
 		ajla_assert_lo(subtype != NULL, (file_line, "type_flat_record_allocate: subtype for entry %"PRIuMAX" not set", (uintmax_t)i));
 		if (unlikely(!layout_add(l, subtype->size, subtype->align, mayfail)))
 			goto err_free_layout;
+		if (unlikely(subtype->depth >= TYPE_MAX_DEPTH))
+			goto err_overflow;
+		def->u.flat_record_definition.type.depth = maximum(def->u.flat_record_definition.type.depth, subtype->depth + 1);
 	}
 
 	if (unlikely(!layout_compute(l, true, mayfail)))
@@ -256,7 +254,6 @@ static struct type_entry *type_flat_record_allocate(struct type_entry *def, ajla
 	    unlikely(alignment != (flat_size_t)alignment))
 		goto err_overflow;
 
-	def->u.flat_record_definition.type.depth = def->u.flat_record_definition.base->depth + 1;
 	def->u.flat_record_definition.type.align = (flat_size_t)alignment;
 	size = round_up(size, alignment);
 	if (unlikely(!(flat_size_t)size))
