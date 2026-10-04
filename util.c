@@ -28,7 +28,7 @@
 
 #include <stdio.h>
 
-#if GNUC_ATLEAST(3,3,0) && !defined(__OPTIMIZE_SIZE__) && (defined(UNALIGNED_ACCESS_EFFICIENT) || defined(HAVE_BUILTIN_ASSUME_ALIGNED))
+#if GNUC_ATLEAST(3,3,0) && !defined(__OPTIMIZE_SIZE__) && (defined(UNALIGNED_ACCESS_EFFICIENT) || defined(HAVE___BUILTIN_ASSUME_ALIGNED))
 #define MEMCPY_FAST
 #endif
 
@@ -113,7 +113,6 @@ float half_to_float(uint16_t attr_unused x)
 	}
 #endif
 
-	res = 0;
 	pos = x & 0x7fff;
 	if (likely((uint16_t)(pos - 0x400) < 0x7800)) {
 #if defined(HAVE_UNION_FLOAT_UINT32_T) && !defined(UNUSUAL)
@@ -186,7 +185,11 @@ uint16_t float_to_half(float attr_unused x)
 #endif
 
 	res = (uint16_t)!!signbit(x) << 15;
+#ifdef HAVE_FABSF
+	a = fabsf(x);
+#else
 	a = fabs(x);
+#endif
 	limit = 65520.;
 #if defined(use_is_macros) && !defined(UNUSUAL_ARITHMETICS)
 	if (unlikely(isunordered(a, limit)))
