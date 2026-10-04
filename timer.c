@@ -92,6 +92,8 @@ static int timer_compare(const struct tree_entry *e, uintptr_t mtp)
 {
 	struct timer *t = get_struct(e, struct timer, entry);
 	ajla_time_t mt = *cast_ptr(ajla_time_t *, num_to_ptr(mtp));
+	if (list_is_empty(&t->wait_list))
+		return 0;	/* we need to delete the timer */
 	if (t->t < mt)
 		return -1;
 	if (t->t > mt)
@@ -107,9 +109,15 @@ bool timer_register_wait(ajla_time_t mt, mutex_t **mutex_to_lock, struct list *l
 
 	timer_lock();
 
+again:
 	e = tree_find_for_insert(&timer_tree, timer_compare, ptr_to_num(&mt), &ins);
 	if (unlikely(e != NULL)) {
 		t = get_struct(e, struct timer, entry);
+		if (t->t != mt) {
+			tree_delete(&t->entry);
+			mem_free(t);
+			goto again;
+		}
 	} else {
 		t = mem_alloc_mayfail(struct timer *, sizeof(struct timer), err);
 		if (unlikely(!t)) {
