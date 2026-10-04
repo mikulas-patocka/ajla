@@ -42,11 +42,7 @@ static ULONG dosallocmem_attrib = PAG_READ | PAG_WRITE |
 #endif
 			OBJ_ANY;
 #else
-#ifndef CODEGEN_USE_HEAP
-#define PROT_HEAP	(PROT_READ | PROT_WRITE)
-#else
-#define PROT_HEAP	(PROT_READ | PROT_WRITE | PROT_EXEC)
-#endif
+#define PROT_HEAP	(PROT_READ | PROT_WRITE | (codegen_use_heap ? PROT_EXEC : 0))
 #endif
 
 #define ARENA_BITS	21
@@ -774,7 +770,7 @@ static void reserve_memory(void)
 {
 	uintptr_t ptr, step;
 	tree_init(&rmap_tree);
-	rmap = os_mmap(NULL, RESERVED_MAP_ENTRIES * sizeof(struct reserved_map), PROT_HEAP, MAP_PRIVATE | MAP_ANONYMOUS, handle_none, 0, NULL);
+	rmap = os_mmap(NULL, RESERVED_MAP_ENTRIES * sizeof(struct reserved_map), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, handle_none, 0, NULL);
 #if defined(OS_CYGWIN)
 	step = ARENA_SIZE * 256;
 	ptr = round_up((uintptr_t)1 << 34, step);
@@ -2025,6 +2021,22 @@ void amalloc_init(void)
 	amalloc_os_init();
 	if (unlikely(!amalloc_enabled))
 		return;
+#if !defined(codegen_use_heap)
+	if (codegen_use_heap) {
+		ajla_error_t sink;
+		void *ptr;
+		/*
+		 * Some systems don't like PROT_WRITE | PROT_EXEC mappings.
+		 */
+		ptr = os_mmap(NULL, page_size, PROT_HEAP, MAP_PRIVATE | MAP_ANONYMOUS, handle_none, 0, &sink);
+		if (likely(ptr != MAP_FAILED)) {
+			os_munmap(ptr, page_size, false);
+		} else {
+			codegen_use_heap = false;
+		}
+	}
+
+#endif
 #ifdef POINTER_COMPRESSION_POSSIBLE
 	if (pointer_compression_enabled)
 		reserve_memory();

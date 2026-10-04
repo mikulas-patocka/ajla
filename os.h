@@ -92,6 +92,8 @@ typedef char *dir_handle_t;
 typedef unsigned char sig_state_t;
 typedef unsigned signal_seq_t;
 
+#define codegen_use_heap	true
+
 #define OS_HAS_DLOPEN
 struct dl_handle_t;
 struct dl_handle_t *os_dlopen(const char *filename, ajla_error_t *err, char **err_msg);
@@ -214,6 +216,8 @@ bool os_mprotect(void *ptr, size_t size, int prot, ajla_error_t *err);
 #define MAP_ALIGNED(x)		(32 * (x))
 #define MAP_ALIGNED_BITS(m)	((m) >> 5)
 
+#define codegen_use_heap	true
+
 #define OS_HAS_DLOPEN
 struct dl_handle_t;
 struct dl_handle_t *os_dlopen(const char *filename, ajla_error_t *err, char **err_msg);
@@ -335,6 +339,14 @@ bool os_mprotect(void *ptr, size_t size, int prot, ajla_error_t *err);
 #define OS_HAS_MREMAP
 void *os_mremap(void *old_ptr, size_t old_size, size_t new_size, int flags, void *new_ptr, ajla_error_t *err);
 #endif
+#endif
+
+#if !defined(OS_HAS_MMAP)
+#define codegen_use_heap	true
+#elif !defined(CODEGEN_USE_HEAP)
+#define codegen_use_heap	false
+#else
+extern bool codegen_use_heap;
 #endif
 
 #if defined(HAVE_SIGPROCMASK) && defined(HAVE_SIGSET_T) && defined(HAVE_SIGFILLSET)

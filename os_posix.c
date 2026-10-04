@@ -117,10 +117,8 @@ static bool have_O_CLOEXEC_openat = false;
 
 dir_handle_t os_cwd;
 
-#ifdef CODEGEN_USE_HEAP
-static bool codegen_use_heap = true;
-#else
-#define codegen_use_heap	false
+#ifndef codegen_use_heap
+bool codegen_use_heap = true;
 #endif
 
 
@@ -3960,8 +3958,11 @@ skip_test:;
 	}
 #endif
 
-#ifdef CODEGEN_USE_HEAP
-	if (unlikely(!amalloc_enabled)) {
+#ifndef codegen_use_heap
+	/*
+	 * Some systems don't like to enable PROT_EXEC on the heap.
+	 */
+	if (unlikely(!amalloc_enabled) && codegen_use_heap) {
 		uint8_t *code = mem_calloc(uint8_t *, 1);
 		void *mapped = os_code_map(code, 1, &sink);
 		if (likely(mapped != NULL)) {

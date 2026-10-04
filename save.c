@@ -1677,17 +1677,17 @@ skip_mmap:
 	}
 	os_close(h);
 #ifdef HAVE_CODEGEN
-#if defined(CODEGEN_USE_HEAP) || !defined(USE_MMAP)
-	/*debug("adjusting pointers: %p, %p", loaded_data, loaded_data + loaded_data_len);*/
-	if (unlikely(!adjust_pointers(ld[compsave].loaded_data, ld[compsave].loaded_data_len, ptr_to_num(ld[compsave].loaded_data) - ptr_to_num(loaded_file_descriptor(compsave)->base)))) {
-		save_unmap_data(compsave);
-		return;
-	}
-	bind_function_pointers();
-	os_code_invalidate_cache(cast_ptr(uint8_t *, ld[compsave].loaded_data), ld[compsave].loaded_data_len);
-	os_code_set_exec(cast_ptr(uint8_t *, ld[compsave].loaded_data), ld[compsave].loaded_data_len, NULL);
-#else
-	{
+	if (codegen_use_heap) {
+		/*debug("adjusting pointers: %p, %p", loaded_data, loaded_data + loaded_data_len);*/
+		if (unlikely(!adjust_pointers(ld[compsave].loaded_data, ld[compsave].loaded_data_len, ptr_to_num(ld[compsave].loaded_data) - ptr_to_num(loaded_file_descriptor(compsave)->base)))) {
+			save_unmap_data(compsave);
+			return;
+		}
+		bind_function_pointers();
+		os_code_invalidate_cache(cast_ptr(uint8_t *, ld[compsave].loaded_data), ld[compsave].loaded_data_len);
+		os_code_set_exec(cast_ptr(uint8_t *, ld[compsave].loaded_data), loaded_file_descriptor(compsave)->writable_boundary, NULL);
+	} else {
+#ifdef USE_MMAP
 		void *new_ptr;
 		new_ptr = amalloc_run_alloc(maximum(CODE_ALIGNMENT, SAVED_DATA_ALIGN), ld[compsave].loaded_data_len, false, 0);
 		if (unlikely(!new_ptr)) {
@@ -1705,9 +1705,13 @@ skip_mmap:
 		}
 		bind_function_pointers();
 		os_code_invalidate_cache(cast_ptr(uint8_t *, ld[compsave].loaded_data), ld[compsave].loaded_data_len);
-		os_code_set_exec(cast_ptr(uint8_t *, ld[compsave].loaded_data), ld[compsave].loaded_data_len, NULL);
-	}
+		os_code_set_exec(cast_ptr(uint8_t *, ld[compsave].loaded_data), loaded_file_descriptor(compsave)->writable_boundary, NULL);
+#else
+		warning("unable to map saved data");
+		save_unmap_data(compsave);
+		return;
 #endif
+	}
 #else
 	if (unlikely(!adjust_pointers(ld[compsave].loaded_data, ld[compsave].loaded_data_len, ptr_to_num(ld[compsave].loaded_data) - ptr_to_num(loaded_file_descriptor(compsave)->base)))) {
 		save_unmap_data(compsave);
