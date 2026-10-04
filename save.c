@@ -1508,7 +1508,7 @@ void save_unmap_data(size_t cs)
 	} else
 #endif
 	{
-		mem_free(ld[cs].loaded_data);
+		mem_free_aligned(ld[cs].loaded_data);
 	}
 	ld[cs].loaded_data = NULL;
 }
@@ -1664,14 +1664,14 @@ static void save_load_cache(void)
 	}
 skip_mmap:
 #endif
-	ld[compsave].loaded_data = mem_alloc_mayfail(char *, st.st_size, &sink);
+	ld[compsave].loaded_data = mem_align_mayfail(char *, st.st_size, maximum(CODE_ALIGNMENT, SAVED_DATA_ALIGN), &sink);
 	if (unlikely(!ld[compsave].loaded_data)) {
 		os_close(h);
 		return;
 	}
 	if (unlikely(!os_pread_all(h, ld[compsave].loaded_data, st.st_size, 0, &sink))) {
 		os_close(h);
-		mem_free(ld[compsave].loaded_data);
+		mem_free_aligned(ld[compsave].loaded_data);
 		ld[compsave].loaded_data = NULL;
 		return;
 	}
@@ -1689,13 +1689,13 @@ skip_mmap:
 #else
 	{
 		void *new_ptr;
-		new_ptr = amalloc_run_alloc(CODE_ALIGNMENT, ld[compsave].loaded_data_len, false, 0);
+		new_ptr = amalloc_run_alloc(maximum(CODE_ALIGNMENT, SAVED_DATA_ALIGN), ld[compsave].loaded_data_len, false, 0);
 		if (unlikely(!new_ptr)) {
 			save_unmap_data(compsave);
 			return;
 		}
 		memcpy(new_ptr, ld[compsave].loaded_data, ld[compsave].loaded_data_len);
-		mem_free(ld[compsave].loaded_data);
+		mem_free_aligned(ld[compsave].loaded_data);
 		ld[compsave].loaded_data = new_ptr;
 		ld[compsave].loaded_data_amalloc = true;
 		/*debug("adjusting pointers: %p, %p", ld[compsave].loaded_data, ld[compsave].loaded_data + ld[compsave].loaded_data_len);*/
