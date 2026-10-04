@@ -331,6 +331,7 @@ void *os_code_map(uint8_t *code, size_t code_size, ajla_error_t *err)
 		}
 		return aligned;
 	} else {
+#ifdef OS_HAS_MMAP
 		size_t rounded_size = round_up(code_size, os_getpagesize());
 		void *ptr = os_mmap(NULL, rounded_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, handle_none, 0, err);
 		if (unlikely(ptr == MAP_FAILED)) {
@@ -345,6 +346,10 @@ void *os_code_map(uint8_t *code, size_t code_size, ajla_error_t *err)
 			return NULL;
 		}
 		return ptr;
+#else
+		not_reached();
+		return NULL;
+#endif
 	}
 }
 
@@ -353,8 +358,12 @@ void os_code_unmap(void *mapped_code, size_t attr_unused code_size)
 	if (codegen_use_heap) {
 		mem_free_aligned(mapped_code);
 	} else {
+#ifdef OS_HAS_MMAP
 		size_t rounded_size = round_up(code_size, os_getpagesize());
 		os_munmap(mapped_code, rounded_size, false);
+#else
+		not_reached();
+#endif
 	}
 }
 
