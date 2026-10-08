@@ -177,10 +177,37 @@ skip_dereference:
 	return true;
 }
 
+static bool attr_w gen_prepare_cond_jump(struct codegen_context *ctx, frame_t slot, unsigned *reg)
+{
+	unsigned size = log_2(sizeof(ajla_flat_option_t));
+	size_t attr_unused offset;
+	if (slot_is_register(ctx, slot))
+		goto no_load_op;
+
+#if defined(ARCH_M68K) || defined(ARCH_S390) || defined(ARCH_X86)
+	offset = (size_t)slot * slot_size;
+#if defined(ARCH_S390)
+	if (size != OP_SIZE_1)
+		goto no_load_op;
+#endif
+	g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_MVI_CLI_OFFSET, size));
+	gen_insn(INSN_CMP, size, 0, 2);
+	gen_address_offset();
+	gen_one(ARG_IMM);
+	gen_eight(0);
+	*reg = -1U;
+	return true;
+#endif
+
+no_load_op:
+	g(gen_frame_get(ctx, size, i_size(size) == size ? garbage : native, slot, R_SCRATCH_1, reg));
+	return true;
+}
+
 static bool attr_w gen_select_flat(struct codegen_context *ctx, frame_t slot_1, frame_t slot_2, frame_t slot_3, frame_t slot_r)
 {
 	unsigned size = log_2(sizeof(ajla_flat_option_t));
-	unsigned reg1;
+	unsigned reg;
 	uint32_t label_x, label_y;
 	unsigned cond = COND_NE;
 
@@ -203,8 +230,13 @@ static bool attr_w gen_select_flat(struct codegen_context *ctx, frame_t slot_1, 
 		label_y = 0;	/* avoid warning */
 	}
 
-	g(gen_frame_get(ctx, size, i_size(size) == size ? garbage : native, slot_1, R_SCRATCH_1, &reg1));
-	g(gen_jmp_on_zero(ctx, i_size(size), reg1, cond, label_x));
+	g(gen_prepare_cond_jump(ctx, slot_1, &reg));
+	if (reg != -1U) {
+		g(gen_jmp_on_zero(ctx, i_size(size), reg, cond, label_x));
+	} else {
+		gen_insn(INSN_JMP_COND, i_size(size), cond, 0);
+		gen_label_ref(label_x);
+	}
 
 	g(gen_memcpy_slots(ctx, slot_r, slot_2));
 	if (slot_r != slot_3) {
@@ -225,8 +257,9 @@ static bool attr_w gen_select_flat(struct codegen_context *ctx, frame_t slot_1, 
 static bool attr_w gen_select_ptr(struct codegen_context *ctx, frame_t slot_1, frame_t slot_2, frame_t slot_3, frame_t slot_r, frame_t flags)
 {
 	unsigned size = log_2(sizeof(ajla_flat_option_t));
-	unsigned reg1;
+	unsigned reg;
 	uint32_t label_x, label_y;
+	unsigned cond = COND_NE;
 
 	label_x = alloc_label(ctx);
 	if (unlikely(!label_x))
@@ -236,8 +269,13 @@ static bool attr_w gen_select_ptr(struct codegen_context *ctx, frame_t slot_1, f
 	if (unlikely(!label_y))
 		return false;
 
-	g(gen_frame_get(ctx, size, i_size(size) == size ? garbage : native, slot_1, R_SCRATCH_1, &reg1));
-	g(gen_jmp_on_zero(ctx, i_size(size), reg1, COND_NE, label_x));
+	g(gen_prepare_cond_jump(ctx, slot_1, &reg));
+	if (reg != -1U) {
+		g(gen_jmp_on_zero(ctx, i_size(size), reg, cond, label_x));
+	} else {
+		gen_insn(INSN_JMP_COND, i_size(size), cond, 0);
+		gen_label_ref(label_x);
+	}
 
 	g(gen_frame_get_pointer(ctx, slot_2, (flags & OPCODE_FLAG_FREE_ARGUMENT_2) != 0, R_SAVED_1));
 	if (flags & OPCODE_FLAG_FREE_ARGUMENT_3)
@@ -335,30 +373,11 @@ static bool attr_w gen_jump(struct codegen_context *ctx, int32_t jmp_offset, uns
 static bool attr_w gen_cond_jump(struct codegen_context *ctx, frame_t slot, int32_t jmp_offset)
 {
 	unsigned size = log_2(sizeof(ajla_flat_option_t));
-	size_t attr_unused offset;
-	unsigned reg1;
-	if (slot_is_register(ctx, slot)) {
-		goto no_load_op;
-	}
-#if defined(ARCH_M68K) || defined(ARCH_S390) || defined(ARCH_X86)
-	offset = (size_t)slot * slot_size;
-#if defined(ARCH_S390)
-	if (size != OP_SIZE_1)
-		goto no_load_op;
-#endif
-	g(gen_address(ctx, R_FRAME, offset, IMM_PURPOSE_MVI_CLI_OFFSET, size));
-	gen_insn(INSN_CMP, size, 0, 2);
-	gen_address_offset();
-	gen_one(ARG_IMM);
-	gen_eight(0);
+	unsigned reg;
 
-	g(gen_jump(ctx, jmp_offset, size, COND_E, -1U, -1U, 0));
-	return true;
-#endif
-	goto no_load_op;
-no_load_op:
-	g(gen_frame_get(ctx, size, i_size(size) == size ? garbage : native, slot, R_SCRATCH_1, &reg1));
-	g(gen_jump(ctx, jmp_offset, size, COND_E, reg1, -1U, 0));
+	g(gen_prepare_cond_jump(ctx, slot, &reg));
+	g(gen_jump(ctx, jmp_offset, size, COND_E, reg, -1U, 0));
+
 	return true;
 }
 
