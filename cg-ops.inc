@@ -204,12 +204,40 @@ no_load_op:
 	return true;
 }
 
+#define CMOV_FLAGS	1
+
+static unsigned query_cmov(struct codegen_context *ctx, frame_t slot, unsigned *op_size)
+{
+	unsigned allowed_cmov = 0;
+	const struct type *type = get_type_of_local(ctx, slot);
+	if (unlikely(!is_power_of_2(type->size))) {
+		*op_size = -1U;	/* avoid warning */
+		return 0;
+	}
+	*op_size = log_2(type->size);
+	if (unlikely(*op_size > OP_SIZE_64))
+		return 0;
+	if (ARCH_HAS_CMOV & 0x1) {
+		if (TYPE_IS_FLAT(type) && !TYPE_TAG_IS_REAL(type->tag) && *op_size <= OP_SIZE_NATIVE) {
+			if (type->size == type->align || !UNALIGNED_TRAP)
+				allowed_cmov |= CMOV_FLAGS;
+		}
+	}
+#if defined(ARCH_X86)
+	if (*op_size == OP_SIZE_1)
+		*op_size = OP_SIZE_2;
+#endif
+	return allowed_cmov;
+}
+
 static bool attr_w gen_select_flat(struct codegen_context *ctx, frame_t slot_1, frame_t slot_2, frame_t slot_3, frame_t slot_r)
 {
 	unsigned size = log_2(sizeof(ajla_flat_option_t));
 	unsigned reg;
 	uint32_t label_x, label_y;
 	unsigned cond = COND_NE;
+	unsigned op_size;
+	unsigned qc;
 
 	label_x = alloc_label(ctx);
 	if (unlikely(!label_x))
@@ -230,10 +258,44 @@ static bool attr_w gen_select_flat(struct codegen_context *ctx, frame_t slot_1, 
 		label_y = 0;	/* avoid warning */
 	}
 
+	qc = query_cmov(ctx, slot_r, &op_size);
+
 	g(gen_prepare_cond_jump(ctx, slot_1, &reg));
 	if (reg != -1U) {
+		if (qc & CMOV_FLAGS) {
+			gen_insn(INSN_TEST, i_size(size), 0, 1);
+			gen_one(reg);
+			gen_one(reg);
+			goto do_cmov;
+		}
 		g(gen_jmp_on_zero(ctx, i_size(size), reg, cond, label_x));
 	} else {
+do_cmov:
+		if (qc & CMOV_FLAGS) {
+			unsigned reg2, reg3, tgt;
+			g(gen_frame_get(ctx, op_size, garbage, slot_3, R_SCRATCH_1, &reg3));
+			tgt = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
+			if (!(ARCH_HAS_CMOV & 0x2)) {
+				g(gen_mov(ctx, i_size(op_size), tgt, reg3));
+				reg3 = tgt;
+			}
+			if (ARCH_HAS_CMOV & 0x4 && !slot_is_register(ctx, slot_2)) {
+				g(gen_address(ctx, R_FRAME, (size_t)slot_2 * slot_size, IMM_PURPOSE_LDR_OFFSET, i_size(op_size)));
+				gen_insn(INSN_CMOV, i_size(op_size), cond ^ 1, 0);
+				gen_one(tgt);
+				gen_one(reg3);
+				gen_address_offset();
+				goto store_result;
+			}
+			g(gen_frame_get(ctx, op_size, garbage, slot_2, R_SCRATCH_2, &reg2));
+			gen_insn(INSN_CMOV, i_size(op_size), cond ^ 1, 0);
+			gen_one(tgt);
+			gen_one(reg3);
+			gen_one(reg2);
+store_result:
+			g(gen_frame_store(ctx, op_size, slot_r, 0, tgt));
+			return true;
+		}
 		gen_insn(INSN_JMP_COND, i_size(size), cond, 0);
 		gen_label_ref(label_x);
 	}
