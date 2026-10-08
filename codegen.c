@@ -1856,33 +1856,34 @@ take_borrowed_done:
 				continue;
 			case OPCODE_DEREFERENCE:
 			case OPCODE_DEREFERENCE_CLEAR: {
-				bool need_bit_test;
-				/*const struct type *type;*/
 				get_one(ctx, &slot_1);
-				if (flag_is_clear(ctx, slot_1))
-					goto skip_dereference;
-				/*type = get_type_of_local(ctx, slot_1);*/
-				/*need_bit_test = 1 || TYPE_IS_FLAT(type) || da(ctx->fn,function)->local_variables[slot_1].may_be_borrowed;*/
-				need_bit_test = !flag_is_set(ctx, slot_1);
-				if (need_bit_test) {
-					if (unlikely(!(label_id = alloc_label(ctx))))
-						return false;
-					g(gen_test_1(ctx, R_FRAME, slot_1, 0, label_id, true, TEST_CLEAR));
-				} else {
-					g(gen_set_1(ctx, R_FRAME, slot_1, 0, false));
-					label_id = 0;	/* avoid warning */
-				}
-				g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_dereference), 1, true));
-				g(gen_frame_load(ctx, OP_SIZE_SLOT, garbage, slot_1, 0, false, R_ARG0));
-				g(gen_upcall_argument(ctx, 0));
-				g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_dereference), 1, true));
-				if (need_bit_test)
-					gen_label(label_id);
-skip_dereference:
-				if (code == OPCODE_DEREFERENCE_CLEAR)
-					g(gen_frame_clear(ctx, OP_SIZE_SLOT, slot_1));
-				flag_set_unknown(ctx, slot_1);
+				g(gen_dereference(ctx, slot_1, code == OPCODE_DEREFERENCE_CLEAR));
+				continue;
+			}
+			case OPCODE_SELECT_FLAT: {
+				get_two(ctx, &slot_1, &slot_2);
+				get_two(ctx, &slot_3, &slot_r);
+				escape_label = alloc_escape_label(ctx);
+				if (unlikely(!escape_label))
+					return false;
+				g(gen_test_3_cached(ctx, slot_1, slot_2, slot_3, escape_label));
 				flag_set(ctx, slot_1, false);
+				flag_set(ctx, slot_2, false);
+				flag_set(ctx, slot_3, false);
+				flag_set(ctx, slot_r, false);
+				g(gen_select_flat(ctx, slot_1, slot_2, slot_3, slot_r));
+				continue;
+			}
+			case OPCODE_SELECT_PTR: {
+				get_two(ctx, &slot_1, &slot_2);
+				get_two(ctx, &slot_3, &slot_r);
+				get_one(ctx, &flags);
+				escape_label = alloc_escape_label(ctx);
+				if (unlikely(!escape_label))
+					return false;
+				g(gen_test_1_cached(ctx, slot_1, escape_label));
+				flag_set(ctx, slot_1, false);
+				g(gen_select_ptr(ctx, slot_1, slot_2, slot_3, slot_r, flags));
 				continue;
 			}
 			case OPCODE_EVAL: {

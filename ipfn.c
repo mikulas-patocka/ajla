@@ -1272,6 +1272,73 @@ have_result:
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
+void * attr_hot_fastcall thunk_select_flat(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2, frame_t slot_3, frame_t slot_r)
+{
+	ajla_flat_option_t sel;
+	unsigned char *flat;
+	pointer_t ptr;
+
+	if (frame_test_flag(fp, slot_1)) {
+		void *ex = thunk_bool_jump(fp, ip, slot_1);
+		if (ex == POINTER_FOLLOW_THUNK_EXCEPTION) {
+			ptr = *frame_pointer(fp, slot_1);
+			goto do_ptr;
+		}
+		return ex;
+	}
+	barrier_aliasing();
+	sel = *frame_slot(fp, slot_1, ajla_flat_option_t);
+	barrier_aliasing();
+
+	if (!sel) {
+		if (!frame_test_flag(fp, slot_2)) {
+			flat = frame_var(fp, slot_2);
+			goto do_flat;
+		}
+		ptr = *frame_pointer(fp, slot_2);
+	} else {
+		if (!frame_test_flag(fp, slot_3)) {
+			flat = frame_var(fp, slot_3);
+			goto do_flat;
+		}
+		ptr = *frame_pointer(fp, slot_3);
+	}
+do_ptr:
+	pointer_reference_owned(ptr);
+	frame_free_and_set_pointer(fp, slot_r, ptr);
+	return POINTER_FOLLOW_THUNK_GO;
+
+do_flat:
+	if (frame_test_and_clear_flag(fp, slot_r))
+		pointer_dereference(*frame_pointer(fp, slot_r));
+	memcpy_fast(frame_var(fp, slot_r), flat, frame_get_type_of_local(fp, slot_r)->size);
+	return POINTER_FOLLOW_THUNK_GO;
+}
+
+void * attr_hot_fastcall thunk_select_ptr(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2, frame_t slot_3, frame_t slot_r, frame_t flags)
+{
+	bool deref_1;
+	bool deref_2;
+	bool deref_3;
+	pointer_t dest_ptr;
+	void *ex = thunk_bool_jump(fp, ip, slot_1);
+	if (ex != POINTER_FOLLOW_THUNK_EXCEPTION)
+		return ex;
+
+	deref_1 = (flags & OPCODE_FLAG_FREE_ARGUMENT) != 0;
+	deref_2 = (flags & OPCODE_FLAG_FREE_ARGUMENT_2) != 0;
+	deref_3 = (flags & OPCODE_FLAG_FREE_ARGUMENT_3) != 0;
+
+	dest_ptr = ipret_copy_variable_to_pointer(fp, slot_1, deref_1);
+	if (deref_2)
+		frame_free_and_clear(fp, slot_2);
+	if (deref_3)
+		frame_free_and_clear(fp, slot_3);
+
+	frame_set_pointer(fp, slot_r, dest_ptr);
+	return POINTER_FOLLOW_THUNK_GO;
+}
+
 void * attr_hot_fastcall thunk_bool_jump(frame_s *fp, const code_t *ip, frame_t slot)
 {
 	pointer_t *thunk = frame_pointer(fp, slot);

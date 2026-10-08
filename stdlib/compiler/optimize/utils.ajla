@@ -201,6 +201,11 @@ fn create_instr(opcode : pcode_t, params : list(pcode_t), bgi : int) : instructi
 	] else if opcode = P_Free then [
 		ins.read_set := 0 bts 0;
 		xlen := 1;
+	] else if opcode = P_Select then [
+		ins.read_set := 0 bts 2 bts 4 bts 6;
+		ins.free_set := ins.read_set;
+		ins.write_set := 0 bts 0;
+		xlen := 7;
 	] else if opcode = P_Eval then [
 		ins.read_set := 0 bts 0;
 		xlen := 1;

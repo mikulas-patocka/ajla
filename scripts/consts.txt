@@ -21,6 +21,7 @@ P_UnaryOp		; op, result, (ref_flag, strict_flag), src
 P_Copy			; dest, ref_flag, src
 P_Copy_Type_Cast	; dest, ref_flag, src
 P_Free			; var
+P_Select		; dest, ref_flag_sel, sel, ref_flag_f, f, ref_flag_t, t
 P_Eval			; var
 P_Keep			; var
 P_Where			; result_type, type, condition

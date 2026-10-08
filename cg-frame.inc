@@ -1546,6 +1546,8 @@ static bool attr_w gen_memcpy_slots(struct codegen_context *ctx, frame_t dest_sl
 	const struct type *t = get_type_of_local(ctx, src_slot);
 	short dest_reg = ctx->registers[dest_slot];
 	short src_reg = ctx->registers[src_slot];
+	if (dest_slot == src_slot)
+		return true;
 	if (dest_reg >= 0 && src_reg >= 0) {
 		unsigned size = spill_size(t);
 		g(gen_mov(ctx, reg_is_fp(src_reg) ? size : OP_SIZE_NATIVE, dest_reg, src_reg));

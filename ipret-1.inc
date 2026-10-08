@@ -1332,6 +1332,70 @@ DEFINE_OPCODE_START(OPCODE_DEREFERENCE_CLEAR)
 #endif
 DEFINE_OPCODE_END(OPCODE_DEREFERENCE_CLEAR)
 
+DEFINE_OPCODE_START(OPCODE_SELECT_FLAT)
+#ifdef EMIT_CODE
+	frame_t slot_1 = get_i_param(0);
+	frame_t slot_2 = get_i_param(1);
+	frame_t slot_3 = get_i_param(2);
+	frame_t slot_r = get_i_param(3);
+	ajla_assert(slot_r == slot_1 || slot_r == slot_2 || slot_r == slot_3 || !frame_test_flag(fp, slot_r), (file_line, "select_flat: flag already set for destination slot %"PRIuMAX"", (uintmax_t)slot_r));
+	if (unlikely(frame_test_3(fp, slot_1, slot_2, slot_3))) {
+		void *ex = thunk_select_flat(fp, ip, slot_1, slot_2, slot_3, slot_r);
+		if (ex == POINTER_FOLLOW_THUNK_GO)
+			ADVANCE_I_PARAM(4);
+		else if (unlikely(ex != POINTER_FOLLOW_THUNK_RETRY))
+			RELOAD_EX_POSITION(ex);
+	} else {
+		size_t size;
+		ajla_flat_option_t val1;
+		barrier_aliasing();
+		val1 = *frame_slot(fp, slot_1, ajla_flat_option_t);
+		barrier_aliasing();
+		size = frame_get_type_of_local(fp, slot_r)->size;
+		if (val1)
+			slot_2 = slot_3;
+		memcpy_fast(frame_var(fp, slot_r), frame_var(fp, slot_2), size);
+		ADVANCE_I_PARAM(4);
+	}
+#endif
+DEFINE_OPCODE_END(OPCODE_SELECT_FLAT)
+
+DEFINE_OPCODE_START(OPCODE_SELECT_PTR)
+#ifdef EMIT_CODE
+	frame_t slot_1 = get_i_param(0);
+	frame_t slot_2 = get_i_param(1);
+	frame_t slot_3 = get_i_param(2);
+	frame_t slot_r = get_i_param(3);
+	frame_t flags = get_i_param(4);
+	if (unlikely(frame_test_flag(fp, slot_1))) {
+		void *ex = thunk_select_ptr(fp, ip, slot_1, slot_2, slot_3, slot_r, flags);
+		if (ex == POINTER_FOLLOW_THUNK_GO)
+			ADVANCE_I_PARAM(5);
+		else if (unlikely(ex != POINTER_FOLLOW_THUNK_RETRY))
+			RELOAD_EX_POSITION(ex);
+	} else {
+		pointer_t dest_ptr;
+		ajla_flat_option_t val1;
+		bool deref_2 = (flags & OPCODE_FLAG_FREE_ARGUMENT_2) != 0;
+		bool deref_3 = (flags & OPCODE_FLAG_FREE_ARGUMENT_3) != 0;
+		barrier_aliasing();
+		val1 = *frame_slot(fp, slot_1, ajla_flat_option_t);
+		barrier_aliasing();
+		if (!val1) {
+			dest_ptr = ipret_copy_variable_to_pointer(fp, slot_2, deref_2);
+			if (deref_3)
+				frame_free_and_clear(fp, slot_3);
+		} else {
+			if (deref_2)
+				frame_free_and_clear(fp, slot_2);
+			dest_ptr = ipret_copy_variable_to_pointer(fp, slot_3, deref_3);
+		}
+		frame_set_pointer(fp, slot_r, dest_ptr);
+		ADVANCE_I_PARAM(5);
+	}
+#endif
+DEFINE_OPCODE_END(OPCODE_SELECT_PTR)
+
 DEFINE_OPCODE_START(OPCODE_EVAL)
 #ifdef EMIT_CODE
 	frame_t slot = get_i_param(0);

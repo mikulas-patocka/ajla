@@ -148,6 +148,118 @@ static bool attr_w gen_box_move_copy(struct codegen_context *ctx, code_t code, f
 	return true;
 }
 
+static bool attr_w gen_dereference(struct codegen_context *ctx, frame_t slot_1, bool clear)
+{
+	bool need_bit_test;
+	uint32_t label_id;
+	if (flag_is_clear(ctx, slot_1))
+		goto skip_dereference;
+	need_bit_test = !flag_is_set(ctx, slot_1);
+	if (need_bit_test) {
+		if (unlikely(!(label_id = alloc_label(ctx))))
+			return false;
+		g(gen_test_1(ctx, R_FRAME, slot_1, 0, label_id, true, TEST_CLEAR));
+	} else {
+		g(gen_set_1(ctx, R_FRAME, slot_1, 0, false));
+		label_id = 0;	/* avoid warning */
+	}
+	g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_dereference), 1, true));
+	g(gen_frame_load(ctx, OP_SIZE_SLOT, garbage, slot_1, 0, false, R_ARG0));
+	g(gen_upcall_argument(ctx, 0));
+	g(gen_upcall(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_dereference), 1, true));
+	if (need_bit_test)
+		gen_label(label_id);
+skip_dereference:
+	if (clear)
+		g(gen_frame_clear(ctx, OP_SIZE_SLOT, slot_1));
+	flag_set_unknown(ctx, slot_1);
+	flag_set(ctx, slot_1, false);
+	return true;
+}
+
+static bool attr_w gen_select_flat(struct codegen_context *ctx, frame_t slot_1, frame_t slot_2, frame_t slot_3, frame_t slot_r)
+{
+	unsigned size = log_2(sizeof(ajla_flat_option_t));
+	unsigned reg1;
+	uint32_t label_x, label_y;
+	unsigned cond = COND_NE;
+
+	label_x = alloc_label(ctx);
+	if (unlikely(!label_x))
+		return false;
+
+	if (slot_r == slot_2) {
+		frame_t s = slot_2;
+		slot_2 = slot_3;
+		slot_3 = s;
+		cond ^= 1;
+	}
+
+	if (slot_r != slot_3) {
+		label_y = alloc_label(ctx);
+		if (unlikely(!label_y))
+			return false;
+	} else {
+		label_y = 0;	/* avoid warning */
+	}
+
+	g(gen_frame_get(ctx, size, i_size(size) == size ? garbage : native, slot_1, R_SCRATCH_1, &reg1));
+	g(gen_jmp_on_zero(ctx, i_size(size), reg1, cond, label_x));
+
+	g(gen_memcpy_slots(ctx, slot_r, slot_2));
+	if (slot_r != slot_3) {
+		gen_insn(INSN_JMP, 0, 0, 0);
+		gen_label_ref(label_y);
+
+		gen_label(label_x);
+		g(gen_memcpy_slots(ctx, slot_r, slot_3));
+
+		gen_label(label_y);
+	} else {
+		gen_label(label_x);
+	}
+
+	return true;
+}
+
+static bool attr_w gen_select_ptr(struct codegen_context *ctx, frame_t slot_1, frame_t slot_2, frame_t slot_3, frame_t slot_r, frame_t flags)
+{
+	unsigned size = log_2(sizeof(ajla_flat_option_t));
+	unsigned reg1;
+	uint32_t label_x, label_y;
+
+	label_x = alloc_label(ctx);
+	if (unlikely(!label_x))
+		return false;
+
+	label_y = alloc_label(ctx);
+	if (unlikely(!label_y))
+		return false;
+
+	g(gen_frame_get(ctx, size, i_size(size) == size ? garbage : native, slot_1, R_SCRATCH_1, &reg1));
+	g(gen_jmp_on_zero(ctx, i_size(size), reg1, COND_NE, label_x));
+
+	g(gen_frame_get_pointer(ctx, slot_2, (flags & OPCODE_FLAG_FREE_ARGUMENT_2) != 0, R_SAVED_1));
+	if (flags & OPCODE_FLAG_FREE_ARGUMENT_3)
+		g(gen_dereference(ctx, slot_3, true));
+	gen_insn(INSN_JMP, 0, 0, 0);
+	gen_label_ref(label_y);
+
+	gen_label(label_x);
+	flag_set_unknown(ctx, slot_2);
+	flag_set_unknown(ctx, slot_3);
+	if (flags & OPCODE_FLAG_FREE_ARGUMENT_2)
+		g(gen_dereference(ctx, slot_2, true));
+	g(gen_frame_get_pointer(ctx, slot_3, (flags & OPCODE_FLAG_FREE_ARGUMENT_3) != 0, R_SAVED_1));
+
+	gen_label(label_y);
+	flag_set_unknown(ctx, slot_2);
+	flag_set_unknown(ctx, slot_3);
+	g(gen_frame_set_pointer(ctx, slot_r, R_SAVED_1, false, false));
+
+	return true;
+}
+
 static bool attr_w gen_eval(struct codegen_context *ctx, frame_t slot_1)
 {
 	uint32_t escape_label, skip_label;

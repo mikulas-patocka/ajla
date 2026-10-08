@@ -2932,6 +2932,58 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				if (unlikely(!pcode_free(ctx, res)))
 					goto exception;
 				break;
+			case P_Select:
+				res = u_pcode_get();
+				flags1 = u_pcode_get();
+				a1 = pcode_get();
+				flags2 = u_pcode_get();
+				a2 = pcode_get();
+				flags3 = u_pcode_get();
+				a3 = pcode_get();
+				if (unlikely(var_elided(res))) {
+					if (flags1 & Flag_Free_Argument)
+						pcode_free(ctx, a1);
+					if (flags2 & Flag_Free_Argument)
+						pcode_free(ctx, a2);
+					if (flags3 & Flag_Free_Argument)
+						pcode_free(ctx, a3);
+					break;
+				}
+				tr = get_var_type(ctx, res);
+				t1 = get_var_type(ctx, a1);
+				t2 = get_var_type(ctx, a2);
+				t3 = get_var_type(ctx, a3);
+				ajla_assert_lo(t1->type->tag == TYPE_TAG_bool, (file_line, "P_Select(%s): invalid types: %u, %u, %u, %u", function_name(ctx), t1->type->tag, t2->type->tag, t3->type->tag, tr->type->tag));
+				am = INIT_ARG_MODE;
+				get_arg_mode(am, t1->slot);
+				get_arg_mode(am, t2->slot);
+				get_arg_mode(am, t3->slot);
+				get_arg_mode(am, tr->slot);
+				if (TYPE_IS_FLAT(tr->type)) {
+					gen_code(OPCODE_SELECT_FLAT + am * OPCODE_MODE_MULT);
+					gen_am_two(am, t1->slot, t2->slot);
+					gen_am_two(am, t3->slot, tr->slot);
+					if (flags1 & Flag_Free_Argument) {
+						if (t1->slot != tr->slot)
+							pcode_free(ctx, a1);
+					}
+					if (flags2 & Flag_Free_Argument) {
+						if (t2->slot != tr->slot)
+							pcode_free(ctx, a2);
+					}
+					if (flags3 & Flag_Free_Argument) {
+						if (t3->slot != tr->slot)
+							pcode_free(ctx, a3);
+					}
+				} else {
+					gen_code(OPCODE_SELECT_PTR + am * OPCODE_MODE_MULT);
+					gen_am_two(am, t1->slot, t2->slot);
+					gen_am_two(am, t3->slot, tr->slot);
+					gen_am(am, (flags1 & Flag_Free_Argument ? OPCODE_FLAG_FREE_ARGUMENT : 0) |
+						(flags2 & Flag_Free_Argument ? OPCODE_FLAG_FREE_ARGUMENT_2 : 0) |
+						(flags3 & Flag_Free_Argument ? OPCODE_FLAG_FREE_ARGUMENT_3 : 0));
+				}
+				break;
 			case P_Eval:
 				a1 = pcode_get();
 				if (unlikely(var_elided(a1)))
