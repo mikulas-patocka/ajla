@@ -79,6 +79,7 @@
 #define  ARM64_FP_ALU_SINGLE		0x00000000U
 #define  ARM64_FP_ALU_DOUBLE		0x00400000U
 #define  ARM64_FP_ALU_HALF		0x00c00000U
+#define ARM64_FCSEL		0x1e200c00U
 #define ARM64_FCMP		0x1e202000U
 #define  ARM64_FCMP_ZERO		0x00000008U
 #define  ARM64_FCMP_SINGLE		0x00000000U
@@ -92,9 +93,6 @@
 #define  ARM64_FP_ALU1_RINTP		0x00048000U
 #define  ARM64_FP_ALU1_RINTM		0x00050000U
 #define  ARM64_FP_ALU1_RINTZ		0x00058000U
-#define  ARM64_FP_ALU1_SINGLE		0x00000000U
-#define  ARM64_FP_ALU1_DOUBLE		0x00400000U
-#define  ARM64_FP_ALU1_HALF		0x00c00000U
 #define ARM64_SCVTF		0x1e220000U
 #define  ARM64_SCVTF_SINGLE		0x00000000U
 #define  ARM64_SCVTF_DOUBLE		0x00400000U
@@ -352,9 +350,9 @@ static bool attr_w cgen_mov(struct codegen_context *ctx, unsigned size, bool sx)
 		if (reg_is_fp(arg2[0])) {
 			mc = ARM64_FP_ALU1 | ARM64_FP_ALU1_MOV;
 			switch (size) {
-				case OP_SIZE_2:		mc |= ARM64_FP_ALU1_HALF; break;
-				case OP_SIZE_4:		mc |= ARM64_FP_ALU1_SINGLE; break;
-				case OP_SIZE_8:		mc |= ARM64_FP_ALU1_DOUBLE; break;
+				case OP_SIZE_2:		mc |= ARM64_FP_ALU_HALF; break;
+				case OP_SIZE_4:		mc |= ARM64_FP_ALU_SINGLE; break;
+				case OP_SIZE_8:		mc |= ARM64_FP_ALU_DOUBLE; break;
 				default:		internal(file_line, "cgen_mov: invalid size %u", size);
 			}
 			mc |= arg1[0] & 31;
@@ -773,6 +771,26 @@ static bool attr_w cgen_csel(struct codegen_context *ctx, uint32_t insn, unsigne
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	uint8_t *arg3 = arg2 + arg_size(*arg2);
 	ctx->code_position = arg3 + arg_size(*arg3);
+	cond = jmp_cond[aux];
+	if (unlikely(cond < 0))
+		goto invalid;
+	if (reg_is_fp(arg1[0])) {
+		if (unlikely(insn != INSN_CSEL_SEL))
+			goto invalid;
+		mc = ARM64_FCSEL;
+		switch (size) {
+			case OP_SIZE_2:		mc |= ARM64_FP_ALU_HALF; break;
+			case OP_SIZE_4:		mc |= ARM64_FP_ALU_SINGLE; break;
+			case OP_SIZE_8:		mc |= ARM64_FP_ALU_DOUBLE; break;
+			default:		internal(file_line, "cgen_csel: invalid size %u", size);
+		}
+		mc |= arg1[0] & 31;
+		mc |= ((uint32_t)(arg2[0] & 31)) << 16;
+		mc |= ((uint32_t)(arg3[0] & 31)) << 5;
+		mc |= (uint32_t)cond << 12;
+		cgen_four(mc);
+		return true;
+	}
 	if (arg2[0] == ARG_IMM) {
 		imm = get_imm(&arg2[1]);
 		if (unlikely(imm != 0))
@@ -785,9 +803,6 @@ static bool attr_w cgen_csel(struct codegen_context *ctx, uint32_t insn, unsigne
 			goto invalid;
 		arg3 = &z;
 	}
-	cond = jmp_cond[aux];
-	if (unlikely(cond < 0))
-		goto invalid;
 	mc = ARM64_CSEL;
 	switch (insn) {
 		case INSN_CSEL_SEL:	mc |= ARM64_CSEL_SEL; break;
@@ -970,9 +985,9 @@ static bool attr_w cgen_fp_alu1(struct codegen_context *ctx, unsigned op_size, u
 		default:		internal(file_line, "cgen_fp_alu1: invalid alu %u", aux);
 	}
 	switch (op_size) {
-		case OP_SIZE_2:		mc |= ARM64_FP_ALU1_HALF; break;
-		case OP_SIZE_4:		mc |= ARM64_FP_ALU1_SINGLE; break;
-		case OP_SIZE_8:		mc |= ARM64_FP_ALU1_DOUBLE; break;
+		case OP_SIZE_2:		mc |= ARM64_FP_ALU_HALF; break;
+		case OP_SIZE_4:		mc |= ARM64_FP_ALU_SINGLE; break;
+		case OP_SIZE_8:		mc |= ARM64_FP_ALU_DOUBLE; break;
 		default:		internal(file_line, "cgen_fp_alu1: invalid size %u", op_size);
 	}
 do_regs:

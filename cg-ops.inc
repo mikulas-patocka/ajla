@@ -207,10 +207,9 @@ no_load_op:
 #define CMOV_FLAGS	1
 #define CMOV_REG	2
 
-static unsigned query_cmov(struct codegen_context *ctx, frame_t slot, unsigned *op_size)
+static unsigned query_cmov(const struct type *type, unsigned *op_size)
 {
 	unsigned allowed_cmov = 0;
-	const struct type *type = get_type_of_local(ctx, slot);
 	if (unlikely(!is_power_of_2(type->size))) {
 		*op_size = -1U;	/* avoid warning */
 		return 0;
@@ -223,11 +222,17 @@ static unsigned query_cmov(struct codegen_context *ctx, frame_t slot, unsigned *
 			if (type->size == type->align || !UNALIGNED_TRAP)
 				allowed_cmov |= CMOV_FLAGS;
 		}
+		if (ARCH_HAS_CMOV & 0x20 && TYPE_TAG_IS_REAL(type->tag) && (SUPPORTED_FP >> TYPE_TAG_IDX_REAL(type->tag)) & 1) {
+			allowed_cmov |= CMOV_FLAGS;
+		}
 	}
 	if (ARCH_HAS_CMOV & 0x8) {
 		if (TYPE_IS_FLAT(type) && !TYPE_TAG_IS_REAL(type->tag) && *op_size <= OP_SIZE_NATIVE) {
 			if (type->size == type->align || !UNALIGNED_TRAP)
 				allowed_cmov |= CMOV_REG;
+		}
+		if (ARCH_HAS_CMOV & 0x20 && TYPE_TAG_IS_REAL(type->tag) && (SUPPORTED_FP >> TYPE_TAG_IDX_REAL(type->tag)) & 1) {
+			allowed_cmov |= CMOV_REG;
 		}
 	}
 #if defined(ARCH_X86)
@@ -239,12 +244,19 @@ static unsigned query_cmov(struct codegen_context *ctx, frame_t slot, unsigned *
 
 static bool attr_w gen_select_flat(struct codegen_context *ctx, frame_t slot_1, frame_t slot_2, frame_t slot_3, frame_t slot_r)
 {
+	const struct type *type = get_type_of_local(ctx, slot_r);
 	unsigned attr_unused size = log_2(sizeof(ajla_flat_option_t));
 	unsigned reg;
 	uint32_t label_x, label_y;
 	unsigned cond = COND_NE;
-	unsigned op_size;
+	unsigned op_size, i_op_size;
 	unsigned qc;
+	unsigned r_scratch_3 = R_SCRATCH_3;
+	unsigned r_scratch_2 = R_SCRATCH_2;
+	if (TYPE_TAG_IS_REAL(type->tag)) {
+		r_scratch_3 = FR_SCRATCH_1;
+		r_scratch_2 = FR_SCRATCH_2;
+	}
 
 	label_x = alloc_label(ctx);
 	if (unlikely(!label_x))
@@ -265,18 +277,22 @@ static bool attr_w gen_select_flat(struct codegen_context *ctx, frame_t slot_1, 
 		label_y = 0;	/* avoid warning */
 	}
 
-	qc = query_cmov(ctx, slot_r, &op_size);
+	qc = query_cmov(type, &op_size);
+	if (!TYPE_TAG_IS_REAL(type->tag))
+		i_op_size = i_size(op_size);
+	else
+		i_op_size = op_size;
 
 	g(gen_prepare_cond_jump(ctx, slot_1, &reg));
 	if (reg != -1U) {
 		if (qc & CMOV_REG) {
 			unsigned reg2, reg3, tgt;
-			g(gen_frame_get(ctx, op_size, garbage, slot_3, R_SCRATCH_3, &reg3));
-			g(gen_frame_get(ctx, op_size, garbage, slot_2, R_SCRATCH_2, &reg2));
-			tgt = gen_frame_target(ctx, slot_r, slot_1, NO_FRAME_T, R_SCRATCH_3);
-			g(gen_mov(ctx, i_size(op_size), tgt, reg3));
+			g(gen_frame_get(ctx, op_size, garbage, slot_3, r_scratch_3, &reg3));
+			g(gen_frame_get(ctx, op_size, garbage, slot_2, r_scratch_2, &reg2));
+			tgt = gen_frame_target(ctx, slot_r, slot_1, NO_FRAME_T, r_scratch_3);
+			g(gen_mov(ctx, i_op_size, tgt, reg3));
 			reg3 = tgt;
-			gen_insn(INSN_MOVR, OP_SIZE_NATIVE, cond ^ 1, 0);
+			gen_insn(INSN_MOVR, i_op_size, cond ^ 1, 0);
 			gen_one(tgt);
 			gen_one(reg3);
 			gen_one(reg);
@@ -295,22 +311,22 @@ static bool attr_w gen_select_flat(struct codegen_context *ctx, frame_t slot_1, 
 do_cmov:
 		if (qc & CMOV_FLAGS) {
 			unsigned reg2, reg3, tgt;
-			g(gen_frame_get(ctx, op_size, garbage, slot_3, R_SCRATCH_3, &reg3));
-			tgt = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_3);
+			g(gen_frame_get(ctx, op_size, garbage, slot_3, r_scratch_3, &reg3));
+			tgt = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, r_scratch_3);
 			if (!(ARCH_HAS_CMOV & 0x2)) {
-				g(gen_mov(ctx, i_size(op_size), tgt, reg3));
+				g(gen_mov(ctx, i_op_size, tgt, reg3));
 				reg3 = tgt;
 			}
 			if (ARCH_HAS_CMOV & 0x4 && !slot_is_register(ctx, slot_2)) {
-				g(gen_address(ctx, R_FRAME, (size_t)slot_2 * slot_size, IMM_PURPOSE_LDR_OFFSET, i_size(op_size)));
-				gen_insn(INSN_CMOV, i_size(op_size), cond ^ 1, 0);
+				g(gen_address(ctx, R_FRAME, (size_t)slot_2 * slot_size, IMM_PURPOSE_LDR_OFFSET, op_size));
+				gen_insn(INSN_CMOV, op_size, cond ^ 1, 0);
 				gen_one(tgt);
 				gen_one(reg3);
 				gen_address_offset();
 				goto store_result;
 			}
-			g(gen_frame_get(ctx, op_size, garbage, slot_2, R_SCRATCH_2, &reg2));
-			gen_insn(INSN_CMOV, i_size(op_size), cond ^ 1, 0);
+			g(gen_frame_get(ctx, op_size, garbage, slot_2, r_scratch_2, &reg2));
+			gen_insn(INSN_CMOV, i_op_size, cond ^ 1, 0);
 			gen_one(tgt);
 			gen_one(reg3);
 			gen_one(reg2);

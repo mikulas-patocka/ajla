@@ -73,6 +73,7 @@
 #define  SPARC_MOVR_GEZ			0x00001c00U
 #define SPARC_FMOV		0x81a00000U
 #define SPARC_FNEG		0x81a00080U
+#define SPARC_FMOVR		0x81a80080U
 #define SPARC_FSQRT		0x81a00500U
 #define SPARC_FADD		0x81a00800U
 #define SPARC_FSUB		0x81a00880U
@@ -93,12 +94,6 @@
 #define  SPARC_ITOF_SINGLE		0x00000080U
 #define  SPARC_ITOF_DOUBLE		0x00000100U
 #define  SPARC_ITOF_QUAD		0x00000180U
-#define SPARC_FCMP		0x81a80a00U
-#define  SPARC_FCMP_CC0			0x02000000U
-#define  SPARC_FCMP_CC1			0x04000000U
-#define  SPARC_FCMP_SINGLE		0x00000020U
-#define  SPARC_FCMP_DOUBLE		0x00000040U
-#define  SPARC_FCMP_QUAD		0x00000060U
 #define SPARC_FTOF		0x81a01800U
 #define  SPARC_FTOF_FROM_SINGLE		0x00000020U
 #define  SPARC_FTOF_FROM_DOUBLE		0x00000040U
@@ -106,6 +101,19 @@
 #define  SPARC_FTOF_TO_SINGLE		0x00000080U
 #define  SPARC_FTOF_TO_DOUBLE		0x00000100U
 #define  SPARC_FTOF_TO_QUAD		0x00000180U
+#define SPARC_FCMOV		0x81a80000U
+#define  SPARC_FCMOV_FCC0		0x00000000U
+#define  SPARC_FCMOV_FCC1		0x00000800U
+#define  SPARC_FCMOV_FCC2		0x00001000U
+#define  SPARC_FCMOV_FCC3		0x00001800U
+#define  SPARC_FCMOV_ICC		0x00002000U
+#define  SPARC_FCMOV_XCC		0x00003000U
+#define SPARC_FCMP		0x81a80a00U
+#define  SPARC_FCMP_CC0			0x02000000U
+#define  SPARC_FCMP_CC1			0x04000000U
+#define  SPARC_FCMP_SINGLE		0x00000020U
+#define  SPARC_FCMP_DOUBLE		0x00000040U
+#define  SPARC_FCMP_QUAD		0x00000060U
 #define SPARC_JMPL		0x81c00000U
 #define SPARC_RETURN		0x81c80000U
 #define SPARC_SAVE		0x81e00000U
@@ -375,7 +383,7 @@ invalid:
 	return false;
 }
 
-static bool attr_w cgen_cmov(struct codegen_context *ctx, unsigned aux, bool xcc)
+static bool attr_w cgen_cmov(struct codegen_context *ctx, unsigned size, unsigned aux, bool xcc)
 {
 	int8_t cond;
 	uint32_t mc;
@@ -385,10 +393,29 @@ static bool attr_w cgen_cmov(struct codegen_context *ctx, unsigned aux, bool xcc
 	ctx->code_position = arg3 + arg_size(*arg3);
 	if (unlikely(arg1[0] != arg2[0]))
 		internal(file_line, "cgen_cmov: invalid arguments");
-	mc = SPARC_CMOV;
 	cond = jmp_cond[aux];
 	if (unlikely(cond < 0))
 		internal(file_line, "cgen_cmov: invalid condition %u", aux);
+	if (reg_is_fp(arg1[0])) {
+		mc = SPARC_FCMOV;
+		switch (size) {
+			case OP_SIZE_4:		mc |= SPARC_FP_SINGLE; break;
+			case OP_SIZE_8:		mc |= SPARC_FP_DOUBLE; break;
+			case OP_SIZE_16:	mc |= SPARC_FP_QUAD; break;
+			default:		internal(file_line, "cgen_cmov: invalid size %u", size);
+		}
+		if (aux & COND_FP) {
+			mc |= SPARC_FCMOV_FCC0;
+		} else {
+			mc |= xcc ? SPARC_FCMOV_XCC : SPARC_FCMOV_ICC;
+		}
+		mc |= (uint32_t)(arg1[0] & 31) << 25;
+		mc |= (uint32_t)cond << 14;
+		mc |= arg3[0] & 31;
+		cgen_four(mc);
+		return true;
+	}
+	mc = SPARC_CMOV;
 	if (aux & COND_FP) {
 		mc |= SPARC_CMOV_FCC0;
 	} else {
@@ -407,14 +434,24 @@ static bool attr_w cgen_cmov(struct codegen_context *ctx, unsigned aux, bool xcc
 	return true;
 }
 
-static bool attr_w cgen_movr(struct codegen_context *ctx, unsigned aux)
+static bool attr_w cgen_movr(struct codegen_context *ctx, unsigned size, unsigned aux)
 {
-	uint32_t mc = SPARC_MOVR;
+	uint32_t mc;
 	uint8_t *arg1 = ctx->code_position;
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	uint8_t *arg3 = arg2 + arg_size(*arg2);
 	uint8_t *arg4 = arg3 + arg_size(*arg3);
 	ctx->code_position = arg4 + arg_size(*arg4);
+	mc = SPARC_MOVR;
+	if (reg_is_fp(arg1[0])) {
+		mc = SPARC_FMOVR;
+		switch (size) {
+			case OP_SIZE_4:		mc |= SPARC_FP_SINGLE; break;
+			case OP_SIZE_8:		mc |= SPARC_FP_DOUBLE; break;
+			case OP_SIZE_16:	mc |= SPARC_FP_QUAD; break;
+			default:		internal(file_line, "cgen_movr: invalid size %u", size);
+		}
+	}
 	switch (aux) {
 		case COND_E:	mc |= SPARC_MOVR_Z; break;
 		case COND_LE:	mc |= SPARC_MOVR_LEZ; break;
@@ -426,14 +463,14 @@ static bool attr_w cgen_movr(struct codegen_context *ctx, unsigned aux)
 	}
 	if (unlikely(arg1[0] != arg2[0]))
 		internal(file_line, "cgen_movr: invalid arguments");
-	mc |= (uint32_t)arg1[0] << 25;
+	mc |= (uint32_t)(arg1[0] & 31) << 25;
 	mc |= (uint32_t)arg3[0] << 14;
 	if (arg4[0] == ARG_IMM) {
 		int64_t imm = get_imm(&arg4[1]);
 		mc |= SPARC_IMM_BIT;
 		mc |= imm & 0x3FF;
 	} else {
-		mc |= arg4[0];
+		mc |= arg4[0] & 31;
 	}
 	cgen_four(mc);
 	return true;
@@ -847,23 +884,17 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		case INSN_CMOV:
 			if (unlikely(!SPARC_9))
 				goto invalid_insn;
-			if (unlikely(insn_op_size(insn) != OP_SIZE_NATIVE))
-				goto invalid_insn;
-			g(cgen_cmov(ctx, insn_aux(insn), false));
+			g(cgen_cmov(ctx, insn_op_size(insn), insn_aux(insn), false));
 			return true;
 		case INSN_CMOV_XCC:
 			if (unlikely(!SPARC_9))
 				goto invalid_insn;
-			if (unlikely(insn_op_size(insn) != OP_SIZE_NATIVE))
-				goto invalid_insn;
-			g(cgen_cmov(ctx, insn_aux(insn), true));
+			g(cgen_cmov(ctx, insn_op_size(insn), insn_aux(insn), true));
 			return true;
 		case INSN_MOVR:
 			if (unlikely(!SPARC_9))
 				goto invalid_insn;
-			if (unlikely(insn_op_size(insn) != OP_SIZE_NATIVE))
-				goto invalid_insn;
-			g(cgen_movr(ctx, insn_aux(insn)));
+			g(cgen_movr(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_STP:
 		case INSN_LDP:
