@@ -211,6 +211,10 @@ no_load_op:
 static unsigned query_cmov(const struct type *type, unsigned *op_size)
 {
 	unsigned allowed_cmov = 0;
+	unsigned arch_has_cmov = ARCH_HAS_CMOV;
+#if defined(ARCH_IA64)
+	arch_has_cmov = 0;
+#endif
 	if (unlikely(!is_power_of_2(type->size))) {
 		*op_size = -1U;	/* avoid warning */
 		return 0;
@@ -218,21 +222,21 @@ static unsigned query_cmov(const struct type *type, unsigned *op_size)
 	*op_size = log_2(type->size);
 	if (unlikely(*op_size > OP_SIZE_64))
 		return 0;
-	if (ARCH_HAS_CMOV & 0x1) {
+	if (arch_has_cmov & 0x1) {
 		if (TYPE_IS_FLAT(type) && !TYPE_TAG_IS_REAL(type->tag) && *op_size <= OP_SIZE_NATIVE) {
 			if (type->size == type->align || !UNALIGNED_TRAP)
 				allowed_cmov |= CMOV_FLAGS;
 		}
-		if (ARCH_HAS_CMOV & 0x20 && TYPE_TAG_IS_REAL(type->tag) && (SUPPORTED_FP >> TYPE_TAG_IDX_REAL(type->tag)) & 1) {
+		if (arch_has_cmov & 0x20 && TYPE_TAG_IS_REAL(type->tag) && (SUPPORTED_FP >> TYPE_TAG_IDX_REAL(type->tag)) & 1) {
 			allowed_cmov |= CMOV_FLAGS;
 		}
 	}
-	if (ARCH_HAS_CMOV & 0x8) {
+	if (arch_has_cmov & 0x8) {
 		if (TYPE_IS_FLAT(type) && !TYPE_TAG_IS_REAL(type->tag) && *op_size <= OP_SIZE_NATIVE) {
 			if (type->size == type->align || !UNALIGNED_TRAP)
 				allowed_cmov |= CMOV_REG;
 		}
-		if (ARCH_HAS_CMOV & 0x20 && TYPE_TAG_IS_REAL(type->tag) && (SUPPORTED_FP >> TYPE_TAG_IDX_REAL(type->tag)) & 1) {
+		if (arch_has_cmov & 0x20 && TYPE_TAG_IS_REAL(type->tag) && (SUPPORTED_FP >> TYPE_TAG_IDX_REAL(type->tag)) & 1) {
 			allowed_cmov |= CMOV_REG;
 		}
 	}
