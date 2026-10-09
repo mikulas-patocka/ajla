@@ -113,6 +113,8 @@ static uint64_t dump_seq = 0;
 #define ALU_MSKBL			0x1d
 #define ALU_ZAP				0x20
 #define ALU_ZAPNOT			0x21
+#define ALU_CZERO_EQZ			0x22
+#define ALU_CZERO_NEZ			0x23
 
 #define ALU1_NOT			0x00
 #define ALU1_NEG			0x01
@@ -3081,7 +3083,7 @@ void name(codegen_init)(void)
 #endif
 #endif
 #if defined(ARCH_RISCV64)
-		str_add_string(&hex, &hexl, "	.attribute arch, \"rv64i2p1_m2p0_a2p1_f2p2_d2p2_c2p0_zicsr2p0_zifencei2p0_zba1p0_zbb1p0_zbc1p0_zbs1p0\"\n");
+		str_add_string(&hex, &hexl, "	.attribute arch, \"rv64i2p1_m2p0_a2p1_f2p2_d2p2_c2p0_zicsr2p0_zifencei2p0_zba1p0_zbb1p0_zbc1p0_zbs1p0_zicond1p0\"\n");
 #endif
 		os_write_atomic(".", "dump.s", hex, hexl, NULL);
 		mem_free(hex);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -36,9 +36,12 @@
 #define dynamic_test		(riscv_hwp[0].key >= 0 ? riscv_hwp[0].value & (1ULL << 5) : trap_insn("33100048"))
 #include "asm-1.inc"
 
+#define feature_name		zicond
+#define static_test_zicond	(__riscv_zicond)
+#define dynamic_test		(riscv_hwp[0].key >= 0 ? riscv_hwp[0].value & (1ULL << 35) : trap_insn("3350000e"))
+#include "asm-1.inc"
+
 #define feature_name		unaligned
 #define static_test_unaligned	0
 #define dynamic_test		(riscv_hwp[1].key >= 0 && (riscv_hwp[1].value & 7) == 3)
 #include "asm-1.inc"
-
-/* riscv_zicond = trap_insn("3350000e"); */

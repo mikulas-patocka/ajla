@@ -206,6 +206,7 @@ no_load_op:
 
 #define CMOV_FLAGS	1
 #define CMOV_REG	2
+#define CMOV_RISCV	4
 
 static unsigned query_cmov(const struct type *type, unsigned *op_size)
 {
@@ -235,6 +236,11 @@ static unsigned query_cmov(const struct type *type, unsigned *op_size)
 			allowed_cmov |= CMOV_REG;
 		}
 	}
+#if defined(ARCH_RISCV64)
+	if (cpu_test_feature(CPU_FEATURE_zicond) && !TYPE_TAG_IS_REAL(type->tag) && *op_size <= OP_SIZE_NATIVE)
+		if (type->size == type->align || !UNALIGNED_TRAP)
+			allowed_cmov |= CMOV_RISCV;
+#endif
 #if defined(ARCH_X86)
 	if (*op_size == OP_SIZE_1)
 		*op_size = OP_SIZE_2;
@@ -297,6 +303,17 @@ static bool attr_w gen_select_flat(struct codegen_context *ctx, frame_t slot_1, 
 			gen_one(reg3);
 			gen_one(reg);
 			gen_one(reg2);
+			g(gen_frame_store(ctx, op_size, slot_r, 0, tgt));
+			return true;
+		}
+		if (qc & CMOV_RISCV) {
+			unsigned reg2, reg3, tgt;
+			g(gen_frame_get(ctx, op_size, garbage, slot_3, r_scratch_3, &reg3));
+			g(gen_frame_get(ctx, op_size, garbage, slot_2, r_scratch_2, &reg2));
+			tgt = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, r_scratch_3);
+			g(gen_3address_alu(ctx, i_op_size, cond == COND_NE ? ALU_CZERO_EQZ : ALU_CZERO_NEZ, R_SCRATCH_4, reg3, reg, 0));
+			g(gen_3address_alu(ctx, i_op_size, cond == COND_NE ? ALU_CZERO_NEZ : ALU_CZERO_EQZ, tgt, reg2, reg, 0));
+			g(gen_3address_alu(ctx, i_op_size, ALU_OR, tgt, tgt, R_SCRATCH_4, 0));
 			g(gen_frame_store(ctx, op_size, slot_r, 0, tgt));
 			return true;
 		}

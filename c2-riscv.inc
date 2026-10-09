@@ -80,6 +80,7 @@
 #define RISCV_SH2ADD		0x20004033U
 #define RISCV_SRL		0x00005033U
 #define RISCV_DIVU		0x02005033U
+#define RISCV_CZERO_EQZ		0x0e005033U
 #define RISCV_SRA		0x40005033U
 #define RISCV_BEXT		0x48005033U
 #define RISCV_ROR		0x60005033U
@@ -88,6 +89,7 @@
 #define RISCV_SH3ADD		0x20006033U
 #define RISCV_AND		0x00007033U
 #define RISCV_REMU		0x02007033U
+#define RISCV_CZERO_NEZ		0x0e007033U
 #define RISCV_ANDN		0x40007033U
 #define RISCV_LUI		0x00000037U
 #define RISCV_ADDW		0x0000003bU
@@ -499,6 +501,8 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 		case ALU_SDIV:	mc = size == OP_SIZE_8 ? RISCV_DIV : RISCV_DIVW; break;
 		case ALU_UREM:	mc = size == OP_SIZE_8 ? RISCV_REMU : RISCV_REMUW; break;
 		case ALU_SREM:	mc = size == OP_SIZE_8 ? RISCV_REM : RISCV_REMW; break;
+		case ALU_CZERO_EQZ:	mc = RISCV_CZERO_EQZ; break;
+		case ALU_CZERO_NEZ:	mc = RISCV_CZERO_NEZ; break;
 		invalid:
 		default:	internal(file_line, "cgen_alu: invalid alu %u", alu);
 	}
