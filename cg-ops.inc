@@ -338,7 +338,11 @@ do_cmov:
 				g(gen_mov(ctx, i_op_size, tgt, reg3));
 				reg3 = tgt;
 			}
-			if (ARCH_HAS_CMOV & 0x4 && !slot_is_register(ctx, slot_2)) {
+			if (ARCH_HAS_CMOV & 0x4 && !slot_is_register(ctx, slot_2)
+#if defined(ARCH_S390)
+				&& op_size == i_op_size
+#endif
+			    ) {
 				g(gen_address(ctx, R_FRAME, (size_t)slot_2 * slot_size, IMM_PURPOSE_LDR_OFFSET, op_size));
 				gen_insn(INSN_CMOV, op_size, cond ^ 1, 0);
 				gen_one(tgt);
