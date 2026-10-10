@@ -22,6 +22,7 @@ P_Copy			; dest, ref_flag, src
 P_Copy_Type_Cast	; dest, ref_flag, src
 P_Free			; var
 P_Select		; dest, ref_flag_sel, sel, ref_flag_f, f, ref_flag_t, t
+P_SelectConst		; dest, ref_flag_sel, sel, n_bytes1, lsb1...msb1, n_bytes2, lsb2...msb2
 P_Eval			; var
 P_Keep			; var
 P_Where			; result_type, type, condition

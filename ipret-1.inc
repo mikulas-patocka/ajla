@@ -378,6 +378,37 @@ DEFINE_OPCODE(								\
 	ADVANCE_I_PARAM(2);						\
 )
 
+#define DEFINE_SCALAR_SELECT_CONST(tc, type)				\
+DEFINE_OPCODE(								\
+		cat3(OPCODE_,tc,OP) +					\
+		cat3(OPCODE_,tc,OP_select_const) * cat3(OPCODE_,tc,OP_MULT) +\
+		cat4(OPCODE_,tc,TYPE_,type) * cat3(OPCODE_,tc,TYPE_MULT),\
+		cat5(tc,select_const_,type,_,ARG_MODE),			\
+	frame_t slot_1 = get_i_param(0);				\
+	frame_t slot_2 = get_i_param(1);				\
+	frame_t slot_3 = get_i_param(2);				\
+	frame_t slot_r = get_i_param(3);				\
+	if (unlikely(frame_test_flag(fp, slot_1))) {			\
+		void *ex = thunk_select_flat(fp, ip, slot_1, NO_FRAME_T, NO_FRAME_T, slot_r);\
+		if (ex == POINTER_FOLLOW_THUNK_GO)			\
+			ADVANCE_I_PARAM(4);				\
+		else if (unlikely(ex != POINTER_FOLLOW_THUNK_RETRY))	\
+			RELOAD_EX_POSITION(ex);				\
+	} else {							\
+		ajla_flat_option_t val1;				\
+		barrier_aliasing();					\
+		val1 = *frame_slot(fp, slot_1, ajla_flat_option_t);	\
+		barrier_aliasing();					\
+		if (val1)						\
+			slot_2 = slot_3;				\
+		barrier_aliasing();					\
+		*frame_slot(fp, slot_r, type) = (int32_t)slot_2;	\
+		barrier_aliasing();					\
+		ADVANCE_I_PARAM(4);					\
+	}								\
+)
+
+
 #define DEFINE_FIXED_OPCODES(n, type, utype, sz, bits)	\
 DEFINE_FIXED_REAL_BINARY_OPCODE(FIXED_, type, add)	\
 DEFINE_FIXED_REAL_BINARY_OPCODE(FIXED_, type, subtract)	\
@@ -452,7 +483,8 @@ DEFINE_FIXED_FROM_INT(type, utype)			\
 DEFINE_FIXED_UFROM_INT(type, utype)			\
 DEFINE_SCALAR_MOVE_OPCODE(FIXED_, type)			\
 DEFINE_SCALAR_COPY_OPCODE(FIXED_, type)			\
-DEFINE_FIXED_LDC_OPCODE(FIXED, type, utype, ldc, false)
+DEFINE_FIXED_LDC_OPCODE(FIXED, type, utype, ldc, false)	\
+DEFINE_SCALAR_SELECT_CONST(FIXED_, type)
 
 for_all_fixed(DEFINE_FIXED_OPCODES)
 
@@ -969,7 +1001,8 @@ DEFINE_INT_FROM_INT(typeid, s)				\
 DEFINE_SCALAR_MOVE_OPCODE(INT_, s)			\
 DEFINE_SCALAR_COPY_OPCODE(INT_, s)			\
 DEFINE_INT_LDC_OPCODE(s, ldc, false)			\
-DEFINE_INT_LDC_OPCODE(s, ldc16, true)
+DEFINE_INT_LDC_OPCODE(s, ldc16, true)			\
+DEFINE_SCALAR_SELECT_CONST(INT_, s)
 
 for_all_int(DEFINE_INT_OPCODES, for_all_empty)
 

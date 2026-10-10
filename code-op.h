@@ -134,8 +134,9 @@ typedef uint16_t code_t;
 #define OPCODE_FIXED_OP_copy			85
 #define OPCODE_FIXED_OP_ldc			86
 #define OPCODE_FIXED_OP_ldc16			87
+#define OPCODE_FIXED_OP_select_const		88
 
-#define OPCODE_FIXED_TYPE_MULT		88
+#define OPCODE_FIXED_TYPE_MULT		89
 #define OPCODE_FIXED_TYPE_int8_t		0
 #define OPCODE_FIXED_TYPE_int16_t		1
 #define OPCODE_FIXED_TYPE_int32_t		2
@@ -204,8 +205,9 @@ typedef uint16_t code_t;
 #define OPCODE_INT_OP_copy			55
 #define OPCODE_INT_OP_ldc			56
 #define OPCODE_INT_OP_ldc16			57
+#define OPCODE_INT_OP_select_const		58
 
-#define OPCODE_INT_TYPE_MULT		58
+#define OPCODE_INT_TYPE_MULT		59
 #define OPCODE_INT_TYPE_int8_t			0
 #define OPCODE_INT_TYPE_int16_t			1
 #define OPCODE_INT_TYPE_int32_t			2

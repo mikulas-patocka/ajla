@@ -46,10 +46,11 @@
 #define re(n)	(OPCODE_REAL_OP + (OPCODE_REAL_OP_##n) * OPCODE_REAL_OP_MULT)
 #define bo(n)	(OPCODE_BOOL_OP + (OPCODE_BOOL_OP_##n) * OPCODE_BOOL_OP_MULT)
 
-#define Op_Mov	(Op_N + 0)
-#define Op_Copy	(Op_N + 1)
-#define Op_Ldc	(Op_N + 2)
-#define Op_NN	(Op_N + 3)
+#define Op_Mov		(Op_N + 0)
+#define Op_Copy		(Op_N + 1)
+#define Op_Ldc		(Op_N + 2)
+#define Op_SelectConst	(Op_N + 3)
+#define Op_NN		(Op_N + 4)
 
 shared_var const code_t pcode2code[Op_NN][5]
 #ifndef FILE_COMPRESSION
@@ -134,6 +135,7 @@ shared_var const code_t pcode2code[Op_NN][5]
 	{ fx(move),		fx(move),		in(move),		re(move),		bo(move),	},
 	{ fx(copy),		fx(copy),		in(copy),		re(copy),		bo(copy),	},
 	{ fx(ldc),		fx(ldc),		in(ldc),		re(ldc),		NO_OPCODE,	},
+	{ fx(select_const),	fx(select_const),	in(select_const),	NO_OPCODE,		NO_OPCODE,	},
 }
 #endif
 ;
@@ -1761,6 +1763,29 @@ exception:
 	return -1;
 }
 
+static bool pcode_get_inline_const_from_blob(struct build_function_context *ctx, const struct type *type, uint8_t *blob, size_t l, pcode_t *cnst)
+{
+	if (TYPE_TAG_IS_REAL(type->tag)) {
+		uint8_t *result;
+		if (!pcode_decode_real(type, blob, l, &result, ctx->err))
+			return false;
+		*cnst = pcode_alloc_real(ctx, type, result);
+		mem_free(result);
+		if (unlikely(*cnst < 0))
+			return false;
+	} else {
+		size_t i;
+		*cnst = 0;
+		for (i = 0; i < l; i++) {
+			upcode_t o = blob[i];
+			if (i >= l - 1 && o >= 128)
+				o -= 256;
+			*cnst |= o << (i * 8);
+		}
+	}
+	return true;
+}
+
 static bool pcode_generate_constant_from_blob(struct build_function_context *ctx, pcode_t res, uint8_t *blob, size_t l)
 {
 	const struct pcode_type *pt;
@@ -2705,11 +2730,11 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 		pcode_t instr, instr_params;
 		pcode_get_instr(ctx, &instr, &instr_params);
 		switch (instr) {
-			pcode_t p, op, res, a1, a2, a3, a4, aa, flags, flags1, flags2, flags3, cnst;
+			pcode_t p, op, res, a1, a2, a3, a4, aa, flags, flags1, flags2, flags3, cnst, cnst2;
 			const struct pcode_type *tr, *t1, *t2, *t3, *ta;
 			bool a1_deref, a2_deref;
-			uint8_t *blob;
-			size_t l, i;
+			uint8_t *blob, *blob2;
+			size_t l, l2;
 			arg_mode_t am;
 			code_t code;
 			frame_t fflags;
@@ -2841,27 +2866,11 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				}
 				tr = get_var_type(ctx, res);
 				t1 = get_var_type(ctx, a1);
-				if (TYPE_TAG_IS_REAL(t1->type->tag)) {
-					uint8_t *result;
-					if (!pcode_decode_real(t1->type, blob, l, &result, ctx->err)) {
-						mem_free(blob);
-						goto exception;
-					}
+				if (unlikely(!pcode_get_inline_const_from_blob(ctx, t1->type, blob, l, &cnst))) {
 					mem_free(blob);
-					cnst = pcode_alloc_real(ctx, t1->type, result);
-					mem_free(result);
-					if (unlikely(cnst < 0))
-						goto exception;
-				} else {
-					cnst = 0;
-					for (i = 0; i < l; i++) {
-						upcode_t o = blob[i];
-						if (i >= l - 1 && o >= 128)
-							o -= 256;
-						cnst |= o << (i * 8);
-					}
-					mem_free(blob);
+					goto exception;
 				}
+				mem_free(blob);
 				ajla_assert_lo(type_is_equal(tr->type, (Op_IsBool(op) ? type_get_bool() : t1->type)), (file_line, "P_BinaryConstOp(%s): invalid types for binary operation %"PRIdMAX": %u, %u", function_name(ctx), (intmax_t)op, t1->type->tag, tr->type->tag));
 				fflags = 0;
 				if (flags1 & Flag_Fused_Bin_Jmp)
@@ -2983,6 +2992,45 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 						(flags2 & Flag_Free_Argument ? OPCODE_FLAG_FREE_ARGUMENT_2 : 0) |
 						(flags3 & Flag_Free_Argument ? OPCODE_FLAG_FREE_ARGUMENT_3 : 0));
 				}
+				break;
+			case P_SelectConst:
+				res = u_pcode_get();
+				flags1 = u_pcode_get();
+				a1 = pcode_get();
+				if (unlikely(!pcode_load_blob(&ctx->pcode, &blob, &l, ctx->err)))
+					goto exception;
+				if (unlikely(!pcode_load_blob(&ctx->pcode, &blob2, &l2, ctx->err))) {
+					mem_free(blob);
+					goto exception;
+				}
+				if (unlikely(var_elided(res))) {
+					mem_free(blob);
+					mem_free(blob2);
+					break;
+				}
+				tr = get_var_type(ctx, res);
+				t1 = get_var_type(ctx, a1);
+				ajla_assert_lo(t1->type->tag == TYPE_TAG_bool, (file_line, "P_SelectConst(%s): invalid types: %u, %u", function_name(ctx), t1->type->tag, tr->type->tag));
+				if (unlikely(!pcode_get_inline_const_from_blob(ctx, tr->type, blob, l, &cnst))) {
+					mem_free(blob);
+					mem_free(blob2);
+					goto exception;
+				}
+				mem_free(blob);
+				if (unlikely(!pcode_get_inline_const_from_blob(ctx, tr->type, blob2, l2, &cnst2))) {
+					mem_free(blob2);
+					goto exception;
+				}
+				mem_free(blob2);
+				am = INIT_ARG_MODE;
+				get_arg_mode(am, t1->slot);
+				get_arg_mode(am, (frame_t)cnst);
+				get_arg_mode(am, (frame_t)cnst2);
+				get_arg_mode(am, tr->slot);
+				code = get_code(Op_SelectConst, tr->type) + am * OPCODE_MODE_MULT;
+				gen_code(code);
+				gen_am_two(am, t1->slot, (frame_t)cnst);
+				gen_am_two(am, (frame_t)cnst2, tr->slot);
 				break;
 			case P_Eval:
 				a1 = pcode_get();
