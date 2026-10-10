@@ -40,6 +40,8 @@
 #define LOONG_SUB_D		0x00118000U
 #define LOONG_SLT		0x00120000U
 #define LOONG_SLTU		0x00128000U
+#define LOONG_MASKEQZ		0x00130000U
+#define LOONG_MASKNEZ		0x00138000U
 #define LOONG_NOR		0x00140000U
 #define LOONG_AND		0x00148000U
 #define LOONG_OR		0x00150000U
@@ -490,6 +492,8 @@ gen_add:
 		case ALU_SDIV:	mc = size == OP_SIZE_8 ? LOONG_DIV_D : LOONG_DIV_W; break;
 		case ALU_UREM:	mc = size == OP_SIZE_8 ? LOONG_MOD_DU : LOONG_MOD_WU; break;
 		case ALU_SREM:	mc = size == OP_SIZE_8 ? LOONG_MOD_D : LOONG_MOD_W; break;
+		case ALU_CZERO_EQZ: mc = LOONG_MASKEQZ; break;
+		case ALU_CZERO_NEZ: mc = LOONG_MASKNEZ; break;
 		default:	internal(file_line, "cgen_alu: invalid alu %u", alu);
 	}
 	cgen_3r(mc, arg1[0], arg2[0], arg3[0]);
