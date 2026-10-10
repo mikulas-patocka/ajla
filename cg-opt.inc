@@ -1110,6 +1110,12 @@ skip_reads:
 			ptr += arg_write(ctx, d, ptr, size);
 			ptr += arg_read(ctx, d, ptr, size);
 			break;
+		case INSN_FP_BLEND:
+			ptr += arg_write(ctx, d, ptr, size);
+			ptr += arg_read(ctx, d, ptr, size);
+			ptr += arg_read(ctx, d, ptr, size);
+			ptr += arg_read(ctx, d, ptr, size);
+			break;
 		case INSN_X87_FLD:
 		case INSN_X87_FILD:
 			ptr += arg_read(ctx, d, ptr, size);

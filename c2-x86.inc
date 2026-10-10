@@ -176,6 +176,8 @@
 #define X86_0F_PINSRW_X128_RM16_IMM8	0xc4
 
 #define X86_0F_38_CVTPH2PS_X128_RM64	0x13
+#define X86_0F_38_BLENDVPS		0x14
+#define X86_0F_38_BLENDVPD		0x15
 #define X86_0F_38_VFMADD132S		0x99
 #define X86_0F_38_VFMSUB132S		0x9b
 #define X86_0F_38_VFNMADD132S		0x9d
@@ -198,6 +200,8 @@
 #define X86_0F_3A_ROUNDSD_X128_M64	0x0b
 #define X86_0F_3A_PEXTRW_RM16_X128_IMM8	0x15
 #define X86_0F_3A_CVTPS2PH_RM64_X128	0x1d
+#define X86_0F_3A_BLENDVPS		0x4a
+#define X86_0F_3A_BLENDVPD		0x4b
 
 #define X86_LEGACY_EVEX_SHLD_IMM8	0x24
 #define X86_LEGACY_EVEX_SHRD_IMM8	0x2c
@@ -1568,6 +1572,24 @@ static bool attr_w cgen_sse_cvt(struct codegen_context *ctx, unsigned from_op_si
 	return false;
 }
 
+static bool attr_w cgen_sse_blend(struct codegen_context *ctx, unsigned op_size)
+{
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	uint8_t *arg4 = arg3 + arg_size(*arg3);
+	ctx->code_position = arg4 + arg_size(*arg4);
+	if (unlikely(!cpu_test_feature(CPU_FEATURE_avx))) {
+		if (unlikely(arg1[0] != arg2[0]) || arg3[0] != R_XMM0)
+			internal(file_line, "cgen_sse_blend: unsupported arguments");
+		g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F_38, op_size == OP_SIZE_4 ? X86_0F_38_BLENDVPS : X86_0F_38_BLENDVPD, false, op_size, arg1[0], arg2[0], arg4, 0));
+	} else {
+		g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F_3A, op_size == OP_SIZE_4 ? X86_0F_3A_BLENDVPS : X86_0F_3A_BLENDVPD, false, op_size, arg1[0], arg2[0], arg4, 1));
+		cgen_one(arg3[0] << 4);
+	}
+	return true;
+}
+
 static bool attr_w cgen_x87_fld(struct codegen_context *ctx, unsigned size)
 {
 	unsigned c1, c2;
@@ -2124,6 +2146,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_FP_CVT:
 			g(cgen_sse_cvt(ctx, insn_op_size(insn), insn_aux(insn)));
+			return true;
+		case INSN_FP_BLEND:
+			g(cgen_sse_blend(ctx, insn_op_size(insn)));
 			return true;
 		case INSN_X87_FLD:
 			g(cgen_x87_fld(ctx, insn_op_size(insn)));

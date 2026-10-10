@@ -177,10 +177,13 @@ skip_dereference:
 	return true;
 }
 
-static bool attr_w gen_prepare_cond_jump(struct codegen_context *ctx, frame_t slot, unsigned *reg)
+static bool attr_w gen_prepare_cond_jump(struct codegen_context *ctx, frame_t slot, bool no_load_op, unsigned *reg)
 {
 	unsigned size = log_2(sizeof(ajla_flat_option_t));
 	size_t attr_unused offset;
+
+	if (no_load_op)
+		goto no_load_op;
 	if (slot_is_register(ctx, slot))
 		goto no_load_op;
 
@@ -207,6 +210,7 @@ no_load_op:
 #define CMOV_FLAGS	1
 #define CMOV_REG	2
 #define CMOV_RISCV	4
+#define CMOV_SSE41	8
 
 static unsigned query_cmov(const struct type *type, unsigned *op_size)
 {
@@ -246,6 +250,9 @@ static unsigned query_cmov(const struct type *type, unsigned *op_size)
 			allowed_cmov |= CMOV_RISCV;
 #endif
 #if defined(ARCH_X86)
+	if (cpu_test_feature(CPU_FEATURE_sse41) && TYPE_TAG_IS_REAL(type->tag) && TYPE_TAG_IDX_REAL(type->tag) != 0 && (SUPPORTED_FP >> TYPE_TAG_IDX_REAL(type->tag)) & 1 && *op_size <= OP_SIZE_NATIVE) {
+		allowed_cmov |= CMOV_SSE41;
+	}
 	if (*op_size == OP_SIZE_1)
 		*op_size = OP_SIZE_2;
 #endif
@@ -298,7 +305,7 @@ static bool attr_w gen_select_flat(struct codegen_context *ctx, frame_t slot_1, 
 #endif
 	}
 
-	g(gen_prepare_cond_jump(ctx, slot_1, &reg));
+	g(gen_prepare_cond_jump(ctx, slot_1, (qc & CMOV_SSE41) != 0, &reg));
 	if (reg != -1U) {
 		if (qc & CMOV_REG) {
 			unsigned reg2, reg3, tgt;
@@ -332,6 +339,35 @@ static bool attr_w gen_select_flat(struct codegen_context *ctx, frame_t slot_1, 
 			gen_one(reg);
 			goto do_cmov;
 		}
+#if defined(ARCH_X86)
+		if (qc & CMOV_SSE41) {
+			unsigned reg2, reg3, tgt;
+			if (!cpu_test_feature(CPU_FEATURE_avx512vl)) {
+				if (!slot_is_register(ctx, slot_2) && !slot_is_register(ctx, slot_3))
+					goto skip_sse41;
+				g(gen_extend(ctx, ARCH_BOOL_SIZE, native, R_SCRATCH_1, reg));
+				g(gen_2address_alu1(ctx, op_size, ALU1_NEG, R_SCRATCH_1, R_SCRATCH_1, 0));
+				g(gen_mov(ctx, op_size, FR_SCRATCH_1, R_SCRATCH_1));
+				g(gen_frame_get(ctx, op_size, garbage, slot_2, r_scratch_2, &reg2));
+				g(gen_frame_get(ctx, op_size, garbage, slot_3, r_scratch_2, &reg3));
+				tgt = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, r_scratch_2);
+				if (!cpu_test_feature(CPU_FEATURE_avx)) {
+					if (tgt != reg2) {
+						g(gen_mov(ctx, op_size, tgt, reg2));
+						reg2 = tgt;
+					}
+				}
+				gen_insn(INSN_FP_BLEND, op_size, 0, 0);
+				gen_one(tgt);
+				gen_one(reg2);
+				gen_one(FR_SCRATCH_1);
+				gen_one(reg3);
+				g(gen_frame_store(ctx, op_size, slot_r, 0, tgt));
+				return true;
+			}
+		}
+skip_sse41:
+#endif
 		g(gen_jmp_on_zero(ctx, i_size(size), reg, cond, label_x));
 	} else {
 do_cmov:
@@ -441,7 +477,7 @@ static bool attr_w gen_select_ptr(struct codegen_context *ctx, frame_t slot_1, f
 	if (unlikely(!label_y))
 		return false;
 
-	g(gen_prepare_cond_jump(ctx, slot_1, &reg));
+	g(gen_prepare_cond_jump(ctx, slot_1, false, &reg));
 	if (reg != -1U) {
 		g(gen_jmp_on_zero(ctx, i_size(size), reg, cond, label_x));
 	} else {
@@ -547,7 +583,7 @@ static bool attr_w gen_cond_jump(struct codegen_context *ctx, frame_t slot, int3
 	unsigned size = log_2(sizeof(ajla_flat_option_t));
 	unsigned reg;
 
-	g(gen_prepare_cond_jump(ctx, slot, &reg));
+	g(gen_prepare_cond_jump(ctx, slot, false, &reg));
 	g(gen_jump(ctx, jmp_offset, size, COND_E, reg, -1U, 0));
 
 	return true;
