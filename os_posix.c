@@ -2040,6 +2040,26 @@ static void os_init_path_to_exe(void)
 #ifdef __linux__
 	char *ptexe = os_readlink(dir_none, "/proc/self/exe", &sink);
 	if (likely(ptexe != NULL)) {
+#ifndef codegen_use_heap
+		char *ptexe2;
+		dh = os_dir_open(dir_none, "/proc/self", 0, &sink);
+		if (dir_handle_is_valid(dh)) {
+			ptexe2 = os_readlink(dh, "exe", &sink);
+			os_dir_close(dh);
+			if (likely(ptexe2 != NULL)) {
+				if (unlikely(strcmp(ptexe, ptexe2))) {
+					const char *last_slash = strrchr(ptexe2, '/');
+					if (!last_slash)
+						last_slash = ptexe2;
+					else
+						last_slash++;
+					if (!strncmp(last_slash, "qemu", 4))
+						codegen_use_heap = false;
+				}
+				mem_free(ptexe2);
+			}
+		}
+#endif
 		if (likely(ptexe[0] == '/')) {
 			sep = 0;
 			for (i = 0; ptexe[i]; i++)
