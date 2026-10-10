@@ -133,7 +133,16 @@ static void *callback_trampoline;
 #define R_FS		0x2c
 #define R_GS		0x2d
 
-#define R_PCN		0x30
+#define R_K0		0x30
+#define R_K1		0x31
+#define R_K2		0x32
+#define R_K3		0x33
+#define R_K4		0x34
+#define R_K5		0x35
+#define R_K6		0x36
+#define R_K7		0x37
+
+#define R_PCN		0x38
 
 #define R_XMM0		0x40
 #define R_XMM1		0x41
@@ -217,6 +226,8 @@ static uint8_t upcall_register = R_R15;
 #define FR_SCRATCH_16	R_XMM16
 #endif
 
+#define KR_SCRATCH_1	R_K1
+
 #if defined(ARCH_X86_32)
 #define R_ARG0		R_AX
 #define R_ARG1		R_AX
@@ -268,6 +279,11 @@ static inline bool reg_is_x87(unsigned reg)
 static inline bool reg_is_segment(unsigned reg)
 {
 	return reg >= 0x28 && reg < 0x2e;
+}
+
+static inline bool reg_is_mask(unsigned reg)
+{
+	return reg >= 0x30 && reg < 0x38;
 }
 
 #if defined(ARCH_X86_32)

@@ -151,6 +151,7 @@
 #define X86_0F_MOVD_RM32_X128		0x7e
 #define X86_0F_JCC_16			0x80
 #define X86_0F_SETCC_RM8		0x90
+#define X86_0F_KMOV_K_R			0x92
 #define X86_0F_BT_RM16_R16		0xa3
 #define X86_0F_SHLD_IMM8		0xa4
 #define X86_0F_SHLD_CL			0xa5
@@ -178,6 +179,7 @@
 #define X86_0F_38_CVTPH2PS_X128_RM64	0x13
 #define X86_0F_38_BLENDVPS		0x14
 #define X86_0F_38_BLENDVPD		0x15
+#define X86_0F_38_BLENDMP		0x65
 #define X86_0F_38_VFMADD132S		0x99
 #define X86_0F_38_VFMSUB132S		0x9b
 #define X86_0F_38_VFNMADD132S		0x9d
@@ -328,6 +330,7 @@ static bool attr_w cgen_rex2(struct codegen_context attr_unused *ctx, uint8_t re
 #define SSE_PREFIX_W			0x080000
 #define SSE_PREFIX_L			0x100000
 #define SSE_PREFIX_LL			0x200000
+#define SSE_PREFIX_OPMASK_BIT		24
 
 static bool attr_w cgen_rm_insn(struct codegen_context *ctx, int32_t sse_prefix, uint8_t prefix, uint8_t opcode, unsigned size, unsigned real_size, bool reg_is_reg, uint8_t reg, uint8_t *arg, unsigned trailing_bytes)
 {
@@ -495,7 +498,7 @@ gen:
 				cgen_one(X86_EVEX);
 				cgen_one(((~rex2 & (X86_REX2_R3 | X86_REX2_X3 | X86_REX2_B3)) << 5) | !(rex2 & X86_REX2_R4) << 4 | !!(rex2 & X86_REX2_B4) << 3 | prefix);
 				cgen_one((rex2 & X86_REX2_W) << 4 | (~(sse_prefix >> 8) & 0xf) << 3 | !(rex2 & X86_REX2_X4) << 2 | (sse_prefix & 3));
-				cgen_one(!!(sse_prefix & SSE_PREFIX_LL) << 6 | !!(sse_prefix & SSE_PREFIX_L) << 5 | !!(sse_prefix & force_ndd) << 4 | !((sse_prefix >> 8) & 0x10) << 3);
+				cgen_one(!!(sse_prefix & SSE_PREFIX_LL) << 6 | !!(sse_prefix & SSE_PREFIX_L) << 5 | !!(sse_prefix & force_ndd) << 4 | !((sse_prefix >> 8) & 0x10) << 3 | ((sse_prefix >> SSE_PREFIX_OPMASK_BIT) & 7));
 			} else if ((rex2 & (X86_REX2_X3 | X86_REX2_B3 | X86_REX2_W)) == 0 && prefix == PREFIX_0F) {
 				cgen_one(X86_VEX_2);
 				cgen_one((~rex2 & X86_REX2_R3) << 5 | (~(sse_prefix >> 8) & 0xf) << 3 | !!(sse_prefix & SSE_PREFIX_L) << 2 | (sse_prefix & 3));
@@ -780,6 +783,17 @@ mov_rm:
 	}
 	if (R_IS_GPR(arg1[0]) && R_IS_XMM(arg2[0])) {
 		g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F, X86_0F_MOVD_RM32_X128, size == OP_SIZE_8, size, arg2[0], 0, arg1, 0));
+		return true;
+	}
+	if (reg_is_mask(arg1[0]) && R_IS_GPR(arg2[0])) {
+		if (size == OP_SIZE_1)
+			g(cgen_sse_insn(ctx, SSE_PREFIX_66 + force_vex, PREFIX_0F, X86_0F_KMOV_K_R, false, size, arg1[0] & 7, 0, arg2, 0));
+		if (size == OP_SIZE_2)
+			g(cgen_sse_insn(ctx, SSE_PREFIX_NONE + force_vex, PREFIX_0F, X86_0F_KMOV_K_R, false, size, arg1[0] & 7, 0, arg2, 0));
+		if (size == OP_SIZE_4)
+			g(cgen_sse_insn(ctx, SSE_PREFIX_F2 + force_vex, PREFIX_0F, X86_0F_KMOV_K_R, false, size, arg1[0] & 7, 0, arg2, 0));
+		if (size == OP_SIZE_8)
+			g(cgen_sse_insn(ctx, SSE_PREFIX_F2 + force_vex, PREFIX_0F, X86_0F_KMOV_K_R, true, size, arg1[0] & 7, 0, arg2, 0));
 		return true;
 	}
 	if (!R_IS_GPR(arg1[0]) && unlikely(!R_IS_GPR(arg2[0]))) {
@@ -1579,7 +1593,9 @@ static bool attr_w cgen_sse_blend(struct codegen_context *ctx, unsigned op_size)
 	uint8_t *arg3 = arg2 + arg_size(*arg2);
 	uint8_t *arg4 = arg3 + arg_size(*arg3);
 	ctx->code_position = arg4 + arg_size(*arg4);
-	if (unlikely(!cpu_test_feature(CPU_FEATURE_avx))) {
+	if (reg_is_mask(arg3[0])) {
+		g(cgen_sse_insn(ctx, SSE_PREFIX_66 + force_evex + ((arg3[0] & 7) << SSE_PREFIX_OPMASK_BIT), PREFIX_0F_38, X86_0F_38_BLENDMP, op_size == OP_SIZE_8, op_size, arg1[0], arg2[0], arg4, 0));
+	} else if (unlikely(!cpu_test_feature(CPU_FEATURE_avx))) {
 		if (unlikely(arg1[0] != arg2[0]) || arg3[0] != R_XMM0)
 			internal(file_line, "cgen_sse_blend: unsupported arguments");
 		g(cgen_sse_insn(ctx, SSE_PREFIX_66, PREFIX_0F_38, op_size == OP_SIZE_4 ? X86_0F_38_BLENDVPS : X86_0F_38_BLENDVPD, false, op_size, arg1[0], arg2[0], arg4, 0));

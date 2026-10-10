@@ -364,6 +364,18 @@ static bool attr_w gen_select_flat(struct codegen_context *ctx, frame_t slot_1, 
 				gen_one(reg3);
 				g(gen_frame_store(ctx, op_size, slot_r, 0, tgt));
 				return true;
+			} else {
+				g(gen_mov(ctx, OP_SIZE_2, KR_SCRATCH_1, reg));
+				g(gen_frame_get(ctx, op_size, garbage, slot_2, r_scratch_2, &reg2));
+				g(gen_frame_get(ctx, op_size, garbage, slot_3, r_scratch_3, &reg3));
+				tgt = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, r_scratch_2);
+				gen_insn(INSN_FP_BLEND, op_size, 0, 0);
+				gen_one(tgt);
+				gen_one(reg2);
+				gen_one(KR_SCRATCH_1);
+				gen_one(reg3);
+				g(gen_frame_store(ctx, op_size, slot_r, 0, tgt));
+				return true;
 			}
 		}
 skip_sse41:
