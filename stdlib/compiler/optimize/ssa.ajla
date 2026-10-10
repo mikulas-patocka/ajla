@@ -1396,6 +1396,36 @@ skip_const:
 		]
 		goto end;
 	]
+	if ins.opcode = P_Select then [
+		var vgi1 := ins.params[2];
+		var v1 := ctx.variables[vgi1];
+		var v1_ins := ctx.instrs[v1.defining_instr];
+		var vgi2 := ins.params[4];
+		var v2 := ctx.variables[vgi2];
+		var v2_ins := ctx.instrs[v2.defining_instr];
+		var vgi3 := ins.params[6];
+		var v3 := ctx.variables[vgi3];
+		var v3_ins := ctx.instrs[v3.defining_instr];
+		var vgir := ins.params[0];
+		var vr := ctx.variables[vgir];
+		if v2_ins.opcode = P_Load_Const, v3_ins.opcode = P_Load_Const, v2.runtime_type <= T_SInt8, v2.runtime_type >= T_Integer128 then [
+			var c2 := blob_to_int(v2_ins.params[1 .. ]);
+			var c3 := blob_to_int(v3_ins.params[1 .. ]);
+			var lower_limit, upper_limit := -#40000000, #3fffffff;
+			if v1.runtime_type = T_Integer8 or v1.runtime_type = T_SInt8 then
+				lower_limit, upper_limit := -#80, #80;
+			if v1.runtime_type = T_UInt8 then
+				lower_limit, upper_limit := #0, #100;
+			if v1.runtime_type = T_Integer16 or v1.runtime_type = T_SInt16 then
+				lower_limit, upper_limit := -#8000, #8000;
+			if v1.runtime_type = T_UInt16 then
+				lower_limit, upper_limit := #0, #10000;
+			if v1.runtime_type = T_UInt32 or v1.runtime_type = T_UInt64 or v1.runtime_type = T_UInt128 then
+				lower_limit := #0;
+			if c2 >= lower_limit, c2 < upper_limit, c3 >= lower_limit, c3 < upper_limit then
+				return create_instr(P_SelectConst, ins.params[ .. 3] + v2_ins.params[1 .. ] + v3_ins.params[1 .. ], ins.bb), true;
+		]
+	]
 	if ins.opcode = P_Option_Test then [
 		//if ctx.name = "rec" then goto end;
 		var idx := ins.params[2];
@@ -1703,6 +1733,7 @@ again:
 					bts P_UnaryOp
 					bts P_Copy
 					bts P_Select
+					bts P_SelectConst
 					bts P_Load_Fn
 					bts P_Curry
 					bts P_Load_Const

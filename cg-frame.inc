@@ -490,7 +490,7 @@ static bool attr_w gen_frame_get(struct codegen_context *ctx, unsigned size, enu
 	if (slot_is_register(ctx, slot)) {
 		unsigned sreg = ctx->registers[slot];
 		if (ex != garbage && size < OP_SIZE_NATIVE && !reg_is_fp(sreg)) {
-			if ((t->tag == TYPE_TAG_bool || t->tag == TYPE_TAG_flat_opt) && size <= ARCH_BOOL_SIZE)
+			if ((t->tag == TYPE_TAG_bool || t->tag == TYPE_TAG_flat_opt) && OP_SIZE_NATIVE == ARCH_BOOL_SIZE)
 				goto skip_extend;
 			g(gen_extend(ctx, size, ex, sreg, sreg));
 		}

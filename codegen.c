@@ -1546,6 +1546,16 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				flag_set(ctx, slot_r, false);
 				g(gen_alu1(ctx, MODE_FIXED, type, op, escape_label, slot_1, slot_r));
 				continue;
+			} else if (op == OPCODE_FIXED_OP_move || op == OPCODE_FIXED_OP_copy) {
+				get_two(ctx, &slot_1, &slot_r);
+				escape_label = alloc_escape_label(ctx);
+				if (unlikely(!escape_label))
+					return false;
+				g(gen_test_1_cached(ctx, slot_1, escape_label));
+				flag_set(ctx, slot_1, false);
+				flag_set(ctx, slot_r, false);
+				g(gen_copy(ctx, type, slot_1, slot_r));
+				continue;
 			} else if (op == OPCODE_FIXED_OP_ldc) {
 				unsigned i;
 				get_one(ctx, &slot_r);
@@ -1560,15 +1570,16 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				get_code(ctx);
 				flag_set(ctx, slot_r, false);
 				continue;
-			} else if (op == OPCODE_FIXED_OP_move || op == OPCODE_FIXED_OP_copy) {
-				get_two(ctx, &slot_1, &slot_r);
+			} else if (op == OPCODE_FIXED_OP_select_const) {
+				get_two(ctx, &slot_1, &slot_2);
+				get_two(ctx, &slot_3, &slot_r);
 				escape_label = alloc_escape_label(ctx);
 				if (unlikely(!escape_label))
 					return false;
 				g(gen_test_1_cached(ctx, slot_1, escape_label));
 				flag_set(ctx, slot_1, false);
 				flag_set(ctx, slot_r, false);
-				g(gen_copy(ctx, type, slot_1, slot_r));
+				g(gen_select_const(ctx, type, slot_1, slot_2, slot_3, slot_r));
 				continue;
 			} else {
 				internal(file_line, "gen_function: bad fixed code %04x", *ctx->instr_start);
@@ -1625,6 +1636,16 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				flag_set(ctx, slot_r, false);
 				g(gen_alu1(ctx, MODE_INT, type, op, escape_label, slot_1, slot_r));
 				continue;
+			} else if (op == OPCODE_INT_OP_move || op == OPCODE_INT_OP_copy) {
+				get_two(ctx, &slot_1, &slot_r);
+				escape_label = alloc_escape_label(ctx);
+				if (unlikely(!escape_label))
+					return false;
+				g(gen_test_1_cached(ctx, slot_1, escape_label));
+				flag_set(ctx, slot_1, false);
+				flag_set(ctx, slot_r, false);
+				g(gen_copy(ctx, type, slot_1, slot_r));
+				continue;
 			} else if (op == OPCODE_INT_OP_ldc) {
 				unsigned i;
 				get_one(ctx, &slot_r);
@@ -1639,15 +1660,16 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				get_code(ctx);
 				flag_set(ctx, slot_r, false);
 				continue;
-			} else if (op == OPCODE_INT_OP_move || op == OPCODE_INT_OP_copy) {
-				get_two(ctx, &slot_1, &slot_r);
+			} else if (op == OPCODE_INT_OP_select_const) {
+				get_two(ctx, &slot_1, &slot_2);
+				get_two(ctx, &slot_3, &slot_r);
 				escape_label = alloc_escape_label(ctx);
 				if (unlikely(!escape_label))
 					return false;
 				g(gen_test_1_cached(ctx, slot_1, escape_label));
 				flag_set(ctx, slot_1, false);
 				flag_set(ctx, slot_r, false);
-				g(gen_copy(ctx, type, slot_1, slot_r));
+				g(gen_select_const(ctx, type, slot_1, slot_2, slot_3, slot_r));
 				continue;
 			} else {
 				internal(file_line, "gen_function: bad integer code %04x", *ctx->instr_start);
@@ -1716,13 +1738,6 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				flag_set(ctx, slot_r, false);
 				g(gen_fp_alu3(ctx, type, op, slot_1, slot_2, slot_3, slot_r));
 				continue;
-			} else if (op == OPCODE_REAL_OP_ldc) {
-				const struct type *t;
-				get_two(ctx, &slot_r, &slot_1);
-				t = type_get_real(type);
-				g(gen_real_constant(ctx, t, slot_r, slot_1));
-				flag_set(ctx, slot_r, false);
-				continue;
 			} else if (op == OPCODE_REAL_OP_move || op == OPCODE_REAL_OP_copy) {
 				get_two(ctx, &slot_1, &slot_r);
 				escape_label = alloc_escape_label(ctx);
@@ -1732,6 +1747,13 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				flag_set(ctx, slot_1, false);
 				flag_set(ctx, slot_r, false);
 				g(gen_memcpy_slots(ctx, slot_r, slot_1));
+				continue;
+			} else if (op == OPCODE_REAL_OP_ldc) {
+				const struct type *t;
+				get_two(ctx, &slot_r, &slot_1);
+				t = type_get_real(type);
+				g(gen_real_constant(ctx, t, slot_r, slot_1));
+				flag_set(ctx, slot_r, false);
 				continue;
 			} else {
 				internal(file_line, "gen_function: bad real code %04x", *ctx->instr_start);

@@ -3031,6 +3031,10 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				gen_code(code);
 				gen_am_two(am, t1->slot, (frame_t)cnst);
 				gen_am_two(am, (frame_t)cnst2, tr->slot);
+				if (flags1 & Flag_Free_Argument) {
+					if (t1->slot != tr->slot)
+						pcode_free(ctx, a1);
+				}
 				break;
 			case P_Eval:
 				a1 = pcode_get();

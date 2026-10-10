@@ -263,10 +263,6 @@ static bool attr_w gen_select_flat(struct codegen_context *ctx, frame_t slot_1, 
 	unsigned qc;
 	unsigned r_scratch_3 = R_SCRATCH_3;
 	unsigned r_scratch_2 = R_SCRATCH_2;
-	if (TYPE_TAG_IS_REAL(type->tag)) {
-		r_scratch_3 = FR_SCRATCH_1;
-		r_scratch_2 = FR_SCRATCH_2;
-	}
 
 	label_x = alloc_label(ctx);
 	if (unlikely(!label_x))
@@ -292,6 +288,15 @@ static bool attr_w gen_select_flat(struct codegen_context *ctx, frame_t slot_1, 
 		i_op_size = i_size(op_size);
 	else
 		i_op_size = op_size;
+
+	if (TYPE_TAG_IS_REAL(type->tag)) {
+#ifdef FR_SCRATCH_2
+		r_scratch_3 = FR_SCRATCH_1;
+		r_scratch_2 = FR_SCRATCH_2;
+#else
+		qc = 0;
+#endif
+	}
 
 	g(gen_prepare_cond_jump(ctx, slot_1, &reg));
 	if (reg != -1U) {
@@ -376,6 +381,48 @@ store_result:
 		gen_label(label_x);
 	}
 
+	return true;
+}
+
+static bool attr_w gen_select_const(struct codegen_context *ctx, unsigned op_size, frame_t slot_1, frame_t slot_2, frame_t slot_3, frame_t slot_r)
+{
+	unsigned size = log_2(sizeof(ajla_flat_option_t));
+	unsigned reg, tgt;
+	bool dual = false;
+	if (op_size > OP_SIZE_NATIVE) {
+		op_size = OP_SIZE_NATIVE;
+		dual = true;
+	}
+	tgt = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, R_SCRATCH_1);
+	g(gen_frame_get(ctx, size, native, slot_1, tgt, &reg));
+	/*gen_insn(INSN_NOP, 0, 0, 0);*/
+	if (slot_2 == 0 && slot_3 == 1) {
+		if (!dual) {
+			tgt = reg;
+		} else {
+			g(gen_mov(ctx, i_size(op_size), tgt, reg));
+		}
+		goto skip_neg;
+	}
+	g(gen_2address_alu1(ctx, i_size(op_size), ALU1_NEG, tgt, reg, 0));
+	if ((int32_t)(slot_2 ^ slot_3) != -1)
+		g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_AND, tgt, tgt, (int32_t)(slot_2 ^ slot_3), 0));
+	if (slot_2)
+		g(gen_3address_alu_imm(ctx, i_size(op_size), ALU_XOR, tgt, tgt, (int32_t)slot_2, 0));
+skip_neg:
+
+	if (!dual) {
+		g(gen_frame_store(ctx, op_size, slot_r, 0, tgt));
+	} else {
+#if defined(ARCH_X86)
+		gen_insn(INSN_CWD, OP_SIZE_NATIVE, 0, 0);
+		gen_one(R_SCRATCH_2);
+		gen_one(R_SCRATCH_1);
+#else
+		g(gen_3address_rot_imm(ctx, OP_SIZE_NATIVE, ROT_SAR, R_SCRATCH_2, tgt, (1U << (OP_SIZE_NATIVE + 3)) - 1, 0));
+#endif
+		g(gen_frame_store_2(ctx, OP_SIZE_NATIVE, slot_r, 0, tgt, R_SCRATCH_2));
+	}
 	return true;
 }
 
