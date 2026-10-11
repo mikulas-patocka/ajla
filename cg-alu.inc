@@ -5255,7 +5255,7 @@ static bool attr_w gen_fp_cmp_select(struct codegen_context *ctx, unsigned real_
 
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 	}
-#elif defined(ARCH_PARISC)
+#elif defined(ARCH_LOONGARCH64) || defined(ARCH_PARISC)
 	{
 		unsigned reg1, reg2, target;
 

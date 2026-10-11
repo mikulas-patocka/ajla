@@ -97,6 +97,8 @@
 #define LOONG_FSQRT_D		0x01144800U
 #define LOONG_FMOV_S		0x01149400U
 #define LOONG_FMOV_D		0x01149800U
+#define LOONG_MOVGR2FR_W	0x0114a400U
+#define LOONG_MOVGR2FR_D	0x0114a800U
 #define LOONG_MOVFR2GR_S	0x0114b400U
 #define LOONG_MOVFR2GR_D	0x0114b800U
 #define LOONG_MOVCF2GR		0x0114dc00U
@@ -120,6 +122,14 @@
 #define LOONG_ANDI		0x03400000U
 #define LOONG_ORI		0x03800000U
 #define LOONG_XORI		0x03c00000U
+#define LOONG_FMADD_S		0x08100000U
+#define LOONG_FMADD_D		0x08200000U
+#define LOONG_FMSUB_S		0x08500000U
+#define LOONG_FMSUB_D		0x08600000U
+#define LOONG_FNMADD_S		0x08900000U
+#define LOONG_FNMADD_D		0x08a00000U
+#define LOONG_FNMSUB_S		0x08d00000U
+#define LOONG_FNMSUB_D		0x08e00000U
 #define LOONG_FCMP_S		0x0c100000U
 #define LOONG_FCMP_D		0x0c200000U
 #define  LOONG_FCMP_SIG			0x00008000U
@@ -134,16 +144,7 @@
 #define  LOONG_FCMP_NE			0x00080000U
 #define  LOONG_FCMP_OR			0x000a0000U
 #define  LOONG_FCMP_UNE			0x000c0000U
-#define LOONG_MOVGR2FR_W	0x0114a400U
-#define LOONG_MOVGR2FR_D	0x0114a800U
-#define LOONG_FMADD_S		0x08100000U
-#define LOONG_FMADD_D		0x08200000U
-#define LOONG_FMSUB_S		0x08500000U
-#define LOONG_FMSUB_D		0x08600000U
-#define LOONG_FNMADD_S		0x08900000U
-#define LOONG_FNMADD_D		0x08a00000U
-#define LOONG_FNMSUB_S		0x08d00000U
-#define LOONG_FNMSUB_D		0x08e00000U
+#define LOONG_FSEL		0x0d000000U
 #define LOONG_LU12I_W		0x14000000U
 #define LOONG_LU32I_D		0x16000000U
 #define LOONG_LDPTR_W		0x24000000U
@@ -598,6 +599,20 @@ static bool attr_w cgen_btx(struct codegen_context *ctx, unsigned alu)
 invalid:
 	internal(file_line, "cgen_btx: bad arguments: %02x, %02x, %02x, %u", arg1[0], arg2[0], arg3[0], alu);
 	return false;
+}
+
+static bool attr_w cgen_cmov(struct codegen_context *ctx, unsigned cond)
+{
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	ctx->code_position = arg3 + arg_size(*arg3);
+
+	if (unlikely(!(cond & COND_FP)))
+		internal(file_line, "cgen_cmov: only fp conditions supported");
+
+	cgen_3r(LOONG_FSEL, arg1[0] & 0x1f, arg2[0] & 0x1f, arg3[0] & 0x1f);
+	return true;
 }
 
 static bool attr_w cgen_mov_mask(struct codegen_context *ctx, unsigned aux)
@@ -1075,6 +1090,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_BTX:
 			g(cgen_btx(ctx, insn_aux(insn)));
+			return true;
+		case INSN_CMOV:
+			g(cgen_cmov(ctx, insn_aux(insn)));
 			return true;
 		case INSN_MOV_MASK:
 			if (unlikely(insn_op_size(insn) != OP_SIZE_8))
