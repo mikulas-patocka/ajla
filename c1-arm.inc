@@ -53,7 +53,7 @@
 #define ARCH_HAS_ANDN			1
 #define ARCH_HAS_2REG_M(st, fp, sz, sh, im)	(!(fp) && ((sz) == 0 || (sz) == 2) && ((sh) < 32) && !(im))
 #define ARCH_HAS_BTX(btx, size, cnst)	0
-#define ARCH_HAS_CMOV			0x5
+#define ARCH_HAS_CMOV			0x25
 #define ARCH_HAS_SHIFTED_ADD(bits)	1
 #define ARCH_SHIFT_SIZE			32
 #define ARCH_BOOL_SIZE			OP_SIZE_4
