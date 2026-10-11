@@ -1157,6 +1157,23 @@ invalid:
 	return false;
 }
 
+static bool attr_w cgen_cmov(struct codegen_context *ctx, unsigned op_size, unsigned cond)
+{
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	ctx->code_position = arg3 + arg_size(*arg3);
+
+	if (unlikely(!(cond & COND_FP)))
+		internal(file_line, "cgen_cmov: only fp conditions supported");
+
+	cgen_four(PARISC_FTEST);
+
+	g(cgen_mov_args(ctx, op_size, arg1, arg3));
+
+	return true;
+}
+
 static bool attr_w cgen_cmp_cmov(struct codegen_context *ctx, unsigned op_size, unsigned cond)
 {
 	int32_t fc;
@@ -1782,6 +1799,11 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			if (unlikely(insn_op_size(insn) < OP_SIZE_4))
 				goto invalid_insn;
 			g(cgen_btx(ctx, insn_op_size(insn), insn_aux(insn)));
+			return true;
+		case INSN_CMOV:
+			if (unlikely(insn_writes_flags(insn) != 0))
+				goto invalid_insn;
+			g(cgen_cmov(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_CMP_CMOV:
 			if (unlikely(insn_writes_flags(insn) != 0))
