@@ -1352,7 +1352,7 @@ void * attr_hot_fastcall thunk_cmp_select_flat(frame_s *fp, const code_t *ip, fr
 	op %= OPCODE_MODE_MULT;
 	op -= OPCODE_REAL_OP;
 	op %= OPCODE_REAL_TYPE_MULT;
-	ajla_assert_lo(op == OPCODE_REAL_OP_cmp_select_equal || op == OPCODE_REAL_OP_cmp_select_not_equal || op == OPCODE_REAL_OP_cmp_select_less || op == OPCODE_REAL_OP_cmp_select_less_equal, (file_line, "thunk_cmp_select_flat: invalid op %u", op));
+	ajla_assert_lo(op == OPCODE_REAL_OP_cmp_select_equal || op == OPCODE_REAL_OP_cmp_select_less, (file_line, "thunk_cmp_select_flat: invalid op %u", op));
 
 	if (!frame_test_flag(fp, slot_1) && unlikely(test_and_copy_nan(fp, ip, type->tag, slot_1, slot_r)))
 		return POINTER_FOLLOW_THUNK_GO;
@@ -1394,14 +1394,8 @@ void * attr_hot_fastcall thunk_cmp_select_flat(frame_s *fp, const code_t *ip, fr
 				case OPCODE_REAL_OP_cmp_select_equal:	\
 					sel = val1 == val2;		\
 					break;				\
-				case OPCODE_REAL_OP_cmp_select_not_equal:\
-					sel = val1 != val2;		\
-					break;				\
 				case OPCODE_REAL_OP_cmp_select_less:	\
 					sel = val1 < val2;		\
-					break;				\
-				case OPCODE_REAL_OP_cmp_select_less_equal:\
-					sel = val1 <= val2;		\
 					break;				\
 				default:				\
 					internal(file_line, "thunk_cmp_select_flat: invalid op %u", op);\

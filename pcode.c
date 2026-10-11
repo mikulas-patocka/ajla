@@ -2732,7 +2732,7 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 		switch (instr) {
 			pcode_t p, op, res, a1, a2, a3, a4, aa, flags, flags1, flags2, flags3, flags4, cnst, cnst2;
 			const struct pcode_type *tr, *t1, *t2, *t3, *t4, *ta;
-			bool a1_deref, a2_deref, swap;
+			bool a1_deref, a2_deref, swap12, swap34;
 			uint8_t *blob, *blob2;
 			size_t l, l2;
 			arg_mode_t am;
@@ -3051,38 +3051,52 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				switch (op) {
 					case Bin_Equal:
 						code = OPCODE_REAL_OP_cmp_select_equal;
-						swap = false;
+						swap12 = false;
+						swap34 = false;
 						break;
 					case Bin_NotEqual:
-						code = OPCODE_REAL_OP_cmp_select_not_equal;
-						swap = false;
+						code = OPCODE_REAL_OP_cmp_select_equal;
+						swap12 = false;
+						swap34 = true;
 						break;
 					case Bin_Less:
 						code = OPCODE_REAL_OP_cmp_select_less;
-						swap = false;
+						swap12 = false;
+						swap34 = false;
 						break;
 					case Bin_LessEqual:
-						code = OPCODE_REAL_OP_cmp_select_less_equal;
-						swap = false;
+						code = OPCODE_REAL_OP_cmp_select_less;
+						swap12 = true;
+						swap34 = true;
 						break;
 					case Bin_Greater:
 						code = OPCODE_REAL_OP_cmp_select_less;
-						swap = true;
+						swap12 = true;
+						swap34 = false;
 						break;
 					case Bin_GreaterEqual:
-						code = OPCODE_REAL_OP_cmp_select_less_equal;
-						swap = true;
+						code = OPCODE_REAL_OP_cmp_select_less;
+						swap12 = false;
+						swap34 = true;
 						break;
 					default:
 						internal(file_line, "P_Cmp_Select(%s): invalid op: %u", function_name(ctx), op);
 				}
-				if (swap) {
+				if (swap12) {
 					aa = a1;
 					a1 = a2;
 					a2 = aa;
 					aa = flags1;
 					flags1 = flags2;
 					flags2 = aa;
+				}
+				if (swap34) {
+					aa = a3;
+					a3 = a4;
+					a4 = aa;
+					aa = flags3;
+					flags3 = flags4;
+					flags4 = aa;
 				}
 
 				if (unlikely(var_elided(res))) {

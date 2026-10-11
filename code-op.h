@@ -347,11 +347,9 @@ typedef uint16_t code_t;
 #define OPCODE_REAL_OP_copy			126
 #define OPCODE_REAL_OP_ldc			127
 #define OPCODE_REAL_OP_cmp_select_equal		128
-#define OPCODE_REAL_OP_cmp_select_not_equal	129
-#define OPCODE_REAL_OP_cmp_select_less		130
-#define OPCODE_REAL_OP_cmp_select_less_equal	131
+#define OPCODE_REAL_OP_cmp_select_less		129
 
-#define OPCODE_REAL_TYPE_MULT		132
+#define OPCODE_REAL_TYPE_MULT		130
 #define OPCODE_REAL_TYPE_real16_t		0
 #define OPCODE_REAL_TYPE_real32_t		1
 #define OPCODE_REAL_TYPE_real64_t		2
