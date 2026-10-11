@@ -348,13 +348,11 @@ static bool attr_w gen_select_flat(struct codegen_context *ctx, frame_t slot_1, 
 		if (qc & CMOV_SSE41) {
 			unsigned reg2, reg3, tgt;
 			if (!ARCH_HAS_32_FP_REGS) {
-				if (!slot_is_register(ctx, slot_2) && !slot_is_register(ctx, slot_3))
-					goto skip_sse41;
 				g(gen_extend(ctx, ARCH_BOOL_SIZE, native, R_SCRATCH_1, reg));
 				g(gen_2address_alu1(ctx, op_size, ALU1_NEG, R_SCRATCH_1, R_SCRATCH_1, 0));
 				g(gen_mov(ctx, op_size, FR_SCRATCH_1, R_SCRATCH_1));
 				g(gen_frame_get(ctx, op_size, garbage, slot_2, r_scratch_2, &reg2));
-				g(gen_frame_get(ctx, op_size, garbage, slot_3, r_scratch_2, &reg3));
+				g(gen_frame_get(ctx, op_size, garbage, slot_3, FR_SCRATCH_3, &reg3));
 				tgt = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, r_scratch_2);
 				if (!ARCH_IS_3ADDRESS_FP) {
 					if (tgt != reg2) {
@@ -383,7 +381,6 @@ static bool attr_w gen_select_flat(struct codegen_context *ctx, frame_t slot_1, 
 				return true;
 			}
 		}
-skip_sse41:
 #endif
 		g(gen_jmp_on_zero(ctx, i_size(size), reg, cond, label_x));
 	} else {
