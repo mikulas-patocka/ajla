@@ -5192,7 +5192,32 @@ static bool attr_w gen_fp_cmp_select(struct codegen_context *ctx, unsigned real_
 		default:
 			internal(file_line, "gen_fp_cmp_select: invalid operation %u", op);
 	}
-#if defined(ARCH_X86)
+#if defined(ARCH_ARM64)
+	{
+		unsigned reg1, reg2, target;
+
+		g(gen_frame_get(ctx, op_size, zero_x, slot_1, FR_SCRATCH_1, &reg1));
+		g(gen_frame_get(ctx, op_size, zero_x, slot_2, FR_SCRATCH_2, &reg2));
+
+		gen_insn(INSN_FP_CMP, op_size, 0, 1);
+		gen_one(reg1);
+		gen_one(reg2);
+
+		gen_insn(INSN_JMP_COND, op_size, FP_COND_P, 0);
+		gen_label_ref(label_ovf);
+
+		g(gen_frame_get(ctx, op_size, zero_x, slot_3, FR_SCRATCH_1, &reg1));
+		g(gen_frame_get(ctx, op_size, zero_x, slot_4, FR_SCRATCH_2, &reg2));
+		target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, FR_SCRATCH_2);
+
+		gen_insn(INSN_CMOV, op_size, alu, 0);
+		gen_one(target);
+		gen_one(reg1);
+		gen_one(reg2);
+
+		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
+	}
+#elif defined(ARCH_X86)
 	{
 		unsigned reg1, reg2, reg3, reg4, target, mask;
 
