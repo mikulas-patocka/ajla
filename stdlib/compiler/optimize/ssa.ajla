@@ -961,7 +961,7 @@ fn operator_swap~inline(op : pcode_t) : pcode_t
 	return -1;
 ]
 
-fn simplify_instr(ctx : context, ins : instruction) : (instruction, bool)
+fn simplify_instr(ctx : context, ins : instruction, pass : int) : (instruction, bool)
 [
 	if ins.opcode = P_Curry then [
 		var vgi := ins.params[3];
@@ -1231,6 +1231,8 @@ skip_const:
 				return create_instr(P_BinaryConstOp, ins.params[ .. 4] + v2_ins.params[1 .. ], ins.bb), true;
 		]
 		if v1.runtime_type <= T_Real16, v1.runtime_type >= T_Real128, v2_ins.opcode = P_Load_Const, sysprop(SystemProperty_Real) bt T_Real16 - v1.runtime_type, not is_privileged then [
+			if pass = 0 then
+				return ins, true;
 			return create_instr(P_BinaryConstOp, ins.params[ .. 4] + v2_ins.params[1 .. ], ins.bb), true;
 		]
 		if v1.runtime_type <= T_SInt8, v1.runtime_type >= T_Real128, v1_ins.opcode = P_Load_Const then [
@@ -1648,6 +1650,7 @@ nothing:
 fn misc_opt(ctx : context) : context
 [
 	var n_blocks := len(ctx.blocks);
+	var pass := 0;
 
 again:
 	var again := false;
@@ -1664,7 +1667,7 @@ again:
 			//eval debug("simplify_instr: bb " + ntos(bgi) + ", idx " + ntos(ili));
 			if ins.opcode = P_Offload, not ctx.do_offload then
 				ctx.need_offload := true;
-			ins, did_something := simplify_instr(ctx, ins);
+			ins, did_something := simplify_instr(ctx, ins, pass);
 			if did_something then
 				again := true;
 			ctx.instrs[igi] := ins;
@@ -1702,8 +1705,10 @@ again:
 			]
 		]
 	]
-	if again then
+	if again then [
+		pass += 1;
 		goto again;
+	]
 
 	return ctx;
 ]
