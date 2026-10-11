@@ -95,7 +95,7 @@ static bool attr_w gen_test_3_cached(struct codegen_context *ctx, frame_t slot_1
 	return gen_test_multiple(ctx, vars, n_vars, label);
 }
 
-static bool attr_w gen_test_4_cached(struct codegen_context *ctx, frame_t slot_1, frame_t slot_2, frame_t slot_3, frame_t slot_4, uint32_t label)
+static bool attr_w attr_unused gen_test_4_cached(struct codegen_context *ctx, frame_t slot_1, frame_t slot_2, frame_t slot_3, frame_t slot_4, uint32_t label)
 {
 	frame_t vars[4];
 	size_t n_vars = 0;

@@ -1474,7 +1474,8 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 		ip_t ip;
 		code_t code;
 		unsigned op, type;
-		frame_t slot_1, slot_2, slot_3, slot_4, slot_r, flags, fn_idx, opt;
+		frame_t slot_1, slot_2, slot_3, slot_r, flags, fn_idx, opt;
+		frame_t attr_unused slot_4;
 		arg_t n_args, n_ret, i_arg;
 		uint32_t label_id;
 		uint32_t escape_label;
