@@ -353,7 +353,7 @@ static bool attr_w gen_select_flat(struct codegen_context *ctx, frame_t slot_1, 
 				g(gen_mov(ctx, op_size, FR_SCRATCH_1, R_SCRATCH_1));
 				g(gen_frame_get(ctx, op_size, garbage, slot_2, r_scratch_2, &reg2));
 				g(gen_frame_get(ctx, op_size, garbage, slot_3, FR_SCRATCH_3, &reg3));
-				tgt = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, r_scratch_2);
+				tgt = gen_frame_target(ctx, slot_r, slot_3, NO_FRAME_T, r_scratch_2);
 				if (!ARCH_IS_3ADDRESS_FP) {
 					if (tgt != reg2) {
 						g(gen_mov(ctx, op_size, tgt, reg2));
