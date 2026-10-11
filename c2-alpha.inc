@@ -143,6 +143,13 @@
 
 #define ALPHA_BR		0xc3e00000U
 
+#define ALPHA_FBEQ		0xc4000000U
+#define ALPHA_FBLT		0xc8000000U
+#define ALPHA_FBLE		0xcc000000U
+#define ALPHA_FBNE		0xd4000000U
+#define ALPHA_FBGE		0xd8000000U
+#define ALPHA_FBGT		0xdc000000U
+
 #define ALPHA_BLBC		0xe0000000U
 #define ALPHA_BEQ		0xe4000000U
 #define ALPHA_BLT		0xe8000000U
@@ -198,7 +205,7 @@ static bool attr_w cgen_fp_operate(struct codegen_context *ctx, uint32_t mc, uns
 
 static bool attr_w cgen_branch(struct codegen_context *ctx, uint32_t mc, unsigned ra)
 {
-	mc |= ra << 21;
+	mc |= (ra & 0x1f) << 21;
 	g(add_relocation(ctx, JMP_SHORTEST, 1, NULL));
 	cgen_four(mc);
 	return true;
@@ -828,6 +835,18 @@ static bool attr_w cgen_jmp_reg(struct codegen_context *ctx, unsigned aux)
 			mc = ALPHA_BLBC; break;
 		case COND_BLBS:
 			mc = ALPHA_BLBS; break;
+		case FP_COND_B:
+			mc = ALPHA_FBLT; break;
+		case FP_COND_AE:
+			mc = ALPHA_FBGE; break;
+		case FP_COND_E:
+			mc = ALPHA_FBEQ; break;
+		case FP_COND_NE:
+			mc = ALPHA_FBNE; break;
+		case FP_COND_BE:
+			mc = ALPHA_FBLE; break;
+		case FP_COND_A:
+			mc = ALPHA_FBGT; break;
 		default:
 			internal(file_line, "cgen_jmp_reg: invalid condition %u", aux);
 	}
@@ -1043,8 +1062,6 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			cgen_four(ALPHA_BR);
 			return true;
 		case INSN_JMP_REG:
-			if (unlikely(insn_op_size(insn) != OP_SIZE_NATIVE))
-				goto invalid_insn;
 			g(cgen_jmp_reg(ctx, insn_aux(insn)));
 			return true;
 		case INSN_JMP_INDIRECT:

@@ -4949,7 +4949,7 @@ static bool attr_w gen_fp_alu_jmp(struct codegen_context *ctx, unsigned real_typ
 do_cmp:
 	if ((SUPPORTED_FP >> real_type) & 1
 #if defined(ARCH_ALPHA)
-		&& OS_SUPPORTS_TRAPS && cpu_test_feature(CPU_FEATURE_fix)
+		&& OS_SUPPORTS_TRAPS
 #endif
 	) {
 		unsigned attr_unused final_cond;
@@ -5002,12 +5002,10 @@ do_cmp:
 		gen_one(reg2);
 		gen_label_ref(label_ovf);
 
-		g(gen_mov(ctx, OP_SIZE_4, target, fr_scratch_3));
-
 		if (fp_alu == FP_COND_NE) {
-			g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, COND_NE, target, -1U, 0));
+			g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, FP_COND_NE, fr_scratch_3, -1U, 0));
 		} else {
-			g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, COND_E, target, -1U, 0));
+			g(gen_jump(ctx, jmp_offset, OP_SIZE_NATIVE, FP_COND_E, fr_scratch_3, -1U, 0));
 		}
 
 		return true;
