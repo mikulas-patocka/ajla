@@ -5220,7 +5220,7 @@ static bool attr_w gen_fp_cmp_select(struct codegen_context *ctx, unsigned real_
 
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 	}
-#elif defined(ARCH_ARM64) || defined(ARCH_SPARC)
+#elif defined(ARCH_ARM) || defined(ARCH_SPARC)
 	{
 		unsigned reg1, reg2, target;
 
@@ -5230,6 +5230,10 @@ static bool attr_w gen_fp_cmp_select(struct codegen_context *ctx, unsigned real_
 		gen_insn(INSN_FP_CMP, op_size, 0, 1);
 		gen_one(reg1);
 		gen_one(reg2);
+
+#if defined(ARCH_ARM32)
+		gen_insn(INSN_FP_TO_INT_FLAGS, 0, 0, 1);
+#endif
 
 		gen_insn(INSN_JMP_COND, op_size, FP_COND_P, 0);
 		gen_label_ref(label_ovf);
