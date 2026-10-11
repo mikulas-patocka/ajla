@@ -107,6 +107,12 @@
 
 #define ALPHA_CPYS		0x5c000400U
 #define ALPHA_CPYSN		0x5c000420U
+#define ALPHA_FCMOVEQ		0x5c000540U
+#define ALPHA_FCMOVNE		0x5c000560U
+#define ALPHA_FCMOVLT		0x5c000580U
+#define ALPHA_FCMOVGE		0x5c0005a0U
+#define ALPHA_FCMOVLE		0x5c0005c0U
+#define ALPHA_FCMOVGT		0x5c0005e0U
 #define ALPHA_CVTLQ		0x5fe00200U
 #define ALPHA_CVTQL_V		0x5fe02600U
 
@@ -612,12 +618,27 @@ static bool attr_w cgen_movr(struct codegen_context *ctx, unsigned aux)
 			mc = ALPHA_CMOVLBC; break;
 		case COND_BLBS:
 			mc = ALPHA_CMOVLBS; break;
+		case FP_COND_B:
+			mc = ALPHA_FCMOVLT; break;
+		case FP_COND_AE:
+			mc = ALPHA_FCMOVGE; break;
+		case FP_COND_E:
+			mc = ALPHA_FCMOVEQ; break;
+		case FP_COND_NE:
+			mc = ALPHA_FCMOVNE; break;
+		case FP_COND_BE:
+			mc = ALPHA_FCMOVLE; break;
+		case FP_COND_A:
+			mc = ALPHA_FCMOVGT; break;
 		default:
 			internal(file_line, "cgen_movr: invalid condition %u", aux);
 	}
 	if (unlikely(arg1[0] != arg2[0]))
 		internal(file_line, "cgen_movr: invalid arguments");
-	g(cgen_operate(ctx, mc, arg3[0], arg4, arg1[0]));
+	if (!(aux & COND_FP))
+		g(cgen_operate(ctx, mc, arg3[0], arg4, arg1[0]));
+	else
+		g(cgen_fp_operate(ctx, mc, arg3[0], arg4[0], arg1[0]));
 	return true;
 }
 
@@ -976,8 +997,6 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_rot(ctx, insn_aux(insn)));
 			return true;
 		case INSN_MOVR:
-			if (unlikely(insn_op_size(insn) != OP_SIZE_NATIVE))
-				goto invalid_insn;
 			g(cgen_movr(ctx, insn_aux(insn)));
 			return true;
 		case INSN_FP_CMP_DEST_REG_TRAP:

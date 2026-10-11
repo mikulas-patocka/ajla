@@ -168,6 +168,7 @@
 #define FR_SCRATCH_3	R_F10
 
 #define SUPPORTED_FP	0x6
+#define SUPPORTED_FP_CMP_SELECT	SUPPORTED_FP
 #define FP_REGISTERS(real_size) 1
 
 #define FRAME_SIZE	(optimize_int ? 0x50 : 0x90)
