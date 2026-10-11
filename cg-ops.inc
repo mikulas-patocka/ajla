@@ -347,6 +347,12 @@ static bool attr_w gen_select_flat(struct codegen_context *ctx, frame_t slot_1, 
 #if defined(ARCH_X86)
 		if (qc & CMOV_SSE41) {
 			unsigned reg2, reg3, tgt;
+			if (cond == COND_E) {
+				frame_t s = slot_2;
+				slot_2 = slot_3;
+				slot_3 = s;
+				cond ^= 1;
+			}
 			if (!ARCH_HAS_32_FP_REGS) {
 				g(gen_extend(ctx, ARCH_BOOL_SIZE, native, R_SCRATCH_1, reg));
 				g(gen_2address_alu1(ctx, op_size, ALU1_NEG, R_SCRATCH_1, R_SCRATCH_1, 0));
