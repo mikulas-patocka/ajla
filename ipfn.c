@@ -426,7 +426,7 @@ static int attr_hot_fastcall ipret_unbox_value(frame_s *fp, const struct type *t
 	return 0;
 }
 
-static bool test_and_copy_nan(frame_s attr_unused *fp, const code_t attr_unused *ip,  unsigned char type_tag, frame_t attr_unused slot, frame_t attr_unused slot_r)
+static bool test_and_copy_nan(frame_s attr_unused *fp, const code_t attr_unused *ip, unsigned char type_tag, frame_t attr_unused slot, frame_t attr_unused slot_r)
 {
 	switch (type_tag) {
 #define f(n, t, nt, pack, unpack)					\
@@ -1336,6 +1336,106 @@ void * attr_hot_fastcall thunk_select_ptr(frame_s *fp, const code_t *ip, frame_t
 		frame_free_and_clear(fp, slot_3);
 
 	frame_set_pointer(fp, slot_r, dest_ptr);
+	return POINTER_FOLLOW_THUNK_GO;
+}
+
+void * attr_hot_fastcall thunk_cmp_select_flat(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2, frame_t slot_3, frame_t slot_4, frame_t slot_r)
+{
+	const struct type *type = frame_get_type_of_local(fp, slot_r);
+	int converted;
+	unsigned char *flat;
+	pointer_t ptr;
+	bool sel;
+	unsigned op;
+
+	op = *ip;
+	op %= OPCODE_MODE_MULT;
+	op -= OPCODE_REAL_OP;
+	op %= OPCODE_REAL_TYPE_MULT;
+	ajla_assert_lo(op == OPCODE_REAL_OP_cmp_select_equal || op == OPCODE_REAL_OP_cmp_select_not_equal || op == OPCODE_REAL_OP_cmp_select_less || op == OPCODE_REAL_OP_cmp_select_less_equal, (file_line, "thunk_cmp_select_flat: invalid op %u", op));
+
+	if (!frame_test_flag(fp, slot_1) && unlikely(test_and_copy_nan(fp, ip, type->tag, slot_1, slot_r)))
+		return POINTER_FOLLOW_THUNK_GO;
+	if (!frame_test_flag(fp, slot_2) && unlikely(test_and_copy_nan(fp, ip, type->tag, slot_2, slot_r)))
+		return POINTER_FOLLOW_THUNK_GO;
+
+	converted = ipret_unbox_value(fp, type, slot_1);
+	converted |= ipret_unbox_value(fp, type, slot_2);
+	if (converted & UNBOX_THUNK) {
+		struct data attr_unused *data;
+		if (frame_test_flag(fp, slot_1)) {
+			pointer_t *thunk = frame_pointer(fp, slot_1);
+			pointer_follow(thunk, true, data, PF_WAIT, fp, ip,
+				return ex_,
+				ptr = *frame_pointer(fp, slot_1);
+				goto do_ptr;
+			);
+		}
+		if (frame_test_flag(fp, slot_2)) {
+			pointer_t *thunk = frame_pointer(fp, slot_2);
+			pointer_follow(thunk, true, data, PF_WAIT, fp, ip,
+				return ex_,
+				ptr = *frame_pointer(fp, slot_2);
+				goto do_ptr;
+			);
+		}
+		return POINTER_FOLLOW_THUNK_RETRY;
+	}
+
+	switch (type->tag) {
+#define f(n, t, nt, pack, unpack)					\
+		case TYPE_TAG_real + n: {				\
+			t val1, val2;					\
+			barrier_aliasing();				\
+			val1 = *frame_slot(fp, slot_1, t);		\
+			val2 = *frame_slot(fp, slot_2, t);		\
+			barrier_aliasing();				\
+			switch (op) {					\
+				case OPCODE_REAL_OP_cmp_select_equal:	\
+					sel = val1 == val2;		\
+					break;				\
+				case OPCODE_REAL_OP_cmp_select_not_equal:\
+					sel = val1 != val2;		\
+					break;				\
+				case OPCODE_REAL_OP_cmp_select_less:	\
+					sel = val1 < val2;		\
+					break;				\
+				case OPCODE_REAL_OP_cmp_select_less_equal:\
+					sel = val1 <= val2;		\
+					break;				\
+				default:				\
+					internal(file_line, "thunk_cmp_select_flat: invalid op %u", op);\
+			}						\
+			break;						\
+		}
+		for_all_real(f, for_all_empty)
+#undef f
+		default:
+			internal(file_line, "thunk_cmp_select_flat: invalid type tag %u", type->tag);
+	}
+
+	if (!sel) {
+		if (!frame_test_flag(fp, slot_3)) {
+			flat = frame_var(fp, slot_3);
+			goto do_flat;
+		}
+		ptr = *frame_pointer(fp, slot_3);
+	} else {
+		if (!frame_test_flag(fp, slot_4)) {
+			flat = frame_var(fp, slot_4);
+			goto do_flat;
+		}
+		ptr = *frame_pointer(fp, slot_4);
+	}
+do_ptr:
+	pointer_reference_owned(ptr);
+	frame_free_and_set_pointer(fp, slot_r, ptr);
+	return POINTER_FOLLOW_THUNK_GO;
+
+do_flat:
+	if (frame_test_and_clear_flag(fp, slot_r))
+		pointer_dereference(*frame_pointer(fp, slot_r));
+	memcpy_fast(frame_var(fp, slot_r), flat, frame_get_type_of_local(fp, slot_r)->size);
 	return POINTER_FOLLOW_THUNK_GO;
 }
 

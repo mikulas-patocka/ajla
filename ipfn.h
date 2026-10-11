@@ -40,6 +40,7 @@
 #define thunk_bool_operator			name(thunk_bool_operator)
 #define thunk_select_flat			name(thunk_select_flat)
 #define thunk_select_ptr			name(thunk_select_ptr)
+#define thunk_cmp_select_flat			name(thunk_cmp_select_flat)
 #define thunk_bool_jump				name(thunk_bool_jump)
 #define ipret_copy_variable			name(ipret_copy_variable)
 #define ipret_copy_variable_to_pointer		name(ipret_copy_variable_to_pointer)
@@ -98,6 +99,7 @@ void * attr_hot_fastcall thunk_convert(frame_s *fp, const code_t *ip, frame_t sr
 void * attr_hot_fastcall thunk_bool_operator(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2, frame_t slot_r, unsigned strict_flag);
 void * attr_hot_fastcall thunk_select_flat(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2, frame_t slot_3, frame_t slot_r);
 void * attr_hot_fastcall thunk_select_ptr(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2, frame_t slot_3, frame_t slot_r, frame_t flags);
+void * attr_hot_fastcall thunk_cmp_select_flat(frame_s *fp, const code_t *ip, frame_t slot_1, frame_t slot_2, frame_t slot_3, frame_t slot_4, frame_t slot_r);
 void * attr_hot_fastcall thunk_bool_jump(frame_s *fp, const code_t *ip, frame_t slot);
 
 void attr_fastcall ipret_copy_variable(frame_s *src_fp, frame_t src_slot, frame_s *dst_fp, frame_t dst_slot, bool deref);

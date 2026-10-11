@@ -2730,9 +2730,9 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 		pcode_t instr, instr_params;
 		pcode_get_instr(ctx, &instr, &instr_params);
 		switch (instr) {
-			pcode_t p, op, res, a1, a2, a3, a4, aa, flags, flags1, flags2, flags3, cnst, cnst2;
-			const struct pcode_type *tr, *t1, *t2, *t3, *ta;
-			bool a1_deref, a2_deref;
+			pcode_t p, op, res, a1, a2, a3, a4, aa, flags, flags1, flags2, flags3, flags4, cnst, cnst2;
+			const struct pcode_type *tr, *t1, *t2, *t3, *t4, *ta;
+			bool a1_deref, a2_deref, swap;
 			uint8_t *blob, *blob2;
 			size_t l, l2;
 			arg_mode_t am;
@@ -3034,6 +3034,106 @@ static bool pcode_generate_instructions(struct build_function_context *ctx)
 				if (flags1 & Flag_Free_Argument) {
 					if (t1->slot != tr->slot)
 						pcode_free(ctx, a1);
+				}
+				break;
+			case P_Cmp_Select:
+				op = u_pcode_get();
+				res = u_pcode_get();
+				flags1 = u_pcode_get();
+				a1 = pcode_get();
+				flags2 = u_pcode_get();
+				a2 = pcode_get();
+				flags3 = u_pcode_get();
+				a3 = pcode_get();
+				flags4 = u_pcode_get();
+				a4 = pcode_get();
+
+				switch (op) {
+					case Bin_Equal:
+						code = OPCODE_REAL_OP_cmp_select_equal;
+						swap = false;
+						break;
+					case Bin_NotEqual:
+						code = OPCODE_REAL_OP_cmp_select_not_equal;
+						swap = false;
+						break;
+					case Bin_Less:
+						code = OPCODE_REAL_OP_cmp_select_less;
+						swap = false;
+						break;
+					case Bin_LessEqual:
+						code = OPCODE_REAL_OP_cmp_select_less_equal;
+						swap = false;
+						break;
+					case Bin_Greater:
+						code = OPCODE_REAL_OP_cmp_select_less;
+						swap = true;
+						break;
+					case Bin_GreaterEqual:
+						code = OPCODE_REAL_OP_cmp_select_less_equal;
+						swap = true;
+						break;
+					default:
+						internal(file_line, "P_Cmp_Select(%s): invalid op: %u", function_name(ctx), op);
+				}
+				if (swap) {
+					aa = a1;
+					a1 = a2;
+					a2 = aa;
+					aa = flags1;
+					flags1 = flags2;
+					flags2 = aa;
+				}
+
+				if (unlikely(var_elided(res))) {
+					if (flags1 & Flag_Free_Argument)
+						pcode_free(ctx, a1);
+					if (flags2 & Flag_Free_Argument)
+						pcode_free(ctx, a2);
+					if (flags3 & Flag_Free_Argument)
+						pcode_free(ctx, a3);
+					if (flags4 & Flag_Free_Argument)
+						pcode_free(ctx, a4);
+					break;
+				}
+				tr = get_var_type(ctx, res);
+				t1 = get_var_type(ctx, a1);
+				t2 = get_var_type(ctx, a2);
+				t3 = get_var_type(ctx, a3);
+				t4 = get_var_type(ctx, a4);
+				ajla_assert_lo(type_is_equal(tr->type, t1->type) &&
+					       type_is_equal(tr->type, t2->type) &&
+					       type_is_equal(tr->type, t3->type) &&
+					       type_is_equal(tr->type, t4->type) &&
+					       TYPE_TAG_IS_REAL(tr->type->tag), (file_line, "P_Cmp_Select(%s): invalid types", function_name(ctx)));
+
+				am = INIT_ARG_MODE;
+				get_arg_mode(am, t1->slot);
+				get_arg_mode(am, t2->slot);
+				get_arg_mode(am, t3->slot);
+				get_arg_mode(am, t4->slot);
+				get_arg_mode(am, tr->slot);
+
+				code += OPCODE_REAL_OP + TYPE_TAG_IDX_REAL(tr->type->tag) * OPCODE_REAL_TYPE_MULT;
+				gen_code(code + am * OPCODE_MODE_MULT);
+				gen_am_two(am, t1->slot, t2->slot);
+				gen_am_two(am, t3->slot, t4->slot);
+				gen_am(am, tr->slot);
+				if (flags1 & Flag_Free_Argument) {
+					if (t1->slot != tr->slot)
+						pcode_free(ctx, a1);
+				}
+				if (flags2 & Flag_Free_Argument) {
+					if (t2->slot != tr->slot)
+						pcode_free(ctx, a2);
+				}
+				if (flags3 & Flag_Free_Argument) {
+					if (t3->slot != tr->slot)
+						pcode_free(ctx, a3);
+				}
+				if (flags4 & Flag_Free_Argument) {
+					if (t4->slot != tr->slot)
+						pcode_free(ctx, a4);
 				}
 				break;
 			case P_Eval:

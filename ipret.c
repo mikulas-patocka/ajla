@@ -335,6 +335,21 @@ static ipret_inline void cat4(REAL_unary_,op,_,type)			\
 	*res = pack(cat(op_,op)(type, type, (unpack(*op1))));		\
 }
 
+#define generate_real_cmp_select(type, ntype, pack, unpack, op)	\
+static ipret_inline bool cat4(REAL_cmp_select_,op,_,type)		\
+				(const type *op1, const type *op2, const type *op3, const type *op4, type *res)\
+{									\
+	ntype o1 = unpack(*op1);					\
+	ntype o2 = unpack(*op2);					\
+	if (isnan_any(ntype, o1, o2))					\
+		return false;						\
+	if (cat(op_real_,op)(ntype, ntype, o1, o2))			\
+		*res = *op4;						\
+	else								\
+		*res = *op3;						\
+	return true;							\
+}
+
 static attr_always_inline void m68k_fixup_fpcr(void)
 {
 	/* workaround for a qemu bug */
@@ -644,7 +659,11 @@ generate_real_unary_logical(n, type, ntype, pack, unpack, is_exception, 0)\
 generate_real_ternary_fma(type, ntype, pack, unpack, fma, 0)		\
 generate_real_ternary_fma(type, ntype, pack, unpack, fms, 1)		\
 generate_real_ternary_fma(type, ntype, pack, unpack, fnma, 2)		\
-generate_real_ternary_fma(type, ntype, pack, unpack, fnms, 3)
+generate_real_ternary_fma(type, ntype, pack, unpack, fnms, 3)		\
+generate_real_cmp_select(type, ntype, pack, unpack, equal)		\
+generate_real_cmp_select(type, ntype, pack, unpack, not_equal)	\
+generate_real_cmp_select(type, ntype, pack, unpack, less)		\
+generate_real_cmp_select(type, ntype, pack, unpack, less_equal)
 
 for_all_real(generate_real_functions, for_all_empty)
 #undef generate_real_functions

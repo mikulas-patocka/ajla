@@ -408,6 +408,46 @@ DEFINE_OPCODE(								\
 	}								\
 )
 
+#define DEFINE_REAL_CMP_SELECT_OPCODE(tc, type, op)			\
+DEFINE_OPCODE(								\
+		cat3(OPCODE_,tc,OP) +					\
+		cat4(OPCODE_,tc,OP_cmp_select_,op) * cat3(OPCODE_,tc,OP_MULT) +\
+		cat4(OPCODE_,tc,TYPE_,type) * cat3(OPCODE_,tc,TYPE_MULT),\
+		cat7(tc,cmp_select_,op,_,type,_,ARG_MODE),		\
+	frame_t slot_1 = get_i_param(0);				\
+	frame_t slot_2 = get_i_param(1);				\
+	frame_t slot_3 = get_i_param(2);				\
+	frame_t slot_4 = get_i_param(3);				\
+	frame_t slot_r = get_i_param(4);				\
+	if (unlikely(frame_test_2(fp, slot_1, slot_2)) || unlikely(frame_test_2(fp, slot_3, slot_4))) {\
+		void *ex;						\
+cat6(escape_real_cmp_select_,op,_,type,_,ARG_MODE):			\
+		ex = thunk_cmp_select_flat(fp, ip, slot_1, slot_2, slot_3, slot_4, slot_r);\
+		if (ex == POINTER_FOLLOW_THUNK_GO)			\
+			ADVANCE_I_PARAM(5);				\
+		else if (unlikely(ex != POINTER_FOLLOW_THUNK_RETRY))	\
+			RELOAD_EX_POSITION(ex);				\
+	} else {							\
+		const void *val1;					\
+		const void *val2;					\
+		const void *val3;					\
+		const void *val4;					\
+		void *result;						\
+		val1 = frame_var(fp, slot_1);				\
+		val2 = frame_var(fp, slot_2);				\
+		val3 = frame_var(fp, slot_3);				\
+		val4 = frame_var(fp, slot_4);				\
+		result = frame_var(fp, slot_r);				\
+		barrier_aliasing();					\
+		if (unlikely(!cat4(REAL_cmp_select_,op,_,type)(val1, val2, val3, val4, result))) {\
+			barrier_aliasing();				\
+			goto cat6(escape_real_cmp_select_,op,_,type,_,ARG_MODE);\
+		}							\
+		barrier_aliasing();					\
+		ADVANCE_I_PARAM(5);					\
+	}								\
+)
+
 
 #define DEFINE_FIXED_OPCODES(n, type, utype, sz, bits)	\
 DEFINE_FIXED_REAL_BINARY_OPCODE(FIXED_, type, add)	\
@@ -655,7 +695,11 @@ DEFINE_FIXED_REAL_TERNARY_OPCODE(REAL_, type, fnma)	\
 DEFINE_FIXED_REAL_TERNARY_OPCODE(REAL_, type, fnms)	\
 DEFINE_SCALAR_MOVE_OPCODE(REAL_, type)			\
 DEFINE_SCALAR_COPY_OPCODE(REAL_, type)			\
-DEFINE_REAL_LDC_OPCODE(REAL, type, ldc)
+DEFINE_REAL_LDC_OPCODE(REAL, type, ldc)			\
+DEFINE_REAL_CMP_SELECT_OPCODE(REAL_, type, equal)	\
+DEFINE_REAL_CMP_SELECT_OPCODE(REAL_, type, not_equal)	\
+DEFINE_REAL_CMP_SELECT_OPCODE(REAL_, type, less)	\
+DEFINE_REAL_CMP_SELECT_OPCODE(REAL_, type, less_equal)
 
 for_all_real(DEFINE_REAL_OPCODES, for_all_empty)
 

@@ -1741,6 +1741,7 @@ again:
 					bts P_Copy
 					bts P_Select
 					bts P_SelectConst
+					bts P_Cmp_Select
 					bts P_Load_Fn
 					bts P_Curry
 					bts P_Load_Const
