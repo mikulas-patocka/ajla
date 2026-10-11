@@ -1193,7 +1193,7 @@ static bool attr_w cgen_cmp_cmov(struct codegen_context *ctx, unsigned op_size, 
 	return true;
 }
 
-static bool attr_w cgen_movr(struct codegen_context *ctx, unsigned cond)
+static bool attr_w cgen_movr(struct codegen_context *ctx, unsigned op_size, unsigned cond)
 {
 	int32_t fc;
 	uint32_t mc;
@@ -1206,7 +1206,7 @@ static bool attr_w cgen_movr(struct codegen_context *ctx, unsigned cond)
 	fc = cmp_sub_cond[cond];
 	fc ^= PARISC_COND_NEG;
 
-	if (unlikely(arg1[0] != arg2[0]) || unlikely(arg1[0] >= 0x20))
+	if (unlikely(arg1[0] != arg2[0]) || unlikely(arg3[0] >= 0x20))
 		internal(file_line, "cgen_movr: invalid arguments");
 
 	mc = PARISC_ADD_L;
@@ -1216,7 +1216,7 @@ static bool attr_w cgen_movr(struct codegen_context *ctx, unsigned cond)
 
 	g(cgen_3reg(ctx, mc, R_ZERO, arg3[0], R_ZERO));
 
-	g(cgen_mov_args(ctx, OP_SIZE_NATIVE, arg1, arg4));
+	g(cgen_mov_args(ctx, op_size, arg1, arg4));
 
 	return true;
 }
@@ -1789,9 +1789,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			g(cgen_cmp_cmov(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_MOVR:
-			if (unlikely(insn_op_size(insn) != OP_SIZE_NATIVE) || unlikely(insn_writes_flags(insn) != 0))
+			if (unlikely(insn_writes_flags(insn) != 0))
 				goto invalid_insn;
-			g(cgen_movr(ctx, insn_aux(insn)));
+			g(cgen_movr(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_FP_CMP_COND:
 			g(cgen_fp_cmp_cond(ctx, insn_op_size(insn), insn_aux(insn)));
