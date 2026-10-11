@@ -5195,6 +5195,17 @@ static bool attr_w gen_fp_cmp_select(struct codegen_context *ctx, unsigned real_
 #if defined(ARCH_X86)
 	{
 		unsigned reg1, reg2, reg3, reg4, target, mask;
+
+		if (alu == FP_COND_B) {
+			if (slot_1 == slot_3 && slot_2 == slot_4) {
+				alu = FP_ALU_MAX;
+				slot_1 = slot_2;
+				slot_2 = slot_3;
+			} else if (slot_1 == slot_4 && slot_2 == slot_3) {
+				alu = FP_ALU_MIN;
+			}
+		}
+
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, FR_SCRATCH_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, FR_SCRATCH_2, &reg2));
 
@@ -5205,12 +5216,18 @@ static bool attr_w gen_fp_cmp_select(struct codegen_context *ctx, unsigned real_
 		gen_insn(INSN_JMP_COND, op_size, FP_COND_P, 0);
 		gen_label_ref(label_ovf);
 
+		if (alu == FP_ALU_MIN || alu == FP_ALU_MAX) {
+			target = gen_frame_target(ctx, slot_r, ARCH_IS_3ADDRESS_FP ? NO_FRAME_T : slot_2, NO_FRAME_T, FR_SCRATCH_1);
+			g(gen_3address_fp_alu(ctx, op_size, alu, target, reg1, reg2));
+			goto store_ret;
+		}
+
 		if (ARCH_HAS_32_FP_REGS)
 			mask = KR_SCRATCH_1;
 		else
 			mask = FR_SCRATCH_1;
 
-		if (unlikely(!ARCH_IS_3ADDRESS_FP)) {
+		if (unlikely(!ARCH_IS_3ADDRESS_FP) && mask != reg1) {
 			g(gen_mov(ctx, op_size, mask, reg1));
 			reg1 = mask;
 		}
@@ -5222,7 +5239,7 @@ static bool attr_w gen_fp_cmp_select(struct codegen_context *ctx, unsigned real_
 		if (cpu_test_feature(CPU_FEATURE_sse41) || ARCH_HAS_32_FP_REGS) {
 			g(gen_frame_get(ctx, op_size, zero_x, slot_3, FR_SCRATCH_2, &reg3));
 			g(gen_frame_get(ctx, op_size, zero_x, slot_4, FR_SCRATCH_3, &reg4));
-			target = gen_frame_target(ctx, slot_r, slot_4, NO_FRAME_T, FR_SCRATCH_2);
+			target = gen_frame_target(ctx, slot_r, ARCH_IS_3ADDRESS_FP ? NO_FRAME_T : slot_4, NO_FRAME_T, FR_SCRATCH_2);
 
 			if (unlikely(!ARCH_IS_3ADDRESS_FP)) {
 				if (target != reg3) {
@@ -5244,7 +5261,7 @@ static bool attr_w gen_fp_cmp_select(struct codegen_context *ctx, unsigned real_
 			g(gen_3address_alu(ctx, OP_SIZE_16, ALU_ANND, mask, mask, reg3, 0));
 			g(gen_3address_alu(ctx, OP_SIZE_16, ALU_OR, target, target, mask, 0));
 		}
-
+store_ret:
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 	}
 #else

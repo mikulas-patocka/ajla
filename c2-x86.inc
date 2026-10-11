@@ -146,7 +146,9 @@
 #define X86_0F_CVTSS2SD_X128_M32	0x5a
 #define X86_0F_CVTSD2SS_X128_M32	0x5a
 #define X86_0F_SUBPS_X128_M32		0x5c
+#define X86_0F_MINPS_X128_M32		0x5d
 #define X86_0F_DIVPS_X128_M32		0x5e
+#define X86_0F_MAXPS_X128_M32		0x5f
 #define X86_0F_MOVD_X128_RM32		0x6e
 #define X86_0F_MOVD_RM32_X128		0x7e
 #define X86_0F_JCC_16			0x80
@@ -1438,6 +1440,8 @@ static bool attr_w cgen_sse_alu(struct codegen_context *ctx, unsigned size, unsi
 		case FP_ALU_SUB:	opcode = X86_0F_SUBPS_X128_M32; break;
 		case FP_ALU_MUL:	opcode = X86_0F_MULPS_X128_M32; break;
 		case FP_ALU_DIV:	opcode = X86_0F_DIVPS_X128_M32; break;
+		case FP_ALU_MIN:	opcode = X86_0F_MINPS_X128_M32; break;
+		case FP_ALU_MAX:	opcode = X86_0F_MAXPS_X128_M32; break;
 		default:		internal(file_line, "cgen_sse_alu: invalid alu %u", alu);
 	}
 	if (size == OP_SIZE_2) {
