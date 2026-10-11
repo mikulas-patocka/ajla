@@ -239,6 +239,7 @@
 #define FP_ALIASES(real_size, reg, idx) (!((reg) & 1) ? (reg) + (idx) : (reg))
 #define N_FP_ALIASES(real_size)	FP_REGISTERS(real_size)
 #endif
+#define SUPPORTED_FP_CMP_SELECT	(SPARC_9 * SUPPORTED_FP)
 
 static bool reg_is_fp(unsigned reg)
 {
