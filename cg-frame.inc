@@ -1404,7 +1404,7 @@ static bool attr_w gen_memcpy_raw(struct codegen_context *ctx, unsigned dest_bas
 				reg = FR_SCRATCH_16;
 				if (reg < R_XMM16)
 					need_vzeroupper = true;
-			} else if (size >= 32 && (cpu_test_feature(CPU_FEATURE_avx512vl) || cpu_test_feature(CPU_FEATURE_avx10))) {
+			} else if (size >= 32 && ARCH_HAS_32_FP_REGS) {
 				x86_unaligned = align < 32;
 				this_step = 32;
 				reg = FR_SCRATCH_16;

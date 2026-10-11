@@ -347,7 +347,7 @@ static bool attr_w gen_select_flat(struct codegen_context *ctx, frame_t slot_1, 
 #if defined(ARCH_X86)
 		if (qc & CMOV_SSE41) {
 			unsigned reg2, reg3, tgt;
-			if (!cpu_test_feature(CPU_FEATURE_avx512vl)) {
+			if (!ARCH_HAS_32_FP_REGS) {
 				if (!slot_is_register(ctx, slot_2) && !slot_is_register(ctx, slot_3))
 					goto skip_sse41;
 				g(gen_extend(ctx, ARCH_BOOL_SIZE, native, R_SCRATCH_1, reg));
@@ -356,7 +356,7 @@ static bool attr_w gen_select_flat(struct codegen_context *ctx, frame_t slot_1, 
 				g(gen_frame_get(ctx, op_size, garbage, slot_2, r_scratch_2, &reg2));
 				g(gen_frame_get(ctx, op_size, garbage, slot_3, r_scratch_2, &reg3));
 				tgt = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, r_scratch_2);
-				if (!cpu_test_feature(CPU_FEATURE_avx)) {
+				if (!ARCH_IS_3ADDRESS_FP) {
 					if (tgt != reg2) {
 						g(gen_mov(ctx, op_size, tgt, reg2));
 						reg2 = tgt;

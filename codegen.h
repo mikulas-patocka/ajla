@@ -43,6 +43,7 @@ extern const char *dump_code;
 #define codegen_free			name(codegen_free)
 #define codegen_entry			name(codegen_entry)
 #define codegen_fma			name(codegen_fma)
+#define codegen_cmp_select		name(codegen_cmp_select)
 #define codegen_real_align		name(codegen_real_align)
 #define codegen_callback_init		name(codegen_callback_init)
 #define codegen_callback_done		name(codegen_callback_done)
@@ -61,6 +62,7 @@ void codegen_free(struct data *codegen);
 typedef code_return_t codegen_type_attr (*codegen_type)(frame_s *, struct cg_upcall_vector_s *, tick_stamp_t, void *);
 extern codegen_type codegen_entry;
 unsigned codegen_fma(void);
+unsigned codegen_cmp_select(void);
 size_t codegen_real_align(void);
 
 bool codegen_callback_init(struct codegen_callback *cb, void (*callback)(void *ptr), void *ptr, ajla_error_t *err);

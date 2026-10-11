@@ -244,15 +244,16 @@
 #define SystemProperty_Fixed		4
 #define SystemProperty_Real		5
 #define SystemProperty_Real_AutoFMA	6
-#define SystemProperty_Int_Size		7
-#define SystemProperty_Bool_Size	8
-#define SystemProperty_Privileged	9
-#define SystemProperty_Sandbox		10
-#define SystemProperty_Compile		11
-#define SystemProperty_NoInline		12
-#define SystemProperty_Verify		13
-#define SystemProperty_Verify_Timeout	14
-#define SystemProperty_OpenCL_Device	15
+#define SystemProperty_Real_Cmp_Select	7
+#define SystemProperty_Int_Size		8
+#define SystemProperty_Bool_Size	9
+#define SystemProperty_Privileged	10
+#define SystemProperty_Sandbox		11
+#define SystemProperty_Compile		12
+#define SystemProperty_NoInline		13
+#define SystemProperty_Verify		14
+#define SystemProperty_Verify_Timeout	15
+#define SystemProperty_OpenCL_Device	16
 
 #define SystemProperty_OS_Posix		1
 #define SystemProperty_OS_DOS		2

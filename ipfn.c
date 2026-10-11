@@ -635,9 +635,18 @@ int_default_t ipret_system_property(int_default_t idx)
 			if (unlikely(ipret_is_privileged) || unlikely(noautofma))
 				return 0;
 #ifdef HAVE_CODEGEN
-			result = codegen_fma();
+			result = codegen_fma() & REAL_MASK;
 #else
 			result = 0;
+#endif
+			break;
+		case SystemProperty_Real_Cmp_Select:
+			if (unlikely(ipret_is_privileged))
+				return 0;
+#ifdef HAVE_CODEGEN
+			result = codegen_cmp_select() & REAL_MASK;
+#else
+			result = REAL_MASK;
 #endif
 			break;
 		case SystemProperty_Int_Size:

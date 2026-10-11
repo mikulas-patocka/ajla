@@ -174,6 +174,7 @@
 #define X86_0F_BSR_R16_RM16		0xbd
 #define X86_0F_MOVSX_R16_RM8		0xbe
 #define X86_0F_MOVSX_R16_RM16		0xbf
+#define X86_0F_CMPSS_X128_M32		0xc2
 #define X86_0F_PINSRW_X128_RM16_IMM8	0xc4
 
 #define X86_0F_38_CVTPH2PS_X128_RM64	0x13
@@ -1009,7 +1010,7 @@ use_shorter:
 		uint8_t code;
 		switch (alu) {
 			case ALU_AND:	code = X86_0F_ANDPS_X128_M128; break;
-			case ALU_ANDN:	code = X86_0F_ANDNPS_X128_M128; break;
+			case ALU_ANND:	code = X86_0F_ANDNPS_X128_M128; break;
 			case ALU_OR:	code = X86_0F_ORPS_X128_M128; break;
 			case ALU_XOR:	code = X86_0F_XORPS_X128_M128; break;
 			default:	internal(file_line, "invalid sse alu: %u", alu);
@@ -1396,6 +1397,32 @@ static bool attr_w cgen_sse_cmp(struct codegen_context *ctx, unsigned size)
 	} else {
 		g(cgen_sse_insn(ctx, size == OP_SIZE_4 ? SSE_PREFIX_NONE : SSE_PREFIX_66 | SSE_PREFIX_W, PREFIX_0F, X86_0F_UCOMISS_X128_RM32, false, size, arg1[0], 0, arg2, 0));
 	}
+	return true;
+}
+
+static bool attr_w cgen_sse_cmp_dest_reg(struct codegen_context *ctx, unsigned size, unsigned alu)
+{
+	uint8_t imm;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	ctx->code_position = arg3 + arg_size(*arg3);
+	switch (alu) {
+		case FP_COND_E:		imm = 0; break;
+		case FP_COND_B:		imm = 1; break;
+		case FP_COND_BE:	imm = 2; break;
+		case FP_COND_P:		imm = 3; break;
+		case FP_COND_NE:	imm = 4; break;
+		case FP_COND_AE:	imm = 5; break;
+		case FP_COND_A:		imm = 6; break;
+		case FP_COND_NP:	imm = 7; break;
+		default:		internal(file_line, "cgen_sse_cmp_dest_reg: invalid alu %u", alu);
+	}
+	if (reg_is_mask(arg1[0]))
+		g(cgen_sse_insn(ctx, (size == OP_SIZE_4 ? SSE_PREFIX_F3 : SSE_PREFIX_F2) | force_evex, PREFIX_0F, X86_0F_CMPSS_X128_M32, size == OP_SIZE_8, OP_SIZE_16, arg1[0] & 7, arg2[0], arg3, 1));
+	else
+		g(cgen_sse_insn(ctx, size == OP_SIZE_4 ? SSE_PREFIX_F3 : SSE_PREFIX_F2, PREFIX_0F, X86_0F_CMPSS_X128_M32, false, OP_SIZE_16, arg1[0], arg2[0], arg3, 1));
+	cgen_one(imm);
 	return true;
 }
 
@@ -2142,6 +2169,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_FP_CMP:
 			g(cgen_sse_cmp(ctx, insn_op_size(insn)));
+			return true;
+		case INSN_FP_CMP_DEST_REG:
+			g(cgen_sse_cmp_dest_reg(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_FP_ALU:
 			g(cgen_sse_alu(ctx, insn_op_size(insn), insn_aux(insn)));

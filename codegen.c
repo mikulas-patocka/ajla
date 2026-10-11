@@ -97,6 +97,7 @@ static uint64_t dump_seq = 0;
 #define ALU_ORN				0x08
 #define ALU_ANDN			0x09
 #define ALU_XORN			0x0a
+#define ALU_ANND			0x0b
 #define ALU_MUL				0x10
 #define ALU_UMULH			0x11
 #define ALU_SMULH			0x12
@@ -1471,7 +1472,7 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 		ip_t ip;
 		code_t code;
 		unsigned op, type;
-		frame_t slot_1, slot_2, slot_3, slot_r, flags, fn_idx, opt;
+		frame_t slot_1, slot_2, slot_3, slot_4, slot_r, flags, fn_idx, opt;
 		arg_t n_args, n_ret, i_arg;
 		uint32_t label_id;
 		uint32_t escape_label;
@@ -1756,6 +1757,23 @@ static bool attr_w gen_function(struct codegen_context *ctx)
 				g(gen_real_constant(ctx, t, slot_r, slot_1));
 				flag_set(ctx, slot_r, false);
 				continue;
+#ifdef SUPPORTED_FP_CMP_SELECT
+			} else if (op == OPCODE_REAL_OP_cmp_select_equal || op == OPCODE_REAL_OP_cmp_select_less) {
+				get_two(ctx, &slot_1, &slot_2);
+				get_two(ctx, &slot_3, &slot_4);
+				get_one(ctx, &slot_r);
+				escape_label = alloc_escape_label(ctx);
+				if (unlikely(!escape_label))
+					return false;
+				g(gen_test_4_cached(ctx, slot_1, slot_2, slot_3, slot_4, escape_label));
+				flag_set(ctx, slot_1, false);
+				flag_set(ctx, slot_2, false);
+				flag_set(ctx, slot_3, false);
+				flag_set(ctx, slot_4, false);
+				flag_set(ctx, slot_r, false);
+				g(gen_fp_cmp_select(ctx, type, op, escape_label, slot_1, slot_2, slot_3, slot_4, slot_r));
+				continue;
+#endif
 			} else {
 				internal(file_line, "gen_function: bad real code %04x", *ctx->instr_start);
 			}
@@ -2969,6 +2987,15 @@ unsigned codegen_fma(void)
 {
 #ifdef SUPPORTED_FP_FMA
 	return SUPPORTED_FP_FMA;
+#else
+	return 0;
+#endif
+}
+
+unsigned codegen_cmp_select(void)
+{
+#ifdef SUPPORTED_FP_CMP_SELECT
+	return SUPPORTED_FP_CMP_SELECT;
 #else
 	return 0;
 #endif
