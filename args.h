@@ -46,7 +46,11 @@ extern uint32_t ipret_verify_timeout;
 extern bool ipret_warnings;
 extern uint32_t ipret_opencl_device;
 
-extern bool noautofma;
+#define FAST_MATH_AUTOFMA	0x00000001
+#define FAST_MATH_UNSIGNED_ZERO	0x00000002
+typedef uint8_t fast_math_mask_t;
+extern fast_math_mask_t fast_math;
+
 extern bool optimize_int;
 
 extern bool save_disable;

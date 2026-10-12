@@ -632,7 +632,7 @@ int_default_t ipret_system_property(int_default_t idx)
 			result = REAL_MASK;
 			break;
 		case SystemProperty_Real_AutoFMA:
-			if (unlikely(ipret_is_privileged) || unlikely(noautofma))
+			if (unlikely(ipret_is_privileged) || unlikely(!(fast_math & FAST_MATH_AUTOFMA)))
 				return 0;
 #ifdef HAVE_CODEGEN
 			result = codegen_fma() & REAL_MASK;

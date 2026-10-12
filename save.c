@@ -126,7 +126,7 @@ struct file_descriptor {
 	unsigned char strict_calls;
 	unsigned char verifying;
 	unsigned char noinline;
-	unsigned char noautofma;
+	fast_math_mask_t fast_math;
 	chicken_mask_t chicken;
 	char ajla_id[sizeof(id)];
 };
@@ -1158,7 +1158,7 @@ static void save_finish_file(void)
 	file_desc.strict_calls = ipret_strict_calls;
 	file_desc.verifying = verify != NULL;
 	file_desc.noinline = ipret_noinline;
-	file_desc.noautofma = noautofma;
+	file_desc.fast_math = fast_math;
 	file_desc.chicken = chicken;
 	memcpy(file_desc.ajla_id, id, sizeof(id));
 
@@ -1539,10 +1539,8 @@ static char *save_get_file(void)
 		ext_index |= 0x08;
 	if (ipret_noinline)
 		ext_index |= 0x10;
-	if (noautofma)
-		ext_index |= 0x20;
 	if (profiling)
-		ext_index |= 0x40;
+		ext_index |= 0x20;
 	sprintf(ext, ".%c%02x", compsave ? 'c' : 's', ext_index & 0xff);
 	if (unlikely(!array_init_mayfail(char, &fn, &fn_l, &sink)))
 		goto free_ret;
@@ -1618,7 +1616,7 @@ static void save_load_cache(void)
 	    unlikely(file_desc.strict_calls != ipret_strict_calls) ||
 	    unlikely(file_desc.verifying != (verify != NULL)) ||
 	    unlikely(file_desc.noinline != ipret_noinline) ||
-	    unlikely(file_desc.noautofma != noautofma) ||
+	    unlikely(file_desc.fast_math != fast_math) ||
 	    unlikely(file_desc.chicken != chicken) ||
 	    unlikely(memcmp(file_desc.ajla_id, id, sizeof(id)))) {
 		os_close(h);

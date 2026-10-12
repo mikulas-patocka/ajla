@@ -53,7 +53,7 @@ bool ipret_warnings = false;
 uint32_t ipret_opencl_device = 0;
 
 bool optimize_int = false;
-bool noautofma = false;
+fast_math_mask_t fast_math = FAST_MATH_AUTOFMA;
 
 bool save_disable = false;
 bool thread_tick = false;
@@ -88,6 +88,32 @@ next_param:
 		chicken |= CHICKEN_CG_TRAPS;
 	else
 		warning("invalid chicken option %.*s", (int)l, str);
+	if (str[l] == ',') {
+		str += l + 1;
+		goto next_param;
+	}
+}
+
+static void fast_math_all(const char attr_unused *str)
+{
+	fast_math = FAST_MATH_AUTOFMA | FAST_MATH_UNSIGNED_ZERO;
+}
+
+static void fast_math_select(const char *str)
+{
+	size_t l;
+next_param:
+	l = strcspn(str, ",");
+	if (l == 7 && !strncmp(str, "autofma", l))
+		fast_math |= FAST_MATH_AUTOFMA;
+	else if (l == 9 && !strncmp(str, "noautofma", l))
+		fast_math &= ~FAST_MATH_AUTOFMA;
+	else if (l == 13 && !strncmp(str, "unsigned-zero", l))
+		fast_math |= FAST_MATH_UNSIGNED_ZERO;
+	else if (l == 15 && !strncmp(str, "nounsigned-zero", l))
+		fast_math &= ~FAST_MATH_UNSIGNED_ZERO;
+	else
+		warning("invalid fast-math option %.*s", (int)l, str);
 	if (str[l] == ',') {
 		str += l + 1;
 		goto next_param;
@@ -181,15 +207,15 @@ struct arg {
 };
 
 static const struct arg args[] = {
-	{ "--autofma",			ARG_SWITCH_OFF,	NULL,				&noautofma,		0, 0 },
 	{ "--chicken=",			ARG_STRING,	chicken_select,			NULL,			0, 0 },
 	{ "--compile",			ARG_SWITCH,	NULL,				&ipret_compile,		0, 0 },
 	{ "--compile-run",		ARG_SWITCH,	NULL,				&ipret_compile_run,	0, 0 },
 	{ "--debug",			ARG_SWITCH,	debug_all,			NULL,			0, 0 },
 	{ "--debug=",			ARG_STRING,	debug_select,			NULL,			0, 0 },
 	{ "--dump-",			ARG_STRING,	dump_select,			NULL,			0, 0 },
+	{ "--fast-math",		ARG_SWITCH,	fast_math_all,			NULL,			0, 0 },
+	{ "--fast-math=",		ARG_STRING,	fast_math_select,		NULL,			0, 0 },
 	{ "--help",			ARG_SWITCH,	NULL,				&help,			0, 0 },
-	{ "--noautofma",		ARG_SWITCH,	NULL,				&noautofma,		0, 0 },
 	{ "--noinline",			ARG_SWITCH,	NULL,				&ipret_noinline,	0, 0 },
 	{ "--nosave",			ARG_SWITCH,	NULL,				&save_disable,		0, 0 },
 	{ "--numa-nodes=",		ARG_NUMBER,	NULL,				&nr_nodes_override,	1, (unsigned)-1 },
@@ -217,7 +243,6 @@ static const struct arg args[] = {
 static const char *help_strings[] = {
 "Ajla "AJLA_VERSION"",
 "","\
---autofma		enable automatic generation of FMA instruction (default)","\
 --chicken=features	disable the specified comma-separated features","\
 	cg		disable the code generator and only use the interpreter","\
 	cg-flag-cache	disable the flag cache","\
@@ -245,8 +270,12 @@ static const char *help_strings[] = {
 --dump-opencl		write the generated OpenCL code to stderr","\
 --dump-pcode		write the generated pcode code to stderr","\
 --dump-z3		write the generated z3 assertions to stderr","\
+--fast-math		enable all fast-math options","\
+--fast-math=autofma	enable automatic generation of FMA instruction (default)","\
+	    noautofma	disable automatic generation of FMA instruction","\
+	    unsigned-zero do optimizations that may flip the sign of zero","\
+	    nounsigned-zero don't do optimizations that flip the sign of zero","\
 --help			display help","\
---noautofma		disable automatic generation of FMA instruction","\
 --noinline		disable automatic inlining","\
 --nosave		do not save and load the compiled program","\
 --numa-nodes=x		override the number of numa nodes to \"x\"","\
