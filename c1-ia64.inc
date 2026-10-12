@@ -287,7 +287,7 @@ static void *callback_trampoline;
 
 #define SUPPORTED_FP		0xe
 #define SUPPORTED_FP_FMA	SUPPORTED_FP
-#define FMA_NO_NEG
+#define FMA_NO_NEG		1
 #define FP_REGISTERS(real_size) 1
 
 static inline bool reg_is_gr(unsigned reg)

@@ -296,7 +296,7 @@
 #define SUPPORTED_FP			(cpu_test_feature(CPU_FEATURE_ppc) * 0x2 + 0x4 + cpu_test_feature(CPU_FEATURE_v30) * 0x10)
 #define SUPPORTED_FP_CVT(f, t)		(cpu_test_feature(CPU_FEATURE_ppc) && (((f) == 1 && (t) == 2) || ((f) == 2 && (t) == 1)))
 #define SUPPORTED_FP_FMA		(cpu_test_feature(CPU_FEATURE_ppc) * 0x2 + 0x4)
-#define FMA_NO_NEG
+#define FMA_NO_NEG			(!(fast_math & FAST_MATH_UNSIGNED_ZERO))
 #define FP_REGISTERS(real_size)		1
 
 static bool reg_is_cr(unsigned reg)

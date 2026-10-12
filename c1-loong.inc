@@ -168,7 +168,7 @@
 #define SUPPORTED_FP		0x6
 #define SUPPORTED_FP_FMA	SUPPORTED_FP
 #define SUPPORTED_FP_CMP_SELECT	SUPPORTED_FP
-#define FMA_NO_NEG
+#define FMA_NO_NEG		(!(fast_math & FAST_MATH_UNSIGNED_ZERO))
 #define FP_REGISTERS(real_size) 1
 
 #define FRAME_SIZE	(optimize_int ? 0x60 : 0xa0)

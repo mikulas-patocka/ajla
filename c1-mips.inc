@@ -217,8 +217,8 @@
 
 #define SUPPORTED_FP		0x6
 #define SUPPORTED_FP_FMA	(MIPS_R6 * 0x6)
-#define FMA_NO_NEG
-#define FMA_NO_SUB
+#define FMA_NO_NEG		(!(fast_math & FAST_MATH_UNSIGNED_ZERO))
+#define FMA_NO_SUB		1
 
 #ifdef ARCH_MIPS_O32
 #define FRAME_SIZE	(optimize_int ? 0x40 : 0x70)

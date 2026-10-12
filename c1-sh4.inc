@@ -159,8 +159,8 @@ static bool reg_is_p(unsigned reg)
 
 #define SUPPORTED_FP			0x6
 #define SUPPORTED_FP_FMA		0x2
-#define FMA_NO_NEG
-#define FMA_NO_SUB
+#define FMA_NO_NEG			1
+#define FMA_NO_SUB			1
 
 #define FP_REGISTERS(real_size)		((real_size) >= 8 ? 2 : 1)
 #define FP_ALIASES(real_size, reg, idx)	(!((reg) & 1) ? (reg) + (idx) : (reg))
