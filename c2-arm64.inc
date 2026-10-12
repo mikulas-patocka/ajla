@@ -76,6 +76,8 @@
 #define  ARM64_FP_ALU_DIV		0x00001000U
 #define  ARM64_FP_ALU_ADD		0x00002000U
 #define  ARM64_FP_ALU_SUB		0x00003000U
+#define  ARM64_FP_ALU_MAX		0x00004000U
+#define  ARM64_FP_ALU_MIN		0x00005000U
 #define  ARM64_FP_ALU_SINGLE		0x00000000U
 #define  ARM64_FP_ALU_DOUBLE		0x00400000U
 #define  ARM64_FP_ALU_HALF		0x00c00000U
@@ -952,6 +954,8 @@ static bool attr_w cgen_fp_alu(struct codegen_context *ctx, unsigned op_size, un
 		case FP_ALU_SUB:	mc |= ARM64_FP_ALU_SUB; break;
 		case FP_ALU_MUL:	mc |= ARM64_FP_ALU_MUL; break;
 		case FP_ALU_DIV:	mc |= ARM64_FP_ALU_DIV; break;
+		case FP_ALU_MIN:	mc |= ARM64_FP_ALU_MIN; break;
+		case FP_ALU_MAX:	mc |= ARM64_FP_ALU_MAX; break;
 		default:		internal(file_line, "cgen_fp_alu: invalid alu %u", aux);
 	}
 	switch (op_size) {
