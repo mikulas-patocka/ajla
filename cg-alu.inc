@@ -5190,6 +5190,35 @@ static bool attr_w gen_fp_cmp_select(struct codegen_context *ctx, unsigned real_
 		default:
 			internal(file_line, "gen_fp_cmp_select: invalid operation %u", op);
 	}
+#if defined(ARCH_ARM64) || defined(ARCH_LOONGARCH64)
+	{
+		if (fast_math & FAST_MATH_UNSIGNED_ZERO && alu == FP_COND_B) {
+			if (slot_1 == slot_3 && slot_2 == slot_4) {
+				alu = FP_ALU_MAX;
+			} else if (slot_1 == slot_4 && slot_2 == slot_3) {
+				alu = FP_ALU_MIN;
+			}
+		}
+		if (alu == FP_ALU_MAX || alu == FP_ALU_MIN) {
+			unsigned reg1, reg2, target;
+
+			g(gen_frame_get(ctx, op_size, zero_x, slot_1, FR_SCRATCH_1, &reg1));
+			g(gen_frame_get(ctx, op_size, zero_x, slot_2, FR_SCRATCH_2, &reg2));
+#if defined(ARCH_LOONGARCH64)
+			gen_insn(INSN_FP_CMP_COND, op_size, FP_COND_P, 1);
+			gen_one(reg1);
+			gen_one(reg2);
+
+			gen_insn(INSN_JMP_FP_TEST, 0, FP_COND_P, 0);
+			gen_label_ref(label_ovf);
+#endif
+			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, FR_SCRATCH_1);
+			g(gen_3address_fp_alu(ctx, op_size, alu, target, reg1, reg2));
+			g(gen_frame_store(ctx, op_size, slot_r, 0, target));
+			return true;
+		}
+	}
+#endif
 #if defined(ARCH_ALPHA)
 	{
 		unsigned reg1, reg2, target;
@@ -5227,21 +5256,6 @@ static bool attr_w gen_fp_cmp_select(struct codegen_context *ctx, unsigned real_
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, FR_SCRATCH_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, FR_SCRATCH_2, &reg2));
 
-#if defined(ARCH_ARM64)
-		if (fast_math & FAST_MATH_UNSIGNED_ZERO && alu == FP_COND_B) {
-			if (slot_1 == slot_3 && slot_2 == slot_4) {
-				alu = FP_ALU_MAX;
-			} else if (slot_1 == slot_4 && slot_2 == slot_3) {
-				alu = FP_ALU_MIN;
-			}
-		}
-#endif
-		if (alu == FP_ALU_MAX || alu == FP_ALU_MIN) {
-			target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, FR_SCRATCH_1);
-			g(gen_3address_fp_alu(ctx, op_size, alu, target, reg1, reg2));
-			goto store_ret;
-		}
-
 		gen_insn(INSN_FP_CMP, op_size, 0, 1);
 		gen_one(reg1);
 		gen_one(reg2);
@@ -5267,7 +5281,7 @@ static bool attr_w gen_fp_cmp_select(struct codegen_context *ctx, unsigned real_
 		gen_one(target);
 		gen_one(reg1);
 		gen_one(reg2);
-store_ret:
+
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 	}
 #elif defined(ARCH_LOONGARCH64) || defined(ARCH_PARISC)

@@ -91,6 +91,10 @@
 #define LOONG_FMUL_D		0x01050000U
 #define LOONG_FDIV_S		0x01068000U
 #define LOONG_FDIV_D		0x01070000U
+#define LOONG_FMAX_S		0x01088000U
+#define LOONG_FMAX_D		0x01090000U
+#define LOONG_FMIN_S		0x010a8000U
+#define LOONG_FMIN_D		0x010b0000U
 #define LOONG_FNEG_S		0x01141400U
 #define LOONG_FNEG_D		0x01141800U
 #define LOONG_FSQRT_S		0x01144400U
@@ -696,6 +700,8 @@ static bool attr_w cgen_fp_alu(struct codegen_context *ctx, unsigned op_size, un
 		case FP_ALU_SUB:	mc = op_size == OP_SIZE_4 ? LOONG_FSUB_S : LOONG_FSUB_D; break;
 		case FP_ALU_MUL:	mc = op_size == OP_SIZE_4 ? LOONG_FMUL_S : LOONG_FMUL_D; break;
 		case FP_ALU_DIV:	mc = op_size == OP_SIZE_4 ? LOONG_FDIV_S : LOONG_FDIV_D; break;
+		case FP_ALU_MIN:	mc = op_size == OP_SIZE_4 ? LOONG_FMIN_S : LOONG_FMIN_D; break;
+		case FP_ALU_MAX:	mc = op_size == OP_SIZE_4 ? LOONG_FMAX_S : LOONG_FMAX_D; break;
 		default:		internal(file_line, "cgen_fp_alu: invalid alu %u", aux);
 	}
 	cgen_3r(mc, arg1[0] & 0x1f, arg2[0] & 0x1f, arg3[0] & 0x1f);
