@@ -249,6 +249,11 @@ static unsigned query_cmov(const struct type *type, unsigned *op_size)
 		if (type->size == type->align || !UNALIGNED_TRAP)
 			allowed_cmov |= CMOV_RISCV;
 #endif
+#if defined(ARCH_MIPS)
+	if (MIPS_R6 && !TYPE_TAG_IS_REAL(type->tag) && *op_size <= OP_SIZE_NATIVE)
+		if (type->size == type->align || !UNALIGNED_TRAP)
+			allowed_cmov |= CMOV_RISCV;
+#endif
 #if defined(ARCH_RISCV64)
 	if (cpu_test_feature(CPU_FEATURE_zicond) && !TYPE_TAG_IS_REAL(type->tag) && *op_size <= OP_SIZE_NATIVE)
 		if (type->size == type->align || !UNALIGNED_TRAP)

@@ -152,6 +152,8 @@
 #define MIPS_R6_LSA		0x00000005U
 #define MIPS_R6_JALR		0x00000009U
 #define MIPS_R6_DLSA		0x00000015U
+#define MIPS_R6_SELEQZ		0x00000035U
+#define MIPS_R6_SELNEZ		0x00000037U
 #define MIPS_R6_CLZ		0x00000050U
 #define MIPS_R6_DCLZ		0x00000052U
 #define MIPS_R6_MUL		0x00000098U
@@ -587,6 +589,8 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 		case ALU_XOR:	mc = MIPS_XOR; break;
 		case ALU_OR:	mc = MIPS_OR; break;
 		case ALU_AND:	mc = MIPS_AND; break;
+		case ALU_CZERO_EQZ: mc = MIPS_R6_SELNEZ; break;
+		case ALU_CZERO_NEZ: mc = MIPS_R6_SELEQZ; break;
 		default:	goto invalid;
 	}
 	cgen_mips_3reg(mc, arg1[0], arg2[0], arg3[0]);
