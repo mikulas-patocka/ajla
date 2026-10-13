@@ -5284,7 +5284,7 @@ static bool attr_w gen_fp_cmp_select(struct codegen_context *ctx, unsigned real_
 
 		g(gen_frame_store(ctx, op_size, slot_r, 0, target));
 	}
-#elif defined(ARCH_LOONGARCH64) || defined(ARCH_PARISC)
+#elif defined(ARCH_LOONGARCH64) || defined(ARCH_MIPS) || defined(ARCH_PARISC)
 	{
 		unsigned reg1, reg2, target;
 
@@ -5305,7 +5305,7 @@ static bool attr_w gen_fp_cmp_select(struct codegen_context *ctx, unsigned real_
 		g(gen_frame_get(ctx, op_size, zero_x, slot_3, FR_SCRATCH_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_4, FR_SCRATCH_2, &reg2));
 
-#if defined(ARCH_PARISC)
+#if defined(ARCH_MIPS) || defined(ARCH_PARISC)
 		target = gen_frame_target(ctx, slot_r, slot_4, NO_FRAME_T, FR_SCRATCH_1);
 		if (target != reg1) {
 			g(gen_mov(ctx, op_size, target, reg1));

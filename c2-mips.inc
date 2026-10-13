@@ -106,6 +106,8 @@
 #define MIPS_C_ULT		0x46000035U
 #define MIPS_C_OLE		0x46000036U
 #define MIPS_C_ULE		0x46000037U
+#define MIPS_MOVF_FP		0x46000011U
+#define MIPS_MOVT_FP		0x46010011U
 #define MIPS_FP_SINGLE			0x00U
 #define MIPS_FP_DOUBLE			0x01U
 #define MIPS_CVT_S_D		0x46200020U
@@ -707,6 +709,32 @@ static bool fp_condition_negated(unsigned aux)
 		default:		internal(file_line, "fp_condition_negated: invalid condition %u", aux);
 	}
 	return false;
+}
+
+static bool attr_w cgen_cmov(struct codegen_context *ctx, unsigned op_size, unsigned aux)
+{
+	bool neg;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	ctx->code_position = arg3 + arg_size(*arg3);
+
+	if (unlikely(!(aux & COND_FP)))
+		internal(file_line, "cgen_cmov: only fp conditions supported");
+
+	if (unlikely(arg1[0] != arg2[0]))
+		internal(file_line, "bad registers");
+
+	neg = fp_condition_negated(aux);
+
+	if (!reg_is_fp(arg1[0])) {
+		cgen_mips_3reg(neg ? MIPS_MOVF : MIPS_MOVT, arg1[0], arg3[0], 0);
+	} else {
+		uint32_t fmt = cgen_fp_fmt(op_size);
+		cgen_mips_fp(neg ? MIPS_MOVF_FP : MIPS_MOVT_FP, fmt, arg1[0] & 31, arg3[0] & 31, 0);
+	}
+
+	return true;
 }
 
 static bool attr_w cgen_fp_cmp_cond(struct codegen_context *ctx, unsigned op_size, unsigned aux)
@@ -1354,6 +1382,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			if (unlikely(insn_op_size(insn) <= OP_SIZE_2) || unlikely(insn_op_size(insn) > OP_SIZE_NATIVE))
 				goto invalid_insn;
 			g(cgen_mul_l(ctx, insn_op_size(insn)));
+			return true;
+		case INSN_CMOV:
+			g(cgen_cmov(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
 		case INSN_FP_CMP_COND:
 			g(cgen_fp_cmp_cond(ctx, insn_op_size(insn), insn_aux(insn)));

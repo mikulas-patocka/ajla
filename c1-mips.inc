@@ -92,7 +92,7 @@
 #else
 #define MIPS_R4000_ERRATA		0
 #define MIPS_FCMP_DELAY_SLOTS		0
-#define MIPS_HAS_MOVT			1
+#define MIPS_HAS_MOVT			(!MIPS_R6)
 #endif
 
 #if __mips < 32
@@ -217,6 +217,7 @@
 
 #define SUPPORTED_FP		0x6
 #define SUPPORTED_FP_FMA	(MIPS_R6 * 0x6)
+#define SUPPORTED_FP_CMP_SELECT	(MIPS_HAS_MOVT * 0x6)
 #define FMA_NO_NEG		(!(fast_math & FAST_MATH_UNSIGNED_ZERO))
 #define FMA_NO_SUB		1
 
