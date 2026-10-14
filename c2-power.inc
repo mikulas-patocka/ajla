@@ -192,6 +192,8 @@
 #define POWER_FNMADDS		0xec00003eU
 #define POWER_FCFIDS		0xec00069cU
 #define POWER_XXLOR		0xf0000497U
+#define POWER_XSCMPEQDP		0xf0000018U
+#define POWER_XSCMPGTDP		0xf0000058U
 #define POWER_LXV		0xf4000001U
 #define POWER_STXSD		0xf4000002U
 #define POWER_STXV		0xf4000005U
@@ -205,6 +207,7 @@
 #define POWER_FSUB		0xfc000028U
 #define POWER_FADD		0xfc00002aU
 #define POWER_FSQRT		0xfc00002cU
+#define POWER_FSEL		0xfc00002eU
 #define POWER_FMUL		0xfc000032U
 #define POWER_FMSUB		0xfc000038U
 #define POWER_FMADD		0xfc00003aU
@@ -213,8 +216,10 @@
 #define POWER_FCMPO		0xfc000040U
 #define POWER_XSMULQP		0xfc000048U
 #define POWER_FNEG		0xfc000050U
+#define POWER_XSCMPEQQP		0xfc000088U
 #define POWER_FMR		0xfc000090U
 #define POWER_XSCMPOQP		0xfc000108U
+#define POWER_XSCMPGTQP		0xfc0001c8U
 #define POWER_XSSUBQP		0xfc000408U
 #define POWER_XSDIVQP		0xfc000448U
 #define POWER_XSCMPUQP		0xfc000508U
@@ -1421,7 +1426,7 @@ invl:
 	return false;
 }
 
-static bool attr_w cgen_fp_cmp(struct codegen_context *ctx, unsigned attr_unused op_size)
+static bool attr_w cgen_fp_cmp(struct codegen_context *ctx, unsigned op_size)
 {
 	uint32_t mc;
 	uint8_t *arg1 = ctx->code_position;
@@ -1429,6 +1434,34 @@ static bool attr_w cgen_fp_cmp(struct codegen_context *ctx, unsigned attr_unused
 	ctx->code_position = arg2 + arg_size(*arg2);
 	mc = op_size != OP_SIZE_16 ? POWER_FCMPU : POWER_XSCMPUQP;
 	cgen_xform(mc, 0, arg1[0] & 31, arg2[0] & 31, false);
+	return true;
+}
+
+static bool attr_w cgen_fp_cmp_dest_reg(struct codegen_context *ctx, unsigned op_size, unsigned aux)
+{
+	uint32_t mc;
+	uint8_t *a;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	ctx->code_position = arg3 + arg_size(*arg3);
+	switch (aux) {
+		case FP_COND_E:		mc = op_size != OP_SIZE_16 ? POWER_XSCMPEQDP : POWER_XSCMPEQQP;
+					break;
+		case FP_COND_B:		mc = op_size != OP_SIZE_16 ? POWER_XSCMPGTDP : POWER_XSCMPGTQP;
+					a = arg2;
+					arg2 = arg3;
+					arg3 = a;
+					break;
+		default:
+					internal(file_line, "cgen_fp_cmp_dest_reg: invalid condition %u", aux);
+	}
+	if (op_size != OP_SIZE_16) {
+		mc |= !!(arg1[0] & 32);
+		mc |= !!(arg3[0] & 32) << 1;
+		mc |= !!(arg2[0] & 32) << 2;
+	}
+	cgen_xform(mc, arg1[0] & 31, arg2[0] & 31, arg3[0] & 31, false);
 	return true;
 }
 
@@ -1541,6 +1574,17 @@ static bool attr_w cgen_fp_cvt(struct codegen_context *ctx, unsigned from_op_siz
 		internal(file_line, "cgen_fp_cvt: invalid types %u, %u", from_op_size, to_op_size);
 	}
 	cgen_xform(mc, arg1[0] & 31, 0, arg2[0] & 31, false);
+	return true;
+}
+
+static bool attr_w cgen_fp_blend(struct codegen_context *ctx)
+{
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	uint8_t *arg4 = arg3 + arg_size(*arg3);
+	ctx->code_position = arg4 + arg_size(*arg4);
+	cgen_x4form(POWER_FSEL, arg1[0] & 31, arg3[0] & 31, arg4[0] & 31, arg2[0] & 31, false);
 	return true;
 }
 
@@ -1717,6 +1761,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 		case INSN_FP_CMP:
 			g(cgen_fp_cmp(ctx, insn_op_size(insn)));
 			return true;
+		case INSN_FP_CMP_DEST_REG:
+			g(cgen_fp_cmp_dest_reg(ctx, insn_op_size(insn), insn_aux(insn)));
+			return true;
 		case INSN_FP_ALU:
 			g(cgen_fp_alu(ctx, insn_op_size(insn), insn_aux(insn)));
 			return true;
@@ -1734,6 +1781,9 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			return true;
 		case INSN_FP_CVT:
 			g(cgen_fp_cvt(ctx, insn_op_size(insn), insn_aux(insn)));
+			return true;
+		case INSN_FP_BLEND:
+			g(cgen_fp_blend(ctx));
 			return true;
 		case INSN_JMP:
 			g(add_relocation(ctx, JMP_SHORT, 0, NULL));
