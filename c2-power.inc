@@ -27,6 +27,7 @@
 #define		POWER_TRAP_SB		0x02000000U
 
 
+#define POWER_VSEL		0x1000002aU
 #define POWER_MULLI		0x1c000000U
 #define POWER_SUBFIC		0x20000000U
 #define POWER_CMPLI		0x28000000U
@@ -1594,7 +1595,10 @@ static bool attr_w cgen_fp_blend(struct codegen_context *ctx)
 	uint8_t *arg3 = arg2 + arg_size(*arg2);
 	uint8_t *arg4 = arg3 + arg_size(*arg3);
 	ctx->code_position = arg4 + arg_size(*arg4);
-	cgen_x4form(POWER_FSEL, arg1[0] & 31, arg3[0] & 31, arg4[0] & 31, arg2[0] & 31, false);
+	if (!(arg1[0] & 32))
+		cgen_x4form(POWER_FSEL, arg1[0] & 31, arg3[0] & 31, arg4[0] & 31, arg2[0] & 31, false);
+	else
+		cgen_x4form(POWER_VSEL, arg1[0] & 31, arg2[0] & 31, arg4[0] & 31, arg3[0] & 31, false);
 	return true;
 }
 

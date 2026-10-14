@@ -5325,6 +5325,17 @@ static bool attr_w gen_fp_cmp_select(struct codegen_context *ctx, unsigned real_
 #elif defined(ARCH_POWER) || defined(ARCH_X86)
 	{
 		unsigned reg1, reg2, reg3, reg4, target, mask;
+		unsigned fr_scratch_1 = FR_SCRATCH_1;
+		unsigned fr_scratch_2 = FR_SCRATCH_2;
+		unsigned fr_scratch_3 = FR_SCRATCH_3;
+
+#if defined(ARCH_POWER)
+		if (op_size == OP_SIZE_16) {
+			fr_scratch_1 = FR_SCRATCH_128_1;
+			fr_scratch_2 = FR_SCRATCH_128_2;
+			fr_scratch_3 = FR_SCRATCH_128_3;
+		}
+#endif
 
 #if defined(ARCH_X86)
 		if (alu == FP_COND_B) {
@@ -5337,8 +5348,8 @@ static bool attr_w gen_fp_cmp_select(struct codegen_context *ctx, unsigned real_
 			}
 		}
 #endif
-		g(gen_frame_get(ctx, op_size, zero_x, slot_1, FR_SCRATCH_1, &reg1));
-		g(gen_frame_get(ctx, op_size, zero_x, slot_2, FR_SCRATCH_2, &reg2));
+		g(gen_frame_get(ctx, op_size, zero_x, slot_1, fr_scratch_1, &reg1));
+		g(gen_frame_get(ctx, op_size, zero_x, slot_2, fr_scratch_2, &reg2));
 
 #if defined(ARCH_POWER)
 		if (fast_math & FAST_MATH_UNSIGNED_ZERO && op_size < OP_SIZE_16 && alu == FP_COND_B) {
@@ -5348,7 +5359,7 @@ static bool attr_w gen_fp_cmp_select(struct codegen_context *ctx, unsigned real_
 				alu = FP_ALU_MIN;
 			}
 			if (alu == FP_ALU_MIN || alu == FP_ALU_MAX) {
-				target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, FR_SCRATCH_1);
+				target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, fr_scratch_1);
 				g(gen_3address_fp_alu(ctx, op_size, alu, target, reg1, reg2));
 				goto store_ret;
 			}
@@ -5363,7 +5374,7 @@ static bool attr_w gen_fp_cmp_select(struct codegen_context *ctx, unsigned real_
 		gen_label_ref(label_ovf);
 
 		if (alu == FP_ALU_MIN || alu == FP_ALU_MAX) {
-			target = gen_frame_target(ctx, slot_r, ARCH_IS_3ADDRESS_FP ? NO_FRAME_T : slot_2, NO_FRAME_T, FR_SCRATCH_1);
+			target = gen_frame_target(ctx, slot_r, ARCH_IS_3ADDRESS_FP ? NO_FRAME_T : slot_2, NO_FRAME_T, fr_scratch_1);
 			g(gen_3address_fp_alu(ctx, op_size, alu, target, reg1, reg2));
 			goto store_ret;
 		}
@@ -5373,7 +5384,7 @@ static bool attr_w gen_fp_cmp_select(struct codegen_context *ctx, unsigned real_
 			mask = KR_SCRATCH_1;
 		else
 #endif
-			mask = FR_SCRATCH_1;
+			mask = fr_scratch_1;
 
 		if (unlikely(!ARCH_IS_3ADDRESS_FP) && mask != reg1) {
 			g(gen_mov(ctx, op_size, mask, reg1));
@@ -5386,14 +5397,14 @@ static bool attr_w gen_fp_cmp_select(struct codegen_context *ctx, unsigned real_
 
 		if (
 #if defined(ARCH_POWER)
-		    op_size < OP_SIZE_16
+		    1
 #elif defined(ARCH_X86)
 		    cpu_test_feature(CPU_FEATURE_sse41) || ARCH_HAS_32_FP_REGS
 #endif
 		    ) {
-			g(gen_frame_get(ctx, op_size, zero_x, slot_3, FR_SCRATCH_2, &reg3));
-			g(gen_frame_get(ctx, op_size, zero_x, slot_4, FR_SCRATCH_3, &reg4));
-			target = gen_frame_target(ctx, slot_r, ARCH_IS_3ADDRESS_FP ? NO_FRAME_T : slot_4, NO_FRAME_T, FR_SCRATCH_2);
+			g(gen_frame_get(ctx, op_size, zero_x, slot_3, fr_scratch_2, &reg3));
+			g(gen_frame_get(ctx, op_size, zero_x, slot_4, fr_scratch_3, &reg4));
+			target = gen_frame_target(ctx, slot_r, ARCH_IS_3ADDRESS_FP ? NO_FRAME_T : slot_4, NO_FRAME_T, fr_scratch_2);
 
 			if (unlikely(!ARCH_IS_3ADDRESS_FP)) {
 				if (target != reg3) {
@@ -5407,9 +5418,9 @@ static bool attr_w gen_fp_cmp_select(struct codegen_context *ctx, unsigned real_
 			gen_one(mask);
 			gen_one(reg4);
 		} else {
-			g(gen_frame_get(ctx, op_size, zero_x, slot_3, FR_SCRATCH_2, &reg3));
-			g(gen_frame_get(ctx, op_size, zero_x, slot_4, FR_SCRATCH_3, &reg4));
-			target = gen_frame_target(ctx, slot_r, slot_3, NO_FRAME_T, FR_SCRATCH_3);
+			g(gen_frame_get(ctx, op_size, zero_x, slot_3, fr_scratch_2, &reg3));
+			g(gen_frame_get(ctx, op_size, zero_x, slot_4, fr_scratch_3, &reg4));
+			target = gen_frame_target(ctx, slot_r, slot_3, NO_FRAME_T, fr_scratch_3);
 
 			g(gen_3address_alu(ctx, OP_SIZE_16, ALU_AND, target, reg4, mask, 0));
 			g(gen_3address_alu(ctx, OP_SIZE_16, ALU_ANND, mask, mask, reg3, 0));
