@@ -194,6 +194,8 @@
 #define POWER_XXLOR		0xf0000497U
 #define POWER_XSCMPEQDP		0xf0000018U
 #define POWER_XSCMPGTDP		0xf0000058U
+#define POWER_XSMAXJDP		0xf0000480U
+#define POWER_XSMINJDP		0xf00004c0U
 #define POWER_LXV		0xf4000001U
 #define POWER_STXSD		0xf4000002U
 #define POWER_STXV		0xf4000005U
@@ -1479,12 +1481,20 @@ static bool attr_w cgen_fp_alu(struct codegen_context *ctx, unsigned op_size, un
 		case FP_ALU_SUB:	mc = use_vs ? POWER_XSSUBQP : use_s ? POWER_FSUBS : POWER_FSUB; break;
 		case FP_ALU_MUL:	mc = use_vs ? POWER_XSMULQP : use_s ? POWER_FMULS : POWER_FMUL; break;
 		case FP_ALU_DIV:	mc = use_vs ? POWER_XSDIVQP : use_s ? POWER_FDIVS : POWER_FDIV; break;
+		case FP_ALU_MIN:	mc = POWER_XSMINJDP; goto minmax;
+		case FP_ALU_MAX:	mc = POWER_XSMAXJDP; goto minmax;
 		default:		goto invl;
 	}
 	if (aux == FP_ALU_MUL && !use_vs)
 		cgen_xform(mc | ((arg3[0] & 31) << 6), arg1[0] & 31, arg2[0] & 31, 0, false);
 	else
 		cgen_xform(mc, arg1[0] & 31, arg2[0] & 31, arg3[0] & 31, false);
+	return true;
+minmax:
+	mc |= !!(arg1[0] & 32);
+	mc |= !!(arg3[0] & 32) << 1;
+	mc |= !!(arg2[0] & 32) << 2;
+	cgen_xform(mc, arg1[0] & 31, arg2[0] & 31, arg3[0] & 31, false);
 	return true;
 invl:
 	internal(file_line, "cgen_fp_alu: invalid arguments %u, %u, %02x, %02x, %02x", op_size, aux, *arg1, *arg2, *arg3);

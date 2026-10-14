@@ -5337,9 +5337,23 @@ static bool attr_w gen_fp_cmp_select(struct codegen_context *ctx, unsigned real_
 			}
 		}
 #endif
-
 		g(gen_frame_get(ctx, op_size, zero_x, slot_1, FR_SCRATCH_1, &reg1));
 		g(gen_frame_get(ctx, op_size, zero_x, slot_2, FR_SCRATCH_2, &reg2));
+
+#if defined(ARCH_POWER)
+		if (fast_math & FAST_MATH_UNSIGNED_ZERO && op_size < OP_SIZE_16 && alu == FP_COND_B) {
+			if (slot_1 == slot_3 && slot_2 == slot_4) {
+				alu = FP_ALU_MAX;
+			} else if (slot_1 == slot_4 && slot_2 == slot_3) {
+				alu = FP_ALU_MIN;
+			}
+			if (alu == FP_ALU_MIN || alu == FP_ALU_MAX) {
+				target = gen_frame_target(ctx, slot_r, NO_FRAME_T, NO_FRAME_T, FR_SCRATCH_1);
+				g(gen_3address_fp_alu(ctx, op_size, alu, target, reg1, reg2));
+				goto store_ret;
+			}
+		}
+#endif
 
 		gen_insn(INSN_FP_CMP, op_size, 0, 1);
 		gen_one(reg1);
