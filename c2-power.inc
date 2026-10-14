@@ -394,13 +394,13 @@ static bool attr_w cgen_gr_to_cr(struct codegen_context *ctx, unsigned cr, unsig
 	return true;
 }
 
-static bool attr_w cgen_cr_to_gr(struct codegen_context *ctx, unsigned gr, unsigned cr)
+static bool attr_w cgen_cr_to_gr(struct codegen_context *ctx, unsigned gr, unsigned cr, int i)
 {
 	if (ctx) {
-		if (cpu_test_feature(CPU_FEATURE_v31)) {
+		if (cpu_test_feature(CPU_FEATURE_v31) && i == 1) {
 			cgen_xform(POWER_SETBC, gr, cr & 31, 0, 0);
 		} else if (cpu_test_feature(CPU_FEATURE_v203)) {
-			cgen_dform(POWER_ADDI, gr, 0, 1);
+			cgen_dform(POWER_ADDI, gr, 0, i);
 			if (gr == R_0) {
 				cgen_x4form(POWER_ISEL, gr, 0, gr, cr & 31, 0);
 				cgen_dform(POWER_XORI, gr, gr, 1);
@@ -410,7 +410,7 @@ static bool attr_w cgen_cr_to_gr(struct codegen_context *ctx, unsigned gr, unsig
 		} else {
 			cgen_dform(POWER_ADDI, gr, 0, 0);
 			cgen_dform(POWER_B_CLEAR, 0, cr & 31, 8);
-			cgen_dform(POWER_ADDI, gr, 0, 1);
+			cgen_dform(POWER_ADDI, gr, 0, i);
 		}
 	}
 	return true;
@@ -450,10 +450,10 @@ static bool attr_w cgen_moves(struct codegen_context *ctx, unsigned size, bool s
 	}
 	if (reg_is_cr(arg2[0])) {
 		if (arg1[0] < 32) {
-			g(cgen_cr_to_gr(ctx, arg1[0], arg2[0]));
+			g(cgen_cr_to_gr(ctx, arg1[0], arg2[0], 1));
 			return true;
 		}
-		g(cgen_cr_to_gr(ctx, R_CG_SCRATCH, arg2[0]));
+		g(cgen_cr_to_gr(ctx, R_CG_SCRATCH, arg2[0], 1));
 		arg2 = &scr;
 	}
 	if (arg1[0] < 32) {
@@ -964,7 +964,7 @@ static bool attr_w cgen_alus(struct codegen_context *ctx, unsigned size, unsigne
 		uint8_t cr_scratch = R_CG_CR_SCRATCH;
 		if (arg1[0] < 32) {
 			g(cgen_alus(ctx, size, alu, &cr_scratch, arg2, arg3, writes_flags));
-			g(cgen_cr_to_gr(ctx, arg1[0], R_CG_CR_SCRATCH));
+			g(cgen_cr_to_gr(ctx, arg1[0], R_CG_CR_SCRATCH, 1));
 			return true;
 		}
 		if (arg2[0] < 32) {
@@ -1146,8 +1146,18 @@ static bool attr_w cgen_alu1(struct codegen_context *ctx, unsigned size, unsigne
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	ctx->code_position = arg2 + arg_size(*arg2);
 
-	if (unlikely(arg1[0] >= 32) || unlikely(arg2[0] >= 32))
+	if (unlikely(arg1[0] >= 32) || unlikely(arg2[0] >= 32)) {
+		switch (alu) {
+			case ALU1_NEG:
+				if (unlikely(arg1[0] >= 32))
+					goto invl;
+				if (unlikely(!reg_is_cr(arg2[0])))
+					goto invl;
+				g(cgen_cr_to_gr(ctx, arg1[0], arg2[0], -1));
+				return true;
+		}
 		goto invl;
+	}
 
 	switch (alu) {
 		case ALU1_NOT:
