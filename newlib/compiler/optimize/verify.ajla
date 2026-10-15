@@ -910,6 +910,9 @@ ret_common:
 		bts P_BinaryOp
 		bts P_BinaryConstOp
 		bts P_UnaryOp
+		bts P_Select
+		bts P_SelectConst
+		bts P_Cmp_Select
 		bts P_Fn
 		bts P_Load_Fn
 		bts P_Curry
