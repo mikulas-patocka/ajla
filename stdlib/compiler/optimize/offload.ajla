@@ -442,7 +442,7 @@ fn get_integer_type(ctx : context)
 	return t;
 ]
 
-fn decode_const(ctx : context, blob : list(pcode_t), typ : int)
+fn decode_real_const(ctx : context, blob : list(pcode_t), typ : int)
 [
 	var b := blob_load(blob);
 	var itype as : bytes;
@@ -456,11 +456,30 @@ fn decode_const(ctx : context, blob : list(pcode_t), typ : int)
 		itype := "ulong";
 		as := "as_double";
 	] else [
-		abort internal("decode_const: invalid type " + ntos(typ));
+		abort internal("decode_real_const: invalid type " + ntos(typ));
 	]
 	var val : uint64;
 	pcode IO IO_Real_To_Int 1 2 0 =val typ b;
 	return as+"(("+itype+")"+ntos(val)+")";
+]
+
+fn decode_const(ctx : context, v : int, blob : list(pcode_t)) : bytes
+[
+	var t, ot, bits := get_variable_type(ctx, v);
+	if ot is fp then [
+		var typ := ctx.variables[v].type_index;
+		return decode_real_const(ctx, blob, typ);
+	] else [
+		var l := blob_to_int(blob);
+		if ot is integer then [
+			var limit := 0 bts (bits - 1);
+			if l < -limit or l >= limit then [
+				eval warning(ctx.name + ": too large constant");
+				return "";
+			]
+		]
+		return "("+t+")"+ntos(l);
+	]
 ]
 
 fn process_structured_write(ctx : context, ins : instruction) : bytes
@@ -492,10 +511,10 @@ fn process_binary_operator(ctx : context, ins : instruction) : bytes
 		op2_name := "";
 	] else if not cnst then [
 		op2_name := ctx.variables[ins.params[5]].offload_name;
-	] else if fot is fp then [
-		op2_name := decode_const(ctx, ins.params[4 .. ], tx);
 	] else [
-		op2_name := "("+ft+")"+ntos(blob_to_int(ins.params[4 .. ]));
+		op2_name := decode_const(ctx, ins.params[3], ins.params[4 .. ]);
+		if not len_greater_than(op2_name, 0) then
+			return "";
 	]
 	var output := "	{"+nl;
 	output += "		"+t+" result;"+nl;
@@ -792,26 +811,63 @@ fn process_ternary_operator(ctx : context, ins : instruction) : bytes
 	return output;
 ]
 
+fn process_select(ctx : context, ins : instruction) : bytes
+[
+	var output := "	"+ctx.variables[ins.params[0]].offload_name+" = "+ctx.variables[ins.params[2]].offload_name+" ? "+
+			  ctx.variables[ins.params[4]].offload_name+" : "+ctx.variables[ins.params[6]].offload_name+";"+nl;
+	return output;
+]
+
+fn process_select_const(ctx : context, ins : instruction) : bytes
+[
+	var l1 := 3 + blob_length(ins.params[3 .. ]);
+	var s1 := decode_const(ctx, ins.params[0], ins.params[3 .. ]);
+	var s2 := decode_const(ctx, ins.params[0], ins.params[l1 .. ]);
+
+	if not len_greater_than(s1, 0) or not len_greater_than(s2, 0) then
+		return "";
+
+	var output := "	"+ctx.variables[ins.params[0]].offload_name+" = "+ctx.variables[ins.params[2]].offload_name+" ? "+s2+" : "+s1+";"+nl;
+	return output;
+]
+
+fn process_cmp_select(ctx : context, ins : instruction) : bytes
+[
+	var op := ins.params[0];
+	var opr_name := ctx.variables[ins.params[1]].offload_name;
+	var op1_name := ctx.variables[ins.params[3]].offload_name;
+	var op2_name := ctx.variables[ins.params[5]].offload_name;
+	var op3_name := ctx.variables[ins.params[7]].offload_name;
+	var op4_name := ctx.variables[ins.params[9]].offload_name;
+	var output : bytes;
+	output := "	if (isunordered("+op1_name+", "+op2_name+"))"+nl;
+	output += "		goto exception;"+nl;
+	var rel : bytes;
+	if op = Bin_Equal then [
+		rel := "==";
+	] else if op = Bin_NotEqual then [
+		rel := "!=";
+	] else if op = Bin_Less then [
+		rel := "<";
+	] else if op = Bin_LessEqual then [
+		rel := "<=";
+	] else if op = Bin_Greater then [
+		rel := ">";
+	] else if op = Bin_GreaterEqual then [
+		rel := ">=";
+	] else [
+		return "";
+	]
+	output += "	"+opr_name+" = "+op1_name+" "+rel+" "+op2_name+" ? "+op4_name+" : "+op3_name+";"+nl;
+	return output;
+]
+
 fn process_load_const(ctx : context, ins : instruction) : bytes
 [
-	var t, ot, bits := get_variable_type(ctx, ins.params[0]);
-	var blob := ins.params[1 .. ];
-	if ot is fp then [
-		var typ := ctx.variables[ins.params[0]].type_index;
-		var output := "	{"+nl;
-		output += "		"+ctx.variables[ins.params[0]].offload_name+" = "+decode_const(ctx, blob, typ)+";"+nl;
-		output += "	}"+nl;
-		return output;
-	]
-	var l := blob_to_int(blob);
-	if ot is integer then [
-		var limit := 0 bts (bits - 1);
-		if l < -limit or l >= limit then [
-			eval warning(ctx.name + ": too large constant");
-			return "";
-		]
-	]
-	var output := "	"+ctx.variables[ins.params[0]].offload_name+" = "+ntos(l)+";"+nl;
+	var s := decode_const(ctx, ins.params[0], ins.params[1 .. ]);
+	if not len_greater_than(s, 0) then
+		return "";
+	var output := "	"+ctx.variables[ins.params[0]].offload_name+" = "+s+";"+nl;
 	return output;
 ]
 
@@ -902,6 +958,27 @@ fn process_basic_block(ctx : context, bgi : int, test last : bool) : bytes
 		]
 		if ins.opcode = P_BinaryOp or ins.opcode = P_BinaryConstOp or ins.opcode = P_UnaryOp then [
 			s := process_binary_operator(ctx, ins);
+			if not len_greater_than(s, 0) then
+				return "";
+			output += s;
+			continue;
+		]
+		if ins.opcode = P_Select then [
+			s := process_select(ctx, ins);
+			if not len_greater_than(s, 0) then
+				return "";
+			output += s;
+			continue;
+		]
+		if ins.opcode = P_SelectConst then [
+			s := process_select_const(ctx, ins);
+			if not len_greater_than(s, 0) then
+				return "";
+			output += s;
+			continue;
+		]
+		if ins.opcode = P_Cmp_Select then [
+			s := process_cmp_select(ctx, ins);
 			if not len_greater_than(s, 0) then
 				return "";
 			output += s;
