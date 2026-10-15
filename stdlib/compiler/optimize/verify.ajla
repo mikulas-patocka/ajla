@@ -392,6 +392,23 @@ fn get_z3_operator(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : c
 	return ctx, str, unint;
 ]
 
+fn get_z3_const(ctx : context, t : int, l : int) : bytes
+[
+	if t = T_Bool then [
+		return select(l <> 0, "false", "true");
+	] else if t <= T_SInt8, t >= T_UInt128 then [
+		return get_bv_const(t, l);
+	] else if t <= T_Integer and t >= T_Integer128 then [
+		return ntos(l);
+	] else if t <= T_Real16, t >= T_Real128 then [
+		return get_real_const(t, l);
+	] else if t >= 0, ctx.local_types[t] is rec, ctx.local_types[t].rec.opt then [
+		return "(mk-option "+ntos(l)+" mk-void)";
+	] else [
+		return "";
+	]
+]
+
 fn declare_unint_variable(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx : context, lt : int, fa : list(int)) : (z3_world, context, bytes)
 [
 	var unint_str := "unint_" + num2str(ctx.unint_counter);
@@ -417,7 +434,7 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		ctx, op_z3, unint := get_z3_operator(ctx, t, ins.params[0]);
 		if len(op_z3) = 0 then
 			goto ret_common;
-		var var1 var1v var2 var2v : bytes;
+		var var1 var2 : bytes;
 		//eval debug("P_BinaryOp: " + ntos(ins.params[0]) + ", " + ntos(ins.params[1]) + ", " + ntos(ins.params[2]) + ", " + ntos(ins.params[3]) + ", " + ntos(ins.params[4]) + ", " + ntos(ins.params[5]));
 		ctx, var1 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb, fa, false);
 		if len(var1) = 0 then
@@ -433,15 +450,10 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 				goto ret_undefined;
 			gen_assert(ctx, v, var_name, "(" + op_z3 + " " + var1 + " " + var2 + unint_str + ")", fa);
 		] else [
-			var cnst := blob_to_int(ins.params[4 .. ]);
-			if t = T_Bool then
-				var2 := select(cnst <> 0, "false", "true");
-			else if t <= T_SInt8, t >= T_UInt128 then
-				var2 := get_bv_const(t, cnst);
-			else if t <= T_Integer, t >= T_Integer128 then
-				var2 := ntos(cnst);
-			else
-				var2 := get_real_const(t, cnst);
+			var l := blob_to_int(ins.params[4 .. ]);
+			var2 := get_z3_const(ctx, t, l);
+			if not len_greater_than(var2, 0) then
+				goto ret_undefined;
 			gen_assert(ctx, v, var_name, "(" + op_z3 + " " + var1 + " " + var2 + unint_str + ")", fa);
 		]
 		return ctx;
@@ -490,23 +502,68 @@ fn assert_instruction(implicit z3w : z3_world, implicit z3ctx : z3_context, ctx 
 		gen_assert(ctx, v, var_name, var1, fa);
 		return ctx;
 	]
+	if ins.opcode = P_Select then [
+		var var1 var2 var3 : bytes;
+		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb, fa, false);
+		if len(var1) = 0 then
+			goto ret_undefined;
+		ctx, var2 := allocate_variable_block(ctx, ins.params[4], phi_node, ins.bb, fa, false);
+		if len(var2) = 0 then
+			goto ret_undefined;
+		ctx, var3 := allocate_variable_block(ctx, ins.params[6], phi_node, ins.bb, fa, false);
+		if len(var3) = 0 then
+			goto ret_undefined;
+		gen_assert(ctx, v, var_name, "(ite " + var1 + " " + var3 + " " + var2 + ")", fa);
+		return ctx;
+	]
+	if ins.opcode = P_SelectConst then [
+		var var1 cnst1 cnst2 : bytes;
+		var len1 := 3 + blob_length(ins.params[3 .. ]);
+		var l1 := blob_to_int(ins.params[3 .. ]);
+		var l2 := blob_to_int(ins.params[len1 .. ]);
+		var t := ctx.variables[v].runtime_type;
+		ctx, var1 := allocate_variable_block(ctx, ins.params[2], phi_node, ins.bb, fa, false);
+		if len(var1) = 0 then
+			goto ret_undefined;
+		cnst1 := get_z3_const(ctx, t, l1);
+		if not len_greater_than(cnst1, 0) then
+			goto ret_common;
+		cnst2 := get_z3_const(ctx, t, l2);
+		if not len_greater_than(cnst2, 0) then
+			goto ret_common;
+		gen_assert(ctx, v, var_name, "(ite " + var1 + " " + cnst2 + " " + cnst1 + ")", fa);
+		return ctx;
+	]
+	if ins.opcode = P_Cmp_Select then [
+		var var1 var2 var3 var4 : bytes;
+		ctx, var1 := allocate_variable_block(ctx, ins.params[3], phi_node, ins.bb, fa, false);
+		if len(var1) = 0 then
+			goto ret_undefined;
+		ctx, var2 := allocate_variable_block(ctx, ins.params[5], phi_node, ins.bb, fa, false);
+		if len(var2) = 0 then
+			goto ret_undefined;
+		ctx, var3 := allocate_variable_block(ctx, ins.params[7], phi_node, ins.bb, fa, false);
+		if len(var3) = 0 then
+			goto ret_undefined;
+		ctx, var4 := allocate_variable_block(ctx, ins.params[9], phi_node, ins.bb, fa, false);
+		if len(var4) = 0 then
+			goto ret_undefined;
+		var t := ctx.variables[ins.params[3]].runtime_type;
+		var op_z3 : bytes;
+		var unint : bool;
+		ctx, op_z3, unint := get_z3_operator(ctx, t, ins.params[0]);
+		if len(op_z3) = 0 then
+			goto ret_common;
+		gen_assert(ctx, v, var_name, "(ite " + "(" + op_z3 + " " + var1 + " " + var2 + ") " + var4 + " " + var3 + ")", fa);
+		return ctx;
+	]
 	if ins.opcode = P_Load_Const then [
 		var cnst : bytes;
 		var l := blob_to_int(ins.params[1 ..]);
 		var t := ctx.variables[v].runtime_type;
-		if t = T_Bool then [
-			cnst := select(l <> 0, "false", "true");
-		] else if t <= T_SInt8, t >= T_UInt128 then [
-			cnst := get_bv_const(t, l);
-		] else if t <= T_Integer and t >= T_Integer128 then [
-			cnst := ntos(l);
-		] else if t <= T_Real16, t >= T_Real128 then [
-			cnst := get_real_const(t, l);
-		] else if t >= 0, ctx.local_types[t] is rec, ctx.local_types[t].rec.opt then [
-			cnst := "(mk-option "+ntos(l)+" mk-void)";
-		] else [
+		cnst := get_z3_const(ctx, t, l);
+		if not len_greater_than(cnst, 0) then
 			goto ret_common;
-		]
 		gen_assert(ctx, v, var_name, cnst, fa);
 		return ctx;
 	]
