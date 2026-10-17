@@ -2714,6 +2714,8 @@ void * attr_hot_fastcall ipret_array_append_one_flat(frame_s *fp, const code_t *
 		if (unlikely(new_size < 0) ||
 		    unlikely(new_size <= da(data,array_flat)->n_used_entries))
 			goto fallback;
+		if (data_realloc_array_flat_mayfail(data, new_size pass_file_line))
+			goto do_copy;
 		type = da(data,array_flat)->type;
 		new_data = data_alloc_array_flat_mayfail(type, new_size, da(data,array_flat)->n_used_entries, false, &sink pass_file_line);
 		if (unlikely(!new_data))

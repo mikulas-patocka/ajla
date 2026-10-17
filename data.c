@@ -357,31 +357,53 @@ struct data * attr_fastcall data_alloc_option_mayfail(ajla_error_t *mayfail argu
 	return d;
 }
 
+static inline size_t flat_array_size(const struct type *type, int_default_t n_allocated)
+{
+	size_t size;
+#if defined(HAVE_BUILTIN_ADD_SUB_OVERFLOW) && defined(HAVE_BUILTIN_MUL_OVERFLOW) && !defined(UNUSUAL)
+	if (unlikely(__builtin_mul_overflow((uint_default_t)n_allocated, type->size, &size)))
+		return 0;
+	if (size < sizeof(unsigned char *))
+		size = sizeof(unsigned char *);
+	if (unlikely(__builtin_add_overflow(size, data_array_offset, &size)))
+		return 0;
+#else
+	size = (uint_default_t)n_allocated * (size_t)type->size;
+	if (unlikely((size_t)type->size + uzero >= 0x100) || unlikely((uint_default_t)n_allocated + (size_t)uzero >= sign_bit(size_t) / 0x100)) {
+		if (unlikely(size / type->size != (uint_default_t)n_allocated))
+			return 0;
+		if ((size_t)(size + data_array_offset) < size)
+			return 0;
+	}
+	if (size < sizeof(unsigned char *))
+		size = sizeof(unsigned char *);
+	size += data_array_offset;
+#endif
+	return size;
+}
+
+static inline int_default_t flat_array_extend(struct data *d, const struct type *type, int_default_t n_allocated, size_t size)
+{
+	size_t real_size = mem_size_aligned(data_untag(d), size);
+	real_size -= data_array_offset;
+	if (likely(is_power_of_2(type->size)))
+		real_size >>= log_2(type->size);
+	else
+		real_size /= type->size;
+	if (likely(real_size <= signed_maximum(int_default_t)))
+		return real_size;
+	return n_allocated;
+}
+
 struct data * attr_fastcall data_alloc_array_flat_mayfail(const struct type *type, int_default_t n_allocated, int_default_t n_used, bool clear, ajla_error_t *mayfail argument_position)
 {
 	struct data *d;
 	size_t size;
 	ajla_assert(TYPE_IS_FLAT(type), (caller_file_line, "data_alloc_array_flat_mayfail: type is not flat, tag %u", type->tag));
 	ajla_assert((n_allocated | n_used) >= 0, (caller_file_line, "data_alloc_array_flat_mayfail: negative size %"PRIdMAX", %"PRIdMAX"", (intmax_t)n_allocated, (intmax_t)n_used));
-#if defined(HAVE_BUILTIN_ADD_SUB_OVERFLOW) && defined(HAVE_BUILTIN_MUL_OVERFLOW) && !defined(UNUSUAL)
-	if (unlikely(__builtin_mul_overflow((uint_default_t)n_allocated, type->size, &size)))
+	size = flat_array_size(type, n_allocated);
+	if (unlikely(!size))
 		goto ovf;
-	if (size < sizeof(unsigned char *))
-		size = sizeof(unsigned char *);
-	if (unlikely(__builtin_add_overflow(size, data_array_offset, &size)))
-		goto ovf;
-#else
-	size = (uint_default_t)n_allocated * (size_t)type->size;
-	if (unlikely((size_t)type->size + uzero >= 0x100) || unlikely((uint_default_t)n_allocated + (size_t)uzero >= sign_bit(size_t) / 0x100)) {
-		if (unlikely(size / type->size != (uint_default_t)n_allocated))
-			goto ovf;
-		if ((size_t)(size + data_array_offset) < size)
-			goto ovf;
-	}
-	if (size < sizeof(unsigned char *))
-		size = sizeof(unsigned char *);
-	size += data_array_offset;
-#endif
 	if (likely(!clear))
 		d = data_align(array_flat, size, scalar_align, mayfail);
 	else
@@ -389,17 +411,10 @@ struct data * attr_fastcall data_alloc_array_flat_mayfail(const struct type *typ
 	if (unlikely(!d))
 		return NULL;
 	mem_set_position(data_untag(d) pass_position);
-	if (n_allocated != n_used || !n_used) {
-		size_t real_size = mem_size_aligned(data_untag(d), size);
-		real_size -= data_array_offset;
-		if (likely(is_power_of_2(type->size)))
-			real_size >>= log_2(type->size);
-		else
-			real_size /= type->size;
-		if (likely(real_size <= signed_maximum(int_default_t)))
-			n_allocated = real_size;
-	}
 	da(d,array_flat)->type = type;
+	if (n_allocated != n_used || !n_used) {
+		n_allocated = flat_array_extend(d, type, n_allocated, size);
+	}
 	da(d,array_flat)->n_allocated_entries = n_allocated;
 	da(d,array_flat)->n_used_entries = n_used;
 	return d;
@@ -407,6 +422,24 @@ struct data * attr_fastcall data_alloc_array_flat_mayfail(const struct type *typ
 ovf:
 	fatal_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_SIZE_OVERFLOW), mayfail, "flat array allocation size overflow");
 	return NULL;
+}
+
+bool attr_fastcall data_realloc_array_flat_mayfail(struct data *d, int_default_t n_allocated argument_position)
+{
+	const struct type *type = da(d,array_flat)->type;
+	size_t size = flat_array_size(type, n_allocated);
+	if (unlikely(!size))
+		return false;
+	if (!mem_realloc_aligned(d, size)) {
+		/*debug("realloc failure: %ld", (long)size);*/
+		return false;
+	}
+	/*debug("realloc success: %ld", (long)size);*/
+	if (n_allocated != da(d,array_flat)->n_used_entries) {
+		n_allocated = flat_array_extend(d, type, n_allocated, size);
+	}
+	da(d,array_flat)->n_allocated_entries = n_allocated;
+	return true;
 }
 
 struct data * attr_fastcall data_alloc_array_slice_mayfail(struct data *base, unsigned char *data, int_default_t start, int_default_t len, ajla_error_t *mayfail argument_position)

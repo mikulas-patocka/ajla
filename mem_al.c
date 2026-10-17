@@ -79,6 +79,7 @@ static bool alloc_should_fail(ajla_error_t *mayfail)
 #define heap_cmemalign(al, sz)	(likely(amalloc_enabled) ? acmemalign(al, sz) : zmem(do_memalign(al, sz), sz))
 #define heap_free_aligned(x)	(likely(amalloc_enabled) ? afree(x) : do_free_aligned(x))
 #define heap_size_aligned(al, sz) (likely(amalloc_enabled) ? asize(al) : (sz))
+#define heap_realloc_aligned(al, sz) (likely(amalloc_enabled) ? arealloc_inplace(al, sz) : false)
 
 static void *zmem(void *ptr, size_t size)
 {
@@ -807,6 +808,16 @@ size_t mem_size_aligned_position(const void *ptr, size_t size argument_position)
 	}
 #endif
 	return heap_size_aligned((void *)ptr, size);
+}
+
+bool mem_realloc_aligned_position(void *ptr, size_t size argument_position)
+{
+#ifdef DEBUG_MEMORY_POSSIBLE
+	if (unlikely(memory_debug)) {
+		return false;
+	}
+#endif
+	return heap_realloc_aligned(ptr, size);
 }
 
 #ifdef DEBUG_MEMORY_POSSIBLE

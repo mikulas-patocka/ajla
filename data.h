@@ -48,6 +48,7 @@
 #define data_alloc_record_mayfail	name(data_alloc_record_mayfail)
 #define data_alloc_option_mayfail	name(data_alloc_option_mayfail)
 #define data_alloc_array_flat_mayfail	name(data_alloc_array_flat_mayfail)
+#define data_realloc_array_flat_mayfail	name(data_realloc_array_flat_mayfail)
 #define data_alloc_array_slice_mayfail	name(data_alloc_array_slice_mayfail)
 #define data_alloc_array_pointers_mayfail	name(data_alloc_array_pointers_mayfail)
 #define data_alloc_array_same_mayfail	name(data_alloc_array_same_mayfail)
@@ -1630,6 +1631,7 @@ struct data * attr_fastcall data_alloc_longint_mayfail(unsigned long bits, ajla_
 struct data * attr_fastcall data_alloc_option_mayfail(ajla_error_t *mayfail argument_position);
 struct data * attr_fastcall data_alloc_record_mayfail(const struct record_definition *def, ajla_error_t *mayfail argument_position);
 struct data * attr_fastcall data_alloc_array_flat_mayfail(const struct type *type, int_default_t n_allocated, int_default_t n_used, bool clear, ajla_error_t *mayfail argument_position);
+bool attr_fastcall data_realloc_array_flat_mayfail(struct data *d, int_default_t n_allocated argument_position);
 struct data * attr_fastcall data_alloc_array_slice_mayfail(struct data *base, unsigned char *data, int_default_t start, int_default_t len, ajla_error_t *mayfail argument_position);
 struct data * attr_fastcall data_alloc_array_pointers_mayfail(int_default_t n_allocated, int_default_t n_used, ajla_error_t *mayfail argument_position);
 struct data * attr_fastcall data_alloc_array_same_mayfail(array_index_t n_entries, ajla_error_t *mayfail argument_position);

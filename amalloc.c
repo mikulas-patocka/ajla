@@ -973,7 +973,7 @@ madvise_ret:
 	return ptr;
 }
 
-static void *amalloc_run_realloc(void *ptr, size_t old_length, size_t new_length)
+static void *amalloc_run_realloc(void *ptr, size_t old_length, size_t new_length, bool inplace)
 {
 	void attr_unused *n;
 
@@ -1023,7 +1023,7 @@ static void *amalloc_run_realloc(void *ptr, size_t old_length, size_t new_length
 	}
 
 #if defined(OS_HAS_MREMAP)
-	{
+	if (likely(!inplace)) {
 		ajla_error_t sink;
 		void *r = os_mremap(ptr, old_length, new_length, 0, NULL, &sink);
 		if (r != MAP_FAILED) {
@@ -1031,8 +1031,8 @@ static void *amalloc_run_realloc(void *ptr, size_t old_length, size_t new_length
 				internal(file_line, "amalloc_run_realloc: os_mremap returned different pointer: %p != %p", r, ptr);
 			return ptr;
 		}
-	}
-#else
+	} else
+#endif
 	{
 		ajla_error_t sink;
 		n = os_mmap(cast_ptr(char *, ptr) + old_length, new_length - old_length, PROT_HEAP, MAP_PRIVATE | MAP_ANONYMOUS, handle_none, 0, &sink);
@@ -1042,7 +1042,9 @@ static void *amalloc_run_realloc(void *ptr, size_t old_length, size_t new_length
 			amalloc_do_unmap(n, new_length - old_length);
 		}
 	}
-#endif
+
+	if (unlikely(inplace))
+		return NULL;
 
 	n = amalloc_run_alloc(ARENA_SIZE, new_length, false, 0);
 	if (unlikely(!n))
@@ -1929,7 +1931,7 @@ static attr_noinline void *arealloc_huge(void *ptr, size_t size)
 	if (likely(size >= page_size)) {
 		void *n;
 		size = round_up(size, page_size);
-		n = amalloc_run_realloc(ptr, e->len, size);
+		n = amalloc_run_realloc(ptr, e->len, size, false);
 		if (n) {
 			e->len = size;
 			e->ptr = n;
@@ -1941,7 +1943,7 @@ static attr_noinline void *arealloc_huge(void *ptr, size_t size)
 	return arealloc_malloc(ptr, e->len, size);
 }
 
-static attr_noinline void *arealloc_mid(struct arena *a, unsigned idx, size_t size)
+static attr_noinline void *arealloc_mid(struct arena *a, unsigned idx, size_t size, bool inplace)
 {
 	unsigned existing_blocks = a->map[idx] + 1 - idx;
 	if (size > DIRECT_LIMIT && size <= ARENA_SIZE) {
@@ -1953,6 +1955,8 @@ static attr_noinline void *arealloc_mid(struct arena *a, unsigned idx, size_t si
 		if (f)
 			return idx_to_midblock(a, idx);
 	}
+	if (unlikely(inplace))
+		return NULL;
 	return arealloc_malloc(idx_to_midblock(a, idx), (size_t)existing_blocks << MIDBLOCK_BITS, size);
 }
 
@@ -1967,12 +1971,37 @@ void * attr_fastcall arealloc(void *ptr, size_t size)
 	idx = midblock_to_idx(a, ptr);
 	m = idx_to_midblock(a, a->map[idx]);
 	if (unlikely((void *)m >= ptr)) {
-		return arealloc_mid(a, idx, size);
+		return arealloc_mid(a, idx, size, false);
 	}
 	if (size >= DIRECT_LIMIT || INDEX_TO_CLASS(SIZE_TO_INDEX(size)) != m->s.cls) {
 		return arealloc_malloc(ptr, m->s.size, size);
 	}
 	return ptr;
+}
+
+bool attr_fastcall arealloc_inplace(void *ptr, size_t size)
+{
+	unsigned idx;
+	union midblock *m;
+	struct arena *a = addr_to_arena(ptr);
+	if (unlikely((void *)a == ptr)) {
+		struct huge_entry *he = huge_tree_find(ptr);
+		size = round_up(size, page_size);
+		if (amalloc_run_realloc(ptr, he->len, size, true)) {
+			he->len = size;
+			return true;
+		}
+		return false;
+	}
+	idx = midblock_to_idx(a, ptr);
+	m = idx_to_midblock(a, a->map[idx]);
+	if (unlikely((void *)m >= ptr)) {
+		return !!arealloc_mid(a, idx, size, true);
+	}
+	if (size >= DIRECT_LIMIT || INDEX_TO_CLASS(SIZE_TO_INDEX(size)) != m->s.cls) {
+		return false;
+	}
+	return true;
 }
 
 size_t asize(void *ptr)
