@@ -874,12 +874,15 @@ fn list_map(t u : type, lst : list(t), m~spec : fn(t) : u) : list(u)
 	var result := empty(u);
 	var l := len_finite(lst);
 	var c1 c2 : uint32;
+	if l > 0 then
+		result +<= m(lst[0]);
 	pcode Read_Clock =c1;
-	for i : nat := 0 to l do [
+	for i : nat := 1 to l do [
 		pcode Read_Clock =c2;
-		if c2 - c1 >= 2, i >= 1 then [
+		if c2 - c1 >= 2 then [
 			var step := i;
 			var pos := i;
+			//eval debug("step: " + ntos(step));
 			while pos + step < l invariant pos <= l do [
 				result += list_map_par~spark(lst[pos .. pos + step], m);
 				pos += step;
@@ -890,8 +893,10 @@ fn list_map(t u : type, lst : list(t), m~spec : fn(t) : u) : list(u)
 		result +<= m(lst[i]);
 	]
 ret:
-	if len_greater_than(lst, l) then
+	result := list_flatten(result);
+	if len_greater_than(lst, l) then [
 		return result + list_map~lazy(lst[l .. ], m);
+	]
 	return result;
 ]
 implicit fn instance_functor_list~inline : class_functor(list) :=
