@@ -360,7 +360,7 @@ struct data * attr_fastcall data_alloc_option_mayfail(ajla_error_t *mayfail argu
 struct data * attr_fastcall data_alloc_array_flat_mayfail(const struct type *type, int_default_t n_allocated, int_default_t n_used, bool clear, ajla_error_t *mayfail argument_position)
 {
 	struct data *d;
-	size_t size, real_size;
+	size_t size;
 	ajla_assert(TYPE_IS_FLAT(type), (caller_file_line, "data_alloc_array_flat_mayfail: type is not flat, tag %u", type->tag));
 	ajla_assert((n_allocated | n_used) >= 0, (caller_file_line, "data_alloc_array_flat_mayfail: negative size %"PRIdMAX", %"PRIdMAX"", (intmax_t)n_allocated, (intmax_t)n_used));
 #if defined(HAVE_BUILTIN_ADD_SUB_OVERFLOW) && defined(HAVE_BUILTIN_MUL_OVERFLOW) && !defined(UNUSUAL)
@@ -389,14 +389,16 @@ struct data * attr_fastcall data_alloc_array_flat_mayfail(const struct type *typ
 	if (unlikely(!d))
 		return NULL;
 	mem_set_position(data_untag(d) pass_position);
-	real_size = mem_size_aligned(data_untag(d), size);
-	real_size -= data_array_offset;
-	if (likely(is_power_of_2(type->size)))
-		real_size >>= log_2(type->size);
-	else
-		real_size /= type->size;
-	if (likely(real_size <= signed_maximum(int_default_t)))
-		n_allocated = real_size;
+	if (n_allocated != n_used || !n_used) {
+		size_t real_size = mem_size_aligned(data_untag(d), size);
+		real_size -= data_array_offset;
+		if (likely(is_power_of_2(type->size)))
+			real_size >>= log_2(type->size);
+		else
+			real_size /= type->size;
+		if (likely(real_size <= signed_maximum(int_default_t)))
+			n_allocated = real_size;
+	}
 	da(d,array_flat)->type = type;
 	da(d,array_flat)->n_allocated_entries = n_allocated;
 	da(d,array_flat)->n_used_entries = n_used;
@@ -431,17 +433,18 @@ struct data * attr_fastcall data_alloc_array_slice_mayfail(struct data *base, un
 struct data * attr_fastcall data_alloc_array_pointers_mayfail(int_default_t n_allocated, int_default_t n_used, ajla_error_t *mayfail argument_position)
 {
 	struct data *d;
-	size_t real_size;
 	d = data_alloc_flexible(array_pointers, pointer_array, n_allocated, mayfail);
 	if (unlikely(!d))
 		return NULL;
 	mem_set_position(data_untag(d) pass_position);
-	real_size = mem_size_aligned(data_untag(d), 0);
-	if (likely(real_size != 0)) {
-		real_size -= offsetof(struct data, u_.array_pointers.pointer_array);
-		real_size /= sizeof(pointer_t);
-		if (likely(real_size <= signed_maximum(int_default_t)))
-			n_allocated = real_size;
+	if (n_allocated != n_used || !n_used) {
+		size_t real_size = mem_size_aligned(data_untag(d), 0);
+		if (likely(real_size != 0)) {
+			real_size -= offsetof(struct data, u_.array_pointers.pointer_array);
+			real_size /= sizeof(pointer_t);
+			if (likely(real_size <= signed_maximum(int_default_t)))
+				n_allocated = real_size;
+		}
 	}
 	da(d,array_pointers)->pointer = da(d,array_pointers)->pointer_array;
 	da(d,array_pointers)->n_allocated_entries = n_allocated;
