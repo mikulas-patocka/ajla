@@ -518,7 +518,7 @@ static attr_noinline void *debug_mem_alloc(size_t size, size_t alignment, bool a
 
 static attr_noinline void *debug_mem_realloc(void *ptr, size_t size, ajla_error_t *mayfail, position_t position)
 {
-	size_t needed_size, padding;
+	size_t needed_size, padding, old_size;
 	unsigned char *result;
 	struct alloc_header *new_ah;
 	struct alloc_header *ah;
@@ -559,12 +559,15 @@ static attr_noinline void *debug_mem_realloc(void *ptr, size_t size, ajla_error_
 			internal(file_line, "debug_mem_realloc: memory counters overflow: %"PRIuMAX", %"PRIuMAX", %"PRIuMAX"", (uintmax_t)pt->bytes, (uintmax_t)size, (uintmax_t)pt->blocks);
 		pt->bytes += size;
 	}
+	old_size = new_ah->size;
 	new_ah->size = size;
 	if (USE_RED_ZONE)
 		AH_RED_ZONE(new_ah) = RED_ZONE;
 	if (USE_HISTOGRAM)
 		increment_histogram(pt, size, 1, new_ah->position);
 	mem_mutex_unlock(pt);
+	if (USE_FILL && size > old_size)
+		(void)memset(AH_DATA(new_ah) + old_size, get_memory_fill(), size - old_size);
 	return AH_DATA(new_ah);
 }
 
@@ -651,6 +654,9 @@ static attr_noinline bool debug_mem_realloc_inplace(const void *ptr, unsigned vf
 			increment_histogram(pt, size, 1, ah->position);
 		mem_mutex_unlock(pt);
 	}
+
+	if (USE_FILL && size > ah->size)
+		(void)memset(AH_DATA(ah) + ah->size, get_memory_fill(), size - ah->size);
 
 	ah->size = size;
 
