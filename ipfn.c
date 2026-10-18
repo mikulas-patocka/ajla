@@ -2884,6 +2884,10 @@ next_ptr:
 		}
 		goto do_nothing;
 	}
+	if (da_tag(data) == DATA_TAG_array_flat && data_is_writable(data) && flags & OPCODE_FLAG_FREE_ARGUMENT) {
+		if (likely(data_realloc_array_flat_mayfail(data, da(data,array_flat)->n_used_entries pass_file_line)))
+			goto do_nothing;
+	}
 	if (da_tag(data) == DATA_TAG_array_pointers && da(data,array_pointers)->n_used_entries == da(data,array_pointers)->n_allocated_entries && da(data,array_pointers)->pointer == da(data,array_pointers)->pointer_array) {
 		goto do_nothing;
 	}
