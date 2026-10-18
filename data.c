@@ -467,7 +467,7 @@ static inline int_default_t pointer_array_extend(struct data *d, int_default_t n
 {
 	size_t real_size = mem_size_aligned(data_untag(d), 0);
 	if (real_size != 0) {
-		real_size -= offsetof(struct data, u_.array_pointers.pointer_array);
+		real_size -= ptr_to_num(da(d,array_pointers)->pointer) - ptr_to_num(d);
 		real_size /= sizeof(pointer_t);
 		if (likely(real_size <= signed_maximum(int_default_t)))
 			n_allocated = real_size;
@@ -482,10 +482,10 @@ struct data * attr_fastcall data_alloc_array_pointers_mayfail(int_default_t n_al
 	if (unlikely(!d))
 		return NULL;
 	mem_set_position(data_untag(d) pass_position);
+	da(d,array_pointers)->pointer = da(d,array_pointers)->pointer_array;
 	if (n_allocated != n_used || !n_used) {
 		n_allocated = pointer_array_extend(d, n_allocated);
 	}
-	da(d,array_pointers)->pointer = da(d,array_pointers)->pointer_array;
 	da(d,array_pointers)->n_allocated_entries = n_allocated;
 	da(d,array_pointers)->n_used_entries = n_used;
 	return d;
@@ -494,10 +494,11 @@ struct data * attr_fastcall data_alloc_array_pointers_mayfail(int_default_t n_al
 bool attr_fastcall data_realloc_array_pointers_mayfail(struct data *d, int_default_t n_allocated argument_position)
 {
 	ajla_error_t sink;
-	size_t size;
-	if (unlikely(!struct_check_overflow(struct data, u_.array_pointers.pointer_array, n_allocated, &sink)))
+	size_t pfx, size;
+	pfx = ptr_to_num(da(d,array_pointers)->pointer) - ptr_to_num(d);
+	if (unlikely(!mem_check_overflow(pfx, n_allocated, sizeof(pointer_t), &sink)))
 		return false;
-	size = maximum_maybe0(partial_sizeof_lower_bound(struct data), offsetof(struct data, u_.array_pointers.pointer_array) + n_allocated * sizeof_element(struct data, u_.array_pointers.pointer_array));
+	size = maximum_maybe0(partial_sizeof_lower_bound(struct data), pfx + n_allocated * sizeof(pointer_t));
 	if (!mem_realloc_aligned(d, size)) {
 		/*debug("realloc failure: %ld", (long)size);*/
 		return false;
