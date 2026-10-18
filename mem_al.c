@@ -79,7 +79,7 @@ static bool alloc_should_fail(ajla_error_t *mayfail)
 #define heap_cmemalign(al, sz)	(likely(amalloc_enabled) ? acmemalign(al, sz) : zmem(do_memalign(al, sz), sz))
 #define heap_free_aligned(x)	(likely(amalloc_enabled) ? afree(x) : do_free_aligned(x))
 #define heap_size_aligned(al, sz) (likely(amalloc_enabled) ? asize(al) : (sz))
-#define heap_realloc_aligned(al, sz) (likely(amalloc_enabled) ? arealloc_inplace(al, sz) : false)
+#define heap_realloc_inplace(al, sz) (likely(amalloc_enabled) ? arealloc_inplace(al, sz) : false)
 
 static void *zmem(void *ptr, size_t size)
 {
@@ -619,6 +619,44 @@ static attr_noinline size_t debug_mem_size(const void *ptr, unsigned vfy, size_t
 	return size;
 }
 
+static attr_noinline bool debug_mem_realloc_inplace(const void *ptr, unsigned vfy, size_t size, position_t position)
+{
+	size_t needed_size, padding;
+	struct alloc_header *ah;
+
+	if (unlikely(!ptr))
+		internal(position_string(position), "debug_mem_realloc_inplace(NULL)");
+
+	ah = AH_FROM_PTR(ptr);
+	verify_block(ah, vfy, position, "debug_mem_realloc_inplace");
+
+	padding = ah->padding;
+	needed_size = get_needed_size(size, padding);
+
+	if (unlikely(!heap_realloc_inplace(AH_MALLOC_BLOCK(ah), needed_size)))
+		return false;
+
+	if (USE_LIST | USE_HISTOGRAM) {
+		struct per_thread *pt = mem_mutex_lock(ah);
+		if (unlikely(pt->bytes < ah->size) || unlikely(!pt->blocks))
+			internal(file_line, "debug_mem_realloc: memory counters underflow: %"PRIuMAX", %"PRIuMAX", %"PRIuMAX"", (uintmax_t)pt->bytes, (uintmax_t)ah->size, (uintmax_t)pt->blocks);
+		pt->bytes -= ah->size;
+		if (unlikely(pt->bytes + size < pt->bytes))
+			internal(file_line, "debug_mem_realloc: memory counters overflow: %"PRIuMAX", %"PRIuMAX", %"PRIuMAX"", (uintmax_t)pt->bytes, (uintmax_t)size, (uintmax_t)pt->blocks);
+		pt->bytes += size;
+		if (USE_HISTOGRAM)
+			increment_histogram(pt, size, 1, ah->position);
+		mem_mutex_unlock(pt);
+	}
+
+	ah->size = size;
+
+	if (USE_RED_ZONE)
+		AH_RED_ZONE(ah) = RED_ZONE;
+
+	return true;
+}
+
 /* this should not be called concurrently */
 static attr_noinline void debug_mem_set_position(const void *ptr, position_t position)
 {
@@ -814,10 +852,10 @@ bool mem_realloc_aligned_position(void *ptr, size_t size argument_position)
 {
 #ifdef DEBUG_MEMORY_POSSIBLE
 	if (unlikely(memory_debug)) {
-		return false;
+		return debug_mem_realloc_inplace(ptr, VFY_ALIGNED, size, position_arg);
 	}
 #endif
-	return heap_realloc_aligned(ptr, size);
+	return heap_realloc_inplace(ptr, size);
 }
 
 #ifdef DEBUG_MEMORY_POSSIBLE
