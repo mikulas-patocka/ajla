@@ -888,6 +888,7 @@ fn list_map(t u : type, lst : list(t), m~spec : fn(t) : u) : list(u)
 		if c2 - c1 >= 2 then [
 			var step := i;
 			var pos := i;
+			step := max(step, (l - pos + concurrency - 1) div concurrency);
 			//eval debug("step: " + ntos(step));
 			while pos + step < l invariant pos <= l do [
 				result += list_map_par~spark(lst[pos .. pos + step], m);
