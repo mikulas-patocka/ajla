@@ -633,6 +633,9 @@ static attr_noinline bool debug_mem_realloc_inplace(const void *ptr, unsigned vf
 	padding = ah->padding;
 	needed_size = get_needed_size(size, padding);
 
+	if (USE_FILL && size < ah->size)
+		(void)memset(AH_DATA(ah) + size, get_memory_fill(), ah->size - size);
+
 	if (unlikely(!heap_realloc_inplace(AH_MALLOC_BLOCK(ah), needed_size)))
 		return false;
 
