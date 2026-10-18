@@ -106,12 +106,14 @@ static inline bool mem_check_overflow(size_t prefix, size_t n_elements, size_t e
 	return true;
 }
 
-#define struct_check_overflow(full, part, n_elements, err)		mem_check_overflow(offsetof(full, part), n_elements, sizeof(((full *)NULL)->part[0]), err)
+#define sizeof_element(full, part)					(offsetof(full, part[1]) - offsetof(full, part[0]))
+
+#define struct_check_overflow(full, part, n_elements, err)		mem_check_overflow(offsetof(full, part), n_elements, sizeof_element(full, part), err)
 
 #define mem_alloc_array_mayfail(alloc, type, minimum, prefix, n_elements, el_size, err)\
 	(unlikely(!mem_check_overflow(prefix, n_elements, el_size, err)) ? cast_ptr(type, NULL) : alloc(type, maximum_maybe0((size_t)(prefix) + (size_t)(n_elements) * (size_t)(el_size), (size_t)(minimum)), err))
 
 #define struct_alloc_array_mayfail(alloc, full, part, n_elements, err)\
-	mem_alloc_array_mayfail(alloc, full *, partial_sizeof_lower_bound(full), offsetof(full, part), n_elements, sizeof(((full *)NULL)->part[0]), err)
+	mem_alloc_array_mayfail(alloc, full *, partial_sizeof_lower_bound(full), offsetof(full, part), n_elements, sizeof_element(full, part), err)
 
 #endif
