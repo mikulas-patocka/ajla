@@ -459,14 +459,18 @@ do {									\
 		internal(position_string(position), "%s: red zone damaged: %02x (block allocated at %s)", fn, AH_RED_ZONE(ah), position_string(ah->position));\
 } while (0)
 
-static size_t get_needed_size(size_t size, size_t extra)
+static size_t get_needed_size(size_t size, size_t extra, ajla_error_t *mayfail)
 {
 	size_t needed_size = size + AH_SIZE + USE_RED_ZONE;
-	if (unlikely(needed_size < size))
-		fatal("allocation size overflow");
+	if (unlikely(needed_size < size)) {
+		fatal_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_SIZE_OVERFLOW), mayfail, "allocation size overflow: %"PRIuMAX" bytes", (uintmax_t)size);\
+		return (size_t)-1;
+	}
 	needed_size += extra;
-	if (unlikely(needed_size < extra))
-		fatal("allocation size overflow");
+	if (unlikely(needed_size < extra) || unlikely(needed_size == (size_t)-1)) {
+		fatal_mayfail(error_ajla(EC_ASYNC, AJLA_ERROR_SIZE_OVERFLOW), mayfail, "allocation size overflow: %"PRIuMAX" bytes", (uintmax_t)size);\
+		return (size_t)-1;
+	}
 	return needed_size;
 }
 
@@ -478,7 +482,9 @@ static attr_noinline void *debug_mem_alloc(size_t size, size_t alignment, bool a
 	size_t needed_size;
 	if (unlikely(!is_power_of_2(alignment)))
 		internal(position_string(position), "debug_mem_alloc: invalid alignment %"PRIuMAX", size %"PRIuMAX"", (uintmax_t)alignment, (uintmax_t)size);
-	needed_size = get_needed_size(size, alignment - 1);
+	needed_size = get_needed_size(size, alignment - 1, mayfail);
+	if (unlikely(needed_size == (size_t)-1))
+		return NULL;
 	result = cast_cpp(unsigned char *, alloc_should_fail(mayfail) ? NULL : !clear ? heap_malloc(needed_size) : heap_calloc(needed_size));
 	if (unlikely(!result)) {
 		result = cast_cpp(unsigned char *, oom_calloc(needed_size, mayfail, position));
@@ -534,7 +540,9 @@ static attr_noinline void *debug_mem_realloc(void *ptr, size_t size, ajla_error_
 	pt = mem_mutex_lock(ah);
 	AH_MAGIC(ah) = ALLOC_MAGIC_REALLOC;
 	padding = ah->padding;
-	needed_size = get_needed_size(size, padding);
+	needed_size = get_needed_size(size, padding, mayfail);
+	if (unlikely(needed_size == (size_t)-1))
+		return NULL;
 	result = cast_cpp(unsigned char *, alloc_should_fail(mayfail) ? NULL : heap_realloc(AH_MALLOC_BLOCK(ah), needed_size));
 	if (unlikely(!result)) {
 		AH_MAGIC(ah) = ALLOC_MAGIC;
@@ -624,6 +632,7 @@ static attr_noinline size_t debug_mem_size(const void *ptr, unsigned vfy, size_t
 
 static attr_noinline bool debug_mem_realloc_inplace(const void *ptr, unsigned vfy, size_t size, position_t position)
 {
+	ajla_error_t sink;
 	size_t needed_size, padding;
 	struct alloc_header *ah;
 
@@ -634,7 +643,9 @@ static attr_noinline bool debug_mem_realloc_inplace(const void *ptr, unsigned vf
 	verify_block(ah, vfy, position, "debug_mem_realloc_inplace");
 
 	padding = ah->padding;
-	needed_size = get_needed_size(size, padding);
+	needed_size = get_needed_size(size, padding, &sink);
+	if (unlikely(needed_size == (size_t)-1))
+		return false;
 
 	if (USE_FILL && size < ah->size)
 		(void)memset(AH_DATA(ah) + size, get_memory_fill(), ah->size - size);
