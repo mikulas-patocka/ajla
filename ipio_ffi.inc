@@ -1787,14 +1787,14 @@ struct resource_async_packet {
 
 struct resource_thread {
 	struct list list_entry;
-	thread_t thr;
-	cond_t cond;
 	struct list async_packets;
 	bool ready;
 	bool should_exit;
 	atomic_type uchar_efficient_t idle;
 	pointer_t cb;
 	struct resource_async_packet *a;
+	thread_t thr;
+	cond_t cond;
 	void *ret;
 	union result arguments[FLEXIBLE_ARRAY];
 };
@@ -1814,8 +1814,8 @@ static void thread_pool_cleanup(bool only_idle)
 			continue;
 		l = l->prev;
 		list_del(&t->list_entry);
-		thread_join(&t->thr);
-		cond_done(&t->cond);
+		thread_join(data_untag(&t->thr));
+		cond_done(data_untag(&t->cond));
 		data_free(resource_da(t));
 	}
 	mutex_unlock(&thread_pool_mutex);
@@ -1848,21 +1848,21 @@ static bool async_packet_close(struct data *d)
 static bool thread_close(struct data *d)
 {
 	struct resource_thread *t = da_resource(d);
-	cond_lock(&t->cond);
+	cond_lock(data_untag(&t->cond));
 	t->should_exit = true;
-	cond_unlock_signal(&t->cond);
+	cond_unlock_signal(data_untag(&t->cond));
 	return false;
 }
 
 static void thread_dispatcher(struct resource_thread *t)
 {
-	cond_lock(&t->cond);
+	cond_lock(data_untag(&t->cond));
 	t->ready = true;
 	while (1) {
 		if (!list_is_empty(&t->async_packets)) {
 			struct list async_packets;
 			list_take(&async_packets, &t->async_packets);
-			cond_unlock(&t->cond);
+			cond_unlock(data_untag(&t->cond));
 			do {
 				struct resource_async_packet *a = get_struct(async_packets.prev, struct resource_async_packet, list_entry);
 				list_del(&a->list_entry);
@@ -1879,15 +1879,15 @@ static void thread_dispatcher(struct resource_thread *t)
 					address_unlock(a, DEPTH_THUNK);
 				}
 			} while (!list_is_empty(&async_packets));
-			cond_lock(&t->cond);
+			cond_lock(data_untag(&t->cond));
 			continue;
 		}
 		if (unlikely(t->should_exit))
 			break;
-		cond_wait(&t->cond);
+		cond_wait(data_untag(&t->cond));
 	}
 	t->ready = false;
-	cond_unlock(&t->cond);
+	cond_unlock(data_untag(&t->cond));
 }
 
 thread_function_decl(ffi_thread_function,
@@ -1916,12 +1916,12 @@ static void * attr_fastcall io_ffi_thread_spawn_handler(struct io_ctx *ctx)
 		goto ret_thunk;
 
 	t = da_resource(d);
-	cond_init(&t->cond);
+	cond_init(data_untag(&t->cond));
 	list_init(&t->async_packets);
 	t->should_exit = false;
 	t->ready = false;
 	store_relaxed(&t->idle, false);
-	if (unlikely(!thread_spawn(&t->thr, ffi_thread_function, d, PRIORITY_IO, &ctx->err)))
+	if (unlikely(!thread_spawn(data_untag(&t->thr), ffi_thread_function, d, PRIORITY_IO, &ctx->err)))
 		goto free_d_ret_thunk;
 	mutex_lock(&thread_pool_mutex);
 	list_add(&thread_pool, &t->list_entry);
@@ -1932,7 +1932,7 @@ static void * attr_fastcall io_ffi_thread_spawn_handler(struct io_ctx *ctx)
 	return POINTER_FOLLOW_THUNK_GO;
 
 free_d_ret_thunk:
-	cond_done(&t->cond);
+	cond_done(data_untag(&t->cond));
 	data_free_r1(d);
 ret_thunk:
 	io_terminate_with_error(ctx, ctx->err, true, NULL);
@@ -1980,9 +1980,9 @@ static void * attr_fastcall io_ffi_async_call_handler(struct io_ctx *ctx)
 	td = pointer_get_data(ptr);
 	t = da_resource(td);
 
-	cond_lock(&t->cond);
+	cond_lock(data_untag(&t->cond));
 	list_add(&t->async_packets, &a->list_entry);
-	cond_unlock_signal(&t->cond);
+	cond_unlock_signal(data_untag(&t->cond));
 
 	if (ctx->n_outputs > 1) {
 		frame_set_pointer(ctx->fp, get_output(ctx, 1), pointer_data(d));
@@ -2016,12 +2016,12 @@ static void destructor_call_in_thread(struct ffi_call_packet *call)
 	a->destructor = pointer_empty();
 	a->pkt = *call;
 
-	cond_lock(&t->cond);
+	cond_lock(data_untag(&t->cond));
 	if (t->ready) {
 		list_add(&t->async_packets, &a->list_entry);
-		cond_unlock_signal(&t->cond);
+		cond_unlock_signal(data_untag(&t->cond));
 	} else {
-		cond_unlock(&t->cond);
+		cond_unlock(data_untag(&t->cond));
 		data_free_r1(d);
 		ffi_call_packet_done(call);
 	}
@@ -2110,7 +2110,7 @@ static bool resource_callback_close(struct data *d)
 static bool arguments_close(struct data *d)
 {
 	struct resource_thread *t = da_resource(d);
-	cond_done(&t->cond);
+	cond_done(data_untag(&t->cond));
 	pointer_dereference(t->cb);
 	return true;
 }
@@ -2133,7 +2133,7 @@ static void callback_fn(ffi_cif attr_unused *cif, void *ret, void **args, void *
 
 	d = data_alloc_resource_mayfail(offsetof(struct resource_thread, arguments[c->n_args]), arguments_close, NULL pass_file_line);
 	t = da_resource(d);
-	cond_init(&t->cond);
+	cond_init(data_untag(&t->cond));
 	list_init(&t->async_packets);
 	t->should_exit = false;
 	t->ret = ret;
@@ -2407,9 +2407,9 @@ static void * attr_fastcall io_ffi_callback_return_handler(struct io_ctx *ctx)
 
 	pointer_reference_owned(pointer_data(resource_da(a)));
 
-	cond_lock(&t->cond);
+	cond_lock(data_untag(&t->cond));
 	t->should_exit = true;
-	cond_unlock_signal(&t->cond);
+	cond_unlock_signal(data_untag(&t->cond));
 
 	frame_set_pointer(ctx->fp, get_output(ctx, 1), pointer_data(resource_da(a)));
 
