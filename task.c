@@ -35,7 +35,6 @@
 #include <signal.h>
 #endif
 
-static unsigned nr_cpus;
 static uchar_efficient_t shutting_down;
 
 #define STATE_ALL_BUSY	0
@@ -605,14 +604,9 @@ void name(task_init)(void)
 	nr_idle_nodes = 0;
 	shutting_down = false;
 
-	nr_cpus = thread_concurrency();
-#ifndef THREAD_NONE
-	if (unlikely(nr_cpus_override))
-		nr_cpus = nr_cpus_override;
-#endif
 #ifdef DEBUG_ENV
 	if (getenv("PRINT_INFO"))
-		debug("concurrency: %u", nr_cpus);
+		debug("concurrency: %u", thread_concurrency);
 #endif
 
 	/*debug("available: %d", numa_available());
@@ -624,8 +618,8 @@ void name(task_init)(void)
 	nr_nodes = nr_real_nodes = os_numa_nodes();
 	if (unlikely(nr_nodes_override != 0))
 		nr_nodes = nr_nodes_override;
-	if (unlikely(nr_nodes > nr_cpus))
-		nr_nodes = nr_cpus;
+	if (unlikely(nr_nodes > thread_concurrency))
+		nr_nodes = thread_concurrency;
 #ifdef DEBUG_ENV
 	if (getenv("PRINT_INFO"))
 		debug("numa nodes: %u", nr_nodes);
@@ -643,9 +637,9 @@ void name(task_init)(void)
 			node->nr_node_cpus = os_numa_cpus_per_node(n);
 		}
 	}
-	if (unlikely(nodes[nr_nodes - 1]->starting_cpu + nodes[nr_nodes - 1]->nr_node_cpus != nr_cpus)) {
-		unsigned x1 = nr_cpus % nr_nodes;
-		unsigned y1 = nr_cpus / nr_nodes;
+	if (unlikely(nodes[nr_nodes - 1]->starting_cpu + nodes[nr_nodes - 1]->nr_node_cpus != thread_concurrency)) {
+		unsigned x1 = thread_concurrency % nr_nodes;
+		unsigned y1 = thread_concurrency / nr_nodes;
 		for (n = 0; n < nr_nodes; n++) {
 			struct node_state *node = nodes[n];
 			node->starting_cpu = !n ? 0 : nodes[n - 1]->starting_cpu + nodes[n - 1]->nr_node_cpus;
@@ -653,9 +647,9 @@ void name(task_init)(void)
 		}
 	}
 
-	thread_pointers = mem_alloc_array_mayfail(mem_alloc_mayfail, struct thread_pointers *, 0, 0, nr_cpus, sizeof(struct thread_pointers), NULL);
+	thread_pointers = mem_alloc_array_mayfail(mem_alloc_mayfail, struct thread_pointers *, 0, 0, thread_concurrency, sizeof(struct thread_pointers), NULL);
 	n = 0;
-	for (c = 0; c < nr_cpus; c++) {
+	for (c = 0; c < thread_concurrency; c++) {
 		struct node_state *node = nodes[n];
 		struct task_percpu *tpc;
 		tpc = thread_pointers[c].tpc = os_numa_alloc(n * nr_real_nodes / nr_nodes, sizeof(struct task_percpu));
@@ -683,7 +677,7 @@ void name(task_done)(void)
 	task_initialized = false;
 	tls_done(struct task_percpu *, task_tls);
 
-	for (c = 0; c < nr_cpus; c++) {
+	for (c = 0; c < thread_concurrency; c++) {
 		struct task_percpu *tpc = thread_pointers[c].tpc;
 		mutex_done(&tpc->waiting_list_mutex);
 		os_numa_free(tpc, sizeof(struct task_percpu));

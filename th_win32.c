@@ -30,6 +30,8 @@
 #include <pthread.h>
 #endif
 
+unsigned thread_concurrency;
+
 #define WIN32_STACK_SIZE	65536
 
 struct win32_thread {
@@ -51,7 +53,7 @@ static struct win32_thread thread_1;
 
 static tls_decl(struct win32_thread *, current_tcb);
 
-unsigned thread_concurrency(void)
+static unsigned concurrency(void)
 {
 	thread_concurrency_win32_;
 	return 1;
@@ -416,6 +418,8 @@ void thread_init(void)
 	fn_AcquireSRWLockExclusive = (void *)GetProcAddress(GetModuleHandleA("kernel32.dll"), "AcquireSRWLockExclusive");
 	fn_ReleaseSRWLockExclusive = (void *)GetProcAddress(GetModuleHandleA("kernel32.dll"), "ReleaseSRWLockExclusive");
 	rwmutex_supported = fn_InitializeSRWLock && fn_AcquireSRWLockShared && fn_ReleaseSRWLockShared && fn_AcquireSRWLockExclusive && fn_ReleaseSRWLockExclusive;
+
+	thread_concurrency = nr_cpus_override ? nr_cpus_override : concurrency();
 
 	thread_signal_init();
 	win32_thread_init(&thread_1 pass_file_line);

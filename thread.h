@@ -288,10 +288,10 @@ static inline bool cond_wait_us_position(cond_t attr_unused *c, uint32_t attr_un
 
 #ifdef THREAD_NONE
 #define thread_needs_barriers		false
-static inline unsigned thread_concurrency(void) { return 1; }
+#define thread_concurrency		1
 #else
 extern uchar_efficient_t thread_needs_barriers;
-unsigned thread_concurrency(void);
+extern unsigned thread_concurrency;
 #endif
 
 

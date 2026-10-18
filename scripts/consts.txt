@@ -271,6 +271,7 @@ SystemProperty_Real_AutoFMA
 SystemProperty_Real_Cmp_Select
 SystemProperty_Int_Size
 SystemProperty_Bool_Size
+SystemProperty_Concurrency
 SystemProperty_Privileged
 SystemProperty_Sandbox
 SystemProperty_Compile

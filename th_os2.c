@@ -25,6 +25,8 @@
 
 #ifdef THREAD_OS2
 
+unsigned thread_concurrency;
+
 struct os2_thread {
 	struct list wait_entry;
 	HEV wakeup;
@@ -80,7 +82,7 @@ static inline struct os2_thread *os2_tcb(void)
 
 #endif
 
-unsigned thread_concurrency(void)
+static unsigned concurrency(void)
 {
 	APIRET r;
 	ULONG n_cpus = 0;
@@ -467,6 +469,7 @@ do {									\
 
 void thread_init(void)
 {
+	thread_concurrency = nr_cpus_override ? nr_cpus_override : concurrency();
 #ifndef HAVE___THREAD
 	os2_tls_used = 0;
 #endif

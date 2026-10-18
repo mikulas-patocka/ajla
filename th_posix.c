@@ -49,8 +49,9 @@ static clockid_t clock_id;
 #endif
 
 uchar_efficient_t thread_needs_barriers = true;
+unsigned thread_concurrency;
 
-static inline unsigned thread_concurrency_getdynamic(void)
+static inline unsigned concurrency_getdynamic(void)
 {
 #if defined(HAVE_SYS_PSTAT_H) && defined(HAVE_PSTAT_GETDYNAMIC)
 	struct pst_dynamic pst;
@@ -68,7 +69,7 @@ static inline unsigned thread_concurrency_getdynamic(void)
 
 }
 
-static inline unsigned thread_concurrency_sysctl(void)
+static inline unsigned concurrency_sysctl(void)
 {
 #if defined(HAVE_SYSCTL) && defined(CTL_HW) && defined(HW_NCPU)
 	int n_cpus;
@@ -98,7 +99,7 @@ static inline unsigned thread_concurrency_sysctl(void)
 #include <unistd.h>
 #endif
 
-static inline unsigned thread_concurrency_sysconf(void)
+static inline unsigned concurrency_sysconf(void)
 {
 #if !(defined(UNUSUAL) && defined(__linux__))
 	int attr_unused ir;
@@ -128,7 +129,7 @@ static inline unsigned thread_concurrency_sysconf(void)
 	return 0;
 }
 
-static inline unsigned thread_concurrency_linux(void)
+static inline unsigned concurrency_linux(void)
 {
 #if defined(__linux__)
 	ajla_error_t sink;
@@ -156,19 +157,19 @@ static inline unsigned thread_concurrency_linux(void)
 	return 0;
 }
 
-unsigned thread_concurrency(void)
+static unsigned concurrency(void)
 {
 	unsigned ret;
 #ifdef thread_concurrency_win32_
 	thread_concurrency_win32_;
 #endif
-	if ((ret = thread_concurrency_getdynamic()))
+	if ((ret = concurrency_getdynamic()))
 		return ret;
-	if ((ret = thread_concurrency_sysctl()))
+	if ((ret = concurrency_sysctl()))
 		return ret;
-	if ((ret = thread_concurrency_sysconf()))
+	if ((ret = concurrency_sysconf()))
 		return ret;
-	if ((ret = thread_concurrency_linux()))
+	if ((ret = concurrency_linux()))
 		return ret;
 	return 1;
 }
@@ -568,6 +569,7 @@ void thread_init(void)
 		mem_free(str);
 	}
 #endif
+	thread_concurrency = nr_cpus_override ? nr_cpus_override : concurrency();
 
 	r = pthread_mutexattr_init(&mutex_attr);
 	if (unlikely(r))

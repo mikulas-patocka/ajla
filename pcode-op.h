@@ -247,13 +247,14 @@
 #define SystemProperty_Real_Cmp_Select	7
 #define SystemProperty_Int_Size		8
 #define SystemProperty_Bool_Size	9
-#define SystemProperty_Privileged	10
-#define SystemProperty_Sandbox		11
-#define SystemProperty_Compile		12
-#define SystemProperty_NoInline		13
-#define SystemProperty_Verify		14
-#define SystemProperty_Verify_Timeout	15
-#define SystemProperty_OpenCL_Device	16
+#define SystemProperty_Concurrency	10
+#define SystemProperty_Privileged	11
+#define SystemProperty_Sandbox		12
+#define SystemProperty_Compile		13
+#define SystemProperty_NoInline		14
+#define SystemProperty_Verify		15
+#define SystemProperty_Verify_Timeout	16
+#define SystemProperty_OpenCL_Device	17
 
 #define SystemProperty_OS_Posix		1
 #define SystemProperty_OS_DOS		2

@@ -119,6 +119,7 @@ struct file_descriptor {
 	size_t function_pointers_len;
 	void *base;
 	int page_size;
+	unsigned concurrency;
 	cpu_feature_mask_t cpu_feature_flags;
 	unsigned char optimize_int;
 	unsigned char privileged;
@@ -1151,6 +1152,7 @@ static void save_finish_file(void)
 	file_desc.function_pointers_len = function_pointers_len;
 	file_desc.base = num_to_ptr(0);
 	file_desc.page_size = os_getpagesize();
+	file_desc.concurrency = thread_concurrency;
 	file_desc.cpu_feature_flags = cpu_feature_flags;
 	file_desc.optimize_int = save_optimize_int;
 	file_desc.privileged = ipret_is_privileged;
@@ -1609,6 +1611,7 @@ static void save_load_cache(void)
 		return;
 	}
 	if (unlikely(file_desc.page_size != os_getpagesize()) ||
+	    unlikely(file_desc.concurrency != thread_concurrency) ||
 	    unlikely(file_desc.cpu_feature_flags != cpu_feature_flags) ||
 	    unlikely(file_desc.optimize_int != save_optimize_int) ||
 	    unlikely(file_desc.privileged != ipret_is_privileged) ||

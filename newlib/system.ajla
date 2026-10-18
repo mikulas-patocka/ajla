@@ -45,6 +45,7 @@ type bottom_type;
 
 private fn sysprop(p : int) : int;
 private fn is_privileged : bool;
+fn concurrency : nat;
 
 type sint(n : int);
 type uint(n : int);
@@ -701,6 +702,11 @@ private fn sysprop(p : int) : int
 private fn is_privileged : bool
 [
 	return sysprop(SystemProperty_Privileged) <> 0;
+]
+
+fn concurrency : nat
+[
+	return sysprop(SystemProperty_Concurrency);
 ]
 
 

@@ -26,6 +26,8 @@
 
 #ifdef THREAD_HAIKU
 
+unsigned thread_concurrency;
+
 struct haiku_thread {
 	struct list wait_entry;
 	sem_id wakeup;
@@ -38,7 +40,7 @@ static struct haiku_thread thread_1;
 
 static tls_decl(struct haiku_thread *, current_tcb);
 
-unsigned thread_concurrency(void)
+static unsigned concurrency(void)
 {
 	int ir;
 	EINTR_LOOP(ir, sysconf(_SC_NPROCESSORS_ONLN));
@@ -341,6 +343,7 @@ do {									\
 
 void thread_init(void)
 {
+	thread_concurrency = nr_cpus_override ? nr_cpus_override : concurrency();
 	haiku_thread_init(&thread_1 pass_file_line);
 	tls_init(struct haiku_thread *, current_tcb);
 	tls_set(struct haiku_thread *, current_tcb, &thread_1);
