@@ -430,7 +430,7 @@ bool attr_fastcall data_realloc_array_flat_mayfail(struct data *d, int_default_t
 	size_t size = flat_array_size(type, n_allocated);
 	if (unlikely(!size))
 		return false;
-	if (!mem_realloc_aligned(d, size)) {
+	if (!mem_realloc_aligned(data_untag(d), size)) {
 		/*debug("realloc failure: %ld", (long)size);*/
 		return false;
 	}
@@ -499,7 +499,7 @@ bool attr_fastcall data_realloc_array_pointers_mayfail(struct data *d, int_defau
 	if (unlikely(!mem_check_overflow(pfx, n_allocated, sizeof(pointer_t), &sink)))
 		return false;
 	size = maximum_maybe0(partial_sizeof_lower_bound(struct data), pfx + n_allocated * sizeof(pointer_t));
-	if (!mem_realloc_aligned(d, size)) {
+	if (!mem_realloc_aligned(data_untag(d), size)) {
 		/*debug("realloc failure: %ld", (long)size);*/
 		return false;
 	}
