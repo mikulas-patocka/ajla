@@ -263,7 +263,7 @@ record class_real_number(t : type) [
 record class_functor(f : fn(type) : type) [
 	map : fn (t u : type, l : f(t), m : fn(t) : u) : f(u);
 ]
-fn map(t u : type, const f : fn(type) : type, c~spec : class_functor(f), l : f(t), m~spec : fn(t) : u) : f(u);
+fn map~inline(t u : type, const f : fn(type) : type, c~spec : class_functor(f), l : f(t), m~spec : fn(t) : u) : f(u);
 
 implicit fn inherit_eq_ord~inline(t : type, c : class_ord(t)) : class_eq(t);
 implicit fn inherit_magma_monoid~inline(t : type, c : class_monoid(t)) : class_magma(t);
@@ -953,7 +953,7 @@ implicit fn instance_functor_array~inline(const dim : list(nat)) : class_functor
 		map : array_map(dim,,,,),
 	];
 
-fn map(t u : type, const f : fn(type) : type, c~spec : class_functor(f), l : f(t), m~spec : fn(t) : u) : f(u)
+fn map~inline(t u : type, const f : fn(type) : type, c~spec : class_functor(f), l : f(t), m~spec : fn(t) : u) : f(u)
 [
 	return c.map(l, m);
 ]
