@@ -3411,12 +3411,16 @@ fn list_filter(t : type, lst : list(t), test~spec : fn(t) : bool) : list(t)
 	var result := empty(t);
 	var l := len_finite(lst);
 	var c1 c2 : uint32;
+	if l > 0 then
+		if test(lst[0]) then
+			result +<= lst[0];
 	pcode Read_Clock =c1;
-	for i : nat := 0 to l do [
+	for i : nat := 1 to l do [
 		pcode Read_Clock =c2;
-		if c2 - c1 >= 2, i >= 1 then [
+		if c2 - c1 >= 2 then [
 			var step := i;
 			var pos := i;
+			step := max(step, (l - pos + concurrency - 1) div concurrency);
 			while pos + step < l invariant pos < l do [
 				result += list_filter_par~spark(lst[pos .. pos + step], test);
 				pos += step;
@@ -3428,6 +3432,7 @@ fn list_filter(t : type, lst : list(t), test~spec : fn(t) : bool) : list(t)
 			result +<= lst[i];
 	]
 ret:
+	result := list_flatten(result);
 	if len_greater_than(lst, l) then
 		return result + list_filter~lazy(lst[l .. ], test);
 	return result;
