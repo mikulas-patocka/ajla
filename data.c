@@ -463,6 +463,18 @@ struct data * attr_fastcall data_alloc_array_slice_mayfail(struct data *base, un
 	return d;
 }
 
+static inline int_default_t pointer_array_extend(struct data *d, int_default_t n_allocated)
+{
+	size_t real_size = mem_size_aligned(data_untag(d), 0);
+	if (real_size != 0) {
+		real_size -= offsetof(struct data, u_.array_pointers.pointer_array);
+		real_size /= sizeof(pointer_t);
+		if (likely(real_size <= signed_maximum(int_default_t)))
+			n_allocated = real_size;
+	}
+	return n_allocated;
+}
+
 struct data * attr_fastcall data_alloc_array_pointers_mayfail(int_default_t n_allocated, int_default_t n_used, ajla_error_t *mayfail argument_position)
 {
 	struct data *d;
@@ -471,18 +483,31 @@ struct data * attr_fastcall data_alloc_array_pointers_mayfail(int_default_t n_al
 		return NULL;
 	mem_set_position(data_untag(d) pass_position);
 	if (n_allocated != n_used || !n_used) {
-		size_t real_size = mem_size_aligned(data_untag(d), 0);
-		if (likely(real_size != 0)) {
-			real_size -= offsetof(struct data, u_.array_pointers.pointer_array);
-			real_size /= sizeof(pointer_t);
-			if (likely(real_size <= signed_maximum(int_default_t)))
-				n_allocated = real_size;
-		}
+		n_allocated = pointer_array_extend(d, n_allocated);
 	}
 	da(d,array_pointers)->pointer = da(d,array_pointers)->pointer_array;
 	da(d,array_pointers)->n_allocated_entries = n_allocated;
 	da(d,array_pointers)->n_used_entries = n_used;
 	return d;
+}
+
+bool attr_fastcall data_realloc_array_pointers_mayfail(struct data *d, int_default_t n_allocated argument_position)
+{
+	ajla_error_t sink;
+	size_t size;
+	if (unlikely(!struct_check_overflow(struct data, u_.array_pointers.pointer_array, n_allocated, &sink)))
+		return false;
+	size = maximum_maybe0(partial_sizeof_lower_bound(struct data), offsetof(struct data, u_.array_pointers.pointer_array) + n_allocated * sizeof_element(struct data, u_.array_pointers.pointer_array));
+	if (!mem_realloc_aligned(d, size)) {
+		/*debug("realloc failure: %ld", (long)size);*/
+		return false;
+	}
+	/*debug("realloc success: %ld", (long)size);*/
+	if (n_allocated != da(d,array_pointers)->n_used_entries) {
+		n_allocated = pointer_array_extend(d, n_allocated);
+	}
+	da(d,array_pointers)->n_allocated_entries = n_allocated;
+	return true;
 }
 
 struct data * attr_fastcall data_alloc_array_same_mayfail(array_index_t n_entries, ajla_error_t *mayfail argument_position)

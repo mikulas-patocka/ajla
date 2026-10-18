@@ -2779,12 +2779,14 @@ no_flat:
 		new_size = maximum(new_size, 16);
 		if (unlikely(new_size <= (size_t)da(data,array_pointers)->n_used_entries))
 			goto fallback;
-		new_data = data_alloc_array_pointers_mayfail(new_size, da(data,array_pointers)->n_used_entries, &err pass_file_line);
-		if (unlikely(!new_data))
-			goto fallback;
-		memcpy(da(new_data,array_pointers)->pointer, da(data,array_pointers)->pointer, da(data,array_pointers)->n_used_entries * sizeof(pointer_t));
-		data_free_r1(data);
-		data = new_data;
+		if (!data_realloc_array_pointers_mayfail(data, new_size pass_file_line)) {
+			new_data = data_alloc_array_pointers_mayfail(new_size, da(data,array_pointers)->n_used_entries, &err pass_file_line);
+			if (unlikely(!new_data))
+				goto fallback;
+			memcpy(da(new_data,array_pointers)->pointer, da(data,array_pointers)->pointer, da(data,array_pointers)->n_used_entries * sizeof(pointer_t));
+			data_free_r1(data);
+			data = new_data;
+		}
 	}
 	da(data,array_pointers)->pointer[da(data,array_pointers)->n_used_entries++] = ptr_e;
 
@@ -2888,9 +2890,6 @@ next_ptr:
 		if (likely(data_realloc_array_flat_mayfail(data, da(data,array_flat)->n_used_entries pass_file_line)))
 			goto do_nothing;
 	}
-	if (da_tag(data) == DATA_TAG_array_pointers && da(data,array_pointers)->n_used_entries == da(data,array_pointers)->n_allocated_entries && da(data,array_pointers)->pointer == da(data,array_pointers)->pointer_array) {
-		goto do_nothing;
-	}
 
 	len_long = array_len(data);
 	if (unlikely(!index_is_int(len_long))) {
@@ -2906,6 +2905,13 @@ next_ptr:
 	index_free(&len_long);
 
 	if (!flat_type) {
+		if (da_tag(data) == DATA_TAG_array_pointers && da(data,array_pointers)->n_used_entries == da(data,array_pointers)->n_allocated_entries && da(data,array_pointers)->pointer == da(data,array_pointers)->pointer_array) {
+			goto do_nothing;
+		}
+		if (da_tag(data) == DATA_TAG_array_pointers && da(data,array_pointers)->pointer == da(data,array_pointers)->pointer_array && data_is_writable(data) && flags & OPCODE_FLAG_FREE_ARGUMENT) {
+			if (likely(data_realloc_array_pointers_mayfail(data, da(data,array_pointers)->n_used_entries pass_file_line)))
+				goto do_nothing;
+		}
 		na = data_alloc_array_pointers_mayfail(len, 0, &sink pass_file_line);
 		if (unlikely(!na))
 			goto do_nothing;
