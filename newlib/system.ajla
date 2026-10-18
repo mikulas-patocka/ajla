@@ -3413,8 +3413,6 @@ fn list_filter(t : type, lst : list(t), test~spec : fn(t) : bool) : list(t)
 	var c1 c2 : uint32;
 	pcode Read_Clock =c1;
 	for i : nat := 0 to l do [
-		if test(lst[i]) then
-			result +<= lst[i];
 		pcode Read_Clock =c2;
 		if c2 - c1 >= 2, i >= 1 then [
 			var step := i;
@@ -3426,6 +3424,8 @@ fn list_filter(t : type, lst : list(t), test~spec : fn(t) : bool) : list(t)
 			result += list_filter_par~spark(lst[pos .. l], test);
 			goto ret;
 		]
+		if test(lst[i]) then
+			result +<= lst[i];
 	]
 ret:
 	if len_greater_than(lst, l) then
