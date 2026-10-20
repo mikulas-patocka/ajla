@@ -1404,10 +1404,10 @@ void * attr_hot_fastcall thunk_cmp_select_flat(frame_s *fp, const code_t *ip, fr
 			barrier_aliasing();				\
 			switch (op) {					\
 				case OPCODE_REAL_OP_cmp_select_equal:	\
-					sel = val1 == val2;		\
+					sel = unpack(val1) == unpack(val2);\
 					break;				\
 				case OPCODE_REAL_OP_cmp_select_less:	\
-					sel = val1 < val2;		\
+					sel = unpack(val1) < unpack(val2);\
 					break;				\
 				default:				\
 					internal(file_line, "thunk_cmp_select_flat: invalid op %u", op);\
