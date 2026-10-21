@@ -301,6 +301,12 @@ static bool attr_w gen_select_flat(struct codegen_context *ctx, frame_t slot_1, 
 	}
 
 	qc = query_cmov(type, &op_size);
+#if defined(ARCH_POWER)
+	if ((slot_is_register(ctx, slot_2) && reg_is_cr(ctx->registers[slot_2])) ||
+	    (slot_is_register(ctx, slot_3) && reg_is_cr(ctx->registers[slot_3])) ||
+	    (slot_is_register(ctx, slot_r) && reg_is_cr(ctx->registers[slot_r])))
+		qc = 0;
+#endif
 	if (!TYPE_TAG_IS_REAL(type->tag))
 		i_op_size = i_size(op_size);
 	else
