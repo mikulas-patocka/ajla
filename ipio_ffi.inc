@@ -939,7 +939,7 @@ static void * attr_fastcall io_ffi_function_create_handler(struct io_ctx *ctx)
 	rf->ret_type = rtype;
 	ret = NULL;
 	rf->flags = flags;
-	strcpy(rf->name, ctx->str);
+	memcpy(rf->name, ctx->str, strlen(ctx->str) + 1);
 
 	pointer_reference_owned(ptr);
 
