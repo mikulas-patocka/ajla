@@ -973,7 +973,7 @@ madvise_ret:
 	return ptr;
 }
 
-static void *amalloc_run_realloc(void *ptr, size_t old_length, size_t new_length, bool inplace)
+static void *amalloc_run_realloc(void *ptr, size_t old_length, size_t new_length, bool attr_unused inplace)
 {
 	void attr_unused *n;
 
