@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mikulas Patocka
+ * Copyright (C) 2024 - 2026 Mikulas Patocka
  *
  * This file is part of Ajla.
  *
@@ -20,6 +20,7 @@
 
 #include "obj_reg.h"
 #include "mem_al.h"
+#include "os.h"
 
 #include "thread.h"
 
@@ -409,7 +410,7 @@ do {									\
 	btr = _beginthread(os2_thread_function, NULL, MINIMUM_STACK_SIZE, tcb);\
 	mutex_unlock(&thread_spawn_mutex);				\
 	if (unlikely(btr == -1)) {					\
-		int r;							\
+		APIRET r;						\
 		int er = errno;						\
 		ajla_error_t e = error_from_errno(EC_SYSCALL, er);	\
 		fatal_mayfail(e, err, "_beginthread failed at %s: %d, %s", position_string(position_arg), er, error_decode(e));\
