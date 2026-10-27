@@ -98,7 +98,9 @@
 #define PARISC_SUBI		0x94000000U
 #define PARISC_CMPB_64		0x9c000000U
 #define PARISC_ADDB		0xa0000000U
+#define PARISC_ADDIB		0xa4000000U
 #define PARISC_ADDB_NOT		0xa8000000U
+#define PARISC_ADDIB_NOT	0xac000000U
 #define PARISC_ADDI		0xb4000000U
 #define PARISC_FMPYFADD		0xb8000000U
 #define PARISC_FMPYNFADD	0xb8000020U
@@ -771,6 +773,19 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 				r2 = R_CG_SCRATCH;
 				rt = arg1[0];
 			} else {
+#ifdef ARCH_PARISC32
+				if (imm >= -0x10 && imm < 0x10 && arg1[0] == arg2[0] && length == JMP_SHORTEST) {
+					bool known;
+					mc = PARISC_ADDIB;
+					mc |= PARISC_COND_SV;
+					mc |= PARISC_N;
+					g(add_relocation(ctx, JMP_SHORTEST, ctx->code_position - arg1, &known));
+					g(cgen_2reg(ctx, mc, arg1[0], low_sign_ext_5(imm)));
+					if (unlikely(known))
+						cgen_four(PARISC_NOP);
+					return true;
+				}
+#endif
 				mc = PARISC_ADDI;
 				mc |= low_sign_ext_11(imm);
 				r1 = arg1[0];
