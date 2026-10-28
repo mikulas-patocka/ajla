@@ -945,16 +945,13 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 		const struct code_arg *src_arg = &ctx->args[i];
 		const struct local_arg *dest_arg = &da(new_fn,function)->args[i];
 		const struct type *t = get_type_of_local(ctx, src_arg->slot);
-		uint32_t non_flat_label, thunk_label, incr_ref_label, next_arg_label;
+		uint32_t non_flat_label, thunk_label, next_arg_label;
 		unsigned reg;
 		non_flat_label = alloc_label(ctx);
 		if (unlikely(!non_flat_label))
 			return false;
 		thunk_label = alloc_label(ctx);
 		if (unlikely(!thunk_label))
-			return false;
-		incr_ref_label = alloc_label(ctx);
-		if (unlikely(!incr_ref_label))
 			return false;
 		next_arg_label = alloc_label(ctx);
 		if (unlikely(!next_arg_label))
@@ -1040,13 +1037,9 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 			}
 			if (flag_is_clear(ctx, src_arg->slot))
 				goto do_reference;
-			g(gen_test_1(ctx, R_FRAME, src_arg->slot, 0, incr_ref_label, true, TEST_CLEAR));
-			gen_insn(INSN_JMP, 0, 0, 0);
-			gen_label_ref(next_arg_label);
+			g(gen_test_1(ctx, R_FRAME, src_arg->slot, 0, next_arg_label, false, TEST_CLEAR));
 		}
 do_reference:
-		gen_label(incr_ref_label);
-
 		g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1, false));
 
 		g(gen_mov(ctx, i_size(OP_SIZE_ADDRESS), R_ARG0, reg));
