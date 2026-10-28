@@ -1038,6 +1038,7 @@ static bool attr_w gen_call(struct codegen_context *ctx, code_t code, frame_t fn
 			if (flag_is_clear(ctx, src_arg->slot))
 				goto do_reference;
 			g(gen_test_1(ctx, R_FRAME, src_arg->slot, 0, next_arg_label, false, TEST_CLEAR));
+			flag_set(ctx, src_arg->slot, false);
 		}
 do_reference:
 		g(gen_upcall_start(ctx, offsetof(struct cg_upcall_vector_s, cg_upcall_pointer_reference_owned), 1, false));
