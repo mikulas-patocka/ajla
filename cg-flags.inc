@@ -87,6 +87,7 @@ static bool attr_w gen_set_1(struct codegen_context *ctx, unsigned base, frame_t
 		gen_eight(0);
 		gen_one(ARG_IMM);
 		gen_eight(!val ? ~1 : 1);
+		return true;
 	}
 #endif
 #if defined(ARCH_ALPHA)
