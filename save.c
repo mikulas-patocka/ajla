@@ -1629,6 +1629,9 @@ static void save_load_cache(void)
 	{
 		int prot_flags = PROT_READ | PROT_WRITE;
 		void *ptr;
+#ifdef OS_CYGWIN
+		prot_flags |= PROT_EXEC;
+#endif
 #ifndef POINTER_COMPRESSION
 		ptr = os_mmap(file_desc.base, ld[compsave].loaded_data_len, prot_flags, MAP_PRIVATE, h, 0, &sink);
 		/*debug("mapped: %p, %lx -> %p", file_desc.base, ld[compsave].loaded_data_len, ptr);*/
@@ -1657,7 +1660,8 @@ static void save_load_cache(void)
 		ld[compsave].loaded_data_amalloc = true;
 #endif
 #if defined(HAVE_CODEGEN) && defined(HAVE_MPROTECT)
-		os_mprotect(ptr, loaded_file_descriptor(compsave)->writable_boundary, PROT_READ | PROT_EXEC, NULL);
+		if (!(prot_flags & PROT_EXEC))
+			os_mprotect(ptr, loaded_file_descriptor(compsave)->writable_boundary, PROT_READ | PROT_EXEC, NULL);
 #endif
 		bind_function_pointers();
 		os_close(h);
