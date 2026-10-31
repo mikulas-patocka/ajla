@@ -451,8 +451,8 @@ do {									\
 do {									\
 	verify_no_tag(ah, position, fn);				\
 	if (!(								\
-	    ((aligned) & VFY_UNALIGNED && likely(AH_MAGIC(ah) == ALLOC_MAGIC)) ||\
-	    ((aligned) & VFY_ALIGNED && likely(AH_MAGIC(ah) == ALLOC_MAGIC_ALIGNED))\
+	    (!!((aligned) & VFY_UNALIGNED) && likely(AH_MAGIC(ah) == ALLOC_MAGIC)) ||\
+	    (!!((aligned) & VFY_ALIGNED) && likely(AH_MAGIC(ah) == ALLOC_MAGIC_ALIGNED))\
 	))								\
 		internal(position_string(position), "%s: magic doesn't match: %08lx", fn, (unsigned long)AH_MAGIC(ah));\
 	if (USE_RED_ZONE && unlikely(AH_RED_ZONE(ah) != RED_ZONE))	\

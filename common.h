@@ -48,7 +48,7 @@ static inline int zero_(void)
 #define signed_maximum(type)	(~sign_bit(type))
 #define is_unsigned(type)	((type)-1 >= 1)
 
-#define is_power_of_2(x)	((x) && !((x) & ((x) - 1)))
+#define is_power_of_2(x)	(!!(x) && !((x) & ((x) - 1)))
 
 static const size_t attr_unused size_t_limit = (size_t)-1;	/* use const to avoid warning */
 
