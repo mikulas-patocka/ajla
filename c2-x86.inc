@@ -496,7 +496,7 @@ gen:
 					rex2 &= ~X86_REX2_B4;
 					rex2 |= X86_REX2_X3;
 				}
-				if (force_ndd && size == OP_SIZE_2)
+				if (sse_prefix & force_ndd && size == OP_SIZE_2)
 					sse_prefix |= SSE_PREFIX_66;
 				cgen_one(X86_EVEX);
 				cgen_one(((~rex2 & (X86_REX2_R3 | X86_REX2_X3 | X86_REX2_B3)) << 5) | !(rex2 & X86_REX2_R4) << 4 | !!(rex2 & X86_REX2_B4) << 3 | prefix);
