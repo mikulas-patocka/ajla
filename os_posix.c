@@ -87,7 +87,7 @@ void u_name(wake_up_wait_list)(struct list *wait_list, mutex_t *mutex_to_lock, u
 void c_name(wake_up_wait_list)(struct list *wait_list, mutex_t *mutex_to_lock, unsigned spawn_mode);
 #endif
 
-#if !defined(THREAD_NONE) && defined(USE_SIGPROCMASK) && defined(HAVE_PTHREAD) && defined(HAVE_PTHREAD_SIGMASK)
+#if !defined(THREAD_NONE) && defined(USE_SIGPROCMASK) && defined(HAVE_PTHREADS) && defined(HAVE_PTHREAD_SIGMASK)
 #include <pthread.h>
 #define USE_PTHREAD_SIGMASK
 #endif
