@@ -661,9 +661,7 @@ generate_real_ternary_fma(type, ntype, pack, unpack, fms, 1)		\
 generate_real_ternary_fma(type, ntype, pack, unpack, fnma, 2)		\
 generate_real_ternary_fma(type, ntype, pack, unpack, fnms, 3)		\
 generate_real_cmp_select(type, ntype, pack, unpack, equal)		\
-generate_real_cmp_select(type, ntype, pack, unpack, not_equal)	\
-generate_real_cmp_select(type, ntype, pack, unpack, less)		\
-generate_real_cmp_select(type, ntype, pack, unpack, less_equal)
+generate_real_cmp_select(type, ntype, pack, unpack, less)
 
 for_all_real(generate_real_functions, for_all_empty)
 #undef generate_real_functions
