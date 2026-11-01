@@ -26,9 +26,9 @@
 #define THREAD_NONE
 #elif defined(__HAIKU__) && !defined(HAVE_PTHREAD_PREFER)
 #define THREAD_HAIKU
-#elif ((defined(OS_WIN32) && defined(HAVE__BEGINTHREADEX)) || (defined(OS_CYGWIN) && defined(THREAD_WIN32_CYGWIN) && defined(HAVE_PTHREAD))) && !defined(HAVE_PTHREAD_PREFER)
+#elif ((defined(OS_WIN32) && defined(HAVE__BEGINTHREADEX)) || (defined(OS_CYGWIN) && defined(THREAD_WIN32_CYGWIN) && defined(HAVE_PTHREADS))) && !defined(HAVE_PTHREAD_PREFER)
 #define THREAD_WIN32
-#elif defined(HAVE_PTHREAD)
+#elif defined(HAVE_PTHREADS)
 #define THREAD_POSIX
 #elif defined(OS_OS2) && (defined(_MT) || defined(__MULTI__) || defined(__MT__))
 #define THREAD_OS2

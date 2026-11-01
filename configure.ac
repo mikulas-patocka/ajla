@@ -64,12 +64,15 @@ AC_CACHE_CHECK([for Minix 3], ac_cv_have_minix3,
 
 AC_ARG_ENABLE(threads, [  --disable-threads       disable threads], enable_threads="$enableval", enable_threads=yes)
 
+AX_PTHREAD
 if test "$enable_threads" != no && test "$ac_cv_have_minix3" = no; then
-	if test "$enable_threads" = pthread || test "$ac_cv_have_emx" != yes -a "$ac_cv_have_win32" != yes; then
-		AX_PTHREAD
-		LIBS="$PTHREAD_LIBS $LIBS"
-		CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
-		CC="$PTHREAD_CC"
+	if test "$ax_pthread_ok" = yes; then
+		if test "$enable_threads" = pthread || test "$ac_cv_have_emx" != yes -a "$ac_cv_have_win32" != yes; then
+			LIBS="$PTHREAD_LIBS $LIBS"
+			CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
+			CC="$PTHREAD_CC"
+			AC_DEFINE([HAVE_PTHREADS], 1, [Have pthreads])
+		fi
 	fi
 	if test "$ax_pthread_ok" != yes -a "$ac_cv_have_emx" = yes; then
 		CFLAGS="$CFLAGS -Zmt"
