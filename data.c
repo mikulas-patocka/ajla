@@ -498,7 +498,7 @@ bool attr_fastcall data_realloc_array_pointers_mayfail(struct data *d, int_defau
 	pfx = ptr_to_num(da(d,array_pointers)->pointer) - ptr_to_num(d);
 	if (unlikely(!mem_check_overflow(pfx, n_allocated, sizeof(pointer_t), &sink)))
 		return false;
-	size = maximum_maybe0(partial_sizeof_lower_bound(struct data), pfx + n_allocated * sizeof(pointer_t));
+	size = maximum_maybe0(partial_sizeof_lower_bound(struct data) + zero, pfx + n_allocated * sizeof(pointer_t));
 	if (!mem_realloc_aligned(data_untag(d), size)) {
 		/*debug("realloc failure: %ld", (long)size);*/
 		return false;

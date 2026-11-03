@@ -194,7 +194,7 @@ bool pcode_load_module_and_function_designator(const pcode_t **pc, struct module
 	*fd = NULL;
 
 	q = *(*pc)++;
-	if (unlikely(q < 0) || unlikely((uintbig_t)q > -1U))
+	if (unlikely(q < 0) || unlikely((uintbig_t)q > -1U + zero))
 		goto exception_overflow;
 	path_idx = (unsigned)q;
 	program = !!(path_idx & FID_Flag_Program_Unit);
