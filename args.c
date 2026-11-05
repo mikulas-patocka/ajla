@@ -43,7 +43,6 @@ static bool help = false;
 static bool version = false;
 bool ipret_strict_calls = false;
 bool ipret_is_privileged = false;
-bool ipret_sandbox = false;
 bool ipret_compile = false;
 bool ipret_compile_run = false;
 bool ipret_noinline = false;
@@ -226,7 +225,6 @@ static const struct arg args[] = {
 	{ "--profile",			ARG_SWITCH,	profile_all,			NULL,			0, 0 },
 	{ "--profile=",			ARG_STRING,	profile_select,			NULL,			0, 0 },
 	{ "--ptrcomp",			ARG_SWITCH,	mem_al_set_ptrcomp,		NULL,			0, 0 },
-	{ "--sandbox",			ARG_SWITCH,	NULL,				&ipret_sandbox,		0, 0 },
 	{ "--strict-calls",		ARG_SWITCH,	NULL,				&ipret_strict_calls,	0, 0 },
 	{ "--system-malloc",		ARG_SWITCH,	mem_al_set_system_malloc,	NULL,			0, 0 },
 	{ "--thread-tick",		ARG_SWITCH,	NULL,				&thread_tick,		0, 0 },
@@ -288,7 +286,6 @@ static const char *help_strings[] = {
 	escape		print positions where the code escaped from interpreter","\
 	memory		print places where most memory was allocated","\
 --ptrcomp		enable pointer compression","\
---sandbox		do not allow opening files or other unsafe operations","\
 --strict-calls		disable automatic parallelization","\
 --system-malloc		use the system malloc instead of Ajla malloc","\
 --thread-tick		use a thread instead of a signal for timer ticks","\
@@ -474,8 +471,6 @@ void args_init(int argc, const char * const argv[])
 				program_name = p + 1;
 		}
 	}
-	if (unlikely(ipret_is_privileged) && unlikely(ipret_sandbox))
-		fatal("the flags '--privileged' and '--sandbox' contradict each other");
 }
 
 void args_done(void)

@@ -210,10 +210,6 @@ fn start : world
 		xeval w;
 	]
 
-	if sysprop(SystemProperty_Sandbox) <> 0 then [
-		w := sandbox_world(w);
-	]
-
 	w := main(w, dcwd(w), h, args[1 .. ], env);
 
 	return w;

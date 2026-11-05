@@ -61,7 +61,6 @@ Ajla arguments:
 	escape		print positions where the code escaped from interpreter
 	memory		print places where most memory was allocated
 --ptrcomp		enable pointer compression
---sandbox		do not allow opening files or other unsafe operations
 --strict-calls		disable automatic parallelization
 --system-malloc		use the system malloc instead of Ajla malloc
 --thread-tick		use a thread instead of a signal for timer ticks

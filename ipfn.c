@@ -661,9 +661,6 @@ int_default_t ipret_system_property(int_default_t idx)
 		case SystemProperty_Privileged:
 			result = ipret_is_privileged;
 			break;
-		case SystemProperty_Sandbox:
-			result = ipret_sandbox;
-			break;
 		case SystemProperty_Compile:
 			result = ipret_compile_run ? 2 : ipret_compile;
 			break;
