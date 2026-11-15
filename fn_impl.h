@@ -109,7 +109,7 @@ __float128 exp2q(__float128 x);
 #if !defined(HAVE_EXP10)
 double exp10(double x);
 #endif
-#if !defined(HAVE_EXP10F)
+#if !defined(HAVE_EXP10F) || defined(__BIONIC__)
 float exp10f(float x);
 #endif
 #if defined(HAVE_LONG_DOUBLE) && !defined(HAVE_EXP10L)

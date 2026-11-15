@@ -283,7 +283,7 @@ void iomux_check_all(uint32_t us)
 
 	us = iomux_get_time(us);
 
-#ifdef HAVE_EPOLL_PWAIT2
+#if defined(HAVE_EPOLL_PWAIT2) && !defined(__BIONIC__)
 	{
 		struct timespec ts;
 		if (us != IOMUX_INDEFINITE_WAIT) {
