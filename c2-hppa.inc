@@ -1253,6 +1253,24 @@ static bool attr_w cgen_movr(struct codegen_context *ctx, unsigned op_size, unsi
 	return true;
 }
 
+static bool attr_w cgen_mov_mask(struct codegen_context *ctx)
+{
+	uint32_t mc;
+	uint8_t *arg1 = ctx->code_position;
+	uint8_t *arg2 = arg1 + arg_size(*arg1);
+	uint8_t *arg3 = arg2 + arg_size(*arg2);
+	ctx->code_position = arg3 + arg_size(*arg3);
+
+	if (unlikely(arg1[0] != arg2[0]))
+		internal(file_line, "cgen_mov_mask: register don't match");
+
+	mc = PARISC_DEPW;
+	mc |= 16U | (16U << 5);
+	g(cgen_2reg(ctx, mc, arg1[0], arg3[0]));
+
+	return true;
+}
+
 static bool attr_w cgen_fp_cmp_cond(struct codegen_context *ctx, unsigned op_size, unsigned aux)
 {
 	uint32_t mc;
@@ -1829,6 +1847,11 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			if (unlikely(insn_writes_flags(insn) != 0))
 				goto invalid_insn;
 			g(cgen_movr(ctx, insn_op_size(insn), insn_aux(insn)));
+			return true;
+		case INSN_MOV_MASK:
+			if (unlikely(insn_op_size(insn) != OP_SIZE_4) || insn_aux(insn) != MOV_MASK_16_32 || unlikely(insn_writes_flags(insn) != 0))
+				goto invalid_insn;
+			g(cgen_mov_mask(ctx));
 			return true;
 		case INSN_FP_CMP_COND:
 			g(cgen_fp_cmp_cond(ctx, insn_op_size(insn), insn_aux(insn)));
