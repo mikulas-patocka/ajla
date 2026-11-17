@@ -526,19 +526,25 @@ static bool attr_w gen_load_code_32(struct codegen_context *ctx, unsigned dest, 
 		return true;
 	}
 #endif
-#if ARG_MODE_N == 3 && defined(ARCH_PARISC) && defined(C_BIG_ENDIAN)
+#if ARG_MODE_N == 3 && (defined(ARCH_LOONGARCH64) && defined(C_LITTLE_ENDIAN) || (defined(ARCH_PARISC) && defined(C_BIG_ENDIAN)))
 	if (UNALIGNED_TRAP) {
 #if CODE_ENDIAN
 		g(gen_load_two(ctx, dest, src, offset + 2, false));
 		g(gen_load_two(ctx, R_CONST_IMM, src, offset, OP_SIZE_NATIVE == OP_SIZE_4));
-
+#else
+		g(gen_load_two(ctx, dest, src, offset, OP_SIZE_NATIVE == OP_SIZE_4));
+		g(gen_load_two(ctx, R_CONST_IMM, src, offset + 2, false));
+#endif
+#if defined(ARCH_LOONGARCH64)
+		gen_insn(INSN_MOV_MASK, OP_SIZE_8, MOV_MASK_16_32, 0);
+#else
 		gen_insn(INSN_MOV_MASK, OP_SIZE_4, MOV_MASK_16_32, 0);
+#endif
 		gen_one(dest);
 		gen_one(dest);
 		gen_one(R_CONST_IMM);
 
 		return true;
-#endif
 	}
 #endif
 #if ARG_MODE_N == 3 && defined(ARCH_SH4)

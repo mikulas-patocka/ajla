@@ -626,6 +626,18 @@ static bool attr_w cgen_mov_mask(struct codegen_context *ctx, unsigned aux)
 	uint8_t *arg2 = arg1 + arg_size(*arg1);
 	uint8_t *arg3 = arg2 + arg_size(*arg2);
 	ctx->code_position = arg3 + arg_size(*arg3);
+
+	if (arg1[0] < 32 && arg2[0] == arg1[0] && arg3[0] < 32) {
+		if (aux == MOV_MASK_16_32) {
+			uint32_t mc;
+			mc = LOONG_BSTRINS_D;
+			mc |= 16U << 10;
+			mc |= 31U << 16;
+			cgen_2r(mc, arg1[0], arg3[0]);
+			return true;
+		}
+	}
+
 	if (unlikely(arg1[0] >= 32) || unlikely(arg2[0] >= 32) || unlikely(arg3[0] != ARG_IMM))
 		goto invalid;
 
