@@ -1339,10 +1339,22 @@ static bool attr_w gen_memcpy_raw(struct codegen_context *ctx, unsigned dest_bas
 	 */
 	if (size <= 0x10 || size >> step_bits <= INLINE_COPY_STEPS) {
 #if defined(ARCH_M68K)
+		bool inc_src = false;
+		bool inc_dest = false;
 		if (R_IS_A(src_base) && R_IS_D(dest_base)) {
 			g(gen_address_register(ctx, dest_base, &dest_base));
 		} else if (R_IS_D(src_base) && R_IS_A(dest_base)) {
 			g(gen_address_register(ctx, src_base, &src_base));
+		}
+		if (R_IS_A(src_base) && !reg_is_saved(src_base) && src_offset && size > 0x10) {
+			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, src_base, src_base, src_offset, 0));
+			src_offset = 0;
+			inc_src = true;
+		}
+		if (R_IS_A(dest_base) && !reg_is_saved(dest_base) && dest_offset && size > 0x10) {
+			g(gen_3address_alu_imm(ctx, i_size(OP_SIZE_ADDRESS), ALU_ADD, dest_base, dest_base, dest_offset, 0));
+			dest_offset = 0;
+			inc_dest = true;
 		}
 #endif
 		while (size) {
@@ -1436,12 +1448,24 @@ static bool attr_w gen_memcpy_raw(struct codegen_context *ctx, unsigned dest_bas
 #if defined(ARCH_M68K)
 			if (R_IS_A(dest_base) && R_IS_A(src_base)) {
 				gen_insn(INSN_MOV, this_op_size, 0, MOV_WRITES_FLAGS(ARG_ADDRESS_1, ARG_ADDRESS_1));
-				gen_one(ARG_ADDRESS_1);
-				gen_one(dest_base);
-				gen_eight(dest_offset);
-				gen_one(ARG_ADDRESS_1);
-				gen_one(src_base);
-				gen_eight(src_offset);
+				if (inc_dest) {
+					gen_one(ARG_ADDRESS_1_POST_I);
+					gen_one(dest_base);
+					gen_eight(this_step);
+				} else {
+					gen_one(ARG_ADDRESS_1);
+					gen_one(dest_base);
+					gen_eight(dest_offset);
+				}
+				if (inc_src) {
+					gen_one(ARG_ADDRESS_1_POST_I);
+					gen_one(src_base);
+					gen_eight(this_step);
+				} else {
+					gen_one(ARG_ADDRESS_1);
+					gen_one(src_base);
+					gen_eight(src_offset);
+				}
 				goto next_unit;
 			}
 #endif
