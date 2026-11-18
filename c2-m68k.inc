@@ -879,7 +879,7 @@ static bool attr_w cgen_alu(struct codegen_context *ctx, unsigned size, unsigned
 			g(cgen_operand(ctx, size, instr_base, 0, arg1));
 			return true;
 		}
-		if (R_IS_A(arg1[0])) {
+		if (R_IS_A(arg1[0]) && imm_is_16bit(imm)) {
 			g(cgen_lea(ctx, arg1, arg2, arg3, alu == ALU_SUB));
 			return true;
 		}
