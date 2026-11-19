@@ -43,7 +43,7 @@
 #define ARCH_HAS_JMP_REG(cond, reg)	0
 #define ARCH_HAS_JMP_2REGS(cond)	0
 #define ARCH_HAS_DELAY_SLOTS(insn)	0
-#define ARCH_HAS_FUSED_MEMORY_ACCESSES	0
+#define ARCH_HAS_FUSED_MEMORY_ACCESSES	1
 #define ARCH_HAS_FLAGS			1
 #define ARCH_PREFERS_SX(size)		((size) < OP_SIZE_4)
 #define ARCH_REQUIRES_MOV_MASK(size)	((size) < OP_SIZE_4)

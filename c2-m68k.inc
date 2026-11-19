@@ -1265,6 +1265,34 @@ static bool attr_w cgen_set_cond(struct codegen_context *ctx, unsigned cond, boo
 	return true;
 }
 
+static bool attr_w cgen_ldp_stp(struct codegen_context *ctx, bool ldr)
+{
+	size_t instr_base;
+	uint32_t mc;
+	uint8_t *arg1, *arg2, *arg3;
+	if (!ldr) {
+		arg1 = ctx->code_position;
+		arg2 = arg1 + arg_size(*arg1);
+		arg3 = arg2 + arg_size(*arg2);
+		ctx->code_position = arg3 + arg_size(*arg3);
+	} else {
+		arg2 = ctx->code_position;
+		arg3 = arg2 + arg_size(*arg2);
+		arg1 = arg3 + arg_size(*arg3);
+		ctx->code_position = arg1 + arg_size(*arg1);
+	}
+	instr_base = ctx->mcode_size;
+	mc = M68K_MOVEM;
+	if (ldr)
+		mc |= M68K_MOVEM_DR;
+	mc |= M68K_MOVEM_SIZE;
+	cgen_two(mc);
+	cgen_two((1U << arg2[0]) | (1U << arg3[0]));
+	g(cgen_operand(ctx, OP_SIZE_4, instr_base, 0, arg1));
+
+	return true;
+}
+
 static bool attr_w cgen_mov_mask(struct codegen_context *ctx, unsigned size)
 {
 	uint8_t *arg1 = ctx->code_position;
@@ -1431,11 +1459,24 @@ static bool validate_arg(const uint8_t *arg)
 	return false;
 }
 
+static bool validate_ldp_stp(unsigned size, const uint8_t *mem, const uint8_t *reg1, const uint8_t *reg2)
+{
+	if (size != OP_SIZE_4)
+		return false;
+	if (mem[0] != ARG_ADDRESS_1 || !R_IS_A(mem[1]))
+		return false;
+	if (!R_IS_DA(reg1[0]) || !R_IS_DA(reg2[0]))
+		return false;
+	if (reg1[0] >= reg2[0])
+		return false;
+	return true;
+}
+
 static bool validate_insn(const struct insn_details *d)
 {
 	switch (insn_opcode(d->insn)) {
 		case INSN_MOV:
-		case INSN_MOVSX:
+		case INSN_MOVSX: {
 			const uint8_t *arg1 = d->start + 4;
 			const uint8_t *arg2 = arg1 + arg_size(*arg1);
 			if (insn_op_size(d->insn) > OP_SIZE_4)
@@ -1446,6 +1487,19 @@ static bool validate_insn(const struct insn_details *d)
 			    arg2[0] >= ARG_ADDRESS_1 && arg2[0] <= ARG_ADDRESS_2_8 && R_IS_D(arg2[1]))
 				return false;
 			return true;
+		}
+		case INSN_STP: {
+			const uint8_t *arg1 = d->start + 4;
+			const uint8_t *arg2 = arg1 + arg_size(*arg1);
+			const uint8_t *arg3 = arg2 + arg_size(*arg2);
+			return validate_ldp_stp(insn_op_size(d->insn), arg1, arg2, arg3);
+		}
+		case INSN_LDP: {
+			const uint8_t *arg1 = d->start + 4;
+			const uint8_t *arg2 = arg1 + arg_size(*arg1);
+			const uint8_t *arg3 = arg2 + arg_size(*arg2);
+			return validate_ldp_stp(insn_op_size(d->insn), arg3, arg1, arg2);
+		}
 	}
 	return false;
 }
@@ -1537,6 +1591,12 @@ static bool attr_w cgen_insn(struct codegen_context *ctx, uint32_t insn)
 			if (unlikely(insn_op_size(insn) != OP_SIZE_1))
 				goto invalid_insn;
 			g(cgen_set_cond(ctx, insn_aux(insn), insn_opcode(insn) == INSN_SET_COND_PARTIAL));
+			return true;
+		case INSN_STP:
+		case INSN_LDP:
+			if (unlikely(insn_op_size(insn) != OP_SIZE_4))
+				goto invalid_insn;
+			g(cgen_ldp_stp(ctx, insn_opcode(insn) == INSN_LDP));
 			return true;
 		case INSN_MOV_MASK:
 			if (unlikely(insn_op_size(insn) != OP_SIZE_4))
