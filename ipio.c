@@ -5021,7 +5021,7 @@ static void * attr_fastcall io_ffi_barrier_supported_handler(struct io_ctx *ctx)
 	return POINTER_FOLLOW_THUNK_GO;
 }
 
-static attr_unused void * attr_fastcall io_ffi_unsupported(struct io_ctx *ctx)
+static void attr_unused * attr_fastcall io_ffi_unsupported(struct io_ctx *ctx)
 {
 	io_terminate_with_error(ctx, error_ajla(EC_SYNC, AJLA_ERROR_NOT_SUPPORTED), true, NULL);
 	return POINTER_FOLLOW_THUNK_EXCEPTION;
