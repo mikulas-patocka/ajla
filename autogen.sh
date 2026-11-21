@@ -28,7 +28,7 @@ EOF
 sed -n 's/AC_INIT(ajla, \(.*\))/\#define AJLA_VERSION "\1"/p' <configure.ac >>version.h
 
 FILES_INSTALL="`echo builtin.pcd terminfo stdlib/*.ajla stdlib/*/*.ajla stdlib/*/*/*.ajla charsets/*.c8`"
-FILES_DIST="`echo newlib/*.ajla newlib/*/*.ajla newlib/*/*/*.ajla scripts/*.* scripts/*/*.* programs/test/*.ajla programs/acmd/*.ajla texts/tutorial.html texts/*.dia texts/*.svg`"
+FILES_DIST="`echo newlib/*.ajla newlib/*/*.ajla newlib/*/*/*.ajla scripts/*.* scripts/*/*.* programs/test/*.ajla programs/acmd/*.ajla programs/acmd/README.txt texts/tutorial.html texts/*.dia texts/*.svg`"
 cat Makefile.t | sed "s=FILES_INSTALL=$FILES_INSTALL=g" | sed "s=FILES_DIST=$FILES_DIST=g" >Makefile.am
 
 aclocal -I m4
