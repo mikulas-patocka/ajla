@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2024 Mikulas Patocka
+# Copyright (C) 2024 - 2026 Mikulas Patocka
 #
 # This file is part of Ajla.
 #
@@ -20,7 +20,6 @@ set -e
 export CC=gcc.exe
 export CPP=cpp.exe
 export CFLAGS='-O1 -Zsys -Zomf -Zstack 1024 -Wall -W'
-export PATH_SEPARATOR=';'
 ./configure --disable-dependency-tracking
 sleep 2
 touch config.status

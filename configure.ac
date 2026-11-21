@@ -24,7 +24,9 @@ AC_CONFIG_HEADERS(config.h)
 AM_INIT_AUTOMAKE(-Wall -Werror)
 
 if uname 2>/dev/null | grep -i OS/2 >/dev/null || uname 2>/dev/null | grep -i Dos >/dev/null; then
+	PATH_SEPARATOR=';'
 	ac_cv_path_GREP=grep
+	ac_cv_path_SED=sed
 fi
 
 ACLOCAL="touch aclocal.m4; echo >/dev/null"
