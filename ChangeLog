@@ -1,3 +1,59 @@
+=== RELEASE 0.4.0 ===
+
+Many other bugfixes and improvements
+
+Fix a bug in list_filter, that it returned a character twice when moving from
+serial to parallel implementation
+
+Fix a performance degradation in the map function on lists
+
+Introduce --fast-math=unsigned-zero that enables some optimizations that can
+flip the sign of zero
+
+Optimize the function "select", so that it doesn't jump and flush the pipeline
+
+When saving generated code, save the compiler code and compiled program code to
+separate files, so that when the user changes the compiled program, the compiler
+code can be reused.
+
+Fix many bugs found by DeepSeek
+
+Introduce the "examine" function that will report the state of the passed
+variable
+
+On power, use the bits in the CR register for boolean variables
+
+sh4 port
+
+Introduce unit generators and use them for GTK binding
+
+Use PC-relative addressing for FP constants if available
+
+Use register allocator for the x87 FPU
+
+m68020 port
+
+Generate the FMA instruction if available
+
+Improve performance for float<->double casts significantly
+
+Make it possible to select flags at the beginning of the source file with
+// flags: --flag
+
+Improve floating point register allocation on architectures where multiple
+single-precision registers alias a double-precision register
+
+Introduce the --optimize-int and --optimize-fp options
+
+Use delay slots on mips and sparc
+
+Introduce a "--chicken" option that turns on chicken bits that disable various
+optimizations
+
+Introduce optimizations after the code is generated
+
+Make it possible to offload calculations to OpenCL
+
 === RELEASE 0.3.1 ===
 
 Fix a bug that Ajla Commander didn't redraw after a double-click and some other
